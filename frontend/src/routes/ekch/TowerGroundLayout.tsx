@@ -229,7 +229,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={finalStrips}
             bayId="FINAL"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className="h-[35%] bay-scroll-area-bottom"
           >
@@ -256,7 +256,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={rwyArrStrips}
             bayId="RWY-ARR"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className="h-[20%] bay-scroll-area-dark"
           >
@@ -277,7 +277,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={twyArrStrips}
             bayId="TWY-ARR"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className="flex-1 bay-scroll-area-bottom"
           >
@@ -304,7 +304,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={twyDepDesc}
             bayId="TWY-DEP"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className="h-[35%] bay-scroll-area-bottom"
           >
@@ -324,7 +324,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={rwyDepDesc}
             bayId="RWY-DEP"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className="h-[20%] bay-scroll-area-dark"
           >
@@ -339,7 +339,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={airborneDesc}
             bayId="AIRBORNE"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className="flex-1 bay-scroll-area-bottom"
           >
@@ -392,7 +392,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={controlzoneStrips}
             bayId="CONTROLZONE"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className={showStartupBay ? "h-[21.65%] bay-scroll-area-bottom" : "h-[35%] bay-scroll-area-bottom"}
           >
@@ -407,7 +407,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               <SortableBay
                 strips={pushStrips}
                 bayId="PUSHBACK"
-                isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+                isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
                 standalone={false}
                 className="flex-1 bay-scroll-area-bottom"
               >
@@ -419,7 +419,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               <SortableBay
                 strips={startupStrips}
                 bayId="STARTUP"
-                isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+                isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
                 standalone={false}
                 className="flex-1 bay-scroll-area-bottom"
               >
@@ -434,7 +434,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               <SortableBay
                 strips={pushStrips}
                 bayId="PUSHBACK"
-                isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+                isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
                 standalone={false}
                 className="h-[35%] bay-scroll-area-bottom"
               >
@@ -485,7 +485,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={deIceStrips}
             bayId="DE-ICE"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className="h-[25%] bay-scroll-area-bottom"
           >
@@ -498,7 +498,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           <SortableBay
             strips={standStrips}
             bayId="STAND"
-            isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+            isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
             className="flex-1 bay-scroll-area-bottom"
           >

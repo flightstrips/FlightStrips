@@ -171,7 +171,8 @@ type TacticalStripRepository interface {
 	GetByID(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)
 	Delete(ctx context.Context, id int64, sessionID int32) error
 	Confirm(ctx context.Context, id int64, sessionID int32, confirmedBy string) (*models.TacticalStrip, error)
-	StartTimer(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)
+	ForceAssume(ctx context.Context, id int64, sessionID int32, owner string) (*models.TacticalStrip, error)
+	UpdateMarked(ctx context.Context, id int64, sessionID int32, marked bool) (*models.TacticalStrip, error)
 	UpdateBayAndSequence(ctx context.Context, id int64, sessionID int32, bay string, sequence int32) (*models.TacticalStrip, error)
 	UpdateSequence(ctx context.Context, id int64, sessionID int32, sequence int32) (*models.TacticalStrip, error)
 	GetSequenceByID(ctx context.Context, id int64, sessionID int32) (int32, error)

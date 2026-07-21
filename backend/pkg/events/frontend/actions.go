@@ -7,7 +7,8 @@ const (
 	ActionCreateTacticalStrip  EventType = "create_tactical_strip"
 	ActionDeleteTacticalStrip  EventType = "delete_tactical_strip"
 	ActionConfirmTacticalStrip EventType = "confirm_tactical_strip"
-	ActionStartTacticalTimer   EventType = "start_tactical_timer"
+	ActionForceAssumeTacticalStrip EventType = "force_assume_tactical_strip"
+	ActionMarkTacticalStrip    EventType = "mark_tactical_strip"
 	ActionMoveTacticalStrip    EventType = "move_tactical_strip"
 )
 
@@ -60,9 +61,15 @@ type ConfirmTacticalStripAction struct {
 	ID   int64     `json:"id"`
 }
 
-type StartTacticalTimerAction struct {
+type ForceAssumeTacticalStripAction struct {
 	Type EventType `json:"type"`
 	ID   int64     `json:"id"`
+}
+
+type MarkTacticalStripAction struct {
+	Type   EventType `json:"type"`
+	ID     int64     `json:"id"`
+	Marked bool      `json:"marked"`
 }
 
 // MoveTacticalStripAction moves a tactical strip within or between bays.

@@ -140,7 +140,8 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.ActionCreateTacticalStrip, handleCreateTacticalStrip)
 	handlers.Add(frontend.ActionDeleteTacticalStrip, handleDeleteTacticalStrip)
 	handlers.Add(frontend.ActionConfirmTacticalStrip, handleConfirmTacticalStrip)
-	handlers.Add(frontend.ActionStartTacticalTimer, handleStartTacticalTimer)
+	handlers.Add(frontend.ActionForceAssumeTacticalStrip, handleForceAssumeTacticalStrip)
+	handlers.Add(frontend.ActionMarkTacticalStrip, handleMarkTacticalStrip)
 	handlers.Add(frontend.ActionMoveTacticalStrip, handleMoveTacticalStrip)
 	handlers.Add(frontend.MissedApproachRequestType, handleMissedApproach)
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
@@ -391,8 +392,9 @@ func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.Tactic
 		Label:       ts.Label,
 		Aircraft:    aircraft,
 		ProducedBy:  ts.ProducedBy,
+		Owner:       ts.Owner,
+		Marked:      ts.Marked,
 		Sequence:    ts.Sequence,
-		TimerStart:  ts.TimerStart,
 		Confirmed:   ts.Confirmed,
 		ConfirmedBy: confirmedBy,
 		CreatedAt:   ts.CreatedAt,

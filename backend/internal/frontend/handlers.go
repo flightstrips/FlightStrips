@@ -495,19 +495,28 @@ func handleCreateTacticalStrip(ctx context.Context, client *Client, message Mess
 		return errors.New("label is required for MEMAID strips")
 	}
 	if req.StripType == "START" || req.StripType == "LAND" {
-		if req.Label == "" {
-			return errors.New("runway label is required for START and LAND strips")
-		}
-		validRunways := config.GetRunways()
-		isValid := false
-		for _, rwy := range validRunways {
-			if rwy == req.Label {
-				isValid = true
-				break
+		switch req.Bay {
+		case shared.BAY_TWY_ARR, shared.BAY_TAXI, shared.BAY_TAXI_LWR:
+			if req.Label == "" {
+				return errors.New("runway label is required for START and LAND strips in taxiway bays")
 			}
-		}
-		if !isValid {
-			return errors.New("invalid runway: " + req.Label)
+			validRunways := config.GetRunways()
+			isValid := false
+			for _, rwy := range validRunways {
+				if rwy == req.Label {
+					isValid = true
+					break
+				}
+			}
+			if !isValid {
+				return errors.New("invalid runway: " + req.Label)
+			}
+		case shared.BAY_RWY_ARR, shared.BAY_DEPART:
+			if req.Label != "" {
+				return errors.New("runway label is not allowed for START and LAND strips in this bay")
+			}
+		default:
+			return errors.New("START and LAND strips are not valid in bay: " + req.Bay)
 		}
 	}
 
@@ -549,25 +558,19 @@ func handleDeleteTacticalStrip(ctx context.Context, client *Client, message Mess
 		return errors.New("tactical strip repository not available")
 	}
 
-	// Need the bay for the deleted event
-	// We load it first, then delete
-	strips, err := tacticalRepo.ListBySession(ctx, client.session)
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
 	if err != nil {
 		return err
 	}
-	bay := ""
-	for _, s := range strips {
-		if s.ID == req.ID {
-			bay = s.Bay
-			break
-		}
+	if ts.Owner != client.position {
+		return errors.New("only the tactical strip owner can delete it")
 	}
 
 	if err := tacticalRepo.Delete(ctx, req.ID, client.session); err != nil {
 		return err
 	}
 
-	client.hub.SendTacticalStripDeleted(client.session, req.ID, bay)
+	client.hub.SendTacticalStripDeleted(client.session, req.ID, ts.Bay)
 	return nil
 }
 
@@ -587,11 +590,11 @@ func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Mes
 		return err
 	}
 
-	if ts.Type != internalModels.TacticalStripTypeMemaid && ts.Type != internalModels.TacticalStripTypeCrossing {
-		return errors.New("confirm is only valid for MEMAID and CROSSING strips")
+	if ts.Type != internalModels.TacticalStripTypeMemaid {
+		return errors.New("confirm is only valid for MEMAID strips")
 	}
-	if ts.ProducedBy == client.position {
-		return errors.New("producer cannot confirm their own MEMAID strip")
+	if ts.Owner == client.position {
+		return errors.New("owner cannot confirm their own MEMAID strip")
 	}
 
 	ts, err = tacticalRepo.Confirm(ctx, req.ID, client.session, client.position)
@@ -603,8 +606,28 @@ func handleConfirmTacticalStrip(ctx context.Context, client *Client, message Mes
 	return nil
 }
 
-func handleStartTacticalTimer(ctx context.Context, client *Client, message Message) error {
-	var req frontend.StartTacticalTimerAction
+func handleForceAssumeTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.ForceAssumeTacticalStripAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	ts, err := tacticalRepo.ForceAssume(ctx, req.ID, client.session, client.position)
+	if err != nil {
+		return err
+	}
+
+	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
+func handleMarkTacticalStrip(ctx context.Context, client *Client, message Message) error {
+	var req frontend.MarkTacticalStripAction
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
@@ -618,16 +641,14 @@ func handleStartTacticalTimer(ctx context.Context, client *Client, message Messa
 	if err != nil {
 		return err
 	}
-
-	if ts.Type != internalModels.TacticalStripTypeStart && ts.Type != internalModels.TacticalStripTypeLand {
-		return errors.New("start timer is only valid for START and LAND strips")
+	if ts.Owner != client.position {
+		return errors.New("only the tactical strip owner can mark it")
 	}
 
-	ts, err = tacticalRepo.StartTimer(ctx, req.ID, client.session)
+	ts, err = tacticalRepo.UpdateMarked(ctx, req.ID, client.session, req.Marked)
 	if err != nil {
 		return err
 	}
-
 	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
 	return nil
 }
@@ -643,6 +664,14 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 		return errors.New("tactical strip repository not available")
 	}
 
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
+	if err != nil {
+		return err
+	}
+	if ts.Owner != client.position {
+		return errors.New("only the tactical strip owner can move it")
+	}
+
 	bay := req.Bay
 	if bay != "" {
 		if !validBays[bay] {
@@ -652,19 +681,7 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 			return errors.New("invalid bay: " + bay)
 		}
 	} else {
-		strips, err := tacticalRepo.ListBySession(ctx, client.session)
-		if err != nil {
-			return err
-		}
-		for _, s := range strips {
-			if s.ID == req.ID {
-				bay = s.Bay
-				break
-			}
-		}
-		if bay == "" {
-			return errors.New("tactical strip not found")
-		}
+		bay = ts.Bay
 	}
 
 	return client.hub.stripService.MoveTacticalStripBetween(ctx, client.session, req.ID, req.InsertAfter, bay)

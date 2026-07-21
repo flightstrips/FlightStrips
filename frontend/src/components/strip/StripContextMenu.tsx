@@ -10,8 +10,8 @@ export interface StripContextMenuProps {
 }
 
 // From design SVG: 167px wide panel
-const MENU_W = 167;
-const MENU_H_APPROX = 420;
+export const STRIP_CONTEXT_MENU_WIDTH = 167;
+export const STRIP_CONTEXT_MENU_HEIGHT = 373;
 
 // Colours from design SVG
 const COLOR_PANEL_BG  = "#B3B3B3"; // outer panel
@@ -84,8 +84,8 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
   );
 
   // Clamp menu to viewport
-  const menuX = Math.min(position.x, window.innerWidth - MENU_W - 8);
-  const menuY = Math.min(position.y, window.innerHeight - MENU_H_APPROX - 8);
+  const menuX = Math.min(position.x, window.innerWidth - STRIP_CONTEXT_MENU_WIDTH - 8);
+  const menuY = Math.min(position.y, window.innerHeight - STRIP_CONTEXT_MENU_HEIGHT - 8);
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
@@ -145,7 +145,9 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
         position: "fixed",
         left: menuX,
         top: menuY,
-        width: MENU_W,
+        width: STRIP_CONTEXT_MENU_WIDTH,
+        height: STRIP_CONTEXT_MENU_HEIGHT,
+        boxSizing: "border-box",
         backgroundColor: COLOR_PANEL_BG,
         border: "1px solid black",
         zIndex: 9999,

@@ -20,8 +20,9 @@ type TacticalStrip struct {
 	Label       string
 	Aircraft    *string
 	ProducedBy  string
+	Owner       string
+	Marked      bool
 	Sequence    int32
-	TimerStart  *time.Time
 	Confirmed   bool
 	ConfirmedBy *string
 	CreatedAt   time.Time

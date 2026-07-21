@@ -30,13 +30,11 @@ func tacticalStripToModel(db database.TacticalStrip) *models.TacticalStrip {
 		Label:       db.Label,
 		Aircraft:    db.Aircraft,
 		ProducedBy:  db.ProducedBy,
+		Owner:       db.Owner,
+		Marked:      db.Marked,
 		Sequence:    db.Sequence,
 		Confirmed:   db.Confirmed,
 		ConfirmedBy: db.ConfirmedBy,
-	}
-	if db.TimerStart.Valid {
-		t := db.TimerStart.Time
-		m.TimerStart = &t
 	}
 	if db.CreatedAt.Valid {
 		m.CreatedAt = db.CreatedAt.Time
@@ -102,10 +100,23 @@ func (r *tacticalStripRepository) Confirm(ctx context.Context, id int64, session
 	return tacticalStripToModel(result), nil
 }
 
-func (r *tacticalStripRepository) StartTimer(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error) {
-	result, err := r.queries.StartTacticalStripTimer(ctx, database.StartTacticalStripTimerParams{
+func (r *tacticalStripRepository) ForceAssume(ctx context.Context, id int64, sessionID int32, owner string) (*models.TacticalStrip, error) {
+	result, err := r.queries.ForceAssumeTacticalStrip(ctx, database.ForceAssumeTacticalStripParams{
 		ID:        id,
 		SessionID: sessionID,
+		Owner:     owner,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return tacticalStripToModel(result), nil
+}
+
+func (r *tacticalStripRepository) UpdateMarked(ctx context.Context, id int64, sessionID int32, marked bool) (*models.TacticalStrip, error) {
+	result, err := r.queries.UpdateTacticalStripMarked(ctx, database.UpdateTacticalStripMarkedParams{
+		ID:        id,
+		SessionID: sessionID,
+		Marked:    marked,
 	})
 	if err != nil {
 		return nil, err

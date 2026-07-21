@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
+import { CrossingButton, LandButton, MemAidButton, StartButton } from "@/components/strip/TacticalButtons.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
@@ -27,7 +27,7 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN, CLS_BTN_BLUE, CLS_LABEL } from "@/components/strip/shared";
+import { CLS_BTN, CLS_BTN_BLUE, CLS_BTN_ORANGE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
@@ -35,6 +35,8 @@ const primaryHeader = `bg-primary h-10 flex items-center px-2 shrink-0`;
 const primaryLabel  = "text-white font-bold text-lg";
 const btn     = CLS_BTN;
 const btnBlue = CLS_BTN_BLUE;
+const btnOrange = CLS_BTN_ORANGE;
+const btnYellow = CLS_BTN_YELLOW;
 
 export default function AAAD() {
   const myPosition  = useMyPosition();
@@ -167,7 +169,7 @@ export default function AAAD() {
         <SortableBay
           strips={standStrips}
           bayId="STAND"
-          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="flex-1 bay-scroll-area-bottom"
         >
@@ -202,13 +204,16 @@ export default function AAAD() {
             <button className={btn} onClick={() => setNewOpen(true)}>NEW</button>
             <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             <MemAidButton bay={Bay.Taxi} className={btnBlue} />
+            <LandButton bay={Bay.Taxi} className={btnOrange} />
+            <StartButton bay={Bay.Taxi} className={btnOrange} />
+            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
           </span>
         </div>
         {/* TWY DEP-UPR (intermediate hold short, TAXI bay) */}
         <SortableBay
           strips={twyDepUpr}
           bayId="TWY-DEP-UPR"
-          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="h-[30%] bay-scroll-area-bottom"
         >
@@ -233,7 +238,7 @@ export default function AAAD() {
         <SortableBay
           strips={twyDepLwr}
           bayId="TWY-DEP-LWR"
-          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="h-[30%] bay-scroll-area-bottom"
         >
@@ -251,7 +256,7 @@ export default function AAAD() {
         <SortableBay
           strips={twyArrStrips}
           bayId="TWY-ARR"
-          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="flex-1 bay-scroll-area-bottom"
         >
@@ -271,7 +276,7 @@ export default function AAAD() {
         <SortableBay
           strips={startupStrips}
           bayId="STARTUP"
-          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="h-[40%] bay-scroll-area-bottom"
         >
@@ -286,7 +291,7 @@ export default function AAAD() {
         <SortableBay
           strips={pushStrips}
           bayId="PUSHBACK"
-          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="h-[30%] bay-scroll-area-bottom"
         >
@@ -301,7 +306,7 @@ export default function AAAD() {
         <SortableBay
           strips={deIceStrips}
           bayId="DE-ICE"
-          isDragDisabled={(strip) => isFlight(strip) && !!strip.owner && strip.owner !== myPosition}
+          isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
           className="flex-1 bay-scroll-area-bottom"
         >

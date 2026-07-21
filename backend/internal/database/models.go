@@ -9,6 +9,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AiracnetHttpCheckpoint struct {
+	RequestKey   string
+	Etag         string
+	LastModified string
+	NextPage     int32
+	ResponseBody []byte
+	UpdatedAt    pgtype.Timestamptz
+}
+
 type Airport struct {
 	Name string
 }
@@ -324,10 +333,11 @@ type TacticalStrip struct {
 	Aircraft    *string
 	ProducedBy  string
 	Sequence    int32
-	TimerStart  pgtype.Timestamptz
 	Confirmed   bool
 	ConfirmedBy *string
 	CreatedAt   pgtype.Timestamptz
+	Owner       string
+	Marked      bool
 }
 
 type Version struct {

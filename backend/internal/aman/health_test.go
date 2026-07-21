@@ -70,6 +70,9 @@ func TestRuntimeHealthUsesEffectiveModeAndReporter(t *testing.T) {
 	if !report.Ready || report.Mode != ModeAuthoritative || !report.Enabled || report.Status != HealthReady {
 		t.Fatalf("unexpected report: %#v", report)
 	}
+	if report.DesiredMode != ModeAuthoritative || report.EffectiveMode != EffectiveAuthoritative || !report.AuthorityAllowed {
+		t.Fatalf("unexpected rollout decision fields: %#v", report)
+	}
 }
 
 type healthTestWorker struct{}

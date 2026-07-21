@@ -224,7 +224,8 @@ export interface WebSocketState {
   createTacticalStrip: (stripType: TacticalStripType, bay: string, label: string, aircraft: string) => void;
   deleteTacticalStrip: (id: number) => void;
   confirmTacticalStrip: (id: number) => void;
-  startTacticalTimer: (id: number) => void;
+  forceAssumeTacticalStrip: (id: number) => void;
+  markTacticalStrip: (id: number, marked: boolean) => void;
   moveTacticalStrip: (id: number, insertAfter: StripRef | null, bay?: Bay) => void;
 
   acknowledgeValidationStatus: (callsign: string, activationKey: string) => void;
@@ -726,10 +727,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     confirmTacticalStrip: (id) => {
       sendIfWritable({ type: ActionType.FrontendConfirmTacticalStrip, id });
     },
-    startTacticalTimer: (id) => {
-      sendIfWritable({ type: ActionType.FrontendStartTacticalTimer, id });
+    forceAssumeTacticalStrip: (id) => {
+      sendIfWritable({ type: ActionType.FrontendForceAssumeTacticalStrip, id });
+    },
+    markTacticalStrip: (id, marked) => {
+      sendIfWritable({ type: ActionType.FrontendMarkTacticalStrip, id, marked });
     },
     moveTacticalStrip: (id, insertAfter, bay) => set((state) => {
+      const tacticalStrip = state.tacticalStrips.find((strip) => strip.id === id);
+      if (!tacticalStrip || tacticalStrip.owner !== state.position) {
+        return state;
+      }
+
       if (!sendIfWritable({ type: ActionType.FrontendMoveTacticalStrip, id, insert_after: insertAfter, bay })) {
         return state;
       }

@@ -1,6 +1,6 @@
 -- name: CreateTacticalStrip :one
-INSERT INTO tactical_strips (session_id, type, bay, label, aircraft, produced_by, sequence)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO tactical_strips (session_id, type, bay, label, aircraft, produced_by, owner, sequence)
+VALUES ($1, $2, $3, $4, $5, $6, $6, $7)
 RETURNING *;
 
 -- name: ListTacticalStripsByBay :many
@@ -26,9 +26,16 @@ SET confirmed = TRUE, confirmed_by = $3
 WHERE id = $1 AND session_id = $2
 RETURNING *;
 
--- name: StartTacticalStripTimer :one
+-- name: ForceAssumeTacticalStrip :one
 UPDATE tactical_strips
-SET timer_start = NOW()
+SET owner = $3,
+    marked = FALSE
+WHERE id = $1 AND session_id = $2
+RETURNING *;
+
+-- name: UpdateTacticalStripMarked :one
+UPDATE tactical_strips
+SET marked = $3
 WHERE id = $1 AND session_id = $2
 RETURNING *;
 

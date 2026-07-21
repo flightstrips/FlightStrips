@@ -946,8 +946,9 @@ type TacticalStripPayload struct {
 	Label       string     `json:"label"`
 	Aircraft    string     `json:"aircraft"`
 	ProducedBy  string     `json:"produced_by"`
+	Owner       string     `json:"owner"`
+	Marked      bool       `json:"marked"`
 	Sequence    int32      `json:"sequence"`
-	TimerStart  *time.Time `json:"timer_start,omitempty"`
 	Confirmed   bool       `json:"confirmed"`
 	ConfirmedBy string     `json:"confirmed_by"`
 	CreatedAt   time.Time  `json:"created_at"`

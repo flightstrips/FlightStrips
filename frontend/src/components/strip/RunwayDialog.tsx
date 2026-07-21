@@ -1,30 +1,37 @@
+import type { CSSProperties } from "react";
+
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { scalePx } from "@/lib/viewportScale";
 import { useSelectedCallsign, useWebSocketStore } from "@/store/store-hooks";
 
-const RUNWAYS = ["04R", "04L", "12", "22R", "22L", "30"];
+const RUNWAYS = ["04R", "04L", "12", "22R", "22L", "30"] as const;
 
-// All sizes derived from 1920×1080 base:
-//   horizontal → / 1920 * 100 = vw
-//   vertical   → / 1080 * 100 = dvh
-//
-// Dialog: 167px → 8.7vw
-// Panel mx: 8px → 0.42vw  |  my: 11px → 1.02dvh
-// List gap: 12px → 1.11dvh  |  pt: 14px → 1.3dvh  |  pb: 16px → 1.48dvh
-// Button: 108×70px → 5.63vw × 6.48dvh  |  font: 28px → 1.46vw
-// ESC row pb: 24px → 2.22dvh
+const RUNWAY_POSITIONS: Record<(typeof RUNWAYS)[number], { left: number; top: number }> = {
+  "12": { left: 226.2, top: 76 },
+  "22L": { left: 490.2, top: 84 },
+  "22R": { left: 261.2, top: 189 },
+  "30": { left: 491.2, top: 250 },
+  "04R": { left: 245.2, top: 353 },
+  "04L": { left: 20.2, top: 454 },
+};
 
-// Tailwind class constants (hex must be literal strings for JIT) — styled to match Runways.svg
-const CLS_DIALOG_BG      = "bg-[#B3B3B3] border border-black p-0 w-[8.7vw] max-w-none max-h-none gap-0 overflow-hidden [&>button]:hidden";
-const CLS_PANEL          = "mx-[0.42vw] my-[1.02dvh] border border-black flex flex-col justify-between h-fit";
-const CLS_RWY_LIST       = "flex flex-col items-center gap-[1.11dvh] pt-[1.3dvh] pb-[1.48dvh]";
-const CLS_RWY_BTN        = "w-[5.63vw] h-[6.48dvh] bg-[#CCCCCC] text-black font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
-const CLS_RWY_BTN_ACTIVE = "w-[5.63vw] h-[6.48dvh] bg-[#1BFF16] text-black font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-90";
-const CLS_ESC_ROW        = "flex items-center justify-center pb-[2.22dvh]";
-const CLS_ESC_BTN        = "w-[5.63vw] h-[6.48dvh] bg-[#3F3F3F] text-white font-semibold text-[1.46vw] shadow-[0_4px_4px_rgba(0,0,0,0.25)] outline-none active:brightness-75";
+const BUTTON_STYLE: CSSProperties = {
+  position: "absolute",
+  width: scalePx(71),
+  height: scalePx(44.065),
+  background: "#D6D6D6",
+  color: "#000",
+  border: 0,
+  boxShadow: `0 ${scalePx(4)} ${scalePx(4)} rgba(0, 0, 0, 0.25)`,
+  fontFamily: "Rubik, sans-serif",
+  fontSize: scalePx(16),
+  fontWeight: 600,
+  cursor: "pointer",
+};
 
 interface TacticalProps {
   open: boolean;
@@ -55,15 +62,9 @@ type Props = TacticalProps | AssignProps | SelectProps;
 
 export function RunwayDialog(props: Props) {
   const { open, onOpenChange } = props;
-  const createTacticalStrip = useWebSocketStore(s => s.createTacticalStrip);
-  const assignRunway = useWebSocketStore(s => s.assignRunway);
+  const createTacticalStrip = useWebSocketStore((state) => state.createTacticalStrip);
+  const assignRunway = useWebSocketStore((state) => state.assignRunway);
   const selectedAircraft = useSelectedCallsign();
-  //const runwaySetup = useRunwaySetup();
-
-  const runways = /*props.mode === "ASSIGN"
-    ? (props.direction === "departure" ? runwaySetup.departure : runwaySetup.arrival)
-    :*/ RUNWAYS;
-
   const title = props.mode === "ASSIGN" ? "Assign Runway" : props.mode === "SELECT" ? "Select Runway" : props.type;
   const currentRunway = props.mode === "ASSIGN" || props.mode === "SELECT" ? props.currentRunway : undefined;
 
@@ -80,28 +81,72 @@ export function RunwayDialog(props: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={CLS_DIALOG_BG}>
+      <DialogContent
+        className="fixed block max-w-none max-h-none overflow-hidden rounded-none border border-black bg-[#B3B3B3] p-0 [&>button]:hidden"
+        style={{ width: scalePx(589.924), height: scalePx(532.102) }}
+      >
         <DialogTitle className="sr-only">Select Runway — {title}</DialogTitle>
-        <div className={CLS_PANEL}>
-          <div className={CLS_RWY_LIST}>
-            {runways.map(rwy => (
+
+        <div
+          className="pointer-events-none absolute border border-black"
+          style={{
+            left: scalePx(8.07),
+            top: scalePx(8.79),
+            width: scalePx(571.993),
+            height: scalePx(510.622),
+          }}
+        />
+
+        <img
+          aria-hidden="true"
+          alt=""
+          className="pointer-events-none absolute max-w-none"
+          src="/runway-selector-lines.svg"
+          style={{
+            left: scalePx(68.2),
+            top: scalePx(107.75),
+            width: scalePx(457.348),
+            height: scalePx(368.379),
+          }}
+        />
+
+        <div className="absolute inset-0">
+          {RUNWAYS.map((runway) => {
+            const position = RUNWAY_POSITIONS[runway];
+            return (
               <button
-                key={rwy}
-                className={rwy === currentRunway ? CLS_RWY_BTN_ACTIVE : CLS_RWY_BTN}
-                onClick={() => handleSelect(rwy)}
+                key={runway}
+                className="outline-none active:brightness-90"
+                style={{
+                  ...BUTTON_STYLE,
+                  left: scalePx(position.left),
+                  top: scalePx(position.top),
+                  background: runway === currentRunway ? "#1BFF16" : BUTTON_STYLE.background,
+                }}
+                onClick={() => handleSelect(runway)}
               >
-                {rwy}
+                {runway}
               </button>
-            ))}
-          </div>
-          <div className={CLS_ESC_ROW}>
-            <button
-              className={CLS_ESC_BTN}
-              onClick={() => onOpenChange(false)}
-            >
-              ESC
-            </button>
-          </div>
+            );
+          })}
+
+          <button
+            className="absolute bg-[#3F3F3F] text-white outline-none active:brightness-75"
+            style={{
+              left: scalePx(440.2),
+              top: scalePx(450),
+              width: scalePx(119.792),
+              height: scalePx(49.09),
+              border: 0,
+              boxShadow: `0 ${scalePx(4)} ${scalePx(4)} rgba(0, 0, 0, 0.25)`,
+              fontFamily: "Rubik, sans-serif",
+              fontSize: scalePx(18),
+              fontWeight: 600,
+            }}
+            onClick={() => onOpenChange(false)}
+          >
+            ESC
+          </button>
         </div>
       </DialogContent>
     </Dialog>

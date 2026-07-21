@@ -18,7 +18,7 @@ import { Children, useCallback, useLayoutEffect, useRef, useState, type CSSPrope
 import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { stripDndId, isFlight } from "@/api/models.ts";
 import { isValidationBlockingForPosition } from "@/components/strip/shared";
-import { useWebSocketStore } from "@/store/store-hooks";
+import { useMyPosition, useWebSocketStore } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
 import { makeBayContainerDropZoneId } from "./dropZoneIds";
 
@@ -155,6 +155,10 @@ export function SortableBay({
 }: SortableBayProps) {
   const { containerRef, containerClassName } = useBottomAlignedBay(className, `${bayId ?? "standalone"}:${strips.length}`);
   const sensors = useStripSensors();
+  const myPosition = useMyPosition();
+
+  const dragDisabled = (strip: AnyStrip) =>
+    (!isFlight(strip) && strip.owner !== myPosition) || isDragDisabled?.(strip) === true;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -190,7 +194,7 @@ export function SortableBay({
           <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
           <div ref={containerRef} className={containerClassName} data-strip-scroll-container="true">
               {strips.map(s => (
-                <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} dragDisabled={isDragDisabled?.(s)}>
+                <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} dragDisabled={dragDisabled(s)}>
                   {children(s)}
               </SortableStrip>
             ))}
@@ -206,7 +210,7 @@ export function SortableBay({
     <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
       <DroppableContainer bayId={bayId!} isEmpty={strips.length === 0} className={className}>
         {strips.map(s => (
-          <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} hideWhenDragging bayId={bayId} dragDisabled={isDragDisabled?.(s)}>
+          <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} hideWhenDragging bayId={bayId} dragDisabled={dragDisabled(s)}>
             {children(s)}
           </SortableStrip>
         ))}

@@ -11,7 +11,8 @@ type MockTacticalStripRepository struct {
 	GetByIDFn                func(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)
 	DeleteFn                 func(ctx context.Context, id int64, sessionID int32) error
 	ConfirmFn                func(ctx context.Context, id int64, sessionID int32, confirmedBy string) (*models.TacticalStrip, error)
-	StartTimerFn             func(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error)
+	ForceAssumeFn            func(ctx context.Context, id int64, sessionID int32, owner string) (*models.TacticalStrip, error)
+	UpdateMarkedFn           func(ctx context.Context, id int64, sessionID int32, marked bool) (*models.TacticalStrip, error)
 	UpdateBayAndSequenceFn   func(ctx context.Context, id int64, sessionID int32, bay string, sequence int32) (*models.TacticalStrip, error)
 	UpdateSequenceFn         func(ctx context.Context, id int64, sessionID int32, sequence int32) (*models.TacticalStrip, error)
 	GetSequenceByIDFn        func(ctx context.Context, id int64, sessionID int32) (int32, error)
@@ -56,11 +57,18 @@ func (m *MockTacticalStripRepository) Confirm(ctx context.Context, id int64, ses
 	return m.ConfirmFn(ctx, id, sessionID, confirmedBy)
 }
 
-func (m *MockTacticalStripRepository) StartTimer(ctx context.Context, id int64, sessionID int32) (*models.TacticalStrip, error) {
-	if m.StartTimerFn == nil {
-		panic("unexpected call to MockTacticalStripRepository.StartTimer")
+func (m *MockTacticalStripRepository) ForceAssume(ctx context.Context, id int64, sessionID int32, owner string) (*models.TacticalStrip, error) {
+	if m.ForceAssumeFn == nil {
+		panic("unexpected call to MockTacticalStripRepository.ForceAssume")
 	}
-	return m.StartTimerFn(ctx, id, sessionID)
+	return m.ForceAssumeFn(ctx, id, sessionID, owner)
+}
+
+func (m *MockTacticalStripRepository) UpdateMarked(ctx context.Context, id int64, sessionID int32, marked bool) (*models.TacticalStrip, error) {
+	if m.UpdateMarkedFn == nil {
+		panic("unexpected call to MockTacticalStripRepository.UpdateMarked")
+	}
+	return m.UpdateMarkedFn(ctx, id, sessionID, marked)
 }
 
 func (m *MockTacticalStripRepository) UpdateBayAndSequence(ctx context.Context, id int64, sessionID int32, bay string, sequence int32) (*models.TacticalStrip, error) {

@@ -15,6 +15,14 @@ func SetRunwayRegionsForTest(r []Region) func() {
 	return func() { runwayRegions = old }
 }
 
+// SetRunwaysForTest replaces the configured runway identifiers for testing.
+// Returns a cleanup function that restores the original value.
+func SetRunwaysForTest(values []string) func() {
+	old := slices.Clone(runways)
+	runways = slices.Clone(values)
+	return func() { runways = old }
+}
+
 // SetFinalApproachRegionsForTest replaces the package-level finalApproachRegions slice for testing.
 // Returns a cleanup function that restores the original value.
 func SetFinalApproachRegionsForTest(r []Region) func() {

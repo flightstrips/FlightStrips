@@ -59,6 +59,100 @@ type AmanFlight struct {
 	Payload         []byte
 }
 
+type AmanNavActiveManifest struct {
+	Airport    string
+	ManifestID int64
+	Revision   int64
+}
+
+type AmanNavAirportFragment struct {
+	Digest          string
+	SchemaVersion   string
+	Cycle           string
+	SourceRevision  string
+	EffectiveFrom   pgtype.Timestamptz
+	EffectiveUntil  pgtype.Timestamptz
+	Airport         string
+	Provenance      []byte
+	ValidationState string
+	ImportedAt      pgtype.Timestamptz
+	ValidatedAt     pgtype.Timestamptz
+	Payload         []byte
+}
+
+type AmanNavFixFragment struct {
+	Digest          string
+	SchemaVersion   string
+	Cycle           string
+	SourceRevision  string
+	EffectiveFrom   pgtype.Timestamptz
+	EffectiveUntil  pgtype.Timestamptz
+	Provenance      []byte
+	ValidationState string
+	ImportedAt      pgtype.Timestamptz
+	ValidatedAt     pgtype.Timestamptz
+	Payload         []byte
+}
+
+type AmanNavManifest struct {
+	ManifestID       int64
+	Airport          string
+	Revision         int64
+	Cycle            string
+	SourceRevision   string
+	EffectiveFrom    pgtype.Timestamptz
+	EffectiveUntil   pgtype.Timestamptz
+	AirportDigest    string
+	ProcedureDigests []byte
+	FixDigest        string
+	TerminalDigest   *string
+	CreatedAt        pgtype.Timestamptz
+}
+
+type AmanNavProcedureFragment struct {
+	Digest          string
+	SchemaVersion   string
+	Cycle           string
+	SourceRevision  string
+	EffectiveFrom   pgtype.Timestamptz
+	EffectiveUntil  pgtype.Timestamptz
+	Airport         string
+	ProcedureKind   string
+	Provenance      []byte
+	ValidationState string
+	ImportedAt      pgtype.Timestamptz
+	ValidatedAt     pgtype.Timestamptz
+	Payload         []byte
+}
+
+type AmanNavRouteCache struct {
+	CacheKey        string
+	SemanticKey     string
+	ResolverVersion string
+	SchemaVersion   string
+	RouteDigest     string
+	Provenance      []byte
+	CreatedAt       pgtype.Timestamptz
+	Query           []byte
+	Payload         []byte
+}
+
+type AmanNavTerminalFragment struct {
+	Digest          string
+	SchemaVersion   string
+	Cycle           string
+	SourceRevision  string
+	EffectiveFrom   pgtype.Timestamptz
+	EffectiveUntil  pgtype.Timestamptz
+	Airport         string
+	ConfigVersion   string
+	Provenance      []byte
+	ValidationState string
+	ImportedAt      pgtype.Timestamptz
+	ValidatedAt     pgtype.Timestamptz
+	Payload         []byte
+}
+
 type AmanValidationEvidence struct {
 	EvidenceID string
 	Airport    string

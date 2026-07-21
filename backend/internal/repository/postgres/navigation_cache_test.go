@@ -58,6 +58,16 @@ func TestNavigationCacheReadsManifestConsistentTerminalReferences(t *testing.T) 
 	require.NotEmpty(t, references.Runways)
 	require.NotEmpty(t, references.Fixes)
 	require.NotEmpty(t, references.Procedures)
+	snapshot, err := repo.ActiveGeometrySnapshot(ctx, "EKCH")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, snapshot.ManifestRevision)
+	require.NotEmpty(t, snapshot.Fixes)
+	require.NotEmpty(t, snapshot.Holdings)
+	// Returned snapshot values are detached from cache persistence.
+	snapshot.Fixes[0].Position.LatitudeDeg = 0
+	fresh, err := repo.ActiveGeometrySnapshot(ctx, "EKCH")
+	require.NoError(t, err)
+	require.NotZero(t, fresh.Fixes[0].Position.LatitudeDeg)
 }
 
 func TestNavigationCacheActivatesOfficialTerminalHoldingFallback(t *testing.T) {
@@ -278,9 +288,13 @@ func TestNavigationCacheRejectsTerminalPathMissingFixAndCoherentActiveReads(t *t
 			case <-done:
 				return
 			default:
-				_, err := repo.ActiveVersion(ctx, "EKCH")
+				snapshot, err := repo.ActiveGeometrySnapshot(ctx, "EKCH")
 				if err != nil {
 					readErrors <- err
+					return
+				}
+				if snapshot.ManifestRevision < 1 || len(snapshot.Fixes) == 0 || len(snapshot.Procedures) == 0 {
+					readErrors <- errors.New("mixed geometry snapshot")
 					return
 				}
 			}

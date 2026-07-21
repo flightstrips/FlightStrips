@@ -104,6 +104,49 @@ describe("EstStandCell", () => {
 
     expect(screen.getByText("READY")).toBeDefined();
     expect(screen.getByTestId("est-ready-background").style.backgroundColor).toBe("rgb(0, 255, 38)");
+    expect(screen.getByText("READY").style.color).toBe("rgb(0, 0, 0)");
+  });
+
+  it("outlines a START REQ stand in orange when TOBT is not active", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ start_req: true, tobt: "", tsat: "" })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive
+        ctotImproved={false}
+        nowMs={Date.now()}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #DD6A12");
+  });
+
+  it("outlines a START REQ stand in green when TOBT is active", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ start_req: true, tobt: "1420", tsat: "1425" })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive
+        ctotImproved={false}
+        nowMs={Date.UTC(2026, 6, 14, 14, 21, 0)}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #00FF26");
+    expect(screen.getByTestId("est-tobt-background").style.top).toBe("88px");
+    expect(screen.getByTestId("est-tsat-background").style.top).toBe("105px");
+    expect(screen.getByText("TOBT:").parentElement?.style.color).toBe("rgb(0, 0, 0)");
+    expect(screen.getByText("TSAT: 1425").style.color).toBe("rgb(0, 0, 0)");
   });
 
   it("hides TOBT and TSAT during transfer to APRON but retains CTOT", () => {

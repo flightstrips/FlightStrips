@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { StripProps } from "./types";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, COLOR_TYPE_HEAVY, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
+import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
@@ -129,7 +128,7 @@ export function ApnArrStrip({
       {/* A/C type / Registration */}
       <div className="flex flex-col border-r-2 min-w-0" style={{ flexGrow: F_TYPE, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
-          <span className="truncate px-[0.21vw]" style={{ fontWeight: 600, fontSize: "0.63vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
+          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontWeight: 600, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
         </div>
         <div style={{ height: BOT_H }} />
       </div>

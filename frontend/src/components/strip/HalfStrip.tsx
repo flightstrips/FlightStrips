@@ -1,6 +1,5 @@
-import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { HalfStripVariant, StripProps } from "./types";
-import { useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_DEP_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, COLOR_TYPE_HEAVY, getCellTextColor, useStripBg } from "./shared";
+import { AircraftTypeLabel, useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_DEP_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 
 // Variant-specific background colours
@@ -118,9 +117,7 @@ export function HalfStrip({
             className={`h-full w-[2.92vw] border-r-2 flex items-center justify-center text-[0.63vw] ${textColor}`}
             style={{ borderRightColor: cellBorderColor }}
           >
-            <span style={{ color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
-              {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
-            </span>
+            <AircraftTypeLabel aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
           </div>
           <div
             className={`h-full w-[2.92vw] border-r-2 flex items-center justify-center font-bold ${textColor}`}

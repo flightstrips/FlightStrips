@@ -381,6 +381,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		standAssignmentReadiness: standAssignmentReadiness,
 		amanRuntime:              amanRuntime,
 		handler: buildHandler(buildHandlerConfig{
+			amanRuntime:  amanRuntime,
 			authService:  authService,
 			frontendHub:  frontendHub,
 			euroscopeHub: euroscopeHub,
@@ -839,6 +840,7 @@ func configureCDM(
 }
 
 type buildHandlerConfig struct {
+	amanRuntime                *aman.Runtime
 	authService                shared.AuthenticationService
 	frontendHub                *frontend.Hub
 	euroscopeHub               *euroscope.Hub
@@ -871,7 +873,7 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](cfg.frontendHub, cfg.authService)
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](cfg.euroscopeHub, cfg.authService)
 
-	mux.HandleFunc("/healthz", satHealthz(cfg.standAssignmentReadiness, cfg.vatsimSource, cfg.standAssignmentStaleAfter))
+	mux.HandleFunc("/healthz", healthz(cfg.amanRuntime, cfg.standAssignmentReadiness, cfg.vatsimSource, cfg.standAssignmentStaleAfter))
 	mux.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)
 	mux.HandleFunc("/frontEndEvents", frontendUpgrader.Upgrade)
 	if cfg.enableALB {
@@ -915,8 +917,9 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 }
 
 type healthResponse struct {
-	Status          string    `json:"status"`
-	StandAssignment satHealth `json:"stand_assignment"`
+	Status          string               `json:"status"`
+	StandAssignment satHealth            `json:"stand_assignment"`
+	AMAN            aman.TechnicalHealth `json:"aman"`
 }
 
 type satHealth struct {
@@ -927,9 +930,9 @@ type satHealth struct {
 	SnapshotAgeSeconds *float64 `json:"snapshot_age_seconds,omitempty"`
 }
 
-func satHealthz(readiness appconfig.StandAssignmentReadiness, cache vatsim.SnapshotSource, staleAfter time.Duration) http.HandlerFunc {
+func healthz(amanRuntime *aman.Runtime, readiness appconfig.StandAssignmentReadiness, cache vatsim.SnapshotSource, staleAfter time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		result := healthResponse{Status: "ok", StandAssignment: satHealth{Enabled: readiness.Enabled, Ready: readiness.Ready, Status: "disabled"}}
+		result := healthResponse{Status: "ok", StandAssignment: satHealth{Enabled: readiness.Enabled, Ready: readiness.Ready, Status: "disabled"}, AMAN: evaluateAMANHealth(amanRuntime, cache, staleAfter)}
 		sat := &result.StandAssignment
 		switch {
 		case !readiness.Enabled:
@@ -943,10 +946,52 @@ func satHealthz(readiness appconfig.StandAssignmentReadiness, cache vatsim.Snaps
 				result.Status = "degraded"
 			}
 		}
+		if result.AMAN.Enabled && !result.AMAN.Ready {
+			result.Status = "degraded"
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK) // SAT degradation must not take unrelated features down.
 		_ = json.NewEncoder(w).Encode(result)
 	}
+}
+
+func evaluateAMANHealth(runtime *aman.Runtime, cache vatsim.SnapshotSource, staleAfter time.Duration) aman.TechnicalHealth {
+	report := runtime.Health(context.Background())
+	if !report.Enabled {
+		return report
+	}
+	report.VATSIM = amanVATSIMHealth(cache, staleAfter)
+	return aman.EvaluateTechnicalHealth(report.Mode, report.VATSIM, report.Navigation, report.Weather, report.Repository, report.Predictor, report.ReplayValidation)
+}
+
+func amanVATSIMHealth(cache vatsim.SnapshotSource, staleAfter time.Duration) aman.ComponentHealth {
+	if cache == nil {
+		return aman.ComponentHealth{Status: aman.HealthUnavailable, Reason: "feed_unavailable"}
+	}
+	snapshot := cache.Snapshot()
+	age := time.Since(snapshot.Timestamp)
+	if age < 0 {
+		age = 0
+	}
+	ageSeconds := age.Seconds()
+	result := aman.ComponentHealth{Status: aman.HealthReady, UpdatedAt: optionalHealthTime(snapshot.Timestamp), AgeSeconds: &ageSeconds}
+	switch {
+	case snapshot.Timestamp.IsZero():
+		result.Status, result.Reason = aman.HealthUnavailable, "snapshot_unavailable"
+	case snapshot.LastRefreshError != nil:
+		result.Status, result.Reason = aman.HealthUnavailable, "refresh_failed"
+	case age > staleAfter:
+		result.Status, result.Reason = aman.HealthDegraded, "snapshot_stale"
+	}
+	return result
+}
+
+func optionalHealthTime(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+	value = value.UTC()
+	return &value
 }
 
 func evaluateSATHealth(readiness appconfig.StandAssignmentReadiness, snapshot vatsim.Snapshot, staleAfter time.Duration) satHealth {

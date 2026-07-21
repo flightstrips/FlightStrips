@@ -43,6 +43,18 @@ type instruments struct {
 	satOutcomes             metric.Int64Counter
 	satConflicts            metric.Int64Counter
 	satExpirations          metric.Int64Counter
+	amanObservationAge      metric.Float64Histogram
+	amanGeometryCache       metric.Int64Counter
+	amanRouteMaterialized   metric.Int64Counter
+	amanRouteDuration       metric.Float64Histogram
+	amanPredictorDuration   metric.Float64Histogram
+	amanPredictionDrift     metric.Float64Histogram
+	amanSequenceRevisions   metric.Int64Counter
+	amanSequenceConflicts   metric.Int64Counter
+	amanCommandOutcomes     metric.Int64Counter
+	amanFlightDegradation   metric.Int64Counter
+	amanSourceRefreshes     metric.Int64Counter
+	amanPublicationFailures metric.Int64Counter
 }
 
 func get() *instruments {
@@ -157,6 +169,18 @@ func get() *instruments {
 		satOutcomes, _ := meter.Int64Counter("sat.allocation.outcomes", metric.WithDescription("SAT allocation outcomes"), metric.WithUnit("{result}"))
 		satConflicts, _ := meter.Int64Counter("sat.allocation.conflicts", metric.WithDescription("SAT allocation database and occupancy conflicts"), metric.WithUnit("{conflict}"))
 		satExpirations, _ := meter.Int64Counter("sat.assignments.expired", metric.WithDescription("SAT assignments expired or released"), metric.WithUnit("{assignment}"))
+		amanObservationAge, _ := meter.Float64Histogram("aman.observation.age", metric.WithDescription("Age of AMAN source observations"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(1, 5, 15, 30, 60, 120, 300))
+		amanGeometryCache, _ := meter.Int64Counter("aman.geometry.cache", metric.WithDescription("AMAN geometry cache lookups"), metric.WithUnit("{lookup}"))
+		amanRouteMaterialized, _ := meter.Int64Counter("aman.route.materialization", metric.WithDescription("Explicit AMAN route materialization attempts"), metric.WithUnit("{route}"))
+		amanRouteDuration, _ := meter.Float64Histogram("aman.route.materialization.duration", metric.WithDescription("AMAN route materialization duration"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(.01, .05, .1, .25, .5, 1, 2, 5))
+		amanPredictorDuration, _ := meter.Float64Histogram("aman.predictor.duration", metric.WithDescription("AMAN predictor duration"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(.001, .005, .01, .05, .1, .5, 1))
+		amanPredictionDrift, _ := meter.Float64Histogram("aman.prediction.drift", metric.WithDescription("AMAN raw, operational, and Superstable prediction drift"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(1, 5, 15, 30, 60, 120, 300))
+		amanSequenceRevisions, _ := meter.Int64Counter("aman.sequence.revisions", metric.WithDescription("Committed AMAN sequence revisions"), metric.WithUnit("{revision}"))
+		amanSequenceConflicts, _ := meter.Int64Counter("aman.sequence.conflicts", metric.WithDescription("AMAN sequence revision conflicts"), metric.WithUnit("{conflict}"))
+		amanCommandOutcomes, _ := meter.Int64Counter("aman.commands", metric.WithDescription("AMAN command outcomes"), metric.WithUnit("{command}"))
+		amanFlightDegradation, _ := meter.Int64Counter("aman.flights.degraded", metric.WithDescription("AMAN stale and disconnected flight transitions"), metric.WithUnit("{flight}"))
+		amanSourceRefreshes, _ := meter.Int64Counter("aman.source.refreshes", metric.WithDescription("AMAN source refresh attempts"), metric.WithUnit("{refresh}"))
+		amanPublicationFailures, _ := meter.Int64Counter("aman.publication.failures", metric.WithDescription("Post-commit AMAN replacement publication failures"), metric.WithUnit("{publication}"))
 
 		inst = &instruments{
 			activeConnections:       activeConnections,
@@ -179,12 +203,77 @@ func get() *instruments {
 			trafficTaxiing:          trafficTaxiing,
 			trafficArrivalRate15m:   trafficArrivalRate15m,
 			trafficDepartureRate15m: trafficDepartureRate15m,
-			satSnapshotAge: satSnapshotAge, satFeedRecords: satFeedRecords,
+			satSnapshotAge:          satSnapshotAge, satFeedRecords: satFeedRecords,
 			satAssignments: satAssignments, satOutcomes: satOutcomes,
 			satConflicts: satConflicts, satExpirations: satExpirations,
+			amanObservationAge: amanObservationAge, amanGeometryCache: amanGeometryCache,
+			amanRouteMaterialized: amanRouteMaterialized, amanRouteDuration: amanRouteDuration,
+			amanPredictorDuration: amanPredictorDuration, amanPredictionDrift: amanPredictionDrift,
+			amanSequenceRevisions: amanSequenceRevisions, amanSequenceConflicts: amanSequenceConflicts,
+			amanCommandOutcomes: amanCommandOutcomes, amanFlightDegradation: amanFlightDegradation,
+			amanSourceRefreshes: amanSourceRefreshes, amanPublicationFailures: amanPublicationFailures,
 		}
 	})
 	return inst
+}
+
+// AMAN metrics intentionally accept only fixed vocabulary labels. In
+// particular, callsigns, route text, command IDs, and provider payloads never
+// become metric dimensions.
+func RecordAMANObservation(ctx context.Context, age time.Duration, state string) {
+	get().amanObservationAge.Record(ctx, max(age.Seconds(), 0), metric.WithAttributes(attribute.String("state", amanStateLabel(state))))
+}
+
+func RecordAMANGeometryCache(ctx context.Context, outcome string) {
+	get().amanGeometryCache.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", fixedAMANLabel(outcome, "hit", "miss", "error"))))
+}
+
+func RecordAMANRouteMaterialization(ctx context.Context, duration time.Duration, outcome string) {
+	attrs := metric.WithAttributes(attribute.String("outcome", fixedAMANLabel(outcome, "success", "failure")))
+	i := get()
+	i.amanRouteMaterialized.Add(ctx, 1, attrs)
+	i.amanRouteDuration.Record(ctx, max(duration.Seconds(), 0), attrs)
+}
+
+func RecordAMANPredictor(ctx context.Context, duration time.Duration, confidence, degradation string) {
+	get().amanPredictorDuration.Record(ctx, max(duration.Seconds(), 0), metric.WithAttributes(
+		attribute.String("confidence", fixedAMANLabel(confidence, "unknown", "low", "medium", "high")),
+		attribute.String("degradation", fixedAMANLabel(degradation, "none", "weather", "geometry", "performance", "source")),
+	))
+}
+
+func RecordAMANPredictionDrift(ctx context.Context, kind string, drift time.Duration) {
+	get().amanPredictionDrift.Record(ctx, max(drift.Seconds(), 0), metric.WithAttributes(attribute.String("kind", fixedAMANLabel(kind, "raw_operational", "superstable"))))
+}
+
+func RecordAMANSequenceRevision(ctx context.Context) { get().amanSequenceRevisions.Add(ctx, 1) }
+func RecordAMANSequenceConflict(ctx context.Context, kind string) {
+	get().amanSequenceConflicts.Add(ctx, 1, metric.WithAttributes(attribute.String("kind", fixedAMANLabel(kind, "revision", "command", "policy"))))
+}
+func RecordAMANCommand(ctx context.Context, outcome string) {
+	get().amanCommandOutcomes.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", fixedAMANLabel(outcome, "accepted", "rejected", "duplicate", "failed"))))
+}
+func RecordAMANFlightDegradation(ctx context.Context, state string) {
+	get().amanFlightDegradation.Add(ctx, 1, metric.WithAttributes(attribute.String("state", amanStateLabel(state))))
+}
+func RecordAMANSourceRefresh(ctx context.Context, source, outcome string) {
+	get().amanSourceRefreshes.Add(ctx, 1, metric.WithAttributes(attribute.String("source", fixedAMANLabel(source, "vatsim", "navigation", "weather")), attribute.String("outcome", fixedAMANLabel(outcome, "success", "failure", "stale", "disconnected"))))
+}
+func RecordAMANPublicationFailure(ctx context.Context, destination string) {
+	get().amanPublicationFailures.Add(ctx, 1, metric.WithAttributes(attribute.String("destination", fixedAMANLabel(destination, "frontend", "euroscope"))))
+}
+
+func amanStateLabel(value string) string {
+	return fixedAMANLabel(value, "fresh", "stale", "disconnected")
+}
+func fixedAMANLabel(value string, allowed ...string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	for _, candidate := range allowed {
+		if value == candidate {
+			return value
+		}
+	}
+	return "other"
 }
 
 // RecordSATFeedSnapshot records only operational dimensions. Callsigns, CIDs,
@@ -204,7 +293,9 @@ func RecordSATRelevantFlights(ctx context.Context, sessionName, airport string, 
 
 func RecordSATAssignment(ctx context.Context, stage, source, category string, tier int) {
 	attrs := []attribute.KeyValue{attribute.String("stage", stage), attribute.String("source", source), attribute.String("category", category)}
-	if tier > 0 { attrs = append(attrs, attribute.Int("tier", tier)) }
+	if tier > 0 {
+		attrs = append(attrs, attribute.Int("tier", tier))
+	}
 	get().satAssignments.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 

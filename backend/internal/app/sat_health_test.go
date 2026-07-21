@@ -1,6 +1,7 @@
 package app
 
 import (
+	"FlightStrips/internal/aman"
 	appconfig "FlightStrips/internal/config"
 	"FlightStrips/internal/vatsim"
 	"errors"
@@ -33,3 +34,19 @@ func TestEvaluateSATHealthFeedStates(t *testing.T) {
 		})
 	}
 }
+
+func TestAMANVATSIMHealthReportsStaleReasonAndRestoration(t *testing.T) {
+	now := time.Now().UTC()
+	stale := amanVATSIMHealth(amanHealthSnapshotSource{snapshot: vatsim.Snapshot{Timestamp: now.Add(-2 * time.Minute)}}, time.Minute)
+	fresh := amanVATSIMHealth(amanHealthSnapshotSource{snapshot: vatsim.Snapshot{Timestamp: now}}, time.Minute)
+	if stale.Status != aman.HealthDegraded || stale.Reason != "snapshot_stale" || stale.AgeSeconds == nil {
+		t.Fatalf("stale AMAN VATSIM health = %#v", stale)
+	}
+	if fresh.Status != aman.HealthReady || fresh.Reason != "" || fresh.AgeSeconds == nil {
+		t.Fatalf("fresh AMAN VATSIM health = %#v", fresh)
+	}
+}
+
+type amanHealthSnapshotSource struct{ snapshot vatsim.Snapshot }
+
+func (s amanHealthSnapshotSource) Snapshot() vatsim.Snapshot { return s.snapshot }

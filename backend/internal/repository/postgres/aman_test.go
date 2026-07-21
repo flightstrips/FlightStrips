@@ -85,6 +85,31 @@ func TestAMANRepositoryRoundTripIdempotencyAndRollback(t *testing.T) {
 	require.Equal(t, corrected, loaded, "a failed transaction must leave the complete prior aggregate")
 }
 
+func TestAMANRepositoryRollsBackInvalidAuditAndCommitsStructuredAudit(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	repo := NewAMANRepository(pool)
+	ctx := context.Background()
+	state := amanState(1, "CID-AUDIT", "SAS330")
+
+	_, err := repo.Commit(ctx, aman.StateCommit{
+		ExpectedRevision: 0, State: state,
+		AuditRecords: []aman.AuditRecord{{Airport: state.Airport, Revision: state.Revision, Category: "", Payload: []byte(`{"event":"rejected"}`), RecordedAt: amanTestTime}},
+	})
+	require.Error(t, err)
+	_, err = repo.LoadAirportState(ctx, state.Airport)
+	require.Error(t, err, "a rejected audit record must roll back the accompanying state")
+
+	_, err = repo.Commit(ctx, aman.StateCommit{
+		ExpectedRevision: 0, State: state,
+		AuditRecords: []aman.AuditRecord{{Airport: state.Airport, Revision: state.Revision, Category: "command_accepted", Payload: []byte(`{"command_type":"freeze","outcome":"accepted"}`), RecordedAt: amanTestTime}},
+	})
+	require.NoError(t, err)
+	audits, err := repo.ListAuditRecords(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Len(t, audits, 1)
+	require.JSONEq(t, `{"command_type":"freeze","outcome":"accepted"}`, string(audits[0].Payload))
+}
+
 func TestAMANRepositoryRestoresHeldAirborneBaselineForFreshPredictor(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

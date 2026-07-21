@@ -110,6 +110,18 @@ func TestReduceProjectsLongLegAndPositionsBeforeAndAfterPath(t *testing.T) {
 	require.InDelta(t, 0, *after.DistanceToGoNM, .1)
 }
 
+func TestRemainingPartialLegStartsAtProjectedPositionForWindSampling(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	input.Observation.LongitudeDegrees = .5
+	result := Reduce(snapshot, route, input, Config{})
+	require.NotEmpty(t, result.Remaining)
+	first := result.Remaining[0]
+	require.InDelta(t, .5, first.Start.LongitudeDeg, .01)
+	require.InDelta(t, 1, first.End.LongitudeDeg, .01)
+	require.InDelta(t, 90, first.CourseTrueDegrees, .1)
+	require.InDelta(t, routeDistance(snapshot, "A", "B")/2, first.DistanceNM, .1)
+}
+
 func TestReduceRepeatedFixAndCrossingChoosePlausibleForwardLeg(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	a, b, c, d := navdata.FixID("A"), navdata.FixID("B"), navdata.FixID("C"), navdata.FixID("D")

@@ -1,7 +1,6 @@
-import { getAircraftTypeWithWtc } from "@/lib/utils";
 import type { StripProps } from "./types";
 import { getStripBg } from "./types";
-import { FONT, STRIP_FRAME_COLOR, COLOR_SHADOW, COLOR_TYPE_HEAVY, useStripBg } from "./shared";
+import { AircraftTypeLabel, FONT, STRIP_FRAME_COLOR, COLOR_SHADOW, useStripBg } from "./shared";
 
 const CELL_BORDER = "border-r border-[var(--color-strip-frame)]"; // matches STRIP_FRAME_COLOR
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
@@ -70,9 +69,7 @@ export function ClxHalfStrip({
           style={{ flex: `${F_TYPE} 0 0%`, height: "100%", minWidth: 0 }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
-            <span className="truncate" style={{ fontFamily: FONT, fontSize: FONT_SIZE, color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
-              {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
-            </span>
+            <AircraftTypeLabel className="truncate" style={{ fontFamily: FONT, fontSize: FONT_SIZE }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
           </div>
         </div>
 

@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { getAircraftTypeWithWtc } from "@/lib/utils";
+import { AircraftTypeLabel, COLOR_UNEXPECTED_YELLOW, getValidationBlockedCursor } from "./shared";
 import { useStripTransfers, useTransitionAltitude, useWebSocketStore } from "@/store/store-hooks";
 import { formatAltitude } from "@/lib/utils";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
-import { COLOR_UNEXPECTED_YELLOW, COLOR_TYPE_HEAVY, getValidationBlockedCursor } from "./shared";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
 import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, useNextFrequencyDisplay } from "./shared";
@@ -177,9 +176,7 @@ export function TwyDepStrip({
         style={{ flexGrow: F_TYPE_SQ, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
-          <span className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>
-            {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
-          </span>
+          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.68vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
         </div>
         <div
           className="flex items-center justify-center overflow-hidden"

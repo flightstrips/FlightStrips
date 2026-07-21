@@ -10,6 +10,7 @@ import type { NextDisplay } from "@/api/models";
 import type { PdcStatus } from "@/api/models";
 import type { ValidationStatus } from "@/api/models";
 import { isValidationActiveForPosition, isValidationBlockingForPosition } from "@/lib/validation-status";
+import { getAircraftTypeWithWtc } from "@/lib/utils";
 
 export { isPdcValidationStatus, isValidationActiveForPosition, isValidationBlockingForPosition } from "@/lib/validation-status";
 
@@ -300,8 +301,27 @@ export const COLOR_BTN_DEFAULT   = "#646464";
 export const COLOR_BTN_ORANGE    = "var(--color-si-unconcerned)";
 /** Blue accent button background. */
 export const COLOR_BTN_BLUE      = "var(--color-half-mem-aid)";
-/** Heavy WTC aircraft type text color. */
-export const COLOR_TYPE_HEAVY    = "var(--color-type-heavy)";
+/** WTC/H and WTC/L aircraft type text color. */
+export const COLOR_TYPE_WTC      = "var(--color-type-wtc)";
+
+type AircraftTypeLabelProps = {
+  aircraftType: string | null | undefined;
+  aircraftCategory: string | null | undefined;
+  className?: string;
+  style?: CSSProperties;
+};
+
+/** Renders an aircraft type with its WTC suffix and the shared WTC color. */
+export function AircraftTypeLabel({ aircraftType, aircraftCategory, className, style }: AircraftTypeLabelProps) {
+  const isWtcColored = aircraftCategory === "H" || aircraftCategory === "L";
+
+  return (
+    <span className={className} style={{ ...style, ...(isWtcColored ? { color: COLOR_TYPE_WTC } : {}) }}>
+      {getAircraftTypeWithWtc(aircraftType, aircraftCategory)}
+    </span>
+  );
+}
+
 /** Yellow accent button background. */
 export const COLOR_BTN_YELLOW    = "#F3EA1F";
 /** Cyan background for departure / push strips (ApnPushStrip, ApnTaxiDepStrip, HalfStrip). */

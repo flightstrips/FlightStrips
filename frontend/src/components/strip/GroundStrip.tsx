@@ -1,7 +1,6 @@
-import { getAircraftTypeWithWtc } from "@/lib/utils";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_TYPE_HEAVY, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
+import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
 import { useStripTransfers } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
@@ -84,7 +83,7 @@ export function GroundStrip({
       {/* A/C type — 80px split (bottom reserved for registration) */}
       <div className="flex-shrink-0 flex flex-col border-r-2" style={{ width: "4.17vw", height: "100%", borderRightColor: cellBorderColor }}>
         <div className="flex items-center justify-center border-b-2" style={{ height: TOP_H, borderBottomColor: cellBorderColor }}>
-          <span className="truncate px-[0.21vw]" style={{ fontWeight: 600, fontSize: "0.63vw", color: aircraftCategory === "H" ? COLOR_TYPE_HEAVY : undefined }}>{getAircraftTypeWithWtc(aircraftType, aircraftCategory)}</span>
+          <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontWeight: 600, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
         </div>
         <div style={{ height: BOT_H }} />
       </div>

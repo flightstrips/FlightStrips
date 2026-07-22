@@ -390,7 +390,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
 				Auth: authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
 				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil,
-				Stands: standActionService, ATIS: metarPoller, Routes: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification,
+				Stands: standActionService, ATIS: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification,
 			}),
 			sessionRepo:                sessionRepo,
 			sequenceService:            sequenceService,

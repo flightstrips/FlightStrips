@@ -494,6 +494,7 @@ useEffect(() => {
         onClose={handleCloseDialog}
         stand={flightData.stand}
         sid={flightData.sid}
+        runway={flightData.assignedRunway}
       />
       <D1ChartDialog
         isOpen={openDialog === 'D1CHART'}
@@ -627,8 +628,7 @@ useEffect(() => {
                   {isArrival ? (<><div></div><div></div></>) : (<><div>Initial Climb</div><div>Level</div></>)}
                 </div>
                 <div className="absolute top-[60%] left-[25%] flex h-[20%] w-[48%] flex-col items-start justify-end pt-[2%] pr-[5%] text-right text-[clamp(14px,1.5vh,27px)] text-white">
-                  <div>{isArrival ? 'EAT' : 'CTOT'}</div>
-                  <div className="text-[clamp(14px,3.5vh,56px)]">{isArrival ? flightData.arrivalEta : flightData.ctot}</div>
+                  {isArrival ? <><div>EAT</div><div className="text-[clamp(14px,3.5vh,56px)]">{flightData.arrivalEta}</div></> : flightData.ctot !== 'NIL' ? <><div>CTOT</div><div className="text-[clamp(14px,3.5vh,56px)]">{flightData.ctot}</div></> : null}
                 </div>
                 <div className="absolute top-[80%] left-[30%] flex h-[20%] w-full items-start justify-end pt-[2%] pr-[5%] text-right text-[clamp(14px,3.5vh,56px)] text-white">
                   {isArrival ? flightData.arrivalRunway : flightData.assignedRunway}
@@ -647,7 +647,7 @@ useEffect(() => {
                   <div>{isArrival ? flightData.Terminalfix : flightData.depFrequency === 'NIL' ? null : flightData.depFrequency}</div>
                 </div>
                 <div className="absolute top-1/4 right-0 flex h-[20%] w-full flex-col items-start justify-start pt-[2%] pl-[5%] text-left text-[clamp(14px,1.5vh,36px)] text-white">
-                  {isArrival ? <div className="text-[clamp(14px,2.5vh,53px)]">NIL</div> : flightData.depFrequency !== 'NIL' ? <><div>CONTACT PASSING</div><div><u>1000FT</u> <strong>AUTOMATICALLY</strong></div></> : null}
+                  {isArrival ? <div className="text-[clamp(14px,2.5vh,53px)]">NIL</div> : flightData.depFrequency !== 'NIL' ? <><div>CONTACT PASSING</div><div><u>1000FT</u> <strong>AUTOMATICALLY</strong></div></> : <div>Follow controller instructions</div>}
                 </div>
                 <div className="absolute top-full right-[5%] flex h-[20%] w-auto -translate-x-[30%] items-start justify-start pt-[2%] text-right text-[clamp(14px,3.5vh,53px)] text-white">
                   {isArrival ? flightData.star : flightData.sid}

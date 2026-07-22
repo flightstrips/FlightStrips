@@ -35,7 +35,7 @@ type finderStub struct {
 	requested string
 }
 
-type routeStub struct{ display *models.NextDisplay }
+type departureFrequencyStub struct{ frequency string }
 
 type cdmStub struct{ calls int }
 
@@ -44,8 +44,8 @@ func (s *cdmStub) HandleTobtUpdate(context.Context, int32, string, string, strin
 	return nil
 }
 
-func (s routeStub) ComputeNextDisplayForStripContext(context.Context, *models.Strip, int32) (*models.NextDisplay, error) {
-	return s.display, nil
+func (s departureFrequencyStub) ComputeDepartureFrequencyForStripContext(context.Context, *models.Strip, int32) (*string, error) {
+	return &s.frequency, nil
 }
 
 func (s *finderStub) FindWebStripByCallsign(_ context.Context, callsign string) (pdc.WebStripMatch, error) {
@@ -130,7 +130,7 @@ func TestSnapshotUsesObservedStandAndNormalizesTSAT(t *testing.T) {
 }
 
 func TestSnapshotOnlyIncludesComputedDepartureFrequency(t *testing.T) {
-	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Routes: routeStub{display: &models.NextDisplay{Label: "Departure", Frequency: "124.980"}}})
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Departures: departureFrequencyStub{frequency: "124.980"}})
 	result := api.buildSnapshot(context.Background(), pdc.WebStripMatch{Strip: &models.Strip{
 		Callsign: "SAS123", Origin: "EKCH", Destination: "ESSA",
 	}}, &models.Session{Airport: "EKCH"})

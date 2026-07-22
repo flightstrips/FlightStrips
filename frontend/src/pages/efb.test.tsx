@@ -89,7 +89,9 @@ describe('EFB page interactions', () => {
     expect(screen.getByText('A12')).toBeInTheDocument();
     expect(screen.getByText('1230')).toBeInTheDocument();
     expect(screen.queryByText('123000')).not.toBeInTheDocument();
+    expect(screen.queryByText('CTOT')).not.toBeInTheDocument();
     expect(screen.queryByText('CONTACT PASSING')).not.toBeInTheDocument();
+    expect(screen.getByText('Follow controller instructions')).toBeInTheDocument();
     expect(screen.getByAltText('Traffic Board')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Downloads' }));

@@ -153,6 +153,66 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 	return cloneNextDisplay(result.NextDisplay), nil
 }
 
+// ComputeDepartureFrequencyForStripContext resolves the SID-specific airborne
+// handover frequency for EFB. It deliberately does not use the strip's next
+// ground-route display: that display represents the next controller on the
+// airport route, while the EFB prompt is for the post-take-off controller.
+func (s *Server) ComputeDepartureFrequencyForStripContext(ctx context.Context, strip *models.Strip, sessionID int32) (*string, error) {
+	if strip == nil || strip.Sid == nil || strings.TrimSpace(*strip.Sid) == "" {
+		return nil, nil
+	}
+
+	priority, err := config.GetAirborneControllerPriority(strings.TrimSpace(*strip.Sid))
+	if err != nil {
+		if errors.Is(err, config.ErrUnknownAirborneRoute) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	coverage, err := getCurrentControllerCoverage(ctx, s.controllerRepo, sessionID, s.frequencyProviders)
+	if err != nil {
+		return nil, err
+	}
+
+	onlineFrequencies := make(map[string]struct{})
+	for _, controller := range coverage {
+		if frequency := vatsim.NormalizeFrequency(controller.Frequency); frequency != "" {
+			onlineFrequencies[frequency] = struct{}{}
+		}
+		for _, frequency := range controller.CoveredFrequencies {
+			if frequency = vatsim.NormalizeFrequency(frequency); frequency != "" {
+				onlineFrequencies[frequency] = struct{}{}
+			}
+		}
+	}
+
+	for _, positionName := range priority {
+		position, err := config.GetPositionByName(positionName)
+		if err != nil {
+			continue
+		}
+		frequency := strings.TrimSpace(position.Frequency)
+		if !isEfbAutoHandoverFrequency(frequency) {
+			continue
+		}
+		if _, online := onlineFrequencies[vatsim.NormalizeFrequency(frequency)]; online {
+			return &frequency, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func isEfbAutoHandoverFrequency(frequency string) bool {
+	switch vatsim.NormalizeFrequency(frequency) {
+	case vatsim.NormalizeFrequency("124.980"), vatsim.NormalizeFrequency("120.255"):
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips []*models.Strip, sessionId int32) error {
 	if len(strips) == 0 {
 		return nil

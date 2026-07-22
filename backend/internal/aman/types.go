@@ -416,20 +416,21 @@ type GoAroundEvidence struct {
 // is incremented only when an approach arms; LastEmittedEpisode makes an
 // already-confirmed episode idempotent across commit retries and restart.
 type GoAroundDetectionState struct {
-	PolicyVersion         string
-	Evidence              []GoAroundEvidence
-	ArmCount              int
-	ClimbCount            int
-	TrackAwayCount        int
-	RunwayExitCount       int
-	Armed                 bool
-	ArmedAt               *time.Time
-	ArmedCorridorID       string
-	Episode               uint64
-	LastEmittedEpisode    uint64
-	LastProcessedAt       *time.Time
-	LastProcessedSequence *uint64
-	ThresholdCrossed      bool
+	PolicyVersion           string
+	Evidence                []GoAroundEvidence
+	ArmCount                int
+	ClimbCount              int
+	TrackAwayCount          int
+	RunwayExitCount         int
+	Armed                   bool
+	ArmedAt                 *time.Time
+	ArmedCorridorID         string
+	Episode                 uint64
+	LastEmittedEpisode      uint64
+	LastProcessedAt         *time.Time
+	LastProcessedSequence   *uint64
+	ThresholdCrossed        bool
+	LastControllerCommandID string
 }
 
 // LifecycleState is the persisted ordering cursor and current-state entry
@@ -802,6 +803,9 @@ func (s GoAroundDetectionState) Validate() error {
 	if s.LastProcessedSequence != nil && s.LastProcessedAt == nil {
 		return invalid("go-around sequence cursor requires an observation time")
 	}
+	if s.LastControllerCommandID != "" && !isTrimmedNonEmpty(s.LastControllerCommandID) {
+		return invalid("go-around controller command identity is invalid")
+	}
 	if len(s.Evidence) > 0 && (s.LastProcessedAt == nil || s.Evidence[len(s.Evidence)-1].ObservedAt.After(*s.LastProcessedAt)) {
 		return invalid("go-around evidence exceeds the processed observation cursor")
 	}
@@ -825,7 +829,7 @@ func (s GoAroundDetectionState) Validate() error {
 }
 
 func (s GoAroundDetectionState) empty() bool {
-	return s.PolicyVersion == "" && len(s.Evidence) == 0 && s.ArmCount == 0 && s.ClimbCount == 0 && s.TrackAwayCount == 0 && s.RunwayExitCount == 0 && !s.Armed && s.ArmedAt == nil && s.ArmedCorridorID == "" && s.Episode == 0 && s.LastEmittedEpisode == 0 && s.LastProcessedAt == nil && s.LastProcessedSequence == nil && !s.ThresholdCrossed
+	return s.PolicyVersion == "" && len(s.Evidence) == 0 && s.ArmCount == 0 && s.ClimbCount == 0 && s.TrackAwayCount == 0 && s.RunwayExitCount == 0 && !s.Armed && s.ArmedAt == nil && s.ArmedCorridorID == "" && s.Episode == 0 && s.LastEmittedEpisode == 0 && s.LastProcessedAt == nil && s.LastProcessedSequence == nil && !s.ThresholdCrossed && s.LastControllerCommandID == ""
 }
 
 func (e GoAroundEvidence) Validate() error {

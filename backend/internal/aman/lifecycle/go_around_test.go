@@ -65,6 +65,32 @@ func TestGoAroundDetectorConfirmsClimbOnceAndTransitionsThroughLifecycle(t *test
 	require.Equal(t, state, replayed.State)
 }
 
+func TestGoAroundDetectorAcceptsAnAuthorizedControllerMarkWithoutSurveillance(t *testing.T) {
+	detector := newDetector(t, detectorConfig())
+	at := lifecycleTime().Add(time.Minute)
+	input := detectorInput(aman.GoAroundDetectionState{}, observation(1, at, -0.02, 0, 1000, 160, floatPointer(0)), at)
+	input.Observation.Surveillance = nil
+	input.Observation.SourceStatus = aman.DataStale
+	input.ControllerMarked = &lifecycle.ControllerGoAround{CommandID: "command-1", Actor: "1345678"}
+
+	result, err := detector.Detect(input)
+	require.NoError(t, err)
+	require.NotNil(t, result.Confirmed)
+	require.Equal(t, lifecycle.GoAroundReasonController, result.Confirmed.Reason)
+	require.Equal(t, "flight-1/go-around/controller/command-1/confirmed", result.Confirmed.ID)
+	require.Equal(t, "1345678", *result.Confirmed.ControllerActor)
+	require.Empty(t, result.Confirmed.SupportingObservationTimes)
+	require.NoError(t, result.State.Validate())
+
+	duplicateInput := input
+	duplicateInput.Previous = result.State
+	duplicateInput.Now = at.Add(time.Second)
+	duplicate, err := detector.Detect(duplicateInput)
+	require.NoError(t, err)
+	require.True(t, duplicate.Duplicate)
+	require.Nil(t, duplicate.Confirmed)
+}
+
 func TestGoAroundDetectorConfirmsDerivedTrackAwayAndRunwayExit(t *testing.T) {
 	for _, test := range []struct {
 		name   string

@@ -19,10 +19,11 @@ const (
 	GoAroundReasonClimb      GoAroundReason = "climb"
 	GoAroundReasonTrackAway  GoAroundReason = "track_away"
 	GoAroundReasonRunwayExit GoAroundReason = "runway_exit_without_landing"
+	GoAroundReasonController GoAroundReason = "controller_marked"
 )
 
 func (r GoAroundReason) Valid() bool {
-	return r == GoAroundReasonClimb || r == GoAroundReasonTrackAway || r == GoAroundReasonRunwayExit
+	return r == GoAroundReasonClimb || r == GoAroundReasonTrackAway || r == GoAroundReasonRunwayExit || r == GoAroundReasonController
 }
 
 // GoAroundConfig contains detector policy rather than airport geometry. The
@@ -96,6 +97,15 @@ type GoAroundInput struct {
 	LandingConfirmed   bool
 	RouteChanged       bool
 	RunwayGroupChanged bool
+	ControllerMarked   *ControllerGoAround
+}
+
+// ControllerGoAround is the authorized controller fact that a strip has gone
+// around. Command idempotency and authorization remain at the command boundary;
+// the detector persists the last accepted command so replay remains stable.
+type ControllerGoAround struct {
+	CommandID string
+	Actor     string
 }
 
 // GoAroundConfirmed is the typed operational event emitted once per arming
@@ -107,6 +117,7 @@ type GoAroundConfirmed struct {
 	Reason                     GoAroundReason
 	ConfirmedAt                time.Time
 	SupportingObservationTimes []time.Time
+	ControllerActor            *string
 }
 
 // LifecycleEvent maps the detector result into the state-machine event owned
@@ -148,6 +159,9 @@ func (d *goAroundDetector) Detect(input GoAroundInput) (GoAroundResult, error) {
 	if state.PolicyVersion != input.PolicyVersion {
 		disarm(&state, true)
 		state.PolicyVersion = input.PolicyVersion
+	}
+	if input.ControllerMarked != nil {
+		return controllerConfirmed(state, input)
 	}
 
 	surveillance := input.Observation.Surveillance
@@ -261,7 +275,26 @@ func validateGoAroundInput(input GoAroundInput) error {
 	if input.Observation.Surveillance != nil && input.Observation.Surveillance.ObservedAt != nil && input.Observation.Surveillance.ObservedAt.After(input.Now) {
 		return invalidArgument("go-around observation cannot be in the future")
 	}
+	if input.ControllerMarked != nil && (!isTrimmed(input.ControllerMarked.CommandID) || !isTrimmed(input.ControllerMarked.Actor)) {
+		return invalidArgument("controller go-around command identity is required")
+	}
 	return nil
+}
+
+func controllerConfirmed(state aman.GoAroundDetectionState, input GoAroundInput) (GoAroundResult, error) {
+	command := input.ControllerMarked
+	if state.LastControllerCommandID == command.CommandID {
+		return checkedGoAroundResult(state, nil, true)
+	}
+	state.LastControllerCommandID = command.CommandID
+	disarm(&state, false)
+	actor := command.Actor
+	episodeID := fmt.Sprintf("%s/go-around/controller/%s", input.FlightID, command.CommandID)
+	confirmed := &GoAroundConfirmed{
+		ID: episodeID + "/confirmed", EpisodeID: episodeID, FlightID: input.FlightID,
+		Reason: GoAroundReasonController, ConfirmedAt: input.Now, ControllerActor: &actor,
+	}
+	return checkedGoAroundResult(state, confirmed, false)
 }
 
 func (d *goAroundDetector) evidence(input GoAroundInput, state aman.GoAroundDetectionState) (aman.GoAroundEvidence, bool, bool) {
@@ -333,7 +366,7 @@ func cloneDetectionState(state aman.GoAroundDetectionState) aman.GoAroundDetecti
 }
 
 func zeroDetectionState(state aman.GoAroundDetectionState) bool {
-	return state.PolicyVersion == "" && len(state.Evidence) == 0 && state.ArmCount == 0 && state.ClimbCount == 0 && state.TrackAwayCount == 0 && state.RunwayExitCount == 0 && !state.Armed && state.ArmedAt == nil && state.ArmedCorridorID == "" && state.Episode == 0 && state.LastEmittedEpisode == 0 && state.LastProcessedAt == nil && state.LastProcessedSequence == nil && !state.ThresholdCrossed
+	return state.PolicyVersion == "" && len(state.Evidence) == 0 && state.ArmCount == 0 && state.ClimbCount == 0 && state.TrackAwayCount == 0 && state.RunwayExitCount == 0 && !state.Armed && state.ArmedAt == nil && state.ArmedCorridorID == "" && state.Episode == 0 && state.LastEmittedEpisode == 0 && state.LastProcessedAt == nil && state.LastProcessedSequence == nil && !state.ThresholdCrossed && state.LastControllerCommandID == ""
 }
 
 func lastEvidence(values []aman.GoAroundEvidence) (aman.GoAroundEvidence, bool) {
@@ -399,6 +432,7 @@ func angularDifference(first, second float64) float64 {
 }
 
 func finiteNumber(value float64) bool    { return !math.IsNaN(value) && !math.IsInf(value, 0) }
+func isTrimmed(value string) bool        { return value != "" && strings.TrimSpace(value) == value }
 func ptrTime(value time.Time) *time.Time { return &value }
 func cloneTime(value *time.Time) *time.Time {
 	if value == nil {

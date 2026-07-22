@@ -92,7 +92,7 @@ describe('EFB page interactions', () => {
     expect(screen.queryByText('CTOT')).not.toBeInTheDocument();
     expect(screen.queryByText('CONTACT PASSING')).not.toBeInTheDocument();
     expect(screen.getByText('Follow controller instructions')).toBeInTheDocument();
-    expect(screen.getByAltText('Traffic Board')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Traffic Board' })).toHaveAttribute('href', 'https://flightboard.simfixr.com/?icao=EKCH');
 
     fireEvent.click(screen.getByRole('button', { name: 'Downloads' }));
     expect(screen.getByRole('dialog', { name: 'Downloads' })).toBeInTheDocument();

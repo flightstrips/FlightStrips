@@ -586,9 +586,9 @@ useEffect(() => {
         )}
 
         {showFlightplanElements && (
-          <div className="absolute top-0 left-[66.66%] flex h-[86.66%] w-[30.83%] items-center justify-center border-0 bg-white text-xs text-[#999]">
+          <a href="https://flightboard.simfixr.com/?icao=EKCH" target="_blank" rel="noreferrer" className="absolute top-0 left-[66.66%] flex h-[86.66%] w-[30.83%] items-center justify-center border-0 bg-white text-xs text-[#999]">
             <img src={TRAFFICBOARD} alt="Traffic Board" className="h-full w-full object-cover" />
-          </div>
+          </a>
         )}
       </div>
 

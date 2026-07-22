@@ -15,6 +15,7 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/terminal"
+	"FlightStrips/internal/metrics"
 )
 
 const (
@@ -260,11 +261,18 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 // MaterializeRoute is called by flight-plan/route-change handling, never by a
 // normal TETA tick. A warm cached key remains usable during a source outage.
 func (m *Materializer) MaterializeRoute(ctx context.Context, query navdata.RouteQuery, resolverVersion string) (navdata.RouteKey, error) {
+	started := time.Now()
 	geometry, err := m.deps.Routes.Resolve(ctx, query)
 	if err != nil {
+		metrics.RecordAMANRouteMaterialization(ctx, time.Since(started), "failure")
 		return "", err
 	}
 	key, err := m.deps.Cache.PutRoute(ctx, navdata.RouteCandidate{Query: query, ResolverVersion: resolverVersion, SchemaVersion: navdata.CanonicalSchemaVersion, Geometry: geometry, CreatedAt: m.deps.Now().UTC()})
+	if err != nil {
+		metrics.RecordAMANRouteMaterialization(ctx, time.Since(started), "failure")
+		return "", err
+	}
+	metrics.RecordAMANRouteMaterialization(ctx, time.Since(started), "success")
 	return key, err
 }
 

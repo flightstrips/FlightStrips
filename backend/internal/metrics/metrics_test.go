@@ -276,8 +276,79 @@ func TestSATMetricsAvoidPersonalDataDimensions(t *testing.T) {
 	RecordSATExpiration(ctx, "DEPARTURE", "RESERVED")
 	rm := collectMetrics(t, reader)
 
-	if got := findInt64MetricValue(t, rm, "sat.assignments", map[string]string{"stage": "ASSIGNED", "source": "AUTOMATIC", "category": "airline_rule"}); got != 1 { t.Fatalf("expected assignment counter 1, got %d", got) }
-	if got := findInt64MetricValue(t, rm, "sat.allocation.outcomes", map[string]string{"outcome": "no_compatible_stand", "category": "ARRIVAL"}); got != 1 { t.Fatalf("expected outcome counter 1, got %d", got) }
-	if got := findInt64MetricValue(t, rm, "sat.allocation.conflicts", map[string]string{"kind": "database_contention"}); got != 1 { t.Fatalf("expected conflict counter 1, got %d", got) }
-	if got := findInt64MetricValue(t, rm, "sat.assignments.expired", map[string]string{"direction": "DEPARTURE", "stage": "RESERVED"}); got != 1 { t.Fatalf("expected expiration counter 1, got %d", got) }
+	if got := findInt64MetricValue(t, rm, "sat.assignments", map[string]string{"stage": "ASSIGNED", "source": "AUTOMATIC", "category": "airline_rule"}); got != 1 {
+		t.Fatalf("expected assignment counter 1, got %d", got)
+	}
+	if got := findInt64MetricValue(t, rm, "sat.allocation.outcomes", map[string]string{"outcome": "no_compatible_stand", "category": "ARRIVAL"}); got != 1 {
+		t.Fatalf("expected outcome counter 1, got %d", got)
+	}
+	if got := findInt64MetricValue(t, rm, "sat.allocation.conflicts", map[string]string{"kind": "database_contention"}); got != 1 {
+		t.Fatalf("expected conflict counter 1, got %d", got)
+	}
+	if got := findInt64MetricValue(t, rm, "sat.assignments.expired", map[string]string{"direction": "DEPARTURE", "stage": "RESERVED"}); got != 1 {
+		t.Fatalf("expected expiration counter 1, got %d", got)
+	}
+}
+
+func TestAMANMetricsBoundLabelsAndExcludeFlightIdentifiers(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previousProvider := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	resetInstrumentsForTest()
+	t.Cleanup(func() { otel.SetMeterProvider(previousProvider); resetInstrumentsForTest() })
+
+	ctx := context.Background()
+	RecordAMANObservation(ctx, 3*time.Second, "SAS123")
+	RecordAMANGeometryCache(ctx, "hit")
+	RecordAMANRouteMaterialization(ctx, 20*time.Millisecond, "success")
+	RecordAMANPredictor(ctx, 10*time.Millisecond, "high", "weather")
+	RecordAMANPredictionDrift(ctx, "superstable", 2*time.Second)
+	RecordAMANSequenceRevision(ctx)
+	RecordAMANSequenceConflict(ctx, "revision")
+	RecordAMANCommand(ctx, "accepted")
+	RecordAMANFlightDegradation(ctx, "disconnected")
+	RecordAMANSourceRefresh(ctx, "vatsim", "stale")
+	RecordAMANPublicationFailure(ctx, "frontend")
+	rm := collectMetrics(t, reader)
+
+	if got := findInt64MetricValue(t, rm, "aman.geometry.cache", map[string]string{"outcome": "hit"}); got != 1 {
+		t.Fatalf("geometry cache = %d, want 1", got)
+	}
+	if got := findInt64MetricValue(t, rm, "aman.commands", map[string]string{"outcome": "accepted"}); got != 1 {
+		t.Fatalf("commands = %d, want 1", got)
+	}
+	if got := findFloat64HistogramSum(t, rm, "aman.observation.age", map[string]string{"state": "other"}); got != 3 {
+		t.Fatalf("observation age = %f, want 3", got)
+	}
+
+	for _, scope := range rm.ScopeMetrics {
+		for _, recorded := range scope.Metrics {
+			if len(recorded.Name) < 5 || recorded.Name[:5] != "aman." {
+				continue
+			}
+			for _, attrs := range metricAttributeSets(recorded.Data) {
+				for _, attribute := range attrs.ToSlice() {
+					if attribute.Value.AsString() == "SAS123" || string(attribute.Key) == "callsign" || string(attribute.Key) == "route" || string(attribute.Key) == "command_id" {
+						t.Fatalf("AMAN metric %s contains unbounded attribute %s=%s", recorded.Name, attribute.Key, attribute.Value.AsString())
+					}
+				}
+			}
+		}
+	}
+}
+
+func metricAttributeSets(data metricdata.Aggregation) []attribute.Set {
+	var result []attribute.Set
+	switch values := data.(type) {
+	case metricdata.Sum[int64]:
+		for _, point := range values.DataPoints {
+			result = append(result, point.Attributes)
+		}
+	case metricdata.Histogram[float64]:
+		for _, point := range values.DataPoints {
+			result = append(result, point.Attributes)
+		}
+	}
+	return result
 }

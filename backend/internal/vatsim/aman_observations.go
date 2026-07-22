@@ -2,6 +2,7 @@ package vatsim
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/metrics"
 	"context"
 	"errors"
 	"fmt"
@@ -102,6 +103,8 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 	snapshot := w.cache.Snapshot()
 	now := w.now().UTC()
 	status := observationSourceStatus(snapshot, now, w.staleAfter)
+	metrics.RecordAMANObservation(ctx, now.Sub(snapshot.Timestamp), string(status))
+	metrics.RecordAMANSourceRefresh(ctx, "vatsim", string(status))
 	current := make(map[string]aman.FlightObservation)
 	failed := make(map[string]struct{})
 	var publishErrors []error

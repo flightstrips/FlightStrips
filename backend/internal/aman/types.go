@@ -338,6 +338,30 @@ type Slot struct {
 	Reason        string
 }
 
+// QueueOfferReason explains why an occupied earlier slot is exposed as a
+// revision-bound opportunity. Presentation code must not infer eligibility
+// from this value.
+type QueueOfferReason string
+
+const (
+	QueueOfferEarlierOccupiedSlot QueueOfferReason = "earlier_occupied_slot"
+)
+
+func (r QueueOfferReason) Valid() bool { return r == QueueOfferEarlierOccupiedSlot }
+
+// QueueOffer is a persisted read model for one flight and one occupied earlier
+// slot. CandidateSlot and AirportRevision always belong to the same committed
+// airport replacement state.
+type QueueOffer struct {
+	FlightID        FlightID
+	RunwayGroupID   RunwayGroupID
+	CandidateSlot   Slot
+	QueuePosition   int
+	ExpiresAt       time.Time
+	AirportRevision SequenceRevision
+	Reason          QueueOfferReason
+}
+
 // RouteFact is the currently active operational route fact. Transport and
 // tracking-authority details belong to the route-fact owner, not this core
 // contract.
@@ -524,6 +548,7 @@ type AMANFlight struct {
 	FrozenSlot            *Slot
 	Slot                  *Slot
 	Order                 *int
+	QueueOffers           []QueueOffer
 	ETAReview             *ETAReview
 	OperationalException  *OperationalException
 	GoAroundDetection     *GoAroundDetectionState
@@ -806,6 +831,29 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	seenOffers := make(map[int]struct{}, len(f.QueueOffers))
+	for index, offer := range f.QueueOffers {
+		if err := offer.validate(); err != nil {
+			return err
+		}
+		if offer.FlightID != f.ID {
+			return invalid("queue offer flight does not match its aggregate")
+		}
+		if f.Slot == nil || offer.RunwayGroupID != f.Slot.RunwayGroupID || offer.CandidateSlot.RunwayGroupID != f.Slot.RunwayGroupID || offer.CandidateSlot.Sequence >= f.Slot.Sequence || !offer.CandidateSlot.Time.Before(f.Slot.Time) {
+			return invalid("queue offer candidate is not earlier than the assigned slot")
+		}
+		if _, duplicate := seenOffers[offer.CandidateSlot.Sequence]; duplicate {
+			return invalid("flight contains duplicate queue offer candidate")
+		}
+		seenOffers[offer.CandidateSlot.Sequence] = struct{}{}
+		if index > 0 {
+			previous := f.QueueOffers[index-1]
+			if offer.CandidateSlot.Sequence < previous.CandidateSlot.Sequence ||
+				(offer.CandidateSlot.Sequence == previous.CandidateSlot.Sequence && offer.QueuePosition < previous.QueuePosition) {
+				return invalid("queue offers are not in canonical order")
+			}
+		}
+	}
 	return requireUTCTime("updated at", f.UpdatedAt)
 }
 
@@ -1072,6 +1120,25 @@ func (s Slot) validate() error {
 	return nil
 }
 
+func (o QueueOffer) validate() error {
+	if strings.TrimSpace(string(o.FlightID)) == "" || strings.TrimSpace(string(o.RunwayGroupID)) == "" || o.QueuePosition < 1 || o.AirportRevision == 0 || !o.Reason.Valid() {
+		return invalid("queue offer is incomplete")
+	}
+	if err := o.CandidateSlot.validate(); err != nil {
+		return err
+	}
+	if o.CandidateSlot.RunwayGroupID != o.RunwayGroupID || o.CandidateSlot.Revision != o.AirportRevision {
+		return invalid("queue offer candidate revision or runway group does not match")
+	}
+	if err := requireUTCTime("queue offer expiry", o.ExpiresAt); err != nil {
+		return err
+	}
+	if o.ExpiresAt.After(o.CandidateSlot.Time) {
+		return invalid("queue offer cannot outlive its candidate slot")
+	}
+	return nil
+}
+
 func (s AirportState) Validate() error {
 	if strings.TrimSpace(s.Airport) == "" || strings.TrimSpace(s.PolicyVersion) == "" || !s.Mode.Valid() {
 		return invalid("airport state is incomplete")
@@ -1090,6 +1157,14 @@ func (s AirportState) Validate() error {
 		flightIDs[flight.ID] = struct{}{}
 		if flight.Slot != nil && flight.Slot.Revision != s.Revision {
 			return invalid("slot revision must match airport state revision")
+		}
+		for _, offer := range flight.QueueOffers {
+			if offer.AirportRevision != s.Revision || offer.CandidateSlot.Revision != s.Revision {
+				return invalid("queue offer revision must match airport state revision")
+			}
+			if !offer.ExpiresAt.After(s.GeneratedAt) {
+				return invalid("queue offer must be unexpired when its airport revision is generated")
+			}
 		}
 	}
 	groupIDs := make(map[RunwayGroupID]struct{}, len(s.RunwayGroups))

@@ -44,6 +44,8 @@ export enum EventType {
   FrontendStandAssignmentUpdate = "stand_assignment_update",
   FrontendStandAssignmentRemoved = "stand_assignment_removed",
   FrontendStandBlockUpdate = "stand_block_update",
+  FrontendAMANState = "aman.state",
+  FrontendAMANCommandRejected = "aman.command_rejected",
 }
 
 export enum ActionType {
@@ -678,7 +680,9 @@ export type WebSocketEvent =
   | FrontendStandStatusSnapshotEvent
   | FrontendStandAssignmentUpdateEvent
   | FrontendStandAssignmentRemovedEvent
-  | FrontendStandBlockUpdateEvent;
+  | FrontendStandBlockUpdateEvent
+  | import("./aman").AMANStateEvent
+  | import("./aman").AMANCommandRejectedEvent;
 
 export interface ActionRejectedEvent {
   type: EventType.FrontendActionRejected;

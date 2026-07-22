@@ -1,0 +1,52 @@
+{
+  "type": "aman.state",
+  "version": 1,
+  "data": {
+    "airport": "EKCH",
+    "revision": 7,
+    "generated_at": "2026-07-22T10:00:00.000Z",
+    "policy_version": "ekch-aman-v1",
+    "effective_mode": "authoritative",
+    "authoritative": true,
+    "flights": [
+      {
+        "flight_id": "flight-123",
+        "callsign": "SAS123",
+        "lifecycle_state": "stable",
+        "data_status": "fresh",
+        "runway_group_id": "ARRIVAL-22",
+        "feeder": "SOK",
+        "holding_fix": "SOK-HF",
+        "holding_fix_eta": "2026-07-22T10:10:00.000Z",
+        "route_fact": {"id": "route-fact-1", "fix": "SOK", "observed_at": "2026-07-22T09:58:00.000Z", "state": "active"},
+        "raw_teta": "2026-07-22T10:20:00.000Z",
+        "operational_teta": "2026-07-22T10:19:00.000Z",
+        "gain_loss_seconds": 60,
+        "freeze_reason": "none",
+        "frozen_at": null,
+        "confidence": "high",
+        "provenance": {"model_version": "performance-wind-v1", "config_version": "ekch-v1", "performance_profile_id": null, "weather_source": null, "sources": ["vatsim", "airacnet"]},
+        "input_age_seconds": 60,
+        "geometry_version": "2607",
+        "geometry_digest": "geometry-sha256",
+        "distance_to_go_nm": 87.5,
+        "slot": {"time": "2026-07-22T10:18:00.000Z", "runway_group_id": "ARRIVAL-22", "sequence": 3, "revision": 7, "reason": "rate_wtc"},
+        "order": 3,
+        "eta_review": null,
+        "queue_offers": []
+      }
+    ],
+    "runway_groups": [{"id": "ARRIVAL-22"}],
+    "technical_health": {
+      "status": "ready",
+      "ready": true,
+      "blocked_reasons": [],
+      "vatsim": {"status": "ready", "reason": null, "updated_at": "2026-07-22T10:00:00.000Z", "age_seconds": 0},
+      "navigation": {"status": "ready", "reason": null, "updated_at": "2026-07-22T10:00:00.000Z", "age_seconds": 0},
+      "weather": {"status": "ready", "reason": null, "updated_at": "2026-07-22T10:00:00.000Z", "age_seconds": 0},
+      "repository": {"status": "ready", "reason": null, "updated_at": "2026-07-22T10:00:00.000Z", "age_seconds": 0},
+      "predictor": {"status": "ready", "reason": null, "updated_at": "2026-07-22T10:00:00.000Z", "age_seconds": 0},
+      "replay_validation": {"status": "ready", "reason": null, "updated_at": "2026-07-22T10:00:00.000Z", "age_seconds": 0}
+    }
+  }
+}

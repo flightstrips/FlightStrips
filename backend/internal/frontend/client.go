@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -138,7 +139,7 @@ func (c *Client) SetReadOnly(readOnly bool) {
 }
 
 func (c *Client) CanHandleMessage(messageType string) error {
-	if !c.readOnly || messageType == "token" {
+	if !c.readOnly || messageType == "token" || strings.HasPrefix(messageType, "aman.") {
 		return nil
 	}
 

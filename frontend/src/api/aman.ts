@@ -135,6 +135,84 @@ export interface AMANCommandRejection {
   retryable: boolean;
 }
 
+export type AMANCommandType =
+  | "aman.move_flight"
+  | "aman.lock_flight"
+  | "aman.unlock_flight"
+  | "aman.set_rate"
+  | "aman.accept_teta"
+  | "aman.keep_fpl_eta"
+  | "aman.set_manual_eta"
+  | "aman.reset_teta_override"
+  | "aman.report_go_around";
+
+export interface AMANCommandMeta {
+  command_id: string;
+  expected_revision: number;
+}
+
+export type AMANCommandIntent =
+  | {type: "aman.move_flight"; flight_id: string; runway_group_id: string; before_flight_id: string}
+  | {type: "aman.move_flight"; flight_id: string; runway_group_id: string; after_flight_id: string}
+  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; flight_id: string}
+  | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
+  | {type: "aman.set_manual_eta"; flight_id: string; manual_eta: string}
+  | {type: "aman.report_go_around"; flight_id: string; detected_at: string};
+
+export type AMANCommandMessage = AMANCommandIntent extends infer Intent
+  ? Intent extends {type: AMANCommandType}
+    ? {
+        type: Intent["type"];
+        version: typeof AMAN_WIRE_VERSION;
+        data: AMANCommandMeta & Omit<Intent, "type">;
+      }
+    : never
+  : never;
+
+export interface AMANPendingCommand {
+  command_id: string;
+  type: AMANCommandType;
+  expected_revision: number;
+  flight_id?: string;
+  runway_group_id?: string;
+}
+
+export type AMANConnectionState = "connected" | "disconnected";
+
+export type AMANMutationBlockReason =
+  | "no_state"
+  | "disconnected"
+  | "observer"
+  | "unauthorized"
+  | "not_authoritative"
+  | "not_ready";
+
+export interface AMANMutationGateInput {
+  state: AMANState | null;
+  connection_state: AMANConnectionState;
+  read_only: boolean;
+  has_fmp_authority: boolean;
+}
+
+export function getAMANMutationBlockReason(input: AMANMutationGateInput): AMANMutationBlockReason | null {
+  if (input.state === null) return "no_state";
+  if (input.connection_state !== "connected") return "disconnected";
+  if (input.read_only) return "observer";
+  if (!input.has_fmp_authority) return "unauthorized";
+  if (!input.state.authoritative || input.state.effective_mode !== "authoritative") return "not_authoritative";
+  if (!input.state.technical_health.ready) return "not_ready";
+  return null;
+}
+
+export function createAMANCommand(intent: AMANCommandIntent, meta: AMANCommandMeta): AMANCommandMessage {
+  const {type, ...fields} = intent;
+  return {
+    type,
+    version: AMAN_WIRE_VERSION,
+    data: {...meta, ...fields},
+  } as AMANCommandMessage;
+}
+
 export type AMANPresentationStatus = "empty" | "ready" | "degraded";
 
 export interface AMANReplacementResult {

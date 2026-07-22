@@ -225,22 +225,11 @@ export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {
       className='w-screen min-h-svh flex justify-center items-center bg-primary text-white text-4xl font-semibold'>Loading...</div>);
   }
 
-  if (!wsConnected) {
-    return (
-      <div className="w-screen min-h-svh flex flex-col justify-center items-center bg-primary text-white">
-        
-        <div className="flex items-center text-4xl font-semibold">
-          <span className='inline-flex items-center'>Connecting to <svg className="w-8 h-8 mx-2" viewBox="0 0 28 28" fill="none"><rect x="3" y="6" width="22" height="4" rx="1" fill="#a0dae4"></rect><rect x="3" y="12" width="22" height="4" rx="1" fill="#a0dae4" opacity="0.7"></rect><rect x="3" y="18" width="22" height="4" rx="1" fill="#a0dae4" opacity="0.4"></rect></svg>FlightStrips</span>
-          <span className="ml-2 animate-bounce text-5xl">...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Provide both the WebSocket client and the store
+  // Keep the store mounted across reconnects so AMAN command correlation and
+  // visible rejections are not discarded while the socket is unavailable.
   return (
     <UserRatingContext.Provider value={userRating}>
-      <WebSocketStoreProvider wsClient={wsClient}>
+      <WebSocketStoreProvider wsClient={wsClient} connected={wsConnected}>
         {children}
       </WebSocketStoreProvider>
     </UserRatingContext.Provider>

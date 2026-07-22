@@ -54,9 +54,14 @@ import {
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 import {
+  createAMANCommand,
+  getAMANMutationBlockReason,
   isAMANCommandRejectedEvent,
   replaceAMANState,
+  type AMANCommandIntent,
   type AMANCommandRejection,
+  type AMANConnectionState,
+  type AMANPendingCommand,
   type AMANPresentationStatus,
   type AMANState,
 } from '../api/aman.ts';
@@ -163,7 +168,12 @@ export interface WebSocketState {
   amanState: AMANState | null;
   amanPresentationStatus: AMANPresentationStatus;
   amanError: string | null;
+  amanConnectionState: AMANConnectionState;
+  amanPendingCommands: Record<string, AMANPendingCommand>;
   amanCommandRejections: Record<string, AMANCommandRejection>;
+  setAMANConnectionState: (connectionState: AMANConnectionState) => void;
+  sendAMANCommand: (intent: AMANCommandIntent, hasFMPAuthority: boolean) => string | null;
+  dismissAMANCommandRejection: (commandID: string) => void;
 
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
@@ -285,6 +295,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     amanState: null,
     amanPresentationStatus: "empty" as AMANPresentationStatus,
     amanError: null,
+    amanConnectionState: "disconnected" as AMANConnectionState,
+    amanPendingCommands: {},
     amanCommandRejections: {},
     selectedCallsign: null,
     tagRequestArmed: false,
@@ -392,6 +404,39 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     return {
      ...initialState,
      selectStrip: (callsign) => set({ selectedCallsign: callsign }),
+     setAMANConnectionState: (connectionState) => set({amanConnectionState: connectionState}),
+     sendAMANCommand: (intent, hasFMPAuthority) => {
+       const state = get();
+       if (getAMANMutationBlockReason({
+         state: state.amanState,
+         connection_state: state.amanConnectionState,
+         read_only: state.readOnly,
+         has_fmp_authority: hasFMPAuthority,
+       }) !== null || state.amanState === null) {
+         return null;
+       }
+
+       const commandID = globalThis.crypto?.randomUUID?.()
+         ?? `aman-${Date.now()}-${Object.keys(state.amanPendingCommands).length + 1}`;
+       const message = createAMANCommand(intent, {
+         command_id: commandID,
+         expected_revision: state.amanState.revision,
+       });
+       wsClient.send(message);
+       set(produce((draft: WebSocketState) => {
+         draft.amanPendingCommands[commandID] = {
+           command_id: commandID,
+           type: message.type,
+           expected_revision: message.data.expected_revision,
+           ...("flight_id" in message.data ? {flight_id: message.data.flight_id} : {}),
+           ...("runway_group_id" in message.data ? {runway_group_id: message.data.runway_group_id} : {}),
+         };
+       }));
+       return commandID;
+     },
+     dismissAMANCommandRejection: (commandID) => set(produce((state: WebSocketState) => {
+       delete state.amanCommandRejections[commandID];
+     })),
      setTagRequestArmed: (armed) => set({ tagRequestArmed: armed, markArmed: armed ? false : get().markArmed, contextMenu: null }),
      setMarkArmed: (armed) => set({ markArmed: armed, tagRequestArmed: armed ? false : get().tagRequestArmed, contextMenu: null }),
     setDisplayedLayout: (layout) => {
@@ -1511,11 +1556,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
   wsClient.on(EventType.FrontendAMANState, (event) => {
     const replacement = replaceAMANState(store.getState().amanState, event);
-    store.setState({
-      amanState: replacement.state,
-      amanPresentationStatus: replacement.status,
-      amanError: replacement.error,
-    });
+    store.setState(produce((state: WebSocketState) => {
+      state.amanState = replacement.state;
+      state.amanPresentationStatus = replacement.status;
+      state.amanError = replacement.error;
+      if (replacement.accepted && replacement.state !== null) {
+        for (const [commandID, pending] of Object.entries(state.amanPendingCommands)) {
+          if (replacement.state.revision > pending.expected_revision) {
+            delete state.amanPendingCommands[commandID];
+          }
+        }
+      }
+    }));
   });
 
   wsClient.on(EventType.FrontendAMANCommandRejected, (event) => {
@@ -1528,6 +1580,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     }
     store.setState(
       produce((state: WebSocketState) => {
+        delete state.amanPendingCommands[event.data.command_id];
         state.amanCommandRejections[event.data.command_id] = event.data;
       }),
     );

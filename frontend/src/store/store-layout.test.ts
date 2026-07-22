@@ -89,7 +89,7 @@ function foreignStrip(): FrontendStrip {
   };
 }
 
-describe("EST layout behavior", () => {
+describe("manual companion layout behavior", () => {
   let client: ReturnType<typeof createMockClient>;
   let store: StoreApi<WebSocketState>;
 
@@ -115,6 +115,19 @@ describe("EST layout behavior", () => {
     client._emit(EventType.FrontendInitial, initialEvent("AD"));
 
     expect(store.getState().displayedLayout).toBe("EST");
+    expect(store.getState().followRecommendedLayout).toBe(false);
+  });
+
+  it("does not automatically open AMAN and keeps a manually opened AMAN board after reconnecting", () => {
+    client._emit(EventType.FrontendInitial, initialEvent("AMAN"));
+    expect(store.getState().displayedLayout).toBe("");
+
+    client._emit(EventType.FrontendInitial, initialEvent("AD"));
+    store.getState().setDisplayedLayout("AMAN");
+    client._emit(EventType.FrontendLayoutUpdate, {type: EventType.FrontendLayoutUpdate, layout: "AAAD"});
+    client._emit(EventType.FrontendInitial, initialEvent("AD"));
+
+    expect(store.getState().displayedLayout).toBe("AMAN");
     expect(store.getState().followRecommendedLayout).toBe(false);
   });
 

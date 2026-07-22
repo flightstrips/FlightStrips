@@ -33,6 +33,8 @@ export interface AMANControlsViewProps {
   commandRejections: Record<string, AMANCommandRejection>;
   onCommand: (intent: AMANCommandIntent) => void;
   onDismissRejection?: (commandID: string) => void;
+  selectedFlightID?: string | null;
+  onSelectedFlightIDChange?: (flightID: string) => void;
 }
 
 function displayTime(value: string | null): string {
@@ -101,6 +103,8 @@ export function AMANControlsView({
   commandRejections,
   onCommand,
   onDismissRejection,
+  selectedFlightID,
+  onSelectedFlightIDChange,
 }: AMANControlsViewProps) {
   const [flightID, setFlightID] = useState("");
   const [targetFlightID, setTargetFlightID] = useState("");
@@ -110,8 +114,9 @@ export function AMANControlsView({
   const [goAroundAt, setGoAroundAt] = useState("");
 
   const flights = state?.flights ?? [];
-  const selectedFlight = flights.find((flight) => flight.flight_id === flightID) ?? flights[0] ?? null;
-  const selectedFlightID = selectedFlight?.flight_id ?? "";
+  const requestedFlightID = selectedFlightID ?? flightID;
+  const selectedFlight = flights.find((flight) => flight.flight_id === requestedFlightID) ?? flights[0] ?? null;
+  const effectiveSelectedFlightID = selectedFlight?.flight_id ?? "";
   const runwayGroupID = selectedFlight?.runway_group_id ?? state?.runway_groups[0]?.id ?? null;
   const gateReason = getAMANMutationBlockReason({
     state,
@@ -169,7 +174,10 @@ export function AMANControlsView({
         <>
           <label className="grid gap-1 text-sm">
             Flight
-            <select aria-label="Flight" className={inputClass} value={selectedFlightID} onChange={(event) => setFlightID(event.target.value)}>
+            <select aria-label="Flight" className={inputClass} value={effectiveSelectedFlightID} onChange={(event) => {
+              setFlightID(event.target.value);
+              onSelectedFlightIDChange?.(event.target.value);
+            }}>
               {flights.map((flight) => <option key={flight.flight_id} value={flight.flight_id}>{flight.callsign}</option>)}
             </select>
           </label>
@@ -180,7 +188,7 @@ export function AMANControlsView({
             <h3 className="font-semibold">Sequence and freeze</h3>
             <select aria-label="Move target" className={inputClass} value={targetFlightID} onChange={(event) => setTargetFlightID(event.target.value)}>
               <option value="">Select target flight</option>
-              {flights.filter((flight) => flight.flight_id !== selectedFlightID).map((flight) => <option key={flight.flight_id} value={flight.flight_id}>{flight.callsign}</option>)}
+              {flights.filter((flight) => flight.flight_id !== effectiveSelectedFlightID).map((flight) => <option key={flight.flight_id} value={flight.flight_id}>{flight.callsign}</option>)}
             </select>
             <div className="flex flex-wrap gap-2">
               <button className={controlClass} disabled={disabled || !targetFlightID || !runwayGroupID} onClick={() => sendMove("before")}>Move before</button>
@@ -234,7 +242,15 @@ export function AMANControlsView({
   );
 }
 
-export function AMANControls({hasFMPAuthority}: {hasFMPAuthority: boolean}) {
+export function AMANControls({
+  hasFMPAuthority,
+  selectedFlightID,
+  onSelectedFlightIDChange,
+}: {
+  hasFMPAuthority: boolean;
+  selectedFlightID?: string | null;
+  onSelectedFlightIDChange?: (flightID: string) => void;
+}) {
   const state = useWebSocketStore((value) => value.amanState);
   const connectionState = useWebSocketStore((value) => value.amanConnectionState);
   const readOnly = useWebSocketStore((value) => value.readOnly);
@@ -253,6 +269,8 @@ export function AMANControls({hasFMPAuthority}: {hasFMPAuthority: boolean}) {
       commandRejections={commandRejections}
       onCommand={(intent) => { sendCommand(intent, hasFMPAuthority); }}
       onDismissRejection={dismissRejection}
+      selectedFlightID={selectedFlightID}
+      onSelectedFlightIDChange={onSelectedFlightIDChange}
     />
   );
 }

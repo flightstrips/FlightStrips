@@ -109,7 +109,7 @@ export function PublicFooter({ tone = "landing" }: { tone?: PublicFooterTone }) 
               </svg>
             </a>
             <a
-              href="#"
+              href="https://discord.gg/vpBk2mpg74"
               aria-label="Discord"
               className="text-[#8a9a9a] hover:text-[#a0dae4] transition-colors inline-flex items-center justify-center w-6 h-6"
             >

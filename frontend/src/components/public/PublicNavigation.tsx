@@ -36,11 +36,8 @@ export function PublicNavigation({ className, linkTone = "landing" }: PublicNavi
   };
 
   const navLinks = [
-    { label: "Product", href: "#" },
-    { label: "Airports", href: "#" },
     { label: "Docs", href: "https://docs.flightstrips.dk" },
-    { label: "Resources", href: "#" },
-    { label: "Community", href: "#" },
+    { label: "Community", href: "https://discord.gg/vpBk2mpg74" },
   ];
 
   if (linkTone === "industrial") {

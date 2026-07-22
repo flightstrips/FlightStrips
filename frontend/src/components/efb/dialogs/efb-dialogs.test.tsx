@@ -7,11 +7,22 @@ import D2CDMDialog from './D2CDMDialog';
 import D2PDCDialog from './D2PDCDialog';
 
 describe('EFB operational dialogs', () => {
-  it('uses the upstream departure briefing artwork', () => {
-    render(<D1Brief isOpen onClose={vi.fn()} stand="A12" sid="NEXEN2A" />);
+  it('uses the selected stand, runway, and SID briefing assets', () => {
+    render(<D1Brief isOpen onClose={vi.fn()} stand="A12" sid="NEXEN2A" runway="22R" />);
 
     expect(screen.getByRole('dialog', { name: 'Departure briefing' })).toBeInTheDocument();
-    expect(screen.getByAltText('Prepare your Flight').getAttribute('src')).toContain('INTRO');
+    expect(screen.getByAltText('Pushback readiness').getAttribute('src')).toContain('.webp');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Pushback from A12' }));
+    expect(screen.getByAltText('Pushback guidance for stand A12').getAttribute('src')).toContain('A12-A17');
+    expect(screen.getByText(/A12: expect Y1/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Initial taxi: 22R' }));
+    expect(screen.getByAltText('Initial taxi guidance for runway 22R').getAttribute('src')).toContain('TAXIINIT22R');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to SID: NEXEN2A' }));
+    expect(screen.getByAltText('22R SID chart for NEXEN2A').getAttribute('src')).toContain('NEX-KOP-LAN-22');
+    expect(screen.getByText(/Kastrup Departure on 124.980/)).toBeInTheDocument();
   });
 
   it('does not claim unknown stand availability and keeps a rejected request open', async () => {

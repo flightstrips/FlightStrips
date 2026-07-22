@@ -24,6 +24,12 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+type routeTransceiverStub map[string][]string
+
+func (s routeTransceiverStub) GetFrequencies(callsign string) []string {
+	return s[callsign]
+}
+
 func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionFallsBackToTowerOwner(t *testing.T) {
 
 	arrivalRunway, towerSector := mustArrivalRunwayAndTowerSector(t)
@@ -97,6 +103,60 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionFallsBackToTowerOwner(
 func TestAirborneSectorDisplayNames_UseShortLabels(t *testing.T) {
 	assert.Equal(t, "K", config.GetSectorDisplayName("K_DEP"))
 	assert.Equal(t, "R", config.GetSectorDisplayName("R_DEP"))
+}
+
+func TestComputeDepartureFrequencyForStrip_UsesSIDSpecificAirborneController(t *testing.T) {
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, session int32) ([]*models.Controller, error) {
+			require.Equal(t, int32(42), session)
+			return []*models.Controller{
+				{Session: session, Callsign: "EKCH_K_DEP", Position: "124.980"},
+				{Session: session, Callsign: "EKCH_R_DEP", Position: "120.255"},
+			}, nil
+		},
+	}
+	sid := "NEXEN2A"
+	srv := &Server{controllerRepo: controllerRepo}
+
+	frequency, err := srv.ComputeDepartureFrequencyForStripContext(context.Background(), &models.Strip{Sid: &sid}, 42)
+
+	require.NoError(t, err)
+	require.NotNil(t, frequency)
+	assert.Equal(t, "124.980", *frequency)
+}
+
+func TestComputeDepartureFrequencyForStrip_UsesCrossCoupledDepartureFrequency(t *testing.T) {
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, session int32) ([]*models.Controller, error) {
+			return []*models.Controller{{Session: session, Callsign: "EKCH_O_APP", Position: "118.455"}}, nil
+		},
+	}
+	sid := "NEXEN2A"
+	srv := &Server{
+		controllerRepo:     controllerRepo,
+		frequencyProviders: []TransceiverLookup{routeTransceiverStub{"EKCH_O_APP": {"124.980"}}},
+	}
+
+	frequency, err := srv.ComputeDepartureFrequencyForStripContext(context.Background(), &models.Strip{Sid: &sid}, 42)
+
+	require.NoError(t, err)
+	require.NotNil(t, frequency)
+	assert.Equal(t, "124.980", *frequency)
+}
+
+func TestComputeDepartureFrequencyForStrip_DoesNotReturnApproachFallback(t *testing.T) {
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, session int32) ([]*models.Controller, error) {
+			return []*models.Controller{{Session: session, Callsign: "EKCH_O_APP", Position: "118.455"}}, nil
+		},
+	}
+	sid := "NEXEN2A"
+	srv := &Server{controllerRepo: controllerRepo}
+
+	frequency, err := srv.ComputeDepartureFrequencyForStripContext(context.Background(), &models.Strip{Sid: &sid}, 42)
+
+	require.NoError(t, err)
+	assert.Nil(t, frequency)
 }
 
 func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionUsesTowerAsRouteStart(t *testing.T) {

@@ -31,8 +31,8 @@ type ATISLookup interface {
 	GetATIS(airport string, departure bool) *metar.ATIS
 }
 
-type RouteDisplayLookup interface {
-	ComputeNextDisplayForStripContext(context.Context, *models.Strip, int32) (*models.NextDisplay, error)
+type DepartureFrequencyLookup interface {
+	ComputeDepartureFrequencyForStripContext(context.Context, *models.Strip, int32) (*string, error)
 }
 
 type WebAPIConfig struct {
@@ -45,7 +45,7 @@ type WebAPIConfig struct {
 	CDMReady    bool
 	Stands      *services.StandActionService
 	ATIS        ATISLookup
-	Routes      RouteDisplayLookup
+	Departures  DepartureFrequencyLookup
 	PDCReady    bool
 	Live        bool
 }
@@ -60,13 +60,13 @@ type WebAPI struct {
 	cdmReady    bool
 	stands      *services.StandActionService
 	atis        ATISLookup
-	routes      RouteDisplayLookup
+	departures  DepartureFrequencyLookup
 	pdcReady    bool
 	live        bool
 }
 
 func NewWebAPI(cfg WebAPIConfig) *WebAPI {
-	return &WebAPI{auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, stands: cfg.Stands, atis: cfg.ATIS, routes: cfg.Routes, pdcReady: cfg.PDCReady, live: cfg.Live}
+	return &WebAPI{auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, stands: cfg.Stands, atis: cfg.ATIS, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live}
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
@@ -158,9 +158,9 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 		state = "REQUESTED"
 	}
 	result := snapshot{Callsign: s.Callsign, AircraftType: s.AircraftType, Origin: s.Origin, Destination: s.Destination, Route: s.Route, Phase: phase, Runway: s.Runway, SID: s.Sid, STAR: s.Star, ClearedAltitude: s.ClearedAltitude, Squawk: s.AssignedSquawk, Stand: nonEmptyString(s.Stand), EOBT: s.EffectiveEobt(), TOBT: s.EffectiveTobt(), TSAT: normalizeClock(s.EffectiveTsat()), TTOT: s.EffectiveTtot(), CTOT: s.EffectiveCtot(), PDCState: state, PDCAvailable: a.pdcReady && departure && !s.Cleared, PDCCanSubmit: a.pdcReady && departure && !s.Cleared && pdc.WebPDCCanSubmit(s.PdcState), PDCRequiresPilotAction: state == "CLEARED", Capabilities: capabilities{PDC: a.pdcReady && departure, TOBT: a.cdmReady && departure, Stand: a.stands != nil && a.assignments != nil}}
-	if departure && a.routes != nil {
-		if display, err := a.routes.ComputeNextDisplayForStripContext(ctx, s, match.SessionID); err == nil && display != nil {
-			result.DepartureFrequency = nonEmptyString(&display.Frequency)
+	if departure && a.departures != nil {
+		if frequency, err := a.departures.ComputeDepartureFrequencyForStripContext(ctx, s, match.SessionID); err == nil {
+			result.DepartureFrequency = nonEmptyString(frequency)
 		}
 	}
 	if s.CdmData != nil {

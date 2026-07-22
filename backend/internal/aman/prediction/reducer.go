@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"FlightStrips/internal/aman"
@@ -144,7 +145,8 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 
 	// Superstable happens only at the exact configured holding-fix boundary,
 	// never before/after it and never until a complete slot exists.
-	if atSuperstableBoundary(input.Raw.GeneratedAt, input.Raw.HoldingFixETA, config.SuperstableHorizon) && flight.Slot != nil {
+	if atSuperstableBoundary(input.Raw.GeneratedAt, input.Raw.HoldingFixETA, config.SuperstableHorizon) &&
+		flight.SelectedHolding != nil && strings.TrimSpace(*flight.SelectedHolding) != "" && flight.Slot != nil {
 		freezeAt := input.Raw.GeneratedAt
 		frozenTETA := candidate
 		frozenSlot := cloneSlot(flight.Slot)

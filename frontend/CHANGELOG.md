@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.48.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.47.0...frontend/v0.48.0) (2026-07-22)
+
+
+### Features
+
+* **efb:** add contextual departure briefing and handover ([#403](https://github.com/flightstrips/FlightStrips/issues/403)) ([8adb8ab](https://github.com/flightstrips/FlightStrips/commit/8adb8ab3a202ae194c0a9b409110b12fe7f19af6))
+* **strip:** add tactical strip ownership ([#395](https://github.com/flightstrips/FlightStrips/issues/395)) ([dbe1784](https://github.com/flightstrips/FlightStrips/commit/dbe178412e7eb3f9b9b3d12aa9c8ec4c0689289c))
+
+
+### Bug Fixes
+
+* **cdm:** restore START REQ stand styling ([#396](https://github.com/flightstrips/FlightStrips/issues/396)) ([e21a446](https://github.com/flightstrips/FlightStrips/commit/e21a44611bf9bd176ce59d9e5cacfb61de58d606))
+* **landing:** repair public page links ([#404](https://github.com/flightstrips/FlightStrips/issues/404)) ([5e98393](https://github.com/flightstrips/FlightStrips/commit/5e98393a3f4f87bb4d5785134f25d18471853053))
+* **strip:** color H and L WTC labels ([#397](https://github.com/flightstrips/FlightStrips/issues/397)) ([ae3aa1f](https://github.com/flightstrips/FlightStrips/commit/ae3aa1fc78bc954707784dc23ce655f7947712c0))
+* **strip:** improve EST transfer robustness ([#402](https://github.com/flightstrips/FlightStrips/issues/402)) ([368f431](https://github.com/flightstrips/FlightStrips/commit/368f43118c61b5c9e8005a703168c83dfaa7bb6f))
+
 ## [0.47.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.46.1...frontend/v0.47.0) (2026-07-20)
 
 

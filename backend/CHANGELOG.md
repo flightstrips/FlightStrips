@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.40.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.39.0...backend/v0.40.0) (2026-07-22)
+
+
+### Features
+
+* **aman:** activate navigation datasets safely ([#374](https://github.com/flightstrips/FlightStrips/issues/374)) ([30fdff3](https://github.com/flightstrips/FlightStrips/commit/30fdff30cc819bd724564d20342f0c78ffb27b56))
+* **aman:** add baseline arrival estimates ([#376](https://github.com/flightstrips/FlightStrips/issues/376)) ([5f8efa9](https://github.com/flightstrips/FlightStrips/commit/5f8efa935520a5a9c5d80cb6fe30eb2253ae84c7))
+* **aman:** add deterministic replay harness ([#399](https://github.com/flightstrips/FlightStrips/issues/399)) ([ce74741](https://github.com/flightstrips/FlightStrips/commit/ce747417a179f4cf649e3b3ffdada8c040d0ee85))
+* **aman:** add performance and wind correction ([#378](https://github.com/flightstrips/FlightStrips/issues/378)) ([ddd3d0e](https://github.com/flightstrips/FlightStrips/commit/ddd3d0e9cbc86c5bce224a0f17847339b85406ab))
+* **aman:** add technical health and observability ([#398](https://github.com/flightstrips/FlightStrips/issues/398)) ([ece43d3](https://github.com/flightstrips/FlightStrips/commit/ece43d315f6a40cf77782e3b3b400fd62795a01c))
+* **aman:** add validation reports ([#400](https://github.com/flightstrips/FlightStrips/issues/400)) ([324579d](https://github.com/flightstrips/FlightStrips/commit/324579d0d521b137d442fa5ee5af10a9b71f2f1d))
+* **aman:** calculate route trajectory and DTG ([#377](https://github.com/flightstrips/FlightStrips/issues/377)) ([afa5074](https://github.com/flightstrips/FlightStrips/commit/afa5074438353da7b304ffb991a7ced76a782f9b))
+* **aman:** define navigation contracts ([#370](https://github.com/flightstrips/FlightStrips/issues/370)) ([b5a43f5](https://github.com/flightstrips/FlightStrips/commit/b5a43f563cb5da4b7e48ed8636947373f984667e))
+* **aman:** enforce rollout gates ([#401](https://github.com/flightstrips/FlightStrips/issues/401)) ([ce20080](https://github.com/flightstrips/FlightStrips/commit/ce200804794b1656d348d1847964dc3f3766e01b))
+* **aman:** implement AIRAC.NET navigation adapter ([#373](https://github.com/flightstrips/FlightStrips/issues/373)) ([66196d3](https://github.com/flightstrips/FlightStrips/commit/66196d31f26240044f25d816ced4b8ffc0cdb349))
+* **aman:** persist navigation cache ([#371](https://github.com/flightstrips/FlightStrips/issues/371)) ([d572174](https://github.com/flightstrips/FlightStrips/commit/d5721744993667b82d762ea18dd0536e360d6168))
+* **aman:** publish VATSIM observations ([#369](https://github.com/flightstrips/FlightStrips/issues/369)) ([c1f5479](https://github.com/flightstrips/FlightStrips/commit/c1f547935c2f778eb4d51d0fa05c5e85701d7b59))
+* **efb:** add contextual departure briefing and handover ([#403](https://github.com/flightstrips/FlightStrips/issues/403)) ([8adb8ab](https://github.com/flightstrips/FlightStrips/commit/8adb8ab3a202ae194c0a9b409110b12fe7f19af6))
+* **strip:** add tactical strip ownership ([#395](https://github.com/flightstrips/FlightStrips/issues/395)) ([dbe1784](https://github.com/flightstrips/FlightStrips/commit/dbe178412e7eb3f9b9b3d12aa9c8ec4c0689289c))
+
+
+### Bug Fixes
+
+* **strip:** improve EST transfer robustness ([#402](https://github.com/flightstrips/FlightStrips/issues/402)) ([368f431](https://github.com/flightstrips/FlightStrips/commit/368f43118c61b5c9e8005a703168c83dfaa7bb6f))
+
 ## [0.39.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.38.0...backend/v0.39.0) (2026-07-20)
 
 

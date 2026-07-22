@@ -37,9 +37,9 @@ type ValidationEvidence struct {
 	RecordedAt time.Time
 }
 
-// StateCommit is the single atomic AMAN persistence operation. A successful
-// commit advances exactly one airport revision, optionally records a command
-// result, and appends its audit and validation evidence.
+// StateCommit is the single atomic AMAN persistence operation. A changed
+// commit advances exactly one airport revision. An unchanged command commit
+// retains ExpectedRevision while atomically recording its outcome and audit.
 type StateCommit struct {
 	ExpectedRevision   SequenceRevision
 	State              AirportState
@@ -126,8 +126,8 @@ func (c StateCommit) Validate() error {
 	if err := c.State.Validate(); err != nil {
 		return err
 	}
-	if c.State.Revision != c.ExpectedRevision+1 {
-		return invalid("state revision must be exactly one greater than expected revision")
+	if c.State.Revision != c.ExpectedRevision && c.State.Revision != c.ExpectedRevision+1 {
+		return invalid("state revision must equal expected revision or be exactly one greater")
 	}
 	if c.CommandOutcome != nil {
 		if err := c.CommandOutcome.validateFor(c.State.Airport, c.State.Revision); err != nil {

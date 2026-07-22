@@ -37,6 +37,12 @@ SELECT *
 FROM aman_airport_states
 WHERE airport = $1;
 
+-- name: LockAMANAirportState :one
+SELECT revision
+FROM aman_airport_states
+WHERE airport = $1
+FOR UPDATE;
+
 -- name: UpsertAMANAirportState :one
 INSERT INTO aman_airport_states (
     airport, revision, generated_at, policy_version, mode, authoritative, runway_groups

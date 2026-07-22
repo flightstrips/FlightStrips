@@ -40,6 +40,9 @@ func (r *amanRepository) LoadAirportState(ctx context.Context, airport string) (
 
 func (r *amanRepository) LoadCommandOutcome(ctx context.Context, commandID string) (aman.CommandOutcome, error) {
 	row, err := r.queries.GetAMANCommandOutcome(ctx, commandID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return aman.CommandOutcome{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN command outcome was not found"}
+	}
 	if err != nil {
 		return aman.CommandOutcome{}, err
 	}
@@ -178,57 +181,72 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 		return aman.CommitResult{}, err
 	}
 
-	current, err := queries.GetAMANAirportState(ctx, commit.State.Airport)
+	lockedRevision, err := queries.LockAMANAirportState(ctx, commit.State.Airport)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return aman.CommitResult{}, err
 	}
 	if errors.Is(err, pgx.ErrNoRows) && commit.ExpectedRevision != 0 {
 		return aman.CommitResult{}, revisionConflict()
 	}
-	if err == nil && aman.SequenceRevision(current.Revision) != commit.ExpectedRevision {
+	if err == nil && aman.SequenceRevision(lockedRevision) != commit.ExpectedRevision {
 		return aman.CommitResult{}, revisionConflict()
 	}
-
-	runwayGroups, err := json.Marshal(commit.State.RunwayGroups)
-	if err != nil {
-		return aman.CommitResult{}, fmt.Errorf("encode AMAN runway groups: %w", err)
-	}
-	_, err = queries.UpsertAMANAirportState(ctx, database.UpsertAMANAirportStateParams{
-		Airport:       commit.State.Airport,
-		Revision:      int64(commit.State.Revision),
-		GeneratedAt:   requiredTimestamp(commit.State.GeneratedAt),
-		PolicyVersion: commit.State.PolicyVersion,
-		Mode:          string(commit.State.Mode),
-		Authoritative: commit.State.Authoritative,
-		RunwayGroups:  runwayGroups,
-		Revision_2:    int64(commit.ExpectedRevision),
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return aman.CommitResult{}, revisionConflict()
-	}
-	if err != nil {
-		return aman.CommitResult{}, mapAMANWriteError(err)
-	}
-
-	if err := queries.DeleteAMANFlightsForAirport(ctx, commit.State.Airport); err != nil {
-		return aman.CommitResult{}, err
-	}
-	for _, flight := range commit.State.Flights {
-		payload, err := json.Marshal(flight)
-		if err != nil {
-			return aman.CommitResult{}, fmt.Errorf("encode AMAN flight %q: %w", flight.ID, err)
+	changed := commit.State.Revision == commit.ExpectedRevision+1
+	if !changed {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return aman.CommitResult{}, revisionConflict()
 		}
-		if err := queries.UpsertAMANFlight(ctx, database.UpsertAMANFlightParams{
-			FlightID:        string(flight.ID),
-			Airport:         commit.State.Airport,
-			VatsimCid:       flight.VATSIMCID,
-			CurrentCallsign: flight.CurrentCallsign,
-			State:           string(flight.State),
-			DataStatus:      string(flight.DataStatus),
-			UpdatedAt:       requiredTimestamp(flight.UpdatedAt),
-			Payload:         payload,
-		}); err != nil {
+		stored, err := loadAMANAirportState(ctx, queries, commit.State.Airport)
+		if err != nil {
+			return aman.CommitResult{}, err
+		}
+		if !airportStatesEqual(stored, commit.State) {
+			return aman.CommitResult{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "unchanged commit state differs from persisted state"}
+		}
+	}
+
+	if changed {
+		runwayGroups, err := json.Marshal(commit.State.RunwayGroups)
+		if err != nil {
+			return aman.CommitResult{}, fmt.Errorf("encode AMAN runway groups: %w", err)
+		}
+		_, err = queries.UpsertAMANAirportState(ctx, database.UpsertAMANAirportStateParams{
+			Airport:       commit.State.Airport,
+			Revision:      int64(commit.State.Revision),
+			GeneratedAt:   requiredTimestamp(commit.State.GeneratedAt),
+			PolicyVersion: commit.State.PolicyVersion,
+			Mode:          string(commit.State.Mode),
+			Authoritative: commit.State.Authoritative,
+			RunwayGroups:  runwayGroups,
+			Revision_2:    int64(commit.ExpectedRevision),
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return aman.CommitResult{}, revisionConflict()
+		}
+		if err != nil {
 			return aman.CommitResult{}, mapAMANWriteError(err)
+		}
+
+		if err := queries.DeleteAMANFlightsForAirport(ctx, commit.State.Airport); err != nil {
+			return aman.CommitResult{}, err
+		}
+		for _, flight := range commit.State.Flights {
+			payload, err := json.Marshal(flight)
+			if err != nil {
+				return aman.CommitResult{}, fmt.Errorf("encode AMAN flight %q: %w", flight.ID, err)
+			}
+			if err := queries.UpsertAMANFlight(ctx, database.UpsertAMANFlightParams{
+				FlightID:        string(flight.ID),
+				Airport:         commit.State.Airport,
+				VatsimCid:       flight.VATSIMCID,
+				CurrentCallsign: flight.CurrentCallsign,
+				State:           string(flight.State),
+				DataStatus:      string(flight.DataStatus),
+				UpdatedAt:       requiredTimestamp(flight.UpdatedAt),
+				Payload:         payload,
+			}); err != nil {
+				return aman.CommitResult{}, mapAMANWriteError(err)
+			}
 		}
 	}
 
@@ -339,6 +357,12 @@ func cloneAirportState(value aman.AirportState) aman.AirportState {
 	value.Flights = append([]aman.AMANFlight(nil), value.Flights...)
 	value.RunwayGroups = append([]aman.RunwayGroupPolicy(nil), value.RunwayGroups...)
 	return value
+}
+
+func airportStatesEqual(left, right aman.AirportState) bool {
+	leftJSON, leftErr := json.Marshal(left)
+	rightJSON, rightErr := json.Marshal(right)
+	return leftErr == nil && rightErr == nil && string(leftJSON) == string(rightJSON)
 }
 
 func revisionConflict() error {

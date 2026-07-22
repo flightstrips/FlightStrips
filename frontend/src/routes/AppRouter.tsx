@@ -9,6 +9,7 @@ import EKCHTWTE from "@/routes/ekch/TWTE";
 import EKCHTWRGND from "@/routes/ekch/TWRGND";
 import ChooseLayoutScreen from "@/components/ChooseLayoutScreen";
 import ObserverInvalidFrequencyScreen from "@/components/ObserverInvalidFrequencyScreen";
+import EKCHAMAN from "@/routes/ekch/AMAN";
 
 const LAYOUT_MAP: Record<string, React.ComponentType> = {
   CLX: EKCHDEL,
@@ -19,6 +20,7 @@ const LAYOUT_MAP: Record<string, React.ComponentType> = {
   GEGW: EKCHGEGW,
   TWTE: EKCHTWTE,
   TWRGND: EKCHTWRGND,
+  AMAN: EKCHAMAN,
 };
 
 export default function AppRouter() {

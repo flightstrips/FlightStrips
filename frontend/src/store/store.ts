@@ -75,8 +75,10 @@ import {
 } from "@/lib/validation-status";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { toast } from "sonner";
+import {markAMANStateReceived} from "@/lib/aman-performance";
 
-const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", "EST", "GEGW", "TWTE", "TWRGND"]);
+const MANUAL_COMPANION_LAYOUTS = new Set(["EST", "AMAN"]);
+const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", ...MANUAL_COMPANION_LAYOUTS, "GEGW", "TWTE", "TWRGND"]);
 
 function normalizeLayout(layout: string) {
   switch (layout.trim().toUpperCase()) {
@@ -443,9 +445,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       const normalizedLayout = normalizeLayout(layout);
       set({
         displayedLayout: normalizedLayout,
-        // EST is a manual companion view, not a position-driven layout. Keep it
-        // open when strip or controller updates change the recommended layout.
-        followRecommendedLayout: normalizedLayout !== "EST" && normalizedLayout === get().layout,
+        // Manual companion views are not position-driven. Keep them open when
+        // strip or controller updates change the recommended layout.
+        followRecommendedLayout: !MANUAL_COMPANION_LAYOUTS.has(normalizedLayout) && normalizedLayout === get().layout,
       });
     },
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
@@ -987,10 +989,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.localIp = data.local_ip ?? "";
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
-        if (state.displayedLayout === "EST") {
-          // Preserve a manually opened EST board across reconnects.
+        if (MANUAL_COMPANION_LAYOUTS.has(state.displayedLayout)) {
+          // Preserve a manually opened companion board across reconnects.
           state.followRecommendedLayout = false;
-        } else if (KNOWN_LAYOUTS.has(normalizedLayout) && normalizedLayout !== "EST") {
+        } else if (KNOWN_LAYOUTS.has(normalizedLayout) && !MANUAL_COMPANION_LAYOUTS.has(normalizedLayout)) {
           state.displayedLayout = normalizedLayout;
           state.followRecommendedLayout = true;
         } else {
@@ -1556,6 +1558,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
   wsClient.on(EventType.FrontendAMANState, (event) => {
     const replacement = replaceAMANState(store.getState().amanState, event);
+    if (replacement.accepted && replacement.state !== null) {
+      markAMANStateReceived(replacement.state.revision);
+    }
     store.setState(produce((state: WebSocketState) => {
       state.amanState = replacement.state;
       state.amanPresentationStatus = replacement.status;

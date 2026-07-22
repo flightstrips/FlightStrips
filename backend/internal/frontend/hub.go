@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/aman"
 	"FlightStrips/internal/clx"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/dependencies"
@@ -85,9 +86,14 @@ type Hub struct {
 	clxMu        sync.RWMutex
 	clxOverrides map[int32]map[string]bool
 
-	snapshotBuilder    *SnapshotBuilder
-	standActionService *services.StandActionService
-	amanStateProvider  AMANStateProvider
+	snapshotBuilder     *SnapshotBuilder
+	standActionService  *services.StandActionService
+	amanStateProvider   AMANStateProvider
+	amanCommandService  aman.CommandService
+	amanFMPRoles        map[string]struct{}
+	amanMutations       bool
+	amanNow             func() time.Time
+	amanRoleForPosition func(string) string
 }
 
 // AMANStateProvider returns the latest complete persisted replacement event
@@ -114,6 +120,9 @@ type HubDependencies struct {
 	Strips         shared.StripService
 	Authentication shared.AuthenticationService
 	AMANState      AMANStateProvider
+	AMANCommands   aman.CommandService
+	AMANFMPRoles   []string
+	AMANMutations  bool
 }
 
 func NewHub(deps HubDependencies) (*Hub, error) {
@@ -174,14 +183,32 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		stripService:          deps.Strips,
 		authenticationService: deps.Authentication,
 		amanStateProvider:     deps.AMANState,
+		amanCommandService:    deps.AMANCommands,
+		amanFMPRoles:          normalizedAMANRoles(deps.AMANFMPRoles),
+		amanMutations:         deps.AMANMutations,
+		amanNow:               time.Now,
+		amanRoleForPosition:   configuredAMANRole,
 		messages:              make(map[int32][]frontend.MessageReceivedEvent),
 		metarCache:            make(map[int32]string),
 		arrAtisCodeCache:      make(map[int32]string),
 		depAtisCodeCache:      make(map[int32]string),
 		clxOverrides:          make(map[int32]map[string]bool),
 	}
+	if deps.AMANCommands != nil {
+		registerAMANCommandHandlers(&hub.handlers)
+	}
 
 	return hub, nil
+}
+
+func normalizedAMANRoles(values []string) map[string]struct{} {
+	roles := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		if role := strings.ToUpper(strings.TrimSpace(value)); role != "" {
+			roles[role] = struct{}{}
+		}
+	}
+	return roles
 }
 
 func (hub *Hub) RegisterPDCHandlers(service shared.PdcService) error {

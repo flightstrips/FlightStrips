@@ -583,6 +583,7 @@ const (
 	ErrorNotFound                     ErrorClass = "not_found"
 	ErrorRevisionConflict             ErrorClass = "revision_conflict"
 	ErrorUnauthorized                 ErrorClass = "unauthorized"
+	ErrorReadOnly                     ErrorClass = "read_only"
 	ErrorInvalidTransition            ErrorClass = "invalid_transition"
 	ErrorDependencyUnavailable        ErrorClass = "dependency_unavailable"
 	ErrorDegradedOrIncompleteGeometry ErrorClass = "degraded_or_incomplete_geometry"
@@ -594,7 +595,7 @@ const (
 
 func (c ErrorClass) Valid() bool {
 	switch c {
-	case ErrorInvalidArgument, ErrorNotFound, ErrorRevisionConflict, ErrorUnauthorized,
+	case ErrorInvalidArgument, ErrorNotFound, ErrorRevisionConflict, ErrorUnauthorized, ErrorReadOnly,
 		ErrorInvalidTransition, ErrorDependencyUnavailable, ErrorDegradedOrIncompleteGeometry,
 		ErrorUnsupportedLeg, ErrorDatasetMismatch, ErrorCorruptData, ErrorActiveFlightConflict:
 		return true

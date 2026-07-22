@@ -71,6 +71,19 @@ func TestApplicationConfigDefaultsAMANToDisabled(t *testing.T) {
 	require.Equal(t, aman.ModeDisabled, config.AMAN.Mode)
 }
 
+func TestBuildRejectsAuthoritativeAMANWithoutTypedCommandService(t *testing.T) {
+	geometry, err := os.CreateTemp(t.TempDir(), "terminal-*.geojson")
+	require.NoError(t, err)
+	require.NoError(t, geometry.Close())
+
+	_, err = Build(context.Background(), Config{AMAN: aman.RuntimeConfig{
+		Mode: aman.ModeAuthoritative, EnabledAirports: []string{"EKCH"},
+		TerminalGeometryPath: geometry.Name(), NavigationSourceAdapter: aman.NavigationAdapterAIRACNet,
+	}}, Dependencies{AMAN: amanAppTestDependencies()})
+
+	require.EqualError(t, err, "initialize AMAN commands: authoritative runtime requires typed command service")
+}
+
 func TestBuildAddsAMANWorkersOnlyWhenEnabled(t *testing.T) {
 	poolConfig, err := pgxpool.ParseConfig("postgres://user:password@127.0.0.1:1/test")
 	require.NoError(t, err)

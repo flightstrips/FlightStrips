@@ -120,6 +120,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("initialize AMAN runtime: %w", err)
 	}
+	amanCommands, hasAMANCommands := deps.AMAN.SequenceService.(aman.CommandService)
+	if amanRuntime.Ownership().ControllerMutationAuthorized && !hasAMANCommands {
+		return nil, errors.New("initialize AMAN commands: authoritative runtime requires typed command service")
+	}
 	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment, cfg.StandAssignmentAircraftJSON)
 	var testClock *testtools.Clock
 	satNow := time.Now
@@ -188,7 +192,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	serverFrequencyProviders := transports.serverFrequencyProviders
 	pdcFrequencyProviders := transports.pdcFrequencyProviders
 
-	realtime, err := assembleRealtime(stripService, controllerService, authService)
+	realtime, err := assembleRealtime(stripService, controllerService, authService, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -569,9 +573,9 @@ type realtimeAssembly struct {
 	euroscope *euroscope.Hub
 }
 
-func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService) (realtimeAssembly, error) {
+func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanCommands aman.CommandService, amanFMPRoles []string, amanMutations bool) (realtimeAssembly, error) {
 	frontendHub, err := frontend.NewHub(frontend.HubDependencies{
-		Strips: stripService, Authentication: authService,
+		Strips: stripService, Authentication: authService, AMANCommands: amanCommands, AMANFMPRoles: amanFMPRoles, AMANMutations: amanMutations,
 	})
 	if err != nil {
 		return realtimeAssembly{}, fmt.Errorf("initialize frontend hub: %w", err)

@@ -25,6 +25,7 @@ var airportIdentifier = regexp.MustCompile(`^[A-Z]{4}$`)
 // zero value is intentionally release-safe: AMAN remains disabled.
 type RuntimeConfig struct {
 	EnabledAirports             []string
+	FMPRoles                    []string
 	Mode                        RolloutMode
 	ReconciliationInterval      time.Duration
 	SurveillanceInterval        time.Duration
@@ -60,6 +61,7 @@ func (c RuntimeConfig) normalize() RuntimeConfig {
 	c = c.withDefaults()
 	c.Mode = RolloutMode(strings.ToLower(strings.TrimSpace(string(c.Mode))))
 	c.EnabledAirports = normalizeAirports(c.EnabledAirports)
+	c.FMPRoles = normalizeRoles(c.FMPRoles)
 	c.TerminalGeometryPath = strings.TrimSpace(c.TerminalGeometryPath)
 	c.NavigationSourceAdapter = strings.ToLower(strings.TrimSpace(c.NavigationSourceAdapter))
 	return c
@@ -82,6 +84,19 @@ func (c RuntimeConfig) Validate() error {
 
 	if len(c.EnabledAirports) != len(nonEmpty(original.EnabledAirports)) {
 		return fmt.Errorf("AMAN enabled airports must be unique ICAO identifiers")
+	}
+	if len(c.FMPRoles) != len(nonEmpty(original.FMPRoles)) {
+		return fmt.Errorf("AMAN FMP roles must be unique configured position names")
+	}
+	seenRoles := make(map[string]struct{}, len(c.FMPRoles))
+	for _, role := range c.FMPRoles {
+		if !isTrimmedRole(role) {
+			return fmt.Errorf("AMAN FMP role %q must be a configured position name", role)
+		}
+		if _, exists := seenRoles[role]; exists {
+			return fmt.Errorf("AMAN FMP roles must be unique configured position names")
+		}
+		seenRoles[role] = struct{}{}
 	}
 	seenAirports := make(map[string]struct{}, len(c.EnabledAirports))
 	for _, airport := range c.EnabledAirports {
@@ -120,6 +135,31 @@ func normalizeAirports(values []string) []string {
 		}
 	}
 	return airports
+}
+
+func normalizeRoles(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	roles := make([]string, 0, len(values))
+	for _, value := range values {
+		if role := strings.ToUpper(strings.TrimSpace(value)); role != "" {
+			roles = append(roles, role)
+		}
+	}
+	return roles
+}
+
+func isTrimmedRole(value string) bool {
+	if value == "" || strings.ContainsAny(value, " \t\r\n") {
+		return false
+	}
+	for _, character := range value {
+		if (character < 'A' || character > 'Z') && (character < '0' || character > '9') && character != '_' && character != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func nonEmpty(values []string) []string {
@@ -255,6 +295,7 @@ func (r *Runtime) Config() RuntimeConfig {
 	}
 	config := r.config
 	config.EnabledAirports = slices.Clone(config.EnabledAirports)
+	config.FMPRoles = slices.Clone(config.FMPRoles)
 	return config
 }
 

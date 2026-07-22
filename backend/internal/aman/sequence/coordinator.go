@@ -33,10 +33,11 @@ type AuditEntry struct {
 // allocate a revision or change the airport identity; Coordinator is the sole
 // sequence-revision writer.
 type CommandChange struct {
-	State   aman.AirportState
-	Changed bool
-	Outcome json.RawMessage
-	Audit   []AuditEntry
+	State       aman.AirportState
+	Changed     bool
+	Outcome     json.RawMessage
+	Audit       []AuditEntry
+	QueueOffers *QueueOfferCalculation
 }
 
 // CommandMutation adapts a typed policy operation to the persisted aggregate.
@@ -230,8 +231,21 @@ func prepareCommit(current aman.AirportState, metadata aman.CommandMetadata, cha
 			if next.Flights[index].Slot != nil {
 				next.Flights[index].Slot.Revision = next.Revision
 			}
+			// Offers cannot be carried across a changed airport revision. A
+			// supplied calculation below replaces them from the same slot input.
+			next.Flights[index].QueueOffers = nil
+		}
+		if change.QueueOffers != nil {
+			projected, err := change.QueueOffers.project(next, next.Revision, recordedAt)
+			if err != nil {
+				return aman.StateCommit{}, err
+			}
+			next = projected
 		}
 	} else {
+		if change.QueueOffers != nil {
+			return aman.StateCommit{}, invalidCoordinatorChange("unchanged command cannot recompute queue offers")
+		}
 		equal, err := equalStates(current, next)
 		if err != nil {
 			return aman.StateCommit{}, err

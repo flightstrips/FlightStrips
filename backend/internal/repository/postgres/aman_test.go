@@ -196,6 +196,34 @@ func TestAMANRepositoryRestoresHeldAirborneBaselineForFreshPredictor(t *testing.
 	require.Equal(t, first.State, held.State)
 }
 
+func TestAMANRepositoryRestoresRevisionBoundQueueOffers(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-QUEUE-1", "SAS321")
+	first := state.Flights[0]
+	target := first
+	target.ID = "flight-2"
+	target.VATSIMCID = "CID-QUEUE-2"
+	target.CurrentCallsign = "SAS322"
+	target.Slot = &aman.Slot{
+		Time: first.Slot.Time.Add(time.Minute), RunwayGroupID: first.Slot.RunwayGroupID,
+		Sequence: 2, Revision: state.Revision, Reason: "rate_wtc",
+	}
+	target.Order = intPtr(2)
+	target.QueueOffers = []aman.QueueOffer{{
+		FlightID: target.ID, RunwayGroupID: first.Slot.RunwayGroupID, CandidateSlot: *first.Slot,
+		QueuePosition: 1, ExpiresAt: first.Slot.Time, AirportRevision: state.Revision,
+		Reason: aman.QueueOfferEarlierOccupiedSlot,
+	}}
+	state.Flights = append(state.Flights, target)
+
+	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, restored)
+}
+
 func TestAMANRepositoryRestoresETAReviewAndKeepsResolutionAtomicAndIdempotent(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

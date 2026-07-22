@@ -50,6 +50,7 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[RawTETASample](),
 		reflect.TypeFor[BaselineState](),
 		reflect.TypeFor[Slot](),
+		reflect.TypeFor[QueueOffer](),
 		reflect.TypeFor[RouteFact](),
 		reflect.TypeFor[ETAReview](),
 		reflect.TypeFor[OperationalException](),
@@ -179,6 +180,33 @@ func TestAirportStateRejectsMismatchedSlotRevisionAndDuplicateFlight(t *testing.
 
 	flight.Slot.Revision = state.Revision
 	state.Flights = append(state.Flights, flight)
+	assertInvalidArgument(t, state.Validate())
+}
+
+func TestQueueOfferRequiresMatchingFlightSlotAndAirportRevision(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := validFlight(now)
+	flight.Slot = &Slot{Time: now.Add(3 * time.Minute), RunwayGroupID: "north", Sequence: 3, Revision: 4, Reason: "rate_wtc"}
+	flight.QueueOffers = []QueueOffer{{
+		FlightID: flight.ID, RunwayGroupID: "north",
+		CandidateSlot: Slot{Time: now.Add(time.Minute), RunwayGroupID: "north", Sequence: 1, Revision: 4, Reason: "rate_wtc"},
+		QueuePosition: 1, ExpiresAt: now.Add(time.Minute), AirportRevision: 4, Reason: QueueOfferEarlierOccupiedSlot,
+	}}
+	state := AirportState{
+		Airport: "EKCH", Revision: 4, GeneratedAt: now, PolicyVersion: "v1", Mode: ModeReadOnly,
+		Flights: []AMANFlight{flight}, RunwayGroups: []RunwayGroupPolicy{{ID: "north"}},
+	}
+	if err := state.Validate(); err != nil {
+		t.Fatalf("validate queue offer state: %v", err)
+	}
+
+	state.Flights[0].QueueOffers[0].AirportRevision = 3
+	assertInvalidArgument(t, state.Validate())
+	state.Flights[0].QueueOffers[0].AirportRevision = 4
+	state.Flights[0].QueueOffers[0].FlightID = "another-flight"
+	assertInvalidArgument(t, state.Validate())
+	state.Flights[0].QueueOffers[0].FlightID = flight.ID
+	state.Flights[0].QueueOffers[0].ExpiresAt = now
 	assertInvalidArgument(t, state.Validate())
 }
 

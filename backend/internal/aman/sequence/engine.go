@@ -49,20 +49,23 @@ type Policy struct {
 // protected slot reference supplied by freeze/manual policy; CurrentSlot is
 // used only to report movements and never influences candidate generation.
 type Flight struct {
-	ID                  aman.FlightID
-	RunwayGroupID       aman.RunwayGroupID
-	State               aman.FlightState
-	OperationalTETA     time.Time
-	InitialBaselineTETA *time.Time
-	WakeCategory        WakeCategory
-	ManualOrder         *int
-	FreezeReason        aman.FreezeReason
-	CapturedSlot        *aman.Slot
-	CurrentSlot         *aman.Slot
+	ID                    aman.FlightID
+	RunwayGroupID         aman.RunwayGroupID
+	State                 aman.FlightState
+	OperationalTETA       time.Time
+	InitialBaselineTETA   *time.Time
+	WakeCategory          WakeCategory
+	ManualOrder           *int
+	FreezeReason          aman.FreezeReason
+	FrozenAt              *time.Time
+	FrozenOperationalTETA *time.Time
+	CapturedSlot          *aman.Slot
+	CurrentSlot           *aman.Slot
 }
 
 // Input is a complete, point-in-time pure sequence calculation.
 type Input struct {
+	Revision aman.SequenceRevision
 	Policies []Policy
 	Flights  []Flight
 }
@@ -74,6 +77,8 @@ const (
 	ReasonRateWTC           CandidateReason = "rate_wtc"
 	ReasonFreezeSuperstable CandidateReason = "freeze_superstable"
 	ReasonFreezeManual      CandidateReason = "freeze_manual"
+	ReasonGoAround          CandidateReason = "go_around"
+	ReasonGoAroundCascade   CandidateReason = "go_around_cascade"
 )
 
 // CandidateEntry is an uncommitted slot candidate. It deliberately contains
@@ -306,6 +311,14 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		if raw.FreezeReason == aman.FreezeNone && raw.CapturedSlot != nil {
 			return nil, fmt.Errorf("flight %q has captured slot without freeze reason", raw.ID)
 		}
+		if raw.FreezeReason == aman.FreezeNone && (raw.FrozenAt != nil || raw.FrozenOperationalTETA != nil) {
+			return nil, fmt.Errorf("flight %q has freeze values without freeze reason", raw.ID)
+		}
+		if raw.FrozenAt != nil || raw.FrozenOperationalTETA != nil {
+			if raw.FrozenAt == nil || raw.FrozenOperationalTETA == nil || !validUTC(*raw.FrozenAt) || !validUTC(*raw.FrozenOperationalTETA) {
+				return nil, fmt.Errorf("flight %q has incomplete freeze values", raw.ID)
+			}
+		}
 		category := normalizeCategory(raw.WakeCategory)
 		_, known := policy.categories[category]
 		if !known {
@@ -421,6 +434,13 @@ func placement(policy preparedPolicy, entries []allocatedEntry, flight preparedF
 	earlier, later := candidate.Add(-time.Nanosecond), candidate.Add(time.Nanosecond)
 	if index > 0 {
 		leading := entries[index-1]
+		if orderAfter(flight.ManualOrder, leading.flight.ManualOrder) {
+			valid = false
+			boundEarlier := leading.time.Add(-requiredGap(policy, flight, leading.flight, leading.time))
+			if boundEarlier.Before(earlier) {
+				earlier = boundEarlier
+			}
+		}
 		required := requiredGap(policy, leading.flight, flight, candidate)
 		if candidate.Sub(leading.time) < required {
 			valid = false
@@ -436,6 +456,13 @@ func placement(policy preparedPolicy, entries []allocatedEntry, flight preparedF
 	}
 	if index < len(entries) {
 		trailing := entries[index]
+		if orderBefore(flight.ManualOrder, trailing.flight.ManualOrder) {
+			valid = false
+			boundLater := trailing.time.Add(requiredGap(policy, trailing.flight, flight, trailing.time))
+			if boundLater.After(later) {
+				later = boundLater
+			}
+		}
 		required := requiredGap(policy, flight, trailing.flight, trailing.time)
 		if trailing.time.Sub(candidate) < required {
 			valid = false
@@ -450,6 +477,14 @@ func placement(policy preparedPolicy, entries []allocatedEntry, flight preparedF
 		}
 	}
 	return valid, earlier, later
+}
+
+func orderAfter(candidate, existing *int) bool {
+	return candidate != nil && existing != nil && *candidate < *existing
+}
+
+func orderBefore(candidate, existing *int) bool {
+	return candidate != nil && existing != nil && *candidate > *existing
 }
 
 func adjacentValid(policy preparedPolicy, leading, trailing allocatedEntry) bool {

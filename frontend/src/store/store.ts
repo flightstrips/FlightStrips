@@ -53,6 +53,13 @@ import {
   type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
+import {
+  isAMANCommandRejectedEvent,
+  replaceAMANState,
+  type AMANCommandRejection,
+  type AMANPresentationStatus,
+  type AMANState,
+} from '../api/aman.ts';
 import missedApproachSound from "@/assets/missed_approach.mp3";
 import { isAudioMuted } from "@/lib/audio-settings";
 import {
@@ -152,6 +159,11 @@ export interface WebSocketState {
   depAtisCode: string;
 
   availableSids: SidInfo[];
+
+  amanState: AMANState | null;
+  amanPresentationStatus: AMANPresentationStatus;
+  amanError: string | null;
+  amanCommandRejections: Record<string, AMANCommandRejection>;
 
   selectedCallsign: string | null;
   selectStrip: (callsign: string | null) => void;
@@ -270,6 +282,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     arrAtisCode: "",
     depAtisCode: "",
     availableSids: [],
+    amanState: null,
+    amanPresentationStatus: "empty" as AMANPresentationStatus,
+    amanError: null,
+    amanCommandRejections: {},
     selectedCallsign: null,
     tagRequestArmed: false,
     markArmed: false,
@@ -1492,6 +1508,30 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);
+
+  wsClient.on(EventType.FrontendAMANState, (event) => {
+    const replacement = replaceAMANState(store.getState().amanState, event);
+    store.setState({
+      amanState: replacement.state,
+      amanPresentationStatus: replacement.status,
+      amanError: replacement.error,
+    });
+  });
+
+  wsClient.on(EventType.FrontendAMANCommandRejected, (event) => {
+    if (!isAMANCommandRejectedEvent(event)) {
+      return;
+    }
+    const currentRevision = store.getState().amanState?.revision;
+    if (currentRevision !== undefined && event.data.current_revision < currentRevision) {
+      return;
+    }
+    store.setState(
+      produce((state: WebSocketState) => {
+        state.amanCommandRejections[event.data.command_id] = event.data;
+      }),
+    );
+  });
 
   wsClient.on(EventType.FrontendAvailableSids, (data) => {
     store.setState({ availableSids: data.sids });

@@ -42,6 +42,7 @@ import {
   type AvailableSidsEvent,
 } from "./models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
+import type {AMANCommandRejectedEvent, AMANStateEvent} from "./aman";
 
 
 type EventMap = {
@@ -90,6 +91,8 @@ type EventMap = {
   [EventType.FrontendStandAssignmentUpdate]: FrontendStandAssignmentUpdateEvent;
   [EventType.FrontendStandAssignmentRemoved]: FrontendStandAssignmentRemovedEvent;
   [EventType.FrontendStandBlockUpdate]: FrontendStandBlockUpdateEvent;
+  [EventType.FrontendAMANState]: AMANStateEvent;
+  [EventType.FrontendAMANCommandRejected]: AMANCommandRejectedEvent;
 };
 
 type WebSocketClientDelegate = {
@@ -162,7 +165,7 @@ export class WebSocketClient {
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as WebSocketEvent;
-          const handlers = this.eventHandlers.get(data.type);
+          const handlers = this.eventHandlers.get(data.type as EventType);
           if (handlers) {
             handlers.forEach(handler => handler(data));
           }

@@ -30,6 +30,7 @@ import (
 
 type internalMessage struct {
 	session int32
+	airport string
 	message frontend.OutgoingMessage
 	cid     *string
 }
@@ -86,6 +87,14 @@ type Hub struct {
 
 	snapshotBuilder    *SnapshotBuilder
 	standActionService *services.StandActionService
+	amanStateProvider  AMANStateProvider
+}
+
+// AMANStateProvider returns the latest complete persisted replacement event
+// for an authenticated airport session. It has no subscribe or resnapshot
+// operation; reconnect calls this same read path again.
+type AMANStateProvider interface {
+	CurrentAMANState(context.Context, string) (frontend.AMANStateEvent, error)
 }
 
 type nextDisplayComputer interface {
@@ -104,6 +113,7 @@ type validationStatusAcknowledger interface {
 type HubDependencies struct {
 	Strips         shared.StripService
 	Authentication shared.AuthenticationService
+	AMANState      AMANStateProvider
 }
 
 func NewHub(deps HubDependencies) (*Hub, error) {
@@ -163,6 +173,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		handlers:              handlers,
 		stripService:          deps.Strips,
 		authenticationService: deps.Authentication,
+		amanStateProvider:     deps.AMANState,
 		messages:              make(map[int32][]frontend.MessageReceivedEvent),
 		metarCache:            make(map[int32]string),
 		arrAtisCodeCache:      make(map[int32]string),
@@ -213,6 +224,12 @@ func (hub *Hub) Broadcast(session int32, message frontend.OutgoingMessage) {
 		message: message,
 		cid:     nil,
 	}
+}
+
+// PublishAMANStateEvent broadcasts one already-projected complete replacement
+// to authenticated frontend clients for the event airport.
+func (hub *Hub) PublishAMANStateEvent(event frontend.AMANStateEvent) {
+	hub.send <- internalMessage{airport: event.Data.Airport, message: event}
 }
 
 func (hub *Hub) Send(session int32, cid string, message frontend.OutgoingMessage) {
@@ -370,6 +387,14 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 	}
 
 	client.Enqueue(event)
+	if hub.amanStateProvider != nil {
+		amanState, stateErr := hub.amanStateProvider.CurrentAMANState(ctx, client.airport)
+		if stateErr != nil {
+			slog.Error("Failed to load initial AMAN state", slog.Any("error", stateErr), slog.String("airport", client.airport))
+		} else {
+			client.Enqueue(amanState)
+		}
+	}
 	if cachedAtis != nil {
 		client.Enqueue(*cachedAtis)
 	}
@@ -1398,7 +1423,7 @@ func (hub *Hub) Run(ctx context.Context) {
 				}
 			} else {
 				for client := range hub.clients {
-					if message.session == client.session {
+					if (message.airport != "" && message.airport == client.airport) || (message.airport == "" && message.session == client.session) {
 						client.Enqueue(message.message)
 					}
 				}

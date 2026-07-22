@@ -52,6 +52,8 @@ type DepartureLifecycleService struct {
 	blockExtension time.Duration
 	sweepInterval  time.Duration
 	messenger      wrongStandMessenger
+	routeRecalc    RouteRecalculator
+	standPublisher observedStandPublisher
 	warningMu      sync.Mutex
 	warnings       map[string]string
 }
@@ -60,8 +62,22 @@ type wrongStandMessenger interface {
 	SendPrivateMessageFromDelivery(session int32, callsign, message string) bool
 }
 
+type observedStandPublisher interface {
+	SendStandEvent(session int32, callsign string, stand string)
+}
+
 func (s *DepartureLifecycleService) SetWrongStandMessenger(messenger wrongStandMessenger) {
 	s.messenger = messenger
+}
+
+// SetRouteRecalculator lets the observed-stand recovery use the aircraft's
+// physical stand for its ground route even while a protected booking remains.
+func (s *DepartureLifecycleService) SetRouteRecalculator(routeRecalc RouteRecalculator) {
+	s.routeRecalc = routeRecalc
+}
+
+func (s *DepartureLifecycleService) SetStandPublisher(publisher observedStandPublisher) {
+	s.standPublisher = publisher
 }
 
 // CancelDeparture cancels transient wrong-stand state when a departure
@@ -237,6 +253,7 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	observedRequest := request
 	observedRequest.ExpiresAt = nil
 	if _, err := s.allocations.assignObservedStand(ctx, observedRequest); err == nil {
+		s.useObservedStandForRoute(ctx, session, strip.Callsign, observed.Name)
 		s.clearUnassignedStandWarning(session, strip.Callsign)
 		return true, nil
 	} else if existing == nil {
@@ -244,8 +261,10 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		result, allocationErr := s.allocations.Allocate(ctx, automaticRequest)
 		if allocationErr != nil {
 			if errors.Is(allocationErr, ErrAutomaticAllocationSuppressed) {
+				s.useObservedStandForRoute(ctx, session, strip.Callsign, observed.Name)
 				return false, nil
 			}
+			s.useObservedStandForRoute(ctx, session, strip.Callsign, observed.Name)
 			s.deliverUnassignedOccupiedStandWarning(session, strip.Callsign, observed.Name)
 			slog.Warn("observed departure stand is occupied and no alternative stand could be assigned",
 				slog.String("callsign", strip.Callsign),
@@ -257,6 +276,10 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		s.clearUnassignedStandWarning(session, strip.Callsign)
 		existing = &result.Assignment
 	}
+	// Keep the allocation reservation intact, but route from the physical stand
+	// that EuroScope/VATSIM observed. A confirmed inbound booking may prevent
+	// this departure from claiming that stand, not from using its real location.
+	s.useObservedStandForRoute(ctx, session, strip.Callsign, observed.Name)
 
 	if existing.ConflictReason != nil {
 		switch *existing.ConflictReason {
@@ -284,6 +307,33 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		return false, fmt.Errorf("publish observed stand mismatch for %s: %w", strip.Callsign, err)
 	}
 	return false, s.deliverWrongStandWarning(ctx, &updated)
+}
+
+func (s *DepartureLifecycleService) useObservedStandForRoute(ctx context.Context, session int32, callsign, stand string) {
+	stand = standName(stand)
+	if stand == "" {
+		return
+	}
+	updated, err := s.strips.UpdateStand(ctx, session, callsign, &stand, nil)
+	if err != nil {
+		slog.WarnContext(ctx, "failed to persist observed stand for departure route",
+			slog.String("callsign", callsign), slog.String("stand", stand), slog.Any("error", err))
+		return
+	}
+	if updated != 0 && s.standPublisher != nil {
+		s.standPublisher.SendStandEvent(session, callsign, stand)
+	}
+	if s.routeRecalc == nil {
+		return
+	}
+	if err := s.routeRecalc.UpdateRouteForStripContext(ctx, callsign, session, true); err != nil {
+		slog.WarnContext(ctx, "failed to recalculate departure route from observed stand",
+			slog.String("callsign", callsign), slog.String("stand", stand), slog.Any("error", err))
+	}
+}
+
+func isWrongStandConflictReason(reason string) bool {
+	return strings.HasPrefix(reason, wrongStandPendingPrefix) || strings.HasPrefix(reason, wrongStandAwaitingPrefix)
 }
 
 func (s *DepartureLifecycleService) deliverUnassignedOccupiedStandWarning(session int32, callsign, observedStand string) {
@@ -660,6 +710,7 @@ func (s *DepartureLifecycleService) buildRequest(session int32, strip *models.St
 		FlightFacts:     facts,
 		AssignmentFacts: assignmentFacts,
 		ExpiresAt:       expiresAt,
+		DepartureTOBT:   departureTobtTime(strip, s.now()),
 	}
 	if cid := parseCID(flight.CID); cid != nil {
 		revision := flight.Revision
@@ -714,6 +765,21 @@ func (s *DepartureLifecycleService) computeBlockExpiry(strip *models.Strip) *tim
 		}
 	}
 	return nil
+}
+
+func departureTobtTime(strip *models.Strip, now time.Time) *time.Time {
+	if strip == nil {
+		return nil
+	}
+	if calculation := strip.CdmData.EffectiveCalculation(); calculation != nil && calculation.InvalidReason != nil &&
+		strings.TrimSpace(*calculation.InvalidReason) == models.CdmInvalidReasonStaleTobt {
+		return nil
+	}
+	tobt, ok := parseDepartureClockUTC(stripClockValue(strip.EffectiveTobt()), now)
+	if !ok {
+		return nil
+	}
+	return &tobt
 }
 
 func departureBlockExpiry(value string, now time.Time, extension time.Duration) (time.Time, bool) {

@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/testutil"
 	"FlightStrips/internal/vatsim"
 	"context"
 	"fmt"
@@ -245,6 +246,76 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, "AUTOMATIC", block.Source)
 		assert.Nil(t, block.ConflictReason)
 		assert.Nil(t, block.MatchedVariant)
+	})
+
+	t.Run("observed departure displaces a provisional inbound booking", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS611")
+		testdata.SeedTestStrip(t, queries, session, "SAS612")
+		eta := time.Date(2026, 7, 12, 10, 20, 0, 0, time.UTC)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS612", Stand: "A2", Direction: "ARRIVAL",
+			Stage: StageAssigned, Source: "AUTOMATIC", ETA: &eta,
+		}))
+		_, err := strips.UpdateStand(ctx, session, "SAS612", strp("A2"), nil)
+		require.NoError(t, err)
+
+		var published StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = result
+			return nil
+		})
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS611"), onlineFlightAtA2("SAS611", 1)))
+
+		departure, err := assignments.GetAssignment(ctx, session, "SAS611")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", departure.Stand)
+		assert.Equal(t, StageDepartureBlock, departure.Stage)
+		_, err = assignments.GetAssignment(ctx, session, "SAS612")
+		require.Error(t, err, "the provisional inbound is released for the observed departure")
+		assert.Nil(t, loadStrip(t, strips, session, "SAS612").Stand)
+		require.Len(t, published.RemovedAssignments, 1)
+		assert.Equal(t, "SAS612", published.RemovedAssignments[0].Callsign)
+	})
+
+	t.Run("observed departure publishes its physical stand when a future inbound blocks its booking", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS613")
+		testdata.SeedTestStrip(t, queries, session, "SAS614")
+		eta := time.Date(2026, 7, 12, 10, 1, 0, 0, time.UTC)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS614", Stand: "A2", Direction: "ARRIVAL",
+			Stage: StageConfirmed, Source: "AUTOMATIC", ETA: &eta,
+		}))
+		_, err := strips.UpdateStand(ctx, session, "SAS614", strp("A2"), nil)
+		require.NoError(t, err)
+		tobt := "1000"
+		_, err = strips.SetCdmData(ctx, session, "SAS613", &models.CdmData{Tobt: &tobt})
+		require.NoError(t, err)
+		standPublisher := &observedStandPublisherFake{}
+		lifecycle.SetStandPublisher(standPublisher)
+		routeRecalculated := false
+		lifecycle.SetRouteRecalculator(&testutil.MockServer{
+			UpdateRouteForStripCtxFn: func(_ context.Context, callsign string, routeSession int32, sendUpdate bool) error {
+				assert.Equal(t, "SAS613", callsign)
+				assert.Equal(t, session, routeSession)
+				assert.True(t, sendUpdate)
+				assert.Equal(t, "A2", *loadStrip(t, strips, session, callsign).Stand)
+				routeRecalculated = true
+				return nil
+			},
+		})
+
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS613"), onlineFlightAtA2("SAS613", 1)))
+
+		inbound, err := assignments.GetAssignment(ctx, session, "SAS614")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", inbound.Stand)
+		assert.Equal(t, StageConfirmed, inbound.Stage)
+		assert.Equal(t, "A2", *loadStrip(t, strips, session, "SAS613").Stand, "the physical stand is retained for route calculation")
+		assert.True(t, routeRecalculated)
+		require.Len(t, standPublisher.events, 1)
+		assert.Equal(t, observedStandEvent{session: session, callsign: "SAS613", stand: "A2"}, standPublisher.events[0])
 	})
 
 	t.Run("occupied observed stand records a task 19 mismatch without blocking the reserved stand", func(t *testing.T) {
@@ -701,6 +772,18 @@ type engineRecord struct {
 	ICAO   string
 	WTC    string
 	Engine string
+}
+
+type observedStandEvent struct {
+	session  int32
+	callsign string
+	stand    string
+}
+
+type observedStandPublisherFake struct{ events []observedStandEvent }
+
+func (f *observedStandPublisherFake) SendStandEvent(session int32, callsign string, stand string) {
+	f.events = append(f.events, observedStandEvent{session: session, callsign: callsign, stand: stand})
 }
 
 func mustLoadAircraftRegistry(t *testing.T, types ...string) *sat.AircraftRegistry {

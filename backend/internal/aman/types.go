@@ -374,9 +374,7 @@ type RouteProgress struct {
 	AlongTrackNM       float64
 }
 
-// ETAReview and GoAroundDetectionState reserve the aggregate's owned state
-// without defining command, persistence, or detector implementation details.
-// Their full workflows are owned by their respective components.
+// ETAReview reserves aggregate-owned state for its owning workflow.
 type ETAReview struct {
 	Status string
 }
@@ -398,8 +396,41 @@ func (r OperationalExceptionReason) Valid() bool {
 	return r == OperationalExceptionSuddenInsideFreeze
 }
 
+// GoAroundEvidence is one accepted surveillance sample retained by the
+// go-around detector. Evidence is persisted oldest-first so replay and restart
+// do not need to recover provider history.
+type GoAroundEvidence struct {
+	ObservedAt         time.Time
+	Sequence           *uint64
+	LatitudeDegrees    float64
+	LongitudeDegrees   float64
+	AltitudeFeet       int
+	GroundspeedKnots   float64
+	TrackTrueDegrees   *float64
+	ClimbEvidence      bool
+	TrackAwayEvidence  bool
+	RunwayExitEvidence bool
+}
+
+// GoAroundDetectionState is the complete persisted detector cursor. Episode
+// is incremented only when an approach arms; LastEmittedEpisode makes an
+// already-confirmed episode idempotent across commit retries and restart.
 type GoAroundDetectionState struct {
-	EpisodeID *string
+	PolicyVersion           string
+	Evidence                []GoAroundEvidence
+	ArmCount                int
+	ClimbCount              int
+	TrackAwayCount          int
+	RunwayExitCount         int
+	Armed                   bool
+	ArmedAt                 *time.Time
+	ArmedCorridorID         string
+	Episode                 uint64
+	LastEmittedEpisode      uint64
+	LastProcessedAt         *time.Time
+	LastProcessedSequence   *uint64
+	ThresholdCrossed        bool
+	LastControllerCommandID string
 }
 
 // LifecycleState is the persisted ordering cursor and current-state entry
@@ -719,6 +750,11 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if f.GoAroundDetection != nil {
+		if err := f.GoAroundDetection.Validate(); err != nil {
+			return err
+		}
+	}
 	if err := f.validateFreeze(); err != nil {
 		return err
 	}
@@ -728,6 +764,88 @@ func (f AMANFlight) Validate() error {
 		}
 	}
 	return requireUTCTime("updated at", f.UpdatedAt)
+}
+
+func (s GoAroundDetectionState) Validate() error {
+	if s.empty() {
+		return nil
+	}
+	if !isTrimmedNonEmpty(s.PolicyVersion) {
+		return invalid("go-around detector policy version is required")
+	}
+	if len(s.Evidence) > 64 {
+		return invalid("go-around detector evidence exceeds the durable bound")
+	}
+	for index, evidence := range s.Evidence {
+		if err := evidence.Validate(); err != nil {
+			return err
+		}
+		if index > 0 && !evidence.ObservedAt.After(s.Evidence[index-1].ObservedAt) {
+			return invalid("go-around detector evidence must be ordered oldest-first")
+		}
+		if index > 0 && evidence.Sequence != nil && s.Evidence[index-1].Sequence != nil && *evidence.Sequence <= *s.Evidence[index-1].Sequence {
+			return invalid("go-around detector evidence sequence must increase")
+		}
+	}
+	for _, count := range []int{s.ArmCount, s.ClimbCount, s.TrackAwayCount, s.RunwayExitCount} {
+		if count < 0 || count > len(s.Evidence) {
+			return invalid("go-around detector counter is invalid")
+		}
+	}
+	if s.LastEmittedEpisode > s.Episode {
+		return invalid("go-around emitted episode exceeds the current episode")
+	}
+	if s.LastProcessedAt != nil {
+		if err := requireUTCTime("go-around last processed at", *s.LastProcessedAt); err != nil {
+			return err
+		}
+	}
+	if s.LastProcessedSequence != nil && s.LastProcessedAt == nil {
+		return invalid("go-around sequence cursor requires an observation time")
+	}
+	if s.LastControllerCommandID != "" && !isTrimmedNonEmpty(s.LastControllerCommandID) {
+		return invalid("go-around controller command identity is invalid")
+	}
+	if len(s.Evidence) > 0 && (s.LastProcessedAt == nil || s.Evidence[len(s.Evidence)-1].ObservedAt.After(*s.LastProcessedAt)) {
+		return invalid("go-around evidence exceeds the processed observation cursor")
+	}
+	if len(s.Evidence) > 0 && s.Evidence[len(s.Evidence)-1].Sequence != nil && s.LastProcessedSequence != nil && *s.Evidence[len(s.Evidence)-1].Sequence > *s.LastProcessedSequence {
+		return invalid("go-around evidence exceeds the processed sequence cursor")
+	}
+	if s.Armed {
+		if s.ArmedAt == nil || !isTrimmedNonEmpty(s.ArmedCorridorID) || s.Episode == 0 || s.Episode <= s.LastEmittedEpisode {
+			return invalid("armed go-around detector requires episode metadata")
+		}
+		if err := requireUTCTime("go-around armed at", *s.ArmedAt); err != nil {
+			return err
+		}
+		if s.LastProcessedAt == nil || s.ArmedAt.After(*s.LastProcessedAt) {
+			return invalid("go-around armed time exceeds the processed observation cursor")
+		}
+	} else if s.ArmedAt != nil || s.ArmedCorridorID != "" || s.ThresholdCrossed {
+		return invalid("disarmed go-around detector retains arming state")
+	}
+	return nil
+}
+
+func (s GoAroundDetectionState) empty() bool {
+	return s.PolicyVersion == "" && len(s.Evidence) == 0 && s.ArmCount == 0 && s.ClimbCount == 0 && s.TrackAwayCount == 0 && s.RunwayExitCount == 0 && !s.Armed && s.ArmedAt == nil && s.ArmedCorridorID == "" && s.Episode == 0 && s.LastEmittedEpisode == 0 && s.LastProcessedAt == nil && s.LastProcessedSequence == nil && !s.ThresholdCrossed && s.LastControllerCommandID == ""
+}
+
+func (e GoAroundEvidence) Validate() error {
+	if err := requireUTCTime("go-around evidence observed at", e.ObservedAt); err != nil {
+		return err
+	}
+	if !finite(e.LatitudeDegrees) || !finite(e.LongitudeDegrees) || e.LatitudeDegrees < -90 || e.LatitudeDegrees > 90 || e.LongitudeDegrees < -180 || e.LongitudeDegrees > 180 {
+		return invalid("go-around evidence coordinate is invalid")
+	}
+	if e.AltitudeFeet < -2000 || !finite(e.GroundspeedKnots) || e.GroundspeedKnots < 0 {
+		return invalid("go-around evidence surveillance values are invalid")
+	}
+	if e.TrackTrueDegrees != nil && (!finite(*e.TrackTrueDegrees) || *e.TrackTrueDegrees < 0 || *e.TrackTrueDegrees >= 360) {
+		return invalid("go-around evidence track is invalid")
+	}
+	return nil
 }
 
 func (s LifecycleState) Validate() error {
@@ -886,4 +1004,8 @@ func invalid(message string) error {
 
 func isTrimmedNonEmpty(value string) bool {
 	return value != "" && strings.TrimSpace(value) == value
+}
+
+func finite(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
 }

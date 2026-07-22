@@ -16,14 +16,18 @@ import (
 type Config struct {
 	UnstableHorizon      time.Duration
 	StableHorizon        time.Duration
+	SuperstableHorizon   time.Duration
 	MinimumUnstableDwell time.Duration
+	RemovalTimeout       time.Duration
 }
 
 func DefaultConfig() Config {
 	return Config{
 		UnstableHorizon:      45 * time.Minute,
 		StableHorizon:        20 * time.Minute,
+		SuperstableHorizon:   10 * time.Minute,
 		MinimumUnstableDwell: 5 * time.Minute,
+		RemovalTimeout:       5 * time.Minute,
 	}
 }
 
@@ -34,8 +38,14 @@ func (c Config) Validate() error {
 	if c.StableHorizon <= 0 || c.StableHorizon >= c.UnstableHorizon {
 		return invalidArgument("Stable horizon must be positive and shorter than the Unstable horizon")
 	}
+	if c.SuperstableHorizon <= 0 || c.SuperstableHorizon >= c.StableHorizon {
+		return invalidArgument("Superstable horizon must be positive and shorter than the Stable horizon")
+	}
 	if c.MinimumUnstableDwell < 0 {
 		return invalidArgument("minimum Unstable dwell cannot be negative")
+	}
+	if c.RemovalTimeout <= 0 {
+		return invalidArgument("removal timeout must be greater than zero")
 	}
 	return nil
 }
@@ -49,6 +59,12 @@ const (
 	EventAirborneDetected    EventKind = "airborne_detected"
 	EventPredictionAccepted  EventKind = "prediction_accepted"
 	EventDataStatusChanged   EventKind = "data_status_changed"
+	EventSourceRestarted     EventKind = "source_restarted"
+	EventSuddenAppearance    EventKind = "sudden_appearance"
+	EventFlightObserved      EventKind = "flight_observed"
+	EventFlightMissing       EventKind = "flight_missing"
+	EventRemovalTimeout      EventKind = "removal_timeout"
+	EventPredictionExpired   EventKind = "prediction_expired"
 	EventGoAroundConfirmed   EventKind = "go_around_confirmed"
 	EventLandingConfirmed    EventKind = "landing_confirmed"
 	EventManualRemoval       EventKind = "manual_removal"
@@ -61,6 +77,12 @@ func (k EventKind) Valid() bool {
 	case EventAirborneDetected,
 		EventPredictionAccepted,
 		EventDataStatusChanged,
+		EventSourceRestarted,
+		EventSuddenAppearance,
+		EventFlightObserved,
+		EventFlightMissing,
+		EventRemovalTimeout,
+		EventPredictionExpired,
 		EventGoAroundConfirmed,
 		EventLandingConfirmed,
 		EventManualRemoval,
@@ -98,6 +120,10 @@ type Result struct {
 	Transition *Transition
 	Duplicate  bool
 }
+
+const (
+	PredictionExpiredSourceData = "source_data_expired"
+)
 
 // Reduce applies one accepted event to a copy of flight. Exact retries are
 // idempotent. A different event at or before the persisted cursor is rejected
@@ -143,12 +169,18 @@ func Reduce(config Config, flight aman.AMANFlight, event Event) (Result, error) 
 		enteredAt = event.OccurredAt
 		reason = transitionReason
 	}
+	flight.State = to
 	if event.Kind == EventDataStatusChanged {
 		flight.DataStatus = event.DataStatus
 	}
-
-	flight.State = to
+	if event.Kind == EventSourceRestarted {
+		flight.DataStatus = aman.DataDisconnected
+	}
+	if event.Kind == EventSuddenAppearance {
+		flight.DataStatus = aman.DataFresh
+	}
 	flight.UpdatedAt = event.OccurredAt
+	previousLifecycle := flight.Lifecycle
 	flight.Lifecycle = &aman.LifecycleState{
 		EnteredAt:            enteredAt,
 		Reason:               reason,
@@ -156,6 +188,11 @@ func Reduce(config Config, flight aman.AMANFlight, event Event) (Result, error) 
 		LastEventFingerprint: fingerprint(event),
 		LastEventAt:          event.OccurredAt,
 	}
+	if previousLifecycle != nil {
+		flight.Lifecycle.ReconciliationPending = previousLifecycle.ReconciliationPending
+		flight.Lifecycle.Absence = cloneAbsence(previousLifecycle.Absence)
+	}
+	applyOperationalExceptionState(config, &flight, event)
 
 	result := Result{Flight: flight}
 	if to != from {
@@ -179,6 +216,43 @@ func nextState(config Config, flight aman.AMANFlight, enteredAt time.Time, event
 			return "", "", invalidTransition(flight.State, event.Kind, "Removed is terminal")
 		}
 		return flight.State, "", nil
+	case EventSourceRestarted:
+		if flight.State == aman.StateRemoved {
+			return "", "", invalidTransition(flight.State, event.Kind, "Removed is terminal")
+		}
+		return flight.State, "", nil
+	case EventSuddenAppearance:
+		if flight.State != aman.StatePlanned {
+			return "", "", invalidTransition(flight.State, event.Kind, "sudden appearance requires a newly planned aggregate")
+		}
+		untilArrival := event.OperationalTETA.Sub(event.OccurredAt)
+		switch {
+		case untilArrival <= config.StableHorizon:
+			return aman.StateStable, aman.LifecycleReasonSuddenAppearance, nil
+		case untilArrival <= config.UnstableHorizon:
+			return aman.StateUnstable, aman.LifecycleReasonSuddenAppearance, nil
+		default:
+			return aman.StateAirborne, aman.LifecycleReasonSuddenAppearance, nil
+		}
+	case EventFlightObserved, EventFlightMissing, EventPredictionExpired:
+		if flight.State == aman.StateRemoved {
+			return "", "", invalidTransition(flight.State, event.Kind, "Removed is terminal")
+		}
+		if (event.Kind == EventFlightObserved || event.Kind == EventFlightMissing) && flight.DataStatus != aman.DataFresh {
+			return "", "", invalidTransition(flight.State, event.Kind, "current reconciliation requires fresh source data")
+		}
+		return flight.State, "", nil
+	case EventRemovalTimeout:
+		if flight.State == aman.StateRemoved {
+			return "", "", invalidTransition(flight.State, event.Kind, "Removed is terminal")
+		}
+		if flight.DataStatus != aman.DataFresh || flight.Lifecycle == nil || flight.Lifecycle.ReconciliationPending || flight.Lifecycle.Absence == nil || flight.Lifecycle.Absence.RemovalDueAt == nil {
+			return "", "", invalidTransition(flight.State, event.Kind, "removal requires a running fresh-data absence timer")
+		}
+		if event.OccurredAt.Before(*flight.Lifecycle.Absence.RemovalDueAt) {
+			return "", "", invalidTransition(flight.State, event.Kind, "removal timeout has not elapsed")
+		}
+		return aman.StateRemoved, aman.LifecycleReasonSourceDisappearance, nil
 	case EventAirborneDetected:
 		switch flight.State {
 		case aman.StatePlanned:
@@ -256,6 +330,12 @@ func validateEvent(event Event) error {
 		}
 		return nil
 	}
+	if event.Kind == EventSuddenAppearance {
+		if event.DataStatus != "" || event.OperationalTETA == nil || event.OperationalTETA.IsZero() || event.OperationalTETA.Location() != time.UTC || !event.OperationalTETA.After(event.OccurredAt) {
+			return invalidArgument("sudden appearance requires a future UTC operational TETA")
+		}
+		return nil
+	}
 	if event.DataStatus != "" {
 		return invalidArgument("only a data-status event may change DataStatus")
 	}
@@ -269,6 +349,82 @@ func validateEvent(event Event) error {
 		return invalidArgument("only an accepted prediction may carry operational TETA")
 	}
 	return nil
+}
+
+func applyOperationalExceptionState(config Config, flight *aman.AMANFlight, event Event) {
+	switch event.Kind {
+	case EventDataStatusChanged:
+		applySourceStatus(flight, event.DataStatus, event.OccurredAt)
+	case EventSourceRestarted:
+		applySourceStatus(flight, aman.DataDisconnected, event.OccurredAt)
+	case EventSuddenAppearance:
+		flight.Lifecycle.ReconciliationPending = false
+		flight.Lifecycle.Absence = nil
+		flight.OperationalException = suddenException(config, event)
+	case EventFlightObserved:
+		flight.Lifecycle.ReconciliationPending = false
+		flight.Lifecycle.Absence = nil
+	case EventFlightMissing:
+		applyMissing(config, flight, event.OccurredAt)
+	case EventPredictionExpired:
+		if flight.Prediction != nil {
+			prediction := *flight.Prediction
+			prediction.Publishable = false
+			reason := PredictionExpiredSourceData
+			prediction.DegradationReason = &reason
+			flight.Prediction = &prediction
+		}
+	}
+}
+
+func applySourceStatus(flight *aman.AMANFlight, _ aman.DataStatus, at time.Time) {
+	flight.Lifecycle.ReconciliationPending = true
+	pauseAbsence(flight.Lifecycle.Absence, at)
+}
+
+func applyMissing(config Config, flight *aman.AMANFlight, at time.Time) {
+	flight.Lifecycle.ReconciliationPending = false
+	if flight.Lifecycle.Absence == nil {
+		due := at.Add(config.RemovalTimeout)
+		flight.Lifecycle.Absence = &aman.AbsenceState{MissingSince: at, RemovalDueAt: &due}
+		return
+	}
+	if flight.Lifecycle.Absence.RemovalDueAt == nil {
+		due := at.Add(flight.Lifecycle.Absence.Remaining)
+		flight.Lifecycle.Absence.RemovalDueAt = &due
+		flight.Lifecycle.Absence.Remaining = 0
+	}
+}
+
+func pauseAbsence(absence *aman.AbsenceState, at time.Time) {
+	if absence == nil || absence.RemovalDueAt == nil {
+		return
+	}
+	remaining := absence.RemovalDueAt.Sub(at)
+	if remaining < 0 {
+		remaining = 0
+	}
+	absence.Remaining = remaining
+	absence.RemovalDueAt = nil
+}
+
+func suddenException(config Config, event Event) *aman.OperationalException {
+	if event.OperationalTETA.Sub(event.OccurredAt) > config.SuperstableHorizon {
+		return nil
+	}
+	return &aman.OperationalException{Reason: aman.OperationalExceptionSuddenInsideFreeze, DetectedAt: event.OccurredAt}
+}
+
+func cloneAbsence(value *aman.AbsenceState) *aman.AbsenceState {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	if value.RemovalDueAt != nil {
+		deadline := *value.RemovalDueAt
+		copy.RemovalDueAt = &deadline
+	}
+	return &copy
 }
 
 func invalidArgument(message string) error {

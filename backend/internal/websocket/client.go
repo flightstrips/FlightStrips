@@ -115,15 +115,28 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			span.SetStatus(codes.Error, err.Error())
 			span.RecordError(err)
 			slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
-			client.Enqueue(frontend.ActionRejectedEvent{
-				Action: fmt.Sprintf("%v", parsedMessage.Type),
-				Reason: err.Error(),
-			})
+			client.Enqueue(actionRejectedEvent(fmt.Sprintf("%v", parsedMessage.Type), parsedMessage.Message, err))
 		} else {
 			span.SetStatus(codes.Ok, "")
 		}
 		span.End()
 	}
+}
+
+func actionRejectedEvent(action string, payload []byte, err error) frontend.ActionRejectedEvent {
+	rejection := frontend.ActionRejectedEvent{
+		Action: action,
+		Reason: err.Error(),
+	}
+	if action != string(frontend.CoordinationForceAssumeRequestType) {
+		return rejection
+	}
+
+	var request frontend.CoordinationForceAssumeRequestEvent
+	if json.Unmarshal(payload, &request) == nil {
+		rejection.RequestID = request.RequestID
+	}
+	return rejection
 }
 
 func logReadError(client Client, err error) {

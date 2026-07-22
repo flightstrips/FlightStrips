@@ -54,6 +54,7 @@ const (
 	CoordinationTransferBroadcastType   EventType = "coordination_transfer_broadcast"
 	CoordinationFreeBroadcastType       EventType = "coordination_free_broadcast"
 	CoordinationTagRequestBroadcastType EventType = "coordination_tag_request_broadcast"
+	CoordinationForceAssumeResultType   EventType = "coordination_force_assume_result"
 
 	OwnersUpdate EventType = "owners_update"
 
@@ -550,7 +551,7 @@ type UpdateStripDataEvent struct {
 
 type CoordinationTransferRequestEvent struct {
 	Type     string `json:"type"`
-	To       string `json:"to"`
+	To       string `json:"to,omitempty"`
 	Callsign string `json:"callsign"`
 }
 
@@ -623,8 +624,24 @@ type CoordinationCancelTransferRequestEvent struct {
 }
 
 type CoordinationForceAssumeRequestEvent struct {
-	Type     string `json:"type"`
-	Callsign string `json:"callsign"`
+	Type      string `json:"type"`
+	Callsign  string `json:"callsign"`
+	RequestID string `json:"request_id,omitempty"`
+}
+
+type CoordinationForceAssumeResultEvent struct {
+	Callsign   string   `json:"callsign"`
+	RequestID  string   `json:"request_id"`
+	Owner      string   `json:"owner"`
+	NextOwners []string `json:"next_owners"`
+}
+
+func (c CoordinationForceAssumeResultEvent) Marshal() ([]byte, error) {
+	return marshall(c)
+}
+
+func (c CoordinationForceAssumeResultEvent) GetType() EventType {
+	return CoordinationForceAssumeResultType
 }
 
 // ---------- TAG REQUEST ----------
@@ -999,12 +1016,13 @@ func (a AtisUpdateEvent) Marshal() ([]byte, error) { return marshall(a) }
 func (a AtisUpdateEvent) GetType() EventType       { return AtisUpdate }
 
 type ActionRejectedEvent struct {
-	Action   string `json:"action"` // the action type string that was rejected
-	Reason   string `json:"reason"` // human-readable reason
-	Code     string `json:"code,omitempty"`
-	Callsign string `json:"callsign,omitempty"`
-	Stand    string `json:"stand,omitempty"`
-	Version  *int32 `json:"version,omitempty"`
+	Action    string `json:"action"` // the action type string that was rejected
+	Reason    string `json:"reason"` // human-readable reason
+	RequestID string `json:"request_id,omitempty"`
+	Code      string `json:"code,omitempty"`
+	Callsign  string `json:"callsign,omitempty"`
+	Stand     string `json:"stand,omitempty"`
+	Version   *int32 `json:"version,omitempty"`
 }
 
 func (e ActionRejectedEvent) Marshal() ([]byte, error) { return marshall(e) }

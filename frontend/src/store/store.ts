@@ -18,7 +18,7 @@ import {
   type FrontendGoAroundEvent,
   type FrontendInitialEvent,
   type FrontendLayoutUpdateEvent,
-  type FrontendOwnersUpdateEvent, type FrontendPdcStateUpdateEvent, type FrontendReleasePointEvent,
+  type FrontendOwnersUpdateEvent, type FrontendCoordinationForceAssumeResultEvent, type FrontendPdcStateUpdateEvent, type FrontendReleasePointEvent,
   type FrontendMarkedEvent,
   type FrontendSendEvent,
   type FrontendCoordinationTransferBroadcastEvent,
@@ -195,7 +195,8 @@ export interface WebSocketState {
   setStartReq: (callsign: string, startReq: boolean) => void;
   issuePdcClearance: (callsign: string, remarks: string | null) => void;
   revertToVoice: (callsign: string) => void;
-  transferStrip: (callsign: string, toPosition: string) => void;
+  transferStrip: (callsign: string, toPosition?: string) => void;
+  startRequestAndTransfer: (callsign: string) => Promise<boolean>;
   assumeStrip: (callsign: string) => void;
   forceAssumeStrip: (callsign: string) => void;
   pickupStrip: (callsign: string, bay: Bay) => void;
@@ -233,6 +234,12 @@ export interface WebSocketState {
 
 // Create the store using createVanilla
 export const createWebSocketStore = (wsClient: WebSocketClient) => {
+  let nextForceAssumeRequestId = 0;
+  const pendingForceAssumeRoutes = new Map<string, {
+    resolve: (nextOwners: string[]) => void;
+    reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  }>();
   // Initial state
   const initialState = {
     controllers: [],
@@ -331,6 +338,25 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       return true;
     };
 
+    const forceAssumeAndGetRoute = (callsign: string): Promise<string[]> => {
+      const requestId = `${callsign}-${++nextForceAssumeRequestId}`;
+
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          pendingForceAssumeRoutes.delete(requestId);
+          toast.error("Timed out while assuming the strip.");
+          reject(new Error("Timed out while assuming the strip."));
+        }, 5_000);
+
+        pendingForceAssumeRoutes.set(requestId, { resolve, reject, timeout });
+        wsClient.send({
+          type: ActionType.FrontendCoordinationForceAssumeRequest,
+          callsign,
+          request_id: requestId,
+        });
+      });
+    };
+
     const updateStripFieldsFromPayload = (update: UpdateStrip): ValidationEditableField[] => {
       const fields: ValidationEditableField[] = [];
 
@@ -352,11 +378,13 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
      selectStrip: (callsign) => set({ selectedCallsign: callsign }),
      setTagRequestArmed: (armed) => set({ tagRequestArmed: armed, markArmed: armed ? false : get().markArmed, contextMenu: null }),
      setMarkArmed: (armed) => set({ markArmed: armed, tagRequestArmed: armed ? false : get().tagRequestArmed, contextMenu: null }),
-     setDisplayedLayout: (layout) => {
+    setDisplayedLayout: (layout) => {
       const normalizedLayout = normalizeLayout(layout);
       set({
         displayedLayout: normalizedLayout,
-        followRecommendedLayout: normalizedLayout === get().layout,
+        // EST is a manual companion view, not a position-driven layout. Keep it
+        // open when strip or controller updates change the recommended layout.
+        followRecommendedLayout: normalizedLayout !== "EST" && normalizedLayout === get().layout,
       });
     },
     setLayoutChooserOpen: (open) => set({ layoutChooserOpen: open }),
@@ -575,14 +603,74 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       })
     },
     transferStrip: (callsign, toPosition) => {
-      if (!sendGuardedStripEvent(callsign, { type: "coordination_transfer_request" }, {
-        type: ActionType.FrontendCoordinationTransferRequest,
-        callsign,
-        to: toPosition,
-      })) {
+      const strip = get().strips.find((candidate) => candidate.callsign === callsign);
+      const isEstView = get().displayedLayout === "EST";
+
+      if (!guardValidationAction(callsign, { type: "coordination_transfer_request" }) || !ensureWritable()) {
         return;
       }
+
+      // The EST board is deliberately shared by every controller. The backend
+      // still requires an owner for a transfer, so wait for the new route after
+      // claiming a foreign strip before sending the transfer.
+      if (isEstView && strip?.owner !== get().position) {
+        void forceAssumeAndGetRoute(callsign)
+          .then((nextOwners) => {
+            const target = toPosition ?? nextOwners[0];
+            if (!target) {
+              toast.error("Cannot transfer: no next controller.");
+              return;
+            }
+            if (sendIfWritable({ type: ActionType.FrontendCoordinationTransferRequest, callsign, to: target })) {
+              updateLocalStartReq(callsign, false);
+            }
+          })
+          .catch(() => {});
+        return;
+      }
+
+      sendIfWritable({
+        type: ActionType.FrontendCoordinationTransferRequest,
+        callsign,
+        ...(toPosition ? { to: toPosition } : {}),
+      });
       updateLocalStartReq(callsign, false);
+    },
+    startRequestAndTransfer: async (callsign) => {
+      if (!guardValidationAction(callsign, { type: "coordination_transfer_request" }) || !ensureWritable()) {
+        return false;
+      }
+
+      const strip = findStrip(callsign);
+      if (!strip) {
+        return false;
+      }
+
+      let nextOwners = strip.next_controllers;
+      if (get().displayedLayout === "EST" && strip.owner !== get().position) {
+        try {
+          nextOwners = await forceAssumeAndGetRoute(callsign);
+        } catch {
+          return false;
+        }
+      }
+
+      const target = nextOwners[0];
+      if (!target) {
+        toast.error("Cannot transfer: no next controller.");
+        return false;
+      }
+
+      if (!sendIfWritable({ type: ActionType.FrontendStartReq, callsign, start_req: true })) {
+        return false;
+      }
+      updateLocalStartReq(callsign, true);
+
+      if (!sendIfWritable({ type: ActionType.FrontendCoordinationTransferRequest, callsign, to: target })) {
+        return false;
+      }
+      updateLocalStartReq(callsign, false);
+      return true;
     },
     assumeStrip: (callsign) => {
       sendGuardedStripEvent(callsign, { type: "coordination_assume_request" }, { type: ActionType.FrontendCoordinationAssumeRequest, callsign });
@@ -838,7 +926,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.localIp = data.local_ip ?? "";
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
-        if (KNOWN_LAYOUTS.has(normalizedLayout)) {
+        if (state.displayedLayout === "EST") {
+          // Preserve a manually opened EST board across reconnects.
+          state.followRecommendedLayout = false;
+        } else if (KNOWN_LAYOUTS.has(normalizedLayout) && normalizedLayout !== "EST") {
           state.displayedLayout = normalizedLayout;
           state.followRecommendedLayout = true;
         } else {
@@ -1087,12 +1178,28 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     )
   }
 
+  const handleForceAssumeResultEvent = (data: FrontendCoordinationForceAssumeResultEvent) => {
+    const pending = pendingForceAssumeRoutes.get(data.request_id);
+    if (!pending) {
+      return;
+    }
+
+    pendingForceAssumeRoutes.delete(data.request_id);
+    clearTimeout(pending.timeout);
+    if (data.owner !== store.getState().position) {
+      toast.error("The strip was not assumed by this position.");
+      pending.reject(new Error("The strip was not assumed by this position."));
+      return;
+    }
+    pending.resolve(data.next_owners);
+  };
+
   const handleLayoutUpdateEvent = (data: FrontendLayoutUpdateEvent) => {
     store.setState(
       produce((state: WebSocketState) => {
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
-        if (KNOWN_LAYOUTS.has(normalizedLayout)) {
+        if (KNOWN_LAYOUTS.has(normalizedLayout) && normalizedLayout !== "EST") {
           if (state.followRecommendedLayout) {
             state.displayedLayout = normalizedLayout;
           }
@@ -1329,6 +1436,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendSetHeading, handleSetHeadingEvent);
   wsClient.on(EventType.FrontendCommunicationType, handleCommunicationTypeEvent);
   wsClient.on(EventType.FrontendOwnersUpdate, handleOwnersUpdateEvent);
+  wsClient.on(EventType.FrontendCoordinationForceAssumeResult, handleForceAssumeResultEvent);
   wsClient.on(EventType.FrontendLayoutUpdate, handleLayoutUpdateEvent);
   wsClient.on(EventType.FrontendBroadcast, handleBroadcastEvent);
   wsClient.on(EventType.FrontendCdmData, handleCdmUpdateEvent);
@@ -1368,6 +1476,15 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         wsClient.reconnect();
       }
       return;
+    }
+    toast.error(data.reason);
+    if (data.action === ActionType.FrontendCoordinationForceAssumeRequest && data.request_id) {
+      const pending = pendingForceAssumeRoutes.get(data.request_id);
+      if (pending) {
+        pendingForceAssumeRoutes.delete(data.request_id);
+        clearTimeout(pending.timeout);
+        pending.reject(new Error(data.reason));
+      }
     }
     // Reconnect to receive a fresh initial event from the server,
     // which overwrites any optimistic updates that were rejected.

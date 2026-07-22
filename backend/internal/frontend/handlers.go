@@ -154,7 +154,15 @@ func handleCoordinationTransferRequest(ctx context.Context, client *Client, mess
 		return errors.New("cannot transfer strip which is not assumed")
 	}
 
-	if err := client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, req.To); err != nil {
+	target := req.To
+	if target == "" {
+		if len(strip.NextOwners) == 0 {
+			return errors.New("cannot transfer strip without a next controller")
+		}
+		target = strip.NextOwners[0]
+	}
+
+	if err := client.hub.stripService.CreateCoordinationTransfer(ctx, client.session, req.Callsign, position, target); err != nil {
 		return err
 	}
 
@@ -222,7 +230,30 @@ func handleCoordinationForceAssumeRequest(ctx context.Context, client *Client, m
 	if err := message.JsonUnmarshal(&req); err != nil {
 		return err
 	}
-	return client.hub.stripService.ForceAssumeStrip(ctx, client.session, req.Callsign, client.position)
+	if err := client.hub.stripService.ForceAssumeStrip(ctx, client.session, req.Callsign, client.position); err != nil {
+		return err
+	}
+
+	if req.RequestID == "" {
+		return nil
+	}
+
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, req.Callsign)
+	if err != nil {
+		return err
+	}
+
+	owner := ""
+	if strip.Owner != nil {
+		owner = *strip.Owner
+	}
+	client.Enqueue(frontend.CoordinationForceAssumeResultEvent{
+		Callsign:   req.Callsign,
+		RequestID:  req.RequestID,
+		Owner:      owner,
+		NextOwners: strip.NextOwners,
+	})
+	return nil
 }
 
 func handleCoordinationTagRequest(ctx context.Context, client *Client, message Message) error {

@@ -29,6 +29,7 @@ export enum EventType {
   FrontendCoordinationAssumeBroadcast = "coordination_assume_broadcast",
   FrontendCoordinationRejectBroadcast = "coordination_reject_broadcast",
   FrontendCoordinationFreeBroadcast = "coordination_free_broadcast",
+  FrontendCoordinationForceAssumeResult = "coordination_force_assume_result",
   FrontendRunWayConfiguration = "run_way_configuration",
   FrontendTacticalStripCreated = "tactical_strip_created",
   FrontendTacticalStripDeleted = "tactical_strip_deleted",
@@ -470,6 +471,14 @@ export interface FrontendOwnersUpdateEvent {
   next_display?: NextDisplay;
 }
 
+export interface FrontendCoordinationForceAssumeResultEvent {
+  type: EventType.FrontendCoordinationForceAssumeResult;
+  callsign: string;
+  request_id: string;
+  owner: string;
+  next_owners: string[];
+}
+
 export interface NextDisplay {
   label: string;
   frequency: string;
@@ -643,6 +652,7 @@ export type WebSocketEvent =
   | FrontendSetHeadingEvent
   | FrontendCommunicationTypeEvent
   | FrontendOwnersUpdateEvent
+  | FrontendCoordinationForceAssumeResultEvent
   | FrontendLayoutUpdateEvent
   | FrontendBroadcastEvent
   | FrontendCdmDataEvent
@@ -674,10 +684,11 @@ export interface ActionRejectedEvent {
   type: EventType.FrontendActionRejected;
   action: string;
   reason: string;
-	code?: string;
-	callsign?: string;
-	stand?: string;
-	version?: number;
+  request_id?: string;
+  code?: string;
+  callsign?: string;
+  stand?: string;
+  version?: number;
 }
 
 export interface FrontendStandAssignmentEntry {
@@ -866,7 +877,7 @@ export interface FrontendRevertToVoiceRequest {
 export interface FrontendCoordinationTransferRequestEvent {
   type: ActionType.FrontendCoordinationTransferRequest;
   callsign: string;
-  to: string;
+  to?: string;
 }
 
 export interface FrontendCoordinationAssumeRequestEvent {
@@ -877,6 +888,7 @@ export interface FrontendCoordinationAssumeRequestEvent {
 export interface FrontendCoordinationForceAssumeRequestEvent {
   type: ActionType.FrontendCoordinationForceAssumeRequest;
   callsign: string;
+  request_id?: string;
 }
 
 export interface FrontendCoordinationFreeRequestEvent {

@@ -20,14 +20,27 @@ export default function TRFBRN() {
   const strip = useStrip(selectedCallsign ?? "");
   const controllers = useTransferableControllers();
   const transferStrip = useWebSocketStore((state) => state.transferStrip);
+  const isEstView = useWebSocketStore((state) => state.displayedLayout === "EST");
 
   const isOwner = !!selectedCallsign && !!myPosition && strip?.owner === myPosition;
-  const disabled = !isOwner;
+  const disabled = !selectedCallsign || (!isOwner && !isEstView);
 
-  const handleTransfer = (callsign: string, toPosition: string) => {
+  const handleTransfer = (callsign: string, toPosition?: string) => {
     transferStrip(callsign, toPosition);
     setOpen(false);
   };
+
+  if (isEstView) {
+    return (
+      <button
+        disabled={disabled}
+        className={`${CLS_CMDBTN} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        onClick={() => selectedCallsign && handleTransfer(selectedCallsign)}
+      >
+        TRF
+      </button>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={disabled ? undefined : setOpen}>

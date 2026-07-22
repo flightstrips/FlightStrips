@@ -12,7 +12,7 @@ import {
   type FrontendControllerUpdateEvent,
   type FrontendDisconnectEvent,
   type FrontendGoAroundEvent,
-  type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent,
+  type FrontendInitialEvent, type FrontendLayoutUpdateEvent, type FrontendOwnersUpdateEvent, type FrontendCoordinationForceAssumeResultEvent,
   type FrontendPdcStateUpdateEvent,
   type FrontendReleasePointEvent,
   type FrontendMarkedEvent,
@@ -63,6 +63,7 @@ type EventMap = {
   [EventType.FrontendSetHeading]: FrontendSetHeadingEvent;
   [EventType.FrontendCommunicationType]: FrontendCommunicationTypeEvent;
   [EventType.FrontendOwnersUpdate]: FrontendOwnersUpdateEvent;
+  [EventType.FrontendCoordinationForceAssumeResult]: FrontendCoordinationForceAssumeResultEvent;
   [EventType.FrontendLayoutUpdate]: FrontendLayoutUpdateEvent;
   [EventType.FrontendBroadcast]: FrontendBroadcastEvent;
   [EventType.FrontendCdmData]: FrontendCdmDataEvent;

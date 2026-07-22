@@ -374,9 +374,44 @@ type RouteProgress struct {
 	AlongTrackNM       float64
 }
 
-// ETAReview reserves aggregate-owned state for its owning workflow.
+// ETAReviewStatus is the durable state of the first-Unstable TETA review.
+// A nil AMANFlight.ETAReview has the same meaning as ReviewNone; the explicit
+// zero status is retained for wire mappings that cannot represent a nil value.
+type ETAReviewStatus string
+
+const (
+	ReviewNone                       ETAReviewStatus = "none"
+	ReviewPending                    ETAReviewStatus = "pending"
+	ReviewAcceptedCalculatedTETA     ETAReviewStatus = "accepted_calculated_teta"
+	ReviewKeptInitialFPLETA          ETAReviewStatus = "kept_initial_fpl_eta"
+	ReviewManualETA                  ETAReviewStatus = "manual_eta"
+	ReviewAutoAcceptedCalculatedTETA ETAReviewStatus = "auto_accepted_calculated_teta"
+)
+
+func (s ETAReviewStatus) Valid() bool {
+	switch s {
+	case ReviewNone, ReviewPending, ReviewAcceptedCalculatedTETA,
+		ReviewKeptInitialFPLETA, ReviewManualETA, ReviewAutoAcceptedCalculatedTETA:
+		return true
+	default:
+		return false
+	}
+}
+
+// ETAReview records both alternatives and the selected operational value so a
+// restart never has to reconstruct the controller decision from prediction
+// history. Raw TETA remains exclusively inside Prediction.
 type ETAReview struct {
-	Status string
+	Status                    ETAReviewStatus
+	CreatedAt                 time.Time
+	DeadlineAt                time.Time
+	ResolvedAt                *time.Time
+	Actor                     *string
+	Note                      *string
+	InitialBaselineTETA       time.Time
+	CalculatedOperationalTETA time.Time
+	SelectedTETA              time.Time
+	ManualTETA                *time.Time
 }
 
 // OperationalException records an explicit degraded path that is orthogonal
@@ -715,6 +750,14 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if f.ETAReview != nil {
+		if err := f.ETAReview.Validate(); err != nil {
+			return err
+		}
+		if f.ETAReview.Status != ReviewNone && (f.ArrivalBaseline == nil || !f.ArrivalBaseline.ArrivalAt.Equal(f.ETAReview.InitialBaselineTETA)) {
+			return invalid("ETA review initial baseline does not match the flight baseline")
+		}
+	}
 	if f.ActiveRouteFact != nil && !f.ActiveRouteFact.State.Valid() {
 		return invalid("route fact state is invalid")
 	}
@@ -848,6 +891,80 @@ func (e GoAroundEvidence) Validate() error {
 	return nil
 }
 
+func (r ETAReview) Validate() error {
+	if !r.Status.Valid() {
+		return invalid("ETA review status is invalid")
+	}
+	if r.Status == ReviewNone {
+		if !r.CreatedAt.IsZero() || !r.DeadlineAt.IsZero() || r.ResolvedAt != nil || r.Actor != nil || r.Note != nil ||
+			!r.InitialBaselineTETA.IsZero() || !r.CalculatedOperationalTETA.IsZero() || !r.SelectedTETA.IsZero() || r.ManualTETA != nil {
+			return invalid("empty ETA review cannot retain review values")
+		}
+		return nil
+	}
+	for _, field := range []struct {
+		label string
+		value time.Time
+	}{
+		{label: "ETA review created at", value: r.CreatedAt},
+		{label: "ETA review deadline at", value: r.DeadlineAt},
+		{label: "ETA review initial baseline", value: r.InitialBaselineTETA},
+		{label: "ETA review calculated operational TETA", value: r.CalculatedOperationalTETA},
+		{label: "ETA review selected TETA", value: r.SelectedTETA},
+	} {
+		if err := requireUTCTime(field.label, field.value); err != nil {
+			return err
+		}
+	}
+	if !r.DeadlineAt.After(r.CreatedAt) {
+		return invalid("ETA review deadline must follow creation")
+	}
+	if r.Note != nil && !isTrimmedNonEmpty(*r.Note) {
+		return invalid("ETA review note must be trimmed and non-empty")
+	}
+	if r.Status == ReviewPending {
+		if r.ResolvedAt != nil || r.Actor != nil || r.Note != nil || r.ManualTETA != nil || !r.SelectedTETA.Equal(r.CalculatedOperationalTETA) {
+			return invalid("pending ETA review has resolved values")
+		}
+		return nil
+	}
+	if r.ResolvedAt == nil {
+		return invalid("resolved ETA review requires resolution time")
+	}
+	if err := requireUTCTime("ETA review resolved at", *r.ResolvedAt); err != nil {
+		return err
+	}
+	if r.ResolvedAt.Before(r.CreatedAt) {
+		return invalid("ETA review resolution cannot predate creation")
+	}
+
+	switch r.Status {
+	case ReviewAcceptedCalculatedTETA:
+		if !validReviewActor(r.Actor) || r.ManualTETA != nil || !r.SelectedTETA.Equal(r.CalculatedOperationalTETA) || !r.ResolvedAt.Before(r.DeadlineAt) {
+			return invalid("accepted calculated ETA review is inconsistent")
+		}
+	case ReviewKeptInitialFPLETA:
+		if !validReviewActor(r.Actor) || r.ManualTETA != nil || !r.SelectedTETA.Equal(r.InitialBaselineTETA) || !r.ResolvedAt.Before(r.DeadlineAt) {
+			return invalid("kept initial ETA review is inconsistent")
+		}
+	case ReviewManualETA:
+		if !validReviewActor(r.Actor) || r.ManualTETA == nil || !r.SelectedTETA.Equal(*r.ManualTETA) || !r.ResolvedAt.Before(r.DeadlineAt) {
+			return invalid("manual ETA review is inconsistent")
+		}
+		if err := requireUTCTime("ETA review manual TETA", *r.ManualTETA); err != nil {
+			return err
+		}
+	case ReviewAutoAcceptedCalculatedTETA:
+		if r.Actor != nil || r.Note != nil || r.ManualTETA != nil || !r.SelectedTETA.Equal(r.CalculatedOperationalTETA) || !r.ResolvedAt.Equal(r.DeadlineAt) {
+			return invalid("auto-accepted ETA review is inconsistent")
+		}
+	}
+	return nil
+}
+
+func validReviewActor(actor *string) bool {
+	return actor != nil && isTrimmedNonEmpty(*actor)
+}
 func (s LifecycleState) Validate() error {
 	if !s.Reason.Valid() {
 		return invalid("lifecycle reason is invalid")

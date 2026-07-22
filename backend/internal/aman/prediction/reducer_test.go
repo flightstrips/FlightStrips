@@ -153,6 +153,32 @@ func TestReduceIgnoresStaleRawAndFrozenSlotUpdates(t *testing.T) {
 	require.Equal(t, current.Flight, stale.Flight)
 }
 
+func TestOperationalOverrideActionsDoNotAcceptOrChangeRawPrediction(t *testing.T) {
+	now := predictionTime()
+	config := DefaultConfig()
+	flight := predictionFlight(now)
+	first, err := Reduce(config, flight, Input{Raw: rawPrediction(now, now.Add(30*time.Minute)), State: aman.StateUnstable})
+	require.NoError(t, err)
+	rawBefore := first.Flight.Prediction.RawTETA
+	historyBefore := append([]aman.RawTETASample(nil), first.Flight.RawTETASamples...)
+
+	manual := now.Add(25 * time.Minute)
+	overridden, err := ApplyManualOperationalTETA(first.Flight, manual, now.Add(time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, manual, overridden.Prediction.OperationalTETA)
+	require.Equal(t, aman.OperationalReasonManualOverride, overridden.Prediction.OperationalReason)
+	require.Equal(t, aman.FreezeManual, overridden.FreezeReason)
+	require.Equal(t, rawBefore, overridden.Prediction.RawTETA)
+	require.Equal(t, historyBefore, overridden.RawTETASamples)
+
+	released, err := ReleaseManualOperationalTETA(config, overridden, now.Add(2*time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, aman.FreezeNone, released.FreezeReason)
+	require.Equal(t, rawBefore, released.Prediction.RawTETA)
+	require.Equal(t, historyBefore, released.RawTETASamples)
+	require.NotEqual(t, aman.OperationalReasonManualOverride, released.Prediction.OperationalReason)
+}
+
 func predictionTime() time.Time {
 	return time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 }

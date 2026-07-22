@@ -220,9 +220,9 @@ export default function Home() {
       <div className="hidden md:flex bg-[#254a54] px-[60px] py-3.5 justify-between items-center text-sm relative z-10">
         <div />
         <div className="text-center flex-1">
-          <a href="https://flightstrips.dk/app" className="text-white hover:text-[#a0dae4] transition-colors">
+          <Link to="/app" className="text-white hover:text-[#a0dae4] transition-colors">
             Alpha testing is now open →
-          </a>
+          </Link>
         </div>
         <div className="flex gap-5.5 text-sm">
           <a href="https://docs.flightstrips.dk" className="text-white hover:text-[#a0dae4] transition-colors">
@@ -254,12 +254,28 @@ export default function Home() {
             </p>
 
             <div className="flex gap-3.5 justify-center mb-20">
-              <button className="bg-[#a0dae4] text-[#051415] px-7 py-[11px] rounded-full text-sm font-medium hover:bg-[#b8e3ec] transition-colors">
-                Open the board
-              </button>
-              <button className="bg-transparent text-white px-7 py-[11px] border border-[#3a4a4a] rounded-full text-sm font-medium hover:border-[#a0dae4] hover:text-[#a0dae4] transition-colors">
+              {isAuthenticated ? (
+                <Link
+                  to="/app"
+                  className="bg-[#a0dae4] text-[#051415] px-7 py-[11px] rounded-full text-sm font-medium hover:bg-[#b8e3ec] transition-colors"
+                >
+                  Open the board
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => loginWithRedirect({ appState: { returnTo: "/app" } })}
+                  className="bg-[#a0dae4] text-[#051415] px-7 py-[11px] rounded-full text-sm font-medium hover:bg-[#b8e3ec] transition-colors"
+                >
+                  Open the board
+                </button>
+              )}
+              <a
+                href="https://docs.flightstrips.dk"
+                className="bg-transparent text-white px-7 py-[11px] border border-[#3a4a4a] rounded-full text-sm font-medium hover:border-[#a0dae4] hover:text-[#a0dae4] transition-colors"
+              >
                 Read the docs
-              </button>
+              </a>
             </div>
 
             <p className="text-sm text-[#8a9a9a]">Currently live for EKCH Kastrup. More airports coming soon.</p>
@@ -397,20 +413,12 @@ export default function Home() {
         {/* Resources Section */}
         <section className="bg-[#051415] py-20 px-[60px] border-t border-[#233434]">
           <div className="max-w-5xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center mb-8">
               <div className="flex items-center gap-4">
                 <h2 className="text-4xl font-semibold tracking-tight">Documentation</h2>
                 <a href="https://docs.flightstrips.dk" className="text-white text-sm px-4 py-1.5 border border-[#233434] rounded-full hover:border-[#a0dae4] hover:text-[#a0dae4] transition-colors">
                   View all
                 </a>
-              </div>
-              <div className="flex gap-2">
-                <button className="w-8 h-8 border border-[#233434] rounded-full flex items-center justify-center text-white hover:bg-white/10 transition-colors">
-                  ←
-                </button>
-                <button className="w-8 h-8 border border-[#233434] rounded-full flex items-center justify-center bg-[#a0dae4] text-[#051415] font-bold">
-                  →
-                </button>
               </div>
             </div>
 
@@ -499,7 +507,7 @@ export default function Home() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => loginWithRedirect()}
+                    onClick={() => loginWithRedirect({ appState: { returnTo: "/app" } })}
                     className="bg-[#a0dae4] text-[#051415] px-8 py-[11px] rounded-full text-sm font-medium hover:bg-[#b8e3ec] transition-colors"
                   >
                     Log in

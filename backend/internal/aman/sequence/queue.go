@@ -74,6 +74,9 @@ func CalculateQueueOffers(input Input, config QueueOfferConfig, at time.Time) ([
 			}
 			for candidateIndex := 0; candidateIndex < targetIndex; candidateIndex++ {
 				candidate := entries[candidateIndex]
+				if candidate.flight.FreezeReason != aman.FreezeNone || candidate.flight.ManualOrder != nil {
+					continue
+				}
 				if candidate.slot.Time.Before(target.flight.OperationalTETA.Add(-policy.EarlyTolerance)) {
 					continue
 				}

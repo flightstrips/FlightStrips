@@ -98,11 +98,51 @@ func TestQueueOffersDoNotCrossFreezeManualOrRunwayGroups(t *testing.T) {
 	for _, offer := range offers {
 		require.NotContains(t, []aman.FlightID{"SUPER", "MANUAL", "ORDERED"}, offer.FlightID)
 		if offer.FlightID == "A-TARGET" {
-			require.GreaterOrEqual(t, offer.CandidateSlot.Sequence, 4, "target cannot cross frozen or manual order boundaries")
+			t.Fatalf("target received protected/manual candidate offer: %+v", offer)
 		}
 		if offer.FlightID == "B-TARGET" {
 			require.Equal(t, aman.RunwayGroupID("B"), offer.CandidateSlot.RunwayGroupID)
 		}
+	}
+}
+
+func TestQueueOffersRejectProtectedCandidateSlot(t *testing.T) {
+	start := testTime()
+	frozenAt := start.Add(-time.Minute)
+	frozenTETA := start
+	manualOrder := 1
+	tests := []struct {
+		name      string
+		configure func(*sequence.Flight)
+	}{
+		{name: "manual order", configure: func(candidate *sequence.Flight) { candidate.ManualOrder = &manualOrder }},
+		{name: "manual freeze", configure: func(candidate *sequence.Flight) {
+			candidate.FreezeReason = aman.FreezeManual
+			candidate.FrozenAt = &frozenAt
+			candidate.FrozenOperationalTETA = &frozenTETA
+			candidate.CapturedSlot = candidate.CurrentSlot
+		}},
+		{name: "Superstable freeze", configure: func(candidate *sequence.Flight) {
+			candidate.FreezeReason = aman.FreezeSuperstable
+			candidate.FrozenAt = &frozenAt
+			candidate.FrozenOperationalTETA = &frozenTETA
+			candidate.CapturedSlot = candidate.CurrentSlot
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := queueFlight("PROTECTED", "A", start, "M", 1, start)
+			test.configure(&candidate)
+			input := sequence.Input{Revision: 6, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{
+				candidate,
+				queueFlight("TARGET", "A", start, "M", 2, start.Add(time.Minute)),
+			}}
+			bindQueueRevision(&input)
+
+			offers, err := sequence.CalculateQueueOffers(input, sequence.QueueOfferConfig{Validity: time.Minute}, start.Add(-time.Minute))
+			require.NoError(t, err)
+			require.Empty(t, offers)
+		})
 	}
 }
 

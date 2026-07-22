@@ -85,6 +85,54 @@ func TestAMANRepositoryRoundTripIdempotencyAndRollback(t *testing.T) {
 	require.Equal(t, corrected, loaded, "a failed transaction must leave the complete prior aggregate")
 }
 
+func TestAMANRepositoryPersistsNoOpCommandWithoutAdvancingState(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	repo := NewAMANRepository(pool)
+	state := amanState(1, "CID-NOOP", "SAS100")
+	_, err := repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+
+	outcome := aman.CommandOutcome{
+		CommandID: "no-op-command", Airport: state.Airport, Revision: state.Revision,
+		Payload: []byte(`{"result":"unchanged"}`), RecordedAt: amanTestTime.Add(2 * time.Minute),
+	}
+	audit := aman.AuditRecord{
+		Airport: state.Airport, Revision: state.Revision, Category: "command_unchanged",
+		Payload: []byte(`{"result":"unchanged"}`), RecordedAt: outcome.RecordedAt,
+	}
+	result, err := repo.Commit(ctx, aman.StateCommit{
+		ExpectedRevision: state.Revision, State: state, CommandOutcome: &outcome, AuditRecords: []aman.AuditRecord{audit},
+	})
+	require.NoError(t, err)
+	require.False(t, result.DuplicateCommand)
+	require.Equal(t, state, result.State)
+
+	restarted := NewAMANRepository(pool)
+	loaded, err := restarted.LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, loaded)
+	storedOutcome, err := restarted.LoadCommandOutcome(ctx, outcome.CommandID)
+	require.NoError(t, err)
+	require.Equal(t, outcome.CommandID, storedOutcome.CommandID)
+	require.Equal(t, outcome.Airport, storedOutcome.Airport)
+	require.Equal(t, outcome.Revision, storedOutcome.Revision)
+	require.Equal(t, outcome.RecordedAt, storedOutcome.RecordedAt)
+	require.JSONEq(t, string(outcome.Payload), string(storedOutcome.Payload))
+	audits, err := restarted.ListAuditRecords(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Len(t, audits, 1)
+	require.Equal(t, state.Revision, audits[0].Revision)
+
+	invalidNoOp := loaded
+	invalidNoOp.Flights[0].CurrentCallsign = "SHOULD-NOT-PERSIST"
+	_, err = restarted.Commit(ctx, aman.StateCommit{ExpectedRevision: state.Revision, State: invalidNoOp})
+	requireDomainErrorClass(t, err, aman.ErrorInvalidArgument)
+	loaded, err = restarted.LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, loaded)
+}
+
 func TestAMANRepositoryRollsBackInvalidAuditAndCommitsStructuredAudit(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	repo := NewAMANRepository(pool)

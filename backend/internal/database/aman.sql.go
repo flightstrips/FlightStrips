@@ -286,6 +286,20 @@ func (q *Queries) ListAMANValidationEvidence(ctx context.Context, airport string
 	return items, nil
 }
 
+const lockAMANAirportState = `-- name: LockAMANAirportState :one
+SELECT revision
+FROM aman_airport_states
+WHERE airport = $1
+FOR UPDATE
+`
+
+func (q *Queries) LockAMANAirportState(ctx context.Context, airport string) (int64, error) {
+	row := q.db.QueryRow(ctx, lockAMANAirportState, airport)
+	var revision int64
+	err := row.Scan(&revision)
+	return revision, err
+}
+
 const lockAMANCommand = `-- name: LockAMANCommand :exec
 SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
 `

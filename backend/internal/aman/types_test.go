@@ -47,6 +47,7 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[FlightPlanFact](),
 		reflect.TypeFor[SurveillanceFact](),
 		reflect.TypeFor[Prediction](),
+		reflect.TypeFor[RawTETASample](),
 		reflect.TypeFor[BaselineState](),
 		reflect.TypeFor[Slot](),
 		reflect.TypeFor[RouteFact](),
@@ -94,6 +95,10 @@ func TestFlightFreezeHasOneCanonicalRepresentation(t *testing.T) {
 	flight.FrozenAt = &now
 	freezeTETA := now.Add(10 * time.Minute)
 	flight.FrozenOperationalTETA = &freezeTETA
+	slot := Slot{Time: now.Add(11 * time.Minute), RunwayGroupID: "north", Sequence: 1, Reason: "spacing"}
+	flight.Slot = &slot
+	frozenSlot := slot
+	flight.FrozenSlot = &frozenSlot
 	if err := flight.Validate(); err != nil {
 		t.Fatalf("validate frozen flight: %v", err)
 	}
@@ -227,7 +232,7 @@ func validPrediction() Prediction {
 	return Prediction{
 		RawTETA:           now.Add(15 * time.Minute),
 		OperationalTETA:   now.Add(15 * time.Minute),
-		OperationalReason: "raw",
+		OperationalReason: OperationalReasonPredicted,
 		GeneratedAt:       now,
 		InputObservedAt:   now,
 		Confidence:        ConfidenceMedium,

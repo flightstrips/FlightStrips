@@ -633,63 +633,63 @@ routes:
     forRunway: 22R
     forStandRanges: &east_south_stands [G110-G137]
     active: [22R]
-    path: [GE, TW]
+    path: [SQ, GE, GW, TE]
   - name: East and South stands to runway 04L
     forRunway: 04L
     forStandRanges: *east_south_stands
     active: [04L]
-    path: [GE, TW]
+    path: [SQ, GE, GW, TE]
   - name: East and South stands to runway 04R
     forRunway: 04R
     forStandRanges: *east_south_stands
     active: [04R]
-    path: [GE, TE]
+    path: [SQ, GE, TE]
   - name: East and South stands to runway 30
     forRunway: "30"
     forStandRanges: *east_south_stands
     active: ["30"]
-    path: [GE, TE]
+    path: [SQ, GE, TE]
   - name: East and South stands to runway 22L
     forRunway: 22L
     forStandRanges: *east_south_stands
     active: [22L]
-    path: [GE, TE]
+    path: [SQ, GE, GW, TE]
   - name: East and South stands to runway 12
     forRunway: "12"
     forStandRanges: *east_south_stands
     active: ["12"]
-    path: [GE, TW]
+    path: [SQ, GE, AD, TE]
 
   - name: West stand to runway 22R
     forRunway: 22R
     forStandRanges: &west_stands [W1]
     active: [22R]
-    path: [GW, TW]
+    path: [SQ, GW, TW]
   - name: West stand to runway 04L
     forRunway: 04L
     forStandRanges: *west_stands
     active: [04L]
-    path: [GW, TW]
+    path: [SQ, GW, TW]
   - name: West stand to runway 04R
     forRunway: 04R
     forStandRanges: *west_stands
     active: [04R]
-    path: [GW, TE]
+    path: [SQ, GW, TW]
   - name: West stand to runway 30
     forRunway: "30"
     forStandRanges: *west_stands
     active: ["30"]
-    path: [GW, TE]
+    path: [SQ, GW, AD, GE, TW]
   - name: West stand to runway 22L
     forRunway: 22L
     forStandRanges: *west_stands
     active: [22L]
-    path: [GW, TE]
+    path: [SQ, GW, AD, TW]
   - name: West stand to runway 12
     forRunway: "12"
     forStandRanges: *west_stands
     active: ["12"]
-    path: [GW, TW]
+    path: [SQ, GW, TW]
 
   # Arrival paths are selected from destination stand and arrival runway.
   - name: Runway 30 to cargo

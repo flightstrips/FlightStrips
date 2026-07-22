@@ -3,6 +3,7 @@ package frontend
 import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
+	"FlightStrips/pkg/events"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"testing"
@@ -62,6 +63,44 @@ func TestHandleCoordinationForceAssumeRequest_ValidationLocked_Allowed(t *testin
 	assert.Equal(t, int32(42), spy.forceAssumeArg.session)
 	assert.Equal(t, "SAS123", spy.forceAssumeArg.callsign)
 	assert.Equal(t, "EKCH_A_TWR", spy.forceAssumeArg.position)
+}
+
+func TestHandleCoordinationForceAssumeRequest_ReturnsRecalculatedRoute(t *testing.T) {
+	const (
+		session   = int32(42)
+		callsign  = "SAS123"
+		position  = "EKCH_A_TWR"
+		requestID = "SAS123-1"
+	)
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, gotCallsign string) (*models.Strip, error) {
+			assert.Equal(t, callsign, gotCallsign)
+			return &models.Strip{
+				Callsign:   callsign,
+				Owner:      ptr(position),
+				NextOwners: []string{"EKCH_B_GND"},
+			}, nil
+		},
+	}
+	spy := &coordinationSpyStripService{}
+	hub := buildFrontendTestHub(mockServerWithStripRepo(stripRepo), spy)
+	client := buildFrontendTestClient(hub, session, "EKCH")
+	client.position = position
+	client.send = make(chan events.OutgoingMessage, 1)
+
+	err := handleCoordinationForceAssumeRequest(context.Background(), client, marshalMessage(t, frontendEvents.CoordinationForceAssumeRequestEvent{
+		Callsign:  callsign,
+		RequestID: requestID,
+	}))
+	require.NoError(t, err)
+
+	result := <-client.send
+	forceAssumeResult, ok := result.(frontendEvents.CoordinationForceAssumeResultEvent)
+	require.True(t, ok)
+	assert.Equal(t, callsign, forceAssumeResult.Callsign)
+	assert.Equal(t, requestID, forceAssumeResult.RequestID)
+	assert.Equal(t, position, forceAssumeResult.Owner)
+	assert.Equal(t, []string{"EKCH_B_GND"}, forceAssumeResult.NextOwners)
 }
 
 func TestHandleCoordinationAssumeRequest_ValidationLocked_Rejected(t *testing.T) {

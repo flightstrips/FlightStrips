@@ -3,6 +3,7 @@ package websocket
 import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
+	frontend "FlightStrips/pkg/events/frontend"
 	"bytes"
 	"errors"
 	"log/slog"
@@ -89,6 +90,22 @@ func TestLogReadError_LogsNonCloseErrorWithClientDetails(t *testing.T) {
 	assert.Contains(t, output, `"source":"euroscope"`)
 	assert.Contains(t, output, `"error":"unexpected EOF"`)
 	assert.Contains(t, output, `"callsign":"EKCH_APP"`)
+}
+
+func TestActionRejectedEvent_PreservesForceAssumeRequestID(t *testing.T) {
+	payload := []byte(`{"type":"coordination_force_assume_request","callsign":"SAS123","request_id":"SAS123-1"}`)
+
+	rejection := actionRejectedEvent(string(frontend.CoordinationForceAssumeRequestType), payload, errors.New("not allowed"))
+
+	assert.Equal(t, string(frontend.CoordinationForceAssumeRequestType), rejection.Action)
+	assert.Equal(t, "not allowed", rejection.Reason)
+	assert.Equal(t, "SAS123-1", rejection.RequestID)
+}
+
+func TestActionRejectedEvent_DoesNotParseOtherActions(t *testing.T) {
+	rejection := actionRejectedEvent("move", []byte(`{"request_id":"SAS123-1"}`), errors.New("not allowed"))
+
+	assert.Empty(t, rejection.RequestID)
 }
 
 var _ Client = testClient{}

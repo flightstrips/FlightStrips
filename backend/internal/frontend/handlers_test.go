@@ -63,7 +63,7 @@ func (s *recordingCdmService) SyncAirportLvoFromRunwayStatus(ctx context.Context
 	}
 }
 
-func (s *recordingCdmService) HandleReadyRequest(context.Context, int32, string, string, string) error {
+func (*recordingCdmService) HandleReadyRequest(context.Context, int32, string, string, string) error {
 	return nil
 }
 
@@ -238,6 +238,64 @@ func TestHandleCoordinationTransferRequest_ClearsMarkForMarkedStrip(t *testing.T
 
 	assert.True(t, createCalled)
 	assert.True(t, updateMarkedCalled)
+}
+
+func TestHandleCoordinationTransferRequest_UsesNextOwnerWhenTargetIsOmitted(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(7)
+	const callsign = "SAS126"
+	const owner = "EKCH_DEL"
+	const target = "EKCH_A_GND"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: callsign, Session: session, Owner: ptr(owner), NextOwners: []string{target}}, nil
+		},
+	}
+	server := &testutil.MockServer{StripRepoVal: stripRepo}
+	stripService := &transferStripService{
+		createCoordinationTransferFn: func(_ context.Context, _ int32, _ string, from string, to string) error {
+			assert.Equal(t, owner, from)
+			assert.Equal(t, target, to)
+			return nil
+		},
+	}
+	hub := &Hub{server: server, stripService: stripService}
+	client := &Client{session: session, hub: hub, position: owner}
+
+	payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+		Type: string(frontendEvents.CoordinationTransferRequestType), Callsign: callsign,
+	})
+	require.NoError(t, err)
+
+	err = handleCoordinationTransferRequest(ctx, client, Message{
+		Type: frontendEvents.CoordinationTransferRequestType, Message: payload,
+	})
+	require.NoError(t, err)
+}
+
+func TestHandleCoordinationTransferRequest_RejectsOmittedTargetWithoutNextOwner(t *testing.T) {
+	ctx := context.Background()
+	const owner = "EKCH_DEL"
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Owner: ptr(owner)}, nil
+		},
+	}
+	server := &testutil.MockServer{StripRepoVal: stripRepo}
+	hub := &Hub{server: server, stripService: &transferStripService{}}
+	client := &Client{session: 7, hub: hub, position: owner}
+
+	payload, err := json.Marshal(frontendEvents.CoordinationTransferRequestEvent{
+		Type: string(frontendEvents.CoordinationTransferRequestType), Callsign: "SAS127",
+	})
+	require.NoError(t, err)
+
+	err = handleCoordinationTransferRequest(ctx, client, Message{
+		Type: frontendEvents.CoordinationTransferRequestType, Message: payload,
+	})
+	require.EqualError(t, err, "cannot transfer strip without a next controller")
 }
 
 func TestHandleCoordinationTransferRequest_DoesNotClearMarkForUnmarkedStrip(t *testing.T) {

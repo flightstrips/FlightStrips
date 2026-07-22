@@ -108,7 +108,7 @@ export default function EST() {
   const move = useWebSocketStore((state) => state.move);
   const updateStrip = useWebSocketStore((state) => state.updateStrip);
   const pickupStrip = useWebSocketStore((state) => state.pickupStrip);
-  const transferStrip = useWebSocketStore((state) => state.transferStrip);
+  const startRequestAndTransfer = useWebSocketStore((state) => state.startRequestAndTransfer);
   const setStartReq = useWebSocketStore((state) => state.setStartReq);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const myPosition = useMyPosition();
@@ -139,6 +139,7 @@ export default function EST() {
     flags: {},
   });
   const [actionOverrides, updateActionOverrides] = useReducer(actionOverrideReducer, {});
+  const [startTransferPending, setStartTransferPending] = useState(false);
   const boardFrameRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -204,11 +205,6 @@ export default function EST() {
   const menuStrip = menuState ? stripByStand.get(menuState.stand) : undefined;
   const statusStrip = statusStand ? stripByStand.get(statusStand) : undefined;
   const visibleStands = useMemo(() => getEstStandsForView(boardView), [boardView]);
-  const apronDepartureTransferTarget = useMemo(
-    () => getEstDepartureTransferTarget(menuStrip, myPosition),
-    [menuStrip, myPosition],
-  );
-
   function closeMenu() {
     setMenuState(null);
     setDeIceOpen(false);
@@ -286,19 +282,20 @@ export default function EST() {
     setDeIceOpen(false);
   }
 
-  function handleStartTransfer() {
+  async function handleStartTransfer() {
     if (!menuStrip || !menuState) {
       return;
     }
 
-    if (!apronDepartureTransferTarget) {
-      return;
+    setStartTransferPending(true);
+    try {
+      if (await startRequestAndTransfer(menuStrip.callsign)) {
+        setActionState(menuState.stand, menuStrip);
+        closeMenu();
+      }
+    } finally {
+      setStartTransferPending(false);
     }
-
-    setStartReq(menuStrip.callsign, true);
-    setActionState(menuState.stand, menuStrip);
-    transferStrip(menuStrip.callsign, apronDepartureTransferTarget);
-    closeMenu();
   }
 
   function handleStartRequest() {
@@ -520,10 +517,7 @@ export default function EST() {
           strip={menuStrip}
           onClose={closeMenu}
           onStartTransfer={handleStartTransfer}
-          startTransferDisabled={
-            !apronDepartureTransferTarget ||
-            !isTsatWithinStartRequestWindow(menuStrip.tsat, nowMs)
-          }
+          startTransferDisabled={startTransferPending || !isTsatWithinStartRequestWindow(menuStrip.tsat, nowMs)}
           onStartRequest={handleStartRequest}
           onPush={handlePush}
           onTaxi={handleTaxi}

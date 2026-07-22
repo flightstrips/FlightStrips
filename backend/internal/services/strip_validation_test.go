@@ -157,6 +157,24 @@ func TestReconcileStandAssignmentValidationClearsResolvedSatIssueOnly(t *testing
 	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", nil, ""))
 }
 
+func TestReconcileStandAssignmentValidationSuppressesWrongStandWorkflow(t *testing.T) {
+	cleared := false
+	repo := &validationStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS123", ValidationStatus: &models.ValidationStatus{IssueType: models.ValidationIssueTypeStandAssignment}}, nil
+		},
+		clearValidationStatusFn: func(_ context.Context, _ int32, callsign string) error {
+			assert.Equal(t, "SAS123", callsign)
+			cleared = true
+			return nil
+		},
+	}
+	svc := newTestStripValidationService(repo, repo)
+
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", []string{"A2"}, wrongStandPendingPrefix+"A2"))
+	assert.True(t, cleared, "the wrong-stand workflow must not leave a controller validation behind")
+}
+
 func TestNewStripValidationServiceRejectsMissingReader(t *testing.T) {
 	t.Parallel()
 

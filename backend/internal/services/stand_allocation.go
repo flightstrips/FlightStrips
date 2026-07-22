@@ -60,13 +60,21 @@ type StandAllocationRequest struct {
 	ETA             *time.Time
 	ETASource       *string
 	ExpiresAt       *time.Time
-	VatsimCID       *int64
-	VatsimRevision  *int64
+	// DepartureTOBT is used to decide whether a future arrival booking prevents
+	// a departure from taking its stand.
+	DepartureTOBT  *time.Time
+	VatsimCID      *int64
+	VatsimRevision *int64
 
 	Stand          string
 	ConflictReason string
 
 	DisplaceStage string
+	// DisplaceArrivalStages extends DisplaceStage for callers that may displace
+	// more than one non-final arrival stage. It is deliberately arrival-only:
+	// an observed departure must never displace another departure or a confirmed
+	// inbound stand booking.
+	DisplaceArrivalStages []string
 }
 
 // StandAllocationResult is complete only after the transaction commits. The
@@ -268,6 +276,10 @@ func (s *StandAllocationService) AssignManually(ctx context.Context, request Sta
 // unavailable result is expected during wrong-stand recovery, so it must not
 // be retained as a controller-facing allocation failure.
 func (s *StandAllocationService) assignObservedStand(ctx context.Context, request StandAllocationRequest) (*StandAllocationResult, error) {
+	// A departure observed on a stand is physically there. Its presence takes
+	// precedence over a provisional inbound booking, but never over the final
+	// CONFIRMED arrival stage.
+	request.DisplaceArrivalStages = []string{StageEstimated, StageAssigned}
 	return s.allocateWithFailureLogging(ctx, observedStandAllocation, request, false)
 }
 
@@ -575,7 +587,7 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 		return nil, selected, err
 	}
 	var removedAssignments []models.StandAssignment
-	if request.DisplaceStage != "" && selected != "" {
+	if request.displacesArrivalStage() && selected != "" {
 		removedAssignments, err = s.displaceAssignments(ctx, txStrips, txAssignments, request, selected, assignments)
 		if err != nil {
 			return nil, selected, err
@@ -730,8 +742,18 @@ func (s *StandAllocationService) availability(request StandAllocationRequest, as
 			if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) || expired(assignment.ExpiresAt, now) {
 				continue
 			}
+			futureArrivalBlocks := false
+			// Arrival assignments are planning information until their ETA. A
+			// flight that has not landed must not physically occupy its planned
+			// stand or prevent a departure from using it.
+			if assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.ETA != nil && assignment.ETA.After(now) {
+				futureArrivalBlocks = futureArrivalBlocksRequest(*assignment.ETA, request)
+				if !futureArrivalBlocks {
+					continue
+				}
+			}
 			if candidate == standName(assignment.Stand) {
-				if request.DisplaceStage != "" && assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.Stage == request.DisplaceStage {
+				if request.displacesAssignment(assignment) && (!futureArrivalBlocks || sameArrivalETA(request.ETA, assignment.ETA)) {
 					continue
 				}
 				result[candidate] = append(result[candidate], "reserved by "+assignment.Callsign)
@@ -762,6 +784,25 @@ func (s *StandAllocationService) availability(request StandAllocationRequest, as
 		}
 	}
 	return result
+}
+
+func sameArrivalETA(left, right *time.Time) bool {
+	return left != nil && right != nil && left.Equal(*right)
+}
+
+// futureArrivalBlocksRequest treats a future arrival as a reservation from its
+// ETA. A departure may use the stand only when its TOBT plus the stand-release
+// buffer is before that ETA; a later-arriving inbound cannot take a stand that
+// is already reserved first.
+func futureArrivalBlocksRequest(arrivalETA time.Time, request StandAllocationRequest) bool {
+	switch request.Direction {
+	case sat.AssignmentDirectionDeparture:
+		return request.DepartureTOBT != nil && request.DepartureTOBT.Add(defaultDepartureBlockExtension).After(arrivalETA)
+	case sat.AssignmentDirectionArrival:
+		return request.ETA == nil || !request.ETA.Before(arrivalETA)
+	default:
+		return false
+	}
 }
 
 func (s *StandAllocationService) configuredStandBlocks(airport, standName string) []string {
@@ -893,7 +934,7 @@ func joinAllocationReasons(reasons []string) string {
 }
 
 func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips repository.StripRepository, assignments repository.StandAssignmentRepository, request StandAllocationRequest, selected string, current []*models.StandAssignment) ([]models.StandAssignment, error) {
-	if request.DisplaceStage == "" || selected == "" {
+	if !request.displacesArrivalStage() || selected == "" {
 		return nil, nil
 	}
 	removed := []models.StandAssignment{}
@@ -901,7 +942,7 @@ func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips
 		if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) {
 			continue
 		}
-		if assignment.Direction != string(sat.AssignmentDirectionArrival) || assignment.Stage != request.DisplaceStage {
+		if !request.displacesAssignment(assignment) {
 			continue
 		}
 		if standName(assignment.Stand) != standName(selected) {
@@ -920,6 +961,20 @@ func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips
 		removed = append(removed, *assignment)
 	}
 	return removed, nil
+}
+
+func (request StandAllocationRequest) displacesArrivalStage() bool {
+	return request.DisplaceStage != "" || len(request.DisplaceArrivalStages) > 0
+}
+
+func (request StandAllocationRequest) displacesAssignment(assignment *models.StandAssignment) bool {
+	if assignment == nil || assignment.Direction != string(sat.AssignmentDirectionArrival) {
+		return false
+	}
+	if assignment.Stage == request.DisplaceStage && request.DisplaceStage != "" {
+		return true
+	}
+	return slices.Contains(request.DisplaceArrivalStages, assignment.Stage)
 }
 
 func standName(value string) string      { return strings.ToUpper(strings.TrimSpace(value)) }

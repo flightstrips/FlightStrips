@@ -368,6 +368,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	frontendHub.SetServer(fsServer)
 	euroscopeHub.SetServer(fsServer)
 	stripService.SetRouteRecalculator(fsServer)
+	if departureLifecycle != nil {
+		departureLifecycle.SetRouteRecalculator(fsServer)
+		departureLifecycle.SetStandPublisher(frontendHub)
+	}
 	controllerService.SetFrontendNotifier(frontendHub)
 	controllerService.SetSessionRecalculator(fsServer)
 	controllerService.SetStripService(stripService)

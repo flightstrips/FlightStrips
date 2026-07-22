@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -126,6 +127,90 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		displacedStrip, err := queries.GetStrip(ctx, database.GetStripParams{Session: session, Callsign: "SAS104"})
 		require.NoError(t, err)
 		assert.Nil(t, displacedStrip.Stand)
+	})
+
+	t.Run("future arrival booking does not occupy its stand before ETA", func(t *testing.T) {
+		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS106")
+		testdata.SeedTestStrip(t, queries, session, "SAS107")
+		eta := time.Now().UTC().Add(time.Hour)
+		arrival := withStand(standAllocationRequest(session, "SAS106"), "A1")
+		arrival.Stage = StageConfirmed
+		arrival.ETA = &eta
+		_, err := service.AssignManually(ctx, arrival)
+		require.NoError(t, err)
+
+		departure := withStand(standAllocationRequest(session, "SAS107"), "A1")
+		departure.Direction = sat.AssignmentDirectionDeparture
+		departure.FlightFacts.Direction = sat.Departure
+		departure.Stage = StageDepartureBlock
+		result, err := service.assignObservedStand(ctx, departure)
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+	})
+
+	t.Run("arrival booking occupies its stand from ETA", func(t *testing.T) {
+		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS108")
+		testdata.SeedTestStrip(t, queries, session, "SAS109")
+		now := time.Now().UTC()
+		eta := now.Add(time.Hour)
+		service.now = func() time.Time { return now }
+		arrival := withStand(standAllocationRequest(session, "SAS108"), "A1")
+		arrival.Stage = StageConfirmed
+		arrival.ETA = &eta
+		_, err := service.AssignManually(ctx, arrival)
+		require.NoError(t, err)
+
+		service.now = func() time.Time { return eta }
+		departure := withStand(standAllocationRequest(session, "SAS109"), "A1")
+		departure.Direction = sat.AssignmentDirectionDeparture
+		departure.FlightFacts.Direction = sat.Departure
+		departure.Stage = StageDepartureBlock
+		_, err = service.assignObservedStand(ctx, departure)
+		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+	})
+
+	t.Run("future arrival booking blocks a departure whose TOBT release is after ETA", func(t *testing.T) {
+		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS110")
+		testdata.SeedTestStrip(t, queries, session, "SAS111")
+		now := time.Now().UTC()
+		eta := now.Add(time.Hour)
+		arrival := withStand(standAllocationRequest(session, "SAS110"), "A1")
+		arrival.Stage = StageAssigned
+		arrival.ETA = &eta
+		_, err := service.AssignManually(ctx, arrival)
+		require.NoError(t, err)
+
+		laterTobt := eta.Add(-5 * time.Minute)
+		departure := withStand(standAllocationRequest(session, "SAS111"), "A1")
+		departure.Direction = sat.AssignmentDirectionDeparture
+		departure.FlightFacts.Direction = sat.Departure
+		departure.Stage = StageDepartureBlock
+		departure.DepartureTOBT = &laterTobt
+		_, err = service.assignObservedStand(ctx, departure)
+		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+	})
+
+	t.Run("future arrival booking blocks a later arriving inbound", func(t *testing.T) {
+		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS112")
+		testdata.SeedTestStrip(t, queries, session, "SAS113")
+		now := time.Now().UTC()
+		firstETA := now.Add(time.Hour)
+		firstArrival := withStand(standAllocationRequest(session, "SAS112"), "A1")
+		firstArrival.Stage = StageConfirmed
+		firstArrival.ETA = &firstETA
+		_, err := service.AssignManually(ctx, firstArrival)
+		require.NoError(t, err)
+
+		laterETA := firstETA.Add(time.Hour)
+		laterArrival := withStand(standAllocationRequest(session, "SAS113"), "A1")
+		laterArrival.Stage = StageConfirmed
+		laterArrival.ETA = &laterETA
+		_, err = service.AssignManually(ctx, laterArrival)
+		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
 	})
 
 	t.Run("rejects direct occupancy and one-way or two-way blocks", func(t *testing.T) {

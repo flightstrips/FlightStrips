@@ -112,6 +112,15 @@ func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.
 		return err
 	}
 	current := strip.ValidationStatus
+	if isWrongStandConflictReason(conflictReason) {
+		// A wrong-stand episode is a pilot-relocation workflow. It must not
+		// appear as an actionable validation to the controller who owns the
+		// strip, even though the assignment retains its workflow marker.
+		if current != nil && current.IssueType == internalModels.ValidationIssueTypeStandAssignment {
+			return s.ClearValidationStatus(ctx, session, callsign)
+		}
+		return nil
+	}
 	blocked := len(blockedBy) > 0 || strings.TrimSpace(conflictReason) != ""
 	if !blocked {
 		if current != nil && current.IssueType == internalModels.ValidationIssueTypeStandAssignment {

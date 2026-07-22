@@ -1326,6 +1326,27 @@ func (q *Queries) UpdateStripArrivalETA(ctx context.Context, arg UpdateStripArri
 	return result.RowsAffected(), nil
 }
 
+const clearStripArrivalETA = `-- name: ClearStripArrivalETA :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    arrival_eta = NULL
+WHERE callsign = $1 AND session = $2
+`
+
+type ClearStripArrivalETAParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) ClearStripArrivalETA(ctx context.Context, arg ClearStripArrivalETAParams) (int64, error) {
+	result, err := q.db.Exec(ctx, clearStripArrivalETA, arg.Callsign, arg.Session)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateStripAssignedSquawkByID = `-- name: UpdateStripAssignedSquawkByID :execrows
 UPDATE strips
 SET assigned_squawk = $1,

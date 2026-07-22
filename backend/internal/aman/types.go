@@ -87,6 +87,42 @@ func (c Confidence) Valid() bool {
 	}
 }
 
+// OperationalReason explains why OperationalTETA differs from, or follows,
+// the latest physical prediction. Consumers must use OperationalTETA rather
+// than inferring policy from RawTETA or the flight state.
+type OperationalReason string
+
+const (
+	OperationalReasonPredicted          OperationalReason = "predicted"
+	OperationalReasonSmoothed           OperationalReason = "smoothed"
+	OperationalReasonDeadband           OperationalReason = "deadband"
+	OperationalReasonRateLimited        OperationalReason = "rate_limited"
+	OperationalReasonRouteRevision      OperationalReason = "route_revision"
+	OperationalReasonRunwayGroupChanged OperationalReason = "runway_group_changed"
+	OperationalReasonFirstUnstable      OperationalReason = "first_unstable"
+	OperationalReasonManualOverride     OperationalReason = "manual_override"
+	OperationalReasonSuperstableFreeze  OperationalReason = "superstable_freeze"
+	OperationalReasonGoAround           OperationalReason = "go_around"
+)
+
+func (r OperationalReason) Valid() bool {
+	switch r {
+	case OperationalReasonPredicted,
+		OperationalReasonSmoothed,
+		OperationalReasonDeadband,
+		OperationalReasonRateLimited,
+		OperationalReasonRouteRevision,
+		OperationalReasonRunwayGroupChanged,
+		OperationalReasonFirstUnstable,
+		OperationalReasonManualOverride,
+		OperationalReasonSuperstableFreeze,
+		OperationalReasonGoAround:
+		return true
+	default:
+		return false
+	}
+}
+
 // BaselineSource identifies the deterministic input used before the
 // route-aware predictor can calculate a replacement raw prediction.
 //
@@ -208,7 +244,7 @@ type SurveillanceFact struct {
 type Prediction struct {
 	RawTETA           time.Time
 	OperationalTETA   time.Time
-	OperationalReason string
+	OperationalReason OperationalReason
 
 	GeneratedAt       time.Time
 	InputObservedAt   time.Time
@@ -226,6 +262,15 @@ type Prediction struct {
 	PerformanceProfileID *string
 	WeatherSource        *string
 	Sources              []string
+}
+
+// RawTETASample is one accepted physical/model output in the persisted
+// smoothing window. The window is deliberately small and complete: retaining
+// the TETA together with its generation time makes a restart produce the same
+// median and rate-limited result without re-reading an external source.
+type RawTETASample struct {
+	TETA        time.Time
+	GeneratedAt time.Time
 }
 
 // BaselineState is the narrow persisted result of the first normal airborne
@@ -319,6 +364,7 @@ type AMANFlight struct {
 	State                 FlightState
 	DataStatus            DataStatus
 	Prediction            *Prediction
+	RawTETASamples        []RawTETASample
 	ArrivalBaseline       *BaselineState
 	SelectedRunwayGroup   *RunwayGroupID
 	SelectedFeeder        *string
@@ -328,6 +374,7 @@ type AMANFlight struct {
 	FreezeReason          FreezeReason
 	FrozenAt              *time.Time
 	FrozenOperationalTETA *time.Time
+	FrozenSlot            *Slot
 	Slot                  *Slot
 	Order                 *int
 	ETAReview             *ETAReview
@@ -451,8 +498,8 @@ func (p Prediction) Validate() error {
 	if err := requireUTCTime("operational TETA", p.OperationalTETA); err != nil {
 		return err
 	}
-	if strings.TrimSpace(p.OperationalReason) == "" {
-		return invalid("operational reason is required")
+	if !p.OperationalReason.Valid() {
+		return invalid("operational reason is invalid")
 	}
 	if err := requireUTCTime("generated at", p.GeneratedAt); err != nil {
 		return err
@@ -538,6 +585,17 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if len(f.RawTETASamples) > 3 {
+		return invalid("raw TETA smoothing window exceeds three samples")
+	}
+	for index, sample := range f.RawTETASamples {
+		if err := sample.Validate(); err != nil {
+			return err
+		}
+		if index > 0 && !sample.GeneratedAt.After(f.RawTETASamples[index-1].GeneratedAt) {
+			return invalid("raw TETA smoothing samples must be ordered by generation time")
+		}
+	}
 	if f.ArrivalBaseline != nil {
 		if err := f.ArrivalBaseline.Validate(); err != nil {
 			return err
@@ -564,7 +622,7 @@ func (f AMANFlight) Validate() error {
 
 func (f AMANFlight) validateFreeze() error {
 	if f.FreezeReason == FreezeNone {
-		if f.FrozenAt != nil || f.FrozenOperationalTETA != nil {
+		if f.FrozenAt != nil || f.FrozenOperationalTETA != nil || f.FrozenSlot != nil {
 			return invalid("unfrozen flight cannot retain freeze values")
 		}
 		return nil
@@ -575,7 +633,25 @@ func (f AMANFlight) validateFreeze() error {
 	if err := requireUTCTime("frozen at", *f.FrozenAt); err != nil {
 		return err
 	}
-	return requireUTCTime("frozen operational TETA", *f.FrozenOperationalTETA)
+	if err := requireUTCTime("frozen operational TETA", *f.FrozenOperationalTETA); err != nil {
+		return err
+	}
+	if f.FreezeReason == FreezeSuperstable {
+		if f.Slot == nil || f.FrozenSlot == nil {
+			return invalid("Superstable freeze requires a captured slot")
+		}
+		if err := f.FrozenSlot.validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s RawTETASample) Validate() error {
+	if err := requireUTCTime("raw TETA sample", s.TETA); err != nil {
+		return err
+	}
+	return requireUTCTime("raw TETA sample generated at", s.GeneratedAt)
 }
 
 func (s Slot) validate() error {

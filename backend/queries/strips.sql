@@ -123,6 +123,13 @@ SET
     arrival_eta = sqlc.arg(arrival_eta)
 WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
 
+-- name: ClearStripArrivalETA :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    arrival_eta = NULL
+WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
+
 -- name: UpdateStripVatsimSource :execrows
 UPDATE strips
 SET

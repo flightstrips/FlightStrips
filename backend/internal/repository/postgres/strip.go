@@ -938,6 +938,15 @@ func (r *stripRepository) UpdateArrivalETA(ctx context.Context, session int32, c
 	})
 }
 
+// ClearArrivalETA explicitly makes the compatibility estimate unavailable.
+// Operational AMAN modes must never reactivate a legacy ETA as a fallback.
+func (r *stripRepository) ClearArrivalETA(ctx context.Context, session int32, callsign string) (int64, error) {
+	return r.queries.ClearStripArrivalETA(ctx, database.ClearStripArrivalETAParams{
+		Callsign: callsign,
+		Session:  session,
+	})
+}
+
 func (r *stripRepository) UpdateVatsimSource(ctx context.Context, session int32, callsign string, source models.VatsimStripSource) (int64, error) {
 	cid := source.CID
 	revision := source.Revision

@@ -121,6 +121,12 @@ func TestReduceDoesNotFreezeWithoutSlotOrOutsideExactBoundary(t *testing.T) {
 	result, err = Reduce(config, predictionFlight(now), Input{Raw: raw, State: aman.StateStable})
 	require.NoError(t, err)
 	require.Equal(t, aman.FreezeNone, result.Flight.FreezeReason)
+
+	withoutSelectedHolding := predictionFlight(now)
+	withoutSelectedHolding.SelectedHolding = nil
+	result, err = Reduce(config, withoutSelectedHolding, Input{Raw: raw, State: aman.StateStable, Slot: &slot})
+	require.NoError(t, err)
+	require.Equal(t, aman.FreezeNone, result.Flight.FreezeReason)
 }
 
 func TestReduceIgnoresStaleRawAndFrozenSlotUpdates(t *testing.T) {
@@ -152,7 +158,8 @@ func predictionTime() time.Time {
 }
 
 func predictionFlight(now time.Time) aman.AMANFlight {
-	return aman.AMANFlight{ID: "flight-1", VATSIMCID: "1234567", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now}
+	holding := "north-hold"
+	return aman.AMANFlight{ID: "flight-1", VATSIMCID: "1234567", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, SelectedHolding: &holding, FreezeReason: aman.FreezeNone, UpdatedAt: now}
 }
 
 func rawPrediction(generatedAt, rawTETA time.Time) aman.Prediction {

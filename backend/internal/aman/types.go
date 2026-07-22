@@ -39,6 +39,40 @@ func (s FlightState) Valid() bool {
 	}
 }
 
+// LifecycleReason records why the flight entered its current lifecycle state.
+// It is persisted with the aggregate so restart and replay do not have to
+// infer a transition from the current prediction or source status.
+type LifecycleReason string
+
+const (
+	LifecycleReasonInitial             LifecycleReason = "initial"
+	LifecycleReasonAirborneDetected    LifecycleReason = "airborne_detected"
+	LifecycleReasonUnstableHorizon     LifecycleReason = "unstable_horizon"
+	LifecycleReasonStableHorizon       LifecycleReason = "stable_horizon"
+	LifecycleReasonGoAroundConfirmed   LifecycleReason = "go_around_confirmed"
+	LifecycleReasonLandingConfirmed    LifecycleReason = "landing_confirmed"
+	LifecycleReasonManualRemoval       LifecycleReason = "manual_removal"
+	LifecycleReasonLandedTimeout       LifecycleReason = "landed_timeout"
+	LifecycleReasonPlannedCancellation LifecycleReason = "planned_cancellation"
+)
+
+func (r LifecycleReason) Valid() bool {
+	switch r {
+	case LifecycleReasonInitial,
+		LifecycleReasonAirborneDetected,
+		LifecycleReasonUnstableHorizon,
+		LifecycleReasonStableHorizon,
+		LifecycleReasonGoAroundConfirmed,
+		LifecycleReasonLandingConfirmed,
+		LifecycleReasonManualRemoval,
+		LifecycleReasonLandedTimeout,
+		LifecycleReasonPlannedCancellation:
+		return true
+	default:
+		return false
+	}
+}
+
 type DataStatus string
 
 const (
@@ -347,6 +381,18 @@ type GoAroundDetectionState struct {
 	EpisodeID *string
 }
 
+// LifecycleState is the persisted ordering cursor and current-state entry
+// metadata owned by the lifecycle reducer. The event fingerprint makes an
+// exact retry idempotent; LastEventAt rejects delayed events that would
+// otherwise regress the aggregate after a restart.
+type LifecycleState struct {
+	EnteredAt            time.Time
+	Reason               LifecycleReason
+	LastEventID          string
+	LastEventFingerprint string
+	LastEventAt          time.Time
+}
+
 // RunwayGroupPolicy is the airport-state identity for a runway group. The
 // sequence component owns the policy's rate and spacing declarations.
 type RunwayGroupPolicy struct {
@@ -379,6 +425,7 @@ type AMANFlight struct {
 	Order                 *int
 	ETAReview             *ETAReview
 	GoAroundDetection     *GoAroundDetectionState
+	Lifecycle             *LifecycleState
 	UpdatedAt             time.Time
 }
 
@@ -609,6 +656,17 @@ func (f AMANFlight) Validate() error {
 			return invalid("route progress is invalid")
 		}
 	}
+	if f.Lifecycle != nil {
+		if err := f.Lifecycle.Validate(); err != nil {
+			return err
+		}
+		if f.Lifecycle.EnteredAt.After(f.Lifecycle.LastEventAt) {
+			return invalid("lifecycle state entry cannot follow its event cursor")
+		}
+		if !f.lifecycleReasonMatchesState() {
+			return invalid("lifecycle reason does not match flight state")
+		}
+	}
 	if err := f.validateFreeze(); err != nil {
 		return err
 	}
@@ -618,6 +676,43 @@ func (f AMANFlight) Validate() error {
 		}
 	}
 	return requireUTCTime("updated at", f.UpdatedAt)
+}
+
+func (s LifecycleState) Validate() error {
+	if !s.Reason.Valid() {
+		return invalid("lifecycle reason is invalid")
+	}
+	if err := requireUTCTime("lifecycle entered at", s.EnteredAt); err != nil {
+		return err
+	}
+	if err := requireUTCTime("lifecycle last event at", s.LastEventAt); err != nil {
+		return err
+	}
+	if !isTrimmedNonEmpty(s.LastEventID) || !isTrimmedNonEmpty(s.LastEventFingerprint) {
+		return invalid("lifecycle last event identity is required")
+	}
+	return nil
+}
+
+func (f AMANFlight) lifecycleReasonMatchesState() bool {
+	switch f.Lifecycle.Reason {
+	case LifecycleReasonInitial:
+		return true
+	case LifecycleReasonAirborneDetected:
+		return f.State == StateAirborne
+	case LifecycleReasonUnstableHorizon:
+		return f.State == StateUnstable
+	case LifecycleReasonStableHorizon:
+		return f.State == StateStable
+	case LifecycleReasonGoAroundConfirmed:
+		return f.State == StateGoAround
+	case LifecycleReasonLandingConfirmed:
+		return f.State == StateLanded
+	case LifecycleReasonManualRemoval, LifecycleReasonLandedTimeout, LifecycleReasonPlannedCancellation:
+		return f.State == StateRemoved
+	default:
+		return false
+	}
 }
 
 func (f AMANFlight) validateFreeze() error {

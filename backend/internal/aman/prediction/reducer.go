@@ -159,6 +159,53 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 	return result(config, flight), nil
 }
 
+// ApplyManualOperationalTETA applies an authorized controller selection
+// without accepting a new physical prediction. It deliberately leaves RawTETA
+// and the persisted smoothing window unchanged.
+func ApplyManualOperationalTETA(flight aman.AMANFlight, operationalTETA, actionAt time.Time) (aman.AMANFlight, error) {
+	if flight.Prediction == nil {
+		return aman.AMANFlight{}, invalidArgument("manual operational TETA requires a current prediction")
+	}
+	if operationalTETA.IsZero() || operationalTETA.Location() != time.UTC || !operationalTETA.After(actionAt) {
+		return aman.AMANFlight{}, invalidArgument("manual operational TETA must be a future UTC value")
+	}
+	if actionAt.IsZero() || actionAt.Location() != time.UTC || actionAt.Before(flight.UpdatedAt) {
+		return aman.AMANFlight{}, invalidArgument("manual operational TETA action time is invalid")
+	}
+
+	freezeAt := actionAt
+	frozenTETA := operationalTETA
+	flight.FreezeReason = aman.FreezeManual
+	flight.FrozenAt = &freezeAt
+	flight.FrozenOperationalTETA = &frozenTETA
+	flight.FrozenSlot = nil
+	prediction := *flight.Prediction
+	setOperational(&flight, prediction, operationalTETA, aman.OperationalReasonManualOverride)
+	flight.UpdatedAt = actionAt
+	return flight, nil
+}
+
+// ReleaseManualOperationalTETA returns a controller-selected value to the
+// normal #314 smoothing policy without accepting or synthesizing a raw sample.
+func ReleaseManualOperationalTETA(config Config, flight aman.AMANFlight, actionAt time.Time) (aman.AMANFlight, error) {
+	if err := config.Validate(); err != nil {
+		return aman.AMANFlight{}, err
+	}
+	if flight.FreezeReason != aman.FreezeManual || flight.Prediction == nil || len(flight.RawTETASamples) == 0 {
+		return aman.AMANFlight{}, invalidTransition("manual operational TETA is not active")
+	}
+	if actionAt.IsZero() || actionAt.Location() != time.UTC || actionAt.Before(flight.UpdatedAt) {
+		return aman.AMANFlight{}, invalidArgument("manual operational TETA action time is invalid")
+	}
+
+	prediction := *flight.Prediction
+	clearFreeze(&flight)
+	candidate, reason := routineOperational(config, flight, flight.State, Input{Raw: prediction, State: flight.State})
+	setOperational(&flight, prediction, candidate, reason)
+	flight.UpdatedAt = actionAt
+	return flight, nil
+}
+
 func validateRaw(raw aman.Prediction) error {
 	// Prediction.Validate deliberately validates the operational fields too.
 	// The physical predictor supplies only RawTETA; set temporary valid values
@@ -271,4 +318,12 @@ func absolute(value time.Duration) time.Duration {
 		return -value
 	}
 	return value
+}
+
+func invalidArgument(message string) error {
+	return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: message}
+}
+
+func invalidTransition(message string) error {
+	return &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: message}
 }

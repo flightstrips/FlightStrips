@@ -148,6 +148,85 @@ func TestAMANRepositoryRestoresHeldAirborneBaselineForFreshPredictor(t *testing.
 	require.Equal(t, first.State, held.State)
 }
 
+func TestAMANRepositoryRestoresETAReviewAndKeepsResolutionAtomicAndIdempotent(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	repo := NewAMANRepository(pool)
+
+	pendingState := amanState(1, "CID-REVIEW", "SAS317")
+	createdAt := pendingState.Flights[0].UpdatedAt
+	deadlineAt := createdAt.Add(5 * time.Minute)
+	pendingState.Flights[0].ETAReview = &aman.ETAReview{
+		Status: aman.ReviewPending, CreatedAt: createdAt, DeadlineAt: deadlineAt,
+		InitialBaselineTETA:       createdAt.Add(20 * time.Minute),
+		CalculatedOperationalTETA: pendingState.Flights[0].Prediction.OperationalTETA,
+		SelectedTETA:              pendingState.Flights[0].Prediction.OperationalTETA,
+	}
+	pendingState.Flights[0].ArrivalBaseline = reviewBaseline(createdAt)
+	openedAudit := aman.AuditRecord{
+		Airport: pendingState.Airport, Revision: pendingState.Revision, Category: "eta_review_opened",
+		Payload: []byte(`{"status":"pending"}`), RecordedAt: createdAt,
+	}
+	_, err := repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: pendingState, AuditRecords: []aman.AuditRecord{openedAudit}})
+	require.NoError(t, err)
+	restoredPending, err := NewAMANRepository(pool).LoadAirportState(ctx, pendingState.Airport)
+	require.NoError(t, err)
+	require.Equal(t, pendingState, restoredPending)
+
+	manualState := amanState(2, "CID-REVIEW", "SAS317")
+	resolvedAt := createdAt.Add(time.Minute)
+	manualTETA := createdAt.Add(26 * time.Minute)
+	actor := "1345678"
+	manualState.GeneratedAt = resolvedAt
+	manualState.Flights[0].UpdatedAt = resolvedAt
+	manualState.Flights[0].Prediction.OperationalTETA = manualTETA
+	manualState.Flights[0].Prediction.OperationalReason = aman.OperationalReasonManualOverride
+	manualState.Flights[0].FreezeReason = aman.FreezeManual
+	manualState.Flights[0].FrozenAt = &resolvedAt
+	manualState.Flights[0].FrozenOperationalTETA = &manualTETA
+	manualState.Flights[0].ETAReview = &aman.ETAReview{
+		Status: aman.ReviewManualETA, CreatedAt: createdAt, DeadlineAt: deadlineAt, ResolvedAt: &resolvedAt, Actor: &actor,
+		InitialBaselineTETA:       createdAt.Add(20 * time.Minute),
+		CalculatedOperationalTETA: pendingState.Flights[0].Prediction.OperationalTETA,
+		SelectedTETA:              manualTETA, ManualTETA: &manualTETA,
+	}
+	manualState.Flights[0].ArrivalBaseline = reviewBaseline(createdAt)
+	command := aman.CommandOutcome{
+		CommandID: "review-command-1", Airport: manualState.Airport, Revision: manualState.Revision,
+		Payload: []byte(`{"status":"manual_eta"}`), RecordedAt: resolvedAt,
+	}
+	audit := aman.AuditRecord{
+		Airport: manualState.Airport, Revision: manualState.Revision, Category: "eta_review_resolved",
+		Payload: []byte(`{"status":"manual_eta"}`), RecordedAt: resolvedAt,
+	}
+	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 1, State: manualState, CommandOutcome: &command, AuditRecords: []aman.AuditRecord{audit}})
+	require.NoError(t, err)
+	restoredManual, err := NewAMANRepository(pool).LoadAirportState(ctx, manualState.Airport)
+	require.NoError(t, err)
+	require.Equal(t, manualState, restoredManual)
+	audits, err := repo.ListAuditRecords(ctx, manualState.Airport)
+	require.NoError(t, err)
+	require.Len(t, audits, 2)
+	require.Equal(t, "eta_review_opened", audits[0].Category)
+	require.Equal(t, "eta_review_resolved", audits[1].Category)
+
+	duplicateProposal := amanState(3, "CID-REVIEW", "SHOULD-NOT-PERSIST")
+	duplicate, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 2, State: duplicateProposal, CommandOutcome: &command})
+	require.NoError(t, err)
+	require.True(t, duplicate.DuplicateCommand)
+	require.Equal(t, manualState, duplicate.State)
+
+	failedReset := amanState(3, "CID-REVIEW", "SAS317")
+	_, err = repo.Commit(ctx, aman.StateCommit{
+		ExpectedRevision: 2, State: failedReset,
+		AuditRecords: []aman.AuditRecord{{Airport: failedReset.Airport, Revision: failedReset.Revision, Category: "", Payload: []byte(`{}`), RecordedAt: createdAt.Add(2 * time.Minute)}},
+	})
+	require.Error(t, err)
+	afterFailure, err := repo.LoadAirportState(ctx, manualState.Airport)
+	require.NoError(t, err)
+	require.Equal(t, manualState, afterFailure, "failed reset must expose the complete state from before the transaction")
+}
+
 func TestAMANRepositoryCompareAndSwapAllocatesOneRevision(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	repo := NewAMANRepository(pool)
@@ -279,12 +358,20 @@ func amanState(revision aman.SequenceRevision, vatsimCID, callsign string) aman.
 			},
 			ActiveRouteFact: &aman.RouteFact{ID: "route-1", Fix: "KAS", ObservedAt: flightTime},
 			Slot:            &aman.Slot{Time: flightTime.Add(22 * time.Minute), RunwayGroupID: "north", Sequence: 1, Revision: revision, Reason: "spacing"},
-			Order:           intPtr(1), ETAReview: &aman.ETAReview{Status: "accepted"}, GoAroundDetection: &aman.GoAroundDetectionState{},
+			Order:           intPtr(1), GoAroundDetection: &aman.GoAroundDetectionState{},
 		}},
 	}
 }
 
 func intPtr(value int) *int { return &value }
+
+func reviewBaseline(createdAt time.Time) *aman.BaselineState {
+	return &aman.BaselineState{
+		ArrivalAt: createdAt.Add(20 * time.Minute), AirborneSensedAt: createdAt.Add(-time.Hour),
+		Source: aman.BaselineSourceAirborneFiledEET, Confidence: aman.ConfidenceMedium,
+		FlightPlanObservedAt: createdAt.Add(-time.Hour), ModelVersion: "baseline-v1", ConfigVersion: "baseline-config-v1",
+	}
+}
 
 func requireDomainErrorClass(t *testing.T, err error, class aman.ErrorClass) {
 	t.Helper()

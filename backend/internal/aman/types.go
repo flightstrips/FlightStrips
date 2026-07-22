@@ -51,9 +51,11 @@ const (
 	LifecycleReasonStableHorizon       LifecycleReason = "stable_horizon"
 	LifecycleReasonGoAroundConfirmed   LifecycleReason = "go_around_confirmed"
 	LifecycleReasonLandingConfirmed    LifecycleReason = "landing_confirmed"
+	LifecycleReasonSuddenAppearance    LifecycleReason = "sudden_appearance"
 	LifecycleReasonManualRemoval       LifecycleReason = "manual_removal"
 	LifecycleReasonLandedTimeout       LifecycleReason = "landed_timeout"
 	LifecycleReasonPlannedCancellation LifecycleReason = "planned_cancellation"
+	LifecycleReasonSourceDisappearance LifecycleReason = "source_disappearance"
 )
 
 func (r LifecycleReason) Valid() bool {
@@ -64,9 +66,11 @@ func (r LifecycleReason) Valid() bool {
 		LifecycleReasonStableHorizon,
 		LifecycleReasonGoAroundConfirmed,
 		LifecycleReasonLandingConfirmed,
+		LifecycleReasonSuddenAppearance,
 		LifecycleReasonManualRemoval,
 		LifecycleReasonLandedTimeout,
-		LifecycleReasonPlannedCancellation:
+		LifecycleReasonPlannedCancellation,
+		LifecycleReasonSourceDisappearance:
 		return true
 	default:
 		return false
@@ -377,6 +381,23 @@ type ETAReview struct {
 	Status string
 }
 
+// OperationalException records an explicit degraded path that is orthogonal
+// to lifecycle and ETA discrepancy review state.
+type OperationalException struct {
+	Reason     OperationalExceptionReason
+	DetectedAt time.Time
+}
+
+type OperationalExceptionReason string
+
+const (
+	OperationalExceptionSuddenInsideFreeze OperationalExceptionReason = "sudden_appearance_inside_freeze_horizon_manual_review"
+)
+
+func (r OperationalExceptionReason) Valid() bool {
+	return r == OperationalExceptionSuddenInsideFreeze
+}
+
 type GoAroundDetectionState struct {
 	EpisodeID *string
 }
@@ -391,6 +412,20 @@ type LifecycleState struct {
 	LastEventID          string
 	LastEventFingerprint string
 	LastEventAt          time.Time
+	// ReconciliationPending is set across stale/disconnected periods and is
+	// cleared only when a current fresh snapshot explicitly observes or omits
+	// the flight. A fresh source-status transition alone cannot resume timers.
+	ReconciliationPending bool
+	Absence               *AbsenceState
+}
+
+// AbsenceState is the persisted disappearance timer. RemovalDueAt is nil
+// while source data is unknown. Remaining preserves only the already-earned
+// fresh-data delay, so outage time cannot advance removal after restart.
+type AbsenceState struct {
+	MissingSince time.Time
+	RemovalDueAt *time.Time
+	Remaining    time.Duration
 }
 
 // RunwayGroupPolicy is the airport-state identity for a runway group. The
@@ -424,6 +459,7 @@ type AMANFlight struct {
 	Slot                  *Slot
 	Order                 *int
 	ETAReview             *ETAReview
+	OperationalException  *OperationalException
 	GoAroundDetection     *GoAroundDetectionState
 	Lifecycle             *LifecycleState
 	UpdatedAt             time.Time
@@ -666,6 +702,22 @@ func (f AMANFlight) Validate() error {
 		if !f.lifecycleReasonMatchesState() {
 			return invalid("lifecycle reason does not match flight state")
 		}
+		if f.Lifecycle.Absence != nil {
+			if err := f.Lifecycle.Absence.Validate(); err != nil {
+				return err
+			}
+			if f.Lifecycle.ReconciliationPending && f.Lifecycle.Absence.RemovalDueAt != nil {
+				return invalid("pending source reconciliation cannot run an absence timer")
+			}
+		}
+	}
+	if f.OperationalException != nil {
+		if !f.OperationalException.Reason.Valid() {
+			return invalid("operational exception reason is invalid")
+		}
+		if err := requireUTCTime("operational exception detected at", f.OperationalException.DetectedAt); err != nil {
+			return err
+		}
 	}
 	if err := f.validateFreeze(); err != nil {
 		return err
@@ -694,6 +746,28 @@ func (s LifecycleState) Validate() error {
 	return nil
 }
 
+func (s AbsenceState) Validate() error {
+	if err := requireUTCTime("absence missing since", s.MissingSince); err != nil {
+		return err
+	}
+	if s.Remaining < 0 {
+		return invalid("absence remaining duration cannot be negative")
+	}
+	if s.RemovalDueAt == nil {
+		return nil
+	}
+	if s.Remaining != 0 {
+		return invalid("running absence timer cannot retain a paused duration")
+	}
+	if err := requireUTCTime("absence removal due at", *s.RemovalDueAt); err != nil {
+		return err
+	}
+	if s.RemovalDueAt.Before(s.MissingSince) {
+		return invalid("absence removal deadline cannot predate disappearance")
+	}
+	return nil
+}
+
 func (f AMANFlight) lifecycleReasonMatchesState() bool {
 	switch f.Lifecycle.Reason {
 	case LifecycleReasonInitial:
@@ -708,7 +782,11 @@ func (f AMANFlight) lifecycleReasonMatchesState() bool {
 		return f.State == StateGoAround
 	case LifecycleReasonLandingConfirmed:
 		return f.State == StateLanded
+	case LifecycleReasonSuddenAppearance:
+		return f.State == StateAirborne || f.State == StateUnstable || f.State == StateStable
 	case LifecycleReasonManualRemoval, LifecycleReasonLandedTimeout, LifecycleReasonPlannedCancellation:
+		return f.State == StateRemoved
+	case LifecycleReasonSourceDisappearance:
 		return f.State == StateRemoved
 	default:
 		return false

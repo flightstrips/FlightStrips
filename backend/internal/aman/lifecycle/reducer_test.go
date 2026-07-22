@@ -3,10 +3,12 @@ package lifecycle_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/compatibility"
 	"FlightStrips/internal/aman/lifecycle"
 	"FlightStrips/internal/aman/prediction"
 	"github.com/stretchr/testify/require"
@@ -95,6 +97,141 @@ func TestReduceKeepsDataStatusOrthogonalAndBlocksStaleAdvancement(t *testing.T) 
 	advanced, err := lifecycle.Reduce(config, restored.Flight, predictionEvent("fresh-prediction", now.Add(5*time.Minute), now.Add(50*time.Minute)))
 	require.NoError(t, err)
 	require.Equal(t, aman.StateUnstable, advanced.Flight.State)
+}
+
+func TestReduceRestartsDisconnectedAndReconcilesBeforeResumingRemoval(t *testing.T) {
+	now := lifecycleTime()
+	config := lifecycle.DefaultConfig()
+	flight := lifecycleFlight(now, aman.StateAirborne)
+
+	missing, err := lifecycle.Reduce(config, flight, event("missing", lifecycle.EventFlightMissing, now.Add(time.Minute)))
+	require.NoError(t, err)
+	require.Equal(t, now.Add(time.Minute+config.RemovalTimeout), *missing.Flight.Lifecycle.Absence.RemovalDueAt)
+
+	restartedEvent := event("restart-1", lifecycle.EventSourceRestarted, now.Add(2*time.Minute))
+	restarted, err := lifecycle.Reduce(config, missing.Flight, restartedEvent)
+	require.NoError(t, err)
+	require.Equal(t, aman.DataDisconnected, restarted.Flight.DataStatus)
+	require.True(t, restarted.Flight.Lifecycle.ReconciliationPending)
+	require.Nil(t, restarted.Flight.Lifecycle.Absence.RemovalDueAt)
+	require.Equal(t, 4*time.Minute, restarted.Flight.Lifecycle.Absence.Remaining)
+
+	duplicate, err := lifecycle.Reduce(config, restarted.Flight, restartedEvent)
+	require.NoError(t, err)
+	require.True(t, duplicate.Duplicate)
+	require.Equal(t, restarted.Flight, duplicate.Flight)
+	_, err = lifecycle.Reduce(config, restarted.Flight, statusEvent("late-stale", now.Add(time.Minute+30*time.Second), aman.DataStale))
+	requireDomainClass(t, err, aman.ErrorInvalidTransition)
+	_, err = lifecycle.Reduce(config, restarted.Flight, statusEvent("restart-1", now.Add(2*time.Minute), aman.DataFresh))
+	requireDomainClass(t, err, aman.ErrorInvalidTransition)
+
+	persisted, err := json.Marshal(restarted.Flight)
+	require.NoError(t, err)
+	var restoredFlight aman.AMANFlight
+	require.NoError(t, json.Unmarshal(persisted, &restoredFlight))
+	require.NoError(t, restoredFlight.Validate())
+
+	fresh, err := lifecycle.Reduce(config, restoredFlight, statusEvent("source-restored", now.Add(32*time.Minute), aman.DataFresh))
+	require.NoError(t, err)
+	require.True(t, fresh.Flight.Lifecycle.ReconciliationPending)
+	require.Nil(t, fresh.Flight.Lifecycle.Absence.RemovalDueAt, "fresh status alone must not resume the timer")
+
+	_, err = lifecycle.Reduce(config, fresh.Flight, event("premature-timeout", lifecycle.EventRemovalTimeout, now.Add(33*time.Minute)))
+	requireDomainClass(t, err, aman.ErrorInvalidTransition)
+
+	confirmedMissing, err := lifecycle.Reduce(config, fresh.Flight, event("fresh-snapshot-missing", lifecycle.EventFlightMissing, now.Add(34*time.Minute)))
+	require.NoError(t, err)
+	require.False(t, confirmedMissing.Flight.Lifecycle.ReconciliationPending)
+	require.Equal(t, now.Add(38*time.Minute), *confirmedMissing.Flight.Lifecycle.Absence.RemovalDueAt)
+
+	_, err = lifecycle.Reduce(config, confirmedMissing.Flight, event("early-timeout", lifecycle.EventRemovalTimeout, now.Add(38*time.Minute-time.Nanosecond)))
+	requireDomainClass(t, err, aman.ErrorInvalidTransition)
+	removed, err := lifecycle.Reduce(config, confirmedMissing.Flight, event("timeout", lifecycle.EventRemovalTimeout, now.Add(38*time.Minute)))
+	require.NoError(t, err)
+	require.Equal(t, aman.StateRemoved, removed.Flight.State)
+	require.Equal(t, aman.LifecycleReasonSourceDisappearance, removed.Flight.Lifecycle.Reason)
+}
+
+func TestReduceCurrentObservationCancelsPausedDisappearance(t *testing.T) {
+	now := lifecycleTime()
+	config := lifecycle.DefaultConfig()
+	flight := lifecycleFlight(now, aman.StateAirborne)
+
+	missing, err := lifecycle.Reduce(config, flight, event("missing", lifecycle.EventFlightMissing, now.Add(time.Minute)))
+	require.NoError(t, err)
+	disconnected, err := lifecycle.Reduce(config, missing.Flight, statusEvent("disconnected", now.Add(2*time.Minute), aman.DataDisconnected))
+	require.NoError(t, err)
+	fresh, err := lifecycle.Reduce(config, disconnected.Flight, statusEvent("fresh", now.Add(20*time.Minute), aman.DataFresh))
+	require.NoError(t, err)
+	observed, err := lifecycle.Reduce(config, fresh.Flight, event("observed", lifecycle.EventFlightObserved, now.Add(21*time.Minute)))
+	require.NoError(t, err)
+	require.False(t, observed.Flight.Lifecycle.ReconciliationPending)
+	require.Nil(t, observed.Flight.Lifecycle.Absence)
+}
+
+func TestReduceSuddenAppearanceUsesDefensibleStateWithoutInventingFreeze(t *testing.T) {
+	now := lifecycleTime()
+	config := lifecycle.DefaultConfig()
+	tests := []struct {
+		name       string
+		untilTETA  time.Duration
+		wantState  aman.FlightState
+		wantReview bool
+	}{
+		{name: "outside lifecycle horizons", untilTETA: config.UnstableHorizon + time.Nanosecond, wantState: aman.StateAirborne},
+		{name: "at unstable horizon", untilTETA: config.UnstableHorizon, wantState: aman.StateUnstable},
+		{name: "at stable horizon without invented dwell", untilTETA: config.StableHorizon, wantState: aman.StateStable},
+		{name: "outside freeze horizon", untilTETA: config.SuperstableHorizon + time.Nanosecond, wantState: aman.StateStable},
+		{name: "at freeze horizon requires review", untilTETA: config.SuperstableHorizon, wantState: aman.StateStable, wantReview: true},
+		{name: "inside freeze horizon requires review", untilTETA: config.SuperstableHorizon - time.Second, wantState: aman.StateStable, wantReview: true},
+	}
+
+	for index, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			flight := lifecycleFlight(now, aman.StatePlanned)
+			flight.DataStatus = aman.DataDisconnected
+			result, err := lifecycle.Reduce(config, flight, suddenEvent(fmt.Sprintf("sudden-%d", index), now.Add(time.Minute), now.Add(time.Minute+tt.untilTETA)))
+			require.NoError(t, err)
+			require.Equal(t, tt.wantState, result.Flight.State)
+			require.Equal(t, aman.DataFresh, result.Flight.DataStatus)
+			require.Equal(t, aman.LifecycleReasonSuddenAppearance, result.Flight.Lifecycle.Reason)
+			require.Equal(t, aman.FreezeNone, result.Flight.FreezeReason)
+			require.Nil(t, result.Flight.FrozenAt)
+			require.Nil(t, result.Flight.FrozenOperationalTETA)
+			require.Nil(t, result.Flight.FrozenSlot)
+			require.Nil(t, result.Flight.Prediction, "the lifecycle reducer must not manufacture prediction history or confidence")
+			require.Empty(t, result.Flight.RawTETASamples)
+			if tt.wantReview {
+				require.NotNil(t, result.Flight.OperationalException)
+				require.Equal(t, aman.OperationalExceptionSuddenInsideFreeze, result.Flight.OperationalException.Reason)
+				require.Equal(t, now.Add(time.Minute), result.Flight.OperationalException.DetectedAt)
+			} else {
+				require.Nil(t, result.Flight.OperationalException)
+			}
+			require.NoError(t, result.Flight.Validate())
+		})
+	}
+}
+
+func TestReduceExpiresOperationalPredictionWithoutLegacyFallback(t *testing.T) {
+	now := lifecycleTime()
+	config := lifecycle.DefaultConfig()
+	flight := lifecycleFlight(now, aman.StateUnstable)
+	prediction := rawPrediction(now, now.Add(30*time.Minute))
+	prediction.OperationalTETA = prediction.RawTETA
+	prediction.OperationalReason = aman.OperationalReasonPredicted
+	flight.Prediction = &prediction
+
+	stale, err := lifecycle.Reduce(config, flight, statusEvent("stale", now.Add(time.Minute), aman.DataStale))
+	require.NoError(t, err)
+	expired, err := lifecycle.Reduce(config, stale.Flight, event("prediction-expired", lifecycle.EventPredictionExpired, now.Add(2*time.Minute)))
+	require.NoError(t, err)
+	require.NotNil(t, expired.Flight.Prediction)
+	require.False(t, expired.Flight.Prediction.Publishable)
+	require.Equal(t, lifecycle.PredictionExpiredSourceData, *expired.Flight.Prediction.DegradationReason)
+	require.Nil(t, compatibility.ProjectArrivalETA(aman.ModeReadOnly, expired.Flight.Prediction, now.Add(2*time.Minute), time.Hour))
+	require.Nil(t, compatibility.ProjectArrivalETA(aman.ModeAuthoritative, expired.Flight.Prediction, now.Add(2*time.Minute), time.Hour))
+	require.NoError(t, expired.Flight.Validate())
 }
 
 func TestReduceIsIdempotentAndRejectsOutOfOrderOrInvalidTransitions(t *testing.T) {
@@ -224,6 +361,10 @@ func event(id string, kind lifecycle.EventKind, at time.Time) lifecycle.Event {
 
 func predictionEvent(id string, at, operationalTETA time.Time) lifecycle.Event {
 	return lifecycle.Event{ID: id, Kind: lifecycle.EventPredictionAccepted, OccurredAt: at, OperationalTETA: &operationalTETA}
+}
+
+func suddenEvent(id string, at, operationalTETA time.Time) lifecycle.Event {
+	return lifecycle.Event{ID: id, Kind: lifecycle.EventSuddenAppearance, OccurredAt: at, OperationalTETA: &operationalTETA}
 }
 
 func statusEvent(id string, at time.Time, status aman.DataStatus) lifecycle.Event {

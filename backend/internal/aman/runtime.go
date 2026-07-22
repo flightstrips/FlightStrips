@@ -236,6 +236,18 @@ func ownershipFor(config RuntimeConfig) Ownership {
 	return ownership
 }
 
+// OwnershipForRolloutGate returns the writer and authority ownership for a
+// gate decision. A blocked operational mode deliberately enables neither ETA
+// writer: falling back to legacy ETA would hide the failed AMAN gate. Disabled
+// and shadow retain their documented legacy ownership because they are desired
+// modes, not a degradation of an operational mode.
+func OwnershipForRolloutGate(desired RolloutMode, authorityAllowed bool) Ownership {
+	if operationalMode(desired) && !authorityAllowed {
+		return Ownership{}
+	}
+	return ownershipFor(RuntimeConfig{Mode: desired})
+}
+
 // Config returns a copy of the normalized configuration.
 func (r *Runtime) Config() RuntimeConfig {
 	if r == nil {

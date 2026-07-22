@@ -31,17 +31,23 @@ type ComponentHealth struct {
 // inputs that can technically block authority without making a policy or
 // provider-approval decision itself.
 type TechnicalHealth struct {
-	Enabled          bool            `json:"enabled"`
-	Mode             RolloutMode     `json:"mode"`
-	Ready            bool            `json:"ready"`
-	Status           HealthStatus    `json:"status"`
-	BlockedReasons   []string        `json:"blocked_reasons,omitempty"`
-	VATSIM           ComponentHealth `json:"vatsim"`
-	Navigation       ComponentHealth `json:"navigation"`
-	Weather          ComponentHealth `json:"weather"`
-	Repository       ComponentHealth `json:"repository"`
-	Predictor        ComponentHealth `json:"predictor"`
-	ReplayValidation ComponentHealth `json:"replay_validation"`
+	Enabled bool `json:"enabled"`
+	// Mode is retained as the desired-mode compatibility field. New consumers
+	// must use DesiredMode and EffectiveMode so a gate cannot be mistaken for a
+	// configuration change.
+	Mode             RolloutMode          `json:"mode"`
+	DesiredMode      RolloutMode          `json:"desired_mode"`
+	EffectiveMode    EffectiveRolloutMode `json:"effective_mode"`
+	AuthorityAllowed bool                 `json:"authority_allowed"`
+	Ready            bool                 `json:"ready"`
+	Status           HealthStatus         `json:"status"`
+	BlockedReasons   []string             `json:"blocked_reasons,omitempty"`
+	VATSIM           ComponentHealth      `json:"vatsim"`
+	Navigation       ComponentHealth      `json:"navigation"`
+	Weather          ComponentHealth      `json:"weather"`
+	Repository       ComponentHealth      `json:"repository"`
+	Predictor        ComponentHealth      `json:"predictor"`
+	ReplayValidation ComponentHealth      `json:"replay_validation"`
 }
 
 // TechnicalHealthReporter is the narrow runtime seam for a concrete health
@@ -56,9 +62,11 @@ type TechnicalHealthReporter interface {
 // operators can identify the technical authority blocker directly.
 func EvaluateTechnicalHealth(mode RolloutMode, vatsim, navigation, weather, repository, predictor, replay ComponentHealth) TechnicalHealth {
 	report := TechnicalHealth{
-		Enabled: mode != ModeDisabled,
-		Mode:    mode,
-		VATSIM:  vatsim, Navigation: navigation, Weather: weather,
+		Enabled:       mode != ModeDisabled,
+		Mode:          mode,
+		DesiredMode:   mode,
+		EffectiveMode: EffectiveModeFor(mode),
+		VATSIM:        vatsim, Navigation: navigation, Weather: weather,
 		Repository: repository, Predictor: predictor, ReplayValidation: replay,
 	}
 	if !report.Enabled {
@@ -78,6 +86,7 @@ func EvaluateTechnicalHealth(mode RolloutMode, vatsim, navigation, weather, repo
 		}
 	}
 	report.Ready = len(report.BlockedReasons) == 0
+	report.AuthorityAllowed = report.Ready && operationalMode(mode)
 	if report.Ready {
 		report.Status = HealthReady
 	} else {
@@ -86,9 +95,10 @@ func EvaluateTechnicalHealth(mode RolloutMode, vatsim, navigation, weather, repo
 	return report
 }
 
-// Health returns the injected concrete report, with runtime configuration
-// applied as the effective mode. A missing reporter is visible as a technical
-// blocker rather than being mistaken for a healthy authoritative runtime.
+// Health returns the injected concrete report with the configured desired
+// mode. A rollout gate may subsequently replace EffectiveMode with blocked;
+// a missing reporter is visible as a technical blocker rather than being
+// mistaken for a healthy authoritative runtime.
 func (r *Runtime) Health(ctx context.Context) TechnicalHealth {
 	mode := ModeDisabled
 	if r != nil {
@@ -102,9 +112,11 @@ func (r *Runtime) Health(ctx context.Context) TechnicalHealth {
 		unavailable := ComponentHealth{Status: HealthUnavailable, Reason: "health_reporter_unavailable"}
 		return EvaluateTechnicalHealth(mode, unavailable, unavailable, unavailable, unavailable, unavailable, unavailable)
 	}
-	report := reporter.TechnicalHealth(ctx)
-	report.Enabled, report.Mode = true, mode
-	return normalizeTechnicalHealth(report)
+	report := normalizeTechnicalHealth(reporter.TechnicalHealth(ctx))
+	report.Enabled, report.Mode, report.DesiredMode = true, mode, mode
+	report.EffectiveMode = EffectiveModeFor(mode)
+	report.AuthorityAllowed = report.Ready && operationalMode(mode)
+	return report
 }
 
 func normalizeTechnicalHealth(report TechnicalHealth) TechnicalHealth {

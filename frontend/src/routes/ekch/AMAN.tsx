@@ -31,8 +31,8 @@ export default function AMAN() {
   }, [state]);
 
   return (
-    <main className="h-[95.28dvh] overflow-y-auto bg-slate-950 p-3 md:p-5">
-      <div className="mx-auto grid max-w-[1920px] items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_420px]">
+    <main className="h-[95.28dvh] overflow-y-auto bg-[#242424] p-0 text-white">
+      <div className="mx-auto grid max-w-[1920px] items-start gap-3 p-3 2xl:grid-cols-[minmax(0,1fr)_420px]">
         <AMANBoardView
           connectionState={connectionState}
           error={error}

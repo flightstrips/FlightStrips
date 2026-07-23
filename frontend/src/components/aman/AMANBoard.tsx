@@ -1,4 +1,4 @@
-import {useMemo} from "react";
+import {useMemo, useState} from "react";
 
 import type {
   AMANConnectionState,
@@ -73,19 +73,22 @@ function TimelineLane({
   onSelectFlight: (flightID: string) => void;
 }) {
   const markers = layoutTimelineMarkers(flights, range);
-  const trackCount = Math.max(1, ...markers.map((marker) => marker.track + 1));
+  const topPercent = (timestamp: string) => 100 - (timelinePercent(timestamp, range) ?? 0);
 
   return (
-    <div className="grid grid-cols-[150px_minmax(720px,1fr)] border-t border-slate-700" data-testid={`timeline-lane-${label}`}>
-      <div className="border-r border-slate-700 bg-slate-950 px-3 py-3">
-        <div className="font-semibold text-slate-100">{label}</div>
-        <div className="text-xs text-slate-400">{flights.length} flights</div>
-      </div>
+    <section className="min-w-[245px] border-l border-black/70 bg-[#292929]" data-testid={`timeline-lane-${label}`}>
+      <header className="flex min-h-16 items-center justify-between border-b border-black bg-[#3c3c3c] px-3 text-white">
+        <div>
+          <div className="font-display text-xl font-bold tracking-wide">{label}</div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-300">{flights.length} flights</div>
+        </div>
+        <span className="rounded border border-white/70 px-2 py-1 text-xs">{flights.length}</span>
+      </header>
       <div
-        className="relative bg-[linear-gradient(to_right,rgba(100,116,139,0.18)_1px,transparent_1px)] bg-[size:10%_100%]"
-        style={{height: Math.max(76, trackCount * 48 + 28)}}
+        className="relative h-[620px] overflow-hidden bg-[linear-gradient(to_bottom,rgba(255,255,255,0.18)_1px,transparent_1px)] bg-[size:100%_10%]"
       >
-        <div className="absolute inset-x-0 bottom-3 h-px bg-slate-600" />
+        <div className="absolute bottom-0 left-0 top-0 w-6 border-r border-slate-500 bg-[#1e1e1e]" aria-hidden="true" />
+        <div className="absolute bottom-0 left-6 top-0 border-l border-dashed border-slate-500" aria-hidden="true" />
         {markers.map((marker) => {
           const selected = marker.flight.flight_id === selectedFlightID;
           const rawLeft = timelinePercent(marker.flight.raw_teta, range);
@@ -94,35 +97,38 @@ function TimelineLane({
               {rawLeft !== null && marker.flight.raw_teta !== marker.timestamp && (
                 <div
                   aria-label={`${marker.flight.callsign} raw TETA ${formatAMANTime(marker.flight.raw_teta)}`}
-                  className="absolute bottom-1 h-3 w-3 -translate-x-1/2 rotate-45 border border-amber-300 bg-amber-500"
+                  className="absolute left-5 h-3 w-3 -translate-x-1/2 rotate-45 border border-amber-200 bg-amber-400"
                   data-testid={`raw-marker-${marker.flight.flight_id}`}
-                  style={{left: `${rawLeft}%`}}
+                  style={{top: `${100 - rawLeft}%`}}
                   title={`Raw TETA ${formatAMANTime(marker.flight.raw_teta)} (informational only)`}
                 />
               )}
               <button
                 aria-label={`Select ${marker.flight.callsign} timeline marker`}
                 className={cn(
-                  "absolute w-[92px] -translate-x-1/2 rounded border-2 bg-slate-900 px-1.5 py-1 text-left text-xs shadow-lg focus:outline-none focus:ring-2 focus:ring-white",
-                  marker.flight.freeze_reason === "superstable" && "border-cyan-300",
-                  marker.flight.freeze_reason === "manual" && "border-fuchsia-300",
-                  marker.flight.freeze_reason === "none" && "border-sky-500",
-                  selected && "ring-2 ring-white",
+                  "absolute left-9 right-2 rounded border-2 bg-[#86a4af] px-2 py-1.5 text-left text-xs text-white shadow-lg focus:outline-none focus:ring-2 focus:ring-white",
+                  marker.flight.freeze_reason === "superstable" && "border-cyan-200",
+                  marker.flight.freeze_reason === "manual" && "border-fuchsia-200",
+                  marker.flight.freeze_reason === "none" && "border-black",
+                  selected && "ring-2 ring-[#f3d02e]",
                 )}
                 data-marker-time={marker.timestamp}
                 data-testid={`operational-marker-${marker.flight.flight_id}`}
                 onClick={() => onSelectFlight(marker.flight.flight_id)}
-                style={{left: `${marker.leftPercent}%`, top: marker.track * 48 + 6}}
+                style={{top: `calc(${topPercent(marker.timestamp)}% + ${marker.track * 38}px)`}}
                 type="button"
               >
-                <span className="block truncate font-bold text-white">{marker.flight.callsign}</span>
-                <span className="block text-slate-300">{formatAMANTime(marker.timestamp)} · {formatGainLoss(marker.flight.gain_loss_seconds)}</span>
+                <span className="block truncate font-bold tracking-wide">{marker.flight.callsign}</span>
+                <span className="block text-[11px] text-white/90">{formatAMANTime(marker.timestamp)} · {formatGainLoss(marker.flight.gain_loss_seconds)}</span>
               </button>
             </div>
           );
         })}
       </div>
-    </div>
+      <footer className="border-t border-black bg-[#3c3c3c] px-3 py-2 text-center font-display text-sm font-semibold tracking-wide text-white">
+        {flights.map((flight) => flight.holding_fix ?? flight.route_fact?.fix ?? "—").filter((fix, index, values) => values.indexOf(fix) === index).join(" · ") || "No route fix"}
+      </footer>
+    </section>
   );
 }
 
@@ -235,6 +241,13 @@ export function AMANBoardView({
 }: AMANBoardViewProps) {
   const lanes = useMemo(() => state ? buildAMANLanes(state) : [], [state]);
   const range = useMemo(() => state ? buildTimelineRange(state.flights) : null, [state]);
+  const [filter, setFilter] = useState<"all" | "runway" | "frozen">("all");
+  const visibleLanes = useMemo(() => lanes.map((lane) => ({
+    ...lane,
+    flights: filter === "frozen"
+      ? lane.flights.filter((flight) => flight.freeze_reason !== "none")
+      : lane.flights,
+  })).filter((lane) => filter !== "frozen" || lane.flights.length > 0), [filter, lanes]);
 
   if (state === null) {
     return (
@@ -249,26 +262,40 @@ export function AMANBoardView({
   }
 
   return (
-    <section aria-label="AMAN presentation" className="grid gap-4">
-      <header className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-slate-100 shadow-lg">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-black tracking-wide">{state.airport} AMAN</h1>
-            <p className="text-sm text-slate-400">Revision {state.revision} · generated {new Date(state.generated_at).toISOString()} · policy {state.policy_version}</p>
+    <section aria-label="AMAN presentation" className="grid gap-3 text-slate-100">
+      <header className="border border-black bg-[#3c3c3c] shadow-lg">
+        <div className="grid gap-px bg-black lg:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]">
+          <div className="grid min-w-20 place-items-center bg-[#f3d02e] px-4 py-3 font-display text-2xl font-bold text-black">{state.airport}</div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 bg-[#f3d02e] px-4 py-3 text-black">
+            <h1 className="font-display text-2xl font-bold tracking-wide">ARRIVAL MANAGER</h1>
+            <span className="text-sm font-semibold">{state.runway_groups.map((group) => `${group.id}: ${state.flights.filter((flight) => flight.runway_group_id === group.id).length}`).join("   ") || "No runway group"}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <span className={cn(badgeBase, modeTone(state.effective_mode))}>{state.effective_mode.replace("_", " ")}</span>
-            <span className={cn(badgeBase, connectionState === "connected" ? "border-emerald-500 bg-emerald-950 text-emerald-200" : "border-red-500 bg-red-950 text-red-100")}>{connectionState}</span>
-            <span className={cn(badgeBase, presentationStatus === "ready" ? "border-emerald-500 bg-emerald-950 text-emerald-200" : "border-amber-400 bg-amber-950 text-amber-100")}>{presentationStatus}</span>
-            <span className={cn(badgeBase, state.authoritative ? "border-emerald-500 bg-emerald-950 text-emerald-200" : "border-slate-500 bg-slate-950 text-slate-300")}>{state.authoritative ? "authoritative" : "non-authoritative"}</span>
-          </div>
+          <div className="bg-[#e4e4e4] px-3 py-2 text-right text-xs text-black">Health: <b>{state.technical_health.status}</b><br />TMA: {state.flights.length}</div>
+          <div className="bg-[#e4e4e4] px-3 py-2 text-center text-xs text-black">{state.policy_version}<br />Revision {state.revision}</div>
+          <div className="bg-[#e4e4e4] px-3 py-2 text-center font-mono text-sm text-[#555]">{new Date(state.generated_at).toISOString().slice(11, 19)}</div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-black bg-[#3c3c3c] px-3 py-2">
+          {(["all", "runway", "frozen"] as const).map((value) => (
+            <button
+              className={cn("rounded border border-black px-3 py-1 text-xs font-semibold uppercase tracking-wide", filter === value ? "bg-[#86a4af] text-white" : "bg-[#e4e4e4] text-black")}
+              key={value}
+              onClick={() => setFilter(value)}
+              type="button"
+            >
+              {value === "all" ? "MAESTRO" : value === "runway" ? "RWY" : "FS"}
+            </button>
+          ))}
+          <span className={cn(badgeBase, modeTone(state.effective_mode))}>{state.effective_mode.replace("_", " ")}</span>
+          <span className={cn(badgeBase, connectionState === "connected" ? "border-emerald-500 bg-emerald-950 text-emerald-200" : "border-red-500 bg-red-950 text-red-100")}>{connectionState}</span>
+          <span className={cn(badgeBase, presentationStatus === "ready" ? "border-emerald-500 bg-emerald-950 text-emerald-200" : "border-amber-400 bg-amber-950 text-amber-100")}>{presentationStatus}</span>
+          <span className="ml-auto text-xs text-slate-300">Operational time · amber diamond = raw TETA only</span>
         </div>
         {state.technical_health.blocked_reasons.length > 0 && (
-          <div role="alert" className="mt-3 rounded border border-red-500 bg-red-950 p-2 text-sm text-red-100">
+          <div role="alert" className="m-3 rounded border border-red-500 bg-red-950 p-2 text-sm text-red-100">
             Blocked: {state.technical_health.blocked_reasons.join(", ")}
           </div>
         )}
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-px border-t border-black bg-black sm:grid-cols-2 xl:grid-cols-3">
           {([
             ["VATSIM", state.technical_health.vatsim],
             ["Navigation", state.technical_health.navigation],
@@ -277,7 +304,7 @@ export function AMANBoardView({
             ["Predictor", state.technical_health.predictor],
             ["Replay validation", state.technical_health.replay_validation],
           ] as const).map(([label, health]) => (
-            <div className="rounded border border-slate-700 bg-slate-950 p-2 text-xs" key={label}>
+            <div className="bg-[#292929] p-2 text-xs" key={label}>
               <b>{label}: {health.status}</b>
               <span className="block text-slate-400">{health.reason ?? "No degradation reason"} · updated {formatAMANTime(health.updated_at)} · age {health.age_seconds === null ? "Unavailable" : `${health.age_seconds}s`}</span>
             </div>
@@ -285,24 +312,24 @@ export function AMANBoardView({
         </div>
       </header>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-900 shadow-lg">
+      <div className="overflow-x-auto border border-black bg-[#292929] shadow-lg">
         <div className="min-w-[880px]" data-testid="aman-timeline-grid">
-          <div className="grid grid-cols-[150px_minmax(720px,1fr)] bg-slate-950 text-xs text-slate-400">
-            <div className="border-r border-slate-700 px-3 py-2 font-semibold uppercase">Runway group</div>
-            <div className="flex justify-between px-3 py-2"><span>{range ? formatAMANTime(new Date(range.startMs).toISOString()) : "Unavailable"}</span><span>Operational timeline · amber diamond = raw TETA only</span><span>{range ? formatAMANTime(new Date(range.endMs).toISOString()) : "Unavailable"}</span></div>
-          </div>
           {range === null ? (
             <div className="p-6 text-center text-slate-300">No operational slot or TETA markers are available.</div>
-          ) : lanes.map((lane) => (
-            <TimelineLane
-              flights={lane.flights}
-              key={lane.id}
-              label={lane.label}
-              onSelectFlight={onSelectFlight}
-              range={range}
-              selectedFlightID={selectedFlightID}
-            />
-          ))}
+          ) : (
+            <div className="flex min-w-max">
+              <div className="relative h-[684px] border-r border-black bg-[#1e1e1e] text-right text-xs text-white" aria-label="Operational time scale">
+                {[0, 20, 40, 60, 80, 100].map((position) => (
+                  <span className="absolute right-2 -translate-y-1/2" key={position} style={{top: `${position}%`}}>
+                    {formatAMANTime(new Date(range.endMs - ((range.endMs - range.startMs) * position / 100)).toISOString())}
+                  </span>
+                ))}
+              </div>
+              {visibleLanes.map((lane) => (
+                <TimelineLane flights={lane.flights} key={lane.id} label={lane.label} onSelectFlight={onSelectFlight} range={range} selectedFlightID={selectedFlightID} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

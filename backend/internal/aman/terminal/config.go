@@ -6,6 +6,7 @@ package terminal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -104,6 +105,16 @@ type RunwayGroup struct {
 	Aliases         []aman.RunwayGroupID      `json:"aliases"`
 	Runways         []navdata.RunwayID        `json:"runways"`
 	FinalApproaches []FinalApproachDefinition `json:"finalApproaches"`
+	SameSTARSpacing *SameSTARSpacing          `json:"sameStarSpacing,omitempty"`
+}
+
+// SameSTARSpacing prevents consecutive high-rate slot opportunities from
+// being occupied by arrivals using the same terminal entry family. The
+// canonical feeder is the family identity (for example MONAK or TUDLO).
+type SameSTARSpacing struct {
+	Enabled               bool   `json:"enabled"`
+	ActivationRatePerHour uint32 `json:"activationRatePerHour"`
+	MinimumEmptySlots     uint32 `json:"minimumEmptySlots"`
 }
 
 type Feeder struct {
@@ -207,6 +218,27 @@ func LoadFile(path string) (Configuration, error) {
 	return value, nil
 }
 
+// ValidateOperationalSettings performs source-independent validation for the
+// sequencing settings that must fail startup before navigation acquisition.
+func (c Configuration) ValidateOperationalSettings() error {
+	var errs ValidationErrors
+	for i, group := range c.RunwayGroups {
+		if spacing := group.SameSTARSpacing; spacing != nil && spacing.Enabled {
+			if spacing.ActivationRatePerHour == 0 {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].sameStarSpacing.activationRatePerHour", i), "must be greater than zero when enabled")
+			}
+			if spacing.MinimumEmptySlots == 0 {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].sameStarSpacing.minimumEmptySlots", i), "must be greater than zero when enabled")
+			}
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	sort.Slice(errs, func(i, j int) bool { return errs[i].Error() < errs[j].Error() })
+	return errs
+}
+
 // ValidationErrors holds every configuration problem, preserving JSON-style
 // field paths so an operator can correct a candidate in one edit cycle.
 type ValidationErrors []error
@@ -227,6 +259,14 @@ func add(errs *ValidationErrors, path, message string) {
 // manifest. It never calls a source or derives a runway group from surveillance.
 func (c Configuration) Validate(refs ReferenceSet) error {
 	var errs ValidationErrors
+	if operationalErr := c.ValidateOperationalSettings(); operationalErr != nil {
+		var operational ValidationErrors
+		if errors.As(operationalErr, &operational) {
+			errs = append(errs, operational...)
+		} else {
+			errs = append(errs, operationalErr)
+		}
+	}
 	if c.SchemaVersion != SchemaVersion {
 		add(&errs, "schemaVersion", "must equal "+SchemaVersion)
 	}

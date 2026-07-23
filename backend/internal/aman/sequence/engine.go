@@ -43,6 +43,16 @@ type Policy struct {
 	EarlyTolerance    time.Duration
 	SeparationRules   []SeparationRule
 	UnknownSeparation time.Duration
+	SameSTARSpacing   SameSTARSpacing
+}
+
+// SameSTARSpacing applies an additional grid gap between flights using the
+// same canonical STAR entry family once the active arrival rate reaches the
+// configured threshold.
+type SameSTARSpacing struct {
+	Enabled               bool
+	ActivationRatePerHour uint32
+	MinimumEmptySlots     uint32
 }
 
 // Flight is the narrow sequencing view of an AMAN flight. CapturedSlot is a
@@ -55,6 +65,7 @@ type Flight struct {
 	OperationalTETA       time.Time
 	InitialBaselineTETA   *time.Time
 	WakeCategory          WakeCategory
+	STARFamily            string
 	ManualOrder           *int
 	FreezeReason          aman.FreezeReason
 	FrozenAt              *time.Time
@@ -123,6 +134,8 @@ const (
 	WarningProtectedSlotMissing WarningCode = "protected_slot_missing"
 	WarningProtectedSlotInvalid WarningCode = "protected_slot_invalid"
 	WarningProtectedSpacing     WarningCode = "protected_spacing_conflict"
+	WarningProtectedSameSTAR    WarningCode = "protected_same_star_spacing"
+	WarningUnknownSTARFamily    WarningCode = "unknown_star_family"
 )
 
 // Warning reports degraded input or an unsatisfied protected constraint.
@@ -160,8 +173,9 @@ type categoryPair struct{ leading, trailing WakeCategory }
 
 type preparedFlight struct {
 	Flight
-	category WakeCategory
-	known    bool
+	category    WakeCategory
+	known       bool
+	stableOrder *int
 }
 
 type allocatedEntry struct {
@@ -232,6 +246,9 @@ func preparePolicies(input []Policy) (map[aman.RunwayGroupID]preparedPolicy, err
 		}
 		if raw.UnknownSeparation <= 0 {
 			return nil, fmt.Errorf("runway group %q requires positive unknown-category separation", raw.RunwayGroupID)
+		}
+		if raw.SameSTARSpacing.Enabled && (raw.SameSTARSpacing.ActivationRatePerHour == 0 || raw.SameSTARSpacing.MinimumEmptySlots == 0) {
+			return nil, fmt.Errorf("runway group %q has invalid same-STAR spacing", raw.RunwayGroupID)
 		}
 
 		prepared := preparedPolicy{Policy: raw, rates: slices.Clone(raw.Rates), spacing: map[categoryPair]time.Duration{}, categories: map[WakeCategory]struct{}{}, fallback: raw.UnknownSeparation}
@@ -324,7 +341,13 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		if !known {
 			category = WakeUnknown
 		}
-		result[raw.RunwayGroupID] = append(result[raw.RunwayGroupID], preparedFlight{Flight: raw, category: category, known: known})
+		raw.STARFamily = strings.ToUpper(strings.TrimSpace(raw.STARFamily))
+		prepared := preparedFlight{Flight: raw, category: category, known: known}
+		if raw.State == aman.StateStable && raw.ManualOrder == nil && raw.CurrentSlot != nil {
+			order := raw.CurrentSlot.Sequence
+			prepared.stableOrder = &order
+		}
+		result[raw.RunwayGroupID] = append(result[raw.RunwayGroupID], prepared)
 	}
 	return result, nil
 }
@@ -336,6 +359,9 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight) ([]allocated
 	for _, flight := range flights {
 		if !flight.known {
 			warnings = append(warnings, Warning{Severity: SeverityDegraded, Code: WarningUnknownWakeCategory, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
+		}
+		if policy.SameSTARSpacing.Enabled && flight.STARFamily == "" {
+			warnings = append(warnings, Warning{Severity: SeverityDegraded, Code: WarningUnknownSTARFamily, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
 		}
 		if flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
 			continue
@@ -369,7 +395,11 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight) ([]allocated
 		leading, trailing := entries[index-1], entries[index]
 		if !adjacentValid(policy, leading, trailing) {
 			related := leading.flight.ID
-			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSpacing, RunwayGroupID: policy.RunwayGroupID, FlightID: trailing.flight.ID, RelatedFlightID: &related})
+			code := WarningProtectedSpacing
+			if sameSTARGap(policy, leading.flight, trailing.flight, trailing.time) > 0 && trailing.time.Sub(leading.time) < sameSTARGap(policy, leading.flight, trailing.flight, trailing.time) {
+				code = WarningProtectedSameSTAR
+			}
+			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: code, RunwayGroupID: policy.RunwayGroupID, FlightID: trailing.flight.ID, RelatedFlightID: &related})
 		}
 	}
 
@@ -429,12 +459,23 @@ func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight prepa
 // earlier/later attempt. Crossing an adjacent entry recomputes both directional
 // WTC boundaries, so allocation never validates only one side of an insertion.
 func placement(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time) (bool, time.Time, time.Time) {
+	return placementWithStableOrder(policy, entries, flight, candidate, true)
+}
+
+// queuePlacement evaluates a possible queue offer. Stable order constrains
+// allocation, but an offered stable flight is intentionally eligible to move
+// into an earlier vacant slot without making that allocation invariant apply.
+func queuePlacement(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time) (bool, time.Time, time.Time) {
+	return placementWithStableOrder(policy, entries, flight, candidate, false)
+}
+
+func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time, preserveStableOrder bool) (bool, time.Time, time.Time) {
 	index := sort.Search(len(entries), func(i int) bool { return !entries[i].time.Before(candidate) })
 	valid := true
 	earlier, later := candidate.Add(-time.Nanosecond), candidate.Add(time.Nanosecond)
 	if index > 0 {
 		leading := entries[index-1]
-		if orderAfter(flight.ManualOrder, leading.flight.ManualOrder) {
+		if orderAfter(flight.ManualOrder, leading.flight.ManualOrder) || (preserveStableOrder && orderAfter(flight.stableOrder, leading.flight.stableOrder)) {
 			valid = false
 			boundEarlier := leading.time.Add(-requiredGap(policy, flight, leading.flight, leading.time))
 			if boundEarlier.Before(earlier) {
@@ -456,7 +497,7 @@ func placement(policy preparedPolicy, entries []allocatedEntry, flight preparedF
 	}
 	if index < len(entries) {
 		trailing := entries[index]
-		if orderBefore(flight.ManualOrder, trailing.flight.ManualOrder) {
+		if orderBefore(flight.ManualOrder, trailing.flight.ManualOrder) || (preserveStableOrder && orderBefore(flight.stableOrder, trailing.flight.stableOrder)) {
 			valid = false
 			boundLater := trailing.time.Add(requiredGap(policy, trailing.flight, flight, trailing.time))
 			if boundLater.After(later) {
@@ -500,18 +541,39 @@ func requiredGap(policy preparedPolicy, leading, trailing preparedFlight, traili
 		wtc = policy.spacing[categoryPair{leading.category, trailing.category}]
 	}
 	base := policy.intervalAt(trailingAt)
-	if base > wtc {
-		return base
+	required := max(base, wtc)
+	if star := sameSTARGap(policy, leading, trailing, trailingAt); star > required {
+		required = star
 	}
-	return wtc
+	return required
+}
+
+func sameSTARGap(policy preparedPolicy, leading, trailing preparedFlight, trailingAt time.Time) time.Duration {
+	spacing := policy.SameSTARSpacing
+	if !spacing.Enabled || leading.STARFamily == "" || trailing.STARFamily == "" || leading.STARFamily != trailing.STARFamily {
+		return 0
+	}
+	rate := policy.rateAt(trailingAt)
+	if rate < spacing.ActivationRatePerHour {
+		return 0
+	}
+	return time.Duration(spacing.MinimumEmptySlots+1) * rateInterval(rate)
 }
 
 func (p preparedPolicy) intervalAt(at time.Time) time.Duration {
+	rate := p.rateAt(at)
+	if rate == 0 {
+		return 0
+	}
+	return rateInterval(rate)
+}
+
+func (p preparedPolicy) rateAt(at time.Time) uint32 {
 	index := sort.Search(len(p.rates), func(i int) bool { return p.rates[i].EffectiveAt.After(at) }) - 1
 	if index < 0 {
 		return 0
 	}
-	return rateInterval(p.rates[index].ArrivalsPerHour)
+	return p.rates[index].ArrivalsPerHour
 }
 
 func rateInterval(rate uint32) time.Duration {
@@ -566,6 +628,17 @@ func flightLess(a, b preparedFlight) bool {
 		}
 		if *a.ManualOrder != *b.ManualOrder {
 			return *a.ManualOrder < *b.ManualOrder
+		}
+	}
+	// Stable order is retained from the last committed sequence. A stable
+	// aircraft may move into a legal vacancy, but recalculation never sorts two
+	// stable aircraft back by their changing TETAs.
+	if a.State == aman.StateStable && b.State == aman.StateStable && a.CurrentSlot != nil && b.CurrentSlot != nil {
+		if a.CurrentSlot.Sequence != b.CurrentSlot.Sequence {
+			return a.CurrentSlot.Sequence < b.CurrentSlot.Sequence
+		}
+		if !a.CurrentSlot.Time.Equal(b.CurrentSlot.Time) {
+			return a.CurrentSlot.Time.Before(b.CurrentSlot.Time)
 		}
 	}
 	if aPriority, bPriority := lifecyclePriority(a.State), lifecyclePriority(b.State); aPriority != bPriority {

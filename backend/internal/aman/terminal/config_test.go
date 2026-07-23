@@ -40,6 +40,9 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 	require.Equal(t, config.ApplicabilityFrom, config.Dataset.EffectiveFrom)
 	require.Equal(t, config.ApplicabilityUntil, config.Dataset.EffectiveUntil)
 	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04", "ARRIVAL-22", "ARRIVAL-12", "ARRIVAL-30"}, groupIDs(config.RunwayGroups))
+	for _, group := range config.RunwayGroups {
+		require.Equal(t, &SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, group.SameSTARSpacing, group.ID)
+	}
 
 	wantFinals := map[navdata.RunwayID]struct{ latitude, longitude, course float64 }{
 		"04L": {55.5922, 12.6035361111, 41.2}, "04R": {55.6031, 12.6330472222, 41.2},
@@ -188,6 +191,21 @@ func TestEKCHConfigurationReportsEveryInvalidFieldPath(t *testing.T) {
 	for _, path := range []string{"sources[0]", "paths: missing enabled path", "paths[0].fixes", "paths[0].selectedHolding", "runwayGroups[0].runways[0]", "dataset"} {
 		require.Contains(t, message, path)
 	}
+}
+
+func TestSameSTARSpacingValidation(t *testing.T) {
+	config := goldenConfig(t)
+	refs := referencesFor(t, config)
+
+	config.RunwayGroups[0].SameSTARSpacing = nil
+	require.NoError(t, config.Validate(refs), "omitted spacing disables the rule")
+	config.RunwayGroups[0].SameSTARSpacing = &SameSTARSpacing{Enabled: false}
+	require.NoError(t, config.Validate(refs), "disabled spacing does not require thresholds")
+
+	config.RunwayGroups[0].SameSTARSpacing = &SameSTARSpacing{Enabled: true}
+	err := config.Validate(refs)
+	require.ErrorContains(t, err, "sameStarSpacing.activationRatePerHour")
+	require.ErrorContains(t, err, "sameStarSpacing.minimumEmptySlots")
 }
 
 func TestConfigurationRejectsTerminalSafetyViolations(t *testing.T) {

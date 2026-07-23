@@ -92,6 +92,12 @@ type ObservationSink interface {
 	Observe(context.Context, FlightObservation) error
 }
 
+// ObservationSourceHealthSink receives source-wide health even when a fresh
+// snapshot contains no flights.
+type ObservationSourceHealthSink interface {
+	ObserveSourceHealth(context.Context, DataStatus, time.Time) error
+}
+
 // VATSIMFlightIdentityBinder is the narrow durable identity capability needed
 // by a VATSIM observation adapter. It finds the active binding for a stable
 // VATSIM CID, so a corrected callsign never rekeys an active AMAN flight.

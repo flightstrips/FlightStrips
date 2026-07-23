@@ -45,6 +45,7 @@ func (b *observationTestBinder) BindVATSIMFlight(_ context.Context, identity ama
 
 type observationTestSink struct {
 	observations []aman.FlightObservation
+	sourceHealth []aman.DataStatus
 	err          error
 	errsByCID    map[string]error
 }
@@ -57,6 +58,11 @@ func (s *observationTestSink) Observe(_ context.Context, observation aman.Flight
 		return err
 	}
 	s.observations = append(s.observations, observation)
+	return nil
+}
+
+func (s *observationTestSink) ObserveSourceHealth(_ context.Context, status aman.DataStatus, _ time.Time) error {
+	s.sourceHealth = append(s.sourceHealth, status)
 	return nil
 }
 
@@ -129,6 +135,18 @@ func TestObservationWorkerUsesSourceObservedTimeForPlannedTimingAcrossRetry(t *t
 	require.Equal(t, time.Date(2026, time.July, 19, 0, 5, 0, 0, time.UTC), *retrySink.observations[0].PlannedTiming.EstimatedOffBlockTime)
 }
 
+func TestPreserveNewerObservationFactsKeepsFirstTakeoffDetection(t *testing.T) {
+	first := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	later := first.Add(time.Minute)
+	previous := aman.FlightObservation{TakeoffDetected: &first}
+	next := aman.FlightObservation{TakeoffDetected: &later}
+
+	preserved := preserveNewerObservationFacts(previous, next)
+
+	require.NotNil(t, preserved.TakeoffDetected)
+	require.Equal(t, first, *preserved.TakeoffDetected)
+}
+
 func TestWakeCategoryAndRequestedLevelMappingRejectInvalidSourceValues(t *testing.T) {
 	for _, test := range []struct {
 		aircraft, level string
@@ -187,6 +205,33 @@ func TestObservationWorkerReusesKnownIDButRebindsCallsignCorrection(t *testing.T
 	now = now.Add(time.Second)
 	require.NoError(t, worker.Publish(context.Background()))
 	require.Len(t, binder.bindings, 2, "callsign correction must verify the active binding")
+}
+
+func TestObservationWorkerPublishesExplicitDisappearance(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, Latitude: 55, Longitude: 12, Altitude: 10000, Groundspeed: 300, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
+	require.NoError(t, worker.Publish(context.Background()))
+
+	now = now.Add(15 * time.Second)
+	setObservationCacheSnapshot(cache, now, nil)
+	require.NoError(t, worker.Publish(context.Background()))
+	require.Len(t, sink.observations, 2)
+	require.True(t, sink.observations[1].Missing)
+	require.Equal(t, aman.DataFresh, sink.observations[1].SourceStatus)
+	require.NotContains(t, worker.known, "101")
+}
+
+func TestObservationWorkerPublishesHealthForFreshEmptySnapshot(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	cache := newReconciliationTestCache(now)
+	sink := &observationTestSink{}
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
+	require.NoError(t, worker.Publish(context.Background()))
+	require.Empty(t, sink.observations)
+	require.Equal(t, []aman.DataStatus{aman.DataFresh}, sink.sourceHealth)
 }
 
 func TestObservationWorkerContinuesAfterPerFlightMappingAndDeliveryFailures(t *testing.T) {

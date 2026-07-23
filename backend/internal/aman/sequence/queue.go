@@ -97,7 +97,7 @@ func CalculateQueueOffers(input Input, config QueueOfferConfig, at time.Time) ([
 					}
 					remaining = append(remaining, allocatedEntry{flight: entry.flight, time: entry.slot.Time, reason: CandidateReason(entry.slot.Reason)})
 				}
-				valid, _, _ := placement(policy, remaining, target.flight, candidate.slot.Time)
+				valid, _, _ := queuePlacement(policy, remaining, target.flight, candidate.slot.Time)
 				if !valid {
 					continue
 				}

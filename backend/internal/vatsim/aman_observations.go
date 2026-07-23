@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -108,6 +109,11 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 	current := make(map[string]aman.FlightObservation)
 	failed := make(map[string]struct{})
 	var publishErrors []error
+	if healthSink, ok := w.sink.(aman.ObservationSourceHealthSink); ok {
+		if err := healthSink.ObserveSourceHealth(ctx, status, now); err != nil {
+			publishErrors = append(publishErrors, fmt.Errorf("publish VATSIM source health: %w", err))
+		}
+	}
 	if status != aman.DataDisconnected && !snapshot.Timestamp.IsZero() {
 		for _, flight := range snapshot.Flights() {
 			if _, enabled := w.airports[strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Destination))]; !enabled {
@@ -150,6 +156,14 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 				continue
 			}
 			if _, present := current[cid]; !present {
+				missing := w.known[cid]
+				missing.Missing = true
+				missing.SourceStatus = status
+				missing.ReconciledAt = now
+				if err := w.sink.Observe(ctx, missing); err != nil {
+					publishErrors = append(publishErrors, fmt.Errorf("publish missing VATSIM observation for CID %s: %w", cid, err))
+					continue
+				}
 				delete(w.known, cid)
 			}
 		}
@@ -179,7 +193,7 @@ func (w *ObservationWorker) mapFlight(ctx context.Context, flight Flight, snapsh
 		AircraftType: optionalString(flight.FlightPlan.AircraftShort), WakeCategory: wakeCategory(flight.FlightPlan.Aircraft),
 		FiledRoute: optionalString(flight.FlightPlan.Route), RequestedLevel: requestedLevelFeet(flight.FlightPlan.RequestedLevel),
 		PlannedTiming: plannedTiming(observedAt, flight.FlightPlan), FlightPlan: flightPlanFact(flight.FlightPlan.Revision, observedAt),
-		Surveillance: surveillanceFact(flight, observedAt), TakeoffDetected: takeoffDetected(flight, observedAt),
+		Surveillance: surveillanceFact(flight, observedAt, previous), TakeoffDetected: takeoffDetected(flight, observedAt),
 		ReconciledAt: reconciledAt, SourceStatus: status,
 	}
 	if err := observation.Validate(); err != nil {
@@ -207,17 +221,36 @@ func flightPlanFact(revision int64, observedAt time.Time) aman.FlightPlanFact {
 	return aman.FlightPlanFact{Revision: sourceRevision, ObservedAt: &observedAt}
 }
 
-func surveillanceFact(flight Flight, observedAt time.Time) *aman.SurveillanceFact {
+func surveillanceFact(flight Flight, observedAt time.Time, previous *aman.FlightObservation) *aman.SurveillanceFact {
 	if !flight.Online() || !validCoordinates(flight.Latitude, flight.Longitude) {
 		return nil
 	}
 	altitude := flight.Altitude
 	groundspeed := float64(flight.Groundspeed)
 	sequence := uint64(observedAt.UnixMilli())
-	return &aman.SurveillanceFact{
+	fact := &aman.SurveillanceFact{
 		LatitudeDegrees: flight.Latitude, LongitudeDegrees: flight.Longitude, AltitudeFeet: &altitude,
 		GroundspeedKnots: &groundspeed, Sequence: &sequence, ObservedAt: &observedAt,
 	}
+	if track, ok := derivedGroundTrack(previous, fact); ok {
+		fact.TrackTrueDegrees = &track
+	}
+	return fact
+}
+
+func derivedGroundTrack(previous *aman.FlightObservation, current *aman.SurveillanceFact) (float64, bool) {
+	if previous == nil || previous.Surveillance == nil || previous.Surveillance.ObservedAt == nil || current == nil || current.ObservedAt == nil || !current.ObservedAt.After(*previous.Surveillance.ObservedAt) {
+		return 0, false
+	}
+	from := previous.Surveillance
+	if from.LatitudeDegrees == current.LatitudeDegrees && from.LongitudeDegrees == current.LongitudeDegrees {
+		return 0, false
+	}
+	lat1, lat2 := from.LatitudeDegrees*math.Pi/180, current.LatitudeDegrees*math.Pi/180
+	dLon := (current.LongitudeDegrees - from.LongitudeDegrees) * math.Pi / 180
+	y := math.Sin(dLon) * math.Cos(lat2)
+	x := math.Cos(lat1)*math.Sin(lat2) - math.Sin(lat1)*math.Cos(lat2)*math.Cos(dLon)
+	return math.Mod(math.Atan2(y, x)*180/math.Pi+360, 360), true
 }
 
 func takeoffDetected(flight Flight, observedAt time.Time) *time.Time {
@@ -301,6 +334,10 @@ func preserveNewerObservationFacts(previous, next aman.FlightObservation) aman.F
 	}
 	if surveillanceIsOlder(previous.Surveillance, next.Surveillance) {
 		next.Surveillance, next.TakeoffDetected = previous.Surveillance, previous.TakeoffDetected
+	}
+	if previous.TakeoffDetected != nil && (next.TakeoffDetected == nil || previous.TakeoffDetected.Before(*next.TakeoffDetected)) {
+		takeoff := *previous.TakeoffDetected
+		next.TakeoffDetected = &takeoff
 	}
 	return next
 }

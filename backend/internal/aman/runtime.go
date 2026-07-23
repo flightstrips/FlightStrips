@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultReconciliationInterval = 15 * time.Second
+	defaultReconciliationInterval = time.Minute
 	defaultSurveillanceInterval   = 15 * time.Second
 
 	// NavigationAdapterAIRACNet is the approved navigation-data adapter. Its

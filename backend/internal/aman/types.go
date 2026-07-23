@@ -248,6 +248,7 @@ type FlightObservation struct {
 	TakeoffDetected *time.Time
 	ReconciledAt    time.Time
 	SourceStatus    DataStatus
+	Missing         bool
 }
 
 // PlannedTiming contains provider-neutral planned times. Durations are domain
@@ -281,6 +282,7 @@ type SurveillanceFact struct {
 // freeze; OperationalTETA is the only value consumers sequence.
 type Prediction struct {
 	RawTETA           time.Time
+	RawRETA           *time.Time
 	OperationalTETA   time.Time
 	OperationalReason OperationalReason
 
@@ -521,7 +523,29 @@ type AbsenceState struct {
 // RunwayGroupPolicy is the airport-state identity for a runway group. The
 // sequence component owns the policy's rate and spacing declarations.
 type RunwayGroupPolicy struct {
-	ID RunwayGroupID
+	ID                RunwayGroupID
+	Selected          bool
+	SelectionSchedule []RunwayGroupSelectionPoint
+	ActiveRatePerHour uint32
+	RateEffectiveAt   *time.Time
+	RateSchedule      []RunwayGroupRatePoint
+	SameSTARSpacing   *SameSTARSpacingPolicy
+}
+
+type RunwayGroupSelectionPoint struct {
+	EffectiveAt     time.Time
+	CommandRevision SequenceRevision
+}
+
+type RunwayGroupRatePoint struct {
+	EffectiveAt     time.Time
+	ArrivalsPerHour uint32
+}
+
+type SameSTARSpacingPolicy struct {
+	Enabled               bool
+	ActivationRatePerHour uint32
+	MinimumEmptySlots     uint32
 }
 
 // AMANFlight is the persisted aggregate shape. All operational TETA, state,
@@ -537,10 +561,13 @@ type AMANFlight struct {
 	Prediction            *Prediction
 	RawTETASamples        []RawTETASample
 	ArrivalBaseline       *BaselineState
+	LatestObservation     *FlightObservation
 	SelectedRunwayGroup   *RunwayGroupID
 	SelectedFeeder        *string
 	SelectedHolding       *string
 	ActiveRouteFact       *RouteFact
+	ActiveRouteKey        *string
+	ActiveRouteDatasetID  *string
 	RouteProgress         *RouteProgress
 	FreezeReason          FreezeReason
 	FrozenAt              *time.Time
@@ -548,6 +575,7 @@ type AMANFlight struct {
 	FrozenSlot            *Slot
 	Slot                  *Slot
 	Order                 *int
+	ManualOrder           *int
 	QueueOffers           []QueueOffer
 	ETAReview             *ETAReview
 	OperationalException  *OperationalException
@@ -673,6 +701,11 @@ func (p Prediction) Validate() error {
 	if err := requireUTCTime("operational TETA", p.OperationalTETA); err != nil {
 		return err
 	}
+	if p.RawRETA != nil {
+		if err := requireUTCTime("raw RETA", *p.RawRETA); err != nil {
+			return err
+		}
+	}
 	if !p.OperationalReason.Valid() {
 		return invalid("operational reason is invalid")
 	}
@@ -760,6 +793,14 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if f.LatestObservation != nil {
+		if err := f.LatestObservation.Validate(); err != nil {
+			return err
+		}
+		if f.LatestObservation.FlightID != f.ID || f.LatestObservation.VATSIMCID != f.VATSIMCID || f.LatestObservation.Callsign != f.CurrentCallsign {
+			return invalid("latest observation identity does not match flight")
+		}
+	}
 	if len(f.RawTETASamples) > 3 {
 		return invalid("raw TETA smoothing window exceeds three samples")
 	}
@@ -776,6 +817,9 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if f.ManualOrder != nil && *f.ManualOrder < 1 {
+		return invalid("manual sequence order must be positive")
+	}
 	if f.ETAReview != nil {
 		if err := f.ETAReview.Validate(); err != nil {
 			return err
@@ -786,6 +830,12 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.ActiveRouteFact != nil && !f.ActiveRouteFact.State.Valid() {
 		return invalid("route fact state is invalid")
+	}
+	if f.ActiveRouteKey != nil && strings.TrimSpace(*f.ActiveRouteKey) == "" {
+		return invalid("active route key cannot be empty")
+	}
+	if f.ActiveRouteDatasetID != nil && strings.TrimSpace(*f.ActiveRouteDatasetID) == "" {
+		return invalid("active route dataset ID cannot be empty")
 	}
 	if f.RouteProgress != nil {
 		if strings.TrimSpace(f.RouteProgress.GeometryDigest) == "" || f.RouteProgress.ManifestRevision < 1 || f.RouteProgress.LegIndex < 0 || f.RouteProgress.RejoinLegIndex < 0 || f.RouteProgress.AlongTrackNM < 0 || math.IsNaN(f.RouteProgress.AlongTrackNM) || math.IsInf(f.RouteProgress.AlongTrackNM, 0) {
@@ -1169,6 +1219,7 @@ func (s AirportState) Validate() error {
 		}
 	}
 	groupIDs := make(map[RunwayGroupID]struct{}, len(s.RunwayGroups))
+	selectedGroups := 0
 	for _, group := range s.RunwayGroups {
 		if strings.TrimSpace(string(group.ID)) == "" {
 			return invalid("runway group ID is required")
@@ -1177,6 +1228,42 @@ func (s AirportState) Validate() error {
 			return invalid("airport state contains duplicate runway group")
 		}
 		groupIDs[group.ID] = struct{}{}
+		if group.Selected {
+			selectedGroups++
+			if selectedGroups > 1 {
+				return invalid("airport state cannot select more than one runway group")
+			}
+		}
+		for index, selection := range group.SelectionSchedule {
+			if err := requireUTCTime("runway group selection effective at", selection.EffectiveAt); err != nil {
+				return err
+			}
+			if index > 0 && !selection.EffectiveAt.After(group.SelectionSchedule[index-1].EffectiveAt) {
+				return invalid("runway group selection schedule must be strictly ordered")
+			}
+		}
+		if group.RateEffectiveAt != nil {
+			if group.ActiveRatePerHour == 0 {
+				return invalid("runway group active rate must be greater than zero")
+			}
+			if err := requireUTCTime("runway group rate effective at", *group.RateEffectiveAt); err != nil {
+				return err
+			}
+		}
+		for index, rate := range group.RateSchedule {
+			if rate.ArrivalsPerHour == 0 {
+				return invalid("runway group scheduled rate must be greater than zero")
+			}
+			if err := requireUTCTime("runway group scheduled rate effective at", rate.EffectiveAt); err != nil {
+				return err
+			}
+			if index > 0 && !rate.EffectiveAt.After(group.RateSchedule[index-1].EffectiveAt) {
+				return invalid("runway group rate schedule must be strictly ordered")
+			}
+		}
+		if spacing := group.SameSTARSpacing; spacing != nil && spacing.Enabled && (spacing.ActivationRatePerHour == 0 || spacing.MinimumEmptySlots == 0) {
+			return invalid("runway group same-STAR spacing is invalid")
+		}
 	}
 	return nil
 }

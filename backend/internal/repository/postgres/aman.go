@@ -35,7 +35,11 @@ func NewAMANRepository(pool *pgxpool.Pool) *amanRepository {
 func (*amanRepository) Name() string { return "postgres AMAN repository" }
 
 func (r *amanRepository) LoadAirportState(ctx context.Context, airport string) (aman.AirportState, error) {
-	return loadAMANAirportState(ctx, r.queries, airport)
+	state, err := loadAMANAirportState(ctx, r.queries, airport)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return aman.AirportState{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN airport state was not found"}
+	}
+	return state, err
 }
 
 func (r *amanRepository) LoadCommandOutcome(ctx context.Context, commandID string) (aman.CommandOutcome, error) {

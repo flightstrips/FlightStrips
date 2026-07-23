@@ -110,11 +110,10 @@ type AMANQueueOffer struct {
 	Reason          string   `json:"reason"`
 }
 
-// AMANRunwayGroup is intentionally limited to state persisted on
-// aman.AirportState. Rate schedules are not currently part of that persisted
-// aggregate and must not be borrowed from sequence-engine policy types.
 type AMANRunwayGroup struct {
-	ID string `json:"id"`
+	ID                string  `json:"id"`
+	ActiveRatePerHour *uint32 `json:"active_rate_per_hour,omitempty"`
+	RateEffectiveAt   *string `json:"rate_effective_at,omitempty"`
 }
 
 type AMANTechnicalHealth struct {
@@ -187,7 +186,19 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		}
 	}
 	for i, group := range state.RunwayGroups {
-		data.RunwayGroups[i] = AMANRunwayGroup{ID: string(group.ID)}
+		mapped := AMANRunwayGroup{ID: string(group.ID)}
+		if group.ActiveRatePerHour > 0 {
+			rate := group.ActiveRatePerHour
+			mapped.ActiveRatePerHour = &rate
+		}
+		if group.RateEffectiveAt != nil {
+			formatted, formatErr := aman.FormatTime(*group.RateEffectiveAt)
+			if formatErr != nil {
+				return AMANStateEvent{}, fmt.Errorf("map AMAN runway group %q rate: %w", group.ID, formatErr)
+			}
+			mapped.RateEffectiveAt = &formatted
+		}
+		data.RunwayGroups[i] = mapped
 	}
 	return AMANStateEvent{Version: AMANWireVersion, Data: data}, nil
 }
@@ -224,7 +235,7 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		}
 		result.RouteFact = &AMANRouteFact{ID: flight.ActiveRouteFact.ID, Fix: flight.ActiveRouteFact.Fix, ObservedAt: observedAt, State: string(state)}
 	}
-	if flight.Prediction != nil {
+	if flight.Prediction != nil && flight.Prediction.Publishable {
 		prediction := flight.Prediction
 		if result.RawTETA, err = formatOptionalValue(prediction.RawTETA); err != nil {
 			return AMANFlight{}, err
@@ -257,7 +268,7 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 			return AMANFlight{}, mapErr
 		}
 		result.Slot = &mapped
-		if flight.Prediction != nil {
+		if flight.Prediction != nil && flight.Prediction.Publishable {
 			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.OperationalTETA.Sub(flight.Slot.Time))
 			if secondsErr != nil {
 				return AMANFlight{}, secondsErr

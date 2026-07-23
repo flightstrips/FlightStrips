@@ -116,13 +116,15 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if err := validateAMANTerminalGeometry(cfg.AMAN); err != nil {
 		return nil, err
 	}
-	amanRuntime, err := aman.NewRuntime(cfg.AMAN, deps.AMAN)
-	if err != nil {
+	if err := cfg.AMAN.Validate(); err != nil {
 		return nil, fmt.Errorf("initialize AMAN runtime: %w", err)
 	}
-	amanCommands, hasAMANCommands := deps.AMAN.SequenceService.(aman.CommandService)
-	if amanRuntime.Ownership().ControllerMutationAuthorized && !hasAMANCommands {
-		return nil, errors.New("initialize AMAN commands: authoritative runtime requires typed command service")
+	amanEnabled := cfg.AMAN.Mode != "" && cfg.AMAN.Mode != aman.ModeDisabled
+	amanOwnership := aman.OwnershipForRolloutGate(cfg.AMAN.Mode, true)
+	if amanOwnership.ControllerMutationAuthorized && deps.AMAN.ObservationSink != nil {
+		if _, ok := deps.AMAN.SequenceService.(aman.CommandService); !ok {
+			return nil, errors.New("initialize AMAN commands: authoritative runtime requires typed command service")
+		}
 	}
 	standAssignmentReadiness := configureStandAssignment(cfg.EnableStandAssignment, cfg.StandAssignmentAircraftJSON)
 	var testClock *testtools.Clock
@@ -182,7 +184,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cdmClient := cdm.NewClient(cdm.WithAPIKey(cfg.CDMKey))
 
 	requireLiveCIDVerification := isLiveEnvironment(cfg.Environment)
-	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready || amanRuntime.Enabled())
+	vatsimGraph := assembleVATSIMSource(cfg, deps, requireLiveCIDVerification, standAssignmentReadiness.Ready || amanEnabled)
 
 	var fsServer *server.Server
 	transports := assembleTransports(cfg, deps, func(ctx context.Context) error {
@@ -192,7 +194,42 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	serverFrequencyProviders := transports.serverFrequencyProviders
 	pdcFrequencyProviders := transports.pdcFrequencyProviders
 
-	realtime, err := assembleRealtime(stripService, controllerService, authService, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized)
+	amanDependencies := deps.AMAN
+	var defaultAMAN operationalAMANAssembly
+	if amanEnabled && amanDependencies.ObservationSink == nil {
+		defaultAMAN, err = assembleOperationalAMAN(cfg.AMAN, dbpool)
+		if err != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, err
+		}
+		amanDependencies = defaultAMAN.dependencies
+	}
+	amanRuntime, err := aman.NewRuntime(cfg.AMAN, amanDependencies)
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, fmt.Errorf("initialize AMAN runtime: %w", err)
+	}
+	amanCommands, hasAMANCommands := amanDependencies.SequenceService.(aman.CommandService)
+	if amanRuntime.Ownership().ControllerMutationAuthorized && !hasAMANCommands {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, errors.New("initialize AMAN commands: authoritative runtime requires typed command service")
+	}
+	if amanRuntime.Ownership().ControllerMutationAuthorized {
+		amanCommands = &amanCommandGate{health: amanRuntime.Health, commands: amanCommands}
+	}
+	var amanStateProvider frontend.AMANStateProvider
+	if defaultAMAN.transport != nil {
+		amanStateProvider = defaultAMAN.transport
+	} else if provider, ok := amanDependencies.Publisher.(frontend.AMANStateProvider); ok {
+		amanStateProvider = provider
+	}
+	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -201,6 +238,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	frontendHub := realtime.frontend
 	euroscopeHub := realtime.euroscope
+	if defaultAMAN.transport != nil {
+		defaultAMAN.transport.setHub(frontendHub)
+	}
 	stripValidationService, err := services.NewStripValidationService(services.StripValidationDependencies{
 		Strips: stripRepo, Statuses: stripRepo, Publisher: frontendHub,
 	})
@@ -241,7 +281,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			DepartureLifecycle: departureLifecycle,
 			ArrivalLifecycle:   arrivalLifecycle,
 			Notifier:           frontendHub,
-		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude), vatsim.WithClock(satNow), vatsim.WithLegacyArrivalETAWriter(amanRuntime.Ownership().LegacyArrivalETAWriter))
+		}, deps.VATSIMPollInterval, vatsim.WithAirportCoordinates(latitude, longitude), vatsim.WithClock(satNow), vatsim.WithLegacyArrivalETAWriter(amanOwnership.LegacyArrivalETAWriter))
 		if err != nil {
 			if closeDB {
 				dbpool.Close()
@@ -259,7 +299,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			return nil, errors.New("initialize AMAN VATSIM observations: VATSIM source is unavailable")
 		}
 		amanObservationWorker, err = vatsim.NewObservationWorker(vatsim.ObservationWorkerDependencies{
-			Cache: vatsimGraph.source, Identities: postgres.NewAMANRepository(dbpool), Sink: deps.AMAN.ObservationSink,
+			Cache: vatsimGraph.source, Identities: postgres.NewAMANRepository(dbpool), Sink: amanDependencies.ObservationSink,
 			EnabledAirports: cfg.AMAN.EnabledAirports, StaleAfter: satStaleAfter(deps.VATSIMPollInterval), Now: satNow,
 		})
 		if err != nil {
@@ -573,9 +613,9 @@ type realtimeAssembly struct {
 	euroscope *euroscope.Hub
 }
 
-func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanCommands aman.CommandService, amanFMPRoles []string, amanMutations bool) (realtimeAssembly, error) {
+func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanFMPRoles []string, amanMutations bool) (realtimeAssembly, error) {
 	frontendHub, err := frontend.NewHub(frontend.HubDependencies{
-		Strips: stripService, Authentication: authService, AMANCommands: amanCommands, AMANFMPRoles: amanFMPRoles, AMANMutations: amanMutations,
+		Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANFMPRoles: amanFMPRoles, AMANMutations: amanMutations,
 	})
 	if err != nil {
 		return realtimeAssembly{}, fmt.Errorf("initialize frontend hub: %w", err)

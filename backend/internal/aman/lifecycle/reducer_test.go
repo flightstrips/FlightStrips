@@ -62,11 +62,11 @@ func TestReduceUsesExactHorizonAndDwellBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, aman.StateUnstable, atUnstable.Flight.State)
 
-	beforeDwell, err := lifecycle.Reduce(config, atUnstable.Flight, predictionEvent("before-dwell", now.Add(7*time.Minute-time.Nanosecond), now.Add(27*time.Minute-time.Nanosecond)))
+	beforeDwell, err := lifecycle.Reduce(config, atUnstable.Flight, predictionEvent("before-dwell", now.Add(4*time.Minute-time.Nanosecond), now.Add(24*time.Minute-time.Nanosecond)))
 	require.NoError(t, err)
 	require.Equal(t, aman.StateUnstable, beforeDwell.Flight.State)
 
-	atDwell, err := lifecycle.Reduce(config, beforeDwell.Flight, predictionEvent("at-dwell", now.Add(7*time.Minute), now.Add(27*time.Minute)))
+	atDwell, err := lifecycle.Reduce(config, beforeDwell.Flight, predictionEvent("at-dwell", now.Add(4*time.Minute), now.Add(24*time.Minute)))
 	require.NoError(t, err)
 	require.Equal(t, aman.StateStable, atDwell.Flight.State)
 	require.Equal(t, aman.LifecycleReasonStableHorizon, atDwell.Flight.Lifecycle.Reason)
@@ -108,19 +108,19 @@ func TestReduceRestartsDisconnectedAndReconcilesBeforeResumingRemoval(t *testing
 	require.NoError(t, err)
 	require.Equal(t, now.Add(time.Minute+config.RemovalTimeout), *missing.Flight.Lifecycle.Absence.RemovalDueAt)
 
-	restartedEvent := event("restart-1", lifecycle.EventSourceRestarted, now.Add(2*time.Minute))
+	restartedEvent := event("restart-1", lifecycle.EventSourceRestarted, now.Add(time.Minute+20*time.Second))
 	restarted, err := lifecycle.Reduce(config, missing.Flight, restartedEvent)
 	require.NoError(t, err)
 	require.Equal(t, aman.DataDisconnected, restarted.Flight.DataStatus)
 	require.True(t, restarted.Flight.Lifecycle.ReconciliationPending)
 	require.Nil(t, restarted.Flight.Lifecycle.Absence.RemovalDueAt)
-	require.Equal(t, 4*time.Minute, restarted.Flight.Lifecycle.Absence.Remaining)
+	require.Equal(t, 40*time.Second, restarted.Flight.Lifecycle.Absence.Remaining)
 
 	duplicate, err := lifecycle.Reduce(config, restarted.Flight, restartedEvent)
 	require.NoError(t, err)
 	require.True(t, duplicate.Duplicate)
 	require.Equal(t, restarted.Flight, duplicate.Flight)
-	_, err = lifecycle.Reduce(config, restarted.Flight, statusEvent("late-stale", now.Add(time.Minute+30*time.Second), aman.DataStale))
+	_, err = lifecycle.Reduce(config, restarted.Flight, statusEvent("late-stale", now.Add(time.Minute+10*time.Second), aman.DataStale))
 	requireDomainClass(t, err, aman.ErrorInvalidTransition)
 	_, err = lifecycle.Reduce(config, restarted.Flight, statusEvent("restart-1", now.Add(2*time.Minute), aman.DataFresh))
 	requireDomainClass(t, err, aman.ErrorInvalidTransition)
@@ -142,11 +142,11 @@ func TestReduceRestartsDisconnectedAndReconcilesBeforeResumingRemoval(t *testing
 	confirmedMissing, err := lifecycle.Reduce(config, fresh.Flight, event("fresh-snapshot-missing", lifecycle.EventFlightMissing, now.Add(34*time.Minute)))
 	require.NoError(t, err)
 	require.False(t, confirmedMissing.Flight.Lifecycle.ReconciliationPending)
-	require.Equal(t, now.Add(38*time.Minute), *confirmedMissing.Flight.Lifecycle.Absence.RemovalDueAt)
+	require.Equal(t, now.Add(34*time.Minute+40*time.Second), *confirmedMissing.Flight.Lifecycle.Absence.RemovalDueAt)
 
-	_, err = lifecycle.Reduce(config, confirmedMissing.Flight, event("early-timeout", lifecycle.EventRemovalTimeout, now.Add(38*time.Minute-time.Nanosecond)))
+	_, err = lifecycle.Reduce(config, confirmedMissing.Flight, event("early-timeout", lifecycle.EventRemovalTimeout, now.Add(34*time.Minute+40*time.Second-time.Nanosecond)))
 	requireDomainClass(t, err, aman.ErrorInvalidTransition)
-	removed, err := lifecycle.Reduce(config, confirmedMissing.Flight, event("timeout", lifecycle.EventRemovalTimeout, now.Add(38*time.Minute)))
+	removed, err := lifecycle.Reduce(config, confirmedMissing.Flight, event("timeout", lifecycle.EventRemovalTimeout, now.Add(34*time.Minute+40*time.Second)))
 	require.NoError(t, err)
 	require.Equal(t, aman.StateRemoved, removed.Flight.State)
 	require.Equal(t, aman.LifecycleReasonSourceDisappearance, removed.Flight.Lifecycle.Reason)
@@ -180,10 +180,10 @@ func TestReduceSuddenAppearanceUsesDefensibleStateWithoutInventingFreeze(t *test
 	}{
 		{name: "outside lifecycle horizons", untilTETA: config.UnstableHorizon + time.Nanosecond, wantState: aman.StateAirborne},
 		{name: "at unstable horizon", untilTETA: config.UnstableHorizon, wantState: aman.StateUnstable},
-		{name: "at stable horizon without invented dwell", untilTETA: config.StableHorizon, wantState: aman.StateStable},
-		{name: "outside freeze horizon", untilTETA: config.SuperstableHorizon + time.Nanosecond, wantState: aman.StateStable},
-		{name: "at freeze horizon requires review", untilTETA: config.SuperstableHorizon, wantState: aman.StateStable, wantReview: true},
-		{name: "inside freeze horizon requires review", untilTETA: config.SuperstableHorizon - time.Second, wantState: aman.StateStable, wantReview: true},
+		{name: "at stable horizon observes dwell", untilTETA: config.StableHorizon, wantState: aman.StateUnstable},
+		{name: "outside freeze horizon observes dwell", untilTETA: config.SuperstableHorizon + time.Nanosecond, wantState: aman.StateUnstable},
+		{name: "at freeze horizon requires review and dwell", untilTETA: config.SuperstableHorizon, wantState: aman.StateUnstable, wantReview: true},
+		{name: "inside freeze horizon requires review and dwell", untilTETA: config.SuperstableHorizon - time.Second, wantState: aman.StateUnstable, wantReview: true},
 	}
 
 	for index, tt := range tests {

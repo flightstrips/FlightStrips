@@ -109,6 +109,13 @@ namespace FlightStrips::flightplan {
         }
         if (!m_websocketService->ShouldSend()) return;
 
+        // A flight plan can arrive before its correlated radar target. EuroScope then does not
+        // dispatch the initial relevant flight-plan callback, so create the complete strip when
+        // the target first appears rather than only sending its position.
+        if (hasFp && !pair->second.strip_synchronized) {
+            FlightPlanEvent(fp);
+        }
+
         // For no-FP aircraft, on first encounter send a minimal StripUpdateEvent so the backend
         // creates a record. Without this, all subsequent position/squawk events are silently dropped.
         if (inserted && !hasFp) {
@@ -210,6 +217,7 @@ namespace FlightStrips::flightplan {
             {flightPlanData.GetEngineType()}
         };
         m_websocketService->SendEvent(event);
+        plan.strip_synchronized = true;
         plan.MarkRunwaySynced(runway);
     }
 

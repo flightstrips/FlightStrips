@@ -80,6 +80,7 @@ namespace FlightStrips::flightplan {
         std::string tracking_controller{};
         std::string runway{};
         bool runway_initialized{false};
+        bool strip_synchronized{false};
         CdmState cdm{};
         std::string pdc_state{};
         std::string pdc_request_remarks{};

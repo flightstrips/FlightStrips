@@ -78,6 +78,11 @@ TEST(FlightPlanStructTest, DefaultConstruction_TrackingControllerIsEmpty) {
     EXPECT_EQ(fp.tracking_controller, "");
 }
 
+TEST(FlightPlanStructTest, DefaultConstruction_StripIsNotSynchronized) {
+    FlightPlan fp;
+    EXPECT_FALSE(fp.strip_synchronized);
+}
+
 TEST(FlightPlanStructTest, DefaultConstruction_CdmStateIsEmpty) {
     FlightPlan fp;
     EXPECT_EQ(fp.cdm.tobt, "");
@@ -109,6 +114,7 @@ TEST(FlightPlanStructTest, MarkRunwaySynced_InitializesRunwayState) {
     fp.MarkRunwaySynced("04L");
     EXPECT_TRUE(fp.runway_initialized);
     EXPECT_EQ(fp.runway, "04L");
+    EXPECT_FALSE(fp.strip_synchronized);
 }
 
 TEST(FlightPlanStructTest, HasRunwayChanged_DoesNotConsumeAssignedRunwayChange) {

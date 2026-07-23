@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.0...plugin/v0.20.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* **strip:** sync ES flight plan when radar target arrives ([#423](https://github.com/flightstrips/FlightStrips/issues/423)) ([42b8037](https://github.com/flightstrips/FlightStrips/commit/42b8037dcb4405ff607dc771dfcf28217c5a5102))
+
 ## [0.20.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.19.0...plugin/v0.20.0) (2026-07-18)
 
 

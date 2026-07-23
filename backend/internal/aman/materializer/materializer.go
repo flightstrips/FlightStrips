@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -187,7 +188,7 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 			}
 		}
 	}
-	fixes, err := m.deps.Fixes.Fixes(ctx, navdata.FixQuery{Version: version, Identifiers: requiredFixes(m.deps.Terminal, allProcedures, request.FixIDs)})
+	fixes, err := m.deps.Fixes.Fixes(ctx, navdata.FixQuery{Version: version, Airport: request.Airport, Identifiers: requiredFixes(m.deps.Terminal, allProcedures, request.FixIDs)})
 	if err != nil {
 		return m.failed(request.Airport, ReasonSourceUnavailable, false, false, err)
 	}
@@ -364,7 +365,7 @@ func flattenProcedures(sets map[navdata.ProcedureKind]navdata.ProcedureSet) []na
 func requiredFixes(config terminal.Configuration, procedures []navdata.Procedure, requested []navdata.FixID) []navdata.FixID {
 	seen := map[navdata.FixID]bool{}
 	add := func(id navdata.FixID) {
-		if id != "" {
+		if id != "" && !syntheticRunwayFix(id) {
 			seen[id] = true
 		}
 	}
@@ -398,6 +399,19 @@ func requiredFixes(config terminal.Configuration, procedures []navdata.Procedure
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
 	return result
+}
+
+func syntheticRunwayFix(id navdata.FixID) bool {
+	value := string(id)
+	if !strings.HasPrefix(value, "RW") || len(value) < 4 {
+		return false
+	}
+	for _, character := range value[2:] {
+		if (character < '0' || character > '9') && character != 'L' && character != 'R' && character != 'C' {
+			return false
+		}
+	}
+	return true
 }
 func procedureCandidates(version navdata.DatasetVersion, airport navdata.AirportID, sets map[navdata.ProcedureKind]navdata.ProcedureSet, validated time.Time) ([]navdata.CandidateProcedureFragment, error) {
 	result := make([]navdata.CandidateProcedureFragment, 0, len(sets))

@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,13 @@ const (
 	defaultTimeout   = 5 * time.Second
 	defaultCacheTTL  = 30 * time.Minute
 	maxResponseBytes = 1 << 20
+
+	// Keep AMAN's own traffic safely below Open-Meteo's free-tier limits
+	// (600/minute, 5,000/hour, 10,000/day). One request can contain every
+	// uncached route sample for a flight.
+	maxRequestsPerMinute = 500
+	maxRequestsPerHour   = 4000
+	maxRequestsPerDay    = 9000
 )
 
 type Config struct {
@@ -30,18 +38,37 @@ type Config struct {
 	Client   *http.Client
 	Now      func() time.Time
 	CacheTTL time.Duration
+	Cache    PersistentCache
+}
+
+// CachedSample is the durable representation of one grid-coordinate forecast
+// profile. Implementations are shared by every backend instance.
+type CachedSample struct {
+	Key                   string
+	Levels                []predictor.WindLevel
+	ObservedAt, ExpiresAt time.Time
+}
+
+// PersistentCache prevents restarts and horizontally scaled backends from
+// resetting weather samples or Open-Meteo quota accounting.
+type PersistentCache interface {
+	Load(context.Context, []string) ([]CachedSample, error)
+	Store(context.Context, []CachedSample) error
+	ReserveRequest(context.Context, time.Time) (bool, error)
 }
 type cacheEntry struct {
 	levels                []predictor.WindLevel
 	observedAt, expiresAt time.Time
 }
 type Adapter struct {
-	baseURL  string
-	client   *http.Client
-	now      func() time.Time
-	cacheTTL time.Duration
-	mu       sync.RWMutex
-	cache    map[string]cacheEntry
+	baseURL    string
+	client     *http.Client
+	now        func() time.Time
+	cacheTTL   time.Duration
+	persistent PersistentCache
+	mu         sync.RWMutex
+	cache      map[string]cacheEntry
+	requests   []time.Time
 }
 
 func New(config Config) *Adapter {
@@ -57,7 +84,7 @@ func New(config Config) *Adapter {
 	if config.CacheTTL <= 0 {
 		config.CacheTTL = defaultCacheTTL
 	}
-	return &Adapter{baseURL: config.BaseURL, client: config.Client, now: config.Now, cacheTTL: config.CacheTTL, cache: make(map[string]cacheEntry)}
+	return &Adapter{baseURL: config.BaseURL, client: config.Client, now: config.Now, cacheTTL: config.CacheTTL, persistent: config.Cache, cache: make(map[string]cacheEntry)}
 }
 
 // WindProfile caches each grid coordinate plus forecast hour. Returned samples
@@ -68,12 +95,104 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 	if len(request.Samples) == 0 {
 		return predictor.WindProfile{}, fmt.Errorf("wind request has no samples")
 	}
-	profile := predictor.WindProfile{SourceID: "open-meteo-gfs", SourceRevision: "gfs"}
-	for _, sample := range request.Samples {
-		entry, err := a.sample(ctx, sample)
+	now := a.now().UTC()
+	keys := make([]string, len(request.Samples))
+	entries := make([]cacheEntry, len(request.Samples))
+	missing := make(map[string]predictor.WindSampleRequest)
+	stale := make(map[string]cacheEntry)
+	for i, sample := range request.Samples {
+		key, err := cacheKey(sample)
 		if err != nil {
 			return predictor.WindProfile{}, err
 		}
+		keys[i] = key
+		a.mu.RLock()
+		cached, found := a.cache[key]
+		a.mu.RUnlock()
+		if found && now.Before(cached.expiresAt) {
+			entries[i] = cloneEntry(cached)
+			continue
+		}
+		if found {
+			stale[key] = cached
+		}
+		missing[key] = sample
+	}
+	if len(missing) > 0 && a.persistent != nil {
+		missingKeys := make([]string, 0, len(missing))
+		for key := range missing {
+			missingKeys = append(missingKeys, key)
+		}
+		cached, err := a.persistent.Load(ctx, missingKeys)
+		if err != nil {
+			return predictor.WindProfile{}, fmt.Errorf("load persisted Open-Meteo cache: %w", err)
+		}
+		for _, value := range cached {
+			entry := cacheEntry{levels: cloneLevels(value.Levels), observedAt: value.ObservedAt, expiresAt: value.ExpiresAt}
+			a.mu.Lock()
+			a.cache[value.Key] = cloneEntry(entry)
+			a.mu.Unlock()
+			if now.Before(entry.expiresAt) {
+				for i, key := range keys {
+					if key == value.Key {
+						entries[i] = cloneEntry(entry)
+					}
+				}
+				delete(missing, value.Key)
+			} else {
+				stale[value.Key] = entry
+			}
+		}
+	}
+	if len(missing) > 0 {
+		requested := make([]predictor.WindSampleRequest, 0, len(missing))
+		for _, sample := range missing {
+			requested = append(requested, sample)
+		}
+		slices.SortFunc(requested, func(left, right predictor.WindSampleRequest) int {
+			leftKey, _ := cacheKey(left)
+			rightKey, _ := cacheKey(right)
+			return strings.Compare(leftKey, rightKey)
+		})
+		levels, err := a.fetchSamples(ctx, requested)
+		if err != nil {
+			for i, key := range keys {
+				if !entries[i].observedAt.IsZero() {
+					continue
+				}
+				cached, found := stale[key]
+				if !found {
+					return predictor.WindProfile{}, err
+				}
+				entries[i] = cloneEntry(cached)
+			}
+		} else {
+			refreshed := make(map[string]cacheEntry, len(requested))
+			persisted := make([]CachedSample, 0, len(requested))
+			for i, sample := range requested {
+				key, _ := cacheKey(sample)
+				entry := cacheEntry{levels: levels[i], observedAt: now, expiresAt: now.Add(a.cacheTTL)}
+				a.mu.Lock()
+				a.cache[key] = cloneEntry(entry)
+				a.mu.Unlock()
+				refreshed[key] = entry
+				persisted = append(persisted, CachedSample{Key: key, Levels: cloneLevels(entry.levels), ObservedAt: entry.observedAt, ExpiresAt: entry.expiresAt})
+			}
+			if a.persistent != nil {
+				if err := a.persistent.Store(ctx, persisted); err != nil {
+					return predictor.WindProfile{}, fmt.Errorf("store Open-Meteo cache: %w", err)
+				}
+			}
+			for i, key := range keys {
+				if entries[i].observedAt.IsZero() {
+					entries[i] = cloneEntry(refreshed[key])
+				}
+			}
+		}
+	}
+	profile := predictor.WindProfile{SourceID: "open-meteo-gfs", SourceRevision: "gfs"}
+	for i, sample := range request.Samples {
+		entry := entries[i]
 		profile.Samples = append(profile.Samples, predictor.WindSample{Position: sample.Position, At: sample.At, Levels: cloneLevels(entry.levels)})
 		if profile.ObservedAt.IsZero() || entry.observedAt.Before(profile.ObservedAt) {
 			profile.ObservedAt = entry.observedAt
@@ -85,33 +204,13 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 	return profile, nil
 }
 
-func (a *Adapter) sample(ctx context.Context, sample predictor.WindSampleRequest) (cacheEntry, error) {
-	key, err := cacheKey(sample)
-	if err != nil {
-		return cacheEntry{}, err
+func (a *Adapter) fetchSamples(ctx context.Context, samples []predictor.WindSampleRequest) ([][]predictor.WindLevel, error) {
+	if len(samples) == 0 {
+		return nil, fmt.Errorf("wind fetch has no samples")
 	}
-	now := a.now().UTC()
-	a.mu.RLock()
-	cached, found := a.cache[key]
-	a.mu.RUnlock()
-	if found && now.Before(cached.expiresAt) {
-		return cloneEntry(cached), nil
+	if err := a.reserveRequest(ctx, a.now().UTC()); err != nil {
+		return nil, err
 	}
-	levels, err := a.fetchSample(ctx, sample)
-	if err != nil {
-		if found {
-			return cloneEntry(cached), nil
-		}
-		return cacheEntry{}, err
-	}
-	entry := cacheEntry{levels: levels, observedAt: now, expiresAt: now.Add(a.cacheTTL)}
-	a.mu.Lock()
-	a.cache[key] = cloneEntry(entry)
-	a.mu.Unlock()
-	return cloneEntry(entry), nil
-}
-
-func (a *Adapter) fetchSample(ctx context.Context, sample predictor.WindSampleRequest) ([]predictor.WindLevel, error) {
 	requestContext, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	u, err := url.Parse(a.baseURL)
@@ -119,8 +218,13 @@ func (a *Adapter) fetchSample(ctx context.Context, sample predictor.WindSampleRe
 		return nil, fmt.Errorf("parse Open-Meteo URL: %w", err)
 	}
 	q := u.Query()
-	q.Set("latitude", strconv.FormatFloat(sample.Position.LatitudeDegrees, 'f', 6, 64))
-	q.Set("longitude", strconv.FormatFloat(sample.Position.LongitudeDegrees, 'f', 6, 64))
+	latitudes, longitudes := make([]string, len(samples)), make([]string, len(samples))
+	for i, sample := range samples {
+		latitudes[i] = strconv.FormatFloat(sample.Position.LatitudeDegrees, 'f', 6, 64)
+		longitudes[i] = strconv.FormatFloat(sample.Position.LongitudeDegrees, 'f', 6, 64)
+	}
+	q.Set("latitude", strings.Join(latitudes, ","))
+	q.Set("longitude", strings.Join(longitudes, ","))
 	q.Set("hourly", "wind_speed_1000hPa,wind_direction_1000hPa,geopotential_height_1000hPa,wind_speed_850hPa,wind_direction_850hPa,geopotential_height_850hPa,wind_speed_700hPa,wind_direction_700hPa,geopotential_height_700hPa,wind_speed_500hPa,wind_direction_500hPa,geopotential_height_500hPa,wind_speed_300hPa,wind_direction_300hPa,geopotential_height_300hPa,wind_speed_250hPa,wind_direction_250hPa,geopotential_height_250hPa,wind_speed_200hPa,wind_direction_200hPa,geopotential_height_200hPa,wind_speed_150hPa,wind_direction_150hPa,geopotential_height_150hPa")
 	q.Set("wind_speed_unit", "kn")
 	q.Set("timezone", "UTC")
@@ -145,15 +249,71 @@ func (a *Adapter) fetchSample(ctx context.Context, sample predictor.WindSampleRe
 	if len(body) > maxResponseBytes {
 		return nil, fmt.Errorf("Open-Meteo response exceeds %d bytes", maxResponseBytes)
 	}
-	var payload gfsResponse
-	if err := json.Unmarshal(body, &payload); err != nil {
+	payloads := []gfsResponse{}
+	if len(samples) == 1 {
+		var payload gfsResponse
+		if err := json.Unmarshal(body, &payload); err != nil {
+			return nil, fmt.Errorf("decode Open-Meteo response: %w", err)
+		}
+		payloads = []gfsResponse{payload}
+	} else if err := json.Unmarshal(body, &payloads); err != nil {
 		return nil, fmt.Errorf("decode Open-Meteo response: %w", err)
 	}
-	index, err := payload.Hourly.indexAt(sample.At)
-	if err != nil {
-		return nil, err
+	if len(payloads) != len(samples) {
+		return nil, fmt.Errorf("Open-Meteo returned %d profiles for %d samples", len(payloads), len(samples))
 	}
-	return payload.Hourly.levels(index)
+	levels := make([][]predictor.WindLevel, len(samples))
+	for i, payload := range payloads {
+		index, err := payload.Hourly.indexAt(samples[i].At)
+		if err != nil {
+			return nil, err
+		}
+		levels[i], err = payload.Hourly.levels(index)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return levels, nil
+}
+
+// reserveRequest records one outgoing provider call only when all rolling
+// budget windows remain below our deliberately conservative limits.
+func (a *Adapter) reserveRequest(ctx context.Context, now time.Time) error {
+	if now.IsZero() || now.Location() != time.UTC {
+		return fmt.Errorf("Open-Meteo request time is invalid")
+	}
+	if a.persistent != nil {
+		allowed, err := a.persistent.ReserveRequest(ctx, now)
+		if err != nil {
+			return fmt.Errorf("reserve persisted Open-Meteo request: %w", err)
+		}
+		if !allowed {
+			return fmt.Errorf("Open-Meteo request budget exhausted")
+		}
+		return nil
+	}
+	dayAgo, hourAgo, minuteAgo := now.Add(-24*time.Hour), now.Add(-time.Hour), now.Add(-time.Minute)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	first := 0
+	for first < len(a.requests) && a.requests[first].Before(dayAgo) {
+		first++
+	}
+	a.requests = append([]time.Time(nil), a.requests[first:]...)
+	minute, hour := 0, 0
+	for _, at := range a.requests {
+		if !at.Before(minuteAgo) {
+			minute++
+		}
+		if !at.Before(hourAgo) {
+			hour++
+		}
+	}
+	if len(a.requests) >= maxRequestsPerDay || hour >= maxRequestsPerHour || minute >= maxRequestsPerMinute {
+		return fmt.Errorf("Open-Meteo request budget exhausted")
+	}
+	a.requests = append(a.requests, now)
+	return nil
 }
 
 func cacheKey(sample predictor.WindSampleRequest) (string, error) {

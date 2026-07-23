@@ -526,13 +526,20 @@ func HoldingDigest(holding HoldingPattern) (string, error) {
 }
 
 type FixQuery struct {
-	Version     DatasetVersion
+	Version DatasetVersion
+	// Airport scopes source resolution. A fix may be outside this airport, but
+	// the airport identifies the AIRAC region in which an ambiguous identifier
+	// must be resolved.
+	Airport     AirportID
 	Identifiers []FixID
 }
 
 func (q FixQuery) Validate() error {
 	if err := q.Version.Validate(); err != nil {
 		return err
+	}
+	if !validIdentifier(string(q.Airport)) {
+		return invalid("fix query airport is required")
 	}
 	if len(q.Identifiers) == 0 {
 		return invalid("fix query identifiers are required")

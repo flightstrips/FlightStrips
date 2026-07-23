@@ -42,6 +42,63 @@ func TestAdapterMapsPrivateVendorPayloadAndCachesDeepCopy(t *testing.T) {
 	require.Equal(t, 1, calls, "same coordinate and forecast hour reuses cache")
 }
 
+func TestAdapterBatchesUncachedSamplesIntoOneProviderRequest(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		require.Contains(t, r.URL.Query().Get("latitude"), ",")
+		require.Contains(t, r.URL.Query().Get("longitude"), ",")
+		_, _ = w.Write([]byte("[" + gfsPayload() + "," + gfsPayload() + "]"))
+	}))
+	defer server.Close()
+	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }})
+	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{
+		{Position: predictor.WindCoordinate{LatitudeDegrees: 55, LongitudeDegrees: 12}, At: now, AltitudeFeet: 10000},
+		{Position: predictor.WindCoordinate{LatitudeDegrees: 56, LongitudeDegrees: 13}, At: now, AltitudeFeet: 10000},
+	}}
+
+	profile, err := adapter.WindProfile(context.Background(), request)
+
+	require.NoError(t, err)
+	require.Len(t, profile.Samples, 2)
+	require.Equal(t, 1, calls)
+}
+
+func TestAdapterReusesPersistentCacheAcrossRestart(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		_, _ = w.Write([]byte(gfsPayload()))
+	}))
+	defer server.Close()
+	persistent := &recordingPersistentCache{allowed: true, values: map[string]CachedSample{}}
+	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{Position: predictor.WindCoordinate{LatitudeDegrees: 55, LongitudeDegrees: 12}, At: now, AltitudeFeet: 10000}}}
+
+	_, err := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent}).WindProfile(context.Background(), request)
+	require.NoError(t, err)
+	_, err = New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent}).WindProfile(context.Background(), request)
+
+	require.NoError(t, err)
+	require.Equal(t, 1, calls)
+	require.Equal(t, 1, persistent.reservations)
+}
+
+func TestAdapterDoesNotCallProviderWhenPersistentBudgetIsExhausted(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { calls++ }))
+	defer server.Close()
+	persistent := &recordingPersistentCache{values: map[string]CachedSample{}}
+	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{At: now, AltitudeFeet: 10000}}}
+
+	_, err := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent}).WindProfile(context.Background(), request)
+
+	require.ErrorContains(t, err, "request budget exhausted")
+	require.Zero(t, calls)
+}
+
 func TestAdapterUsesGeopotentialHeightAtHighAltitude(t *testing.T) {
 	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(gfsPayload())) }))
@@ -124,6 +181,36 @@ func TestAdapterCacheIsSafeForConcurrentCallers(t *testing.T) {
 }
 
 var _ predictor.WindProfileReader = (*Adapter)(nil)
+
+type recordingPersistentCache struct {
+	values       map[string]CachedSample
+	allowed      bool
+	reservations int
+}
+
+func (c *recordingPersistentCache) Load(_ context.Context, keys []string) ([]CachedSample, error) {
+	result := make([]CachedSample, 0, len(keys))
+	for _, key := range keys {
+		if value, found := c.values[key]; found {
+			result = append(result, value)
+		}
+	}
+	return result, nil
+}
+
+func (c *recordingPersistentCache) Store(_ context.Context, values []CachedSample) error {
+	for _, value := range values {
+		c.values[value.Key] = value
+	}
+	return nil
+}
+
+func (c *recordingPersistentCache) ReserveRequest(context.Context, time.Time) (bool, error) {
+	c.reservations++
+	return c.allowed, nil
+}
+
+var _ PersistentCache = (*recordingPersistentCache)(nil)
 
 func interpolate(levels []predictor.WindLevel, altitude float64) (float64, float64, bool) {
 	for i := 1; i < len(levels); i++ {

@@ -174,6 +174,87 @@ func TestAirbornePredictionIsNotPublishableWithoutEssentialInputs(t *testing.T) 
 	}, service.deps.Terminal).Flights)
 }
 
+func TestInvalidGroundspeedDoesNotEnterThePredictor(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	groundspeed, altitude, route := 0.0, 5000, "DCT MONAK"
+	observation := aman.FlightObservation{
+		FlightID: "stationary", VATSIMCID: "789", Callsign: "SAS789", Destination: "EKCH", FiledRoute: &route,
+		ReconciledAt: now, SourceStatus: aman.DataFresh,
+		Surveillance: &aman.SurveillanceFact{GroundspeedKnots: &groundspeed, AltitudeFeet: &altitude},
+	}
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	flight := newFlight(observation, now)
+	flight.State = aman.StateAirborne
+	flight.Prediction = &aman.Prediction{Publishable: true}
+
+	updated, err := service.reconcileFlight(context.Background(), service.initialState("EKCH", now), flight, observation, now)
+
+	require.NoError(t, err)
+	require.False(t, updated.Prediction.Publishable)
+	require.Equal(t, "invalid_essential_data:groundspeed", *updated.Prediction.DegradationReason)
+}
+
+func TestGroundedSurveillanceKeepsPreTakeoffFlightPlanned(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	altitude, groundspeed := 124, 0.0
+	eobt, eet := now.Add(time.Hour), 90*time.Minute
+	observation := aman.FlightObservation{PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &eet}, Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed}}
+	flight := aman.AMANFlight{State: aman.StateAirborne, FreezeReason: aman.FreezeNone, Prediction: &aman.Prediction{Publishable: true}, Slot: &aman.Slot{Time: now.Add(time.Minute)}}
+
+	updated := applyGroundedObservation(flight, observation, now)
+
+	require.Equal(t, aman.StatePlanned, updated.State)
+	require.Nil(t, updated.Slot)
+	require.NotNil(t, updated.Prediction)
+	require.Equal(t, "aman-planned-eobt-exot-eet-v1", updated.Prediction.ModelVersion)
+}
+
+func TestGroundedSurveillanceLandsPostTakeoffFlight(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	altitude, groundspeed := 26, 4.0
+	takeoff := now.Add(-time.Hour)
+	manualOrder := 1
+	holding, routeKey, feeder := "HOLD", "route", "MONAK"
+	observation := aman.FlightObservation{TakeoffDetected: &takeoff, Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed}}
+	flight := aman.AMANFlight{
+		State: aman.StateAirborne, FreezeReason: aman.FreezeManual, SelectedHolding: &holding, ActiveRouteKey: &routeKey, SelectedFeeder: &feeder,
+		Prediction: &aman.Prediction{Publishable: true}, Slot: &aman.Slot{Time: now.Add(time.Minute)}, ManualOrder: &manualOrder,
+	}
+
+	updated := applyGroundedObservation(flight, observation, now)
+
+	require.Equal(t, aman.StateLanded, updated.State)
+	require.Equal(t, aman.LifecycleReasonLandingConfirmed, updated.Lifecycle.Reason)
+	require.False(t, updated.Prediction.Publishable)
+	require.Equal(t, "landed", *updated.Prediction.DegradationReason)
+	require.Nil(t, updated.Slot)
+	require.Nil(t, updated.SelectedHolding)
+	require.Equal(t, aman.FreezeNone, updated.FreezeReason)
+}
+
+func TestRepairSuperstableFreezeCapturesOrReleasesSlot(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	slotted := aman.AMANFlight{State: aman.StateStable, FreezeReason: aman.FreezeSuperstable, Slot: &aman.Slot{Time: now.Add(10 * time.Minute), RunwayGroupID: group, Sequence: 2}}
+
+	repairSuperstableFreeze(&slotted)
+
+	require.NotNil(t, slotted.FrozenSlot)
+	require.Equal(t, *slotted.Slot, *slotted.FrozenSlot)
+
+	unslotted := aman.AMANFlight{State: aman.StateLanded, FreezeReason: aman.FreezeSuperstable, FrozenAt: &now, FrozenOperationalTETA: &now}
+	repairSuperstableFreeze(&unslotted)
+
+	require.Equal(t, aman.FreezeNone, unslotted.FreezeReason)
+	require.Nil(t, unslotted.FrozenAt)
+	require.Nil(t, unslotted.FrozenOperationalTETA)
+}
+
 func TestFutureRateChangePreservesCurrentAndPendingSchedule(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	service, err := New(Dependencies{
@@ -380,6 +461,12 @@ func TestHoldingETAUsesPerLegDurations(t *testing.T) {
 	require.Nil(t, holdingETA(now, []time.Duration{20 * time.Minute}, legs, "HOLD"))
 }
 
+func TestOffRouteFallbackReasonLowersPredictionConfidenceWithoutHidingWaypoint(t *testing.T) {
+	reason := offRouteFallbackReason([]string{"UNRESOLVED_LEG:X", "OFF_ROUTE", "OFF_ROUTE_NEXT_WAYPOINT:TESPI"})
+	require.Equal(t, "off_route_next_waypoint:tespi", reason)
+	require.Empty(t, offRouteFallbackReason([]string{"OFF_ROUTE"}))
+}
+
 func TestFailedNavigationRefreshRetriesAndHealthFailsClosed(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	navigation := &countingNavigation{}
@@ -400,6 +487,46 @@ func TestFailedNavigationRefreshRetriesAndHealthFailsClosed(t *testing.T) {
 	require.False(t, health.AuthorityAllowed)
 }
 
+func TestReconcileAllObservesAirportWeatherWithoutFlights(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	wind := &observedWind{now: now}
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: readyNavigation{}, Geometry: unavailableGeometry{}, Wind: wind,
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{
+			ID: "ARRIVAL-22", FinalApproaches: []terminal.FinalApproachDefinition{{Runway: "22L", Threshold: terminal.ThresholdDefinition{Position: terminal.CoordinateDefinition{LatitudeDeg: 55.6254, LongitudeDeg: 12.6676}}}},
+		}}}, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+
+	service.reconcileAll(context.Background())
+
+	require.Len(t, wind.requests, 1)
+	require.Equal(t, 55.6254, wind.requests[0].Samples[0].Position.LatitudeDegrees)
+	require.Equal(t, 12.6676, wind.requests[0].Samples[0].Position.LongitudeDegrees)
+	require.Equal(t, aman.HealthReady, service.TechnicalHealth(context.Background()).Weather.Status)
+}
+
+func TestWeatherRefreshIsRateLimitedAfterSuccessAndFailure(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	wind := &countingUnavailableWind{}
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: readyNavigation{}, Geometry: unavailableGeometry{}, Wind: wind,
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{
+			ID: "ARRIVAL-22", FinalApproaches: []terminal.FinalApproachDefinition{{Runway: "22L", Threshold: terminal.ThresholdDefinition{Position: terminal.CoordinateDefinition{LatitudeDeg: 55.6254, LongitudeDeg: 12.6676}}}},
+		}}}, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+
+	service.reconcileAll(context.Background())
+	now = now.Add(weatherRefreshEvery - time.Second)
+	service.reconcileAll(context.Background())
+	now = now.Add(time.Second)
+	service.reconcileAll(context.Background())
+
+	require.Equal(t, 2, wind.requests)
+	require.Equal(t, aman.HealthUnavailable, service.TechnicalHealth(context.Background()).Weather.Status)
+}
+
 func TestServiceCommitsInitialEmptyAirportState(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	repository := &memoryRepository{}
@@ -415,6 +542,12 @@ func TestServiceCommitsInitialEmptyAirportState(t *testing.T) {
 	require.Equal(t, aman.SequenceRevision(1), repository.state.Revision)
 	require.Empty(t, repository.state.Flights)
 	require.Len(t, publisher.states, 1)
+}
+
+func TestObservedAtNormalizesSourcePrecisionToWholeSeconds(t *testing.T) {
+	value := time.Date(2026, time.July, 23, 12, 0, 1, 987654321, time.UTC)
+	actual := observedAt(&aman.SurveillanceFact{ObservedAt: &value}, value)
+	require.Equal(t, time.Date(2026, time.July, 23, 12, 0, 1, 0, time.UTC), actual)
 }
 
 func operationalFlight(id string, group aman.RunwayGroupID, feeder, wake string, teta time.Time) aman.AMANFlight {
@@ -481,6 +614,13 @@ func (*countingNavigation) MaterializeRoute(context.Context, navdata.RouteQuery,
 	return "", errors.New("offline")
 }
 
+type readyNavigation struct{}
+
+func (readyNavigation) Refresh(context.Context, materializer.Request) error { return nil }
+func (readyNavigation) MaterializeRoute(context.Context, navdata.RouteQuery, string) (navdata.RouteKey, error) {
+	return "", errors.New("not implemented")
+}
+
 type unavailableGeometry struct{}
 
 func (unavailableGeometry) ActiveVersion(context.Context, navdata.AirportID) (navdata.DatasetVersion, error) {
@@ -500,4 +640,27 @@ type unavailableWind struct{}
 
 func (unavailableWind) WindProfile(context.Context, predictor.WindProfileRequest) (predictor.WindProfile, error) {
 	return predictor.WindProfile{}, errors.New("offline")
+}
+
+type countingUnavailableWind struct{ requests int }
+
+func (w *countingUnavailableWind) WindProfile(context.Context, predictor.WindProfileRequest) (predictor.WindProfile, error) {
+	w.requests++
+	return predictor.WindProfile{}, errors.New("offline")
+}
+
+type observedWind struct {
+	now      time.Time
+	requests []predictor.WindProfileRequest
+}
+
+func (w *observedWind) WindProfile(_ context.Context, request predictor.WindProfileRequest) (predictor.WindProfile, error) {
+	w.requests = append(w.requests, request)
+	return predictor.WindProfile{
+		SourceID: "test-weather", SourceRevision: "test", ObservedAt: w.now, ExpiresAt: w.now.Add(time.Hour),
+		Samples: []predictor.WindSample{{
+			Position: request.Samples[0].Position, At: request.Samples[0].At,
+			Levels: []predictor.WindLevel{{AltitudeFeet: 10000}},
+		}},
+	}, nil
 }

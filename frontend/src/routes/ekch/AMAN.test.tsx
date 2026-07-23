@@ -19,7 +19,7 @@ vi.mock("@/store/store-hooks", () => ({
 }));
 
 vi.mock("@/components/aman/AMANBoard", () => ({
-  AMANBoardView: () => <div>AMAN board</div>,
+  AMANBoardView: ({onOpenControls}: {onOpenControls?: () => void}) => <button onClick={onOpenControls} type="button">AMAN board</button>,
 }));
 
 vi.mock("@/components/aman/AMANControls", () => ({

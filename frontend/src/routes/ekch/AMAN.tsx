@@ -11,6 +11,7 @@ export default function AMAN() {
   const error = useWebSocketStore((value) => value.amanError);
   const connectionState = useWebSocketStore((value) => value.amanConnectionState);
   const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
+  const controlsRef = useRef<HTMLElement>(null);
   const stateAtMount = useRef(state);
 
   const effectiveSelectedFlightID = state?.flights.some((flight) => flight.flight_id === selectedFlightID)
@@ -18,11 +19,7 @@ export default function AMAN() {
     : state?.flights[0]?.flight_id ?? null;
 
   useLayoutEffect(() => {
-    // A replacement may predate opening the manual AMAN companion view. Reset
-    // that initial mark at mount so navigation delay is not counted as paint.
-    if (stateAtMount.current !== null) {
-      markAMANStateReceived(stateAtMount.current.revision);
-    }
+    if (stateAtMount.current !== null) markAMANStateReceived(stateAtMount.current.revision);
   }, []);
 
   useEffect(() => {
@@ -31,26 +28,24 @@ export default function AMAN() {
   }, [state]);
 
   return (
-    <main className="h-[95.28dvh] overflow-y-auto bg-[#242424] p-0 text-white">
-      <div className="mx-auto grid max-w-[1920px] items-start gap-3 p-3 2xl:grid-cols-[minmax(0,1fr)_420px]">
-        <AMANBoardView
-          connectionState={connectionState}
-          error={error}
-          onSelectFlight={setSelectedFlightID}
-          presentationStatus={presentationStatus}
+    <main className="h-[95.28dvh] overflow-hidden bg-[#242424] p-3 text-white">
+      <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(320px,420px)] items-start gap-3">
+      <AMANBoardView
+        connectionState={connectionState}
+        error={error}
+        onOpenControls={() => controlsRef.current?.focus()}
+        onSelectFlight={setSelectedFlightID}
+        presentationStatus={presentationStatus}
+        selectedFlightID={effectiveSelectedFlightID}
+        state={state}
+      />
+      <aside className="h-full min-h-0 overflow-y-auto pr-1" ref={controlsRef} tabIndex={-1}>
+        <AMANControls
+          hasFMPAuthority={false}
+          onSelectedFlightIDChange={setSelectedFlightID}
           selectedFlightID={effectiveSelectedFlightID}
-          state={state}
         />
-        <div className="2xl:sticky 2xl:top-0">
-          <AMANControls
-            // AMAN_FMP_ROLES is backend-configured and no current wire field
-            // exposes this client's capability. Keep controls unauthorized
-            // until that server-backed capability is available.
-            hasFMPAuthority={false}
-            onSelectedFlightIDChange={setSelectedFlightID}
-            selectedFlightID={effectiveSelectedFlightID}
-          />
-        </div>
+      </aside>
       </div>
     </main>
   );

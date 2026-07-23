@@ -165,6 +165,12 @@ func TestNoEuroScopeOrHTTPDependency(t *testing.T) {
 	var _ navdata.AirportSource = source
 }
 
+func TestRequiredFixesExcludesSyntheticRunwayProcedureFixes(t *testing.T) {
+	fix := navdata.FixID("RW22L")
+	result := requiredFixes(terminal.Configuration{}, []navdata.Procedure{{Legs: []navdata.ProcedureLeg{{ToFix: &fix}}}}, nil)
+	require.Empty(t, result)
+}
+
 func newMaterializer(t *testing.T, source *fixture.Source, cache *memoryCache, config terminal.Configuration, clock *time.Time) *Materializer {
 	t.Helper()
 	m, err := New(Dependencies{Cycles: source, Airports: source, Runways: source, Procedures: source, Fixes: source, Routes: source, Cache: cache, Terminal: config, Now: func() time.Time { return *clock }})

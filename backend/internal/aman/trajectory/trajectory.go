@@ -146,6 +146,27 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 			result.Completeness, result.Reasons, result.CrossTrackNM = Partial, append(reasons, "FORWARD_PROGRESS_OUT_OF_RANGE"), best.cross
 			return result
 		}
+		if next, recovered := nextWaypointRecovery(obs, legs, start, input.Observation.TrackTrueDegrees); recovered {
+			remaining := remainingFromNextWaypoint(obs, legs, next)
+			if len(remaining) > 0 {
+				progress := progressAtLegEnd(legs, next)
+				dtg := remainingLegDistance(remaining)
+				routeFactID := ""
+				if activeRouteFact(input.RouteFact) {
+					routeFactID = input.RouteFact.ID
+				}
+				rejoin := next
+				if activeRouteFact(input.RouteFact) && directRejoin >= 0 {
+					rejoin = directRejoin
+				}
+				result.Completeness = Partial
+				result.Reasons = append(reasons, "OFF_ROUTE", "OFF_ROUTE_NEXT_WAYPOINT:"+string(legs[next].to))
+				result.CrossTrackNM, result.AlongTrackNM = best.cross, progress
+				result.SelectedHolding, result.DistanceToGoNM, result.Remaining = holding, &dtg, remaining
+				result.Progress = &aman.RouteProgress{GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest, FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup, LegIndex: next, RejoinLegIndex: rejoin, AlongTrackNM: progress}
+				return result
+			}
+		}
 		result.Completeness, result.Reasons, result.CrossTrackNM = OffRoute, append(reasons, "OFF_ROUTE"), best.cross
 		return result
 	}
@@ -365,6 +386,88 @@ func projectForward(p navdata.Coordinate, legs []leg, start int, maxCross, maxFo
 	}
 	return geometryNearest, false, geometryFound
 }
+
+// nextWaypointRecovery keeps an arrival useful when its observed position is
+// outside the narrow route corridor. It predicts a direct track to the
+// closest plausible forward waypoint instead of pretending the aircraft is
+// on the published leg. Derived ground track is preferred when available;
+// without it, the closest forward waypoint is the conservative fallback.
+func nextWaypointRecovery(observation navdata.Coordinate, legs []leg, start int, track *float64) (int, bool) {
+	aligned, nearest := -1, -1
+	alignedDistance, nearestDistance := math.Inf(1), math.Inf(1)
+	for index := start; index < len(legs); index++ {
+		distance, bearing := wgs84Inverse(observation, legs[index].b)
+		if distance < nearestDistance {
+			nearest, nearestDistance = index, distance
+		}
+		if track == nil || angularDifferenceDegrees(*track, bearing*180/math.Pi) > 90 {
+			continue
+		}
+		if distance < alignedDistance {
+			aligned, alignedDistance = index, distance
+		}
+	}
+	if aligned >= 0 {
+		return aligned, true
+	}
+	return nearest, nearest >= 0
+}
+
+func remainingFromNextWaypoint(observation navdata.Coordinate, legs []leg, next int) []RemainingLeg {
+	if next < 0 || next >= len(legs) {
+		return nil
+	}
+	distance, bearing := wgs84Inverse(observation, legs[next].b)
+	result := make([]RemainingLeg, 0, len(legs)-next)
+	if distance > 0 {
+		result = append(result, RemainingLeg{
+			ID: "OFF_ROUTE_TO:" + string(legs[next].to), From: "", To: legs[next].to,
+			DistanceNM: distance, CourseTrueDegrees: bearing * 180 / math.Pi, Start: observation, End: legs[next].b,
+		})
+	}
+	result = append(result, remaining(legs, next+1, 0)...)
+	return usableRecoveryLegs(result)
+}
+
+func usableRecoveryLegs(legs []RemainingLeg) []RemainingLeg {
+	result := make([]RemainingLeg, 0, len(legs))
+	for _, leg := range legs {
+		if leg.DistanceNM <= 0 || !finite(leg.DistanceNM) || !finite(leg.CourseTrueDegrees) || leg.CourseTrueDegrees < 0 || leg.CourseTrueDegrees >= 360 || !validCoordinate(leg.Start) || !validCoordinate(leg.End) {
+			continue
+		}
+		result = append(result, leg)
+	}
+	return result
+}
+
+func validCoordinate(value navdata.Coordinate) bool {
+	return finite(value.LatitudeDeg) && finite(value.LongitudeDeg) && value.LatitudeDeg >= -90 && value.LatitudeDeg <= 90 && value.LongitudeDeg >= -180 && value.LongitudeDeg <= 180
+}
+
+func progressAtLegEnd(legs []leg, index int) float64 {
+	progress := 0.0
+	for i := 0; i <= index && i < len(legs); i++ {
+		progress += legs[i].distance
+	}
+	return progress
+}
+
+func remainingLegDistance(legs []RemainingLeg) float64 {
+	total := 0.0
+	for _, leg := range legs {
+		total += leg.DistanceNM
+	}
+	return total
+}
+
+func angularDifferenceDegrees(left, right float64) float64 {
+	difference := math.Mod(math.Abs(left-right), 360)
+	if difference > 180 {
+		return 360 - difference
+	}
+	return difference
+}
+
 func activeRouteFact(value *aman.RouteFact) bool {
 	return value != nil && (value.State == "" || value.State == aman.RouteFactActive)
 }

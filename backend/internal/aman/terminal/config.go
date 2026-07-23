@@ -594,6 +594,7 @@ func plausibleIntercept(from, to navdata.Coordinate, course float64) bool {
 }
 
 func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navdata.CandidateTerminalFragment, error) {
+	importedAt = importedAt.UTC().Truncate(time.Microsecond)
 	if err := c.Validate(refs); err != nil {
 		return navdata.CandidateTerminalFragment{}, err
 	}

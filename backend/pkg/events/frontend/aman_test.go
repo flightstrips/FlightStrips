@@ -84,6 +84,17 @@ func TestAMANFlightOmitsNonPublishablePredictionData(t *testing.T) {
 	require.NotNil(t, mapped.Slot, "protected slot publication is independent from prediction publication")
 }
 
+func TestAMANFlightRoundsLegacyFractionalInputAgeForWire(t *testing.T) {
+	state := goldenAMANState()
+	state.GeneratedAt = state.GeneratedAt.Add(time.Minute + 600*time.Millisecond)
+	state.Flights[0].Prediction.OperationalTETA = state.Flights[0].Prediction.OperationalTETA.Add(600 * time.Millisecond)
+	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
+	require.NoError(t, err)
+	require.Equal(t, "SOK", *mapped.Star)
+	require.EqualValues(t, 121, *mapped.InputAgeSeconds)
+	require.EqualValues(t, 61, *mapped.GainLossSeconds)
+}
+
 func TestAMANCommandRejectionCarriesStableCorrelation(t *testing.T) {
 	event, err := NewAMANCommandRejectedEvent("command-7", 9, &aman.DomainError{
 		Class: aman.ErrorRevisionConflict, Message: "revision changed",

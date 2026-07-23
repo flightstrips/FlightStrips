@@ -66,7 +66,7 @@ func TestAdapterPassesSharedSourceResolverContract(t *testing.T) {
 		SIDQuery:      navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSID}},
 		STARQuery:     navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}},
 		ApproachQuery: navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureApproach}},
-		FixQuery:      navdata.FixQuery{Version: version, Identifiers: []navdata.FixID{"KEMAX", "SOK"}}, RouteQuery: query, RouteDigest: expected.Digest,
+		FixQuery:      navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"KEMAX", "SOK"}}, RouteQuery: query, RouteDigest: expected.Digest,
 	})
 }
 
@@ -234,7 +234,7 @@ func TestConditionalRetryTimeoutCancellationRedactionAndConcurrency(t *testing.T
 		adapter := testAdapter(t, server.URL, Config{MaxConcurrent: 2})
 		version, err := adapter.LatestVersion(context.Background())
 		require.NoError(t, err)
-		_, err = adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Identifiers: []navdata.FixID{"ONE", "TWO", "THREE"}})
+		_, err = adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"ONE", "TWO", "THREE"}})
 		require.NoError(t, err)
 		require.LessOrEqual(t, maximum.Load(), int32(2))
 	})
@@ -311,21 +311,84 @@ func TestPostgresCheckpointMigrationSurvivesRestartAnd304(t *testing.T) {
 	require.NotEmpty(t, checkpoint.Body)
 }
 
-func TestAmbiguousWaypointIsNotArbitrarilySelected(t *testing.T) {
+func TestFixesUseAirportRegionToAvoidGlobalWaypointAmbiguity(t *testing.T) {
 	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v1/airac/current" {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
 			writeJSON(w, cycleJSON())
-			return
+		case "/api/v1/waypoints/DUP":
+			writeJSON(w, map[string]any{"data": []any{map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 1, "lon": 1}}, map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 2, "lon": 2}}}})
+		case "/api/v1/waypoints/EK/DUP":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 1, "lon": 1}}})
+		default:
+			t.Errorf("unexpected endpoint %s", r.URL.String())
+			w.WriteHeader(http.StatusNotFound)
 		}
-		writeJSON(w, map[string]any{"data": []any{map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 1, "lon": 1}}, map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 2, "lon": 2}}}})
 	})
 	adapter := testAdapter(t, server.URL, Config{})
 	version, err := adapter.LatestVersion(context.Background())
 	require.NoError(t, err)
-	_, err = adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Identifiers: []navdata.FixID{"DUP"}})
-	var domain *aman.DomainError
-	require.ErrorAs(t, err, &domain)
-	require.Equal(t, navdata.ErrorIncompleteGeometry, domain.Class)
+	fixes, err := adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"DUP"}})
+	require.NoError(t, err)
+	require.Equal(t, navdata.CoverageComplete, fixes.Coverage)
+	require.Equal(t, navdata.FixID("DUP"), fixes.Fixes[0].ID)
+}
+
+func TestFixesResolveAirportScopedNavaidWhenWaypointIsMissing(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/waypoints/TNO":
+			w.WriteHeader(http.StatusNotFound)
+		case "/api/v1/navaids/EK/TNO":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": "TNO", "coordinates": map[string]any{"lat": 55.774, "lon": 11.439}}})
+		default:
+			t.Errorf("unexpected endpoint %s", r.URL.String())
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	adapter := testAdapter(t, server.URL, Config{})
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	fixes, err := adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"TNO"}})
+	require.NoError(t, err)
+	require.Equal(t, navdata.CoverageComplete, fixes.Coverage)
+	require.Equal(t, navdata.FixID("TNO"), fixes.Fixes[0].ID)
+}
+
+func TestFixBatchUsesOneProvenanceSnapshot(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/waypoints/ONE", "/api/v1/waypoints/TWO":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": r.URL.Path[len("/api/v1/waypoints/"):], "coordinates": map[string]any{"lat": 55, "lon": 12}}})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	now := time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC)
+	adapter, err := New(Config{BaseURL: server.URL + "/api/v1", Checkpoints: NewMemoryCheckpoints(), Now: func() time.Time {
+		now = now.Add(time.Second)
+		return now
+	}})
+	require.NoError(t, err)
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	fixes, err := adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"ONE", "TWO"}})
+	require.NoError(t, err)
+	for _, fix := range fixes.Fixes {
+		require.Equal(t, fixes.Provenance, fix.Provenance)
+	}
+}
+
+func TestProvenanceUsesPostgresTimestampPrecision(t *testing.T) {
+	now := time.Date(2026, 7, 17, 0, 0, 0, 123456789, time.UTC)
+	adapter, err := New(Config{Checkpoints: NewMemoryCheckpoints(), Now: func() time.Time { return now }})
+	require.NoError(t, err)
+	provenance := adapter.provenance(navdata.DatasetVersion{Cycle: "2607", SourceRevision: "airac.net-2607", EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)})
+	require.Equal(t, 0, provenance.ImportedAt.Nanosecond()%int(time.Microsecond))
 }
 
 func TestRouteKeyPrecedesTransformsAndWarmCacheNeedsNoNetwork(t *testing.T) {

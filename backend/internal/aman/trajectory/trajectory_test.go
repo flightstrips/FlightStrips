@@ -35,13 +35,49 @@ func TestReduceReportsActualOffRouteCrossTrackAndThreshold(t *testing.T) {
 	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = .21, .5
 	off := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
 	_, want := geodesicProject(coordinate(.21, .5), coordinate(0, 0), coordinate(0, 1), wgs84NM(coordinate(0, 0), coordinate(0, 1)))
-	require.Equal(t, OffRoute, off.Completeness)
+	require.Equal(t, Partial, off.Completeness)
+	require.Contains(t, off.Reasons, "OFF_ROUTE")
+	require.Contains(t, off.Reasons, "OFF_ROUTE_NEXT_WAYPOINT:B")
 	require.InDelta(t, want, off.CrossTrackNM, .01)
 	require.Greater(t, off.CrossTrackNM, 12.0)
 	input.Observation.LatitudeDegrees = .19
 	on := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
 	require.NotEqual(t, OffRoute, on.Completeness)
 	require.LessOrEqual(t, on.CrossTrackNM, 12.0)
+}
+
+func TestReduceRecoversOffRouteArrivalViaNextWaypoint(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	holdID := navdata.HoldingID("HOLD")
+	snapshot.Holdings = []navdata.HoldingPattern{{ID: holdID, Fix: "B"}}
+	snapshot.TerminalPaths[0].HoldingIDs = []navdata.HoldingID{holdID}
+	track := 90.0
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees, input.Observation.TrackTrueDegrees = .3, .1, &track
+
+	result := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+
+	require.Equal(t, Partial, result.Completeness)
+	require.Contains(t, result.Reasons, "OFF_ROUTE")
+	require.Contains(t, result.Reasons, "OFF_ROUTE_NEXT_WAYPOINT:B")
+	require.Equal(t, "OFF_ROUTE_TO:B", result.Remaining[0].ID)
+	require.Equal(t, navdata.FixID("B"), result.Remaining[0].To)
+	require.Equal(t, "L2", result.Remaining[1].ID)
+	require.NotNil(t, result.DistanceToGoNM)
+	require.NotNil(t, result.SelectedHolding)
+	require.NotNil(t, result.Progress)
+	require.Equal(t, 0, result.Progress.LegIndex)
+}
+
+func TestOffRouteRecoveryDropsZeroLengthLegsBeforePrediction(t *testing.T) {
+	a, b := navdata.FixID("A"), navdata.FixID("B")
+	legs := []leg{
+		{id: "ZERO", from: a, to: b, a: coordinate(0, 0), b: coordinate(0, 0), distance: 0},
+		{id: "USE", from: b, to: a, a: coordinate(0, 0), b: coordinate(0, 1), distance: wgs84NM(coordinate(0, 0), coordinate(0, 1))},
+	}
+	recovered := remainingFromNextWaypoint(coordinate(1, 0), legs, 0)
+	require.Len(t, recovered, 2)
+	require.Equal(t, "OFF_ROUTE_TO:B", recovered[0].ID)
+	require.Equal(t, "USE", recovered[1].ID)
 }
 
 func TestReduceDistinguishesForwardProgressJumpFromOffRoute(t *testing.T) {
@@ -55,7 +91,7 @@ func TestReduceDistinguishesForwardProgressJumpFromOffRoute(t *testing.T) {
 	require.InDelta(t, 0, onRoute.CrossTrackNM, .01)
 	input.Observation.LatitudeDegrees = 1
 	lateral := Reduce(snapshot, route, input, Config{MaxForwardSearchNM: 10})
-	require.Equal(t, OffRoute, lateral.Completeness)
+	require.Equal(t, Partial, lateral.Completeness)
 	require.Contains(t, lateral.Reasons, "OFF_ROUTE")
 	require.Greater(t, lateral.CrossTrackNM, 12.0)
 }
@@ -191,7 +227,8 @@ func TestReduceOffRouteStaleDirectAndPartialReasons(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	input.Observation.LatitudeDegrees = 5
 	off := Reduce(snapshot, route, input, Config{})
-	require.Equal(t, OffRoute, off.Completeness)
+	require.Equal(t, Partial, off.Completeness)
+	require.Contains(t, off.Reasons, "OFF_ROUTE")
 	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = 0, .25
 	input.RouteFact = &aman.RouteFact{ID: "dct-1", Fix: "B", State: aman.RouteFactActive}
 	direct := Reduce(snapshot, route, input, Config{})

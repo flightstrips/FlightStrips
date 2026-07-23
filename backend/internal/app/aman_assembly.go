@@ -93,7 +93,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, pool *pgxpool.Pool) (ope
 	}
 	transport := &amanTransport{repository: repository, mode: config.Mode}
 	service, err := operational.New(operational.Dependencies{
-		Repository: repository, Retirer: repository, Materializer: navigation, Geometry: cache, Wind: openmeteo.New(openmeteo.Config{}),
+		Repository: repository, Retirer: repository, Materializer: navigation, Geometry: cache, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
 		Terminal: terminalConfig, Airports: config.EnabledAirports, Mode: config.Mode, Publisher: transport,
 	})
 	if err != nil {

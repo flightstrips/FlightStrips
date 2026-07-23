@@ -95,7 +95,8 @@ func TestQueriesRejectNonCanonicalOptionalIdentifiers(t *testing.T) {
 	runway := RunwayID("22L")
 	group := aman.RunwayGroupID("south")
 	assertInvalid(t, ProcedureQuery{Version: version, Airport: " EKCH", Kinds: []ProcedureKind{ProcedureSID}}.Validate())
-	assertInvalid(t, FixQuery{Version: version, Identifiers: []FixID{"KEMAX", "KEMAX"}}.Validate())
+	assertInvalid(t, FixQuery{Version: version, Airport: "EKCH", Identifiers: []FixID{"KEMAX", "KEMAX"}}.Validate())
+	assertInvalid(t, FixQuery{Version: version, Identifiers: []FixID{"KEMAX"}}.Validate())
 	assertInvalid(t, RouteQuery{Version: version, Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT", ArrivalProcedure: &procedure, Runway: &runway, RunwayGroup: &group}.Validate())
 }
 

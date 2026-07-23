@@ -2,6 +2,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from "react";
 
 import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
+import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
 
@@ -11,6 +12,7 @@ export default function AMAN() {
   const error = useWebSocketStore((value) => value.amanError);
   const connectionState = useWebSocketStore((value) => value.amanConnectionState);
   const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const controlsRef = useRef<HTMLElement>(null);
   const stateAtMount = useRef(state);
 
@@ -34,6 +36,7 @@ export default function AMAN() {
         connectionState={connectionState}
         error={error}
         onOpenControls={() => controlsRef.current?.focus()}
+        onOpenFlightDetails={() => setDetailOpen(true)}
         onSelectFlight={setSelectedFlightID}
         presentationStatus={presentationStatus}
         selectedFlightID={effectiveSelectedFlightID}
@@ -47,6 +50,7 @@ export default function AMAN() {
         />
       </aside>
       </div>
+      {detailOpen && state !== null && effectiveSelectedFlightID !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} />}
     </main>
   );
 }

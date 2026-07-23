@@ -302,6 +302,35 @@ type Prediction struct {
 	PerformanceProfileID *string
 	WeatherSource        *string
 	Sources              []string
+	// Calculation retains the exact route sections and model durations that
+	// produced this raw prediction. It is deliberately persisted with the
+	// prediction, but is served only from the on-demand flight-detail API.
+	Calculation *PredictionCalculation
+}
+
+// PredictionCalculation is the inspectable physical-model breakdown for one
+// accepted raw prediction. Operational smoothing, freezing and sequencing are
+// intentionally not folded into these leg values.
+type PredictionCalculation struct {
+	NoWindDuration time.Duration
+	Duration       time.Duration
+	Legs           []PredictionLeg
+}
+
+// PredictionLeg describes one remaining route section at the instant the
+// prediction was accepted. Coordinates are WGS84 degrees, course is true
+// degrees, and duration is the modelled duration for this section.
+type PredictionLeg struct {
+	ID                string
+	From, To          string
+	StartLatitude     float64
+	StartLongitude    float64
+	EndLatitude       float64
+	EndLongitude      float64
+	DistanceNM        float64
+	CourseTrueDegrees float64
+	NoWindDuration    time.Duration
+	Duration          time.Duration
 }
 
 // RawTETASample is one accepted physical/model output in the persisted
@@ -732,6 +761,56 @@ func (p Prediction) Validate() error {
 	}
 	if p.Sources == nil {
 		return invalid("prediction sources must be explicit")
+	}
+	if p.Calculation != nil {
+		if err := p.Calculation.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c PredictionCalculation) Validate() error {
+	if c.NoWindDuration <= 0 || c.Duration <= 0 || len(c.Legs) == 0 {
+		return invalid("prediction calculation is incomplete")
+	}
+	total, noWindTotal := time.Duration(0), time.Duration(0)
+	hasNoWindLegDuration, missingNoWindLegDuration := false, false
+	for _, leg := range c.Legs {
+		if err := leg.Validate(); err != nil {
+			return err
+		}
+		total += leg.Duration
+		noWindTotal += leg.NoWindDuration
+		hasNoWindLegDuration = hasNoWindLegDuration || leg.NoWindDuration > 0
+		missingNoWindLegDuration = missingNoWindLegDuration || leg.NoWindDuration == 0
+	}
+	if total != c.Duration {
+		return invalid("prediction calculation duration does not match its legs")
+	}
+	if hasNoWindLegDuration && missingNoWindLegDuration {
+		return invalid("prediction no-wind leg durations must be complete")
+	}
+	if hasNoWindLegDuration && noWindTotal != c.NoWindDuration {
+		return invalid("prediction no-wind calculation duration does not match its legs")
+	}
+	return nil
+}
+
+func (l PredictionLeg) Validate() error {
+	if !isTrimmedNonEmpty(l.ID) || !isTrimmedNonEmpty(l.From) || !isTrimmedNonEmpty(l.To) ||
+		l.DistanceNM <= 0 || math.IsNaN(l.DistanceNM) || math.IsInf(l.DistanceNM, 0) ||
+		l.CourseTrueDegrees < 0 || l.CourseTrueDegrees >= 360 || math.IsNaN(l.CourseTrueDegrees) || math.IsInf(l.CourseTrueDegrees, 0) ||
+		l.NoWindDuration < 0 || l.Duration <= 0 {
+		return invalid("prediction leg is invalid")
+	}
+	for _, coordinate := range []struct{ latitude, longitude float64 }{
+		{l.StartLatitude, l.StartLongitude}, {l.EndLatitude, l.EndLongitude},
+	} {
+		if math.IsNaN(coordinate.latitude) || math.IsInf(coordinate.latitude, 0) || coordinate.latitude < -90 || coordinate.latitude > 90 ||
+			math.IsNaN(coordinate.longitude) || math.IsInf(coordinate.longitude, 0) || coordinate.longitude < -180 || coordinate.longitude > 180 {
+			return invalid("prediction leg coordinate is invalid")
+		}
 	}
 	return nil
 }

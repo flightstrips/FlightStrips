@@ -487,6 +487,11 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		DistanceToGoNM: &dtg, ModelVersion: estimate.ModelVersion, ConfigVersion: s.deps.Terminal.ConfigVersion,
 		PerformanceProfileID: estimate.PerformanceProfileID, WeatherSource: estimate.WeatherSource,
 		Sources: []string{"vatsim", "airacnet", "terminal-config:" + s.deps.Terminal.ConfigVersion},
+		Calculation: &aman.PredictionCalculation{
+			NoWindDuration: estimate.NoWindDuration,
+			Duration:       estimate.Duration,
+			Legs:           calculationLegs(projection.Remaining, estimate.NoWindLegDurations, estimate.LegDurations),
+		},
 	}
 	if len(degradations) > 0 {
 		reason := strings.Join(degradations, ",")
@@ -970,6 +975,27 @@ func predictorLegs(legs []trajectory.RemainingLeg) []predictor.RouteLeg {
 	result := make([]predictor.RouteLeg, len(legs))
 	for i, leg := range legs {
 		result[i] = predictor.RouteLeg{ID: leg.ID, DistanceNM: leg.DistanceNM, CourseTrueDegrees: leg.CourseTrueDegrees, Start: predictor.WindCoordinate{LatitudeDegrees: leg.Start.LatitudeDeg, LongitudeDegrees: leg.Start.LongitudeDeg}, End: predictor.WindCoordinate{LatitudeDegrees: leg.End.LatitudeDeg, LongitudeDegrees: leg.End.LongitudeDeg}}
+	}
+	return result
+}
+
+func calculationLegs(legs []trajectory.RemainingLeg, noWindDurations, durations []time.Duration) []aman.PredictionLeg {
+	if len(legs) != len(durations) || len(legs) != len(noWindDurations) {
+		return nil
+	}
+	result := make([]aman.PredictionLeg, len(legs))
+	for i, leg := range legs {
+		from := string(leg.From)
+		if from == "" {
+			from = "CURRENT_POSITION"
+		}
+		result[i] = aman.PredictionLeg{
+			ID: leg.ID, From: from, To: string(leg.To),
+			StartLatitude: leg.Start.LatitudeDeg, StartLongitude: leg.Start.LongitudeDeg,
+			EndLatitude: leg.End.LatitudeDeg, EndLongitude: leg.End.LongitudeDeg,
+			DistanceNM: leg.DistanceNM, CourseTrueDegrees: leg.CourseTrueDegrees,
+			NoWindDuration: noWindDurations[i], Duration: durations[i],
+		}
 	}
 	return result
 }

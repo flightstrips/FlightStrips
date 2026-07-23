@@ -121,6 +121,15 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("holding-timeline-lane-SOK-HF")).toBeInTheDocument();
   });
 
+  it("opens the selected flight's on-demand route detail without changing the board state", () => {
+    const onOpenFlightDetails = vi.fn();
+    renderBoard(state(), {selectedFlightID: "flight-123", onOpenFlightDetails});
+
+    fireEvent.click(screen.getByRole("button", {name: "DETAIL"}));
+
+    expect(onOpenFlightDetails).toHaveBeenCalledOnce();
+  });
+
   it("stacks near-simultaneous flight strips in their assigned ruler column", () => {
     const overlapping = state();
     const original = overlapping.flights[0];

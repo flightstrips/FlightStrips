@@ -274,6 +274,7 @@ export interface AMANBoardViewProps {
   selectedFlightID: string | null;
   onSelectFlight: (flightID: string) => void;
   onOpenControls?: () => void;
+  onOpenFlightDetails?: () => void;
 }
 
 export function AMANBoardView({
@@ -284,6 +285,7 @@ export function AMANBoardView({
   selectedFlightID,
   onSelectFlight,
   onOpenControls,
+  onOpenFlightDetails,
 }: AMANBoardViewProps) {
   const lanes = useMemo(() => state ? buildAMANLanes(state) : [], [state]);
   const [view, setView] = useState<"holds" | "runway">("holds");
@@ -413,6 +415,7 @@ export function AMANBoardView({
 
       <footer className="flex h-14 shrink-0 items-center border-t-4 border-[#292929] bg-[#353535] px-4">
         <button className="bg-lime-400 px-5 py-2 font-display text-lg font-bold text-black shadow-[0_2px_0_#1c1c1c]" onClick={onOpenControls} type="button">FMP</button>
+        <button className="ml-2 border border-slate-300 bg-[#4b5563] px-4 py-2 font-display text-sm font-bold text-white hover:bg-[#5b6676] disabled:cursor-not-allowed disabled:opacity-50" disabled={selectedFlightID === null} onClick={onOpenFlightDetails} type="button">DETAIL</button>
         <span className="ml-4 text-xs text-slate-300">{activeRunwayLane?.label ?? "No runway group"} · operational marker</span>
         {state.technical_health.blocked_reasons.length > 0 && <span className="ml-auto text-xs text-red-200">{state.technical_health.blocked_reasons.join(", ")}</span>}
       </footer>

@@ -110,7 +110,7 @@ type PerformanceWindResult struct {
 	PerformanceProfileID, PerformanceProfileVersion *string
 	WeatherSource, WeatherSourceRevision            *string
 	DegradationReasons                              []string
-	LegDurations                                    []time.Duration
+	NoWindLegDurations, LegDurations                []time.Duration
 }
 
 // EstimatePerformanceWind calculates only the latest physical/raw route
@@ -144,7 +144,7 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 
 	base, baseLegDurations := durationBreakdownForSegments(segments, input, nil, config)
 	result.NoWindDuration, result.Duration = base, base
-	result.LegDurations = baseLegDurations
+	result.NoWindLegDurations, result.LegDurations = baseLegDurations, baseLegDurations
 
 	if wind == nil {
 		result = degradeWind(result, "WEATHER_UNAVAILABLE")

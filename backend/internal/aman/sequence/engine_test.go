@@ -95,6 +95,94 @@ func TestUnknownCategoryUsesConservativeSpacingAndWarns(t *testing.T) {
 	require.False(t, result.HasConflicts())
 }
 
+func TestSameSTARSpacingActivatesAtConfiguredRate(t *testing.T) {
+	start := testTime()
+	for _, test := range []struct {
+		name string
+		rate uint32
+		want time.Duration
+	}{
+		{name: "below threshold", rate: 19, want: rateIntervalForTest(19)},
+		{name: "at threshold", rate: 20, want: 6 * time.Minute},
+		{name: "above threshold", rate: 30, want: 4 * time.Minute},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			policy := simplePolicy("A", start, test.rate)
+			policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+			first := flight("MONAK-1", "A", start, "M")
+			first.STARFamily = "monak"
+			second := flight("MONAK-2", "A", start, "M")
+			second.STARFamily = " MONAK "
+			result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{first, second}})
+			require.NoError(t, err)
+			require.Equal(t, start.Add(test.want), entryFor(t, result, "MONAK-2").Time)
+		})
+	}
+}
+
+func TestSameSTARSpacingAllowsDifferentFamiliesAndCountsWTCGap(t *testing.T) {
+	start := testTime()
+	policy := wtcPolicy("A", start, 20)
+	policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	monak := flight("MONAK", "A", start, "H")
+	monak.STARFamily = "MONAK"
+	tudlo := flight("TUDLO", "A", start, "M")
+	tudlo.STARFamily = "TUDLO"
+	secondMonak := flight("MONAK-2", "A", start, "M")
+	secondMonak.STARFamily = "MONAK"
+
+	result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{monak, tudlo, secondMonak}})
+	require.NoError(t, err)
+	require.Equal(t, []time.Time{start, start.Add(3 * time.Minute), start.Add(6 * time.Minute)}, entryTimes(result))
+
+	// WTC spacing longer than the same-STAR requirement is not extended again.
+	policy = wtcPolicy("A", start, 60)
+	policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	lead := protectedFlight("LEAD", "A", start, "J", start, aman.FreezeManual)
+	lead.STARFamily = "MONAK"
+	trail := flight("TRAIL", "A", start, "M")
+	trail.STARFamily = "MONAK"
+	result, err = sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{lead, trail}})
+	require.NoError(t, err)
+	require.Equal(t, start.Add(3*time.Minute), entryFor(t, result, "TRAIL").Time)
+}
+
+func TestSameSTARSpacingWarningsAreDeterministic(t *testing.T) {
+	start := testTime()
+	policy := simplePolicy("A", start, 20)
+	policy.SameSTARSpacing = sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	lead := protectedFlight("LEAD", "A", start, "M", start, aman.FreezeManual)
+	lead.STARFamily = "MONAK"
+	trail := protectedFlight("TRAIL", "A", start.Add(3*time.Minute), "M", start.Add(3*time.Minute), aman.FreezeSuperstable)
+	trail.STARFamily = "MONAK"
+	unknown := flight("UNKNOWN", "A", start.Add(9*time.Minute), "M")
+
+	result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{trail, unknown, lead}})
+	require.NoError(t, err)
+	require.True(t, result.HasConflicts())
+	require.Contains(t, result.Warnings, sequence.Warning{Severity: sequence.SeverityConflict, Code: sequence.WarningProtectedSameSTAR, RunwayGroupID: "A", FlightID: "TRAIL", RelatedFlightID: flightIDPointer("LEAD")})
+	require.Contains(t, result.Warnings, sequence.Warning{Severity: sequence.SeverityDegraded, Code: sequence.WarningUnknownSTARFamily, RunwayGroupID: "A", FlightID: "UNKNOWN"})
+}
+
+func TestStableFlightsRetainCommittedRelativeOrder(t *testing.T) {
+	start := testTime()
+	policy := simplePolicy("A", start, 60)
+	first := withState(flight("FIRST", "A", start.Add(10*time.Minute), "M"), aman.StateStable)
+	first.CurrentSlot = &aman.Slot{Time: start, RunwayGroupID: "A", Sequence: 1, Revision: 1, Reason: "rate_wtc"}
+	second := withState(flight("SECOND", "A", start, "M"), aman.StateStable)
+	second.CurrentSlot = &aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: 1, Reason: "rate_wtc"}
+
+	result, err := sequence.Generate(sequence.Input{Revision: 1, Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{second, first}})
+	require.NoError(t, err)
+	require.Equal(t, []aman.FlightID{"FIRST", "SECOND"}, entryIDs(result))
+}
+
+func rateIntervalForTest(rate uint32) time.Duration {
+	return time.Duration((uint64(time.Hour) + uint64(rate) - 1) / uint64(rate))
+}
+
+func flightIDPointer(value aman.FlightID) *aman.FlightID { return &value }
+
 func TestProtectedConstraintsArePreservedOrReportedAsConflicts(t *testing.T) {
 	start := testTime()
 	policy := wtcPolicy("A", start, 30)

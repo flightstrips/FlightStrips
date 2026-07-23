@@ -108,6 +108,7 @@ export function AMANControlsView({
 }: AMANControlsViewProps) {
   const [flightID, setFlightID] = useState("");
   const [targetFlightID, setTargetFlightID] = useState("");
+  const [rateRunwayGroupID, setRateRunwayGroupID] = useState("");
   const [rate, setRate] = useState("30");
   const [rateEffectiveAt, setRateEffectiveAt] = useState("");
   const [manualETA, setManualETA] = useState("");
@@ -118,6 +119,9 @@ export function AMANControlsView({
   const selectedFlight = flights.find((flight) => flight.flight_id === requestedFlightID) ?? flights[0] ?? null;
   const effectiveSelectedFlightID = selectedFlight?.flight_id ?? "";
   const runwayGroupID = selectedFlight?.runway_group_id ?? state?.runway_groups[0]?.id ?? null;
+  const effectiveRateRunwayGroupID = state?.runway_groups.some((group) => group.id === rateRunwayGroupID)
+    ? rateRunwayGroupID
+    : state?.runway_groups[0]?.id ?? "";
   const gateReason = getAMANMutationBlockReason({
     state,
     connection_state: connectionState,
@@ -168,6 +172,21 @@ export function AMANControlsView({
         </div>
       ))}
 
+      <div className="grid gap-2 rounded border border-slate-600 p-3">
+        <h3 className="font-semibold">Arrival rate</h3>
+        <div className="flex flex-wrap gap-2">
+          <select aria-label="Rate runway group" className={inputClass} value={effectiveRateRunwayGroupID} onChange={(event) => setRateRunwayGroupID(event.target.value)}>
+            {state?.runway_groups.map((group) => <option key={group.id} value={group.id}>{group.id}</option>)}
+          </select>
+          <input aria-label="Arrivals per hour" className={inputClass} type="number" min="1" value={rate} onChange={(event) => setRate(event.target.value)} />
+          <input aria-label="Rate effective at" className={inputClass} type="datetime-local" value={rateEffectiveAt} onChange={(event) => setRateEffectiveAt(event.target.value)} />
+          <button className={controlClass} disabled={disabled || !effectiveRateRunwayGroupID || !toWireTimestamp(rateEffectiveAt) || Number(rate) < 1} onClick={() => {
+            const effectiveAt = toWireTimestamp(rateEffectiveAt);
+            if (effectiveRateRunwayGroupID && effectiveAt) onCommand({type: "aman.set_rate", runway_group_id: effectiveRateRunwayGroupID, arrivals_per_hour: Number(rate), effective_at: effectiveAt});
+          }}>Set arrival rate</button>
+        </div>
+      </div>
+
       {flights.length === 0 ? (
         <div>No AMAN flights available.</div>
       ) : (
@@ -195,18 +214,6 @@ export function AMANControlsView({
               <button className={controlClass} disabled={disabled || !targetFlightID || !runwayGroupID} onClick={() => sendMove("after")}>Move after</button>
               <button className={controlClass} disabled={disabled || selectedFlight?.freeze_reason === "manual"} onClick={() => sendFlightCommand("aman.lock_flight")}>Apply manual freeze</button>
               <button className={controlClass} disabled={disabled || selectedFlight?.freeze_reason !== "manual"} onClick={() => sendFlightCommand("aman.unlock_flight")}>Release manual freeze</button>
-            </div>
-          </div>
-
-          <div className="grid gap-2 rounded border border-slate-600 p-3">
-            <h3 className="font-semibold">Arrival rate</h3>
-            <div className="flex flex-wrap gap-2">
-              <input aria-label="Arrivals per hour" className={inputClass} type="number" min="1" value={rate} onChange={(event) => setRate(event.target.value)} />
-              <input aria-label="Rate effective at" className={inputClass} type="datetime-local" value={rateEffectiveAt} onChange={(event) => setRateEffectiveAt(event.target.value)} />
-              <button className={controlClass} disabled={disabled || !runwayGroupID || !toWireTimestamp(rateEffectiveAt) || Number(rate) < 1} onClick={() => {
-                const effectiveAt = toWireTimestamp(rateEffectiveAt);
-                if (runwayGroupID && effectiveAt) onCommand({type: "aman.set_rate", runway_group_id: runwayGroupID, arrivals_per_hour: Number(rate), effective_at: effectiveAt});
-              }}>Set arrival rate</button>
             </div>
           </div>
 

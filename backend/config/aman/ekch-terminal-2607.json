@@ -12,18 +12,18 @@
     { "id": "NAVIAIR-AIP-DK", "document": "EKCH RNAV STAR tabular charts: RWY 12-2/3 AIRAC AMDT 12/25 and 12/24; RWY 30-2/3 AIRAC AMDT 12/25 and 12/24; RWY 04/22 retained official tabular descriptions", "effectiveFrom": "2025-11-27T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" }
   ],
   "runwayGroups": [
-    { "id": "ARRIVAL-04", "aliases": ["04", "04L", "04R"], "runways": ["04L", "04R"], "finalApproaches": [
+    { "id": "ARRIVAL-04", "aliases": ["04", "04L", "04R"], "runways": ["04L", "04R"], "sameStarSpacing": { "enabled": true, "activationRatePerHour": 20, "minimumEmptySlots": 1 }, "finalApproaches": [
       { "runway": "04L", "threshold": { "position": { "latitudeDeg": 55.5922, "longitudeDeg": 12.6035361111 }, "courseTrueDeg": 41.2 }, "courseTrueDeg": 41.2, "physicalLengthM": 3001, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } },
       { "runway": "04R", "threshold": { "position": { "latitudeDeg": 55.6031, "longitudeDeg": 12.6330472222 }, "courseTrueDeg": 41.2 }, "courseTrueDeg": 41.2, "physicalLengthM": 3302, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
     ] },
-    { "id": "ARRIVAL-22", "aliases": ["22", "22L", "22R"], "runways": ["22L", "22R"], "finalApproaches": [
+    { "id": "ARRIVAL-22", "aliases": ["22", "22L", "22R"], "runways": ["22L", "22R"], "sameStarSpacing": { "enabled": true, "activationRatePerHour": 20, "minimumEmptySlots": 1 }, "finalApproaches": [
       { "runway": "22L", "threshold": { "position": { "latitudeDeg": 55.6254111111, "longitudeDeg": 12.6675805556 }, "courseTrueDeg": 221.2 }, "courseTrueDeg": 221.2, "physicalLengthM": 3302, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } },
       { "runway": "22R", "threshold": { "position": { "latitudeDeg": 55.6124777778, "longitudeDeg": 12.6348916667 }, "courseTrueDeg": 221.2 }, "courseTrueDeg": 221.2, "physicalLengthM": 3571, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
     ] },
-    { "id": "ARRIVAL-12", "aliases": ["12"], "runways": ["12"], "finalApproaches": [
+    { "id": "ARRIVAL-12", "aliases": ["12"], "runways": ["12"], "sameStarSpacing": { "enabled": true, "activationRatePerHour": 20, "minimumEmptySlots": 1 }, "finalApproaches": [
       { "runway": "12", "threshold": { "position": { "latitudeDeg": 55.62415, "longitudeDeg": 12.6391166667 }, "courseTrueDeg": 123.2 }, "courseTrueDeg": 123.2, "physicalLengthM": 2800, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
     ] },
-    { "id": "ARRIVAL-30", "aliases": ["30"], "runways": ["30"], "finalApproaches": [
+    { "id": "ARRIVAL-30", "aliases": ["30"], "runways": ["30"], "sameStarSpacing": { "enabled": true, "activationRatePerHour": 20, "minimumEmptySlots": 1 }, "finalApproaches": [
       { "runway": "30", "threshold": { "position": { "latitudeDeg": 55.6138527778, "longitudeDeg": 12.6669472222 }, "courseTrueDeg": 303.2 }, "courseTrueDeg": 303.2, "physicalLengthM": 2365, "provenance": { "sourceId": "NAVIAIR-AIP-DK", "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26", "importedAt": "2026-07-18T00:00:00Z", "effectiveFrom": "2026-02-19T00:00:00Z", "effectiveUntil": "2026-08-06T00:00:00Z" } }
     ] }
   ],

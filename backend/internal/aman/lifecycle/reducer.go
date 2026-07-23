@@ -26,8 +26,8 @@ func DefaultConfig() Config {
 		UnstableHorizon:      45 * time.Minute,
 		StableHorizon:        20 * time.Minute,
 		SuperstableHorizon:   10 * time.Minute,
-		MinimumUnstableDwell: 5 * time.Minute,
-		RemovalTimeout:       5 * time.Minute,
+		MinimumUnstableDwell: 2 * time.Minute,
+		RemovalTimeout:       time.Minute,
 	}
 }
 
@@ -227,8 +227,6 @@ func nextState(config Config, flight aman.AMANFlight, enteredAt time.Time, event
 		}
 		untilArrival := event.OperationalTETA.Sub(event.OccurredAt)
 		switch {
-		case untilArrival <= config.StableHorizon:
-			return aman.StateStable, aman.LifecycleReasonSuddenAppearance, nil
 		case untilArrival <= config.UnstableHorizon:
 			return aman.StateUnstable, aman.LifecycleReasonSuddenAppearance, nil
 		default:

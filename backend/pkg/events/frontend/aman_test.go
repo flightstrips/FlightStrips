@@ -53,6 +53,37 @@ func TestAMANStateEventNormalizesDisabledComponentHealth(t *testing.T) {
 	require.Equal(t, "disabled", event.Data.TechnicalHealth.ReplayValidation.Status)
 }
 
+func TestAMANStateEventIncludesPersistedActiveRate(t *testing.T) {
+	state := goldenAMANState()
+	effective := state.GeneratedAt.Add(time.Minute)
+	state.RunwayGroups[0].ActiveRatePerHour = 20
+	state.RunwayGroups[0].RateEffectiveAt = &effective
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, uint32(20), *event.Data.RunwayGroups[0].ActiveRatePerHour)
+	expected, err := aman.FormatTime(effective)
+	require.NoError(t, err)
+	require.Equal(t, expected, *event.Data.RunwayGroups[0].RateEffectiveAt)
+}
+
+func TestAMANFlightOmitsNonPublishablePredictionData(t *testing.T) {
+	state := goldenAMANState()
+	state.Flights[0].Prediction.Publishable = false
+	reason := "missing_essential_data:surveillance"
+	state.Flights[0].Prediction.DegradationReason = &reason
+
+	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
+	require.NoError(t, err)
+	require.Nil(t, mapped.RawTETA)
+	require.Nil(t, mapped.OperationalTETA)
+	require.Nil(t, mapped.Confidence)
+	require.Nil(t, mapped.Provenance)
+	require.Nil(t, mapped.InputAgeSeconds)
+	require.Nil(t, mapped.DistanceToGoNM)
+	require.Nil(t, mapped.GainLossSeconds)
+	require.NotNil(t, mapped.Slot, "protected slot publication is independent from prediction publication")
+}
+
 func TestAMANCommandRejectionCarriesStableCorrelation(t *testing.T) {
 	event, err := NewAMANCommandRejectedEvent("command-7", 9, &aman.DomainError{
 		Class: aman.ErrorRevisionConflict, Message: "revision changed",

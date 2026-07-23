@@ -100,6 +100,8 @@ export interface AMANQueueOffer {
 
 export interface AMANRunwayGroup {
   id: string;
+  active_rate_per_hour?: number;
+  rate_effective_at?: string;
 }
 
 export interface AMANTechnicalHealth {
@@ -297,6 +299,12 @@ function isTechnicalHealth(value: unknown): value is AMANTechnicalHealth {
     && isComponentHealth(value.predictor) && isComponentHealth(value.replay_validation);
 }
 
+function isRunwayGroup(value: unknown): value is AMANRunwayGroup {
+  return isObject(value) && isString(value.id)
+    && (value.active_rate_per_hour === undefined || (isNonNegativeInteger(value.active_rate_per_hour) && value.active_rate_per_hour > 0))
+    && (value.rate_effective_at === undefined || isTimestamp(value.rate_effective_at));
+}
+
 export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
   if (!isObject(value) || value.type !== "aman.state" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
   const data = value.data;
@@ -304,7 +312,7 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && isTimestamp(data.generated_at) && isString(data.policy_version) && isString(data.effective_mode)
     && effectiveModes.has(data.effective_mode as AMANEffectiveMode) && typeof data.authoritative === "boolean"
     && Array.isArray(data.flights) && data.flights.every(isFlight)
-    && Array.isArray(data.runway_groups) && data.runway_groups.every((group) => isObject(group) && isString(group.id))
+    && Array.isArray(data.runway_groups) && data.runway_groups.every(isRunwayGroup)
     && isTechnicalHealth(data.technical_health);
 }
 

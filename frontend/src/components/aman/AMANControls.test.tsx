@@ -57,7 +57,10 @@ describe("AMAN FMP controls", () => {
   });
 
   it("maps rate, manual ETA, and go-around inputs to their typed timestamps", () => {
-    const {onCommand} = renderControls();
+    const multiRunwayState = state();
+    multiRunwayState.runway_groups.push({id: "ARRIVAL-04"});
+    const {onCommand} = renderControls({state: multiRunwayState});
+    fireEvent.change(screen.getByLabelText("Rate runway group"), {target: {value: "ARRIVAL-04"}});
     fireEvent.change(screen.getByLabelText("Arrivals per hour"), {target: {value: "24"}});
     fireEvent.change(screen.getByLabelText("Rate effective at"), {target: {value: "2026-07-22T12:05"}});
     fireEvent.click(screen.getByRole("button", {name: "Set arrival rate"}));
@@ -67,7 +70,7 @@ describe("AMAN FMP controls", () => {
     fireEvent.click(screen.getByRole("button", {name: "Report go-around"}));
 
     expect(onCommand).toHaveBeenNthCalledWith(1, {
-      type: "aman.set_rate", runway_group_id: "ARRIVAL-22", arrivals_per_hour: 24,
+      type: "aman.set_rate", runway_group_id: "ARRIVAL-04", arrivals_per_hour: 24,
       effective_at: new Date("2026-07-22T12:05").toISOString(),
     });
     expect(onCommand).toHaveBeenNthCalledWith(2, {
@@ -76,6 +79,16 @@ describe("AMAN FMP controls", () => {
     expect(onCommand).toHaveBeenNthCalledWith(3, {
       type: "aman.report_go_around", flight_id: "flight-1", detected_at: new Date("2026-07-22T12:15").toISOString(),
     });
+  });
+
+  it("keeps runway-group rate controls available without active flights", () => {
+    const empty = state();
+    empty.flights = [];
+    renderControls({state: empty});
+
+    expect(screen.getByLabelText("Rate runway group")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Set arrival rate"})).toBeInTheDocument();
+    expect(screen.getByText("No AMAN flights available.")).toBeInTheDocument();
   });
 
   it.each([

@@ -16,8 +16,9 @@ import (
 const (
 	defaultMinimumGroundspeedKnots = 120.0
 	defaultMaximumGroundspeedKnots = 600.0
-	defaultMaxWindCorrection       = 0.20
 	defaultPerformanceVersion      = "aman-performance-defaults-v1"
+	amanCPHModelVersion            = "aman-cph-teta-v1"
+	descentFeetPerNM               = 318.4
 )
 
 // AircraftPerformanceRepository supplies versioned, provider-neutral profile
@@ -75,9 +76,6 @@ type RouteLeg struct {
 
 type PerformanceWindConfig struct {
 	MinimumGroundspeedKnots, MaximumGroundspeedKnots float64
-	// MaxWindCorrectionPercent caps the total duration change around no-wind
-	// geometry. 0 selects 20 percent; values must otherwise be in (0, 1).
-	MaxWindCorrectionPercent float64
 }
 
 func (c PerformanceWindConfig) normalized() (PerformanceWindConfig, error) {
@@ -87,30 +85,32 @@ func (c PerformanceWindConfig) normalized() (PerformanceWindConfig, error) {
 	if c.MaximumGroundspeedKnots == 0 {
 		c.MaximumGroundspeedKnots = defaultMaximumGroundspeedKnots
 	}
-	if c.MaxWindCorrectionPercent == 0 {
-		c.MaxWindCorrectionPercent = defaultMaxWindCorrection
-	}
-	if !finite(c.MinimumGroundspeedKnots) || !finite(c.MaximumGroundspeedKnots) || !finite(c.MaxWindCorrectionPercent) || c.MinimumGroundspeedKnots <= 0 || c.MaximumGroundspeedKnots < c.MinimumGroundspeedKnots || c.MaxWindCorrectionPercent <= 0 || c.MaxWindCorrectionPercent >= 1 {
+	if !finite(c.MinimumGroundspeedKnots) || !finite(c.MaximumGroundspeedKnots) || c.MinimumGroundspeedKnots <= 0 || c.MaximumGroundspeedKnots < c.MinimumGroundspeedKnots {
 		return c, errPerformanceWindConfig
 	}
 	return c, nil
 }
 
 type PerformanceWindInput struct {
-	PredictionAt           time.Time
-	AircraftICAO           string
-	WakeTurbulenceCategory AircraftCategory
-	AltitudeFeet           float64
-	Remaining              []RouteLeg
+	PredictionAt            time.Time
+	AircraftICAO            string
+	WakeTurbulenceCategory  AircraftCategory
+	AltitudeFeet            float64
+	CurrentGroundspeedKnots float64
+	Remaining               []RouteLeg
 }
 
 type PerformanceWindResult struct {
 	RawTETA                                         time.Time
+	RawRETA                                         time.Time
 	NoWindDuration, Duration                        time.Duration
+	DistanceToGoNM                                  float64
 	Confidence                                      aman.Confidence
+	ModelVersion                                    string
 	PerformanceProfileID, PerformanceProfileVersion *string
 	WeatherSource, WeatherSourceRevision            *string
 	DegradationReasons                              []string
+	LegDurations                                    []time.Duration
 }
 
 // EstimatePerformanceWind calculates only the latest physical/raw route
@@ -121,7 +121,7 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	if err != nil {
 		return PerformanceWindResult{}, err
 	}
-	if !validPredictionInstant(input.PredictionAt) || !finite(input.AltitudeFeet) || input.AltitudeFeet < 0 || len(input.Remaining) == 0 {
+	if !validPredictionInstant(input.PredictionAt) || !finite(input.AltitudeFeet) || input.AltitudeFeet < 0 || !finite(input.CurrentGroundspeedKnots) || input.CurrentGroundspeedKnots <= 0 || len(input.Remaining) == 0 {
 		return PerformanceWindResult{}, errPerformanceWindInput
 	}
 	for _, leg := range input.Remaining {
@@ -130,25 +130,28 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 		}
 	}
 
-	result := PerformanceWindResult{Confidence: aman.ConfidenceHigh}
-	profile, exact, unavailable := selectProfile(ctx, performance, input)
-	if unavailable {
-		result.DegradationReasons = append(result.DegradationReasons, "PERFORMANCE_PROFILE_UNAVAILABLE")
-		result.Confidence = aman.ConfidenceMedium
-	} else if !exact {
-		result.DegradationReasons = append(result.DegradationReasons, "PERFORMANCE_PROFILE_FALLBACK")
-		result.Confidence = aman.ConfidenceMedium
+	_ = performance // AMAN-CPH uses fixed category bands, not external cruise profiles.
+	segments := buildDescentSegments(input)
+	if len(segments) == 0 {
+		return PerformanceWindResult{}, errPerformanceWindInput
 	}
-	result.PerformanceProfileID, result.PerformanceProfileVersion = pointerString(profile.ID), pointerString(profile.Version)
-	base := durationFor(input.Remaining, profile.CruiseTrueAirspeedKnots, config)
+	distance := routeDistance(input.Remaining)
+	result := PerformanceWindResult{
+		Confidence: aman.ConfidenceHigh, ModelVersion: amanCPHModelVersion, DistanceToGoNM: distance,
+		PerformanceProfileID: pointerString("aman-cph-speed-bands"), PerformanceProfileVersion: pointerString(amanCPHModelVersion),
+	}
+	result.RawRETA = input.PredictionAt.Add(durationForDistance(distance, input.CurrentGroundspeedKnots, config))
+
+	base, baseLegDurations := durationBreakdownForSegments(segments, input, nil, config)
 	result.NoWindDuration, result.Duration = base, base
+	result.LegDurations = baseLegDurations
 
 	if wind == nil {
 		result = degradeWind(result, "WEATHER_UNAVAILABLE")
 		result.RawTETA = input.PredictionAt.Add(result.Duration)
 		return result, nil
 	}
-	requests := windRequests(input, profile.CruiseTrueAirspeedKnots, config)
+	requests := windRequestsForSegments(input, segments, config)
 	weather, err := wind.WindProfile(ctx, WindProfileRequest{Samples: requests})
 	if err != nil || !validWindProfile(weather, requests, input.PredictionAt) {
 		result = degradeWind(result, "WEATHER_UNAVAILABLE")
@@ -157,16 +160,182 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	}
 	result.WeatherSource = pointerString(weather.SourceID)
 	result.WeatherSourceRevision = pointerString(weather.SourceRevision)
-	windDuration, ok := durationWithWind(input.Remaining, profile.CruiseTrueAirspeedKnots, weather, input.AltitudeFeet, config)
+	windDuration, windLegDurations, ok := durationForWeather(segments, input, weather, config)
 	if !ok {
 		result = degradeWind(result, "WEATHER_INCOMPLETE")
 		result.RawTETA = input.PredictionAt.Add(result.Duration)
 		return result, nil
 	}
-	low, high := durationBounds(base, config.MaxWindCorrectionPercent)
-	result.Duration = maxDuration(low, minDuration(high, windDuration))
+	result.Duration = windDuration
+	result.LegDurations = windLegDurations
 	result.RawTETA = input.PredictionAt.Add(result.Duration)
 	return result, nil
+}
+
+type descentSegment struct {
+	distanceNM, courseTrueDegrees, altitudeFeet float64
+	position                                    WindCoordinate
+	legIndex                                    int
+	preTOD                                      bool
+}
+
+func buildDescentSegments(input PerformanceWindInput) []descentSegment {
+	total := routeDistance(input.Remaining)
+	boundaries := []float64{0, total}
+	for _, altitude := range []float64{input.AltitudeFeet, 27000, 10000, 5000, 3000, 0} {
+		travelled := total - min(input.AltitudeFeet, altitude)/descentFeetPerNM
+		if travelled > 0 && travelled < total {
+			boundaries = append(boundaries, travelled)
+		}
+	}
+	travelled := 0.0
+	for _, leg := range input.Remaining {
+		travelled += leg.DistanceNM
+		if travelled > 0 && travelled < total {
+			boundaries = append(boundaries, travelled)
+		}
+	}
+	slices.Sort(boundaries)
+	boundaries = slices.Compact(boundaries)
+	segments := make([]descentSegment, 0, len(boundaries)-1)
+	for i := 1; i < len(boundaries); i++ {
+		from, to := boundaries[i-1], boundaries[i]
+		if to <= from {
+			continue
+		}
+		mid := (from + to) / 2
+		leg, legIndex, fraction, ok := routePosition(input.Remaining, mid)
+		if !ok {
+			continue
+		}
+		remaining := total - mid
+		descentDistance := input.AltitudeFeet / descentFeetPerNM
+		preTOD := remaining > descentDistance
+		altitude := input.AltitudeFeet
+		if !preTOD {
+			altitude = min(input.AltitudeFeet, remaining*descentFeetPerNM)
+		}
+		segments = append(segments, descentSegment{
+			distanceNM: to - from, courseTrueDegrees: leg.CourseTrueDegrees,
+			altitudeFeet: altitude, position: interpolateCoordinate(leg.Start, leg.End, fraction),
+			legIndex: legIndex, preTOD: preTOD,
+		})
+	}
+	return segments
+}
+
+func durationForSegments(segments []descentSegment, input PerformanceWindInput, weather *WindProfile, config PerformanceWindConfig) time.Duration {
+	total, _ := durationBreakdownForSegments(segments, input, weather, config)
+	return total
+}
+
+func durationBreakdownForSegments(segments []descentSegment, input PerformanceWindInput, weather *WindProfile, config PerformanceWindConfig) (time.Duration, []time.Duration) {
+	inferredIAS := tasToIAS(input.CurrentGroundspeedKnots, input.AltitudeFeet)
+	if weather != nil && len(weather.Samples) == len(segments)+1 {
+		if east, north, ok := interpolateWind(weather.Samples[0].Levels, input.AltitudeFeet); ok {
+			inferredIAS = tasToIAS(input.CurrentGroundspeedKnots-tailwind(input.Remaining[0].CourseTrueDegrees, east, north), input.AltitudeFeet)
+		}
+	}
+	total := time.Duration(0)
+	legDurations := make([]time.Duration, len(input.Remaining))
+	for i, segment := range segments {
+		groundspeed := input.CurrentGroundspeedKnots
+		if !segment.preTOD {
+			ias := descentIAS(input.WakeTurbulenceCategory, segment.altitudeFeet, inferredIAS)
+			groundspeed = iasToTAS(ias, segment.altitudeFeet)
+			if weather != nil {
+				east, north, ok := interpolateWind(weather.Samples[i+1].Levels, segment.altitudeFeet)
+				if !ok {
+					return 0, nil
+				}
+				groundspeed += tailwind(segment.courseTrueDegrees, east, north)
+			}
+		}
+		duration := durationForDistance(segment.distanceNM, groundspeed, config)
+		total += duration
+		legDurations[segment.legIndex] += duration
+	}
+	return total, legDurations
+}
+
+func durationForWeather(segments []descentSegment, input PerformanceWindInput, weather WindProfile, config PerformanceWindConfig) (time.Duration, []time.Duration, bool) {
+	duration, legs := durationBreakdownForSegments(segments, input, &weather, config)
+	return duration, legs, duration > 0
+}
+
+func windRequestsForSegments(input PerformanceWindInput, segments []descentSegment, config PerformanceWindConfig) []WindSampleRequest {
+	requests := make([]WindSampleRequest, 1, len(segments)+1)
+	requests[0] = WindSampleRequest{Position: input.Remaining[0].Start, At: input.PredictionAt, AltitudeFeet: input.AltitudeFeet}
+	elapsed := time.Duration(0)
+	inferredIAS := tasToIAS(input.CurrentGroundspeedKnots, input.AltitudeFeet)
+	for _, segment := range segments {
+		speed := input.CurrentGroundspeedKnots
+		if !segment.preTOD {
+			speed = iasToTAS(descentIAS(input.WakeTurbulenceCategory, segment.altitudeFeet, inferredIAS), segment.altitudeFeet)
+		}
+		duration := durationForDistance(segment.distanceNM, speed, config)
+		requests = append(requests, WindSampleRequest{Position: segment.position, At: input.PredictionAt.Add(elapsed + duration/2), AltitudeFeet: segment.altitudeFeet})
+		elapsed += duration
+	}
+	return requests
+}
+
+func descentIAS(category AircraftCategory, altitude, inferredHighIAS float64) float64 {
+	switch {
+	case altitude > 27000:
+		return max(inferredHighIAS, 150)
+	case altitude > 10000:
+		if category == CategoryHeavy || category == CategorySuper {
+			return 300
+		}
+		return 280
+	case altitude > 5000:
+		return 250
+	case altitude > 3000:
+		return 210
+	default:
+		return 150
+	}
+}
+
+func densityRatio(altitudeFeet float64) float64 {
+	altitudeFeet = max(0, altitudeFeet)
+	if altitudeFeet <= 36089 {
+		return math.Pow(1-6.87535e-6*altitudeFeet, 4.2561)
+	}
+	return 0.2971 * math.Exp(-(altitudeFeet-36089)/20806.7)
+}
+
+func iasToTAS(ias, altitudeFeet float64) float64 { return ias / math.Sqrt(densityRatio(altitudeFeet)) }
+func tasToIAS(tas, altitudeFeet float64) float64 {
+	return max(1, tas*math.Sqrt(densityRatio(altitudeFeet)))
+}
+func tailwind(course, east, north float64) float64 {
+	radians := course * math.Pi / 180
+	return east*math.Sin(radians) + north*math.Cos(radians)
+}
+func routeDistance(legs []RouteLeg) float64 {
+	total := 0.0
+	for _, leg := range legs {
+		total += leg.DistanceNM
+	}
+	return total
+}
+func routePosition(legs []RouteLeg, travelled float64) (RouteLeg, int, float64, bool) {
+	start := 0.0
+	for index, leg := range legs {
+		if travelled <= start+leg.DistanceNM {
+			return leg, index, clamp((travelled-start)/leg.DistanceNM, 0, 1), true
+		}
+		start += leg.DistanceNM
+	}
+	return RouteLeg{}, 0, 0, false
+}
+func interpolateCoordinate(a, b WindCoordinate, fraction float64) WindCoordinate {
+	return WindCoordinate{LatitudeDegrees: a.LatitudeDegrees + (b.LatitudeDegrees-a.LatitudeDegrees)*fraction, LongitudeDegrees: a.LongitudeDegrees + (b.LongitudeDegrees-a.LongitudeDegrees)*fraction}
+}
+func durationForDistance(distance, speed float64, config PerformanceWindConfig) time.Duration {
+	return time.Duration(float64(time.Hour) * distance / clamp(speed, config.MinimumGroundspeedKnots, config.MaximumGroundspeedKnots))
 }
 
 func degradeWind(result PerformanceWindResult, reason string) PerformanceWindResult {

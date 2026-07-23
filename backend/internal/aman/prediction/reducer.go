@@ -143,8 +143,8 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 	candidate, reason := routineOperational(config, flight, previousState, input)
 	setOperational(&flight, input.Raw, candidate, reason)
 
-	// Superstable happens only at the exact configured holding-fix boundary,
-	// never before/after it and never until a complete slot exists.
+	// Superstable begins at or inside the configured holding-fix horizon and
+	// never until a complete slot exists.
 	if atSuperstableBoundary(input.Raw.GeneratedAt, input.Raw.HoldingFixETA, config.SuperstableHorizon) &&
 		flight.SelectedHolding != nil && strings.TrimSpace(*flight.SelectedHolding) != "" && flight.Slot != nil {
 		freezeAt := input.Raw.GeneratedAt
@@ -299,7 +299,7 @@ func median(values []time.Time) time.Time {
 }
 
 func atSuperstableBoundary(now time.Time, holdingFixETA *time.Time, horizon time.Duration) bool {
-	return holdingFixETA != nil && now.Add(horizon).Equal(*holdingFixETA)
+	return holdingFixETA != nil && !holdingFixETA.After(now.Add(horizon)) && holdingFixETA.After(now)
 }
 
 func clearFreeze(flight *aman.AMANFlight) {

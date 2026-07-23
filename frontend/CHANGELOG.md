@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.49.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.48.0...frontend/v0.49.0) (2026-07-23)
+
+
+### Features
+
+* **aman:** add FMP controls ([#418](https://github.com/flightstrips/FlightStrips/issues/418)) ([731d789](https://github.com/flightstrips/FlightStrips/commit/731d7894e40aad82ed859d52f0ee17cf237a1e0b))
+* **aman:** add timeline presentation ([#419](https://github.com/flightstrips/FlightStrips/issues/419)) ([3e2b9b2](https://github.com/flightstrips/FlightStrips/commit/3e2b9b2a294d6f6a205ac11fb821fab09bfa7e14))
+* **aman:** align timeline with AMAN design ([#422](https://github.com/flightstrips/FlightStrips/issues/422)) ([72fb01d](https://github.com/flightstrips/FlightStrips/commit/72fb01d3e7cb774c2e4c28b0768f2ca1f3382459))
+* **aman:** define frontend state contract ([#416](https://github.com/flightstrips/FlightStrips/issues/416)) ([a3347ee](https://github.com/flightstrips/FlightStrips/commit/a3347eec0b1fcef6f6f3820a8171d5a5535862ff))
+* **aman:** implement CPH calculation and STAR spacing ([#421](https://github.com/flightstrips/FlightStrips/issues/421)) ([81e7c5c](https://github.com/flightstrips/FlightStrips/commit/81e7c5c414a1f8d74d1f1b15e373ce96ad0e1a1b))
+
+
+### Bug Fixes
+
+* **traffic-board:** link EFB tile to flight board ([#407](https://github.com/flightstrips/FlightStrips/issues/407)) ([322f65e](https://github.com/flightstrips/FlightStrips/commit/322f65e61a7b841096fffbfa045b7bbd75e5e1f0))
+
 ## [0.48.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.47.0...frontend/v0.48.0) (2026-07-22)
 
 

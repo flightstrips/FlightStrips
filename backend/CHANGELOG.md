@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.41.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.40.0...backend/v0.41.0) (2026-07-23)
+
+
+### Features
+
+* **aman:** add authorized action handlers ([#417](https://github.com/flightstrips/FlightStrips/issues/417)) ([17a82ec](https://github.com/flightstrips/FlightStrips/commit/17a82ecc81faf9422902c02db40437c6c2f905c8))
+* **aman:** add initial TETA review workflow ([#411](https://github.com/flightstrips/FlightStrips/issues/411)) ([41af176](https://github.com/flightstrips/FlightStrips/commit/41af1761d873abdf22a880cec60015b6e6988877))
+* **aman:** apply sequence policy commands ([#413](https://github.com/flightstrips/FlightStrips/issues/413)) ([37ef9a5](https://github.com/flightstrips/FlightStrips/commit/37ef9a521693bdc41806f04b81aac297520fa683))
+* **aman:** coordinate sequence state commits ([#414](https://github.com/flightstrips/FlightStrips/issues/414)) ([c2c2b64](https://github.com/flightstrips/FlightStrips/commit/c2c2b6463d0cf4f683066ea0c7d06ae64fdd9dd7))
+* **aman:** define frontend state contract ([#416](https://github.com/flightstrips/FlightStrips/issues/416)) ([a3347ee](https://github.com/flightstrips/FlightStrips/commit/a3347eec0b1fcef6f6f3820a8171d5a5535862ff))
+* **aman:** detect and report go-arounds ([#409](https://github.com/flightstrips/FlightStrips/issues/409)) ([d4cc011](https://github.com/flightstrips/FlightStrips/commit/d4cc011619f13dccf3d4d96408ed602eadbf2fe8))
+* **aman:** generate deterministic runway slots ([#412](https://github.com/flightstrips/FlightStrips/issues/412)) ([9b4d43b](https://github.com/flightstrips/FlightStrips/commit/9b4d43b9ddc9e2be9b7c6b8697fd3270264571e9))
+* **aman:** handle sudden and disconnected traffic ([#410](https://github.com/flightstrips/FlightStrips/issues/410)) ([49a10da](https://github.com/flightstrips/FlightStrips/commit/49a10daa859d91e578904807f425578fa2216935))
+* **aman:** implement CPH calculation and STAR spacing ([#421](https://github.com/flightstrips/FlightStrips/issues/421)) ([81e7c5c](https://github.com/flightstrips/FlightStrips/commit/81e7c5c414a1f8d74d1f1b15e373ce96ad0e1a1b))
+* **aman:** implement flight lifecycle state machine ([#408](https://github.com/flightstrips/FlightStrips/issues/408)) ([897888d](https://github.com/flightstrips/FlightStrips/commit/897888dbfe63bf9a62ec0a13ea382fa398fd2ca8))
+* **aman:** smooth operational arrival predictions ([#405](https://github.com/flightstrips/FlightStrips/issues/405)) ([75d9f14](https://github.com/flightstrips/FlightStrips/commit/75d9f142951bfc30c686aa6da41baab9367b2a48))
+
+
+### Bug Fixes
+
+* **stand:** respect arrival reservation windows ([#420](https://github.com/flightstrips/FlightStrips/issues/420)) ([0ab3dc3](https://github.com/flightstrips/FlightStrips/commit/0ab3dc3d60e7e57fdb9a5a4bedc6dcdd061b7f06))
+
 ## [0.40.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.39.0...backend/v0.40.0) (2026-07-22)
 
 

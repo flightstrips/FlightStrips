@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.42.0...backend/v0.42.1) (2026-07-24)
+
+
+### Bug Fixes
+
+* **cdm:** clamp invalid EOBT before sequencing ([#429](https://github.com/flightstrips/FlightStrips/issues/429)) ([c5ae002](https://github.com/flightstrips/FlightStrips/commit/c5ae002f5641f40e83e81e4d36f7554232f73532))
+
 ## [0.42.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.41.0...backend/v0.42.0) (2026-07-24)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.41.0...backend/v0.42.0) (2026-07-24)
+
+
+### Features
+
+* add opt-in pprof diagnostics ([#427](https://github.com/flightstrips/FlightStrips/issues/427)) ([07c4b77](https://github.com/flightstrips/FlightStrips/commit/07c4b774cc30cd28ce8d5e6255525b15c0e01322))
+
 ## [0.41.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.40.0...backend/v0.41.0) (2026-07-24)
 
 

@@ -5,4 +5,5 @@ window.__APP_CONFIG__ = {
   clientId: "mIjRYlbKHpTwnNAkhcu9plQP541Klwvn",
   audience: "backend-dev",
   connection: "vatsim-dev",
+  chartfoxClientId: "019f9418-0f93-73c8-b256-b587423759cf",
 };

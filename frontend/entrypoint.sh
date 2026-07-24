@@ -9,6 +9,7 @@ window.__APP_CONFIG__ = {
   clientId: "${OIDC_FRONTEND_CLIENT_ID}",
   audience: "${OIDC_AUDIENCE}",
   connection: "${OIDC_CONNECTION}",
+  chartfoxClientId: "${CHARTFOX_CLIENT_ID}",
 };
 EOF
 

@@ -8,6 +8,7 @@ interface AppConfig {
   clientId?: string;
   audience?: string;
   connection?: string;
+  chartfoxClientId?: string;
 }
 
 interface Window {

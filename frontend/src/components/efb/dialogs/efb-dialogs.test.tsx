@@ -1,12 +1,56 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import D1Brief from './D1Brief';
+import D1Chart from './D1Chart';
 import D1Stand from './D1Stand';
 import D2ATISDialog from './D2ATISDialog';
 import D2CDMDialog from './D2CDMDialog';
 import D2PDCDialog from './D2PDCDialog';
 
 describe('EFB operational dialogs', () => {
+  it('loads and displays the ChartFox chart matching the assigned SID', async () => {
+    window.__APP_CONFIG__ = { chartfoxClientId: 'chartfox-client' };
+    window.sessionStorage.setItem('chartfox.access-token', 'chartfox-token');
+    window.sessionStorage.setItem('chartfox.access-token-expiry', String(Date.now() + 60_000));
+    const sidPages = Array.from({ length: 5 }, (_, index) => ({
+      id: index === 0 ? 'sid-chart' : `sid-chart-page-${index + 1}`,
+      parent_id: index === 0 ? null : 'sid-chart',
+      name: `RNP RWY 22 R - ${index + 1}`,
+      type_key: 'SID',
+      meta: [{ type_key: 'Runways', value: ['22'] }],
+    }));
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/charts/grouped')) {
+        return Promise.resolve(new Response(JSON.stringify({ data: {
+          4: sidPages,
+          5: { 1: { id: 'star-chart', name: 'NEXEN 2A', type_key: 'STAR' } },
+        } }), { status: 200 }));
+      }
+      const page = sidPages.findIndex((chart) => url.endsWith(`/charts/${chart.id}`)) + 1;
+      return Promise.resolve(new Response(JSON.stringify({ id: sidPages[page - 1].id, name: `RNP RWY 22 R - ${page}`, type_key: 'SID', url: `https://charts.example.test/odon1c-${page}.pdf`, allows_iframe: true }), { status: 200 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const onClose = vi.fn();
+    const { rerender } = render(<D1Chart isOpen onClose={onClose} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} />);
+
+    expect(await screen.findByTitle('RNP RWY 22 R - 1')).toHaveAttribute('src', 'https://charts.example.test/odon1c-1.pdf');
+    expect(screen.getByLabelText('Chart page 1 of 5')).toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Next chart' }));
+    expect(await screen.findByTitle('RNP RWY 22 R - 2')).toHaveAttribute('src', 'https://charts.example.test/odon1c-2.pdf');
+    expect(fetchMock.mock.calls[0][0]).toContain('/airports/EKCH/charts/grouped');
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ Authorization: 'Bearer chartfox-token' });
+    expect(fetchMock.mock.calls[1][0]).toContain('/charts/sid-chart');
+    expect(fetchMock.mock.calls).toHaveLength(3);
+
+    rerender(<D1Chart isOpen={false} onClose={onClose} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} />);
+    rerender(<D1Chart isOpen onClose={onClose} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} />);
+    expect(await screen.findByTitle('RNP RWY 22 R - 1')).toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(3);
+  });
+
   it('uses the selected stand, runway, and SID briefing assets', () => {
     render(<D1Brief isOpen onClose={vi.fn()} stand="A12" sid="NEXEN2A" runway="22R" />);
 

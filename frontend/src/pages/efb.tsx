@@ -501,7 +501,7 @@ useEffect(() => {
         onClose={handleCloseDialog}
         airport={isArrival ? flightData.arrivalAirport : apiFlight?.origin || 'NIL'}
         runway={isArrival ? flightData.arrivalRunway : flightData.assignedRunway}
-        sid={flightData.sid}
+        procedure={isArrival ? flightData.star : flightData.sid}
         arrival={isArrival}
       />
       <D1DownloadsDialog

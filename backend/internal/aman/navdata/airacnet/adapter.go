@@ -28,6 +28,8 @@ import (
 
 const defaultBaseURL = "https://airac.net/api/v1"
 
+var errAmbiguousWaypoint = errors.New("ambiguous waypoint response")
+
 // Checkpoint is adapter-private HTTP state. It is deliberately not embedded in
 // canonical navigation values or their digests.
 type Checkpoint struct {
@@ -213,6 +215,7 @@ func (a *Adapter) Procedures(ctx context.Context, query navdata.ProcedureQuery) 
 	if err != nil {
 		return navdata.ProcedureSet{}, err
 	}
+	provenance := a.provenance(query.Version)
 	values := make([]navdata.Procedure, len(listing))
 	partial := false
 	var partialMu sync.Mutex
@@ -221,6 +224,7 @@ func (a *Adapter) Procedures(ctx context.Context, query navdata.ProcedureQuery) 
 		if err != nil {
 			return err
 		}
+		procedure.Provenance = provenance
 		values[index] = procedure
 		if incomplete {
 			partialMu.Lock()
@@ -238,7 +242,7 @@ func (a *Adapter) Procedures(ctx context.Context, query navdata.ProcedureQuery) 
 	if partial {
 		coverage = navdata.CoveragePartial
 	}
-	result := navdata.ProcedureSet{Version: query.Version, Airport: query.Airport, Procedures: values, Coverage: coverage, Provenance: a.provenance(query.Version)}
+	result := navdata.ProcedureSet{Version: query.Version, Airport: query.Airport, Procedures: values, Coverage: coverage, Provenance: provenance}
 	if err := result.Validate(); err != nil {
 		return navdata.ProcedureSet{}, invalid("AIRAC.NET procedure response")
 	}
@@ -252,21 +256,44 @@ func (a *Adapter) Fixes(ctx context.Context, query navdata.FixQuery) (navdata.Fi
 	if err := a.matchVersion(ctx, query.Version); err != nil {
 		return navdata.FixSet{}, err
 	}
+	provenance := a.provenance(query.Version)
 	values := make([]navdata.Fix, len(query.Identifiers))
 	found := make([]bool, len(query.Identifiers))
 	if err := a.parallel(ctx, len(query.Identifiers), func(ctx context.Context, index int) error {
 		var response waypointResponse
-		err := a.getJSON(ctx, "waypoints/"+url.PathEscape(string(query.Identifiers[index])), nil, &response)
+		identifier := string(query.Identifiers[index])
+		err := a.getJSON(ctx, "waypoints/"+url.PathEscape(identifier), nil, &response)
 		var status *httpStatusError
 		if errors.As(err, &status) && status.status == http.StatusNotFound {
-			return nil
+			endpoint := path.Join("navaids", waypointRegion(query.Airport), url.PathEscape(identifier))
+			err = a.getJSON(ctx, endpoint, nil, &response)
+			if errors.As(err, &status) && status.status == http.StatusNotFound {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
 		}
 		if err != nil {
 			return err
 		}
 		item, ok, err := firstWaypoint(response.Data)
 		if err != nil {
-			return incomplete("AIRAC.NET waypoint response is ambiguous")
+			if !errors.Is(err, errAmbiguousWaypoint) {
+				return invalid("AIRAC.NET waypoint response")
+			}
+			var scoped waypointResponse
+			endpoint := path.Join("waypoints", waypointRegion(query.Airport), url.PathEscape(identifier))
+			if err := a.getJSON(ctx, endpoint, nil, &scoped); err != nil {
+				return err
+			}
+			item, ok, err = firstWaypoint(scoped.Data)
+			if err != nil {
+				if !errors.Is(err, errAmbiguousWaypoint) {
+					return invalid("AIRAC.NET scoped waypoint response")
+				}
+				return incomplete("AIRAC.NET scoped waypoint response is ambiguous")
+			}
 		}
 		if !ok {
 			return nil
@@ -275,6 +302,7 @@ func (a *Adapter) Fixes(ctx context.Context, query navdata.FixQuery) (navdata.Fi
 		if err != nil {
 			return err
 		}
+		fix.Provenance = provenance
 		if fix.ID != query.Identifiers[index] {
 			return nil
 		}
@@ -293,7 +321,7 @@ func (a *Adapter) Fixes(ctx context.Context, query navdata.FixQuery) (navdata.Fi
 	if len(fixes) != len(query.Identifiers) {
 		coverage = navdata.CoveragePartial
 	}
-	result := navdata.FixSet{Version: query.Version, Fixes: fixes, Coverage: coverage, Provenance: a.provenance(query.Version)}
+	result := navdata.FixSet{Version: query.Version, Fixes: fixes, Coverage: coverage, Provenance: provenance}
 	if err := result.Validate(); err != nil {
 		return navdata.FixSet{}, invalid("AIRAC.NET waypoint response")
 	}
@@ -473,7 +501,7 @@ func (a *Adapter) fix(version navdata.DatasetVersion, value waypointDTO) (navdat
 	return item, nil
 }
 func (a *Adapter) routeGeometry(query navdata.RouteQuery, result routeData) (navdata.RouteGeometry, error) {
-	geometry := navdata.RouteGeometry{Version: query.Version, TotalDistanceNM: result.TotalDistance, Coverage: navdata.CoverageComplete, Provenance: a.provenance(query.Version)}
+	geometry := navdata.RouteGeometry{Version: query.Version, Coverage: navdata.CoverageComplete, Provenance: a.provenance(query.Version)}
 	if query.ArrivalProcedure != nil {
 		geometry.Coverage = navdata.CoveragePartial
 		geometry.Unresolved = append(geometry.Unresolved, "PUBLISHED_HOLDING_DATA_UNAVAILABLE")
@@ -489,10 +517,19 @@ func (a *Adapter) routeGeometry(query navdata.RouteQuery, result routeData) (nav
 			geometry.Unresolved = append(geometry.Unresolved, fmt.Sprintf("route-segment-%d", index))
 			continue
 		}
+		// The parser closes every route at its destination with a synthetic
+		// direct leg. AMAN joins the route to its selected terminal path instead,
+		// so retaining that final direct-to-airport segment would draw and predict
+		// an impossible detour before continuing from the feeder.
+		if index == len(result.Segments)-1 && to == navdata.FixID(query.Destination) && from != to {
+			continue
+		}
 		course, distance := canonicalCourse(segment.Bearing), segment.Distance
 		// /routes/parse supplies explicit from/to points and a true bearing for
 		// each expanded segment, which maps to a track-to-fix geometric leg.
-		geometry.Legs = append(geometry.Legs, navdata.ProcedureLeg{ID: fmt.Sprintf("ROUTE-%04d", index+1), PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to, CourseTrueDeg: &course, DistanceNM: &distance})
+		fromPosition, toPosition := coordinate(segment.From.Latitude, segment.From.Longitude, segment.From.Coordinates), coordinate(segment.To.Latitude, segment.To.Longitude, segment.To.Coordinates)
+		geometry.Legs = append(geometry.Legs, navdata.ProcedureLeg{ID: fmt.Sprintf("ROUTE-%04d", index+1), PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to, FromPosition: &fromPosition, ToPosition: &toPosition, CourseTrueDeg: &course, DistanceNM: &distance})
+		geometry.TotalDistanceNM += distance
 	}
 	for _, problem := range result.Errors {
 		if problem.Type != "" {
@@ -630,7 +667,7 @@ func (a *Adapter) matchVersion(ctx context.Context, requested navdata.DatasetVer
 	return nil
 }
 func (a *Adapter) provenance(version navdata.DatasetVersion) navdata.Provenance {
-	return navdata.Provenance{SourceID: "airac.net", SourceRevision: version.SourceRevision, ImportedAt: a.now().UTC(), EffectiveFrom: version.EffectiveFrom, EffectiveUntil: version.EffectiveUntil}
+	return navdata.Provenance{SourceID: "airac.net", SourceRevision: version.SourceRevision, ImportedAt: a.now().UTC().Truncate(time.Microsecond), EffectiveFrom: version.EffectiveFrom, EffectiveUntil: version.EffectiveUntil}
 }
 func (a *Adapter) parallel(ctx context.Context, count int, fn func(context.Context, int) error) error {
 	ctx, cancel := context.WithCancel(ctx)
@@ -715,7 +752,10 @@ type procedureDetailResponse struct {
 	Data procedureDetailDTO `json:"data"`
 }
 type routePointDTO struct {
-	Identifier string `json:"identifier"`
+	Identifier  string        `json:"identifier"`
+	Latitude    float64       `json:"latitude"`
+	Longitude   float64       `json:"longitude"`
+	Coordinates coordinateDTO `json:"coordinates"`
 }
 type routeSegmentDTO struct {
 	From     routePointDTO `json:"from"`
@@ -760,10 +800,15 @@ func firstWaypoint(raw json.RawMessage) (waypointDTO, bool, error) {
 		return waypointDTO{}, false, nil
 	}
 	if len(many) != 1 {
-		return waypointDTO{}, false, errors.New("ambiguous waypoint response")
+		return waypointDTO{}, false, errAmbiguousWaypoint
 	}
 	return many[0], true, nil
 }
+
+func waypointRegion(airport navdata.AirportID) string {
+	return string(airport[:2])
+}
+
 func parseTime(value string) (time.Time, error) {
 	parsed, err := time.Parse(time.RFC3339, value)
 	return parsed.UTC(), err
@@ -814,8 +859,7 @@ func canonicalRunways(listing string, detail []string) []navdata.RunwayID {
 	seen := map[navdata.RunwayID]struct{}{}
 	result := []navdata.RunwayID{}
 	for _, value := range append([]string{listing}, detail...) {
-		runway := navdata.RunwayID(upper(value))
-		if runway != "" {
+		for _, runway := range expandRunway(upper(value)) {
 			if _, ok := seen[runway]; !ok {
 				seen[runway] = struct{}{}
 				result = append(result, runway)
@@ -824,6 +868,16 @@ func canonicalRunways(listing string, detail []string) []navdata.RunwayID {
 	}
 	return result
 }
+
+func expandRunway(value string) []navdata.RunwayID {
+	if len(value) == 3 && value[2] == 'B' && value[0] >= '0' && value[0] <= '9' && value[1] >= '0' && value[1] <= '9' {
+		return []navdata.RunwayID{navdata.RunwayID(value[:2] + "L"), navdata.RunwayID(value[:2] + "R")}
+	}
+	if value == "" {
+		return nil
+	}
+	return []navdata.RunwayID{navdata.RunwayID(value)}
+}
 func procedureLeg(segment segmentDTO, index int) (navdata.ProcedureLeg, bool) {
 	terminator := navdata.PathTerminator(upper(segment.PathTerminator))
 	incomplete := false
@@ -831,10 +885,23 @@ func procedureLeg(segment segmentDTO, index int) (navdata.ProcedureLeg, bool) {
 		terminator, incomplete = navdata.PathUnsupported, true
 	}
 	leg := navdata.ProcedureLeg{ID: fmt.Sprintf("LEG-%04d", sequence(segment.Sequence, index)), PathTerminator: terminator}
-	if fix := navdata.FixID(upper(segment.FixIdentifier)); fix != "" {
+	if fix := navdata.FixID(upper(segment.FixIdentifier)); fix != "" && !syntheticRunwayIdentifier(fix) {
 		leg.ToFix = &fix
 	}
 	return leg, incomplete
+}
+
+func syntheticRunwayIdentifier(id navdata.FixID) bool {
+	value := string(id)
+	if !strings.HasPrefix(value, "RW") || len(value) < 4 {
+		return false
+	}
+	for _, character := range value[2:] {
+		if (character < '0' || character > '9') && character != 'L' && character != 'R' && character != 'C' {
+			return false
+		}
+	}
+	return true
 }
 func sequence(value, fallback int) int {
 	if value > 0 {

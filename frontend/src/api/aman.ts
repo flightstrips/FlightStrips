@@ -32,6 +32,7 @@ export interface AMANFlight {
   data_status: AMANDataStatus;
   runway_group_id: string | null;
   feeder: string | null;
+  star: string | null;
   holding_fix: string | null;
   holding_fix_eta: string | null;
   route_fact: AMANRouteFact | null;
@@ -274,7 +275,7 @@ function isFlight(value: unknown): value is AMANFlight {
   return isObject(value) && isString(value.flight_id) && value.flight_id !== "" && isString(value.callsign)
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
-    && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.holding_fix)
+    && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star) && isNullableString(value.holding_fix)
     && isNullableTimestamp(value.holding_fix_eta) && (value.route_fact === null || isRouteFact(value.route_fact))
     && isNullableTimestamp(value.raw_teta) && isNullableTimestamp(value.operational_teta)
     && isNullableFiniteNumber(value.gain_loss_seconds) && isString(value.freeze_reason)

@@ -515,10 +515,13 @@ func (r *navigationCache) validateManifest(ctx context.Context, db rowQuerier, m
 				return cacheCorrupt("terminal path is incomplete")
 			}
 			for _, leg := range path.Legs {
-				if leg.FromFix != nil && !fixSet[*leg.FromFix] {
+				// The terminal-owned runway threshold has no published fix
+				// record. Its persisted coordinate is authoritative; ordinary
+				// named endpoints must still be in the manifest.
+				if leg.FromFix != nil && !fixSet[*leg.FromFix] && leg.FromPosition == nil {
 					return cacheCorrupt("terminal path references missing from fix")
 				}
-				if leg.ToFix != nil && !fixSet[*leg.ToFix] {
+				if leg.ToFix != nil && !fixSet[*leg.ToFix] && leg.ToPosition == nil {
 					return cacheCorrupt("terminal path references missing to fix")
 				}
 			}

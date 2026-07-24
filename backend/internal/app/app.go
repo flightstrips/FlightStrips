@@ -3,6 +3,8 @@ package app
 import (
 	"FlightStrips/internal/alb"
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
+	amanWebAPI "FlightStrips/internal/aman/webapi"
 	"FlightStrips/internal/cdm"
 	appconfig "FlightStrips/internal/config"
 	"FlightStrips/internal/database"
@@ -229,6 +231,15 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	} else if provider, ok := amanDependencies.Publisher.(frontend.AMANStateProvider); ok {
 		amanStateProvider = provider
 	}
+	var amanAPI *amanWebAPI.WebAPI
+	if stateReader, ok := amanDependencies.Repositories.(aman.AirportStateReader); ok && amanEnabled {
+		amanAPI = amanWebAPI.New(authService, stateReader)
+		if geometry, geometryOK := amanDependencies.NavigationReader.(navdata.GeometryReader); geometryOK {
+			if snapshots, snapshotOK := amanDependencies.NavigationReader.(navdata.GeometrySnapshotReader); snapshotOK {
+				amanAPI.WithNavigation(geometry, snapshots)
+			}
+		}
+	}
 	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized)
 	if err != nil {
 		if closeDB {
@@ -435,6 +446,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			euroscopeHub: euroscopeHub,
 			albHub:       albHub,
 			pdcService:   pdcService,
+			amanAPI:      amanAPI,
 			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
 				Auth: authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
 				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil,
@@ -894,6 +906,7 @@ type buildHandlerConfig struct {
 	euroscopeHub               *euroscope.Hub
 	albHub                     *alb.Hub
 	pdcService                 *pdc.Service
+	amanAPI                    *amanWebAPI.WebAPI
 	efbAPI                     *efb.WebAPI
 	sessionRepo                repository.SessionRepository
 	sequenceService            *cdm.SequenceService
@@ -951,6 +964,9 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	}
 	if cfg.enablePDCAPI {
 		pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimSource, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
+	}
+	if cfg.amanAPI != nil {
+		cfg.amanAPI.RegisterRoutes(apiMux)
 	}
 	if cfg.enableTestTools && cfg.testToolsAPI != nil {
 		cfg.testToolsAPI.RegisterRoutes(apiMux)

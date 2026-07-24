@@ -73,9 +73,10 @@ type ProvenanceDefinition struct {
 }
 
 type FinalApproachDefinition struct {
-	Runway        navdata.RunwayID    `json:"runway"`
-	Threshold     ThresholdDefinition `json:"threshold"`
-	CourseTrueDeg float64             `json:"courseTrueDeg"`
+	Runway           navdata.RunwayID    `json:"runway"`
+	FinalApproachFix navdata.FixID       `json:"finalApproachFix"`
+	Threshold        ThresholdDefinition `json:"threshold"`
+	CourseTrueDeg    float64             `json:"courseTrueDeg"`
 	// PhysicalLengthM is the published physical runway length in metres from
 	// the official aerodrome chart. It is converted once at this boundary to
 	// the canonical nautical-mile representation.
@@ -430,6 +431,12 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d]", i, j), err.Error())
 				continue
 			}
+			finalFix, finalFixFound := refFix(refs.Fixes, definition.FinalApproachFix)
+			if definition.FinalApproachFix == "" {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d].finalApproachFix", i, j), "is required")
+			} else if !finalFixFound {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d].finalApproachFix", i, j), "is absent from active dataset")
+			}
 			runway, ok := runways[final.Runway]
 			if !ok {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d].runway", i, j), "is absent from active dataset")
@@ -440,6 +447,9 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 			}
 			if !sameThreshold(final.Threshold, runway.Threshold) || !sameCourse(final.CourseTrueDeg, runway.Threshold.CourseTrueDeg) {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d]", i, j), "does not match active runway threshold/final course")
+			}
+			if finalFixFound && !plausibleIntercept(finalFix.Position, final.Threshold.Position, final.CourseTrueDeg) {
+				add(&errs, fmt.Sprintf("runwayGroups[%d].finalApproaches[%d].finalApproachFix", i, j), "does not connect plausibly to runway threshold")
 			}
 		}
 		for j, runway := range group.Runways {
@@ -594,6 +604,7 @@ func plausibleIntercept(from, to navdata.Coordinate, course float64) bool {
 }
 
 func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navdata.CandidateTerminalFragment, error) {
+	importedAt = importedAt.UTC().Truncate(time.Microsecond)
 	if err := c.Validate(refs); err != nil {
 		return navdata.CandidateTerminalFragment{}, err
 	}
@@ -603,12 +614,21 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 		aliases[alias.Alias] = alias.Canonical
 	}
 	provenance := navdata.Provenance{SourceID: "terminal-config:" + c.ConfigVersion, SourceRevision: c.ConfigVersion, ImportedAt: importedAt, EffectiveFrom: c.ApplicabilityFrom, EffectiveUntil: c.ApplicabilityUntil}
+	groups := make(map[aman.RunwayGroupID]RunwayGroup, len(c.RunwayGroups))
+	for _, group := range c.RunwayGroups {
+		groups[group.ID] = group
+	}
 	for _, value := range c.Paths {
 		legs := make([]navdata.ProcedureLeg, 0, len(value.Fixes)-1)
 		for i := 1; i < len(value.Fixes); i++ {
 			from, to := canonicalFix(value.Fixes[i-1], aliases), canonicalFix(value.Fixes[i], aliases)
 			legs = append(legs, navdata.ProcedureLeg{ID: fmt.Sprintf("%s-%s-%02d", value.Feeder, value.RunwayGroup, i), PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to})
 		}
+		// A runway group deliberately has no per-flight runway assignment. Its
+		// first configured final is the stable AMAN assumption until one is
+		// supplied. Join the published final-approach fix rather than inventing
+		// an intercept point, then continue to the threshold.
+		legs = append(legs, publishedILSFinal(canonicalFix(value.MergeFix, aliases), groups[value.RunwayGroup].FinalApproaches[0])...)
 		path := navdata.TerminalPath{Version: refs.Version, Airport: c.Airport, Feeder: value.Feeder, RunwayGroup: value.RunwayGroup, Legs: legs, HoldingIDs: []navdata.HoldingID{value.SelectedHolding}, Coverage: navdata.CoverageComplete, Provenance: provenance}
 		path.Digest = terminalDigest(path)
 		paths = append(paths, path)
@@ -639,6 +659,15 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 	}
 	fragment.Digest = digest
 	return fragment, fragment.Validate()
+}
+
+func publishedILSFinal(merge navdata.FixID, final FinalApproachDefinition) []navdata.ProcedureLeg {
+	threshold := final.Threshold.canonical().Position
+	runwayFix := navdata.FixID("RWY-" + string(final.Runway))
+	return []navdata.ProcedureLeg{
+		{ID: "ILS-" + string(final.Runway) + "-FINAL-APPROACH-FIX", PathTerminator: navdata.PathTF, FromFix: &merge, ToFix: &final.FinalApproachFix},
+		{ID: "ILS-" + string(final.Runway) + "-RUNWAY", PathTerminator: navdata.PathTF, FromFix: &final.FinalApproachFix, ToFix: &runwayFix, ToPosition: &threshold},
+	}
 }
 func terminalDigest(path navdata.TerminalPath) string {
 	digest, _ := navdata.CanonicalPayloadDigest(struct {

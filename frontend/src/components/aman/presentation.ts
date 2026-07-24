@@ -60,6 +60,28 @@ export function buildAMANLanes(state: AMANState): AMANFlightLane[] {
   return lanes;
 }
 
+/**
+ * A runway's timeline is split by the assigned holding fix. Holding assignment
+ * is backend-owned; flights without one remain visible in their own lane rather
+ * than being guessed from a route fact.
+ */
+export function buildAMANHoldingLanes(flights: AMANFlight[]): AMANFlightLane[] {
+  const byHolding = new Map<string, AMANFlight[]>();
+
+  for (const flight of flights) {
+    const holdingID = flight.holding_fix ?? "unassigned";
+    const lane = byHolding.get(holdingID);
+    if (lane) lane.push(flight);
+    else byHolding.set(holdingID, [flight]);
+  }
+
+  return [...byHolding.entries()].map(([id, laneFlights]) => ({
+    id,
+    label: id === "unassigned" ? "No holding assigned" : id,
+    flights: orderAMANFlights(laneFlights),
+  }));
+}
+
 export function operationalMarkerTimestamp(flight: AMANFlight): string | null {
   return flight.slot?.time ?? flight.operational_teta;
 }

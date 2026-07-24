@@ -66,7 +66,7 @@ func TestAdapterPassesSharedSourceResolverContract(t *testing.T) {
 		SIDQuery:      navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSID}},
 		STARQuery:     navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureSTAR}},
 		ApproachQuery: navdata.ProcedureQuery{Version: version, Airport: "EKCH", Kinds: []navdata.ProcedureKind{navdata.ProcedureApproach}},
-		FixQuery:      navdata.FixQuery{Version: version, Identifiers: []navdata.FixID{"KEMAX", "SOK"}}, RouteQuery: query, RouteDigest: expected.Digest,
+		FixQuery:      navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"KEMAX", "SOK"}}, RouteQuery: query, RouteDigest: expected.Digest,
 	})
 }
 
@@ -234,7 +234,7 @@ func TestConditionalRetryTimeoutCancellationRedactionAndConcurrency(t *testing.T
 		adapter := testAdapter(t, server.URL, Config{MaxConcurrent: 2})
 		version, err := adapter.LatestVersion(context.Background())
 		require.NoError(t, err)
-		_, err = adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Identifiers: []navdata.FixID{"ONE", "TWO", "THREE"}})
+		_, err = adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"ONE", "TWO", "THREE"}})
 		require.NoError(t, err)
 		require.LessOrEqual(t, maximum.Load(), int32(2))
 	})
@@ -311,21 +311,84 @@ func TestPostgresCheckpointMigrationSurvivesRestartAnd304(t *testing.T) {
 	require.NotEmpty(t, checkpoint.Body)
 }
 
-func TestAmbiguousWaypointIsNotArbitrarilySelected(t *testing.T) {
+func TestFixesUseAirportRegionToAvoidGlobalWaypointAmbiguity(t *testing.T) {
 	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v1/airac/current" {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
 			writeJSON(w, cycleJSON())
-			return
+		case "/api/v1/waypoints/DUP":
+			writeJSON(w, map[string]any{"data": []any{map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 1, "lon": 1}}, map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 2, "lon": 2}}}})
+		case "/api/v1/waypoints/EK/DUP":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 1, "lon": 1}}})
+		default:
+			t.Errorf("unexpected endpoint %s", r.URL.String())
+			w.WriteHeader(http.StatusNotFound)
 		}
-		writeJSON(w, map[string]any{"data": []any{map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 1, "lon": 1}}, map[string]any{"identifier": "DUP", "coordinates": map[string]any{"lat": 2, "lon": 2}}}})
 	})
 	adapter := testAdapter(t, server.URL, Config{})
 	version, err := adapter.LatestVersion(context.Background())
 	require.NoError(t, err)
-	_, err = adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Identifiers: []navdata.FixID{"DUP"}})
-	var domain *aman.DomainError
-	require.ErrorAs(t, err, &domain)
-	require.Equal(t, navdata.ErrorIncompleteGeometry, domain.Class)
+	fixes, err := adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"DUP"}})
+	require.NoError(t, err)
+	require.Equal(t, navdata.CoverageComplete, fixes.Coverage)
+	require.Equal(t, navdata.FixID("DUP"), fixes.Fixes[0].ID)
+}
+
+func TestFixesResolveAirportScopedNavaidWhenWaypointIsMissing(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/waypoints/TNO":
+			w.WriteHeader(http.StatusNotFound)
+		case "/api/v1/navaids/EK/TNO":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": "TNO", "coordinates": map[string]any{"lat": 55.774, "lon": 11.439}}})
+		default:
+			t.Errorf("unexpected endpoint %s", r.URL.String())
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	adapter := testAdapter(t, server.URL, Config{})
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	fixes, err := adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"TNO"}})
+	require.NoError(t, err)
+	require.Equal(t, navdata.CoverageComplete, fixes.Coverage)
+	require.Equal(t, navdata.FixID("TNO"), fixes.Fixes[0].ID)
+}
+
+func TestFixBatchUsesOneProvenanceSnapshot(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/waypoints/ONE", "/api/v1/waypoints/TWO":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": r.URL.Path[len("/api/v1/waypoints/"):], "coordinates": map[string]any{"lat": 55, "lon": 12}}})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	now := time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC)
+	adapter, err := New(Config{BaseURL: server.URL + "/api/v1", Checkpoints: NewMemoryCheckpoints(), Now: func() time.Time {
+		now = now.Add(time.Second)
+		return now
+	}})
+	require.NoError(t, err)
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+	fixes, err := adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"ONE", "TWO"}})
+	require.NoError(t, err)
+	for _, fix := range fixes.Fixes {
+		require.Equal(t, fixes.Provenance, fix.Provenance)
+	}
+}
+
+func TestProvenanceUsesPostgresTimestampPrecision(t *testing.T) {
+	now := time.Date(2026, 7, 17, 0, 0, 0, 123456789, time.UTC)
+	adapter, err := New(Config{Checkpoints: NewMemoryCheckpoints(), Now: func() time.Time { return now }})
+	require.NoError(t, err)
+	provenance := adapter.provenance(navdata.DatasetVersion{Cycle: "2607", SourceRevision: "airac.net-2607", EffectiveFrom: now, EffectiveUntil: now.Add(time.Hour)})
+	require.Equal(t, 0, provenance.ImportedAt.Nanosecond()%int(time.Microsecond))
 }
 
 func TestRouteKeyPrecedesTransformsAndWarmCacheNeedsNoNetwork(t *testing.T) {
@@ -614,7 +677,10 @@ func detailJSON(airport, identifier, kind, terminator, fix string) any {
 	return map[string]any{"data": map[string]any{"airport": airport, "identifier": identifier, "type": map[string]any{"code": kind}, "available_runways": []string{"22L"}, "segments": []any{map[string]any{"sequence": 10, "path_terminator": terminator, "fix_identifier": fix}}}}
 }
 func routeJSON() any {
-	return map[string]any{"data": map[string]any{"total_distance": 116.0, "segments": []any{map[string]any{"from": map[string]any{"identifier": "EHAM"}, "to": map[string]any{"identifier": "KEMAX"}, "distance": 40.0, "bearing": 45.0}, map[string]any{"from": map[string]any{"identifier": "KEMAX"}, "to": map[string]any{"identifier": "SUGOL"}, "distance": 20.0, "bearing": 60.0}, map[string]any{"from": map[string]any{"identifier": "SUGOL"}, "to": map[string]any{"identifier": "TUDLO"}, "distance": 20.0, "bearing": 80.0}, map[string]any{"from": map[string]any{"identifier": "TUDLO"}, "to": map[string]any{"identifier": "SOK"}, "distance": 20.0, "bearing": 100.0}, map[string]any{"from": map[string]any{"identifier": "SOK"}, "to": map[string]any{"identifier": "EKCH"}, "distance": 16.0, "bearing": 120.0}}, "errors": []any{}}}
+	point := func(identifier string, latitude, longitude float64) map[string]any {
+		return map[string]any{"identifier": identifier, "coordinates": map[string]any{"lat": latitude, "lon": longitude}}
+	}
+	return map[string]any{"data": map[string]any{"total_distance": 116.0, "segments": []any{map[string]any{"from": point("EHAM", 52.3086, 4.7639), "to": point("KEMAX", 54.0000, 7.0000), "distance": 40.0, "bearing": 45.0}, map[string]any{"from": point("KEMAX", 54.0000, 7.0000), "to": point("SUGOL", 54.6000, 8.5000), "distance": 20.0, "bearing": 60.0}, map[string]any{"from": point("SUGOL", 54.6000, 8.5000), "to": point("TUDLO", 55.1000, 10.0000), "distance": 20.0, "bearing": 80.0}, map[string]any{"from": point("TUDLO", 55.1000, 10.0000), "to": point("SOK", 55.4000, 11.5000), "distance": 20.0, "bearing": 100.0}, map[string]any{"from": point("SOK", 55.4000, 11.5000), "to": point("EKCH", 55.6180, 12.6560), "distance": 16.0, "bearing": 120.0}}, "errors": []any{}}}
 }
 func routeQuery(version navdata.DatasetVersion) navdata.RouteQuery {
 	arrival, runway := navdata.ProcedureID("SOK1P"), navdata.RunwayID("22L")
@@ -622,11 +688,14 @@ func routeQuery(version navdata.DatasetVersion) navdata.RouteQuery {
 	return navdata.RouteQuery{Version: version, Origin: "EHAM", Destination: "EKCH", FiledRoute: "DCT KEMAX", ArrivalProcedure: &arrival, Runway: &runway, RunwayGroup: &group}
 }
 func expectedRoute(query navdata.RouteQuery) (navdata.RouteGeometry, error) {
-	from, kemax, sugol, tudlo, sok, ekch := navdata.FixID("EHAM"), navdata.FixID("KEMAX"), navdata.FixID("SUGOL"), navdata.FixID("TUDLO"), navdata.FixID("SOK"), navdata.FixID("EKCH")
-	firstCourse, secondCourse, thirdCourse, fourthCourse, fifthCourse := 45.0, 60.0, 80.0, 100.0, 120.0
-	firstDistance, secondDistance, thirdDistance, fourthDistance, fifthDistance := 40.0, 20.0, 20.0, 20.0, 16.0
+	from, kemax, sugol, tudlo, sok := navdata.FixID("EHAM"), navdata.FixID("KEMAX"), navdata.FixID("SUGOL"), navdata.FixID("TUDLO"), navdata.FixID("SOK")
+	firstCourse, secondCourse, thirdCourse, fourthCourse := 45.0, 60.0, 80.0, 100.0
+	firstDistance, secondDistance, thirdDistance, fourthDistance := 40.0, 20.0, 20.0, 20.0
 	provenance := navdata.Provenance{SourceID: "airac.net", SourceRevision: query.Version.SourceRevision, ImportedAt: time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC), EffectiveFrom: query.Version.EffectiveFrom, EffectiveUntil: query.Version.EffectiveUntil}
-	geometry := navdata.RouteGeometry{Version: query.Version, TotalDistanceNM: 116, Coverage: navdata.CoveragePartial, Unresolved: []string{"PUBLISHED_HOLDING_DATA_UNAVAILABLE"}, Provenance: provenance, Legs: []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &kemax, CourseTrueDeg: &firstCourse, DistanceNM: &firstDistance}, {ID: "ROUTE-0002", PathTerminator: navdata.PathTF, FromFix: &kemax, ToFix: &sugol, CourseTrueDeg: &secondCourse, DistanceNM: &secondDistance}, {ID: "ROUTE-0003", PathTerminator: navdata.PathTF, FromFix: &sugol, ToFix: &tudlo, CourseTrueDeg: &thirdCourse, DistanceNM: &thirdDistance}, {ID: "ROUTE-0004", PathTerminator: navdata.PathTF, FromFix: &tudlo, ToFix: &sok, CourseTrueDeg: &fourthCourse, DistanceNM: &fourthDistance}, {ID: "ROUTE-0005", PathTerminator: navdata.PathTF, FromFix: &sok, ToFix: &ekch, CourseTrueDeg: &fifthCourse, DistanceNM: &fifthDistance}}}
+	ehamPosition, kemaxPosition := navdata.Coordinate{LatitudeDeg: 52.3086, LongitudeDeg: 4.7639}, navdata.Coordinate{LatitudeDeg: 54, LongitudeDeg: 7}
+	sugolPosition, tudloPosition := navdata.Coordinate{LatitudeDeg: 54.6, LongitudeDeg: 8.5}, navdata.Coordinate{LatitudeDeg: 55.1, LongitudeDeg: 10}
+	sokPosition := navdata.Coordinate{LatitudeDeg: 55.4, LongitudeDeg: 11.5}
+	geometry := navdata.RouteGeometry{Version: query.Version, TotalDistanceNM: 100, Coverage: navdata.CoveragePartial, Unresolved: []string{"PUBLISHED_HOLDING_DATA_UNAVAILABLE"}, Provenance: provenance, Legs: []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &kemax, FromPosition: &ehamPosition, ToPosition: &kemaxPosition, CourseTrueDeg: &firstCourse, DistanceNM: &firstDistance}, {ID: "ROUTE-0002", PathTerminator: navdata.PathTF, FromFix: &kemax, ToFix: &sugol, FromPosition: &kemaxPosition, ToPosition: &sugolPosition, CourseTrueDeg: &secondCourse, DistanceNM: &secondDistance}, {ID: "ROUTE-0003", PathTerminator: navdata.PathTF, FromFix: &sugol, ToFix: &tudlo, FromPosition: &sugolPosition, ToPosition: &tudloPosition, CourseTrueDeg: &thirdCourse, DistanceNM: &thirdDistance}, {ID: "ROUTE-0004", PathTerminator: navdata.PathTF, FromFix: &tudlo, ToFix: &sok, FromPosition: &tudloPosition, ToPosition: &sokPosition, CourseTrueDeg: &fourthCourse, DistanceNM: &fourthDistance}}}
 	digest, err := navdata.RouteGeometryDigest(query, geometry)
 	geometry.Digest = digest
 	return geometry, err

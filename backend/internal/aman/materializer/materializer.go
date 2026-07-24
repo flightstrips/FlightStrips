@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -187,7 +188,7 @@ func (m *Materializer) Refresh(ctx context.Context, request Request) error {
 			}
 		}
 	}
-	fixes, err := m.deps.Fixes.Fixes(ctx, navdata.FixQuery{Version: version, Identifiers: requiredFixes(m.deps.Terminal, allProcedures, request.FixIDs)})
+	fixes, err := m.deps.Fixes.Fixes(ctx, navdata.FixQuery{Version: version, Airport: request.Airport, Identifiers: requiredFixes(m.deps.Terminal, allProcedures, request.FixIDs)})
 	if err != nil {
 		return m.failed(request.Airport, ReasonSourceUnavailable, false, false, err)
 	}
@@ -267,6 +268,16 @@ func (m *Materializer) MaterializeRoute(ctx context.Context, query navdata.Route
 		metrics.RecordAMANRouteMaterialization(ctx, time.Since(started), "failure")
 		return "", err
 	}
+	// Parser-expanded airway segments carry authoritative endpoint positions.
+	// Only legacy/procedure-backed legs without positions need a manifest refresh
+	// to resolve their fix IDs. In particular, do not ask the destination-region
+	// waypoint endpoint to resolve en-route airway fixes.
+	if fixes := routeFixes(geometry); len(fixes) > 0 {
+		if err := m.Refresh(ctx, Request{Airport: query.Destination, FixIDs: fixes}); err != nil {
+			metrics.RecordAMANRouteMaterialization(ctx, time.Since(started), "failure")
+			return "", err
+		}
+	}
 	key, err := m.deps.Cache.PutRoute(ctx, navdata.RouteCandidate{Query: query, ResolverVersion: resolverVersion, SchemaVersion: navdata.CanonicalSchemaVersion, Geometry: geometry, CreatedAt: m.deps.Now().UTC()})
 	if err != nil {
 		metrics.RecordAMANRouteMaterialization(ctx, time.Since(started), "failure")
@@ -274,6 +285,19 @@ func (m *Materializer) MaterializeRoute(ctx context.Context, query navdata.Route
 	}
 	metrics.RecordAMANRouteMaterialization(ctx, time.Since(started), "success")
 	return key, err
+}
+
+func routeFixes(geometry navdata.RouteGeometry) []navdata.FixID {
+	result := make([]navdata.FixID, 0, len(geometry.Legs)*2)
+	for _, leg := range geometry.Legs {
+		if leg.FromFix != nil && leg.FromPosition == nil {
+			result = append(result, *leg.FromFix)
+		}
+		if leg.ToFix != nil && leg.ToPosition == nil {
+			result = append(result, *leg.ToFix)
+		}
+	}
+	return result
 }
 
 func (m *Materializer) Health(airport navdata.AirportID) Health {
@@ -364,13 +388,18 @@ func flattenProcedures(sets map[navdata.ProcedureKind]navdata.ProcedureSet) []na
 func requiredFixes(config terminal.Configuration, procedures []navdata.Procedure, requested []navdata.FixID) []navdata.FixID {
 	seen := map[navdata.FixID]bool{}
 	add := func(id navdata.FixID) {
-		if id != "" {
+		if id != "" && !syntheticRunwayFix(id) {
 			seen[id] = true
 		}
 	}
 	for _, path := range config.Paths {
 		for _, fix := range path.Fixes {
 			add(fix)
+		}
+	}
+	for _, group := range config.RunwayGroups {
+		for _, final := range group.FinalApproaches {
+			add(final.FinalApproachFix)
 		}
 	}
 	for _, holding := range config.OverlayHoldings {
@@ -398,6 +427,19 @@ func requiredFixes(config terminal.Configuration, procedures []navdata.Procedure
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
 	return result
+}
+
+func syntheticRunwayFix(id navdata.FixID) bool {
+	value := string(id)
+	if !strings.HasPrefix(value, "RW") || len(value) < 4 {
+		return false
+	}
+	for _, character := range value[2:] {
+		if (character < '0' || character > '9') && character != 'L' && character != 'R' && character != 'C' {
+			return false
+		}
+	}
+	return true
 }
 func procedureCandidates(version navdata.DatasetVersion, airport navdata.AirportID, sets map[navdata.ProcedureKind]navdata.ProcedureSet, validated time.Time) ([]navdata.CandidateProcedureFragment, error) {
 	result := make([]navdata.CandidateProcedureFragment, 0, len(sets))

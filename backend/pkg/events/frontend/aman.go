@@ -38,12 +38,15 @@ type AMANState struct {
 }
 
 type AMANFlight struct {
-	FlightID        string           `json:"flight_id"`
-	Callsign        string           `json:"callsign"`
-	LifecycleState  string           `json:"lifecycle_state"`
-	DataStatus      string           `json:"data_status"`
-	RunwayGroupID   *string          `json:"runway_group_id"`
-	Feeder          *string          `json:"feeder"`
+	FlightID       string  `json:"flight_id"`
+	Callsign       string  `json:"callsign"`
+	LifecycleState string  `json:"lifecycle_state"`
+	DataStatus     string  `json:"data_status"`
+	RunwayGroupID  *string `json:"runway_group_id"`
+	Feeder         *string `json:"feeder"`
+	// Star is the AMAN-selected arrival family, derived from the filed route
+	// and the active terminal configuration rather than an EuroScope strip.
+	Star            *string          `json:"star"`
 	HoldingFix      *string          `json:"holding_fix"`
 	HoldingFixETA   *string          `json:"holding_fix_eta"`
 	RouteFact       *AMANRouteFact   `json:"route_fact"`
@@ -217,7 +220,7 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 	result := AMANFlight{
 		FlightID: string(flight.ID), Callsign: flight.CurrentCallsign, LifecycleState: string(flight.State),
 		DataStatus: string(flight.DataStatus), RunwayGroupID: stringPointer(flight.SelectedRunwayGroup),
-		Feeder: cloneString(flight.SelectedFeeder), HoldingFix: cloneString(flight.SelectedHolding),
+		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder), HoldingFix: cloneString(flight.SelectedHolding),
 		FreezeReason: string(flight.FreezeReason), Order: cloneInt(flight.Order), QueueOffers: make([]AMANQueueOffer, len(flight.QueueOffers)),
 	}
 	var err error
@@ -253,7 +256,11 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		if age < 0 {
 			return AMANFlight{}, fmt.Errorf("prediction input time follows state generation")
 		}
-		ageSeconds, secondsErr := aman.WholeSeconds(age)
+		// Input observations from pre-existing persisted state can retain
+		// sub-second source precision. The V1 wire contract is integer seconds,
+		// so explicitly round this display-only age while new operational state
+		// is normalized to whole seconds at its producer boundary.
+		ageSeconds, secondsErr := aman.WholeSeconds(age.Round(time.Second))
 		if secondsErr != nil {
 			return AMANFlight{}, secondsErr
 		}
@@ -269,7 +276,7 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		}
 		result.Slot = &mapped
 		if flight.Prediction != nil && flight.Prediction.Publishable {
-			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.OperationalTETA.Sub(flight.Slot.Time))
+			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.OperationalTETA.Sub(flight.Slot.Time).Round(time.Second))
 			if secondsErr != nil {
 				return AMANFlight{}, secondsErr
 			}

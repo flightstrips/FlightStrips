@@ -16,6 +16,7 @@
         "data_status": "fresh",
         "runway_group_id": "ARRIVAL-22",
         "feeder": "SOK",
+        "star": "SOK",
         "holding_fix": "SOK-HF",
         "holding_fix_eta": "2026-07-22T10:10:00.000Z",
         "route_fact": {"id": "route-fact-1", "fix": "SOK", "observed_at": "2026-07-22T09:58:00.000Z", "state": "active"},

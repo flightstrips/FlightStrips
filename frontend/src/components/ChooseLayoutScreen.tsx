@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import {isLocalDevelopment} from "@/lib/local-development";
 import { useWebSocketStore } from "@/store/store-hooks";
 
 const EKCH_SCOPES = [
@@ -7,7 +8,7 @@ const EKCH_SCOPES = [
   { label: "APRON ARR", layout: "AA" },
   { label: "APRON DEP", layout: "AD" },
   { label: "SEQ PLN", layout: "EST" },
-  { label: "AMAN", layout: "AMAN" },
+  ...(isLocalDevelopment ? [{ label: "AMAN", layout: "AMAN" }] : []),
   { label: "GW / GE", layout: "GEGW" },
   { label: "TW / TE", layout: "TWTE" },
   { label: "TWR + GND", layout: "TWRGND" },

@@ -1,6 +1,7 @@
 package trajectory
 
 import (
+	"context"
 	"math"
 	"testing"
 	"time"
@@ -35,13 +36,79 @@ func TestReduceReportsActualOffRouteCrossTrackAndThreshold(t *testing.T) {
 	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = .21, .5
 	off := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
 	_, want := geodesicProject(coordinate(.21, .5), coordinate(0, 0), coordinate(0, 1), wgs84NM(coordinate(0, 0), coordinate(0, 1)))
-	require.Equal(t, OffRoute, off.Completeness)
+	require.Equal(t, Partial, off.Completeness)
+	require.Contains(t, off.Reasons, "OFF_ROUTE")
+	require.Contains(t, off.Reasons, "OFF_ROUTE_NEXT_WAYPOINT:B")
 	require.InDelta(t, want, off.CrossTrackNM, .01)
 	require.Greater(t, off.CrossTrackNM, 12.0)
 	input.Observation.LatitudeDegrees = .19
 	on := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
 	require.NotEqual(t, OffRoute, on.Completeness)
 	require.LessOrEqual(t, on.CrossTrackNM, 12.0)
+}
+
+func TestReadFiledRouteUsesCompleteUnamendedGeometry(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	reader := fixtureReader{snapshot: snapshot, route: route}
+
+	result, err := ReadFiledRoute(context.Background(), Readers{Geometry: reader, Snapshot: reader}, input.Airport, input.RouteKey, input.Feeder, input.RunwayGroup)
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"L1", "L2"}, legIDs(result.Legs))
+	require.Empty(t, result.Reasons)
+	require.InDelta(t, 0, result.Legs[0].Start.LongitudeDeg, .01)
+	require.InDelta(t, 2, result.Legs[1].End.LongitudeDeg, .01)
+}
+
+func TestReadFiledRouteUsesParserCoordinatesWithoutManifestFixes(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	from, to := navdata.FixID("AIRWAY-A"), navdata.FixID("AIRWAY-B")
+	fromPosition := navdata.Coordinate{LatitudeDeg: 54, LongitudeDeg: 8}
+	toPosition := navdata.Coordinate{LatitudeDeg: 55, LongitudeDeg: 10}
+	route.Legs = []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to, FromPosition: &fromPosition, ToPosition: &toPosition}}
+	reader := fixtureReader{snapshot: snapshot, route: route}
+
+	result, err := ReadFiledRoute(context.Background(), Readers{Geometry: reader, Snapshot: reader}, input.Airport, input.RouteKey, input.Feeder, input.RunwayGroup)
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"ROUTE-0001"}, legIDs(result.Legs))
+	require.Equal(t, fromPosition, result.Legs[0].Start)
+	require.Equal(t, toPosition, result.Legs[0].End)
+	require.Empty(t, result.Reasons)
+}
+
+func TestReduceRecoversOffRouteArrivalViaNextWaypoint(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	holdID := navdata.HoldingID("HOLD")
+	snapshot.Holdings = []navdata.HoldingPattern{{ID: holdID, Fix: "B"}}
+	snapshot.TerminalPaths[0].HoldingIDs = []navdata.HoldingID{holdID}
+	track := 90.0
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees, input.Observation.TrackTrueDegrees = .3, .1, &track
+
+	result := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+
+	require.Equal(t, Partial, result.Completeness)
+	require.Contains(t, result.Reasons, "OFF_ROUTE")
+	require.Contains(t, result.Reasons, "OFF_ROUTE_NEXT_WAYPOINT:B")
+	require.Equal(t, "OFF_ROUTE_TO:B", result.Remaining[0].ID)
+	require.Equal(t, navdata.FixID("B"), result.Remaining[0].To)
+	require.Equal(t, "L2", result.Remaining[1].ID)
+	require.NotNil(t, result.DistanceToGoNM)
+	require.NotNil(t, result.SelectedHolding)
+	require.NotNil(t, result.Progress)
+	require.Equal(t, 0, result.Progress.LegIndex)
+}
+
+func TestOffRouteRecoveryDropsZeroLengthLegsBeforePrediction(t *testing.T) {
+	a, b := navdata.FixID("A"), navdata.FixID("B")
+	legs := []leg{
+		{id: "ZERO", from: a, to: b, a: coordinate(0, 0), b: coordinate(0, 0), distance: 0},
+		{id: "USE", from: b, to: a, a: coordinate(0, 0), b: coordinate(0, 1), distance: wgs84NM(coordinate(0, 0), coordinate(0, 1))},
+	}
+	recovered := remainingFromNextWaypoint(coordinate(1, 0), legs, 0)
+	require.Len(t, recovered, 2)
+	require.Equal(t, "OFF_ROUTE_TO:B", recovered[0].ID)
+	require.Equal(t, "USE", recovered[1].ID)
 }
 
 func TestReduceDistinguishesForwardProgressJumpFromOffRoute(t *testing.T) {
@@ -55,7 +122,7 @@ func TestReduceDistinguishesForwardProgressJumpFromOffRoute(t *testing.T) {
 	require.InDelta(t, 0, onRoute.CrossTrackNM, .01)
 	input.Observation.LatitudeDegrees = 1
 	lateral := Reduce(snapshot, route, input, Config{MaxForwardSearchNM: 10})
-	require.Equal(t, OffRoute, lateral.Completeness)
+	require.Equal(t, Partial, lateral.Completeness)
 	require.Contains(t, lateral.Reasons, "OFF_ROUTE")
 	require.Greater(t, lateral.CrossTrackNM, 12.0)
 }
@@ -77,6 +144,29 @@ func TestComposeOrderedRouteTerminalApproachMissedAndUnsupportedGap(t *testing.T
 	gap := Reduce(snapshot, route, input, Config{})
 	require.Equal(t, []string{"FILED", "TERM"}, legIDs(gap.Remaining))
 	require.Contains(t, gap.Reasons, "UNRESOLVED_LEG:AFTER:MISSING_FIX")
+}
+
+func TestComposeContinuesPublishedILSFinalApproachFixToRunwayThreshold(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	a, b, c := navdata.FixID("A"), navdata.FixID("B"), navdata.FixID("C")
+	finalApproachFix, runway := navdata.FixID("EXTAR"), navdata.FixID("RWY-22L")
+	finalApproachFixPosition := coordinate(0, 3)
+	runwayPosition := coordinate(0, 4)
+	snapshot.Fixes = []navdata.Fix{{ID: a, Position: coordinate(0, 0)}, {ID: b, Position: coordinate(0, 1)}, {ID: c, Position: coordinate(0, 2)}, {ID: finalApproachFix, Position: finalApproachFixPosition}}
+	route.Legs = []navdata.ProcedureLeg{{ID: "FILED", PathTerminator: navdata.PathTF, FromFix: &a, ToFix: &b}}
+	snapshot.TerminalPaths[0].Legs = []navdata.ProcedureLeg{
+		{ID: "DOWNWIND", PathTerminator: navdata.PathTF, FromFix: &b, ToFix: &c},
+		{ID: "ILS-22L-FINAL-APPROACH-FIX", PathTerminator: navdata.PathTF, FromFix: &c, ToFix: &finalApproachFix},
+		{ID: "ILS-22L-RUNWAY", PathTerminator: navdata.PathTF, FromFix: &finalApproachFix, ToFix: &runway, ToPosition: &runwayPosition},
+	}
+	input.Approach = nil
+
+	result := Reduce(snapshot, route, input, Config{})
+
+	require.Equal(t, []string{"FILED", "DOWNWIND", "ILS-22L-FINAL-APPROACH-FIX", "ILS-22L-RUNWAY"}, legIDs(result.Remaining))
+	require.Equal(t, finalApproachFix, result.Remaining[len(result.Remaining)-2].To)
+	require.Equal(t, runway, result.Remaining[len(result.Remaining)-1].To)
+	require.Equal(t, runwayPosition, result.Remaining[len(result.Remaining)-1].End)
 }
 
 func TestDirectToRepeatedTargetUsesOnlyCompatibleRejoinFloor(t *testing.T) {
@@ -191,7 +281,8 @@ func TestReduceOffRouteStaleDirectAndPartialReasons(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	input.Observation.LatitudeDegrees = 5
 	off := Reduce(snapshot, route, input, Config{})
-	require.Equal(t, OffRoute, off.Completeness)
+	require.Equal(t, Partial, off.Completeness)
+	require.Contains(t, off.Reasons, "OFF_ROUTE")
 	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = 0, .25
 	input.RouteFact = &aman.RouteFact{ID: "dct-1", Fix: "B", State: aman.RouteFactActive}
 	direct := Reduce(snapshot, route, input, Config{})
@@ -247,4 +338,27 @@ func routeDistance(snapshot navdata.ActiveGeometrySnapshot, from, to navdata.Fix
 }
 func validFlight(now time.Time) aman.AMANFlight {
 	return aman.AMANFlight{ID: "f", VATSIMCID: "1", CurrentCallsign: "SAS1", State: aman.StateAirborne, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now}
+}
+
+type fixtureReader struct {
+	snapshot navdata.ActiveGeometrySnapshot
+	route    navdata.RouteGeometry
+}
+
+func (r fixtureReader) ActiveVersion(context.Context, navdata.AirportID) (navdata.DatasetVersion, error) {
+	return r.snapshot.Manifest.Version, nil
+}
+func (r fixtureReader) Route(context.Context, navdata.RouteKey) (navdata.RouteGeometry, error) {
+	return r.route, nil
+}
+func (r fixtureReader) TerminalPath(_ context.Context, airport navdata.AirportID, feeder navdata.FeederID, group aman.RunwayGroupID) (navdata.TerminalPath, error) {
+	for _, path := range r.snapshot.TerminalPaths {
+		if path.Airport == airport && path.Feeder == feeder && path.RunwayGroup == group {
+			return path, nil
+		}
+	}
+	return navdata.TerminalPath{}, nil
+}
+func (r fixtureReader) ActiveGeometrySnapshot(context.Context, navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
+	return r.snapshot, nil
 }

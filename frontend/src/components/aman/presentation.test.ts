@@ -4,6 +4,7 @@ import {describe, expect, it} from "vitest";
 
 import type {AMANFlight, AMANStateEvent} from "@/api/aman";
 import {
+  buildAMANHoldingLanes,
   buildAMANLanes,
   buildTimelineRange,
   layoutTimelineMarkers,
@@ -51,6 +52,21 @@ describe("AMAN presentation model", () => {
       ["NORTH", ["north"]],
       ["SOUTH", ["south-1", "south-2"]],
       ["unassigned", ["none"]],
+    ]);
+  });
+
+  it("splits a selected runway timeline into assigned holding lanes without inferring a holding", () => {
+    const flights = [
+      {...flight("holding-a-2", 2, 2), holding_fix: "ROSBI"},
+      {...flight("no-holding", 3, 3), holding_fix: null, route_fact: {...flight("route", 1, 1).route_fact!, fix: "LUGAS"}},
+      {...flight("holding-a-1", 1, 1), holding_fix: "ROSBI"},
+      {...flight("holding-b", 4, 4), holding_fix: "ERNOV"},
+    ];
+
+    expect(buildAMANHoldingLanes(flights)).toEqual([
+      {id: "ROSBI", label: "ROSBI", flights: [flights[2], flights[0]]},
+      {id: "unassigned", label: "No holding assigned", flights: [flights[1]]},
+      {id: "ERNOV", label: "ERNOV", flights: [flights[3]]},
     ]);
   });
 

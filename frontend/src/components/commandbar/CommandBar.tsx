@@ -14,6 +14,7 @@ import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsig
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
+import { isLocalDevelopment } from "@/lib/local-development";
 
 // Bar height matches strip height (4.72dvh). Inner elements: calc(4.72dvh - 14px) + 7px top/bottom margin.
 const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border";
@@ -30,6 +31,7 @@ const SCOPE_LABELS: Record<string, string> = {
   "AAAD": "AA + AD",
   "AD":   "APRON DEP",
   "EST":  "SEQ PLN",
+  ...(isLocalDevelopment ? {"AMAN": "AMAN"} : {}),
   "GEGW": "GE + GW",
   "TWTE": "TE + TW",
   "TWRGND": "TWR + GND",
@@ -38,6 +40,7 @@ const SCOPE_LABELS: Record<string, string> = {
 const EKCH_SCOPES = [
   { label: "CLR DEL",    layout: "CLX" },
   { label: "SEQ PLN",    layout: "EST" },
+  ...(isLocalDevelopment ? [{ label: "AMAN", layout: "AMAN" }] : []),
   { label: "APRON DEP",  layout: "AD" },
   { label: "APRON ARR",  layout: "AA" },
   { label: "AA + AD",    layout: "AAAD" },
@@ -266,13 +269,13 @@ export default function CommandBar() {
               }}
             >
               {/* Scope buttons */}
-              <div className="flex items-center gap-[1.56vw] pl-[0.66vw] h-full py-[0.74dvh]">
+              <div className="flex items-center gap-[0.88vw] pl-[0.66vw] h-full py-[0.74dvh]">
                 {EKCH_SCOPES.map((scope) => (
                   <button
                     key={scope.layout}
                     onClick={() => handleLayoutSelect(scope.layout)}
                     style={{
-                      width: "9.50vw",
+                      width: "8.25vw",
                       background: currentLayout === scope.layout ? "#1BFF16" : "#D6D6D6",
                       color: "black",
                       fontSize: "0.96vw",

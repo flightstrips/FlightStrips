@@ -26,8 +26,10 @@ import (
 const (
 	policyVersion          = "aman-cph-v1"
 	modelVersion           = "aman-cph-teta-v1"
+	routeResolverVersion   = "airacnet-route-v3"
 	defaultArrivalRate     = uint32(20)
 	navigationRefreshEvery = 6 * time.Hour
+	weatherRefreshEvery    = 30 * time.Minute
 	queueOfferValidity     = 2 * time.Minute
 )
 
@@ -62,10 +64,11 @@ type Dependencies struct {
 type Service struct {
 	deps Dependencies
 
-	mu          sync.Mutex
-	observed    map[string]map[aman.FlightID]aman.FlightObservation
-	lastRefresh map[string]time.Time
-	health      serviceHealth
+	mu                 sync.Mutex
+	observed           map[string]map[aman.FlightID]aman.FlightObservation
+	lastRefresh        map[string]time.Time
+	lastWeatherRefresh map[string]time.Time
+	health             serviceHealth
 }
 
 type serviceHealth struct {
@@ -90,7 +93,7 @@ func New(deps Dependencies) (*Service, error) {
 		return componentHealth(aman.HealthUnavailable, reason, now)
 	}
 	return &Service{
-		deps: deps, observed: map[string]map[aman.FlightID]aman.FlightObservation{}, lastRefresh: map[string]time.Time{},
+		deps: deps, observed: map[string]map[aman.FlightID]aman.FlightObservation{}, lastRefresh: map[string]time.Time{}, lastWeatherRefresh: map[string]time.Time{},
 		health: serviceHealth{
 			vatsim: pending("source_not_observed"), navigation: pending("navigation_not_refreshed"),
 			weather: pending("weather_not_observed"), repository: pending("repository_not_checked"),
@@ -153,14 +156,77 @@ func (s *Service) reconcileAll(ctx context.Context) {
 		if err := s.refreshNavigation(ctx, airport); err != nil {
 			slog.WarnContext(ctx, "AMAN navigation refresh failed; cached geometry remains eligible", "airport", airport, "error", err)
 		}
+		s.refreshWeather(ctx, airport, s.deps.Now().UTC().Truncate(time.Second))
 		if err := s.reconcileAirport(ctx, airport); err != nil {
 			slog.WarnContext(ctx, "AMAN reconciliation failed", "airport", airport, "error", err)
 		}
 	}
 }
 
+// refreshWeather observes the airport wind profile independently of the
+// current arrival set. Waiting for an aircraft with resolvable geometry left
+// weather permanently "not observed" during quiet or degraded operations.
+func (s *Service) refreshWeather(ctx context.Context, airport string, now time.Time) {
+	s.mu.Lock()
+	last := s.lastWeatherRefresh[airport]
+	if !last.IsZero() && now.Sub(last) < weatherRefreshEvery {
+		s.mu.Unlock()
+		return
+	}
+	s.lastWeatherRefresh[airport] = now
+	s.mu.Unlock()
+
+	request, err := weatherProbeRequest(s.deps.Terminal, airport, now)
+	if err != nil {
+		s.setHealthComponent("weather", aman.HealthUnavailable, "weather_probe_location_unconfigured", now)
+		return
+	}
+	profile, err := s.deps.Wind.WindProfile(ctx, request)
+	if err != nil {
+		s.setHealthComponent("weather", aman.HealthUnavailable, "weather_refresh_failed", now)
+		return
+	}
+	if !observedWeatherProfile(profile, request, now) {
+		s.setHealthComponent("weather", aman.HealthUnavailable, "weather_profile_invalid", now)
+		return
+	}
+	s.setHealthComponent("weather", aman.HealthReady, "", now)
+}
+
+func weatherProbeRequest(config terminal.Configuration, airport string, at time.Time) (predictor.WindProfileRequest, error) {
+	if navdata.AirportID(strings.ToUpper(strings.TrimSpace(airport))) != config.Airport {
+		return predictor.WindProfileRequest{}, errors.New("weather probe airport does not match terminal configuration")
+	}
+	for _, group := range config.RunwayGroups {
+		for _, approach := range group.FinalApproaches {
+			position := approach.Threshold.Position
+			if position.LatitudeDeg < -90 || position.LatitudeDeg > 90 || position.LongitudeDeg < -180 || position.LongitudeDeg > 180 || (position.LatitudeDeg == 0 && position.LongitudeDeg == 0) {
+				continue
+			}
+			return predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{
+				Position: predictor.WindCoordinate{LatitudeDegrees: position.LatitudeDeg, LongitudeDegrees: position.LongitudeDeg},
+				At:       at.UTC(), AltitudeFeet: 10000,
+			}}}, nil
+		}
+	}
+	return predictor.WindProfileRequest{}, errors.New("terminal configuration has no weather probe coordinate")
+}
+
+func observedWeatherProfile(profile predictor.WindProfile, request predictor.WindProfileRequest, now time.Time) bool {
+	if strings.TrimSpace(profile.SourceID) == "" || profile.ObservedAt.IsZero() || profile.ExpiresAt.IsZero() || profile.ObservedAt.After(now) || profile.ExpiresAt.Before(now) || len(profile.Samples) != len(request.Samples) {
+		return false
+	}
+	for index, sample := range profile.Samples {
+		want := request.Samples[index]
+		if sample.At.UTC() != want.At.UTC() || sample.Position != want.Position || len(sample.Levels) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Service) refreshNavigation(ctx context.Context, airport string) error {
-	now := s.deps.Now().UTC()
+	now := s.deps.Now().UTC().Truncate(time.Second)
 	s.mu.Lock()
 	last := s.lastRefresh[airport]
 	if !last.IsZero() && now.Sub(last) < navigationRefreshEvery {
@@ -182,7 +248,7 @@ func (s *Service) refreshNavigation(ctx context.Context, airport string) error {
 }
 
 func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
-	now := s.deps.Now().UTC()
+	now := s.deps.Now().UTC().Truncate(time.Second)
 	initializing := false
 	current, err := s.deps.Repository.LoadAirportState(ctx, airport)
 	if err != nil {
@@ -238,6 +304,9 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 			continue
 		}
 		markMissing(&next.Flights[i], now)
+	}
+	for i := range next.Flights {
+		repairSuperstableFreeze(&next.Flights[i])
 	}
 
 	s.resequence(&next, now)
@@ -337,11 +406,20 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		return flight, nil
 	}
 	flight.Lifecycle = clearAbsence(flight.Lifecycle)
+	if groundedSurveillance(observation.Surveillance) {
+		return applyGroundedObservation(flight, observation, now), nil
+	}
 	applyBaseline(&flight, observation, now)
 	applyPreliminaryPrediction(&flight, observation, now)
 	if observation.Surveillance == nil || observation.Surveillance.GroundspeedKnots == nil || observation.Surveillance.AltitudeFeet == nil || observation.FiledRoute == nil {
 		if flight.State != aman.StatePlanned {
 			markPredictionNonPublishable(&flight, missingEssentialReason(observation))
+		}
+		return flight, nil
+	}
+	if invalid := invalidEssentialReason(*observation.Surveillance); invalid != "" {
+		if flight.State != aman.StatePlanned {
+			markPredictionNonPublishable(&flight, invalid)
 		}
 		return flight, nil
 	}
@@ -366,8 +444,12 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	var key navdata.RouteKey
 	if canReuseActiveRoute(flight, revision, group, datasetID) {
 		key = navdata.RouteKey(*flight.ActiveRouteKey)
-	} else {
-		key, err = s.deps.Materializer.MaterializeRoute(ctx, query, modelVersion)
+		if !hasResolvedRouteFixes(ctx, s.deps.Geometry, navdata.AirportID(observation.Destination), key) {
+			key = ""
+		}
+	}
+	if key == "" {
+		key, err = s.deps.Materializer.MaterializeRoute(ctx, query, routeResolverVersion)
 		if err != nil {
 			return flight, err
 		}
@@ -396,25 +478,29 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		return flight, err
 	}
 	s.setHealthComponent("predictor", aman.HealthReady, "", now)
-	weatherStatus, weatherReason := aman.HealthReady, ""
-	for _, degradation := range estimate.DegradationReasons {
-		if degradation == "WEATHER_UNAVAILABLE" || degradation == "WEATHER_INCOMPLETE" {
-			weatherStatus, weatherReason = aman.HealthDegraded, strings.ToLower(degradation)
-			break
-		}
+	confidence := estimate.Confidence
+	degradations := slices.Clone(estimate.DegradationReasons)
+	if fallback := offRouteFallbackReason(projection.Reasons); fallback != "" {
+		confidence = aman.ConfidenceMedium
+		degradations = append([]string{fallback}, degradations...)
 	}
-	s.setHealthComponent("weather", weatherStatus, weatherReason, now)
 	rawRETA := estimate.RawRETA
 	dtg := estimate.DistanceToGoNM
 	raw := aman.Prediction{
 		RawTETA: estimate.RawTETA, RawRETA: &rawRETA, GeneratedAt: now, InputObservedAt: observedAt(observation.Surveillance, now),
-		Confidence: estimate.Confidence, Publishable: true, DatasetVersion: version.Cycle, GeometryDigest: projection.GeometryDigest,
+		Confidence: confidence, Publishable: true, DatasetVersion: version.Cycle, GeometryDigest: projection.GeometryDigest,
 		DistanceToGoNM: &dtg, ModelVersion: estimate.ModelVersion, ConfigVersion: s.deps.Terminal.ConfigVersion,
 		PerformanceProfileID: estimate.PerformanceProfileID, WeatherSource: estimate.WeatherSource,
 		Sources: []string{"vatsim", "airacnet", "terminal-config:" + s.deps.Terminal.ConfigVersion},
+		Calculation: &aman.PredictionCalculation{
+			NoWindDuration: estimate.NoWindDuration,
+			Duration:       estimate.Duration,
+			Legs:           calculationLegs(projection.Remaining, estimate.NoWindLegDurations, estimate.LegDurations),
+			Segments:       calculationSegments(estimate.Segments),
+		},
 	}
-	if len(estimate.DegradationReasons) > 0 {
-		reason := strings.Join(estimate.DegradationReasons, ",")
+	if len(degradations) > 0 {
+		reason := strings.Join(degradations, ",")
 		raw.DegradationReason = &reason
 	}
 	if projection.SelectedHolding != nil {
@@ -596,6 +682,15 @@ func amanCPHSeparations() []sequence.SeparationRule {
 	return rules
 }
 
+func offRouteFallbackReason(reasons []string) string {
+	for _, reason := range reasons {
+		if strings.HasPrefix(reason, "OFF_ROUTE_NEXT_WAYPOINT:") {
+			return strings.ToLower(reason)
+		}
+	}
+	return ""
+}
+
 func (s *Service) selectedGroup(flight aman.AMANFlight, groups []aman.RunwayGroupPolicy) (aman.RunwayGroupID, bool) {
 	if flight.SelectedRunwayGroup != nil && (flight.State == aman.StateStable || flight.FreezeReason != aman.FreezeNone) {
 		return *flight.SelectedRunwayGroup, true
@@ -757,6 +852,91 @@ func missingEssentialReason(observation aman.FlightObservation) string {
 	return "missing_essential_data:" + strings.Join(missing, ",")
 }
 
+const (
+	groundedMaximumAltitudeFeet     = 1000
+	groundedMaximumGroundspeedKnots = 50.0
+)
+
+func groundedSurveillance(surveillance *aman.SurveillanceFact) bool {
+	return surveillance != nil && surveillance.AltitudeFeet != nil && surveillance.GroundspeedKnots != nil &&
+		*surveillance.AltitudeFeet < groundedMaximumAltitudeFeet && *surveillance.GroundspeedKnots <= groundedMaximumGroundspeedKnots
+}
+
+// applyGroundedObservation treats low-and-slow surveillance as a lifecycle
+// fact. Before the VATSIM movement classifier has observed takeoff, the
+// flight remains planned; after that observation it has completed its AMAN
+// arrival and must no longer participate in route prediction or sequencing.
+func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) aman.AMANFlight {
+	clearGroundedOperationalState(&flight)
+	if observation.TakeoffDetected == nil {
+		flight.State = aman.StatePlanned
+		// A previous airborne prediction cannot be reused while the aircraft is
+		// still on the ground. Rebuild the planned baseline from filed times.
+		flight.Prediction = nil
+		flight.ArrivalBaseline = nil
+		applyPreliminaryPrediction(&flight, observation, now)
+		setGroundedLifecycle(&flight, aman.LifecycleReasonInitial, now)
+		return flight
+	}
+	flight.State = aman.StateLanded
+	if flight.Prediction != nil {
+		prediction := *flight.Prediction
+		prediction.Publishable = false
+		reason := "landed"
+		prediction.DegradationReason = &reason
+		flight.Prediction = &prediction
+	}
+	setGroundedLifecycle(&flight, aman.LifecycleReasonLandingConfirmed, now)
+	return flight
+}
+
+func clearGroundedOperationalState(flight *aman.AMANFlight) {
+	flight.SelectedFeeder, flight.SelectedHolding = nil, nil
+	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
+	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
+	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
+}
+
+// repairSuperstableFreeze recovers aggregates written before a captured slot
+// was persisted atomically with a superstable freeze. A current slot is the
+// only safe captured-slot value; without one, release the impossible freeze
+// and let normal sequencing allocate a new slot.
+func repairSuperstableFreeze(flight *aman.AMANFlight) {
+	if flight.FreezeReason != aman.FreezeSuperstable {
+		return
+	}
+	if flight.State == aman.StatePlanned || flight.State == aman.StateLanded || flight.State == aman.StateRemoved || flight.Slot == nil {
+		flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
+		flight.QueueOffers = nil
+		return
+	}
+	if flight.FrozenSlot == nil {
+		captured := *flight.Slot
+		flight.FrozenSlot = &captured
+	}
+}
+
+func setGroundedLifecycle(flight *aman.AMANFlight, reason aman.LifecycleReason, now time.Time) {
+	enteredAt := now
+	if flight.Lifecycle != nil && flight.Lifecycle.Reason == reason {
+		enteredAt = flight.Lifecycle.EnteredAt
+	}
+	flight.Lifecycle = &aman.LifecycleState{
+		EnteredAt: enteredAt, Reason: reason, LastEventID: fmt.Sprintf("grounded-%d", now.UnixNano()),
+		LastEventFingerprint: "grounded-surveillance", LastEventAt: now,
+	}
+}
+
+func invalidEssentialReason(surveillance aman.SurveillanceFact) string {
+	if surveillance.GroundspeedKnots != nil && *surveillance.GroundspeedKnots <= 0 {
+		return "invalid_essential_data:groundspeed"
+	}
+	if surveillance.AltitudeFeet != nil && *surveillance.AltitudeFeet < 0 {
+		return "invalid_essential_data:altitude"
+	}
+	return ""
+}
+
 func markPredictionNonPublishable(flight *aman.AMANFlight, reason string) {
 	if flight.Prediction == nil {
 		return
@@ -805,6 +985,43 @@ func predictorLegs(legs []trajectory.RemainingLeg) []predictor.RouteLeg {
 	return result
 }
 
+func calculationLegs(legs []trajectory.RemainingLeg, noWindDurations, durations []time.Duration) []aman.PredictionLeg {
+	if len(legs) != len(durations) || len(legs) != len(noWindDurations) {
+		return nil
+	}
+	result := make([]aman.PredictionLeg, len(legs))
+	for i, leg := range legs {
+		from := string(leg.From)
+		if from == "" {
+			from = "CURRENT_POSITION"
+		}
+		result[i] = aman.PredictionLeg{
+			ID: leg.ID, From: from, To: string(leg.To),
+			StartLatitude: leg.Start.LatitudeDeg, StartLongitude: leg.Start.LongitudeDeg,
+			EndLatitude: leg.End.LatitudeDeg, EndLongitude: leg.End.LongitudeDeg,
+			DistanceNM: leg.DistanceNM, CourseTrueDegrees: leg.CourseTrueDegrees,
+			NoWindDuration: noWindDurations[i], Duration: durations[i],
+		}
+	}
+	return result
+}
+
+func calculationSegments(segments []predictor.DescentSegmentCalculation) []aman.PredictionSegment {
+	result := make([]aman.PredictionSegment, len(segments))
+	for i, segment := range segments {
+		result[i] = aman.PredictionSegment{
+			RouteLegIndex: segment.RouteLegIndex, PreTOD: segment.PreTOD,
+			PhaseID: segment.PhaseID, PhaseName: segment.PhaseName, PhaseFormula: segment.PhaseFormula,
+			DistanceNM: segment.DistanceNM, CourseTrueDegrees: segment.CourseTrueDegrees,
+			StartAltitudeFeet: segment.StartAltitudeFeet, EndAltitudeFeet: segment.EndAltitudeFeet, AltitudeFeet: segment.AltitudeFeet,
+			IndicatedAirspeedKnots: cloneFloat(segment.IndicatedAirspeedKnots),
+			NoWindGroundspeedKnots: segment.NoWindGroundspeedKnots, GroundspeedKnots: segment.GroundspeedKnots,
+			TailwindKnots: cloneFloat(segment.TailwindKnots), NoWindDuration: segment.NoWindDuration, Duration: segment.Duration,
+		}
+	}
+	return result
+}
+
 func holdingETA(now time.Time, durations []time.Duration, legs []trajectory.RemainingLeg, fix navdata.FixID) *time.Time {
 	if len(durations) != len(legs) {
 		return nil
@@ -835,9 +1052,9 @@ func category(value *string) predictor.AircraftCategory {
 
 func observedAt(fact *aman.SurveillanceFact, fallback time.Time) time.Time {
 	if fact != nil && fact.ObservedAt != nil {
-		return *fact.ObservedAt
+		return fact.ObservedAt.UTC().Truncate(time.Second)
 	}
-	return fallback
+	return fallback.UTC().Truncate(time.Second)
 }
 func revisionValue(value *uint64) uint64 {
 	if value == nil {
@@ -852,6 +1069,14 @@ func stringValue(value *string) string {
 	return *value
 }
 func stringPointer(value string) *string { return &value }
+
+func cloneFloat(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	return &result
+}
 
 func navigationDatasetID(version navdata.DatasetVersion) string {
 	return strings.Join([]string{
@@ -869,6 +1094,49 @@ func canReuseActiveRoute(flight aman.AMANFlight, revision uint64, group aman.Run
 		flight.RouteProgress != nil &&
 		flight.RouteProgress.FlightPlanRevision == revision &&
 		flight.RouteProgress.RunwayGroupID == group
+}
+
+func hasResolvedRouteFixes(ctx context.Context, geometry GeometryCache, airport navdata.AirportID, key navdata.RouteKey) bool {
+	route, err := geometry.Route(ctx, key)
+	if err != nil || len(route.Legs) == 0 {
+		return false
+	}
+	if hasSyntheticDestinationClosingLeg(route, airport) {
+		return false
+	}
+	snapshot, err := geometry.ActiveGeometrySnapshot(ctx, airport)
+	if err != nil || !route.Version.Equal(snapshot.Manifest.Version) {
+		return false
+	}
+	fixes := make(map[navdata.FixID]struct{}, len(snapshot.Fixes))
+	for _, fix := range snapshot.Fixes {
+		fixes[fix.ID] = struct{}{}
+	}
+	for _, leg := range route.Legs {
+		if leg.FromFix != nil && leg.FromPosition == nil {
+			if _, ok := fixes[*leg.FromFix]; !ok {
+				return false
+			}
+		}
+		if leg.ToFix != nil && leg.ToPosition == nil {
+			if _, ok := fixes[*leg.ToFix]; !ok {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// AIRAC.NET route parsing closes its output with a direct leg to the airport.
+// AMAN replaces that leg with a configured feeder-to-runway terminal path, so
+// a cached route ending at the destination predates that normalization and
+// must be materialized again.
+func hasSyntheticDestinationClosingLeg(route navdata.RouteGeometry, airport navdata.AirportID) bool {
+	if len(route.Legs) == 0 {
+		return false
+	}
+	last := route.Legs[len(route.Legs)-1]
+	return last.ToFix != nil && *last.ToFix == navdata.FixID(airport) && (last.FromFix == nil || *last.FromFix != *last.ToFix)
 }
 
 func componentHealth(status aman.HealthStatus, reason string, at time.Time) aman.ComponentHealth {

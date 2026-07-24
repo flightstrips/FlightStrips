@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.1...plugin/v0.20.2) (2026-07-24)
+
+
+### Bug Fixes
+
+* **stand:** target EuroScope stand updates ([#431](https://github.com/flightstrips/FlightStrips/issues/431)) ([f6a6618](https://github.com/flightstrips/FlightStrips/commit/f6a6618467d748160dddc8418aa1de482c017539))
+
 ## [0.20.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.0...plugin/v0.20.1) (2026-07-24)
 
 

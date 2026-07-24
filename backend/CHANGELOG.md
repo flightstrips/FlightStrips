@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.42.1...backend/v0.42.2) (2026-07-24)
+
+
+### Bug Fixes
+
+* **stand:** target EuroScope stand updates ([#431](https://github.com/flightstrips/FlightStrips/issues/431)) ([f6a6618](https://github.com/flightstrips/FlightStrips/commit/f6a6618467d748160dddc8418aa1de482c017539))
+
 ## [0.42.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.42.0...backend/v0.42.1) (2026-07-24)
 
 

@@ -45,6 +45,9 @@ services:
       ENABLE_TEST_TOOLS: "false"
       # Release EFB code disabled until the authenticated pilot surface is ready.
       ENABLE_EFB: ${ENABLE_EFB:-false}
+      # Local-only Go heap and goroutine profiling. It listens on 127.0.0.1:6060
+      # inside the backend container and is disabled unless explicitly enabled.
+      ENABLE_PPROF: ${ENABLE_PPROF:-false}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}

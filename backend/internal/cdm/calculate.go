@@ -72,6 +72,9 @@ func calculateWithTrace(input CalcInput, slots []SlotEntry, config *CdmAirportCo
 	if ttot == "" {
 		return CalcResult{}, nil
 	}
+	if _, ok := parseClock(ttot); !ok {
+		return CalcResult{}, nil
+	}
 
 	rate := DefaultCDMRate
 	if config != nil {

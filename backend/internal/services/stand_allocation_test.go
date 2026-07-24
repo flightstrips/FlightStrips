@@ -37,6 +37,8 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		result, err := service.Allocate(ctx, standAllocationRequest(session, "SAS101"))
 		require.NoError(t, err)
 		assert.Equal(t, "A1", result.Assignment.Stand)
+		assert.True(t, result.StandChanged)
+		assert.True(t, result.NotifyEuroscope)
 		strip, err := queries.GetStrip(ctx, database.GetStripParams{Session: session, Callsign: "SAS101"})
 		require.NoError(t, err)
 		require.NotNil(t, strip.Stand)
@@ -44,6 +46,7 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		select {
 		case event := <-published:
 			assert.Equal(t, result.Assignment.ID, event.Assignment.ID)
+			assert.True(t, event.StandChanged)
 		default:
 			t.Fatal("allocation was not published after commit")
 		}
@@ -94,6 +97,7 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		case event := <-published:
 			assert.True(t, event.Removed)
 			assert.Equal(t, retained.ID, event.Assignment.ID)
+			assert.True(t, event.StandChanged)
 		default:
 			t.Fatal("removal was not published after commit")
 		}
@@ -107,6 +111,12 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		estimatedRequest.Stage = StageEstimated
 		_, err := service.AssignManually(ctx, estimatedRequest)
 		require.NoError(t, err)
+		observedStand := "B2"
+		updated, err := queries.UpdateStripStandByID(ctx, database.UpdateStripStandByIDParams{
+			Stand: &observedStand, Callsign: "SAS104", Session: session,
+		})
+		require.NoError(t, err)
+		require.EqualValues(t, 1, updated)
 
 		var published StandAllocationResult
 		service.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
@@ -120,6 +130,8 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, result.RemovedAssignments, 1)
 		assert.Equal(t, "SAS104", result.RemovedAssignments[0].Callsign)
+		require.Len(t, result.RemovedStandChanges, 1)
+		assert.Equal(t, "SAS104", result.RemovedStandChanges[0].Callsign)
 		require.Len(t, published.RemovedAssignments, 1)
 		assert.Equal(t, "SAS104", published.RemovedAssignments[0].Callsign)
 		_, err = assignments.GetAssignment(ctx, session, "SAS104")
@@ -368,6 +380,23 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		assert.Equal(t, 1, successes)
 		assert.Equal(t, 1, unavailable)
 	})
+}
+
+func TestPublishAssignmentOnlyNotifiesEuroscopeForConfirmedArrival(t *testing.T) {
+	service := &StandAllocationService{}
+	var published []StandAllocationResult
+	service.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+		published = append(published, result)
+		return nil
+	})
+	assignment := models.StandAssignment{Callsign: "SAS777", Direction: string(sat.AssignmentDirectionArrival), Stage: StageConfirmed}
+
+	require.NoError(t, service.PublishAssignment(context.Background(), assignment))
+	require.NoError(t, service.PublishConfirmedArrival(context.Background(), assignment))
+
+	require.Len(t, published, 2)
+	assert.False(t, published[0].NotifyEuroscope, "ordinary lifecycle refreshes must not emit stand updates")
+	assert.True(t, published[1].NotifyEuroscope, "confirmation must deliver the previously assigned arrival stand")
 }
 
 func standAllocationFixture(t *testing.T, pool *pgxpool.Pool, queries *database.Queries, a1Directive, a2Directive string) (*StandAllocationService, int32, repository.StandAssignmentRepository) {

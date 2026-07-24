@@ -576,15 +576,22 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::SetArrivalStand(const std::string &callsign, std::string stand) const {
-        UpdateViaScratchPad(callsign.c_str(), std::format("GRP/S/{}", stand).c_str());
+        UpdateViaScratchPad(callsign.c_str(), std::format("GRP/S/{}", stand).c_str(), true);
     }
 
-    void FlightStripsPlugin::UpdateViaScratchPad(const char *callsign, const char *message) const {
+    void FlightStripsPlugin::UpdateViaScratchPad(const char *callsign, const char *message, const bool clearStaleStandCommand) const {
         auto fp = this->FlightPlanSelect(callsign);
 
         if (!fp.IsValid()) return;
 
         auto scratch = std::string(fp.GetControllerAssignedData().GetScratchPadString());
+        // A previous stand update can still be present when EuroScope delivers
+        // multiple controller-data changes in quick succession. Never restore a
+        // stale GRP/S command: it is an internal stand-update trigger, not
+        // controller scratchpad text.
+        if (clearStaleStandCommand && scratch.size() >= 6 && _strnicmp(scratch.c_str(), "GRP/S/", 6) == 0) {
+            scratch.clear();
+        }
         fp.GetControllerAssignedData().SetScratchPadString(message);
         fp.GetControllerAssignedData().SetScratchPadString(scratch.c_str());
     }

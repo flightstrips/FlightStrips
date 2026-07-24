@@ -74,7 +74,7 @@ namespace FlightStrips {
 
         void SetArrivalStand(const std::string &callsign, std::string stand) const;
 
-        void UpdateViaScratchPad(const char* callsign, const char* message) const;
+        void UpdateViaScratchPad(const char* callsign, const char* message, bool clearStaleStandCommand = false) const;
 
         EuroScopePlugIn::CRadarScreen* OnRadarScreenCreated ( const char * sDisplayName, bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved, bool CanBeCreated ) override;
 

@@ -133,12 +133,15 @@ type FixAlias struct {
 
 // Path is an official, ordered STAR terminal fragment. SelectedHolding is an
 // operational configuration selection, not an instruction to fly a circuit.
+// PublishedHeadingMagneticDeg is a published post-terminal-fix instruction;
+// it is never a controller-assigned heading.
 type Path struct {
-	Feeder          navdata.FeederID   `json:"feeder"`
-	RunwayGroup     aman.RunwayGroupID `json:"runwayGroup"`
-	Fixes           []navdata.FixID    `json:"fixes"`
-	MergeFix        navdata.FixID      `json:"mergeFix"`
-	SelectedHolding navdata.HoldingID  `json:"selectedHolding"`
+	Feeder                      navdata.FeederID   `json:"feeder"`
+	RunwayGroup                 aman.RunwayGroupID `json:"runwayGroup"`
+	Fixes                       []navdata.FixID    `json:"fixes"`
+	MergeFix                    navdata.FixID      `json:"mergeFix"`
+	SelectedHolding             navdata.HoldingID  `json:"selectedHolding"`
+	PublishedHeadingMagneticDeg *int               `json:"publishedHeadingMagneticDeg,omitempty"`
 }
 
 type Configuration struct {
@@ -509,6 +512,9 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		if len(path.Fixes) > 0 && path.Fixes[len(path.Fixes)-1] != path.MergeFix {
 			add(&errs, fmt.Sprintf("paths[%d].mergeFix", i), "must be final path fix")
 		}
+		if path.PublishedHeadingMagneticDeg != nil && (*path.PublishedHeadingMagneticDeg < 1 || *path.PublishedHeadingMagneticDeg > 360) {
+			add(&errs, fmt.Sprintf("paths[%d].publishedHeadingMagneticDeg", i), "must be in [1,360]")
+		}
 		unique := map[navdata.FixID]bool{}
 		for j, fix := range path.Fixes {
 			fix = canonicalFix(fix, aliases)
@@ -629,7 +635,7 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 		// supplied. Join the published final-approach fix rather than inventing
 		// an intercept point, then continue to the threshold.
 		legs = append(legs, publishedILSFinal(canonicalFix(value.MergeFix, aliases), groups[value.RunwayGroup].FinalApproaches[0])...)
-		path := navdata.TerminalPath{Version: refs.Version, Airport: c.Airport, Feeder: value.Feeder, RunwayGroup: value.RunwayGroup, Legs: legs, HoldingIDs: []navdata.HoldingID{value.SelectedHolding}, Coverage: navdata.CoverageComplete, Provenance: provenance}
+		path := navdata.TerminalPath{Version: refs.Version, Airport: c.Airport, Feeder: value.Feeder, RunwayGroup: value.RunwayGroup, Legs: legs, HoldingIDs: []navdata.HoldingID{value.SelectedHolding}, PublishedHeadingMagneticDeg: clonePointer(value.PublishedHeadingMagneticDeg), Coverage: navdata.CoverageComplete, Provenance: provenance}
 		path.Digest = terminalDigest(path)
 		paths = append(paths, path)
 	}
@@ -671,14 +677,15 @@ func publishedILSFinal(merge navdata.FixID, final FinalApproachDefinition) []nav
 }
 func terminalDigest(path navdata.TerminalPath) string {
 	digest, _ := navdata.CanonicalPayloadDigest(struct {
-		Version    navdata.DatasetVersion
-		Airport    navdata.AirportID
-		Feeder     navdata.FeederID
-		Group      aman.RunwayGroupID
-		Legs       []navdata.ProcedureLeg
-		Holdings   []navdata.HoldingID
-		Provenance navdata.Provenance
-	}{path.Version, path.Airport, path.Feeder, path.RunwayGroup, path.Legs, path.HoldingIDs, path.Provenance})
+		Version                     navdata.DatasetVersion
+		Airport                     navdata.AirportID
+		Feeder                      navdata.FeederID
+		Group                       aman.RunwayGroupID
+		Legs                        []navdata.ProcedureLeg
+		Holdings                    []navdata.HoldingID
+		PublishedHeadingMagneticDeg *int
+		Provenance                  navdata.Provenance
+	}{path.Version, path.Airport, path.Feeder, path.RunwayGroup, path.Legs, path.HoldingIDs, path.PublishedHeadingMagneticDeg, path.Provenance})
 	return digest
 }
 
@@ -733,6 +740,7 @@ func cloneConfiguration(value Configuration) Configuration {
 	for i, path := range value.Paths {
 		clone.Paths[i] = path
 		clone.Paths[i].Fixes = slices.Clone(path.Fixes)
+		clone.Paths[i].PublishedHeadingMagneticDeg = clonePointer(path.PublishedHeadingMagneticDeg)
 	}
 	clone.OverlayHoldings = make([]HoldingDefinition, len(value.OverlayHoldings))
 	for i, holding := range value.OverlayHoldings {

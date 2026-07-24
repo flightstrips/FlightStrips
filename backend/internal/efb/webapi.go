@@ -1,6 +1,8 @@
 package efb
 
 import (
+	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/metar"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
@@ -10,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -48,6 +51,8 @@ type WebAPIConfig struct {
 	Departures  DepartureFrequencyLookup
 	PDCReady    bool
 	Live        bool
+	Terminal    terminal.Configuration
+	Navigation  navdata.GeometrySnapshotReader
 }
 
 type WebAPI struct {
@@ -63,10 +68,12 @@ type WebAPI struct {
 	departures  DepartureFrequencyLookup
 	pdcReady    bool
 	live        bool
+	terminal    terminal.Configuration
+	navigation  navdata.GeometrySnapshotReader
 }
 
 func NewWebAPI(cfg WebAPIConfig) *WebAPI {
-	return &WebAPI{auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, stands: cfg.Stands, atis: cfg.ATIS, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live}
+	return &WebAPI{auth: cfg.Auth, callsigns: cfg.Callsigns, flights: cfg.Flights, sessions: cfg.Sessions, assignments: cfg.Assignments, cdm: cfg.CDM, cdmReady: cfg.CDMReady, stands: cfg.Stands, atis: cfg.ATIS, departures: cfg.Departures, pdcReady: cfg.PDCReady, live: cfg.Live, terminal: cfg.Terminal, navigation: cfg.Navigation}
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
@@ -103,6 +110,11 @@ type snapshot struct {
 	Runway                 *string      `json:"runway"`
 	SID                    *string      `json:"sid"`
 	STAR                   *string      `json:"star"`
+	ArrivalETA             *string      `json:"arrival_eta"`
+	TerminalFix            *string      `json:"terminal_fix"`
+	PublishedHoldingFix    *string      `json:"published_holding_fix"`
+	PublishedHoldingDetail *string      `json:"published_holding_detail"`
+	PublishedHeading       *int32       `json:"published_heading"`
 	ClearedAltitude        *int32       `json:"cleared_altitude"`
 	Squawk                 *string      `json:"squawk"`
 	DepartureFrequency     *string      `json:"departure_frequency"`
@@ -157,7 +169,8 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 	if state == "REQUESTED_WITH_FAULTS" {
 		state = "REQUESTED"
 	}
-	result := snapshot{Callsign: s.Callsign, AircraftType: s.AircraftType, Origin: s.Origin, Destination: s.Destination, Route: s.Route, Phase: phase, Runway: s.Runway, SID: s.Sid, STAR: s.Star, ClearedAltitude: s.ClearedAltitude, Squawk: s.AssignedSquawk, Stand: nonEmptyString(s.Stand), EOBT: s.EffectiveEobt(), TOBT: s.EffectiveTobt(), TSAT: normalizeClock(s.EffectiveTsat()), TTOT: s.EffectiveTtot(), CTOT: s.EffectiveCtot(), PDCState: state, PDCAvailable: a.pdcReady && departure && !s.Cleared, PDCCanSubmit: a.pdcReady && departure && !s.Cleared && pdc.WebPDCCanSubmit(s.PdcState), PDCRequiresPilotAction: state == "CLEARED", Capabilities: capabilities{PDC: a.pdcReady && departure, TOBT: a.cdmReady && departure, Stand: a.stands != nil && a.assignments != nil}}
+	publishedHeading, publishedHoldingFix, publishedHoldingDetail := publishedArrivalData(ctx, a.navigation, a.terminal, s.Destination, s.Runway, s.Star)
+	result := snapshot{Callsign: s.Callsign, AircraftType: s.AircraftType, Origin: s.Origin, Destination: s.Destination, Route: s.Route, Phase: phase, Runway: s.Runway, SID: s.Sid, STAR: s.Star, ArrivalETA: arrivalETA(s.ArrivalETA), TerminalFix: terminalFix(a.terminal, s.Destination, s.Runway, s.Star), PublishedHeading: publishedHeading, PublishedHoldingFix: publishedHoldingFix, PublishedHoldingDetail: publishedHoldingDetail, ClearedAltitude: s.ClearedAltitude, Squawk: s.AssignedSquawk, Stand: nonEmptyString(s.Stand), EOBT: s.EffectiveEobt(), TOBT: s.EffectiveTobt(), TSAT: normalizeClock(s.EffectiveTsat()), TTOT: s.EffectiveTtot(), CTOT: s.EffectiveCtot(), PDCState: state, PDCAvailable: a.pdcReady && departure && !s.Cleared, PDCCanSubmit: a.pdcReady && departure && !s.Cleared && pdc.WebPDCCanSubmit(s.PdcState), PDCRequiresPilotAction: state == "CLEARED", Capabilities: capabilities{PDC: a.pdcReady && departure, TOBT: a.cdmReady && departure, Stand: a.stands != nil && a.assignments != nil}}
 	if departure && a.departures != nil {
 		if frequency, err := a.departures.ComputeDepartureFrequencyForStripContext(ctx, s, match.SessionID); err == nil {
 			result.DepartureFrequency = nonEmptyString(frequency)
@@ -185,6 +198,112 @@ func (a *WebAPI) buildSnapshot(ctx context.Context, match pdc.WebStripMatch, ses
 		result.ATIS = a.atis.GetATIS(airport, departure)
 	}
 	return result
+}
+
+func arrivalETA(value *models.ArrivalETA) *string {
+	if value == nil || value.Time.IsZero() {
+		return nil
+	}
+	formatted := value.Time.UTC().Format("1504")
+	return &formatted
+}
+
+func terminalFix(config terminal.Configuration, airport string, runway, star *string) *string {
+	path := terminalPath(config, airport, runway, star)
+	if path == nil || len(path.Fixes) == 0 {
+		return nil
+	}
+	value := string(path.Fixes[len(path.Fixes)-1])
+	return &value
+}
+
+func publishedArrivalData(ctx context.Context, navigation navdata.GeometrySnapshotReader, config terminal.Configuration, airport string, runway, star *string) (*int32, *string, *string) {
+	if navigation == nil {
+		return nil, nil, nil
+	}
+	configuredPath := terminalPath(config, airport, runway, star)
+	if configuredPath == nil {
+		return nil, nil, nil
+	}
+	snapshot, err := navigation.ActiveGeometrySnapshot(ctx, navdata.AirportID(strings.ToUpper(strings.TrimSpace(airport))))
+	if err != nil {
+		return nil, nil, nil
+	}
+	for _, path := range snapshot.TerminalPaths {
+		if path.Feeder != configuredPath.Feeder || path.RunwayGroup != configuredPath.RunwayGroup {
+			continue
+		}
+		var heading *int32
+		if path.PublishedHeadingMagneticDeg != nil {
+			value := int32(*path.PublishedHeadingMagneticDeg)
+			heading = &value
+		}
+		if len(path.HoldingIDs) == 0 {
+			return heading, nil, nil
+		}
+		holdingID := path.HoldingIDs[0]
+		for _, holding := range snapshot.Holdings {
+			if holding.ID != holdingID {
+				continue
+			}
+			fix := string(holding.Fix)
+			detail := fmt.Sprintf("%03.0f/%s", holding.InboundCourseTrueDeg, strings.ToUpper(string(holding.TurnDirection)))
+			return heading, &fix, &detail
+		}
+	}
+	return nil, nil, nil
+}
+
+func terminalPath(config terminal.Configuration, airport string, runway, star *string) *terminal.Path {
+	if star == nil || runway == nil || !strings.EqualFold(strings.TrimSpace(airport), string(config.Airport)) {
+		return nil
+	}
+	procedure := strings.ToUpper(strings.TrimSpace(*star))
+	if procedure == "" {
+		return nil
+	}
+	var feeder string
+	for _, candidate := range config.Feeders {
+		if candidate.ID != "" && strings.HasPrefix(procedure, string(candidate.ID)) {
+			feeder = string(candidate.ID)
+			break
+		}
+		for _, alias := range candidate.Aliases {
+			if alias != "" && strings.HasPrefix(procedure, string(alias)) {
+				feeder = string(candidate.ID)
+				break
+			}
+		}
+		if feeder != "" {
+			break
+		}
+	}
+	if feeder == "" {
+		return nil
+	}
+	assignedRunway := strings.ToUpper(strings.TrimSpace(*runway))
+	for _, group := range config.RunwayGroups {
+		if !containsRunway(group, assignedRunway) {
+			continue
+		}
+		for index := range config.Paths {
+			path := &config.Paths[index]
+			if string(path.Feeder) != feeder || path.RunwayGroup != group.ID {
+				continue
+			}
+			return path
+		}
+	}
+	return nil
+}
+
+func containsRunway(group terminal.RunwayGroup, runway string) bool {
+	for _, candidate := range group.Runways {
+		if string(candidate) == runway {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *WebAPI) handleTobt(w http.ResponseWriter, r *http.Request) {

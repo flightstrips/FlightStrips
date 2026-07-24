@@ -232,6 +232,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		amanStateProvider = provider
 	}
 	var amanAPI *amanWebAPI.WebAPI
+	var efbNavigation navdata.GeometrySnapshotReader
 	if stateReader, ok := amanDependencies.Repositories.(aman.AirportStateReader); ok && amanEnabled {
 		amanAPI = amanWebAPI.New(authService, stateReader)
 		if geometry, geometryOK := amanDependencies.NavigationReader.(navdata.GeometryReader); geometryOK {
@@ -239,6 +240,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 				amanAPI.WithNavigation(geometry, snapshots)
 			}
 		}
+	}
+	if snapshots, ok := amanDependencies.NavigationReader.(navdata.GeometrySnapshotReader); ok {
+		efbNavigation = snapshots
 	}
 	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized)
 	if err != nil {
@@ -450,7 +454,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
 				Auth: authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
 				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil,
-				Stands: standActionService, ATIS: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification,
+				Stands: standActionService, ATIS: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification, Terminal: defaultAMAN.terminal, Navigation: efbNavigation,
 			}),
 			sessionRepo:                sessionRepo,
 			sequenceService:            sequenceService,

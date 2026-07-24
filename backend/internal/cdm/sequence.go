@@ -245,7 +245,15 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			continue
 		}
 
-		result, trace := calculateWithTrace(calcInput, slots, config, now)
+		result, trace := calculateWithTrace(calcInput, slots, config, now, func(entries int) {
+			slog.WarnContext(ctx, "CDM calculation conflict trace exceeded diagnostic threshold",
+				slog.Int("session", int(session)),
+				slog.String("airport", airport),
+				slog.String("callsign", strip.Callsign),
+				slog.Int("trace_entries", entries),
+				slog.Int("slot_count", len(slots)),
+			)
+		})
 
 		beforeTsat := strings.TrimSpace(valueOrEmpty(strip.EffectiveTsat()))
 		beforeTtot := strings.TrimSpace(valueOrEmpty(strip.EffectiveTtot()))

@@ -252,7 +252,7 @@ func buildSequenceSnapshotRows(strips []*models.Strip, config *CdmAirportConfig,
 			continue
 		}
 
-		result, trace := calculateWithTrace(candidate.input, slots, config, now)
+		result, trace := calculateWithTrace(candidate.input, slots, config, now, nil)
 		updated := cloneSequenceData(candidate.strip.CdmData)
 		updated.Phase = nil
 		updated.Tsat = stringPointerIfPresent(result.Tsat)

@@ -5,6 +5,26 @@ import (
 	"time"
 )
 
+func TestAppendCalculationTraceReportsThresholdOnce(t *testing.T) {
+	t.Parallel()
+
+	var reported []int
+	trace := make([]calculationTraceEntry, calculationTraceDiagnosticThreshold-1)
+	trace = appendCalculationTrace(trace, calculationTraceEntry{}, func(entries int) {
+		reported = append(reported, entries)
+	})
+	trace = appendCalculationTrace(trace, calculationTraceEntry{}, func(entries int) {
+		reported = append(reported, entries)
+	})
+
+	if len(trace) != calculationTraceDiagnosticThreshold+1 {
+		t.Fatalf("trace length = %d, want %d", len(trace), calculationTraceDiagnosticThreshold+1)
+	}
+	if len(reported) != 1 || reported[0] != calculationTraceDiagnosticThreshold {
+		t.Fatalf("reported = %v, want [%d]", reported, calculationTraceDiagnosticThreshold)
+	}
+}
+
 func TestCalculate_BaseTimeSelection(t *testing.T) {
 	t.Parallel()
 

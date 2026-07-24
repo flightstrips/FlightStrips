@@ -81,10 +81,18 @@ type StandAllocationRequest struct {
 // eventual event/validation layer can use its decision data without rerunning
 // compatibility or selection.
 type StandAllocationResult struct {
-	Command             StandAllocationCommand
-	Assignment          models.StandAssignment
-	Removed             bool
+	Command    StandAllocationCommand
+	Assignment models.StandAssignment
+	Removed    bool
+	// StandChanged reports whether this transaction changed the operational
+	// strip stand. Lifecycle-only assignment updates must not be mirrored to
+	// EuroScope as stand writes.
+	StandChanged bool
+	// NotifyEuroscope is set when EuroScope needs a stand write even though the
+	// strip value did not change, currently when an arrival becomes CONFIRMED.
+	NotifyEuroscope     bool
 	RemovedAssignments  []models.StandAssignment
+	RemovedStandChanges []models.StandAssignment
 	Selection           *sat.StandSelection
 	MatchedVariant      *sat.StandCompatibilityMatch
 	Compatibility       sat.StandCompatibilityEvaluation
@@ -142,6 +150,13 @@ func (s *StandAllocationService) PublishAssignment(ctx context.Context, assignme
 	return nil
 }
 
+// PublishConfirmedArrival publishes the lifecycle transition that makes an
+// arrival's previously allocated stand ready for EuroScope.
+func (s *StandAllocationService) PublishConfirmedArrival(ctx context.Context, assignment models.StandAssignment) error {
+	s.publishCommitted(ctx, StandAllocationResult{Assignment: assignment, NotifyEuroscope: true})
+	return nil
+}
+
 func (s *StandAllocationService) publishCommitted(ctx context.Context, result StandAllocationResult) {
 	if s.publish == nil {
 		return
@@ -195,7 +210,8 @@ func (s *StandAllocationService) ReleaseAssignment(ctx context.Context, assignme
 		return errAllocationVersionConflict
 	}
 
-	if strip != nil && strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(current.Stand)) {
+	standChanged := strip != nil && strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(current.Stand))
+	if standChanged {
 		updated, err := txStrips.UpdateStand(ctx, assignment.SessionID, assignment.Callsign, nil, nil)
 		if err != nil {
 			return err
@@ -214,7 +230,7 @@ func (s *StandAllocationService) ReleaseAssignment(ctx context.Context, assignme
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	s.publishCommitted(ctx, StandAllocationResult{Assignment: *current, Removed: true})
+	s.publishCommitted(ctx, StandAllocationResult{Assignment: *current, Removed: true, StandChanged: standChanged, NotifyEuroscope: standChanged})
 	return nil
 }
 
@@ -587,8 +603,9 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 		return nil, selected, err
 	}
 	var removedAssignments []models.StandAssignment
+	var removedStandChanges []models.StandAssignment
 	if request.displacesArrivalStage() && selected != "" {
-		removedAssignments, err = s.displaceAssignments(ctx, txStrips, txAssignments, request, selected, assignments)
+		removedAssignments, removedStandChanges, err = s.displaceAssignments(ctx, txStrips, txAssignments, request, selected, assignments)
 		if err != nil {
 			return nil, selected, err
 		}
@@ -598,7 +615,8 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	if err != nil {
 		return nil, selected, err
 	}
-	if strip.Stand == nil || *strip.Stand != selected {
+	standChanged := strip.Stand == nil || !strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(selected))
+	if standChanged {
 		updated, err := txStrips.UpdateStand(ctx, request.SessionID, request.Callsign, &selected, nil)
 		if err != nil {
 			return nil, selected, err
@@ -613,7 +631,8 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	return &StandAllocationResult{
 		Command: command, Assignment: *assignment, Selection: selection, MatchedVariant: match,
 		Compatibility: evaluation, ConflictReason: conflict, Attempts: attempt, AvailableCandidates: available,
-		RemovedAssignments: removedAssignments,
+		RemovedAssignments: removedAssignments, RemovedStandChanges: removedStandChanges,
+		StandChanged: standChanged, NotifyEuroscope: standChanged,
 	}, selected, nil
 }
 
@@ -933,11 +952,12 @@ func joinAllocationReasons(reasons []string) string {
 	return strings.Join(result, "; ")
 }
 
-func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips repository.StripRepository, assignments repository.StandAssignmentRepository, request StandAllocationRequest, selected string, current []*models.StandAssignment) ([]models.StandAssignment, error) {
+func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips repository.StripRepository, assignments repository.StandAssignmentRepository, request StandAllocationRequest, selected string, current []*models.StandAssignment) ([]models.StandAssignment, []models.StandAssignment, error) {
 	if !request.displacesArrivalStage() || selected == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 	removed := []models.StandAssignment{}
+	standChanges := []models.StandAssignment{}
 	for _, assignment := range current {
 		if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) {
 			continue
@@ -948,19 +968,29 @@ func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips
 		if standName(assignment.Stand) != standName(selected) {
 			continue
 		}
-		if _, err := strips.UpdateStand(ctx, request.SessionID, assignment.Callsign, nil, nil); err != nil {
-			return nil, err
+		strip, err := strips.LockByCallsign(ctx, request.SessionID, assignment.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, err
+		}
+		standChanged := strip != nil && strip.Stand != nil
+		if standChanged {
+			if _, err := strips.UpdateStand(ctx, request.SessionID, assignment.Callsign, nil, nil); err != nil {
+				return nil, nil, err
+			}
 		}
 		deleted, err := assignments.DeleteAssignment(ctx, request.SessionID, assignment.ID, assignment.Version)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if deleted != 1 {
-			return nil, errAllocationVersionConflict
+			return nil, nil, errAllocationVersionConflict
 		}
 		removed = append(removed, *assignment)
+		if standChanged {
+			standChanges = append(standChanges, *assignment)
+		}
 	}
-	return removed, nil
+	return removed, standChanges, nil
 }
 
 func (request StandAllocationRequest) displacesArrivalStage() bool {

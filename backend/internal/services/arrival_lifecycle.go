@@ -237,6 +237,9 @@ func (s *ArrivalLifecycleService) updateStageInPlace(ctx context.Context, existi
 	}
 	updated.Version++
 	slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
+	if stage == StageConfirmed {
+		return s.allocations.PublishConfirmedArrival(ctx, updated)
+	}
 	return s.allocations.PublishAssignment(ctx, updated)
 }
 

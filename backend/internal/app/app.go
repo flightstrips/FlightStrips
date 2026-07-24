@@ -3,6 +3,7 @@ package app
 import (
 	"FlightStrips/internal/alb"
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
 	amanWebAPI "FlightStrips/internal/aman/webapi"
 	"FlightStrips/internal/cdm"
 	appconfig "FlightStrips/internal/config"
@@ -233,6 +234,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	var amanAPI *amanWebAPI.WebAPI
 	if stateReader, ok := amanDependencies.Repositories.(aman.AirportStateReader); ok && amanEnabled {
 		amanAPI = amanWebAPI.New(authService, stateReader)
+		if geometry, geometryOK := amanDependencies.NavigationReader.(navdata.GeometryReader); geometryOK {
+			if snapshots, snapshotOK := amanDependencies.NavigationReader.(navdata.GeometrySnapshotReader); snapshotOK {
+				amanAPI.WithNavigation(geometry, snapshots)
+			}
+		}
 	}
 	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized)
 	if err != nil {

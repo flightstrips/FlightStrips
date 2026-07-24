@@ -38,6 +38,9 @@ func TestAMANCPHBuildsThreeDegreeProfileAndUsesCurrentSpeedBeforeTOD(t *testing.
 	require.Greater(t, result.Duration, 0*time.Second)
 	require.Equal(t, result.NoWindDuration, result.Duration)
 	require.Contains(t, result.DegradationReasons, "WEATHER_UNAVAILABLE")
+	require.NotEmpty(t, result.Segments)
+	require.Equal(t, "ppos_to_tod", result.Segments[0].PhaseID)
+	require.Equal(t, "Segment 1 · PPOS → TOD", result.Segments[0].PhaseName)
 }
 
 func TestAMANCPHProjectsWindWithoutGlobalCorrectionCap(t *testing.T) {
@@ -58,16 +61,32 @@ func TestAMANCPHProjectsWindWithoutGlobalCorrectionCap(t *testing.T) {
 	require.Greater(t, headwind.Duration, time.Duration(float64(noWind.Duration)*1.2), "wind duration is not capped at the old 20 percent bound")
 }
 
-func TestAMANCPHRequestsCurrentWindBeforeRouteSegmentWinds(t *testing.T) {
+func TestAMANCPHRequestsWeatherOnlyForTerminalDescentSegments(t *testing.T) {
 	input := performanceInput()
+	input.Remaining = []RouteLeg{
+		{ID: "ENROUTE", DistanceNM: 300, CourseTrueDegrees: 90, Start: WindCoordinate{LatitudeDegrees: 50, LongitudeDegrees: 0}, End: WindCoordinate{LatitudeDegrees: 55, LongitudeDegrees: 12}},
+		{ID: "TERMINAL", DistanceNM: 30, CourseTrueDegrees: 45, Start: WindCoordinate{LatitudeDegrees: 55, LongitudeDegrees: 12}, End: WindCoordinate{LatitudeDegrees: 55.6, LongitudeDegrees: 12.7}},
+	}
 	segments := buildDescentSegments(input)
 
-	requests := windRequestsForSegments(input, segments, PerformanceWindConfig{})
+	requests, indexes := windRequestsForSegments(input, segments, PerformanceWindConfig{})
 
-	require.Len(t, requests, len(segments)+1)
-	require.Equal(t, input.Remaining[0].Start, requests[0].Position)
-	require.Equal(t, input.PredictionAt, requests[0].At)
-	require.Equal(t, input.AltitudeFeet, requests[0].AltitudeFeet)
+	require.NotEmpty(t, requests)
+	require.Equal(t, len(requests), len(indexes))
+	for _, index := range indexes {
+		require.True(t, segments[index].weatherEligible)
+		require.False(t, segments[index].preTOD)
+	}
+	result, err := EstimatePerformanceWind(context.Background(), nil, fixedWind{east: 80, now: input.PredictionAt}, input, PerformanceWindConfig{})
+	require.NoError(t, err)
+	require.Len(t, result.Segments, len(segments))
+	for index, segment := range segments {
+		if segment.weatherEligible && !segment.preTOD {
+			require.NotNil(t, result.Segments[index].TailwindKnots)
+		} else {
+			require.Nil(t, result.Segments[index].TailwindKnots)
+		}
+	}
 }
 
 func TestAMANCPHRETAAndLightAircraftBehavior(t *testing.T) {
@@ -99,6 +118,35 @@ func TestAMANCPHReturnsActualDurationForEachRouteLeg(t *testing.T) {
 	require.Len(t, result.LegDurations, len(input.Remaining))
 	require.Equal(t, result.Duration, result.LegDurations[0]+result.LegDurations[1])
 	require.NotEqual(t, result.LegDurations[0], result.LegDurations[1])
+	require.NotEmpty(t, result.Segments)
+	segmentDuration, noWindSegmentDuration := time.Duration(0), time.Duration(0)
+	windApplied := false
+	for _, segment := range result.Segments {
+		segmentDuration += segment.Duration
+		noWindSegmentDuration += segment.NoWindDuration
+		windApplied = windApplied || segment.TailwindKnots != nil
+		require.Greater(t, segment.DistanceNM, 0.0)
+		require.Greater(t, segment.GroundspeedKnots, 0.0)
+	}
+	require.Equal(t, result.Duration, segmentDuration)
+	require.Equal(t, result.NoWindDuration, noWindSegmentDuration)
+	require.True(t, windApplied)
+}
+
+func TestAMANCPHWindBreakdownRetainsNoWindSegmentTotalAtHighAltitude(t *testing.T) {
+	input := performanceInput()
+	input.AltitudeFeet = 30000
+	input.CurrentGroundspeedKnots = 500
+	input.Remaining[0].DistanceNM = 120
+
+	result, err := EstimatePerformanceWind(context.Background(), nil, fixedWind{east: 100, now: input.PredictionAt}, input, PerformanceWindConfig{})
+	require.NoError(t, err)
+
+	segmentNoWindDuration := time.Duration(0)
+	for _, segment := range result.Segments {
+		segmentNoWindDuration += segment.NoWindDuration
+	}
+	require.Equal(t, result.NoWindDuration, segmentNoWindDuration)
 }
 
 func TestAMANCPHMissingWeatherDegradesButMissingEssentialInputFails(t *testing.T) {

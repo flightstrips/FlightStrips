@@ -5,7 +5,10 @@ package webapi
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/trajectory"
 	"FlightStrips/internal/shared"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,12 +18,22 @@ import (
 )
 
 type WebAPI struct {
-	auth   shared.AuthenticationService
-	states aman.AirportStateReader
+	auth      shared.AuthenticationService
+	states    aman.AirportStateReader
+	geometry  navdata.GeometryReader
+	snapshots navdata.GeometrySnapshotReader
 }
 
 func New(auth shared.AuthenticationService, states aman.AirportStateReader) *WebAPI {
 	return &WebAPI{auth: auth, states: states}
+}
+
+// WithNavigation adds the cache-only readers needed to render the filed route
+// on the on-demand detail map. Missing navigation never makes the detail API
+// unavailable; the operational evidence still remains useful by itself.
+func (a *WebAPI) WithNavigation(geometry navdata.GeometryReader, snapshots navdata.GeometrySnapshotReader) *WebAPI {
+	a.geometry, a.snapshots = geometry, snapshots
+	return a
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
@@ -51,7 +64,7 @@ func (a *WebAPI) handleFlightDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "AMAN flight was not found")
 		return
 	}
-	detail, err := mapDetail(state, *flight)
+	detail, err := a.mapDetail(r.Context(), state, *flight)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, "AMAN flight detail is unavailable")
 		return
@@ -74,14 +87,15 @@ func (a *WebAPI) authenticate(w http.ResponseWriter, r *http.Request) bool {
 }
 
 type flightDetail struct {
-	Airport     string        `json:"airport"`
-	Revision    uint64        `json:"revision"`
-	GeneratedAt string        `json:"generated_at"`
-	Flight      flightSummary `json:"flight"`
-	Position    *position     `json:"position"`
-	Calculation *calculation  `json:"calculation"`
-	TETABasis   *tetaBasis    `json:"teta_basis"`
-	SlotBasis   *slotBasis    `json:"slot_basis"`
+	Airport            string              `json:"airport"`
+	Revision           uint64              `json:"revision"`
+	GeneratedAt        string              `json:"generated_at"`
+	Flight             flightSummary       `json:"flight"`
+	Position           *position           `json:"position"`
+	Calculation        *calculation        `json:"calculation"`
+	FiledRouteGeometry *filedRouteGeometry `json:"filed_route_geometry"`
+	TETABasis          *tetaBasis          `json:"teta_basis"`
+	SlotBasis          *slotBasis          `json:"slot_basis"`
 }
 
 type flightSummary struct {
@@ -95,6 +109,7 @@ type flightSummary struct {
 	HoldingFix     *string `json:"holding_fix"`
 	AircraftType   *string `json:"aircraft_type"`
 	WakeCategory   *string `json:"wake_category"`
+	FiledRoute     *string `json:"filed_route"`
 }
 type position struct {
 	Latitude         float64  `json:"latitude"`
@@ -105,10 +120,24 @@ type position struct {
 	ObservedAt       string   `json:"observed_at"`
 }
 type calculation struct {
-	NoWindDurationSeconds int64            `json:"no_wind_duration_seconds"`
-	DurationSeconds       int64            `json:"duration_seconds"`
-	DistanceToGoNM        *float64         `json:"distance_to_go_nm"`
-	Legs                  []calculationLeg `json:"legs"`
+	NoWindDurationSeconds int64                `json:"no_wind_duration_seconds"`
+	DurationSeconds       int64                `json:"duration_seconds"`
+	DistanceToGoNM        *float64             `json:"distance_to_go_nm"`
+	Legs                  []calculationLeg     `json:"legs"`
+	Segments              []calculationSegment `json:"segments"`
+}
+type filedRouteGeometry struct {
+	Legs    []routeLeg `json:"legs"`
+	Reasons []string   `json:"reasons"`
+}
+type routeLeg struct {
+	ID             string  `json:"id"`
+	From           string  `json:"from"`
+	To             string  `json:"to"`
+	StartLatitude  float64 `json:"start_latitude"`
+	StartLongitude float64 `json:"start_longitude"`
+	EndLatitude    float64 `json:"end_latitude"`
+	EndLongitude   float64 `json:"end_longitude"`
 }
 type calculationLeg struct {
 	ID                    string  `json:"id"`
@@ -122,6 +151,24 @@ type calculationLeg struct {
 	CourseTrueDegrees     float64 `json:"course_true_degrees"`
 	NoWindDurationSeconds *int64  `json:"no_wind_duration_seconds"`
 	DurationSeconds       int64   `json:"duration_seconds"`
+}
+type calculationSegment struct {
+	RouteLegIndex          int      `json:"route_leg_index"`
+	PreTOD                 bool     `json:"pre_tod"`
+	PhaseID                string   `json:"phase_id"`
+	PhaseName              string   `json:"phase_name"`
+	PhaseFormula           string   `json:"phase_formula"`
+	DistanceNM             float64  `json:"distance_nm"`
+	CourseTrueDegrees      float64  `json:"course_true_degrees"`
+	StartAltitudeFeet      float64  `json:"start_altitude_feet"`
+	EndAltitudeFeet        float64  `json:"end_altitude_feet"`
+	AltitudeFeet           float64  `json:"altitude_feet"`
+	IndicatedAirspeedKnots *float64 `json:"indicated_airspeed_knots"`
+	NoWindGroundspeedKnots float64  `json:"no_wind_groundspeed_knots"`
+	GroundspeedKnots       float64  `json:"groundspeed_knots"`
+	TailwindKnots          *float64 `json:"tailwind_knots"`
+	NoWindDurationSeconds  int64    `json:"no_wind_duration_seconds"`
+	DurationSeconds        int64    `json:"duration_seconds"`
 }
 type tetaBasis struct {
 	RawTETA              string      `json:"raw_teta"`
@@ -175,7 +222,7 @@ type slotNeighbour struct {
 	SlotTime string `json:"slot_time"`
 }
 
-func mapDetail(state aman.AirportState, flight aman.AMANFlight) (flightDetail, error) {
+func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight aman.AMANFlight) (flightDetail, error) {
 	generatedAt, err := format(state.GeneratedAt)
 	if err != nil {
 		return flightDetail{}, err
@@ -184,8 +231,10 @@ func mapDetail(state aman.AirportState, flight aman.AMANFlight) (flightDetail, e
 		ID: string(flight.ID), Callsign: flight.CurrentCallsign, LifecycleState: string(flight.State), DataStatus: string(flight.DataStatus),
 		RunwayGroupID: stringPointer(flight.SelectedRunwayGroup), Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder), HoldingFix: cloneString(flight.SelectedHolding),
 	}}
+	if observation := flight.LatestObservation; observation != nil {
+		result.Flight.AircraftType, result.Flight.WakeCategory, result.Flight.FiledRoute = cloneString(observation.AircraftType), cloneString(observation.WakeCategory), cloneString(observation.FiledRoute)
+	}
 	if observation := flight.LatestObservation; observation != nil && observation.Surveillance != nil {
-		result.Flight.AircraftType, result.Flight.WakeCategory = cloneString(observation.AircraftType), cloneString(observation.WakeCategory)
 		observedAt, formatErr := format(*observation.Surveillance.ObservedAt)
 		if formatErr != nil {
 			return flightDetail{}, formatErr
@@ -207,16 +256,35 @@ func mapDetail(state aman.AirportState, flight aman.AMANFlight) (flightDetail, e
 		}
 		result.SlotBasis = &basis
 	}
+	result.FiledRouteGeometry = a.mapFiledRouteGeometry(ctx, state, flight)
 	return result, nil
+}
+
+func (a *WebAPI) mapFiledRouteGeometry(ctx context.Context, state aman.AirportState, flight aman.AMANFlight) *filedRouteGeometry {
+	if a.geometry == nil || a.snapshots == nil || flight.ActiveRouteKey == nil || flight.SelectedFeeder == nil || flight.SelectedRunwayGroup == nil {
+		return nil
+	}
+	result, err := trajectory.ReadFiledRoute(ctx, trajectory.Readers{Geometry: a.geometry, Snapshot: a.snapshots}, navdata.AirportID(state.Airport), navdata.RouteKey(*flight.ActiveRouteKey), navdata.FeederID(*flight.SelectedFeeder), *flight.SelectedRunwayGroup)
+	if err != nil || len(result.Legs) == 0 {
+		return nil
+	}
+	geometry := &filedRouteGeometry{Legs: make([]routeLeg, len(result.Legs)), Reasons: slices.Clone(result.Reasons)}
+	for i, leg := range result.Legs {
+		geometry.Legs[i] = routeLeg{ID: leg.ID, From: string(leg.From), To: string(leg.To), StartLatitude: leg.Start.LatitudeDeg, StartLongitude: leg.Start.LongitudeDeg, EndLatitude: leg.End.LatitudeDeg, EndLongitude: leg.End.LongitudeDeg}
+	}
+	return geometry
 }
 
 func mapCalculation(prediction *aman.Prediction) *calculation {
 	if prediction.Calculation == nil {
 		return nil
 	}
-	result := &calculation{NoWindDurationSeconds: seconds(prediction.Calculation.NoWindDuration), DurationSeconds: seconds(prediction.Calculation.Duration), DistanceToGoNM: cloneFloat(prediction.DistanceToGoNM), Legs: make([]calculationLeg, len(prediction.Calculation.Legs))}
+	result := &calculation{NoWindDurationSeconds: seconds(prediction.Calculation.NoWindDuration), DurationSeconds: seconds(prediction.Calculation.Duration), DistanceToGoNM: cloneFloat(prediction.DistanceToGoNM), Legs: make([]calculationLeg, len(prediction.Calculation.Legs)), Segments: make([]calculationSegment, len(prediction.Calculation.Segments))}
 	for i, leg := range prediction.Calculation.Legs {
 		result.Legs[i] = calculationLeg{ID: leg.ID, From: leg.From, To: leg.To, StartLatitude: leg.StartLatitude, StartLongitude: leg.StartLongitude, EndLatitude: leg.EndLatitude, EndLongitude: leg.EndLongitude, DistanceNM: leg.DistanceNM, CourseTrueDegrees: leg.CourseTrueDegrees, NoWindDurationSeconds: optionalSeconds(leg.NoWindDuration), DurationSeconds: seconds(leg.Duration)}
+	}
+	for i, segment := range prediction.Calculation.Segments {
+		result.Segments[i] = calculationSegment{RouteLegIndex: segment.RouteLegIndex, PreTOD: segment.PreTOD, PhaseID: segment.PhaseID, PhaseName: segment.PhaseName, PhaseFormula: segment.PhaseFormula, DistanceNM: segment.DistanceNM, CourseTrueDegrees: segment.CourseTrueDegrees, StartAltitudeFeet: segment.StartAltitudeFeet, EndAltitudeFeet: segment.EndAltitudeFeet, AltitudeFeet: segment.AltitudeFeet, IndicatedAirspeedKnots: cloneFloat(segment.IndicatedAirspeedKnots), NoWindGroundspeedKnots: segment.NoWindGroundspeedKnots, GroundspeedKnots: segment.GroundspeedKnots, TailwindKnots: cloneFloat(segment.TailwindKnots), NoWindDurationSeconds: seconds(segment.NoWindDuration), DurationSeconds: seconds(segment.Duration)}
 	}
 	return result
 }

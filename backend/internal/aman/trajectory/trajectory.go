@@ -89,6 +89,15 @@ type Readers struct {
 	Snapshot navdata.GeometrySnapshotReader
 }
 
+// FiledRouteResult is the complete cache-backed geometry derived from the
+// filed route and terminal configuration. It deliberately excludes active
+// direct-to facts and observation projection, so it remains distinct from the
+// route the aircraft is currently flying.
+type FiledRouteResult struct {
+	Legs    []RemainingLeg
+	Reasons []string
+}
+
 // Project performs only cache reads then delegates to the deterministic reducer.
 func Project(ctx context.Context, readers Readers, input Input, config Config) (Result, error) {
 	if readers.Geometry == nil || readers.Snapshot == nil {
@@ -103,6 +112,47 @@ func Project(ctx context.Context, readers Readers, input Input, config Config) (
 		return Result{}, err
 	}
 	return Reduce(snapshot, route, input, config), nil
+}
+
+// ReadFiledRoute loads the full filed-route geometry for an on-demand display.
+// It reads only the active cache and never materializes or acquires navigation
+// data on the request path.
+func ReadFiledRoute(ctx context.Context, readers Readers, airport navdata.AirportID, routeKey navdata.RouteKey, feeder navdata.FeederID, runwayGroup aman.RunwayGroupID) (FiledRouteResult, error) {
+	if readers.Geometry == nil || readers.Snapshot == nil {
+		return FiledRouteResult{}, fmt.Errorf("filed route requires cache-only geometry and snapshot readers")
+	}
+	route, err := readers.Geometry.Route(ctx, routeKey)
+	if err != nil {
+		return FiledRouteResult{}, err
+	}
+	snapshot, err := readers.Snapshot.ActiveGeometrySnapshot(ctx, airport)
+	if err != nil {
+		return FiledRouteResult{}, err
+	}
+	if !route.Version.Equal(snapshot.Manifest.Version) {
+		return FiledRouteResult{}, fmt.Errorf("filed route geometry dataset does not match active manifest")
+	}
+	fixes := make(map[navdata.FixID]navdata.Fix, len(snapshot.Fixes))
+	for _, fix := range snapshot.Fixes {
+		fixes[fix.ID] = fix
+	}
+	legs, reasons, _, _ := compose(snapshot, route, Input{Feeder: feeder, RunwayGroup: runwayGroup}, fixes, false)
+	result := FiledRouteResult{Legs: make([]RemainingLeg, len(legs)), Reasons: displayReasons(reasons)}
+	for i, leg := range legs {
+		_, bearing := wgs84Inverse(leg.a, leg.b)
+		result.Legs[i] = RemainingLeg{ID: leg.id, From: leg.from, To: leg.to, DistanceNM: leg.distance, CourseTrueDegrees: bearing * 180 / math.Pi, Start: leg.a, End: leg.b}
+	}
+	return result, nil
+}
+
+func displayReasons(reasons []string) []string {
+	result := make([]string, 0, len(reasons))
+	for _, reason := range reasons {
+		if reason != "APPROACH_NOT_SELECTED" {
+			result = append(result, reason)
+		}
+	}
+	return result
 }
 
 // Reduce is pure: callers can persist Result.Progress with their aggregate
@@ -287,15 +337,15 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 			}
 			continue
 		}
-		f, fok := fixes[from]
-		t, tok := fixes[to]
-		if !fok || !tok {
+		fromPosition, fromResolved := coordinateForLeg(value.FromPosition, from, fixes)
+		toPosition, toResolved := coordinateForLeg(value.ToPosition, to, fixes)
+		if !fromResolved || !toResolved {
 			reasons = append(reasons, "UNRESOLVED_LEG:"+value.ID+":FIX_NOT_IN_MANIFEST")
 			last = to
 			continue
 		}
-		d := wgs84NM(f.Position, t.Position)
-		out = append(out, leg{id: value.ID, from: from, to: to, a: f.Position, b: t.Position, distance: d})
+		d := wgs84NM(fromPosition, toPosition)
+		out = append(out, leg{id: value.ID, from: from, to: to, a: fromPosition, b: toPosition, distance: d})
 		last = to
 	}
 	if activeRouteFact(input.RouteFact) {
@@ -324,6 +374,14 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 		return out, dedupe(reasons), selected, rejoin
 	}
 	return out, dedupe(reasons), selected, -1
+}
+
+func coordinateForLeg(position *navdata.Coordinate, fixID navdata.FixID, fixes map[navdata.FixID]navdata.Fix) (navdata.Coordinate, bool) {
+	if position != nil {
+		return *position, true
+	}
+	fix, ok := fixes[fixID]
+	return fix.Position, ok
 }
 
 func compatible(p *aman.RouteProgress, digest string, snapshot navdata.ActiveGeometrySnapshot, in Input) bool {

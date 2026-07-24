@@ -34,6 +34,10 @@ func (r *amanWeatherCache) Load(ctx context.Context, keys []string) ([]openmeteo
 		if err := rows.Scan(&value.Key, &levels, &value.ObservedAt, &value.ExpiresAt); err != nil {
 			return nil, err
 		}
+		// TIMESTAMPTZ retains the instant but pgx can attach the local location.
+		// Open-Meteo's predictor-facing contract uses UTC-only timestamps.
+		value.ObservedAt = value.ObservedAt.UTC()
+		value.ExpiresAt = value.ExpiresAt.UTC()
 		if err := json.Unmarshal(levels, &value.Levels); err != nil {
 			return nil, fmt.Errorf("decode weather levels for %q: %w", value.Key, err)
 		}

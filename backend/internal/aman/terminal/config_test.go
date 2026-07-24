@@ -28,6 +28,11 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	for _, path := range fragment.Paths {
 		require.Len(t, path.HoldingIDs, 1)
 		require.NotEmpty(t, path.Digest)
+		require.GreaterOrEqual(t, len(path.Legs), 2)
+		require.Contains(t, path.Legs[len(path.Legs)-2].ID, "FINAL-APPROACH-FIX")
+		require.Contains(t, path.Legs[len(path.Legs)-1].ID, "-RUNWAY")
+		require.Contains(t, string(*path.Legs[len(path.Legs)-1].ToFix), "RWY-")
+		require.NotNil(t, path.Legs[len(path.Legs)-1].ToPosition)
 	}
 }
 
@@ -49,6 +54,9 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		"22L": {55.6254111111, 12.6675805556, 221.2}, "22R": {55.6124777778, 12.6348916667, 221.2},
 		"12": {55.62415, 12.6391166667, 123.2}, "30": {55.6138527778, 12.6669472222, 303.2},
 	}
+	wantFinalApproachFixes := map[navdata.RunwayID]navdata.FixID{
+		"04L": "BUDIQ", "04R": "CATWU", "12": "CH12F", "22L": "EXTAR", "22R": "RUCCI", "30": "CH30F",
+	}
 	actualFinals := map[navdata.RunwayID]FinalApproachDefinition{}
 	for _, group := range config.RunwayGroups {
 		for _, final := range group.FinalApproaches {
@@ -61,6 +69,7 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		require.Equal(t, want.latitude, actual.Threshold.Position.LatitudeDeg, runway)
 		require.Equal(t, want.longitude, actual.Threshold.Position.LongitudeDeg, runway)
 		require.Equal(t, want.course, actual.CourseTrueDeg, runway)
+		require.Equal(t, wantFinalApproachFixes[runway], actual.FinalApproachFix, runway)
 		require.NotNil(t, actual.Threshold.CourseTrueDeg, runway)
 		require.Equal(t, want.course, *actual.Threshold.CourseTrueDeg, runway)
 	}
@@ -385,6 +394,11 @@ func referencesFor(t *testing.T, config Configuration) ReferenceSet {
 	for _, path := range config.Paths {
 		fixIDs = append(fixIDs, path.Fixes...)
 	}
+	for _, group := range config.RunwayGroups {
+		for _, final := range group.FinalApproaches {
+			fixIDs = append(fixIDs, final.FinalApproachFix)
+		}
+	}
 	for _, holding := range config.OverlayHoldings {
 		fixIDs = append(fixIDs, holding.Fix)
 	}
@@ -405,6 +419,12 @@ func referencesFor(t *testing.T, config Configuration) ReferenceSet {
 	setFixPosition(fixes, "FEDJO", 55.837475, 12.351667)
 	setFixPosition(fixes, "HOFFO", 55.570833, 13.073333)
 	setFixPosition(fixes, "COPHO", 55.416558, 12.902131)
+	setFixPosition(fixes, "BUDIQ", 55.435267, 12.362403)
+	setFixPosition(fixes, "CATWU", 55.431833, 12.3695)
+	setFixPosition(fixes, "CH12F", 55.706753, 12.415008)
+	setFixPosition(fixes, "EXTAR", 55.781472, 12.910667)
+	setFixPosition(fixes, "RUCCI", 55.785053, 12.903611)
+	setFixPosition(fixes, "CH30F", 55.531728, 12.888461)
 	return ReferenceSet{Version: version, Airport: navdata.Airport{ID: "EKCH", Name: "Copenhagen", Position: navdata.Coordinate{LatitudeDeg: 55.61, LongitudeDeg: 12.65}, Provenance: provenance}, Runways: runways, Fixes: fixes}
 }
 func setFixPosition(fixes []navdata.Fix, id navdata.FixID, lat, lon float64) {

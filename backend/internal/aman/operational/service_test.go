@@ -449,6 +449,14 @@ func TestActiveRouteReuseIncludesNavigationDatasetVersion(t *testing.T) {
 	require.False(t, canReuseActiveRoute(flight, 7, group, navigationDatasetID(version)))
 }
 
+func TestSyntheticDestinationClosingLegRequiresRouteRematerialization(t *testing.T) {
+	from, destination := navdata.FixID("TUDLO"), navdata.FixID("EKCH")
+	route := navdata.RouteGeometry{Legs: []navdata.ProcedureLeg{{ID: "ROUTE-0012", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &destination}}}
+
+	require.True(t, hasSyntheticDestinationClosingLeg(route, "EKCH"))
+	require.False(t, hasSyntheticDestinationClosingLeg(route, "EGLL"))
+}
+
 func TestHoldingETAUsesPerLegDurations(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	legs := []trajectory.RemainingLeg{

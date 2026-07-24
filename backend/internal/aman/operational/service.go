@@ -26,6 +26,7 @@ import (
 const (
 	policyVersion          = "aman-cph-v1"
 	modelVersion           = "aman-cph-teta-v1"
+	routeResolverVersion   = "airacnet-route-v3"
 	defaultArrivalRate     = uint32(20)
 	navigationRefreshEvery = 6 * time.Hour
 	weatherRefreshEvery    = 30 * time.Minute
@@ -63,11 +64,11 @@ type Dependencies struct {
 type Service struct {
 	deps Dependencies
 
-	mu          sync.Mutex
-	observed    map[string]map[aman.FlightID]aman.FlightObservation
+	mu                 sync.Mutex
+	observed           map[string]map[aman.FlightID]aman.FlightObservation
 	lastRefresh        map[string]time.Time
 	lastWeatherRefresh map[string]time.Time
-	health      serviceHealth
+	health             serviceHealth
 }
 
 type serviceHealth struct {
@@ -204,7 +205,7 @@ func weatherProbeRequest(config terminal.Configuration, airport string, at time.
 			}
 			return predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{
 				Position: predictor.WindCoordinate{LatitudeDegrees: position.LatitudeDeg, LongitudeDegrees: position.LongitudeDeg},
-				At: at.UTC(), AltitudeFeet: 10000,
+				At:       at.UTC(), AltitudeFeet: 10000,
 			}}}, nil
 		}
 	}
@@ -443,8 +444,12 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	var key navdata.RouteKey
 	if canReuseActiveRoute(flight, revision, group, datasetID) {
 		key = navdata.RouteKey(*flight.ActiveRouteKey)
-	} else {
-		key, err = s.deps.Materializer.MaterializeRoute(ctx, query, modelVersion)
+		if !hasResolvedRouteFixes(ctx, s.deps.Geometry, navdata.AirportID(observation.Destination), key) {
+			key = ""
+		}
+	}
+	if key == "" {
+		key, err = s.deps.Materializer.MaterializeRoute(ctx, query, routeResolverVersion)
 		if err != nil {
 			return flight, err
 		}
@@ -491,6 +496,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 			NoWindDuration: estimate.NoWindDuration,
 			Duration:       estimate.Duration,
 			Legs:           calculationLegs(projection.Remaining, estimate.NoWindLegDurations, estimate.LegDurations),
+			Segments:       calculationSegments(estimate.Segments),
 		},
 	}
 	if len(degradations) > 0 {
@@ -1000,6 +1006,22 @@ func calculationLegs(legs []trajectory.RemainingLeg, noWindDurations, durations 
 	return result
 }
 
+func calculationSegments(segments []predictor.DescentSegmentCalculation) []aman.PredictionSegment {
+	result := make([]aman.PredictionSegment, len(segments))
+	for i, segment := range segments {
+		result[i] = aman.PredictionSegment{
+			RouteLegIndex: segment.RouteLegIndex, PreTOD: segment.PreTOD,
+			PhaseID: segment.PhaseID, PhaseName: segment.PhaseName, PhaseFormula: segment.PhaseFormula,
+			DistanceNM: segment.DistanceNM, CourseTrueDegrees: segment.CourseTrueDegrees,
+			StartAltitudeFeet: segment.StartAltitudeFeet, EndAltitudeFeet: segment.EndAltitudeFeet, AltitudeFeet: segment.AltitudeFeet,
+			IndicatedAirspeedKnots: cloneFloat(segment.IndicatedAirspeedKnots),
+			NoWindGroundspeedKnots: segment.NoWindGroundspeedKnots, GroundspeedKnots: segment.GroundspeedKnots,
+			TailwindKnots: cloneFloat(segment.TailwindKnots), NoWindDuration: segment.NoWindDuration, Duration: segment.Duration,
+		}
+	}
+	return result
+}
+
 func holdingETA(now time.Time, durations []time.Duration, legs []trajectory.RemainingLeg, fix navdata.FixID) *time.Time {
 	if len(durations) != len(legs) {
 		return nil
@@ -1048,6 +1070,14 @@ func stringValue(value *string) string {
 }
 func stringPointer(value string) *string { return &value }
 
+func cloneFloat(value *float64) *float64 {
+	if value == nil {
+		return nil
+	}
+	result := *value
+	return &result
+}
+
 func navigationDatasetID(version navdata.DatasetVersion) string {
 	return strings.Join([]string{
 		version.Cycle,
@@ -1064,6 +1094,49 @@ func canReuseActiveRoute(flight aman.AMANFlight, revision uint64, group aman.Run
 		flight.RouteProgress != nil &&
 		flight.RouteProgress.FlightPlanRevision == revision &&
 		flight.RouteProgress.RunwayGroupID == group
+}
+
+func hasResolvedRouteFixes(ctx context.Context, geometry GeometryCache, airport navdata.AirportID, key navdata.RouteKey) bool {
+	route, err := geometry.Route(ctx, key)
+	if err != nil || len(route.Legs) == 0 {
+		return false
+	}
+	if hasSyntheticDestinationClosingLeg(route, airport) {
+		return false
+	}
+	snapshot, err := geometry.ActiveGeometrySnapshot(ctx, airport)
+	if err != nil || !route.Version.Equal(snapshot.Manifest.Version) {
+		return false
+	}
+	fixes := make(map[navdata.FixID]struct{}, len(snapshot.Fixes))
+	for _, fix := range snapshot.Fixes {
+		fixes[fix.ID] = struct{}{}
+	}
+	for _, leg := range route.Legs {
+		if leg.FromFix != nil && leg.FromPosition == nil {
+			if _, ok := fixes[*leg.FromFix]; !ok {
+				return false
+			}
+		}
+		if leg.ToFix != nil && leg.ToPosition == nil {
+			if _, ok := fixes[*leg.ToFix]; !ok {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// AIRAC.NET route parsing closes its output with a direct leg to the airport.
+// AMAN replaces that leg with a configured feeder-to-runway terminal path, so
+// a cached route ending at the destination predates that normalization and
+// must be materialized again.
+func hasSyntheticDestinationClosingLeg(route navdata.RouteGeometry, airport navdata.AirportID) bool {
+	if len(route.Legs) == 0 {
+		return false
+	}
+	last := route.Legs[len(route.Legs)-1]
+	return last.ToFix != nil && *last.ToFix == navdata.FixID(airport) && (last.FromFix == nil || *last.FromFix != *last.ToFix)
 }
 
 func componentHealth(status aman.HealthStatus, reason string, at time.Time) aman.ComponentHealth {

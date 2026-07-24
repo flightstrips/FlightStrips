@@ -63,7 +63,7 @@ func TestPostgresStartupRecoveryAndWarmRouteWithoutSource(t *testing.T) {
 	require.Error(t, fresh.Refresh(ctx, Request{Airport: "EKCH"}))
 	stillActive, err := freshRepo.ActiveManifest(ctx, "EKCH")
 	require.NoError(t, err)
-	require.Equal(t, int64(1), stillActive.Revision)
+	require.Equal(t, int64(2), stillActive.Revision, "route materialization activates a revision that includes its expanded fixes")
 	require.Equal(t, ReasonDatasetExpired, fresh.Health("EKCH").Reason)
 
 	// A corrupt referenced fragment is never ready. A full new-revision source
@@ -79,7 +79,7 @@ func TestPostgresStartupRecoveryAndWarmRouteWithoutSource(t *testing.T) {
 	require.NoError(t, recovering.Refresh(ctx, Request{Airport: "EKCH"}))
 	recovered, err := freshRepo.ActiveManifest(ctx, "EKCH")
 	require.NoError(t, err)
-	require.Equal(t, int64(2), recovered.Revision)
+	require.Equal(t, int64(3), recovered.Revision)
 	require.Equal(t, revised.Version, recovered.Candidate.Version)
 	require.True(t, recovering.Health("EKCH").CacheReady)
 }

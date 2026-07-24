@@ -19,6 +19,8 @@ const (
 	defaultPerformanceVersion      = "aman-performance-defaults-v1"
 	amanCPHModelVersion            = "aman-cph-teta-v1"
 	descentFeetPerNM               = 318.4
+	terminalWeatherHorizonNM       = 120.0
+	weatherNotRequiredSource       = "not-required-outside-terminal-horizon"
 )
 
 // AircraftPerformanceRepository supplies versioned, provider-neutral profile
@@ -111,6 +113,22 @@ type PerformanceWindResult struct {
 	WeatherSource, WeatherSourceRevision            *string
 	DegradationReasons                              []string
 	NoWindLegDurations, LegDurations                []time.Duration
+	Segments                                        []DescentSegmentCalculation
+}
+
+// DescentSegmentCalculation records the physical inputs used for one
+// sub-section of the arrival prediction. Tailwind is positive; a nil value
+// means that wind was not applied to that sub-section.
+type DescentSegmentCalculation struct {
+	RouteLegIndex                                    int
+	PreTOD                                           bool
+	PhaseID, PhaseName, PhaseFormula                 string
+	DistanceNM, CourseTrueDegrees                    float64
+	StartAltitudeFeet, EndAltitudeFeet, AltitudeFeet float64
+	IndicatedAirspeedKnots                           *float64
+	NoWindGroundspeedKnots, GroundspeedKnots         float64
+	TailwindKnots                                    *float64
+	NoWindDuration, Duration                         time.Duration
 }
 
 // EstimatePerformanceWind calculates only the latest physical/raw route
@@ -142,16 +160,22 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	}
 	result.RawRETA = input.PredictionAt.Add(durationForDistance(distance, input.CurrentGroundspeedKnots, config))
 
-	base, baseLegDurations := durationBreakdownForSegments(segments, input, nil, config)
+	base, baseLegDurations, baseSegments := durationBreakdownForSegments(segments, input, nil, config)
 	result.NoWindDuration, result.Duration = base, base
 	result.NoWindLegDurations, result.LegDurations = baseLegDurations, baseLegDurations
+	result.Segments = baseSegments
 
 	if wind == nil {
 		result = degradeWind(result, "WEATHER_UNAVAILABLE")
 		result.RawTETA = input.PredictionAt.Add(result.Duration)
 		return result, nil
 	}
-	requests := windRequestsForSegments(input, segments, config)
+	requests, weatherSegments := windRequestsForSegments(input, segments, config)
+	if len(requests) == 0 {
+		result.WeatherSource = pointerString(weatherNotRequiredSource)
+		result.RawTETA = input.PredictionAt.Add(result.Duration)
+		return result, nil
+	}
 	weather, err := wind.WindProfile(ctx, WindProfileRequest{Samples: requests})
 	if err != nil || !validWindProfile(weather, requests, input.PredictionAt) {
 		result = degradeWind(result, "WEATHER_UNAVAILABLE")
@@ -160,7 +184,7 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	}
 	result.WeatherSource = pointerString(weather.SourceID)
 	result.WeatherSourceRevision = pointerString(weather.SourceRevision)
-	windDuration, windLegDurations, ok := durationForWeather(segments, input, weather, config)
+	windDuration, windLegDurations, windSegments, ok := durationForWeather(segments, input, weather, weatherSegments, config)
 	if !ok {
 		result = degradeWind(result, "WEATHER_INCOMPLETE")
 		result.RawTETA = input.PredictionAt.Add(result.Duration)
@@ -168,20 +192,58 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	}
 	result.Duration = windDuration
 	result.LegDurations = windLegDurations
+	result.Segments = withNoWindBreakdown(windSegments, baseSegments)
 	result.RawTETA = input.PredictionAt.Add(result.Duration)
 	return result, nil
 }
 
+// withNoWindBreakdown keeps the no-wind side of the explanation tied to the
+// no-wind total. Wind sampling may adjust the inferred high-altitude IAS, but
+// that must not silently replace the persisted no-wind reference calculation.
+func withNoWindBreakdown(wind, noWind []DescentSegmentCalculation) []DescentSegmentCalculation {
+	if len(wind) != len(noWind) {
+		return wind
+	}
+	for i := range wind {
+		wind[i].NoWindGroundspeedKnots = noWind[i].NoWindGroundspeedKnots
+		wind[i].NoWindDuration = noWind[i].NoWindDuration
+	}
+	return wind
+}
+
 type descentSegment struct {
-	distanceNM, courseTrueDegrees, altitudeFeet float64
-	position                                    WindCoordinate
-	legIndex                                    int
-	preTOD                                      bool
+	distanceNM, courseTrueDegrees, startAltitudeFeet, endAltitudeFeet, altitudeFeet float64
+	position                                                                        WindCoordinate
+	legIndex                                                                        int
+	preTOD, weatherEligible                                                         bool
+}
+
+type modelPhase struct{ id, name, formula string }
+
+func phaseForSegment(segment descentSegment) modelPhase {
+	if segment.preTOD {
+		return modelPhase{id: "ppos_to_tod", name: "Segment 1 · PPOS → TOD", formula: "time = distance ÷ observed groundspeed"}
+	}
+	switch {
+	case segment.altitudeFeet > 27000:
+		return modelPhase{id: "tod_to_fl270", name: "Segment 2 · TOD → FL270", formula: "time = distance ÷ TAS from high-altitude speed"}
+	case segment.altitudeFeet > 10000:
+		return modelPhase{id: "fl270_to_fl100", name: "Segment 3 · FL270 → FL100", formula: "time = distance ÷ (TAS from WTC IAS + wind)"}
+	case segment.altitudeFeet > 5000:
+		return modelPhase{id: "fl100_to_fl050", name: "Segment 4 · FL100 → FL050", formula: "time = distance ÷ (TAS from 250 kt IAS + wind)"}
+	case segment.altitudeFeet > 3000:
+		return modelPhase{id: "fl050_to_fl030", name: "Segment 5 · FL050 → FL030", formula: "time = distance ÷ (TAS from 210 kt IAS + wind)"}
+	default:
+		return modelPhase{id: "fl030_to_landing", name: "Segment 6 · FL030 → landing", formula: "time = distance ÷ (TAS from 150 kt IAS + wind)"}
+	}
 }
 
 func buildDescentSegments(input PerformanceWindInput) []descentSegment {
 	total := routeDistance(input.Remaining)
 	boundaries := []float64{0, total}
+	if total > terminalWeatherHorizonNM {
+		boundaries = append(boundaries, total-terminalWeatherHorizonNM)
+	}
 	for _, altitude := range []float64{input.AltitudeFeet, 27000, 10000, 5000, 3000, 0} {
 		travelled := total - min(input.AltitudeFeet, altitude)/descentFeetPerNM
 		if travelled > 0 && travelled < total {
@@ -211,73 +273,90 @@ func buildDescentSegments(input PerformanceWindInput) []descentSegment {
 		remaining := total - mid
 		descentDistance := input.AltitudeFeet / descentFeetPerNM
 		preTOD := remaining > descentDistance
-		altitude := input.AltitudeFeet
-		if !preTOD {
-			altitude = min(input.AltitudeFeet, remaining*descentFeetPerNM)
-		}
+		altitude := altitudeAtDistance(total, input.AltitudeFeet, mid)
 		segments = append(segments, descentSegment{
 			distanceNM: to - from, courseTrueDegrees: leg.CourseTrueDegrees,
+			startAltitudeFeet: altitudeAtDistance(total, input.AltitudeFeet, from), endAltitudeFeet: altitudeAtDistance(total, input.AltitudeFeet, to),
 			altitudeFeet: altitude, position: interpolateCoordinate(leg.Start, leg.End, fraction),
-			legIndex: legIndex, preTOD: preTOD,
+			legIndex: legIndex, preTOD: preTOD, weatherEligible: from >= total-terminalWeatherHorizonNM,
 		})
 	}
 	return segments
 }
 
-func durationForSegments(segments []descentSegment, input PerformanceWindInput, weather *WindProfile, config PerformanceWindConfig) time.Duration {
-	total, _ := durationBreakdownForSegments(segments, input, weather, config)
+func altitudeAtDistance(totalDistance, currentAltitude, travelled float64) float64 {
+	return min(currentAltitude, max(0, (totalDistance-travelled)*descentFeetPerNM))
+}
+
+func durationForSegments(segments []descentSegment, input PerformanceWindInput, weather map[int]WindSample, config PerformanceWindConfig) time.Duration {
+	total, _, _ := durationBreakdownForSegments(segments, input, weather, config)
 	return total
 }
 
-func durationBreakdownForSegments(segments []descentSegment, input PerformanceWindInput, weather *WindProfile, config PerformanceWindConfig) (time.Duration, []time.Duration) {
+func durationBreakdownForSegments(segments []descentSegment, input PerformanceWindInput, weather map[int]WindSample, config PerformanceWindConfig) (time.Duration, []time.Duration, []DescentSegmentCalculation) {
 	inferredIAS := tasToIAS(input.CurrentGroundspeedKnots, input.AltitudeFeet)
-	if weather != nil && len(weather.Samples) == len(segments)+1 {
-		if east, north, ok := interpolateWind(weather.Samples[0].Levels, input.AltitudeFeet); ok {
-			inferredIAS = tasToIAS(input.CurrentGroundspeedKnots-tailwind(input.Remaining[0].CourseTrueDegrees, east, north), input.AltitudeFeet)
-		}
-	}
 	total := time.Duration(0)
 	legDurations := make([]time.Duration, len(input.Remaining))
+	breakdown := make([]DescentSegmentCalculation, len(segments))
 	for i, segment := range segments {
 		groundspeed := input.CurrentGroundspeedKnots
+		noWindGroundspeed := groundspeed
+		var indicatedAirspeed, tailwindComponent *float64
 		if !segment.preTOD {
 			ias := descentIAS(input.WakeTurbulenceCategory, segment.altitudeFeet, inferredIAS)
+			indicatedAirspeed = &ias
 			groundspeed = iasToTAS(ias, segment.altitudeFeet)
-			if weather != nil {
-				east, north, ok := interpolateWind(weather.Samples[i+1].Levels, segment.altitudeFeet)
+			noWindGroundspeed = groundspeed
+			if sample, found := weather[i]; found {
+				east, north, ok := interpolateWind(sample.Levels, segment.altitudeFeet)
 				if !ok {
-					return 0, nil
+					return 0, nil, nil
 				}
-				groundspeed += tailwind(segment.courseTrueDegrees, east, north)
+				component := tailwind(segment.courseTrueDegrees, east, north)
+				tailwindComponent = &component
+				groundspeed += component
 			}
 		}
+		noWindDuration := durationForDistance(segment.distanceNM, noWindGroundspeed, config)
 		duration := durationForDistance(segment.distanceNM, groundspeed, config)
+		phase := phaseForSegment(segment)
 		total += duration
 		legDurations[segment.legIndex] += duration
+		breakdown[i] = DescentSegmentCalculation{RouteLegIndex: segment.legIndex, PreTOD: segment.preTOD, PhaseID: phase.id, PhaseName: phase.name, PhaseFormula: phase.formula, DistanceNM: segment.distanceNM, CourseTrueDegrees: segment.courseTrueDegrees, StartAltitudeFeet: segment.startAltitudeFeet, EndAltitudeFeet: segment.endAltitudeFeet, AltitudeFeet: segment.altitudeFeet, IndicatedAirspeedKnots: indicatedAirspeed, NoWindGroundspeedKnots: noWindGroundspeed, GroundspeedKnots: groundspeed, TailwindKnots: tailwindComponent, NoWindDuration: noWindDuration, Duration: duration}
 	}
-	return total, legDurations
+	return total, legDurations, breakdown
 }
 
-func durationForWeather(segments []descentSegment, input PerformanceWindInput, weather WindProfile, config PerformanceWindConfig) (time.Duration, []time.Duration, bool) {
-	duration, legs := durationBreakdownForSegments(segments, input, &weather, config)
-	return duration, legs, duration > 0
+func durationForWeather(segments []descentSegment, input PerformanceWindInput, weather WindProfile, weatherSegments []int, config PerformanceWindConfig) (time.Duration, []time.Duration, []DescentSegmentCalculation, bool) {
+	if len(weather.Samples) != len(weatherSegments) {
+		return 0, nil, nil, false
+	}
+	samples := make(map[int]WindSample, len(weatherSegments))
+	for i, segmentIndex := range weatherSegments {
+		samples[segmentIndex] = weather.Samples[i]
+	}
+	duration, legs, breakdown := durationBreakdownForSegments(segments, input, samples, config)
+	return duration, legs, breakdown, duration > 0
 }
 
-func windRequestsForSegments(input PerformanceWindInput, segments []descentSegment, config PerformanceWindConfig) []WindSampleRequest {
-	requests := make([]WindSampleRequest, 1, len(segments)+1)
-	requests[0] = WindSampleRequest{Position: input.Remaining[0].Start, At: input.PredictionAt, AltitudeFeet: input.AltitudeFeet}
+func windRequestsForSegments(input PerformanceWindInput, segments []descentSegment, config PerformanceWindConfig) ([]WindSampleRequest, []int) {
+	requests := make([]WindSampleRequest, 0, len(segments))
+	segmentIndexes := make([]int, 0, len(segments))
 	elapsed := time.Duration(0)
 	inferredIAS := tasToIAS(input.CurrentGroundspeedKnots, input.AltitudeFeet)
-	for _, segment := range segments {
+	for index, segment := range segments {
 		speed := input.CurrentGroundspeedKnots
 		if !segment.preTOD {
 			speed = iasToTAS(descentIAS(input.WakeTurbulenceCategory, segment.altitudeFeet, inferredIAS), segment.altitudeFeet)
 		}
 		duration := durationForDistance(segment.distanceNM, speed, config)
-		requests = append(requests, WindSampleRequest{Position: segment.position, At: input.PredictionAt.Add(elapsed + duration/2), AltitudeFeet: segment.altitudeFeet})
+		if segment.weatherEligible && !segment.preTOD {
+			requests = append(requests, WindSampleRequest{Position: segment.position, At: input.PredictionAt.Add(elapsed + duration/2), AltitudeFeet: segment.altitudeFeet})
+			segmentIndexes = append(segmentIndexes, index)
+		}
 		elapsed += duration
 	}
-	return requests
+	return requests, segmentIndexes
 }
 
 func descentIAS(category AircraftCategory, altitude, inferredHighIAS float64) float64 {

@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman/predictor"
+
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -24,6 +26,11 @@ const (
 	defaultTimeout   = 5 * time.Second
 	defaultCacheTTL  = 30 * time.Minute
 	maxResponseBytes = 1 << 20
+
+	// GFS pressure-level variables are published on a 0.25° grid. Caching at
+	// flight-position precision turns a moving aircraft into a new provider
+	// request every reconciliation while returning the same model-cell data.
+	gfsPressureGridDegrees = .25
 
 	// Keep AMAN's own traffic safely below Open-Meteo's free-tier limits
 	// (600/minute, 5,000/hour, 10,000/day). One request can contain every
@@ -69,6 +76,7 @@ type Adapter struct {
 	mu         sync.RWMutex
 	cache      map[string]cacheEntry
 	requests   []time.Time
+	refreshes  singleflight.Group
 }
 
 func New(config Config) *Adapter {
@@ -116,7 +124,7 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 		if found {
 			stale[key] = cached
 		}
-		missing[key] = sample
+		missing[key] = providerGridSample(sample)
 	}
 	if len(missing) > 0 && a.persistent != nil {
 		missingKeys := make([]string, 0, len(missing))
@@ -128,7 +136,10 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 			return predictor.WindProfile{}, fmt.Errorf("load persisted Open-Meteo cache: %w", err)
 		}
 		for _, value := range cached {
-			entry := cacheEntry{levels: cloneLevels(value.Levels), observedAt: value.ObservedAt, expiresAt: value.ExpiresAt}
+			// pgx may materialize TIMESTAMPTZ values in the process's local
+			// location. The predictor contract requires UTC instants, so restore
+			// that invariant when hydrating the durable cache after a restart.
+			entry := cacheEntry{levels: cloneLevels(value.Levels), observedAt: value.ObservedAt.UTC(), expiresAt: value.ExpiresAt.UTC()}
 			a.mu.Lock()
 			a.cache[value.Key] = cloneEntry(entry)
 			a.mu.Unlock()
@@ -154,19 +165,12 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 			rightKey, _ := cacheKey(right)
 			return strings.Compare(leftKey, rightKey)
 		})
-		levels, err := a.fetchSamples(ctx, requested)
-		if err != nil {
-			for i, key := range keys {
-				if !entries[i].observedAt.IsZero() {
-					continue
-				}
-				cached, found := stale[key]
-				if !found {
-					return predictor.WindProfile{}, err
-				}
-				entries[i] = cloneEntry(cached)
+		refreshKey := strings.Join(missingKeys(requested), ",")
+		value, err, _ := a.refreshes.Do(refreshKey, func() (any, error) {
+			levels, fetchErr := a.fetchSamples(ctx, requested)
+			if fetchErr != nil {
+				return nil, fetchErr
 			}
-		} else {
 			refreshed := make(map[string]cacheEntry, len(requested))
 			persisted := make([]CachedSample, 0, len(requested))
 			for i, sample := range requested {
@@ -179,10 +183,25 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 				persisted = append(persisted, CachedSample{Key: key, Levels: cloneLevels(entry.levels), ObservedAt: entry.observedAt, ExpiresAt: entry.expiresAt})
 			}
 			if a.persistent != nil {
-				if err := a.persistent.Store(ctx, persisted); err != nil {
-					return predictor.WindProfile{}, fmt.Errorf("store Open-Meteo cache: %w", err)
+				if storeErr := a.persistent.Store(ctx, persisted); storeErr != nil {
+					return nil, fmt.Errorf("store Open-Meteo cache: %w", storeErr)
 				}
 			}
+			return refreshed, nil
+		})
+		if err != nil {
+			for i, key := range keys {
+				if !entries[i].observedAt.IsZero() {
+					continue
+				}
+				cached, found := stale[key]
+				if !found {
+					return predictor.WindProfile{}, err
+				}
+				entries[i] = cloneEntry(cached)
+			}
+		} else {
+			refreshed := value.(map[string]cacheEntry)
 			for i, key := range keys {
 				if entries[i].observedAt.IsZero() {
 					entries[i] = cloneEntry(refreshed[key])
@@ -320,7 +339,32 @@ func cacheKey(sample predictor.WindSampleRequest) (string, error) {
 	if sample.At.IsZero() || sample.At.Location() != time.UTC || !finite(sample.Position.LatitudeDegrees) || !finite(sample.Position.LongitudeDegrees) || sample.Position.LatitudeDegrees < -90 || sample.Position.LatitudeDegrees > 90 || sample.Position.LongitudeDegrees < -180 || sample.Position.LongitudeDegrees > 180 || !finite(sample.AltitudeFeet) || sample.AltitudeFeet < 0 {
 		return "", fmt.Errorf("wind sample is invalid")
 	}
-	return fmt.Sprintf("%.4f:%.4f:%s", sample.Position.LatitudeDegrees, sample.Position.LongitudeDegrees, sample.At.UTC().Truncate(time.Hour).Format(time.RFC3339)), nil
+	sample = providerGridSample(sample)
+	return fmt.Sprintf("%.2f:%.2f:%s", sample.Position.LatitudeDegrees, sample.Position.LongitudeDegrees, sample.At.UTC().Truncate(time.Hour).Format(time.RFC3339)), nil
+}
+
+func providerGridSample(sample predictor.WindSampleRequest) predictor.WindSampleRequest {
+	sample.Position.LatitudeDegrees = providerGridCoordinate(sample.Position.LatitudeDegrees)
+	sample.Position.LongitudeDegrees = providerGridCoordinate(sample.Position.LongitudeDegrees)
+	return sample
+}
+
+func providerGridCoordinate(value float64) float64 {
+	normalized := math.Round(value/gfsPressureGridDegrees) * gfsPressureGridDegrees
+	if normalized == 0 { // Avoid separate cache keys for -0 and 0.
+		return 0
+	}
+	return normalized
+}
+
+func missingKeys(samples []predictor.WindSampleRequest) []string {
+	keys := make([]string, 0, len(samples))
+	for _, sample := range samples {
+		key, _ := cacheKey(sample)
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
 }
 func cloneEntry(value cacheEntry) cacheEntry { value.levels = cloneLevels(value.levels); return value }
 func cloneLevels(value []predictor.WindLevel) []predictor.WindLevel {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -78,11 +79,46 @@ func TestAdapterReusesPersistentCacheAcrossRestart(t *testing.T) {
 
 	_, err := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent}).WindProfile(context.Background(), request)
 	require.NoError(t, err)
-	_, err = New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent}).WindProfile(context.Background(), request)
+	// PostgreSQL's TIMESTAMPTZ decoding can preserve the instant while assigning
+	// a local Location. A restarted adapter must restore UTC before exposing it
+	// to the predictor.
+	local := time.FixedZone("CEST", 2*60*60)
+	for key, value := range persistent.values {
+		value.ObservedAt = value.ObservedAt.In(local)
+		value.ExpiresAt = value.ExpiresAt.In(local)
+		persistent.values[key] = value
+	}
+	profile, err := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: persistent}).WindProfile(context.Background(), request)
 
 	require.NoError(t, err)
 	require.Equal(t, 1, calls)
 	require.Equal(t, 1, persistent.reservations)
+	require.Equal(t, time.UTC, profile.ObservedAt.Location())
+	require.Equal(t, time.UTC, profile.ExpiresAt.Location())
+}
+
+func TestAdapterCachesCoordinatesWithinGFSGridCell(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		require.Equal(t, "55.500000", r.URL.Query().Get("latitude"))
+		require.Equal(t, "12.500000", r.URL.Query().Get("longitude"))
+		_, _ = w.Write([]byte(gfsPayload()))
+	}))
+	defer server.Close()
+	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }})
+
+	first := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{Position: predictor.WindCoordinate{LatitudeDegrees: 55.59, LongitudeDegrees: 12.59}, At: now, AltitudeFeet: 10000}}}
+	second := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{Position: predictor.WindCoordinate{LatitudeDegrees: 55.61, LongitudeDegrees: 12.61}, At: now.Add(20 * time.Second), AltitudeFeet: 10000}}}
+
+	firstProfile, err := adapter.WindProfile(context.Background(), first)
+	require.NoError(t, err)
+	secondProfile, err := adapter.WindProfile(context.Background(), second)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), calls.Load())
+	require.Equal(t, first.Samples[0].Position, firstProfile.Samples[0].Position)
+	require.Equal(t, second.Samples[0].Position, secondProfile.Samples[0].Position)
 }
 
 func TestAdapterDoesNotCallProviderWhenPersistentBudgetIsExhausted(t *testing.T) {
@@ -153,7 +189,11 @@ func TestAdapterRejectsOversizedAndMalformedResponses(t *testing.T) {
 
 func TestAdapterCacheIsSafeForConcurrentCallers(t *testing.T) {
 	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(gfsPayload())) }))
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_, _ = w.Write([]byte(gfsPayload()))
+	}))
 	defer server.Close()
 	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }})
 	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{At: now.Add(5 * time.Minute)}}}
@@ -178,6 +218,7 @@ func TestAdapterCacheIsSafeForConcurrentCallers(t *testing.T) {
 	for err := range errors {
 		require.NoError(t, err)
 	}
+	require.Equal(t, int32(1), calls.Load(), "concurrent equal cache misses share one provider request")
 }
 
 var _ predictor.WindProfileReader = (*Adapter)(nil)

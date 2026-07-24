@@ -315,6 +315,7 @@ type PredictionCalculation struct {
 	NoWindDuration time.Duration
 	Duration       time.Duration
 	Legs           []PredictionLeg
+	Segments       []PredictionSegment
 }
 
 // PredictionLeg describes one remaining route section at the instant the
@@ -331,6 +332,21 @@ type PredictionLeg struct {
 	CourseTrueDegrees float64
 	NoWindDuration    time.Duration
 	Duration          time.Duration
+}
+
+// PredictionSegment preserves the model inputs underneath a route leg. It is
+// diagnostic evidence for the on-demand detail view, not a sequencing input.
+// Tailwind is positive; nil means wind was not applied for that segment.
+type PredictionSegment struct {
+	RouteLegIndex                                    int
+	PreTOD                                           bool
+	PhaseID, PhaseName, PhaseFormula                 string
+	DistanceNM, CourseTrueDegrees                    float64
+	StartAltitudeFeet, EndAltitudeFeet, AltitudeFeet float64
+	IndicatedAirspeedKnots                           *float64
+	NoWindGroundspeedKnots, GroundspeedKnots         float64
+	TailwindKnots                                    *float64
+	NoWindDuration, Duration                         time.Duration
 }
 
 // RawTETASample is one accepted physical/model output in the persisted
@@ -794,6 +810,19 @@ func (c PredictionCalculation) Validate() error {
 	if hasNoWindLegDuration && noWindTotal != c.NoWindDuration {
 		return invalid("prediction no-wind calculation duration does not match its legs")
 	}
+	if len(c.Segments) > 0 {
+		segmentTotal, segmentNoWindTotal := time.Duration(0), time.Duration(0)
+		for _, segment := range c.Segments {
+			if err := segment.Validate(len(c.Legs)); err != nil {
+				return err
+			}
+			segmentTotal += segment.Duration
+			segmentNoWindTotal += segment.NoWindDuration
+		}
+		if segmentTotal != c.Duration || segmentNoWindTotal != c.NoWindDuration {
+			return invalid("prediction calculation duration does not match its segments")
+		}
+	}
 	return nil
 }
 
@@ -810,6 +839,28 @@ func (l PredictionLeg) Validate() error {
 		if math.IsNaN(coordinate.latitude) || math.IsInf(coordinate.latitude, 0) || coordinate.latitude < -90 || coordinate.latitude > 90 ||
 			math.IsNaN(coordinate.longitude) || math.IsInf(coordinate.longitude, 0) || coordinate.longitude < -180 || coordinate.longitude > 180 {
 			return invalid("prediction leg coordinate is invalid")
+		}
+	}
+	return nil
+}
+
+func (s PredictionSegment) Validate(legCount int) error {
+	if s.RouteLegIndex < 0 || s.RouteLegIndex >= legCount || s.DistanceNM <= 0 || s.CourseTrueDegrees < 0 || s.CourseTrueDegrees >= 360 ||
+		s.StartAltitudeFeet < 0 || s.EndAltitudeFeet < 0 || s.AltitudeFeet < 0 || s.NoWindGroundspeedKnots <= 0 || s.GroundspeedKnots <= 0 ||
+		s.NoWindDuration <= 0 || s.Duration <= 0 {
+		return invalid("prediction segment is invalid")
+	}
+	if (s.PhaseID != "" || s.PhaseName != "" || s.PhaseFormula != "") && (!isTrimmedNonEmpty(s.PhaseID) || !isTrimmedNonEmpty(s.PhaseName) || !isTrimmedNonEmpty(s.PhaseFormula)) {
+		return invalid("prediction segment phase is invalid")
+	}
+	for _, value := range []float64{s.DistanceNM, s.CourseTrueDegrees, s.StartAltitudeFeet, s.EndAltitudeFeet, s.AltitudeFeet, s.NoWindGroundspeedKnots, s.GroundspeedKnots} {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return invalid("prediction segment is invalid")
+		}
+	}
+	for _, value := range []*float64{s.IndicatedAirspeedKnots, s.TailwindKnots} {
+		if value != nil && (math.IsNaN(*value) || math.IsInf(*value, 0)) {
+			return invalid("prediction segment is invalid")
 		}
 	}
 	return nil

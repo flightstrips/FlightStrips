@@ -331,6 +331,11 @@ type ProcedureLeg struct {
 	PathTerminator PathTerminator
 	FromFix        *FixID
 	ToFix          *FixID
+	// Route parsers may supply the expanded airway endpoints directly. These
+	// positions are authoritative for that parsed route and avoid trying to
+	// re-resolve en-route fixes in the destination airport's region.
+	FromPosition   *Coordinate
+	ToPosition     *Coordinate
 	CourseTrueDeg  *float64
 	DistanceNM     *float64
 	HoldingID      *HoldingID
@@ -345,6 +350,16 @@ func (l ProcedureLeg) Validate() error {
 	}
 	if l.DistanceNM != nil && (!finite(*l.DistanceNM) || *l.DistanceNM < 0) {
 		return invalid("leg distance cannot be negative")
+	}
+	if l.FromPosition != nil {
+		if err := l.FromPosition.Validate(); err != nil {
+			return invalid("leg from position is invalid")
+		}
+	}
+	if l.ToPosition != nil {
+		if err := l.ToPosition.Validate(); err != nil {
+			return invalid("leg to position is invalid")
+		}
 	}
 	if l.PathTerminator.IsHolding() && l.HoldingID == nil {
 		return invalid("holding leg requires holding ID")
@@ -735,7 +750,7 @@ func RouteGeometryDigest(query RouteQuery, geometry RouteGeometry) (string, erro
 		if leg.DistanceNM != nil {
 			distance = strconv.FormatFloat(*leg.DistanceNM, 'f', -1, 64)
 		}
-		legTokens = append(legTokens, strings.Join([]string{leg.ID, string(leg.PathTerminator), optionalFix(leg.FromFix), optionalFix(leg.ToFix), course, distance, optionalHolding(leg.HoldingID)}, "/"))
+		legTokens = append(legTokens, strings.Join([]string{leg.ID, string(leg.PathTerminator), optionalFix(leg.FromFix), optionalFix(leg.ToFix), optionalCoordinate(leg.FromPosition), optionalCoordinate(leg.ToPosition), course, distance, optionalHolding(leg.HoldingID)}, "/"))
 	}
 	holdings := slices.Clone(geometry.HoldingIDs)
 	slices.Sort(holdings)
@@ -743,6 +758,13 @@ func RouteGeometryDigest(query RouteQuery, geometry RouteGeometry) (string, erro
 	slices.Sort(unresolved)
 	sum := sha256.Sum256([]byte(strings.Join(append([]string{string(key), strconv.FormatFloat(geometry.TotalDistanceNM, 'f', -1, 64), string(geometry.Coverage)}, append(legTokens, append(stringifyHoldings(holdings), unresolved...)...)...), "\x1f")))
 	return hex.EncodeToString(sum[:]), nil
+}
+
+func optionalCoordinate(value *Coordinate) string {
+	if value == nil {
+		return ""
+	}
+	return strings.Join([]string{strconv.FormatFloat(value.LatitudeDeg, 'f', -1, 64), strconv.FormatFloat(value.LongitudeDeg, 'f', -1, 64)}, ",")
 }
 
 func validIdentifier(value string) bool {

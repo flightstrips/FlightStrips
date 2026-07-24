@@ -111,6 +111,56 @@ func TestRouteMaterializationIsExplicitAndWarmCacheSurvivesResolverOutage(t *tes
 	require.Equal(t, before, source.Calls())
 }
 
+func TestRouteMaterializationAddsExpandedRouteFixesToActiveManifest(t *testing.T) {
+	data := completeEKCH()
+	mid := navdata.FixID("MID")
+	data.Fixes[mid] = navdata.Fix{ID: mid, Position: navdata.Coordinate{LatitudeDeg: 55.0, LongitudeDeg: 10.0}, Provenance: data.Provenance}
+	group := aman.RunwayGroupID("SOUTH")
+	query := navdata.RouteQuery{Version: data.Version, Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT MID SOK", RunwayGroup: &group}
+	from, to := mid, navdata.FixID("SOK")
+	geometry := navdata.RouteGeometry{Version: data.Version, TotalDistanceNM: 20, Coverage: navdata.CoverageComplete, Provenance: data.Provenance, Legs: []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to}}}
+	digest, err := navdata.RouteGeometryDigest(query, geometry)
+	require.NoError(t, err)
+	geometry.Digest = digest
+	key, err := query.Key()
+	require.NoError(t, err)
+	data.Routes[key] = geometry
+
+	cache := &memoryCache{}
+	clock := data.Provenance.ImportedAt.Add(time.Hour)
+	m := newMaterializer(t, fixture.New(data), cache, configFor(data), &clock)
+	_, err = m.MaterializeRoute(context.Background(), query, "fixture-v1")
+
+	require.NoError(t, err)
+	fragment := cache.fixes[cache.active.Candidate.FixDigest]
+	require.Contains(t, fragment.Fixes, navdata.Fix{ID: mid, Position: navdata.Coordinate{LatitudeDeg: 55.0, LongitudeDeg: 10.0}, Provenance: data.Provenance})
+}
+
+func TestRouteMaterializationDoesNotResolveParserSuppliedAirwayFixes(t *testing.T) {
+	data := completeEKCH()
+	group := aman.RunwayGroupID("SOUTH")
+	query := navdata.RouteQuery{Version: data.Version, Origin: "ENGM", Destination: "EKCH", FiledRoute: "DCT ENROUTE", RunwayGroup: &group}
+	from, to := navdata.FixID("ENROUTE-A"), navdata.FixID("ENROUTE-B")
+	fromPosition := navdata.Coordinate{LatitudeDeg: 54, LongitudeDeg: 8}
+	toPosition := navdata.Coordinate{LatitudeDeg: 55, LongitudeDeg: 10}
+	geometry := navdata.RouteGeometry{Version: data.Version, TotalDistanceNM: 20, Coverage: navdata.CoverageComplete, Provenance: data.Provenance, Legs: []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to, FromPosition: &fromPosition, ToPosition: &toPosition}}}
+	digest, err := navdata.RouteGeometryDigest(query, geometry)
+	require.NoError(t, err)
+	geometry.Digest = digest
+	key, err := query.Key()
+	require.NoError(t, err)
+	data.Routes[key] = geometry
+
+	source := fixture.New(data)
+	cache := &memoryCache{}
+	clock := data.Provenance.ImportedAt.Add(time.Hour)
+	m := newMaterializer(t, source, cache, configFor(data), &clock)
+	_, err = m.MaterializeRoute(context.Background(), query, "fixture-v1")
+
+	require.NoError(t, err)
+	require.Equal(t, 1, source.Calls(), "only route parsing is needed when it supplies airway coordinates")
+}
+
 func TestConcurrentRefreshUsesCompareAndSwapWithoutPartialActivation(t *testing.T) {
 	data := completeEKCH()
 	source := fixture.New(data)
@@ -171,6 +221,12 @@ func TestRequiredFixesExcludesSyntheticRunwayProcedureFixes(t *testing.T) {
 	require.Empty(t, result)
 }
 
+func TestRequiredFixesIncludesConfiguredFinalApproachFixes(t *testing.T) {
+	final := navdata.FixID("EXTAR")
+	result := requiredFixes(terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{FinalApproaches: []terminal.FinalApproachDefinition{{FinalApproachFix: final}}}}}, nil, nil)
+	require.Equal(t, []navdata.FixID{final}, result)
+}
+
 func newMaterializer(t *testing.T, source *fixture.Source, cache *memoryCache, config terminal.Configuration, clock *time.Time) *Materializer {
 	t.Helper()
 	m, err := New(Dependencies{Cycles: source, Airports: source, Runways: source, Procedures: source, Fixes: source, Routes: source, Cache: cache, Terminal: config, Now: func() time.Time { return *clock }})
@@ -185,7 +241,7 @@ func completeEKCH() fixture.Dataset {
 func configFor(data fixture.Dataset) terminal.Configuration {
 	from, until, imported := data.Version.EffectiveFrom, data.Version.EffectiveUntil, data.Provenance.ImportedAt
 	course := 221.2
-	return terminal.Configuration{SchemaVersion: terminal.SchemaVersion, ConfigVersion: "fixture-terminal", Airport: "EKCH", ApplicabilityFrom: from, ApplicabilityUntil: until, Dataset: terminal.DatasetCompatibility{Cycle: data.Version.Cycle, EffectiveFrom: from, EffectiveUntil: until}, Sources: []terminal.Source{{ID: "fixture-aip", Document: "official fixture", EffectiveFrom: from, EffectiveUntil: until}}, RunwayGroups: []terminal.RunwayGroup{{ID: "SOUTH", Runways: []navdata.RunwayID{"22L"}, FinalApproaches: []terminal.FinalApproachDefinition{{Runway: "22L", Threshold: terminal.ThresholdDefinition{Position: terminal.CoordinateDefinition{LatitudeDeg: 55.6254111111, LongitudeDeg: 12.6675805556}, CourseTrueDeg: &course}, CourseTrueDeg: course, PhysicalLengthM: 3302, Provenance: terminal.ProvenanceDefinition{SourceID: "fixture", SourceRevision: "fixture-r1", ImportedAt: imported, EffectiveFrom: from, EffectiveUntil: until}}}}}, Feeders: []terminal.Feeder{{ID: "SOK"}}, Paths: []terminal.Path{{Feeder: "SOK", RunwayGroup: "SOUTH", Fixes: []navdata.FixID{"SOK", "KEMAX"}, MergeFix: "KEMAX", SelectedHolding: "SOK-HF"}}}
+	return terminal.Configuration{SchemaVersion: terminal.SchemaVersion, ConfigVersion: "fixture-terminal", Airport: "EKCH", ApplicabilityFrom: from, ApplicabilityUntil: until, Dataset: terminal.DatasetCompatibility{Cycle: data.Version.Cycle, EffectiveFrom: from, EffectiveUntil: until}, Sources: []terminal.Source{{ID: "fixture-aip", Document: "official fixture", EffectiveFrom: from, EffectiveUntil: until}}, RunwayGroups: []terminal.RunwayGroup{{ID: "SOUTH", Runways: []navdata.RunwayID{"22L"}, FinalApproaches: []terminal.FinalApproachDefinition{{Runway: "22L", FinalApproachFix: "KEMAX", Threshold: terminal.ThresholdDefinition{Position: terminal.CoordinateDefinition{LatitudeDeg: 55.6254111111, LongitudeDeg: 12.6675805556}, CourseTrueDeg: &course}, CourseTrueDeg: course, PhysicalLengthM: 3302, Provenance: terminal.ProvenanceDefinition{SourceID: "fixture", SourceRevision: "fixture-r1", ImportedAt: imported, EffectiveFrom: from, EffectiveUntil: until}}}}}, Feeders: []terminal.Feeder{{ID: "SOK"}}, Paths: []terminal.Path{{Feeder: "SOK", RunwayGroup: "SOUTH", Fixes: []navdata.FixID{"SOK", "KEMAX"}, MergeFix: "KEMAX", SelectedHolding: "SOK-HF"}}}
 }
 
 type memoryCache struct {
@@ -193,6 +249,7 @@ type memoryCache struct {
 	active                   navdata.ActiveManifest
 	hasActive                bool
 	routes                   map[navdata.RouteKey]navdata.RouteGeometry
+	fixes                    map[string]navdata.CandidateFixFragment
 	procedures               map[string]navdata.CandidateProcedureFragment
 	beforeActivate           func(navdata.ManifestCandidate)
 	afterMissingManifestRead func()
@@ -214,7 +271,16 @@ func (c *memoryCache) PutProcedureFragment(_ context.Context, value navdata.Cand
 	return value.Digest, nil
 }
 func (c *memoryCache) PutFixFragment(_ context.Context, value navdata.CandidateFixFragment) (string, error) {
-	return value.Digest, value.Validate()
+	if err := value.Validate(); err != nil {
+		return "", err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.fixes == nil {
+		c.fixes = map[string]navdata.CandidateFixFragment{}
+	}
+	c.fixes[value.Digest] = value
+	return value.Digest, nil
 }
 func (c *memoryCache) PutTerminalFragment(_ context.Context, value navdata.CandidateTerminalFragment) (string, error) {
 	return value.Digest, value.Validate()

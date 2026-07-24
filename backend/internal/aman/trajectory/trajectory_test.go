@@ -1,6 +1,7 @@
 package trajectory
 
 import (
+	"context"
 	"math"
 	"testing"
 	"time"
@@ -44,6 +45,36 @@ func TestReduceReportsActualOffRouteCrossTrackAndThreshold(t *testing.T) {
 	on := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
 	require.NotEqual(t, OffRoute, on.Completeness)
 	require.LessOrEqual(t, on.CrossTrackNM, 12.0)
+}
+
+func TestReadFiledRouteUsesCompleteUnamendedGeometry(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	reader := fixtureReader{snapshot: snapshot, route: route}
+
+	result, err := ReadFiledRoute(context.Background(), Readers{Geometry: reader, Snapshot: reader}, input.Airport, input.RouteKey, input.Feeder, input.RunwayGroup)
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"L1", "L2"}, legIDs(result.Legs))
+	require.Empty(t, result.Reasons)
+	require.InDelta(t, 0, result.Legs[0].Start.LongitudeDeg, .01)
+	require.InDelta(t, 2, result.Legs[1].End.LongitudeDeg, .01)
+}
+
+func TestReadFiledRouteUsesParserCoordinatesWithoutManifestFixes(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	from, to := navdata.FixID("AIRWAY-A"), navdata.FixID("AIRWAY-B")
+	fromPosition := navdata.Coordinate{LatitudeDeg: 54, LongitudeDeg: 8}
+	toPosition := navdata.Coordinate{LatitudeDeg: 55, LongitudeDeg: 10}
+	route.Legs = []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to, FromPosition: &fromPosition, ToPosition: &toPosition}}
+	reader := fixtureReader{snapshot: snapshot, route: route}
+
+	result, err := ReadFiledRoute(context.Background(), Readers{Geometry: reader, Snapshot: reader}, input.Airport, input.RouteKey, input.Feeder, input.RunwayGroup)
+
+	require.NoError(t, err)
+	require.Equal(t, []string{"ROUTE-0001"}, legIDs(result.Legs))
+	require.Equal(t, fromPosition, result.Legs[0].Start)
+	require.Equal(t, toPosition, result.Legs[0].End)
+	require.Empty(t, result.Reasons)
 }
 
 func TestReduceRecoversOffRouteArrivalViaNextWaypoint(t *testing.T) {
@@ -113,6 +144,29 @@ func TestComposeOrderedRouteTerminalApproachMissedAndUnsupportedGap(t *testing.T
 	gap := Reduce(snapshot, route, input, Config{})
 	require.Equal(t, []string{"FILED", "TERM"}, legIDs(gap.Remaining))
 	require.Contains(t, gap.Reasons, "UNRESOLVED_LEG:AFTER:MISSING_FIX")
+}
+
+func TestComposeContinuesPublishedILSFinalApproachFixToRunwayThreshold(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	a, b, c := navdata.FixID("A"), navdata.FixID("B"), navdata.FixID("C")
+	finalApproachFix, runway := navdata.FixID("EXTAR"), navdata.FixID("RWY-22L")
+	finalApproachFixPosition := coordinate(0, 3)
+	runwayPosition := coordinate(0, 4)
+	snapshot.Fixes = []navdata.Fix{{ID: a, Position: coordinate(0, 0)}, {ID: b, Position: coordinate(0, 1)}, {ID: c, Position: coordinate(0, 2)}, {ID: finalApproachFix, Position: finalApproachFixPosition}}
+	route.Legs = []navdata.ProcedureLeg{{ID: "FILED", PathTerminator: navdata.PathTF, FromFix: &a, ToFix: &b}}
+	snapshot.TerminalPaths[0].Legs = []navdata.ProcedureLeg{
+		{ID: "DOWNWIND", PathTerminator: navdata.PathTF, FromFix: &b, ToFix: &c},
+		{ID: "ILS-22L-FINAL-APPROACH-FIX", PathTerminator: navdata.PathTF, FromFix: &c, ToFix: &finalApproachFix},
+		{ID: "ILS-22L-RUNWAY", PathTerminator: navdata.PathTF, FromFix: &finalApproachFix, ToFix: &runway, ToPosition: &runwayPosition},
+	}
+	input.Approach = nil
+
+	result := Reduce(snapshot, route, input, Config{})
+
+	require.Equal(t, []string{"FILED", "DOWNWIND", "ILS-22L-FINAL-APPROACH-FIX", "ILS-22L-RUNWAY"}, legIDs(result.Remaining))
+	require.Equal(t, finalApproachFix, result.Remaining[len(result.Remaining)-2].To)
+	require.Equal(t, runway, result.Remaining[len(result.Remaining)-1].To)
+	require.Equal(t, runwayPosition, result.Remaining[len(result.Remaining)-1].End)
 }
 
 func TestDirectToRepeatedTargetUsesOnlyCompatibleRejoinFloor(t *testing.T) {
@@ -284,4 +338,27 @@ func routeDistance(snapshot navdata.ActiveGeometrySnapshot, from, to navdata.Fix
 }
 func validFlight(now time.Time) aman.AMANFlight {
 	return aman.AMANFlight{ID: "f", VATSIMCID: "1", CurrentCallsign: "SAS1", State: aman.StateAirborne, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now}
+}
+
+type fixtureReader struct {
+	snapshot navdata.ActiveGeometrySnapshot
+	route    navdata.RouteGeometry
+}
+
+func (r fixtureReader) ActiveVersion(context.Context, navdata.AirportID) (navdata.DatasetVersion, error) {
+	return r.snapshot.Manifest.Version, nil
+}
+func (r fixtureReader) Route(context.Context, navdata.RouteKey) (navdata.RouteGeometry, error) {
+	return r.route, nil
+}
+func (r fixtureReader) TerminalPath(_ context.Context, airport navdata.AirportID, feeder navdata.FeederID, group aman.RunwayGroupID) (navdata.TerminalPath, error) {
+	for _, path := range r.snapshot.TerminalPaths {
+		if path.Airport == airport && path.Feeder == feeder && path.RunwayGroup == group {
+			return path, nil
+		}
+	}
+	return navdata.TerminalPath{}, nil
+}
+func (r fixtureReader) ActiveGeometrySnapshot(context.Context, navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
+	return r.snapshot, nil
 }

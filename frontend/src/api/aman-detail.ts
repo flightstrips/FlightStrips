@@ -15,9 +15,11 @@ export interface AMANFlightDetail {
     holding_fix: string | null;
     aircraft_type: string | null;
     wake_category: string | null;
+    filed_route: string | null;
   };
   position: AMANPosition | null;
   calculation: AMANCalculation | null;
+  filed_route_geometry: AMANFiledRouteGeometry | null;
   teta_basis: AMANTETABasis | null;
   slot_basis: AMANSlotBasis | null;
 }
@@ -36,6 +38,7 @@ export interface AMANCalculation {
   duration_seconds: number;
   distance_to_go_nm: number | null;
   legs: AMANCalculationLeg[];
+  segments: AMANCalculationSegment[];
 }
 
 export interface AMANCalculationLeg {
@@ -50,6 +53,40 @@ export interface AMANCalculationLeg {
   course_true_degrees: number;
   no_wind_duration_seconds: number | null;
   duration_seconds: number;
+}
+
+export interface AMANCalculationSegment {
+  route_leg_index: number;
+  pre_tod: boolean;
+  phase_id: string;
+  phase_name: string;
+  phase_formula: string;
+  distance_nm: number;
+  course_true_degrees: number;
+  start_altitude_feet: number;
+  end_altitude_feet: number;
+  altitude_feet: number;
+  indicated_airspeed_knots: number | null;
+  no_wind_groundspeed_knots: number;
+  groundspeed_knots: number;
+  tailwind_knots: number | null;
+  no_wind_duration_seconds: number;
+  duration_seconds: number;
+}
+
+export interface AMANFiledRouteGeometry {
+  legs: AMANRouteGeometryLeg[];
+  reasons: string[];
+}
+
+export interface AMANRouteGeometryLeg {
+  id: string;
+  from: string;
+  to: string;
+  start_latitude: number;
+  start_longitude: number;
+  end_latitude: number;
+  end_longitude: number;
 }
 
 export interface AMANTETABasis {

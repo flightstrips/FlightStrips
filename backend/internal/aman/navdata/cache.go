@@ -98,6 +98,8 @@ func cloneLegs(values []ProcedureLeg) []ProcedureLeg {
 		result[index] = value
 		result[index].FromFix = clonePtr(value.FromFix)
 		result[index].ToFix = clonePtr(value.ToFix)
+		result[index].FromPosition = clonePtr(value.FromPosition)
+		result[index].ToPosition = clonePtr(value.ToPosition)
 		result[index].CourseTrueDeg = clonePtr(value.CourseTrueDeg)
 		result[index].DistanceNM = clonePtr(value.DistanceNM)
 		result[index].HoldingID = clonePtr(value.HoldingID)

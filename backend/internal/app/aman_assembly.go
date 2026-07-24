@@ -24,6 +24,7 @@ type operationalAMANAssembly struct {
 	dependencies aman.Dependencies
 	commands     aman.CommandService
 	transport    *amanTransport
+	terminal     terminal.Configuration
 }
 
 type amanTransport struct {
@@ -111,7 +112,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, pool *pgxpool.Pool) (ope
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN action service: %w", err)
 	}
 	return operationalAMANAssembly{
-		commands: actions, transport: transport,
+		commands: actions, transport: transport, terminal: terminalConfig,
 		dependencies: aman.Dependencies{
 			Repositories: repository, NavigationMaterializer: navigation, NavigationReader: cache,
 			Predictor: service, StateEngine: service, SequenceService: actions, Publisher: transport,

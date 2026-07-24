@@ -89,6 +89,7 @@ func cloneRoute(value RouteGeometry) RouteGeometry {
 func cloneTerminal(value TerminalPath) TerminalPath {
 	value.Legs = cloneLegs(value.Legs)
 	value.HoldingIDs = slices.Clone(value.HoldingIDs)
+	value.PublishedHeadingMagneticDeg = clonePtr(value.PublishedHeadingMagneticDeg)
 	value.Unresolved = slices.Clone(value.Unresolved)
 	return value
 }

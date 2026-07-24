@@ -1,6 +1,8 @@
 package efb
 
 import (
+	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/shared"
@@ -12,9 +14,18 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 type authStub struct{ err error }
+
+type snapshotReaderStub struct {
+	snapshot navdata.ActiveGeometrySnapshot
+}
+
+func (s snapshotReaderStub) ActiveGeometrySnapshot(context.Context, navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
+	return s.snapshot, nil
+}
 
 func (s authStub) Validate(string) (shared.AuthenticatedUser, error) {
 	return shared.NewAuthenticatedUser("1234567", 0, nil), s.err
@@ -155,6 +166,50 @@ func TestSnapshotIncludesSynchronizedArrivalSTAR(t *testing.T) {
 		t.Fatalf("expected synchronized STAR %q, got %v", star, result.STAR)
 	}
 }
+
+func TestSnapshotIncludesArrivalEAT(t *testing.T) {
+	eta := time.Date(2026, time.July, 24, 14, 35, 0, 0, time.UTC)
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}})
+	result := api.buildSnapshot(context.Background(), pdc.WebStripMatch{Strip: &models.Strip{
+		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", ArrivalETA: &models.ArrivalETA{Time: eta},
+	}}, &models.Session{Airport: "EKCH"})
+
+	if result.ArrivalETA == nil || *result.ArrivalETA != "1435" {
+		t.Fatalf("expected arrival EAT 1435, got %v", result.ArrivalETA)
+	}
+}
+
+func TestSnapshotUsesLastFixOfSTARPathAsTerminalFix(t *testing.T) {
+	star, runway := "TUDLO4C", "22L"
+	controllerHeading := int32(270)
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Terminal: terminal.Configuration{
+		Airport:      "EKCH",
+		RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22", Runways: []navdata.RunwayID{"22L", "22R"}}},
+		Feeders:      []terminal.Feeder{{ID: "TUDLO"}},
+		Paths:        []terminal.Path{{Feeder: "TUDLO", RunwayGroup: "ARRIVAL-22", Fixes: []navdata.FixID{"TUDLO", "LUGAS", "ABEGI"}, SelectedHolding: "EKCH-LUGAS-PRIMARY-LOW"}},
+	}, Navigation: snapshotReaderStub{snapshot: navdata.ActiveGeometrySnapshot{
+		TerminalPaths: []navdata.TerminalPath{{Feeder: "TUDLO", RunwayGroup: "ARRIVAL-22", HoldingIDs: []navdata.HoldingID{"EKCH-LUGAS-PRIMARY-LOW"}, PublishedHeadingMagneticDeg: intPtr(37)}},
+		Holdings:      []navdata.HoldingPattern{{ID: "EKCH-LUGAS-PRIMARY-LOW", Fix: "LUGAS", InboundCourseTrueDeg: 77, TurnDirection: navdata.TurnLeft}},
+	}}})
+	result := api.buildSnapshot(context.Background(), pdc.WebStripMatch{Strip: &models.Strip{
+		Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", Star: &star, Runway: &runway, Heading: &controllerHeading,
+	}}, &models.Session{Airport: "EKCH"})
+
+	if result.TerminalFix == nil || *result.TerminalFix != "ABEGI" {
+		t.Fatalf("expected terminal fix ABEGI, got %v", result.TerminalFix)
+	}
+	if result.PublishedHeading == nil || *result.PublishedHeading != 37 {
+		t.Fatalf("expected published STAR heading 37, got %v", result.PublishedHeading)
+	}
+	if result.PublishedHoldingFix == nil || *result.PublishedHoldingFix != "LUGAS" {
+		t.Fatalf("expected published holding fix LUGAS, got %v", result.PublishedHoldingFix)
+	}
+	if result.PublishedHoldingDetail == nil || *result.PublishedHoldingDetail != "077/LEFT" {
+		t.Fatalf("expected published holding detail 077/LEFT, got %v", result.PublishedHoldingDetail)
+	}
+}
+
+func intPtr(value int) *int { return &value }
 
 func TestSnapshotDisablesTOBTWhenCDMIsNotReady(t *testing.T) {
 	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, CDM: &cdmStub{}, CDMReady: false})

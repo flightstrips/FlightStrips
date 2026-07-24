@@ -43,15 +43,16 @@ interface FlightDisplayData {
   arrivalAirport: string;
   arrivalEta: string;
   arrivalRunway: string;
-  approachFrequency: string;
+  terminalFix: string;
+  arrivalHeading: string;
+  publishedHoldingFix: string;
+  publishedHoldingDetail: string;
   star: string;
   atisBetter: string;
   tobt: string;
   tobtStatus: TOBTStatus;
   tsat: string;
   tsatStatus: TSATStatus;
-  typeofapp?: string;
-  Terminalfix?: string;
 }
 
 interface ApiFlight {
@@ -66,6 +67,11 @@ interface ApiFlight {
   runway?: string | null;
   sid?: string | null;
   star?: string | null;
+  arrival_eta?: string | null;
+  terminal_fix?: string | null;
+  published_heading?: number | null;
+  published_holding_fix?: string | null;
+  published_holding_detail?: string | null;
   destination: string;
   phase: 'DEPARTURE' | 'ARRIVAL';
   pdc_state: string;
@@ -103,13 +109,17 @@ const displayClock = (value?: string | null) => {
 };
 
 const baseAircraftType = (value?: string | null) => value?.trim().toUpperCase().split('/', 1)[0] ?? '';
+const displayHeading = (value?: number | null) => {
+  if (typeof value !== 'number') return '';
+  const heading = Math.round(value);
+  return heading >= 1 && heading <= 360 ? `HDG${heading.toString().padStart(3, '0')}` : '';
+};
 
 const unavailableFlightData: FlightDisplayData = {
   callsign: '', stand: 'NIL', initialClimb: 'NIL', ctot: 'NIL', assignedRunway: 'NIL',
-  depFrequency: 'NIL', sid: 'NIL', arrivalAirport: 'NIL', arrivalEta: 'NIL',
-  arrivalRunway: 'NIL', approachFrequency: 'NIL', star: 'NIL', atisBetter: '',
+  depFrequency: 'NIL', sid: 'NIL', arrivalAirport: 'NIL', arrivalEta: '',
+  arrivalRunway: 'NIL', terminalFix: '', arrivalHeading: '', publishedHoldingFix: '', publishedHoldingDetail: '', star: 'NIL', atisBetter: '',
   tobt: 'NIL', tobtStatus: 'DEFAULT', tsat: 'NIL', tsatStatus: 'DEFAULT',
-  typeofapp: 'NIL', Terminalfix: 'NIL',
 };
 
 type DialogType = 'D1BRIEF' | 'D1CHART' | 'D1DOWNLOADS' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
@@ -151,7 +161,12 @@ export default function EFBPage() {
     sid: apiFlight.sid || 'NIL',
     star: apiFlight.star || 'NIL',
     arrivalAirport: apiFlight.destination,
+    arrivalEta: displayClock(apiFlight.arrival_eta) || '',
     arrivalRunway: apiFlight.runway || 'NIL',
+    terminalFix: apiFlight.terminal_fix?.trim() || '',
+    arrivalHeading: displayHeading(apiFlight.published_heading),
+    publishedHoldingFix: apiFlight.published_holding_fix?.trim() || '',
+    publishedHoldingDetail: apiFlight.published_holding_detail?.trim() || '',
     atisBetter: apiFlight.atis?.code || '',
     tobt: displayClock(apiFlight.tobt || apiFlight.eobt) || 'NIL',
     tobtStatus: apiFlight.tobt ? 'CONFIRMED' : 'DEFAULT',
@@ -622,13 +637,13 @@ useEffect(() => {
             <>
               <div className="absolute top-0 left-0 h-full w-[20%]">
                 <div className="absolute top-0 left-[15%] flex h-[20%] w-full items-end justify-end pr-[5%] pb-[5%] text-right text-[clamp(14px,3.5vh,53px)] text-white">
-                  {isArrival ? flightData.typeofapp : flightData.initialClimb}
+                  {isArrival ? 'ILS' : flightData.initialClimb}
                 </div>
                 <div className="absolute top-[10%] left-[25%] flex h-[20%] w-[48%] flex-col items-start justify-end whitespace-nowrap text-center text-[clamp(14px,1.5vh,27px)] text-white">
                   {isArrival ? (<><div></div><div></div></>) : (<><div>Initial Climb</div><div>Level</div></>)}
                 </div>
                 <div className="absolute top-[60%] left-[25%] flex h-[20%] w-[48%] flex-col items-start justify-end pt-[2%] pr-[5%] text-right text-[clamp(14px,1.5vh,27px)] text-white">
-                  {isArrival ? <><div>EAT</div><div className="text-[clamp(14px,3.5vh,56px)]">{flightData.arrivalEta}</div></> : flightData.ctot !== 'NIL' ? <><div>CTOT</div><div className="text-[clamp(14px,3.5vh,56px)]">{flightData.ctot}</div></> : null}
+                  {isArrival ? flightData.arrivalEta && <><div>EAT</div><div className="text-[clamp(14px,3.5vh,56px)]">{flightData.arrivalEta}</div></> : flightData.ctot !== 'NIL' ? <><div>CTOT</div><div className="text-[clamp(14px,3.5vh,56px)]">{flightData.ctot}</div></> : null}
                 </div>
                 <div className="absolute top-[80%] left-[30%] flex h-[20%] w-full items-start justify-end pt-[2%] pr-[5%] text-right text-[clamp(14px,3.5vh,56px)] text-white">
                   {isArrival ? flightData.arrivalRunway : flightData.assignedRunway}
@@ -640,16 +655,28 @@ useEffect(() => {
               </div>
 
               <div className="absolute top-0 right-0 h-[80%] w-[45%]">
-                <div className="absolute top-0 right-[5%] flex h-1/4 w-[95%] items-end justify-start gap-[5%] pb-[2%] pl-[5%] text-[clamp(14px,3.5vh,53px)] text-white">
-                  <div className="flex aspect-square w-[20%] items-center justify-center">
-                    <img src={isArrival ? RNAVLOGO : Headset} alt={isArrival ? "ILS" : "Headset"} className="h-full w-full object-contain" />
+                {isArrival ? <>
+                  <div className="absolute top-0 right-[5%] flex h-1/4 w-[95%] items-end justify-start gap-[5%] pb-[2%] pl-[5%] text-[clamp(14px,3.5vh,53px)] text-white">
+                    <div className="flex aspect-square w-[20%] items-center justify-center">
+                      <img src={RNAVLOGO} alt="Arrival procedure" className="h-full w-full object-contain" />
+                    </div>
+                    <div>{flightData.terminalFix || 'STAR'}</div>
                   </div>
-                  <div>{isArrival ? flightData.Terminalfix : flightData.depFrequency === 'NIL' ? null : flightData.depFrequency}</div>
-                </div>
-                <div className="absolute top-1/4 right-0 flex h-[20%] w-full flex-col items-start justify-start pt-[2%] pl-[5%] text-left text-[clamp(14px,1.5vh,36px)] text-white">
-                  {isArrival ? <div className="text-[clamp(14px,2.5vh,53px)]">NIL</div> : flightData.depFrequency !== 'NIL' ? <><div>CONTACT PASSING</div><div><u>1000FT</u> <strong>AUTOMATICALLY</strong></div></> : <div>Follow controller instructions</div>}
-                </div>
-                <div className="absolute top-full right-[5%] flex h-[20%] w-auto -translate-x-[30%] items-start justify-start pt-[2%] text-right text-[clamp(14px,3.5vh,53px)] text-white">
+                  <div className="absolute top-1/4 right-0 flex h-[20%] w-full flex-col items-start justify-start pt-[2%] pl-[5%] text-left text-[clamp(14px,1.5vh,36px)] text-white">
+                    {flightData.arrivalHeading && <div className="text-[clamp(14px,2.5vh,53px)]">Maintain {flightData.arrivalHeading}</div>}
+                  </div>
+                </> : <>
+                  <div className="absolute top-0 right-[5%] flex h-1/4 w-[95%] items-end justify-start gap-[5%] pb-[2%] pl-[5%] text-[clamp(14px,3.5vh,53px)] text-white">
+                    <div className="flex aspect-square w-[20%] items-center justify-center">
+                      <img src={Headset} alt="Headset" className="h-full w-full object-contain" />
+                    </div>
+                    <div>{flightData.depFrequency === 'NIL' ? null : flightData.depFrequency}</div>
+                  </div>
+                  <div className="absolute top-1/4 right-0 flex h-[20%] w-full flex-col items-start justify-start pt-[2%] pl-[5%] text-left text-[clamp(14px,1.5vh,36px)] text-white">
+                    {flightData.depFrequency !== 'NIL' ? <><div>CONTACT PASSING</div><div><u>1000FT</u> <strong>AUTOMATICALLY</strong></div></> : <div>Follow controller instructions</div>}
+                  </div>
+                </>}
+                <div className="absolute top-full right-[5%] flex h-[20%] w-auto -translate-x-[30%] items-start pt-[2%] text-right text-[clamp(14px,3.5vh,53px)] text-white">
                   {isArrival ? flightData.star : flightData.sid}
                 </div>
               </div>
@@ -726,10 +753,10 @@ useEffect(() => {
           {showFlightplanElements ? (
             isArrival ? (
               <div className="relative h-full w-full border-[clamp(5px,0.5vw,18px)] border-[#000109] text-white">
-                <img src={HOLD} alt="Holding pattern" className="h-full w-auto object-contain" />
+                <img src={HOLD} alt="Holding pattern" className={`h-full w-auto object-contain ${flightData.publishedHoldingDetail.endsWith('/LEFT') ? '-scale-x-100' : ''}`} />
                 <div className="absolute top-0 left-0 flex h-[20%] w-full items-center justify-center text-[clamp(14px,3.5vh,65px)] font-normal">PUBLISHED HOLDING</div>
-                <div className="absolute top-1/2 left-1/2 flex h-1/4 w-1/2 items-center justify-center text-[clamp(14px,7.5vh,132px)] font-bold">NIL</div>
-                <div className="absolute top-3/4 left-1/2 flex h-[15%] w-1/2 translate-x-[5%] items-center justify-center text-[clamp(14px,3.5vh,65px)] font-normal">NIL</div>
+                <div className="absolute top-1/2 left-1/2 flex h-1/4 w-1/2 items-center justify-center text-[clamp(14px,7.5vh,132px)] font-bold">{flightData.publishedHoldingFix || 'NOT AVAILABLE'}</div>
+                <div className="absolute top-3/4 left-1/2 flex h-[15%] w-1/2 translate-x-[5%] items-center justify-center text-[clamp(14px,3.5vh,65px)] font-normal">{flightData.publishedHoldingDetail}</div>
               </div>
             ) : (
               <>

@@ -334,11 +334,11 @@ type ProcedureLeg struct {
 	// Route parsers may supply the expanded airway endpoints directly. These
 	// positions are authoritative for that parsed route and avoid trying to
 	// re-resolve en-route fixes in the destination airport's region.
-	FromPosition   *Coordinate
-	ToPosition     *Coordinate
-	CourseTrueDeg  *float64
-	DistanceNM     *float64
-	HoldingID      *HoldingID
+	FromPosition  *Coordinate
+	ToPosition    *Coordinate
+	CourseTrueDeg *float64
+	DistanceNM    *float64
+	HoldingID     *HoldingID
 }
 
 func (l ProcedureLeg) Validate() error {
@@ -691,16 +691,17 @@ func (g RouteGeometry) validateCanonical() error {
 }
 
 type TerminalPath struct {
-	Version     DatasetVersion
-	Airport     AirportID
-	Feeder      FeederID
-	RunwayGroup aman.RunwayGroupID
-	Legs        []ProcedureLeg
-	HoldingIDs  []HoldingID
-	Coverage    Coverage
-	Unresolved  []string
-	Provenance  Provenance
-	Digest      string
+	Version                     DatasetVersion
+	Airport                     AirportID
+	Feeder                      FeederID
+	RunwayGroup                 aman.RunwayGroupID
+	Legs                        []ProcedureLeg
+	HoldingIDs                  []HoldingID
+	PublishedHeadingMagneticDeg *int
+	Coverage                    Coverage
+	Unresolved                  []string
+	Provenance                  Provenance
+	Digest                      string
 }
 
 func (p TerminalPath) Validate() error {
@@ -717,6 +718,9 @@ func (p TerminalPath) Validate() error {
 		if err := leg.Validate(); err != nil {
 			return err
 		}
+	}
+	if p.PublishedHeadingMagneticDeg != nil && (*p.PublishedHeadingMagneticDeg < 1 || *p.PublishedHeadingMagneticDeg > 360) {
+		return invalid("published terminal heading must be magnetic degrees in [1,360]")
 	}
 	if p.Coverage == CoverageComplete && (len(p.Unresolved) > 0 || hasUnsupportedLeg(p.Legs)) {
 		return invalid("complete terminal path cannot retain unresolved or unsupported legs")

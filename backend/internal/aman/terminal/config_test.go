@@ -21,6 +21,11 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
 	require.NoError(t, config.Validate(refs))
+	wantHeadings := map[aman.RunwayGroupID]int{"ARRIVAL-04": 217, "ARRIVAL-12": 299, "ARRIVAL-22": 37, "ARRIVAL-30": 119}
+	for _, path := range config.Paths {
+		require.NotNil(t, path.PublishedHeadingMagneticDeg, path.Feeder)
+		require.Equal(t, wantHeadings[path.RunwayGroup], *path.PublishedHeadingMagneticDeg, path.Feeder)
+	}
 	fragment, err := config.Candidate(refs, time.Date(2026, 7, 18, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Len(t, fragment.Paths, len(config.Feeders)*len(config.RunwayGroups))
@@ -33,6 +38,8 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 		require.Contains(t, path.Legs[len(path.Legs)-1].ID, "-RUNWAY")
 		require.Contains(t, string(*path.Legs[len(path.Legs)-1].ToFix), "RWY-")
 		require.NotNil(t, path.Legs[len(path.Legs)-1].ToPosition)
+		require.NotNil(t, path.PublishedHeadingMagneticDeg, path.Feeder)
+		require.Equal(t, wantHeadings[path.RunwayGroup], *path.PublishedHeadingMagneticDeg, path.Feeder)
 	}
 }
 

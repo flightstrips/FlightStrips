@@ -120,6 +120,7 @@ func main() {
 		}
 	}()
 	application.StartWorkers(ctx)
+	pprofServer := startPprofServer(envBool("ENABLE_PPROF", false))
 
 	httpServer := &http.Server{
 		Addr:    *addr,
@@ -147,6 +148,11 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		slog.Error("Server shutdown failed", slog.Any("error", err))
 		os.Exit(1)
+	}
+	if pprofServer != nil {
+		if err := pprofServer.Shutdown(shutdownCtx); err != nil {
+			slog.Error("Failed to shut down pprof server", slog.Any("error", err))
+		}
 	}
 
 	slog.Info("Server shutdown complete")

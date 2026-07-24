@@ -139,6 +139,9 @@ func parseClock(value string) (int, bool) {
 	if err != nil {
 		return 0, false
 	}
+	if hh < 0 || hh > 23 || mm < 0 || mm > 59 || ss < 0 || ss > 59 {
+		return 0, false
+	}
 	return hh*3600 + mm*60 + ss, true
 }
 

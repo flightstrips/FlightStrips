@@ -145,6 +145,26 @@ func TestCalculate_BaseTimeSelection(t *testing.T) {
 	}
 }
 
+func TestCalculate_RejectsMalformedClockBeforeCollisionLoop(t *testing.T) {
+	t.Parallel()
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS1635",
+		Origin:   "EKCH",
+		DepRwy:   "22R",
+		Sid:      "NEXEN2C",
+		Eobt:     "0",
+		TaxiMin:  10,
+	}, []SlotEntry{{
+		Callsign: "AAL745",
+		Origin:   "EKCH",
+		DepRwy:   "22R",
+		Ttot:     "0",
+	}}, NewDefaultAirportConfig("EKCH"), time.Date(2026, 7, 24, 21, 37, 58, 0, time.UTC))
+
+	assertClockResult(t, result, "", "")
+}
+
 func TestCalculate_UsesManualCtotFloor(t *testing.T) {
 	t.Parallel()
 

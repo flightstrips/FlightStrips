@@ -151,7 +151,7 @@ func (c *ActionService) normalizeMasterEobtValue(session int32, eobt string, now
 	if !s.isMasterSession(session) {
 		return normalized, false
 	}
-	if normalized == "" {
+	if _, ok := parseClock(normalized); !ok {
 		return truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget)), true
 	}
 	if minutesBetween(timeToClock(now), toHHMMSS(normalized)) <= masterEobtClampThreshold {

@@ -726,6 +726,25 @@ func TestPrepareEuroscopeEobtSync_MasterSessionClampsBeforeInitialSequenceAndLea
 	assert.Equal(t, eobtCappedReasonKind, updated.Calculation.ReasonMarkers[0].Kind)
 }
 
+func TestPrepareEuroscopeEobtSync_MasterSessionClampsSweatboxZeroEobt(t *testing.T) {
+	const sessionID = int32(147)
+	now := time.Date(2026, time.July, 24, 21, 37, 58, 0, time.UTC)
+	expectedClamped := truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget))
+
+	service := newTestCdmService(newTestClientWithAirportMasters(nil), &testutil.MockStripRepository{}, &testutil.MockSessionRepository{}, &testutil.MockControllerRepository{})
+	service.sessionMaster.Store(sessionID, true)
+
+	updated, corrected, clamped := service.PrepareEuroscopeEobtSync(sessionID, &models.CdmData{}, "0", now)
+
+	require.True(t, clamped)
+	assert.Equal(t, "2207", expectedClamped)
+	assert.Equal(t, expectedClamped, corrected)
+	assert.Equal(t, expectedClamped, valueOrEmpty(updated.Eobt))
+	assert.Equal(t, expectedClamped, valueOrEmpty(updated.Tobt))
+	assert.True(t, updated.TobtAutoSynced)
+	assert.True(t, updated.Recalculate)
+}
+
 func TestPrepareEuroscopeEobtSync_ClearsLegacyAutoConfirmationButPreservesManualConfirmation(t *testing.T) {
 	const sessionID = int32(149)
 	now := time.Date(2026, time.July, 13, 10, 0, 0, 0, time.UTC)

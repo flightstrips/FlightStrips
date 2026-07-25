@@ -58,7 +58,7 @@ func TestRuntimeHealthUsesEffectiveModeAndReporter(t *testing.T) {
 		ComponentHealth{Status: HealthReady}, ComponentHealth{Status: HealthReady},
 		ComponentHealth{Status: HealthReady}, ComponentHealth{Status: HealthReady},
 	)}
-	runtime, err := NewRuntime(RuntimeConfig{Mode: ModeAuthoritative, EnabledAirports: []string{"EKCH"}, TerminalGeometryPath: "terminal.json", NavigationSourceAdapter: NavigationAdapterAIRACNet}, Dependencies{
+	runtime, err := NewRuntime(RuntimeConfig{Mode: ModeAuthoritative, EnabledAirports: []string{"EKCH"}}, Dependencies{
 		Repositories: reporter, NavigationMaterializer: reporter, NavigationReader: reporter, Predictor: reporter,
 		StateEngine: reporter, SequenceService: reporter, Publisher: reporter, ValidationService: reporter,
 		HealthService: reporter, ReconciliationWorker: healthTestWorker{}, ObservationSink: healthTestSink{},

@@ -12,11 +12,6 @@ import (
 const (
 	defaultReconciliationInterval = time.Minute
 	defaultSurveillanceInterval   = 15 * time.Second
-
-	// NavigationAdapterAIRACNet is the approved navigation-data adapter. Its
-	// implementation belongs to the navigation task; this package only names
-	// the configured boundary.
-	NavigationAdapterAIRACNet = "airacnet"
 )
 
 var airportIdentifier = regexp.MustCompile(`^[A-Z]{4}$`)
@@ -29,8 +24,6 @@ type RuntimeConfig struct {
 	Mode                        RolloutMode
 	ReconciliationInterval      time.Duration
 	SurveillanceInterval        time.Duration
-	TerminalGeometryPath        string
-	NavigationSourceAdapter     string
 	EnableEuroScopeGainLoseTags bool
 }
 
@@ -62,8 +55,6 @@ func (c RuntimeConfig) normalize() RuntimeConfig {
 	c.Mode = RolloutMode(strings.ToLower(strings.TrimSpace(string(c.Mode))))
 	c.EnabledAirports = normalizeAirports(c.EnabledAirports)
 	c.FMPRoles = normalizeRoles(c.FMPRoles)
-	c.TerminalGeometryPath = strings.TrimSpace(c.TerminalGeometryPath)
-	c.NavigationSourceAdapter = strings.ToLower(strings.TrimSpace(c.NavigationSourceAdapter))
 	return c
 }
 
@@ -108,20 +99,11 @@ func (c RuntimeConfig) Validate() error {
 		}
 		seenAirports[airport] = struct{}{}
 	}
-	if c.NavigationSourceAdapter != "" && !isSupportedNavigationAdapter(c.NavigationSourceAdapter) {
-		return fmt.Errorf("AMAN navigation source adapter %q is unsupported", c.NavigationSourceAdapter)
-	}
 	if c.Mode == ModeDisabled {
 		return nil
 	}
 	if len(c.EnabledAirports) == 0 {
 		return fmt.Errorf("AMAN enabled airports are required when mode is %q", c.Mode)
-	}
-	if !isSupportedNavigationAdapter(c.NavigationSourceAdapter) {
-		return fmt.Errorf("AMAN navigation source adapter %q is unsupported", c.NavigationSourceAdapter)
-	}
-	if strings.TrimSpace(c.TerminalGeometryPath) == "" {
-		return fmt.Errorf("AMAN terminal geometry path is required when enabled")
 	}
 	return nil
 }
@@ -170,10 +152,6 @@ func nonEmpty(values []string) []string {
 		}
 	}
 	return result
-}
-
-func isSupportedNavigationAdapter(value string) bool {
-	return strings.EqualFold(strings.TrimSpace(value), NavigationAdapterAIRACNet)
 }
 
 // Component is a narrow constructor-time seam. The owning persistence,

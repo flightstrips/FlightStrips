@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/alb"
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/terminal"
 	amanWebAPI "FlightStrips/internal/aman/webapi"
 	"FlightStrips/internal/cdm"
 	appconfig "FlightStrips/internal/config"
@@ -14,6 +15,7 @@ import (
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
 	"FlightStrips/internal/metar"
+	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/pilot"
 	"FlightStrips/internal/repository"
@@ -86,7 +88,8 @@ type Config struct {
 	StandAssignmentBlockExtension time.Duration
 	StandAssignmentSweepInterval  time.Duration
 
-	AMAN aman.RuntimeConfig
+	AMAN       aman.RuntimeConfig
+	Navigation navigation.Config
 }
 
 type Dependencies struct {
@@ -112,10 +115,11 @@ type App struct {
 
 func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	cfg = cfg.withDefaults()
+	cfg.Navigation = cfg.Navigation.Normalize()
 	if cfg.EnableTestTools && isLiveEnvironment(cfg.Environment) {
 		return nil, errors.New("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
 	}
-	if err := validateAMANTerminalGeometry(cfg.AMAN); err != nil {
+	if err := validateNavigationTerminalGeometry(cfg.Navigation); err != nil {
 		return nil, err
 	}
 	if err := cfg.AMAN.Validate(); err != nil {
@@ -197,9 +201,16 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	pdcFrequencyProviders := transports.pdcFrequencyProviders
 
 	amanDependencies := deps.AMAN
+	navigationSource, err := navigation.Assemble(cfg.Navigation, dbpool)
+	if err != nil {
+		if closeDB {
+			dbpool.Close()
+		}
+		return nil, fmt.Errorf("initialize navigation source: %w", err)
+	}
 	var defaultAMAN operationalAMANAssembly
 	if amanEnabled && amanDependencies.ObservationSink == nil {
-		defaultAMAN, err = assembleOperationalAMAN(cfg.AMAN, dbpool)
+		defaultAMAN, err = assembleOperationalAMAN(cfg.AMAN, navigationSource, dbpool)
 		if err != nil {
 			if closeDB {
 				dbpool.Close()
@@ -233,6 +244,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	var amanAPI *amanWebAPI.WebAPI
 	var efbNavigation navdata.GeometrySnapshotReader
+	var efbTerminal terminal.Configuration
+	if navigationSource != nil {
+		efbNavigation = navigationSource.Geometry
+		efbTerminal = navigationSource.Terminal
+	}
 	if stateReader, ok := amanDependencies.Repositories.(aman.AirportStateReader); ok && amanEnabled {
 		amanAPI = amanWebAPI.New(authService, stateReader)
 		if geometry, geometryOK := amanDependencies.NavigationReader.(navdata.GeometryReader); geometryOK {
@@ -241,8 +257,10 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			}
 		}
 	}
-	if snapshots, ok := amanDependencies.NavigationReader.(navdata.GeometrySnapshotReader); ok {
-		efbNavigation = snapshots
+	if efbNavigation == nil {
+		if snapshots, ok := amanDependencies.NavigationReader.(navdata.GeometrySnapshotReader); ok {
+			efbNavigation = snapshots
+		}
 	}
 	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized)
 	if err != nil {
@@ -454,7 +472,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			efbAPI: efb.NewWebAPI(efb.WebAPIConfig{
 				Auth: authService, Callsigns: vatsimGraph.source, Flights: efbFlightFinder, Sessions: sessionRepo,
 				Assignments: standAssignmentRepo, CDM: cdmService, CDMReady: sequenceService != nil,
-				Stands: standActionService, ATIS: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification, Terminal: defaultAMAN.terminal, Navigation: efbNavigation,
+				Stands: standActionService, ATIS: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification, Terminal: efbTerminal, Navigation: efbNavigation,
 			}),
 			sessionRepo:                sessionRepo,
 			sequenceService:            sequenceService,
@@ -479,6 +497,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 
 	app.addWorker(cdmService.Start)
+	if navigationSource != nil {
+		app.addWorker(navigationSource.Start)
+	}
 	app.addWorker(fsServer.StartSessionMonitor)
 	app.addWorker(frontendHub.Run)
 	app.addWorker(euroscopeHub.Run)
@@ -664,20 +685,20 @@ func (a *App) AMANRuntime() *aman.Runtime {
 	return a.amanRuntime
 }
 
-func validateAMANTerminalGeometry(config aman.RuntimeConfig) error {
-	path := strings.TrimSpace(config.TerminalGeometryPath)
-	if (config.Mode == "" || config.Mode == aman.ModeDisabled) && path == "" {
-		return nil
+func validateNavigationTerminalGeometry(config navigation.Config) error {
+	if err := config.Validate(); err != nil {
+		return err
 	}
-	if path == "" {
-		return fmt.Errorf("AMAN terminal geometry path is required when enabled")
+	path := config.TerminalGeometryPath
+	if !config.Enabled() {
+		return nil
 	}
 	info, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("AMAN terminal geometry path %q: %w", path, err)
+		return fmt.Errorf("navigation terminal geometry path %q: %w", path, err)
 	}
 	if info.IsDir() {
-		return fmt.Errorf("AMAN terminal geometry path %q must name a file", path)
+		return fmt.Errorf("navigation terminal geometry path %q must name a file", path)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/telemetry"
 	"context"
 	"flag"
@@ -50,6 +51,11 @@ func main() {
 	amanConfig, err := amanConfigFromEnv()
 	if err != nil {
 		slog.Error("Failed to configure AMAN", slog.Any("error", err))
+		os.Exit(1)
+	}
+	navigationConfig, err := navigationConfigFromEnv()
+	if err != nil {
+		slog.Error("Failed to configure navigation source", slog.Any("error", err))
 		os.Exit(1)
 	}
 
@@ -104,6 +110,7 @@ func main() {
 		EnableDBSeed:                    true,
 		StandAssignmentAircraftJSON:     standAssignmentAircraftJSON,
 		AMAN:                            amanConfig,
+		Navigation:                      navigationConfig,
 	}, app.Dependencies{
 		VATSIMStatusURL:      getEnv("VATSIM_STATUS_URL", ""),
 		VATSIMPollInterval:   envDuration("VATSIM_POLL_INTERVAL", 15*time.Second),
@@ -229,8 +236,6 @@ func amanConfigFromEnv() (aman.RuntimeConfig, error) {
 	}
 	config.EnabledAirports = splitEnvList(os.Getenv("AMAN_ENABLED_AIRPORTS"))
 	config.FMPRoles = splitEnvList(os.Getenv("AMAN_FMP_ROLES"))
-	config.TerminalGeometryPath = strings.TrimSpace(os.Getenv("AMAN_TERMINAL_GEOMETRY_PATH"))
-	config.NavigationSourceAdapter = strings.TrimSpace(os.Getenv("AMAN_NAVIGATION_SOURCE"))
 	config.EnableEuroScopeGainLoseTags = envBool("ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", false)
 
 	var err error
@@ -244,6 +249,14 @@ func amanConfigFromEnv() (aman.RuntimeConfig, error) {
 		return aman.RuntimeConfig{}, err
 	}
 	return config, nil
+}
+
+func navigationConfigFromEnv() (navigation.Config, error) {
+	config := navigation.Config{
+		Source:               strings.TrimSpace(os.Getenv("NAVIGATION_SOURCE")),
+		TerminalGeometryPath: strings.TrimSpace(os.Getenv("NAVIGATION_TERMINAL_GEOMETRY_PATH")),
+	}
+	return config.Normalize(), config.Validate()
 }
 
 func requiredEnvDuration(key string, fallback time.Duration) (time.Duration, error) {

@@ -56,7 +56,7 @@ func TestStandActionRecordsPreAllocationRejection(t *testing.T) {
 	require.Equal(t, "A12", recorded[0].AttemptedStand)
 }
 
-func TestAutomaticNoCompatibleFailuresAreSuppressedUntilFactsChange(t *testing.T) {
+func TestAutomaticTerminalFailuresAreSuppressedUntilFactsChange(t *testing.T) {
 	service := &StandAllocationService{}
 	request := StandAllocationRequest{
 		SessionID: 7,
@@ -73,9 +73,9 @@ func TestAutomaticNoCompatibleFailuresAreSuppressedUntilFactsChange(t *testing.T
 		},
 	}
 
-	for attempt := 0; attempt < automaticNoCompatibleFailureThreshold; attempt++ {
+	for attempt := 0; attempt < automaticTerminalFailureThreshold; attempt++ {
 		require.False(t, service.automaticAllocationSuppressed(request))
-		service.noteAutomaticNoCompatibleFailure(request)
+		service.noteAutomaticTerminalFailure(request)
 	}
 	require.True(t, service.automaticAllocationSuppressed(request))
 
@@ -83,4 +83,12 @@ func TestAutomaticNoCompatibleFailuresAreSuppressedUntilFactsChange(t *testing.T
 	request.FlightFacts.Aircraft.Type = "MD82"
 	request.FlightFacts.WTC = "M"
 	require.False(t, service.automaticAllocationSuppressed(request), "new aircraft facts must allow a fresh allocation attempt")
+}
+
+func TestAutomaticNoAvailableFailureRemainsSuppressed(t *testing.T) {
+	service := &StandAllocationService{}
+	request := StandAllocationRequest{SessionID: 7, Callsign: "sas123", Airport: "ekch", Direction: sat.AssignmentDirectionDeparture}
+
+	service.noteAutomaticTerminalFailure(request)
+	require.True(t, service.automaticAllocationSuppressed(request))
 }

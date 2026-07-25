@@ -153,6 +153,28 @@ type StandSelection struct {
 	FallbackUsed     bool
 }
 
+// StandSelectionCandidate explains one configured stand option for an
+// allocation preview. Selectable is true only for the first eligible tier,
+// because later tiers are considered only when every earlier tier is empty.
+type StandSelectionCandidate struct {
+	Stand            string  `json:"stand"`
+	RuleID           string  `json:"rule_id"`
+	Tier             int     `json:"tier"`
+	TierName         string  `json:"tier_name"`
+	OriginalWeight   float64 `json:"original_weight"`
+	NormalizedWeight float64 `json:"normalized_weight"`
+	FallbackUsed     bool    `json:"fallback_used"`
+	Selectable       bool    `json:"selectable"`
+}
+
+// StandSelectionPreview is a deterministic explanation of the policy path
+// for a set of already compatible and available stands.
+type StandSelectionPreview struct {
+	RuleID       string                    `json:"rule_id"`
+	FallbackUsed bool                      `json:"fallback_used"`
+	Candidates   []StandSelectionCandidate `json:"candidates"`
+}
+
 // LoadAirlineAssignment strictly decodes and validates an airline assignment
 // document against the physical stand registry. SAT must not become ready
 // without this registry because physical stand references are part of the
@@ -740,6 +762,162 @@ func (c *AirlineAssignmentConfig) SelectStand(facts AssignmentFlightFacts, eligi
 	}
 
 	return c.selectFallback(facts, eligible, random)
+}
+
+// PreviewStandSelection explains every eligible tier without drawing a random
+// stand. It follows the same airline-rule and fallback precedence as
+// SelectStand, while marking the tier that would actually be selected.
+func (c *AirlineAssignmentConfig) PreviewStandSelection(facts AssignmentFlightFacts, eligibleStands []string) (StandSelectionPreview, error) {
+	if c == nil {
+		return StandSelectionPreview{}, errors.New("airline assignment configuration is nil")
+	}
+	eligible := make(map[string]struct{}, len(eligibleStands))
+	for _, stand := range eligibleStands {
+		stand = normalizeStandName(stand)
+		if stand != "" {
+			eligible[stand] = struct{}{}
+		}
+	}
+	facts = normalizeAssignmentFacts(facts)
+	match, err := c.matchAirlineRule(facts)
+	if err != nil {
+		return StandSelectionPreview{}, err
+	}
+	if match != nil {
+		preview, err := c.previewRule(match.Rule, eligible, false)
+		if err != nil || len(preview.Candidates) > 0 {
+			return preview, err
+		}
+	}
+	return c.previewFallback(facts, eligible)
+}
+
+// PreviewFallbackStandSelection explains only the configured fallback rules.
+func (c *AirlineAssignmentConfig) PreviewFallbackStandSelection(facts AssignmentFlightFacts, eligibleStands []string) (StandSelectionPreview, error) {
+	if c == nil {
+		return StandSelectionPreview{}, errors.New("airline assignment configuration is nil")
+	}
+	eligible := make(map[string]struct{}, len(eligibleStands))
+	for _, stand := range eligibleStands {
+		stand = normalizeStandName(stand)
+		if stand != "" {
+			eligible[stand] = struct{}{}
+		}
+	}
+	return c.previewFallback(normalizeAssignmentFacts(facts), eligible)
+}
+
+func (c *AirlineAssignmentConfig) previewFallback(facts AssignmentFlightFacts, eligible map[string]struct{}) (StandSelectionPreview, error) {
+	fallbackName := c.preferredFallbackName(facts)
+	if fallbackName != FallbackAirlinerDefault {
+		if fallback, ok := c.GetFallbackRule(fallbackName); ok {
+			preview, err := c.previewRule(&AirlineAssignmentRule{ID: fallbackName, Stands: fallback.Stands, Tiers: fallback.Tiers}, eligible, true)
+			if err != nil || len(preview.Candidates) > 0 {
+				return preview, err
+			}
+		}
+	}
+	fallback, ok := c.GetFallbackRule(FallbackAirlinerDefault)
+	if !ok {
+		return StandSelectionPreview{}, errors.New("airliner_default fallback is not configured")
+	}
+	return c.previewRule(&AirlineAssignmentRule{ID: FallbackAirlinerDefault, Stands: fallback.Stands, Tiers: fallback.Tiers}, eligible, true)
+}
+
+func (c *AirlineAssignmentConfig) previewRule(rule *AirlineAssignmentRule, eligible map[string]struct{}, fallbackUsed bool) (StandSelectionPreview, error) {
+	if rule == nil {
+		return StandSelectionPreview{}, nil
+	}
+	preview := StandSelectionPreview{RuleID: rule.ID, FallbackUsed: fallbackUsed, Candidates: []StandSelectionCandidate{}}
+	selectableTierFound := false
+	for tierIndex, tier := range rule.Tiers {
+		candidates, totalWeight, err := c.eligibleTierCandidates(tier, eligible)
+		if err != nil {
+			return StandSelectionPreview{}, err
+		}
+		if totalWeight == 0 {
+			continue
+		}
+		selectable := !selectableTierFound
+		selectableTierFound = true
+		for _, candidate := range candidates {
+			preview.Candidates = append(preview.Candidates, StandSelectionCandidate{
+				Stand: candidate.stand, RuleID: rule.ID, Tier: tierNumber(tier.Name, tierIndex), TierName: tier.Name,
+				OriginalWeight: candidate.weight, NormalizedWeight: candidate.weight / totalWeight,
+				FallbackUsed: fallbackUsed, Selectable: selectable,
+			})
+		}
+	}
+	return preview, nil
+}
+
+// FallbackStandPool returns the configured physical stand pool used after an
+// airline rule has no eligible candidate. The preferred use/border fallback is
+// returned first, followed by airliner_default when it is distinct.
+func (c *AirlineAssignmentConfig) FallbackStandPool(facts AssignmentFlightFacts) ([]string, error) {
+	if c == nil {
+		return nil, errors.New("airline assignment configuration is nil")
+	}
+	facts = normalizeAssignmentFacts(facts)
+	names := []string{c.preferredFallbackName(facts)}
+	if names[0] != FallbackAirlinerDefault {
+		names = append(names, FallbackAirlinerDefault)
+	}
+
+	pool := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, name := range names {
+		fallback, ok := c.GetFallbackRule(name)
+		if !ok {
+			if name == FallbackAirlinerDefault {
+				return nil, errors.New("airliner_default fallback is not configured")
+			}
+			continue
+		}
+		for _, tier := range fallback.Tiers {
+			for _, entry := range tier.Entries {
+				stands := []string{entry.Stand}
+				if entry.Group != "" {
+					var err error
+					stands, err = c.ResolveStandGroup(entry.Group)
+					if err != nil {
+						return nil, err
+					}
+				}
+				for _, stand := range stands {
+					stand = normalizeStandName(stand)
+					if stand == "" {
+						continue
+					}
+					if _, exists := seen[stand]; exists {
+						continue
+					}
+					seen[stand] = struct{}{}
+					pool = append(pool, stand)
+				}
+			}
+		}
+	}
+	return pool, nil
+}
+
+// SelectFallbackStand applies only the configured fallback rules, rather than
+// considering a matching airline-specific rule again.
+func (c *AirlineAssignmentConfig) SelectFallbackStand(facts AssignmentFlightFacts, eligibleStands []string, random func() float64) (*StandSelection, error) {
+	if c == nil {
+		return nil, errors.New("airline assignment configuration is nil")
+	}
+	if random == nil {
+		return nil, errors.New("stand selection random source is nil")
+	}
+	eligible := make(map[string]struct{}, len(eligibleStands))
+	for _, stand := range eligibleStands {
+		stand = normalizeStandName(stand)
+		if stand != "" {
+			eligible[stand] = struct{}{}
+		}
+	}
+	return c.selectFallback(normalizeAssignmentFacts(facts), eligible, random)
 }
 
 func (c *AirlineAssignmentConfig) selectFallback(facts AssignmentFlightFacts, eligible map[string]struct{}, random func() float64) (*StandSelection, error) {

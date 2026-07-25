@@ -279,6 +279,38 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		}
 	})
 
+	t.Run("falls back only within the configured fallback pool when compatible stands are exhausted", func(t *testing.T) {
+		service, session, _ := standAllocationFixture(t, pool, queries, "ENGINETYPE:J", "ENGINETYPE:J")
+		testdata.SeedTestStrip(t, queries, session, "SAS312")
+		request := standAllocationRequest(session, "SAS312")
+		request.FlightFacts = sat.FlightCompatibilityFacts{
+			Direction: sat.Arrival, EngineType: sat.EnginePiston, WTC: "L", BorderStatus: sat.BorderStatusSchengen,
+		}
+
+		result, err := service.Allocate(ctx, request)
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+		assert.Equal(t, "AUTOMATIC", result.Assignment.Source)
+		require.NotNil(t, result.Assignment.ConflictReason)
+		assert.Equal(t, automaticPhysicalFallbackConflict, *result.Assignment.ConflictReason)
+		assert.True(t, result.Selection.FallbackUsed)
+		assert.Nil(t, result.Assignment.MatchedVariant, "the fallback retains the stand's union adjacency footprint")
+		assert.Equal(t, []string{"A1"}, result.AvailableCandidates)
+	})
+
+	t.Run("suppresses repeated automatic attempts when no safe physical stand exists", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "BLOCKS:A2", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS313")
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+			SessionID: session, Stand: "A1", BlockType: "CLOSURE", Source: "CONTROLLER", Manual: true,
+		}))
+
+		_, err := service.Allocate(ctx, standAllocationRequest(session, "SAS313"))
+		require.ErrorIs(t, err, ErrNoAvailableStand)
+		_, err = service.Allocate(ctx, standAllocationRequest(session, "SAS313"))
+		require.ErrorIs(t, err, ErrAutomaticAllocationSuppressed)
+	})
+
 	t.Run("manual blocks use allocation occupancy and adjacency locks", func(t *testing.T) {
 		service, session, assignments := standAllocationFixture(t, pool, queries, "BLOCKS:A2", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS302")

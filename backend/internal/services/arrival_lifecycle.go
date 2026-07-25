@@ -325,8 +325,8 @@ func (s *ArrivalLifecycleService) StartSweep(ctx context.Context) {
 
 func (s *ArrivalLifecycleService) buildRequest(session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, stage string, eta *time.Time, expiresAt *time.Time) StandAllocationRequest {
 	facts, assignmentFacts := s.resolveFacts(strip, flight)
-	revision := flight.Revision
 	etaSource := "ARRIVAL_ETA"
+	vatsimCID, vatsimRevision := resolvedVatsimIdentity(strip, flight.CID, flight.Revision)
 	return StandAllocationRequest{
 		SessionID:       session,
 		Callsign:        strip.Callsign,
@@ -338,8 +338,8 @@ func (s *ArrivalLifecycleService) buildRequest(session int32, strip *models.Stri
 		ETA:             eta,
 		ETASource:       &etaSource,
 		ExpiresAt:       expiresAt,
-		VatsimCID:       parseCID(flight.CID),
-		VatsimRevision:  &revision,
+		VatsimCID:       vatsimCID,
+		VatsimRevision:  vatsimRevision,
 	}
 }
 

@@ -46,8 +46,28 @@ func (s *StandActionService) Allocate(ctx context.Context, session int32, airpor
 	}
 	// A controller's explicit automatic request is a deliberate retry. It may
 	// restart an allocation that the feed-driven lifecycle has suppressed.
-	s.allocations.clearAutomaticNoCompatibleFailure(req)
+	s.allocations.clearAutomaticTerminalFailure(req)
 	return s.allocations.Allocate(ctx, req)
+}
+
+// Preview explains the currently selectable automatic stands without changing
+// an assignment. It deliberately uses the same request facts as a controller
+// action, but does not require a controller position or a version mutation.
+func (s *StandActionService) Preview(ctx context.Context, session int32, airport, callsign string) (StandAllocationPreview, error) {
+	if s == nil || s.allocations == nil {
+		return StandAllocationPreview{}, errors.New("stand allocation preview is unavailable")
+	}
+	version := int32(0)
+	if existing, err := s.assignments.GetAssignment(ctx, session, strings.TrimSpace(callsign)); err == nil && existing != nil {
+		version = existing.Version
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return StandAllocationPreview{}, fmt.Errorf("load stand assignment: %w", err)
+	}
+	req, err := s.request(ctx, session, airport, "SAT_STATUS", callsign, version)
+	if err != nil {
+		return StandAllocationPreview{}, err
+	}
+	return s.allocations.Preview(ctx, req)
 }
 
 func (s *StandActionService) AssignManually(ctx context.Context, session int32, airport, position, callsign, stand string, version int32) (*StandAllocationResult, error) {
@@ -148,8 +168,9 @@ func (s *StandActionService) request(ctx context.Context, session int32, airport
 		stage = existing.Stage
 		expiresAt = existing.ExpiresAt
 	}
+	vatsimCID, vatsimRevision := resolvedVatsimIdentity(strip, "", 0)
 	return StandAllocationRequest{SessionID: session, Callsign: strip.Callsign, Airport: strings.ToUpper(airport), Direction: direction, Stage: stage,
-		FlightFacts: facts, AssignmentFacts: sat.AssignmentFlightFacts{Callsign: strip.Callsign, AircraftType: valueString(strip.AircraftType), AircraftUse: facts.Aircraft.UseCode, BorderStatus: facts.BorderStatus, Direction: direction}, ETA: arrivalETATime(strip), ETASource: existingETASource(existing), ExpiresAt: expiresAt, DepartureTOBT: departureTobtTime(strip, time.Now().UTC()), VatsimRevision: strip.VatsimRevision}, nil
+		FlightFacts: facts, AssignmentFacts: sat.AssignmentFlightFacts{Callsign: strip.Callsign, AircraftType: valueString(strip.AircraftType), AircraftUse: facts.Aircraft.UseCode, BorderStatus: facts.BorderStatus, Direction: direction}, ETA: arrivalETATime(strip), ETASource: existingETASource(existing), ExpiresAt: expiresAt, DepartureTOBT: departureTobtTime(strip, time.Now().UTC()), VatsimCID: vatsimCID, VatsimRevision: vatsimRevision}, nil
 }
 
 func (s *StandActionService) Acknowledge(ctx context.Context, session int32, position, callsign string, version int32) (*models.StandAssignment, error) {

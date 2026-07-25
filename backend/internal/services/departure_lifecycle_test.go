@@ -41,6 +41,28 @@ func TestDepartureLifecycleWithoutEuroscopeMessengerSkipsStandMessages(t *testin
 	require.NoError(t, err)
 }
 
+func TestResolvedVatsimIdentityFallsBackToStripProvenance(t *testing.T) {
+	cid, revision := "1838280", int64(4)
+	resolvedCID, resolvedRevision := resolvedVatsimIdentity(&models.Strip{VatsimCID: &cid, VatsimRevision: &revision}, "", 0)
+
+	require.NotNil(t, resolvedCID)
+	require.NotNil(t, resolvedRevision)
+	assert.Equal(t, int64(1838280), *resolvedCID)
+	assert.Equal(t, int64(4), *resolvedRevision)
+}
+
+func TestApplyVatsimIdentityBackfillsExistingAssignment(t *testing.T) {
+	cid, revision := "1838280", int64(4)
+	assignment := &models.StandAssignment{}
+
+	applyVatsimIdentity(assignment, &models.Strip{VatsimCID: &cid, VatsimRevision: &revision}, "", 0)
+
+	require.NotNil(t, assignment.VatsimCID)
+	require.NotNil(t, assignment.VatsimRevision)
+	assert.Equal(t, int64(1838280), *assignment.VatsimCID)
+	assert.Equal(t, int64(4), *assignment.VatsimRevision)
+}
+
 type wrongStandTestMessenger struct {
 	available bool
 	calls     int
@@ -630,7 +652,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.NoError(t, err, "an online assignment without a valid CDM deadline must remain assigned")
 	})
 
-	t.Run("revalidation reallocates when EuroScope facts invalidate the stand", func(t *testing.T) {
+	t.Run("revalidation retains a stand occupied by the observed departure", func(t *testing.T) {
 		aircraft := mustLoadAircraftRegistry(t, "A320", "B737")
 		engines := mustLoadEngineRegistry(t, aircraft, []engineRecord{{ICAO: "A320", WTC: "M", Engine: "J"}, {ICAO: "B737", WTC: "M", Engine: "J"}})
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixtureWithEngines(t, pool, queries, "ATYP:A320", "ATYP:B737", aircraft, engines)
@@ -644,10 +666,10 @@ func TestDepartureLifecycle(t *testing.T) {
 		clock.advance(2 * time.Minute)
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS901"), onlineFlight("SAS901", 1)))
 
-		reallocated, err := assignments.GetAssignment(ctx, session, "SAS901")
+		assigned, err := assignments.GetAssignment(ctx, session, "SAS901")
 		require.NoError(t, err)
-		assert.Equal(t, "A2", reallocated.Stand, "an incompatible stand is replaced once better facts arrive")
-		assert.Equal(t, StageDepartureBlock, reallocated.Stage)
+		assert.Equal(t, "A1", assigned.Stand, "a departure observed on its assigned stand must not be relocated")
+		assert.Equal(t, StageDepartureBlock, assigned.Stage)
 	})
 
 	t.Run("a temporary TSAT gap does not add a block expiry", func(t *testing.T) {

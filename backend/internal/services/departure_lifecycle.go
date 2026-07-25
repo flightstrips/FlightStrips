@@ -455,10 +455,7 @@ func (s *DepartureLifecycleService) renewInPlace(ctx context.Context, strip *mod
 	updated.ExpiresAt = &expiry
 	updated.AssignedAt = &now
 	updated.Stage = StageReserved
-	if parseCID(flight.CID) != nil {
-		revision := flight.Revision
-		updated.VatsimRevision = &revision
-	}
+	applyVatsimIdentity(&updated, strip, flight.CID, flight.Revision)
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
 		return err
@@ -511,10 +508,7 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 		updated.ConflictReason = nil
 	}
 	updated.AssignedAt = &now
-	if parseCID(flight.CID) != nil {
-		revision := flight.Revision
-		updated.VatsimRevision = &revision
-	}
+	applyVatsimIdentity(&updated, strip, flight.CID, flight.Revision)
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
 		return err
@@ -536,10 +530,7 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	reloaded.Stage = StageDepartureBlock
 	reloaded.ExpiresAt = expiry
 	reloaded.AssignedAt = &now
-	if parseCID(flight.CID) != nil {
-		revision := flight.Revision
-		reloaded.VatsimRevision = &revision
-	}
+	applyVatsimIdentity(reloaded, strip, flight.CID, flight.Revision)
 	affected, err = s.assignments.UpdateAssignment(ctx, reloaded)
 	if err != nil {
 		return err
@@ -552,15 +543,19 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 }
 
 // revalidateFacts re-runs compatibility against the strip's current aircraft and
-// engine facts. EuroScope often supplies a live engine type or corrected
-// aircraft type after the initial reservation; when the assigned stand no
-// longer fits, a reallocation produces the conflict and selects a replacement.
+// engine facts. A departure that has been observed on its assigned stand keeps
+// that stand: it is already physically there, so later fact corrections must
+// not trigger an automatic relocation. Reservations without a live observed
+// position can still be reallocated when their facts change.
 func (s *DepartureLifecycleService) revalidateFacts(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) error {
 	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
 	if err != nil && !isNotFound(err) {
 		return err
 	}
 	if existing == nil {
+		return nil
+	}
+	if s.flightIsAtAssignedStand(strip, flight, existing.Stand) {
 		return nil
 	}
 	facts, assignmentFacts := s.resolveFacts(strip, flight)
@@ -585,6 +580,15 @@ func (s *DepartureLifecycleService) revalidateFacts(ctx context.Context, session
 	}
 	_, err = s.allocations.Reallocate(ctx, request)
 	return err
+}
+
+func (s *DepartureLifecycleService) flightIsAtAssignedStand(strip *models.Strip, flight vatsim.DepartureFlightInfo, stand string) bool {
+	airport := strings.TrimSpace(flight.Origin)
+	if strip != nil && strings.TrimSpace(strip.Origin) != "" {
+		airport = strings.TrimSpace(strip.Origin)
+	}
+	observed, found := s.stands.StandAtPosition(airport, flight.Latitude, flight.Longitude)
+	return found && strings.EqualFold(observed.Name, stand)
 }
 
 // ReleaseExpired releases expired offline reservations and completed departure
@@ -712,12 +716,39 @@ func (s *DepartureLifecycleService) buildRequest(session int32, strip *models.St
 		ExpiresAt:       expiresAt,
 		DepartureTOBT:   departureTobtTime(strip, s.now()),
 	}
-	if cid := parseCID(flight.CID); cid != nil {
-		revision := flight.Revision
-		request.VatsimCID = cid
-		request.VatsimRevision = &revision
-	}
+	request.VatsimCID, request.VatsimRevision = resolvedVatsimIdentity(strip, flight.CID, flight.Revision)
 	return request
+}
+
+// resolvedVatsimIdentity prefers the current feed record, then falls back to
+// VATSIM identity already reconciled onto the EuroScope strip. This keeps
+// controller- and EuroScope-triggered assignments linked to the pilot when the
+// allocation does not originate directly from a VATSIM callback.
+func resolvedVatsimIdentity(strip *models.Strip, cid string, revision int64) (*int64, *int64) {
+	if parsed := parseCID(cid); parsed != nil {
+		return parsed, &revision
+	}
+	if strip == nil {
+		return nil, nil
+	}
+	parsed := parseCID(valueString(strip.VatsimCID))
+	if parsed == nil {
+		return nil, nil
+	}
+	return parsed, strip.VatsimRevision
+}
+
+func applyVatsimIdentity(assignment *models.StandAssignment, strip *models.Strip, cid string, revision int64) {
+	if assignment == nil {
+		return
+	}
+	resolvedCID, resolvedRevision := resolvedVatsimIdentity(strip, cid, revision)
+	if resolvedCID != nil {
+		assignment.VatsimCID = resolvedCID
+	}
+	if resolvedRevision != nil {
+		assignment.VatsimRevision = resolvedRevision
+	}
 }
 
 func (s *DepartureLifecycleService) resolveFacts(strip *models.Strip, flight vatsim.DepartureFlightInfo) (sat.FlightCompatibilityFacts, sat.AssignmentFlightFacts) {

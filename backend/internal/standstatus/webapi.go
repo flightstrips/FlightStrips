@@ -2,6 +2,7 @@ package standstatus
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/standdiagnostics"
 	"FlightStrips/internal/vatsim"
@@ -9,6 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,12 +24,20 @@ type standStatusAssignmentRepository interface {
 	ListBlocks(context.Context, int32) ([]*models.StandBlock, error)
 }
 
+type standStatusStripRepository interface {
+	List(context.Context, int32) ([]*models.Strip, error)
+}
+
 type standStatusFeed interface {
 	Snapshot() vatsim.Snapshot
 }
 
 type standStatusFailureSource interface {
 	List() []standdiagnostics.AllocationFailure
+}
+
+type standStatusPreviewer interface {
+	Preview(context.Context, int32, string, string) (services.StandAllocationPreview, error)
 }
 
 // WebAPIDiagnostics describes the configuration that was loaded at startup.
@@ -45,6 +55,7 @@ type WebAPIConfig struct {
 	Auth        shared.AuthenticationService
 	Sessions    standStatusSessionRepository
 	Assignments standStatusAssignmentRepository
+	Strips      standStatusStripRepository
 	Feed        standStatusFeed
 	Enabled     bool
 	Ready       bool
@@ -52,6 +63,7 @@ type WebAPIConfig struct {
 	StaleAfter  time.Duration
 	Diagnostics WebAPIDiagnostics
 	Failures    standStatusFailureSource
+	Previewer   standStatusPreviewer
 }
 
 // WebAPI exposes an authenticated, read-only snapshot of SAT's internal state.
@@ -94,29 +106,32 @@ type standStatusSessionResponse struct {
 }
 
 type standStatusAssignmentResponse struct {
-	ID             int64      `json:"id"`
-	Callsign       string     `json:"callsign"`
-	Stand          string     `json:"stand"`
-	Direction      string     `json:"direction"`
-	Stage          string     `json:"stage"`
-	Source         string     `json:"source"`
-	RuleID         *string    `json:"rule_id,omitempty"`
-	Tier           *int32     `json:"tier,omitempty"`
-	MatchedVariant *string    `json:"matched_variant,omitempty"`
-	ConflictReason *string    `json:"conflict_reason,omitempty"`
-	ETA            *time.Time `json:"eta,omitempty"`
-	ETASource      *string    `json:"eta_source,omitempty"`
-	AssignedAt     *time.Time `json:"assigned_at,omitempty"`
-	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
-	Manual         bool       `json:"manual"`
-	Acknowledged   bool       `json:"acknowledged"`
-	AcknowledgedAt *time.Time `json:"acknowledged_at,omitempty"`
-	AcknowledgedBy *string    `json:"acknowledged_by,omitempty"`
-	VatsimCID      *int64     `json:"vatsim_cid,omitempty"`
-	VatsimRevision *int64     `json:"vatsim_revision,omitempty"`
-	Version        int32      `json:"version"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID               int64      `json:"id"`
+	Callsign         string     `json:"callsign"`
+	Stand            string     `json:"stand"`
+	Direction        string     `json:"direction"`
+	Stage            string     `json:"stage"`
+	Source           string     `json:"source"`
+	RuleID           *string    `json:"rule_id,omitempty"`
+	Tier             *int32     `json:"tier,omitempty"`
+	MatchedVariant   *string    `json:"matched_variant,omitempty"`
+	ConflictReason   *string    `json:"conflict_reason,omitempty"`
+	ETA              *time.Time `json:"eta,omitempty"`
+	ETASource        *string    `json:"eta_source,omitempty"`
+	DepartureTOBT    *string    `json:"departure_tobt,omitempty"`
+	DepartureTSAT    *string    `json:"departure_tsat,omitempty"`
+	PlannedReleaseAt *time.Time `json:"planned_release_at,omitempty"`
+	AssignedAt       *time.Time `json:"assigned_at,omitempty"`
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
+	Manual           bool       `json:"manual"`
+	Acknowledged     bool       `json:"acknowledged"`
+	AcknowledgedAt   *time.Time `json:"acknowledged_at,omitempty"`
+	AcknowledgedBy   *string    `json:"acknowledged_by,omitempty"`
+	VatsimCID        *int64     `json:"vatsim_cid,omitempty"`
+	VatsimRevision   *int64     `json:"vatsim_revision,omitempty"`
+	Version          int32      `json:"version"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 type standStatusBlockResponse struct {
@@ -140,6 +155,38 @@ func NewWebAPI(config WebAPIConfig) *WebAPI {
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/stand/status", a.handleStatus)
+	mux.HandleFunc("/stand/preview", a.handlePreview)
+}
+
+func (a *WebAPI) handlePreview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if !a.authenticate(w, r) {
+		return
+	}
+	if a.config.Previewer == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "stand allocation preview is unavailable")
+		return
+	}
+	sessionID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("session_id")), 10, 32)
+	if err != nil || sessionID <= 0 {
+		writeJSONError(w, http.StatusBadRequest, "session_id must be a positive integer")
+		return
+	}
+	callsign := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("callsign")))
+	airport := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("airport")))
+	if callsign == "" || airport == "" {
+		writeJSONError(w, http.StatusBadRequest, "airport and callsign are required")
+		return
+	}
+	preview, err := a.config.Previewer.Preview(r.Context(), int32(sessionID), airport, callsign)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to preview stand allocation")
+		return
+	}
+	writeJSON(w, http.StatusOK, preview)
 }
 
 func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +233,15 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 				writeJSONError(w, http.StatusInternalServerError, "failed to list stand blocks")
 				return
 			}
-			response.Sessions = append(response.Sessions, mapStandStatusSession(session, assignments, blocks, now))
+			var strips []*models.Strip
+			if a.config.Strips != nil {
+				strips, err = a.config.Strips.List(r.Context(), session.ID)
+				if err != nil {
+					writeJSONError(w, http.StatusInternalServerError, "failed to list strips for stand timing")
+					return
+				}
+			}
+			response.Sessions = append(response.Sessions, mapStandStatusSession(session, assignments, blocks, strips, now))
 		}
 	}
 
@@ -265,7 +320,7 @@ func (a *WebAPI) feedStatus() standStatusFeedResponse {
 	return result
 }
 
-func mapStandStatusSession(session *models.Session, assignments []*models.StandAssignment, blocks []*models.StandBlock, now time.Time) standStatusSessionResponse {
+func mapStandStatusSession(session *models.Session, assignments []*models.StandAssignment, blocks []*models.StandBlock, strips []*models.Strip, now time.Time) standStatusSessionResponse {
 	response := standStatusSessionResponse{
 		SessionID:   session.ID,
 		Name:        session.Name,
@@ -273,11 +328,17 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 		Assignments: make([]standStatusAssignmentResponse, 0, len(assignments)),
 		Blocks:      make([]standStatusBlockResponse, 0, len(blocks)),
 	}
+	stripsByCallsign := make(map[string]*models.Strip, len(strips))
+	for _, strip := range strips {
+		if strip != nil {
+			stripsByCallsign[strings.ToUpper(strings.TrimSpace(strip.Callsign))] = strip
+		}
+	}
 	for _, assignment := range assignments {
 		if assignment == nil {
 			continue
 		}
-		response.Assignments = append(response.Assignments, standStatusAssignmentResponse{
+		mapped := standStatusAssignmentResponse{
 			ID: assignment.ID, Callsign: assignment.Callsign, Stand: assignment.Stand,
 			Direction: assignment.Direction, Stage: assignment.Stage, Source: assignment.Source,
 			RuleID: assignment.RuleID, Tier: assignment.Tier, MatchedVariant: assignment.MatchedVariant,
@@ -287,10 +348,18 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 			AcknowledgedBy: assignment.AcknowledgedBy, VatsimCID: assignment.VatsimCID,
 			VatsimRevision: assignment.VatsimRevision, Version: assignment.Version,
 			CreatedAt: assignment.CreatedAt, UpdatedAt: assignment.UpdatedAt,
-		})
+		}
+		if assignment.Direction == "DEPARTURE" {
+			if strip := stripsByCallsign[strings.ToUpper(strings.TrimSpace(assignment.Callsign))]; strip != nil {
+				mapped.DepartureTOBT = strip.EffectiveTobt()
+				mapped.DepartureTSAT = strip.EffectiveTsat()
+				mapped.PlannedReleaseAt = scheduledDepartureReleaseAt(strip, now)
+			}
+		}
+		response.Assignments = append(response.Assignments, mapped)
 	}
 	for _, block := range blocks {
-		if block == nil || (block.ExpiresAt != nil && !block.ExpiresAt.After(now)) {
+		if block == nil {
 			continue
 		}
 		response.Blocks = append(response.Blocks, standStatusBlockResponse{
@@ -310,6 +379,52 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 		return response.Blocks[i].ID < response.Blocks[j].ID
 	})
 	return response
+}
+
+// scheduledDepartureReleaseAt mirrors the operational display rule: TSAT takes
+// precedence over TOBT and the stand is planned to release ten minutes later.
+// It is intentionally a planning value; an aircraft observed at its stand is
+// retained until it moves or its strip disappears.
+func scheduledDepartureReleaseAt(strip *models.Strip, now time.Time) *time.Time {
+	if strip == nil {
+		return nil
+	}
+	invalidReason := ""
+	if calculation := strip.CdmData.EffectiveCalculation(); calculation != nil && calculation.InvalidReason != nil {
+		invalidReason = strings.TrimSpace(*calculation.InvalidReason)
+	}
+	if invalidReason != models.CdmInvalidReasonStaleTsat {
+		if release := departureReleaseAt(strip.EffectiveTsat(), now); release != nil {
+			return release
+		}
+	}
+	if invalidReason != models.CdmInvalidReasonStaleTobt {
+		return departureReleaseAt(strip.EffectiveTobt(), now)
+	}
+	return nil
+}
+
+func departureReleaseAt(clock *string, now time.Time) *time.Time {
+	if clock == nil {
+		return nil
+	}
+	value := strings.TrimSpace(*clock)
+	if len(value) != 4 {
+		return nil
+	}
+	hour, hourErr := strconv.Atoi(value[:2])
+	minute, minuteErr := strconv.Atoi(value[2:])
+	if hourErr != nil || minuteErr != nil || hour > 23 || minute > 59 {
+		return nil
+	}
+	candidate := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC)
+	if candidate.Sub(now) > 12*time.Hour {
+		candidate = candidate.Add(-24 * time.Hour)
+	} else if now.Sub(candidate) > 12*time.Hour {
+		candidate = candidate.Add(24 * time.Hour)
+	}
+	release := candidate.Add(10 * time.Minute)
+	return &release
 }
 
 func (a *WebAPI) authenticate(w http.ResponseWriter, r *http.Request) bool {

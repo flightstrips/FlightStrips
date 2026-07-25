@@ -35,16 +35,18 @@ const (
 )
 
 var (
-	ErrNoAvailableStand              = errors.New("no compatible stand is available")
+	ErrNoAvailableStand              = errors.New("no safe stand is currently available")
 	ErrNoCompatibleStand             = errors.New("no stand is compatible with the flight")
 	ErrIncompatibleManualAssignment  = errors.New("manual stand is not compatible or available")
 	ErrAllocationRetriesExhausted    = errors.New("stand allocation retries exhausted")
 	ErrUnknownManualOverrideStand    = errors.New("manual override stand is not configured")
-	ErrAutomaticAllocationSuppressed = errors.New("automatic stand allocation suppressed after repeated incompatibility")
+	ErrAutomaticAllocationSuppressed = errors.New("automatic stand allocation suppressed after an unchanged terminal stand shortage")
 	errAllocationVersionConflict     = errors.New("stand assignment version conflict")
 )
 
-const automaticNoCompatibleFailureThreshold = 3
+const automaticTerminalFailureThreshold = 1
+
+const automaticPhysicalFallbackConflict = "automatic fallback: no normal compatible stand was available"
 
 // StandAllocationRequest contains facts already resolved by the SAT data
 // layer. It intentionally excludes lifecycle and controller authorization
@@ -101,6 +103,17 @@ type StandAllocationResult struct {
 	AvailableCandidates []string
 }
 
+// StandAllocationPreview is a read-only explanation of the stands an
+// automatic allocation could currently choose for one flight.
+type StandAllocationPreview struct {
+	Callsign         string                    `json:"callsign"`
+	Airport          string                    `json:"airport"`
+	FallbackUsed     bool                      `json:"fallback_used"`
+	CompatibleStands int                       `json:"compatible_stands"`
+	AvailableStands  int                       `json:"available_stands"`
+	Selection        sat.StandSelectionPreview `json:"selection"`
+}
+
 type StandAllocationPublisher func(context.Context, StandAllocationResult) error
 
 // StandAllocationService is the sole owner of the allocation transaction. It
@@ -118,11 +131,14 @@ type StandAllocationService struct {
 	now         func() time.Time
 	failures    *standdiagnostics.AllocationFailureLog
 
-	automaticFailureMu            sync.Mutex
-	automaticNoCompatibleFailures map[string]automaticNoCompatibleFailure
+	automaticFailureMu        sync.Mutex
+	automaticTerminalFailures map[string]automaticTerminalFailure
 }
 
-type automaticNoCompatibleFailure struct {
+// automaticTerminalFailure prevents a lifecycle poll from reporting the same
+// unassignable flight repeatedly. A changed flight-facts fingerprint is a new
+// allocation decision and is deliberately allowed through.
+type automaticTerminalFailure struct {
 	fingerprint string
 	failures    int
 }
@@ -384,7 +400,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 	for attempt := 1; attempt <= s.attempts; attempt++ {
 		result, selected, err := s.allocateOnce(ctx, command, request, tried, attempt)
 		if err == nil {
-			s.clearAutomaticNoCompatibleFailure(request)
+			s.clearAutomaticTerminalFailure(request)
 			tier := 0
 			rule := ""
 			category := "manual"
@@ -416,10 +432,10 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 		}
 		if !retryableStandAllocationError(err) {
 			if isAutomaticStandAllocation(command) {
-				if errors.Is(err, ErrNoCompatibleStand) {
-					s.noteAutomaticNoCompatibleFailure(request)
+				if isTerminalAutomaticStandShortage(err) {
+					s.noteAutomaticTerminalFailure(request)
 				} else {
-					s.clearAutomaticNoCompatibleFailure(request)
+					s.clearAutomaticTerminalFailure(request)
 				}
 			}
 			outcome := standAllocationFailureOutcome(err)
@@ -449,30 +465,34 @@ func (s *StandAllocationService) automaticAllocationSuppressed(request StandAllo
 	key, fingerprint := automaticFailureKeyAndFingerprint(request)
 	s.automaticFailureMu.Lock()
 	defer s.automaticFailureMu.Unlock()
-	failure, ok := s.automaticNoCompatibleFailures[key]
-	return ok && failure.fingerprint == fingerprint && failure.failures >= automaticNoCompatibleFailureThreshold
+	failure, ok := s.automaticTerminalFailures[key]
+	return ok && failure.fingerprint == fingerprint && failure.failures >= automaticTerminalFailureThreshold
 }
 
-func (s *StandAllocationService) noteAutomaticNoCompatibleFailure(request StandAllocationRequest) {
+func (s *StandAllocationService) noteAutomaticTerminalFailure(request StandAllocationRequest) {
 	key, fingerprint := automaticFailureKeyAndFingerprint(request)
 	s.automaticFailureMu.Lock()
 	defer s.automaticFailureMu.Unlock()
-	if s.automaticNoCompatibleFailures == nil {
-		s.automaticNoCompatibleFailures = make(map[string]automaticNoCompatibleFailure)
+	if s.automaticTerminalFailures == nil {
+		s.automaticTerminalFailures = make(map[string]automaticTerminalFailure)
 	}
-	failure := s.automaticNoCompatibleFailures[key]
+	failure := s.automaticTerminalFailures[key]
 	if failure.fingerprint != fingerprint {
-		failure = automaticNoCompatibleFailure{fingerprint: fingerprint}
+		failure = automaticTerminalFailure{fingerprint: fingerprint}
 	}
 	failure.failures++
-	s.automaticNoCompatibleFailures[key] = failure
+	s.automaticTerminalFailures[key] = failure
 }
 
-func (s *StandAllocationService) clearAutomaticNoCompatibleFailure(request StandAllocationRequest) {
+func (s *StandAllocationService) clearAutomaticTerminalFailure(request StandAllocationRequest) {
 	key, _ := automaticFailureKeyAndFingerprint(request)
 	s.automaticFailureMu.Lock()
 	defer s.automaticFailureMu.Unlock()
-	delete(s.automaticNoCompatibleFailures, key)
+	delete(s.automaticTerminalFailures, key)
+}
+
+func isTerminalAutomaticStandShortage(err error) bool {
+	return errors.Is(err, ErrNoCompatibleStand) || errors.Is(err, ErrNoAvailableStand)
 }
 
 func automaticFailureKeyAndFingerprint(request StandAllocationRequest) (string, string) {
@@ -678,6 +698,81 @@ func (s *StandAllocationService) StandAvailable(ctx context.Context, request Sta
 	return len(availability[target]) == 0, nil
 }
 
+// Preview reports the current policy candidates without reserving, updating,
+// or publishing anything. It is intended for controller diagnostics.
+func (s *StandAllocationService) Preview(ctx context.Context, request StandAllocationRequest) (StandAllocationPreview, error) {
+	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
+		return StandAllocationPreview{}, err
+	}
+	assignments, err := s.assignments.ListAssignments(ctx, request.SessionID)
+	if err != nil {
+		return StandAllocationPreview{}, err
+	}
+	blocks, err := s.assignments.ListBlocks(ctx, request.SessionID)
+	if err != nil {
+		return StandAllocationPreview{}, err
+	}
+	activeBlocks := make([]*models.StandBlock, 0, len(blocks))
+	for _, block := range blocks {
+		if block != nil && block.Manual && !expired(block.ExpiresAt, s.now()) {
+			activeBlocks = append(activeBlocks, block)
+		}
+	}
+
+	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
+	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
+	for _, match := range evaluation.Matches {
+		matches[standName(match.Stand.Name)] = match
+	}
+	availability := s.availability(request, assignments, activeBlocks, matches)
+	available := previewAvailableStands(matches, availability)
+	selection, err := s.policy.PreviewStandSelection(request.AssignmentFacts, available)
+	if err != nil {
+		return StandAllocationPreview{}, err
+	}
+	preview := StandAllocationPreview{
+		Callsign: request.Callsign, Airport: request.Airport, FallbackUsed: selection.FallbackUsed,
+		CompatibleStands: len(matches), AvailableStands: len(available), Selection: selection,
+	}
+	if len(selection.Candidates) > 0 {
+		return preview, nil
+	}
+
+	pool, err := s.policy.FallbackStandPool(request.AssignmentFacts)
+	if err != nil {
+		return StandAllocationPreview{}, err
+	}
+	fallbackMatches := make(map[string]sat.StandCompatibilityMatch)
+	for _, name := range pool {
+		stand, found := s.stands.Lookup(request.Airport, name)
+		if !found || len(stand.Variants) == 0 || allStandVariantsManual(stand) {
+			continue
+		}
+		fallbackMatches[standName(stand.Name)] = sat.StandCompatibilityMatch{Stand: stand, Blocks: slices.Clone(stand.Blocks)}
+	}
+	fallbackAvailability := s.availability(request, assignments, activeBlocks, fallbackMatches)
+	fallbackAvailable := previewAvailableStands(fallbackMatches, fallbackAvailability)
+	fallbackSelection, err := s.policy.PreviewFallbackStandSelection(request.AssignmentFacts, fallbackAvailable)
+	if err != nil {
+		return StandAllocationPreview{}, err
+	}
+	preview.FallbackUsed = true
+	preview.AvailableStands = len(fallbackAvailable)
+	preview.Selection = fallbackSelection
+	return preview, nil
+}
+
+func previewAvailableStands(matches map[string]sat.StandCompatibilityMatch, availability map[string][]string) []string {
+	available := make([]string, 0, len(matches))
+	for stand := range matches {
+		if len(availability[stand]) == 0 {
+			available = append(available, stand)
+		}
+	}
+	slices.Sort(available)
+	return available
+}
+
 func (s *StandAllocationService) selectStand(command StandAllocationCommand, request StandAllocationRequest, evaluation sat.StandCompatibilityEvaluation, assignments []*models.StandAssignment, blocks []*models.StandBlock, tried map[string]struct{}) (string, *sat.StandSelection, *sat.StandCompatibilityMatch, []string, string, error) {
 	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
 	for _, match := range evaluation.Matches {
@@ -706,9 +801,6 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		}
 		return target, nil, &match, []string{target}, "", nil
 	}
-	if len(matches) == 0 && command != IncompatibleManualOverride {
-		return "", nil, nil, nil, "", ErrNoCompatibleStand
-	}
 	availability := s.availability(request, assignments, blocks, matches)
 	if command == IncompatibleManualOverride {
 		stand, known := s.stands.Lookup(request.Airport, request.Stand)
@@ -732,6 +824,9 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		}
 		return request.Stand, nil, &match, []string{request.Stand}, "", nil
 	}
+	if len(matches) == 0 {
+		return s.selectAutomaticPhysicalFallback(request, assignments, blocks, tried)
+	}
 
 	available := make([]string, 0, len(matches))
 	for stand := range matches {
@@ -747,10 +842,64 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		return "", nil, nil, available, "", err
 	}
 	if selection == nil {
-		return "", nil, nil, available, "", ErrNoAvailableStand
+		return s.selectAutomaticPhysicalFallback(request, assignments, blocks, tried)
 	}
 	match := matches[selection.Stand]
 	return selection.Stand, selection, &match, available, "", nil
+}
+
+// selectAutomaticPhysicalFallback gives an automatic allocation a final safe
+// place to go in the configured fallback pool when normal candidates are
+// exhausted. It only relaxes configuration compatibility; occupied stands,
+// adjacency locks, controller blocks, and manual-only stands remain unavailable.
+func (s *StandAllocationService) selectAutomaticPhysicalFallback(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, tried map[string]struct{}) (string, *sat.StandSelection, *sat.StandCompatibilityMatch, []string, string, error) {
+	pool, err := s.policy.FallbackStandPool(request.AssignmentFacts)
+	if err != nil {
+		return "", nil, nil, nil, "", err
+	}
+	matches := make(map[string]sat.StandCompatibilityMatch)
+	for _, name := range pool {
+		stand, found := s.stands.Lookup(request.Airport, name)
+		if !found || len(stand.Variants) == 0 || allStandVariantsManual(stand) {
+			continue
+		}
+		// Stand.Blocks is the union of every configured variant's blocks. Do
+		// not attach a particular variant: future occupancy checks must retain
+		// this conservative physical adjacency footprint.
+		matches[standName(stand.Name)] = sat.StandCompatibilityMatch{Stand: stand, Blocks: slices.Clone(stand.Blocks)}
+	}
+	availability := s.availability(request, assignments, blocks, matches)
+	available := make([]string, 0, len(matches))
+	for stand := range matches {
+		if len(availability[stand]) == 0 {
+			if _, retrying := tried[stand]; !retrying {
+				available = append(available, stand)
+			}
+		}
+	}
+	slices.Sort(available)
+	if len(available) == 0 {
+		return "", nil, nil, nil, "", ErrNoAvailableStand
+	}
+
+	selection, err := s.policy.SelectFallbackStand(request.AssignmentFacts, available, s.random)
+	if err != nil {
+		return "", nil, nil, available, "", err
+	}
+	if selection == nil {
+		return "", nil, nil, available, "", ErrNoAvailableStand
+	}
+	match := matches[selection.Stand]
+	return selection.Stand, selection, &match, available, automaticPhysicalFallbackConflict, nil
+}
+
+func allStandVariantsManual(stand sat.Stand) bool {
+	for _, variant := range stand.Variants {
+		if !variant.Manual {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *StandAllocationService) availability(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch) map[string][]string {

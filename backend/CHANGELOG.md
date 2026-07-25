@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.44.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.43.0...backend/v0.44.0) (2026-07-25)
+
+
+### Features
+
+* **stand:** show live EFB stand availability ([#438](https://github.com/flightstrips/FlightStrips/issues/438)) ([f5f494a](https://github.com/flightstrips/FlightStrips/commit/f5f494adf2e9f6f10d7544039ff95d8c2f32d116))
+
+
+### Bug Fixes
+
+* **strip:** generate squawks for VATSIM logons ([#440](https://github.com/flightstrips/FlightStrips/issues/440)) ([1057cd5](https://github.com/flightstrips/FlightStrips/commit/1057cd555d7c0b3c2dfa0b385018e474a4a448f8))
+* **strip:** remove no-stand validation ([#441](https://github.com/flightstrips/FlightStrips/issues/441)) ([e85895c](https://github.com/flightstrips/FlightStrips/commit/e85895cdc7af86588583cd57c9a00212b0e66d34))
+
 ## [0.43.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.42.2...backend/v0.43.0) (2026-07-25)
 
 

@@ -144,8 +144,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 		!isWrongSquawkValidation(current) &&
 		!isRunwayTypeValidation(current) &&
 		!isTaxiwayTypeValidation(current) &&
-		!isCtotValidation(current) &&
-		!isNoStandValidation(current) {
+		!isCtotValidation(current) {
 		return nil
 	}
 
@@ -385,7 +384,7 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 		}
 	}
 
-	return s.ReevaluateNoStandValidationsForSession(ctx, session, publish)
+	return nil
 }
 
 func (s *StripService) ReevaluateSquawkValidationsForSession(ctx context.Context, session int32, publish bool) error {
@@ -397,7 +396,7 @@ func (s *StripService) reevaluateStripValidationPrecedence(ctx context.Context, 
 		return err
 	}
 
-	return s.ReevaluateNoStandValidation(ctx, session, callsign, publish, forceReactivate)
+	return nil
 }
 
 func (s *StripService) reevaluateStoredDepartureValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {

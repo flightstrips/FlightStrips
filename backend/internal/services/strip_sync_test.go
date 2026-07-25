@@ -1467,6 +1467,79 @@ func TestSyncEuroscopeStrip_NewLocalDepartureWithReservedAssignedSquawk_Generate
 	assert.Equal(t, "", esHub.GenerateSquawks[0].Cid)
 }
 
+func TestSyncEuroscopeStrip_FirstEuroscopeSyncOfVatsimDepartureWithReservedAssignedSquawk_GeneratesSquawk(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	reservedSquawk := "2000"
+	existingStrip := &models.Strip{
+		Callsign:       "SAS780",
+		Origin:         "EKCH",
+		Destination:    "EGLL",
+		Bay:            "DEP_HIDDEN",
+		AssignedSquawk: &reservedSquawk,
+		HasFP:          true,
+	}
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, _ *models.Strip) (int64, error) {
+			return 1, nil
+		},
+	}
+
+	svc, _, esHub := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       existingStrip.Callsign,
+		Origin:         "EKCH",
+		Destination:    "EGLL",
+		AssignedSquawk: reservedSquawk,
+		HasFP:          true,
+	}, "EKCH")
+	require.NoError(t, err)
+	require.Len(t, esHub.GenerateSquawks, 1)
+	assert.Equal(t, session, esHub.GenerateSquawks[0].Session)
+	assert.Equal(t, existingStrip.Callsign, esHub.GenerateSquawks[0].Callsign)
+	assert.Equal(t, "", esHub.GenerateSquawks[0].Cid)
+}
+
+func TestSyncEuroscopeStrip_RepeatEuroscopeSyncOfVatsimDepartureDoesNotGenerateSquawk(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	reservedSquawk := "2000"
+	euroscopeSeenAt := time.Now().UTC()
+	existingStrip := &models.Strip{
+		Callsign:        "SAS781",
+		Origin:          "EKCH",
+		Destination:     "EGLL",
+		Bay:             "DEP_HIDDEN",
+		AssignedSquawk:  &reservedSquawk,
+		EuroscopeSeenAt: &euroscopeSeenAt,
+		HasFP:           true,
+	}
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, _ *models.Strip) (int64, error) {
+			return 1, nil
+		},
+	}
+
+	svc, _, esHub := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:       existingStrip.Callsign,
+		Origin:         "EKCH",
+		Destination:    "EGLL",
+		AssignedSquawk: reservedSquawk,
+		HasFP:          true,
+	}, "EKCH")
+	require.NoError(t, err)
+	assert.Empty(t, esHub.GenerateSquawks)
+}
+
 func TestSyncEuroscopeStrip_NewLocalDepartureWithReservedAssignedSquawkAndCleared_DoesNotGenerateSquawk(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

@@ -539,6 +539,13 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if primaryChange && updateHeading != strip.Heading && s.esCommander != nil {
 			s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading)
 		}
+		// VATSIM can create a hidden departure strip before EuroScope sees the
+		// aircraft. Treat that first EuroScope sync like a new strip so the
+		// reserved VATSIM squawk is replaced, but do not re-request a squawk on
+		// later EuroScope updates.
+		if primaryChange && existingStrip.EuroscopeSeenAt == nil && shouldGenerateDepartureSquawk(strip, airport, bay) && s.esCommander != nil {
+			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
+		}
 
 		needsStripBroadcast = true
 		needsPdcValidation = true

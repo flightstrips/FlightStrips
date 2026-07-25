@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.17.0...docs/v0.17.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* **strip:** remove no-stand validation ([#441](https://github.com/flightstrips/FlightStrips/issues/441)) ([e85895c](https://github.com/flightstrips/FlightStrips/commit/e85895cdc7af86588583cd57c9a00212b0e66d34))
+
 ## [0.17.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.16.0...docs/v0.17.0) (2026-07-20)
 
 

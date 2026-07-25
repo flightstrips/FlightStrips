@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.50.0...frontend/v0.51.0) (2026-07-25)
+
+
+### Features
+
+* **stand:** show live EFB stand availability ([#438](https://github.com/flightstrips/FlightStrips/issues/438)) ([f5f494a](https://github.com/flightstrips/FlightStrips/commit/f5f494adf2e9f6f10d7544039ff95d8c2f32d116))
+
 ## [0.50.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.49.0...frontend/v0.50.0) (2026-07-25)
 
 

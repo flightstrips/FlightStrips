@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.43.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.42.2...backend/v0.43.0) (2026-07-25)
+
+
+### Features
+
+* **navigation:** decouple source from aman ([#436](https://github.com/flightstrips/FlightStrips/issues/436)) ([2852849](https://github.com/flightstrips/FlightStrips/commit/2852849cae54c74c76a83341cea239a682cbdb36))
+* **sat:** improve stand assignment status ([#437](https://github.com/flightstrips/FlightStrips/issues/437)) ([eb62850](https://github.com/flightstrips/FlightStrips/commit/eb628503f56efdd0600aa88af6e8ab4b1870fc39))
+
 ## [0.42.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.42.1...backend/v0.42.2) (2026-07-24)
 
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.50.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.49.0...frontend/v0.50.0) (2026-07-25)
+
+
+### Features
+
+* **efb:** add arrival briefing ([#433](https://github.com/flightstrips/FlightStrips/issues/433)) ([b57c7db](https://github.com/flightstrips/FlightStrips/commit/b57c7db07f4526bc57a6e5b3c97059710fb60dd4))
+* **efb:** improve ChartFox chart selection ([#435](https://github.com/flightstrips/FlightStrips/issues/435)) ([9afba3e](https://github.com/flightstrips/FlightStrips/commit/9afba3e63a74f4c4a69d4337c79c5b750703e053))
+* **sat:** improve stand assignment status ([#437](https://github.com/flightstrips/FlightStrips/issues/437)) ([eb62850](https://github.com/flightstrips/FlightStrips/commit/eb628503f56efdd0600aa88af6e8ab4b1870fc39))
+
 ## [0.49.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.48.0...frontend/v0.49.0) (2026-07-24)
 
 

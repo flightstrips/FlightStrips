@@ -21,7 +21,7 @@ import D1ArrivalBriefDialog from '../components/efb/dialogs/D1ArrivalBrief';
 import D1BRIEFDialog from '../components/efb/dialogs/D1Brief';
 import D1ChartDialog from '../components/efb/dialogs/D1Chart';
 import D1DownloadsDialog from '../components/efb/dialogs/D1DownloadsDialog';
-import D1STANDDialog from '../components/efb/dialogs/D1Stand';
+import D1STANDDialog, { type StandAvailability } from '../components/efb/dialogs/D1Stand';
 import D2CDMDialog from '../components/efb/dialogs/D2CDMDialog';
 import D2ATISDialog from '../components/efb/dialogs/D2ATISDialog';
 import D2PDCDialog from '../components/efb/dialogs/D2PDCDialog';
@@ -91,6 +91,10 @@ interface ApiFlight {
   };
 }
 
+interface StandAvailabilityResponse {
+  stands: StandAvailability[];
+}
+
 interface EfbProfile {
   live_mode: boolean;
   online_callsign?: string | null;
@@ -150,6 +154,8 @@ export default function EFBPage() {
   const [loadState, setLoadState] = useState<LoadState>('LOADING');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [flightStale, setFlightStale] = useState(false);
+  const [standAvailability, setStandAvailability] = useState<StandAvailability[] | null>(null);
+  const [standAvailabilityError, setStandAvailabilityError] = useState<string | null>(null);
 
   const flightData: FlightDisplayData = apiFlight ? {
     ...unavailableFlightData,
@@ -263,6 +269,33 @@ export default function EFBPage() {
     const timer = window.setInterval(() => void refreshFlight(), 15_000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
   }, [profile, refreshFlight]);
+
+  useEffect(() => {
+    if (openDialog !== 'D1STAND' || !apiFlight) {
+      setStandAvailability(null);
+      setStandAvailabilityError(null);
+      return;
+    }
+    let cancelled = false;
+    const refreshAvailability = async () => {
+      try {
+        const query = profile?.live_mode === false ? `?callsign=${encodeURIComponent(devCallsignRef.current.trim().toUpperCase())}` : '';
+        const response = await authorizedFetch(`/api/efb/stands${query}`) as StandAvailabilityResponse;
+        if (!cancelled) {
+          setStandAvailability(response.stands);
+          setStandAvailabilityError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStandAvailability(null);
+          setStandAvailabilityError(error instanceof Error ? error.message : 'Stand availability unavailable');
+        }
+      }
+    };
+    void refreshAvailability();
+    const timer = window.setInterval(() => void refreshAvailability(), 15_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [apiFlight?.callsign, authorizedFetch, openDialog, profile?.live_mode]);
 
   const submitDevCallsign = (event: FormEvent) => {
     event.preventDefault();
@@ -540,6 +573,9 @@ useEffect(() => {
           isOpen
           onClose={handleCloseDialog}
           stand={flightData.stand}
+          availability={standAvailability ?? undefined}
+          availabilityLoading={standAvailability === null && standAvailabilityError === null}
+          availabilityUnavailable={standAvailabilityError !== null}
           onRequest={async (requestedStand) => {
             await authorizedFetch('/api/efb/stand', { method: 'PUT', body: JSON.stringify({ stand: requestedStand, version: apiFlight?.stand_version ?? 0, callsign: profile?.live_mode === false ? devCallsign : undefined }) });
             await refreshFlight();

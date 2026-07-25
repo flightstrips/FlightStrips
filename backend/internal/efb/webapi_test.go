@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc"
+	"FlightStrips/internal/services"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	"context"
@@ -50,6 +51,23 @@ type departureFrequencyStub struct{ frequency string }
 
 type cdmStub struct{ calls int }
 
+type standActionsStub struct {
+	availability []services.StandAvailability
+	err          error
+	session      int32
+	airport      string
+	callsign     string
+}
+
+func (s *standActionsStub) AssignForPilot(context.Context, int32, string, string, string, string, int32) (*services.StandAllocationResult, error) {
+	return nil, s.err
+}
+
+func (s *standActionsStub) AvailableForPilot(_ context.Context, session int32, airport, callsign string) ([]services.StandAvailability, error) {
+	s.session, s.airport, s.callsign = session, airport, callsign
+	return s.availability, s.err
+}
+
 func (s *cdmStub) HandleTobtUpdate(context.Context, int32, string, string, string, string) error {
 	s.calls++
 	return nil
@@ -91,6 +109,39 @@ func TestLiveFlightUsesAuthenticatedCIDCallsign(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"phase":"DEPARTURE"`) {
 		t.Fatalf("missing departure snapshot: %s", rec.Body.String())
+	}
+}
+
+func TestStandAvailabilityUsesAuthenticatedFlightAndReturnsTimeAwareEntries(t *testing.T) {
+	stands := &standActionsStub{availability: []services.StandAvailability{
+		{Stand: "A12", Available: true},
+		{Stand: "A14", Reason: "reserved by SAS999"},
+	}}
+	finder := &finderStub{match: pdc.WebStripMatch{SessionID: 7, Strip: &models.Strip{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH"}}}
+	sessions := &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+		return &models.Session{ID: 7, Airport: "EKCH"}, nil
+	}}
+	api := NewWebAPI(WebAPIConfig{Auth: authStub{}, Callsigns: callsignStub{callsign: "SAS123", found: true}, Flights: finder, Sessions: sessions, Stands: stands, Live: true})
+	req := httptest.NewRequest(http.MethodGet, "/efb/stands?callsign=OTHER", nil)
+	req.Header.Set("Authorization", "Bearer token")
+	rec := httptest.NewRecorder()
+
+	api.handleStandAvailability(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if stands.session != 7 || stands.airport != "EKCH" || stands.callsign != "SAS123" {
+		t.Fatalf("unexpected availability request: session=%d airport=%s callsign=%s", stands.session, stands.airport, stands.callsign)
+	}
+	var payload struct {
+		Stands []services.StandAvailability `json:"stands"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Stands) != 2 || !payload.Stands[0].Available || payload.Stands[1].Reason != "reserved by SAS999" {
+		t.Fatalf("unexpected availability response: %#v", payload.Stands)
 	}
 }
 

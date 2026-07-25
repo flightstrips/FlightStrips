@@ -70,6 +70,11 @@ type StandAllocationRequest struct {
 
 	Stand          string
 	ConflictReason string
+	// RequestStandSync makes a caller-originated selection reach EuroScope even
+	// when the strip already contains that stand. This is needed for pilot EFB
+	// requests, where the persisted value alone cannot prove that EuroScope saw
+	// the selection.
+	RequestStandSync bool
 
 	DisplaceStage string
 	// DisplaceArrivalStages extends DisplaceStage for callers that may displace
@@ -112,6 +117,14 @@ type StandAllocationPreview struct {
 	CompatibleStands int                       `json:"compatible_stands"`
 	AvailableStands  int                       `json:"available_stands"`
 	Selection        sat.StandSelectionPreview `json:"selection"`
+}
+
+// StandAvailability describes whether a manually selected stand can be used
+// for a flight at its current arrival ETA or departure TOBT.
+type StandAvailability struct {
+	Stand     string `json:"stand"`
+	Available bool   `json:"available"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 type StandAllocationPublisher func(context.Context, StandAllocationResult) error
@@ -652,7 +665,7 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 		Command: command, Assignment: *assignment, Selection: selection, MatchedVariant: match,
 		Compatibility: evaluation, ConflictReason: conflict, Attempts: attempt, AvailableCandidates: available,
 		RemovedAssignments: removedAssignments, RemovedStandChanges: removedStandChanges,
-		StandChanged: standChanged, NotifyEuroscope: standChanged,
+		StandChanged: standChanged, NotifyEuroscope: standChanged || request.RequestStandSync,
 	}, selected, nil
 }
 
@@ -696,6 +709,54 @@ func (s *StandAllocationService) StandAvailable(ctx context.Context, request Sta
 	}
 	availability := s.availability(request, assignments, blocks, matches)
 	return len(availability[target]) == 0, nil
+}
+
+// AvailableStands evaluates every configured stand for an explicit selection.
+// It uses the same compatibility and timing rules as a manual assignment but
+// does not modify an assignment or reserve a stand.
+func (s *StandAllocationService) AvailableStands(ctx context.Context, request StandAllocationRequest) ([]StandAvailability, error) {
+	if err := validateStandAllocationRequest(AutomaticStandAllocation, &request); err != nil {
+		return nil, err
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", request.SessionID); err != nil {
+		return nil, err
+	}
+	txAssignments := s.assignments.WithTx(tx)
+	assignments, err := txAssignments.LockAssignments(ctx, request.SessionID, request.Callsign)
+	if err != nil {
+		return nil, err
+	}
+	blocks, err := txAssignments.LockActiveManualBlocks(ctx, request.SessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	evaluation := s.stands.EvaluateManualCompatibility(request.Airport, request.FlightFacts)
+	matches := make(map[string]sat.StandCompatibilityMatch, len(evaluation.Matches))
+	for _, match := range evaluation.Matches {
+		matches[standName(match.Stand.Name)] = match
+	}
+	unavailable := s.availability(request, assignments, blocks, matches)
+	stands := s.stands.Stands(request.Airport)
+	result := make([]StandAvailability, 0, len(stands))
+	for _, stand := range stands {
+		name := standName(stand.Name)
+		if _, compatible := matches[name]; !compatible {
+			result = append(result, StandAvailability{Stand: name, Reason: compatibilityReason(name, evaluation.Rejections)})
+			continue
+		}
+		if reasons := unavailable[name]; len(reasons) > 0 {
+			result = append(result, StandAvailability{Stand: name, Reason: joinAllocationReasons(reasons)})
+			continue
+		}
+		result = append(result, StandAvailability{Stand: name, Available: true})
+	}
+	return result, nil
 }
 
 // Preview reports the current policy candidates without reserving, updating,

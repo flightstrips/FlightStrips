@@ -70,6 +70,25 @@ func (s *StandActionService) Preview(ctx context.Context, session int32, airport
 	return s.allocations.Preview(ctx, req)
 }
 
+// AvailableForPilot returns the live, time-aware availability of each
+// configured stand for an authenticated EFB flight.
+func (s *StandActionService) AvailableForPilot(ctx context.Context, session int32, airport, callsign string) ([]StandAvailability, error) {
+	if s == nil || s.allocations == nil {
+		return nil, errors.New("stand availability is unavailable")
+	}
+	version := int32(0)
+	if existing, err := s.assignments.GetAssignment(ctx, session, strings.TrimSpace(callsign)); err == nil && existing != nil {
+		version = existing.Version
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("load stand assignment: %w", err)
+	}
+	req, err := s.request(ctx, session, airport, "PILOT_AVAILABILITY", callsign, version)
+	if err != nil {
+		return nil, err
+	}
+	return s.allocations.AvailableStands(ctx, req)
+}
+
 func (s *StandActionService) AssignManually(ctx context.Context, session int32, airport, position, callsign, stand string, version int32) (*StandAllocationResult, error) {
 	req, err := s.request(ctx, session, airport, position, callsign, version)
 	if err != nil {
@@ -93,7 +112,7 @@ func (s *StandActionService) AssignForPilot(ctx context.Context, session int32, 
 		s.recordRequestFailure(CompatibleManualStand, session, airport, callsign, stand, err)
 		return nil, err
 	}
-	req.Stand = stand
+	req.Stand, req.RequestStandSync = stand, true
 	return s.allocations.AssignManually(ctx, req)
 }
 

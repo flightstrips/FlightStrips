@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/testutil"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"testing"
 
@@ -126,4 +127,39 @@ func TestSendAllocatedStandToEuroscope_PrefersTrackingController(t *testing.T) {
 	require.Len(t, esHub.Stands, 1)
 	assert.Equal(t, trackingCid, esHub.Stands[0].Cid)
 	assert.Empty(t, esHub.Broadcasts)
+}
+
+func TestPublishStandAllocationForwardsPilotRequestToControllersAndEuroscope(t *testing.T) {
+	const (
+		session  = int32(7)
+		callsign = "SAS503"
+		stand    = "B14"
+	)
+	esHub := &testutil.MockEuroscopeHub{GetMasterCidFn: func(int32) string { return "MASTER-CID" }}
+	hub := &Hub{
+		send: make(chan internalMessage, 2),
+		server: &testutil.MockServer{
+			EuroscopeHubVal: esHub,
+			SessionRepoVal: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+				return &models.Session{ID: session, Airport: "EKCH"}, nil
+			}},
+		},
+	}
+
+	err := hub.PublishStandAllocation(t.Context(), services.StandAllocationResult{
+		Assignment: models.StandAssignment{
+			SessionID: session, Callsign: callsign, Stand: stand,
+			Direction: string(sat.AssignmentDirectionDeparture), Stage: services.StageReserved,
+		},
+		NotifyEuroscope: true,
+	})
+
+	require.NoError(t, err)
+	message := <-hub.send
+	update, ok := message.message.(frontendEvents.StandAssignmentUpdateEvent)
+	require.True(t, ok)
+	assert.Equal(t, callsign, update.Assignment.Callsign)
+	assert.Equal(t, stand, update.Assignment.Stand)
+	require.Len(t, esHub.Stands, 1)
+	require.Equal(t, testutil.StandCall{Session: session, Cid: "MASTER-CID", Callsign: callsign, Stand: stand}, esHub.Stands[0])
 }

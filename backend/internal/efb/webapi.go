@@ -30,6 +30,11 @@ type CDMUpdater interface {
 	HandleTobtUpdate(context.Context, int32, string, string, string, string) error
 }
 
+type StandActions interface {
+	AssignForPilot(context.Context, int32, string, string, string, string, int32) (*services.StandAllocationResult, error)
+	AvailableForPilot(context.Context, int32, string, string) ([]services.StandAvailability, error)
+}
+
 type ATISLookup interface {
 	GetATIS(airport string, departure bool) *metar.ATIS
 }
@@ -46,7 +51,7 @@ type WebAPIConfig struct {
 	Assignments repository.StandAssignmentRepository
 	CDM         CDMUpdater
 	CDMReady    bool
-	Stands      *services.StandActionService
+	Stands      StandActions
 	ATIS        ATISLookup
 	Departures  DepartureFrequencyLookup
 	PDCReady    bool
@@ -63,7 +68,7 @@ type WebAPI struct {
 	assignments repository.StandAssignmentRepository
 	cdm         CDMUpdater
 	cdmReady    bool
-	stands      *services.StandActionService
+	stands      StandActions
 	atis        ATISLookup
 	departures  DepartureFrequencyLookup
 	pdcReady    bool
@@ -81,6 +86,7 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/efb/flight", a.handleFlight)
 	mux.HandleFunc("/efb/tobt", a.handleTobt)
 	mux.HandleFunc("/efb/stand", a.handleStand)
+	mux.HandleFunc("/efb/stands", a.handleStandAvailability)
 }
 
 func (a *WebAPI) handleMe(w http.ResponseWriter, r *http.Request) {
@@ -380,6 +386,32 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"callsign": result.Assignment.Callsign, "stand": result.Assignment.Stand, "version": result.Assignment.Version})
+}
+
+func (a *WebAPI) handleStandAvailability(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	user, ok := a.authenticate(w, r)
+	if !ok {
+		return
+	}
+	match, session, err := a.resolveFlight(r.Context(), user, r.URL.Query().Get("callsign"))
+	if err != nil {
+		a.writeResolveError(w, err)
+		return
+	}
+	if a.stands == nil {
+		writeError(w, http.StatusServiceUnavailable, "stand availability unavailable")
+		return
+	}
+	stands, err := a.stands.AvailableForPilot(r.Context(), match.SessionID, session.Airport, match.Strip.Callsign)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "stand availability unavailable")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"stands": stands})
 }
 
 var errNoOnline = errors.New("no current VATSIM flight")

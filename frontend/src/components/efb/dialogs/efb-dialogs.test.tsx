@@ -121,17 +121,33 @@ describe('EFB operational dialogs', () => {
     expect(screen.getByAltText('Taxi-in guidance for Bravo stands on runway 22L').getAttribute('src')).toContain('taxiin-22bravo');
   });
 
-  it('does not claim unknown stand availability and keeps a rejected request open', async () => {
+  it('shows current stand availability and keeps a rejected request open', async () => {
     const onClose = vi.fn();
     const onRequest = vi.fn().mockRejectedValue(new Error('stand is occupied'));
-    render(<D1Stand isOpen onClose={onClose} stand="A12" onRequest={onRequest} />);
+    render(<D1Stand isOpen onClose={onClose} stand="A12" onRequest={onRequest} availability={[
+      { stand: 'A18', available: true },
+      { stand: 'A19', available: false, reason: 'reserved by SAS999' },
+    ]} />);
 
-    expect(screen.getByTitle('A18 (availability checked when requested)')).toBeInTheDocument();
+    expect(screen.getByTitle('A18: Available for this flight')).toBeInTheDocument();
+    expect(screen.getByTitle('A19: Unavailable: reserved by SAS999')).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Stand A18' }));
     fireEvent.click(screen.getByRole('button', { name: 'REQUEST NEW STAND' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('stand is occupied');
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not submit an initial stand missing from the availability response', () => {
+    const onRequest = vi.fn();
+    render(<D1Stand isOpen onClose={vi.fn()} stand="NIL" onRequest={onRequest} availability={[
+      { stand: 'A18', available: true },
+    ]} />);
+
+    const request = screen.getByRole('button', { name: 'REQUEST NEW STAND' });
+    expect(request).toBeDisabled();
+    fireEvent.click(request);
+    expect(onRequest).not.toHaveBeenCalled();
   });
 
   it('shows ATIS as read-only current information', () => {

@@ -46,10 +46,43 @@ describe('EFB operational dialogs', () => {
     expect(fetchMock.mock.calls[1][0]).toContain('/charts/sid-chart');
     expect(fetchMock.mock.calls).toHaveLength(3);
 
+    fireEvent.click(screen.getByRole('button', { name: 'CLICK TO CLOSE' }));
     rerender(<D1Chart isOpen={false} onClose={onClose} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} />);
     rerender(<D1Chart isOpen onClose={onClose} airport="EKCH" runway="22R" procedure="ODON1C" arrival={false} />);
     expect(await screen.findByTitle('RNP RWY 22 R - 1')).toBeInTheDocument();
     expect(fetchMock.mock.calls).toHaveLength(3);
+  });
+
+  it('shows only taxi, assigned arrival, and runway-matched approach charts', async () => {
+    const charts = [
+      { id: 'taxi-chart', name: 'Ground movement chart', type_key: 'GND' },
+      { id: 'star-chart', name: 'TUDLO 4C', type_key: 'STAR', meta: [{ type_key: 'ProcedureIdent', value: ['TUDLO4C'] }] },
+      { id: 'ils-22l', name: 'ILS Z RWY 22L', type_key: 'APP', meta: [{ type_key: 'Runways', value: ['22L'] }] },
+      { id: 'ils-22l-page-2', parent_id: 'ils-22l', name: 'ILS Z RWY 22L - 2', type_key: 'APP', meta: [{ type_key: 'Runways', value: ['22L'] }] },
+      { id: 'ils-22r', name: 'ILS Z RWY 22R', type_key: 'APP', meta: [{ type_key: 'Runways', value: ['22R'] }] },
+      { id: 'unrelated-sid', name: 'NEXEN 2A', type_key: 'SID' },
+    ];
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/charts/grouped')) return Promise.resolve(new Response(JSON.stringify({ data: { charts } }), { status: 200 }));
+      const chart = charts.find((candidate) => url.endsWith(`/charts/${candidate.id}`));
+      return Promise.resolve(new Response(JSON.stringify({ ...chart, url: `https://charts.example.test/${chart?.id}.pdf`, allows_iframe: true }), { status: 200 }));
+    }));
+
+    render(<D1Chart isOpen onClose={vi.fn()} airport="EKXX" runway="22L" procedure="TUDLO4C" arrival />);
+
+    expect(await screen.findByTitle('TUDLO 4C')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'APPROACH 1' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'APPROACH 1' }));
+    expect(await screen.findByTitle('ILS Z RWY 22L')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'ILS Z RWY 22L' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ILS Z RWY 22R' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Chart page 1 of 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next chart' }));
+    expect(await screen.findByTitle('ILS Z RWY 22L - 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'AIRPORT / TAXI 1' }));
+    expect(await screen.findByTitle('Ground movement chart')).toBeInTheDocument();
   });
 
   it('uses the selected stand, runway, and SID briefing assets', () => {

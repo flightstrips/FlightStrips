@@ -112,7 +112,7 @@ describe('EFB page interactions', () => {
     });
   });
 
-  it('marks the arrival briefing as coming soon without opening a briefing dialog', async () => {
+  it('opens the arrival briefing with the selected STAR and runway guidance', async () => {
     const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
       if (String(input).includes('/api/efb/me')) return jsonResponse({ live_mode: false, online_callsign: null });
       return jsonResponse({
@@ -127,10 +127,10 @@ describe('EFB page interactions', () => {
     fireEvent.change(await screen.findByLabelText('Development callsign'), { target: { value: 'sas790' } });
     fireEvent.click(screen.getByRole('button', { name: 'LOAD' }));
 
-    expect(await screen.findByText('COMING SOON')).toBeInTheDocument();
-    expect(screen.getByText('LUXAL2A')).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Arrival briefing coming soon'));
-    expect(screen.queryByRole('dialog', { name: /brief/i })).not.toBeInTheDocument();
+    expect(await screen.findByText('LUXAL2A')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open arrival briefing' }));
+    expect(screen.getByRole('dialog', { name: 'Arrival briefing' })).toBeInTheDocument();
+    expect(screen.getByText('Welcome to Copenhagen')).toBeInTheDocument();
   });
 
   it('shows API failures as retryable errors instead of pretending there is no flight', async () => {

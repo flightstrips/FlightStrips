@@ -39,7 +39,6 @@ You cannot move, reorder, transfer, assume, free, tag, or accept tag on a locked
 | [Wrong squawk](#wrong-squawk) | Pilot transmitting a different squawk than assigned | Correct on frequency → acknowledge |
 | [PDC invalid](#pdc-invalid) | Invalid runway or SID in the PDC request | **OPEN DCL MENU** |
 | [Custom PDC](#custom-pdc) | PDC request contains free-text or manual remarks | **OPEN DCL MENU** |
-| [No stand](#no-stand) | Stand required but not assigned | **ASSIGN NEW** |
 | [Runway type](#runway-type) | Assigned runway not suitable for the aircraft | **OPEN DCL MENU** |
 | [Taxiway type](#taxiway-type) | Holding point incompatible with aircraft type/category | **ASSIGN HS** |
 | [CTOT](#ctot) | CTOT is more than 10 minutes away | **ASSIGN HP** |
@@ -78,12 +77,6 @@ The PDC request contains free-text or manual-handling remarks that require revie
 <Aside>
 PDC invalid and Custom PDC can be acknowledged by any online position, not just the owning controller.
 </Aside>
-
-### No stand
-
-![No stand dialog](../../../assets/validation/no-stand-dialog.png)
-
-A stand is required but none is assigned. Click **ASSIGN NEW** to assign one.
 
 ### Runway type
 

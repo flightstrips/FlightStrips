@@ -100,7 +100,7 @@ func (s *StripService) applyCtotValidation(ctx context.Context, session int32, s
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isCtotValidation(current) && !isNoStandValidation(current) {
+	if current != nil && !isCtotValidation(current) {
 		return nil
 	}
 
@@ -175,5 +175,5 @@ func (s *StripService) ReevaluateCtotValidationsForSession(ctx context.Context, 
 		}
 	}
 
-	return s.ReevaluateNoStandValidationsForSession(ctx, session, publish)
+	return nil
 }

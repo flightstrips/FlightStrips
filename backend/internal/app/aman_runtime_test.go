@@ -2,6 +2,7 @@ package app
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/services"
 	"context"
 	"os"
@@ -54,16 +55,16 @@ func amanAppTestDependencies() aman.Dependencies {
 	}
 }
 
-func TestValidateAMANTerminalGeometry(t *testing.T) {
+func TestValidateNavigationTerminalGeometry(t *testing.T) {
 	tempFile, err := os.CreateTemp(t.TempDir(), "terminal-*.geojson")
 	require.NoError(t, err)
 	require.NoError(t, tempFile.Close())
 
-	require.NoError(t, validateAMANTerminalGeometry(aman.RuntimeConfig{}))
-	require.NoError(t, validateAMANTerminalGeometry(aman.RuntimeConfig{Mode: aman.ModeShadow, TerminalGeometryPath: tempFile.Name()}))
-	require.ErrorContains(t, validateAMANTerminalGeometry(aman.RuntimeConfig{Mode: aman.ModeShadow, TerminalGeometryPath: t.TempDir()}), "must name a file")
-	require.ErrorContains(t, validateAMANTerminalGeometry(aman.RuntimeConfig{Mode: aman.ModeShadow, TerminalGeometryPath: "missing.geojson"}), "terminal geometry path")
-	require.ErrorContains(t, validateAMANTerminalGeometry(aman.RuntimeConfig{TerminalGeometryPath: "missing.geojson"}), "terminal geometry path")
+	require.NoError(t, validateNavigationTerminalGeometry(navigation.Config{}))
+	require.NoError(t, validateNavigationTerminalGeometry(navigation.Config{Source: navigation.SourceAIRACNet, TerminalGeometryPath: tempFile.Name()}))
+	require.ErrorContains(t, validateNavigationTerminalGeometry(navigation.Config{Source: navigation.SourceAIRACNet, TerminalGeometryPath: t.TempDir()}), "must name a file")
+	require.ErrorContains(t, validateNavigationTerminalGeometry(navigation.Config{Source: navigation.SourceAIRACNet, TerminalGeometryPath: "missing.geojson"}), "terminal geometry path")
+	require.ErrorContains(t, validateNavigationTerminalGeometry(navigation.Config{TerminalGeometryPath: "missing.geojson"}), "requires a navigation source")
 }
 
 func TestApplicationConfigDefaultsAMANToDisabled(t *testing.T) {
@@ -72,13 +73,8 @@ func TestApplicationConfigDefaultsAMANToDisabled(t *testing.T) {
 }
 
 func TestBuildRejectsAuthoritativeAMANWithoutTypedCommandService(t *testing.T) {
-	geometry, err := os.CreateTemp(t.TempDir(), "terminal-*.geojson")
-	require.NoError(t, err)
-	require.NoError(t, geometry.Close())
-
-	_, err = Build(context.Background(), Config{AMAN: aman.RuntimeConfig{
+	_, err := Build(context.Background(), Config{AMAN: aman.RuntimeConfig{
 		Mode: aman.ModeAuthoritative, EnabledAirports: []string{"EKCH"},
-		TerminalGeometryPath: geometry.Name(), NavigationSourceAdapter: aman.NavigationAdapterAIRACNet,
 	}}, Dependencies{AMAN: amanAppTestDependencies()})
 
 	require.EqualError(t, err, "initialize AMAN commands: authoritative runtime requires typed command service")
@@ -90,9 +86,6 @@ func TestBuildAddsAMANWorkersOnlyWhenEnabled(t *testing.T) {
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	require.NoError(t, err)
 	t.Cleanup(dbPool.Close)
-	geometry, err := os.CreateTemp(t.TempDir(), "terminal-*.geojson")
-	require.NoError(t, err)
-	require.NoError(t, geometry.Close())
 	amanDeps := amanAppTestDependencies()
 
 	application, err := Build(context.Background(), Config{
@@ -107,12 +100,7 @@ func TestBuildAddsAMANWorkersOnlyWhenEnabled(t *testing.T) {
 		EnableVATSIM:         true,
 		EnableTraffic:        false,
 		EnableDBSeed:         false,
-		AMAN: aman.RuntimeConfig{
-			Mode:                    aman.ModeShadow,
-			EnabledAirports:         []string{"EKCH"},
-			TerminalGeometryPath:    geometry.Name(),
-			NavigationSourceAdapter: aman.NavigationAdapterAIRACNet,
-		},
+		AMAN:                 aman.RuntimeConfig{Mode: aman.ModeShadow, EnabledAirports: []string{"EKCH"}},
 	}, Dependencies{
 		DBPool:                dbPool,
 		AuthenticationService: services.NewTestAuthenticationService(),

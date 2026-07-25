@@ -2,7 +2,6 @@ package main
 
 import (
 	"FlightStrips/internal/aman"
-	"os"
 	"testing"
 	"time"
 )
@@ -76,7 +75,7 @@ func TestStandAssignmentAircraftFilePreservesExplicitConfiguration(t *testing.T)
 }
 
 func TestAMANConfigFromEnvDefaultsDisabled(t *testing.T) {
-	for _, key := range []string{"AMAN_MODE", "AMAN_ENABLED_AIRPORTS", "AMAN_FMP_ROLES", "AMAN_TERMINAL_GEOMETRY_PATH", "AMAN_NAVIGATION_SOURCE", "AMAN_RECONCILIATION_INTERVAL", "AMAN_SURVEILLANCE_INTERVAL", "ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS"} {
+	for _, key := range []string{"AMAN_MODE", "AMAN_ENABLED_AIRPORTS", "AMAN_FMP_ROLES", "AMAN_RECONCILIATION_INTERVAL", "AMAN_SURVEILLANCE_INTERVAL", "ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS"} {
 		t.Setenv(key, "")
 	}
 	config, err := amanConfigFromEnv()
@@ -89,18 +88,9 @@ func TestAMANConfigFromEnvDefaultsDisabled(t *testing.T) {
 }
 
 func TestAMANConfigFromEnvParsesConfiguredRuntime(t *testing.T) {
-	geometry, err := os.CreateTemp(t.TempDir(), "terminal-*.geojson")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := geometry.Close(); err != nil {
-		t.Fatal(err)
-	}
 	t.Setenv("AMAN_MODE", "authoritative")
 	t.Setenv("AMAN_ENABLED_AIRPORTS", "EKCH,EKRN")
 	t.Setenv("AMAN_FMP_ROLES", "EKCH_APP,EKCH_CTR")
-	t.Setenv("AMAN_TERMINAL_GEOMETRY_PATH", geometry.Name())
-	t.Setenv("AMAN_NAVIGATION_SOURCE", "airacnet")
 	t.Setenv("AMAN_RECONCILIATION_INTERVAL", "21s")
 	t.Setenv("AMAN_SURVEILLANCE_INTERVAL", "34s")
 	t.Setenv("ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", "true")
@@ -111,6 +101,27 @@ func TestAMANConfigFromEnvParsesConfiguredRuntime(t *testing.T) {
 	}
 	if config.Mode != aman.ModeAuthoritative || len(config.EnabledAirports) != 2 || len(config.FMPRoles) != 2 || config.FMPRoles[0] != "EKCH_APP" || config.ReconciliationInterval != 21*time.Second || config.SurveillanceInterval != 34*time.Second || !config.EnableEuroScopeGainLoseTags {
 		t.Fatalf("unexpected AMAN config: %#v", config)
+	}
+}
+
+func TestNavigationConfigFromEnvParsesConfiguredSource(t *testing.T) {
+	t.Setenv("NAVIGATION_SOURCE", " AIRACNET ")
+	t.Setenv("NAVIGATION_TERMINAL_GEOMETRY_PATH", " terminal.json ")
+
+	config, err := navigationConfigFromEnv()
+	if err != nil {
+		t.Fatalf("navigationConfigFromEnv() error = %v", err)
+	}
+	if config.Source != "airacnet" || config.TerminalGeometryPath != "terminal.json" {
+		t.Fatalf("unexpected navigation config: %#v", config)
+	}
+}
+
+func TestNavigationConfigFromEnvRejectsIncompleteConfiguration(t *testing.T) {
+	t.Setenv("NAVIGATION_SOURCE", "airacnet")
+	t.Setenv("NAVIGATION_TERMINAL_GEOMETRY_PATH", "")
+	if _, err := navigationConfigFromEnv(); err == nil {
+		t.Fatal("navigationConfigFromEnv() succeeded without terminal geometry")
 	}
 }
 

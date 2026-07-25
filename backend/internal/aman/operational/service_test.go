@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
-	"FlightStrips/internal/aman/materializer"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/aman/sequence"
@@ -475,20 +474,17 @@ func TestOffRouteFallbackReasonLowersPredictionConfidenceWithoutHidingWaypoint(t
 	require.Empty(t, offRouteFallbackReason([]string{"OFF_ROUTE"}))
 }
 
-func TestFailedNavigationRefreshRetriesAndHealthFailsClosed(t *testing.T) {
+func TestNavigationHealthFailsClosedWhenNoActiveCacheSnapshotExists(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
-	navigation := &countingNavigation{}
 	service, err := New(Dependencies{
-		Repository: &memoryRepository{}, Materializer: navigation, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
 		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
 		Airports: []string{"EKCH"}, Mode: aman.ModeAuthoritative, Now: func() time.Time { return now },
 	})
 	require.NoError(t, err)
 	require.False(t, service.TechnicalHealth(context.Background()).AuthorityAllowed)
 	require.NoError(t, service.ObserveSourceHealth(context.Background(), aman.DataFresh, now))
-	require.Error(t, service.refreshNavigation(context.Background(), "EKCH"))
-	require.Error(t, service.refreshNavigation(context.Background(), "EKCH"))
-	require.Equal(t, 2, navigation.attempts)
+	service.observeNavigationCache(context.Background(), "EKCH")
 	health := service.TechnicalHealth(context.Background())
 	require.Equal(t, aman.HealthReady, health.VATSIM.Status)
 	require.Equal(t, aman.HealthUnavailable, health.Navigation.Status)
@@ -605,26 +601,12 @@ func (p *recordingPublisher) PublishAMANState(_ context.Context, state aman.Airp
 
 type unavailableNavigation struct{}
 
-func (unavailableNavigation) Refresh(context.Context, materializer.Request) error {
-	return errors.New("offline")
-}
 func (unavailableNavigation) MaterializeRoute(context.Context, navdata.RouteQuery, string) (navdata.RouteKey, error) {
-	return "", errors.New("offline")
-}
-
-type countingNavigation struct{ attempts int }
-
-func (n *countingNavigation) Refresh(context.Context, materializer.Request) error {
-	n.attempts++
-	return errors.New("offline")
-}
-func (*countingNavigation) MaterializeRoute(context.Context, navdata.RouteQuery, string) (navdata.RouteKey, error) {
 	return "", errors.New("offline")
 }
 
 type readyNavigation struct{}
 
-func (readyNavigation) Refresh(context.Context, materializer.Request) error { return nil }
 func (readyNavigation) MaterializeRoute(context.Context, navdata.RouteQuery, string) (navdata.RouteKey, error) {
 	return "", errors.New("not implemented")
 }

@@ -1,11 +1,13 @@
 package app
 
 import (
+	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/services"
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -194,6 +196,39 @@ func TestBuildGatesEFBAPIBehindFeatureFlag(t *testing.T) {
 	enabled := httptest.NewRecorder()
 	build(true).Handler().ServeHTTP(enabled, httptest.NewRequest(http.MethodGet, "/api/efb/me", nil))
 	require.Equal(t, http.StatusUnauthorized, enabled.Code)
+}
+
+func TestBuildStartsNavigationSourceForEFBWithoutAMAN(t *testing.T) {
+	poolConfig, err := pgxpool.ParseConfig("postgres://user:password@127.0.0.1:1/test")
+	require.NoError(t, err)
+	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	require.NoError(t, err)
+	t.Cleanup(dbPool.Close)
+	terminalPath, err := filepath.Abs("../../config/aman/ekch-terminal-2607.json")
+	require.NoError(t, err)
+
+	application, err := Build(context.Background(), Config{
+		Environment:          "test",
+		EnableEFB:            true,
+		EnableCDMConfigStore: false,
+		EnablePDC:            false,
+		EnableECFMP:          false,
+		EnableECFMPAPI:       false,
+		EnablePilotAPI:       false,
+		EnableALB:            false,
+		EnableMetar:          false,
+		EnableVATSIM:         false,
+		EnableTraffic:        false,
+		EnableDBSeed:         false,
+		Navigation: navigation.Config{
+			Source: navigation.SourceAIRACNet, TerminalGeometryPath: terminalPath,
+		},
+	}, Dependencies{DBPool: dbPool, AuthenticationService: services.NewTestAuthenticationService()})
+
+	require.NoError(t, err)
+	require.False(t, application.AMANRuntime().Enabled())
+	// The navigation source adds its own cache-refresh worker; AMAN stays off.
+	require.Len(t, application.workers, 5)
 }
 
 func TestBuildRejectsTestToolsInLiveEnvironmentBeforeOpeningDatabase(t *testing.T) {

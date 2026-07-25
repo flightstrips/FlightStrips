@@ -35,12 +35,10 @@ func (w *runtimeTestWorker) Run(ctx context.Context, interval time.Duration) {
 
 func validRuntimeConfig(mode RolloutMode) RuntimeConfig {
 	return RuntimeConfig{
-		Mode:                    mode,
-		EnabledAirports:         []string{"EKCH"},
-		TerminalGeometryPath:    "testdata/terminal.geojson",
-		NavigationSourceAdapter: NavigationAdapterAIRACNet,
-		ReconciliationInterval:  3 * time.Second,
-		SurveillanceInterval:    4 * time.Second,
+		Mode:                   mode,
+		EnabledAirports:        []string{"EKCH"},
+		ReconciliationInterval: 3 * time.Second,
+		SurveillanceInterval:   4 * time.Second,
 	}
 }
 
@@ -94,8 +92,6 @@ func TestRuntimeRejectsInvalidConfiguration(t *testing.T) {
 		{"duplicate FMP role", func(c *RuntimeConfig) { c.FMPRoles = []string{" EKCH_FMH ", "ekch_fmh"} }, "unique"},
 		{"reconciliation timing", func(c *RuntimeConfig) { c.ReconciliationInterval = -time.Second }, "reconciliation interval"},
 		{"surveillance timing", func(c *RuntimeConfig) { c.SurveillanceInterval = -time.Second }, "surveillance interval"},
-		{"source adapter", func(c *RuntimeConfig) { c.NavigationSourceAdapter = "other" }, "source adapter"},
-		{"geometry", func(c *RuntimeConfig) { c.TerminalGeometryPath = "" }, "geometry path"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -104,11 +100,6 @@ func TestRuntimeRejectsInvalidConfiguration(t *testing.T) {
 			require.ErrorContains(t, config.Validate(), test.want)
 		})
 	}
-}
-
-func TestDisabledRuntimeRejectsAnExplicitInvalidSourceAdapter(t *testing.T) {
-	err := (RuntimeConfig{NavigationSourceAdapter: "other"}).Validate()
-	require.ErrorContains(t, err, "source adapter")
 }
 
 func TestRuntimeRequiresExplicitDependenciesWhenEnabled(t *testing.T) {
@@ -140,19 +131,15 @@ func TestRuntimeStoresNormalizedConfiguration(t *testing.T) {
 	config.Mode = " SHADOW "
 	config.EnabledAirports = []string{" ekch ", "ekrn"}
 	config.FMPRoles = []string{" ekch_fmh ", "ekdk_v_ctr"}
-	config.NavigationSourceAdapter = " AIRACNET "
-	config.TerminalGeometryPath = " testdata/terminal.geojson "
 
 	runtime, err := NewRuntime(config, runtimeTestDependencies())
 	require.NoError(t, err)
 	require.Equal(t, RuntimeConfig{
-		Mode:                    ModeShadow,
-		EnabledAirports:         []string{"EKCH", "EKRN"},
-		FMPRoles:                []string{"EKCH_FMH", "EKDK_V_CTR"},
-		ReconciliationInterval:  3 * time.Second,
-		SurveillanceInterval:    4 * time.Second,
-		TerminalGeometryPath:    "testdata/terminal.geojson",
-		NavigationSourceAdapter: NavigationAdapterAIRACNet,
+		Mode:                   ModeShadow,
+		EnabledAirports:        []string{"EKCH", "EKRN"},
+		FMPRoles:               []string{"EKCH_FMH", "EKDK_V_CTR"},
+		ReconciliationInterval: 3 * time.Second,
+		SurveillanceInterval:   4 * time.Second,
 	}, runtime.Config())
 }
 

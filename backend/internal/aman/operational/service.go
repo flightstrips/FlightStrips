@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
-	"FlightStrips/internal/aman/materializer"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/prediction"
 	"FlightStrips/internal/aman/predictor"
@@ -24,17 +23,15 @@ import (
 )
 
 const (
-	policyVersion          = "aman-cph-v1"
-	modelVersion           = "aman-cph-teta-v1"
-	routeResolverVersion   = "airacnet-route-v3"
-	defaultArrivalRate     = uint32(20)
-	navigationRefreshEvery = 6 * time.Hour
-	weatherRefreshEvery    = 30 * time.Minute
-	queueOfferValidity     = 2 * time.Minute
+	policyVersion        = "aman-cph-v1"
+	modelVersion         = "aman-cph-teta-v1"
+	routeResolverVersion = "airacnet-route-v3"
+	defaultArrivalRate   = uint32(20)
+	weatherRefreshEvery  = 30 * time.Minute
+	queueOfferValidity   = 2 * time.Minute
 )
 
 type NavigationMaterializer interface {
-	Refresh(context.Context, materializer.Request) error
 	MaterializeRoute(context.Context, navdata.RouteQuery, string) (navdata.RouteKey, error)
 }
 
@@ -66,7 +63,6 @@ type Service struct {
 
 	mu                 sync.Mutex
 	observed           map[string]map[aman.FlightID]aman.FlightObservation
-	lastRefresh        map[string]time.Time
 	lastWeatherRefresh map[string]time.Time
 	health             serviceHealth
 }
@@ -93,7 +89,7 @@ func New(deps Dependencies) (*Service, error) {
 		return componentHealth(aman.HealthUnavailable, reason, now)
 	}
 	return &Service{
-		deps: deps, observed: map[string]map[aman.FlightID]aman.FlightObservation{}, lastRefresh: map[string]time.Time{}, lastWeatherRefresh: map[string]time.Time{},
+		deps: deps, observed: map[string]map[aman.FlightID]aman.FlightObservation{}, lastWeatherRefresh: map[string]time.Time{},
 		health: serviceHealth{
 			vatsim: pending("source_not_observed"), navigation: pending("navigation_not_refreshed"),
 			weather: pending("weather_not_observed"), repository: pending("repository_not_checked"),
@@ -153,9 +149,7 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 func (s *Service) reconcileAll(ctx context.Context) {
 	for _, airport := range s.deps.Airports {
 		airport = strings.ToUpper(strings.TrimSpace(airport))
-		if err := s.refreshNavigation(ctx, airport); err != nil {
-			slog.WarnContext(ctx, "AMAN navigation refresh failed; cached geometry remains eligible", "airport", airport, "error", err)
-		}
+		s.observeNavigationCache(ctx, airport)
 		s.refreshWeather(ctx, airport, s.deps.Now().UTC().Truncate(time.Second))
 		if err := s.reconcileAirport(ctx, airport); err != nil {
 			slog.WarnContext(ctx, "AMAN reconciliation failed", "airport", airport, "error", err)
@@ -225,26 +219,16 @@ func observedWeatherProfile(profile predictor.WindProfile, request predictor.Win
 	return true
 }
 
-func (s *Service) refreshNavigation(ctx context.Context, airport string) error {
-	now := s.deps.Now().UTC().Truncate(time.Second)
+func (s *Service) observeNavigationCache(ctx context.Context, airport string) {
+	updatedAt := s.deps.Now().UTC()
+	_, err := s.deps.Geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(airport))
 	s.mu.Lock()
-	last := s.lastRefresh[airport]
-	if !last.IsZero() && now.Sub(last) < navigationRefreshEvery {
-		s.mu.Unlock()
-		return nil
-	}
-	s.mu.Unlock()
-	err := s.deps.Materializer.Refresh(ctx, materializer.Request{Airport: navdata.AirportID(airport)})
-	completedAt := s.deps.Now().UTC()
-	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err != nil {
-		s.health.navigation = componentHealth(aman.HealthUnavailable, "navigation_refresh_failed", completedAt)
-	} else {
-		s.lastRefresh[airport] = completedAt
-		s.health.navigation = componentHealth(aman.HealthReady, "", completedAt)
+		s.health.navigation = componentHealth(aman.HealthUnavailable, "navigation_cache_unavailable", updatedAt)
+		return
 	}
-	s.mu.Unlock()
-	return err
+	s.health.navigation = componentHealth(aman.HealthReady, "", updatedAt)
 }
 
 func (s *Service) reconcileAirport(ctx context.Context, airport string) error {

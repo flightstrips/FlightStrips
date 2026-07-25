@@ -7,13 +7,12 @@ import (
 	"sync"
 
 	"FlightStrips/internal/aman"
-	"FlightStrips/internal/aman/materializer"
-	"FlightStrips/internal/aman/navdata/airacnet"
 	"FlightStrips/internal/aman/operational"
 	"FlightStrips/internal/aman/predictor/openmeteo"
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
 	internalFrontend "FlightStrips/internal/frontend"
+	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/repository/postgres"
 	events "FlightStrips/pkg/events/frontend"
 
@@ -24,7 +23,6 @@ type operationalAMANAssembly struct {
 	dependencies aman.Dependencies
 	commands     aman.CommandService
 	transport    *amanTransport
-	terminal     terminal.Configuration
 }
 
 type amanTransport struct {
@@ -68,11 +66,11 @@ func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.Airport
 	return nil
 }
 
-func assembleOperationalAMAN(config aman.RuntimeConfig, pool *pgxpool.Pool) (operationalAMANAssembly, error) {
-	terminalConfig, err := terminal.LoadFile(config.TerminalGeometryPath)
-	if err != nil {
-		return operationalAMANAssembly{}, fmt.Errorf("load AMAN terminal configuration: %w", err)
+func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Source, pool *pgxpool.Pool) (operationalAMANAssembly, error) {
+	if source == nil {
+		return operationalAMANAssembly{}, fmt.Errorf("AMAN requires an enabled navigation source")
 	}
+	terminalConfig := source.Terminal
 	if err := terminalConfig.ValidateOperationalSettings(); err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("validate AMAN terminal operational settings: %w", err)
 	}
@@ -80,21 +78,9 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, pool *pgxpool.Pool) (ope
 		return operationalAMANAssembly{}, err
 	}
 	repository := postgres.NewAMANRepository(pool)
-	cache := postgres.NewNavigationCache(pool)
-	source, err := airacnet.New(airacnet.Config{Checkpoints: airacnet.NewPostgresCheckpoints(pool)})
-	if err != nil {
-		return operationalAMANAssembly{}, fmt.Errorf("initialize AIRAC.NET adapter: %w", err)
-	}
-	navigation, err := materializer.New(materializer.Dependencies{
-		Cycles: source, Airports: source, Runways: terminalConfig, Procedures: source, Fixes: source, Routes: source,
-		Cache: cache, Terminal: terminalConfig,
-	})
-	if err != nil {
-		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN navigation materializer: %w", err)
-	}
 	transport := &amanTransport{repository: repository, mode: config.Mode}
 	service, err := operational.New(operational.Dependencies{
-		Repository: repository, Retirer: repository, Materializer: navigation, Geometry: cache, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
+		Repository: repository, Retirer: repository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
 		Terminal: terminalConfig, Airports: config.EnabledAirports, Mode: config.Mode, Publisher: transport,
 	})
 	if err != nil {
@@ -112,9 +98,9 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, pool *pgxpool.Pool) (ope
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN action service: %w", err)
 	}
 	return operationalAMANAssembly{
-		commands: actions, transport: transport, terminal: terminalConfig,
+		commands: actions, transport: transport,
 		dependencies: aman.Dependencies{
-			Repositories: repository, NavigationMaterializer: navigation, NavigationReader: cache,
+			Repositories: repository, NavigationMaterializer: source, NavigationReader: source.Geometry,
 			Predictor: service, StateEngine: service, SequenceService: actions, Publisher: transport,
 			ValidationService: service, HealthService: service, ObservationSink: service, ReconciliationWorker: service,
 		},

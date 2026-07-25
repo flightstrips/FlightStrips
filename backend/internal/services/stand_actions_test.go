@@ -29,6 +29,46 @@ func TestStandActionDepartureStartsReserved(t *testing.T) {
 	assert.WithinDuration(t, before.Add(defaultDepartureHoldDuration), *result.Assignment.ExpiresAt, time.Second)
 }
 
+func TestPilotStandRequestSyncsEuroscopeWhenTheStripAlreadyHasTheSelectedStand(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	allocation, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+	testdata.SeedTestStrip(t, queries, session, "SAS803")
+	stand := "A1"
+	updated, err := queries.UpdateStripStandByID(context.Background(), database.UpdateStripStandByIDParams{
+		Callsign: "SAS803", Session: session, Stand: &stand,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, updated)
+	actions := NewStandActionService(allocation, assignments, postgres.NewStripRepository(pool), nil, nil, nil)
+
+	result, err := actions.AssignForPilot(context.Background(), session, "EKCH", "1234567", "SAS803", stand, 0)
+
+	require.NoError(t, err)
+	assert.False(t, result.StandChanged)
+	assert.True(t, result.NotifyEuroscope, "an EFB selection must be forwarded even when the stand was already persisted")
+}
+
+func TestPilotStandAvailabilityUsesTheAssignmentRules(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	allocation, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+	testdata.SeedTestStrip(t, queries, session, "SAS804")
+	testdata.SeedTestStrip(t, queries, session, "SAS805")
+	actions := NewStandActionService(allocation, assignments, postgres.NewStripRepository(pool), nil, nil, nil)
+
+	_, err := actions.AssignManually(context.Background(), session, "EKCH", "GND", "SAS804", "A1", 0)
+	require.NoError(t, err)
+	availability, err := actions.AvailableForPilot(context.Background(), session, "EKCH", "SAS805")
+
+	require.NoError(t, err)
+	byStand := make(map[string]StandAvailability, len(availability))
+	for _, entry := range availability {
+		byStand[entry.Stand] = entry
+	}
+	assert.False(t, byStand["A1"].Available)
+	assert.Contains(t, byStand["A1"].Reason, "reserved by SAS804")
+	assert.True(t, byStand["A2"].Available)
+}
+
 func TestStandActionPropagatesAssignmentLookupErrors(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	allocation, session, assignments := standAllocationFixture(t, pool, queries, "", "")

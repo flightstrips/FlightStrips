@@ -11,6 +11,15 @@ interface D1StandProps {
   onClose: () => void;
   stand: string;
   onRequest?: (stand: string) => Promise<void>;
+  availability?: StandAvailability[];
+  availabilityLoading?: boolean;
+  availabilityUnavailable?: boolean;
+}
+
+export interface StandAvailability {
+  stand: string;
+  available: boolean;
+  reason?: string;
 }
 
 const EST_BOARD_WIDTH = 2560;
@@ -127,18 +136,21 @@ const RAW_STANDS: RawStandDefinition[] = [
   { label: 'A34', x: 13, y: 56 },
 ];
 
-export default function D1Stand({ isOpen, onClose, stand, onRequest }: D1StandProps) {
+export default function D1Stand({ isOpen, onClose, stand, onRequest, availability, availabilityLoading = false, availabilityUnavailable = false }: D1StandProps) {
   const [selectedStand, setSelectedStand] = useState<string>(stand);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const availabilityByStand = new Map<string, StandAvailability>(availability?.map((entry) => [entry.stand, entry]) ?? []);
+  const isStandUnavailable = (standId: string) => availability !== undefined && availabilityByStand.get(standId)?.available !== true;
 
   const handleStandClick = (standId: string) => {
+    if (availabilityLoading || availabilityUnavailable || isStandUnavailable(standId)) return;
     setSelectedStand(standId);
     setRequestError(null);
   };
 
   const handleRequestNewStand = async () => {
-    if (!selectedStand || isSubmitting) return;
+    if (!selectedStand || isSubmitting || availabilityLoading || availabilityUnavailable || isStandUnavailable(selectedStand)) return;
     setIsSubmitting(true);
     setRequestError(null);
     try {
@@ -163,8 +175,19 @@ export default function D1Stand({ isOpen, onClose, stand, onRequest }: D1StandPr
         <div className="relative mx-[5%] h-[90%] w-[90%] box-border overflow-hidden border-[10px] border-[#1D293D] bg-[#7b7b7b]">
           {RAW_STANDS.map((standDef) => {
             const isSelected = selectedStand === standDef.label;
-
-            const dotColor = isSelected ? 'bg-[#43C6E7]' : 'bg-[#6B7280]';
+            const availabilityEntry = availabilityByStand.get(standDef.label);
+            const isUnavailable = isStandUnavailable(standDef.label);
+            const isDisabled = availabilityLoading || availabilityUnavailable || isUnavailable;
+            const dotColor = availabilityUnavailable || availabilityLoading ? 'bg-[#6B7280]' : isUnavailable ? 'bg-[#B63F3F]' : isSelected ? 'bg-[#43C6E7]' : availabilityEntry?.available ? 'bg-[#3FA66B]' : 'bg-[#6B7280]';
+            const availabilityTitle = availabilityLoading
+              ? 'Checking availability…'
+              : availabilityUnavailable
+                ? 'Availability is currently unavailable'
+                : isUnavailable
+                  ? `Unavailable: ${availabilityEntry?.reason || 'not configured for this flight'}`
+                  : availabilityEntry?.available
+                    ? 'Available for this flight'
+                    : 'Availability is not configured for this stand';
             const standPosition = {
               '--stand-left': `${(standDef.x / EST_BOARD_WIDTH) * 100}%`,
               '--stand-top': `${(standDef.y / EST_BOARD_HEIGHT) * 100}%`,
@@ -175,9 +198,10 @@ export default function D1Stand({ isOpen, onClose, stand, onRequest }: D1StandPr
                 key={standDef.label}
                 type="button"
                 onClick={() => handleStandClick(standDef.label)}
-                title={`${standDef.label} (availability checked when requested)`}
+                disabled={isDisabled}
+                title={`${standDef.label}: ${availabilityTitle}`}
                 style={standPosition}
-                className={`absolute [left:var(--stand-left)] [top:var(--stand-top)] flex h-[10%] w-[3%] translate-[10%] cursor-pointer flex-col items-center justify-between rounded-md bg-[#f0f0f0] px-1 py-1.5 text-sm leading-none font-bold text-[#111] ${isSelected ? 'border-2 border-[#9be9ff]' : 'border border-[#9ea3a8]'}`}
+                className={`absolute [left:var(--stand-left)] [top:var(--stand-top)] flex h-[10%] w-[3%] translate-[10%] flex-col items-center justify-between rounded-md bg-[#f0f0f0] px-1 py-1.5 text-sm leading-none font-bold text-[#111] ${isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${isSelected ? 'border-2 border-[#9be9ff]' : 'border border-[#9ea3a8]'}`}
                 aria-label={`Stand ${standDef.label}`}
               >
                 <span>{standDef.label}</span>
@@ -187,16 +211,23 @@ export default function D1Stand({ isOpen, onClose, stand, onRequest }: D1StandPr
           })}
         </div>
 
+        <div className="mx-[5%] mt-1 flex items-center gap-3 text-xs font-bold text-white" aria-live="polite">
+          <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#3FA66B]" />AVAILABLE</span>
+          <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-[#B63F3F]" />UNAVAILABLE</span>
+          {availabilityLoading && <span>CHECKING AVAILABILITY…</span>}
+          {availabilityUnavailable && <span>AVAILABILITY UNAVAILABLE</span>}
+        </div>
+
         {requestError && <div role="alert" className="absolute bottom-[10%] left-[5%] z-10 w-[90%] bg-[#B63F3F] px-3 py-2 text-center font-bold text-white">{requestError}</div>}
 
         {/* Bottom controls */}
         <div className="mx-[5%] mt-[10px] flex h-[10%] w-[90%] gap-[10px]">
           <button
             onClick={handleRequestNewStand}
-            disabled={!selectedStand || isSubmitting}
-            className={`box-border h-full w-[61%] rounded border-[10px] border-[#1D293D] text-[clamp(12px,1.5vh,18px)] font-bold text-white transition-colors duration-200 ${!selectedStand || isSubmitting ? 'cursor-not-allowed bg-[#3a4c58]' : 'cursor-pointer bg-[#1A475F]'}`}
+            disabled={!selectedStand || isSubmitting || availabilityLoading || availabilityUnavailable || isStandUnavailable(selectedStand)}
+            className={`box-border h-full w-[61%] rounded border-[10px] border-[#1D293D] text-[clamp(12px,1.5vh,18px)] font-bold text-white transition-colors duration-200 ${!selectedStand || isSubmitting || availabilityLoading || availabilityUnavailable || isStandUnavailable(selectedStand) ? 'cursor-not-allowed bg-[#3a4c58]' : 'cursor-pointer bg-[#1A475F]'}`}
           >
-            {isSubmitting ? 'CHECKING STAND' : 'REQUEST NEW STAND'}
+            {isSubmitting ? 'CHECKING STAND' : availabilityLoading ? 'LOADING AVAILABILITY' : 'REQUEST NEW STAND'}
           </button>
 
           <button

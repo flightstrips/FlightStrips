@@ -475,9 +475,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 				Stands: standActionService, ATIS: metarPoller, Departures: fsServer, PDCReady: pdcService != nil, Live: requireLiveCIDVerification, Terminal: efbTerminal, Navigation: efbNavigation,
 			}),
 			sessionRepo:                sessionRepo,
+			stripRepo:                  stripRepo,
 			sequenceService:            sequenceService,
 			vatsimSource:               vatsimGraph.source,
 			standAssignmentRepo:        standAssignmentRepo,
+			standActionService:         standActionService,
 			standAssignmentReadiness:   standAssignmentReadiness,
 			standAssignmentDiagnostics: standAssignmentDiagnostics(),
 			standAssignmentFailures:    standAssignmentFailures,
@@ -934,9 +936,11 @@ type buildHandlerConfig struct {
 	amanAPI                    *amanWebAPI.WebAPI
 	efbAPI                     *efb.WebAPI
 	sessionRepo                repository.SessionRepository
+	stripRepo                  repository.StripRepository
 	sequenceService            *cdm.SequenceService
 	vatsimSource               vatsim.FlightSource
 	standAssignmentRepo        repository.StandAssignmentRepository
+	standActionService         *services.StandActionService
 	standAssignmentReadiness   appconfig.StandAssignmentReadiness
 	standAssignmentDiagnostics standstatus.WebAPIDiagnostics
 	standAssignmentFailures    *standdiagnostics.AllocationFailureLog
@@ -968,11 +972,11 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 
 	apiMux := http.NewServeMux()
 	standstatus.NewWebAPI(standstatus.WebAPIConfig{
-		Auth: cfg.authService, Sessions: cfg.sessionRepo, Assignments: cfg.standAssignmentRepo,
+		Auth: cfg.authService, Sessions: cfg.sessionRepo, Assignments: cfg.standAssignmentRepo, Strips: cfg.stripRepo,
 		Feed: cfg.vatsimSource, Enabled: cfg.standAssignmentReadiness.Enabled,
 		Ready: cfg.standAssignmentReadiness.Ready, Reason: cfg.standAssignmentReadiness.Reason,
 		StaleAfter: cfg.standAssignmentStaleAfter, Diagnostics: cfg.standAssignmentDiagnostics,
-		Failures: cfg.standAssignmentFailures,
+		Failures: cfg.standAssignmentFailures, Previewer: cfg.standActionService,
 	}).RegisterRoutes(apiMux)
 	if cfg.enableCDMAPI {
 		cdm.NewWebAPI(cfg.authService, cfg.sessionRepo, cfg.sequenceService).RegisterRoutes(apiMux)

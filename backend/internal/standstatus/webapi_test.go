@@ -38,6 +38,14 @@ type standStatusAssignmentStub struct {
 	blocks      map[int32][]*models.StandBlock
 }
 
+type standStatusStripStub struct {
+	strips map[int32][]*models.Strip
+}
+
+func (s standStatusStripStub) List(_ context.Context, session int32) ([]*models.Strip, error) {
+	return s.strips[session], nil
+}
+
 func (s standStatusAssignmentStub) ListAssignments(_ context.Context, session int32) ([]*models.StandAssignment, error) {
 	return s.assignments[session], nil
 }
@@ -70,6 +78,7 @@ func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
 	now := time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC)
 	eta := now.Add(20 * time.Minute)
 	expiry := now.Add(time.Hour)
+	expiredAssignment := now.Add(-time.Minute)
 	rule := "sas-arrivals"
 	tier := int32(2)
 	variant := "NON-SCHENGEN/A320"
@@ -94,6 +103,11 @@ func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
 						Stage: "CONFIRMED", Source: "AUTO", RuleID: &rule, Tier: &tier,
 						MatchedVariant: &variant, ETA: &eta, ExpiresAt: &expiry, Acknowledged: true,
 						Version: 3, CreatedAt: now.Add(-time.Hour), UpdatedAt: now,
+					},
+					{
+						ID: 12, SessionID: 7, Callsign: "SAS124", Stand: "A13", Direction: "ARRIVAL",
+						Stage: "CONFIRMED", Source: "AUTO", ExpiresAt: &expiredAssignment,
+						Version: 1, CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Minute),
 					},
 				},
 			},
@@ -138,10 +152,10 @@ func TestStandStatusReturnsOperationalSnapshot(t *testing.T) {
 	require.Equal(t, "SAS999", payload.Failures[0].Callsign)
 	require.Equal(t, "no_available_stand", payload.Failures[0].Outcome)
 	require.Len(t, payload.Sessions, 1)
-	require.Len(t, payload.Sessions[0].Assignments, 1)
+	require.Len(t, payload.Sessions[0].Assignments, 2)
 	require.Equal(t, "SAS123", payload.Sessions[0].Assignments[0].Callsign)
 	require.Equal(t, "sas-arrivals", *payload.Sessions[0].Assignments[0].RuleID)
-	require.Len(t, payload.Sessions[0].Blocks, 1)
+	require.Len(t, payload.Sessions[0].Blocks, 2)
 	require.Equal(t, int64(21), payload.Sessions[0].Blocks[0].ID)
 	require.Equal(t, "maintenance", *payload.Sessions[0].Blocks[0].Reason)
 }
@@ -221,4 +235,21 @@ func TestStandStatusReturnsEmptyFailureListWhenNoFailuresExist(t *testing.T) {
 	var payload map[string]json.RawMessage
 	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&payload))
 	require.JSONEq(t, `[]`, string(payload["failures"]))
+}
+
+func TestStandStatusIncludesDepartureTiming(t *testing.T) {
+	now := time.Date(2026, time.July, 24, 18, 0, 0, 0, time.UTC)
+	tobt, tsat := "1810", "1820"
+	response := mapStandStatusSession(
+		&models.Session{ID: 7, Name: "LIVE", Airport: "EKCH"},
+		[]*models.StandAssignment{{ID: 11, Callsign: "SAS123", Stand: "A12", Direction: "DEPARTURE"}},
+		nil,
+		[]*models.Strip{{Callsign: "SAS123", CdmData: &models.CdmData{Tobt: &tobt, Tsat: &tsat}}},
+		now,
+	)
+
+	require.Len(t, response.Assignments, 1)
+	require.Equal(t, "1810", *response.Assignments[0].DepartureTOBT)
+	require.Equal(t, "1820", *response.Assignments[0].DepartureTSAT)
+	require.Equal(t, time.Date(2026, time.July, 24, 18, 30, 0, 0, time.UTC), *response.Assignments[0].PlannedReleaseAt)
 }

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import D1ArrivalBrief from './D1ArrivalBrief';
 import D1Brief from './D1Brief';
 import D1Chart from './D1Chart';
 import D1Stand from './D1Stand';
@@ -67,6 +68,24 @@ describe('EFB operational dialogs', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Go to SID: NEXEN2A' }));
     expect(screen.getByAltText('22R SID chart for NEXEN2A').getAttribute('src')).toContain('NEX-KOP-LAN-22');
     expect(screen.getByText(/Kastrup Departure on 124.980/)).toBeInTheDocument();
+  });
+
+  it('uses the selected stand, runway, and STAR arrival briefing assets', () => {
+    render(<D1ArrivalBrief isOpen onClose={vi.fn()} stand="A12" star="TUDLO4C" runway="22L" holdingFix="LUGAS" holdingDetail="073/LEFT" terminalFix="ABEGI" arrivalHeading="HDG037" />);
+
+    expect(screen.getByRole('dialog', { name: 'Arrival briefing' })).toBeInTheDocument();
+    expect(screen.getByAltText('Arrival briefing introduction').getAttribute('src')).toContain('.webp');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to STAR and holding: TUDLO4C' }));
+    expect(screen.getByAltText('TUDLO4C holding guidance for runway 22L').getAttribute('src')).toContain('hold-tudlo-22');
+    expect(screen.getByText(/The holding for TUDLO4C is LUGAS/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to STAR restrictions' }));
+    expect(screen.getByAltText('TUDLO4C restriction guidance for runway 22L').getAttribute('src')).toContain('arr-tudlo-22');
+    expect(screen.getByText(/never turn inbound after ABEGI/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Taxi to stand A12' }));
+    expect(screen.getByAltText('Taxi-in guidance for Bravo stands on runway 22L').getAttribute('src')).toContain('taxiin-22bravo');
   });
 
   it('does not claim unknown stand availability and keeps a rejected request open', async () => {

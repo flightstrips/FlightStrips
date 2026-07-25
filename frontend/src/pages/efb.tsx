@@ -17,6 +17,7 @@ import APPBRIEF from '../assets/efb/APPBRIEF.png';
 import RNAVLOGO from '../assets/efb/RNAVLOGO.png';
 import DOWNLOADS from '../assets/efb/DOWNLOADS.png';
 import TRAFFICBOARD from '../assets/efb/TRAFFICBOARD.png';
+import D1ArrivalBriefDialog from '../components/efb/dialogs/D1ArrivalBrief';
 import D1BRIEFDialog from '../components/efb/dialogs/D1Brief';
 import D1ChartDialog from '../components/efb/dialogs/D1Chart';
 import D1DownloadsDialog from '../components/efb/dialogs/D1DownloadsDialog';
@@ -122,7 +123,7 @@ const unavailableFlightData: FlightDisplayData = {
   tobt: 'NIL', tobtStatus: 'DEFAULT', tsat: 'NIL', tsatStatus: 'DEFAULT',
 };
 
-type DialogType = 'D1BRIEF' | 'D1CHART' | 'D1DOWNLOADS' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
+type DialogType = 'D1ARRBRIEF' | 'D1BRIEF' | 'D1CHART' | 'D1DOWNLOADS' | 'D1STAND' | 'D2CDM' | 'D2ATIS' | 'D2PDC' | null;
 type BoxType = 'L2' | 'M2' | 'R2' | 'L3' | 'M3' | 'R3';
 
 export default function EFBPage() {
@@ -295,7 +296,7 @@ useEffect(() => {
     L2: 'D1CHART',
     M2: null,
     R2: 'D2ATIS',
-    L3: null,
+    L3: 'D1ARRBRIEF',
     M3: null,
     R3: 'D1STAND',
   };
@@ -511,6 +512,17 @@ useEffect(() => {
         sid={flightData.sid}
         runway={flightData.assignedRunway}
       />
+      <D1ArrivalBriefDialog
+        isOpen={openDialog === 'D1ARRBRIEF'}
+        onClose={handleCloseDialog}
+        stand={flightData.stand}
+        star={flightData.star}
+        runway={flightData.arrivalRunway}
+        holdingFix={flightData.publishedHoldingFix}
+        holdingDetail={flightData.publishedHoldingDetail}
+        terminalFix={flightData.terminalFix}
+        arrivalHeading={flightData.arrivalHeading}
+      />
       <D1ChartDialog
         isOpen={openDialog === 'D1CHART'}
         onClose={handleCloseDialog}
@@ -713,12 +725,9 @@ useEffect(() => {
         <div className={`absolute top-0 left-[2.5%] h-full w-[30.83%] cursor-default border-2 border-[#1D293D] bg-[#000109] transition-[transform,box-shadow,filter] duration-150 ${getHoverClass('L3')}`} onMouseEnter={() => setHoveredBox('L3')} onMouseLeave={() => setHoveredBox(null)}>
           {showFlightplanElements ? (
             isArrival ? (
-              <div className="relative flex h-full w-full items-center justify-center" aria-label="Arrival briefing coming soon">
-                <img src={APPBRIEF} alt="APPBRIEF" className="h-[95%] w-[95%] object-contain opacity-45" />
-                <div className="absolute inset-x-[5%] top-1/2 flex -translate-y-1/2 items-center justify-center border-[clamp(5px,0.5vw,18px)] border-[#000109] bg-[#2E343D] py-[5%] text-center text-[clamp(14px,4vh,74px)] font-bold text-white">
-                  COMING SOON
-                </div>
-              </div>
+              <button type="button" aria-label="Open arrival briefing" onClick={() => handleBoxClick('L3')} className="flex h-full w-full cursor-pointer items-center justify-center bg-[#000109]">
+                <img src={APPBRIEF} alt="Arrival briefing" className="h-[95%] w-[95%] object-contain" />
+              </button>
             ) : (
               <>
                 <div onClick={handleL3M1Click} className={`absolute top-0 left-0 flex h-1/2 w-full cursor-pointer items-center border-[clamp(5px,0.5vw,18px)] border-[#000109] ${getAtisColor()}`}>

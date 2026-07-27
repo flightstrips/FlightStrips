@@ -206,10 +206,10 @@ func (hub *Hub) dispatchGenerateSquawkRequest(session int32, req queuedSquawkReq
 		return
 	}
 	if isAutomatic {
-		slog.Info("Auto-generating squawk",
+		slog.Info("Dispatching automatic squawk generation",
 			slog.Int("session", int(session)),
 			slog.String("callsign", req.callsign),
-			slog.String("cid", cid),
+			slog.String("target_cid", cid),
 		)
 	}
 	hub.Send(session, cid, event)

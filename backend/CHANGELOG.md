@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.44.1...backend/v0.45.0) (2026-07-27)
+
+
+### Features
+
+* **cdm:** display active departure rates ([#445](https://github.com/flightstrips/FlightStrips/issues/445)) ([5c873e4](https://github.com/flightstrips/FlightStrips/commit/5c873e4ffc873650f55109db21b926f39c964f3a))
+
 ## [0.44.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.44.0...backend/v0.44.1) (2026-07-27)
 
 

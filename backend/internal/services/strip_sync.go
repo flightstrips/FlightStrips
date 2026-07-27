@@ -203,6 +203,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			s.esCommander.SendClearedAltitude(session, cid, strip.Callsign, newClearedAlt)
 		}
 		if shouldGenerateDepartureSquawk(strip, airport, bay) && s.esCommander != nil {
+			slog.InfoContext(ctx, "Triggering automatic squawk generation",
+				slog.Int("session", int(session)),
+				slog.String("callsign", strip.Callsign),
+				slog.String("trigger", "new_strip"),
+			)
 			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
 		}
 		createdStrip = true
@@ -544,6 +549,11 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		// reserved VATSIM squawk is replaced, but do not re-request a squawk on
 		// later EuroScope updates.
 		if primaryChange && existingStrip.EuroscopeSeenAt == nil && shouldGenerateDepartureSquawk(strip, airport, bay) && s.esCommander != nil {
+			slog.InfoContext(ctx, "Triggering automatic squawk generation",
+				slog.Int("session", int(session)),
+				slog.String("callsign", strip.Callsign),
+				slog.String("trigger", "first_euroscope_sync"),
+			)
 			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
 		}
 

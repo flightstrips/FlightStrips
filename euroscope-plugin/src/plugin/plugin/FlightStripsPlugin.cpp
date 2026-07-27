@@ -19,6 +19,7 @@ namespace FlightStrips {
         constexpr int kWindowProbeMaxAttempts = 20;
         constexpr int kWindowProbeMaxDepth = 8;
         constexpr int kWindowProbeMaxNodes = 512;
+        constexpr auto kSquawkRequestTimeout = std::chrono::minutes(2);
 
         auto QuoteWindowText(std::string text) -> std::string {
             for (char& ch : text) {
@@ -278,6 +279,7 @@ namespace FlightStrips {
 
     void FlightStripsPlugin::OnTimer(int Counter) {
         SafeCall("OnTimer", [this, Counter] {
+            ExpireNeedsSquawkRequests();
             const auto connectionType = static_cast<ConnectionType>(GetConnectionType());
 
             if (m_connectionState.connection_type != connectionType) {
@@ -548,17 +550,36 @@ namespace FlightStrips {
     }
 
     void FlightStripsPlugin::AddNeedsSquawk(const std::string &callsign) {
-        m_needsSquawk.push(callsign);
+        m_needsSquawk.push_back({callsign, std::chrono::steady_clock::now()});
     }
 
     std::optional<std::string> FlightStripsPlugin::GetNeedsSquawk() {
-        if (m_needsSquawk.empty()) {
-            return {};
+        ExpireNeedsSquawkRequests();
+
+        for (auto it = m_needsSquawk.begin(); it != m_needsSquawk.end(); ++it) {
+            if (!RadarTargetSelect(it->callsign.c_str()).IsValid()) {
+                continue;
+            }
+
+            auto callsign = std::move(it->callsign);
+            m_needsSquawk.erase(it);
+            return callsign;
         }
 
-        auto needsSquawk = m_needsSquawk.front();
-        m_needsSquawk.pop();
-        return needsSquawk;
+        return {};
+    }
+
+    void FlightStripsPlugin::ExpireNeedsSquawkRequests() {
+        const auto now = std::chrono::steady_clock::now();
+        for (auto it = m_needsSquawk.begin(); it != m_needsSquawk.end();) {
+            if (now - it->requestedAt < kSquawkRequestTimeout) {
+                ++it;
+                continue;
+            }
+
+            Logger::Error("Dropping pending squawk request for {} after waiting two minutes for a radar target", it->callsign);
+            it = m_needsSquawk.erase(it);
+        }
     }
 
     void FlightStripsPlugin::OnAirportRunwayActivityChanged() {

@@ -200,6 +200,61 @@ func TestWebAPIHandleSequenceReturnsSessionRows(t *testing.T) {
 	}
 }
 
+func TestWebAPIHandleSequenceReturnsCurrentDepartureRatesWithoutAircraft(t *testing.T) {
+	t.Parallel()
+
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
+			return []*models.Strip{}, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		ListFn: func(context.Context) ([]*models.Session, error) {
+			return []*models.Session{{
+				ID:      7,
+				Name:    "LIVE",
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					ArrivalRunways:   []string{"30"},
+					DepartureRunways: []string{"22R"},
+				},
+			}}, nil
+		},
+	}
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	configStore.configs["EKCH"] = &CdmAirportConfig{
+		Airport:     "EKCH",
+		DefaultRate: 40,
+		Rates: []CdmRate{{
+			Airport:   "EKCH",
+			ArrRwyYes: []string{"30"},
+			DepRwyYes: []string{"22R"},
+			Rates:     []string{"30"},
+		}},
+	}
+	api := NewWebAPI(cdmAuthStub{}, sessionRepo, newTestSequenceService(stripRepo, sessionRepo, configStore, nil, nil))
+
+	req := httptest.NewRequest(http.MethodGet, "/cdm/sequence", nil)
+	req.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+	api.handleSequence(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var payload sequenceResponse
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(payload.Sessions) != 1 || len(payload.Sessions[0].Rows) != 0 {
+		t.Fatalf("expected one empty session, got %#v", payload)
+	}
+	rates := payload.Sessions[0].DepartureRates
+	if len(rates) != 1 || rates[0].Runway != "22R" || rates[0].DeparturesHour != 30 {
+		t.Fatalf("expected current 22R rate of 30 departures/hour, got %#v", rates)
+	}
+}
+
 func TestWebAPIHandleSequenceDoesNotRecalculateSlaveSessions(t *testing.T) {
 	t.Parallel()
 

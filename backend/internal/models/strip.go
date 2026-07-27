@@ -27,8 +27,10 @@ type VatsimStripSource struct {
 }
 
 // ArrivalETA records the currently accepted arrival estimate and the inputs
-// that produced it. It belongs to the strip rather than a stand assignment:
-// arrivals receive an ETA before SAT is allowed to reserve a stand.
+// that produced it. It belongs to the strip rather than a stand assignment.
+// SAT may publish an advisory ESTIMATED stand before an ETA is available; that
+// assignment does not reserve physical capacity until timing or proximity
+// promotes it into the operational blocking window.
 type ArrivalETA struct {
 	Time            time.Time `json:"time"`
 	Source          string    `json:"source"`

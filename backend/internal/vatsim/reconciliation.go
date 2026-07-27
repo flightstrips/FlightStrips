@@ -424,6 +424,13 @@ func (r *Reconciler) isAssigned(ctx context.Context, session int32, callsign str
 	if err != nil || assignment == nil {
 		return false
 	}
+	// An automatic ESTIMATED arrival is advisory only. It must not retain an
+	// API-created strip forever after the flight disappears.
+	if !assignment.Manual &&
+		strings.EqualFold(assignment.Direction, "ARRIVAL") &&
+		strings.EqualFold(assignment.Stage, "ESTIMATED") {
+		return false
+	}
 	if assignment.ExpiresAt == nil {
 		return true
 	}

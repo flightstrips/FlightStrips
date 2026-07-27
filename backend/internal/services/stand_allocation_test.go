@@ -279,23 +279,16 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		}
 	})
 
-	t.Run("falls back only within the configured fallback pool when compatible stands are exhausted", func(t *testing.T) {
-		service, session, _ := standAllocationFixture(t, pool, queries, "ENGINETYPE:J", "ENGINETYPE:J")
+	t.Run("never bypasses WTC compatibility when no compatible stand exists", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "WTC:M", "WTC:M")
 		testdata.SeedTestStrip(t, queries, session, "SAS312")
 		request := standAllocationRequest(session, "SAS312")
-		request.FlightFacts = sat.FlightCompatibilityFacts{
-			Direction: sat.Arrival, EngineType: sat.EnginePiston, WTC: "L", BorderStatus: sat.BorderStatusSchengen,
-		}
+		request.FlightFacts = sat.FlightCompatibilityFacts{Direction: sat.Arrival, WTC: "H"}
 
-		result, err := service.Allocate(ctx, request)
-		require.NoError(t, err)
-		assert.Equal(t, "A1", result.Assignment.Stand)
-		assert.Equal(t, "AUTOMATIC", result.Assignment.Source)
-		require.NotNil(t, result.Assignment.ConflictReason)
-		assert.Equal(t, automaticPhysicalFallbackConflict, *result.Assignment.ConflictReason)
-		assert.True(t, result.Selection.FallbackUsed)
-		assert.Nil(t, result.Assignment.MatchedVariant, "the fallback retains the stand's union adjacency footprint")
-		assert.Equal(t, []string{"A1"}, result.AvailableCandidates)
+		_, err := service.Allocate(ctx, request)
+		require.ErrorIs(t, err, ErrNoCompatibleStand)
+		_, err = assignments.GetAssignment(ctx, session, "SAS312")
+		require.Error(t, err, "a Heavy aircraft must not be assigned to a Medium-only stand")
 	})
 
 	t.Run("suppresses repeated automatic attempts when no safe physical stand exists", func(t *testing.T) {
@@ -429,6 +422,182 @@ func TestPublishAssignmentOnlyNotifiesEuroscopeForConfirmedArrival(t *testing.T)
 	require.Len(t, published, 2)
 	assert.False(t, published[0].NotifyEuroscope, "ordinary lifecycle refreshes must not emit stand updates")
 	assert.True(t, published[1].NotifyEuroscope, "confirmation must deliver the previously assigned arrival stand")
+}
+
+func TestStandAllocationRejectsHeavyAircraftOnMediumOnlyFallback(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+WTC:M
+`))
+	require.NoError(t, err)
+	policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{"id":"test","callsigns":["TST"],"stands":{"tier1":{"A1":100}}}],
+  "stand_groups": {}, "fallback_rules": {`+testFallbackJSON("A1")+`}
+}`), registry)
+	require.NoError(t, err)
+	service := &StandAllocationService{
+		stands: registry,
+		policy: policy,
+		random: func() float64 { return 0 },
+		now:    time.Now,
+	}
+	request := StandAllocationRequest{
+		Callsign: "TST1", Airport: "EKCH", Direction: sat.AssignmentDirectionArrival,
+		FlightFacts: sat.FlightCompatibilityFacts{Direction: sat.Arrival, WTC: "H"},
+	}
+	evaluation := registry.EvaluateCompatibility(request.Airport, request.FlightFacts)
+
+	_, _, _, _, _, err = service.selectStand(AutomaticStandAllocation, request, evaluation, nil, nil, nil)
+
+	require.ErrorIs(t, err, ErrNoCompatibleStand)
+}
+
+func TestEstimatedArrivalIsSoftReservationUntilPromoted(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+WTC:M
+`))
+	require.NoError(t, err)
+	evaluation := registry.EvaluateCompatibility("EKCH", sat.FlightCompatibilityFacts{
+		Direction: sat.Departure,
+		WTC:       "M",
+	})
+	require.Len(t, evaluation.Matches, 1)
+	service := &StandAllocationService{
+		stands: registry,
+		now:    func() time.Time { return time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC) },
+	}
+	request := StandAllocationRequest{
+		Callsign:  "DEP1",
+		Airport:   "EKCH",
+		Direction: sat.AssignmentDirectionDeparture,
+	}
+	matches := map[string]sat.StandCompatibilityMatch{"A1": evaluation.Matches[0]}
+	arrival := &models.StandAssignment{
+		Callsign:  "ARR1",
+		Stand:     "A1",
+		Direction: string(sat.AssignmentDirectionArrival),
+		Stage:     StageEstimated,
+	}
+
+	unavailable := service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "soft-reserved by ARR1", "an advisory arrival reserves its exact stand")
+
+	eta := service.now().Add(30 * time.Minute)
+	arrival.ETA = &eta
+	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "soft-reserved by ARR1", "the soft reservation remains after an ETA becomes available")
+
+	request.DisplaceStage = StageEstimated
+	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
+	assert.Empty(t, unavailable["A1"], "a request explicitly allowed to displace ESTIMATED may use the stand")
+	request.DisplaceStage = ""
+
+	arrival.Stage = StageAssigned
+	departureTOBT := eta.Add(-5 * time.Minute)
+	request.DepartureTOBT = &departureTOBT
+	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "reserved by ARR1", "ASSIGNED begins the normal ETA reservation window")
+
+	arrival.ETA = nil
+	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "reserved by ARR1", "a close unknown-ETA arrival blocks immediately")
+}
+
+func TestAutomaticAllocationOnlyReleasesEstimatedReservationForBetterPolicyTier(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+WTC:M
+BLOCKS:A2
+STAND:EKCH:A2:N055.37.42.711:E012.38.33.451:30
+WTC:M
+STAND:EKCH:A3:N055.37.42.712:E012.38.33.452:30
+WTC:M
+`))
+	require.NoError(t, err)
+	policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{
+    "id":"test",
+    "callsigns":["TST"],
+    "stands":{
+      "tier1":{"A1":100,"A2":100},
+      "tier2":{"A3":100}
+    }
+  }],
+  "stand_groups": {},
+  "fallback_rules": {`+testFallbackJSON("A3")+`}
+}`), registry)
+	require.NoError(t, err)
+	service := &StandAllocationService{
+		stands: registry,
+		policy: policy,
+		random: func() float64 { return 0 },
+		now:    time.Now,
+	}
+	request := StandAllocationRequest{
+		Callsign: "TST9", Airport: "EKCH", Direction: sat.AssignmentDirectionArrival,
+		Stage:       StageAssigned,
+		FlightFacts: sat.FlightCompatibilityFacts{Direction: sat.Arrival, WTC: "M"},
+		AssignmentFacts: sat.AssignmentFlightFacts{
+			Callsign: "TST9", Direction: sat.AssignmentDirectionArrival,
+		},
+	}
+	evaluation := registry.EvaluateCompatibility(request.Airport, request.FlightFacts)
+	a1 := &models.StandAssignment{
+		Callsign: "ARR1", Stand: "A1",
+		Direction: string(sat.AssignmentDirectionArrival), Stage: StageEstimated,
+	}
+
+	selected, selection, _, _, _, err := service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1}, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "A2", selected, "an estimated reservation neither yields nor adjacency-blocks an open stand in the same tier")
+	require.NotNil(t, selection)
+	assert.Equal(t, 1, selection.Tier)
+
+	a2 := &models.StandAssignment{
+		Callsign: "ARR2", Stand: "A2",
+		Direction: string(sat.AssignmentDirectionArrival), Stage: StageEstimated,
+	}
+	selected, selection, _, _, _, err = service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1, a2}, nil, nil)
+	require.NoError(t, err)
+	assert.Contains(t, []string{"A1", "A2"}, selected, "a soft reservation yields before forcing the request to tier 2")
+	require.NotNil(t, selection)
+	assert.Equal(t, 1, selection.Tier)
+	assert.True(t, selectedHasEstimatedReservation([]*models.StandAssignment{a1, a2}, selected, request.Callsign))
+
+	request.Stage = StageEstimated
+	request.ETA = nil
+	selected, selection, _, _, _, err = service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1, a2}, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "A3", selected, "an equal-priority estimate must not churn existing reservations")
+	require.NotNil(t, selection)
+	assert.Equal(t, 2, selection.Tier)
+
+	earlierETA := time.Now().Add(15 * time.Minute)
+	laterETA := earlierETA.Add(30 * time.Minute)
+	request.ETA = &earlierETA
+	a1.ETA = &laterETA
+	selected, selection, _, _, _, err = service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1, a2}, nil, nil)
+	require.NoError(t, err)
+	assert.Contains(t, []string{"A1", "A2"}, selected, "an earlier estimated arrival may take priority over a later or untimed estimate")
+	require.NotNil(t, selection)
+	assert.Equal(t, 1, selection.Tier)
+
+	request.Stage = StageAssigned
+	request.ETA = nil
+	fallbackPolicy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules": [{"id":"test","callsigns":["TST"],"stands":{"tier1":{"A1":100}}}],
+  "stand_groups": {},
+  "fallback_rules": {`+testFallbackJSON("A3")+`}
+}`), registry)
+	require.NoError(t, err)
+	service.policy = fallbackPolicy
+
+	selected, selection, _, _, _, err = service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1}, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "A1", selected, "a soft reservation yields before forcing the request onto a fallback rule")
+	require.NotNil(t, selection)
+	assert.False(t, selection.FallbackUsed)
 }
 
 func standAllocationFixture(t *testing.T, pool *pgxpool.Pool, queries *database.Queries, a1Directive, a2Directive string) (*StandAllocationService, int32, repository.StandAssignmentRepository) {

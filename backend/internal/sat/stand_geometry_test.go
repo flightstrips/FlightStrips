@@ -21,4 +21,7 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.36.450:30
 
 	_, found = registry.StandAtPosition("EKCH", 55.7, 12.7)
 	assert.False(t, found)
+
+	assert.True(t, registry.PositionNearAirport("EKCH", 55.6285306, 12.644625, 200))
+	assert.False(t, registry.PositionNearAirport("EKCH", 55.7, 12.7, 200))
 }

@@ -87,9 +87,15 @@ func (s reconciliationTestSessions) List(context.Context) ([]*models.Session, er
 	return s.items, nil
 }
 
-type reconciliationTestAssignments struct{ active map[string]bool }
+type reconciliationTestAssignments struct {
+	active      map[string]bool
+	assignments map[string]*models.StandAssignment
+}
 
 func (s reconciliationTestAssignments) GetAssignment(_ context.Context, session int32, callsign string) (*models.StandAssignment, error) {
+	if assignment := s.assignments[assignmentKey(session, callsign)]; assignment != nil {
+		return assignment, nil
+	}
 	if s.active[assignmentKey(session, callsign)] {
 		return &models.StandAssignment{SessionID: session, Callsign: callsign}, nil
 	}
@@ -334,4 +340,36 @@ func TestRetainsStripHonorsReservationExpiry(t *testing.T) {
 
 	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS1"), "an active reservation keeps the strip alive")
 	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS2"), "an expired reservation no longer retains the strip")
+}
+
+func TestRetainsStripDoesNotKeepAdvisoryArrivalAfterFlightDisappears(t *testing.T) {
+	now := time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC)
+	assignment := &models.StandAssignment{
+		SessionID: 7,
+		Callsign:  "SAS926",
+		Direction: "ARRIVAL",
+		Stage:     "ESTIMATED",
+		Source:    "AUTOMATIC",
+	}
+	assignments := reconciliationTestAssignments{assignments: map[string]*models.StandAssignment{
+		assignmentKey(7, "SAS926"): assignment,
+	}}
+	reconciler := newTestReconciler(
+		newReconciliationTestCache(now),
+		reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}},
+		&reconciliationTestStrips{bySession: map[int32][]*models.Strip{}},
+		assignments,
+		nil,
+		time.Second,
+		WithClock(func() time.Time { return now }),
+	)
+
+	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"), "advisory assignment disappears with its VATSIM-only strip")
+
+	eta := now.Add(30 * time.Minute)
+	assignment.ETA = &eta
+	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"), "ESTIMATED remains advisory when timing becomes available")
+
+	assignment.Stage = "ASSIGNED"
+	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"), "a close operational arrival retains its strip")
 }

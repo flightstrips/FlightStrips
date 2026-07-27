@@ -19,12 +19,17 @@ const (
 	StageAssigned  = "ASSIGNED"
 	StageConfirmed = "CONFIRMED"
 
-	defaultEstimatedBefore = 45 * time.Minute
 	defaultAssignedBefore  = 10 * time.Minute
 	defaultConfirmedBefore = 2 * time.Minute
 
 	assignedAltitudeThreshold  = 10000
 	confirmedAltitudeThreshold = 3000
+	// Once a low-altitude arrival is within two nautical miles of the airport's
+	// configured stands, its operational stand must no longer be changed by the
+	// planning allocator. This covers runways, taxiways, and aprons rather than
+	// only the small stand-position circles.
+	arrivalAirportProximity   = 2 * 1852.0
+	arrivalAirportMaxAltitude = 1000
 
 	defaultArrivalSweepInterval = 30 * time.Second
 )
@@ -100,25 +105,30 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 		return nil
 	}
 	eta := arrivalETATime(strip)
-	if eta == nil {
-		return nil
-	}
 	now := s.now()
-	timeUntilETA := eta.Sub(now)
 	altitude := arrivalAltitude(strip)
-	targetStage := determineArrivalTargetStage(timeUntilETA, altitude)
-	if targetStage == "" {
-		return nil
-	}
+	atAirport := s.arrivalIsAtAirport(strip, flight.Destination)
+	targetStage := determineArrivalTargetStage(eta, now, altitude, atAirport)
 	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
 	if err != nil && !isNotFound(err) {
 		return err
 	}
 	if existing == nil {
+		// The airport-area guard only freezes an existing operational stand.
+		// An unassigned arrival still needs a compatible stand.
 		return s.ensureAssignment(ctx, session, strip, flight, eta, targetStage)
 	}
 	currentStage := existing.Stage
 	if !isArrivalStage(currentStage) {
+		return nil
+	}
+	// A low-altitude position within the airport area is operational evidence
+	// that this arrival is no longer a movable planning reservation. It may
+	// still advance its lifecycle stage in place.
+	if atAirport {
+		if shouldPromoteArrival(currentStage, targetStage) || arrivalTimingChanged(existing, eta, arrivalETASource(eta)) {
+			return s.updateArrivalInPlace(ctx, existing, targetStage, eta, arrivalETASource(eta))
+		}
 		return nil
 	}
 	if !shouldPromoteArrival(currentStage, targetStage) {
@@ -130,6 +140,29 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 	return s.promoteArrival(ctx, session, strip, flight, existing, eta, targetStage)
 }
 
+func (s *ArrivalLifecycleService) arrivalIsAtAirport(strip *models.Strip, flightDestination string) bool {
+	if s == nil || s.stands == nil || strip == nil || strip.PositionLatitude == nil || strip.PositionLongitude == nil {
+		return false
+	}
+	if !validArrivalPosition(*strip.PositionLatitude, *strip.PositionLongitude) {
+		return false
+	}
+	airport := strings.ToUpper(strings.TrimSpace(flightDestination))
+	if airport == "" {
+		airport = strings.ToUpper(strings.TrimSpace(strip.Destination))
+	}
+	if airport == "" {
+		return false
+	}
+	if strip.PositionAltitude == nil || *strip.PositionAltitude > arrivalAirportMaxAltitude {
+		return false
+	}
+	if _, found := s.stands.StandAtPosition(airport, *strip.PositionLatitude, *strip.PositionLongitude); found {
+		return true
+	}
+	return s.stands.PositionNearAirport(airport, *strip.PositionLatitude, *strip.PositionLongitude, arrivalAirportProximity)
+}
+
 func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, eta *time.Time, stage string) error {
 	request := s.buildRequest(session, strip, flight, stage, eta, nil)
 	_, err := s.allocations.Allocate(ctx, request)
@@ -138,13 +171,12 @@ func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session 
 
 func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment, eta *time.Time, targetStage string) error {
 	request := s.buildRequest(session, strip, flight, targetStage, eta, nil)
-	request.DisplaceStage = StageEstimated
 	available, err := s.allocations.StandAvailable(ctx, request, existing.Stand)
 	if err != nil {
 		return err
 	}
 	if available && s.currentStandIsOptimal(ctx, request, existing) {
-		return s.updateStageInPlace(ctx, existing, targetStage, eta)
+		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource)
 	}
 	_, err = s.allocations.Reallocate(ctx, request)
 	return err
@@ -152,12 +184,14 @@ func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session in
 
 func (s *ArrivalLifecycleService) reallocateIfBlocked(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, existing *models.StandAssignment, eta *time.Time, targetStage string) error {
 	request := s.buildRequest(session, strip, flight, existing.Stage, eta, nil)
-	request.DisplaceStage = StageEstimated
 	available, err := s.allocations.StandAvailable(ctx, request, existing.Stand)
 	if err != nil {
 		return err
 	}
 	if available {
+		if arrivalTimingChanged(existing, eta, request.ETASource) {
+			return s.updateArrivalInPlace(ctx, existing, existing.Stage, eta, request.ETASource)
+		}
 		return nil
 	}
 	if s.blockedByPastDeparture(ctx, session, strip, existing, eta) {
@@ -197,24 +231,18 @@ func (s *ArrivalLifecycleService) currentStandIsOptimal(ctx context.Context, req
 	if existing.Tier == nil {
 		return false
 	}
-	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
-	available := make([]string, 0)
-	for _, match := range evaluation.Matches {
-		candidate := standName(match.Stand.Name)
-		free, err := s.allocations.StandAvailable(ctx, request, candidate)
-		if err != nil {
-			return false
-		}
-		if free {
-			available = append(available, candidate)
-		}
+	preview, err := s.allocations.Preview(ctx, request)
+	if err != nil {
+		return false
 	}
-	selection, err := s.allocations.policy.SelectStand(request.AssignmentFacts, available, s.allocations.random)
-	if err != nil || selection == nil {
+	selection, found := selectablePreviewCandidate(preview.Selection)
+	if !found {
 		return true
 	}
-	if standName(selection.Stand) == standName(existing.Stand) {
-		return true
+	for _, candidate := range preview.Selection.Candidates {
+		if candidate.Selectable && standName(candidate.Stand) == standName(existing.Stand) {
+			return true
+		}
 	}
 	if existing.RuleID == nil || !strings.EqualFold(*existing.RuleID, selection.RuleID) {
 		return false
@@ -222,11 +250,12 @@ func (s *ArrivalLifecycleService) currentStandIsOptimal(ctx context.Context, req
 	return selection.Tier >= int(*existing.Tier)
 }
 
-func (s *ArrivalLifecycleService) updateStageInPlace(ctx context.Context, existing *models.StandAssignment, stage string, eta *time.Time) error {
+func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, existing *models.StandAssignment, stage string, eta *time.Time, etaSource *string) error {
 	updated := *existing
 	now := s.now().UTC()
 	updated.Stage = stage
 	updated.ETA = eta
+	updated.ETASource = etaSource
 	updated.AssignedAt = &now
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
@@ -236,8 +265,10 @@ func (s *ArrivalLifecycleService) updateStageInPlace(ctx context.Context, existi
 		return fmt.Errorf("arrival stage update version conflict for %s", existing.Callsign)
 	}
 	updated.Version++
-	slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
-	if stage == StageConfirmed {
+	if existing.Stage != stage {
+		slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
+	}
+	if stage == StageConfirmed && existing.Stage != StageConfirmed {
 		return s.allocations.PublishConfirmedArrival(ctx, updated)
 	}
 	return s.allocations.PublishAssignment(ctx, updated)
@@ -325,18 +356,17 @@ func (s *ArrivalLifecycleService) StartSweep(ctx context.Context) {
 
 func (s *ArrivalLifecycleService) buildRequest(session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, stage string, eta *time.Time, expiresAt *time.Time) StandAllocationRequest {
 	facts, assignmentFacts := s.resolveFacts(strip, flight)
-	etaSource := "ARRIVAL_ETA"
 	vatsimCID, vatsimRevision := resolvedVatsimIdentity(strip, flight.CID, flight.Revision)
 	return StandAllocationRequest{
 		SessionID:       session,
 		Callsign:        strip.Callsign,
-		Airport:         strings.ToUpper(strings.TrimSpace(strip.Destination)),
+		Airport:         facts.Destination,
 		Direction:       sat.AssignmentDirectionArrival,
 		Stage:           stage,
 		FlightFacts:     facts,
 		AssignmentFacts: assignmentFacts,
 		ETA:             eta,
-		ETASource:       &etaSource,
+		ETASource:       arrivalETASource(eta),
 		ExpiresAt:       expiresAt,
 		VatsimCID:       vatsimCID,
 		VatsimRevision:  vatsimRevision,
@@ -345,13 +375,17 @@ func (s *ArrivalLifecycleService) buildRequest(session int32, strip *models.Stri
 
 func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsim.ArrivalFlightInfo) (sat.FlightCompatibilityFacts, sat.AssignmentFlightFacts) {
 	aircraftType := flight.AircraftType
-	if strip != nil && strip.AircraftType != nil && strings.TrimSpace(*strip.AircraftType) != "" {
-		aircraftType = *strip.AircraftType
-	}
-	origin, destination := "", ""
+	origin, destination := flight.Origin, flight.Destination
 	if strip != nil {
-		origin = strip.Origin
-		destination = strip.Destination
+		if strip.AircraftType != nil && strings.TrimSpace(*strip.AircraftType) != "" {
+			aircraftType = *strip.AircraftType
+		}
+		if strings.TrimSpace(strip.Origin) != "" {
+			origin = strip.Origin
+		}
+		if strings.TrimSpace(destination) == "" && strings.TrimSpace(strip.Destination) != "" {
+			destination = strip.Destination
+		}
 	}
 	input := sat.FlightCompatibilityInput{
 		Direction:      sat.Arrival,
@@ -361,9 +395,31 @@ func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsi
 		LiveEngineType: engineTypeValue(strip),
 	}
 	facts := sat.ResolveFlightCompatibilityFacts(input, s.aircraft, s.engines, s.borders)
+	// A freshly created EuroScope session can briefly contain a strip whose
+	// source fields are incomplete or unrecognized while the same VATSIM flight
+	// already has usable facts. Do not let that transient strip state downgrade
+	// a known Heavy arrival to the unrestricted "unknown" fallback policy.
+	retryWithFlightFacts := false
+	if !facts.AircraftKnown && strings.TrimSpace(flight.AircraftType) != "" &&
+		!strings.EqualFold(strings.TrimSpace(input.AircraftType), strings.TrimSpace(flight.AircraftType)) {
+		input.AircraftType = flight.AircraftType
+		retryWithFlightFacts = true
+	}
+	if facts.BorderStatus == sat.BorderStatusUnknown && strings.TrimSpace(flight.Origin) != "" &&
+		!strings.EqualFold(strings.TrimSpace(input.Origin), strings.TrimSpace(flight.Origin)) {
+		input.Origin = flight.Origin
+		retryWithFlightFacts = true
+	}
+	if strings.TrimSpace(input.Destination) == "" && strings.TrimSpace(flight.Destination) != "" {
+		input.Destination = flight.Destination
+		retryWithFlightFacts = true
+	}
+	if retryWithFlightFacts {
+		facts = sat.ResolveFlightCompatibilityFacts(input, s.aircraft, s.engines, s.borders)
+	}
 	assignmentFacts := sat.AssignmentFlightFacts{
 		Callsign:     strip.Callsign,
-		AircraftType: aircraftType,
+		AircraftType: input.AircraftType,
 		AircraftUse:  facts.Aircraft.UseCode,
 		BorderStatus: facts.BorderStatus,
 		Direction:    sat.AssignmentDirectionArrival,
@@ -371,17 +427,37 @@ func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsi
 	return facts, assignmentFacts
 }
 
-func determineArrivalTargetStage(timeUntilETA time.Duration, altitude *int32) string {
-	if timeUntilETA <= defaultConfirmedBefore || altitudeBelow(altitude, confirmedAltitudeThreshold) {
+func determineArrivalTargetStage(eta *time.Time, now time.Time, altitude *int32, atAirport bool) string {
+	confirmedByTime := eta != nil && eta.Sub(now) <= defaultConfirmedBefore
+	if atAirport || confirmedByTime || altitudeBelow(altitude, confirmedAltitudeThreshold) {
 		return StageConfirmed
 	}
-	if timeUntilETA <= defaultAssignedBefore || altitudeBelow(altitude, assignedAltitudeThreshold) {
+	assignedByTime := eta != nil && eta.Sub(now) <= defaultAssignedBefore
+	if assignedByTime || altitudeBelow(altitude, assignedAltitudeThreshold) {
 		return StageAssigned
 	}
-	if timeUntilETA <= defaultEstimatedBefore {
-		return StageEstimated
+	return StageEstimated
+}
+
+func arrivalETASource(eta *time.Time) *string {
+	if eta == nil {
+		return nil
 	}
-	return ""
+	source := "ARRIVAL_ETA"
+	return &source
+}
+
+func arrivalTimingChanged(existing *models.StandAssignment, eta *time.Time, etaSource *string) bool {
+	if existing == nil {
+		return false
+	}
+	if (existing.ETA == nil) != (eta == nil) || (existing.ETASource == nil) != (etaSource == nil) {
+		return true
+	}
+	if existing.ETA != nil && !existing.ETA.Equal(*eta) {
+		return true
+	}
+	return existing.ETASource != nil && *existing.ETASource != *etaSource
 }
 
 func shouldPromoteArrival(currentStage, targetStage string) bool {
@@ -402,10 +478,18 @@ func arrivalETATime(strip *models.Strip) *time.Time {
 }
 
 func arrivalAltitude(strip *models.Strip) *int32 {
-	if strip == nil || strip.PositionAltitude == nil {
+	if strip == nil || strip.PositionAltitude == nil ||
+		strip.PositionLatitude == nil || strip.PositionLongitude == nil ||
+		!validArrivalPosition(*strip.PositionLatitude, *strip.PositionLongitude) {
 		return nil
 	}
 	return strip.PositionAltitude
+}
+
+func validArrivalPosition(latitude, longitude float64) bool {
+	return latitude >= -90 && latitude <= 90 &&
+		longitude >= -180 && longitude <= 180 &&
+		(latitude != 0 || longitude != 0)
 }
 
 func altitudeBelow(altitude *int32, threshold int32) bool {

@@ -46,8 +46,6 @@ var (
 
 const automaticTerminalFailureThreshold = 1
 
-const automaticPhysicalFallbackConflict = "automatic fallback: no normal compatible stand was available"
-
 // StandAllocationRequest contains facts already resolved by the SAT data
 // layer. It intentionally excludes lifecycle and controller authorization
 // policy, which belong to later tasks.
@@ -635,6 +633,9 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	if err != nil {
 		return nil, selected, err
 	}
+	if isAutomaticStandAllocation(command) && selectedHasEstimatedReservation(assignments, selected, request.Callsign) {
+		request.addDisplaceArrivalStage(StageEstimated)
+	}
 	var removedAssignments []models.StandAssignment
 	var removedStandChanges []models.StandAssignment
 	if request.displacesArrivalStage() && selected != "" {
@@ -785,9 +786,7 @@ func (s *StandAllocationService) Preview(ctx context.Context, request StandAlloc
 	for _, match := range evaluation.Matches {
 		matches[standName(match.Stand.Name)] = match
 	}
-	availability := s.availability(request, assignments, activeBlocks, matches)
-	available := previewAvailableStands(matches, availability)
-	selection, err := s.policy.PreviewStandSelection(request.AssignmentFacts, available)
+	available, selection, err := s.automaticStandPool(request, assignments, activeBlocks, matches, nil)
 	if err != nil {
 		return StandAllocationPreview{}, err
 	}
@@ -795,43 +794,7 @@ func (s *StandAllocationService) Preview(ctx context.Context, request StandAlloc
 		Callsign: request.Callsign, Airport: request.Airport, FallbackUsed: selection.FallbackUsed,
 		CompatibleStands: len(matches), AvailableStands: len(available), Selection: selection,
 	}
-	if len(selection.Candidates) > 0 {
-		return preview, nil
-	}
-
-	pool, err := s.policy.FallbackStandPool(request.AssignmentFacts)
-	if err != nil {
-		return StandAllocationPreview{}, err
-	}
-	fallbackMatches := make(map[string]sat.StandCompatibilityMatch)
-	for _, name := range pool {
-		stand, found := s.stands.Lookup(request.Airport, name)
-		if !found || len(stand.Variants) == 0 || allStandVariantsManual(stand) {
-			continue
-		}
-		fallbackMatches[standName(stand.Name)] = sat.StandCompatibilityMatch{Stand: stand, Blocks: slices.Clone(stand.Blocks)}
-	}
-	fallbackAvailability := s.availability(request, assignments, activeBlocks, fallbackMatches)
-	fallbackAvailable := previewAvailableStands(fallbackMatches, fallbackAvailability)
-	fallbackSelection, err := s.policy.PreviewFallbackStandSelection(request.AssignmentFacts, fallbackAvailable)
-	if err != nil {
-		return StandAllocationPreview{}, err
-	}
-	preview.FallbackUsed = true
-	preview.AvailableStands = len(fallbackAvailable)
-	preview.Selection = fallbackSelection
 	return preview, nil
-}
-
-func previewAvailableStands(matches map[string]sat.StandCompatibilityMatch, availability map[string][]string) []string {
-	available := make([]string, 0, len(matches))
-	for stand := range matches {
-		if len(availability[stand]) == 0 {
-			available = append(available, stand)
-		}
-	}
-	slices.Sort(available)
-	return available
 }
 
 func (s *StandAllocationService) selectStand(command StandAllocationCommand, request StandAllocationRequest, evaluation sat.StandCompatibilityEvaluation, assignments []*models.StandAssignment, blocks []*models.StandBlock, tried map[string]struct{}) (string, *sat.StandSelection, *sat.StandCompatibilityMatch, []string, string, error) {
@@ -886,64 +849,14 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		return request.Stand, nil, &match, []string{request.Stand}, "", nil
 	}
 	if len(matches) == 0 {
-		return s.selectAutomaticPhysicalFallback(request, assignments, blocks, tried)
+		return "", nil, nil, nil, "", ErrNoCompatibleStand
 	}
 
-	available := make([]string, 0, len(matches))
-	for stand := range matches {
-		if len(availability[stand]) == 0 {
-			if _, retrying := tried[stand]; !retrying {
-				available = append(available, stand)
-			}
-		}
-	}
-	slices.Sort(available)
-	selection, err := s.policy.SelectStand(request.AssignmentFacts, available, s.random)
-	if err != nil {
-		return "", nil, nil, available, "", err
-	}
-	if selection == nil {
-		return s.selectAutomaticPhysicalFallback(request, assignments, blocks, tried)
-	}
-	match := matches[selection.Stand]
-	return selection.Stand, selection, &match, available, "", nil
-}
-
-// selectAutomaticPhysicalFallback gives an automatic allocation a final safe
-// place to go in the configured fallback pool when normal candidates are
-// exhausted. It only relaxes configuration compatibility; occupied stands,
-// adjacency locks, controller blocks, and manual-only stands remain unavailable.
-func (s *StandAllocationService) selectAutomaticPhysicalFallback(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, tried map[string]struct{}) (string, *sat.StandSelection, *sat.StandCompatibilityMatch, []string, string, error) {
-	pool, err := s.policy.FallbackStandPool(request.AssignmentFacts)
+	available, _, err := s.automaticStandPool(request, assignments, blocks, matches, tried)
 	if err != nil {
 		return "", nil, nil, nil, "", err
 	}
-	matches := make(map[string]sat.StandCompatibilityMatch)
-	for _, name := range pool {
-		stand, found := s.stands.Lookup(request.Airport, name)
-		if !found || len(stand.Variants) == 0 || allStandVariantsManual(stand) {
-			continue
-		}
-		// Stand.Blocks is the union of every configured variant's blocks. Do
-		// not attach a particular variant: future occupancy checks must retain
-		// this conservative physical adjacency footprint.
-		matches[standName(stand.Name)] = sat.StandCompatibilityMatch{Stand: stand, Blocks: slices.Clone(stand.Blocks)}
-	}
-	availability := s.availability(request, assignments, blocks, matches)
-	available := make([]string, 0, len(matches))
-	for stand := range matches {
-		if len(availability[stand]) == 0 {
-			if _, retrying := tried[stand]; !retrying {
-				available = append(available, stand)
-			}
-		}
-	}
-	slices.Sort(available)
-	if len(available) == 0 {
-		return "", nil, nil, nil, "", ErrNoAvailableStand
-	}
-
-	selection, err := s.policy.SelectFallbackStand(request.AssignmentFacts, available, s.random)
+	selection, err := s.policy.SelectStand(request.AssignmentFacts, available, s.random)
 	if err != nil {
 		return "", nil, nil, available, "", err
 	}
@@ -951,19 +864,82 @@ func (s *StandAllocationService) selectAutomaticPhysicalFallback(request StandAl
 		return "", nil, nil, available, "", ErrNoAvailableStand
 	}
 	match := matches[selection.Stand]
-	return selection.Stand, selection, &match, available, automaticPhysicalFallbackConflict, nil
+	return selection.Stand, selection, &match, available, "", nil
 }
 
-func allStandVariantsManual(stand sat.Stand) bool {
-	for _, variant := range stand.Variants {
-		if !variant.Manual {
-			return false
+// automaticStandPool keeps ESTIMATED arrivals as soft reservations. It only
+// releases those reservations when doing so prevents the requesting aircraft
+// from falling to a later rule/tier, a fallback, or no stand at all.
+func (s *StandAllocationService) automaticStandPool(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch, tried map[string]struct{}) ([]string, sat.StandSelectionPreview, error) {
+	strict := availableStandNames(matches, s.availability(request, assignments, blocks, matches), tried)
+	strictPreview, err := s.policy.PreviewStandSelection(request.AssignmentFacts, strict)
+	if err != nil {
+		return nil, sat.StandSelectionPreview{}, err
+	}
+	relaxed := availableStandNames(matches, s.availabilityYieldingEstimated(request, assignments, blocks, matches), tried)
+	relaxedPreview, err := s.policy.PreviewStandSelection(request.AssignmentFacts, relaxed)
+	if err != nil {
+		return nil, sat.StandSelectionPreview{}, err
+	}
+	if relaxedSelectionImproves(strictPreview, relaxedPreview) {
+		return relaxed, relaxedPreview, nil
+	}
+	return strict, strictPreview, nil
+}
+
+func availableStandNames(matches map[string]sat.StandCompatibilityMatch, availability map[string][]string, tried map[string]struct{}) []string {
+	available := make([]string, 0, len(matches))
+	for stand := range matches {
+		if len(availability[stand]) != 0 {
+			continue
+		}
+		if _, retrying := tried[stand]; retrying {
+			continue
+		}
+		available = append(available, stand)
+	}
+	slices.Sort(available)
+	return available
+}
+
+func relaxedSelectionImproves(strict, relaxed sat.StandSelectionPreview) bool {
+	strictCandidate, strictOK := selectablePreviewCandidate(strict)
+	relaxedCandidate, relaxedOK := selectablePreviewCandidate(relaxed)
+	if !relaxedOK {
+		return false
+	}
+	if !strictOK {
+		return true
+	}
+	if strictCandidate.FallbackUsed != relaxedCandidate.FallbackUsed {
+		return strictCandidate.FallbackUsed && !relaxedCandidate.FallbackUsed
+	}
+	if strictCandidate.RuleID != relaxedCandidate.RuleID {
+		// The relaxed pool is a superset of the strict pool, so a different
+		// selected rule can only be an earlier preferred policy path.
+		return true
+	}
+	return relaxedCandidate.Tier < strictCandidate.Tier
+}
+
+func selectablePreviewCandidate(preview sat.StandSelectionPreview) (sat.StandSelectionCandidate, bool) {
+	for _, candidate := range preview.Candidates {
+		if candidate.Selectable {
+			return candidate, true
 		}
 	}
-	return true
+	return sat.StandSelectionCandidate{}, false
 }
 
 func (s *StandAllocationService) availability(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch) map[string][]string {
+	return s.availabilityWithEstimated(request, assignments, blocks, matches, false)
+}
+
+func (s *StandAllocationService) availabilityYieldingEstimated(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch) map[string][]string {
+	return s.availabilityWithEstimated(request, assignments, blocks, matches, true)
+}
+
+func (s *StandAllocationService) availabilityWithEstimated(request StandAllocationRequest, assignments []*models.StandAssignment, blocks []*models.StandBlock, matches map[string]sat.StandCompatibilityMatch, yieldEstimated bool) map[string][]string {
 	now := s.now()
 	result := map[string][]string{}
 	for candidate, match := range matches {
@@ -972,13 +948,25 @@ func (s *StandAllocationService) availability(request StandAllocationRequest, as
 				continue
 			}
 			futureArrivalBlocks := false
-			// Arrival assignments are planning information until their ETA. A
-			// flight that has not landed must not physically occupy its planned
-			// stand or prevent a departure from using it.
-			if assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.ETA != nil && assignment.ETA.After(now) {
-				futureArrivalBlocks = futureArrivalBlocksRequest(*assignment.ETA, request)
-				if !futureArrivalBlocks {
+			if assignment.Direction == string(sat.AssignmentDirectionArrival) {
+				if assignment.Stage == StageEstimated {
+					// An ESTIMATED arrival reserves only its selected stand. It
+					// is not physically present, so it must not block adjacent
+					// stands through the stand geometry.
+					if request.displacesAssignment(assignment) ||
+						(yieldEstimated && estimatedReservationCanYield(request, assignment)) {
+						continue
+					}
+					if candidate == standName(assignment.Stand) {
+						result[candidate] = append(result[candidate], "soft-reserved by "+assignment.Callsign)
+					}
 					continue
+				}
+				if assignment.ETA != nil && assignment.ETA.After(now) {
+					futureArrivalBlocks = futureArrivalBlocksRequest(*assignment.ETA, request)
+					if !futureArrivalBlocks {
+						continue
+					}
 				}
 			}
 			if candidate == standName(assignment.Stand) {
@@ -1013,6 +1001,19 @@ func (s *StandAllocationService) availability(request StandAllocationRequest, as
 		}
 	}
 	return result
+}
+
+func estimatedReservationCanYield(request StandAllocationRequest, assignment *models.StandAssignment) bool {
+	if assignment == nil || !strings.EqualFold(assignment.Stage, StageEstimated) {
+		return false
+	}
+	if !strings.EqualFold(request.Stage, StageEstimated) {
+		return true
+	}
+	if request.ETA == nil {
+		return false
+	}
+	return assignment.ETA == nil || request.ETA.Before(*assignment.ETA)
 }
 
 func sameArrivalETA(left, right *time.Time) bool {
@@ -1207,6 +1208,17 @@ func (request StandAllocationRequest) displacesArrivalStage() bool {
 	return request.DisplaceStage != "" || len(request.DisplaceArrivalStages) > 0
 }
 
+func (request *StandAllocationRequest) addDisplaceArrivalStage(stage string) {
+	if request == nil || stage == "" || request.DisplaceStage == stage || slices.Contains(request.DisplaceArrivalStages, stage) {
+		return
+	}
+	if request.DisplaceStage == "" {
+		request.DisplaceStage = stage
+		return
+	}
+	request.DisplaceArrivalStages = append(request.DisplaceArrivalStages, stage)
+}
+
 func (request StandAllocationRequest) displacesAssignment(assignment *models.StandAssignment) bool {
 	if assignment == nil || assignment.Direction != string(sat.AssignmentDirectionArrival) {
 		return false
@@ -1215,6 +1227,21 @@ func (request StandAllocationRequest) displacesAssignment(assignment *models.Sta
 		return true
 	}
 	return slices.Contains(request.DisplaceArrivalStages, assignment.Stage)
+}
+
+func selectedHasEstimatedReservation(assignments []*models.StandAssignment, selected, callsign string) bool {
+	selected = standName(selected)
+	for _, assignment := range assignments {
+		if assignment == nil || strings.EqualFold(assignment.Callsign, callsign) {
+			continue
+		}
+		if assignment.Direction == string(sat.AssignmentDirectionArrival) &&
+			assignment.Stage == StageEstimated &&
+			standName(assignment.Stand) == selected {
+			return true
+		}
+	}
+	return false
 }
 
 func standName(value string) string      { return strings.ToUpper(strings.TrimSpace(value)) }

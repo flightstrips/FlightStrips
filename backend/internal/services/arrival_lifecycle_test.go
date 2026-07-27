@@ -10,6 +10,7 @@ import (
 	"FlightStrips/internal/vatsim"
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ func TestArrivalLifecycle(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()
 
-	t.Run("at ETA−45 min allocates ESTIMATED and does not transition earlier", func(t *testing.T) {
+	t.Run("allocates ESTIMATED before ETA−45 and retains it", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(50 * time.Minute)
 		clock.set(arrivalETA.Add(-50 * time.Minute))
@@ -33,8 +34,10 @@ func TestArrivalLifecycle(t *testing.T) {
 		err := lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS101"), arrivalFlight("SAS101", 1))
 		require.NoError(t, err)
 
-		_, err = assignments.GetAssignment(ctx, session, "SAS101")
-		require.Error(t, err, "too early for any stage")
+		early, err := assignments.GetAssignment(ctx, session, "SAS101")
+		require.NoError(t, err)
+		assert.Equal(t, StageEstimated, early.Stage)
+		assert.NotEmpty(t, early.Stand)
 
 		clock.advance(6 * time.Minute)
 
@@ -44,7 +47,33 @@ func TestArrivalLifecycle(t *testing.T) {
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS101")
 		require.NoError(t, err)
 		assert.Equal(t, StageEstimated, assignment.Stage)
+		assert.Equal(t, early.Stand, assignment.Stand)
+	})
+
+	t.Run("far arrival without ETA receives an advisory ESTIMATED stand", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS102")
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS102"), arrivalFlight("SAS102", 1)))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS102")
+		require.NoError(t, err)
+		assert.Equal(t, StageEstimated, assignment.Stage)
 		assert.NotEmpty(t, assignment.Stand)
+		assert.Nil(t, assignment.ETA)
+		assert.Nil(t, assignment.ETASource)
+
+		eta := clock.current().Add(2 * time.Hour)
+		setArrivalETA(t, strips, session, "SAS102", eta)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS102"), arrivalFlight("SAS102", 2)))
+
+		timed, err := assignments.GetAssignment(ctx, session, "SAS102")
+		require.NoError(t, err)
+		require.NotNil(t, timed.ETA)
+		assert.True(t, eta.Equal(*timed.ETA), "ETA instant is preserved across database timezone conversion")
+		require.NotNil(t, timed.ETASource)
+		assert.Equal(t, "ARRIVAL_ETA", *timed.ETASource)
+		assert.Equal(t, assignment.Stand, timed.Stand)
 	})
 
 	t.Run("time alone promotes to ASSIGNED without altitude", func(t *testing.T) {
@@ -80,7 +109,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS301"), arrivalFlight("SAS301", 1)))
 		published = nil
 
-		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS301", posPtr(0), posPtr(0), altPtr(8000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS301", posPtr(55), posPtr(10), altPtr(8000), "FINAL", nil)
 		require.NoError(t, err)
 
 		clock.set(arrivalETA.Add(-5 * time.Minute))
@@ -104,12 +133,12 @@ func TestArrivalLifecycle(t *testing.T) {
 
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS401"), arrivalFlight("SAS401", 1)))
 
-		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS401", posPtr(0), posPtr(0), altPtr(8000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS401", posPtr(55), posPtr(10), altPtr(8000), "FINAL", nil)
 		require.NoError(t, err)
 		clock.set(arrivalETA.Add(-5 * time.Minute))
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS401"), arrivalFlight("SAS401", 1)))
 
-		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS401", posPtr(0), posPtr(0), altPtr(2000), "FINAL", nil)
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS401", posPtr(55), posPtr(10), altPtr(2000), "FINAL", nil)
 		require.NoError(t, err)
 		clock.set(arrivalETA.Add(-1 * time.Minute))
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS401"), arrivalFlight("SAS401", 1)))
@@ -127,7 +156,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		setArrivalETA(t, strips, session, "SAS402", arrivalETA)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS402"), arrivalFlight("SAS402", 1)))
 
-		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS402", posPtr(0), posPtr(0), altPtr(8000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS402", posPtr(55), posPtr(10), altPtr(8000), "FINAL", nil)
 		require.NoError(t, err)
 		clock.set(arrivalETA.Add(-5 * time.Minute))
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS402"), arrivalFlight("SAS402", 1)))
@@ -147,7 +176,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		seedTestArrivalStrip(t, queries, session, "SAS403")
 		setArrivalETA(t, strips, session, "SAS403", arrivalETA)
 
-		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS403", posPtr(0), posPtr(0), altPtr(5000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS403", posPtr(55), posPtr(10), altPtr(5000), "FINAL", nil)
 		require.NoError(t, err)
 
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS403"), arrivalFlight("SAS403", 1)))
@@ -164,7 +193,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		seedTestArrivalStrip(t, queries, session, "SAS404")
 		setArrivalETA(t, strips, session, "SAS404", arrivalETA)
 
-		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS404", posPtr(0), posPtr(0), altPtr(2000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS404", posPtr(55), posPtr(10), altPtr(2000), "FINAL", nil)
 		require.NoError(t, err)
 
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS404"), arrivalFlight("SAS404", 1)))
@@ -201,7 +230,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		setArrivalETA(t, strips, session, "SAS601", arrivalETA)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS601"), arrivalFlight("SAS601", 1)))
 
-		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS601", posPtr(0), posPtr(0), altPtr(8000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS601", posPtr(55), posPtr(10), altPtr(8000), "FINAL", nil)
 		require.NoError(t, err)
 		clock.set(arrivalETA.Add(-5 * time.Minute))
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS601"), arrivalFlight("SAS601", 1)))
@@ -218,7 +247,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageAssigned, assignment.Stage, "never downgrades from ASSIGNED back to ESTIMATED")
 	})
 
-	t.Run("ESTIMATED is displaced by later-stage arrival", func(t *testing.T) {
+	t.Run("later-stage arrival uses an open same-tier stand before displacing ESTIMATED", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
 		clock.set(arrivalETA.Add(-45 * time.Minute))
@@ -236,7 +265,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		_, err := strips.UpdateStand(ctx, session, "SAS702", strp("A1"), nil)
 		require.NoError(t, err)
 
-		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS702", posPtr(0), posPtr(0), altPtr(8000), "FINAL", nil)
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS702", posPtr(55), posPtr(10), altPtr(8000), "FINAL", nil)
 		require.NoError(t, err)
 		clock.set(arrivalETA.Add(-5 * time.Minute))
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS702"), arrivalFlight("SAS702", 2)))
@@ -244,16 +273,14 @@ func TestArrivalLifecycle(t *testing.T) {
 		updated702, err := assignments.GetAssignment(ctx, session, "SAS702")
 		require.NoError(t, err)
 		assert.Equal(t, StageAssigned, updated702.Stage)
-		assert.Equal(t, "A1", updated702.Stand, "promoted arrival keeps A1")
+		assert.Equal(t, "A2", updated702.Stand, "an equal-tier open stand avoids unnecessary displacement")
 
-		displaced701, err := assignments.GetAssignment(ctx, session, "SAS701")
-		if err == nil && displaced701 != nil {
-			assert.NotEqual(t, "A1", displaced701.Stand, "displaced ESTIMATED arrival must not keep A1")
-		}
+		retained701, err := assignments.GetAssignment(ctx, session, "SAS701")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", retained701.Stand, "the ESTIMATED reservation remains stable")
 		strip701 := loadStrip(t, strips, session, "SAS701")
-		if strip701.Stand != nil {
-			assert.NotEqual(t, "A1", *strip701.Stand, "displaced ESTIMATED arrival's strip stand must not be A1")
-		}
+		require.NotNil(t, strip701.Stand)
+		assert.Equal(t, "A1", *strip701.Stand)
 	})
 
 	t.Run("departure block expiring before arrival ETA is compatible", func(t *testing.T) {
@@ -313,7 +340,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		original, err := assignments.GetAssignment(ctx, session, "SAS801")
 		require.NoError(t, err)
 
-		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS801", posPtr(0), posPtr(0), altPtr(2000), "FINAL", nil)
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS801", posPtr(55), posPtr(10), altPtr(2000), "FINAL", nil)
 		require.NoError(t, err)
 		clock.set(arrivalETA.Add(-1 * time.Minute))
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS801"), arrivalFlight("SAS801", 1)))
@@ -388,6 +415,189 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageEstimated, reallocated.Stage)
 		assert.NotEqual(t, original.Stand, reallocated.Stand, "reallocated to a different stand when original is blocked")
 	})
+
+	t.Run("arrival at the airport keeps its stand when the allocation becomes blocked", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(45 * time.Minute)
+		clock.set(arrivalETA.Add(-45 * time.Minute))
+		seedTestArrivalStrip(t, queries, session, "SAS921")
+		setArrivalETA(t, strips, session, "SAS921", arrivalETA)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS921"), arrivalFlight("SAS921", 1)))
+		original, err := assignments.GetAssignment(ctx, session, "SAS921")
+		require.NoError(t, err)
+		require.Equal(t, "A1", original.Stand)
+
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+			SessionID: session, Stand: original.Stand, BlockType: "CLOSURE", Source: "CONTROLLER", Manual: true,
+		}))
+		// This is near A1 but outside every configured stand radius, exercising
+		// the airport-area guard rather than exact stand detection.
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS921", posPtr(55.6285306), posPtr(12.644625), altPtr(0), "TAXI", nil)
+		require.NoError(t, err)
+
+		clock.advance(5 * time.Minute)
+		parked := arrivalFlight("SAS921", 2)
+		parked.Online = true
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS921"), parked))
+
+		retained, err := assignments.GetAssignment(ctx, session, "SAS921")
+		require.NoError(t, err)
+		assert.Equal(t, original.Stand, retained.Stand, "an arrival at the airport is never automatically moved to another stand")
+		assert.Equal(t, StageConfirmed, retained.Stage, "the lifecycle still advances without changing the stand")
+	})
+
+	t.Run("arrival at the airport without an assignment receives a stand", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS922")
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS922", posPtr(55.6285306), posPtr(12.644625), altPtr(0), "TAXI", nil)
+		require.NoError(t, err)
+
+		arrived := arrivalFlight("SAS922", 1)
+		arrived.Online = true
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS922"), arrived))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS922")
+		require.NoError(t, err)
+		assert.NotEmpty(t, assignment.Stand, "an unassigned arrival still receives a compatible stand at the airport")
+		assert.Equal(t, StageConfirmed, assignment.Stage)
+		assert.Nil(t, assignment.ETA)
+	})
+}
+
+func TestDetermineArrivalTargetStageWithoutETA(t *testing.T) {
+	now := time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC)
+
+	assert.Equal(t, StageEstimated, determineArrivalTargetStage(nil, now, nil, false))
+	assert.Equal(t, StageAssigned, determineArrivalTargetStage(nil, now, altPtr(8000), false))
+	assert.Equal(t, StageConfirmed, determineArrivalTargetStage(nil, now, altPtr(2000), false))
+	assert.Equal(t, StageConfirmed, determineArrivalTargetStage(nil, now, nil, true))
+}
+
+func TestArrivalAltitudeRequiresValidPosition(t *testing.T) {
+	altitude := int32(0)
+	zero := float64(0)
+	strip := &models.Strip{
+		PositionLatitude:  &zero,
+		PositionLongitude: &zero,
+		PositionAltitude:  &altitude,
+	}
+
+	assert.Nil(t, arrivalAltitude(strip), "an omitted EuroScope position must not confirm a distant arrival")
+
+	latitude, longitude := 55.0, 10.0
+	strip.PositionLatitude = &latitude
+	strip.PositionLongitude = &longitude
+	assert.Equal(t, &altitude, arrivalAltitude(strip))
+
+	invalidLatitude := 91.0
+	strip.PositionLatitude = &invalidLatitude
+	assert.Nil(t, arrivalAltitude(strip), "out-of-range coordinates must not make altitude operational")
+}
+
+func TestArrivalIsAtAirportUsesReconciledDestination(t *testing.T) {
+	stands, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+`))
+	require.NoError(t, err)
+	lifecycle := &ArrivalLifecycleService{stands: stands}
+	strip := &models.Strip{
+		Destination:       "ZZZZ",
+		PositionLatitude:  posPtr(55.6285306),
+		PositionLongitude: posPtr(12.644625),
+		PositionAltitude:  altPtr(0),
+	}
+
+	assert.True(t, lifecycle.arrivalIsAtAirport(strip, "EKCH"))
+
+	invalidLatitude := 91.0
+	strip.PositionLatitude = &invalidLatitude
+	assert.False(t, lifecycle.arrivalIsAtAirport(strip, "EKCH"))
+
+	strip.PositionLatitude = posPtr(55.6285306)
+	strip.PositionAltitude = altPtr(12000)
+	assert.False(t, lifecycle.arrivalIsAtAirport(strip, "EKCH"), "an aircraft over the airport at cruise altitude has not arrived")
+}
+
+func TestArrivalResolveFactsUsesVatsimFactsWhenFreshSessionStripIsUnrecognized(t *testing.T) {
+	aircraft := mustLoadAircraftRegistry(t, "A359")
+	engines := mustLoadEngineRegistry(t, aircraft, []engineRecord{
+		{ICAO: "A359", Engine: "J", WTC: "H"},
+	})
+	lifecycle := &ArrivalLifecycleService{
+		aircraft: aircraft,
+		engines:  engines,
+		borders:  sat.NewAirportCountryRegistry(),
+	}
+	strip := &models.Strip{
+		Callsign:     "SAS926",
+		Origin:       "ZZZZ",
+		Destination:  "ZZZZ",
+		AircraftType: strp("UNRECOGNIZED"),
+	}
+	flight := vatsim.ArrivalFlightInfo{
+		Callsign: "SAS926", Origin: "VABB", Destination: "EKCH", AircraftType: "A359",
+	}
+
+	facts, assignmentFacts := lifecycle.resolveFacts(strip, flight)
+
+	assert.True(t, facts.AircraftKnown)
+	assert.Equal(t, "A359", facts.Aircraft.Type)
+	assert.Equal(t, "H", facts.WTC)
+	assert.Equal(t, sat.BorderStatusNonSchengen, facts.BorderStatus)
+	assert.Equal(t, "EKCH", facts.Destination)
+	assert.Equal(t, "A359", assignmentFacts.AircraftType)
+	assert.Equal(t, sat.AircraftUseCodeA, assignmentFacts.AircraftUse)
+	assert.Equal(t, sat.BorderStatusNonSchengen, assignmentFacts.BorderStatus)
+
+	request := lifecycle.buildRequest(1225, strip, flight, StageEstimated, nil, nil)
+	assert.Equal(t, "EKCH", request.Airport)
+}
+
+func TestFreshSessionSASHeavyUsesNormalNonSchengenRule(t *testing.T) {
+	configDir := filepath.Join("config", "ekch")
+	stands, err := sat.LoadStandCapabilityFile(filepath.Join(configDir, "GRpluginStands.txt"))
+	require.NoError(t, err)
+	policy, err := sat.LoadAirlineAssignmentFile(filepath.Join(configDir, "airline_assignment.json"), stands)
+	require.NoError(t, err)
+	aircraft, err := sat.LoadAircraftReferenceFile(filepath.Join(configDir, "GRpluginAircraftInfo.txt"))
+	require.NoError(t, err)
+	engines := mustLoadEngineRegistry(t, aircraft, []engineRecord{
+		{ICAO: "A359", Engine: "J", WTC: "H"},
+	})
+	allocations := &StandAllocationService{
+		stands: stands,
+		policy: policy,
+		random: func() float64 { return 0 },
+		now:    time.Now,
+	}
+	lifecycle := &ArrivalLifecycleService{
+		allocations: allocations,
+		stands:      stands,
+		aircraft:    aircraft,
+		engines:     engines,
+		borders:     sat.NewAirportCountryRegistry(),
+	}
+	strip := &models.Strip{
+		Callsign: "SAS926", Origin: "ZZZZ", Destination: "EKCH", AircraftType: strp("UNRECOGNIZED"),
+	}
+	flight := vatsim.ArrivalFlightInfo{
+		Callsign: "SAS926", Origin: "VABB", Destination: "EKCH", AircraftType: "A359",
+	}
+	request := lifecycle.buildRequest(1225, strip, flight, StageEstimated, nil, nil)
+	evaluation := stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
+
+	selected, selection, match, _, _, err := allocations.selectStand(
+		AutomaticStandAllocation, request, evaluation, nil, nil, nil,
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, match)
+	assert.Equal(t, "SAS_NON-SCHENGEN", selection.RuleID)
+	assert.False(t, selection.FallbackUsed)
+	assert.True(t, strings.HasPrefix(selected, "C"), "a SAS non-Schengen Heavy should use its configured Charlie rule")
+	assert.Contains(t, strings.Join(match.Variant.WTC, ""), "H")
 }
 
 func seedTestArrivalStrip(t *testing.T, queries *database.Queries, sessionID int32, callsign string) {

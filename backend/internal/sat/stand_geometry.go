@@ -30,6 +30,23 @@ func (r *StandCapabilityRegistry) StandAtPosition(airport string, latitude, long
 	return closest, found
 }
 
+// PositionNearAirport reports whether a position is within maxDistanceMetres
+// of any configured stand at the airport. Stand centres provide a stable
+// airport-local reference without coupling SAT geometry to one airport's
+// coordinates or layout.
+func (r *StandCapabilityRegistry) PositionNearAirport(airport string, latitude, longitude, maxDistanceMetres float64) bool {
+	if r == nil || maxDistanceMetres < 0 {
+		return false
+	}
+	stands := r.byAirport[strings.ToUpper(strings.TrimSpace(airport))]
+	for _, stand := range stands {
+		if greatCircleMetres(latitude, longitude, stand.Latitude, stand.Longitude) <= maxDistanceMetres {
+			return true
+		}
+	}
+	return false
+}
+
 func greatCircleMetres(lat1, lon1, lat2, lon2 float64) float64 {
 	toRadians := math.Pi / 180
 	lat1, lon1, lat2, lon2 = lat1*toRadians, lon1*toRadians, lat2*toRadians, lon2*toRadians

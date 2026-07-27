@@ -383,8 +383,11 @@ namespace FlightStrips::messages {
 
     void MessageService::HandleGenerateSquawkEvent(const GenerateSquawkEvent &event) const {
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
-        const auto radarTarget = m_plugin->RadarTargetSelect(event.callsign.c_str());
-        if (!fp.IsValid() || !radarTarget.IsValid()) return;
+        // Automatic requests are routed to the active Delivery client, which
+        // can have the flight plan before it has a radar target in range.
+        // TopSky generates the squawk from the callsign, so a valid flight plan
+        // is sufficient and avoids dropping the one-shot request on spawn.
+        if (!fp.IsValid()) return;
         m_plugin->AddNeedsSquawk(std::string(fp.GetCallsign()));
     }
 

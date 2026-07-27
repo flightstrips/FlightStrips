@@ -22,6 +22,9 @@
 #include "IFlightStripsPlugin.h"
 #include "plugin/AirportResolution.h"
 
+#include <chrono>
+#include <deque>
+
 // TODO move
 #define CLEARED "CLEA"
 #define NOT_CLEARED "NOTC"
@@ -92,6 +95,11 @@ namespace FlightStrips {
         std::optional<std::string> GetNeedsSquawk();
 
     private:
+        struct PendingSquawkRequest {
+            std::string callsign;
+            std::chrono::steady_clock::time_point requestedAt;
+        };
+
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
         const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;
@@ -102,7 +110,7 @@ namespace FlightStrips {
         const std::weak_ptr<Container> m_container;
 
         ConnectionState m_connectionState = {};
-        std::queue<std::string> m_needsSquawk = {};
+        std::deque<PendingSquawkRequest> m_needsSquawk = {};
         double m_airportLatitude = 0.0;
         double m_airportLongitude = 0.0;
         std::optional<AirportFallbackProbe> m_lastAirportFallbackProbe;
@@ -111,6 +119,7 @@ namespace FlightStrips {
 
         [[nodiscard]] bool IsWithinRange(EuroScopePlugIn::CRadarTarget radarTarget, float rangeNM) const;
         void DispatchRangeCheck(EuroScopePlugIn::CRadarTarget radarTarget);
+        void ExpireNeedsSquawkRequests();
         static bool IsValidHhmm(const std::string& value);
         void LogWindowHierarchyProbe();
 

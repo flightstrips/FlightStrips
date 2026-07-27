@@ -27,13 +27,19 @@ type sequenceResponse struct {
 }
 
 type sequenceSessionResponse struct {
-	SessionID        int32                 `json:"session_id"`
-	Name             string                `json:"name"`
-	Airport          string                `json:"airport"`
-	CdmMaster        bool                  `json:"cdm_master"`
-	DepartureRunways []string              `json:"departure_runways"`
-	ArrivalRunways   []string              `json:"arrival_runways"`
-	Rows             []sequenceRowResponse `json:"rows"`
+	SessionID        int32                   `json:"session_id"`
+	Name             string                  `json:"name"`
+	Airport          string                  `json:"airport"`
+	CdmMaster        bool                    `json:"cdm_master"`
+	DepartureRunways []string                `json:"departure_runways"`
+	DepartureRates   []departureRateResponse `json:"departure_rates"`
+	ArrivalRunways   []string                `json:"arrival_runways"`
+	Rows             []sequenceRowResponse   `json:"rows"`
+}
+
+type departureRateResponse struct {
+	Runway         string `json:"runway"`
+	DeparturesHour int    `json:"departures_per_hour"`
 }
 
 type sequenceRowResponse struct {
@@ -125,10 +131,6 @@ func (a *WebAPI) handleSequence(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusInternalServerError, "failed to build cdm sequence")
 			return
 		}
-		if len(snapshot.Rows) == 0 {
-			continue
-		}
-
 		response.Sessions = append(response.Sessions, snapshot)
 	}
 
@@ -155,6 +157,7 @@ func buildSequenceSessionSnapshot(ctx context.Context, service *SequenceService,
 		CdmMaster:        session.CdmMaster,
 		DepartureRunways: append([]string(nil), session.ActiveRunways.DepartureRunways...),
 		ArrivalRunways:   append([]string(nil), session.ActiveRunways.ArrivalRunways...),
+		DepartureRates:   currentDepartureRates(service, session),
 		Rows:             []sequenceRowResponse{},
 	}
 
@@ -170,6 +173,41 @@ func buildSequenceSessionSnapshot(ctx context.Context, service *SequenceService,
 	}
 
 	return response, nil
+}
+
+func currentDepartureRates(service *SequenceService, session *models.Session) []departureRateResponse {
+	if service == nil || session == nil {
+		return []departureRateResponse{}
+	}
+
+	config := service.configForActiveRunways(
+		session.Airport,
+		session.ActiveRunways.ArrivalRunways,
+		session.ActiveRunways.DepartureRunways,
+	)
+	runways := append([]string(nil), session.ActiveRunways.DepartureRunways...)
+	sort.Slice(runways, func(i, j int) bool {
+		return strings.ToUpper(strings.TrimSpace(runways[i])) < strings.ToUpper(strings.TrimSpace(runways[j]))
+	})
+
+	rates := make([]departureRateResponse, 0, len(runways))
+	seen := make(map[string]struct{}, len(runways))
+	for _, runway := range runways {
+		normalized := strings.ToUpper(strings.TrimSpace(runway))
+		if normalized == "" {
+			continue
+		}
+		if _, exists := seen[normalized]; exists {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		rates = append(rates, departureRateResponse{
+			Runway:         normalized,
+			DeparturesHour: config.RateForRunway(normalized),
+		})
+	}
+
+	return rates
 }
 
 func buildSequenceSnapshotRows(strips []*models.Strip, config *CdmAirportConfig, now time.Time) []sequenceSnapshotRow {

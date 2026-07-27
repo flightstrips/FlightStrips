@@ -82,6 +82,41 @@ func TestParseRateData_SourceFormat(t *testing.T) {
 	}
 }
 
+func TestEKCHRateFile_AppliesThirtyDeparturesPerHourFor22RWithArrival30(t *testing.T) {
+	t.Parallel()
+
+	data, err := os.ReadFile("../../config/ekch/rate.txt")
+	if err != nil {
+		t.Fatalf("read EKCH rate file: %v", err)
+	}
+	rates, err := parseRateData(data)
+	if err != nil {
+		t.Fatalf("parse EKCH rate file: %v", err)
+	}
+
+	config := NewDefaultAirportConfig("EKCH")
+	config.Rates = rates
+	config = config.SnapshotWithRunways([]string{"30"}, []string{"22R"})
+	if rate := config.RateForRunway("22R"); rate != 30 {
+		t.Fatalf("expected 22R departure rate of 30 with arrival 30, got %d", rate)
+	}
+
+	result := Calculate(CalcInput{
+		Callsign: "SAS123",
+		Origin:   "EKCH",
+		DepRwy:   "22R",
+		Tobt:     "1000",
+		TaxiMin:  10,
+	}, []SlotEntry{{
+		Callsign: "SAS122",
+		Origin:   "EKCH",
+		DepRwy:   "22R",
+		Ttot:     "101100",
+	}}, config, time.Date(2026, 3, 25, 8, 0, 0, 0, time.UTC))
+
+	assertClockResult(t, result, "100300", "101300")
+}
+
 func TestParseSidIntervalData_SourceFormat(t *testing.T) {
 	t.Parallel()
 

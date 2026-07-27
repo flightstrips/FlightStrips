@@ -126,15 +126,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		return err
 	}
 
-	config := s.configProvider.ConfigForAirport(airport)
-	if config == nil {
-		if defaults, ok := s.configProvider.(*CdmConfigStore); ok {
-			config = defaults.DefaultConfigForAirport(airport)
-		} else {
-			config = &CdmAirportConfig{Airport: normalizeToken(airport), DefaultRate: 20, DefaultTaxiMinutes: 10}
-		}
-	}
-	config = config.SnapshotWithRunways(sessionData.ActiveRunways.ArrivalRunways, sessionData.ActiveRunways.DepartureRunways)
+	config := s.configForActiveRunways(airport, sessionData.ActiveRunways.ArrivalRunways, sessionData.ActiveRunways.DepartureRunways)
 	now := s.now().UTC()
 	nowHHMMSS := timeToClock(now)
 
@@ -308,6 +300,22 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 	}
 
 	return nil
+}
+
+// configForActiveRunways returns the same config snapshot used for sequencing.
+// Keeping this resolution in one place lets read-only views report the exact
+// rate that CDM will apply for the session's current runway configuration.
+func (s *SequenceService) configForActiveRunways(airport string, arrivals, departures []string) *CdmAirportConfig {
+	config := s.configProvider.ConfigForAirport(airport)
+	if config == nil {
+		if defaults, ok := s.configProvider.(*CdmConfigStore); ok {
+			config = defaults.DefaultConfigForAirport(airport)
+		} else {
+			config = &CdmAirportConfig{Airport: normalizeToken(airport), DefaultRate: DefaultCDMRate, DefaultTaxiMinutes: DefaultCDMTaxiMinutes}
+		}
+	}
+
+	return config.SnapshotWithRunways(arrivals, departures)
 }
 
 func compareSequencingCandidates(left, right sequencingCandidate, anchor time.Time, preserveExistingSlots bool) int {

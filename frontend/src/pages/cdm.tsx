@@ -44,6 +44,10 @@ type SequenceSession = {
   airport: string;
   cdm_master: boolean;
   departure_runways: string[];
+  departure_rates: Array<{
+    runway: string;
+    departures_per_hour: number;
+  }>;
   arrival_runways: string[];
   rows: SequenceRow[];
 };
@@ -98,6 +102,16 @@ function formatConfirmation(row: SequenceRow): string {
   }
 
   return row.tobt_confirmed_by ? `Yes (${row.tobt_confirmed_by})` : "Yes";
+}
+
+function formatDepartureRates(session: SequenceSession): string {
+  if (session.departure_rates.length === 0) {
+    return "—";
+  }
+
+  return session.departure_rates
+    .map((rate) => `${rate.runway} ${rate.departures_per_hour}/h`)
+    .join(", ");
 }
 
 function formatOriginalTtot(row: SequenceRow): string {
@@ -245,7 +259,7 @@ export default function CdmPage() {
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   Departure runways {session.departure_runways.join(", ") || "—"} | Arrival runways{" "}
-                  {session.arrival_runways.join(", ") || "—"} | CDM{" "}
+                    {session.arrival_runways.join(", ") || "—"} | Current departure rates {formatDepartureRates(session)} | CDM{" "}
                   {session.cdm_master ? "Master" : "Slave"}
                 </p>
               </div>

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.2...plugin/v0.20.3) (2026-07-27)
+
+
+### Bug Fixes
+
+* **squawk:** retry pending squawk generation ([#442](https://github.com/flightstrips/FlightStrips/issues/442)) ([d0d9ab8](https://github.com/flightstrips/FlightStrips/commit/d0d9ab885addf5d023f68d70af211c846497de9f))
+
 ## [0.20.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.1...plugin/v0.20.2) (2026-07-24)
 
 

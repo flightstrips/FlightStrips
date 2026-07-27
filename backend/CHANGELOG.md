@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.44.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.44.0...backend/v0.44.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **squawk:** retry pending squawk generation ([#442](https://github.com/flightstrips/FlightStrips/issues/442)) ([d0d9ab8](https://github.com/flightstrips/FlightStrips/commit/d0d9ab885addf5d023f68d70af211c846497de9f))
+* stabilize arrival stand assignments ([#444](https://github.com/flightstrips/FlightStrips/issues/444)) ([b7ec57f](https://github.com/flightstrips/FlightStrips/commit/b7ec57fd32d3cc4521b7299b55e105a6c02f61d4))
+
 ## [0.44.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.43.0...backend/v0.44.0) (2026-07-25)
 
 

@@ -35,7 +35,7 @@ public:
     [[nodiscard]] std::string GetAudience();
     [[nodiscard]] std::string GetClientId();
     [[nodiscard]] std::string GetScopes();
-    [[nodiscard]] int GetRedirectPort();
+    [[nodiscard]] std::vector<int> GetRedirectPorts();
     [[nodiscard]] std::string GetBaseUrl();
     [[nodiscard]] bool GetApiEnabled();
     [[nodiscard]] std::string GetLogLevel();

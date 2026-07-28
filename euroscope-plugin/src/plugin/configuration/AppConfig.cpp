@@ -4,6 +4,9 @@
 
 #include "AppConfig.h"
 
+#include <algorithm>
+#include <sstream>
+
 namespace FlightStrips::configuration {
     std::string AppConfig::GetAuthority() {
         return std::string(ini["authentication"]["authority"] | "error");
@@ -21,8 +24,31 @@ namespace FlightStrips::configuration {
         return std::string(ini["authentication"]["scopes"] | "openid profile offline_access");
     }
 
-    int AppConfig::GetRedirectPort() {
-        return ini["authentication"]["redirectPort"] | 27015;
+    std::vector<int> AppConfig::GetRedirectPorts() {
+        const auto configuredPorts = std::string(ini["authentication"]["redirectPorts"] | "");
+        std::istringstream ports(configuredPorts);
+        std::vector<int> result;
+        int port;
+
+        const auto addPort = [&result](const int candidate) {
+            if (candidate > 0 && candidate <= 65535 && std::find(result.begin(), result.end(), candidate) == result.end()) {
+                result.push_back(candidate);
+            }
+        };
+
+        while (ports >> port) {
+            addPort(port);
+        }
+
+        if (result.empty()) {
+            addPort(ini["authentication"]["redirectPort"] | 27015);
+            addPort(32015);
+            addPort(37015);
+            addPort(42015);
+            addPort(47015);
+        }
+
+        return result;
     }
 
     std::string AppConfig::GetBaseUrl() {

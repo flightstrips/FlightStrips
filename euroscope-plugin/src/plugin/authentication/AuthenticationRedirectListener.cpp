@@ -13,16 +13,7 @@ namespace FlightStrips::authentication {
         std::promise<std::optional<std::string> > &prms, const int port) : port(port), resultPromise(std::move(prms)) {
     }
 
-    void AuthenticationRedirectListener::Start() {
-        try {
-            this->backgroundThread = std::thread(&AuthenticationRedirectListener::BackgroundThread, this);
-        } catch (...) {
-            exceptions::LogCurrentException("AuthenticationRedirectListener::Start");
-            TrySetResult({}, "AuthenticationRedirectListener::Start");
-        }
-    }
-
-    void AuthenticationRedirectListener::BackgroundThread() {
+    bool AuthenticationRedirectListener::Start() {
         try {
             server.set_exception_handler([this](const httplib::Request&, httplib::Response &res, const std::exception_ptr ep) {
                 const auto details = exceptions::GetExceptionDetails(ep);
@@ -45,20 +36,56 @@ namespace FlightStrips::authentication {
                 TrySetResult(code, "AuthenticationRedirectListener::Callback");
             });
 
+            auto startupFuture = startupPromise.get_future();
+            this->backgroundThread = std::thread(&AuthenticationRedirectListener::BackgroundThread, this);
+            if (!startupFuture.get()) {
+                backgroundThread.join();
+                return false;
+            }
+
+            server.wait_until_ready();
+            if (server.is_running()) {
+                return true;
+            }
+
+            if (backgroundThread.joinable()) {
+                backgroundThread.join();
+            }
+            return false;
+        } catch (...) {
+            exceptions::LogCurrentException("AuthenticationRedirectListener::Start");
+            Stop();
+            TrySetResult({}, "AuthenticationRedirectListener::Start");
+            return false;
+        }
+    }
+
+    void AuthenticationRedirectListener::BackgroundThread() {
+        try {
+            if (!server.bind_to_port("127.0.0.1", port)) {
+                Logger::Warning("Authentication redirect listener could not bind to port {}", port);
+                TrySetStartupResult(false);
+                return;
+            }
+
+            TrySetStartupResult(true);
             Logger::Debug(std::format("Starting HTTP server listing on http://127.0.0.1:{}", port));
-            const auto listening = server.listen("127.0.0.1", port);
+            const auto listening = server.listen_after_bind();
             if (!listening && !resultSet.load()) {
                 Logger::Error("Authentication redirect listener failed to start on port {}", port);
                 TrySetResult({}, "AuthenticationRedirectListener::Listen");
             }
             Logger::Debug(std::format("Stopping HTTP server listing on http://127.0.0.1:{}", port));
         } catch (...) {
+            TrySetStartupResult(false);
             exceptions::LogCurrentException("AuthenticationRedirectListener::BackgroundThread");
             TrySetResult({}, "AuthenticationRedirectListener::BackgroundThread");
         }
     }
 
-    AuthenticationRedirectListener::~AuthenticationRedirectListener() = default;
+    AuthenticationRedirectListener::~AuthenticationRedirectListener() {
+        Stop();
+    }
 
     void AuthenticationRedirectListener::Stop() {
         if (server.is_running()) {
@@ -67,6 +94,18 @@ namespace FlightStrips::authentication {
 
         if (backgroundThread.joinable()) {
             backgroundThread.join();
+        }
+    }
+
+    void AuthenticationRedirectListener::TrySetStartupResult(const bool value) {
+        if (startupSet.exchange(true)) {
+            return;
+        }
+
+        try {
+            startupPromise.set_value(value);
+        } catch (...) {
+            exceptions::LogCurrentException("AuthenticationRedirectListener::TrySetStartupResult");
         }
     }
 

@@ -45,9 +45,25 @@ TEST(AppConfigTest, GetScopes_Default_ReturnsOpenidProfile) {
     EXPECT_EQ(cfg.GetScopes(), "openid profile offline_access");
 }
 
-TEST(AppConfigTest, GetRedirectPort_Default_Returns27015) {
+TEST(AppConfigTest, GetRedirectPorts_Default_ReturnsConfiguredFallbacks) {
     auto cfg = MakeDefault();
-    EXPECT_EQ(cfg.GetRedirectPort(), 27015);
+    EXPECT_EQ(cfg.GetRedirectPorts(), (std::vector<int>{27015, 32015, 37015, 42015, 47015}));
+}
+
+TEST(AppConfigTest, GetRedirectPorts_Configured_ReturnsPortsInOrder) {
+    auto cfg = MakeConfigured(R"ini(
+[authentication]
+redirectPorts = 28000 28001 28002
+)ini");
+    EXPECT_EQ(cfg.GetRedirectPorts(), (std::vector<int>{28000, 28001, 28002}));
+}
+
+TEST(AppConfigTest, GetRedirectPorts_LegacyRedirectPort_IsTriedBeforeFallbacks) {
+    auto cfg = MakeConfigured(R"ini(
+[authentication]
+redirectPort = 28000
+)ini");
+    EXPECT_EQ(cfg.GetRedirectPorts(), (std::vector<int>{28000, 32015, 37015, 42015, 47015}));
 }
 
 TEST(AppConfigTest, GetBaseUrl_Default_ReturnsError) {

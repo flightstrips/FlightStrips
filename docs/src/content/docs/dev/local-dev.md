@@ -86,7 +86,7 @@ baseurl = ws://localhost:8090/euroscopeEvents
 level = DEBUG
 ```
 
-All other keys (`authority`, `redirectPort`, `enabled`) stay the same as production. Full reference: `src/config_dev.ini` (dev), `src/config.ini` (prod).
+All other keys (`authority`, `redirectPorts`, `enabled`) stay the same as production. Full reference: `src/config_dev.ini` (dev), `src/config.ini` (prod).
 
 `userconfig.ini` holds personal tokens and is gitignored — do not commit it.
 

@@ -296,43 +296,49 @@ namespace FlightStrips::authentication {
 
     void AuthenticationService::DoAuthenticationFlowImpl() {
         Logger::Debug("Starting authentication flow");
-        std::promise<std::optional<std::string> > promise;
-        std::future<std::optional<std::string> > future = promise.get_future();
+        for (const auto port : this->appConfig->GetRedirectPorts()) {
+            std::promise<std::optional<std::string> > promise;
+            std::future<std::optional<std::string> > future = promise.get_future();
+            AuthenticationRedirectListener listener(promise, port);
 
-        AuthenticationRedirectListener listener(promise, this->appConfig->GetRedirectPort());
-        listener.Start();
+            if (!listener.Start()) {
+                continue;
+            }
 
-        const auto code_verifier = generateCodeVerifier();
-        const auto code_challenge = generateCodeChallenge(code_verifier);
-        const std::string client_id = this->appConfig->GetClientId();
-        const std::string redirect_uri = std::format("http://127.0.0.1:{}/callback-auth0",
-                                                     this->appConfig->GetRedirectPort());
-        auto url = GetAuthorizeUrl(code_challenge, client_id, redirect_uri);
-        OpenBrowser(url);
+            const auto code_verifier = generateCodeVerifier();
+            const auto code_challenge = generateCodeChallenge(code_verifier);
+            const std::string client_id = this->appConfig->GetClientId();
+            const std::string redirect_uri = std::format("http://127.0.0.1:{}/callback-auth0", port);
+            auto url = GetAuthorizeUrl(code_challenge, client_id, redirect_uri);
+            OpenBrowser(url);
 
-        const auto ready = WaitForResult(future);
-        listener.Stop();
+            const auto ready = WaitForResult(future);
+            listener.Stop();
 
-        if (!ready) {
-            Logger::Debug("Authentication cancelled");
+            if (!ready) {
+                Logger::Debug("Authentication cancelled");
+                return;
+            }
+
+            auto code_result = future.get();
+            if (!code_result.has_value()) {
+                Logger::Debug("Authentication failed, got no authorization code.");
+                return;
+            }
+
+            if (!state) return;
+
+            auto code = code_result.value();
+            Logger::Debug(std::format("Authorization code: {}", code));
+
+            auto token_result = GetTokenFromAuthorizationCode(client_id, code_verifier, code, redirect_uri);
+            Logger::Debug(std::format("Got authentication token: {}", token_result));
+
+            ParseAndSetToken(token_result);
             return;
         }
 
-        auto code_result = future.get();
-        if (!code_result.has_value()) {
-            Logger::Debug("Authentication failed, got no authorization code.");
-            return;
-        }
-
-        if (!state) return;
-
-        auto code = code_result.value();
-        Logger::Debug(std::format("Authorization code: {}", code));
-
-        auto token_result = GetTokenFromAuthorizationCode(client_id, code_verifier, code, redirect_uri);
-        Logger::Debug(std::format("Got authentication token: {}", token_result));
-
-        ParseAndSetToken(token_result);
+        Logger::Error("Authentication redirect listener could not start on any configured port");
     }
 
     void AuthenticationService::DoAuthenticationFlow() {

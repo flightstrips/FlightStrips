@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.4](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.3...plugin/v0.20.4) (2026-07-28)
+
+
+### Bug Fixes
+
+* **authentication:** add redirect port fallbacks ([#447](https://github.com/flightstrips/FlightStrips/issues/447)) ([97ced36](https://github.com/flightstrips/FlightStrips/commit/97ced361d9f77a99925f66eca8db27a0669ef874))
+
 ## [0.20.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.2...plugin/v0.20.3) (2026-07-27)
 
 

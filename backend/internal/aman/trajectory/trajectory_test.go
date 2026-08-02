@@ -31,6 +31,32 @@ func TestReduceGoldenDTGMonotonicJitterAndCompatibilityReset(t *testing.T) {
 	require.Less(t, reset.AlongTrackNM, forward.AlongTrackNM)
 }
 
+func TestReduceMarksEntryIntoConfiguredTerminalPath(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	snapshot.TerminalPaths[0].Legs = []navdata.ProcedureLeg{route.Legs[1]}
+	route.Legs = route.Legs[:1]
+	before := Reduce(snapshot, route, input, Config{MaxForwardSearchNM: 100})
+	require.False(t, before.InTMA)
+	input.Observation.LongitudeDegrees = 1.5
+	input.Prior = before.Progress
+	inTMA := Reduce(snapshot, route, input, Config{MaxForwardSearchNM: 100})
+	require.True(t, inTMA.InTMA)
+}
+
+func TestHoldingCandidateRequiresPublishedHoldingFootprint(t *testing.T) {
+	seconds, groundspeed := int64(60), 180.0
+	holding := &navdata.HoldingPattern{ID: "MONAK-HOLD", Fix: "MONAK", LegTimeSeconds: &seconds}
+	fixes := map[navdata.FixID]navdata.Fix{"MONAK": {ID: "MONAK", Position: coordinate(55, 12)}}
+	near := aman.SurveillanceFact{LatitudeDegrees: 55, LongitudeDegrees: 12.02, GroundspeedKnots: &groundspeed}
+	candidate := holdingCandidate(holding, fixes, near)
+	require.NotNil(t, candidate)
+	require.Equal(t, navdata.HoldingID("MONAK-HOLD"), candidate.HoldingID)
+
+	far := near
+	far.LongitudeDegrees = 12.3
+	require.Nil(t, holdingCandidate(holding, fixes, far))
+}
+
 func TestReduceReportsActualOffRouteCrossTrackAndThreshold(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = .21, .5
@@ -77,7 +103,32 @@ func TestReadFiledRouteUsesParserCoordinatesWithoutManifestFixes(t *testing.T) {
 	require.Empty(t, result.Reasons)
 }
 
-func TestReduceRecoversOffRouteArrivalViaNextWaypoint(t *testing.T) {
+func TestRouteCoordinatesDisambiguateSharedTerminalFix(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	a, feeder, merge := navdata.FixID("A"), navdata.FixID("F"), navdata.FixID("C")
+	correctFeeder := coordinate(55.9, 12.6)
+	wrongGlobalFeeder := coordinate(26.3, -83.2)
+	mergePosition := coordinate(55.8, 12.7)
+	snapshot.Fixes = []navdata.Fix{
+		{ID: a, Position: coordinate(56, 13)},
+		{ID: feeder, Position: wrongGlobalFeeder},
+		{ID: merge, Position: mergePosition},
+	}
+	snapshot.TerminalPaths[0].Legs = []navdata.ProcedureLeg{{ID: "TERMINAL", PathTerminator: navdata.PathTF, FromFix: &feeder, ToFix: &merge}}
+	route.Legs = []navdata.ProcedureLeg{{
+		ID: "FILED", PathTerminator: navdata.PathTF, FromFix: &a, ToFix: &feeder,
+		FromPosition: &snapshot.Fixes[0].Position, ToPosition: &correctFeeder,
+	}}
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = 55.95, 12.8
+
+	result := Reduce(snapshot, route, input, Config{})
+
+	require.Len(t, result.Remaining, 2)
+	require.Equal(t, correctFeeder, result.Remaining[1].Start)
+	require.Less(t, result.Remaining[1].DistanceNM, 20.0)
+}
+
+func TestReduceRecoversOffRouteArrivalViaTrackAlignedWaypoint(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	holdID := navdata.HoldingID("HOLD")
 	snapshot.Holdings = []navdata.HoldingPattern{{ID: holdID, Fix: "B"}}
@@ -85,18 +136,78 @@ func TestReduceRecoversOffRouteArrivalViaNextWaypoint(t *testing.T) {
 	track := 90.0
 	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees, input.Observation.TrackTrueDegrees = .3, .1, &track
 
+	first := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+	require.Equal(t, "OFF_ROUTE_CANDIDATE_TO:C", first.Remaining[0].ID)
+	require.Equal(t, uint8(1), first.Progress.RecoveryCandidateSamples)
+	input.Prior = first.Progress
+	second := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+	require.Equal(t, "OFF_ROUTE_CANDIDATE_TO:C", second.Remaining[0].ID)
+	require.Equal(t, uint8(2), second.Progress.RecoveryCandidateSamples)
+	input.Prior = second.Progress
 	result := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
 
 	require.Equal(t, Partial, result.Completeness)
 	require.Contains(t, result.Reasons, "OFF_ROUTE")
-	require.Contains(t, result.Reasons, "OFF_ROUTE_NEXT_WAYPOINT:B")
-	require.Equal(t, "OFF_ROUTE_TO:B", result.Remaining[0].ID)
-	require.Equal(t, navdata.FixID("B"), result.Remaining[0].To)
-	require.Equal(t, "L2", result.Remaining[1].ID)
+	require.Contains(t, result.Reasons, "OFF_ROUTE_NEXT_WAYPOINT:C")
+	require.Equal(t, "OFF_ROUTE_TO:C", result.Remaining[0].ID)
+	require.Equal(t, navdata.FixID("C"), result.Remaining[0].To)
+	require.Len(t, result.Remaining, 1)
 	require.NotNil(t, result.DistanceToGoNM)
 	require.NotNil(t, result.SelectedHolding)
 	require.NotNil(t, result.Progress)
-	require.Equal(t, 0, result.Progress.LegIndex)
+	require.Equal(t, 1, result.Progress.LegIndex)
+}
+
+func TestNextWaypointRecoveryPrefersTrackAlignedDirectTarget(t *testing.T) {
+	a, b, c := navdata.FixID("A"), navdata.FixID("B"), navdata.FixID("C")
+	legs := []leg{
+		{id: "NEAREST", to: a, b: coordinate(1, 0)},
+		{id: "DIRECT", to: b, b: coordinate(0, 2)},
+		{id: "AFTER", to: c, b: coordinate(.2, 3)},
+	}
+	track := 90.0
+
+	recovery := nextWaypointRecovery(coordinate(0, 0), legs, 0, &track, nil, Config{}.normalized())
+
+	require.True(t, recovery.trackAligned)
+	require.Equal(t, 1, recovery.next, "the closest waypoint must not win when the observed track points at a later fix")
+}
+
+func TestNextWaypointRecoveryFallsBackToNearestWithoutConclusiveTrack(t *testing.T) {
+	a, b := navdata.FixID("A"), navdata.FixID("B")
+	legs := []leg{
+		{id: "NEAREST", to: a, b: coordinate(1, 0)},
+		{id: "FARTHER", to: b, b: coordinate(0, 2)},
+	}
+	track := 225.0
+
+	recovery := nextWaypointRecovery(coordinate(0, 0), legs, 0, &track, nil, Config{}.normalized())
+
+	require.False(t, recovery.trackAligned)
+	require.Equal(t, 0, recovery.next)
+}
+
+func TestNextWaypointRecoveryBoundsLookaheadAndRejectsDistantRunway(t *testing.T) {
+	track := 90.0
+	legs := make([]leg, 10)
+	for index := range legs {
+		fix := navdata.FixID("FIX-" + string(rune('A'+index)))
+		legs[index] = leg{id: string(fix), to: fix, b: coordinate(float64(index%2), float64(index+1))}
+	}
+	legs[9].to = "RWY-22L"
+	legs[9].b = coordinate(0, 10)
+	config := Config{RecoveryLegLookahead: 3, RecoveryRunwayDistanceNM: 30}.normalized()
+
+	recovery := nextWaypointRecovery(coordinate(0, 0), legs, 0, &track, nil, config)
+
+	require.True(t, recovery.trackAligned)
+	require.Less(t, recovery.next, 3)
+	require.NotEqual(t, navdata.FixID("RWY-22L"), legs[recovery.next].to)
+
+	runwayOnly := []leg{{id: "RUNWAY", to: "RWY-22L", b: coordinate(0, 10)}}
+	recovery = nextWaypointRecovery(coordinate(0, 0), runwayOnly, 0, &track, nil, config)
+	require.False(t, recovery.trackAligned)
+	require.Equal(t, 0, recovery.next, "the runway remains a conservative route endpoint but is not called a direct")
 }
 
 func TestOffRouteRecoveryDropsZeroLengthLegsBeforePrediction(t *testing.T) {
@@ -144,6 +255,33 @@ func TestComposeOrderedRouteTerminalApproachMissedAndUnsupportedGap(t *testing.T
 	gap := Reduce(snapshot, route, input, Config{})
 	require.Equal(t, []string{"FILED", "TERM"}, legIDs(gap.Remaining))
 	require.Contains(t, gap.Reasons, "UNRESOLVED_LEG:AFTER:MISSING_FIX")
+}
+
+func TestComposeSplicesTerminalPathAtDownstreamFiledJoin(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	a, tespi, rosbi, tno, after := navdata.FixID("A"), navdata.FixID("TESPI"), navdata.FixID("ROSBI"), navdata.FixID("TNO"), navdata.FixID("AFTER")
+	snapshot.Fixes = []navdata.Fix{
+		{ID: a, Position: coordinate(0, 0)},
+		{ID: tespi, Position: coordinate(1, 0)},
+		{ID: rosbi, Position: coordinate(1, 1)},
+		{ID: tno, Position: coordinate(0, 1)},
+		{ID: after, Position: coordinate(0, 2)},
+	}
+	route.Legs = []navdata.ProcedureLeg{{ID: "FILED-TO-TNO", PathTerminator: navdata.PathTF, FromFix: &a, ToFix: &tno}}
+	snapshot.TerminalPaths[0].Legs = []navdata.ProcedureLeg{
+		{ID: "TESPI-TO-ROSBI", PathTerminator: navdata.PathTF, FromFix: &tespi, ToFix: &rosbi},
+		{ID: "ROSBI-TO-TNO", PathTerminator: navdata.PathTF, FromFix: &rosbi, ToFix: &tno},
+		{ID: "TNO-ONWARD", PathTerminator: navdata.PathTF, FromFix: &tno, ToFix: &after},
+	}
+	holdingID := navdata.HoldingID("ROSBI-HOLD")
+	snapshot.TerminalPaths[0].HoldingIDs = []navdata.HoldingID{holdingID}
+	snapshot.Holdings = []navdata.HoldingPattern{{ID: holdingID, Fix: rosbi}}
+
+	result := Reduce(snapshot, route, input, Config{})
+
+	require.Equal(t, []string{"FILED-TO-TNO", "TNO-ONWARD"}, legIDs(result.Remaining))
+	require.Equal(t, result.Remaining[0].End, result.Remaining[1].Start)
+	require.Nil(t, result.SelectedHolding, "the downstream join bypasses the ROSBI holding fix")
 }
 
 func TestComposeContinuesPublishedILSFinalApproachFixToRunwayThreshold(t *testing.T) {

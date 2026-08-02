@@ -72,6 +72,11 @@ type Flight struct {
 	FrozenOperationalTETA *time.Time
 	CapturedSlot          *aman.Slot
 	CurrentSlot           *aman.Slot
+	HoldingStackID        string
+	HoldingAltitudeFeet   *int
+	// ProtectCurrentSlot is an operational policy constraint used for stable
+	// flights. It does not create a persisted freeze.
+	ProtectCurrentSlot bool
 }
 
 // Input is a complete, point-in-time pure sequence calculation.
@@ -87,7 +92,9 @@ type CandidateReason string
 const (
 	ReasonRateWTC           CandidateReason = "rate_wtc"
 	ReasonFreezeSuperstable CandidateReason = "freeze_superstable"
+	ReasonFreezeTMA         CandidateReason = "freeze_tma"
 	ReasonFreezeManual      CandidateReason = "freeze_manual"
+	ReasonStable            CandidateReason = "stable"
 	ReasonGoAround          CandidateReason = "go_around"
 	ReasonGoAroundCascade   CandidateReason = "go_around_cascade"
 )
@@ -216,7 +223,7 @@ func Generate(input Input) (Result, error) {
 				FlightID: entry.flight.ID, RunwayGroupID: groupID, Sequence: sequence,
 				Time: entry.time, OperationalTETA: entry.flight.OperationalTETA,
 				WakeCategory: entry.flight.category, FreezeReason: entry.flight.FreezeReason,
-				Protected: entry.flight.FreezeReason != aman.FreezeNone, Reason: entry.reason,
+				Protected: entry.flight.FreezeReason != aman.FreezeNone || entry.flight.ProtectCurrentSlot, Reason: entry.reason,
 			}
 			result.Entries = append(result.Entries, candidate)
 			if movement := movementFor(entry.flight, candidate); movement != nil {
@@ -325,6 +332,12 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 				return nil, fmt.Errorf("flight %q has invalid current slot", raw.ID)
 			}
 		}
+		if raw.HoldingStackID != "" && (raw.HoldingAltitudeFeet == nil || *raw.HoldingAltitudeFeet < 0) {
+			return nil, fmt.Errorf("flight %q has invalid holding stack altitude", raw.ID)
+		}
+		if raw.ProtectCurrentSlot && raw.CurrentSlot == nil {
+			return nil, fmt.Errorf("flight %q protects a missing current slot", raw.ID)
+		}
 		if raw.FreezeReason == aman.FreezeNone && raw.CapturedSlot != nil {
 			return nil, fmt.Errorf("flight %q has captured slot without freeze reason", raw.ID)
 		}
@@ -366,7 +379,7 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight) ([]allocated
 		if flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
 			continue
 		}
-		if flight.FreezeReason == aman.FreezeNone {
+		if flight.FreezeReason == aman.FreezeNone && !flight.ProtectCurrentSlot {
 			movable = append(movable, flight)
 		} else {
 			protected = append(protected, flight)
@@ -376,19 +389,27 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight) ([]allocated
 	sort.Slice(protected, func(i, j int) bool { return flightLess(protected[i], protected[j]) })
 	entries := []allocatedEntry{}
 	for _, flight := range protected {
-		if flight.CapturedSlot == nil {
+		slot := flight.CapturedSlot
+		if flight.ProtectCurrentSlot && flight.FreezeReason == aman.FreezeNone {
+			slot = flight.CurrentSlot
+		}
+		if slot == nil {
 			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotMissing, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
 			continue
 		}
-		if !validUTC(flight.CapturedSlot.Time) || flight.CapturedSlot.RunwayGroupID != policy.RunwayGroupID || flight.CapturedSlot.Sequence < 1 || policy.intervalAt(flight.CapturedSlot.Time) == 0 {
+		if !validUTC(slot.Time) || slot.RunwayGroupID != policy.RunwayGroupID || slot.Sequence < 1 || policy.intervalAt(slot.Time) == 0 {
 			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotInvalid, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
 			continue
 		}
 		reason := ReasonFreezeManual
 		if flight.FreezeReason == aman.FreezeSuperstable {
 			reason = ReasonFreezeSuperstable
+		} else if flight.FreezeReason == aman.FreezeTMA {
+			reason = ReasonFreezeTMA
+		} else if flight.ProtectCurrentSlot {
+			reason = ReasonStable
 		}
-		entries = append(entries, allocatedEntry{flight: flight, time: flight.CapturedSlot.Time, reason: reason})
+		entries = append(entries, allocatedEntry{flight: flight, time: slot.Time, reason: reason})
 	}
 	sortEntries(entries)
 	for index := 1; index < len(entries); index++ {
@@ -615,7 +636,7 @@ func previousGridAtOrBefore(policy preparedPolicy, target time.Time) (time.Time,
 }
 
 func flightLess(a, b preparedFlight) bool {
-	aProtected, bProtected := a.FreezeReason != aman.FreezeNone, b.FreezeReason != aman.FreezeNone
+	aProtected, bProtected := a.FreezeReason != aman.FreezeNone || a.ProtectCurrentSlot, b.FreezeReason != aman.FreezeNone || b.ProtectCurrentSlot
 	if aProtected != bProtected {
 		return aProtected
 	}
@@ -629,6 +650,12 @@ func flightLess(a, b preparedFlight) bool {
 		if *a.ManualOrder != *b.ManualOrder {
 			return *a.ManualOrder < *b.ManualOrder
 		}
+	}
+	// Among confirmed occupants of the same hold, the lowest aircraft is
+	// closest to release and must be sequenced first. This never overrides a
+	// protected slot or an explicit controller order above.
+	if a.HoldingStackID != "" && a.HoldingStackID == b.HoldingStackID && a.HoldingAltitudeFeet != nil && b.HoldingAltitudeFeet != nil && *a.HoldingAltitudeFeet != *b.HoldingAltitudeFeet {
+		return *a.HoldingAltitudeFeet < *b.HoldingAltitudeFeet
 	}
 	// Stable order is retained from the last committed sequence. A stable
 	// aircraft may move into a legal vacancy, but recalculation never sorts two

@@ -60,6 +60,7 @@ func TestFlightDetailReturnsOnDemandCalculationAndOperationalBasis(t *testing.T)
 	require.NotNil(t, detail.SlotBasis)
 	require.Equal(t, "rate_wtc", detail.SlotBasis.Reason)
 	require.EqualValues(t, 30, detail.SlotBasis.RatePerHour)
+	require.True(t, detail.SlotBasis.Infeasible)
 }
 
 func TestFlightDetailDoesNotExposeNonPublishablePrediction(t *testing.T) {
@@ -77,6 +78,16 @@ func TestFlightDetailDoesNotExposeNonPublishablePrediction(t *testing.T) {
 	require.NoError(t, json.NewDecoder(response.Body).Decode(&detail))
 	require.Nil(t, detail.Calculation)
 	require.Nil(t, detail.TETABasis)
+}
+
+func TestMapHoldingPlanExposesEntryDurationAndRelease(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 10, 0, 0, 0, time.UTC)
+	mapped, err := mapHoldingPlan(aman.HoldingPlan{HoldingEntryTime: now.Add(10 * time.Minute), ApproachReleaseTime: now.Add(18 * time.Minute), ExpectedHoldingDuration: 8 * time.Minute, PostHoldingTransit: 10 * time.Minute})
+	require.NoError(t, err)
+	require.Equal(t, "2026-07-23T10:10:00.000Z", mapped.HoldingEntryTime)
+	require.Equal(t, "2026-07-23T10:18:00.000Z", mapped.ApproachReleaseTime)
+	require.EqualValues(t, 480, mapped.ExpectedHoldingSeconds)
+	require.EqualValues(t, 600, mapped.PostHoldingTransitSeconds)
 }
 
 type stateReader struct{ state aman.AirportState }

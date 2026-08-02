@@ -96,6 +96,7 @@ type flightDetail struct {
 	FiledRouteGeometry *filedRouteGeometry `json:"filed_route_geometry"`
 	TETABasis          *tetaBasis          `json:"teta_basis"`
 	SlotBasis          *slotBasis          `json:"slot_basis"`
+	HoldingPlan        *holdingPlan        `json:"holding_plan"`
 }
 
 type flightSummary struct {
@@ -216,6 +217,13 @@ type slotBasis struct {
 	RateEffectiveAt *string        `json:"rate_effective_at"`
 	PreviousFlight  *slotNeighbour `json:"previous_flight"`
 	Frozen          bool           `json:"frozen"`
+	Infeasible      bool           `json:"infeasible"`
+}
+type holdingPlan struct {
+	HoldingEntryTime          string `json:"holding_entry_time"`
+	ApproachReleaseTime       string `json:"approach_release_time"`
+	ExpectedHoldingSeconds    int64  `json:"expected_holding_seconds"`
+	PostHoldingTransitSeconds int64  `json:"post_holding_transit_seconds"`
 }
 type slotNeighbour struct {
 	Callsign string `json:"callsign"`
@@ -256,8 +264,24 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 		}
 		result.SlotBasis = &basis
 	}
+	if prediction := flight.Prediction; prediction != nil && prediction.HoldingPlan != nil {
+		plan, mapErr := mapHoldingPlan(*prediction.HoldingPlan)
+		if mapErr != nil {
+			return flightDetail{}, mapErr
+		}
+		result.HoldingPlan = &plan
+	}
 	result.FiledRouteGeometry = a.mapFiledRouteGeometry(ctx, state, flight)
 	return result, nil
+}
+
+func mapHoldingPlan(plan aman.HoldingPlan) (holdingPlan, error) {
+	entry, entryErr := format(plan.HoldingEntryTime)
+	release, releaseErr := format(plan.ApproachReleaseTime)
+	if entryErr != nil || releaseErr != nil {
+		return holdingPlan{}, errors.Join(entryErr, releaseErr)
+	}
+	return holdingPlan{HoldingEntryTime: entry, ApproachReleaseTime: release, ExpectedHoldingSeconds: seconds(plan.ExpectedHoldingDuration), PostHoldingTransitSeconds: seconds(plan.PostHoldingTransit)}, nil
 }
 
 func (a *WebAPI) mapFiledRouteGeometry(ctx context.Context, state aman.AirportState, flight aman.AMANFlight) *filedRouteGeometry {
@@ -367,6 +391,9 @@ func mapSlotBasis(state aman.AirportState, flight aman.AMANFlight) (slotBasis, e
 		return slotBasis{}, err
 	}
 	result := slotBasis{Time: timeValue, RunwayGroupID: string(slot.RunwayGroupID), Reason: slot.Reason, Sequence: slot.Sequence, Revision: uint64(slot.Revision), Frozen: flight.FreezeReason != aman.FreezeNone}
+	// A committed slot is immutable under normal prediction updates. Surface an
+	// infeasible slot for controller action instead of silently moving it later.
+	result.Infeasible = flight.Prediction != nil && flight.Prediction.Publishable && !slot.Time.After(flight.Prediction.RawTETA)
 	for _, group := range state.RunwayGroups {
 		if group.ID == slot.RunwayGroupID {
 			result.RatePerHour = group.ActiveRatePerHour

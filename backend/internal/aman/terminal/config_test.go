@@ -21,7 +21,7 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
 	require.NoError(t, config.Validate(refs))
-	wantHeadings := map[aman.RunwayGroupID]int{"ARRIVAL-04": 217, "ARRIVAL-12": 299, "ARRIVAL-22": 37, "ARRIVAL-30": 119}
+	wantHeadings := map[aman.RunwayGroupID]int{"ARRIVAL-04L": 217, "ARRIVAL-04R": 217, "ARRIVAL-12": 299, "ARRIVAL-22L": 37, "ARRIVAL-22R": 37, "ARRIVAL-30": 119}
 	for _, path := range config.Paths {
 		require.NotNil(t, path.PublishedHeadingMagneticDeg, path.Feeder)
 		require.Equal(t, wantHeadings[path.RunwayGroup], *path.PublishedHeadingMagneticDeg, path.Feeder)
@@ -38,6 +38,11 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 		require.Contains(t, path.Legs[len(path.Legs)-1].ID, "-RUNWAY")
 		require.Contains(t, string(*path.Legs[len(path.Legs)-1].ToFix), "RWY-")
 		require.NotNil(t, path.Legs[len(path.Legs)-1].ToPosition)
+		for _, group := range config.RunwayGroups {
+			if group.ID == path.RunwayGroup {
+				require.Equal(t, "RWY-"+string(group.Runways[0]), string(*path.Legs[len(path.Legs)-1].ToFix))
+			}
+		}
 		require.NotNil(t, path.PublishedHeadingMagneticDeg, path.Feeder)
 		require.Equal(t, wantHeadings[path.RunwayGroup], *path.PublishedHeadingMagneticDeg, path.Feeder)
 	}
@@ -45,13 +50,13 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 
 func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) {
 	config := goldenConfig(t)
-	require.Equal(t, "EKCH-AIP-2607-V1", config.ConfigVersion)
+	require.Equal(t, "EKCH-AIP-2607-V3", config.ConfigVersion)
 	require.Equal(t, "2607", config.Dataset.Cycle)
 	require.Equal(t, time.Date(2026, 7, 9, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
 	require.Equal(t, time.Date(2026, 8, 6, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
 	require.Equal(t, config.ApplicabilityFrom, config.Dataset.EffectiveFrom)
 	require.Equal(t, config.ApplicabilityUntil, config.Dataset.EffectiveUntil)
-	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04", "ARRIVAL-22", "ARRIVAL-12", "ARRIVAL-30"}, groupIDs(config.RunwayGroups))
+	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R", "ARRIVAL-22L", "ARRIVAL-22R", "ARRIVAL-12", "ARRIVAL-30"}, groupIDs(config.RunwayGroups))
 	for _, group := range config.RunwayGroups {
 		require.Equal(t, &SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, group.SameSTARSpacing, group.ID)
 	}
@@ -159,9 +164,15 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		"TIDVU/ARRIVAL-30": {fixIDs("TIDVU", "WUPJA", "CH940", "CH932", "CH925", "HOFFO"), "EKCH-TIDVU-PRIMARY-LOW"},
 		"ERNOV/ARRIVAL-30": {fixIDs("ERNOV", "CH956", "CH949", "CH941", "CH932", "CH925", "HOFFO"), "EKCH-ERNOV-PRIMARY"},
 	}
-	require.Len(t, config.Paths, len(wantPaths))
+	require.Len(t, config.Paths, len(wantPaths)+2*len(config.Feeders))
 	for _, path := range config.Paths {
-		want, found := wantPaths[string(path.Feeder)+"/"+string(path.RunwayGroup)]
+		group := string(path.RunwayGroup)
+		if strings.HasPrefix(group, "ARRIVAL-04") {
+			group = "ARRIVAL-04"
+		} else if strings.HasPrefix(group, "ARRIVAL-22") {
+			group = "ARRIVAL-22"
+		}
+		want, found := wantPaths[string(path.Feeder)+"/"+group]
 		require.True(t, found, path.Feeder)
 		require.Equal(t, want.fixes, path.Fixes)
 		require.Equal(t, want.hold, path.SelectedHolding)
@@ -173,6 +184,10 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 	require.Equal(t, time.Date(2024, 11, 28, 0, 0, 0, 0, time.UTC), config.FixAliases[0].Source.EffectiveFrom)
 	require.Equal(t, config.ApplicabilityUntil, config.FixAliases[0].Source.EffectiveUntil)
 	require.Contains(t, config.FixAliases[0].Source.Document, "CDA withdrawn")
+	require.Len(t, config.OverlayFixes, 1)
+	require.Equal(t, navdata.FixID("CH632"), config.OverlayFixes[0].ID)
+	require.InDelta(t, 55.9384649710, config.OverlayFixes[0].Position.LatitudeDeg, 0.0000001)
+	require.InDelta(t, 12.4659798388, config.OverlayFixes[0].Position.LongitudeDeg, 0.0000001)
 }
 
 func groupIDs(groups []RunwayGroup) []aman.RunwayGroupID {
@@ -234,15 +249,21 @@ func TestConfigurationRejectsTerminalSafetyViolations(t *testing.T) {
 		{"duplicate overlay ID", func(c *Configuration, _ *ReferenceSet) {
 			c.OverlayHoldings = append(c.OverlayHoldings, c.OverlayHoldings[0])
 		}, "overlayHoldings[5].id"},
+		{"duplicate overlay fix", func(c *Configuration, _ *ReferenceSet) {
+			c.OverlayFixes = append(c.OverlayFixes, c.OverlayFixes[0])
+		}, "overlayFixes[1].id"},
+		{"invalid overlay fix coordinate", func(c *Configuration, _ *ReferenceSet) {
+			c.OverlayFixes[0].Position.LatitudeDeg = 100
+		}, "overlayFixes[0]: invalid_argument: coordinate is outside WGS84 bounds"},
 		{"duplicate group runway", func(c *Configuration, _ *ReferenceSet) {
 			c.RunwayGroups[0].Runways = append(c.RunwayGroups[0].Runways, "04L")
-		}, "runwayGroups[0].runways[2]"},
+		}, "runwayGroups[0].runways[1]"},
 		{"duplicate final runway", func(c *Configuration, _ *ReferenceSet) {
 			c.RunwayGroups[0].FinalApproaches = append(c.RunwayGroups[0].FinalApproaches, c.RunwayGroups[0].FinalApproaches[0])
-		}, "runwayGroups[0].finalApproaches[2].runway"},
+		}, "runwayGroups[0].finalApproaches[1].runway"},
 		{"missing final runway", func(c *Configuration, _ *ReferenceSet) {
-			c.RunwayGroups[0].FinalApproaches = c.RunwayGroups[0].FinalApproaches[:1]
-		}, "runwayGroups[0].runways[1]: requires exactly one final approach"},
+			c.RunwayGroups[0].FinalApproaches = nil
+		}, "runwayGroups[0]: requires exactly one runway and final approach"},
 		{"absent selected holding", func(c *Configuration, _ *ReferenceSet) { c.Paths[0].SelectedHolding = "MISSING" }, "paths[0].selectedHolding: is missing"},
 		{"off-path selected holding", func(c *Configuration, _ *ReferenceSet) { c.Paths[0].SelectedHolding = "EKCH-ERNOV-PRIMARY" }, "paths[0].selectedHolding: holding fix must occur"},
 		{"conflicting overlay holding", func(c *Configuration, refs *ReferenceSet) {
@@ -251,7 +272,7 @@ func TestConfigurationRejectsTerminalSafetyViolations(t *testing.T) {
 			refs.Procedures = []navdata.Procedure{{ID: "PUBLISHED", Airport: "EKCH", Kind: navdata.ProcedureSTAR, Holdings: []navdata.HoldingPattern{published}, Provenance: published.Provenance}}
 		}, "overlayHoldings[0]: conflicts"},
 		{"missing feeder group path", func(c *Configuration, _ *ReferenceSet) { c.Paths = c.Paths[1:] }, "paths: missing enabled path"},
-		{"duplicate feeder group path", func(c *Configuration, _ *ReferenceSet) { c.Paths = append(c.Paths, c.Paths[0]) }, "paths[20]: duplicates feeder/runway group"},
+		{"duplicate feeder group path", func(c *Configuration, _ *ReferenceSet) { c.Paths = append(c.Paths, c.Paths[0]) }, "paths[30]: duplicates feeder/runway group"},
 		{"cycle", func(c *Configuration, _ *ReferenceSet) {
 			c.Paths[0].Fixes = append(c.Paths[0].Fixes, c.Paths[0].Fixes[0])
 		}, "paths[0].fixes[8]: forms a cycle"},
@@ -288,6 +309,27 @@ func TestPublishedAndOverlayHoldingsNormalizeEquivalently(t *testing.T) {
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings)-1)
 }
 
+func TestCandidateUsesAirportScopedFixOverrideForERNOV22(t *testing.T) {
+	config := goldenConfig(t)
+	refs := referencesFor(t, config)
+	setFixPosition(refs.Fixes, "CH632", 26.327641, -83.227989)
+
+	fragment, err := config.Candidate(refs, time.Date(2026, 7, 29, 1, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	pathIndex := slices.IndexFunc(fragment.Paths, func(path navdata.TerminalPath) bool {
+		return path.Feeder == "ERNOV" && path.RunwayGroup == "ARRIVAL-22L"
+	})
+	require.NotEqual(t, -1, pathIndex)
+	path := fragment.Paths[pathIndex]
+	require.Equal(t, navdata.FixID("CH632"), *path.Legs[0].ToFix)
+	require.NotNil(t, path.Legs[0].ToPosition)
+	require.InDelta(t, 55.9384649710, path.Legs[0].ToPosition.LatitudeDeg, 0.0000001)
+	require.InDelta(t, 12.4659798388, path.Legs[0].ToPosition.LongitudeDeg, 0.0000001)
+	require.Equal(t, navdata.FixID("CH632"), *path.Legs[1].FromFix)
+	require.NotNil(t, path.Legs[1].FromPosition)
+	require.Equal(t, *path.Legs[0].ToPosition, *path.Legs[1].FromPosition)
+}
+
 func TestLegacyCDAFixAliasNormalizesToCurrentOLPIB(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
@@ -312,9 +354,9 @@ func TestResolveRunwayGroupUsesOnlyServerConfiguration(t *testing.T) {
 	explicit := aman.RunwayGroupID("22L")
 	session := aman.RunwayGroupID("04R")
 	selected := config.ResolveRunwayGroup(SelectionInput{ExplicitFMP: &explicit, SessionRunwayGroup: &session})
-	require.Equal(t, aman.RunwayGroupID("ARRIVAL-22"), *selected.RunwayGroup)
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-22L"), *selected.RunwayGroup)
 	selected = config.ResolveRunwayGroup(SelectionInput{SessionRunwayGroup: &session})
-	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04"), *selected.RunwayGroup)
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04R"), *selected.RunwayGroup)
 	selected = config.ResolveRunwayGroup(SelectionInput{})
 	require.Nil(t, selected.RunwayGroup)
 	require.Contains(t, selected.DegradedReason, "server-authoritative")
@@ -356,7 +398,7 @@ func TestActiveReturnsDefensiveConfigurationClone(t *testing.T) {
 	active.OverlayHoldings[0].MinimumAltitudeFt = intPtr(1)
 
 	next := store.Active()
-	require.Equal(t, aman.RunwayGroupID("04"), next.RunwayGroups[0].Aliases[0])
+	require.Equal(t, aman.RunwayGroupID("04L"), next.RunwayGroups[0].Aliases[0])
 	require.Equal(t, 55.5922, next.RunwayGroups[0].FinalApproaches[0].Threshold.Position.LatitudeDeg)
 	require.Equal(t, navdata.FixID("TESPI"), next.Paths[0].Fixes[0])
 	require.NotNil(t, next.OverlayHoldings[0].MinimumAltitudeFt)

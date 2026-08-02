@@ -72,6 +72,15 @@ type ProvenanceDefinition struct {
 	EffectiveUntil time.Time `json:"effectiveUntil"`
 }
 
+// FixDefinition is an airport-scoped correction for a terminal waypoint whose
+// globally keyed provider result is missing or resolves a same-named fix in a
+// different region.
+type FixDefinition struct {
+	ID         navdata.FixID        `json:"id"`
+	Position   CoordinateDefinition `json:"position"`
+	Provenance ProvenanceDefinition `json:"provenance"`
+}
+
 type FinalApproachDefinition struct {
 	Runway           navdata.RunwayID    `json:"runway"`
 	FinalApproachFix navdata.FixID       `json:"finalApproachFix"`
@@ -155,6 +164,7 @@ type Configuration struct {
 	RunwayGroups       []RunwayGroup        `json:"runwayGroups"`
 	Feeders            []Feeder             `json:"feeders"`
 	FixAliases         []FixAlias           `json:"fixAliases"`
+	OverlayFixes       []FixDefinition      `json:"overlayFixes"`
 	Paths              []Path               `json:"paths"`
 	OverlayHoldings    []HoldingDefinition  `json:"overlayHoldings"`
 }
@@ -169,6 +179,10 @@ func (t ThresholdDefinition) canonical() navdata.Threshold {
 
 func (p ProvenanceDefinition) canonical() navdata.Provenance {
 	return navdata.Provenance{SourceID: p.SourceID, SourceRevision: p.SourceRevision, ImportedAt: p.ImportedAt, EffectiveFrom: p.EffectiveFrom, EffectiveUntil: p.EffectiveUntil}
+}
+
+func (f FixDefinition) canonical() navdata.Fix {
+	return navdata.Fix{ID: f.ID, Position: f.Position.canonical(), Provenance: f.Provenance.canonical()}
 }
 
 func (f FinalApproachDefinition) canonical() navdata.FinalApproach {
@@ -315,6 +329,19 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 	for _, f := range refs.Fixes {
 		fixes[f.ID] = true
 	}
+	overlayFixIDs := map[navdata.FixID]bool{}
+	for i, definition := range c.OverlayFixes {
+		fix := definition.canonical()
+		if overlayFixIDs[fix.ID] {
+			add(&errs, fmt.Sprintf("overlayFixes[%d].id", i), "is duplicated")
+		}
+		overlayFixIDs[fix.ID] = true
+		if err := fix.Validate(); err != nil {
+			add(&errs, fmt.Sprintf("overlayFixes[%d]", i), err.Error())
+			continue
+		}
+		fixes[fix.ID] = true
+	}
 	aliases := map[navdata.FixID]navdata.FixID{}
 	aliasNames := map[navdata.FixID]string{}
 	for i, alias := range c.FixAliases {
@@ -407,8 +434,8 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 				groupNames[alias] = fmt.Sprintf("runwayGroups[%d].aliases[%d]", i, j)
 			}
 		}
-		if len(group.Runways) == 0 || len(group.FinalApproaches) == 0 {
-			add(&errs, fmt.Sprintf("runwayGroups[%d]", i), "requires runways and final approaches")
+		if len(group.Runways) != 1 || len(group.FinalApproaches) != 1 {
+			add(&errs, fmt.Sprintf("runwayGroups[%d]", i), "requires exactly one runway and final approach")
 		}
 		groupRunways := map[navdata.RunwayID]bool{}
 		for j, id := range group.Runways {
@@ -619,6 +646,10 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 	for _, alias := range c.FixAliases {
 		aliases[alias.Alias] = alias.Canonical
 	}
+	overlayFixes := make(map[navdata.FixID]navdata.Coordinate, len(c.OverlayFixes))
+	for _, definition := range c.OverlayFixes {
+		overlayFixes[definition.ID] = definition.Position.canonical()
+	}
 	provenance := navdata.Provenance{SourceID: "terminal-config:" + c.ConfigVersion, SourceRevision: c.ConfigVersion, ImportedAt: importedAt, EffectiveFrom: c.ApplicabilityFrom, EffectiveUntil: c.ApplicabilityUntil}
 	groups := make(map[aman.RunwayGroupID]RunwayGroup, len(c.RunwayGroups))
 	for _, group := range c.RunwayGroups {
@@ -628,12 +659,18 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 		legs := make([]navdata.ProcedureLeg, 0, len(value.Fixes)-1)
 		for i := 1; i < len(value.Fixes); i++ {
 			from, to := canonicalFix(value.Fixes[i-1], aliases), canonicalFix(value.Fixes[i], aliases)
-			legs = append(legs, navdata.ProcedureLeg{ID: fmt.Sprintf("%s-%s-%02d", value.Feeder, value.RunwayGroup, i), PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to})
+			leg := navdata.ProcedureLeg{ID: fmt.Sprintf("%s-%s-%02d", value.Feeder, value.RunwayGroup, i), PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to}
+			if position, found := overlayFixes[from]; found {
+				leg.FromPosition = clonePointer(&position)
+			}
+			if position, found := overlayFixes[to]; found {
+				leg.ToPosition = clonePointer(&position)
+			}
+			legs = append(legs, leg)
 		}
-		// A runway group deliberately has no per-flight runway assignment. Its
-		// first configured final is the stable AMAN assumption until one is
-		// supplied. Join the published final-approach fix rather than inventing
-		// an intercept point, then continue to the threshold.
+		// Each selectable AMAN group represents exactly one runway. Join its
+		// published final-approach fix rather than inventing an intercept point,
+		// then continue to that runway's threshold.
 		legs = append(legs, publishedILSFinal(canonicalFix(value.MergeFix, aliases), groups[value.RunwayGroup].FinalApproaches[0])...)
 		path := navdata.TerminalPath{Version: refs.Version, Airport: c.Airport, Feeder: value.Feeder, RunwayGroup: value.RunwayGroup, Legs: legs, HoldingIDs: []navdata.HoldingID{value.SelectedHolding}, PublishedHeadingMagneticDeg: clonePointer(value.PublishedHeadingMagneticDeg), Coverage: navdata.CoverageComplete, Provenance: provenance}
 		path.Digest = terminalDigest(path)
@@ -736,6 +773,7 @@ func cloneConfiguration(value Configuration) Configuration {
 		clone.Feeders[i].Aliases = slices.Clone(feeder.Aliases)
 	}
 	clone.FixAliases = slices.Clone(value.FixAliases)
+	clone.OverlayFixes = slices.Clone(value.OverlayFixes)
 	clone.Paths = make([]Path, len(value.Paths))
 	for i, path := range value.Paths {
 		clone.Paths[i] = path

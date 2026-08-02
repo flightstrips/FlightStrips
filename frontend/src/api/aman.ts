@@ -35,6 +35,10 @@ export interface AMANFlight {
   star: string | null;
   holding_fix: string | null;
   holding_fix_eta: string | null;
+  holding_entry_time: string | null;
+  approach_release_time: string | null;
+  expected_holding_seconds: number | null;
+  post_holding_transit_seconds: number | null;
   route_fact: AMANRouteFact | null;
   raw_teta: string | null;
   operational_teta: string | null;
@@ -276,7 +280,8 @@ function isFlight(value: unknown): value is AMANFlight {
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
     && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star) && isNullableString(value.holding_fix)
-    && isNullableTimestamp(value.holding_fix_eta) && (value.route_fact === null || isRouteFact(value.route_fact))
+    && isNullableTimestamp(value.holding_fix_eta) && isNullableTimestamp(value.holding_entry_time) && isNullableTimestamp(value.approach_release_time)
+    && isNullableFiniteNumber(value.expected_holding_seconds) && isNullableFiniteNumber(value.post_holding_transit_seconds) && (value.route_fact === null || isRouteFact(value.route_fact))
     && isNullableTimestamp(value.raw_teta) && isNullableTimestamp(value.operational_teta)
     && isNullableFiniteNumber(value.gain_loss_seconds) && isString(value.freeze_reason)
     && freezeReasons.has(value.freeze_reason as AMANFreezeReason) && isNullableTimestamp(value.frozen_at)

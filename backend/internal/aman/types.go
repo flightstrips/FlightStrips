@@ -140,6 +140,7 @@ const (
 	OperationalReasonFirstUnstable      OperationalReason = "first_unstable"
 	OperationalReasonManualOverride     OperationalReason = "manual_override"
 	OperationalReasonSuperstableFreeze  OperationalReason = "superstable_freeze"
+	OperationalReasonTMAFreeze          OperationalReason = "tma_freeze"
 	OperationalReasonGoAround           OperationalReason = "go_around"
 )
 
@@ -154,6 +155,7 @@ func (r OperationalReason) Valid() bool {
 		OperationalReasonFirstUnstable,
 		OperationalReasonManualOverride,
 		OperationalReasonSuperstableFreeze,
+		OperationalReasonTMAFreeze,
 		OperationalReasonGoAround:
 		return true
 	default:
@@ -218,12 +220,13 @@ type FreezeReason string
 const (
 	FreezeNone        FreezeReason = "none"
 	FreezeSuperstable FreezeReason = "superstable"
+	FreezeTMA         FreezeReason = "tma"
 	FreezeManual      FreezeReason = "manual"
 )
 
 func (r FreezeReason) Valid() bool {
 	switch r {
-	case FreezeNone, FreezeSuperstable, FreezeManual:
+	case FreezeNone, FreezeSuperstable, FreezeTMA, FreezeManual:
 		return true
 	default:
 		return false
@@ -233,22 +236,48 @@ func (r FreezeReason) Valid() bool {
 // FlightObservation is the provider-neutral reconciliation input. Adapters
 // map their vendor data to this value before it reaches AMAN.
 type FlightObservation struct {
-	FlightID        FlightID
-	VATSIMCID       string
-	Callsign        string
-	Origin          string
-	Destination     string
-	AircraftType    *string
-	WakeCategory    *string
-	FiledRoute      *string
-	RequestedLevel  *int
-	PlannedTiming   *PlannedTiming
-	FlightPlan      FlightPlanFact
-	Surveillance    *SurveillanceFact
-	TakeoffDetected *time.Time
-	ReconciledAt    time.Time
-	SourceStatus    DataStatus
-	Missing         bool
+	FlightID       FlightID
+	VATSIMCID      string
+	Callsign       string
+	Origin         string
+	Destination    string
+	AircraftType   *string
+	WakeCategory   *string
+	FiledRoute     *string
+	RequestedLevel *int
+	PlannedTiming  *PlannedTiming
+	FlightPlan     FlightPlanFact
+	Surveillance   *SurveillanceFact
+	// SurveillanceSource identifies the provider of Surveillance only. Flight
+	// plan facts remain provider-neutral, allowing a fresh EuroScope position
+	// to overlay VATSIM flight-plan data without replacing it.
+	SurveillanceSource SurveillanceSource
+	TakeoffDetected    *time.Time
+	ReconciledAt       time.Time
+	SourceStatus       DataStatus
+	Missing            bool
+}
+
+type SurveillanceSource string
+
+const (
+	SurveillanceSourceVATSIM    SurveillanceSource = "vatsim"
+	SurveillanceSourceEuroScope SurveillanceSource = "euroscope"
+)
+
+func (s SurveillanceSource) Valid() bool {
+	switch s {
+	case "", SurveillanceSourceVATSIM, SurveillanceSourceEuroScope:
+		return true
+	default:
+		return false
+	}
+}
+
+// UsesEuroScopeSurveillance treats legacy observations with no explicit
+// source as VATSIM observations, preserving persisted-state compatibility.
+func (o FlightObservation) UsesEuroScopeSurveillance() bool {
+	return o.SurveillanceSource == SurveillanceSourceEuroScope
 }
 
 // PlannedTiming contains provider-neutral planned times. Durations are domain
@@ -296,6 +325,7 @@ type Prediction struct {
 	GeometryDigest string
 	DistanceToGoNM *float64
 	HoldingFixETA  *time.Time
+	HoldingPlan    *HoldingPlan
 
 	ModelVersion         string
 	ConfigVersion        string
@@ -306,6 +336,45 @@ type Prediction struct {
 	// produced this raw prediction. It is deliberately persisted with the
 	// prediction, but is served only from the on-demand flight-detail API.
 	Calculation *PredictionCalculation
+}
+
+// HoldingPlan is the slot-derived arrival-management plan for a flight that
+// can still use its configured holding fix. It never moves the committed slot:
+// it explains how long the flight is expected to hold before being released
+// toward that fixed landing time. Its entry and transit times are recalculated
+// from the current surveillance altitude on every physical prediction.
+type HoldingPlan struct {
+	HoldingEntryTime        time.Time
+	ApproachReleaseTime     time.Time
+	ExpectedHoldingDuration time.Duration
+	PostHoldingTransit      time.Duration
+}
+
+// HoldingStackState is a surveillance-derived operational fact. Confirmed is
+// set only after consecutive observations inside the published holding
+// geometry, so an aircraft merely approaching the holding fix is never used
+// as stack traffic.
+type HoldingStackState struct {
+	HoldingID               string
+	CandidateObservedAt     time.Time
+	ConsecutiveObservations uint32
+	Confirmed               bool
+}
+
+func (p HoldingPlan) Validate() error {
+	if err := requireUTCTime("holding entry time", p.HoldingEntryTime); err != nil {
+		return err
+	}
+	if err := requireUTCTime("approach release time", p.ApproachReleaseTime); err != nil {
+		return err
+	}
+	if !p.ApproachReleaseTime.After(p.HoldingEntryTime) || p.ExpectedHoldingDuration <= 0 || p.PostHoldingTransit <= 0 {
+		return invalid("holding plan timing is invalid")
+	}
+	if p.ApproachReleaseTime.Sub(p.HoldingEntryTime) != p.ExpectedHoldingDuration {
+		return invalid("holding plan duration does not match entry and release")
+	}
+	return nil
 }
 
 // PredictionCalculation is the inspectable physical-model breakdown for one
@@ -443,6 +512,17 @@ type RouteProgress struct {
 	LegIndex           int
 	RejoinLegIndex     int
 	AlongTrackNM       float64
+	// RecoveryCandidateFix and RecoveryCandidateSamples retain the
+	// surveillance-derived direct-to candidate across reconciliation cycles.
+	// A candidate is not treated as an inferred direct until consecutive
+	// observations agree on the same fix.
+	RecoveryCandidateFix     string
+	RecoveryCandidateSamples uint8
+	// DescentConfirmed is latched after consecutive surveillance reports show
+	// a real descent. It prevents a level-off or small climb later in the
+	// arrival from making the predictor project a return to filed cruise.
+	DescentConfirmed       bool
+	DescentEvidenceSamples uint8
 }
 
 // ETAReviewStatus is the durable state of the first-Unstable TETA review.
@@ -599,34 +679,38 @@ type AMANFlight struct {
 	ID FlightID
 	// VATSIMCID remains bound to the aggregate while CurrentCallsign may be
 	// corrected without rekeying FlightID.
-	VATSIMCID             string
-	CurrentCallsign       string
-	State                 FlightState
-	DataStatus            DataStatus
-	Prediction            *Prediction
-	RawTETASamples        []RawTETASample
-	ArrivalBaseline       *BaselineState
-	LatestObservation     *FlightObservation
-	SelectedRunwayGroup   *RunwayGroupID
-	SelectedFeeder        *string
-	SelectedHolding       *string
-	ActiveRouteFact       *RouteFact
-	ActiveRouteKey        *string
-	ActiveRouteDatasetID  *string
-	RouteProgress         *RouteProgress
-	FreezeReason          FreezeReason
-	FrozenAt              *time.Time
-	FrozenOperationalTETA *time.Time
-	FrozenSlot            *Slot
-	Slot                  *Slot
-	Order                 *int
-	ManualOrder           *int
-	QueueOffers           []QueueOffer
-	ETAReview             *ETAReview
-	OperationalException  *OperationalException
-	GoAroundDetection     *GoAroundDetectionState
-	Lifecycle             *LifecycleState
-	UpdatedAt             time.Time
+	VATSIMCID            string
+	CurrentCallsign      string
+	State                FlightState
+	DataStatus           DataStatus
+	Prediction           *Prediction
+	RawTETASamples       []RawTETASample
+	ArrivalBaseline      *BaselineState
+	LatestObservation    *FlightObservation
+	SelectedRunwayGroup  *RunwayGroupID
+	SelectedFeeder       *string
+	SelectedHolding      *string
+	HoldingStack         *HoldingStackState
+	ActiveRouteFact      *RouteFact
+	ActiveRouteKey       *string
+	ActiveRouteDatasetID *string
+	RouteProgress        *RouteProgress
+	// ManualSequenceIncluded records the explicit controller inclusion of an
+	// otherwise auto-excluded light piston aircraft.
+	ManualSequenceIncluded bool
+	FreezeReason           FreezeReason
+	FrozenAt               *time.Time
+	FrozenOperationalTETA  *time.Time
+	FrozenSlot             *Slot
+	Slot                   *Slot
+	Order                  *int
+	ManualOrder            *int
+	QueueOffers            []QueueOffer
+	ETAReview              *ETAReview
+	OperationalException   *OperationalException
+	GoAroundDetection      *GoAroundDetectionState
+	Lifecycle              *LifecycleState
+	UpdatedAt              time.Time
 }
 
 // AirportState is the sole source for one coherent AMAN replacement state.
@@ -704,6 +788,9 @@ func (o FlightObservation) Validate() error {
 	if !o.SourceStatus.Valid() {
 		return invalid("source status is invalid")
 	}
+	if !o.SurveillanceSource.Valid() {
+		return invalid("surveillance source is invalid")
+	}
 	if err := requireUTCTime("reconciled at", o.ReconciledAt); err != nil {
 		return err
 	}
@@ -772,6 +859,11 @@ func (p Prediction) Validate() error {
 	}
 	if p.HoldingFixETA != nil {
 		if err := requireUTCTime("holding fix ETA", *p.HoldingFixETA); err != nil {
+			return err
+		}
+	}
+	if p.HoldingPlan != nil {
+		if err := p.HoldingPlan.Validate(); err != nil {
 			return err
 		}
 	}
@@ -970,6 +1062,20 @@ func (f AMANFlight) Validate() error {
 	if f.RouteProgress != nil {
 		if strings.TrimSpace(f.RouteProgress.GeometryDigest) == "" || f.RouteProgress.ManifestRevision < 1 || f.RouteProgress.LegIndex < 0 || f.RouteProgress.RejoinLegIndex < 0 || f.RouteProgress.AlongTrackNM < 0 || math.IsNaN(f.RouteProgress.AlongTrackNM) || math.IsInf(f.RouteProgress.AlongTrackNM, 0) {
 			return invalid("route progress is invalid")
+		}
+		if (strings.TrimSpace(f.RouteProgress.RecoveryCandidateFix) == "") != (f.RouteProgress.RecoveryCandidateSamples == 0) {
+			return invalid("route recovery candidate state is invalid")
+		}
+		if f.RouteProgress.DescentConfirmed && f.RouteProgress.DescentEvidenceSamples == 0 {
+			return invalid("confirmed route descent requires surveillance evidence")
+		}
+	}
+	if f.HoldingStack != nil {
+		if !isTrimmedNonEmpty(f.HoldingStack.HoldingID) || f.HoldingStack.ConsecutiveObservations == 0 {
+			return invalid("holding stack state is invalid")
+		}
+		if err := requireUTCTime("holding stack observation", f.HoldingStack.CandidateObservedAt); err != nil {
+			return err
 		}
 	}
 	if f.Lifecycle != nil {
@@ -1277,6 +1383,11 @@ func (f AMANFlight) validateFreeze() error {
 		if f.Slot == nil || f.FrozenSlot == nil {
 			return invalid("Superstable freeze requires a captured slot")
 		}
+		if err := f.FrozenSlot.validate(); err != nil {
+			return err
+		}
+	}
+	if f.FreezeReason == FreezeTMA && f.FrozenSlot != nil {
 		if err := f.FrozenSlot.validate(); err != nil {
 			return err
 		}

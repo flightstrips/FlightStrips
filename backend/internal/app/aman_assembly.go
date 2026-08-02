@@ -11,7 +11,9 @@ import (
 	"FlightStrips/internal/aman/predictor/openmeteo"
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
+	appconfig "FlightStrips/internal/config"
 	internalFrontend "FlightStrips/internal/frontend"
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/repository/postgres"
 	events "FlightStrips/pkg/events/frontend"
@@ -23,6 +25,41 @@ type operationalAMANAssembly struct {
 	dependencies aman.Dependencies
 	commands     aman.CommandService
 	transport    *amanTransport
+}
+
+type sessionLister interface {
+	List(context.Context) ([]*models.Session, error)
+}
+
+type sessionArrivalRunwaySource struct{ sessions sessionLister }
+
+func (s sessionArrivalRunwaySource) ActiveArrivalRunway(ctx context.Context, airport string) (string, error) {
+	sessions, err := s.sessions.List(ctx)
+	if err != nil {
+		return "", err
+	}
+	active := make(map[string]struct{})
+	for _, session := range sessions {
+		if session == nil || !strings.EqualFold(strings.TrimSpace(session.Airport), airport) {
+			continue
+		}
+		for _, runway := range session.ActiveRunways.ArrivalRunways {
+			runway = strings.ToUpper(strings.TrimSpace(runway))
+			if runway != "" {
+				active[runway] = struct{}{}
+			}
+		}
+	}
+	if len(active) == 0 {
+		return "", fmt.Errorf("no active arrival runway in session")
+	}
+	if len(active) > 1 {
+		return "", fmt.Errorf("multiple active arrival runways in session")
+	}
+	for runway := range active {
+		return runway, nil
+	}
+	return "", fmt.Errorf("no active arrival runway in session")
 }
 
 type amanTransport struct {
@@ -77,10 +114,15 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	if err := validateTerminalAirportCoverage(terminalConfig, config.EnabledAirports); err != nil {
 		return operationalAMANAssembly{}, err
 	}
-	repository := postgres.NewAMANRepository(pool)
-	transport := &amanTransport{repository: repository, mode: config.Mode}
+	amanRepository := postgres.NewAMANRepository(pool)
+	transport := &amanTransport{repository: amanRepository, mode: config.Mode}
+	aircraftEngines, err := appconfig.LoadAMANAircraftEngineReference()
+	if err != nil {
+		return operationalAMANAssembly{}, err
+	}
 	service, err := operational.New(operational.Dependencies{
-		Repository: repository, Retirer: repository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
+		Repository: amanRepository, Retirer: amanRepository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
+		Runways: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, AircraftEngines: aircraftEngines,
 		Terminal: terminalConfig, Airports: config.EnabledAirports, Mode: config.Mode, Publisher: transport,
 	})
 	if err != nil {
@@ -88,7 +130,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	}
 	transport.health = service
 	coordinator, err := sequence.NewCoordinator(sequence.CoordinatorDependencies{
-		States: repository, Outcomes: repository, Committer: repository, Publisher: transport,
+		States: amanRepository, Outcomes: amanRepository, Committer: amanRepository, Publisher: transport,
 	})
 	if err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN sequence coordinator: %w", err)
@@ -100,7 +142,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	return operationalAMANAssembly{
 		commands: actions, transport: transport,
 		dependencies: aman.Dependencies{
-			Repositories: repository, NavigationMaterializer: source, NavigationReader: source.Geometry,
+			Repositories: amanRepository, NavigationMaterializer: source, NavigationReader: source.Geometry,
 			Predictor: service, StateEngine: service, SequenceService: actions, Publisher: transport,
 			ValidationService: service, HealthService: service, ObservationSink: service, ReconciliationWorker: service,
 		},

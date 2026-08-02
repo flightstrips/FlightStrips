@@ -17,10 +17,14 @@ const (
 	defaultMinimumGroundspeedKnots = 120.0
 	defaultMaximumGroundspeedKnots = 600.0
 	defaultPerformanceVersion      = "aman-performance-defaults-v1"
-	amanCPHModelVersion            = "aman-cph-teta-v1"
+	amanCPHModelVersion            = "aman-cph-teta-v3"
 	descentFeetPerNM               = 318.4
-	terminalWeatherHorizonNM       = 120.0
+	terminalWeatherHorizonNM       = 180.0
+	surveillanceWindHorizonNM      = 120.0
 	weatherNotRequiredSource       = "not-required-outside-terminal-horizon"
+	surveillanceWindFallbackSource = "surveillance-groundspeed-fallback"
+	maxSurveillanceWindKnots       = 150.0
+	minSurveillanceWindAltitudeFt  = 5000.0
 )
 
 // AircraftPerformanceRepository supplies versioned, provider-neutral profile
@@ -94,12 +98,28 @@ func (c PerformanceWindConfig) normalized() (PerformanceWindConfig, error) {
 }
 
 type PerformanceWindInput struct {
-	PredictionAt            time.Time
-	AircraftICAO            string
-	WakeTurbulenceCategory  AircraftCategory
-	AltitudeFeet            float64
+	PredictionAt           time.Time
+	AircraftICAO           string
+	WakeTurbulenceCategory AircraftCategory
+	AltitudeFeet           float64
+	// CruiseAltitudeFeet is the planned cruise level used to place TOD. A zero
+	// value retains the observed altitude for callers that have no higher filed
+	// level. When it is higher than AltitudeFeet, the PPOS-to-TOD profile
+	// includes the climb before level cruise.
+	CruiseAltitudeFeet      float64
 	CurrentGroundspeedKnots float64
-	Remaining               []RouteLeg
+	// CurrentTrackTrueDegrees permits a conservative along-track wind estimate
+	// when the weather provider is unavailable. It is ignored whenever a valid
+	// provider profile exists.
+	CurrentTrackTrueDegrees *float64
+	// UseObservedGroundspeedBeforeTOD is true only when surveillance confirms
+	// the aircraft is established at its cruise level. In that case, observed
+	// GS is the best speed source for the remaining cruise distance.
+	UseObservedGroundspeedBeforeTOD bool
+	// DescentConfirmed anchors the remaining vertical profile at the observed
+	// altitude instead of allowing nominal TOD geometry to replace it.
+	DescentConfirmed bool
+	Remaining        []RouteLeg
 }
 
 type PerformanceWindResult struct {
@@ -139,7 +159,8 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	if err != nil {
 		return PerformanceWindResult{}, err
 	}
-	if !validPredictionInstant(input.PredictionAt) || !finite(input.AltitudeFeet) || input.AltitudeFeet < 0 || !finite(input.CurrentGroundspeedKnots) || input.CurrentGroundspeedKnots <= 0 || len(input.Remaining) == 0 {
+	if !validPredictionInstant(input.PredictionAt) || !finite(input.AltitudeFeet) || input.AltitudeFeet < 0 || !finite(input.CruiseAltitudeFeet) || input.CruiseAltitudeFeet < 0 || !finite(input.CurrentGroundspeedKnots) || input.CurrentGroundspeedKnots <= 0 || len(input.Remaining) == 0 ||
+		(input.CurrentTrackTrueDegrees != nil && (!finite(*input.CurrentTrackTrueDegrees) || *input.CurrentTrackTrueDegrees < 0 || *input.CurrentTrackTrueDegrees >= 360)) {
 		return PerformanceWindResult{}, errPerformanceWindInput
 	}
 	for _, leg := range input.Remaining {
@@ -166,6 +187,9 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	result.Segments = baseSegments
 
 	if wind == nil {
+		if estimated, ok := applySurveillanceWindFallback(result, input, segments, config); ok {
+			return estimated, nil
+		}
 		result = degradeWind(result, "WEATHER_UNAVAILABLE")
 		result.RawTETA = input.PredictionAt.Add(result.Duration)
 		return result, nil
@@ -178,6 +202,9 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	}
 	weather, err := wind.WindProfile(ctx, WindProfileRequest{Samples: requests})
 	if err != nil || !validWindProfile(weather, requests, input.PredictionAt) {
+		if estimated, ok := applySurveillanceWindFallback(result, input, segments, config); ok {
+			return estimated, nil
+		}
 		result = degradeWind(result, "WEATHER_UNAVAILABLE")
 		result.RawTETA = input.PredictionAt.Add(result.Duration)
 		return result, nil
@@ -195,6 +222,54 @@ func EstimatePerformanceWind(ctx context.Context, performance AircraftPerformanc
 	result.Segments = withNoWindBreakdown(windSegments, baseSegments)
 	result.RawTETA = input.PredictionAt.Add(result.Duration)
 	return result, nil
+}
+
+func applySurveillanceWindFallback(result PerformanceWindResult, input PerformanceWindInput, segments []descentSegment, config PerformanceWindConfig) (PerformanceWindResult, bool) {
+	if input.CurrentTrackTrueDegrees == nil || input.AltitudeFeet < minSurveillanceWindAltitudeFt ||
+		(!input.UseObservedGroundspeedBeforeTOD && input.CruiseAltitudeFeet > input.AltitudeFeet+100) {
+		return result, false
+	}
+	noWindGroundspeed := iasToTAS(currentModelIAS(input), input.AltitudeFeet)
+	alongTrackWind := input.CurrentGroundspeedKnots - noWindGroundspeed
+	if !finite(alongTrackWind) || math.Abs(alongTrackWind) > maxSurveillanceWindKnots {
+		return result, false
+	}
+	trackRadians := *input.CurrentTrackTrueDegrees * math.Pi / 180
+	east := alongTrackWind * math.Sin(trackRadians)
+	north := alongTrackWind * math.Cos(trackRadians)
+	weather := make(map[int]WindSample)
+	for index, segment := range segments {
+		if !segment.surveillanceWindEligible || (segment.preTOD && input.UseObservedGroundspeedBeforeTOD) {
+			continue
+		}
+		weather[index] = WindSample{
+			Position: segment.position,
+			At:       input.PredictionAt,
+			Levels:   []WindLevel{{AltitudeFeet: segment.altitudeFeet, EastKnots: east, NorthKnots: north}},
+		}
+	}
+	if len(weather) == 0 {
+		return result, false
+	}
+	duration, legDurations, windSegments := durationBreakdownForSegments(segments, input, weather, config)
+	if duration <= 0 || len(legDurations) != len(input.Remaining) {
+		return result, false
+	}
+	result.Duration = duration
+	result.LegDurations = legDurations
+	result.Segments = withNoWindBreakdown(windSegments, result.Segments)
+	result.WeatherSource = pointerString(surveillanceWindFallbackSource)
+	result.WeatherSourceRevision = pointerString(amanCPHModelVersion)
+	result = degradeWind(result, "WEATHER_ESTIMATED_FROM_SURVEILLANCE")
+	result.RawTETA = input.PredictionAt.Add(result.Duration)
+	return result, true
+}
+
+func currentModelIAS(input PerformanceWindInput) float64 {
+	if !input.DescentConfirmed && routeDistance(input.Remaining) > predictionCruiseAltitude(input)/descentFeetPerNM {
+		return cruiseIAS(input.WakeTurbulenceCategory)
+	}
+	return descentIASForAircraft(input.AircraftICAO, input.WakeTurbulenceCategory, input.AltitudeFeet, cruiseIAS(input.WakeTurbulenceCategory))
 }
 
 // withNoWindBreakdown keeps the no-wind side of the explanation tied to the
@@ -215,14 +290,17 @@ type descentSegment struct {
 	distanceNM, courseTrueDegrees, startAltitudeFeet, endAltitudeFeet, altitudeFeet float64
 	position                                                                        WindCoordinate
 	legIndex                                                                        int
-	preTOD, weatherEligible                                                         bool
+	preTOD, weatherEligible, surveillanceWindEligible                               bool
 }
 
 type modelPhase struct{ id, name, formula string }
 
-func phaseForSegment(segment descentSegment) modelPhase {
+func phaseForSegment(segment descentSegment, input PerformanceWindInput) modelPhase {
 	if segment.preTOD {
-		return modelPhase{id: "ppos_to_tod", name: "Segment 1 · PPOS → TOD", formula: "time = distance ÷ observed groundspeed"}
+		if input.UseObservedGroundspeedBeforeTOD {
+			return modelPhase{id: "ppos_to_tod", name: "Segment 1 · PPOS → TOD", formula: "time = distance ÷ observed groundspeed"}
+		}
+		return modelPhase{id: "ppos_to_tod", name: "Segment 1 · PPOS → TOD", formula: "time = distance ÷ TAS from cruise IAS"}
 	}
 	switch {
 	case segment.altitudeFeet > 27000:
@@ -234,20 +312,46 @@ func phaseForSegment(segment descentSegment) modelPhase {
 	case segment.altitudeFeet > 3000:
 		return modelPhase{id: "fl050_to_fl030", name: "Segment 5 · FL050 → FL030", formula: "time = distance ÷ (TAS from 210 kt IAS + wind)"}
 	default:
-		return modelPhase{id: "fl030_to_landing", name: "Segment 6 · FL030 → landing", formula: "time = distance ÷ (TAS from 150 kt IAS + wind)"}
+		return modelPhase{id: "fl030_to_landing", name: "Segment 6 · FL030 → landing", formula: "time = distance ÷ (TAS from 140 kt IAS + wind)"}
 	}
 }
 
 func buildDescentSegments(input PerformanceWindInput) []descentSegment {
 	total := routeDistance(input.Remaining)
+	cruiseAltitude := predictionCruiseAltitude(input)
 	boundaries := []float64{0, total}
 	if total > terminalWeatherHorizonNM {
 		boundaries = append(boundaries, total-terminalWeatherHorizonNM)
 	}
-	for _, altitude := range []float64{input.AltitudeFeet, 27000, 10000, 5000, 3000, 0} {
-		travelled := total - min(input.AltitudeFeet, altitude)/descentFeetPerNM
-		if travelled > 0 && travelled < total {
-			boundaries = append(boundaries, travelled)
+	if total > surveillanceWindHorizonNM {
+		boundaries = append(boundaries, total-surveillanceWindHorizonNM)
+	}
+	altitudeAt := func(travelled float64) float64 {
+		if input.DescentConfirmed {
+			return confirmedDescentAltitudeAtDistance(total, input.AltitudeFeet, travelled)
+		}
+		return altitudeAtDistance(total, input.AltitudeFeet, cruiseAltitude, travelled)
+	}
+	if input.DescentConfirmed {
+		for _, altitude := range []float64{27000, 10000, 5000, 3000} {
+			if input.AltitudeFeet <= 0 || altitude >= input.AltitudeFeet {
+				continue
+			}
+			travelled := total * (1 - altitude/input.AltitudeFeet)
+			if travelled > 0 && travelled < total {
+				boundaries = append(boundaries, travelled)
+			}
+		}
+	} else {
+		climbDistance := max(0, cruiseAltitude-input.AltitudeFeet) / descentFeetPerNM
+		if climbDistance > 0 && climbDistance < total {
+			boundaries = append(boundaries, climbDistance)
+		}
+		for _, altitude := range []float64{cruiseAltitude, 27000, 10000, 5000, 3000, 0} {
+			travelled := total - min(cruiseAltitude, altitude)/descentFeetPerNM
+			if travelled > 0 && travelled < total {
+				boundaries = append(boundaries, travelled)
+			}
 		}
 	}
 	travelled := 0.0
@@ -271,21 +375,53 @@ func buildDescentSegments(input PerformanceWindInput) []descentSegment {
 			continue
 		}
 		remaining := total - mid
-		descentDistance := input.AltitudeFeet / descentFeetPerNM
-		preTOD := remaining > descentDistance
-		altitude := altitudeAtDistance(total, input.AltitudeFeet, mid)
+		descentDistance := cruiseAltitude / descentFeetPerNM
+		preTOD := !input.DescentConfirmed && remaining > descentDistance
+		altitude := altitudeAt(mid)
 		segments = append(segments, descentSegment{
 			distanceNM: to - from, courseTrueDegrees: leg.CourseTrueDegrees,
-			startAltitudeFeet: altitudeAtDistance(total, input.AltitudeFeet, from), endAltitudeFeet: altitudeAtDistance(total, input.AltitudeFeet, to),
+			startAltitudeFeet: altitudeAt(from), endAltitudeFeet: altitudeAt(to),
 			altitudeFeet: altitude, position: interpolateCoordinate(leg.Start, leg.End, fraction),
-			legIndex: legIndex, preTOD: preTOD, weatherEligible: from >= total-terminalWeatherHorizonNM,
+			legIndex: legIndex, preTOD: preTOD,
+			weatherEligible:          from >= total-terminalWeatherHorizonNM,
+			surveillanceWindEligible: from >= total-surveillanceWindHorizonNM,
 		})
 	}
 	return segments
 }
 
-func altitudeAtDistance(totalDistance, currentAltitude, travelled float64) float64 {
-	return min(currentAltitude, max(0, (totalDistance-travelled)*descentFeetPerNM))
+func confirmedDescentAltitudeAtDistance(totalDistance, currentAltitude, travelled float64) float64 {
+	if totalDistance <= 0 || currentAltitude <= 0 {
+		return 0
+	}
+	remainingDistance := max(0, totalDistance-travelled)
+	nominalAltitude := remainingDistance * descentFeetPerNM
+	if currentAltitude <= totalDistance*descentFeetPerNM {
+		// An aircraft already below the nominal three-degree path normally
+		// levels until that path catches it. Starting a shallow descent
+		// immediately would put every downstream speed band too low.
+		return min(currentAltitude, nominalAltitude)
+	}
+	// Above the nominal path there is no level intercept available. Preserve
+	// the observed altitude and distribute the required steeper descent over
+	// the remaining route.
+	return max(0, currentAltitude*(1-clamp(travelled/totalDistance, 0, 1)))
+}
+
+func predictionCruiseAltitude(input PerformanceWindInput) float64 {
+	return max(input.AltitudeFeet, input.CruiseAltitudeFeet)
+}
+
+func altitudeAtDistance(totalDistance, currentAltitude, cruiseAltitude, travelled float64) float64 {
+	climbDistance := max(0, cruiseAltitude-currentAltitude) / descentFeetPerNM
+	descentStart := totalDistance - cruiseAltitude/descentFeetPerNM
+	if climbDistance > 0 && travelled < climbDistance {
+		return min(cruiseAltitude, currentAltitude+travelled*descentFeetPerNM)
+	}
+	if travelled < descentStart {
+		return cruiseAltitude
+	}
+	return max(0, (totalDistance-travelled)*descentFeetPerNM)
 }
 
 func durationForSegments(segments []descentSegment, input PerformanceWindInput, weather map[int]WindSample, config PerformanceWindConfig) time.Duration {
@@ -294,7 +430,7 @@ func durationForSegments(segments []descentSegment, input PerformanceWindInput, 
 }
 
 func durationBreakdownForSegments(segments []descentSegment, input PerformanceWindInput, weather map[int]WindSample, config PerformanceWindConfig) (time.Duration, []time.Duration, []DescentSegmentCalculation) {
-	inferredIAS := tasToIAS(input.CurrentGroundspeedKnots, input.AltitudeFeet)
+	inferredIAS := highAltitudeIAS(input)
 	total := time.Duration(0)
 	legDurations := make([]time.Duration, len(input.Remaining))
 	breakdown := make([]DescentSegmentCalculation, len(segments))
@@ -302,8 +438,28 @@ func durationBreakdownForSegments(segments []descentSegment, input PerformanceWi
 		groundspeed := input.CurrentGroundspeedKnots
 		noWindGroundspeed := groundspeed
 		var indicatedAirspeed, tailwindComponent *float64
-		if !segment.preTOD {
-			ias := descentIAS(input.WakeTurbulenceCategory, segment.altitudeFeet, inferredIAS)
+		if segment.preTOD && input.UseObservedGroundspeedBeforeTOD {
+			// The observed GS already includes the actual wind effect while the
+			// aircraft is established at cruise.
+		} else if segment.preTOD {
+			ias := cruiseIAS(input.WakeTurbulenceCategory)
+			indicatedAirspeed = &ias
+			groundspeed = iasToTAS(ias, segment.altitudeFeet)
+			noWindGroundspeed = groundspeed
+			// A descent-confirmed aircraft may sit below the nominal
+			// three-degree path, leaving a short level segment before the
+			// calculated descent path catches up. It still needs wind.
+			if sample, found := weather[i]; found {
+				east, north, ok := interpolateWind(sample.Levels, segment.altitudeFeet)
+				if !ok {
+					return 0, nil, nil
+				}
+				component := tailwind(segment.courseTrueDegrees, east, north)
+				tailwindComponent = &component
+				groundspeed += component
+			}
+		} else {
+			ias := descentIASForAircraft(input.AircraftICAO, input.WakeTurbulenceCategory, segment.altitudeFeet, inferredIAS)
 			indicatedAirspeed = &ias
 			groundspeed = iasToTAS(ias, segment.altitudeFeet)
 			noWindGroundspeed = groundspeed
@@ -319,7 +475,7 @@ func durationBreakdownForSegments(segments []descentSegment, input PerformanceWi
 		}
 		noWindDuration := durationForDistance(segment.distanceNM, noWindGroundspeed, config)
 		duration := durationForDistance(segment.distanceNM, groundspeed, config)
-		phase := phaseForSegment(segment)
+		phase := phaseForSegment(segment, input)
 		total += duration
 		legDurations[segment.legIndex] += duration
 		breakdown[i] = DescentSegmentCalculation{RouteLegIndex: segment.legIndex, PreTOD: segment.preTOD, PhaseID: phase.id, PhaseName: phase.name, PhaseFormula: phase.formula, DistanceNM: segment.distanceNM, CourseTrueDegrees: segment.courseTrueDegrees, StartAltitudeFeet: segment.startAltitudeFeet, EndAltitudeFeet: segment.endAltitudeFeet, AltitudeFeet: segment.altitudeFeet, IndicatedAirspeedKnots: indicatedAirspeed, NoWindGroundspeedKnots: noWindGroundspeed, GroundspeedKnots: groundspeed, TailwindKnots: tailwindComponent, NoWindDuration: noWindDuration, Duration: duration}
@@ -343,11 +499,15 @@ func windRequestsForSegments(input PerformanceWindInput, segments []descentSegme
 	requests := make([]WindSampleRequest, 0, len(segments))
 	segmentIndexes := make([]int, 0, len(segments))
 	elapsed := time.Duration(0)
-	inferredIAS := tasToIAS(input.CurrentGroundspeedKnots, input.AltitudeFeet)
+	inferredIAS := highAltitudeIAS(input)
 	for index, segment := range segments {
 		speed := input.CurrentGroundspeedKnots
-		if !segment.preTOD {
-			speed = iasToTAS(descentIAS(input.WakeTurbulenceCategory, segment.altitudeFeet, inferredIAS), segment.altitudeFeet)
+		if segment.preTOD && input.UseObservedGroundspeedBeforeTOD {
+			// The same observed GS places later weather samples in time.
+		} else if segment.preTOD {
+			speed = iasToTAS(cruiseIAS(input.WakeTurbulenceCategory), segment.altitudeFeet)
+		} else {
+			speed = iasToTAS(descentIASForAircraft(input.AircraftICAO, input.WakeTurbulenceCategory, segment.altitudeFeet, inferredIAS), segment.altitudeFeet)
 		}
 		duration := durationForDistance(segment.distanceNM, speed, config)
 		if segment.weatherEligible && !segment.preTOD {
@@ -360,6 +520,27 @@ func windRequestsForSegments(input PerformanceWindInput, segments []descentSegme
 }
 
 func descentIAS(category AircraftCategory, altitude, inferredHighIAS float64) float64 {
+	return descentIASForAircraft("", category, altitude, inferredHighIAS)
+}
+
+// descentIASForAircraft keeps the CPH category defaults while giving common
+// turboprops their own slower descent schedule. ICAO designators are used so
+// the profile follows the filed aircraft type rather than a callsign pattern.
+func descentIASForAircraft(aircraftICAO string, category AircraftCategory, altitude, inferredHighIAS float64) float64 {
+	if profile, ok := turbopropDescentProfile(aircraftICAO); ok {
+		switch {
+		case altitude > 27000:
+			return max(inferredHighIAS, profile.high)
+		case altitude > 10000:
+			return profile.upper
+		case altitude > 5000:
+			return profile.mid
+		case altitude > 3000:
+			return profile.low
+		default:
+			return profile.final
+		}
+	}
 	switch {
 	case altitude > 27000:
 		return max(inferredHighIAS, 150)
@@ -373,8 +554,39 @@ func descentIAS(category AircraftCategory, altitude, inferredHighIAS float64) fl
 	case altitude > 3000:
 		return 210
 	default:
-		return 150
+		return 140
 	}
+}
+
+type turbopropProfile struct{ high, upper, mid, low, final float64 }
+
+func turbopropDescentProfile(aircraftICAO string) (turbopropProfile, bool) {
+	switch strings.ToUpper(strings.TrimSpace(aircraftICAO)) {
+	case "AT43", "AT44", "AT45", "AT46", "AT72", "AT73", "AT75", "AT76", "DH8A", "DH8B", "DH8C", "DH8D":
+		return turbopropProfile{high: 230, upper: 220, mid: 200, low: 180, final: 130}, true
+	case "TBM7", "TBM8", "TBM9", "TBM":
+		return turbopropProfile{high: 220, upper: 210, mid: 190, low: 170, final: 120}, true
+	default:
+		return turbopropProfile{}, false
+	}
+}
+
+// highAltitudeIAS preserves a real cruise-speed observation only after the
+// aircraft is established at cruise. While climbing, its current groundspeed
+// is not a valid input for Segment 2 (TOD to FL270), so that segment starts
+// from the filed cruise altitude and category cruise speed instead.
+func highAltitudeIAS(input PerformanceWindInput) float64 {
+	if !input.UseObservedGroundspeedBeforeTOD {
+		return cruiseIAS(input.WakeTurbulenceCategory)
+	}
+	return tasToIAS(input.CurrentGroundspeedKnots, predictionCruiseAltitude(input))
+}
+
+func cruiseIAS(category AircraftCategory) float64 {
+	if category == CategoryHeavy || category == CategorySuper {
+		return 300
+	}
+	return 280
 }
 
 func densityRatio(altitudeFeet float64) float64 {

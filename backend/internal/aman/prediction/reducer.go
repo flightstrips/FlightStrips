@@ -62,7 +62,12 @@ type Input struct {
 	ManualOverride     *time.Time
 	ReleaseFreeze      bool
 	ConfirmedGoAround  bool
-	Slot               *aman.Slot
+	FreezeForTMA       bool
+	// ReplacePreliminaryPrediction marks the first trajectory-model result
+	// after a coarse planned/airborne estimate. That handover must not be
+	// rate-limited from the preliminary estimate.
+	ReplacePreliminaryPrediction bool
+	Slot                         *aman.Slot
 }
 
 // Result contains the replacement aggregate and the observable drift while a
@@ -112,6 +117,28 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 		setOperational(&flight, input.Raw, input.Raw.RawTETA, aman.OperationalReasonGoAround)
 		return result(config, flight), nil
 	}
+	// Entering the configured terminal path freezes the currently committed
+	// operational value and slot. Only the go-around path above may release it.
+	if input.FreezeForTMA {
+		frozen := input.Raw.RawTETA
+		if flight.FrozenOperationalTETA != nil {
+			frozen = *flight.FrozenOperationalTETA
+		} else if flight.Prediction != nil {
+			frozen, _ = routineOperational(config, flight, previousState, input)
+		}
+		freezeAt := input.Raw.GeneratedAt
+		flight.FreezeReason = aman.FreezeTMA
+		flight.FrozenAt = &freezeAt
+		flight.FrozenOperationalTETA = &frozen
+		if flight.Slot != nil {
+			captured := cloneSlot(flight.Slot)
+			flight.FrozenSlot = &captured
+		} else {
+			flight.FrozenSlot = nil
+		}
+		setOperational(&flight, input.Raw, frozen, aman.OperationalReasonTMAFreeze)
+		return result(config, flight), nil
+	}
 
 	if input.ManualOverride != nil {
 		manual := *input.ManualOverride
@@ -124,7 +151,7 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 		return result(config, flight), nil
 	}
 
-	if input.ReleaseFreeze {
+	if input.ReleaseFreeze && flight.FreezeReason != aman.FreezeTMA {
 		clearFreeze(&flight)
 	}
 
@@ -133,6 +160,10 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 	// move a Superstable operational value.
 	if flight.FreezeReason == aman.FreezeSuperstable {
 		setOperational(&flight, input.Raw, *flight.FrozenOperationalTETA, aman.OperationalReasonSuperstableFreeze)
+		return result(config, flight), nil
+	}
+	if flight.FreezeReason == aman.FreezeTMA {
+		setOperational(&flight, input.Raw, *flight.FrozenOperationalTETA, aman.OperationalReasonTMAFreeze)
 		return result(config, flight), nil
 	}
 	if flight.FreezeReason == aman.FreezeManual {
@@ -163,6 +194,9 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 // without accepting a new physical prediction. It deliberately leaves RawTETA
 // and the persisted smoothing window unchanged.
 func ApplyManualOperationalTETA(flight aman.AMANFlight, operationalTETA, actionAt time.Time) (aman.AMANFlight, error) {
+	if flight.FreezeReason == aman.FreezeTMA {
+		return aman.AMANFlight{}, invalidTransition("TMA freeze can only be released by a confirmed go-around")
+	}
 	if flight.Prediction == nil {
 		return aman.AMANFlight{}, invalidArgument("manual operational TETA requires a current prediction")
 	}
@@ -188,6 +222,9 @@ func ApplyManualOperationalTETA(flight aman.AMANFlight, operationalTETA, actionA
 // ReleaseManualOperationalTETA returns a controller-selected value to the
 // normal #314 smoothing policy without accepting or synthesizing a raw sample.
 func ReleaseManualOperationalTETA(config Config, flight aman.AMANFlight, actionAt time.Time) (aman.AMANFlight, error) {
+	if flight.FreezeReason == aman.FreezeTMA {
+		return aman.AMANFlight{}, invalidTransition("TMA freeze can only be released by a confirmed go-around")
+	}
 	if err := config.Validate(); err != nil {
 		return aman.AMANFlight{}, err
 	}
@@ -220,6 +257,9 @@ func validateRaw(raw aman.Prediction) error {
 }
 
 func routineOperational(config Config, flight aman.AMANFlight, previousState aman.FlightState, input Input) (time.Time, aman.OperationalReason) {
+	if input.ReplacePreliminaryPrediction {
+		return input.Raw.RawTETA, aman.OperationalReasonPredicted
+	}
 	if input.RouteRevision {
 		return input.Raw.RawTETA, aman.OperationalReasonRouteRevision
 	}

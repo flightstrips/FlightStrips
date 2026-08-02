@@ -194,7 +194,8 @@ func (w *ObservationWorker) mapFlight(ctx context.Context, flight Flight, snapsh
 		FiledRoute: optionalString(flight.FlightPlan.Route), RequestedLevel: requestedLevelFeet(flight.FlightPlan.RequestedLevel),
 		PlannedTiming: plannedTiming(observedAt, flight.FlightPlan), FlightPlan: flightPlanFact(flight.FlightPlan.Revision, observedAt),
 		Surveillance: surveillanceFact(flight, observedAt, previous), TakeoffDetected: takeoffDetected(flight, observedAt),
-		ReconciledAt: reconciledAt, SourceStatus: status,
+		SurveillanceSource: aman.SurveillanceSourceVATSIM,
+		ReconciledAt:       reconciledAt, SourceStatus: status,
 	}
 	if err := observation.Validate(); err != nil {
 		return aman.FlightObservation{}, fmt.Errorf("map VATSIM observation: %w", err)

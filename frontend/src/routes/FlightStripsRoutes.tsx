@@ -20,6 +20,7 @@ import EfbLayout from '@/pages/efb-layout';
 import EfbPage from '@/pages/efb';
 import DocsRouter from '@/pages/docs/DocsRouter';
 import TestToolsPage from '@/pages/test-tools';
+import AMANReplayPage from '@/pages/aman-replay';
 
 const ProtectedLayout = withAuthenticationRequired(Layout);
 const ProtectedCdmPage = withAuthenticationRequired(CdmPage);
@@ -52,6 +53,7 @@ export default function FlightStripsRoutes() {
         <Route path="/cdm" element={<ProtectedCdmPage />} />
         <Route path="/stand" element={<ProtectedStandStatusPage />} />
         <Route path="/test" element={<ProtectedTestToolsPage />} />
+        <Route path="/aman-replay" element={<AMANReplayPage />} />
         <Route path="*" element={<div>404 Not Found</div>}/>
       </Routes>
     </Auth0ProviderWithNavigate>

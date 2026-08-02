@@ -12,6 +12,7 @@ import (
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/aman/trajectory"
+	"FlightStrips/internal/sat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,6 +43,99 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 	require.Equal(t, 6*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time))
 }
 
+func TestFeederRecognizesUniqueDownstreamTerminalPathJoin(t *testing.T) {
+	group := aman.RunwayGroupID("ARRIVAL-22L")
+	service := Service{deps: Dependencies{Terminal: terminal.Configuration{
+		Feeders: []terminal.Feeder{{ID: "TESPI"}, {ID: "TUDLO"}},
+		Paths: []terminal.Path{
+			{Feeder: "TESPI", RunwayGroup: group, Fixes: []navdata.FixID{"TESPI", "ROSBI", "TNO", "SHARED"}},
+			{Feeder: "TUDLO", RunwayGroup: group, Fixes: []navdata.FixID{"TUDLO", "LUGAS", "KOR", "SHARED"}},
+		},
+	}}}
+
+	feeder, ok := service.feeder("AAL M725 ADSEN DCT TNO", group)
+
+	require.True(t, ok)
+	require.Equal(t, navdata.FeederID("TESPI"), feeder)
+}
+
+func TestFeederDoesNotGuessFromSharedTerminalPathFix(t *testing.T) {
+	group := aman.RunwayGroupID("ARRIVAL-22L")
+	service := Service{deps: Dependencies{Terminal: terminal.Configuration{
+		Feeders: []terminal.Feeder{{ID: "TESPI"}, {ID: "TUDLO"}},
+		Paths: []terminal.Path{
+			{Feeder: "TESPI", RunwayGroup: group, Fixes: []navdata.FixID{"TESPI", "SHARED"}},
+			{Feeder: "TUDLO", RunwayGroup: group, Fixes: []navdata.FixID{"TUDLO", "SHARED"}},
+		},
+	}}}
+
+	_, ok := service.feeder("AAL DCT SHARED", group)
+
+	require.False(t, ok)
+}
+
+func TestSequenceInputExcludesLightPistonsUntilControllerMove(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	effective, group, wake, aircraftType := start, aman.RunwayGroupID("ARRIVAL-22"), "L", "C172"
+	flight := operationalFlight("PISTON", group, "MONAK", wake, start.Add(10*time.Minute))
+	flight.LatestObservation.AircraftType = &aircraftType
+	state := aman.AirportState{Revision: 1, RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective}}, Flights: []aman.AMANFlight{flight}}
+	config := terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}
+	aircraft := testAircraftEngines{engine: sat.EnginePiston, wtc: "L"}
+	require.Empty(t, sequenceInputWithAircraft(state, config, aircraft).Flights)
+	state.Flights[0].ManualSequenceIncluded = true
+	require.Len(t, sequenceInputWithAircraft(state, config, aircraft).Flights, 1)
+}
+
+func TestHoldingStackRequiresConsecutiveGeometryObservations(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	candidate := &trajectory.HoldingCandidate{HoldingID: "MONAK-HOLD"}
+	first := updateHoldingStack(nil, candidate, start)
+	require.False(t, first.Confirmed)
+	require.Equal(t, uint32(1), first.ConsecutiveObservations)
+	confirmed := updateHoldingStack(first, candidate, start.Add(time.Minute))
+	require.True(t, confirmed.Confirmed)
+	require.Equal(t, uint32(2), confirmed.ConsecutiveObservations)
+	require.Nil(t, updateHoldingStack(confirmed, nil, start.Add(2*time.Minute)))
+}
+
+func TestResequenceRequeuesLateStableFlightWithoutMovingOtherStableSlots(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	effective, group, wake := start, aman.RunwayGroupID("ARRIVAL-22"), "M"
+	late := operationalFlight("LATE", group, "MONAK", wake, start.Add(6*time.Minute))
+	late.State = aman.StateStable
+	late.Slot = &aman.Slot{Time: start, RunwayGroupID: group, Sequence: 1, Reason: "rate_wtc"}
+	other := operationalFlight("OTHER", group, "MONAK", wake, start.Add(3*time.Minute))
+	other.State = aman.StateStable
+	other.Slot = &aman.Slot{Time: start.Add(3 * time.Minute), RunwayGroupID: group, Sequence: 2, Reason: "rate_wtc"}
+	state := aman.AirportState{RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective}}, Flights: []aman.AMANFlight{late, other}}
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	targets := releaseGainResequenceTargets(&state)
+	require.Contains(t, targets, aman.FlightID("LATE"))
+	input := service.sequenceInput(state)
+	for index := range input.Flights {
+		if input.Flights[index].ID == "LATE" {
+			input.Flights[index].ProtectCurrentSlot = false
+			input.Flights[index].State = aman.StateUnstable
+		}
+	}
+	preview, err := sequence.Generate(input)
+	require.NoError(t, err)
+	require.False(t, preview.HasConflicts())
+	require.Equal(t, start.Add(6*time.Minute), preview.Entries[1].Time)
+	service.resequence(&state, start)
+	require.Equal(t, start.Add(6*time.Minute), state.Flights[0].Slot.Time)
+	require.Equal(t, start.Add(3*time.Minute), state.Flights[1].Slot.Time)
+}
+
+type testAircraftEngines struct {
+	engine sat.EngineType
+	wtc    string
+}
+
+func (t testAircraftEngines) Lookup(string) (sat.EngineType, bool) { return t.engine, true }
+func (t testAircraftEngines) LookupWTC(string) (string, bool)      { return t.wtc, true }
+
 func TestPreliminaryPredictionsUseDocumentedPlannedAndAirborneTimes(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	eobt := now.Add(time.Hour)
@@ -51,6 +145,7 @@ func TestPreliminaryPredictionsUseDocumentedPlannedAndAirborneTimes(t *testing.T
 	applyPreliminaryPrediction(&planned, observation, now)
 	require.Equal(t, eobt.Add(15*time.Minute+eet), planned.Prediction.RawTETA)
 	require.Equal(t, "aman-planned-eobt-exot-eet-v1", planned.Prediction.ModelVersion)
+	require.True(t, isPreliminaryPrediction(planned.Prediction))
 
 	takeoff := now.Add(5 * time.Minute)
 	observation.TakeoffDetected = &takeoff
@@ -58,6 +153,10 @@ func TestPreliminaryPredictionsUseDocumentedPlannedAndAirborneTimes(t *testing.T
 	applyPreliminaryPrediction(&airborne, observation, now)
 	require.Equal(t, takeoff.Add(eet), airborne.Prediction.RawTETA)
 	require.Equal(t, "aman-airborne-takeoff-eet-v1", airborne.Prediction.ModelVersion)
+	require.True(t, isPreliminaryPrediction(airborne.Prediction))
+	physical := *airborne.Prediction
+	physical.ModelVersion = modelVersion
+	require.False(t, isPreliminaryPrediction(&physical))
 
 	laterDetection := takeoff.Add(10 * time.Minute)
 	observation.TakeoffDetected = &laterDetection
@@ -198,6 +297,86 @@ func TestInvalidGroundspeedDoesNotEnterThePredictor(t *testing.T) {
 	require.Equal(t, "invalid_essential_data:groundspeed", *updated.Prediction.DegradationReason)
 }
 
+func TestInvalidPredictionAndMissingSourceReleaseProtectedSlots(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	order, manualOrder := 1, 1
+	flight := aman.AMANFlight{
+		FreezeReason: aman.FreezeManual,
+		Slot:         &aman.Slot{Time: now.Add(time.Minute), RunwayGroupID: "ARRIVAL-22", Sequence: 1},
+		Order:        &order, ManualOrder: &manualOrder, QueueOffers: []aman.QueueOffer{{FlightID: "flight-1"}},
+		Prediction: &aman.Prediction{Publishable: true},
+	}
+	markPredictionNonPublishable(&flight, "missing_essential_data:surveillance")
+	require.Nil(t, flight.Slot)
+	require.Nil(t, flight.Order)
+	require.Nil(t, flight.ManualOrder)
+	require.Empty(t, flight.QueueOffers)
+	require.Equal(t, aman.FreezeNone, flight.FreezeReason)
+
+	flight.Slot = &aman.Slot{Time: now.Add(time.Minute), RunwayGroupID: "ARRIVAL-22", Sequence: 1}
+	flight.FreezeReason = aman.FreezeSuperstable
+	markMissing(&flight, now)
+	require.Nil(t, flight.Slot)
+	require.Equal(t, aman.FreezeNone, flight.FreezeReason)
+}
+
+func TestPredictionCruiseAltitudeUsesMateriallyHigherFiledLevel(t *testing.T) {
+	altitude, requested := 28_800, 35_000
+	observation := aman.FlightObservation{RequestedLevel: &requested, Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude}}
+	require.Equal(t, 35_000.0, predictionCruiseAltitude(observation))
+	require.Equal(t, 28_800.0, predictionCruiseAltitudeForRoute(observation, true, false), "terminal traffic must not climb back to its filed cruise level")
+	require.Equal(t, 28_800.0, predictionCruiseAltitudeForRoute(observation, false, true), "confirmed descent must not climb back to its filed cruise level")
+
+	requested = 30_000
+	require.Equal(t, 28_800.0, predictionCruiseAltitude(observation))
+}
+
+func TestDescentStateRequiresConsecutiveReportsAndThenLatches(t *testing.T) {
+	base := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
+	observation := func(at time.Time, altitude int) aman.FlightObservation {
+		return aman.FlightObservation{Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude, ObservedAt: &at}}
+	}
+	first := observation(base, 30_000)
+	second := observation(base.Add(15*time.Second), 29_800)
+	confirmed, samples := descentStateForRoute(nil, &first, second, false)
+	require.False(t, confirmed)
+	require.Equal(t, uint8(1), samples)
+
+	progress := &aman.RouteProgress{DescentEvidenceSamples: samples}
+	third := observation(base.Add(30*time.Second), 29_600)
+	confirmed, samples = descentStateForRoute(progress, &second, third, false)
+	require.True(t, confirmed)
+	require.Equal(t, uint8(2), samples)
+
+	progress.DescentConfirmed, progress.DescentEvidenceSamples = confirmed, samples
+	level := observation(base.Add(45*time.Second), 29_620)
+	confirmed, samples = descentStateForRoute(progress, &third, level, false)
+	require.True(t, confirmed, "a level-off after TOD must not clear descent")
+	require.Equal(t, uint8(2), samples)
+}
+
+func TestDescentStateRejectsStaleOrSingleNoisyAltitudeChange(t *testing.T) {
+	base := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
+	high, low := 30_000, 29_800
+	previous := aman.FlightObservation{Surveillance: &aman.SurveillanceFact{AltitudeFeet: &high, ObservedAt: &base}}
+	staleAt := base.Add(3 * time.Minute)
+	current := aman.FlightObservation{Surveillance: &aman.SurveillanceFact{AltitudeFeet: &low, ObservedAt: &staleAt}}
+
+	confirmed, samples := descentStateForRoute(&aman.RouteProgress{DescentEvidenceSamples: 1}, &previous, current, false)
+	require.False(t, confirmed)
+	require.Zero(t, samples)
+}
+
+func TestObservedGroundspeedIsUsedOnlyAtOrNearFiledCruiseLevel(t *testing.T) {
+	altitude, requested := 35_900, 36_000
+	observation := aman.FlightObservation{RequestedLevel: &requested, Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude}}
+	require.True(t, useObservedGroundspeedBeforeTOD(observation))
+
+	altitude = 28_800
+	require.False(t, useObservedGroundspeedBeforeTOD(observation))
+	require.True(t, useObservedGroundspeedForRoute(observation, true), "terminal level segments should follow the observed groundspeed")
+}
+
 func TestGroundedSurveillanceKeepsPreTakeoffFlightPlanned(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	altitude, groundspeed := 124, 0.0
@@ -273,10 +452,10 @@ func TestFutureRateChangePreservesCurrentAndPendingSchedule(t *testing.T) {
 	change, err := mutation(state)
 	require.NoError(t, err)
 	group := change.State.RunwayGroups[0]
-	require.Equal(t, uint32(20), group.ActiveRatePerHour)
+	require.Equal(t, uint32(40), group.ActiveRatePerHour)
 	require.Len(t, group.RateSchedule, 2)
 	require.Equal(t, []sequence.RatePoint{
-		{EffectiveAt: now, ArrivalsPerHour: 20},
+		{EffectiveAt: now, ArrivalsPerHour: 40},
 		{EffectiveAt: future, ArrivalsPerHour: 30},
 	}, sequenceInput(change.State, service.deps.Terminal).Policies[0].Rates)
 
@@ -319,6 +498,52 @@ func TestRateSelectionMovesOnlyReorderableFlightsAtEffectiveTime(t *testing.T) {
 	reassignFlightsToGroup(&change.State, selected)
 	require.Equal(t, aman.RunwayGroupID("ARRIVAL-22"), *change.State.Flights[0].SelectedRunwayGroup)
 	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04"), *change.State.Flights[1].SelectedRunwayGroup)
+}
+
+func TestRunwayConfigurationUpgradeReleasesObsoleteGroupState(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	oldGroups := []aman.RunwayGroupPolicy{{ID: "ARRIVAL-22"}}
+	selected := aman.RunwayGroupID("ARRIVAL-22")
+	flight := aman.AMANFlight{
+		State: aman.StateStable, SelectedRunwayGroup: &selected, FreezeReason: aman.FreezeSuperstable,
+		Slot: &aman.Slot{Time: now.Add(time.Minute), RunwayGroupID: selected, Sequence: 1},
+	}
+	state := aman.AirportState{RunwayGroups: oldGroups, Flights: []aman.AMANFlight{flight}}
+	configured := []terminal.RunwayGroup{{ID: "ARRIVAL-22L"}, {ID: "ARRIVAL-22R"}}
+
+	require.False(t, runwayGroupsMatchTerminal(state.RunwayGroups, configured))
+	state.RunwayGroups = []aman.RunwayGroupPolicy{{ID: "ARRIVAL-22L"}, {ID: "ARRIVAL-22R"}}
+	resetFlightsForRunwayConfiguration(&state)
+
+	require.Nil(t, state.Flights[0].SelectedRunwayGroup)
+	require.Nil(t, state.Flights[0].Slot)
+	require.Equal(t, aman.FreezeNone, state.Flights[0].FreezeReason)
+}
+
+func TestSessionRunwaySelectsItsExactAMANGroup(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{}, Publisher: &recordingPublisher{},
+		Runways: staticArrivalRunway{runway: "22L"},
+		Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{
+			{ID: "ARRIVAL-04L", Aliases: []aman.RunwayGroupID{"04L"}},
+			{ID: "ARRIVAL-22L", Aliases: []aman.RunwayGroupID{"22L"}},
+		}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	state := service.initialState("EKCH", now)
+	unstable := operationalFlight("UNSTABLE", "ARRIVAL-04L", "MONAK", "M", now.Add(20*time.Minute))
+	stable := protectedOperationalFlight("STABLE", "ARRIVAL-04L", "MONAK", "M", now.Add(23*time.Minute), 1, aman.FreezeManual)
+	state.Flights = []aman.AMANFlight{unstable, stable}
+
+	selected, changed, err := service.selectSessionRunwayGroup(context.Background(), "EKCH", state.RunwayGroups)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-22L"), selected)
+	reassignFlightsToGroup(&state, selected)
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-22L"), *state.Flights[0].SelectedRunwayGroup)
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04L"), *state.Flights[1].SelectedRunwayGroup, "protected flights retain their committed runway")
 }
 
 func TestFutureRateCommandsPreserveRunwaySelectionHistory(t *testing.T) {
@@ -391,11 +616,11 @@ func TestGoAroundUpdatesOperationalTETABeforeCascading(t *testing.T) {
 	change, err := mutation(state)
 	require.NoError(t, err)
 	updated := change.State.Flights[0]
-	require.Equal(t, now.Add(10*time.Minute), updated.Prediction.OperationalTETA)
+	require.Equal(t, now.Add(DefaultGoAroundDelay), updated.Prediction.OperationalTETA)
 	require.Equal(t, aman.OperationalReasonGoAround, updated.Prediction.OperationalReason)
 	require.True(t, updated.Prediction.Publishable)
 	require.NotNil(t, updated.Slot)
-	require.False(t, updated.Slot.Time.Before(now.Add(10*time.Minute)))
+	require.False(t, updated.Slot.Time.Before(now.Add(DefaultGoAroundDelay)))
 	require.NotNil(t, change.QueueOffers)
 }
 
@@ -448,6 +673,16 @@ func TestActiveRouteReuseIncludesNavigationDatasetVersion(t *testing.T) {
 	require.False(t, canReuseActiveRoute(flight, 7, group, navigationDatasetID(version)))
 }
 
+func TestTMAFreezeKeepsRouteProjectionRevision(t *testing.T) {
+	progress := &aman.RouteProgress{FlightPlanRevision: 2}
+	flight := aman.AMANFlight{FreezeReason: aman.FreezeTMA, RouteProgress: progress}
+
+	require.Equal(t, uint64(2), routeProjectionRevision(flight, 3), "an administrative FPL revision must not reset terminal progress")
+
+	flight.FreezeReason = aman.FreezeNone
+	require.Equal(t, uint64(3), routeProjectionRevision(flight, 3), "outside TMA the new route revision remains authoritative")
+}
+
 func TestSyntheticDestinationClosingLegRequiresRouteRematerialization(t *testing.T) {
 	from, destination := navdata.FixID("TUDLO"), navdata.FixID("EKCH")
 	route := navdata.RouteGeometry{Legs: []navdata.ProcedureLeg{{ID: "ROUTE-0012", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &destination}}}
@@ -466,6 +701,32 @@ func TestHoldingETAUsesPerLegDurations(t *testing.T) {
 	require.NotNil(t, got)
 	require.Equal(t, now.Add(20*time.Minute), *got)
 	require.Nil(t, holdingETA(now, []time.Duration{20 * time.Minute}, legs, "HOLD"))
+}
+
+func TestHoldingPlanKeepsSlotFixedAndRecalculatesDelayFromLatestTrajectory(t *testing.T) {
+	now := time.Date(2026, time.July, 24, 12, 0, 0, 0, time.UTC)
+	holdingEntry := now.Add(8 * time.Minute)
+	slot := &aman.Slot{Time: now.Add(32 * time.Minute)}
+	prediction := aman.Prediction{Publishable: true, RawTETA: now.Add(20 * time.Minute), HoldingFixETA: &holdingEntry}
+
+	first := holdingPlan(prediction, slot)
+	require.NotNil(t, first)
+	require.Equal(t, now.Add(20*time.Minute), first.ApproachReleaseTime)
+	require.Equal(t, 12*time.Minute, first.ExpectedHoldingDuration)
+	require.Equal(t, 12*time.Minute, first.PostHoldingTransit)
+
+	// A later physical ETA, such as one recalculated from a lower observed
+	// altitude, reduces the hold but leaves the controller's slot untouched.
+	laterEntry := now.Add(10 * time.Minute)
+	prediction.RawTETA, prediction.HoldingFixETA = now.Add(24*time.Minute), &laterEntry
+	second := holdingPlan(prediction, slot)
+	require.NotNil(t, second)
+	require.Equal(t, now.Add(18*time.Minute), second.ApproachReleaseTime)
+	require.Equal(t, 8*time.Minute, second.ExpectedHoldingDuration)
+	require.Equal(t, now.Add(32*time.Minute), slot.Time)
+
+	prediction.RawTETA = now.Add(34 * time.Minute)
+	require.Nil(t, holdingPlan(prediction, slot), "an infeasible fixed slot must not invent a hold plan")
 }
 
 func TestOffRouteFallbackReasonLowersPredictionConfidenceWithoutHidingWaypoint(t *testing.T) {
@@ -576,6 +837,15 @@ func protectedOperationalFlight(id string, group aman.RunwayGroupID, feeder, wak
 type memoryRepository struct {
 	state aman.AirportState
 	has   bool
+}
+
+type staticArrivalRunway struct {
+	runway string
+	err    error
+}
+
+func (s staticArrivalRunway) ActiveArrivalRunway(context.Context, string) (string, error) {
+	return s.runway, s.err
 }
 
 func (r *memoryRepository) LoadAirportState(context.Context, string) (aman.AirportState, error) {

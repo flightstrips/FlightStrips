@@ -177,6 +177,33 @@ func TestStableFlightsRetainCommittedRelativeOrder(t *testing.T) {
 	require.Equal(t, []aman.FlightID{"FIRST", "SECOND"}, entryIDs(result))
 }
 
+func TestStableSlotProtectionKeepsCommittedTime(t *testing.T) {
+	start := testTime()
+	stable := withState(flight("STABLE", "A", start.Add(10*time.Minute), "M"), aman.StateStable)
+	stable.CurrentSlot = &aman.Slot{Time: start, RunwayGroupID: "A", Sequence: 1, Revision: 1, Reason: "rate_wtc"}
+	stable.ProtectCurrentSlot = true
+	result, err := sequence.Generate(sequence.Input{Revision: 1, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{stable}})
+	require.NoError(t, err)
+	require.Equal(t, start, result.Entries[0].Time)
+	require.True(t, result.Entries[0].Protected)
+	require.Equal(t, sequence.ReasonStable, result.Entries[0].Reason)
+}
+
+func TestConfirmedHoldingStackUsesLowestAltitudeFirst(t *testing.T) {
+	start := testTime()
+	high := flight("HIGH", "A", start, "M")
+	high.HoldingStackID, high.HoldingAltitudeFeet = "MONAK-HOLD", intPointer(7000)
+	// The stack order is a tie-breaker between aircraft that are both eligible
+	// for release. It does not permit a lower aircraft to be assigned before
+	// its own physically achievable arrival time.
+	low := flight("LOW", "A", start, "M")
+	low.HoldingStackID, low.HoldingAltitudeFeet = "MONAK-HOLD", intPointer(5000)
+
+	result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{high, low}})
+	require.NoError(t, err)
+	require.Equal(t, []aman.FlightID{"LOW", "HIGH"}, entryIDs(result))
+}
+
 func rateIntervalForTest(rate uint32) time.Duration {
 	return time.Duration((uint64(time.Hour) + uint64(rate) - 1) / uint64(rate))
 }

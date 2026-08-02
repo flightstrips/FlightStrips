@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/alb"
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/operational"
 	"FlightStrips/internal/aman/terminal"
 	amanWebAPI "FlightStrips/internal/aman/webapi"
 	"FlightStrips/internal/cdm"
@@ -225,6 +226,18 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			dbpool.Close()
 		}
 		return nil, fmt.Errorf("initialize AMAN runtime: %w", err)
+	}
+	if amanRuntime.Enabled() {
+		euroScopeObserver, observerErr := operational.NewEuroScopePositionObserver(operational.EuroScopePositionObserverDependencies{
+			Sink: amanDependencies.ObservationSink, Identities: postgres.NewAMANRepository(dbpool), EnabledAirports: cfg.AMAN.EnabledAirports, Now: satNow,
+		})
+		if observerErr != nil {
+			if closeDB {
+				dbpool.Close()
+			}
+			return nil, fmt.Errorf("initialize AMAN EuroScope surveillance: %w", observerErr)
+		}
+		stripService.SetArrivalPositionObserver(euroScopeObserver)
 	}
 	amanCommands, hasAMANCommands := amanDependencies.SequenceService.(aman.CommandService)
 	if amanRuntime.Ownership().ControllerMutationAuthorized && !hasAMANCommands {

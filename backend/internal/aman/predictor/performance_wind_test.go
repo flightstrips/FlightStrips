@@ -18,13 +18,14 @@ func TestAMANCPHDescentSpeedBands(t *testing.T) {
 	require.Equal(t, 280.0, descentIAS("unknown", 20000, 275))
 	require.Equal(t, 250.0, descentIAS(CategoryHeavy, 8000, 275))
 	require.Equal(t, 210.0, descentIAS(CategoryMedium, 4000, 275))
-	require.Equal(t, 150.0, descentIAS(CategoryMedium, 2000, 275))
+	require.Equal(t, 140.0, descentIAS(CategoryMedium, 2000, 275))
 }
 
-func TestAMANCPHBuildsThreeDegreeProfileAndUsesCurrentSpeedBeforeTOD(t *testing.T) {
+func TestAMANCPHBuildsThreeDegreeProfileAndUsesObservedSpeedAtCruise(t *testing.T) {
 	input := performanceInput()
 	input.AltitudeFeet = 10000
 	input.CurrentGroundspeedKnots = 400
+	input.UseObservedGroundspeedBeforeTOD = true
 	input.Remaining[0].DistanceNM = 100
 	segments := buildDescentSegments(input)
 	require.NotEmpty(t, segments)
@@ -41,6 +42,94 @@ func TestAMANCPHBuildsThreeDegreeProfileAndUsesCurrentSpeedBeforeTOD(t *testing.
 	require.NotEmpty(t, result.Segments)
 	require.Equal(t, "ppos_to_tod", result.Segments[0].PhaseID)
 	require.Equal(t, "Segment 1 · PPOS → TOD", result.Segments[0].PhaseName)
+	require.Nil(t, result.Segments[0].IndicatedAirspeedKnots)
+	require.Equal(t, 400.0, result.Segments[0].GroundspeedKnots)
+}
+
+func TestAMANCPHUsesFiledCruiseLevelForClimbAndTOD(t *testing.T) {
+	input := performanceInput()
+	input.AltitudeFeet = 28_800
+	input.CruiseAltitudeFeet = 35_000
+	input.CurrentGroundspeedKnots = 429
+	input.UseObservedGroundspeedBeforeTOD = false
+	input.Remaining[0].DistanceNM = 600
+
+	result, err := EstimatePerformanceWind(context.Background(), nil, nil, input, PerformanceWindConfig{})
+
+	require.NoError(t, err)
+	preTOD := make([]DescentSegmentCalculation, 0)
+	for _, segment := range result.Segments {
+		if segment.PreTOD {
+			preTOD = append(preTOD, segment)
+		}
+	}
+	require.NotEmpty(t, preTOD)
+	require.Equal(t, 28_800.0, preTOD[0].StartAltitudeFeet)
+	require.Equal(t, 35_000.0, preTOD[len(preTOD)-1].EndAltitudeFeet)
+	require.NotNil(t, preTOD[0].IndicatedAirspeedKnots)
+	require.Equal(t, 280.0, *preTOD[0].IndicatedAirspeedKnots)
+
+	var segment2 *DescentSegmentCalculation
+	for index := range result.Segments {
+		if result.Segments[index].PhaseID == "tod_to_fl270" {
+			segment2 = &result.Segments[index]
+			break
+		}
+	}
+	require.NotNil(t, segment2)
+	require.Greater(t, segment2.StartAltitudeFeet, 27_000.0)
+	require.NotNil(t, segment2.IndicatedAirspeedKnots)
+	require.Equal(t, 280.0, *segment2.IndicatedAirspeedKnots)
+	require.InDelta(t, iasToTAS(280, segment2.AltitudeFeet), segment2.NoWindGroundspeedKnots, 0.001)
+}
+
+func TestAMANCPHConfirmedDescentUsesEveryAltitudeSpeedBand(t *testing.T) {
+	input := performanceInput()
+	input.AltitudeFeet = 35_000
+	input.CruiseAltitudeFeet = 35_000
+	input.DescentConfirmed = true
+	input.Remaining[0].DistanceNM = 100
+
+	segments := buildDescentSegments(input)
+
+	require.NotEmpty(t, segments)
+	require.Equal(t, input.AltitudeFeet, segments[0].startAltitudeFeet)
+	require.Equal(t, 0.0, segments[len(segments)-1].endAltitudeFeet)
+	phases := map[string]bool{}
+	for _, segment := range segments {
+		require.False(t, segment.preTOD)
+		phases[phaseForSegment(segment, input).id] = true
+	}
+	for _, phase := range []string{"tod_to_fl270", "fl270_to_fl100", "fl100_to_fl050", "fl050_to_fl030", "fl030_to_landing"} {
+		require.True(t, phases[phase], phase)
+	}
+	require.False(t, phases["ppos_to_tod"])
+}
+
+func TestAMANCPHConfirmedDescentKeepsObservedAltitudeInsideNominalPath(t *testing.T) {
+	input := performanceInput()
+	input.AltitudeFeet = 20_000
+	input.CruiseAltitudeFeet = 20_000
+	input.DescentConfirmed = true
+	input.Remaining[0].DistanceNM = 20
+
+	segments := buildDescentSegments(input)
+
+	require.NotEmpty(t, segments)
+	require.Equal(t, 20_000.0, segments[0].startAltitudeFeet)
+	require.Equal(t, "fl270_to_fl100", phaseForSegment(segments[0], input).id)
+	require.Equal(t, 0.0, segments[len(segments)-1].endAltitudeFeet)
+}
+
+func TestAMANCPHConfirmedDescentLevelsUntilInterceptingNominalPath(t *testing.T) {
+	const (
+		altitudeFeet = 10_000.0
+		distanceNM   = 100.0
+	)
+	require.Equal(t, altitudeFeet, confirmedDescentAltitudeAtDistance(distanceNM, altitudeFeet, 50))
+	require.Equal(t, altitudeFeet, confirmedDescentAltitudeAtDistance(distanceNM, altitudeFeet, 68))
+	require.InDelta(t, 9_552, confirmedDescentAltitudeAtDistance(distanceNM, altitudeFeet, 70), 0.001)
+	require.Equal(t, 0.0, confirmedDescentAltitudeAtDistance(distanceNM, altitudeFeet, distanceNM))
 }
 
 func TestAMANCPHProjectsWindWithoutGlobalCorrectionCap(t *testing.T) {
@@ -89,6 +178,31 @@ func TestAMANCPHRequestsWeatherOnlyForTerminalDescentSegments(t *testing.T) {
 	}
 }
 
+func TestAMANCPHWeatherHorizonCoversLongHighAltitudeDescent(t *testing.T) {
+	input := performanceInput()
+	input.AltitudeFeet = 35_000
+	input.CruiseAltitudeFeet = 35_000
+	input.DescentConfirmed = true
+	input.Remaining[0].DistanceNM = 160
+
+	segments := buildDescentSegments(input)
+
+	require.NotEmpty(t, segments)
+	for _, segment := range segments {
+		require.True(t, segment.weatherEligible)
+	}
+	require.False(t, segments[0].surveillanceWindEligible)
+	require.True(t, segments[len(segments)-1].surveillanceWindEligible)
+
+	input.Remaining[0].DistanceNM = 200
+	segments = buildDescentSegments(input)
+	require.NotEmpty(t, segments)
+	require.False(t, segments[0].weatherEligible)
+	require.False(t, segments[0].surveillanceWindEligible)
+	require.True(t, segments[len(segments)-1].weatherEligible)
+	require.True(t, segments[len(segments)-1].surveillanceWindEligible)
+}
+
 func TestAMANCPHRETAAndLightAircraftBehavior(t *testing.T) {
 	input := performanceInput()
 	input.CurrentGroundspeedKnots = 200
@@ -104,6 +218,25 @@ func TestAMANCPHRETAAndLightAircraftBehavior(t *testing.T) {
 	require.NotEqual(t, light.RawRETA, light.RawTETA)
 	require.Less(t, light.Duration, 30*time.Minute)
 	require.Equal(t, 280.0, descentIAS(CategoryLight, 20000, 250))
+}
+
+func TestAMANCPHUsesTurbopropDescentProfiles(t *testing.T) {
+	require.Equal(t, 220.0, descentIASForAircraft("AT76", CategoryMedium, 20_000, 280))
+	require.Equal(t, 200.0, descentIASForAircraft("DH8D", CategoryMedium, 8_000, 280))
+	require.Equal(t, 120.0, descentIASForAircraft("TBM9", CategoryLight, 2_000, 280))
+	require.Equal(t, 280.0, descentIASForAircraft("A320", CategoryMedium, 20_000, 280))
+
+	input := performanceInput()
+	input.AircraftICAO = "AT76"
+	input.AltitudeFeet = 20_000
+	input.CruiseAltitudeFeet = 20_000
+	input.DescentConfirmed = true
+	input.Remaining[0].DistanceNM = 40
+	result, err := EstimatePerformanceWind(context.Background(), nil, nil, input, PerformanceWindConfig{})
+	require.NoError(t, err)
+	require.NotEmpty(t, result.Segments)
+	require.NotNil(t, result.Segments[0].IndicatedAirspeedKnots)
+	require.Equal(t, 220.0, *result.Segments[0].IndicatedAirspeedKnots)
 }
 
 func TestAMANCPHReturnsActualDurationForEachRouteLeg(t *testing.T) {
@@ -160,6 +293,46 @@ func TestAMANCPHMissingWeatherDegradesButMissingEssentialInputFails(t *testing.T
 	input.CurrentGroundspeedKnots = 0
 	_, err = EstimatePerformanceWind(context.Background(), nil, nil, input, PerformanceWindConfig{})
 	require.ErrorIs(t, err, errPerformanceWindInput)
+}
+
+func TestAMANCPHUsesObservedTrackAsWindFallbackWhenWeatherIsMissing(t *testing.T) {
+	input := performanceInput()
+	input.AltitudeFeet = 20_000
+	input.CruiseAltitudeFeet = 20_000
+	input.Remaining[0].DistanceNM = 50
+	track := 90.0
+	input.CurrentTrackTrueDegrees = &track
+	noWindGroundspeed := iasToTAS(280, input.AltitudeFeet)
+	input.CurrentGroundspeedKnots = noWindGroundspeed - 60
+
+	result, err := EstimatePerformanceWind(context.Background(), nil, failingWind{}, input, PerformanceWindConfig{})
+
+	require.NoError(t, err)
+	require.Equal(t, pointerString(surveillanceWindFallbackSource), result.WeatherSource)
+	require.Contains(t, result.DegradationReasons, "WEATHER_ESTIMATED_FROM_SURVEILLANCE")
+	require.NotContains(t, result.DegradationReasons, "WEATHER_UNAVAILABLE")
+	require.Greater(t, result.Duration, result.NoWindDuration)
+	foundHeadwind := false
+	for _, segment := range result.Segments {
+		foundHeadwind = foundHeadwind || (segment.TailwindKnots != nil && *segment.TailwindKnots < -50)
+	}
+	require.True(t, foundHeadwind)
+	require.NotNil(t, result.Segments[0].TailwindKnots, "the current level-to-descent-path segment must use the fallback too")
+	require.Less(t, result.Segments[0].GroundspeedKnots, result.Segments[0].NoWindGroundspeedKnots)
+}
+
+func TestAMANCPHDoesNotInferWindWhileAircraftIsStillClimbing(t *testing.T) {
+	input := performanceInput()
+	input.AltitudeFeet = 20_000
+	input.CruiseAltitudeFeet = 35_000
+	track := 90.0
+	input.CurrentTrackTrueDegrees = &track
+
+	result, err := EstimatePerformanceWind(context.Background(), nil, failingWind{}, input, PerformanceWindConfig{})
+
+	require.NoError(t, err)
+	require.Nil(t, result.WeatherSource)
+	require.Contains(t, result.DegradationReasons, "WEATHER_UNAVAILABLE")
 }
 
 func TestInterpolateWindAndISAConversions(t *testing.T) {

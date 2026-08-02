@@ -123,7 +123,7 @@ func goldenAMANState() aman.AirportState {
 				RawTETA: now.Add(20 * time.Minute), OperationalTETA: now.Add(19 * time.Minute), OperationalReason: aman.OperationalReasonSmoothed,
 				GeneratedAt: now, InputObservedAt: now.Add(-time.Minute), Confidence: aman.ConfidenceHigh, Publishable: true,
 				DatasetVersion: "2607", GeometryDigest: "geometry-sha256", DistanceToGoNM: &dtg,
-				HoldingFixETA: timePointer(now.Add(10 * time.Minute)), ModelVersion: "performance-wind-v1", ConfigVersion: "ekch-v1", Sources: []string{"vatsim", "airacnet"},
+				HoldingFixETA: timePointer(now.Add(10 * time.Minute)), HoldingPlan: &aman.HoldingPlan{HoldingEntryTime: now.Add(10 * time.Minute), ApproachReleaseTime: now.Add(18 * time.Minute), ExpectedHoldingDuration: 8 * time.Minute, PostHoldingTransit: 10 * time.Minute}, ModelVersion: "performance-wind-v1", ConfigVersion: "ekch-v1", Sources: []string{"vatsim", "airacnet"},
 			},
 			FreezeReason: aman.FreezeNone,
 			Slot:         &aman.Slot{Time: now.Add(18 * time.Minute), RunwayGroupID: runwayGroup, Sequence: 3, Revision: 7, Reason: "rate_wtc"},

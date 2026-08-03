@@ -101,6 +101,11 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			return err
 		}
 	}
+	if s.arrivalObserver != nil && strings.EqualFold(strings.TrimSpace(existingStrip.Destination), strings.TrimSpace(airport)) {
+		if err := s.arrivalObserver.ObserveEuroScopePosition(ctx, session, existingStrip, lat, lon, altitude); err != nil {
+			return err
+		}
+	}
 
 	if existingStrip.Bay != bay {
 		slog.DebugContext(ctx, "UpdateAircraftPosition: bay changed, moving strip",

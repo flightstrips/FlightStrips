@@ -15,9 +15,13 @@ import (
 )
 
 const (
-	defaultMaxCrossTrackNM = 12.0
-	defaultJitterNM        = 0.25
-	defaultForwardSearchNM = 50.0
+	defaultMaxCrossTrackNM             = 12.0
+	defaultJitterNM                    = 0.25
+	defaultForwardSearchNM             = 50.0
+	defaultRecoveryConfirmationSamples = 3
+	defaultRecoveryLegLookahead        = 8
+	defaultRecoveryTrackTolerance      = 20.0
+	defaultRecoveryRunwayDistanceNM    = 30.0
 )
 
 type Completeness string
@@ -31,9 +35,11 @@ const (
 )
 
 type Config struct {
-	MaxCrossTrackNM, JitterToleranceNM, MaxForwardSearchNM float64
-	ReferenceTime                                          time.Time
-	MaxObservationAge                                      time.Duration
+	MaxCrossTrackNM, JitterToleranceNM, MaxForwardSearchNM  float64
+	ReferenceTime                                           time.Time
+	MaxObservationAge                                       time.Duration
+	RecoveryConfirmationSamples, RecoveryLegLookahead       int
+	RecoveryTrackToleranceDegrees, RecoveryRunwayDistanceNM float64
 }
 
 func (c Config) normalized() Config {
@@ -45,6 +51,21 @@ func (c Config) normalized() Config {
 	}
 	if c.MaxForwardSearchNM <= 0 {
 		c.MaxForwardSearchNM = defaultForwardSearchNM
+	}
+	if c.RecoveryConfirmationSamples <= 0 {
+		c.RecoveryConfirmationSamples = defaultRecoveryConfirmationSamples
+	}
+	if c.RecoveryConfirmationSamples > int(^uint8(0)) {
+		c.RecoveryConfirmationSamples = int(^uint8(0))
+	}
+	if c.RecoveryLegLookahead <= 0 {
+		c.RecoveryLegLookahead = defaultRecoveryLegLookahead
+	}
+	if c.RecoveryTrackToleranceDegrees <= 0 {
+		c.RecoveryTrackToleranceDegrees = defaultRecoveryTrackTolerance
+	}
+	if c.RecoveryRunwayDistanceNM <= 0 {
+		c.RecoveryRunwayDistanceNM = defaultRecoveryRunwayDistanceNM
 	}
 	return c
 }
@@ -73,15 +94,25 @@ type RemainingLeg struct {
 	End               navdata.Coordinate
 }
 type Result struct {
-	Remaining       []RemainingLeg
-	AlongTrackNM    float64
-	CrossTrackNM    float64
-	DistanceToGoNM  *float64
-	Completeness    Completeness
-	Reasons         []string
-	GeometryDigest  string
-	SelectedHolding *navdata.HoldingPattern
-	Progress        *aman.RouteProgress
+	Remaining        []RemainingLeg
+	AlongTrackNM     float64
+	CrossTrackNM     float64
+	DistanceToGoNM   *float64
+	Completeness     Completeness
+	Reasons          []string
+	GeometryDigest   string
+	SelectedHolding  *navdata.HoldingPattern
+	HoldingCandidate *HoldingCandidate
+	Progress         *aman.RouteProgress
+	InTMA            bool
+}
+
+// HoldingCandidate is a geometric observation inside the published holding
+// footprint. The operational owner requires consecutive candidates before it
+// treats a flight as an active member of a holding stack.
+type HoldingCandidate struct {
+	HoldingID  navdata.HoldingID
+	DistanceNM float64
 }
 
 type Readers struct {
@@ -136,7 +167,7 @@ func ReadFiledRoute(ctx context.Context, readers Readers, airport navdata.Airpor
 	for _, fix := range snapshot.Fixes {
 		fixes[fix.ID] = fix
 	}
-	legs, reasons, _, _ := compose(snapshot, route, Input{Feeder: feeder, RunwayGroup: runwayGroup}, fixes, false)
+	legs, reasons, _, _, _ := compose(snapshot, route, Input{Feeder: feeder, RunwayGroup: runwayGroup}, fixes, false)
 	result := FiledRouteResult{Legs: make([]RemainingLeg, len(legs)), Reasons: displayReasons(reasons)}
 	for i, leg := range legs {
 		_, bearing := wgs84Inverse(leg.a, leg.b)
@@ -175,7 +206,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		fixes[fix.ID] = fix
 	}
 	baseCompatible := baseCompatible(input.Prior, route.Digest, snapshot, input)
-	legs, reasons, holding, directRejoin := compose(snapshot, route, input, fixes, baseCompatible)
+	legs, reasons, holding, directRejoin, terminalStart := compose(snapshot, route, input, fixes, baseCompatible)
 	if len(legs) == 0 {
 		result.Reasons = reasons
 		if len(reasons) == 0 {
@@ -196,10 +227,29 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 			result.Completeness, result.Reasons, result.CrossTrackNM = Partial, append(reasons, "FORWARD_PROGRESS_OUT_OF_RANGE"), best.cross
 			return result
 		}
-		if next, recovered := nextWaypointRecovery(obs, legs, start, input.Observation.TrackTrueDegrees); recovered {
-			remaining := remainingFromNextWaypoint(obs, legs, next)
+		recovery := nextWaypointRecovery(obs, legs, start, input.Observation.TrackTrueDegrees, input.Prior, config)
+		if recovery.next >= 0 {
+			next, progressLeg, routePrefix := recovery.next, recovery.next, "OFF_ROUTE_RECOVERY_TO:"
+			candidateFix, candidateSamples := "", uint8(0)
+			if recovery.trackAligned {
+				candidateFix = string(legs[next].to)
+				candidateSamples = recoveryCandidateSamples(input.Prior, candidateFix, config.RecoveryConfirmationSamples)
+				if int(candidateSamples) >= config.RecoveryConfirmationSamples {
+					routePrefix = "OFF_ROUTE_TO:"
+				} else {
+					routePrefix = "OFF_ROUTE_CANDIDATE_TO:"
+					progressLeg = start
+				}
+			}
+			remaining := remainingFromNextWaypointWithPrefix(obs, legs, next, routePrefix)
 			if len(remaining) > 0 {
-				progress := progressAtLegEnd(legs, next)
+				progress := progressAtLegEnd(legs, progressLeg)
+				if recovery.trackAligned && int(candidateSamples) < config.RecoveryConfirmationSamples {
+					progress = progressAtLegStart(legs, progressLeg)
+					if compatible && input.Prior != nil {
+						progress = input.Prior.AlongTrackNM
+					}
+				}
 				dtg := remainingLegDistance(remaining)
 				routeFactID := ""
 				if activeRouteFact(input.RouteFact) {
@@ -211,9 +261,18 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 				}
 				result.Completeness = Partial
 				result.Reasons = append(reasons, "OFF_ROUTE", "OFF_ROUTE_NEXT_WAYPOINT:"+string(legs[next].to))
+				if recovery.trackAligned && int(candidateSamples) < config.RecoveryConfirmationSamples {
+					result.Reasons = append(result.Reasons, fmt.Sprintf("OFF_ROUTE_DIRECT_CANDIDATE:%s:%d/%d", candidateFix, candidateSamples, config.RecoveryConfirmationSamples))
+				}
 				result.CrossTrackNM, result.AlongTrackNM = best.cross, progress
-				result.SelectedHolding, result.DistanceToGoNM, result.Remaining = holding, &dtg, remaining
-				result.Progress = &aman.RouteProgress{GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest, FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup, LegIndex: next, RejoinLegIndex: rejoin, AlongTrackNM: progress}
+				result.SelectedHolding, result.HoldingCandidate, result.DistanceToGoNM, result.Remaining = holding, holdingCandidate(holding, fixes, input.Observation), &dtg, remaining
+				result.InTMA = terminalStart >= 0 && progressLeg >= terminalStart
+				result.Progress = &aman.RouteProgress{
+					GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest,
+					FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup,
+					LegIndex: progressLeg, RejoinLegIndex: rejoin, AlongTrackNM: progress,
+					RecoveryCandidateFix: candidateFix, RecoveryCandidateSamples: candidateSamples,
+				}
 				return result
 			}
 		}
@@ -227,7 +286,8 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		best = projectionAt(legs, progress)
 		best.cross = observedCross
 	}
-	result.AlongTrackNM, result.CrossTrackNM, result.SelectedHolding = progress, best.cross, holding
+	result.AlongTrackNM, result.CrossTrackNM, result.SelectedHolding, result.HoldingCandidate = progress, best.cross, holding, holdingCandidate(holding, fixes, input.Observation)
+	result.InTMA = terminalStart >= 0 && best.index >= terminalStart
 	dtg := remainingDistance(legs, progress)
 	result.DistanceToGoNM = &dtg
 	result.Remaining = remaining(legs, best.index, best.along)
@@ -256,15 +316,37 @@ type leg struct {
 	distance float64
 }
 
-func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry, input Input, fixes map[navdata.FixID]navdata.Fix, baseCompatible bool) ([]leg, []string, *navdata.HoldingPattern, int) {
+func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry, input Input, fixes map[navdata.FixID]navdata.Fix, baseCompatible bool) ([]leg, []string, *navdata.HoldingPattern, int, int) {
+	// A route parser can disambiguate a globally duplicated fix identifier
+	// using the filed route context. Preserve those coordinates when the same
+	// fix joins the configured terminal path or owns its selected holding.
+	// Otherwise a manifest lookup for a homonymous fix on another continent
+	// can create a physically impossible route discontinuity.
+	routeFixes := make(map[navdata.FixID]navdata.Fix, len(fixes))
+	for id, fix := range fixes {
+		routeFixes[id] = fix
+	}
+	for _, value := range route.Legs {
+		if value.FromFix != nil && value.FromPosition != nil {
+			routeFixes[*value.FromFix] = navdata.Fix{ID: *value.FromFix, Position: *value.FromPosition}
+		}
+		if value.ToFix != nil && value.ToPosition != nil {
+			routeFixes[*value.ToFix] = navdata.Fix{ID: *value.ToFix, Position: *value.ToPosition}
+		}
+	}
+	fixes = routeFixes
+
 	var all []navdata.ProcedureLeg
 	all = append(all, route.Legs...)
+	terminalSourceStart, terminalSourceEnd := -1, -1
 	var terminal *navdata.TerminalPath
 	for i := range snapshot.TerminalPaths {
 		p := &snapshot.TerminalPaths[i]
 		if p.Feeder == input.Feeder && p.RunwayGroup == input.RunwayGroup {
 			terminal = p
-			all = append(all, p.Legs...)
+			terminalSourceStart = len(all)
+			all = append(all, terminalContinuation(route.Legs, p.Legs)...)
+			terminalSourceEnd = len(all)
 			break
 		}
 	}
@@ -306,8 +388,9 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 		}
 	}
 	var out []leg
+	terminalStart := -1
 	var last navdata.FixID
-	for _, value := range all {
+	for sourceIndex, value := range all {
 		if value.PathTerminator.IsHolding() {
 			if value.HoldingID != nil && selected == nil {
 				if h, ok := holdings[*value.HoldingID]; ok {
@@ -339,6 +422,12 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 		}
 		fromPosition, fromResolved := coordinateForLeg(value.FromPosition, from, fixes)
 		toPosition, toResolved := coordinateForLeg(value.ToPosition, to, fixes)
+		if len(out) > 0 && out[len(out)-1].to == from {
+			// The shared fix is one physical point. Prefer the already resolved
+			// inbound endpoint over a conflicting coordinate retained on the
+			// next source fragment.
+			fromPosition, fromResolved = out[len(out)-1].b, true
+		}
 		if !fromResolved || !toResolved {
 			reasons = append(reasons, "UNRESOLVED_LEG:"+value.ID+":FIX_NOT_IN_MANIFEST")
 			last = to
@@ -346,13 +435,21 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 		}
 		d := wgs84NM(fromPosition, toPosition)
 		out = append(out, leg{id: value.ID, from: from, to: to, a: fromPosition, b: toPosition, distance: d})
+		if terminalStart < 0 && terminalSourceStart >= 0 && sourceIndex >= terminalSourceStart && sourceIndex < terminalSourceEnd {
+			terminalStart = len(out) - 1
+		}
 		last = to
+	}
+	if selected != nil && !legsContainFix(out, selected.Fix) {
+		// A downstream STAR join can bypass the path's configured holding fix.
+		// Do not offer a hold at a waypoint that is no longer on the route.
+		selected = nil
 	}
 	if activeRouteFact(input.RouteFact) {
 		target := navdata.FixID(input.RouteFact.Fix)
 		targetFix, ok := fixes[target]
 		if !ok {
-			return out, append(reasons, "DIRECT_TO_TARGET_UNRESOLVED:"+input.RouteFact.Fix), selected, -1
+			return out, append(reasons, "DIRECT_TO_TARGET_UNRESOLVED:"+input.RouteFact.Fix), selected, -1, terminalStart
 		}
 		rejoin := -1
 		floor := 0
@@ -366,14 +463,75 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 			}
 		}
 		if rejoin < 0 {
-			return out, append(reasons, "DIRECT_TO_TARGET_NOT_ON_FORWARD_PATH:"+input.RouteFact.Fix), selected, -1
+			return out, append(reasons, "DIRECT_TO_TARGET_NOT_ON_FORWARD_PATH:"+input.RouteFact.Fix), selected, -1, terminalStart
 		}
 		current := coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees)
 		direct := leg{id: "DIRECT_TO:" + string(target), from: "", to: target, a: current, b: targetFix.Position, distance: wgs84NM(current, targetFix.Position)}
 		out = append([]leg{direct}, out[rejoin+1:]...)
-		return out, dedupe(reasons), selected, rejoin
+		if terminalStart >= 0 {
+			if rejoin < terminalStart {
+				terminalStart -= rejoin
+			} else {
+				terminalStart = 0
+			}
+		}
+		return out, dedupe(reasons), selected, rejoin, terminalStart
 	}
-	return out, dedupe(reasons), selected, -1
+	return out, dedupe(reasons), selected, -1, terminalStart
+}
+
+func terminalContinuation(route, terminal []navdata.ProcedureLeg) []navdata.ProcedureLeg {
+	join, ok := lastUsableRouteFix(route)
+	if !ok {
+		return terminal
+	}
+	for terminalIndex := range terminal {
+		if terminal[terminalIndex].FromFix != nil && *terminal[terminalIndex].FromFix == join {
+			return terminal[terminalIndex:]
+		}
+	}
+	for terminalIndex := len(terminal) - 1; terminalIndex >= 0; terminalIndex-- {
+		if terminal[terminalIndex].ToFix != nil && *terminal[terminalIndex].ToFix == join {
+			return terminal[terminalIndex+1:]
+		}
+	}
+	return terminal
+}
+
+func lastUsableRouteFix(route []navdata.ProcedureLeg) (navdata.FixID, bool) {
+	var last navdata.FixID
+	usable := false
+	for _, value := range route {
+		if value.PathTerminator.IsHolding() {
+			continue
+		}
+		if value.PathTerminator == navdata.PathVA || value.PathTerminator == navdata.PathVM || value.PathTerminator == navdata.PathVI || value.PathTerminator == navdata.PathUnsupported {
+			last, usable = "", false
+			continue
+		}
+		from := last
+		if value.FromFix != nil {
+			from = *value.FromFix
+		}
+		if value.ToFix == nil || from == "" {
+			if value.ToFix != nil {
+				last = *value.ToFix
+			}
+			usable = false
+			continue
+		}
+		last, usable = *value.ToFix, true
+	}
+	return last, usable
+}
+
+func legsContainFix(legs []leg, fix navdata.FixID) bool {
+	for _, value := range legs {
+		if value.from == fix || value.to == fix {
+			return true
+		}
+	}
+	return false
 }
 
 func coordinateForLeg(position *navdata.Coordinate, fixID navdata.FixID, fixes map[navdata.FixID]navdata.Fix) (navdata.Coordinate, bool) {
@@ -382,6 +540,32 @@ func coordinateForLeg(position *navdata.Coordinate, fixID navdata.FixID, fixes m
 	}
 	fix, ok := fixes[fixID]
 	return fix.Position, ok
+}
+
+func holdingCandidate(holding *navdata.HoldingPattern, fixes map[navdata.FixID]navdata.Fix, observation aman.SurveillanceFact) *HoldingCandidate {
+	if holding == nil {
+		return nil
+	}
+	fix, ok := fixes[holding.Fix]
+	if !ok {
+		return nil
+	}
+	distance := wgs84NM(coordinate(observation.LatitudeDegrees, observation.LongitudeDegrees), fix.Position)
+	radius := 2.5 // turn allowance around the holding fix.
+	if holding.LegLengthNM != nil {
+		radius += *holding.LegLengthNM
+	} else if holding.LegTimeSeconds != nil {
+		speed := 180.0
+		if observation.GroundspeedKnots != nil {
+			speed = math.Min(250, math.Max(120, *observation.GroundspeedKnots))
+		}
+		radius += speed * float64(*holding.LegTimeSeconds) / 3600
+	}
+	radius = math.Min(8, math.Max(3, radius))
+	if distance > radius {
+		return nil
+	}
+	return &HoldingCandidate{HoldingID: holding.ID, DistanceNM: distance}
 }
 
 func compatible(p *aman.RouteProgress, digest string, snapshot navdata.ActiveGeometrySnapshot, in Input) bool {
@@ -445,33 +629,75 @@ func projectForward(p navdata.Coordinate, legs []leg, start int, maxCross, maxFo
 	return geometryNearest, false, geometryFound
 }
 
+type waypointRecovery struct {
+	next         int
+	trackAligned bool
+}
+
 // nextWaypointRecovery keeps an arrival useful when its observed position is
-// outside the narrow route corridor. It predicts a direct track to the
-// closest plausible forward waypoint instead of pretending the aircraft is
-// on the published leg. Derived ground track is preferred when available;
-// without it, the closest forward waypoint is the conservative fallback.
-func nextWaypointRecovery(observation navdata.Coordinate, legs []leg, start int, track *float64) (int, bool) {
+// outside the narrow route corridor. Track-derived candidates are bounded to a
+// small forward leg window and require repeated agreement in Reduce before
+// becoming an inferred direct. A distant runway is never inferred as a direct
+// target merely because its bearing resembles the aircraft's current track.
+func nextWaypointRecovery(observation navdata.Coordinate, legs []leg, start int, track *float64, prior *aman.RouteProgress, config Config) waypointRecovery {
 	aligned, nearest := -1, -1
-	alignedDistance, nearestDistance := math.Inf(1), math.Inf(1)
+	alignedDifference, alignedDistance, nearestDistance := math.Inf(1), math.Inf(1), math.Inf(1)
+	const trackDifferenceTieDegrees = 1.0
+	searchEnd := min(len(legs), start+config.RecoveryLegLookahead)
+	confirmedFix := ""
+	if prior != nil && int(prior.RecoveryCandidateSamples) >= config.RecoveryConfirmationSamples {
+		confirmedFix = prior.RecoveryCandidateFix
+	}
 	for index := start; index < len(legs); index++ {
 		distance, bearing := wgs84Inverse(observation, legs[index].b)
 		if distance < nearestDistance {
 			nearest, nearestDistance = index, distance
 		}
-		if track == nil || angularDifferenceDegrees(*track, bearing*180/math.Pi) > 90 {
+		if index >= searchEnd || track == nil || !finite(*track) {
 			continue
 		}
-		if distance < alignedDistance {
-			aligned, alignedDistance = index, distance
+		difference := angularDifferenceDegrees(*track, bearing*180/math.Pi)
+		if difference > config.RecoveryTrackToleranceDegrees {
+			continue
+		}
+		if runwayLikeFix(legs[index].to) && distance > config.RecoveryRunwayDistanceNM {
+			continue
+		}
+		if confirmedFix != "" && string(legs[index].to) == confirmedFix {
+			return waypointRecovery{next: index, trackAligned: true}
+		}
+		if difference < alignedDifference-trackDifferenceTieDegrees ||
+			(math.Abs(difference-alignedDifference) <= trackDifferenceTieDegrees && distance < alignedDistance) {
+			aligned, alignedDifference, alignedDistance = index, difference, distance
 		}
 	}
 	if aligned >= 0 {
-		return aligned, true
+		return waypointRecovery{next: aligned, trackAligned: true}
 	}
-	return nearest, nearest >= 0
+	return waypointRecovery{next: nearest}
+}
+
+func recoveryCandidateSamples(prior *aman.RouteProgress, fix string, required int) uint8 {
+	if prior == nil || prior.RecoveryCandidateFix != fix {
+		return 1
+	}
+	samples := int(prior.RecoveryCandidateSamples) + 1
+	if samples > required {
+		samples = required
+	}
+	return uint8(samples)
+}
+
+func runwayLikeFix(fix navdata.FixID) bool {
+	value := strings.ToUpper(string(fix))
+	return strings.HasPrefix(value, "RWY-") || strings.Contains(value, "-RWY-")
 }
 
 func remainingFromNextWaypoint(observation navdata.Coordinate, legs []leg, next int) []RemainingLeg {
+	return remainingFromNextWaypointWithPrefix(observation, legs, next, "OFF_ROUTE_TO:")
+}
+
+func remainingFromNextWaypointWithPrefix(observation navdata.Coordinate, legs []leg, next int, prefix string) []RemainingLeg {
 	if next < 0 || next >= len(legs) {
 		return nil
 	}
@@ -479,7 +705,7 @@ func remainingFromNextWaypoint(observation navdata.Coordinate, legs []leg, next 
 	result := make([]RemainingLeg, 0, len(legs)-next)
 	if distance > 0 {
 		result = append(result, RemainingLeg{
-			ID: "OFF_ROUTE_TO:" + string(legs[next].to), From: "", To: legs[next].to,
+			ID: prefix + string(legs[next].to), From: "", To: legs[next].to,
 			DistanceNM: distance, CourseTrueDegrees: bearing * 180 / math.Pi, Start: observation, End: legs[next].b,
 		})
 	}
@@ -508,6 +734,13 @@ func progressAtLegEnd(legs []leg, index int) float64 {
 		progress += legs[i].distance
 	}
 	return progress
+}
+
+func progressAtLegStart(legs []leg, index int) float64 {
+	if index <= 0 {
+		return 0
+	}
+	return progressAtLegEnd(legs, index-1)
 }
 
 func remainingLegDistance(legs []RemainingLeg) float64 {

@@ -235,6 +235,12 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 			return aman.CommitResult{}, err
 		}
 		for _, flight := range commit.State.Flights {
+			// Removed flights have completed their lifecycle and are retained in
+			// audit records, not in the active AMAN projection. Keeping them here
+			// makes old CID/callsign histories look like duplicate live slots.
+			if flight.State == aman.StateRemoved {
+				continue
+			}
 			payload, err := json.Marshal(flight)
 			if err != nil {
 				return aman.CommitResult{}, fmt.Errorf("encode AMAN flight %q: %w", flight.ID, err)

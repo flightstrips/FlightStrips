@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ import (
 const defaultBaseURL = "https://airac.net/api/v1"
 
 var errAmbiguousWaypoint = errors.New("ambiguous waypoint response")
+var speedLevelChange = regexp.MustCompile(`^[NKM][0-9]{3,4}[FASM][0-9]{3,4}$`)
 
 // Checkpoint is adapter-private HTTP state. It is deliberately not embedded in
 // canonical navigation values or their digests.
@@ -262,6 +264,33 @@ func (a *Adapter) Fixes(ctx context.Context, query navdata.FixQuery) (navdata.Fi
 	if err := a.parallel(ctx, len(query.Identifiers), func(ctx context.Context, index int) error {
 		var response waypointResponse
 		identifier := string(query.Identifiers[index])
+		scopedEndpoint := path.Join("waypoints", waypointRegion(query.Airport), url.PathEscape(identifier))
+		scopedErr := a.getJSON(ctx, scopedEndpoint, nil, &response)
+		var scopedStatus *httpStatusError
+		if scopedErr == nil {
+			item, ok, itemErr := firstWaypoint(response.Data)
+			if itemErr != nil {
+				if errors.Is(itemErr, errAmbiguousWaypoint) {
+					return incomplete("AIRAC.NET scoped waypoint response is ambiguous")
+				}
+				return invalid("AIRAC.NET scoped waypoint response")
+			}
+			if ok {
+				fix, fixErr := a.fix(query.Version, item)
+				if fixErr != nil {
+					return fixErr
+				}
+				fix.Provenance = provenance
+				if fix.ID == query.Identifiers[index] {
+					values[index], found[index] = fix, true
+					return nil
+				}
+			}
+		} else if !errors.As(scopedErr, &scopedStatus) || scopedStatus.status != http.StatusNotFound {
+			return scopedErr
+		}
+
+		response = waypointResponse{}
 		err := a.getJSON(ctx, "waypoints/"+url.PathEscape(identifier), nil, &response)
 		var status *httpStatusError
 		if errors.As(err, &status) && status.status == http.StatusNotFound {
@@ -283,8 +312,7 @@ func (a *Adapter) Fixes(ctx context.Context, query navdata.FixQuery) (navdata.Fi
 				return invalid("AIRAC.NET waypoint response")
 			}
 			var scoped waypointResponse
-			endpoint := path.Join("waypoints", waypointRegion(query.Airport), url.PathEscape(identifier))
-			if err := a.getJSON(ctx, endpoint, nil, &scoped); err != nil {
+			if err := a.getJSON(ctx, scopedEndpoint, nil, &scoped); err != nil {
 				return err
 			}
 			item, ok, err = firstWaypoint(scoped.Data)
@@ -506,11 +534,18 @@ func (a *Adapter) routeGeometry(query navdata.RouteQuery, result routeData) (nav
 		geometry.Coverage = navdata.CoveragePartial
 		geometry.Unresolved = append(geometry.Unresolved, "PUBLISHED_HOLDING_DATA_UNAVAILABLE")
 	}
-	if len(result.Segments) == 0 {
+	segments := result.Segments
+	if len(result.Errors) > 0 {
+		// A parser error can leave AIRAC.NET's otherwise continuous response
+		// containing a synthetic cycle around the rejected token. Never let
+		// such a loop inflate AMAN's distance-to-go.
+		segments = defensivelySanitizeRouteSegments(segments)
+	}
+	if len(segments) == 0 {
 		geometry.Coverage = navdata.CoveragePartial
 		geometry.Unresolved = append(geometry.Unresolved, "route-empty")
 	}
-	for index, segment := range result.Segments {
+	for index, segment := range segments {
 		from, to := navdata.FixID(upper(segment.From.Identifier)), navdata.FixID(upper(segment.To.Identifier))
 		if from == "" || to == "" {
 			geometry.Coverage = navdata.CoveragePartial
@@ -521,7 +556,7 @@ func (a *Adapter) routeGeometry(query navdata.RouteQuery, result routeData) (nav
 		// direct leg. AMAN joins the route to its selected terminal path instead,
 		// so retaining that final direct-to-airport segment would draw and predict
 		// an impossible detour before continuing from the feeder.
-		if index == len(result.Segments)-1 && to == navdata.FixID(query.Destination) && from != to {
+		if index == len(segments)-1 && to == navdata.FixID(query.Destination) && from != to {
 			continue
 		}
 		course, distance := canonicalCourse(segment.Bearing), segment.Distance
@@ -928,13 +963,53 @@ func transformedRoute(query navdata.RouteQuery) string {
 	tokens := []string{}
 	for _, token := range strings.Fields(strings.ToUpper(query.FiledRoute)) {
 		if token != "DCT" {
-			tokens = append(tokens, token)
+			tokens = append(tokens, withoutSpeedLevelChange(token))
 		}
 	}
 	if query.ArrivalProcedure != nil && !slices.Contains(tokens, string(*query.ArrivalProcedure)) {
 		tokens = append(tokens, string(*query.ArrivalProcedure))
 	}
 	return strings.Join(tokens, " ")
+}
+
+func withoutSpeedLevelChange(token string) string {
+	slash := strings.LastIndexByte(token, '/')
+	if slash < 1 || !speedLevelChange.MatchString(token[slash+1:]) {
+		return token
+	}
+	return token[:slash]
+}
+
+func defensivelySanitizeRouteSegments(segments []routeSegmentDTO) []routeSegmentDTO {
+	result := make([]routeSegmentDTO, 0, len(segments))
+	nodeIndex := map[string]int{}
+	for _, segment := range segments {
+		from, to := upper(segment.From.Identifier), upper(segment.To.Identifier)
+		if from == "" || to == "" {
+			continue
+		}
+		if len(result) == 0 {
+			nodeIndex[from] = 0
+		} else if upper(result[len(result)-1].To.Identifier) != from {
+			break
+		}
+		if previous, exists := nodeIndex[to]; exists {
+			result = result[:previous]
+			nodeIndex = map[string]int{}
+			if len(result) > 0 {
+				nodeIndex[upper(result[0].From.Identifier)] = 0
+				for index, retained := range result {
+					nodeIndex[upper(retained.To.Identifier)] = index + 1
+				}
+			} else {
+				nodeIndex[from] = 0
+			}
+			continue
+		}
+		result = append(result, segment)
+		nodeIndex[to] = len(result)
+	}
+	return result
 }
 func cloneValues(values url.Values) url.Values {
 	result := url.Values{}

@@ -22,6 +22,7 @@ export interface AMANFlightDetail {
   filed_route_geometry: AMANFiledRouteGeometry | null;
   teta_basis: AMANTETABasis | null;
   slot_basis: AMANSlotBasis | null;
+  holding_plan: AMANHoldingPlan | null;
 }
 
 export interface AMANPosition {
@@ -126,6 +127,14 @@ export interface AMANSlotBasis {
   rate_effective_at: string | null;
   previous_flight: {callsign: string; slot_time: string} | null;
   frozen: boolean;
+  infeasible: boolean;
+}
+
+export interface AMANHoldingPlan {
+  holding_entry_time: string;
+  approach_release_time: string;
+  expected_holding_seconds: number;
+  post_holding_transit_seconds: number;
 }
 
 export async function fetchAMANFlightDetail(token: string, airport: string, flightID: string, signal?: AbortSignal): Promise<AMANFlightDetail> {

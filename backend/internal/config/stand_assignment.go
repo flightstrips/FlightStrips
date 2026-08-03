@@ -138,6 +138,20 @@ func GetAircraftEngineReference() *sat.AircraftEngineRegistry {
 	return aircraftEngineReference
 }
 
+// LoadAMANAircraftEngineReference loads the installed ICAO aircraft database
+// for AMAN even when the Stand Assignment Tool is disabled. AMAN only needs
+// the engine/WTC facts; it deliberately does not require SAT stand data.
+func LoadAMANAircraftEngineReference() (*sat.AircraftEngineRegistry, error) {
+	if aircraftEngineReference != nil {
+		return aircraftEngineReference, nil
+	}
+	registry, err := sat.LoadAircraftEngineReferenceFile(standAssignmentICAOFile(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("load AMAN aircraft engine reference: %w", err)
+	}
+	return registry, nil
+}
+
 // GetAirportCountries returns the validated SAT airport/country mapping, or
 // nil while SAT is disabled or unavailable.
 func GetAirportCountries() *sat.AirportCountryRegistry {

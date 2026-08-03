@@ -20,15 +20,18 @@ import (
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/aman/trajectory"
+	"FlightStrips/internal/sat"
 )
 
 const (
-	policyVersion        = "aman-cph-v1"
-	modelVersion         = "aman-cph-teta-v1"
-	routeResolverVersion = "airacnet-route-v3"
-	defaultArrivalRate   = uint32(20)
-	weatherRefreshEvery  = 30 * time.Minute
-	queueOfferValidity   = 2 * time.Minute
+	policyVersion              = "aman-cph-v1"
+	modelVersion               = "aman-cph-teta-v3"
+	routeResolverVersion       = "airacnet-route-v4"
+	defaultArrivalRate         = uint32(20)
+	ekchDefaultArrivalRate     = uint32(40)
+	weatherRefreshEvery        = 30 * time.Minute
+	queueOfferValidity         = 2 * time.Minute
+	euroScopeSurveillanceFresh = 30 * time.Second
 )
 
 type NavigationMaterializer interface {
@@ -45,17 +48,33 @@ type Repository interface {
 	aman.StateCommitter
 }
 
+// ActiveArrivalRunwaySource supplies the runway selected by the active airport
+// session. The value is a runway identifier (for example "22L"), not an AMAN
+// group identifier; the terminal configuration is the sole mapping authority.
+type ActiveArrivalRunwaySource interface {
+	ActiveArrivalRunway(context.Context, string) (string, error)
+}
+
+// AircraftEngineReference is the read-only TopSky ICAO aircraft lookup used
+// to identify light piston traffic without trusting pilot-entered WTC data.
+type AircraftEngineReference interface {
+	Lookup(string) (sat.EngineType, bool)
+	LookupWTC(string) (string, bool)
+}
+
 type Dependencies struct {
-	Repository   Repository
-	Retirer      aman.VATSIMFlightIdentityRetirer
-	Materializer NavigationMaterializer
-	Geometry     GeometryCache
-	Wind         predictor.WindProfileReader
-	Terminal     terminal.Configuration
-	Airports     []string
-	Mode         aman.RolloutMode
-	Publisher    sequence.FullStatePublisher
-	Now          func() time.Time
+	Repository      Repository
+	Retirer         aman.VATSIMFlightIdentityRetirer
+	Materializer    NavigationMaterializer
+	Geometry        GeometryCache
+	Wind            predictor.WindProfileReader
+	Runways         ActiveArrivalRunwaySource
+	AircraftEngines AircraftEngineReference
+	Terminal        terminal.Configuration
+	Airports        []string
+	Mode            aman.RolloutMode
+	Publisher       sequence.FullStatePublisher
+	Now             func() time.Time
 }
 
 type Service struct {
@@ -111,15 +130,48 @@ func (s *Service) Observe(_ context.Context, observation aman.FlightObservation)
 	if err := observation.Validate(); err != nil {
 		return err
 	}
+	isEuroScopeSurveillance := observation.UsesEuroScopeSurveillance()
 	airport := strings.ToUpper(strings.TrimSpace(observation.Destination))
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.observed[airport] == nil {
 		s.observed[airport] = map[aman.FlightID]aman.FlightObservation{}
 	}
+	if previous, ok := s.observed[airport][observation.FlightID]; ok {
+		observation = mergeSurveillanceObservation(previous, observation)
+	}
 	s.observed[airport][observation.FlightID] = observation
-	s.health.vatsim = sourceComponentHealth(observation.SourceStatus, observation.ReconciledAt)
+	if !isEuroScopeSurveillance {
+		s.health.vatsim = sourceComponentHealth(observation.SourceStatus, observation.ReconciledAt)
+	}
 	return nil
+}
+
+// mergeSurveillanceObservation preserves a fresh EuroScope track while
+// accepting every newer VATSIM flight-plan update. EuroScope observations are
+// positional overlays only; they never replace route, aircraft, or planning
+// facts received from VATSIM.
+func mergeSurveillanceObservation(previous, incoming aman.FlightObservation) aman.FlightObservation {
+	if incoming.UsesEuroScopeSurveillance() {
+		merged := previous
+		merged.FlightID, merged.VATSIMCID, merged.Callsign = incoming.FlightID, incoming.VATSIMCID, incoming.Callsign
+		merged.Surveillance, merged.SurveillanceSource = incoming.Surveillance, aman.SurveillanceSourceEuroScope
+		merged.ReconciledAt, merged.SourceStatus, merged.Missing = incoming.ReconciledAt, aman.DataFresh, false
+		return merged
+	}
+	if freshEuroScopeSurveillance(previous, incoming.ReconciledAt) {
+		incoming.Surveillance = previous.Surveillance
+		incoming.SurveillanceSource = aman.SurveillanceSourceEuroScope
+		incoming.SourceStatus, incoming.Missing = aman.DataFresh, false
+	}
+	return incoming
+}
+
+func freshEuroScopeSurveillance(observation aman.FlightObservation, at time.Time) bool {
+	if !observation.UsesEuroScopeSurveillance() || observation.Surveillance == nil || observation.Surveillance.ObservedAt == nil {
+		return false
+	}
+	return !at.After(observation.Surveillance.ObservedAt.Add(euroScopeSurveillanceFresh))
 }
 
 func (s *Service) ObserveSourceHealth(_ context.Context, status aman.DataStatus, observedAt time.Time) error {
@@ -145,6 +197,11 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 		}
 	}
 }
+
+// Reconcile performs one complete AMAN reconciliation cycle. It is used by
+// deterministic replay/validation tooling; the runtime worker calls the same
+// internal operation on its configured interval.
+func (s *Service) Reconcile(ctx context.Context) { s.reconcileAll(ctx) }
 
 func (s *Service) reconcileAll(ctx context.Context) {
 	for _, airport := range s.deps.Airports {
@@ -250,12 +307,23 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 	next := current
 	next.Flights = slices.Clone(current.Flights)
 	next.RunwayGroups = slices.Clone(current.RunwayGroups)
-	if len(next.RunwayGroups) == 0 {
+	if !runwayGroupsMatchTerminal(next.RunwayGroups, s.deps.Terminal.RunwayGroups) {
 		next.RunwayGroups = s.initialState(airport, now).RunwayGroups
+		resetFlightsForRunwayConfiguration(&next)
 	}
-	selectedGroup, selectionChanged := updateSelectedRunwayGroup(next.RunwayGroups, now)
-	if selectionChanged {
-		reassignFlightsToGroup(&next, selectedGroup)
+	if s.deps.Runways != nil {
+		selectedGroup, selectionChanged, selectionErr := s.selectSessionRunwayGroup(ctx, airport, next.RunwayGroups)
+		if selectionErr != nil {
+			return selectionErr
+		}
+		if selectionChanged {
+			reassignFlightsToGroup(&next, selectedGroup)
+		}
+	} else {
+		selectedGroup, selectionChanged := updateSelectedRunwayGroup(next.RunwayGroups, now)
+		if selectionChanged {
+			reassignFlightsToGroup(&next, selectedGroup)
+		}
 	}
 	updateActiveRates(next.RunwayGroups, now)
 	observations := s.observations(airport)
@@ -309,7 +377,8 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 			next.Flights[i].Slot.Revision = next.Revision
 		}
 	}
-	queueInput := sequenceInput(next, s.deps.Terminal)
+	refreshHoldingPlans(&next)
+	queueInput := s.sequenceInput(next)
 	next, err = sequence.ProjectQueueOffers(next, queueInput, sequence.QueueOfferConfig{Validity: queueOfferValidity}, now)
 	if err != nil {
 		return fmt.Errorf("project AMAN queue offers: %w", err)
@@ -347,12 +416,13 @@ func (s *Service) observations(airport string) map[aman.FlightID]aman.FlightObse
 }
 
 func (s *Service) initialState(airport string, now time.Time) aman.AirportState {
+	rate := defaultRateForAirport(airport)
 	groups := make([]aman.RunwayGroupPolicy, 0, len(s.deps.Terminal.RunwayGroups))
 	for index, configured := range s.deps.Terminal.RunwayGroups {
 		effective := now
 		group := aman.RunwayGroupPolicy{
-			ID: configured.ID, Selected: index == 0, ActiveRatePerHour: defaultArrivalRate, RateEffectiveAt: &effective,
-			RateSchedule: []aman.RunwayGroupRatePoint{{EffectiveAt: effective, ArrivalsPerHour: defaultArrivalRate}},
+			ID: configured.ID, Selected: index == 0, ActiveRatePerHour: rate, RateEffectiveAt: &effective,
+			RateSchedule: []aman.RunwayGroupRatePoint{{EffectiveAt: effective, ArrivalsPerHour: rate}},
 		}
 		if index == 0 {
 			group.SelectionSchedule = []aman.RunwayGroupSelectionPoint{{EffectiveAt: effective}}
@@ -366,6 +436,13 @@ func (s *Service) initialState(airport string, now time.Time) aman.AirportState 
 		Airport: airport, GeneratedAt: now, PolicyVersion: policyVersion, Mode: s.deps.Mode,
 		Authoritative: s.deps.Mode == aman.ModeAuthoritative, Flights: []aman.AMANFlight{}, RunwayGroups: groups,
 	}
+}
+
+func defaultRateForAirport(airport string) uint32 {
+	if strings.EqualFold(strings.TrimSpace(airport), "EKCH") {
+		return ekchDefaultArrivalRate
+	}
+	return defaultArrivalRate
 }
 
 func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFlight {
@@ -382,6 +459,7 @@ func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFligh
 }
 
 func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) (aman.AMANFlight, error) {
+	previousObservation := flight.LatestObservation
 	copy := observation
 	flight.LatestObservation = &copy
 	flight.VATSIMCID, flight.CurrentCallsign, flight.DataStatus = observation.VATSIMCID, observation.Callsign, observation.SourceStatus
@@ -412,7 +490,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		return flight, fmt.Errorf("terminal has no configured runway group")
 	}
 	flight.SelectedRunwayGroup = &group
-	feeder, ok := s.feeder(*observation.FiledRoute)
+	feeder, ok := s.feeder(*observation.FiledRoute, group)
 	if !ok {
 		markUnknownSTARFamily(&flight, now)
 		return flight, nil
@@ -424,9 +502,10 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	query := navdata.RouteQuery{Version: version, Origin: navdata.AirportID(observation.Origin), Destination: navdata.AirportID(observation.Destination), FiledRoute: *observation.FiledRoute, RunwayGroup: &group}
 	revision := revisionValue(observation.FlightPlan.Revision)
+	projectionRevision := routeProjectionRevision(flight, revision)
 	datasetID := navigationDatasetID(version)
 	var key navdata.RouteKey
-	if canReuseActiveRoute(flight, revision, group, datasetID) {
+	if canReuseActiveRoute(flight, projectionRevision, group, datasetID) {
 		key = navdata.RouteKey(*flight.ActiveRouteKey)
 		if !hasResolvedRouteFixes(ctx, s.deps.Geometry, navdata.AirportID(observation.Destination), key) {
 			key = ""
@@ -443,7 +522,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	projection, err := trajectory.Project(ctx, trajectory.Readers{Geometry: s.deps.Geometry, Snapshot: s.deps.Geometry}, trajectory.Input{
 		Airport: navdata.AirportID(observation.Destination), RouteKey: key, Feeder: feeder, RunwayGroup: group,
-		FlightPlanRevision: revision, Observation: *observation.Surveillance, Prior: flight.RouteProgress,
+		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: flight.RouteProgress,
 	}, trajectory.Config{ReferenceTime: now, MaxObservationAge: 2 * time.Minute})
 	if err != nil {
 		return flight, err
@@ -451,10 +530,18 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	if projection.DistanceToGoNM == nil || len(projection.Remaining) == 0 || projection.Completeness == trajectory.Unresolved || projection.Completeness == trajectory.OffRoute {
 		return flight, fmt.Errorf("route geometry is not publishable: %s", projection.Completeness)
 	}
+	descentConfirmed, descentEvidenceSamples := descentStateForRoute(flight.RouteProgress, previousObservation, observation, projection.InTMA)
+	if projection.Progress != nil {
+		projection.Progress.DescentConfirmed = descentConfirmed
+		projection.Progress.DescentEvidenceSamples = descentEvidenceSamples
+	}
 	input := predictor.PerformanceWindInput{
 		PredictionAt: now, AircraftICAO: stringValue(observation.AircraftType), WakeTurbulenceCategory: category(observation.WakeCategory),
-		AltitudeFeet: float64(*observation.Surveillance.AltitudeFeet), CurrentGroundspeedKnots: *observation.Surveillance.GroundspeedKnots,
-		Remaining: predictorLegs(projection.Remaining),
+		AltitudeFeet: float64(*observation.Surveillance.AltitudeFeet), CruiseAltitudeFeet: predictionCruiseAltitudeForRoute(observation, projection.InTMA, descentConfirmed), CurrentGroundspeedKnots: *observation.Surveillance.GroundspeedKnots,
+		CurrentTrackTrueDegrees:         observation.Surveillance.TrackTrueDegrees,
+		UseObservedGroundspeedBeforeTOD: useObservedGroundspeedForRoute(observation, projection.InTMA),
+		DescentConfirmed:                descentConfirmed,
+		Remaining:                       predictorLegs(projection.Remaining),
 	}
 	estimate, err := predictor.EstimatePerformanceWind(ctx, nil, s.deps.Wind, input, predictor.PerformanceWindConfig{})
 	if err != nil {
@@ -492,10 +579,17 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		flight.SelectedHolding = &holding
 		raw.HoldingFixETA = holdingETA(now, estimate.LegDurations, projection.Remaining, projection.SelectedHolding.Fix)
 	}
+	flight.HoldingStack = updateHoldingStack(flight.HoldingStack, projection.HoldingCandidate, observedAt(observation.Surveillance, now))
 	flight.RouteProgress = projection.Progress
 	previousState := flight.State
 	nextState := lifecycleState(flight, raw.RawTETA, now)
-	reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{Raw: raw, State: nextState, Slot: flight.Slot})
+	reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{
+		Raw:                          raw,
+		State:                        nextState,
+		Slot:                         flight.Slot,
+		FreezeForTMA:                 projection.InTMA,
+		ReplacePreliminaryPrediction: isPreliminaryPrediction(flight.Prediction),
+	})
 	if err != nil {
 		return flight, err
 	}
@@ -504,10 +598,11 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	return updated, nil
 }
 
-func (s *Service) feeder(route string) (navdata.FeederID, bool) {
+func (s *Service) feeder(route string, runwayGroup aman.RunwayGroupID) (navdata.FeederID, bool) {
 	tokens := strings.FieldsFunc(strings.ToUpper(route), func(r rune) bool {
 		return !((r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'))
 	})
+	// Prefer an explicitly filed feeder or configured alias.
 	for _, configured := range s.deps.Terminal.Feeders {
 		for _, token := range tokens {
 			if token == string(configured.ID) || slices.Contains(configured.Aliases, navdata.FeederID(token)) {
@@ -515,11 +610,38 @@ func (s *Service) feeder(route string) (navdata.FeederID, bool) {
 			}
 		}
 	}
+	// A flight may join a STAR downstream of its named feeder. Walk the filed
+	// route backwards and use the first waypoint that belongs uniquely to one
+	// configured path for the active runway group. Shared merge fixes are
+	// deliberately ignored instead of guessing a family.
+	for tokenIndex := len(tokens) - 1; tokenIndex >= 0; tokenIndex-- {
+		token := navdata.FixID(tokens[tokenIndex])
+		matches := map[navdata.FeederID]struct{}{}
+		for _, path := range s.deps.Terminal.Paths {
+			if path.RunwayGroup == runwayGroup && slices.Contains(path.Fixes, token) {
+				matches[path.Feeder] = struct{}{}
+			}
+		}
+		if len(matches) == 1 {
+			for feeder := range matches {
+				return feeder, true
+			}
+		}
+	}
 	return "", false
 }
 
 func (s *Service) resequence(state *aman.AirportState, now time.Time) {
-	input := sequenceInput(*state, s.deps.Terminal)
+	defer refreshHoldingPlans(state)
+	targets := releaseGainResequenceTargets(state)
+	input := s.sequenceInput(*state)
+	for index := range input.Flights {
+		if _, target := targets[input.Flights[index].ID]; target {
+			input.Flights[index].ProtectCurrentSlot = false
+			input.Flights[index].ManualOrder = nil
+			input.Flights[index].State = aman.StateUnstable
+		}
+	}
 	if len(input.Flights) == 0 || len(input.Policies) == 0 {
 		return
 	}
@@ -543,7 +665,55 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) {
 	}
 }
 
+// refreshHoldingPlans derives a holding/release plan from the immutable slot
+// and the latest physical prediction. The physical prediction incorporates
+// current surveillance altitude; a later raw ETA therefore reduces the hold
+// rather than moving the committed slot. If the slot is no longer feasible,
+// no holding plan is emitted and the existing slot remains for controller
+// review or an authorized action.
+func refreshHoldingPlans(state *aman.AirportState) {
+	for index := range state.Flights {
+		flight := &state.Flights[index]
+		if flight.Prediction == nil {
+			continue
+		}
+		prediction := *flight.Prediction
+		prediction.HoldingPlan = holdingPlan(prediction, flight.Slot)
+		flight.Prediction = &prediction
+	}
+}
+
+func holdingPlan(prediction aman.Prediction, slot *aman.Slot) *aman.HoldingPlan {
+	if !prediction.Publishable || slot == nil || prediction.HoldingFixETA == nil || !slot.Time.After(prediction.RawTETA) {
+		return nil
+	}
+	postHoldingTransit := prediction.RawTETA.Sub(*prediction.HoldingFixETA)
+	if postHoldingTransit <= 0 {
+		return nil
+	}
+	release := slot.Time.Add(-postHoldingTransit)
+	if !release.After(*prediction.HoldingFixETA) {
+		return nil
+	}
+	return &aman.HoldingPlan{
+		HoldingEntryTime:        *prediction.HoldingFixETA,
+		ApproachReleaseTime:     release,
+		ExpectedHoldingDuration: release.Sub(*prediction.HoldingFixETA),
+		PostHoldingTransit:      postHoldingTransit,
+	}
+}
+
+func (s *Service) sequenceInput(state aman.AirportState) sequence.Input {
+	return sequenceInputWithAircraft(state, s.deps.Terminal, s.deps.AircraftEngines)
+}
+
+// sequenceInput is retained for package tests that do not need the optional
+// TopSky aircraft classification source.
 func sequenceInput(state aman.AirportState, config terminal.Configuration) sequence.Input {
+	return sequenceInputWithAircraft(state, config, nil)
+}
+
+func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configuration, aircraft AircraftEngineReference) sequence.Input {
 	input := sequence.Input{Revision: state.Revision}
 	configured := map[aman.RunwayGroupID]terminal.RunwayGroup{}
 	for _, group := range config.RunwayGroups {
@@ -570,6 +740,12 @@ func sequenceInput(state aman.AirportState, config terminal.Configuration) seque
 			(!flight.Prediction.Publishable && flight.FreezeReason == aman.FreezeNone) {
 			continue
 		}
+		if flight.FreezeReason == aman.FreezeTMA && flight.Slot == nil {
+			continue
+		}
+		if isLightPiston(flight, aircraft) && !flight.ManualSequenceIncluded {
+			continue
+		}
 		wakeCategory := ""
 		if flight.LatestObservation != nil {
 			wakeCategory = strings.ToUpper(stringValue(flight.LatestObservation.WakeCategory))
@@ -580,9 +756,87 @@ func sequenceInput(state aman.AirportState, config terminal.Configuration) seque
 			ManualOrder:  flight.ManualOrder,
 			FreezeReason: flight.FreezeReason, FrozenAt: flight.FrozenAt, FrozenOperationalTETA: flight.FrozenOperationalTETA,
 			CapturedSlot: flight.FrozenSlot, CurrentSlot: flight.Slot,
+			ProtectCurrentSlot: flight.State == aman.StateStable && flight.ManualOrder == nil && flight.Slot != nil && flight.FreezeReason == aman.FreezeNone,
+			HoldingStackID:     holdingStackID(flight), HoldingAltitudeFeet: holdingStackAltitude(flight),
 		})
 	}
 	return input
+}
+
+const holdingConfirmationObservations = uint32(2)
+
+func updateHoldingStack(previous *aman.HoldingStackState, candidate *trajectory.HoldingCandidate, at time.Time) *aman.HoldingStackState {
+	if candidate == nil {
+		return nil
+	}
+	id := string(candidate.HoldingID)
+	if previous != nil && previous.HoldingID == id && !at.After(previous.CandidateObservedAt) {
+		copy := *previous
+		return &copy
+	}
+	next := aman.HoldingStackState{HoldingID: id, CandidateObservedAt: at, ConsecutiveObservations: 1}
+	if previous != nil && previous.HoldingID == id && at.Sub(previous.CandidateObservedAt) <= 3*time.Minute {
+		next.ConsecutiveObservations = previous.ConsecutiveObservations + 1
+	}
+	next.Confirmed = next.ConsecutiveObservations >= holdingConfirmationObservations
+	return &next
+}
+
+func holdingStackID(flight aman.AMANFlight) string {
+	if flight.HoldingStack == nil || !flight.HoldingStack.Confirmed {
+		return ""
+	}
+	return flight.HoldingStack.HoldingID
+}
+
+func holdingStackAltitude(flight aman.AMANFlight) *int {
+	if holdingStackID(flight) == "" || flight.LatestObservation == nil || flight.LatestObservation.Surveillance == nil || flight.LatestObservation.Surveillance.AltitudeFeet == nil {
+		return nil
+	}
+	altitude := *flight.LatestObservation.Surveillance.AltitudeFeet
+	return &altitude
+}
+
+func isLightPiston(flight aman.AMANFlight, aircraft AircraftEngineReference) bool {
+	if aircraft == nil || flight.LatestObservation == nil || flight.LatestObservation.AircraftType == nil {
+		return false
+	}
+	aircraftType := stringValue(flight.LatestObservation.AircraftType)
+	engine, engineKnown := aircraft.Lookup(aircraftType)
+	wtc, wtcKnown := aircraft.LookupWTC(aircraftType)
+	return engineKnown && wtcKnown && engine == sat.EnginePiston && strings.EqualFold(wtc, "L")
+}
+
+const gainResequenceThreshold = 4 * time.Minute
+
+// releaseGainResequenceTargets authorizes the narrow automatic exception to
+// committed-slot immutability. Stable slots around the target stay protected;
+// a late target is reinserted at the earliest policy-valid open grid slot.
+func releaseGainResequenceTargets(state *aman.AirportState) map[aman.FlightID]struct{} {
+	targets := map[aman.FlightID]struct{}{}
+	for index := range state.Flights {
+		flight := &state.Flights[index]
+		if flight.State != aman.StateStable || flight.Slot == nil || flight.Prediction == nil || flight.FreezeReason == aman.FreezeTMA {
+			continue
+		}
+		reference := flight.Prediction.OperationalTETA
+		if flight.FreezeReason == aman.FreezeSuperstable {
+			reference = flight.Prediction.RawTETA
+		}
+		if reference.Sub(flight.Slot.Time) <= gainResequenceThreshold {
+			continue
+		}
+		if flight.FreezeReason == aman.FreezeSuperstable {
+			flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
+			prediction := *flight.Prediction
+			prediction.OperationalTETA = prediction.RawTETA
+			prediction.OperationalReason = aman.OperationalReasonPredicted
+			flight.Prediction = &prediction
+		}
+		flight.ManualOrder = nil
+		targets[flight.ID] = struct{}{}
+	}
+	return targets
 }
 
 func sequenceRates(group aman.RunwayGroupPolicy) []sequence.RatePoint {
@@ -648,6 +902,37 @@ func updateSelectedRunwayGroup(groups []aman.RunwayGroupPolicy, now time.Time) (
 	return groups[candidateIndex].ID, changed
 }
 
+// selectSessionRunwayGroup makes the airport session's selected arrival
+// runway authoritative for AMAN. It deliberately does not infer a runway from
+// surveillance or a STAR: the terminal configuration maps the session runway
+// to its exact, one-runway AMAN group.
+func (s *Service) selectSessionRunwayGroup(ctx context.Context, airport string, groups []aman.RunwayGroupPolicy) (aman.RunwayGroupID, bool, error) {
+	runway, err := s.deps.Runways.ActiveArrivalRunway(ctx, airport)
+	if err != nil {
+		return "", false, fmt.Errorf("read active arrival runway: %w", err)
+	}
+	runway = strings.ToUpper(strings.TrimSpace(runway))
+	if runway == "" {
+		return "", false, fmt.Errorf("active session has no selected arrival runway")
+	}
+	requested := aman.RunwayGroupID(runway)
+	selection := s.deps.Terminal.ResolveRunwayGroup(terminal.SelectionInput{SessionRunwayGroup: &requested})
+	if selection.RunwayGroup == nil {
+		return "", false, fmt.Errorf("active arrival runway %q is not enabled for AMAN", runway)
+	}
+	for index := range groups {
+		if groups[index].ID != *selection.RunwayGroup {
+			continue
+		}
+		changed := !groups[index].Selected
+		for groupIndex := range groups {
+			groups[groupIndex].Selected = groupIndex == index
+		}
+		return groups[index].ID, changed, nil
+	}
+	return "", false, fmt.Errorf("active arrival runway %q maps to unavailable AMAN group %q", runway, *selection.RunwayGroup)
+}
+
 func amanCPHSeparations() []sequence.SeparationRule {
 	categories := []sequence.WakeCategory{"L", "M", "H", "J"}
 	rules := make([]sequence.SeparationRule, 0, len(categories)*len(categories))
@@ -676,7 +961,7 @@ func offRouteFallbackReason(reasons []string) string {
 }
 
 func (s *Service) selectedGroup(flight aman.AMANFlight, groups []aman.RunwayGroupPolicy) (aman.RunwayGroupID, bool) {
-	if flight.SelectedRunwayGroup != nil && (flight.State == aman.StateStable || flight.FreezeReason != aman.FreezeNone) {
+	if flight.SelectedRunwayGroup != nil && (flight.State == aman.StateStable || flight.FreezeReason != aman.FreezeNone) && containsRunwayGroup(groups, *flight.SelectedRunwayGroup) {
 		return *flight.SelectedRunwayGroup, true
 	}
 	for _, group := range groups {
@@ -694,6 +979,35 @@ func (s *Service) selectedGroup(flight aman.AMANFlight, groups []aman.RunwayGrou
 		return s.deps.Terminal.RunwayGroups[0].ID, true
 	}
 	return "", false
+}
+
+func runwayGroupsMatchTerminal(current []aman.RunwayGroupPolicy, configured []terminal.RunwayGroup) bool {
+	if len(current) != len(configured) {
+		return false
+	}
+	for index := range current {
+		if current[index].ID != configured[index].ID {
+			return false
+		}
+	}
+	return true
+}
+
+func resetFlightsForRunwayConfiguration(state *aman.AirportState) {
+	for index := range state.Flights {
+		flight := &state.Flights[index]
+		flight.SelectedRunwayGroup = nil
+		flight.SelectedHolding = nil
+		flight.HoldingStack = nil
+		flight.ActiveRouteKey = nil
+		flight.ActiveRouteDatasetID = nil
+		flight.RouteProgress = nil
+		clearSequencingState(flight)
+	}
+}
+
+func containsRunwayGroup(groups []aman.RunwayGroupPolicy, want aman.RunwayGroupID) bool {
+	return slices.ContainsFunc(groups, func(group aman.RunwayGroupPolicy) bool { return group.ID == want })
 }
 
 func applyBaseline(flight *aman.AMANFlight, observation aman.FlightObservation, now time.Time) {
@@ -745,6 +1059,14 @@ func applyPreliminaryPrediction(flight *aman.AMANFlight, observation aman.Flight
 	}
 }
 
+func isPreliminaryPrediction(value *aman.Prediction) bool {
+	if value == nil {
+		return false
+	}
+	return strings.HasPrefix(value.ModelVersion, "aman-planned-") ||
+		strings.HasPrefix(value.ModelVersion, "aman-airborne-")
+}
+
 func lifecycleState(flight aman.AMANFlight, teta, now time.Time) aman.FlightState {
 	until := teta.Sub(now)
 	switch flight.State {
@@ -786,6 +1108,10 @@ func updateLifecycle(flight *aman.AMANFlight, previousState, state aman.FlightSt
 }
 
 func markMissing(flight *aman.AMANFlight, now time.Time) {
+	// A missing source record is not a valid arrival candidate. Release its
+	// capacity immediately; the lifecycle timeout only controls when its
+	// identity can be retired.
+	clearSequencingState(flight)
 	if flight.Lifecycle == nil {
 		flight.Lifecycle = &aman.LifecycleState{EnteredAt: flight.UpdatedAt, Reason: aman.LifecycleReasonInitial, LastEventID: "missing", LastEventFingerprint: modelVersion, LastEventAt: now}
 	}
@@ -875,7 +1201,7 @@ func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObs
 }
 
 func clearGroundedOperationalState(flight *aman.AMANFlight) {
-	flight.SelectedFeeder, flight.SelectedHolding = nil, nil
+	flight.SelectedFeeder, flight.SelectedHolding, flight.HoldingStack = nil, nil, nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
@@ -929,17 +1255,89 @@ func markPredictionNonPublishable(flight *aman.AMANFlight, reason string) {
 	prediction.Publishable = false
 	prediction.DegradationReason = &reason
 	flight.Prediction = &prediction
-	if flight.FreezeReason == aman.FreezeNone {
-		flight.Slot = nil
-		flight.Order = nil
-		flight.ManualOrder = nil
-		flight.QueueOffers = nil
+	clearSequencingState(flight)
+}
+
+func clearSequencingState(flight *aman.AMANFlight) {
+	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
+	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
+	flight.HoldingStack = nil
+}
+
+func predictionCruiseAltitude(observation aman.FlightObservation) float64 {
+	altitude := float64(*observation.Surveillance.AltitudeFeet)
+	if observation.RequestedLevel == nil || *observation.RequestedLevel < *observation.Surveillance.AltitudeFeet+3_000 {
+		return altitude
 	}
+	return float64(*observation.RequestedLevel)
+}
+
+func predictionCruiseAltitudeForRoute(observation aman.FlightObservation, inTMA, descentConfirmed bool) float64 {
+	if inTMA || descentConfirmed {
+		return float64(*observation.Surveillance.AltitudeFeet)
+	}
+	return predictionCruiseAltitude(observation)
+}
+
+const (
+	descentEvidenceMinimumFeet = 100
+	descentEvidenceRequired    = 2
+	descentEvidenceMaximumAge  = 2 * time.Minute
+)
+
+// descentStateForRoute distinguishes an aircraft climbing toward filed cruise
+// from one already descending toward the terminal. Once confirmed, descent is
+// deliberately latched for the route so level-offs and speed-control climbs do
+// not make the performance model climb back to the filed level.
+func descentStateForRoute(progress *aman.RouteProgress, previous *aman.FlightObservation, current aman.FlightObservation, inTMA bool) (bool, uint8) {
+	if inTMA {
+		return true, descentEvidenceRequired
+	}
+	if progress != nil && progress.DescentConfirmed {
+		return true, max(progress.DescentEvidenceSamples, uint8(descentEvidenceRequired))
+	}
+	samples := uint8(0)
+	if progress != nil {
+		samples = progress.DescentEvidenceSamples
+	}
+	if consecutiveDescentObservation(previous, current) {
+		if samples < descentEvidenceRequired {
+			samples++
+		}
+	} else {
+		samples = 0
+	}
+	return samples >= descentEvidenceRequired, samples
+}
+
+func consecutiveDescentObservation(previous *aman.FlightObservation, current aman.FlightObservation) bool {
+	if previous == nil || previous.Surveillance == nil || current.Surveillance == nil ||
+		previous.Surveillance.AltitudeFeet == nil || current.Surveillance.AltitudeFeet == nil ||
+		previous.Surveillance.ObservedAt == nil || current.Surveillance.ObservedAt == nil {
+		return false
+	}
+	interval := current.Surveillance.ObservedAt.Sub(*previous.Surveillance.ObservedAt)
+	if interval <= 0 || interval > descentEvidenceMaximumAge {
+		return false
+	}
+	return *previous.Surveillance.AltitudeFeet-*current.Surveillance.AltitudeFeet >= descentEvidenceMinimumFeet
+}
+
+func useObservedGroundspeedBeforeTOD(observation aman.FlightObservation) bool {
+	if observation.RequestedLevel == nil {
+		return true
+	}
+	return *observation.Surveillance.AltitudeFeet >= *observation.RequestedLevel-3_000
+}
+
+func useObservedGroundspeedForRoute(observation aman.FlightObservation, inTMA bool) bool {
+	return inTMA || useObservedGroundspeedBeforeTOD(observation)
 }
 
 func markUnknownSTARFamily(flight *aman.AMANFlight, now time.Time) {
 	flight.SelectedFeeder = nil
 	flight.SelectedHolding = nil
+	flight.HoldingStack = nil
 	flight.ActiveRouteKey = nil
 	flight.ActiveRouteDatasetID = nil
 	flight.RouteProgress = nil
@@ -1078,6 +1476,17 @@ func canReuseActiveRoute(flight aman.AMANFlight, revision uint64, group aman.Run
 		flight.RouteProgress != nil &&
 		flight.RouteProgress.FlightPlanRevision == revision &&
 		flight.RouteProgress.RunwayGroupID == group
+}
+
+// routeProjectionRevision protects terminal route progress from administrative
+// flight-plan revisions. Once APP/TMA has frozen the arrival, only a confirmed
+// go-around may release that state; a late VATSIM FPL update must not send the
+// aircraft back to an earlier STAR leg.
+func routeProjectionRevision(flight aman.AMANFlight, observed uint64) uint64 {
+	if flight.FreezeReason == aman.FreezeTMA && flight.RouteProgress != nil {
+		return flight.RouteProgress.FlightPlanRevision
+	}
+	return observed
 }
 
 func hasResolvedRouteFixes(ctx context.Context, geometry GeometryCache, airport navdata.AirportID, key navdata.RouteKey) bool {

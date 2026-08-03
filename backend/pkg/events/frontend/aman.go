@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -46,25 +47,29 @@ type AMANFlight struct {
 	Feeder         *string `json:"feeder"`
 	// Star is the AMAN-selected arrival family, derived from the filed route
 	// and the active terminal configuration rather than an EuroScope strip.
-	Star            *string          `json:"star"`
-	HoldingFix      *string          `json:"holding_fix"`
-	HoldingFixETA   *string          `json:"holding_fix_eta"`
-	RouteFact       *AMANRouteFact   `json:"route_fact"`
-	RawTETA         *string          `json:"raw_teta"`
-	OperationalTETA *string          `json:"operational_teta"`
-	GainLossSeconds *int64           `json:"gain_loss_seconds"`
-	FreezeReason    string           `json:"freeze_reason"`
-	FrozenAt        *string          `json:"frozen_at"`
-	Confidence      *string          `json:"confidence"`
-	Provenance      *AMANProvenance  `json:"provenance"`
-	InputAgeSeconds *int64           `json:"input_age_seconds"`
-	GeometryVersion *string          `json:"geometry_version"`
-	GeometryDigest  *string          `json:"geometry_digest"`
-	DistanceToGoNM  *float64         `json:"distance_to_go_nm"`
-	Slot            *AMANSlot        `json:"slot"`
-	Order           *int             `json:"order"`
-	ETAReview       *AMANETAReview   `json:"eta_review"`
-	QueueOffers     []AMANQueueOffer `json:"queue_offers"`
+	Star                      *string          `json:"star"`
+	HoldingFix                *string          `json:"holding_fix"`
+	HoldingFixETA             *string          `json:"holding_fix_eta"`
+	HoldingEntryTime          *string          `json:"holding_entry_time"`
+	ApproachReleaseTime       *string          `json:"approach_release_time"`
+	ExpectedHoldingSeconds    *int64           `json:"expected_holding_seconds"`
+	PostHoldingTransitSeconds *int64           `json:"post_holding_transit_seconds"`
+	RouteFact                 *AMANRouteFact   `json:"route_fact"`
+	RawTETA                   *string          `json:"raw_teta"`
+	OperationalTETA           *string          `json:"operational_teta"`
+	GainLossSeconds           *int64           `json:"gain_loss_seconds"`
+	FreezeReason              string           `json:"freeze_reason"`
+	FrozenAt                  *string          `json:"frozen_at"`
+	Confidence                *string          `json:"confidence"`
+	Provenance                *AMANProvenance  `json:"provenance"`
+	InputAgeSeconds           *int64           `json:"input_age_seconds"`
+	GeometryVersion           *string          `json:"geometry_version"`
+	GeometryDigest            *string          `json:"geometry_digest"`
+	DistanceToGoNM            *float64         `json:"distance_to_go_nm"`
+	Slot                      *AMANSlot        `json:"slot"`
+	Order                     *int             `json:"order"`
+	ETAReview                 *AMANETAReview   `json:"eta_review"`
+	QueueOffers               []AMANQueueOffer `json:"queue_offers"`
 }
 
 type AMANRouteFact struct {
@@ -248,6 +253,20 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		}
 		if result.HoldingFixETA, err = formatOptionalTime(prediction.HoldingFixETA); err != nil {
 			return AMANFlight{}, err
+		}
+		if prediction.HoldingPlan != nil {
+			if result.HoldingEntryTime, err = formatOptionalValue(prediction.HoldingPlan.HoldingEntryTime); err != nil {
+				return AMANFlight{}, err
+			}
+			if result.ApproachReleaseTime, err = formatOptionalValue(prediction.HoldingPlan.ApproachReleaseTime); err != nil {
+				return AMANFlight{}, err
+			}
+			expected, expectedErr := aman.WholeSeconds(prediction.HoldingPlan.ExpectedHoldingDuration.Round(time.Second))
+			transit, transitErr := aman.WholeSeconds(prediction.HoldingPlan.PostHoldingTransit.Round(time.Second))
+			if expectedErr != nil || transitErr != nil {
+				return AMANFlight{}, errors.Join(expectedErr, transitErr)
+			}
+			result.ExpectedHoldingSeconds, result.PostHoldingTransitSeconds = &expected, &transit
 		}
 		confidence := string(prediction.Confidence)
 		result.Confidence = &confidence

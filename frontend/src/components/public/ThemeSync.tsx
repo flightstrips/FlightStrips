@@ -7,7 +7,7 @@ import {
 } from "@/lib/public-theme";
 
 const SELECTABLE_PUBLIC_PATHS = new Set(["/", "/about", "/contact"]);
-const STANDALONE_SCROLL_PATHS = new Set(["/cdm", "/stand"]);
+const STANDALONE_SCROLL_PATHS = new Set(["/aman-replay", "/cdm", "/stand"]);
 
 /**
  * Syncs document theme with stored public theme. On /app we always remove dark

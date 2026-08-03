@@ -39,10 +39,18 @@ type StripService struct {
 	pdcService           shared.PdcService
 	cdmService           StripCdmService
 	departureObserver    departurePositionObserver
+	arrivalObserver      arrivalPositionObserver
 }
 
 type departurePositionObserver interface {
 	ObserveDeparturePosition(ctx context.Context, session int32, strip *internalModels.Strip, latitude, longitude float64) error
+}
+
+// arrivalPositionObserver receives authoritative EuroScope surveillance after
+// the strip position has been persisted. It is optional so strip handling
+// remains usable when AMAN is disabled.
+type arrivalPositionObserver interface {
+	ObserveEuroScopePosition(ctx context.Context, session int32, strip *internalModels.Strip, latitude, longitude float64, altitude int32) error
 }
 
 func NewStripService(stripReader StripReader, options ...StripServiceOption) *StripService {
@@ -169,6 +177,10 @@ func (s *StripService) SetCdmService(cdmService StripCdmService) {
 
 func (s *StripService) SetDeparturePositionObserver(observer departurePositionObserver) {
 	s.departureObserver = observer
+}
+
+func (s *StripService) SetArrivalPositionObserver(observer arrivalPositionObserver) {
+	s.arrivalObserver = observer
 }
 
 func (s *StripService) ClearMandatoryRouteCdm(ctx context.Context, sessionID int32, callsign string) {

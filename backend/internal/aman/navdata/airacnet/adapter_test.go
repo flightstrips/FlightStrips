@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -43,8 +44,8 @@ func TestAdapterPassesSharedSourceResolverContract(t *testing.T) {
 			writeJSON(w, detailJSON("EKCH", "SOK1P", "STAR", "TF", "SOK"))
 		case "/api/v1/procedures/EKCH/ILS22L":
 			writeJSON(w, detailJSON("EKCH", "ILS22L", "APP", "TF", "ROSBI"))
-		case "/api/v1/waypoints/KEMAX", "/api/v1/waypoints/SOK":
-			writeJSON(w, map[string]any{"data": map[string]any{"identifier": r.URL.Path[len("/api/v1/waypoints/"):], "coordinates": map[string]any{"lat": 55.8, "lon": 12.4}}})
+		case "/api/v1/waypoints/KEMAX", "/api/v1/waypoints/SOK", "/api/v1/waypoints/EK/KEMAX", "/api/v1/waypoints/EK/SOK":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": path.Base(r.URL.Path), "coordinates": map[string]any{"lat": 55.8, "lon": 12.4}}})
 		case "/api/v1/routes/parse":
 			require.Equal(t, "KEMAX SOK1P", r.URL.Query().Get("route"))
 			require.Equal(t, "22L", r.URL.Query().Get("arrival_runway"))
@@ -228,7 +229,7 @@ func TestConditionalRetryTimeoutCancellationRedactionAndConcurrency(t *testing.T
 			}
 			time.Sleep(15 * time.Millisecond)
 			current.Add(-1)
-			id := r.URL.Path[len("/api/v1/waypoints/"):]
+			id := path.Base(r.URL.Path)
 			writeJSON(w, map[string]any{"data": map[string]any{"identifier": id, "coordinates": map[string]any{"lat": 1, "lon": 1}}})
 		})
 		adapter := testAdapter(t, server.URL, Config{MaxConcurrent: 2})
@@ -334,12 +335,37 @@ func TestFixesUseAirportRegionToAvoidGlobalWaypointAmbiguity(t *testing.T) {
 	require.Equal(t, navdata.FixID("DUP"), fixes.Fixes[0].ID)
 }
 
+func TestFixesPreferAirportScopedWaypointOverWrongGlobalHomonym(t *testing.T) {
+	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/airac/current":
+			writeJSON(w, cycleJSON())
+		case "/api/v1/waypoints/EK/CH632":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": "CH632", "coordinates": map[string]any{"lat": 55.9, "lon": 12.7}}})
+		case "/api/v1/waypoints/CH632":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": "CH632", "coordinates": map[string]any{"lat": 26.3, "lon": -83.2}}})
+		default:
+			t.Errorf("unexpected endpoint %s", r.URL.String())
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	adapter := testAdapter(t, server.URL, Config{})
+	version, err := adapter.LatestVersion(context.Background())
+	require.NoError(t, err)
+
+	fixes, err := adapter.Fixes(context.Background(), navdata.FixQuery{Version: version, Airport: "EKCH", Identifiers: []navdata.FixID{"CH632"}})
+
+	require.NoError(t, err)
+	require.Len(t, fixes.Fixes, 1)
+	require.InDelta(t, 55.9, fixes.Fixes[0].Position.LatitudeDeg, 0.001)
+}
+
 func TestFixesResolveAirportScopedNavaidWhenWaypointIsMissing(t *testing.T) {
 	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/airac/current":
 			writeJSON(w, cycleJSON())
-		case "/api/v1/waypoints/TNO":
+		case "/api/v1/waypoints/EK/TNO", "/api/v1/waypoints/TNO":
 			w.WriteHeader(http.StatusNotFound)
 		case "/api/v1/navaids/EK/TNO":
 			writeJSON(w, map[string]any{"data": map[string]any{"identifier": "TNO", "coordinates": map[string]any{"lat": 55.774, "lon": 11.439}}})
@@ -362,8 +388,8 @@ func TestFixBatchUsesOneProvenanceSnapshot(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/airac/current":
 			writeJSON(w, cycleJSON())
-		case "/api/v1/waypoints/ONE", "/api/v1/waypoints/TWO":
-			writeJSON(w, map[string]any{"data": map[string]any{"identifier": r.URL.Path[len("/api/v1/waypoints/"):], "coordinates": map[string]any{"lat": 55, "lon": 12}}})
+		case "/api/v1/waypoints/ONE", "/api/v1/waypoints/TWO", "/api/v1/waypoints/EK/ONE", "/api/v1/waypoints/EK/TWO":
+			writeJSON(w, map[string]any{"data": map[string]any{"identifier": path.Base(r.URL.Path), "coordinates": map[string]any{"lat": 55, "lon": 12}}})
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -435,6 +461,51 @@ func TestRouteKeyPrecedesTransformsAndWarmCacheNeedsNoNetwork(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, geometry.Digest, equivalent.Digest)
 	require.Empty(t, equivalent.HoldingIDs)
+}
+
+func TestRouteTransformRemovesICAOSpeedLevelChangeWithoutRemovingRunwaySuffix(t *testing.T) {
+	query := navdata.RouteQuery{
+		FiledRoute: "DEXIR Y100 MALOX L621 LUSID/N0426F280 L621 ROE M743 TIDVU SID/22L DCT 52N020W/M084F340",
+	}
+
+	require.Equal(t,
+		"DEXIR Y100 MALOX L621 LUSID L621 ROE M743 TIDVU SID/22L 52N020W",
+		transformedRoute(query),
+	)
+}
+
+func TestRouteGeometryRemovesVendorCycleWhenParserReportsError(t *testing.T) {
+	point := func(identifier string, latitude float64) routePointDTO {
+		return routePointDTO{Identifier: identifier, Coordinates: coordinateDTO{Lat: latitude, Lon: 12}}
+	}
+	segment := func(from, to string, latitude float64) routeSegmentDTO {
+		return routeSegmentDTO{From: point(from, latitude), To: point(to, latitude+0.1), Distance: 10, Bearing: 90}
+	}
+	effectiveFrom := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
+	query := routeQuery(navdata.DatasetVersion{
+		Cycle: "2608", SourceRevision: "airac.net-2608",
+		EffectiveFrom: effectiveFrom, EffectiveUntil: effectiveFrom.Add(28 * 24 * time.Hour),
+	})
+	query.ArrivalProcedure = nil
+	result := routeData{
+		Segments: []routeSegmentDTO{
+			segment("A", "B", 55.0),
+			segment("B", "C", 55.1),
+			segment("C", "B", 55.2),
+			segment("B", "C", 55.1),
+			segment("C", "D", 55.2),
+		},
+		Errors: []routeErrorDTO{{Type: "unknown_element"}},
+	}
+	adapter := &Adapter{now: func() time.Time { return time.Date(2026, 7, 28, 0, 0, 0, 0, time.UTC) }}
+
+	geometry, err := adapter.routeGeometry(query, result)
+
+	require.NoError(t, err)
+	require.Equal(t, []navdata.FixID{"B", "C", "D"}, []navdata.FixID{
+		*geometry.Legs[0].ToFix, *geometry.Legs[1].ToFix, *geometry.Legs[2].ToFix,
+	})
+	require.Contains(t, geometry.Unresolved, "UNKNOWN_ELEMENT")
 }
 
 func TestErrorEnvelopeAndPermanentTransportFailureFailClosed(t *testing.T) {

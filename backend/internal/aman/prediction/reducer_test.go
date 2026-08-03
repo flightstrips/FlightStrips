@@ -56,6 +56,38 @@ func TestReducePersistsMedianDeadbandRateLimitAndBypasses(t *testing.T) {
 	require.Equal(t, aman.OperationalReasonFirstUnstable, unstable.Flight.Prediction.OperationalReason)
 }
 
+func TestReduceReplacesPreliminaryOperationalTimeWithFirstPhysicalPrediction(t *testing.T) {
+	now := predictionTime()
+	flight := predictionFlight(now)
+	flight.Prediction = &aman.Prediction{
+		RawTETA:           now.Add(8 * time.Hour),
+		OperationalTETA:   now.Add(8 * time.Hour),
+		OperationalReason: aman.OperationalReasonPredicted,
+		GeneratedAt:       now.Add(-time.Minute),
+		ModelVersion:      "aman-airborne-takeoff-eet-v1",
+		ConfigVersion:     "test",
+		Confidence:        aman.ConfidenceMedium,
+		Publishable:       true,
+	}
+
+	firstPhysical, err := Reduce(DefaultConfig(), flight, Input{
+		Raw:                          rawPrediction(now, now.Add(2*time.Hour)),
+		State:                        aman.StateAirborne,
+		ReplacePreliminaryPrediction: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, now.Add(2*time.Hour), firstPhysical.Flight.Prediction.OperationalTETA)
+	require.Equal(t, aman.OperationalReasonPredicted, firstPhysical.Flight.Prediction.OperationalReason)
+
+	next, err := Reduce(DefaultConfig(), firstPhysical.Flight, Input{
+		Raw:   rawPrediction(now.Add(time.Minute), now.Add(2*time.Hour+10*time.Minute)),
+		State: aman.StateAirborne,
+	})
+	require.NoError(t, err)
+	require.Equal(t, now.Add(2*time.Hour+time.Minute), next.Flight.Prediction.OperationalTETA)
+	require.Equal(t, aman.OperationalReasonRateLimited, next.Flight.Prediction.OperationalReason)
+}
+
 func TestReduceRestoresWindowAndSuperstableFreezeDeterministically(t *testing.T) {
 	now := predictionTime()
 	config := DefaultConfig()
@@ -127,6 +159,35 @@ func TestReduceDoesNotFreezeWithoutSlotOrOutsideExactBoundary(t *testing.T) {
 	result, err = Reduce(config, withoutSelectedHolding, Input{Raw: raw, State: aman.StateStable, Slot: &slot})
 	require.NoError(t, err)
 	require.Equal(t, aman.FreezeNone, result.Flight.FreezeReason)
+}
+
+func TestReduceTMAFreezeOnlyReleasesForGoAround(t *testing.T) {
+	now := predictionTime()
+	slot := aman.Slot{Time: now.Add(25 * time.Minute), RunwayGroupID: "north", Sequence: 1, Reason: "spacing"}
+	frozen, err := Reduce(DefaultConfig(), predictionFlight(now), Input{Raw: rawPrediction(now, now.Add(20*time.Minute)), State: aman.StateStable, Slot: &slot, FreezeForTMA: true})
+	require.NoError(t, err)
+	require.Equal(t, aman.FreezeTMA, frozen.Flight.FreezeReason)
+	require.Equal(t, aman.OperationalReasonTMAFreeze, frozen.Flight.Prediction.OperationalReason)
+	require.Equal(t, slot, *frozen.Flight.FrozenSlot)
+
+	stillFrozen, err := Reduce(DefaultConfig(), frozen.Flight, Input{Raw: rawPrediction(now.Add(time.Minute), now.Add(30*time.Minute)), State: aman.StateStable, ReleaseFreeze: true})
+	require.NoError(t, err)
+	require.Equal(t, aman.FreezeTMA, stillFrozen.Flight.FreezeReason)
+	require.Equal(t, frozen.Flight.Prediction.OperationalTETA, stillFrozen.Flight.Prediction.OperationalTETA)
+
+	goAround, err := Reduce(DefaultConfig(), stillFrozen.Flight, Input{Raw: rawPrediction(now.Add(2*time.Minute), now.Add(35*time.Minute)), State: aman.StateGoAround, ConfirmedGoAround: true})
+	require.NoError(t, err)
+	require.Equal(t, aman.FreezeNone, goAround.Flight.FreezeReason)
+	require.Nil(t, goAround.Flight.Slot)
+}
+
+func TestReduceTMAFreezeCanProtectAnUnsequencedFlight(t *testing.T) {
+	now := predictionTime()
+	frozen, err := Reduce(DefaultConfig(), predictionFlight(now), Input{Raw: rawPrediction(now, now.Add(20*time.Minute)), State: aman.StateStable, FreezeForTMA: true})
+	require.NoError(t, err)
+	require.Equal(t, aman.FreezeTMA, frozen.Flight.FreezeReason)
+	require.Nil(t, frozen.Flight.FrozenSlot)
+	require.NoError(t, frozen.Flight.Validate())
 }
 
 func TestReduceIgnoresStaleRawAndFrozenSlotUpdates(t *testing.T) {

@@ -12,10 +12,26 @@ import (
 	"FlightStrips/internal/aman/sequence"
 )
 
+// DefaultGoAroundDelay is the operational landing-time target applied from
+// go-around detection until a new physical prediction is established.
+const DefaultGoAroundDelay = 10 * time.Minute
+
 func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightCommand) (sequence.CommandMutation, error) {
-	return s.sequenceMutation("move_flight", command.FlightID, func(input sequence.Input) (sequence.Decision, error) {
-		return sequence.ApplyMove(input, sequence.MoveFlightCommand{Metadata: command.Metadata, FlightID: command.FlightID, RunwayGroupID: command.RunwayGroupID, BeforeFlightID: command.BeforeFlightID, AfterFlightID: command.AfterFlightID})
-	}), nil
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.FlightID)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+		}
+		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		// Moving an auto-excluded light piston flight is its explicit controller
+		// inclusion in the AMAN sequence.
+		state.Flights[index].ManualSequenceIncluded = true
+		decision, err := sequence.ApplyMove(s.sequenceInput(state), sequence.MoveFlightCommand{Metadata: command.Metadata, FlightID: command.FlightID, RunwayGroupID: command.RunwayGroupID, BeforeFlightID: command.BeforeFlightID, AfterFlightID: command.AfterFlightID})
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		return s.commandChange(applyDecision(state, decision), decision.Changed, "move_flight", command.FlightID, nil)
+	}, nil
 }
 
 func (s *Service) LockFlight(auth aman.CommandContext, command aman.LockFlightCommand) (sequence.CommandMutation, error) {
@@ -32,7 +48,7 @@ func (s *Service) UnlockFlight(auth aman.CommandContext, command aman.UnlockFlig
 
 func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		input := sequenceInput(state, s.deps.Terminal)
+		input := s.sequenceInput(state)
 		decision, err := sequence.ApplyRate(input, sequence.SetRateCommand{Metadata: command.Metadata, RunwayGroupID: command.RunwayGroupID, ArrivalsPerHour: command.ArrivalsPerHour, EffectiveAt: command.EffectiveAt})
 		if err != nil {
 			return sequence.CommandChange{}, err
@@ -106,6 +122,7 @@ func reassignFlightsToGroup(state *aman.AirportState, selected aman.RunwayGroupI
 		group := selected
 		flight.SelectedRunwayGroup = &group
 		flight.SelectedHolding = nil
+		flight.HoldingStack = nil
 		flight.ActiveRouteKey = nil
 		flight.ActiveRouteDatasetID = nil
 		flight.RouteProgress = nil
@@ -162,7 +179,7 @@ func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGo
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		flight := &state.Flights[index]
-		target := command.DetectedAt.Add(10 * time.Minute)
+		target := command.DetectedAt.Add(DefaultGoAroundDelay)
 		updatedPrediction := *flight.Prediction
 		updatedPrediction.OperationalTETA = target
 		updatedPrediction.OperationalReason = aman.OperationalReasonGoAround
@@ -174,8 +191,8 @@ func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGo
 			EnteredAt: command.DetectedAt, Reason: aman.LifecycleReasonGoAroundConfirmed,
 			LastEventID: "go-around:" + command.Metadata.CommandID, LastEventFingerprint: modelVersion, LastEventAt: command.DetectedAt,
 		}
-		input := sequenceInput(state, s.deps.Terminal)
-		decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: 10 * time.Minute, MaxCascade: len(input.Flights) + 1}, sequence.ApplyGoAroundCommand{Metadata: command.Metadata, FlightID: command.FlightID, DetectedAt: command.DetectedAt})
+		input := s.sequenceInput(state)
+		decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: DefaultGoAroundDelay, MaxCascade: len(input.Flights) + 1}, sequence.ApplyGoAroundCommand{Metadata: command.Metadata, FlightID: command.FlightID, DetectedAt: command.DetectedAt})
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
@@ -185,7 +202,7 @@ func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGo
 
 func (s *Service) sequenceMutation(action string, flightID aman.FlightID, apply func(sequence.Input) (sequence.Decision, error)) sequence.CommandMutation {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		decision, err := apply(sequenceInput(state, s.deps.Terminal))
+		decision, err := apply(s.sequenceInput(state))
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
@@ -218,7 +235,7 @@ func (s *Service) commandChange(state aman.AirportState, changed bool, action st
 		return change, err
 	}
 	change.QueueOffers = &sequence.QueueOfferCalculation{
-		Input:  sequenceInput(state, s.deps.Terminal),
+		Input:  s.sequenceInput(state),
 		Config: sequence.QueueOfferConfig{Validity: queueOfferValidity},
 	}
 	return change, nil
@@ -248,6 +265,7 @@ func applyDecision(state aman.AirportState, decision sequence.Decision) aman.Air
 			state.Flights[i].Order = &order
 		}
 	}
+	refreshHoldingPlans(&state)
 	return state
 }
 

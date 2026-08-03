@@ -40,6 +40,8 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 	if target.FreezeReason != aman.FreezeNone {
 		return Decision{}, invalidTransition("move requires the flight freeze to be released first")
 	}
+	// A controller move explicitly overrides routine stable-slot protection.
+	working.Flights[targetIndex].ProtectCurrentSlot = false
 
 	current, err := Generate(working)
 	if err != nil {
@@ -274,7 +276,7 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 			continue
 		}
 		index := flightIndex(working.Flights, entry.FlightID)
-		if working.Flights[index].FreezeReason == aman.FreezeSuperstable {
+		if working.Flights[index].FreezeReason == aman.FreezeSuperstable || working.Flights[index].FreezeReason == aman.FreezeTMA {
 			working.Flights[index].CapturedSlot = &aman.Slot{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence, Revision: input.Revision, Reason: string(entry.Reason)}
 		}
 	}
@@ -419,6 +421,12 @@ func groupOrder(result Result, group aman.RunwayGroupID) []aman.FlightID {
 func protectedReason(flight preparedFlight) CandidateReason {
 	if flight.FreezeReason == aman.FreezeSuperstable {
 		return ReasonFreezeSuperstable
+	}
+	if flight.FreezeReason == aman.FreezeTMA {
+		return ReasonFreezeTMA
+	}
+	if flight.ProtectCurrentSlot {
+		return ReasonStable
 	}
 	if flight.FreezeReason == aman.FreezeManual {
 		return ReasonFreezeManual

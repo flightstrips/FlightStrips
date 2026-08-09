@@ -16,9 +16,12 @@ type StandAssignment struct {
 	RuleID         *string
 	Tier           *int32
 	MatchedVariant *string
-	// ConflictReason is set only for an explicit manual override. It preserves
-	// why a controller knowingly allocated an incompatible or unavailable stand.
+	// ConflictReason records either an explicit manual override or a physical
+	// parked-stand observation that conflicts with another reservation or block.
 	ConflictReason *string
+	// ObservedStand records the physical stand seen when an assignment decision
+	// was made. It distinguishes a repeated old observation from a later move.
+	ObservedStand  *string
 	ETA            *time.Time
 	ETASource      *string
 	AssignedAt     *time.Time

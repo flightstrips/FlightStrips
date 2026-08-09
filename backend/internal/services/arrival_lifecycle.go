@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/vatsim"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"errors"
 	"fmt"
@@ -30,6 +31,8 @@ const (
 	// only the small stand-position circles.
 	arrivalAirportProximity   = 2 * 1852.0
 	arrivalAirportMaxAltitude = 1000
+	arrivalStandRetention     = 30 * time.Minute
+	arrivalRetentionRefreshAt = 10 * time.Minute
 
 	defaultArrivalSweepInterval = 30 * time.Second
 )
@@ -116,7 +119,23 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 	if existing == nil {
 		// The airport-area guard only freezes an existing operational stand.
 		// An unassigned arrival still needs a compatible stand.
-		return s.ensureAssignment(ctx, session, strip, flight, eta, targetStage)
+		var expiresAt *time.Time
+		if atAirport {
+			expiresAt = arrivalStandExpiresAt(strip, nil, now)
+			if !expiresAt.After(now) {
+				// A retained strip can outlive its stand-retention window. Do not
+				// recreate an assignment after ALDT + retention has elapsed.
+				return nil
+			}
+			if observedStand, found := s.observedParkedArrivalStand(strip, flight.Destination); found {
+				request := s.buildRequest(session, strip, flight, targetStage, eta, expiresAt)
+				request.Stand = observedStand
+				request.ObservedStand = &observedStand
+				_, err := s.allocations.assignObservedStand(ctx, request)
+				return err
+			}
+		}
+		return s.ensureAssignment(ctx, session, strip, flight, eta, targetStage, expiresAt)
 	}
 	currentStage := existing.Stage
 	if !isArrivalStage(currentStage) {
@@ -124,10 +143,40 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 	}
 	// A low-altitude position within the airport area is operational evidence
 	// that this arrival is no longer a movable planning reservation. It may
-	// still advance its lifecycle stage in place.
+	// still advance its lifecycle stage and retention deadline in place.
 	if atAirport {
-		if shouldPromoteArrival(currentStage, targetStage) || arrivalTimingChanged(existing, eta, arrivalETASource(eta)) {
-			return s.updateArrivalInPlace(ctx, existing, targetStage, eta, arrivalETASource(eta))
+		expiresAt := arrivalStandExpiresAt(strip, existing.ExpiresAt, now)
+		if !expiresAt.After(now) {
+			err := s.allocations.ReleaseAssignment(ctx, existing)
+			recordSATExpiry(ctx, existing, "arrival_retention_elapsed", err)
+			return err
+		}
+		// A controller-owned assignment remains authoritative. A PARK observation
+		// may replace an automatic plan, but must not silently undo an explicit
+		// controller decision while the aircraft still reports its previous stand.
+		nextObservedStand := existing.ObservedStand
+		if observedStand, found := s.observedParkedArrivalStand(strip, flight.Destination); found {
+			if arrivalObservedStandBaselinePending(existing) {
+				// Manual assignments created before observed-stand tracking have no
+				// trustworthy physical baseline. Preserve controller intent and record
+				// the first observation; only a later different stand may replace it.
+				nextObservedStand = &observedStand
+			} else if shouldAdoptObservedArrivalStand(existing, observedStand) {
+				request := s.buildRequest(session, strip, flight, targetStage, eta, expiresAt)
+				request.Stand = observedStand
+				request.ObservedStand = &observedStand
+				_, err := s.allocations.assignObservedStand(ctx, request)
+				return err
+			}
+			if strings.EqualFold(existing.Stand, observedStand) {
+				nextObservedStand = &observedStand
+			}
+		}
+		if shouldPromoteArrival(currentStage, targetStage) || arrivalExpiryChanged(existing.ExpiresAt, expiresAt) || stringPointerChanged(existing.ObservedStand, nextObservedStand) {
+			// Once the aircraft is in the airport area, ETA changes are no longer
+			// operational stand-planning inputs. Preserve the stand and its last
+			// accepted ETA while only advancing stage/retention metadata.
+			return s.updateArrivalAtAirport(ctx, existing, targetStage, expiresAt, nextObservedStand)
 		}
 		return nil
 	}
@@ -138,6 +187,49 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 		return nil
 	}
 	return s.promoteArrival(ctx, session, strip, flight, existing, eta, targetStage)
+}
+
+// CancelArrival releases an automatic arrival reservation that disappeared
+// before airport-area detection. Arrived assignments have a retention deadline;
+// manual assignments remain controller-owned.
+func (s *ArrivalLifecycleService) CancelArrival(ctx context.Context, session int32, callsign string) error {
+	existing, err := s.assignments.GetAssignment(ctx, session, callsign)
+	if err != nil {
+		if isNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if existing == nil || existing.Manual || existing.ExpiresAt != nil ||
+		existing.Direction != string(sat.AssignmentDirectionArrival) || !isArrivalStage(existing.Stage) {
+		return nil
+	}
+	return s.allocations.ReleaseAssignment(ctx, existing)
+}
+
+func (s *ArrivalLifecycleService) observedParkedArrivalStand(strip *models.Strip, flightDestination string) (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	return parkedArrivalStandAtPosition(s.stands, strip, flightDestination)
+}
+
+func parkedArrivalStandAtPosition(stands *sat.StandCapabilityRegistry, strip *models.Strip, flightDestination string) (string, bool) {
+	if stands == nil || strip == nil || strip.State == nil || !strings.EqualFold(strings.TrimSpace(*strip.State), euroscope.GroundStateParked) {
+		return "", false
+	}
+	if strip.PositionLatitude == nil || strip.PositionLongitude == nil || !validArrivalPosition(*strip.PositionLatitude, *strip.PositionLongitude) {
+		return "", false
+	}
+	airport := strings.ToUpper(strings.TrimSpace(flightDestination))
+	if airport == "" {
+		airport = strings.ToUpper(strings.TrimSpace(strip.Destination))
+	}
+	stand, found := stands.StandAtPosition(airport, *strip.PositionLatitude, *strip.PositionLongitude)
+	if !found {
+		return "", false
+	}
+	return stand.Name, true
 }
 
 func (s *ArrivalLifecycleService) arrivalIsAtAirport(strip *models.Strip, flightDestination string) bool {
@@ -163,8 +255,8 @@ func (s *ArrivalLifecycleService) arrivalIsAtAirport(strip *models.Strip, flight
 	return s.stands.PositionNearAirport(airport, *strip.PositionLatitude, *strip.PositionLongitude, arrivalAirportProximity)
 }
 
-func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, eta *time.Time, stage string) error {
-	request := s.buildRequest(session, strip, flight, stage, eta, nil)
+func (s *ArrivalLifecycleService) ensureAssignment(ctx context.Context, session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, eta *time.Time, stage string, expiresAt *time.Time) error {
+	request := s.buildRequest(session, strip, flight, stage, eta, expiresAt)
 	_, err := s.allocations.Allocate(ctx, request)
 	return err
 }
@@ -176,7 +268,7 @@ func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session in
 		return err
 	}
 	if available && s.currentStandIsOptimal(ctx, request, existing) {
-		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource)
+		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource, existing.ExpiresAt)
 	}
 	_, err = s.allocations.Reallocate(ctx, request)
 	return err
@@ -190,7 +282,7 @@ func (s *ArrivalLifecycleService) reallocateIfBlocked(ctx context.Context, sessi
 	}
 	if available {
 		if arrivalTimingChanged(existing, eta, request.ETASource) {
-			return s.updateArrivalInPlace(ctx, existing, existing.Stage, eta, request.ETASource)
+			return s.updateArrivalInPlace(ctx, existing, existing.Stage, eta, request.ETASource, existing.ExpiresAt)
 		}
 		return nil
 	}
@@ -250,12 +342,13 @@ func (s *ArrivalLifecycleService) currentStandIsOptimal(ctx context.Context, req
 	return selection.Tier >= int(*existing.Tier)
 }
 
-func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, existing *models.StandAssignment, stage string, eta *time.Time, etaSource *string) error {
+func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, existing *models.StandAssignment, stage string, eta *time.Time, etaSource *string, expiresAt *time.Time) error {
 	updated := *existing
 	now := s.now().UTC()
 	updated.Stage = stage
 	updated.ETA = eta
 	updated.ETASource = etaSource
+	updated.ExpiresAt = expiresAt
 	updated.AssignedAt = &now
 	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
 	if err != nil {
@@ -269,6 +362,33 @@ func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, exis
 		slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
 	}
 	if stage == StageConfirmed && existing.Stage != StageConfirmed {
+		return s.allocations.PublishConfirmedArrival(ctx, updated)
+	}
+	return s.allocations.PublishAssignment(ctx, updated)
+}
+
+func (s *ArrivalLifecycleService) updateArrivalAtAirport(ctx context.Context, existing *models.StandAssignment, stage string, expiresAt *time.Time, observedStand *string) error {
+	updated := *existing
+	stageChanged := existing.Stage != stage
+	updated.Stage = stage
+	updated.ExpiresAt = expiresAt
+	updated.ObservedStand = observedStand
+	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return fmt.Errorf("arrival airport-area update version conflict for %s", existing.Callsign)
+	}
+	updated.Version++
+	if !stageChanged {
+		// Keep controller clients on the current optimistic-concurrency version.
+		// PublishAssignment broadcasts assignment metadata without requesting a
+		// stand write in EuroScope.
+		return s.allocations.PublishAssignment(ctx, updated)
+	}
+	slog.InfoContext(ctx, "SAT assignment stage changed", slog.String("callsign", existing.Callsign), slog.String("stand", existing.Stand), slog.String("from_stage", existing.Stage), slog.String("to_stage", stage))
+	if stage == StageConfirmed {
 		return s.allocations.PublishConfirmedArrival(ctx, updated)
 	}
 	return s.allocations.PublishAssignment(ctx, updated)
@@ -321,11 +441,6 @@ func (s *ArrivalLifecycleService) releaseIfDue(ctx context.Context, session int3
 	if assignment.ExpiresAt != nil && !assignment.ExpiresAt.After(now) {
 		err = s.allocations.ReleaseAssignment(ctx, assignment)
 		recordSATExpiry(ctx, assignment, "expired", err)
-		return err
-	}
-	if assignment.ETA != nil && now.After(assignment.ETA.Add(30*time.Minute)) {
-		err = s.allocations.ReleaseAssignment(ctx, assignment)
-		recordSATExpiry(ctx, assignment, "arrival_timeout", err)
 		return err
 	}
 	return nil
@@ -458,6 +573,83 @@ func arrivalTimingChanged(existing *models.StandAssignment, eta *time.Time, etaS
 		return true
 	}
 	return existing.ETASource != nil && *existing.ETASource != *etaSource
+}
+
+func arrivalStandExpiresAt(strip *models.Strip, current *time.Time, now time.Time) *time.Time {
+	if strip != nil {
+		if aldt := strip.EffectiveAldt(); aldt != nil {
+			if landedAt, ok := parseArrivalLandingClockUTC(*aldt, now); ok {
+				expiresAt := landedAt.Add(arrivalStandRetention)
+				return &expiresAt
+			}
+		}
+	}
+	if current != nil && current.After(now) && current.Sub(now) > arrivalRetentionRefreshAt {
+		return current
+	}
+	// Without ALDT, keep a sliding deadline while live airport-area updates
+	// continue. Refresh only near expiry so ordinary feed polls do not cause a
+	// database write and full assignment publication every time.
+	expiresAt := now.UTC().Add(arrivalStandRetention)
+	return &expiresAt
+}
+
+func shouldAdoptObservedArrivalStand(existing *models.StandAssignment, observedStand string) bool {
+	if existing == nil || strings.EqualFold(existing.Stand, observedStand) {
+		return false
+	}
+	if !existing.Manual {
+		return true
+	}
+	if existing.ObservedStand == nil {
+		return true
+	}
+	return strings.TrimSpace(*existing.ObservedStand) != "" && !strings.EqualFold(*existing.ObservedStand, observedStand)
+}
+
+func arrivalObservedStandBaselinePending(existing *models.StandAssignment) bool {
+	return existing != nil && existing.Manual && existing.ObservedStand != nil && strings.TrimSpace(*existing.ObservedStand) == ""
+}
+
+func parseArrivalLandingClockUTC(value string, now time.Time) (time.Time, bool) {
+	value = strings.TrimSpace(value)
+	if len(value) != 4 && len(value) != 6 {
+		return time.Time{}, false
+	}
+	for _, c := range value {
+		if c < '0' || c > '9' {
+			return time.Time{}, false
+		}
+	}
+	hour := int(value[0]-'0')*10 + int(value[1]-'0')
+	minute := int(value[2]-'0')*10 + int(value[3]-'0')
+	second := 0
+	if len(value) == 6 {
+		second = int(value[4]-'0')*10 + int(value[5]-'0')
+	}
+	if hour > 23 || minute > 59 || second > 59 {
+		return time.Time{}, false
+	}
+	now = now.UTC()
+	landedAt := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, second, 0, time.UTC)
+	if landedAt.After(now) {
+		landedAt = landedAt.Add(-24 * time.Hour)
+	}
+	return landedAt, true
+}
+
+func arrivalExpiryChanged(current, next *time.Time) bool {
+	if (current == nil) != (next == nil) {
+		return true
+	}
+	return current != nil && !current.Equal(*next)
+}
+
+func stringPointerChanged(current, next *string) bool {
+	if (current == nil) != (next == nil) {
+		return true
+	}
+	return current != nil && !strings.EqualFold(*current, *next)
 }
 
 func shouldPromoteArrival(currentStage, targetStage string) bool {

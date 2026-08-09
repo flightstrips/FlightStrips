@@ -183,6 +183,29 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
 	})
 
+	t.Run("parked arrival adopts an observed stand with a confirmed booking conflict", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SASOBS1")
+		testdata.SeedTestStrip(t, queries, session, "SASOBS2")
+
+		booked := withStand(standAllocationRequest(session, "SASOBS1"), "A1")
+		booked.Stage = StageConfirmed
+		_, err := service.AssignManually(ctx, booked)
+		require.NoError(t, err)
+
+		parked := withStand(standAllocationRequest(session, "SASOBS2"), "A1")
+		parked.Stage = StageConfirmed
+		result, err := service.assignObservedStand(ctx, parked)
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+		require.NotNil(t, result.Assignment.ConflictReason)
+		assert.Contains(t, *result.Assignment.ConflictReason, "observed parked arrival")
+
+		retained, err := assignments.GetAssignment(ctx, session, "SASOBS1")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", retained.Stand, "the existing confirmed booking remains visible for conflict resolution")
+	})
+
 	t.Run("future arrival booking blocks a departure whose TOBT release is after ETA", func(t *testing.T) {
 		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS110")

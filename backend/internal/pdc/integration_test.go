@@ -838,7 +838,11 @@ func TestRestorePendingTimeouts_ExpiresClearedPdcAfterRestart(t *testing.T) {
 	}))
 
 	suite.mockStrip.On("UnclearStrip", mock.Anything, sessionID, callsign, issuedByCid).Return(nil)
-	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NO_RESPONSE", "").Return()
+	notificationSent := make(chan struct{})
+	suite.mockFrontend.On("SendPdcStateChange", sessionID, callsign, "NO_RESPONSE", "").
+		Run(func(mock.Arguments) { close(notificationSent) }).
+		Return().
+		Once()
 
 	restartedService := &Service{
 		client:        &hoppieClientAdapter{HoppieClient: suite.mockHoppie},
@@ -855,6 +859,15 @@ func TestRestorePendingTimeouts_ExpiresClearedPdcAfterRestart(t *testing.T) {
 	restored, err := restartedService.restorePendingTimeouts(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 1, restored)
+
+	require.Eventually(t, func() bool {
+		select {
+		case <-notificationSent:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, 25*time.Millisecond)
 
 	require.Eventually(t, func() bool {
 		strip, err := suite.queries.GetStrip(context.Background(), database.GetStripParams{

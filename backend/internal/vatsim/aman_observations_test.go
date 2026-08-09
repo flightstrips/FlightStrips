@@ -300,6 +300,8 @@ func (failingArrivalLifecycle) ProcessArrival(context.Context, int32, *models.St
 	return errors.New("SAT unavailable")
 }
 
+func (failingArrivalLifecycle) CancelArrival(context.Context, int32, string) error { return nil }
+
 func setObservationCacheSnapshot(cache *Cache, timestamp time.Time, refreshError error, flights ...Flight) {
 	snapshot := newCacheSnapshot(timestamp, timestamp)
 	for _, flight := range flights {

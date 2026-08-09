@@ -247,6 +247,7 @@ type StandAssignment struct {
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 	ConflictReason *string
+	ObservedStand  *string
 }
 
 type StandBlock struct {

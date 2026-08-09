@@ -22,6 +22,8 @@ func (testArrivalLifecycle) ProcessArrival(context.Context, int32, *models.Strip
 	return nil
 }
 
+func (testArrivalLifecycle) CancelArrival(context.Context, int32, string) error { return nil }
+
 type testReconciliationNotifier struct{}
 
 func (testReconciliationNotifier) SendStripUpdate(int32, string) {}

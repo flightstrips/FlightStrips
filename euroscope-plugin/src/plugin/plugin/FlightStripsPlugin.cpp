@@ -157,6 +157,7 @@ namespace FlightStrips {
     FlightStripsPlugin::FlightStripsPlugin(
         const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
         const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
+        const std::shared_ptr<handlers::RadarTargetEventHandlers> &mUnfilteredRadarTargetEventHandlers,
         const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
         const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
@@ -166,6 +167,7 @@ namespace FlightStrips {
         : CPlugIn(COMPATIBILITY_CODE, PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR, PLUGIN_COPYRIGHT),
           m_flightPlanEventHandlerCollection(mFlightPlanEventHandlerCollection),
           m_radarTargetEventHandlers(mRadarTargetEventHandlers),
+          m_unfilteredRadarTargetEventHandlers(mUnfilteredRadarTargetEventHandlers),
           m_controllerEventHandlerCollection(mControllerEventHandlers),
           m_timedEventHandlers(mTimedEventHandlers),
           m_airportRunwayChangedEventHandlers(mAirportRunwaysChangedEventHandlers),
@@ -450,6 +452,10 @@ namespace FlightStrips {
 
     void FlightStripsPlugin::OnRadarTargetPositionUpdate(EuroScopePlugIn::CRadarTarget RadarTarget) {
         if (!RadarTarget.IsValid()) return;
+
+        SafeCall("OnUnfilteredRadarTargetPositionUpdate", [this, RadarTarget] {
+            this->m_unfilteredRadarTargetEventHandlers->RadarTargetPositionEvent(RadarTarget, false);
+        });
 
         const auto callsign = std::string(RadarTarget.GetCallsign());
         const auto flightPlan = FlightPlanSelect(callsign.c_str());

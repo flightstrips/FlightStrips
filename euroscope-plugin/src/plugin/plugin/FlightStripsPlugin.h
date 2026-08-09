@@ -35,6 +35,7 @@ namespace FlightStrips {
         FlightStripsPlugin(
                 const std::shared_ptr<handlers::FlightPlanEventHandlers> &mFlightPlanEventHandlerCollection,
                 const std::shared_ptr<handlers::RadarTargetEventHandlers> &mRadarTargetEventHandlers,
+                const std::shared_ptr<handlers::RadarTargetEventHandlers> &mUnfilteredRadarTargetEventHandlers,
                 const std::shared_ptr<handlers::ControllerEventHandlers> &mControllerEventHandlers,
                 const std::shared_ptr<handlers::TimedEventHandlers> &mTimedEventHandlers,
                 const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> &mAirportRunwaysChangedEventHandlers,
@@ -102,6 +103,7 @@ namespace FlightStrips {
 
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;
         const std::shared_ptr<handlers::RadarTargetEventHandlers> m_radarTargetEventHandlers;
+        const std::shared_ptr<handlers::RadarTargetEventHandlers> m_unfilteredRadarTargetEventHandlers;
         const std::shared_ptr<handlers::ControllerEventHandlers> m_controllerEventHandlerCollection;
         const std::shared_ptr<handlers::TimedEventHandlers> m_timedEventHandlers;
         const std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> m_airportRunwayChangedEventHandlers;

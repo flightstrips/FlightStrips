@@ -46,6 +46,7 @@ set(ALL_FILES
         messages/MessageServiceTest.cpp
 
         # Plugin
+        plugin/ApproachHandoffPolicyTest.cpp
         plugin/AirportResolutionTest.cpp
         plugin/LookupAuditTest.cpp
 

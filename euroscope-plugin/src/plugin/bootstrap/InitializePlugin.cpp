@@ -16,6 +16,7 @@
 #include "flightplan/FlightPlanBootstrapper.h"
 #include "flightplan/RouteService.h"
 #include "handlers/ConnectionEventHandlers.h"
+#include "handlers/EkytApproachTrackingHandler.h"
 #include "messages/MessageService.h"
 #include "runway/RunwayService.h"
 #include "tag_items/CdmStateHandler.h"
@@ -45,6 +46,7 @@ namespace FlightStrips {
         this->container->controllerEventHandlers = std::make_shared<handlers::ControllerEventHandlers>();
         this->container->flightPlanEventHandlers = std::make_shared<handlers::FlightPlanEventHandlers>();
         this->container->radarTargetEventHandlers = std::make_shared<handlers::RadarTargetEventHandlers>();
+        this->container->unfilteredRadarTargetEventHandlers = std::make_shared<handlers::RadarTargetEventHandlers>();
         this->container->timedEventHandlers = std::make_shared<handlers::TimedEventHandlers>();
         this->container->messageHandlers = std::make_shared<handlers::MessageHandlers>();
         this->container->authenticationEventHandlers = std::make_shared<handlers::AuthenticationEventHandlers>();
@@ -63,6 +65,7 @@ namespace FlightStrips {
         this->container->timedEventHandlers->RegisterHandler(this->container->authenticationService);
         this->container->plugin = std::make_shared<FlightStripsPlugin>(this->container->flightPlanEventHandlers,
                                                                        this->container->radarTargetEventHandlers,
+                                                                       this->container->unfilteredRadarTargetEventHandlers,
                                                                        this->container->controllerEventHandlers,
                                                                        this->container->timedEventHandlers,
                                                                        this->container->
@@ -74,6 +77,8 @@ namespace FlightStrips {
             this->container->appConfig->GetBaseUrl(), this->container->appConfig->GetApiEnabled(),
             this->container->authenticationService, this->container->plugin,
             this->container->connectionEventHandlers, this->container->messageHandlers);
+        this->container->unfilteredRadarTargetEventHandlers->RegisterHandler(
+            std::make_shared<handlers::EkytApproachTrackingHandler>(this->container->plugin));
         flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);
         this->container->deIceHandler->SetFlightPlanService(this->container->flightPlanService);
         this->container->tagItemHandlers->RegisterHandler(
@@ -178,6 +183,8 @@ namespace FlightStrips {
         this->container->flightPlanEventHandlers.reset();
         this->container->radarTargetEventHandlers->Clear();
         this->container->radarTargetEventHandlers.reset();
+        this->container->unfilteredRadarTargetEventHandlers->Clear();
+        this->container->unfilteredRadarTargetEventHandlers.reset();
         this->container->airportRunwaysChangedEventHandlers->Clear();
         this->container->connectionEventHandlers->Clear();
         this->container->connectionEventHandlers.reset();

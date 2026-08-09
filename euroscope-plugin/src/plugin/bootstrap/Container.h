@@ -82,6 +82,7 @@ namespace FlightStrips {
         std::shared_ptr<handlers::ControllerEventHandlers> controllerEventHandlers;
         std::shared_ptr<handlers::FlightPlanEventHandlers> flightPlanEventHandlers;
         std::shared_ptr<handlers::RadarTargetEventHandlers> radarTargetEventHandlers;
+        std::shared_ptr<handlers::RadarTargetEventHandlers> unfilteredRadarTargetEventHandlers;
         std::shared_ptr<handlers::TimedEventHandlers> timedEventHandlers;
         std::shared_ptr<handlers::AirportRunwaysChangedEventHandlers> airportRunwaysChangedEventHandlers;
         std::shared_ptr<handlers::ConnectionEventHandlers> connectionEventHandlers;

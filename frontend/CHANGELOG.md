@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.52.0...frontend/v0.53.0) (2026-08-09)
+
+
+### Features
+
+* **aman:** improve arrival prediction and replay diagnostics ([#450](https://github.com/flightstrips/FlightStrips/issues/450)) ([7c11856](https://github.com/flightstrips/FlightStrips/commit/7c118568b9eaad9318978b65053b8f38c52a71e3))
+
 ## [0.52.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.51.0...frontend/v0.52.0) (2026-07-27)
 
 

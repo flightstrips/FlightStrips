@@ -1,0 +1,29 @@
+[
+  {
+    "id": "s1",
+    "callsign": "SAS123",
+    "departure": "EKCH",
+    "destination": "ESSA",
+    "stand": "A12",
+    "status": "PENDING",
+    "updatedAt": "2026-08-06T08:00:00.000Z"
+  },
+  {
+    "id": "s2",
+    "callsign": "RYR7AB",
+    "departure": "EKCH",
+    "destination": "EGLL",
+    "stand": "C34",
+    "status": "ACTIVE",
+    "updatedAt": "2026-08-06T08:05:00.000Z"
+  },
+  {
+    "id": "s3",
+    "callsign": "DLH2CD",
+    "departure": "EKCH",
+    "destination": "EDDF",
+    "stand": "B08",
+    "status": "COMPLETED",
+    "updatedAt": "2026-08-06T08:10:00.000Z"
+  }
+]

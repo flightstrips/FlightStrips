@@ -14,17 +14,17 @@ import (
 const createStandAssignment = `-- name: CreateStandAssignment :one
 INSERT INTO stand_assignments (
     session_id, callsign, stand, direction, stage, source, rule_id, tier,
-    matched_variant, conflict_reason, eta, eta_source,
+    matched_variant, conflict_reason, observed_stand, eta, eta_source,
     assigned_at, expires_at, manual, acknowledged, acknowledged_at,
     acknowledged_by, vatsim_cid, vatsim_revision
 )
 VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, $12,
-    $13, $14, $15, $16, $17,
-    $18, $19, $20
+    $9, $10, $11, $12, $13,
+    $14, $15, $16, $17, $18,
+    $19, $20, $21
 )
-RETURNING id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason
+RETURNING id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand
 `
 
 type CreateStandAssignmentParams struct {
@@ -38,6 +38,7 @@ type CreateStandAssignmentParams struct {
 	Tier           *int32
 	MatchedVariant *string
 	ConflictReason *string
+	ObservedStand  *string
 	Eta            pgtype.Timestamptz
 	EtaSource      *string
 	AssignedAt     pgtype.Timestamptz
@@ -62,6 +63,7 @@ func (q *Queries) CreateStandAssignment(ctx context.Context, arg CreateStandAssi
 		arg.Tier,
 		arg.MatchedVariant,
 		arg.ConflictReason,
+		arg.ObservedStand,
 		arg.Eta,
 		arg.EtaSource,
 		arg.AssignedAt,
@@ -99,6 +101,7 @@ func (q *Queries) CreateStandAssignment(ctx context.Context, arg CreateStandAssi
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ConflictReason,
+		&i.ObservedStand,
 	)
 	return i, err
 }
@@ -195,7 +198,7 @@ func (q *Queries) DeleteStandBlock(ctx context.Context, arg DeleteStandBlockPara
 }
 
 const getStandAssignment = `-- name: GetStandAssignment :one
-SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason
+SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand
 FROM stand_assignments
 WHERE session_id = $1 AND callsign = $2
 `
@@ -233,6 +236,7 @@ func (q *Queries) GetStandAssignment(ctx context.Context, arg GetStandAssignment
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ConflictReason,
+		&i.ObservedStand,
 	)
 	return i, err
 }
@@ -270,7 +274,7 @@ func (q *Queries) GetStandBlock(ctx context.Context, arg GetStandBlockParams) (S
 }
 
 const listStandAssignments = `-- name: ListStandAssignments :many
-SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason
+SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand
 FROM stand_assignments
 WHERE session_id = $1
 ORDER BY callsign
@@ -310,6 +314,7 @@ func (q *Queries) ListStandAssignments(ctx context.Context, sessionID int32) ([]
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ConflictReason,
+			&i.ObservedStand,
 		); err != nil {
 			return nil, err
 		}
@@ -453,7 +458,7 @@ func (q *Queries) LockActiveManualStandBlocks(ctx context.Context, sessionID int
 }
 
 const lockStandAssignments = `-- name: LockStandAssignments :many
-SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason
+SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand
 FROM stand_assignments
 WHERE session_id = $1
   AND (callsign = $2 OR expires_at IS NULL OR expires_at > NOW())
@@ -500,6 +505,7 @@ func (q *Queries) LockStandAssignments(ctx context.Context, arg LockStandAssignm
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ConflictReason,
+			&i.ObservedStand,
 		); err != nil {
 			return nil, err
 		}
@@ -521,19 +527,20 @@ SET stand = $3,
     tier = $8,
     matched_variant = $9,
     conflict_reason = $10,
-    eta = $11,
-    eta_source = $12,
-    assigned_at = $13,
-    expires_at = $14,
-    manual = $15,
-    acknowledged = $16,
-    acknowledged_at = $17,
-    acknowledged_by = $18,
-    vatsim_cid = $19,
-    vatsim_revision = $20,
+    observed_stand = $11,
+    eta = $12,
+    eta_source = $13,
+    assigned_at = $14,
+    expires_at = $15,
+    manual = $16,
+    acknowledged = $17,
+    acknowledged_at = $18,
+    acknowledged_by = $19,
+    vatsim_cid = $20,
+    vatsim_revision = $21,
     version = version + 1,
     updated_at = NOW()
-WHERE id = $1 AND session_id = $2 AND version = $21
+WHERE id = $1 AND session_id = $2 AND version = $22
 `
 
 type UpdateStandAssignmentParams struct {
@@ -547,6 +554,7 @@ type UpdateStandAssignmentParams struct {
 	Tier           *int32
 	MatchedVariant *string
 	ConflictReason *string
+	ObservedStand  *string
 	Eta            pgtype.Timestamptz
 	EtaSource      *string
 	AssignedAt     pgtype.Timestamptz
@@ -572,6 +580,7 @@ func (q *Queries) UpdateStandAssignment(ctx context.Context, arg UpdateStandAssi
 		arg.Tier,
 		arg.MatchedVariant,
 		arg.ConflictReason,
+		arg.ObservedStand,
 		arg.Eta,
 		arg.EtaSource,
 		arg.AssignedAt,

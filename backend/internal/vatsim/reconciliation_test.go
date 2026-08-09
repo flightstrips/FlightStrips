@@ -140,6 +140,21 @@ func (l *reconciliationTestDepartureLifecycle) CancelDeparture(_ context.Context
 	return nil
 }
 
+type reconciliationTestArrivalLifecycle struct {
+	cancelled []string
+	processed []string
+}
+
+func (l *reconciliationTestArrivalLifecycle) ProcessArrival(_ context.Context, _ int32, strip *models.Strip, _ ArrivalFlightInfo) error {
+	l.processed = append(l.processed, strip.Callsign)
+	return nil
+}
+
+func (l *reconciliationTestArrivalLifecycle) CancelArrival(_ context.Context, _ int32, callsign string) error {
+	l.cancelled = append(l.cancelled, callsign)
+	return nil
+}
+
 func newReconciliationTestCache(now time.Time, flights ...Flight) *Cache {
 	cache := NewCache("", time.Second, nil)
 	snapshot := newCacheSnapshot(now, now)
@@ -325,6 +340,40 @@ func TestReconcileDoesNotCancelEuroscopeOwnedDepartureLifecycleWhenFlightDisappe
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Empty(t, lifecycle.cancelled, "EuroScope still owns the operational departure state")
+}
+
+func TestReconcileCancelsArrivalLifecycleWhenFlightDisappears(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	cid := "5"
+	strip := &models.Strip{
+		Callsign: "SAS507", Session: 7, Origin: "ESSA", Destination: "EKCH",
+		VatsimCID: &cid, VatsimSeenAt: &now,
+	}
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {strip}}}
+	reconciler := newTestReconciler(newReconciliationTestCache(now), reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	lifecycle := &reconciliationTestArrivalLifecycle{}
+	reconciler.arrivalLifecycle = lifecycle
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, []string{"SAS507"}, lifecycle.cancelled)
+	assert.Equal(t, []string{"SAS507"}, strips.deleted)
+}
+
+func TestReconcileDoesNotCancelEuroscopeOwnedArrivalLifecycleWhenFlightDisappears(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	cid := "5"
+	strip := &models.Strip{
+		Callsign: "SAS508", Session: 7, Origin: "ESSA", Destination: "EKCH",
+		VatsimCID: &cid, VatsimSeenAt: &now, EuroscopeSeenAt: &now,
+	}
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {strip}}}
+	reconciler := newTestReconciler(newReconciliationTestCache(now), reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	lifecycle := &reconciliationTestArrivalLifecycle{}
+	reconciler.arrivalLifecycle = lifecycle
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Empty(t, lifecycle.cancelled, "EuroScope still owns the operational arrival state")
+	assert.Empty(t, strips.deleted)
 }
 
 func TestRetainsStripHonorsReservationExpiry(t *testing.T) {

@@ -76,6 +76,7 @@ type DepartureLifecycle interface {
 // timing; the lifecycle owns allocation timing and persistence.
 type ArrivalLifecycle interface {
 	ProcessArrival(ctx context.Context, session int32, strip *models.Strip, flight ArrivalFlightInfo) error
+	CancelArrival(ctx context.Context, session int32, callsign string) error
 }
 
 type reconciliationNotifier interface {
@@ -315,6 +316,12 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		if relevant[callsign].Callsign == "" && strip.EuroscopeSeenAt == nil && r.lifecycle != nil &&
 			strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
 			if err := r.lifecycle.CancelDeparture(ctx, session.ID, callsign); err != nil {
+				return err
+			}
+		}
+		if relevant[callsign].Callsign == "" && strip.EuroscopeSeenAt == nil && r.arrivalLifecycle != nil &&
+			strings.EqualFold(strings.TrimSpace(strip.Destination), airport) {
+			if err := r.arrivalLifecycle.CancelArrival(ctx, session.ID, callsign); err != nil {
 				return err
 			}
 		}

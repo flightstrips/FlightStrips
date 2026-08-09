@@ -1,15 +1,15 @@
 -- name: CreateStandAssignment :one
 INSERT INTO stand_assignments (
     session_id, callsign, stand, direction, stage, source, rule_id, tier,
-    matched_variant, conflict_reason, eta, eta_source,
+    matched_variant, conflict_reason, observed_stand, eta, eta_source,
     assigned_at, expires_at, manual, acknowledged, acknowledged_at,
     acknowledged_by, vatsim_cid, vatsim_revision
 )
 VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, $12,
-    $13, $14, $15, $16, $17,
-    $18, $19, $20
+    $9, $10, $11, $12, $13,
+    $14, $15, $16, $17, $18,
+    $19, $20, $21
 )
 RETURNING *;
 
@@ -42,19 +42,20 @@ SET stand = $3,
     tier = $8,
     matched_variant = $9,
     conflict_reason = $10,
-    eta = $11,
-    eta_source = $12,
-    assigned_at = $13,
-    expires_at = $14,
-    manual = $15,
-    acknowledged = $16,
-    acknowledged_at = $17,
-    acknowledged_by = $18,
-    vatsim_cid = $19,
-    vatsim_revision = $20,
+    observed_stand = $11,
+    eta = $12,
+    eta_source = $13,
+    assigned_at = $14,
+    expires_at = $15,
+    manual = $16,
+    acknowledged = $17,
+    acknowledged_at = $18,
+    acknowledged_by = $19,
+    vatsim_cid = $20,
+    vatsim_revision = $21,
     version = version + 1,
     updated_at = NOW()
-WHERE id = $1 AND session_id = $2 AND version = $21;
+WHERE id = $1 AND session_id = $2 AND version = $22;
 
 -- name: DeleteStandAssignment :execrows
 DELETE FROM stand_assignments

@@ -8,6 +8,7 @@ import (
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/vatsim"
+	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -392,6 +393,19 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.Error(t, err, "assignment cleaned up when strip no longer exists")
 	})
 
+	t.Run("stale ETA does not expire an arrival before airport detection", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS911")
+		setArrivalETA(t, strips, session, "SAS911", clock.current().Add(-2*time.Hour))
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS911"), arrivalFlight("SAS911", 1)))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS911")
+		require.NoError(t, err)
+		assert.Nil(t, assignment.ExpiresAt, "ETA alone must not start stand-retention expiry")
+	})
+
 	t.Run("blocked stand triggers reallocation at same stage", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
@@ -447,6 +461,184 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageConfirmed, retained.Stage, "the lifecycle still advances without changing the stand")
 	})
 
+	t.Run("arrival at the airport refreshes fallback retention without moving stand", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		var published []StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = append(published, result)
+			return nil
+		})
+		seedTestArrivalStrip(t, queries, session, "SAS923")
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS923", posPtr(55.6285306), posPtr(12.644625), altPtr(0), "TAXI", nil)
+		require.NoError(t, err)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS923"), arrivalFlight("SAS923", 1)))
+		first, err := assignments.GetAssignment(ctx, session, "SAS923")
+		require.NoError(t, err)
+		require.NotNil(t, first.ExpiresAt)
+		require.NotNil(t, first.AssignedAt)
+		assert.Equal(t, clock.current().Add(30*time.Minute), first.ExpiresAt.UTC())
+		published = nil
+
+		clock.advance(time.Minute)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS923"), arrivalFlight("SAS923", 2)))
+		repeated, err := assignments.GetAssignment(ctx, session, "SAS923")
+		require.NoError(t, err)
+		assert.Equal(t, first.Stand, repeated.Stand)
+		assert.Equal(t, first.AssignedAt.UTC(), repeated.AssignedAt.UTC())
+		assert.Equal(t, first.ExpiresAt.UTC(), repeated.ExpiresAt.UTC(), "ordinary feed polls must not slide the fallback window")
+		assert.Equal(t, first.Version, repeated.Version)
+		assert.Empty(t, published, "ordinary feed polls must not publish unchanged assignment snapshots")
+
+		clock.advance(20 * time.Minute)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS923"), arrivalFlight("SAS923", 3)))
+		refreshed, err := assignments.GetAssignment(ctx, session, "SAS923")
+		require.NoError(t, err)
+		assert.Equal(t, first.Stand, refreshed.Stand)
+		assert.Equal(t, first.AssignedAt.UTC(), refreshed.AssignedAt.UTC(), "retention refresh must not look like a new allocation")
+		assert.Equal(t, clock.current().Add(30*time.Minute), refreshed.ExpiresAt.UTC(), "a live update refreshes the fallback window near expiry")
+		assert.Greater(t, refreshed.Version, first.Version)
+		require.Len(t, published, 1, "retention bookkeeping must publish its current controller-facing version")
+		assert.Equal(t, refreshed.Version, published[0].Assignment.Version)
+		assert.False(t, published[0].StandChanged)
+		assert.False(t, published[0].NotifyEuroscope, "retention bookkeeping must not publish a fresh EuroScope stand request")
+	})
+
+	t.Run("controller can change a locked airport-area stand", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, _ := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
+STAND:EKCH:A3:N055.37.42.710:E012.39.33.450:30
+`))
+		require.NoError(t, err)
+		lifecycle.stands = registry
+		allocations.stands = registry
+		var published []StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = append(published, result)
+			return nil
+		})
+		seedTestArrivalStrip(t, queries, session, "SAS925")
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS925", posPtr(55.6285306), posPtr(12.642625), altPtr(0), "TAXI", nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS925"), arrivalFlight("SAS925", 1)))
+
+		current, err := assignments.GetAssignment(ctx, session, "SAS925")
+		require.NoError(t, err)
+		currentVersion := current.Version
+
+		parked := euroscope.GroundStateParked
+		_, err = strips.UpdateGroundState(ctx, session, "SAS925", &parked, "STAND", nil)
+		require.NoError(t, err)
+
+		original, err := assignments.GetAssignment(ctx, session, "SAS925")
+		require.NoError(t, err)
+		assert.Equal(t, currentVersion, original.Version, "published metadata must carry the actionable version")
+		actions := NewStandActionService(allocations, assignments, strips, nil, nil, nil)
+		manual, err := actions.AssignManually(ctx, session, "EKCH", "GND", "SAS925", "A2", currentVersion)
+		require.NoError(t, err)
+		assert.Equal(t, "A2", manual.Assignment.Stand)
+		assert.True(t, manual.Assignment.Manual)
+		require.NotNil(t, manual.Assignment.ObservedStand)
+		assert.Equal(t, "A1", *manual.Assignment.ObservedStand)
+
+		// The PARK state and coordinates still identify A1. Automatic observation
+		// must not undo the controller's newer A2 decision.
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS925"), arrivalFlight("SAS925", 3)))
+		retained, err := assignments.GetAssignment(ctx, session, "SAS925")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", retained.Stand, "automatic airport-area handling must not undo controller intent")
+		assert.True(t, retained.Manual)
+
+		// Reaching the planned A2 stand advances the physical baseline without
+		// turning the controller assignment back into an automatic one.
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS925", posPtr(55.6285306), posPtr(12.6509583), altPtr(0), "STAND", nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS925"), arrivalFlight("SAS925", 4)))
+		atPlannedStand, err := assignments.GetAssignment(ctx, session, "SAS925")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", atPlannedStand.Stand)
+		assert.True(t, atPlannedStand.Manual)
+		require.NotNil(t, atPlannedStand.ObservedStand)
+		assert.Equal(t, "A2", *atPlannedStand.ObservedStand)
+
+		// A later position at A3 is new operational evidence that the aircraft
+		// parked somewhere other than either the old stand or the manual plan.
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS925", posPtr(55.6285306), posPtr(12.6592917), altPtr(0), "STAND", nil)
+		require.NoError(t, err)
+		observedStrip := loadStrip(t, strips, session, "SAS925")
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, observedStrip, arrivalFlight("SAS925", 5)))
+		observed, err := assignments.GetAssignment(ctx, session, "SAS925")
+		require.NoError(t, err)
+		assert.Equal(t, "A3", observed.Stand, "a different physical parking observation replaces the manual plan")
+		assert.False(t, observed.Manual)
+	})
+
+	t.Run("parked arrival adopts its observed stand", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, _ := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
+`))
+		require.NoError(t, err)
+		lifecycle.stands = registry
+		allocations.stands = registry
+
+		seedTestArrivalStrip(t, queries, session, "SAS926")
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS926"), arrivalFlight("SAS926", 1)))
+		planned, err := assignments.GetAssignment(ctx, session, "SAS926")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", planned.Stand)
+
+		parked := euroscope.GroundStateParked
+		_, err = strips.UpdateGroundState(ctx, session, "SAS926", &parked, "STAND", nil)
+		require.NoError(t, err)
+		_, err = strips.UpdateAircraftPosition(ctx, session, "SAS926", posPtr(55.6285306), posPtr(12.6509583), altPtr(0), "STAND", nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS926"), arrivalFlight("SAS926", 2)))
+
+		observed, err := assignments.GetAssignment(ctx, session, "SAS926")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", observed.Stand)
+		assert.False(t, observed.Manual, "physical observation is recorded separately from controller intent")
+		require.NotNil(t, observed.ExpiresAt)
+	})
+
+	t.Run("ALDT replaces fallback retention with landing time plus thirty minutes", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS924")
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS924", posPtr(55.6285306), posPtr(12.644625), altPtr(0), "TAXI", nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS924"), arrivalFlight("SAS924", 1)))
+
+		clock.advance(5 * time.Minute)
+		aldt := clock.current().Format("1504")
+		_, err = strips.SetCdmData(ctx, session, "SAS924", &models.CdmData{Aldt: &aldt})
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS924"), arrivalFlight("SAS924", 2)))
+
+		landed, err := assignments.GetAssignment(ctx, session, "SAS924")
+		require.NoError(t, err)
+		require.NotNil(t, landed.ExpiresAt)
+		expectedExpiry := clock.current().Truncate(time.Minute).Add(30 * time.Minute)
+		assert.Equal(t, expectedExpiry, landed.ExpiresAt.UTC())
+
+		clock.set(expectedExpiry.Add(-time.Second))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, "SAS924")
+		require.NoError(t, err, "stand remains until the ALDT retention window ends")
+
+		clock.set(expectedExpiry)
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, "SAS924")
+		require.Error(t, err, "stand is released thirty minutes after ALDT")
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS924"), arrivalFlight("SAS924", 3)))
+		_, err = assignments.GetAssignment(ctx, session, "SAS924")
+		require.Error(t, err, "an expired ALDT retention window must not recreate the stand")
+	})
+
 	t.Run("arrival at the airport without an assignment receives a stand", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, _ := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		seedTestArrivalStrip(t, queries, session, "SAS922")
@@ -462,6 +654,24 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.NotEmpty(t, assignment.Stand, "an unassigned arrival still receives a compatible stand at the airport")
 		assert.Equal(t, StageConfirmed, assignment.Stage)
 		assert.Nil(t, assignment.ETA)
+	})
+
+	t.Run("automatic pre-arrival reservation is released when the flight disappears", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS927")
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS927", posPtr(55.0), posPtr(10.0), altPtr(8000), "ARR_HIDDEN", nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS927"), arrivalFlight("SAS927", 1)))
+
+		reserved, err := assignments.GetAssignment(ctx, session, "SAS927")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, reserved.Stage)
+		assert.Nil(t, reserved.ExpiresAt)
+		assert.False(t, reserved.Manual)
+
+		require.NoError(t, lifecycle.CancelArrival(ctx, session, "SAS927"))
+		_, err = assignments.GetAssignment(ctx, session, "SAS927")
+		require.Error(t, err, "a vanished automatic arrival must stop retaining its stand")
 	})
 }
 
@@ -517,6 +727,108 @@ STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
 	strip.PositionLatitude = posPtr(55.6285306)
 	strip.PositionAltitude = altPtr(12000)
 	assert.False(t, lifecycle.arrivalIsAtAirport(strip, "EKCH"), "an aircraft over the airport at cruise altitude has not arrived")
+}
+
+func TestParseArrivalLandingClockUTCUsesPreviousDayAcrossMidnight(t *testing.T) {
+	now := time.Date(2026, 7, 13, 0, 10, 0, 0, time.UTC)
+	landedAt, ok := parseArrivalLandingClockUTC("2355", now)
+	require.True(t, ok)
+	assert.Equal(t, time.Date(2026, 7, 12, 23, 55, 0, 0, time.UTC), landedAt)
+}
+
+func TestArrivalStandExpiresAt(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 5, 30, 0, time.UTC)
+
+	fallback := arrivalStandExpiresAt(&models.Strip{}, nil, now)
+	require.NotNil(t, fallback)
+	assert.Equal(t, now.Add(30*time.Minute), *fallback)
+
+	current := now.Add(20 * time.Minute)
+	unchanged := arrivalStandExpiresAt(&models.Strip{}, &current, now)
+	require.NotNil(t, unchanged)
+	assert.Equal(t, current, *unchanged)
+
+	nearExpiry := now.Add(9 * time.Minute)
+	refreshed := arrivalStandExpiresAt(&models.Strip{}, &nearExpiry, now)
+	require.NotNil(t, refreshed)
+	assert.Equal(t, now.Add(30*time.Minute), *refreshed)
+
+	aldt := "1000"
+	fromLanding := arrivalStandExpiresAt(&models.Strip{CdmData: &models.CdmData{Aldt: &aldt}}, &current, now)
+	require.NotNil(t, fromLanding)
+	assert.Equal(t, time.Date(2026, 7, 12, 10, 30, 0, 0, time.UTC), *fromLanding)
+}
+
+func TestArrivalAirportRetentionPublishesActionableVersionWithoutStandSync(t *testing.T) {
+	existing := &models.StandAssignment{
+		ID: 1, SessionID: 7, Callsign: "SAS930", Stand: "A1",
+		Stage: StageConfirmed, Version: 4,
+	}
+	store := &arrivalLifecycleAssignmentStore{assignment: existing}
+	var published StandAllocationResult
+	allocations := &StandAllocationService{publish: func(_ context.Context, result StandAllocationResult) error {
+		published = result
+		return nil
+	}}
+	lifecycle := &ArrivalLifecycleService{assignments: store, allocations: allocations}
+	expiresAt := time.Date(2026, 7, 12, 10, 30, 0, 0, time.UTC)
+
+	require.NoError(t, lifecycle.updateArrivalAtAirport(t.Context(), existing, StageConfirmed, &expiresAt, nil))
+	assert.Equal(t, int32(5), published.Assignment.Version)
+	assert.Equal(t, expiresAt, published.Assignment.ExpiresAt.UTC())
+	assert.False(t, published.StandChanged)
+	assert.False(t, published.NotifyEuroscope)
+}
+
+func TestArrivalLifecyclePreservesManualStandAgainstParkObservation(t *testing.T) {
+	stands, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
+`))
+	require.NoError(t, err)
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	existing := &models.StandAssignment{
+		ID: 1, SessionID: 7, Callsign: "SAS931", Stand: "A2",
+		Direction: string(sat.AssignmentDirectionArrival), Stage: StageConfirmed,
+		Manual: true, Version: 4, ObservedStand: strp(""),
+	}
+	store := &arrivalLifecycleAssignmentStore{assignment: existing}
+	allocations := &StandAllocationService{}
+	lifecycle := &ArrivalLifecycleService{
+		assignments: store,
+		allocations: allocations,
+		stands:      stands,
+		now:         func() time.Time { return now },
+	}
+	parked := euroscope.GroundStateParked
+	strip := &models.Strip{
+		Callsign: "SAS931", Destination: "EKCH", State: &parked,
+		PositionLatitude: posPtr(55.6285306), PositionLongitude: posPtr(12.642625), PositionAltitude: altPtr(0),
+	}
+
+	require.NoError(t, lifecycle.ProcessArrival(t.Context(), 7, strip, arrivalFlight("SAS931", 2)))
+	require.NotNil(t, store.updated)
+	assert.Equal(t, "A2", store.updated.Stand)
+	assert.True(t, store.updated.Manual)
+	require.NotNil(t, store.updated.ObservedStand)
+	assert.Equal(t, "A1", *store.updated.ObservedStand, "the first post-migration observation becomes a baseline without replacing controller intent")
+}
+
+type arrivalLifecycleAssignmentStore struct {
+	repository.StandAssignmentRepository
+	assignment *models.StandAssignment
+	updated    *models.StandAssignment
+}
+
+func (s *arrivalLifecycleAssignmentStore) GetAssignment(_ context.Context, _ int32, _ string) (*models.StandAssignment, error) {
+	copy := *s.assignment
+	return &copy, nil
+}
+
+func (s *arrivalLifecycleAssignmentStore) UpdateAssignment(_ context.Context, assignment *models.StandAssignment) (int64, error) {
+	copy := *assignment
+	s.updated = &copy
+	return 1, nil
 }
 
 func TestArrivalResolveFactsUsesVatsimFactsWhenFreshSessionStripIsUnrecognized(t *testing.T) {

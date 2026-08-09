@@ -67,6 +67,7 @@ type StandAllocationRequest struct {
 	VatsimRevision *int64
 
 	Stand          string
+	ObservedStand  *string
 	ConflictReason string
 	// RequestStandSync makes a caller-originated selection reach EuroScope even
 	// when the strip already contains that stand. This is needed for pilot EFB
@@ -313,11 +314,11 @@ func (s *StandAllocationService) AssignManually(ctx context.Context, request Sta
 	return s.allocate(ctx, CompatibleManualStand, request)
 }
 
-// assignObservedStand adopts the stand where EuroScope saw an aircraft when it
-// is operationally free. The aircraft is already physically present, so stand
-// capability preferences must not trigger a relocation by themselves. An
-// unavailable result is expected during wrong-stand recovery, so it must not
-// be retained as a controller-facing allocation failure.
+// assignObservedStand adopts the stand where EuroScope saw an aircraft. The
+// aircraft is already physically present, so stand capability preferences must
+// not trigger a relocation by themselves. Departures retain their existing
+// wrong-stand warning flow when the observed stand is unavailable; confirmed
+// parked arrivals adopt physical truth and retain any conflict for operators.
 func (s *StandAllocationService) assignObservedStand(ctx context.Context, request StandAllocationRequest) (*StandAllocationResult, error) {
 	// A departure observed on a stand is physically there. Its presence takes
 	// precedence over a provisional inbound booking, but never over the final
@@ -821,6 +822,12 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		}
 		availability := s.availability(request, assignments, blocks, matches)
 		if len(availability[target]) > 0 {
+			if request.Direction == sat.AssignmentDirectionArrival && request.Stage == StageConfirmed {
+				// A parked arrival's observed position is physical truth. Keep any
+				// confirmed booking or manual block as a visible conflict, but adopt
+				// the occupied stand instead of instructing the aircraft to move.
+				return target, nil, &match, []string{target}, "observed parked arrival: " + strings.Join(availability[target], "; "), nil
+			}
 			return target, nil, nil, nil, "", fmt.Errorf("%w: %s", ErrIncompatibleManualAssignment, target)
 		}
 		return target, nil, &match, []string{target}, "", nil
@@ -1078,6 +1085,7 @@ func (s *StandAllocationService) persistStandAllocation(ctx context.Context, sto
 	if conflict != "" {
 		next.ConflictReason = &conflict
 	}
+	next.ObservedStand = request.ObservedStand
 	next.ETA, next.ETASource, next.AssignedAt, next.ExpiresAt = request.ETA, request.ETASource, &now, request.ExpiresAt
 	next.Acknowledged, next.AcknowledgedAt, next.AcknowledgedBy = false, nil, nil
 	next.VatsimCID, next.VatsimRevision = request.VatsimCID, request.VatsimRevision

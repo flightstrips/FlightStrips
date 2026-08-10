@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.53.0...frontend/v0.53.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* **stand:** correct allocation lifecycle and timeline ([#460](https://github.com/flightstrips/FlightStrips/issues/460)) ([f025b07](https://github.com/flightstrips/FlightStrips/commit/f025b07ac35f797ffddc8452c70f8095120ed924))
+
 ## [0.53.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.52.0...frontend/v0.53.0) (2026-08-09)
 
 

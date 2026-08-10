@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.4...plugin/v0.21.0) (2026-08-09)
+
+
+### Features
+
+* **strip:** automate EKYT approach tracking ([#453](https://github.com/flightstrips/FlightStrips/issues/453)) ([1836a4b](https://github.com/flightstrips/FlightStrips/commit/1836a4bb4b04cfc348dfc9817d0991b69fed2f03))
+
 ## [0.20.4](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.3...plugin/v0.20.4) (2026-07-28)
 
 

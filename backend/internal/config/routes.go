@@ -164,6 +164,33 @@ type ResolvedRoute struct {
 	OwnerOverrides map[string]string
 }
 
+// RouteCandidateDiagnostics describes why a configured runway route was or
+// was not eligible for a route selection. It is intended for operational
+// diagnostics when a route cannot be resolved.
+type RouteCandidateDiagnostics struct {
+	Name          string
+	Path          []string
+	Active        []string
+	RequireAll    bool
+	StandRanges   []string
+	StandSpecific bool
+	StandMatched  bool
+	ActiveScore   int
+	Rejection     string
+}
+
+// RouteSelectionDiagnostics explains a failed route selection without
+// changing the existing boolean-based route selection API.
+type RouteSelectionDiagnostics struct {
+	Runway           string
+	NormalizedRunway string
+	Stand            string
+	StandParseError  string
+	FailureReason    string
+	CandidateCount   int
+	Candidates       []RouteCandidateDiagnostics
+}
+
 // ComputeToRunway selects the best-matching route to the given runway under the
 // current active flags and containing the aircraft's current Sector in its path.
 // "Best" means the route whose active list has the most runways in common with
@@ -181,36 +208,121 @@ func ComputeDepartureRoute(active []string, stand string, runway string) (Resolv
 	return selectRunwayRoute(active, "", runway, stand, false)
 }
 
+// ComputeDepartureRouteWithDiagnostics selects the complete outbound route
+// and returns structured information when no configured route matches.
+func ComputeDepartureRouteWithDiagnostics(active []string, stand string, runway string) (ResolvedRoute, bool, RouteSelectionDiagnostics) {
+	return selectRunwayRouteWithDiagnostics(active, "", runway, stand, false)
+}
+
 func selectRunwayRoute(active []string, currentSector string, runway string, stand string, requireCurrentSector bool) (ResolvedRoute, bool) {
-	candidates := runwayRoutes[normalizeRunway(runway)]
+	route, ok, _ := selectRunwayRouteInternal(active, currentSector, runway, stand, requireCurrentSector, false)
+	return route, ok
+}
+
+func selectRunwayRouteWithDiagnostics(active []string, currentSector string, runway string, stand string, requireCurrentSector bool) (ResolvedRoute, bool, RouteSelectionDiagnostics) {
+	return selectRunwayRouteInternal(active, currentSector, runway, stand, requireCurrentSector, true)
+}
+
+func selectRunwayRouteInternal(active []string, currentSector string, runway string, stand string, requireCurrentSector bool, collectDiagnostics bool) (ResolvedRoute, bool, RouteSelectionDiagnostics) {
+	normalizedRunway := normalizeRunway(runway)
+	diagnostics := RouteSelectionDiagnostics{}
+	if collectDiagnostics {
+		diagnostics = RouteSelectionDiagnostics{
+			Runway:           runway,
+			NormalizedRunway: normalizedRunway,
+			Stand:            stand,
+		}
+	}
+
+	candidates := runwayRoutes[normalizedRunway]
+	if collectDiagnostics {
+		diagnostics.CandidateCount = len(candidates)
+	}
 	if len(candidates) == 0 {
-		return ResolvedRoute{}, false
+		if collectDiagnostics {
+			diagnostics.FailureReason = "no_routes_for_runway"
+		}
+		return ResolvedRoute{}, false, diagnostics
 	}
 
 	parsedStand, standErr := ParseStand(stand)
+	if collectDiagnostics && standErr != nil {
+		diagnostics.StandParseError = standErr.Error()
+	}
 	bestScore := -1
 	bestStandSpecificity := -1
 	var bestRoute ResolvedRoute
+	standCandidates := 0
+	standMatches := 0
+	activeMatches := 0
 	for _, r := range candidates {
+		candidate := RouteCandidateDiagnostics{}
+		if collectDiagnostics {
+			candidate = RouteCandidateDiagnostics{
+				Name:        r.Name,
+				Path:        slices.Clone(r.Path),
+				Active:      slices.Clone(r.Active),
+				RequireAll:  r.RequireAll,
+				StandRanges: formatStandRanges(r.ForStandRanges),
+				ActiveScore: -1,
+			}
+		}
 		standSpecificity := 0
 		if len(r.ForStandRanges) > 0 {
+			if collectDiagnostics {
+				candidate.StandSpecific = true
+			}
+			standCandidates++
 			if standErr != nil || !slices.ContainsFunc(r.ForStandRanges, func(standRange StandRange) bool {
 				return standRange.Contains(parsedStand)
 			}) {
+				if collectDiagnostics {
+					if standErr != nil {
+						candidate.Rejection = "invalid_stand"
+					} else {
+						candidate.Rejection = "stand_not_in_range"
+					}
+					diagnostics.Candidates = append(diagnostics.Candidates, candidate)
+				}
 				continue
 			}
 			standSpecificity = 1
+			if collectDiagnostics {
+				candidate.StandMatched = true
+			}
+			standMatches++
+		} else {
+			if collectDiagnostics {
+				candidate.StandMatched = true
+			}
+			standMatches++
 		}
 
 		score := scoreActive(r.Active, active, r.RequireAll)
+		if collectDiagnostics {
+			candidate.ActiveScore = score
+		}
 		if score < 0 || standSpecificity < bestStandSpecificity || (standSpecificity == bestStandSpecificity && score <= bestScore) {
+			if collectDiagnostics {
+				if score < 0 {
+					candidate.Rejection = "active_runways_do_not_match"
+				} else {
+					candidate.Rejection = "lower_priority_than_selected_route"
+				}
+				diagnostics.Candidates = append(diagnostics.Candidates, candidate)
+			}
 			continue
 		}
+		activeMatches++
 
 		startIdx := 0
 		if requireCurrentSector {
 			startIdx = indexOfSector(r.Path, currentSector)
 			if startIdx < 0 {
+				if collectDiagnostics {
+					candidate.Rejection = "current_sector_not_in_path"
+					diagnostics.Candidates = append(diagnostics.Candidates, candidate)
+				}
 				continue
 			}
 		}
@@ -218,11 +330,44 @@ func selectRunwayRoute(active []string, currentSector string, runway string, sta
 		bestStandSpecificity = standSpecificity
 		bestScore = score
 		bestRoute = resolveRouteSelection(r, startIdx)
+		if collectDiagnostics {
+			diagnostics.Candidates = append(diagnostics.Candidates, candidate)
+		}
 	}
 	if bestScore < 0 {
-		return ResolvedRoute{}, false
+		if collectDiagnostics {
+			switch {
+			case standCandidates > 0 && standMatches == 0 && standErr != nil:
+				diagnostics.FailureReason = "invalid_stand"
+			case standCandidates > 0 && standMatches == 0:
+				diagnostics.FailureReason = "stand_not_configured_for_runway"
+			case activeMatches == 0:
+				diagnostics.FailureReason = "no_active_runway_match"
+			default:
+				diagnostics.FailureReason = "no_matching_route"
+			}
+		}
+		return ResolvedRoute{}, false, diagnostics
 	}
-	return bestRoute, true
+	return bestRoute, true, diagnostics
+}
+
+func formatStandRanges(ranges []StandRange) []string {
+	if len(ranges) == 0 {
+		return nil
+	}
+
+	formatted := make([]string, 0, len(ranges))
+	for _, standRange := range ranges {
+		from := fmt.Sprintf("%s%d", standRange.Prefix, standRange.From)
+		to := fmt.Sprintf("%s%d", standRange.Prefix, standRange.To)
+		if from == to {
+			formatted = append(formatted, from)
+			continue
+		}
+		formatted = append(formatted, from+"-"+to)
+	}
+	return formatted
 }
 
 func firstString(values []string) string {

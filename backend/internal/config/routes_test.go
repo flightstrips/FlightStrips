@@ -428,6 +428,88 @@ func TestLoadRoutesSupportsCompleteDepartureRoutesQualifiedByStandAndRunway(t *t
 	}
 }
 
+func TestComputeDepartureRouteWithDiagnosticsExplainsFailure(t *testing.T) {
+	original := runwayRoutes
+	t.Cleanup(func() { runwayRoutes = original })
+
+	runwayRoutes = map[string][]Route{
+		"22R": {
+			{
+				Name:           "north stands",
+				ForRunway:      "22R",
+				ForStandRanges: []StandRange{{Prefix: "A", From: 1, To: 34}},
+				Active:         []string{"22R"},
+				Path:           []string{"SQ", "AD", "TW"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name          string
+		active        []string
+		stand         string
+		runway        string
+		failureReason string
+		standError    bool
+		rejection     string
+	}{
+		{
+			name:          "unknown runway",
+			stand:         "A12",
+			runway:        "99X",
+			failureReason: "no_routes_for_runway",
+		},
+		{
+			name:          "invalid stand",
+			active:        []string{"22R"},
+			stand:         "not-a-stand",
+			runway:        "22R",
+			failureReason: "invalid_stand",
+			standError:    true,
+			rejection:     "invalid_stand",
+		},
+		{
+			name:          "stand outside configured range",
+			active:        []string{"22R"},
+			stand:         "G120",
+			runway:        "22R",
+			failureReason: "stand_not_configured_for_runway",
+			rejection:     "stand_not_in_range",
+		},
+		{
+			name:          "inactive runway",
+			active:        []string{"04L"},
+			stand:         "A12",
+			runway:        "22R",
+			failureReason: "no_active_runway_match",
+			rejection:     "active_runways_do_not_match",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, ok, diagnostics := ComputeDepartureRouteWithDiagnostics(test.active, test.stand, test.runway)
+			if ok {
+				t.Fatal("expected route selection to fail")
+			}
+			if diagnostics.FailureReason != test.failureReason {
+				t.Fatalf("failure reason = %q, want %q", diagnostics.FailureReason, test.failureReason)
+			}
+			if test.standError && diagnostics.StandParseError == "" {
+				t.Fatal("expected stand parse error")
+			}
+			if test.rejection != "" {
+				if len(diagnostics.Candidates) != 1 {
+					t.Fatalf("candidate diagnostics = %#v, want one candidate", diagnostics.Candidates)
+				}
+				if got := diagnostics.Candidates[0].Rejection; got != test.rejection {
+					t.Fatalf("candidate rejection = %q, want %q", got, test.rejection)
+				}
+			}
+		})
+	}
+}
+
 func TestLoadRoutesRejectsUnknownRouteSector(t *testing.T) {
 	originalRunway := runwayRoutes
 	originalStands := standRoutes

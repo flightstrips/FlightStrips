@@ -36,6 +36,7 @@ const (
 
 var (
 	ErrNoAvailableStand              = errors.New("no safe stand is currently available")
+	ErrNoPolicyStand                 = errors.New("compatible stands are available, but none is in the configured airline or fallback policy pool")
 	ErrNoCompatibleStand             = errors.New("no stand is compatible with the flight")
 	ErrIncompatibleManualAssignment  = errors.New("manual stand is not compatible or available")
 	ErrAllocationRetriesExhausted    = errors.New("stand allocation retries exhausted")
@@ -64,8 +65,8 @@ type StandAllocationRequest struct {
 	ETA             *time.Time
 	ETASource       *string
 	ExpiresAt       *time.Time
-	// DepartureTOBT is used to decide whether a future arrival booking prevents
-	// a departure from taking its stand.
+	// DepartureTOBT is a fallback estimate used only when ExpiresAt does not
+	// already describe the departure's effective stand hold.
 	DepartureTOBT  *time.Time
 	VatsimCID      *int64
 	VatsimRevision *int64
@@ -267,6 +268,214 @@ func (s *StandAllocationService) ReleaseAssignment(ctx context.Context, assignme
 	return nil
 }
 
+// ReconcileUnsafeAssignments removes automatic planning reservations that
+// overlap a higher-priority assignment persisted by an older deployment. It
+// never moves controller-owned or physically observed aircraft; conflicts
+// between two such assignments remain visible for controller resolution.
+func (s *StandAllocationService) ReconcileUnsafeAssignments(ctx context.Context, session int32, airport string) error {
+	if session <= 0 {
+		return errors.New("stand assignment reconciliation requires a session")
+	}
+
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", session); err != nil {
+		return err
+	}
+
+	txStrips := s.strips.WithTx(tx)
+	txAssignments := s.assignments.WithTx(tx)
+	assignments, err := txAssignments.LockAssignments(ctx, session, "")
+	if err != nil {
+		return err
+	}
+	losers := s.unsafeAssignmentLosers(airport, assignments, s.now())
+	type removal struct {
+		assignment   models.StandAssignment
+		standChanged bool
+	}
+	removals := make([]removal, 0, len(losers))
+	for _, assignment := range losers {
+		strip, err := txStrips.LockByCallsign(ctx, session, assignment.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		standChanged := strip != nil && strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(assignment.Stand))
+		if standChanged {
+			updated, err := txStrips.UpdateStand(ctx, session, assignment.Callsign, nil, nil)
+			if err != nil {
+				return err
+			}
+			if updated != 1 {
+				return errAllocationVersionConflict
+			}
+		}
+		deleted, err := txAssignments.DeleteAssignment(ctx, session, assignment.ID, assignment.Version)
+		if err != nil {
+			return err
+		}
+		if deleted != 1 {
+			return errAllocationVersionConflict
+		}
+		removals = append(removals, removal{assignment: *assignment, standChanged: standChanged})
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	for _, removal := range removals {
+		s.publishCommitted(ctx, StandAllocationResult{
+			Assignment: removal.assignment, Removed: true,
+			StandChanged: removal.standChanged, NotifyEuroscope: removal.standChanged,
+		})
+		slog.WarnContext(ctx, "SAT released unsafe overlapping assignment",
+			slog.Int("session", int(session)),
+			slog.String("callsign", removal.assignment.Callsign),
+			slog.String("stand", removal.assignment.Stand),
+			slog.String("stage", removal.assignment.Stage))
+	}
+	return nil
+}
+
+func (s *StandAllocationService) unsafeAssignmentLosers(airport string, assignments []*models.StandAssignment, now time.Time) []*models.StandAssignment {
+	ordered := make([]*models.StandAssignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		if assignment != nil && strings.TrimSpace(assignment.Stand) != "" && !standAssignmentExpired(assignment, now) {
+			ordered = append(ordered, assignment)
+		}
+	}
+	slices.SortStableFunc(ordered, func(left, right *models.StandAssignment) int {
+		leftProtected, rightProtected := assignmentProtectedFromReconciliation(left), assignmentProtectedFromReconciliation(right)
+		if leftProtected != rightProtected {
+			if leftProtected {
+				return -1
+			}
+			return 1
+		}
+		if leftRank, rightRank := assignmentReconciliationRank(left), assignmentReconciliationRank(right); leftRank != rightRank {
+			return rightRank - leftRank
+		}
+		leftStart, _, _ := assignmentOccupancyWindow(left, now)
+		rightStart, _, _ := assignmentOccupancyWindow(right, now)
+		if !leftStart.Equal(rightStart) {
+			if leftStart.Before(rightStart) {
+				return -1
+			}
+			return 1
+		}
+		if left.ID < right.ID {
+			return -1
+		}
+		if left.ID > right.ID {
+			return 1
+		}
+		return strings.Compare(strings.ToUpper(left.Callsign), strings.ToUpper(right.Callsign))
+	})
+
+	kept := make([]*models.StandAssignment, 0, len(ordered))
+	losers := make([]*models.StandAssignment, 0)
+	for _, candidate := range ordered {
+		unsafe := false
+		for _, winner := range kept {
+			if !s.assignmentsOccupancyConflict(airport, candidate, winner, now) {
+				continue
+			}
+			if assignmentProtectedFromReconciliation(candidate) && assignmentProtectedFromReconciliation(winner) {
+				continue
+			}
+			unsafe = true
+			break
+		}
+		if unsafe {
+			losers = append(losers, candidate)
+			continue
+		}
+		kept = append(kept, candidate)
+	}
+	return losers
+}
+
+func (s *StandAllocationService) assignmentsOccupancyConflict(airport string, left, right *models.StandAssignment, now time.Time) bool {
+	leftStand, rightStand := standName(left.Stand), standName(right.Stand)
+	direct := leftStand == rightStand
+	adjacent := left.Stage != StageEstimated && right.Stage != StageEstimated &&
+		blocksEachOther(s.assignedBlocks(airport, left), s.assignedBlocks(airport, right), leftStand, rightStand)
+	if !direct && !adjacent {
+		return false
+	}
+	leftStart, leftEnd, leftActive := assignmentOccupancyWindow(left, now)
+	rightStart, rightEnd, rightActive := assignmentOccupancyWindow(right, now)
+	if !leftActive || !rightActive {
+		return false
+	}
+	return occupancyWindowsOverlap(leftStart, leftEnd, rightStart, rightEnd, now)
+}
+
+func assignmentProtectedFromReconciliation(assignment *models.StandAssignment) bool {
+	if assignment == nil {
+		return false
+	}
+	if assignment.Manual || assignment.Stage == StageDepartureBlock ||
+		(assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.ExpiresAt != nil) {
+		return true
+	}
+	return assignment.ObservedStand != nil && strings.EqualFold(strings.TrimSpace(*assignment.ObservedStand), strings.TrimSpace(assignment.Stand))
+}
+
+func assignmentReconciliationRank(assignment *models.StandAssignment) int {
+	if assignment == nil {
+		return 0
+	}
+	switch assignment.Stage {
+	case StageConfirmed:
+		return 50
+	case StageAssigned:
+		return 40
+	case StageDepartureBlock:
+		return 35
+	case StageReserved:
+		return 30
+	case StageEstimated:
+		return 20
+	default:
+		return 10
+	}
+}
+
+func assignmentOccupancyWindow(assignment *models.StandAssignment, now time.Time) (time.Time, *time.Time, bool) {
+	if assignment == nil || standAssignmentExpired(assignment, now) {
+		return time.Time{}, nil, false
+	}
+	if assignment.ExpiresAt != nil {
+		return now, assignment.ExpiresAt, true
+	}
+	if assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.ETA != nil {
+		end := assignment.ETA.Add(arrivalStandRetention)
+		if !end.After(now) {
+			// A stale ETA is not proof that a delayed inbound disappeared. Treat
+			// it as active now with an unknown release until lifecycle facts move.
+			return now, nil, true
+		}
+		return *assignment.ETA, &end, true
+	}
+	return now, nil, true
+}
+
+func occupancyWindowsOverlap(leftStart time.Time, leftEnd *time.Time, rightStart time.Time, rightEnd *time.Time, now time.Time) bool {
+	if leftEnd == nil && leftStart.Equal(now) && rightStart.After(now) {
+		return false
+	}
+	if rightEnd == nil && rightStart.Equal(now) && leftStart.After(now) {
+		return false
+	}
+	if leftEnd != nil && !leftEnd.After(rightStart) {
+		return false
+	}
+	return rightEnd == nil || rightEnd.After(leftStart)
+}
+
 // WithStandAllocationAttempts bounds retries for serialization, uniqueness,
 // and optimistic-version conflicts. The default is three attempts.
 func WithStandAllocationAttempts(attempts int) StandAllocationOption {
@@ -453,7 +662,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 			tried[selected] = struct{}{}
 		}
 		if !retryableStandAllocationError(err) {
-			if isAutomaticStandAllocation(command) && suppressAutomaticFailure && errors.Is(err, ErrNoAvailableStand) {
+			if isAutomaticStandAllocation(command) && suppressAutomaticFailure && isTransientAutomaticStandShortage(err) {
 				// Capacity is probed on every lifecycle poll so a newly freed stand
 				// is claimed promptly. During backoff, only the repeated warning,
 				// metric, and diagnostic record are suppressed.
@@ -520,7 +729,7 @@ func (s *StandAllocationService) noteAutomaticTerminalFailure(request StandAlloc
 		failure = automaticTerminalFailure{fingerprint: fingerprint}
 	}
 	failure.failures++
-	if errors.Is(err, ErrNoAvailableStand) {
+	if isTransientAutomaticStandShortage(err) {
 		failure.retryAfter = s.now().Add(automaticAvailabilityRetryDelay(failure.failures))
 	} else {
 		failure.retryAfter = time.Time{}
@@ -550,7 +759,11 @@ func isTerminalAutomaticStandShortage(err error) bool {
 	// Compatibility is stable for an unchanged flight-facts fingerprint.
 	// Availability is transient, so suppress identical polling attempts only
 	// until the bounded retry deadline instead of for the life of the facts.
-	return errors.Is(err, ErrNoCompatibleStand) || errors.Is(err, ErrNoAvailableStand)
+	return errors.Is(err, ErrNoCompatibleStand) || isTransientAutomaticStandShortage(err)
+}
+
+func isTransientAutomaticStandShortage(err error) bool {
+	return errors.Is(err, ErrNoAvailableStand) || errors.Is(err, ErrNoPolicyStand)
 }
 
 func automaticFailureKeyAndFingerprint(request StandAllocationRequest) (string, string) {
@@ -581,6 +794,8 @@ func standAllocationFailureOutcome(err error) string {
 		return "no_compatible_stand"
 	case errors.Is(err, ErrNoAvailableStand):
 		return "no_available_stand"
+	case errors.Is(err, ErrNoPolicyStand):
+		return "no_policy_stand"
 	case errors.Is(err, ErrIncompatibleManualAssignment):
 		return "manual_stand_unavailable"
 	case errors.Is(err, ErrUnknownManualOverrideStand):
@@ -914,6 +1129,9 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		return "", nil, nil, available, "", err
 	}
 	if selection == nil {
+		if len(available) > 0 {
+			return "", nil, nil, available, "", fmt.Errorf("%w: %d compatible stands are physically available", ErrNoPolicyStand, len(available))
+		}
 		return "", nil, nil, available, "", ErrNoAvailableStand
 	}
 	match := matches[selection.Stand]
@@ -997,7 +1215,7 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 	result := map[string][]string{}
 	for candidate, match := range matches {
 		for _, assignment := range assignments {
-			if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) || expired(assignment.ExpiresAt, now) {
+			if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) || standAssignmentExpired(assignment, now) {
 				continue
 			}
 			futureArrivalBlocks := false
@@ -1016,7 +1234,7 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 					}
 					continue
 				}
-				if assignment.ETA != nil && assignment.ETA.After(now) {
+				if assignment.ExpiresAt == nil && assignment.ETA != nil && assignment.ETA.After(now) {
 					futureArrivalBlocks = futureArrivalBlocksRequest(*assignment.ETA, request)
 					if !futureArrivalBlocks {
 						continue
@@ -1075,14 +1293,26 @@ func sameArrivalETA(left, right *time.Time) bool {
 }
 
 // futureArrivalBlocksRequest treats a future arrival as a reservation from its
-// ETA. A departure may use the stand only when its TOBT plus the stand-release
-// buffer is before that ETA. Arrival reservations conflict whenever their
-// retention windows overlap, regardless of which booking was inserted first.
+// ETA. A physically active request uses its persisted release deadline; a
+// departure without one falls back to TOBT plus the stand-release buffer.
+// Planned arrival reservations conflict whenever their retention windows
+// overlap, regardless of which booking was inserted first.
 func futureArrivalBlocksRequest(arrivalETA time.Time, request StandAllocationRequest) bool {
 	switch request.Direction {
 	case sat.AssignmentDirectionDeparture:
-		return request.DepartureTOBT != nil && request.DepartureTOBT.Add(defaultDepartureBlockExtension).After(arrivalETA)
+		if request.ExpiresAt != nil {
+			return request.ExpiresAt.After(arrivalETA)
+		}
+		if request.DepartureTOBT != nil {
+			return request.DepartureTOBT.Add(defaultDepartureBlockExtension).After(arrivalETA)
+		}
+		// An observed departure may use the stand before the future arrival's
+		// reservation begins. Its physical block is rechecked as ETA approaches.
+		return false
 	case sat.AssignmentDirectionArrival:
+		if request.ExpiresAt != nil {
+			return request.ExpiresAt.After(arrivalETA)
+		}
 		return request.ETA == nil || arrivalReservationWindowsOverlap(*request.ETA, arrivalETA)
 	default:
 		return false
@@ -1091,8 +1321,18 @@ func futureArrivalBlocksRequest(arrivalETA time.Time, request StandAllocationReq
 
 func arrivalReservationsDoNotOverlap(request StandAllocationRequest, assignment *models.StandAssignment) bool {
 	return request.Direction == sat.AssignmentDirectionArrival && request.ETA != nil &&
-		assignment != nil && assignment.ETA != nil &&
+		request.ExpiresAt == nil && assignment != nil && assignment.ExpiresAt == nil && assignment.ETA != nil &&
 		!arrivalReservationWindowsOverlap(*request.ETA, *assignment.ETA)
+}
+
+func standAssignmentExpired(assignment *models.StandAssignment, now time.Time) bool {
+	if assignment == nil {
+		return true
+	}
+	if assignment.ExpiresAt != nil {
+		return !assignment.ExpiresAt.After(now)
+	}
+	return false
 }
 
 func arrivalReservationWindowsOverlap(leftETA, rightETA time.Time) bool {

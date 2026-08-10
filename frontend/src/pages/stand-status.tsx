@@ -869,15 +869,19 @@ export default function StandStatusPage() {
                   <div className="space-y-5 px-6 py-5">
                     {preview ? (
                       <div className="text-sm text-muted-foreground">
-                        {preview.compatible_stands} compatible · {preview.available_stands} available
-                        {preview.fallback_used ? " · using fallback pool" : ""}
+                        {preview.compatible_stands} compatible · {preview.available_stands} physically available
+                        {preview.fallback_used && preview.selection.candidates.length > 0 ? " · using fallback pool" : ""}
                       </div>
                     ) : null}
                     {previewLoading ? <div className="text-sm text-muted-foreground">Calculating current stand possibilities…</div> : null}
                     {previewError ? <div className="text-sm text-red-700 dark:text-red-300">{previewError}</div> : null}
                     {preview && !previewLoading ? (
                       preview.selection.candidates.length === 0 ? (
-                        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">No currently available stand appears in this flight’s configured policy pool.</div>
+                        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                          {preview.available_stands > 0
+                            ? `${preview.available_stands} compatible stands are physically available, but none belongs to this flight’s configured airline or fallback policy pool.`
+                            : "No compatible stand is currently physically available in this flight’s configured policy pool."}
+                        </div>
                       ) : (
                         <div className="space-y-4">
                           {groupPreviewCandidates(preview.selection.candidates).map((tier) => (

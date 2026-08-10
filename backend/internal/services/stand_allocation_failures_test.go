@@ -103,5 +103,7 @@ func TestAutomaticNoAvailableFailureUsesBoundedRetrySuppression(t *testing.T) {
 
 	require.Equal(t, automaticAvailabilityRetryMax, automaticAvailabilityRetryDelay(100), "backoff is capped")
 	require.True(t, isTerminalAutomaticStandShortage(ErrNoAvailableStand))
+	require.True(t, isTerminalAutomaticStandShortage(ErrNoPolicyStand))
 	require.True(t, isTerminalAutomaticStandShortage(ErrNoCompatibleStand))
+	require.Equal(t, "no_policy_stand", standAllocationFailureOutcome(ErrNoPolicyStand))
 }

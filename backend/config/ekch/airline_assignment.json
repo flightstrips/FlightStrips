@@ -953,29 +953,6 @@
       }
     },
     {
-      "id": "ITY_LIMC",
-      "callsigns": [
-        "ITY",
-        "LIMC"
-      ],
-      "stands": {
-        "tier1": {
-          "Foxtrot": 27,
-          "F7": 32,
-          "F8": 28,
-          "F9": 12,
-          "F1": 1,
-          "F5": 1
-        },
-        "tier2": {
-          "Delta": 100
-        },
-        "tier3": {
-          "EchoHigh": 100
-        }
-      }
-    },
-    {
       "id": "JTD_JTG",
       "callsigns": [
         "JTD",

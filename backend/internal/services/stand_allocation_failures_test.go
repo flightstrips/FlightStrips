@@ -57,7 +57,7 @@ func TestStandActionRecordsPreAllocationRejection(t *testing.T) {
 }
 
 func TestAutomaticTerminalFailuresAreSuppressedUntilFactsChange(t *testing.T) {
-	service := &StandAllocationService{}
+	service := &StandAllocationService{now: time.Now}
 	request := StandAllocationRequest{
 		SessionID: 7,
 		Callsign:  "sas123",
@@ -75,7 +75,7 @@ func TestAutomaticTerminalFailuresAreSuppressedUntilFactsChange(t *testing.T) {
 
 	for attempt := 0; attempt < automaticTerminalFailureThreshold; attempt++ {
 		require.False(t, service.automaticAllocationSuppressed(request))
-		service.noteAutomaticTerminalFailure(request)
+		service.noteAutomaticTerminalFailure(request, ErrNoCompatibleStand)
 	}
 	require.True(t, service.automaticAllocationSuppressed(request))
 
@@ -85,10 +85,23 @@ func TestAutomaticTerminalFailuresAreSuppressedUntilFactsChange(t *testing.T) {
 	require.False(t, service.automaticAllocationSuppressed(request), "new aircraft facts must allow a fresh allocation attempt")
 }
 
-func TestAutomaticNoAvailableFailureRemainsSuppressed(t *testing.T) {
-	service := &StandAllocationService{}
+func TestAutomaticNoAvailableFailureUsesBoundedRetrySuppression(t *testing.T) {
+	now := time.Date(2026, 8, 10, 18, 0, 0, 0, time.UTC)
+	service := &StandAllocationService{now: func() time.Time { return now }}
 	request := StandAllocationRequest{SessionID: 7, Callsign: "sas123", Airport: "ekch", Direction: sat.AssignmentDirectionDeparture}
 
-	service.noteAutomaticTerminalFailure(request)
+	service.noteAutomaticTerminalFailure(request, ErrNoAvailableStand)
 	require.True(t, service.automaticAllocationSuppressed(request))
+	now = now.Add(automaticAvailabilityRetryBase)
+	require.False(t, service.automaticAllocationSuppressed(request), "availability is retried after the cooldown")
+
+	service.noteAutomaticTerminalFailure(request, ErrNoAvailableStand)
+	now = now.Add(automaticAvailabilityRetryBase)
+	require.True(t, service.automaticAllocationSuppressed(request), "a repeated shortage uses a longer cooldown")
+	now = now.Add(automaticAvailabilityRetryBase)
+	require.False(t, service.automaticAllocationSuppressed(request), "the second cooldown expires after twice the base delay")
+
+	require.Equal(t, automaticAvailabilityRetryMax, automaticAvailabilityRetryDelay(100), "backoff is capped")
+	require.True(t, isTerminalAutomaticStandShortage(ErrNoAvailableStand))
+	require.True(t, isTerminalAutomaticStandShortage(ErrNoCompatibleStand))
 }

@@ -228,7 +228,7 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
 	})
 
-	t.Run("future arrival booking blocks a later arriving inbound", func(t *testing.T) {
+	t.Run("future arrival booking blocks an overlapping later inbound", func(t *testing.T) {
 		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS112")
 		testdata.SeedTestStrip(t, queries, session, "SAS113")
@@ -240,7 +240,7 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		_, err := service.AssignManually(ctx, firstArrival)
 		require.NoError(t, err)
 
-		laterETA := firstETA.Add(time.Hour)
+		laterETA := firstETA.Add(15 * time.Minute)
 		laterArrival := withStand(standAllocationRequest(session, "SAS113"), "A1")
 		laterArrival.Stage = StageConfirmed
 		laterArrival.ETA = &laterETA
@@ -314,17 +314,25 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		require.Error(t, err, "a Heavy aircraft must not be assigned to a Medium-only stand")
 	})
 
-	t.Run("suppresses repeated automatic attempts when no safe physical stand exists", func(t *testing.T) {
+	t.Run("retries automatic allocation after a transient stand shortage", func(t *testing.T) {
 		service, session, assignments := standAllocationFixture(t, pool, queries, "BLOCKS:A2", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS313")
-		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+		closure := &models.StandBlock{
 			SessionID: session, Stand: "A1", BlockType: "CLOSURE", Source: "CONTROLLER", Manual: true,
-		}))
+		}
+		require.NoError(t, assignments.CreateBlock(ctx, closure))
 
 		_, err := service.Allocate(ctx, standAllocationRequest(session, "SAS313"))
 		require.ErrorIs(t, err, ErrNoAvailableStand)
 		_, err = service.Allocate(ctx, standAllocationRequest(session, "SAS313"))
 		require.ErrorIs(t, err, ErrAutomaticAllocationSuppressed)
+
+		deleted, err := service.DeleteManualBlock(ctx, session, closure.ID, closure.Version)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), deleted)
+		result, err := service.Allocate(ctx, standAllocationRequest(session, "SAS313"))
+		require.NoError(t, err, "a silent probe claims capacity freed during diagnostic backoff")
+		assert.Equal(t, "A1", result.Assignment.Stand)
 	})
 
 	t.Run("manual blocks use allocation occupancy and adjacency locks", func(t *testing.T) {
@@ -525,6 +533,33 @@ WTC:M
 	arrival.ETA = nil
 	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
 	assert.Contains(t, unavailable["A1"], "reserved by ARR1", "a close unknown-ETA arrival blocks immediately")
+}
+
+func TestArrivalReservationWindowsAreSymmetric(t *testing.T) {
+	service := &StandAllocationService{now: func() time.Time {
+		return time.Date(2026, 8, 10, 17, 0, 0, 0, time.UTC)
+	}}
+	requestETA := time.Date(2026, 8, 10, 18, 45, 0, 0, time.UTC)
+	existingETA := time.Date(2026, 8, 10, 19, 0, 0, 0, time.UTC)
+	request := StandAllocationRequest{
+		Callsign: "EARLY", Direction: sat.AssignmentDirectionArrival, ETA: &requestETA,
+	}
+	existing := &models.StandAssignment{
+		Callsign: "LATE", Stand: "A1", Direction: string(sat.AssignmentDirectionArrival),
+		Stage: StageConfirmed, ETA: &existingETA,
+	}
+	matches := map[string]sat.StandCompatibilityMatch{"A1": {}}
+
+	unavailable := service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "reserved by LATE", "an earlier booking must not overlap a later booking inserted first")
+
+	requestETA = existingETA.Add(-arrivalStandRetention)
+	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Empty(t, unavailable["A1"], "touching reservation boundaries do not overlap")
+
+	requestETA = existingETA.Add(arrivalStandRetention)
+	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Empty(t, unavailable["A1"], "the stand can be reused after the existing retention window")
 }
 
 func TestAutomaticAllocationOnlyReleasesEstimatedReservationForBetterPolicyTier(t *testing.T) {

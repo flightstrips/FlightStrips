@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.46.0...backend/v0.46.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* **sat:** remove ambiguous ITY LIMC assignment ([#456](https://github.com/flightstrips/FlightStrips/issues/456)) ([5c734e3](https://github.com/flightstrips/FlightStrips/commit/5c734e34e7f099212d8676dcace535a25e45e884))
+
 ## [0.46.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.45.0...backend/v0.46.0) (2026-08-09)
 
 

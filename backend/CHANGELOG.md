@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.46.2](https://github.com/flightstrips/FlightStrips/compare/backend/v0.46.1...backend/v0.46.2) (2026-08-10)
+
+
+### Bug Fixes
+
+* **stand:** correct allocation lifecycle and timeline ([#460](https://github.com/flightstrips/FlightStrips/issues/460)) ([f025b07](https://github.com/flightstrips/FlightStrips/commit/f025b07ac35f797ffddc8452c70f8095120ed924))
+* **strip:** explain departure route failures ([#458](https://github.com/flightstrips/FlightStrips/issues/458)) ([2deb95e](https://github.com/flightstrips/FlightStrips/commit/2deb95e22b315a32c2d576b9b3c3506056eb3a7b))
+
 ## [0.46.1](https://github.com/flightstrips/FlightStrips/compare/backend/v0.46.0...backend/v0.46.1) (2026-08-10)
 
 

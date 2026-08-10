@@ -67,7 +67,7 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	config, err := LoadAirlineAssignmentFile(filepath.Join("..", "..", "config", "ekch", "airline_assignment.json"), standRegistry)
 	require.NoError(t, err)
 
-	assert.Len(t, config.Rules, 120)
+	assert.Len(t, config.Rules, 119)
 	assert.Equal(t, []string{"JTD"}, config.RulesByID("JTD_NON-SCHENGEN")[0].Callsigns)
 	assert.NotEmpty(t, config.RulesByID("MEA"))
 	assert.NotEmpty(t, config.RulesByID("MGH"))
@@ -85,6 +85,9 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", BorderStatus: BorderStatusNonSchengen})
 	require.NoError(t, err)
 	assert.Equal(t, "SAS_NON-SCHENGEN", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ITY210"})
+	require.NoError(t, err)
+	assert.Equal(t, "ITY", match.Rule.ID)
 	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusSchengen})
 	require.NoError(t, err)
 	assert.Equal(t, FallbackAirlinerSchengen, match.Fallback)

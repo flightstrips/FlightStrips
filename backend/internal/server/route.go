@@ -431,6 +431,7 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 	currentOwner := helpers.ValueOrDefault(strip.Owner)
 	currentStand := helpers.ValueOrDefault(strip.Stand)
 	currentRunway := helpers.ValueOrDefault(strip.Runway)
+	activeRunways := session.ActiveRunways.GetAllActiveRunways()
 
 	slog.Debug("Recalculating strip route",
 		slog.Int("session", int(session.ID)),
@@ -454,15 +455,40 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 	if !isArrival {
 		var success bool
 		route, success = config.ComputeDepartureRoute(
-			session.ActiveRunways.GetAllActiveRunways(),
+			activeRunways,
 			currentStand,
 			currentRunway,
 		)
 		if !success {
+			_, _, routeDiagnostics := config.ComputeDepartureRouteWithDiagnostics(
+				activeRunways,
+				currentStand,
+				currentRunway,
+			)
 			slog.Warn("Could not compute complete departure route for strip",
+				slog.Int("session", int(session.ID)),
+				slog.String("session_name", session.Name),
+				slog.String("airport", session.Airport),
 				slog.String("callsign", strip.Callsign),
+				slog.Int("strip_id", int(strip.ID)),
+				slog.Int("strip_version", int(strip.Version)),
+				slog.String("origin", strip.Origin),
+				slog.String("destination", strip.Destination),
+				slog.String("sid", helpers.ValueOrDefault(strip.Sid)),
+				slog.String("owner", currentOwner),
 				slog.String("runway", currentRunway),
-				slog.String("stand", currentStand))
+				slog.String("stand", currentStand),
+				slog.Any("active_runways", activeRunways),
+				slog.Any("active_departure_runways", session.ActiveRunways.DepartureRunways),
+				slog.Any("active_arrival_runways", session.ActiveRunways.ArrivalRunways),
+				slog.Any("runway_status", session.ActiveRunways.RunwayStatus),
+				slog.String("route_failure_reason", routeDiagnostics.FailureReason),
+				slog.String("normalized_runway", routeDiagnostics.NormalizedRunway),
+				slog.Int("candidate_route_count", routeDiagnostics.CandidateCount),
+				slog.String("stand_parse_error", routeDiagnostics.StandParseError),
+				slog.Any("route_candidates", routeDiagnostics.Candidates),
+				slog.Any("previous_owners", strip.PreviousOwners),
+				slog.Any("next_owners", strip.NextOwners))
 			return computedRouteState{}, false, nil
 		}
 	} else if strip.Stand == nil || *strip.Stand == "" {

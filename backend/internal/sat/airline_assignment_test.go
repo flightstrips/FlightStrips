@@ -98,7 +98,7 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, selection)
-	assert.Equal(t, "E70", selection.Stand)
+	assert.Equal(t, "E82", selection.Stand)
 	selection, err = config.SelectStand(
 		AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusNonSchengen},
 		[]string{"E70", "E82"},
@@ -106,10 +106,10 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, selection)
-	assert.Equal(t, "E82", selection.Stand)
+	assert.Equal(t, "E70", selection.Stand)
 	group, err := config.ResolveStandGroup("echoHigh")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"E70", "E72", "E76", "E77", "E78"}, group)
+	assert.Equal(t, []string{"E82", "E83", "E84", "E85", "E86", "E87", "E88", "E89", "E90", "F90", "F91", "F92", "F93", "F94", "F95", "F96", "F97", "F98"}, group)
 	group, err = config.ResolveStandGroup("Delta+Charlie")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"D1", "D2", "D3", "D4", "C27", "C28", "C29", "C30", "C32", "C33", "C34", "C35", "C36", "C37", "C39"}, group)

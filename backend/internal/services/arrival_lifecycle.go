@@ -110,8 +110,9 @@ func (s *ArrivalLifecycleService) ProcessArrival(ctx context.Context, session in
 	eta := arrivalETATime(strip)
 	now := s.now()
 	altitude := arrivalAltitude(strip)
+	nearAirport := s.arrivalIsNearAirport(strip, flight.Destination)
 	atAirport := s.arrivalIsAtAirport(strip, flight.Destination)
-	targetStage := determineArrivalTargetStage(eta, now, altitude, atAirport)
+	targetStage := determineArrivalTargetStage(eta, now, altitude, atAirport, nearAirport)
 	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
 	if err != nil && !isNotFound(err) {
 		return err
@@ -233,6 +234,16 @@ func parkedArrivalStandAtPosition(stands *sat.StandCapabilityRegistry, strip *mo
 }
 
 func (s *ArrivalLifecycleService) arrivalIsAtAirport(strip *models.Strip, flightDestination string) bool {
+	if strip == nil || strip.PositionAltitude == nil || *strip.PositionAltitude > arrivalAirportMaxAltitude {
+		return false
+	}
+	return s.arrivalIsNearAirport(strip, flightDestination)
+}
+
+// arrivalIsNearAirport gates altitude-driven lifecycle promotion. A low
+// altitude at the departure airport must not turn a future inbound into a hard
+// EKCH stand reservation before it has even departed.
+func (s *ArrivalLifecycleService) arrivalIsNearAirport(strip *models.Strip, flightDestination string) bool {
 	if s == nil || s.stands == nil || strip == nil || strip.PositionLatitude == nil || strip.PositionLongitude == nil {
 		return false
 	}
@@ -244,9 +255,6 @@ func (s *ArrivalLifecycleService) arrivalIsAtAirport(strip *models.Strip, flight
 		airport = strings.ToUpper(strings.TrimSpace(strip.Destination))
 	}
 	if airport == "" {
-		return false
-	}
-	if strip.PositionAltitude == nil || *strip.PositionAltitude > arrivalAirportMaxAltitude {
 		return false
 	}
 	if _, found := s.stands.StandAtPosition(airport, *strip.PositionLatitude, *strip.PositionLongitude); found {
@@ -267,7 +275,7 @@ func (s *ArrivalLifecycleService) promoteArrival(ctx context.Context, session in
 	if err != nil {
 		return err
 	}
-	if available && s.currentStandIsOptimal(ctx, request, existing) {
+	if available {
 		return s.updateArrivalInPlace(ctx, existing, targetStage, eta, request.ETASource, existing.ExpiresAt)
 	}
 	_, err = s.allocations.Reallocate(ctx, request)
@@ -317,29 +325,6 @@ func (s *ArrivalLifecycleService) blockedByPastDeparture(ctx context.Context, se
 		}
 	}
 	return false
-}
-
-func (s *ArrivalLifecycleService) currentStandIsOptimal(ctx context.Context, request StandAllocationRequest, existing *models.StandAssignment) bool {
-	if existing.Tier == nil {
-		return false
-	}
-	preview, err := s.allocations.Preview(ctx, request)
-	if err != nil {
-		return false
-	}
-	selection, found := selectablePreviewCandidate(preview.Selection)
-	if !found {
-		return true
-	}
-	for _, candidate := range preview.Selection.Candidates {
-		if candidate.Selectable && standName(candidate.Stand) == standName(existing.Stand) {
-			return true
-		}
-	}
-	if existing.RuleID == nil || !strings.EqualFold(*existing.RuleID, selection.RuleID) {
-		return false
-	}
-	return selection.Tier >= int(*existing.Tier)
 }
 
 func (s *ArrivalLifecycleService) updateArrivalInPlace(ctx context.Context, existing *models.StandAssignment, stage string, eta *time.Time, etaSource *string, expiresAt *time.Time) error {
@@ -542,13 +527,13 @@ func (s *ArrivalLifecycleService) resolveFacts(strip *models.Strip, flight vatsi
 	return facts, assignmentFacts
 }
 
-func determineArrivalTargetStage(eta *time.Time, now time.Time, altitude *int32, atAirport bool) string {
+func determineArrivalTargetStage(eta *time.Time, now time.Time, altitude *int32, atAirport, nearAirport bool) string {
 	confirmedByTime := eta != nil && eta.Sub(now) <= defaultConfirmedBefore
-	if atAirport || confirmedByTime || altitudeBelow(altitude, confirmedAltitudeThreshold) {
+	if atAirport || confirmedByTime || (nearAirport && altitudeBelow(altitude, confirmedAltitudeThreshold)) {
 		return StageConfirmed
 	}
 	assignedByTime := eta != nil && eta.Sub(now) <= defaultAssignedBefore
-	if assignedByTime || altitudeBelow(altitude, assignedAltitudeThreshold) {
+	if assignedByTime || (nearAirport && altitudeBelow(altitude, assignedAltitudeThreshold)) {
 		return StageAssigned
 	}
 	return StageEstimated

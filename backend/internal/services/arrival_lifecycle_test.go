@@ -170,14 +170,14 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageConfirmed, assignment.Stage, "promoted to CONFIRMED by time alone at ETA−1 min")
 	})
 
-	t.Run("ASSIGNED by altitude alone before ETA−10 min", func(t *testing.T) {
+	t.Run("ASSIGNED by altitude near destination before ETA−10 min", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(60 * time.Minute)
 		clock.set(arrivalETA.Add(-60 * time.Minute))
 		seedTestArrivalStrip(t, queries, session, "SAS403")
 		setArrivalETA(t, strips, session, "SAS403", arrivalETA)
 
-		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS403", posPtr(55), posPtr(10), altPtr(5000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS403", posPtr(55.6285306), posPtr(12.642625), altPtr(5000), "FINAL", nil)
 		require.NoError(t, err)
 
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS403"), arrivalFlight("SAS403", 1)))
@@ -187,14 +187,14 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageAssigned, assignment.Stage, "promoted to ASSIGNED by altitude alone below 10000 ft")
 	})
 
-	t.Run("CONFIRMED by altitude alone well before ETA−2 min", func(t *testing.T) {
+	t.Run("CONFIRMED by altitude near destination well before ETA−2 min", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(30 * time.Minute)
 		clock.set(arrivalETA.Add(-30 * time.Minute))
 		seedTestArrivalStrip(t, queries, session, "SAS404")
 		setArrivalETA(t, strips, session, "SAS404", arrivalETA)
 
-		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS404", posPtr(55), posPtr(10), altPtr(2000), "FINAL", nil)
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS404", posPtr(55.6285306), posPtr(12.642625), altPtr(2000), "FINAL", nil)
 		require.NoError(t, err)
 
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS404"), arrivalFlight("SAS404", 1)))
@@ -202,6 +202,21 @@ func TestArrivalLifecycle(t *testing.T) {
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS404")
 		require.NoError(t, err)
 		assert.Equal(t, StageConfirmed, assignment.Stage, "promoted to CONFIRMED by altitude alone below 3000 ft")
+	})
+
+	t.Run("low altitude at origin remains ESTIMATED", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(60 * time.Minute)
+		seedTestArrivalStrip(t, queries, session, "SAS405")
+		setArrivalETA(t, strips, session, "SAS405", arrivalETA)
+
+		_, err := strips.UpdateAircraftPosition(ctx, session, "SAS405", posPtr(60.1939), posPtr(11.1004), altPtr(700), "PARK", nil)
+		require.NoError(t, err)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS405"), arrivalFlight("SAS405", 1)))
+
+		assignment, err := assignments.GetAssignment(ctx, session, "SAS405")
+		require.NoError(t, err)
+		assert.Equal(t, StageEstimated, assignment.Stage)
 	})
 
 	t.Run("transitions are idempotent", func(t *testing.T) {
@@ -665,7 +680,7 @@ STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
 
 		reserved, err := assignments.GetAssignment(ctx, session, "SAS927")
 		require.NoError(t, err)
-		assert.Equal(t, StageAssigned, reserved.Stage)
+		assert.Equal(t, StageEstimated, reserved.Stage)
 		assert.Nil(t, reserved.ExpiresAt)
 		assert.False(t, reserved.Manual)
 
@@ -678,10 +693,11 @@ STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
 func TestDetermineArrivalTargetStageWithoutETA(t *testing.T) {
 	now := time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC)
 
-	assert.Equal(t, StageEstimated, determineArrivalTargetStage(nil, now, nil, false))
-	assert.Equal(t, StageAssigned, determineArrivalTargetStage(nil, now, altPtr(8000), false))
-	assert.Equal(t, StageConfirmed, determineArrivalTargetStage(nil, now, altPtr(2000), false))
-	assert.Equal(t, StageConfirmed, determineArrivalTargetStage(nil, now, nil, true))
+	assert.Equal(t, StageEstimated, determineArrivalTargetStage(nil, now, nil, false, false))
+	assert.Equal(t, StageEstimated, determineArrivalTargetStage(nil, now, altPtr(8000), false, false))
+	assert.Equal(t, StageAssigned, determineArrivalTargetStage(nil, now, altPtr(8000), false, true))
+	assert.Equal(t, StageConfirmed, determineArrivalTargetStage(nil, now, altPtr(2000), false, true))
+	assert.Equal(t, StageConfirmed, determineArrivalTargetStage(nil, now, nil, true, true))
 }
 
 func TestArrivalAltitudeRequiresValidPosition(t *testing.T) {

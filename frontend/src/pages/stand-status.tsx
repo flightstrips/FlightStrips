@@ -1,6 +1,7 @@
 import { useAuth0 } from "@auth0/auth0-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getApiUrl } from "@/lib/api-url";
+import { assignmentTimelineTiming, latestTimelineDate, timelineRangeEnd } from "./stand-status-timeline";
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -209,6 +210,7 @@ type StandTimelineItem = {
   secondary: string;
   start: Date;
   end?: Date;
+  plannedEnd?: Date;
   active: boolean;
   tone: string;
 };
@@ -280,9 +282,8 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
       ? timelineDate(assignment.eta) ?? timelineDate(assignment.assigned_at) ?? timelineDate(assignment.created_at)
       : timelineDate(assignment.assigned_at) ?? timelineDate(assignment.created_at);
     if (!start || !assignment.stand) return [];
-    const displayEnd = timelineDate(assignment.expires_at) ?? (assignment.direction === "ARRIVAL" && assignment.eta
-      ? new Date(new Date(assignment.eta).getTime() + 30 * 60 * 1000)
-      : undefined);
+    const timelineTiming = assignmentTimelineTiming(assignment);
+    const displayEnd = timelineTiming.end;
     const active = entryIsActive(assignment.expires_at, now);
     const timing = assignment.direction === "DEPARTURE"
       ? `TOBT ${clockValue(assignment.departure_tobt)} · TSAT ${clockValue(assignment.departure_tsat)}`
@@ -292,9 +293,14 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
       stand: assignment.stand.toUpperCase(),
       label: assignment.callsign,
       detail: `${formatStatus(assignment.direction)} · ${formatStatus(assignment.stage)}${assignment.rule_id ? ` · ${assignment.rule_id}` : ""}`,
-      secondary: `${timing} · ${displayEnd ? `ends ${formatTimestamp(displayEnd.toISOString())}` : "open-ended"}`,
+      secondary: `${timing} · ${displayEnd
+        ? `ends ${formatTimestamp(displayEnd.toISOString())}`
+        : timelineTiming.plannedRelease
+          ? `planned release ${formatTimestamp(timelineTiming.plannedRelease.toISOString())}`
+          : "open-ended"}`,
       start,
       end: displayEnd,
+      plannedEnd: timelineTiming.plannedRelease,
       active,
       tone: !active
         ? "border-slate-400/70 bg-slate-500/70 text-slate-50 dark:border-slate-500 dark:bg-slate-600/70"
@@ -337,12 +343,9 @@ function StandAllocationTimeline({ session, selectedStand, onSelectStand }: {
   const stands = [...new Set(items.map((item) => item.stand))];
   const visibleStands = requestedStand ? [requestedStand] : stands;
   const earliest = items.reduce<Date | undefined>((value, item) => !value || item.start < value ? item.start : value, undefined);
-  const latest = items.reduce<Date | undefined>((value, item) => {
-    const end = item.end ?? now;
-    return !value || end > value ? end : value;
-  }, undefined);
+  const latest = latestTimelineDate(items, now);
   const rangeStart = new Date(Math.min(earliest?.getTime() ?? now.getTime(), now.getTime() - 60 * 60 * 1000));
-  const rangeEnd = new Date(Math.max(latest?.getTime() ?? now.getTime(), now.getTime() + 4 * 60 * 60 * 1000));
+  const rangeEnd = timelineRangeEnd(latest, now);
   const rangeMs = Math.max(1, rangeEnd.getTime() - rangeStart.getTime());
   const offset = (date: Date) => Math.max(0, Math.min(100, ((date.getTime() - rangeStart.getTime()) / rangeMs) * 100));
 
@@ -390,18 +393,26 @@ function StandAllocationTimeline({ session, selectedStand, onSelectStand }: {
                       const start = offset(item.start);
                       const end = offset(item.end ?? rangeEnd);
                       return (
-                        <div
-                          key={item.id}
-                          title={`${item.label}: ${item.detail}. ${item.secondary}`}
-                          className={`absolute overflow-hidden rounded-md border px-2 py-1 shadow-sm ${item.tone}`}
-                          style={{ left: `${start}%`, width: `${Math.max(7, end - start)}%`, top: `${6 + index * layout.laneHeight}px`, height: `${layout.laneHeight - 6}px` }}
-                        >
-                          <div className="flex items-center justify-between gap-2 text-xs font-semibold leading-4">
-                            <span className="truncate">{item.label}</span>
-                            {!item.active ? <span className="rounded bg-black/15 px-1 py-px text-[9px] uppercase tracking-wide">History</span> : null}
+                        <div key={item.id}>
+                          <div
+                            title={`${item.label}: ${item.detail}. ${item.secondary}`}
+                            className={`absolute overflow-hidden rounded-md border px-2 py-1 shadow-sm ${item.tone}`}
+                            style={{ left: `${start}%`, width: `${Math.max(7, end - start)}%`, top: `${6 + index * layout.laneHeight}px`, height: `${layout.laneHeight - 6}px` }}
+                          >
+                            <div className="flex items-center justify-between gap-2 text-xs font-semibold leading-4">
+                              <span className="truncate">{item.label}</span>
+                              {!item.active ? <span className="rounded bg-black/15 px-1 py-px text-[9px] uppercase tracking-wide">History</span> : null}
+                            </div>
+                            <div className="truncate text-[11px] leading-4 opacity-90">{item.detail}</div>
+                            <div className="truncate text-[10px] leading-4 opacity-80">{item.secondary}</div>
                           </div>
-                          <div className="truncate text-[11px] leading-4 opacity-90">{item.detail}</div>
-                          <div className="truncate text-[10px] leading-4 opacity-80">{item.secondary}</div>
+                          {item.plannedEnd ? (
+                            <div
+                              title={`Planned release ${formatTimestamp(item.plannedEnd.toISOString())}`}
+                              className="absolute z-20 border-l-2 border-dashed border-emerald-950/70 dark:border-emerald-100/80"
+                              style={{ left: `${offset(item.plannedEnd)}%`, top: `${6 + index * layout.laneHeight}px`, height: `${layout.laneHeight - 6}px` }}
+                            />
+                          ) : null}
                         </div>
                       );
                     })}

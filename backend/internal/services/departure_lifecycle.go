@@ -216,22 +216,28 @@ func (s *DepartureLifecycleService) ObserveDeparturePosition(ctx context.Context
 // records the mismatch for the warning/deadline workflow.
 func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo) (bool, error) {
 	observed, found := s.stands.StandAtPosition(strings.TrimSpace(strip.Origin), flight.Latitude, flight.Longitude)
+	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
+	if err != nil && !isNotFound(err) {
+		return false, err
+	}
 	if !found {
 		s.clearUnassignedStandWarning(session, strip.Callsign)
 		slog.Debug("online departure position does not resolve to a configured stand",
 			slog.String("callsign", strip.Callsign),
 			slog.Float64("latitude", flight.Latitude),
 			slog.Float64("longitude", flight.Longitude))
+		if existing != nil && existing.Stage == StageDepartureBlock && validDeparturePosition(flight.Latitude, flight.Longitude) {
+			// The aircraft has positively moved away from every configured stand.
+			// Its previous stand is physically free now; do not retain a nil-expiry
+			// departure block until the EuroScope strip eventually disappears.
+			return false, s.allocations.ReleaseAssignment(ctx, existing)
+		}
 		if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
 			return false, err
 		}
 		return false, nil
 	}
 
-	existing, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
-	if err != nil && !isNotFound(err) {
-		return false, err
-	}
 	if existing != nil && strings.EqualFold(existing.Stand, observed.Name) {
 		return true, s.activateBlock(ctx, session, strip, flight)
 	}
@@ -307,6 +313,11 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		return false, fmt.Errorf("publish observed stand mismatch for %s: %w", strip.Callsign, err)
 	}
 	return false, s.deliverWrongStandWarning(ctx, &updated)
+}
+
+func validDeparturePosition(latitude, longitude float64) bool {
+	return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180 &&
+		(latitude != 0 || longitude != 0)
 }
 
 func (s *DepartureLifecycleService) useObservedStandForRoute(ctx context.Context, session int32, callsign, stand string) {

@@ -40,11 +40,15 @@ var (
 	ErrIncompatibleManualAssignment  = errors.New("manual stand is not compatible or available")
 	ErrAllocationRetriesExhausted    = errors.New("stand allocation retries exhausted")
 	ErrUnknownManualOverrideStand    = errors.New("manual override stand is not configured")
-	ErrAutomaticAllocationSuppressed = errors.New("automatic stand allocation suppressed after an unchanged terminal stand shortage")
+	ErrAutomaticAllocationSuppressed = errors.New("automatic stand allocation suppressed after an unchanged stand shortage")
 	errAllocationVersionConflict     = errors.New("stand assignment version conflict")
 )
 
-const automaticTerminalFailureThreshold = 1
+const (
+	automaticTerminalFailureThreshold = 1
+	automaticAvailabilityRetryBase    = 30 * time.Second
+	automaticAvailabilityRetryMax     = 15 * time.Minute
+)
 
 // StandAllocationRequest contains facts already resolved by the SAT data
 // layer. It intentionally excludes lifecycle and controller authorization
@@ -153,6 +157,7 @@ type StandAllocationService struct {
 type automaticTerminalFailure struct {
 	fingerprint string
 	failures    int
+	retryAfter  time.Time
 }
 
 type StandAllocationOption func(*StandAllocationService)
@@ -405,8 +410,13 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 		}
 		return nil, err
 	}
-	if isAutomaticStandAllocation(command) && s.automaticAllocationSuppressed(request) {
-		return nil, ErrAutomaticAllocationSuppressed
+	suppressAutomaticFailure := false
+	if isAutomaticStandAllocation(command) {
+		skipAttempt, suppressFailure := s.automaticAllocationSuppression(request)
+		if skipAttempt {
+			return nil, ErrAutomaticAllocationSuppressed
+		}
+		suppressAutomaticFailure = suppressFailure
 	}
 	tried := map[string]struct{}{}
 	for attempt := 1; attempt <= s.attempts; attempt++ {
@@ -443,9 +453,15 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 			tried[selected] = struct{}{}
 		}
 		if !retryableStandAllocationError(err) {
+			if isAutomaticStandAllocation(command) && suppressAutomaticFailure && errors.Is(err, ErrNoAvailableStand) {
+				// Capacity is probed on every lifecycle poll so a newly freed stand
+				// is claimed promptly. During backoff, only the repeated warning,
+				// metric, and diagnostic record are suppressed.
+				return nil, ErrAutomaticAllocationSuppressed
+			}
 			if isAutomaticStandAllocation(command) {
 				if isTerminalAutomaticStandShortage(err) {
-					s.noteAutomaticTerminalFailure(request)
+					s.noteAutomaticTerminalFailure(request, err)
 				} else {
 					s.clearAutomaticTerminalFailure(request)
 				}
@@ -474,14 +490,25 @@ func isAutomaticStandAllocation(command StandAllocationCommand) bool {
 }
 
 func (s *StandAllocationService) automaticAllocationSuppressed(request StandAllocationRequest) bool {
+	skipAttempt, suppressFailure := s.automaticAllocationSuppression(request)
+	return skipAttempt || suppressFailure
+}
+
+func (s *StandAllocationService) automaticAllocationSuppression(request StandAllocationRequest) (skipAttempt, suppressFailure bool) {
 	key, fingerprint := automaticFailureKeyAndFingerprint(request)
 	s.automaticFailureMu.Lock()
 	defer s.automaticFailureMu.Unlock()
 	failure, ok := s.automaticTerminalFailures[key]
-	return ok && failure.fingerprint == fingerprint && failure.failures >= automaticTerminalFailureThreshold
+	if !ok || failure.fingerprint != fingerprint || failure.failures < automaticTerminalFailureThreshold {
+		return false, false
+	}
+	if failure.retryAfter.IsZero() {
+		return true, false
+	}
+	return false, s.now().Before(failure.retryAfter)
 }
 
-func (s *StandAllocationService) noteAutomaticTerminalFailure(request StandAllocationRequest) {
+func (s *StandAllocationService) noteAutomaticTerminalFailure(request StandAllocationRequest, err error) {
 	key, fingerprint := automaticFailureKeyAndFingerprint(request)
 	s.automaticFailureMu.Lock()
 	defer s.automaticFailureMu.Unlock()
@@ -493,7 +520,23 @@ func (s *StandAllocationService) noteAutomaticTerminalFailure(request StandAlloc
 		failure = automaticTerminalFailure{fingerprint: fingerprint}
 	}
 	failure.failures++
+	if errors.Is(err, ErrNoAvailableStand) {
+		failure.retryAfter = s.now().Add(automaticAvailabilityRetryDelay(failure.failures))
+	} else {
+		failure.retryAfter = time.Time{}
+	}
 	s.automaticTerminalFailures[key] = failure
+}
+
+func automaticAvailabilityRetryDelay(failures int) time.Duration {
+	delay := automaticAvailabilityRetryBase
+	for attempt := 1; attempt < failures && delay < automaticAvailabilityRetryMax; attempt++ {
+		if delay >= automaticAvailabilityRetryMax/2 {
+			return automaticAvailabilityRetryMax
+		}
+		delay *= 2
+	}
+	return min(delay, automaticAvailabilityRetryMax)
 }
 
 func (s *StandAllocationService) clearAutomaticTerminalFailure(request StandAllocationRequest) {
@@ -504,6 +547,9 @@ func (s *StandAllocationService) clearAutomaticTerminalFailure(request StandAllo
 }
 
 func isTerminalAutomaticStandShortage(err error) bool {
+	// Compatibility is stable for an unchanged flight-facts fingerprint.
+	// Availability is transient, so suppress identical polling attempts only
+	// until the bounded retry deadline instead of for the life of the facts.
 	return errors.Is(err, ErrNoCompatibleStand) || errors.Is(err, ErrNoAvailableStand)
 }
 
@@ -960,7 +1006,8 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 					// An ESTIMATED arrival reserves only its selected stand. It
 					// is not physically present, so it must not block adjacent
 					// stands through the stand geometry.
-					if request.displacesAssignment(assignment) ||
+					if arrivalReservationsDoNotOverlap(request, assignment) ||
+						request.displacesAssignment(assignment) ||
 						(yieldEstimated && estimatedReservationCanYield(request, assignment)) {
 						continue
 					}
@@ -1029,17 +1076,29 @@ func sameArrivalETA(left, right *time.Time) bool {
 
 // futureArrivalBlocksRequest treats a future arrival as a reservation from its
 // ETA. A departure may use the stand only when its TOBT plus the stand-release
-// buffer is before that ETA; a later-arriving inbound cannot take a stand that
-// is already reserved first.
+// buffer is before that ETA. Arrival reservations conflict whenever their
+// retention windows overlap, regardless of which booking was inserted first.
 func futureArrivalBlocksRequest(arrivalETA time.Time, request StandAllocationRequest) bool {
 	switch request.Direction {
 	case sat.AssignmentDirectionDeparture:
 		return request.DepartureTOBT != nil && request.DepartureTOBT.Add(defaultDepartureBlockExtension).After(arrivalETA)
 	case sat.AssignmentDirectionArrival:
-		return request.ETA == nil || !request.ETA.Before(arrivalETA)
+		return request.ETA == nil || arrivalReservationWindowsOverlap(*request.ETA, arrivalETA)
 	default:
 		return false
 	}
+}
+
+func arrivalReservationsDoNotOverlap(request StandAllocationRequest, assignment *models.StandAssignment) bool {
+	return request.Direction == sat.AssignmentDirectionArrival && request.ETA != nil &&
+		assignment != nil && assignment.ETA != nil &&
+		!arrivalReservationWindowsOverlap(*request.ETA, *assignment.ETA)
+}
+
+func arrivalReservationWindowsOverlap(leftETA, rightETA time.Time) bool {
+	leftEnd := leftETA.Add(arrivalStandRetention)
+	rightEnd := rightETA.Add(arrivalStandRetention)
+	return leftETA.Before(rightEnd) && rightETA.Before(leftEnd)
 }
 
 func (s *StandAllocationService) configuredStandBlocks(airport, standName string) []string {

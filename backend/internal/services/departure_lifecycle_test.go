@@ -238,6 +238,30 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Nil(t, block.ExpiresAt, "an online aircraft on its assigned stand has no block expiry")
 	})
 
+	t.Run("moving away releases an occupied departure block with an active mismatch", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS609")
+		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS609"), offlineFlight("SAS609", 1)))
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS609"), onlineFlight("SAS609", 1)))
+		block, err := assignments.GetAssignment(ctx, session, "SAS609")
+		require.NoError(t, err)
+		reason := wrongStandPendingPrefix + "A2"
+		block.ConflictReason = &reason
+		affected, err := assignments.UpdateAssignment(ctx, block)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), affected)
+
+		moved := onlineFlight("SAS609", 2)
+		moved.Latitude = 55.62
+		moved.Longitude = 12.65
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS609"), moved))
+
+		_, err = assignments.GetAssignment(ctx, session, "SAS609")
+		require.Error(t, err)
+		assert.Nil(t, loadStrip(t, strips, session, "SAS609").Stand)
+	})
+
 	t.Run("coming online at a different free stand blocks the observed stand", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS602")

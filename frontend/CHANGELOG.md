@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.53.1...frontend/v0.53.2) (2026-08-11)
+
+
+### Bug Fixes
+
+* **stand:** prevent unsafe allocation overlaps ([#461](https://github.com/flightstrips/FlightStrips/issues/461)) ([7e9d514](https://github.com/flightstrips/FlightStrips/commit/7e9d514780a2a6abb7fc15d7a1b70fcd51c8bb76))
+
 ## [0.53.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.53.0...frontend/v0.53.1) (2026-08-10)
 
 

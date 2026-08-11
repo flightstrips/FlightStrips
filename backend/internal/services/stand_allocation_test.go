@@ -562,6 +562,113 @@ func TestArrivalReservationWindowsAreSymmetric(t *testing.T) {
 	assert.Empty(t, unavailable["A1"], "the stand can be reused after the existing retention window")
 }
 
+func TestActiveArrivalExpiryOverridesFutureETAReservation(t *testing.T) {
+	now := time.Date(2026, 8, 10, 19, 50, 0, 0, time.UTC)
+	service := &StandAllocationService{now: func() time.Time { return now }}
+	requestETA := time.Date(2026, 8, 10, 20, 0, 0, 0, time.UTC)
+	existingETA := time.Date(2026, 8, 10, 21, 18, 0, 0, time.UTC)
+	existingExpiry := time.Date(2026, 8, 10, 20, 12, 0, 0, time.UTC)
+	request := StandAllocationRequest{
+		Callsign: "BTI64B", Direction: sat.AssignmentDirectionArrival, ETA: &requestETA,
+	}
+	existing := &models.StandAssignment{
+		Callsign: "BTI1A5", Stand: "A17", Direction: string(sat.AssignmentDirectionArrival),
+		Stage: StageConfirmed, ETA: &existingETA, ExpiresAt: &existingExpiry,
+	}
+	matches := map[string]sat.StandCompatibilityMatch{"A17": {}}
+
+	unavailable := service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Contains(t, unavailable["A17"], "reserved by BTI1A5", "a physically active arrival blocks now even when its filed ETA is later")
+}
+
+func TestFutureArrivalUsesEffectiveDepartureRelease(t *testing.T) {
+	arrivalETA := time.Date(2026, 8, 10, 20, 0, 0, 0, time.UTC)
+	pastTOBT := time.Date(2026, 8, 10, 18, 21, 0, 0, time.UTC)
+	reservationExpiry := time.Date(2026, 8, 10, 20, 6, 0, 0, time.UTC)
+	request := StandAllocationRequest{
+		Direction: sat.AssignmentDirectionDeparture, DepartureTOBT: &pastTOBT, ExpiresAt: &reservationExpiry,
+	}
+
+	assert.True(t, futureArrivalBlocksRequest(arrivalETA, request), "the persisted hold wins over a stale TOBT")
+	request.ExpiresAt = nil
+	request.DepartureTOBT = nil
+	assert.False(t, futureArrivalBlocksRequest(arrivalETA, request), "an observed departure may use the stand before a future reservation begins")
+
+	releaseBeforeArrival := arrivalETA.Add(-time.Second)
+	request.ExpiresAt = &releaseBeforeArrival
+	assert.False(t, futureArrivalBlocksRequest(arrivalETA, request), "a bounded hold ending before ETA can reuse the stand")
+
+	activeArrival := StandAllocationRequest{
+		Direction: sat.AssignmentDirectionArrival, ETA: &pastTOBT, ExpiresAt: &reservationExpiry,
+	}
+	assert.True(t, futureArrivalBlocksRequest(arrivalETA, activeArrival), "an active arrival uses its physical release instead of its stale filed ETA")
+	activeArrival.ExpiresAt = &releaseBeforeArrival
+	assert.False(t, futureArrivalBlocksRequest(arrivalETA, activeArrival), "an active arrival can share with a later reservation after its physical release")
+}
+
+func TestUnsafeAssignmentReconciliationPrefersPhysicalOccupancy(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A17:N055.37.42.710:E012.38.33.450:30
+STAND:EKCH:A11:N055.37.42.711:E012.38.33.451:30
+`))
+	require.NoError(t, err)
+	now := time.Date(2026, 8, 10, 19, 57, 0, 0, time.UTC)
+	activeExpiry := time.Date(2026, 8, 10, 20, 12, 0, 0, time.UTC)
+	lateFiledETA := time.Date(2026, 8, 10, 21, 18, 0, 0, time.UTC)
+	overlappingETA := time.Date(2026, 8, 10, 20, 0, 0, 0, time.UTC)
+	departureExpiry := time.Date(2026, 8, 10, 20, 6, 0, 0, time.UTC)
+	safeETA := time.Date(2026, 8, 10, 20, 45, 0, 0, time.UTC)
+	service := &StandAllocationService{stands: registry, now: func() time.Time { return now }}
+	assignments := []*models.StandAssignment{
+		{ID: 1, Callsign: "BTI1A5", Stand: "A17", Direction: string(sat.AssignmentDirectionArrival), Stage: StageConfirmed, ETA: &lateFiledETA, ExpiresAt: &activeExpiry},
+		{ID: 2, Callsign: "BTI64B", Stand: "A17", Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned, ETA: &overlappingETA},
+		{ID: 3, Callsign: "DLH2412", Stand: "A17", Direction: string(sat.AssignmentDirectionDeparture), Stage: StageReserved, ExpiresAt: &departureExpiry},
+		{ID: 4, Callsign: "SAFE1", Stand: "A11", Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned, ETA: &overlappingETA},
+		{ID: 5, Callsign: "SAFE2", Stand: "A11", Direction: string(sat.AssignmentDirectionArrival), Stage: StageEstimated, ETA: &safeETA},
+	}
+
+	losers := service.unsafeAssignmentLosers("EKCH", assignments, now)
+	require.Len(t, losers, 2)
+	assert.ElementsMatch(t, []string{"BTI64B", "DLH2412"}, []string{losers[0].Callsign, losers[1].Callsign})
+}
+
+func TestStandAssignmentExpiryRequiresPersistedDeadline(t *testing.T) {
+	now := time.Date(2026, 8, 10, 20, 0, 0, 0, time.UTC)
+	staleETA := now.Add(-arrivalStandRetention)
+	expiredAt := now.Add(-time.Second)
+	assert.False(t, standAssignmentExpired(&models.StandAssignment{Direction: string(sat.AssignmentDirectionArrival), ETA: &staleETA}, now), "a delayed inbound may retain a stale ETA")
+	assert.True(t, standAssignmentExpired(&models.StandAssignment{Direction: string(sat.AssignmentDirectionArrival), ExpiresAt: &expiredAt}, now))
+	assert.False(t, standAssignmentExpired(&models.StandAssignment{Direction: string(sat.AssignmentDirectionDeparture)}, now))
+}
+
+func TestPolicyPoolExhaustionIsDistinctFromPhysicalCapacity(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+WTC:M
+STAND:EKCH:A2:N055.37.42.711:E012.38.33.451:30
+WTC:M
+`))
+	require.NoError(t, err)
+	policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules":[{"id":"tst","callsigns":["TST"],"stands":{"tier1":{"A1":100}}}],
+  "stand_groups":{},
+  "fallback_rules":{`+testFallbackJSON("A1")+`}
+}`), registry)
+	require.NoError(t, err)
+	service := &StandAllocationService{stands: registry, policy: policy, now: time.Now, random: func() float64 { return 0 }}
+	request := StandAllocationRequest{
+		Callsign: "TST1", Airport: "EKCH", Direction: sat.AssignmentDirectionArrival,
+		FlightFacts:     sat.FlightCompatibilityFacts{Direction: sat.Arrival, WTC: "M"},
+		AssignmentFacts: sat.AssignmentFlightFacts{Callsign: "TST1", BorderStatus: sat.BorderStatusSchengen, Direction: sat.AssignmentDirectionArrival},
+	}
+	evaluation := registry.EvaluateCompatibility("EKCH", request.FlightFacts)
+	occupied := []*models.StandAssignment{{Callsign: "OTHER", Stand: "A1", Direction: string(sat.AssignmentDirectionDeparture), Stage: StageDepartureBlock}}
+
+	_, _, _, available, _, err := service.selectStand(AutomaticStandAllocation, request, evaluation, occupied, nil, nil)
+	require.ErrorIs(t, err, ErrNoPolicyStand)
+	assert.Equal(t, []string{"A2"}, available)
+}
+
 func TestAutomaticAllocationOnlyReleasesEstimatedReservationForBetterPolicyTier(t *testing.T) {
 	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
 STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30

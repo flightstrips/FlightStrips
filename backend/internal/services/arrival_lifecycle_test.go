@@ -688,6 +688,37 @@ STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
 		_, err = assignments.GetAssignment(ctx, session, "SAS927")
 		require.Error(t, err, "a vanished automatic arrival must stop retaining its stand")
 	})
+
+	t.Run("sweep removes an unsafe planned overlap behind physical occupancy", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS929")
+		seedTestArrivalStrip(t, queries, session, "SAS930")
+		// LockAssignments filters active rows with PostgreSQL NOW(), while this
+		// lifecycle fixture intentionally uses a frozen application clock.
+		physicalExpiry := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+		physicalFiledETA := clock.current().Add(90 * time.Minute)
+		plannedETA := clock.current().Add(5 * time.Minute)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS929", Stand: "A1", Direction: string(sat.AssignmentDirectionArrival),
+			Stage: StageConfirmed, Source: "AUTOMATIC", ETA: &physicalFiledETA, ExpiresAt: &physicalExpiry,
+		}))
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS930", Stand: "A1", Direction: string(sat.AssignmentDirectionArrival),
+			Stage: StageAssigned, Source: "AUTOMATIC", ETA: &plannedETA,
+		}))
+		_, err := strips.UpdateStand(ctx, session, "SAS929", strp("A1"), nil)
+		require.NoError(t, err)
+		_, err = strips.UpdateStand(ctx, session, "SAS930", strp("A1"), nil)
+		require.NoError(t, err)
+
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, "SAS929")
+		require.NoError(t, err, "physical occupancy remains authoritative")
+		_, err = assignments.GetAssignment(ctx, session, "SAS930")
+		require.Error(t, err, "the unsafe automatic plan is released for reallocation")
+		assert.Nil(t, loadStrip(t, strips, session, "SAS930").Stand)
+	})
+
 }
 
 func TestDetermineArrivalTargetStageWithoutETA(t *testing.T) {

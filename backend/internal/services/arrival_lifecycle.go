@@ -409,6 +409,11 @@ func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
 					slog.Any("error", err))
 			}
 		}
+		if err := s.allocations.ReconcileUnsafeAssignments(ctx, session.ID, session.Airport); err != nil {
+			slog.Warn("arrival sweep failed to reconcile unsafe stand overlaps",
+				slog.Int("sessionID", int(session.ID)),
+				slog.Any("error", err))
+		}
 	}
 	return nil
 }

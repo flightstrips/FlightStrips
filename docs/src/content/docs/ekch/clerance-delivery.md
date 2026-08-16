@@ -37,4 +37,4 @@ For a yellow strip, click **Destination / Stand** to open the flight plan with a
 
 ![PDC flight plan view](../../../assets/ekch-clr-del-fpl-dlc.jpg)
 
-For full PDC strip states and validation details, see [Pre-departure clearance](/concepts/pre-departure-clearance/) and [Validation status](/procedures/validation-status/).
+For full PDC strip states and validation details, see [Pre-departure clearance](/concepts/pre-departure-clearance/) and [Validation status](/concepts/validation-status/).

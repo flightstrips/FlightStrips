@@ -13,11 +13,10 @@ export default defineConfig({
 				{
 					label: 'Getting Started',
 					items: [
-						// Each item here is one entry in the navigation menu.
-						{ label: 'Introduction', slug: 'getting-started/intro' },
-						{ label: 'Features', slug: 'getting-started/features' },
-						{ label: 'EuroScope plugin', slug: 'getting-started/es-plugin' },
-						{ label: 'VACS voice', slug: 'getting-started/vacs' },
+						{ label: 'Start here', slug: 'getting-started/intro' },
+						{ label: 'How the system fits together', slug: 'getting-started/features' },
+						{ label: 'Connect EuroScope', slug: 'getting-started/es-plugin' },
+						{ label: 'First-session checklist', slug: 'getting-started/first-session' },
 					],
 				},
 				{

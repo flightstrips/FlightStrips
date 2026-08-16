@@ -1,38 +1,45 @@
 ---
-title: What you can learn here
-description: How this documentation is organized and what you can expect to take away from it.
+title: Start here
+description: What Flight Strips is, what it does for you, and what you remain responsible for.
 ---
 
-These docs explain **FlightStrips**: how the strip board works, how it ties into EuroScope, and how to run or extend the project locally. Use them alongside the app—many sections assume you are on VATSIM (or a similar environment) and using coordinated ground and clearance workflows.
+Flight Strips is a shared electronic strip board for controllers. It combines live EuroScope data with the workflow recorded on the strip board, so connected controllers work from the same strips, ownership and pending coordination.
 
-## Getting started
+You do not use Flight Strips instead of EuroScope. You use the two together:
 
-In **Getting started**, you will find a product-oriented **introduction**, an overview of **features**, guidance on the **EuroScope plugin** (installation, sync, and how it relates to the web UI), and optional **[VACS voice integration](/getting-started/vacs/)** for controller-to-controller calls from the command bar. That is the right place to begin if you are new to FlightStrips or wiring it into your setup.
+- **EuroScope** supplies your controller identity, position and live flight data through the Flight Strips plugin.
+- **The web app** is where you read and operate the strip board.
+- **The Flight Strips server** connects both sides, maintains the shared session and sends each change to the other connected clients.
 
-## Concepts
+## What you must do
 
-**Concepts** explains ideas that show up everywhere in the product—such as **position ownership** on the strip board and **pre-departure clearance (PDC)** / datalink-style flows. These pages are meant to build a shared mental model before you dive into airport-specific or procedural detail.
+Flight Strips supports the workflow; it does not make operational decisions for you. You must:
 
-## Procedures
+- connect EuroScope on the correct callsign and primary frequency;
+- sign into the plugin and web app with the same VATSIM account;
+- check that the web app opened the correct controller layout and runway setup;
+- record clearances, transfers and other controller decisions when they happen;
+- respond when a strip asks for judgement or acknowledgement.
 
-**Procedures** walks through operational tasks in the app: for example **memory aids**, **tower / bandbox** usage, and other step-by-step material. Expect task-focused pages with concrete sequences, not just theory.
+## What happens automatically
 
-## Kastrup (EKCH)
+Once EuroScope and the web app are connected, Flight Strips:
 
-The **Kastrup** section is **airport-specific** documentation for Copenhagen (EKCH): clearance delivery, apron and taxi routes, sequencing, runway integration, and related workflows. It is written for controllers who work that airfield in FlightStrips; other airports may follow a similar structure over time.
+- associates the browser with your EuroScope session using your VATSIM CID;
+- synchronizes the shared strip and controller state;
+- keeps the board layout and expected controller route aligned with the connected positions;
+- sends supported strip edits back to the EuroScope client associated with you;
+- performs only the automatic transitions and validations documented for the relevant workflow.
 
-## Troubleshooting
+Automatic does not mean invisible. Colours, split ownership boxes, blinking fields and validation messages show when the system has changed state or needs a controller to act.
 
-**Troubleshooting** provides solutions for common issues: authentication problems, port conflicts, plugin failures, and other setup or runtime issues. Start here if something isn't working as expected.
+## Before working traffic
 
-## Development
+Follow this short route through the documentation:
 
-**Development** is for contributors and power users: **local development**, optional **FSD** / tooling notes, **alpha testing**, and meta-information about maintaining **this documentation**. If you want to build from source, run a dev environment, or change the docs site itself, start here.
+1. Read [How the system fits together](/getting-started/features/) so you know which component is responsible for what.
+2. Use [Connect EuroScope](/getting-started/es-plugin/) to load, sign in and verify the plugin.
+3. Complete the [First-session checklist](/getting-started/first-session/) before operating a strip.
+4. Learn [Strip anatomy and types](/concepts/strip-anatomy/), then [Ownership and handoffs](/concepts/ownership/).
 
-## Reference
-
-**Reference** holds concise or example-style material that supports the rest of the site (schemas, patterns, or pointers to the codebase). Use it when you need a quick lookup rather than a full tutorial.
-
----
-
-If you are unsure where to start, open [Getting started](/getting-started/intro/), then follow the sidebar into **Concepts** and **Procedures** as your role requires. Controllers working EKCH should pair **Getting started** with **Kastrup**; developers should pair **Getting started** with **Development**. If you're experiencing issues, check **Troubleshooting** first.
+After that, use the procedure for your controller position or airport. Optional integrations such as [VACS voice control](/reference/vacs/) are not required to operate the strip board.

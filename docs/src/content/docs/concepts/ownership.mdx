@@ -1,91 +1,79 @@
 ---
-title: Ownership
-description: Who controls a strip and how control transfers
+title: Ownership and handoffs
+description: Why strips have an owner, how to hand one off, and what Flight Strips updates automatically.
+sidebar:
+  order: 4
 ---
 
 import TransferOwnershipDemo from "../../../components/TransferOwnershipDemo.astro";
 
-## What ownership means
+## Why ownership exists
 
-Every strip has controller state that every client renders:
+Ownership shows which position is currently responsible for a strip. It also prevents an ordinary handoff from being started by a controller who does not own the strip.
 
-- `owner`: who currently controls the strip.
-- `next_controllers`: controllers who are expected to take over next (handoff order).
-- `previous_controllers`: controllers who have already held the strip.
+Flight Strips maintains three parts of the controller route:
 
-In addition to those controller lists, the UI also renders pending handoffs from the backend coordination state:
+- **Owner:** the position responsible now.
+- **Next controllers:** the ordered positions expected to receive the strip later.
+- **Previous controllers:** positions that have already handled the strip.
 
-- Normal transfers and tag requests appear as pending coordination until the server broadcasts completion (assume) or removal (reject/free).
-- The frontend tracks this pending coordination in `stripTransfers` and clears it when it receives the relevant websocket broadcasts.
+You do not edit these lists. Flight Strips updates them when a strip is assumed, a handoff is completed, ownership is freed or the route is recalculated.
 
-## How ownership is shown in the UI
+## Read the SI box
 
-The SI  indicator visualizes how *your* position relates to the strip:
+The SI box shows the strip from **your position's** perspective:
 
-- White: you are the current `owner` (assumed).
-- Purple: you are in `next_controllers` but not the owner (concerned / next-up).
-- Orange: your position is in `previous_controllers` (transferred away).
-- Grey: you are neither owner, next, nor previous (unconcerned).
+- **White:** you own the strip.
+- **Purple:** your position is in the expected route and has not owned the strip yet.
+- **Orange:** your position has already owned the strip.
+- **Grey:** your position is neither the owner nor part of the expected route.
 
-When a coordination is pending, the SIBox switch to split gradients to show:
+A split colour means a coordination is waiting for action:
 
-- Sending: owner side of a pending transfer
-- Receiving: target side of a pending transfer
+- **White and orange:** your position started a normal transfer, or another controller has requested the strip with **REQ**. Click the SI box to recall your normal transfer or to accept the tag request.
+- **Purple and white:** the strip is being offered to your position. Click the SI box to assume it.
+
+The demo shows the same strip from the sending and receiving positions. Click the sending SI box to start or recall the handoff, and the receiving SI box to complete it.
 
 <TransferOwnershipDemo />
 
+## Make a normal handoff
 
-### Initiate a manual transfer
+When you own the strip, use either of these paths:
 
-To initiate a transfer, use the `TRF` button in the command bar.
+1. Click the white SI box to offer the strip to the next expected controller. This is available when another position exists in the strip's next-controller route.
+2. Select the strip, choose **TRF**, and select a connected controller when you need a different target.
 
-The, `TRF` button is only enabled when you are the current strip owner.
+The transfer does **not** change ownership immediately. Flight Strips creates a pending coordination and shows the split SI colours. The receiving controller must click their SI box to assume the strip. Flight Strips then changes the owner, advances the controller route and clears the pending coordination for everyone.
 
+[Pictcture of a strip been transfered from AD->TW]
 
-### Owner side: sending / recall
+If you started the wrong transfer, click your split SI box or use **RECALL** in the strip menu. Only the position that started the coordination can recall it.
 
-While a transfer is pending and you are the sending owner:
+## Assume an unowned strip
 
-- Your SIBox shows a white+orange sending-away split.
-- Clicking the SIBox cancels the transfer.
+If nobody owns the strip and your position is in its next-controller route, your SI box is purple and clickable. Click it to assume the strip directly. No transfer request is created first.
 
+This is manual because Flight Strips knows the expected route, but it does not know whether you are ready to accept responsibility.
 
-When the strip clears the coordination (reject/free/assume), the SIBox returns to the normal assumed/concerned/unconcerned coloring.
+## Request a strip with REQ
 
-### Target side: receiving / assume
+Use **REQ** when another controller owns a strip that you need:
 
-When a transfer is pending and your position matches the target:
-- Your SIBox becomes clickable and clicking it calls completes the transfer.
+1. Click **REQ**. The green button means request mode is armed.
+2. Click the strip's callsign.
+3. Wait for the owner to accept the request by clicking their split SI box.
 
-## Assuming without a pending transfer
+Flight Strips only sends the request when the strip has an owner, you are not that owner and no other coordination is active. Accepting the request transfers ownership to the requester and recalculates the remaining route.
 
-### Direct assume when unowned
+## Use FORCE ASSUME only to recover
 
-If a strip is unowned (`owner` is empty) and your position appears in `next_controllers`, you can assume directly:
+**FORCE ASSUME** immediately replaces the current owner, removes any pending coordination and recalculates the strip's route. It bypasses the normal handoff sequence, so use it only when the displayed ownership no longer matches operational responsibility.
 
-- Your SIBox shows the concerned (purple) state.
-- Clicking it calls `assume` without creating a pending coordination first.
+The action is available for a strip owned by another position, except from the clearance-delivery role. If an active validation makes the callsign open **Validation Status**, use **FORCE ASSUME** from that window instead of the strip menu.
 
-## Tag requests (REQ)
+## What happens automatically
 
-A tag request uses the same pending coordination UI.
+After your action, Flight Strips synchronizes the result to all clients and maintains the owner route. Some operational transitions also complete coordination automatically. For example, a pending arrival handoff is accepted when the aircraft is detected on the runway after landing, and an owned airborne departure can be offered to the configured airborne controller when an eligible controller is connected.
 
-- The `REQ` button is only enabled when the selected strip is in `Bay.Cleared`, the strip is not unowned, you are not the current owner, and there is no active coordination.
-- Pressing `REQ` sends `coordination_tag_request`.
-
-While pending:
-
-- The current owner side becomes clickable and clicking the SIBox calls `acceptTagRequest`.
-- After acceptance, the pending tag request coordination is cleared by the normal lifecycle.
-
-## Force assume
-
-`FORCE ASSUME` is the escape hatch when things get out of sync.
-
-In the current frontend:
-
-- `FORCE ASSUME` is a strip context-menu action
-- when a validation is active, the same action is exposed in the `Validation Status` window because the blinking callsign no longer opens the context menu
-- it is disabled when you already own the strip, or when there is an active pending coordination.
-
-When allowed, the frontend calls `forceAssumeStrip`, bypassing the normal "next owner" constraint.
+These automatic paths use the same ownership and pending-coordination states as a manual handoff. Do not create a second transfer when one is already shown.

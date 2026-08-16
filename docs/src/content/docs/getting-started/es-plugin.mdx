@@ -1,39 +1,73 @@
 ---
-title: EuroScope plugin
-description: Install the FlightStrips EuroScope plugin manually — for pre-release testing only.
+title: Connect EuroScope
+description: Load the Flight Strips plugin, sign in and verify the connection that supplies the web app.
 ---
 
 import { Steps } from '@astrojs/starlight/components';
 
-:::note
-If your vACC has FlightStrips in production, the plugin is already included in your sector file package — you do not need to follow this guide.
+The web app waits for a matching EuroScope connection before it opens an operational board. Set up EuroScope first, then open the app from the plugin.
 
-Only follow these steps when installing a **pre-release build** for alpha/beta testing.
+:::note
+Your vACC may distribute the plugin with its sector-file package. If `FlightStripsPlugin.dll` is already loaded in EuroScope, go directly to [Connect for a session](#connect-for-a-session).
 :::
 
-## Download
+## Install a release manually
 
-Go to the [FlightStrips releases](https://github.com/flightstrips/FlightStrips/releases) page and pick the latest **plugin** release. Under **Assets**, download:
-
-- `FlightStripsPlugin.dll`
-- `flightstrips_config.ini`
-
-If you receive a `.zip`, unzip it first.
-
-## Install
+Use these steps only when you need to install a release yourself.
 
 <Steps>
 
-1. **Unblock the files.** Right-click each file → **Properties** → tick **Unblock** → **OK**. Repeat for both files.
+1. **Download both release files.** Open the [Flight Strips releases](https://github.com/flightstrips/FlightStrips/releases) page and download `FlightStripsPlugin.dll` and `flightstrips_config.ini` from the required plugin release.
 
-   If Windows Defender quarantines a file, go to **Windows Security → Virus & threat protection → Protection history** and restore it there.
+2. **Unblock the downloaded files.** In Windows, right-click each file, open **Properties**, select **Unblock** when that option is present, and apply the change.
 
-2. **Close EuroScope**, then copy both files into your EuroScope Plugins folder.
+3. **Install both files together.** Close EuroScope, then place the DLL and INI file in the plugin directory used by your EuroScope setup. Keep `flightstrips_config.ini` beside `FlightStripsPlugin.dll`.
 
-   Press **Win + R**, type `%AppData%` and navigate to **EuroScope → your airport folder (e.g. `EKCH`) → Plugins**. Keep both files directly in that folder, not in a subfolder.
-
-3. **Load the plugin.** Start EuroScope, open **Plug-ins → Load** and select `FlightStripsPlugin.dll`.
-
-4. **Sign in.** Run `.fs open` in the EuroScope chat, click **Login** and complete sign-in in the browser.
+4. **Load the DLL.** Start EuroScope and load `FlightStripsPlugin.dll` from EuroScope's plug-in dialog.
 
 </Steps>
+
+The release workflow publishes those two files together. The INI file contains the authentication and Flight Strips server endpoints used by the plugin; do not substitute a development configuration on an operational setup.
+
+## Connect for a session
+
+<Steps>
+
+1. **Connect EuroScope normally.** Use the callsign and primary frequency for the position you are working. The plugin derives the relevant airport and position from the EuroScope connection.
+
+2. **Open the Flight Strips panel.** Enter `.fs open` in EuroScope's command line.
+
+3. **Sign in.** Select **Login** in the panel and complete the browser sign-in with your VATSIM account. The panel changes to **Logged in as** followed by your name.
+
+4. **Wait for Connected.** The panel reports **Connecting**, **Syncing**, **Retrying** or **Connected**. Continue only when it shows **Connected**.
+
+5. **Open the board.** Select **Open App** in the panel. Sign into the web app with the same VATSIM account if prompted.
+
+</Steps>
+
+The plugin automatically sends its authentication token and session login after its WebSocket connects. The login includes the relevant airport, session mode, primary frequency, callsign, range, observer state and local IP address.
+
+## Read the panel
+
+| Panel state | Meaning |
+| --- | --- |
+| **Logged out** | Select **Login** before the plugin can connect. |
+| **Connecting / Syncing** | The plugin is establishing the server connection or waiting for initial synchronization. |
+| **Connected** | The plugin is connected; open the web app and verify the board. |
+| **Retrying** | A connection attempt failed and the plugin is waiting before its next attempt. |
+| **Disconnected** | One or more connection requirements are missing. Check authentication, EuroScope connection, airport and primary frequency. |
+
+Expand **Stats** when support asks for connection details. It shows the callsign, primary frequency, relevant airport, plugin role, session mode and message counters.
+
+## Useful commands
+
+- `.fs open` shows the Flight Strips panel.
+- `.fs close` hides it.
+
+The `cdm master` and `cdm slave` commands also exist in the plugin, but they are operational controls rather than onboarding steps. Do not use them unless the relevant local procedure tells you to.
+
+## If sign-in does not complete
+
+The plugin starts a temporary local callback listener and tries ports **27015**, **32015**, **37015**, **42015** and **47015**. If every callback port is occupied, follow [Authentication troubleshooting](/troubleshooting/authentication-port-conflicts/).
+
+Next, complete the [First-session checklist](/getting-started/first-session/).

@@ -21,6 +21,10 @@ import EfbPage from '@/pages/efb';
 import DocsRouter from '@/pages/docs/DocsRouter';
 import TestToolsPage from '@/pages/test-tools';
 import AMANReplayPage from '@/pages/aman-replay';
+import StripGalleryPage from '@/pages/strip-gallery';
+import ClearanceGuidePage from '@/pages/clearance-guide';
+import PdcGuidePage from '@/pages/pdc-guide';
+import { isLocalDevelopment } from '@/lib/local-development';
 
 const ProtectedLayout = withAuthenticationRequired(Layout);
 const ProtectedCdmPage = withAuthenticationRequired(CdmPage);
@@ -54,6 +58,9 @@ export default function FlightStripsRoutes() {
         <Route path="/stand" element={<ProtectedStandStatusPage />} />
         <Route path="/test" element={<ProtectedTestToolsPage />} />
         <Route path="/aman-replay" element={<AMANReplayPage />} />
+        {isLocalDevelopment && <Route path="/strip-gallery" element={<StripGalleryPage />} />}
+        {isLocalDevelopment && <Route path="/clearance-guide" element={<ClearanceGuidePage />} />}
+        {isLocalDevelopment && <Route path="/pdc-guide" element={<PdcGuidePage />} />}
         <Route path="*" element={<div>404 Not Found</div>}/>
       </Routes>
     </Auth0ProviderWithNavigate>

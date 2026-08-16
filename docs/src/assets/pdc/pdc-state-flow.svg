@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="820" viewBox="0 0 1000 820" role="img" aria-labelledby="title desc">
+  <title id="title">Pre-departure clearance state flow</title>
+  <desc id="desc">A PDC request is checked automatically. Faults lead to Requested with faults. Valid data with remarks leads to Requested. Valid data without remarks leads to Cleared. Cleared then becomes Confirmed, Failed, or No response. A controller can return a manual request to voice.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#475569"/>
+    </marker>
+    <style>
+      .heading { font: 700 29px Arial, sans-serif; fill: #111827; }
+      .state { font: 700 21px Arial, sans-serif; fill: #111827; }
+      .copy { font: 400 17px Arial, sans-serif; fill: #334155; }
+      .label { font: 700 15px Arial, sans-serif; fill: #475569; }
+      .line { fill: none; stroke: #475569; stroke-width: 3; marker-end: url(#arrow); }
+      .auto { fill: #d9f7f4; stroke: #0f766e; stroke-width: 3; }
+      .manual { fill: #fef3c7; stroke: #b45309; stroke-width: 3; }
+      .waiting { fill: #dbeafe; stroke: #00154a; stroke-width: 3; }
+      .done { fill: #dcfce7; stroke: #15803d; stroke-width: 3; }
+      .stop { fill: #fee2e2; stroke: #b91c1c; stroke-width: 3; }
+      .neutral { fill: #f1f5f9; stroke: #475569; stroke-width: 3; }
+    </style>
+  </defs>
+
+  <rect width="1000" height="820" fill="#ffffff"/>
+  <text x="500" y="40" text-anchor="middle" class="heading">What happens after a pilot requests PDC</text>
+
+  <rect x="350" y="68" width="300" height="74" rx="8" class="neutral"/>
+  <text x="500" y="99" text-anchor="middle" class="state">PDC REQUEST</text>
+  <text x="500" y="124" text-anchor="middle" class="copy">Flight Strips receives the request</text>
+
+  <path d="M500 142 V182" class="line"/>
+  <rect x="320" y="184" width="360" height="76" rx="8" class="auto"/>
+  <text x="500" y="216" text-anchor="middle" class="state">AUTOMATIC CHECK</text>
+  <text x="500" y="242" text-anchor="middle" class="copy">Live strip data and pilot remarks</text>
+
+  <path d="M410 260 V290 H175 V322" class="line"/>
+  <text x="255" y="283" text-anchor="middle" class="label">FAULT FOUND</text>
+  <path d="M590 260 V290 H825 V322" class="line"/>
+  <text x="748" y="283" text-anchor="middle" class="label">NO FAULTS + REMARKS</text>
+  <path d="M500 260 V462" class="line"/>
+  <text x="515" y="366" class="label">VALID, NO REMARKS</text>
+
+  <rect x="25" y="324" width="300" height="116" rx="8" class="manual"/>
+  <text x="175" y="357" text-anchor="middle" class="state">REQUESTED WITH FAULTS</text>
+  <text x="175" y="388" text-anchor="middle" class="copy">NOT CLEARED · grey blink</text>
+  <text x="175" y="416" text-anchor="middle" class="copy">Correct in OPEN DCL MENU</text>
+
+  <rect x="675" y="324" width="300" height="116" rx="8" class="manual"/>
+  <text x="825" y="357" text-anchor="middle" class="state">REQUESTED</text>
+  <text x="825" y="388" text-anchor="middle" class="copy">NOT CLEARED · review required</text>
+  <text x="825" y="416" text-anchor="middle" class="copy">Review in OPEN DCL MENU</text>
+
+  <path d="M175 440 V500 H348" class="line"/>
+  <path d="M825 440 V500 H652" class="line"/>
+  <text x="250" y="490" text-anchor="middle" class="label">CLD</text>
+  <text x="750" y="490" text-anchor="middle" class="label">CLD</text>
+
+  <rect x="350" y="464" width="300" height="116" rx="8" class="waiting"/>
+  <text x="500" y="497" text-anchor="middle" class="state">CLEARED</text>
+  <text x="500" y="528" text-anchor="middle" class="copy">Clearance delivered</text>
+  <text x="500" y="556" text-anchor="middle" class="copy">CLEARED bay · wait for pilot</text>
+
+  <path d="M175 440 V648 H145 V678" class="line"/>
+  <path d="M825 440 V624 H145 V678" class="line"/>
+  <path d="M500 580 V624 H455 V678" class="line"/>
+  <path d="M500 580 V624 H685 V678" class="line"/>
+  <path d="M500 580 V602 H875 V678" class="line"/>
+
+  <rect x="25" y="680" width="240" height="100" rx="8" class="stop"/>
+  <text x="145" y="718" text-anchor="middle" class="state">REVERT TO VOICE</text>
+  <text x="145" y="751" text-anchor="middle" class="copy">Controller chose voice</text>
+
+  <rect x="335" y="680" width="240" height="100" rx="8" class="done"/>
+  <text x="455" y="718" text-anchor="middle" class="state">CONFIRMED</text>
+  <text x="455" y="751" text-anchor="middle" class="copy">Pilot acknowledged</text>
+
+  <rect x="610" y="680" width="150" height="100" rx="8" class="stop"/>
+  <text x="685" y="718" text-anchor="middle" class="state">FAILED</text>
+  <text x="685" y="751" text-anchor="middle" class="copy">Pilot unable</text>
+
+  <rect x="790" y="680" width="185" height="100" rx="8" class="stop"/>
+  <text x="882" y="718" text-anchor="middle" class="state">NO RESPONSE</text>
+  <text x="882" y="751" text-anchor="middle" class="copy">Timer expired</text>
+</svg>

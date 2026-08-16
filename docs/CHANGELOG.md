@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.17.2...docs/v0.18.0) (2026-08-16)
+
+
+### Features
+
+* **docs:** Cleanup & rewrite of many articles ([bc5cf71](https://github.com/flightstrips/FlightStrips/commit/bc5cf71e82f8260d403ab9f7e2a42636311b8939))
+* **docs:** initial line-up & takeoff article ([2f98b8e](https://github.com/flightstrips/FlightStrips/commit/2f98b8ea32b7e145916a31310f59af3c3e19aa61))
+
 ## [0.17.2](https://github.com/flightstrips/FlightStrips/compare/docs/v0.17.1...docs/v0.17.2) (2026-07-28)
 
 

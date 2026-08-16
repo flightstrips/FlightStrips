@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.53.2...frontend/v0.54.0) (2026-08-16)
+
+
+### Features
+
+* **docs:** Cleanup & rewrite of many articles ([bc5cf71](https://github.com/flightstrips/FlightStrips/commit/bc5cf71e82f8260d403ab9f7e2a42636311b8939))
+
 ## [0.53.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.53.1...frontend/v0.53.2) (2026-08-11)
 
 

@@ -88,13 +88,21 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ITY210"})
 	require.NoError(t, err)
 	assert.Equal(t, "ITY", match.Rule.ID)
+	selection, err := config.SelectStand(
+		AssignmentFlightFacts{Callsign: "DTR123"},
+		[]string{"F90"},
+		func() float64 { return 0 },
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	assert.Equal(t, "F90", selection.Stand)
 	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusSchengen})
 	require.NoError(t, err)
 	assert.Equal(t, FallbackAirlinerSchengen, match.Fallback)
 	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusNonSchengen})
 	require.NoError(t, err)
 	assert.Equal(t, FallbackAirlinerNonSchengen, match.Fallback)
-	selection, err := config.SelectStand(
+	selection, err = config.SelectStand(
 		AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusSchengen},
 		[]string{"E70", "E82"},
 		func() float64 { return 0 },

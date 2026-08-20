@@ -67,13 +67,25 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	config, err := LoadAirlineAssignmentFile(filepath.Join("..", "..", "config", "ekch", "airline_assignment.json"), standRegistry)
 	require.NoError(t, err)
 
-	assert.Len(t, config.Rules, 119)
+	assert.Len(t, config.Rules, 120)
+	for _, callsign := range []string{"FDX123", "UPS123", "UAE9000", "QTR8000", "THY6000"} {
+		match, err := config.MatchRule(AssignmentFlightFacts{Callsign: callsign})
+		require.NoError(t, err, callsign)
+		assert.Equal(t, "CARGO_OPERATORS", match.Rule.ID, callsign)
+		assert.Equal(t, "CARGO", match.Rule.Tiers[0].Entries[0].Group, callsign)
+	}
+	match, err := config.MatchRule(AssignmentFlightFacts{Callsign: "UAE1000"})
+	require.NoError(t, err)
+	assert.Equal(t, "UAE", match.Rule.ID)
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "UAE90000"})
+	require.NoError(t, err)
+	assert.Equal(t, "UAE", match.Rule.ID)
 	assert.Equal(t, []string{"JTD"}, config.RulesByID("JTD_NON-SCHENGEN")[0].Callsigns)
 	assert.NotEmpty(t, config.RulesByID("MEA"))
 	assert.NotEmpty(t, config.RulesByID("MGH"))
 	assert.NotEmpty(t, config.RulesByID("RYR"))
 	assert.Equal(t, []string{"WZZ", "WMT", "WAU", "WAZ", "WUK", "WVL"}, config.RulesByID("WZZ_WMT_WAU_WAZ_WUK_WVL")[0].Callsigns)
-	match, err := config.MatchRule(AssignmentFlightFacts{Callsign: "JTD123", BorderStatus: BorderStatusNonSchengen})
+	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "JTD123", BorderStatus: BorderStatusNonSchengen})
 	require.NoError(t, err)
 	assert.Equal(t, "JTD_NON-SCHENGEN", match.Rule.ID)
 	match, err = config.MatchRule(AssignmentFlightFacts{Callsign: "SAS123", AircraftType: "AT76", BorderStatus: BorderStatusSchengen})
@@ -173,6 +185,7 @@ func TestAirlineAssignmentRejectsAmbiguityAndInvalidPreferences(t *testing.T) {
 		"invalid border":  `{"rules":[{"callsigns":["SAS"],"conditions":{"border_status":"BOTH"},"stands":{"tier1":{"A1":1}}}],"stand_groups":{},"fallback_rules":{}}`,
 		"negative weight": `{"rules":[{"callsigns":["SAS"],"stands":{"tier1":{"A1":-1}}}],"stand_groups":{},"fallback_rules":{}}`,
 		"empty tier":      `{"rules":[{"callsigns":["SAS"],"stands":{"tier1":{}}}],"stand_groups":{},"fallback_rules":{}}`,
+		"unprefixed question wildcard": `{"rules":[{"callsigns":["???"],"stands":{"tier1":{"A1":1}}}],"stand_groups":{},"fallback_rules":{}}`,
 		"missing default": `{"rules":[],"stand_groups":{},"fallback_rules":{"cargo":{"stands":{"tier1":{"A1":1}}}}}`,
 	} {
 		t.Run(name, func(t *testing.T) {

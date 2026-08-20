@@ -297,10 +297,10 @@ func validateRule(rule *AirlineAssignmentRule, path string, registry *StandCapab
 			return fmt.Errorf("%s.callsigns[%d] must not be empty", path, i)
 		}
 		if strings.Count(callsign, "*") > 1 || (strings.Contains(callsign, "*") && !strings.HasSuffix(callsign, "*")) {
-			return fmt.Errorf("%s.callsigns[%d] must use at most one trailing wildcard", path, i)
+			return fmt.Errorf("%s.callsigns[%d] must use at most one trailing * wildcard", path, i)
 		}
-		if callsign == "*" {
-			return fmt.Errorf("%s.callsigns[%d] must contain a prefix before the wildcard", path, i)
+		if strings.IndexAny(callsign, "*?") == 0 {
+			return fmt.Errorf("%s.callsigns[%d] must contain a prefix before a wildcard", path, i)
 		}
 		if _, exists := seen[callsign]; exists {
 			return fmt.Errorf("%s contains duplicate callsign pattern %q", path, callsign)
@@ -1076,9 +1076,9 @@ func callsignMatch(pattern, callsign string) (RulePrecedence, int, bool) {
 	if pattern == callsign {
 		return RulePrecedenceExactCallsign, len(pattern), true
 	}
-	if strings.HasSuffix(pattern, "*") {
-		prefix := strings.TrimSuffix(pattern, "*")
-		return RulePrecedenceWildcard, len(prefix), strings.HasPrefix(callsign, prefix)
+	if strings.ContainsAny(pattern, "*?") {
+		specificity := len(pattern) - strings.Count(pattern, "*") - strings.Count(pattern, "?")
+		return RulePrecedenceWildcard, specificity, grWildcardMatch(pattern, callsign)
 	}
 	if pattern != "" && strings.HasPrefix(callsign, pattern) {
 		return RulePrecedenceAirlinePrefix, len(pattern), true

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.47.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.46.3...backend/v0.47.0) (2026-08-20)
+
+
+### Features
+
+* **stand:** update EKCH stand assignment configuration ([#472](https://github.com/flightstrips/FlightStrips/issues/472)) ([780587d](https://github.com/flightstrips/FlightStrips/commit/780587d6c469cfb584e3c15e904ec8e3850b6dc7))
+* **strip:** assign cargo operators to EKCH stands ([#474](https://github.com/flightstrips/FlightStrips/issues/474)) ([decd68c](https://github.com/flightstrips/FlightStrips/commit/decd68ce650e9c1a4c3e0ace9b8fc22ff6c5f089))
+
 ## [0.46.3](https://github.com/flightstrips/FlightStrips/compare/backend/v0.46.2...backend/v0.46.3) (2026-08-11)
 
 

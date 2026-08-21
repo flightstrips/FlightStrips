@@ -481,15 +481,18 @@ export default function StandStatusPage() {
 
   useEffect(() => {
     if (!selectedFlight) {
-      setPreview(null);
-      setPreviewError(null);
-      return;
+      const reset = window.setTimeout(() => {
+        setPreview(null);
+        setPreviewError(null);
+      }, 0);
+      return () => window.clearTimeout(reset);
     }
     let active = true;
-    setPreviewLoading(true);
-    setPreview(null);
-    setPreviewError(null);
-    void (async () => {
+    const initial = window.setTimeout(() => {
+      setPreviewLoading(true);
+      setPreview(null);
+      setPreviewError(null);
+      void (async () => {
       try {
         const token = await getAccessTokenSilently();
         const query = new URLSearchParams({
@@ -511,8 +514,9 @@ export default function StandStatusPage() {
       } finally {
         if (active) setPreviewLoading(false);
       }
-    })();
-    return () => { active = false; };
+      })();
+    }, 0);
+    return () => { active = false; window.clearTimeout(initial); };
   }, [getAccessTokenSilently, selectedFlight]);
 
   const totals = useMemo(() => {

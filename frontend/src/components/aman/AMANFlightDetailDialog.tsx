@@ -147,8 +147,8 @@ function PhaseTable({legs, segments}: {legs: AMANCalculationLeg[]; segments: AMA
     phases.set(phaseID, phase);
   }
   if (phases.size === 0) return <div className="rounded bg-slate-800 p-3 text-sm text-slate-300">Phase-level inputs were not retained for this prediction.</div>;
-  let cumulativeDuration = 0;
-  return <table className="w-full table-fixed border-collapse text-left text-xs"><thead className="bg-slate-800 text-slate-300"><tr><th className="w-[19%] p-2">Calculation phase</th><th className="w-[16%] p-2">Source geometry</th><th className="w-[15%] p-2">Altitude / distance</th><th className="w-[16%] p-2">Speed model</th><th className="w-[14%] p-2">Wind effect</th><th className="w-[20%] p-2">Time contribution</th></tr></thead><tbody>{[...phases.entries()].map(([phaseID, {formula, name, segments: phaseSegments}]) => {
+  const phaseEntries = [...phases.entries()];
+  return <table className="w-full table-fixed border-collapse text-left text-xs"><thead className="bg-slate-800 text-slate-300"><tr><th className="w-[19%] p-2">Calculation phase</th><th className="w-[16%] p-2">Source geometry</th><th className="w-[15%] p-2">Altitude / distance</th><th className="w-[16%] p-2">Speed model</th><th className="w-[14%] p-2">Wind effect</th><th className="w-[20%] p-2">Time contribution</th></tr></thead><tbody>{phaseEntries.map(([phaseID, {formula, name, segments: phaseSegments}], index) => {
     const distance = phaseSegments.reduce((total, segment) => total + segment.distance_nm, 0);
     const noWindDuration = phaseSegments.reduce((total, segment) => total + segment.no_wind_duration_seconds, 0);
     const durationSeconds = phaseSegments.reduce((total, segment) => total + segment.duration_seconds, 0);
@@ -160,22 +160,20 @@ function PhaseTable({legs, segments}: {legs: AMANCalculationLeg[]; segments: AMA
     const averageWind = windDistance === 0 ? null : windSegments.reduce((total, segment) => total + (segment.tailwind_knots ?? 0) * segment.distance_nm, 0) / windDistance;
     const averageNoWindGS = phaseSegments.reduce((total, segment) => total + segment.no_wind_groundspeed_knots * segment.distance_nm, 0) / distance;
     const averageGS = phaseSegments.reduce((total, segment) => total + segment.groundspeed_knots * segment.distance_nm, 0) / distance;
-    cumulativeDuration += durationSeconds;
+    const cumulativeDuration = phaseEntries.slice(0, index + 1).reduce((total, [, phase]) => total + phase.segments.reduce((phaseTotal, segment) => phaseTotal + segment.duration_seconds, 0), 0);
     return <tr className="border border-slate-700 align-top" key={phaseID}><td className="break-words p-2"><span className="font-medium text-white">{name}</span><br /><span className="text-slate-400">{formula}</span></td><td className="break-words p-2">{sourceLegs.join(", ") || "Unavailable"}<br /><span className="text-slate-400">{phaseSegments.length} model slice{phaseSegments.length === 1 ? "" : "s"}</span></td><td className="break-words p-2">{Math.round(phaseSegments[0].start_altitude_feet / 100) * 100} → {Math.round(phaseSegments.at(-1)!.end_altitude_feet / 100) * 100} ft<br /><span className="text-slate-400">{distance.toFixed(1)} NM</span></td><td className="break-words p-2">{ias}<br /><span className="text-slate-400">GS {Math.round(averageNoWindGS)} → {Math.round(averageGS)} kt</span></td><td className={averageWind === null || averageWind === 0 ? "break-words p-2" : averageWind > 0 ? "break-words p-2 text-emerald-300" : "break-words p-2 text-amber-300"}>{averageWind === null ? "Not applied" : `${averageWind > 0 ? "+" : ""}${Math.round(averageWind)} kt ${averageWind >= 0 ? "tailwind" : "headwind"}`}</td><td className="break-words p-2">{duration(noWindDuration)} → {duration(durationSeconds)}{delta !== 0 && <><br /><span className={delta < 0 ? "text-emerald-300" : "text-amber-300"}>{delta > 0 ? "+" : "−"}{duration(Math.abs(delta))}</span></>}<br /><span className="text-slate-400">Cumulative: {duration(cumulativeDuration)}</span></td></tr>;
   })}</tbody></table>;
 }
 
 function SegmentTable({legs, segments}: {legs: AMANCalculationLeg[]; segments: AMANCalculationSegment[]}) {
   if (segments.length === 0) return <div className="rounded bg-slate-800 p-3 text-sm text-slate-300">Segment-level inputs were not retained for this prediction.</div>;
-  let cumulativeDuration = 0;
-  let cumulativeDistance = 0;
   return <table className="w-full table-fixed border-collapse text-left text-xs"><thead className="bg-slate-800 text-slate-300"><tr><th className="w-[20%] p-2">Model segment / source</th><th className="w-[16%] p-2">Altitude / track</th><th className="w-[18%] p-2">Speed</th><th className="w-[17%] p-2">Wind</th><th className="w-[16%] p-2">Time</th><th className="w-[13%] p-2">Distance</th></tr></thead><tbody>{segments.map((segment, index) => {
     const routeLeg = legs[segment.route_leg_index];
     const delta = segment.duration_seconds - segment.no_wind_duration_seconds;
     const wind = segment.tailwind_knots;
     const windLabel = wind === null ? "Not applied" : `${wind > 0 ? "+" : ""}${Math.round(wind)} kt ${wind >= 0 ? "tailwind" : "headwind"}`;
-    cumulativeDuration += segment.duration_seconds;
-    cumulativeDistance += segment.distance_nm;
+    const cumulativeDuration = segments.slice(0, index + 1).reduce((total, current) => total + current.duration_seconds, 0);
+    const cumulativeDistance = segments.slice(0, index + 1).reduce((total, current) => total + current.distance_nm, 0);
     const legCoverage = routeLeg ? Math.round((segment.distance_nm / routeLeg.distance_nm) * 100) : null;
     return <tr className="border border-slate-700 align-top" key={`${segment.route_leg_index}-${index}`}><td className="break-words p-2"><span className="font-medium text-white">{index + 1}. {segment.pre_tod ? "Cruise to TOD" : "Descent"}</span><br /><span className="text-slate-400">{routeLeg ? `${routeLeg.from} → ${routeLeg.to}` : "Route unavailable"}</span><br /><span className="text-slate-500">Geometry leg: {routeLeg?.id ?? "unavailable"}</span></td><td className="break-words p-2">{Math.round(segment.start_altitude_feet / 100) * 100} → {Math.round(segment.end_altitude_feet / 100) * 100} ft<br />Sample: FL{Math.round(segment.altitude_feet / 100)} · {Math.round(segment.course_true_degrees).toString().padStart(3, "0")}°T</td><td className="break-words p-2">IAS: {segment.indicated_airspeed_knots === null ? "Observed" : `${Math.round(segment.indicated_airspeed_knots)} kt`}<br />GS: {Math.round(segment.no_wind_groundspeed_knots)} → {Math.round(segment.groundspeed_knots)} kt</td><td className={`break-words p-2 ${wind === null || wind === 0 ? "" : wind > 0 ? "text-emerald-300" : "text-amber-300"}`}>{windLabel}</td><td className="break-words p-2">{duration(segment.no_wind_duration_seconds)} → {duration(segment.duration_seconds)}{delta !== 0 && <><br /><span className={delta < 0 ? "text-emerald-300" : "text-amber-300"}>{delta > 0 ? "+" : "−"}{duration(Math.abs(delta))}</span></>}<br /><span className="text-slate-400">Cum. {duration(cumulativeDuration)}</span></td><td className="break-words p-2">{segment.distance_nm.toFixed(1)} NM<br /><span className="text-slate-400">Cum. {cumulativeDistance.toFixed(1)} NM{legCoverage === null ? "" : ` · ${legCoverage}% leg`}</span></td></tr>;
   })}</tbody></table>;

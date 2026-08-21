@@ -272,9 +272,11 @@ export default function EFBPage() {
 
   useEffect(() => {
     if (openDialog !== 'D1STAND' || !apiFlight) {
-      setStandAvailability(null);
-      setStandAvailabilityError(null);
-      return;
+      const reset = window.setTimeout(() => {
+        setStandAvailability(null);
+        setStandAvailabilityError(null);
+      }, 0);
+      return () => window.clearTimeout(reset);
     }
     let cancelled = false;
     const refreshAvailability = async () => {
@@ -295,7 +297,7 @@ export default function EFBPage() {
     void refreshAvailability();
     const timer = window.setInterval(() => void refreshAvailability(), 15_000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [apiFlight?.callsign, authorizedFetch, openDialog, profile?.live_mode]);
+  }, [apiFlight, authorizedFetch, openDialog, profile?.live_mode]);
 
   const submitDevCallsign = (event: FormEvent) => {
     event.preventDefault();

@@ -75,12 +75,6 @@ export default function VACSBTN() {
   const endingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (state.status !== "connected" && endingCall) {
-      setEndingCall(false);
-    }
-  }, [state.status, endingCall]);
-
-  useEffect(() => {
     return () => {
       if (endingTimerRef.current !== null) {
         clearTimeout(endingTimerRef.current);
@@ -114,6 +108,7 @@ export default function VACSBTN() {
     state.status === "ambiguous";
 
   const incomingCount = state.status === "incoming" ? state.calls.length : 0;
+  const isEndingCall = endingCall && state.status === "connected";
 
   const handleClick = useCallback(async () => {
     if (state.status === "idle") {
@@ -168,7 +163,7 @@ export default function VACSBTN() {
           <button
             type="button"
             disabled={disabled && !isRinging(state)}
-            className={buttonClass(state, endingCall)}
+            className={buttonClass(state, isEndingCall)}
             onClick={() => void handleClick()}
             onContextMenu={(e) => void handleContextMenu(e)}
             aria-label="VACS voice"
@@ -182,7 +177,7 @@ export default function VACSBTN() {
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
-          {tooltipForState(state, endingCall)}
+          {tooltipForState(state, isEndingCall)}
         </TooltipContent>
       </Tooltip>
 

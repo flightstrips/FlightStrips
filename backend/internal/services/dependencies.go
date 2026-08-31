@@ -42,6 +42,7 @@ type StripFieldStore interface {
 	UpdateSquawk(ctx context.Context, session int32, callsign string, squawk *string, version *int32) (int64, error)
 	UpdateAssignedSquawk(ctx context.Context, session int32, callsign string, assignedSquawk *string, version *int32) (int64, error)
 	UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)
+	UpdateHold(ctx context.Context, session int32, callsign string, hold string, holdType string, holdEat string, version *int32) (int64, error)
 	UpdateRequestedAltitude(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)
 	UpdateCommunicationType(ctx context.Context, session int32, callsign string, commType *string, version *int32) (int64, error)
 	UpdateGroundState(ctx context.Context, session int32, callsign string, state *string, bay string, version *int32) (int64, error)

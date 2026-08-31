@@ -17,6 +17,7 @@ type StripEventPublisher interface {
 	SendSquawkEvent(session int32, callsign string, squawk string)
 	SendRequestedAltitudeEvent(session int32, callsign string, altitude int32)
 	SendClearedAltitudeEvent(session int32, callsign string, altitude int32)
+	SendHoldEvent(session int32, callsign string, hold string, holdType string, holdEat string)
 	SendBayEvent(session int32, callsign string, bay string, sequence int32)
 	SendBulkBayEvent(session int32, bay string, strips []frontend.BulkBayEntry)
 	SendAircraftDisconnect(session int32, callsign string)

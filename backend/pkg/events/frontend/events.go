@@ -33,6 +33,7 @@ const (
 	Disconnect         EventType = "disconnect"
 	AircraftDisconnect EventType = "aircraft_disconnect"
 	Stand              EventType = "stand"
+	Hold               EventType = "hold"
 	SetHeading         EventType = "heading"
 	CommunicationType  EventType = "communication_type"
 
@@ -149,6 +150,9 @@ type Strip struct {
 	Sid                      string                `json:"sid"`
 	Star                     string                `json:"star"`
 	ClearedAltitude          int32                 `json:"cleared_altitude"`
+	Hold                     string                `json:"hold"`
+	HoldType                 string                `json:"hold_type"`
+	HoldEat                  string                `json:"hold_eat"`
 	RequestedAltitude        int32                 `json:"requested_altitude"`
 	Heading                  int32                 `json:"heading"`
 	PositionAltitude         int32                 `json:"position_altitude"`
@@ -403,6 +407,22 @@ func (r RequestedAltitudeEvent) Marshal() ([]byte, error) {
 
 func (r RequestedAltitudeEvent) GetType() EventType {
 	return RequestedAltitude
+}
+
+// An empty Hold means the clearance was cancelled.
+type HoldEvent struct {
+	Callsign string `json:"callsign"`
+	Hold     string `json:"hold"`
+	HoldType string `json:"hold_type"`
+	HoldEat  string `json:"hold_eat"`
+}
+
+func (r HoldEvent) Marshal() ([]byte, error) {
+	return marshall(r)
+}
+
+func (r HoldEvent) GetType() EventType {
+	return Hold
 }
 
 type ClearedAltitudeEvent struct {

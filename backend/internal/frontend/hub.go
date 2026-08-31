@@ -476,6 +476,9 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Sid:                      helpers.ValueOrDefault(strip.Sid),
 		Star:                     helpers.ValueOrDefault(strip.Star),
 		ClearedAltitude:          helpers.ValueOrDefault(strip.ClearedAltitude),
+		Hold:                     strip.Hold,
+		HoldType:                 strip.HoldType,
+		HoldEat:                  strip.HoldEat,
 		RequestedAltitude:        helpers.ValueOrDefault(strip.RequestedAltitude),
 		Heading:                  helpers.ValueOrDefault(strip.Heading),
 		PositionAltitude:         helpers.ValueOrDefault(strip.PositionAltitude),
@@ -871,6 +874,16 @@ func (hub *Hub) SendClearedAltitudeEvent(session int32, callsign string, altitud
 	event := frontend.ClearedAltitudeEvent{
 		Callsign: callsign,
 		Altitude: altitude,
+	}
+	hub.Broadcast(session, event)
+}
+
+func (hub *Hub) SendHoldEvent(session int32, callsign string, hold string, holdType string, holdEat string) {
+	event := frontend.HoldEvent{
+		Callsign: callsign,
+		Hold:     hold,
+		HoldType: holdType,
+		HoldEat:  holdEat,
 	}
 	hub.Broadcast(session, event)
 }

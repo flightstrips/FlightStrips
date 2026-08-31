@@ -82,6 +82,10 @@ func (s *noOpStripService) UpdateSquawk(_ context.Context, _ int32, _ string, _ 
 func (s *noOpStripService) UpdateRequestedAltitude(_ context.Context, _ int32, _ string, _ int32) error {
 	return nil
 }
+func (s *noOpStripService) UpdateHold(_ context.Context, _ int32, _ string, _ string, _ string, _ string) error {
+	return nil
+}
+
 func (s *noOpStripService) UpdateClearedAltitude(_ context.Context, _ int32, _ string, _ int32) error {
 	return nil
 }

@@ -238,6 +238,14 @@ func handleStand(ctx context.Context, client *Client, message Message) error {
 	return client.hub.stripService.UpdateStand(ctx, client.session, event.Callsign, event.Stand)
 }
 
+func handleHold(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.HoldEvent
+	if err := message.JsonUnmarshal(&event); err != nil {
+		return err
+	}
+	return client.hub.stripService.UpdateHold(ctx, client.session, event.Callsign, event.Hold, event.HoldType, event.HoldEat)
+}
+
 func handleCdmTobtUpdate(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CdmTobtUpdateEvent
 	if err := message.JsonUnmarshal(&event); err != nil {

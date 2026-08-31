@@ -141,6 +141,20 @@ func (s *StripService) UpdateClearedAltitude(ctx context.Context, session int32,
 	return nil
 }
 
+// UpdateHold updates the holding clearance for a strip and notifies the frontend.
+func (s *StripService) UpdateHold(ctx context.Context, session int32, callsign string, hold string, holdType string, holdEat string) error {
+	count, err := s.fieldStore.UpdateHold(ctx, session, callsign, hold, holdType, holdEat, nil)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		slog.DebugContext(ctx, "Hold update skipped: strip not found or hold unchanged", slog.String("callsign", callsign))
+		return nil
+	}
+	s.publisher.SendHoldEvent(session, callsign, hold, holdType, holdEat)
+	return nil
+}
+
 // UpdateCommunicationType updates the communication type for a strip and notifies the frontend.
 func (s *StripService) UpdateCommunicationType(ctx context.Context, session int32, callsign string, commType string) error {
 	count, err := s.fieldStore.UpdateCommunicationType(ctx, session, callsign, &commType, nil)

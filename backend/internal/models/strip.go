@@ -104,6 +104,10 @@ type Strip struct {
 	VatsimSeenAt             *time.Time
 	EuroscopeSeenAt          *time.Time
 	ArrivalETA               *ArrivalETA
+	// TopSky holding clearance. Empty means not holding; HoldType is "enroute" or "tsa".
+	Hold                     string
+	HoldType                 string
+	HoldEat                  string
 }
 
 // IsValidationLocked returns true when the strip has a blocking validation

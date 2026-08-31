@@ -128,6 +128,10 @@ func (m *mockPdcStripService) UpdateRequestedAltitude(ctx context.Context, sessi
 	return args.Error(0)
 }
 
+func (m *mockPdcStripService) UpdateHold(ctx context.Context, session int32, callsign string, hold string, holdType string, holdEat string) error {
+	return nil
+}
+
 func (m *mockPdcStripService) UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error {
 	args := m.Called(ctx, session, callsign, altitude)
 	return args.Error(0)

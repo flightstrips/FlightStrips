@@ -86,6 +86,7 @@ type StripService interface {
 	UpdateSquawk(ctx context.Context, session int32, callsign string, squawk string) error
 	UpdateRequestedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error
 	UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude int32) error
+	UpdateHold(ctx context.Context, session int32, callsign string, hold string, holdType string, holdEat string) error
 	UpdateCommunicationType(ctx context.Context, session int32, callsign string, commType string) error
 	UpdateHeading(ctx context.Context, session int32, callsign string, heading int32) error
 	DeleteStrip(ctx context.Context, session int32, callsign string) error

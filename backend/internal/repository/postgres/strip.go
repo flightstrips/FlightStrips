@@ -149,6 +149,9 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		Marked:                   db.Marked,
 		Registration:             db.Registration,
 		TrackingController:       db.TrackingController,
+		Hold:                     db.Hold,
+		HoldType:                 db.HoldType,
+		HoldEat:                  db.HoldEat,
 		EngineType:               db.EngineType,
 		SpokenCallsign:           db.SpokenCallsign,
 		RunwayCleared:            db.RunwayCleared,
@@ -238,6 +241,9 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		PreviousOwners:     previousOwnersJSON,
 		Registration:       strip.Registration,
 		TrackingController: strip.TrackingController,
+		Hold:               strip.Hold,
+		HoldType:           strip.HoldType,
+		HoldEat:            strip.HoldEat,
 		EngineType:         strip.EngineType,
 		SpokenCallsign:     strip.SpokenCallsign,
 		HasFp:              strip.HasFP,
@@ -394,6 +400,9 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		Marked:                   strip.Marked,
 		Registration:             strip.Registration,
 		TrackingController:       strip.TrackingController,
+		Hold:                     strip.Hold,
+		HoldType:                 strip.HoldType,
+		HoldEat:                  strip.HoldEat,
 		SpokenCallsign:           strip.SpokenCallsign,
 		RunwayCleared:            strip.RunwayCleared,
 		RunwayConfirmed:          strip.RunwayConfirmed,
@@ -570,6 +579,19 @@ func (r *stripRepository) UpdateAssignedSquawk(ctx context.Context, session int3
 		Callsign:       callsign,
 		Session:        session,
 		Version:        version,
+	})
+}
+
+// The query only matches when a value differs, so an unchanged hold reports
+// zero rows and the caller suppresses the broadcast.
+func (r *stripRepository) UpdateHold(ctx context.Context, session int32, callsign string, hold string, holdType string, holdEat string, version *int32) (int64, error) {
+	return r.queries.UpdateStripHoldByID(ctx, database.UpdateStripHoldByIDParams{
+		Hold:     hold,
+		HoldType: holdType,
+		HoldEat:  holdEat,
+		Callsign: callsign,
+		Session:  session,
+		Version:  version,
 	})
 }
 

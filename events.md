@@ -94,7 +94,10 @@ Sent by: EuroScope
             "capabilities": "G",
             "communication_type": "V",
             "eobt": "1200", // nullable
-            "eldt": "1200" // nullable
+            "eldt": "1200", // nullable
+            "hold": "OLPIB", // empty when not holding
+            "hold_type": "enroute", // "enroute" | "tsa", empty when not holding
+            "hold_eat": "1422" // empty when not given
         }
     ]
 }
@@ -250,6 +253,28 @@ Stand update
     "type": "stand",
     "callsign": "SAS123",
     "stand": "A12"
+}
+```
+
+### Hold
+
+Sent by: EuroScope and Server
+
+A TopSky holding clearance, read off the EuroScope scratch pad by the plugin.
+EuroScope broadcasts the scratch pad to every controller in range, so a hold is
+visible even for aircraft this controller is not tracking.
+
+`hold` is the holding point (or the area name when `hold_type` is `tsa`). An
+empty `hold` means the clearance was cancelled. `hold_eat` is the expect
+approach time, empty when none was given.
+
+```json
+{
+    "type": "hold",
+    "callsign": "SAS123",
+    "hold": "OLPIB",
+    "hold_type": "enroute", // "enroute" | "tsa"
+    "hold_eat": "1422" // may be empty
 }
 ```
 

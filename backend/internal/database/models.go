@@ -179,6 +179,18 @@ type AmanVatsimObservationIdentity struct {
 	UpdatedAt       pgtype.Timestamptz
 }
 
+type AmanWeatherCache struct {
+	CacheKey   string
+	Levels     []byte
+	ObservedAt pgtype.Timestamptz
+	ExpiresAt  pgtype.Timestamptz
+}
+
+type AmanWeatherRequestLedger struct {
+	RequestID   int64
+	RequestedAt pgtype.Timestamptz
+}
+
 type Controller struct {
 	ID                int32
 	Session           int32
@@ -323,6 +335,9 @@ type Strip struct {
 	EuroscopeSeenAt          pgtype.Timestamptz
 	ArrivalEta               []byte
 	Star                     *string
+	Hold                     string
+	HoldType                 string
+	HoldEat                  string
 }
 
 type TacticalStrip struct {

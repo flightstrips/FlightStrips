@@ -45,6 +45,27 @@ func (q *Queries) AppendUnexpectedChangeField(ctx context.Context, arg AppendUne
 	return err
 }
 
+const clearStripArrivalETA = `-- name: ClearStripArrivalETA :execrows
+UPDATE strips
+SET
+    version = version + 1,
+    arrival_eta = NULL
+WHERE callsign = $1 AND session = $2
+`
+
+type ClearStripArrivalETAParams struct {
+	Callsign string
+	Session  int32
+}
+
+func (q *Queries) ClearStripArrivalETA(ctx context.Context, arg ClearStripArrivalETAParams) (int64, error) {
+	result, err := q.db.Exec(ctx, clearStripArrivalETA, arg.Callsign, arg.Session)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const clearStripEuroscopeSeen = `-- name: ClearStripEuroscopeSeen :exec
 UPDATE strips
 SET euroscope_seen_at = NULL
@@ -313,7 +334,7 @@ func (q *Queries) GetSequence(ctx context.Context, arg GetSequenceParams) (int32
 }
 
 const getStrip = `-- name: GetStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat
 FROM strips
 WHERE callsign = $1 AND session = $2
 `
@@ -383,6 +404,9 @@ func (q *Queries) GetStrip(ctx context.Context, arg GetStripParams) (Strip, erro
 		&i.EuroscopeSeenAt,
 		&i.ArrivalEta,
 		&i.Star,
+		&i.Hold,
+		&i.HoldType,
+		&i.HoldEat,
 	)
 	return i, err
 }
@@ -393,7 +417,8 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
                      registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
-                     vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at)
+                     vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at,
+                     hold, hold_type, hold_eat)
 VALUES (
     1,
     $1,
@@ -436,7 +461,10 @@ VALUES (
     $38,
     $39,
     $40,
-    $41
+    $41,
+    $42,
+    $43,
+    $44
 )
 `
 
@@ -482,6 +510,9 @@ type InsertStripParams struct {
 	VatsimRevision     *int64
 	VatsimSeenAt       pgtype.Timestamptz
 	EuroscopeSeenAt    pgtype.Timestamptz
+	Hold               string
+	HoldType           string
+	HoldEat            string
 }
 
 func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error {
@@ -527,6 +558,9 @@ func (q *Queries) InsertStrip(ctx context.Context, arg InsertStripParams) error 
 		arg.VatsimRevision,
 		arg.VatsimSeenAt,
 		arg.EuroscopeSeenAt,
+		arg.Hold,
+		arg.HoldType,
+		arg.HoldEat,
 	)
 	return err
 }
@@ -569,7 +603,7 @@ func (q *Queries) ListStripSequences(ctx context.Context, arg ListStripSequences
 }
 
 const listStrips = `-- name: ListStrips :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat
 FROM strips
 WHERE session = $1
 ORDER BY callsign
@@ -641,6 +675,9 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 			&i.EuroscopeSeenAt,
 			&i.ArrivalEta,
 			&i.Star,
+			&i.Hold,
+			&i.HoldType,
+			&i.HoldEat,
 		); err != nil {
 			return nil, err
 		}
@@ -653,7 +690,7 @@ func (q *Queries) ListStrips(ctx context.Context, session int32) ([]Strip, error
 }
 
 const listStripsByOrigin = `-- name: ListStripsByOrigin :many
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat
 FROM strips
 WHERE origin = $1 AND session = $2
 ORDER BY callsign
@@ -730,6 +767,9 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 			&i.EuroscopeSeenAt,
 			&i.ArrivalEta,
 			&i.Star,
+			&i.Hold,
+			&i.HoldType,
+			&i.HoldEat,
 		); err != nil {
 			return nil, err
 		}
@@ -742,7 +782,7 @@ func (q *Queries) ListStripsByOrigin(ctx context.Context, arg ListStripsByOrigin
 }
 
 const lockStrip = `-- name: LockStrip :one
-SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star
+SELECT id, version, callsign, session, origin, destination, alternative, route, remarks, assigned_squawk, squawk, sid, cleared_altitude, heading, aircraft_type, runway, requested_altitude, capabilities, communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay, position_latitude, position_longitude, position_altitude, next_owners, previous_owners, release_point, marked, registration, tracking_controller, runway_cleared, unexpected_change_fields, controller_modified_fields, engine_type, is_manual, persons_on_board, fpl_type, language, has_fp, cdm_data, runway_confirmed, pdc_data, validation_status, start_req, spoken_callsign, vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at, arrival_eta, star, hold, hold_type, hold_eat
 FROM strips
 WHERE callsign = $1 AND session = $2
 FOR UPDATE
@@ -813,6 +853,9 @@ func (q *Queries) LockStrip(ctx context.Context, arg LockStripParams) (Strip, er
 		&i.EuroscopeSeenAt,
 		&i.ArrivalEta,
 		&i.Star,
+		&i.Hold,
+		&i.HoldType,
+		&i.HoldEat,
 	)
 	return i, err
 }
@@ -1147,8 +1190,11 @@ SET version = version + 1,
     vatsim_cid = $48,
     vatsim_revision = $49,
     vatsim_seen_at = $50,
-    euroscope_seen_at = $51
-WHERE callsign = $52 AND session = $53
+    euroscope_seen_at = $51,
+    hold = $52,
+    hold_type = $53,
+    hold_eat = $54
+WHERE callsign = $55 AND session = $56
 `
 
 type UpdateStripParams struct {
@@ -1203,6 +1249,9 @@ type UpdateStripParams struct {
 	VatsimRevision           *int64
 	VatsimSeenAt             pgtype.Timestamptz
 	EuroscopeSeenAt          pgtype.Timestamptz
+	Hold                     string
+	HoldType                 string
+	HoldEat                  string
 	Callsign                 string
 	Session                  int32
 }
@@ -1260,6 +1309,9 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 		arg.VatsimRevision,
 		arg.VatsimSeenAt,
 		arg.EuroscopeSeenAt,
+		arg.Hold,
+		arg.HoldType,
+		arg.HoldEat,
 		arg.Callsign,
 		arg.Session,
 	)
@@ -1320,27 +1372,6 @@ type UpdateStripArrivalETAParams struct {
 
 func (q *Queries) UpdateStripArrivalETA(ctx context.Context, arg UpdateStripArrivalETAParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateStripArrivalETA, arg.ArrivalEta, arg.Callsign, arg.Session)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const clearStripArrivalETA = `-- name: ClearStripArrivalETA :execrows
-UPDATE strips
-SET
-    version = version + 1,
-    arrival_eta = NULL
-WHERE callsign = $1 AND session = $2
-`
-
-type ClearStripArrivalETAParams struct {
-	Callsign string
-	Session  int32
-}
-
-func (q *Queries) ClearStripArrivalETA(ctx context.Context, arg ClearStripArrivalETAParams) (int64, error) {
-	result, err := q.db.Exec(ctx, clearStripArrivalETA, arg.Callsign, arg.Session)
 	if err != nil {
 		return 0, err
 	}
@@ -1560,6 +1591,41 @@ type UpdateStripHeadingByIDParams struct {
 func (q *Queries) UpdateStripHeadingByID(ctx context.Context, arg UpdateStripHeadingByIDParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateStripHeadingByID,
 		arg.Heading,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateStripHoldByID = `-- name: UpdateStripHoldByID :execrows
+UPDATE strips
+SET hold      = $1,
+    hold_type = $2,
+    hold_eat  = $3,
+    version   = version + 1
+WHERE callsign = $4 AND session = $5
+  AND (hold IS DISTINCT FROM $1 OR hold_type IS DISTINCT FROM $2 OR hold_eat IS DISTINCT FROM $3)
+  AND (version = $6 OR $6 IS NULL)
+`
+
+type UpdateStripHoldByIDParams struct {
+	Hold     string
+	HoldType string
+	HoldEat  string
+	Callsign string
+	Session  int32
+	Version  *int32
+}
+
+func (q *Queries) UpdateStripHoldByID(ctx context.Context, arg UpdateStripHoldByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripHoldByID,
+		arg.Hold,
+		arg.HoldType,
+		arg.HoldEat,
 		arg.Callsign,
 		arg.Session,
 		arg.Version,

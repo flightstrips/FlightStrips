@@ -142,6 +142,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.GroundState, handleGroundState)
 	handlers.Add(euroscope.ClearedFlag, handleClearedFlag)
 	handlers.Add(euroscope.Stand, handleStand)
+	handlers.Add(euroscope.Hold, handleHold)
 	handlers.Add(euroscope.RequestedAltitude, handleRequestedAltitude)
 	handlers.Add(euroscope.ClearedAltitude, handleClearedAltitude)
 	handlers.Add(euroscope.PositionUpdate, handlePositionUpdate)

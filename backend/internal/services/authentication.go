@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/shared"
 	"errors"
+	"time"
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
@@ -41,12 +42,18 @@ func NewTestAuthenticationService() *AuthenticationService {
 func (a AuthenticationService) Validate(jwtToken string) (shared.AuthenticatedUser, error) {
 	// Bypass authentication in test mode
 	if config.IsTestMode() {
+		// A far-future expiry, because AuthenticatedUser reads it off the token
+		// and treats a zero expiry as already expired. Passing nil here left
+		// every test-mode client failing the periodic token check and being
+		// disconnected after TokenCheckPeriod, replay sessions included.
+		testToken := &jwt.Token{Claims: jwt.MapClaims{"exp": float64(time.Now().Add(24 * time.Hour).Unix())}}
+
 		// Return different CIDs for different test tokens
 		if jwtToken == TestFrontendToken {
-			return shared.NewAuthenticatedUser("TEST_FRONTEND_CID", 0, nil), nil
+			return shared.NewAuthenticatedUser("TEST_FRONTEND_CID", 0, testToken), nil
 		}
 		// Default test user for EuroScope replay
-		return shared.NewAuthenticatedUser("TEST_CID", 0, nil), nil
+		return shared.NewAuthenticatedUser("TEST_CID", 0, testToken), nil
 	}
 
 	options := jwt.WithValidMethods([]string{a.authSigningAlgorithm})

@@ -26,6 +26,7 @@ set(ALL_FILES
         flightplan/AirlineCallsignServiceTest.cpp
         flightplan/RouteServiceTest.cpp
         flightplan/FlightPlanServiceTest.cpp
+        flightplan/TopSkyHoldTest.cpp
 
         # Configuration
         configuration/AppConfigTest.cpp

@@ -33,6 +33,7 @@ type MockStripRepository struct {
 	UpdateSquawkFn                  func(ctx context.Context, session int32, callsign string, squawk *string, version *int32) (int64, error)
 	UpdateAssignedSquawkFn          func(ctx context.Context, session int32, callsign string, assignedSquawk *string, version *int32) (int64, error)
 	UpdateClearedAltitudeFn         func(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)
+	UpdateHoldFn                    func(ctx context.Context, session int32, callsign string, hold string, holdType string, holdEat string, version *int32) (int64, error)
 	UpdateRequestedAltitudeFn       func(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error)
 	UpdateCommunicationTypeFn       func(ctx context.Context, session int32, callsign string, commType *string, version *int32) (int64, error)
 	UpdateGroundStateFn             func(ctx context.Context, session int32, callsign string, state *string, bay string, version *int32) (int64, error)
@@ -261,6 +262,13 @@ func (m *MockStripRepository) UpdateAssignedSquawk(ctx context.Context, session 
 		panic("unexpected call to MockStripRepository.UpdateAssignedSquawk")
 	}
 	return m.UpdateAssignedSquawkFn(ctx, session, callsign, assignedSquawk, version)
+}
+
+func (m *MockStripRepository) UpdateHold(ctx context.Context, session int32, callsign string, hold string, holdType string, holdEat string, version *int32) (int64, error) {
+	if m.UpdateHoldFn == nil {
+		panic("unexpected call to MockStripRepository.UpdateHold")
+	}
+	return m.UpdateHoldFn(ctx, session, callsign, hold, holdType, holdEat, version)
 }
 
 func (m *MockStripRepository) UpdateClearedAltitude(ctx context.Context, session int32, callsign string, altitude *int32, version *int32) (int64, error) {

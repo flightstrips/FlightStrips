@@ -4,7 +4,8 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      communication_type, aircraft_category, stand, sequence, state, cleared, owner, bay,
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
                      registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
-                     vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at)
+                     vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at,
+                     hold, hold_type, hold_eat)
 VALUES (
     1,
     sqlc.arg(callsign),
@@ -47,7 +48,10 @@ VALUES (
     sqlc.arg(vatsim_cid),
     sqlc.arg(vatsim_revision),
     sqlc.arg(vatsim_seen_at),
-    sqlc.arg(euroscope_seen_at)
+    sqlc.arg(euroscope_seen_at),
+    sqlc.arg(hold),
+    sqlc.arg(hold_type),
+    sqlc.arg(hold_eat)
 );
 
 -- name: UpdateStrip :execrows
@@ -103,7 +107,10 @@ SET version = version + 1,
     vatsim_cid = sqlc.arg(vatsim_cid),
     vatsim_revision = sqlc.arg(vatsim_revision),
     vatsim_seen_at = sqlc.arg(vatsim_seen_at),
-    euroscope_seen_at = sqlc.arg(euroscope_seen_at)
+    euroscope_seen_at = sqlc.arg(euroscope_seen_at),
+    hold = sqlc.arg(hold),
+    hold_type = sqlc.arg(hold_type),
+    hold_eat = sqlc.arg(hold_eat)
 WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
 
 -- name: MarkStripEuroscopeSeen :exec
@@ -237,6 +244,16 @@ SET stand   = $1,
     version = version + 1
 WHERE callsign = $2 AND session = $3
   AND (stand IS DISTINCT FROM $1)
+  AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
+
+-- name: UpdateStripHoldByID :execrows
+UPDATE strips
+SET hold      = $1,
+    hold_type = $2,
+    hold_eat  = $3,
+    version   = version + 1
+WHERE callsign = $4 AND session = $5
+  AND (hold IS DISTINCT FROM $1 OR hold_type IS DISTINCT FROM $2 OR hold_eat IS DISTINCT FROM $3)
   AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
 -- name: UpdateStripRunwayByID :execrows

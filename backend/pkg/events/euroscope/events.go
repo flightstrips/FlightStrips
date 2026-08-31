@@ -25,6 +25,7 @@ const (
 	SetHeading                EventType = "heading"
 	AircraftDisconnected      EventType = "aircraft_disconnect"
 	Stand                     EventType = "stand"
+	Hold                      EventType = "hold"
 	StripUpdate               EventType = "strip_update"
 	Runway                    EventType = "runway"
 	AircraftRunway            EventType = "aircraft_runway"
@@ -148,6 +149,10 @@ type Strip struct {
 	TrackingController string `json:"tracking_controller"`
 	EngineType         string `json:"engine_type"`
 	HasFP              bool   `json:"has_fp"`
+	// TopSky holding clearance. Empty means not holding.
+	Hold     string `json:"hold"`
+	HoldType string `json:"hold_type"`
+	HoldEat  string `json:"hold_eat"`
 }
 
 type SyncRunway struct {
@@ -257,6 +262,15 @@ type StandEvent struct {
 	Type     EventType `json:"type"`
 	Callsign string    `json:"callsign"`
 	Stand    string    `json:"stand"`
+}
+
+// An empty Hold means the clearance was cancelled.
+type HoldEvent struct {
+	Type     EventType `json:"type"`
+	Callsign string    `json:"callsign"`
+	Hold     string    `json:"hold"`
+	HoldType string    `json:"hold_type"`
+	HoldEat  string    `json:"hold_eat"`
 }
 
 type StripUpdateEvent struct {

@@ -142,6 +142,7 @@ type MockFrontendHub struct {
 	DepAtisCode string
 
 	BayEvents               []BayEventCall
+	HoldEvents              []HoldEventCall
 	BulkBayEvents           []BulkBayCall
 	OwnersUpdates           []OwnersUpdateCall
 	CoordinationTransfers   []CoordinationTransferCall
@@ -212,6 +213,18 @@ func (m *MockFrontendHub) SendRequestedAltitudeEvent(session int32, callsign str
 }
 
 func (m *MockFrontendHub) SendClearedAltitudeEvent(session int32, callsign string, altitude int32) {}
+
+func (m *MockFrontendHub) SendHoldEvent(session int32, callsign string, hold string, holdType string, holdEat string) {
+	m.HoldEvents = append(m.HoldEvents, HoldEventCall{session, callsign, hold, holdType, holdEat})
+}
+
+type HoldEventCall struct {
+	Session  int32
+	Callsign string
+	Hold     string
+	HoldType string
+	HoldEat  string
+}
 
 func (m *MockFrontendHub) SendBayEvent(session int32, callsign string, bay string, sequence int32) {
 	m.BayEvents = append(m.BayEvents, BayEventCall{session, callsign, bay, sequence})

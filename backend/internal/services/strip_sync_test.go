@@ -56,6 +56,135 @@ func TestSyncEuroscopeStrip_NewLocalDepartureWithoutPositionStartsInNotCleared(t
 	assert.Equal(t, shared.BAY_NOT_CLEARED, createdStrip.Bay)
 }
 
+func TestSyncEuroscopeStrip_NewStripPersistsHold(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+
+	var createdStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+		CreateFn: func(_ context.Context, strip *models.Strip) error {
+			createdStrip = strip
+			return nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, nil, stripRepo)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign: "SAS126",
+		Origin:   "EKCH",
+		Hold:     "OLPIB",
+		HoldType: "enroute",
+		HoldEat:  "1422",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, createdStrip)
+	assert.Equal(t, "OLPIB", createdStrip.Hold)
+	assert.Equal(t, "enroute", createdStrip.HoldType)
+	assert.Equal(t, "1422", createdStrip.HoldEat)
+}
+
+func TestSyncEuroscopeStrip_ExistingStripPreservesHoldWhenPluginOmitsHoldFields(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	sequence := int32(301)
+	oldRemarks := "old remarks"
+
+	existingStrip := &models.Strip{
+		Callsign:    "SAS127",
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Bay:         shared.BAY_PUSH,
+		Sequence:    &sequence,
+		Remarks:     &oldRemarks,
+		Hold:        "OLPIB",
+		HoldType:    "enroute",
+		HoldEat:     "1422",
+	}
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+
+	// An old plugin omits the hold fields, which arrive here as empty strings.
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    existingStrip.Callsign,
+		Origin:      existingStrip.Origin,
+		Destination: existingStrip.Destination,
+		Remarks:     "new remarks",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	assert.Equal(t, existingStrip.Hold, updatedStrip.Hold)
+	assert.Equal(t, existingStrip.HoldType, updatedStrip.HoldType)
+	assert.Equal(t, existingStrip.HoldEat, updatedStrip.HoldEat)
+}
+
+func TestSyncEuroscopeStrip_ExistingStripAcceptsActiveHoldAndUpdatesSyncState(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	sequence := int32(302)
+	oldRemarks := "old remarks"
+
+	existingStrip := &models.Strip{
+		Callsign:    "SAS128",
+		Origin:      "EKCH",
+		Destination: "EGLL",
+		Bay:         shared.BAY_PUSH,
+		Sequence:    &sequence,
+		Remarks:     &oldRemarks,
+	}
+	var updatedStrip *models.Strip
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			updatedStrip = strip
+			return 1, nil
+		},
+	}
+
+	svc, _, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	syncState := &shared.SyncState{
+		Session:             &models.Session{ID: session},
+		ExistingControllers: map[string]*models.Controller{},
+		ExistingStrips: map[string]*models.Strip{
+			existingStrip.Callsign: existingStrip,
+		},
+	}
+	ctx = shared.WithSyncState(ctx, syncState)
+
+	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
+		Callsign:    existingStrip.Callsign,
+		Origin:      existingStrip.Origin,
+		Destination: existingStrip.Destination,
+		Remarks:     "new remarks",
+		Hold:        "OLPIB",
+		HoldType:    "enroute",
+		HoldEat:     "1422",
+	}, "EKCH")
+	require.NoError(t, err)
+	require.NotNil(t, updatedStrip)
+	assert.Equal(t, "OLPIB", updatedStrip.Hold)
+	assert.Equal(t, "enroute", updatedStrip.HoldType)
+	assert.Equal(t, "1422", updatedStrip.HoldEat)
+	assert.Equal(t, updatedStrip.Hold, existingStrip.Hold)
+	assert.Equal(t, updatedStrip.HoldType, existingStrip.HoldType)
+	assert.Equal(t, updatedStrip.HoldEat, existingStrip.HoldEat)
+}
+
 func TestSyncEuroscopeStrip_PreparesInitialEobtBeforePersistingAndCorrectsEuroscope(t *testing.T) {
 	ctx := context.Background()
 	const (

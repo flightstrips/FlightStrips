@@ -131,6 +131,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Session:            session,
 			Origin:             strip.Origin,
 			Destination:        strip.Destination,
+			Hold:               strip.Hold,
+			HoldType:           strip.HoldType,
+			HoldEat:            strip.HoldEat,
 			Alternative:        &strip.Alternate,
 			Route:              &strip.Route,
 			Remarks:            &strip.Remarks,
@@ -406,11 +409,26 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			sequence = &newSequence
 		}
 
+		// Older EuroScope plugins omit the TopSky hold fields entirely. Keep the
+		// stored hold in that case; hold cancellation is sent as a dedicated hold
+		// event. Newer plugins include a non-empty value here when a hold is active.
+		hold := existingStrip.Hold
+		holdType := existingStrip.HoldType
+		holdEat := existingStrip.HoldEat
+		if strip.Hold != "" || strip.HoldType != "" || strip.HoldEat != "" {
+			hold = strip.Hold
+			holdType = strip.HoldType
+			holdEat = strip.HoldEat
+		}
+
 		updateStrip := &internalModels.Strip{
 			Callsign:                 strip.Callsign,
 			Session:                  session,
 			Origin:                   origin,
 			Destination:              destination,
+			Hold:                     hold,
+			HoldType:                 holdType,
+			HoldEat:                  holdEat,
 			Alternative:              &strip.Alternate,
 			Route:                    &strip.Route,
 			Remarks:                  &strip.Remarks,
@@ -796,6 +814,9 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		!reflect.DeepEqual(existingStrip.FplType, updateStrip.FplType) ||
 		!reflect.DeepEqual(existingStrip.Language, updateStrip.Language) ||
 		existingStrip.HasFP != updateStrip.HasFP ||
+		existingStrip.Hold != updateStrip.Hold ||
+		existingStrip.HoldType != updateStrip.HoldType ||
+		existingStrip.HoldEat != updateStrip.HoldEat ||
 		!reflect.DeepEqual(existingStrip.ValidationStatus, updateStrip.ValidationStatus)
 }
 
@@ -870,6 +891,9 @@ func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {
 	existingStrip.FplType = updateStrip.FplType
 	existingStrip.Language = updateStrip.Language
 	existingStrip.HasFP = updateStrip.HasFP
+	existingStrip.Hold = updateStrip.Hold
+	existingStrip.HoldType = updateStrip.HoldType
+	existingStrip.HoldEat = updateStrip.HoldEat
 	existingStrip.ValidationStatus = updateStrip.ValidationStatus
 }
 

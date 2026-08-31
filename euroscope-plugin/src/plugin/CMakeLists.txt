@@ -80,6 +80,8 @@ set(src__flightplan
         flightplan/FlightPlanBootstrapper.h
         flightplan/RouteService.cpp
         flightplan/RouteService.h
+        flightplan/TopSkyHold.cpp
+        flightplan/TopSkyHold.h
 )
 source_group("src\\flightplan" FILES ${src__flightplan})
 

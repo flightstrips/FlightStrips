@@ -1,5 +1,7 @@
 #include "FlightPlanService.h"
 
+#include "TopSkyHold.h"
+
 #include <algorithm>
 #include <nlohmann/json.hpp>
 
@@ -36,6 +38,36 @@ namespace FlightStrips::flightplan {
         }
         return result;
     }
+    // Returns whether the hold changed; the scratch pad callback fires on edits
+    // that have nothing to do with holding.
+    bool ApplyHold(FlightPlan& plan, const TopSkyHold& hold, const std::string& eatPulse) {
+        const auto type = hold.TypeName();
+
+        // An absent EAT pulse means "nothing new", not "cleared".
+        auto eat = plan.hold_eat;
+        if (!eatPulse.empty()) {
+            eat = eatPulse;
+        }
+        if (!hold.active) {
+            eat.clear();
+        }
+
+        if (plan.hold == hold.point && plan.hold_type == type && plan.hold_eat == eat) {
+            return false;
+        }
+
+        plan.hold = hold.point;
+        plan.hold_type = type;
+        plan.hold_eat = eat;
+        return true;
+    }
+
+    TopSkyHold ReadHold(const EuroScopePlugIn::CFlightPlan& flightPlan) {
+        auto controllerData = const_cast<EuroScopePlugIn::CFlightPlan&>(flightPlan).GetControllerAssignedData();
+        const auto annotation = controllerData.GetFlightStripAnnotation(TOPSKY_HOLD_ANNOTATION);
+        return ParseTopSkyHoldAnnotation(annotation == nullptr ? "" : annotation);
+    }
+
     FlightPlanService::FlightPlanService(
         const std::shared_ptr<websocket::WebSocketService> &websocketService,
         const std::shared_ptr<FlightStripsPlugin> &flightStripsPlugin,
@@ -177,6 +209,11 @@ namespace FlightStrips::flightplan {
                                             : flightPlan.GetFlightPlanData().GetDepartureRwy());
         const auto controllerAssignedData = flightPlan.GetControllerAssignedData();
 
+        // By the time a strip is built the scratch pad pulse is long gone, so the
+        // hold comes from the annotation.
+        const auto scratchPad = controllerAssignedData.GetScratchPadString();
+        ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratchPad == nullptr ? "" : scratchPad));
+
         auto standName = stand == nullptr ? "" : stand->GetName();
         if (stand == nullptr) {
             if (const auto fpStand = this->m_flightPlans.find(callsign);
@@ -214,7 +251,11 @@ namespace FlightStrips::flightplan {
             isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
             isArrival ? GetEstimatedLandingTime(flightPlan) : "",
             std::string(flightPlan.GetTrackingControllerCallsign()),
-            {flightPlanData.GetEngineType()}
+            {flightPlanData.GetEngineType()},
+            true,
+            plan.hold,
+            plan.hold_type,
+            plan.hold_eat
         };
         m_websocketService->SendEvent(event);
         plan.strip_synchronized = true;
@@ -224,6 +265,7 @@ namespace FlightStrips::flightplan {
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
         if (!m_websocketService->ShouldSend()) return;
+
 
         switch (dataType) {
             case EuroScopePlugIn::CTR_DATA_TYPE_SQUAWK:
@@ -256,6 +298,13 @@ namespace FlightStrips::flightplan {
             case EuroScopePlugIn::CTR_DATA_TYPE_SCRATCH_PAD_STRING: {
                 auto &plan = this->m_flightPlans.try_emplace(callsign).first->second;
                 const auto scratch = flightPlan.GetControllerAssignedData().GetScratchPadString();
+                if (scratch == nullptr) break;
+
+                // The pulse only signals a change; the state is re-read from
+                // annotation 6.
+                if (ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratch))) {
+                    m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
+                }
 
                 if (_strnicmp(scratch, "GRP/S/", 6) != 0) break;
 

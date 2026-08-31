@@ -55,6 +55,7 @@
 #define EVENT_ISSUE_PDC_CLEARANCE_NAME "issue_pdc_clearance"
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
 #define EVENT_SEND_PRIVATE_MESSAGE_NAME "send_private_message"
+#define EVENT_HOLD_NAME "hold"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -109,6 +110,7 @@ enum EventType {
     EVENT_ISSUE_PDC_CLEARANCE,
     EVENT_PDC_REVERT_TO_VOICE,
     EVENT_SEND_PRIVATE_MESSAGE,
+    EVENT_HOLD,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -163,6 +165,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                  {EVENT_ISSUE_PDC_CLEARANCE, EVENT_ISSUE_PDC_CLEARANCE_NAME},
                                  {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
                                  {EVENT_SEND_PRIVATE_MESSAGE, EVENT_SEND_PRIVATE_MESSAGE_NAME},
+                               {EVENT_HOLD, EVENT_HOLD_NAME},
                                  })
 
 struct Event {
@@ -562,7 +565,8 @@ struct StripUpdateEvent final : Event {
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
-          std::string tracking_controller, std::string engine_type, bool has_fp = true)
+          std::string tracking_controller, std::string engine_type, bool has_fp = true,
+          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {})
         : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -590,7 +594,10 @@ struct StripUpdateEvent final : Event {
           eldt(std::move(eldt)),
           tracking_controller(std::move(tracking_controller)),
           engine_type(std::move(engine_type)),
-          has_fp(has_fp) {
+          has_fp(has_fp),
+          hold(std::move(hold)),
+          hold_type(std::move(hold_type)),
+          hold_eat(std::move(hold_eat)) {
     }
 
     std::string callsign;
@@ -621,11 +628,17 @@ struct StripUpdateEvent final : Event {
     std::string tracking_controller;
     std::string engine_type;
     bool has_fp;
+    /// TopSky holding clearance: the holding point, empty when not holding.
+    std::string hold;
+    /// "enroute" or "tsa". Empty when not holding.
+    std::string hold_type;
+    /// Expect approach time for the hold. Empty when not given.
+    std::string hold_eat;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, star, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
-                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, type);
+                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat, type);
 
 };
 
@@ -663,6 +676,28 @@ struct StandEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StandEvent, callsign, stand, type);
 };
 
+/**
+ * A holding clearance issued through TopSky, read off the EuroScope scratch
+ * pad. An empty hold means the clearance was cancelled or never existed.
+ */
+struct HoldEvent final : Event {
+    std::string callsign;
+    std::string hold;
+    std::string hold_type;
+    std::string hold_eat;
+
+    HoldEvent(std::string callsign, std::string hold, std::string hold_type, std::string hold_eat)
+        : Event(EVENT_HOLD),
+          callsign(std::move(callsign)),
+          hold(std::move(hold)),
+          hold_type(std::move(hold_type)),
+          hold_eat(std::move(hold_eat)) {
+    }
+    HoldEvent() = default;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(HoldEvent, callsign, hold, hold_type, hold_eat, type);
+};
+
 struct TrackingControllerChangedEvent final : Event {
     std::string callsign;
     std::string tracking_controller;
@@ -683,7 +718,8 @@ struct Strip final {
           bool cleared, std::string ground_state, int cleared_altitude, int requested_altitude, int heading,
           std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
-          std::string tracking_controller, std::string engine_type, bool has_fp = true)
+          std::string tracking_controller, std::string engine_type, bool has_fp = true,
+          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {})
         : callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -711,7 +747,10 @@ struct Strip final {
           eldt(std::move(eldt)),
           tracking_controller(std::move(tracking_controller)),
           engine_type(std::move(engine_type)),
-          has_fp(has_fp) {
+          has_fp(has_fp),
+          hold(std::move(hold)),
+          hold_type(std::move(hold_type)),
+          hold_eat(std::move(hold_eat)) {
     }
 
     std::string callsign;
@@ -742,11 +781,17 @@ struct Strip final {
     std::string tracking_controller;
     std::string engine_type;
     bool has_fp;
+    /// TopSky holding clearance: the holding point, empty when not holding.
+    std::string hold;
+    /// "enroute" or "tsa". Empty when not holding.
+    std::string hold_type;
+    /// Expect approach time for the hold. Empty when not given.
+    std::string hold_eat;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, star, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
-                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp);
+                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat);
 };
 
 struct Controller final {

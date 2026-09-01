@@ -7,12 +7,12 @@ function strip(callsign: string, stand: string, bay: Bay): FrontendStrip {
   return { callsign, stand, bay } as FrontendStrip;
 }
 
-function assignment(callsign: string, stand: string): FrontendStandAssignmentEntry {
+function assignment(callsign: string, stand: string, direction = "ARRIVAL"): FrontendStandAssignmentEntry {
   return {
     callsign,
     stand,
-    direction: "ARRIVAL",
-    stage: "ASSIGNED",
+    direction,
+    stage: direction === "ARRIVAL" ? "ASSIGNED" : "RESERVED",
     source: "AUTOMATIC",
   };
 }
@@ -24,36 +24,34 @@ describe("deriveEstStandDisplay", () => {
       const inbound = strip("SAS100", "A18", Bay.Final);
       const occupant = strip("NAX200", "A18", bay);
 
-      const display = deriveEstStandDisplay(
-        [inbound, occupant],
-        [assignment(inbound.callsign, "A18")],
-        true,
-      );
+      const display = deriveEstStandDisplay([inbound, occupant], [assignment(inbound.callsign, "A18")], true);
 
       expect(display.stripsByStand.get("A18")?.callsign).toBe("NAX200");
-      expect(display.assignmentsByStand.has("A18")).toBe(false);
     },
   );
 
-  it("does not let another inbound strip override the assigned arrival", () => {
+  it("does not show inbound stand assignments before the aircraft occupies the stand", () => {
     const assignedInbound = strip("SAS100", "A18", Bay.Final);
-    const otherInbound = strip("NAX200", "A18", Bay.Final);
-    const assigned = assignment(assignedInbound.callsign, "A18");
+    const display = deriveEstStandDisplay([assignedInbound], [assignment(assignedInbound.callsign, "A18")], true);
 
-    const display = deriveEstStandDisplay([assignedInbound, otherInbound], [assigned], true);
-
-    expect(display.stripsByStand.get("A18")?.callsign).toBe("SAS100");
-    expect(display.assignmentsByStand.get("A18")).toBe(assigned);
+    expect(display.stripsByStand.has("A18")).toBe(false);
   });
 
-  it("retains the occupant's assignment metadata when it matches the displayed stand", () => {
-    const occupant = strip("NAX200", "A18", Bay.Cleared);
-    const occupantAssignment = assignment(occupant.callsign, "A18");
+  it("shows an arrival once it reaches the stand", () => {
+    const arrival = strip("NAX200", "A18", Bay.Stand);
+    const display = deriveEstStandDisplay([arrival], [assignment(arrival.callsign, "A18")], true);
 
-    const display = deriveEstStandDisplay([occupant], [occupantAssignment], true);
+    expect(display.stripsByStand.get("A18")).toBe(arrival);
+  });
 
-    expect(display.stripsByStand.get("A18")).toBe(occupant);
-    expect(display.assignmentsByStand.get("A18")).toBe(occupantAssignment);
+  it("does not display a departure reservation alongside a different physical stand", () => {
+    const departure = strip("SAS300", "A2", Bay.NotCleared);
+    const reservation = assignment(departure.callsign, "A1", "DEPARTURE");
+
+    const display = deriveEstStandDisplay([departure], [reservation], true);
+
+    expect(display.stripsByStand.has("A1")).toBe(false);
+    expect(display.stripsByStand.get("A2")).toBe(departure);
   });
 
   it("preserves ordinary strip-based stand display when SAT is disabled", () => {
@@ -63,6 +61,5 @@ describe("deriveEstStandDisplay", () => {
     const display = deriveEstStandDisplay([occupant, inbound], [], false);
 
     expect(display.stripsByStand.get("A18")).toBe(occupant);
-    expect(display.assignmentsByStand.size).toBe(0);
   });
 });

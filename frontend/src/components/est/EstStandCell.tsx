@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-import { Bay, type FrontendStandAssignmentEntry, type FrontendStrip } from "@/api/models";
+import { Bay, type FrontendStrip } from "@/api/models";
 import { SELECTION_COLOR } from "@/components/strip/shared";
 import { cn, getSimpleAircraftType } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -34,7 +34,6 @@ const CONTENT_FONT = "Rubik, sans-serif";
 interface EstStandCellProps {
   stand: { label: string; column?: number; row?: number } | EstCanvasStand;
   strip?: FrontendStrip;
-  assignment?: FrontendStandAssignmentEntry;
   selected: boolean;
   blocked: boolean;
   blockReason?: string;
@@ -51,7 +50,6 @@ interface EstStandCellProps {
 export default function EstStandCell({
   stand,
   strip,
-  assignment,
   blocked,
   blockReason,
   actionActive,
@@ -65,13 +63,7 @@ export default function EstStandCell({
 }: EstStandCellProps) {
   const vgdsStatus = getVgdsStatus(stand.label);
   const bridgeStatus = getBridgeStatus(stand.label);
-  const assignmentTimes = assignment
-    ? [assignment.eta ? `ETA ${formatTimeLabel(assignment.eta)}` : "", assignment.expires_at ? `expires ${formatTimeLabel(assignment.expires_at)}` : ""].filter(Boolean).join(", ")
-    : "";
-  const assignmentSummary = assignment
-    ? `${assignment.stage} · ${assignment.source}${assignmentTimes ? ` · ${assignmentTimes}` : ""}`
-    : "";
-  const tooltipContent = [vgdsStatus, bridgeStatus, assignmentSummary, blocked ? blockReason : undefined].filter(Boolean).join(" \u2022 ");
+  const tooltipContent = [vgdsStatus, bridgeStatus, blocked ? blockReason : undefined].filter(Boolean).join(" \u2022 ");
   const gridStyle =
     "column" in stand && "row" in stand && stand.column !== undefined && stand.row !== undefined
       ? { gridColumn: stand.column, gridRow: stand.row }
@@ -199,7 +191,7 @@ export default function EstStandCell({
             </div>
 
             {/* Callsign */}
-            {(assignment || (strip && !blocked)) && (
+            {strip && !blocked && (
                <div
                  className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center font-bold"
                  style={{
@@ -211,7 +203,7 @@ export default function EstStandCell({
                   color: showMark ? "#000000" : undefined,
                 }}
               >
-                <span className="block truncate">{assignment?.callsign ?? strip?.callsign}</span>
+                <span className="block truncate">{strip.callsign}</span>
               </div>
             )}
 
@@ -235,7 +227,7 @@ export default function EstStandCell({
                 }}
               >
                 <span className="truncate text-left">{getSimpleAircraftType(strip.aircraft_type)}</span>
-                <span className="truncate text-right">{strip.runway}</span>
+                {!isArrival && <span className="truncate text-right">{strip.runway}</span>}
               </div>
             )}
 
@@ -245,33 +237,6 @@ export default function EstStandCell({
                 style={{ top: READY_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: CONTENT_FONT_SIZE, color: "#000000" }}
               >
                 READY
-              </div>
-            )}
-
-            {assignment && !showTobt && (
-              <div
-                className="absolute left-0 right-0 flex items-center justify-center truncate px-1 uppercase"
-                style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: 10 }}
-              >
-                {assignment.stage} · {assignment.source}
-              </div>
-            )}
-
-            {assignment?.eta && !showTsat && (
-              <div
-                className="absolute left-0 right-0 flex items-center justify-center"
-                style={{ top: TSAT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: 10 }}
-              >
-                ETA {formatTimeLabel(assignment.eta).replace(":", "")}
-              </div>
-            )}
-
-            {assignment?.expires_at && !showCtot && (
-              <div
-                className="absolute left-0 right-0 flex items-center justify-center"
-                style={{ top: CTOT_ROW_TOP, height: ROW_HEIGHT, fontFamily: CONTENT_FONT, fontSize: 10 }}
-              >
-                EXP {formatTimeLabel(assignment.expires_at).replace(":", "")}
               </div>
             )}
 

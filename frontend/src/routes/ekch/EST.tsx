@@ -183,7 +183,6 @@ export default function EST() {
     () => deriveEstStandDisplay(strips, standAssignments, satEnabled),
     [satEnabled, standAssignments, strips],
   );
-  const assignmentByStand = standDisplay.assignmentsByStand;
   const stripByStand = standDisplay.stripsByStand;
 
   const standOccupancy = useMemo(
@@ -473,7 +472,6 @@ export default function EST() {
 
             {visibleStands.map((stand) => {
               const strip = stripByStand.get(stand.label);
-              const assignment = assignmentByStand.get(stand.label);
               const actionOverride = strip ? actionOverrides[stand.label] : undefined;
               const actionActive = !!actionOverride && !!strip && actionOverride.callsign === strip.callsign;
               const startReqActive = !!strip?.start_req;
@@ -483,7 +481,6 @@ export default function EST() {
                   key={stand.label}
                   stand={stand}
                   strip={strip}
-                  assignment={assignment}
                   selected={!!strip && selectedCallsign === strip.callsign}
                   blocked={!!blockedStandsDerived[stand.label]}
                   blockReason={standBlockReasons[stand.label]}

@@ -3,17 +3,12 @@ import {WebSocketClient, createWebSocketClient} from '@/api/websocket';
 import {WebSocketStoreProvider} from '@/store/store-provider';
 import {UserRatingContext} from '@/store/user-rating-context';
 import {useAuth0} from '@auth0/auth0-react';
+import {requiresLoginPrompt} from '@/lib/authenticated-fetch';
 
 interface WebSocketProviderProps {
   children: ReactNode;
   url: string;
 }
-
-type AuthErrorLike = {
-  error?: string;
-  error_description?: string;
-  message?: string;
-};
 
 // Match the Auth0 SDK cache policy and refresh once the token enters its last minute.
 const REFRESH_BUFFER_MS = 60 * 1000;
@@ -62,28 +57,6 @@ function getTokenRefreshDelayMs(token: string, nowMs = Date.now()): number | nul
   }
 
   return Math.max(Math.floor(remainingMs / 2), MIN_REFRESH_RETRY_MS);
-}
-
-function requiresLoginPrompt(error: unknown): boolean {
-  const authError = typeof error === 'object' && error !== null ? error as AuthErrorLike : null;
-  const errorCode = typeof authError?.error === 'string' ? authError.error.toLowerCase() : '';
-  const errorDescription = typeof authError?.error_description === 'string' ? authError.error_description.toLowerCase() : '';
-  const errorMessage = error instanceof Error
-    ? error.message.toLowerCase()
-    : typeof authError?.message === 'string'
-      ? authError.message.toLowerCase()
-      : typeof error === 'string'
-        ? error.toLowerCase()
-        : '';
-
-  const combinedMessage = `${errorCode} ${errorDescription} ${errorMessage}`;
-
-  return errorCode === 'invalid_grant'
-    || errorCode === 'login_required'
-    || errorCode === 'missing_refresh_token'
-    || combinedMessage.includes('invalid refresh token')
-    || combinedMessage.includes('unknown or invalid refresh token')
-    || combinedMessage.includes('missing refresh token');
 }
 
 export const WebSocketProvider = ({children, url}: WebSocketProviderProps) => {

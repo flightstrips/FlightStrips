@@ -1,7 +1,8 @@
 import { useAuth0 } from "@auth0/auth0-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getApiUrl } from "@/lib/api-url";
-import { assignmentTimelineTiming, latestTimelineDate, timelineRangeEnd } from "./stand-status-timeline";
+import { fetchWithAccessTokenRetry, requiresLoginPrompt } from "@/lib/authenticated-fetch";
+import { assignmentTimelineTiming, timelineRangeEnd } from "./stand-status-timeline";
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -216,7 +217,7 @@ type StandTimelineItem = {
 };
 
 const comfortableTimelineLayout = {
-  width: "min-w-[1280px]",
+  width: "w-full",
   height: "max-h-[34rem]",
   rowHeight: 76,
   laneHeight: 68,
@@ -282,7 +283,7 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
       ? timelineDate(assignment.eta) ?? timelineDate(assignment.assigned_at) ?? timelineDate(assignment.created_at)
       : timelineDate(assignment.assigned_at) ?? timelineDate(assignment.created_at);
     if (!start || !assignment.stand) return [];
-    const timelineTiming = assignmentTimelineTiming(assignment);
+    const timelineTiming = assignmentTimelineTiming(assignment, now);
     const displayEnd = timelineTiming.end;
     const active = entryIsActive(assignment.expires_at, now);
     const timing = assignment.direction === "DEPARTURE"
@@ -293,11 +294,15 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
       stand: assignment.stand.toUpperCase(),
       label: assignment.callsign,
       detail: `${formatStatus(assignment.direction)} · ${formatStatus(assignment.stage)}${assignment.rule_id ? ` · ${assignment.rule_id}` : ""}`,
-      secondary: `${timing} · ${displayEnd
+      secondary: `${timing} · ${assignment.expires_at && displayEnd
         ? `ends ${formatTimestamp(displayEnd.toISOString())}`
         : timelineTiming.plannedRelease
           ? `planned release ${formatTimestamp(timelineTiming.plannedRelease.toISOString())}`
-          : "open-ended"}`,
+          : assignment.direction === "DEPARTURE"
+            ? "active occupancy"
+            : displayEnd
+              ? `ends ${formatTimestamp(displayEnd.toISOString())}`
+              : "open-ended"}`,
       start,
       end: displayEnd,
       plannedEnd: timelineTiming.plannedRelease,
@@ -331,21 +336,22 @@ function buildTimelineItems(session: StandSession, now: Date): StandTimelineItem
   return [...assignments, ...blocks].sort((left, right) => left.stand.localeCompare(right.stand) || left.start.getTime() - right.start.getTime());
 }
 
-function StandAllocationTimeline({ session, selectedStand, onSelectStand }: {
+function StandAllocationTimeline({ session, now, selectedStand, onSelectStand }: {
   session: StandSession;
+  now: Date;
   selectedStand: string;
   onSelectStand: (stand: string) => void;
 }) {
   const layout = comfortableTimelineLayout;
-  const now = new Date();
   const items = buildTimelineItems(session, now);
   const requestedStand = selectedStand.trim().toUpperCase();
-  const stands = [...new Set(items.map((item) => item.stand))];
+  // Keep a stable, useful two-hour history instead of letting one old record
+  // compress every current and expected movement into a few pixels.
+  const rangeStart = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  const rangeEnd = timelineRangeEnd(now);
+  const visibleItems = items.filter((item) => item.start <= rangeEnd && (item.end ?? now) >= rangeStart);
+  const stands = [...new Set(visibleItems.map((item) => item.stand))];
   const visibleStands = requestedStand ? [requestedStand] : stands;
-  const earliest = items.reduce<Date | undefined>((value, item) => !value || item.start < value ? item.start : value, undefined);
-  const latest = latestTimelineDate(items, now);
-  const rangeStart = new Date(Math.min(earliest?.getTime() ?? now.getTime(), now.getTime() - 60 * 60 * 1000));
-  const rangeEnd = timelineRangeEnd(latest, now);
   const rangeMs = Math.max(1, rangeEnd.getTime() - rangeStart.getTime());
   const offset = (date: Date) => Math.max(0, Math.min(100, ((date.getTime() - rangeStart.getTime()) / rangeMs) * 100));
 
@@ -354,7 +360,7 @@ function StandAllocationTimeline({ session, selectedStand, onSelectStand }: {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h3 className="text-base font-semibold">Stand occupancy timeline</h3>
-          <p className="text-sm text-muted-foreground">Active cards are coloured by type; violet/slate cards are expired history. Open-ended cards remain active.</p>
+          <p className="text-sm text-muted-foreground">The view shows two hours either side of now. Active cards are coloured by type; violet/slate cards are expired history.</p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -381,7 +387,7 @@ function StandAllocationTimeline({ session, selectedStand, onSelectStand }: {
             {visibleStands.length === 0 ? (
               <div className="px-4 py-6 text-sm text-muted-foreground">No stands have active assignments or blocks.</div>
             ) : visibleStands.map((stand) => {
-              const standItems = items.filter((item) => item.stand === stand);
+              const standItems = visibleItems.filter((item) => item.stand === stand);
               const rowHeight = Math.max(layout.rowHeight, standItems.length * layout.laneHeight + 12);
               return (
                 <div key={stand} className="grid grid-cols-[7rem_1fr] border-b last:border-b-0">
@@ -391,13 +397,14 @@ function StandAllocationTimeline({ session, selectedStand, onSelectStand }: {
                     {standItems.length === 0 ? <div className="px-3 py-4 text-xs text-muted-foreground">No current allocation or block.</div> : null}
                     {standItems.map((item, index) => {
                       const start = offset(item.start);
-                      const end = offset(item.end ?? rangeEnd);
+                      const end = offset(item.end ?? now);
+                      const width = Math.min(100 - start, Math.max(3, end - start));
                       return (
                         <div key={item.id}>
                           <div
                             title={`${item.label}: ${item.detail}. ${item.secondary}`}
                             className={`absolute overflow-hidden rounded-md border px-2 py-1 shadow-sm ${item.tone}`}
-                            style={{ left: `${start}%`, width: `${Math.max(7, end - start)}%`, top: `${6 + index * layout.laneHeight}px`, height: `${layout.laneHeight - 6}px` }}
+                            style={{ left: `${start}%`, width: `${width}%`, top: `${6 + index * layout.laneHeight}px`, height: `${layout.laneHeight - 6}px` }}
                           >
                             <div className="flex items-center justify-between gap-2 text-xs font-semibold leading-4">
                               <span className="truncate">{item.label}</span>
@@ -406,7 +413,7 @@ function StandAllocationTimeline({ session, selectedStand, onSelectStand }: {
                             <div className="truncate text-[11px] leading-4 opacity-90">{item.detail}</div>
                             <div className="truncate text-[10px] leading-4 opacity-80">{item.secondary}</div>
                           </div>
-                          {item.plannedEnd ? (
+                          {item.plannedEnd && item.plannedEnd >= rangeStart && item.plannedEnd <= rangeEnd ? (
                             <div
                               title={`Planned release ${formatTimestamp(item.plannedEnd.toISOString())}`}
                               className="absolute z-20 border-l-2 border-dashed border-emerald-950/70 dark:border-emerald-100/80"
@@ -428,7 +435,7 @@ function StandAllocationTimeline({ session, selectedStand, onSelectStand }: {
 }
 
 export default function StandStatusPage() {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, logout } = useAuth0();
   const [data, setData] = useState<StandStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -437,24 +444,46 @@ export default function StandStatusPage() {
   const [preview, setPreview] = useState<StandAllocationPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const resettingAuthentication = useRef(false);
 
-  const authorizedFetch = useCallback(async () => {
-    const token = await getAccessTokenSilently();
-    const response = await fetch(getApiUrl("/api/stand/status"), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  const resetExpiredAuthentication = useCallback(async () => {
+    if (resettingAuthentication.current) return;
+    resettingAuthentication.current = true;
+    try {
+      await logout({ openUrl: false });
+    } catch (logoutError) {
+      resettingAuthentication.current = false;
+      throw logoutError;
+    }
+  }, [logout]);
+
+  const authorizedFetch = useCallback(async <T,>(path: string): Promise<T> => {
+    let response: Response;
+    try {
+      response = await fetchWithAccessTokenRetry(getAccessTokenSilently, getApiUrl(path));
+    } catch (authError) {
+      if (requiresLoginPrompt(authError)) {
+        await resetExpiredAuthentication();
+        throw new Error("Your session expired. Signing you in again…");
+      }
+      throw authError;
+    }
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (response.status === 401) {
+        await resetExpiredAuthentication();
+        throw new Error("Your session expired. Signing you in again…");
+      }
       throw new Error(payload?.error ?? `Request failed (${response.status} ${response.statusText})`);
     }
-    return (await response.json()) as StandStatusResponse;
-  }, [getAccessTokenSilently]);
+    return (await response.json()) as T;
+  }, [getAccessTokenSilently, resetExpiredAuthentication]);
 
   useEffect(() => {
     let active = true;
     const poll = async () => {
       try {
-        const payload = await authorizedFetch();
+        const payload = await authorizedFetch<StandStatusResponse>("/api/stand/status");
         if (!active) {
           return;
         }
@@ -494,20 +523,12 @@ export default function StandStatusPage() {
       setPreviewError(null);
       void (async () => {
       try {
-        const token = await getAccessTokenSilently();
         const query = new URLSearchParams({
           session_id: String(selectedFlight.sessionId),
           airport: selectedFlight.airport,
           callsign: selectedFlight.callsign,
         });
-        const response = await fetch(getApiUrl(`/api/stand/preview?${query.toString()}`), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(payload?.error ?? `Preview failed (${response.status})`);
-        }
-        const payload = (await response.json()) as StandAllocationPreview;
+        const payload = await authorizedFetch<StandAllocationPreview>(`/api/stand/preview?${query.toString()}`);
         if (active) setPreview(payload);
       } catch (previewFetchError) {
         if (active) setPreviewError(previewFetchError instanceof Error ? previewFetchError.message : "Failed to load stand possibilities.");
@@ -517,7 +538,7 @@ export default function StandStatusPage() {
       })();
     }, 0);
     return () => { active = false; window.clearTimeout(initial); };
-  }, [getAccessTokenSilently, selectedFlight]);
+  }, [authorizedFetch, selectedFlight]);
 
   const totals = useMemo(() => {
     const now = new Date();
@@ -607,78 +628,6 @@ export default function StandStatusPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border bg-card shadow-sm">
-              <div className="border-b px-6 py-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-baseline md:justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold">Recent assignment failures</h2>
-                    <p className="text-sm text-muted-foreground">
-                      The newest failed allocation and reallocation attempts retained by this server.
-                    </p>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {data.failures.length} failures · maximum 100 since startup
-                  </div>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Time</th>
-                      <th className="px-4 py-3 font-medium">Flight</th>
-                      <th className="px-4 py-3 font-medium">Request</th>
-                      <th className="px-4 py-3 font-medium">Failure</th>
-                      <th className="px-4 py-3 font-medium">Flight facts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.failures.length === 0 ? (
-                      <tr className="border-t">
-                        <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
-                          No stand assignment failures have been recorded since this server started.
-                        </td>
-                      </tr>
-                    ) : null}
-                    {data.failures.map((failure) => (
-                      <tr key={failure.id} className="border-t bg-amber-50/50 align-top dark:bg-amber-950/10">
-                        <td className="whitespace-nowrap px-4 py-3">{formatTimestamp(failure.occurred_at)}</td>
-                        <td className="px-4 py-3">
-                          <div className="font-semibold">{failure.callsign || "—"}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {failure.airport || "—"} · session {failure.session_id || "—"}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>{formatStatus(failure.command)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {failure.direction || "—"} · {failure.stage || "—"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Stand {failure.attempted_stand || "automatic"} · {failure.attempts} attempt
-                            {failure.attempts === 1 ? "" : "s"}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-amber-800 dark:text-amber-200">
-                            {formatStatus(failure.outcome)}
-                          </div>
-                          <div className="mt-1 max-w-xl text-xs">{failure.reason}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>{failure.aircraft_type || "Unknown aircraft"}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Engine {failure.engine_type || "—"} · WTC {failure.wtc || "—"} · Border{" "}
-                            {failure.border_status || "—"}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
             {data.sessions.length === 0 ? (
               <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
                 No stand-system session state is currently available.
@@ -686,7 +635,7 @@ export default function StandStatusPage() {
             ) : null}
 
             {data.sessions.map((session) => {
-              const now = new Date();
+              const now = timelineDate(data.generated_at) ?? new Date();
               const sessionAssignments = activeAssignments(session, now);
               const sessionBlocks = activeBlocks(session, now);
               return (
@@ -796,7 +745,7 @@ export default function StandStatusPage() {
                   </table>
                 </div>
 
-                <StandAllocationTimeline session={session} selectedStand={selectedStand} onSelectStand={setSelectedStand} />
+                <StandAllocationTimeline session={session} now={now} selectedStand={selectedStand} onSelectStand={setSelectedStand} />
 
                 {sessionBlocks.length > 0 ? (
                   <div className="border-t">
@@ -844,6 +793,76 @@ export default function StandStatusPage() {
               </section>
               );
             })}
+
+            <section className="rounded-2xl border bg-card shadow-sm">
+              <div className="border-b px-6 py-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-baseline md:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold">Recent assignment failures</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Failed allocation and reallocation attempts from the last two hours.
+                    </p>
+                  </div>
+                  <div className="text-sm text-muted-foreground">{data.failures.length} failures</div>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Time</th>
+                      <th className="px-4 py-3 font-medium">Flight</th>
+                      <th className="px-4 py-3 font-medium">Request</th>
+                      <th className="px-4 py-3 font-medium">Failure</th>
+                      <th className="px-4 py-3 font-medium">Flight facts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.failures.length === 0 ? (
+                      <tr className="border-t">
+                        <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+                          No stand assignment failures have been recorded in the last two hours.
+                        </td>
+                      </tr>
+                    ) : null}
+                    {data.failures.map((failure) => (
+                      <tr key={failure.id} className="border-t bg-amber-50/50 align-top dark:bg-amber-950/10">
+                        <td className="whitespace-nowrap px-4 py-3">{formatTimestamp(failure.occurred_at)}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold">{failure.callsign || "—"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {failure.airport || "—"} · session {failure.session_id || "—"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>{formatStatus(failure.command)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {failure.direction || "—"} · {failure.stage || "—"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Stand {failure.attempted_stand || "automatic"} · {failure.attempts} attempt
+                            {failure.attempts === 1 ? "" : "s"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-amber-800 dark:text-amber-200">
+                            {formatStatus(failure.outcome)}
+                          </div>
+                          <div className="mt-1 max-w-xl text-xs">{failure.reason}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>{failure.aircraft_type || "Unknown aircraft"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Engine {failure.engine_type || "—"} · WTC {failure.wtc || "—"} · Border{" "}
+                            {failure.border_status || "—"}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
 
             {selectedFlight ? (
               <div

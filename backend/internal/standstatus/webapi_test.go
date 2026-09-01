@@ -237,6 +237,30 @@ func TestStandStatusReturnsEmptyFailureListWhenNoFailuresExist(t *testing.T) {
 	require.JSONEq(t, `[]`, string(payload["failures"]))
 }
 
+func TestStandStatusOnlyReturnsFailuresFromTheLastTwoHours(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 10, 18, 0, 0, 0, time.UTC)
+	failures := standdiagnostics.NewAllocationFailureLog(10)
+	failures.Record(standdiagnostics.AllocationFailure{Callsign: "OLD", OccurredAt: now.Add(-2*time.Hour - time.Second)})
+	failures.Record(standdiagnostics.AllocationFailure{Callsign: "BOUNDARY", OccurredAt: now.Add(-2 * time.Hour)})
+	failures.Record(standdiagnostics.AllocationFailure{Callsign: "RECENT", OccurredAt: now.Add(-time.Hour)})
+	api := NewWebAPI(WebAPIConfig{Auth: standStatusAuthStub{}, Failures: failures})
+	api.now = func() time.Time { return now }
+	request := httptest.NewRequest(http.MethodGet, "/stand/status", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+
+	api.handleStatus(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload standStatusResponse
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&payload))
+	require.Len(t, payload.Failures, 2)
+	require.Equal(t, "RECENT", payload.Failures[0].Callsign)
+	require.Equal(t, "BOUNDARY", payload.Failures[1].Callsign)
+}
+
 func TestStandStatusIncludesDepartureTiming(t *testing.T) {
 	now := time.Date(2026, time.July, 24, 18, 0, 0, 0, time.UTC)
 	tobt, tsat := "1810", "1820"

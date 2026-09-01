@@ -209,7 +209,12 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if a.config.Failures != nil {
 		if failures := a.config.Failures.List(); failures != nil {
-			response.Failures = failures
+			cutoff := now.Add(-2 * time.Hour)
+			for _, failure := range failures {
+				if !failure.OccurredAt.Before(cutoff) {
+					response.Failures = append(response.Failures, failure)
+				}
+			}
 		}
 	}
 

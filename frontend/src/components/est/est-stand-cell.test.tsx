@@ -213,11 +213,10 @@ describe("EstStandCell", () => {
     expect(screen.queryByText(/TSAT:/)).toBeNull();
   });
 
-  it("renders backend assignment metadata without a matching strip", () => {
+  it("renders no arrival information without an occupying strip", () => {
     render(
       <EstStandCell
         stand={stand}
-        assignment={{ callsign: "NAX456", stand: "A18", direction: "ARRIVAL", stage: "CONFIRMED", source: "AUTOMATIC", eta: "2026-07-12T14:20:00Z", expires_at: "2026-07-12T15:20:00Z" }}
         blocked={false}
         selected={false}
         actionActive={false}
@@ -228,29 +227,8 @@ describe("EstStandCell", () => {
         onClick={() => {}}
       />,
     );
-    expect(screen.getByText("NAX456")).toBeDefined();
-    expect(screen.getByText("CONFIRMED · AUTOMATIC")).toBeDefined();
-    expect(screen.getByText("ETA 1420")).toBeDefined();
-    expect(screen.getByText("EXP 1520")).toBeDefined();
-  });
-
-  it("retains the assigned callsign when the stand is also blocked", () => {
-    render(
-      <EstStandCell
-        stand={stand}
-        assignment={{ callsign: "SAS123", stand: "A18", direction: "DEPARTURE", stage: "OCCUPIED", source: "AUTOMATIC" }}
-        blocked
-        blockReason="Blocked by stand A17"
-        selected={false}
-        actionActive={false}
-        blinking={false}
-        startReqActive={false}
-        ctotImproved={false}
-        nowMs={Date.now()}
-        onClick={() => {}}
-      />,
-    );
-    expect(screen.getByText("SAS123")).toBeDefined();
+    expect(screen.queryByText("NAX456")).toBeNull();
+    expect(screen.queryByText(/CONFIRMED|AUTOMATIC|ETA|EXP/)).toBeNull();
   });
 
   it("hides callsign when blocked", () => {
@@ -325,6 +303,8 @@ describe("EstStandCell", () => {
     );
     const button = screen.getByRole("button");
     expect(button.className).toContain("bg-[#FFF28E]");
+    expect(screen.getByText("A320")).toBeDefined();
+    expect(screen.queryByText("22R")).toBeNull();
   });
 
   it("shows push style for push bay", () => {

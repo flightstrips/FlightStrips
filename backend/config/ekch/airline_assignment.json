@@ -3113,6 +3113,26 @@
       "F97",
       "F98"
     ],
+    "EchoAll": [
+      "E70",
+      "E71",
+      "E72",
+      "E73",
+      "E74",
+      "E75",
+      "E76",
+      "E77",
+      "E78",
+      "E82",
+      "E83",
+      "E84",
+      "E85",
+      "E86",
+      "E87",
+      "E88",
+      "E89",
+      "E90"
+    ],
     "EchoLow": [
       "E70",
       "E71",
@@ -3235,6 +3255,9 @@
           "Bravo": 20,
           "Charlie": 20,
           "Delta": 20
+        },
+        "tier2": {
+          "EchoAll": 100
         }
       }
     },
@@ -3247,7 +3270,7 @@
           "Delta+Charlie": 100
         },
         "tier3": {
-          "EchoHigh": 100
+          "EchoAll": 100
         }
       }
     },
@@ -3257,11 +3280,10 @@
           "Delta+Charlie": 100
         },
         "tier2": {
-          "EchoHigh": 100
+          "EchoAll": 100
         },
         "tier3": {
-          "EchoLow": 50,
-          "Hotel": 50
+          "Hotel": 100
         }
       }
     },
@@ -3327,8 +3349,7 @@
       "stands": {
         "tier1": {
           "Hotel": 50,
-          "EchoLow": 25,
-          "EchoHigh": 25
+          "EchoAll": 50
         }
       }
     }

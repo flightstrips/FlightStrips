@@ -62,11 +62,13 @@ func TestScenariosUseRealReconciliationAndLifecycle(t *testing.T) {
 	departures, err := services.NewDepartureLifecycleService(
 		allocations, assignmentRepo, stripRepo, sessionRepo, stands, aircraft, engines, borders,
 		services.WithDepartureLifecycleClock(clock.Now),
+		services.WithDeparturePrefileAssignments(true),
 	)
 	require.NoError(t, err)
 	arrivals, err := services.NewArrivalLifecycleService(
 		allocations, assignmentRepo, stripRepo, sessionRepo, stands, aircraft, engines, borders,
 		services.WithArrivalLifecycleClock(clock.Now),
+		services.WithArrivalPrefileAssignments(true),
 	)
 	require.NoError(t, err)
 	source := vatsim.NewSyntheticSource()

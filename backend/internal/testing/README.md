@@ -20,6 +20,43 @@ go test ./internal/testing/e2e/... -v
 
 All tests use testcontainers to spin up isolated PostgreSQL databases, so no manual setup is required.
 
+## Historical SAT Stability Replay
+
+`TestSATHistoricalEKCHStability` replays a directory of saved VATSIM v3
+snapshots through the production VATSIM normalizer, reconciler, stand
+allocation service, and arrival/departure lifecycle services. It uses the
+committed EKCH stand geometry and airline policy, reconciles every snapshot
+twice to verify idempotency, and fails on unexplained CONFIRMED stand movement.
+The verbose result also groups aircraft that could not be assigned by callsign,
+aircraft type, direction, lifecycle stage, and failure outcome. Expected
+problem aircraft remain visible in the report but must not stop reconciliation
+or prevent other flights from receiving assignments.
+
+The source archive is intentionally not committed. On PowerShell, run:
+
+```powershell
+cd backend
+$env:SAT_VATSIM_HISTORY_DIR = "C:\vatsim-data2"
+$env:SAT_ICAO_AIRCRAFT_JSON = "$env:APPDATA\EuroScope\EKDK\Plugins\GRplugin\ICAO_Aircraft.json"
+go test ./internal/services -run TestSATHistoricalEKCHStability -count=1 -v
+```
+
+The default run is a strict stability gate and stops at the first assignment
+change on an identical snapshot. To complete the archive for an allocation
+problem census while still logging duplicate-pass changes, set:
+
+```powershell
+$env:SAT_HISTORY_REPORT_ONLY = "true"
+```
+
+The test skips when `SAT_VATSIM_HISTORY_DIR` is unset, so the normal test suite
+does not require the external archive. When the history is enabled, the test
+requires the full installed `ICAO_Aircraft.json`; it deliberately rejects the
+repository's three-aircraft unit-test fixture because that would misclassify
+normal traffic as problematic. The complete 3 August 2026 archive in
+`C:\vatsim-data2` contains 1,072 snapshots at approximately 15-second spacing;
+expect a database-backed full replay to take several minutes.
+
 ## Features
 
 ### 1. Recording & Replay

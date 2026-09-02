@@ -7,13 +7,18 @@ function strip(callsign: string, stand: string, bay: Bay): FrontendStrip {
   return { callsign, stand, bay } as FrontendStrip;
 }
 
-function assignment(callsign: string, stand: string, direction = "ARRIVAL"): FrontendStandAssignmentEntry {
+function assignment(
+  callsign: string,
+  stand: string,
+  overrides: Partial<FrontendStandAssignmentEntry> = {},
+): FrontendStandAssignmentEntry {
   return {
     callsign,
     stand,
-    direction,
-    stage: direction === "ARRIVAL" ? "ASSIGNED" : "RESERVED",
+    direction: "ARRIVAL",
+    stage: "ASSIGNED",
     source: "AUTOMATIC",
+    ...overrides,
   };
 }
 
@@ -46,12 +51,26 @@ describe("deriveEstStandDisplay", () => {
 
   it("does not display a departure reservation alongside a different physical stand", () => {
     const departure = strip("SAS300", "A2", Bay.NotCleared);
-    const reservation = assignment(departure.callsign, "A1", "DEPARTURE");
+    const reservation = assignment(departure.callsign, "A1", {
+      direction: "DEPARTURE",
+      stage: "RESERVED",
+    });
 
     const display = deriveEstStandDisplay([departure], [reservation], true);
 
     expect(display.stripsByStand.has("A1")).toBe(false);
     expect(display.stripsByStand.get("A2")).toBe(departure);
+  });
+
+  it.each(["VOC4000", "BTI3EL"])("renders %s once at its observed stand during a mismatch", (callsign) => {
+    const occupant = strip(callsign, "A19", Bay.Stand);
+    const staleAssignment = assignment(callsign, "A18");
+
+    const display = deriveEstStandDisplay([occupant], [staleAssignment], true);
+
+    expect(display.stripsByStand.get("A19")).toBe(occupant);
+    expect(display.stripsByStand.has("A18")).toBe(false);
+    expect([...display.stripsByStand.values()].filter((value) => value.callsign === callsign)).toHaveLength(1);
   });
 
   it("preserves ordinary strip-based stand display when SAT is disabled", () => {

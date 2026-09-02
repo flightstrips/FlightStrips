@@ -15,40 +15,41 @@ const createStandAssignment = `-- name: CreateStandAssignment :one
 INSERT INTO stand_assignments (
     session_id, callsign, stand, direction, stage, source, rule_id, tier,
     matched_variant, conflict_reason, observed_stand, eta, eta_source,
-    assigned_at, expires_at, manual, acknowledged, acknowledged_at,
-    acknowledged_by, vatsim_cid, vatsim_revision
+    assigned_at, expires_at, projected_release_at, manual, acknowledged,
+    acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision
 )
 VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13,
     $14, $15, $16, $17, $18,
-    $19, $20, $21
+    $19, $20, $21, $22
 )
-RETURNING id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand
+RETURNING id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand, projected_release_at
 `
 
 type CreateStandAssignmentParams struct {
-	SessionID      int32
-	Callsign       string
-	Stand          string
-	Direction      string
-	Stage          string
-	Source         string
-	RuleID         *string
-	Tier           *int32
-	MatchedVariant *string
-	ConflictReason *string
-	ObservedStand  *string
-	Eta            pgtype.Timestamptz
-	EtaSource      *string
-	AssignedAt     pgtype.Timestamptz
-	ExpiresAt      pgtype.Timestamptz
-	Manual         bool
-	Acknowledged   bool
-	AcknowledgedAt pgtype.Timestamptz
-	AcknowledgedBy *string
-	VatsimCid      *int64
-	VatsimRevision *int64
+	SessionID          int32
+	Callsign           string
+	Stand              string
+	Direction          string
+	Stage              string
+	Source             string
+	RuleID             *string
+	Tier               *int32
+	MatchedVariant     *string
+	ConflictReason     *string
+	ObservedStand      *string
+	Eta                pgtype.Timestamptz
+	EtaSource          *string
+	AssignedAt         pgtype.Timestamptz
+	ExpiresAt          pgtype.Timestamptz
+	ProjectedReleaseAt pgtype.Timestamptz
+	Manual             bool
+	Acknowledged       bool
+	AcknowledgedAt     pgtype.Timestamptz
+	AcknowledgedBy     *string
+	VatsimCid          *int64
+	VatsimRevision     *int64
 }
 
 func (q *Queries) CreateStandAssignment(ctx context.Context, arg CreateStandAssignmentParams) (StandAssignment, error) {
@@ -68,6 +69,7 @@ func (q *Queries) CreateStandAssignment(ctx context.Context, arg CreateStandAssi
 		arg.EtaSource,
 		arg.AssignedAt,
 		arg.ExpiresAt,
+		arg.ProjectedReleaseAt,
 		arg.Manual,
 		arg.Acknowledged,
 		arg.AcknowledgedAt,
@@ -102,6 +104,7 @@ func (q *Queries) CreateStandAssignment(ctx context.Context, arg CreateStandAssi
 		&i.UpdatedAt,
 		&i.ConflictReason,
 		&i.ObservedStand,
+		&i.ProjectedReleaseAt,
 	)
 	return i, err
 }
@@ -198,7 +201,7 @@ func (q *Queries) DeleteStandBlock(ctx context.Context, arg DeleteStandBlockPara
 }
 
 const getStandAssignment = `-- name: GetStandAssignment :one
-SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand
+SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand, projected_release_at
 FROM stand_assignments
 WHERE session_id = $1 AND callsign = $2
 `
@@ -237,6 +240,7 @@ func (q *Queries) GetStandAssignment(ctx context.Context, arg GetStandAssignment
 		&i.UpdatedAt,
 		&i.ConflictReason,
 		&i.ObservedStand,
+		&i.ProjectedReleaseAt,
 	)
 	return i, err
 }
@@ -274,7 +278,7 @@ func (q *Queries) GetStandBlock(ctx context.Context, arg GetStandBlockParams) (S
 }
 
 const listStandAssignments = `-- name: ListStandAssignments :many
-SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand
+SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand, projected_release_at
 FROM stand_assignments
 WHERE session_id = $1
 ORDER BY callsign
@@ -315,6 +319,7 @@ func (q *Queries) ListStandAssignments(ctx context.Context, sessionID int32) ([]
 			&i.UpdatedAt,
 			&i.ConflictReason,
 			&i.ObservedStand,
+			&i.ProjectedReleaseAt,
 		); err != nil {
 			return nil, err
 		}
@@ -458,7 +463,7 @@ func (q *Queries) LockActiveManualStandBlocks(ctx context.Context, sessionID int
 }
 
 const lockStandAssignments = `-- name: LockStandAssignments :many
-SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand
+SELECT id, session_id, callsign, stand, direction, stage, source, rule_id, tier, matched_variant, eta, eta_source, assigned_at, expires_at, manual, acknowledged, acknowledged_at, acknowledged_by, vatsim_cid, vatsim_revision, version, created_at, updated_at, conflict_reason, observed_stand, projected_release_at
 FROM stand_assignments
 WHERE session_id = $1
   AND (callsign = $2 OR expires_at IS NULL OR expires_at > NOW())
@@ -506,6 +511,7 @@ func (q *Queries) LockStandAssignments(ctx context.Context, arg LockStandAssignm
 			&i.UpdatedAt,
 			&i.ConflictReason,
 			&i.ObservedStand,
+			&i.ProjectedReleaseAt,
 		); err != nil {
 			return nil, err
 		}
@@ -532,40 +538,42 @@ SET stand = $3,
     eta_source = $13,
     assigned_at = $14,
     expires_at = $15,
-    manual = $16,
-    acknowledged = $17,
-    acknowledged_at = $18,
-    acknowledged_by = $19,
-    vatsim_cid = $20,
-    vatsim_revision = $21,
+    projected_release_at = $16,
+    manual = $17,
+    acknowledged = $18,
+    acknowledged_at = $19,
+    acknowledged_by = $20,
+    vatsim_cid = $21,
+    vatsim_revision = $22,
     version = version + 1,
     updated_at = NOW()
-WHERE id = $1 AND session_id = $2 AND version = $22
+WHERE id = $1 AND session_id = $2 AND version = $23
 `
 
 type UpdateStandAssignmentParams struct {
-	ID             int64
-	SessionID      int32
-	Stand          string
-	Direction      string
-	Stage          string
-	Source         string
-	RuleID         *string
-	Tier           *int32
-	MatchedVariant *string
-	ConflictReason *string
-	ObservedStand  *string
-	Eta            pgtype.Timestamptz
-	EtaSource      *string
-	AssignedAt     pgtype.Timestamptz
-	ExpiresAt      pgtype.Timestamptz
-	Manual         bool
-	Acknowledged   bool
-	AcknowledgedAt pgtype.Timestamptz
-	AcknowledgedBy *string
-	VatsimCid      *int64
-	VatsimRevision *int64
-	Version        int32
+	ID                 int64
+	SessionID          int32
+	Stand              string
+	Direction          string
+	Stage              string
+	Source             string
+	RuleID             *string
+	Tier               *int32
+	MatchedVariant     *string
+	ConflictReason     *string
+	ObservedStand      *string
+	Eta                pgtype.Timestamptz
+	EtaSource          *string
+	AssignedAt         pgtype.Timestamptz
+	ExpiresAt          pgtype.Timestamptz
+	ProjectedReleaseAt pgtype.Timestamptz
+	Manual             bool
+	Acknowledged       bool
+	AcknowledgedAt     pgtype.Timestamptz
+	AcknowledgedBy     *string
+	VatsimCid          *int64
+	VatsimRevision     *int64
+	Version            int32
 }
 
 func (q *Queries) UpdateStandAssignment(ctx context.Context, arg UpdateStandAssignmentParams) (int64, error) {
@@ -585,6 +593,7 @@ func (q *Queries) UpdateStandAssignment(ctx context.Context, arg UpdateStandAssi
 		arg.EtaSource,
 		arg.AssignedAt,
 		arg.ExpiresAt,
+		arg.ProjectedReleaseAt,
 		arg.Manual,
 		arg.Acknowledged,
 		arg.AcknowledgedAt,

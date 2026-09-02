@@ -43,6 +43,7 @@ type instruments struct {
 	satOutcomes             metric.Int64Counter
 	satConflicts            metric.Int64Counter
 	satExpirations          metric.Int64Counter
+	satLifecycleEvents      metric.Int64Counter
 	amanObservationAge      metric.Float64Histogram
 	amanGeometryCache       metric.Int64Counter
 	amanRouteMaterialized   metric.Int64Counter
@@ -169,6 +170,7 @@ func get() *instruments {
 		satOutcomes, _ := meter.Int64Counter("sat.allocation.outcomes", metric.WithDescription("SAT allocation outcomes"), metric.WithUnit("{result}"))
 		satConflicts, _ := meter.Int64Counter("sat.allocation.conflicts", metric.WithDescription("SAT allocation database and occupancy conflicts"), metric.WithUnit("{conflict}"))
 		satExpirations, _ := meter.Int64Counter("sat.assignments.expired", metric.WithDescription("SAT assignments expired or released"), metric.WithUnit("{assignment}"))
+		satLifecycleEvents, _ := meter.Int64Counter("sat.lifecycle.events", metric.WithDescription("SAT stage promotions, tier improvements, displacement, takeover, and relocation outcomes"), metric.WithUnit("{event}"))
 		amanObservationAge, _ := meter.Float64Histogram("aman.observation.age", metric.WithDescription("Age of AMAN source observations"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(1, 5, 15, 30, 60, 120, 300))
 		amanGeometryCache, _ := meter.Int64Counter("aman.geometry.cache", metric.WithDescription("AMAN geometry cache lookups"), metric.WithUnit("{lookup}"))
 		amanRouteMaterialized, _ := meter.Int64Counter("aman.route.materialization", metric.WithDescription("Explicit AMAN route materialization attempts"), metric.WithUnit("{route}"))
@@ -205,7 +207,7 @@ func get() *instruments {
 			trafficDepartureRate15m: trafficDepartureRate15m,
 			satSnapshotAge:          satSnapshotAge, satFeedRecords: satFeedRecords,
 			satAssignments: satAssignments, satOutcomes: satOutcomes,
-			satConflicts: satConflicts, satExpirations: satExpirations,
+			satConflicts: satConflicts, satExpirations: satExpirations, satLifecycleEvents: satLifecycleEvents,
 			amanObservationAge: amanObservationAge, amanGeometryCache: amanGeometryCache,
 			amanRouteMaterialized: amanRouteMaterialized, amanRouteDuration: amanRouteDuration,
 			amanPredictorDuration: amanPredictorDuration, amanPredictionDrift: amanPredictionDrift,
@@ -309,6 +311,14 @@ func RecordSATConflict(ctx context.Context, kind string) {
 
 func RecordSATExpiration(ctx context.Context, direction, stage string) {
 	get().satExpirations.Add(ctx, 1, metric.WithAttributes(attribute.String("direction", direction), attribute.String("stage", stage)))
+}
+
+func RecordSATLifecycleEvent(ctx context.Context, event, reason, source string) {
+	get().satLifecycleEvents.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("event", event),
+		attribute.String("reason", reason),
+		attribute.String("source", source),
+	))
 }
 
 func sessionAttributes(sessionName, airport string, extra ...attribute.KeyValue) metric.MeasurementOption {

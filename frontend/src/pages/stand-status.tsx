@@ -78,11 +78,14 @@ type StandBlock = {
 type StandAllocationFailure = {
   id: number;
   occurred_at: string;
+  first_occurred_at: string;
+  occurrences: number;
   session_id: number;
   airport: string;
   callsign: string;
   command: string;
   outcome: string;
+  severity: "warning" | "error";
   reason: string;
   direction: string;
   stage: string;
@@ -798,12 +801,16 @@ export default function StandStatusPage() {
               <div className="border-b px-6 py-4">
                 <div className="flex flex-col gap-2 md:flex-row md:items-baseline md:justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold">Recent assignment failures</h2>
+                    <h2 className="text-xl font-semibold">Recent assignment diagnostics</h2>
                     <p className="text-sm text-muted-foreground">
-                      Failed allocation and reallocation attempts from the last two hours.
+                      ESTIMATED shortages are warnings. ASSIGNED and CONFIRMED shortages are errors.
                     </p>
                   </div>
-                  <div className="text-sm text-muted-foreground">{data.failures.length} failures</div>
+                  <div className="text-sm text-muted-foreground">
+                    {data.failures.filter((failure) => failure.severity === "error").length} errors ·{" "}
+                    {data.failures.filter((failure) => failure.severity !== "error").length} warnings ·{" "}
+                    {data.failures.reduce((total, failure) => total + failure.occurrences, 0)} attempts retained
+                  </div>
                 </div>
               </div>
               <div className="overflow-x-auto">
@@ -813,7 +820,7 @@ export default function StandStatusPage() {
                       <th className="px-4 py-3 font-medium">Time</th>
                       <th className="px-4 py-3 font-medium">Flight</th>
                       <th className="px-4 py-3 font-medium">Request</th>
-                      <th className="px-4 py-3 font-medium">Failure</th>
+                      <th className="px-4 py-3 font-medium">Diagnostic</th>
                       <th className="px-4 py-3 font-medium">Flight facts</th>
                     </tr>
                   </thead>
@@ -821,12 +828,14 @@ export default function StandStatusPage() {
                     {data.failures.length === 0 ? (
                       <tr className="border-t">
                         <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
-                          No stand assignment failures have been recorded in the last two hours.
+                          No stand assignment warnings or errors have been recorded in the last two hours.
                         </td>
                       </tr>
                     ) : null}
-                    {data.failures.map((failure) => (
-                      <tr key={failure.id} className="border-t bg-amber-50/50 align-top dark:bg-amber-950/10">
+                    {data.failures.map((failure) => {
+                      const isError = failure.severity === "error";
+                      return (
+                      <tr key={failure.id} className={`border-t align-top ${isError ? "bg-red-50/60 dark:bg-red-950/20" : "bg-amber-50/50 dark:bg-amber-950/10"}`}>
                         <td className="whitespace-nowrap px-4 py-3">{formatTimestamp(failure.occurred_at)}</td>
                         <td className="px-4 py-3">
                           <div className="font-semibold">{failure.callsign || "—"}</div>
@@ -845,10 +854,15 @@ export default function StandStatusPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-medium text-amber-800 dark:text-amber-200">
-                            {formatStatus(failure.outcome)}
+                          <div className={`font-medium ${isError ? "text-red-800 dark:text-red-200" : "text-amber-800 dark:text-amber-200"}`}>
+                            {isError ? "Error" : "Warning"} · {formatStatus(failure.outcome)}
                           </div>
                           <div className="mt-1 max-w-xl text-xs">{failure.reason}</div>
+                          {failure.occurrences > 1 ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Seen {failure.occurrences} times since {formatTimestamp(failure.first_occurred_at)}; shown once
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-4 py-3">
                           <div>{failure.aircraft_type || "Unknown aircraft"}</div>
@@ -858,7 +872,8 @@ export default function StandStatusPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

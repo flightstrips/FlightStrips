@@ -79,6 +79,7 @@ type Config struct {
 	EnableTraffic                   bool
 	EnableStandAssignment           bool
 	EnableStandAssignmentESMessages bool
+	EnableStandAssignmentPrefiles   bool
 	EnableTestTools                 bool
 	EnableDBSeed                    bool
 	CloseDBOnClose                  bool
@@ -608,6 +609,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 		dbpool, core.strips, assignments, stands, appconfig.GetAirlineAssignment(),
 		services.WithStandAllocationFailureLog(graph.failures),
 		services.WithStandAllocationClock(now),
+		services.WithStandAllocationDepartureReleaseBuffer(cfg.StandAssignmentBlockExtension),
 	)
 	if err != nil {
 		return satAssembly{}, fmt.Errorf("initialize stand allocation service: %w", err)
@@ -618,6 +620,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 		services.WithDepartureBlockExtension(cfg.StandAssignmentBlockExtension),
 		services.WithDepartureSweepInterval(cfg.StandAssignmentSweepInterval),
 		services.WithDepartureLifecycleClock(now),
+		services.WithDeparturePrefileAssignments(cfg.EnableStandAssignmentPrefiles),
 	)
 	if err != nil {
 		return satAssembly{}, fmt.Errorf("initialize departure lifecycle service: %w", err)
@@ -626,6 +629,7 @@ func assembleSAT(cfg Config, readiness appconfig.StandAssignmentReadiness, dbpoo
 		allocations, assignments, core.strips, core.sessions, stands, aircraft, engines, borders,
 		services.WithArrivalSweepInterval(cfg.StandAssignmentSweepInterval),
 		services.WithArrivalLifecycleClock(now),
+		services.WithArrivalPrefileAssignments(cfg.EnableStandAssignmentPrefiles),
 	)
 	if err != nil {
 		return satAssembly{}, fmt.Errorf("initialize arrival lifecycle service: %w", err)

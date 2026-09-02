@@ -5,10 +5,15 @@ import (
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 const reconciliationSequenceSpacing int32 = 1000
@@ -77,6 +82,13 @@ type DepartureLifecycle interface {
 type ArrivalLifecycle interface {
 	ProcessArrival(ctx context.Context, session int32, strip *models.Strip, flight ArrivalFlightInfo) error
 	CancelArrival(ctx context.Context, session int32, callsign string) error
+}
+
+// ArrivalLifecycleOrderer lets a lifecycle expose the target-stage priority it
+// will apply to a feed record. Higher-stage arrivals must establish their hard
+// occupancy before lower-stage reservations are validated or selected.
+type ArrivalLifecycleOrderer interface {
+	ArrivalProcessingPriority(strip *models.Strip, flight ArrivalFlightInfo, assignment *models.StandAssignment) int
 }
 
 type reconciliationNotifier interface {
@@ -231,6 +243,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	}
 
 	relevant := make(map[string]Flight)
+	relevantFlights := make([]Flight, 0)
 	airport := strings.ToUpper(strings.TrimSpace(session.Airport))
 	pilots, prefiles, changedCount := 0, 0, 0
 	for _, flight := range snapshot.Flights() {
@@ -238,6 +251,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			continue
 		}
 		relevant[flight.Callsign] = flight
+		relevantFlights = append(relevantFlights, flight)
 		if flight.Prefile() {
 			prefiles++
 		} else {
@@ -286,6 +300,34 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 			changedCount++
 			r.notify(session.ID, strip.Callsign)
 		}
+	}
+
+	// Release lifecycle state for flights absent from this generation before
+	// selecting stands for flights that are still present. Deferring cancellation
+	// until the end makes newly freed capacity visible only on the next identical
+	// poll, which can create a one-cycle stage-promotion move.
+	for callsign, strip := range existing {
+		if relevant[callsign].Callsign != "" || strip.EuroscopeSeenAt != nil {
+			continue
+		}
+		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
+			if err := r.lifecycle.CancelDeparture(ctx, session.ID, callsign); err != nil {
+				return err
+			}
+		}
+		if r.arrivalLifecycle != nil && strings.EqualFold(strings.TrimSpace(strip.Destination), airport) {
+			if err := r.arrivalLifecycle.CancelArrival(ctx, session.ID, callsign); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Apply every feed update before lifecycle processing, then establish
+	// departure occupancy before selecting arrival stands. Otherwise a later
+	// callsign's physical departure block is only visible to an earlier arrival
+	// on the next pass over the identical snapshot, causing one-cycle churn.
+	for _, flight := range relevantFlights {
+		strip := existing[flight.Callsign]
 		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
 			// Prefiles may reserve a stand before EuroScope sees the flight, but
 			// an online VATSIM record alone must not create a departure block.
@@ -299,11 +341,40 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 				}
 			}
 		}
+	}
+	arrivalFlights := make([]Flight, 0, len(relevantFlights))
+	for _, flight := range relevantFlights {
 		if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
-			if err := r.arrivalLifecycle.ProcessArrival(ctx, session.ID, strip, arrivalFlightInfo(flight)); err != nil {
-				return err
-			}
+			arrivalFlights = append(arrivalFlights, flight)
 		}
+	}
+	orderer, orderedLifecycle := r.arrivalLifecycle.(ArrivalLifecycleOrderer)
+	if orderedLifecycle {
+		priorities := make(map[string]int, len(arrivalFlights))
+		currentAssignments := make(map[string]*models.StandAssignment, len(arrivalFlights))
+		for _, flight := range arrivalFlights {
+			assignment, _ := r.assignments.GetAssignment(ctx, session.ID, flight.Callsign)
+			currentAssignments[flight.Callsign] = assignment
+			priorities[flight.Callsign] = orderer.ArrivalProcessingPriority(existing[flight.Callsign], arrivalFlightInfo(flight), assignment)
+		}
+		sort.SliceStable(arrivalFlights, func(i, j int) bool {
+			left := priorities[arrivalFlights[i].Callsign]
+			right := priorities[arrivalFlights[j].Callsign]
+			if left != right {
+				return left > right
+			}
+			// Refresh an existing operational commitment before introducing a
+			// new reservation at the same lifecycle priority. Its latest timing
+			// can make adjacent capacity unavailable in this snapshot.
+			leftAssignment := currentAssignments[arrivalFlights[i].Callsign]
+			rightAssignment := currentAssignments[arrivalFlights[j].Callsign]
+			leftAssigned := leftAssignment != nil && strings.TrimSpace(leftAssignment.Stand) != ""
+			rightAssigned := rightAssignment != nil && strings.TrimSpace(rightAssignment.Stand) != ""
+			return leftAssigned && !rightAssigned
+		})
+	}
+	if err := r.processArrivalFlights(ctx, session.ID, existing, arrivalFlights, orderedLifecycle); err != nil {
+		return err
 	}
 	metrics.RecordSATRelevantFlights(ctx, session.Name, airport, pilots, prefiles)
 	snapshotAge := time.Since(snapshot.Timestamp)
@@ -313,18 +384,6 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	slog.InfoContext(ctx, "SAT VATSIM reconciliation completed", slog.Int("session", int(session.ID)), slog.String("airport", airport), slog.Duration("snapshot_age", snapshotAge), slog.Int("pilots", pilots), slog.Int("prefiles", prefiles), slog.Int("changed", changedCount))
 
 	for callsign, strip := range existing {
-		if relevant[callsign].Callsign == "" && strip.EuroscopeSeenAt == nil && r.lifecycle != nil &&
-			strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
-			if err := r.lifecycle.CancelDeparture(ctx, session.ID, callsign); err != nil {
-				return err
-			}
-		}
-		if relevant[callsign].Callsign == "" && strip.EuroscopeSeenAt == nil && r.arrivalLifecycle != nil &&
-			strings.EqualFold(strings.TrimSpace(strip.Destination), airport) {
-			if err := r.arrivalLifecycle.CancelArrival(ctx, session.ID, callsign); err != nil {
-				return err
-			}
-		}
 		if strip.VatsimCID == nil || relevant[callsign].Callsign != "" || strip.EuroscopeSeenAt != nil || r.isAssigned(ctx, session.ID, strip.Callsign) {
 			continue
 		}
@@ -333,6 +392,135 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 	}
 	return nil
+}
+
+type arrivalAssignmentState struct {
+	exists                         bool
+	stand, stage, source, ruleID   string
+	matchedVariant, eta, expiresAt string
+	conflictReason, observedStand  string
+	tier, version                  int32
+	id                             int64
+	hasTier, manual, acknowledged  bool
+}
+
+func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight, converge bool) error {
+	if len(flights) == 0 {
+		return nil
+	}
+	if !converge {
+		return r.processArrivalPass(ctx, sessionID, strips, flights)
+	}
+
+	previous, err := r.arrivalAssignmentStates(ctx, sessionID, flights)
+	if err != nil {
+		return err
+	}
+	maxPasses := len(flights) + 1
+	for pass := 1; pass <= maxPasses; pass++ {
+		previousStands := arrivalStripStandStates(strips, flights)
+		if err := r.processArrivalPass(ctx, sessionID, strips, flights); err != nil {
+			return err
+		}
+		current, err := r.arrivalAssignmentStates(ctx, sessionID, flights)
+		if err != nil {
+			return err
+		}
+		currentStands, err := r.reloadArrivalStripStands(ctx, sessionID, strips, flights)
+		if err != nil {
+			return err
+		}
+		if maps.Equal(previous, current) && maps.Equal(previousStands, currentStands) {
+			if pass > 1 {
+				slog.DebugContext(ctx, "SAT arrival reconciliation converged",
+					slog.Int("session", int(sessionID)), slog.Int("passes", pass), slog.Int("arrivals", len(flights)))
+			}
+			return nil
+		}
+		previous = current
+	}
+	return fmt.Errorf("SAT arrival reconciliation did not converge after %d passes", maxPasses)
+}
+
+func arrivalStripStandStates(strips map[string]*models.Strip, flights []Flight) map[string]string {
+	states := make(map[string]string, len(flights))
+	for _, flight := range flights {
+		strip := strips[flight.Callsign]
+		if strip != nil && strip.Stand != nil {
+			states[flight.Callsign] = strings.TrimSpace(*strip.Stand)
+		} else {
+			states[flight.Callsign] = ""
+		}
+	}
+	return states
+}
+
+func (r *Reconciler) reloadArrivalStripStands(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) (map[string]string, error) {
+	committed, err := r.strips.List(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("reload committed arrival strips: %w", err)
+	}
+	for _, strip := range committed {
+		if strip != nil {
+			strips[normalizeCallsign(strip.Callsign)] = strip
+		}
+	}
+	return arrivalStripStandStates(strips, flights), nil
+}
+
+func (r *Reconciler) processArrivalPass(ctx context.Context, sessionID int32, strips map[string]*models.Strip, flights []Flight) error {
+	for _, flight := range flights {
+		strip := strips[flight.Callsign]
+		if err := r.arrivalLifecycle.ProcessArrival(ctx, sessionID, strip, arrivalFlightInfo(flight)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reconciler) arrivalAssignmentStates(ctx context.Context, sessionID int32, flights []Flight) (map[string]arrivalAssignmentState, error) {
+	states := make(map[string]arrivalAssignmentState, len(flights))
+	for _, flight := range flights {
+		assignment, err := r.assignments.GetAssignment(ctx, sessionID, flight.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("load arrival assignment state for %s: %w", flight.Callsign, err)
+		}
+		states[flight.Callsign] = snapshotArrivalAssignment(assignment)
+	}
+	return states, nil
+}
+
+func snapshotArrivalAssignment(assignment *models.StandAssignment) arrivalAssignmentState {
+	if assignment == nil {
+		return arrivalAssignmentState{}
+	}
+	state := arrivalAssignmentState{
+		exists: assignment.ID != 0 || assignment.Stand != "" || assignment.Stage != "",
+		id:     assignment.ID,
+		stand:  assignment.Stand, stage: assignment.Stage, source: assignment.Source,
+		ruleID: valueOrEmpty(assignment.RuleID), matchedVariant: valueOrEmpty(assignment.MatchedVariant),
+		eta: timeOrEmpty(assignment.ETA), expiresAt: timeOrEmpty(assignment.ExpiresAt),
+		conflictReason: valueOrEmpty(assignment.ConflictReason), observedStand: valueOrEmpty(assignment.ObservedStand),
+		manual: assignment.Manual, acknowledged: assignment.Acknowledged, version: assignment.Version,
+	}
+	if assignment.Tier != nil {
+		state.tier, state.hasTier = *assignment.Tier, true
+	}
+	return state
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func timeOrEmpty(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339Nano)
 }
 
 func (r *Reconciler) updateArrivalETA(ctx context.Context, session int32, strip *models.Strip, flight Flight) (bool, error) {

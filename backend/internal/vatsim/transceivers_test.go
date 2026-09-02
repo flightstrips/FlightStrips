@@ -18,9 +18,11 @@ func TestTransceiverCacheGetFrequenciesNormalizesAndDeduplicates(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`[
-			{"callsign":"ekch_a_twr","frequency":118105000},
-			{"callsign":"EKCH_A_TWR","frequency":118105000},
-			{"callsign":"EKCH_A_TWR","frequency":119300000}
+			{"callsign":"ekch_a_twr","transceivers":[
+				{"id":0,"frequency":118105000,"latDeg":55.6,"lonDeg":12.6},
+				{"id":1,"frequency":118105000,"latDeg":55.6,"lonDeg":12.6},
+				{"id":2,"frequency":119300000,"latDeg":55.6,"lonDeg":12.6}
+			],"shoutLineIds":[]}
 		]`))
 	}))
 	defer server.Close()
@@ -31,11 +33,68 @@ func TestTransceiverCacheGetFrequenciesNormalizesAndDeduplicates(t *testing.T) {
 	assert.Equal(t, []string{"118.105", "119.300"}, cache.GetFrequencies("EKCH_A_TWR"))
 }
 
+func TestTransceiverCacheSupportsLegacyFlatEntries(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"callsign":"EKCH_A_TWR","frequency":118105000}]`))
+	}))
+	defer server.Close()
+
+	cache := NewTransceiverCache(server.URL, time.Second, server.Client(), nil)
+
+	require.NoError(t, cache.refresh(context.Background()))
+	assert.Equal(t, []string{"118.105"}, cache.GetFrequencies("EKCH_A_TWR"))
+}
+
+func TestTransceiverCacheRejectsUnsupportedNonEmptyPayloadWithoutReplacingSnapshot(t *testing.T) {
+	t.Parallel()
+
+	var payload atomic.Value
+	payload.Store(`[{"callsign":"EKCH_A_TWR","transceivers":[{"frequency":118105000}]}]`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(payload.Load().(string)))
+	}))
+	defer server.Close()
+
+	cache := NewTransceiverCache(server.URL, time.Second, server.Client(), nil)
+	require.NoError(t, cache.refresh(context.Background()))
+
+	payload.Store(`[{"callsign":"EKCH_A_TWR","radios":[{"frequency":119300000}]}]`)
+	err := cache.refresh(context.Background())
+
+	require.EqualError(t, err, "payload contained 1 clients but no valid frequencies")
+	assert.Equal(t, []string{"118.105"}, cache.GetFrequencies("EKCH_A_TWR"))
+}
+
+func TestTransceiverCacheRejectsUnexpectedEmptyPayloadWithoutReplacingSnapshot(t *testing.T) {
+	t.Parallel()
+
+	var payload atomic.Value
+	payload.Store(`[{"callsign":"EKCH_A_TWR","transceivers":[{"frequency":118105000}]}]`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(payload.Load().(string)))
+	}))
+	defer server.Close()
+
+	cache := NewTransceiverCache(server.URL, time.Second, server.Client(), nil)
+	require.NoError(t, cache.refresh(context.Background()))
+
+	payload.Store(`[]`)
+	err := cache.refresh(context.Background())
+
+	require.EqualError(t, err, "transceiver payload contained no clients")
+	assert.Equal(t, []string{"118.105"}, cache.GetFrequencies("EKCH_A_TWR"))
+}
+
 func TestTransceiverCacheRefreshInvokesCallbackOnlyWhenSnapshotChanges(t *testing.T) {
 	t.Parallel()
 
 	var payload atomic.Value
-	payload.Store(`[{"callsign":"EKCH_A_TWR","frequency":118105000}]`)
+	payload.Store(`[{"callsign":"EKCH_A_TWR","transceivers":[{"frequency":118105000}]}]`)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -55,7 +114,7 @@ func TestTransceiverCacheRefreshInvokesCallbackOnlyWhenSnapshotChanges(t *testin
 	require.NoError(t, cache.refresh(context.Background()))
 	require.Equal(t, int32(1), updates.Load())
 
-	payload.Store(`[{"callsign":"EKCH_A_TWR","frequency":119300000}]`)
+	payload.Store(`[{"callsign":"EKCH_A_TWR","transceivers":[{"frequency":119300000}]}]`)
 
 	require.NoError(t, cache.refresh(context.Background()))
 	require.Equal(t, int32(2), updates.Load())
@@ -66,7 +125,7 @@ func TestTransceiverCacheRefreshRetriesPendingCallbackWithoutSnapshotChange(t *t
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[{"callsign":"EKCH_A_TWR","frequency":118105000}]`))
+		_, _ = w.Write([]byte(`[{"callsign":"EKCH_A_TWR","transceivers":[{"frequency":118105000}]}]`))
 	}))
 	defer server.Close()
 

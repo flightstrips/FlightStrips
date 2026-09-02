@@ -27,13 +27,18 @@ type TransceiverCache struct {
 	lastUpdated           time.Time
 }
 
-type transceiverDataEntry struct {
-	Callsign  string `json:"callsign"`
-	Frequency int64  `json:"frequency"`
+type transceiverDataClient struct {
+	Callsign     string                   `json:"callsign"`
+	Frequency    int64                    `json:"frequency,omitempty"`
+	Transceivers []transceiverDataStation `json:"transceivers,omitempty"`
+}
+
+type transceiverDataStation struct {
+	Frequency int64 `json:"frequency"`
 }
 
 type transceiverDataPayload struct {
-	Transceivers []transceiverDataEntry `json:"transceivers"`
+	Transceivers []transceiverDataClient `json:"transceivers"`
 }
 
 func NewTransceiverCache(transceiversURL string, refreshInterval time.Duration, client *http.Client, onUpdate func(context.Context) error) *TransceiverCache {
@@ -140,27 +145,46 @@ func (c *TransceiverCache) fetch(ctx context.Context) (map[string][]string, erro
 		return nil, fmt.Errorf("read transceivers: %w", err)
 	}
 
-	var entries []transceiverDataEntry
-	if err := json.Unmarshal(body, &entries); err != nil {
-		var payload transceiverDataPayload
-		if payloadErr := json.Unmarshal(body, &payload); payloadErr != nil {
-			return nil, fmt.Errorf("decode transceivers: %w", err)
-		}
-		entries = payload.Transceivers
+	clients, err := decodeTransceiverData(body)
+	if err != nil {
+		return nil, fmt.Errorf("decode transceivers: %w", err)
+	}
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("transceiver payload contained no clients")
 	}
 
 	frequenciesByCallsign := make(map[string]map[string]struct{})
-	for _, entry := range entries {
-		callsign := normalizeCallsign(entry.Callsign)
-		frequency := NormalizeFrequency(fmt.Sprintf("%d", entry.Frequency))
-		if callsign == "" || frequency == "" {
+	validFrequencyCount := 0
+	for _, client := range clients {
+		callsign := normalizeCallsign(client.Callsign)
+		if callsign == "" {
 			continue
 		}
 
-		if _, ok := frequenciesByCallsign[callsign]; !ok {
-			frequenciesByCallsign[callsign] = make(map[string]struct{})
+		frequencies := make([]int64, 0, len(client.Transceivers)+1)
+		if client.Frequency != 0 {
+			frequencies = append(frequencies, client.Frequency)
 		}
-		frequenciesByCallsign[callsign][frequency] = struct{}{}
+		for _, transceiver := range client.Transceivers {
+			frequencies = append(frequencies, transceiver.Frequency)
+		}
+
+		for _, rawFrequency := range frequencies {
+			frequency := NormalizeFrequency(fmt.Sprintf("%d", rawFrequency))
+			if frequency == "" {
+				continue
+			}
+
+			if _, ok := frequenciesByCallsign[callsign]; !ok {
+				frequenciesByCallsign[callsign] = make(map[string]struct{})
+			}
+			frequenciesByCallsign[callsign][frequency] = struct{}{}
+			validFrequencyCount++
+		}
+	}
+
+	if validFrequencyCount == 0 {
+		return nil, fmt.Errorf("payload contained %d clients but no valid frequencies", len(clients))
 	}
 
 	snapshot := make(map[string][]string, len(frequenciesByCallsign))
@@ -174,6 +198,23 @@ func (c *TransceiverCache) fetch(ctx context.Context) (map[string][]string, erro
 	}
 
 	return snapshot, nil
+}
+
+func decodeTransceiverData(body []byte) ([]transceiverDataClient, error) {
+	var clients []transceiverDataClient
+	if err := json.Unmarshal(body, &clients); err == nil {
+		return clients, nil
+	}
+
+	var payload transceiverDataPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	if payload.Transceivers == nil {
+		return nil, fmt.Errorf("unsupported payload shape")
+	}
+
+	return payload.Transceivers, nil
 }
 
 func transceiverSnapshotsEqual(current, next map[string][]string) bool {

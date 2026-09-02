@@ -4,11 +4,16 @@ import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
+	"FlightStrips/internal/vatsim"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -142,6 +147,121 @@ func TestComputeDepartureFrequencyForStrip_UsesCrossCoupledDepartureFrequency(t 
 	require.NoError(t, err)
 	require.NotNil(t, frequency)
 	assert.Equal(t, "124.980", *frequency)
+}
+
+func TestUpdateRouteForStrip_UsesCrossCoupledFrequencyFromOfficialTransceiverPayload(t *testing.T) {
+	aTowerPosition := frequencyForPosition(t, "EKCH_A_TWR")
+	aGroundPosition := frequencyForPosition(t, "EKCH_A_GND")
+	bGroundPosition := frequencyForPosition(t, "EKCH_B_GND")
+
+	var transceiverPayload atomic.Value
+	transceiverPayload.Store(`[{
+		"callsign":"EKCH_B_GND",
+		"transceivers":[
+			{"id":0,"frequency":121905000,"latDeg":55.6,"lonDeg":12.6},
+			{"id":1,"frequency":121630000,"latDeg":55.6,"lonDeg":12.6}
+		],
+		"shoutLineIds":[]
+	}]`)
+	transceiverServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(transceiverPayload.Load().(string)))
+	}))
+	defer transceiverServer.Close()
+
+	refreshed := make(chan struct{}, 1)
+	cache := vatsim.NewTransceiverCache(transceiverServer.URL, 10*time.Millisecond, transceiverServer.Client(), func(context.Context) error {
+		select {
+		case refreshed <- struct{}{}:
+		default:
+		}
+		return nil
+	})
+	cacheContext, cancelCache := context.WithCancel(context.Background())
+	t.Cleanup(cancelCache)
+	go cache.Start(cacheContext)
+
+	select {
+	case <-refreshed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for transceiver cache refresh")
+	}
+
+	frontendHub := &testutil.MockFrontendHub{}
+	stripRepo := &testutil.MockStripRepository{}
+	sessionRepo := &testutil.MockSessionRepository{}
+	sectorRepo := &testutil.MockSectorOwnerRepository{}
+	controllerRepo := &testutil.MockControllerRepository{}
+	strip := &models.Strip{
+		Callsign:          "SAS123",
+		Session:           42,
+		Destination:       "EKCH",
+		Runway:            stringPtr("22L"),
+		Stand:             stringPtr("A17"),
+		Owner:             stringPtr(aTowerPosition),
+		PositionLatitude:  float64Ptr(0),
+		PositionLongitude: float64Ptr(0),
+	}
+
+	stripRepo.GetByCallsignFn = func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+		return strip, nil
+	}
+	stripRepo.SetNextOwnersFn = func(_ context.Context, _ int32, _ string, _ []string) error {
+		return nil
+	}
+	sessionRepo.GetByIDFn = func(_ context.Context, _ int32) (*models.Session, error) {
+		return &models.Session{
+			ID:      42,
+			Airport: "EKCH",
+			ActiveRunways: pkgModels.ActiveRunways{
+				ArrivalRunways: []string{"22L"},
+			},
+		}, nil
+	}
+	sectorRepo.ListBySessionFn = func(_ context.Context, _ int32) ([]*models.SectorOwner, error) {
+		return []*models.SectorOwner{
+			{Session: 42, Sector: []string{"TE", "GWA"}, Position: aTowerPosition},
+			{Session: 42, Sector: []string{"AA"}, Position: bGroundPosition, Identifier: "SQ"},
+		}, nil
+	}
+	controllerRepo.ListFn = func(_ context.Context, _ int32) ([]*models.Controller, error) {
+		return []*models.Controller{{Session: 42, Callsign: "EKCH_B_GND", Position: bGroundPosition}}, nil
+	}
+
+	srv := &Server{
+		frontendHub:        frontendHub,
+		stripRepo:          stripRepo,
+		sessionRepo:        sessionRepo,
+		sectorRepo:         sectorRepo,
+		controllerRepo:     controllerRepo,
+		frequencyProviders: []TransceiverLookup{cache},
+	}
+
+	require.NoError(t, srv.UpdateRouteForStrip("SAS123", 42, true))
+	require.Len(t, frontendHub.OwnersUpdates, 1)
+	assert.Equal(t, []string{bGroundPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	require.NotNil(t, frontendHub.OwnersUpdates[0].NextDisplay)
+	assert.Equal(t, "AA", frontendHub.OwnersUpdates[0].NextDisplay.Label)
+	assert.Equal(t, aGroundPosition, frontendHub.OwnersUpdates[0].NextDisplay.Frequency)
+
+	transceiverPayload.Store(`[{
+		"callsign":"EKCH_B_GND",
+		"transceivers":[{"id":0,"frequency":121905000,"latDeg":55.6,"lonDeg":12.6}],
+		"shoutLineIds":[]
+	}]`)
+	select {
+	case <-refreshed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for transceiver cache to remove cross-coupled frequency")
+	}
+
+	frontendHub.OwnersUpdates = nil
+	require.NoError(t, srv.UpdateRouteForStrip("SAS123", 42, true))
+	require.Len(t, frontendHub.OwnersUpdates, 1)
+	assert.Equal(t, []string{bGroundPosition}, frontendHub.OwnersUpdates[0].NextOwners)
+	require.NotNil(t, frontendHub.OwnersUpdates[0].NextDisplay)
+	assert.Equal(t, "SEQ PLN", frontendHub.OwnersUpdates[0].NextDisplay.Label)
+	assert.Equal(t, bGroundPosition, frontendHub.OwnersUpdates[0].NextDisplay.Frequency)
 }
 
 func TestComputeDepartureFrequencyForStrip_DoesNotReturnApproachFallback(t *testing.T) {

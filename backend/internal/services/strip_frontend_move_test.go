@@ -260,7 +260,7 @@ func TestMoveFrontendStrip_AsatSyncFailureDoesNotRejectCompletedMove(t *testing.
 	assert.Equal(t, shared.BAY_PUSH, bayWhenAsatSynced)
 }
 
-func TestMoveFrontendStrip_DepartureToArrivalBayRejected(t *testing.T) {
+func TestMoveFrontendStrip_DepartureCanMoveToArrivalBay(t *testing.T) {
 	fixture := newFrontendMoveFixture(&internalModels.Strip{
 		Callsign:    "SAS126",
 		Bay:         shared.BAY_DEPART,
@@ -269,11 +269,41 @@ func TestMoveFrontendStrip_DepartureToArrivalBayRejected(t *testing.T) {
 	})
 
 	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR")
-	require.ErrorContains(t, err, "departure strips cannot be moved to arrival bays")
+	require.NoError(t, err)
+	assert.Equal(t, []string{shared.BAY_FINAL}, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_OwnedDepartureCannotBypassAuthorizationViaArrivalBay(t *testing.T) {
+	owner := "EKCH_GND"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS126A",
+		Bay:         shared.BAY_DEPART,
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		Owner:       &owner,
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126A", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR")
+	require.ErrorContains(t, err, "not authorized")
 	assert.Empty(t, fixture.updateBayTargets)
 }
 
-func TestMoveFrontendStrip_ArrivalToDepartureBayRejected(t *testing.T) {
+func TestMoveFrontendStrip_OwnedArrivalRetainsArrivalBayAuthorizationException(t *testing.T) {
+	owner := "EKCH_APP"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS126B",
+		Bay:         shared.BAY_TWY_ARR,
+		Origin:      "ESSA",
+		Destination: "EKCH",
+		Owner:       &owner,
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126B", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR")
+	require.NoError(t, err)
+	assert.Equal(t, []string{shared.BAY_FINAL}, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_ArrivalCanMoveToDepartureBay(t *testing.T) {
 	fixture := newFrontendMoveFixture(&internalModels.Strip{
 		Callsign:    "SAS127",
 		Bay:         shared.BAY_TWY_ARR,
@@ -282,7 +312,20 @@ func TestMoveFrontendStrip_ArrivalToDepartureBayRejected(t *testing.T) {
 	})
 
 	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS127", shared.BAY_TAXI_LWR, "1234567", "EKCH", "EKCH_TWR")
-	require.ErrorContains(t, err, "arrival strips cannot be moved to departure bays")
+	require.NoError(t, err)
+	assert.Equal(t, []string{shared.BAY_TAXI_LWR}, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_ArrivalToNotClearedBayRejected(t *testing.T) {
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS128A",
+		Bay:         shared.BAY_TWY_ARR,
+		Origin:      "ESSA",
+		Destination: "EKCH",
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS128A", shared.BAY_NOT_CLEARED, "1234567", "EKCH", "EKCH_TWR")
+	require.ErrorContains(t, err, "arrival strips cannot be moved to the not-cleared bay")
 	assert.Empty(t, fixture.updateBayTargets)
 }
 

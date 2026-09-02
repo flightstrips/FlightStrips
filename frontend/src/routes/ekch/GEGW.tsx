@@ -21,6 +21,7 @@ import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import { SortableBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
+import { allBayTransferRules } from "@/components/bays/stripMovement";
 import { useWebSocketStore, useMyPosition, useMessages, useDelOnline, useApronOnline } from "@/store/store-hooks.ts";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
@@ -83,20 +84,13 @@ export default function GEGW() {
     "AIRBORNE": { strips: airborneStrips,                   targetBay: Bay.Airborne,  descending: true },
     "DE-ICE":   { strips: deIceStrips,                      targetBay: Bay.DeIce,     descending: true },
     "STAND":    { strips: standStrips,                      targetBay: Bay.Stand,     descending: true },
-    "FINAL":    { strips: finalStrips.filter(isFlight),     targetBay: Bay.Final,     descending: true },
-    "RWY-ARR":  { strips: rwyArrStrips.filter(isFlight),    targetBay: Bay.RwyArr,    descending: true },
+    "FINAL":    { strips: finalStrips,                      targetBay: Bay.Final,     descending: true },
+    "RWY-ARR":  { strips: rwyArrStrips,                     targetBay: Bay.RwyArr,    descending: true },
     "TWY-ARR":  { strips: twyArrStrips,                     targetBay: Bay.TwyArr,    descending: true },
+    "CLRDEL":   { strips: clrDelActive ? nonClearedStrips : [], targetBay: Bay.NotCleared },
   };
 
-  const transferRules: Record<string, string[]> = {
-    "STARTUP":  ["PUSHBACK", "TWY-DEP", "DE-ICE", "STAND"],
-    "PUSHBACK": ["STARTUP",  "TWY-DEP", "DE-ICE", "STAND"],
-    "TWY-DEP":  ["STARTUP",  "PUSHBACK", "DE-ICE", "STAND"],
-    "RWY-DEP":  ["TWY-DEP",  "AIRBORNE"],
-    "AIRBORNE": ["RWY-DEP"],
-    "DE-ICE":   ["STARTUP",  "PUSHBACK", "TWY-DEP"],
-    "STAND":    ["STARTUP",  "PUSHBACK", "TWY-DEP"],
-  };
+  const transferRules = allBayTransferRules(Object.keys(bayStripMap));
 
   return (
     <ViewDndContext
@@ -122,6 +116,7 @@ export default function GEGW() {
         if (strip.bay === Bay.Final)     return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
         if (strip.bay === Bay.RwyArr)    return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
         if (strip.bay === Bay.TwyArr)    return <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} />;
+        if (strip.bay === Bay.NotCleared) return <Strip strip={strip} status="CLR" myPosition={myPosition} fullWidth />;
         return null;
       }}
     >
@@ -134,7 +129,7 @@ export default function GEGW() {
           <button className={CLS_BTN} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
         <SortableBay
-          strips={finalStrips.filter(isFlight)}
+          strips={finalStrips}
           bayId="FINAL"
           isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
@@ -149,7 +144,7 @@ export default function GEGW() {
           <span className={CLS_LABEL}>RWY ARR</span>
         </div>
         <SortableBay
-          strips={rwyArrStrips.filter(isFlight)}
+          strips={rwyArrStrips}
           bayId="RWY-ARR"
           isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
@@ -325,11 +320,9 @@ export default function GEGW() {
             <button className={CLS_BTN} onClick={() => setPlannedOpen(true)}>PLANNED</button>
           </span>
         </div>
-        <div className="h-[75%] bay-scroll-area">
-          {clrDelActive && nonClearedStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status="CLR" selectable={false} myPosition={myPosition} fullWidth />
-          ))}
-        </div>
+        <SortableBay strips={clrDelActive ? nonClearedStrips : []} bayId="CLRDEL" standalone={false} className="h-[75%] bay-scroll-area">
+          {(strip) => <Strip strip={strip} status="CLR" selectable={false} myPosition={myPosition} fullWidth />}
+        </SortableBay>
 
         <div className="bay-col-header bay-col-sep">
           <span className={CLS_LABEL}>STAND</span>

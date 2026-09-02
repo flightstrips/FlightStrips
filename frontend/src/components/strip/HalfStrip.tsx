@@ -1,6 +1,7 @@
 import type { HalfStripVariant, StripProps } from "./types";
 import { AircraftTypeLabel, useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_DEP_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
+import { getStripBg } from "./types";
 
 // Variant-specific background colours
 const COLOR_HALF_PUSH_BG  = "var(--color-strip-push-bg)"; // compact APN-PUSH half strip (lighter grey)
@@ -60,6 +61,9 @@ export function HalfStrip({
   unexpectedChangeFields,
   controllerModifiedFields,
   isManual = false,
+  arrival,
+  pdcStatus,
+  bay,
 }: StripProps) {
   const isLocked = LOCKED_VARIANTS.includes(halfStripVariant);
   const isFreeText = FREE_TEXT_VARIANTS.includes(halfStripVariant);
@@ -78,7 +82,8 @@ export function HalfStrip({
 
   // Use light text on dark backgrounds for readability
   const darkBg = ["MESSAGES", "MEM-AID", "LAND-START"].includes(halfStripVariant);
-  const { bg, textWhite } = useStripBg(runway, VARIANT_BG[halfStripVariant], isTagRequest, false);
+  const normalBackground = isFreeText ? VARIANT_BG[halfStripVariant] : getStripBg(pdcStatus, arrival, bay);
+  const { bg, textWhite } = useStripBg(runway, normalBackground, isTagRequest, false, pdcStatus, bay);
   const textColor = (darkBg || textWhite) ? "text-white" : "text-black";
 
   return (

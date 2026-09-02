@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
-import type { FrontendStrip } from "@/api/models";
+import { Bay, type FrontendStrip } from "@/api/models";
 import { useAirport, useMetar } from "@/store/store-hooks";
 import { decodeMetar } from "@/lib/metarDecode";
 import {
-  COLOR_ARR_YELLOW,
   COLOR_MANUAL_BLUE,
   FONT,
   getFlatStripBorderStyle,
   SELECTION_COLOR,
   useStripSelection,
 } from "./shared";
+import { getStripBg } from "./types";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 
 const FULL_H = "4.72dvh";
@@ -65,6 +65,7 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
   const language = strip.language?.trim() || "";
   const fplType = strip.fpl_type?.trim() || "";
   const statusLabel = getControlzoneStatus(strip.position_altitude, airport);
+  const isArrival = strip.destination === airport && strip.origin !== airport;
 
   return (
     <>
@@ -73,7 +74,7 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
       style={{
         height: FULL_H,
         width: STRIP_W,
-        backgroundColor: COLOR_ARR_YELLOW,
+        backgroundColor: getStripBg(strip.pdc_state, isArrival, Bay.Controlzone),
         ...getFlatStripBorderStyle({}, CELL_BORDER),
       }}
       onClick={handleClick}

@@ -19,8 +19,9 @@ import {
 import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import type { StripStatus } from "@/components/strip/types.ts";
-import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
+import { SortableBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
+import { allBayTransferRules } from "@/components/bays/stripMovement";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
@@ -49,14 +50,14 @@ export default function AD() {
   // When DEL is offline, APRON handles clearances → CLR/DEL panel is active.
   const clrDelActive = !delOnline;
 
-  const finalStrips   = useFinalStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
-  const rwyArrStrips  = useRwyArrStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
+  const finalStrips   = useFinalStrips().sort((a, b) => b.sequence - a.sequence);
+  const rwyArrStrips  = useRwyArrStrips().sort((a, b) => b.sequence - a.sequence);
   const twyDepUpr    = useTaxiDepStrips().sort((a, b) => b.sequence - a.sequence);
   const twyDepLwr    = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
   const twyArrStrips  = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
   const startupStrips = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
-  const deIceStrips   = useDeIceStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
-  const pushStrips    = usePushbackStrips().filter(isFlight).sort((a, b) => b.sequence - a.sequence);
+  const deIceStrips   = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
+  const pushStrips    = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
   const otherStrips   = useOtherBayStrips().sort((a, b) => a.sequence - b.sequence);
   const sasStrips     = useSasBayStrips().sort((a, b) => a.sequence - b.sequence);
   const norStrips     = useNorwegianBayStrips().sort((a, b) => a.sequence - b.sequence);
@@ -82,17 +83,14 @@ export default function AD() {
     "TWY-ARR":     { strips: twyArrStrips, targetBay: Bay.TwyArr,   descending: true },
     "STARTUP":     { strips: startupStrips, targetBay: Bay.Cleared, descending: true },
     "PUSHBACK":    { strips: pushStrips,    targetBay: Bay.Push,     descending: true },
+    "FINAL":       { strips: finalStrips,   targetBay: Bay.Final,    descending: true },
+    "RWY-ARR":     { strips: rwyArrStrips,  targetBay: Bay.RwyArr,   descending: true },
+    "CLRDEL":      { strips: sasStrips,     targetBay: Bay.NotCleared },
+    "NORWEGIAN":   { strips: norStrips,     targetBay: Bay.NotCleared },
+    "OTHERS":      { strips: otherStrips,   targetBay: Bay.NotCleared },
   };
 
-  const transferRules: Record<string, string[]> = {
-    "DE-ICE-V":    ["DE-ICE-B", "TWY-DEP-UPR", "TWY-DEP-LWR", "STARTUP", "PUSHBACK"],
-    "DE-ICE-B":    ["DE-ICE-V", "TWY-DEP-UPR", "TWY-DEP-LWR", "STARTUP", "PUSHBACK"],
-    "TWY-DEP-UPR": ["TWY-DEP-LWR", "TWY-ARR", "STARTUP", "PUSHBACK", "DE-ICE-V", "DE-ICE-B"],
-    "TWY-DEP-LWR": ["TWY-DEP-UPR", "TWY-ARR", "STARTUP", "PUSHBACK", "DE-ICE-V", "DE-ICE-B"],
-    "TWY-ARR":     ["TWY-DEP-UPR", "TWY-DEP-LWR", "STARTUP", "PUSHBACK"],
-    "STARTUP":     ["TWY-DEP-UPR", "TWY-DEP-LWR", "TWY-ARR", "PUSHBACK", "DE-ICE-V", "DE-ICE-B"],
-    "PUSHBACK":    ["TWY-DEP-UPR", "TWY-DEP-LWR", "TWY-ARR", "STARTUP", "DE-ICE-V", "DE-ICE-B"],
-  };
+  const transferRules = allBayTransferRules(Object.keys(bayStripMap));
 
   const statusForBay: Record<string, StripStatus> = {
     "DE-ICE-V":    "PUSH",
@@ -122,7 +120,13 @@ export default function AD() {
           c.strips.some(s => isFlight(s) && s.callsign === strip.callsign)
         );
         if (!bayEntry) return null;
-        return <Strip strip={strip} status={statusForBay[bayEntry[0]]} myPosition={myPosition} />;
+        const [bayId] = bayEntry;
+        if (bayId === "FINAL") return <Strip strip={strip} status="HALF" halfStripVariant="LOCKED-ARR" myPosition={myPosition} />;
+        if (bayId === "RWY-ARR") return <Strip strip={strip} status="ARR" myPosition={myPosition} />;
+        if (["CLRDEL", "NORWEGIAN", "OTHERS"].includes(bayId)) {
+          return <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} myPosition={myPosition} />;
+        }
+        return <Strip strip={strip} status={statusForBay[bayId]} myPosition={myPosition} />;
       }}
     >
     <div className="bay-page-wrapper">
@@ -145,20 +149,16 @@ export default function AD() {
           <span className={CLS_LABEL}>FINAL</span>
           <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
-        <DropIndicatorBay bayId="FINAL" className="h-[25%] bay-scroll-area-bottom">
-          {finalStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay strips={finalStrips} bayId="FINAL" isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition} standalone={false} className="h-[25%] bay-scroll-area-bottom">
+          {(strip) => <Strip strip={strip} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />}
+        </SortableBay>
 
         <div className="bay-col-header bay-col-sep">
           <span className={CLS_LABEL}>RWY ARR</span>
         </div>
-        <DropIndicatorBay bayId="RWY-ARR" className="h-[20%] bay-scroll-area-bottom">
-          {rwyArrStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status="ARR" selectable={false} myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay strips={rwyArrStrips} bayId="RWY-ARR" isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition} standalone={false} className="h-[20%] bay-scroll-area-bottom">
+          {(strip) => <Strip strip={strip} status="ARR" selectable={false} myPosition={myPosition} />}
+        </SortableBay>
 
         <div className="bay-col-header bay-col-sep">
           <span className={CLS_LABEL}>TWY ARR</span>
@@ -315,20 +315,16 @@ export default function AD() {
         <div className="bay-col-header">
           <span className={CLS_LABEL}>SAS</span>
         </div>
-        <DropIndicatorBay bayId="CLRDEL" className="h-[40%] bay-scroll-area">
-          {sasStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay strips={sasStrips} bayId="CLRDEL" standalone={false} className="h-[40%] bay-scroll-area">
+          {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />}
+        </SortableBay>
 
         <div className="bay-col-header bay-col-sep">
           <span className={CLS_LABEL}>NORWEGIAN</span>
         </div>
-        <DropIndicatorBay bayId="NORWEGIAN" className="h-[30%] bay-scroll-area">
-          {norStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay strips={norStrips} bayId="NORWEGIAN" standalone={false} className="h-[30%] bay-scroll-area">
+          {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />}
+        </SortableBay>
 
         <div className="bay-col-header bay-col-sep justify-between">
           <span className={CLS_LABEL}>OTHERS</span>
@@ -337,11 +333,9 @@ export default function AD() {
             <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
           </span>
         </div>
-        <DropIndicatorBay bayId="OTHERS" className="flex-1 bay-scroll-area">
-          {otherStrips.map(s => (
-            <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />
-          ))}
-        </DropIndicatorBay>
+        <SortableBay strips={otherStrips} bayId="OTHERS" standalone={false} className="flex-1 bay-scroll-area">
+          {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} selectable={false} myPosition={myPosition} />}
+        </SortableBay>
 
       </div>
 

@@ -116,6 +116,18 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		if err := s.MoveToBay(context.Background(), session, callsign, bay, true); err != nil {
 			return err
 		}
+		assignedSquawk := ""
+		if existingStrip.AssignedSquawk != nil {
+			assignedSquawk = *existingStrip.AssignedSquawk
+		}
+		if shouldGenerateDepartureSquawkValues(existingStrip.Origin, assignedSquawk, airport, bay) && s.esCommander != nil {
+			slog.InfoContext(ctx, "Triggering automatic squawk generation",
+				slog.Int("session", int(session)),
+				slog.String("callsign", callsign),
+				slog.String("trigger", "entered_not_cleared"),
+			)
+			s.esCommander.SendGenerateSquawk(session, "", callsign)
+		}
 		if existingStrip.Bay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE {
 			return s.AutoTransferAirborneStrip(ctx, session, callsign)
 		}

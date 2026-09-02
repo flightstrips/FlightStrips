@@ -183,13 +183,16 @@ func (s *Service) SubmitWebPDCRequest(ctx context.Context, callsign string, atis
 
 	if err := s.IssueClearance(ctx, normalizedCallsign, "", "", match.SessionID); err != nil {
 		fallbackOutcome := PdcRequestOutcome{
-			Transition:    PdcRequestTransitionRequested,
-			State:         StateRequested,
-			MetricOutcome: "requested_pending_clearance",
+			Transition:    PdcRequestTransitionRequestedWithFaults,
+			State:         StateRequestedWithFaults,
+			MetricOutcome: "requested_auto_issue_failed",
 		}
 		sessionInfo.recordPDCRequestOutcome(ctx, models.PdcChannelWeb, fallbackOutcome.MetricOutcome)
 		slog.WarnContext(ctx, "Web PDC auto-issue failed, leaving request pending", slog.String("callsign", normalizedCallsign), slog.Any("error", err))
 		if err := s.PersistPdcRequestOutcome(ctx, match.SessionID, normalizedCallsign, requestedAt, fallbackOutcome); err != nil {
+			return err
+		}
+		if err := s.stripService.SetPdcAutoIssueFailureValidation(ctx, match.SessionID, normalizedCallsign, true); err != nil {
 			return err
 		}
 		return nil

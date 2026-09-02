@@ -108,6 +108,62 @@ func TestReevaluatePdcInvalidValidation_ActivatesWithoutOwner(t *testing.T) {
 	assert.True(t, persisted.Active)
 }
 
+func TestReevaluatePdcInvalidValidation_MissingSquawkUsesExistingDclFlow(t *testing.T) {
+	t.Parallel()
+
+	sid := "VEMBO2E"
+	runway := "22R"
+	var persisted *models.ValidationStatus
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign: "SAS482",
+				Bay:      shared.BAY_NOT_CLEARED,
+				Sid:      &sid,
+				Runway:   &runway,
+				PdcState: "REQUESTED_WITH_FAULTS",
+			}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcInvalidValidation(context.Background(), 1, "SAS482", false, false))
+
+	require.NotNil(t, persisted)
+	assert.Contains(t, persisted.Message, "No valid assigned squawk")
+	require.NotNil(t, persisted.CustomAction)
+	assert.Equal(t, pdcInvalidValidationActionKind, persisted.CustomAction.ActionKind)
+	assert.Equal(t, pdcInvalidValidationActionLabel, persisted.CustomAction.Label)
+}
+
+func TestSetPdcAutoIssueFailureValidation_UsesExistingDclFlow(t *testing.T) {
+	t.Parallel()
+
+	var persisted *models.ValidationStatus
+	repo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS483", Bay: shared.BAY_NOT_CLEARED}, nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.SetPdcAutoIssueFailureValidation(context.Background(), 1, "SAS483", false))
+
+	require.NotNil(t, persisted)
+	assert.Equal(t, pdcInvalidValidationIssueType, persisted.IssueType)
+	assert.Contains(t, persisted.Message, "automatic issuance failed")
+	require.NotNil(t, persisted.CustomAction)
+	assert.Equal(t, pdcInvalidValidationActionKind, persisted.CustomAction.ActionKind)
+}
+
 func TestReevaluatePdcInvalidValidation_ActivatesInNotClearedBay(t *testing.T) {
 	t.Parallel()
 
@@ -173,17 +229,19 @@ func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing
 	owner := "EKCH_DEL"
 	runway := "22R"
 	sid := "VEMBO2E"
+	assignedSquawk := "2401"
 	cleared := false
 
 	repo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{
-				Callsign: "SAS123",
-				Owner:    &owner,
-				Bay:      shared.BAY_NOT_CLEARED,
-				Runway:   &runway,
-				Sid:      &sid,
-				PdcState: "REQUESTED_WITH_FAULTS",
+				Callsign:       "SAS123",
+				Owner:          &owner,
+				Bay:            shared.BAY_NOT_CLEARED,
+				Runway:         &runway,
+				Sid:            &sid,
+				AssignedSquawk: &assignedSquawk,
+				PdcState:       "REQUESTED_WITH_FAULTS",
 				ValidationStatus: &models.ValidationStatus{
 					IssueType:      pdcInvalidValidationIssueType,
 					Message:        "old",
@@ -332,17 +390,19 @@ func TestReevaluatePdcInvalidValidation_DoesNotActivateForEobtOnly(t *testing.T)
 	eobt := "2359"
 	sid := "VEMBO2E"
 	runway := "22R"
+	assignedSquawk := "2401"
 	setCalled := false
 
 	repo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 			return &models.Strip{
-				Callsign: "SAS123",
-				Bay:      shared.BAY_NOT_CLEARED,
-				PdcState: "REQUESTED_WITH_FAULTS",
-				Sid:      &sid,
-				Runway:   &runway,
-				CdmData:  (&models.CdmData{Eobt: &eobt}).Normalize(),
+				Callsign:       "SAS123",
+				Bay:            shared.BAY_NOT_CLEARED,
+				PdcState:       "REQUESTED_WITH_FAULTS",
+				Sid:            &sid,
+				Runway:         &runway,
+				AssignedSquawk: &assignedSquawk,
+				CdmData:        (&models.CdmData{Eobt: &eobt}).Normalize(),
 			}, nil
 		},
 		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {

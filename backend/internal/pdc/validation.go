@@ -3,6 +3,7 @@ package pdc
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/pkg/helpers"
 	pkgModels "FlightStrips/pkg/models"
 	"fmt"
 	"sort"
@@ -16,6 +17,7 @@ const (
 	FlightPlanValidationFaultKindRunway         FlightPlanValidationFaultKind = "runway_invalid"
 	FlightPlanValidationFaultKindRouting        FlightPlanValidationFaultKind = "routing_missing"
 	FlightPlanValidationFaultKindMandatoryRoute FlightPlanValidationFaultKind = "mandatory_route_review"
+	FlightPlanValidationFaultKindSquawk         FlightPlanValidationFaultKind = "squawk_missing"
 )
 
 type FlightPlanValidationFault struct {
@@ -27,7 +29,17 @@ type FlightPlanValidationFault struct {
 // validations. These should align with REQUESTED_WITH_FAULTS so controllers get the
 // shared validation flow instead of separate strip-local highlighting.
 func PDCStripValidationFaults(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids) []FlightPlanValidationFault {
-	return validatePDCFlightPlanFaults(strip, activeDepartureRunways, availableSids)
+	faults := validatePDCFlightPlanFaults(strip, activeDepartureRunways, availableSids)
+	if strip == nil {
+		return faults
+	}
+	if strip.AssignedSquawk == nil || !helpers.IsValidAssignedSquawk(*strip.AssignedSquawk) {
+		faults = append(faults, FlightPlanValidationFault{
+			Kind:    FlightPlanValidationFaultKindSquawk,
+			Message: "No valid assigned squawk",
+		})
+	}
+	return faults
 }
 
 func validationFaultMessages(faults []FlightPlanValidationFault) []string {

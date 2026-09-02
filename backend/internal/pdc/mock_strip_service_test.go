@@ -297,3 +297,13 @@ func (m *mockPdcStripService) ReevaluatePdcRequestValidations(ctx context.Contex
 
 	return nil
 }
+
+func (m *mockPdcStripService) SetPdcAutoIssueFailureValidation(ctx context.Context, session int32, callsign string, publish bool) error {
+	for _, call := range m.ExpectedCalls {
+		if call.Method == "SetPdcAutoIssueFailureValidation" {
+			args := m.Called(ctx, session, callsign, publish)
+			return args.Error(0)
+		}
+	}
+	return nil
+}

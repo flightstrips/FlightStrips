@@ -21,8 +21,9 @@ import {
 import type { AnyStrip, FrontendStrip, StripRef } from "@/api/models.ts";
 import { Bay } from "@/api/models.ts";
 import type { StripStatus } from "@/components/strip/types.ts";
-import { SortableBay, DropIndicatorBay } from "@/components/bays/SortableBay.tsx";
+import { SortableBay } from "@/components/bays/SortableBay.tsx";
 import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
+import { allBayTransferRules } from "@/components/bays/stripMovement";
 import {
   useAirport,
   useCtwrOnline,
@@ -52,19 +53,6 @@ const btn = CLS_BTN;
 const btnOrange = CLS_BTN_ORANGE;
 const btnBlue = CLS_BTN_BLUE;
 const btnYellow = CLS_BTN_YELLOW;
-
-const BASE_ACTIVE_BAYS = [
-  "FINAL",
-  "RWY-ARR",
-  "TWY-ARR",
-  "TWY-DEP",
-  "RWY-DEP",
-  "AIRBORNE",
-  "STAND",
-  "PUSHBACK",
-  "DE-ICE",
-  "CONTROLZONE",
-];
 
 export type TowerGroundLayoutVariant = "TWTE" | "TWRGND";
 
@@ -107,6 +95,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
   const deIceStrips = useDeIceStrips().sort((a, b) => b.sequence - a.sequence);
   const controlzoneStrips = useControlzoneStrips().sort((a, b) => b.sequence - a.sequence);
   const startupStrips = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
+  const startupFlightStrips = startupStrips.filter(isFlight);
   const nonClearedStrips = useNonClearedStrips();
   const inboundStrips = useInboundStrips();
 
@@ -143,9 +132,6 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
     { key: "ADEP", label: "ADEP", compareFn: (a, b) => a.origin.localeCompare(b.origin) },
   ];
 
-  const activeBays = showStartupBay ? [...BASE_ACTIVE_BAYS, "STARTUP"] : BASE_ACTIVE_BAYS;
-  const transferTargetBays = activeBays.filter((bay) => bay !== "CONTROLZONE");
-
   const bayStripMap: Record<string, { strips: AnyStrip[]; targetBay: Bay; descending?: boolean }> = {
     "FINAL": { strips: finalStrips, targetBay: Bay.Final, descending: true },
     "RWY-ARR": { strips: rwyArrStrips, targetBay: Bay.RwyArr, descending: true },
@@ -157,22 +143,11 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
     "PUSHBACK": { strips: pushStrips, targetBay: Bay.Push, descending: true },
     "DE-ICE": { strips: deIceStrips, targetBay: Bay.DeIce, descending: true },
     "CONTROLZONE": { strips: controlzoneStrips, targetBay: Bay.Controlzone, descending: true },
+    "CLRDEL": { strips: nonClearedStrips, targetBay: Bay.NotCleared },
     ...(showStartupBay ? { STARTUP: { strips: startupStrips, targetBay: Bay.Cleared, descending: true } } : {}),
   };
 
-  const transferRules: Record<string, string[]> = {
-    "FINAL": ["RWY-ARR", "TWY-ARR"],
-    "RWY-ARR": transferTargetBays.filter((bay) => bay !== "RWY-ARR"),
-    "TWY-ARR": transferTargetBays.filter((bay) => bay !== "TWY-ARR"),
-    "TWY-DEP": transferTargetBays.filter((bay) => bay !== "TWY-DEP"),
-    "RWY-DEP": transferTargetBays.filter((bay) => bay !== "RWY-DEP"),
-    "AIRBORNE": transferTargetBays.filter((bay) => bay !== "AIRBORNE"),
-    "STAND": transferTargetBays.filter((bay) => bay !== "STAND"),
-    "PUSHBACK": ["TWY-DEP", "DE-ICE", "TWY-ARR", ...(showStartupBay ? ["STARTUP"] : [])],
-    "DE-ICE": ["PUSHBACK", "TWY-DEP", ...(showStartupBay ? ["STARTUP"] : [])],
-    "CONTROLZONE": [],
-    ...(showStartupBay ? { STARTUP: ["PUSHBACK", "DE-ICE", "TWY-DEP", "STAND"] } : {}),
-  };
+  const transferRules = allBayTransferRules(Object.keys(bayStripMap));
 
   const statusForBay: Record<string, StripStatus> = {
     "FINAL": "FINAL-ARR",
@@ -207,6 +182,9 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         );
         if (!bayEntry) return null;
         const [bayId] = bayEntry;
+        if (bayId === "CLRDEL") {
+          return <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} fullWidth={true} myPosition={myPosition} />;
+        }
         return (
           <Strip
             strip={strip}
@@ -354,7 +332,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
           {!showStartupBay && startupOpen && (
             <StripListPopup
               title="STARTUP"
-              strips={startupStrips}
+              strips={startupFlightStrips}
               sortModes={startupSortModes}
               onRowClick={(strip) => {
                 pickupStrip(strip.callsign, Bay.Push);
@@ -468,11 +446,9 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             </span>
           </div>
-          <DropIndicatorBay bayId="CLRDEL" className="h-[45%] bay-scroll-area">
-            {nonClearedStrips.map((s) => (
-              <Strip key={s.callsign} strip={s} status={clrDelActive ? "CLR" : "CLX-HALF"} fullWidth={true} myPosition={myPosition} />
-            ))}
-          </DropIndicatorBay>
+          <SortableBay strips={nonClearedStrips} bayId="CLRDEL" standalone={false} className="h-[45%] bay-scroll-area">
+            {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} fullWidth={true} myPosition={myPosition} />}
+          </SortableBay>
 
           <div className="bay-col-header bay-col-sep justify-between">
             <span className={CLS_LABEL}>DE-ICE A</span>

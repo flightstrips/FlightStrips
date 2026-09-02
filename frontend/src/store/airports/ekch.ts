@@ -1,9 +1,18 @@
 import {useMemo} from "react";
-import {useActiveMessages, useAirport, useTacticalStrips, useWebSocketStore} from "@/store/store-hooks.ts";
-import {Bay, type FrontendStrip, type AnyStrip, isFlight} from "@/api/models.ts";
+import {useActiveMessages, useTacticalStrips, useWebSocketStore} from "@/store/store-hooks.ts";
+import {Bay, type FrontendStrip, type TacticalStrip, type AnyStrip, isFlight} from "@/api/models.ts";
 
 export type { AnyStrip };
 export { isFlight };
+
+export const selectFlightStripsForBay = (strips: FrontendStrip[], bay: Bay) =>
+  strips.filter((strip) => strip.bay === bay);
+
+export const selectStripsForBay = (strips: FrontendStrip[], tacticalStrips: TacticalStrip[], bay: Bay): AnyStrip[] =>
+  [
+    ...selectFlightStripsForBay(strips, bay),
+    ...tacticalStrips.filter((strip) => strip.bay === bay),
+  ].sort((a, b) => a.sequence - b.sequence);
 
 export const useTacticalStripsForBay = (bay: Bay) => {
   const tacticalStrips = useTacticalStrips();
@@ -42,10 +51,11 @@ export const useNorwegianBayStrips = () => {
 };
 
 export const useClearedStrips = () => {
-  const strips = useWebSocketStore(state => state.strips)
+  const strips = useWebSocketStore(state => state.strips);
+  const tacticalStrips = useTacticalStrips();
   return useMemo(
-    () => strips.filter(x => x.bay === Bay.Cleared),
-    [strips]
+    () => selectStripsForBay(strips, tacticalStrips, Bay.Cleared),
+    [strips, tacticalStrips]
   );
 }
 
@@ -86,39 +96,36 @@ export const usePushbackStrips = (): AnyStrip[] => {
 export const useTaxiDepStrips = (): AnyStrip[] => {
   const strips = useWebSocketStore(state => state.strips);
   const tacticalStrips = useTacticalStrips();
-  const airport = useAirport();
   return useMemo(
     () => ([
-      ...strips.filter(x => x.bay === Bay.Taxi && x.origin === airport),
+      ...selectFlightStripsForBay(strips, Bay.Taxi),
       ...tacticalStrips.filter(t => t.bay === Bay.Taxi),
     ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
-    [strips, tacticalStrips, airport]
+    [strips, tacticalStrips]
   );
 };
 
 export const useTaxiDepLwrStrips = (): AnyStrip[] => {
   const strips = useWebSocketStore(state => state.strips);
   const tacticalStrips = useTacticalStrips();
-  const airport = useAirport();
   return useMemo(
     () => ([
-      ...strips.filter(x => x.bay === Bay.TaxiLwr && x.origin === airport),
+      ...selectFlightStripsForBay(strips, Bay.TaxiLwr),
       ...tacticalStrips.filter(t => t.bay === Bay.TaxiLwr),
     ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
-    [strips, tacticalStrips, airport]
+    [strips, tacticalStrips]
   );
 };
 
 export const useTaxiArrStrips = (): AnyStrip[] => {
   const strips = useWebSocketStore(state => state.strips);
   const tacticalStrips = useTacticalStrips();
-  const airport = useAirport();
   return useMemo(
     () => ([
-      ...strips.filter(x => x.bay === Bay.TwyArr && x.destination === airport),
+      ...selectFlightStripsForBay(strips, Bay.TwyArr),
       ...tacticalStrips.filter(t => t.bay === Bay.TwyArr),
     ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
-    [strips, tacticalStrips, airport]
+    [strips, tacticalStrips]
   );
 };
 
@@ -161,13 +168,12 @@ export const useFinalStrips = (): AnyStrip[] => {
 export const useRwyArrStrips = (): AnyStrip[] => {
   const strips = useWebSocketStore(state => state.strips);
   const tacticalStrips = useTacticalStrips();
-  const airport = useAirport();
   return useMemo(
     () => ([
-      ...strips.filter(x => x.bay === Bay.RwyArr && x.destination === airport),
+      ...selectFlightStripsForBay(strips, Bay.RwyArr),
       ...tacticalStrips.filter(t => t.bay === Bay.RwyArr),
     ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
-    [strips, tacticalStrips, airport]
+    [strips, tacticalStrips]
   );
 };
 

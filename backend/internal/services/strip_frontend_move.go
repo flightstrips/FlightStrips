@@ -49,7 +49,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return err
 	}
 
-	if err := s.authorizeFrontendMove(ctx, session, strip, callsign, targetBay, clientPosition); err != nil {
+	if err := s.authorizeFrontendMove(ctx, session, strip, callsign, airport, targetBay, clientPosition); err != nil {
 		return err
 	}
 
@@ -98,25 +98,21 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 }
 
 func validateFrontendMoveBayTransition(strip *internalModels.Strip, airport string, targetBay string) error {
-	isDepartureStrip := strip.Origin == airport && strip.Destination != airport
 	isArrivalStrip := strip.Destination == airport && strip.Origin != airport
-
-	if isDepartureStrip && shared.IsArrivalBay(targetBay) {
-		return errors.New("departure strips cannot be moved to arrival bays")
-	}
-	if isArrivalStrip && shared.IsDepartureBay(targetBay) {
-		return errors.New("arrival strips cannot be moved to departure bays")
+	if isArrivalStrip && targetBay == shared.BAY_NOT_CLEARED {
+		return errors.New("arrival strips cannot be moved to the not-cleared bay")
 	}
 
 	return nil
 }
 
-func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32, strip *internalModels.Strip, callsign string, targetBay string, clientPosition string) error {
+func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32, strip *internalModels.Strip, callsign string, airport string, targetBay string, clientPosition string) error {
 	if strip.Owner == nil || *strip.Owner == "" || *strip.Owner == clientPosition {
 		return nil
 	}
 
-	if shared.IsArrivalBay(targetBay) {
+	isArrivalStrip := strip.Destination == airport && strip.Origin != airport
+	if isArrivalStrip && shared.IsArrivalBay(targetBay) {
 		return nil
 	}
 

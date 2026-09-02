@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { StripProps } from "./types";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
-import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
+import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
+import { getStripBg } from "./types";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
 import { ArrStandDialog } from "./ArrStandDialog";
@@ -53,6 +54,8 @@ export function ApnArrStrip({
   unexpectedChangeFields,
   controllerModifiedFields,
   isManual = false,
+  arrival,
+  pdcStatus,
 }: StripProps) {
   const {
     isSelected,
@@ -82,7 +85,7 @@ export function ApnArrStrip({
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, COLOR_ARR_YELLOW, isTagRequest, isUnconcerned);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
 
   return (
     <>

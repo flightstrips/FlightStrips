@@ -2,7 +2,7 @@ import { Strip } from "@/components/strip/Strip.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import {useClearedStrips, useNorwegianBayStrips, useOtherBayStrips, usePushbackStrips, useSasBayStrips, useTaxiDepStrips, isFlight} from "@/store/airports/ekch.ts";
-import type {FrontendStrip} from "@/api/models.ts";
+import {stripDndId, type AnyStrip, type FrontendStrip} from "@/api/models.ts";
 import { useMessages, useMyPosition } from "@/store/store-hooks.ts";
 import { useState } from "react";
 import { CLS_BTN } from "@/components/strip/shared";
@@ -29,9 +29,9 @@ export default function DEL() {
   const [newOpen, setNewOpen] = useState(false);
   const [plannedOpen, setPlannedOpen] = useState(false);
 
-  const mapToStrip = (strip: FrontendStrip, status: string) => (
+  const mapToStrip = (strip: AnyStrip, status: string) => (
     <Strip
-      key={strip.callsign}
+      key={stripDndId(strip)}
       strip={strip}
       status={status as "CLR" | "CLROK" | "HALF"}
       myPosition={myPosition}

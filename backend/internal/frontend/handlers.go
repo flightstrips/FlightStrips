@@ -705,6 +705,9 @@ func handleMoveTacticalStrip(ctx context.Context, client *Client, message Messag
 
 	bay := req.Bay
 	if bay != "" {
+		if bay == shared.BAY_NOT_CLEARED {
+			return errors.New("tactical strips cannot be moved to the not-cleared bay")
+		}
 		if !validBays[bay] {
 			slog.WarnContext(ctx, "handleMoveTacticalStrip: rejecting move event with invalid bay",
 				slog.Int64("id", req.ID),

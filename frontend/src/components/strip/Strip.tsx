@@ -15,6 +15,7 @@ import { TacticalRwyStrip } from "./TacticalRwyStrip";
 import { ControlzoneStrip } from "./ControlzoneStrip";
 import type { HalfStripVariant, StripProps, StripStatus } from "./types";
 import { normalizeCdmTime } from "@/lib/cdmTime";
+import { useAirport } from "@/store/store-hooks";
 
 export type { StripStatus };
 export type { StripProps };
@@ -46,6 +47,8 @@ const STATUS_DEFAULT_WIDTH: Partial<Record<StripStatus, string>> = {
 };
 
 export function Strip({ strip, status, halfStripVariant, myPosition, selectable, delegateCallsignClick, onStripMoved, width, fullWidth }: StripRenderProps) {
+  const airport = useAirport();
+
   if (!isFlight(strip)) {
     const effectiveWidth = width ?? (status ? STATUS_DEFAULT_WIDTH[status] : undefined);
     switch (strip.type) {
@@ -110,6 +113,7 @@ export function Strip({ strip, status, halfStripVariant, myPosition, selectable,
     validationStatus: strip.validation_status,
     ecfmp_restrictions: strip.ecfmp_restrictions,
     requested_altitude: strip.requested_altitude,
+    arrival: strip.destination === airport && strip.origin !== airport,
   };
 
   switch (status) {

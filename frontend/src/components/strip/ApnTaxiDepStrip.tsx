@@ -6,7 +6,6 @@ import {
   getCellBorderColor,
   SELECTION_COLOR,
   FONT,
-  COLOR_DEP_STRIP_BG,
   COLOR_UNEXPECTED_YELLOW,
   AircraftTypeLabel,
   getStripOwnership,
@@ -16,6 +15,7 @@ import {
   getValidationBlockedCursor,
   useNextFrequencyDisplay,
 } from "./shared";
+import { getStripBg } from "./types";
 import { SIBox } from "./SIBox";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog";
@@ -62,6 +62,8 @@ export function ApnTaxiDepStrip({
   marked = false,
   unexpectedChangeFields,
   controllerModifiedFields,
+  arrival,
+  pdcStatus,
 }: StripProps) {
   const {
     isSelected,
@@ -77,7 +79,7 @@ export function ApnTaxiDepStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, COLOR_DEP_STRIP_BG, isTagRequest, isUnconcerned);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [fplOpen, setFplOpen] = useState(false);
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");

@@ -73,6 +73,7 @@ export function TwyDepStrip({
   controllerModifiedFields,
   ecfmp_restrictions,
   requested_altitude,
+  arrival,
 }: StripProps) {
   const { isSelected, isValidationActive, handleClick, handleContextMenu, guardValidationAction, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
   const stripTransfers = useStripTransfers();
@@ -80,7 +81,7 @@ export function TwyDepStrip({
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const cellBorderColor = getCellBorderColor(marked);
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
-  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, undefined, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
+  const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const transitionAltitude = useTransitionAltitude();
   const [showTaxiMap, setShowTaxiMap] = useState(false);
   const [showHpMap, setShowHpMap] = useState(false);

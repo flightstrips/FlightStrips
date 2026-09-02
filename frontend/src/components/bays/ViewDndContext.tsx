@@ -29,39 +29,7 @@ import { isValidationBlockingForPosition } from "@/components/strip/shared";
 import { useAirport, useMyPosition, useSelectedCallsign, useSelectStrip, useWebSocketStore } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
 import { parseBayContainerDropZoneId } from "./dropZoneIds";
-
-function isArrivalOnlyBay(bay: Bay): boolean {
-  return bay === "FINAL" || bay === "RWY_ARR" || bay === "TWY_ARR" || bay === "STAND" || bay === "ARR_HIDDEN";
-}
-
-function isDepartureOnlyBay(bay: Bay): boolean {
-  return bay === "NOT_CLEARED"
-    || bay === "CLEARED"
-    || bay === "PUSH"
-    || bay === "TAXI"
-    || bay === "TAXI_LWR"
-    || bay === "TAXI_TWR"
-    || bay === "DEPART"
-    || bay === "AIRBORNE";
-}
-
-function canFlightMoveToBay(strip: AnyStrip | undefined, targetBay: Bay, airport: string): boolean {
-  if (!strip || !isFlight(strip)) {
-    return true;
-  }
-
-  const isDeparture = strip.origin === airport && strip.destination !== airport;
-  if (isDeparture) {
-    return !isArrivalOnlyBay(targetBay);
-  }
-
-  const isArrival = strip.destination === airport && strip.origin !== airport;
-  if (isArrival) {
-    return !isDepartureOnlyBay(targetBay);
-  }
-
-  return true;
-}
+import { canStripMoveToBay } from "./stripMovement";
 
 export interface BayConfig {
   strips: AnyStrip[];
@@ -75,7 +43,7 @@ interface ViewDndContextProps {
   children: ReactNode;
   /** Maps visual bay ID -> strip list + backend Bay. Used to resolve drag source/target. */
   bayStripMap: Record<string, BayConfig>;
-  /** Maps source bay ID -> list of bay IDs a strip may be dragged into */
+  /** Maps source bay ID to every other registered visual bay ID. */
   transferRules: Record<string, string[]>;
   onReorder: (activeRef: StripRef, above: StripRef | null) => void;
   onMove: (strip: StripRef, bay: Bay) => void;
@@ -128,7 +96,7 @@ export function ViewDndContext({
     if (!(transferRules[sourceBayId] ?? []).includes(targetBayId)) return false;
     const strip = bayStripMap[sourceBayId]?.strips.find((candidate) => stripDndId(candidate) === activeId);
     const targetBay = bayStripMap[targetBayId]?.targetBay;
-    return !!targetBay && canFlightMoveToBay(strip, targetBay, airport);
+    return !!targetBay && canStripMoveToBay(strip, targetBay, airport);
   }, [activeId, airport, bayStripMap, findBayId, transferRules]);
 
   const collisionDetection = useCallback<CollisionDetection>((args) => {
@@ -213,7 +181,7 @@ export function ViewDndContext({
 
     const targetConfig = bayStripMap[clickedBayId];
     if (!targetConfig) return;
-    if (!canFlightMoveToBay(strip, targetConfig.targetBay, airport)) return;
+    if (!canStripMoveToBay(strip, targetConfig.targetBay, airport)) return;
 
     onMove({ kind: "flight", callsign: selectedCallsign }, targetConfig.targetBay);
     selectStrip(null);
@@ -286,14 +254,13 @@ export function ViewDndContext({
       return;
     }
 
-    // Cross-bay: enforce transfer rules
     const allowed = transferRules[sourceBayId] ?? [];
     if (!allowed.includes(targetBayId)) return;
 
     const strip = bayStripMap[sourceBayId]?.strips.find((candidate) => stripDndId(candidate) === dndId);
     const sourceBay = bayStripMap[sourceBayId].targetBay;
     const targetBay = bayStripMap[targetBayId].targetBay;
-    if (!canFlightMoveToBay(strip, targetBay, airport)) return;
+    if (!canStripMoveToBay(strip, targetBay, airport)) return;
 
     // Only emit a move event when the backend bay actually changes.
     // Do NOT also call onReorder here: the backend's FrontendBay response to

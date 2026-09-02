@@ -262,6 +262,23 @@ func TestHandleMoveTacticalStrip_NonOwnerRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "only the tactical strip owner")
 }
 
+func TestHandleMoveTacticalStrip_NotClearedBayRejected(t *testing.T) {
+	hub := buildTacticalRepoHub(&testutil.MockTacticalStripRepository{
+		GetByIDFn: func(_ context.Context, id int64, sessionID int32) (*models.TacticalStrip, error) {
+			return &models.TacticalStrip{ID: id, SessionID: sessionID, Owner: "EKCH_TWR"}, nil
+		},
+	})
+	client := buildFrontendTestClient(hub, 1, "EKCH")
+	client.position = "EKCH_TWR"
+
+	err := handleMoveTacticalStrip(context.Background(), client, marshalMessage(t, frontend.MoveTacticalStripAction{
+		ID:  42,
+		Bay: shared.BAY_NOT_CLEARED,
+	}))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tactical strips cannot be moved to the not-cleared bay")
+}
+
 func TestMapTacticalStripToPayload_IncludesOwnershipState(t *testing.T) {
 	payload := MapTacticalStripToPayload(&models.TacticalStrip{
 		ID:         42,

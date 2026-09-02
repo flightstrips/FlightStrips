@@ -19,8 +19,7 @@ import {
   parseTimestampMs,
   type EstView,
 } from "@/components/est/metadata";
-import { useNonClearedStrips } from "@/store/airports/ekch.ts";
-import { useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useRequestManualStand, useStripTransfers } from "@/store/store-hooks.ts";
+import { useMarkArmed, useMyPosition, useSelectStrip, useSelectedCallsign, useWebSocketStore, useSatEnabled, useStandAssignments, useStandBlocks, useOccupyStand, useVacateStand, useStripTransfers } from "@/store/store-hooks.ts";
 
 const PAGE_BG = "bg-bay-est";
 const COLOR_LABEL_DEFAULT = "#202020";
@@ -106,13 +105,11 @@ function toMenuAnchor(element: HTMLButtonElement): EstMenuAnchor {
 export default function EST() {
   const strips = useWebSocketStore((state) => state.strips);
   const move = useWebSocketStore((state) => state.move);
-  const updateStrip = useWebSocketStore((state) => state.updateStrip);
   const pickupStrip = useWebSocketStore((state) => state.pickupStrip);
   const startRequestAndTransfer = useWebSocketStore((state) => state.startRequestAndTransfer);
   const setStartReq = useWebSocketStore((state) => state.setStartReq);
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const myPosition = useMyPosition();
-  const nonClearedStrips = useNonClearedStrips();
   const markArmed = useMarkArmed();
   const selectedCallsign = useSelectedCallsign();
   const selectStrip = useSelectStrip();
@@ -121,7 +118,6 @@ export default function EST() {
   const standAssignments = useStandAssignments();
   const occupyStand = useOccupyStand();
   const vacateStand = useVacateStand();
-  const requestManualStand = useRequestManualStand();
   const stripTransfers = useStripTransfers();
 
   const [menuState, setMenuState] = useState<{ stand: string; anchor: EstMenuAnchor } | null>(null);
@@ -363,6 +359,10 @@ export default function EST() {
       return;
     }
 
+    if (statusStrip) {
+      move(statusStrip.callsign, Bay.Hidden);
+    }
+
     if (satEnabled) {
       const block = standBlocks.find((candidate) =>
         candidate.stand === statusStand &&
@@ -379,6 +379,16 @@ export default function EST() {
     setMenuState(null);
   }
 
+  function handleCleared() {
+    if (!statusStand || statusStrip?.bay !== Bay.NotCleared) {
+      return;
+    }
+
+    move(statusStrip.callsign, Bay.Cleared);
+    setStatusStand(null);
+    setMenuState(null);
+  }
+
   function handleClearFpl() {
     if (!statusStand || !statusStrip) {
       return;
@@ -389,18 +399,12 @@ export default function EST() {
     setMenuState(null);
   }
 
-  function handleAssignPlannedDeparture(strip: FrontendStrip) {
-    if (!statusStand) {
+  function handlePlannedDeparture() {
+    if (!statusStand || statusStrip?.bay !== Bay.Cleared) {
       return;
     }
 
-    if (satEnabled) {
-      const version = standAssignments.find((assignment) => assignment.callsign === strip.callsign)?.version ?? 0;
-      requestManualStand(strip.callsign, statusStand, version);
-    } else {
-      clearBlockedStand(statusStand);
-      updateStrip(strip.callsign, { stand: statusStand });
-    }
+    move(statusStrip.callsign, Bay.NotCleared);
     setStatusStand(null);
     setMenuState(null);
   }
@@ -535,15 +539,16 @@ export default function EST() {
           stand={statusStand}
           anchor={statusAnchor}
           strip={statusStrip}
-          nonClearedStrips={nonClearedStrips}
+          blocked={!!blockedStandsDerived[statusStand]}
           onClose={() => {
             setStatusStand(null);
             setStatusAnchor(null);
           }}
           onOccupied={handleStandOccupied}
           onVacant={handleStandVacant}
+          onCleared={handleCleared}
           onClearFpl={handleClearFpl}
-          onAssignPlannedDeparture={handleAssignPlannedDeparture}
+          onPlannedDeparture={handlePlannedDeparture}
         />
       )}
 

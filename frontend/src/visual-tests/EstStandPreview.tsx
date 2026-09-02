@@ -1,10 +1,12 @@
 import { createRoot } from "react-dom/client";
+import { useState } from "react";
 
 /* eslint-disable react-refresh/only-export-components -- isolated Playwright fixture entry point */
 
 import "@/index.css";
 import { Bay, type FrontendStandAssignmentEntry, type FrontendStrip } from "@/api/models";
 import EstStandCell from "@/components/est/EstStandCell";
+import EstStandStatusDialog from "@/components/est/EstStandStatusDialog";
 import { deriveEstStandDisplay } from "@/components/est/standDisplay";
 
 function makeArrival(callsign: string, stand: string, bay: Bay): FrontendStrip {
@@ -58,6 +60,7 @@ const arrivalAssignments: FrontendStandAssignmentEntry[] = [
   { callsign: "SAS900", stand: "A20", direction: "DEPARTURE", stage: "RESERVED", source: "AUTOMATIC" },
 ];
 const display = deriveEstStandDisplay([assignedInbound, parkedArrival, reservedDeparture], arrivalAssignments, true);
+const clearedDeparture = makeArrival("SAS123", "C32", Bay.Cleared);
 
 function PreviewCell({ stand }: { stand: string }) {
   return (
@@ -77,6 +80,8 @@ function PreviewCell({ stand }: { stand: string }) {
 }
 
 function EstStandPreview() {
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+
   return (
     <main className="min-h-screen bg-[#767676] p-10 text-white">
       <h1 className="mb-2 text-2xl font-bold">EST arrival stand visibility</h1>
@@ -98,6 +103,28 @@ function EstStandPreview() {
           <p className="max-w-44 text-center text-xs">No SAT reservation information before physical occupancy</p>
         </section>
       </div>
+
+      <button
+        type="button"
+        className="mt-8 bg-[#3f3f3f] px-5 py-3 font-semibold shadow"
+        onClick={() => setStatusDialogOpen(true)}
+      >
+        Show stand status dialog
+      </button>
+
+      <EstStandStatusDialog
+        open={statusDialogOpen}
+        stand="C32"
+        anchor={null}
+        strip={clearedDeparture}
+        blocked={false}
+        onClose={() => setStatusDialogOpen(false)}
+        onOccupied={() => undefined}
+        onVacant={() => undefined}
+        onCleared={() => undefined}
+        onClearFpl={() => undefined}
+        onPlannedDeparture={() => undefined}
+      />
     </main>
   );
 }

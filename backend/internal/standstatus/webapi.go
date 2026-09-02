@@ -73,12 +73,18 @@ type WebAPI struct {
 }
 
 type standStatusResponse struct {
-	GeneratedAt   string                               `json:"generated_at"`
-	System        standStatusSystemResponse            `json:"system"`
-	Configuration WebAPIDiagnostics                    `json:"configuration"`
-	Feed          standStatusFeedResponse              `json:"feed"`
-	Failures      []standdiagnostics.AllocationFailure `json:"failures"`
-	Sessions      []standStatusSessionResponse         `json:"sessions"`
+	GeneratedAt   string                       `json:"generated_at"`
+	System        standStatusSystemResponse    `json:"system"`
+	Configuration WebAPIDiagnostics            `json:"configuration"`
+	Feed          standStatusFeedResponse      `json:"feed"`
+	Failures      []standStatusFailureResponse `json:"failures"`
+	Sessions      []standStatusSessionResponse `json:"sessions"`
+}
+
+type standStatusFailureResponse struct {
+	standdiagnostics.AllocationFailure
+	FirstOccurredAt time.Time `json:"first_occurred_at"`
+	Occurrences     int       `json:"occurrences"`
 }
 
 type standStatusSystemResponse struct {
@@ -204,17 +210,19 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 		System:        a.systemStatus(),
 		Configuration: a.config.Diagnostics,
 		Feed:          a.feedStatus(),
-		Failures:      []standdiagnostics.AllocationFailure{},
+		Failures:      []standStatusFailureResponse{},
 		Sessions:      []standStatusSessionResponse{},
 	}
 	if a.config.Failures != nil {
 		if failures := a.config.Failures.List(); failures != nil {
 			cutoff := now.Add(-2 * time.Hour)
+			recent := make([]standdiagnostics.AllocationFailure, 0, len(failures))
 			for _, failure := range failures {
 				if !failure.OccurredAt.Before(cutoff) {
-					response.Failures = append(response.Failures, failure)
+					recent = append(recent, failure)
 				}
 			}
+			response.Failures = coalesceStandFailures(recent)
 		}
 	}
 
@@ -261,6 +269,48 @@ func (a *WebAPI) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return left.SessionID < right.SessionID
 	})
 	writeJSON(w, http.StatusOK, response)
+}
+
+// coalesceStandFailures keeps the debug page actionable when an unchanged
+// aircraft-data or capacity problem is retried repeatedly. A stage change or a
+// different outcome/reason remains a separate row, so operational escalation
+// from ESTIMATED warning to ASSIGNED/CONFIRMED error is never hidden.
+func coalesceStandFailures(failures []standdiagnostics.AllocationFailure) []standStatusFailureResponse {
+	type failureKey struct {
+		sessionID      int32
+		airport        string
+		callsign       string
+		command        string
+		outcome        string
+		severity       standdiagnostics.AllocationSeverity
+		stage          string
+		reason         string
+		attemptedStand string
+	}
+
+	result := make([]standStatusFailureResponse, 0, len(failures))
+	indexes := make(map[failureKey]int, len(failures))
+	for _, failure := range failures {
+		key := failureKey{
+			sessionID: failure.SessionID, airport: failure.Airport, callsign: failure.Callsign,
+			command: failure.Command, outcome: failure.Outcome, severity: failure.Severity,
+			stage: failure.Stage, reason: failure.Reason, attemptedStand: failure.AttemptedStand,
+		}
+		if index, found := indexes[key]; found {
+			result[index].Occurrences++
+			if failure.OccurredAt.Before(result[index].FirstOccurredAt) {
+				result[index].FirstOccurredAt = failure.OccurredAt
+			}
+			continue
+		}
+		indexes[key] = len(result)
+		result = append(result, standStatusFailureResponse{
+			AllocationFailure: failure,
+			FirstOccurredAt:   failure.OccurredAt,
+			Occurrences:       1,
+		})
+	}
+	return result
 }
 
 func (a *WebAPI) systemStatus() standStatusSystemResponse {
@@ -355,10 +405,13 @@ func mapStandStatusSession(session *models.Session, assignments []*models.StandA
 			CreatedAt: assignment.CreatedAt, UpdatedAt: assignment.UpdatedAt,
 		}
 		if assignment.Direction == "DEPARTURE" {
+			mapped.PlannedReleaseAt = assignment.ProjectedReleaseAt
 			if strip := stripsByCallsign[strings.ToUpper(strings.TrimSpace(assignment.Callsign))]; strip != nil {
 				mapped.DepartureTOBT = strip.EffectiveTobt()
 				mapped.DepartureTSAT = strip.EffectiveTsat()
-				mapped.PlannedReleaseAt = scheduledDepartureReleaseAt(strip, now)
+				if mapped.PlannedReleaseAt == nil {
+					mapped.PlannedReleaseAt = scheduledDepartureReleaseAt(strip, now)
+				}
 			}
 		}
 		response.Assignments = append(response.Assignments, mapped)

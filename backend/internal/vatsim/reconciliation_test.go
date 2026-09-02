@@ -3,10 +3,10 @@ package vatsim
 import (
 	"FlightStrips/internal/models"
 	"context"
-	"errors"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -99,7 +99,7 @@ func (s reconciliationTestAssignments) GetAssignment(_ context.Context, session 
 	if s.active[assignmentKey(session, callsign)] {
 		return &models.StandAssignment{SessionID: session, Callsign: callsign}, nil
 	}
-	return nil, errors.New("not found")
+	return nil, pgx.ErrNoRows
 }
 
 func assignmentKey(session int32, callsign string) string {
@@ -116,7 +116,7 @@ func (s expiryTestAssignments) GetAssignment(_ context.Context, session int32, c
 	if expiry, ok := s.expiry[assignmentKey(session, callsign)]; ok {
 		return &models.StandAssignment{SessionID: session, Callsign: callsign, ExpiresAt: expiry}, nil
 	}
-	return nil, errors.New("not found")
+	return nil, pgx.ErrNoRows
 }
 
 type reconciliationTestNotifier struct{ callsigns []string }
@@ -145,6 +145,70 @@ type reconciliationTestArrivalLifecycle struct {
 	processed []string
 }
 
+type reconciliationOrderLifecycle struct {
+	events     []string
+	priorities map[string]int
+}
+
+type reconciliationConvergenceLifecycle struct {
+	assignments     *reconciliationTestAssignments
+	processed       []string
+	capacityChanged bool
+}
+
+func (l *reconciliationConvergenceLifecycle) ProcessArrival(_ context.Context, session int32, strip *models.Strip, _ ArrivalFlightInfo) error {
+	l.processed = append(l.processed, strip.Callsign)
+	key := assignmentKey(session, strip.Callsign)
+	if strip.Callsign == "AAA101" {
+		if l.capacityChanged {
+			l.assignments.assignments[key] = &models.StandAssignment{SessionID: session, Callsign: strip.Callsign, Stand: "E83", Stage: "ASSIGNED", Source: "AUTOMATIC"}
+		}
+		return nil
+	}
+	if !l.capacityChanged {
+		l.capacityChanged = true
+		updated := *l.assignments.assignments[key]
+		updated.Version++
+		l.assignments.assignments[key] = &updated
+	}
+	return nil
+}
+
+func (*reconciliationConvergenceLifecycle) CancelArrival(context.Context, int32, string) error {
+	return nil
+}
+
+func (*reconciliationConvergenceLifecycle) ArrivalProcessingPriority(*models.Strip, ArrivalFlightInfo, *models.StandAssignment) int {
+	return 2
+}
+
+func (l *reconciliationOrderLifecycle) ProcessDeparture(_ context.Context, _ int32, strip *models.Strip, _ DepartureFlightInfo) error {
+	l.events = append(l.events, "departure:"+strip.Callsign)
+	return nil
+}
+
+func (l *reconciliationOrderLifecycle) CancelDeparture(context.Context, int32, string) error {
+	return nil
+}
+
+func (l *reconciliationOrderLifecycle) ProcessArrival(_ context.Context, _ int32, strip *models.Strip, _ ArrivalFlightInfo) error {
+	l.events = append(l.events, "arrival:"+strip.Callsign)
+	return nil
+}
+
+func (l *reconciliationOrderLifecycle) CancelArrival(_ context.Context, _ int32, callsign string) error {
+	l.events = append(l.events, "cancel-arrival:"+callsign)
+	return nil
+}
+
+func (l *reconciliationOrderLifecycle) ArrivalProcessingPriority(strip *models.Strip, _ ArrivalFlightInfo, assignment *models.StandAssignment) int {
+	priority := l.priorities[strip.Callsign]
+	if assignment != nil && assignment.Stage == "CONFIRMED" {
+		return 3
+	}
+	return priority
+}
+
 func (l *reconciliationTestArrivalLifecycle) ProcessArrival(_ context.Context, _ int32, strip *models.Strip, _ ArrivalFlightInfo) error {
 	l.processed = append(l.processed, strip.Callsign)
 	return nil
@@ -163,6 +227,73 @@ func newReconciliationTestCache(now time.Time, flights ...Flight) *Cache {
 	}
 	cache.snapshot = snapshot
 	return cache
+}
+
+func TestReconcileProcessesAllDeparturesBeforeArrivals(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	existingStand := "E82"
+	cache := newReconciliationTestCache(now,
+		Flight{CID: "1", Callsign: "AAA101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EGLL", Destination: "EKCH", Revision: 1}},
+		Flight{CID: "2", Callsign: "BBB303", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EDDF", Destination: "EKCH", Revision: 1}},
+		Flight{CID: "4", Callsign: "CCC404", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ESSA", Destination: "EKCH", Revision: 1}},
+		Flight{CID: "3", Callsign: "ZZZ202", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Revision: 1}},
+	)
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {{Callsign: "CCC404", Session: 7, Destination: "EKCH", Stand: &existingStand}}}}
+	lifecycle := &reconciliationOrderLifecycle{priorities: map[string]int{"AAA101": 1, "BBB303": 3, "CCC404": 3}}
+	assignments := reconciliationTestAssignments{assignments: map[string]*models.StandAssignment{
+		assignmentKey(7, "CCC404"): {SessionID: 7, Callsign: "CCC404", Stand: existingStand, Stage: "CONFIRMED"},
+	}}
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, assignments, nil, time.Second)
+	reconciler.lifecycle = lifecycle
+	reconciler.arrivalLifecycle = lifecycle
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, []string{"departure:ZZZ202", "arrival:CCC404", "arrival:BBB303", "arrival:AAA101"}, lifecycle.events,
+		"departure occupancy, existing commitments, and higher-stage arrivals must settle before new lower-stage arrivals choose stands")
+}
+
+func TestArrivalReconciliationConvergesAfterLaterFlightChangesCapacity(t *testing.T) {
+	assignments := &reconciliationTestAssignments{assignments: map[string]*models.StandAssignment{
+		assignmentKey(7, "AAA101"): {SessionID: 7, Callsign: "AAA101", Stand: "E71", Stage: "ESTIMATED", Source: "AUTOMATIC"},
+		assignmentKey(7, "BBB202"): {SessionID: 7, Callsign: "BBB202", Stand: "E74", Stage: "ASSIGNED", Source: "AUTOMATIC"},
+	}}
+	stripStore := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {
+		{Callsign: "AAA101"}, {Callsign: "BBB202"},
+	}}}
+	lifecycle := &reconciliationConvergenceLifecycle{assignments: assignments}
+	reconciler := &Reconciler{strips: stripStore, assignments: assignments, arrivalLifecycle: lifecycle}
+	strips := map[string]*models.Strip{
+		"AAA101": stripStore.bySession[7][0],
+		"BBB202": stripStore.bySession[7][1],
+	}
+	flights := []Flight{{Callsign: "AAA101"}, {Callsign: "BBB202"}}
+
+	require.NoError(t, reconciler.processArrivalFlights(context.Background(), 7, strips, flights, true))
+
+	assert.Equal(t, "E83", assignments.assignments[assignmentKey(7, "AAA101")].Stand)
+	assert.Equal(t, "ASSIGNED", assignments.assignments[assignmentKey(7, "AAA101")].Stage)
+	assert.Equal(t, []string{"AAA101", "BBB202", "AAA101", "BBB202", "AAA101", "BBB202"}, lifecycle.processed,
+		"the final pass must prove that no assignment changes on the same feed generation")
+}
+
+func TestReconcileCancelsAbsentArrivalsBeforeAllocatingPresentFlights(t *testing.T) {
+	now := time.Date(2026, 8, 3, 19, 50, 54, 0, time.UTC)
+	cid := "1"
+	cache := newReconciliationTestCache(now,
+		Flight{CID: "2", Callsign: "DLH115", State: FlightStateOnline, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EDDF", Destination: "EKCH", Revision: 1}},
+	)
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {
+		{Callsign: "OLD100", Session: 7, Origin: "EGLL", Destination: "EKCH", VatsimCID: &cid},
+	}}}
+	lifecycle := &reconciliationOrderLifecycle{priorities: map[string]int{"DLH115": 2}}
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler.lifecycle = lifecycle
+	reconciler.arrivalLifecycle = lifecycle
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+
+	assert.Equal(t, []string{"cancel-arrival:OLD100", "arrival:DLH115"}, lifecycle.events,
+		"capacity released by the current feed generation must be visible to its arrival allocation")
 }
 
 func TestReconcileCreatesPrefileDepartureAndHiddenArrivals(t *testing.T) {

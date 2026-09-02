@@ -141,6 +141,35 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		assert.Nil(t, displacedStrip.Stand)
 	})
 
+	t.Run("keeps non-overlapping reservations on the same stand", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SASETA1")
+		testdata.SeedTestStrip(t, queries, session, "SASETA2")
+		now := time.Now().UTC()
+		service.now = func() time.Time { return now }
+		firstETA := now.Add(20 * time.Minute)
+		first := withStand(standAllocationRequest(session, "SASETA1"), "A1")
+		first.Stage = StageEstimated
+		first.ETA = &firstETA
+		_, err := service.AssignManually(ctx, first)
+		require.NoError(t, err)
+		require.NoError(t, service.CreateManualBlock(ctx, "EKCH", &models.StandBlock{
+			SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
+		}))
+
+		secondETA := firstETA.Add(arrivalStandRetention)
+		second := standAllocationRequest(session, "SASETA2")
+		second.Stage = StageAssigned
+		second.ETA = &secondETA
+		result, err := service.Allocate(ctx, second)
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+		assert.Empty(t, result.RemovedAssignments, "a shared future reservation must not delete the earlier non-overlapping booking")
+		retained, err := assignments.GetAssignment(ctx, session, "SASETA1")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", retained.Stand)
+	})
+
 	t.Run("future arrival booking does not occupy its stand before ETA", func(t *testing.T) {
 		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS106")
@@ -161,8 +190,8 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		assert.Equal(t, "A1", result.Assignment.Stand)
 	})
 
-	t.Run("arrival booking occupies its stand from ETA", func(t *testing.T) {
-		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
+	t.Run("observed departure warns without moving a confirmed arrival", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS108")
 		testdata.SeedTestStrip(t, queries, session, "SAS109")
 		now := time.Now().UTC()
@@ -179,8 +208,15 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		departure.Direction = sat.AssignmentDirectionDeparture
 		departure.FlightFacts.Direction = sat.Departure
 		departure.Stage = StageDepartureBlock
-		_, err = service.assignObservedStand(ctx, departure)
-		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+		result, err := service.assignObservedStand(ctx, departure)
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+		assert.Empty(t, result.RemovedAssignments)
+		require.NotNil(t, result.Assignment.ConflictReason)
+		assert.Contains(t, *result.Assignment.ConflictReason, "confirmed arrival")
+		retained, err := assignments.GetAssignment(ctx, session, "SAS108")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", retained.Stand, "physical blocking warns but does not churn a confirmed route")
 	})
 
 	t.Run("parked arrival adopts an observed stand with a confirmed booking conflict", func(t *testing.T) {
@@ -206,8 +242,8 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		assert.Equal(t, "A1", retained.Stand, "the existing confirmed booking remains visible for conflict resolution")
 	})
 
-	t.Run("future arrival booking blocks a departure whose TOBT release is after ETA", func(t *testing.T) {
-		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
+	t.Run("physical departure displaces a provisional booking even when release overlaps ETA", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS110")
 		testdata.SeedTestStrip(t, queries, session, "SAS111")
 		now := time.Now().UTC()
@@ -224,8 +260,46 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		departure.FlightFacts.Direction = sat.Departure
 		departure.Stage = StageDepartureBlock
 		departure.DepartureTOBT = &laterTobt
-		_, err = service.assignObservedStand(ctx, departure)
-		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+		result, err := service.assignObservedStand(ctx, departure)
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+		assert.Nil(t, result.Assignment.ConflictReason)
+		require.Len(t, result.RemovedAssignments, 1)
+		assert.Equal(t, "SAS110", result.RemovedAssignments[0].Callsign)
+		_, err = assignments.GetAssignment(ctx, session, "SAS110")
+		require.Error(t, err, "physical truth removes the provisional arrival before committing the departure")
+	})
+
+	t.Run("departure readiness dynamically changes confirmed overlap classification", func(t *testing.T) {
+		service, session, _ := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS114")
+		eta := time.Now().UTC().Add(time.Hour)
+		arrival := withStand(standAllocationRequest(session, "SAS114"), "A1")
+		arrival.Stage = StageConfirmed
+		arrival.ETA = &eta
+		_, err := service.AssignManually(ctx, arrival)
+		require.NoError(t, err)
+
+		tobt := eta.Add(-5 * time.Minute)
+		departure := standAllocationRequest(session, "SAS115")
+		departure.Direction = sat.AssignmentDirectionDeparture
+		departure.FlightFacts.Direction = sat.Departure
+		departure.Stage = StageDepartureBlock
+		departure.DepartureTOBT = &tobt
+		conflict, err := service.ConfirmedArrivalConflictAtStand(ctx, departure, "A1")
+		require.NoError(t, err)
+		assert.True(t, conflict)
+
+		departure.DepartureReady = true
+		conflict, err = service.ConfirmedArrivalConflictAtStand(ctx, departure, "A1")
+		require.NoError(t, err)
+		assert.False(t, conflict, "START REQ removes the conservative post-TOBT buffer without moving the arrival")
+
+		lateTSAT := eta.Add(time.Hour)
+		departure.DepartureTSAT = &lateTSAT
+		conflict, err = service.ConfirmedArrivalConflictAtStand(ctx, departure, "A1")
+		require.NoError(t, err)
+		assert.True(t, conflict, "START REQ must never bypass a substantially later TSAT")
 	})
 
 	t.Run("future arrival booking blocks an overlapping later inbound", func(t *testing.T) {
@@ -483,7 +557,7 @@ WTC:M
 	require.ErrorIs(t, err, ErrNoCompatibleStand)
 }
 
-func TestEstimatedArrivalIsSoftReservationUntilPromoted(t *testing.T) {
+func TestEstimatedArrivalReservationUsesOccupancyWindows(t *testing.T) {
 	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
 STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
 WTC:M
@@ -519,11 +593,24 @@ WTC:M
 	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
 	assert.Contains(t, unavailable["A1"], "soft-reserved by ARR1", "the soft reservation remains after an ETA becomes available")
 
+	laterETA := eta.Add(3 * arrivalStandRetention)
+	request.Direction = sat.AssignmentDirectionArrival
+	request.Stage = StageAssigned
+	request.ETA = &laterETA
+	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
+	assert.Empty(t, unavailable["A1"], "non-overlapping arrival windows may share one stand")
+
+	request.ETA = &eta
+	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "soft-reserved by ARR1", "overlapping arrival windows remain exclusive")
 	request.DisplaceStage = StageEstimated
 	unavailable = service.availability(request, []*models.StandAssignment{arrival}, nil, matches)
 	assert.Empty(t, unavailable["A1"], "a request explicitly allowed to displace ESTIMATED may use the stand")
 	request.DisplaceStage = ""
 
+	request.Direction = sat.AssignmentDirectionDeparture
+	request.Stage = ""
+	request.ETA = nil
 	arrival.Stage = StageAssigned
 	departureTOBT := eta.Add(-5 * time.Minute)
 	request.DepartureTOBT = &departureTOBT
@@ -542,7 +629,7 @@ func TestArrivalReservationWindowsAreSymmetric(t *testing.T) {
 	requestETA := time.Date(2026, 8, 10, 18, 45, 0, 0, time.UTC)
 	existingETA := time.Date(2026, 8, 10, 19, 0, 0, 0, time.UTC)
 	request := StandAllocationRequest{
-		Callsign: "EARLY", Direction: sat.AssignmentDirectionArrival, ETA: &requestETA,
+		Callsign: "EARLY", Direction: sat.AssignmentDirectionArrival, Stage: StageAssigned, ETA: &requestETA,
 	}
 	existing := &models.StandAssignment{
 		Callsign: "LATE", Stand: "A1", Direction: string(sat.AssignmentDirectionArrival),
@@ -560,6 +647,45 @@ func TestArrivalReservationWindowsAreSymmetric(t *testing.T) {
 	requestETA = existingETA.Add(arrivalStandRetention)
 	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
 	assert.Empty(t, unavailable["A1"], "the stand can be reused after the existing retention window")
+
+	request.Stage = StageEstimated
+	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Empty(t, unavailable["A1"], "ESTIMATED also reuses a stand when reservation windows do not overlap")
+}
+
+func TestArrivalReusesStandAfterDepartureEffectiveRelease(t *testing.T) {
+	now := time.Date(2026, 8, 10, 19, 0, 0, 0, time.UTC)
+	service := &StandAllocationService{now: func() time.Time { return now }}
+	arrivalETA := now.Add(45 * time.Minute)
+	releaseBeforeETA := arrivalETA.Add(-time.Minute)
+	request := StandAllocationRequest{Callsign: "ARR1", Direction: sat.AssignmentDirectionArrival, Stage: StageEstimated, ETA: &arrivalETA}
+	existing := &models.StandAssignment{Callsign: "DEP1", Stand: "A1", Direction: string(sat.AssignmentDirectionDeparture), Stage: StageDepartureBlock, ExpiresAt: &releaseBeforeETA}
+	matches := map[string]sat.StandCompatibilityMatch{"A1": {}}
+
+	unavailable := service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Empty(t, unavailable["A1"], "arrival may reserve a stand released before its ETA")
+
+	releaseAfterETA := arrivalETA.Add(time.Minute)
+	existing.ExpiresAt = &releaseAfterETA
+	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "reserved by DEP1", "departure release after ETA blocks the arrival")
+
+	existing.ExpiresAt = nil
+	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "reserved by DEP1", "unknown departure release remains conservative")
+
+	existing.ProjectedReleaseAt = &releaseBeforeETA
+	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Empty(t, unavailable["A1"], "a physically occupied departure retains no expiry but may share after its projected release")
+
+	existing.ProjectedReleaseAt = &releaseAfterETA
+	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Contains(t, unavailable["A1"], "reserved by DEP1", "a physical departure still blocks an arrival before projected release")
+
+	staleRelease := now.Add(-time.Minute)
+	existing.ProjectedReleaseAt = &staleRelease
+	unavailable = service.availability(request, []*models.StandAssignment{existing}, nil, matches)
+	assert.Empty(t, unavailable["A1"], "a missed projection does not evict the physical block but may reserve a later non-overlapping arrival")
 }
 
 func TestActiveArrivalExpiryOverridesFutureETAReservation(t *testing.T) {
@@ -589,21 +715,27 @@ func TestFutureArrivalUsesEffectiveDepartureRelease(t *testing.T) {
 		Direction: sat.AssignmentDirectionDeparture, DepartureTOBT: &pastTOBT, ExpiresAt: &reservationExpiry,
 	}
 
-	assert.True(t, futureArrivalBlocksRequest(arrivalETA, request), "the persisted hold wins over a stale TOBT")
+	assert.True(t, futureArrivalBlocksRequest(arrivalETA, request, defaultDepartureBlockExtension), "the persisted hold wins over a stale TOBT")
 	request.ExpiresAt = nil
 	request.DepartureTOBT = nil
-	assert.False(t, futureArrivalBlocksRequest(arrivalETA, request), "an observed departure may use the stand before a future reservation begins")
+	assert.True(t, futureArrivalBlocksRequest(arrivalETA, request, defaultDepartureBlockExtension), "unknown departure release cannot prove safe reuse")
 
 	releaseBeforeArrival := arrivalETA.Add(-time.Second)
 	request.ExpiresAt = &releaseBeforeArrival
-	assert.False(t, futureArrivalBlocksRequest(arrivalETA, request), "a bounded hold ending before ETA can reuse the stand")
+	assert.False(t, futureArrivalBlocksRequest(arrivalETA, request, defaultDepartureBlockExtension), "a bounded hold ending before ETA can reuse the stand")
+
+	configuredRelease := arrivalETA.Add(-12 * time.Minute)
+	request.ExpiresAt = nil
+	request.DepartureTOBT = &configuredRelease
+	assert.False(t, futureArrivalBlocksRequest(arrivalETA, request, 10*time.Minute), "release plus the shorter buffer clears before ETA")
+	assert.True(t, futureArrivalBlocksRequest(arrivalETA, request, 15*time.Minute), "the configured buffer participates in observed-position availability")
 
 	activeArrival := StandAllocationRequest{
 		Direction: sat.AssignmentDirectionArrival, ETA: &pastTOBT, ExpiresAt: &reservationExpiry,
 	}
-	assert.True(t, futureArrivalBlocksRequest(arrivalETA, activeArrival), "an active arrival uses its physical release instead of its stale filed ETA")
+	assert.True(t, futureArrivalBlocksRequest(arrivalETA, activeArrival, defaultDepartureBlockExtension), "an active arrival uses its physical release instead of its stale filed ETA")
 	activeArrival.ExpiresAt = &releaseBeforeArrival
-	assert.False(t, futureArrivalBlocksRequest(arrivalETA, activeArrival), "an active arrival can share with a later reservation after its physical release")
+	assert.False(t, futureArrivalBlocksRequest(arrivalETA, activeArrival, defaultDepartureBlockExtension), "an active arrival can share with a later reservation after its physical release")
 }
 
 func TestUnsafeAssignmentReconciliationPrefersPhysicalOccupancy(t *testing.T) {
@@ -632,6 +764,20 @@ STAND:EKCH:A11:N055.37.42.711:E012.38.33.451:30
 	assert.ElementsMatch(t, []string{"BTI64B", "DLH2412"}, []string{losers[0].Callsign, losers[1].Callsign})
 }
 
+func TestUnsafeAssignmentReconciliationNeverRemovesConfirmed(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader("STAND:EKCH:A17:N055.37.42.710:E012.38.33.450:30\n"))
+	require.NoError(t, err)
+	now := time.Date(2026, 8, 10, 19, 57, 0, 0, time.UTC)
+	eta := now.Add(5 * time.Minute)
+	service := &StandAllocationService{stands: registry, now: func() time.Time { return now }}
+	confirmed := &models.StandAssignment{ID: 1, Callsign: "STABLE1", Stand: "A17", Direction: "ARRIVAL", Stage: StageConfirmed, ETA: &eta}
+	assigned := &models.StandAssignment{ID: 2, Callsign: "PLANNED1", Stand: "A17", Direction: "ARRIVAL", Stage: StageAssigned, ETA: &eta}
+
+	losers := service.unsafeAssignmentLosers("EKCH", []*models.StandAssignment{assigned, confirmed}, now)
+	require.Len(t, losers, 1)
+	assert.Equal(t, "PLANNED1", losers[0].Callsign)
+}
+
 func TestStandAssignmentExpiryRequiresPersistedDeadline(t *testing.T) {
 	now := time.Date(2026, 8, 10, 20, 0, 0, 0, time.UTC)
 	staleETA := now.Add(-arrivalStandRetention)
@@ -639,6 +785,27 @@ func TestStandAssignmentExpiryRequiresPersistedDeadline(t *testing.T) {
 	assert.False(t, standAssignmentExpired(&models.StandAssignment{Direction: string(sat.AssignmentDirectionArrival), ETA: &staleETA}, now), "a delayed inbound may retain a stale ETA")
 	assert.True(t, standAssignmentExpired(&models.StandAssignment{Direction: string(sat.AssignmentDirectionArrival), ExpiresAt: &expiredAt}, now))
 	assert.False(t, standAssignmentExpired(&models.StandAssignment{Direction: string(sat.AssignmentDirectionDeparture)}, now))
+}
+
+func TestDisplacementUsesSelectedVariantBlocks(t *testing.T) {
+	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
+STAND:EKCH:A1:N055.37.42.710:E012.38.33.450:30
+WTC:M
+STAND:EKCH:A2:N055.37.42.711:E012.38.33.451:30
+WTC:M
+STAND:EKCH:A2:N055.37.42.711:E012.38.33.451:30
+WTC:H
+BLOCKS:A1
+`))
+	require.NoError(t, err)
+	service := &StandAllocationService{stands: registry}
+	assigned := &models.StandAssignment{
+		Callsign: "ARR1", Stand: "A1", Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned,
+	}
+
+	assert.Contains(t, service.configuredStandBlocks("EKCH", "A2"), "A1", "the physical stand contains the union of variant blocks")
+	assert.False(t, service.assignmentOverlapsSelectedStand("EKCH", "A2", nil, assigned), "the selected Medium variant must not inherit the Heavy variant's block")
+	assert.True(t, service.assignmentOverlapsSelectedStand("EKCH", "A2", []string{"A1"}, assigned), "the blocking Heavy variant still displaces the overlapping assignment")
 }
 
 func TestPolicyPoolExhaustionIsDistinctFromPhysicalCapacity(t *testing.T) {
@@ -666,6 +833,10 @@ WTC:M
 
 	_, _, _, available, _, err := service.selectStand(AutomaticStandAllocation, request, evaluation, occupied, nil, nil)
 	require.ErrorIs(t, err, ErrNoPolicyStand)
+	assert.ErrorContains(t, err, "available compatible stands=A2")
+	assert.ErrorContains(t, err, "matched rule=tst")
+	assert.ErrorContains(t, err, "compatible policy path=tst:A1")
+	assert.ErrorContains(t, err, "compatible fallback=unknown:A1")
 	assert.Equal(t, []string{"A2"}, available)
 }
 
@@ -715,9 +886,20 @@ WTC:M
 
 	selected, selection, _, _, _, err := service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1}, nil, nil)
 	require.NoError(t, err)
-	assert.Equal(t, "A2", selected, "an estimated reservation neither yields nor adjacency-blocks an open stand in the same tier")
+	assert.Contains(t, []string{"A1", "A2"}, selected, "a later stage may displace the overlapping ESTIMATED neighbour to retain tier 1")
 	require.NotNil(t, selection)
 	assert.Equal(t, 1, selection.Tier)
+
+	request.Stand = "A2"
+	selected, selection, selectedMatch, _, _, err := service.selectStand(AutomaticStandReallocation, request, evaluation, []*models.StandAssignment{a1}, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "A2", selected, "promotion retains its current stand when only an ESTIMATED neighbour blocks it")
+	require.NotNil(t, selection)
+	require.NotNil(t, selectedMatch)
+	assert.True(t, service.selectedHasOverlappingEstimatedReservation(
+		[]*models.StandAssignment{a1}, selected, selectedMatch.Blocks, request, service.now(), defaultDepartureBlockExtension,
+	), "the neighbouring ESTIMATED reservation must be displaced atomically")
+	request.Stand = ""
 
 	a2 := &models.StandAssignment{
 		Callsign: "ARR2", Stand: "A2",
@@ -728,9 +910,22 @@ WTC:M
 	assert.Contains(t, []string{"A1", "A2"}, selected, "a soft reservation yields before forcing the request to tier 2")
 	require.NotNil(t, selection)
 	assert.Equal(t, 1, selection.Tier)
-	assert.True(t, selectedHasEstimatedReservation([]*models.StandAssignment{a1, a2}, selected, request.Callsign))
+	assert.True(t, service.selectedHasOverlappingEstimatedReservation([]*models.StandAssignment{a1, a2}, selected, nil, request, service.now(), defaultDepartureBlockExtension))
+
+	request.ImproveTierBelow = 2
+	assignedA1 := &models.StandAssignment{Callsign: "ARR3", Stand: "A1", Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned}
+	assignedA2 := &models.StandAssignment{Callsign: "ARR4", Stand: "A2", Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned}
+	_, _, _, _, _, err = service.selectStand(AutomaticStandReallocation, request, evaluation, []*models.StandAssignment{assignedA1, assignedA2}, nil, nil)
+	require.ErrorIs(t, err, ErrNoTierImprovement, "a promotion retry must retain its valid tier-2 stand instead of swapping to an equivalent candidate")
+
+	selected, selection, _, _, _, err = service.selectStand(AutomaticStandReallocation, request, evaluation, nil, nil, nil)
+	require.NoError(t, err)
+	assert.Contains(t, []string{"A1", "A2"}, selected)
+	require.NotNil(t, selection)
+	assert.Equal(t, 1, selection.Tier, "a promotion retry accepts a strictly better Primary stand")
 
 	request.Stage = StageEstimated
+	request.ImproveTierBelow = 0
 	request.ETA = nil
 	selected, selection, _, _, _, err = service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1, a2}, nil, nil)
 	require.NoError(t, err)
@@ -744,9 +939,9 @@ WTC:M
 	a1.ETA = &laterETA
 	selected, selection, _, _, _, err = service.selectStand(AutomaticStandAllocation, request, evaluation, []*models.StandAssignment{a1, a2}, nil, nil)
 	require.NoError(t, err)
-	assert.Contains(t, []string{"A1", "A2"}, selected, "an earlier estimated arrival may take priority over a later or untimed estimate")
+	assert.Equal(t, "A3", selected, "overlapping ESTIMATED reservations must also respect configured neighbour blocks")
 	require.NotNil(t, selection)
-	assert.Equal(t, 1, selection.Tier)
+	assert.Equal(t, 2, selection.Tier)
 
 	request.Stage = StageAssigned
 	request.ETA = nil

@@ -21,20 +21,23 @@ type StandAssignment struct {
 	ConflictReason *string
 	// ObservedStand records the physical stand seen when an assignment decision
 	// was made. It distinguishes a repeated old observation from a later move.
-	ObservedStand  *string
-	ETA            *time.Time
-	ETASource      *string
-	AssignedAt     *time.Time
-	ExpiresAt      *time.Time
-	Manual         bool
-	Acknowledged   bool
-	AcknowledgedAt *time.Time
-	AcknowledgedBy *string
-	VatsimCID      *int64
-	VatsimRevision *int64
-	Version        int32
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ObservedStand *string
+	ETA           *time.Time
+	ETASource     *string
+	AssignedAt    *time.Time
+	ExpiresAt     *time.Time
+	// ProjectedReleaseAt is planning data for an occupied departure. Unlike
+	// ExpiresAt, passing this time never proves that physical occupancy ended.
+	ProjectedReleaseAt *time.Time
+	Manual             bool
+	Acknowledged       bool
+	AcknowledgedAt     *time.Time
+	AcknowledgedBy     *string
+	VatsimCID          *int64
+	VatsimRevision     *int64
+	Version            int32
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 // StandBlock represents a closure or occupancy that is not necessarily backed

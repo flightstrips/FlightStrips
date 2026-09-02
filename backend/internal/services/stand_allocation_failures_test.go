@@ -1,19 +1,54 @@
 package services
 
 import (
+	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/standdiagnostics"
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
+func TestTierImprovementMissIsNotRecordedAsFailure(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	service, session, _ := standAllocationFixture(t, pool, queries, "", "")
+	testdata.SeedTestStrip(t, queries, session, "SASUPGRADE")
+	failures := standdiagnostics.NewAllocationFailureLog(10)
+	service.failures = failures
+	request := standAllocationRequest(session, "SASUPGRADE")
+	request.Stage = StageAssigned
+	request.ImproveTierBelow = 1
+
+	_, err := service.Reallocate(context.Background(), request)
+	require.ErrorIs(t, err, ErrNoTierImprovement)
+	require.Empty(t, failures.List(), "an optional tier-upgrade miss must not appear as an allocation error")
+}
+
+func TestAllocationFailureSeverityFollowsLifecycleStage(t *testing.T) {
+	failures := standdiagnostics.NewAllocationFailureLog(10)
+	service := &StandAllocationService{now: time.Now, failures: failures}
+	service.recordAllocationFailure(AutomaticStandAllocation, StandAllocationRequest{Stage: StageEstimated}, "no_policy_stand", ErrNoPolicyStand, 1)
+	service.recordAllocationFailure(AutomaticStandAllocation, StandAllocationRequest{Stage: StageAssigned}, "no_policy_stand", ErrNoPolicyStand, 1)
+	service.recordAllocationFailure(AutomaticStandAllocation, StandAllocationRequest{Stage: StageConfirmed}, "no_policy_stand", ErrNoPolicyStand, 1)
+
+	recorded := failures.List()
+	require.Len(t, recorded, 3)
+	require.Equal(t, standdiagnostics.SeverityError, recorded[0].Severity)
+	require.Equal(t, standdiagnostics.SeverityError, recorded[1].Severity)
+	require.Equal(t, standdiagnostics.SeverityWarning, recorded[2].Severity)
+}
+
 func TestStandAllocationRecordsRejectedRequest(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, time.July, 17, 20, 0, 0, 0, time.UTC)
+	eta := now.Add(20 * time.Minute)
+	tobt := now.Add(5 * time.Minute)
+	tsat := now.Add(10 * time.Minute)
+	etaSource := "EAT"
 	failures := standdiagnostics.NewAllocationFailureLog(10)
 	service := &StandAllocationService{now: func() time.Time { return now }, failures: failures}
 
@@ -26,6 +61,7 @@ func TestStandAllocationRecordsRejectedRequest(t *testing.T) {
 			WTC:        "M",
 		},
 		AssignmentFacts: sat.AssignmentFlightFacts{AircraftType: "A320", BorderStatus: sat.BorderStatusSchengen},
+		ETA:             &eta, ETASource: &etaSource, DepartureTOBT: &tobt, DepartureTSAT: &tsat, DepartureReady: true,
 	})
 	require.Error(t, err)
 
@@ -36,6 +72,11 @@ func TestStandAllocationRecordsRejectedRequest(t *testing.T) {
 	require.Equal(t, "invalid_request", recorded[0].Outcome)
 	require.Equal(t, "A320", recorded[0].AircraftType)
 	require.Equal(t, now, recorded[0].OccurredAt)
+	require.Equal(t, eta, *recorded[0].ETA)
+	require.Equal(t, "EAT", recorded[0].ETASource)
+	require.Equal(t, tobt, *recorded[0].DepartureTOBT)
+	require.Equal(t, tsat, *recorded[0].DepartureTSAT)
+	require.True(t, recorded[0].DepartureReady)
 }
 
 func TestStandActionRecordsPreAllocationRejection(t *testing.T) {
@@ -73,10 +114,8 @@ func TestAutomaticTerminalFailuresAreSuppressedUntilFactsChange(t *testing.T) {
 		},
 	}
 
-	for attempt := 0; attempt < automaticTerminalFailureThreshold; attempt++ {
-		require.False(t, service.automaticAllocationSuppressed(request))
-		service.noteAutomaticTerminalFailure(request, ErrNoCompatibleStand)
-	}
+	require.False(t, service.automaticAllocationSuppressed(request))
+	service.noteAutomaticTerminalFailure(request, "no_compatible_stand")
 	require.True(t, service.automaticAllocationSuppressed(request))
 
 	request.FlightFacts.AircraftKnown = true
@@ -85,25 +124,56 @@ func TestAutomaticTerminalFailuresAreSuppressedUntilFactsChange(t *testing.T) {
 	require.False(t, service.automaticAllocationSuppressed(request), "new aircraft facts must allow a fresh allocation attempt")
 }
 
-func TestAutomaticNoAvailableFailureUsesBoundedRetrySuppression(t *testing.T) {
-	now := time.Date(2026, 8, 10, 18, 0, 0, 0, time.UTC)
-	service := &StandAllocationService{now: func() time.Time { return now }}
-	request := StandAllocationRequest{SessionID: 7, Callsign: "sas123", Airport: "ekch", Direction: sat.AssignmentDirectionDeparture}
+func TestAutomaticAvailabilityFailureRetriesSilentlyUntilStateChanges(t *testing.T) {
+	service := &StandAllocationService{now: time.Now}
+	request := StandAllocationRequest{SessionID: 7, Callsign: "sas123", Airport: "ekch", Direction: sat.AssignmentDirectionArrival, Stage: StageEstimated}
 
-	service.noteAutomaticTerminalFailure(request, ErrNoAvailableStand)
-	require.True(t, service.automaticAllocationSuppressed(request))
-	now = now.Add(automaticAvailabilityRetryBase)
-	require.False(t, service.automaticAllocationSuppressed(request), "availability is retried after the cooldown")
+	service.noteAutomaticTerminalFailure(request, "no_available_stand")
+	skipAttempt, previousOutcome := service.automaticAllocationSuppression(request)
+	require.False(t, skipAttempt, "availability must still be probed so a freed stand is claimed")
+	require.Equal(t, "no_available_stand", previousOutcome, "the repeated outcome is suppressed from logs, metrics, and diagnostics")
 
-	service.noteAutomaticTerminalFailure(request, ErrNoAvailableStand)
-	now = now.Add(automaticAvailabilityRetryBase)
-	require.True(t, service.automaticAllocationSuppressed(request), "a repeated shortage uses a longer cooldown")
-	now = now.Add(automaticAvailabilityRetryBase)
-	require.False(t, service.automaticAllocationSuppressed(request), "the second cooldown expires after twice the base delay")
+	request.Stage = StageAssigned
+	skipAttempt, previousOutcome = service.automaticAllocationSuppression(request)
+	require.False(t, skipAttempt)
+	require.Empty(t, previousOutcome, "stage escalation must produce one fresh operational diagnostic")
 
-	require.Equal(t, automaticAvailabilityRetryMax, automaticAvailabilityRetryDelay(100), "backoff is capped")
 	require.True(t, isTerminalAutomaticStandShortage(ErrNoAvailableStand))
 	require.True(t, isTerminalAutomaticStandShortage(ErrNoPolicyStand))
 	require.True(t, isTerminalAutomaticStandShortage(ErrNoCompatibleStand))
 	require.Equal(t, "no_policy_stand", standAllocationFailureOutcome(ErrNoPolicyStand))
+	require.Equal(t, "no_tier_improvement", standAllocationFailureOutcome(ErrNoTierImprovement))
+}
+
+func TestObservedConflictSuppressionResetsAfterPhysicalStandChanges(t *testing.T) {
+	service := &StandAllocationService{now: time.Now}
+	observed := "A1"
+	request := StandAllocationRequest{
+		SessionID: 7, Callsign: "sas123", Airport: "ekch", Direction: sat.AssignmentDirectionDeparture,
+		Stage: StageDepartureBlock, Stand: observed, ObservedStand: &observed,
+	}
+
+	service.noteAutomaticTerminalFailure(request, "manual_stand_unavailable")
+	_, previousOutcome := service.automaticAllocationSuppression(request)
+	require.Equal(t, "manual_stand_unavailable", previousOutcome, "an unchanged physical conflict is emitted only once")
+
+	newObserved := "A2"
+	request.Stand, request.ObservedStand = newObserved, &newObserved
+	_, previousOutcome = service.automaticAllocationSuppression(request)
+	require.Empty(t, previousOutcome, "a new observed stand must produce a fresh conflict event")
+}
+
+func TestExpectedAutomaticAllocationOutcomesDoNotAbortReconciliation(t *testing.T) {
+	for _, err := range []error{
+		ErrNoCompatibleStand,
+		ErrNoAvailableStand,
+		ErrNoPolicyStand,
+		ErrAutomaticAllocationSuppressed,
+		ErrNoTierImprovement,
+	} {
+		require.NoError(t, suppressAutomaticAllocationError(err))
+	}
+
+	wanted := errors.New("database unavailable")
+	require.ErrorIs(t, suppressAutomaticAllocationError(wanted), wanted)
 }

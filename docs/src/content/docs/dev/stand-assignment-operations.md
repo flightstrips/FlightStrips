@@ -15,6 +15,12 @@ to enable those messages. The default is `false`; SAT allocation, persistence,
 stand synchronization, controller notifications, and the frontend continue to
 operate regardless of this flag.
 
+Automatic assignment is online-only by default. Offline VATSIM prefiles are
+ignored and any legacy automatic prefile reservation is released when it is
+encountered. Set `ENABLE_STAND_ASSIGNMENT_PREFILES=true` only when advance
+prefile reservations are operationally desired. Controller assignments and
+stands established from an observed EuroScope position are not affected.
+
 ## Readiness
 
 `GET /healthz` remains an HTTP 200 liveness endpoint so a SAT input failure does

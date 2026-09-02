@@ -79,6 +79,30 @@ func TestDepartureLifecycle(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()
 
+	t.Run("offline prefile is skipped unless enabled", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		lifecycle.allowPrefiles = false
+		testdata.SeedTestStrip(t, queries, session, "SASPREF1")
+
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session,
+			loadStrip(t, strips, session, "SASPREF1"), offlineFlight("SASPREF1", 1)))
+		_, err := assignments.GetAssignment(ctx, session, "SASPREF1")
+		require.Error(t, err)
+	})
+
+	t.Run("disabling prefiles releases an automatic reservation", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SASPREF2")
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session,
+			loadStrip(t, strips, session, "SASPREF2"), offlineFlight("SASPREF2", 1)))
+
+		lifecycle.allowPrefiles = false
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session,
+			loadStrip(t, strips, session, "SASPREF2"), offlineFlight("SASPREF2", 2)))
+		_, err := assignments.GetAssignment(ctx, session, "SASPREF2")
+		require.Error(t, err)
+	})
+
 	t.Run("offline prefile allocates a 15-minute reservation", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
 		testdata.SeedTestStrip(t, queries, session, "SAS101")
@@ -322,6 +346,35 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Nil(t, loadStrip(t, strips, session, "SAS612").Stand)
 		require.Len(t, published.RemovedAssignments, 1)
 		assert.Equal(t, "SAS612", published.RemovedAssignments[0].Callsign)
+	})
+
+	t.Run("observed departure displaces an adjacency-blocking provisional inbound booking", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "BLOCKS:A2", "", nil)
+		testdata.SeedTestStrip(t, queries, session, "SAS615")
+		testdata.SeedTestStrip(t, queries, session, "SAS616")
+		eta := time.Date(2026, 7, 12, 10, 20, 0, 0, time.UTC)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS616", Stand: "A1", Direction: "ARRIVAL",
+			Stage: StageAssigned, Source: "AUTOMATIC", ETA: &eta,
+		}))
+		_, err := strips.UpdateStand(ctx, session, "SAS616", strp("A1"), nil)
+		require.NoError(t, err)
+
+		var published StandAllocationResult
+		allocations.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published = result
+			return nil
+		})
+		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS615"), onlineFlightAtA2("SAS615", 1)))
+
+		departure, err := assignments.GetAssignment(ctx, session, "SAS615")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", departure.Stand)
+		_, err = assignments.GetAssignment(ctx, session, "SAS616")
+		require.Error(t, err, "the provisional adjacency blocker is released for physical truth")
+		assert.Nil(t, loadStrip(t, strips, session, "SAS616").Stand)
+		require.Len(t, published.RemovedAssignments, 1)
+		assert.Equal(t, "SAS616", published.RemovedAssignments[0].Callsign)
 	})
 
 	t.Run("observed departure publishes its physical stand when a future inbound blocks its booking", func(t *testing.T) {
@@ -621,6 +674,9 @@ func TestDepartureLifecycle(t *testing.T) {
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		if assignment, err := assignments.GetAssignment(ctx, session, "SAS701"); assert.NoError(t, err) {
 			assert.Nil(t, assignment.ExpiresAt, "the active block should not retain a TSAT expiry")
+			require.NotNil(t, assignment.ProjectedReleaseAt)
+			assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), assignment.ProjectedReleaseAt.UTC(),
+				"availability retains TSAT plus the configured buffer separately from physical expiry")
 		}
 
 		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
@@ -644,6 +700,8 @@ func TestDepartureLifecycle(t *testing.T) {
 		block, err := assignments.GetAssignment(ctx, session, "SAS801")
 		require.NoError(t, err)
 		assert.Nil(t, block.ExpiresAt, "an online aircraft on its assigned stand has no TOBT expiry")
+		require.NotNil(t, block.ProjectedReleaseAt)
+		assert.Equal(t, time.Date(2026, 7, 12, 10, 40, 0, 0, time.UTC), block.ProjectedReleaseAt.UTC())
 
 		clock.set(time.Date(2026, 7, 12, 10, 41, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
@@ -746,6 +804,35 @@ func TestDepartureLifecycle(t *testing.T) {
 	})
 }
 
+func TestDepartureBlockExpiryUsesReadinessAndLaterSlotTime(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	tobt, tsat := "1005", "1100"
+	strip := &models.Strip{StartReq: true, CdmData: &models.CdmData{Tobt: &tobt, Tsat: &tsat}}
+	lifecycle := &DepartureLifecycleService{
+		now:            func() time.Time { return now },
+		blockExtension: 10 * time.Minute,
+	}
+
+	readyExpiry := lifecycle.computeBlockExpiry(strip)
+	require.NotNil(t, readyExpiry)
+	assert.Equal(t, time.Date(2026, 7, 12, 11, 0, 0, 0, time.UTC), *readyExpiry, "START REQ uses the later TSAT without an additional buffer")
+
+	strip.StartReq = false
+	bufferedExpiry := lifecycle.computeBlockExpiry(strip)
+	require.NotNil(t, bufferedExpiry)
+	assert.Equal(t, time.Date(2026, 7, 12, 11, 10, 0, 0, time.UTC), *bufferedExpiry, "a non-ready departure retains the configured safety buffer")
+}
+
+func TestObservedDepartureConflictPreservesPriorReason(t *testing.T) {
+	prior := "controller-approved stand exception"
+	combined := observedDepartureConflictReason(&prior)
+	require.NotNil(t, combined)
+	assert.True(t, strings.HasPrefix(*combined, observedDepartureConflictPrefix))
+	assert.Contains(t, *combined, prior)
+	assert.Equal(t, &prior, priorObservedDepartureConflict(combined))
+	assert.Nil(t, priorObservedDepartureConflict(observedDepartureConflictReason(nil)))
+}
+
 func departureLifecycleFixture(t *testing.T, pool *pgxpool.Pool, queries *database.Queries, a1Directive, a2Directive string, aircraft *sat.AircraftRegistry) (*DepartureLifecycleService, *StandAllocationService, int32, repository.StandAssignmentRepository, repository.StripRepository, *fakeClock) {
 	t.Helper()
 	return departureLifecycleFixtureWithEngines(t, pool, queries, a1Directive, a2Directive, aircraft, nil)
@@ -776,6 +863,7 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.36.450:30
 	require.NoError(t, err)
 	lifecycle, err := NewDepartureLifecycleService(allocations, assignments, strips, sessions, registry, aircraft, engines, sat.NewAirportCountryRegistry(),
 		WithDepartureLifecycleClock(clock.current),
+		WithDeparturePrefileAssignments(true),
 	)
 	require.NoError(t, err)
 	lifecycle.SetWrongStandMessenger(&wrongStandTestMessenger{available: true})

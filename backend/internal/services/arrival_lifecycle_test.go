@@ -25,7 +25,55 @@ func TestArrivalLifecycle(t *testing.T) {
 	pool, queries := testdata.SetupTestDB(t)
 	ctx := context.Background()
 
-	t.Run("allocates ESTIMATED before ETA−45 and retains it", func(t *testing.T) {
+	t.Run("offline prefile is skipped unless enabled", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		lifecycle.allowPrefiles = false
+		seedTestArrivalStrip(t, queries, session, "SASPREF1")
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session,
+			loadStrip(t, strips, session, "SASPREF1"), arrivalFlight("SASPREF1", 1)))
+		_, err := assignments.GetAssignment(ctx, session, "SASPREF1")
+		require.Error(t, err)
+
+		online := arrivalFlight("SASPREF1", 1)
+		online.Online = true
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session,
+			loadStrip(t, strips, session, "SASPREF1"), online))
+		_, err = assignments.GetAssignment(ctx, session, "SASPREF1")
+		require.NoError(t, err)
+	})
+
+	t.Run("disabling prefiles releases an automatic estimate", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SASPREF2")
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session,
+			loadStrip(t, strips, session, "SASPREF2"), arrivalFlight("SASPREF2", 1)))
+
+		lifecycle.allowPrefiles = false
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session,
+			loadStrip(t, strips, session, "SASPREF2"), arrivalFlight("SASPREF2", 2)))
+		_, err := assignments.GetAssignment(ctx, session, "SASPREF2")
+		require.Error(t, err)
+	})
+
+	t.Run("retries an unassigned displacement advisory", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS099")
+		reason := "physically displaced; no compatible replacement stand available"
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS099", Direction: string(sat.AssignmentDirectionArrival),
+			Stage: StageEstimated, Source: "AUTOMATIC", ConflictReason: &reason,
+		}))
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session,
+			loadStrip(t, strips, session, "SAS099"), arrivalFlight("SAS099", 1)))
+		reassigned, err := assignments.GetAssignment(ctx, session, "SAS099")
+		require.NoError(t, err)
+		assert.NotEmpty(t, reassigned.Stand)
+		assert.Nil(t, reassigned.ConflictReason)
+	})
+
+	t.Run("starts ESTIMATED at ETA−45 and retains it", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(50 * time.Minute)
 		clock.set(arrivalETA.Add(-50 * time.Minute))
@@ -35,10 +83,8 @@ func TestArrivalLifecycle(t *testing.T) {
 		err := lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS101"), arrivalFlight("SAS101", 1))
 		require.NoError(t, err)
 
-		early, err := assignments.GetAssignment(ctx, session, "SAS101")
-		require.NoError(t, err)
-		assert.Equal(t, StageEstimated, early.Stage)
-		assert.NotEmpty(t, early.Stand)
+		_, err = assignments.GetAssignment(ctx, session, "SAS101")
+		require.Error(t, err, "the lifecycle must not reserve a stand before the ESTIMATED window")
 
 		clock.advance(6 * time.Minute)
 
@@ -48,7 +94,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS101")
 		require.NoError(t, err)
 		assert.Equal(t, StageEstimated, assignment.Stage)
-		assert.Equal(t, early.Stand, assignment.Stand)
+		assert.NotEmpty(t, assignment.Stand)
 	})
 
 	t.Run("far arrival without ETA receives an advisory ESTIMATED stand", func(t *testing.T) {
@@ -73,7 +119,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NotNil(t, timed.ETA)
 		assert.True(t, eta.Equal(*timed.ETA), "ETA instant is preserved across database timezone conversion")
 		require.NotNil(t, timed.ETASource)
-		assert.Equal(t, "ARRIVAL_ETA", *timed.ETASource)
+		assert.Equal(t, vatsim.ETAFiled, *timed.ETASource)
 		assert.Equal(t, assignment.Stand, timed.Stand)
 	})
 
@@ -204,7 +250,7 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, StageConfirmed, assignment.Stage, "promoted to CONFIRMED by altitude alone below 3000 ft")
 	})
 
-	t.Run("low altitude at origin remains ESTIMATED", func(t *testing.T) {
+	t.Run("low altitude at origin does not promote or reserve before ETA−45", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(60 * time.Minute)
 		seedTestArrivalStrip(t, queries, session, "SAS405")
@@ -214,6 +260,11 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS405"), arrivalFlight("SAS405", 1)))
 
+		_, err = assignments.GetAssignment(ctx, session, "SAS405")
+		require.Error(t, err)
+
+		clock.advance(16 * time.Minute)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS405"), arrivalFlight("SAS405", 2)))
 		assignment, err := assignments.GetAssignment(ctx, session, "SAS405")
 		require.NoError(t, err)
 		assert.Equal(t, StageEstimated, assignment.Stage)
@@ -367,6 +418,164 @@ func TestArrivalLifecycle(t *testing.T) {
 		assert.Equal(t, original.Stand, retained.Stand, "optimal Tier-1 stand is retained through promotion")
 	})
 
+	t.Run("retries Primary only at promotion boundaries", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		policy, err := sat.LoadAirlineAssignment(strings.NewReader(`{
+  "rules":[{"id":"sas","callsigns":["SAS"],"stands":{"tier1":{"A1":100},"tier2":{"A2":100}}}],
+  "stand_groups":{},
+  "fallback_rules":{`+testFallbackJSON("A2")+`}
+}`), allocations.stands)
+		require.NoError(t, err)
+		allocations.policy = policy
+
+		arrivalETA := clock.current().Add(45 * time.Minute)
+		block := &models.StandBlock{SessionID: session, Stand: "A1", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}
+		require.NoError(t, allocations.CreateManualBlock(ctx, "EKCH", block))
+		seedTestArrivalStrip(t, queries, session, "SAS802")
+		setArrivalETA(t, strips, session, "SAS802", arrivalETA)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS802"), arrivalFlight("SAS802", 1)))
+		estimated, err := assignments.GetAssignment(ctx, session, "SAS802")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", estimated.Stand)
+		require.NotNil(t, estimated.Tier)
+		assert.EqualValues(t, 2, *estimated.Tier)
+
+		clock.set(arrivalETA.Add(-10 * time.Minute))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS802"), arrivalFlight("SAS802", 2)))
+		assigned, err := assignments.GetAssignment(ctx, session, "SAS802")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, assigned.Stage)
+		assert.Equal(t, "A2", assigned.Stand, "a valid Secondary is retained while Primary remains occupied")
+
+		updated, err := allocations.DeleteManualBlock(ctx, session, block.ID, block.Version)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, updated)
+
+		clock.set(arrivalETA.Add(-time.Minute))
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS802"), arrivalFlight("SAS802", 3)))
+		confirmed, err := assignments.GetAssignment(ctx, session, "SAS802")
+		require.NoError(t, err)
+		assert.Equal(t, StageConfirmed, confirmed.Stage)
+		assert.Equal(t, "A1", confirmed.Stand, "the next promotion retries and accepts the newly available Primary")
+	})
+
+	t.Run("manual assignment promotes in place even when automatically unavailable", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "WTC:H", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS803")
+		arrivalETA := clock.current().Add(5 * time.Minute)
+		setArrivalETA(t, strips, session, "SAS803", arrivalETA)
+		tier := int32(2)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS803", Stand: "A1", Direction: "ARRIVAL",
+			Stage: StageEstimated, Source: "MANUAL_OVERRIDE", Manual: true, Tier: &tier, ETA: &arrivalETA,
+		}))
+		_, err := strips.UpdateStand(ctx, session, "SAS803", strp("A1"), nil)
+		require.NoError(t, err)
+
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS803"), arrivalFlight("SAS803", 1)))
+
+		promoted, err := assignments.GetAssignment(ctx, session, "SAS803")
+		require.NoError(t, err)
+		assert.Equal(t, StageAssigned, promoted.Stage)
+		assert.Equal(t, "A1", promoted.Stand)
+		assert.True(t, promoted.Manual)
+	})
+
+	t.Run("immediately relocates a physically displaced arrival", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, _, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS810")
+		block := &models.StandBlock{SessionID: session, Stand: "A1", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}
+		require.NoError(t, allocations.CreateManualBlock(ctx, "EKCH", block))
+		eta := clock.current().Add(5 * time.Minute)
+
+		require.NoError(t, lifecycle.reassignDisplacedArrival(ctx, models.StandAssignment{
+			SessionID: session, Callsign: "SAS810", Stand: "A1", Direction: "ARRIVAL",
+			Stage: StageAssigned, Source: "MANUAL", ETA: &eta,
+		}))
+
+		relocated, err := assignments.GetAssignment(ctx, session, "SAS810")
+		require.NoError(t, err)
+		assert.Equal(t, "A2", relocated.Stand)
+		assert.Equal(t, StageAssigned, relocated.Stage)
+		assert.False(t, relocated.Manual, "physical displacement resumes automatic stage-aware allocation")
+	})
+
+	t.Run("retains an advisory when displaced arrival relocation fails", func(t *testing.T) {
+		lifecycle, allocations, session, assignments, _, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS811")
+		for _, stand := range []string{"A1", "A2"} {
+			block := &models.StandBlock{SessionID: session, Stand: stand, BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}
+			require.NoError(t, allocations.CreateManualBlock(ctx, "EKCH", block))
+		}
+		eta := clock.current().Add(5 * time.Minute)
+
+		err := lifecycle.reassignDisplacedArrival(ctx, models.StandAssignment{
+			SessionID: session, Callsign: "SAS811", Stand: "A1", Direction: "ARRIVAL",
+			Stage: StageConfirmed, Source: "MANUAL_OVERRIDE", Manual: true, ETA: &eta,
+		})
+		require.Error(t, err)
+
+		advisory, lookupErr := assignments.GetAssignment(ctx, session, "SAS811")
+		require.NoError(t, lookupErr)
+		assert.Empty(t, advisory.Stand)
+		require.NotNil(t, advisory.ConflictReason)
+		assert.Contains(t, *advisory.ConflictReason, "physically displaced")
+	})
+
+	t.Run("stops a repeated relocation chain with an advisory", func(t *testing.T) {
+		lifecycle, _, session, assignments, _, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS812")
+		eta := clock.current().Add(20 * time.Minute)
+		chainContext := beginRelocationChain(ctx, "SAS812")
+
+		err := lifecycle.reassignDisplacedArrival(chainContext, models.StandAssignment{
+			SessionID: session, Callsign: "SAS812", Stand: "A1", Direction: "ARRIVAL",
+			Stage: StageEstimated, Source: "AUTOMATIC", ETA: &eta,
+		})
+		require.ErrorIs(t, err, ErrRelocationCycle)
+
+		advisory, lookupErr := assignments.GetAssignment(ctx, session, "SAS812")
+		require.NoError(t, lookupErr)
+		assert.Empty(t, advisory.Stand)
+		require.NotNil(t, advisory.ConflictReason)
+		assert.Contains(t, *advisory.ConflictReason, "relocation cycle")
+	})
+
+	t.Run("unsafe adjacency cleanup immediately leaves a relocation advisory", func(t *testing.T) {
+		_, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "BLOCKS:A2", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS813")
+		seedTestArrivalStrip(t, queries, session, "SAS814")
+		eta := clock.current().Add(5 * time.Minute)
+		// LockAssignments filters against the database clock, while this fixture
+		// deliberately uses a frozen application clock.
+		release := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS813", Stand: "A1", Direction: "ARRIVAL",
+			Stage: StageConfirmed, Source: "AUTOMATIC", ETA: &eta, ExpiresAt: &release,
+		}))
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS814", Stand: "A2", Direction: "ARRIVAL",
+			Stage: StageEstimated, Source: "AUTOMATIC", ETA: &eta,
+		}))
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+			SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
+		}))
+		_, err := strips.UpdateStand(ctx, session, "SAS813", strp("A1"), nil)
+		require.NoError(t, err)
+		_, err = strips.UpdateStand(ctx, session, "SAS814", strp("A2"), nil)
+		require.NoError(t, err)
+
+		require.NoError(t, allocations.ReconcileUnsafeAssignments(ctx, session, "EKCH"))
+
+		advisory, err := assignments.GetAssignment(ctx, session, "SAS814")
+		require.NoError(t, err)
+		assert.Empty(t, advisory.Stand, "cleanup must not leave the displaced arrival deleted until the next feed poll")
+		require.NotNil(t, advisory.ConflictReason)
+		assert.Contains(t, *advisory.ConflictReason, "no compatible replacement")
+		assert.Nil(t, loadStrip(t, strips, session, "SAS814").Stand)
+	})
+
 	t.Run("reallocation and released expired on restart", func(t *testing.T) {
 		_, allocations, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		arrivalETA := clock.current().Add(45 * time.Minute)
@@ -383,6 +592,7 @@ func TestArrivalLifecycle(t *testing.T) {
 			allocations, assignments, strips, postgres.NewSessionRepository(pool),
 			allocations.stands, nil, nil, sat.NewAirportCountryRegistry(),
 			WithArrivalLifecycleClock(func() time.Time { return arrivalETA.Add(-30 * time.Minute) }),
+			WithArrivalPrefileAssignments(true),
 		)
 		require.NoError(t, err)
 
@@ -443,6 +653,32 @@ func TestArrivalLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, StageEstimated, reallocated.Stage)
 		assert.NotEqual(t, original.Stand, reallocated.Stand, "reallocated to a different stand when original is blocked")
+	})
+
+	t.Run("CONFIRMED never churns after entry even when its stand becomes blocked", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		arrivalETA := clock.current().Add(time.Minute)
+		seedTestArrivalStrip(t, queries, session, "SAS919")
+		setArrivalETA(t, strips, session, "SAS919", arrivalETA)
+		require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS919"), arrivalFlight("SAS919", 1)))
+
+		confirmed, err := assignments.GetAssignment(ctx, session, "SAS919")
+		require.NoError(t, err)
+		assert.Equal(t, StageConfirmed, confirmed.Stage)
+		originalStand, originalVersion := confirmed.Stand, confirmed.Version
+
+		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
+			SessionID: session, Stand: originalStand, BlockType: "CLOSURE", Source: "CONTROLLER", Manual: true,
+		}))
+		for revision := int64(2); revision <= 5; revision++ {
+			clock.advance(30 * time.Second)
+			require.NoError(t, lifecycle.ProcessArrival(ctx, session, loadStrip(t, strips, session, "SAS919"), arrivalFlight("SAS919", revision)))
+		}
+
+		stable, err := assignments.GetAssignment(ctx, session, "SAS919")
+		require.NoError(t, err)
+		assert.Equal(t, originalStand, stable.Stand)
+		assert.Equal(t, originalVersion, stable.Version, "repeated CONFIRMED reconciliation must not rewrite or reassign the stand")
 	})
 
 	t.Run("arrival at the airport keeps its stand when the allocation becomes blocked", func(t *testing.T) {
@@ -714,9 +950,11 @@ STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
 		require.NoError(t, lifecycle.ReleaseExpired(ctx))
 		_, err = assignments.GetAssignment(ctx, session, "SAS929")
 		require.NoError(t, err, "physical occupancy remains authoritative")
-		_, err = assignments.GetAssignment(ctx, session, "SAS930")
-		require.Error(t, err, "the unsafe automatic plan is released for reallocation")
-		assert.Nil(t, loadStrip(t, strips, session, "SAS930").Stand)
+		relocated, err := assignments.GetAssignment(ctx, session, "SAS930")
+		require.NoError(t, err, "the unsafe automatic plan is immediately reconsidered after release")
+		assert.Equal(t, "A2", relocated.Stand)
+		assert.Equal(t, StageAssigned, relocated.Stage)
+		assert.Equal(t, "A2", *loadStrip(t, strips, session, "SAS930").Stand)
 	})
 
 }
@@ -853,7 +1091,9 @@ STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
 		PositionLatitude: posPtr(55.6285306), PositionLongitude: posPtr(12.642625), PositionAltitude: altPtr(0),
 	}
 
-	require.NoError(t, lifecycle.ProcessArrival(t.Context(), 7, strip, arrivalFlight("SAS931", 2)))
+	flight := arrivalFlight("SAS931", 2)
+	flight.Online = true
+	require.NoError(t, lifecycle.ProcessArrival(t.Context(), 7, strip, flight))
 	require.NotNil(t, store.updated)
 	assert.Equal(t, "A2", store.updated.Stand)
 	assert.True(t, store.updated.Manual)
@@ -1008,6 +1248,7 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.33.451:30
 	require.NoError(t, err)
 	lifecycle, err := NewArrivalLifecycleService(allocations, assignments, strips, sessions, registry, aircraft, engines, sat.NewAirportCountryRegistry(),
 		WithArrivalLifecycleClock(clock.current),
+		WithArrivalPrefileAssignments(true),
 	)
 	require.NoError(t, err)
 	name := fmt.Sprintf("%s-%d", t.Name(), standAllocationSessionSequence.Add(1))

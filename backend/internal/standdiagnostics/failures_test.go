@@ -24,3 +24,12 @@ func TestAllocationFailureLogRetainsNewestFailures(t *testing.T) {
 	failures[0].Callsign = "CHANGED"
 	require.Equal(t, "THREE", log.List()[0].Callsign)
 }
+
+func TestSeverityForStage(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, SeverityWarning, SeverityForStage("ESTIMATED"))
+	require.Equal(t, SeverityError, SeverityForStage("assigned"))
+	require.Equal(t, SeverityError, SeverityForStage(" CONFIRMED "))
+	require.Equal(t, SeverityWarning, SeverityForStage("RESERVED"))
+}

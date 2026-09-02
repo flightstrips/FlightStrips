@@ -404,11 +404,33 @@ func enrichStandAssignmentBlocking(entries []frontendEvents.StandAssignmentEntry
 			if i == j {
 				continue
 			}
-			if containsStandName(entries[j].Blocks, entries[i].Stand) || containsStandName(entries[i].Blocks, entries[j].Stand) {
+			if standAssignmentsOperationallyConflict(entries[i], entries[j]) {
 				entries[i].BlockedBy = append(entries[i].BlockedBy, entries[j].Callsign)
 			}
 		}
 	}
+}
+
+func standAssignmentsOperationallyConflict(left, right frontendEvents.StandAssignmentEntry) bool {
+	leftStand, rightStand := strings.TrimSpace(left.Stand), strings.TrimSpace(right.Stand)
+	if leftStand == "" || rightStand == "" {
+		return false
+	}
+	overlaps := strings.EqualFold(leftStand, rightStand) ||
+		containsStandName(right.Blocks, left.Stand) || containsStandName(left.Blocks, right.Stand)
+	if !overlaps {
+		return false
+	}
+	var arrival, departure *frontendEvents.StandAssignmentEntry
+	if strings.EqualFold(left.Direction, "ARRIVAL") && strings.EqualFold(right.Direction, "DEPARTURE") {
+		arrival, departure = &left, &right
+	} else if strings.EqualFold(right.Direction, "ARRIVAL") && strings.EqualFold(left.Direction, "DEPARTURE") {
+		arrival, departure = &right, &left
+	}
+	if arrival == nil || !strings.EqualFold(arrival.Stage, "CONFIRMED") {
+		return true
+	}
+	return departure.ConflictReason != nil && strings.HasPrefix(*departure.ConflictReason, "observed departure conflicts with confirmed arrival:")
 }
 
 func containsStandName(values []string, wanted string) bool {

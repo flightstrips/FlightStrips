@@ -106,6 +106,7 @@ func main() {
 		EnableTraffic:                   true,
 		EnableStandAssignment:           envBool("ENABLE_STAND_ASSIGNMENT", false),
 		EnableStandAssignmentESMessages: envBool("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES", false),
+		EnableStandAssignmentPrefiles:   envBool("ENABLE_STAND_ASSIGNMENT_PREFILES", false),
 		EnableTestTools:                 enableTestTools,
 		EnableDBSeed:                    true,
 		StandAssignmentAircraftJSON:     standAssignmentAircraftJSON,

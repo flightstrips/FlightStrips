@@ -235,31 +235,32 @@ type Session struct {
 }
 
 type StandAssignment struct {
-	ID             int64
-	SessionID      int32
-	Callsign       string
-	Stand          string
-	Direction      string
-	Stage          string
-	Source         string
-	RuleID         *string
-	Tier           *int32
-	MatchedVariant *string
-	Eta            pgtype.Timestamptz
-	EtaSource      *string
-	AssignedAt     pgtype.Timestamptz
-	ExpiresAt      pgtype.Timestamptz
-	Manual         bool
-	Acknowledged   bool
-	AcknowledgedAt pgtype.Timestamptz
-	AcknowledgedBy *string
-	VatsimCid      *int64
-	VatsimRevision *int64
-	Version        int32
-	CreatedAt      pgtype.Timestamptz
-	UpdatedAt      pgtype.Timestamptz
-	ConflictReason *string
-	ObservedStand  *string
+	ID                 int64
+	SessionID          int32
+	Callsign           string
+	Stand              string
+	Direction          string
+	Stage              string
+	Source             string
+	RuleID             *string
+	Tier               *int32
+	MatchedVariant     *string
+	Eta                pgtype.Timestamptz
+	EtaSource          *string
+	AssignedAt         pgtype.Timestamptz
+	ExpiresAt          pgtype.Timestamptz
+	Manual             bool
+	Acknowledged       bool
+	AcknowledgedAt     pgtype.Timestamptz
+	AcknowledgedBy     *string
+	VatsimCid          *int64
+	VatsimRevision     *int64
+	Version            int32
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+	ConflictReason     *string
+	ObservedStand      *string
+	ProjectedReleaseAt pgtype.Timestamptz
 }
 
 type StandBlock struct {

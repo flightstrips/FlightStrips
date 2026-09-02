@@ -82,6 +82,34 @@ func TestStandActionPropagatesAssignmentLookupErrors(t *testing.T) {
 	require.Error(t, queryErr)
 }
 
+func TestControllerCanForceAutomaticReassignmentOfConfirmedArrival(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	allocation, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+	strips := postgres.NewStripRepository(pool)
+	testdata.SeedTestStrip(t, queries, session, "SAS806")
+	testdata.SeedTestStrip(t, queries, session, "SAS807")
+	ctx := context.Background()
+
+	confirmed := withStand(standAllocationRequest(session, "SAS806"), "A1")
+	confirmed.Stage = StageConfirmed
+	initial, err := allocation.AssignManually(ctx, confirmed)
+	require.NoError(t, err)
+
+	departure := withStand(standAllocationRequest(session, "SAS807"), "A1")
+	departure.Direction = "DEPARTURE"
+	departure.FlightFacts.Direction = "DEPARTURE"
+	departure.Stage = StageDepartureBlock
+	_, err = allocation.assignObservedStand(ctx, departure)
+	require.NoError(t, err)
+
+	actions := NewStandActionService(allocation, assignments, strips, nil, nil, nil)
+	forced, err := actions.Allocate(ctx, session, "EKCH", "EKCH_GND", "SAS806", initial.Assignment.Version)
+	require.NoError(t, err)
+	assert.Equal(t, StageConfirmed, forced.Assignment.Stage)
+	assert.NotEqual(t, "A1", forced.Assignment.Stand)
+	assert.False(t, forced.Assignment.Manual)
+}
+
 type failingGetAssignmentRepository struct {
 	repository.StandAssignmentRepository
 	err error

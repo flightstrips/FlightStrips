@@ -31,6 +31,7 @@ const (
 	departureClockRolloverThreshold = 12 * time.Hour
 	wrongStandAwaitingPrefix        = "WRONG_STAND_AWAITING_MESSAGE: observed "
 	wrongStandPendingPrefix         = "WRONG_STAND_PENDING: observed "
+	observedDeparturePriorConflict  = " | prior conflict: "
 )
 
 // DepartureLifecycleService owns the timing rules that turn a prefiled
@@ -51,6 +52,7 @@ type DepartureLifecycleService struct {
 	hold           time.Duration
 	blockExtension time.Duration
 	sweepInterval  time.Duration
+	allowPrefiles  bool
 	messenger      wrongStandMessenger
 	routeRecalc    RouteRecalculator
 	standPublisher observedStandPublisher
@@ -125,6 +127,12 @@ func WithDepartureSweepInterval(duration time.Duration) DepartureLifecycleOption
 	}
 }
 
+// WithDeparturePrefileAssignments enables advance stand reservations for
+// offline VATSIM prefiles. The production default is false.
+func WithDeparturePrefileAssignments(enabled bool) DepartureLifecycleOption {
+	return func(s *DepartureLifecycleService) { s.allowPrefiles = enabled }
+}
+
 func NewDepartureLifecycleService(
 	allocations *StandAllocationService,
 	assignments repository.StandAssignmentRepository,
@@ -181,10 +189,27 @@ func (s *DepartureLifecycleService) ProcessDeparture(ctx context.Context, sessio
 		}
 		return s.revalidateFacts(ctx, session, strip, flight)
 	}
+	if !s.allowPrefiles {
+		return s.releaseOfflinePrefileReservation(ctx, session, strip.Callsign)
+	}
 	if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
 		return err
 	}
 	return s.ensureReservation(ctx, session, strip, flight)
+}
+
+func (s *DepartureLifecycleService) releaseOfflinePrefileReservation(ctx context.Context, session int32, callsign string) error {
+	existing, err := s.assignments.GetAssignment(ctx, session, callsign)
+	if err != nil {
+		if isNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if existing.Manual || existing.Stage != StageReserved || existing.ObservedStand != nil {
+		return nil
+	}
+	return s.allocations.ReleaseAssignment(ctx, existing)
 }
 
 // ObserveDeparturePosition applies the live stand-detection path to an
@@ -239,7 +264,10 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	}
 
 	if existing != nil && strings.EqualFold(existing.Stand, observed.Name) {
-		return true, s.activateBlock(ctx, session, strip, flight)
+		if err := s.activateBlock(ctx, session, strip, flight); err != nil {
+			return true, err
+		}
+		return true, s.reconcileConfirmedArrivalConflict(ctx, session, strip, flight, observed.Name)
 	}
 
 	pendingReason := wrongStandPendingPrefix + observed.Name
@@ -253,13 +281,17 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		}
 	}
 
-	expiry := s.computeBlockExpiry(strip)
+	projectedRelease := s.computeBlockExpiry(strip)
+	expiry := projectedRelease
 	request := s.buildRequest(session, strip, flight, StageDepartureBlock, expiry)
 	request.Stand = observed.Name
 	observedRequest := request
 	observedRequest.ExpiresAt = nil
-	if _, err := s.allocations.assignObservedStand(ctx, observedRequest); err == nil {
+	if result, err := s.allocations.assignObservedStand(ctx, observedRequest); err == nil {
 		s.useObservedStandForRoute(ctx, session, strip.Callsign, observed.Name)
+		if result.StandChanged && s.standPublisher != nil {
+			s.standPublisher.SendStandEvent(session, strip.Callsign, observed.Name)
+		}
 		s.clearUnassignedStandWarning(session, strip.Callsign)
 		return true, nil
 	} else if existing == nil {
@@ -300,6 +332,7 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	// A live aircraft on the wrong stand must not lose or replace its persisted
 	// destination assignment while it waits to relocate.
 	updated.ExpiresAt = nil
+	updated.ProjectedReleaseAt = expiry
 	updated.Acknowledged = false
 	updated.AcknowledgedAt = nil
 	updated.AcknowledgedBy = nil
@@ -313,6 +346,40 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 		return false, fmt.Errorf("publish observed stand mismatch for %s: %w", strip.Callsign, err)
 	}
 	return false, s.deliverWrongStandWarning(ctx, &updated)
+}
+
+func (s *DepartureLifecycleService) reconcileConfirmedArrivalConflict(ctx context.Context, session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo, stand string) error {
+	request := s.buildRequest(session, strip, flight, StageDepartureBlock, nil)
+	conflict, err := s.allocations.ConfirmedArrivalConflictAtStand(ctx, request, stand)
+	if err != nil {
+		return err
+	}
+	assignment, err := s.assignments.GetAssignment(ctx, session, strip.Callsign)
+	if err != nil {
+		return err
+	}
+	currentManaged := assignment.ConflictReason != nil && strings.HasPrefix(*assignment.ConflictReason, observedDepartureConflictPrefix)
+	if conflict == currentManaged {
+		return nil
+	}
+	updated := *assignment
+	if conflict {
+		updated.ConflictReason = observedDepartureConflictReason(assignment.ConflictReason)
+	} else {
+		updated.ConflictReason = priorObservedDepartureConflict(assignment.ConflictReason)
+	}
+	updated.Acknowledged = false
+	updated.AcknowledgedAt = nil
+	updated.AcknowledgedBy = nil
+	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errAllocationVersionConflict
+	}
+	updated.Version++
+	return s.allocations.PublishAssignment(ctx, updated)
 }
 
 func validDeparturePosition(latitude, longitude float64) bool {
@@ -490,7 +557,8 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	if err != nil && !isNotFound(err) {
 		return err
 	}
-	expiry := s.computeBlockExpiry(strip)
+	projectedRelease := s.computeBlockExpiry(strip)
+	expiry := projectedRelease
 	now := s.now()
 	if existing == nil {
 		request := s.buildRequest(session, strip, flight, StageDepartureBlock, expiry)
@@ -508,13 +576,14 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 		if expiry == nil && existing.ExpiresAt != nil && !onAssignedStand {
 			return nil
 		}
-		if sameExpiry(existing.ExpiresAt, expiry) {
+		if sameExpiry(existing.ExpiresAt, expiry) && sameExpiry(existing.ProjectedReleaseAt, projectedRelease) {
 			return nil
 		}
 	}
 	updated := *existing
 	updated.Stage = StageDepartureBlock
 	updated.ExpiresAt = expiry
+	updated.ProjectedReleaseAt = projectedRelease
 	if updated.ConflictReason != nil && strings.HasPrefix(*updated.ConflictReason, wrongStandPendingPrefix) {
 		updated.ConflictReason = nil
 	}
@@ -540,6 +609,7 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	}
 	reloaded.Stage = StageDepartureBlock
 	reloaded.ExpiresAt = expiry
+	reloaded.ProjectedReleaseAt = projectedRelease
 	reloaded.AssignedAt = &now
 	applyVatsimIdentity(reloaded, strip, flight.CID, flight.Revision)
 	affected, err = s.assignments.UpdateAssignment(ctx, reloaded)
@@ -586,6 +656,9 @@ func (s *DepartureLifecycleService) revalidateFacts(ctx context.Context, session
 		FlightFacts:     facts,
 		AssignmentFacts: assignmentFacts,
 		ExpiresAt:       existing.ExpiresAt,
+		DepartureTOBT:   departureTobtTime(strip, s.now()),
+		DepartureTSAT:   departureTsatTime(strip, s.now()),
+		DepartureReady:  departureExpectedToVacate(strip),
 		VatsimCID:       existing.VatsimCID,
 		VatsimRevision:  existing.VatsimRevision,
 	}
@@ -726,9 +799,22 @@ func (s *DepartureLifecycleService) buildRequest(session int32, strip *models.St
 		AssignmentFacts: assignmentFacts,
 		ExpiresAt:       expiresAt,
 		DepartureTOBT:   departureTobtTime(strip, s.now()),
+		DepartureTSAT:   departureTsatTime(strip, s.now()),
+		DepartureReady:  departureExpectedToVacate(strip),
 	}
 	request.VatsimCID, request.VatsimRevision = resolvedVatsimIdentity(strip, flight.CID, flight.Revision)
 	return request
+}
+
+func departureExpectedToVacate(strip *models.Strip) bool {
+	if strip == nil {
+		return false
+	}
+	state := ""
+	if strip.State != nil {
+		state = strings.TrimSpace(*strip.State)
+	}
+	return strip.StartReq || strings.EqualFold(strings.TrimSpace(strip.Bay), "PUSH") || strings.EqualFold(state, "PUSH")
 }
 
 // resolvedVatsimIdentity prefers the current feed record, then falls back to
@@ -792,21 +878,39 @@ func (s *DepartureLifecycleService) resolveFacts(strip *models.Strip, flight vat
 
 func (s *DepartureLifecycleService) computeBlockExpiry(strip *models.Strip) *time.Time {
 	now := s.now()
-	invalidReason := ""
-	if calculation := strip.CdmData.EffectiveCalculation(); calculation != nil && calculation.InvalidReason != nil {
-		invalidReason = strings.TrimSpace(*calculation.InvalidReason)
+	release := departureTobtTime(strip, now)
+	if tsat := departureTsatTime(strip, now); tsat != nil && (release == nil || tsat.After(*release)) {
+		release = tsat
 	}
-	if invalidReason != models.CdmInvalidReasonStaleTsat {
-		if expiry, ok := departureBlockExpiry(stripClockValue(strip.EffectiveTsat()), now, s.blockExtension); ok {
-			return &expiry
-		}
+	if release == nil {
+		return nil
 	}
-	if invalidReason != models.CdmInvalidReasonStaleTobt {
-		if expiry, ok := departureBlockExpiry(stripClockValue(strip.EffectiveTobt()), now, s.blockExtension); ok {
-			return &expiry
-		}
+	extension := s.blockExtension
+	if departureExpectedToVacate(strip) {
+		extension = 0
 	}
-	return nil
+	expiry := release.Add(extension)
+	return &expiry
+}
+
+func priorObservedDepartureConflict(reason *string) *string {
+	if reason == nil || !strings.HasPrefix(*reason, observedDepartureConflictPrefix) {
+		return reason
+	}
+	_, prior, found := strings.Cut(*reason, observedDeparturePriorConflict)
+	if !found || strings.TrimSpace(prior) == "" {
+		return nil
+	}
+	prior = strings.TrimSpace(prior)
+	return &prior
+}
+
+func observedDepartureConflictReason(existing *string) *string {
+	reason := observedDepartureConflictPrefix + " projected release overlaps arrival ETA"
+	if existing != nil && !strings.HasPrefix(*existing, observedDepartureConflictPrefix) && strings.TrimSpace(*existing) != "" {
+		reason += observedDeparturePriorConflict + strings.TrimSpace(*existing)
+	}
+	return &reason
 }
 
 func departureTobtTime(strip *models.Strip, now time.Time) *time.Time {
@@ -824,16 +928,19 @@ func departureTobtTime(strip *models.Strip, now time.Time) *time.Time {
 	return &tobt
 }
 
-func departureBlockExpiry(value string, now time.Time, extension time.Duration) (time.Time, bool) {
-	if value == "" {
-		return time.Time{}, false
+func departureTsatTime(strip *models.Strip, now time.Time) *time.Time {
+	if strip == nil {
+		return nil
 	}
-	t, ok := parseDepartureClockUTC(value, now)
+	if calculation := strip.CdmData.EffectiveCalculation(); calculation != nil && calculation.InvalidReason != nil &&
+		strings.TrimSpace(*calculation.InvalidReason) == models.CdmInvalidReasonStaleTsat {
+		return nil
+	}
+	tsat, ok := parseDepartureClockUTC(stripClockValue(strip.EffectiveTsat()), now)
 	if !ok {
-		return time.Time{}, false
+		return nil
 	}
-	expiry := t.Add(extension)
-	return expiry, expiry.After(now)
+	return &tsat
 }
 
 func standCompatible(evaluation sat.StandCompatibilityEvaluation, stand string) bool {

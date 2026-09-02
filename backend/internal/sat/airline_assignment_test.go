@@ -121,7 +121,7 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, selection)
-	assert.Equal(t, "E82", selection.Stand)
+	assert.Equal(t, "E70", selection.Stand)
 	selection, err = config.SelectStand(
 		AssignmentFlightFacts{Callsign: "ZZZ123", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusNonSchengen},
 		[]string{"E70", "E82"},
@@ -129,10 +129,29 @@ func TestLoadCommittedAirlineAssignment(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, selection)
-	assert.Equal(t, "E82", selection.Stand)
+	assert.Equal(t, "E70", selection.Stand)
+	selection, err = config.SelectStand(
+		AssignmentFlightFacts{Callsign: "KLM167", AircraftUse: AircraftUseCodeA, BorderStatus: BorderStatusSchengen},
+		[]string{"E76"},
+		func() float64 { return 0 },
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	assert.Equal(t, "E76", selection.Stand)
+	assert.True(t, selection.FallbackUsed, "an exhausted airline rule must use the general Echo fallback")
 	group, err := config.ResolveStandGroup("echoHigh")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"E82", "E83", "E84", "E85", "E86", "E87", "E88", "E89", "E90", "F90", "F91", "F92", "F93", "F94", "F95", "F96", "F97", "F98"}, group)
+	group, err = config.ResolveStandGroup("echoAll")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"E70", "E71", "E72", "E73", "E74", "E75", "E76", "E77", "E78", "E82", "E83", "E84", "E85", "E86", "E87", "E88", "E89", "E90"}, group)
+	for _, standName := range group {
+		stand, found := standRegistry.Lookup("EKCH", standName)
+		require.True(t, found, standName)
+		for _, variant := range stand.Variants {
+			assert.Equal(t, StandBorderAny, variant.BorderClass, "%s must accept both Schengen and non-Schengen traffic", standName)
+		}
+	}
 	group, err = config.ResolveStandGroup("Delta+Charlie")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"D1", "D2", "D3", "D4", "C28", "C29", "C30", "C32", "C33", "C34", "C35", "C36", "C37"}, group)

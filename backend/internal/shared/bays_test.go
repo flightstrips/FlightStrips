@@ -199,6 +199,18 @@ func TestGetDepartureBayFromPositionWithoutPositionKeepsExistingBay(t *testing.T
 	}
 }
 
+func TestGetDepartureBayFromPositionRevealsHiddenLocalDeparture(t *testing.T) {
+	existing := database.Strip{
+		Origin: "EKCH",
+		Bay:    BAY_HIDDEN,
+	}
+
+	bay := GetDepartureBayFromPosition(AirportLatitude, AirportLongitude, int64(AirportElevation), existing, 500, "EKCH")
+	if bay != BAY_NOT_CLEARED {
+		t.Fatalf("expected positioned local departure to enter NOT_CLEARED, got %s", bay)
+	}
+}
+
 func TestGetDepartureBayFromPositionArrivalHiddenPreserved(t *testing.T) {
 	existing := database.Strip{
 		Destination: "EKCH",

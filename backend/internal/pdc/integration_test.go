@@ -1227,7 +1227,7 @@ func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
 	suite.mockHoppie.On("SendCPDLC", mock.Anything, mock.Anything, callsign, mock.MatchedBy(func(msg string) bool {
 		return strings.Contains(msg, "STANDBY")
 	})).Return(nil).Once()
-	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED", "").Return()
+	suite.mockFrontend.On("SendPdcStateChange", int32(1), callsign, "REQUESTED_WITH_FAULTS", "").Return()
 
 	incomingMsg := &IncomingMessage{
 		Type:       MsgPDCRequest,
@@ -1250,7 +1250,8 @@ func TestProcessPDCRequest_InvalidAssignedSquawkDoesNotAutoIssue(t *testing.T) {
 		Callsign: callsign,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "REQUESTED", readStripPdcState(t, strip))
+	assert.Equal(t, "REQUESTED_WITH_FAULTS", readStripPdcState(t, strip))
+	suite.mockStrip.AssertCalled(t, "ReevaluatePdcRequestValidations", mock.Anything, int32(1), callsign, true, true)
 }
 
 func TestProcessPDCRequest_InactiveDepartureRunwayCreatesFault(t *testing.T) {

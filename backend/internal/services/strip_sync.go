@@ -533,6 +533,20 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			routeNeedsUpdate = false
 		}
 		primaryChange := syncStripChanged(existingStrip, updateStrip)
+		firstEuroscopeSyncNeedsSquawk := existingStrip.EuroscopeSeenAt == nil &&
+			shouldGenerateDepartureSquawk(strip, airport, bay)
+
+		// A VATSIM-created strip can already match every EuroScope field. The first
+		// EuroScope observation is still the point at which the operational strip
+		// becomes eligible for a locally assigned departure squawk.
+		if firstEuroscopeSyncNeedsSquawk && s.esCommander != nil {
+			slog.InfoContext(ctx, "Triggering automatic squawk generation",
+				slog.Int("session", int(session)),
+				slog.String("callsign", strip.Callsign),
+				slog.String("trigger", "first_euroscope_sync"),
+			)
+			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
+		}
 
 		if !primaryChange {
 			s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
@@ -562,19 +576,6 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if primaryChange && updateHeading != strip.Heading && s.esCommander != nil {
 			s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading)
 		}
-		// VATSIM can create a hidden departure strip before EuroScope sees the
-		// aircraft. Treat that first EuroScope sync like a new strip so the
-		// reserved VATSIM squawk is replaced, but do not re-request a squawk on
-		// later EuroScope updates.
-		if primaryChange && existingStrip.EuroscopeSeenAt == nil && shouldGenerateDepartureSquawk(strip, airport, bay) && s.esCommander != nil {
-			slog.InfoContext(ctx, "Triggering automatic squawk generation",
-				slog.Int("session", int(session)),
-				slog.String("callsign", strip.Callsign),
-				slog.String("trigger", "first_euroscope_sync"),
-			)
-			s.esCommander.SendGenerateSquawk(session, "", strip.Callsign)
-		}
-
 		needsStripBroadcast = true
 		needsPdcValidation = true
 	}
@@ -905,7 +906,11 @@ func appendUnexpectedChangeField(fields []string, field string) []string {
 }
 
 func shouldGenerateDepartureSquawk(strip euroscope.Strip, airport string, bay string) bool {
-	if !strings.EqualFold(strings.TrimSpace(strip.Origin), strings.TrimSpace(airport)) {
+	return shouldGenerateDepartureSquawkValues(strip.Origin, strip.AssignedSquawk, airport, bay)
+}
+
+func shouldGenerateDepartureSquawkValues(origin string, assignedSquawk string, airport string, bay string) bool {
+	if !strings.EqualFold(strings.TrimSpace(origin), strings.TrimSpace(airport)) {
 		return false
 	}
 
@@ -913,7 +918,7 @@ func shouldGenerateDepartureSquawk(strip euroscope.Strip, airport string, bay st
 		return false
 	}
 
-	return !helpers.IsValidAssignedSquawk(strip.AssignedSquawk)
+	return !helpers.IsValidAssignedSquawk(assignedSquawk)
 }
 
 var remarksRegReService = regexp.MustCompile(`\bREG/([A-Z0-9-]+)`)

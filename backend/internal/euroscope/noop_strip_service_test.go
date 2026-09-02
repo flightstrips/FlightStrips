@@ -178,4 +178,8 @@ func (s *noOpStripService) ReevaluatePdcRequestValidations(_ context.Context, _ 
 	return nil
 }
 
+func (s *noOpStripService) SetPdcAutoIssueFailureValidation(_ context.Context, _ int32, _ string, _ bool) error {
+	return nil
+}
+
 func (s *noOpStripService) ClearMandatoryRouteCdm(_ context.Context, _ int32, _ string) {}

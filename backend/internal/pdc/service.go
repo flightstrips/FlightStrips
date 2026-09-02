@@ -686,18 +686,21 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 
 	if issueErr := s.IssueClearance(ctx, strip.Callsign, "", "", session.id); issueErr != nil {
 		fallbackOutcome := PdcRequestOutcome{
-			Transition:    PdcRequestTransitionRequested,
-			State:         StateRequested,
-			MetricOutcome: "requested_pending_clearance",
+			Transition:    PdcRequestTransitionRequestedWithFaults,
+			State:         StateRequestedWithFaults,
+			MetricOutcome: "requested_auto_issue_failed",
 		}
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, fallbackOutcome.MetricOutcome)
 		if err := s.PersistPdcRequestOutcome(ctx, session.id, strip.Callsign, requestedAt, fallbackOutcome); err != nil {
 			return err
 		}
+		if err := s.stripService.SetPdcAutoIssueFailureValidation(ctx, session.id, strip.Callsign, true); err != nil {
+			return err
+		}
 		if err := s.SendStatusAck(ctx, session, req.Callsign, req.Departure); err != nil {
 			return fmt.Errorf("failed to send status ack: %w", err)
 		}
-		slog.InfoContext(ctx, "PDC Service: PDC request acknowledged (clearance fields not ready)", slog.String("callsign", req.Callsign))
+		slog.WarnContext(ctx, "PDC Service: Automatic PDC issuance failed; request requires manual review", slog.String("callsign", req.Callsign), slog.Any("error", issueErr))
 	} else {
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, outcome.MetricOutcome)
 		slog.InfoContext(ctx, "PDC Service: PDC clearance auto-issued", slog.String("callsign", req.Callsign))
@@ -1420,5 +1423,5 @@ func (s *Service) setPdcFailed(ctx context.Context, callsign string, sessionId i
 // validatePDCFlightPlan validates a strip's flight plan against PDC validation config.
 // Returns a list of fault descriptions (empty = no faults).
 func (s *Service) validatePDCFlightPlan(strip *models.Strip, activeDepartureRunways []string, availableSids pkgModels.AvailableSids) []string {
-	return validationFaultMessages(validatePDCFlightPlanFaults(strip, activeDepartureRunways, availableSids))
+	return validationFaultMessages(PDCStripValidationFaults(strip, activeDepartureRunways, availableSids))
 }

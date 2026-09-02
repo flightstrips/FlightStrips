@@ -121,4 +121,5 @@ type StripService interface {
 
 	ReevaluatePdcInvalidValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
 	ReevaluatePdcRequestValidations(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error
+	SetPdcAutoIssueFailureValidation(ctx context.Context, session int32, callsign string, publish bool) error
 }

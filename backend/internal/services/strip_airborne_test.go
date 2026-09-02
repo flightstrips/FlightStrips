@@ -258,6 +258,52 @@ func TestUpdateAircraftPosition_PrefileStillUsesEuroscopeForDepartureBlock(t *te
 	require.Equal(t, shared.AirportLongitude, observer.longitude)
 }
 
+func TestUpdateAircraftPosition_HiddenDepartureEnteringNotClearedGeneratesSquawkOnce(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS482"
+	reservedSquawk := "2000"
+	currentBay := shared.BAY_HIDDEN
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:       callsign,
+				Origin:         "EKCH",
+				Destination:    "EGLL",
+				Bay:            currentBay,
+				AssignedSquawk: &reservedSquawk,
+			}, nil
+		},
+		UpdateAircraftPositionFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ *int32) (int64, error) {
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
+			currentBay = bay
+			return 1, nil
+		},
+	}
+
+	esHub := &testutil.MockEuroscopeHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetEuroscopeHub(esHub)
+
+	for range 2 {
+		require.NoError(t, svc.UpdateAircraftPosition(
+			ctx, session, callsign, shared.AirportLatitude, shared.AirportLongitude, 20, "EKCH",
+		))
+	}
+
+	require.Len(t, esHub.GenerateSquawks, 1)
+	assert.Equal(t, session, esHub.GenerateSquawks[0].Session)
+	assert.Equal(t, callsign, esHub.GenerateSquawks[0].Callsign)
+	assert.Empty(t, esHub.GenerateSquawks[0].Cid)
+}
+
 // TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection verifies that
 // an ES handover is sent to the owner (tower) controller even when the target (receiving)
 // controller has no CID — i.e., no active ES connection to the backend. The handover is

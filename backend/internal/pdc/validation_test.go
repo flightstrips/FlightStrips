@@ -37,9 +37,10 @@ func TestValidatePDCFlightPlan_SpecialRunwayAircraftSkipsActiveDepartureFault(t 
 
 	service := &Service{}
 	strip := &models.Strip{
-		AircraftType: stringPtrTest("A388/H"),
-		Runway:       stringPtrTest("22L"),
-		Sid:          stringPtrTest("VEMBO2E"),
+		AircraftType:   stringPtrTest("A388/H"),
+		Runway:         stringPtrTest("22L"),
+		Sid:            stringPtrTest("VEMBO2E"),
+		AssignedSquawk: stringPtrTest("2401"),
 	}
 
 	faults := service.validatePDCFlightPlan(strip, []string{"22R"}, nil)
@@ -80,13 +81,30 @@ func TestPDCStripValidationFaults_IgnoresEobtOutsideFormerWindow(t *testing.T) {
 
 	eobt := "2359"
 	strip := &models.Strip{
-		CdmData: &models.CdmData{Eobt: &eobt},
-		Sid:     stringPtrTest("VEMBO2E"),
+		CdmData:        &models.CdmData{Eobt: &eobt},
+		Sid:            stringPtrTest("VEMBO2E"),
+		AssignedSquawk: stringPtrTest("2401"),
 	}
 
 	faults := PDCStripValidationFaults(strip, []string{"22R"}, nil)
 
 	require.Empty(t, faults)
+}
+
+func TestPDCStripValidationFaults_FaultsWhenAssignedSquawkIsMissingOrReserved(t *testing.T) {
+	t.Parallel()
+
+	for _, assignedSquawk := range []*string{nil, stringPtrTest("2000")} {
+		faults := PDCStripValidationFaults(&models.Strip{
+			Sid:            stringPtrTest("VEMBO2E"),
+			Runway:         stringPtrTest("22R"),
+			AssignedSquawk: assignedSquawk,
+		}, []string{"22R"}, nil)
+
+		require.Len(t, faults, 1)
+		assert.Equal(t, FlightPlanValidationFaultKindSquawk, faults[0].Kind)
+		assert.Equal(t, "No valid assigned squawk", faults[0].Message)
+	}
 }
 
 func TestValidatePDCFlightPlan_FaultsWhenNoSIDOrVectors(t *testing.T) {

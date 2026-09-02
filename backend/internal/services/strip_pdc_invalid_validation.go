@@ -16,6 +16,7 @@ const (
 	pdcInvalidValidationIssueType   = "PDC INVALID"
 	pdcInvalidValidationActionKind  = "open_dcl_menu"
 	pdcInvalidValidationActionLabel = "OPEN DCL MENU"
+	pdcAutoIssueFailureMessage      = "Pilot requested PDC, but automatic issuance failed.\nOpen DCL menu to review the clearance and issue it manually."
 )
 
 func isPdcInvalidValidation(status *internalModels.ValidationStatus) bool {
@@ -63,6 +64,9 @@ func (s *StripService) applyPdcInvalidValidation(ctx context.Context, session in
 
 	faults := pdc.PDCStripValidationFaults(strip, activeDepartureRunways, availableSids)
 	if !pdcInvalidValidationApplies(strip) || len(faults) == 0 {
+		if pdcInvalidValidationApplies(strip) && isPdcInvalidValidation(current) && current.Message == pdcAutoIssueFailureMessage {
+			return nil
+		}
 		if !isPdcInvalidValidation(current) {
 			return nil
 		}
@@ -137,4 +141,36 @@ func (s *StripService) ReevaluatePdcInvalidValidation(ctx context.Context, sessi
 	}
 
 	return s.applyPdcInvalidValidation(ctx, session, strip, sessionData.ActiveRunways.DepartureRunways, sessionData.AvailableSids, publish, forceReactivate)
+}
+
+// SetPdcAutoIssueFailureValidation marks an otherwise valid PDC request for
+// controller review when automatic delivery fails unexpectedly. It deliberately
+// uses the established PDC INVALID / OPEN DCL MENU flow.
+func (s *StripService) SetPdcAutoIssueFailureValidation(ctx context.Context, session int32, callsign string, publish bool) error {
+	strip, available, err := s.getCachedStrip(ctx, session, callsign)
+	if err != nil {
+		return err
+	}
+	if !available || strip == nil {
+		return nil
+	}
+	if strip.ValidationStatus != nil && !isPdcInvalidValidation(strip.ValidationStatus) && !isPdcCustomValidation(strip.ValidationStatus) {
+		return nil
+	}
+
+	desired := &internalModels.ValidationStatus{
+		IssueType:      pdcInvalidValidationIssueType,
+		Message:        pdcAutoIssueFailureMessage,
+		OwningPosition: pdcValidationOwningPosition(strip),
+		Active:         true,
+		ActivationKey:  uuid.New().String(),
+		CustomAction:   pdcInvalidValidationAction(),
+	}
+	if err := s.validationStore.SetValidationStatus(ctx, session, callsign, desired); err != nil {
+		return err
+	}
+	shared.AddDBOperations(ctx, 1)
+	strip.ValidationStatus = desired
+	s.queueOrSendStripUpdate(ctx, session, callsign, publish)
+	return nil
 }

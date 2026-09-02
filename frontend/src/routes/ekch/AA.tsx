@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { CrossingButton, LandButton, MemAidButton, StartButton } from "@/components/strip/TacticalButtons.tsx";
+import { CrossingButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { useMyPosition, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
 import {
   useDeIceStrips,
@@ -24,13 +24,12 @@ import { ViewDndContext } from "@/components/bays/ViewDndContext.tsx";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN, CLS_BTN_BLUE, CLS_BTN_ORANGE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
+import { CLS_BTN, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
 const btn     = CLS_BTN;
 const btnBlue = CLS_BTN_BLUE;
-const btnOrange = CLS_BTN_ORANGE;
 const btnYellow = CLS_BTN_YELLOW;
 
 export default function AA() {
@@ -230,11 +229,6 @@ export default function AA() {
         <div className="bay-col-header bay-col-sep justify-between">
           <span className={CLS_LABEL}>TWY DEP</span>
           <span className="flex gap-1">
-            <button className={btn} onClick={() => setNewOpen(true)}>NEW</button>
-            <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
-            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
-            <LandButton bay={Bay.Taxi} className={btnOrange} />
-            <StartButton bay={Bay.Taxi} className={btnOrange} />
             <CrossingButton bay={Bay.Taxi} className={btnYellow} />
           </span>
         </div>

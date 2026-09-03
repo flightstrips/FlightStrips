@@ -31,7 +31,7 @@ namespace FlightStrips::messages {
         bool SendCdmDeiceUpdate(const std::string& callsign, const std::string& deiceType) const;
         bool SendCdmManualCtot(const std::string& callsign, const std::string& ctot) const;
         bool SendCdmCtotRemove(const std::string& callsign) const;
-        bool SendCdmApproveReqTobt(const std::string& callsign) const;
+		bool SendCdmReady(const std::string& callsign) const;
     private:
         std::shared_ptr<FlightStripsPlugin> m_plugin;
         std::shared_ptr<websocket::WebSocketService> m_webSocketService;

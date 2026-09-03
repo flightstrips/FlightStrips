@@ -498,8 +498,6 @@ func MapStripToFrontendModelWithClx(strip *internalModels.Strip, clxContext clx.
 		Owner:                    helpers.ValueOrDefault(strip.Owner),
 		Eobt:                     cdmEvent.Eobt,
 		Tobt:                     cdmEvent.Tobt,
-		ReqTobt:                  cdmEvent.ReqTobt,
-		ReqTobtType:              cdmEvent.ReqTobtType,
 		TobtSetBy:                cdmEvent.TobtSetBy,
 		Tsat:                     cdmEvent.Tsat,
 		Ttot:                     cdmEvent.Ttot,

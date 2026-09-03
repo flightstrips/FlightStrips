@@ -63,6 +63,8 @@ func (s *recordingCdmService) SyncAirportLvoFromRunwayStatus(ctx context.Context
 	}
 }
 
+func (*recordingCdmService) DeregisterMasterAirport(context.Context, string) error { return nil }
+
 func (*recordingCdmService) HandleReadyRequest(context.Context, int32, string, string, string) error {
 	return nil
 }
@@ -102,19 +104,11 @@ func (s *recordingCdmService) HandleCtotRemove(context.Context, int32, string) e
 	return nil
 }
 
-func (s *recordingCdmService) HandleApproveReqTobt(context.Context, int32, string, string, string) error {
-	return nil
-}
-
 func (s *recordingCdmService) SyncAsatForGroundState(context.Context, int32, string, string) error {
 	return nil
 }
 
 func (s *recordingCdmService) RequestBetterTobt(context.Context, int32, string) error {
-	return nil
-}
-
-func (s *recordingCdmService) SetSessionCdmMaster(context.Context, int32, bool) error {
 	return nil
 }
 

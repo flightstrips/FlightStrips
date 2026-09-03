@@ -155,12 +155,11 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.CdmDeiceUpdate, handleCdmDeiceUpdate)
 	handlers.Add(euroscope.CdmManualCtot, handleCdmManualCtot)
 	handlers.Add(euroscope.CdmCtotRemove, handleCdmCtotRemove)
-	handlers.Add(euroscope.CdmApproveReqTobt, handleCdmApproveReqTobt)
+	handlers.Add(euroscope.CdmReady, handleCdmReady)
 	handlers.Add(euroscope.CdmAsrtToggle, handleCdmAsrtToggle)
 	handlers.Add(euroscope.CdmTsacUpdate, handleCdmTsacUpdate)
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
-	handlers.Add(euroscope.CdmMasterToggle, handleCdmMasterToggle)
 	handlers.Add(euroscope.SendPrivateMessage, handleSendPrivateMessage)
 
 	hub := &Hub{

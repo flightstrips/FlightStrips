@@ -93,12 +93,6 @@ func (c *Client) SetMasterAirport(ctx context.Context, airport, position string)
 	return err
 }
 
-type DepartureRestriction struct {
-	Airport string `json:"airport"`
-	Rate    int    `json:"rate"`
-	RateLvo int    `json:"rateLvo,omitempty"`
-}
-
 func (c *Client) ClearMasterAirport(ctx context.Context, airport, position string) error {
 	_, err := c.doRequest(ctx, "POST", "/airport/removeMaster",
 		map[string]string{
@@ -109,6 +103,12 @@ func (c *Client) ClearMasterAirport(ctx context.Context, airport, position strin
 		nil,
 	)
 	return err
+}
+
+type DepartureRestriction struct {
+	Airport string `json:"airport"`
+	Rate    int    `json:"rate"`
+	RateLvo int    `json:"rateLvo,omitempty"`
 }
 
 func (c *Client) GetDepartureRestrictions(ctx context.Context) ([]DepartureRestriction, error) {

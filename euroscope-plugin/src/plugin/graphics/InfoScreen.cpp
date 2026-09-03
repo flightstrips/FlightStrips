@@ -364,26 +364,6 @@ namespace FlightStrips::graphics {
             return true;
         }
 
-        if (_stricmp(sCommandLine, COMMAND_CDM_MASTER) == 0) {
-            if (m_plugin->GetConnectionState().observer) {
-                return true;
-            }
-            if (const auto ws = webSocketService.lock()) {
-                ws->SendEvent(CdmMasterToggleEvent(true));
-            }
-            return true;
-        }
-
-        if (_stricmp(sCommandLine, COMMAND_CDM_SLAVE) == 0) {
-            if (m_plugin->GetConnectionState().observer) {
-                return true;
-            }
-            if (const auto ws = webSocketService.lock()) {
-                ws->SendEvent(CdmMasterToggleEvent(false));
-            }
-            return true;
-        }
-
         return false;
     }
 }

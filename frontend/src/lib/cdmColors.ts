@@ -47,12 +47,8 @@ export interface CDMColors {
   tsatBg: string;
 }
 
-export function hasManualTobtSource(reqTobtType?: string, tobtSetBy?: string): boolean {
-  if (reqTobtType?.trim().toUpperCase() === "PILOT") {
-    return true;
-  }
-
-  return Boolean(tobtSetBy?.trim());
+export function hasManualTobtSource(tobtSetBy?: string): boolean {
+	return Boolean(tobtSetBy?.trim());
 }
 
 /**

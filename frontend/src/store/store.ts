@@ -970,7 +970,6 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
           ...strip,
           eobt: normalizeCdmTime(strip.eobt),
           tobt: normalizeCdmTime(strip.tobt),
-          req_tobt_type: strip.req_tobt_type ?? "",
           tobt_set_by: strip.tobt_set_by ?? "",
           tsat: normalizeCdmTime(strip.tsat),
           ctot: normalizeCdmTime(strip.ctot),
@@ -1313,8 +1312,6 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       state.strips[stripIndex].eobt = normalizeCdmTime(data.eobt)
       state.strips[stripIndex].tsat = normalizeCdmTime(data.tsat)
       state.strips[stripIndex].ctot = normalizeCdmTime(data.ctot)
-      if (data.req_tobt !== undefined) state.strips[stripIndex].req_tobt = normalizeCdmTime(data.req_tobt)
-      state.strips[stripIndex].req_tobt_type = data.req_tobt_type ?? ""
       state.strips[stripIndex].tobt_set_by = data.tobt_set_by ?? ""
       if (data.ttot !== undefined) state.strips[stripIndex].ttot = normalizeCdmTime(data.ttot)
       if (data.aobt !== undefined) state.strips[stripIndex].aobt = normalizeCdmTime(data.aobt)

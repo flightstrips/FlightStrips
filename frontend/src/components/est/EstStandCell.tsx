@@ -101,7 +101,7 @@ export default function EstStandCell({
     ? computeCDMColors(strip.tsat, strip.tobt, nowMs, strip.bay as Bay, strip.phase)
     : { tobtBg: "", tsatBg: "" };
   const ctotColors = strip ? computeCTOTColors(strip.ctot, nowMs) : null;
-  const emphasizeTobtTime = strip ? hasManualTobtSource(strip.req_tobt_type, strip.tobt_set_by) : false;
+	const emphasizeTobtTime = strip ? hasManualTobtSource(strip.tobt_set_by) : false;
 
   const showTobt = isDeparture && !departureTransferActive && !!strip && strip.tobt !== "";
   const showTsat = isDeparture && !departureTransferActive && !!strip && strip.tsat !== "";

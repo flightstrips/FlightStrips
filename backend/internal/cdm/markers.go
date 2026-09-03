@@ -425,8 +425,6 @@ func buildStoredBaseMessage(baseSource string, baseTime string) string {
 	switch baseSource {
 	case models.CdmCalculationBaseTobt:
 		sourceLabel = "TOBT"
-	case models.CdmCalculationBaseReqTobt:
-		sourceLabel = "REQ TOBT"
 	case models.CdmCalculationBaseEobt:
 		sourceLabel = "EOBT"
 	}

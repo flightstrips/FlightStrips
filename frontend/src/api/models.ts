@@ -178,8 +178,6 @@ export interface FrontendStrip {
   communication_type: CommunicationType;
   eobt: string;
   tobt: string;
-  req_tobt?: string;
-  req_tobt_type?: string;
   tobt_set_by?: string;
   tsat: string;
   ttot?: string;
@@ -504,8 +502,6 @@ export interface FrontendCdmDataEvent {
   callsign: string;
   eobt: string;
   tobt: string;
-  req_tobt?: string;
-  req_tobt_type?: string;
   tobt_set_by?: string;
   tsat: string;
   ttot?: string;

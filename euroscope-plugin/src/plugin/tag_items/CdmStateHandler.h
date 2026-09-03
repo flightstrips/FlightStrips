@@ -11,7 +11,6 @@ namespace FlightStrips::TagItems {
             EobtTobt,
             Phase,
             Tobt,
-            ReqTobt,
             Tsat,
             TsatTobtDiff,
             Ttg,

@@ -101,9 +101,8 @@ func SeedTestSessionNamedWithSectors(t *testing.T, queries *database.Queries, na
 	}
 
 	sessionID, err := queries.InsertSession(ctx, database.InsertSessionParams{
-		Name:      name,
-		Airport:   "EKCH",
-		CdmMaster: true,
+		Name:    name,
+		Airport: "EKCH",
 	})
 	require.NoError(t, err)
 

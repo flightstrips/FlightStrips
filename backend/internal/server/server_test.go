@@ -3,12 +3,32 @@ package server
 import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
-	"FlightStrips/internal/shared"
 	"context"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 )
+
+type expiredSessionCdmService struct {
+	constructorCdmService
+	airport string
+	err     error
+}
+
+func (s *expiredSessionCdmService) DeregisterMasterAirport(_ context.Context, airport string) error {
+	s.airport = airport
+	return s.err
+}
+
+type expiredSessionRepository struct {
+	repository.SessionRepository
+	deleted int32
+}
+
+func (r *expiredSessionRepository) Delete(_ context.Context, id int32) (int64, error) {
+	r.deleted = id
+	return 1, nil
+}
 
 type createSessionRepository struct {
 	repository.SessionRepository
@@ -25,37 +45,34 @@ func (r *createSessionRepository) Create(_ context.Context, session *models.Sess
 	return r.id, nil
 }
 
-type recordingCdmMasterService struct {
-	shared.CdmService
-	sessionID int32
-	master    bool
-	called    bool
-}
-
-func (s *recordingCdmMasterService) SetSessionCdmMaster(_ context.Context, sessionID int32, master bool) error {
-	s.sessionID = sessionID
-	s.master = master
-	s.called = true
-	return nil
-}
-
-func TestGetOrCreateSessionInitializesNewSessionAsCdmMaster(t *testing.T) {
+func TestGetOrCreateSessionCreatesAuthoritativeSession(t *testing.T) {
 	sessionRepo := &createSessionRepository{id: 42}
-	cdmService := &recordingCdmMasterService{}
-	server := &Server{sessionRepo: sessionRepo, cdmService: cdmService}
+	server := &Server{sessionRepo: sessionRepo}
 
 	session, err := server.GetOrCreateSession("EKCH", "LIVE")
 	if err != nil {
 		t.Fatalf("GetOrCreateSession returned an error: %v", err)
 	}
 
-	if sessionRepo.created == nil || !sessionRepo.created.CdmMaster {
-		t.Fatalf("expected the new session to be persisted as CDM master, got %#v", sessionRepo.created)
-	}
-	if !cdmService.called || cdmService.sessionID != 42 || !cdmService.master {
-		t.Fatalf("expected CDM master initialization for session 42, got called=%t session=%d master=%t", cdmService.called, cdmService.sessionID, cdmService.master)
+	if sessionRepo.created == nil {
+		t.Fatal("expected the new session to be persisted")
 	}
 	if session.Id != 42 || session.Name != "LIVE" || session.Airport != "EKCH" {
 		t.Fatalf("unexpected returned session: %#v", session)
+	}
+}
+
+func TestRemoveExpiredLiveSessionDeregistersMasterBeforeDelete(t *testing.T) {
+	cdmService := &expiredSessionCdmService{}
+	sessionRepo := &expiredSessionRepository{}
+	server := &Server{cdmService: cdmService, sessionRepo: sessionRepo}
+
+	server.removeExpiredSession(context.Background(), &models.Session{ID: 42, Name: "LIVE", Airport: "EKCH"})
+
+	if cdmService.airport != "EKCH" {
+		t.Fatalf("deregistered airport = %q, want EKCH", cdmService.airport)
+	}
+	if sessionRepo.deleted != 42 {
+		t.Fatalf("deleted session = %d, want 42", sessionRepo.deleted)
 	}
 }

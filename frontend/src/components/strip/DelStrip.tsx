@@ -40,7 +40,6 @@ export function DelStrip({
   stand,
   eobt,
   tobt,
-  reqTobtType,
   tobtSetBy,
   tsat,
   ctot,
@@ -83,7 +82,7 @@ export function DelStrip({
   const showClearedCallsignHighlight = usePdcClearedCallsignBlink(pdcStatus);
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
-  const emphasizeTobtTime = hasManualTobtSource(reqTobtType, tobtSetBy);
+	const emphasizeTobtTime = hasManualTobtSource(tobtSetBy);
   const hasCtot = Boolean(ctot?.trim());
   const standYellow = unexpectedChangeFields?.includes("stand");
   const cellBorderColor = getCellBorderColor(marked);

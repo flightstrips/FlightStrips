@@ -28,6 +28,7 @@ type sequencingCandidate struct {
 	slot        SlotEntry
 	hasSlot     bool
 	hasCtot     bool
+	improvement bool
 	started     bool
 	staleBase   bool
 }
@@ -145,6 +146,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			slot:        slot,
 			hasSlot:     hasSlot,
 			hasCtot:     strings.TrimSpace(valueOrEmpty(strip.EffectiveCtot())) != "",
+			improvement: strip.CdmData != nil && strip.CdmData.IsImprovementOnlyRecalculation(),
 			started:     stripHasStarted(strip),
 			staleBase:   shouldInvalidateStaleTobt(calcInput, nowHHMMSS),
 		})
@@ -178,8 +180,23 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		}
 		recalculate = append(recalculate, candidate)
 	}
+	// An earlier-TOBT request may probe for genuinely unused capacity, but its
+	// current slot remains reserved while doing so. This prevents another
+	// recalculation from consuming that slot and prevents the request from
+	// displacing aircraft that were already ahead of it.
+	for _, candidate := range recalculate {
+		if candidate.improvement && candidate.hasSlot && !isTsatSpecificallyExpired(candidate.strip, now) &&
+			!hasSlotForCallsign(slots, candidate.strip.Callsign) {
+			slots = append(slots, candidate.slot)
+		}
+	}
 
 	sort.SliceStable(recalculate, func(i, j int) bool {
+		if recalculate[i].improvement && recalculate[j].improvement && recalculate[i].hasSlot && recalculate[j].hasSlot {
+			if cmp := compareClockForSort(recalculate[i].slot.Ttot, recalculate[j].slot.Ttot, now); cmp != 0 {
+				return cmp < 0
+			}
+		}
 		return compareSequencingCandidates(recalculate[i], recalculate[j], now, false) < 0
 	})
 
@@ -204,6 +221,12 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 
 		// TSAT specifically expired → mark strip as invalid, keep TOBT
 		if isTsatSpecificallyExpired(strip, now) {
+			// An improve-only flight's old slot was provisionally reserved while
+			// probing for an earlier gap. Once that assignment expires it must no
+			// longer block predecessors or following flights from using capacity.
+			if candidate.improvement {
+				slots = removeSlotForCallsign(slots, strip.Callsign)
+			}
 			data := strip.CdmData
 			if data == nil {
 				data = (&models.CdmData{}).Normalize()
@@ -244,17 +267,30 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		beforeTaxiMinutes := intValue(updatedTaxiMinutes(strip))
 		beforeTaxiRunway := strings.TrimSpace(valueOrEmpty(updatedTaxiRunway(strip)))
 
+		improvementOnly := candidate.improvement
+		canAdoptImprovement := isEarlierClock(result.Tsat, beforeTsat) &&
+			improvementKeepsQueueOrder(candidate, result.Ttot, slots, candidates, config, now)
+		keepExistingAssignment := improvementOnly && !canAdoptImprovement
+		if improvementOnly && !keepExistingAssignment {
+			slots = removeSlotForCallsign(slots, strip.Callsign)
+		}
+
 		updated := strip.CdmData
 		if updated == nil {
 			updated = (&models.CdmData{}).Normalize()
 		}
 		updated = updated.Clone()
 		beforeNeedsRecalc := updated.NeedsLocalRecalculation()
-		updated.Phase = nil
-		updated.Tsat = stringPointerIfPresent(result.Tsat)
-		updated.Ttot = stringPointerIfPresent(result.Ttot)
-		applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), calculationInvalidReason(calcInput, result, now))
-		setCalculationReasonMarkers(updated, movementReasonMarkersFromTrace(trace))
+		if keepExistingAssignment {
+			result.Tsat = beforeTsat
+			result.Ttot = beforeTtot
+		} else {
+			updated.Phase = nil
+			updated.Tsat = stringPointerIfPresent(result.Tsat)
+			updated.Ttot = stringPointerIfPresent(result.Ttot)
+			applyCalculationSnapshot(updated, calcInput, valueOrEmpty(strip.Runway), calculationInvalidReason(calcInput, result, now))
+			setCalculationReasonMarkers(updated, movementReasonMarkersFromTrace(trace))
+		}
 		updated.ClearLocalRecalculationPending()
 
 		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) {
@@ -275,7 +311,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			}
 		}
 
-		if result.Ttot != "" {
+		if result.Ttot != "" && !hasSlotForCallsign(slots, strip.Callsign) {
 			slots = append(slots, SlotEntry{
 				Callsign:    strip.Callsign,
 				Origin:      strip.Origin,
@@ -300,6 +336,16 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 	}
 
 	return nil
+}
+
+func isEarlierClock(candidate, existing string) bool {
+	if _, ok := parseClock(candidate); !ok {
+		return false
+	}
+	if _, ok := parseClock(existing); !ok {
+		return true
+	}
+	return minutesBetween(candidate, existing) > 0
 }
 
 // configForActiveRunways returns the same config snapshot used for sequencing.
@@ -383,7 +429,6 @@ func buildCalcInput(strip *models.Strip, config *CdmAirportConfig) CalcInput {
 		Eobt:              normalizeCalculationClock(valueOrEmpty(data.EffectiveEobt())),
 		Tobt:              normalizeCalculationClock(valueOrEmpty(data.EffectiveTobt())),
 		TobtAuthoritative: data.TobtManuallyConfirmed,
-		ReqTobt:           normalizeCalculationClock(valueOrEmpty(data.EffectiveReqTobt())),
 		Ctot:              valueOrEmpty(data.EffectiveCtot()),
 		Aobt:              normalizeCalculationClock(valueOrEmpty(data.EffectiveAobt())),
 		Asat:              normalizeCalculationClock(valueOrEmpty(data.EffectiveAsat())),
@@ -426,9 +471,6 @@ func calculationBaseTime(strip *models.Strip) string {
 	if strip.CdmData != nil {
 		if tobt := normalizeCalculationClock(valueOrEmpty(strip.CdmData.EffectiveTobt())); tobt != "" {
 			return tobt
-		}
-		if req := normalizeCalculationClock(valueOrEmpty(strip.CdmData.EffectiveReqTobt())); req != "" {
-			return req
 		}
 		if eobt := normalizeCalculationClock(valueOrEmpty(strip.CdmData.EffectiveEobt())); eobt != "" {
 			return eobt
@@ -585,7 +627,7 @@ func preservedSlotBlocksHigherPriorityCandidate(candidate sequencingCandidate, r
 	}
 
 	for _, pending := range recalculate {
-		if pending.started || pending.naturalTtot == "" || (!pending.hasCtot && !pending.input.TobtAuthoritative) {
+		if pending.improvement || pending.started || pending.naturalTtot == "" || (!pending.hasCtot && !pending.input.TobtAuthoritative) {
 			continue
 		}
 		if compareSequencingCandidates(pending, candidate, now, false) >= 0 {
@@ -597,6 +639,85 @@ func preservedSlotBlocksHigherPriorityCandidate(candidate sequencingCandidate, r
 	}
 
 	return false
+}
+
+func hasSlotForCallsign(slots []SlotEntry, callsign string) bool {
+	for _, slot := range slots {
+		if strings.EqualFold(strings.TrimSpace(slot.Callsign), strings.TrimSpace(callsign)) {
+			return true
+		}
+	}
+	return false
+}
+
+func removeSlotForCallsign(slots []SlotEntry, callsign string) []SlotEntry {
+	for i, slot := range slots {
+		if strings.EqualFold(strings.TrimSpace(slot.Callsign), strings.TrimSpace(callsign)) {
+			return append(slots[:i], slots[i+1:]...)
+		}
+	}
+	return slots
+}
+
+// improvementKeepsQueueOrder gives every aircraft originally ahead of the
+// candidate first claim on an earlier slot, but only when its own TOBT and
+// operational constraints make that slot achievable. An aircraft with a TOBT
+// too late for the opening does not block a following aircraft from using it.
+func improvementKeepsQueueOrder(candidate sequencingCandidate, proposedTtot string, slots []SlotEntry, candidates []sequencingCandidate, config *CdmAirportConfig, anchor time.Time) bool {
+	if !candidate.hasSlot || strings.TrimSpace(proposedTtot) == "" {
+		return candidate.hasSlot
+	}
+
+	probeSlots := slotsWithoutCallsign(slots, candidate.strip.Callsign)
+	for _, predecessor := range candidates {
+		if !predecessor.hasSlot || predecessor.started ||
+			strings.EqualFold(strings.TrimSpace(predecessor.strip.Callsign), strings.TrimSpace(candidate.strip.Callsign)) ||
+			!strings.EqualFold(strings.TrimSpace(predecessor.slot.Origin), strings.TrimSpace(candidate.slot.Origin)) ||
+			!sameOrDependentRunway(candidate.slot.DepRwy, predecessor.slot.DepRwy, config) {
+			continue
+		}
+		if compareClockForSort(predecessor.slot.Ttot, candidate.slot.Ttot, anchor) >= 0 {
+			continue
+		}
+		// Required-recalculation flights are not provisionally present in slots.
+		// Their original assignment still defines their place in the queue and
+		// gives them first claim on any gap they can operationally use.
+		currentSlot := predecessor.slot
+		if activeSlot, ok := slotForCallsign(slots, predecessor.strip.Callsign); ok {
+			currentSlot = activeSlot
+		}
+		if compareClockForSort(currentSlot.Ttot, proposedTtot, anchor) < 0 {
+			continue
+		}
+
+		earliest := Calculate(predecessor.input, probeSlots, config, anchor).Ttot
+		if earliest == "" || compareClockForSort(earliest, currentSlot.Ttot, anchor) >= 0 {
+			continue
+		}
+		if compareClockForSort(earliest, proposedTtot, anchor) <= 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func slotForCallsign(slots []SlotEntry, callsign string) (SlotEntry, bool) {
+	for _, slot := range slots {
+		if strings.EqualFold(strings.TrimSpace(slot.Callsign), strings.TrimSpace(callsign)) {
+			return slot, true
+		}
+	}
+	return SlotEntry{}, false
+}
+
+func slotsWithoutCallsign(slots []SlotEntry, callsign string) []SlotEntry {
+	filtered := make([]SlotEntry, 0, len(slots))
+	for _, slot := range slots {
+		if !strings.EqualFold(strings.TrimSpace(slot.Callsign), strings.TrimSpace(callsign)) {
+			filtered = append(filtered, slot)
+		}
+	}
+	return filtered
 }
 
 func canRetainExistingSlot(candidate sequencingCandidate, slot SlotEntry, slots []SlotEntry, config *CdmAirportConfig, now time.Time) bool {

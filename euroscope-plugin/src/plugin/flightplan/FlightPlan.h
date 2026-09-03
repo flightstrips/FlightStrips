@@ -56,8 +56,6 @@ namespace FlightStrips::flightplan {
     struct CdmState {
         std::string eobt{};
         std::string tobt{};
-        std::string req_tobt{};
-        std::string req_tobt_source{};
         std::string tobt_confirmed_by{};
         std::string tsat{};
         std::string ttot{};

@@ -56,9 +56,6 @@ namespace FlightStrips::TagItems {
             case Field::Tobt:
                 if (cdm.tobt.empty()) return {"----", TAG_GREY, true};
                 return {cdm.tobt, ResolveTobtColor(cdm), true};
-            case Field::ReqTobt:
-                if (cdm.req_tobt.empty()) return {};
-                return {cdm.req_tobt, TAG_GREEN, true};
             case Field::Tsat:
                 if (cdm.tsat.empty()) return {};
                 return {cdm.tsat, ResolveTsatFamilyColor(cdm), true};

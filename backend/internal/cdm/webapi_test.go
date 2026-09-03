@@ -111,10 +111,9 @@ func TestWebAPIHandleSequenceReturnsSessionRows(t *testing.T) {
 		ListFn: func(ctx context.Context) ([]*models.Session, error) {
 			return []*models.Session{
 				{
-					ID:        7,
-					Name:      "LIVE",
-					Airport:   "EKCH",
-					CdmMaster: true,
+					ID:      7,
+					Name:    "LIVE",
+					Airport: "EKCH",
 					ActiveRunways: pkgModels.ActiveRunways{
 						DepartureRunways: []string{"04L"},
 						ArrivalRunways:   []string{"22L"},
@@ -124,10 +123,9 @@ func TestWebAPIHandleSequenceReturnsSessionRows(t *testing.T) {
 		},
 		GetByIDFn: func(ctx context.Context, id int32) (*models.Session, error) {
 			return &models.Session{
-				ID:        id,
-				Name:      "LIVE",
-				Airport:   "EKCH",
-				CdmMaster: true,
+				ID:      id,
+				Name:    "LIVE",
+				Airport: "EKCH",
 				ActiveRunways: pkgModels.ActiveRunways{
 					DepartureRunways: []string{"04L"},
 					ArrivalRunways:   []string{"22L"},
@@ -162,9 +160,6 @@ func TestWebAPIHandleSequenceReturnsSessionRows(t *testing.T) {
 	session := payload.Sessions[0]
 	if session.SessionID != 7 || session.Airport != "EKCH" || session.Name != "LIVE" {
 		t.Fatalf("unexpected session metadata: %#v", session)
-	}
-	if !session.CdmMaster {
-		t.Fatalf("expected session to be marked as master, got %#v", session)
 	}
 	if len(session.Rows) != 2 {
 		t.Fatalf("expected 2 rows, got %d", len(session.Rows))
@@ -255,95 +250,6 @@ func TestWebAPIHandleSequenceReturnsCurrentDepartureRatesWithoutAircraft(t *test
 	}
 }
 
-func TestWebAPIHandleSequenceDoesNotRecalculateSlaveSessions(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, time.May, 10, 10, 0, 0, 0, time.UTC)
-	confirmedBy := models.TobtConfirmedByPilot
-	taxiMinutes := 10
-	position := 1
-	stripRepo := &testutil.MockStripRepository{
-		ListByOriginFn: func(ctx context.Context, session int32, origin string) ([]*models.Strip, error) {
-			return []*models.Strip{{
-				Callsign:         "SAS789",
-				Origin:           "EKCH",
-				Destination:      "ESSA",
-				Runway:           testStringPtr("04L"),
-				Sid:              testStringPtr("MIKLA1A"),
-				AircraftCategory: testStringPtr("M"),
-				CdmData: (&models.CdmData{
-					Tobt:            testStringPtr("1010"),
-					TobtConfirmedBy: &confirmedBy,
-					Tsat:            testStringPtr("1050"),
-					Ttot:            testStringPtr("1100"),
-					Calculation: &models.CdmCalculation{
-						BaseTime:         testStringPtr("1010"),
-						BaseSource:       testStringPtr(models.CdmCalculationBaseTobt),
-						TaxiMinutes:      &taxiMinutes,
-						TaxiRunway:       testStringPtr("04L"),
-						SequencePosition: &position,
-						ReasonMarkers: []models.CdmReasonMarker{
-							{Kind: "runway_spacing", AgainstCallsign: testStringPtr("SAS456"), FromTtot: testStringPtr("105900"), ToTtot: testStringPtr("110000")},
-						},
-					},
-				}).Normalize(),
-			}}, nil
-		},
-	}
-	sessionRepo := &testutil.MockSessionRepository{
-		ListFn: func(ctx context.Context) ([]*models.Session, error) {
-			return []*models.Session{{
-				ID:      8,
-				Name:    "LIVE",
-				Airport: "EKCH",
-				ActiveRunways: pkgModels.ActiveRunways{
-					DepartureRunways: []string{"04L"},
-				},
-			}}, nil
-		},
-	}
-
-	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
-	sequenceService := newTestSequenceService(stripRepo, sessionRepo, configStore, nil, nil)
-	api := NewWebAPI(cdmAuthStub{}, sessionRepo, sequenceService)
-	api.now = func() time.Time { return now }
-
-	req := httptest.NewRequest(http.MethodGet, "/cdm/sequence", nil)
-	req.Header.Set("Authorization", "Bearer token")
-	recorder := httptest.NewRecorder()
-
-	api.handleSequence(recorder, req)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, recorder.Code, recorder.Body.String())
-	}
-
-	var payload sequenceResponse
-	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if len(payload.Sessions) != 1 || len(payload.Sessions[0].Rows) != 1 {
-		t.Fatalf("unexpected payload: %#v", payload)
-	}
-	if payload.Sessions[0].CdmMaster {
-		t.Fatalf("expected slave session metadata, got %#v", payload.Sessions[0])
-	}
-
-	row := payload.Sessions[0].Rows[0]
-	if row.Ttot != "1100" || row.Tsat != "1050" {
-		t.Fatalf("expected synced TTOT/TSAT to be preserved, got %#v", row)
-	}
-	if row.NaturalTtot != "" {
-		t.Fatalf("expected slave session not to expose a locally calculated natural TTOT, got %#v", row)
-	}
-	if row.TaxiMinutes == nil || *row.TaxiMinutes != 10 {
-		t.Fatalf("expected taxi minutes in slave row, got %#v", row)
-	}
-	if !hasReason(row.Reasons, "runway_spacing", "SAS456") {
-		t.Fatalf("expected stored movement marker, got %#v", row.Reasons)
-	}
-}
-
 func TestWebAPIHandleSequenceAssignsMissingStoredPositionsIndependently(t *testing.T) {
 	t.Parallel()
 
@@ -397,10 +303,9 @@ func TestWebAPIHandleSequenceAssignsMissingStoredPositionsIndependently(t *testi
 	sessionRepo := &testutil.MockSessionRepository{
 		ListFn: func(ctx context.Context) ([]*models.Session, error) {
 			return []*models.Session{{
-				ID:        7,
-				Name:      "LIVE",
-				Airport:   "EKCH",
-				CdmMaster: true,
+				ID:      7,
+				Name:    "LIVE",
+				Airport: "EKCH",
 				ActiveRunways: pkgModels.ActiveRunways{
 					DepartureRunways: []string{"04L"},
 					ArrivalRunways:   []string{"22L"},

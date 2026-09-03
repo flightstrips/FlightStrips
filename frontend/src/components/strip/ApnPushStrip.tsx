@@ -64,7 +64,6 @@ export function ApnPushStrip({
   holdingPoint,
   tsat,
   tobt,
-  reqTobtType,
   tobtSetBy,
   ctot,
   phase,
@@ -112,7 +111,7 @@ export function ApnPushStrip({
   const runwayYellow = unexpectedChangeFields?.includes("runway");
   const { tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
-  const emphasizeDisplayedTime = hasManualTobtSource(reqTobtType, tobtSetBy);
+	const emphasizeDisplayedTime = hasManualTobtSource(tobtSetBy);
   const canSendCdmReady = bay === Bay.Cleared;
   const nextFreq = useNextFrequencyDisplay(nextDisplay, nextControllers, myPosition);
 

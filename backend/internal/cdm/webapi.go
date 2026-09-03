@@ -30,7 +30,6 @@ type sequenceSessionResponse struct {
 	SessionID        int32                   `json:"session_id"`
 	Name             string                  `json:"name"`
 	Airport          string                  `json:"airport"`
-	CdmMaster        bool                    `json:"cdm_master"`
 	DepartureRunways []string                `json:"departure_runways"`
 	DepartureRates   []departureRateResponse `json:"departure_rates"`
 	ArrivalRunways   []string                `json:"arrival_runways"`
@@ -53,7 +52,6 @@ type sequenceRowResponse struct {
 	State           string                   `json:"state"`
 	Eobt            string                   `json:"eobt"`
 	Tobt            string                   `json:"tobt"`
-	ReqTobt         string                   `json:"req_tobt"`
 	TobtConfirmed   bool                     `json:"tobt_confirmed"`
 	TobtConfirmedBy string                   `json:"tobt_confirmed_by"`
 	Tsat            string                   `json:"tsat"`
@@ -154,7 +152,6 @@ func buildSequenceSessionSnapshot(ctx context.Context, service *SequenceService,
 		SessionID:        session.ID,
 		Name:             session.Name,
 		Airport:          session.Airport,
-		CdmMaster:        session.CdmMaster,
 		DepartureRunways: append([]string(nil), session.ActiveRunways.DepartureRunways...),
 		ArrivalRunways:   append([]string(nil), session.ActiveRunways.ArrivalRunways...),
 		DepartureRates:   currentDepartureRates(service, session),
@@ -166,7 +163,7 @@ func buildSequenceSessionSnapshot(ctx context.Context, service *SequenceService,
 		return response, err
 	}
 
-	rows := buildPersistedSequenceRows(strips, session.CdmMaster, now)
+	rows := buildPersistedSequenceRows(strips, true, now)
 	response.Rows = make([]sequenceRowResponse, len(rows))
 	for i, row := range rows {
 		response.Rows[i] = row.response
@@ -339,7 +336,6 @@ func buildPersistedSequenceRows(strips []*models.Strip, isMaster bool, now time.
 			State:           valueOrEmpty(strip.State),
 			Eobt:            truncateSequenceClock(valueOrEmpty(data.EffectiveEobt())),
 			Tobt:            truncateSequenceClock(valueOrEmpty(data.EffectiveTobt())),
-			ReqTobt:         truncateSequenceClock(valueOrEmpty(data.EffectiveReqTobt())),
 			TobtConfirmed:   valueOrEmpty(data.TobtConfirmedBy) != "",
 			TobtConfirmedBy: valueOrEmpty(data.TobtConfirmedBy),
 			Tsat:            truncateSequenceClock(valueOrEmpty(data.EffectiveTsat())),
@@ -406,7 +402,6 @@ func buildSnapshotResponse(candidate sequencingCandidate, data *models.CdmData, 
 		State:           valueOrEmpty(candidate.strip.State),
 		Eobt:            truncateSequenceClock(valueOrEmpty(data.EffectiveEobt())),
 		Tobt:            truncateSequenceClock(valueOrEmpty(data.EffectiveTobt())),
-		ReqTobt:         truncateSequenceClock(valueOrEmpty(data.EffectiveReqTobt())),
 		TobtConfirmed:   confirmedBy != "",
 		TobtConfirmedBy: confirmedBy,
 		Tsat:            truncateSequenceClock(valueOrEmpty(data.EffectiveTsat())),
@@ -497,8 +492,6 @@ func buildBaseReason(candidate sequencingCandidate) sequenceReasonResponse {
 	switch baseSource {
 	case models.CdmCalculationBaseTobt:
 		sourceLabel = "TOBT"
-	case models.CdmCalculationBaseReqTobt:
-		sourceLabel = "REQ TOBT"
 	case models.CdmCalculationBaseEobt:
 		sourceLabel = "EOBT"
 	}
@@ -575,9 +568,6 @@ func remoteSequenceBase(data *models.CdmData) (string, string) {
 	}
 	if tobt := normalizeCalculationClock(valueOrEmpty(data.EffectiveTobt())); tobt != "" {
 		return tobt, models.CdmCalculationBaseTobt
-	}
-	if reqTobt := normalizeCalculationClock(valueOrEmpty(data.EffectiveReqTobt())); reqTobt != "" {
-		return reqTobt, models.CdmCalculationBaseReqTobt
 	}
 	if eobt := normalizeCalculationClock(valueOrEmpty(data.EffectiveEobt())); eobt != "" {
 		return eobt, models.CdmCalculationBaseEobt

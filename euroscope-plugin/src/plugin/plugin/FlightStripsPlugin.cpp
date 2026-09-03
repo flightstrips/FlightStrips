@@ -183,7 +183,6 @@ namespace FlightStrips {
         RegisterTagItemType("E/TOBT", TAG_ITEM_CDM_E_TOBT);
         RegisterTagItemType("E", TAG_ITEM_CDM_PHASE);
         RegisterTagItemType("TOBT", TAG_ITEM_CDM_TOBT);
-        RegisterTagItemType("REQ-TOBT", TAG_ITEM_CDM_REQ_TOBT);
         RegisterTagItemType("TSAT", TAG_ITEM_CDM_TSAT);
         RegisterTagItemType("TSAT/TOBT-DIFF", TAG_ITEM_CDM_TSAT_TOBT_DIFF);
         RegisterTagItemType("TTG", TAG_ITEM_CDM_TTG);
@@ -213,7 +212,6 @@ namespace FlightStrips {
         RegisterTagItemFunction("CTOT Options", TAG_FUNC_CDM_CTOT_OPTIONS);
         RegisterTagItemFunction("Set Manual CTOT", TAG_FUNC_CDM_SET_MANUAL_CTOT);
         RegisterTagItemFunction("Remove Manual CTOT", TAG_FUNC_CDM_REMOVE_MANUAL_CTOT);
-        RegisterTagItemFunction("Approve Req TOBT", TAG_FUNC_CDM_APPROVE_REQ_TOBT);
         RegisterTagItemFunction("Options", TAG_FUNC_CDM_OPTIONS);
         RegisterTagItemFunction("CDM Options", TAG_FUNC_CDM_OPTIONS);
         RegisterTagItemFunction("Get FM as text", TAG_FUNC_CDM_FLOW_MESSAGE_AS_TEXT);
@@ -691,7 +689,6 @@ namespace FlightStrips {
         const auto tracked = container->flightPlanService->GetFlightPlan(callsign);
         const auto currentEobt = tracked == nullptr ? "" : tracked->cdm.eobt;
         const auto currentTobt = tracked == nullptr ? "" : tracked->cdm.tobt;
-        const auto currentReqTobt = tracked == nullptr ? "" : tracked->cdm.req_tobt;
         const auto currentManualCtot = tracked == nullptr ? "" : tracked->cdm.manual_ctot;
         const auto currentAsrt = tracked == nullptr ? "" : tracked->cdm.asrt;
         const auto currentTsat = tracked == nullptr ? "" : tracked->cdm.tsat;
@@ -710,9 +707,6 @@ namespace FlightStrips {
         const auto addTobtOptions = [&] {
             AddPopupListElement("Ready TOBT", "", TAG_FUNC_CDM_READY_TOBT, false, 2, false);
             AddPopupListElement("Edit TOBT", "", TAG_FUNC_CDM_EDIT_TOBT, false, 2, false);
-            if (!currentReqTobt.empty()) {
-                AddPopupListElement("Approve Req TOBT", "", TAG_FUNC_CDM_APPROVE_REQ_TOBT, false, 2, false);
-            }
         };
 
         const auto addCtotOptions = [&] {
@@ -816,9 +810,9 @@ namespace FlightStrips {
             case TAG_FUNC_CDM_EDIT_TOBT:
                 OpenPopupEdit(Area, TAG_FUNC_CDM_SET_TOBT, currentTobt.c_str());
                 break;
-            case TAG_FUNC_CDM_READY_TOBT:
-                container->messageService->SendCdmTobtUpdate(callsign, CurrentUtcHHMM());
-                break;
+			case TAG_FUNC_CDM_READY_TOBT:
+				container->messageService->SendCdmReady(callsign);
+				break;
             case TAG_FUNC_CDM_TOBT_OPTIONS:
                 openTobtOptions();
                 break;
@@ -900,11 +894,6 @@ namespace FlightStrips {
             case TAG_FUNC_CDM_REMOVE_MANUAL_CTOT:
                 container->messageService->SendCdmCtotRemove(callsign);
                 break;
-            case TAG_FUNC_CDM_APPROVE_REQ_TOBT:
-                if (!currentReqTobt.empty()) {
-                    container->messageService->SendCdmApproveReqTobt(callsign);
-                }
-                break;
             case TAG_FUNC_CDM_OPTIONS:
                 openGlobalOptions();
                 break;
@@ -925,14 +914,9 @@ namespace FlightStrips {
             case TAG_FUNC_CDM_FLOW_MESSAGE_AS_TEXT:
                 Information(currentFlowMessage.empty() ? "No flow message available." : currentFlowMessage);
                 break;
-            case TAG_FUNC_CDM_NETWORK_STATUS_OPTIONS:
-                if (!currentReqTobt.empty()) {
-                    OpenPopupList(Area, "Network Sts Options", 1);
-                    AddPopupListElement("Approve Req TOBT", "", TAG_FUNC_CDM_APPROVE_REQ_TOBT, false, 2, false);
-                } else {
-                    Information("Network status is backend-driven.");
-                }
-                break;
+			case TAG_FUNC_CDM_NETWORK_STATUS_OPTIONS:
+				Information("Network status is backend-driven.");
+				break;
             default:
                 break;
         }

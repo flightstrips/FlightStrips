@@ -6,12 +6,9 @@
 #define COMMAND_PREFIX ".fs"
 #define COMMAND_OPEN COMMAND_PREFIX " open"
 #define COMMAND_CLOSE COMMAND_PREFIX " close"
-#define COMMAND_CDM_MASTER COMMAND_PREFIX " cdm master"
-#define COMMAND_CDM_SLAVE COMMAND_PREFIX " cdm slave"
 
 constexpr int TAG_ITEM_DEICING_DESIGNATOR = 1;
 constexpr int TAG_ITEM_CDM_TOBT = 2;
-constexpr int TAG_ITEM_CDM_REQ_TOBT = 3;
 constexpr int TAG_ITEM_CDM_TSAT = 4;
 constexpr int TAG_ITEM_CDM_TTOT = 5;
 constexpr int TAG_ITEM_CDM_CTOT = 6;
@@ -37,7 +34,6 @@ constexpr int TAG_FUNC_CDM_SET_DEICE = 2006;
 constexpr int TAG_FUNC_CDM_EDIT_MANUAL_CTOT = 2007;
 constexpr int TAG_FUNC_CDM_SET_MANUAL_CTOT = 2008;
 constexpr int TAG_FUNC_CDM_REMOVE_MANUAL_CTOT = 2009;
-constexpr int TAG_FUNC_CDM_APPROVE_REQ_TOBT = 2010;
 constexpr int TAG_FUNC_CDM_EOBT_ACTION = 2011;
 constexpr int TAG_FUNC_CDM_EOBT_TO_TOBT = 2012;
 constexpr int TAG_FUNC_CDM_READY_TOBT = 2013;

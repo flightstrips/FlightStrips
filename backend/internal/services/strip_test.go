@@ -39,6 +39,10 @@ func (s *spyStripCdmService) SyncAirportLvoFromRunwayStatus(_ context.Context, _
 	panic("unexpected")
 }
 
+func (s *spyStripCdmService) DeregisterMasterAirport(context.Context, string) error {
+	panic("unexpected")
+}
+
 func (s *spyStripCdmService) HandleReadyRequest(_ context.Context, _ int32, _ string, _ string, _ string) error {
 	panic("unexpected")
 }
@@ -75,9 +79,6 @@ func (s *spyStripCdmService) HandleManualCtot(_ context.Context, _ int32, _ stri
 func (s *spyStripCdmService) HandleCtotRemove(_ context.Context, _ int32, _ string) error {
 	panic("unexpected")
 }
-func (s *spyStripCdmService) HandleApproveReqTobt(_ context.Context, _ int32, _ string, _ string, _ string) error {
-	panic("unexpected")
-}
 func (s *spyStripCdmService) SyncAsatForGroundState(_ context.Context, _ int32, callsign string, groundState string) error {
 	s.called = true
 	s.callsign = callsign
@@ -89,10 +90,6 @@ func (s *spyStripCdmService) SyncAsatForGroundState(_ context.Context, _ int32, 
 }
 func (s *spyStripCdmService) RequestBetterTobt(_ context.Context, _ int32, _ string) error {
 	panic("unexpected")
-}
-
-func (s *spyStripCdmService) SetSessionCdmMaster(_ context.Context, _ int32, _ bool) error {
-	panic("SetSessionCdmMaster should not be called in this test")
 }
 
 // ---- MoveToBay ----

@@ -620,9 +620,9 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
         return true;
     }
 
-    bool MessageService::SendCdmApproveReqTobt(const std::string& callsign) const {
+    bool MessageService::SendCdmReady(const std::string& callsign) const {
         if (!m_webSocketService->IsConnected()) return false;
-        m_webSocketService->SendEvent(CdmApproveReqTobtEvent(callsign));
+        m_webSocketService->SendEvent(CdmReadyEvent(callsign));
         return true;
     }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 
@@ -62,9 +63,6 @@ func (c *ActionService) HandleEobtUpdate(ctx context.Context, session int32, cal
 	callsign = strings.TrimSpace(callsign)
 	eobt = strings.TrimSpace(eobt)
 	if callsign == "" {
-		return nil
-	}
-	if eobt == "" && !s.isMasterSession(session) {
 		return nil
 	}
 	if eobt != "" && !isValidHHMM(eobt) {
@@ -146,11 +144,7 @@ func (c *ActionService) PrepareEuroscopeEobtSync(session int32, data *models.Cdm
 }
 
 func (c *ActionService) normalizeMasterEobtValue(session int32, eobt string, now time.Time) (string, bool) {
-	s := c.service
 	normalized := truncateCDMClockValue(normalizeCalculationClock(eobt))
-	if !s.isMasterSession(session) {
-		return normalized, false
-	}
 	if _, ok := parseClock(normalized); !ok {
 		return truncateCDMClockValue(addMinutes(timeToClock(now), masterEobtClampTarget)), true
 	}
@@ -162,7 +156,7 @@ func (c *ActionService) normalizeMasterEobtValue(session int32, eobt string, now
 
 func (c *ActionService) normalizeExistingMasterSessionEobts(ctx context.Context, session int32, airport string, now time.Time) (bool, error) {
 	s := c.service
-	if !s.isMasterSession(session) || strings.TrimSpace(airport) == "" {
+	if strings.TrimSpace(airport) == "" {
 		return false, nil
 	}
 
@@ -188,7 +182,7 @@ func (c *ActionService) normalizeExistingMasterSessionEobts(ctx context.Context,
 
 func (c *ActionService) normalizeMasterLookupEobts(ctx context.Context, session int32, lookup map[string]*models.CdmData, now time.Time) (bool, error) {
 	s := c.service
-	if !s.isMasterSession(session) || len(lookup) == 0 {
+	if len(lookup) == 0 {
 		return false, nil
 	}
 
@@ -209,7 +203,7 @@ func (c *ActionService) normalizeMasterLookupEobts(ctx context.Context, session 
 
 func (c *ActionService) normalizeMasterFlightEobt(ctx context.Context, session int32, callsign string, data *models.CdmData, now time.Time) (bool, error) {
 	s := c.service
-	if !s.isMasterSession(session) || data == nil {
+	if data == nil {
 		return false, nil
 	}
 
@@ -435,156 +429,76 @@ func (c *ActionService) HandleCtotRemove(ctx context.Context, session int32, cal
 	return nil
 }
 
-func (c *ActionService) HandleApproveReqTobt(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
-	s := c.service
-	callsign = strings.TrimSpace(callsign)
-	if callsign == "" {
-		return nil
-	}
-
-	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
-	if err != nil {
-		return err
-	}
-	if strip == nil || cdmData == nil || helpers.ValueOrDefault(cdmData.EffectiveReqTobt()) == "" {
-		return nil
-	}
-
-	if err := s.HandleTobtUpdate(ctx, session, callsign, helpers.ValueOrDefault(cdmData.EffectiveReqTobt()), sourcePosition, sourceRole); err != nil {
-		return err
-	}
-	c.clearReqTobtAsync(ctx, session, callsign)
-	return nil
-}
-
-func (c *ActionService) clearReqTobtAsync(ctx context.Context, session int32, callsign string) {
-	s := c.service
-	if !s.client.isValid || !s.isMasterSession(session) || !s.usesViffSession(session) {
-		return
-	}
-	asyncCtx := detachedContext(ctx)
-	go func() {
-		if err := s.client.IFPSDpi(asyncCtx, callsign, "REQTOBT/NULL/NULL"); err != nil {
-			slog.Warn("Failed to clear REQTOBT on CDM backend",
-				slog.String("callsign", callsign),
-				slog.Any("error", err),
-			)
-		}
-	}()
-}
-
 func (c *ActionService) HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	s := c.service
-	if s.client.isValid && !s.isMasterSession(session) {
-		return s.SetReady(ctx, session, callsign)
-	}
-
 	now := time.Now().UTC()
 	tobt := now.Format("1504")
-
-	strip, cdmData, err := s.loadCdmActionTarget(ctx, session, callsign)
+	strip, before, updated, _, changed, shouldRecalculate, err := c.prepareTobtUpdate(ctx, session, callsign, tobt, sourcePosition, sourceRole, now)
 	if err != nil {
 		return err
 	}
-	if strip == nil || cdmData == nil {
+	if strip == nil || updated == nil {
 		return nil
 	}
-	if isTsatWithinReadyWindow(helpers.ValueOrDefault(cdmData.EffectiveTsat()), now) {
-		return s.SetReady(ctx, session, callsign)
+	if strings.TrimSpace(helpers.ValueOrDefault(updated.Asrt)) == "" {
+		updated.Asrt = &tobt
 	}
-
-	updated := cdmData.Clone()
-	previousEobt := helpers.ValueOrDefault(updated.EffectiveEobt())
-	previousTobt := helpers.ValueOrDefault(updated.EffectiveTobt())
-	applyConfirmedTobtUpdate(updated, tobt, sourcePosition, sourceRole)
-	updated.Asrt = &tobt
+	rea := "REA"
+	updated.Status = &rea
 	currentEobt := normalizeCalculationClock(helpers.ValueOrDefault(updated.EffectiveEobt()))
 	if currentEobt == "" || !isAfterOrEqual(tobt, currentEobt) {
 		updated.Eobt = &tobt
 	}
-	updated.MarkLocalRecalculationPending()
-	if err := s.persistCdmUpdateSilently(ctx, session, callsign, updated); err != nil {
-		return err
-	}
-
-	if err := s.finalizeClxTobtUpdate(ctx, session, callsign, strip.Origin, true); err != nil {
-		return err
-	}
-	if nextEobt := helpers.ValueOrDefault(updated.EffectiveEobt()); strings.TrimSpace(previousEobt) != strings.TrimSpace(nextEobt) {
-		c.pushCorrectedEobtToEuroscope(ctx, session, callsign, nextEobt)
-	}
-
-	masterViffSession := s.client.isValid && s.isMasterSession(session) && s.usesViffSession(session)
-	if masterViffSession {
-		if strings.TrimSpace(previousTobt) != tobt {
-			if err := s.PushTobt(ctx, session, callsign, tobt); err != nil {
-				return err
-			}
-		}
-		if err := s.pushLatestMasterCdmDataToViff(ctx, session, callsign, strip); err != nil {
-			return err
-		}
-	}
-
-	if err := s.SetReady(ctx, session, callsign); err != nil {
-		return err
-	}
-	if masterViffSession {
-		if err := s.refreshMasterFlightFromViff(ctx, session, callsign, strip.Origin); err != nil {
-			return err
-		}
-	} else {
-		c.pushTobtAsync(ctx, session, callsign, previousTobt, tobt)
-	}
-	return nil
-}
-
-func (c *ActionService) SetReady(ctx context.Context, session int32, callsign string) error {
-	s := c.service
-	masterViffSession := s.client.isValid && s.usesViffSession(session) && s.isMasterSession(session)
-	if s.client.isValid && s.usesViffSession(session) {
-		if err := s.client.IFPSDpi(ctx, callsign, "REA/1"); err != nil {
-			return err
-		}
-		if !s.isMasterSession(session) {
-			return nil
-		}
-	}
-
-	cdmData, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
-	if err != nil {
-		return err
-	}
-	alreadyReady := cdmData.EffectiveStatus() != nil && *cdmData.EffectiveStatus() == "REA" && helpers.ValueOrDefault(cdmData.Asrt) != ""
-	updated := cdmData
-	if !alreadyReady {
-		before := snapshotCdm(cdmData)
-		updated = cdmData.Clone()
-		rea := "REA"
-		updated.Status = &rea
-		if helpers.ValueOrDefault(updated.Asrt) == "" {
-			now := time.Now().UTC().Format("1504")
-			updated.Asrt = &now
-		}
+	updated.ReadySyncPending = s.client.isValid && s.usesViffSession(session)
+	if changed || snapshotCdm(updated) != before || updated.ReadySyncPending {
 		if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 			return err
 		}
 	}
-	if _, exportable := buildViffPushState(callsign, nil, updated); masterViffSession && exportable {
-		strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return err
+	if !updated.ReadySyncPending {
+		if shouldRecalculate {
+			s.TriggerRecalculate(ctx, session, strip.Origin)
 		}
-		if err := s.pushViffAfterRecalc(ctx, callsign, strip, updated); err != nil {
-			return err
-		}
-	}
-	if alreadyReady {
+		s.publisher.SendCdmWait(session, callsign)
 		return nil
 	}
-
+	if err := c.completeReadyViffSync(ctx, session, strip, updated, shouldRecalculate); err != nil {
+		return err
+	}
 	s.publisher.SendCdmWait(session, callsign)
+	return nil
+}
 
+func (c *ActionService) completeReadyViffSync(ctx context.Context, session int32, strip *models.Strip, data *models.CdmData, shouldRecalculate bool) error {
+	s := c.service
+	if strip == nil || data == nil || !s.client.isValid || !s.usesViffSession(session) {
+		return nil
+	}
+	// REA/1 must be acknowledged before the READY-derived TOBT is exported;
+	// otherwise upstream may assign a later CTOT while processing the TOBT.
+	if err := s.client.IFPSDpi(ctx, strip.Callsign, "REA/1"); err != nil {
+		return err
+	}
+	if shouldRecalculate && s.sequenceService != nil && strings.TrimSpace(strip.Origin) != "" {
+		if err := s.sequenceService.RecalculateAirport(ctx, session, strip.Origin); err != nil {
+			return err
+		}
+		var err error
+		data, err = s.stripRepo.GetCdmDataForCallsign(ctx, session, strip.Callsign)
+		if err != nil {
+			return err
+		}
+	}
+	if err := s.masterViffSync.pushAuthoritativeViffState(ctx, strip.Callsign, strip, data); err != nil {
+		return err
+	}
+	if data.ReadySyncPending {
+		updated := data.Clone()
+		updated.ReadySyncPending = false
+		if err := s.persistCdmUpdateSilently(ctx, session, strip.Callsign, updated); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -627,7 +541,7 @@ func (c *ActionService) RequestBetterTobt(ctx context.Context, session int32, ca
 
 func (c *ActionService) PushTobt(ctx context.Context, session int32, callsign string, tobt string) error {
 	s := c.service
-	if !s.client.isValid || !s.isMasterSession(session) || !s.usesViffSession(session) {
+	if !s.client.isValid || !s.usesViffSession(session) {
 		return nil
 	}
 
@@ -671,19 +585,74 @@ func (c *ActionService) prepareTobtUpdate(ctx context.Context, session int32, ca
 	before := snapshotCdm(cdmData)
 	updated := cdmData.Clone()
 	previousTobt := helpers.ValueOrDefault(updated.Tobt)
-	shouldTriggerRecalculate := shouldTriggerClockRecalculation(tobt, now) || shouldForceRecalculateForStaleSequence(updated, now)
 	prospective := updated.Clone()
 	applyConfirmedTobtUpdate(prospective, tobt, sourcePosition, sourceRole)
+	shouldTriggerRecalculate := applyTobtRecalculationPolicy(prospective, tobt)
+	if prospective.RecalculationMode == models.CdmRecalculationRequired && prospective.HasManualCtot() {
+		configSnapshot := c.configSnapshotForStrip(strip)
+		taxiAndDeiceMinutes := resolveTaxiMinutesForStrip(strip, configSnapshot) +
+			deiceTypeToMinutes(configSnapshot, helpers.ValueOrDefault(prospective.DeIce))
+		earliestTtot := addMinutes(toHHMMSS(tobt), float64(taxiAndDeiceMinutes))
+		manualCtot := toHHMMSS(helpers.ValueOrDefault(prospective.Ctot))
+		if earliestTtot != "" && manualCtot != "" && minutesBetween(manualCtot, earliestTtot) > 0 {
+			prospective.Ctot = nil
+			prospective.CtotSource = nil
+		}
+	}
 	metadataChanged := snapshotCdm(prospective) != before
-	if previousTobt == tobt && helpers.ValueOrDefault(updated.ReqTobt) == "" && !shouldTriggerRecalculate && !metadataChanged {
+	if previousTobt == tobt && !shouldTriggerRecalculate && !metadataChanged {
 		return strip, before, updated, previousTobt, false, false, nil
 	}
 
 	updated = prospective
-	if shouldTriggerRecalculate {
-		updated.MarkLocalRecalculationPending()
-	}
 	return strip, before, updated, previousTobt, true, shouldTriggerRecalculate, nil
+}
+
+// applyTobtRecalculationPolicy applies the universal TOBT/TSAT protection
+// window. The proposed TOBT is always retained. An existing TSAT within five
+// minutes on either side is frozen, including when it is slightly earlier than
+// TOBT. Outside the window a later TOBT requires a new assignment, while an
+// earlier TOBT may only improve the existing assignment.
+func applyTobtRecalculationPolicy(updated *models.CdmData, tobt string) bool {
+	if updated == nil {
+		return false
+	}
+	wasPending := updated.NeedsLocalRecalculation()
+	previousMode := updated.RecalculationMode
+	ts := normalizeCalculationClock(helpers.ValueOrDefault(updated.EffectiveTsat()))
+	delta, valid := tobtTsatWindow(tobt, ts)
+	if valid && math.Abs(delta) <= 5 {
+		if wasPending && previousMode == models.CdmRecalculationImproveOnly {
+			// The improvement belonged to an older TOBT outside the window. The
+			// replacement TOBT is protected, so that work is now obsolete.
+			updated.ClearLocalRecalculationPending()
+			return false
+		}
+		// The protected window freezes this TOBT change's effect on the
+		// assignment, but it must not cancel work requested by another input
+		// such as de-ice, runway, EOBT or CTOT.
+		return wasPending
+	}
+	if !valid || delta > 5 {
+		updated.Tsat = nil
+		updated.Ttot = nil
+		if !updated.HasManualCtot() {
+			updated.Ctot = nil
+			updated.CtotSource = nil
+			updated.MostPenalizingAirspace = nil
+			updated.EcfmpID = nil
+		}
+		updated.MarkLocalRecalculationPending()
+		return true
+	}
+	if wasPending && previousMode != models.CdmRecalculationImproveOnly {
+		// A TOBT improvement is weaker than an already-required recalculation.
+		// Keep the stronger mode so other changed inputs cannot be ignored.
+		updated.MarkLocalRecalculationPending()
+		return true
+	}
+	updated.MarkLocalImprovementPending()
+	return true
 }
 
 func (c *ActionService) SyncAsatForGroundState(ctx context.Context, session int32, callsign string, groundState string) error {
@@ -733,7 +702,7 @@ func (c *ActionService) SyncAsatForGroundState(ctx context.Context, session int3
 
 func (c *ActionService) pushAobtAsync(ctx context.Context, session int32, callsign, aobt string) {
 	s := c.service
-	if !s.client.isValid || !s.isMasterSession(session) || !s.usesViffSession(session) {
+	if !s.client.isValid || !s.usesViffSession(session) {
 		return
 	}
 	value := "AOBT/NULL"
@@ -754,7 +723,7 @@ func (c *ActionService) pushAobtAsync(ctx context.Context, session int32, callsi
 
 func (c *ActionService) pushCorrectedEobtToEuroscope(ctx context.Context, session int32, callsign, eobt string) {
 	s := c.service
-	if !s.isMasterSession(session) || strings.TrimSpace(eobt) == "" {
+	if strings.TrimSpace(eobt) == "" {
 		return
 	}
 
@@ -783,9 +752,9 @@ func (c *ActionService) pushCorrectedEobtToEuroscope(ctx context.Context, sessio
 func (c *ActionService) finalizeClxTobtUpdate(ctx context.Context, session int32, callsign string, airport string, shouldTriggerRecalculate bool) error {
 	s := c.service
 	if shouldTriggerRecalculate && s.sequenceService != nil && airport != "" && s.canRunLocalRecalculation(session) {
-		if err := s.sequenceService.RecalculateAirportSilently(ctx, session, airport); err != nil {
-			return err
-		}
+		// A TOBT change can move more than the edited flight. Use the publishing
+		// path so every persisted assignment reaches frontend, EuroScope and vIFF.
+		return s.sequenceService.RecalculateAirport(ctx, session, airport)
 	}
 	s.pushCdmDataAfterRecalc(ctx, session, callsign)
 	return nil
@@ -813,9 +782,16 @@ func (c *ActionService) pushTobtAsync(ctx context.Context, session int32, callsi
 }
 
 func (c *ActionService) resolveTaxiMinutes(strip *models.Strip) int {
-	s := c.service
 	if strip == nil {
 		return DefaultCDMTaxiMinutes
+	}
+	return resolveTaxiMinutesForStrip(strip, c.configSnapshotForStrip(strip))
+}
+
+func (c *ActionService) configSnapshotForStrip(strip *models.Strip) *CdmAirportConfig {
+	s := c.service
+	if strip == nil {
+		return NewDefaultAirportConfig("")
 	}
 	configSnapshot := NewDefaultAirportConfig(strip.Origin)
 	if s.configProvider != nil {
@@ -823,7 +799,7 @@ func (c *ActionService) resolveTaxiMinutes(strip *models.Strip) int {
 			configSnapshot = configForAirport
 		}
 	}
-	return resolveTaxiMinutesForStrip(strip, configSnapshot)
+	return configSnapshot
 }
 
 func isValidHHMM(value string) bool {
@@ -862,8 +838,6 @@ func applyConfirmedTobtUpdate(updated *models.CdmData, tobt string, sourcePositi
 	updated.TobtConfirmedBy = &confirmedBy
 	updated.TobtAutoSynced = false
 	updated.TobtManuallyConfirmed = true
-	updated.ReqTobt = nil
-	updated.ReqTobtType = nil
 }
 
 func groundStateAllowsAsat(groundState string) bool {

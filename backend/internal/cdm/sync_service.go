@@ -2,12 +2,14 @@ package cdm
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
 
 	"FlightStrips/internal/models"
-	"FlightStrips/pkg/helpers"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type SyncService struct {
@@ -116,13 +118,8 @@ func (c *SyncService) syncSessions(ctx context.Context) error {
 		s.sessionUsesViff.Store(session.ID, usesViff)
 		slog.DebugContext(ctx, "Syncing CDM data", slog.String("session", session.Name), slog.Int("id", int(session.ID)), slog.String("airport", session.Airport))
 
-		if session.CdmMaster {
-			s.sessionMaster.Store(session.ID, true)
-			if usesViff {
-				s.masterViffSync.registerMasterAsync(ctx, session.Airport)
-			}
-		} else {
-			s.sessionMaster.Delete(session.ID)
+		if usesViff {
+			s.masterViffSync.registerMasterAsync(ctx, session.Airport)
 		}
 		s.SyncAirportLvoFromRunwayStatus(ctx, session.Airport, session.ActiveRunways.RunwayStatus)
 
@@ -132,9 +129,7 @@ func (c *SyncService) syncSessions(ctx context.Context) error {
 			}
 		}
 
-		if session.CdmMaster {
-			s.TriggerRecalculate(ctx, session.ID, session.Airport)
-		}
+		s.TriggerRecalculate(ctx, session.ID, session.Airport)
 	}
 
 	return nil
@@ -151,14 +146,9 @@ func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) 
 
 	airport := session.Airport
 
-	currentData, err := s.stripRepo.GetCdmData(ctx, session.ID)
+	lookup, err := c.loadCdmLookup(ctx, session.ID)
 	if err != nil {
 		return err
-	}
-
-	lookup := make(map[string]*models.CdmData)
-	for _, row := range currentData {
-		lookup[row.Callsign] = row.Data
 	}
 
 	newData, err := s.client.IFPSByDepartureAirport(ctx, airport)
@@ -173,121 +163,252 @@ func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) 
 		}
 
 		nextCtot, nextCtotSource := effectiveIfpsCtotAndSource(row)
-		if s.isMasterSession(session.ID) {
-			current, err := c.syncMasterFlight(ctx, session, row, flight, nextCtot, nextCtotSource)
+		current, recalculatedAirport, err := c.syncMasterFlight(ctx, session, row, flight, nextCtot, nextCtotSource)
+		if err != nil {
+			return err
+		}
+		if recalculatedAirport {
+			// RecalculateAirport can update every departure. Refresh the complete
+			// snapshot before another vIFF row can persist a stale whole record.
+			lookup, err = c.loadCdmLookup(ctx, session.ID)
 			if err != nil {
 				return err
 			}
+		} else {
 			lookup[row.Callsign] = current
+		}
+	}
+
+	// A READY export can fail before the flight appears in vIFF's airport
+	// response. Retry from local pending state rather than depending on that
+	// response to contain the callsign.
+	readyPendingCallsigns := make([]string, 0)
+	for callsign, flight := range lookup {
+		if flight != nil && flight.ReadySyncPending {
+			readyPendingCallsigns = append(readyPendingCallsigns, callsign)
+		}
+	}
+	readyRecalculatedAirport := false
+	for _, callsign := range readyPendingCallsigns {
+		// An earlier READY retry may have recalculated this flight as part of
+		// the same airport. Always use the latest record for the ordered export.
+		flight, err := s.stripRepo.GetCdmDataForCallsign(ctx, session.ID, callsign)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			return err
+		}
+		if flight == nil || !flight.ReadySyncPending {
 			continue
 		}
-
-		if err := c.syncSlaveFlight(ctx, session.ID, row, flight, nextCtot, nextCtotSource, time.Now().UTC()); err != nil {
+		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, callsign)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			return err
+		}
+		shouldRecalculate := flight.NeedsLocalRecalculation()
+		if err := s.actionService.completeReadyViffSync(ctx, session.ID, strip, flight, shouldRecalculate); err != nil {
+			return err
+		}
+		readyRecalculatedAirport = readyRecalculatedAirport ||
+			(shouldRecalculate && s.sequenceService != nil && strings.TrimSpace(strip.Origin) != "")
+		current, err := s.stripRepo.GetCdmDataForCallsign(ctx, session.ID, callsign)
+		if err != nil {
+			return err
+		}
+		lookup[callsign] = current
+	}
+	if readyRecalculatedAirport {
+		lookup, err = c.loadCdmLookup(ctx, session.ID)
+		if err != nil {
 			return err
 		}
 	}
 
-	if s.isMasterSession(session.ID) {
-		normalized, err := s.normalizeMasterLookupEobts(ctx, session.ID, lookup, time.Now().UTC())
-		if err != nil {
-			return err
-		}
-		if normalized {
-			s.TriggerRecalculate(ctx, session.ID, airport)
-		}
+	normalized, err := s.normalizeMasterLookupEobts(ctx, session.ID, lookup, time.Now().UTC())
+	if err != nil {
+		return err
 	}
-
-	if s.sequenceService != nil && !s.isMasterSession(session.ID) {
-		strips, err := s.stripRepo.ListByOrigin(ctx, session.ID, airport)
-		if err != nil {
-			return err
-		}
-		markerUpdates := buildStoredSequenceMarkerUpdates(strips, s.isMasterSession(session.ID), time.Now().UTC())
-		for _, strip := range strips {
-			if strip == nil {
-				continue
-			}
-			updated, ok := markerUpdates[strip.Callsign]
-			if !ok {
-				continue
-			}
-			if err := s.persistCdmUpdateSilently(ctx, session.ID, strip.Callsign, updated); err != nil {
-				return err
-			}
-		}
+	if normalized {
+		s.TriggerRecalculate(ctx, session.ID, airport)
 	}
 
 	return nil
 }
 
-func (c *SyncService) syncMasterFlight(ctx context.Context, session *models.Session, row IFPSData, flight *models.CdmData, nextCtot string, nextCtotSource string) (*models.CdmData, error) {
+func (c *SyncService) loadCdmLookup(ctx context.Context, session int32) (map[string]*models.CdmData, error) {
+	rows, err := c.service.stripRepo.GetCdmData(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	lookup := make(map[string]*models.CdmData, len(rows))
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		lookup[row.Callsign] = row.Data
+	}
+	return lookup, nil
+}
+
+func (c *SyncService) syncMasterFlight(ctx context.Context, session *models.Session, row IFPSData, flight *models.CdmData, nextCtot string, nextCtotSource string) (*models.CdmData, bool, error) {
 	s := c.service
+	recalculatedAirport := false
+	if flight != nil && flight.ReadySyncPending {
+		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, err
+		}
+		if err == nil {
+			shouldRecalculate := flight.NeedsLocalRecalculation()
+			if err := s.actionService.completeReadyViffSync(ctx, session.ID, strip, flight, shouldRecalculate); err != nil {
+				return nil, false, err
+			}
+			recalculatedAirport = shouldRecalculate && s.sequenceService != nil && strings.TrimSpace(strip.Origin) != ""
+			flight, err = s.stripRepo.GetCdmDataForCallsign(ctx, session.ID, row.Callsign)
+			if err != nil {
+				return nil, false, err
+			}
+		}
+	}
+	requestedTobt := truncateCDMClockValue(strings.TrimSpace(row.CDMData.ReqTOBT))
+	requestSource := strings.ToUpper(strings.TrimSpace(row.CDMData.ReqTOBTType))
+	if requestSource == "" {
+		requestSource = "VIFF"
+	}
+	if flight != nil && flight.ViffRequestSyncPending && isValidHHMM(requestedTobt) &&
+		valueOrEmpty(flight.Tobt) == requestedTobt && valueOrEmpty(flight.TobtConfirmedBy) == requestSource {
+		if flight.NeedsLocalRecalculation() {
+			if s.sequenceService == nil || strings.TrimSpace(session.Airport) == "" {
+				return nil, false, errors.New("cannot retry vIFF TOBT request before local recalculation")
+			}
+			if err := s.sequenceService.RecalculateAirport(ctx, session.ID, session.Airport); err != nil {
+				return nil, false, err
+			}
+			recalculatedAirport = true
+			var err error
+			flight, err = s.stripRepo.GetCdmDataForCallsign(ctx, session.ID, row.Callsign)
+			if err != nil {
+				return nil, false, err
+			}
+			if flight.NeedsLocalRecalculation() {
+				return nil, false, errors.New("vIFF TOBT request remained pending after local recalculation")
+			}
+		}
+		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, err
+		}
+		if err := s.masterViffSync.pushAuthoritativeViffState(ctx, row.Callsign, strip, flight); err != nil {
+			return nil, false, err
+		}
+		if err := s.client.IFPSDpi(ctx, row.Callsign, "REQTOBT/NULL/NULL"); err != nil {
+			return nil, false, err
+		}
+		updated := flight.Clone()
+		updated.ViffRequestSyncPending = false
+		if err := s.persistCdmUpdateSilently(ctx, session.ID, row.Callsign, updated); err != nil {
+			return nil, false, err
+		}
+		return updated, recalculatedAirport, nil
+	}
 	// Master: only CTOT and REQTOBT are relevant from the API; local calculation handles the rest.
 	current, needsRecalculate, err := s.mergeMasterViffFlight(ctx, session.ID, row.Callsign, flight, row, nextCtot, nextCtotSource)
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	if strings.TrimSpace(row.CDMData.ReqTOBT) != "" && !isValidHHMM(requestedTobt) {
+		slog.WarnContext(ctx, "Clearing malformed vIFF TOBT request",
+			slog.String("callsign", row.Callsign),
+			slog.String("requested_tobt", row.CDMData.ReqTOBT),
+		)
+		if err := s.client.IFPSDpi(ctx, row.Callsign, "REQTOBT/NULL/NULL"); err != nil {
+			return nil, false, err
+		}
+		if current.ViffRequestSyncPending {
+			updated := current.Clone()
+			updated.ViffRequestSyncPending = false
+			if err := s.persistCdmUpdateSilently(ctx, session.ID, row.Callsign, updated); err != nil {
+				return nil, false, err
+			}
+			current = updated
+		}
+		return current, recalculatedAirport, nil
+	}
+	if requestedTobt == "" && current != nil && current.ViffRequestSyncPending {
+		// The remote clear may have succeeded while persisting the local marker
+		// failed. Finish the transaction from authoritative local state instead
+		// of waiting for a REQTOBT that no longer exists upstream.
+		if current.NeedsLocalRecalculation() {
+			if s.sequenceService == nil || strings.TrimSpace(session.Airport) == "" {
+				return nil, false, errors.New("cannot recover cleared vIFF TOBT request before local recalculation")
+			}
+			if err := s.sequenceService.RecalculateAirport(ctx, session.ID, session.Airport); err != nil {
+				return nil, false, err
+			}
+			recalculatedAirport = true
+			current, err = s.stripRepo.GetCdmDataForCallsign(ctx, session.ID, row.Callsign)
+			if err != nil {
+				return nil, false, err
+			}
+			if current.NeedsLocalRecalculation() {
+				return nil, false, errors.New("cleared vIFF TOBT request remained pending after local recalculation")
+			}
+		}
+		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, err
+		}
+		if err := s.masterViffSync.pushAuthoritativeViffState(ctx, row.Callsign, strip, current); err != nil {
+			return nil, false, err
+		}
+		updated := current.Clone()
+		updated.ViffRequestSyncPending = false
+		if err := s.persistCdmUpdateSilently(ctx, session.ID, row.Callsign, updated); err != nil {
+			return nil, false, err
+		}
+		return updated, recalculatedAirport, nil
+	}
+	if requestedTobt != "" {
+		if needsRecalculate && s.sequenceService != nil && strings.TrimSpace(session.Airport) != "" {
+			if err := s.sequenceService.RecalculateAirport(ctx, session.ID, session.Airport); err != nil {
+				return nil, false, err
+			}
+			recalculatedAirport = true
+			current, err = s.stripRepo.GetCdmDataForCallsign(ctx, session.ID, row.Callsign)
+			if err != nil {
+				return nil, false, err
+			}
+		}
+		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, err
+		}
+		if err := s.masterViffSync.pushAuthoritativeViffState(ctx, row.Callsign, strip, current); err != nil {
+			return nil, false, err
+		}
+		if err := s.client.IFPSDpi(ctx, row.Callsign, "REQTOBT/NULL/NULL"); err != nil {
+			return nil, false, err
+		}
+		if current.ViffRequestSyncPending {
+			updated := current.Clone()
+			updated.ViffRequestSyncPending = false
+			if err := s.persistCdmUpdateSilently(ctx, session.ID, row.Callsign, updated); err != nil {
+				return nil, false, err
+			}
+			current = updated
+		}
+		return current, recalculatedAirport, nil
 	}
 	if needsRecalculate {
 		s.TriggerRecalculate(ctx, session.ID, session.Airport)
 	}
 
 	s.ensureMasterFlightExport(ctx, session.ID, row.Callsign, current, row)
-	return current, nil
-}
-
-func (c *SyncService) syncSlaveFlight(ctx context.Context, session int32, row IFPSData, flight *models.CdmData, nextCtot string, nextCtotSource string, now time.Time) error {
-	before, updated, changed := diffRemoteCdmData(flight, row, nextCtot, nextCtotSource, now)
-	if !changed {
-		return nil
-	}
-	return c.persistSyncedCdmData(ctx, session, row.Callsign, before, updated)
-}
-
-func diffRemoteCdmData(flight *models.CdmData, row IFPSData, nextCtot string, nextCtotSource string, now time.Time) (cdmSnapshot, *models.CdmData, bool) {
-	nextAsat := helpers.ValueOrDefault(flight.Asat)
-	if nextAsat == "" && statusImpliesAsat(row.CDMStatus) {
-		nextAsat = timeToClock(now)
-	}
-
-	changed := helpers.ValueOrDefault(flight.Status) != row.CDMStatus ||
-		helpers.ValueOrDefault(flight.Aobt) != row.AOBT ||
-		helpers.ValueOrDefault(flight.Eobt) != row.EOBT ||
-		helpers.ValueOrDefault(flight.Ctot) != nextCtot ||
-		helpers.ValueOrDefault(flight.Asat) != nextAsat ||
-		helpers.ValueOrDefault(flight.Asrt) != row.CDMData.ReqASRT ||
-		helpers.ValueOrDefault(flight.Tobt) != row.TOBT ||
-		helpers.ValueOrDefault(flight.Tsat) != truncateCDMClockValue(row.CDMData.TSAT) ||
-		helpers.ValueOrDefault(flight.Ttot) != truncateCDMClockValue(row.CDMData.TTOT) ||
-		helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT ||
-		helpers.ValueOrDefault(flight.ReqTobtType) != row.CDMData.ReqTOBTType ||
-		helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
-	if !changed {
-		return cdmSnapshot{}, nil, false
-	}
-
-	before := snapshotCdm(flight)
-	updated := flight.Clone()
-	updated.Tobt = &row.TOBT
-	updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
-	updated.ReqTobtType = stringPointerIfPresent(row.CDMData.ReqTOBTType)
-	updated.Tsat = stringPointerIfPresent(truncateCDMClockValue(row.CDMData.TSAT))
-	updated.Ttot = stringPointerIfPresent(truncateCDMClockValue(row.CDMData.TTOT))
-	updated.Asrt = stringPointerIfPresent(row.CDMData.ReqASRT)
-	if nextCtot != "" {
-		updated.Ctot = &nextCtot
-		updated.CtotSource = &nextCtotSource
-	} else if !flight.HasManualCtot() {
-		updated.Ctot = nil
-		updated.CtotSource = nil
-	}
-	updated.Aobt = &row.AOBT
-	updated.Asat = stringPointerIfPresent(nextAsat)
-	updated.Eobt = &row.EOBT
-	updated.Status = &row.CDMStatus
-	updated.MostPenalizingAirspace = stringPointerIfPresent(row.MostPenalizingAirspace)
-	updated.EcfmpID = stringPointerIfPresent(row.CDMData.Reason)
-	updated.Calculation = nil
-	return before, updated, true
+	return current, recalculatedAirport, nil
 }
 
 func (c *SyncService) persistSyncedCdmData(ctx context.Context, session int32, callsign string, before cdmSnapshot, updated *models.CdmData) error {

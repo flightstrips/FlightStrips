@@ -1,7 +1,7 @@
 import type { TacticalStrip } from "@/api/models";
-import { COLOR_BTN_ORANGE } from "./shared";
 import { TacticalStripShell } from "./TacticalStripShell";
 
+const STRIP_BG = "#dd6a12";
 const CELL_BORDER_CLR = "#a04a00"; // dark burnt-orange cell borders on rwy strip
 
 interface Props {
@@ -18,7 +18,7 @@ export function TacticalRwyStrip({ strip, width }: Props) {
     <TacticalStripShell
       strip={strip}
       width={width}
-      backgroundColor={COLOR_BTN_ORANGE}
+      backgroundColor={STRIP_BG}
       borderColor={CELL_BORDER_CLR}
       textColor="white"
       deleteHoverClass="hover:bg-orange-600"

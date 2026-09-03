@@ -5,6 +5,7 @@ import {
   useStripCallsignInteraction,
   getFramedStripStyle,
   getCellBorderColor,
+  getStripFrameColor,
   SELECTION_COLOR,
   FONT,
   CLS_CALLSIGN_ACTIVE,
@@ -23,7 +24,7 @@ import { Bay } from "@/api/models";
 import { hasManualTobtSource } from "@/lib/cdmColors";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 const FULL_H  = "4.72dvh";
-const HALF_H  = "2.36dvh";
+const HALF_H  = "50%";
 
 /**
  * DelStrip - shown before departure clearance is issued (status="CLR").
@@ -85,7 +86,8 @@ export function DelStrip({
 	const emphasizeTobtTime = hasManualTobtSource(tobtSetBy);
   const hasCtot = Boolean(ctot?.trim());
   const standYellow = unexpectedChangeFields?.includes("stand");
-  const cellBorderColor = getCellBorderColor(marked);
+  const stripFrameColor = getStripFrameColor(arrival ?? false);
+  const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;
   const callsignBackgroundColor = showClearedCallsignHighlight ? "var(--color-pdc-cleared)" : isSelected ? SELECTION_COLOR : undefined;
   const callsignTextColor = showClearedCallsignHighlight ? "white" : manualBlue;
@@ -97,8 +99,7 @@ export function DelStrip({
         height: FULL_H,
         width: fullWidth ? "100%" : "80%",
         cursor: isValidationActive ? "not-allowed" : undefined,
-        ...getFramedStripStyle(marked),
-        borderBottom: "1px solid white",
+        ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
       <div
@@ -140,8 +141,8 @@ export function DelStrip({
 
         {/* EOBT (left) | TOBT/TSAT (right) — horizontal split */}
         <div
-          className="flex flex-row overflow-hidden border-r-2"
-          style={{ flex: "3 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}
+          className="flex flex-row overflow-hidden"
+          style={{ flex: "3 0 0%", height: "100%", minWidth: 0 }}
         >
           {/* EOBT / CTOT — left half, stacked */}
           <div className="flex flex-col overflow-hidden border-r-2" style={{ flex: "1 0 0%", height: "100%", minWidth: 0, borderRightColor: cellBorderColor }}>

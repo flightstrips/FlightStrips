@@ -1,12 +1,12 @@
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
+import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, getStripFrameColor, SELECTION_COLOR, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor } from "./shared";
 import { useStripTransfers } from "@/store/store-hooks";
 import { SIBox } from "./SIBox";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
-const TOP_H = "2.96dvh"; // 2/3 of 48px
-const BOT_H = "1.48dvh"; // 1/3 of 48px
+const TOP_H = "66.6667%";
+const BOT_H = "33.3333%";
 
 // -----------------------------------------------------------------------------
 // GroundStrip — shown after clearance is issued (status="CLROK") — TWY DEP
@@ -37,7 +37,8 @@ export function GroundStrip({
   marked = false,
 }: StripProps) {
   const { isSelected, isValidationActive, handleClick, handleContextMenu, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
-  const cellBorderColor = getCellBorderColor(marked);
+  const stripFrameColor = getStripFrameColor(arrival ?? false);
+  const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
 
@@ -52,7 +53,7 @@ export function GroundStrip({
         width: "25vw",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,
-        ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
+        ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
       <SIBox
@@ -67,6 +68,7 @@ export function GroundStrip({
         transferFrom={stripTransfers[callsign]?.from ?? ""}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
+        baseBorderColor={stripFrameColor}
       />
 
       {/* Callsign — 120px */}

@@ -4,6 +4,7 @@ import {
   useStripCallsignInteraction,
   getFramedStripStyle,
   getCellBorderColor,
+  getStripFrameColor,
   SELECTION_COLOR,
   FONT,
   COLOR_UNEXPECTED_YELLOW,
@@ -22,9 +23,9 @@ import { ApronTaxiMapDialog } from "@/components/map-dialogs/ApronTaxiMapDialog"
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
-const TOP_H= "3.15dvh";  // 2/3 of 4.72dvh
-const BOT_H  = "1.57dvh";  // 1/3 of 4.72dvh
-const HALF_H = "2.08dvh";  // 1/2 of inner content height (4.72dvh - 2px border - 1px padding each side)
+const TOP_H  = "66.6667%";
+const BOT_H  = "33.3333%";
+const HALF_H = "50%";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_CALLSIGN = 25;
@@ -75,7 +76,8 @@ export function ApnTaxiDepStrip({
     setValidationDialogOpen,
     validationStatus,
   } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
-  const cellBorderColor = getCellBorderColor(marked);
+  const stripFrameColor = getStripFrameColor(arrival ?? false);
+  const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
@@ -100,7 +102,7 @@ export function ApnTaxiDepStrip({
         height: "4.44dvh",
         width: APN_TAXI_DEP_STRIP_WIDTH,
         cursor: isValidationActive ? "not-allowed" : undefined,
-        ...getFramedStripStyle(marked),
+        ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
       <div className={`flex ${textWhite ? "text-white" : "text-black"}`} style={{ height: "100%", overflow: "hidden", backgroundColor: bg }}>
@@ -117,6 +119,7 @@ export function ApnTaxiDepStrip({
           transferFrom={stripTransfers[callsign]?.from ?? ""}
           transferringTo={stripTransfers[callsign]?.to ?? ""}
           isTagRequest={isTagRequest}
+          baseBorderColor={stripFrameColor}
         />
 
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}

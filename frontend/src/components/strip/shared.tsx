@@ -16,6 +16,9 @@ export { isPdcValidationStatus, isValidationActiveForPosition, isValidationBlock
 
 export const SELECTION_COLOR = "var(--color-strip-selection)";
 export const STRIP_FRAME_COLOR = "var(--color-strip-frame)";
+export const ARRIVAL_STRIP_FRAME_COLOR = "var(--color-cell-border-arr)";
+const STRIP_INNER_EDGE_COLOR = "#CCCCCC";
+const STRIP_OUTER_EDGE_COLOR = "#CECECE";
 const VALIDATION_BLINK_CYCLE_MS = 1000;
 const PDC_CLEARED_CALLSIGN_BLINK_INTERVAL_MS = 500;
 const PDC_CLEARED_CALLSIGN_BLINK_DURATION_MS = 7000;
@@ -23,6 +26,11 @@ const PDC_CLEARED_CALLSIGN_BLINK_DURATION_MS = 7000;
 /** Returns the border color for cell dividers within a strip. Pass `marked` when that state is available. */
 export function getCellBorderColor(marked: boolean, baseColor = STRIP_FRAME_COLOR): string {
   return marked ? SELECTION_COLOR : baseColor;
+}
+
+/** Keeps a flight strip's frame tied to its direction, regardless of which bay renders it. */
+export function getStripFrameColor(isArrival: boolean): string {
+  return isArrival ? ARRIVAL_STRIP_FRAME_COLOR : STRIP_FRAME_COLOR;
 }
 
 /** Selection state and click handler for a strip. */
@@ -229,54 +237,57 @@ export function useValidationBlink(callsign: string): CSSProperties {
 }
 
 /**
- * Outer style for framed strips (teal padding frame).
- *
- * Unmarked: 2px white border + 1px teal padding = 3px total visible frame.
- * Marked:   1px white border + 2px pink padding = 3px total visible frame.
- * The colored portion doubles by overwriting one white pixel, keeping strip size identical.
+ * Outer style for framed strips. The edge is #CECECE then #CCCCCC, followed
+ * by a 2px coloured inner frame.
  *
  * Width, height, and borderBottom overrides must be applied by the caller.
  * Pass `marked` when that state is available.
  */
-export function getFramedStripStyle(marked: boolean): CSSProperties {
+export function getFramedStripStyle(marked: boolean, frameColor = STRIP_FRAME_COLOR): CSSProperties {
   if (marked) {
     return {
       backgroundColor: SELECTION_COLOR,
-      padding: "2px",
-      borderLeft: "1px solid white",
-      borderRight: "1px solid white",
-      borderTop: "1px solid white",
-      borderBottom: "1px solid white",
-      boxShadow: `1px 0 0 0 ${COLOR_SHADOW}, 0 -1px 0 0 ${COLOR_SHADOW}`,
+      boxSizing: "border-box",
+      padding: "3px",
+      border: `1px solid ${STRIP_OUTER_EDGE_COLOR}`,
+      boxShadow: `inset 0 0 0 1px ${STRIP_INNER_EDGE_COLOR}, 2px 0 0 0 ${COLOR_SHADOW}, 0 -2px 0 0 ${COLOR_SHADOW}`,
     };
   }
   return {
-    backgroundColor: STRIP_FRAME_COLOR,
-    padding: "1px",
-    borderLeft: "2px solid white",
-    borderRight: "2px solid white",
-    borderTop: "2px solid white",
-    borderBottom: "2px solid white",
-    boxShadow: `1px 0 0 0 ${COLOR_SHADOW}, 0 -1px 0 0 ${COLOR_SHADOW}`,
+    backgroundColor: frameColor,
+    boxSizing: "border-box",
+    padding: "3px",
+    border: `1px solid ${STRIP_OUTER_EDGE_COLOR}`,
+    boxShadow: `inset 0 0 0 1px ${STRIP_INNER_EDGE_COLOR}, 2px 0 0 0 ${COLOR_SHADOW}, 0 -2px 0 0 ${COLOR_SHADOW}`,
   };
 }
 
 /**
- * Outer border/shadow style for flat strips.
- * 2px white outer border + 1px colored outline (painted on top of all children, matching the
- * visual frame of framed strips without changing the box model or requiring DOM restructuring).
- * Pass `frameColor` to override the default teal frame (e.g. gold for arrival strips).
+ * Outer border/shadow style for flat strips. The padding reserves space for
+ * the white/grey edge and coloured inner frame so cells cannot paint over it.
  */
-export function getFlatStripBorderStyle(overrides?: Pick<CSSProperties, "borderBottom">, frameColor = STRIP_FRAME_COLOR): CSSProperties {
+export function getFlatStripBorderStyle(contentColor: string, frameColor = STRIP_FRAME_COLOR): CSSProperties {
   return {
-    borderLeft: "2px solid white",
-    borderRight: "2px solid white",
-    borderTop: "2px solid white",
-    borderBottom: "2px solid white",
-    outline: `1px solid ${frameColor}`,
-    outlineOffset: "-2px",
-    boxShadow: `1px 0 0 0 ${COLOR_SHADOW}, 0 -1px 0 0 ${COLOR_SHADOW}`,
-    ...overrides,
+    boxSizing: "border-box",
+    padding: "3px",
+    border: `1px solid ${STRIP_OUTER_EDGE_COLOR}`,
+    backgroundColor: frameColor,
+    backgroundImage: `linear-gradient(${contentColor}, ${contentColor})`,
+    backgroundOrigin: "content-box",
+    backgroundRepeat: "no-repeat",
+    boxShadow: `inset 0 0 0 1px ${STRIP_INNER_EDGE_COLOR}, 2px 0 0 0 ${COLOR_SHADOW}, 0 -2px 0 0 ${COLOR_SHADOW}`,
+  };
+}
+
+/**
+ * Right-hand edge for an SI cell. This is an internal cell divider, so it is
+ * the same 2px coloured line used between all other cells.
+ */
+export function getSIBoxBorderStyle(marked: boolean, baseColor = STRIP_FRAME_COLOR): CSSProperties {
+  const frameColor = getCellBorderColor(marked, baseColor);
+  return {
+    boxSizing: "border-box",
+    borderRight: `2px solid ${frameColor}`,
   };
 }
 
@@ -440,7 +451,7 @@ export const CLS_COL_FLEX = "flex-1 h-full bg-bay-panel flex flex-col min-w-0";
 
 /** Shadow applied to every bay section header — controls the depth effect.
  *  Change here to update all views at once. */
-export const CLS_HEADER_SHADOW = "shadow-[inset_6px_0_8px_rgba(0,0,0,0.4),inset_0_4px_8px_rgba(0,0,0,0.4),0_1px_0_rgba(0,0,0,0.9)] relative z-10";
+export const CLS_HEADER_SHADOW = "shadow-[inset_3px_0_4px_rgba(0,0,0,0.4),inset_0_2px_4px_rgba(0,0,0,0.4),0_1px_0_rgba(0,0,0,0.9)] relative z-10";
 
 /** Dark section header bar. */
 export const CLS_HEADER = `bg-bay-header h-[3.7dvh] flex items-center px-[0.42vw] shrink-0 ${CLS_HEADER_SHADOW}`;

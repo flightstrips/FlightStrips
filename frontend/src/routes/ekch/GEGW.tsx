@@ -30,12 +30,11 @@ import { TWY_DEP_STRIP_WIDTH } from "@/components/strip/types";
 import { CLS_BTN, CLS_BTN_ORANGE, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { shouldShowInGegwApronBay } from "@/config/ekchStandGroups";
+import { GEGW_COLUMN_CLASSES, PRODUCTION_BAY_CLASS } from "./productionBayLayouts";
 
 // Column widths
-const W_COL_ARR      = "w-[27%]";
-const W_COL_DEP      = "w-[28%]";
-const W_COL_CLRDEL   = "w-1/4";
-const W_COL_STAND    = "w-1/5";
+const [COL_ARR, COL_DEP, COL_CLRDEL, COL_STAND] = GEGW_COLUMN_CLASSES;
 
 export default function GEGW() {
   const myPosition = useMyPosition();
@@ -48,8 +47,8 @@ export default function GEGW() {
   const finalStrips    = useFinalStrips().sort((a, b) => b.sequence - a.sequence);
   const rwyArrStrips   = useRwyArrStrips().sort((a, b) => b.sequence - a.sequence);
   const twyArrStrips   = useTaxiArrStrips().sort((a, b) => b.sequence - a.sequence);
-  const pushStrips     = usePushbackStrips().sort((a, b) => b.sequence - a.sequence);
-  const startupStrips  = useClearedStrips().sort((a, b) => b.sequence - a.sequence);
+  const allPushStrips  = usePushbackStrips();
+  const allStartupStrips = useClearedStrips();
   const twyDepDesc     = useTaxiDepLwrStrips().sort((a, b) => b.sequence - a.sequence);
   const rwyDepStrips   = useDepartStrips().sort((a, b) => b.sequence - a.sequence);
   const airborneStrips = useAirborneStrips().sort((a, b) => b.sequence - a.sequence);
@@ -71,6 +70,12 @@ export default function GEGW() {
 
   const delOnline   = useDelOnline();
   const apronOnline = useApronOnline();
+  const pushStrips = allPushStrips
+    .filter((strip) => shouldShowInGegwApronBay(isFlight(strip) ? strip.stand : undefined, isFlight(strip), apronOnline))
+    .sort((a, b) => b.sequence - a.sequence);
+  const startupStrips = allStartupStrips
+    .filter((strip) => shouldShowInGegwApronBay(isFlight(strip) ? strip.stand : undefined, isFlight(strip), apronOnline))
+    .sort((a, b) => b.sequence - a.sequence);
   // CTWR is responsible for clearances only when neither DEL nor APRON is online.
   const clrDelActive = !delOnline && !apronOnline;
 
@@ -106,8 +111,8 @@ export default function GEGW() {
       }}
       renderDragOverlay={(strip: AnyStrip) => {
         if (!isFlight(strip)) return <Strip strip={strip} width={CLX_CLEARED_STRIP_WIDTH} />;
-        if (strip.bay === Bay.Cleared)   return <Strip strip={strip} status="PUSH" myPosition={myPosition} />;
-        if (strip.bay === Bay.Push)      return <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} />;
+        if (strip.bay === Bay.Cleared)   return <Strip strip={strip} status="PUSH" myPosition={myPosition} fullWidth />;
+        if (strip.bay === Bay.Push)      return <Strip strip={strip} status="PUSH" myPosition={myPosition} fullWidth />;
         if (strip.bay === Bay.TaxiLwr)   return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
         if (strip.bay === Bay.Depart)    return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
         if (strip.bay === Bay.Airborne)  return <div style={{ width: TWY_DEP_STRIP_WIDTH }}><Strip strip={strip} status="TWY-DEP" myPosition={myPosition} fullWidth /></div>;
@@ -123,7 +128,7 @@ export default function GEGW() {
     <div className="bay-page-wrapper">
 
       {/* Column 1 (27%) – FINAL + RWY ARR + TWY ARR */}
-      <div className={`${W_COL_ARR} bay-col`}>
+      <div className={COL_ARR}>
         <div className="bay-col-header justify-between">
           <span className={CLS_LABEL}>FINAL</span>
           <button className={CLS_BTN} onClick={() => setArrOpen(true)}>ARR</button>
@@ -193,7 +198,7 @@ export default function GEGW() {
       </div>
 
       {/* Column 2 (28%) – PUSHBACK + TWY DEP + RWY DEP + AIRBORNE */}
-      <div className={`${W_COL_DEP} bay-col`}>
+      <div className={COL_DEP}>
         <div className="bay-col-header">
           <span className={CLS_LABEL}>PUSHBACK</span>
         </div>
@@ -202,10 +207,10 @@ export default function GEGW() {
           bayId="PUSHBACK"
           isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className="h-[12%] bay-scroll-area-bottom"
+          className={PRODUCTION_BAY_CLASS.gegwPushback}
         >
           {(strip) => (
-            <Strip strip={strip} status="HALF" halfStripVariant="APN-PUSH" myPosition={myPosition} selectable={true} />
+            <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} fullWidth />
           )}
         </SortableBay>
 
@@ -263,7 +268,7 @@ export default function GEGW() {
       </div>
 
       {/* Column 3 (25%) – STARTUP + DE-ICE A + MESSAGES */}
-      <div className={`${W_COL_CLRDEL} bay-col`}>
+      <div className={COL_CLRDEL}>
         <div className="bay-col-header justify-between">
           <span className={CLS_LABEL}>STARTUP</span>
           <button className={CLS_BTN} onClick={() => setNewOpen(true)}>NEW</button>
@@ -273,7 +278,7 @@ export default function GEGW() {
           bayId="STARTUP"
           isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className="h-[33%] bay-scroll-area-bottom"
+          className={PRODUCTION_BAY_CLASS.gegwStartup}
         >
           {(strip) => (
             <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />
@@ -312,7 +317,7 @@ export default function GEGW() {
       </div>
 
       {/* Column 4 (20%) – CLRDEL + STAND */}
-      <div className={`${W_COL_STAND} bay-col`}>
+      <div className={COL_STAND}>
         <div className="bay-col-header justify-between">
           <span className={CLS_LABEL}>CLRDEL</span>
           <span className="flex gap-1">

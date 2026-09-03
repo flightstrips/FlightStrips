@@ -1,6 +1,6 @@
 import React from "react";
 import { useControllers, useWebSocketStore } from "@/store/store-hooks";
-import { getCellBorderColor, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership } from "./shared";
+import { getSIBoxBorderStyle, FONT, COLOR_BTN_ORANGE, COLOR_SI_ASSUMED, COLOR_SI_UNCONCERNED, COLOR_SI_CONCERNED, getStripOwnership } from "./shared";
 
 /** Text colour for the next-controller identifier label. */
 const COLOR_SI_LABEL = "#8F8F8F";
@@ -118,13 +118,13 @@ export function SIBox({
 
   return (
     <div
-      className="flex items-center justify-center font-bold border-r-2"
+      className="flex items-center justify-center font-bold"
       style={{
         flex: `${flexGrow} 0 0%`,
         height: "100%",
         background: background,
         minWidth: 0,
-        borderRightColor: getCellBorderColor(!!marked, baseBorderColor),
+        ...getSIBoxBorderStyle(!!marked, baseBorderColor),
         fontFamily: FONT,
         fontSize: "1.15vw",
         color: COLOR_SI_LABEL,

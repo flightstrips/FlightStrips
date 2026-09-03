@@ -8,6 +8,7 @@ import { useState } from "react";
 import { CLS_BTN } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { PRODUCTION_BAY_CLASS } from "./productionBayLayouts";
 import { AutoAlignedBay } from "@/components/bays/SortableBay";
 
 const col         = "w-1/4 bay-col";
@@ -62,7 +63,7 @@ export default function DEL() {
           <div className="bay-col-header justify-between">
             <span className={lockedLabel}>SAS</span>
           </div>
-          <div className="h-[calc(67%-2.5rem)] bay-scroll-area">
+          <div className={PRODUCTION_BAY_CLASS.clxCleared}>
             {sasStrips.map(strip => mapToStrip(strip, "CLR"))}
           </div>
           <div className="bay-col-header bay-col-sep justify-between">
@@ -94,7 +95,7 @@ export default function DEL() {
           <div className="bay-col-header-light justify-between">
             <span className={activeLabel}>PUSHBACK</span>
           </div>
-          <AutoAlignedBay className="h-2/5 bay-scroll-area-bottom" dependencyKey={`pushback:${pushback.length}`}>
+          <AutoAlignedBay className={PRODUCTION_BAY_CLASS.clxPushback} dependencyKey={`pushback:${pushback.length}`}>
             {pushback.map(strip => mapToHalfStrip(strip))}
           </AutoAlignedBay>
           <div className="bay-col-header-light bay-col-sep justify-between">

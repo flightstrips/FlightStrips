@@ -37,4 +37,14 @@ describe("SortableStrip", () => {
     expect(onValidationClick).toHaveBeenCalledWith("SAS123");
     expect(onChildClick).not.toHaveBeenCalled();
   });
+
+  it("keeps native touch scrolling available on an enabled strip", () => {
+    render(
+      <SortableStrip callsign="SAS456">
+        <span>SAS456</span>
+      </SortableStrip>,
+    );
+
+    expect(screen.getByText("SAS456").parentElement?.style.touchAction).toBe("auto");
+  });
 });

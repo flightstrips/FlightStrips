@@ -1,8 +1,6 @@
 import type { StripProps } from "./types";
 import { getStripBg } from "./types";
-import { AircraftTypeLabel, FONT, STRIP_FRAME_COLOR, COLOR_SHADOW, useStripBg } from "./shared";
-
-const CELL_BORDER = "border-r border-[var(--color-strip-frame)]"; // matches STRIP_FRAME_COLOR
+import { AircraftTypeLabel, FONT, getFramedStripStyle, getSIBoxBorderStyle, getStripFrameColor, useStripBg } from "./shared";
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally)
 const F_SI       = 8;
 const F_CALLSIGN = 25;
@@ -26,24 +24,19 @@ export function ClxHalfStrip({
   fullWidth
 }: StripProps) {
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), false, false, pdcStatus, bay);
+  const stripFrameColor = getStripFrameColor(arrival ?? false);
 
   return (
     <div style={{
       height: "2.36dvh",
       width: fullWidth ? "100%" : "80%",
-      backgroundColor: STRIP_FRAME_COLOR,
-      padding: "1px",
-      borderLeft: "2px solid white",
-      borderRight: "2px solid white",
-      borderTop: "2px solid white",
-      borderBottom: "2px solid white",
-      boxShadow: `1px 0 0 0 ${COLOR_SHADOW}, 0 -1px 0 0 ${COLOR_SHADOW}`,
+      ...getFramedStripStyle(false, stripFrameColor),
      }}>
 
       <div className={`flex ${textWhite ? "text-white" : "text-black"}`} style={{ height: "100%", overflow: "hidden", backgroundColor: bg }}>
 
         {/* OB — 8% */}
-        <div className={`flex flex-col overflow-hidden ${CELL_BORDER}`} style={{ flex: `${F_SI} 0 0%`, height: "100%", minWidth: 0 }}>
+        <div className="flex flex-col overflow-hidden" style={{ flex: `${F_SI} 0 0%`, height: "100%", minWidth: 0, ...getSIBoxBorderStyle(false, stripFrameColor) }}>
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
             <span className="font-bold" style={{ fontFamily: FONT, fontSize: FONT_SIZE }}>
               OB
@@ -53,8 +46,8 @@ export function ClxHalfStrip({
 
         {/* Callsign — 25% */}
         <div
-          className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0 }}
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_CALLSIGN} 0 0%`, height: "100%", minWidth: 0, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center pl-[0.42vw]" style={{ height: "100%" }}>
             <span className="truncate w-full" style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
@@ -65,8 +58,8 @@ export function ClxHalfStrip({
 
         {/* Aircraft Type — 25% * 2/3 */}
         <div
-          className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", minWidth: 0 }}
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", minWidth: 0, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
             <AircraftTypeLabel className="truncate" style={{ fontFamily: FONT, fontSize: FONT_SIZE }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
@@ -75,8 +68,8 @@ export function ClxHalfStrip({
 
         {/* Runway — 25% * 1/2 */}
         <div
-          className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: `${F_RUNWAY} 0 0%`, height: "100%", minWidth: 0 }}
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_RUNWAY} 0 0%`, height: "100%", minWidth: 0, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center justify-center"  style={{ height: "100%" }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>
@@ -87,8 +80,8 @@ export function ClxHalfStrip({
 
         {/* SID — 25% * 3/4 */}
         <div
-          className={`flex flex-col overflow-hidden ${CELL_BORDER}`}
-          style={{ flex: `${F_SID} 0 0%`, height: "100%", minWidth: 0 }}
+          className="flex flex-col overflow-hidden border-r-2"
+          style={{ flex: `${F_SID} 0 0%`, height: "100%", minWidth: 0, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center justify-center" style={{ height: "100%" }}>
             <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: FONT_SIZE }}>

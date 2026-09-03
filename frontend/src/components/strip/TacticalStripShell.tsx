@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import type { TacticalStrip } from "@/api/models";
 import { useControllers, useMyPosition, useWebSocketStore } from "@/store/store-hooks";
 import { STRIP_CONTEXT_MENU_WIDTH } from "./StripContextMenu";
-import { FONT, SELECTION_COLOR, getFlatStripBorderStyle } from "./shared";
+import { FONT, SELECTION_COLOR, getFlatStripBorderStyle, getSIBoxBorderStyle } from "./shared";
 
 const HEIGHT = "2.36dvh";
 const W_SI = "1.77vw";
@@ -244,15 +244,15 @@ export function TacticalStripShell({
           height: HEIGHT,
           width: width ?? "100%",
           backgroundColor,
-          ...getFlatStripBorderStyle({ borderBottom: `1px solid ${borderColor}` }),
+          ...getFlatStripBorderStyle(backgroundColor, backgroundColor),
           cursor: "pointer",
         }}
         onClick={handleStripClick}
       >
         {isOwner && (
           <div
-            className="flex-shrink-0 border-r-2 bg-white"
-            style={{ width: W_SI, height: "100%", borderRightColor: borderColor }}
+            className="flex-shrink-0 bg-white"
+            style={{ width: W_SI, height: "100%", ...getSIBoxBorderStyle(false, borderColor) }}
           />
         )}
 

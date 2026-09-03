@@ -274,6 +274,8 @@ func TestSATMetricsAvoidPersonalDataDimensions(t *testing.T) {
 	RecordSATOutcome(ctx, "no_compatible_stand", "ARRIVAL")
 	RecordSATConflict(ctx, "database_contention")
 	RecordSATExpiration(ctx, "DEPARTURE", "RESERVED")
+	RecordSATReconciliation(ctx, 250*time.Millisecond, "success")
+	RecordSATReconciliationPasses(ctx, 2, false)
 	rm := collectMetrics(t, reader)
 
 	if got := findInt64MetricValue(t, rm, "sat.assignments", map[string]string{"stage": "ASSIGNED", "source": "AUTOMATIC", "category": "airline_rule"}); got != 1 {

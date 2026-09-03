@@ -47,6 +47,7 @@ FlightStrips features down.
 Useful OpenTelemetry instruments are:
 
 - `sat.vatsim.snapshot.age` and `sat.vatsim.records` for feed freshness and relevant online/prefile volume;
+- `sat.reconciliation.cycles`, `sat.reconciliation.duration`, and `sat.reconciliation.passes` for worker failures, runtime, and fixed-cap convergence;
 - `sat.assignments`, labelled by stage, source, category, and tier;
 - `sat.allocation.outcomes` for assigned, override, no-compatible-stand, and contention results;
 - `sat.allocation.conflicts` and `sat.assignments.expired`.

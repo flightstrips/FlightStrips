@@ -44,6 +44,9 @@ type instruments struct {
 	satConflicts            metric.Int64Counter
 	satExpirations          metric.Int64Counter
 	satLifecycleEvents      metric.Int64Counter
+	satReconciliations      metric.Int64Counter
+	satReconciliationTime   metric.Float64Histogram
+	satReconciliationPasses metric.Int64Histogram
 	amanObservationAge      metric.Float64Histogram
 	amanGeometryCache       metric.Int64Counter
 	amanRouteMaterialized   metric.Int64Counter
@@ -171,6 +174,9 @@ func get() *instruments {
 		satConflicts, _ := meter.Int64Counter("sat.allocation.conflicts", metric.WithDescription("SAT allocation database and occupancy conflicts"), metric.WithUnit("{conflict}"))
 		satExpirations, _ := meter.Int64Counter("sat.assignments.expired", metric.WithDescription("SAT assignments expired or released"), metric.WithUnit("{assignment}"))
 		satLifecycleEvents, _ := meter.Int64Counter("sat.lifecycle.events", metric.WithDescription("SAT stage promotions, tier improvements, displacement, takeover, and relocation outcomes"), metric.WithUnit("{event}"))
+		satReconciliations, _ := meter.Int64Counter("sat.reconciliation.cycles", metric.WithDescription("Completed SAT reconciliation cycles by outcome"), metric.WithUnit("{cycle}"))
+		satReconciliationTime, _ := meter.Float64Histogram("sat.reconciliation.duration", metric.WithDescription("SAT reconciliation cycle duration"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(.01, .05, .1, .25, .5, 1, 2, 5, 10, 15))
+		satReconciliationPasses, _ := meter.Int64Histogram("sat.reconciliation.passes", metric.WithDescription("Arrival convergence passes used by SAT"), metric.WithUnit("{pass}"), metric.WithExplicitBucketBoundaries(1, 2, 3, 4, 5))
 		amanObservationAge, _ := meter.Float64Histogram("aman.observation.age", metric.WithDescription("Age of AMAN source observations"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(1, 5, 15, 30, 60, 120, 300))
 		amanGeometryCache, _ := meter.Int64Counter("aman.geometry.cache", metric.WithDescription("AMAN geometry cache lookups"), metric.WithUnit("{lookup}"))
 		amanRouteMaterialized, _ := meter.Int64Counter("aman.route.materialization", metric.WithDescription("Explicit AMAN route materialization attempts"), metric.WithUnit("{route}"))
@@ -208,6 +214,7 @@ func get() *instruments {
 			satSnapshotAge:          satSnapshotAge, satFeedRecords: satFeedRecords,
 			satAssignments: satAssignments, satOutcomes: satOutcomes,
 			satConflicts: satConflicts, satExpirations: satExpirations, satLifecycleEvents: satLifecycleEvents,
+			satReconciliations: satReconciliations, satReconciliationTime: satReconciliationTime, satReconciliationPasses: satReconciliationPasses,
 			amanObservationAge: amanObservationAge, amanGeometryCache: amanGeometryCache,
 			amanRouteMaterialized: amanRouteMaterialized, amanRouteDuration: amanRouteDuration,
 			amanPredictorDuration: amanPredictorDuration, amanPredictionDrift: amanPredictionDrift,
@@ -319,6 +326,16 @@ func RecordSATLifecycleEvent(ctx context.Context, event, reason, source string) 
 		attribute.String("reason", reason),
 		attribute.String("source", source),
 	))
+}
+
+func RecordSATReconciliation(ctx context.Context, duration time.Duration, outcome string) {
+	i := get()
+	i.satReconciliations.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcome)))
+	i.satReconciliationTime.Record(ctx, max(duration.Seconds(), 0), metric.WithAttributes(attribute.String("outcome", outcome)))
+}
+
+func RecordSATReconciliationPasses(ctx context.Context, passes int, capped bool) {
+	get().satReconciliationPasses.Record(ctx, int64(passes), metric.WithAttributes(attribute.Bool("capped", capped)))
 }
 
 func sessionAttributes(sessionName, airport string, extra ...attribute.KeyValue) metric.MeasurementOption {

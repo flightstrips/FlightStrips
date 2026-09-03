@@ -26,7 +26,7 @@ var validFrontendMoveBays = map[string]bool{
 	shared.BAY_CONTROLZONE: true,
 }
 
-func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string) error {
+func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool) error {
 	if !validFrontendMoveBays[targetBay] {
 		slog.WarnContext(ctx, "MoveFrontendStrip: rejecting move event with invalid bay",
 			slog.String("callsign", callsign),
@@ -45,7 +45,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return errors.New("strip is locked by an active validation")
 	}
 
-	if err := validateFrontendMoveBayTransition(strip, airport, targetBay); err != nil {
+	if err := validateFrontendMoveBayTransition(strip, airport, targetBay, clearance); err != nil {
 		return err
 	}
 
@@ -97,7 +97,14 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 	return nil
 }
 
-func validateFrontendMoveBayTransition(strip *internalModels.Strip, airport string, targetBay string) error {
+func validateFrontendMoveBayTransition(strip *internalModels.Strip, airport string, targetBay string, clearance bool) error {
+	if clearance && targetBay != shared.BAY_CLEARED {
+		return errors.New("clearance moves must target the cleared bay")
+	}
+	if strip.Bay == shared.BAY_NOT_CLEARED && targetBay != shared.BAY_NOT_CLEARED && !clearance {
+		return errors.New("non-cleared strips cannot be moved out of the not-cleared bay")
+	}
+
 	isArrivalStrip := strip.Destination == airport && strip.Origin != airport
 	if isArrivalStrip && targetBay == shared.BAY_NOT_CLEARED {
 		return errors.New("arrival strips cannot be moved to the not-cleared bay")

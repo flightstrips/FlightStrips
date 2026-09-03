@@ -537,9 +537,10 @@ func (c CommunicationTypeEvent) GetType() EventType {
 }
 
 type MoveEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Bay      string    `json:"bay"`
+	Type      EventType `json:"type"`
+	Callsign  string    `json:"callsign"`
+	Bay       string    `json:"bay"`
+	Clearance bool      `json:"clearance,omitempty"`
 }
 
 type GenerateSquawkRequest struct {

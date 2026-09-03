@@ -334,7 +334,7 @@ export default function FlightPlanDialog({
   const performManualClearance = () => {
     if (!strip) return;
 
-    moveAction(strip.callsign, Bay.Cleared);
+    moveAction(strip.callsign, Bay.Cleared, true);
     setManualPdcBypassDialogOpen(false);
     setDialogOpen(false);
   };
@@ -837,7 +837,7 @@ export default function FlightPlanDialog({
                       if (strip.pdc_state === "REQUESTED" || strip.pdc_state === "REQUESTED_WITH_FAULTS") {
                         clearPdc(strip.callsign, null);
                       } else {
-                        moveAction(strip.callsign, Bay.Cleared);
+                        moveAction(strip.callsign, Bay.Cleared, true);
                       }
 
                       setDialogOpen(false);
@@ -909,13 +909,13 @@ export default function FlightPlanDialog({
               if (mandatoryRouteToClear) {
                 sendPrivateMessage(callsign, `MANDATORY ROUTE: ${mandatoryRouteToClear}`);
               }
-              moveAction(strip.callsign, Bay.Cleared);
+              moveAction(strip.callsign, Bay.Cleared, true);
             }
             setMandatoryRouteDialogOpen(false);
             setDialogOpen(false);
           }}
           onCancel={() => {
-            moveAction(strip.callsign, Bay.Cleared);
+            moveAction(strip.callsign, Bay.Cleared, true);
             setMandatoryRouteDialogOpen(false);
             setDialogOpen(false);
           }}

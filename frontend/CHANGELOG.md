@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.0.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.54.0...frontend/v1.0.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cdm:** unify TOBT and sequencing authority ([#492](https://github.com/flightstrips/FlightStrips/issues/492))
+
+### Features
+
+* **strip:** allow movement across workflow bays ([#487](https://github.com/flightstrips/FlightStrips/issues/487)) ([70aa133](https://github.com/flightstrips/FlightStrips/commit/70aa133837205c271378828c16084afb66b38c01))
+
+
+### Bug Fixes
+
+* **cdm:** unify TOBT and sequencing authority ([#492](https://github.com/flightstrips/FlightStrips/issues/492)) ([a001118](https://github.com/flightstrips/FlightStrips/commit/a0011189ddd6ccc88c2a50214a9d6ea3eac046e5))
+* harden synchronization, validation, and strip state ([#496](https://github.com/flightstrips/FlightStrips/issues/496)) ([2cb1d00](https://github.com/flightstrips/FlightStrips/commit/2cb1d00dc7cbd8f6e52d56de4fcdef5f0ae0b637))
+* **stand:** correct EST stand status actions ([#485](https://github.com/flightstrips/FlightStrips/issues/485)) ([710dd0e](https://github.com/flightstrips/FlightStrips/commit/710dd0e8275919633174a62bdca5b2796a115906))
+* **stand:** hide SAT assignments from EST ([#480](https://github.com/flightstrips/FlightStrips/issues/480)) ([2201e21](https://github.com/flightstrips/FlightStrips/commit/2201e21cac8c25596c3fd1c20442283030f76c69))
+* **stand:** improve monitoring timeline and recovery ([#479](https://github.com/flightstrips/FlightStrips/issues/479)) ([11d4e52](https://github.com/flightstrips/FlightStrips/commit/11d4e52fc1f5a1c12d3d1eedddc756d4e494dccb))
+* **stand:** stabilize lifecycle assignments ([#486](https://github.com/flightstrips/FlightStrips/issues/486)) ([56ec137](https://github.com/flightstrips/FlightStrips/commit/56ec137c933436cfe28685a94f9b7a9e5f8fe88d))
+* **strip:** align bay design and touch interactions ([#497](https://github.com/flightstrips/FlightStrips/issues/497)) ([2dc0dd1](https://github.com/flightstrips/FlightStrips/commit/2dc0dd1db25726ce19b675bd0aa09d97f37c1504))
+* **strip:** parse VATSIM transceiver coverage ([#488](https://github.com/flightstrips/FlightStrips/issues/488)) ([bf8436c](https://github.com/flightstrips/FlightStrips/commit/bf8436c74a70182abd1c507173dd9698c450a60e))
+* **strip:** prioritize validation issues ([#495](https://github.com/flightstrips/FlightStrips/issues/495)) ([77e3441](https://github.com/flightstrips/FlightStrips/commit/77e34413eba684f46e4689cd81dbcc1ad32c7f6c))
+* **strip:** restore validation interactions ([#491](https://github.com/flightstrips/FlightStrips/issues/491)) ([bad8437](https://github.com/flightstrips/FlightStrips/commit/bad8437d62c0358431249b5c1ea732ecac0344bb))
+* **strip:** restrict non-cleared bay transfers ([#490](https://github.com/flightstrips/FlightStrips/issues/490)) ([ebe490d](https://github.com/flightstrips/FlightStrips/commit/ebe490d59acc974fed5cd76c370fcfaaf1b25de8))
+* **strip:** simplify apron taxi departure actions ([#483](https://github.com/flightstrips/FlightStrips/issues/483)) ([1765f41](https://github.com/flightstrips/FlightStrips/commit/1765f4120a7542193baefde175f220c5eca63ea4))
+
 ## [0.54.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v0.53.2...frontend/v0.54.0) (2026-08-16)
 
 

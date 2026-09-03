@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.21.0...plugin/v1.0.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cdm:** unify TOBT and sequencing authority ([#492](https://github.com/flightstrips/FlightStrips/issues/492))
+
+### Features
+
+* read TopSky holding clearances and carry them to the frontend ([#476](https://github.com/flightstrips/FlightStrips/issues/476)) ([95e3bbc](https://github.com/flightstrips/FlightStrips/commit/95e3bbce7a0881d937fbf0a511f1b0f28824f40e))
+
+
+### Bug Fixes
+
+* **cdm:** unify TOBT and sequencing authority ([#492](https://github.com/flightstrips/FlightStrips/issues/492)) ([a001118](https://github.com/flightstrips/FlightStrips/commit/a0011189ddd6ccc88c2a50214a9d6ea3eac046e5))
+* harden synchronization, validation, and strip state ([#496](https://github.com/flightstrips/FlightStrips/issues/496)) ([2cb1d00](https://github.com/flightstrips/FlightStrips/commit/2cb1d00dc7cbd8f6e52d56de4fcdef5f0ae0b637))
+
 ## [0.21.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.20.4...plugin/v0.21.0) (2026-08-09)
 
 

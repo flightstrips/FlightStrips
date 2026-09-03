@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.0.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.47.0...backend/v1.0.0) (2026-09-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cdm:** unify TOBT and sequencing authority ([#492](https://github.com/flightstrips/FlightStrips/issues/492))
+
+### Features
+
+* read TopSky holding clearances and carry them to the frontend ([#476](https://github.com/flightstrips/FlightStrips/issues/476)) ([95e3bbc](https://github.com/flightstrips/FlightStrips/commit/95e3bbce7a0881d937fbf0a511f1b0f28824f40e))
+* **strip:** allow movement across workflow bays ([#487](https://github.com/flightstrips/FlightStrips/issues/487)) ([70aa133](https://github.com/flightstrips/FlightStrips/commit/70aa133837205c271378828c16084afb66b38c01))
+
+
+### Bug Fixes
+
+* **aman:** update EKCH terminal data for AIRAC 2609 ([#494](https://github.com/flightstrips/FlightStrips/issues/494)) ([c020050](https://github.com/flightstrips/FlightStrips/commit/c020050267ed1fcbbc44844088ea58f906e47478))
+* **cdm:** unify TOBT and sequencing authority ([#492](https://github.com/flightstrips/FlightStrips/issues/492)) ([a001118](https://github.com/flightstrips/FlightStrips/commit/a0011189ddd6ccc88c2a50214a9d6ea3eac046e5))
+* harden synchronization, validation, and strip state ([#496](https://github.com/flightstrips/FlightStrips/issues/496)) ([2cb1d00](https://github.com/flightstrips/FlightStrips/commit/2cb1d00dc7cbd8f6e52d56de4fcdef5f0ae0b637))
+* **pdc:** generate squawks for revealed departures ([#484](https://github.com/flightstrips/FlightStrips/issues/484)) ([802e574](https://github.com/flightstrips/FlightStrips/commit/802e574643c6c7f51034cc0bac2dc916a495745a))
+* **stand:** cap arrival reconciliation work ([#493](https://github.com/flightstrips/FlightStrips/issues/493)) ([7944f88](https://github.com/flightstrips/FlightStrips/commit/7944f88654e4478d0f38c626332e1a17b5b3e2e6))
+* **stand:** improve monitoring timeline and recovery ([#479](https://github.com/flightstrips/FlightStrips/issues/479)) ([11d4e52](https://github.com/flightstrips/FlightStrips/commit/11d4e52fc1f5a1c12d3d1eedddc756d4e494dccb))
+* **stand:** retain observed overlapping stands ([#489](https://github.com/flightstrips/FlightStrips/issues/489)) ([812681a](https://github.com/flightstrips/FlightStrips/commit/812681a0cb7666741d7e68715dc184bf6024d3b4))
+* **stand:** stabilize lifecycle assignments ([#486](https://github.com/flightstrips/FlightStrips/issues/486)) ([56ec137](https://github.com/flightstrips/FlightStrips/commit/56ec137c933436cfe28685a94f9b7a9e5f8fe88d))
+* **strip:** parse VATSIM transceiver coverage ([#488](https://github.com/flightstrips/FlightStrips/issues/488)) ([bf8436c](https://github.com/flightstrips/FlightStrips/commit/bf8436c74a70182abd1c507173dd9698c450a60e))
+* **strip:** prioritize validation issues ([#495](https://github.com/flightstrips/FlightStrips/issues/495)) ([77e3441](https://github.com/flightstrips/FlightStrips/commit/77e34413eba684f46e4689cd81dbcc1ad32c7f6c))
+* **strip:** restrict non-cleared bay transfers ([#490](https://github.com/flightstrips/FlightStrips/issues/490)) ([ebe490d](https://github.com/flightstrips/FlightStrips/commit/ebe490d59acc974fed5cd76c370fcfaaf1b25de8))
+
 ## [0.47.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.46.3...backend/v0.47.0) (2026-08-20)
 
 

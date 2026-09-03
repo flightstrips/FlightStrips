@@ -84,6 +84,9 @@ test("every strip type keeps its content inside the framed height", async ({ pag
     await expect(bay).toHaveScreenshot(`${stripType}.png`, {
       animations: "disabled",
       caret: "hide",
+      // Allow a few pixels of platform-specific font antialiasing noise while
+      // keeping the comparison strict enough to catch layout regressions.
+      maxDiffPixels: 5,
     });
   }
 });

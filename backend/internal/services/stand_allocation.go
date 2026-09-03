@@ -681,6 +681,8 @@ func (s *StandAllocationService) AssignManually(ctx context.Context, request Sta
 // not trigger a relocation by themselves. Departures retain their existing
 // wrong-stand warning flow when the observed stand is unavailable; confirmed
 // arrival plans remain stable and surface a conflict for controller action.
+// Multiple departures physically observed on the same stand are retained as
+// physical truth instead of assigning one of them a fictional alternative.
 func (s *StandAllocationService) assignObservedStand(ctx context.Context, request StandAllocationRequest) (*StandAllocationResult, error) {
 	// A departure observed on a stand is physically there. Its presence takes
 	// precedence over provisional arrival plans. A CONFIRMED plan is retained
@@ -1326,11 +1328,27 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 		availability := s.availability(request, assignments, blocks, matches)
 		if len(availability[target]) > 0 {
 			if request.Direction == sat.AssignmentDirectionDeparture {
+				// Aircraft can spawn on the same stand, or on a heavy stand and a
+				// medium stand that it nominally blocks. When the only conflict is
+				// another physically observed departure, retain and report both real
+				// positions. Manual blocks and arrival reservations still use the
+				// normal protection rules.
+				withoutObservedDepartures := slices.DeleteFunc(slices.Clone(assignments), func(assignment *models.StandAssignment) bool {
+					return assignment != nil &&
+						assignment.Direction == string(sat.AssignmentDirectionDeparture) &&
+						assignment.Stage == StageDepartureBlock &&
+						assignment.ObservedStand != nil &&
+						standName(*assignment.ObservedStand) == standName(assignment.Stand)
+				})
+				if len(withoutObservedDepartures) != len(assignments) &&
+					len(s.availability(request, withoutObservedDepartures, blocks, matches)[target]) == 0 {
+					return target, nil, &match, []string{target}, "", nil
+				}
 				// Physical truth still wins, but a CONFIRMED arrival is a routing
 				// commitment. Permit the observed departure to coexist with that
 				// protected plan and surface the overlap as an advisory. An explicit
 				// controller AUTO or manual action may then move the arrival.
-				withoutConfirmed := slices.DeleteFunc(slices.Clone(assignments), func(assignment *models.StandAssignment) bool {
+				withoutConfirmed := slices.DeleteFunc(slices.Clone(withoutObservedDepartures), func(assignment *models.StandAssignment) bool {
 					return assignment != nil && assignment.Direction == string(sat.AssignmentDirectionArrival) && assignment.Stage == StageConfirmed
 				})
 				if s.confirmedArrivalConflicts(request, target, assignments) && len(s.availability(request, withoutConfirmed, blocks, matches)[target]) == 0 {

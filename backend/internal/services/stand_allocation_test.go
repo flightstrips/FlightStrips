@@ -190,6 +190,28 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		assert.Equal(t, "A1", result.Assignment.Stand)
 	})
 
+	t.Run("observed departure does not bypass a departure block assigned away from its observed stand", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SASOBS3")
+		testdata.SeedTestStrip(t, queries, session, "SASOBS4")
+		observedElsewhere := "A2"
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SASOBS3", Stand: "A1",
+			Direction: string(sat.AssignmentDirectionDeparture), Stage: StageDepartureBlock,
+			Source: "MANUAL", Manual: true, ObservedStand: &observedElsewhere,
+		}))
+
+		observedHere := "A1"
+		request := withStand(standAllocationRequest(session, "SASOBS4"), observedHere)
+		request.Direction = sat.AssignmentDirectionDeparture
+		request.FlightFacts.Direction = sat.Departure
+		request.Stage = StageDepartureBlock
+		request.ObservedStand = &observedHere
+		_, err := service.assignObservedStand(ctx, request)
+
+		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+	})
+
 	t.Run("observed departure warns without moving a confirmed arrival", func(t *testing.T) {
 		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS108")

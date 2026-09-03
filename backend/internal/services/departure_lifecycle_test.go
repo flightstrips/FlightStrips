@@ -503,8 +503,12 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Empty(t, allocations.failures.List(), "observed-stand probing must not create allocation failures")
 	})
 
-	t.Run("overlapping aircraft retain distinct assignments across restart", func(t *testing.T) {
+	t.Run("aircraft spawned on the same stand share the observed assignment across restart", func(t *testing.T) {
 		lifecycle, allocations, session, assignments, strips, clock := departureLifecycleFixture(t, pool, queries, "", "", nil)
+		messenger := &wrongStandTestMessenger{available: true}
+		lifecycle.SetWrongStandMessenger(messenger)
+		standPublisher := &observedStandPublisherFake{}
+		lifecycle.SetStandPublisher(standPublisher)
 		testdata.SeedTestStrip(t, queries, session, "SAS611")
 		testdata.SeedTestStrip(t, queries, session, "SAS612")
 
@@ -520,9 +524,16 @@ func TestDepartureLifecycle(t *testing.T) {
 		secondBefore, err := assignments.GetAssignment(ctx, session, "SAS612")
 		require.NoError(t, err)
 		assert.Equal(t, "A2", firstBefore.Stand)
-		assert.Equal(t, "A1", secondBefore.Stand)
+		assert.Equal(t, "A2", secondBefore.Stand)
 		assert.Nil(t, firstBefore.ExpiresAt)
 		assert.Nil(t, secondBefore.ExpiresAt)
+		assert.Nil(t, firstBefore.ConflictReason)
+		assert.Nil(t, secondBefore.ConflictReason)
+		assert.Equal(t, 0, messenger.calls, "co-located spawned aircraft must not be told to relocate")
+		assert.ElementsMatch(t, []observedStandEvent{
+			{session: session, callsign: "SAS611", stand: "A2"},
+			{session: session, callsign: "SAS612", stand: "A2"},
+		}, standPublisher.events, "both aircraft must report their observed stand")
 
 		restarted, err := NewDepartureLifecycleService(
 			allocations, assignments, strips, postgres.NewSessionRepository(pool),
@@ -548,6 +559,37 @@ func TestDepartureLifecycle(t *testing.T) {
 		assert.Equal(t, firstBefore.Stand, firstAfter.Stand)
 		assert.Equal(t, secondBefore.ID, secondAfter.ID)
 		assert.Equal(t, secondBefore.Stand, secondAfter.Stand)
+	})
+
+	t.Run("aircraft spawned on mutually blocking stands retain their observed assignments", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, _ := departureLifecycleFixture(t, pool, queries, "BLOCKS:A2", "", nil)
+		messenger := &wrongStandTestMessenger{available: true}
+		lifecycle.SetWrongStandMessenger(messenger)
+		standPublisher := &observedStandPublisherFake{}
+		lifecycle.SetStandPublisher(standPublisher)
+		testdata.SeedTestStrip(t, queries, session, "SAS617")
+		testdata.SeedTestStrip(t, queries, session, "SAS618")
+
+		require.NoError(t, lifecycle.ProcessDeparture(
+			ctx, session, loadStrip(t, strips, session, "SAS617"), onlineFlight("SAS617", 1),
+		))
+		require.NoError(t, lifecycle.ProcessDeparture(
+			ctx, session, loadStrip(t, strips, session, "SAS618"), onlineFlightAtA2("SAS618", 1),
+		))
+
+		heavy, err := assignments.GetAssignment(ctx, session, "SAS617")
+		require.NoError(t, err)
+		medium, err := assignments.GetAssignment(ctx, session, "SAS618")
+		require.NoError(t, err)
+		assert.Equal(t, "A1", heavy.Stand)
+		assert.Equal(t, "A2", medium.Stand)
+		assert.Nil(t, heavy.ConflictReason)
+		assert.Nil(t, medium.ConflictReason)
+		assert.Equal(t, 0, messenger.calls, "aircraft on physically occupied blocking stands must not be told to relocate")
+		assert.ElementsMatch(t, []observedStandEvent{
+			{session: session, callsign: "SAS617", stand: "A1"},
+			{session: session, callsign: "SAS618", stand: "A2"},
+		}, standPublisher.events, "both aircraft must report their observed stands")
 	})
 
 	t.Run("EuroScope-only spawn with no alternative receives one occupied message", func(t *testing.T) {

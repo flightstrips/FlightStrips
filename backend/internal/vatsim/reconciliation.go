@@ -18,6 +18,12 @@ import (
 
 const reconciliationSequenceSpacing int32 = 1000
 
+// Arrival reconciliation is deliberately capped independently of traffic
+// volume. Five passes allow several dependent lifecycle updates and a final
+// stability check without turning a large arrival set into an unbounded number
+// of database round trips.
+const maxArrivalReconciliationPasses = 5
+
 const (
 	hiddenDepartureBay = "DEP_HIDDEN"
 	hiddenArrivalBay   = "ARR_HIDDEN"
@@ -38,6 +44,10 @@ type reconciliationStripStore interface {
 
 type reconciliationAssignmentStore interface {
 	GetAssignment(context.Context, int32, string) (*models.StandAssignment, error)
+}
+
+type reconciliationAssignmentLister interface {
+	ListAssignments(context.Context, int32) ([]*models.StandAssignment, error)
 }
 
 // DepartureFlightInfo is the minimal VATSIM view the departure lifecycle needs
@@ -171,7 +181,9 @@ func newReconciler(cache SnapshotSource, sessions reconciliationSessionStore, st
 }
 
 func (r *Reconciler) Start(ctx context.Context) {
-	_ = r.Reconcile(ctx)
+	if err := r.Reconcile(ctx); err != nil {
+		slog.ErrorContext(ctx, "SAT VATSIM reconciliation failed", slog.Any("error", err))
+	}
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 	for {
@@ -179,7 +191,9 @@ func (r *Reconciler) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = r.Reconcile(ctx)
+			if err := r.Reconcile(ctx); err != nil {
+				slog.ErrorContext(ctx, "SAT VATSIM reconciliation failed", slog.Any("error", err))
+			}
 		}
 	}
 }
@@ -187,7 +201,15 @@ func (r *Reconciler) Start(ctx context.Context) {
 // Reconcile performs one source snapshot reconciliation. Sessions are listed
 // directly instead of deriving them from EuroScope clients, so it also works
 // before a tower or EuroScope master connects.
-func (r *Reconciler) Reconcile(ctx context.Context) error {
+func (r *Reconciler) Reconcile(ctx context.Context) (resultErr error) {
+	startedAt := time.Now()
+	defer func() {
+		outcome := "success"
+		if resultErr != nil {
+			outcome = "failure"
+		}
+		metrics.RecordSATReconciliation(ctx, time.Since(startedAt), outcome)
+	}()
 	snapshot := r.cache.Snapshot()
 	if snapshot.Timestamp.IsZero() {
 		return nil
@@ -196,15 +218,17 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	var sessionErrors []error
 	for _, session := range sessions {
 		if session == nil || strings.TrimSpace(session.Airport) == "" {
 			continue
 		}
 		if err := r.reconcileSession(ctx, snapshot, session); err != nil {
-			return err
+			sessionErrors = append(sessionErrors, fmt.Errorf("reconcile session %d (%s): %w", session.ID, session.Name, err))
+			continue
 		}
 	}
-	return nil
+	return errors.Join(sessionErrors...)
 }
 
 // ReconcileSession applies the current source snapshot to one explicitly
@@ -351,11 +375,12 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	orderer, orderedLifecycle := r.arrivalLifecycle.(ArrivalLifecycleOrderer)
 	if orderedLifecycle {
 		priorities := make(map[string]int, len(arrivalFlights))
-		currentAssignments := make(map[string]*models.StandAssignment, len(arrivalFlights))
+		currentAssignments, err := r.loadArrivalAssignments(ctx, session.ID, arrivalFlights)
+		if err != nil {
+			return err
+		}
 		for _, flight := range arrivalFlights {
-			assignment, _ := r.assignments.GetAssignment(ctx, session.ID, flight.Callsign)
-			currentAssignments[flight.Callsign] = assignment
-			priorities[flight.Callsign] = orderer.ArrivalProcessingPriority(existing[flight.Callsign], arrivalFlightInfo(flight), assignment)
+			priorities[flight.Callsign] = orderer.ArrivalProcessingPriority(existing[flight.Callsign], arrivalFlightInfo(flight), currentAssignments[flight.Callsign])
 		}
 		sort.SliceStable(arrivalFlights, func(i, j int) bool {
 			left := priorities[arrivalFlights[i].Callsign]
@@ -416,8 +441,7 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 	if err != nil {
 		return err
 	}
-	maxPasses := len(flights) + 1
-	for pass := 1; pass <= maxPasses; pass++ {
+	for pass := 1; pass <= maxArrivalReconciliationPasses; pass++ {
 		previousStands := arrivalStripStandStates(strips, flights)
 		if err := r.processArrivalPass(ctx, sessionID, strips, flights); err != nil {
 			return err
@@ -431,6 +455,7 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 			return err
 		}
 		if maps.Equal(previous, current) && maps.Equal(previousStands, currentStands) {
+			metrics.RecordSATReconciliationPasses(ctx, pass, false)
 			if pass > 1 {
 				slog.DebugContext(ctx, "SAT arrival reconciliation converged",
 					slog.Int("session", int(sessionID)), slog.Int("passes", pass), slog.Int("arrivals", len(flights)))
@@ -439,7 +464,8 @@ func (r *Reconciler) processArrivalFlights(ctx context.Context, sessionID int32,
 		}
 		previous = current
 	}
-	return fmt.Errorf("SAT arrival reconciliation did not converge after %d passes", maxPasses)
+	metrics.RecordSATReconciliationPasses(ctx, maxArrivalReconciliationPasses, true)
+	return fmt.Errorf("SAT arrival reconciliation reached the fixed cap of %d passes", maxArrivalReconciliationPasses)
 }
 
 func arrivalStripStandStates(strips map[string]*models.Strip, flights []Flight) map[string]string {
@@ -479,15 +505,41 @@ func (r *Reconciler) processArrivalPass(ctx context.Context, sessionID int32, st
 }
 
 func (r *Reconciler) arrivalAssignmentStates(ctx context.Context, sessionID int32, flights []Flight) (map[string]arrivalAssignmentState, error) {
+	assignments, err := r.loadArrivalAssignments(ctx, sessionID, flights)
+	if err != nil {
+		return nil, err
+	}
 	states := make(map[string]arrivalAssignmentState, len(flights))
+	for _, flight := range flights {
+		states[flight.Callsign] = snapshotArrivalAssignment(assignments[flight.Callsign])
+	}
+	return states, nil
+}
+
+func (r *Reconciler) loadArrivalAssignments(ctx context.Context, sessionID int32, flights []Flight) (map[string]*models.StandAssignment, error) {
+	result := make(map[string]*models.StandAssignment, len(flights))
+	if lister, ok := r.assignments.(reconciliationAssignmentLister); ok {
+		assignments, err := lister.ListAssignments(ctx, sessionID)
+		if err != nil {
+			return nil, fmt.Errorf("list arrival assignments: %w", err)
+		}
+		for _, assignment := range assignments {
+			if assignment != nil {
+				result[normalizeCallsign(assignment.Callsign)] = assignment
+			}
+		}
+		return result, nil
+	}
 	for _, flight := range flights {
 		assignment, err := r.assignments.GetAssignment(ctx, sessionID, flight.Callsign)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, fmt.Errorf("load arrival assignment state for %s: %w", flight.Callsign, err)
 		}
-		states[flight.Callsign] = snapshotArrivalAssignment(assignment)
+		if assignment != nil {
+			result[normalizeCallsign(flight.Callsign)] = assignment
+		}
 	}
-	return states, nil
+	return result, nil
 }
 
 func snapshotArrivalAssignment(assignment *models.StandAssignment) arrivalAssignmentState {

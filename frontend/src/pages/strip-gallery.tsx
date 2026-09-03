@@ -5,6 +5,12 @@ import { WebSocketClient } from "@/api/websocket";
 import { Bay, CommunicationType, type FrontendStrip, type MessageReceived, type TacticalStrip } from "@/api/models";
 import { createWebSocketStore } from "@/store/store";
 import { WebSocketStoreContext } from "@/store/store-context";
+import {
+  EQUAL_COLUMN_CLASSES,
+  GEGW_COLUMN_CLASSES,
+  PRODUCTION_BAY_CLASS,
+  TOWER_COLUMN_CLASSES,
+} from "@/routes/ekch/productionBayLayouts";
 
 type Annotation = {
   label: string;
@@ -21,10 +27,37 @@ type GalleryItem = {
   strip: ReactNode;
 };
 
+type ProductionBayContext = {
+  route: string;
+  columns: readonly string[];
+  column: number;
+  bayClassName: string;
+  align?: "start" | "end";
+};
+
+const PRODUCTION_BAY_CONTEXTS: Record<string, ProductionBayContext> = {
+  "pre-clearance": { route: "TW/TE · CLRDEL", columns: TOWER_COLUMN_CLASSES, column: 3, bayClassName: PRODUCTION_BAY_CLASS.towerClearanceDelivery, align: "start" },
+  "cleared-summary": { route: "CLX · CLEARED", columns: EQUAL_COLUMN_CLASSES, column: 2, bayClassName: PRODUCTION_BAY_CLASS.clxCleared, align: "start" },
+  "compact-clearance": { route: "CLX · PUSHBACK", columns: EQUAL_COLUMN_CLASSES, column: 3, bayClassName: PRODUCTION_BAY_CLASS.clxPushback },
+  pushback: { route: "GE/GW · PUSHBACK", columns: GEGW_COLUMN_CLASSES, column: 1, bayClassName: PRODUCTION_BAY_CLASS.gegwPushback },
+  startup: { route: "GE/GW · STARTUP", columns: GEGW_COLUMN_CLASSES, column: 2, bayClassName: PRODUCTION_BAY_CLASS.gegwStartup },
+  "apron-departure": { route: "AA · TWY DEP UPR", columns: EQUAL_COLUMN_CLASSES, column: 2, bayClassName: PRODUCTION_BAY_CLASS.aaTaxiDepartureUpper },
+  "tower-departure": { route: "TW/TE · TWY DEP", columns: TOWER_COLUMN_CLASSES, column: 1, bayClassName: PRODUCTION_BAY_CLASS.towerTaxiDeparture },
+  "final-arrival": { route: "TW/TE · FINAL", columns: TOWER_COLUMN_CLASSES, column: 0, bayClassName: PRODUCTION_BAY_CLASS.towerFinal },
+  "apron-arrival": { route: "AA · RWY ARR", columns: EQUAL_COLUMN_CLASSES, column: 0, bayClassName: PRODUCTION_BAY_CLASS.aaRunwayArrival },
+  "compact-flight": { route: "AA · FINAL", columns: EQUAL_COLUMN_CLASSES, column: 0, bayClassName: PRODUCTION_BAY_CLASS.aaFinal },
+  "control-zone": { route: "TWR/GND · CONTROLZONE", columns: TOWER_COLUMN_CLASSES, column: 2, bayClassName: PRODUCTION_BAY_CLASS.towerControlZoneWithStartup },
+  "tactical-memaid": { route: "TW/TE · TWY DEP", columns: TOWER_COLUMN_CLASSES, column: 1, bayClassName: PRODUCTION_BAY_CLASS.towerTaxiDeparture },
+  "tactical-crossing": { route: "TW/TE · TWY DEP", columns: TOWER_COLUMN_CLASSES, column: 1, bayClassName: PRODUCTION_BAY_CLASS.towerTaxiDeparture },
+  "tactical-start": { route: "TW/TE · RWY ARR", columns: TOWER_COLUMN_CLASSES, column: 0, bayClassName: PRODUCTION_BAY_CLASS.towerRunwayArrival },
+  "tactical-land": { route: "TW/TE · RWY ARR", columns: TOWER_COLUMN_CLASSES, column: 0, bayClassName: PRODUCTION_BAY_CLASS.towerRunwayArrival },
+  message: { route: "AA/AD · MESSAGES", columns: EQUAL_COLUMN_CLASSES, column: 0, bayClassName: PRODUCTION_BAY_CLASS.adMessages, align: "start" },
+};
+
 const baseFlight: FrontendStrip = {
   callsign: "KLM18X",
-  origin: "EHAM",
-  destination: "EKCH",
+  origin: "EKCH",
+  destination: "EHAM",
   alternate: "ENGM",
   route: "NEXEN Z703",
   remarks: "",
@@ -101,7 +134,7 @@ function AnnotatedStrip({ id, title, bayTitle, annotations, children }: { id: st
         <span className="text-[0.94vw] font-bold text-white">{bayTitle}</span>
         <span className="ml-auto text-[0.63vw] font-normal text-slate-300">{title}</span>
       </div>
-      <div className="absolute left-0 right-0 top-[142px] p-0.5 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55)]">{children}</div>
+      <div data-testid={`strip-fixture-${id}`} className="absolute left-0 right-0 top-[142px] p-0.5 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.55)]">{children}</div>
       <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 675 337" preserveAspectRatio="none" aria-hidden="true">
         {annotations.map((annotation) => {
           const startX = 10 + (annotation.targetX / 100) * 655;
@@ -131,6 +164,39 @@ function AnnotatedStrip({ id, title, bayTitle, annotations, children }: { id: st
   );
 }
 
+function ProductionBayFixture({ item }: { item: GalleryItem }) {
+  const context = PRODUCTION_BAY_CONTEXTS[item.id];
+  if (!context) throw new Error(`Missing production bay context for ${item.id}`);
+
+  return (
+    <main className="h-screen w-screen overflow-hidden bg-bay-border">
+      <div className="bay-page-wrapper">
+        {context.columns.map((columnClassName, index) => (
+          <div key={`${item.id}-column-${index}`} className={columnClassName}>
+            {index === context.column && (
+              <>
+                <div className="bay-col-header justify-between">
+                  <span className="text-[0.94vw] font-bold text-white">{item.bayTitle}</span>
+                  <span className="text-[0.63vw] font-normal text-slate-300">{context.route}</span>
+                </div>
+                <section
+                  data-shot={item.id}
+                  data-layout-source={context.route}
+                  className={`${context.bayClassName} ${context.align === "start" ? "justify-start" : "justify-end"}`}
+                >
+                  <div data-testid={`strip-fixture-${item.id}`} className="w-full">
+                    {item.strip}
+                  </div>
+                </section>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}
+
 function makeGallery(): GalleryItem[] {
   const owner = "121.905";
   const common = { myPosition: owner, selectable: false };
@@ -147,7 +213,7 @@ function makeGallery(): GalleryItem[] {
         { label: "EOBT / CTOT", targetX: 50 },
         { label: "TOBT / TSAT", targetX: 70, side: "bottom" },
       ],
-      strip: <Strip strip={flight({ bay: Bay.NotCleared })} status="CLR" {...common} />,
+      strip: <Strip strip={flight({ bay: Bay.NotCleared })} status="CLR" fullWidth {...common} />,
     },
     {
       id: "cleared-summary",
@@ -177,8 +243,22 @@ function makeGallery(): GalleryItem[] {
       strip: <Strip strip={flight({ bay: Bay.Push })} status="CLX-HALF" {...common} />,
     },
     {
-      id: "push-startup",
-      title: "Start-up, pushback and de-ice strip",
+      id: "pushback",
+      title: "GE/GW pushback strip",
+      bayTitle: "PUSHBACK",
+      annotations: [
+        { label: "SI", targetX: 3.4 },
+        { label: "Callsign / next frequency", targetX: 17.4, labelX: 19 },
+        { label: "A/C type / Registration", targetX: 35.2, labelX: 36, side: "bottom" },
+        { label: "Stand / release point", targetX: 50.4 },
+        { label: "TSAT / CTOT", targetX: 65.7, side: "bottom" },
+        { label: "Runway", targetX: 79.2 },
+      ],
+      strip: <Strip strip={flight({ bay: Bay.Push, release_point: "" })} status="PUSH" fullWidth {...common} />,
+    },
+    {
+      id: "startup",
+      title: "GE/GW startup strip",
       bayTitle: "STARTUP",
       annotations: [
         { label: "SI", targetX: 3.4 },
@@ -188,7 +268,7 @@ function makeGallery(): GalleryItem[] {
         { label: "TSAT / CTOT", targetX: 65.7, side: "bottom" },
         { label: "Runway", targetX: 79.2 },
       ],
-      strip: <Strip strip={flight({ bay: Bay.Push, release_point: "" })} status="PUSH" {...common} />,
+      strip: <Strip strip={flight({ bay: Bay.Cleared, release_point: "" })} status="PUSH" {...common} />,
     },
     {
       id: "apron-departure",
@@ -232,7 +312,7 @@ function makeGallery(): GalleryItem[] {
         { label: "Runway / HP or TWY", targetX: 68, side: "bottom" },
         { label: "Flight plan", targetX: 84 },
       ],
-      strip: <Strip strip={flight({ origin: "ESSA", destination: "EKCH", bay: Bay.Final, sid: "", release_point: "A3" })} status="FINAL-ARR" {...common} />,
+      strip: <Strip strip={flight({ origin: "ESSA", destination: "EKCH", bay: Bay.Final, runway: "04L", sid: "", release_point: "" })} status="FINAL-ARR" {...common} />,
     },
     {
       id: "apron-arrival",
@@ -261,7 +341,7 @@ function makeGallery(): GalleryItem[] {
         { label: "HP", targetX: 69.5 },
         { label: "Stand", targetX: 76.5, side: "bottom" },
       ],
-      strip: <Strip strip={flight({ bay: Bay.Push })} status="HALF" halfStripVariant="APN-PUSH" {...common} />,
+      strip: <Strip strip={flight({ origin: "ESSA", destination: "EKCH", bay: Bay.Final, sid: "" })} status="HALF" halfStripVariant="LOCKED-ARR" {...common} />,
     },
     {
       id: "control-zone",
@@ -278,7 +358,7 @@ function makeGallery(): GalleryItem[] {
       strip: <Strip strip={flight({ callsign: "OYABC", bay: Bay.Controlzone, remarks: "LOCAL VFR", persons_on_board: 3, language: "DA", fpl_type: "VFR", position_altitude: 350 })} status="CONTROLZONE" {...common} />,
     },
     {
-      id: "tactical",
+      id: "tactical-memaid",
       title: "Tactical memory-aid strip",
       bayTitle: "MEMORY AIDS",
       annotations: [
@@ -288,6 +368,39 @@ function makeGallery(): GalleryItem[] {
         { label: "Delete", targetX: 93 },
       ],
       strip: <Strip strip={tacticalBase} width="95%" {...common} />,
+    },
+    {
+      id: "tactical-crossing",
+      title: "Tactical crossing strip",
+      bayTitle: "CROSSINGS",
+      annotations: [
+        { label: "Ownership", targetX: 4 },
+        { label: "Crossing", targetX: 45 },
+        { label: "Delete", targetX: 93 },
+      ],
+      strip: <Strip strip={{ ...tacticalBase, id: 2, type: "CROSSING", label: "CROSS 04L", aircraft: "OY-ABC" }} width="95%" {...common} />,
+    },
+    {
+      id: "tactical-start",
+      title: "Tactical runway start strip",
+      bayTitle: "RUNWAY",
+      annotations: [
+        { label: "Ownership", targetX: 4 },
+        { label: "Start clearance", targetX: 45 },
+        { label: "Delete", targetX: 93 },
+      ],
+      strip: <Strip strip={{ ...tacticalBase, id: 3, type: "START", label: "04L", aircraft: "SAS1234" }} width="95%" {...common} />,
+    },
+    {
+      id: "tactical-land",
+      title: "Tactical runway landing strip",
+      bayTitle: "RUNWAY",
+      annotations: [
+        { label: "Ownership", targetX: 4 },
+        { label: "Landing clearance", targetX: 45 },
+        { label: "Delete", targetX: 93 },
+      ],
+      strip: <Strip strip={{ ...tacticalBase, id: 4, type: "LAND", label: "04L", aircraft: "KLM18X" }} width="95%" {...common} />,
     },
     {
       id: "message",
@@ -329,6 +442,16 @@ export default function StripGalleryPage() {
   const gallery = makeGallery();
   const requestedShot = new URLSearchParams(window.location.search).get("shot");
   const visibleGallery = requestedShot ? gallery.filter((item) => item.id === requestedShot) : gallery;
+
+  if (requestedShot) {
+    const item = visibleGallery[0];
+    if (!item) return <main>Unknown strip fixture: {requestedShot}</main>;
+    return (
+      <WebSocketStoreContext.Provider value={store}>
+        <ProductionBayFixture item={item} />
+      </WebSocketStoreContext.Provider>
+    );
+  }
 
   return (
     <WebSocketStoreContext.Provider value={store}>

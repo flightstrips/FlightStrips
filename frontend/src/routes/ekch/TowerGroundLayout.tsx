@@ -42,12 +42,10 @@ import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { NewVfrDialog } from "@/components/strip/NewVfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 import { FindDialog } from "@/components/strip/FindDialog";
+import { PRODUCTION_BAY_CLASS, TOWER_COLUMN_CLASSES } from "./productionBayLayouts";
 
 // Column widths
-const W_COL_ARR = "w-1/4";
-const W_COL_DEP = "w-[29%]";
-const W_COL_CENTER = "w-1/4";
-const W_COL_RIGHT = "w-[21%]";
+const [COL_ARR, COL_DEP, COL_CENTER, COL_RIGHT] = TOWER_COLUMN_CLASSES;
 
 const btn = CLS_BTN;
 const btnOrange = CLS_BTN_ORANGE;
@@ -197,7 +195,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
       <div className="bay-page-wrapper">
 
         {/* Column 1 – FINAL + RWY ARR + TWY ARR */}
-        <div className={`${W_COL_ARR} bay-col`}>
+        <div className={COL_ARR}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>FINAL</span>
             <span className="flex gap-1">
@@ -209,7 +207,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="FINAL"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className="h-[35%] bay-scroll-area-bottom"
+            className={PRODUCTION_BAY_CLASS.towerFinal}
           >
             {(strip) => (
               <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
@@ -236,7 +234,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="RWY-ARR"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className="h-[20%] bay-scroll-area-dark"
+            className={PRODUCTION_BAY_CLASS.towerRunwayArrival}
           >
             {(strip) => (
               <Strip strip={strip} status="FINAL-ARR" myPosition={myPosition} selectable={true} />
@@ -266,7 +264,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         </div>
 
         {/* Column 2 – TWY DEP + RWY DEP + AIRBORNE */}
-        <div className={`${W_COL_DEP} bay-col`}>
+        <div className={COL_DEP}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>TWY DEP</span>
             <span className="flex gap-1">
@@ -284,7 +282,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="TWY-DEP"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className="h-[35%] bay-scroll-area-bottom"
+            className={PRODUCTION_BAY_CLASS.towerTaxiDeparture}
           >
             {(strip) => (
               <Strip strip={strip} status="TWY-DEP" myPosition={myPosition} width={TWY_DEP_STRIP_WIDTH} selectable={true} />
@@ -359,7 +357,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         </div>
 
         {/* Column 3 – CONTROLZONE + STARTUP/PUSHBACK + MESSAGES */}
-        <div className={`${W_COL_CENTER} bay-col`}>
+        <div className={COL_CENTER}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>CONTROLZONE</span>
             <span className="flex gap-1">
@@ -372,7 +370,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
             bayId="CONTROLZONE"
             isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
             standalone={false}
-            className={showStartupBay ? "h-[21.65%] bay-scroll-area-bottom" : "h-[35%] bay-scroll-area-bottom"}
+            className={showStartupBay ? PRODUCTION_BAY_CLASS.towerControlZoneWithStartup : PRODUCTION_BAY_CLASS.towerTaxiDeparture}
           >
             {(strip) => <Strip strip={strip} status="CONTROLZONE" myPosition={myPosition} selectable={true} />}
           </SortableBay>
@@ -414,7 +412,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
                 bayId="PUSHBACK"
                 isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
                 standalone={false}
-                className="h-[35%] bay-scroll-area-bottom"
+                className={PRODUCTION_BAY_CLASS.towerTaxiDeparture}
               >
                 {(strip) => <Strip strip={strip} status="PUSH" myPosition={myPosition} selectable={true} />}
               </SortableBay>
@@ -438,7 +436,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
         </div>
 
         {/* Column 4 – CLRDEL + DE-ICE A + STAND */}
-        <div className={`${W_COL_RIGHT} bay-col`}>
+        <div className={COL_RIGHT}>
           <div className="bay-col-header justify-between">
             <span className={CLS_LABEL}>CLRDEL</span>
             <span className="flex gap-1">
@@ -446,7 +444,7 @@ export default function TowerGroundLayout({ variant }: TowerGroundLayoutProps) {
               <button className={btn} onClick={() => setPlannedOpen(true)}>PLANNED</button>
             </span>
           </div>
-          <SortableBay strips={nonClearedStrips} bayId="CLRDEL" standalone={false} className="h-[45%] bay-scroll-area">
+          <SortableBay strips={nonClearedStrips} bayId="CLRDEL" standalone={false} className={PRODUCTION_BAY_CLASS.towerClearanceDelivery}>
             {(strip) => <Strip strip={strip} status={clrDelActive ? "CLR" : "CLX-HALF"} fullWidth={true} myPosition={myPosition} />}
           </SortableBay>
 

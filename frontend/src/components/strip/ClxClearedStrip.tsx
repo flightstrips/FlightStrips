@@ -5,6 +5,7 @@ import {
   useStripCallsignInteraction,
   getFramedStripStyle,
   getCellBorderColor,
+  getStripFrameColor,
   SELECTION_COLOR,
   FONT,
   CLS_CALLSIGN_ACTIVE,
@@ -27,7 +28,7 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 
 // Height: 4.72dvh viewport-relative (intentional — matches DelStrip height)
 const FULL_H  = "4.72dvh";
-const HALF_H  = "2.36dvh";
+const HALF_H  = "50%";
 
 // Flex-grow proportions for the 80% content area (flex-basis: 0).
 // Base unit is 40 (right half width). Left half uses 2/3 and 1/3 splits.
@@ -105,7 +106,8 @@ export function ClxClearedStrip({
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
 	const emphasizeTobtTime = hasManualTobtSource(tobtSetBy);
   const hasCtot = Boolean(ctot?.trim());
-  const cellBorderColor = getCellBorderColor(marked);
+  const stripFrameColor = getStripFrameColor(arrival ?? false);
+  const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;
   const callsignBackgroundColor = showClearedCallsignHighlight ? "var(--color-pdc-cleared)" : isSelected ? SELECTION_COLOR : undefined;
   const callsignTextColor = showClearedCallsignHighlight ? "white" : manualBlue;
@@ -117,7 +119,7 @@ export function ClxClearedStrip({
         height: FULL_H,
         width: fullWidth ? "100%" : CLX_CLEARED_STRIP_WIDTH,
         cursor: isValidationActive ? "not-allowed" : undefined,
-        ...getFramedStripStyle(marked),
+        ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
       <div
@@ -137,6 +139,7 @@ export function ClxClearedStrip({
           transferFrom={stripTransfers[callsign]?.from ?? ""}
           transferringTo={stripTransfers[callsign]?.to ?? ""}
           isTagRequest={isTagRequest}
+          baseBorderColor={stripFrameColor}
         />
 
         {/* ── Left half of 80% ── */}

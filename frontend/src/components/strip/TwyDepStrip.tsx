@@ -5,7 +5,7 @@ import { formatAltitude } from "@/lib/utils";
 import { useCTOTColor } from "@/hooks/useCTOTColor";
 import { getStripBg } from "./types";
 import type { StripProps } from "./types";
-import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, useNextFrequencyDisplay } from "./shared";
+import { useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, getStripFrameColor, SELECTION_COLOR, FONT, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, useNextFrequencyDisplay } from "./shared";
 import { TaxiMapDialog } from "../map-dialogs/TaxiMapDialog";
 import { HoldingPointDialog } from "../map-dialogs/HoldingPointDialog";
 import { SIBox } from "./SIBox";
@@ -17,12 +17,12 @@ import { computeTwyDepCTOTColors } from "@/lib/cdmColors";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 
 // Heights— 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom (used by callsign and SID/dest)
-const TOP_H      = "3.15dvh";  // 2/3 of 4.72dvh
-const BOT_H      = "1.57dvh";  // 1/3 of 4.72dvh
-const TOP_HALF_H = "1.575dvh"; // half of TOP_H — used by SID/dest two-line split
+const TOP_H      = "66.6667%";
+const BOT_H      = "33.3333%";
+const TOP_HALF_H = "33.3333%";
 
 // Equal halves — used by type/squawk, stand/empty, TWY, runway/HP, FL/heading
-const HALF_H = "2.36dvh"; // 1/2 of 4.72dvh
+const HALF_H = "50%";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type/Squawk=60, Stand=60, Small×3=53, SID/Dest/CTOT=80
@@ -79,7 +79,8 @@ export function TwyDepStrip({
   const stripTransfers = useStripTransfers();
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "", computeTwyDepCTOTColors);
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
-  const cellBorderColor = getCellBorderColor(marked);
+  const stripFrameColor = getStripFrameColor(arrival ?? false);
+  const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
   const { bg, textWhite } = useStripBg(runway, getStripBg(pdcStatus, arrival, bay), isTagRequest, isUnconcerned, pdcStatus, bay);
   const transitionAltitude = useTransitionAltitude();
@@ -133,7 +134,7 @@ export function TwyDepStrip({
         width: "95%",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,
-        ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
+        ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
       {/* SI / ownership */}
@@ -149,6 +150,7 @@ export function TwyDepStrip({
         transferFrom={stripTransfers[callsign]?.from ?? ""}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
+        baseBorderColor={stripFrameColor}
       />
 
       {/* Callsign; top 2/3 = callsign, bottom 1/3 = :freq */}
@@ -228,12 +230,12 @@ export function TwyDepStrip({
 
       {/* Runway / HP; dividing line between; bold runway, plain holding point */}
       <div
-        className="flex flex-col border-r-2 min-w-0"
+        className="flex flex-col border-r-2 min-w-0 overflow-hidden"
         style={{ flexGrow: F_SMALL, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
-          className="flex items-center justify-center border-b-2 cursor-pointer"
-          style={{ height: HALF_H, borderBottomColor: cellBorderColor, backgroundColor: rwyColor, cursor: isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined }}
+          className="flex items-center justify-center cursor-pointer"
+          style={{ flex: "1 1 0%", minHeight: 0, backgroundColor: rwyColor, cursor: isAssumed ? getValidationBlockedCursor(isValidationActive) : undefined }}
           onClick={isAssumed ? (e) => guardValidationAction(e, () => {
             if (runwayCleared && !runwayConfirmed) {
               runwayConfirmation(callsign);
@@ -244,9 +246,10 @@ export function TwyDepStrip({
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", color: getCellTextColor("runway", controllerModifiedFields) }}>{runway}</span>
         </div>
+        <div aria-hidden="true" style={{ height: "2px", flexShrink: 0, backgroundColor: cellBorderColor }} />
         <div
           className="flex items-center justify-center cursor-pointer"
-          style={{ height: HALF_H, backgroundColor: releasePointYellow && isHp ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
+          style={{ flex: "1 1 0%", minHeight: 0, backgroundColor: releasePointYellow && isHp ? COLOR_UNEXPECTED_YELLOW : undefined, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => setShowHpMap(true))}
         >
           <span style={{ fontFamily: FONT, fontWeight: "bold", fontSize: "0.73vw", opacity: hpDisplay ? 1 : 0.2, color: getCellTextColor("release_point", controllerModifiedFields) }}>

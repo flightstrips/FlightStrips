@@ -30,8 +30,8 @@ jobs:
       run: npm ci
     - name: build
       run: npm run build
-    - name: install Playwright browser
-      run: npx playwright install --with-deps chromium
+    - name: install Playwright browsers
+      run: npx playwright install --with-deps chromium firefox
     - name: run browser visual tests
       run: npm run test:visual
 

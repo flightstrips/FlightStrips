@@ -28,6 +28,7 @@ import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx
 import { CLS_BTN, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { EQUAL_COLUMN_CLASSES, PRODUCTION_BAY_CLASS } from "./productionBayLayouts";
 
 const btn     = CLS_BTN;
 const btnBlue = CLS_BTN_BLUE;
@@ -124,20 +125,20 @@ export default function AA() {
     <div className="bay-page-wrapper">
 
       {/* ── Col 1: FINAL (locked) / RWY ARR (locked) / STAND ── */}
-      <div className="bay-col-flex">
+      <div className={EQUAL_COLUMN_CLASSES[0]}>
 
         <div className="bay-col-header justify-between">
           <span className={CLS_LABEL}>FINAL</span>
           <button className={btn} onClick={() => setArrOpen(true)}>ARR</button>
         </div>
-        <SortableBay strips={finalStrips} bayId="FINAL" isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition} standalone={false} className="h-[30%] bay-scroll-area-bottom">
+        <SortableBay strips={finalStrips} bayId="FINAL" isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition} standalone={false} className={PRODUCTION_BAY_CLASS.aaFinal}>
           {(strip) => <Strip strip={strip} status="HALF" halfStripVariant="LOCKED-ARR" selectable={false} myPosition={myPosition} />}
         </SortableBay>
 
         <div className="bay-col-header bay-col-sep">
           <span className={CLS_LABEL}>RWY ARR</span>
         </div>
-        <SortableBay strips={rwyArrStrips} bayId="RWY-ARR" isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition} standalone={false} className="h-[25%] bay-scroll-area-bottom">
+        <SortableBay strips={rwyArrStrips} bayId="RWY-ARR" isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition} standalone={false} className={PRODUCTION_BAY_CLASS.aaRunwayArrival}>
           {(strip) => <Strip strip={strip} status="ARR" selectable={false} myPosition={myPosition} />}
         </SortableBay>
 
@@ -174,7 +175,7 @@ export default function AA() {
       </div>
 
       {/* ── Col 2: DE-ICE / TWY ARR ── */}
-      <div className="bay-col-flex">
+      <div className={EQUAL_COLUMN_CLASSES[1]}>
 
         <div className="bay-col-header">
           <span className={CLS_LABEL}>DE-ICE</span>
@@ -210,7 +211,7 @@ export default function AA() {
       </div>
 
       {/* ── Col 3: PUSHBACK / TWY DEP (UPR + LWR) ── */}
-      <div className="bay-col-flex">
+      <div className={EQUAL_COLUMN_CLASSES[2]}>
 
         <div className="bay-col-header">
           <span className={CLS_LABEL}>PUSHBACK</span>
@@ -239,7 +240,7 @@ export default function AA() {
           bayId="TWY-DEP-UPR"
           isDragDisabled={(strip) => !!strip.owner && strip.owner !== myPosition}
           standalone={false}
-          className="h-[25%] bay-scroll-area-bottom"
+          className={PRODUCTION_BAY_CLASS.aaTaxiDepartureUpper}
         >
           {(strip) => (
             <Strip strip={strip} status="TAXI-DEP" myPosition={myPosition} width={APN_TAXI_DEP_STRIP_WIDTH} selectable={true} />
@@ -274,7 +275,7 @@ export default function AA() {
       </div>
 
       {/* ── Col 4: CLRDEL / NORWEGIAN / OTHERS (UNCLEARED) ── */}
-      <div className="bay-col-flex">
+      <div className={EQUAL_COLUMN_CLASSES[3]}>
 
         <div className="bay-col-header">
           <span className={CLS_LABEL}>CLRDEL</span>

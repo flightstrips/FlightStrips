@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useNextFrequencyDisplay, useStripCallsignInteraction } from "./shared";
+import { getStripFrameColor, useNextFrequencyDisplay, useStripCallsignInteraction } from "./shared";
 
 const storeState = vi.hoisted(() => ({
   strips: [] as Array<Record<string, unknown>>,
@@ -54,6 +54,13 @@ describe("useNextFrequencyDisplay", () => {
     );
 
     expect(result.current).toBe(":121.905");
+  });
+});
+
+describe("getStripFrameColor", () => {
+  it("keeps departure and arrival frames tied to the flight direction", () => {
+    expect(getStripFrameColor(false)).toBe("var(--color-strip-frame)");
+    expect(getStripFrameColor(true)).toBe("var(--color-cell-border-arr)");
   });
 });
 

@@ -60,12 +60,14 @@ afterEach(cleanup);
 
 describe("tactical strip ownership interactions", () => {
   it("lets the owner mark and close a runway strip without a timer control", () => {
-    render(<TacticalRwyStrip strip={tactical()} />);
+    const { container } = render(<TacticalRwyStrip strip={tactical()} />);
 
     fireEvent.click(screen.getByText("START 22L"));
     expect(actions.markTacticalStrip).toHaveBeenCalledWith(42, true);
     expect(screen.getByText("✕")).toBeInTheDocument();
     expect(screen.queryByText("⌛")).not.toBeInTheDocument();
+    expect(container.firstElementChild).toHaveStyle({ backgroundColor: "#dd6a12" });
+    expect(container.querySelector(".bg-white")).toHaveStyle({ borderRight: "2px solid #a04a00" });
   });
 
   it("opens force assume for a non-owner and omits SI/close controls", () => {
@@ -76,6 +78,7 @@ describe("tactical strip ownership interactions", () => {
 
     expect(screen.queryByText("✕")).not.toBeInTheDocument();
     expect(container.querySelector(".bg-white")).toBeNull();
+    expect(container.firstElementChild).toHaveStyle({ backgroundColor: "#fcc800" });
     fireEvent.click(screen.getByText("CROSSING TRAFFIC"), { clientX: 100, clientY: 120 });
 
     expect(screen.getByRole("dialog", { name: "Tactical strip actions" })).toHaveStyle({ width: "167px" });

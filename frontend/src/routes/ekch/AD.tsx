@@ -28,6 +28,7 @@ import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx
 import { CLS_BTN, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
+import { PRODUCTION_BAY_CLASS } from "./productionBayLayouts";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 
@@ -138,7 +139,7 @@ export default function AD() {
           <span className={primaryLabel}>MESSAGES</span>
           <button className={btn} onClick={() => setComposeOpen(true)}>FREE TEXT</button>
         </div>
-        <div className="h-[15%] bay-scroll-area">
+        <div className={PRODUCTION_BAY_CLASS.adMessages}>
           {messages.map(msg => (
             <MessageStrip key={msg.id} msg={msg} />
           ))}

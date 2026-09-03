@@ -8,11 +8,7 @@ const TOUCH_DRAG_TOLERANCE_PX = 8;
 const STRIP_SCROLL_CONTAINER_SELECTOR = '[data-strip-scroll-container="true"]';
 
 function canScrollVertically(element: HTMLElement | null) {
-  if (!element) {
-    return false;
-  }
-
-  return element.scrollHeight > element.clientHeight + 1;
+  return element != null && element.scrollHeight > element.clientHeight + 1;
 }
 
 function getScrollContainer(activeNode: StripTouchSensorProps["activeNode"]) {
@@ -20,17 +16,32 @@ function getScrollContainer(activeNode: StripTouchSensorProps["activeNode"]) {
   return activatorNode?.closest<HTMLElement>(STRIP_SCROLL_CONTAINER_SELECTOR) ?? null;
 }
 
-class StripTouchSensor extends TouchSensor {
+interface TouchSensorInternals {
+  autoScrollEnabled: boolean;
+  activated: boolean;
+  handleMove(event: Event): void;
+}
+
+interface TouchSensorConstructor {
+  new (...args: ConstructorParameters<typeof TouchSensor>): TouchSensorInternals;
+  activators: typeof TouchSensor.activators;
+  setup?: typeof TouchSensor.setup;
+}
+
+const TouchSensorWithInternals = TouchSensor as unknown as TouchSensorConstructor;
+
+/**
+ * dnd-kit consumes the touchmove that crosses the activation distance, leaving
+ * the overlay at its origin until another touchmove arrives. Replaying that
+ * activating event makes the strip follow the finger immediately. In a
+ * scrollable bay, a short hold starts dragging while an immediate swipe keeps
+ * the browser's native vertical scrolling available.
+ */
+class StripTouchSensor extends TouchSensorWithInternals {
   constructor(props: StripTouchSensorProps) {
-    const scrollContainer = getScrollContainer(props.activeNode);
-    const activationConstraint = canScrollVertically(scrollContainer)
-      ? {
-          delay: TOUCH_DRAG_DELAY_MS,
-          tolerance: TOUCH_DRAG_TOLERANCE_PX,
-        }
-      : {
-          distance: 0,
-        };
+    const activationConstraint = canScrollVertically(getScrollContainer(props.activeNode))
+      ? { delay: TOUCH_DRAG_DELAY_MS, tolerance: TOUCH_DRAG_TOLERANCE_PX }
+      : { distance: 0 };
 
     super({
       ...props,
@@ -39,6 +50,15 @@ class StripTouchSensor extends TouchSensor {
         activationConstraint,
       },
     });
+  }
+
+  handleMove(event: Event) {
+    const wasActivated = this.activated;
+    super.handleMove(event);
+
+    if (!wasActivated && this.activated) {
+      super.handleMove(event);
+    }
   }
 }
 

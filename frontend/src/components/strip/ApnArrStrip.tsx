@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { StripProps } from "./types";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
-import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
+import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, getStripFrameColor, SELECTION_COLOR, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getStripOwnership, getCellTextColor, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
 import { getStripBg } from "./types";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { RunwayDialog } from "./RunwayDialog";
@@ -12,11 +12,8 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
 
 // Height: 4.72dvh (51px at 1080p), matches FinalArrStrip ATC arrival strip spec
-const TOP_H = "3.15dvh"; // 2/3 of 4.72dvh
-const BOT_H = "1.57dvh"; // 1/3 of 4.72dvh
-
-/** Gold cell borders — matches the yellow arrival strip design (same as FinalArrStrip). */
-const CELL_BORDER = "var(--color-cell-border-arr)";
+const TOP_H = "66.6667%";
+const BOT_H = "33.3333%";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type=80, RWY=54, HS=54, Stand=80
@@ -67,7 +64,8 @@ export function ApnArrStrip({
     setValidationDialogOpen,
     validationStatus,
   } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
-  const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
+  const stripFrameColor = getStripFrameColor(arrival ?? true);
+  const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -96,7 +94,7 @@ export function ApnArrStrip({
         width: "90%",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,
-        ...getFlatStripBorderStyle({}, CELL_BORDER),
+        ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
       <SIBox
@@ -112,7 +110,7 @@ export function ApnArrStrip({
         transferFrom={stripTransfers[callsign]?.from ?? ""}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
-        baseBorderColor={CELL_BORDER}
+        baseBorderColor={stripFrameColor}
       />
 
       {/* Callsign */}

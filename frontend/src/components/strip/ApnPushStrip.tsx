@@ -4,6 +4,7 @@ import {
   useStripCallsignInteraction,
   getFramedStripStyle,
   getCellBorderColor,
+  getStripFrameColor,
   SELECTION_COLOR,
   FONT,
   COLOR_UNEXPECTED_YELLOW,
@@ -32,9 +33,9 @@ import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 
 // Height: 4.72dvh(51px at 1080p)
-const HALF_H = "2.36dvh";    // half of 4.72dvh for TSAT/CTOT split
-const TOP_H  = "3.15dvh";    // 2/3 of 4.72dvh
-const BOT_H  = "1.57dvh";    // 1/3 of 4.72dvh
+const HALF_H = "50%";
+const TOP_H  = "66.6667%";
+const BOT_H  = "33.3333%";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Base flex unit. Each cell is a fraction of this base.
@@ -93,7 +94,8 @@ export function ApnPushStrip({
     setValidationDialogOpen,
     validationStatus,
   } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
-  const cellBorderColor = getCellBorderColor(marked);
+  const stripFrameColor = getStripFrameColor(arrival ?? false);
+  const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
@@ -122,7 +124,7 @@ export function ApnPushStrip({
         height: "4.72dvh",
         width: fullWidth ? "100%" : "90%",
         cursor: isValidationActive ? "not-allowed" : undefined,
-        ...getFramedStripStyle(marked),
+        ...getFramedStripStyle(marked, stripFrameColor),
       }}
     >
       <div className={`flex ${textWhite ? "text-white" : "text-black"}`} style={{ height: "100%", overflow: "hidden", backgroundColor: bg }}>
@@ -138,6 +140,7 @@ export function ApnPushStrip({
           transferFrom={stripTransfers[callsign]?.from ?? ""}
           transferringTo={stripTransfers[callsign]?.to ?? ""}
           isTagRequest={isTagRequest}
+          baseBorderColor={stripFrameColor}
         />
 
         {/* Callsign — 25%, FONT medium 20, top 2/3 highlighted when selected */}

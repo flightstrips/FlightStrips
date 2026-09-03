@@ -6,6 +6,8 @@ import {
   COLOR_MANUAL_BLUE,
   FONT,
   getFlatStripBorderStyle,
+  getSIBoxBorderStyle,
+  getStripFrameColor,
   SELECTION_COLOR,
   useStripSelection,
 } from "./shared";
@@ -13,11 +15,10 @@ import { getStripBg } from "./types";
 import { DepartureAwareFlightPlanDialog } from "./DepartureAwareFlightPlanDialog";
 
 const FULL_H = "4.72dvh";
-const TOP_H = "3.15dvh";
-const BOT_H = "1.57dvh";
-const HALF_H = "2.08dvh";
+const TOP_H = "66.6667%";
+const BOT_H = "33.3333%";
+const HALF_H = "50%";
 const STRIP_W = "90%";
-const CELL_BORDER = "var(--color-cell-border-arr)";
 
 // Ratios taken from the 1080p controlzone.svg design: 34 | 120 | 80 | 52 | 60 | 76
 const F_SI = 34;
@@ -66,6 +67,8 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
   const fplType = strip.fpl_type?.trim() || "";
   const statusLabel = getControlzoneStatus(strip.position_altitude, airport);
   const isArrival = strip.destination === airport && strip.origin !== airport;
+  const backgroundColor = getStripBg(strip.pdc_state, isArrival, Bay.Controlzone);
+  const stripFrameColor = getStripFrameColor(isArrival);
 
   return (
     <>
@@ -74,20 +77,20 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
       style={{
         height: FULL_H,
         width: STRIP_W,
-        backgroundColor: getStripBg(strip.pdc_state, isArrival, Bay.Controlzone),
-        ...getFlatStripBorderStyle({}, CELL_BORDER),
+        backgroundColor,
+        ...getFlatStripBorderStyle(backgroundColor, stripFrameColor),
       }}
       onClick={handleClick}
     >
       <div className="flex h-full overflow-hidden text-black">
         <div
-          className="flex-shrink-0 border-r-2"
-          style={{ flex: `${F_SI} 0 0%`, backgroundColor: "#F0F0F0", borderRightColor: CELL_BORDER }}
+          className="flex-shrink-0"
+          style={{ flex: `${F_SI} 0 0%`, backgroundColor: "#F0F0F0", ...getSIBoxBorderStyle(false, stripFrameColor) }}
         />
 
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_CALLSIGN} 0 0%`, borderRightColor: CELL_BORDER }}
+          style={{ flex: `${F_CALLSIGN} 0 0%`, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center px-[0.42vw] overflow-hidden" style={{ height: TOP_H, backgroundColor: isSelected ? SELECTION_COLOR : undefined }}>
             <span
@@ -109,7 +112,7 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
 
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_SQUAWK} 0 0%`, borderRightColor: CELL_BORDER }}
+          style={{ flex: `${F_SQUAWK} 0 0%`, borderRightColor: stripFrameColor }}
         >
           <div style={{ height: HALF_H }} />
           <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
@@ -124,7 +127,7 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
 
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_META} 0 0%`, borderRightColor: CELL_BORDER }}
+          style={{ flex: `${F_META} 0 0%`, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center gap-[0.16vw] px-[0.21vw]" style={{ height: HALF_H }}>
             <span style={{ fontFamily: FONT, fontSize: META_LABEL_FONT, lineHeight: 1 }}>QNH:</span>
@@ -138,15 +141,15 @@ export function ControlzoneStrip({ strip, selectable }: Props) {
 
         <div
           className="flex flex-col overflow-hidden border-r-2"
-          style={{ flex: `${F_STATUS} 0 0%`, borderRightColor: CELL_BORDER }}
+          style={{ flex: `${F_STATUS} 0 0%`, borderRightColor: stripFrameColor }}
         >
           <div className="flex items-center justify-center overflow-hidden" style={{ height: HALF_H }}>
             <span style={{ fontFamily: FONT, fontSize: PRIMARY_FONT, fontWeight: 700 }}>
               {statusLabel}
             </span>
           </div>
-          <div className="flex border-t-2" style={{ height: HALF_H, borderTopColor: CELL_BORDER }}>
-            <div className="flex items-center justify-center overflow-hidden border-r-2" style={{ flex: "1 0 0%", borderRightColor: CELL_BORDER }}>
+          <div className="flex border-t-2" style={{ height: HALF_H, borderTopColor: stripFrameColor }}>
+            <div className="flex items-center justify-center overflow-hidden border-r-2" style={{ flex: "1 0 0%", borderRightColor: stripFrameColor }}>
               <span style={{ fontFamily: FONT, fontSize: PRIMARY_FONT, fontWeight: 700, textTransform: "uppercase" }}>
                 {language}
               </span>

@@ -1,24 +1,8 @@
 import type { HalfStripVariant, StripProps } from "./types";
-import { AircraftTypeLabel, useStripSelection, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, COLOR_ARR_YELLOW, COLOR_DEP_STRIP_BG, COLOR_BTN_BLUE, COLOR_BTN_ORANGE, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor, useStripBg } from "./shared";
+import { AircraftTypeLabel, useStripSelection, getCellBorderColor, getFlatStripBorderStyle, getSIBoxBorderStyle, SELECTION_COLOR, COLOR_UNEXPECTED_YELLOW, COLOR_MANUAL_BLUE, getCellTextColor, useStripBg } from "./shared";
 import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import { getStripBg } from "./types";
-
-// Variant-specific background colours
-const COLOR_HALF_PUSH_BG  = "var(--color-strip-push-bg)"; // compact APN-PUSH half strip (lighter grey)
-const COLOR_MESSAGES_BG   = "#285A5C"; // teal — matches MessageStrip / primary theme
-const COLOR_CROSSING_BG   = "var(--color-half-crossing)"; // bright yellow for crossing tactical strip
-
-/** Background colour per half-strip variant. */
-const VARIANT_BG: Record<HalfStripVariant, string> = {
-  "APN-PUSH":   COLOR_HALF_PUSH_BG,
-  "APN-ARR":    COLOR_ARR_YELLOW,
-  "LOCKED-DEP": COLOR_DEP_STRIP_BG,
-  "LOCKED-ARR": COLOR_ARR_YELLOW,
-  "MESSAGES":   COLOR_MESSAGES_BG,
-  "MEM-AID":    COLOR_BTN_BLUE,
-  "LAND-START": COLOR_BTN_ORANGE,
-  "CROSSING":   COLOR_CROSSING_BG,
-};
+import { HALF_STRIP_VARIANT_BG, getHalfStripFrameColor } from "./halfStripFrame";
 
 /** Short label shown in the left identifier box. */
 const VARIANT_LABEL: Record<HalfStripVariant, string> = {
@@ -74,15 +58,18 @@ export function HalfStrip({
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const standYellow = unexpectedChangeFields?.includes("stand");
+  const isArrivalVariant = halfStripVariant === "APN-ARR" || halfStripVariant === "LOCKED-ARR";
+  const stripFrameColor = getHalfStripFrameColor(halfStripVariant, arrival ?? isArrivalVariant);
+  const baseCellBorderColor = isFreeText ? HALF_CELL_BASE : stripFrameColor;
 
-  const cellBorderColor = getCellBorderColor(marked, HALF_CELL_BASE);
+  const cellBorderColor = getCellBorderColor(marked, baseCellBorderColor);
   const manualBlue = isManual ? COLOR_MANUAL_BLUE : undefined;
 
   const label = VARIANT_LABEL[halfStripVariant];
 
   // Use light text on dark backgrounds for readability
   const darkBg = ["MESSAGES", "MEM-AID", "LAND-START"].includes(halfStripVariant);
-  const normalBackground = isFreeText ? VARIANT_BG[halfStripVariant] : getStripBg(pdcStatus, arrival, bay);
+  const normalBackground = isFreeText ? HALF_STRIP_VARIANT_BG[halfStripVariant] : getStripBg(pdcStatus, arrival, bay);
   const { bg, textWhite } = useStripBg(runway, normalBackground, isTagRequest, false, pdcStatus, bay);
   const textColor = (darkBg || textWhite) ? "text-white" : "text-black";
 
@@ -92,14 +79,14 @@ export function HalfStrip({
       style={{
         height: "2.36dvh",
         backgroundColor: isTagRequest ? SELECTION_COLOR : bg,
-        ...getFlatStripBorderStyle({ borderBottom: "1px solid white" }),
+        ...getFlatStripBorderStyle(isTagRequest ? SELECTION_COLOR : bg, stripFrameColor),
       }}
       onClick={handleClick}
     >
       {/* Left identifier box */}
       <div
-        className={`h-full w-[1.67vw] border-r-2 flex items-center justify-center font-bold text-[0.63vw] ${textColor}`}
-        style={{ borderRightColor: cellBorderColor }}
+        className={`h-full w-[1.67vw] flex items-center justify-center font-bold text-[0.63vw] ${textColor}`}
+        style={getSIBoxBorderStyle(marked, baseCellBorderColor)}
       >
         {label}
       </div>

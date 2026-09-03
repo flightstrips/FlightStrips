@@ -1,6 +1,6 @@
 import type { MessageReceived } from "@/api/models.ts";
 import { useWebSocketStore } from "@/store/store-hooks.ts";
-import { COLOR_SI_ASSUMED, COLOR_SI_CONCERNED } from "@/components/strip/shared";
+import { COLOR_SI_ASSUMED, COLOR_SI_CONCERNED, getFramedStripStyle } from "@/components/strip/shared";
 
 export const MESSAGE_MAX_CHARS = 120;
 
@@ -43,7 +43,7 @@ export function MessageStrip({ msg }: MessageStripProps) {
   return (
     <div
       className="flex items-stretch shrink-0"
-      style={{ minHeight: "4.72dvh", background: COLOR_STRIP_BG }}
+      style={{ minHeight: "4.72dvh", ...getFramedStripStyle(false, COLOR_STRIP_BG) }}
     >
       {/* SI box */}
       <div

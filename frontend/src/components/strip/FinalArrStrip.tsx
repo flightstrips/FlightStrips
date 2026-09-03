@@ -3,7 +3,7 @@ import { useStripTransfers, useWebSocketStore } from "@/store/store-hooks";
 import FlightPlanDialog from "@/components/FlightPlanDialog";
 import { Bay } from "@/api/models";
 import type { StripProps } from "./types";
-import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, SELECTION_COLOR, FONT, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
+import { AircraftTypeLabel, useStripCallsignInteraction, getCellBorderColor, getFlatStripBorderStyle, getStripFrameColor, SELECTION_COLOR, FONT, getStripOwnership, useStripBg, getValidationBlinkStyle, getValidationBlockedCursor, useNextFrequencyDisplay } from "./shared";
 import { getStripBg } from "./types";
 import { SIBox } from "./SIBox";
 import { ArrStandDialog } from "./ArrStandDialog";
@@ -11,12 +11,9 @@ import { TaxiMapDialog } from "@/components/map-dialogs/TaxiMapDialog";
 import { ValidationStatusDialog } from "./ValidationStatusDialog";
 import { getStandAssignmentStyle } from "./standAssignmentStyle";
 
-/** Gold cell borders — matches the yellow arrival strip design. */
-const CELL_BORDER = "var(--color-cell-border-arr)";
-
 // Heights — 4.72dvh total (51px at 1080p), 2/3 top / 1/3 bottom
-const TOP_H = "3.15dvh";
-const BOT_H = "1.57dvh";
+const TOP_H = "66.6667%";
+const BOT_H = "33.3333%";
 
 // Flex-grow proportions (flex-basis: 0 so space is shared proportionally).
 // Values match the original pixel widths: SI=40, Callsign=120, Type=80, Taxiway=80, RWY=54, Stand=80
@@ -60,7 +57,8 @@ export function FinalArrStrip({
   pdcStatus,
 }: StripProps) {
   const { isSelected, isValidationActive, handleClick, handleContextMenu, guardValidationAction, validationDialogOpen, setValidationDialogOpen, validationStatus } = useStripCallsignInteraction({ callsign, selectable, bay, owner, myPosition });
-  const cellBorderColor = getCellBorderColor(marked, CELL_BORDER);
+  const stripFrameColor = getStripFrameColor(arrival ?? true);
+  const cellBorderColor = getCellBorderColor(marked, stripFrameColor);
   const stripTransfers = useStripTransfers();
   const isTagRequest = !!stripTransfers[callsign]?.isTagRequest;
   const { isUnconcerned, isAssumed } = getStripOwnership(myPosition, owner, nextControllers, previousControllers);
@@ -94,7 +92,7 @@ export function FinalArrStrip({
         width: "95%",
         backgroundColor: bg,
         cursor: isValidationActive ? "not-allowed" : undefined,
-        ...getFlatStripBorderStyle({}, CELL_BORDER),
+        ...getFlatStripBorderStyle(bg, stripFrameColor),
       }}
     >
       {/* SI / ownership */}
@@ -111,7 +109,7 @@ export function FinalArrStrip({
         transferFrom={stripTransfers[callsign]?.from ?? ""}
         transferringTo={stripTransfers[callsign]?.to ?? ""}
         isTagRequest={isTagRequest}
-        baseBorderColor={CELL_BORDER}
+        baseBorderColor={stripFrameColor}
       />
 
       {/* Callsign; top 2/3 = callsign */}
@@ -178,6 +176,7 @@ export function FinalArrStrip({
         style={{ flexGrow: F_RWY, flexBasis: 0, height: "100%", borderRightColor: cellBorderColor }}
       >
         <div
+          data-testid="final-arrival-runway-row"
           className={`flex items-center justify-center${bay === Bay.Final || bay === Bay.RwyArr ? " cursor-pointer" : ""}`}
           style={{
             height: TOP_H,
@@ -197,11 +196,12 @@ export function FinalArrStrip({
           </span>
         </div>
         <div
+          data-testid="final-arrival-twy-row"
           className="flex items-center justify-center cursor-pointer"
           style={{ height: BOT_H, cursor: getValidationBlockedCursor(isValidationActive) }}
           onClick={(e) => guardValidationAction(e, () => setTaxiMapOpen(true))}
         >
-          <span style={{ fontFamily: FONT, fontSize: "0.63vw", opacity: holdingPoint ? 1 : 0.2 }}>
+          <span data-testid="final-arrival-twy-label" style={{ fontFamily: FONT, fontSize: "0.63vw", lineHeight: 1, opacity: holdingPoint ? 1 : 0.2, transform: "translateY(-1px)" }}>
             {holdingPoint || "TWY"}
           </span>
         </div>

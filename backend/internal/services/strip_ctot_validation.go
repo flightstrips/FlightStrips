@@ -100,7 +100,7 @@ func (s *StripService) applyCtotValidation(ctx context.Context, session int32, s
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isCtotValidation(current) {
+	if validationCandidateIsInhibited(current, ctotValidationIssueType) {
 		return nil
 	}
 

@@ -112,7 +112,7 @@ type nextDisplayBatchComputer interface {
 
 type validationStatusAcknowledger interface {
 	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error
-	ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, blockedBy []string, conflictReason string) error
+	ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, direction string, blockedBy []string, conflictReason string) error
 }
 
 type HubDependencies struct {
@@ -997,7 +997,7 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 			conflictReason = *published.ConflictReason
 		}
 		if assignmentStatusReady && hub.validationService != nil {
-			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, result.Assignment.SessionID, published.Callsign, published.BlockedBy, conflictReason); err != nil {
+			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, result.Assignment.SessionID, published.Callsign, published.Direction, published.BlockedBy, conflictReason); err != nil {
 				slog.ErrorContext(ctx, "Failed to reconcile stand assignment validation", slog.String("callsign", published.Callsign), slog.Any("error", err))
 			}
 		}
@@ -1025,7 +1025,7 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 	}
 	for _, assignment := range removed {
 		if hub.validationService != nil {
-			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, sessionID, assignment.Callsign, nil, ""); err != nil {
+			if err := hub.validationService.ReconcileStandAssignmentValidation(ctx, sessionID, assignment.Callsign, assignment.Direction, nil, ""); err != nil {
 				slog.ErrorContext(ctx, "Failed to clear removed stand assignment validation", slog.String("callsign", assignment.Callsign), slog.Any("error", err))
 			}
 		}

@@ -127,7 +127,7 @@ func (s *StripService) applyTaxiwayTypeValidation(ctx context.Context, session i
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isTaxiwayTypeValidation(current) && !isCtotValidation(current) {
+	if validationCandidateIsInhibited(current, taxiwayTypeValidationIssueType) {
 		return nil
 	}
 

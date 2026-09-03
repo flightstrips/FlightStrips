@@ -1,6 +1,14 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useNextFrequencyDisplay } from "./shared";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { useNextFrequencyDisplay, useStripCallsignInteraction } from "./shared";
+
+const storeState = vi.hoisted(() => ({
+  strips: [] as Array<Record<string, unknown>>,
+  openStripContextMenu: vi.fn(),
+  requestTag: vi.fn(),
+  toggleMarked: vi.fn(),
+}));
 
 vi.mock("@/store/store-hooks", () => ({
   useControllers: () => [
@@ -19,6 +27,12 @@ vi.mock("@/store/store-hooks", () => ({
       owned_sectors: ["AA", "SQ"],
     },
   ],
+  useSelectedCallsign: () => null,
+  useSelectStrip: () => vi.fn(),
+  useTagRequestArmed: () => false,
+  useMarkArmed: () => false,
+  useStripTransfers: () => ({}),
+  useWebSocketStore: (selector: (state: typeof storeState) => unknown) => selector(storeState),
 }));
 
 describe("useNextFrequencyDisplay", () => {
@@ -40,5 +54,38 @@ describe("useNextFrequencyDisplay", () => {
     );
 
     expect(result.current).toBe(":121.905");
+  });
+});
+
+describe("useStripCallsignInteraction", () => {
+  it("opens a non-blocking validation advisory without blocking other guarded actions", () => {
+    storeState.strips = [{
+      callsign: "SAS123",
+      marked: false,
+      validation_status: {
+        issue_type: "STAND ASSIGNMENT",
+        message: "Reserved by an inbound aircraft.",
+        owning_position: "118.105",
+        active: true,
+        activation_key: "key",
+      },
+    }];
+
+    const { result } = renderHook(() => useStripCallsignInteraction({
+      callsign: "SAS123",
+      owner: "118.105",
+      myPosition: "118.105",
+    }));
+    const stopPropagation = vi.fn();
+
+    act(() => result.current.handleClick({ stopPropagation } as unknown as ReactMouseEvent<HTMLElement>));
+
+    expect(stopPropagation).toHaveBeenCalledOnce();
+    expect(result.current.validationDialogOpen).toBe(true);
+    expect(result.current.isValidationActive).toBe(false);
+
+    const action = vi.fn();
+    act(() => result.current.guardValidationAction({ stopPropagation: vi.fn() } as unknown as ReactMouseEvent<HTMLElement>, action));
+    expect(action).toHaveBeenCalledOnce();
   });
 });

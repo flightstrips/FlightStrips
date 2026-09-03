@@ -67,11 +67,7 @@ func (s *StripService) applyWrongSquawkValidation(ctx context.Context, session i
 	}
 
 	current := strip.ValidationStatus
-	if current != nil &&
-		!isWrongSquawkValidation(current) &&
-		!isRunwayTypeValidation(current) &&
-		!isTaxiwayTypeValidation(current) &&
-		!isCtotValidation(current) {
+	if validationCandidateIsInhibited(current, wrongSquawkValidationIssueType) {
 		return nil
 	}
 

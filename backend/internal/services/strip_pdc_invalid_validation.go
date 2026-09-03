@@ -58,7 +58,7 @@ func (s *StripService) applyPdcInvalidValidation(ctx context.Context, session in
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isPdcInvalidValidation(current) && !isPdcCustomValidation(current) {
+	if validationCandidateIsInhibited(current, pdcInvalidValidationIssueType) {
 		return nil
 	}
 
@@ -154,7 +154,7 @@ func (s *StripService) SetPdcAutoIssueFailureValidation(ctx context.Context, ses
 	if !available || strip == nil {
 		return nil
 	}
-	if strip.ValidationStatus != nil && !isPdcInvalidValidation(strip.ValidationStatus) && !isPdcCustomValidation(strip.ValidationStatus) {
+	if validationCandidateIsInhibited(strip.ValidationStatus, pdcInvalidValidationIssueType) {
 		return nil
 	}
 

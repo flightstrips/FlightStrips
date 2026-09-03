@@ -71,7 +71,7 @@ func (s *StripService) applyRunwayTypeValidation(ctx context.Context, session in
 	}
 
 	current := strip.ValidationStatus
-	if current != nil && !isRunwayTypeValidation(current) && !isCtotValidation(current) {
+	if validationCandidateIsInhibited(current, runwayTypeValidationIssueType) {
 		return nil
 	}
 

@@ -1,38 +1,38 @@
 {
   "schemaVersion": "aman-terminal/v1",
-  "configVersion": "EKCH-AIP-2608-V1",
+  "configVersion": "EKCH-AIP-2609-V1",
   "airport": "EKCH",
-  "applicabilityFrom": "2026-08-06T00:00:00Z",
-  "applicabilityUntil": "2026-09-03T00:00:00Z",
+  "applicabilityFrom": "2026-09-03T00:00:00Z",
+  "applicabilityUntil": "2026-10-01T00:00:00Z",
   "dataset": {
-    "cycle": "2608",
-    "effectiveFrom": "2026-08-06T00:00:00Z",
-    "effectiveUntil": "2026-09-03T00:00:00Z"
+    "cycle": "2609",
+    "effectiveFrom": "2026-09-03T00:00:00Z",
+    "effectiveUntil": "2026-10-01T00:00:00Z"
   },
   "sources": [
     {
       "id": "NAVIAIR-AIP-DK",
-      "document": "Naviair official tree API getsearch (06 AUG 2026): current EKCH RNAV STAR chart-1 for RWY 04, 12, 22 and 30; AIRAC AMDT 08/26 contains no terminal-geometry changes",
-      "effectiveFrom": "2026-08-06T00:00:00Z",
-      "effectiveUntil": "2026-09-03T00:00:00Z"
+      "document": "Naviair official tree API getsearch and AIRAC AMDT 09/26 amendment index (03 SEP 2026): current EKCH RNAV STAR chart-1 for RWY 04, 12, 22 and 30; no terminal-geometry changes",
+      "effectiveFrom": "2026-09-03T00:00:00Z",
+      "effectiveUntil": "2026-10-01T00:00:00Z"
     },
     {
       "id": "NAVIAIR-AIP-DK",
       "document": "AD 2 EKCH-17, AIRAC AMDT 12/25 (27 NOV 2025), sections 1.1 and 1.5 primary holdings; published holding name OLPIB uses facility/fix OLPIB",
       "effectiveFrom": "2025-11-27T00:00:00Z",
-      "effectiveUntil": "2026-09-03T00:00:00Z"
+      "effectiveUntil": "2026-10-01T00:00:00Z"
     },
     {
       "id": "NAVIAIR-AIP-DK",
       "document": "EK_AD_2_EKCH_ADC_en, AIRAC AMDT 02/26 (19 FEB 2026), published runway dimensions, threshold positions and GEO courses",
       "effectiveFrom": "2026-02-19T00:00:00Z",
-      "effectiveUntil": "2026-09-03T00:00:00Z"
+      "effectiveUntil": "2026-10-01T00:00:00Z"
     },
     {
       "id": "NAVIAIR-AIP-DK",
       "document": "EKCH RNAV STAR tabular charts: RWY 12-2/3 AIRAC AMDT 12/25 and 12/24; RWY 30-2/3 AIRAC AMDT 12/25 and 12/24; RWY 04/22 retained official tabular descriptions",
       "effectiveFrom": "2025-11-27T00:00:00Z",
-      "effectiveUntil": "2026-09-03T00:00:00Z"
+      "effectiveUntil": "2026-10-01T00:00:00Z"
     }
   ],
   "runwayGroups": [
@@ -67,7 +67,7 @@
             "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26",
             "importedAt": "2026-07-18T00:00:00Z",
             "effectiveFrom": "2026-02-19T00:00:00Z",
-            "effectiveUntil": "2026-09-03T00:00:00Z"
+            "effectiveUntil": "2026-10-01T00:00:00Z"
           }
         }
       ]
@@ -103,7 +103,7 @@
             "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26",
             "importedAt": "2026-07-18T00:00:00Z",
             "effectiveFrom": "2026-02-19T00:00:00Z",
-            "effectiveUntil": "2026-09-03T00:00:00Z"
+            "effectiveUntil": "2026-10-01T00:00:00Z"
           }
         }
       ]
@@ -139,7 +139,7 @@
             "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26",
             "importedAt": "2026-07-18T00:00:00Z",
             "effectiveFrom": "2026-02-19T00:00:00Z",
-            "effectiveUntil": "2026-09-03T00:00:00Z"
+            "effectiveUntil": "2026-10-01T00:00:00Z"
           }
         }
       ]
@@ -175,7 +175,7 @@
             "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26",
             "importedAt": "2026-07-18T00:00:00Z",
             "effectiveFrom": "2026-02-19T00:00:00Z",
-            "effectiveUntil": "2026-09-03T00:00:00Z"
+            "effectiveUntil": "2026-10-01T00:00:00Z"
           }
         }
       ]
@@ -211,7 +211,7 @@
             "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26",
             "importedAt": "2026-07-18T00:00:00Z",
             "effectiveFrom": "2026-02-19T00:00:00Z",
-            "effectiveUntil": "2026-09-03T00:00:00Z"
+            "effectiveUntil": "2026-10-01T00:00:00Z"
           }
         }
       ]
@@ -247,7 +247,7 @@
             "sourceRevision": "EK_AD_2_EKCH_ADC_A-02-26",
             "importedAt": "2026-07-18T00:00:00Z",
             "effectiveFrom": "2026-02-19T00:00:00Z",
-            "effectiveUntil": "2026-09-03T00:00:00Z"
+            "effectiveUntil": "2026-10-01T00:00:00Z"
           }
         }
       ]
@@ -283,7 +283,7 @@
         "id": "NAVIAIR-AIP-DK",
         "document": "EK AD 2 EKCH RNAV STAR RWY 12-3, AIRAC AMDT 12/24: WPT CDA withdrawn and WPT OLPIB added at the legacy holding location",
         "effectiveFrom": "2024-11-28T00:00:00Z",
-        "effectiveUntil": "2026-09-03T00:00:00Z"
+        "effectiveUntil": "2026-10-01T00:00:00Z"
       }
     }
   ],
@@ -299,7 +299,7 @@
         "sourceRevision": "EK_AD_2_EKCH_RNAV_STAR_22_L_R_3",
         "importedAt": "2026-07-29T00:00:00Z",
         "effectiveFrom": "2026-07-09T00:00:00Z",
-        "effectiveUntil": "2026-09-03T00:00:00Z"
+        "effectiveUntil": "2026-10-01T00:00:00Z"
       }
     }
   ],
@@ -318,7 +318,7 @@
         "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
         "importedAt": "2026-07-18T00:00:00Z",
         "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-09-03T00:00:00Z"
+        "effectiveUntil": "2026-10-01T00:00:00Z"
       }
     },
     {
@@ -336,7 +336,7 @@
         "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
         "importedAt": "2026-07-18T00:00:00Z",
         "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-09-03T00:00:00Z"
+        "effectiveUntil": "2026-10-01T00:00:00Z"
       }
     },
     {
@@ -354,7 +354,7 @@
         "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
         "importedAt": "2026-07-18T00:00:00Z",
         "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-09-03T00:00:00Z"
+        "effectiveUntil": "2026-10-01T00:00:00Z"
       }
     },
     {
@@ -372,7 +372,7 @@
         "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
         "importedAt": "2026-07-18T00:00:00Z",
         "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-09-03T00:00:00Z"
+        "effectiveUntil": "2026-10-01T00:00:00Z"
       }
     },
     {
@@ -389,7 +389,7 @@
         "sourceRevision": "AD2-EKCH-17-AMDT-12-25",
         "importedAt": "2026-07-18T00:00:00Z",
         "effectiveFrom": "2025-11-27T00:00:00Z",
-        "effectiveUntil": "2026-09-03T00:00:00Z"
+        "effectiveUntil": "2026-10-01T00:00:00Z"
       }
     }
   ],

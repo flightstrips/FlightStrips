@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-const SourceAIRACNet = "airacnet"
+const (
+	SourceAIRACNet              = "airacnet"
+	DefaultTerminalGeometryPath = "config/aman/ekch-terminal-2609.json"
+)
 
 // Config identifies the navigation provider and the airport terminal
 // configuration it materializes. Its zero value deliberately disables the
@@ -20,6 +23,9 @@ type Config struct {
 func (c Config) Normalize() Config {
 	c.Source = strings.ToLower(strings.TrimSpace(c.Source))
 	c.TerminalGeometryPath = strings.TrimSpace(c.TerminalGeometryPath)
+	if c.Source != "" && c.TerminalGeometryPath == "" {
+		c.TerminalGeometryPath = DefaultTerminalGeometryPath
+	}
 	return c
 }
 

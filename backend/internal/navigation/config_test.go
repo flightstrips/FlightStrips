@@ -16,7 +16,12 @@ func TestConfigNormalizesAndValidatesAIRACNet(t *testing.T) {
 	require.NoError(t, config.Validate())
 }
 
-func TestConfigRequiresSourceAndTerminalGeometryTogether(t *testing.T) {
+func TestConfigDefaultsBundledTerminalGeometry(t *testing.T) {
+	config := Config{Source: SourceAIRACNet}.Normalize()
+	require.Equal(t, DefaultTerminalGeometryPath, config.TerminalGeometryPath)
+	require.NoError(t, config.Validate())
+}
+
+func TestConfigRejectsTerminalGeometryWithoutSource(t *testing.T) {
 	require.ErrorContains(t, (Config{TerminalGeometryPath: "terminal.json"}).Validate(), "requires a navigation source")
-	require.ErrorContains(t, (Config{Source: SourceAIRACNet}).Validate(), "terminal geometry path")
 }

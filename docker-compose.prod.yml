@@ -47,7 +47,6 @@ services:
       ENABLE_EFB: ${ENABLE_EFB:-false}
       # Navigation data is independently available to the EFB and AMAN.
       NAVIGATION_SOURCE: ${NAVIGATION_SOURCE:-}
-      NAVIGATION_TERMINAL_GEOMETRY_PATH: ${NAVIGATION_TERMINAL_GEOMETRY_PATH:-}
       # Local-only Go heap and goroutine profiling. It listens on 127.0.0.1:6060
       # inside the backend container and is disabled unless explicitly enabled.
       ENABLE_PPROF: ${ENABLE_PPROF:-false}

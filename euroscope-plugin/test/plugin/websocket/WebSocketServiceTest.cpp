@@ -1295,6 +1295,8 @@ TEST(StripUpdateEventTest, SerializesSpokenCallsignField) {
     EXPECT_EQ(j["type"], EVENT_STRIP_UPDATE_NAME);
     EXPECT_EQ(j["spoken_callsign"], "WOLFAIR");
     EXPECT_EQ(j["star"], "LUXAL2A");
+    EXPECT_TRUE(j["hold_supported"]);
+    EXPECT_EQ(j["hold"], "");
 }
 
 TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
@@ -1339,4 +1341,6 @@ TEST(SyncEventTest, PopulatedStripSerializesSpokenCallsignField) {
     ASSERT_EQ(j["strips"].size(), 1u);
     EXPECT_EQ(j["strips"][0]["spoken_callsign"], "WOLFAIR");
     EXPECT_EQ(j["strips"][0]["star"], "LUXAL2A");
+    EXPECT_TRUE(j["strips"][0]["hold_supported"]);
+    EXPECT_EQ(j["strips"][0]["hold"], "");
 }

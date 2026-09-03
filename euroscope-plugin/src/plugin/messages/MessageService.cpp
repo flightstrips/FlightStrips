@@ -1,4 +1,5 @@
 #include "MessageService.h"
+#include "flightplan/TopSkyHold.h"
 #include "PrivateMessageSender.h"
 
 #include "Logger.hpp"
@@ -204,6 +205,12 @@ namespace FlightStrips::messages {
                                                 ? it.GetFlightPlanData().GetArrivalRwy()
                                                 : it.GetFlightPlanData().GetDepartureRwy());
             const auto controllerAssignedData = it.GetControllerAssignedData();
+            const auto holdAnnotation = controllerAssignedData.GetFlightStripAnnotation(flightplan::TOPSKY_HOLD_ANNOTATION);
+            const auto hold = flightplan::ParseTopSkyHoldAnnotation(holdAnnotation == nullptr ? "" : holdAnnotation);
+            std::string holdEat;
+            if (info != nullptr && info->hold == hold.point && info->hold_type == hold.TypeName()) {
+                holdEat = info->hold_eat;
+            }
             std::string stand;
             if (info != nullptr) {
                 stand = info->stand;
@@ -245,7 +252,11 @@ namespace FlightStrips::messages {
                 isArrival ? "" : std::string(flightPlanData.GetEstimatedDepartureTime()),
                 isArrival ? flightplan::FlightPlanService::GetEstimatedLandingTime(it) : "",
                 std::string(it.GetTrackingControllerCallsign()),
-                {flightPlanData.GetEngineType()}
+                {flightPlanData.GetEngineType()},
+                true,
+                hold.point,
+                hold.TypeName(),
+                holdEat
             });
         }
 

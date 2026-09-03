@@ -173,7 +173,7 @@ func TestMoveFrontendStrip_ToClearedBayUsesSingleBayWrite(t *testing.T) {
 		Destination: "ESSA",
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS123", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL", true)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS123", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL", true, false)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{shared.BAY_NOT_CLEARED}, fixture.updateClearedBays)
@@ -195,11 +195,90 @@ func TestMoveFrontendStrip_GenericMoveCannotLeaveNotClearedBay(t *testing.T) {
 				Destination: "ESSA",
 			})
 
-			err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS134", targetBay, "1234567", "EKCH", "EKCH_DEL", false)
+			err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS134", targetBay, "1234567", "EKCH", "EKCH_DEL", false, false)
 			require.ErrorContains(t, err, "non-cleared strips cannot be moved out")
 			assert.Empty(t, fixture.updateBayTargets)
 		})
 	}
+}
+
+func TestMoveFrontendStrip_NonClearedStripCanBeArchived(t *testing.T) {
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS136",
+		Bay:         shared.BAY_NOT_CLEARED,
+		Origin:      "EKCH",
+		Destination: "ESSA",
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS136", shared.BAY_HIDDEN, "1234567", "EKCH", "EKCH_DEL", false, false)
+	require.NoError(t, err)
+	assert.Equal(t, []string{shared.BAY_HIDDEN}, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_ConfirmedEstRemovalCanArchiveAnotherControllersLockedStrip(t *testing.T) {
+	owner := "EKCH_DEL"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS137",
+		Bay:         shared.BAY_NOT_CLEARED,
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		Owner:       &owner,
+		ValidationStatus: &internalModels.ValidationStatus{
+			IssueType: pdcInvalidValidationIssueType,
+			Active:    true,
+		},
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS137", shared.BAY_HIDDEN, "1234567", "EKCH", "EKCH_A_GND", false, true)
+	require.NoError(t, err)
+	assert.Equal(t, []string{shared.BAY_HIDDEN}, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_OrdinaryHiddenMoveCannotArchiveLockedStrip(t *testing.T) {
+	owner := "EKCH_DEL"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS138",
+		Bay:         shared.BAY_NOT_CLEARED,
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		Owner:       &owner,
+		ValidationStatus: &internalModels.ValidationStatus{
+			IssueType: pdcInvalidValidationIssueType,
+			Active:    true,
+		},
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS138", shared.BAY_HIDDEN, "1234567", "EKCH", "EKCH_A_GND", false, false)
+	require.ErrorContains(t, err, "locked by an active validation")
+	assert.Empty(t, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_OrdinaryHiddenMoveCannotArchiveAnotherControllersStrip(t *testing.T) {
+	owner := "EKCH_DEL"
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS138A",
+		Bay:         shared.BAY_NOT_CLEARED,
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		Owner:       &owner,
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS138A", shared.BAY_HIDDEN, "1234567", "EKCH", "EKCH_A_GND", false, false)
+	require.ErrorContains(t, err, "not authorized")
+	assert.Empty(t, fixture.updateBayTargets)
+}
+
+func TestMoveFrontendStrip_ConfirmedRemovalRejectsOtherTargets(t *testing.T) {
+	fixture := newFrontendMoveFixture(&internalModels.Strip{
+		Callsign:    "SAS139",
+		Bay:         shared.BAY_NOT_CLEARED,
+		Origin:      "EKCH",
+		Destination: "ESSA",
+	})
+
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS139", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL", false, true)
+	require.ErrorContains(t, err, "confirmed removal must target the hidden bay")
+	assert.Empty(t, fixture.updateBayTargets)
 }
 
 func TestMoveFrontendStrip_ClearanceMoveMustTargetClearedBay(t *testing.T) {
@@ -210,7 +289,7 @@ func TestMoveFrontendStrip_ClearanceMoveMustTargetClearedBay(t *testing.T) {
 		Destination: "ESSA",
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS135", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL", true)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS135", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL", true, false)
 	require.ErrorContains(t, err, "clearance moves must target the cleared bay")
 	assert.Empty(t, fixture.updateBayTargets)
 }
@@ -234,7 +313,7 @@ func TestMoveFrontendStrip_ControlzoneMovesAreBidirectional(t *testing.T) {
 				Destination: "EKCH",
 			})
 
-			err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "OYABC", test.targetBay, "1234567", "EKCH", "EKCH_TWR", false)
+			err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "OYABC", test.targetBay, "1234567", "EKCH", "EKCH_TWR", false, false)
 			require.NoError(t, err)
 			assert.Equal(t, []string{test.targetBay}, fixture.updateBayTargets)
 		})
@@ -251,7 +330,7 @@ func TestMoveFrontendStrip_ToNotClearedBayClearsOwnerStateWithoutExtraBayWrite(t
 		PreviousOwners: []string{"EKCH_DEL"},
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS124", shared.BAY_NOT_CLEARED, "1234567", "EKCH", "EKCH_DEL", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS124", shared.BAY_NOT_CLEARED, "1234567", "EKCH", "EKCH_DEL", false, false)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{shared.BAY_CLEARED}, fixture.updateClearedBays)
@@ -274,7 +353,7 @@ func TestMoveFrontendStrip_ToGeneralBayUsesSingleBayWrite(t *testing.T) {
 	cdmService := &spyStripCdmService{}
 	fixture.svc.SetCdmService(cdmService)
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS125", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS125", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL", false, false)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{shared.BAY_STAND}, fixture.updateGroundBays)
@@ -305,7 +384,7 @@ func TestMoveFrontendStrip_AsatSyncFailureDoesNotRejectCompletedMove(t *testing.
 	}
 	fixture.svc.SetCdmService(cdmService)
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS132", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS132", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_DEL", false, false)
 	require.NoError(t, err)
 
 	assert.Equal(t, shared.BAY_PUSH, fixture.strip.Bay)
@@ -324,7 +403,7 @@ func TestMoveFrontendStrip_DepartureCanMoveToArrivalBay(t *testing.T) {
 		Destination: "ESSA",
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR", false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []string{shared.BAY_FINAL}, fixture.updateBayTargets)
 }
@@ -339,7 +418,7 @@ func TestMoveFrontendStrip_OwnedDepartureCannotBypassAuthorizationViaArrivalBay(
 		Owner:       &owner,
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126A", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126A", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR", false, false)
 	require.ErrorContains(t, err, "not authorized")
 	assert.Empty(t, fixture.updateBayTargets)
 }
@@ -354,7 +433,7 @@ func TestMoveFrontendStrip_OwnedArrivalRetainsArrivalBayAuthorizationException(t
 		Owner:       &owner,
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126B", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS126B", shared.BAY_FINAL, "1234567", "EKCH", "EKCH_TWR", false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []string{shared.BAY_FINAL}, fixture.updateBayTargets)
 }
@@ -367,7 +446,7 @@ func TestMoveFrontendStrip_ArrivalCanMoveToDepartureBay(t *testing.T) {
 		Destination: "EKCH",
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS127", shared.BAY_TAXI_LWR, "1234567", "EKCH", "EKCH_TWR", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS127", shared.BAY_TAXI_LWR, "1234567", "EKCH", "EKCH_TWR", false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []string{shared.BAY_TAXI_LWR}, fixture.updateBayTargets)
 }
@@ -380,7 +459,7 @@ func TestMoveFrontendStrip_ArrivalToNotClearedBayRejected(t *testing.T) {
 		Destination: "EKCH",
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS128A", shared.BAY_NOT_CLEARED, "1234567", "EKCH", "EKCH_TWR", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS128A", shared.BAY_NOT_CLEARED, "1234567", "EKCH", "EKCH_TWR", false, false)
 	require.ErrorContains(t, err, "arrival strips cannot be moved to the not-cleared bay")
 	assert.Empty(t, fixture.updateBayTargets)
 }
@@ -394,7 +473,7 @@ func TestMoveFrontendStrip_ValidationLockRejected(t *testing.T) {
 		},
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS128", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_GND", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS128", shared.BAY_PUSH, "1234567", "EKCH", "EKCH_GND", false, false)
 	require.ErrorContains(t, err, "strip is locked by an active validation")
 	assert.Empty(t, fixture.updateBayTargets)
 }
@@ -412,7 +491,7 @@ func TestMoveFrontendStrip_CoordinationTransferExceptionAllowsMove(t *testing.T)
 		},
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS129", shared.BAY_TAXI_TWR, "1234567", "EKCH", "EKCH_A_GND", false)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS129", shared.BAY_TAXI_TWR, "1234567", "EKCH", "EKCH_A_GND", false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []string{shared.BAY_TAXI_TWR}, fixture.updateBayTargets)
 }
@@ -426,7 +505,7 @@ func TestMoveFrontendStrip_ToClearedWithActivePdcConfirmsVoiceClearance(t *testi
 		PdcState:    "REQUESTED",
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS130", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL", true)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS130", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL", true, false)
 	require.NoError(t, err)
 	require.Len(t, fixture.pdcSpy.confirmCalls, 1)
 	assert.Equal(t, "SAS130", fixture.pdcSpy.confirmCalls[0].callsign)
@@ -446,7 +525,7 @@ func TestMoveFrontendStrip_StandValidationDoesNotBlockVoiceClearance(t *testing.
 		},
 	})
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS133", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL", true)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS133", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL", true, false)
 	require.NoError(t, err)
 	require.Len(t, fixture.pdcSpy.confirmCalls, 1)
 	assert.Equal(t, "SAS133", fixture.pdcSpy.confirmCalls[0].callsign)
@@ -465,7 +544,7 @@ func TestMoveFrontendStrip_RevertsClearedMoveWhenVoiceConfirmationFails(t *testi
 	})
 	fixture.pdcSpy.err = assert.AnError
 
-	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS131", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL", true)
+	err := fixture.svc.MoveFrontendStrip(fixture.ctx, 1, "SAS131", shared.BAY_CLEARED, "1234567", "EKCH", "EKCH_DEL", true, false)
 	require.ErrorIs(t, err, assert.AnError)
 	assert.Equal(t, []bool{true, false}, fixture.updateClearedFlags)
 	assert.Equal(t, []string{shared.BAY_NOT_CLEARED, shared.BAY_NOT_CLEARED}, fixture.updateClearedBays)

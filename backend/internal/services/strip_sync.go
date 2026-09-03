@@ -409,13 +409,13 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			sequence = &newSequence
 		}
 
-		// Older EuroScope plugins omit the TopSky hold fields entirely. Keep the
-		// stored hold in that case; hold cancellation is sent as a dedicated hold
-		// event. Newer plugins include a non-empty value here when a hold is active.
+		// Older EuroScope plugins omit hold_supported and the TopSky hold fields.
+		// Keep the stored hold for those payloads. A supported plugin's empty hold
+		// is authoritative, so a cancellation made while disconnected is reconciled.
 		hold := existingStrip.Hold
 		holdType := existingStrip.HoldType
 		holdEat := existingStrip.HoldEat
-		if strip.Hold != "" || strip.HoldType != "" || strip.HoldEat != "" {
+		if strip.HoldSupported || strip.Hold != "" || strip.HoldType != "" || strip.HoldEat != "" {
 			hold = strip.Hold
 			holdType = strip.HoldType
 			holdEat = strip.HoldEat

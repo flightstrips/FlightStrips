@@ -290,6 +290,13 @@ func (s *StripService) reevaluateDepartureValidation(ctx context.Context, sessio
 			return err
 		}
 		if !duplicateSquawkPresentForStrip(strip, membership) && !isDuplicateSquawkValidation(strip.ValidationStatus) {
+			pdcPresent, err := s.applyPdcValidationBeforeLowerDepartureValidations(ctx, session, strip, publish, forceReactivate)
+			if err != nil {
+				return err
+			}
+			if pdcPresent {
+				return nil
+			}
 			if err := s.applyWrongSquawkValidation(ctx, session, strip, publish, forceReactivate); err != nil {
 				return err
 			}
@@ -311,6 +318,13 @@ func (s *StripService) reevaluateDepartureValidation(ctx context.Context, sessio
 				return nil
 			}
 			refreshed = strip
+		}
+		pdcPresent, err := s.applyPdcValidationBeforeLowerDepartureValidations(ctx, session, refreshed, publish, forceReactivate)
+		if err != nil {
+			return err
+		}
+		if pdcPresent {
+			return nil
 		}
 
 		if err := s.applyWrongSquawkValidation(ctx, session, refreshed, publish, forceReactivate); err != nil {
@@ -364,6 +378,16 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 			}
 			refreshed = strip
 		}
+		if duplicateSquawkPresentForStrip(refreshed, membership) || isDuplicateSquawkValidation(refreshed.ValidationStatus) {
+			continue
+		}
+		pdcPresent, err := s.applyPdcValidationBeforeLowerDepartureValidations(ctx, session, refreshed, publish, false)
+		if err != nil {
+			return err
+		}
+		if pdcPresent {
+			continue
+		}
 
 		if err := s.applyWrongSquawkValidation(ctx, session, refreshed, publish, false); err != nil {
 			return err
@@ -407,6 +431,13 @@ func (s *StripService) reevaluateStoredDepartureValidation(ctx context.Context, 
 		return err
 	}
 	if !isDuplicateSquawkValidation(strip.ValidationStatus) {
+		pdcPresent, err := s.applyPdcValidationBeforeLowerDepartureValidations(ctx, session, strip, publish, forceReactivate)
+		if err != nil {
+			return err
+		}
+		if pdcPresent {
+			return nil
+		}
 		if err := s.applyWrongSquawkValidation(ctx, session, strip, publish, forceReactivate); err != nil {
 			return err
 		}

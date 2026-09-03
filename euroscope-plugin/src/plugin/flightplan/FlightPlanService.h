@@ -7,6 +7,7 @@
 #include "handlers/RadarTargetEventHandler.h"
 #include "AirlineCallsignService.h"
 #include "FlightPlan.h"
+#include "TopSkyHold.h"
 #include "handlers/FlightPlanEventHandlers.h"
 #include "stands/StandService.h"
 #include "websocket/WebSocketService.h"
@@ -17,6 +18,7 @@
 
 namespace FlightStrips::flightplan {
     std::vector<EcfmpRestriction> ParseEcfmpRestrictions(const std::string& jsonStr);
+    bool ApplyHold(FlightPlan& plan, const TopSkyHold& hold, const std::string& eatPulse);
 
 class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler, public handlers::TimedEventHandler  {
     public:

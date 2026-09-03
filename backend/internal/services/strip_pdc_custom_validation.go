@@ -121,7 +121,15 @@ func (s *StripService) applyPdcCustomValidation(ctx context.Context, session int
 }
 
 func (s *StripService) ReevaluatePdcCustomValidationForStrip(ctx context.Context, session int32, strip *internalModels.Strip, publish bool, forceReactivate bool) error {
-	return s.applyPdcCustomValidation(ctx, session, strip, publish, forceReactivate)
+	sessionData, err := s.getCachedSession(ctx, session)
+	if err != nil {
+		return err
+	}
+	var activeDepartureRunways []string
+	if sessionData != nil {
+		activeDepartureRunways = sessionData.ActiveRunways.DepartureRunways
+	}
+	return s.ReevaluatePdcRequestValidationsForStrip(ctx, session, strip, activeDepartureRunways, publish, forceReactivate)
 }
 
 func (s *StripService) ReevaluatePdcCustomValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
@@ -132,10 +140,31 @@ func (s *StripService) ReevaluatePdcCustomValidation(ctx context.Context, sessio
 	if !available {
 		return nil
 	}
-	return s.applyPdcCustomValidation(ctx, session, strip, publish, forceReactivate)
+	return s.ReevaluatePdcCustomValidationForStrip(ctx, session, strip, publish, forceReactivate)
 }
 
 func (s *StripService) ReevaluatePdcRequestValidationsForStrip(ctx context.Context, session int32, strip *internalModels.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
+	previousIssueType := ""
+	if strip != nil && strip.ValidationStatus != nil {
+		previousIssueType = strip.ValidationStatus.IssueType
+	}
+	if err := s.applyPdcRequestValidationsForStrip(ctx, session, strip, activeDepartureRunways, publish, forceReactivate); err != nil {
+		return err
+	}
+
+	// PDC validations have higher precedence than the ordinary departure
+	// validations. Once the last PDC issue clears, immediately restore any
+	// lower-priority issue that is still applicable.
+	if strip != nil && strip.ValidationStatus == nil &&
+		(previousIssueType == pdcInvalidValidationIssueType || previousIssueType == pdcCustomValidationIssueType) {
+		return s.reevaluateDepartureValidation(ctx, session, strip.Callsign, publish, false)
+	}
+
+	return nil
+}
+
+func (s *StripService) applyPdcRequestValidationsForStrip(ctx context.Context, session int32, strip *internalModels.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
+
 	sessionData, err := s.getCachedSession(ctx, session)
 	if err != nil {
 		return err
@@ -149,7 +178,29 @@ func (s *StripService) ReevaluatePdcRequestValidationsForStrip(ctx context.Conte
 		return err
 	}
 
-	return s.applyPdcCustomValidation(ctx, session, strip, publish, forceReactivate)
+	if err := s.applyPdcCustomValidation(ctx, session, strip, publish, forceReactivate); err != nil {
+		return err
+	}
+	return nil
+}
+
+// applyPdcValidationBeforeLowerDepartureValidations restores the PDC tier after
+// a higher-priority issue (for example duplicate squawk) disappears. It uses
+// the non-recursive PDC helper because the caller continues through the lower
+// departure tiers itself.
+func (s *StripService) applyPdcValidationBeforeLowerDepartureValidations(ctx context.Context, session int32, strip *internalModels.Strip, publish bool, forceReactivate bool) (bool, error) {
+	sessionData, err := s.getCachedSession(ctx, session)
+	if err != nil {
+		return false, err
+	}
+	var activeDepartureRunways []string
+	if sessionData != nil {
+		activeDepartureRunways = sessionData.ActiveRunways.DepartureRunways
+	}
+	if err := s.applyPdcRequestValidationsForStrip(ctx, session, strip, activeDepartureRunways, publish, forceReactivate); err != nil {
+		return false, err
+	}
+	return isPdcInvalidValidation(strip.ValidationStatus) || isPdcCustomValidation(strip.ValidationStatus), nil
 }
 
 func (s *StripService) ReevaluatePdcRequestValidations(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {

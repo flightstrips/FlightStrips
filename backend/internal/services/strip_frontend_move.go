@@ -26,7 +26,7 @@ var validFrontendMoveBays = map[string]bool{
 	shared.BAY_CONTROLZONE: true,
 }
 
-func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool) error {
+func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
 	if !validFrontendMoveBays[targetBay] {
 		slog.WarnContext(ctx, "MoveFrontendStrip: rejecting move event with invalid bay",
 			slog.String("callsign", callsign),
@@ -35,13 +35,19 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		)
 		return errors.New("invalid bay value: " + targetBay)
 	}
+	if confirmedRemoval && targetBay != shared.BAY_HIDDEN {
+		return errors.New("confirmed removal must target the hidden bay")
+	}
 
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 
-	if strip.IsValidationLocked() {
+	// A confirmed EST VACANT/CLEAR FPL operation must remain available for
+	// removing an obsolete stand occupant even when another validation currently
+	// owns the master-caution slot. Ordinary moves to HIDDEN remain locked.
+	if strip.IsValidationLocked() && !confirmedRemoval {
 		return errors.New("strip is locked by an active validation")
 	}
 
@@ -49,7 +55,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 		return err
 	}
 
-	if err := s.authorizeFrontendMove(ctx, session, strip, callsign, airport, targetBay, clientPosition); err != nil {
+	if err := s.authorizeFrontendMove(ctx, session, strip, callsign, airport, targetBay, clientPosition, confirmedRemoval); err != nil {
 		return err
 	}
 
@@ -101,7 +107,7 @@ func validateFrontendMoveBayTransition(strip *internalModels.Strip, airport stri
 	if clearance && targetBay != shared.BAY_CLEARED {
 		return errors.New("clearance moves must target the cleared bay")
 	}
-	if strip.Bay == shared.BAY_NOT_CLEARED && targetBay != shared.BAY_NOT_CLEARED && !clearance {
+	if strip.Bay == shared.BAY_NOT_CLEARED && targetBay != shared.BAY_NOT_CLEARED && targetBay != shared.BAY_HIDDEN && !clearance {
 		return errors.New("non-cleared strips cannot be moved out of the not-cleared bay")
 	}
 
@@ -113,7 +119,12 @@ func validateFrontendMoveBayTransition(strip *internalModels.Strip, airport stri
 	return nil
 }
 
-func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32, strip *internalModels.Strip, callsign string, airport string, targetBay string, clientPosition string) error {
+func (s *StripService) authorizeFrontendMove(ctx context.Context, session int32, strip *internalModels.Strip, callsign string, airport string, targetBay string, clientPosition string, confirmedRemoval bool) error {
+	// EST's confirmed VACANT/CLEAR FPL commands intentionally remove whatever
+	// strip occupies the stand, irrespective of its current controller owner.
+	if confirmedRemoval && targetBay == shared.BAY_HIDDEN {
+		return nil
+	}
 	if strip.Owner == nil || *strip.Owner == "" || *strip.Owner == clientPosition {
 		return nil
 	}

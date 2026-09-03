@@ -360,7 +360,7 @@ export default function EST() {
     }
 
     if (statusStrip) {
-      move(statusStrip.callsign, Bay.Hidden);
+      move(statusStrip.callsign, Bay.Hidden, false, true);
     }
 
     if (satEnabled) {
@@ -394,7 +394,7 @@ export default function EST() {
       return;
     }
 
-    move(statusStrip.callsign, Bay.Hidden);
+    move(statusStrip.callsign, Bay.Hidden, false, true);
     setStatusStand(null);
     setMenuState(null);
   }

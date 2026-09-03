@@ -42,6 +42,7 @@ type Hub struct {
 	controllerService     shared.ControllerService
 	pdcService            shared.PdcService
 	authenticationService shared.AuthenticationService
+	clientsMu             sync.RWMutex
 	clients               map[*Client]bool
 
 	// airportClientsMu guards airportClientCount for concurrent reads from other goroutines.
@@ -57,6 +58,7 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 
+	masterMu        sync.RWMutex
 	master          map[int32]*Client
 	masterCallsigns sync.Map // map[int32]string — concurrent-safe callsign of master per session
 	masterCids      sync.Map // map[int32]string — concurrent-safe CID of master per session
@@ -242,7 +244,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	// Determine master role immediately to avoid race conditions
 	isMaster := false
 	if !client.observer {
-		if _, ok := hub.master[client.session]; !ok {
+		if hub.getMasterClient(client.session) == nil {
 			slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
 			hub.setMasterClient(client)
 			isMaster = true
@@ -537,12 +539,13 @@ func (hub *Hub) OnUnregister(client *Client) {
 		slog.Error("Failed to remove CID for client", slog.String("callsign", client.callsign), slog.String("cid", client.GetCid()), slog.Any("error", err))
 	}
 
-	if master, ok := hub.master[client.session]; !ok || master != client {
+	if master := hub.getMasterClient(client.session); master != client {
 		return
 	}
 
 	hasReplacement := false
-	for candidate := range hub.clients {
+	clients := hub.clientsSnapshot()
+	for _, candidate := range clients {
 		if candidate.session == client.session && !candidate.observer {
 			hasReplacement = true
 			break
@@ -555,7 +558,7 @@ func (hub *Hub) OnUnregister(client *Client) {
 	}
 
 	// TODO better master selection. For now just use the next available non-observer client in the session.
-	for newMaster := range hub.clients {
+	for _, newMaster := range clients {
 		if newMaster.session != client.session || newMaster.observer {
 			continue
 		}
@@ -593,6 +596,8 @@ func (hub *Hub) setMasterClient(client *Client) {
 	if client == nil {
 		return
 	}
+	hub.masterMu.Lock()
+	defer hub.masterMu.Unlock()
 
 	if current, ok := hub.master[client.session]; ok && current == client {
 		storedCallsign := hub.GetMasterCallsign(client.session)
@@ -621,6 +626,8 @@ func (hub *Hub) setMasterClient(client *Client) {
 }
 
 func (hub *Hub) clearMasterClient(session int32) {
+	hub.masterMu.Lock()
+	defer hub.masterMu.Unlock()
 	if current, ok := hub.master[session]; ok && current != nil {
 		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign, current.version)
 	}
@@ -628,6 +635,12 @@ func (hub *Hub) clearMasterClient(session int32) {
 	delete(hub.master, session)
 	hub.masterCallsigns.Delete(session)
 	hub.masterCids.Delete(session)
+}
+
+func (hub *Hub) getMasterClient(session int32) *Client {
+	hub.masterMu.RLock()
+	defer hub.masterMu.RUnlock()
+	return hub.master[session]
 }
 
 func (hub *Hub) GetMasterCallsign(session int32) string {
@@ -747,7 +760,7 @@ func (hub *Hub) resolveGenerateSquawkCid(ctx context.Context, session int32) str
 		}
 	}
 
-	if master, ok := hub.master[session]; ok && master != nil {
+	if master := hub.getMasterClient(session); master != nil {
 		return master.GetCid()
 	}
 
@@ -929,7 +942,7 @@ func (hub *Hub) adjustAirportClientCount(airport string, observer bool, delta in
 }
 
 func (hub *Hub) hasOperationalClientForSession(session int32) bool {
-	for client := range hub.clients {
+	for _, client := range hub.clientsSnapshot() {
 		if client.session == session && !client.observer {
 			return true
 		}
@@ -942,7 +955,7 @@ func (hub *Hub) notifyObserverFrontendsOnline(session int32) {
 		return
 	}
 
-	for client := range hub.clients {
+	for _, client := range hub.clientsSnapshot() {
 		if client.session == session && client.observer {
 			hub.server.GetFrontendHub().CidOnline(session, client.GetCid())
 		}
@@ -954,11 +967,21 @@ func (hub *Hub) notifyObserverFrontendsOffline(session int32) {
 		return
 	}
 
-	for client := range hub.clients {
+	for _, client := range hub.clientsSnapshot() {
 		if client.session == session && client.observer {
 			hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
 		}
 	}
+}
+
+func (hub *Hub) clientsSnapshot() []*Client {
+	hub.clientsMu.RLock()
+	defer hub.clientsMu.RUnlock()
+	clients := make([]*Client, 0, len(hub.clients))
+	for client := range hub.clients {
+		clients = append(clients, client)
+	}
+	return clients
 }
 
 func (hub *Hub) isObserverController(controller *internalModels.Controller) bool {
@@ -1003,24 +1026,33 @@ func (hub *Hub) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case client := <-hub.register:
+			hub.clientsMu.Lock()
 			hub.clients[client] = true
+			hub.clientsMu.Unlock()
 			hub.OnRegister(client)
 		case client := <-hub.unregister:
+			hub.clientsMu.Lock()
+			removed := false
 			if _, ok := hub.clients[client]; ok {
 				delete(hub.clients, client)
+				removed = true
+			}
+			hub.clientsMu.Unlock()
+			if removed {
 				client.Close()
 			}
 			hub.OnUnregister(client)
 			hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
 		case message := <-hub.send:
+			clients := hub.clientsSnapshot()
 			if message.cid != nil {
-				for client := range hub.clients {
+				for _, client := range clients {
 					if message.session == client.session && *message.cid == client.GetCid() {
 						client.Enqueue(message.message)
 					}
 				}
 			} else {
-				for client := range hub.clients {
+				for _, client := range clients {
 					if message.session == client.session {
 						client.Enqueue(message.message)
 					}

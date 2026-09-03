@@ -33,8 +33,8 @@ func (m *mockPdcStripService) MoveToBay(ctx context.Context, session int32, call
 	return args.Error(0)
 }
 
-func (m *mockPdcStripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool) error {
-	args := m.Called(ctx, session, callsign, targetBay, cid, airport, clientPosition, clearance)
+func (m *mockPdcStripService) MoveFrontendStrip(ctx context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
+	args := m.Called(ctx, session, callsign, targetBay, cid, airport, clientPosition, clearance, confirmedRemoval)
 	return args.Error(0)
 }
 

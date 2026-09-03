@@ -16,7 +16,7 @@ type noOpStripService struct {
 func (s *noOpStripService) MoveToBay(_ context.Context, _ int32, _ string, _ string, _ bool) error {
 	return nil
 }
-func (s *noOpStripService) MoveFrontendStrip(_ context.Context, _ int32, _ string, _ string, _ string, _ string, _ string, _ bool) error {
+func (s *noOpStripService) MoveFrontendStrip(_ context.Context, _ int32, _ string, _ string, _ string, _ string, _ string, _ bool, _ bool) error {
 	return nil
 }
 func (s *noOpStripService) MoveStripBetween(_ context.Context, _ int32, _ string, _ *frontend.StripRef, _ string) error {

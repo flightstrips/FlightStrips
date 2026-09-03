@@ -223,6 +223,48 @@ func TestReevaluateDuplicateSquawkValidation_ClearsWhenDuplicateDisappears(t *te
 	assert.True(t, cleared)
 }
 
+func TestReevaluateDepartureValidation_RestoresPdcAfterDuplicateClears(t *testing.T) {
+	t.Parallel()
+
+	owner := "EKCH_A_GND"
+	assigned := "4231"
+	runway := "22L"
+	strip := &models.Strip{
+		Callsign:       "SAS124",
+		Owner:          &owner,
+		Bay:            shared.BAY_NOT_CLEARED,
+		AssignedSquawk: &assigned,
+		Runway:         &runway,
+		PdcState:       "REQUESTED_WITH_FAULTS",
+		ValidationStatus: &models.ValidationStatus{
+			IssueType:      duplicateSquawkValidationIssueType,
+			OwningPosition: owner,
+			Active:         true,
+			ActivationKey:  "duplicate-key",
+			CustomAction:   duplicateSquawkValidationAction(),
+		},
+	}
+	var persisted *models.ValidationStatus
+	repo := &testutil.MockStripRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+			return []*models.Strip{strip}, nil
+		},
+		ClearValidationStatusFn: func(_ context.Context, _ int32, _ string) error {
+			return nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.reevaluateDepartureValidation(context.Background(), 1, strip.Callsign, false, false))
+	require.NotNil(t, persisted)
+	assert.Equal(t, pdcInvalidValidationIssueType, persisted.IssueType)
+	assert.Equal(t, persisted, strip.ValidationStatus)
+}
+
 func TestReevaluateDuplicateSquawkValidationsForSession_UpdatesOtherAffectedStrips(t *testing.T) {
 	t.Parallel()
 

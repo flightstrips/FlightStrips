@@ -109,15 +109,7 @@ func (s *StripService) applyPdcInvalidValidation(ctx context.Context, session in
 }
 
 func (s *StripService) ReevaluatePdcInvalidValidationForStrip(ctx context.Context, session int32, strip *internalModels.Strip, activeDepartureRunways []string, publish bool, forceReactivate bool) error {
-	sessionData, err := s.getCachedSession(ctx, session)
-	if err != nil {
-		return err
-	}
-	var availableSids pkgModels.AvailableSids
-	if sessionData != nil {
-		availableSids = sessionData.AvailableSids
-	}
-	return s.applyPdcInvalidValidation(ctx, session, strip, activeDepartureRunways, availableSids, publish, forceReactivate)
+	return s.ReevaluatePdcRequestValidationsForStrip(ctx, session, strip, activeDepartureRunways, publish, forceReactivate)
 }
 
 func (s *StripService) ReevaluatePdcInvalidValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
@@ -140,7 +132,7 @@ func (s *StripService) ReevaluatePdcInvalidValidation(ctx context.Context, sessi
 		return nil
 	}
 
-	return s.applyPdcInvalidValidation(ctx, session, strip, sessionData.ActiveRunways.DepartureRunways, sessionData.AvailableSids, publish, forceReactivate)
+	return s.ReevaluatePdcRequestValidationsForStrip(ctx, session, strip, sessionData.ActiveRunways.DepartureRunways, publish, forceReactivate)
 }
 
 // SetPdcAutoIssueFailureValidation marks an otherwise valid PDC request for

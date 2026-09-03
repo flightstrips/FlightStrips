@@ -88,7 +88,7 @@ func handleMove(ctx context.Context, client *Client, message Message) error {
 		return err
 	}
 
-	return client.hub.stripService.MoveFrontendStrip(ctx, client.session, move.Callsign, move.Bay, client.GetCid(), client.airport, client.position, move.Clearance)
+	return client.hub.stripService.MoveFrontendStrip(ctx, client.session, move.Callsign, move.Bay, client.GetCid(), client.airport, client.position, move.Clearance, move.ConfirmedRemoval)
 }
 
 func handleStripUpdate(ctx context.Context, client *Client, message Message) error {

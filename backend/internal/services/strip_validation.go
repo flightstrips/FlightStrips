@@ -3,6 +3,7 @@ package services
 import (
 	"FlightStrips/internal/dependencies"
 	internalModels "FlightStrips/internal/models"
+	"FlightStrips/internal/sat"
 	"context"
 	"errors"
 	"strings"
@@ -103,19 +104,22 @@ func (s *StripValidationService) ClearValidationStatus(ctx context.Context, sess
 	return nil
 }
 
-// ReconcileStandAssignmentValidation keeps SAT conflicts in the same durable,
-// owner-scoped validation workflow as other strip issues without overwriting a
-// higher-priority validation produced by another subsystem.
-func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, blockedBy []string, conflictReason string) error {
+// ReconcileStandAssignmentValidation keeps arrival SAT conflicts in the same
+// durable validation workflow as other strip issues without overwriting a
+// higher-priority validation produced by another subsystem. Departure
+// assignments retain their SAT conflict metadata but do not produce strip
+// validations.
+func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, direction string, blockedBy []string, conflictReason string) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return err
 	}
 	current := strip.ValidationStatus
-	if isWrongStandConflictReason(conflictReason) {
-		// A wrong-stand episode is a pilot-relocation workflow. It must not
-		// appear as an actionable validation to the controller who owns the
-		// strip, even though the assignment retains its workflow marker.
+	if strings.EqualFold(strings.TrimSpace(direction), string(sat.AssignmentDirectionDeparture)) ||
+		isWrongStandConflictReason(conflictReason) ||
+		strings.HasPrefix(strings.TrimSpace(conflictReason), observedDepartureConflictPrefix) {
+		// Departures are physical truth at their observed stand. Keep conflicts
+		// in SAT diagnostics and put controller action on the arrival reservation.
 		if current != nil && current.IssueType == internalModels.ValidationIssueTypeStandAssignment {
 			return s.ClearValidationStatus(ctx, session, callsign)
 		}
@@ -128,7 +132,7 @@ func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.
 		}
 		return nil
 	}
-	if current != nil && current.IssueType != internalModels.ValidationIssueTypeStandAssignment {
+	if validationCandidateIsInhibited(current, internalModels.ValidationIssueTypeStandAssignment) {
 		return nil
 	}
 

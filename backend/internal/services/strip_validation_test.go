@@ -133,7 +133,7 @@ func TestReconcileStandAssignmentValidationActivatesBlockedAssignment(t *testing
 	}
 	svc := newTestStripValidationService(repo, repo)
 
-	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", []string{"A22"}, ""))
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", "ARRIVAL", []string{"A22"}, ""))
 	require.NotNil(t, persisted)
 	require.Equal(t, models.ValidationIssueTypeStandAssignment, persisted.IssueType)
 	require.Equal(t, "Assigned stand is blocked by A22.", persisted.Message)
@@ -154,7 +154,7 @@ func TestReconcileStandAssignmentValidationClearsResolvedSatIssueOnly(t *testing
 	}
 	svc := newTestStripValidationService(repo, repo)
 
-	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", nil, ""))
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", "ARRIVAL", nil, ""))
 }
 
 func TestReconcileStandAssignmentValidationSuppressesWrongStandWorkflow(t *testing.T) {
@@ -171,8 +171,50 @@ func TestReconcileStandAssignmentValidationSuppressesWrongStandWorkflow(t *testi
 	}
 	svc := newTestStripValidationService(repo, repo)
 
-	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", []string{"A2"}, wrongStandPendingPrefix+"A2"))
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", "DEPARTURE", []string{"A2"}, wrongStandPendingPrefix+"A2"))
 	assert.True(t, cleared, "the wrong-stand workflow must not leave a controller validation behind")
+}
+
+func TestReconcileStandAssignmentValidationSuppressesObservedDepartureConflict(t *testing.T) {
+	cleared := false
+	repo := &validationStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS503", ValidationStatus: &models.ValidationStatus{IssueType: models.ValidationIssueTypeStandAssignment}}, nil
+		},
+		clearValidationStatusFn: func(_ context.Context, _ int32, callsign string) error {
+			assert.Equal(t, "SAS503", callsign)
+			cleared = true
+			return nil
+		},
+	}
+	svc := newTestStripValidationService(repo, repo)
+
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(
+		context.Background(),
+		1,
+		"SAS503",
+		"DEPARTURE",
+		[]string{"D3"},
+		observedDepartureConflictPrefix+" reserved by NSZ3525",
+	))
+	assert.True(t, cleared, "the parked departure must not receive a validation for an inbound reservation conflict")
+}
+
+func TestReconcileStandAssignmentValidationSuppressesEveryDepartureConflict(t *testing.T) {
+	setCalled := false
+	repo := &validationStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{Callsign: "SAS503"}, nil
+		},
+		setValidationStatusFn: func(_ context.Context, _ int32, _ string, _ *models.ValidationStatus) error {
+			setCalled = true
+			return nil
+		},
+	}
+	svc := newTestStripValidationService(repo, repo)
+
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS503", "DEPARTURE", []string{"D3"}, "generic conflict"))
+	assert.False(t, setCalled, "departure assignments must not produce stand validations")
 }
 
 func TestNewStripValidationServiceRejectsMissingReader(t *testing.T) {

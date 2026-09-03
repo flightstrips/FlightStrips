@@ -216,6 +216,9 @@ func (s *StripService) ReevaluateLandingClearanceValidationsForSession(ctx conte
 	if !forceReactivate && !isLandingClearanceValidation(candidate.ValidationStatus) {
 		return nil
 	}
+	if validationCandidateIsInhibited(candidate.ValidationStatus, landingClearanceValidationIssueType) {
+		return nil
+	}
 
 	desired := landingClearanceValidationDesiredStatus(candidate, candidate.ValidationStatus, forceReactivate)
 	if validationStatusEquals(candidate.ValidationStatus, desired) {

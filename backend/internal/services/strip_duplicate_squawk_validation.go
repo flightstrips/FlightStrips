@@ -139,12 +139,7 @@ func (s *StripService) applyDuplicateSquawkValidationState(ctx context.Context, 
 	}
 
 	current := strip.ValidationStatus
-	if current != nil &&
-		!isDuplicateSquawkValidation(current) &&
-		!isWrongSquawkValidation(current) &&
-		!isRunwayTypeValidation(current) &&
-		!isTaxiwayTypeValidation(current) &&
-		!isCtotValidation(current) {
+	if validationCandidateIsInhibited(current, duplicateSquawkValidationIssueType) {
 		return nil
 	}
 

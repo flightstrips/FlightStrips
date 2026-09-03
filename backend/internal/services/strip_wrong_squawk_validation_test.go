@@ -63,6 +63,44 @@ func TestReevaluateSquawkValidation_ActivatesWrongSquawkForGroundOwner(t *testin
 	assert.NotEmpty(t, persisted.ActivationKey)
 }
 
+func TestApplyWrongSquawkValidation_ReplacesStandAssignmentAdvisory(t *testing.T) {
+	t.Parallel()
+
+	owner := "121.630"
+	assigned := "4231"
+	observed := "5231"
+	var persisted *models.ValidationStatus
+
+	repo := &testutil.MockStripRepository{
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+	svc := NewStripService(repo)
+
+	require.NoError(t, svc.applyWrongSquawkValidation(context.Background(), 1, &models.Strip{
+		Callsign:       "SAS123",
+		Owner:          &owner,
+		Bay:            shared.BAY_PUSH,
+		AssignedSquawk: &assigned,
+		Squawk:         &observed,
+		ValidationStatus: &models.ValidationStatus{
+			IssueType:      models.ValidationIssueTypeStandAssignment,
+			Message:        "Stand is reserved by an inbound aircraft.",
+			OwningPosition: owner,
+			Active:         true,
+			ActivationKey:  "stand-key",
+		},
+	}, false, false))
+
+	require.NotNil(t, persisted)
+	assert.Equal(t, wrongSquawkValidationIssueType, persisted.IssueType)
+	assert.Equal(t, owner, persisted.OwningPosition)
+	assert.True(t, persisted.Active)
+	assert.NotEqual(t, "stand-key", persisted.ActivationKey)
+}
+
 func TestSquawkValidationApplies_RecognizesFrequencyOwner(t *testing.T) {
 	t.Parallel()
 

@@ -147,6 +147,7 @@ export function useStripCallsignInteraction({
   const toggleMarked = useWebSocketStore((state) => state.toggleMarked);
   const marked = useWebSocketStore((state) => state.strips.find((strip) => strip.callsign === callsign)?.marked ?? false);
   const validationStatus = useWebSocketStore((state) => state.strips.find((s) => s.callsign === callsign)?.validation_status);
+  const isValidationVisible = isValidationActiveForPosition(validationStatus, myPosition);
   const isValidationActive = isValidationBlockingForPosition(validationStatus, myPosition);
 
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
@@ -162,7 +163,7 @@ export function useStripCallsignInteraction({
   const handleClick = (event: ReactMouseEvent<HTMLElement>) => {
     event.stopPropagation();
 
-    if (isValidationActive) {
+    if (isValidationVisible) {
       setValidationDialogOpen(true);
       return;
     }

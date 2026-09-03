@@ -287,6 +287,8 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 	request.Stand = observed.Name
 	observedRequest := request
 	observedRequest.ExpiresAt = nil
+	observedStand := observed.Name
+	observedRequest.ObservedStand = &observedStand
 	if result, err := s.allocations.assignObservedStand(ctx, observedRequest); err == nil {
 		s.useObservedStandForRoute(ctx, session, strip.Callsign, observed.Name)
 		if result.StandChanged && s.standPublisher != nil {
@@ -572,11 +574,12 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	if onAssignedStand {
 		expiry = nil
 	}
+	observedStandRecorded := existing.ObservedStand != nil && strings.EqualFold(strings.TrimSpace(*existing.ObservedStand), strings.TrimSpace(existing.Stand))
 	if existing.Stage == StageDepartureBlock {
 		if expiry == nil && existing.ExpiresAt != nil && !onAssignedStand {
 			return nil
 		}
-		if sameExpiry(existing.ExpiresAt, expiry) && sameExpiry(existing.ProjectedReleaseAt, projectedRelease) {
+		if sameExpiry(existing.ExpiresAt, expiry) && sameExpiry(existing.ProjectedReleaseAt, projectedRelease) && (!onAssignedStand || observedStandRecorded) {
 			return nil
 		}
 	}
@@ -584,6 +587,10 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	updated.Stage = StageDepartureBlock
 	updated.ExpiresAt = expiry
 	updated.ProjectedReleaseAt = projectedRelease
+	if onAssignedStand {
+		observedStand := existing.Stand
+		updated.ObservedStand = &observedStand
+	}
 	if updated.ConflictReason != nil && strings.HasPrefix(*updated.ConflictReason, wrongStandPendingPrefix) {
 		updated.ConflictReason = nil
 	}
@@ -610,6 +617,10 @@ func (s *DepartureLifecycleService) activateBlock(ctx context.Context, session i
 	reloaded.Stage = StageDepartureBlock
 	reloaded.ExpiresAt = expiry
 	reloaded.ProjectedReleaseAt = projectedRelease
+	if onAssignedStand {
+		observedStand := reloaded.Stand
+		reloaded.ObservedStand = &observedStand
+	}
 	reloaded.AssignedAt = &now
 	applyVatsimIdentity(reloaded, strip, flight.CID, flight.Revision)
 	affected, err = s.assignments.UpdateAssignment(ctx, reloaded)

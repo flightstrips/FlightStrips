@@ -545,7 +545,7 @@ struct StripUpdateEvent final : Event {
           std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
           std::string tracking_controller, std::string engine_type, bool has_fp = true,
-          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {})
+          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {}, bool hold_supported = true)
         : Event(EVENT_STRIP_UPDATE), callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -576,7 +576,8 @@ struct StripUpdateEvent final : Event {
           has_fp(has_fp),
           hold(std::move(hold)),
           hold_type(std::move(hold_type)),
-          hold_eat(std::move(hold_eat)) {
+          hold_eat(std::move(hold_eat)),
+          hold_supported(hold_supported) {
     }
 
     std::string callsign;
@@ -613,11 +614,14 @@ struct StripUpdateEvent final : Event {
     std::string hold_type;
     /// Expect approach time for the hold. Empty when not given.
     std::string hold_eat;
+    /// Whether empty hold fields represent an authoritative not-holding state.
+    bool hold_supported;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(StripUpdateEvent, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, star, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
-                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat, type);
+                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat,
+                                   hold_supported, type);
 
 };
 
@@ -698,7 +702,7 @@ struct Strip final {
           std::string aircraft_type, std::string aircraft_category, std::string spoken_callsign, Position position, std::string stand,
           std::string communication_type, std::string capabilities, std::string eobt, std::string eldt,
           std::string tracking_controller, std::string engine_type, bool has_fp = true,
-          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {})
+          std::string hold = {}, std::string hold_type = {}, std::string hold_eat = {}, bool hold_supported = true)
         : callsign(std::move(callsign)),
           origin(std::move(origin)),
           destination(std::move(destination)),
@@ -729,7 +733,8 @@ struct Strip final {
           has_fp(has_fp),
           hold(std::move(hold)),
           hold_type(std::move(hold_type)),
-          hold_eat(std::move(hold_eat)) {
+          hold_eat(std::move(hold_eat)),
+          hold_supported(hold_supported) {
     }
 
     std::string callsign;
@@ -766,11 +771,14 @@ struct Strip final {
     std::string hold_type;
     /// Expect approach time for the hold. Empty when not given.
     std::string hold_eat;
+    /// Whether empty hold fields represent an authoritative not-holding state.
+    bool hold_supported;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(Strip, callsign, origin, destination, alternate, route, remarks, runway, squawk,
                                    assigned_squawk, sid, star, cleared, ground_state, cleared_altitude, requested_altitude,
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
-                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat);
+                                   capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat,
+                                   hold_supported);
 };
 
 struct Controller final {

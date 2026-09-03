@@ -195,6 +195,13 @@ namespace FlightStrips::flightplan {
             plan.stand = stand->GetName();
         }
 
+        // Keep the durable annotation and transient EAT pulse in local state
+        // even while this client is disconnected or a slave. If it later
+        // becomes the sender, the reconnect snapshot can then include the EAT.
+        const auto controllerAssignedData = flightPlan.GetControllerAssignedData();
+        const auto scratchPad = controllerAssignedData.GetScratchPadString();
+        ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratchPad == nullptr ? "" : scratchPad));
+
         if (!m_websocketService->ShouldSend()) return;
         const auto radarTarget = m_flightStripsPlugin->RadarTargetSelect(callsign.c_str());
         const auto radarPosition = radarTarget.GetPosition();
@@ -207,13 +214,6 @@ namespace FlightStrips::flightplan {
         const auto runway = std::string(isArrival
                                             ? flightPlan.GetFlightPlanData().GetArrivalRwy()
                                             : flightPlan.GetFlightPlanData().GetDepartureRwy());
-        const auto controllerAssignedData = flightPlan.GetControllerAssignedData();
-
-        // By the time a strip is built the scratch pad pulse is long gone, so the
-        // hold comes from the annotation.
-        const auto scratchPad = controllerAssignedData.GetScratchPadString();
-        ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratchPad == nullptr ? "" : scratchPad));
-
         auto standName = stand == nullptr ? "" : stand->GetName();
         if (stand == nullptr) {
             if (const auto fpStand = this->m_flightPlans.find(callsign);
@@ -264,7 +264,8 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
-        if (!m_websocketService->ShouldSend()) return;
+        const auto shouldSend = m_websocketService->ShouldSend();
+        if (!shouldSend && dataType != EuroScopePlugIn::CTR_DATA_TYPE_SCRATCH_PAD_STRING) return;
 
 
         switch (dataType) {
@@ -302,7 +303,7 @@ namespace FlightStrips::flightplan {
 
                 // The pulse only signals a change; the state is re-read from
                 // annotation 6.
-                if (ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratch))) {
+                if (ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratch)) && shouldSend) {
                     m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
                 }
 
@@ -315,7 +316,9 @@ namespace FlightStrips::flightplan {
                 }
                 plan.stand = stand;
 
-                m_websocketService->SendEvent(StandEvent(callsign, stand));
+                if (shouldSend) {
+                    m_websocketService->SendEvent(StandEvent(callsign, stand));
+                }
                 break;
             }
             case EuroScopePlugIn::CTR_DATA_TYPE_DEPARTURE_SEQUENCE:

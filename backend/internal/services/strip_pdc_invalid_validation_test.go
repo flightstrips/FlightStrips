@@ -264,6 +264,53 @@ func TestReevaluatePdcInvalidValidation_ClearsWhenFaultsNoLongerExist(t *testing
 	assert.True(t, cleared)
 }
 
+func TestReevaluatePdcInvalidValidationForStrip_RestoresLowerPriorityValidation(t *testing.T) {
+	t.Parallel()
+
+	owner := "121.630"
+	runway := "22R"
+	sid := "VEMBO2E"
+	assigned := "4231"
+	observed := "5231"
+	var persisted *models.ValidationStatus
+	strip := &models.Strip{
+		Callsign:       "SAS124",
+		Owner:          &owner,
+		Bay:            shared.BAY_NOT_CLEARED,
+		Runway:         &runway,
+		Sid:            &sid,
+		AssignedSquawk: &assigned,
+		Squawk:         &observed,
+		PdcState:       "REQUESTED_WITH_FAULTS",
+		ValidationStatus: &models.ValidationStatus{
+			IssueType:      pdcInvalidValidationIssueType,
+			Message:        "old invalid",
+			OwningPosition: owner,
+			Active:         true,
+			ActivationKey:  "old-key",
+			CustomAction:   pdcInvalidValidationAction(),
+		},
+	}
+	repo := &testutil.MockStripRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+			return []*models.Strip{strip}, nil
+		},
+		ClearValidationStatusFn: func(_ context.Context, _ int32, _ string) error {
+			return nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcInvalidValidationForStrip(context.Background(), 1, strip, []string{"22R"}, false, false))
+	require.NotNil(t, persisted)
+	assert.Equal(t, wrongSquawkValidationIssueType, persisted.IssueType)
+	assert.Equal(t, persisted, strip.ValidationStatus)
+}
+
 func TestReevaluatePdcRequestValidationsForStrip_ClearsInvalidAfterLeavingStartupBay(t *testing.T) {
 	t.Parallel()
 

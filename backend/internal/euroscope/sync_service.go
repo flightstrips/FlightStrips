@@ -88,8 +88,8 @@ func (r euroscopeSyncHubRuntime) CurrentMasterStatus(session int32, cid, callsig
 		return false, false
 	}
 
-	master, ok := r.hub.master[session]
-	if !ok || master == nil {
+	master := r.hub.getMasterClient(session)
+	if master == nil {
 		return false, false
 	}
 
@@ -160,10 +160,9 @@ func newEuroscopeSyncRequest(client *Client, event euroscope.SyncEvent) Euroscop
 	request.Version = client.version
 
 	if client.hub != nil {
-		if master, ok := client.hub.master[client.session]; ok {
-			request.HasMaster = master != nil
-			request.IsMaster = master == client
-		}
+		master := client.hub.getMasterClient(client.session)
+		request.HasMaster = master != nil
+		request.IsMaster = master == client
 	}
 
 	return request

@@ -33,7 +33,7 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 	client.localIP = event.LocalIP
 	client.hub.setObserverCid(client.GetCid(), event.Observer)
 	client.hub.setClientLocalIP(client.session, client.GetCid(), event.LocalIP)
-	if master, ok := client.hub.master[client.session]; ok && master == client && previousCallsign != client.callsign {
+	if master := client.hub.getMasterClient(client.session); master == client && previousCallsign != client.callsign {
 		client.hub.setMasterClient(client)
 	}
 
@@ -419,7 +419,7 @@ func slicesEqual(a, b []string) bool {
 }
 
 func clientRole(client *Client) string {
-	if master, ok := client.hub.master[client.session]; ok && master == client {
+	if master := client.hub.getMasterClient(client.session); master == client {
 		return "master"
 	}
 	return "slave"

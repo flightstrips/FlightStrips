@@ -276,7 +276,7 @@ func (a *Adapter) Fixes(ctx context.Context, query navdata.FixQuery) (navdata.Fi
 				return invalid("AIRAC.NET scoped waypoint response")
 			}
 			if ok {
-				fix, fixErr := a.fix(query.Version, item)
+				fix, fixErr := fixWithProvenance(item, provenance)
 				if fixErr != nil {
 					return fixErr
 				}
@@ -326,7 +326,7 @@ func (a *Adapter) Fixes(ctx context.Context, query navdata.FixQuery) (navdata.Fi
 		if !ok {
 			return nil
 		}
-		fix, err := a.fix(query.Version, item)
+		fix, err := fixWithProvenance(item, provenance)
 		if err != nil {
 			return err
 		}
@@ -522,7 +522,11 @@ func (a *Adapter) airport(version navdata.DatasetVersion, value airportDTO) (nav
 	return item, nil
 }
 func (a *Adapter) fix(version navdata.DatasetVersion, value waypointDTO) (navdata.Fix, error) {
-	item := navdata.Fix{ID: navdata.FixID(upper(value.Identifier)), Position: coordinate(value.Latitude, value.Longitude, value.Coordinates), Provenance: a.provenance(version)}
+	return fixWithProvenance(value, a.provenance(version))
+}
+
+func fixWithProvenance(value waypointDTO, provenance navdata.Provenance) (navdata.Fix, error) {
+	item := navdata.Fix{ID: navdata.FixID(upper(value.Identifier)), Position: coordinate(value.Latitude, value.Longitude, value.Coordinates), Provenance: provenance}
 	if err := item.Validate(); err != nil {
 		return navdata.Fix{}, invalid("AIRAC.NET waypoint geometry")
 	}

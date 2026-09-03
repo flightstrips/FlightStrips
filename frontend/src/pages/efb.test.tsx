@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import EFBPage from './efb';
 
@@ -100,8 +100,10 @@ describe('EFB page interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close downloads' }));
 
     fireEvent.click(screen.getByAltText('Charts'));
-    expect(screen.getByRole('dialog', { name: 'CHARTS' })).toBeInTheDocument();
-    expect(screen.getByText(/EKCH, runway 22R, SID NEXEN2A/)).toBeInTheDocument();
+    const chartDialog = screen.getByRole('dialog', { name: 'EKCH' });
+    expect(chartDialog).toBeInTheDocument();
+    expect(within(chartDialog).getByText('EKCH, runway 22R')).toBeInTheDocument();
+    expect(within(chartDialog).getByText('NEXEN2A')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'CLICK TO CLOSE' }));
 
     fireEvent.click(screen.getByText('REQ PDC'));

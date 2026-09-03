@@ -27,6 +27,7 @@ describe("strip move actions", () => {
       callsign: "OYABC",
       bay: Bay.Controlzone,
       clearance: false,
+      confirmed_removal: false,
     });
     expect(store.getState().strips[0].bay).toBe(Bay.Controlzone);
   });
@@ -39,6 +40,19 @@ describe("strip move actions", () => {
       callsign: "OYABC",
       bay: Bay.Cleared,
       clearance: true,
+      confirmed_removal: false,
+    });
+  });
+
+  it("marks confirmed EST removals explicitly", () => {
+    store.getState().move("OYABC", Bay.Hidden, false, true);
+
+    expect(client.send).toHaveBeenCalledWith({
+      type: ActionType.FrontendMove,
+      callsign: "OYABC",
+      bay: Bay.Hidden,
+      clearance: false,
+      confirmed_removal: true,
     });
   });
 });

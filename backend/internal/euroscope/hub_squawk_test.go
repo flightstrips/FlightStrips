@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -179,17 +180,19 @@ func TestSendGenerateSquawk_SendsQueuedRequestWhenAssignedSquawkRemainsInvalid(t
 
 	queuedSquawk := "2000"
 	updatedSquawk := "2200"
-	callCounts := map[string]int{}
-	currentSAS303 := queuedSquawk
+	var sas303Calls atomic.Int32
+	var currentSAS303 atomic.Value
+	currentSAS303.Store(queuedSquawk)
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
 			assert.Equal(t, int32(7), session)
-			callCounts[callsign]++
 			switch callsign {
 			case "SAS101":
 				return &models.Strip{Callsign: callsign, AssignedSquawk: &queuedSquawk}, nil
 			case "SAS303":
-				return &models.Strip{Callsign: callsign, AssignedSquawk: &currentSAS303}, nil
+				sas303Calls.Add(1)
+				current := currentSAS303.Load().(string)
+				return &models.Strip{Callsign: callsign, AssignedSquawk: &current}, nil
 			default:
 				t.Fatalf("unexpected callsign %s", callsign)
 				return nil, nil
@@ -208,14 +211,14 @@ func TestSendGenerateSquawk_SendsQueuedRequestWhenAssignedSquawkRemainsInvalid(t
 
 	start := time.Now()
 	hub.SendGenerateSquawk(7, "CID-2", "SAS303")
-	currentSAS303 = updatedSquawk
+	currentSAS303.Store(updatedSquawk)
 
 	second := readGenerateSquawkMessage(t, hub.send, 200*time.Millisecond)
 
 	assert.GreaterOrEqual(t, time.Since(start), 20*time.Millisecond)
 	assert.Equal(t, "CID-2", *second.cid)
 	assert.Equal(t, "SAS303", second.message.(euroscopeEvents.GenerateSquawkEvent).Callsign)
-	assert.Equal(t, 1, callCounts["SAS303"])
+	assert.Equal(t, int32(1), sas303Calls.Load())
 }
 
 func TestSendGenerateSquawk_SkipsQueuedRequestWhenAssignedSquawkBecomesValid(t *testing.T) {
@@ -223,17 +226,19 @@ func TestSendGenerateSquawk_SkipsQueuedRequestWhenAssignedSquawkBecomesValid(t *
 
 	queuedSquawk := "2000"
 	updatedSquawk := "2401"
-	callCounts := map[string]int{}
-	currentSAS303 := queuedSquawk
+	var sas303Calls atomic.Int32
+	var currentSAS303 atomic.Value
+	currentSAS303.Store(queuedSquawk)
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
 			assert.Equal(t, int32(7), session)
-			callCounts[callsign]++
 			switch callsign {
 			case "SAS101":
 				return &models.Strip{Callsign: callsign, AssignedSquawk: &queuedSquawk}, nil
 			case "SAS303":
-				return &models.Strip{Callsign: callsign, AssignedSquawk: &currentSAS303}, nil
+				sas303Calls.Add(1)
+				current := currentSAS303.Load().(string)
+				return &models.Strip{Callsign: callsign, AssignedSquawk: &current}, nil
 			default:
 				t.Fatalf("unexpected callsign %s", callsign)
 				return nil, nil
@@ -252,7 +257,7 @@ func TestSendGenerateSquawk_SkipsQueuedRequestWhenAssignedSquawkBecomesValid(t *
 
 	start := time.Now()
 	hub.SendGenerateSquawk(7, "CID-2", "SAS303")
-	currentSAS303 = updatedSquawk
+	currentSAS303.Store(updatedSquawk)
 
 	select {
 	case message := <-hub.send:
@@ -261,7 +266,7 @@ func TestSendGenerateSquawk_SkipsQueuedRequestWhenAssignedSquawkBecomesValid(t *
 	}
 
 	assert.GreaterOrEqual(t, time.Since(start), 80*time.Millisecond)
-	assert.Equal(t, 1, callCounts["SAS303"])
+	assert.Equal(t, int32(1), sas303Calls.Load())
 }
 
 func readGenerateSquawkMessage(t *testing.T, ch <-chan internalMessage, timeout time.Duration) internalMessage {

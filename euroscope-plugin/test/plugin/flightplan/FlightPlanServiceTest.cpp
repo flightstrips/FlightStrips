@@ -7,6 +7,23 @@
 
 using FlightStrips::flightplan::FlightPlan;
 using FlightStrips::flightplan::FlightPlanService;
+using FlightStrips::flightplan::ApplyHold;
+using FlightStrips::flightplan::TopSkyHold;
+
+TEST(FlightPlanServiceStateTest, ApplyHoldCachesEatUntilReconnectSnapshot) {
+    FlightPlan plan;
+    const TopSkyHold hold{true, false, "OLPIB"};
+
+    EXPECT_TRUE(ApplyHold(plan, hold, "1234"));
+    EXPECT_EQ(plan.hold, "OLPIB");
+    EXPECT_EQ(plan.hold_type, "enroute");
+    EXPECT_EQ(plan.hold_eat, "1234");
+
+    // The scratch-pad pulse is transient. A later annotation-only refresh must
+    // preserve the cached EAT so a reconnect can resend the complete hold.
+    EXPECT_FALSE(ApplyHold(plan, hold, ""));
+    EXPECT_EQ(plan.hold_eat, "1234");
+}
 
 TEST(FlightPlanServiceStaticTest, GetEstimatedLandingTime_ZeroPoints_ReturnsCurrentUtcHHMM) {
     EuroScopePlugIn::CFlightPlan fp;

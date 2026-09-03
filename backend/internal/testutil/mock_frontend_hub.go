@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/frontend"
 	pkgModels "FlightStrips/pkg/models"
+	"sync"
 )
 
 // ControllerOnlineCall records arguments to SendControllerOnline.
@@ -137,9 +138,10 @@ type CidDisconnectCall struct {
 // MockFrontendHub is a configurable mock for shared.FrontendHub.
 // It records calls for assertion in tests.
 type MockFrontendHub struct {
-	server      shared.Server
-	ArrAtisCode string
-	DepAtisCode string
+	server              shared.Server
+	controllerOfflineMu sync.Mutex
+	ArrAtisCode         string
+	DepAtisCode         string
 
 	BayEvents               []BayEventCall
 	HoldEvents              []HoldEventCall
@@ -202,7 +204,15 @@ func (m *MockFrontendHub) SendControllerUpdate(session int32, callsign string, p
 }
 
 func (m *MockFrontendHub) SendControllerOffline(session int32, callsign string, position string, identifier string) {
+	m.controllerOfflineMu.Lock()
+	defer m.controllerOfflineMu.Unlock()
 	m.ControllerOfflines = append(m.ControllerOfflines, ControllerOfflineCall{session, callsign, position, identifier})
+}
+
+func (m *MockFrontendHub) ControllerOfflineCalls() []ControllerOfflineCall {
+	m.controllerOfflineMu.Lock()
+	defer m.controllerOfflineMu.Unlock()
+	return append([]ControllerOfflineCall(nil), m.ControllerOfflines...)
 }
 
 func (m *MockFrontendHub) SendAssignedSquawkEvent(session int32, callsign string, squawk string) {}

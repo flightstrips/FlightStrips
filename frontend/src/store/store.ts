@@ -207,7 +207,7 @@ export interface WebSocketState {
   clearStandActionRejection: () => void;
 
   // actions
-  move: (callsign: string, bay: Bay, clearance?: boolean) => void;
+  move: (callsign: string, bay: Bay, clearance?: boolean, confirmedRemoval?: boolean) => void;
   moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
@@ -455,8 +455,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     closeStripContextMenu: () => set({ contextMenu: null }),
     openValidationDialog,
     closeValidationDialog: () => set({ validationDialogCallsign: null }),
-     move: (callsign, bay, clearance = false) => set((state) => {
-          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay, clearance})) {
+     move: (callsign, bay, clearance = false, confirmedRemoval = false) => set((state) => {
+          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay, clearance, confirmed_removal: confirmedRemoval})) {
             return state;
           }
 

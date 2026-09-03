@@ -267,6 +267,17 @@ func TestHandleReadyRequest_WithoutValidClient_StillRecalculatesLocally(t *testi
 		Tobt:  stringPtr(nowTobt),
 		Phase: stringPtr(phase),
 	}).Normalize()
+	var storedMu sync.RWMutex
+	loadStored := func() *models.CdmData {
+		storedMu.RLock()
+		defer storedMu.RUnlock()
+		return stored.Clone()
+	}
+	saveStored := func(data *models.CdmData) {
+		storedMu.Lock()
+		defer storedMu.Unlock()
+		stored = data.Clone()
+	}
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
@@ -275,14 +286,14 @@ func TestHandleReadyRequest_WithoutValidClient_StillRecalculatesLocally(t *testi
 				Session:  sessionID,
 				Origin:   "EKCH",
 				Runway:   &runway,
-				CdmData:  stored.Clone(),
+				CdmData:  loadStored(),
 			}, nil
 		},
 		GetCdmDataForCallsignFn: func(_ context.Context, _ int32, _ string) (*models.CdmData, error) {
-			return stored.Clone(), nil
+			return loadStored(), nil
 		},
 		SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
-			stored = data.Clone()
+			saveStored(data)
 			return 1, nil
 		},
 		ListByOriginFn: func(_ context.Context, _ int32, origin string) ([]*models.Strip, error) {
@@ -292,7 +303,7 @@ func TestHandleReadyRequest_WithoutValidClient_StillRecalculatesLocally(t *testi
 				Session:  sessionID,
 				Origin:   "EKCH",
 				Runway:   &runway,
-				CdmData:  stored.Clone(),
+				CdmData:  loadStored(),
 			}}, nil
 		},
 	}
@@ -324,12 +335,13 @@ func TestHandleReadyRequest_WithoutValidClient_StillRecalculatesLocally(t *testi
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		return stored.Tsat != nil &&
-			*stored.Tsat != "" &&
-			stored.Status != nil &&
-			*stored.Status == "REA" &&
-			(stored.Phase == nil || *stored.Phase == "") &&
-			!stored.NeedsLocalRecalculation()
+		current := loadStored()
+		return current.Tsat != nil &&
+			*current.Tsat != "" &&
+			current.Status != nil &&
+			*current.Status == "REA" &&
+			(current.Phase == nil || *current.Phase == "") &&
+			!current.NeedsLocalRecalculation()
 	}, time.Second, 10*time.Millisecond)
 	require.Len(t, frontendHub.CdmWaits, 1)
 	assert.Equal(t, callsign, frontendHub.CdmWaits[0].Callsign)
@@ -1827,6 +1839,17 @@ func TestHandleReadyRequest_MasterSessionUsesNextFreeGapWithoutMovingExistingFli
 			Ttot: stringPtr(addMinutes(firstTsat, 30)),
 		}).Normalize(),
 	}
+	var storedMu sync.RWMutex
+	loadStored := func(callsign string) *models.CdmData {
+		storedMu.RLock()
+		defer storedMu.RUnlock()
+		return stored[callsign].Clone()
+	}
+	saveStored := func(callsign string, data *models.CdmData) {
+		storedMu.Lock()
+		defer storedMu.Unlock()
+		stored[callsign] = data.Clone()
+	}
 
 	stripRepo := &testutil.MockStripRepository{
 		GetByCallsignFn: func(_ context.Context, _ int32, cs string) (*models.Strip, error) {
@@ -1835,23 +1858,23 @@ func TestHandleReadyRequest_MasterSessionUsesNextFreeGapWithoutMovingExistingFli
 				Session:  sessionID,
 				Origin:   "EKCH",
 				Runway:   &runway,
-				CdmData:  stored[cs].Clone(),
+				CdmData:  loadStored(cs),
 			}, nil
 		},
 		GetCdmDataForCallsignFn: func(_ context.Context, _ int32, cs string) (*models.CdmData, error) {
-			return stored[cs].Clone(), nil
+			return loadStored(cs), nil
 		},
 		SetCdmDataFn: func(_ context.Context, _ int32, cs string, data *models.CdmData) (int64, error) {
-			stored[cs] = data.Clone()
+			saveStored(cs, data)
 			return 1, nil
 		},
 		ListByOriginFn: func(_ context.Context, _ int32, origin string) ([]*models.Strip, error) {
 			assert.Equal(t, "EKCH", origin)
 			return []*models.Strip{
-				{Callsign: "SAS123", Session: sessionID, Origin: "EKCH", Runway: &runway, CdmData: stored["SAS123"].Clone()},
-				{Callsign: "SAS456", Session: sessionID, Origin: "EKCH", Runway: &runway, CdmData: stored["SAS456"].Clone()},
-				{Callsign: "SAS400", Session: sessionID, Origin: "EKCH", Runway: &runway, CdmData: stored["SAS400"].Clone()},
-				{Callsign: callsign, Session: sessionID, Origin: "EKCH", Runway: &runway, CdmData: stored[callsign].Clone()},
+				{Callsign: "SAS123", Session: sessionID, Origin: "EKCH", Runway: &runway, CdmData: loadStored("SAS123")},
+				{Callsign: "SAS456", Session: sessionID, Origin: "EKCH", Runway: &runway, CdmData: loadStored("SAS456")},
+				{Callsign: "SAS400", Session: sessionID, Origin: "EKCH", Runway: &runway, CdmData: loadStored("SAS400")},
+				{Callsign: callsign, Session: sessionID, Origin: "EKCH", Runway: &runway, CdmData: loadStored(callsign)},
 			}, nil
 		},
 	}
@@ -1885,22 +1908,26 @@ func TestHandleReadyRequest_MasterSessionUsesNextFreeGapWithoutMovingExistingFli
 	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
 	afterNow = time.Now().UTC().Format("150405")
 	require.Eventually(t, func() bool {
-		return !stored[callsign].NeedsLocalRecalculation()
+		return !loadStored(callsign).NeedsLocalRecalculation()
 	}, time.Second, time.Millisecond)
 
 	expectedTsats := []string{addMinutes(beforeNow, 6), addMinutes(afterNow, 6)}
 	expectedTtots := []string{addMinutes(beforeNow, 16), addMinutes(afterNow, 16)}
 
-	assert.Equal(t, firstTsat, *stored["SAS123"].Tsat)
-	assert.Equal(t, addMinutes(firstTsat, 10), *stored["SAS123"].Ttot)
-	assert.Equal(t, secondTsat, *stored["SAS456"].Tsat)
-	assert.Equal(t, addMinutes(secondTsat, 10), *stored["SAS456"].Ttot)
-	assert.Equal(t, thirdTsat, *stored["SAS400"].Tsat)
-	assert.Equal(t, addMinutes(thirdTsat, 10), *stored["SAS400"].Ttot)
-	assert.Contains(t, expectedTsats, *stored[callsign].Tsat)
-	assert.Contains(t, expectedTtots, *stored[callsign].Ttot)
-	assert.Equal(t, "REA", *stored[callsign].Status)
-	assert.False(t, stored[callsign].NeedsLocalRecalculation())
+	first := loadStored("SAS123")
+	second := loadStored("SAS456")
+	third := loadStored("SAS400")
+	ready := loadStored(callsign)
+	assert.Equal(t, firstTsat, *first.Tsat)
+	assert.Equal(t, addMinutes(firstTsat, 10), *first.Ttot)
+	assert.Equal(t, secondTsat, *second.Tsat)
+	assert.Equal(t, addMinutes(secondTsat, 10), *second.Ttot)
+	assert.Equal(t, thirdTsat, *third.Tsat)
+	assert.Equal(t, addMinutes(thirdTsat, 10), *third.Ttot)
+	assert.Contains(t, expectedTsats, *ready.Tsat)
+	assert.Contains(t, expectedTtots, *ready.Ttot)
+	assert.Equal(t, "REA", *ready.Status)
+	assert.False(t, ready.NeedsLocalRecalculation())
 }
 
 func TestHandleReadyRequest_UpdatesTobtToNowWhenTsatExpiredOrPhaseInvalid(t *testing.T) {

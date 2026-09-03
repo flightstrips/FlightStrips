@@ -809,6 +809,7 @@ export interface FrontendMoveEvent {
   callsign: string;
   bay: Bay;
   clearance?: boolean;
+  confirmed_removal?: boolean;
 }
 
 export interface FrontendGenerateSquawkEvent {

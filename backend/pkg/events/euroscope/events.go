@@ -148,6 +148,9 @@ type Strip struct {
 	TrackingController string `json:"tracking_controller"`
 	EngineType         string `json:"engine_type"`
 	HasFP              bool   `json:"has_fp"`
+	// HoldSupported distinguishes an explicit empty hold from an older plugin
+	// that does not send hold state during synchronization.
+	HoldSupported bool `json:"hold_supported"`
 	// TopSky holding clearance. Empty means not holding.
 	Hold     string `json:"hold"`
 	HoldType string `json:"hold_type"`

@@ -43,13 +43,14 @@ func mockServerWithStripRepo(repo *testutil.MockStripRepository) *testutil.MockS
 }
 
 type moveFrontendStripCall struct {
-	session        int32
-	callsign       string
-	targetBay      string
-	cid            string
-	airport        string
-	clientPosition string
-	clearance      bool
+	session          int32
+	callsign         string
+	targetBay        string
+	cid              string
+	airport          string
+	clientPosition   string
+	clearance        bool
+	confirmedRemoval bool
 }
 
 type spyStripService struct {
@@ -58,15 +59,16 @@ type spyStripService struct {
 	moveFrontendStripErr   error
 }
 
-func (s *spyStripService) MoveFrontendStrip(_ context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool) error {
+func (s *spyStripService) MoveFrontendStrip(_ context.Context, session int32, callsign string, targetBay string, cid string, airport string, clientPosition string, clearance bool, confirmedRemoval bool) error {
 	s.moveFrontendStripCalls = append(s.moveFrontendStripCalls, moveFrontendStripCall{
-		session:        session,
-		callsign:       callsign,
-		targetBay:      targetBay,
-		cid:            cid,
-		airport:        airport,
-		clientPosition: clientPosition,
-		clearance:      clearance,
+		session:          session,
+		callsign:         callsign,
+		targetBay:        targetBay,
+		cid:              cid,
+		airport:          airport,
+		clientPosition:   clientPosition,
+		clearance:        clearance,
+		confirmedRemoval: confirmedRemoval,
 	})
 	return s.moveFrontendStripErr
 }
@@ -79,22 +81,23 @@ func TestHandleMove_DelegatesToStripService(t *testing.T) {
 	client.SetUser(shared.NewAuthenticatedUser("1234567", 0, nil))
 
 	msg := marshalMessage(t, pkgFrontend.MoveEvent{
-		Callsign:  "SAS123",
-		Bay:       shared.BAY_CLEARED,
-		Clearance: true,
+		Callsign:         "SAS123",
+		Bay:              shared.BAY_HIDDEN,
+		ConfirmedRemoval: true,
 	})
 
 	err := handleMove(context.Background(), client, msg)
 	require.NoError(t, err)
 	require.Len(t, spy.moveFrontendStripCalls, 1)
 	assert.Equal(t, moveFrontendStripCall{
-		session:        17,
-		callsign:       "SAS123",
-		targetBay:      shared.BAY_CLEARED,
-		cid:            "1234567",
-		airport:        "EKCH",
-		clientPosition: "EKCH_DEL",
-		clearance:      true,
+		session:          17,
+		callsign:         "SAS123",
+		targetBay:        shared.BAY_HIDDEN,
+		cid:              "1234567",
+		airport:          "EKCH",
+		clientPosition:   "EKCH_DEL",
+		clearance:        false,
+		confirmedRemoval: true,
 	}, spy.moveFrontendStripCalls[0])
 }
 

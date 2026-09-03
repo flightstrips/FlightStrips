@@ -182,6 +182,9 @@ func TestReevaluatePdcRequestValidationsForStrip_ClearsCustomWhenStateNoLongerRe
 	cleared := false
 
 	repo := &testutil.MockStripRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+			return nil, nil
+		},
 		ClearValidationStatusFn: func(_ context.Context, _ int32, callsign string) error {
 			assert.Equal(t, "SAS123", callsign)
 			cleared = true
@@ -218,6 +221,9 @@ func TestReevaluatePdcRequestValidationsForStrip_ClearsCustomAfterLeavingStartup
 	cleared := false
 
 	repo := &testutil.MockStripRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+			return nil, nil
+		},
 		ClearValidationStatusFn: func(_ context.Context, _ int32, callsign string) error {
 			assert.Equal(t, "SAS123", callsign)
 			cleared = true
@@ -290,6 +296,49 @@ func TestReevaluatePdcRequestValidationsForStrip_TransitionsFromInvalidToCustom(
 	require.NotNil(t, persisted)
 	assert.Equal(t, pdcCustomValidationIssueType, persisted.IssueType)
 	assert.Contains(t, persisted.Message, remarks)
+}
+
+func TestReevaluatePdcRequestValidationsForStrip_RestoresLowerPriorityValidation(t *testing.T) {
+	t.Parallel()
+
+	owner := "121.630"
+	assigned := "4231"
+	observed := "5231"
+	var persisted *models.ValidationStatus
+	strip := &models.Strip{
+		Callsign:       "SAS125",
+		Owner:          &owner,
+		Bay:            shared.BAY_NOT_CLEARED,
+		PdcState:       "CLEARED",
+		AssignedSquawk: &assigned,
+		Squawk:         &observed,
+		ValidationStatus: &models.ValidationStatus{
+			IssueType:      pdcCustomValidationIssueType,
+			Message:        "old custom",
+			OwningPosition: owner,
+			Active:         true,
+			ActivationKey:  "old-key",
+			CustomAction:   pdcCustomValidationAction(),
+		},
+	}
+	repo := &testutil.MockStripRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+			return []*models.Strip{strip}, nil
+		},
+		ClearValidationStatusFn: func(_ context.Context, _ int32, _ string) error {
+			return nil
+		},
+		SetValidationStatusFn: func(_ context.Context, _ int32, _ string, status *models.ValidationStatus) error {
+			persisted = status
+			return nil
+		},
+	}
+
+	svc, _ := newPdcInvalidValidationFixture(repo, "22R")
+	require.NoError(t, svc.ReevaluatePdcRequestValidationsForStrip(context.Background(), 1, strip, []string{"22R"}, false, false))
+	require.NotNil(t, persisted)
+	assert.Equal(t, wrongSquawkValidationIssueType, persisted.IssueType)
+	assert.Equal(t, persisted, strip.ValidationStatus)
 }
 
 func TestReevaluatePdcRequestValidationsForStrip_TransitionsFromCustomToInvalid(t *testing.T) {

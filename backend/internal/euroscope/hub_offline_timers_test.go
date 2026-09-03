@@ -439,10 +439,11 @@ func TestScheduleOfflineActions_ControllerOfflineGracePeriodFinalizes(t *testing
 
 	require.Eventually(t, func() bool { return deleteCalls.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
 		"controller should be deleted after grace period")
-	require.Eventually(t, func() bool { return len(frontendHub.ControllerOfflines) >= 1 }, 2*time.Second, 50*time.Millisecond,
+	require.Eventually(t, func() bool { return len(frontendHub.ControllerOfflineCalls()) >= 1 }, 2*time.Second, 50*time.Millisecond,
 		"offline notification should be sent after grace period")
-	assert.Equal(t, callsign, frontendHub.ControllerOfflines[0].Callsign)
-	assert.Equal(t, position, frontendHub.ControllerOfflines[0].Position)
+	offlineCalls := frontendHub.ControllerOfflineCalls()
+	assert.Equal(t, callsign, offlineCalls[0].Callsign)
+	assert.Equal(t, position, offlineCalls[0].Position)
 
 	require.Eventually(t, func() bool { return recalculateCalls.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
 		"session should be recalculated after finalization (debounced)")

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.18.0...docs/v0.18.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* **stand:** cap arrival reconciliation work ([#493](https://github.com/flightstrips/FlightStrips/issues/493)) ([7944f88](https://github.com/flightstrips/FlightStrips/commit/7944f88654e4478d0f38c626332e1a17b5b3e2e6))
+* **stand:** stabilize lifecycle assignments ([#486](https://github.com/flightstrips/FlightStrips/issues/486)) ([56ec137](https://github.com/flightstrips/FlightStrips/commit/56ec137c933436cfe28685a94f9b7a9e5f8fe88d))
+
 ## [0.18.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.17.2...docs/v0.18.0) (2026-08-16)
 
 

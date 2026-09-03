@@ -26,7 +26,7 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 		require.NotNil(t, path.PublishedHeadingMagneticDeg, path.Feeder)
 		require.Equal(t, wantHeadings[path.RunwayGroup], *path.PublishedHeadingMagneticDeg, path.Feeder)
 	}
-	fragment, err := config.Candidate(refs, time.Date(2026, 8, 9, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.Len(t, fragment.Paths, len(config.Feeders)*len(config.RunwayGroups))
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings))
@@ -50,10 +50,10 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 
 func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) {
 	config := goldenConfig(t)
-	require.Equal(t, "EKCH-AIP-2608-V1", config.ConfigVersion)
-	require.Equal(t, "2608", config.Dataset.Cycle)
-	require.Equal(t, time.Date(2026, 8, 6, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
-	require.Equal(t, time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
+	require.Equal(t, "EKCH-AIP-2609-V1", config.ConfigVersion)
+	require.Equal(t, "2609", config.Dataset.Cycle)
+	require.Equal(t, time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
+	require.Equal(t, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
 	require.Equal(t, config.ApplicabilityFrom, config.Dataset.EffectiveFrom)
 	require.Equal(t, config.ApplicabilityUntil, config.Dataset.EffectiveUntil)
 	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R", "ARRIVAL-22L", "ARRIVAL-22R", "ARRIVAL-12", "ARRIVAL-30"}, groupIDs(config.RunwayGroups))
@@ -303,7 +303,7 @@ func TestPublishedAndOverlayHoldingsNormalizeEquivalently(t *testing.T) {
 	second, err := navdata.HoldingDigest(config.OverlayHoldings[0].canonical())
 	require.NoError(t, err)
 	require.Equal(t, first, second)
-	fragment, err := config.Candidate(refs, time.Date(2026, 8, 9, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	require.NotContains(t, fragment.Holdings, published, "published canonical holding replaces identical AIP fallback")
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings)-1)
@@ -314,7 +314,7 @@ func TestCandidateUsesAirportScopedFixOverrideForERNOV22(t *testing.T) {
 	refs := referencesFor(t, config)
 	setFixPosition(refs.Fixes, "CH632", 26.327641, -83.227989)
 
-	fragment, err := config.Candidate(refs, time.Date(2026, 8, 9, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	pathIndex := slices.IndexFunc(fragment.Paths, func(path navdata.TerminalPath) bool {
 		return path.Feeder == "ERNOV" && path.RunwayGroup == "ARRIVAL-22L"
@@ -340,7 +340,7 @@ func TestLegacyCDAFixAliasNormalizesToCurrentOLPIB(t *testing.T) {
 		}
 	}
 	require.NoError(t, config.Validate(refs))
-	fragment, err := config.Candidate(refs, time.Date(2026, 8, 9, 1, 0, 0, 0, time.UTC))
+	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
 	for _, path := range fragment.Paths {
 		for _, leg := range path.Legs {
@@ -425,7 +425,7 @@ func goldenConfig(t *testing.T) Configuration {
 func goldenConfigPath(t *testing.T) string {
 	_, file, _, ok := runtime.Caller(0)
 	require.True(t, ok)
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config", "aman", "ekch-terminal-2608.json"))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config", "aman", "ekch-terminal-2609.json"))
 }
 
 func referencesFor(t *testing.T, config Configuration) ReferenceSet {

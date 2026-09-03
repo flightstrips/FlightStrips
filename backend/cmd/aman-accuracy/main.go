@@ -32,7 +32,7 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	input := flag.String("input", `C:\vatsim-data`, "VATSIM v3 history directory")
 	dsn := flag.String("dsn", "postgresql://fs:fs_password@localhost:5432/fsdb?sslmode=disable", "navigation-cache database DSN")
-	terminalPath := flag.String("terminal", "config/aman/ekch-terminal-2608.json", "EKCH terminal configuration")
+	terminalPath := flag.String("terminal", navigation.DefaultTerminalGeometryPath, "EKCH terminal configuration")
 	cacheOnly := flag.Bool("cache-only", false, "use already materialized navigation routes only; do not call AIRAC.NET")
 	runwayGroup := flag.String("runway-group", "ARRIVAL-04L", "arrival runway group used for the replay")
 	rate := flag.Uint("rate", 40, "arrival rate used for the replay")

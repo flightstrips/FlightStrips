@@ -2,6 +2,7 @@ package main
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/navigation"
 	"testing"
 	"time"
 )
@@ -106,22 +107,24 @@ func TestAMANConfigFromEnvParsesConfiguredRuntime(t *testing.T) {
 
 func TestNavigationConfigFromEnvParsesConfiguredSource(t *testing.T) {
 	t.Setenv("NAVIGATION_SOURCE", " AIRACNET ")
-	t.Setenv("NAVIGATION_TERMINAL_GEOMETRY_PATH", " terminal.json ")
 
 	config, err := navigationConfigFromEnv()
 	if err != nil {
 		t.Fatalf("navigationConfigFromEnv() error = %v", err)
 	}
-	if config.Source != "airacnet" || config.TerminalGeometryPath != "terminal.json" {
+	if config.Source != "airacnet" || config.TerminalGeometryPath != navigation.DefaultTerminalGeometryPath {
 		t.Fatalf("unexpected navigation config: %#v", config)
 	}
 }
 
-func TestNavigationConfigFromEnvRejectsIncompleteConfiguration(t *testing.T) {
-	t.Setenv("NAVIGATION_SOURCE", "airacnet")
-	t.Setenv("NAVIGATION_TERMINAL_GEOMETRY_PATH", "")
-	if _, err := navigationConfigFromEnv(); err == nil {
-		t.Fatal("navigationConfigFromEnv() succeeded without terminal geometry")
+func TestNavigationConfigFromEnvDefaultsDisabled(t *testing.T) {
+	t.Setenv("NAVIGATION_SOURCE", "")
+	config, err := navigationConfigFromEnv()
+	if err != nil {
+		t.Fatalf("navigationConfigFromEnv() error = %v", err)
+	}
+	if config.Enabled() || config.TerminalGeometryPath != "" {
+		t.Fatalf("unexpected disabled navigation config: %#v", config)
 	}
 }
 

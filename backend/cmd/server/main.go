@@ -254,8 +254,7 @@ func amanConfigFromEnv() (aman.RuntimeConfig, error) {
 
 func navigationConfigFromEnv() (navigation.Config, error) {
 	config := navigation.Config{
-		Source:               strings.TrimSpace(os.Getenv("NAVIGATION_SOURCE")),
-		TerminalGeometryPath: strings.TrimSpace(os.Getenv("NAVIGATION_TERMINAL_GEOMETRY_PATH")),
+		Source: strings.TrimSpace(os.Getenv("NAVIGATION_SOURCE")),
 	}
 	return config.Normalize(), config.Validate()
 }

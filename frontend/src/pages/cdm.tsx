@@ -22,7 +22,6 @@ type SequenceRow = {
   state: string;
   eobt: string;
   tobt: string;
-  req_tobt: string;
   tobt_confirmed: boolean;
   tobt_confirmed_by: string;
   tsat: string;
@@ -42,7 +41,6 @@ type SequenceSession = {
   session_id: number;
   name: string;
   airport: string;
-  cdm_master: boolean;
   departure_runways: string[];
   departure_rates: Array<{
     runway: string;
@@ -70,8 +68,6 @@ function formatBaseSource(value: string): string {
   switch (value) {
     case "TOBT":
       return "TOBT";
-    case "REQ_TOBT":
-      return "REQ TOBT";
     case "EOBT":
       return "EOBT";
     default:
@@ -258,9 +254,8 @@ export default function CdmPage() {
                   {session.airport} - {session.name}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Departure runways {session.departure_runways.join(", ") || "—"} | Arrival runways{" "}
-                    {session.arrival_runways.join(", ") || "—"} | Current departure rates {formatDepartureRates(session)} | CDM{" "}
-                  {session.cdm_master ? "Master" : "Slave"}
+				  Departure runways {session.departure_runways.join(", ") || "—"} | Arrival runways{" "}
+					{session.arrival_runways.join(", ") || "—"} | Current departure rates {formatDepartureRates(session)}
                 </p>
               </div>
               <div className="text-sm text-muted-foreground">
@@ -306,7 +301,7 @@ export default function CdmPage() {
                       <td className="px-4 py-3">
                         <div>{formatTime(row.tobt)}</div>
                         <div className="text-xs text-muted-foreground">
-                          Req {formatTime(row.req_tobt)} / EOBT {formatTime(row.eobt)}
+						  EOBT {formatTime(row.eobt)}
                         </div>
                       </td>
                       <td className="px-4 py-3">{formatConfirmation(row)}</td>

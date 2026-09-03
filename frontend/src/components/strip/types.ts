@@ -28,7 +28,6 @@ export interface StripProps {
   controllerModifiedFields?: string[];
   eobt?: string;
   tobt?: string;
-  reqTobtType?: string;
   tobtSetBy?: string;
   tsat?: string;
   ctot?: string;

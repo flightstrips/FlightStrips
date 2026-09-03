@@ -10,12 +10,14 @@ const (
 	TobtConfirmedByATC   = "ATC"
 	TobtConfirmedByPilot = "Pilot"
 
-	CdmCalculationBaseTobt    = "TOBT"
-	CdmCalculationBaseReqTobt = "REQ_TOBT"
-	CdmCalculationBaseEobt    = "EOBT"
+	CdmCalculationBaseTobt = "TOBT"
+	CdmCalculationBaseEobt = "EOBT"
 
 	CdmInvalidReasonStaleTobt = "STALE_TOBT"
 	CdmInvalidReasonStaleTsat = "STALE_TSAT"
+
+	CdmRecalculationRequired    = "required"
+	CdmRecalculationImproveOnly = "improve_only"
 )
 
 // CdmCalculation captures the last local sequencing snapshot used to derive
@@ -62,8 +64,6 @@ type CdmData struct {
 	TobtConfirmedBy        *string            `json:"tobtConfirmedBy,omitempty"`
 	TobtAutoSynced         bool               `json:"tobtAutoSynced,omitempty"`
 	TobtManuallyConfirmed  bool               `json:"tobtManuallyConfirmed,omitempty"`
-	ReqTobt                *string            `json:"reqTobt,omitempty"`
-	ReqTobtType            *string            `json:"reqTobtType,omitempty"`
 	Tsat                   *string            `json:"tsat,omitempty"`
 	Ttot                   *string            `json:"ttot,omitempty"`
 	Ctot                   *string            `json:"ctot,omitempty"`
@@ -82,6 +82,9 @@ type CdmData struct {
 	EcfmpRestrictions      []EcfmpRestriction `json:"ecfmpRestrictions,omitempty"`
 	Calculation            *CdmCalculation    `json:"calculation,omitempty"`
 	Recalculate            bool               `json:"recalculate,omitempty"`
+	RecalculationMode      string             `json:"recalculationMode,omitempty"`
+	ReadySyncPending       bool               `json:"readySyncPending,omitempty"`
+	ViffRequestSyncPending bool               `json:"viffRequestSyncPending,omitempty"`
 }
 
 type CdmDataRow struct {
@@ -111,8 +114,6 @@ func (d *CdmData) Clone() *CdmData {
 	clone.Tobt = cloneStringPointer(d.Tobt)
 	clone.TobtSetBy = cloneStringPointer(d.TobtSetBy)
 	clone.TobtConfirmedBy = cloneStringPointer(d.TobtConfirmedBy)
-	clone.ReqTobt = cloneStringPointer(d.ReqTobt)
-	clone.ReqTobtType = cloneStringPointer(d.ReqTobtType)
 	clone.Tsat = cloneStringPointer(d.Tsat)
 	clone.Ttot = cloneStringPointer(d.Ttot)
 	clone.Ctot = cloneStringPointer(d.Ctot)
@@ -191,20 +192,6 @@ func (d *CdmData) EffectiveTobt() *string {
 	return d.Tobt
 }
 
-func (d *CdmData) EffectiveReqTobt() *string {
-	if d == nil {
-		return nil
-	}
-	return d.ReqTobt
-}
-
-func (d *CdmData) EffectiveReqTobtType() *string {
-	if d == nil {
-		return nil
-	}
-	return d.ReqTobtType
-}
-
 func (d *CdmData) EffectiveTsat() *string {
 	if d == nil {
 		return nil
@@ -270,6 +257,16 @@ func (d *CdmData) MarkLocalRecalculationPending() {
 		return
 	}
 	d.Recalculate = true
+	d.RecalculationMode = CdmRecalculationRequired
+
+}
+
+func (d *CdmData) MarkLocalImprovementPending() {
+	if d == nil {
+		return
+	}
+	d.Recalculate = true
+	d.RecalculationMode = CdmRecalculationImproveOnly
 }
 
 func (d *CdmData) ClearLocalRecalculationPending() {
@@ -277,6 +274,11 @@ func (d *CdmData) ClearLocalRecalculationPending() {
 		return
 	}
 	d.Recalculate = false
+	d.RecalculationMode = ""
+}
+
+func (d *CdmData) IsImprovementOnlyRecalculation() bool {
+	return d != nil && d.Recalculate && d.RecalculationMode == CdmRecalculationImproveOnly
 }
 
 func (d *CdmData) HasManualCtot() bool {

@@ -494,20 +494,20 @@ func TestSequenceService_RecalculateAirport_PreservesExternalCtot(t *testing.T) 
 	}
 }
 
-func TestSequenceService_RecalculateAirport_UsesRequestedTobtWhenNoTobtExists(t *testing.T) {
+func TestSequenceService_RecalculateAirport_UsesTobt(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now().UTC()
-	reqTobt := addMinutes(timeToClock(now), 15)
-	expectedTtot := addMinutes(reqTobt, 10)
+	tobt := addMinutes(timeToClock(now), 15)
+	expectedTtot := addMinutes(tobt, 10)
 
 	strip := &models.Strip{
 		Callsign: "SAS778",
 		Origin:   "EKCH",
 		Runway:   testStringPtr("04L"),
 		CdmData: &models.CdmData{
-			ReqTobt: testStringPtr(reqTobt),
-			Eobt:    testStringPtr(addMinutes(reqTobt, -25)),
+			Tobt: testStringPtr(tobt),
+			Eobt: testStringPtr(addMinutes(tobt, -25)),
 		},
 	}
 
@@ -535,8 +535,8 @@ func TestSequenceService_RecalculateAirport_UsesRequestedTobtWhenNoTobtExists(t 
 	if persisted == nil {
 		t.Fatal("expected persisted CDM data")
 	}
-	if got := valueOrEmpty(persisted.Tsat); got != reqTobt {
-		t.Fatalf("expected TSAT %q, got %q", reqTobt, got)
+	if got := valueOrEmpty(persisted.Tsat); got != tobt {
+		t.Fatalf("expected TSAT %q, got %q", tobt, got)
 	}
 	if got := valueOrEmpty(persisted.Ttot); got != expectedTtot {
 		t.Fatalf("expected TTOT %q, got %q", expectedTtot, got)
@@ -1296,10 +1296,12 @@ func TestSequenceService_RecalculateAirport_ReadiedFlightUsesNextFreeGapWithoutM
 		Origin:   "EKCH",
 		Runway:   testStringPtr("22R"),
 		CdmData: (&models.CdmData{
-			Tobt:        testStringPtr(readyBase),
-			Tsat:        testStringPtr(readyOriginalTsat),
-			Ttot:        testStringPtr(readyOriginalTtot),
-			Recalculate: true,
+			Tobt:                  testStringPtr(readyBase),
+			Tsat:                  testStringPtr(readyOriginalTsat),
+			Ttot:                  testStringPtr(readyOriginalTtot),
+			TobtManuallyConfirmed: true,
+			Recalculate:           true,
+			RecalculationMode:     models.CdmRecalculationImproveOnly,
 		}).Normalize(),
 	}
 
@@ -1348,6 +1350,316 @@ func TestSequenceService_RecalculateAirport_ReadiedFlightUsesNextFreeGapWithoutM
 	}
 
 	assertPersistedCdmTimes(t, persisted, "SAS500", expectedReadyTsat, expectedReadyTtot)
+}
+
+func TestSequenceService_RecalculateAirport_EarlierTobtUsesGenuineGapWithoutDisplacingQueue(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	firstTsat := addMinutes(timeToClock(now), 40)
+	firstTtot := addMinutes(firstTsat, 10)
+	originalTsat := addMinutes(firstTsat, 20)
+	originalTtot := addMinutes(originalTsat, 10)
+	thirdTsat := addMinutes(originalTsat, 4)
+	thirdTtot := addMinutes(thirdTsat, 10)
+	earlierTobt := addMinutes(firstTsat, 1)
+	expectedTsat := addMinutes(firstTsat, 2)
+	expectedTtot := addMinutes(expectedTsat, 10)
+
+	first := &models.Strip{
+		Callsign: "SASGAP1",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt: testStringPtr(firstTsat),
+			Tsat: testStringPtr(firstTsat),
+			Ttot: testStringPtr(firstTtot),
+		}).Normalize(),
+	}
+	third := &models.Strip{
+		Callsign: "SASGAP3",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt: testStringPtr(thirdTsat),
+			Tsat: testStringPtr(thirdTsat),
+			Ttot: testStringPtr(thirdTtot),
+		}).Normalize(),
+	}
+	improving := &models.Strip{
+		Callsign: "SASGAP2",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt:                  testStringPtr(earlierTobt),
+			Tsat:                  testStringPtr(originalTsat),
+			Ttot:                  testStringPtr(originalTtot),
+			TobtManuallyConfirmed: true,
+			Recalculate:           true,
+			RecalculationMode:     models.CdmRecalculationImproveOnly,
+		}).Normalize(),
+	}
+
+	persisted := map[string]*models.CdmData{}
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
+			return []*models.Strip{improving, third, first}, nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted[callsign] = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{
+				ID:      id,
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"22R"},
+				},
+			}, nil
+		},
+	}
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	configStore.configs["EKCH"] = &CdmAirportConfig{
+		Airport:            "EKCH",
+		DefaultRate:        30,
+		DefaultTaxiMinutes: 0,
+	}
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+	if _, ok := persisted["SASGAP1"]; ok {
+		t.Fatal("expected the first queued flight to keep its assignment")
+	}
+	if _, ok := persisted["SASGAP3"]; ok {
+		t.Fatal("expected the later queued flight to keep its assignment")
+	}
+	assertPersistedCdmTimes(t, persisted, "SASGAP2", expectedTsat, expectedTtot)
+}
+
+func TestSequenceService_RecalculateAirport_EarlierTobtImprovementsKeepOriginalQueueOrder(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	firstTsat := addMinutes(timeToClock(now), 40)
+	firstTtot := addMinutes(firstTsat, 10)
+	firstOriginalTsat := addMinutes(firstTsat, 4)
+	firstOriginalTtot := addMinutes(firstOriginalTsat, 10)
+	secondOriginalTsat := addMinutes(firstTsat, 6)
+	secondOriginalTtot := addMinutes(secondOriginalTsat, 10)
+	earlierTobt := addMinutes(firstTsat, 1)
+
+	locked := &models.Strip{
+		Callsign: "SASORDER0",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt: testStringPtr(firstTsat),
+			Tsat: testStringPtr(firstTsat),
+			Ttot: testStringPtr(firstTtot),
+		}).Normalize(),
+	}
+	firstImproving := &models.Strip{
+		Callsign: "SASORDER1",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt:                  testStringPtr(earlierTobt),
+			Tsat:                  testStringPtr(firstOriginalTsat),
+			Ttot:                  testStringPtr(firstOriginalTtot),
+			TobtManuallyConfirmed: true,
+			Recalculate:           true,
+			RecalculationMode:     models.CdmRecalculationImproveOnly,
+		}).Normalize(),
+	}
+	secondImproving := &models.Strip{
+		Callsign: "SASORDER2",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt:                  testStringPtr(earlierTobt),
+			Tsat:                  testStringPtr(secondOriginalTsat),
+			Ttot:                  testStringPtr(secondOriginalTtot),
+			TobtManuallyConfirmed: true,
+			Recalculate:           true,
+			RecalculationMode:     models.CdmRecalculationImproveOnly,
+		}).Normalize(),
+	}
+
+	persisted := map[string]*models.CdmData{}
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
+			// Reverse repository order to ensure the persisted queue order wins.
+			return []*models.Strip{secondImproving, firstImproving, locked}, nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted[callsign] = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{
+				ID:      id,
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"22R"},
+				},
+			}, nil
+		},
+	}
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	configStore.configs["EKCH"] = &CdmAirportConfig{
+		Airport:            "EKCH",
+		DefaultRate:        30,
+		DefaultTaxiMinutes: 0,
+	}
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+	if _, ok := persisted["SASORDER0"]; ok {
+		t.Fatal("expected the locked flight to keep its assignment")
+	}
+	assertPersistedCdmTimes(t, persisted, "SASORDER1", addMinutes(firstTsat, 2), addMinutes(firstTtot, 2))
+	assertPersistedCdmTimes(t, persisted, "SASORDER2", addMinutes(firstTsat, 4), addMinutes(firstTtot, 4))
+}
+
+func TestSequenceService_RecalculateAirport_EarlierTobtCanPassPredecessorWhoseTobtCannotUseGap(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	gapTsat := addMinutes(timeToClock(now), 40)
+	predecessorTsat := addMinutes(gapTsat, 2)
+	predecessorTtot := addMinutes(predecessorTsat, 10)
+	originalTsat := addMinutes(gapTsat, 6)
+	originalTtot := addMinutes(originalTsat, 10)
+
+	predecessor := &models.Strip{
+		Callsign: "SASPRED",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt: testStringPtr(predecessorTsat),
+			Tsat: testStringPtr(predecessorTsat),
+			Ttot: testStringPtr(predecessorTtot),
+		}).Normalize(),
+	}
+	improving := &models.Strip{
+		Callsign: "SASFOLLOW",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt:                  testStringPtr(gapTsat),
+			Tsat:                  testStringPtr(originalTsat),
+			Ttot:                  testStringPtr(originalTtot),
+			TobtManuallyConfirmed: true,
+			Recalculate:           true,
+			RecalculationMode:     models.CdmRecalculationImproveOnly,
+		}).Normalize(),
+	}
+
+	persisted := map[string]*models.CdmData{}
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
+			return []*models.Strip{improving, predecessor}, nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted[callsign] = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{
+				ID:      id,
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"22R"},
+				},
+			}, nil
+		},
+	}
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	configStore.configs["EKCH"] = &CdmAirportConfig{
+		Airport:            "EKCH",
+		DefaultRate:        30,
+		DefaultTaxiMinutes: 0,
+	}
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+	if _, ok := persisted["SASPRED"]; ok {
+		t.Fatal("expected the predecessor to keep its assignment")
+	}
+	assertPersistedCdmTimes(t, persisted, "SASFOLLOW", gapTsat, addMinutes(gapTsat, 10))
+}
+
+func TestImprovementKeepsQueueOrderHonorsPredecessorTobtEligibility(t *testing.T) {
+	t.Parallel()
+
+	anchor := time.Now().UTC()
+	gapTsat := addMinutes(timeToClock(anchor), 40)
+	proposedTtot := addMinutes(gapTsat, 10)
+	predecessorCurrentTtot := addMinutes(proposedTtot, 2)
+	tooLateCurrentTtot := addMinutes(proposedTtot, 4)
+	candidateCurrentTtot := addMinutes(proposedTtot, 6)
+	config := &CdmAirportConfig{Airport: "EKCH", DefaultRate: 30, DefaultTaxiMinutes: 10}
+
+	predecessor := sequencingCandidate{
+		strip: &models.Strip{Callsign: "SASPRED", Origin: "EKCH"},
+		input: CalcInput{
+			Callsign: "SASPRED",
+			Origin:   "EKCH",
+			DepRwy:   "22R",
+			Tobt:     gapTsat,
+			TaxiMin:  10,
+		},
+		slot:    SlotEntry{Callsign: "SASPRED", Origin: "EKCH", DepRwy: "22R", Ttot: predecessorCurrentTtot},
+		hasSlot: true,
+	}
+	tooLatePredecessor := sequencingCandidate{
+		strip: &models.Strip{Callsign: "SASLATE", Origin: "EKCH"},
+		input: CalcInput{
+			Callsign: "SASLATE",
+			Origin:   "EKCH",
+			DepRwy:   "22R",
+			Tobt:     addMinutes(gapTsat, 4),
+			TaxiMin:  10,
+		},
+		slot:    SlotEntry{Callsign: "SASLATE", Origin: "EKCH", DepRwy: "22R", Ttot: tooLateCurrentTtot},
+		hasSlot: true,
+	}
+	candidate := sequencingCandidate{
+		strip:   &models.Strip{Callsign: "SASFOLLOW", Origin: "EKCH"},
+		slot:    SlotEntry{Callsign: "SASFOLLOW", Origin: "EKCH", DepRwy: "22R", Ttot: candidateCurrentTtot},
+		hasSlot: true,
+	}
+	slots := []SlotEntry{predecessor.slot, tooLatePredecessor.slot, candidate.slot}
+	// SASLATE is the immediate predecessor but cannot use the gap. SASPRED is
+	// farther ahead and can, so it must still retain first claim.
+	candidates := []sequencingCandidate{tooLatePredecessor, predecessor, candidate}
+
+	if improvementKeepsQueueOrder(candidate, proposedTtot, slots, candidates, config, anchor) {
+		t.Fatal("expected an eligible predecessor to retain first claim on the gap")
+	}
+	withoutRecalculatingPredecessor := []SlotEntry{tooLatePredecessor.slot, candidate.slot}
+	if improvementKeepsQueueOrder(candidate, proposedTtot, withoutRecalculatingPredecessor, candidates, config, anchor) {
+		t.Fatal("expected a recalculating predecessor to retain first claim from its original slot")
+	}
+
+	predecessor.input.Tobt = addMinutes(gapTsat, 2)
+	candidates[1] = predecessor
+	if !improvementKeepsQueueOrder(candidate, proposedTtot, slots, candidates, config, anchor) {
+		t.Fatal("expected a predecessor with a too-late TOBT not to block the gap")
+	}
 }
 
 func TestSequenceService_RecalculateAirport_ClearsExpiredLocalCalcTimes(t *testing.T) {
@@ -1422,6 +1734,57 @@ func TestSequenceService_RecalculateAirport_ClearsExpiredLocalCalcTimes(t *testi
 		t.Fatalf("expected TOBT to be preserved, got %q", got)
 	}
 	assertPersistedCdmTimes(t, persisted, "SAS789", freshTobt, freshTtot)
+}
+
+func TestSequenceService_RecalculateAirport_ExpiredImprovementReleasesOldReservation(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	nowClock := timeToClock(now)
+	freshTtot := addMinutes(nowClock, 10)
+	expiredTobt := addMinutes(nowClock, -7)
+
+	expired := &models.Strip{
+		Callsign: "SASEXPIRED",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData: (&models.CdmData{
+			Tobt:              testStringPtr(expiredTobt),
+			Tsat:              testStringPtr(expiredTobt),
+			Ttot:              testStringPtr(freshTtot),
+			Recalculate:       true,
+			RecalculationMode: models.CdmRecalculationImproveOnly,
+		}).Normalize(),
+	}
+	fresh := &models.Strip{
+		Callsign: "SASFRESH",
+		Origin:   "EKCH",
+		Runway:   testStringPtr("22R"),
+		CdmData:  (&models.CdmData{Tobt: testStringPtr(nowClock)}).Normalize(),
+	}
+
+	persisted := map[string]*models.CdmData{}
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
+			return []*models.Strip{fresh, expired}, nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, callsign string, data *models.CdmData) (int64, error) {
+			persisted[callsign] = data.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+		return &models.Session{ID: 7, Airport: "EKCH", ActiveRunways: pkgModels.ActiveRunways{DepartureRunways: []string{"22R"}}}, nil
+	}}
+	configStore := NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil)
+	configStore.configs["EKCH"] = &CdmAirportConfig{Airport: "EKCH", DefaultRate: 30, DefaultTaxiMinutes: 10}
+	service := newTestSequenceService(stripRepo, sessionRepo, configStore, &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service.now = func() time.Time { return now }
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatalf("RecalculateAirport returned error: %v", err)
+	}
+	assertPersistedCdmTimes(t, persisted, "SASFRESH", nowClock, freshTtot)
 }
 
 func TestSequenceService_RecalculateAirport_AlreadyInvalidStripIsNotRepersisted(t *testing.T) {

@@ -305,12 +305,12 @@ func handleCdmCtotRemove(ctx context.Context, client *Client, message Message) e
 	return client.hub.server.GetCdmService().HandleCtotRemove(ctx, client.session, event.Callsign)
 }
 
-func handleCdmApproveReqTobt(ctx context.Context, client *Client, message Message) error {
-	var event euroscope.CdmApproveReqTobtEvent
+func handleCdmReady(ctx context.Context, client *Client, message Message) error {
+	var event euroscope.CdmReadyEvent
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.server.GetCdmService().HandleApproveReqTobt(ctx, client.session, event.Callsign, client.callsign, clientRole(client))
+	return client.hub.server.GetCdmService().HandleReadyRequest(ctx, client.session, event.Callsign, client.callsign, clientRole(client))
 }
 
 func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {
@@ -423,14 +423,6 @@ func clientRole(client *Client) string {
 		return "master"
 	}
 	return "slave"
-}
-
-func handleCdmMasterToggle(ctx context.Context, client *Client, message Message) error {
-	var event euroscope.CdmMasterToggleEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
-		return err
-	}
-	return client.hub.server.GetCdmService().SetSessionCdmMaster(ctx, client.session, event.Master)
 }
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {

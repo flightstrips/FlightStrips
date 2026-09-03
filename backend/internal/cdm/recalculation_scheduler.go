@@ -77,8 +77,7 @@ func (c *RecalculationScheduler) schedulePeriodicRecalculate(ctx context.Context
 }
 
 func (c *RecalculationScheduler) canRunLocalRecalculation(session int32) bool {
-	s := c.service
-	return s.isMasterSession(session)
+	return true
 }
 
 func recalcDebounceKey(session int32, airport string) string {

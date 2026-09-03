@@ -40,12 +40,10 @@ TEST(MessageServiceEventsTest, EobtEventSerializesExpectedShape) {
     EXPECT_EQ(json.at("eobt").get<std::string>(), "1030");
 }
 
-TEST(MessageServiceEventsTest, CdmUpdateEventDeserializesRequestedTobtSourceAndFlowMessage) {
+TEST(MessageServiceEventsTest, CdmUpdateEventDeserializesFlowState) {
     const auto json = nlohmann::json::parse(R"({
         "type":"cdm_update",
         "callsign":"EIN123",
-        "req_tobt":"1025",
-        "req_tobt_source":"PILOT",
         "asat":"1031",
         "deice_type":"M",
         "ecfmp_id":"REGUL"
@@ -53,8 +51,6 @@ TEST(MessageServiceEventsTest, CdmUpdateEventDeserializesRequestedTobtSourceAndF
 
     const auto event = json.get<CdmUpdateEvent>();
     EXPECT_EQ(event.callsign, "EIN123");
-    EXPECT_EQ(event.req_tobt, "1025");
-    EXPECT_EQ(event.req_tobt_source, "PILOT");
     EXPECT_EQ(event.asat, "1031");
     EXPECT_EQ(event.deice_type, "M");
     EXPECT_EQ(event.ecfmp_id, "REGUL");
@@ -64,7 +60,7 @@ TEST(MessageServiceEventsTest, CdmUpdateBatchEventDeserializesUpdates) {
     const auto json = nlohmann::json::parse(R"({
         "type":"cdm_update_batch",
         "updates":[
-            {"callsign":"EIN123","req_tobt":"1025"},
+            {"callsign":"EIN123","tobt":"1025"},
             {"callsign":"SAS456","tsat":"1031"}
         ]
     })");
@@ -72,7 +68,7 @@ TEST(MessageServiceEventsTest, CdmUpdateBatchEventDeserializesUpdates) {
     const auto event = json.get<CdmUpdateBatchEvent>();
     ASSERT_EQ(event.updates.size(), 2);
     EXPECT_EQ(event.updates[0].callsign, "EIN123");
-    EXPECT_EQ(event.updates[0].req_tobt, "1025");
+    EXPECT_EQ(event.updates[0].tobt, "1025");
     EXPECT_EQ(event.updates[1].callsign, "SAS456");
     EXPECT_EQ(event.updates[1].tsat, "1031");
 }

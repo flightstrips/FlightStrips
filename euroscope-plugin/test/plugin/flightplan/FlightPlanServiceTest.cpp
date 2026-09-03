@@ -143,8 +143,6 @@ TEST(FlightPlanServiceStateTest, ApplyCdmUpdate_PopulatesBackendFields) {
     update.callsign = "EIN123";
     update.eobt = "1000";
     update.tobt = "1030";
-    update.req_tobt = "1025";
-    update.req_tobt_source = "PILOT";
     update.tsat = "1035";
     update.ttot = "1045";
     update.ctot = "1050";
@@ -161,8 +159,6 @@ TEST(FlightPlanServiceStateTest, ApplyCdmUpdate_PopulatesBackendFields) {
     ASSERT_NE(flightPlan, nullptr);
     EXPECT_EQ(flightPlan->cdm.eobt, "1000");
     EXPECT_EQ(flightPlan->cdm.tobt, "1030");
-    EXPECT_EQ(flightPlan->cdm.req_tobt, "1025");
-    EXPECT_EQ(flightPlan->cdm.req_tobt_source, "PILOT");
     EXPECT_EQ(flightPlan->cdm.tsat, "1035");
     EXPECT_EQ(flightPlan->cdm.ttot, "1045");
     EXPECT_EQ(flightPlan->cdm.ctot, "1050");
@@ -186,8 +182,6 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncCdm_SeedsCdmState) {
 
     BackendSyncCdmData syncData;
     syncData.tobt = "1040";
-    syncData.req_tobt = "1035";
-    syncData.req_tobt_source = "ATC";
     syncData.asat = "1042";
     syncData.deice_type = "H";
     syncData.ecfmp_id = "ATFM";
@@ -197,8 +191,6 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncCdm_SeedsCdmState) {
     const auto* flightPlan = service.GetFlightPlan("SAS321");
     ASSERT_NE(flightPlan, nullptr);
     EXPECT_EQ(flightPlan->cdm.tobt, "1040");
-    EXPECT_EQ(flightPlan->cdm.req_tobt, "1035");
-    EXPECT_EQ(flightPlan->cdm.req_tobt_source, "ATC");
     EXPECT_EQ(flightPlan->cdm.asat, "1042");
     EXPECT_EQ(flightPlan->cdm.deice_type, "H");
     EXPECT_EQ(flightPlan->cdm.ecfmp_id, "ATFM");

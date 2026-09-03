@@ -37,10 +37,9 @@ const (
 	CdmDeiceUpdate            EventType = "cdm_deice_update"
 	CdmManualCtot             EventType = "cdm_manual_ctot"
 	CdmCtotRemove             EventType = "cdm_ctot_remove"
-	CdmApproveReqTobt         EventType = "cdm_approve_req_tobt"
 	CdmAsrtToggle             EventType = "cdm_asrt_toggle"
 	CdmTsacUpdate             EventType = "cdm_tsac_update"
-	CdmMasterToggle           EventType = "cdm_master_toggle"
+	CdmReady                  EventType = "cdm_ready"
 	GenerateSquawk            EventType = "generate_squawk"
 	Eobt                      EventType = "eobt"
 	Route                     EventType = "route"
@@ -346,8 +345,6 @@ type CdmUpdateEvent struct {
 	Tobt                  string `json:"tobt,omitempty"`
 	TobtSetBy             string `json:"tobt_set_by,omitempty"`
 	TobtConfirmedBy       string `json:"tobt_confirmed_by,omitempty"`
-	ReqTobt               string `json:"req_tobt,omitempty"`
-	ReqTobtType           string `json:"req_tobt_type,omitempty"`
 	Tsat                  string `json:"tsat,omitempty"`
 	Ttot                  string `json:"ttot,omitempty"`
 	Ctot                  string `json:"ctot,omitempty"`
@@ -384,12 +381,8 @@ type CdmCtotRemoveEvent struct {
 	Callsign string `json:"callsign"`
 }
 
-type CdmApproveReqTobtEvent struct {
+type CdmReadyEvent struct {
 	Callsign string `json:"callsign"`
-}
-
-type CdmMasterToggleEvent struct {
-	Master bool `json:"master"`
 }
 
 type BackendSyncCdmData struct {
@@ -397,8 +390,6 @@ type BackendSyncCdmData struct {
 	Tobt                  string `json:"tobt,omitempty"`
 	TobtSetBy             string `json:"tobt_set_by,omitempty"`
 	TobtConfirmedBy       string `json:"tobt_confirmed_by,omitempty"`
-	ReqTobt               string `json:"req_tobt,omitempty"`
-	ReqTobtType           string `json:"req_tobt_type,omitempty"`
 	Tsat                  string `json:"tsat,omitempty"`
 	Ttot                  string `json:"ttot,omitempty"`
 	Ctot                  string `json:"ctot,omitempty"`
@@ -486,19 +477,11 @@ func (e CdmCtotRemoveEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 
-func (e CdmApproveReqTobtEvent) GetType() EventType {
-	return CdmApproveReqTobt
+func (e CdmReadyEvent) GetType() EventType {
+	return CdmReady
 }
 
-func (e CdmApproveReqTobtEvent) Marshal() ([]byte, error) {
-	return marshall(e)
-}
-
-func (e CdmMasterToggleEvent) GetType() EventType {
-	return CdmMasterToggle
-}
-
-func (e CdmMasterToggleEvent) Marshal() ([]byte, error) {
+func (e CdmReadyEvent) Marshal() ([]byte, error) {
 	return marshall(e)
 }
 

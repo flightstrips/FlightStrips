@@ -14,6 +14,7 @@ type constructorCdmService struct{}
 func (constructorCdmService) TriggerRecalculate(context.Context, int32, string) {}
 func (constructorCdmService) SyncAirportLvoFromRunwayStatus(context.Context, string, map[string]string) {
 }
+func (constructorCdmService) DeregisterMasterAirport(context.Context, string) error { return nil }
 func (constructorCdmService) HandleReadyRequest(context.Context, int32, string, string, string) error {
 	return nil
 }
@@ -39,15 +40,10 @@ func (constructorCdmService) HandleManualCtot(context.Context, int32, string, st
 	return nil
 }
 func (constructorCdmService) HandleCtotRemove(context.Context, int32, string) error { return nil }
-func (constructorCdmService) HandleApproveReqTobt(context.Context, int32, string, string, string) error {
-	return nil
-}
 func (constructorCdmService) SyncAsatForGroundState(context.Context, int32, string, string) error {
 	return nil
 }
 func (constructorCdmService) RequestBetterTobt(context.Context, int32, string) error { return nil }
-func (constructorCdmService) SetSessionCdmMaster(context.Context, int32, bool) error { return nil }
-
 func validServerDependencies() Dependencies {
 	return Dependencies{
 		DBPool:           &pgxpool.Pool{},

@@ -139,7 +139,7 @@ template void FlightStrips::websocket::WebSocketService::SendEvent<CdmAsrtToggle
 template void FlightStrips::websocket::WebSocketService::SendEvent<CdmDeiceUpdateEvent>(const CdmDeiceUpdateEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<CdmManualCtotEvent>(const CdmManualCtotEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<CdmCtotRemoveEvent>(const CdmCtotRemoveEvent & event);
-template void FlightStrips::websocket::WebSocketService::SendEvent<CdmApproveReqTobtEvent>(const CdmApproveReqTobtEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<CdmReadyEvent>(const CdmReadyEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<SquawkEvent>(const SquawkEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<StandEvent>(const StandEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<TrackingControllerChangedEvent>(const TrackingControllerChangedEvent & event);

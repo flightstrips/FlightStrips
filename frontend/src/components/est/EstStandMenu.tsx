@@ -80,7 +80,7 @@ export default function EstStandMenu({
   }, [anchor]);
 
   const { tobtBg, tsatBg } = useCDMColors({ bay: strip.bay as Bay, tsat: strip.tsat, tobt: strip.tobt, phase: strip.phase });
-  const emphasizeTobtTime = hasManualTobtSource(strip.req_tobt_type, strip.tobt_set_by);
+	const emphasizeTobtTime = hasManualTobtSource(strip.tobt_set_by);
 
   if (!open || !anchor) {
     return null;

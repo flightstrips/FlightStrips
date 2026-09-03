@@ -17,8 +17,6 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 		CdmData: (&internalModels.CdmData{
 			Eobt:                   testStringPointer("101500"),
 			Tobt:                   testStringPointer("102000"),
-			ReqTobt:                testStringPointer("102500"),
-			ReqTobtType:            testStringPointer("PILOT"),
 			TobtSetBy:              testStringPointer("EKCH_DEL"),
 			Tsat:                   testStringPointer("103000"),
 			Ttot:                   testStringPointer("104000"),
@@ -38,8 +36,6 @@ func TestMapStripToFrontendModel_TruncatesCdmTimes(t *testing.T) {
 
 	assert.Equal(t, "1015", model.Eobt)
 	assert.Equal(t, "1020", model.Tobt)
-	assert.Equal(t, "1025", model.ReqTobt)
-	assert.Equal(t, "PILOT", model.ReqTobtType)
 	assert.Equal(t, "EKCH_DEL", model.TobtSetBy)
 	assert.Equal(t, "1030", model.Tsat)
 	assert.Equal(t, "1040", model.Ttot)
@@ -60,8 +56,6 @@ func TestMapStripToFrontendModel_CdmFieldsMatchSharedCdmEvent(t *testing.T) {
 		CdmData: (&internalModels.CdmData{
 			Eobt:                   testStringPointer("101500"),
 			Tobt:                   testStringPointer("102000"),
-			ReqTobt:                testStringPointer("102500"),
-			ReqTobtType:            testStringPointer("PILOT"),
 			TobtSetBy:              testStringPointer("EKCH_DEL"),
 			Tsat:                   testStringPointer("103000"),
 			Ttot:                   testStringPointer("104000"),
@@ -86,8 +80,6 @@ func TestMapStripToFrontendModel_CdmFieldsMatchSharedCdmEvent(t *testing.T) {
 		Callsign:               model.Callsign,
 		Eobt:                   model.Eobt,
 		Tobt:                   model.Tobt,
-		ReqTobt:                model.ReqTobt,
-		ReqTobtType:            model.ReqTobtType,
 		TobtSetBy:              model.TobtSetBy,
 		Tsat:                   model.Tsat,
 		Ttot:                   model.Ttot,
@@ -128,8 +120,6 @@ func TestSendCdmUpdate_TruncatesClockFields(t *testing.T) {
 		Callsign:               "SAS123",
 		Eobt:                   "101500",
 		Tobt:                   "102000",
-		ReqTobt:                "102500",
-		ReqTobtType:            "PILOT",
 		TobtSetBy:              "EKCH_DEL",
 		Tsat:                   "103000",
 		Ttot:                   "104000",
@@ -151,8 +141,6 @@ func TestSendCdmUpdate_TruncatesClockFields(t *testing.T) {
 	assert.Equal(t, "SAS123", event.Callsign)
 	assert.Equal(t, "101500", event.Eobt)
 	assert.Equal(t, "102000", event.Tobt)
-	assert.Equal(t, "102500", event.ReqTobt)
-	assert.Equal(t, "PILOT", event.ReqTobtType)
 	assert.Equal(t, "EKCH_DEL", event.TobtSetBy)
 	assert.Equal(t, "103000", event.Tsat)
 	assert.Equal(t, "104000", event.Ttot)

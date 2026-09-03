@@ -56,7 +56,6 @@ export function ClxClearedStrip({
   stand,
   eobt,
   tobt,
-  reqTobtType,
   tobtSetBy,
   tsat,
   ctot,
@@ -104,7 +103,7 @@ export function ClxClearedStrip({
   const standYellow = unexpectedChangeFields?.includes("stand");
   const { tobtBg, tsatBg } = useCDMColors({ bay: bay ?? Bay.Unknown, tsat: tsat ?? "", tobt: tobt ?? "", phase });
   const { ctotBg, ctotColor, showCtot } = useCTOTColor(ctot ?? "");
-  const emphasizeTobtTime = hasManualTobtSource(reqTobtType, tobtSetBy);
+	const emphasizeTobtTime = hasManualTobtSource(tobtSetBy);
   const hasCtot = Boolean(ctot?.trim());
   const cellBorderColor = getCellBorderColor(marked);
   const manualBlue = isManual && !textWhite ? COLOR_MANUAL_BLUE : undefined;

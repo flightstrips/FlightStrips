@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -51,11 +52,16 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 	}
 
 	ctotChanged := helpers.ValueOrDefault(flight.Ctot) != nextCtot
-	reqTobtChanged := helpers.ValueOrDefault(flight.ReqTobt) != row.CDMData.ReqTOBT
-	reqTobtTypeChanged := helpers.ValueOrDefault(flight.ReqTobtType) != row.CDMData.ReqTOBTType
-	changed := ctotChanged ||
-		reqTobtChanged ||
-		reqTobtTypeChanged ||
+	requestedTobt := truncateCDMClockValue(strings.TrimSpace(row.CDMData.ReqTOBT))
+	requestSource := strings.ToUpper(strings.TrimSpace(row.CDMData.ReqTOBTType))
+	if requestSource == "" {
+		requestSource = "VIFF"
+	}
+	requestChanged := requestedTobt != "" && isValidHHMM(requestedTobt) &&
+		(helpers.ValueOrDefault(flight.Tobt) != requestedTobt ||
+			helpers.ValueOrDefault(flight.TobtSetBy) != "vIFF" ||
+			helpers.ValueOrDefault(flight.TobtConfirmedBy) != requestSource)
+	changed := ctotChanged || requestChanged ||
 		helpers.ValueOrDefault(flight.MostPenalizingAirspace) != row.MostPenalizingAirspace ||
 		helpers.ValueOrDefault(flight.EcfmpID) != row.CDMData.Reason
 	if !changed {
@@ -75,10 +81,17 @@ func (c *MasterViffSync) mergeMasterViffFlight(ctx context.Context, session int3
 		updated.MostPenalizingAirspace = nil
 		updated.EcfmpID = nil
 	}
-	updated.ReqTobt = stringPointerIfPresent(row.CDMData.ReqTOBT)
-	updated.ReqTobtType = stringPointerIfPresent(row.CDMData.ReqTOBTType)
-	needsRecalculate := ctotChanged || reqTobtChanged
-	if needsRecalculate {
+	needsRecalculate := ctotChanged
+	if requestChanged {
+		updated.Tobt = &requestedTobt
+		setBy := "vIFF"
+		updated.TobtSetBy = &setBy
+		updated.TobtConfirmedBy = &requestSource
+		updated.TobtAutoSynced = false
+		updated.TobtManuallyConfirmed = true
+		updated.ViffRequestSyncPending = true
+		needsRecalculate = applyTobtRecalculationPolicy(updated, requestedTobt) || needsRecalculate
+	} else if ctotChanged {
 		updated.MarkLocalRecalculationPending()
 	}
 
@@ -102,6 +115,12 @@ func (c *MasterViffSync) pushViffDataAfterRecalc(ctx context.Context, session in
 			slog.String("callsign", callsign),
 			slog.Any("error", err),
 		)
+		return
+	}
+	// READY-derived state is exported synchronously by completeReadyViffSync
+	// only after this flight's own REA/1 has succeeded. An airport-wide
+	// recalculation for another flight must not bypass that ordering.
+	if data.ReadySyncPending {
 		return
 	}
 
@@ -161,6 +180,17 @@ func (c *MasterViffSync) pushViffAfterRecalc(ctx context.Context, callsign strin
 		return nil
 	}
 	return s.pushViffState(ctx, callsign, state)
+}
+
+func (c *MasterViffSync) pushAuthoritativeViffState(ctx context.Context, callsign string, strip *models.Strip, data *models.CdmData) error {
+	if _, ok := buildViffPushState(callsign, strip, data); ok {
+		return c.pushViffAfterRecalc(ctx, callsign, strip, data)
+	}
+	tobt := truncateCDMClockValue(helpers.ValueOrDefault(data.EffectiveTobt()))
+	if !isValidHHMM(tobt) {
+		return fmt.Errorf("cannot export authoritative CDM state for %s without a valid TOBT", callsign)
+	}
+	return c.service.client.IFPSSetTobt(ctx, callsign, tobt, c.service.resolveTaxiMinutes(strip))
 }
 
 func (c *MasterViffSync) pushViffState(ctx context.Context, callsign string, state viffPushState) error {
@@ -253,6 +283,15 @@ func (c *MasterViffSync) registerMasterAsync(ctx context.Context, airport string
 			)
 		}
 	}()
+}
+
+func (c *MasterViffSync) deregisterMaster(ctx context.Context, airport string) error {
+	s := c.service
+	airport = strings.TrimSpace(airport)
+	if !s.client.isValid || airport == "" {
+		return nil
+	}
+	return s.client.ClearMasterAirport(ctx, airport, s.masterPosition())
 }
 
 func masterFlightNeedsExport(local *models.CdmData, remote IFPSData) bool {

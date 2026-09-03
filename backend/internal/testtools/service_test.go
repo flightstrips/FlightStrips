@@ -40,7 +40,7 @@ func TestScenariosUseRealReconciliationAndLifecycle(t *testing.T) {
 	sessionRepo := postgres.NewSessionRepository(pool)
 	stripRepo := postgres.NewStripRepository(pool)
 	assignmentRepo := postgres.NewStandAssignmentRepository(pool)
-	sessionID, err := sessionRepo.Create(ctx, &models.Session{Name: "SAT-TEST", Airport: "EKCH", CdmMaster: true})
+	sessionID, err := sessionRepo.Create(ctx, &models.Session{Name: "SAT-TEST", Airport: "EKCH"})
 	require.NoError(t, err)
 	otherSessionID, err := sessionRepo.Create(ctx, &models.Session{Name: "SAT-OTHER", Airport: "EKCH"})
 	require.NoError(t, err)

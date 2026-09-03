@@ -49,8 +49,7 @@
 #define EVENT_CDM_DEICE_UPDATE_NAME "cdm_deice_update"
 #define EVENT_CDM_MANUAL_CTOT_NAME "cdm_manual_ctot"
 #define EVENT_CDM_CTOT_REMOVE_NAME "cdm_ctot_remove"
-#define EVENT_CDM_APPROVE_REQ_TOBT_NAME "cdm_approve_req_tobt"
-#define EVENT_CDM_MASTER_TOGGLE_NAME "cdm_master_toggle"
+#define EVENT_CDM_READY_NAME "cdm_ready"
 #define EVENT_PDC_STATE_CHANGE_NAME "pdc_state_change"
 #define EVENT_ISSUE_PDC_CLEARANCE_NAME "issue_pdc_clearance"
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
@@ -104,8 +103,7 @@ enum EventType {
     EVENT_CDM_DEICE_UPDATE,
     EVENT_CDM_MANUAL_CTOT,
     EVENT_CDM_CTOT_REMOVE,
-    EVENT_CDM_APPROVE_REQ_TOBT,
-    EVENT_CDM_MASTER_TOGGLE,
+    EVENT_CDM_READY,
     EVENT_PDC_STATE_CHANGE,
     EVENT_ISSUE_PDC_CLEARANCE,
     EVENT_PDC_REVERT_TO_VOICE,
@@ -159,8 +157,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                   {EVENT_CDM_DEICE_UPDATE, EVENT_CDM_DEICE_UPDATE_NAME},
                                   {EVENT_CDM_MANUAL_CTOT, EVENT_CDM_MANUAL_CTOT_NAME},
                                   {EVENT_CDM_CTOT_REMOVE, EVENT_CDM_CTOT_REMOVE_NAME},
-                                 {EVENT_CDM_APPROVE_REQ_TOBT, EVENT_CDM_APPROVE_REQ_TOBT_NAME},
-                                 {EVENT_CDM_MASTER_TOGGLE, EVENT_CDM_MASTER_TOGGLE_NAME},
+                                 {EVENT_CDM_READY, EVENT_CDM_READY_NAME},
                                  {EVENT_PDC_STATE_CHANGE, EVENT_PDC_STATE_CHANGE_NAME},
                                  {EVENT_ISSUE_PDC_CLEARANCE, EVENT_ISSUE_PDC_CLEARANCE_NAME},
                                  {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
@@ -239,8 +236,6 @@ struct CdmUpdateEvent final : Event {
     std::string callsign;
     std::string eobt;
     std::string tobt;
-    std::string req_tobt;
-    std::string req_tobt_source;
     std::string tobt_confirmed_by;
     std::string tsat;
     std::string ttot;
@@ -264,8 +259,6 @@ struct CdmUpdateEvent final : Event {
         callsign,
         eobt,
         tobt,
-        req_tobt,
-        req_tobt_source,
         tobt_confirmed_by,
         tsat,
         ttot,
@@ -362,31 +355,19 @@ struct CdmCtotRemoveEvent final : Event {
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmCtotRemoveEvent, callsign, type);
 };
 
-struct CdmApproveReqTobtEvent final : Event {
+struct CdmReadyEvent final : Event {
     std::string callsign;
 
-    CdmApproveReqTobtEvent() : Event(EVENT_CDM_APPROVE_REQ_TOBT) {}
-    explicit CdmApproveReqTobtEvent(std::string callsign)
-        : Event(EVENT_CDM_APPROVE_REQ_TOBT), callsign(std::move(callsign)) {}
+    CdmReadyEvent() : Event(EVENT_CDM_READY) {}
+    explicit CdmReadyEvent(std::string callsign)
+        : Event(EVENT_CDM_READY), callsign(std::move(callsign)) {}
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmApproveReqTobtEvent, callsign, type);
-};
-
-struct CdmMasterToggleEvent final : Event {
-    bool master{false};
-
-    CdmMasterToggleEvent() : Event(EVENT_CDM_MASTER_TOGGLE) {}
-    explicit CdmMasterToggleEvent(const bool master)
-        : Event(EVENT_CDM_MASTER_TOGGLE), master(master) {}
-
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmMasterToggleEvent, master, type);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(CdmReadyEvent, callsign, type);
 };
 
 struct BackendSyncCdmData final {
     std::string eobt;
     std::string tobt;
-    std::string req_tobt;
-    std::string req_tobt_source;
     std::string tobt_confirmed_by;
     std::string tsat;
     std::string ttot;
@@ -405,8 +386,6 @@ struct BackendSyncCdmData final {
         BackendSyncCdmData,
         eobt,
         tobt,
-        req_tobt,
-        req_tobt_source,
         tobt_confirmed_by,
         tsat,
         ttot,

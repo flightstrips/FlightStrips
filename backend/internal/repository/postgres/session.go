@@ -31,17 +31,12 @@ func sessionToModel(db database.Session) *models.Session {
 		PdcSequence:        db.PdcSequence,
 		PdcMessageSequence: db.PdcMessageSequence,
 		AvailableSids:      db.AvailableSids,
-		CdmMaster:          db.CdmMaster,
 	}
 }
 
 // Create inserts a new session
 func (r *sessionRepository) Create(ctx context.Context, session *models.Session) (int32, error) {
-	return r.queries.InsertSession(ctx, database.InsertSessionParams{
-		Name:      session.Name,
-		Airport:   session.Airport,
-		CdmMaster: session.CdmMaster,
-	})
+	return r.queries.InsertSession(ctx, database.InsertSessionParams{Name: session.Name, Airport: session.Airport})
 }
 
 // GetByID retrieves a session by ID
@@ -126,14 +121,6 @@ func (r *sessionRepository) UpdateActiveRunways(ctx context.Context, id int32, a
 	return r.queries.UpdateActiveRunways(ctx, database.UpdateActiveRunwaysParams{
 		ID:            id,
 		ActiveRunways: activeRunways,
-	})
-}
-
-// UpdateCdmMaster sets whether this session acts as CDM master.
-func (r *sessionRepository) UpdateCdmMaster(ctx context.Context, id int32, master bool) error {
-	return r.queries.UpdateCdmMaster(ctx, database.UpdateCdmMasterParams{
-		ID:        id,
-		CdmMaster: master,
 	})
 }
 

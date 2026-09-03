@@ -14,8 +14,6 @@ func BuildFrontendCdmDataEvent(callsign string, data *models.CdmData) frontendEv
 		Callsign:               callsign,
 		Eobt:                   truncateFrontendClockValue(valueOrEmpty(data.EffectiveEobt())),
 		Tobt:                   truncateFrontendClockValue(valueOrEmpty(data.EffectiveTobt())),
-		ReqTobt:                truncateFrontendClockValue(valueOrEmpty(data.EffectiveReqTobt())),
-		ReqTobtType:            valueOrEmpty(data.EffectiveReqTobtType()),
 		TobtSetBy:              valueOrEmpty(data.TobtSetBy),
 		Tsat:                   truncateFrontendClockValue(valueOrEmpty(data.EffectiveTsat())),
 		Ttot:                   truncateFrontendClockValue(valueOrEmpty(data.EffectiveTtot())),

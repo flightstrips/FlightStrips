@@ -8,7 +8,6 @@ import (
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -30,10 +29,6 @@ type Service struct {
 	sequenceService        *SequenceService
 	validationReevaluator  StripValidationReevaluator
 	debouncer              *recalcDebouncer
-	// sessionMaster tracks per-session CDM master status as an in-memory cache.
-	// Populated from session.CdmMaster during syncSessions and updated
-	// immediately when SetSessionCdmMaster is called.
-	sessionMaster sync.Map // map[int32]bool
 	// sessionUsesViff tracks whether a session is allowed to exchange data with the vIFF network.
 	// Populated from session.Name during syncSessions and refreshed on demand for later runtime calls.
 	sessionUsesViff sync.Map // map[int32]bool
@@ -136,6 +131,10 @@ func (s *Service) SyncAirportLvoFromRunwayStatus(ctx context.Context, airport st
 	s.syncService.SyncAirportLvoFromRunwayStatus(ctx, airport, runwayStatus)
 }
 
+func (s *Service) DeregisterMasterAirport(ctx context.Context, airport string) error {
+	return s.masterViffSync.deregisterMaster(ctx, airport)
+}
+
 func (s *Service) TriggerRecalculateForAirport(ctx context.Context, airport string) error {
 	return s.recalculationScheduler.TriggerRecalculateForAirport(ctx, airport)
 }
@@ -192,20 +191,8 @@ func (s *Service) HandleCtotRemove(ctx context.Context, session int32, callsign 
 	return s.actionService.HandleCtotRemove(ctx, session, callsign)
 }
 
-func (s *Service) HandleApproveReqTobt(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
-	return s.actionService.HandleApproveReqTobt(ctx, session, callsign, sourcePosition, sourceRole)
-}
-
-func (s *Service) clearReqTobtAsync(session int32, callsign string) {
-	s.actionService.clearReqTobtAsync(context.Background(), session, callsign)
-}
-
 func (s *Service) HandleReadyRequest(ctx context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	return s.actionService.HandleReadyRequest(ctx, session, callsign, sourcePosition, sourceRole)
-}
-
-func (s *Service) SetReady(ctx context.Context, session int32, callsign string) error {
-	return s.actionService.SetReady(ctx, session, callsign)
 }
 
 func (s *Service) RequestBetterTobt(ctx context.Context, session int32, callsign string) error {
@@ -353,12 +340,6 @@ func (s *Service) SetSequenceService(sequenceService *SequenceService) {
 	}
 }
 
-// isMasterSession returns true if the in-memory cache indicates this session is CDM master.
-func (s *Service) isMasterSession(sessionID int32) bool {
-	v, ok := s.sessionMaster.Load(sessionID)
-	return ok && v.(bool)
-}
-
 func isViffEnabledSession(name string) bool {
 	return strings.EqualFold(strings.TrimSpace(name), "LIVE")
 }
@@ -375,60 +356,6 @@ func (s *Service) usesViffSession(sessionID int32) bool {
 	usesViff := isViffEnabledSession(session.Name)
 	s.sessionUsesViff.Store(sessionID, usesViff)
 	return usesViff
-}
-
-// SetSessionCdmMaster persists the CDM master flag for a session, updates the in-memory cache,
-// and registers or deregisters the airport with the vIFF CDM network accordingly.
-func (s *Service) SetSessionCdmMaster(ctx context.Context, sessionID int32, master bool) error {
-	if err := s.sessionRepo.UpdateCdmMaster(ctx, sessionID, master); err != nil {
-		return fmt.Errorf("update CDM master for session %d: %w", sessionID, err)
-	}
-
-	if master {
-		s.sessionMaster.Store(sessionID, true)
-		// Fetch session to get airport for immediate master registration.
-		sess, err := s.sessionRepo.GetByID(ctx, sessionID)
-		if err == nil && sess != nil {
-			usesViff := isViffEnabledSession(sess.Name)
-			s.sessionUsesViff.Store(sessionID, usesViff)
-			if _, err := s.normalizeExistingMasterSessionEobts(ctx, sessionID, sess.Airport, time.Now().UTC()); err != nil {
-				return fmt.Errorf("normalize master EOBTs for session %d: %w", sessionID, err)
-			}
-			if usesViff {
-				s.masterViffSync.registerMasterAsync(ctx, sess.Airport)
-			}
-			s.TriggerRecalculate(ctx, sessionID, sess.Airport)
-		}
-	} else {
-		s.sessionMaster.Delete(sessionID)
-		// Deregister from vIFF if client is valid.
-		if s.client.isValid {
-			sess, err := s.sessionRepo.GetByID(ctx, sessionID)
-			if err == nil && sess != nil {
-				usesViff := isViffEnabledSession(sess.Name)
-				s.sessionUsesViff.Store(sessionID, usesViff)
-				if usesViff && sess.Airport != "" {
-					position := s.masterPosition()
-					asyncCtx := detachedContext(ctx)
-					go func() {
-						if err := s.client.ClearMasterAirport(asyncCtx, sess.Airport, position); err != nil {
-							slog.WarnContext(asyncCtx, "Failed to clear CDM master airport",
-								slog.String("airport", sess.Airport),
-								slog.Int("session", int(sessionID)),
-								slog.Any("error", err),
-							)
-						}
-					}()
-				}
-			}
-		}
-	}
-
-	slog.InfoContext(ctx, "CDM master status updated",
-		slog.Int("session", int(sessionID)),
-		slog.Bool("master", master),
-	)
-	return nil
 }
 
 func truncateCDMClockValue(value string) string {

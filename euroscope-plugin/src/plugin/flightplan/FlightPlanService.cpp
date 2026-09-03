@@ -376,8 +376,6 @@ namespace FlightStrips::flightplan {
         auto& plan = m_flightPlans.try_emplace(event.callsign).first->second;
         plan.cdm.eobt = event.eobt;
         plan.cdm.tobt = event.tobt;
-        plan.cdm.req_tobt = event.req_tobt;
-        plan.cdm.req_tobt_source = event.req_tobt_source;
         plan.cdm.tobt_confirmed_by = event.tobt_confirmed_by;
         plan.cdm.tsat = event.tsat;
         plan.cdm.ttot = event.ttot;
@@ -399,8 +397,6 @@ namespace FlightStrips::flightplan {
         event.callsign = callsign;
         event.eobt = cdmData.eobt;
         event.tobt = cdmData.tobt;
-        event.req_tobt = cdmData.req_tobt;
-        event.req_tobt_source = cdmData.req_tobt_source;
         event.tobt_confirmed_by = cdmData.tobt_confirmed_by;
         event.tsat = cdmData.tsat;
         event.ttot = cdmData.ttot;

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -151,7 +152,7 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		slog.Debug("Creating session", slog.String("name", name), slog.String("airport", airport))
-		newSession := &models.Session{Name: name, Airport: airport, CdmMaster: true}
+		newSession := &models.Session{Name: name, Airport: airport}
 		id, err := sessionRepo.Create(context.Background(), newSession)
 
 		if err != nil {
@@ -165,10 +166,6 @@ func (s *Server) GetOrCreateSession(airport string, name string) (shared.Session
 
 			return shared.Session{}, err
 
-		}
-
-		if err := s.cdmService.SetSessionCdmMaster(context.Background(), id, true); err != nil {
-			return shared.Session{}, fmt.Errorf("initialize CDM master for new session %d: %w", id, err)
 		}
 
 		return shared.Session{Name: name, Airport: airport, Id: id}, nil
@@ -194,21 +191,7 @@ func (s *Server) StartSessionMonitor(ctx context.Context) {
 
 		for _, session := range sessions {
 			slog.InfoContext(ctx, "Removing expired session", slog.Int("session", int(session.ID)))
-
-			if session.CdmMaster {
-				if err := s.cdmService.SetSessionCdmMaster(ctx, session.ID, false); err != nil {
-					slog.ErrorContext(ctx, "Failed to deregister CDM master for expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
-				}
-			}
-
-			count, err := s.sessionRepo.Delete(ctx, session.ID)
-			if err != nil {
-				slog.ErrorContext(ctx, "Failed to remove expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
-			}
-
-			if count != 1 {
-				slog.WarnContext(ctx, "Failed to remove expired session (no changes)", slog.Int("session", int(session.ID)))
-			}
+			s.removeExpiredSession(ctx, session)
 		}
 
 		select {
@@ -216,5 +199,27 @@ func (s *Server) StartSessionMonitor(ctx context.Context) {
 			return
 		case <-ticker.C:
 		}
+	}
+}
+
+func (s *Server) removeExpiredSession(ctx context.Context, session *models.Session) {
+	if strings.EqualFold(strings.TrimSpace(session.Name), "LIVE") {
+		if err := s.cdmService.DeregisterMasterAirport(ctx, session.Airport); err != nil {
+			slog.ErrorContext(ctx, "Failed to deregister CDM master airport",
+				slog.Int("session", int(session.ID)),
+				slog.String("airport", session.Airport),
+				slog.Any("error", err),
+			)
+			return
+		}
+	}
+
+	count, err := s.sessionRepo.Delete(ctx, session.ID)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to remove expired session", slog.Int("session", int(session.ID)), slog.Any("error", err))
+		return
+	}
+	if count != 1 {
+		slog.WarnContext(ctx, "Failed to remove expired session (no changes)", slog.Int("session", int(session.ID)))
 	}
 }

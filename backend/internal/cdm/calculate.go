@@ -19,7 +19,6 @@ type CalcInput struct {
 	Eobt              string
 	Tobt              string
 	TobtAuthoritative bool
-	ReqTobt           string
 	Ctot              string
 	Aobt              string
 	Asat              string
@@ -236,11 +235,6 @@ func selectCalculationBase(input CalcInput) string {
 func selectCalculationBaseWithSource(input CalcInput) (string, string) {
 	base := normalizeCalculationClock(input.Tobt)
 	source := models.CdmCalculationBaseTobt
-	if base == "" {
-		base = normalizeCalculationClock(input.ReqTobt)
-		source = models.CdmCalculationBaseReqTobt
-	}
-
 	eobt := normalizeCalculationClock(input.Eobt)
 	if base == "" {
 		if eobt == "" {

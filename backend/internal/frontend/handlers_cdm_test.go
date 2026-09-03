@@ -34,6 +34,10 @@ func (s *spyCdmService) SyncAirportLvoFromRunwayStatus(_ context.Context, _ stri
 	panic("SyncAirportLvoFromRunwayStatus should not be called in this test")
 }
 
+func (s *spyCdmService) DeregisterMasterAirport(context.Context, string) error {
+	panic("DeregisterMasterAirport should not be called in this test")
+}
+
 func (s *spyCdmService) HandleReadyRequest(_ context.Context, session int32, callsign string, sourcePosition string, sourceRole string) error {
 	s.called = true
 	s.session = session
@@ -79,20 +83,12 @@ func (s *spyCdmService) HandleCtotRemove(_ context.Context, _ int32, _ string) e
 	panic("HandleCtotRemove should not be called directly from handleCdmReady")
 }
 
-func (s *spyCdmService) HandleApproveReqTobt(_ context.Context, _ int32, _ string, _ string, _ string) error {
-	panic("HandleApproveReqTobt should not be called directly from handleCdmReady")
-}
-
 func (s *spyCdmService) SyncAsatForGroundState(_ context.Context, _ int32, _ string, _ string) error {
 	panic("SyncAsatForGroundState should not be called directly from handleCdmReady")
 }
 
 func (s *spyCdmService) RequestBetterTobt(_ context.Context, _ int32, _ string) error {
 	panic("RequestBetterTobt should not be called directly from handleCdmReady")
-}
-
-func (s *spyCdmService) SetSessionCdmMaster(_ context.Context, _ int32, _ bool) error {
-	panic("SetSessionCdmMaster should not be called in this test")
 }
 
 func TestHandleCdmReady_UsesOrchestrationMethod(t *testing.T) {

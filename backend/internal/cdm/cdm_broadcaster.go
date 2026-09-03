@@ -18,9 +18,9 @@ type CdmBroadcaster struct {
 }
 
 type cdmSnapshot struct {
-	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, ReqTobt, ReqTobtType, MostPenalizingAirspace, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
-	EcfmpRestrictionsJSON                                                                                                                                              string
-	TobtAutoSynced, TobtManuallyConfirmed                                                                                                                              bool
+	Eobt, Tobt, Tsat, Ctot, CtotSource, Ttot, Asat, Asrt, Tsac, Aobt, Status, MostPenalizingAirspace, EcfmpID, TobtSetBy, TobtConfirmedBy, Phase string
+	EcfmpRestrictionsJSON                                                                                                                        string
+	TobtAutoSynced, TobtManuallyConfirmed                                                                                                        bool
 }
 
 func (c *CdmBroadcaster) broadcastIfChanged(session int32, callsign string, before, after cdmSnapshot) {
@@ -32,8 +32,6 @@ func (c *CdmBroadcaster) broadcastIfChanged(session int32, callsign string, befo
 	cdmData := &models.CdmData{
 		Eobt:                   stringPointerIfPresent(after.Eobt),
 		Tobt:                   stringPointerIfPresent(after.Tobt),
-		ReqTobt:                stringPointerIfPresent(after.ReqTobt),
-		ReqTobtType:            stringPointerIfPresent(after.ReqTobtType),
 		Tsat:                   stringPointerIfPresent(after.Tsat),
 		Ttot:                   stringPointerIfPresent(after.Ttot),
 		Ctot:                   stringPointerIfPresent(after.Ctot),
@@ -103,8 +101,6 @@ func snapshotCdm(data *models.CdmData) cdmSnapshot {
 		Tsac:                   helpers.ValueOrDefault(data.Tsac),
 		Aobt:                   truncateCDMClockValue(helpers.ValueOrDefault(data.Aobt)),
 		Status:                 helpers.ValueOrDefault(data.Status),
-		ReqTobt:                truncateCDMClockValue(helpers.ValueOrDefault(data.ReqTobt)),
-		ReqTobtType:            helpers.ValueOrDefault(data.ReqTobtType),
 		MostPenalizingAirspace: helpers.ValueOrDefault(data.MostPenalizingAirspace),
 		EcfmpID:                helpers.ValueOrDefault(data.EcfmpID),
 		TobtSetBy:              helpers.ValueOrDefault(data.TobtSetBy),

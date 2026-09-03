@@ -18,7 +18,7 @@ import { Children, useCallback, useLayoutEffect, useRef, useState, type CSSPrope
 import type { AnyStrip, StripRef } from "@/api/models.ts";
 import { stripDndId, isFlight } from "@/api/models.ts";
 import { isValidationBlockingForPosition } from "@/components/strip/shared";
-import { useMyPosition, useWebSocketStore } from "@/store/store-hooks";
+import { useMyPosition, useOpenValidationDialog } from "@/store/store-hooks";
 import { useStripSensors } from "./useStripSensors";
 import { makeBayContainerDropZoneId } from "./dropZoneIds";
 
@@ -156,9 +156,12 @@ export function SortableBay({
   const { containerRef, containerClassName } = useBottomAlignedBay(className, `${bayId ?? "standalone"}:${strips.length}`);
   const sensors = useStripSensors();
   const myPosition = useMyPosition();
+  const openValidationDialog = useOpenValidationDialog();
 
+  const validationBlocked = (strip: AnyStrip) =>
+    isFlight(strip) && isValidationBlockingForPosition(strip.validation_status, myPosition);
   const dragDisabled = (strip: AnyStrip) =>
-    (!isFlight(strip) && strip.owner !== myPosition) || isDragDisabled?.(strip) === true;
+    (!isFlight(strip) && strip.owner !== myPosition) || validationBlocked(strip) || isDragDisabled?.(strip) === true;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -194,7 +197,13 @@ export function SortableBay({
           <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
           <div ref={containerRef} className={containerClassName} data-strip-scroll-container="true">
               {strips.map(s => (
-                <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} dragDisabled={dragDisabled(s)}>
+                <SortableStrip
+                  key={stripDndId(s)}
+                  callsign={stripDndId(s)}
+                  dragDisabled={dragDisabled(s)}
+                  validationBlocked={validationBlocked(s)}
+                  onValidationClick={openValidationDialog}
+                >
                   {children(s)}
               </SortableStrip>
             ))}
@@ -210,7 +219,15 @@ export function SortableBay({
     <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
       <DroppableContainer bayId={bayId!} isEmpty={strips.length === 0} className={className}>
         {strips.map(s => (
-          <SortableStrip key={stripDndId(s)} callsign={stripDndId(s)} hideWhenDragging bayId={bayId} dragDisabled={dragDisabled(s)}>
+          <SortableStrip
+            key={stripDndId(s)}
+            callsign={stripDndId(s)}
+            hideWhenDragging
+            bayId={bayId}
+            dragDisabled={dragDisabled(s)}
+            validationBlocked={validationBlocked(s)}
+            onValidationClick={openValidationDialog}
+          >
             {children(s)}
           </SortableStrip>
         ))}
@@ -396,6 +413,8 @@ export function SortableStrip({
   hideWhenDragging = false,
   bayId,
   dragDisabled = false,
+  validationBlocked = false,
+  onValidationClick,
 }: {
   callsign: string;
   children: ReactNode;
@@ -403,12 +422,11 @@ export function SortableStrip({
   bayId?: string;
   /** When true, dragging is disabled for this strip (e.g. owned by another controller). */
   dragDisabled?: boolean;
+  /** When true, clicking opens the validation problem instead of interacting with the strip. */
+  validationBlocked?: boolean;
+  onValidationClick?: (callsign: string) => void;
 }) {
-  const validationDragDisabled = useWebSocketStore((state) => {
-    const strip = state.strips.find((candidate) => candidate.callsign === callsign);
-    return isValidationBlockingForPosition(strip?.validation_status, state.position);
-  });
-  const effectiveDragDisabled = dragDisabled || validationDragDisabled;
+  const effectiveDragDisabled = dragDisabled || validationBlocked;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: callsign,
     data: bayId != null ? { bayId, dropArea: "strip" } : undefined,
@@ -418,11 +436,22 @@ export function SortableStrip({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? (hideWhenDragging ? 0 : 0.5) : 1,
-    cursor: effectiveDragDisabled ? "not-allowed" : undefined,
+    cursor: validationBlocked ? "pointer" : effectiveDragDisabled ? "not-allowed" : undefined,
     touchAction: "auto",
   };
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClickCapture={validationBlocked && onValidationClick
+        ? (event) => {
+            event.stopPropagation();
+            onValidationClick(callsign);
+          }
+        : undefined}
+    >
       {children}
     </div>
   );

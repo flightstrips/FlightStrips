@@ -384,7 +384,7 @@ export default function EST() {
       return;
     }
 
-    move(statusStrip.callsign, Bay.Cleared);
+    move(statusStrip.callsign, Bay.Cleared, true);
     setStatusStand(null);
     setMenuState(null);
   }

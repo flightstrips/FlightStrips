@@ -812,6 +812,7 @@ export interface FrontendMoveEvent {
   type: ActionType.FrontendMove;
   callsign: string;
   bay: Bay;
+  clearance?: boolean;
 }
 
 export interface FrontendGenerateSquawkEvent {

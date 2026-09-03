@@ -207,7 +207,7 @@ export interface WebSocketState {
   clearStandActionRejection: () => void;
 
   // actions
-  move: (callsign: string, bay: Bay) => void;
+  move: (callsign: string, bay: Bay, clearance?: boolean) => void;
   moveToControlzone: (callsign: string) => void;
   generateSquawk: (callsign: string) => boolean;
   updateOrder: (callsign: string, insertAfter: StripRef | null) => void;
@@ -455,12 +455,8 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     closeStripContextMenu: () => set({ contextMenu: null }),
     openValidationDialog,
     closeValidationDialog: () => set({ validationDialogCallsign: null }),
-     move: (callsign, bay) => set((state) => {
-          if (bay === Bay.Controlzone) {
-            toast.error("Use FIND or NEW to place strips in CONTROLZONE.");
-            return state;
-          }
-          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay})) {
+     move: (callsign, bay, clearance = false) => set((state) => {
+          if (!sendGuardedStripEvent(callsign, { type: "move" }, {type: ActionType.FrontendMove, callsign, bay, clearance})) {
             return state;
           }
 

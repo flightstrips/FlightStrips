@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.0.1...frontend/v1.1.0) (2026-09-04)
+
+
+### Features
+
+* **frontend:** temp go around sound ([145d82a](https://github.com/flightstrips/FlightStrips/commit/145d82a739a686dedd9fb0d5c1640cd493c89479))
+
+
+### Bug Fixes
+
+* **clearance:** ignore own cross-coupled and observer positions ([#505](https://github.com/flightstrips/FlightStrips/issues/505)) ([bfd501b](https://github.com/flightstrips/FlightStrips/commit/bfd501b16b5f6a9cb33635f4ac6be46ad459f944))
+
 ## [1.0.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.0.0...frontend/v1.0.1) (2026-09-04)
 
 

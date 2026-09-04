@@ -39,6 +39,7 @@ type MockStripRepository struct {
 	UpdateGroundStateFn             func(ctx context.Context, session int32, callsign string, state *string, bay string, version *int32) (int64, error)
 	UpdateClearedFlagFn             func(ctx context.Context, session int32, callsign string, cleared bool, bay string, version *int32) (int64, error)
 	UpdateAircraftPositionFn        func(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, version *int32) (int64, error)
+	UpdateAircraftPositionAndBayFn  func(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, sequence int32, version int32) (int64, error)
 	UpdateBayFn                     func(ctx context.Context, session int32, callsign string, bay string, version *int32) (int64, error)
 	UpdateHeadingFn                 func(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (int64, error)
 	UpdateStandFn                   func(ctx context.Context, session int32, callsign string, stand *string, version *int32) (int64, error)
@@ -311,6 +312,16 @@ func (m *MockStripRepository) UpdateAircraftPosition(ctx context.Context, sessio
 		panic("unexpected call to MockStripRepository.UpdateAircraftPosition")
 	}
 	return m.UpdateAircraftPositionFn(ctx, session, callsign, lat, lon, alt, bay, version)
+}
+
+func (m *MockStripRepository) UpdateAircraftPositionAndBay(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, sequence int32, version int32) (int64, error) {
+	if m.UpdateAircraftPositionAndBayFn != nil {
+		return m.UpdateAircraftPositionAndBayFn(ctx, session, callsign, lat, lon, alt, bay, sequence, version)
+	}
+	if m.UpdateAircraftPositionFn != nil {
+		return m.UpdateAircraftPositionFn(ctx, session, callsign, lat, lon, alt, bay, &version)
+	}
+	panic("unexpected call to MockStripRepository.UpdateAircraftPositionAndBay")
 }
 
 func (m *MockStripRepository) UpdateBay(ctx context.Context, session int32, callsign string, bay string, version *int32) (int64, error) {

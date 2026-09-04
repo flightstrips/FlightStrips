@@ -1321,6 +1321,53 @@ func (q *Queries) UpdateStrip(ctx context.Context, arg UpdateStripParams) (int64
 	return result.RowsAffected(), nil
 }
 
+const updateStripAircraftPositionAndBay = `-- name: UpdateStripAircraftPositionAndBay :execrows
+UPDATE strips
+SET position_latitude  = $1,
+    position_longitude = $2,
+    position_altitude  = $3,
+    sequence           = CASE
+        WHEN bay IS DISTINCT FROM $4 THEN $5::INT
+        ELSE sequence
+    END,
+    version            = CASE
+        WHEN bay IS DISTINCT FROM $4 THEN version + 1
+        ELSE version
+    END,
+    bay                = $4
+WHERE callsign = $6
+  AND session = $7
+  AND version = $8
+`
+
+type UpdateStripAircraftPositionAndBayParams struct {
+	PositionLatitude  *float64
+	PositionLongitude *float64
+	PositionAltitude  *int32
+	Bay               string
+	Sequence          int32
+	Callsign          string
+	Session           int32
+	Version           int32
+}
+
+func (q *Queries) UpdateStripAircraftPositionAndBay(ctx context.Context, arg UpdateStripAircraftPositionAndBayParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateStripAircraftPositionAndBay,
+		arg.PositionLatitude,
+		arg.PositionLongitude,
+		arg.PositionAltitude,
+		arg.Bay,
+		arg.Sequence,
+		arg.Callsign,
+		arg.Session,
+		arg.Version,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateStripAircraftPositionByID = `-- name: UpdateStripAircraftPositionByID :execrows
 UPDATE strips
 SET position_latitude  = $1,

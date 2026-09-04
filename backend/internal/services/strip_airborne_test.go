@@ -152,7 +152,7 @@ func TestUpdateAircraftPosition_AutoHandoverTriggeredFromDepartBay(t *testing.T)
 				State: &departState, Origin: "EKCH", Owner: &owner,
 			}, nil
 		},
-		UpdateAircraftPositionFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ *int32) (int64, error) {
+		UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ int32, _ int32) (int64, error) {
 			return 1, nil
 		},
 		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
@@ -241,7 +241,7 @@ func TestUpdateAircraftPosition_PrefileStillUsesEuroscopeForDepartureBlock(t *te
 				Bay: shared.BAY_NOT_CLEARED, VatsimSeenAt: &vatsimSeenAt,
 			}, nil
 		},
-		UpdateAircraftPositionFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ *int32) (int64, error) {
+		UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ int32, _ int32) (int64, error) {
 			return 1, nil
 		},
 	}
@@ -275,15 +275,12 @@ func TestUpdateAircraftPosition_HiddenDepartureEnteringNotClearedGeneratesSquawk
 				AssignedSquawk: &reservedSquawk,
 			}, nil
 		},
-		UpdateAircraftPositionFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ *int32) (int64, error) {
+		UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, bay string, _ int32, _ int32) (int64, error) {
+			currentBay = bay
 			return 1, nil
 		},
 		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
 			return 0, nil
-		},
-		UpdateBayAndSequenceFn: func(_ context.Context, _ int32, _ string, bay string, _ int32) (int64, error) {
-			currentBay = bay
-			return 1, nil
 		},
 	}
 
@@ -334,6 +331,85 @@ func TestUpdateAircraftPosition_CompletedDepartureRemainsHidden(t *testing.T) {
 	))
 	assert.Equal(t, shared.BAY_HIDDEN_DEP, updatedBay)
 	assert.Empty(t, esHub.GenerateSquawks)
+}
+
+func TestUpdateAircraftPosition_RetriesOnceAndPreservesNewerStandMove(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "EWG50B"
+
+	readCount := 0
+	writeCount := 0
+	writtenBays := make([]string, 0, 2)
+	writtenVersions := make([]int32, 0, 2)
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			readCount++
+			if readCount == 1 {
+				sequence := int32(1000)
+				return &models.Strip{
+					Version: 7, Callsign: callsign, Origin: "EDDK", Destination: "EKCH",
+					Bay: shared.BAY_TWY_ARR, Sequence: &sequence,
+				}, nil
+			}
+			sequence := int32(2000)
+			return &models.Strip{
+				Version: 8, Callsign: callsign, Origin: "EDDK", Destination: "EKCH",
+				Bay: shared.BAY_STAND, Sequence: &sequence,
+			}, nil
+		},
+		UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, bay string, _ int32, version int32) (int64, error) {
+			writeCount++
+			writtenBays = append(writtenBays, bay)
+			writtenVersions = append(writtenVersions, version)
+			if writeCount == 1 {
+				return 0, nil // The concurrent TWY_ARR -> STAND move won.
+			}
+			return 1, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	require.NoError(t, svc.UpdateAircraftPosition(
+		ctx, session, callsign, 55, 10, 8000, "EKCH",
+	))
+	require.Equal(t, 2, readCount)
+	require.Equal(t, 2, writeCount)
+	assert.Equal(t, []string{shared.BAY_TWY_ARR, shared.BAY_STAND}, writtenBays)
+	assert.Equal(t, []int32{7, 8}, writtenVersions)
+	assert.Empty(t, hub.BayEvents, "retry must preserve STAND rather than emitting a stale bay move")
+}
+
+func TestUpdateAircraftPosition_StopsAfterSecondVersionConflict(t *testing.T) {
+	ctx := context.Background()
+	const callsign = "SAS999"
+
+	readCount := 0
+	writeCount := 0
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			readCount++
+			sequence := int32(1000)
+			return &models.Strip{
+				Version: int32(readCount), Callsign: callsign, Origin: "ESSA", Destination: "EKCH",
+				Bay: shared.BAY_TWY_ARR, Sequence: &sequence,
+			}, nil
+		},
+		UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ int32, _ int32) (int64, error) {
+			writeCount++
+			return 0, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	require.NoError(t, svc.UpdateAircraftPosition(
+		ctx, 1, callsign, 55, 10, 8000, "EKCH",
+	))
+	assert.Equal(t, 2, readCount)
+	assert.Equal(t, 2, writeCount)
 }
 
 // TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection verifies that

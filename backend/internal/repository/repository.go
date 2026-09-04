@@ -45,6 +45,7 @@ type StripRepository interface {
 	UpdateGroundState(ctx context.Context, session int32, callsign string, state *string, bay string, version *int32) (int64, error)
 	UpdateClearedFlag(ctx context.Context, session int32, callsign string, cleared bool, bay string, version *int32) (int64, error)
 	UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, version *int32) (int64, error)
+	UpdateAircraftPositionAndBay(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, sequence int32, version int32) (int64, error)
 	UpdateBay(ctx context.Context, session int32, callsign string, bay string, version *int32) (int64, error)
 	UpdateHeading(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (int64, error)
 	UpdateStand(ctx context.Context, session int32, callsign string, stand *string, version *int32) (int64, error)

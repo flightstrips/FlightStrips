@@ -323,7 +323,7 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 		if changed {
 			changedCount++
-			r.notify(session.ID, strip.Callsign)
+			r.notify(session.ID, strip)
 		}
 	}
 
@@ -712,8 +712,11 @@ func arrivalFlightInfo(flight Flight) ArrivalFlightInfo {
 	}
 }
 
-func (r *Reconciler) notify(session int32, callsign string) {
-	r.notifier.SendStripUpdate(session, callsign)
+func (r *Reconciler) notify(session int32, strip *models.Strip) {
+	if strip == nil || strip.EuroscopeSeenAt == nil {
+		return
+	}
+	r.notifier.SendStripUpdate(session, strip.Callsign)
 }
 
 func nextSequence(strips []*models.Strip, flight Flight, airport string) int32 {

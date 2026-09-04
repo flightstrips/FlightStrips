@@ -491,12 +491,14 @@ func TestHandleStripUpdate_UsesHubWiringForServiceDependencies(t *testing.T) {
 			assert.Equal(t, session, gotSession)
 			assert.Equal(t, callsign, gotCallsign)
 			getByCallsignCalls++
+			seenAt := time.Now().UTC()
 			return &models.Strip{
-				Callsign: callsign,
-				Session:  session,
-				Owner:    ptr(owner),
-				Sid:      &currentSid,
-				PdcState: "REQUESTED_WITH_FAULTS",
+				Callsign:        callsign,
+				Session:         session,
+				Owner:           ptr(owner),
+				Sid:             &currentSid,
+				PdcState:        "REQUESTED_WITH_FAULTS",
+				EuroscopeSeenAt: &seenAt,
 				CdmData: &models.CdmData{
 					Eobt: &currentEobt,
 				},

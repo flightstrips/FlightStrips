@@ -451,7 +451,7 @@ func TestReconcileCreatesPrefileDepartureAndHiddenArrivals(t *testing.T) {
 	assert.Equal(t, 51.5, *byCallsign["SAS303"].PositionLatitude)
 	assert.Equal(t, "3", *byCallsign["SAS303"].VatsimCID)
 	assert.Equal(t, int64(6), *byCallsign["SAS303"].VatsimRevision)
-	assert.Len(t, notifier.callsigns, 3)
+	assert.Empty(t, notifier.callsigns, "VATSIM-only strips must remain outside the operational frontend")
 }
 
 func TestReconcileKeepsOnlineAPIDepartureHidden(t *testing.T) {

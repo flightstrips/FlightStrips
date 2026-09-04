@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type validationStripReader interface {
@@ -72,6 +73,10 @@ func (s *StripValidationService) SetValidationStatus(ctx context.Context, sessio
 // Uses a conditional DB update so concurrent triggers cannot be accidentally dismissed.
 func (s *StripValidationService) AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string, requestingPosition string) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The acknowledgement can race with strip/session removal.
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -111,6 +116,10 @@ func (s *StripValidationService) ClearValidationStatus(ctx context.Context, sess
 // validations.
 func (s *StripValidationService) ReconcileStandAssignmentValidation(ctx context.Context, session int32, callsign string, direction string, blockedBy []string, conflictReason string) error {
 	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// SAT reconciliation can outlive a concurrently removed strip.
+		return nil
+	}
 	if err != nil {
 		return err
 	}

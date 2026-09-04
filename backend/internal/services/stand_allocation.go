@@ -1079,7 +1079,8 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 		return nil, "", err
 	}
 	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", request.SessionID); err != nil {
+	var lockedSessionID int32
+	if err := tx.QueryRow(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", request.SessionID).Scan(&lockedSessionID); err != nil {
 		return nil, "", err
 	}
 
@@ -1947,4 +1948,13 @@ func retryableStandAllocationError(err error) bool {
 	}
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && (pgErr.Code == "40001" || pgErr.Code == "40P01" || pgErr.Code == "23505")
+}
+
+func retrySerializableOperation(operation func() error) error {
+	err := operation()
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || (pgErr.Code != "40001" && pgErr.Code != "40P01") {
+		return err
+	}
+	return operation()
 }

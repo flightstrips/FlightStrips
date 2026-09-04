@@ -318,11 +318,14 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
+	recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
 	if err := client.hub.stripService.UpdateAircraftPosition(ctx, client.session, event.Callsign, event.Lat, event.Lon, int32(event.Altitude), client.airport); err != nil {
 		return err
 	}
 	client.hub.markEuroscopeSeen(ctx, client.session, event.Callsign)
+	if recoveredFromDisconnect && client.hub.server != nil && client.hub.server.GetFrontendHub() != nil {
+		client.hub.server.GetFrontendHub().SendStripUpdate(client.session, event.Callsign)
+	}
 	return nil
 }
 
@@ -390,8 +393,14 @@ func handleStripUpdateEvent(ctx context.Context, client *Client, message Message
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
-	return client.hub.stripService.SyncStrip(ctx, client.session, client.GetCid(), event.Strip, client.airport)
+	recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
+	if err := client.hub.stripService.SyncStrip(ctx, client.session, client.GetCid(), event.Strip, client.airport); err != nil {
+		return err
+	}
+	if recoveredFromDisconnect && client.hub.server != nil && client.hub.server.GetFrontendHub() != nil {
+		client.hub.server.GetFrontendHub().SendStripUpdate(client.session, event.Callsign)
+	}
+	return nil
 }
 
 func handleRunways(ctx context.Context, client *Client, message Message) error {

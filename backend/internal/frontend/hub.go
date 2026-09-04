@@ -688,9 +688,19 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 }
 
 func (hub *Hub) SendStripUpdate(session int32, callsign string) {
+	if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+		if checker, ok := esHub.(pendingEuroscopeStripChecker); ok && checker.IsAircraftDisconnectPending(session, callsign) {
+			return
+		}
+	}
 	stripRepo := hub.server.GetStripRepository()
 	strip, err := stripRepo.GetByCallsign(context.Background(), session, callsign)
 	if err != nil {
+		return
+	}
+	if strip.EuroscopeSeenAt == nil {
+		// VATSIM and SAT maintain planning records in the same table. They must
+		// not become frontend flight strips before EuroScope has observed them.
 		return
 	}
 

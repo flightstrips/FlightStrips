@@ -28,13 +28,33 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 	if !ok {
 		return fmt.Errorf("SyncStrip: unexpected strip type %T", strip)
 	}
+	firstEuroscopeObservation := true
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		if existing := syncState.ExistingStrips[esStrip.Callsign]; existing != nil {
+			firstEuroscopeObservation = existing.EuroscopeSeenAt == nil
+		}
+	} else if existing, found, _ := s.getCachedStrip(ctx, session, esStrip.Callsign); found && existing != nil {
+		firstEuroscopeObservation = existing.EuroscopeSeenAt == nil
+	}
 	if err := s.syncEuroscopeStrip(ctx, session, cid, esStrip, airport); err != nil {
 		return err
 	}
 	if sourceStore, ok := s.lifecycleStore.(interface {
 		MarkEuroscopeSeen(context.Context, int32, string) error
 	}); ok {
-		return sourceStore.MarkEuroscopeSeen(ctx, session, esStrip.Callsign)
+		if err := sourceStore.MarkEuroscopeSeen(ctx, session, esStrip.Callsign); err != nil {
+			return err
+		}
+		// The first update may have been withheld by the frontend until the
+		// EuroScope marker was persisted. Publish it now, or defer it to the
+		// full-sync finalizer so an otherwise unchanged strip becomes visible.
+		if firstEuroscopeObservation {
+			if syncState := shared.GetSyncState(ctx); syncState != nil {
+				syncState.MarkStripUpdate(esStrip.Callsign)
+			} else if s.publisher != nil {
+				s.publisher.SendStripUpdate(session, esStrip.Callsign)
+			}
+		}
 	}
 	return nil
 }

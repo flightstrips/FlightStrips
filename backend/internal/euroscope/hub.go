@@ -75,6 +75,7 @@ type Hub struct {
 	// Aircraft disconnect timer support — delays strip removal to survive master transitions
 	aircraftDisconnectMu       sync.Mutex
 	aircraftDisconnectTimers   map[string]*aircraftDisconnectEntry // key: "<sessionID>:<callsign>"
+	aircraftDisconnects        map[string]struct{}                 // completed retained-strip tombstones
 	aircraftDisconnectRetainer func(context.Context, int32, string) bool
 
 	// Session update debouncer — batches UpdateSectors/UpdateLayouts/UpdateRoutes calls
@@ -177,6 +178,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		recorders:                   make(map[int32]*recorder.Recorder),
 		offlineTimers:               make(map[string]*offlineTimerEntry),
 		aircraftDisconnectTimers:    make(map[string]*aircraftDisconnectEntry),
+		aircraftDisconnects:         make(map[string]struct{}),
 		sessionUpdateTimers:         make(map[int32]*sessionUpdatePending),
 		pendingOnlineOrchestrations: make(map[string]struct{}),
 		airportClientCount:          make(map[string]int),
@@ -287,6 +289,9 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 
 	syncStrips := make([]euroscope.BackendSyncStrip, 0, len(strips))
 	for _, strip := range strips {
+		if !shouldIncludeInBackendSync(strip) {
+			continue
+		}
 		entry := euroscope.BackendSyncStrip{
 			Callsign: strip.Callsign,
 			Cleared:  strip.Cleared,
@@ -321,6 +326,16 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		slog.Int("session", int(client.session)),
 		slog.Int("strips", len(syncStrips)),
 	)
+}
+
+func shouldIncludeInBackendSync(strip *internalModels.Strip) bool {
+	if strip == nil || strip.EuroscopeSeenAt == nil {
+		return false
+	}
+	// These bays contain VATSIM/SAT planning records that EuroScope has not
+	// observed. Sending them to the plugin materializes them as operational
+	// flight plans; the following EuroScope sync then moves them into CLRDEL.
+	return strip.Bay != shared.BAY_DEP_HIDDEN && strip.Bay != shared.BAY_ARR_HIDDEN
 }
 
 func backendSyncGroundState(strip *internalModels.Strip) string {
@@ -534,6 +549,11 @@ func (hub *Hub) OnUnregister(client *Client) {
 	hub.clearObserverCid(client.GetCid())
 	hub.clearClientLocalIP(client.session, client.GetCid())
 	hub.adjustAirportClientCount(client.airport, client.observer, -1)
+	if !client.observer && !hub.hasOperationalClientForSession(client.session) {
+		// A completed sync belongs to the current operational connection set.
+		// Keep frontends waiting until a future master completes a fresh sync.
+		hub.syncedSessions.Delete(client.session)
+	}
 
 	if err := hub.clearClientCid(client); err != nil {
 		slog.Error("Failed to remove CID for client", slog.String("callsign", client.callsign), slog.String("cid", client.GetCid()), slog.Any("error", err))
@@ -921,6 +941,17 @@ func (hub *Hub) HasActiveClientForAirport(airport string) bool {
 func (hub *Hub) IsSessionSynced(sessionId int32) bool {
 	_, ok := hub.syncedSessions.Load(sessionId)
 	return ok
+}
+
+// IsAircraftDisconnectPending reports whether the latest master sync omitted
+// a strip and its disconnect grace period has not completed yet.
+func (hub *Hub) IsAircraftDisconnectPending(session int32, callsign string) bool {
+	key := fmt.Sprintf("%d:%s", session, callsign)
+	hub.aircraftDisconnectMu.Lock()
+	defer hub.aircraftDisconnectMu.Unlock()
+	_, running := hub.aircraftDisconnectTimers[key]
+	_, disconnected := hub.aircraftDisconnects[key]
+	return running || disconnected
 }
 
 func (hub *Hub) markSessionSynced(sessionId int32) {

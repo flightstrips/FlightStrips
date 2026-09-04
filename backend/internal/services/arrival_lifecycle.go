@@ -563,13 +563,17 @@ func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
 			if !isArrivalStage(assignment.Stage) {
 				continue
 			}
-			if err := s.releaseIfDue(ctx, session.ID, assignment, now); err != nil {
+			if err := retrySerializableOperation(func() error {
+				return s.releaseIfDue(ctx, session.ID, assignment, now)
+			}); err != nil {
 				slog.Warn("arrival sweep failed to release assignment",
 					slog.String("callsign", assignment.Callsign),
 					slog.Any("error", err))
 			}
 		}
-		if err := s.allocations.ReconcileUnsafeAssignments(ctx, session.ID, session.Airport); err != nil {
+		if err := retrySerializableOperation(func() error {
+			return s.allocations.ReconcileUnsafeAssignments(ctx, session.ID, session.Airport)
+		}); err != nil {
 			slog.Warn("arrival sweep failed to reconcile unsafe stand overlaps",
 				slog.Int("sessionID", int(session.ID)),
 				slog.Any("error", err))

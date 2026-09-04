@@ -712,7 +712,9 @@ func (s *DepartureLifecycleService) ReleaseExpired(ctx context.Context) error {
 			if assignment == nil {
 				continue
 			}
-			if err := s.releaseIfDue(ctx, session.ID, assignment, now); err != nil {
+			if err := retrySerializableOperation(func() error {
+				return s.releaseIfDue(ctx, session.ID, assignment, now)
+			}); err != nil {
 				slog.Warn("departure sweep failed to release assignment",
 					slog.String("callsign", assignment.Callsign),
 					slog.Any("error", err))

@@ -1379,6 +1379,66 @@ func TestSyncEuroscopeStrip_WithSyncState_DefersBayAndValidationFollowUp(t *test
 	assert.Empty(t, hub.StripUpdates, "sync-mode should defer frontend strip updates until finalization")
 }
 
+func TestSyncStrip_FirstEuroscopeObservationQueuesFullSyncFrontendUpdate(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS597"
+	seedStrip := &models.Strip{
+		Callsign: callsign,
+		Origin:   "EKCH",
+		Bay:      shared.BAY_NOT_CLEARED,
+	}
+	incoming := euroscope.Strip{Callsign: callsign, Origin: "EKCH"}
+	var existingStrip *models.Strip
+	seedRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return seedStrip, nil
+		},
+		UpdateFn: func(_ context.Context, strip *models.Strip) (int64, error) {
+			existingStrip = strip
+			return 1, nil
+		},
+	}
+	seedService, _, _ := newSyncTestFixture(t, seedStrip, seedRepo)
+	require.NoError(t, seedService.syncEuroscopeStrip(ctx, session, "", incoming, "EKCH"))
+	require.NotNil(t, existingStrip)
+	existingStrip.EuroscopeSeenAt = nil
+
+	marked := false
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return existingStrip, nil
+		},
+		UpdateFn: func(_ context.Context, _ *models.Strip) (int64, error) {
+			t.Fatal("an otherwise unchanged first observation must not require a strip update")
+			return 0, nil
+		},
+		MarkEuroscopeSeenFn: func(_ context.Context, gotSession int32, gotCallsign string) error {
+			assert.Equal(t, session, gotSession)
+			assert.Equal(t, callsign, gotCallsign)
+			marked = true
+			return nil
+		},
+	}
+
+	svc, hub, _ := newSyncTestFixture(t, existingStrip, stripRepo)
+	syncState := &shared.SyncState{
+		Session:             &models.Session{ID: session},
+		ExistingControllers: map[string]*models.Controller{},
+		ExistingStrips: map[string]*models.Strip{
+			callsign: existingStrip,
+		},
+	}
+	ctx = shared.WithSyncState(ctx, syncState)
+
+	err := svc.SyncStrip(ctx, session, "", incoming, "EKCH")
+
+	require.NoError(t, err)
+	assert.True(t, marked)
+	assert.Contains(t, syncState.SortedStripUpdates(), callsign)
+	assert.Empty(t, hub.StripUpdates, "full sync must defer publication until finalization")
+}
+
 func TestSyncEuroscopeStrip_WithSyncState_SameBayPreservesSequenceAndSkipsBayUpdate(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

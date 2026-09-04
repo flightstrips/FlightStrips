@@ -762,6 +762,19 @@ routes:
     owner_overrides:
       TW: TE
       GWA: TE
+  - name: Ground east to north stands for runway 22L/04R
+    forStandRanges:
+      - A4
+      - A6-A15
+      - A17-A34
+      - B3-B19
+      - C10-C39
+      - D1-D4
+      - E20-E90
+      - F1-F99
+      - H101-H107
+    active: [22L, 04R]
+    path: [GE, GWA, AA]
   - name: Runway 04L/22R to high A stands
     forStandRanges:
       - A17-A34
@@ -804,6 +817,19 @@ routes:
     owner_overrides:
       TE: TW
       GWA: TW
+  - name: Ground east to north stands for runway 04L/22R
+    forStandRanges:
+      - A4
+      - A6-A15
+      - A17-A34
+      - B3-B19
+      - C10-C39
+      - D1-D4
+      - E20-E90
+      - F1-F99
+      - H101-H107
+    active: [04L, 22R]
+    path: [GE, GWA, AA]
 
 message_areas:
   CLR-DEL:   [EKCH_DEL, EKCH_A_GND]

@@ -25,8 +25,9 @@ const reconciliationSequenceSpacing int32 = 1000
 const maxArrivalReconciliationPasses = 5
 
 const (
-	hiddenDepartureBay = "DEP_HIDDEN"
-	hiddenArrivalBay   = "ARR_HIDDEN"
+	hiddenDepartureBay          = "DEP_HIDDEN"
+	hiddenCompletedDepartureBay = "HIDDEN_DEP"
+	hiddenArrivalBay            = "ARR_HIDDEN"
 )
 
 type reconciliationSessionStore interface {
@@ -727,8 +728,22 @@ func nextSequence(strips []*models.Strip, flight Flight, airport string) int32 {
 // operational bays. Once EuroScope has supplied the strip, its operational bay
 // wins and the reconciler no longer changes it.
 func apiDepartureBay(strip *models.Strip, flight Flight, airport string) string {
-	if strip == nil || strip.EuroscopeSeenAt != nil ||
-		!strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
+	if strip == nil || strip.EuroscopeSeenAt != nil {
+		return ""
+	}
+	if strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Destination), airport) {
+		if strip.Bay == hiddenCompletedDepartureBay {
+			return hiddenArrivalBay
+		}
+		return ""
+	}
+	if !strings.EqualFold(strings.TrimSpace(flight.FlightPlan.Origin), airport) {
+		return ""
+	}
+	// Completed departures can outlive their EuroScope presence while VATSIM
+	// still reports them online. Never recycle their terminal bay into the
+	// pre-operational DEP_HIDDEN lifecycle.
+	if strip.Bay == hiddenCompletedDepartureBay {
 		return ""
 	}
 	if strip.Bay != hiddenDepartureBay {

@@ -292,6 +292,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 				Stand:       existingStrip.Stand,
 			}
 			bayStrip := strip
+			bayStrip.Origin = origin
+			bayStrip.Destination = destination
 			bayStrip.GroundState = effectiveGroundState
 			bay = shared.GetDepartureBay(bayStrip, &dbExistingStrip, config.GetAirborneAltitudeAGL(), airport, gndOnline)
 			if shouldPreservePdcBay(existingStrip, strip, bay) {
@@ -302,7 +304,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			if strip.Runway != "" {
 				runway = &strip.Runway
 			} else if runway == nil || *runway == "" {
-				isArrivalUpdate := strip.Destination == airport
+				isArrivalUpdate := strings.EqualFold(strings.TrimSpace(destination), strings.TrimSpace(airport))
 				if assigned := autoAssignRunway(isArrivalUpdate, sessionObj.ActiveRunways); assigned != "" {
 					runway = &assigned
 				}
@@ -749,6 +751,16 @@ func shouldRestartStripLifecycle(existingStrip *internalModels.Strip, strip euro
 	existingDestination := strings.TrimSpace(strings.ToUpper(existingStrip.Destination))
 	newOrigin := strings.TrimSpace(strings.ToUpper(strip.Origin))
 	newDestination := strings.TrimSpace(strings.ToUpper(strip.Destination))
+	if existingStrip.Bay == shared.BAY_HIDDEN_DEP {
+		if existingStrip.EuroscopeSeenAt != nil ||
+			newOrigin != normalizedAirport ||
+			newDestination == "" || newDestination == normalizedAirport ||
+			(strip.Position.Lat == 0 && strip.Position.Lon == 0) ||
+			shared.GetDistance(strip.Position.Lat, strip.Position.Lon, shared.AirportLatitude, shared.AirportLongitude) > shared.RelevantDistance {
+			return false
+		}
+		return int64(strip.Position.Altitude) <= int64(shared.AirportElevation)+config.GetAirborneAltitudeAGL()
+	}
 
 	if existingDestination != normalizedAirport {
 		return false

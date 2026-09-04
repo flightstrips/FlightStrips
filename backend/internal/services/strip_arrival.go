@@ -289,12 +289,24 @@ func (s *StripService) HandleTrackingControllerChanged(ctx context.Context, sess
 
 	// Arrivals that go AIRBORNE normally land in ARR_HIDDEN so the APP controller can
 	// work them again. For missed-approach TWR->APP assumptions, restore the strip to
-	// FINAL so TWR becomes the next controller again. Departures use the regular HIDDEN bay.
+	// FINAL so TWR becomes the next controller again. Completed departures use HIDDEN_DEP.
+	if s.getSessionRepository() == nil {
+		return errors.New("session repository not configured")
+	}
+	sess, err := s.getCachedSession(ctx, session)
+	if err != nil {
+		return err
+	}
+	if sess == nil {
+		return errors.New("session not found")
+	}
+
 	targetBay := shared.BAY_HIDDEN
-	if s.getSessionRepository() != nil {
-		if sess, sessErr := s.getCachedSession(ctx, session); sessErr == nil && sess != nil && strip.Destination == sess.Airport {
-			targetBay = shared.BAY_ARR_HIDDEN
-		}
+	switch {
+	case strings.EqualFold(strings.TrimSpace(strip.Destination), strings.TrimSpace(sess.Airport)):
+		targetBay = shared.BAY_ARR_HIDDEN
+	case strings.EqualFold(strings.TrimSpace(strip.Origin), strings.TrimSpace(sess.Airport)):
+		targetBay = shared.BAY_HIDDEN_DEP
 	}
 	if targetBay == shared.BAY_ARR_HIDDEN && coordFromPosition != "" && isMissedApproachReturn(coordFromPosition, assumingPosition) {
 		targetBay = shared.BAY_FINAL

@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/pkg/events/euroscope"
 	"math"
+	"strings"
 )
 
 const (
@@ -30,8 +31,10 @@ const (
 	// BAY_TWY_ARR Used for arrivals (vacated runway, taxiing to stand)
 	BAY_TWY_ARR = "TWY_ARR"
 	// BAY_STAND Used for arrivals
-	BAY_STAND       = "STAND"
-	BAY_HIDDEN      = "HIDDEN"
+	BAY_STAND  = "STAND"
+	BAY_HIDDEN = "HIDDEN"
+	// BAY_HIDDEN_DEP is the terminal hidden bay for completed departures.
+	BAY_HIDDEN_DEP  = "HIDDEN_DEP"
 	BAY_DEP_HIDDEN  = "DEP_HIDDEN"
 	BAY_ARR_HIDDEN  = "ARR_HIDDEN"
 	BAY_CONTROLZONE = "CONTROLZONE"
@@ -50,6 +53,10 @@ const (
 
 func hasKnownPosition(lat, lon float64) bool {
 	return lat != 0 || lon != 0
+}
+
+func isLocalAirport(code, airport string) bool {
+	return strings.EqualFold(strings.TrimSpace(code), strings.TrimSpace(airport))
 }
 
 func bayTracksGroundState(bay string) bool {
@@ -89,11 +96,23 @@ func IsDepartureBay(bay string) bool {
 }
 
 func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string, gndOnline bool) string {
+	destination := strip.Destination
+	if strings.TrimSpace(destination) == "" && existing != nil {
+		destination = existing.Destination
+	}
+	origin := strip.Origin
+	if strings.TrimSpace(origin) == "" && existing != nil {
+		origin = existing.Origin
+	}
+
 	// Arrivals keep their existing bay only if the strip was already classified as
 	// an arrival. If a strip transitions from a non-arrival into an arrival, start
 	// it in ARR_HIDDEN rather than preserving a stale non-arrival bay like HIDDEN.
-	if strip.Destination == airport {
-		if existing != nil && existing.Destination == airport && existing.Bay != "" {
+	if isLocalAirport(destination, airport) {
+		if existing != nil && existing.Bay == BAY_HIDDEN_DEP {
+			return BAY_ARR_HIDDEN
+		}
+		if existing != nil && isLocalAirport(existing.Destination, airport) && existing.Bay != "" {
 			return existing.Bay
 		}
 
@@ -101,7 +120,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	}
 
 	// Strips not departing from this airport: keep existing bay or hide.
-	if strip.Origin != airport {
+	if !isLocalAirport(origin, airport) {
 		if existing != nil && existing.Bay != "" {
 			return existing.Bay
 		}
@@ -109,6 +128,10 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	}
 
 	// Departures from this airport.
+	if existing != nil && existing.Bay == BAY_HIDDEN_DEP {
+		return BAY_HIDDEN_DEP
+	}
+
 	// TODO: airport latitude/longitude should be stored in config, not hardcoded
 	if hasKnownPosition(strip.Position.Lat, strip.Position.Lon) &&
 		GetDistance(strip.Position.Lat, strip.Position.Lon, AirportLatitude, AirportLongitude) > RelevantDistance {
@@ -167,22 +190,25 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 func GetDepartureBayFromGroundState(state string, existing database.Strip, airport string, gndOnline bool) string {
 	// Arrivals keep their existing arrival bay; ground-state updates are only used
 	// to advance departures through departure-tracking bays.
-	if existing.Destination == airport {
+	if isLocalAirport(existing.Destination, airport) {
+		if existing.Bay == BAY_HIDDEN_DEP {
+			return BAY_ARR_HIDDEN
+		}
 		if existing.Bay != "" {
 			return existing.Bay
 		}
 		return BAY_ARR_HIDDEN
 	}
 
-	if existing.Origin != airport {
+	if !isLocalAirport(existing.Origin, airport) {
 		if existing.Bay != "" {
 			return existing.Bay
 		}
 		return BAY_HIDDEN
 	}
 
-	if existing.Bay == BAY_HIDDEN {
-		return BAY_HIDDEN
+	if existing.Bay == BAY_HIDDEN || existing.Bay == BAY_HIDDEN_DEP {
+		return existing.Bay
 	}
 
 	if existing.Bay == BAY_AIRBORNE {
@@ -218,7 +244,10 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip, airpo
 
 func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64, airport string) string {
 	// Arrivals: position updates never change the bay (set once in GetDepartureBay).
-	if existing.Destination == airport {
+	if isLocalAirport(existing.Destination, airport) {
+		if existing.Bay == BAY_HIDDEN_DEP {
+			return BAY_ARR_HIDDEN
+		}
 		if existing.Bay != "" {
 			return existing.Bay
 		}
@@ -232,8 +261,11 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 	}
 
 	// Non-departures from this airport: keep existing bay unchanged.
-	if existing.Origin != airport {
+	if !isLocalAirport(existing.Origin, airport) {
 		return existingBay
+	}
+	if existingBay == BAY_HIDDEN_DEP {
+		return BAY_HIDDEN_DEP
 	}
 
 	// Departures from this airport.

@@ -14,6 +14,9 @@ export const selectStripsForBay = (strips: FrontendStrip[], tacticalStrips: Tact
     ...tacticalStrips.filter((strip) => strip.bay === bay),
   ].sort((a, b) => a.sequence - b.sequence);
 
+export const selectHiddenFlightStrips = (strips: FrontendStrip[]) =>
+  strips.filter((strip) => strip.bay === Bay.Hidden || strip.bay === Bay.HiddenDep);
+
 export const useTacticalStripsForBay = (bay: Bay) => {
   const tacticalStrips = useTacticalStrips();
   return useMemo(
@@ -218,7 +221,7 @@ export const useHiddenStrips = (): AnyStrip[] => {
   const tacticalStrips = useTacticalStrips();
   return useMemo(
     () => ([
-      ...strips.filter(x => x.bay === Bay.Hidden),
+      ...selectHiddenFlightStrips(strips),
       ...tacticalStrips.filter(t => t.bay === Bay.Hidden),
     ] as AnyStrip[]).sort((a, b) => a.sequence - b.sequence),
     [strips, tacticalStrips]

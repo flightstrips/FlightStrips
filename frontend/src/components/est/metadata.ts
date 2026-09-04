@@ -1,4 +1,4 @@
-import type { FrontendStrip } from "@/api/models";
+import { Bay, type FrontendStrip } from "@/api/models";
 import { normalizeCdmTime } from "@/lib/cdmTime";
 
 export type EstView = "MAIN" | "CARGO";
@@ -326,5 +326,5 @@ export function formatTimeLabel(value: string) {
 }
 
 export function isStandOccupied(strip: FrontendStrip | undefined) {
-  return !!strip && strip.bay !== "HIDDEN";
+  return !!strip && strip.bay !== Bay.Hidden && strip.bay !== Bay.HiddenDep;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Bay, type FrontendStrip, type TacticalStrip } from "@/api/models";
-import { selectFlightStripsForBay, selectStripsForBay } from "./ekch";
+import { selectFlightStripsForBay, selectHiddenFlightStrips, selectStripsForBay } from "./ekch";
 
 const flight = (callsign: string, origin: string, destination: string, bay: Bay) => ({
   callsign,
@@ -29,5 +29,13 @@ describe("EKCH bay selectors", () => {
     } as TacticalStrip;
 
     expect(selectStripsForBay([], [tactical], Bay.Cleared)).toEqual([tactical]);
+  });
+
+  it("includes completed departures in the recoverable hidden-strip list", () => {
+    const hidden = flight("HID123", "EKCH", "ESSA", Bay.Hidden);
+    const completed = flight("DEP456", "EKCH", "ENGM", Bay.HiddenDep);
+    const active = flight("DEP789", "EKCH", "EDDF", Bay.Airborne);
+
+    expect(selectHiddenFlightStrips([hidden, completed, active])).toEqual([hidden, completed]);
   });
 });

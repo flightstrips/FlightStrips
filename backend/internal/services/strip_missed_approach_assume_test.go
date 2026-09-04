@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"FlightStrips/internal/config"
@@ -494,6 +495,19 @@ func TestHandleTrackingControllerChanged_ArrivalGoesToArrHidden(t *testing.T) {
 	assert.Equal(t, shared.BAY_ARR_HIDDEN, res.moveToBayArg)
 }
 
+func TestHandleTrackingControllerChanged_LocalArrivalNeverGoesToHiddenDep(t *testing.T) {
+	strip := &models.Strip{
+		ID: 26, Callsign: "LOCAL1", Bay: shared.BAY_AIRBORNE,
+		Origin: "EKCH", Destination: "EKCH",
+	}
+	svc, res := buildTrackingChangedSvc(t, strip, "EKCH")
+
+	require.NoError(t, svc.HandleTrackingControllerChanged(context.Background(), 1, strip.Callsign, "EKCH_APP"))
+	assert.Equal(t, shared.BAY_ARR_HIDDEN, res.updateBayArg)
+	assert.Equal(t, shared.BAY_ARR_HIDDEN, res.moveToBayArg)
+	assert.NotEqual(t, shared.BAY_HIDDEN_DEP, res.moveToBayArg)
+}
+
 // TestHandleTrackingControllerChanged_MissedApproachGoesToFinal verifies that an
 // AIRBORNE missed-approach strip returns to FINAL when APP assumes it in ES.
 func TestHandleTrackingControllerChanged_MissedApproachGoesToFinal(t *testing.T) {
@@ -519,14 +533,31 @@ func TestHandleTrackingControllerChanged_MissedApproachGoesToFinal(t *testing.T)
 }
 
 // TestHandleTrackingControllerChanged_DepartureGoesToHidden verifies that an AIRBORNE
-// departure strip is still moved to the regular HIDDEN bay.
+// departure strip is moved to the terminal HIDDEN_DEP bay.
 func TestHandleTrackingControllerChanged_DepartureGoesToHidden(t *testing.T) {
-	strip := &models.Strip{ID: 21, Callsign: "SAS001", Bay: shared.BAY_AIRBORNE, Destination: "ENGM"}
+	strip := &models.Strip{ID: 21, Callsign: "SAS001", Bay: shared.BAY_AIRBORNE, Origin: "EKCH", Destination: "ENGM"}
 	svc, res := buildTrackingChangedSvc(t, strip, "EKCH")
 
 	require.NoError(t, svc.HandleTrackingControllerChanged(context.Background(), 1, "SAS001", "EKDK_B_CTR"))
-	assert.Equal(t, shared.BAY_HIDDEN, res.updateBayArg)
-	assert.Equal(t, shared.BAY_HIDDEN, res.moveToBayArg)
+	assert.Equal(t, shared.BAY_HIDDEN_DEP, res.updateBayArg)
+	assert.Equal(t, shared.BAY_HIDDEN_DEP, res.moveToBayArg)
+}
+
+func TestHandleTrackingControllerChanged_SessionLookupFailureLeavesBayUntouched(t *testing.T) {
+	strip := &models.Strip{
+		ID: 25, Callsign: "THA953", Bay: shared.BAY_AIRBORNE,
+		Origin: "VTBS", Destination: "EKCH",
+	}
+	svc, res := buildTrackingChangedSvc(t, strip, "EKCH")
+	svc.SetSessionRepo(&testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+			return nil, errors.New("session unavailable")
+		},
+	})
+
+	require.ErrorContains(t, svc.HandleTrackingControllerChanged(context.Background(), 1, strip.Callsign, "EKCH_APP"), "session unavailable")
+	assert.Empty(t, res.updateBayArg)
+	assert.Empty(t, res.moveToBayArg)
 }
 
 // TestHandleTrackingControllerChanged_TopDownDepartureStillHides verifies that a
@@ -536,7 +567,7 @@ func TestHandleTrackingControllerChanged_TopDownDepartureStillHides(t *testing.T
 	owner := "EKCH_APP"
 	strip := &models.Strip{
 		ID: 22, Callsign: "SAS002", Bay: shared.BAY_AIRBORNE,
-		Destination: "ENGM", Owner: &owner,
+		Origin: "EKCH", Destination: "ENGM", Owner: &owner,
 	}
 
 	res := &trackingChangedResult{}
@@ -593,8 +624,8 @@ func TestHandleTrackingControllerChanged_TopDownDepartureStillHides(t *testing.T
 	svc.SetSessionRepo(sessionRepo)
 
 	require.NoError(t, svc.HandleTrackingControllerChanged(context.Background(), 1, "SAS002", "EKCH_APP_ES"))
-	assert.Equal(t, shared.BAY_HIDDEN, res.updateBayArg)
-	assert.Equal(t, shared.BAY_HIDDEN, res.moveToBayArg)
+	assert.Equal(t, shared.BAY_HIDDEN_DEP, res.updateBayArg)
+	assert.Equal(t, shared.BAY_HIDDEN_DEP, res.moveToBayArg)
 }
 
 // TestHandleTrackingControllerChanged_ArrivalTWRRemovedFromPreviousOwners verifies that

@@ -780,6 +780,16 @@ func (hub *Hub) controllerPayload(session int32, callsign string, position strin
 		OwnedSectors: slices.Clone(ownedSectors),
 	}
 
+	if hub.server != nil {
+		controllerRepo := hub.server.GetControllerRepository()
+		if controllerRepo != nil {
+			controller, err := controllerRepo.GetByCallsign(context.Background(), session, callsign)
+			if err == nil && controller != nil {
+				payload.Observer = controller.Observer
+			}
+		}
+	}
+
 	if pos, err := config.GetPositionBasedOnFrequency(position); err == nil {
 		payload.Section = pos.Section
 	}

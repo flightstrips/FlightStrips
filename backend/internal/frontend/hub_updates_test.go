@@ -71,3 +71,21 @@ func TestControllerPayload_EnrichesBlankMetadataFromSectorOwnership(t *testing.T
 	assert.Equal(t, "K", controller.Identifier)
 	assert.Equal(t, []string{"K_DEP"}, controller.OwnedSectors)
 }
+
+func TestControllerPayload_IncludesObserverState(t *testing.T) {
+	hub := &Hub{
+		server: &testutil.MockServer{
+			ControllerRepoVal: &testutil.MockControllerRepository{
+				GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*internalModels.Controller, error) {
+					assert.Equal(t, int32(42), session)
+					assert.Equal(t, "EKCH_OBS_APP", callsign)
+					return &internalModels.Controller{Observer: true}, nil
+				},
+			},
+		},
+	}
+
+	controller := hub.controllerPayload(42, "EKCH_OBS_APP", "121.700", "AD", []string{"AD"})
+
+	assert.True(t, controller.Observer)
+}

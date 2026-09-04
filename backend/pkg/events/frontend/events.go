@@ -264,6 +264,7 @@ type Controller struct {
 	Identifier   string   `json:"identifier"`
 	Section      string   `json:"section"`
 	OwnedSectors []string `json:"owned_sectors"`
+	Observer     bool     `json:"observer,omitempty"`
 }
 
 type SyncCoordination struct {

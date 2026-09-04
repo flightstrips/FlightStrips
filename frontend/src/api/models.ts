@@ -270,6 +270,7 @@ export interface FrontendController {
   identifier: string;
   section: string;
   owned_sectors: string[];
+  observer?: boolean;
 }
 
 export interface MessageReceived {
@@ -363,6 +364,7 @@ export interface FrontendControllerOnlineEvent {
   identifier: string;
   section: string;
   owned_sectors: string[];
+  observer?: boolean;
 }
 
 export interface FrontendControllerUpdateEvent {
@@ -372,6 +374,7 @@ export interface FrontendControllerUpdateEvent {
   identifier: string;
   section: string;
   owned_sectors: string[];
+  observer?: boolean;
 }
 
 export interface FrontendControllerOfflineEvent {

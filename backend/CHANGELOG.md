@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.3](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.2...backend/v1.0.3) (2026-09-04)
+
+
+### Bug Fixes
+
+* **clearance:** ignore own cross-coupled and observer positions ([#505](https://github.com/flightstrips/FlightStrips/issues/505)) ([bfd501b](https://github.com/flightstrips/FlightStrips/commit/bfd501b16b5f6a9cb33635f4ac6be46ad459f944))
+* **strip:** limit sessions to operational EuroScope traffic ([#506](https://github.com/flightstrips/FlightStrips/issues/506)) ([9d44127](https://github.com/flightstrips/FlightStrips/commit/9d4412726c69d3d6435dee580ac3476030124bd8))
+* **strip:** prevent position updates from reverting bay changes ([#502](https://github.com/flightstrips/FlightStrips/issues/502)) ([fa3954e](https://github.com/flightstrips/FlightStrips/commit/fa3954efc520aba551625d1354bb273ce0ad6b32))
+* **strip:** reveal API prefiles on EuroScope position ([#504](https://github.com/flightstrips/FlightStrips/issues/504)) ([6bea654](https://github.com/flightstrips/FlightStrips/commit/6bea6540cbbfd54d9c285f1368fa6ecbb97aabcd))
+
 ## [1.0.2](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.1...backend/v1.0.2) (2026-09-04)
 
 

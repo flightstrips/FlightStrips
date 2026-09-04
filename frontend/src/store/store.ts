@@ -1064,6 +1064,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             identifier: data.identifier,
             section: data.section,
             owned_sectors: data.owned_sectors ?? [],
+            observer: data.observer ?? false,
           });
         } else {
           state.controllers[controllerIndex] = {
@@ -1073,6 +1074,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
             identifier: data.identifier,
             section: data.section,
             owned_sectors: data.owned_sectors ?? [],
+            observer: data.observer ?? false,
           };
         }
       })

@@ -39,6 +39,42 @@ export const controllerOwnsTowerSectors = (controller: FrontendController | unde
 const controllerHasEkchCallsignPrefix = (controller: FrontendController | undefined) =>
   controller?.callsign.toUpperCase().startsWith('EKCH_') ?? false;
 
+const isObserverCallsign = (callsign: string) =>
+  callsign.trim().toUpperCase().endsWith('_OBS');
+
+const isOtherOperationalController = (
+  controller: FrontendController,
+  ownPosition: string,
+  ownCallsign: string,
+) =>
+  controller.position !== ownPosition &&
+  controller.callsign.toUpperCase() !== ownCallsign.toUpperCase() &&
+  controller.observer !== true &&
+  !isObserverCallsign(controller.callsign);
+
+export const hasLowerPositionOnline = (
+  controllers: FrontendController[],
+  ownPosition: string,
+  ownCallsign: string,
+) =>
+  controllers.some(
+    (controller) =>
+      isOtherOperationalController(controller, ownPosition, ownCallsign) &&
+      (controllerOwnsDeliverySector(controller) || controllerOwnsApronSector(controller))
+  );
+
+export const hasCtwrOnline = (
+  controllers: FrontendController[],
+  ownPosition: string,
+  ownCallsign: string,
+) =>
+  controllers.some(
+    (controller) =>
+      isOtherOperationalController(controller, ownPosition, ownCallsign) &&
+      controller.position === '118.580' &&
+      controllerHasEkchCallsignPrefix(controller)
+  );
+
 export const useWebSocketStore = <T,>(selector: (state: WebSocketState) => T): T => {
   const store = useContext(WebSocketStoreContext);
 
@@ -92,36 +128,32 @@ export const useTransitionAltitude = () => useWebSocketStore((state) => state.tr
 
 export const useLowerPositionOnline = () =>
   useWebSocketStore((state) =>
-    state.controllers.some(
-      (c) => c.position !== state.position && (controllerOwnsDeliverySector(c) || controllerOwnsApronSector(c))
-    )
+    hasLowerPositionOnline(state.controllers, state.position, state.callsign)
   );
 
 export const useDelOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.position !== state.position && controllerOwnsDeliverySector(c)
+      (c) => isOtherOperationalController(c, state.position, state.callsign) && controllerOwnsDeliverySector(c)
     )
   );
 
 export const useApronOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.position !== state.position && controllerOwnsApronSector(c)
+      (c) => isOtherOperationalController(c, state.position, state.callsign) && controllerOwnsApronSector(c)
     )
   );
 
 export const useCtwrOnline = () =>
   useWebSocketStore((state) =>
-    state.controllers.some(
-      (c) => c.position === "118.580" && c.position !== state.position && controllerHasEkchCallsignPrefix(c)
-    )
+    hasCtwrOnline(state.controllers, state.position, state.callsign)
   );
 
 export const useTwrOnline = () =>
   useWebSocketStore((state) =>
     state.controllers.some(
-      (c) => c.position !== state.position && controllerOwnsTowerSectors(c)
+      (c) => isOtherOperationalController(c, state.position, state.callsign) && controllerOwnsTowerSectors(c)
     )
   );
 

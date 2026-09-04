@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.0...backend/v1.0.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **strip:** keep completed departures hidden ([#498](https://github.com/flightstrips/FlightStrips/issues/498)) ([9c03802](https://github.com/flightstrips/FlightStrips/commit/9c0380235ae05003db6e73001225a29ff3fa93fa))
+
 ## [1.0.0](https://github.com/flightstrips/FlightStrips/compare/backend/v0.47.0...backend/v1.0.0) (2026-09-03)
 
 

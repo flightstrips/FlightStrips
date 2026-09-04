@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.1...backend/v1.0.2) (2026-09-04)
+
+
+### Bug Fixes
+
+* **stand:** Add RUK to stand assignment ([#500](https://github.com/flightstrips/FlightStrips/issues/500)) ([d95a550](https://github.com/flightstrips/FlightStrips/commit/d95a5509f709d5e12cc98b7a7bcad0f05c7f7459))
+
 ## [1.0.1](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.0...backend/v1.0.1) (2026-09-04)
 
 

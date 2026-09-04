@@ -49,6 +49,13 @@ describe("deriveEstStandDisplay", () => {
     expect(display.stripsByStand.get("A18")).toBe(arrival);
   });
 
+  it("does not show completed departures as stand occupants", () => {
+    const completed = strip("SAS123", "A18", Bay.HiddenDep);
+
+    expect(deriveEstStandDisplay([completed], [], false).stripsByStand.has("A18")).toBe(false);
+    expect(deriveEstStandDisplay([completed], [], true).stripsByStand.has("A18")).toBe(false);
+  });
+
   it("does not display a departure reservation alongside a different physical stand", () => {
     const departure = strip("SAS300", "A2", Bay.NotCleared);
     const reservation = assignment(departure.callsign, "A1", {

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -1607,6 +1608,34 @@ func TestSyncEuroscopeStrip_MoveBackToNotCleared_ClearsOwner(t *testing.T) {
 	assert.Equal(t, callsign, routeUpdateCallsign)
 	assert.Equal(t, session, routeUpdateSession)
 	assert.False(t, routeUpdateSendUpdate)
+}
+
+func TestShouldRestartStripLifecycle_ReusedCompletedDepartureOnGround(t *testing.T) {
+	existing := &models.Strip{
+		Origin:      "EKCH",
+		Destination: "ENGM",
+		Bay:         shared.BAY_HIDDEN_DEP,
+	}
+	incoming := euroscope.Strip{Origin: "EKCH", Destination: "ENGM"}
+	incoming.Position.Lat = shared.AirportLatitude
+	incoming.Position.Lon = shared.AirportLongitude
+	incoming.Position.Altitude = shared.AirportElevation
+
+	assert.True(t, shouldRestartStripLifecycle(existing, incoming, "EKCH"))
+}
+
+func TestShouldRestartStripLifecycle_AirborneCompletedDepartureDoesNotRestart(t *testing.T) {
+	existing := &models.Strip{
+		Origin:      "EKCH",
+		Destination: "ENGM",
+		Bay:         shared.BAY_HIDDEN_DEP,
+	}
+	incoming := euroscope.Strip{Origin: "EKCH", Destination: "ENGM"}
+	incoming.Position.Lat = shared.AirportLatitude
+	incoming.Position.Lon = shared.AirportLongitude
+	incoming.Position.Altitude = int32(shared.AirportElevation) + int32(config.GetAirborneAltitudeAGL()) + 1
+
+	assert.False(t, shouldRestartStripLifecycle(existing, incoming, "EKCH"))
 }
 
 func TestSyncEuroscopeStrip_NewLocalDepartureWithReservedAssignedSquawk_GeneratesSquawk(t *testing.T) {

@@ -12,6 +12,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestApiDepartureBayPreservesCompletedDepartureAfterEuroscopeDisconnect(t *testing.T) {
+	strip := &models.Strip{Bay: hiddenCompletedDepartureBay}
+	flight := Flight{State: FlightStateOnline, FlightPlan: FlightPlan{Origin: "EKCH"}}
+
+	assert.Empty(t, apiDepartureBay(strip, flight, "EKCH"))
+}
+
+func TestApiDepartureBayDoesNotClassifyLocalArrivalAsDeparture(t *testing.T) {
+	strip := &models.Strip{Bay: hiddenArrivalBay}
+	flight := Flight{State: FlightStateOnline, FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EKCH"}}
+
+	assert.Empty(t, apiDepartureBay(strip, flight, "EKCH"))
+}
+
+func TestApiDepartureBayCorrectsCompletedDepartureReclassifiedAsArrival(t *testing.T) {
+	strip := &models.Strip{Bay: hiddenCompletedDepartureBay}
+	flight := Flight{State: FlightStateOnline, FlightPlan: FlightPlan{Origin: "ESSA", Destination: " ekch "}}
+
+	assert.Equal(t, hiddenArrivalBay, apiDepartureBay(strip, flight, "EKCH"))
+}
+
 type reconciliationTestStrips struct {
 	bySession map[int32][]*models.Strip
 	created   []*models.Strip

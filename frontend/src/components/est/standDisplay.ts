@@ -24,7 +24,7 @@ export function deriveEstStandDisplay(
 
   if (!satEnabled) {
     for (const strip of strips) {
-      if (strip.stand && strip.bay !== Bay.Hidden) {
+      if (strip.stand && strip.bay !== Bay.Hidden && strip.bay !== Bay.HiddenDep) {
         stripsByStand.set(strip.stand, strip);
       }
     }

@@ -165,7 +165,7 @@ function LegacyArrStandDialog({ open, onOpenChange, callsign, currentStand }: Pr
   const stripByStand = useMemo(() => {
     const mapping = new Map<string, FrontendStrip>();
     for (const strip of strips) {
-      if (!strip.stand || strip.bay === Bay.Hidden || strip.bay === Bay.ArrHidden) {
+      if (!strip.stand || strip.bay === Bay.Hidden || strip.bay === Bay.HiddenDep || strip.bay === Bay.ArrHidden) {
         continue;
       }
       mapping.set(strip.stand, strip);

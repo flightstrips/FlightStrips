@@ -304,6 +304,38 @@ func TestUpdateAircraftPosition_HiddenDepartureEnteringNotClearedGeneratesSquawk
 	assert.Empty(t, esHub.GenerateSquawks[0].Cid)
 }
 
+func TestUpdateAircraftPosition_CompletedDepartureRemainsHidden(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS483"
+	updatedBay := ""
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:    callsign,
+				Origin:      "EKCH",
+				Destination: "EGLL",
+				Bay:         shared.BAY_HIDDEN_DEP,
+			}, nil
+		},
+		UpdateAircraftPositionFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, bay string, _ *int32) (int64, error) {
+			updatedBay = bay
+			return 1, nil
+		},
+	}
+
+	esHub := &testutil.MockEuroscopeHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetEuroscopeHub(esHub)
+
+	require.NoError(t, svc.UpdateAircraftPosition(
+		ctx, session, callsign, shared.AirportLatitude, shared.AirportLongitude, 20, "EKCH",
+	))
+	assert.Equal(t, shared.BAY_HIDDEN_DEP, updatedBay)
+	assert.Empty(t, esHub.GenerateSquawks)
+}
+
 // TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection verifies that
 // an ES handover is sent to the owner (tower) controller even when the target (receiving)
 // controller has no CID — i.e., no active ES connection to the backend. The handover is

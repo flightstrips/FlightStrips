@@ -278,7 +278,7 @@ func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.
 	}
 
 	bay := existingBay
-	if bay == BAY_HIDDEN {
+	if bay == BAY_HIDDEN || bay == BAY_DEP_HIDDEN {
 		return BAY_NOT_CLEARED
 	}
 

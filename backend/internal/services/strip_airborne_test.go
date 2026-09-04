@@ -301,6 +301,43 @@ func TestUpdateAircraftPosition_HiddenDepartureEnteringNotClearedGeneratesSquawk
 	assert.Empty(t, esHub.GenerateSquawks[0].Cid)
 }
 
+func TestUpdateAircraftPosition_APIPrefileEnteringNotCleared(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "SAS481"
+	currentBay := shared.BAY_DEP_HIDDEN
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:    callsign,
+				Origin:      "EKCH",
+				Destination: "EGLL",
+				Bay:         currentBay,
+			}, nil
+		},
+		UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, bay string, _ int32, _ int32) (int64, error) {
+			currentBay = bay
+			return 1, nil
+		},
+		GetMaxSequenceInBayFn: func(_ context.Context, _ int32, _ string) (int32, error) {
+			return 0, nil
+		},
+	}
+
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+
+	require.NoError(t, svc.UpdateAircraftPosition(
+		ctx, session, callsign, shared.AirportLatitude, shared.AirportLongitude, 20, "EKCH",
+	))
+
+	assert.Equal(t, shared.BAY_NOT_CLEARED, currentBay)
+	require.Len(t, hub.BayEvents, 1)
+	assert.Equal(t, shared.BAY_NOT_CLEARED, hub.BayEvents[0].Bay)
+}
+
 func TestUpdateAircraftPosition_CompletedDepartureRemainsHidden(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

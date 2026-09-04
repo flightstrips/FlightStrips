@@ -106,10 +106,12 @@ func TestOnUnregister_LastOperationalClientDisconnectsObserverFrontends(t *testi
 
 	hub.clients[observer] = true
 	hub.master[42] = master
+	hub.markSessionSynced(42)
 
 	hub.OnUnregister(master)
 
 	assert.False(t, hub.HasActiveClientForAirport("EKCH"))
+	assert.False(t, hub.IsSessionSynced(42), "a future master must complete a fresh sync")
 	require.Len(t, frontendHub.CidDisconnects, 1)
 	assert.Equal(t, "obs-cid", frontendHub.CidDisconnects[0].Cid)
 }

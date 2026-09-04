@@ -45,7 +45,7 @@ type EuroscopeSyncResult struct {
 
 type euroscopeSyncRuntime interface {
 	CancelOfflineTimer(session int32, positionName string)
-	CancelAircraftDisconnect(session int32, callsign string)
+	CancelAircraftDisconnect(session int32, callsign string) bool
 	EvaluateClientRunwayState(session int32, cid, callsign string, current, master models.ActiveRunways, isMaster bool) runwayClientEvaluation
 	ResyncSessionRunwayMismatchTargets(session int32, masterCID string, master models.ActiveRunways)
 	CurrentMasterStatus(session int32, cid, callsign string) (hasMaster bool, isMaster bool)
@@ -64,10 +64,11 @@ func (r euroscopeSyncHubRuntime) CancelOfflineTimer(session int32, positionName 
 	}
 }
 
-func (r euroscopeSyncHubRuntime) CancelAircraftDisconnect(session int32, callsign string) {
+func (r euroscopeSyncHubRuntime) CancelAircraftDisconnect(session int32, callsign string) bool {
 	if r.hub != nil {
-		r.hub.cancelAircraftDisconnect(session, callsign)
+		return r.hub.cancelAircraftDisconnect(session, callsign)
 	}
+	return false
 }
 
 func (r euroscopeSyncHubRuntime) EvaluateClientRunwayState(session int32, cid, callsign string, current, master models.ActiveRunways, isMaster bool) runwayClientEvaluation {
@@ -323,11 +324,17 @@ func updateLayoutsForSync(ctx context.Context, server shared.Server, session int
 // syncStripsFromEvent syncs each strip to the DB and cancels any pending aircraft-disconnect timer.
 func (s *EuroscopeSyncService) syncStripsFromEvent(ctx context.Context, request EuroscopeSyncRequest, strips []euroscope.Strip) error {
 	for _, strip := range strips {
+		recoveredFromPendingDisconnect := s.runtime != nil && s.runtime.CancelAircraftDisconnect(request.Session, strip.Callsign)
 		if err := s.stripService.SyncStrip(ctx, request.Session, request.CID, strip, request.Airport); err != nil {
 			return err
 		}
-		if s.runtime != nil {
-			s.runtime.CancelAircraftDisconnect(request.Session, strip.Callsign)
+		if recoveredFromPendingDisconnect {
+			// A frontend may have refreshed while the strip was hidden by the
+			// disconnect grace period. Republish it after sync finalization even
+			// when none of its persisted fields changed.
+			if syncState := shared.GetSyncState(ctx); syncState != nil {
+				syncState.MarkStripUpdate(strip.Callsign)
+			}
 		}
 	}
 	return nil

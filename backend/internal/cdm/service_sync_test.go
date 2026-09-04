@@ -355,7 +355,7 @@ func TestSyncCdmData_RecoversPendingRequestAfterRemoteClear(t *testing.T) {
 		SetCdmDataFn: func(_ context.Context, _ int32, _ string, data *models.CdmData) (int64, error) {
 			persistAttempts++
 			if persistAttempts == 1 {
-				return 0, nil
+				return 0, fmt.Errorf("temporary persistence failure")
 			}
 			stored = data.Clone()
 			return 1, nil
@@ -985,29 +985,12 @@ func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 	}
 }
 
-func TestSyncCdmData_ReturnsErrorWhenPersistSkipsRow(t *testing.T) {
+func TestSyncCdmData_IgnoresStripRemovedBeforePersist(t *testing.T) {
 	const sessionID = int32(81)
 	const callsign = "SAS127"
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/ifps/depAirport" {
-			t.Fatalf("unexpected path %s", r.URL.Path)
-		}
-		_, _ = w.Write([]byte(`[{
-			"callsign":"SAS127",
-			"departure":"EKCH",
-			"eobt":"1000",
-			"tobt":"1010",
-			"ctot":"1040",
-			"cdmSts":"REA",
-			"cdmData":{"tsat":"101500","ttot":"102500"}
-		}]`))
-	}))
-	defer server.Close()
-
-	service := newTestCdmService(
-		NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL)),
-		&testutil.MockStripRepository{
+	service := &Service{
+		stripRepo: &testutil.MockStripRepository{
 			GetCdmDataFn: func(context.Context, int32) ([]*models.CdmDataRow, error) {
 				return []*models.CdmDataRow{{Callsign: callsign, Data: (&models.CdmData{}).Normalize()}}, nil
 			},
@@ -1015,13 +998,13 @@ func TestSyncCdmData_ReturnsErrorWhenPersistSkipsRow(t *testing.T) {
 				return 0, nil
 			},
 		},
-		&testutil.MockSessionRepository{},
-		&testutil.MockControllerRepository{},
-	)
+	}
+	broadcaster := &CdmBroadcaster{service: service}
+	updated := (&models.CdmData{Eobt: testStringPtr("1000")}).Normalize()
 
-	err := service.syncCdmData(context.Background(), &models.Session{ID: sessionID, Name: "LIVE", Airport: "EKCH"})
-	if err == nil || !strings.Contains(err.Error(), "failed to persist CDM data") {
-		t.Fatalf("expected persistence failure, got %v", err)
+	err := broadcaster.persistCdmUpdate(context.Background(), sessionID, callsign, cdmSnapshot{}, updated)
+	if err != nil {
+		t.Fatalf("expected removed strip to be ignored, got %v", err)
 	}
 }
 

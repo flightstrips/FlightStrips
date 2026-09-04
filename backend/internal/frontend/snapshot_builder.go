@@ -56,6 +56,10 @@ type SnapshotBuilder struct {
 	loadCachedAtis         func(sessionID int32) *frontendEvents.AtisUpdateEvent
 }
 
+type pendingEuroscopeStripChecker interface {
+	IsAircraftDisconnectPending(session int32, callsign string) bool
+}
+
 func NewSnapshotBuilder(deps SnapshotBuilderDependencies) *SnapshotBuilder {
 	return &SnapshotBuilder{
 		controllerRepo:         deps.ControllerRepo,
@@ -92,6 +96,24 @@ func (b *SnapshotBuilder) Build(ctx context.Context, request InitialSnapshotRequ
 	strips, err := b.stripRepo.List(ctx, request.SessionID)
 	if err != nil {
 		return frontendEvents.InitialEvent{}, nil, fmt.Errorf("list strips: %w", err)
+	}
+	if checker, ok := b.euroscopeHub.(pendingEuroscopeStripChecker); ok {
+		current := strips[:0]
+		for _, strip := range strips {
+			if strip == nil || strip.EuroscopeSeenAt == nil || checker.IsAircraftDisconnectPending(request.SessionID, strip.Callsign) {
+				continue
+			}
+			current = append(current, strip)
+		}
+		strips = current
+	} else {
+		current := strips[:0]
+		for _, strip := range strips {
+			if strip != nil && strip.EuroscopeSeenAt != nil {
+				current = append(current, strip)
+			}
+		}
+		strips = current
 	}
 
 	sectors, err := b.sectorRepo.ListBySession(ctx, request.SessionID)

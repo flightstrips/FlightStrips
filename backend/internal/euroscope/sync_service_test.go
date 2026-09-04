@@ -60,11 +60,16 @@ type syncRuntimeSpy struct {
 	scheduleDisconnectCalls []syncRuntimeScheduleDisconnectCall
 	hasMaster               bool
 	isMaster                bool
+	cancelDisconnectResult  bool
+	cancelDisconnectCalls   []string
 }
 
 func (s *syncRuntimeSpy) CancelOfflineTimer(_ int32, _ string) {}
 
-func (s *syncRuntimeSpy) CancelAircraftDisconnect(_ int32, _ string) {}
+func (s *syncRuntimeSpy) CancelAircraftDisconnect(_ int32, callsign string) bool {
+	s.cancelDisconnectCalls = append(s.cancelDisconnectCalls, callsign)
+	return s.cancelDisconnectResult
+}
 
 func (s *syncRuntimeSpy) EvaluateClientRunwayState(session int32, cid, callsign string, current, master pkgModels.ActiveRunways, isMaster bool) runwayClientEvaluation {
 	s.evaluateCalls = append(s.evaluateCalls, syncRuntimeEvaluateCall{
@@ -187,6 +192,33 @@ func (s *syncStripServiceSpy) ReevaluateSquawkValidationsForSession(_ context.Co
 func (s *syncStripServiceSpy) ReevaluateLandingClearanceValidationsForSession(_ context.Context, _ int32, _ bool, _ bool) error {
 	s.landingValidationCalls++
 	return nil
+}
+
+func TestSyncStripsFromEventQueuesUpdateWhenPendingDisconnectIsCancelled(t *testing.T) {
+	const session = int32(42)
+	const callsign = "SAS123"
+	runtime := &syncRuntimeSpy{cancelDisconnectResult: true}
+	stripService := &syncStripServiceSpy{
+		syncStripFn: func(context.Context, int32, string, interface{}, string) error {
+			assert.Equal(t, []string{callsign}, runtime.cancelDisconnectCalls, "disconnect worker must stop before the strip is marked seen")
+			return nil
+		},
+	}
+	service := &EuroscopeSyncService{
+		stripService: stripService,
+		runtime:      runtime,
+	}
+	syncState := &shared.SyncState{}
+	ctx := shared.WithSyncState(context.Background(), syncState)
+
+	err := service.syncStripsFromEvent(ctx, EuroscopeSyncRequest{
+		Session: session,
+		Airport: "EKCH",
+	}, []esEvents.Strip{{Callsign: callsign}})
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{callsign}, runtime.cancelDisconnectCalls)
+	assert.Contains(t, syncState.SortedStripUpdates(), callsign)
 }
 
 func TestEuroscopeSyncServiceApplySync_MasterRunwaysRecalculateSession(t *testing.T) {

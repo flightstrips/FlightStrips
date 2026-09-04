@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/services"
@@ -173,7 +174,8 @@ func TestHandleClxUpdateTobt_UsesClxOrchestrationMethod(t *testing.T) {
 			GetByCallsignFn: func(_ context.Context, gotSession int32, gotCallsign string) (*models.Strip, error) {
 				assert.Equal(t, int32(42), gotSession)
 				assert.Equal(t, "SAS321", gotCallsign)
-				return &models.Strip{Session: gotSession, Callsign: gotCallsign}, nil
+				seenAt := time.Now().UTC()
+				return &models.Strip{Session: gotSession, Callsign: gotCallsign, EuroscopeSeenAt: &seenAt}, nil
 			},
 		},
 	}

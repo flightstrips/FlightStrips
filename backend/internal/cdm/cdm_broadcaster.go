@@ -65,6 +65,10 @@ func (c *CdmBroadcaster) persistCdmUpdate(ctx context.Context, session int32, ca
 	if err != nil {
 		return err
 	}
+	if rows == 0 {
+		// Sync work can outlive a strip that was removed concurrently.
+		return nil
+	}
 	if rows != 1 {
 		return fmt.Errorf("failed to persist CDM data for %s session %d", callsign, session)
 	}
@@ -77,6 +81,9 @@ func (c *CdmBroadcaster) persistCdmUpdateSilently(ctx context.Context, session i
 	rows, err := s.stripRepo.SetCdmData(ctx, session, callsign, updated.Normalize())
 	if err != nil {
 		return err
+	}
+	if rows == 0 {
+		return nil
 	}
 	if rows != 1 {
 		return fmt.Errorf("failed to persist CDM data for %s session %d", callsign, session)

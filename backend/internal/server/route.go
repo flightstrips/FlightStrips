@@ -427,7 +427,7 @@ func computeNextOwnersForStrip(strip *models.Strip, session *models.Session, own
 }
 
 func computeRouteStateForStrip(strip *models.Strip, session *models.Session, owners []*models.SectorOwner, radio routeRadioState) (computedRouteState, bool, error) {
-	isArrival := strip.Destination == session.Airport
+	isArrival, isLocal := stripDirectionForSession(strip, session)
 	currentOwner := helpers.ValueOrDefault(strip.Owner)
 	currentStand := helpers.ValueOrDefault(strip.Stand)
 	currentRunway := helpers.ValueOrDefault(strip.Runway)
@@ -442,12 +442,29 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 		slog.String("runway", currentRunway),
 		slog.Any("current_next_owners", strip.NextOwners))
 
+	// A shared VATSIM feed can contain traffic that neither departs from nor
+	// arrives at this session's airport. It has no local ground route.
+	if !isLocal {
+		slog.Debug("Clearing route for traffic unrelated to session airport",
+			slog.Int("session", int(session.ID)),
+			slog.String("callsign", strip.Callsign),
+			slog.String("origin", strip.Origin),
+			slog.String("destination", strip.Destination))
+		return computedRouteState{}, true, nil
+	}
+
 	// Departures require a runway to compute a route.
 	if !isArrival && (strip.Runway == nil || *strip.Runway == "") {
 		slog.Debug("Skipping route recalculation for departure without runway",
 			slog.Int("session", int(session.ID)),
 			slog.String("callsign", strip.Callsign))
-		return computedRouteState{}, false, nil
+		return computedRouteState{}, true, nil
+	}
+	if !isArrival && strings.TrimSpace(currentStand) == "" {
+		slog.Debug("Skipping route recalculation for departure without stand",
+			slog.Int("session", int(session.ID)),
+			slog.String("callsign", strip.Callsign))
+		return computedRouteState{}, true, nil
 	}
 
 	var route config.ResolvedRoute
@@ -496,6 +513,12 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 		// at least the tower controller as its next owner.
 		towerSector, ok := config.GetArrivalTowerSector(session.ActiveRunways.ArrivalRunways)
 		if !ok {
+			if len(session.ActiveRunways.ArrivalRunways) == 0 {
+				slog.Debug("Skipping arrival route recalculation until arrival runways are configured",
+					slog.Int("session", int(session.ID)),
+					slog.String("callsign", strip.Callsign))
+				return computedRouteState{}, true, nil
+			}
 			slog.Warn("Skipping arrival route recalculation because no arrival tower sector is configured",
 				slog.Int("session", int(session.ID)),
 				slog.String("callsign", strip.Callsign))
@@ -679,8 +702,11 @@ func buildConfiguredOwnerDisplay(strip *models.Strip, session *models.Session, o
 	normalizedOwner := vatsim.NormalizeFrequency(owner)
 	identifier := ""
 	if role := strings.TrimSpace(radio.roleByPrimary[normalizedOwner]); role != "" {
+		isArrival, isLocal := stripDirectionForSession(strip, session)
+		if !isLocal {
+			return nil
+		}
 		active := session.ActiveRunways.DepartureRunways
-		isArrival := strip.Destination == session.Airport
 		if isArrival {
 			active = session.ActiveRunways.ArrivalRunways
 		}
@@ -706,6 +732,23 @@ func buildConfiguredOwnerDisplay(strip *models.Strip, session *models.Session, o
 		Label:     config.GetSectorDisplayName(identifier),
 		Frequency: frequency,
 	}
+}
+
+func stripDirectionForSession(strip *models.Strip, session *models.Session) (isArrival bool, isLocal bool) {
+	if strip == nil || session == nil {
+		return false, false
+	}
+	airport := strings.TrimSpace(session.Airport)
+	if airport == "" {
+		return false, false
+	}
+	if strings.EqualFold(strings.TrimSpace(strip.Destination), airport) {
+		return true, true
+	}
+	if strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
+		return false, true
+	}
+	return false, false
 }
 
 func resolveCurrentRouteStageIndex(stages []resolvedRouteStage, currentOwner string, previousOwners []string) int {

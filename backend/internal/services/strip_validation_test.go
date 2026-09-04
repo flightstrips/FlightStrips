@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -140,6 +141,17 @@ func TestReconcileStandAssignmentValidationActivatesBlockedAssignment(t *testing
 	require.Equal(t, owner, persisted.OwningPosition)
 	require.True(t, persisted.Active)
 	require.Equal(t, "assign_stand", persisted.CustomAction.ActionKind)
+}
+
+func TestReconcileStandAssignmentValidationIgnoresRemovedStrip(t *testing.T) {
+	repo := &validationStoreFake{
+		getByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return nil, pgx.ErrNoRows
+		},
+	}
+	svc := newTestStripValidationService(repo, repo)
+
+	require.NoError(t, svc.ReconcileStandAssignmentValidation(context.Background(), 1, "SAS123", "ARRIVAL", nil, ""))
 }
 
 func TestReconcileStandAssignmentValidationClearsResolvedSatIssueOnly(t *testing.T) {

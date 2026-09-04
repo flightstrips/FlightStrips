@@ -35,6 +35,58 @@ func (s routeTransceiverStub) GetFrequencies(callsign string) []string {
 	return s[callsign]
 }
 
+func TestComputeRouteStateForStrip_ClearsRouteForTrafficUnrelatedToSessionAirport(t *testing.T) {
+	strip := &models.Strip{
+		Callsign:    "DLH2958",
+		Origin:      "EDDH",
+		Destination: "EFHK",
+		Runway:      stringPtr("33"),
+		Stand:       stringPtr("A12"),
+		NextOwners:  []string{"EKCH_TWR"},
+	}
+	session := &models.Session{ID: 42, Airport: "ekch"}
+
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, nil, routeRadioState{})
+
+	require.NoError(t, err)
+	assert.True(t, shouldUpdate)
+	assert.Empty(t, result.NextOwners)
+}
+
+func TestComputeRouteStateForStrip_ClearsDepartureRouteUntilStandIsKnown(t *testing.T) {
+	strip := &models.Strip{
+		Callsign:    "SAS123",
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		Runway:      stringPtr("22R"),
+		NextOwners:  []string{"EKCH_DEL"},
+	}
+	session := &models.Session{ID: 42, Airport: "EKCH"}
+
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, nil, routeRadioState{})
+
+	require.NoError(t, err)
+	assert.True(t, shouldUpdate)
+	assert.Empty(t, result.NextOwners)
+}
+
+func TestArrivalRouteCanContinueFromGroundEastToNorthStand(t *testing.T) {
+	for _, test := range []struct {
+		runway string
+		stand  string
+	}{
+		{runway: "22L", stand: "E36"},
+		{runway: "22L", stand: "A12"},
+		{runway: "04L", stand: "A23"},
+	} {
+		t.Run(test.runway+"_"+test.stand, func(t *testing.T) {
+			route, ok := config.ComputeToStand([]string{test.runway}, "GE", test.stand)
+			require.True(t, ok)
+			assert.Equal(t, []string{"GE", "GWA", "AA"}, route.Path)
+		})
+	}
+}
+
 func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionFallsBackToTowerOwner(t *testing.T) {
 
 	arrivalRunway, towerSector := mustArrivalRunwayAndTowerSector(t)

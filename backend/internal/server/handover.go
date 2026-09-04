@@ -100,7 +100,10 @@ func resolveHandoverTargetForOwner(identifier string, owner string, strip *model
 }
 
 func resolveLogicalSectorFrequency(identifier string, strip *models.Strip, session *models.Session) (string, bool) {
-	isArrival := strip.Destination == session.Airport
+	isArrival, isLocal := stripDirectionForSession(strip, session)
+	if !isLocal {
+		return "", false
+	}
 	active := session.ActiveRunways.DepartureRunways
 	if isArrival {
 		active = session.ActiveRunways.ArrivalRunways
@@ -109,7 +112,10 @@ func resolveLogicalSectorFrequency(identifier string, strip *models.Strip, sessi
 }
 
 func resolveConfiguredRouteSector(identifier string, strip *models.Strip, session *models.Session) string {
-	isArrival := strip.Destination == session.Airport
+	isArrival, isLocal := stripDirectionForSession(strip, session)
+	if !isLocal {
+		return identifier
+	}
 	active := session.ActiveRunways.DepartureRunways
 	if isArrival {
 		active = session.ActiveRunways.ArrivalRunways

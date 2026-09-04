@@ -7,10 +7,20 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type snapshotPendingDisconnectHub struct {
+	*testutil.MockEuroscopeHub
+	pending map[string]bool
+}
+
+func (h *snapshotPendingDisconnectHub) IsAircraftDisconnectPending(_ int32, callsign string) bool {
+	return h.pending[callsign]
+}
 
 func TestStandBlockNeighborsAreBidirectional(t *testing.T) {
 	registry, err := sat.LoadStandCapabilities(strings.NewReader(`
@@ -90,4 +100,43 @@ func TestSnapshotBuilder_Build_IncludesAssociatedLocalIP(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, cachedAtis)
 	assert.Equal(t, "192.168.1.25", event.LocalIP)
+}
+
+func TestSnapshotBuilder_Build_ExcludesStripsOmittedByLatestEuroscopeSync(t *testing.T) {
+	seenAt := time.Now().UTC()
+	builder := NewSnapshotBuilder(SnapshotBuilderDependencies{
+		ControllerRepo: &testutil.MockControllerRepository{
+			ListBySessionFn: func(context.Context, int32) ([]*internalModels.Controller, error) { return nil, nil },
+		},
+		StripRepo: &testutil.MockStripRepository{
+			ListFn: func(context.Context, int32) ([]*internalModels.Strip, error) {
+				return []*internalModels.Strip{
+					{Callsign: "UNSYNCED1", Bay: "DEP_HIDDEN"},
+					{Callsign: "STALE1", Bay: "NOT_CLEARED", EuroscopeSeenAt: &seenAt},
+					{Callsign: "LIVE1", Bay: "NOT_CLEARED", EuroscopeSeenAt: &seenAt},
+				}, nil
+			},
+		},
+		SectorRepo: &testutil.MockSectorOwnerRepository{
+			ListBySessionFn: func(context.Context, int32) ([]*internalModels.SectorOwner, error) { return nil, nil },
+		},
+		SessionRepo: &testutil.MockSessionRepository{
+			GetByIDFn: func(context.Context, int32) (*internalModels.Session, error) {
+				return &internalModels.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}, nil
+			},
+		},
+		CoordinationRepo: &testutil.MockCoordinationRepository{
+			ListBySessionFn: func(context.Context, int32) ([]*internalModels.Coordination, error) { return nil, nil },
+		},
+		EuroscopeHub: &snapshotPendingDisconnectHub{
+			MockEuroscopeHub: &testutil.MockEuroscopeHub{},
+			pending:          map[string]bool{"STALE1": true},
+		},
+	})
+
+	event, _, err := builder.Build(context.Background(), InitialSnapshotRequest{SessionID: 42, Airport: "EKCH"})
+
+	require.NoError(t, err)
+	require.Len(t, event.Strips, 1)
+	assert.Equal(t, "LIVE1", event.Strips[0].Callsign)
 }

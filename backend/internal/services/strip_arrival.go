@@ -55,40 +55,101 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 
 // UpdateAircraftPosition updates the aircraft position and moves the strip to a new bay if needed.
 func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int32, airport string) error {
-	existingStrip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "FlightStripOffline"))
-			return nil
+	var existingStrip *internalModels.Strip
+	var observedStrip internalModels.Strip
+	var previousBay string
+	var bay string
+	positionStored := false
+
+	// A controller move and an EuroScope position update can arrive concurrently.
+	// Guard the combined position/bay write with the strip version, then reload
+	// and recompute once on conflict. The retry is deliberately bounded so a hot
+	// strip cannot create an unbounded read loop.
+	for attempt := 0; attempt < 2; attempt++ {
+		var err error
+		existingStrip, err = s.stripReader.GetByCallsign(ctx, session, callsign)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "FlightStripOffline"))
+				return nil
+			}
+			return err
 		}
-		return err
+
+		dbStrip := database.Strip{
+			Origin:      existingStrip.Origin,
+			Destination: existingStrip.Destination,
+			Cleared:     existingStrip.Cleared,
+			Bay:         existingStrip.Bay,
+			State:       existingStrip.State,
+		}
+		previousBay = existingStrip.Bay
+		bay = shared.GetDepartureBayFromPosition(lat, lon, int64(altitude), dbStrip, config.GetAirborneAltitudeAGL(), airport)
+
+		existingState := "<nil>"
+		if existingStrip.State != nil {
+			existingState = *existingStrip.State
+		}
+		slog.DebugContext(ctx, "UpdateAircraftPosition",
+			slog.String("callsign", callsign),
+			slog.String("current_bay", previousBay),
+			slog.String("current_state", existingState),
+			slog.Int("altitude", int(altitude)),
+			slog.Int64("airborne_threshold_agl", config.GetAirborneAltitudeAGL()),
+			slog.String("computed_bay", bay),
+			slog.Int("attempt", attempt+1),
+		)
+
+		sequence := int32(0)
+		if existingStrip.Sequence != nil {
+			sequence = *existingStrip.Sequence
+		}
+		if previousBay != bay {
+			sequence, err = s.nextSequenceAtEndOfBay(ctx, session, bay)
+			if err != nil {
+				return err
+			}
+		}
+
+		updated, err := s.fieldStore.UpdateAircraftPositionAndBay(
+			ctx, session, callsign, &lat, &lon, &altitude, bay, sequence, existingStrip.Version,
+		)
+		if err != nil {
+			return err
+		}
+		if updated == 0 {
+			slog.DebugContext(ctx, "Aircraft position update conflicted with a newer strip version",
+				slog.String("callsign", callsign),
+				slog.Int("attempt", attempt+1),
+				slog.Int("version", int(existingStrip.Version)),
+			)
+			continue
+		}
+
+		observedStrip = *existingStrip
+		existingStrip.PositionLatitude = &lat
+		existingStrip.PositionLongitude = &lon
+		existingStrip.PositionAltitude = &altitude
+		if previousBay != bay {
+			existingStrip.Bay = bay
+			existingStrip.Sequence = &sequence
+			existingStrip.Version++
+			s.cacheStrip(ctx, existingStrip)
+			s.sendStripUpdate(session, callsign, sequence, bay)
+			if err := s.applyBayChangeEffects(ctx, session, callsign, previousBay, bay, true); err != nil {
+				return err
+			}
+		}
+		positionStored = true
+		break
 	}
 
-	dbStrip := database.Strip{
-		Origin:      existingStrip.Origin,
-		Destination: existingStrip.Destination,
-		Cleared:     existingStrip.Cleared,
-		Bay:         existingStrip.Bay,
-		State:       existingStrip.State,
-	}
-	bay := shared.GetDepartureBayFromPosition(lat, lon, int64(altitude), dbStrip, config.GetAirborneAltitudeAGL(), airport)
-
-	existingState := "<nil>"
-	if existingStrip.State != nil {
-		existingState = *existingStrip.State
-	}
-	slog.DebugContext(ctx, "UpdateAircraftPosition",
-		slog.String("callsign", callsign),
-		slog.String("current_bay", existingStrip.Bay),
-		slog.String("current_state", existingState),
-		slog.Int("altitude", int(altitude)),
-		slog.Int64("airborne_threshold_agl", config.GetAirborneAltitudeAGL()),
-		slog.String("computed_bay", bay),
-	)
-
-	_, err = s.fieldStore.UpdateAircraftPosition(ctx, session, callsign, &lat, &lon, &altitude, bay, nil)
-	if err != nil {
-		return err
+	if !positionStored {
+		slog.WarnContext(ctx, "Aircraft position update abandoned after repeated version conflicts",
+			slog.String("callsign", callsign),
+			slog.Int("max_attempts", 2),
+		)
+		return nil
 	}
 
 	// An EuroScope position is authoritative evidence that the operational
@@ -96,26 +157,23 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	// has only supplied a prefile; prefile provenance must not suppress the
 	// EuroScope-first transition to a departure block.
 	if s.departureObserver != nil &&
-		strings.EqualFold(strings.TrimSpace(existingStrip.Origin), strings.TrimSpace(airport)) {
-		if err := s.departureObserver.ObserveDeparturePosition(ctx, session, existingStrip, lat, lon); err != nil {
+		strings.EqualFold(strings.TrimSpace(observedStrip.Origin), strings.TrimSpace(airport)) {
+		if err := s.departureObserver.ObserveDeparturePosition(ctx, session, &observedStrip, lat, lon); err != nil {
 			return err
 		}
 	}
-	if s.arrivalObserver != nil && strings.EqualFold(strings.TrimSpace(existingStrip.Destination), strings.TrimSpace(airport)) {
-		if err := s.arrivalObserver.ObserveEuroScopePosition(ctx, session, existingStrip, lat, lon, altitude); err != nil {
+	if s.arrivalObserver != nil && strings.EqualFold(strings.TrimSpace(observedStrip.Destination), strings.TrimSpace(airport)) {
+		if err := s.arrivalObserver.ObserveEuroScopePosition(ctx, session, &observedStrip, lat, lon, altitude); err != nil {
 			return err
 		}
 	}
 
-	if existingStrip.Bay != bay {
-		slog.DebugContext(ctx, "UpdateAircraftPosition: bay changed, moving strip",
+	if previousBay != bay {
+		slog.DebugContext(ctx, "UpdateAircraftPosition: bay changed",
 			slog.String("callsign", callsign),
-			slog.String("from_bay", existingStrip.Bay),
+			slog.String("from_bay", previousBay),
 			slog.String("to_bay", bay),
 		)
-		if err := s.MoveToBay(context.Background(), session, callsign, bay, true); err != nil {
-			return err
-		}
 		assignedSquawk := ""
 		if existingStrip.AssignedSquawk != nil {
 			assignedSquawk = *existingStrip.AssignedSquawk
@@ -128,13 +186,13 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			)
 			s.esCommander.SendGenerateSquawk(session, "", callsign)
 		}
-		if existingStrip.Bay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE {
+		if previousBay == shared.BAY_DEPART && bay == shared.BAY_AIRBORNE {
 			return s.AutoTransferAirborneStrip(ctx, session, callsign)
 		}
 	}
 
-	if existingStrip.Destination == airport {
-		s.handleArrivalPositionUpdate(ctx, session, callsign, lat, lon, int64(altitude), existingStrip)
+	if observedStrip.Destination == airport {
+		s.handleArrivalPositionUpdate(ctx, session, callsign, lat, lon, int64(altitude), &observedStrip)
 	}
 
 	return nil

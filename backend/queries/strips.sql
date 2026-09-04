@@ -226,6 +226,24 @@ SET position_latitude  = $1,
     bay                = $4
 WHERE callsign = $5 AND session = $6 AND (version = sqlc.narg('version') OR sqlc.narg('version') IS NULL);
 
+-- name: UpdateStripAircraftPositionAndBay :execrows
+UPDATE strips
+SET position_latitude  = sqlc.arg(position_latitude),
+    position_longitude = sqlc.arg(position_longitude),
+    position_altitude  = sqlc.arg(position_altitude),
+    sequence           = CASE
+        WHEN bay IS DISTINCT FROM sqlc.arg(bay) THEN sqlc.arg(sequence)::INT
+        ELSE sequence
+    END,
+    version            = CASE
+        WHEN bay IS DISTINCT FROM sqlc.arg(bay) THEN version + 1
+        ELSE version
+    END,
+    bay                = sqlc.arg(bay)
+WHERE callsign = sqlc.arg(callsign)
+  AND session = sqlc.arg(session)
+  AND version = sqlc.arg(version);
+
 -- name: UpdateStripBayByID :execrows
 UPDATE strips
 SET bay     = $1,

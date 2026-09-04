@@ -660,6 +660,21 @@ func (r *stripRepository) UpdateAircraftPosition(ctx context.Context, session in
 	})
 }
 
+// UpdateAircraftPositionAndBay atomically stores surveillance data and its
+// derived bay, rejecting the write when the strip changed after it was read.
+func (r *stripRepository) UpdateAircraftPositionAndBay(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, sequence int32, version int32) (int64, error) {
+	return r.queries.UpdateStripAircraftPositionAndBay(ctx, database.UpdateStripAircraftPositionAndBayParams{
+		PositionLatitude:  lat,
+		PositionLongitude: lon,
+		PositionAltitude:  alt,
+		Bay:               bay,
+		Sequence:          sequence,
+		Callsign:          callsign,
+		Session:           session,
+		Version:           version,
+	})
+}
+
 // UpdateBay updates the bay of a strip
 func (r *stripRepository) UpdateBay(ctx context.Context, session int32, callsign string, bay string, version *int32) (int64, error) {
 	return r.queries.UpdateStripBayByID(ctx, database.UpdateStripBayByIDParams{

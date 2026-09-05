@@ -127,12 +127,13 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			slog.Duration("duration", duration),
 		}
 		// A recalculation walks every strip at the airport, so it is the single
-		// largest unit of work a sync can trigger. Log every one at debug, and
-		// promote the slow ones so they surface without trace sampling.
+		// largest unit of work a sync can trigger. Keep the existing info line
+		// and its message so log queries built on it keep matching, and promote
+		// the slow ones to a warning so they surface without trace sampling.
 		if duration >= slowRecalculationThreshold {
-			slog.WarnContext(ctx, "CDM recalculation was slow", attrs...)
+			slog.WarnContext(ctx, "CDM recalculation finished", append(attrs, slog.Bool("slow", true))...)
 		} else {
-			slog.DebugContext(ctx, "CDM recalculation finished", attrs...)
+			slog.InfoContext(ctx, "CDM recalculation finished", attrs...)
 		}
 		span.End()
 	}()

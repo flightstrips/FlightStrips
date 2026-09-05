@@ -109,7 +109,13 @@ func startRuntimeMetrics(provider *sdkmetric.MeterProvider) error {
 	if err := otelruntime.Start(otelruntime.WithMeterProvider(provider)); err != nil {
 		return err
 	}
-	return metrics.StartRuntimeMetrics(provider)
+	// Failing to register the CPU attribution instruments costs visibility, not
+	// service. Initialize's error aborts process startup, so degrade to a warning
+	// rather than refusing to boot over an observability problem.
+	if err := metrics.StartRuntimeMetrics(provider); err != nil {
+		slog.Warn("Failed to start Go runtime performance metrics", slog.Any("error", err))
+	}
+	return nil
 }
 
 func (t *Telemetry) Shutdown(ctx context.Context) error {

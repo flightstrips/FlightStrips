@@ -654,10 +654,8 @@ func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
 		// EuroScope while their browser tab was open would receive layout
 		// updates keyed to their old position.
 		if controller != nil && dbSession != nil {
-			client.callsign = controller.Callsign
 			client.position = controller.Position
-			client.airport = dbSession.Airport
-			client.sessionName = dbSession.Name
+			client.setIdentity(dbSession.Name, dbSession.Airport, controller.Callsign)
 		}
 
 		switch {
@@ -697,10 +695,8 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 				metrics.ConnectionOpened(context.Background(), "", "", "frontend", "", client.version)
 			}
 			client.session = WaitingForEuroscopeConnectionSessionId
-			client.sessionName = ""
 			client.position = WaitingForEuroscopeConnectionPosition
-			client.airport = WaitingForEuroscopeConnectionAirport
-			client.callsign = WaitingForEuroscopeConnectionCallsign
+			client.setIdentity("", WaitingForEuroscopeConnectionAirport, WaitingForEuroscopeConnectionCallsign)
 			client.Enqueue(frontend.DisconnectEvent{ReadOnly: readOnly})
 		}
 	}

@@ -2792,7 +2792,7 @@
                         "name": "grafanacloud-logs"
                       },
                       "spec": {
-                        "expr": "{service_name=\"FlightStrips\"} |= \"\" | logfmt | level =~ \"WARN|ERROR\" |~ \"recalculation was slow|Disconnecting slow websocket client\"",
+                        "expr": "{service_name=\"FlightStrips\"} |= \"\" | logfmt | level =~ \"WARN|ERROR\" |~ \"CDM recalculation finished|Disconnecting slow websocket client\"",
                         "queryType": "range"
                       }
                     },

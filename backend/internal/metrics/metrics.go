@@ -42,6 +42,7 @@ type instruments struct {
 	hubPublishBlocked       metric.Int64Counter
 	hubPublishBlockedTime   metric.Float64Histogram
 	hubSlowConsumers        metric.Int64Counter
+	hubDispatchAttrs        map[hubDispatchKey]metric.MeasurementOption
 	pdcRequestsReceived     metric.Int64Counter
 	pdcRequestOutcomes      metric.Int64Counter
 	pdcStateChanges         metric.Int64Counter
@@ -295,6 +296,7 @@ func get() *instruments {
 			hubPublishBlocked:       hubPublishBlocked,
 			hubPublishBlockedTime:   hubPublishBlockedTime,
 			hubSlowConsumers:        hubSlowConsumers,
+			hubDispatchAttrs:        buildHubDispatchAttributes(),
 			pdcRequestsReceived:     pdcRequestsReceived,
 			pdcRequestOutcomes:      pdcRequestOutcomes,
 			pdcStateChanges:         pdcStateChanges,
@@ -695,13 +697,14 @@ func RecordCDMRecalculation(ctx context.Context, airport string, strips int, dur
 // shows the backlog the loop is working through, fanout shows how many clients
 // each message reaches, and duration shows how long the single-threaded loop was
 // occupied — together they explain a hub that has become the bottleneck.
+//
+// This runs on the single goroutine every broadcast is serialised behind, so the
+// attribute set is looked up from the table built at startup rather than being
+// sorted and allocated per message.
 func RecordHubDispatch(ctx context.Context, source, kind string, queueDepth, fanout int, duration time.Duration) {
-	attrs := metric.WithAttributes(
-		attribute.String("source", normalizeHubSource(source)),
-		attribute.String("kind", normalizeHubKind(kind)),
-	)
-
 	i := get()
+	attrs := i.hubDispatchAttrs[hubDispatchKey{source: normalizeHubSource(source), kind: normalizeHubKind(kind)}]
+
 	i.hubQueueDepth.Record(ctx, int64(max(queueDepth, 0)), attrs)
 	i.hubBroadcastFanout.Record(ctx, int64(max(fanout, 0)), attrs)
 	i.hubDispatchDuration.Record(ctx, max(duration.Seconds(), 0), attrs)
@@ -723,12 +726,38 @@ func RecordSlowConsumerDisconnect(ctx context.Context, sessionName, airport, sou
 	get().hubSlowConsumers.Add(ctx, 1, sessionAttributes(sessionName, airport, attribute.String("source", normalizeHubSource(source))))
 }
 
+// hubDispatchKey identifies one precomputed hub dispatch attribute set.
+type hubDispatchKey struct {
+	source string
+	kind   string
+}
+
+var (
+	hubSourceLabels = []string{"frontend", "euroscope", "alb", "other"}
+	hubKindLabels   = []string{"broadcast", "direct", "airport", "layout", "other"}
+)
+
+// buildHubDispatchAttributes materialises every source and kind combination once
+// so the dispatch loop only performs a map lookup per message.
+func buildHubDispatchAttributes() map[hubDispatchKey]metric.MeasurementOption {
+	attrs := make(map[hubDispatchKey]metric.MeasurementOption, len(hubSourceLabels)*len(hubKindLabels))
+	for _, source := range hubSourceLabels {
+		for _, kind := range hubKindLabels {
+			attrs[hubDispatchKey{source: source, kind: kind}] = metric.WithAttributes(
+				attribute.String("source", source),
+				attribute.String("kind", kind),
+			)
+		}
+	}
+	return attrs
+}
+
 func normalizeHubSource(source string) string {
-	return fixedLabel(source, "frontend", "euroscope", "alb")
+	return fixedLabel(source, hubSourceLabels...)
 }
 
 func normalizeHubKind(kind string) string {
-	return fixedLabel(kind, "broadcast", "direct", "airport", "layout")
+	return fixedLabel(kind, hubKindLabels...)
 }
 
 func MessageSent(ctx context.Context, sessionName, airport, source, msgType, version string) {

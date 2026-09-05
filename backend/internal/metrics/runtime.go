@@ -6,6 +6,7 @@ import (
 	"math"
 	"runtime/metrics"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -57,13 +58,22 @@ var reportedQuantiles = []struct {
 	{"p99", 0.99},
 }
 
+// minQuantileInterval is the shortest gap between two delta computations for the
+// same histogram. The SDK invokes an observable callback once per registered
+// reader, so without this a second reader would consume the baseline microseconds
+// after the first and report a near-empty interval as though latency had
+// collapsed. Any realistic collection interval is far longer than this.
+const minQuantileInterval = time.Second
+
 // runtimeSampler reads the Go runtime metrics once per collection cycle and
 // shares that sample across every observable instrument registered below.
 type runtimeSampler struct {
-	mu       sync.Mutex
-	samples  []metrics.Sample
-	index    map[string]int
-	previous map[string][]uint64
+	mu           sync.Mutex
+	samples      []metrics.Sample
+	index        map[string]int
+	previous     map[string][]uint64
+	quantiles    map[string][]float64
+	lastComputed map[string]time.Time
 }
 
 func newRuntimeSampler(names ...string) *runtimeSampler {
@@ -73,8 +83,10 @@ func newRuntimeSampler(names ...string) *runtimeSampler {
 	}
 
 	sampler := &runtimeSampler{
-		index:    make(map[string]int, len(names)),
-		previous: make(map[string][]uint64),
+		index:        make(map[string]int, len(names)),
+		previous:     make(map[string][]uint64),
+		quantiles:    make(map[string][]float64),
+		lastComputed: make(map[string]time.Time),
 	}
 	for _, name := range names {
 		if _, ok := supported[name]; !ok {
@@ -281,24 +293,50 @@ func StartRuntimeMetrics(provider metric.MeterProvider) error {
 			observer.ObserveInt64(gcCycles, int64(forced), metric.WithAttributes(attribute.String("trigger", "forced")))
 		}
 
-		observeQuantiles(observer, scheduleLatency, sampler, latenciesName)
-		observeQuantiles(observer, gcPause, sampler, gcPausesName)
+		now := time.Now()
+		observeQuantiles(observer, scheduleLatency, sampler, latenciesName, now)
+		observeQuantiles(observer, gcPause, sampler, gcPausesName, now)
 		return nil
 	}, cpuTime, processorLimit, osThreads, scheduleLatency, mutexWait, gcPause, gcCycles)
 
 	return err
 }
 
-func observeQuantiles(observer metric.Observer, gauge metric.Float64ObservableGauge, sampler *runtimeSampler, name string) {
-	buckets, counts, ok := sampler.histogramDelta(name)
-	if !ok {
-		return
+// quantilesFor returns this interval's quantiles, in the order of
+// reportedQuantiles. A computation within minQuantileInterval of the previous one
+// reuses the cached result rather than consuming a fresh delta, so every reader
+// collecting in the same cycle observes the same interval.
+func (s *runtimeSampler) quantilesFor(name string, now time.Time) ([]float64, bool) {
+	if computed, seen := s.lastComputed[name]; seen && now.Sub(computed) < minQuantileInterval {
+		values, cached := s.quantiles[name]
+		return values, cached
 	}
+
+	buckets, counts, ok := s.histogramDelta(name)
+	if !ok {
+		return nil, false
+	}
+
+	values := make([]float64, 0, len(reportedQuantiles))
 	for _, quantile := range reportedQuantiles {
 		value, ok := histogramQuantile(buckets, counts, quantile.value)
 		if !ok {
-			continue
+			return nil, false
 		}
-		observer.ObserveFloat64(gauge, value, metric.WithAttributes(attribute.String("quantile", quantile.label)))
+		values = append(values, value)
+	}
+
+	s.quantiles[name] = values
+	s.lastComputed[name] = now
+	return values, true
+}
+
+func observeQuantiles(observer metric.Observer, gauge metric.Float64ObservableGauge, sampler *runtimeSampler, name string, now time.Time) {
+	values, ok := sampler.quantilesFor(name, now)
+	if !ok {
+		return
+	}
+	for i, quantile := range reportedQuantiles {
+		observer.ObserveFloat64(gauge, values[i], metric.WithAttributes(attribute.String("quantile", quantile.label)))
 	}
 }

@@ -152,6 +152,21 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		return nil
 	}
 
+	// Route ownership can depend on aircraft position. Recalculate it from this
+	// coalesced position stream instead of every full EuroScope flight-plan
+	// callback, which may arrive many times for the same radar update.
+	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+		if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, true); err != nil {
+			// The position is already persisted and drives safety-critical lifecycle
+			// observations below. A route refresh failure must not prevent those
+			// transitions; a later position update will retry the recalculation.
+			slog.WarnContext(ctx, "Failed to recalculate route after aircraft position update",
+				slog.String("callsign", callsign),
+				slog.Any("error", err),
+			)
+		}
+	}
+
 	// An EuroScope position is authoritative evidence that the operational
 	// departure strip exists. Feed it into the stand lifecycle even when VATSIM
 	// has only supplied a prefile; prefile provenance must not suppress the
@@ -160,6 +175,11 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		strings.EqualFold(strings.TrimSpace(observedStrip.Origin), strings.TrimSpace(airport)) {
 		if err := s.departureObserver.ObserveDeparturePosition(ctx, session, &observedStrip, lat, lon); err != nil {
 			return err
+		}
+		if observedStrip.State != nil {
+			if err := s.releaseDepartureStandOnPush(ctx, session, &observedStrip, *observedStrip.State, airport); err != nil {
+				return err
+			}
 		}
 	}
 	if s.arrivalObserver != nil && strings.EqualFold(strings.TrimSpace(observedStrip.Destination), strings.TrimSpace(airport)) {

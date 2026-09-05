@@ -162,7 +162,14 @@ func handleAssignedSquawk(ctx context.Context, client *Client, message Message) 
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.UpdateAssignedSquawk(ctx, client.session, event.Callsign, event.Squawk)
+	if client.hasCachedAssignedSquawk(event.Callsign, event.Squawk) {
+		return nil
+	}
+	if err := client.hub.stripService.UpdateAssignedSquawk(ctx, client.session, event.Callsign, event.Squawk); err != nil {
+		return err
+	}
+	client.rememberAssignedSquawk(event.Callsign, event.Squawk)
+	return nil
 }
 
 func handleSquawk(ctx context.Context, client *Client, message Message) error {
@@ -226,6 +233,7 @@ func handleAircraftDisconnected(ctx context.Context, client *Client, message Mes
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
+	client.forgetFlightPlanCache(event.Callsign)
 	client.hub.scheduleAircraftDisconnect(client.session, event.Callsign, offlineGracePeriod)
 	return nil
 }
@@ -318,8 +326,14 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
+	if client.hub.getMasterClient(client.session) != client {
+		return nil
+	}
 	recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
-	if err := client.hub.stripService.UpdateAircraftPosition(ctx, client.session, event.Callsign, event.Lat, event.Lon, int32(event.Altitude), client.airport); err != nil {
+	position := cachedAircraftPosition{
+		lat: event.Lat, lon: event.Lon, altitude: int32(event.Altitude),
+	}
+	if err := client.processAircraftPosition(ctx, event.Callsign, position); err != nil {
 		return err
 	}
 	client.hub.markEuroscopeSeen(ctx, client.session, event.Callsign)
@@ -393,8 +407,26 @@ func handleStripUpdateEvent(ctx context.Context, client *Client, message Message
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
+	if client.hasCachedOperationalStrip(event.Strip) {
+		if client.hub.getMasterClient(client.session) != client {
+			return nil
+		}
+		recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
+		client.queuePositionOnlyUpdate(event.Strip)
+		if recoveredFromDisconnect && client.hub.server != nil && client.hub.server.GetFrontendHub() != nil {
+			client.hub.server.GetFrontendHub().SendStripUpdate(client.session, event.Callsign)
+		}
+		return nil
+	}
 	recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
-	if err := client.hub.stripService.SyncStrip(ctx, client.session, client.GetCid(), event.Strip, client.airport); err != nil {
+	processLock := client.positionProcessLock(event.Callsign)
+	processLock.Lock()
+	err := client.hub.stripService.SyncStrip(ctx, client.session, client.GetCid(), event.Strip, client.airport)
+	if err == nil {
+		client.rememberOperationalStrip(event.Strip)
+	}
+	processLock.Unlock()
+	if err != nil {
 		return err
 	}
 	if recoveredFromDisconnect && client.hub.server != nil && client.hub.server.GetFrontendHub() != nil {

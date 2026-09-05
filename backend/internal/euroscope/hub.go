@@ -544,6 +544,7 @@ func pendingOnlineOrchestrationKey(session int32, callsign string) string {
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
+	client.stopPendingPositionUpdates()
 	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign, client.version)
 	hub.clearClientRunwayState(client.session, client.GetCid())
 	hub.clearObserverCid(client.GetCid())

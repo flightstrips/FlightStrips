@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -21,7 +22,24 @@ type aircraftAliveStripService struct {
 	noOpStripService
 	syncCalls     atomic.Int32
 	positionCalls atomic.Int32
+	assignedCalls atomic.Int32
 	deleteCalls   atomic.Int32
+	positionMu    sync.Mutex
+	lastPosition  cachedAircraftPosition
+}
+
+type blockingPositionStripService struct {
+	noOpStripService
+	firstEntered chan struct{}
+	releaseFirst chan struct{}
+}
+
+func (s *blockingPositionStripService) UpdateAircraftPosition(_ context.Context, _ int32, callsign string, _, _ float64, _ int32, _ string) error {
+	if callsign == "SAS123" {
+		close(s.firstEntered)
+		<-s.releaseFirst
+	}
+	return nil
 }
 
 func (s *aircraftAliveStripService) SyncStrip(_ context.Context, _ int32, _ string, _ interface{}, _ string) error {
@@ -29,8 +47,22 @@ func (s *aircraftAliveStripService) SyncStrip(_ context.Context, _ int32, _ stri
 	return nil
 }
 
-func (s *aircraftAliveStripService) UpdateAircraftPosition(_ context.Context, _ int32, _ string, _, _ float64, _ int32, _ string) error {
+func (s *aircraftAliveStripService) UpdateAircraftPosition(_ context.Context, _ int32, _ string, lat, lon float64, altitude int32, _ string) error {
+	s.positionMu.Lock()
+	s.lastPosition = cachedAircraftPosition{lat: lat, lon: lon, altitude: altitude}
+	s.positionMu.Unlock()
 	s.positionCalls.Add(1)
+	return nil
+}
+
+func (s *aircraftAliveStripService) position() cachedAircraftPosition {
+	s.positionMu.Lock()
+	defer s.positionMu.Unlock()
+	return s.lastPosition
+}
+
+func (s *aircraftAliveStripService) UpdateAssignedSquawk(_ context.Context, _ int32, _ string, _ string) error {
+	s.assignedCalls.Add(1)
 	return nil
 }
 
@@ -43,6 +75,7 @@ func newAircraftDisconnectTestHub(stripService shared.StripService) *Hub {
 	frontendHub := &testutil.MockFrontendHub{}
 	return &Hub{
 		stripService:             stripService,
+		master:                   make(map[int32]*Client),
 		aircraftDisconnectTimers: make(map[string]*aircraftDisconnectEntry),
 		server: &testutil.MockServer{
 			FrontendHubVal: frontendHub,
@@ -92,10 +125,134 @@ func TestHandleStripUpdateEvent_CancelsPendingAircraftDisconnect(t *testing.T) {
 	assert.Equal(t, "BAW819K", frontendHub.StripUpdates[0].Callsign)
 }
 
+func TestHandleStripUpdateEvent_DeduplicatesPositionOnlyCallbacks(t *testing.T) {
+	stripService := &aircraftAliveStripService{}
+	hub := newAircraftDisconnectTestHub(stripService)
+	client := &Client{hub: hub, session: 42, airport: "EKCH", positionCoalesceDelay: 10 * time.Millisecond}
+	hub.master[client.session] = client
+	t.Cleanup(client.stopPendingPositionUpdates)
+
+	strip := eventseuroscope.Strip{
+		Callsign:       "SAS123",
+		Origin:         "EKCH",
+		Destination:    "ESSA",
+		Route:          "NEXEN",
+		AssignedSquawk: "1234",
+	}
+	strip.Position.Lat = 55.6
+	strip.Position.Lon = 12.6
+	strip.Position.Altitude = 1000
+
+	sendStrip := func(value eventseuroscope.Strip) {
+		t.Helper()
+		require.NoError(t, handleStripUpdateEvent(context.Background(), client, Message{
+			Type: eventseuroscope.StripUpdate,
+			Message: mustMarshalMessage(t, eventseuroscope.StripUpdateEvent{
+				Type:  eventseuroscope.StripUpdate,
+				Strip: value,
+			}),
+		}))
+	}
+
+	sendStrip(strip)
+	moved := strip
+	moved.Position.Lat = 55.7
+	moved.Position.Lon = 12.7
+	moved.Position.Altitude = 2000
+	sendStrip(moved)
+	movedAgain := moved
+	movedAgain.Position.Lat = 55.8
+	movedAgain.Position.Lon = 12.8
+	movedAgain.Position.Altitude = 3000
+	sendStrip(movedAgain)
+	require.Eventually(t, func() bool {
+		return stripService.positionCalls.Load() == 1
+	}, 100*time.Millisecond, time.Millisecond)
+	assert.Equal(t, cachedAircraftPosition{lat: 55.8, lon: 12.8, altitude: 3000}, stripService.position(),
+		"coalescing should retain the newest position")
+	slave := &Client{hub: hub, session: client.session, airport: client.airport, positionCoalesceDelay: time.Millisecond}
+	slave.rememberOperationalStrip(movedAgain)
+	slavePosition := movedAgain
+	slavePosition.Position.Lat = 55.9
+	require.NoError(t, handleStripUpdateEvent(context.Background(), slave, Message{
+		Type: eventseuroscope.StripUpdate,
+		Message: mustMarshalMessage(t, eventseuroscope.StripUpdateEvent{
+			Type: eventseuroscope.StripUpdate, Strip: slavePosition,
+		}),
+	}))
+	time.Sleep(5 * time.Millisecond)
+	assert.Equal(t, int32(1), stripService.positionCalls.Load(), "slave position-only callbacks must be ignored")
+
+	changed := movedAgain
+	changed.Route = "NEXEN DCT"
+	sendStrip(changed)
+
+	assert.Equal(t, int32(2), stripService.syncCalls.Load(),
+		"position-only callbacks should be dropped while operational changes still sync")
+
+	sendAssigned := func(squawk string) {
+		t.Helper()
+		require.NoError(t, handleAssignedSquawk(context.Background(), client, Message{
+			Type: eventseuroscope.AssignedSquawk,
+			Message: mustMarshalMessage(t, eventseuroscope.AssignedSquawkEvent{
+				Type:     eventseuroscope.AssignedSquawk,
+				Callsign: strip.Callsign,
+				Squawk:   squawk,
+			}),
+		}))
+	}
+
+	sendAssigned("1234")
+	sendAssigned("5670")
+	sendAssigned("5670")
+	assert.Equal(t, int32(1), stripService.assignedCalls.Load(),
+		"the full-strip snapshot should seed assigned-squawk deduplication")
+}
+
+func TestProcessAircraftPosition_DifferentCallsignsDoNotBlockEachOther(t *testing.T) {
+	stripService := &blockingPositionStripService{
+		firstEntered: make(chan struct{}),
+		releaseFirst: make(chan struct{}),
+	}
+	client := &Client{hub: newAircraftDisconnectTestHub(stripService), session: 42, airport: "EKCH"}
+	firstDone := make(chan error, 1)
+	secondDone := make(chan error, 1)
+	released := false
+	defer func() {
+		if !released {
+			close(stripService.releaseFirst)
+		}
+	}()
+
+	go func() {
+		firstDone <- client.processAircraftPosition(context.Background(), "SAS123", cachedAircraftPosition{lat: 55.6})
+	}()
+	select {
+	case <-stripService.firstEntered:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("first callsign did not enter position processing")
+	}
+
+	go func() {
+		secondDone <- client.processAircraftPosition(context.Background(), "SAS456", cachedAircraftPosition{lat: 55.7})
+	}()
+	select {
+	case err := <-secondDone:
+		require.NoError(t, err)
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("second callsign was blocked by unrelated position processing")
+	}
+
+	close(stripService.releaseFirst)
+	released = true
+	require.NoError(t, <-firstDone)
+}
+
 func TestHandlePositionUpdate_CancelsPendingAircraftDisconnect(t *testing.T) {
 	stripService := &aircraftAliveStripService{}
 	hub := newAircraftDisconnectTestHub(stripService)
 	client := &Client{hub: hub, session: 42, airport: "EKCH"}
+	hub.master[client.session] = client
 
 	hub.scheduleAircraftDisconnect(client.session, "DLH9HV", 25*time.Millisecond)
 
@@ -123,6 +280,16 @@ func TestHandlePositionUpdate_CancelsPendingAircraftDisconnect(t *testing.T) {
 	frontendHub := hub.server.GetFrontendHub().(*testutil.MockFrontendHub)
 	require.Len(t, frontendHub.StripUpdates, 1)
 	assert.Equal(t, "DLH9HV", frontendHub.StripUpdates[0].Callsign)
+
+	slave := &Client{hub: hub, session: 42, airport: "EKCH"}
+	err = handlePositionUpdate(context.Background(), slave, Message{
+		Type: eventseuroscope.PositionUpdate,
+		Message: mustMarshalMessage(t, eventseuroscope.AircraftPositionUpdateEvent{
+			Type: eventseuroscope.PositionUpdate, Callsign: "DLH9HV", Lat: 56, Lon: 13, Altitude: 100,
+		}),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), stripService.positionCalls.Load(), "slave position updates must be ignored")
 }
 
 func TestScheduleAircraftDisconnectResetsExistingWorker(t *testing.T) {

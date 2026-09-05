@@ -197,7 +197,7 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 	}
 
 	if existingStrip.State != nil && *existingStrip.State == groundState {
-		return nil
+		return s.releaseDepartureStandOnPush(ctx, session, existingStrip, groundState, airport)
 	}
 
 	if existingStrip.Bay == shared.BAY_DEPART && groundState == euroscope.GroundStateTaxi {
@@ -220,7 +220,6 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 	if err != nil {
 		return err
 	}
-
 	if existingStrip.Bay != bay {
 		if err := s.MoveToBay(context.Background(), session, callsign, bay, true); err != nil {
 			return err
@@ -231,6 +230,9 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		if err := s.cdmService.SyncAsatForGroundState(ctx, session, callsign, groundState); err != nil {
 			return err
 		}
+	}
+	if err := s.releaseDepartureStandOnPush(ctx, session, existingStrip, groundState, airport); err != nil {
+		return err
 	}
 
 	return nil
@@ -443,6 +445,11 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 	}
 	if count != 1 {
 		return nil, errors.New("failed to update strip bay/ground state")
+	}
+	if state != nil {
+		if err := s.releaseDepartureStandOnPush(ctx, session, strip, *state, airport); err != nil {
+			return nil, err
+		}
 	}
 
 	if state != strip.State && state != nil && s.esCommander != nil {

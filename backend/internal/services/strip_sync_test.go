@@ -22,6 +22,31 @@ type syncRouteComputerTestServer struct {
 	computeNextOwnersFn func(ctx context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error)
 }
 
+func TestSyncStripChangedIgnoringPosition(t *testing.T) {
+	latitude := 55.6
+	longitude := 12.6
+	altitude := int32(1000)
+	existing := &models.Strip{
+		Callsign: "SAS123", Origin: "EKCH", Destination: "ESSA",
+		PositionLatitude: &latitude, PositionLongitude: &longitude, PositionAltitude: &altitude,
+	}
+
+	moved := *existing
+	newLatitude := 55.7
+	newLongitude := 12.7
+	newAltitude := int32(2000)
+	moved.PositionLatitude = &newLatitude
+	moved.PositionLongitude = &newLongitude
+	moved.PositionAltitude = &newAltitude
+	assert.False(t, syncStripChangedIgnoringPosition(existing, &moved))
+	assert.False(t, syncStripRouteChanged(existing, &moved))
+
+	changedRoute := moved
+	changedRoute.Destination = "ENGM"
+	assert.True(t, syncStripChangedIgnoringPosition(existing, &changedRoute))
+	assert.True(t, syncStripRouteChanged(existing, &changedRoute))
+}
+
 func (s *syncRouteComputerTestServer) ComputeNextOwnersForStripContext(ctx context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error) {
 	if s.computeNextOwnersFn == nil {
 		return nil, false, nil

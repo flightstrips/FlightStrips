@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/testutil"
 	"FlightStrips/pkg/events/euroscope"
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -192,6 +193,7 @@ func TestUpdateAircraftPosition_ArrivalHiddenRemainsHidden(t *testing.T) {
 	departState := euroscope.GroundStateDepart
 
 	moveCalled := false
+	routeRecalculated := false
 	var savedBay string
 
 	stripRepo := &testutil.MockStripRepository{
@@ -220,6 +222,15 @@ func TestUpdateAircraftPosition_ArrivalHiddenRemainsHidden(t *testing.T) {
 
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetRouteRecalculator(&testutil.MockServer{
+		UpdateRouteForStripCtxFn: func(_ context.Context, gotCallsign string, gotSession int32, sendUpdate bool) error {
+			routeRecalculated = true
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, session, gotSession)
+			assert.True(t, sendUpdate, "position-driven route changes must be published")
+			return nil
+		},
+	})
 
 	err := svc.UpdateAircraftPosition(ctx, session, callsign,
 		shared.AirportLatitude, shared.AirportLongitude, 10042, "EKCH")
@@ -227,6 +238,7 @@ func TestUpdateAircraftPosition_ArrivalHiddenRemainsHidden(t *testing.T) {
 	assert.Equal(t, shared.BAY_HIDDEN, savedBay,
 		"already-hidden arrivals must stay HIDDEN so valid post-STAND auto-hide is preserved")
 	assert.False(t, moveCalled, "no bay move should be triggered when the arrival remains in HIDDEN")
+	assert.True(t, routeRecalculated, "the coalesced position stream must preserve position-based route updates")
 }
 
 func TestUpdateAircraftPosition_PrefileStillUsesEuroscopeForDepartureBlock(t *testing.T) {
@@ -248,6 +260,14 @@ func TestUpdateAircraftPosition_PrefileStillUsesEuroscopeForDepartureBlock(t *te
 	observer := &departurePositionObserverSpy{}
 	service := NewStripService(stripRepo)
 	service.SetDeparturePositionObserver(observer)
+	service.SetRouteRecalculator(&testutil.MockServer{
+		UpdateRouteForStripCtxFn: func(_ context.Context, gotCallsign string, gotSession int32, sendUpdate bool) error {
+			assert.Equal(t, callsign, gotCallsign)
+			assert.Equal(t, session, gotSession)
+			assert.True(t, sendUpdate)
+			return errors.New("route service unavailable")
+		},
+	})
 
 	require.NoError(t, service.UpdateAircraftPosition(
 		ctx, session, callsign, shared.AirportLatitude, shared.AirportLongitude, 20, "EKCH",

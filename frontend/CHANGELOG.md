@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.1.0...frontend/v1.1.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **strip:** show aircraft details on taxi departures ([#513](https://github.com/flightstrips/FlightStrips/issues/513)) ([5ed35eb](https://github.com/flightstrips/FlightStrips/commit/5ed35ebe925b87cd5b83359ec5aa368ec6568529))
+* **strip:** show orange EST push state ([#514](https://github.com/flightstrips/FlightStrips/issues/514)) ([b769371](https://github.com/flightstrips/FlightStrips/commit/b769371be43943e3861e21a3c2a04057e58cc75f))
+* **strip:** show registration on apron arrival strips ([#509](https://github.com/flightstrips/FlightStrips/issues/509)) ([6649885](https://github.com/flightstrips/FlightStrips/commit/66498853a919fffda87b4ea3475d066c5c4faa4f))
+
 ## [1.1.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.0.1...frontend/v1.1.0) (2026-09-04)
 
 

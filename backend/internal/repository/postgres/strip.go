@@ -139,6 +139,7 @@ func stripToModel(db database.Strip) (*models.Strip, error) {
 		PdcData:                  pdcData,
 		NextOwners:               db.NextOwners,
 		PreviousOwners:           db.PreviousOwners,
+		NextDisplay:              nextDisplayFromColumns(db.NextDisplayLabel, db.NextDisplayFrequency),
 		ReleasePoint:             db.ReleasePoint,
 		PdcState:                 pdcData.State,
 		PdcRequestRemarks:        pdcData.RequestRemarks,
@@ -206,52 +207,55 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 	if err != nil {
 		return err
 	}
+	nextDisplayLabel, nextDisplayFrequency := nextDisplayColumns(strip.NextDisplay)
 
 	return r.queries.InsertStrip(ctx, database.InsertStripParams{
-		Callsign:           strip.Callsign,
-		Session:            strip.Session,
-		Origin:             strip.Origin,
-		Destination:        strip.Destination,
-		Alternative:        strip.Alternative,
-		Route:              strip.Route,
-		Remarks:            strip.Remarks,
-		AssignedSquawk:     strip.AssignedSquawk,
-		Squawk:             strip.Squawk,
-		Sid:                strip.Sid,
-		Star:               strip.Star,
-		ClearedAltitude:    strip.ClearedAltitude,
-		Heading:            strip.Heading,
-		AircraftType:       strip.AircraftType,
-		Runway:             strip.Runway,
-		RequestedAltitude:  strip.RequestedAltitude,
-		Capabilities:       strip.Capabilities,
-		CommunicationType:  strip.CommunicationType,
-		AircraftCategory:   strip.AircraftCategory,
-		Stand:              strip.Stand,
-		Sequence:           strip.Sequence,
-		State:              strip.State,
-		Cleared:            strip.Cleared,
-		Owner:              strip.Owner,
-		Bay:                strip.Bay,
-		PositionLatitude:   strip.PositionLatitude,
-		PositionLongitude:  strip.PositionLongitude,
-		PositionAltitude:   strip.PositionAltitude,
-		CdmData:            cdmData,
-		NextOwners:         nextOwnersJSON,
-		PreviousOwners:     previousOwnersJSON,
-		Registration:       strip.Registration,
-		TrackingController: strip.TrackingController,
-		Hold:               strip.Hold,
-		HoldType:           strip.HoldType,
-		HoldEat:            strip.HoldEat,
-		EngineType:         strip.EngineType,
-		SpokenCallsign:     strip.SpokenCallsign,
-		HasFp:              strip.HasFP,
-		StartReq:           strip.StartReq,
-		VatsimCid:          strip.VatsimCID,
-		VatsimRevision:     strip.VatsimRevision,
-		VatsimSeenAt:       TimeToPgTimestamptz(strip.VatsimSeenAt),
-		EuroscopeSeenAt:    TimeToPgTimestamptz(strip.EuroscopeSeenAt),
+		Callsign:             strip.Callsign,
+		Session:              strip.Session,
+		Origin:               strip.Origin,
+		Destination:          strip.Destination,
+		Alternative:          strip.Alternative,
+		Route:                strip.Route,
+		Remarks:              strip.Remarks,
+		AssignedSquawk:       strip.AssignedSquawk,
+		Squawk:               strip.Squawk,
+		Sid:                  strip.Sid,
+		Star:                 strip.Star,
+		ClearedAltitude:      strip.ClearedAltitude,
+		Heading:              strip.Heading,
+		AircraftType:         strip.AircraftType,
+		Runway:               strip.Runway,
+		RequestedAltitude:    strip.RequestedAltitude,
+		Capabilities:         strip.Capabilities,
+		CommunicationType:    strip.CommunicationType,
+		AircraftCategory:     strip.AircraftCategory,
+		Stand:                strip.Stand,
+		Sequence:             strip.Sequence,
+		State:                strip.State,
+		Cleared:              strip.Cleared,
+		Owner:                strip.Owner,
+		Bay:                  strip.Bay,
+		PositionLatitude:     strip.PositionLatitude,
+		PositionLongitude:    strip.PositionLongitude,
+		PositionAltitude:     strip.PositionAltitude,
+		CdmData:              cdmData,
+		NextOwners:           nextOwnersJSON,
+		PreviousOwners:       previousOwnersJSON,
+		Registration:         strip.Registration,
+		TrackingController:   strip.TrackingController,
+		Hold:                 strip.Hold,
+		HoldType:             strip.HoldType,
+		HoldEat:              strip.HoldEat,
+		EngineType:           strip.EngineType,
+		SpokenCallsign:       strip.SpokenCallsign,
+		HasFp:                strip.HasFP,
+		StartReq:             strip.StartReq,
+		VatsimCid:            strip.VatsimCID,
+		VatsimRevision:       strip.VatsimRevision,
+		VatsimSeenAt:         TimeToPgTimestamptz(strip.VatsimSeenAt),
+		EuroscopeSeenAt:      TimeToPgTimestamptz(strip.EuroscopeSeenAt),
+		NextDisplayLabel:     nextDisplayLabel,
+		NextDisplayFrequency: nextDisplayFrequency,
 	})
 }
 
@@ -363,6 +367,7 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 	if err != nil {
 		return 0, err
 	}
+	nextDisplayLabel, nextDisplayFrequency := nextDisplayColumns(strip.NextDisplay)
 
 	return r.queries.UpdateStrip(ctx, database.UpdateStripParams{
 		Callsign:                 strip.Callsign,
@@ -421,6 +426,8 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		VatsimRevision:           strip.VatsimRevision,
 		VatsimSeenAt:             TimeToPgTimestamptz(strip.VatsimSeenAt),
 		EuroscopeSeenAt:          TimeToPgTimestamptz(strip.EuroscopeSeenAt),
+		NextDisplayLabel:         nextDisplayLabel,
+		NextDisplayFrequency:     nextDisplayFrequency,
 	})
 }
 
@@ -724,12 +731,29 @@ func (r *stripRepository) SetOwner(ctx context.Context, session int32, callsign 
 	})
 }
 
-// SetNextOwners sets the next owners of a strip
-func (r *stripRepository) SetNextOwners(ctx context.Context, session int32, callsign string, nextOwners []string) error {
-	return r.queries.SetNextOwners(ctx, database.SetNextOwnersParams{
-		Session:    session,
-		Callsign:   callsign,
-		NextOwners: nextOwners,
+func nextDisplayFromColumns(label, frequency *string) *models.NextDisplay {
+	if label == nil || frequency == nil {
+		return nil
+	}
+	return &models.NextDisplay{Label: *label, Frequency: *frequency}
+}
+
+func nextDisplayColumns(display *models.NextDisplay) (*string, *string) {
+	if display == nil {
+		return nil, nil
+	}
+	return &display.Label, &display.Frequency
+}
+
+// SetRouteState atomically stores the ownership route and its user-facing display.
+func (r *stripRepository) SetRouteState(ctx context.Context, session int32, callsign string, nextOwners []string, nextDisplay *models.NextDisplay) error {
+	label, frequency := nextDisplayColumns(nextDisplay)
+	return r.queries.SetRouteState(ctx, database.SetRouteStateParams{
+		Session:              session,
+		Callsign:             callsign,
+		NextOwners:           nextOwners,
+		NextDisplayLabel:     label,
+		NextDisplayFrequency: frequency,
 	})
 }
 

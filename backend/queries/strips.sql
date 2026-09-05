@@ -5,7 +5,7 @@ INSERT INTO strips (version, callsign, session, origin, destination, alternative
                      position_latitude, position_longitude, position_altitude, cdm_data, next_owners, previous_owners,
                      registration, tracking_controller, engine_type, spoken_callsign, has_fp, start_req,
                      vatsim_cid, vatsim_revision, vatsim_seen_at, euroscope_seen_at,
-                     hold, hold_type, hold_eat)
+                     hold, hold_type, hold_eat, next_display_label, next_display_frequency)
 VALUES (
     1,
     sqlc.arg(callsign),
@@ -51,7 +51,9 @@ VALUES (
     sqlc.arg(euroscope_seen_at),
     sqlc.arg(hold),
     sqlc.arg(hold_type),
-    sqlc.arg(hold_eat)
+    sqlc.arg(hold_eat),
+    sqlc.narg(next_display_label),
+    sqlc.narg(next_display_frequency)
 );
 
 -- name: UpdateStrip :execrows
@@ -110,7 +112,9 @@ SET version = version + 1,
     euroscope_seen_at = sqlc.arg(euroscope_seen_at),
     hold = sqlc.arg(hold),
     hold_type = sqlc.arg(hold_type),
-    hold_eat = sqlc.arg(hold_eat)
+    hold_eat = sqlc.arg(hold_eat),
+    next_display_label = sqlc.narg(next_display_label),
+    next_display_frequency = sqlc.narg(next_display_frequency)
 WHERE callsign = sqlc.arg(callsign) AND session = sqlc.arg(session);
 
 -- name: MarkStripEuroscopeSeen :exec
@@ -297,11 +301,20 @@ SET owner   = $1,
     version = version + 1
 WHERE callsign = $2 AND session = $3 AND version = $4;
 
--- name: SetNextOwners :exec
-UPDATE strips SET next_owners = $3 WHERE session = $1 AND callsign = $2;
+-- name: SetRouteState :exec
+UPDATE strips
+SET next_owners = sqlc.arg(next_owners),
+    next_display_label = sqlc.narg(next_display_label),
+    next_display_frequency = sqlc.narg(next_display_frequency)
+WHERE session = sqlc.arg(session) AND callsign = sqlc.arg(callsign);
 
 -- name: SetNextAndPreviousOwners :exec
-UPDATE strips SET next_owners = $3, previous_owners = $4 WHERE session = $1 AND callsign = $2;
+UPDATE strips
+SET next_owners = $3,
+    previous_owners = $4,
+    next_display_label = NULL,
+    next_display_frequency = NULL
+WHERE session = $1 AND callsign = $2;
 
 -- name: UpdateStripSequence :execrows
 UPDATE strips

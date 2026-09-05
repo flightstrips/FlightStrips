@@ -22,22 +22,26 @@ func TestStripToModel_MapsEmbeddedManualAndValidationFields(t *testing.T) {
 	personsOnBoard := int32(123)
 	fplType := "I"
 	language := "EN"
+	nextDisplayLabel := "AD"
+	nextDisplayFrequency := "121.730"
 
 	strip, err := stripToModel(database.Strip{
-		ID:                 42,
-		Callsign:           "SAS123",
-		Session:            7,
-		Origin:             "EKCH",
-		Destination:        "ESSA",
-		Bay:                "CLEARED",
-		TrackingController: "119.805",
-		EngineType:         "JET",
-		IsManual:           true,
-		PersonsOnBoard:     &personsOnBoard,
-		FplType:            &fplType,
-		Language:           &language,
-		HasFp:              true,
-		ValidationStatus:   rawValidationStatus,
+		ID:                   42,
+		Callsign:             "SAS123",
+		Session:              7,
+		Origin:               "EKCH",
+		Destination:          "ESSA",
+		Bay:                  "CLEARED",
+		TrackingController:   "119.805",
+		EngineType:           "JET",
+		IsManual:             true,
+		PersonsOnBoard:       &personsOnBoard,
+		FplType:              &fplType,
+		Language:             &language,
+		HasFp:                true,
+		ValidationStatus:     rawValidationStatus,
+		NextDisplayLabel:     &nextDisplayLabel,
+		NextDisplayFrequency: &nextDisplayFrequency,
 	})
 	require.NoError(t, err)
 
@@ -48,6 +52,7 @@ func TestStripToModel_MapsEmbeddedManualAndValidationFields(t *testing.T) {
 	require.True(t, strip.HasFP)
 	require.NotNil(t, strip.ValidationStatus)
 	require.Equal(t, *validationStatus, *strip.ValidationStatus)
+	require.Equal(t, &models.NextDisplay{Label: nextDisplayLabel, Frequency: nextDisplayFrequency}, strip.NextDisplay)
 }
 
 func TestStripToModel_MapsPersistedArrivalETAInputs(t *testing.T) {

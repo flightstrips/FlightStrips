@@ -60,7 +60,7 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionFallsBackToTowerOwner(
 		require.Equal(t, "SAS123", callsign)
 		return strip, nil
 	}
-	stripRepo.SetNextOwnersFn = func(_ context.Context, session int32, callsign string, nextOwners []string) error {
+	stripRepo.SetRouteStateFn = func(_ context.Context, session int32, callsign string, nextOwners []string, _ *models.NextDisplay) error {
 		require.Equal(t, int32(42), session)
 		require.Equal(t, "SAS123", callsign)
 		updatedNextOwners = append([]string(nil), nextOwners...)
@@ -206,7 +206,9 @@ func TestUpdateRouteForStrip_UsesCrossCoupledFrequencyFromOfficialTransceiverPay
 	stripRepo.GetByCallsignFn = func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
 		return strip, nil
 	}
-	stripRepo.SetNextOwnersFn = func(_ context.Context, _ int32, _ string, _ []string) error {
+	var persistedDisplay *models.NextDisplay
+	stripRepo.SetRouteStateFn = func(_ context.Context, _ int32, _ string, _ []string, display *models.NextDisplay) error {
+		persistedDisplay = cloneNextDisplay(display)
 		return nil
 	}
 	sessionRepo.GetByIDFn = func(_ context.Context, _ int32) (*models.Session, error) {
@@ -243,6 +245,9 @@ func TestUpdateRouteForStrip_UsesCrossCoupledFrequencyFromOfficialTransceiverPay
 	require.NotNil(t, frontendHub.OwnersUpdates[0].NextDisplay)
 	assert.Equal(t, "AA", frontendHub.OwnersUpdates[0].NextDisplay.Label)
 	assert.Equal(t, aGroundPosition, frontendHub.OwnersUpdates[0].NextDisplay.Frequency)
+	require.NotNil(t, persistedDisplay)
+	assert.Equal(t, "AA", persistedDisplay.Label)
+	assert.Equal(t, aGroundPosition, persistedDisplay.Frequency)
 
 	transceiverPayload.Store(`[{
 		"callsign":"EKCH_B_GND",
@@ -307,7 +312,7 @@ func TestUpdateRouteForStrip_ArrivalOutsideSupportedRegionUsesTowerAsRouteStart(
 		require.Equal(t, "NSZ3097", callsign)
 		return strip, nil
 	}
-	stripRepo.SetNextOwnersFn = func(_ context.Context, session int32, callsign string, nextOwners []string) error {
+	stripRepo.SetRouteStateFn = func(_ context.Context, session int32, callsign string, nextOwners []string, _ *models.NextDisplay) error {
 		require.Equal(t, int32(76), session)
 		require.Equal(t, "NSZ3097", callsign)
 		updatedNextOwners = append([]string(nil), nextOwners...)
@@ -385,7 +390,7 @@ func TestUpdateRouteForStrip_ArrivalUsesConfigDrivenCrossingSectorSplit(t *testi
 		require.Equal(t, "SAS789", callsign)
 		return strip, nil
 	}
-	stripRepo.SetNextOwnersFn = func(_ context.Context, session int32, callsign string, nextOwners []string) error {
+	stripRepo.SetRouteStateFn = func(_ context.Context, session int32, callsign string, nextOwners []string, _ *models.NextDisplay) error {
 		require.Equal(t, int32(91), session)
 		require.Equal(t, "SAS789", callsign)
 		updatedNextOwners = append([]string(nil), nextOwners...)
@@ -481,7 +486,7 @@ func TestUpdateRouteForStrip_ArrivalKeepsGWAOwnerWhenControllersAreSplit(t *test
 		require.Equal(t, "SAS790", callsign)
 		return strip, nil
 	}
-	stripRepo.SetNextOwnersFn = func(_ context.Context, session int32, callsign string, nextOwners []string) error {
+	stripRepo.SetRouteStateFn = func(_ context.Context, session int32, callsign string, nextOwners []string, _ *models.NextDisplay) error {
 		require.Equal(t, int32(92), session)
 		require.Equal(t, "SAS790", callsign)
 		updatedNextOwners = append([]string(nil), nextOwners...)
@@ -758,7 +763,7 @@ func TestUpdateRoutesForSession_RecalculatesEachStrip(t *testing.T) {
 		require.Equal(t, int32(42), session)
 		return strips, nil
 	}
-	stripRepo.SetNextOwnersFn = func(_ context.Context, session int32, callsign string, nextOwners []string) error {
+	stripRepo.SetRouteStateFn = func(_ context.Context, session int32, callsign string, nextOwners []string, _ *models.NextDisplay) error {
 		require.Equal(t, int32(42), session)
 		assert.Equal(t, []string{"EKCH_TWR"}, nextOwners)
 		updatedCallsigns = append(updatedCallsigns, callsign)
@@ -818,7 +823,7 @@ func TestUpdateRoutesForSession_DoesNotRetargetPendingCoordination(t *testing.T)
 	stripRepo.ListFn = func(_ context.Context, _ int32) ([]*models.Strip, error) {
 		return strips, nil
 	}
-	stripRepo.SetNextOwnersFn = func(_ context.Context, _ int32, callsign string, _ []string) error {
+	stripRepo.SetRouteStateFn = func(_ context.Context, _ int32, callsign string, _ []string, _ *models.NextDisplay) error {
 		updatedCallsigns = append(updatedCallsigns, callsign)
 		return nil
 	}
@@ -890,6 +895,24 @@ func TestUpdateRouteForStrip_DoesNotRetargetPendingCoordination(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestComputeNextOwnersForStrip_PreservesRouteDuringPendingCoordination(t *testing.T) {
+	strip := &models.Strip{ID: 7, Session: 42, NextOwners: []string{"121.630", "118.580"}}
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(_ context.Context, session int32, stripID int32) (*models.Coordination, error) {
+			require.Equal(t, int32(42), session)
+			require.Equal(t, strip.ID, stripID)
+			return &models.Coordination{Session: session, StripID: stripID}, nil
+		},
+	}
+
+	nextOwners, handled, err := (&Server{coordRepo: coordRepo}).ComputeNextOwnersForStripContext(context.Background(), strip, 42)
+
+	require.NoError(t, err)
+	assert.True(t, handled)
+	assert.Equal(t, strip.NextOwners, nextOwners)
+	assert.NotSame(t, &strip.NextOwners[0], &nextOwners[0])
+}
+
 func TestComputeNextDisplayForStrip_PreservesDisplayDuringPendingCoordination(t *testing.T) {
 	coordRepo := &testutil.MockCoordinationRepository{}
 	strip := &models.Strip{
@@ -940,6 +963,132 @@ func TestComputeNextDisplaysForStrips_PreservesDisplaysDuringPendingCoordination
 	assert.Equal(t, "118.580", strip.NextDisplay.Frequency)
 }
 
+func TestComputeNextDisplayForStrip_ReconstructsMissingDisplayDuringPendingCoordination(t *testing.T) {
+	strip, sessionRepo, sectorRepo, controllerRepo, deliveryPosition, apronOwnerPosition := pendingDepartureDisplayFixture(t)
+	apronDisplayFrequency := frequencyForPosition(t, "EKCH_C_GND")
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(_ context.Context, session int32, stripID int32) (*models.Coordination, error) {
+			require.Equal(t, int32(42), session)
+			require.Equal(t, strip.ID, stripID)
+			return &models.Coordination{Session: session, StripID: stripID}, nil
+		},
+	}
+	var persistedDisplay *models.NextDisplay
+	stripRepo := &testutil.MockStripRepository{
+		SetRouteStateFn: func(_ context.Context, session int32, callsign string, nextOwners []string, display *models.NextDisplay) error {
+			require.Equal(t, int32(42), session)
+			require.Equal(t, strip.Callsign, callsign)
+			assert.Equal(t, strip.NextOwners, nextOwners)
+			persistedDisplay = cloneNextDisplay(display)
+			return nil
+		},
+	}
+
+	srv := &Server{
+		coordRepo:      coordRepo,
+		stripRepo:      stripRepo,
+		sessionRepo:    sessionRepo,
+		sectorRepo:     sectorRepo,
+		controllerRepo: controllerRepo,
+		frequencyProviders: []TransceiverLookup{routeTransceiverStub{
+			"EKCH_A_GND": {apronDisplayFrequency},
+		}},
+	}
+	display, err := srv.ComputeNextDisplayForStripContext(context.Background(), strip, 42)
+
+	require.NoError(t, err)
+	require.NotNil(t, display)
+	assert.Equal(t, "AD", display.Label)
+	assert.Equal(t, apronDisplayFrequency, display.Frequency)
+	assert.Equal(t, apronOwnerPosition, strip.NextOwners[0])
+	assert.Equal(t, deliveryPosition, *strip.Owner)
+	assert.Equal(t, display, persistedDisplay)
+}
+
+func TestComputeNextDisplaysForStrips_ReconstructsMissingDisplayDuringPendingCoordination(t *testing.T) {
+	strip, sessionRepo, sectorRepo, controllerRepo, _, apronOwnerPosition := pendingDepartureDisplayFixture(t)
+	apronDisplayFrequency := frequencyForPosition(t, "EKCH_C_GND")
+	coordRepo := &testutil.MockCoordinationRepository{
+		ListBySessionFn: func(_ context.Context, session int32) ([]*models.Coordination, error) {
+			require.Equal(t, int32(42), session)
+			return []*models.Coordination{{Session: session, StripID: strip.ID}}, nil
+		},
+	}
+	var persistedDisplay *models.NextDisplay
+	stripRepo := &testutil.MockStripRepository{
+		SetRouteStateFn: func(_ context.Context, _ int32, _ string, nextOwners []string, display *models.NextDisplay) error {
+			assert.Equal(t, strip.NextOwners, nextOwners)
+			persistedDisplay = cloneNextDisplay(display)
+			return nil
+		},
+	}
+
+	srv := &Server{
+		coordRepo:      coordRepo,
+		stripRepo:      stripRepo,
+		sessionRepo:    sessionRepo,
+		sectorRepo:     sectorRepo,
+		controllerRepo: controllerRepo,
+		frequencyProviders: []TransceiverLookup{routeTransceiverStub{
+			"EKCH_A_GND": {apronDisplayFrequency},
+		}},
+	}
+	err := srv.ComputeNextDisplaysForStripsContext(context.Background(), []*models.Strip{strip}, 42)
+
+	require.NoError(t, err)
+	require.NotNil(t, strip.NextDisplay)
+	assert.Equal(t, "AD", strip.NextDisplay.Label)
+	assert.Equal(t, apronDisplayFrequency, strip.NextDisplay.Frequency)
+	assert.Equal(t, apronOwnerPosition, strip.NextOwners[0])
+	assert.Equal(t, strip.NextDisplay, persistedDisplay)
+}
+
+func TestComputeNextDisplayForStrip_PreservesPersistedCrossCoupledDepartureDisplayWhenStandTemporarilyMissing(t *testing.T) {
+	strip, sessionRepo, _, controllerRepo, _, apronOwnerPosition := pendingDepartureDisplayFixture(t)
+	apronDisplayFrequency := frequencyForPosition(t, "EKCH_C_GND")
+	strip.NextDisplay = &models.NextDisplay{Label: "AD", Frequency: apronDisplayFrequency}
+	strip.Stand = nil
+	groundWestPosition := frequencyForPosition(t, "EKCH_GW_TWR")
+	towerWestPosition := frequencyForPosition(t, "EKCH_A_TWR")
+	sectorRepo := &testutil.MockSectorOwnerRepository{
+		ListBySessionFn: func(_ context.Context, session int32) ([]*models.SectorOwner, error) {
+			require.Equal(t, int32(42), session)
+			return []*models.SectorOwner{
+				{
+					Session:    session,
+					Sector:     []string{"SQ", "AD"},
+					Position:   apronOwnerPosition,
+					Identifier: "SQ",
+				},
+				{Session: session, Sector: []string{"GWD"}, Position: groundWestPosition},
+				{Session: session, Sector: []string{"TW"}, Position: towerWestPosition},
+			}, nil
+		},
+	}
+	coordRepo := &testutil.MockCoordinationRepository{
+		GetByStripIDFn: func(_ context.Context, session int32, stripID int32) (*models.Coordination, error) {
+			return &models.Coordination{Session: session, StripID: stripID}, nil
+		},
+	}
+	srv := &Server{
+		coordRepo:      coordRepo,
+		sessionRepo:    sessionRepo,
+		sectorRepo:     sectorRepo,
+		controllerRepo: controllerRepo,
+		frequencyProviders: []TransceiverLookup{routeTransceiverStub{
+			"EKCH_A_GND": {apronDisplayFrequency},
+		}},
+	}
+
+	display, err := srv.ComputeNextDisplayForStripContext(context.Background(), strip, 42)
+
+	require.NoError(t, err)
+	require.NotNil(t, display)
+	assert.Equal(t, "AD", display.Label)
+	assert.Equal(t, apronDisplayFrequency, display.Frequency)
+	assert.Equal(t, apronOwnerPosition, strip.NextOwners[0])
+}
+
 func TestUpdateRoutesForSession_ReturnsFirstStripError(t *testing.T) {
 
 	arrivalRunway, towerSector := mustArrivalRunwayAndTowerSector(t)
@@ -960,7 +1109,7 @@ func TestUpdateRoutesForSession_ReturnsFirstStripError(t *testing.T) {
 		require.Equal(t, int32(42), session)
 		return strips, nil
 	}
-	stripRepo.SetNextOwnersFn = func(_ context.Context, session int32, callsign string, nextOwners []string) error {
+	stripRepo.SetRouteStateFn = func(_ context.Context, session int32, callsign string, nextOwners []string, _ *models.NextDisplay) error {
 		require.Equal(t, int32(42), session)
 		assert.Equal(t, []string{"EKCH_TWR"}, nextOwners)
 		updatedCallsigns = append(updatedCallsigns, callsign)
@@ -1014,6 +1163,57 @@ func mustArrivalRunwayAndTowerSector(t *testing.T) (string, string) {
 
 	t.Fatal("expected at least one configured arrival runway with a tower sector")
 	return "", ""
+}
+
+func pendingDepartureDisplayFixture(t *testing.T) (*models.Strip, *testutil.MockSessionRepository, *testutil.MockSectorOwnerRepository, *testutil.MockControllerRepository, string, string) {
+	t.Helper()
+
+	deliveryPosition := frequencyForPosition(t, "EKCH_DEL")
+	apronOwnerPosition := frequencyForPosition(t, "EKCH_A_GND")
+	groundWestPosition := frequencyForPosition(t, "EKCH_GW_TWR")
+	towerWestPosition := frequencyForPosition(t, "EKCH_A_TWR")
+	strip := &models.Strip{
+		ID:          7,
+		Session:     42,
+		Callsign:    "SAS909",
+		Origin:      "EKCH",
+		Destination: "EKYT",
+		Runway:      stringPtr("22R"),
+		Stand:       stringPtr("C35"),
+		Owner:       stringPtr(deliveryPosition),
+		NextOwners:  []string{apronOwnerPosition, groundWestPosition, towerWestPosition},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, session int32) (*models.Session, error) {
+			require.Equal(t, int32(42), session)
+			return &models.Session{
+				ID:      session,
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"22R"},
+				},
+			}, nil
+		},
+	}
+	sectorRepo := &testutil.MockSectorOwnerRepository{
+		ListBySessionFn: func(_ context.Context, session int32) ([]*models.SectorOwner, error) {
+			require.Equal(t, int32(42), session)
+			return []*models.SectorOwner{
+				{Session: session, Sector: []string{"SQ"}, Position: deliveryPosition},
+				{Session: session, Sector: []string{"AD"}, Position: apronOwnerPosition},
+				{Session: session, Sector: []string{"GWD"}, Position: groundWestPosition},
+				{Session: session, Sector: []string{"TW"}, Position: towerWestPosition},
+			}, nil
+		},
+	}
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, session int32) ([]*models.Controller, error) {
+			require.Equal(t, int32(42), session)
+			return []*models.Controller{{Session: session, Callsign: "EKCH_A_GND", Position: apronOwnerPosition}}, nil
+		},
+	}
+
+	return strip, sessionRepo, sectorRepo, controllerRepo, deliveryPosition, apronOwnerPosition
 }
 
 func frequencyForPosition(t *testing.T, name string) string {

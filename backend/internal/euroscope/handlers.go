@@ -18,8 +18,7 @@ import (
 type Message = shared.Message[euroscope.EventType]
 
 func handleLoginEvent(ctx context.Context, client *Client, message Message) error {
-	previousPosition := client.position
-	previousCallsign := client.callsign
+	previousIdentity := client.identitySnapshot()
 	previousAirport := client.airport
 
 	event, _, err := client.hub.handleLogin(message.Message, client.user)
@@ -27,22 +26,17 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 		return err
 	}
 
-	client.position = event.Position
-	client.callsign = event.Callsign
-	client.observer = event.Observer
-	client.localIP = event.LocalIP
+	client.updateIdentity(event.Position, event.Callsign, event.Observer, event.LocalIP)
 	client.hub.setObserverCid(client.GetCid(), event.Observer)
 	client.hub.setClientLocalIP(client.session, client.GetCid(), event.LocalIP)
-	if master := client.hub.getMasterClient(client.session); master == client && previousCallsign != client.callsign {
-		client.hub.setMasterClient(client)
-	}
+	client.hub.reconsiderMasterAfterLogin(client)
 
 	if !event.Observer {
-		client.hub.markPendingOnlineOrchestration(client.session, client.callsign)
+		client.hub.markPendingOnlineOrchestration(client.session, event.Callsign)
 		if layoutErr := client.hub.server.UpdateLayouts(client.session); layoutErr != nil {
 			slog.ErrorContext(ctx, "Failed to update layouts after ES re-login", slog.String("cid", client.GetCid()), slog.Any("error", layoutErr))
 		}
-	} else if previousPosition != client.position || previousCallsign != client.callsign || previousAirport != client.airport {
+	} else if previousIdentity.position != event.Position || previousIdentity.callsign != event.Callsign || previousAirport != client.airport {
 		client.hub.server.GetFrontendHub().CidOnline(client.session, client.GetCid())
 	}
 
@@ -254,7 +248,7 @@ func handleCdmTobtUpdate(ctx context.Context, client *Client, message Message) e
 	if !hhmmPattern.MatchString(event.Tobt) {
 		return nil
 	}
-	return client.hub.server.GetCdmService().HandleTobtUpdate(ctx, client.session, event.Callsign, event.Tobt, client.callsign, clientRole(client))
+	return client.hub.server.GetCdmService().HandleTobtUpdate(ctx, client.session, event.Callsign, event.Tobt, client.GetCallsign(), clientRole(client))
 }
 
 func handleCdmDeiceUpdate(ctx context.Context, client *Client, message Message) error {
@@ -310,7 +304,7 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	if err := message.JsonUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.server.GetCdmService().HandleReadyRequest(ctx, client.session, event.Callsign, client.callsign, clientRole(client))
+	return client.hub.server.GetCdmService().HandleReadyRequest(ctx, client.session, event.Callsign, client.GetCallsign(), clientRole(client))
 }
 
 func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {

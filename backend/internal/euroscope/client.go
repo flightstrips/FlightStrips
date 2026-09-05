@@ -22,12 +22,40 @@ type Client struct {
 	hub         *Hub
 	user        shared.AuthenticatedUser
 
+	identityMu sync.RWMutex
+	position   string
+	callsign   string
+	airport    string
+	version    string
+	observer   bool
+	localIP    string
+}
+
+type clientIdentity struct {
 	position string
 	callsign string
-	airport  string
-	version  string
 	observer bool
 	localIP  string
+}
+
+func (c *Client) identitySnapshot() clientIdentity {
+	c.identityMu.RLock()
+	defer c.identityMu.RUnlock()
+	return clientIdentity{
+		position: c.position,
+		callsign: c.callsign,
+		observer: c.observer,
+		localIP:  c.localIP,
+	}
+}
+
+func (c *Client) updateIdentity(position, callsign string, observer bool, localIP string) {
+	c.identityMu.Lock()
+	c.position = position
+	c.callsign = callsign
+	c.observer = observer
+	c.localIP = localIP
+	c.identityMu.Unlock()
 }
 
 func (c *Client) GetSendChannel() chan events.OutgoingMessage {
@@ -87,7 +115,7 @@ func (c *Client) GetCid() string {
 }
 
 func (c *Client) GetCallsign() string {
-	return c.callsign
+	return c.identitySnapshot().callsign
 }
 
 func (c *Client) GetAirport() string {
@@ -95,7 +123,7 @@ func (c *Client) GetAirport() string {
 }
 
 func (c *Client) GetPosition() string {
-	return c.position
+	return c.identitySnapshot().position
 }
 
 func (c *Client) GetSession() int32 {
@@ -127,7 +155,7 @@ func (c *Client) SetUser(user shared.AuthenticatedUser) {
 }
 
 func (c *Client) CanHandleMessage(messageType string) error {
-	if !c.observer || messageType == "token" || messageType == "login" || messageType == "runway" {
+	if !c.identitySnapshot().observer || messageType == "token" || messageType == "login" || messageType == "runway" {
 		return nil
 	}
 

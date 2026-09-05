@@ -58,10 +58,11 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 
-	masterMu        sync.RWMutex
-	master          map[int32]*Client
-	masterCallsigns sync.Map // map[int32]string — concurrent-safe callsign of master per session
-	masterCids      sync.Map // map[int32]string — concurrent-safe CID of master per session
+	masterMu           sync.RWMutex
+	masterTransitionMu sync.Mutex
+	master             map[int32]*Client
+	masterCallsigns    sync.Map // map[int32]string — concurrent-safe callsign of master per session
+	masterCids         sync.Map // map[int32]string — concurrent-safe CID of master per session
 
 	handlers shared.MessageHandlers[euroscope.EventType, *Client]
 
@@ -224,10 +225,11 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 }
 
 func (hub *Hub) OnRegister(client *Client) {
-	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign, client.version)
-	hub.setObserverCid(client.GetCid(), client.observer)
-	hub.setClientLocalIP(client.session, client.GetCid(), client.localIP)
-	hub.adjustAirportClientCount(client.airport, client.observer, 1)
+	identity := client.identitySnapshot()
+	metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "euroscope", identity.callsign, client.version)
+	hub.setObserverCid(client.GetCid(), identity.observer)
+	hub.setClientLocalIP(client.session, client.GetCid(), identity.localIP)
+	hub.adjustAirportClientCount(client.airport, identity.observer, 1)
 	// Start recording if in record mode and not already recording this session
 	if config.IsRecordMode() && !hub.IsRecording(client.session) {
 		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
@@ -236,24 +238,14 @@ func (hub *Hub) OnRegister(client *Client) {
 		} else {
 			// Set login info in the recorder
 			if rec, ok := hub.recorders[client.session]; ok {
-				rec.SetLoginInfo(client.position, client.callsign, 0) // range not stored in client
+				rec.SetLoginInfo(identity.position, identity.callsign, 0) // range not stored in client
 			}
-		}
-	}
-
-	// Determine master role immediately to avoid race conditions
-	isMaster := false
-	if !client.observer {
-		if hub.getMasterClient(client.session) == nil {
-			slog.Debug("Euroscope client is master", slog.String("cid", client.GetCid()))
-			hub.setMasterClient(client)
-			isMaster = true
 		}
 	}
 
 	// Send BackendSync first, then delay, then SessionInfo
 	go func() {
-		if client.observer {
+		if client.identitySnapshot().observer {
 			client.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoObserver})
 			if hub.hasOperationalClientForSession(client.session) {
 				hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
@@ -263,11 +255,13 @@ func (hub *Hub) OnRegister(client *Client) {
 
 		hub.sendBackendSyncIfNeeded(client)
 		time.Sleep(2 * time.Second)
+		isMaster, stillRegistered := hub.promoteRegisteredMasterIfPreferred(client)
+		if !stillRegistered {
+			return
+		}
 		if isMaster {
-			client.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster})
 			hub.notifyObserverFrontendsOnline(client.session)
 		} else {
-			client.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave})
 			// For slaves, layouts are already calculated by the master; notify the frontend now.
 			hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
 		}
@@ -529,42 +523,25 @@ func pendingOnlineOrchestrationKey(session int32, callsign string) string {
 }
 
 func (hub *Hub) OnUnregister(client *Client) {
-	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "euroscope", client.callsign, client.version)
+	identity := client.identitySnapshot()
+	metrics.ConnectionClosed(context.Background(), client.sessionName, client.airport, "euroscope", identity.callsign, client.version)
 	hub.clearClientRunwayState(client.session, client.GetCid())
 	hub.clearObserverCid(client.GetCid())
 	hub.clearClientLocalIP(client.session, client.GetCid())
-	hub.adjustAirportClientCount(client.airport, client.observer, -1)
+	hub.adjustAirportClientCount(client.airport, identity.observer, -1)
 
 	if err := hub.clearClientCid(client); err != nil {
-		slog.Error("Failed to remove CID for client", slog.String("callsign", client.callsign), slog.String("cid", client.GetCid()), slog.Any("error", err))
+		slog.Error("Failed to remove CID for client", slog.String("callsign", identity.callsign), slog.String("cid", client.GetCid()), slog.Any("error", err))
 	}
 
-	if master := hub.getMasterClient(client.session); master != client {
+	clients := hub.clientsSnapshot()
+	newMaster := preferredMasterClient(clients, client.session, nil)
+	if !hub.replaceMasterIfCurrent(client, newMaster) {
 		return
 	}
-
-	hasReplacement := false
-	clients := hub.clientsSnapshot()
-	for _, candidate := range clients {
-		if candidate.session == client.session && !candidate.observer {
-			hasReplacement = true
-			break
-		}
-	}
-	if !hasReplacement {
-		hub.clearMasterClient(client.session)
+	if newMaster == nil {
 		hub.notifyObserverFrontendsOffline(client.session)
 		return
-	}
-
-	// TODO better master selection. For now just use the next available non-observer client in the session.
-	for _, newMaster := range clients {
-		if newMaster.session != client.session || newMaster.observer {
-			continue
-		}
-		hub.setMasterClient(newMaster)
-		newMaster.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster})
-		break
 	}
 
 	// Extend pending offline and aircraft-disconnect timers so the new master has
@@ -574,13 +551,14 @@ func (hub *Hub) OnUnregister(client *Client) {
 
 func (hub *Hub) clearClientCid(client *Client) error {
 	controllerRepo := hub.server.GetControllerRepository()
-	count, err := controllerRepo.SetCid(context.Background(), client.session, client.callsign, nil)
+	callsign := client.GetCallsign()
+	count, err := controllerRepo.SetCid(context.Background(), client.session, callsign, nil)
 	if err != nil {
 		return err
 	}
 	if count == 0 {
 		slog.Debug("Controller row already removed before CID cleanup",
-			slog.String("callsign", client.callsign),
+			slog.String("callsign", callsign),
 			slog.String("cid", client.GetCid()),
 			slog.Int("session", int(client.session)),
 		)
@@ -596,12 +574,23 @@ func (hub *Hub) setMasterClient(client *Client) {
 	if client == nil {
 		return
 	}
+	hub.masterTransitionMu.Lock()
+	defer hub.masterTransitionMu.Unlock()
 	hub.masterMu.Lock()
 	defer hub.masterMu.Unlock()
+	hub.setMasterClientLocked(client)
+}
 
+// setMasterClientLocked updates the master and its metrics while masterMu is held.
+func (hub *Hub) setMasterClientLocked(client *Client) {
+	if hub.master == nil {
+		hub.master = make(map[int32]*Client)
+	}
+
+	identity := client.identitySnapshot()
 	if current, ok := hub.master[client.session]; ok && current == client {
 		storedCallsign := hub.GetMasterCallsign(client.session)
-		if strings.EqualFold(strings.TrimSpace(storedCallsign), strings.TrimSpace(client.callsign)) {
+		if strings.EqualFold(strings.TrimSpace(storedCallsign), strings.TrimSpace(identity.callsign)) {
 			return
 		}
 
@@ -609,27 +598,234 @@ func (hub *Hub) setMasterClient(client *Client) {
 			metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, storedCallsign, current.version)
 		}
 
-		hub.masterCallsigns.Store(client.session, client.callsign)
+		hub.masterCallsigns.Store(client.session, identity.callsign)
 		hub.masterCids.Store(client.session, client.GetCid())
-		metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign, client.version)
+		metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, identity.callsign, client.version)
 		return
 	}
 
 	if current, ok := hub.master[client.session]; ok && current != nil {
-		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign, current.version)
+		currentIdentity := current.identitySnapshot()
+		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, currentIdentity.callsign, current.version)
 	}
 
 	hub.master[client.session] = client
-	hub.masterCallsigns.Store(client.session, client.callsign)
+	hub.masterCallsigns.Store(client.session, identity.callsign)
 	hub.masterCids.Store(client.session, client.GetCid())
-	metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, client.callsign, client.version)
+	metrics.MasterClientAssigned(context.Background(), client.sessionName, client.airport, identity.callsign, client.version)
+}
+
+const (
+	fmpMasterPriority = iota
+	bCtrMasterPriority
+	dCtrMasterPriority
+	ucCtrMasterPriority
+	aTowerMasterPriority
+	defaultMasterPriority
+)
+
+// masterClientPriority is intentionally a small, temporary operational policy:
+// prefer FMP, then the listed EKDK control positions, then EKCH_A_TWR, while
+// retaining any non-observer as a last-resort master.
+func masterClientPriority(client *Client) int {
+	if client == nil {
+		return defaultMasterPriority
+	}
+
+	identity := client.identitySnapshot()
+	callsign := strings.ToUpper(strings.TrimSpace(identity.callsign))
+	frequency := strings.TrimSpace(identity.position)
+	if callsign == "EKDK_FMP" || frequency == "131.040" {
+		return fmpMasterPriority
+	}
+
+	positionName := callsign
+	if position, err := config.GetPositionBasedOnFrequency(frequency); err == nil {
+		positionName = strings.ToUpper(strings.TrimSpace(position.Name))
+	}
+	switch positionName {
+	case "EKDK_B_CTR":
+		return bCtrMasterPriority
+	case "EKDK_D_CTR":
+		return dCtrMasterPriority
+	case "EKDK_UC_CTR":
+		return ucCtrMasterPriority
+	case "EKCH_A_TWR":
+		return aTowerMasterPriority
+	}
+	return defaultMasterPriority
+}
+
+func preferredMasterClient(clients []*Client, session int32, current *Client) *Client {
+	best := current
+	if best != nil && (best.session != session || best.identitySnapshot().observer) {
+		best = nil
+	}
+
+	for _, candidate := range clients {
+		if candidate == nil || candidate.session != session || candidate.identitySnapshot().observer {
+			continue
+		}
+		if best == nil || masterClientPriority(candidate) < masterClientPriority(best) {
+			best = candidate
+		}
+	}
+	return best
+}
+
+// promoteMasterIfPreferred atomically orders the election and its role messages.
+// When notifyCandidate is true, the candidate receives its resulting master or
+// slave role before another master transition can begin.
+func (hub *Hub) promoteMasterIfPreferred(candidate *Client, notifyCandidate bool) bool {
+	if candidate == nil || candidate.identitySnapshot().observer {
+		return false
+	}
+
+	hub.masterTransitionMu.Lock()
+	defer hub.masterTransitionMu.Unlock()
+
+	hub.masterMu.Lock()
+	if hub.master == nil {
+		hub.master = make(map[int32]*Client)
+	}
+	current := hub.master[candidate.session]
+	if current == candidate {
+		hub.setMasterClientLocked(candidate)
+		hub.masterMu.Unlock()
+		if notifyCandidate {
+			candidate.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster})
+		}
+		return true
+	}
+	if current != nil && !current.identitySnapshot().observer && masterClientPriority(candidate) >= masterClientPriority(current) {
+		hub.masterMu.Unlock()
+		if notifyCandidate {
+			candidate.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave})
+		}
+		return false
+	}
+	hub.setMasterClientLocked(candidate)
+	hub.masterMu.Unlock()
+
+	if current != nil {
+		current.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoSlave})
+	}
+	slog.Info("Euroscope master selected",
+		slog.String("callsign", candidate.identitySnapshot().callsign),
+		slog.String("cid", candidate.GetCid()),
+		slog.Int("session", int(candidate.session)))
+	if notifyCandidate {
+		candidate.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster})
+	}
+	return true
+}
+
+// promoteRegisteredMasterIfPreferred keeps the client registered for the full
+// transition. Unregister removes it under clientsMu before replacing the master,
+// so a readiness goroutine cannot promote a client after it has disconnected.
+func (hub *Hub) promoteRegisteredMasterIfPreferred(candidate *Client) (isMaster, stillRegistered bool) {
+	if candidate == nil {
+		return false, false
+	}
+
+	hub.clientsMu.RLock()
+	defer hub.clientsMu.RUnlock()
+	if !hub.clients[candidate] {
+		return false, false
+	}
+	return hub.promoteMasterIfPreferred(candidate, true), true
+}
+
+// reconsiderMasterAfterLogin handles position changes on an existing websocket.
+// It refreshes master metadata and lets the best connected preferred position
+// preempt a lower-priority master without disturbing equally ranked clients.
+func (hub *Hub) reconsiderMasterAfterLogin(client *Client) {
+	current := hub.getMasterClient(client.session)
+	clients := hub.clientsSnapshot()
+	// Initial login is elected by OnRegister. This guard also keeps direct login
+	// handler calls from changing master state for an unregistered connection.
+	registered := false
+	for _, candidate := range clients {
+		if candidate == client {
+			registered = true
+			break
+		}
+	}
+	if !registered {
+		if current == client {
+			hub.refreshMasterClientIfCurrent(client)
+		}
+		return
+	}
+
+	best := preferredMasterClient(clients, client.session, current)
+	if best == current {
+		if current == client {
+			hub.refreshMasterClientIfCurrent(client)
+		}
+		return
+	}
+	if best == nil {
+		hub.replaceMasterIfCurrent(current, nil)
+		return
+	}
+	hub.promoteRegisteredMasterIfPreferred(best)
+}
+
+func (hub *Hub) refreshMasterClientIfCurrent(client *Client) bool {
+	if client == nil {
+		return false
+	}
+
+	hub.masterTransitionMu.Lock()
+	defer hub.masterTransitionMu.Unlock()
+	hub.masterMu.Lock()
+	defer hub.masterMu.Unlock()
+	if hub.master[client.session] != client {
+		return false
+	}
+	hub.setMasterClientLocked(client)
+	return true
+}
+
+// replaceMasterIfCurrent atomically replaces expected. It returns false when
+// another goroutine already changed the session master.
+func (hub *Hub) replaceMasterIfCurrent(expected, replacement *Client) bool {
+	if expected == nil {
+		return false
+	}
+
+	hub.masterTransitionMu.Lock()
+	defer hub.masterTransitionMu.Unlock()
+
+	hub.masterMu.Lock()
+	if hub.master[expected.session] != expected {
+		hub.masterMu.Unlock()
+		return false
+	}
+	if replacement == nil {
+		hub.clearMasterClientLocked(expected.session)
+		hub.masterMu.Unlock()
+		return true
+	}
+	hub.setMasterClientLocked(replacement)
+	hub.masterMu.Unlock()
+	replacement.Enqueue(euroscope.SessionInfoEvent{Role: euroscope.SessionInfoMaster})
+	return true
 }
 
 func (hub *Hub) clearMasterClient(session int32) {
+	hub.masterTransitionMu.Lock()
+	defer hub.masterTransitionMu.Unlock()
 	hub.masterMu.Lock()
 	defer hub.masterMu.Unlock()
+	hub.clearMasterClientLocked(session)
+}
+
+func (hub *Hub) clearMasterClientLocked(session int32) {
 	if current, ok := hub.master[session]; ok && current != nil {
-		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, current.callsign, current.version)
+		identity := current.identitySnapshot()
+		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, identity.callsign, current.version)
 	}
 
 	delete(hub.master, session)
@@ -943,7 +1139,7 @@ func (hub *Hub) adjustAirportClientCount(airport string, observer bool, delta in
 
 func (hub *Hub) hasOperationalClientForSession(session int32) bool {
 	for _, client := range hub.clientsSnapshot() {
-		if client.session == session && !client.observer {
+		if client.session == session && !client.identitySnapshot().observer {
 			return true
 		}
 	}
@@ -956,7 +1152,7 @@ func (hub *Hub) notifyObserverFrontendsOnline(session int32) {
 	}
 
 	for _, client := range hub.clientsSnapshot() {
-		if client.session == session && client.observer {
+		if client.session == session && client.identitySnapshot().observer {
 			hub.server.GetFrontendHub().CidOnline(session, client.GetCid())
 		}
 	}
@@ -968,7 +1164,7 @@ func (hub *Hub) notifyObserverFrontendsOffline(session int32) {
 	}
 
 	for _, client := range hub.clientsSnapshot() {
-		if client.session == session && client.observer {
+		if client.session == session && client.identitySnapshot().observer {
 			hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
 		}
 	}

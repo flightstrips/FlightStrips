@@ -94,7 +94,7 @@ func (r euroscopeSyncHubRuntime) CurrentMasterStatus(session int32, cid, callsig
 	}
 
 	hasMaster = true
-	isMaster = master.GetCid() == cid && strings.EqualFold(strings.TrimSpace(master.callsign), strings.TrimSpace(callsign))
+	isMaster = master.GetCid() == cid && strings.EqualFold(strings.TrimSpace(master.GetCallsign()), strings.TrimSpace(callsign))
 	return hasMaster, isMaster
 }
 
@@ -155,8 +155,9 @@ func newEuroscopeSyncRequest(client *Client, event euroscope.SyncEvent) Euroscop
 	request.SessionName = client.sessionName
 	request.Airport = client.airport
 	request.CID = client.GetCid()
-	request.Callsign = client.callsign
-	request.Position = client.position
+	identity := client.identitySnapshot()
+	request.Callsign = identity.callsign
+	request.Position = identity.position
 	request.Version = client.version
 
 	if client.hub != nil {

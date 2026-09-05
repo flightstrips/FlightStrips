@@ -98,10 +98,28 @@ describe("manual companion layout behavior", () => {
     store = createWebSocketStore(client);
   });
 
-  it("does not automatically open EST from the server recommendation", () => {
+  it("automatically opens EST from the server recommendation", () => {
     client._emit(EventType.FrontendInitial, initialEvent("SEQPLN"));
 
+    expect(store.getState().displayedLayout).toBe("EST");
+    expect(store.getState().followRecommendedLayout).toBe(true);
+  });
+
+  it("keeps raw EST as a manual-only layout", () => {
+    client._emit(EventType.FrontendInitial, initialEvent("EST"));
+
     expect(store.getState().displayedLayout).toBe("");
+    expect(store.getState().followRecommendedLayout).toBe(true);
+  });
+
+  it("follows a live EST server recommendation", () => {
+    client._emit(EventType.FrontendInitial, initialEvent("AD"));
+    client._emit(EventType.FrontendLayoutUpdate, {
+      type: EventType.FrontendLayoutUpdate,
+      layout: "SEQPLN",
+    });
+
+    expect(store.getState().displayedLayout).toBe("EST");
     expect(store.getState().followRecommendedLayout).toBe(true);
   });
 

@@ -93,6 +93,15 @@ function normalizeLayout(layout: string) {
   }
 }
 
+function isServerSelectableLayout(layout: string) {
+  const serverLayout = layout.trim().toUpperCase();
+  const normalizedLayout = normalizeLayout(serverLayout);
+
+  return serverLayout === "SEQPLN" || (
+    KNOWN_LAYOUTS.has(normalizedLayout) && !MANUAL_COMPANION_LAYOUTS.has(normalizedLayout)
+  );
+}
+
 function nextSequenceAtEndOfBay(strips: FrontendStrip[], tacticalStrips: TacticalStrip[], bay: Bay, movingCallsign?: string): number {
   const maxFlight = strips
     .filter((strip) => strip.bay === bay && strip.callsign !== movingCallsign)
@@ -984,10 +993,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.localIp = data.local_ip ?? "";
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
-        if (MANUAL_COMPANION_LAYOUTS.has(state.displayedLayout)) {
+        if (MANUAL_COMPANION_LAYOUTS.has(state.displayedLayout) && !state.followRecommendedLayout) {
           // Preserve a manually opened companion board across reconnects.
           state.followRecommendedLayout = false;
-        } else if (KNOWN_LAYOUTS.has(normalizedLayout) && !MANUAL_COMPANION_LAYOUTS.has(normalizedLayout)) {
+        } else if (isServerSelectableLayout(data.layout)) {
           state.displayedLayout = normalizedLayout;
           state.followRecommendedLayout = true;
         } else {
@@ -1259,7 +1268,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       produce((state: WebSocketState) => {
         const normalizedLayout = normalizeLayout(data.layout);
         state.layout = normalizedLayout;
-        if (KNOWN_LAYOUTS.has(normalizedLayout) && normalizedLayout !== "EST") {
+        if (isServerSelectableLayout(data.layout)) {
           if (state.followRecommendedLayout) {
             state.displayedLayout = normalizedLayout;
           }

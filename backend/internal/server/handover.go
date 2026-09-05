@@ -3,10 +3,53 @@ package server
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/vatsim"
 	"context"
 	"strings"
 )
+
+// ResolveCoordinationTargetContext maps either a primary or cross-coupled
+// logical frequency to the controller that is actually carrying it.
+func (s *Server) ResolveCoordinationTargetContext(ctx context.Context, sessionID int32, targetPosition string) (string, string, bool, error) {
+	targetFrequency := vatsim.NormalizeFrequency(targetPosition)
+	if targetFrequency == "" || s.controllerRepo == nil {
+		return "", "", false, nil
+	}
+
+	controllers, err := getControllersForUpdate(ctx, s.controllerRepo, sessionID)
+	if err != nil {
+		return "", "", false, err
+	}
+
+	// Prefer a controller primed directly on the target frequency.
+	for _, controller := range controllers {
+		position, ok := resolveOperationalPosition(controller)
+		if !ok || !shared.IsOperationalControllerForPosition(controller, position) {
+			continue
+		}
+		primary := controllerPrimaryFrequency(controller, position)
+		if vatsim.NormalizeFrequency(primary) == targetFrequency {
+			return primary, controller.Callsign, true, nil
+		}
+	}
+
+	for _, controller := range controllers {
+		position, ok := resolveOperationalPosition(controller)
+		if !ok || !shared.IsOperationalControllerForPosition(controller, position) {
+			continue
+		}
+		for _, provider := range s.frequencyProviders {
+			for _, frequency := range provider.GetFrequencies(controller.Callsign) {
+				if vatsim.NormalizeFrequency(frequency) == targetFrequency {
+					return controllerPrimaryFrequency(controller, position), controller.Callsign, true, nil
+				}
+			}
+		}
+	}
+
+	return "", "", false, nil
+}
 
 type resolvedHandover struct {
 	Identifier     string

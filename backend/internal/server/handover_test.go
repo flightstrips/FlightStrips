@@ -3,12 +3,36 @@ package server
 import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/testutil"
 	pkgModels "FlightStrips/pkg/models"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestResolveCoordinationTargetContextUsesCrossCoupledCarrier(t *testing.T) {
+	controllers := []*models.Controller{
+		{Callsign: "EKCH_W_APP", Position: "118.455"},
+		{Callsign: "EKCH_E_APP", Position: "121.830"},
+	}
+	s := &Server{
+		controllerRepo: &testutil.MockControllerRepository{
+			ListFn: func(context.Context, int32) ([]*models.Controller, error) { return controllers, nil },
+		},
+		frequencyProviders: []TransceiverLookup{
+			routeTransceiverStub{"EKCH_E_APP": {"121.830", "118.580"}},
+		},
+	}
+
+	position, callsign, ok, err := s.ResolveCoordinationTargetContext(context.Background(), 1, "118.580")
+
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, "121.830", position)
+	assert.Equal(t, "EKCH_E_APP", callsign)
+}
 
 func TestResolveClearedRouteTargetUsesCompleteDeparturePath(t *testing.T) {
 	session := handoverSession()

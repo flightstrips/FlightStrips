@@ -61,6 +61,9 @@ func WithRouteRecalculator(routeRecalculator RouteRecalculator) StripServiceOpti
 		if resolver, ok := routeRecalculator.(ClearedStripOwnerResolver); ok {
 			s.clearedOwnerResolver = resolver
 		}
+		if resolver, ok := routeRecalculator.(CoordinationTargetResolver); ok {
+			s.coordTargetResolver = resolver
+		}
 	}
 }
 

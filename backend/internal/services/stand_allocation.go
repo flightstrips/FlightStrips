@@ -257,6 +257,18 @@ func (s *StandAllocationService) publishCommitted(ctx context.Context, result St
 // assignment in one transaction. Publishing happens only after commit so
 // connected clients never observe a removal that was rolled back.
 func (s *StandAllocationService) ReleaseAssignment(ctx context.Context, assignment *models.StandAssignment) error {
+	return s.releaseAssignment(ctx, assignment, true)
+}
+
+// ReleaseAssignmentRetainingStand removes the SAT assignment without clearing
+// the strip's stand. Departures use this once they have physically vacated:
+// the stand becomes available to SAT, while the strip keeps the origin stand
+// needed by downstream routing.
+func (s *StandAllocationService) ReleaseAssignmentRetainingStand(ctx context.Context, assignment *models.StandAssignment) error {
+	return s.releaseAssignment(ctx, assignment, false)
+}
+
+func (s *StandAllocationService) releaseAssignment(ctx context.Context, assignment *models.StandAssignment, clearStand bool) error {
 	if assignment == nil || assignment.SessionID <= 0 || strings.TrimSpace(assignment.Callsign) == "" {
 		return errors.New("stand assignment release requires an assignment")
 	}
@@ -294,7 +306,7 @@ func (s *StandAllocationService) ReleaseAssignment(ctx context.Context, assignme
 		return errAllocationVersionConflict
 	}
 
-	standChanged := strip != nil && strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(current.Stand))
+	standChanged := clearStand && strip != nil && strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(current.Stand))
 	if standChanged {
 		updated, err := txStrips.UpdateStand(ctx, assignment.SessionID, assignment.Callsign, nil, nil)
 		if err != nil {

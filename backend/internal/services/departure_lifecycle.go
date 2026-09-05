@@ -255,7 +255,7 @@ func (s *DepartureLifecycleService) activateObservedBlock(ctx context.Context, s
 			// The aircraft has positively moved away from every configured stand.
 			// Its previous stand is physically free now; do not retain a nil-expiry
 			// departure block until the EuroScope strip eventually disappears.
-			return false, s.allocations.ReleaseAssignment(ctx, existing)
+			return false, s.allocations.ReleaseAssignmentRetainingStand(ctx, existing)
 		}
 		if err := s.cancelWrongStandEpisode(ctx, session, strip.Callsign); err != nil {
 			return false, err
@@ -750,7 +750,11 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 	if assignment.ExpiresAt == nil || assignment.ExpiresAt.After(now) {
 		return nil
 	}
-	err = s.allocations.ReleaseAssignment(ctx, assignment)
+	if assignment.Stage == StageDepartureBlock {
+		err = s.allocations.ReleaseAssignmentRetainingStand(ctx, assignment)
+	} else {
+		err = s.allocations.ReleaseAssignment(ctx, assignment)
+	}
 	recordSATExpiry(ctx, assignment, "expired", err)
 	return err
 }

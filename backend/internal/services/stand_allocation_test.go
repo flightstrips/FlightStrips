@@ -66,6 +66,35 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		assert.Equal(t, result.Assignment.ID, persisted.ID)
 	})
 
+	t.Run("releases a departure assignment while retaining the strip stand", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SAS118")
+		allocated, err := service.Allocate(ctx, standAllocationRequest(session, "SAS118"))
+		require.NoError(t, err)
+
+		published := make(chan StandAllocationResult, 1)
+		service.SetPublisher(func(_ context.Context, result StandAllocationResult) error {
+			published <- result
+			return nil
+		})
+		require.NoError(t, service.ReleaseAssignmentRetainingStand(ctx, &allocated.Assignment))
+
+		_, err = assignments.GetAssignment(ctx, session, "SAS118")
+		require.Error(t, err, "the released stand must no longer block SAT")
+		strip, err := queries.GetStrip(ctx, database.GetStripParams{Session: session, Callsign: "SAS118"})
+		require.NoError(t, err)
+		require.NotNil(t, strip.Stand)
+		assert.Equal(t, "A1", *strip.Stand)
+		select {
+		case event := <-published:
+			assert.True(t, event.Removed)
+			assert.False(t, event.StandChanged)
+			assert.False(t, event.NotifyEuroscope)
+		default:
+			t.Fatal("retained-stand removal was not published after commit")
+		}
+	})
+
 	t.Run("releases strip and assignment atomically before publishing removal", func(t *testing.T) {
 		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS102")

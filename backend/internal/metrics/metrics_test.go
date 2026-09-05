@@ -28,9 +28,11 @@ func collectMetrics(t *testing.T, reader *sdkmetric.ManualReader) metricdata.Res
 }
 
 func attributesMatch(set attribute.Set, want map[string]string) bool {
+	// Emit rather than AsString so non-string attributes, such as the boolean
+	// notify flag on CDM recalculations, are comparable too.
 	actual := map[string]string{}
 	for _, kv := range set.ToSlice() {
-		actual[string(kv.Key)] = kv.Value.AsString()
+		actual[string(kv.Key)] = kv.Value.Emit()
 	}
 
 	for key, wantValue := range want {

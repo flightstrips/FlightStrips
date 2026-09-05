@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"FlightStrips/internal/metrics"
 	"context"
 	"errors"
 	"log/slog"
@@ -101,8 +102,14 @@ func Initialize(ctx context.Context, cfg Config) (*Telemetry, error) {
 	}, nil
 }
 
+// startRuntimeMetrics publishes the upstream Go runtime instrumentation
+// (heap, goroutines, GC counts) alongside the CPU attribution, scheduler, and
+// mutex contention metrics needed to explain high CPU load from the collector.
 func startRuntimeMetrics(provider *sdkmetric.MeterProvider) error {
-	return otelruntime.Start(otelruntime.WithMeterProvider(provider))
+	if err := otelruntime.Start(otelruntime.WithMeterProvider(provider)); err != nil {
+		return err
+	}
+	return metrics.StartRuntimeMetrics(provider)
 }
 
 func (t *Telemetry) Shutdown(ctx context.Context) error {

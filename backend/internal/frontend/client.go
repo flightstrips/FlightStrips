@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"context"
@@ -64,10 +65,13 @@ func (c *Client) disconnectSlowConsumer() {
 		return
 	}
 
+	metrics.RecordSlowConsumerDisconnect(context.Background(), c.sessionName, c.airport, c.GetSource())
 	slog.Warn("Disconnecting slow websocket client",
 		slog.String("source", c.GetSource()),
 		slog.String("cid", c.GetCid()),
 		slog.Int("session", int(c.session)),
+		slog.String("callsign", c.callsign),
+		slog.Int("queue_capacity", cap(c.send)),
 	)
 
 	if c.hub != nil {

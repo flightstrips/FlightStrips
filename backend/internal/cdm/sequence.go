@@ -2,6 +2,7 @@ package cdm
 
 import (
 	"FlightStrips/internal/dependencies"
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
@@ -19,6 +20,10 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// slowRecalculationThreshold is the point past which a full airport
+// recalculation is reported as a warning rather than a debug line.
+const slowRecalculationThreshold = 250 * time.Millisecond
 
 type sequencingCandidate struct {
 	strip       *models.Strip
@@ -102,19 +107,33 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		),
 	)
 	start := time.Now()
+	stripCount := -1
 	defer func() {
+		duration := time.Since(start)
 		if err != nil {
 			span.SetStatus(codes.Error, err.Error())
 			span.RecordError(err)
 		} else {
 			span.SetStatus(codes.Ok, "")
 		}
-		slog.InfoContext(ctx, "CDM recalculation finished",
+		span.SetAttributes(attribute.Int("strips", stripCount))
+		metrics.RecordCDMRecalculation(ctx, airport, stripCount, duration, notify, err == nil)
+
+		attrs := []any{
 			slog.Int("session", int(session)),
 			slog.String("airport", airport),
 			slog.Bool("notify", notify),
-			slog.Duration("duration", time.Since(start)),
-		)
+			slog.Int("strips", stripCount),
+			slog.Duration("duration", duration),
+		}
+		// A recalculation walks every strip at the airport, so it is the single
+		// largest unit of work a sync can trigger. Log every one at debug, and
+		// promote the slow ones so they surface without trace sampling.
+		if duration >= slowRecalculationThreshold {
+			slog.WarnContext(ctx, "CDM recalculation was slow", attrs...)
+		} else {
+			slog.DebugContext(ctx, "CDM recalculation finished", attrs...)
+		}
 		span.End()
 	}()
 
@@ -122,6 +141,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 	if err != nil {
 		return err
 	}
+	stripCount = len(strips)
 	sessionData, err := s.sessionRepo.GetByID(ctx, session)
 	if err != nil {
 		return err

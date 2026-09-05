@@ -307,16 +307,16 @@ describe("EstStandCell", () => {
     expect(screen.queryByText("22R")).toBeNull();
   });
 
-  it("shows push style for push bay", () => {
+  it("shows push style even while departure action indicators are still active", () => {
     render(
       <EstStandCell
         stand={stand}
-        strip={makeStrip({ bay: Bay.Push })}
+        strip={makeStrip({ bay: Bay.Push, start_req: true })}
         blocked={false}
         selected={false}
-        actionActive={false}
-        blinking={false}
-        startReqActive={false}
+        actionActive
+        blinking
+        startReqActive
         ctotImproved={false}
         nowMs={Date.now()}
         onClick={() => {}}

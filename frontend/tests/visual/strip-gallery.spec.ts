@@ -115,3 +115,9 @@ test("the final-arrival runway and TWY rows retain their two-thirds/one-third sp
   const twyCenterOffset = (twyLabelBox!.y + twyLabelBox!.height / 2) - (twyBox!.y + twyBox!.height / 2);
   expect(twyCenterOffset).toBeCloseTo(-1, 0);
 });
+
+test("the apron-arrival strip shows the aircraft registration", async ({ page }) => {
+  await page.goto("/strip-gallery?shot=apron-arrival");
+
+  await expect(page.getByTestId("strip-fixture-apron-arrival")).toContainText("PH-PJK");
+});

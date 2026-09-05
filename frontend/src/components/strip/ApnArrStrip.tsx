@@ -37,6 +37,7 @@ export function ApnArrStrip({
   bay,
   aircraftType,
   aircraftCategory,
+  registration,
   runway,
   taxiway,
   holdingPoint,
@@ -131,7 +132,9 @@ export function ApnArrStrip({
         <div className="flex items-center justify-center" style={{ height: TOP_H }}>
           <AircraftTypeLabel className="truncate px-[0.21vw]" style={{ fontWeight: 600, fontSize: "0.63vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />
         </div>
-        <div style={{ height: BOT_H }} />
+        <div className="flex items-center justify-center overflow-hidden" style={{ height: BOT_H }}>
+          <span className="truncate px-[0.21vw]" style={{ fontSize: "0.63vw" }}>{registration}</span>
+        </div>
       </div>
 
       {/* RWY */}

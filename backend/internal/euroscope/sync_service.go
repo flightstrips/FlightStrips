@@ -594,12 +594,6 @@ func (s *EuroscopeSyncService) applyOrValidateRunways(ctx context.Context, reque
 		s.runtime.EvaluateClientRunwayState(request.Session, request.CID, request.Callsign, activeRunways, activeRunways, true)
 	}
 
-	slog.InfoContext(ctx, "Runway change received",
-		slog.Int("session", int(request.Session)),
-		slog.Any("departure", departure),
-		slog.Any("arrival", arrival),
-	)
-
 	currentSession, err := sessionRepo.GetByID(ctx, request.Session)
 	if err != nil {
 		return false, err
@@ -607,6 +601,18 @@ func (s *EuroscopeSyncService) applyOrValidateRunways(ctx context.Context, reque
 	oldActiveRunways := currentSession.ActiveRunways
 
 	activeRunways.RunwayStatus = currentSession.ActiveRunways.RunwayStatus
+	if reflect.DeepEqual(normalizeActiveRunways(oldActiveRunways), normalizeActiveRunways(activeRunways)) {
+		if s.runtime != nil {
+			s.runtime.ResyncSessionRunwayMismatchTargets(request.Session, request.CID, activeRunways)
+		}
+		return false, nil
+	}
+
+	slog.InfoContext(ctx, "Runway change received",
+		slog.Int("session", int(request.Session)),
+		slog.Any("departure", departure),
+		slog.Any("arrival", arrival),
+	)
 
 	if err = sessionRepo.UpdateActiveRunways(ctx, request.Session, activeRunways); err != nil {
 		return false, err

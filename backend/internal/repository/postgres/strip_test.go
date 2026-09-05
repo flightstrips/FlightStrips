@@ -8,6 +8,11 @@ import (
 	"testing"
 )
 
+func TestNonNilOwners_NormalizesNilToEmptyArray(t *testing.T) {
+	require.NotNil(t, nonNilOwners(nil))
+	require.Empty(t, nonNilOwners(nil))
+}
+
 func TestStripToModel_MapsEmbeddedManualAndValidationFields(t *testing.T) {
 	validationStatus := &models.ValidationStatus{
 		IssueType:      "PDC INVALID",

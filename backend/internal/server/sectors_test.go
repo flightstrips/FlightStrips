@@ -192,6 +192,47 @@ func TestRefreshSessionSectors_UpdatesEverySession(t *testing.T) {
 	assert.Equal(t, []int32{11, 42}, updated)
 }
 
+func TestTransceiverRefreshSkipsUnchangedEffectiveRouteInputs(t *testing.T) {
+	session := &models.Session{ID: 42, Airport: "EKCH"}
+	provider := routeTransceiverStub{
+		"EKCH_A_TWR": {"118.100"},
+	}
+	stripLists := 0
+
+	srv := &Server{
+		frequencyProviders: []TransceiverLookup{provider},
+		sessionRepo: &testutil.MockSessionRepository{
+			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+				return session, nil
+			},
+		},
+		controllerRepo: &testutil.MockControllerRepository{
+			ListFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+				return []*models.Controller{{Callsign: "EKCH_A_TWR", Position: "118.100"}}, nil
+			},
+		},
+		sectorRepo: &testutil.MockSectorOwnerRepository{
+			ListBySessionFn: func(_ context.Context, _ int32) ([]*models.SectorOwner, error) {
+				return nil, nil
+			},
+		},
+		stripRepo: &testutil.MockStripRepository{
+			ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+				stripLists++
+				return nil, nil
+			},
+		},
+	}
+
+	require.NoError(t, srv.refreshRoutesForTransceiverUpdate(context.Background(), session.ID))
+	require.NoError(t, srv.refreshRoutesForTransceiverUpdate(context.Background(), session.ID))
+	assert.Equal(t, 1, stripLists, "unchanged effective inputs should not scan all strips again")
+
+	provider["EKCH_A_TWR"] = []string{"118.100", "121.830"}
+	require.NoError(t, srv.refreshRoutesForTransceiverUpdate(context.Background(), session.ID))
+	assert.Equal(t, 2, stripLists, "changed effective coverage should recalculate routes")
+}
+
 func TestGetCurrentControllerCoverage_IgnoresControllersWithoutMatchingPrefix(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_TWR", Frequency: "118.100"},

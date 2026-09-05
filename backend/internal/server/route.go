@@ -402,6 +402,12 @@ func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sess
 		}
 	}
 
+	fingerprint, err := buildRouteInputFingerprint(session, owners, radio)
+	if err != nil {
+		return err
+	}
+	s.storeRouteInputs(sessionId, fingerprint)
+
 	slog.Debug("Route recalculation completed for session",
 		slog.Int("session", int(sessionId)),
 		slog.Int("strip_count", len(strips)),

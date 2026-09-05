@@ -116,11 +116,41 @@ func (s *Server) updateSectorsContextUnlocked(ctx context.Context, sessionId int
 
 func (s *Server) RefreshAllSectors(ctx context.Context) error {
 	return refreshSessionSectors(ctx, s.sessionRepo, func(sessionID int32) error {
-		if _, err := s.UpdateSectorsContext(ctx, sessionID); err != nil {
-			return err
-		}
-		return s.UpdateRoutesForSession(sessionID, true)
+		return s.refreshRoutesForTransceiverUpdate(ctx, sessionID)
 	})
+}
+
+func (s *Server) refreshRoutesForTransceiverUpdate(ctx context.Context, sessionID int32) error {
+	unlock := s.sessionLocks.lock(sessionID)
+	defer unlock()
+
+	if _, err := s.updateSectorsContextUnlocked(ctx, sessionID); err != nil {
+		return err
+	}
+
+	session, err := s.sessionRepo.GetByID(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionID, s.frequencyProviders)
+	if err != nil {
+		return err
+	}
+	fingerprint, err := buildRouteInputFingerprint(session, owners, radio)
+	if err != nil {
+		return err
+	}
+	if s.routeInputsMatch(sessionID, fingerprint) {
+		slog.DebugContext(ctx, "Skipping route recalculation because transceiver route inputs are unchanged",
+			slog.Int("session", int(sessionID)))
+		return nil
+	}
+
+	return s.updateRoutesForSessionContextUnlocked(ctx, sessionID, true)
 }
 
 // computeSectorChanges computes which sectors changed owning position between two snapshots.

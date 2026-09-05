@@ -128,19 +128,11 @@ func (s *Server) refreshRoutesForTransceiverUpdate(ctx context.Context, sessionI
 		return err
 	}
 
-	session, err := s.sessionRepo.GetByID(ctx, sessionID)
+	inputs, err := s.loadRouteSessionInputs(ctx, sessionID)
 	if err != nil {
 		return err
 	}
-	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
-	if err != nil {
-		return err
-	}
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionID, s.frequencyProviders)
-	if err != nil {
-		return err
-	}
-	fingerprint, err := buildRouteInputFingerprint(session, owners, radio)
+	fingerprint, err := buildRouteInputFingerprint(inputs.session, inputs.owners, inputs.radio)
 	if err != nil {
 		return err
 	}
@@ -150,7 +142,7 @@ func (s *Server) refreshRoutesForTransceiverUpdate(ctx context.Context, sessionI
 		return nil
 	}
 
-	return s.updateRoutesForSessionContextUnlocked(ctx, sessionID, true)
+	return s.updateRoutesForSessionWithInputsContextUnlocked(ctx, sessionID, true, &inputs)
 }
 
 // computeSectorChanges computes which sectors changed owning position between two snapshots.

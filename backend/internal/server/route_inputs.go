@@ -2,6 +2,7 @@ package server
 
 import (
 	"FlightStrips/internal/models"
+	"context"
 	"encoding/json"
 	"slices"
 )
@@ -23,6 +24,28 @@ type routeInputRadio struct {
 	PrimaryFrequency   string   `json:"primary_frequency"`
 	Role               string   `json:"role"`
 	CoveredFrequencies []string `json:"covered_frequencies"`
+}
+
+type routeSessionInputs struct {
+	session *models.Session
+	owners  []*models.SectorOwner
+	radio   routeRadioState
+}
+
+func (s *Server) loadRouteSessionInputs(ctx context.Context, sessionID int32) (routeSessionInputs, error) {
+	session, err := s.sessionRepo.GetByID(ctx, sessionID)
+	if err != nil {
+		return routeSessionInputs{}, err
+	}
+	owners, err := s.sectorRepo.ListBySession(ctx, sessionID)
+	if err != nil {
+		return routeSessionInputs{}, err
+	}
+	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionID, s.frequencyProviders)
+	if err != nil {
+		return routeSessionInputs{}, err
+	}
+	return routeSessionInputs{session: session, owners: owners, radio: radio}, nil
 }
 
 func buildRouteInputFingerprint(session *models.Session, owners []*models.SectorOwner, radio routeRadioState) (string, error) {

@@ -36,6 +36,7 @@ type StripService struct {
 	routeComputer        StripRouteComputer
 	routeDisplayComputer StripRouteDisplayComputer
 	clearedOwnerResolver ClearedStripOwnerResolver
+	coordTargetResolver  CoordinationTargetResolver
 	pdcService           shared.PdcService
 	cdmService           StripCdmService
 	departureObserver    departurePositionObserver
@@ -127,6 +128,9 @@ func (s *StripService) SetRouteRecalculator(routeRecalculator RouteRecalculator)
 	}
 	if resolver, ok := routeRecalculator.(ClearedStripOwnerResolver); ok {
 		s.clearedOwnerResolver = resolver
+	}
+	if resolver, ok := routeRecalculator.(CoordinationTargetResolver); ok {
+		s.coordTargetResolver = resolver
 	}
 }
 

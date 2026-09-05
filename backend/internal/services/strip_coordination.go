@@ -75,6 +75,24 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 		return err
 	}
 
+	// A route may identify the logical frequency while that frequency is
+	// cross-coupled to another controller's primary position. Store and publish
+	// the carrying position so that the receiving controller can accept the
+	// coordination, and retain its callsign for the EuroScope handover below.
+	var resolvedTargetCallsign string
+	if s.coordTargetResolver != nil {
+		resolvedPosition, targetCallsign, ok, resolveErr := s.coordTargetResolver.ResolveCoordinationTargetContext(ctx, session, to)
+		if resolveErr != nil {
+			slog.WarnContext(ctx, "Failed to resolve coordination target from radio coverage",
+				slog.String("callsign", callsign),
+				slog.String("target_position", to),
+				slog.Any("error", resolveErr))
+		} else if ok {
+			to = resolvedPosition
+			resolvedTargetCallsign = targetCallsign
+		}
+	}
+
 	coord := &internalModels.Coordination{
 		Session:      session,
 		StripID:      strip.ID,
@@ -104,7 +122,7 @@ func (s *StripService) CreateCoordinationTransfer(ctx context.Context, session i
 		controllers, err := controllerRepo.ListBySession(ctx, session)
 		if err == nil {
 			var ownerCid *string
-			var targetCallsign string
+			targetCallsign := resolvedTargetCallsign
 			for _, c := range controllers {
 				if c.Position == from && c.Cid != nil && *c.Cid != "" {
 					ownerCid = c.Cid

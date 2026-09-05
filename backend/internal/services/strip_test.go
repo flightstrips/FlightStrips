@@ -868,6 +868,71 @@ func TestCreateCoordinationTransfer_AirborneBay_SendsEsHandover(t *testing.T) {
 	assert.Equal(t, targetCallsign, h.TargetCallsign)
 }
 
+type coordinationTargetRouteStub struct {
+	position string
+	callsign string
+}
+
+func (s *coordinationTargetRouteStub) UpdateRouteForStrip(string, int32, bool) error { return nil }
+
+func (s *coordinationTargetRouteStub) UpdateRouteForStripContext(context.Context, string, int32, bool) error {
+	return nil
+}
+
+func (s *coordinationTargetRouteStub) ResolveCoordinationTargetContext(context.Context, int32, string) (string, string, bool, error) {
+	return s.position, s.callsign, true, nil
+}
+
+func TestCreateCoordinationTransfer_CrossCoupledTargetUsesCarryingPosition(t *testing.T) {
+	ctx := context.Background()
+	const (
+		session          = int32(1)
+		callsign         = "SAS124"
+		ownerPosition    = "118.455"
+		logicalTarget    = "118.580"
+		carryingPosition = "121.830"
+		targetCallsign   = "EKCH_E_APP"
+	)
+	ownerCid := "1234567"
+
+	var created *models.Coordination
+	coordRepo := &testutil.MockCoordinationRepository{
+		CreateFn: func(_ context.Context, coordination *models.Coordination) error {
+			copy := *coordination
+			created = &copy
+			return nil
+		},
+	}
+	controllerRepo := &testutil.MockControllerRepository{
+		ListBySessionFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{{Position: ownerPosition, Cid: &ownerCid}}, nil
+		},
+	}
+	hub := &testutil.MockFrontendHub{}
+	esHub := &testutil.MockEuroscopeHub{}
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{ID: 10, Callsign: callsign, Bay: shared.BAY_AIRBORNE}, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetEuroscopeHub(esHub)
+	svc.SetCoordinationRepo(coordRepo)
+	svc.SetControllerRepo(controllerRepo)
+	svc.SetRouteRecalculator(&coordinationTargetRouteStub{position: carryingPosition, callsign: targetCallsign})
+
+	err := svc.CreateCoordinationTransfer(ctx, session, callsign, ownerPosition, logicalTarget)
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.Equal(t, carryingPosition, created.ToPosition)
+	require.Len(t, hub.CoordinationTransfers, 1)
+	assert.Equal(t, carryingPosition, hub.CoordinationTransfers[0].To)
+	require.Len(t, esHub.CoordinationHandovers, 1)
+	assert.Equal(t, targetCallsign, esHub.CoordinationHandovers[0].TargetCallsign)
+}
+
 func TestCreateCoordinationTransfer_NonAirborneBay_NoEsHandover(t *testing.T) {
 	ctx := context.Background()
 	const session = int32(1)

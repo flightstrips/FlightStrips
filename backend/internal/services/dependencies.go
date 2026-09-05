@@ -93,6 +93,10 @@ type ClearedStripOwnerResolver interface {
 	ResolveClearedStripOwnerContext(ctx context.Context, strip *internalModels.Strip, sessionID int32) (string, bool, error)
 }
 
+type CoordinationTargetResolver interface {
+	ResolveCoordinationTargetContext(ctx context.Context, sessionID int32, targetPosition string) (position string, callsign string, ok bool, err error)
+}
+
 type StripRouteComputer interface {
 	ComputeNextOwnersForStripContext(ctx context.Context, strip *internalModels.Strip, sessionID int32) ([]string, bool, error)
 }

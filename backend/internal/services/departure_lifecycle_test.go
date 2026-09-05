@@ -283,7 +283,9 @@ func TestDepartureLifecycle(t *testing.T) {
 
 		_, err = assignments.GetAssignment(ctx, session, "SAS609")
 		require.Error(t, err)
-		assert.Nil(t, loadStrip(t, strips, session, "SAS609").Stand)
+		retainedStand := loadStrip(t, strips, session, "SAS609").Stand
+		require.NotNil(t, retainedStand)
+		assert.Equal(t, "A1", *retainedStand, "the strip keeps its origin stand for downstream routing")
 	})
 
 	t.Run("coming online at a different free stand blocks the observed stand", func(t *testing.T) {

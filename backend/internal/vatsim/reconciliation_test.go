@@ -180,6 +180,7 @@ func (n *reconciliationTestNotifier) SendStripUpdate(_ int32, callsign string) {
 type reconciliationTestDepartureLifecycle struct {
 	cancelled []string
 	processed []string
+	released  []string
 }
 
 func (l *reconciliationTestDepartureLifecycle) ProcessDeparture(_ context.Context, _ int32, strip *models.Strip, _ DepartureFlightInfo) error {
@@ -189,6 +190,11 @@ func (l *reconciliationTestDepartureLifecycle) ProcessDeparture(_ context.Contex
 
 func (l *reconciliationTestDepartureLifecycle) CancelDeparture(_ context.Context, _ int32, callsign string) error {
 	l.cancelled = append(l.cancelled, callsign)
+	return nil
+}
+
+func (l *reconciliationTestDepartureLifecycle) ReleaseDepartureStand(_ context.Context, _ int32, callsign string) error {
+	l.released = append(l.released, callsign)
 	return nil
 }
 
@@ -499,6 +505,29 @@ func TestReconcileRequiresEuroscopeStripBeforeOnlineDepartureBlock(t *testing.T)
 	require.NoError(t, reconciler.Reconcile(context.Background()))
 	assert.Equal(t, []string{"SAS101"}, lifecycle.processed,
 		"the online departure may enter the block path after EuroScope has supplied the strip, while an ES-owned prefile must not reset that state")
+}
+
+func TestReconcileReleasesPushDepartureAfterLifecycleProcessing(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	sequence := int32(1000)
+	state := "PUSH"
+	existing := &models.Strip{
+		Callsign: "SAS303", Session: 7, Origin: "EKCH", Destination: "EDDF",
+		Bay: "PUSH", State: &state, Sequence: &sequence, EuroscopeSeenAt: &now,
+	}
+	cache := newReconciliationTestCache(now,
+		Flight{CID: "3", Callsign: "SAS303", State: FlightStateOnline, LastUpdated: now,
+			FlightPlan: FlightPlan{Origin: "EKCH", Destination: "EDDF", Revision: 3}},
+	)
+	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{7: {existing}}}
+	lifecycle := &reconciliationTestDepartureLifecycle{}
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler.lifecycle = lifecycle
+
+	require.NoError(t, reconciler.Reconcile(context.Background()))
+	assert.Equal(t, []string{"SAS303"}, lifecycle.processed)
+	assert.Equal(t, []string{"SAS303"}, lifecycle.released,
+		"PUSH must win over stale stand coordinates restored by lifecycle processing")
 }
 
 func TestReconcileMovesExistingAPIPrefileOutOfCLX(t *testing.T) {

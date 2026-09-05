@@ -87,6 +87,10 @@ type DepartureLifecycle interface {
 	CancelDeparture(ctx context.Context, session int32, callsign string) error
 }
 
+type departureStandReleaser interface {
+	ReleaseDepartureStand(ctx context.Context, session int32, callsign string) error
+}
+
 // ArrivalLifecycle drives the ESTIMATED → ASSIGNED → CONFIRMED transitions
 // for an arrival the reconciler has just applied. The reconciler owns feed
 // timing; the lifecycle owns allocation timing and persistence.
@@ -364,6 +368,13 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 				if err := r.lifecycle.ProcessDeparture(ctx, session.ID, strip, departureFlightInfo(flight)); err != nil {
 					return err
 				}
+				if departurePushActive(strip) {
+					if releaser, ok := r.lifecycle.(departureStandReleaser); ok {
+						if err := releaser.ReleaseDepartureStand(ctx, session.ID, strip.Callsign); err != nil {
+							return err
+						}
+					}
+				}
 			}
 		}
 	}
@@ -418,6 +429,17 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 		}
 	}
 	return nil
+}
+
+func departurePushActive(strip *models.Strip) bool {
+	if strip == nil {
+		return false
+	}
+	state := ""
+	if strip.State != nil {
+		state = strings.TrimSpace(*strip.State)
+	}
+	return strings.EqualFold(strings.TrimSpace(strip.Bay), "PUSH") || strings.EqualFold(state, "PUSH")
 }
 
 type arrivalAssignmentState struct {

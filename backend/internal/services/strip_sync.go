@@ -113,6 +113,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	routeNeedsUpdate := false
 	needsStripBroadcast := false
 	needsPdcValidation := false
+	squawkMembershipChanged := false
 	restartLifecycle := false
 	correctedEobt := ""
 	eobtClamped := false
@@ -551,6 +552,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if shouldResetStartReqOnStandChange(existingStrip.Bay, existingStrip.Stand, updateStrip.Stand) {
 			updateStrip.StartReq = false
 		}
+		validationInputsChanged := syncStripChangedIgnoringPosition(existingStrip, updateStrip)
 		routeNeedsUpdate = restartLifecycle || syncStripRouteChanged(existingStrip, updateStrip) || shouldClearOwnerForNotCleared
 		if routeNeedsUpdate && routeComputer != nil {
 			nextOwners, handled, err := routeComputer.ComputeNextOwnersForStripContext(ctx, updateStrip, session)
@@ -569,6 +571,8 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			routeNeedsUpdate = false
 		}
 		primaryChange := syncStripChanged(existingStrip, updateStrip)
+		squawkMembershipChanged = !reflect.DeepEqual(existingStrip.AssignedSquawk, updateStrip.AssignedSquawk) ||
+			!reflect.DeepEqual(existingStrip.Squawk, updateStrip.Squawk)
 		firstEuroscopeSyncNeedsSquawk := existingStrip.EuroscopeSeenAt == nil &&
 			shouldGenerateDepartureSquawk(strip, airport, bay)
 
@@ -613,7 +617,13 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			s.esCommander.SendHeading(session, cid, strip.Callsign, updateHeading)
 		}
 		needsStripBroadcast = true
-		needsPdcValidation = true
+		needsPdcValidation = validationInputsChanged
+		if !validationInputsChanged {
+			// Position is persisted and may still affect routing, but it cannot
+			// change departure validation or CDM state unless it also changed the
+			// derived bay (which is included above).
+			validationStrip = nil
+		}
 	}
 
 	s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
@@ -651,8 +661,16 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 	}
 
-	if createdStrip || validationStrip != nil {
+	if createdStrip || squawkMembershipChanged {
 		if err := s.reevaluateSquawkValidationsForSession(ctx, session, true); err != nil {
+			return err
+		}
+	} else if validationStrip != nil {
+		// A routine strip update can contain a new aircraft position without
+		// changing any squawk membership. Revalidating every strip in the session
+		// for each such update makes the cost grow with traffic volume. Only the
+		// changed strip can have a different validation result in this case.
+		if err := s.reevaluateDepartureValidation(ctx, session, validationStrip.Callsign, true, false); err != nil {
 			return err
 		}
 	}
@@ -867,6 +885,18 @@ func syncStripChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 		!reflect.DeepEqual(existingStrip.ValidationStatus, updateStrip.ValidationStatus)
 }
 
+func syncStripChangedIgnoringPosition(existingStrip, updateStrip *internalModels.Strip) bool {
+	if existingStrip == nil || updateStrip == nil {
+		return true
+	}
+
+	withoutPosition := *updateStrip
+	withoutPosition.PositionLatitude = existingStrip.PositionLatitude
+	withoutPosition.PositionLongitude = existingStrip.PositionLongitude
+	withoutPosition.PositionAltitude = existingStrip.PositionAltitude
+	return syncStripChanged(existingStrip, &withoutPosition)
+}
+
 func syncStripRouteChanged(existingStrip, updateStrip *internalModels.Strip) bool {
 	if existingStrip == nil || updateStrip == nil {
 		return true
@@ -876,9 +906,7 @@ func syncStripRouteChanged(existingStrip, updateStrip *internalModels.Strip) boo
 		existingStrip.Destination != updateStrip.Destination ||
 		!reflect.DeepEqual(existingStrip.Sid, updateStrip.Sid) ||
 		!reflect.DeepEqual(existingStrip.Runway, updateStrip.Runway) ||
-		!reflect.DeepEqual(existingStrip.Stand, updateStrip.Stand) ||
-		!reflect.DeepEqual(existingStrip.PositionLatitude, updateStrip.PositionLatitude) ||
-		!reflect.DeepEqual(existingStrip.PositionLongitude, updateStrip.PositionLongitude)
+		!reflect.DeepEqual(existingStrip.Stand, updateStrip.Stand)
 }
 
 func cloneStripNextDisplay(display *internalModels.NextDisplay) *internalModels.NextDisplay {

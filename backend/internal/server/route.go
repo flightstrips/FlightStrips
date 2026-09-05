@@ -347,8 +347,11 @@ func (s *Server) UpdateRoutesForSession(sessionId int32, sendUpdate bool) error 
 }
 
 func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sessionId int32, sendUpdate bool) error {
+	return s.updateRoutesForSessionWithInputsContextUnlocked(ctx, sessionId, sendUpdate, nil)
+}
+
+func (s *Server) updateRoutesForSessionWithInputsContextUnlocked(ctx context.Context, sessionId int32, sendUpdate bool, inputs *routeSessionInputs) error {
 	stripRepo := s.stripRepo
-	sessionRepo := s.sessionRepo
 
 	slog.Debug("Route recalculation requested for session",
 		slog.Int("session", int(sessionId)),
@@ -359,19 +362,12 @@ func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sess
 		return err
 	}
 
-	session, err := sessionRepo.GetByID(ctx, sessionId)
-	if err != nil {
-		return err
-	}
-
-	owners, err := s.sectorRepo.ListBySession(ctx, sessionId)
-	if err != nil {
-		return err
-	}
-
-	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
-	if err != nil {
-		return err
+	if inputs == nil {
+		loaded, err := s.loadRouteSessionInputs(ctx, sessionId)
+		if err != nil {
+			return err
+		}
+		inputs = &loaded
 	}
 
 	pendingStripIDs := make(map[int32]struct{})
@@ -396,13 +392,13 @@ func (s *Server) updateRoutesForSessionContextUnlocked(ctx context.Context, sess
 		if _, pending := pendingStripIDs[strip.ID]; pending {
 			continue
 		}
-		err := s.updateRouteForStripHelper(ctx, strip, session, owners, radio, sendUpdate)
+		err := s.updateRouteForStripHelper(ctx, strip, inputs.session, inputs.owners, inputs.radio, sendUpdate)
 		if err != nil {
 			return err
 		}
 	}
 
-	fingerprint, err := buildRouteInputFingerprint(session, owners, radio)
+	fingerprint, err := buildRouteInputFingerprint(inputs.session, inputs.owners, inputs.radio)
 	if err != nil {
 		return err
 	}

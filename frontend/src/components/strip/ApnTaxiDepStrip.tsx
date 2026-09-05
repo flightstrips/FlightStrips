@@ -140,7 +140,7 @@ export function ApnTaxiDepStrip({
         {/* A/C type / Registration — 25%*(2/3), stacked in top 2/3 */}
         <div
           className="flex flex-col items-center justify-center overflow-hidden border-r-2 cursor-pointer hover:brightness-95"
-          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: BOT_H, minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
+          style={{ flex: `${F_TYPE} 0 0%`, height: "100%", paddingBottom: "1.48dvh", minWidth: 0, borderRightColor: cellBorderColor, cursor: "pointer" }}
           onClick={(e) => { e.stopPropagation(); setFplOpen(true); }}
         >
           <AircraftTypeLabel className="truncate px-[0.21vw] leading-tight w-full text-center" style={{ fontFamily: FONT, fontSize: "0.52vw" }} aircraftType={aircraftType} aircraftCategory={aircraftCategory} />

@@ -52,7 +52,7 @@ type MockStripRepository struct {
 	UpdateRegistrationFn            func(ctx context.Context, session int32, callsign string, registration string) error
 	UpdateTrackingControllerFn      func(ctx context.Context, session int32, callsign string, trackingController string) (int64, error)
 	SetOwnerFn                      func(ctx context.Context, session int32, callsign string, owner *string, version int32) (int64, error)
-	SetNextOwnersFn                 func(ctx context.Context, session int32, callsign string, nextOwners []string) error
+	SetRouteStateFn                 func(ctx context.Context, session int32, callsign string, nextOwners []string, nextDisplay *models.NextDisplay) error
 	SetPreviousOwnersFn             func(ctx context.Context, session int32, callsign string, previousOwners []string) error
 	SetNextAndPreviousOwnersFn      func(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error
 	GetCdmDataFn                    func(ctx context.Context, session int32) ([]*models.CdmDataRow, error)
@@ -408,11 +408,11 @@ func (m *MockStripRepository) SetOwner(ctx context.Context, session int32, calls
 	return m.SetOwnerFn(ctx, session, callsign, owner, version)
 }
 
-func (m *MockStripRepository) SetNextOwners(ctx context.Context, session int32, callsign string, nextOwners []string) error {
-	if m.SetNextOwnersFn == nil {
-		panic("unexpected call to MockStripRepository.SetNextOwners")
+func (m *MockStripRepository) SetRouteState(ctx context.Context, session int32, callsign string, nextOwners []string, nextDisplay *models.NextDisplay) error {
+	if m.SetRouteStateFn == nil {
+		panic("unexpected call to MockStripRepository.SetRouteState")
 	}
-	return m.SetNextOwnersFn(ctx, session, callsign, nextOwners)
+	return m.SetRouteStateFn(ctx, session, callsign, nextOwners, nextDisplay)
 }
 
 func (m *MockStripRepository) SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error {

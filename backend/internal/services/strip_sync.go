@@ -198,6 +198,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			}
 			if handled {
 				newStrip.NextOwners = nextOwners
+				if s.routeDisplayComputer != nil {
+					newStrip.NextDisplay, err = s.routeDisplayComputer.ComputeNextDisplayForStripContext(ctx, newStrip, session)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		} else {
 			routeNeedsUpdate = true
@@ -444,6 +450,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		updateStrip := &internalModels.Strip{
+			ID:                       existingStrip.ID,
 			Callsign:                 strip.Callsign,
 			Session:                  session,
 			Origin:                   origin,
@@ -478,6 +485,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			PdcData:                  pdcData,
 			NextOwners:               nextOwners,
 			PreviousOwners:           previousOwners,
+			NextDisplay:              cloneStripNextDisplay(existingStrip.NextDisplay),
 			Registration:             registration,
 			Owner:                    owner,
 			PdcState:                 pdcData.State,
@@ -551,6 +559,12 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			}
 			if handled {
 				updateStrip.NextOwners = nextOwners
+				if s.routeDisplayComputer != nil {
+					updateStrip.NextDisplay, err = s.routeDisplayComputer.ComputeNextDisplayForStripContext(ctx, updateStrip, session)
+					if err != nil {
+						return err
+					}
+				}
 			}
 			routeNeedsUpdate = false
 		}
@@ -865,6 +879,13 @@ func syncStripRouteChanged(existingStrip, updateStrip *internalModels.Strip) boo
 		!reflect.DeepEqual(existingStrip.Stand, updateStrip.Stand) ||
 		!reflect.DeepEqual(existingStrip.PositionLatitude, updateStrip.PositionLatitude) ||
 		!reflect.DeepEqual(existingStrip.PositionLongitude, updateStrip.PositionLongitude)
+}
+
+func cloneStripNextDisplay(display *internalModels.NextDisplay) *internalModels.NextDisplay {
+	if display == nil {
+		return nil
+	}
+	return &internalModels.NextDisplay{Label: display.Label, Frequency: display.Frequency}
 }
 
 func applySyncStripUpdate(existingStrip, updateStrip *internalModels.Strip) {

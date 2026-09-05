@@ -104,6 +104,7 @@ func TestSyncEuroscopeStrip_ExistingStripPreservesHoldWhenPluginOmitsHoldFields(
 		Hold:        "OLPIB",
 		HoldType:    "enroute",
 		HoldEat:     "1422",
+		NextDisplay: &models.NextDisplay{Label: "AD", Frequency: "121.730"},
 	}
 	var updatedStrip *models.Strip
 	stripRepo := &testutil.MockStripRepository{
@@ -130,6 +131,8 @@ func TestSyncEuroscopeStrip_ExistingStripPreservesHoldWhenPluginOmitsHoldFields(
 	assert.Equal(t, existingStrip.Hold, updatedStrip.Hold)
 	assert.Equal(t, existingStrip.HoldType, updatedStrip.HoldType)
 	assert.Equal(t, existingStrip.HoldEat, updatedStrip.HoldEat)
+	require.Equal(t, existingStrip.NextDisplay, updatedStrip.NextDisplay)
+	assert.NotSame(t, existingStrip.NextDisplay, updatedStrip.NextDisplay)
 }
 
 func TestSyncEuroscopeStrip_ExistingStripClearsHoldWhenSupportedPluginReportsEmpty(t *testing.T) {
@@ -387,6 +390,10 @@ func TestSyncEuroscopeStrip_ExistingStripWritesRouteAndHasFPInPrimaryUpdate(t *t
 				routeUpdateCalls++
 				return nil
 			},
+			ComputeNextDisplayForStripContextFn: func(_ context.Context, _ *models.Strip, sessionID int32) (*models.NextDisplay, error) {
+				require.Equal(t, session, sessionID)
+				return &models.NextDisplay{Label: "TW", Frequency: "118.105"}, nil
+			},
 		},
 		computeNextOwnersFn: func(_ context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error) {
 			require.Equal(t, session, sessionId)
@@ -406,6 +413,7 @@ func TestSyncEuroscopeStrip_ExistingStripWritesRouteAndHasFPInPrimaryUpdate(t *t
 	require.NoError(t, err)
 	require.NotNil(t, updatedStrip)
 	assert.Equal(t, []string{"EKCH_TWR"}, updatedStrip.NextOwners)
+	require.Equal(t, &models.NextDisplay{Label: "TW", Frequency: "118.105"}, updatedStrip.NextDisplay)
 	assert.True(t, updatedStrip.HasFP)
 	assert.Zero(t, setHasFPCalls)
 	assert.Zero(t, routeUpdateCalls)

@@ -93,6 +93,19 @@ func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string
 }
 
 func (s *Server) ComputeNextOwnersForStripContext(ctx context.Context, strip *models.Strip, sessionId int32) ([]string, bool, error) {
+	if strip == nil {
+		return nil, false, nil
+	}
+	if s.coordRepo != nil && strip.ID != 0 {
+		_, err := s.coordRepo.GetByStripID(ctx, sessionId, strip.ID)
+		switch {
+		case err == nil:
+			return slices.Clone(strip.NextOwners), true, nil
+		case !errors.Is(err, pgx.ErrNoRows):
+			return nil, false, err
+		}
+	}
+
 	session, err := routeSessionByID(ctx, s.sessionRepo, sessionId)
 	if err != nil {
 		return nil, false, err
@@ -120,11 +133,18 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 	if strip == nil {
 		return nil, nil
 	}
+	preserveRoute := false
 	if s.coordRepo != nil {
 		_, err := s.coordRepo.GetByStripID(ctx, sessionId, strip.ID)
 		switch {
 		case err == nil:
-			return cloneNextDisplay(strip.NextDisplay), nil
+			if strip.NextDisplay != nil || len(strip.NextOwners) == 0 {
+				return cloneNextDisplay(strip.NextDisplay), nil
+			}
+			// Rows created before route-display persistence may still have a pending
+			// coordination and no stored display. Rebuild only the display below; the
+			// pending coordination must continue to protect NextOwners from retargeting.
+			preserveRoute = true
 		case !errors.Is(err, pgx.ErrNoRows):
 			return nil, err
 		}
@@ -143,6 +163,18 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 	radio, err := routeRadioStateForSession(ctx, s.controllerRepo, sessionId, s.frequencyProviders)
 	if err != nil {
 		return nil, err
+	}
+
+	if preserveRoute {
+		display, reliable := reconstructNextDisplayForPreservedRoute(strip, session, owners, radio)
+		if reliable && display != nil && s.stripRepo != nil {
+			if err := s.stripRepo.SetRouteState(ctx, sessionId, strip.Callsign, strip.NextOwners, display); err != nil {
+				return nil, err
+			}
+			shared.AddDBOperations(ctx, 1)
+			strip.NextDisplay = cloneNextDisplay(display)
+		}
+		return display, nil
 	}
 
 	result, _, err := computeRouteStateForStrip(strip, session, owners, radio)
@@ -231,17 +263,18 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 		}
 	}
 
-	hasUncoordinatedStrip := false
+	needsRouteState := false
 	for _, strip := range strips {
 		if strip == nil {
 			continue
 		}
-		if _, pending := pendingStripIDs[strip.ID]; !pending {
-			hasUncoordinatedStrip = true
+		_, pending := pendingStripIDs[strip.ID]
+		if !pending || (strip.NextDisplay == nil && len(strip.NextOwners) > 0) {
+			needsRouteState = true
 			break
 		}
 	}
-	if !hasUncoordinatedStrip {
+	if !needsRouteState {
 		return nil
 	}
 
@@ -265,6 +298,16 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 			continue
 		}
 		if _, pending := pendingStripIDs[strip.ID]; pending {
+			if strip.NextDisplay == nil && len(strip.NextOwners) > 0 {
+				display, reliable := reconstructNextDisplayForPreservedRoute(strip, session, owners, radio)
+				if reliable && display != nil && s.stripRepo != nil {
+					if err := s.stripRepo.SetRouteState(ctx, sessionId, strip.Callsign, strip.NextOwners, display); err != nil {
+						return err
+					}
+					shared.AddDBOperations(ctx, 1)
+				}
+				strip.NextDisplay = display
+			}
 			continue
 		}
 
@@ -277,6 +320,21 @@ func (s *Server) ComputeNextDisplaysForStripsContext(ctx context.Context, strips
 	}
 
 	return nil
+}
+
+func reconstructNextDisplayForPreservedRoute(strip *models.Strip, session *models.Session, owners []*models.SectorOwner, radio routeRadioState) (*models.NextDisplay, bool) {
+	if strip == nil || session == nil || len(strip.NextOwners) == 0 {
+		return nil, false
+	}
+
+	preservedOwner := strip.NextOwners[0]
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, radio)
+	if err == nil && shouldUpdate && len(result.NextOwners) > 0 &&
+		vatsim.NormalizeFrequency(result.NextOwners[0]) == vatsim.NormalizeFrequency(preservedOwner) {
+		return cloneNextDisplay(result.NextDisplay), true
+	}
+
+	return buildConfiguredOwnerDisplay(strip, session, preservedOwner, buildRouteOwnership(owners), radio), false
 }
 
 // UpdateRoutesForSession recalculates routes for all strips in the session.
@@ -380,18 +438,12 @@ func (s *Server) updateRouteForStripHelper(ctx context.Context, strip *models.St
 		slog.Any("previous_next_display", strip.NextDisplay),
 		slog.Any("next_display", result.NextDisplay))
 
-	if nextOwnersChanged {
-		err = s.stripRepo.SetNextOwners(ctx, session.ID, strip.Callsign, result.NextOwners)
-	} else {
-		err = nil
-	}
+	err = s.stripRepo.SetRouteState(ctx, session.ID, strip.Callsign, result.NextOwners, result.NextDisplay)
 	if err == nil {
 		strip.NextOwners = slices.Clone(result.NextOwners)
 		strip.NextDisplay = cloneNextDisplay(result.NextDisplay)
 
-		if nextOwnersChanged {
-			shared.AddDBOperations(ctx, 1)
-		}
+		shared.AddDBOperations(ctx, 1)
 		if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
 			if existing := syncState.ExistingStrips[strip.Callsign]; existing != nil {
 				existing.NextOwners = slices.Clone(result.NextOwners)

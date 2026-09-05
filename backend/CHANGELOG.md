@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.4](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.3...backend/v1.0.4) (2026-09-05)
+
+
+### Bug Fixes
+
+* **strip:** preserve next-sector display during coordination ([#511](https://github.com/flightstrips/FlightStrips/issues/511)) ([3b284d4](https://github.com/flightstrips/FlightStrips/commit/3b284d4ee49724bfb177d2117f0f72e6d0e78b1f))
+* **strip:** preserve tower-visible taxi bay ([#508](https://github.com/flightstrips/FlightStrips/issues/508)) ([fc6337c](https://github.com/flightstrips/FlightStrips/commit/fc6337cb389a1b9fa5a44efa6a5b93e00840d781))
+* **strip:** resolve cross-coupled coordination targets ([#512](https://github.com/flightstrips/FlightStrips/issues/512)) ([82fe613](https://github.com/flightstrips/FlightStrips/commit/82fe613c393063df7c86ae7f814cfafe15746c1d))
+
 ## [1.0.3](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.2...backend/v1.0.3) (2026-09-04)
 
 

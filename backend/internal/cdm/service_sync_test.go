@@ -921,20 +921,21 @@ func TestSyncCdmData_MasterSession_DoesNotOverwriteConfirmedTobtDuringEobtNormal
 func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 	const sessionID = int32(80)
 	const callsign = "SAS126"
+	times := futureMasterSyncTestTimes()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/ifps/depAirport" {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
-		_, _ = w.Write([]byte(`[{
+		_, _ = fmt.Fprintf(w, `[{
 			"callsign":"SAS126",
 			"departure":"EKCH",
-			"eobt":"1000",
-			"tobt":"1010",
+			"eobt":"%s",
+			"tobt":"%s",
 			"ctot":"",
 			"cdmSts":"REA",
-			"cdmData":{"ctot":"104500","tsat":"101500","ttot":"102500"}
-		}]`))
+			"cdmData":{"ctot":"%s00","tsat":"%s","ttot":"%s"}
+		}]`, times.Eobt, times.Tobt, times.Ctot, times.Tsat, times.Ttot)
 	}))
 	defer server.Close()
 
@@ -947,7 +948,7 @@ func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 				return []*models.CdmDataRow{{
 					Callsign: callsign,
 					Data: (&models.CdmData{
-						Eobt: testStringPtr("1000"),
+						Eobt: testStringPtr(times.Eobt),
 					}).Normalize(),
 				}}, nil
 			},
@@ -974,14 +975,14 @@ func TestSyncCdmData_UsesNestedCtotForFrontendUpdate(t *testing.T) {
 	if persisted == nil {
 		t.Fatal("expected persisted CDM data")
 	}
-	if got := valueOrEmpty(persisted.Ctot); got != "1045" {
-		t.Fatalf("expected nested CTOT fallback to persist %q, got %q", "1045", got)
+	if got := valueOrEmpty(persisted.Ctot); got != times.Ctot {
+		t.Fatalf("expected nested CTOT fallback to persist %q, got %q", times.Ctot, got)
 	}
 	if len(frontendHub.CdmUpdates) != 1 {
 		t.Fatalf("expected one frontend CTOT update, got %d", len(frontendHub.CdmUpdates))
 	}
-	if got := frontendHub.CdmUpdates[0].Ctot; got != "1045" {
-		t.Fatalf("expected frontend CTOT update %q, got %q", "1045", got)
+	if got := frontendHub.CdmUpdates[0].Ctot; got != times.Ctot {
+		t.Fatalf("expected frontend CTOT update %q, got %q", times.Ctot, got)
 	}
 }
 

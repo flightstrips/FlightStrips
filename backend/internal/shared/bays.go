@@ -146,6 +146,15 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 		return BAY_AIRBORNE
 	}
 
+	// A TAXI sync describes the aircraft's movement state, but cannot distinguish
+	// the generic upper bay from the explicitly selected lower/tower-visible bay.
+	// Preserve that more specific placement just as incremental ground-state
+	// updates do below in GetDepartureBayFromGroundState.
+	if existing != nil && strip.GroundState == euroscope.GroundStateTaxi &&
+		(existing.Bay == BAY_TAXI_LWR || existing.Bay == BAY_TAXI_TWR) {
+		return existing.Bay
+	}
+
 	if existing != nil && existing.Bay != "" && existing.State != nil &&
 		strip.GroundState == *existing.State && bayTracksGroundState(existing.Bay) {
 		return existing.Bay

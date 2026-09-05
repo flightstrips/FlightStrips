@@ -334,6 +334,30 @@ func TestGetDepartureBayFromGroundState_TaxiReturnsTaxi(t *testing.T) {
 	}
 }
 
+func TestGetDepartureBay_FullTaxiSyncPreservesSpecificTaxiBay(t *testing.T) {
+	for _, existingBay := range []string{BAY_TAXI_LWR, BAY_TAXI_TWR} {
+		t.Run(existingBay, func(t *testing.T) {
+			previousState := euroscope.GroundStatePush
+			existing := &database.Strip{
+				Origin: "EKCH",
+				Bay:    existingBay,
+				State:  &previousState,
+			}
+			strip := euroscope.Strip{
+				Origin:      "EKCH",
+				Destination: "EKBI",
+				Cleared:     true,
+				GroundState: euroscope.GroundStateTaxi,
+			}
+
+			bay := GetDepartureBay(strip, existing, 500, "EKCH", true)
+			if bay != existingBay {
+				t.Fatalf("expected %s to survive a full TAXI sync, got %s", existingBay, bay)
+			}
+		})
+	}
+}
+
 func TestGetDepartureBayFromGroundState_TaxiLwrPreserved(t *testing.T) {
 	// Task 078: when the strip is already in TAXI_LWR, a TAXI ground state must not move it backward.
 	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}

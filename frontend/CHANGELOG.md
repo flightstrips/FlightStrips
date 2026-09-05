@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.1.1...frontend/v1.1.2) (2026-09-05)
+
+
+### Bug Fixes
+
+* **session:** automatically select EST for SEQ PLN ([#518](https://github.com/flightstrips/FlightStrips/issues/518)) ([84712c0](https://github.com/flightstrips/FlightStrips/commit/84712c000c1c82f1513583b60959c0149343f08c))
+
 ## [1.1.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.1.0...frontend/v1.1.1) (2026-09-05)
 
 

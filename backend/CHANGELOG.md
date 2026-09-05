@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.5](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.4...backend/v1.0.5) (2026-09-05)
+
+
+### Bug Fixes
+
+* **stand:** preserve departure stand after vacating ([#515](https://github.com/flightstrips/FlightStrips/issues/515)) ([562e14a](https://github.com/flightstrips/FlightStrips/commit/562e14a5b47422ad9546093f0475f13e684d49a5))
+* **strip:** coalesce master position updates ([#519](https://github.com/flightstrips/FlightStrips/issues/519)) ([ff32b3d](https://github.com/flightstrips/FlightStrips/commit/ff32b3dca523c7ab43549423387aa053e9317dd5))
+
 ## [1.0.4](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.3...backend/v1.0.4) (2026-09-05)
 
 

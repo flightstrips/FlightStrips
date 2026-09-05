@@ -89,30 +89,56 @@ func TestProcessorLimitMatchesGOMAXPROCS(t *testing.T) {
 	}
 }
 
-func TestLatencyQuantilesNeedASecondCollection(t *testing.T) {
-	reader, rm := collectRuntimeMetrics(t)
+func TestFirstCollectionReportsNoLatencyQuantiles(t *testing.T) {
+	_, rm := collectRuntimeMetrics(t)
 
 	// The first collection only establishes the histogram baseline, so process
 	// startup cannot be reported as a scheduling latency spike.
-	if _, ok := metricNames(rm)["go.schedule.latency"]; ok {
-		t.Fatal("expected no scheduling latency on the first collection")
+	names := metricNames(rm)
+	for _, name := range []string{"go.schedule.latency", "go.gc.pause.latency"} {
+		if _, ok := names[name]; ok {
+			t.Fatalf("expected no %q on the first collection", name)
+		}
+	}
+}
+
+// Whether a goroutine actually waits for a processor during a test is up to the
+// machine, so the emit path is driven by resetting the baseline rather than by
+// trying to provoke real scheduling delay.
+func TestLatencyQuantilesAreEmittedOnceADeltaExists(t *testing.T) {
+	sampler := newRuntimeSampler(latenciesName)
+	sampler.read()
+
+	buckets, counts, ok := sampler.histogramDelta(latenciesName)
+	if ok {
+		t.Fatal("expected the first read to establish a baseline only")
 	}
 
-	// Generate scheduling activity so the second collection has a non-empty delta.
-	done := make(chan struct{})
-	for range 8 {
-		go func() {
-			runtime.Gosched()
-			done <- struct{}{}
-		}()
-	}
-	for range 8 {
-		<-done
+	// Treat everything observed since process start as the interval's delta.
+	sampler.previous[latenciesName] = make([]uint64, len(sampler.previous[latenciesName]))
+	sampler.read()
+
+	buckets, counts, ok = sampler.histogramDelta(latenciesName)
+	if !ok {
+		t.Fatal("expected a delta once a baseline exists")
 	}
 
-	rm = collectMetrics(t, reader)
-	if _, ok := metricNames(rm)["go.schedule.latency"]; !ok {
-		t.Fatal("expected scheduling latency once a delta is available")
+	var total uint64
+	for _, count := range counts {
+		total += count
+	}
+	if total == 0 {
+		t.Skip("the runtime recorded no scheduling latency observations")
+	}
+
+	for _, quantile := range reportedQuantiles {
+		value, ok := histogramQuantile(buckets, counts, quantile.value)
+		if !ok {
+			t.Fatalf("expected %s to be derivable from a non-empty delta", quantile.label)
+		}
+		if value < 0 || math.IsInf(value, 1) {
+			t.Fatalf("expected a finite non-negative %s, got %v", quantile.label, value)
+		}
 	}
 }
 

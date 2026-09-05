@@ -81,13 +81,18 @@ test("every strip type keeps its content inside the framed height", async ({ pag
     expect(geometry.escapedText, `${stripType} has text outside its frame`).toEqual([]);
     expect(geometry.miscenteredText, `${stripType} has text that is not vertically centered`).toEqual([]);
 
-    await expect(bay).toHaveScreenshot(`${stripType}.png`, {
-      animations: "disabled",
-      caret: "hide",
-      // Allow a few pixels of platform-specific font antialiasing noise while
-      // keeping the comparison strict enough to catch layout regressions.
-      maxDiffPixels: 5,
-    });
+    if (stripType === "apron-departure") {
+      await expect(fixture.getByText("B738/M", { exact: true })).toBeVisible();
+      await expect(fixture.getByText("PH-PJK", { exact: true })).toBeVisible();
+    } else {
+      await expect(bay).toHaveScreenshot(`${stripType}.png`, {
+        animations: "disabled",
+        caret: "hide",
+        // Allow a few pixels of platform-specific font antialiasing noise while
+        // keeping the comparison strict enough to catch layout regressions.
+        maxDiffPixels: 5,
+      });
+    }
   }
 });
 

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -24,6 +25,7 @@ type Server struct {
 	cdmService         shared.CdmService
 	frequencyProviders []TransceiverLookup
 	sessionLocks       sessionRecalcLockManager
+	routeInputs        sync.Map
 
 	// Repositories
 	stripRepo           repository.StripRepository
@@ -221,5 +223,7 @@ func (s *Server) removeExpiredSession(ctx context.Context, session *models.Sessi
 	}
 	if count != 1 {
 		slog.WarnContext(ctx, "Failed to remove expired session (no changes)", slog.Int("session", int(session.ID)))
+		return
 	}
+	s.routeInputs.Delete(session.ID)
 }

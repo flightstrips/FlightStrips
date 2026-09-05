@@ -192,6 +192,89 @@ func TestRefreshSessionSectors_UpdatesEverySession(t *testing.T) {
 	assert.Equal(t, []int32{11, 42}, updated)
 }
 
+func TestTransceiverRefreshSkipsUnchangedEffectiveRouteInputs(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
+	t.Cleanup(config.SetSectorsForTest([]config.Sector{
+		{Name: "Tower", Key: "TW", Active: []string{"22L"}, Owner: []string{"EKCH_A_TWR"}},
+	}))
+
+	session := &models.Session{
+		ID:      42,
+		Airport: "EKCH",
+		ActiveRunways: pkgModels.ActiveRunways{
+			DepartureRunways: []string{"22L"},
+			ArrivalRunways:   []string{"22L"},
+		},
+	}
+	owners := []*models.SectorOwner{
+		{Session: session.ID, Position: "118.100", Sector: []string{"TW"}},
+	}
+	provider := routeTransceiverStub{
+		"EKCH_A_TWR": {"118.100"},
+	}
+	reads := struct {
+		session     int
+		owners      int
+		controllers int
+		strips      int
+	}{}
+
+	srv := &Server{
+		frequencyProviders: []TransceiverLookup{provider},
+		sessionRepo: &testutil.MockSessionRepository{
+			GetByIDFn: func(_ context.Context, _ int32) (*models.Session, error) {
+				reads.session++
+				return session, nil
+			},
+		},
+		controllerRepo: &testutil.MockControllerRepository{
+			ListFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+				reads.controllers++
+				return []*models.Controller{{Callsign: "EKCH_A_TWR", Position: "118.100"}}, nil
+			},
+		},
+		sectorRepo: &testutil.MockSectorOwnerRepository{
+			ListBySessionFn: func(_ context.Context, _ int32) ([]*models.SectorOwner, error) {
+				reads.owners++
+				return owners, nil
+			},
+		},
+		stripRepo: &testutil.MockStripRepository{
+			ListFn: func(_ context.Context, _ int32) ([]*models.Strip, error) {
+				reads.strips++
+				return nil, nil
+			},
+		},
+	}
+
+	require.NoError(t, srv.refreshRoutesForTransceiverUpdate(context.Background(), session.ID))
+	reads.session = 0
+	reads.owners = 0
+	reads.controllers = 0
+	reads.strips = 0
+
+	require.NoError(t, srv.refreshRoutesForTransceiverUpdate(context.Background(), session.ID))
+	assert.Equal(t, 2, reads.session, "sector update and fingerprint should each load the session once")
+	assert.Equal(t, 2, reads.owners, "sector update and fingerprint should each load owners once")
+	assert.Equal(t, 2, reads.controllers, "sector update and fingerprint should each load controllers once")
+	assert.Zero(t, reads.strips, "unchanged effective inputs should not scan strips")
+
+	reads.session = 0
+	reads.owners = 0
+	reads.controllers = 0
+	reads.strips = 0
+
+	provider["EKCH_A_TWR"] = []string{"118.100", "121.830"}
+	require.NoError(t, srv.refreshRoutesForTransceiverUpdate(context.Background(), session.ID))
+	assert.Equal(t, 2, reads.session, "route recalculation should reuse the session loaded for its fingerprint")
+	assert.Equal(t, 2, reads.owners, "route recalculation should reuse the owners loaded for its fingerprint")
+	assert.Equal(t, 2, reads.controllers, "route recalculation should reuse the radio state loaded for its fingerprint")
+	assert.Equal(t, 1, reads.strips, "changed effective coverage should scan strips once")
+}
+
 func TestGetCurrentControllerCoverage_IgnoresControllersWithoutMatchingPrefix(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_TWR", Frequency: "118.100"},

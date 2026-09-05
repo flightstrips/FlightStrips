@@ -67,6 +67,49 @@ func TestApplyOrValidateRunways_Master_CallsUpdateLayouts(t *testing.T) {
 	assert.True(t, updateLayoutsCalled, "UpdateLayouts must be called after a runway change by master client")
 }
 
+func TestApplyOrValidateRunways_Master_UnchangedRunwaysAreNoOp(t *testing.T) {
+	updateActiveRunwaysCalls := 0
+	recalculateCalls := 0
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{
+				ID:      id,
+				Airport: "EKCH",
+				ActiveRunways: pkgModels.ActiveRunways{
+					DepartureRunways: []string{"04L"},
+					ArrivalRunways:   []string{"22R"},
+				},
+			}, nil
+		},
+		UpdateActiveRunwaysFn: func(_ context.Context, _ int32, _ pkgModels.ActiveRunways) error {
+			updateActiveRunwaysCalls++
+			return nil
+		},
+	}
+
+	mockServer := &testutil.MockServer{
+		SessionRepoVal: sessionRepo,
+		FrontendHubVal: &testutil.MockFrontendHub{},
+		RecalculateSessionContextFn: func(_ context.Context, _ int32, _ bool) ([]shared.SectorChange, error) {
+			recalculateCalls++
+			return nil, nil
+		},
+	}
+
+	hub := buildTestHub(mockServer, &noOpStripService{})
+	client := buildTestClient(hub, 1, "cid-master", "EKCH_A_TWR")
+	hub.master[1] = client
+
+	changed, err := applyOrValidateRunways(context.Background(), client, []esEvents.SyncRunway{
+		{Name: "04L", Departure: true},
+		{Name: "22R", Arrival: true},
+	})
+	require.NoError(t, err)
+	assert.False(t, changed)
+	assert.Zero(t, updateActiveRunwaysCalls)
+	assert.Zero(t, recalculateCalls)
+}
+
 func TestApplyOrValidateRunways_Slave_DoesNotCallUpdateLayouts(t *testing.T) {
 	var updateLayoutsCalled bool
 

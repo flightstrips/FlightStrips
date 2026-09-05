@@ -80,11 +80,11 @@ export default function EstStandCell({
   if (blocked) {
     backgroundClass = "bg-[#4A4A4A]";
     textClass = "text-white";
-  } else if (startReqActive || actionActive) {
-    backgroundClass = "bg-[#131376]";
-    textClass = "text-white";
   } else if (isPushing) {
     backgroundClass = "bg-[#DD6A12]";
+    textClass = "text-white";
+  } else if (startReqActive || actionActive) {
+    backgroundClass = "bg-[#131376]";
     textClass = "text-white";
   } else if (isClearedDeparture) {
     backgroundClass = "bg-[#73BCF8]";

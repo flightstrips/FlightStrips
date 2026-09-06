@@ -25,6 +25,52 @@ type syncRuntimeEvaluateCall struct {
 	IsMaster bool
 }
 
+func TestEuroscopeSyncServicePersistSIDsReportsPersistedChange(t *testing.T) {
+	const session = int32(1)
+	want := pkgModels.AvailableSids{{Name: "NEXEN2F", Runway: "22L"}}
+	updates := 0
+	server := &testutil.MockServer{
+		FrontendHubVal: &testutil.MockFrontendHub{},
+		SessionRepoVal: &testutil.MockSessionRepository{
+			UpdateSessionSidsFn: func(_ context.Context, gotSession int32, got pkgModels.AvailableSids) error {
+				assert.Equal(t, session, gotSession)
+				assert.Equal(t, want, got)
+				updates++
+				return nil
+			},
+		},
+	}
+	state := &shared.SyncState{Session: &internalModels.Session{AvailableSids: pkgModels.AvailableSids{{Name: "LANGO1A", Runway: "22L"}}}}
+	service := &EuroscopeSyncService{server: server}
+
+	changed := service.persistSIDs(context.Background(), session, state, want)
+
+	assert.True(t, changed)
+	assert.Equal(t, 1, updates)
+	assert.Equal(t, 1, state.DBOperations)
+	assert.Equal(t, want, state.Session.AvailableSids)
+}
+
+func TestEuroscopeSyncServicePersistSIDsReportsNoChange(t *testing.T) {
+	want := pkgModels.AvailableSids{{Name: "NEXEN2F", Runway: "22L"}}
+	server := &testutil.MockServer{
+		FrontendHubVal: &testutil.MockFrontendHub{},
+		SessionRepoVal: &testutil.MockSessionRepository{
+			UpdateSessionSidsFn: func(_ context.Context, _ int32, _ pkgModels.AvailableSids) error {
+				t.Fatal("unchanged SIDs must not be persisted")
+				return nil
+			},
+		},
+	}
+	state := &shared.SyncState{Session: &internalModels.Session{AvailableSids: want}}
+	service := &EuroscopeSyncService{server: server}
+
+	changed := service.persistSIDs(context.Background(), 1, state, want)
+
+	assert.False(t, changed)
+	assert.Zero(t, state.DBOperations)
+}
+
 type syncRuntimeResyncCall struct {
 	Session   int32
 	MasterCID string

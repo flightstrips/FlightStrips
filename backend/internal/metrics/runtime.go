@@ -170,10 +170,8 @@ func histogramQuantile(buckets []float64, counts []uint64, quantile float64) (fl
 		return 0, false
 	}
 
-	target := uint64(float64(total) * quantile)
-	if target == 0 {
-		target = 1
-	}
+	target := uint64(math.Ceil(float64(total) * quantile))
+	target = min(max(target, 1), total)
 
 	var seen uint64
 	for i, count := range counts {

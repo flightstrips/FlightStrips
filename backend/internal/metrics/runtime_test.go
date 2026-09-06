@@ -173,6 +173,7 @@ func TestHistogramQuantile(t *testing.T) {
 	}{
 		{name: "median of a uniform distribution", counts: []uint64{10, 10, 10, 10}, quantile: 0.5, want: 2, wantOK: true},
 		{name: "low quantile picks the first bucket", counts: []uint64{10, 10, 10, 10}, quantile: 0.01, want: 1, wantOK: true},
+		{name: "sparse p99 picks the final observation", counts: []uint64{1, 1, 0, 0}, quantile: 0.99, want: 2, wantOK: true},
 		{name: "unbounded bucket reports its finite lower bound", counts: []uint64{0, 0, 0, 5}, quantile: 0.99, want: 3, wantOK: true},
 		{name: "no observations", counts: []uint64{0, 0, 0, 0}, quantile: 0.5, wantOK: false},
 		{name: "mismatched bucket count", counts: []uint64{1, 2}, quantile: 0.5, wantOK: false},

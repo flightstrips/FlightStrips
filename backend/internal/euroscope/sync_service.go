@@ -282,9 +282,10 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 		timings.observe(metrics.SyncPhaseReconcile, phase)
 	}
 
+	sidsChanged := false
 	if len(request.Event.Sids) > 0 {
 		phase = timings.begin()
-		s.persistSIDs(ctx, request.Session, syncState, models.AvailableSids(request.Event.Sids))
+		sidsChanged = s.persistSIDs(ctx, request.Session, syncState, models.AvailableSids(request.Event.Sids))
 		timings.observe(metrics.SyncPhaseSids, phase)
 	}
 
@@ -295,7 +296,7 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 		airport = syncState.Session.Airport
 	}
 
-	changed := syncState.ChangedStrips > 0 || syncState.ChangedControllers > 0 || runwaysChanged
+	changed := syncState.ChangedStrips > 0 || syncState.ChangedControllers > 0 || runwaysChanged || sidsChanged
 	timings.publish(ctx, span, sessionName, airport)
 	publishSyncFollowUpWork(ctx, span, sessionName, airport, followUpWork)
 	metrics.RecordEuroscopeSyncOutcome(ctx, sessionName, airport, changed)
@@ -635,20 +636,25 @@ func (s *EuroscopeSyncService) reconcileStaleStrips(ctx context.Context, session
 
 // persistSIDs saves the available SIDs from the sync event and broadcasts to the frontend.
 // Errors are logged only because SID persistence should not abort the sync.
-func (s *EuroscopeSyncService) persistSIDs(ctx context.Context, session int32, syncState *shared.SyncState, sids models.AvailableSids) {
+func (s *EuroscopeSyncService) persistSIDs(ctx context.Context, session int32, syncState *shared.SyncState, sids models.AvailableSids) bool {
 	availSids := sids
 	if syncState != nil && syncState.Session != nil && reflect.DeepEqual(syncState.Session.AvailableSids, availSids) {
-		return
+		return false
 	}
+	changed := false
 	if err := s.server.GetSessionRepository().UpdateSessionSids(ctx, session, availSids); err != nil {
 		slog.ErrorContext(ctx, "Failed to persist available SIDs", slog.Any("error", err))
-	} else if syncState != nil {
-		syncState.AddDBOperations(1)
-		if syncState.Session != nil {
-			syncState.Session.AvailableSids = availSids
+	} else {
+		changed = true
+		if syncState != nil {
+			syncState.AddDBOperations(1)
+			if syncState.Session != nil {
+				syncState.Session.AvailableSids = availSids
+			}
 		}
 	}
 	s.server.GetFrontendHub().SendAvailableSids(session, availSids)
+	return changed
 }
 
 // applyOrValidateRunways applies the runway configuration when the client is master,

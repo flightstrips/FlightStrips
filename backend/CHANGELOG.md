@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.5...backend/v1.1.0) (2026-09-06)
+
+
+### Features
+
+* add CPU attribution and work amplification telemetry ([#523](https://github.com/flightstrips/FlightStrips/issues/523)) ([87b019a](https://github.com/flightstrips/FlightStrips/commit/87b019ab2dde80669bddd1c4817d555679068e5f))
+
+
+### Bug Fixes
+
+* **session:** reuse transceiver route inputs ([#522](https://github.com/flightstrips/FlightStrips/issues/522)) ([7285d9d](https://github.com/flightstrips/FlightStrips/commit/7285d9df1e1247b46a6c08e464582b6fa54c6be0))
+* **session:** stabilize EuroScope sync recovery ([#520](https://github.com/flightstrips/FlightStrips/issues/520)) ([60d54ab](https://github.com/flightstrips/FlightStrips/commit/60d54ab3532614c0c82736ae86384e9d5e1597c8))
+
 ## [1.0.5](https://github.com/flightstrips/FlightStrips/compare/backend/v1.0.4...backend/v1.0.5) (2026-09-05)
 
 

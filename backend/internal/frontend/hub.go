@@ -38,6 +38,9 @@ type internalMessage struct {
 const (
 	hubSendQueueSize    = 256
 	clientSendQueueSize = 256
+
+	// hubSource labels this hub's dispatch and back-pressure metrics.
+	hubSource = "frontend"
 )
 
 type layoutUpdateMessage struct {
@@ -245,25 +248,41 @@ func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[frontend.EventType, 
 }
 
 func (hub *Hub) Broadcast(session int32, message frontend.OutgoingMessage) {
-	hub.send <- internalMessage{
+	hub.publish(internalMessage{
 		session: session,
 		message: message,
 		cid:     nil,
-	}
+	})
 }
 
 // PublishAMANStateEvent broadcasts one already-projected complete replacement
 // to authenticated frontend clients for the event airport.
 func (hub *Hub) PublishAMANStateEvent(event frontend.AMANStateEvent) {
-	hub.send <- internalMessage{airport: event.Data.Airport, message: event}
+	hub.publish(internalMessage{airport: event.Data.Airport, message: event})
 }
 
 func (hub *Hub) Send(session int32, cid string, message frontend.OutgoingMessage) {
-	hub.send <- internalMessage{
+	hub.publish(internalMessage{
 		session: session,
 		message: message,
 		cid:     &cid,
+	})
+}
+
+// publish hands a message to the dispatch loop, measuring only the case where
+// the queue is full. A publisher that has to wait here is being stalled by hub
+// dispatch, so the wait is worth a metric while the common unblocked path stays
+// a plain channel send.
+func (hub *Hub) publish(message internalMessage) {
+	select {
+	case hub.send <- message:
+		return
+	default:
 	}
+
+	started := time.Now()
+	hub.send <- message
+	metrics.RecordHubPublishBlocked(context.Background(), hubSource, time.Since(started))
 }
 
 func (hub *Hub) GetServer() shared.Server {
@@ -635,10 +654,8 @@ func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
 		// EuroScope while their browser tab was open would receive layout
 		// updates keyed to their old position.
 		if controller != nil && dbSession != nil {
-			client.callsign = controller.Callsign
 			client.position = controller.Position
-			client.airport = dbSession.Airport
-			client.sessionName = dbSession.Name
+			client.setIdentity(dbSession.Name, dbSession.Airport, controller.Callsign)
 		}
 
 		switch {
@@ -678,10 +695,8 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 				metrics.ConnectionOpened(context.Background(), "", "", "frontend", "", client.version)
 			}
 			client.session = WaitingForEuroscopeConnectionSessionId
-			client.sessionName = ""
 			client.position = WaitingForEuroscopeConnectionPosition
-			client.airport = WaitingForEuroscopeConnectionAirport
-			client.callsign = WaitingForEuroscopeConnectionCallsign
+			client.setIdentity("", WaitingForEuroscopeConnectionAirport, WaitingForEuroscopeConnectionCallsign)
 			client.Enqueue(frontend.DisconnectEvent{ReadOnly: readOnly})
 		}
 	}
@@ -1502,25 +1517,43 @@ func (hub *Hub) Run(ctx context.Context) {
 		case msg := <-hub.cidDisconnect:
 			hub.handleCidDisconnect(msg.cid)
 		case message := <-hub.send:
+			// Sampled before the fan-out so the depth reflects the backlog this
+			// dispatch is working through rather than what arrived during it.
+			depth := len(hub.send)
+			started := time.Now()
+			fanout := 0
+			kind := "broadcast"
 			if message.cid != nil {
+				kind = "direct"
 				for client := range hub.clients {
 					if message.session == client.session && *message.cid == client.GetCid() {
 						client.Enqueue(message.message)
+						fanout++
 					}
 				}
 			} else {
+				if message.airport != "" {
+					kind = "airport"
+				}
 				for client := range hub.clients {
 					if (message.airport != "" && message.airport == client.airport) || (message.airport == "" && message.session == client.session) {
 						client.Enqueue(message.message)
+						fanout++
 					}
 				}
 			}
+			metrics.RecordHubDispatch(ctx, hubSource, kind, depth, fanout, time.Since(started))
 		case msg := <-hub.layoutUpdates:
+			depth := len(hub.layoutUpdates)
+			started := time.Now()
+			fanout := 0
 			for client := range hub.clients {
 				if layout, ok := msg.layoutMap[client.position]; client.session == msg.session && ok {
 					client.Enqueue(frontend.LayoutUpdateEvent{Layout: layout})
+					fanout++
 				}
 			}
+			metrics.RecordHubDispatch(ctx, hubSource, "layout", depth, fanout, time.Since(started))
 		}
 	}
 }

@@ -30,6 +30,19 @@ type instruments struct {
 	syncChangedControllers  metric.Int64Counter
 	syncDBOperations        metric.Int64Counter
 	syncDuration            metric.Float64Histogram
+	syncPhaseDuration       metric.Float64Histogram
+	syncOutcomes            metric.Int64Counter
+	syncFollowUpWork        metric.Int64Counter
+	cdmRecalculations       metric.Int64Counter
+	cdmRecalculationTime    metric.Float64Histogram
+	cdmRecalculationStrips  metric.Int64Histogram
+	hubQueueDepth           metric.Int64Histogram
+	hubDispatchDuration     metric.Float64Histogram
+	hubBroadcastFanout      metric.Int64Histogram
+	hubPublishBlocked       metric.Int64Counter
+	hubPublishBlockedTime   metric.Float64Histogram
+	hubSlowConsumers        metric.Int64Counter
+	hubDispatchAttrs        map[hubDispatchKey]metric.MeasurementOption
 	pdcRequestsReceived     metric.Int64Counter
 	pdcRequestOutcomes      metric.Int64Counter
 	pdcStateChanges         metric.Int64Counter
@@ -132,6 +145,73 @@ func get() *instruments {
 			metric.WithUnit("s"),
 			metric.WithExplicitBucketBoundaries(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0),
 		)
+		syncPhaseDuration, _ := meter.Float64Histogram(
+			"euroscope.sync.phase.duration",
+			metric.WithDescription("EuroScope sync processing duration split by phase"),
+			metric.WithUnit("s"),
+			metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0),
+		)
+		syncOutcomes, _ := meter.Int64Counter(
+			"euroscope.sync.outcomes",
+			metric.WithDescription("EuroScope syncs by whether they changed persisted state"),
+			metric.WithUnit("{sync}"),
+		)
+		syncFollowUpWork, _ := meter.Int64Counter(
+			"euroscope.sync.follow_up_work",
+			metric.WithDescription("Follow-up work items a EuroScope sync scheduled during finalization"),
+			metric.WithUnit("{item}"),
+		)
+		cdmRecalculations, _ := meter.Int64Counter(
+			"cdm.recalculations",
+			metric.WithDescription("CDM airport sequence recalculations by outcome"),
+			metric.WithUnit("{recalculation}"),
+		)
+		cdmRecalculationTime, _ := meter.Float64Histogram(
+			"cdm.recalculation.duration",
+			metric.WithDescription("CDM airport sequence recalculation duration"),
+			metric.WithUnit("s"),
+			metric.WithExplicitBucketBoundaries(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0),
+		)
+		cdmRecalculationStrips, _ := meter.Int64Histogram(
+			"cdm.recalculation.strips",
+			metric.WithDescription("Strips considered by a CDM airport sequence recalculation"),
+			metric.WithUnit("{strip}"),
+			metric.WithExplicitBucketBoundaries(1, 5, 10, 25, 50, 100, 200, 400),
+		)
+		hubQueueDepth, _ := meter.Int64Histogram(
+			"websocket.hub.queue.depth",
+			metric.WithDescription("Pending messages in the hub dispatch queue, sampled as each message is dispatched"),
+			metric.WithUnit("{message}"),
+			metric.WithExplicitBucketBoundaries(0, 1, 2, 4, 8, 16, 32, 64, 128, 256),
+		)
+		hubDispatchDuration, _ := meter.Float64Histogram(
+			"websocket.hub.dispatch.duration",
+			metric.WithDescription("Time the hub dispatch loop spent fanning one message out to clients"),
+			metric.WithUnit("s"),
+			metric.WithExplicitBucketBoundaries(0.00005, 0.0001, 0.00025, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1),
+		)
+		hubBroadcastFanout, _ := meter.Int64Histogram(
+			"websocket.hub.broadcast.fanout",
+			metric.WithDescription("Clients enqueued for one dispatched hub message"),
+			metric.WithUnit("{client}"),
+			metric.WithExplicitBucketBoundaries(0, 1, 2, 5, 10, 25, 50, 100, 200),
+		)
+		hubPublishBlocked, _ := meter.Int64Counter(
+			"websocket.hub.publish.blocked",
+			metric.WithDescription("Publishes that had to wait because the hub dispatch queue was full"),
+			metric.WithUnit("{publish}"),
+		)
+		hubPublishBlockedTime, _ := meter.Float64Histogram(
+			"websocket.hub.publish.blocked.duration",
+			metric.WithDescription("Time a publisher was blocked on a full hub dispatch queue"),
+			metric.WithUnit("s"),
+			metric.WithExplicitBucketBoundaries(0.0001, 0.001, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0),
+		)
+		hubSlowConsumers, _ := meter.Int64Counter(
+			"websocket.clients.slow_disconnects",
+			metric.WithDescription("Clients disconnected because their send queue was full"),
+			metric.WithUnit("{client}"),
+		)
 		pdcRequestsReceived, _ := meter.Int64Counter(
 			"pdc.requests.received",
 			metric.WithDescription("PDC requests received"),
@@ -204,6 +284,19 @@ func get() *instruments {
 			syncChangedControllers:  syncChangedControllers,
 			syncDBOperations:        syncDBOperations,
 			syncDuration:            syncDuration,
+			syncPhaseDuration:       syncPhaseDuration,
+			syncOutcomes:            syncOutcomes,
+			syncFollowUpWork:        syncFollowUpWork,
+			cdmRecalculations:       cdmRecalculations,
+			cdmRecalculationTime:    cdmRecalculationTime,
+			cdmRecalculationStrips:  cdmRecalculationStrips,
+			hubQueueDepth:           hubQueueDepth,
+			hubDispatchDuration:     hubDispatchDuration,
+			hubBroadcastFanout:      hubBroadcastFanout,
+			hubPublishBlocked:       hubPublishBlocked,
+			hubPublishBlockedTime:   hubPublishBlockedTime,
+			hubSlowConsumers:        hubSlowConsumers,
+			hubDispatchAttrs:        buildHubDispatchAttributes(),
 			pdcRequestsReceived:     pdcRequestsReceived,
 			pdcRequestOutcomes:      pdcRequestOutcomes,
 			pdcStateChanges:         pdcStateChanges,
@@ -276,6 +369,12 @@ func amanStateLabel(value string) string {
 	return fixedAMANLabel(value, "fresh", "stale", "disconnected")
 }
 func fixedAMANLabel(value string, allowed ...string) string {
+	return fixedLabel(value, allowed...)
+}
+
+// fixedLabel collapses a value to a closed vocabulary so an unexpected input can
+// never introduce unbounded metric cardinality.
+func fixedLabel(value string, allowed ...string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	for _, candidate := range allowed {
 		if value == candidate {
@@ -502,6 +601,163 @@ func RecordEuroscopeSync(ctx context.Context, sessionName, airport, version stri
 	i.syncChangedControllers.Add(ctx, int64(changedControllers), attrs)
 	i.syncDBOperations.Add(ctx, int64(dbOperations), attrs)
 	i.syncDuration.Record(ctx, duration.Seconds(), attrs)
+}
+
+// Sync phases and follow-up work items use a fixed vocabulary so a slow or
+// repeating sync can be attributed to one stage without callsigns or positions
+// ever becoming metric dimensions.
+const (
+	SyncPhaseBuildState  = "build_state"
+	SyncPhaseControllers = "controllers"
+	SyncPhaseRunways     = "runways"
+	SyncPhaseSession     = "session"
+	SyncPhaseSectors     = "sectors"
+	SyncPhaseStrips      = "strips"
+	SyncPhaseFinalize    = "finalize"
+	SyncPhaseAutoAssume  = "auto_assume"
+	SyncPhaseReconcile   = "reconcile"
+	SyncPhaseSids        = "sids"
+)
+
+const (
+	SyncWorkRouteRecalc       = "route_recalculation"
+	SyncWorkBayUpdate         = "bay_update"
+	SyncWorkPdcValidation     = "pdc_validation"
+	SyncWorkSquawkValidation  = "squawk_validation"
+	SyncWorkLandingValidation = "landing_validation"
+	SyncWorkCdmRecalculation  = "cdm_recalculation"
+	SyncWorkStripUpdate       = "strip_update"
+)
+
+var syncPhases = []string{
+	SyncPhaseBuildState, SyncPhaseControllers, SyncPhaseRunways, SyncPhaseSession,
+	SyncPhaseSectors, SyncPhaseStrips, SyncPhaseFinalize, SyncPhaseAutoAssume,
+	SyncPhaseReconcile, SyncPhaseSids,
+}
+
+var syncWorkKinds = []string{
+	SyncWorkRouteRecalc, SyncWorkBayUpdate, SyncWorkPdcValidation, SyncWorkSquawkValidation,
+	SyncWorkLandingValidation, SyncWorkCdmRecalculation, SyncWorkStripUpdate,
+}
+
+// RecordEuroscopeSyncPhase attributes part of a sync to one processing phase.
+// euroscope.sync.duration says a sync was slow; this says which stage was slow.
+func RecordEuroscopeSyncPhase(ctx context.Context, sessionName, airport, phase string, duration time.Duration) {
+	get().syncPhaseDuration.Record(ctx, max(duration.Seconds(), 0),
+		sessionAttributes(sessionName, airport, attribute.String("phase", fixedLabel(phase, syncPhases...))),
+	)
+}
+
+// RecordEuroscopeSyncOutcome separates syncs that changed persisted state from
+// heartbeats that did not. A rising unchanged rate alongside follow-up work or
+// CDM recalculations is the signature of a sync repeating work for no reason.
+func RecordEuroscopeSyncOutcome(ctx context.Context, sessionName, airport string, changed bool) {
+	outcome := "unchanged"
+	if changed {
+		outcome = "changed"
+	}
+	get().syncOutcomes.Add(ctx, 1, sessionAttributes(sessionName, airport, attribute.String("outcome", outcome)))
+}
+
+// RecordEuroscopeSyncFollowUpWork counts the work a sync scheduled for its
+// finalization phase, so the cost of a sync can be traced to what it fanned out
+// into rather than only to how long it took.
+func RecordEuroscopeSyncFollowUpWork(ctx context.Context, sessionName, airport, kind string, count int) {
+	if count <= 0 {
+		return
+	}
+	get().syncFollowUpWork.Add(ctx, int64(count),
+		sessionAttributes(sessionName, airport, attribute.String("kind", fixedLabel(kind, syncWorkKinds...))),
+	)
+}
+
+// RecordCDMRecalculation records one full airport sequence recalculation. The
+// strip count exposes how much work each recalculation performed, which turns a
+// CPU spike into a question of rate versus size.
+func RecordCDMRecalculation(ctx context.Context, airport string, strips int, duration time.Duration, notify, success bool) {
+	outcome := "success"
+	if !success {
+		outcome = "failure"
+	}
+	attrs := metric.WithAttributes(
+		attribute.String("airport", normalizeAirport(airport)),
+		attribute.String("outcome", outcome),
+		attribute.Bool("notify", notify),
+	)
+
+	i := get()
+	i.cdmRecalculations.Add(ctx, 1, attrs)
+	i.cdmRecalculationTime.Record(ctx, max(duration.Seconds(), 0), attrs)
+	if strips >= 0 {
+		i.cdmRecalculationStrips.Record(ctx, int64(strips), metric.WithAttributes(attribute.String("airport", normalizeAirport(airport))))
+	}
+}
+
+// RecordHubDispatch records one message leaving a hub dispatch loop. Queue depth
+// shows the backlog the loop is working through, fanout shows how many clients
+// each message reaches, and duration shows how long the single-threaded loop was
+// occupied — together they explain a hub that has become the bottleneck.
+//
+// This runs on the single goroutine every broadcast is serialised behind, so the
+// attribute set is looked up from the table built at startup rather than being
+// sorted and allocated per message.
+func RecordHubDispatch(ctx context.Context, source, kind string, queueDepth, fanout int, duration time.Duration) {
+	i := get()
+	attrs := i.hubDispatchAttrs[hubDispatchKey{source: normalizeHubSource(source), kind: normalizeHubKind(kind)}]
+
+	i.hubQueueDepth.Record(ctx, int64(max(queueDepth, 0)), attrs)
+	i.hubBroadcastFanout.Record(ctx, int64(max(fanout, 0)), attrs)
+	i.hubDispatchDuration.Record(ctx, max(duration.Seconds(), 0), attrs)
+}
+
+// RecordHubPublishBlocked records a publisher that had to wait for room in the
+// hub dispatch queue. Any sustained rate here means hub dispatch has fallen
+// behind and is now stalling the goroutines producing the events.
+func RecordHubPublishBlocked(ctx context.Context, source string, duration time.Duration) {
+	attrs := metric.WithAttributes(attribute.String("source", normalizeHubSource(source)))
+	i := get()
+	i.hubPublishBlocked.Add(ctx, 1, attrs)
+	i.hubPublishBlockedTime.Record(ctx, max(duration.Seconds(), 0), attrs)
+}
+
+// RecordSlowConsumerDisconnect records a client dropped for failing to drain its
+// send queue.
+func RecordSlowConsumerDisconnect(ctx context.Context, sessionName, airport, source string) {
+	get().hubSlowConsumers.Add(ctx, 1, sessionAttributes(sessionName, airport, attribute.String("source", normalizeHubSource(source))))
+}
+
+// hubDispatchKey identifies one precomputed hub dispatch attribute set.
+type hubDispatchKey struct {
+	source string
+	kind   string
+}
+
+var (
+	hubSourceLabels = []string{"frontend", "euroscope", "alb", "other"}
+	hubKindLabels   = []string{"broadcast", "direct", "airport", "layout", "other"}
+)
+
+// buildHubDispatchAttributes materialises every source and kind combination once
+// so the dispatch loop only performs a map lookup per message.
+func buildHubDispatchAttributes() map[hubDispatchKey]metric.MeasurementOption {
+	attrs := make(map[hubDispatchKey]metric.MeasurementOption, len(hubSourceLabels)*len(hubKindLabels))
+	for _, source := range hubSourceLabels {
+		for _, kind := range hubKindLabels {
+			attrs[hubDispatchKey{source: source, kind: kind}] = metric.WithAttributes(
+				attribute.String("source", source),
+				attribute.String("kind", kind),
+			)
+		}
+	}
+	return attrs
+}
+
+func normalizeHubSource(source string) string {
+	return fixedLabel(source, hubSourceLabels...)
+}
+
+func normalizeHubKind(kind string) string {
+	return fixedLabel(kind, hubKindLabels...)
 }
 
 func MessageSent(ctx context.Context, sessionName, airport, source, msgType, version string) {

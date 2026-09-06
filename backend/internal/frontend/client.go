@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"context"
@@ -36,6 +37,32 @@ type Client struct {
 	airport  string
 	version  string
 	readOnly bool
+
+	// identityMu guards sessionName, airport and callsign. The hub goroutine
+	// rewrites them when a client is associated with a session or disconnected
+	// from one, while a client's own read goroutine can read them through
+	// disconnectSlowConsumer. Reads made on the hub goroutine itself do not need
+	// the lock, because they cannot race with the hub's own writes.
+	identityMu sync.RWMutex
+}
+
+// setIdentity replaces the session identity fields under the lock that
+// disconnectSlowConsumer reads them with.
+func (c *Client) setIdentity(sessionName, airport, callsign string) {
+	c.identityMu.Lock()
+	defer c.identityMu.Unlock()
+	c.sessionName = sessionName
+	c.airport = airport
+	c.callsign = callsign
+}
+
+// identity reads the session identity fields from a goroutine other than the
+// hub's. A string is two words, so an unsynchronised read can otherwise observe
+// a new pointer with a stale length.
+func (c *Client) identity() (sessionName, airport, callsign string) {
+	c.identityMu.RLock()
+	defer c.identityMu.RUnlock()
+	return c.sessionName, c.airport, c.callsign
 }
 
 func (c *Client) GetSendChannel() chan events.OutgoingMessage {
@@ -64,10 +91,14 @@ func (c *Client) disconnectSlowConsumer() {
 		return
 	}
 
+	sessionName, airport, callsign := c.identity()
+	metrics.RecordSlowConsumerDisconnect(context.Background(), sessionName, airport, c.GetSource())
 	slog.Warn("Disconnecting slow websocket client",
 		slog.String("source", c.GetSource()),
 		slog.String("cid", c.GetCid()),
 		slog.Int("session", int(c.session)),
+		slog.String("callsign", callsign),
+		slog.Int("queue_capacity", cap(c.send)),
 	)
 
 	if c.hub != nil {

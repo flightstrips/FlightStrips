@@ -1,6 +1,7 @@
 package euroscope
 
 import (
+	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	eventseuroscope "FlightStrips/pkg/events/euroscope"
@@ -80,10 +81,15 @@ func (c *Client) disconnectSlowConsumer() {
 		return
 	}
 
+	// sessionName and airport are only ever set when the client is constructed,
+	// so they are safe to read here. callsign is rewritten by handleLoginEvent on
+	// the client's own read goroutine and must not be read from the hub goroutine.
+	metrics.RecordSlowConsumerDisconnect(context.Background(), c.sessionName, c.airport, c.GetSource())
 	slog.Warn("Disconnecting slow websocket client",
 		slog.String("source", c.GetSource()),
 		slog.String("cid", c.GetCid()),
 		slog.Int("session", int(c.session)),
+		slog.Int("queue_capacity", cap(c.send)),
 	)
 
 	if c.hub != nil {

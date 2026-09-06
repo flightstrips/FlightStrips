@@ -71,7 +71,7 @@ See [frontend/README.md](frontend/README.md) for development server setup.
 - **Optimistic Concurrency** — Safe concurrent updates to strip data
 - **Hoppies ACARS Integration** — Pilot data connectivity
 - **CDM Support** — Collaborative Decision Making features including ECFMP and CTOT
-- **Grafana Observability** — Cloud dashboards in `observability/grafana/dashboards/`
+- **Grafana Observability** — Cloud dashboards in `observability/grafana/dashboards/`, with a CPU and work-amplification runbook in [observability/README.md](observability/README.md)
 
 ## License
 

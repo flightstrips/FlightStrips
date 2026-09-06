@@ -13,6 +13,7 @@ type MockSessionRepository struct {
 	GetByNamesFn          func(ctx context.Context, name string) ([]*models.Session, error)
 	ListFn                func(ctx context.Context) ([]*models.Session, error)
 	UpdateActiveRunwaysFn func(ctx context.Context, id int32, activeRunways pkgModels.ActiveRunways) error
+	UpdateSessionSidsFn   func(ctx context.Context, id int32, sids pkgModels.AvailableSids) error
 }
 
 func (m *MockSessionRepository) Create(ctx context.Context, session *models.Session) (int32, error) {
@@ -64,6 +65,9 @@ func (m *MockSessionRepository) UpdateActiveRunways(ctx context.Context, id int3
 }
 
 func (m *MockSessionRepository) UpdateSessionSids(ctx context.Context, id int32, sids pkgModels.AvailableSids) error {
+	if m.UpdateSessionSidsFn != nil {
+		return m.UpdateSessionSidsFn(ctx, id, sids)
+	}
 	return nil
 }
 

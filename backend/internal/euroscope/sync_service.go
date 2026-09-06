@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events/euroscope"
@@ -12,6 +13,11 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type EuroscopeSyncRequest struct {
@@ -172,28 +178,48 @@ func newEuroscopeSyncRequest(client *Client, event euroscope.SyncEvent) Euroscop
 func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeSyncRequest) (EuroscopeSyncResult, error) {
 	slog.DebugContext(ctx, "Received sync event", slog.Int("session", int(request.Session)), slog.String("client", request.Callsign))
 
+	ctx, span := otel.Tracer("euroscope").Start(ctx, "euroscope.sync",
+		trace.WithAttributes(
+			attribute.Int("session", int(request.Session)),
+			attribute.Int("sync.input.strips", len(request.Event.Strips)),
+			attribute.Int("sync.input.controllers", len(request.Event.Controllers)),
+			attribute.Int("sync.input.runways", len(request.Event.Runways)),
+			attribute.Int("sync.input.sids", len(request.Event.Sids)),
+		),
+	)
+	defer span.End()
+
+	timings := &syncPhaseTimings{}
+
 	controllers := make([]syncController, len(request.Event.Controllers))
 	for i, controller := range request.Event.Controllers {
 		controllers[i] = syncController{Position: controller.Position, Callsign: controller.Callsign}
 	}
 
+	phase := timings.begin()
 	syncState, err := buildSyncState(ctx, s.server, request.Session)
+	timings.observe(metrics.SyncPhaseBuildState, phase)
 	if err != nil {
-		return EuroscopeSyncResult{}, err
+		return EuroscopeSyncResult{}, syncFailure(span, err)
 	}
 
 	ctx = shared.WithSyncState(ctx, syncState)
 
+	phase = timings.begin()
 	controllerPositionsChanged, err := s.syncControllersFromEvent(ctx, request.Session, controllers)
+	timings.observe(metrics.SyncPhaseControllers, phase)
 	if err != nil {
-		return EuroscopeSyncResult{}, err
+		return EuroscopeSyncResult{}, syncFailure(span, err)
 	}
 	syncState.GndOnline = hasGroundController(syncState.ExistingControllers)
 
 	runwaysChanged := false
 	if len(request.Event.Runways) > 0 {
-		if runwaysChanged, err = s.applyOrValidateRunways(ctx, request, request.Event.Runways); err != nil {
-			return EuroscopeSyncResult{}, err
+		phase = timings.begin()
+		runwaysChanged, err = s.applyOrValidateRunways(ctx, request, request.Event.Runways)
+		timings.observe(metrics.SyncPhaseRunways, phase)
+		if err != nil {
+			return EuroscopeSyncResult{}, syncFailure(span, err)
 		}
 	}
 
@@ -202,42 +228,65 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 	}
 
 	if syncState.Session == nil {
+		phase = timings.begin()
 		syncState.Session, err = s.server.GetSessionRepository().GetByID(ctx, request.Session)
+		timings.observe(metrics.SyncPhaseSession, phase)
 		if err != nil {
-			return EuroscopeSyncResult{}, err
+			return EuroscopeSyncResult{}, syncFailure(span, err)
 		}
 		syncState.AddDBOperations(1)
 	}
 
 	if syncState.ChangedControllers > 0 || runwaysChanged {
-		if _, err := updateSectorsForSync(ctx, s.server, request.Session); err != nil {
-			return EuroscopeSyncResult{}, err
+		phase = timings.begin()
+		_, err = updateSectorsForSync(ctx, s.server, request.Session)
+		if err == nil {
+			syncState.SectorOwners = nil
+			err = updateLayoutsForSync(ctx, s.server, request.Session)
 		}
-		syncState.SectorOwners = nil
-		if err := updateLayoutsForSync(ctx, s.server, request.Session); err != nil {
-			return EuroscopeSyncResult{}, err
+		timings.observe(metrics.SyncPhaseSectors, phase)
+		if err != nil {
+			return EuroscopeSyncResult{}, syncFailure(span, err)
 		}
 	}
 
-	if err := s.syncStripsFromEvent(ctx, request, request.Event.Strips); err != nil {
-		return EuroscopeSyncResult{}, err
+	phase = timings.begin()
+	err = s.syncStripsFromEvent(ctx, request, request.Event.Strips)
+	timings.observe(metrics.SyncPhaseStrips, phase)
+	if err != nil {
+		return EuroscopeSyncResult{}, syncFailure(span, err)
 	}
 
-	if err := s.finalizeSyncStripChanges(ctx, request.Session, syncState); err != nil {
-		return EuroscopeSyncResult{}, err
+	// Captured before finalization so the counts describe the work this sync
+	// scheduled. Finalization itself marks further strips for update, and folding
+	// those back in would make the metric measure its own side effects.
+	followUpWork := syncFollowUpWork(syncState)
+
+	phase = timings.begin()
+	err = s.finalizeSyncStripChanges(ctx, request.Session, syncState)
+	timings.observe(metrics.SyncPhaseFinalize, phase)
+	if err != nil {
+		return EuroscopeSyncResult{}, syncFailure(span, err)
 	}
 
 	if syncState.ChangedControllers > 0 || syncState.ChangedStrips > 0 {
+		phase = timings.begin()
 		s.autoAssumeForSync(ctx, request, controllers, controllerPositionsChanged)
+		timings.observe(metrics.SyncPhaseAutoAssume, phase)
 	}
 
 	_, isMaster := s.currentMasterStatus(request)
 	if isMaster {
+		phase = timings.begin()
 		s.reconcileDBState(ctx, request, syncState)
+		timings.observe(metrics.SyncPhaseReconcile, phase)
 	}
 
+	sidsChanged := false
 	if len(request.Event.Sids) > 0 {
-		s.persistSIDs(ctx, request.Session, syncState, models.AvailableSids(request.Event.Sids))
+		phase = timings.begin()
+		sidsChanged = s.persistSIDs(ctx, request.Session, syncState, models.AvailableSids(request.Event.Sids))
+		timings.observe(metrics.SyncPhaseSids, phase)
 	}
 
 	sessionName := request.SessionName
@@ -246,6 +295,18 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 		sessionName = syncState.Session.Name
 		airport = syncState.Session.Airport
 	}
+
+	changed := syncState.ChangedStrips > 0 || syncState.ChangedControllers > 0 || runwaysChanged || sidsChanged
+	timings.publish(ctx, span, sessionName, airport)
+	publishSyncFollowUpWork(ctx, span, sessionName, airport, followUpWork)
+	metrics.RecordEuroscopeSyncOutcome(ctx, sessionName, airport, changed)
+	span.SetAttributes(
+		attribute.Bool("sync.changed", changed),
+		attribute.Int("sync.changed.strips", syncState.ChangedStrips),
+		attribute.Int("sync.changed.controllers", syncState.ChangedControllers),
+		attribute.Int("sync.db_operations", syncState.DBOperations),
+	)
+	span.SetStatus(codes.Ok, "")
 
 	return EuroscopeSyncResult{
 		Metrics: EuroscopeSyncMetrics{
@@ -260,6 +321,84 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 		MarkSessionSynced: true,
 		WakeFrontendCID:   request.CID,
 	}, nil
+}
+
+// syncPhaseTimings accumulates how long each stage of a sync took. Timings are
+// published once at the end rather than as they are measured, because the
+// session name and airport that label them are only final after the session has
+// been loaded.
+type syncPhaseTimings struct {
+	entries []syncPhaseTiming
+}
+
+type syncPhaseTiming struct {
+	phase    string
+	duration time.Duration
+}
+
+func (t *syncPhaseTimings) begin() time.Time {
+	return time.Now()
+}
+
+func (t *syncPhaseTimings) observe(phase string, started time.Time) {
+	t.entries = append(t.entries, syncPhaseTiming{phase: phase, duration: time.Since(started)})
+}
+
+// publish emits every measured phase as a metric and mirrors it onto the sync
+// span, so the same breakdown is available from a dashboard and from a trace.
+func (t *syncPhaseTimings) publish(ctx context.Context, span trace.Span, sessionName, airport string) {
+	for _, entry := range t.entries {
+		metrics.RecordEuroscopeSyncPhase(ctx, sessionName, airport, entry.phase, entry.duration)
+		span.SetAttributes(attribute.Float64("sync.phase."+entry.phase+".seconds", entry.duration.Seconds()))
+	}
+}
+
+// syncFollowUpWork counts the work a sync has scheduled for finalization. A sync
+// that reports no changes but keeps scheduling follow-up work is repeating work
+// that its inputs did not ask for.
+func syncFollowUpWork(state *shared.SyncState) map[string]int {
+	if state == nil {
+		return nil
+	}
+
+	work := map[string]int{
+		metrics.SyncWorkRouteRecalc:   len(state.RouteRecalcStrips),
+		metrics.SyncWorkBayUpdate:     len(state.BayUpdates),
+		metrics.SyncWorkPdcValidation: len(state.PdcValidationStrips),
+		metrics.SyncWorkStripUpdate:   len(state.StripUpdates),
+	}
+	work[metrics.SyncWorkSquawkValidation] = boolToCount(state.SquawkValidation)
+	work[metrics.SyncWorkLandingValidation] = boolToCount(state.LandingValidation)
+	work[metrics.SyncWorkCdmRecalculation] = boolToCount(state.CdmRecalculation)
+	return work
+}
+
+func publishSyncFollowUpWork(ctx context.Context, span trace.Span, sessionName, airport string, work map[string]int) {
+	for _, kind := range []string{
+		metrics.SyncWorkRouteRecalc, metrics.SyncWorkBayUpdate, metrics.SyncWorkPdcValidation,
+		metrics.SyncWorkStripUpdate, metrics.SyncWorkSquawkValidation,
+		metrics.SyncWorkLandingValidation, metrics.SyncWorkCdmRecalculation,
+	} {
+		count := work[kind]
+		if count == 0 {
+			continue
+		}
+		metrics.RecordEuroscopeSyncFollowUpWork(ctx, sessionName, airport, kind, count)
+		span.SetAttributes(attribute.Int("sync.work."+kind, count))
+	}
+}
+
+func boolToCount(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func syncFailure(span trace.Span, err error) error {
+	span.SetStatus(codes.Error, err.Error())
+	span.RecordError(err)
+	return err
 }
 
 // syncController mirrors the anonymous struct inside euroscope.SyncEvent.Controllers.
@@ -497,20 +636,25 @@ func (s *EuroscopeSyncService) reconcileStaleStrips(ctx context.Context, session
 
 // persistSIDs saves the available SIDs from the sync event and broadcasts to the frontend.
 // Errors are logged only because SID persistence should not abort the sync.
-func (s *EuroscopeSyncService) persistSIDs(ctx context.Context, session int32, syncState *shared.SyncState, sids models.AvailableSids) {
+func (s *EuroscopeSyncService) persistSIDs(ctx context.Context, session int32, syncState *shared.SyncState, sids models.AvailableSids) bool {
 	availSids := sids
 	if syncState != nil && syncState.Session != nil && reflect.DeepEqual(syncState.Session.AvailableSids, availSids) {
-		return
+		return false
 	}
+	changed := false
 	if err := s.server.GetSessionRepository().UpdateSessionSids(ctx, session, availSids); err != nil {
 		slog.ErrorContext(ctx, "Failed to persist available SIDs", slog.Any("error", err))
-	} else if syncState != nil {
-		syncState.AddDBOperations(1)
-		if syncState.Session != nil {
-			syncState.Session.AvailableSids = availSids
+	} else {
+		changed = true
+		if syncState != nil {
+			syncState.AddDBOperations(1)
+			if syncState.Session != nil {
+				syncState.Session.AvailableSids = availSids
+			}
 		}
 	}
 	s.server.GetFrontendHub().SendAvailableSids(session, availSids)
+	return changed
 }
 
 // applyOrValidateRunways applies the runway configuration when the client is master,

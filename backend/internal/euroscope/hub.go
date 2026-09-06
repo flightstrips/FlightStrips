@@ -34,6 +34,9 @@ type internalMessage struct {
 const (
 	hubSendQueueSize    = 256
 	clientSendQueueSize = 256
+
+	// hubSource labels this hub's dispatch and back-pressure metrics.
+	hubSource = "euroscope"
 )
 
 type Hub struct {
@@ -210,19 +213,35 @@ func (hub *Hub) Unregister(client *Client) {
 }
 
 func (hub *Hub) Broadcast(session int32, message euroscope.OutgoingMessage) {
-	hub.send <- internalMessage{
+	hub.publish(internalMessage{
 		session: session,
 		message: message,
 		cid:     nil,
-	}
+	})
 }
 
 func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessage) {
-	hub.send <- internalMessage{
+	hub.publish(internalMessage{
 		session: session,
 		message: message,
 		cid:     &cid,
+	})
+}
+
+// publish hands a message to the dispatch loop, measuring only the case where
+// the queue is full. A publisher that has to wait here is being stalled by hub
+// dispatch, so the wait is worth a metric while the common unblocked path stays
+// a plain channel send.
+func (hub *Hub) publish(message internalMessage) {
+	select {
+	case hub.send <- message:
+		return
+	default:
 	}
+
+	started := time.Now()
+	hub.send <- message
+	metrics.RecordHubPublishBlocked(context.Background(), hubSource, time.Since(started))
 }
 
 func (hub *Hub) OnRegister(client *Client) {
@@ -1076,20 +1095,30 @@ func (hub *Hub) Run(ctx context.Context) {
 			hub.OnUnregister(client)
 			hub.server.GetFrontendHub().CidDisconnect(client.GetCid())
 		case message := <-hub.send:
+			// Sampled before the fan-out so the depth reflects the backlog this
+			// dispatch is working through rather than what arrived during it.
+			depth := len(hub.send)
+			started := time.Now()
+			fanout := 0
+			kind := "broadcast"
 			clients := hub.clientsSnapshot()
 			if message.cid != nil {
+				kind = "direct"
 				for _, client := range clients {
 					if message.session == client.session && *message.cid == client.GetCid() {
 						client.Enqueue(message.message)
+						fanout++
 					}
 				}
 			} else {
 				for _, client := range clients {
 					if message.session == client.session {
 						client.Enqueue(message.message)
+						fanout++
 					}
 				}
 			}
+			metrics.RecordHubDispatch(ctx, hubSource, kind, depth, fanout, time.Since(started))
 		}
 	}
 }

@@ -191,19 +191,11 @@ func (r *stripRepository) Create(ctx context.Context, strip *models.Strip) error
 		return err
 	}
 
-	nextOwners := strip.NextOwners
-	if nextOwners == nil {
-		nextOwners = []string{}
-	}
-	previousOwners := strip.PreviousOwners
-	if previousOwners == nil {
-		previousOwners = []string{}
-	}
-	nextOwnersJSON, err := marshalStringSlice(nextOwners)
+	nextOwnersJSON, err := marshalOwners(strip.NextOwners)
 	if err != nil {
 		return err
 	}
-	previousOwnersJSON, err := marshalStringSlice(previousOwners)
+	previousOwnersJSON, err := marshalOwners(strip.PreviousOwners)
 	if err != nil {
 		return err
 	}
@@ -351,19 +343,11 @@ func (r *stripRepository) Update(ctx context.Context, strip *models.Strip) (int6
 		return 0, err
 	}
 
-	nextOwners := strip.NextOwners
-	if nextOwners == nil {
-		nextOwners = []string{}
-	}
-	previousOwners := strip.PreviousOwners
-	if previousOwners == nil {
-		previousOwners = []string{}
-	}
-	nextOwnersJSON, err := marshalStringSlice(nextOwners)
+	nextOwnersJSON, err := marshalOwners(strip.NextOwners)
 	if err != nil {
 		return 0, err
 	}
-	previousOwnersJSON, err := marshalStringSlice(previousOwners)
+	previousOwnersJSON, err := marshalOwners(strip.PreviousOwners)
 	if err != nil {
 		return 0, err
 	}
@@ -745,20 +729,25 @@ func nextDisplayColumns(display *models.NextDisplay) (*string, *string) {
 	return &display.Label, &display.Frequency
 }
 
-func nonNilOwners(owners []string) []string {
+func marshalOwners(owners []string) ([]byte, error) {
 	if owners == nil {
-		return []string{}
+		owners = []string{}
 	}
-	return owners
+	return marshalStringSlice(owners)
 }
 
 // SetRouteState atomically stores the ownership route and its user-facing display.
 func (r *stripRepository) SetRouteState(ctx context.Context, session int32, callsign string, nextOwners []string, nextDisplay *models.NextDisplay) error {
+	nextOwnersJSON, err := marshalOwners(nextOwners)
+	if err != nil {
+		return err
+	}
+
 	label, frequency := nextDisplayColumns(nextDisplay)
 	return r.queries.SetRouteState(ctx, database.SetRouteStateParams{
 		Session:              session,
 		Callsign:             callsign,
-		NextOwners:           nonNilOwners(nextOwners),
+		NextOwners:           nextOwnersJSON,
 		NextDisplayLabel:     label,
 		NextDisplayFrequency: frequency,
 	})
@@ -766,20 +755,34 @@ func (r *stripRepository) SetRouteState(ctx context.Context, session int32, call
 
 // SetPreviousOwners sets the previous owners of a strip
 func (r *stripRepository) SetPreviousOwners(ctx context.Context, session int32, callsign string, previousOwners []string) error {
+	previousOwnersJSON, err := marshalOwners(previousOwners)
+	if err != nil {
+		return err
+	}
+
 	return r.queries.SetPreviousOwners(ctx, database.SetPreviousOwnersParams{
 		Session:        session,
 		Callsign:       callsign,
-		PreviousOwners: nonNilOwners(previousOwners),
+		PreviousOwners: previousOwnersJSON,
 	})
 }
 
 // SetNextAndPreviousOwners sets both next and previous owners of a strip
 func (r *stripRepository) SetNextAndPreviousOwners(ctx context.Context, session int32, callsign string, nextOwners []string, previousOwners []string) error {
+	nextOwnersJSON, err := marshalOwners(nextOwners)
+	if err != nil {
+		return err
+	}
+	previousOwnersJSON, err := marshalOwners(previousOwners)
+	if err != nil {
+		return err
+	}
+
 	return r.queries.SetNextAndPreviousOwners(ctx, database.SetNextAndPreviousOwnersParams{
 		Session:        session,
 		Callsign:       callsign,
-		NextOwners:     nonNilOwners(nextOwners),
-		PreviousOwners: nonNilOwners(previousOwners),
+		NextOwners:     nextOwnersJSON,
+		PreviousOwners: previousOwnersJSON,
 	})
 }
 

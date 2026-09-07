@@ -1212,6 +1212,8 @@ func seedTestArrivalStrip(t *testing.T, queries *database.Queries, sessionID int
 		AssignedSquawk: strp("2401"),
 		Bay:            "ARR_HIDDEN",
 		CdmData:        []byte(`{"canonical":{}}`),
+		NextOwners:     []byte(`[]`),
+		PreviousOwners: []byte(`[]`),
 	})
 	require.NoError(t, err)
 }

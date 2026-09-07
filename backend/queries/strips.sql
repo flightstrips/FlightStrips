@@ -37,8 +37,8 @@ VALUES (
     sqlc.arg(position_longitude),
     sqlc.arg(position_altitude),
     sqlc.arg(cdm_data),
-    COALESCE(sqlc.arg(next_owners)::jsonb, '[]'::jsonb),
-    COALESCE(sqlc.arg(previous_owners)::jsonb, '[]'::jsonb),
+    sqlc.arg(next_owners)::jsonb,
+    sqlc.arg(previous_owners)::jsonb,
     sqlc.arg(registration),
     sqlc.arg(tracking_controller),
     sqlc.arg(engine_type),
@@ -86,8 +86,8 @@ SET version = version + 1,
     position_longitude = sqlc.arg(position_longitude),
     position_altitude = sqlc.arg(position_altitude),
     cdm_data = sqlc.arg(cdm_data),
-    next_owners = COALESCE(sqlc.arg(next_owners)::jsonb, '[]'::jsonb),
-    previous_owners = COALESCE(sqlc.arg(previous_owners)::jsonb, '[]'::jsonb),
+    next_owners = sqlc.arg(next_owners)::jsonb,
+    previous_owners = sqlc.arg(previous_owners)::jsonb,
     release_point = sqlc.arg(release_point),
     marked = sqlc.arg(marked),
     registration = sqlc.arg(registration),
@@ -303,18 +303,18 @@ WHERE callsign = $2 AND session = $3 AND version = $4;
 
 -- name: SetRouteState :exec
 UPDATE strips
-SET next_owners = sqlc.arg(next_owners),
+SET next_owners = sqlc.arg(next_owners)::jsonb,
     next_display_label = sqlc.narg(next_display_label),
     next_display_frequency = sqlc.narg(next_display_frequency)
 WHERE session = sqlc.arg(session) AND callsign = sqlc.arg(callsign);
 
 -- name: SetNextAndPreviousOwners :exec
 UPDATE strips
-SET next_owners = $3,
-    previous_owners = $4,
+SET next_owners = sqlc.arg(next_owners)::jsonb,
+    previous_owners = sqlc.arg(previous_owners)::jsonb,
     next_display_label = NULL,
     next_display_frequency = NULL
-WHERE session = $1 AND callsign = $2;
+WHERE session = sqlc.arg(session) AND callsign = sqlc.arg(callsign);
 
 -- name: UpdateStripSequence :execrows
 UPDATE strips
@@ -381,7 +381,9 @@ FROM strips
 WHERE session = $1 AND callsign = $2;
 
 -- name: SetPreviousOwners :exec
-UPDATE strips SET previous_owners = $3 WHERE session = $1 AND callsign = $2;
+UPDATE strips
+SET previous_owners = sqlc.arg(previous_owners)::jsonb
+WHERE session = sqlc.arg(session) AND callsign = sqlc.arg(callsign);
 
 -- name: SetCdmData :execrows
 UPDATE strips SET cdm_data = $3 WHERE session = $1 AND callsign = $2;

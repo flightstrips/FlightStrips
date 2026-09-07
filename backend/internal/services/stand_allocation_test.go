@@ -371,6 +371,7 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		laterArrival.ETA = &laterETA
 		_, err = service.AssignManually(ctx, laterArrival)
 		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+		assert.Contains(t, err.Error(), "A1 is unavailable: reserved by SAS112")
 	})
 
 	t.Run("rejects direct occupancy and one-way or two-way blocks", func(t *testing.T) {
@@ -435,6 +436,10 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 
 		_, err := service.Allocate(ctx, request)
 		require.ErrorIs(t, err, ErrNoCompatibleStand)
+
+		_, err = service.AssignManually(ctx, withStand(request, "A1"))
+		require.ErrorIs(t, err, ErrIncompatibleManualAssignment)
+		assert.Contains(t, err.Error(), "A1 is incompatible: incompatible WTC: expected M, got H")
 		_, err = assignments.GetAssignment(ctx, session, "SAS312")
 		require.Error(t, err, "a Heavy aircraft must not be assigned to a Medium-only stand")
 	})

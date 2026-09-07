@@ -485,7 +485,11 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 	currentOwner := helpers.ValueOrDefault(strip.Owner)
 	currentStand := helpers.ValueOrDefault(strip.Stand)
 	currentRunway := helpers.ValueOrDefault(strip.Runway)
-	activeRunways := session.ActiveRunways.GetAllActiveRunways()
+	// A strip can retain an assigned departure runway after the session has
+	// switched runway configuration. Route selection must follow the aircraft's
+	// runway in that case; the session's actual runway state remains available
+	// to the separate runway/PDC validations.
+	activeRunways := routeActiveRunwaysForStrip(strip, session, isArrival)
 
 	slog.Debug("Recalculating strip route",
 		slog.Int("session", int(session.ID)),
@@ -681,7 +685,7 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 			}) {
 				stages = append(stages, resolvedRouteStage{
 					Owner:   owner,
-					Display: buildRouteNextDisplay(session, as, owner, radio.coverage[vatsim.NormalizeFrequency(owner)], isArrival),
+					Display: buildRouteNextDisplay(strip, session, as, owner, radio.coverage[vatsim.NormalizeFrequency(owner)], isArrival),
 				})
 			}
 		}
@@ -734,7 +738,7 @@ func resolveRouteStage(
 		return resolvedRouteStage{
 			Identifier: sector,
 			Owner:      owner,
-			Display:    buildRouteNextDisplay(session, sector, owner, radio.coverage[vatsim.NormalizeFrequency(owner)], isArrival),
+			Display:    buildRouteNextDisplay(strip, session, sector, owner, radio.coverage[vatsim.NormalizeFrequency(owner)], isArrival),
 		}, true
 	}
 
@@ -760,10 +764,7 @@ func buildConfiguredOwnerDisplay(strip *models.Strip, session *models.Session, o
 		if !isLocal {
 			return nil
 		}
-		active := session.ActiveRunways.DepartureRunways
-		if isArrival {
-			active = session.ActiveRunways.ArrivalRunways
-		}
+		active := routeActiveRunwaysForStrip(strip, session, isArrival)
 		if resolved, ok := config.GetPositionLogicalIdentifier(active, role, isArrival); ok {
 			identifier = resolved
 		}
@@ -866,11 +867,8 @@ func normalizeRouteSectorRef(sector string) string {
 	return strings.ToUpper(strings.TrimSpace(sector))
 }
 
-func buildRouteNextDisplay(session *models.Session, sectorRef string, owner string, coveredFrequencies map[string]struct{}, isArrival bool) *models.NextDisplay {
-	active := session.ActiveRunways.GetAllActiveRunways()
-	if isArrival {
-		active = session.ActiveRunways.ArrivalRunways
-	}
+func buildRouteNextDisplay(strip *models.Strip, session *models.Session, sectorRef string, owner string, coveredFrequencies map[string]struct{}, isArrival bool) *models.NextDisplay {
+	active := routeActiveRunwaysForStrip(strip, session, isArrival)
 
 	if frequency, ok := config.GetSectorDisplayFrequency(active, sectorRef, isArrival); ok {
 		normalizedFrequency := vatsim.NormalizeFrequency(frequency)

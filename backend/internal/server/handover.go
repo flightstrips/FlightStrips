@@ -147,10 +147,7 @@ func resolveLogicalSectorFrequency(identifier string, strip *models.Strip, sessi
 	if !isLocal {
 		return "", false
 	}
-	active := session.ActiveRunways.DepartureRunways
-	if isArrival {
-		active = session.ActiveRunways.ArrivalRunways
-	}
+	active := routeActiveRunwaysForStrip(strip, session, isArrival)
 	return config.GetSectorDisplayFrequency(active, identifier, isArrival)
 }
 
@@ -159,14 +156,29 @@ func resolveConfiguredRouteSector(identifier string, strip *models.Strip, sessio
 	if !isLocal {
 		return identifier
 	}
-	active := session.ActiveRunways.DepartureRunways
-	if isArrival {
-		active = session.ActiveRunways.ArrivalRunways
-	}
+	active := routeActiveRunwaysForStrip(strip, session, isArrival)
 	if resolved, ok := config.GetSectorIdentifier(active, identifier, isArrival); ok {
 		return resolved
 	}
 	return identifier
+}
+
+// routeActiveRunwaysForStrip returns the runway configuration that should be
+// used while resolving a strip's route. Departures are pathing-specific: when
+// a strip's assigned runway differs from the session configuration, its own
+// runway is the effective active runway for route selection and sector lookup.
+// Arrival routing continues to use the session's active arrival runways.
+func routeActiveRunwaysForStrip(strip *models.Strip, session *models.Session, isArrival bool) []string {
+	if session == nil {
+		return nil
+	}
+	if isArrival {
+		return session.ActiveRunways.ArrivalRunways
+	}
+	if strip == nil || strip.Runway == nil || strings.TrimSpace(*strip.Runway) == "" {
+		return session.ActiveRunways.DepartureRunways
+	}
+	return []string{strings.TrimSpace(*strip.Runway)}
 }
 
 func ownerCarriesFrequency(owner string, frequency string, coverage map[string]map[string]struct{}) bool {

@@ -66,8 +66,9 @@ export function StripContextMenu({ callsign, position, onClose }: StripContextMe
   const [showFpl, setShowFpl] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // FORCE ASSUME: disabled in CLR DEL (never owns strips); disabled if strip has no owner
-  // (not yet cleared/assumed); disabled if already owning the strip.
+  // FORCE ASSUME: disabled in CLR DEL (never owns strips), or when already
+  // owning the strip. It remains available for unowned strips as a recovery
+  // action.
   const forceAssumeDisabled = !canForceAssumeStrip({
     owner: strip?.owner,
     myPosition,

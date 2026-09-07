@@ -69,7 +69,10 @@ export function canForceAssumeStrip({
   myPosition?: string;
   isClrDel: boolean;
 }): boolean {
-  return !!myPosition && !!owner && owner !== myPosition && !isClrDel;
+  // Force-assume is also the recovery path for unowned strips that are stuck
+  // behind a validation or stale route state. The backend already supports
+  // taking ownership of an unowned strip, so do not hide that action here.
+  return !!myPosition && owner !== myPosition && !isClrDel;
 }
 
 export function getValidationBlinkStyle(validationStatus: ValidationStatus | undefined, myPosition?: string): CSSProperties {

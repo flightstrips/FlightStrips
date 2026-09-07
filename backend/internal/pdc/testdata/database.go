@@ -135,6 +135,8 @@ func SeedTestStripWithSquawks(t *testing.T, queries *database.Queries, sessionID
 		AssignedSquawk: assignedSquawk,
 		Bay:            "NOT_CLEARED",
 		CdmData:        []byte(`{"canonical":{}}`),
+		NextOwners:     []byte(`[]`),
+		PreviousOwners: []byte(`[]`),
 	})
 	require.NoError(t, err)
 }
@@ -159,6 +161,8 @@ func SeedTestStripWithoutRouting(t *testing.T, queries *database.Queries, sessio
 		AssignedSquawk: ptr("2401"),
 		Bay:            "NOT_CLEARED",
 		CdmData:        []byte(`{"canonical":{}}`),
+		NextOwners:     []byte(`[]`),
+		PreviousOwners: []byte(`[]`),
 	})
 	require.NoError(t, err)
 }
@@ -179,6 +183,8 @@ func SeedTestStripWithAircraftType(t *testing.T, queries *database.Queries, sess
 		AssignedSquawk: ptr("2401"),
 		Bay:            "NOT_CLEARED",
 		CdmData:        []byte(`{"canonical":{}}`),
+		NextOwners:     []byte(`[]`),
+		PreviousOwners: []byte(`[]`),
 	})
 	require.NoError(t, err)
 }
@@ -199,6 +205,8 @@ func SeedClearedTestStrip(t *testing.T, queries *database.Queries, sessionID int
 		AssignedSquawk: ptr("2401"),
 		Bay:            "CLEARED",
 		CdmData:        []byte(`{"canonical":{}}`),
+		NextOwners:     []byte(`[]`),
+		PreviousOwners: []byte(`[]`),
 	})
 	require.NoError(t, err)
 

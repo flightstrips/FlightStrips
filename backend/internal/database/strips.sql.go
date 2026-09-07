@@ -452,8 +452,8 @@ VALUES (
     $27,
     $28,
     $29,
-    COALESCE($30::jsonb, '[]'::jsonb),
-    COALESCE($31::jsonb, '[]'::jsonb),
+    $30::jsonb,
+    $31::jsonb,
     $32,
     $33,
     $34,
@@ -988,26 +988,26 @@ func (q *Queries) SetCdmData(ctx context.Context, arg SetCdmDataParams) (int64, 
 
 const setNextAndPreviousOwners = `-- name: SetNextAndPreviousOwners :exec
 UPDATE strips
-SET next_owners = $3,
-    previous_owners = $4,
+SET next_owners = $1::jsonb,
+    previous_owners = $2::jsonb,
     next_display_label = NULL,
     next_display_frequency = NULL
-WHERE session = $1 AND callsign = $2
+WHERE session = $3 AND callsign = $4
 `
 
 type SetNextAndPreviousOwnersParams struct {
+	NextOwners     []byte
+	PreviousOwners []byte
 	Session        int32
 	Callsign       string
-	NextOwners     []string
-	PreviousOwners []string
 }
 
 func (q *Queries) SetNextAndPreviousOwners(ctx context.Context, arg SetNextAndPreviousOwnersParams) error {
 	_, err := q.db.Exec(ctx, setNextAndPreviousOwners,
-		arg.Session,
-		arg.Callsign,
 		arg.NextOwners,
 		arg.PreviousOwners,
+		arg.Session,
+		arg.Callsign,
 	)
 	return err
 }
@@ -1028,30 +1028,32 @@ func (q *Queries) SetPdcData(ctx context.Context, arg SetPdcDataParams) error {
 }
 
 const setPreviousOwners = `-- name: SetPreviousOwners :exec
-UPDATE strips SET previous_owners = $3 WHERE session = $1 AND callsign = $2
+UPDATE strips
+SET previous_owners = $1::jsonb
+WHERE session = $2 AND callsign = $3
 `
 
 type SetPreviousOwnersParams struct {
+	PreviousOwners []byte
 	Session        int32
 	Callsign       string
-	PreviousOwners []string
 }
 
 func (q *Queries) SetPreviousOwners(ctx context.Context, arg SetPreviousOwnersParams) error {
-	_, err := q.db.Exec(ctx, setPreviousOwners, arg.Session, arg.Callsign, arg.PreviousOwners)
+	_, err := q.db.Exec(ctx, setPreviousOwners, arg.PreviousOwners, arg.Session, arg.Callsign)
 	return err
 }
 
 const setRouteState = `-- name: SetRouteState :exec
 UPDATE strips
-SET next_owners = $1,
+SET next_owners = $1::jsonb,
     next_display_label = $2,
     next_display_frequency = $3
 WHERE session = $4 AND callsign = $5
 `
 
 type SetRouteStateParams struct {
-	NextOwners           []string
+	NextOwners           []byte
 	NextDisplayLabel     *string
 	NextDisplayFrequency *string
 	Session              int32
@@ -1198,8 +1200,8 @@ SET version = version + 1,
     position_longitude = $25,
     position_altitude = $26,
     cdm_data = $27,
-    next_owners = COALESCE($28::jsonb, '[]'::jsonb),
-    previous_owners = COALESCE($29::jsonb, '[]'::jsonb),
+    next_owners = $28::jsonb,
+    previous_owners = $29::jsonb,
     release_point = $30,
     marked = $31,
     registration = $32,

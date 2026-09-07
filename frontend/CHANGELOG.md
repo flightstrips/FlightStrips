@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.1.2...frontend/v1.2.0) (2026-09-07)
+
+
+### Features
+
+* redesign the public landing page ([10efb7e](https://github.com/flightstrips/FlightStrips/commit/10efb7e273e5ab1ad96d924c365f07ca132061ba))
+
+
+### Bug Fixes
+
+* **strip:** route mismatched runways and allow force assume ([#540](https://github.com/flightstrips/FlightStrips/issues/540)) ([ff3dd93](https://github.com/flightstrips/FlightStrips/commit/ff3dd933b4b29f4646ca13ee05b80153df728ea6))
+
 ## [1.1.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.1.1...frontend/v1.1.2) (2026-09-05)
 
 

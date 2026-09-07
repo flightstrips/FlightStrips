@@ -1,0 +1,359 @@
+/*
+ * FlightStrips public landing — self-contained design layer.
+ *
+ * Everything the marketing site needs lives in this file and the sibling
+ * components. Nothing here leaks outside `.fsl`, so the whole folder can be
+ * lifted into a standalone public site without dragging the app CSS along.
+ */
+
+.fsl {
+  /* ── Brand ─────────────────────────────────────────────── */
+  --fsl-green: #003d48;        /* primary brand green */
+  --fsl-green-lift: #005f70;   /* hover / raised brand green */
+  --fsl-accent: #a0dae4;       /* light accent, logo + on-dark emphasis */
+
+  /* ── Dark theme (default canvas) ───────────────────────── */
+  --fsl-canvas: #04100f;
+  --fsl-surface: #0a1a1a;
+  --fsl-raised: #0f2323;
+  --fsl-ink: #ffffff;
+  --fsl-ink-muted: #8ea3a3;
+  --fsl-line: rgb(255 255 255 / 12.5%);
+  --fsl-line-strong: rgb(255 255 255 / 22%);
+  --fsl-brand-ink: var(--fsl-accent);
+
+  /* ── Metrics ───────────────────────────────────────────── */
+  --fsl-header-h: 68px;
+  --fsl-content-max: 84rem;
+  --fsl-gutter: 1rem;
+
+  /* ── Motion ────────────────────────────────────────────── */
+  --fsl-ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);
+
+  --fsl-font-display: "Barlow Semi Condensed", system-ui, sans-serif;
+  --fsl-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+
+  background-color: var(--fsl-canvas);
+  color: var(--fsl-ink);
+}
+
+/* Light sections invert the ramp but keep the same semantic names, so a
+   section only has to declare a theme to restyle everything inside it. */
+.fsl [data-fsl-theme="light"] {
+  --fsl-canvas: #f4f5f4;
+  --fsl-surface: #ffffff;
+  --fsl-raised: #eaeceb;
+  --fsl-ink: #04100f;
+  --fsl-ink-muted: #5b6a6a;
+  --fsl-line: rgb(0 0 0 / 12.5%);
+  --fsl-line-strong: rgb(0 0 0 / 20%);
+  --fsl-brand-ink: var(--fsl-green);
+
+  background-color: var(--fsl-canvas);
+  color: var(--fsl-ink);
+}
+
+.fsl [data-fsl-theme="dark"] {
+  --fsl-canvas: #04100f;
+  --fsl-surface: #0a1a1a;
+  --fsl-raised: #0f2323;
+  --fsl-ink: #ffffff;
+  --fsl-ink-muted: #8ea3a3;
+  --fsl-line: rgb(255 255 255 / 12.5%);
+  --fsl-line-strong: rgb(255 255 255 / 22%);
+  --fsl-brand-ink: var(--fsl-accent);
+
+  background-color: var(--fsl-canvas);
+  color: var(--fsl-ink);
+}
+
+@media (min-width: 769px)  { .fsl { --fsl-gutter: 2rem; --fsl-header-h: 72px; } }
+@media (min-width: 1025px) { .fsl { --fsl-gutter: 4rem; --fsl-header-h: 80px; } }
+@media (min-width: 1601px) { .fsl { --fsl-gutter: 8rem; } }
+@media (min-width: 1920px) { .fsl { --fsl-gutter: max(8rem, calc(50vw - 42rem)); } }
+
+/* ── Typography ──────────────────────────────────────────── */
+.fsl-display {
+  font-family: var(--fsl-font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.fsl-eyebrow {
+  font-family: var(--fsl-font-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fsl-ink-muted);
+}
+
+.fsl-mono { font-family: var(--fsl-font-mono); }
+
+/* ── Structure ───────────────────────────────────────────── */
+.fsl-gutter {
+  padding-inline: var(--fsl-gutter);
+  max-width: calc(var(--fsl-content-max) + 2 * var(--fsl-gutter));
+  margin-inline: auto;
+  width: 100%;
+}
+
+.fsl-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  column-gap: 0;
+}
+
+@media (min-width: 1025px) {
+  .fsl-grid { grid-template-columns: repeat(16, minmax(0, 1fr)); }
+}
+
+/* Decorative column rules at 1 / 5 / 9 / 13 / 17. Only the outer pair is
+   drawn below 1025px so narrow screens stay quiet. */
+.fsl-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  padding-inline: var(--fsl-gutter);
+  max-width: calc(var(--fsl-content-max) + 2 * var(--fsl-gutter));
+  margin-inline: auto;
+}
+
+/* Inner box is exactly the content width, so the percentage stops land on
+   real column boundaries rather than on gutter-inclusive fractions. */
+.fsl-guides__inner {
+  position: relative;
+  height: 100%;
+}
+
+.fsl-guides__inner > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--fsl-line);
+}
+
+@media (max-width: 1024px) {
+  .fsl-guides__inner > span[data-inner="true"] { display: none; }
+}
+
+/* ── Ambient backdrop ────────────────────────────────────── */
+/* Asset-free equivalent of a cinematic video backdrop: two slow brand-green
+   light forms, a fine scanline texture, and a dark inset vignette. */
+.fsl-ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--fsl-canvas);
+}
+
+.fsl-ambient::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(38% 46% at 22% 30%, rgb(0 95 112 / 55%) 0%, transparent 68%),
+    radial-gradient(32% 40% at 78% 22%, rgb(160 218 228 / 18%) 0%, transparent 70%),
+    radial-gradient(46% 52% at 62% 84%, rgb(0 61 72 / 65%) 0%, transparent 72%);
+  opacity: 0;
+  animation:
+    fsl-ambient-in 2s ease-in-out forwards,
+    fsl-ambient-drift 44s ease-in-out 2s infinite alternate;
+  will-change: transform, opacity;
+}
+
+.fsl-ambient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 20%) 0px,
+    rgb(0 0 0 / 20%) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  box-shadow: inset 0 90px 120px 80px var(--fsl-canvas);
+  opacity: 0.6;
+}
+
+@keyframes fsl-ambient-in { to { opacity: 1; } }
+
+@keyframes fsl-ambient-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-3%, 2%, 0) scale(1.08); }
+}
+
+/* ── Photo plate ─────────────────────────────────────────── */
+/* Photography always sits on the dark canvas, so these annotations are fixed
+   white rather than theme tokens — they overlay the image, not the page. */
+.fsl-plate {
+  border: 1px solid var(--fsl-line);
+  background: #04100f;
+  aspect-ratio: var(--plate-ratio, 4 / 3);
+}
+
+/* The wide plate crops harder as the viewport grows; on a phone it stays close
+   to the native 4:3 so the subject and the annotations both have room. */
+.fsl-plate--wide { --plate-ratio: 5 / 4; }
+
+@media (min-width: 700px)  { .fsl-plate--wide { --plate-ratio: 16 / 7; } }
+@media (min-width: 1100px) { .fsl-plate--wide { --plate-ratio: 2.6 / 1; } }
+
+.fsl-plate__label {
+  display: block;
+  font-family: var(--fsl-font-mono);
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 82%);
+  text-shadow: 0 1px 6px rgb(0 0 0 / 70%);
+}
+
+.fsl-plate__index {
+  font-family: var(--fsl-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: rgb(255 255 255 / 82%);
+  text-shadow: 0 1px 6px rgb(0 0 0 / 70%);
+}
+
+.fsl-plate__rule {
+  display: block;
+  width: 34px;
+  height: 1px;
+  margin-top: 0.7rem;
+  background: rgb(255 255 255 / 45%);
+}
+
+.fsl-plate__rule--right {
+  margin-left: auto;
+}
+
+.fsl-plate__rule--inline {
+  width: 72px;
+  margin-top: 0;
+}
+
+.fsl-plate__mark {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.4rem;
+  z-index: 10;
+  font-family: var(--fsl-font-mono);
+  font-size: 15px;
+  line-height: 1;
+  color: rgb(255 255 255 / 55%);
+  pointer-events: none;
+}
+
+.fsl-plate__grade {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgb(0 0 0 / 58%) 0%, transparent 32%, transparent 66%, rgb(0 0 0 / 60%) 100%);
+}
+
+/* ── Strip specimen ──────────────────────────────────────── */
+/* A real strip is a fixed fraction of a bay column, so its cells never squeeze:
+   the whole strip scales. Reproduce that here by deriving the strip height from
+   its own inline size, capped at the caller's requested height. */
+.fsl-strip {
+  container-type: inline-size;
+  --sh: min(var(--fsl-strip-max, 54px), 11.5cqw);
+  height: var(--sh);
+}
+
+/* ── Reveal ──────────────────────────────────────────────── */
+/* Hidden-until-seen only applies once `primitives.tsx` has flagged that
+   scripting is live. Without that flag — no JS, a failed bundle, a static
+   render — the content is simply visible, never stuck at opacity 0. */
+[data-fsl-js="true"] .fsl-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 700ms var(--fsl-ease-out),
+    transform 700ms var(--fsl-ease-out);
+}
+
+[data-fsl-js="true"] .fsl-reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Dual-label action ───────────────────────────────────── */
+.fsl-swap {
+  --fsl-swap-speed: 450ms;
+  position: relative;
+  display: inline-grid;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--fsl-line-strong);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.fsl-swap__face {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1.6rem;
+  white-space: nowrap;
+  transform-origin: left bottom;
+  transition: transform var(--fsl-swap-speed) var(--fsl-ease-out);
+}
+
+.fsl-swap__face--hover { transform: translateY(100%) rotate(3deg); }
+
+.fsl-swap:hover .fsl-swap__face--rest,
+.fsl-swap:focus-visible .fsl-swap__face--rest { transform: translateY(-100%) rotate(-3deg); }
+
+.fsl-swap:hover .fsl-swap__face--hover,
+.fsl-swap:focus-visible .fsl-swap__face--hover { transform: translateY(0) rotate(0); }
+
+/* Primary: accent plate that inverts to brand green on hover. */
+.fsl-swap--primary { border-color: transparent; }
+.fsl-swap--primary .fsl-swap__face--rest  { background: var(--fsl-accent); color: #04100f; }
+.fsl-swap--primary .fsl-swap__face--hover { background: var(--fsl-green); color: #ffffff; }
+
+/* Secondary: hairline outline that fills with ink on hover. */
+.fsl-swap--secondary .fsl-swap__face--rest  { color: var(--fsl-ink); }
+.fsl-swap--secondary .fsl-swap__face--hover { background: var(--fsl-ink); color: var(--fsl-canvas); }
+
+.fsl-swap:focus-visible {
+  outline: 2px solid var(--fsl-brand-ink);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .fsl-ambient::before {
+    animation: none;
+    opacity: 1;
+  }
+
+  [data-fsl-js="true"] .fsl-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  /* Keep the inverted hover state legible without the travel. */
+  .fsl-swap__face { transition: none; }
+  .fsl-swap__face--hover { transform: translateY(100%); }
+  .fsl-swap:hover .fsl-swap__face--rest,
+  .fsl-swap:focus-visible .fsl-swap__face--rest { transform: translateY(-100%); }
+  .fsl-swap:hover .fsl-swap__face--hover,
+  .fsl-swap:focus-visible .fsl-swap__face--hover { transform: translateY(0); }
+}

@@ -29,9 +29,15 @@ services:
     mem_limit: 2g
     environment:
       DATABASE_CONNECTIONSTRING: ${DATABASE_CONNECTIONSTRING}
-      OIDC_AUTHORITY: ${OIDC_AUTHORITY}
-      OIDC_SIGNING_ALGO: ${OIDC_SIGNING_ALGO}
-      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      OIDC_AUTHORITY: ${OIDC_AUTHORITY:-https://auth.flightstrips.dk/.well-known/jwks.json}
+      OIDC_SIGNING_ALGO: ${OIDC_SIGNING_ALGO:-RS256}
+      # Pinned, not orchestrator-driven. This is the Auth0 API identifier, which
+      # is public — it travels in the /authorize URL and in config.js — so there
+      # is nothing to keep secret and every reason to keep it stable. Sourcing it
+      # from the stack environment meant a redeploy could silently reset it to a
+      # development value, which authenticates against the wrong tenant and locks
+      # every user out.
+      OIDC_AUDIENCE: backend
       CDM_KEY: ${CDM_KEY:-}
       HOPPIE_LOGON: ${HOPPIE_LOGON:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -71,8 +77,11 @@ services:
       APP_VERSION: ${APP_VERSION:-}
       WS_URL: ${WS_URL}
       OIDC_FRONTEND_CLIENT_ID: ${OIDC_FRONTEND_CLIENT_ID}
-      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
-      OIDC_CONNECTION: ${OIDC_CONNECTION}
+      # Pinned for the same reason as the backend above. The audience must match
+      # the backend exactly or every token is rejected, and the connection name
+      # is case-sensitive in Auth0 — "vatsim" is not "Vatsim".
+      OIDC_AUDIENCE: backend
+      OIDC_CONNECTION: Vatsim
       CHARTFOX_CLIENT_ID: ${CHARTFOX_CLIENT_ID:-019f940d-89a4-718c-862c-293f08fa3a76}
     depends_on:
       - backend

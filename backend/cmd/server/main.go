@@ -47,6 +47,15 @@ func main() {
 		slog.Error("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
 		os.Exit(1)
 	}
+	// A live deployment must state its audience explicitly. Falling back to the
+	// development default silently validates tokens against the wrong Auth0 API,
+	// which presents to users as a login failure rather than a misconfiguration.
+	oidcAudience := getEnv("OIDC_AUDIENCE", defaultOIDCAudience)
+	if isLiveEnvironment(environment) && oidcAudience == defaultOIDCAudience {
+		slog.Error("OIDC_AUDIENCE must be set explicitly in a live environment",
+			slog.String("default", defaultOIDCAudience))
+		os.Exit(1)
+	}
 	standAssignmentAircraftJSON := standAssignmentAircraftFile(os.Getenv("GRPLUGIN_ICAO_AIRCRAFT_JSON"))
 	amanConfig, err := amanConfigFromEnv()
 	if err != nil {
@@ -84,7 +93,7 @@ func main() {
 		DatabaseConnectionString:        os.Getenv("DATABASE_CONNECTIONSTRING"),
 		OIDCSigningAlgorithm:            os.Getenv("OIDC_SIGNING_ALGO"),
 		OIDCAuthority:                   os.Getenv("OIDC_AUTHORITY"),
-		OIDCAudience:                    getEnv("OIDC_AUDIENCE", "backend-dev"),
+		OIDCAudience:                    oidcAudience,
 		Environment:                     environment,
 		EnablePostgresTracing:           otlpEndpoint != "",
 		EnableHTTPTracing:               otlpEndpoint != "",
@@ -274,6 +283,10 @@ func requiredEnvDuration(key string, fallback time.Duration) (time.Duration, err
 func splitEnvList(value string) []string {
 	return strings.FieldsFunc(value, func(r rune) bool { return r == ',' })
 }
+
+// defaultOIDCAudience is the local development API identifier. Live
+// environments must override it; see the guard in main().
+const defaultOIDCAudience = "backend-dev"
 
 func isLiveEnvironment(environment string) bool {
 	switch strings.ToLower(strings.TrimSpace(environment)) {

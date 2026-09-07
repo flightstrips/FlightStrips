@@ -373,3 +373,34 @@ export const PHOTOS = {
     alt: "Two controllers side by side at one screen, one pointing at a strip on the board, with the tower view and ground maps around them.",
   },
 } as const;
+
+/**
+ * Counted from the repository, not estimated. Re-verify before changing:
+ *   layouts    → LAYOUT_MAP in src/routes/AppRouter.tsx (AMAN is dev-only)
+ *   positions  → `positions:` in backend/config/ekch.yaml
+ *   validation → backend/internal/services/strip_*_validation.go, less the
+ *                strip_validation.go dispatcher
+ *   services   → CONNECTIONS above, less VATSIM SSO/feed counted separately
+ */
+export const METRICS = [
+  {
+    value: 8,
+    label: "Controller layouts",
+    detail: "CLX, AA, AD, AA+AD, EST, GE+GW, TE+TW and the TWRGND bandbox.",
+  },
+  {
+    value: 25,
+    label: "Positions in the route",
+    detail: "Fourteen at Kastrup plus eleven Danish centre positions, so a strip knows where it goes next.",
+  },
+  {
+    value: 8,
+    label: "Validation rules",
+    detail: "Squawk, CTOT, landing clearance, runway and taxiway type, and the PDC rules.",
+  },
+  {
+    value: 4,
+    label: "Live integrations",
+    detail: "VATSIM SSO, the VATSIM traffic and ATIS feed, Hoppie ACARS and ECFMP.",
+  },
+] as const;

@@ -5,9 +5,10 @@ import { CONNECTIONS, HERO, OWNERSHIP, PHOTOS, SCOPE, SITE } from "./content";
 import { CapabilityStory } from "./CapabilityStory";
 import { LandingFooter } from "./LandingFooter";
 import { LandingHeader } from "./LandingHeader";
+import { Metrics } from "./Metrics";
 import { PhotoPlate } from "./PhotoPlate";
 import { PositionExplorer } from "./PositionExplorer";
-import { Eyebrow, GuideColumns, Reveal, Section, SwapButton, SwapLink } from "./primitives";
+import { ArrowLink, Eyebrow, GuideColumns, Reveal, Section, SwapButton, SwapLink } from "./primitives";
 import { ArrivalSpecimen, ClearedSpecimen } from "./StripSpecimen";
 import { SystemDiagram } from "./SystemDiagram";
 import { useLandingAuth } from "./useLandingAuth";
@@ -40,7 +41,7 @@ export function LandingPage() {
           <div className="fsl-ambient" aria-hidden="true" />
           <GuideColumns />
 
-          <div className="fsl-gutter relative z-10 pb-20 pt-16 sm:pb-28 sm:pt-24 lg:pb-36 lg:pt-32">
+          <div className="fsl-gutter relative z-10 flex min-h-[86svh] flex-col justify-center pb-20 pt-16 sm:pb-28 sm:pt-24 lg:pb-32 lg:pt-28">
             <div className="fsl-grid">
               <div className="col-span-8 lg:col-span-10">
                 <Reveal>
@@ -52,7 +53,7 @@ export function LandingPage() {
                     <span className="fsl-mono text-[11px] uppercase tracking-[0.18em]">{HERO.badge}</span>
                   </div>
 
-                  <h1 className="fsl-display mb-7 max-w-[13ch] text-[42px] sm:text-[64px] lg:text-[84px] xl:text-[96px]">
+                  <h1 className="fsl-display mb-7 max-w-[13ch] text-[46px] sm:text-[68px] lg:text-[88px] xl:text-[104px]">
                     {HERO.headline}
                   </h1>
                 </Reveal>
@@ -62,9 +63,13 @@ export function LandingPage() {
                     {HERO.standfirst}
                   </p>
 
-                  <div className="flex flex-wrap gap-3">
+                  {/* One primary action. The docs are a text link, not a second
+                      button competing with it. */}
+                  <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
                     <PrimaryAction />
-                    <SwapLink label="Read the docs" href={SITE.docs} variant="secondary" external />
+                    <ArrowLink href={SITE.docs} external>
+                      Read the docs
+                    </ArrowLink>
                   </div>
 
                   <p className="fsl-mono mt-8 text-[11px] uppercase tracking-[0.18em] text-[var(--fsl-ink-muted)]">
@@ -118,7 +123,7 @@ export function LandingPage() {
         </section>
 
         {/* ── What it plugs into ────────────────────────────── */}
-        <Section theme="dark" className="py-10">
+        <Section theme="dark" className="fsl-band--tight">
           <ul className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-5">
             {CONNECTIONS.map((connection) => (
               <li key={connection.label}>
@@ -131,25 +136,29 @@ export function LandingPage() {
           </ul>
         </Section>
 
+        {/* ── Proof ─────────────────────────────────────────── */}
+        <Section theme="dark" className="fsl-band--tight">
+          <Eyebrow className="mb-10">What is behind the board</Eyebrow>
+          <Metrics />
+        </Section>
+
         {/* ── Establishing plate ────────────────────────────── */}
-        <Section theme="dark" topRule={false} className="pb-16 pt-4 sm:pb-20">
+        <Section theme="dark" topRule={false} className="pb-14 pt-0 sm:pb-20">
           <Reveal>
             <PhotoPlate {...PHOTOS.ops} className="fsl-plate--wide" focus="center 14%" />
           </Reveal>
         </Section>
 
         {/* ── Architecture ──────────────────────────────────── */}
-        <Section id="architecture" theme="light" guides className="py-20 sm:py-28">
-          <Reveal>
-            <Eyebrow className="mb-5">Architecture</Eyebrow>
-            <h2 className="fsl-display mb-6 max-w-[18ch] text-[36px] sm:text-[52px] lg:text-[64px]">
-              Three clients, one server, four services.
-            </h2>
-            <p className="mb-14 max-w-2xl text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">
-              The plugin supplies live EuroScope data, the web app is where strips are operated, and the
-              server is the only thing that decides what the session currently looks like.
-            </p>
-          </Reveal>
+        <Section id="architecture" theme="light" guides className="fsl-band">
+          <Eyebrow className="mb-5">Architecture</Eyebrow>
+          <h2 className="fsl-display mb-6 max-w-[18ch] text-[36px] sm:text-[52px] lg:text-[64px]">
+            Three clients, one server, four services.
+          </h2>
+          <p className="mb-14 max-w-2xl text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">
+            The plugin supplies live EuroScope data, the web app is where strips are operated, and the
+            server is the only thing that decides what the session currently looks like.
+          </p>
 
           <Reveal delay={100}>
             <SystemDiagram />
@@ -157,74 +166,66 @@ export function LandingPage() {
         </Section>
 
         {/* ── Positions ─────────────────────────────────────── */}
-        <Section id="positions" theme="dark" className="py-20 sm:py-28">
-          <Reveal>
-            <Eyebrow className="mb-5">Positions</Eyebrow>
-            <h2 className="fsl-display mb-6 max-w-[20ch] text-[36px] sm:text-[52px] lg:text-[64px]">
-              Every position gets the board it actually needs.
-            </h2>
-            <p className="mb-14 max-w-2xl text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">
-              Layouts, bays and ownership routes come from the airport configuration, so a strip arrives
-              where the procedure says it should rather than where someone dragged it.
-            </p>
-          </Reveal>
+        <Section id="positions" theme="dark" className="fsl-band">
+          <Eyebrow className="mb-5">Positions</Eyebrow>
+          <h2 className="fsl-display mb-6 max-w-[20ch] text-[36px] sm:text-[52px] lg:text-[64px]">
+            Every position gets the board it actually needs.
+          </h2>
+          <p className="mb-14 max-w-2xl text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">
+            Layouts, bays and ownership routes come from the airport configuration, so a strip arrives
+            where the procedure says it should rather than where someone dragged it.
+          </p>
 
           <PositionExplorer />
         </Section>
 
         {/* ── Ownership ─────────────────────────────────────── */}
-        <Section theme="light" guides className="py-20 sm:py-28">
+        <Section theme="light" guides className="fsl-band">
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
-            <Reveal>
-              <Eyebrow className="mb-5">Ownership</Eyebrow>
-              <h2 className="fsl-display mb-6 text-[36px] sm:text-[48px] lg:text-[56px]">
-                Who holds this strip, and who has it next.
-              </h2>
-              <p className="text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">
-                The indicator on the left of every strip encodes your position&rsquo;s relationship to it.
-                A split box means a coordination is waiting on someone — and every board in the session
-                is reading the same answer.
-              </p>
-            </Reveal>
+            <Eyebrow className="mb-5">Ownership</Eyebrow>
+            <h2 className="fsl-display mb-6 text-[36px] sm:text-[48px] lg:text-[56px]">
+              Who holds this strip, and who has it next.
+            </h2>
+            <p className="text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">
+              The indicator on the left of every strip encodes your position&rsquo;s relationship to it.
+              A split box means a coordination is waiting on someone — and every board in the session
+              is reading the same answer.
+            </p>
 
-            <Reveal delay={100}>
-              <dl className="border-t border-[var(--fsl-line)]">
-                {OWNERSHIP.map((state) => (
-                  <div key={state.title} className="flex gap-5 border-b border-[var(--fsl-line)] py-6">
-                    <span
-                      aria-hidden="true"
-                      className="mt-1 h-6 w-6 shrink-0 border border-[var(--fsl-line-strong)]"
-                      style={{ background: state.swatch }}
-                    />
-                    <div>
-                      <dt className="mb-1.5 font-medium">{state.title}</dt>
-                      <dd className="text-[15px] leading-relaxed text-[var(--fsl-ink-muted)]">{state.body}</dd>
-                    </div>
+            <dl className="border-t border-[var(--fsl-line)]">
+              {OWNERSHIP.map((state) => (
+                <div key={state.title} className="flex gap-5 border-b border-[var(--fsl-line)] py-6">
+                  <span
+                    aria-hidden="true"
+                    className="mt-1 h-6 w-6 shrink-0 border border-[var(--fsl-line-strong)]"
+                    style={{ background: state.swatch }}
+                  />
+                  <div>
+                    <dt className="mb-1.5 font-medium">{state.title}</dt>
+                    <dd className="text-[15px] leading-relaxed text-[var(--fsl-ink-muted)]">{state.body}</dd>
                   </div>
-                ))}
-              </dl>
-            </Reveal>
+                </div>
+              ))}
+            </dl>
           </div>
         </Section>
 
         {/* ── Capability narrative ──────────────────────────── */}
-        <Section theme="dark" className="py-20 sm:py-28">
+        <Section theme="dark" className="fsl-band">
           <CapabilityStory />
         </Section>
 
         {/* ── In the room ───────────────────────────────────── */}
-        <Section theme="dark" className="py-20 sm:py-28">
-          <Reveal>
-            <Eyebrow className="mb-5">In the room</Eyebrow>
-            <h2 className="fsl-display mb-6 max-w-[18ch] text-[36px] sm:text-[52px] lg:text-[64px]">
-              Built by the people working the position.
-            </h2>
-            <p className="mb-14 max-w-2xl text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">
-              FlightStrips is written in the open by controllers who use it. The workflows on the board
-              are the ones the position actually runs, and the system stays out of the way of the
-              judgement calls that are yours to make.
-            </p>
-          </Reveal>
+        <Section theme="dark" className="fsl-band">
+          <Eyebrow className="mb-5">In the room</Eyebrow>
+          <h2 className="fsl-display mb-6 max-w-[18ch] text-[36px] sm:text-[52px] lg:text-[64px]">
+            Built by the people working the position.
+          </h2>
+          <p className="mb-14 max-w-2xl text-[17px] leading-relaxed text-[var(--fsl-ink-muted)]">
+            FlightStrips is written in the open by controllers who use it. The workflows on the board
+            are the ones the position actually runs, and the system stays out of the way of the
+            judgement calls that are yours to make.
+          </p>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Reveal>
@@ -237,16 +238,14 @@ export function LandingPage() {
         </Section>
 
         {/* ── Airports ──────────────────────────────────────── */}
-        <Section id="airports" theme="light" guides className="py-20 sm:py-28">
-          <Reveal>
-            <Eyebrow className="mb-5">{SCOPE.eyebrow}</Eyebrow>
-            <h2 className="fsl-display mb-14 max-w-[16ch] text-[36px] sm:text-[52px] lg:text-[64px]">
-              {SCOPE.title}
-            </h2>
-          </Reveal>
+        <Section id="airports" theme="light" guides className="fsl-band">
+          <Eyebrow className="mb-5">{SCOPE.eyebrow}</Eyebrow>
+          <h2 className="fsl-display mb-14 max-w-[16ch] text-[36px] sm:text-[52px] lg:text-[64px]">
+            {SCOPE.title}
+          </h2>
 
           <div className="grid border-t border-[var(--fsl-line)] lg:grid-cols-2">
-            <Reveal className="border-b border-[var(--fsl-line)] bg-[var(--fsl-surface)] p-8 sm:p-10 lg:border-r">
+            <div className="border-b border-[var(--fsl-line)] bg-[var(--fsl-surface)] p-8 sm:p-10 lg:border-r">
               <p className="fsl-mono mb-4 text-[11px] uppercase tracking-[0.18em] text-[var(--fsl-brand-ink)]">
                 Live
               </p>
@@ -260,9 +259,9 @@ export function LandingPage() {
                   </li>
                 ))}
               </ul>
-            </Reveal>
+            </div>
 
-            <Reveal delay={100} className="border-b border-[var(--fsl-line)] p-8 sm:p-10">
+            <div className="border-b border-[var(--fsl-line)] p-8 sm:p-10">
               <p className="fsl-mono mb-4 text-[11px] uppercase tracking-[0.18em] text-[var(--fsl-ink-muted)]">
                 Planned — not built yet
               </p>
@@ -281,27 +280,25 @@ export function LandingPage() {
                   </li>
                 ))}
               </ul>
-            </Reveal>
+            </div>
           </div>
 
-          <Reveal delay={150}>
-            <div className="border-b border-l border-r border-[var(--fsl-line)] bg-[var(--fsl-raised)] p-8 sm:p-10">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                  <h3 className="fsl-display mb-3 text-[26px] sm:text-[32px]">{SCOPE.onboarding.heading}</h3>
-                  <p className="max-w-2xl text-[15px] leading-relaxed text-[var(--fsl-ink-muted)]">
-                    {SCOPE.onboarding.body}
-                  </p>
-                </div>
-                <SwapLink
-                  label={`Email ${SITE.email}`}
-                  href={`mailto:${SITE.email}`}
-                  variant="secondary"
-                  className="shrink-0"
-                />
+          <div className="border-b border-l border-r border-[var(--fsl-line)] bg-[var(--fsl-raised)] p-8 sm:p-10">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h3 className="fsl-display mb-3 text-[26px] sm:text-[32px]">{SCOPE.onboarding.heading}</h3>
+                <p className="max-w-2xl text-[15px] leading-relaxed text-[var(--fsl-ink-muted)]">
+                  {SCOPE.onboarding.body}
+                </p>
               </div>
+              <SwapLink
+                label={`Email ${SITE.email}`}
+                href={`mailto:${SITE.email}`}
+                variant="secondary"
+                className="shrink-0"
+              />
             </div>
-          </Reveal>
+          </div>
         </Section>
 
         {/* ── Dual CTA ──────────────────────────────────────── */}
@@ -329,9 +326,13 @@ export function LandingPage() {
                 The documentation covers every position and procedure. The project is open source, and
                 contributions from controllers and developers are welcome.
               </p>
-              <div className="flex flex-wrap gap-3">
-                <SwapLink label="Documentation" href={SITE.docs} variant="secondary" external />
-                <SwapLink label="GitHub" href={SITE.github} variant="secondary" external />
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
+                <ArrowLink href={SITE.docs} external>
+                  Documentation
+                </ArrowLink>
+                <ArrowLink href={SITE.github} external>
+                  GitHub
+                </ArrowLink>
               </div>
             </div>
           </div>

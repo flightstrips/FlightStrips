@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.2.0...frontend/v1.2.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **strip:** align EST transfer styling ([#542](https://github.com/flightstrips/FlightStrips/issues/542)) ([a34a027](https://github.com/flightstrips/FlightStrips/commit/a34a0277dbeb10df27f61981e23698b3a159fbab))
+
 ## [1.2.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.1.2...frontend/v1.2.0) (2026-09-07)
 
 

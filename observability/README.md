@@ -17,15 +17,18 @@ Grafana schema v2 documents.
 The performance dashboard is meant to be read top to bottom. Each row narrows
 the question rather than repeating it.
 
-### 1. Is the process actually CPU bound?
+### 1. Is the server actually CPU bound?
 
-`go.cpu.time` is split by the class of work that consumed it, and
-`go.processor.limit` is GOMAXPROCS, so their ratio is true CPU utilisation
-without needing a host or container exporter:
+Use the host metric for the saturation decision. The node exporter is already
+present in Grafana, so the dashboard uses the idle time across all host CPUs:
 
 ```
-sum(rate(go_cpu_time_seconds_total{class!="idle"}[$__rate_interval])) / max(go_processor_limit)
+1 - avg(rate(node_cpu_seconds_total{job="integrations/node_exporter",mode="idle"}[$__rate_interval]))
 ```
+
+The Go `go.cpu.time` classes are runtime attribution estimates and can be
+useful for relative diagnostics, but they are not directly comparable to host
+CPU time and must not be presented as server CPU utilisation.
 
 Then read the class split:
 

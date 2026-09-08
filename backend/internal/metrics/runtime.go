@@ -33,8 +33,8 @@ const (
 )
 
 // cpuClasses maps a runtime CPU class onto the "class" attribute of go.cpu.time.
-// The classes together account for GOMAXPROCS * wall-clock seconds, so
-// rate(go.cpu.time) / go.processor.limit is the CPU utilisation of that class.
+// These values are Go runtime attribution estimates. They are useful for
+// relative diagnostics, but must not be interpreted as host CPU utilisation.
 var cpuClasses = []struct {
 	metric string
 	class  string

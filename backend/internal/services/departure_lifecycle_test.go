@@ -429,7 +429,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		testdata.SeedTestStrip(t, queries, session, "SAS603")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS603"), offlineFlight("SAS603", 1)))
-		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
+		createProtectedStandOccupant(t, assignments, session, "SAS603O", "A2")
 
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS603"), onlineFlightAtA2("SAS603", 1)))
 		assert.Empty(t, allocations.failures.List(), "an occupied observed stand is expected wrong-stand recovery, not a failed controller allocation")
@@ -459,9 +459,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		testdata.SeedTestStrip(t, queries, session, "SAS607")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS607"), offlineFlight("SAS607", 1)))
-		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
-			SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
-		}))
+		createProtectedStandOccupant(t, assignments, session, "SAS607O", "A2")
 
 		require.NoError(t, lifecycle.ObserveDeparturePosition(
 			ctx, session, loadStrip(t, strips, session, "SAS607"), 55.6285306, 12.6434583,
@@ -481,9 +479,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		messenger := &wrongStandTestMessenger{available: true}
 		lifecycle.SetWrongStandMessenger(messenger)
 		testdata.SeedTestStrip(t, queries, session, "SAS608")
-		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
-			SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
-		}))
+		createProtectedStandOccupant(t, assignments, session, "SAS608O", "A2")
 
 		require.NoError(t, lifecycle.ObserveDeparturePosition(
 			ctx, session, loadStrip(t, strips, session, "SAS608"), 55.6285306, 12.6434583,
@@ -599,11 +595,8 @@ func TestDepartureLifecycle(t *testing.T) {
 		messenger := &wrongStandTestMessenger{available: true}
 		lifecycle.SetWrongStandMessenger(messenger)
 		testdata.SeedTestStrip(t, queries, session, "SAS609")
-		for _, stand := range []string{"A1", "A2"} {
-			require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{
-				SessionID: session, Stand: stand, BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
-			}))
-		}
+		createProtectedStandOccupant(t, assignments, session, "SAS609A", "A1")
+		createProtectedStandOccupant(t, assignments, session, "SAS609B", "A2")
 		strip := loadStrip(t, strips, session, "SAS609")
 
 		require.NoError(t, lifecycle.ObserveDeparturePosition(ctx, session, strip, 55.6285306, 12.6434583))
@@ -623,7 +616,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		testdata.SeedTestStrip(t, queries, session, "SAS604")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS604"), offlineFlight("SAS604", 1)))
-		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
+		createProtectedStandOccupant(t, assignments, session, "SAS604O", "A2")
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS604"), onlineFlightAtA2("SAS604", 1)))
 
 		beforeRestart, err := assignments.GetAssignment(ctx, session, "SAS604")
@@ -666,7 +659,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		testdata.SeedTestStrip(t, queries, session, "SAS606")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS606"), offlineFlight("SAS606", 1)))
-		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
+		createProtectedStandOccupant(t, assignments, session, "SAS606O", "A2")
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS606"), onlineFlightAtA2("SAS606", 1)))
 		awaiting, err := assignments.GetAssignment(ctx, session, "SAS606")
 		require.NoError(t, err)
@@ -689,7 +682,7 @@ func TestDepartureLifecycle(t *testing.T) {
 		testdata.SeedTestStrip(t, queries, session, "SAS605")
 		clock.set(time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC))
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS605"), offlineFlight("SAS605", 1)))
-		require.NoError(t, assignments.CreateBlock(ctx, &models.StandBlock{SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true}))
+		createProtectedStandOccupant(t, assignments, session, "SAS605O", "A2")
 		require.NoError(t, lifecycle.ProcessDeparture(ctx, session, loadStrip(t, strips, session, "SAS605"), onlineFlightAtA2("SAS605", 1)))
 		moved := onlineFlightAtA2("SAS605", 1)
 		moved.Latitude = 55.62
@@ -914,6 +907,15 @@ STAND:EKCH:A2:N055.37.42.710:E012.38.36.450:30
 	name := fmt.Sprintf("%s-%d", t.Name(), standAllocationSessionSequence.Add(1))
 	session := testdata.SeedTestSessionNamedWithSectors(t, queries, name, nil)
 	return lifecycle, allocations, session, assignments, strips, clock
+}
+
+func createProtectedStandOccupant(t *testing.T, assignments repository.StandAssignmentRepository, session int32, callsign, stand string) {
+	t.Helper()
+	require.NoError(t, assignments.CreateAssignment(context.Background(), &models.StandAssignment{
+		SessionID: session, Callsign: callsign, Stand: stand,
+		Direction: string(sat.AssignmentDirectionDeparture), Stage: StageReserved,
+		Source: "CONTROLLER", Manual: true,
+	}))
 }
 
 func loadStrip(t *testing.T, strips repository.StripRepository, session int32, callsign string) *models.Strip {

@@ -1150,6 +1150,11 @@ func (hub *Hub) SendStandBlockBroadcast(session int32, stand string, block *fron
 	})
 }
 
+func (hub *Hub) PublishStandBlockRemoval(_ context.Context, block internalModels.StandBlock) error {
+	hub.SendStandBlockBroadcast(block.SessionID, block.Stand, nil, block.ID)
+	return nil
+}
+
 func (hub *Hub) SendStandStatusSnapshot(session int32, assignments []frontend.StandAssignmentEntry, blocks []frontend.StandBlockEntry) {
 	hub.Broadcast(session, frontend.StandStatusSnapshotEvent{
 		Assignments: assignments,

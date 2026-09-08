@@ -249,9 +249,7 @@ export default function EST() {
   }
 
   function handleStandClick(stand: string, strip: FrontendStrip | undefined, element: HTMLButtonElement) {
-    const blocked = !!blockedStandsDerived[stand];
-
-    if (!strip || blocked) {
+    if (!strip) {
       setStatusStand(stand);
       setStatusAnchor(toMenuAnchor(element));
       setMenuState(null);
@@ -539,7 +537,7 @@ export default function EST() {
           stand={statusStand}
           anchor={statusAnchor}
           strip={statusStrip}
-          blocked={!!blockedStandsDerived[statusStand]}
+          blocked={!statusStrip && !!blockedStandsDerived[statusStand]}
           onClose={() => {
             setStatusStand(null);
             setStatusAnchor(null);

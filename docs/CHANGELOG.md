@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.20.0...docs/v0.20.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **stand:** accept a pushback route sent as a string or a list ([#552](https://github.com/flightstrips/FlightStrips/issues/552)) ([0487824](https://github.com/flightstrips/FlightStrips/commit/0487824eacf4f6cdeab5c5440af5dc103781df8e))
+
 ## [0.20.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.19.0...docs/v0.20.0) (2026-09-08)
 
 

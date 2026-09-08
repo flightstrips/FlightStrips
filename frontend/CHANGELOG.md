@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.2.1...frontend/v1.2.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* **stand:** clear stale EST occupancy blocks ([#550](https://github.com/flightstrips/FlightStrips/issues/550)) ([c0588f9](https://github.com/flightstrips/FlightStrips/commit/c0588f9ea8da92596f1752a3d7b68d727af116b3))
+
 ## [1.2.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.2.0...frontend/v1.2.1) (2026-09-07)
 
 

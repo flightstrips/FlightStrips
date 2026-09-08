@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/flightstrips/FlightStrips/compare/backend/v1.3.0...backend/v1.3.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **stand:** accept a pushback route sent as a string or a list ([#552](https://github.com/flightstrips/FlightStrips/issues/552)) ([0487824](https://github.com/flightstrips/FlightStrips/commit/0487824eacf4f6cdeab5c5440af5dc103781df8e))
+* **stand:** clear stale EST occupancy blocks ([#550](https://github.com/flightstrips/FlightStrips/issues/550)) ([c0588f9](https://github.com/flightstrips/FlightStrips/commit/c0588f9ea8da92596f1752a3d7b68d727af116b3))
+
 ## [1.3.0](https://github.com/flightstrips/FlightStrips/compare/backend/v1.2.0...backend/v1.3.0) (2026-09-08)
 
 

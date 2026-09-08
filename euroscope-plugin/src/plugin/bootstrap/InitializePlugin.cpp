@@ -4,6 +4,7 @@
 #include "Logger.hpp"
 #include "authentication/AuthenticationService.h"
 #include "aman/AMANGainLossStore.h"
+#include "tag_items/AMANGainLossHandler.h"
 #include "configuration/AppConfig.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
@@ -81,6 +82,15 @@ namespace FlightStrips {
             this->container->appConfig->GetBaseUrl(), this->container->appConfig->GetApiEnabled(),
             this->container->authenticationService, this->container->plugin,
             this->container->connectionEventHandlers, this->container->messageHandlers);
+        const auto weakWebSocket = std::weak_ptr<websocket::WebSocketService>(this->container->webSocketService);
+        this->container->amanGainLossHandler = std::make_shared<TagItems::AMANGainLossHandler>(
+            this->container->amanGainLossStore,
+            [weakWebSocket] {
+                const auto webSocket = weakWebSocket.lock();
+                return webSocket && webSocket->IsConnected();
+            });
+        this->container->tagItemHandlers->RegisterHandler(
+            this->container->amanGainLossHandler, TAG_ITEM_AMAN_GAIN_LOSS);
         this->container->unfilteredRadarTargetEventHandlers->RegisterHandler(
             std::make_shared<handlers::EkytApproachTrackingHandler>(this->container->plugin));
         flightplan::FlightPlanBootstrapper::Bootstrap(*this->container);

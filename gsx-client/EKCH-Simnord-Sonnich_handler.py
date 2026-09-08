@@ -52,17 +52,22 @@ def _standEscape(value):
 
 
 def _standReadCallsign(self):
-    """The callsign the pilot filed with.
+    """The callsign the pilot filed with, and whether it came from SimBrief.
 
     FlightStrips keys strips on the VATSIM callsign, so this has to reproduce
     what the pilot connected with. SimBrief is the reliable source: sb.callsign
     is the ATC callsign from the filed plan, and GSX already falls back to
     icao_airline + flight_number internally when the plan omits it.
+
+    The second return value says whether to keep looking. GSX loads the
+    SimBrief plan a few seconds after the airport handler activates, so an
+    early read falls through to the sim - and a tail number is a confident,
+    non-empty, wrong answer that would otherwise be cached for the session.
     """
     try:
         sb = getSimbrief()
         if sb is not None and not sb.last_error and sb.callsign:
-            return _standEscape(sb.callsign.upper())
+            return _standEscape(sb.callsign.upper()), True
     except Exception as err:
         print("[stands] SimBrief unavailable: %s" % err)
 
@@ -73,7 +78,7 @@ def _standReadCallsign(self):
         tail, flight = USER.requestData(ddef)
     except Exception as err:
         print("[stands] could not read aircraft identity: %s" % err)
-        return ""
+        return "", False
 
     airline = ""
     try:
@@ -82,8 +87,8 @@ def _standReadCallsign(self):
         pass
 
     if airline and flight:
-        return _standEscape((airline + flight).upper())
-    return _standEscape(str(tail).upper())
+        return _standEscape((airline + flight).upper()), False
+    return _standEscape(str(tail).upper()), False
 
 
 def _standFetch(self):
@@ -92,12 +97,23 @@ def _standFetch(self):
     etag=True makes GSX send If-None-Match; an unchanged assignment costs a 304
     with no payload.
     """
-    # Retry until we get one, rather than caching a failure. onEnterAirport
-    # fires as the airport handler activates, which can be seconds before GSX
-    # has loaded the SimBrief plan - so the first read often finds nothing, and
-    # caching that empty answer would stop the script ever fetching again.
-    if not self._standCallsign:
-        self._standCallsign = _standReadCallsign(self)
+    # Keep looking until SimBrief answers. The handler activates seconds before
+    # GSX has the plan, so an early read falls through to the sim and returns a
+    # tail number - non-empty and wrong. Caching that would poll a callsign with
+    # no strip for the whole session, quietly, which is exactly what it did.
+    if not self._standCallsignTrusted:
+        callsign, trusted = _standReadCallsign(self)
+        if callsign and (trusted or not self._standCallsign):
+            if callsign != self._standCallsign:
+                print("[stands] callsign %s (from %s)"
+                      % (callsign, "SimBrief" if trusted else "the sim"))
+                # A different identity invalidates whatever we applied for the
+                # previous one.
+                self._standAssigned = None
+                self._standPushback = None
+            self._standCallsign = callsign
+            self._standCallsignTrusted = trusted
+
     if not self._standCallsign:
         if not self._standWarnedNoCallsign:
             print("[stands] no callsign yet (SimBrief not loaded?) - will retry")
@@ -330,6 +346,7 @@ def _standInit(self):
         self._standPushback = None
         self._standPoll = None
         self._standCallsign = None
+        self._standCallsignTrusted = False
         self._standWarnedNoCallsign = False
 
 
@@ -441,4 +458,5 @@ def onExitAirport(self):
     self._standPushback = None
     self._standUserOverride = False
     self._standCallsign = None
+    self._standCallsignTrusted = False
     self._standWarnedNoCallsign = False

@@ -21,10 +21,12 @@ services:
       # Disabled for development convenience - consider enabling for production or completely remove it.
       # - ./pg_hba.conf:/var/lib/postgresql/pg_hba.conf
     environment:
-      - POSTGRES_PASSWORD=fs_password
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
       - POSTGRES_USER=fs
       - POSTGRES_DB=fsdb
       - POSTGRES_HOST_AUTH_METHOD=trust
+    secrets:
+      - postgres_password
     networks:
       - flightstrips
     restart: unless-stopped
@@ -40,15 +42,19 @@ services:
     depends_on:
       postgres:
         condition: service_started
+    environment:
+      - DATABASE_CONNECTIONSTRING_FILE=/run/secrets/database_connectionstring
+    secrets:
+      - database_connectionstring
     profiles: [all, database]
-    command: /app/bin/migrate --dsn "postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable" --migrations /app/migrations
+    command: /app/bin/migrate --migrations /app/migrations
 
   flightstrip:
     build: .
     env_file:
       - .env
     environment:
-      - DATABASE_CONNECTIONSTRING=postgresql://fs:fs_password@postgres:5432/fsdb?sslmode=disable
+      - DATABASE_CONNECTIONSTRING_FILE=/run/secrets/database_connectionstring
       - SLEEP_TIME=30
       - ENVIRONMENT=docker
       - SERVER_ADDR=0.0.0.0:8090
@@ -66,6 +72,8 @@ services:
         condition: service_started
       flightstrips-migrator:
         condition: service_completed_successfully
+    secrets:
+      - database_connectionstring
     profiles: [all]
 
 networks:
@@ -74,3 +82,11 @@ networks:
 
 volumes:
   postgres:
+
+secrets:
+  # Local-only values are sourced from backend/.env. Compose mounts them as
+  # files so development exercises the same path used by Docker Swarm.
+  postgres_password:
+    environment: POSTGRES_PASSWORD
+  database_connectionstring:
+    environment: DATABASE_CONNECTIONSTRING

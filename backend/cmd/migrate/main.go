@@ -1,7 +1,8 @@
-﻿package main
+package main
 
 import (
 	"FlightStrips/internal/database"
+	"FlightStrips/internal/envconfig"
 	"flag"
 	"log/slog"
 	"os"
@@ -14,7 +15,15 @@ func main() {
 		dbPath        string
 		migrationsDir string
 	)
-	flag.StringVar(&dbPath, "dsn", "user=postgres dbname=appdb sslmode=disable", "Postgres DSN (e.g., 'user=postgres dbname=appdb sslmode=disable' or URL form)")
+	dsnDefault, err := envconfig.Value("DATABASE_CONNECTIONSTRING")
+	if err != nil {
+		slog.Error("Failed to load database connection secret", slog.Any("error", err))
+		os.Exit(1)
+	}
+	if dsnDefault == "" {
+		dsnDefault = "user=postgres dbname=appdb sslmode=disable"
+	}
+	flag.StringVar(&dbPath, "dsn", dsnDefault, "Postgres DSN (e.g., 'user=postgres dbname=appdb sslmode=disable' or URL form)")
 	flag.StringVar(&migrationsDir, "migrations", "migrations", "Directory containing SQL migration files")
 	flag.Parse()
 
@@ -27,7 +36,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err := database.Migrate(dbPath, migrationsDir)
+	err = database.Migrate(dbPath, migrationsDir)
 	if err != nil {
 		slog.Error("Migration failed", slog.Any("error", err))
 		os.Exit(1)

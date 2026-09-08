@@ -182,6 +182,35 @@ controller means by `R/W` is local knowledge no file on disk contains.
 For the shipped EKCH profile that is 119 gates, 87 reconciled automatically and
 32 needing a decision.
 
+### Inferring the pushback points
+
+`tools/infer-pushback.mjs` fills in `points` by matching GSX labels against the
+frontend's `RELEASE_POINTS` — the set `PushbackMapDialog` writes to
+`strips.release_point`. The two vocabularies share a token: a GSX label is
+`<release point> Face <direction>`, so `Z2 Face E` is the route for a controller
+who assigned `Z2`.
+
+```bash
+node tools/infer-pushback.mjs \
+  "%APPDATA%/Virtuali/GSX/MSFS/EKCH-Simnord-Sonnich.ini" \
+  frontend/src/config/ekch.ts \
+  backend/config/ekch/gsx_sceneries.json \
+  Simnord-Sonnich
+```
+
+This is inference, not ground truth. It refuses two cases rather than guess:
+
+- **Ambiguous** — a stand offering the same taxiway in two facings, like
+  `Y1 Face W` and `Y1 Face E` at A15. A release point cannot say which, so
+  neither is published. Pushing an aircraft the wrong way is worse than not
+  narrowing the menu at all.
+- **Unmapped** — a route onto a bare taxiway (`J Face W`, `V Face E`) where
+  FlightStrips only offers numbered points on that taxiway.
+
+For Simnord EKCH: 216 points inferred across 78 stands, 61 of them clean, 4
+ambiguous release points dropped, and 31 routes across 22 stands left for a
+human. Every unfinished stand carries a `review` note saying what is missing.
+
 ## Pushback points
 
 For departing traffic only. `getGate().pushback`, `pushbackLabels` and `pushbackAddPos` are all writable at

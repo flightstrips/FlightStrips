@@ -20,7 +20,7 @@
           "V Face W",
           "V Face E"
         ],
-        "review": "ambiguous: E90 / F90"
+        "review": "ambiguous: E90 / F90 ; unmapped routes: V Face W | V Face E"
       }
     },
     "F91": {
@@ -30,7 +30,8 @@
         "available": [
           "W Face E",
           "W Face W"
-        ]
+        ],
+        "review": "unmapped routes: W Face E | W Face W"
       }
     },
     "F92": {
@@ -40,7 +41,8 @@
         "available": [
           "V Face W",
           "V Face E"
-        ]
+        ],
+        "review": "unmapped routes: V Face W | V Face E"
       }
     },
     "F93": {
@@ -50,7 +52,8 @@
         "available": [
           "W Face E",
           "W Face W"
-        ]
+        ],
+        "review": "unmapped routes: W Face E | W Face W"
       }
     },
     "F94": {
@@ -60,7 +63,8 @@
         "available": [
           "V Face W",
           "V Face E"
-        ]
+        ],
+        "review": "unmapped routes: V Face W | V Face E"
       }
     },
     "F95": {
@@ -80,7 +84,8 @@
         "available": [
           "V Face W",
           "V Face E"
-        ]
+        ],
+        "review": "unmapped routes: V Face W | V Face E"
       }
     },
     "F97": {
@@ -90,7 +95,8 @@
         "available": [
           "W Face E",
           "W Face W"
-        ]
+        ],
+        "review": "unmapped routes: W Face E | W Face W"
       }
     },
     "F98": {
@@ -100,13 +106,19 @@
         "available": [
           "V Face W",
           "V Face E"
-        ]
+        ],
+        "review": "unmapped routes: V Face W | V Face E"
       }
     },
     "A11": {
       "Simnord-Sonnich": {
         "stand": "Gate A11",
-        "points": {},
+        "points": {
+          "Z7": "Z7 Face W",
+          "Y2": "Y2 Face W",
+          "Y1": "Y1 Face E",
+          "Z6": "Z6 Face E"
+        },
         "available": [
           "Z7 Face W",
           "Y2 Face W",
@@ -118,7 +130,10 @@
     "A12": {
       "Simnord-Sonnich": {
         "stand": "Gate A12",
-        "points": {},
+        "points": {
+          "Y1": "Y1 Face E",
+          "Z6": "Z6 Face E"
+        },
         "available": [
           "Y1 Face E",
           "Z6 Face E"
@@ -128,30 +143,40 @@
     "A14": {
       "Simnord-Sonnich": {
         "stand": "Gate A14",
-        "points": {},
+        "points": {
+          "Z6": "Z6 Face E",
+          "Y0": "Y0 Face E"
+        },
         "available": [
           "Y1 Face W",
           "Z6 Face E",
           "Y0 Face E",
           "Y1 Face E"
-        ]
+        ],
+        "review": "ambiguous release points: Y1"
       }
     },
     "A15": {
       "Simnord-Sonnich": {
         "stand": "Gate A15",
-        "points": {},
+        "points": {
+          "Y0": "Y0 Face E"
+        },
         "available": [
           "Y1 Face W",
           "Y0 Face E",
           "Y1 Face E"
-        ]
+        ],
+        "review": "ambiguous release points: Y1"
       }
     },
     "A17": {
       "Simnord-Sonnich": {
         "stand": "Gate A17",
-        "points": {},
+        "points": {
+          "Z5": "Z5 Face E",
+          "Y0": "Y0 Face W"
+        },
         "available": [
           "Z5 Face E",
           "Nose Right/Tail Left (LEFT)",
@@ -162,7 +187,12 @@
     "A18": {
       "Simnord-Sonnich": {
         "stand": "Gate A18",
-        "points": {},
+        "points": {
+          "A50": "A50 Face E",
+          "Y0": "Y0 Face W",
+          "J4": "J4 Face E",
+          "Z5": "Z5 Face E"
+        },
         "available": [
           "A50 Face E",
           "Y0 Face W",
@@ -174,7 +204,12 @@
     "A20": {
       "Simnord-Sonnich": {
         "stand": "Gate A20",
-        "points": {},
+        "points": {
+          "A50": "A50 Face E",
+          "Y0": "Y0 Face W",
+          "J4": "J4 Face E",
+          "Z5": "Z5 Face E"
+        },
         "available": [
           "A50 Face E",
           "Y0 Face W",
@@ -186,34 +221,46 @@
     "A21": {
       "Simnord-Sonnich": {
         "stand": "Gate A21",
-        "points": {},
+        "points": {
+          "Z5": "Z5 Face E",
+          "A50": "A50 Face E",
+          "Y0": "Y0 Face W",
+          "J4": "J4 Face E"
+        },
         "available": [
           "Z5 Face E",
           "A50 Face E",
           "Y0 Face W",
           "J4 Face E",
           "J Face W"
-        ]
+        ],
+        "review": "unmapped routes: J Face W"
       }
     },
     "A22": {
       "Simnord-Sonnich": {
         "stand": "Gate A22",
-        "points": {},
+        "points": {
+          "J3": "J3 Face E"
+        },
         "available": [
           "J3 Face E",
           "J Face W"
-        ]
+        ],
+        "review": "unmapped routes: J Face W"
       }
     },
     "A23": {
       "Simnord-Sonnich": {
         "stand": "Gate A23",
-        "points": {},
+        "points": {
+          "J3": "J3 Face E"
+        },
         "available": [
           "J3 Face E",
           "J Face W"
-        ]
+        ],
+        "review": "unmapped routes: J Face W"
       }
     },
     "A25": {
@@ -223,53 +270,70 @@
         "available": [
           "TWY J Face E",
           "J Face W"
-        ]
+        ],
+        "review": "unmapped routes: TWY J Face E | J Face W"
       }
     },
     "A26": {
       "Simnord-Sonnich": {
         "stand": "Gate A26",
-        "points": {},
+        "points": {
+          "J2": "J2 Face E"
+        },
         "available": [
           "J2 Face E",
           "J Face W"
-        ]
+        ],
+        "review": "unmapped routes: J Face W"
       }
     },
     "A27": {
       "Simnord-Sonnich": {
         "stand": "Gate A27",
-        "points": {},
+        "points": {
+          "J2": "J2 Face E"
+        },
         "available": [
           "J2 Face E",
           "J Face W"
-        ]
+        ],
+        "review": "unmapped routes: J Face W"
       }
     },
     "A28": {
       "Simnord-Sonnich": {
         "stand": "Gate A28",
-        "points": {},
+        "points": {
+          "J2": "J2 Face E"
+        },
         "available": [
           "J2 Face E",
           "J Face W"
-        ]
+        ],
+        "review": "unmapped routes: J Face W"
       }
     },
     "A30": {
       "Simnord-Sonnich": {
         "stand": "Gate A30",
-        "points": {},
+        "points": {
+          "J2": "J2 Face E"
+        },
         "available": [
           "J2 Face E",
           "J Face W"
-        ]
+        ],
+        "review": "unmapped routes: J Face W"
       }
     },
     "A31": {
       "Simnord-Sonnich": {
         "stand": "Gate A31",
-        "points": {},
+        "points": {
+          "J1": "J1 Face S",
+          "Z2": "Z2 Face E",
+          "Z3": "Z3 Face W"
+        },
         "available": [
           "J1 Face S",
           "Z2 Face E",
@@ -280,7 +344,11 @@
     "A32": {
       "Simnord-Sonnich": {
         "stand": "Gate A32",
-        "points": {},
+        "points": {
+          "J1": "J1 Face S",
+          "Z2": "Z2 Face E",
+          "Z3": "Z3 Face W"
+        },
         "available": [
           "J1 Face S",
           "Z2 Face E",
@@ -291,7 +359,12 @@
     "A33": {
       "Simnord-Sonnich": {
         "stand": "Gate A33",
-        "points": {},
+        "points": {
+          "J1": "J1 Face S",
+          "Z3": "Z3 Face W",
+          "Z2": "Z2 Face E",
+          "Z1": "Z1 Face W"
+        },
         "available": [
           "J1 Face S",
           "Z3 Face W",
@@ -303,20 +376,30 @@
     "A34": {
       "Simnord-Sonnich": {
         "stand": "Gate A34",
-        "points": {},
+        "points": {
+          "Z2": "Z2 Face E",
+          "Z3": "Z3 Face W",
+          "J1": "J1 Face S"
+        },
         "available": [
           "Z2 Face E",
           "Z3 Face W",
           "J1 Face S",
           "Z1 Face E",
           "Z1 Face W"
-        ]
+        ],
+        "review": "ambiguous release points: Z1"
       }
     },
     "A4": {
       "Simnord-Sonnich": {
         "stand": "Gate A4",
-        "points": {},
+        "points": {
+          "Z5": "Z5 Face E",
+          "Y0": "Y0 Face W",
+          "J4": "J4 Face E",
+          "A50": "A50 Face E"
+        },
         "available": [
           "Z5 Face E",
           "Y0 Face W",
@@ -328,7 +411,12 @@
     "A6": {
       "Simnord-Sonnich": {
         "stand": "Gate A6",
-        "points": {},
+        "points": {
+          "Z5": "Z5 Face E",
+          "Y0": "Y0 Face W",
+          "J4": "J4 Face E",
+          "A50": "A50 Face E"
+        },
         "available": [
           "Z5 Face E",
           "Y0 Face W",
@@ -340,7 +428,12 @@
     "A7": {
       "Simnord-Sonnich": {
         "stand": "Gate A7",
-        "points": {},
+        "points": {
+          "Y2": "Y2 Face W",
+          "Z7": "Z7 Face W",
+          "Y1": "Y1 Face E",
+          "Z6": "Z6 Face E"
+        },
         "available": [
           "Y2 Face W",
           "Z7 Face W",
@@ -352,7 +445,12 @@
     "A8": {
       "Simnord-Sonnich": {
         "stand": "Gate A8",
-        "points": {},
+        "points": {
+          "Z5": "Z5 Face E",
+          "Y0": "Y0 Face W",
+          "J4": "J4 Face E",
+          "A50": "A50 Face E"
+        },
         "available": [
           "Z5 Face E",
           "Y0 Face W",
@@ -364,7 +462,12 @@
     "A9": {
       "Simnord-Sonnich": {
         "stand": "Gate A9",
-        "points": {},
+        "points": {
+          "Z7": "Z7 Face W",
+          "Y2": "Y2 Face W",
+          "Y1": "Y1 Face E",
+          "Z6": "Z6 Face E"
+        },
         "available": [
           "Z7 Face W",
           "Y2 Face W",
@@ -376,7 +479,12 @@
     "B10": {
       "Simnord-Sonnich": {
         "stand": "Gate B10",
-        "points": {},
+        "points": {
+          "Z7": "Z7 Face W",
+          "Y2": "Y2 Face W",
+          "Y1": "Y1 Face E",
+          "Z6": "Z6 Face E"
+        },
         "available": [
           "Z7  Face W",
           "Y2  Face W",
@@ -388,7 +496,9 @@
     "B15": {
       "Simnord-Sonnich": {
         "stand": "Gate B15",
-        "points": {},
+        "points": {
+          "P2": "P2 Face S"
+        },
         "available": [
           "P2 Face S",
           "Nose Left/Tail Right (RIGHT)"
@@ -398,7 +508,10 @@
     "B19": {
       "Simnord-Sonnich": {
         "stand": "Gate B19",
-        "points": {},
+        "points": {
+          "Y3": "Y3 Face E",
+          "Y2": "Y2 Face E"
+        },
         "available": [
           "Y3 Face E",
           "Y2 Face E"
@@ -408,7 +521,12 @@
     "B4": {
       "Simnord-Sonnich": {
         "stand": "Gate B4",
-        "points": {},
+        "points": {
+          "Z7": "Z7 Face W",
+          "Y2": "Y2 Face W",
+          "Y1": "Y1 Face E",
+          "Z6": "Z6 Face E"
+        },
         "available": [
           "Z7  Face W",
           "Y2  Face W",
@@ -420,7 +538,12 @@
     "B6": {
       "Simnord-Sonnich": {
         "stand": "Gate B6",
-        "points": {},
+        "points": {
+          "Z7": "Z7 Face W",
+          "Z6": "Z6 Face E",
+          "Y1": "Y1 Face E",
+          "Y2": "Y2 Face W"
+        },
         "available": [
           "Z7  Face W",
           "Z6  Face E",
@@ -432,7 +555,12 @@
     "B7": {
       "Simnord-Sonnich": {
         "stand": "Gate B7",
-        "points": {},
+        "points": {
+          "Q2": "Q2 Face S",
+          "Q1": "Q1 Face S",
+          "P2": "P2 Face S",
+          "P1": "P1 Face S"
+        },
         "available": [
           "Q2 Face S",
           "Q1 Face S",
@@ -444,7 +572,12 @@
     "B8": {
       "Simnord-Sonnich": {
         "stand": "Gate B8",
-        "points": {},
+        "points": {
+          "Z6": "Z6 Face E",
+          "Z7": "Z7 Face W",
+          "Y1": "Y1 Face E",
+          "Y2": "Y2 Face W"
+        },
         "available": [
           "Z6  Face E",
           "Z7  Face W",
@@ -456,7 +589,12 @@
     "B9": {
       "Simnord-Sonnich": {
         "stand": "Gate B9",
-        "points": {},
+        "points": {
+          "Q2": "Q2 Face S",
+          "Q1": "Q1 Face S",
+          "P2": "P2 Face S",
+          "P1": "P1 Face S"
+        },
         "available": [
           "Q2 Face S",
           "Q1 Face S",
@@ -468,7 +606,12 @@
     "C27": {
       "Simnord-Sonnich": {
         "stand": "Gate C27",
-        "points": {},
+        "points": {
+          "S2": "S2 Face S",
+          "S3": "S3 Face N",
+          "R1": "R1 Face N",
+          "S1": "S1 Face N"
+        },
         "available": [
           "S2 Face S",
           "S3 Face N",
@@ -480,7 +623,10 @@
     "C28": {
       "Simnord-Sonnich": {
         "stand": "Gate C28",
-        "points": {},
+        "points": {
+          "Q2": "Q2 Face S",
+          "Q1": "Q1 Face S"
+        },
         "available": [
           "Q2 Face S",
           "Q1 Face S"
@@ -490,7 +636,10 @@
     "C29": {
       "Simnord-Sonnich": {
         "stand": "Gate C29",
-        "points": {},
+        "points": {
+          "R2": "R2 Face S",
+          "R1": "R1 Face N (<CAT-C STD)"
+        },
         "available": [
           "R2 Face S",
           "R1 Face N (<CAT-C STD)"
@@ -500,7 +649,12 @@
     "C30": {
       "Simnord-Sonnich": {
         "stand": "Gate C30",
-        "points": {},
+        "points": {
+          "P1": "P1 Face S",
+          "P2": "P2 Face S",
+          "Q2": "Q2 Face S",
+          "Q1": "Q1 Face S"
+        },
         "available": [
           "P1 Face S",
           "P2 Face S",
@@ -512,7 +666,10 @@
     "C32": {
       "Simnord-Sonnich": {
         "stand": "Gate C32",
-        "points": {},
+        "points": {
+          "Q2": "Q2 Face S",
+          "Q1": "Q1 Face S"
+        },
         "available": [
           "Q2 Face S",
           "Q1 Face S"
@@ -522,7 +679,9 @@
     "C33": {
       "Simnord-Sonnich": {
         "stand": "Gate C33",
-        "points": {},
+        "points": {
+          "R2": "R2 Face S"
+        },
         "available": [
           "R2 Face S",
           "Nose Left/Tail Right (RIGHT)"
@@ -532,7 +691,12 @@
     "C34": {
       "Simnord-Sonnich": {
         "stand": "Gate C34",
-        "points": {},
+        "points": {
+          "Y4": "Y4 Face W",
+          "Z9": "Z9 Face W",
+          "Q2": "Q2 Face S",
+          "Q1": "Q1 Face S"
+        },
         "available": [
           "Y4 Face W",
           "Z9 Face W",
@@ -544,7 +708,9 @@
     "C35": {
       "Simnord-Sonnich": {
         "stand": "Gate C35",
-        "points": {},
+        "points": {
+          "R2": "R2 Face S"
+        },
         "available": [
           "R2 Face S",
           "Nose Left/Tail Right (RIGHT)"
@@ -554,7 +720,12 @@
     "C36": {
       "Simnord-Sonnich": {
         "stand": "Gate C36",
-        "points": {},
+        "points": {
+          "Y4": "Y4 Face W",
+          "Z9": "Z9 Face W",
+          "Q2": "Q2 Face S",
+          "Q1": "Q1 Face S"
+        },
         "available": [
           "Y4 Face W",
           "Z9 Face W",
@@ -566,7 +737,13 @@
     "C37": {
       "Simnord-Sonnich": {
         "stand": "Gate C37",
-        "points": {},
+        "points": {
+          "S2": "S2 Face S",
+          "W2": "W2 Face W",
+          "V3": "V3 Face W",
+          "R2": "R2 Face S",
+          "R4": "R4 Face S"
+        },
         "available": [
           "S2 Face S",
           "W2 Face W",
@@ -574,13 +751,19 @@
           "V3 Face W",
           "R2 Face S",
           "R4 Face S"
-        ]
+        ],
+        "review": "unmapped routes: W1 Face W (<CAT-C)"
       }
     },
     "C39": {
       "Simnord-Sonnich": {
         "stand": "Gate C39",
-        "points": {},
+        "points": {
+          "V4": "V4 Face W (A380)",
+          "B": "B Face N (A380)",
+          "R4": "R4 Face S",
+          "V3": "V3 Face W (A380)"
+        },
         "available": [
           "V4 Face W (A380)",
           "B Face N (A380)",
@@ -592,7 +775,12 @@
     "D1": {
       "Simnord-Sonnich": {
         "stand": "Gate D1",
-        "points": {},
+        "points": {
+          "S2": "S2 Face S",
+          "S3": "S3 Face N",
+          "R1": "R1 Face N",
+          "S1": "S1 Face N"
+        },
         "available": [
           "S2 Face S",
           "S3 Face N",
@@ -604,7 +792,12 @@
     "D2": {
       "Simnord-Sonnich": {
         "stand": "Gate D2",
-        "points": {},
+        "points": {
+          "S2": "S2 Face S",
+          "S3": "S3 Face N",
+          "R1": "R1 Face N",
+          "S1": "S1 Face N"
+        },
         "available": [
           "S2 Face S",
           "S3 Face N",
@@ -616,7 +809,12 @@
     "D3": {
       "Simnord-Sonnich": {
         "stand": "Gate D3",
-        "points": {},
+        "points": {
+          "S2": "S2 Face S",
+          "S3": "S3 Face N",
+          "S1": "S1 Face N",
+          "R1": "R1 Face N"
+        },
         "available": [
           "S2 Face S",
           "S3 Face N",
@@ -628,7 +826,12 @@
     "D4": {
       "Simnord-Sonnich": {
         "stand": "Gate D4",
-        "points": {},
+        "points": {
+          "S2": "S2 Face S",
+          "S3": "S3 Face N",
+          "S1": "S1 Face N",
+          "R1": "R1 Face N"
+        },
         "available": [
           "S2 Face S",
           "S3 Face N",
@@ -948,19 +1151,27 @@
     "E20": {
       "Simnord-Sonnich": {
         "stand": "Gate E20",
-        "points": {},
+        "points": {
+          "S3": "S3 Face N",
+          "R1": "R1 Face N"
+        },
         "available": [
           "S1 Face S",
           "S3 Face N",
           "S1 Face N",
           "R1 Face N"
-        ]
+        ],
+        "review": "ambiguous release points: S1"
       }
     },
     "E22": {
       "Simnord-Sonnich": {
         "stand": "Gate E22",
-        "points": {},
+        "points": {
+          "W2": "W2 Face W",
+          "S2": "S2 Face S",
+          "S1": "S1 Face N"
+        },
         "available": [
           "W2 Face W",
           "S2 Face S",
@@ -971,7 +1182,11 @@
     "E24": {
       "Simnord-Sonnich": {
         "stand": "Gate E24",
-        "points": {},
+        "points": {
+          "W2": "W2 Face W",
+          "S1": "S1 Face N",
+          "S2": "S2 Face S"
+        },
         "available": [
           "W2 Face W",
           "S1 Face N",
@@ -982,7 +1197,10 @@
     "E25": {
       "Simnord-Sonnich": {
         "stand": "Gate E25",
-        "points": {},
+        "points": {
+          "U1": "U1 Face N",
+          "U2": "U2 Face SE"
+        },
         "available": [
           "U1 Face N",
           "U2 Face SE"
@@ -992,7 +1210,10 @@
     "E27": {
       "Simnord-Sonnich": {
         "stand": "Gate E27",
-        "points": {},
+        "points": {
+          "U2": "U2 Face SE",
+          "U1": "U1 Face N"
+        },
         "available": [
           "U2 Face SE",
           "U1 Face N"
@@ -1002,7 +1223,10 @@
     "E29": {
       "Simnord-Sonnich": {
         "stand": "Gate E29",
-        "points": {},
+        "points": {
+          "U1": "U1 Face N",
+          "U2": "U2 Face SE"
+        },
         "available": [
           "U1 Face N",
           "U2 Face SE"
@@ -1012,7 +1236,10 @@
     "E31": {
       "Simnord-Sonnich": {
         "stand": "Gate E31",
-        "points": {},
+        "points": {
+          "U1": "U1 Face N",
+          "U2": "U2 Face SE"
+        },
         "available": [
           "U1 Face N",
           "U2 Face SE"
@@ -1022,7 +1249,10 @@
     "E33": {
       "Simnord-Sonnich": {
         "stand": "Gate E33",
-        "points": {},
+        "points": {
+          "U2": "U2 Face SE",
+          "U1": "U1 Face N"
+        },
         "available": [
           "U2 Face SE",
           "U1 Face N"
@@ -1032,7 +1262,10 @@
     "E35": {
       "Simnord-Sonnich": {
         "stand": "Gate E35",
-        "points": {},
+        "points": {
+          "U1": "U1 Face N",
+          "U2": "U2 Face SE"
+        },
         "available": [
           "U1 Face N",
           "U2 Face SE"
@@ -1042,7 +1275,11 @@
     "E36": {
       "Simnord-Sonnich": {
         "stand": "Gate E36",
-        "points": {},
+        "points": {
+          "W2": "W2 Face W",
+          "S2": "S2 Face S",
+          "S3": "S3 Face N"
+        },
         "available": [
           "W2 Face W",
           "S2 Face S",
@@ -1053,7 +1290,10 @@
     "E70": {
       "Simnord-Sonnich": {
         "stand": "Gate E70",
-        "points": {},
+        "points": {
+          "T2": "T2 Face W",
+          "T3": "T3 Face W"
+        },
         "available": [
           "T2 Face W",
           "T3 Face W"
@@ -1063,7 +1303,10 @@
     "E71": {
       "Simnord-Sonnich": {
         "stand": "Gate E71",
-        "points": {},
+        "points": {
+          "T2": "T2 Face W",
+          "T3": "T3 Face W"
+        },
         "available": [
           "T2 Face W",
           "T3 Face W"
@@ -1073,7 +1316,10 @@
     "E73": {
       "Simnord-Sonnich": {
         "stand": "Gate E73",
-        "points": {},
+        "points": {
+          "T3": "T3 Face W",
+          "T2": "T2 Face W"
+        },
         "available": [
           "T3 Face W",
           "T2 Face W"
@@ -1083,7 +1329,10 @@
     "E74": {
       "Simnord-Sonnich": {
         "stand": "Gate E74",
-        "points": {},
+        "points": {
+          "T3": "T3 Face W",
+          "T2": "T2 Face W"
+        },
         "available": [
           "T3 Face W",
           "T2 Face W"
@@ -1093,7 +1342,10 @@
     "E75": {
       "Simnord-Sonnich": {
         "stand": "Gate E75",
-        "points": {},
+        "points": {
+          "T3": "T3 Face W",
+          "T2": "T2 Face W"
+        },
         "available": [
           "T3 Face W",
           "T2 Face W"
@@ -1103,7 +1355,10 @@
     "E76": {
       "Simnord-Sonnich": {
         "stand": "Gate E76",
-        "points": {},
+        "points": {
+          "T5": "T5 Face W",
+          "T4": "T4 Face W"
+        },
         "available": [
           "T5 Face W",
           "T4 Face W"
@@ -1113,7 +1368,10 @@
     "E77": {
       "Simnord-Sonnich": {
         "stand": "Gate E77",
-        "points": {},
+        "points": {
+          "T5": "T5 Face W",
+          "T4": "T4 Face W"
+        },
         "available": [
           "T5 Face W",
           "T4 Face W"
@@ -1123,7 +1381,10 @@
     "E78": {
       "Simnord-Sonnich": {
         "stand": "Gate E78",
-        "points": {},
+        "points": {
+          "T5": "T5 Face W",
+          "T4": "T4 Face W"
+        },
         "available": [
           "T5 Face W",
           "T4 Face W"
@@ -1133,7 +1394,9 @@
     "E82": {
       "Simnord-Sonnich": {
         "stand": "Gate E82",
-        "points": {},
+        "points": {
+          "T4": "T4 Face W"
+        },
         "available": [
           "T4 Face W",
           "Nose Left/Tail Right (RIGHT)"
@@ -1143,7 +1406,9 @@
     "E83": {
       "Simnord-Sonnich": {
         "stand": "Gate E83",
-        "points": {},
+        "points": {
+          "T4": "T4 Face W"
+        },
         "available": [
           "T4 Face W",
           "Nose Left/Tail Right (RIGHT)"
@@ -1153,7 +1418,9 @@
     "E85": {
       "Simnord-Sonnich": {
         "stand": "Gate E85",
-        "points": {},
+        "points": {
+          "T4": "T4 Face W"
+        },
         "available": [
           "T4 Face W",
           "Nose Left/Tail Right (RIGHT)"
@@ -1163,7 +1430,9 @@
     "E86": {
       "Simnord-Sonnich": {
         "stand": "Gate E86",
-        "points": {},
+        "points": {
+          "T5": "T5 Face W"
+        },
         "available": [
           "T5 Face W",
           "Nose Left/Tail Right (RIGHT)"
@@ -1173,7 +1442,9 @@
     "E88": {
       "Simnord-Sonnich": {
         "stand": "Gate E88",
-        "points": {},
+        "points": {
+          "T5": "T5 Face W"
+        },
         "available": [
           "T5 Face W",
           "Nose Left/Tail Right (RIGHT)"
@@ -1183,7 +1454,9 @@
     "E89": {
       "Simnord-Sonnich": {
         "stand": "Gate E89",
-        "points": {},
+        "points": {
+          "T5": "T5 Face W"
+        },
         "available": [
           "T5 Face W",
           "Nose Left/Tail Right (RIGHT)"
@@ -1193,7 +1466,12 @@
     "F1": {
       "Simnord-Sonnich": {
         "stand": "Gate F1",
-        "points": {},
+        "points": {
+          "S2": "S2 Face S",
+          "W3": "W3 Face E",
+          "W2": "W2 Face W",
+          "S3": "S3 Face N"
+        },
         "available": [
           "S2 Face S",
           "W3 Face E",
@@ -1205,20 +1483,32 @@
     "F4": {
       "Simnord-Sonnich": {
         "stand": "Gate F4",
-        "points": {},
+        "points": {
+          "S2": "S2 Face S",
+          "W3": "W3 Face E",
+          "W2": "W2 Face W",
+          "S3": "S3 Face N"
+        },
         "available": [
           "S2 Face S",
           "W3 Face E",
           "W2 Face W",
           "W Face W",
           "S3 Face N"
-        ]
+        ],
+        "review": "unmapped routes: W Face W"
       }
     },
     "F5": {
       "Simnord-Sonnich": {
         "stand": "Gate F5",
-        "points": {},
+        "points": {
+          "F89": "F89 (Push & Hold)",
+          "W2": "W2 Face W",
+          "T1": "T1 Face S",
+          "V5": "V5 Face SW",
+          "W3": "W3 Face E"
+        },
         "available": [
           "F89 (Push & Hold)",
           "W2 Face W",
@@ -1226,13 +1516,20 @@
           "V5 Face SW",
           "W Face W",
           "W3 Face E"
-        ]
+        ],
+        "review": "unmapped routes: W Face W"
       }
     },
     "F7": {
       "Simnord-Sonnich": {
         "stand": "Gate F7",
-        "points": {},
+        "points": {
+          "F89": "F89 (Push & Hold)",
+          "W2": "W2 Face W",
+          "T1": "T1 Face S",
+          "V5": "V5 Face SW",
+          "W3": "W3 Face E"
+        },
         "available": [
           "F89 (Push & Hold)",
           "W2 Face W",
@@ -1240,13 +1537,20 @@
           "V5 Face SW",
           "W Face W",
           "W3 Face E"
-        ]
+        ],
+        "review": "unmapped routes: W Face W"
       }
     },
     "F8": {
       "Simnord-Sonnich": {
         "stand": "Gate F8",
-        "points": {},
+        "points": {
+          "F89": "F89 (Push & Hold)",
+          "W2": "W2 Face W",
+          "T1": "T1 Face S",
+          "V5": "V5 Face SW",
+          "W3": "W3 Face E"
+        },
         "available": [
           "F89 (Push & Hold)",
           "W2 Face W",
@@ -1254,13 +1558,20 @@
           "V5 Face SW",
           "W Face W",
           "W3 Face E"
-        ]
+        ],
+        "review": "unmapped routes: W Face W"
       }
     },
     "F9": {
       "Simnord-Sonnich": {
         "stand": "Gate F9",
-        "points": {},
+        "points": {
+          "F89": "F89 (Push & Hold)",
+          "W2": "W2 Face W",
+          "T1": "T1 Face S",
+          "V5": "V5 Face SW",
+          "W3": "W3 Face E"
+        },
         "available": [
           "F89 (Push & Hold)",
           "W2 Face W",
@@ -1268,13 +1579,18 @@
           "V5 Face SW",
           "W Face W",
           "W3 Face E"
-        ]
+        ],
+        "review": "unmapped routes: W Face W"
       }
     },
     "H102": {
       "Simnord-Sonnich": {
         "stand": "Gate H102",
-        "points": {},
+        "points": {
+          "W3": "W3 Face E",
+          "T2": "T2 Face SW",
+          "T1": "T1 Face S"
+        },
         "available": [
           "W3 Face E",
           "T2 Face SW",
@@ -1285,7 +1601,10 @@
     "H105": {
       "Simnord-Sonnich": {
         "stand": "Gate H105",
-        "points": {},
+        "points": {
+          "T2": "T2 Face SW",
+          "T1": "T1 Face S."
+        },
         "available": [
           "T2 Face SW",
           "T1 Face S."

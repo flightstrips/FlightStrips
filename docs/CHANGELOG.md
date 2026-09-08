@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.18.2...docs/v0.19.0) (2026-09-08)
+
+
+### Features
+
+* **stand:** assign stands and pushback points to pilots through GSX ([#546](https://github.com/flightstrips/FlightStrips/issues/546)) ([a4539e9](https://github.com/flightstrips/FlightStrips/commit/a4539e903c0ae4d1794ec694f1cfe8e20c59af1e))
+
 ## [0.18.2](https://github.com/flightstrips/FlightStrips/compare/docs/v0.18.1...docs/v0.18.2) (2026-09-07)
 
 

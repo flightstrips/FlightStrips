@@ -99,6 +99,7 @@ func main() {
 		EnableECFMPAPI:                  !isLiveEnvironment(environment),
 		EnablePilotAPI:                  true,
 		EnableEFB:                       envBool("ENABLE_EFB", false),
+		EnableGSXStandFeed:              envBool("ENABLE_GSX_STAND_FEED", false),
 		EnableALB:                       true,
 		EnableMetar:                     true,
 		EnableVATSIM:                    true,

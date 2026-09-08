@@ -15,6 +15,7 @@ import (
 	"FlightStrips/internal/efb"
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
+	"FlightStrips/internal/gsx"
 	"FlightStrips/internal/metar"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/pdc"
@@ -72,6 +73,7 @@ type Config struct {
 	EnableECFMPAPI                  bool
 	EnablePilotAPI                  bool
 	EnableEFB                       bool
+	EnableGSXStandFeed              bool
 	EnableALB                       bool
 	EnableMetar                     bool
 	EnableVATSIM                    bool
@@ -505,6 +507,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			enableECFMPAPI:             cfg.EnableECFMPAPI,
 			enablePilotAPI:             cfg.EnablePilotAPI,
 			enableEFBAPI:               cfg.EnableEFB,
+			enableGSXStandFeed:         cfg.EnableGSXStandFeed,
 			enablePDCAPI:               pdcService != nil,
 			enableTestTools:            cfg.EnableTestTools,
 			ecfmpService:               ecfmpService,
@@ -969,6 +972,7 @@ type buildHandlerConfig struct {
 	enableECFMPAPI             bool
 	enablePilotAPI             bool
 	enableEFBAPI               bool
+	enableGSXStandFeed         bool
 	enablePDCAPI               bool
 	enableTestTools            bool
 	ecfmpService               *ecfmp.Service
@@ -1007,6 +1011,11 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	}
 	if cfg.enableEFBAPI && cfg.efbAPI != nil {
 		cfg.efbAPI.RegisterRoutes(apiMux)
+	}
+	if cfg.enableGSXStandFeed {
+		// Unauthenticated by necessity: the GSX script can only issue a plain GET.
+		// Restricted to LIVE sessions and to { stand, revision }.
+		gsx.NewWebAPI(cfg.sessionRepo, cfg.stripRepo, true).RegisterRoutes(apiMux)
 	}
 	if cfg.enablePDCAPI {
 		pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimSource, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)

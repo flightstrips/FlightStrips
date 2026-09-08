@@ -4,7 +4,7 @@ import { Bay, type FrontendStrip } from "@/api/models";
 import { SELECTION_COLOR } from "@/components/strip/shared";
 import { cn, getSimpleAircraftType } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { CDM_GREEN, CDM_ORANGE, CTOT_BLUE, computeCDMColors, computeCTOTColors, hasManualTobtSource } from "@/lib/cdmColors";
+import { CDM_GREEN, CDM_RED, CTOT_BLUE, computeCDMColors, computeCTOTColors, hasManualTobtSource, isTsatWithinStartRequestWindow } from "@/lib/cdmColors";
 
 import {
   EST_CELL_HEIGHT,
@@ -75,13 +75,17 @@ export default function EstStandCell({
 
   const isDeparture = !!strip && (strip.bay === Bay.NotCleared || strip.bay === Bay.Cleared);
   const isClearedDeparture = isDeparture && strip.bay !== Bay.NotCleared;
+  const isReady = isDeparture && !!strip?.start_req && !departureTransferActive;
   const isPushing = strip?.bay === Bay.Push;
   const isArrival = strip?.bay === Bay.Stand;
 
   let backgroundClass = "bg-[#D9D9D9]";
   let textClass = "text-[#333333]";
 
-  if (effectivelyBlocked) {
+  if (departureTransferActive) {
+    backgroundClass = "bg-[#131376]";
+    textClass = "text-white";
+  } else if (effectivelyBlocked) {
     backgroundClass = "bg-[#4A4A4A]";
     textClass = "text-white";
   } else if (isPushing) {
@@ -110,7 +114,7 @@ export default function EstStandCell({
   const showTobt = isDeparture && !departureTransferActive && !!strip && strip.tobt !== "";
   const showTsat = isDeparture && !departureTransferActive && !!strip && strip.tsat !== "";
   const showCtot = isClearedDeparture && !!strip?.ctot.trim() && (ctotImproved || !!ctotColors?.showCtot);
-  const showReady = isDeparture && !!strip?.start_req;
+  const showReady = isReady;
   const showReleasePoint = isPushing && !!strip?.release_point.trim();
   const ctotBarColor = ctotImproved ? CTOT_BLUE : ctotColors?.ctotBg;
   const ctotTextColor = ctotImproved ? "#FFFFFF" : ctotColors?.ctotColor;
@@ -122,11 +126,12 @@ export default function EstStandCell({
         : `CTOT: ${formatTimeLabel(strip.ctot).replace(":", "")}`
       : "";
 
-  const showMark = isClearedDeparture && !!strip?.marked;
+  const showMark = isClearedDeparture && !departureTransferActive && !!strip?.marked;
   const showCtotText = ctotLabel !== "";
   const boxShadows: string[] = [];
-  if (startReqActive) {
-    boxShadows.push(`inset 0 0 0 2px ${tobtBarColor === CDM_GREEN ? CDM_GREEN : CDM_ORANGE}`);
+  if (showReady) {
+    const tsatWithinWindow = isTsatWithinStartRequestWindow(strip?.tsat ?? "", nowMs);
+    boxShadows.push(`inset 0 0 0 2px ${tsatWithinWindow ? CDM_GREEN : CDM_RED}`);
   }
   if (showMark) {
     boxShadows.push(`0 0 0 4px ${SELECTION_COLOR}`);
@@ -153,14 +158,14 @@ export default function EstStandCell({
             style={buttonStyle}
           >
             {/* Indicator bars (rendered behind text via DOM order) */}
-            {tobtBarColor && (
+            {showTobt && tobtBarColor && (
               <div
                 className="absolute left-0 right-0"
                 data-testid="est-tobt-background"
                 style={{ top: TOBT_ROW_TOP, height: ROW_HEIGHT, backgroundColor: tobtBarColor }}
               />
             )}
-            {tsatBarColor && (
+            {showTsat && tsatBarColor && (
               <div
                 className="absolute left-0 right-0"
                 data-testid="est-tsat-background"

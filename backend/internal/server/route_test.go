@@ -70,6 +70,37 @@ func TestComputeRouteStateForStrip_ClearsDepartureRouteUntilStandIsKnown(t *test
 	assert.Empty(t, result.NextOwners)
 }
 
+func TestComputeRouteStateForStrip_UsesAssignedDepartureRunwayWhenItIsNotActive(t *testing.T) {
+	owner := "121.905"
+	strip := &models.Strip{
+		Callsign:    "SAS123",
+		Origin:      "EKCH",
+		Destination: "ESSA",
+		Runway:      stringPtr("22L"),
+		Stand:       stringPtr("A12"),
+		Owner:       &owner,
+	}
+	session := &models.Session{
+		ID:      42,
+		Airport: "EKCH",
+		ActiveRunways: pkgModels.ActiveRunways{
+			DepartureRunways: []string{"22R"},
+			ArrivalRunways:   []string{"22L"},
+		},
+	}
+	owners := []*models.SectorOwner{
+		{Position: "121.905", Sector: []string{"SQ", "AD"}, Identifier: "AD"},
+		{Position: "118.105", Sector: []string{"TE"}, Identifier: "TE"},
+	}
+	assert.Equal(t, []string{"22L"}, routeActiveRunwaysForStrip(strip, session, false))
+
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, owners, routeRadioState{})
+
+	require.NoError(t, err)
+	require.True(t, shouldUpdate)
+	assert.Equal(t, []string{"118.105"}, result.NextOwners)
+}
+
 func TestArrivalRouteCanContinueFromGroundEastToNorthStand(t *testing.T) {
 	for _, test := range []struct {
 		runway string
@@ -634,6 +665,7 @@ func TestResolveRouteDisplayFrequency_UsesSectorFrequencyForCrossCoupledAirborne
 	}
 
 	nextDisplay := buildRouteNextDisplay(
+		nil,
 		session,
 		"K_DEP",
 		frequencyForPosition(t, "EKCH_W_APP"),
@@ -655,6 +687,7 @@ func TestResolveRouteDisplayFrequency_UsesSectorFrequencyForGroundSectorWhenCove
 	}
 
 	nextDisplay := buildRouteNextDisplay(
+		nil,
 		session,
 		"AD",
 		frequencyForPosition(t, "EKCH_A_GND"),
@@ -675,7 +708,7 @@ func TestResolveRouteDisplayFrequency_UsesPrimaryDisplayWhenOwnerIsConfiguredPri
 		},
 	}
 
-	nextDisplay := buildRouteNextDisplay(session, "TE", frequencyForPosition(t, "EKCH_A_TWR"), nil, true)
+	nextDisplay := buildRouteNextDisplay(nil, session, "TE", frequencyForPosition(t, "EKCH_A_TWR"), nil, true)
 
 	assert.Nil(t, nextDisplay)
 }

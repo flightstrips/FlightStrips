@@ -273,31 +273,126 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/docs:${{ needs.release-please.outputs.docs_version }}
             ghcr.io/${{ github.repository_owner }}/docs:latest
 
-  deploy:
-    needs: [build-backend, build-frontend, build-docs]
+  sync-infrastructure:
+    needs: [release-please, build-backend, build-frontend, build-docs]
     if: |
       always() &&
-      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success' || needs.build-docs.result == 'success')
+      (
+        (needs.release-please.outputs.backend_release_created == 'true' && needs.build-backend.result == 'success') ||
+        (needs.release-please.outputs.frontend_release_created == 'true' && needs.build-frontend.result == 'success') ||
+        (needs.release-please.outputs.docs_release_created == 'true' && needs.build-docs.result == 'success')
+      )
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    env:
+      GH_TOKEN: ${{ secrets.INFRASTRUCTURE_GITHUB_TOKEN }}
+      INFRA_STACK_FILE: stacks/flightstrips.yml
     steps:
-      - uses: actions/checkout@v3
+      - name: Check infrastructure access
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::Missing INFRASTRUCTURE_GITHUB_TOKEN secret."
+            echo "::error::Create a secret named INFRASTRUCTURE_GITHUB_TOKEN with access to the flightstrips/infrastructure repository."
+            exit 1
+          fi
 
-      - name: Copy docker-compose.prod.yml to VPS
-        uses: appleboy/scp-action@v0.1.7
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v4
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: docker-compose.prod.yml
-          target: ${{ secrets.VPS_DEPLOY_PATH }}
+          repository: flightstrips/infrastructure
+          token: ${{ secrets.INFRASTRUCTURE_GITHUB_TOKEN }}
+          path: infrastructure
+          fetch-depth: 1
 
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            cd ${{ secrets.VPS_DEPLOY_PATH }}
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+      - name: Update infrastructure image tags
+        env:
+          BACKEND_RELEASE_CREATED: ${{ needs.release-please.outputs.backend_release_created }}
+          BACKEND_VERSION: ${{ needs.release-please.outputs.backend_version }}
+          FRONTEND_RELEASE_CREATED: ${{ needs.release-please.outputs.frontend_release_created }}
+          FRONTEND_VERSION: ${{ needs.release-please.outputs.frontend_version }}
+          DOCS_RELEASE_CREATED: ${{ needs.release-please.outputs.docs_release_created }}
+          DOCS_VERSION: ${{ needs.release-please.outputs.docs_version }}
+          INFRA_STACK_FILE: stacks/flightstrips.yml
+        run: |
+          set -euo pipefail
+
+          cd infrastructure
+
+          if [ ! -f "$INFRA_STACK_FILE" ]; then
+            echo "::error::Expected $INFRA_STACK_FILE not found in infrastructure repo."
+            exit 1
+          fi
+
+          BRANCH_NAME="release/${{ github.sha }}-infra"
+          PR_TITLE="chore(infra): bump deployment image versions for ${{ github.sha }}"
+          PR_BODY=$(cat <<EOF
+          Release versions updated from this commit:
+          - backend: $BACKEND_VERSION
+          - frontend: $FRONTEND_VERSION
+          - docs: $DOCS_VERSION
+
+          Source repository: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+          )
+
+          git fetch --prune origin
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+
+          if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+            git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME"
+          else
+            git checkout -B "$BRANCH_NAME"
+          fi
+
+          updated=false
+
+          if [ "$BACKEND_RELEASE_CREATED" = "true" ]; then
+            sed -i -E "s#(ghcr.io/flightstrips/backend-api:)[^[:space:]]+#\1${BACKEND_VERSION}#g" "$INFRA_STACK_FILE"
+            sed -i -E "s#(ghcr.io/flightstrips/backend-migrate:)[^[:space:]]+#\1${BACKEND_VERSION}#g" "$INFRA_STACK_FILE"
+            updated=true
+          fi
+
+          if [ "$FRONTEND_RELEASE_CREATED" = "true" ]; then
+            sed -i -E "s#(ghcr.io/flightstrips/frontend:)[^[:space:]]+#\1${FRONTEND_VERSION}#g" "$INFRA_STACK_FILE"
+            sed -i -E "s#(APP_VERSION:[[:space:]]*\\$\\{APP_VERSION:-)[^}]+\\}#\\1${FRONTEND_VERSION}}#g" "$INFRA_STACK_FILE"
+            updated=true
+          fi
+
+          if [ "$DOCS_RELEASE_CREATED" = "true" ]; then
+            sed -i -E "s#(ghcr.io/flightstrips/docs:)[^[:space:]]+#\1${DOCS_VERSION}#g" "$INFRA_STACK_FILE"
+            updated=true
+          fi
+
+          if [ "$updated" = "false" ]; then
+            echo "No release versions changed for deployment-relevant components."
+            exit 0
+          fi
+
+          if git diff --quiet; then
+            echo "No files changed after version bump. Exiting."
+            exit 0
+          fi
+
+          echo "Updated infrastructure manifests:"
+          git diff --name-only
+
+          git add "$INFRA_STACK_FILE"
+          if git diff --cached --quiet; then
+            echo "No commit changes after checkout; PR already up to date."
+            exit 0
+          fi
+
+          git commit -m "chore(infra): bump deployment image versions"
+          git push --set-upstream origin "$BRANCH_NAME"
+
+          if gh pr list --repo flightstrips/infrastructure --state open --head "${{ github.repository_owner }}:${BRANCH_NAME}" --json number --jq 'length' | grep -q '^0$'; then
+            gh pr create \
+              --repo flightstrips/infrastructure \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY" \
+              --head "${{ github.repository_owner }}:${BRANCH_NAME}" \
+              --base "main"
+          else
+            echo "PR already exists for branch ${BRANCH_NAME}."
+          fi
+

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.20.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.19.0...docs/v0.20.0) (2026-09-08)
+
+
+### Features
+
+* **stand:** infer the EKCH pushback points from the Simnord profile ([#548](https://github.com/flightstrips/FlightStrips/issues/548)) ([8df073f](https://github.com/flightstrips/FlightStrips/commit/8df073fac09a5f9d3a3d275e0a57b715ac5e7561))
+
+## [0.19.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.18.2...docs/v0.19.0) (2026-09-08)
+
+
+### Features
+
+* **stand:** assign stands and pushback points to pilots through GSX ([#546](https://github.com/flightstrips/FlightStrips/issues/546)) ([a4539e9](https://github.com/flightstrips/FlightStrips/commit/a4539e903c0ae4d1794ec694f1cfe8e20c59af1e))
+
+## [0.18.2](https://github.com/flightstrips/FlightStrips/compare/docs/v0.18.1...docs/v0.18.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **strip:** route mismatched runways and allow force assume ([#540](https://github.com/flightstrips/FlightStrips/issues/540)) ([ff3dd93](https://github.com/flightstrips/FlightStrips/commit/ff3dd933b4b29f4646ca13ee05b80153df728ea6))
+
 ## [0.18.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.18.0...docs/v0.18.1) (2026-09-03)
 
 

@@ -107,7 +107,7 @@ describe("EstStandCell", () => {
     expect(screen.getByText("READY").style.color).toBe("rgb(0, 0, 0)");
   });
 
-  it("outlines a START REQ stand in orange when TOBT is not active", () => {
+  it("outlines a ready stand in red when TSAT is outside the start request window", () => {
     render(
       <EstStandCell
         stand={stand}
@@ -123,10 +123,10 @@ describe("EstStandCell", () => {
       />,
     );
 
-    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #DD6A12");
+    expect(screen.getByRole("button").style.boxShadow).toContain("inset 0 0 0 2px #dc2626");
   });
 
-  it("outlines a START REQ stand in green when TOBT is active", () => {
+  it("outlines a ready stand in green when TSAT is within the start request window", () => {
     render(
       <EstStandCell
         stand={stand}
@@ -153,7 +153,7 @@ describe("EstStandCell", () => {
     render(
       <EstStandCell
         stand={stand}
-        strip={makeStrip({ bay: Bay.Cleared, ctot: "1430" })}
+        strip={makeStrip({ bay: Bay.Cleared, ctot: "1430", start_req: true, marked: true })}
         blocked={false}
         selected={false}
         actionActive={false}
@@ -168,7 +168,52 @@ describe("EstStandCell", () => {
 
     expect(screen.queryByText(/TOBT:/)).toBeNull();
     expect(screen.queryByText(/TSAT:/)).toBeNull();
+    expect(screen.queryByText("READY")).toBeNull();
+    expect(screen.queryByTestId("est-ready-background")).toBeNull();
+    expect(screen.queryByTestId("est-tobt-background")).toBeNull();
+    expect(screen.queryByTestId("est-tsat-background")).toBeNull();
+    expect(screen.getByRole("button")).toHaveClass("bg-[#131376]");
+    expect(screen.getByRole("button").style.boxShadow).toBe("");
     expect(screen.getByText("CTOT: 1430")).toBeDefined();
+  });
+
+  it("uses the cleared background before the departure is ready", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ bay: Bay.Cleared })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive={false}
+        ctotImproved={false}
+        nowMs={Date.now()}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button")).toHaveClass("bg-[#73BCF8]");
+  });
+
+  it("uses the ready background while the departure is ready", () => {
+    render(
+      <EstStandCell
+        stand={stand}
+        strip={makeStrip({ bay: Bay.Cleared, start_req: true })}
+        blocked={false}
+        selected={false}
+        actionActive={false}
+        blinking={false}
+        startReqActive
+        ctotImproved={false}
+        nowMs={Date.UTC(2026, 6, 14, 14, 21, 0)}
+        onClick={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("button")).toHaveClass("bg-[#131376]");
+    expect(screen.getByTestId("est-ready-background")).toBeDefined();
   });
 
   it("shows a future CTOT in yellow with black text", () => {

@@ -47,6 +47,13 @@ var (
 	errAllocationVersionConflict     = errors.New("stand assignment version conflict")
 )
 
+type manualStandAssignmentError struct {
+	reason string
+}
+
+func (e manualStandAssignmentError) Error() string { return e.reason }
+func (e manualStandAssignmentError) Unwrap() error { return ErrIncompatibleManualAssignment }
+
 const observedDepartureConflictPrefix = "observed departure conflicts with confirmed arrival:"
 
 // StandAllocationRequest contains facts already resolved by the SAT data
@@ -1474,8 +1481,13 @@ func (s *StandAllocationService) selectStand(command StandAllocationCommand, req
 	}
 	if command == CompatibleManualStand {
 		match, compatible := matches[request.Stand]
-		if !compatible || len(availability[request.Stand]) > 0 {
-			return request.Stand, nil, nil, nil, "", fmt.Errorf("%w: %s", ErrIncompatibleManualAssignment, request.Stand)
+		if !compatible {
+			return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: fmt.Sprintf("%s is incompatible: %s",
+				request.Stand, compatibilityReason(request.Stand, evaluation.Rejections))}
+		}
+		if reasons := availability[request.Stand]; len(reasons) > 0 {
+			return request.Stand, nil, nil, nil, "", manualStandAssignmentError{reason: fmt.Sprintf("%s is unavailable: %s",
+				request.Stand, joinAllocationReasons(reasons))}
 		}
 		return request.Stand, nil, &match, []string{request.Stand}, "", nil
 	}

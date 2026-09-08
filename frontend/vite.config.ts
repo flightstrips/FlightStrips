@@ -59,6 +59,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2,webmanifest}'],
         globIgnores: [
           '**/config.js',
+          // Public-site photography — never needed by an offline controller.
+          '**/landing/*.webp',
           '**/assets/COMPLETE-*.png',
           '**/assets/INTRO-*.png',
           '**/assets/PUSH-*.png',

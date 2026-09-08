@@ -32,8 +32,8 @@
 API_BASE = "https://api.flightstrips.dk"
 SCENERY = "Simnord-Sonnich"
 
-POLL_INTERVAL_MS = 30000   # how often to re-check
-POLL_LIMIT = 240           # stop after this many polls (~2h at 30s)
+POLL_INTERVAL_MS = 5000    # how often to re-check
+POLL_LIMIT = 1440          # stop after this many polls (~2h at 5s)
 SHOW_ON_VDGS = True        # also show the assigned push on the stand display
 
 

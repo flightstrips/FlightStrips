@@ -101,3 +101,128 @@ enables **Simbrief Ignore Time** in GSX settings.
 The handler script lives in `gsx-client/`. It is named after the GSX `.ini`
 profile it accompanies, which binds it to one airport and one scenery, and is
 distributed alongside that profile.
+
+## Adding this to your GSX profile
+
+If you build and publish GSX profiles, you can ship stand assignment with the
+profile you already distribute. Pilots install it the same way they install
+everything else — copy the files into `%APPDATA%\Virtuali\GSX\MSFS\` — and there
+is nothing for them to configure.
+
+### Naming
+
+GSX loads an airport handler only when its filename is the active `.ini`
+profile's name plus `_handler`. The stem must match exactly:
+
+| Your profile | Your handler script |
+| --- | --- |
+| `EKCH-Simnord-Sonnich.ini` | `EKCH-Simnord-Sonnich_handler.py` |
+| `ekbi-simnord24.ini` | `ekbi-simnord24_handler.py` |
+| `EGKK-MyScenery.ini` | `EGKK-MyScenery_handler.py` |
+
+That binding is what makes the script scenery-specific. It loads only for the
+scenery whose profile is active, so the stand names it resolves are the ones
+that scenery actually has — you do not need to worry about another developer's
+numbering for the same airport.
+
+### A complete working script
+
+Copy this, rename it to match your profile, and set `API_BASE`. It is the whole
+feature in about fifty lines; the script in `gsx-client/` is the same thing with
+more logging and edge-case handling.
+
+```python
+# -- coding: utf-8 --
+# Stand assignment from FlightStrips. Python 3.7.
+# Save next to your .ini as <profile name>_handler.py
+
+API_BASE = "https://flightstrips.example.org"
+POLL_INTERVAL_MS = 30000
+POLL_LIMIT = 240
+
+
+def _standReadCallsign(self):
+    """The callsign the pilot filed with, from their SimBrief plan."""
+    try:
+        sb = getSimbrief()
+        if sb is not None and not sb.last_error and sb.callsign:
+            clean = "".join(c for c in sb.callsign.upper() if c.isalnum())
+            return clean[:12]
+    except Exception as err:
+        print("[stands] SimBrief unavailable: %s" % err)
+    return ""
+
+
+def _standCheck(self):
+    """Fetch the current stand and select it if it has changed."""
+    if not self._standCallsign:
+        return
+
+    airport = getAirport()
+    payload = fetchJson("%s/api/gsx/stand?callsign=%s&icao=%s"
+                        % (API_BASE, self._standCallsign,
+                           airport.icao if airport else ""),
+                        timeout=8, etag=True)
+
+    # None is a network error, and an unchanged stand costs a 304. In both
+    # cases there is nothing to do until the next poll.
+    if not payload or payload.get("revision") == self._standRevision:
+        return
+
+    stand = payload.get("stand")
+    if not stand:
+        self._standRevision = payload.get("revision")
+        return
+
+    result = selectGate(stand)
+    if isinstance(result, list) and result:
+        result = selectGate(result[0])   # ambiguous name: take the first match
+    if result is True:
+        self._standRevision = payload.get("revision")
+        showMessage("Stand %s assigned" % stand)   # visible with the menu open
+
+
+def onEnterAirport(self):
+    self._standCallsign = _standReadCallsign(self)
+    self._standRevision = None
+    self._standPoll = None
+
+    if getGate() is not None:
+        return          # the pilot already picked a stand - leave them alone
+
+    _standCheck(self)
+
+    def loop():
+        for _ in range(POLL_LIMIT):
+            truewait(POLL_INTERVAL_MS)   # wall clock, unaffected by sim rate
+            _standCheck(self)
+
+    self._standPoll = runAsync(loop)
+
+
+def onGateReset(self, reason):
+    """The pilot chose their own stand. Stop, for the rest of this visit."""
+    if reason in ("user_changed", "user_revoked"):
+        cancelAsync(getattr(self, "_standPoll", None))
+        self._standPoll = None
+```
+
+### What to check before publishing
+
+- **Set `API_BASE`** to the FlightStrips instance for your vACC, over HTTPS.
+  Pilots never edit this — it ships already set.
+- **Test with the profile active.** If the filename stem is wrong the script is
+  silently not loaded; GSX will not warn you.
+- **Watch the GSX Handler Editor output panel** on your first run. The script
+  prints there, and `F5` reloads it without restarting the sim.
+- **Confirm your stand names resolve.** `selectGate` matches the BGL name and
+  number first (`Gate A12`), then the UI name, then a suffix (`A12` matches
+  `Gate A12`). If your scenery numbers stands unusually, check that the strings
+  controllers type in FlightStrips actually resolve in your profile.
+
+### What pilots see
+
+Nothing, unless they have a stand. A pilot with no strip, no assignment, or no
+SimBrief plan gets one HTTP request on arrival and no further activity — GSX
+behaves exactly as it does without the script. It never overrides a stand the
+pilot picked themselves, and it stops for good the moment they change one.

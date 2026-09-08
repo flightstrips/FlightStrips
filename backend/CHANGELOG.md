@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/flightstrips/FlightStrips/compare/backend/v1.2.0...backend/v1.3.0) (2026-09-08)
+
+
+### Features
+
+* **stand:** infer the EKCH pushback points from the Simnord profile ([#548](https://github.com/flightstrips/FlightStrips/issues/548)) ([8df073f](https://github.com/flightstrips/FlightStrips/commit/8df073fac09a5f9d3a3d275e0a57b715ac5e7561))
+
 ## [1.2.0](https://github.com/flightstrips/FlightStrips/compare/backend/v1.1.1...backend/v1.2.0) (2026-09-08)
 
 

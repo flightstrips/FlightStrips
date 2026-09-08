@@ -138,6 +138,7 @@ type StandAvailability struct {
 }
 
 type StandAllocationPublisher func(context.Context, StandAllocationResult) error
+type StandBlockRemovalPublisher func(context.Context, models.StandBlock) error
 type DisplacedArrivalHandler func(context.Context, models.StandAssignment) error
 
 type relocationChainContextKey struct{}
@@ -178,6 +179,7 @@ type StandAllocationService struct {
 	policy                 *sat.AirlineAssignmentConfig
 	random                 func() float64
 	publish                StandAllocationPublisher
+	publishBlockRemoval    StandBlockRemovalPublisher
 	relocate               DisplacedArrivalHandler
 	attempts               int
 	now                    func() time.Time
@@ -223,6 +225,10 @@ func WithStandAllocationDepartureReleaseBuffer(duration time.Duration) StandAllo
 
 func (s *StandAllocationService) SetPublisher(publisher StandAllocationPublisher) {
 	s.publish = publisher
+}
+
+func (s *StandAllocationService) SetBlockRemovalPublisher(publisher StandBlockRemovalPublisher) {
+	s.publishBlockRemoval = publisher
 }
 
 func (s *StandAllocationService) SetDisplacedArrivalHandler(handler DisplacedArrivalHandler) {
@@ -771,6 +777,58 @@ func (s *StandAllocationService) DeleteManualBlock(ctx context.Context, session 
 	return count, tx.Commit(ctx)
 }
 
+// ReleaseExpiredBlocks permanently removes elapsed stand blocks. Publishing
+// happens only after commit so connected clients never clear a block whose
+// deletion was rolled back.
+func (s *StandAllocationService) ReleaseExpiredBlocks(ctx context.Context, session int32) error {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", session); err != nil {
+		return err
+	}
+	store := s.assignments.WithTx(tx)
+	blocks, err := store.ListBlocks(ctx, session)
+	if err != nil {
+		return err
+	}
+	now := s.now()
+	removed := make([]models.StandBlock, 0)
+	for _, block := range blocks {
+		if block == nil || !expired(block.ExpiresAt, now) {
+			continue
+		}
+		deleted, err := store.DeleteBlock(ctx, session, block.ID, block.Version)
+		if err != nil {
+			return err
+		}
+		if deleted != 1 {
+			return errAllocationVersionConflict
+		}
+		removed = append(removed, *block)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	s.publishBlockRemovals(ctx, removed)
+	return nil
+}
+
+func (s *StandAllocationService) publishBlockRemovals(ctx context.Context, blocks []models.StandBlock) {
+	if s.publishBlockRemoval == nil {
+		return
+	}
+	for _, block := range blocks {
+		if err := s.publishBlockRemoval(ctx, block); err != nil {
+			slog.ErrorContext(ctx, "Failed to publish committed stand block removal",
+				slog.Int("session", int(block.SessionID)), slog.Int64("block_id", block.ID),
+				slog.String("stand", block.Stand), slog.Any("error", err))
+		}
+	}
+}
+
 func (s *StandAllocationService) allocate(ctx context.Context, command StandAllocationCommand, request StandAllocationRequest) (*StandAllocationResult, error) {
 	return s.allocateWithFailureLogging(ctx, command, request, true)
 }
@@ -1110,6 +1168,25 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	if err != nil {
 		return nil, "", err
 	}
+	removedBlocks := make([]models.StandBlock, 0)
+	if command == observedStandAllocation {
+		activeBlocks := blocks[:0]
+		for _, block := range blocks {
+			if block == nil || standName(block.Stand) != standName(request.Stand) {
+				activeBlocks = append(activeBlocks, block)
+				continue
+			}
+			deleted, deleteErr := txAssignments.DeleteBlock(ctx, request.SessionID, block.ID, block.Version)
+			if deleteErr != nil {
+				return nil, "", deleteErr
+			}
+			if deleted != 1 {
+				return nil, "", errAllocationVersionConflict
+			}
+			removedBlocks = append(removedBlocks, *block)
+		}
+		blocks = activeBlocks
+	}
 
 	evaluation := s.stands.EvaluateCompatibility(request.Airport, request.FlightFacts)
 	if command == CompatibleManualStand || command == IncompatibleManualOverride {
@@ -1154,6 +1231,7 @@ func (s *StandAllocationService) allocateOnce(ctx context.Context, command Stand
 	if err := tx.Commit(ctx); err != nil {
 		return nil, selected, err
 	}
+	s.publishBlockRemovals(ctx, removedBlocks)
 	return &StandAllocationResult{
 		Command: command, Assignment: *assignment, Selection: selection, MatchedVariant: match,
 		Compatibility: evaluation, ConflictReason: conflict, Attempts: attempt, AvailableCandidates: available,

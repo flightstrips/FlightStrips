@@ -300,6 +300,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	if standAllocationService != nil {
 		frontendHub.SetStandActionService(standActionService)
 		standAllocationService.SetPublisher(frontendHub.PublishStandAllocation)
+		standAllocationService.SetBlockRemovalPublisher(frontendHub.PublishStandBlockRemoval)
 	}
 	cdmService, err := cdm.NewCdmService(cdm.ServiceDependencies{
 		Client:                cdmClient,

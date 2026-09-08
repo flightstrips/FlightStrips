@@ -34,6 +34,7 @@ const (
 	arrivalAirportMaxAltitude = 1000
 	arrivalStandRetention     = 30 * time.Minute
 	arrivalRetentionRefreshAt = 10 * time.Minute
+	arrivalDisconnectGrace    = 5 * time.Minute
 
 	defaultArrivalSweepInterval = 30 * time.Second
 )
@@ -319,9 +320,8 @@ func arrivalStagePriority(stage string) int {
 	}
 }
 
-// CancelArrival releases an automatic arrival reservation that disappeared
-// before airport-area detection. Arrived assignments have a retention deadline;
-// manual assignments remain controller-owned.
+// CancelArrival releases an arrival assignment when the flight disappears
+// from the live feed, regardless of its assignment source or retention expiry.
 func (s *ArrivalLifecycleService) CancelArrival(ctx context.Context, session int32, callsign string) error {
 	existing, err := s.assignments.GetAssignment(ctx, session, callsign)
 	if err != nil {
@@ -330,11 +330,42 @@ func (s *ArrivalLifecycleService) CancelArrival(ctx context.Context, session int
 		}
 		return err
 	}
-	if existing == nil || existing.Manual || existing.ExpiresAt != nil ||
+	if existing == nil ||
 		existing.Direction != string(sat.AssignmentDirectionArrival) || !isArrivalStage(existing.Stage) {
 		return nil
 	}
+	graceActive, err := s.disconnectedArrivalGraceActive(ctx, session, existing)
+	if err != nil {
+		return err
+	}
+	if graceActive {
+		return nil
+	}
 	return s.allocations.ReleaseAssignment(ctx, existing)
+}
+
+// disconnectedArrivalGraceActive protects an off-stand arrival from brief
+// VATSIM feed dropouts. An aircraft last observed on a configured stand is
+// released immediately because its disconnect is the authoritative vacancy
+// signal used by the EST board.
+func (s *ArrivalLifecycleService) disconnectedArrivalGraceActive(ctx context.Context, session int32, assignment *models.StandAssignment) (bool, error) {
+	strip, err := s.strips.GetByCallsign(ctx, session, assignment.Callsign)
+	if err != nil {
+		if isNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if strip == nil || strip.VatsimSeenAt == nil || !s.now().Before(strip.VatsimSeenAt.Add(arrivalDisconnectGrace)) {
+		return false, nil
+	}
+	if strip.PositionLatitude != nil && strip.PositionLongitude != nil &&
+		validArrivalPosition(*strip.PositionLatitude, *strip.PositionLongitude) {
+		airport := strings.ToUpper(strings.TrimSpace(strip.Destination))
+		_, atStand := s.stands.StandAtPosition(airport, *strip.PositionLatitude, *strip.PositionLongitude)
+		return !atStand, nil
+	}
+	return assignment.ObservedStand == nil, nil
 }
 
 func (s *ArrivalLifecycleService) observedParkedArrivalStand(strip *models.Strip, flightDestination string) (string, bool) {
@@ -548,6 +579,12 @@ func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
 	for _, session := range sessions {
 		if session == nil {
 			continue
+		}
+		if err := retrySerializableOperation(func() error {
+			return s.allocations.ReleaseExpiredBlocks(ctx, session.ID)
+		}); err != nil {
+			slog.Warn("arrival sweep failed to release expired stand blocks",
+				slog.Int("sessionID", int(session.ID)), slog.Any("error", err))
 		}
 		assignments, err := s.assignments.ListAssignments(ctx, session.ID)
 		if err != nil {

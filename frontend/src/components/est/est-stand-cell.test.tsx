@@ -231,7 +231,7 @@ describe("EstStandCell", () => {
     expect(screen.queryByText(/CONFIRMED|AUTOMATIC|ETA|EXP/)).toBeNull();
   });
 
-  it("hides callsign when blocked", () => {
+  it("prioritizes an occupying strip over a stale block", () => {
     render(
       <EstStandCell
         stand={stand}
@@ -246,7 +246,8 @@ describe("EstStandCell", () => {
         onClick={() => {}}
       />,
     );
-    expect(screen.queryByText("SAS123")).toBeNull();
+    expect(screen.getByText("SAS123")).toBeDefined();
+    expect(screen.getByRole("button").className).toContain("bg-[#D9D9D9]");
   });
 
   it("shows blocked style when blocked", () => {

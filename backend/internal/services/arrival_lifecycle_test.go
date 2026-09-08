@@ -925,6 +925,66 @@ STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
 		require.Error(t, err, "a vanished automatic arrival must stop retaining its stand")
 	})
 
+	t.Run("controller-assigned arrival is released when the flight disconnects before expiry", func(t *testing.T) {
+		lifecycle, _, session, assignments, _, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS928")
+		expiresAt := clock.current().Add(30 * time.Minute)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS928", Stand: "A1",
+			Direction: string(sat.AssignmentDirectionArrival), Stage: StageConfirmed,
+			Source: "MANUAL", Manual: true, ExpiresAt: &expiresAt,
+		}))
+
+		require.NoError(t, lifecycle.CancelArrival(ctx, session, "SAS928"))
+
+		_, err := assignments.GetAssignment(ctx, session, "SAS928")
+		require.Error(t, err, "a disconnected arrival must release its stand immediately")
+	})
+
+	t.Run("off-stand arrival gets a five-minute disconnect grace", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS932")
+		now := clock.current()
+		_, err := strips.UpdateVatsimSource(ctx, session, "SAS932", models.VatsimStripSource{
+			CID: "1001", Revision: 1, SeenAt: now, Origin: "ESSA", Destination: "EKCH",
+			Online: true, Latitude: 55.0, Longitude: 10.0, Altitude: 8000,
+		})
+		require.NoError(t, err)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS932", Stand: "A1",
+			Direction: string(sat.AssignmentDirectionArrival), Stage: StageAssigned, Source: "AUTOMATIC",
+		}))
+
+		require.NoError(t, lifecycle.CancelArrival(ctx, session, "SAS932"))
+		require.NoError(t, lifecycle.ReleaseExpired(ctx))
+		_, err = assignments.GetAssignment(ctx, session, "SAS932")
+		require.NoError(t, err, "the regular sweep must preserve an assignment during disconnect grace")
+
+		clock.advance(arrivalDisconnectGrace)
+		require.NoError(t, lifecycle.CancelArrival(ctx, session, "SAS932"))
+		_, err = assignments.GetAssignment(ctx, session, "SAS932")
+		require.Error(t, err, "the assignment must release when the grace period elapses")
+	})
+
+	t.Run("arrival last observed on stand releases without disconnect grace", func(t *testing.T) {
+		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
+		seedTestArrivalStrip(t, queries, session, "SAS933")
+		_, err := strips.UpdateVatsimSource(ctx, session, "SAS933", models.VatsimStripSource{
+			CID: "1001", Revision: 1, SeenAt: clock.current(), Origin: "ESSA", Destination: "EKCH",
+			Online: true, Latitude: 55.6285306, Longitude: 12.644625, Altitude: 0,
+		})
+		require.NoError(t, err)
+		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{
+			SessionID: session, Callsign: "SAS933", Stand: "A1",
+			Direction: string(sat.AssignmentDirectionArrival), Stage: StageConfirmed, Source: "AUTOMATIC",
+		}))
+
+		require.NoError(t, lifecycle.CancelArrival(ctx, session, "SAS933"))
+
+		_, err = assignments.GetAssignment(ctx, session, "SAS933")
+		require.Error(t, err, "an on-stand disconnect must release immediately")
+	})
+
 	t.Run("sweep removes an unsafe planned overlap behind physical occupancy", func(t *testing.T) {
 		lifecycle, _, session, assignments, strips, clock := arrivalLifecycleFixture(t, pool, queries, "", "", nil)
 		seedTestArrivalStrip(t, queries, session, "SAS929")

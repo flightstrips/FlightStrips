@@ -650,7 +650,7 @@ func TestReconcileCancelsArrivalLifecycleWhenFlightDisappears(t *testing.T) {
 	assert.Equal(t, []string{"SAS507"}, strips.deleted)
 }
 
-func TestReconcileDoesNotCancelEuroscopeOwnedArrivalLifecycleWhenFlightDisappears(t *testing.T) {
+func TestReconcileCancelsEuroscopeOwnedArrivalLifecycleWhenFlightDisappears(t *testing.T) {
 	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
 	cid := "5"
 	strip := &models.Strip{
@@ -663,7 +663,7 @@ func TestReconcileDoesNotCancelEuroscopeOwnedArrivalLifecycleWhenFlightDisappear
 	reconciler.arrivalLifecycle = lifecycle
 
 	require.NoError(t, reconciler.Reconcile(context.Background()))
-	assert.Empty(t, lifecycle.cancelled, "EuroScope still owns the operational arrival state")
+	assert.Equal(t, []string{"SAS508"}, lifecycle.cancelled, "a disconnected arrival must release its stand")
 	assert.Empty(t, strips.deleted)
 }
 
@@ -682,7 +682,7 @@ func TestRetainsStripHonorsReservationExpiry(t *testing.T) {
 	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS2"), "an expired reservation no longer retains the strip")
 }
 
-func TestRetainsStripDoesNotKeepAdvisoryArrivalAfterFlightDisappears(t *testing.T) {
+func TestRetainsStripWhileArrivalLifecycleOwnsTheAssignment(t *testing.T) {
 	now := time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC)
 	assignment := &models.StandAssignment{
 		SessionID: 7,
@@ -704,11 +704,11 @@ func TestRetainsStripDoesNotKeepAdvisoryArrivalAfterFlightDisappears(t *testing.
 		WithClock(func() time.Time { return now }),
 	)
 
-	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"), "advisory assignment disappears with its VATSIM-only strip")
+	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"), "the lifecycle needs the strip throughout disconnect grace")
 
 	eta := now.Add(30 * time.Minute)
 	assignment.ETA = &eta
-	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"), "ESTIMATED remains advisory when timing becomes available")
+	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"))
 
 	assignment.Stage = "ASSIGNED"
 	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS926"), "a close operational arrival retains its strip")

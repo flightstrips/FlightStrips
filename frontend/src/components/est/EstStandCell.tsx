@@ -61,9 +61,13 @@ export default function EstStandCell({
   containerStyle,
   onClick,
 }: EstStandCellProps) {
+  // A live strip is stronger evidence than a possibly stale manual occupancy
+  // marker. The backend reconciles that marker, but the board must remain
+  // usable while websocket updates are in flight or after a missed update.
+  const effectivelyBlocked = blocked && !strip;
   const vgdsStatus = getVgdsStatus(stand.label);
   const bridgeStatus = getBridgeStatus(stand.label);
-  const tooltipContent = [vgdsStatus, bridgeStatus, blocked ? blockReason : undefined].filter(Boolean).join(" \u2022 ");
+  const tooltipContent = [vgdsStatus, bridgeStatus, effectivelyBlocked ? blockReason : undefined].filter(Boolean).join(" \u2022 ");
   const gridStyle =
     "column" in stand && "row" in stand && stand.column !== undefined && stand.row !== undefined
       ? { gridColumn: stand.column, gridRow: stand.row }
@@ -77,7 +81,7 @@ export default function EstStandCell({
   let backgroundClass = "bg-[#D9D9D9]";
   let textClass = "text-[#333333]";
 
-  if (blocked) {
+  if (effectivelyBlocked) {
     backgroundClass = "bg-[#4A4A4A]";
     textClass = "text-white";
   } else if (isPushing) {
@@ -191,7 +195,7 @@ export default function EstStandCell({
             </div>
 
             {/* Callsign */}
-            {strip && !blocked && (
+            {strip && (
                <div
                  className="absolute left-0 right-0 flex items-center justify-center overflow-hidden px-0.5 text-center font-bold"
                  style={{
@@ -216,7 +220,7 @@ export default function EstStandCell({
               </div>
             )}
 
-            {strip && !blocked && (
+            {strip && (
               <div
                 className="absolute left-0 right-0 flex items-center justify-between overflow-hidden px-1"
                 style={{

@@ -336,10 +336,10 @@ func (r *Reconciler) reconcileSession(ctx context.Context, snapshot Snapshot, se
 	// until the end makes newly freed capacity visible only on the next identical
 	// poll, which can create a one-cycle stage-promotion move.
 	for callsign, strip := range existing {
-		if relevant[callsign].Callsign != "" || strip.EuroscopeSeenAt != nil {
+		if relevant[callsign].Callsign != "" {
 			continue
 		}
-		if r.lifecycle != nil && strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
+		if r.lifecycle != nil && strip.EuroscopeSeenAt == nil && strings.EqualFold(strings.TrimSpace(strip.Origin), airport) {
 			if err := r.lifecycle.CancelDeparture(ctx, session.ID, callsign); err != nil {
 				return err
 			}
@@ -694,13 +694,9 @@ func (r *Reconciler) isAssigned(ctx context.Context, session int32, callsign str
 	if err != nil || assignment == nil {
 		return false
 	}
-	// An automatic ESTIMATED arrival is advisory only. It must not retain an
-	// API-created strip forever after the flight disappears.
-	if !assignment.Manual &&
-		strings.EqualFold(assignment.Direction, "ARRIVAL") &&
-		strings.EqualFold(assignment.Stage, "ESTIMATED") {
-		return false
-	}
+	// The arrival lifecycle owns disconnect expiry. Retain the strip while the
+	// assignment exists so CancelArrival can observe the persisted last-seen
+	// position on every reconciliation until its grace period elapses.
 	if assignment.ExpiresAt == nil {
 		return true
 	}

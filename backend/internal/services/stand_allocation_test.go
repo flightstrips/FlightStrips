@@ -293,6 +293,62 @@ func TestStandAllocationServiceTransactions(t *testing.T) {
 		assert.Equal(t, "A1", retained.Stand, "the existing confirmed booking remains visible for conflict resolution")
 	})
 
+	t.Run("observed aircraft clears an exact-stand manual occupancy marker", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		testdata.SeedTestStrip(t, queries, session, "SASOBS5")
+		block := &models.StandBlock{
+			SessionID: session, Stand: "A1", BlockType: "MANUAL", Source: "CONTROLLER", Manual: true,
+		}
+		require.NoError(t, assignments.CreateBlock(ctx, block))
+		var removed []models.StandBlock
+		service.SetBlockRemovalPublisher(func(_ context.Context, block models.StandBlock) error {
+			removed = append(removed, block)
+			return nil
+		})
+
+		parked := withStand(standAllocationRequest(session, "SASOBS5"), "A1")
+		parked.Stage = StageConfirmed
+		result, err := service.assignObservedStand(ctx, parked)
+
+		require.NoError(t, err)
+		assert.Equal(t, "A1", result.Assignment.Stand)
+		require.Len(t, removed, 1)
+		assert.Equal(t, block.ID, removed[0].ID)
+		remaining, err := assignments.ListBlocksByStand(ctx, session, "A1")
+		require.NoError(t, err)
+		assert.Empty(t, remaining)
+	})
+
+	t.Run("expired stand blocks are deleted and published", func(t *testing.T) {
+		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
+		now := time.Now().UTC()
+		service.now = func() time.Time { return now }
+		expiredAt := now.Add(-time.Minute)
+		futureAt := now.Add(time.Minute)
+		expiredBlock := &models.StandBlock{
+			SessionID: session, Stand: "A1", BlockType: "MANUAL", Source: "CONTROLLER", ExpiresAt: &expiredAt, Manual: true,
+		}
+		activeBlock := &models.StandBlock{
+			SessionID: session, Stand: "A2", BlockType: "MANUAL", Source: "CONTROLLER", ExpiresAt: &futureAt, Manual: true,
+		}
+		require.NoError(t, assignments.CreateBlock(ctx, expiredBlock))
+		require.NoError(t, assignments.CreateBlock(ctx, activeBlock))
+		var removed []models.StandBlock
+		service.SetBlockRemovalPublisher(func(_ context.Context, block models.StandBlock) error {
+			removed = append(removed, block)
+			return nil
+		})
+
+		require.NoError(t, service.ReleaseExpiredBlocks(ctx, session))
+
+		require.Len(t, removed, 1)
+		assert.Equal(t, expiredBlock.ID, removed[0].ID)
+		remaining, err := assignments.ListBlocks(ctx, session)
+		require.NoError(t, err)
+		require.Len(t, remaining, 1)
+		assert.Equal(t, activeBlock.ID, remaining[0].ID)
+	})
+
 	t.Run("physical departure displaces a provisional booking even when release overlaps ETA", func(t *testing.T) {
 		service, session, assignments := standAllocationFixture(t, pool, queries, "", "")
 		testdata.SeedTestStrip(t, queries, session, "SAS110")

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/flightstrips/FlightStrips/compare/backend/v1.3.1...backend/v1.3.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* support Docker secret file configuration ([#568](https://github.com/flightstrips/FlightStrips/issues/568)) ([85f280c](https://github.com/flightstrips/FlightStrips/commit/85f280c6766647f0c89b74515560cc385a9ac58d))
+
 ## [1.3.1](https://github.com/flightstrips/FlightStrips/compare/backend/v1.3.0...backend/v1.3.1) (2026-09-08)
 
 

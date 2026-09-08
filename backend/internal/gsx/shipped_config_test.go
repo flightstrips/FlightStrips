@@ -59,24 +59,48 @@ func TestShippedEKCHKeepsBothFacings(t *testing.T) {
 	}
 	sceneries := Sceneries{cfg.ICAO: cfg}
 
-	// A15 offers both "Y1 Face W" and "Y1 Face E".
-	_, both := sceneries.Resolve("EKCH", "A15", "Simnord-Sonnich", "Y1")
+	// A34 offers both "Z1 Face E" and "Z1 Face W" and has no local rule, so
+	// both are published and the pilot picks.
+	_, both := sceneries.Resolve("EKCH", "A34", "Simnord-Sonnich", "Z1")
 	if len(both) != 2 {
-		t.Fatalf("Y1 must publish both facings, got %q", both)
+		t.Fatalf("Z1 must publish both facings, got %q", both)
 	}
-	for _, want := range []string{"Y1 Face W", "Y1 Face E"} {
+	for _, want := range []string{"Z1 Face E", "Z1 Face W"} {
 		if !slices.Contains(both, want) {
-			t.Errorf("Y1 is missing %q, got %q", want, both)
+			t.Errorf("Z1 is missing %q, got %q", want, both)
 		}
 	}
 
-	// Y0 is unambiguous at the same stand and resolves to exactly one route.
-	if _, one := sceneries.Resolve("EKCH", "A15", "Simnord-Sonnich", "Y0"); strings.Join(one, "|") != "Y0 Face E" {
-		t.Errorf("Y0: got %q want Y0 Face E", one)
+	// A point the stand cannot reach publishes nothing.
+	if _, none := sceneries.Resolve("EKCH", "A34", "Simnord-Sonnich", "T5"); len(none) != 0 {
+		t.Errorf("an unreachable point must publish nothing, got %q", none)
+	}
+}
+
+// TestShippedEKCHAppliesLocalFacingRules pins the stands where aircraft always
+// leave the same way. A15 offers Y1 in both facings, but only the eastbound
+// route is correct there, so only that one is published.
+func TestShippedEKCHAppliesLocalFacingRules(t *testing.T) {
+	cfg, err := LoadSceneryConfig("../../config/ekch/gsx_sceneries.json")
+	if err != nil || cfg == nil {
+		t.Fatalf("load shipped config: %v", err)
+	}
+	sceneries := Sceneries{cfg.ICAO: cfg}
+
+	for _, c := range []struct{ gate, point, want string }{
+		{"A12", "Y1", "Y1 Face E"},
+		{"A14", "Y1", "Y1 Face E"},
+		{"A15", "Y1", "Y1 Face E"},
+		{"A17", "Z5", "Z5 Face E"},
+	} {
+		if _, got := sceneries.Resolve("EKCH", c.gate, "Simnord-Sonnich", c.point); strings.Join(got, "|") != c.want {
+			t.Errorf("%s %s: got %q want %q", c.gate, c.point, got, c.want)
+		}
 	}
 
-	// A point the stand cannot reach still publishes nothing.
-	if _, none := sceneries.Resolve("EKCH", "A15", "Simnord-Sonnich", "T5"); len(none) != 0 {
-		t.Errorf("an unreachable point must publish nothing, got %q", none)
+	// A17 is always eastbound, but its only Y0 route faces west - so Y0
+	// publishes nothing rather than pushing against the rule.
+	if _, none := sceneries.Resolve("EKCH", "A17", "Simnord-Sonnich", "Y0"); len(none) != 0 {
+		t.Errorf("A17 Y0 faces west and must publish nothing, got %q", none)
 	}
 }

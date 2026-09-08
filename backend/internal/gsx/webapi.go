@@ -43,16 +43,20 @@ type StripLookup interface {
 }
 
 type WebAPI struct {
-	sessions SessionLookup
-	strips   StripLookup
+	sessions  SessionLookup
+	strips    StripLookup
+	sceneries Sceneries
 	// liveOnly restricts lookups to LIVE sessions. Always true in a live
 	// environment; development environments may search every session so the
 	// feed can be exercised against a sweatbox.
 	liveOnly bool
 }
 
-func NewWebAPI(sessions SessionLookup, strips StripLookup, liveOnly bool) *WebAPI {
-	return &WebAPI{sessions: sessions, strips: strips, liveOnly: liveOnly}
+func NewWebAPI(sessions SessionLookup, strips StripLookup, sceneries Sceneries, liveOnly bool) *WebAPI {
+	if sceneries == nil {
+		sceneries = Sceneries{}
+	}
+	return &WebAPI{sessions: sessions, strips: strips, sceneries: sceneries, liveOnly: liveOnly}
 }
 
 func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
@@ -65,6 +69,7 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 // stand.
 type standResponse struct {
 	Stand    *string `json:"stand"`
+	Pushback *string `json:"pushback"`
 	Revision string  `json:"revision"`
 }
 
@@ -88,7 +93,12 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stand, err := a.lookupStand(r.Context(), callsign, airport)
+	// Which add-on the pilot is running. Their handler script is bound to one
+	// GSX profile, so it always knows; without it we answer in the controller's
+	// own vocabulary and publish no pushback point.
+	scenery := strings.TrimSpace(r.URL.Query().Get("scenery"))
+
+	assigned, err := a.lookupStand(r.Context(), callsign, airport)
 	if err != nil {
 		// A lookup failure is not the pilot's problem. Answer 503 so the script
 		// keeps its current stand and retries on the next poll.
@@ -96,9 +106,17 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := standResponse{Stand: stand, Revision: noStandRevision}
-	if stand != nil {
-		response.Revision = *stand
+	response := standResponse{Revision: noStandRevision}
+	if assigned != nil {
+		stand, pushback := a.sceneries.Resolve(airport, assigned.stand, scenery, assigned.releasePoint)
+		response.Stand = &stand
+		response.Revision = stand
+		if pushback != "" {
+			response.Pushback = &pushback
+			// Both values are in the revision, so a controller changing either
+			// one breaks the ETag and the script re-applies.
+			response.Revision = stand + "|" + pushback
+		}
 	}
 
 	// The script polls with fetchJson(..., etag=True), so an unchanged stand
@@ -114,10 +132,17 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-// lookupStand returns the stand held by callsign, or nil when the callsign is
+// assignment is what the controller has recorded on the strip, before any
+// scenery-specific translation.
+type assignment struct {
+	stand        string
+	releasePoint string
+}
+
+// lookupStand returns what callsign currently holds, or nil when the callsign is
 // not on a strip or holds no stand. Both are ordinary answers: most aircraft at
 // the airport are not being tracked by this feed.
-func (a *WebAPI) lookupStand(ctx context.Context, callsign, airport string) (*string, error) {
+func (a *WebAPI) lookupStand(ctx context.Context, callsign, airport string) (*assignment, error) {
 	sessions, err := a.candidateSessions(ctx, airport)
 	if err != nil {
 		return nil, err
@@ -150,7 +175,11 @@ func (a *WebAPI) lookupStand(ctx context.Context, callsign, airport string) (*st
 		if stand == "" {
 			continue
 		}
-		return &stand, nil
+		found := assignment{stand: stand}
+		if strip.ReleasePoint != nil {
+			found.releasePoint = strings.TrimSpace(*strip.ReleasePoint)
+		}
+		return &found, nil
 	}
 
 	return nil, nil

@@ -19,8 +19,8 @@ their first flight.
 The endpoint is therefore public, and kept safe by disclosing as little as
 possible rather than by authenticating:
 
-- It answers only `{ "stand": ..., "revision": ... }`. No route, no CID, no PDC
-  state, no flight plan, no aircraft type.
+- It answers only `{ "stand": ..., "pushback": ..., "revision": ... }`. No route,
+  no CID, no PDC state, no flight plan, no aircraft type.
 - It reads `LIVE` sessions only. A sweatbox or playback stand never reaches a
   pilot's simulator.
 - An unknown callsign, a callsign with no strip, and a strip with no stand are
@@ -37,13 +37,14 @@ not already available.
 | --- | --- | --- |
 | `callsign` | yes | Alphanumeric, up to 12 characters. Normalised to upper case. |
 | `icao` | no | 3-4 characters. Restricts the lookup to the LIVE session at that airport. |
+| `scenery` | no | Which add-on the pilot is running. Without it the answer uses the controller's own stand name and carries no pushback point. |
 
 ```
-GET /api/gsx/stand?callsign=SAS1401&icao=EKCH
+GET /api/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich
 ```
 
 ```json
-{ "stand": "A12", "revision": "A12" }
+{ "stand": "Gate A31", "pushback": "Z2 Face E", "revision": "Gate A31|Z2 Face E" }
 ```
 
 `400` for a missing or malformed `callsign` or `icao`. `503` when the lookup
@@ -96,11 +97,92 @@ menu is opened, and the plan stays loaded for the session, so it is available in
 type matches the loaded aircraft and whose ETD has not passed, unless the pilot
 enables **Simbrief Ignore Time** in GSX settings.
 
+## Gate and scenery configuration
+
+The same physical gate is not the same object in every add-on. Developers number
+stands differently and each authors their own pushback route names, so what a
+controller calls `F91` is `Parking 91` in Simnord's EKCH, and "push onto Z2
+facing east" is a string that only exists in that one profile. Nothing resolves
+this centrally, so it is declared per airport in
+`backend/config/<icao>/gsx_sceneries.json`:
+
+```json
+{
+  "icao": "EKCH",
+  "gates": {
+    "A31": {
+      "Simnord-Sonnich": {
+        "stand": "Gate A31",
+        "points": { "Z/L": "Z2 Face E", "Y/L": "Z3 Face W", "K/J": "J1 Face S" }
+      }
+    }
+  }
+}
+```
+
+Read it as **gate → scenery → what that scenery calls it**:
+
+- The **gate key** is the stand as controllers know it — the value in
+  `strips.stand`.
+- The **scenery key** is whatever the handler script sends as `scenery`.
+- `stand` is the name handed to `selectGate()`. Omit it when the scenery uses
+  the controller's own name.
+- `points` maps a FlightStrips release point to a GSX pushback label.
+
+Everything is optional and everything degrades quietly. A missing file, an
+unknown scenery, an unmapped release point: the feed still publishes the stand,
+just without translation or a pushback point. Lookups ignore case and extra
+spacing, which matters because scenery labels are hand-typed — one EKCH profile
+contains both `Y1 Face E` and `Y1  Face E`.
+
+### Generating a starting file
+
+`tools/gsx-scenery-skeleton.mjs` reads a GSX `.ini` and emits the gates, the
+stand names, and the pushback labels that profile actually offers:
+
+```bash
+node tools/gsx-scenery-skeleton.mjs \
+  "%APPDATA%/Virtuali/GSX/MSFS/EKCH-Simnord-Sonnich.ini" \
+  Simnord-Sonnich EKCH \
+  backend/config/ekch/GRpluginStands.txt \
+  > backend/config/ekch/gsx_sceneries.json
+```
+
+Given the SAT stand list it also reconciles the two vocabularies, rewriting the
+scenery's `[parking 89]` to the controller's ident where that is unambiguous. It
+never guesses: gates it cannot resolve are written with a `review` note and
+listed on stderr, and `points` is always left empty. Which physical route a
+controller means by `R/W` is local knowledge no file on disk contains.
+
+For the shipped EKCH profile that is 119 gates, 87 reconciled automatically and
+32 needing a decision.
+
+## Pushback points
+
+`getGate().pushback`, `pushbackLabels` and `pushbackAddPos` are all writable at
+any time, so the handler can narrow the pushback menu to the assigned route:
+
+- An **extra slot** defined by the profile: keep only that entry in
+  `pushbackAddPos` and set `pushback = 0`.
+- One of the **two defaults**: `pushbackLabels` is left then right, and the
+  direction enum is `1` for left, `2` for right.
+
+**GSX has no `selectPushback()`.** A script cannot answer the menu on the
+pilot's behalf; it can only remove the routes that were not assigned, leaving
+the assigned one as the only routed choice. GSX always offers Straight Pushback
+and Pull Straight regardless of the parking preference, so the menu does not
+disappear — the pilot still confirms.
+
+The route only means anything once the aircraft is on the assigned stand, and
+`selectGate` is deferred by a cycle, so the script applies the stand first and
+the pushback on a later poll.
+
 ## Client
 
 The handler script lives in `gsx-client/`. It is named after the GSX `.ini`
 profile it accompanies, which binds it to one airport and one scenery, and is
-distributed alongside that profile.
+distributed alongside that profile. Set `SCENERY` in it to match the scenery key
+in `gsx_sceneries.json`.
 
 ## Adding this to your GSX profile
 

@@ -330,19 +330,55 @@ def onEnterAirport(self):
     _standStartPolling(self)
 
 
-def onDepartureRequested(self, *args):
-    """Re-apply the pushback route in case it was set after we last polled."""
+def _standEnsurePolling(self):
+    """Restart the watch if it is not running.
+
+    F9 in the Handler Editor kills every tasklet and re-executes the script,
+    but onEnterAirport does not fire again - the airport handler is already
+    active. Without this the script sits idle after every reload, which is
+    exactly when someone is most likely to be testing it.
+
+    _standStartPolling cancels before it starts, so calling this repeatedly
+    replaces the loop rather than stacking up duplicates.
+    """
     _standInit(self)
     if not self._standUserOverride:
+        _standStartPolling(self)
+
+
+def onAirportBeforeVehicleSelect(self, *args):
+    """Fires whenever the gate is set, including right after onEnterAirport."""
+    _standEnsurePolling(self)
+    if hasattr(self, "_super_onAirportBeforeVehicleSelect"):
+        self._super_onAirportBeforeVehicleSelect(*args)
+
+
+def onAirportDepartureRequested(self, *args):
+    """The pilot asked for pushback.
+
+    Apply the assigned route now rather than waiting for the next poll - this
+    is the moment it matters, and the controller may have assigned it seconds
+    ago. Note the onAirport prefix: airport handlers use it for every service
+    callback, and a plain onDepartureRequested here would never be called.
+    """
+    _standInit(self)
+    if not self._standUserOverride:
+        _standEnsurePolling(self)
         payload = _standFetch(self)
         if payload:
-            _standApplyPushback(self, _standRoutes(payload.get("pushback")))
-    if hasattr(self, "_super_onDepartureRequested"):
-        self._super_onDepartureRequested()
+            routes = _standRoutes(payload.get("pushback"))
+            if routes:
+                _standApplyPushback(self, routes)
+    if hasattr(self, "_super_onAirportDepartureRequested"):
+        self._super_onAirportDepartureRequested(*args)
 
 
-def onGateReset(self, reason):
+def onAirportGateReset(self, reason):
     """The pilot took control: back off for the rest of this visit.
+
+    Named onAirportGateReset, not onGateReset: airport handlers take the
+    onAirport prefix for every service callback, and the unprefixed name is
+    simply never called here.
 
     Nothing is written back to FlightStrips. The controller's board is the
     source of truth, and a pilot parking elsewhere is a discrepancy they should

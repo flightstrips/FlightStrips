@@ -92,10 +92,18 @@ def _standFetch(self):
     etag=True makes GSX send If-None-Match; an unchanged assignment costs a 304
     with no payload.
     """
-    if self._standCallsign is None:
+    # Retry until we get one, rather than caching a failure. onEnterAirport
+    # fires as the airport handler activates, which can be seconds before GSX
+    # has loaded the SimBrief plan - so the first read often finds nothing, and
+    # caching that empty answer would stop the script ever fetching again.
+    if not self._standCallsign:
         self._standCallsign = _standReadCallsign(self)
     if not self._standCallsign:
+        if not self._standWarnedNoCallsign:
+            print("[stands] no callsign yet (SimBrief not loaded?) - will retry")
+            self._standWarnedNoCallsign = True
         return None
+    self._standWarnedNoCallsign = False
 
     airport = getAirport()
     icao = airport.icao if airport else ""
@@ -299,6 +307,7 @@ def _standInit(self):
         self._standPushback = None
         self._standPoll = None
         self._standCallsign = None
+        self._standWarnedNoCallsign = False
 
 
 def onEnterAirport(self):
@@ -399,3 +408,4 @@ def onExitAirport(self):
     self._standPushback = None
     self._standUserOverride = False
     self._standCallsign = None
+    self._standWarnedNoCallsign = False

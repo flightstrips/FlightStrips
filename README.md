@@ -20,6 +20,11 @@ FlightStrips is a full-stack application with three main components:
 - **Language**: C++
 - **Purpose**: Integration with Euroscope for two-way synchronization of flight plan data and strip information
 
+### GSX Client (`gsx-client/`)
+- **Language**: Python 3.7 (the interpreter GSX embeds)
+- **Purpose**: Puts a pilot on the stand a controller assigned, and narrows their pushback menu to the route they were given, without the pilot doing anything
+- **Distribution**: Shipped alongside a GSX scenery profile, not installed on its own — the filename binds it to one airport and one add-on
+
 ## Documentation
 
 ### Getting Started with the Docs
@@ -71,6 +76,7 @@ See [frontend/README.md](frontend/README.md) for development server setup.
 - **Optimistic Concurrency** — Safe concurrent updates to strip data
 - **Hoppies ACARS Integration** — Pilot data connectivity
 - **CDM Support** — Collaborative Decision Making features including ECFMP and CTOT
+- **GSX Stand Feed** — Arriving traffic is parked on its assigned stand and departing traffic is offered only the assigned pushback, inside the pilot's simulator. Disabled by default behind `ENABLE_GSX_STAND_FEED`; see [the docs](docs/src/content/docs/dev/gsx-stand-feed.md)
 - **Grafana Observability** — Cloud dashboards in `observability/grafana/dashboards/`, with a CPU and work-amplification runbook in [observability/README.md](observability/README.md)
 
 ## License

@@ -34,6 +34,7 @@ SCENERY = "Simnord-Sonnich"
 
 POLL_INTERVAL_MS = 30000   # how often to re-check
 POLL_LIMIT = 240           # stop after this many polls (~2h at 30s)
+SHOW_ON_VDGS = True        # also show the assigned push on the stand display
 
 
 # --------------------------------------------------------------------------
@@ -131,7 +132,46 @@ def _standFetch(self):
 def _standSay(self, text):
     """showMessage only lands while the GSX menu is open, so log it too."""
     print("[stands] %s" % text)
-    showMessage(text)
+    try:
+        showMessage(text)
+    except Exception as err:
+        print("[stands] showMessage failed: %s" % err)
+
+
+VDGS_ID = "flightstrips_pushback"
+
+
+def _standShowOnVdgs(self, routes):
+    """Put the assigned push on the stand's docking display.
+
+    showMessage only renders while the GSX menu is open, so on its own a pilot
+    can miss that ATC assigned anything. The VDGS is always in view from the
+    cockpit at a stand that has one - 76 of EKCH's 119 in this scenery.
+
+    Re-injecting the same id replaces the previous message rather than stacking
+    duplicates, so this is safe to call on every apply.
+    """
+    if not SHOW_ON_VDGS or not routes:
+        return
+    route = str(routes[0]).upper()
+    try:
+        addVdgsMessage({
+            "id": VDGS_ID,
+            "display": {
+                "narrow": {"pages": [{"lines": ["PUSH", route[:12]], "duration": 8000}]},
+                "wide": {"pages": [{"lines": ["PUSH " + route[:20]], "duration": 8000}]},
+            },
+        })
+    except Exception as err:
+        print("[stands] VDGS message failed: %s" % err)
+
+
+def _standClearVdgs(self):
+    """Take our message off the display when it no longer applies."""
+    try:
+        removeVdgsMessage(VDGS_ID)
+    except Exception:
+        pass
 
 
 def _standSame(a, b):
@@ -237,7 +277,8 @@ def _standApplyPushback(self, wanted):
 
         gate.pushbackAddPos = keep
         gate.pushback = direction
-        _standSay(self, "Pushback: %s" % " or ".join(wanted))
+        _standSay(self, "ATC pushback: %s" % " or ".join(wanted))
+        _standShowOnVdgs(self, wanted)
         return True
     except Exception as err:
         print("[stands] could not set pushback: %s" % err)
@@ -448,12 +489,14 @@ def onAirportGateReset(self, reason):
     if reason in ("user_changed", "user_revoked") and (self._standAssigned or self._standPushback):
         self._standUserOverride = True
         _standCancelPoll(self)
+        _standClearVdgs(self)
         print("[stands] pilot took over (%s) - ATC updates stopped" % reason)
 
 
 def onExitAirport(self):
     _standInit(self)
     _standCancelPoll(self)
+    _standClearVdgs(self)
     self._standAssigned = None
     self._standPushback = None
     self._standUserOverride = False

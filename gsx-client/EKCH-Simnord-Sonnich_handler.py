@@ -323,11 +323,40 @@ def _standCheckArrival(self, stand):
     return True                              # selectGate lands next cycle
 
 
+def _standPushbackUnderway(self):
+    """True once the push has begun and our writes can no longer affect it.
+
+    Gate properties are re-read when a service starts, so anything set after
+    that lands on the next pushback rather than this one. The tug spawning is
+    the earliest reliable signal; FSDT_VAR_Frozen catches the case where we
+    missed it, since GSX sets it while the aircraft is actually being pushed.
+    """
+    if self._standTugOut:
+        return True
+    try:
+        return executeCalculatorCode("(L:FSDT_VAR_Frozen, number)") == 1
+    except Exception:
+        return False
+
+
 def _standCheckDeparture(self, pushback):
     """Outbound: narrow the push menu on the stand we are already parked on."""
     key = "|".join(pushback)
     if key == (self._standPushback or ""):
         return True                          # already applied
+
+    if _standPushbackUnderway(self):
+        # Too late to change this push. Say so rather than writing properties
+        # that will not take effect and reporting success for it.
+        if self._standPushback is not None:
+            _standSay(self, "ATC changed your push to %s - stop and request again"
+                      % " or ".join(pushback))
+        else:
+            _standSay(self, "ATC assigned %s after your push began"
+                      % " or ".join(pushback))
+        _standShowOnVdgs(self, pushback)
+        self._standPushback = key            # do not repeat the warning
+        return True
 
     if self._standPushback is not None:
         _standSay(self, "Pushback changed by ATC")
@@ -389,6 +418,7 @@ def _standInit(self):
         self._standCallsign = None
         self._standCallsignTrusted = False
         self._standWarnedNoCallsign = False
+        self._standTugOut = False
 
 
 def onEnterAirport(self):
@@ -503,3 +533,28 @@ def onExitAirport(self):
     self._standCallsign = None
     self._standCallsignTrusted = False
     self._standWarnedNoCallsign = False
+    self._standTugOut = False
+
+
+def onAirportVehicleMaterialized(self, vehicleType, *args):
+    """The tug spawning is when a push stops being changeable."""
+    try:
+        _standInit(self)
+        if str(vehicleType) == "PushBack":
+            self._standTugOut = True
+    except Exception as err:
+        print("[stands] onAirportVehicleMaterialized failed: %s" % err)
+    if hasattr(self, "_super_onAirportVehicleMaterialized"):
+        self._super_onAirportVehicleMaterialized(vehicleType, *args)
+
+
+def onAirportVehicleDematerialized(self, vehicleType, *args):
+    """Tug gone: a later assignment can be applied to the next push."""
+    try:
+        _standInit(self)
+        if str(vehicleType) == "PushBack":
+            self._standTugOut = False
+    except Exception as err:
+        print("[stands] onAirportVehicleDematerialized failed: %s" % err)
+    if hasattr(self, "_super_onAirportVehicleDematerialized"):
+        self._super_onAirportVehicleDematerialized(vehicleType, *args)

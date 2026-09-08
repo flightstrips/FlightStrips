@@ -279,13 +279,32 @@ def _standCheckDeparture(self, pushback):
     return True
 
 
+def _standCancelPoll(self):
+    """Stop the watch, tolerating a handle GSX will not take back.
+
+    Some builds return something from runAsync that cancelAsync then rejects
+    with "'_SafeCallable' object has no attribute 'alive'". Cancelling is only
+    housekeeping - GSX kills every tasklet on script reload and on airport exit
+    anyway - so a failure here must never propagate into the callback that
+    called us and abort the useful work that follows.
+    """
+    handle = self._standPoll
+    self._standPoll = None
+    if handle is None:
+        return
+    try:
+        cancelAsync(handle)
+    except Exception as err:
+        print("[stands] cancelAsync declined the handle (%s) - harmless" % err)
+
+
 def _standStartPolling(self):
     """Run the check loop in a tasklet so GSX is never blocked.
 
     truewait uses wall-clock time, so the interval does not stretch with the sim
     rate. Tasklets are killed automatically on airport exit.
     """
-    cancelAsync(self._standPoll)
+    _standCancelPoll(self)
 
     def loop():
         for _ in range(POLL_LIMIT):
@@ -293,7 +312,11 @@ def _standStartPolling(self):
             if not _standCheck(self):
                 return
 
-    self._standPoll = runAsync(loop)
+    try:
+        self._standPoll = runAsync(loop)
+    except Exception as err:
+        print("[stands] could not start the watch: %s" % err)
+        self._standPoll = None
 
 
 # --------------------------------------------------------------------------
@@ -314,7 +337,12 @@ def onEnterAirport(self):
     """Fires once the airport handler activates: on the ground, at low speed."""
     _standInit(self)
 
-    payload = _standFetch(self)
+    try:
+        payload = _standFetch(self)
+    except Exception as err:
+        print("[stands] onEnterAirport fetch failed: %s" % err)
+        _standStartPolling(self)
+        return
 
     # Poll even when there is nothing yet. A departure is the normal case here:
     # the pilot spawns cold on a stand and the controller assigns their pushback
@@ -357,7 +385,10 @@ def _standEnsurePolling(self):
 
 def onAirportBeforeVehicleSelect(self, *args):
     """Fires whenever the gate is set, including right after onEnterAirport."""
-    _standEnsurePolling(self)
+    try:
+        _standEnsurePolling(self)
+    except Exception as err:
+        print("[stands] onAirportBeforeVehicleSelect failed: %s" % err)
     if hasattr(self, "_super_onAirportBeforeVehicleSelect"):
         self._super_onAirportBeforeVehicleSelect(*args)
 
@@ -370,14 +401,17 @@ def onAirportDepartureRequested(self, *args):
     ago. Note the onAirport prefix: airport handlers use it for every service
     callback, and a plain onDepartureRequested here would never be called.
     """
-    _standInit(self)
-    if not self._standUserOverride:
-        _standEnsurePolling(self)
-        payload = _standFetch(self)
-        if payload:
-            routes = _standRoutes(payload.get("pushback"))
-            if routes:
-                _standApplyPushback(self, routes)
+    try:
+        _standInit(self)
+        if not self._standUserOverride:
+            _standEnsurePolling(self)
+            payload = _standFetch(self)
+            if payload:
+                routes = _standRoutes(payload.get("pushback"))
+                if routes:
+                    _standApplyPushback(self, routes)
+    except Exception as err:
+        print("[stands] onAirportDepartureRequested failed: %s" % err)
     if hasattr(self, "_super_onAirportDepartureRequested"):
         self._super_onAirportDepartureRequested(*args)
 
@@ -396,14 +430,13 @@ def onAirportGateReset(self, reason):
     _standInit(self)
     if reason in ("user_changed", "user_revoked") and (self._standAssigned or self._standPushback):
         self._standUserOverride = True
-        cancelAsync(self._standPoll)
-        self._standPoll = None
+        _standCancelPoll(self)
         print("[stands] pilot took over (%s) - ATC updates stopped" % reason)
 
 
 def onExitAirport(self):
-    cancelAsync(self._standPoll)
-    self._standPoll = None
+    _standInit(self)
+    _standCancelPoll(self)
     self._standAssigned = None
     self._standPushback = None
     self._standUserOverride = False

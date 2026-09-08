@@ -34,7 +34,7 @@ type GateScenery struct {
 	// this gate in this scenery. GSX labels come from the profile's
 	// pushbacklabels (the two defaults, left then right) and from the label of
 	// each entry in pushbackaddpos.
-	Points map[string]string `json:"points,omitempty"`
+	Points map[string][]string `json:"points,omitempty"`
 }
 
 // LoadSceneryConfig reads a per-airport scenery file. A missing file is not an
@@ -74,21 +74,21 @@ func normalizeKey(value string) string {
 // this scenery. stand falls back to the controller's own value, and pushback is
 // empty whenever anything is unknown - an unmapped release point is a normal
 // answer, not an error.
-func (s Sceneries) Resolve(icao, gate, scenery, releasePoint string) (stand string, pushback string) {
+func (s Sceneries) Resolve(icao, gate, scenery, releasePoint string) (stand string, pushback []string) {
 	stand = gate
 
 	cfg := s[normalizeKey(icao)]
 	if cfg == nil || scenery == "" {
-		return stand, ""
+		return stand, nil
 	}
 
 	byScenery, ok := lookup(cfg.Gates, gate)
 	if !ok {
-		return stand, ""
+		return stand, nil
 	}
 	entry, ok := lookup(byScenery, scenery)
 	if !ok {
-		return stand, ""
+		return stand, nil
 	}
 
 	if entry.Stand != "" {

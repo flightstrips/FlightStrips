@@ -96,38 +96,30 @@ for (const [gate, sceneries] of Object.entries(config.gates)) {
   if (entry?.stand) byStand.set(entry.stand, entry);
 }
 
-let filled = 0, conflicts = 0, unmapped = 0, missing = 0;
-const conflictList = [], unmappedByStand = [];
+let filled = 0, multi = 0, unmapped = 0, missing = 0;
+const unmappedByStand = [];
 
 for (const [section, labels] of Object.entries(stands)) {
   const entry = byStand.get(standName(section));
   if (!entry) { missing++; continue; }
 
+  // Every route reaching a release point, in the order the profile lists them
+  // (the two defaults first, then extra slots). A stand offering the same
+  // taxiway in two facings yields both: narrowing the pilot's menu to the pair
+  // still guarantees they leave via the taxiway the controller named, and the
+  // facing stays their choice.
   const points = {};
   const leftovers = [];
-  const ambiguous = new Set();
 
   for (const label of labels) {
     if (/Nose (Right|Left)\/Tail/i.test(label)) continue;
     const r = toReleasePoint(label);
     if (typeof r !== 'string') { leftovers.push(label); continue; }
-    if (r in points && points[r] !== label) {
-      // The stand offers this taxiway more than once - typically the same one
-      // in two facings - and a release point cannot say which. Publishing
-      // either would be a coin flip, so publish neither.
-      ambiguous.add(r);
-      continue;
-    }
-    points[r] = label;
+    points[r] = points[r] ?? [];
+    if (!points[r].includes(label)) points[r].push(label);
   }
 
-  for (const r of ambiguous) {
-    conflicts++;
-    conflictList.push(
-      `${standName(section)}: ${r} matches ${labels.filter((l) => toReleasePoint(l) === r).map((l) => `"${l}"`).join(' and ')}`,
-    );
-    delete points[r];
-  }
+  for (const routes of Object.values(points)) if (routes.length > 1) multi++;
 
   entry.points = points;
   filled += Object.keys(points).length;
@@ -138,7 +130,6 @@ for (const [section, labels] of Object.entries(stands)) {
     notes.push(`unmapped routes: ${leftovers.join(' | ')}`);
     unmappedByStand.push(`${standName(section)}: ${leftovers.join(' | ')}`);
   }
-  if (ambiguous.size) notes.push(`ambiguous release points: ${[...ambiguous].join(', ')}`);
 
   // Keep any note the skeleton left about reconciling the stand ident.
   const existing = (entry.review ?? '')
@@ -154,9 +145,8 @@ writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 console.log(`\n--- merged into ${configPath} ---`);
 console.log(`  points written        : ${filled}`);
 console.log(`  stands not in config  : ${missing}`);
-console.log(`  conflicts skipped     : ${conflicts}`);
+console.log(`  points with 2+ routes : ${multi}  (both facings kept - pilot picks)`);
 console.log(`  routes left unmapped  : ${unmapped}`);
-if (conflictList.length) console.log(`\n  conflicts:\n${conflictList.map((c) => `    ${c}`).join('\n')}`);
 if (unmappedByStand.length) {
   console.log(`\n  needs a human (${unmappedByStand.length} stands):`);
   for (const u of unmappedByStand.slice(0, 8)) console.log(`    ${u}`);

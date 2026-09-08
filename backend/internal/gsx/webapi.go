@@ -69,7 +69,7 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 // stand.
 type standResponse struct {
 	Stand    *string `json:"stand"`
-	Pushback *string `json:"pushback"`
+	Pushback []string `json:"pushback"`
 	Revision string  `json:"revision"`
 }
 
@@ -115,9 +115,15 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 		if assigned.departure {
 			// Leaving. Never move an aircraft that is already parked and
 			// loading - publish only how it should come off the stand.
-			if pushback != "" {
-				response.Pushback = &pushback
-				response.Revision = "push:" + pushback
+			//
+			// Every route reaching the assigned point is published, not one of
+			// them. A stand often offers the same taxiway in two facings, and
+			// narrowing the menu to both still guarantees the aircraft leaves
+			// via the taxiway the controller named, which is the part that
+			// matters; the pilot keeps the facing.
+			if len(pushback) > 0 {
+				response.Pushback = pushback
+				response.Revision = "push:" + strings.Join(pushback, "|")
 			}
 		} else {
 			// Arriving. Where to park; the pushback point is somebody else's

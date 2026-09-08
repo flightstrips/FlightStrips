@@ -243,7 +243,7 @@ more logging and edge-case handling.
 # Stand assignment from FlightStrips. Python 3.7.
 # Save next to your .ini as <profile name>_handler.py
 
-API_BASE = "https://flightstrips.example.org"
+API_BASE = "https://api.flightstrips.dk"
 POLL_INTERVAL_MS = 30000
 POLL_LIMIT = 240
 

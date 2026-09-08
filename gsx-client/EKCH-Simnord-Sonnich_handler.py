@@ -29,7 +29,7 @@
 #     leaving here   -> { "stand": null, "pushback": "Z2 Face E" }
 #     nothing to do  -> { "stand": null, "pushback": null }
 
-API_BASE = "https://flightstrips.example.org"
+API_BASE = "https://api.flightstrips.dk"
 SCENERY = "Simnord-Sonnich"
 
 POLL_INTERVAL_MS = 30000   # how often to re-check

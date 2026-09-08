@@ -1,6 +1,10 @@
 package gsx
 
-import "testing"
+import (
+	"slices"
+	"strings"
+	"testing"
+)
 
 func TestLoadsTheShippedEKCHConfig(t *testing.T) {
 	cfg, err := LoadSceneryConfig("../../config/ekch/gsx_sceneries.json")
@@ -38,16 +42,17 @@ func TestShippedEKCHResolvesAnInferredPushback(t *testing.T) {
 	if stand != "Gate A31" {
 		t.Errorf("stand: got %q want Gate A31", stand)
 	}
-	if pushback != "Z2 Face E" {
+	if strings.Join(pushback, "|") != "Z2 Face E" {
 		t.Errorf("pushback: got %q want Z2 Face E", pushback)
 	}
 }
 
-// TestShippedEKCHOmitsAmbiguousPushback guards the rule that matters most: a
-// stand offering the same taxiway in two facings publishes neither, because a
-// release point cannot say which and pushing the wrong way is worse than
-// leaving the menu alone.
-func TestShippedEKCHOmitsAmbiguousPushback(t *testing.T) {
+// TestShippedEKCHKeepsBothFacings guards the rule that matters most: when a
+// stand offers the same taxiway in two facings, both are published. A release
+// point cannot say which facing, but narrowing the pilot's menu to the pair
+// still guarantees they leave via the taxiway the controller named - and the
+// facing stays their choice rather than a coin flip.
+func TestShippedEKCHKeepsBothFacings(t *testing.T) {
 	cfg, err := LoadSceneryConfig("../../config/ekch/gsx_sceneries.json")
 	if err != nil || cfg == nil {
 		t.Fatalf("load shipped config: %v", err)
@@ -55,11 +60,23 @@ func TestShippedEKCHOmitsAmbiguousPushback(t *testing.T) {
 	sceneries := Sceneries{cfg.ICAO: cfg}
 
 	// A15 offers both "Y1 Face W" and "Y1 Face E".
-	if _, pushback := sceneries.Resolve("EKCH", "A15", "Simnord-Sonnich", "Y1"); pushback != "" {
-		t.Errorf("ambiguous Y1 must publish nothing, got %q", pushback)
+	_, both := sceneries.Resolve("EKCH", "A15", "Simnord-Sonnich", "Y1")
+	if len(both) != 2 {
+		t.Fatalf("Y1 must publish both facings, got %q", both)
 	}
-	// Y0 is unambiguous at the same stand and must still resolve.
-	if _, pushback := sceneries.Resolve("EKCH", "A15", "Simnord-Sonnich", "Y0"); pushback != "Y0 Face E" {
-		t.Errorf("Y0: got %q want Y0 Face E", pushback)
+	for _, want := range []string{"Y1 Face W", "Y1 Face E"} {
+		if !slices.Contains(both, want) {
+			t.Errorf("Y1 is missing %q, got %q", want, both)
+		}
+	}
+
+	// Y0 is unambiguous at the same stand and resolves to exactly one route.
+	if _, one := sceneries.Resolve("EKCH", "A15", "Simnord-Sonnich", "Y0"); strings.Join(one, "|") != "Y0 Face E" {
+		t.Errorf("Y0: got %q want Y0 Face E", one)
+	}
+
+	// A point the stand cannot reach still publishes nothing.
+	if _, none := sceneries.Resolve("EKCH", "A15", "Simnord-Sonnich", "T5"); len(none) != 0 {
+		t.Errorf("an unreachable point must publish nothing, got %q", none)
 	}
 }

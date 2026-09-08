@@ -564,10 +564,14 @@ func (s *Service) advance(ctx context.Context, scenario *Scenario) error {
 			if err != nil {
 				return err
 			}
-			reason := "test-tools wrong-stand scenario"
-			callsign := snapshot.Callsign
-			block := &models.StandBlock{SessionID: snapshot.SessionID, Stand: stand.Name, BlockType: "CLOSURE", Source: testSource, Reason: &reason, Callsign: &callsign, Manual: true}
-			if err := s.allocations.CreateManualBlock(ctx, "EKCH", block); err != nil {
+			// Use a protected reservation to make the observed stand unavailable.
+			// A manual stand block is intentionally removed when a real aircraft is
+			// observed on that exact stand, so it cannot model a wrong-stand conflict.
+			if err := s.assignments.CreateAssignment(ctx, &models.StandAssignment{
+				SessionID: snapshot.SessionID, Callsign: wrongStandOccupantCallsign(snapshot.Callsign),
+				Stand: stand.Name, Direction: string(sat.AssignmentDirectionDeparture),
+				Stage: services.StageReserved, Source: testSource, Manual: true,
+			}); err != nil {
 				return err
 			}
 			s.updateScenario(scenario, func(state *Scenario) { state.ObservedStand = stand.Name })
@@ -711,6 +715,16 @@ func (s *Service) cleanupScenario(ctx context.Context, scenario *Scenario) error
 			return err
 		}
 	}
+	if scenario.Preset == PresetWrongStand {
+		callsign := wrongStandOccupantCallsign(scenario.Callsign)
+		if assignment, err := s.assignments.GetAssignment(ctx, scenario.SessionID, callsign); err == nil && assignment != nil {
+			if err := s.allocations.ReleaseAssignment(ctx, assignment); err != nil {
+				return err
+			}
+		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+	}
 	blocks, err := s.assignments.ListBlocks(ctx, scenario.SessionID)
 	if err != nil {
 		return err
@@ -730,6 +744,10 @@ func (s *Service) cleanupScenario(ctx context.Context, scenario *Scenario) error
 		}
 	}
 	return nil
+}
+
+func wrongStandOccupantCallsign(callsign string) string {
+	return strings.ToUpper(strings.TrimSpace(callsign)) + "B"
 }
 
 func (s *Service) Reset(ctx context.Context) error {

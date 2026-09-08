@@ -162,59 +162,43 @@ just without translation or a pushback point. Lookups ignore case and extra
 spacing, which matters because scenery labels are hand-typed — one EKCH profile
 contains both `Y1 Face E` and `Y1  Face E`.
 
-### Generating a starting file
+### Maintaining the file
 
-`tools/gsx-scenery-skeleton.mjs` reads a GSX `.ini` and emits the gates, the
-stand names, and the pushback labels that profile actually offers:
+It is edited by hand. There is deliberately no generator: the file is the source
+of truth rather than a derivation of one, so hand-tuned entries cannot be lost to
+a regeneration.
 
-```bash
-node tools/gsx-scenery-skeleton.mjs \
-  "%APPDATA%/Virtuali/GSX/MSFS/EKCH-Simnord-Sonnich.ini" \
-  Simnord-Sonnich EKCH \
-  backend/config/ekch/GRpluginStands.txt \
-  > backend/config/ekch/gsx_sceneries.json
-```
-
-Given the SAT stand list it also reconciles the two vocabularies, rewriting the
-scenery's `[parking 89]` to the controller's ident where that is unambiguous. It
-never guesses: gates it cannot resolve are written with a `review` note and
-listed on stderr, and `points` is always left empty. Which physical route a
-controller means by `R/W` is local knowledge no file on disk contains.
-
-For the shipped EKCH profile that is 119 gates, 87 reconciled automatically and
-32 needing a decision.
-
-### Inferring the pushback points
-
-`tools/infer-pushback.mjs` fills in `points` by matching GSX labels against the
-frontend's `RELEASE_POINTS` — the set `PushbackMapDialog` writes to
-`strips.release_point`. The two vocabularies share a token: a GSX label is
+The EKCH file was seeded by matching GSX labels against the frontend's
+`RELEASE_POINTS` — the set `PushbackMapDialog` writes to `strips.release_point`.
+The two vocabularies share a token, since a GSX label is
 `<release point> Face <direction>`, so `Z2 Face E` is the route for a controller
-who assigned `Z2`.
+who assigned `Z2`. That relationship is still the rule to follow when adding a
+stand by hand.
 
-```bash
-node tools/infer-pushback.mjs \
-  "%APPDATA%/Virtuali/GSX/MSFS/EKCH-Simnord-Sonnich.ini" \
-  frontend/src/config/ekch.ts \
-  backend/config/ekch/gsx_sceneries.json \
-  Simnord-Sonnich
-```
+Two fields exist only to help whoever edits it, and are ignored by the loader:
 
-A stand offering the same taxiway in two facings — `Y1 Face W` and `Y1 Face E`
-at A15 — yields **both**. A release point cannot say which facing, but narrowing
-the menu to the pair still guarantees the aircraft leaves via the taxiway the
-controller named, which is the part that matters. The facing stays the pilot's
-choice rather than becoming a coin flip.
+- `available` lists every route the scenery offers at that stand, so you can see
+  what there is to map without opening the `.ini`.
+- `review` records what is still unresolved there.
 
-It still declines one case: a route onto a **bare taxiway** (`J Face W`,
-`V Face E`) where FlightStrips only offers numbered points on that taxiway.
-There is no token to match, and picking a numbered point would be inventing an
-instruction.
+To add a stand, find its section in the GSX `.ini`, take `pushbacklabels` (the
+two defaults, left then right) plus the `label` of each `pushbackaddpos` entry,
+and map each to the release point a controller would assign for it. Where a
+stand offers the same taxiway in two facings, list both unless local knowledge
+says the stand only ever leaves one way — the pilot then picks the facing, and
+cannot leave via a taxiway the controller did not name.
 
-For Simnord EKCH: 220 release points mapped across 119 gates — 216 with a single
-route, 4 with both facings — and 31 bare-taxiway routes across 22 stands left
-for a human. Every unfinished stand carries a `review` note saying what is
-missing.
+### What is still unresolved at EKCH
+
+| Category | Count | What it needs |
+| --- | --- | --- |
+| Facing rule leaves no route | 1 | A17 always faces east, but its only `Y0` route faces west |
+| Two facings published | 2 | A34 `Z1`, E20 `S1` — a local rule would narrow each to one |
+| Bare taxiway | 22 stands | scenery offers "onto J/V/W"; controllers only have numbered points there |
+| Stand ident unresolved | 32 | mostly E110–E137 and E15–E19, which FlightStrips does not track |
+| No named routes | 1 | F95 offers only generic Nose/Tail — nothing to map |
+
+Each one is recorded in that stand's `review` note.
 
 ## Pushback points
 

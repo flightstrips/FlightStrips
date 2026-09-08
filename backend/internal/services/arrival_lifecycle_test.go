@@ -971,7 +971,7 @@ STAND:EKCH:A2:N055.37.42.710:E012.39.03.450:30
 		seedTestArrivalStrip(t, queries, session, "SAS933")
 		_, err := strips.UpdateVatsimSource(ctx, session, "SAS933", models.VatsimStripSource{
 			CID: "1001", Revision: 1, SeenAt: clock.current(), Origin: "ESSA", Destination: "EKCH",
-			Online: true, Latitude: 55.6285306, Longitude: 12.644625, Altitude: 0,
+			Online: true, Latitude: 55.6285306, Longitude: 12.642625, Altitude: 0,
 		})
 		require.NoError(t, err)
 		require.NoError(t, assignments.CreateAssignment(ctx, &models.StandAssignment{

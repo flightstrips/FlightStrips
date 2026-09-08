@@ -13,6 +13,11 @@ set(src__plugin
         plugin/FlightStripsPluginInterface.h)
 source_group("src\\plugin" FILES ${src__plugin})
 
+set(src__aman
+        aman/AMANGainLossStore.h
+        aman/AMANGainLossStore.cpp)
+source_group("src\\aman" FILES ${src__aman})
+
 set(src__stands
         stands/Stand.h
         stands/Stand.cpp
@@ -145,6 +150,7 @@ set(src__tag_items
 
 set(ALL_FILES
         ${src__plugin}
+		${src__aman}
         ${src__configuration}
         ${src__stands}
         ${src__bootstrap}

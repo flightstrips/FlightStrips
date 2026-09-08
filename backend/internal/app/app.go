@@ -279,7 +279,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			efbNavigation = snapshots
 		}
 	}
-	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized)
+	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -289,7 +289,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	frontendHub := realtime.frontend
 	euroscopeHub := realtime.euroscope
 	if defaultAMAN.transport != nil {
-		defaultAMAN.transport.setHub(frontendHub)
+		defaultAMAN.transport.setHubs(frontendHub, euroscopeHub)
 	}
 	stripValidationService, err := services.NewStripValidationService(services.StripValidationDependencies{
 		Strips: stripRepo, Statuses: stripRepo, Publisher: frontendHub,
@@ -684,7 +684,7 @@ type realtimeAssembly struct {
 	euroscope *euroscope.Hub
 }
 
-func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanFMPRoles []string, amanMutations bool) (realtimeAssembly, error) {
+func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanFMPRoles []string, amanMutations bool, amanGainLossEnabled bool) (realtimeAssembly, error) {
 	frontendHub, err := frontend.NewHub(frontend.HubDependencies{
 		Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANFMPRoles: amanFMPRoles, AMANMutations: amanMutations,
 	})
@@ -692,12 +692,20 @@ func assembleRealtime(stripService shared.StripService, controllerService shared
 		return realtimeAssembly{}, fmt.Errorf("initialize frontend hub: %w", err)
 	}
 	euroscopeHub, err := euroscope.NewHub(euroscope.HubDependencies{
-		Strips: stripService, Controllers: controllerService, Authentication: authService,
+		Strips: stripService, Controllers: controllerService, Authentication: authService, AMANGainLoss: asAMANGainLossProvider(amanState, amanGainLossEnabled),
 	})
 	if err != nil {
 		return realtimeAssembly{}, fmt.Errorf("initialize EuroScope hub: %w", err)
 	}
 	return realtimeAssembly{frontend: frontendHub, euroscope: euroscopeHub}, nil
+}
+
+func asAMANGainLossProvider(provider frontend.AMANStateProvider, enabled bool) euroscope.AMANGainLossProvider {
+	if provider == nil || !enabled {
+		return nil
+	}
+	result, _ := provider.(euroscope.AMANGainLossProvider)
+	return result
 }
 
 // StandAssignmentReadiness returns the SAT configuration state created with

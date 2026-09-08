@@ -184,7 +184,7 @@ namespace FlightStrips::websocket {
             return true;
         }
 
-        return type == EVENT_SESSION_INFO_NAME || type == EVENT_RUNWAY_MISMATCH_ALERT_NAME;
+        return type == EVENT_SESSION_INFO_NAME || type == EVENT_RUNWAY_MISMATCH_ALERT_NAME || type == "aman_gain_loss";
     }
 
     void WebSocketService::Reconnect() {

@@ -22,6 +22,9 @@ set(ALL_FILES
         # Authentication
         authentication/AuthenticationServiceTest.cpp
 
+		# AMAN
+		aman/AMANGainLossStoreTest.cpp
+
         # FlightPlan
         flightplan/AirlineCallsignServiceTest.cpp
         flightplan/RouteServiceTest.cpp
@@ -139,6 +142,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         "UNICODE"
         "_UNICODE"
         "CURL_STATICLIB;"
+		AMAN_GAIN_LOSS_FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../../../backend/pkg/events/euroscope/testdata/aman-gain-loss.json"
 )
 
 ################################################################################

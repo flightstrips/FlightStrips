@@ -12,11 +12,13 @@ import (
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
 	appconfig "FlightStrips/internal/config"
+	internalEuroscope "FlightStrips/internal/euroscope"
 	internalFrontend "FlightStrips/internal/frontend"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/repository/postgres"
-	events "FlightStrips/pkg/events/frontend"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
+	frontendEvents "FlightStrips/pkg/events/frontend"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -63,42 +65,118 @@ func (s sessionArrivalRunwaySource) ActiveArrivalRunway(ctx context.Context, air
 }
 
 type amanTransport struct {
-	repository aman.AirportStateReader
-	mode       aman.RolloutMode
-	health     aman.TechnicalHealthReporter
+	repository      aman.AirportStateReader
+	mode            aman.RolloutMode
+	health          aman.TechnicalHealthReporter
+	gainLossEnabled bool
 
-	mu  sync.RWMutex
-	hub *internalFrontend.Hub
+	mu           sync.RWMutex
+	frontendHub  *internalFrontend.Hub
+	euroscopeHub *internalEuroscope.Hub
+	// lastGainLossAuthority tracks the projected transport authority rather
+	// than the persisted aggregate flag, which can outlive a health change.
+	lastGainLossAuthority map[string]bool
 }
 
 func (*amanTransport) Name() string { return "AMAN frontend state publisher" }
 
-func (p *amanTransport) setHub(hub *internalFrontend.Hub) {
+func (p *amanTransport) setHubs(frontendHub *internalFrontend.Hub, euroscopeHub *internalEuroscope.Hub) {
 	p.mu.Lock()
-	p.hub = hub
+	p.frontendHub = frontendHub
+	if p.gainLossEnabled {
+		p.euroscopeHub = euroscopeHub
+	} else {
+		p.euroscopeHub = nil
+	}
 	p.mu.Unlock()
 }
 
-func (p *amanTransport) CurrentAMANState(ctx context.Context, airport string) (events.AMANStateEvent, error) {
+func (p *amanTransport) CurrentAMANState(ctx context.Context, airport string) (frontendEvents.AMANStateEvent, error) {
 	state, err := p.repository.LoadAirportState(ctx, airport)
 	if err != nil {
-		return events.AMANStateEvent{}, err
+		return frontendEvents.AMANStateEvent{}, err
 	}
 	health := p.health.TechnicalHealth(ctx)
-	return events.NewAMANStateEvent(state, health.EffectiveMode, health)
+	return frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
+}
+
+func (p *amanTransport) CurrentAMANGainLoss(ctx context.Context, airport string) (euroscopeEvents.AMANGainLossEvent, error) {
+	state, err := p.repository.LoadAirportState(ctx, airport)
+	if err != nil {
+		return euroscopeEvents.AMANGainLossEvent{}, err
+	}
+	event, err := p.newGainLossEvent(ctx, state)
+	if err == nil {
+		p.rememberGainLossAuthority(event)
+	}
+	return event, err
+}
+
+func (p *amanTransport) newGainLossEvent(ctx context.Context, state aman.AirportState) (euroscopeEvents.AMANGainLossEvent, error) {
+	event, err := euroscopeEvents.NewAMANGainLossEvent(state)
+	if err != nil {
+		return euroscopeEvents.AMANGainLossEvent{}, err
+	}
+	// Persisted authority describes the state when it was committed. Transport
+	// consumers must also observe the current technical authority gate.
+	event.Authoritative = event.Authoritative && p.health.TechnicalHealth(ctx).AuthorityAllowed
+	return event, nil
 }
 
 func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.AirportState) error {
 	health := p.health.TechnicalHealth(ctx)
-	event, err := events.NewAMANStateEvent(state, health.EffectiveMode, health)
+	event, err := frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
+	if err != nil {
+		return err
+	}
+	gainLoss, err := p.newGainLossEvent(ctx, state)
 	if err != nil {
 		return err
 	}
 	p.mu.RLock()
-	hub := p.hub
+	frontendHub := p.frontendHub
+	euroscopeHub := p.euroscopeHub
 	p.mu.RUnlock()
-	if hub != nil {
-		hub.PublishAMANStateEvent(event)
+	if frontendHub != nil {
+		frontendHub.PublishAMANStateEvent(event)
+	}
+	if euroscopeHub != nil {
+		p.rememberGainLossAuthority(gainLoss)
+		euroscopeHub.PublishAMANGainLoss(gainLoss)
+	}
+	return nil
+}
+
+func (p *amanTransport) rememberGainLossAuthority(event euroscopeEvents.AMANGainLossEvent) {
+	p.mu.Lock()
+	if p.lastGainLossAuthority == nil {
+		p.lastGainLossAuthority = map[string]bool{}
+	}
+	p.lastGainLossAuthority[event.Airport] = event.Authoritative
+	p.mu.Unlock()
+}
+
+// PublishAMANAuthority is called on otherwise unchanged reconciliation ticks.
+// It emits only when current technical health changes the authority projected
+// to EuroScope, retaining the aggregate revision and payload.
+func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.AirportState) error {
+	if !p.gainLossEnabled {
+		return nil
+	}
+	event, err := p.newGainLossEvent(ctx, state)
+	if err != nil {
+		return err
+	}
+	p.mu.Lock()
+	if p.lastGainLossAuthority == nil {
+		p.lastGainLossAuthority = map[string]bool{}
+	}
+	previous, known := p.lastGainLossAuthority[event.Airport]
+	p.lastGainLossAuthority[event.Airport] = event.Authoritative
+	hub := p.euroscopeHub
+	p.mu.Unlock()
+	if hub != nil && (!known || previous != event.Authoritative) {
+		hub.PublishAMANGainLoss(event)
 	}
 	return nil
 }
@@ -115,7 +193,11 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 		return operationalAMANAssembly{}, err
 	}
 	amanRepository := postgres.NewAMANRepository(pool)
-	transport := &amanTransport{repository: amanRepository, mode: config.Mode}
+	transport := &amanTransport{
+		repository:      amanRepository,
+		mode:            config.Mode,
+		gainLossEnabled: config.EnableEuroScopeGainLoseTags,
+	}
 	aircraftEngines, err := appconfig.LoadAMANAircraftEngineReference()
 	if err != nil {
 		return operationalAMANAssembly{}, err
@@ -158,4 +240,5 @@ func validateTerminalAirportCoverage(terminalConfig terminal.Configuration, enab
 
 var _ sequence.FullStatePublisher = (*amanTransport)(nil)
 var _ internalFrontend.AMANStateProvider = (*amanTransport)(nil)
+var _ internalEuroscope.AMANGainLossProvider = (*amanTransport)(nil)
 var _ aman.Component = (*amanTransport)(nil)

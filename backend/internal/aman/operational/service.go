@@ -363,6 +363,9 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 	}
 	for i := range next.Flights {
 		repairSuperstableFreeze(&next.Flights[i])
+		if next.Flights[i].State == aman.StateLanded || next.Flights[i].State == aman.StateRemoved {
+			expireActiveRouteFact(&next.Flights[i])
+		}
 	}
 
 	s.resequence(&next, now)
@@ -1127,6 +1130,7 @@ func markMissing(flight *aman.AMANFlight, now time.Time) {
 		flight.Lifecycle.Absence = &aman.AbsenceState{MissingSince: now, RemovalDueAt: &due}
 	} else if flight.Lifecycle.Absence.RemovalDueAt != nil && !now.Before(*flight.Lifecycle.Absence.RemovalDueAt) {
 		flight.State = aman.StateRemoved
+		expireActiveRouteFact(flight)
 		flight.Lifecycle.Reason = aman.LifecycleReasonSourceDisappearance
 		flight.Lifecycle.EnteredAt = now
 	}
@@ -1196,6 +1200,7 @@ func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObs
 		return flight
 	}
 	flight.State = aman.StateLanded
+	expireActiveRouteFact(&flight)
 	if flight.Prediction != nil {
 		prediction := *flight.Prediction
 		prediction.Publishable = false
@@ -1212,6 +1217,16 @@ func clearGroundedOperationalState(flight *aman.AMANFlight) {
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
+}
+
+func expireActiveRouteFact(flight *aman.AMANFlight) {
+	if flight.ActiveRouteFact == nil ||
+		(flight.ActiveRouteFact.State != "" && flight.ActiveRouteFact.State != aman.RouteFactActive) {
+		return
+	}
+	fact := *flight.ActiveRouteFact
+	fact.State = aman.RouteFactExpired
+	flight.ActiveRouteFact = &fact
 }
 
 // repairSuperstableFreeze recovers aggregates written before a captured slot

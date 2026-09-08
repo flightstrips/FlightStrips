@@ -49,6 +49,8 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
 
     static std::string GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan& flightPlan);
     [[nodiscard]] std::string ResolveSpokenCallsign(const std::string& callsign, const std::string& remarks) const;
+    static std::optional<std::string> NormalizeDirectToFix(const char* fix);
+    static std::string CurrentUtcTimestamp();
 private:
 
     std::shared_ptr<websocket::WebSocketService> m_websocketService;

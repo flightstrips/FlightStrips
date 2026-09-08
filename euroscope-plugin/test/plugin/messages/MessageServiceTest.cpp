@@ -86,6 +86,24 @@ TEST(MessageServiceEventsTest, AssumeOnlyEventSerializesExpectedShape) {
     EXPECT_EQ(json.at("callsign").get<std::string>(), "EIN123");
 }
 
+TEST(MessageServiceEventsTest, AmanRouteFactSerializesMinimalVersionedContract) {
+    const nlohmann::json json = AMANRouteFactEvent{" sas123 ", std::optional<std::string>{"KEMAX"}, "2026-08-20T11:59:00Z"};
+    EXPECT_EQ(json.at("type").get<std::string>(), EVENT_AMAN_ROUTE_FACT_NAME);
+    EXPECT_EQ(json.at("version").get<int>(), 1);
+    EXPECT_EQ(json.at("data").at("callsign").get<std::string>(), " sas123 ");
+    EXPECT_EQ(json.at("data").at("kind").get<std::string>(), "direct_to");
+    EXPECT_EQ(json.at("data").at("direct_to_fix").get<std::string>(), "KEMAX");
+    EXPECT_EQ(json.at("data").at("observed_at").get<std::string>(), "2026-08-20T11:59:00Z");
+    EXPECT_FALSE(json.at("data").contains("airport"));
+    EXPECT_FALSE(json.at("data").contains("issuer"));
+    EXPECT_FALSE(json.at("data").contains("flight_id"));
+}
+
+TEST(MessageServiceEventsTest, AmanRouteFactRepresentsClearAsNull) {
+    const nlohmann::json json = AMANRouteFactEvent{"SAS123", std::nullopt, "2026-08-20T11:59:00Z"};
+    EXPECT_TRUE(json.at("data").at("direct_to_fix").is_null());
+}
+
 TEST(MessageServiceEventsTest, AircraftInfoEventDeserializesExpectedShape) {
     const auto json = nlohmann::json::parse(R"({
         "type":"aircraft_info",

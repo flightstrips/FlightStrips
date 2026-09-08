@@ -1,12 +1,17 @@
 package euroscope
 
 import (
+	"FlightStrips/internal/aman"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -14,6 +19,30 @@ import (
 
 	gorilla "github.com/gorilla/websocket"
 )
+
+func handleAMANRouteFact(ctx context.Context, client *Client, message Message) error {
+	if client.hub.amanRouteFacts == nil {
+		return &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN route facts are disabled"}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(message.Message))
+	decoder.DisallowUnknownFields()
+	var event euroscope.AMANRouteFactEvent
+	if err := decoder.Decode(&event); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid trailing AMAN route fact data"}
+	}
+	if event.Type != euroscope.AMANRouteFact || event.Version != 1 || event.Data.Kind != "direct_to" {
+		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN route fact contract"}
+	}
+	observedAt, err := time.Parse(time.RFC3339Nano, event.Data.ObservedAt)
+	if err != nil {
+		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN route fact observation time"}
+	}
+	return client.hub.amanRouteFacts.ReportDirectTo(
+		ctx, client.session, client.airport, event.Data.Callsign, client.callsign, event.Data.DirectToFix, observedAt.UTC())
+}
 
 type Message = shared.Message[euroscope.EventType]
 

@@ -129,6 +129,33 @@ type FiledRouteResult struct {
 	Reasons []string
 }
 
+// DirectToTargetOnForwardPath applies the same route composition and progress
+// floor used by direct-to projection, without requiring a fresh surveillance
+// observation. Command owners can therefore reject an unusable fact before it
+// is committed.
+func DirectToTargetOnForwardPath(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry, input Input, target navdata.FixID) bool {
+	if !route.Version.Equal(snapshot.Manifest.Version) {
+		return false
+	}
+	fixes := make(map[navdata.FixID]navdata.Fix, len(snapshot.Fixes))
+	for _, fix := range snapshot.Fixes {
+		fixes[fix.ID] = fix
+	}
+	baseIsCompatible := baseCompatible(input.Prior, route.Digest, snapshot, input)
+	input.RouteFact = nil
+	legs, _, _, _, _ := compose(snapshot, route, input, fixes, baseIsCompatible)
+	floor := 0
+	if baseIsCompatible {
+		floor = max(0, input.Prior.RejoinLegIndex)
+	}
+	for index := floor; index < len(legs); index++ {
+		if legs[index].to == target {
+			return true
+		}
+	}
+	return false
+}
+
 // Project performs only cache reads then delegates to the deterministic reducer.
 func Project(ctx context.Context, readers Readers, input Input, config Config) (Result, error) {
 	if readers.Geometry == nil || readers.Snapshot == nil {

@@ -3,6 +3,8 @@
 #include "TopSkyHold.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cctype>
 #include <nlohmann/json.hpp>
 
 namespace FlightStrips::flightplan {
@@ -264,6 +266,17 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
+        if (dataType == EuroScopePlugIn::CTR_DATA_TYPE_DIRECT_TO) {
+            auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+            const auto directTo = NormalizeDirectToFix(flightPlan.GetControllerAssignedData().GetDirectToPointName());
+            if (m_websocketService->IsConnected() && flightPlan.GetTrackingControllerIsMe() &&
+                (!plan.direct_to_initialized || plan.direct_to_fix != directTo)) {
+                m_websocketService->SendEvent(AMANRouteFactEvent(callsign, directTo, CurrentUtcTimestamp()));
+                plan.direct_to_fix = directTo;
+                plan.direct_to_initialized = true;
+            }
+            return;
+        }
         const auto shouldSend = m_websocketService->ShouldSend();
         if (!shouldSend && dataType != EuroScopePlugIn::CTR_DATA_TYPE_SCRATCH_PAD_STRING) return;
 
@@ -431,6 +444,28 @@ namespace FlightStrips::flightplan {
         gmtime_s(&ptm, &rawtime);
 
         return std::format("{:0>2}{:0>2}", ptm.tm_hour, ptm.tm_min);
+    }
+
+    std::optional<std::string> FlightPlanService::NormalizeDirectToFix(const char* fix) {
+        if (fix == nullptr) return std::nullopt;
+        std::string result(fix);
+        const auto first = result.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) return std::nullopt;
+        result.erase(0, first);
+        result.erase(result.find_last_not_of(" \t\r\n") + 1);
+        for (auto& character : result) {
+            character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
+        }
+        return result;
+    }
+
+    std::string FlightPlanService::CurrentUtcTimestamp() {
+        const auto now = std::chrono::system_clock::now();
+        const auto raw = std::chrono::system_clock::to_time_t(now);
+        std::tm utc{};
+        gmtime_s(&utc, &raw);
+        return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+                          utc.tm_year + 1900, utc.tm_mon + 1, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
     }
 
     void FlightPlanService::OnTimer(int counter) {

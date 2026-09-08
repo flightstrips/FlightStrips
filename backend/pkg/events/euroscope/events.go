@@ -60,6 +60,7 @@ const (
 	PdcRevertToVoice          EventType = "pdc_revert_to_voice"
 	SendPrivateMessage        EventType = "send_private_message"
 	AMANGainLoss              EventType = "aman_gain_loss"
+	AMANRouteFact             EventType = "aman.route_fact"
 )
 
 const (
@@ -98,6 +99,19 @@ type AMANGainLossEvent struct {
 	GeneratedAt   string              `json:"generated_at"`
 	Authoritative bool                `json:"authoritative"`
 	Values        []AMANGainLossValue `json:"values"`
+}
+
+type AMANRouteFactData struct {
+	Callsign    string  `json:"callsign"`
+	Kind        string  `json:"kind"`
+	DirectToFix *string `json:"direct_to_fix"`
+	ObservedAt  string  `json:"observed_at"`
+}
+
+type AMANRouteFactEvent struct {
+	Type    EventType         `json:"type"`
+	Version int               `json:"version"`
+	Data    AMANRouteFactData `json:"data"`
 }
 
 func marshall[T OutgoingMessage](message T) (result []byte, err error) {

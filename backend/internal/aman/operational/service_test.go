@@ -402,6 +402,7 @@ func TestGroundedSurveillanceLandsPostTakeoffFlight(t *testing.T) {
 	flight := aman.AMANFlight{
 		State: aman.StateAirborne, FreezeReason: aman.FreezeManual, SelectedHolding: &holding, ActiveRouteKey: &routeKey, SelectedFeeder: &feeder,
 		Prediction: &aman.Prediction{Publishable: true}, Slot: &aman.Slot{Time: now.Add(time.Minute)}, ManualOrder: &manualOrder,
+		ActiveRouteFact: &aman.RouteFact{ID: "direct-to", Fix: "MONAK", State: aman.RouteFactActive},
 	}
 
 	updated := applyGroundedObservation(flight, observation, now)
@@ -413,6 +414,7 @@ func TestGroundedSurveillanceLandsPostTakeoffFlight(t *testing.T) {
 	require.Nil(t, updated.Slot)
 	require.Nil(t, updated.SelectedHolding)
 	require.Equal(t, aman.FreezeNone, updated.FreezeReason)
+	require.Equal(t, aman.RouteFactExpired, updated.ActiveRouteFact.State)
 }
 
 func TestRepairSuperstableFreezeCapturesOrReleasesSlot(t *testing.T) {
@@ -600,6 +602,7 @@ func TestGoAroundUpdatesOperationalTETABeforeCascading(t *testing.T) {
 	state.Revision = 4
 	flight := operationalFlight("GO-AROUND", "ARRIVAL-22", "MONAK", "M", now.Add(3*time.Minute))
 	flight.State = aman.StateStable
+	flight.ActiveRouteFact = &aman.RouteFact{ID: "direct-to", Fix: "MONAK", State: aman.RouteFactActive}
 	flight.Slot = &aman.Slot{
 		Time: now.Add(3 * time.Minute), RunwayGroupID: "ARRIVAL-22",
 		Sequence: 1, Revision: state.Revision, Reason: string(sequence.ReasonRateWTC),
@@ -621,7 +624,24 @@ func TestGoAroundUpdatesOperationalTETABeforeCascading(t *testing.T) {
 	require.True(t, updated.Prediction.Publishable)
 	require.NotNil(t, updated.Slot)
 	require.False(t, updated.Slot.Time.Before(now.Add(DefaultGoAroundDelay)))
+	require.Equal(t, aman.RouteFactExpired, updated.ActiveRouteFact.State)
 	require.NotNil(t, change.QueueOffers)
+}
+
+func TestRemovedFlightExpiresActiveRouteFact(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	flight := aman.AMANFlight{
+		State:           aman.StateAirborne,
+		ActiveRouteFact: &aman.RouteFact{ID: "direct-to", Fix: "MONAK", State: aman.RouteFactActive},
+		Lifecycle: &aman.LifecycleState{
+			Absence: &aman.AbsenceState{MissingSince: now.Add(-time.Minute), RemovalDueAt: &now},
+		},
+	}
+
+	markMissing(&flight, now)
+
+	require.Equal(t, aman.StateRemoved, flight.State)
+	require.Equal(t, aman.RouteFactExpired, flight.ActiveRouteFact.State)
 }
 
 func TestRateChangeRejectsProtectedSameSTARConflict(t *testing.T) {

@@ -44,7 +44,11 @@ GET /api/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich
 ```
 
 ```json
-{ "stand": "Gate A31", "pushback": "Z2 Face E", "revision": "Gate A31|Z2 Face E" }
+// arriving at EKCH
+{ "stand": "Gate A31", "pushback": null, "revision": "stand:Gate A31" }
+
+// departing EKCH
+{ "stand": null, "pushback": "Z2 Face E", "revision": "push:Z2 Face E" }
 ```
 
 `400` for a missing or malformed `callsign` or `icao`. `503` when the lookup
@@ -58,10 +62,31 @@ response carries it as an `ETag` so the script can poll with
 `fetchJson(url, etag=True)` and get a zero-byte `304 Not Modified` when nothing
 has changed.
 
-`revision` is the stand itself, deliberately, not `strips.version`. A strip's
-version changes for reasons that have nothing to do with parking, and each of
-those would otherwise look like a reassignment and make the script re-select the
-stand it is already on.
+`revision` is the assignment itself, deliberately, not `strips.version`. A
+strip's version changes for reasons that have nothing to do with parking, and
+each of those would otherwise look like a reassignment and make the script
+re-apply what is already applied.
+
+## Arrivals and departures
+
+The two halves are never both live. A **stand** is where arriving traffic is
+told to park; a **pushback point** is how departing traffic comes off the stand
+it is already sitting on. They belong to opposite ends of a turnaround — often
+to two different callsigns, since the inbound SAS1401 leaves again as SAS1402.
+
+The endpoint decides which applies, using the same rule as the PDC lookup —
+`strip.Origin == session.Airport` means the flight is leaving:
+
+| Leg | `stand` | `pushback` |
+| --- | --- | --- |
+| arriving here | the assigned stand | `null` |
+| departing here | `null` | the assigned route |
+
+So a release point sitting on an inbound strip is never published: it belongs to
+that aircraft's later departure. And a departing aircraft is never sent a stand,
+because it is already parked and loading — `selectGate` would refuse anyway
+while ground services are active, and moving it would be wrong even if it
+worked.
 
 ## Source of truth
 
@@ -159,7 +184,7 @@ For the shipped EKCH profile that is 119 gates, 87 reconciled automatically and
 
 ## Pushback points
 
-`getGate().pushback`, `pushbackLabels` and `pushbackAddPos` are all writable at
+For departing traffic only. `getGate().pushback`, `pushbackLabels` and `pushbackAddPos` are all writable at
 any time, so the handler can narrow the pushback menu to the assigned route:
 
 - An **extra slot** defined by the profile: keep only that entry in
@@ -173,9 +198,9 @@ the assigned one as the only routed choice. GSX always offers Straight Pushback
 and Pull Straight regardless of the parking preference, so the menu does not
 disappear — the pilot still confirms.
 
-The route only means anything once the aircraft is on the assigned stand, and
-`selectGate` is deferred by a cycle, so the script applies the stand first and
-the pushback on a later poll.
+The route applies to the stand the aircraft is already parked on, which is why
+this is a departure-only concern and why the script never pairs it with a stand
+selection.
 
 ## Client
 

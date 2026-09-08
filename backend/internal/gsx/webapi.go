@@ -108,14 +108,22 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 
 	response := standResponse{Revision: noStandRevision}
 	if assigned != nil {
+		// The stand is needed either way: for an arrival it is the answer, and
+		// for a departure it is what decides which pushback routes exist.
 		stand, pushback := a.sceneries.Resolve(airport, assigned.stand, scenery, assigned.releasePoint)
-		response.Stand = &stand
-		response.Revision = stand
-		if pushback != "" {
-			response.Pushback = &pushback
-			// Both values are in the revision, so a controller changing either
-			// one breaks the ETag and the script re-applies.
-			response.Revision = stand + "|" + pushback
+
+		if assigned.departure {
+			// Leaving. Never move an aircraft that is already parked and
+			// loading - publish only how it should come off the stand.
+			if pushback != "" {
+				response.Pushback = &pushback
+				response.Revision = "push:" + pushback
+			}
+		} else {
+			// Arriving. Where to park; the pushback point is somebody else's
+			// leg and means nothing yet.
+			response.Stand = &stand
+			response.Revision = "stand:" + stand
 		}
 	}
 
@@ -134,9 +142,15 @@ func (a *WebAPI) handleStand(w http.ResponseWriter, r *http.Request) {
 
 // assignment is what the controller has recorded on the strip, before any
 // scenery-specific translation.
+//
+// The two halves belong to opposite ends of a turnaround and are never both
+// actionable: a stand is where arriving traffic is told to park, and a pushback
+// point is how departing traffic leaves the stand it is already on. Which one
+// applies is decided here, not by the script.
 type assignment struct {
 	stand        string
 	releasePoint string
+	departure    bool
 }
 
 // lookupStand returns what callsign currently holds, or nil when the callsign is
@@ -175,7 +189,9 @@ func (a *WebAPI) lookupStand(ctx context.Context, callsign, airport string) (*as
 		if stand == "" {
 			continue
 		}
-		found := assignment{stand: stand}
+		// Same rule the PDC lookup uses: a strip whose origin is this airport
+		// is leaving it.
+		found := assignment{stand: stand, departure: strings.EqualFold(strip.Origin, session.Airport)}
 		if strip.ReleasePoint != nil {
 			found.releasePoint = strings.TrimSpace(*strip.ReleasePoint)
 		}

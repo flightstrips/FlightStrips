@@ -1,8 +1,8 @@
 # -- coding: utf-8 --
 #
-# EKCH stand assignment - GSX airport handler script.
-# Selects the stand FlightStrips has assigned, and narrows the pushback menu to
-# the route the controller gave. Python 3.7 (couatl ships python37.dll).
+# EKCH stand and pushback assignment - GSX airport handler script.
+# Arriving: selects the stand the controller assigned. Departing: narrows the
+# pushback menu to the route they gave. Python 3.7 (couatl ships python37.dll).
 #
 # ---------------------------------------------------------------------------
 # FOR PILOTS: there is nothing to configure. Drop this file next to the .ini
@@ -23,8 +23,11 @@
 #   whatever another add-on calls the same concrete.
 #
 #   Endpoint: GET /api/gsx/stand?callsign=&icao=&scenery=
-#   Answers:  { "stand": "Gate A31", "pushback": "Z2 Face E", "revision": ... }
-#             or { "stand": null } when there is nothing to do.
+#   Answers at most one of the two, because they belong to opposite ends of a
+#   turnaround:
+#     arriving here  -> { "stand": "Gate A31", "pushback": null }
+#     leaving here   -> { "stand": null, "pushback": "Z2 Face E" }
+#     nothing to do  -> { "stand": null, "pushback": null }
 
 API_BASE = "https://flightstrips.example.org"
 SCENERY = "Simnord-Sonnich"
@@ -196,7 +199,13 @@ def _standApplyPushback(self, wanted):
 
 
 def _standCheck(self):
-    """One fetch-and-apply cycle. Returns False when polling should stop."""
+    """One fetch-and-apply cycle. Returns False when polling should stop.
+
+    The server sends at most one of the two, because they belong to opposite
+    ends of a turnaround: a stand for traffic arriving here, a pushback route
+    for traffic leaving. An aircraft that is already parked and loading is never
+    told to move.
+    """
     if self._standUserOverride:
         return False
 
@@ -205,26 +214,37 @@ def _standCheck(self):
         return True                          # transient error - keep polling
 
     stand = payload.get("stand")
-    if not stand:
-        return True                          # nothing assigned - keep waiting
-
-    if not _standSame(stand, self._standAssigned or ""):
-        if self._standAssigned is not None:
-            _standSay(self, "Stand changed by ATC")
-        self._standAssigned = stand
-        self._standPushback = None
-        _standApply(self, stand)
-        return True                          # selectGate lands next cycle
-
-    # Only once we are actually on the assigned stand does its pushback menu
-    # exist to be narrowed.
-    if not _standOnAssignedStand(self, stand):
-        return True
+    if stand:
+        return _standCheckArrival(self, stand)
 
     pushback = payload.get("pushback")
-    if pushback and not _standSame(pushback, self._standPushback or ""):
-        if _standApplyPushback(self, pushback):
-            self._standPushback = pushback
+    if pushback:
+        return _standCheckDeparture(self, pushback)
+
+    return True                              # nothing assigned - keep waiting
+
+
+def _standCheckArrival(self, stand):
+    """Inbound: park on the stand the controller assigned."""
+    if _standSame(stand, self._standAssigned or ""):
+        return True                          # already applied
+
+    if self._standAssigned is not None:
+        _standSay(self, "Stand changed by ATC")
+    self._standAssigned = stand
+    _standApply(self, stand)
+    return True                              # selectGate lands next cycle
+
+
+def _standCheckDeparture(self, pushback):
+    """Outbound: narrow the push menu on the stand we are already parked on."""
+    if _standSame(pushback, self._standPushback or ""):
+        return True                          # already applied
+
+    if self._standPushback is not None:
+        _standSay(self, "Pushback changed by ATC")
+    if _standApplyPushback(self, pushback):
+        self._standPushback = pushback
     return True
 
 
@@ -266,14 +286,15 @@ def onEnterAirport(self):
 
     # No strip, no assignment, or not on the network. Leave the pilot completely
     # alone: no message, no polling, no change to how GSX behaves.
-    if payload is None or not payload.get("stand"):
+    if payload is None or (not payload.get("stand") and not payload.get("pushback")):
         return
 
     stand = payload.get("stand")
-    gate = getGate()
-
-    if gate is not None and not _standOnAssignedStand(self, stand):
-        # A stand we did not assign. The pilot chose it - leave them alone.
+    if stand is not None and getGate() is not None and not _standOnAssignedStand(self, stand):
+        # Inbound, but already sitting on a stand we did not assign, so the
+        # pilot picked it. Leave them alone. This check is for arrivals only:
+        # a departing aircraft is always on a stand it chose, and that is
+        # exactly where its assigned pushback route applies.
         _standSay(self, "Keeping your stand; ATC updates off")
         self._standUserOverride = True
         return
@@ -285,7 +306,7 @@ def onEnterAirport(self):
 def onDepartureRequested(self, *args):
     """Re-apply the pushback route in case it was set after we last polled."""
     _standInit(self)
-    if not self._standUserOverride and self._standAssigned:
+    if not self._standUserOverride:
         payload = _standFetch(self)
         if payload and payload.get("pushback"):
             _standApplyPushback(self, payload.get("pushback"))
@@ -301,7 +322,7 @@ def onGateReset(self, reason):
     see rather than have the simulator quietly overwrite.
     """
     _standInit(self)
-    if reason in ("user_changed", "user_revoked") and self._standAssigned is not None:
+    if reason in ("user_changed", "user_revoked") and (self._standAssigned or self._standPushback):
         self._standUserOverride = True
         cancelAsync(self._standPoll)
         self._standPoll = None

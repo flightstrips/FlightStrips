@@ -103,11 +103,11 @@ func TestHandleStandReturnsAssignedStand(t *testing.T) {
 	if response.Stand == nil || *response.Stand != "A12" {
 		t.Fatalf("expected stand A12, got %v", response.Stand)
 	}
-	if response.Revision != "A12" {
-		t.Fatalf("expected revision A12, got %q", response.Revision)
+	if response.Revision != "stand:A12" {
+		t.Fatalf("expected revision stand:A12, got %q", response.Revision)
 	}
-	if got := recorder.Header().Get("ETag"); got != `"A12"` {
-		t.Fatalf("expected ETag \"A12\", got %q", got)
+	if got := recorder.Header().Get("ETag"); got != `"stand:A12"` {
+		t.Fatalf("expected ETag stand:A12, got %q", got)
 	}
 }
 
@@ -187,7 +187,7 @@ func TestHandleStandMatchingETagReturns304(t *testing.T) {
 	}}
 
 	recorder := get(t, newAPI(liveEKCH(), strips), "/gsx/stand?callsign=SAS1401&icao=EKCH",
-		map[string]string{"If-None-Match": `"A12"`})
+		map[string]string{"If-None-Match": `"stand:A12"`})
 
 	if recorder.Code != http.StatusNotModified {
 		t.Fatalf("expected 304, got %d", recorder.Code)
@@ -203,13 +203,13 @@ func TestHandleStandChangedStandBreaksTheETag(t *testing.T) {
 	}}
 
 	recorder := get(t, newAPI(liveEKCH(), strips), "/gsx/stand?callsign=SAS1401&icao=EKCH",
-		map[string]string{"If-None-Match": `"A12"`})
+		map[string]string{"If-None-Match": `"stand:A12"`})
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected 200 after a reassignment, got %d", recorder.Code)
 	}
-	if response := decode(t, recorder); response.Revision != "C34" {
-		t.Fatalf("expected revision C34, got %q", response.Revision)
+	if response := decode(t, recorder); response.Revision != "stand:C34" {
+		t.Fatalf("expected revision stand:C34, got %q", response.Revision)
 	}
 }
 
@@ -219,7 +219,7 @@ func TestHandleStandAcceptsWeakETag(t *testing.T) {
 	}}
 
 	recorder := get(t, newAPI(liveEKCH(), strips), "/gsx/stand?callsign=SAS1401&icao=EKCH",
-		map[string]string{"If-None-Match": `W/"A12"`})
+		map[string]string{"If-None-Match": `W/"stand:A12"`})
 
 	if recorder.Code != http.StatusNotModified {
 		t.Fatalf("expected 304 for a weak tag, got %d", recorder.Code)
@@ -291,22 +291,26 @@ func TestHandleStandDisclosesOnlyTheAssignment(t *testing.T) {
 	}
 }
 
-// --- scenery translation -------------------------------------------------
+// --- arrival / departure split ------------------------------------------
 
 func sceneriesFixture() Sceneries {
 	return Sceneries{"EKCH": &SceneryConfig{
 		ICAO: "EKCH",
 		Gates: map[string]map[string]GateScenery{
 			"A31": {
-				"Simnord-Sonnich": {Stand: "Gate A31", Points: map[string]string{"Z/L": "Z2 Face E"}},
+				"Simnord-Sonnich": {Stand: "Gate A31", Points: map[string]string{"Z/L": "Z2 Face E", "Y/L": "Z3 Face W"}},
 				"FlyTampa":        {Points: map[string]string{"Z/L": "Z2 EAST"}},
 			},
 		},
 	}}
 }
 
-func standAt(stand, releasePoint string) *stripFake {
-	strip := &models.Strip{Callsign: "SAS1401", Stand: ptr(stand)}
+// arriving builds a strip inbound to EKCH; departing builds one leaving it.
+func arriving(stand, releasePoint string) *stripFake  { return leg("EKBI", stand, releasePoint) }
+func departing(stand, releasePoint string) *stripFake { return leg("EKCH", stand, releasePoint) }
+
+func leg(origin, stand, releasePoint string) *stripFake {
+	strip := &models.Strip{Callsign: "SAS1401", Origin: origin, Destination: "EKCH", Stand: ptr(stand)}
 	if releasePoint != "" {
 		strip.ReleasePoint = ptr(releasePoint)
 	}
@@ -317,72 +321,87 @@ func withSceneries(strips *stripFake) *WebAPI {
 	return NewWebAPI(liveEKCH(), strips, sceneriesFixture(), true)
 }
 
-func TestHandleStandTranslatesForTheScenery(t *testing.T) {
-	api := withSceneries(standAt("A31", "Z/L"))
+const sonnich = "/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich"
 
-	recorder := get(t, api, "/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich", nil)
-	response := decode(t, recorder)
+func TestArrivalGetsAStandAndNoPushback(t *testing.T) {
+	// A release point on an inbound strip belongs to its later departure leg.
+	response := decode(t, get(t, withSceneries(arriving("A31", "Z/L")), sonnich, nil))
 
 	if response.Stand == nil || *response.Stand != "Gate A31" {
 		t.Fatalf("stand: got %v want Gate A31", response.Stand)
 	}
+	if response.Pushback != nil {
+		t.Fatalf("arriving traffic must not be given a pushback, got %v", *response.Pushback)
+	}
+	if response.Revision != "stand:Gate A31" {
+		t.Fatalf("revision: got %q", response.Revision)
+	}
+}
+
+func TestDepartureGetsAPushbackAndNoStand(t *testing.T) {
+	response := decode(t, get(t, withSceneries(departing("A31", "Z/L")), sonnich, nil))
+
 	if response.Pushback == nil || *response.Pushback != "Z2 Face E" {
 		t.Fatalf("pushback: got %v want Z2 Face E", response.Pushback)
 	}
-	if response.Revision != "Gate A31|Z2 Face E" {
+	if response.Stand != nil {
+		t.Fatalf("a departing aircraft is already parked; must not be moved, got %v", *response.Stand)
+	}
+	if response.Revision != "push:Z2 Face E" {
 		t.Fatalf("revision: got %q", response.Revision)
 	}
 }
 
-func TestHandleStandSameGateDifferentScenery(t *testing.T) {
-	api := withSceneries(standAt("A31", "Z/L"))
+func TestDepartureWithoutAReleasePointGetsNothing(t *testing.T) {
+	response := decode(t, get(t, withSceneries(departing("A31", "")), sonnich, nil))
 
-	response := decode(t, get(t, api, "/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=FlyTampa", nil))
+	if response.Stand != nil || response.Pushback != nil {
+		t.Fatalf("expected nothing to do, got stand=%v pushback=%v", response.Stand, response.Pushback)
+	}
+	if response.Revision != noStandRevision {
+		t.Fatalf("revision: got %q", response.Revision)
+	}
+}
+
+func TestPushbackIsResolvedPerScenery(t *testing.T) {
+	response := decode(t, get(t, withSceneries(departing("A31", "Z/L")),
+		"/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=FlyTampa", nil))
+
 	if response.Pushback == nil || *response.Pushback != "Z2 EAST" {
 		t.Fatalf("pushback: got %v want Z2 EAST", response.Pushback)
 	}
+}
+
+func TestArrivalWithoutSceneryKeepsTheControllerStandName(t *testing.T) {
+	response := decode(t, get(t, withSceneries(arriving("A31", "")),
+		"/gsx/stand?callsign=SAS1401&icao=EKCH", nil))
+
 	if response.Stand == nil || *response.Stand != "A31" {
-		t.Fatalf("stand should fall back to the controller's value, got %v", response.Stand)
+		t.Fatalf("stand: got %v want A31", response.Stand)
 	}
 }
 
-func TestHandleStandWithoutSceneryPublishesNoPushback(t *testing.T) {
-	api := withSceneries(standAt("A31", "Z/L"))
-
-	response := decode(t, get(t, api, "/gsx/stand?callsign=SAS1401&icao=EKCH", nil))
-	if response.Pushback != nil {
-		t.Fatalf("expected no pushback without a scenery, got %v", *response.Pushback)
-	}
-	if response.Stand == nil || *response.Stand != "A31" {
-		t.Fatalf("stand: got %v", response.Stand)
-	}
-}
-
-func TestHandleStandNoReleasePointMeansNoPushback(t *testing.T) {
-	api := withSceneries(standAt("A31", ""))
-
-	response := decode(t, get(t, api, "/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich", nil))
-	if response.Pushback != nil {
-		t.Fatalf("expected no pushback, got %v", *response.Pushback)
-	}
-	if response.Revision != "Gate A31" {
-		t.Fatalf("revision: got %q", response.Revision)
-	}
-}
-
-func TestHandleStandPushbackChangeBreaksTheETag(t *testing.T) {
-	api := withSceneries(standAt("A31", "Z/L"))
-	target := "/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich"
-
-	first := get(t, api, target, nil)
-	etag := first.Header().Get("ETag")
-	if code := get(t, api, target, map[string]string{"If-None-Match": etag}).Code; code != http.StatusNotModified {
-		t.Fatalf("unchanged assignment should be 304, got %d", code)
-	}
-
-	// Controller clears the release point: same stand, different revision.
-	moved := withSceneries(standAt("A31", ""))
-	if code := get(t, moved, target, map[string]string{"If-None-Match": etag}).Code; code != http.StatusOK {
-		t.Fatalf("a pushback change must break the ETag, got %d", code)
+func TestReassignmentBreaksTheETagForEitherLeg(t *testing.T) {
+	for _, c := range []struct {
+		name          string
+		before, after *stripFake
+	}{
+		{"arrival moved to another stand", arriving("A31", ""), arriving("C34", "")},
+		{"departure given a different push", departing("A31", "Z/L"), departing("A31", "Y/L")},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			etag := get(t, withSceneries(c.before), sonnich, nil).Header().Get("ETag")
+			if etag == "" {
+				t.Fatal("no ETag issued")
+			}
+			same := get(t, withSceneries(c.before), sonnich, map[string]string{"If-None-Match": etag})
+			if same.Code != http.StatusNotModified {
+				t.Fatalf("unchanged should be 304, got %d", same.Code)
+			}
+			changed := get(t, withSceneries(c.after), sonnich, map[string]string{"If-None-Match": etag})
+			if changed.Code != http.StatusOK {
+				t.Fatalf("a change must break the ETag, got %d", changed.Code)
+			}
+		})
 	}
 }

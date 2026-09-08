@@ -114,6 +114,21 @@ def _standSame(a, b):
     return str(a).upper().replace(" ", "") == str(b).upper().replace(" ", "")
 
 
+def _standRoutes(value):
+    """Normalise the pushback field to a list of route labels.
+
+    A server may send one route as a bare string or several as a list, and a
+    pilot's copy of this script is never guaranteed to match the server's
+    version. Iterating a string would yield characters and silently match
+    nothing, so coerce rather than assume.
+    """
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [str(v) for v in value if v]
+
+
 # --------------------------------------------------------------------------
 # applying an assignment
 # --------------------------------------------------------------------------
@@ -157,45 +172,52 @@ def _standApply(self, stand):
 
 
 def _standApplyPushback(self, wanted):
-    """Narrow the pushback menu to the route the controller assigned.
+    """Narrow the pushback menu to every route reaching the assigned point.
 
     GSX has no selectPushback(): a script cannot answer the menu on the pilot's
-    behalf. What it can do is remove the routes that were not assigned, leaving
-    the assigned one as the only routed choice. GSX still offers Straight and
-    Pull Straight regardless, so the menu does not disappear.
+    behalf. What it can do is remove the routes that were not assigned.
+
+    `wanted` is a list because a stand often offers the same taxiway in two
+    facings, and a release point cannot say which. Keeping both still
+    guarantees the aircraft leaves via the taxiway the controller named - the
+    part that matters - while the facing stays the pilot's choice. GSX also
+    always offers Straight and Pull Straight, so the menu never disappears.
     """
     gate = getGate()
     if gate is None or not wanted:
         return False
 
     try:
-        # An extra slot defined by the profile: keep only it, and switch both
-        # of the default left/right routes off.
-        for slot in (gate.pushbackAddPos or []):
-            label = slot.get("label") if isinstance(slot, dict) else None
-            if label and _standSame(label, wanted):
-                gate.pushbackAddPos = [slot]
-                gate.pushback = 0
-                _standSay(self, "Pushback: %s" % wanted)
-                return True
-
-        # Otherwise one of the two defaults. pushbackLabels is left then right,
-        # and the direction enum is 1 = left, 2 = right.
         labels = gate.pushbackLabels
         if isinstance(labels, str):
             labels = labels.split("|")
-        for index, label in enumerate((labels or [])[:2]):
-            if _standSame(label, wanted):
-                gate.pushback = 1 if index == 0 else 2
-                gate.pushbackAddPos = []
-                _standSay(self, "Pushback: %s" % wanted)
-                return True
+        labels = [str(l).strip() for l in (labels or [])]
+
+        def isWanted(label):
+            return any(_standSame(label, w) for w in wanted)
+
+        # pushbackLabels is the left slot then the right slot, and the direction
+        # enum is a bitmask: 0 none, 1 left, 2 right, 3 both.
+        direction = 0
+        if len(labels) > 0 and isWanted(labels[0]):
+            direction += 1
+        if len(labels) > 1 and isWanted(labels[1]):
+            direction += 2
+
+        keep = [slot for slot in (gate.pushbackAddPos or [])
+                if isinstance(slot, dict) and slot.get("label") and isWanted(slot["label"])]
+
+        if direction == 0 and not keep:
+            print("[stands] no route to %s at this stand" % ", ".join(wanted))
+            return False
+
+        gate.pushbackAddPos = keep
+        gate.pushback = direction
+        _standSay(self, "Pushback: %s" % " or ".join(wanted))
+        return True
     except Exception as err:
         print("[stands] could not set pushback: %s" % err)
         return False
-
-    print("[stands] '%s' is not a pushback route at this stand" % wanted)
-    return False
 
 
 def _standCheck(self):
@@ -217,7 +239,7 @@ def _standCheck(self):
     if stand:
         return _standCheckArrival(self, stand)
 
-    pushback = payload.get("pushback")
+    pushback = _standRoutes(payload.get("pushback"))
     if pushback:
         return _standCheckDeparture(self, pushback)
 
@@ -238,13 +260,14 @@ def _standCheckArrival(self, stand):
 
 def _standCheckDeparture(self, pushback):
     """Outbound: narrow the push menu on the stand we are already parked on."""
-    if _standSame(pushback, self._standPushback or ""):
+    key = "|".join(pushback)
+    if key == (self._standPushback or ""):
         return True                          # already applied
 
     if self._standPushback is not None:
         _standSay(self, "Pushback changed by ATC")
     if _standApplyPushback(self, pushback):
-        self._standPushback = pushback
+        self._standPushback = key
     return True
 
 
@@ -284,9 +307,13 @@ def onEnterAirport(self):
 
     payload = _standFetch(self)
 
-    # No strip, no assignment, or not on the network. Leave the pilot completely
-    # alone: no message, no polling, no change to how GSX behaves.
-    if payload is None or (not payload.get("stand") and not payload.get("pushback")):
+    # Poll even when there is nothing yet. A departure is the normal case here:
+    # the pilot spawns cold on a stand and the controller assigns their pushback
+    # minutes later, so an empty first answer is the expected one, not a reason
+    # to give up. Pilots with no strip simply keep getting an empty 304 - no
+    # message, no gate change, nothing they can perceive.
+    if payload is None:
+        _standStartPolling(self)
         return
 
     stand = payload.get("stand")
@@ -308,8 +335,8 @@ def onDepartureRequested(self, *args):
     _standInit(self)
     if not self._standUserOverride:
         payload = _standFetch(self)
-        if payload and payload.get("pushback"):
-            _standApplyPushback(self, payload.get("pushback"))
+        if payload:
+            _standApplyPushback(self, _standRoutes(payload.get("pushback")))
     if hasattr(self, "_super_onDepartureRequested"):
         self._super_onDepartureRequested()
 

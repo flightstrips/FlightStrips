@@ -298,8 +298,8 @@ func sceneriesFixture() Sceneries {
 		ICAO: "EKCH",
 		Gates: map[string]map[string]GateScenery{
 			"A31": {
-				"Simnord-Sonnich": {Stand: "Gate A31", Points: map[string]string{"Z/L": "Z2 Face E", "Y/L": "Z3 Face W"}},
-				"FlyTampa":        {Points: map[string]string{"Z/L": "Z2 EAST"}},
+				"Simnord-Sonnich": {Stand: "Gate A31", Points: map[string][]string{"Z/L": {"Z2 Face E"}, "Y/L": {"Z3 Face W"}}},
+				"FlyTampa":        {Points: map[string][]string{"Z/L": {"Z2 EAST"}}},
 			},
 		},
 	}}
@@ -330,8 +330,8 @@ func TestArrivalGetsAStandAndNoPushback(t *testing.T) {
 	if response.Stand == nil || *response.Stand != "Gate A31" {
 		t.Fatalf("stand: got %v want Gate A31", response.Stand)
 	}
-	if response.Pushback != nil {
-		t.Fatalf("arriving traffic must not be given a pushback, got %v", *response.Pushback)
+	if len(response.Pushback) != 0 {
+		t.Fatalf("arriving traffic must not be given a pushback, got %v", response.Pushback)
 	}
 	if response.Revision != "stand:Gate A31" {
 		t.Fatalf("revision: got %q", response.Revision)
@@ -341,7 +341,7 @@ func TestArrivalGetsAStandAndNoPushback(t *testing.T) {
 func TestDepartureGetsAPushbackAndNoStand(t *testing.T) {
 	response := decode(t, get(t, withSceneries(departing("A31", "Z/L")), sonnich, nil))
 
-	if response.Pushback == nil || *response.Pushback != "Z2 Face E" {
+	if strings.Join(response.Pushback, "|") != "Z2 Face E" {
 		t.Fatalf("pushback: got %v want Z2 Face E", response.Pushback)
 	}
 	if response.Stand != nil {
@@ -355,7 +355,7 @@ func TestDepartureGetsAPushbackAndNoStand(t *testing.T) {
 func TestDepartureWithoutAReleasePointGetsNothing(t *testing.T) {
 	response := decode(t, get(t, withSceneries(departing("A31", "")), sonnich, nil))
 
-	if response.Stand != nil || response.Pushback != nil {
+	if response.Stand != nil || len(response.Pushback) != 0 {
 		t.Fatalf("expected nothing to do, got stand=%v pushback=%v", response.Stand, response.Pushback)
 	}
 	if response.Revision != noStandRevision {
@@ -367,7 +367,7 @@ func TestPushbackIsResolvedPerScenery(t *testing.T) {
 	response := decode(t, get(t, withSceneries(departing("A31", "Z/L")),
 		"/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=FlyTampa", nil))
 
-	if response.Pushback == nil || *response.Pushback != "Z2 EAST" {
+	if strings.Join(response.Pushback, "|") != "Z2 EAST" {
 		t.Fatalf("pushback: got %v want Z2 EAST", response.Pushback)
 	}
 }

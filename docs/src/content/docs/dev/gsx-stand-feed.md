@@ -48,7 +48,7 @@ GET /api/gsx/stand?callsign=SAS1401&icao=EKCH&scenery=Simnord-Sonnich
 { "stand": "Gate A31", "pushback": null, "revision": "stand:Gate A31" }
 
 // departing EKCH
-{ "stand": null, "pushback": "Z2 Face E", "revision": "push:Z2 Face E" }
+{ "stand": null, "pushback": ["Z2 Face E"], "revision": "push:Z2 Face E" }
 ```
 
 `400` for a missing or malformed `callsign` or `icao`. `503` when the lookup
@@ -138,7 +138,7 @@ this centrally, so it is declared per airport in
     "A31": {
       "Simnord-Sonnich": {
         "stand": "Gate A31",
-        "points": { "Z/L": "Z2 Face E", "Y/L": "Z3 Face W", "K/J": "J1 Face S" }
+        "points": { "Z/L": ["Z2 Face E"], "Y/L": ["Z3 Face W"], "K/J": ["J1 Face S"] }
       }
     }
   }
@@ -152,7 +152,9 @@ Read it as **gate → scenery → what that scenery calls it**:
 - The **scenery key** is whatever the handler script sends as `scenery`.
 - `stand` is the name handed to `selectGate()`. Omit it when the scenery uses
   the controller's own name.
-- `points` maps a FlightStrips release point to a GSX pushback label.
+- `points` maps a FlightStrips release point to every GSX route that reaches
+  it. It is a list because a stand often offers the same taxiway in two
+  facings; order is preferred-first, so a known default can lead.
 
 Everything is optional and everything degrades quietly. A missing file, an
 unknown scenery, an unmapped release point: the feed still publishes the stand,
@@ -160,66 +162,53 @@ just without translation or a pushback point. Lookups ignore case and extra
 spacing, which matters because scenery labels are hand-typed — one EKCH profile
 contains both `Y1 Face E` and `Y1  Face E`.
 
-### Generating a starting file
+### Maintaining the file
 
-`tools/gsx-scenery-skeleton.mjs` reads a GSX `.ini` and emits the gates, the
-stand names, and the pushback labels that profile actually offers:
+It is edited by hand. There is deliberately no generator: the file is the source
+of truth rather than a derivation of one, so hand-tuned entries cannot be lost to
+a regeneration.
 
-```bash
-node tools/gsx-scenery-skeleton.mjs \
-  "%APPDATA%/Virtuali/GSX/MSFS/EKCH-Simnord-Sonnich.ini" \
-  Simnord-Sonnich EKCH \
-  backend/config/ekch/GRpluginStands.txt \
-  > backend/config/ekch/gsx_sceneries.json
-```
-
-Given the SAT stand list it also reconciles the two vocabularies, rewriting the
-scenery's `[parking 89]` to the controller's ident where that is unambiguous. It
-never guesses: gates it cannot resolve are written with a `review` note and
-listed on stderr, and `points` is always left empty. Which physical route a
-controller means by `R/W` is local knowledge no file on disk contains.
-
-For the shipped EKCH profile that is 119 gates, 87 reconciled automatically and
-32 needing a decision.
-
-### Inferring the pushback points
-
-`tools/infer-pushback.mjs` fills in `points` by matching GSX labels against the
-frontend's `RELEASE_POINTS` — the set `PushbackMapDialog` writes to
-`strips.release_point`. The two vocabularies share a token: a GSX label is
+The EKCH file was seeded by matching GSX labels against the frontend's
+`RELEASE_POINTS` — the set `PushbackMapDialog` writes to `strips.release_point`.
+The two vocabularies share a token, since a GSX label is
 `<release point> Face <direction>`, so `Z2 Face E` is the route for a controller
-who assigned `Z2`.
+who assigned `Z2`. That relationship is still the rule to follow when adding a
+stand by hand.
 
-```bash
-node tools/infer-pushback.mjs \
-  "%APPDATA%/Virtuali/GSX/MSFS/EKCH-Simnord-Sonnich.ini" \
-  frontend/src/config/ekch.ts \
-  backend/config/ekch/gsx_sceneries.json \
-  Simnord-Sonnich
-```
+Two fields exist only to help whoever edits it, and are ignored by the loader:
 
-This is inference, not ground truth. It refuses two cases rather than guess:
+- `available` lists every route the scenery offers at that stand, so you can see
+  what there is to map without opening the `.ini`.
+- `review` records what is still unresolved there.
 
-- **Ambiguous** — a stand offering the same taxiway in two facings, like
-  `Y1 Face W` and `Y1 Face E` at A15. A release point cannot say which, so
-  neither is published. Pushing an aircraft the wrong way is worse than not
-  narrowing the menu at all.
-- **Unmapped** — a route onto a bare taxiway (`J Face W`, `V Face E`) where
-  FlightStrips only offers numbered points on that taxiway.
+To add a stand, find its section in the GSX `.ini`, take `pushbacklabels` (the
+two defaults, left then right) plus the `label` of each `pushbackaddpos` entry,
+and map each to the release point a controller would assign for it. Where a
+stand offers the same taxiway in two facings, list both unless local knowledge
+says the stand only ever leaves one way — the pilot then picks the facing, and
+cannot leave via a taxiway the controller did not name.
 
-For Simnord EKCH: 216 points inferred across 78 stands, 61 of them clean, 4
-ambiguous release points dropped, and 31 routes across 22 stands left for a
-human. Every unfinished stand carries a `review` note saying what is missing.
+### What is still unresolved at EKCH
+
+| Category | Count | What it needs |
+| --- | --- | --- |
+| Facing rule leaves no route | 1 | A17 always faces east, but its only `Y0` route faces west |
+| Two facings published | 2 | A34 `Z1`, E20 `S1` — a local rule would narrow each to one |
+| Bare taxiway | 22 stands | scenery offers "onto J/V/W"; controllers only have numbered points there |
+| Stand ident unresolved | 32 | mostly E110–E137 and E15–E19, which FlightStrips does not track |
+| No named routes | 1 | F95 offers only generic Nose/Tail — nothing to map |
+
+Each one is recorded in that stand's `review` note.
 
 ## Pushback points
 
 For departing traffic only. `getGate().pushback`, `pushbackLabels` and `pushbackAddPos` are all writable at
 any time, so the handler can narrow the pushback menu to the assigned route:
 
-- An **extra slot** defined by the profile: keep only that entry in
-  `pushbackAddPos` and set `pushback = 0`.
-- One of the **two defaults**: `pushbackLabels` is left then right, and the
-  direction enum is `1` for left, `2` for right.
+- **Extra slots** defined by the profile: keep the wanted entries in
+  `pushbackAddPos` and drop the rest.
+- The **two defaults**: `pushbackLabels` is left then right, and the direction
+  enum is a bitmask - `1` left, `2` right, `3` both, `0` neither.
 
 **GSX has no `selectPushback()`.** A script cannot answer the menu on the
 pilot's behalf; it can only remove the routes that were not assigned, leaving

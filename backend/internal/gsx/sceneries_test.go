@@ -132,3 +132,19 @@ func TestResolveOnNilSceneries(t *testing.T) {
 		t.Errorf("nil config must be inert: got %q / %v", stand, pushback)
 	}
 }
+
+// TestResolveKeepsEveryRouteToAPoint covers the multi-route capability. The
+// shipped EKCH file has no ambiguity left, but another scenery will, and a
+// release point names a taxiway rather than a facing.
+func TestResolveKeepsEveryRouteToAPoint(t *testing.T) {
+	s := loaded(t, `{"icao":"EKZZ","gates":{"A1":{"Some-Addon":{
+		"points":{"Y1":["Y1 Face W","Y1 Face E"],"Y0":["Y0 Face E"]}}}}}`)
+
+	_, both := s.Resolve("EKZZ", "A1", "Some-Addon", "Y1")
+	if strings.Join(both, "|") != "Y1 Face W|Y1 Face E" {
+		t.Errorf("both routes must survive in order, got %q", both)
+	}
+	if _, one := s.Resolve("EKZZ", "A1", "Some-Addon", "Y0"); strings.Join(one, "|") != "Y0 Face E" {
+		t.Errorf("single route: got %q", one)
+	}
+}

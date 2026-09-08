@@ -114,6 +114,21 @@ def _standSame(a, b):
     return str(a).upper().replace(" ", "") == str(b).upper().replace(" ", "")
 
 
+def _standRoutes(value):
+    """Normalise the pushback field to a list of route labels.
+
+    A server may send one route as a bare string or several as a list, and a
+    pilot's copy of this script is never guaranteed to match the server's
+    version. Iterating a string would yield characters and silently match
+    nothing, so coerce rather than assume.
+    """
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [str(v) for v in value if v]
+
+
 # --------------------------------------------------------------------------
 # applying an assignment
 # --------------------------------------------------------------------------
@@ -224,7 +239,7 @@ def _standCheck(self):
     if stand:
         return _standCheckArrival(self, stand)
 
-    pushback = payload.get("pushback")
+    pushback = _standRoutes(payload.get("pushback"))
     if pushback:
         return _standCheckDeparture(self, pushback)
 
@@ -320,8 +335,8 @@ def onDepartureRequested(self, *args):
     _standInit(self)
     if not self._standUserOverride:
         payload = _standFetch(self)
-        if payload and payload.get("pushback"):
-            _standApplyPushback(self, payload.get("pushback"))
+        if payload:
+            _standApplyPushback(self, _standRoutes(payload.get("pushback")))
     if hasattr(self, "_super_onDepartureRequested"):
         self._super_onDepartureRequested()
 

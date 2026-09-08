@@ -198,14 +198,16 @@
         "points": {
           "Z5": [
             "Z5 Face E"
+          ],
+          "Y0": [
+            "Y0 Face W"
           ]
         },
         "available": [
           "Z5 Face E",
           "Nose Right/Tail Left (LEFT)",
           "Y0 Face W"
-        ],
-        "review": "facing E leaves no route for: Y0 (only Y0 Face W)"
+        ]
       }
     },
     "A18": {
@@ -467,8 +469,7 @@
             "J1 Face S"
           ],
           "Z1": [
-            "Z1 Face E",
-            "Z1 Face W"
+            "Z1 Face E"
           ]
         },
         "available": [
@@ -1434,7 +1435,6 @@
         "stand": "Gate E20",
         "points": {
           "S1": [
-            "S1 Face S",
             "S1 Face N"
           ],
           "S3": [

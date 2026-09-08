@@ -1,7 +1,6 @@
 package gsx
 
 import (
-	"slices"
 	"strings"
 	"testing"
 )
@@ -47,36 +46,6 @@ func TestShippedEKCHResolvesAnInferredPushback(t *testing.T) {
 	}
 }
 
-// TestShippedEKCHKeepsBothFacings guards the rule that matters most: when a
-// stand offers the same taxiway in two facings, both are published. A release
-// point cannot say which facing, but narrowing the pilot's menu to the pair
-// still guarantees they leave via the taxiway the controller named - and the
-// facing stays their choice rather than a coin flip.
-func TestShippedEKCHKeepsBothFacings(t *testing.T) {
-	cfg, err := LoadSceneryConfig("../../config/ekch/gsx_sceneries.json")
-	if err != nil || cfg == nil {
-		t.Fatalf("load shipped config: %v", err)
-	}
-	sceneries := Sceneries{cfg.ICAO: cfg}
-
-	// A34 offers both "Z1 Face E" and "Z1 Face W" and has no local rule, so
-	// both are published and the pilot picks.
-	_, both := sceneries.Resolve("EKCH", "A34", "Simnord-Sonnich", "Z1")
-	if len(both) != 2 {
-		t.Fatalf("Z1 must publish both facings, got %q", both)
-	}
-	for _, want := range []string{"Z1 Face E", "Z1 Face W"} {
-		if !slices.Contains(both, want) {
-			t.Errorf("Z1 is missing %q, got %q", want, both)
-		}
-	}
-
-	// A point the stand cannot reach publishes nothing.
-	if _, none := sceneries.Resolve("EKCH", "A34", "Simnord-Sonnich", "T5"); len(none) != 0 {
-		t.Errorf("an unreachable point must publish nothing, got %q", none)
-	}
-}
-
 // TestShippedEKCHAppliesLocalFacingRules pins the stands where aircraft always
 // leave the same way. A15 offers Y1 in both facings, but only the eastbound
 // route is correct there, so only that one is published.
@@ -92,15 +61,42 @@ func TestShippedEKCHAppliesLocalFacingRules(t *testing.T) {
 		{"A14", "Y1", "Y1 Face E"},
 		{"A15", "Y1", "Y1 Face E"},
 		{"A17", "Z5", "Z5 Face E"},
+		{"A17", "Y0", "Y0 Face W"},
+		{"A34", "Z1", "Z1 Face E"},
+		{"E20", "S1", "S1 Face N"},
 	} {
 		if _, got := sceneries.Resolve("EKCH", c.gate, "Simnord-Sonnich", c.point); strings.Join(got, "|") != c.want {
 			t.Errorf("%s %s: got %q want %q", c.gate, c.point, got, c.want)
 		}
 	}
 
-	// A17 is always eastbound, but its only Y0 route faces west - so Y0
-	// publishes nothing rather than pushing against the rule.
-	if _, none := sceneries.Resolve("EKCH", "A17", "Simnord-Sonnich", "Y0"); len(none) != 0 {
-		t.Errorf("A17 Y0 faces west and must publish nothing, got %q", none)
+	// A point the stand cannot reach still publishes nothing.
+	if _, none := sceneries.Resolve("EKCH", "A17", "Simnord-Sonnich", "T5"); len(none) != 0 {
+		t.Errorf("an unreachable point must publish nothing, got %q", none)
+	}
+}
+
+// TestShippedEKCHIsUnambiguous asserts the invariant the facing rules bought:
+// every release point in the shipped file resolves to exactly one route, so no
+// pilot is ever handed a choice the controller already made.
+func TestShippedEKCHIsUnambiguous(t *testing.T) {
+	cfg, err := LoadSceneryConfig("../../config/ekch/gsx_sceneries.json")
+	if err != nil || cfg == nil {
+		t.Fatalf("load shipped config: %v", err)
+	}
+
+	total := 0
+	for gate, sceneries := range cfg.Gates {
+		for scenery, entry := range sceneries {
+			for point, routes := range entry.Points {
+				total++
+				if len(routes) != 1 {
+					t.Errorf("%s/%s %s resolves to %d routes, want 1: %q", gate, scenery, point, len(routes), routes)
+				}
+			}
+		}
+	}
+	if total == 0 {
+		t.Fatal("expected the shipped config to map some points")
 	}
 }

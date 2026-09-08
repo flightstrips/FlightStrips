@@ -32,15 +32,15 @@
       }
     ],
     "cursorSync": "Crosshair",
-    "description": "CPU attribution, work amplification, hub dispatch and connection pool pressure. Read it top to bottom: the first row says how hard the process is working, the rest say what it is working on.",
+    "description": "Host CPU saturation, Go runtime attribution, work amplification, hub dispatch and connection pool pressure. Read it top to bottom: the first row says how hard the server is working, the rest say what the backend is working on.",
     "editable": true,
     "elements": {
       "panel-1": {
         "kind": "Panel",
         "spec": {
           "id": 1,
-          "title": "CPU Utilisation",
-          "description": "Non-idle CPU seconds consumed per second divided by GOMAXPROCS. 100% means every processor the runtime was given is busy.",
+          "title": "Host CPU Utilisation",
+          "description": "Host-wide CPU utilisation from node_exporter. This is the authoritative saturation signal for the server; the Go runtime CPU classes below are estimates used only for relative attribution.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -57,8 +57,8 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(go_cpu_time_seconds_total{deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])) / max(go_processor_limit{deployment_environment=\"$env\"})",
-                        "legendFormat": "busy"
+                        "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"integrations/node_exporter\",mode=\"idle\"}[$__rate_interval]))",
+                        "legendFormat": "host busy"
                       }
                     },
                     "refId": "A",
@@ -127,8 +127,8 @@
         "kind": "Panel",
         "spec": {
           "id": 2,
-          "title": "CPU Spent on GC",
-          "description": "Share of busy CPU consumed by garbage collection. A sustained value above roughly 25% means the process is allocating faster than it is doing useful work.",
+          "title": "Go Runtime GC Share (estimate)",
+          "description": "Estimated share of Go runtime CPU attribution spent in garbage collection. Use this for relative allocation diagnostics, not as a host CPU measurement.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -381,8 +381,8 @@
         "kind": "Panel",
         "spec": {
           "id": 5,
-          "title": "CPU Utilisation by Class",
-          "description": "Where the CPU went, as a fraction of GOMAXPROCS. \"user\" is application code, \"gc\" is garbage collection, \"scavenge\" is returning memory to the operating system. Idle is excluded.",
+          "title": "Go Runtime CPU Attribution (estimate)",
+          "description": "Estimated Go runtime CPU attribution by class. \"user\" is application code, \"gc\" is garbage collection, and \"scavenge\" is returning memory to the operating system. These values are not host CPU utilisation.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -399,7 +399,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(go_cpu_time_seconds_total{deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])) by (class) / on() group_left() max(go_processor_limit{deployment_environment=\"$env\"})",
+                        "expr": "sum(rate(go_cpu_time_seconds_total{deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])) by (class) / on() group_left() clamp_min(sum(rate(go_cpu_time_seconds_total{deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])), 0.0001)",
                         "legendFormat": "{{class}}"
                       }
                     },

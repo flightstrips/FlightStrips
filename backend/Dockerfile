@@ -18,7 +18,6 @@ RUN apk --no-cache add ca-certificates
 
 COPY --from=builder /app/bin/api ./bin/api
 COPY ./config ./config
-COPY .env .env
 
 CMD ["/app/bin/api"]
 EXPOSE 8090

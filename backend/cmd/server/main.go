@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/envconfig"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/telemetry"
 	"context"
@@ -33,6 +34,15 @@ func main() {
 
 	configureLogging()
 	loadEnvFiles()
+	if err := envconfig.ApplyFileOverrides(
+		"DATABASE_CONNECTIONSTRING",
+		"CDM_KEY",
+		"HOPPIE_LOGON",
+		"OTEL_EXPORTER_OTLP_HEADERS",
+	); err != nil {
+		slog.Error("Failed to load secret configuration", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	ctx, cancelWorkers := context.WithCancel(context.Background())
 	defer cancelWorkers()

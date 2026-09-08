@@ -15,6 +15,7 @@ import (
 	"FlightStrips/internal/efb"
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
+	"FlightStrips/internal/gsx"
 	"FlightStrips/internal/metar"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/pdc"
@@ -72,6 +73,7 @@ type Config struct {
 	EnableECFMPAPI                  bool
 	EnablePilotAPI                  bool
 	EnableEFB                       bool
+	EnableGSXStandFeed              bool
 	EnableALB                       bool
 	EnableMetar                     bool
 	EnableVATSIM                    bool
@@ -470,6 +472,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 
 	metarPoller := metar.NewPoller(sessionRepo, frontendHub)
 	efbFlightFinder := efb.NewFlightQuery(sessionRepo, stripRepo, requireLiveCIDVerification)
+
+	gsxSceneries, err := loadGSXSceneries(cfg.EnableGSXStandFeed)
+	if err != nil {
+		return nil, err
+	}
 	app := &App{
 		dbpool:                   dbpool,
 		closeDB:                  closeDB,
@@ -505,6 +512,8 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			enableECFMPAPI:             cfg.EnableECFMPAPI,
 			enablePilotAPI:             cfg.EnablePilotAPI,
 			enableEFBAPI:               cfg.EnableEFB,
+			enableGSXStandFeed:         cfg.EnableGSXStandFeed,
+			gsxSceneries:               gsxSceneries,
 			enablePDCAPI:               pdcService != nil,
 			enableTestTools:            cfg.EnableTestTools,
 			ecfmpService:               ecfmpService,
@@ -969,6 +978,8 @@ type buildHandlerConfig struct {
 	enableECFMPAPI             bool
 	enablePilotAPI             bool
 	enableEFBAPI               bool
+	enableGSXStandFeed         bool
+	gsxSceneries               gsx.Sceneries
 	enablePDCAPI               bool
 	enableTestTools            bool
 	ecfmpService               *ecfmp.Service
@@ -1007,6 +1018,11 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	}
 	if cfg.enableEFBAPI && cfg.efbAPI != nil {
 		cfg.efbAPI.RegisterRoutes(apiMux)
+	}
+	if cfg.enableGSXStandFeed {
+		// Unauthenticated by necessity: the GSX script can only issue a plain GET.
+		// Restricted to LIVE sessions and to { stand, revision }.
+		gsx.NewWebAPI(cfg.sessionRepo, cfg.stripRepo, cfg.gsxSceneries, true).RegisterRoutes(apiMux)
 	}
 	if cfg.enablePDCAPI {
 		pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimSource, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
@@ -1172,4 +1188,29 @@ func isLiveEnvironment(environment string) bool {
 	default:
 		return false
 	}
+}
+
+// loadGSXSceneries reads the per-airport gate/scenery mapping that translates a
+// controller's stand and release point into the names a particular add-on uses.
+// A missing file is not an error: the feed then publishes the controller's own
+// stand name and no pushback point.
+func loadGSXSceneries(enabled bool) (gsx.Sceneries, error) {
+	if !enabled {
+		return nil, nil
+	}
+
+	sceneries := gsx.Sceneries{}
+	// Mirrors the SAT configuration layout: config/<icao>/<file>.
+	path := filepath.Join(appconfig.GetConfigDir(), "ekch", "gsx_sceneries.json")
+	cfg, err := gsx.LoadSceneryConfig(path)
+	if err != nil {
+		return nil, err
+	}
+	if cfg != nil {
+		sceneries[cfg.ICAO] = cfg
+		slog.Info("loaded GSX scenery config", "icao", cfg.ICAO, "gates", len(cfg.Gates))
+	} else {
+		slog.Info("no GSX scenery config found; publishing controller stand names only", "path", path)
+	}
+	return sceneries, nil
 }

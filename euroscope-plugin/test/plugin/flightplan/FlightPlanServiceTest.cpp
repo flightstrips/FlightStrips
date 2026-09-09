@@ -100,6 +100,21 @@ TEST(FlightPlanStructTest, DefaultConstruction_StripIsNotSynchronized) {
     EXPECT_FALSE(fp.strip_synchronized);
 }
 
+TEST(FlightPlanServiceStaticTest, NormalizesDirectToFixWithoutCalculatingGeometry) {
+    EXPECT_EQ(FlightPlanService::NormalizeDirectToFix(" kemax \t"), std::optional<std::string>{"KEMAX"});
+    EXPECT_EQ(FlightPlanService::NormalizeDirectToFix("   "), std::nullopt);
+    EXPECT_EQ(FlightPlanService::NormalizeDirectToFix(nullptr), std::nullopt);
+}
+
+TEST(FlightPlanServiceStaticTest, DirectToObservationTimestampIsUtcRfc3339) {
+    const auto timestamp = FlightPlanService::CurrentUtcTimestamp();
+    ASSERT_EQ(timestamp.size(), 20u);
+    EXPECT_EQ(timestamp[4], '-');
+    EXPECT_EQ(timestamp[7], '-');
+    EXPECT_EQ(timestamp[10], 'T');
+    EXPECT_EQ(timestamp[19], 'Z');
+}
+
 TEST(FlightPlanStructTest, DefaultConstruction_CdmStateIsEmpty) {
     FlightPlan fp;
     EXPECT_EQ(fp.cdm.tobt, "");

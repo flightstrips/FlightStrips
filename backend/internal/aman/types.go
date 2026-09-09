@@ -482,10 +482,14 @@ type QueueOffer struct {
 // tracking-authority details belong to the route-fact owner, not this core
 // contract.
 type RouteFact struct {
-	ID         string
-	Fix        string
-	ObservedAt time.Time
-	State      RouteFactState
+	ID             string
+	FlightID       FlightID
+	Fix            string
+	Issuer         string
+	ObservedAt     time.Time
+	ReceivedAt     time.Time
+	DatasetVersion string
+	State          RouteFactState
 }
 
 // RouteFactState is supplied by the direct-to fact owner. Trajectory consumes
@@ -494,10 +498,13 @@ type RouteFactState string
 
 const (
 	RouteFactActive  RouteFactState = "active"
+	RouteFactCleared RouteFactState = "cleared"
 	RouteFactExpired RouteFactState = "expired"
 )
 
-func (s RouteFactState) Valid() bool { return s == "" || s == RouteFactActive || s == RouteFactExpired }
+func (s RouteFactState) Valid() bool {
+	return s == "" || s == RouteFactActive || s == RouteFactCleared || s == RouteFactExpired
+}
 
 // RouteProgress is task-owned projection state persisted inside AMANFlight's
 // aggregate JSON. The compatibility identity intentionally includes exact

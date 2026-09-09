@@ -146,3 +146,4 @@ template void FlightStrips::websocket::WebSocketService::SendEvent<TrackingContr
 template void FlightStrips::websocket::WebSocketService::SendEvent<StripUpdateEvent>(const StripUpdateEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<SyncEvent>(const SyncEvent & event);
 template void FlightStrips::websocket::WebSocketService::SendEvent<CoordinationReceivedEvent>(const CoordinationReceivedEvent & event);
+template void FlightStrips::websocket::WebSocketService::SendEvent<AMANRouteFactEvent>(const AMANRouteFactEvent & event);

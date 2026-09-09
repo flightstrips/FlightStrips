@@ -179,6 +179,7 @@ func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGo
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		flight := &state.Flights[index]
+		expireActiveRouteFact(flight)
 		target := command.DetectedAt.Add(DefaultGoAroundDelay)
 		updatedPrediction := *flight.Prediction
 		updatedPrediction.OperationalTETA = target

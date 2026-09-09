@@ -80,6 +80,8 @@ namespace FlightStrips::flightplan {
         std::string hold_type{};
         std::string hold_eat{};
         std::string tracking_controller{};
+        std::optional<std::string> direct_to_fix{};
+        bool direct_to_initialized{false};
         std::string runway{};
         bool runway_initialized{false};
         bool strip_synchronized{false};

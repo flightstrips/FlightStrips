@@ -99,6 +99,7 @@ type Hub struct {
 
 	squawkThrottle *squawkThrottle
 	amanGainLoss   AMANGainLossProvider
+	amanRouteFacts AMANRouteFactReporter
 }
 
 // AMANGainLossProvider returns the latest complete persisted tag replacement.
@@ -106,6 +107,10 @@ type Hub struct {
 // protocol.
 type AMANGainLossProvider interface {
 	CurrentAMANGainLoss(context.Context, string) (euroscope.AMANGainLossEvent, error)
+}
+
+type AMANRouteFactReporter interface {
+	ReportDirectTo(context.Context, int32, string, string, string, *string, time.Time) error
 }
 
 // SetAircraftDisconnectRetainer installs an optional source-of-truth check
@@ -135,6 +140,7 @@ type HubDependencies struct {
 	Controllers    shared.ControllerService
 	Authentication shared.AuthenticationService
 	AMANGainLoss   AMANGainLossProvider
+	AMANRouteFacts AMANRouteFactReporter
 }
 
 func NewHub(deps HubDependencies) (*Hub, error) {
@@ -179,6 +185,9 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.TrackingControllerChanged, handleTrackingControllerChanged)
 	handlers.Add(euroscope.CoordinationReceived, handleCoordinationReceived)
 	handlers.Add(euroscope.SendPrivateMessage, handleSendPrivateMessage)
+	if deps.AMANRouteFacts != nil {
+		handlers.Add(euroscope.AMANRouteFact, handleAMANRouteFact)
+	}
 
 	hub := &Hub{
 		register:                    make(chan *Client),
@@ -191,6 +200,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		controllerService:           deps.Controllers,
 		authenticationService:       deps.Authentication,
 		amanGainLoss:                deps.AMANGainLoss,
+		amanRouteFacts:              deps.AMANRouteFacts,
 		recorders:                   make(map[int32]*recorder.Recorder),
 		offlineTimers:               make(map[string]*offlineTimerEntry),
 		aircraftDisconnectTimers:    make(map[string]*aircraftDisconnectEntry),

@@ -55,6 +55,7 @@
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
 #define EVENT_SEND_PRIVATE_MESSAGE_NAME "send_private_message"
 #define EVENT_HOLD_NAME "hold"
+#define EVENT_AMAN_ROUTE_FACT_NAME "aman.route_fact"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -109,6 +110,7 @@ enum EventType {
     EVENT_PDC_REVERT_TO_VOICE,
     EVENT_SEND_PRIVATE_MESSAGE,
     EVENT_HOLD,
+    EVENT_AMAN_ROUTE_FACT,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -162,7 +164,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                  {EVENT_ISSUE_PDC_CLEARANCE, EVENT_ISSUE_PDC_CLEARANCE_NAME},
                                  {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
                                  {EVENT_SEND_PRIVATE_MESSAGE, EVENT_SEND_PRIVATE_MESSAGE_NAME},
-                               {EVENT_HOLD, EVENT_HOLD_NAME},
+                             {EVENT_HOLD, EVENT_HOLD_NAME},
+                             {EVENT_AMAN_ROUTE_FACT, EVENT_AMAN_ROUTE_FACT_NAME},
                                  })
 
 struct Event {
@@ -779,6 +782,26 @@ struct Strip final {
                                    heading, aircraft_type, aircraft_category, spoken_callsign, position, stand, communication_type,
                                    capabilities, eobt, eldt, tracking_controller, engine_type, has_fp, hold, hold_type, hold_eat,
                                    hold_supported);
+};
+
+struct AMANRouteFactData {
+    std::string callsign;
+    std::string kind = "direct_to";
+    std::optional<std::string> direct_to_fix;
+    std::string observed_at;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AMANRouteFactData, callsign, kind, direct_to_fix, observed_at);
+};
+
+struct AMANRouteFactEvent final : Event {
+    int version = 1;
+    AMANRouteFactData data;
+
+    AMANRouteFactEvent(std::string callsign, std::optional<std::string> directToFix, std::string observedAt)
+        : Event(EVENT_AMAN_ROUTE_FACT),
+          data{std::move(callsign), "direct_to", std::move(directToFix), std::move(observedAt)} {}
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AMANRouteFactEvent, type, version, data);
 };
 
 struct Controller final {

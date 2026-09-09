@@ -146,7 +146,9 @@ set(src__tag_items
         tag_items/DeIceHandler.cpp
         tag_items/DeIceHandler.h
         tag_items/ClearanceStatusHandler.cpp
-        tag_items/ClearanceStatusHandler.h)
+        tag_items/ClearanceStatusHandler.h
+        tag_items/AMANGainLossHandler.cpp
+        tag_items/AMANGainLossHandler.h)
 
 set(ALL_FILES
         ${src__plugin}

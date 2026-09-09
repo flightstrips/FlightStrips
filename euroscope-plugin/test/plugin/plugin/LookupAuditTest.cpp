@@ -41,3 +41,35 @@ TEST(LookupAuditTest, PluginSourceDoesNotUseDeprecatedEuroScopeLookups) {
         }
     }
 }
+
+TEST(LookupAuditTest, RegistersExactlyOneReadOnlyAMANtag) {
+    const auto plugin = ReadFile(GetPluginSourceRoot() / "plugin" / "FlightStripsPlugin.cpp");
+    const auto firstType = plugin.find("RegisterTagItemType(\"AMAN");
+    ASSERT_NE(firstType, std::string::npos);
+    EXPECT_EQ(plugin.find("RegisterTagItemType(\"AMAN", firstType + 1), std::string::npos);
+    EXPECT_EQ(plugin.find("RegisterTagItemFunction(\"AMAN"), std::string::npos);
+}
+
+TEST(LookupAuditTest, AMANPluginCodeDoesNotReadLocalPredictionInputs) {
+    const std::array forbiddenAccessors = {
+        "GetRoute(", "GetPositionPredictions(", "GetScratchPadString(", "GetEstimatedLandingTime(",
+        "albEvents", "EventSlot"
+    };
+    const std::array roots = {
+        GetPluginSourceRoot() / "aman",
+        GetPluginSourceRoot() / "tag_items" / "AMANGainLossHandler.cpp",
+        GetPluginSourceRoot() / "tag_items" / "AMANGainLossHandler.h"
+    };
+    for (const auto& root : roots) {
+        if (std::filesystem::is_regular_file(root)) {
+            const auto contents = ReadFile(root);
+            for (const auto* accessor : forbiddenAccessors) EXPECT_EQ(contents.find(accessor), std::string::npos);
+            continue;
+        }
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
+            if (!entry.is_regular_file() || !IsSourceFile(entry.path())) continue;
+            const auto contents = ReadFile(entry.path());
+            for (const auto* accessor : forbiddenAccessors) EXPECT_EQ(contents.find(accessor), std::string::npos);
+        }
+    }
+}

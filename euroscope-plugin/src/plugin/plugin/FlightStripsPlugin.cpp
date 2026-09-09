@@ -196,6 +196,7 @@ namespace FlightStrips {
         RegisterTagItemType("RDY", TAG_ITEM_CDM_READY_STARTUP);
         RegisterTagItemType("TSAC", TAG_ITEM_CDM_TSAC);
         RegisterTagItemType("ASAT", TAG_ITEM_CDM_ASAT);
+        RegisterTagItemType("AMAN G/L", TAG_ITEM_AMAN_GAIN_LOSS);
 
         RegisterTagItemFunction("Edit EOBT", TAG_FUNC_CDM_EOBT_ACTION);
         RegisterTagItemFunction("E/TOBT Options", TAG_FUNC_CDM_E_TOBT_OPTIONS);

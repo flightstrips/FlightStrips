@@ -25,6 +25,7 @@ constexpr int TAG_ITEM_CDM_TTG = 107;
 constexpr int TAG_ITEM_CDM_READY_STARTUP = 108;
 constexpr int TAG_ITEM_CDM_ASAT = 109;
 constexpr int TAG_ITEM_CDM_E_TOBT = 111;
+constexpr int TAG_ITEM_AMAN_GAIN_LOSS = 112;
 
 constexpr int TAG_FUNC_CDM_EDIT_TOBT = 2002;
 constexpr int TAG_FUNC_CDM_SET_TOBT = 2003;

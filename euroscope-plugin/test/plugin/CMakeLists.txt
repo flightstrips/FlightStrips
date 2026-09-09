@@ -67,6 +67,7 @@ set(ALL_FILES
         tag_items/CdmStateHandlerTest.cpp
         tag_items/DeIceHandlerTest.cpp
         tag_items/ClearanceStatusHandlerTest.cpp
+		tag_items/AMANGainLossHandlerTest.cpp
 
         # Graphics
         graphics/InfoPanelTest.cpp

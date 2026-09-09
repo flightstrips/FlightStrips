@@ -1,0 +1,28 @@
+{
+  "type": "aman_gain_loss",
+  "version": 1,
+  "airport": "EKCH",
+  "revision": 42,
+  "generated_at": "2026-09-08T12:00:00.000Z",
+  "authoritative": true,
+  "values": [
+    {
+      "flight_id": "flight-1",
+      "callsign": "SAS123",
+      "gain_loss_seconds": 90,
+      "reference_point": "ILS-22L-RUNWAY",
+      "target_time": "2026-09-08T12:10:00.000Z",
+      "predicted_time": "2026-09-08T12:11:30.000Z",
+      "data_status": "fresh"
+    },
+    {
+      "flight_id": "flight-2",
+      "callsign": "DAT456",
+      "gain_loss_seconds": null,
+      "reference_point": null,
+      "target_time": null,
+      "predicted_time": null,
+      "data_status": "stale"
+    }
+  ]
+}

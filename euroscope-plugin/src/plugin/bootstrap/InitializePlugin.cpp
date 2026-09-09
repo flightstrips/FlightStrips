@@ -3,6 +3,7 @@
 #include "ExceptionHandling.h"
 #include "Logger.hpp"
 #include "authentication/AuthenticationService.h"
+#include "aman/AMANGainLossStore.h"
 #include "configuration/AppConfig.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "filesystem/FileSystem.h"
@@ -53,6 +54,9 @@ namespace FlightStrips {
         this->container->airportRunwaysChangedEventHandlers = std::make_shared<
             handlers::AirportRunwaysChangedEventHandlers>();
         this->container->tagItemHandlers = std::make_shared<TagItems::TagItemHandlers>();
+		this->container->amanGainLossStore = std::make_shared<aman::AMANGainLossStore>();
+		this->container->messageHandlers->RegisterHandler(this->container->amanGainLossStore);
+		this->container->connectionEventHandlers->RegisterHandler(this->container->amanGainLossStore);
         stands::StandsBootstrapper::Bootstrap(*this->container);
 
         // Tag items

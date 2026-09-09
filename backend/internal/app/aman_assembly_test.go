@@ -3,13 +3,34 @@ package app
 import (
 	"context"
 	"testing"
+	"time"
 
+	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/models"
 	pkgModels "FlightStrips/pkg/models"
 	"github.com/stretchr/testify/require"
 )
+
+type testAMANHealthReporter struct{ authorityAllowed bool }
+
+func (testAMANHealthReporter) Name() string { return "test AMAN health" }
+func (r testAMANHealthReporter) TechnicalHealth(context.Context) aman.TechnicalHealth {
+	return aman.TechnicalHealth{AuthorityAllowed: r.authorityAllowed}
+}
+
+func TestAMANTransportAppliesCurrentAuthorityGateToGainLoss(t *testing.T) {
+	state := aman.AirportState{Airport: "EKCH", Revision: 7, GeneratedAt: time.Now().UTC(), Authoritative: true}
+
+	blocked, err := (&amanTransport{health: testAMANHealthReporter{}}).newGainLossEvent(context.Background(), state)
+	require.NoError(t, err)
+	require.False(t, blocked.Authoritative)
+
+	allowed, err := (&amanTransport{health: testAMANHealthReporter{authorityAllowed: true}}).newGainLossEvent(context.Background(), state)
+	require.NoError(t, err)
+	require.True(t, allowed.Authoritative)
+}
 
 func TestValidateTerminalAirportCoverage(t *testing.T) {
 	configuration := terminal.Configuration{Airport: navdata.AirportID("EKCH")}

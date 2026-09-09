@@ -15,6 +15,7 @@ namespace FlightStrips::websocket {
 }
 
 namespace FlightStrips {
+	namespace aman { class AMANGainLossStore; }
     class FlightStripsPlugin;
     namespace authentication {
         class AuthenticationService;
@@ -89,6 +90,7 @@ namespace FlightStrips {
         std::shared_ptr<handlers::MessageHandlers> messageHandlers;
         std::shared_ptr<handlers::AuthenticationEventHandlers> authenticationEventHandlers;
         std::shared_ptr<TagItems::TagItemHandlers> tagItemHandlers;
+		std::shared_ptr<aman::AMANGainLossStore> amanGainLossStore;
 
         // tag items
         std::shared_ptr<TagItems::DeIceHandler> deIceHandler;

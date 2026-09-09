@@ -27,6 +27,7 @@ import (
 
 type internalMessage struct {
 	session int32
+	airport string
 	message euroscope.OutgoingMessage
 	cid     *string
 }
@@ -97,6 +98,14 @@ type Hub struct {
 	runwayStates  map[string]*clientRunwayState
 
 	squawkThrottle *squawkThrottle
+	amanGainLoss   AMANGainLossProvider
+}
+
+// AMANGainLossProvider returns the latest complete persisted tag replacement.
+// Reconnect uses this same read path; there is no subscription or resnapshot
+// protocol.
+type AMANGainLossProvider interface {
+	CurrentAMANGainLoss(context.Context, string) (euroscope.AMANGainLossEvent, error)
 }
 
 // SetAircraftDisconnectRetainer installs an optional source-of-truth check
@@ -125,6 +134,7 @@ type HubDependencies struct {
 	Strips         shared.StripService
 	Controllers    shared.ControllerService
 	Authentication shared.AuthenticationService
+	AMANGainLoss   AMANGainLossProvider
 }
 
 func NewHub(deps HubDependencies) (*Hub, error) {
@@ -180,6 +190,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		stripService:                deps.Strips,
 		controllerService:           deps.Controllers,
 		authenticationService:       deps.Authentication,
+		amanGainLoss:                deps.AMANGainLoss,
 		recorders:                   make(map[int32]*recorder.Recorder),
 		offlineTimers:               make(map[string]*offlineTimerEntry),
 		aircraftDisconnectTimers:    make(map[string]*aircraftDisconnectEntry),
@@ -222,6 +233,12 @@ func (hub *Hub) Broadcast(session int32, message euroscope.OutgoingMessage) {
 	})
 }
 
+// PublishAMANGainLoss broadcasts a complete replacement only to authenticated
+// EuroScope connections for the event airport.
+func (hub *Hub) PublishAMANGainLoss(event euroscope.AMANGainLossEvent) {
+	hub.publish(internalMessage{airport: event.Airport, message: event})
+}
+
 func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessage) {
 	hub.publish(internalMessage{
 		session: session,
@@ -251,6 +268,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	hub.setObserverCid(client.GetCid(), client.observer)
 	hub.setClientLocalIP(client.session, client.GetCid(), client.localIP)
 	hub.adjustAirportClientCount(client.airport, client.observer, 1)
+	hub.sendInitialAMANGainLoss(client)
 	// Start recording if in record mode and not already recording this session
 	if config.IsRecordMode() && !hub.IsRecording(client.session) {
 		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
@@ -295,6 +313,17 @@ func (hub *Hub) OnRegister(client *Client) {
 			hub.server.GetFrontendHub().CidOnline(client.session, client.user.GetCid())
 		}
 	}()
+}
+
+func (hub *Hub) sendInitialAMANGainLoss(client *Client) {
+	if hub.amanGainLoss != nil {
+		event, err := hub.amanGainLoss.CurrentAMANGainLoss(context.Background(), client.airport)
+		if err != nil {
+			slog.Error("Failed to load initial AMAN gain/loss", slog.String("airport", client.airport), slog.Any("error", err))
+		} else {
+			client.Enqueue(event)
+		}
+	}
 }
 
 // sendBackendSyncIfNeeded fetches all existing strips for the client's session
@@ -1114,7 +1143,8 @@ func (hub *Hub) Run(ctx context.Context) {
 				}
 			} else {
 				for _, client := range clients {
-					if message.session == client.session {
+					if (message.airport != "" && strings.EqualFold(message.airport, client.airport)) ||
+						(message.airport == "" && message.session == client.session) {
 						client.Enqueue(message.message)
 						fanout++
 					}

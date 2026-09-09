@@ -59,6 +59,7 @@ const (
 	IssuePdcClearance         EventType = "issue_pdc_clearance"
 	PdcRevertToVoice          EventType = "pdc_revert_to_voice"
 	SendPrivateMessage        EventType = "send_private_message"
+	AMANGainLoss              EventType = "aman_gain_loss"
 )
 
 const (
@@ -74,6 +75,29 @@ const (
 type OutgoingMessage interface {
 	events.OutgoingMessage
 	GetType() EventType
+}
+
+type AMANGainLossValue struct {
+	FlightID        string  `json:"flight_id"`
+	Callsign        string  `json:"callsign"`
+	GainLossSeconds *int64  `json:"gain_loss_seconds"`
+	ReferencePoint  *string `json:"reference_point"`
+	TargetTime      *string `json:"target_time"`
+	PredictedTime   *string `json:"predicted_time"`
+	DataStatus      string  `json:"data_status"`
+}
+
+// AMANGainLossEvent is the complete, backend-derived replacement consumed by
+// EuroScope. Absolute presentation times share the exact backend reference
+// point used for gain/loss, so the plugin never needs to predict a trajectory.
+type AMANGainLossEvent struct {
+	Type          EventType           `json:"type"`
+	Version       int                 `json:"version"`
+	Airport       string              `json:"airport"`
+	Revision      uint64              `json:"revision"`
+	GeneratedAt   string              `json:"generated_at"`
+	Authoritative bool                `json:"authoritative"`
+	Values        []AMANGainLossValue `json:"values"`
 }
 
 func marshall[T OutgoingMessage](message T) (result []byte, err error) {

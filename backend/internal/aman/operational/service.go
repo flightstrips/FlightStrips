@@ -48,6 +48,10 @@ type Repository interface {
 	aman.StateCommitter
 }
 
+type authorityPublisher interface {
+	PublishAMANAuthority(context.Context, aman.AirportState) error
+}
+
 // ActiveArrivalRunwaySource supplies the runway selected by the active airport
 // session. The value is a runway identifier (for example "22L"), not an AMAN
 // group identifier; the terminal configuration is the sole mapping authority.
@@ -363,6 +367,9 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 
 	s.resequence(&next, now)
 	if !initializing && statesEqual(current, next) {
+		if publisher, ok := s.deps.Publisher.(authorityPublisher); ok {
+			return publisher.PublishAMANAuthority(context.WithoutCancel(ctx), current)
+		}
 		return nil
 	}
 	next.Revision = current.Revision + 1

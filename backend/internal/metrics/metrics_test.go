@@ -96,6 +96,59 @@ func findFloat64HistogramSum(t *testing.T, rm metricdata.ResourceMetrics, metric
 	return 0
 }
 
+func findInt64Histogram(t *testing.T, rm metricdata.ResourceMetrics, metricName string, want map[string]string) metricdata.HistogramDataPoint[int64] {
+	t.Helper()
+	for _, scope := range rm.ScopeMetrics {
+		for _, recorded := range scope.Metrics {
+			if recorded.Name != metricName {
+				continue
+			}
+			if data, ok := recorded.Data.(metricdata.Histogram[int64]); ok {
+				for _, point := range data.DataPoints {
+					if attributesMatch(point.Attributes, want) {
+						return point
+					}
+				}
+			}
+		}
+	}
+	t.Fatalf("metric %q with attributes %v not found", metricName, want)
+	return metricdata.HistogramDataPoint[int64]{}
+}
+
+func TestOutboundPayloadMetricsRecordSerializedBytesWithBoundedDimensions(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previousProvider := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	resetInstrumentsForTest()
+	t.Cleanup(func() { otel.SetMeterProvider(previousProvider); resetInstrumentsForTest() })
+
+	RecordOutboundPayload(context.Background(), "frontend", "strip_update", 137)
+	RecordOutboundPayload(context.Background(), "euroscope", "backend_sync", 2048)
+	rm := collectMetrics(t, reader)
+
+	for _, test := range []struct {
+		source, messageType string
+		size                int64
+	}{
+		{source: "frontend", messageType: "strip_update", size: 137},
+		{source: "euroscope", messageType: "backend_sync", size: 2048},
+	} {
+		attrs := map[string]string{"source": test.source, "type": test.messageType}
+		if got := findInt64MetricValue(t, rm, "websocket.message.bytes.sent", attrs); got != test.size {
+			t.Fatalf("%s payload byte counter = %d, want %d", test.source, got, test.size)
+		}
+		point := findInt64Histogram(t, rm, "websocket.message.size.bytes", attrs)
+		if point.Count != 1 || point.Sum != test.size {
+			t.Fatalf("%s payload histogram count/sum = %d/%d, want 1/%d", test.source, point.Count, point.Sum, test.size)
+		}
+		if point.Attributes.Len() != 2 {
+			t.Fatalf("payload metrics have %d dimensions, want only source and type", point.Attributes.Len())
+		}
+	}
+}
+
 func TestConnectionAndClientMetricsUseReadableLabels(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))

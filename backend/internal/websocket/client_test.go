@@ -5,6 +5,7 @@ import (
 	"FlightStrips/pkg/events"
 	frontend "FlightStrips/pkg/events/frontend"
 	"bytes"
+	"context"
 	"errors"
 	"log/slog"
 	"strings"
@@ -12,7 +13,55 @@ import (
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
+
+type recordingMessageWriter struct {
+	messageType int
+	payload     []byte
+	writeErr    error
+}
+
+func (w *recordingMessageWriter) WriteMessage(messageType int, payload []byte) error {
+	w.messageType = messageType
+	w.payload = append([]byte(nil), payload...)
+	return w.writeErr
+}
+
+func TestWriteOutboundMessagePassesSerializedPayloadUnchanged(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previousProvider := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	t.Cleanup(func() { otel.SetMeterProvider(previousProvider) })
+
+	writer := &recordingMessageWriter{}
+	payload := []byte(`{"type":"strip_update","callsign":"SAS123"}`)
+
+	err := writeOutboundMessage(context.Background(), writer, "frontend", "strip_update", payload)
+
+	assert.NoError(t, err)
+	assert.Equal(t, gorilla.TextMessage, writer.messageType)
+	assert.Equal(t, payload, writer.payload)
+	assert.Len(t, writer.payload, len(payload))
+
+	var rm metricdata.ResourceMetrics
+	assert.NoError(t, reader.Collect(context.Background(), &rm))
+	var recordedBytes int64
+	for _, scope := range rm.ScopeMetrics {
+		for _, recorded := range scope.Metrics {
+			if recorded.Name != "websocket.message.bytes.sent" {
+				continue
+			}
+			for _, point := range recorded.Data.(metricdata.Sum[int64]).DataPoints {
+				recordedBytes += point.Value
+			}
+		}
+	}
+	assert.Equal(t, int64(len(writer.payload)), recordedBytes)
+}
 
 type testClient struct{}
 

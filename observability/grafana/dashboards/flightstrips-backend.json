@@ -538,6 +538,180 @@
           }
         }
       },
+      "panel-22": {
+        "kind": "Panel",
+        "spec": {
+          "id": 22,
+          "title": "Outbound Bytes per Second by Destination",
+          "description": "Rate of serialized application payload bytes accepted by WebSocket writers; excludes framing, TLS, and compression.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [{
+                "kind": "PanelQuery",
+                "spec": {
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "version": "v0",
+                    "datasource": { "name": "grafanacloud-prom" },
+                    "spec": {
+                      "expr": "sum(rate(websocket_message_bytes_sent_total{deployment_environment=\"$env\"}[$__rate_interval])) by (source)",
+                      "legendFormat": "{{source}}"
+                    }
+                  },
+                  "refId": "A",
+                  "hidden": false
+                }
+              }],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
+              },
+              "fieldConfig": {
+                "defaults": { "unit": "Bps", "color": { "mode": "palette-classic" } },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-23": {
+        "kind": "Panel",
+        "spec": {
+          "id": 23,
+          "title": "Outbound Bytes per Second by Message Type",
+          "description": "Top outbound message types by serialized payload byte rate.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [{
+                "kind": "PanelQuery",
+                "spec": {
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "version": "v0",
+                    "datasource": { "name": "grafanacloud-prom" },
+                    "spec": {
+                      "expr": "topk(15, sum(rate(websocket_message_bytes_sent_total{deployment_environment=\"$env\"}[$__rate_interval])) by (type))",
+                      "legendFormat": "{{type}}"
+                    }
+                  },
+                  "refId": "A",
+                  "hidden": false
+                }
+              }],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
+              },
+              "fieldConfig": {
+                "defaults": { "unit": "Bps", "color": { "mode": "palette-classic" } },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-24": {
+        "kind": "Panel",
+        "spec": {
+          "id": 24,
+          "title": "Total Outbound Payload Bytes",
+          "description": "Serialized payload bytes sent during the selected time range.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [{
+                "kind": "PanelQuery",
+                "spec": {
+                  "query": {
+                    "kind": "DataQuery",
+                    "group": "prometheus",
+                    "version": "v0",
+                    "datasource": { "name": "grafanacloud-prom" },
+                    "spec": {
+                      "expr": "sum(increase(websocket_message_bytes_sent_total{deployment_environment=\"$env\"}[$__range]))",
+                      "legendFormat": "Total"
+                    }
+                  },
+                  "refId": "A",
+                  "hidden": false
+                }
+              }],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "12.0.0",
+            "spec": {
+              "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
+              "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "thresholds" } }, "overrides": [] }
+            }
+          }
+        }
+      },
+      "panel-25": {
+        "kind": "Panel",
+        "spec": {
+          "id": 25,
+          "title": "Outbound Payload Size Percentiles by Message Type",
+          "description": "P50, P95, and P99 serialized payload size for each outbound message type.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "histogram_quantile(0.50, sum(rate(websocket_message_size_bytes_bucket{deployment_environment=\"$env\"}[$__rate_interval])) by (le, type))", "legendFormat": "P50 {{type}}" } }, "refId": "A", "hidden": false } },
+                { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "histogram_quantile(0.95, sum(rate(websocket_message_size_bytes_bucket{deployment_environment=\"$env\"}[$__rate_interval])) by (le, type))", "legendFormat": "P95 {{type}}" } }, "refId": "B", "hidden": false } },
+                { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "histogram_quantile(0.99, sum(rate(websocket_message_size_bytes_bucket{deployment_environment=\"$env\"}[$__rate_interval])) by (le, type))", "legendFormat": "P99 {{type}}" } }, "refId": "C", "hidden": false } }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.1.0-24556818486",
+            "spec": {
+              "options": {
+                "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+                "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" }
+              },
+              "fieldConfig": {
+                "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
       "panel-14": {
         "kind": "Panel",
         "spec": {
@@ -2174,6 +2348,58 @@
                         "element": {
                           "kind": "ElementReference",
                           "name": "panel-12"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 0,
+                        "y": 16,
+                        "width": 12,
+                        "height": 8,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-22"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 12,
+                        "y": 16,
+                        "width": 12,
+                        "height": 8,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-23"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 0,
+                        "y": 24,
+                        "width": 6,
+                        "height": 6,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-24"
+                        }
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 6,
+                        "y": 24,
+                        "width": 18,
+                        "height": 10,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-25"
                         }
                       }
                     }

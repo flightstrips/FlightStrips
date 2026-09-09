@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/flightstrips/FlightStrips/compare/backend/v1.3.3...backend/v1.4.0) (2026-09-09)
+
+
+### Features
+
+* **websocket:** measure outbound payload bytes ([#580](https://github.com/flightstrips/FlightStrips/issues/580)) ([c2ab8fa](https://github.com/flightstrips/FlightStrips/commit/c2ab8fa52af75cecd2c21b6ca7b859970b88e034))
+
 ## [1.3.3](https://github.com/flightstrips/FlightStrips/compare/backend/v1.3.2...backend/v1.3.3) (2026-09-09)
 
 

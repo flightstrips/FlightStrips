@@ -2,7 +2,7 @@
 title: AMAN CPH feature specification
 status: living-specification
 audience: maintainers-and-coding-agents
-source_revision: operator-decisions-2026-09-08
+source_revision: operator-frontend-review-2026-09-09
 airport: EKCH
 ---
 
@@ -10,7 +10,7 @@ airport: EKCH
 
 ## Purpose and maintenance
 
-This is the internal, repository-owned description of AMAN CPH. It turns the original `AMAN-CPH V0.1` concept document and later operator corrections into a single implementation reference.
+This is the internal, repository-owned description of AMAN CPH. It turns the original `AMAN-CPH V0.1` concept document, the `AMAN-CPH-FRONTEND` design, linked Figma frames, and later operator corrections into a single implementation reference.
 
 Maintainers and coding agents should update this file when an operational decision changes. GitHub issues describe individual pieces of work; this file describes how the complete feature is expected to behave. Where this specification conflicts with an old planning issue or the original draft, this specification is the intended product behavior unless a newer recorded decision says otherwise.
 
@@ -73,6 +73,191 @@ Authorized FMP controls include:
 - inserting and removing a landing-runway GAP.
 
 Commands must use the existing authenticated, idempotent, revision-checked command path and produce visible rejections on conflict.
+
+## Frontend product design
+
+This section describes the intended controller workspace rather than the smaller AMAN board that exists in the repository today. The linked Figma file is the visual reference. Domain behavior, authorization, and protection rules in this specification take precedence when an old mock-up label implies a conflicting implementation.
+
+### Workspace composition
+
+The reference desktop workspace is designed around a 3:2 viewport and contains two top-level regions:
+
+- **MAESTRO**, pinned to the left, is the operational sequence display with a 2:3 portrait reference proportion. It contains the settings bar and the FMP work area. On a wider viewport it may consume additional space without stretching the timeline bars or aircraft targets out of proportion.
+- **TMT (Traffic Management Tool)**, pinned to the right, retains a 3:4 reference aspect ratio and contains the traffic-prediction, holding-information, and warning tools. Additional wide-screen space primarily increases the separation between TMT and MAESTRO.
+
+At the supported minimum desktop size, both regions must remain usable without overlap. Responsive implementation may use modern layout constraints instead of reproducing percentages literally, but must preserve the visual hierarchy and relative placement. Compact/mobile behavior is not defined by the source design.
+
+The MAESTRO work area uses background `#555355`. A `#9C0000` line and a darker `#3F3F3F` region mark the final ten minutes of the visible timeline. This is a visual boundary; lifecycle state remains determined by authoritative backend state and configured feeder-fix timing, not by a frontend clock calculation.
+
+### MAESTRO views
+
+All MAESTRO views use the same time-axis and target components but select different lanes and emphasis:
+
+- **FMP/ALL** is the overview of all five STAR entry families and uses three timelines. Each timeline identifies its configured feeder fix and runway in use. The mapping of families to timeline sides must come from versioned configuration rather than UI constants.
+- **RWY** is runway-centric. The active runway with the most scheduled arrivals appears on the left side of the middle timeline. Additional runways use, in order, the right side of the middle timeline and then the left and right sides of the right timeline, stopping at four displayed runways.
+- **ACC** retains the overall sequence but emphasizes the STAR family relevant to the controller. Aircraft on other families remain visible in `#686868` so the selected family can be understood in context.
+
+The initial ACC position mapping is:
+
+| Controller position | Emphasized view/family |
+| --- | --- |
+| `_FMP` | ALL |
+| `_B_CTR` | MONAK |
+| `_D_CTR` | TUDLO |
+| `_E_CTR` | TESPI |
+| `_K_CTR` | ERNOV |
+| `ESMS_APP` | TIDVU |
+
+Position-derived defaults are conveniences, not authorization. A locally selected view may override the default without changing shared AMAN state.
+
+### Timeline behavior
+
+Each vertical timeline:
+
+- places current UTC time at the bottom and future time above it;
+- labels every five minutes and marks every minute;
+- advances in six-second increments, ten visual movements per minute;
+- defaults to a 30-minute horizon and supports a continuous local zoom/scroll control up to 90 minutes;
+- shows a rounded current-time box below the axis together with the applicable feeder fix and runway in use;
+- keeps target placement as close as possible to the authoritative time while resolving collisions legibly;
+- keeps the final-ten-minute boundary visible and synchronized with the chosen scale.
+
+The left-side vertical control changes only the local time horizon. It does not change AMAN prediction or sequence state. The inspected Figma timeline frame is `412.53 × 1772`; its document annotations use approximately 2.7% screen width, a 7.5% top origin, and a 2.3% bottom reserve. These are reference proportions, not hard-coded browser pixels.
+
+### Aircraft targets and local information selection
+
+The inspected Figma aircraft target is `358 × 84` reference units. A target may contain these fields, ordered inward toward the timeline so hidden fields do not leave blank gaps:
+
+1. feeder-fix ETA/STA;
+2. callsign;
+3. current delay still to be absorbed;
+4. total assigned delay;
+5. landing runway;
+6. wake category;
+7. aircraft type.
+
+The default compact target shows callsign and current delay. The original reference widths are 1%, 4%, 1%, 1%, 1.5%, 1.5%, and 1.5% of the reference screen respectively, with about 7% usable on each side of a timeline. Implementations should preserve the priority and compactness rather than couple text size to viewport width.
+
+Clicking the current-time box opens the Target Information dialog. It contains separate feeder-fix-side and runway-side toggles for STA FF, runway, aircraft type, WTC, feeder fix, total delay, and current delay. These display preferences are local to the signed-in user and must not be published as shared AMAN state. The inspected reference dialog is `493 × 497.08`.
+
+Lifecycle colors are:
+
+- Unstable: `#6E996E`;
+- Stable: `#96D796`;
+- Superstable: `#DCDCDC`.
+
+Gain/delay emphasis uses:
+
+- any gain or `=00`: `#96D796`;
+- one through three displayed minutes to lose: `#F0E129`;
+- four or more displayed minutes to lose: `#9C0000`.
+
+Hovering an aircraft or menu button adds a rounded `#A3D5E8` fill with a one-pixel `#FFFFFF` edge and changes its text to `#FFFFFF`. Hover styling must not be the only indication of focus; keyboard focus requires equivalent visibility.
+
+### Aircraft dialog and commands
+
+Clicking a target opens the aircraft dialog. The Figma menu contains the following actions; every mutating action must use backend authorization, idempotency, revision checks, audit data, and the protection rules elsewhere in this specification:
+
+- **Information** opens the read-only flight-information view.
+- **Recompute** requests a new physical prediction without silently releasing Stable, Superstable, manual, or validated TMA protection.
+- **Refresh Delay** re-renders/re-requests authoritative gain/lose information. It is a recovery action and must not create an independent frontend calculation.
+- **Alternate Runway** selects the configured paired runway: 22L ↔ 22R and 04L ↔ 04R for the initial EKCH configuration.
+- **Change Runway** assigns a chosen runway. For Stable/Superstable aircraft, the established sequence position remains protected while a valid target-runway slot is resolved; conflicts are rejected visibly.
+- **Change ETA-FF** applies an explicit, audited manual feeder-fix ETA override and displays its provenance.
+- **Maximum Delay** defines an operational upper bound for that aircraft. It may move the aircraft to the earliest legal position but never bypass wake separation or silently displace protected traffic.
+- **Coordination** opens the tactical-request dialog for routing/direct or speed requests. A request is distinct from an accepted controller clearance and does not become a route fact until the authoritative workflow accepts it. The inspected dialog is `370 × 471`.
+- **Missed Approach** opens a confirmation action and then uses the configured go-around model. The ten-minute value in the source mock-up remains subject to the open decision below.
+- **De-sequence** moves the aircraft into DSEQ without deleting it. DSEQ shows a count and allows an authorized controller to resume or remove an entry.
+- **Insert Closure** begins a runway-capacity closure after the selected aircraft and renders a red overlay across every visible lane for the affected runway.
+- **Insert Gap** creates the first-class runway GAP defined elsewhere in this specification, using a requested duration after the selected aircraft.
+- **Extra Flight** reserves one normal flight opportunity. In the domain this is a named capacity reservation/GAP with an optional display label (default `FLIGHT`), never a fabricated aircraft or callsign.
+- **Remove** is restricted to cases such as diversion, requires explicit confirmation, removes the aircraft from the active sequence, and remains auditable even though the UI does not offer undo.
+
+### MAESTRO settings bar
+
+The settings bar spans the MAESTRO width and contains two rows.
+
+The primary row contains:
+
+| Control | Display | Action |
+| --- | --- | --- |
+| RIU | Selected runway(s) in use | Opens runway-selection dialog |
+| Runway rate | Assigned arrival rate per runway | Opens arrival-rate dialog |
+| Wind | Surface wind and 10,000-foot wind | Opens wind-data dialog when defined |
+| Traffic load | Aircraft in the TMA above 1,500 feet and aircraft inside the selected MAESTRO horizon | Read-only summary |
+| View | Current view | Opens view selection where applicable |
+| UTC time | Current UTC time | No action |
+
+The secondary row contains MAESTRO/view selection, ALL, RWY, ACC, and DSEQ. The selected view uses background `#86A4AF` with `#FFFFFF` text; the MAESTRO selector uses `#5174B8` with white text. RIU and runway-rate controls use `#F3D02E` with black text. The source calls these controls B1–B5 despite also referring to B1–B6; implementations use the five defined controls.
+
+The reference horizontal placements are:
+
+| Control | Left | Width | Row height/start |
+| --- | ---: | ---: | --- |
+| RIU | 3% | 5% | 50%, top 0.5% |
+| Runway rate | 8.4% | 42.5% | 50%, top 0.5% |
+| Wind | 51.3% | 11.25% | 50%, top 0.5% |
+| Traffic load | 62.95% | 8% | 50%, top 0.5% |
+| View | 71.35% | 15% | 50%, top 0.5% |
+| UTC time | 86.85% | 15% | 50%, top 0.5% |
+| MAESTRO selector | 3% | 12% | 23%, top 70% |
+| ALL | 16% | 4.5% | 23%, top 70% |
+| RWY | 20.9% | 4.5% | 23%, top 70% |
+| ACC | 25.8% | 4.5% | 23%, top 70% |
+| DSEQ | 31.1% | 7.5% | 23%, top 70% |
+
+These percentages document the inspected reference composition. Responsive code may express them through grid/flex constraints provided visual-regression tests preserve the same grouping and emphasis.
+
+Runway selection and arrival-rate changes remain independent commands as specified above.
+
+### TMT traffic-prediction tool
+
+The traffic-prediction tool shows 15-minute buckets from the nearest preceding quarter-hour through three hours ahead. For example, at 20:44 UTC the range begins at 20:30 and ends at 23:30.
+
+Flights already classified by AMAN as Unstable, Stable, or Superstable use their authoritative AMAN landing time. Other flights use available VATSIM/API planning or airborne timing. A flight must appear exactly once.
+
+Each bucket's displayed load factor is `aircraft count × 4`, expressing that quarter-hour at an equivalent hourly rate. Planned/not-airborne traffic is `#96D796`; airborne traffic is `#DCDCDC`.
+
+Let `bucket_high` mean that the bucket's load factor exceeds the selected arrival rate by more than 10%. Let `window_high` mean that the total aircraft count in the preceding bucket, current bucket, and two following buckets exceeds 110% of the capacity for that one-hour window. A bucket is:
+
+- yellow `#F0E129` when exactly one of `bucket_high` or `window_high` is true;
+- red `#9C0000` when both are true;
+- unalerted when neither is true.
+
+Boundary handling and missing rate/planning data must be deterministic and visibly degraded rather than guessed.
+
+### TMT holding-information tool
+
+The holding tool shows aircraft that are authoritatively cleared into a holding, their callsign, cleared flight level, holding identifier, and expected approach time (EAT). It combines:
+
+- a fixed one-hour time axis using the MAESTRO minute/five-minute convention without scroll;
+- an altitude axis from FL090 through FL300;
+- a callsign box centered on the cleared level;
+- an EAT box and connector line from the aircraft to its EAT.
+
+The EAT box is green when the EAT is within the next four minutes and yellow otherwise. The connector becomes more horizontal as the aircraft is both lower and closer to EAT, providing a visual comparison of stack position and expected release. The inspected Figma reference is `332.65 × 648.56`.
+
+### TMT warning tool
+
+The design reserves a warning-box region, but its events, severity, acknowledgement, retention, and authority behavior are not yet defined. No agent should invent warning semantics from the visual placeholder.
+
+### Visual design references
+
+The following Figma nodes were inspected on 2026-09-09 and remain the visual source:
+
+- [Timeline](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3293-1078&m=dev)
+- [Aircraft target](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3288-830&m=dev)
+- [Target Information dialog](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3288-844&m=dev)
+- [Aircraft dialog](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3288-845&m=dev)
+- [Flight Information dialog](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3288-846&m=dev)
+- [Coordination dialog](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3289-893&m=dev)
+- [Runway closure](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3409-442&m=dev)
+- [Runway GAP](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3409-443&m=dev)
+- [RIU dialog](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3286-609&m=dev)
+- [Arrival-rate dialog](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3286-644&m=dev)
+- [MAESTRO dialog](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3287-662&m=dev)
+- [DSEQ dialog](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3287-714&m=dev)
+- [Holding information](https://www.figma.com/design/csKJuv9WCgO36UjsE1lC2h/Project-FS---Flightstrps-by-VATSCA?node-id=3291-1077&m=dev)
 
 ## Terminal route model
 
@@ -243,6 +428,9 @@ This section records what the repository does today so that agents do not mistak
 | Gain/lose display | Backend publishes signed seconds. The web UI displays signed `m:ss`; the EuroScope Gain/Lose display remains separately tracked. | Rounded controller `Gxx`/`Lxx` presentation is approved and tracked in #334 for EuroScope and #567 for the web frontend. |
 | FMP controls | Backend role authorization and commands exist, but the EKCH page currently passes `hasFMPAuthority=false`, so controls are unavailable. | A server-backed capability must reach the frontend; track in #566. |
 | Freeze contract | Backend can publish freeze reason `tma`; the frontend validator accepts only `none`, `superstable`, and `manual`. | Current TMA-frozen state can invalidate the complete frontend AMAN payload; correct as part of #561. |
+| MAESTRO workspace | The current route renders `AMANBoardView` beside a generic `AMANControls` sidebar. It does not implement the FMP/RWY/ACC workspace, three timelines, local target fields, or the two-row MAESTRO settings bar. | Frontend implementation work required against the design section and Figma references above. |
+| TMT tools | No AMAN traffic-prediction, holding-information, or warning tool is present in the live AMAN route. | Traffic and holding tools require backend read models and frontend implementation. Warning behavior remains an open product decision. |
+| Aircraft operations | Current controls cover a subset of move/freeze/rate/ETA/go-around actions. Alternate/change runway, maximum delay, coordination, DSEQ, closure, reserved capacity, and confirmed removal do not exist as the complete designed workflows. | Add only through typed backend commands; reuse #557 for GAP and do not implement fake aircraft. |
 
 Implementation references include `backend/config/aman/ekch-terminal-2609.json`, `backend/internal/aman/operational/service.go`, `backend/internal/aman/operational/mutations.go`, `backend/internal/aman/prediction/reducer.go`, `backend/internal/aman/sequence/queue.go`, `backend/internal/aman/lifecycle/go_around.go`, `backend/pkg/events/frontend/aman.go`, `frontend/src/api/aman.ts`, and `frontend/src/routes/ekch/AMAN.tsx`.
 
@@ -264,9 +452,17 @@ Update this section when decisions are made:
 3. Select the initial holding-stack ordering value for each STAR entry family.
 4. Confirm the default duration/slot-count interaction and protected-slot conflict workflow for an approach-stop GAP.
 5. Confirm whether the current fixed ten-minute go-around delay remains the desired time model. Controller confirmation of automatic detection is already decided.
+6. Resolve the MAESTRO settings-bar height conflict: the opening prose says 7.5% of MAESTRO height, while the detailed specification and inspected Figma annotation say 13⅓%.
+7. Confirm the configured assignment of the five STAR families/feeder fixes to the three FMP timelines and their left/right target sides.
+8. Define runway-closure termination/removal, protected-slot interaction, and whether a closure may start only after an aircraft or also at an absolute time.
+9. Define Maximum Delay semantics, authorization, and interaction with Stable/Superstable traffic beyond the invariant that separation and protected traffic cannot be bypassed.
+10. Define TMT warning sources, severity, acknowledgement, retention, and audience. The current Figma warning boxes are placeholders only.
+11. Confirm how controller positions with multiple applicable sectors or nonstandard callsigns select the initial ACC family.
 
 ## GitHub issue relationship
 
 Implementation work is tracked in GitHub issues under the AMAN epic. Issues should link to this file and update it when they resolve an open operational decision. This file must not become a checklist of code tasks.
 
 The 2026-09-08 code-audit corrections are tracked by #560 (Superstable immutability), #561 (altitude-bounded TMA volume), #562 (automatic vacancy promotion), #563 (independent runway selection), #564 (WTC/L RETA policy), #565 (confirmed live go-around detection), #566 (server-backed FMP controls), #334 (EuroScope Gain/Lose formatting), and #567 (web Gain/Lose formatting).
+
+The frontend design is tracked by parent feature #584 and its focused child issues: #585 (workspace shell/settings), #586 (FMP/RWY/ACC timelines), #587 (targets/dialogs), #588 (DSEQ/closure/reserved capacity), #589 (TMT traffic prediction), #590 (TMT holding information), and #591 (TMT warning decision and implementation).

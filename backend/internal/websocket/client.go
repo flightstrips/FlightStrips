@@ -246,11 +246,10 @@ func WritePump[TClient Client](client TClient) {
 				Type string `json:"type"`
 			}
 			_ = json.Unmarshal(bytes, &typeHolder)
-			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), typeHolder.Type, client.GetVersion())
-
-			if err := client.GetConnection().WriteMessage(websocket.TextMessage, bytes); err != nil {
+			if err := writeOutboundMessage(context.Background(), client.GetConnection(), client.GetSource(), typeHolder.Type, bytes); err != nil {
 				return
 			}
+			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), typeHolder.Type, client.GetVersion())
 		case <-ticker.C:
 			if err := client.GetConnection().SetWriteDeadline(time.Now().Add(constants.WriteWait)); err != nil {
 				return
@@ -268,4 +267,16 @@ func WritePump[TClient Client](client TClient) {
 			}
 		}
 	}
+}
+
+type websocketMessageWriter interface {
+	WriteMessage(messageType int, data []byte) error
+}
+
+func writeOutboundMessage(ctx context.Context, writer websocketMessageWriter, source, messageType string, payload []byte) error {
+	if err := writer.WriteMessage(websocket.TextMessage, payload); err != nil {
+		return err
+	}
+	metrics.RecordOutboundPayload(ctx, source, messageType, len(payload))
+	return nil
 }

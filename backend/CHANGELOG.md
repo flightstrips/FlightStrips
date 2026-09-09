@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.3](https://github.com/flightstrips/FlightStrips/compare/backend/v1.3.2...backend/v1.3.3) (2026-09-09)
+
+
+### Bug Fixes
+
+* **observability:** use host CPU metrics in performance dashboard ([#571](https://github.com/flightstrips/FlightStrips/issues/571)) ([5ef1267](https://github.com/flightstrips/FlightStrips/commit/5ef1267a68fa79be6d9cb6a1b36d6125197fafcc))
+* **strip:** reduce aircraft position database fan-out ([#577](https://github.com/flightstrips/FlightStrips/issues/577)) ([26d5ce4](https://github.com/flightstrips/FlightStrips/commit/26d5ce4391f18b54071355fb898e1ee3ed6400f8))
+
 ## [1.3.2](https://github.com/flightstrips/FlightStrips/compare/backend/v1.3.1...backend/v1.3.2) (2026-09-08)
 
 

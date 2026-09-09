@@ -97,7 +97,9 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			),
 		)
 		if shouldTrackMessageDBOperations(client.GetSource(), msgType) {
-			ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{MessageType: msgType})
+			ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{
+				MessageType: msgType, AutoCountDBOperations: msgType == "aircraft_position_update",
+			})
 		}
 
 		handlers := hub.GetMessageHandlers()
@@ -108,8 +110,9 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		}
 		if state := shared.GetWebsocketMessageState(ctx); state != nil {
 			metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBOperations)
+			metrics.MessageDBRetries(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBRetries)
 		}
-		metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), time.Since(start), err == nil)
+		metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), time.Since(start), err)
 
 		if err != nil {
 			span.SetStatus(codes.Error, err.Error())
@@ -185,7 +188,7 @@ func shouldTrackMessageDBOperations(source string, msgType string) bool {
 	}
 
 	switch msgType {
-	case "strip_update", "squawk", "assigned_squawk", "tracking_controller_changed":
+	case "aircraft_position_update", "strip_update", "squawk", "assigned_squawk", "tracking_controller_changed":
 		return true
 	default:
 		return false

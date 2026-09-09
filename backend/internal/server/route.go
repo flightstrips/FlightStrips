@@ -59,6 +59,7 @@ func (s *Server) UpdateRouteForStripContext(ctx context.Context, callsign string
 	}
 	if s.coordRepo != nil {
 		_, err := s.coordRepo.GetByStripID(ctx, sessionId, strip.ID)
+		shared.AddDBOperations(ctx, 1)
 		switch {
 		case err == nil:
 			return nil

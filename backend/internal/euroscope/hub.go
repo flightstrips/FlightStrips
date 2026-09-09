@@ -111,7 +111,9 @@ func (hub *Hub) markEuroscopeSeen(ctx context.Context, session int32, callsign s
 	if hub.server == nil || hub.server.GetStripRepository() == nil {
 		return
 	}
-	if err := hub.server.GetStripRepository().MarkEuroscopeSeen(ctx, session, callsign); err != nil {
+	err := hub.server.GetStripRepository().MarkEuroscopeSeen(ctx, session, callsign)
+	shared.AddDBOperations(ctx, 1)
+	if err != nil {
 		slog.WarnContext(ctx, "Failed to record EuroScope strip presence",
 			slog.String("callsign", callsign),
 			slog.Int("session", int(session)),

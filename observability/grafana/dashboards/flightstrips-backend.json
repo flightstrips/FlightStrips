@@ -160,7 +160,7 @@
         "spec": {
           "id": 11,
           "title": "Message Processing Latency (P50 / P95 / P99)",
-          "description": "",
+          "description": "Aggregate handler latency alongside aircraft_position_update latency for direct before-and-after comparison.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -178,7 +178,7 @@
                       },
                       "spec": {
                         "expr": "histogram_quantile(0.50, sum(rate(websocket_message_duration_seconds_bucket{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[5m])) by (le))",
-                        "legendFormat": "P50"
+                        "legendFormat": "Overall P50"
                       }
                     },
                     "refId": "A",
@@ -197,7 +197,7 @@
                       },
                       "spec": {
                         "expr": "histogram_quantile(0.95, sum(rate(websocket_message_duration_seconds_bucket{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[5m])) by (le))",
-                        "legendFormat": "P95"
+                        "legendFormat": "Overall P95"
                       }
                     },
                     "refId": "B",
@@ -216,10 +216,67 @@
                       },
                       "spec": {
                         "expr": "histogram_quantile(0.99, sum(rate(websocket_message_duration_seconds_bucket{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[5m])) by (le))",
-                        "legendFormat": "P99"
+                        "legendFormat": "Overall P99"
                       }
                     },
                     "refId": "C",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-prom"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.50, sum(rate(websocket_message_duration_seconds_bucket{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\",type=\"aircraft_position_update\"}[5m])) by (le))",
+                        "legendFormat": "Position P50"
+                      }
+                    },
+                    "refId": "D",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-prom"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.95, sum(rate(websocket_message_duration_seconds_bucket{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\",type=\"aircraft_position_update\"}[5m])) by (le))",
+                        "legendFormat": "Position P95"
+                      }
+                    },
+                    "refId": "E",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "grafanacloud-prom"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.99, sum(rate(websocket_message_duration_seconds_bucket{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\",type=\"aircraft_position_update\"}[5m])) by (le))",
+                        "legendFormat": "Position P99"
+                      }
+                    },
+                    "refId": "F",
                     "hidden": false
                   }
                 }

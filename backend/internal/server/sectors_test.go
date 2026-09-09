@@ -31,6 +31,28 @@ func TestComputeSectorChanges_UsesPublicSectorNameForVariants(t *testing.T) {
 	assert.Equal(t, "EKCH_D_TWR", changes[0].ToPosition)
 }
 
+func TestGetControllersForUpdate_ReusesMessageSnapshot(t *testing.T) {
+	listCalls := 0
+	repo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, session int32) ([]*models.Controller, error) {
+			listCalls++
+			return []*models.Controller{{Session: session, Callsign: "EKCH_APP"}}, nil
+		},
+	}
+	state := &shared.WebsocketMessageState{MessageType: "aircraft_position_update"}
+	ctx := shared.WithWebsocketMessageState(context.Background(), state)
+
+	first, err := getControllersForUpdate(ctx, repo, 42)
+	require.NoError(t, err)
+	second, err := getControllersForUpdate(ctx, repo, 42)
+	require.NoError(t, err)
+
+	assert.Equal(t, first, second)
+	assert.Equal(t, 1, listCalls)
+	assert.Equal(t, 1, state.DBOperations)
+	assert.Same(t, first[0], state.ExistingControllers["EKCH_APP"])
+}
+
 func TestComputeSectorChanges_ReportsBothGWVariantsWithPublicName(t *testing.T) {
 	t.Parallel()
 

@@ -469,6 +469,47 @@ func TestUpdateAircraftPosition_StopsAfterSecondVersionConflict(t *testing.T) {
 	assert.Equal(t, 2, writeCount)
 }
 
+func TestUpdateAircraftPosition_ReusesUpdatedStripWithinMessage(t *testing.T) {
+	const callsign = "SAS570"
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			sequence := int32(1000)
+			return &models.Strip{
+				ID: 570, Version: 4, Callsign: callsign, Origin: "EKCH", Destination: "ESSA",
+				Bay: shared.BAY_AIRBORNE, Sequence: &sequence,
+			}, nil
+		},
+		UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ int32, _ int32) (int64, error) {
+			return 1, nil
+		},
+	}
+	state := &shared.WebsocketMessageState{MessageType: "aircraft_position_update"}
+	ctx := shared.WithWebsocketMessageState(context.Background(), state)
+
+	require.NoError(t, NewStripService(stripRepo).UpdateAircraftPosition(
+		ctx, 1, callsign, 55.7, 12.6, 8000, "EKCH",
+	))
+
+	cached := state.ExistingStrips[callsign]
+	require.NotNil(t, cached)
+	assert.Equal(t, 55.7, *cached.PositionLatitude)
+	assert.Equal(t, 12.6, *cached.PositionLongitude)
+	assert.Equal(t, int32(8000), *cached.PositionAltitude)
+	assert.Equal(t, 2, state.DBOperations, "one strip read and one position write form the base query budget")
+}
+
+func TestUpdateCachedStripStandAdvancesSnapshotVersion(t *testing.T) {
+	state := &shared.WebsocketMessageState{ExistingStrips: map[string]*models.Strip{
+		"SAS570": {Callsign: "SAS570", Version: 4},
+	}}
+	ctx := shared.WithWebsocketMessageState(context.Background(), state)
+
+	updateCachedStripStand(ctx, "SAS570", "A2", true)
+
+	assert.Equal(t, "A2", *state.ExistingStrips["SAS570"].Stand)
+	assert.Equal(t, int32(5), state.ExistingStrips["SAS570"].Version)
+}
+
 // TestCreateCoordinationTransfer_EsHandoverSentWhenTargetHasNoEsConnection verifies that
 // an ES handover is sent to the owner (tower) controller even when the target (receiving)
 // controller has no CID — i.e., no active ES connection to the backend. The handover is

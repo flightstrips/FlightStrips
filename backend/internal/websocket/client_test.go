@@ -108,5 +108,10 @@ func TestActionRejectedEvent_DoesNotParseOtherActions(t *testing.T) {
 	assert.Empty(t, rejection.RequestID)
 }
 
+func TestShouldTrackMessageDBOperations_IncludesAircraftPositionUpdates(t *testing.T) {
+	assert.True(t, shouldTrackMessageDBOperations("euroscope", "aircraft_position_update"))
+	assert.False(t, shouldTrackMessageDBOperations("frontend", "aircraft_position_update"))
+}
+
 var _ Client = testClient{}
 var _ Client = testClient{}

@@ -11,14 +11,16 @@ type websocketMessageStateKey struct{}
 // handlers so follow-up validation and routing work can avoid reloading the same
 // session-scoped entities repeatedly.
 type WebsocketMessageState struct {
-	MessageType         string
-	Session             *internalModels.Session
-	ExistingControllers map[string]*internalModels.Controller
-	ControllerList      []*internalModels.Controller
-	ExistingStrips      map[string]*internalModels.Strip
-	StripList           []*internalModels.Strip
-	SectorOwners        map[string]*internalModels.SectorOwner
-	DBOperations        int
+	MessageType           string
+	Session               *internalModels.Session
+	ExistingControllers   map[string]*internalModels.Controller
+	ControllerList        []*internalModels.Controller
+	ExistingStrips        map[string]*internalModels.Strip
+	StripList             []*internalModels.Strip
+	SectorOwners          map[string]*internalModels.SectorOwner
+	DBOperations          int
+	DBRetries             map[string]int
+	AutoCountDBOperations bool
 }
 
 func WithWebsocketMessageState(ctx context.Context, state *WebsocketMessageState) context.Context {
@@ -46,6 +48,29 @@ func AddDBOperations(ctx context.Context, count int) {
 		return
 	}
 	if messageState := GetWebsocketMessageState(ctx); messageState != nil {
+		if messageState.AutoCountDBOperations {
+			return
+		}
 		messageState.AddDBOperations(count)
 	}
+}
+
+// TraceDBOperation records a database operation observed by the pgx query
+// tracer. Automatic counting is enabled only for handlers whose full query
+// budget is measured at this boundary.
+func TraceDBOperation(ctx context.Context) {
+	if messageState := GetWebsocketMessageState(ctx); messageState != nil && messageState.AutoCountDBOperations {
+		messageState.AddDBOperations(1)
+	}
+}
+
+func AddDBRetry(ctx context.Context, class string) {
+	messageState := GetWebsocketMessageState(ctx)
+	if messageState == nil || class == "" {
+		return
+	}
+	if messageState.DBRetries == nil {
+		messageState.DBRetries = make(map[string]int)
+	}
+	messageState.DBRetries[class]++
 }

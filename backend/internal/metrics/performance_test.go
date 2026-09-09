@@ -2,13 +2,52 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.opentelemetry.io/otel"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
+
+func TestMessageErrorClass(t *testing.T) {
+	tests := []struct {
+		name, messageType, want string
+		err                     error
+	}{
+		{name: "success", want: "none"},
+		{name: "serialization", err: &pgconn.PgError{Code: "40001"}, want: "serialization_conflict"},
+		{name: "deadlock", err: &pgconn.PgError{Code: "40P01"}, want: "deadlock"},
+		{name: "missing row", err: pgx.ErrNoRows, want: "missing_row"},
+		{name: "coordination", messageType: "coordination_assume_request", err: errors.New("invalid request"), want: "coordination"},
+		{name: "other", messageType: "strip_update", err: errors.New("failed"), want: "other"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := messageErrorClass(test.messageType, test.err); got != test.want {
+				t.Fatalf("messageErrorClass() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestMessageDBRetriesRecordsBoundedConflictClass(t *testing.T) {
+	reader := newTestReader(t)
+
+	MessageDBRetries(context.Background(), "live", "ekch", "euroscope", "aircraft_position_update", "0.16.0", map[string]int{
+		"serialization_conflict": 2,
+	})
+
+	rm := collectMetrics(t, reader)
+	if got := findInt64MetricValue(t, rm, "websocket.message.db_retries", map[string]string{
+		"type": "aircraft_position_update", "error_class": "serialization_conflict",
+	}); got != 2 {
+		t.Fatalf("expected 2 serialization retries, got %d", got)
+	}
+}
 
 func newTestReader(t *testing.T) *sdkmetric.ManualReader {
 	t.Helper()

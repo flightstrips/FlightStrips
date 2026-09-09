@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/standdiagnostics"
 	"context"
 	"errors"
@@ -943,6 +944,7 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 			return nil, err
 		}
 		metrics.RecordSATConflict(ctx, "database_contention")
+		recordRetryableDBError(ctx, err)
 		slog.WarnContext(ctx, "SAT allocation contention; retrying", slog.String("callsign", request.Callsign), slog.Int("attempt", attempt), slog.Any("error", err))
 	}
 	metrics.RecordSATOutcome(ctx, "database_contention", string(request.Direction))
@@ -2052,11 +2054,25 @@ func retryableStandAllocationError(err error) bool {
 	return errors.As(err, &pgErr) && (pgErr.Code == "40001" || pgErr.Code == "40P01" || pgErr.Code == "23505")
 }
 
-func retrySerializableOperation(operation func() error) error {
+func retrySerializableOperation(ctx context.Context, operation func() error) error {
 	err := operation()
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || (pgErr.Code != "40001" && pgErr.Code != "40P01") {
 		return err
 	}
+	recordRetryableDBError(ctx, err)
 	return operation()
+}
+
+func recordRetryableDBError(ctx context.Context, err error) {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return
+	}
+	switch pgErr.Code {
+	case "40001":
+		shared.AddDBRetry(ctx, "serialization_conflict")
+	case "40P01":
+		shared.AddDBRetry(ctx, "deadlock")
+	}
 }

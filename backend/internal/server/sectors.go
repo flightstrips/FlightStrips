@@ -10,6 +10,7 @@ import (
 	"context"
 	"log/slog"
 	"slices"
+	"strings"
 )
 
 func (s *Server) UpdateSectors(sessionId int32) ([]shared.SectorChange, error) {
@@ -222,7 +223,24 @@ func getControllersForUpdate(ctx context.Context, controllerRepo repository.Cont
 		}
 		return controllers, nil
 	}
-	return controllerRepo.List(ctx, sessionId)
+	if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil && messageState.ControllerList != nil {
+		return messageState.ControllerList, nil
+	}
+	controllers, err := controllerRepo.List(ctx, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	shared.AddDBOperations(ctx, 1)
+	if messageState := shared.GetWebsocketMessageState(ctx); messageState != nil {
+		messageState.ControllerList = controllers
+		messageState.ExistingControllers = make(map[string]*models.Controller, len(controllers))
+		for _, controller := range controllers {
+			if controller != nil {
+				messageState.ExistingControllers[strings.ToUpper(strings.TrimSpace(controller.Callsign))] = controller
+			}
+		}
+	}
+	return controllers, nil
 }
 
 func getCurrentControllerCoverage(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32, frequencyProviders []TransceiverLookup) ([]config.ControllerCoverage, error) {

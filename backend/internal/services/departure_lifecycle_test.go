@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	"FlightStrips/internal/vatsim"
 	"context"
@@ -39,6 +40,28 @@ func TestDepartureLifecycleWithoutEuroscopeMessengerSkipsStandMessages(t *testin
 	})
 
 	require.NoError(t, err)
+}
+
+func TestUseObservedStandForRouteUpdatesMessageSnapshot(t *testing.T) {
+	const callsign = "SAS570"
+	oldStand := "A1"
+	state := &shared.WebsocketMessageState{ExistingStrips: map[string]*models.Strip{
+		callsign: {Callsign: callsign, Stand: &oldStand},
+	}}
+	ctx := shared.WithWebsocketMessageState(context.Background(), state)
+	lifecycle := &DepartureLifecycleService{
+		strips: &testutil.MockStripRepository{
+			UpdateStandFn: func(context.Context, int32, string, *string, *int32) (int64, error) { return 0, nil },
+		},
+		routeRecalc: &testutil.MockServer{
+			UpdateRouteForStripCtxFn: func(ctx context.Context, _ string, _ int32, _ bool) error {
+				assert.Equal(t, "A2", *shared.GetWebsocketMessageState(ctx).ExistingStrips[callsign].Stand)
+				return nil
+			},
+		},
+	}
+
+	lifecycle.useObservedStandForRoute(ctx, 1, callsign, "A2")
 }
 
 func TestResolvedVatsimIdentityFallsBackToStripProvenance(t *testing.T) {

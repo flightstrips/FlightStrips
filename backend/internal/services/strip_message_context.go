@@ -85,6 +85,31 @@ func (s *StripService) cacheStrip(ctx context.Context, strip *internalModels.Str
 	state.StripList = append(state.StripList, strip)
 }
 
+func updateCachedStripStand(ctx context.Context, callsign, stand string, incrementVersion bool) {
+	key := normalizedCallsignKey(callsign)
+	setStand := func(strip *internalModels.Strip) {
+		if strip == nil {
+			return
+		}
+		value := stand
+		strip.Stand = &value
+		if incrementVersion {
+			strip.Version++
+		}
+	}
+	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingStrips != nil {
+		strip := syncState.ExistingStrips[callsign]
+		if strip == nil {
+			strip = syncState.ExistingStrips[key]
+		}
+		setStand(strip)
+	}
+	if state := shared.GetWebsocketMessageState(ctx); state != nil {
+		ensureMessageStateStripIndex(state)
+		setStand(state.ExistingStrips[key])
+	}
+}
+
 func (s *StripService) cacheController(ctx context.Context, controller *internalModels.Controller) {
 	if controller == nil {
 		return

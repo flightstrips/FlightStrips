@@ -403,6 +403,9 @@ func (s *DepartureLifecycleService) useObservedStandForRoute(ctx context.Context
 	if updated != 0 && s.standPublisher != nil {
 		s.standPublisher.SendStandEvent(session, callsign, stand)
 	}
+	// A zero row count also means the database already held this stand. Keep a
+	// message snapshot loaded before that write coherent in either case.
+	updateCachedStripStand(ctx, callsign, stand, updated != 0)
 	if s.routeRecalc == nil {
 		return
 	}
@@ -712,7 +715,7 @@ func (s *DepartureLifecycleService) ReleaseExpired(ctx context.Context) error {
 			if assignment == nil {
 				continue
 			}
-			if err := retrySerializableOperation(func() error {
+			if err := retrySerializableOperation(ctx, func() error {
 				return s.releaseIfDue(ctx, session.ID, assignment, now)
 			}); err != nil {
 				slog.Warn("departure sweep failed to release assignment",

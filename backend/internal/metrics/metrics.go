@@ -2,10 +2,13 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -24,6 +27,7 @@ type instruments struct {
 	messagesSent            metric.Int64Counter
 	messageHandledDuration  metric.Float64Histogram
 	messageDBOperations     metric.Int64Counter
+	messageDBRetries        metric.Int64Counter
 	syncInputStrips         metric.Int64Counter
 	syncInputControllers    metric.Int64Counter
 	syncChangedStrips       metric.Int64Counter
@@ -113,6 +117,11 @@ func get() *instruments {
 			"websocket.message.db_operations",
 			metric.WithDescription("Database operations performed while handling tracked WebSocket messages"),
 			metric.WithUnit("{operation}"),
+		)
+		messageDBRetries, _ := meter.Int64Counter(
+			"websocket.message.db_retries",
+			metric.WithDescription("Retryable database conflicts encountered while handling WebSocket messages"),
+			metric.WithUnit("{retry}"),
 		)
 		syncInputStrips, _ := meter.Int64Counter(
 			"euroscope.sync.input_strips",
@@ -278,6 +287,7 @@ func get() *instruments {
 			messagesSent:            messagesSent,
 			messageHandledDuration:  messageHandledDuration,
 			messageDBOperations:     messageDBOperations,
+			messageDBRetries:        messageDBRetries,
 			syncInputStrips:         syncInputStrips,
 			syncInputControllers:    syncInputControllers,
 			syncChangedStrips:       syncChangedStrips,
@@ -564,9 +574,9 @@ func MessageReceived(ctx context.Context, sessionName, airport, source, msgType,
 	)
 }
 
-func MessageHandled(ctx context.Context, sessionName, airport, source, msgType, version string, duration time.Duration, success bool) {
+func MessageHandled(ctx context.Context, sessionName, airport, source, msgType, version string, duration time.Duration, handlerErr error) {
 	status := "ok"
-	if !success {
+	if handlerErr != nil {
 		status = "error"
 	}
 	get().messageHandledDuration.Record(ctx, duration.Seconds(),
@@ -574,9 +584,32 @@ func MessageHandled(ctx context.Context, sessionName, airport, source, msgType, 
 			attribute.String("source", source),
 			attribute.String("type", msgType),
 			attribute.String("status", status),
+			attribute.String("error_class", messageErrorClass(msgType, handlerErr)),
 			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
+}
+
+func messageErrorClass(msgType string, err error) string {
+	if err == nil {
+		return "none"
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "40001":
+			return "serialization_conflict"
+		case "40P01":
+			return "deadlock"
+		}
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "missing_row"
+	}
+	if strings.Contains(msgType, "coordination") {
+		return "coordination"
+	}
+	return "other"
 }
 
 func MessageDBOperations(ctx context.Context, sessionName, airport, source, msgType, version string, dbOperations int) {
@@ -590,6 +623,22 @@ func MessageDBOperations(ctx context.Context, sessionName, airport, source, msgT
 			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
+}
+
+func MessageDBRetries(ctx context.Context, sessionName, airport, source, msgType, version string, retries map[string]int) {
+	for class, count := range retries {
+		if count <= 0 {
+			continue
+		}
+		get().messageDBRetries.Add(ctx, int64(count),
+			sessionAttributes(sessionName, airport,
+				attribute.String("source", source),
+				attribute.String("type", msgType),
+				attribute.String("error_class", fixedLabel(class, "serialization_conflict", "deadlock")),
+				attribute.String("client_version", normalizeVersion(version)),
+			),
+		)
+	}
 }
 
 func RecordEuroscopeSync(ctx context.Context, sessionName, airport, version string, inputStrips, inputControllers, changedStrips, changedControllers, dbOperations int, duration time.Duration) {

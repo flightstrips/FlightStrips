@@ -580,7 +580,7 @@ func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
 		if session == nil {
 			continue
 		}
-		if err := retrySerializableOperation(func() error {
+		if err := retrySerializableOperation(ctx, func() error {
 			return s.allocations.ReleaseExpiredBlocks(ctx, session.ID)
 		}); err != nil {
 			slog.Warn("arrival sweep failed to release expired stand blocks",
@@ -600,7 +600,7 @@ func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
 			if !isArrivalStage(assignment.Stage) {
 				continue
 			}
-			if err := retrySerializableOperation(func() error {
+			if err := retrySerializableOperation(ctx, func() error {
 				return s.releaseIfDue(ctx, session.ID, assignment, now)
 			}); err != nil {
 				slog.Warn("arrival sweep failed to release assignment",
@@ -608,7 +608,7 @@ func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
 					slog.Any("error", err))
 			}
 		}
-		if err := retrySerializableOperation(func() error {
+		if err := retrySerializableOperation(ctx, func() error {
 			return s.allocations.ReconcileUnsafeAssignments(ctx, session.ID, session.Airport)
 		}); err != nil {
 			slog.Warn("arrival sweep failed to reconcile unsafe stand overlaps",

@@ -45,6 +45,7 @@ import (
 	"time"
 
 	"github.com/exaring/otelpgx"
+	"github.com/jackc/pgx/v5/multitracer"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -804,11 +805,13 @@ func buildDBPool(ctx context.Context, cfg Config, dbpool *pgxpool.Pool) (*pgxpoo
 		return nil, false, fmt.Errorf("parse database connection string: %w", err)
 	}
 
+	dbCounter := dbOperationTracer{}
+	poolConfig.ConnConfig.Tracer = dbCounter
 	if cfg.EnablePostgresTracing {
-		poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
+		poolConfig.ConnConfig.Tracer = multitracer.New(dbCounter, otelpgx.NewTracer(
 			otelpgx.WithTracerProvider(otel.GetTracerProvider()),
 			otelpgx.WithTrimSQLInSpanName(),
-		)
+		))
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)

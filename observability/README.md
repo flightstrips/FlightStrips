@@ -89,6 +89,31 @@ which presents as a slow backend rather than a slow database.
 Individual query spans come from `otelpgx` and are enabled whenever
 `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
+### Aircraft position query budget
+
+`aircraft_position_update` uses one message-scoped snapshot for strips,
+controllers, the session and sector owners. The core steady-state path performs
+one strip read, one position write, four route-state reads (coordination,
+session, sector owners and controllers), and one last-seen write: **seven
+database operations**, plus a route-state write only when ownership changes.
+An AMAN-enabled arrival with an established identity normally adds two identity
+queries. Departure stand observation and bay, stand, landing, or coordination
+transitions may perform additional reads and writes. The DB-operation metric is
+counted at the pgx boundary, so these downstream operations remain attributed
+to the originating message. Every path must still reuse or update the original
+strip snapshot; a normal trace should contain exactly one `GetStrip` span.
+
+The Backend dashboard shows position-update P50/P95/P99. The Performance
+dashboard shows its total handler time and attributed DB-operation rate. Use
+those panels together with query spans to compare releases; compare like traffic
+classes against the stage budgets above. Repeated `GetStrip` spans indicate
+renewed fan-out.
+Failed handler samples carry the bounded `error_class` label, including
+`serialization_conflict`, `deadlock`, `missing_row`, and `coordination`, so
+terminal failures can be counted without parsing log messages. Successfully
+retried serialization conflicts and deadlocks are counted separately by
+`websocket.message.db_retries`.
+
 ## Traces
 
 Spans exist for the WebSocket upgrade, every WebSocket message, EuroScope sync,

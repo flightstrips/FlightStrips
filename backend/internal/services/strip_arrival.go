@@ -75,6 +75,11 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			}
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
+		// Seed the per-message snapshot before invoking route, stand and
+		// coordination helpers. Those stages all need the same strip version and
+		// must not independently reload it for one surveillance report.
+		s.cacheStrip(ctx, existingStrip)
 
 		dbStrip := database.Strip{
 			Origin:      existingStrip.Origin,
@@ -117,6 +122,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		if err != nil {
 			return err
 		}
+		shared.AddDBOperations(ctx, 1)
 		if updated == 0 {
 			slog.DebugContext(ctx, "Aircraft position update conflicted with a newer strip version",
 				slog.String("callsign", callsign),
@@ -134,12 +140,12 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			existingStrip.Bay = bay
 			existingStrip.Sequence = &sequence
 			existingStrip.Version++
-			s.cacheStrip(ctx, existingStrip)
 			s.sendStripUpdate(session, callsign, sequence, bay)
 			if err := s.applyBayChangeEffects(ctx, session, callsign, previousBay, bay, true); err != nil {
 				return err
 			}
 		}
+		s.cacheStrip(ctx, existingStrip)
 		positionStored = true
 		break
 	}

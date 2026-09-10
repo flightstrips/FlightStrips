@@ -32,6 +32,8 @@ const (
 	weatherRefreshEvery        = 30 * time.Minute
 	queueOfferValidity         = 2 * time.Minute
 	euroScopeSurveillanceFresh = 30 * time.Second
+	wtcLightRETAPolicyReason   = "wtc_light_reta_policy"
+	wtcLightRETAMissingReason  = "wtc_light_reta_unavailable"
 )
 
 type NavigationMaterializer interface {
@@ -59,8 +61,9 @@ type ActiveArrivalRunwaySource interface {
 	ActiveArrivalRunway(context.Context, string) (string, error)
 }
 
-// AircraftEngineReference is the read-only TopSky ICAO aircraft lookup used
-// to identify light piston traffic without trusting pilot-entered WTC data.
+// AircraftEngineReference is retained as an assembly compatibility seam for
+// the TopSky ICAO lookup. Engine type is deliberately not a sequencing input;
+// the accepted observation WTC controls the RETA and separation policies.
 type AircraftEngineReference interface {
 	Lookup(string) (sat.EngineType, bool)
 	LookupWTC(string) (string, bool)
@@ -525,13 +528,13 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	applyPreliminaryPrediction(&flight, observation, now)
 	if observation.Surveillance == nil || observation.Surveillance.GroundspeedKnots == nil || observation.Surveillance.AltitudeFeet == nil || observation.FiledRoute == nil {
 		if flight.State != aman.StatePlanned {
-			markPredictionNonPublishable(&flight, missingEssentialReason(observation))
+			markPredictionNonPublishable(&flight, unavailablePredictionReason(observation, missingEssentialReason(observation)))
 		}
 		return flight, nil
 	}
 	if invalid := invalidEssentialReason(*observation.Surveillance); invalid != "" {
 		if flight.State != aman.StatePlanned {
-			markPredictionNonPublishable(&flight, invalid)
+			markPredictionNonPublishable(&flight, unavailablePredictionReason(observation, invalid))
 		}
 		return flight, nil
 	}
@@ -593,41 +596,64 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		DescentConfirmed:                descentConfirmed,
 		Remaining:                       predictorLegs(projection.Remaining),
 	}
-	estimate, err := predictor.EstimatePerformanceWind(ctx, nil, s.deps.Wind, input, predictor.PerformanceWindConfig{})
-	if err != nil {
-		s.setHealthComponent("predictor", aman.HealthUnavailable, "prediction_failed", now)
-		return flight, err
+	var raw aman.Prediction
+	var legDurations []time.Duration
+	if input.WakeTurbulenceCategory == predictor.CategoryLight {
+		reta, retaErr := predictor.EstimateRETA(input, predictor.PerformanceWindConfig{})
+		if retaErr != nil {
+			s.setHealthComponent("predictor", aman.HealthUnavailable, "reta_prediction_failed", now)
+			markPredictionNonPublishable(&flight, wtcLightRETAMissingReason)
+			return flight, nil
+		}
+		dtg, rawRETA := reta.DistanceToGoNM, reta.RawRETA
+		degradations := []string{wtcLightRETAPolicyReason}
+		if fallback := offRouteFallbackReason(projection.Reasons); fallback != "" {
+			degradations = append(degradations, fallback)
+		}
+		reason := strings.Join(degradations, ",")
+		raw = aman.Prediction{
+			RawTETA: rawRETA, RawRETA: &rawRETA, GeneratedAt: now, InputObservedAt: observedAt(observation.Surveillance, now),
+			Confidence: aman.ConfidenceLow, Publishable: true, DegradationReason: &reason,
+			DatasetVersion: version.Cycle, GeometryDigest: projection.GeometryDigest, DistanceToGoNM: &dtg,
+			ModelVersion: reta.ModelVersion, ConfigVersion: s.deps.Terminal.ConfigVersion, Basis: aman.PredictionBasisRETA,
+			Sources: []string{surveillanceRETASource(observation), "airacnet:route-distance", "terminal-config:" + s.deps.Terminal.ConfigVersion},
+		}
+		legDurations = reta.LegDurations
+	} else {
+		estimate, estimateErr := predictor.EstimatePerformanceWind(ctx, nil, s.deps.Wind, input, predictor.PerformanceWindConfig{})
+		if estimateErr != nil {
+			s.setHealthComponent("predictor", aman.HealthUnavailable, "prediction_failed", now)
+			return flight, estimateErr
+		}
+		confidence := estimate.Confidence
+		degradations := slices.Clone(estimate.DegradationReasons)
+		if fallback := offRouteFallbackReason(projection.Reasons); fallback != "" {
+			confidence = aman.ConfidenceMedium
+			degradations = append([]string{fallback}, degradations...)
+		}
+		rawRETA, dtg := estimate.RawRETA, estimate.DistanceToGoNM
+		raw = aman.Prediction{
+			RawTETA: estimate.RawTETA, RawRETA: &rawRETA, GeneratedAt: now, InputObservedAt: observedAt(observation.Surveillance, now),
+			Confidence: confidence, Publishable: true, DatasetVersion: version.Cycle, GeometryDigest: projection.GeometryDigest,
+			DistanceToGoNM: &dtg, ModelVersion: estimate.ModelVersion, ConfigVersion: s.deps.Terminal.ConfigVersion, Basis: aman.PredictionBasisPerformanceWind,
+			PerformanceProfileID: estimate.PerformanceProfileID, WeatherSource: estimate.WeatherSource,
+			Sources: []string{"vatsim", "airacnet", "terminal-config:" + s.deps.Terminal.ConfigVersion},
+			Calculation: &aman.PredictionCalculation{
+				NoWindDuration: estimate.NoWindDuration, Duration: estimate.Duration,
+				Legs: calculationLegs(projection.Remaining, estimate.NoWindLegDurations, estimate.LegDurations), Segments: calculationSegments(estimate.Segments),
+			},
+		}
+		if len(degradations) > 0 {
+			reason := strings.Join(degradations, ",")
+			raw.DegradationReason = &reason
+		}
+		legDurations = estimate.LegDurations
 	}
 	s.setHealthComponent("predictor", aman.HealthReady, "", now)
-	confidence := estimate.Confidence
-	degradations := slices.Clone(estimate.DegradationReasons)
-	if fallback := offRouteFallbackReason(projection.Reasons); fallback != "" {
-		confidence = aman.ConfidenceMedium
-		degradations = append([]string{fallback}, degradations...)
-	}
-	rawRETA := estimate.RawRETA
-	dtg := estimate.DistanceToGoNM
-	raw := aman.Prediction{
-		RawTETA: estimate.RawTETA, RawRETA: &rawRETA, GeneratedAt: now, InputObservedAt: observedAt(observation.Surveillance, now),
-		Confidence: confidence, Publishable: true, DatasetVersion: version.Cycle, GeometryDigest: projection.GeometryDigest,
-		DistanceToGoNM: &dtg, ModelVersion: estimate.ModelVersion, ConfigVersion: s.deps.Terminal.ConfigVersion,
-		PerformanceProfileID: estimate.PerformanceProfileID, WeatherSource: estimate.WeatherSource,
-		Sources: []string{"vatsim", "airacnet", "terminal-config:" + s.deps.Terminal.ConfigVersion},
-		Calculation: &aman.PredictionCalculation{
-			NoWindDuration: estimate.NoWindDuration,
-			Duration:       estimate.Duration,
-			Legs:           calculationLegs(projection.Remaining, estimate.NoWindLegDurations, estimate.LegDurations),
-			Segments:       calculationSegments(estimate.Segments),
-		},
-	}
-	if len(degradations) > 0 {
-		reason := strings.Join(degradations, ",")
-		raw.DegradationReason = &reason
-	}
 	if projection.SelectedHolding != nil {
 		holding := string(projection.SelectedHolding.ID)
 		flight.SelectedHolding = &holding
-		raw.HoldingFixETA = holdingETA(now, estimate.LegDurations, projection.Remaining, projection.SelectedHolding.Fix)
+		raw.HoldingFixETA = holdingETA(now, legDurations, projection.Remaining, projection.SelectedHolding.Fix)
 	}
 	flight.HoldingStack = updateHoldingStack(flight.HoldingStack, projection.HoldingCandidate, observedAt(observation.Surveillance, now))
 	flight.RouteProgress = projection.Progress
@@ -763,7 +789,7 @@ func sequenceInput(state aman.AirportState, config terminal.Configuration) seque
 	return sequenceInputWithAircraft(state, config, nil)
 }
 
-func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configuration, aircraft AircraftEngineReference) sequence.Input {
+func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configuration, _ AircraftEngineReference) sequence.Input {
 	input := sequence.Input{Revision: state.Revision}
 	configured := map[aman.RunwayGroupID]terminal.RunwayGroup{}
 	for _, group := range config.RunwayGroups {
@@ -791,9 +817,6 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			continue
 		}
 		if flight.FreezeReason == aman.FreezeTMA && flight.Slot == nil {
-			continue
-		}
-		if isLightPiston(flight, aircraft) && !flight.ManualSequenceIncluded {
 			continue
 		}
 		wakeCategory := ""
@@ -845,16 +868,6 @@ func holdingStackAltitude(flight aman.AMANFlight) *int {
 	}
 	altitude := *flight.LatestObservation.Surveillance.AltitudeFeet
 	return &altitude
-}
-
-func isLightPiston(flight aman.AMANFlight, aircraft AircraftEngineReference) bool {
-	if aircraft == nil || flight.LatestObservation == nil || flight.LatestObservation.AircraftType == nil {
-		return false
-	}
-	aircraftType := stringValue(flight.LatestObservation.AircraftType)
-	engine, engineKnown := aircraft.Lookup(aircraftType)
-	wtc, wtcKnown := aircraft.LookupWTC(aircraftType)
-	return engineKnown && wtcKnown && engine == sat.EnginePiston && strings.EqualFold(wtc, "L")
 }
 
 const gainResequenceThreshold = 4 * time.Minute
@@ -1206,6 +1219,20 @@ func missingEssentialReason(observation aman.FlightObservation) string {
 		missing = append(missing, "filed_route")
 	}
 	return "missing_essential_data:" + strings.Join(missing, ",")
+}
+
+func unavailablePredictionReason(observation aman.FlightObservation, detail string) string {
+	if category(observation.WakeCategory) == predictor.CategoryLight {
+		return wtcLightRETAMissingReason + ":" + detail
+	}
+	return detail
+}
+
+func surveillanceRETASource(observation aman.FlightObservation) string {
+	if observation.UsesEuroScopeSurveillance() {
+		return "euroscope:surveillance-groundspeed"
+	}
+	return "vatsim:surveillance-groundspeed"
 }
 
 const (

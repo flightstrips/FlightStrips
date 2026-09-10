@@ -18,6 +18,7 @@ const (
 	defaultMaximumGroundspeedKnots = 600.0
 	defaultPerformanceVersion      = "aman-performance-defaults-v1"
 	amanCPHModelVersion            = "aman-cph-teta-v3"
+	amanCPHRETAModelVersion        = "aman-cph-reta-v1"
 	descentFeetPerNM               = 318.4
 	terminalWeatherHorizonNM       = 180.0
 	surveillanceWindHorizonNM      = 120.0
@@ -134,6 +135,48 @@ type PerformanceWindResult struct {
 	DegradationReasons                              []string
 	NoWindLegDurations, LegDurations                []time.Duration
 	Segments                                        []DescentSegmentCalculation
+}
+
+// RETAResult is the accepted route ETA used for WTC/L traffic. Unlike the
+// normal AMAN prediction it deliberately applies no aircraft-performance,
+// descent-profile, or wind correction: remaining route distance is flown at
+// the accepted observed groundspeed.
+type RETAResult struct {
+	RawRETA        time.Time
+	Duration       time.Duration
+	DistanceToGoNM float64
+	LegDurations   []time.Duration
+	ModelVersion   string
+}
+
+// EstimateRETA calculates the simpler operational prediction required for
+// WTC/L aircraft. Keeping this as a separate entry point prevents a future
+// change to the performance/wind model from silently changing Light traffic.
+func EstimateRETA(input PerformanceWindInput, config PerformanceWindConfig) (RETAResult, error) {
+	config, err := config.normalized()
+	if err != nil {
+		return RETAResult{}, err
+	}
+	if !validPredictionInstant(input.PredictionAt) || !finite(input.CurrentGroundspeedKnots) || input.CurrentGroundspeedKnots <= 0 || len(input.Remaining) == 0 {
+		return RETAResult{}, errPerformanceWindInput
+	}
+	legDurations := make([]time.Duration, len(input.Remaining))
+	var duration time.Duration
+	for index, leg := range input.Remaining {
+		if !validRouteLeg(leg) {
+			return RETAResult{}, errPerformanceWindInput
+		}
+		legDurations[index] = durationForDistance(leg.DistanceNM, input.CurrentGroundspeedKnots, config)
+		duration += legDurations[index]
+	}
+	if duration <= 0 {
+		return RETAResult{}, errPerformanceWindInput
+	}
+	return RETAResult{
+		RawRETA: input.PredictionAt.Add(duration), Duration: duration,
+		DistanceToGoNM: routeDistance(input.Remaining), LegDurations: legDurations,
+		ModelVersion: amanCPHRETAModelVersion,
+	}, nil
 }
 
 // DescentSegmentCalculation records the physical inputs used for one

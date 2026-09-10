@@ -75,17 +75,80 @@ func TestFeederDoesNotGuessFromSharedTerminalPathFix(t *testing.T) {
 	require.False(t, ok)
 }
 
-func TestSequenceInputExcludesLightPistonsUntilControllerMove(t *testing.T) {
+func TestSequenceInputIncludesEligibleLightAircraftRegardlessOfEngine(t *testing.T) {
 	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
-	effective, group, wake, aircraftType := start, aman.RunwayGroupID("ARRIVAL-22"), "L", "C172"
-	flight := operationalFlight("PISTON", group, "MONAK", wake, start.Add(10*time.Minute))
-	flight.LatestObservation.AircraftType = &aircraftType
-	state := aman.AirportState{Revision: 1, RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective}}, Flights: []aman.AMANFlight{flight}}
+	effective, group, wake := start, aman.RunwayGroupID("ARRIVAL-22"), "L"
 	config := terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}
-	aircraft := testAircraftEngines{engine: sat.EnginePiston, wtc: "L"}
-	require.Empty(t, sequenceInputWithAircraft(state, config, aircraft).Flights)
-	state.Flights[0].ManualSequenceIncluded = true
-	require.Len(t, sequenceInputWithAircraft(state, config, aircraft).Flights, 1)
+	for _, test := range []struct {
+		name, aircraftType string
+		engine             sat.EngineType
+	}{{"piston", "C172", sat.EnginePiston}, {"non-piston", "LJ35", sat.EngineJet}} {
+		t.Run(test.name, func(t *testing.T) {
+			flight := operationalFlight("LIGHT", group, "MONAK", wake, start.Add(10*time.Minute))
+			flight.LatestObservation.AircraftType = &test.aircraftType
+			state := aman.AirportState{Revision: 1, RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective}}, Flights: []aman.AMANFlight{flight}}
+			input := sequenceInputWithAircraft(state, config, testAircraftEngines{engine: test.engine, wtc: "L"})
+			require.Len(t, input.Flights, 1)
+			require.Equal(t, sequence.WakeCategory("L"), input.Flights[0].WakeCategory)
+		})
+	}
+}
+
+func TestLightFollowerKeepsThreeMinuteSeparation(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	result, err := sequence.Generate(sequence.Input{
+		Policies: []sequence.Policy{{RunwayGroupID: group, Rates: []sequence.RatePoint{{EffectiveAt: start, ArrivalsPerHour: 60}}, EarlyTolerance: 30 * time.Second, SeparationRules: amanCPHSeparations(), UnknownSeparation: 3 * time.Minute}},
+		Flights:  []sequence.Flight{{ID: "LEADER", RunwayGroupID: group, State: aman.StateUnstable, OperationalTETA: start, WakeCategory: "M", FreezeReason: aman.FreezeNone}, {ID: "LIGHT", RunwayGroupID: group, State: aman.StateUnstable, OperationalTETA: start, WakeCategory: "L", FreezeReason: aman.FreezeNone}},
+	})
+	require.NoError(t, err)
+	require.Len(t, result.Entries, 2)
+	require.Equal(t, 180*time.Second, result.Entries[1].Time.Sub(result.Entries[0].Time))
+}
+
+func TestMissingLightRETARemainsExplicitlyDegradedAndUnsequenced(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{}, Publisher: &recordingPublisher{},
+		Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	takeoff, eet, wake := now.Add(-time.Minute), 30*time.Minute, "L"
+	observation := aman.FlightObservation{
+		FlightID: "LIGHT", Callsign: "OYABC", Origin: "EKOD", Destination: "EKCH", WakeCategory: &wake,
+		PlannedTiming: &aman.PlannedTiming{EstimatedEnrouteTime: &eet}, TakeoffDetected: &takeoff,
+		ReconciledAt: now, SourceStatus: aman.DataFresh,
+	}
+	state := service.initialState("EKCH", now)
+	flight, err := service.reconcileFlight(context.Background(), state, newFlight(observation, now), observation, now)
+	require.NoError(t, err)
+	require.NotNil(t, flight.Prediction)
+	require.False(t, flight.Prediction.Publishable)
+	require.Equal(t, "wtc_light_reta_unavailable:missing_essential_data:surveillance,filed_route", *flight.Prediction.DegradationReason)
+	state.Flights = []aman.AMANFlight{flight}
+	require.Empty(t, sequenceInput(state, service.deps.Terminal).Flights)
+}
+
+func TestLightRETAProvenanceSurvivesPersistedReplay(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	reta, reason := now.Add(15*time.Minute), wtcLightRETAPolicyReason
+	state := aman.AirportState{Flights: []aman.AMANFlight{{Prediction: &aman.Prediction{
+		RawTETA: reta, RawRETA: &reta, OperationalTETA: reta, OperationalReason: aman.OperationalReasonPredicted,
+		GeneratedAt: now, InputObservedAt: now, Confidence: aman.ConfidenceLow, Publishable: true, DegradationReason: &reason,
+		DatasetVersion: "2609", GeometryDigest: "geometry", ModelVersion: "aman-cph-reta-v1", ConfigVersion: "test", Basis: aman.PredictionBasisRETA,
+		Sources: []string{"vatsim:surveillance-groundspeed", "airacnet:route-distance"},
+	}}}}
+	encoded, err := json.Marshal(state)
+	require.NoError(t, err)
+	var replayed aman.AirportState
+	require.NoError(t, json.Unmarshal(encoded, &replayed))
+	prediction := replayed.Flights[0].Prediction
+	require.NoError(t, prediction.Validate())
+	require.Equal(t, aman.PredictionBasisRETA, prediction.Basis)
+	require.Equal(t, prediction.RawTETA, *prediction.RawRETA)
+	require.Equal(t, wtcLightRETAPolicyReason, *prediction.DegradationReason)
+	require.Equal(t, state.Flights[0].Prediction.Sources, prediction.Sources)
 }
 
 func TestHoldingStackRequiresConsecutiveGeometryObservations(t *testing.T) {

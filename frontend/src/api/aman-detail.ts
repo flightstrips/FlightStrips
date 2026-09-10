@@ -102,6 +102,7 @@ export interface AMANTETABasis {
   confidence: string;
   model_version: string;
   config_version: string;
+  prediction_basis: "" | "performance_wind" | "reta";
   performance_profile_id: string | null;
   weather_source: string | null;
   sources: string[];

@@ -220,6 +220,21 @@ func TestAMANCPHRETAAndLightAircraftBehavior(t *testing.T) {
 	require.Equal(t, 280.0, descentIAS(CategoryLight, 20000, 250))
 }
 
+func TestEstimateRETAUsesOnlyAcceptedGroundspeedAndRouteDistance(t *testing.T) {
+	input := performanceInput()
+	input.CurrentGroundspeedKnots = 200
+	input.Remaining = []RouteLeg{
+		{ID: "one", DistanceNM: 60, CourseTrueDegrees: 90, Start: WindCoordinate{LatitudeDegrees: 55, LongitudeDegrees: 10}, End: WindCoordinate{LatitudeDegrees: 55, LongitudeDegrees: 11}},
+		{ID: "two", DistanceNM: 40, CourseTrueDegrees: 90, Start: WindCoordinate{LatitudeDegrees: 55, LongitudeDegrees: 11}, End: WindCoordinate{LatitudeDegrees: 55, LongitudeDegrees: 12}},
+	}
+	result, err := EstimateRETA(input, PerformanceWindConfig{})
+	require.NoError(t, err)
+	require.Equal(t, input.PredictionAt.Add(30*time.Minute), result.RawRETA)
+	require.Equal(t, 30*time.Minute, result.Duration)
+	require.Equal(t, []time.Duration{18 * time.Minute, 12 * time.Minute}, result.LegDurations)
+	require.Equal(t, "aman-cph-reta-v1", result.ModelVersion)
+}
+
 func TestAMANCPHUsesTurbopropDescentProfiles(t *testing.T) {
 	require.Equal(t, 220.0, descentIASForAircraft("AT76", CategoryMedium, 20_000, 280))
 	require.Equal(t, 200.0, descentIASForAircraft("DH8D", CategoryMedium, 8_000, 280))

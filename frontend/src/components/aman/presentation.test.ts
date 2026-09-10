@@ -7,6 +7,7 @@ import {
   buildAMANHoldingLanes,
   buildAMANLanes,
   buildTimelineRange,
+  formatGainLoss,
   layoutTimelineMarkers,
   operationalMarkerTimestamp,
   orderAMANFlights,
@@ -31,6 +32,33 @@ function flight(id: string, order: number | null, minutes: number): AMANFlight {
 }
 
 describe("AMAN presentation model", () => {
+  const availableGuidance = {authoritative: true, connected: true, fresh: true};
+
+  it.each([
+    [-6001, "L99+"],
+    [-5970, "L99+"],
+    [-31, "L01"],
+    [-30, "L01"],
+    [-29, "=00"],
+    [0, "=00"],
+    [29, "=00"],
+    [30, "G01"],
+    [31, "G01"],
+    [5970, "G99+"],
+    [6001, "G99+"],
+  ])("formats %i signed seconds as %s", (seconds, expected) => {
+    expect(formatGainLoss(seconds, availableGuidance)).toBe(expected);
+  });
+
+  it.each([
+    ["missing", null, availableGuidance],
+    ["stale", 60, {...availableGuidance, fresh: false}],
+    ["disconnected", 60, {...availableGuidance, connected: false}],
+    ["non-authoritative", 60, {...availableGuidance, authoritative: false}],
+  ])("keeps %s guidance unavailable", (_condition, seconds, context) => {
+    expect(formatGainLoss(seconds, context)).toBe("Unavailable");
+  });
+
   it("uses only backend order/sequence and preserves wire order for ties", () => {
     const flights = [flight("third", 3, 3), flight("first-a", 1, 1), flight("first-b", 1, 2), flight("missing", null, 4)];
     flights[3].slot = null;

@@ -101,6 +101,18 @@ export interface AMANFlight {
   order: number | null;
   eta_review: AMANETAReview | null;
   queue_offers: AMANQueueOffer[];
+  go_around_confirmation: AMANGoAroundConfirmation | null;
+}
+
+export interface AMANGoAroundConfirmation {
+  episode_id: string;
+  reason: string;
+  detected_at: string;
+  evidence_times: string[];
+  status: "pending" | "confirmed" | "rejected";
+  decided_at: string | null;
+  decided_by: string | null;
+  resulting_revision: number | null;
 }
 
 export interface AMANRouteFact {
@@ -202,7 +214,9 @@ export type AMANCommandType =
   | "aman.keep_fpl_eta"
   | "aman.set_manual_eta"
   | "aman.reset_teta_override"
-  | "aman.report_go_around";
+  | "aman.report_go_around"
+  | "aman.confirm_go_around"
+  | "aman.reject_go_around";
 
 export interface AMANCommandMeta {
   command_id: string;
@@ -216,7 +230,8 @@ export type AMANCommandIntent =
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
   | {type: "aman.set_manual_eta"; flight_id: string; manual_eta: string}
-  | {type: "aman.report_go_around"; flight_id: string; detected_at: string};
+  | {type: "aman.report_go_around"; flight_id: string; detected_at: string}
+  | {type: "aman.confirm_go_around" | "aman.reject_go_around"; flight_id: string; episode_id: string};
 
 export type AMANCommandMessage = AMANCommandIntent extends infer Intent
   ? Intent extends {type: AMANCommandType}
@@ -330,6 +345,14 @@ function isQueueOffer(value: unknown): value is AMANQueueOffer {
     && isNonNegativeInteger(value.airport_revision) && isString(value.reason);
 }
 
+function isGoAroundConfirmation(value: unknown): value is AMANGoAroundConfirmation {
+  return isObject(value) && isString(value.episode_id) && value.episode_id !== "" && isString(value.reason)
+    && isTimestamp(value.detected_at) && Array.isArray(value.evidence_times) && value.evidence_times.length > 0
+    && value.evidence_times.every(isTimestamp) && (value.status === "pending" || value.status === "confirmed" || value.status === "rejected")
+    && isNullableTimestamp(value.decided_at) && isNullableString(value.decided_by)
+    && (value.resulting_revision === null || isNonNegativeInteger(value.resulting_revision));
+}
+
 function isFlight(value: unknown): value is AMANFlight {
   return isObject(value) && isString(value.flight_id) && value.flight_id !== "" && isString(value.callsign)
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
@@ -345,7 +368,8 @@ function isFlight(value: unknown): value is AMANFlight {
     && isNullableString(value.geometry_version) && isNullableString(value.geometry_digest)
     && isNullableFiniteNumber(value.distance_to_go_nm) && (value.slot === null || isSlot(value.slot))
     && (value.order === null || isNonNegativeInteger(value.order)) && (value.eta_review === null || isETAReview(value.eta_review))
-    && Array.isArray(value.queue_offers) && value.queue_offers.every(isQueueOffer);
+    && Array.isArray(value.queue_offers) && value.queue_offers.every(isQueueOffer)
+    && (value.go_around_confirmation === null || isGoAroundConfirmation(value.go_around_confirmation));
 }
 
 function isComponentHealth(value: unknown): value is AMANComponentHealth {

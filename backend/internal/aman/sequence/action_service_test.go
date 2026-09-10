@@ -113,3 +113,9 @@ func (m *recordingActionMutations) ResetTETAOverride(auth aman.CommandContext, _
 func (m *recordingActionMutations) ReportGoAround(auth aman.CommandContext, _ aman.ReportGoAroundCommand) (CommandMutation, error) {
 	return m.mutation("go_around", auth)
 }
+func (m *recordingActionMutations) ConfirmGoAround(auth aman.CommandContext, _ aman.ConfirmGoAroundCommand) (CommandMutation, error) {
+	return m.mutation("confirm_go_around", auth)
+}
+func (m *recordingActionMutations) RejectGoAround(auth aman.CommandContext, _ aman.RejectGoAroundCommand) (CommandMutation, error) {
+	return m.mutation("reject_go_around", auth)
+}

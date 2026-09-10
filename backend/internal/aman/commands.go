@@ -73,6 +73,18 @@ type ReportGoAroundCommand struct {
 	DetectedAt time.Time
 }
 
+type ConfirmGoAroundCommand struct {
+	Metadata  CommandMetadata
+	FlightID  FlightID
+	EpisodeID string
+}
+
+type RejectGoAroundCommand struct {
+	Metadata  CommandMetadata
+	FlightID  FlightID
+	EpisodeID string
+}
+
 // CommandExecution is the transport-safe result of coordinator execution.
 // Outcome remains opaque because its schema belongs to the command owner.
 type CommandExecution struct {
@@ -98,6 +110,8 @@ type CommandService interface {
 	SetManualETA(context.Context, CommandContext, SetManualETACommand) (CommandExecution, error)
 	ResetTETAOverride(context.Context, CommandContext, ResetTETAOverrideCommand) (CommandExecution, error)
 	ReportGoAround(context.Context, CommandContext, ReportGoAroundCommand) (CommandExecution, error)
+	ConfirmGoAround(context.Context, CommandContext, ConfirmGoAroundCommand) (CommandExecution, error)
+	RejectGoAround(context.Context, CommandContext, RejectGoAroundCommand) (CommandExecution, error)
 }
 
 func (c CommandContext) Validate() error {
@@ -174,6 +188,23 @@ func (c ReportGoAroundCommand) Validate(receivedAt time.Time) error {
 	}
 	if !utc(c.DetectedAt) || c.DetectedAt.After(receivedAt) {
 		return commandInvalid("go-around detected time must be UTC and not in the future")
+	}
+	return nil
+}
+
+func (c ConfirmGoAroundCommand) Validate() error {
+	return validateGoAroundDecision(c.Metadata, c.FlightID, c.EpisodeID)
+}
+func (c RejectGoAroundCommand) Validate() error {
+	return validateGoAroundDecision(c.Metadata, c.FlightID, c.EpisodeID)
+}
+
+func validateGoAroundDecision(metadata CommandMetadata, flightID FlightID, episodeID string) error {
+	if err := validateFlightCommand(metadata, flightID); err != nil {
+		return err
+	}
+	if !trimmed(episodeID) {
+		return commandInvalid("go-around episode ID is required")
 	}
 	return nil
 }

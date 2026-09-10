@@ -90,6 +90,12 @@ function FlightStatus({flight}: {flight: AMANFlight}) {
           Discrepancy review: {flight.eta_review.status}. Initial/FPL {displayTime(flight.eta_review.initial_baseline_teta)}; calculated {displayTime(flight.eta_review.calculated_operational_teta)}; selected {displayTime(flight.eta_review.selected_teta)}.
         </div>
       )}
+
+      {flight.go_around_confirmation && flight.go_around_confirmation.status !== "pending" && (
+        <div className="rounded border border-slate-600 p-2 text-xs text-slate-300">
+          Go-around detection {flight.go_around_confirmation.status} by {flight.go_around_confirmation.decided_by ?? "unknown"}.
+        </div>
+      )}
     </section>
   );
 }
@@ -149,6 +155,7 @@ export function AMANControlsView({
       && (flight.lifecycle_state === "stable" || flight.freeze_reason !== "none"),
   );
   const selectionConflicts = (state?.runway_groups ?? []).filter((group) => group.selection_conflict);
+  const pendingDetections = flights.filter((flight) => flight.go_around_confirmation?.status === "pending");
 
   const healthWarnings = useMemo(() => state ? [
     componentWarning("Geometry/navigation", state.technical_health.navigation.status, state.technical_health.navigation.reason),
@@ -177,6 +184,17 @@ export function AMANControlsView({
       {gateReason && <div role="status" className="rounded border border-amber-500 bg-amber-950 p-2 text-amber-100">{blockReasonLabels[gateReason]}</div>}
       {state?.technical_health.blocked_reasons.map((reason) => <div key={reason} className="rounded bg-red-950 p-2 text-red-100">Blocked: {reason}</div>)}
       {healthWarnings.map((warning) => <div key={warning} className="rounded bg-amber-950 p-2 text-amber-100">{warning}</div>)}
+
+      {hasFMPAuthority && pendingDetections.map((flight) => (
+        <section aria-label={`${flight.callsign} go-around confirmation request`} className="grid gap-2 rounded border-2 border-amber-400 bg-amber-950 p-3 text-amber-50" key={flight.go_around_confirmation!.episode_id} role="alert">
+          <h3 className="font-semibold">Confirm detected go-around</h3>
+          <p>{flight.callsign}: {flight.go_around_confirmation!.reason.replace(/_/g, " ")} detected at {displayTime(flight.go_around_confirmation!.detected_at)} from {flight.go_around_confirmation!.evidence_times.length} surveillance samples.</p>
+          <div className="flex flex-wrap gap-2">
+            <button className={controlClass} disabled={disabled} onClick={() => onCommand({type: "aman.confirm_go_around", flight_id: flight.flight_id, episode_id: flight.go_around_confirmation!.episode_id})}>Confirm go-around</button>
+            <button className={controlClass} disabled={disabled} onClick={() => onCommand({type: "aman.reject_go_around", flight_id: flight.flight_id, episode_id: flight.go_around_confirmation!.episode_id})}>Reject detection</button>
+          </div>
+        </section>
+      ))}
 
       {pending.length > 0 && (
         <div aria-live="polite" className="rounded border border-sky-600 bg-sky-950 p-2 text-sm">

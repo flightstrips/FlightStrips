@@ -103,4 +103,18 @@ func (g *amanCommandGate) ReportGoAround(ctx context.Context, auth aman.CommandC
 	return g.commands.ReportGoAround(ctx, auth, command)
 }
 
+func (g *amanCommandGate) ConfirmGoAround(ctx context.Context, auth aman.CommandContext, command aman.ConfirmGoAroundCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.ConfirmGoAround(ctx, auth, command)
+}
+
+func (g *amanCommandGate) RejectGoAround(ctx context.Context, auth aman.CommandContext, command aman.RejectGoAroundCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.RejectGoAround(ctx, auth, command)
+}
+
 var _ aman.CommandService = (*amanCommandGate)(nil)

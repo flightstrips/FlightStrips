@@ -21,6 +21,8 @@ type ActionMutations interface {
 	SetManualETA(aman.CommandContext, aman.SetManualETACommand) (CommandMutation, error)
 	ResetTETAOverride(aman.CommandContext, aman.ResetTETAOverrideCommand) (CommandMutation, error)
 	ReportGoAround(aman.CommandContext, aman.ReportGoAroundCommand) (CommandMutation, error)
+	ConfirmGoAround(aman.CommandContext, aman.ConfirmGoAroundCommand) (CommandMutation, error)
+	RejectGoAround(aman.CommandContext, aman.RejectGoAroundCommand) (CommandMutation, error)
 }
 
 type commandCoordinator interface {
@@ -91,6 +93,14 @@ func (s *ActionService) ResetTETAOverride(ctx context.Context, auth aman.Command
 
 func (s *ActionService) ReportGoAround(ctx context.Context, auth aman.CommandContext, command aman.ReportGoAroundCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, func() error { return command.Validate(auth.ReceivedAt) }, func() (CommandMutation, error) { return s.mutations.ReportGoAround(auth, command) })
+}
+
+func (s *ActionService) ConfirmGoAround(ctx context.Context, auth aman.CommandContext, command aman.ConfirmGoAroundCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.ConfirmGoAround(auth, command) })
+}
+
+func (s *ActionService) RejectGoAround(ctx context.Context, auth aman.CommandContext, command aman.RejectGoAroundCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.RejectGoAround(auth, command) })
 }
 
 func executeTyped(service *ActionService, ctx context.Context, auth aman.CommandContext, metadata aman.CommandMetadata, validate func() error, build func() (CommandMutation, error)) (aman.CommandExecution, error) {

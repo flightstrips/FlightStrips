@@ -105,6 +105,9 @@ export interface AMANQueueOffer {
 
 export interface AMANRunwayGroup {
   id: string;
+  selected?: boolean;
+  selection_schedule?: string[];
+  selection_conflict?: string;
   active_rate_per_hour?: number;
   rate_effective_at?: string;
 }
@@ -140,6 +143,7 @@ export interface AMANCommandRejection {
   message: string;
   current_revision: number;
   retryable: boolean;
+  command_type?: AMANCommandType;
 }
 
 export type AMANCommandType =
@@ -147,6 +151,7 @@ export type AMANCommandType =
   | "aman.lock_flight"
   | "aman.unlock_flight"
   | "aman.set_rate"
+  | "aman.select_runway_group"
   | "aman.accept_teta"
   | "aman.keep_fpl_eta"
   | "aman.set_manual_eta"
@@ -163,6 +168,7 @@ export type AMANCommandIntent =
   | {type: "aman.move_flight"; flight_id: string; runway_group_id: string; after_flight_id: string}
   | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; flight_id: string}
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
+  | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
   | {type: "aman.set_manual_eta"; flight_id: string; manual_eta: string}
   | {type: "aman.report_go_around"; flight_id: string; detected_at: string};
 
@@ -307,6 +313,9 @@ function isTechnicalHealth(value: unknown): value is AMANTechnicalHealth {
 
 function isRunwayGroup(value: unknown): value is AMANRunwayGroup {
   return isObject(value) && isString(value.id)
+    && (value.selected === undefined || typeof value.selected === "boolean")
+    && (value.selection_schedule === undefined || (Array.isArray(value.selection_schedule) && value.selection_schedule.every(isTimestamp)))
+    && (value.selection_conflict === undefined || isString(value.selection_conflict))
     && (value.active_rate_per_hour === undefined || (isNonNegativeInteger(value.active_rate_per_hour) && value.active_rate_per_hour > 0))
     && (value.rate_effective_at === undefined || isTimestamp(value.rate_effective_at));
 }

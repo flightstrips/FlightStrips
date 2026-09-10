@@ -66,6 +66,21 @@ func TestAMANStateEventIncludesPersistedActiveRate(t *testing.T) {
 	require.Equal(t, expected, *event.Data.RunwayGroups[0].RateEffectiveAt)
 }
 
+func TestAMANStateEventIncludesRunwaySelectionStateAndSchedule(t *testing.T) {
+	state := goldenAMANState()
+	effective := state.GeneratedAt.Add(15 * time.Minute)
+	conflict := "protected traffic conflict"
+	state.RunwayGroups[0].SelectionSchedule = []aman.RunwayGroupSelectionPoint{{
+		EffectiveAt: effective, CommandRevision: 7, Source: aman.RunwayGroupSelectionSourceFMPCommand,
+	}}
+	state.RunwayGroups[0].SelectionConflict = &conflict
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.True(t, event.Data.RunwayGroups[0].Selected)
+	require.Equal(t, []string{"2026-07-22T10:15:00.000Z"}, event.Data.RunwayGroups[0].SelectionSchedule)
+	require.Equal(t, conflict, *event.Data.RunwayGroups[0].SelectionConflict)
+}
+
 func TestAMANFlightOmitsNonPublishablePredictionData(t *testing.T) {
 	state := goldenAMANState()
 	state.Flights[0].Prediction.Publishable = false
@@ -113,7 +128,7 @@ func goldenAMANState() aman.AirportState {
 	return aman.AirportState{
 		Airport: "EKCH", Revision: 7, GeneratedAt: now, PolicyVersion: "ekch-aman-v1",
 		Mode: aman.ModeAuthoritative, Authoritative: true,
-		RunwayGroups: []aman.RunwayGroupPolicy{{ID: runwayGroup}},
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: runwayGroup, Selected: true}},
 		Flights: []aman.AMANFlight{{
 			ID: "flight-123", VATSIMCID: "1234567", CurrentCallsign: "SAS123",
 			State: aman.StateStable, DataStatus: aman.DataFresh, SelectedRunwayGroup: &runwayGroup,

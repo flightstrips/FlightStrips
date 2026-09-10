@@ -111,6 +111,8 @@ export function AMANControlsView({
   const [rateRunwayGroupID, setRateRunwayGroupID] = useState("");
   const [rate, setRate] = useState("30");
   const [rateEffectiveAt, setRateEffectiveAt] = useState("");
+  const [selectionRunwayGroupID, setSelectionRunwayGroupID] = useState("");
+  const [selectionEffectiveAt, setSelectionEffectiveAt] = useState("");
   const [manualETA, setManualETA] = useState("");
   const [goAroundAt, setGoAroundAt] = useState("");
 
@@ -119,9 +121,13 @@ export function AMANControlsView({
   const selectedFlight = flights.find((flight) => flight.flight_id === requestedFlightID) ?? flights[0] ?? null;
   const effectiveSelectedFlightID = selectedFlight?.flight_id ?? "";
   const runwayGroupID = selectedFlight?.runway_group_id ?? state?.runway_groups[0]?.id ?? null;
+  const selectedRunwayGroup = state?.runway_groups.find((group) => group.selected) ?? null;
   const effectiveRateRunwayGroupID = state?.runway_groups.some((group) => group.id === rateRunwayGroupID)
     ? rateRunwayGroupID
-    : state?.runway_groups[0]?.id ?? "";
+    : selectedRunwayGroup?.id ?? state?.runway_groups[0]?.id ?? "";
+  const effectiveSelectionRunwayGroupID = state?.runway_groups.some((group) => group.id === selectionRunwayGroupID)
+    ? selectionRunwayGroupID
+    : selectedRunwayGroup?.id ?? state?.runway_groups[0]?.id ?? "";
   const gateReason = getAMANMutationBlockReason({
     state,
     connection_state: connectionState,
@@ -131,6 +137,18 @@ export function AMANControlsView({
   const disabled = gateReason !== null;
   const pending = Object.values(pendingCommands);
   const rejections = Object.values(commandRejections);
+  const ratePending = pending.some((command) => command.type === "aman.set_rate");
+  const selectionPending = pending.some((command) => command.type === "aman.select_runway_group");
+  const scheduledSelections = (state?.runway_groups ?? []).flatMap((group) =>
+    (group.selection_schedule ?? [])
+      .filter((effectiveAt) => new Date(effectiveAt).valueOf() > Date.now())
+      .map((effectiveAt) => `${group.id} at ${displayTime(effectiveAt)}`),
+  );
+  const protectedRunwayConflicts = selectedRunwayGroup === null ? [] : flights.filter((flight) =>
+    flight.runway_group_id !== null && flight.runway_group_id !== selectedRunwayGroup.id
+      && (flight.lifecycle_state === "stable" || flight.freeze_reason !== "none"),
+  );
+  const selectionConflicts = (state?.runway_groups ?? []).filter((group) => group.selection_conflict);
 
   const healthWarnings = useMemo(() => state ? [
     componentWarning("Geometry/navigation", state.technical_health.navigation.status, state.technical_health.navigation.reason),
@@ -167,10 +185,40 @@ export function AMANControlsView({
       )}
       {rejections.map((rejection) => (
         <div role="alert" key={rejection.command_id} className="flex items-start justify-between gap-2 rounded border border-red-500 bg-red-950 p-2 text-sm">
-          <span>Command rejected: {rejection.message} ({rejection.code}, server revision {rejection.current_revision})</span>
+          <span>{rejection.command_type === "aman.select_runway_group" ? "Runway selection" : rejection.command_type === "aman.set_rate" ? "Arrival rate change" : "Command"} rejected: {rejection.message} ({rejection.code}, server revision {rejection.current_revision})</span>
           {onDismissRejection && <button className={controlClass} onClick={() => onDismissRejection(rejection.command_id)}>Dismiss</button>}
         </div>
       ))}
+
+      <div className="grid gap-2 rounded border border-slate-600 p-3">
+        <h3 className="font-semibold">Runway in use</h3>
+        <div className="text-sm">Selected: <b>{selectedRunwayGroup?.id ?? "Unavailable"}</b></div>
+        {scheduledSelections.length > 0 && <div className="text-sm">Scheduled: <b>{scheduledSelections.join(", ")}</b></div>}
+        {selectionConflicts.map((group) => (
+          <div role="alert" key={group.id} className="rounded border border-red-500 bg-red-950 p-2 text-sm text-red-100">
+            Scheduled selection of {group.id} is blocked: {group.selection_conflict}
+          </div>
+        ))}
+        {protectedRunwayConflicts.length > 0 && (
+          <div role="alert" className="rounded border border-amber-500 bg-amber-950 p-2 text-sm text-amber-100">
+            Protected traffic retained on its committed runway: {protectedRunwayConflicts.map((flight) => flight.callsign).join(", ")}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <select aria-label="Runway group selection" className={inputClass} value={effectiveSelectionRunwayGroupID} onChange={(event) => setSelectionRunwayGroupID(event.target.value)}>
+            {state?.runway_groups.map((group) => <option key={group.id} value={group.id}>{group.id}</option>)}
+          </select>
+          <input aria-label="Runway selection effective at" className={inputClass} type="datetime-local" value={selectionEffectiveAt} onChange={(event) => setSelectionEffectiveAt(event.target.value)} />
+          <button className={controlClass} disabled={disabled || selectionPending || !effectiveSelectionRunwayGroupID} onClick={() => {
+            if (state) onCommand({type: "aman.select_runway_group", runway_group_id: effectiveSelectionRunwayGroupID, effective_at: state.generated_at});
+          }}>Select runway now</button>
+          <button className={controlClass} disabled={disabled || selectionPending || !effectiveSelectionRunwayGroupID || !toWireTimestamp(selectionEffectiveAt)} onClick={() => {
+            const effectiveAt = toWireTimestamp(selectionEffectiveAt);
+            if (effectiveAt) onCommand({type: "aman.select_runway_group", runway_group_id: effectiveSelectionRunwayGroupID, effective_at: effectiveAt});
+          }}>Schedule runway selection</button>
+        </div>
+        {selectionPending && <div role="status" className="text-sm text-sky-200">Runway selection pending</div>}
+      </div>
 
       <div className="grid gap-2 rounded border border-slate-600 p-3">
         <h3 className="font-semibold">Arrival rate</h3>
@@ -180,11 +228,12 @@ export function AMANControlsView({
           </select>
           <input aria-label="Arrivals per hour" className={inputClass} type="number" min="1" value={rate} onChange={(event) => setRate(event.target.value)} />
           <input aria-label="Rate effective at" className={inputClass} type="datetime-local" value={rateEffectiveAt} onChange={(event) => setRateEffectiveAt(event.target.value)} />
-          <button className={controlClass} disabled={disabled || !effectiveRateRunwayGroupID || !toWireTimestamp(rateEffectiveAt) || Number(rate) < 1} onClick={() => {
+          <button className={controlClass} disabled={disabled || ratePending || !effectiveRateRunwayGroupID || !toWireTimestamp(rateEffectiveAt) || Number(rate) < 1} onClick={() => {
             const effectiveAt = toWireTimestamp(rateEffectiveAt);
             if (effectiveRateRunwayGroupID && effectiveAt) onCommand({type: "aman.set_rate", runway_group_id: effectiveRateRunwayGroupID, arrivals_per_hour: Number(rate), effective_at: effectiveAt});
           }}>Set arrival rate</button>
         </div>
+        {ratePending && <div role="status" className="text-sm text-sky-200">Arrival rate change pending</div>}
       </div>
 
       {flights.length === 0 ? (

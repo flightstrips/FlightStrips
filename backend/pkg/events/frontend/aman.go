@@ -119,9 +119,12 @@ type AMANQueueOffer struct {
 }
 
 type AMANRunwayGroup struct {
-	ID                string  `json:"id"`
-	ActiveRatePerHour *uint32 `json:"active_rate_per_hour,omitempty"`
-	RateEffectiveAt   *string `json:"rate_effective_at,omitempty"`
+	ID                string   `json:"id"`
+	Selected          bool     `json:"selected"`
+	SelectionSchedule []string `json:"selection_schedule"`
+	SelectionConflict *string  `json:"selection_conflict,omitempty"`
+	ActiveRatePerHour *uint32  `json:"active_rate_per_hour,omitempty"`
+	RateEffectiveAt   *string  `json:"rate_effective_at,omitempty"`
 }
 
 type AMANTechnicalHealth struct {
@@ -194,7 +197,16 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		}
 	}
 	for i, group := range state.RunwayGroups {
-		mapped := AMANRunwayGroup{ID: string(group.ID)}
+		mapped := AMANRunwayGroup{
+			ID: string(group.ID), Selected: group.Selected, SelectionSchedule: make([]string, len(group.SelectionSchedule)),
+			SelectionConflict: group.SelectionConflict,
+		}
+		for selectionIndex, selection := range group.SelectionSchedule {
+			mapped.SelectionSchedule[selectionIndex], err = aman.FormatTime(selection.EffectiveAt)
+			if err != nil {
+				return AMANStateEvent{}, fmt.Errorf("map AMAN runway group %q selection: %w", group.ID, err)
+			}
+		}
 		if group.ActiveRatePerHour > 0 {
 			rate := group.ActiveRatePerHour
 			mapped.ActiveRatePerHour = &rate

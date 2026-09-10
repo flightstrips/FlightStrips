@@ -61,6 +61,13 @@ func (g *amanCommandGate) SetRate(ctx context.Context, auth aman.CommandContext,
 	return g.commands.SetRate(ctx, auth, command)
 }
 
+func (g *amanCommandGate) SelectRunwayGroup(ctx context.Context, auth aman.CommandContext, command aman.SelectRunwayGroupCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.SelectRunwayGroup(ctx, auth, command)
+}
+
 func (g *amanCommandGate) AcceptTETA(ctx context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {
 	if err := g.authorize(ctx); err != nil {
 		return aman.CommandExecution{}, err

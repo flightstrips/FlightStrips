@@ -466,7 +466,35 @@ func TestFutureRateChangePreservesCurrentAndPendingSchedule(t *testing.T) {
 	require.Equal(t, future, *change.State.RunwayGroups[0].RateEffectiveAt)
 }
 
-func TestRateSelectionMovesOnlyReorderableFlightsAtEffectiveTime(t *testing.T) {
+func TestSetRateDoesNotChangeRunwaySelectionOrFlightAssignments(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-04"}, {ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	state := service.initialState("EKCH", now)
+	state.Revision = 7
+	flight := operationalFlight("MOVABLE", "ARRIVAL-04", "MONAK", "M", now.Add(20*time.Minute))
+	state.Flights = []aman.AMANFlight{flight}
+	selectionBefore := append([]aman.RunwayGroupSelectionPoint(nil), state.RunwayGroups[0].SelectionSchedule...)
+
+	mutation, err := service.SetRate(aman.CommandContext{ReceivedAt: now}, aman.SetRateCommand{
+		Metadata: aman.CommandMetadata{CommandID: "rate-22", ExpectedRevision: 7}, RunwayGroupID: "ARRIVAL-22",
+		ArrivalsPerHour: 30, EffectiveAt: now.Add(15 * time.Minute),
+	})
+	require.NoError(t, err)
+	change, err := mutation(state)
+	require.NoError(t, err)
+	require.True(t, change.State.RunwayGroups[0].Selected)
+	require.False(t, change.State.RunwayGroups[1].Selected)
+	require.Equal(t, selectionBefore, change.State.RunwayGroups[0].SelectionSchedule)
+	require.Empty(t, change.State.RunwayGroups[1].SelectionSchedule)
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04"), *change.State.Flights[0].SelectedRunwayGroup)
+}
+
+func TestImmediateRunwaySelectionMovesOnlyReorderableFlights(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	service, err := New(Dependencies{
 		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
@@ -481,25 +509,26 @@ func TestRateSelectionMovesOnlyReorderableFlightsAtEffectiveTime(t *testing.T) {
 	stable := operationalFlight("STABLE", "ARRIVAL-04", feeder, wake, now.Add(23*time.Minute))
 	stable.State = aman.StateStable
 	state.Flights = []aman.AMANFlight{unstable, stable}
-	future := now.Add(15 * time.Minute)
+	effectiveAt := now
+	rateSchedules := [][]aman.RunwayGroupRatePoint{
+		append([]aman.RunwayGroupRatePoint(nil), state.RunwayGroups[0].RateSchedule...),
+		append([]aman.RunwayGroupRatePoint(nil), state.RunwayGroups[1].RateSchedule...),
+	}
 
-	mutation, err := service.SetRate(aman.CommandContext{ReceivedAt: now}, aman.SetRateCommand{
+	mutation, err := service.SelectRunwayGroup(aman.CommandContext{ReceivedAt: now}, aman.SelectRunwayGroupCommand{
 		Metadata:      aman.CommandMetadata{CommandID: "select-22", ExpectedRevision: 7},
-		RunwayGroupID: "ARRIVAL-22", ArrivalsPerHour: 30, EffectiveAt: future,
+		RunwayGroupID: "ARRIVAL-22", EffectiveAt: effectiveAt,
 	})
 	require.NoError(t, err)
 	change, err := mutation(state)
 	require.NoError(t, err)
-	require.True(t, change.State.RunwayGroups[0].Selected)
-	require.False(t, change.State.RunwayGroups[1].Selected)
-	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04"), *change.State.Flights[0].SelectedRunwayGroup)
-
-	selected, changed := updateSelectedRunwayGroup(change.State.RunwayGroups, future)
-	require.True(t, changed)
-	require.Equal(t, aman.RunwayGroupID("ARRIVAL-22"), selected)
-	reassignFlightsToGroup(&change.State, selected)
+	require.False(t, change.State.RunwayGroups[0].Selected)
+	require.True(t, change.State.RunwayGroups[1].Selected)
 	require.Equal(t, aman.RunwayGroupID("ARRIVAL-22"), *change.State.Flights[0].SelectedRunwayGroup)
 	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04"), *change.State.Flights[1].SelectedRunwayGroup)
+	require.Equal(t, rateSchedules[0], change.State.RunwayGroups[0].RateSchedule)
+	require.Equal(t, rateSchedules[1], change.State.RunwayGroups[1].RateSchedule)
+	require.Contains(t, string(change.Outcome), `"protected_flight_ids":["STABLE"]`)
 }
 
 func TestRunwayConfigurationUpgradeReleasesObsoleteGroupState(t *testing.T) {
@@ -548,7 +577,66 @@ func TestSessionRunwaySelectsItsExactAMANGroup(t *testing.T) {
 	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04L"), *state.Flights[1].SelectedRunwayGroup, "protected flights retain their committed runway")
 }
 
-func TestFutureRateCommandsPreserveRunwaySelectionHistory(t *testing.T) {
+func TestLegacyRateCreatedSelectionSchedulesAreDiscarded(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	groups := []aman.RunwayGroupPolicy{
+		{ID: "ARRIVAL-04", SelectionSchedule: []aman.RunwayGroupSelectionPoint{{EffectiveAt: now, CommandRevision: 7}}},
+		{ID: "ARRIVAL-22", SelectionSchedule: []aman.RunwayGroupSelectionPoint{{
+			EffectiveAt: now.Add(time.Hour), CommandRevision: 8, Source: aman.RunwayGroupSelectionSourceFMPCommand,
+		}}},
+	}
+
+	_, reset := discardLegacyRunwayGroupSelections(groups)
+
+	require.Empty(t, groups[0].SelectionSchedule)
+	require.Len(t, groups[1].SelectionSchedule, 1)
+	require.True(t, hasRunwayGroupSelectionSchedule(groups))
+	require.False(t, reset)
+
+	legacyOnly := []aman.RunwayGroupPolicy{
+		{ID: "ARRIVAL-04"},
+		{ID: "ARRIVAL-22", Selected: true, SelectionSchedule: []aman.RunwayGroupSelectionPoint{{EffectiveAt: now, CommandRevision: 7}}},
+	}
+	selected, reset := discardLegacyRunwayGroupSelections(legacyOnly)
+	require.True(t, reset)
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04"), selected)
+	require.True(t, legacyOnly[0].Selected)
+	require.False(t, legacyOnly[1].Selected)
+}
+
+func TestScheduledRunwaySelectionConflictRetainsPreviousStateAndReportsConflict(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-04"}, {ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	state := service.initialState("EKCH", now)
+	state.Revision = 7
+	state.RunwayGroups[1].SelectionSchedule = []aman.RunwayGroupSelectionPoint{{
+		EffectiveAt: now, CommandRevision: 7, Source: aman.RunwayGroupSelectionSourceFMPCommand,
+	}}
+	movable := operationalFlight("MOVABLE", "ARRIVAL-04", "MONAK", "M", now.Add(20*time.Minute))
+	movable.Slot = &aman.Slot{Time: now.Add(20 * time.Minute), RunwayGroupID: "ARRIVAL-04", Sequence: 1, Revision: 7, Reason: "rate_wtc"}
+	lead := protectedOperationalFlight("LEAD", "ARRIVAL-22", "MONAK", "M", now.Add(10*time.Minute), 1, aman.FreezeManual)
+	trail := protectedOperationalFlight("TRAIL", "ARRIVAL-22", "MONAK", "M", now.Add(11*time.Minute), 2, aman.FreezeSuperstable)
+	state.Flights = []aman.AMANFlight{movable, lead, trail}
+
+	selected, changed := selectedRunwayGroupAt(state.RunwayGroups, now)
+	require.True(t, changed)
+	err = service.activateRunwayGroup(&state, selected, now)
+	require.Error(t, err)
+	setRunwayGroupSelectionConflict(state.RunwayGroups, selected, err.Error())
+
+	require.True(t, state.RunwayGroups[0].Selected)
+	require.False(t, state.RunwayGroups[1].Selected)
+	require.NotNil(t, state.RunwayGroups[1].SelectionConflict)
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04"), *state.Flights[0].SelectedRunwayGroup)
+	require.NotNil(t, state.Flights[0].Slot)
+}
+
+func TestFutureRunwaySelectionCommandsPreserveSelectionHistory(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	service, err := New(Dependencies{
 		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
@@ -559,13 +647,13 @@ func TestFutureRateCommandsPreserveRunwaySelectionHistory(t *testing.T) {
 	state := service.initialState("EKCH", now)
 	state.Revision = 7
 
-	applyRate := func(group aman.RunwayGroupID, effectiveAt time.Time) {
-		mutation, mutationErr := service.SetRate(aman.CommandContext{ReceivedAt: now}, aman.SetRateCommand{
+	applySelection := func(group aman.RunwayGroupID, effectiveAt time.Time) {
+		mutation, mutationErr := service.SelectRunwayGroup(aman.CommandContext{ReceivedAt: now}, aman.SelectRunwayGroupCommand{
 			Metadata: aman.CommandMetadata{
 				CommandID:        "select-" + string(group) + "-" + effectiveAt.Format("1504"),
 				ExpectedRevision: state.Revision,
 			},
-			RunwayGroupID: group, ArrivalsPerHour: 20, EffectiveAt: effectiveAt,
+			RunwayGroupID: group, EffectiveAt: effectiveAt,
 		})
 		require.NoError(t, mutationErr)
 		change, changeErr := mutation(state)
@@ -575,9 +663,9 @@ func TestFutureRateCommandsPreserveRunwaySelectionHistory(t *testing.T) {
 	}
 
 	first, second, third := now.Add(10*time.Minute), now.Add(20*time.Minute), now.Add(30*time.Minute)
-	applyRate("ARRIVAL-22", first)
-	applyRate("ARRIVAL-04", second)
-	applyRate("ARRIVAL-22", third)
+	applySelection("ARRIVAL-22", first)
+	applySelection("ARRIVAL-04", second)
+	applySelection("ARRIVAL-22", third)
 
 	selected, changed := updateSelectedRunwayGroup(state.RunwayGroups, first)
 	require.True(t, changed)

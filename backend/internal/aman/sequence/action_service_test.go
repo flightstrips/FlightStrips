@@ -95,6 +95,9 @@ func (m *recordingActionMutations) UnlockFlight(auth aman.CommandContext, _ aman
 func (m *recordingActionMutations) SetRate(auth aman.CommandContext, _ aman.SetRateCommand) (CommandMutation, error) {
 	return m.mutation("rate", auth)
 }
+func (m *recordingActionMutations) SelectRunwayGroup(auth aman.CommandContext, _ aman.SelectRunwayGroupCommand) (CommandMutation, error) {
+	return m.mutation("runway_selection", auth)
+}
 func (m *recordingActionMutations) AcceptTETA(auth aman.CommandContext, _ aman.AcceptTETACommand) (CommandMutation, error) {
 	return m.mutation("accept", auth)
 }

@@ -2,6 +2,7 @@ package operational
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -126,6 +127,47 @@ func TestResequenceRequeuesLateStableFlightWithoutMovingOtherStableSlots(t *test
 	service.resequence(&state, start)
 	require.Equal(t, start.Add(6*time.Minute), state.Flights[0].Slot.Time)
 	require.Equal(t, start.Add(3*time.Minute), state.Flights[1].Slot.Time)
+}
+
+func TestResequenceKeepsLateSuperstableFlightLockedAcrossReplay(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	effective, group, wake := start, aman.RunwayGroupID("ARRIVAL-22"), "M"
+	slot := aman.Slot{Time: start.Add(3 * time.Minute), RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: string(sequence.ReasonFreezeSuperstable)}
+	frozenAt := start.Add(-time.Minute)
+	flight := operationalFlight("SUPERSTABLE", group, "MONAK", wake, slot.Time)
+	flight.State = aman.StateStable
+	flight.FreezeReason = aman.FreezeSuperstable
+	flight.FrozenAt = &frozenAt
+	flight.FrozenOperationalTETA = &slot.Time
+	flight.FrozenSlot = &slot
+	flight.Slot = &slot
+	flight.Prediction.RawTETA = slot.Time.Add(gainResequenceThreshold + time.Second)
+	flight.Prediction.OperationalTETA = slot.Time
+	flight.Prediction.OperationalReason = aman.OperationalReasonSuperstableFreeze
+	state := aman.AirportState{
+		Revision: 7,
+		RunwayGroups: []aman.RunwayGroupPolicy{{
+			ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective,
+		}},
+		Flights: []aman.AMANFlight{flight},
+	}
+
+	persisted, err := json.Marshal(state)
+	require.NoError(t, err)
+	var replayed aman.AirportState
+	require.NoError(t, json.Unmarshal(persisted, &replayed))
+
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	service.resequence(&replayed, start)
+	updated := replayed.Flights[0]
+
+	require.Equal(t, aman.FreezeSuperstable, updated.FreezeReason)
+	require.Equal(t, slot.Time, updated.Prediction.OperationalTETA)
+	require.Equal(t, slot.Time.Add(gainResequenceThreshold+time.Second), updated.Prediction.RawTETA, "raw drift must remain visible")
+	require.Equal(t, slot, *updated.Slot)
+	require.Equal(t, slot, *updated.FrozenSlot)
+	require.Equal(t, slot.Time, *updated.FrozenOperationalTETA)
+	require.Equal(t, frozenAt, *updated.FrozenAt)
 }
 
 type testAircraftEngines struct {

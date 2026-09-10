@@ -23,9 +23,6 @@ func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightComma
 			return sequence.CommandChange{}, domainNotFound(command.FlightID)
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
-		// Moving an auto-excluded light piston flight is its explicit controller
-		// inclusion in the AMAN sequence.
-		state.Flights[index].ManualSequenceIncluded = true
 		decision, err := sequence.ApplyMove(s.sequenceInput(state), sequence.MoveFlightCommand{Metadata: command.Metadata, FlightID: command.FlightID, RunwayGroupID: command.RunwayGroupID, BeforeFlightID: command.BeforeFlightID, AfterFlightID: command.AfterFlightID})
 		if err != nil {
 			return sequence.CommandChange{}, err

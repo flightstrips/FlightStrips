@@ -327,8 +327,11 @@ type Prediction struct {
 	HoldingFixETA  *time.Time
 	HoldingPlan    *HoldingPlan
 
-	ModelVersion         string
-	ConfigVersion        string
+	ModelVersion  string
+	ConfigVersion string
+	// Basis names the operationally selected raw prediction policy. Empty is
+	// accepted for aggregates written before this provenance was introduced.
+	Basis                PredictionBasis
 	PerformanceProfileID *string
 	WeatherSource        *string
 	Sources              []string
@@ -336,6 +339,17 @@ type Prediction struct {
 	// produced this raw prediction. It is deliberately persisted with the
 	// prediction, but is served only from the on-demand flight-detail API.
 	Calculation *PredictionCalculation
+}
+
+type PredictionBasis string
+
+const (
+	PredictionBasisPerformanceWind PredictionBasis = "performance_wind"
+	PredictionBasisRETA            PredictionBasis = "reta"
+)
+
+func (b PredictionBasis) Valid() bool {
+	return b == "" || b == PredictionBasisPerformanceWind || b == PredictionBasisRETA
 }
 
 // HoldingPlan is the slot-derived arrival-management plan for a flight that
@@ -702,8 +716,8 @@ type AMANFlight struct {
 	ActiveRouteKey       *string
 	ActiveRouteDatasetID *string
 	RouteProgress        *RouteProgress
-	// ManualSequenceIncluded records the explicit controller inclusion of an
-	// otherwise auto-excluded light piston aircraft.
+	// ManualSequenceIncluded is retained for persisted-state compatibility.
+	// WTC/L aircraft are automatically sequenceable regardless of engine.
 	ManualSequenceIncluded bool
 	FreezeReason           FreezeReason
 	FrozenAt               *time.Time
@@ -860,6 +874,9 @@ func (p Prediction) Validate() error {
 	if strings.TrimSpace(p.DatasetVersion) == "" || strings.TrimSpace(p.GeometryDigest) == "" ||
 		strings.TrimSpace(p.ModelVersion) == "" || strings.TrimSpace(p.ConfigVersion) == "" {
 		return invalid("prediction provenance is incomplete")
+	}
+	if !p.Basis.Valid() {
+		return invalid("prediction basis is invalid")
 	}
 	if p.DistanceToGoNM != nil && *p.DistanceToGoNM < 0 {
 		return invalid("distance to go cannot be negative")

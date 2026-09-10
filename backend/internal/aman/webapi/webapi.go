@@ -183,6 +183,7 @@ type tetaBasis struct {
 	Confidence           string      `json:"confidence"`
 	ModelVersion         string      `json:"model_version"`
 	ConfigVersion        string      `json:"config_version"`
+	PredictionBasis      string      `json:"prediction_basis"`
 	PerformanceProfileID *string     `json:"performance_profile_id"`
 	WeatherSource        *string     `json:"weather_source"`
 	Sources              []string    `json:"sources"`
@@ -332,6 +333,7 @@ func mapTETABasis(flight aman.AMANFlight, prediction aman.Prediction) (tetaBasis
 	}
 	result := tetaBasis{RawTETA: raw, OperationalTETA: operational, GeneratedAt: generated, InputObservedAt: observed, OperationalReason: string(prediction.OperationalReason), FreezeReason: string(flight.FreezeReason), RawSamples: make([]rawSample, len(flight.RawTETASamples))}
 	result.Confidence, result.ModelVersion, result.ConfigVersion = string(prediction.Confidence), prediction.ModelVersion, prediction.ConfigVersion
+	result.PredictionBasis = string(prediction.Basis)
 	result.PerformanceProfileID, result.WeatherSource, result.DegradationReason = cloneString(prediction.PerformanceProfileID), cloneString(prediction.WeatherSource), cloneString(prediction.DegradationReason)
 	result.Sources = slices.Clone(prediction.Sources)
 	if prediction.RawRETA != nil {

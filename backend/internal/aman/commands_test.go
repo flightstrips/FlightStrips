@@ -48,6 +48,16 @@ func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 		}, func() error {
 			return (aman.ReportGoAroundCommand{Metadata: meta, FlightID: "flight", DetectedAt: now.Add(time.Second)}).Validate(now)
 		}},
+		{"confirm go around", func() error {
+			return (aman.ConfirmGoAroundCommand{Metadata: meta, FlightID: "flight", EpisodeID: "flight/go-around/1"}).Validate()
+		}, func() error {
+			return (aman.ConfirmGoAroundCommand{Metadata: meta, FlightID: "flight"}).Validate()
+		}},
+		{"reject go around", func() error {
+			return (aman.RejectGoAroundCommand{Metadata: meta, FlightID: "flight", EpisodeID: "flight/go-around/1"}).Validate()
+		}, func() error {
+			return (aman.RejectGoAroundCommand{Metadata: meta, FlightID: "flight", EpisodeID: " go-around "}).Validate()
+		}},
 	}
 
 	for _, test := range tests {

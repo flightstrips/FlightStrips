@@ -858,6 +858,7 @@ func TestGoAroundUpdatesOperationalTETABeforeCascading(t *testing.T) {
 	require.NotNil(t, updated.Slot)
 	require.False(t, updated.Slot.Time.Before(now.Add(DefaultGoAroundDelay)))
 	require.Equal(t, aman.RouteFactExpired, updated.ActiveRouteFact.State)
+	require.True(t, updated.GoAroundDetection.AwaitingReset, "manual reporting suppresses a duplicate detector prompt")
 	require.NotNil(t, change.QueueOffers)
 }
 
@@ -1088,8 +1089,9 @@ func protectedOperationalFlight(id string, group aman.RunwayGroupID, feeder, wak
 }
 
 type memoryRepository struct {
-	state aman.AirportState
-	has   bool
+	state   aman.AirportState
+	has     bool
+	commits []aman.StateCommit
 }
 
 type staticArrivalRunway struct {
@@ -1112,6 +1114,7 @@ func (r *memoryRepository) Commit(_ context.Context, commit aman.StateCommit) (a
 		return aman.CommitResult{}, err
 	}
 	r.state, r.has = commit.State, true
+	r.commits = append(r.commits, commit)
 	return aman.CommitResult{State: commit.State}, nil
 }
 

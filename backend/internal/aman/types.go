@@ -623,21 +623,53 @@ type GoAroundEvidence struct {
 // is incremented only when an approach arms; LastEmittedEpisode makes an
 // already-confirmed episode idempotent across commit retries and restart.
 type GoAroundDetectionState struct {
-	PolicyVersion           string
-	Evidence                []GoAroundEvidence
-	ArmCount                int
-	ClimbCount              int
-	TrackAwayCount          int
-	RunwayExitCount         int
-	Armed                   bool
-	ArmedAt                 *time.Time
-	ArmedCorridorID         string
-	Episode                 uint64
-	LastEmittedEpisode      uint64
-	LastProcessedAt         *time.Time
-	LastProcessedSequence   *uint64
-	ThresholdCrossed        bool
+	PolicyVersion         string
+	Evidence              []GoAroundEvidence
+	ArmCount              int
+	ClimbCount            int
+	TrackAwayCount        int
+	RunwayExitCount       int
+	Armed                 bool
+	ArmedAt               *time.Time
+	ArmedCorridorID       string
+	Episode               uint64
+	LastEmittedEpisode    uint64
+	LastProcessedAt       *time.Time
+	LastProcessedSequence *uint64
+	ThresholdCrossed      bool
+	// AwaitingReset suppresses a second prompt while the same detected
+	// departure from final continues to produce qualifying samples. It is
+	// cleared only after the aircraft leaves the final corridor or an explicit
+	// detector-reset fact is observed.
+	AwaitingReset           bool
 	LastControllerCommandID string
+}
+
+type GoAroundConfirmationStatus string
+
+const (
+	GoAroundConfirmationPending   GoAroundConfirmationStatus = "pending"
+	GoAroundConfirmationConfirmed GoAroundConfirmationStatus = "confirmed"
+	GoAroundConfirmationRejected  GoAroundConfirmationStatus = "rejected"
+)
+
+func (s GoAroundConfirmationStatus) Valid() bool {
+	return s == GoAroundConfirmationPending || s == GoAroundConfirmationConfirmed || s == GoAroundConfirmationRejected
+}
+
+// GoAroundConfirmation is the durable operator decision record for one
+// automatically detected episode. Evidence is copied from the detector so a
+// restart never needs to reconstruct the prompt from provider history.
+type GoAroundConfirmation struct {
+	EpisodeID         string
+	Reason            string
+	DetectedAt        time.Time
+	EvidenceTimes     []time.Time
+	Status            GoAroundConfirmationStatus
+	DecidedAt         *time.Time
+	DecidedBy         *string
+	DecisionCommandID *string
+	ResultingRevision *SequenceRevision
 }
 
 // LifecycleState is the persisted ordering cursor and current-state entry
@@ -736,6 +768,7 @@ type AMANFlight struct {
 	ETAReview              *ETAReview
 	OperationalException   *OperationalException
 	GoAroundDetection      *GoAroundDetectionState
+	GoAroundConfirmation   *GoAroundConfirmation
 	Lifecycle              *LifecycleState
 	UpdatedAt              time.Time
 }
@@ -1140,6 +1173,11 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if f.GoAroundConfirmation != nil {
+		if err := f.GoAroundConfirmation.Validate(); err != nil {
+			return err
+		}
+	}
 	if err := f.validateFreeze(); err != nil {
 		return err
 	}
@@ -1237,7 +1275,43 @@ func (s GoAroundDetectionState) Validate() error {
 }
 
 func (s GoAroundDetectionState) empty() bool {
-	return s.PolicyVersion == "" && len(s.Evidence) == 0 && s.ArmCount == 0 && s.ClimbCount == 0 && s.TrackAwayCount == 0 && s.RunwayExitCount == 0 && !s.Armed && s.ArmedAt == nil && s.ArmedCorridorID == "" && s.Episode == 0 && s.LastEmittedEpisode == 0 && s.LastProcessedAt == nil && s.LastProcessedSequence == nil && !s.ThresholdCrossed && s.LastControllerCommandID == ""
+	return s.PolicyVersion == "" && len(s.Evidence) == 0 && s.ArmCount == 0 && s.ClimbCount == 0 && s.TrackAwayCount == 0 && s.RunwayExitCount == 0 && !s.Armed && s.ArmedAt == nil && s.ArmedCorridorID == "" && s.Episode == 0 && s.LastEmittedEpisode == 0 && s.LastProcessedAt == nil && s.LastProcessedSequence == nil && !s.ThresholdCrossed && !s.AwaitingReset && s.LastControllerCommandID == ""
+}
+
+func (c GoAroundConfirmation) Validate() error {
+	if !isTrimmedNonEmpty(c.EpisodeID) || !isTrimmedNonEmpty(c.Reason) || !c.Status.Valid() {
+		return invalid("go-around confirmation identity, reason, and status are required")
+	}
+	if err := requireUTCTime("go-around confirmation detected at", c.DetectedAt); err != nil {
+		return err
+	}
+	if len(c.EvidenceTimes) == 0 {
+		return invalid("go-around confirmation requires detection evidence")
+	}
+	for index, value := range c.EvidenceTimes {
+		if err := requireUTCTime("go-around confirmation evidence", value); err != nil {
+			return err
+		}
+		if value.After(c.DetectedAt) || index > 0 && !value.After(c.EvidenceTimes[index-1]) {
+			return invalid("go-around confirmation evidence must be ordered and not follow detection")
+		}
+	}
+	resolved := c.Status != GoAroundConfirmationPending
+	if resolved != (c.DecidedAt != nil && c.DecidedBy != nil && c.DecisionCommandID != nil) {
+		return invalid("go-around confirmation decision metadata is inconsistent")
+	}
+	if c.Status == GoAroundConfirmationPending && c.ResultingRevision != nil {
+		return invalid("pending go-around confirmation cannot have a resulting revision")
+	}
+	if resolved {
+		if err := requireUTCTime("go-around confirmation decided at", *c.DecidedAt); err != nil {
+			return err
+		}
+		if c.DecidedAt.Before(c.DetectedAt) || !isTrimmedNonEmpty(*c.DecidedBy) || !isTrimmedNonEmpty(*c.DecisionCommandID) || c.ResultingRevision == nil || *c.ResultingRevision == 0 {
+			return invalid("go-around confirmation decision metadata is invalid")
+		}
+	}
+	return nil
 }
 
 func (e GoAroundEvidence) Validate() error {

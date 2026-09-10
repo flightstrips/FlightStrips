@@ -210,4 +210,31 @@ describe("AMAN FMP controls", () => {
     expect(screen.getByRole("button", {name: "Apply manual freeze"})).toBeDisabled();
     expect(screen.getByRole("button", {name: "Release manual freeze"})).toBeEnabled();
   });
+
+  it("shows detected go-arounds to authorized controllers and sends episode-bound decisions", () => {
+    const detected = state();
+    detected.flights[0].go_around_confirmation = {
+      episode_id: "flight-1/go-around/1", reason: "track_away", detected_at: "2026-07-22T12:00:00.000Z",
+      evidence_times: ["2026-07-22T11:59:58.000Z", "2026-07-22T11:59:59.000Z"], status: "pending",
+      decided_at: null, decided_by: null, resulting_revision: null,
+    };
+    const {onCommand} = renderControls({state: detected});
+
+    expect(screen.getByRole("alert", {name: "SAS123 go-around confirmation request"})).toHaveTextContent("track away");
+    fireEvent.click(screen.getByRole("button", {name: "Confirm go-around"}));
+    fireEvent.click(screen.getByRole("button", {name: "Reject detection"}));
+    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.confirm_go_around", flight_id: "flight-1", episode_id: "flight-1/go-around/1"});
+    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.reject_go_around", flight_id: "flight-1", episode_id: "flight-1/go-around/1"});
+  });
+
+  it("does not present detector confirmation controls without FMP authority", () => {
+    const detected = state();
+    detected.flights[0].go_around_confirmation = {
+      episode_id: "flight-1/go-around/1", reason: "climb", detected_at: "2026-07-22T12:00:00.000Z",
+      evidence_times: ["2026-07-22T11:59:59.000Z"], status: "pending", decided_at: null, decided_by: null, resulting_revision: null,
+    };
+    renderControls({state: detected, hasFMPAuthority: false});
+
+    expect(screen.queryByRole("button", {name: "Confirm go-around"})).not.toBeInTheDocument();
+  });
 });

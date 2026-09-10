@@ -158,6 +158,7 @@ func (d *goAroundDetector) Detect(input GoAroundInput) (GoAroundResult, error) {
 	state := cloneDetectionState(input.Previous)
 	if state.PolicyVersion != input.PolicyVersion {
 		disarm(&state, true)
+		state.AwaitingReset = false
 		state.PolicyVersion = input.PolicyVersion
 	}
 	if input.ControllerMarked != nil {
@@ -167,6 +168,7 @@ func (d *goAroundDetector) Detect(input GoAroundInput) (GoAroundResult, error) {
 	surveillance := input.Observation.Surveillance
 	if input.LandingConfirmed || input.Observation.SourceStatus != aman.DataFresh {
 		disarm(&state, true)
+		state.AwaitingReset = false
 		return checkedGoAroundResult(state, nil, false)
 	}
 	if surveillance == nil {
@@ -177,9 +179,11 @@ func (d *goAroundDetector) Detect(input GoAroundInput) (GoAroundResult, error) {
 	}
 	if input.RouteChanged || input.RunwayGroupChanged || (state.Armed && state.ArmedCorridorID != input.Corridor.ID) {
 		disarm(&state, true)
+		state.AwaitingReset = false
 	}
 	if !input.InScope && !state.Armed {
 		disarm(&state, true)
+		state.AwaitingReset = false
 		acceptCursor(&state, *surveillance)
 		return checkedGoAroundResult(state, nil, false)
 	}
@@ -196,6 +200,13 @@ func (d *goAroundDetector) Detect(input GoAroundInput) (GoAroundResult, error) {
 
 	along, lateral := relativeNM(input.Corridor, evidence.LatitudeDegrees, evidence.LongitudeDegrees)
 	insideFinal := along >= -input.Corridor.LengthNM && along <= 0 && math.Abs(lateral) <= input.Corridor.HalfWidthNM
+	if state.AwaitingReset {
+		if !insideFinal {
+			state.AwaitingReset = false
+			disarm(&state, true)
+		}
+		return checkedGoAroundResult(state, nil, false)
+	}
 	inbound := angularDifference(*evidence.TrackTrueDegrees, input.Corridor.InboundCourseDegrees) <= d.config.InboundToleranceDegrees
 	armEvidence := insideFinal && inbound && evidence.AltitudeFeet <= d.config.ArmBelowAltitudeFeet
 	if !state.Armed {
@@ -252,6 +263,7 @@ func (d *goAroundDetector) Detect(input GoAroundInput) (GoAroundResult, error) {
 		Reason: reason, ConfirmedAt: input.Now, SupportingObservationTimes: supportingTimes(state.Evidence, reason, d.config.ConfirmSamples),
 	}
 	state.LastEmittedEpisode = state.Episode
+	state.AwaitingReset = true
 	disarm(&state, false)
 	return checkedGoAroundResult(state, confirmed, false)
 }
@@ -287,6 +299,7 @@ func controllerConfirmed(state aman.GoAroundDetectionState, input GoAroundInput)
 		return checkedGoAroundResult(state, nil, true)
 	}
 	state.LastControllerCommandID = command.CommandID
+	state.AwaitingReset = true
 	disarm(&state, false)
 	actor := command.Actor
 	episodeID := fmt.Sprintf("%s/go-around/controller/%s", input.FlightID, command.CommandID)
@@ -366,7 +379,7 @@ func cloneDetectionState(state aman.GoAroundDetectionState) aman.GoAroundDetecti
 }
 
 func zeroDetectionState(state aman.GoAroundDetectionState) bool {
-	return state.PolicyVersion == "" && len(state.Evidence) == 0 && state.ArmCount == 0 && state.ClimbCount == 0 && state.TrackAwayCount == 0 && state.RunwayExitCount == 0 && !state.Armed && state.ArmedAt == nil && state.ArmedCorridorID == "" && state.Episode == 0 && state.LastEmittedEpisode == 0 && state.LastProcessedAt == nil && state.LastProcessedSequence == nil && !state.ThresholdCrossed && state.LastControllerCommandID == ""
+	return state.PolicyVersion == "" && len(state.Evidence) == 0 && state.ArmCount == 0 && state.ClimbCount == 0 && state.TrackAwayCount == 0 && state.RunwayExitCount == 0 && !state.Armed && state.ArmedAt == nil && state.ArmedCorridorID == "" && state.Episode == 0 && state.LastEmittedEpisode == 0 && state.LastProcessedAt == nil && state.LastProcessedSequence == nil && !state.ThresholdCrossed && !state.AwaitingReset && state.LastControllerCommandID == ""
 }
 
 func lastEvidence(values []aman.GoAroundEvidence) (aman.GoAroundEvidence, bool) {

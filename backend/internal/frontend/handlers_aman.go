@@ -28,6 +28,8 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANSetManualETAType, handleAMANSetManualETA)
 	handlers.Add(events.AMANResetTETAOverrideType, handleAMANResetTETAOverride)
 	handlers.Add(events.AMANReportGoAroundType, handleAMANReportGoAround)
+	handlers.Add(events.AMANConfirmGoAroundType, handleAMANConfirmGoAround)
+	handlers.Add(events.AMANRejectGoAroundType, handleAMANRejectGoAround)
 }
 
 func handleAMANMoveFlight(ctx context.Context, client *Client, message Message) error {
@@ -138,6 +140,26 @@ func handleAMANReportGoAround(ctx context.Context, client *Client, message Messa
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.ReportGoAround(ctx, auth, command)
 	})
+}
+
+func handleAMANConfirmGoAround(ctx context.Context, client *Client, message Message) error {
+	return handleAMANGoAroundDecision(ctx, client, message, events.AMANConfirmGoAroundType, func(auth aman.CommandContext, data events.AMANGoAroundDecisionRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.ConfirmGoAround(ctx, auth, aman.ConfirmGoAroundCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID), EpisodeID: data.EpisodeID})
+	})
+}
+
+func handleAMANRejectGoAround(ctx context.Context, client *Client, message Message) error {
+	return handleAMANGoAroundDecision(ctx, client, message, events.AMANRejectGoAroundType, func(auth aman.CommandContext, data events.AMANGoAroundDecisionRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.RejectGoAround(ctx, auth, aman.RejectGoAroundCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID), EpisodeID: data.EpisodeID})
+	})
+}
+
+func handleAMANGoAroundDecision(ctx context.Context, client *Client, message Message, expected events.EventType, execute func(aman.CommandContext, events.AMANGoAroundDecisionRequest) (aman.CommandExecution, error)) error {
+	var wire events.AMANGoAroundDecisionMessage
+	if err := decodeAMANMessage(message, expected, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	return runAMANCommand(ctx, client, wire.Data.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) { return execute(auth, wire.Data) })
 }
 
 func handleAMANFlightCommand(ctx context.Context, client *Client, message Message, expected events.EventType, execute func(aman.CommandContext, events.AMANFlightRequest) (aman.CommandExecution, error)) error {

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/lifecycle"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/prediction"
 	"FlightStrips/internal/aman/predictor"
@@ -86,7 +87,8 @@ type Dependencies struct {
 }
 
 type Service struct {
-	deps Dependencies
+	deps             Dependencies
+	goAroundDetector lifecycle.GoAroundDetector
 
 	mu                 sync.Mutex
 	observed           map[string]map[aman.FlightID]aman.FlightObservation
@@ -111,12 +113,16 @@ func New(deps Dependencies) (*Service, error) {
 	if len(deps.Airports) == 0 {
 		return nil, errors.New("AMAN operational service requires enabled airports")
 	}
+	detector, err := lifecycle.NewGoAroundDetector(liveGoAroundConfig())
+	if err != nil {
+		return nil, fmt.Errorf("configure AMAN go-around detector: %w", err)
+	}
 	now := deps.Now().UTC()
 	pending := func(reason string) aman.ComponentHealth {
 		return componentHealth(aman.HealthUnavailable, reason, now)
 	}
 	return &Service{
-		deps: deps, observed: map[string]map[aman.FlightID]aman.FlightObservation{}, lastWeatherRefresh: map[string]time.Time{},
+		deps: deps, goAroundDetector: detector, observed: map[string]map[aman.FlightID]aman.FlightObservation{}, lastWeatherRefresh: map[string]time.Time{},
 		health: serviceHealth{
 			vatsim: pending("source_not_observed"), navigation: pending("navigation_not_refreshed"),
 			weather: pending("weather_not_observed"), repository: pending("repository_not_checked"),
@@ -341,6 +347,7 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		}
 	}
 	updateActiveRates(next.RunwayGroups, now)
+	auditRecords := make([]aman.AuditRecord, 0)
 	observations := s.observations(airport)
 	indexes := make(map[aman.FlightID]int, len(next.Flights))
 	for i := range next.Flights {
@@ -361,6 +368,17 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 			updated = applyUnavailablePrediction(updated, observation, now, updateErr)
 		}
 		next.Flights[index] = updated
+		if pendingCreated(flight.GoAroundConfirmation, updated.GoAroundConfirmation) {
+			payload, marshalErr := json.Marshal(map[string]any{
+				"flight_id": updated.ID, "episode_id": updated.GoAroundConfirmation.EpisodeID,
+				"reason": updated.GoAroundConfirmation.Reason, "detected_at": updated.GoAroundConfirmation.DetectedAt,
+				"evidence_times": updated.GoAroundConfirmation.EvidenceTimes,
+			})
+			if marshalErr != nil {
+				return marshalErr
+			}
+			auditRecords = append(auditRecords, aman.AuditRecord{Airport: airport, Category: "aman.go_around_confirmation_pending", Payload: payload, RecordedAt: now})
+		}
 	}
 	for i := range next.Flights {
 		if next.Flights[i].State == aman.StateRemoved || next.Flights[i].LatestObservation == nil {
@@ -388,6 +406,9 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 	}
 	next.Revision = current.Revision + 1
 	next.GeneratedAt = now
+	for index := range auditRecords {
+		auditRecords[index].Revision = next.Revision
+	}
 	for i := range next.Flights {
 		if next.Flights[i].State == aman.StateLanded || next.Flights[i].State == aman.StateRemoved {
 			next.Flights[i].Slot = nil
@@ -404,10 +425,11 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 	if err != nil {
 		return fmt.Errorf("project AMAN queue offers: %w", err)
 	}
+	auditRecords = append(auditRecords, vacancyPromotionAuditRecords(next, promotions, now)...)
 	committed, err := s.deps.Repository.Commit(ctx, aman.StateCommit{
 		ExpectedRevision: current.Revision,
 		State:            next,
-		AuditRecords:     vacancyPromotionAuditRecords(next, promotions, now),
+		AuditRecords:     auditRecords,
 	})
 	if err != nil {
 		s.setHealthComponent("repository", aman.HealthUnavailable, "repository_commit_failed", now)
@@ -523,15 +545,17 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	flight.VATSIMCID, flight.CurrentCallsign, flight.DataStatus = observation.VATSIMCID, observation.Callsign, observation.SourceStatus
 	flight.UpdatedAt = now
 	if observation.Missing || observation.SourceStatus != aman.DataFresh {
+		invalidateLiveGoAroundEpisode(&flight)
 		return flight, nil
 	}
 	flight.Lifecycle = clearAbsence(flight.Lifecycle)
 	if groundedSurveillance(observation.Surveillance) {
+		invalidateLiveGoAroundEpisode(&flight)
 		return applyGroundedObservation(flight, observation, now), nil
 	}
 	applyBaseline(&flight, observation, now)
 	applyPreliminaryPrediction(&flight, observation, now)
-	if observation.Surveillance == nil || observation.Surveillance.GroundspeedKnots == nil || observation.Surveillance.AltitudeFeet == nil || observation.FiledRoute == nil {
+	if observation.Surveillance == nil || observation.Surveillance.GroundspeedKnots == nil || observation.Surveillance.AltitudeFeet == nil {
 		if flight.State != aman.StatePlanned {
 			markPredictionNonPublishable(&flight, unavailablePredictionReason(observation, missingEssentialReason(observation)))
 		}
@@ -547,7 +571,17 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	if !ok {
 		return flight, fmt.Errorf("terminal has no configured runway group")
 	}
+	previousGroup := flight.SelectedRunwayGroup
 	flight.SelectedRunwayGroup = &group
+	if err := s.detectLiveGoAround(&flight, observation, group, liveDetectorRouteChanged(flight, previousObservation, observation), previousGroup != nil && *previousGroup != group, now); err != nil {
+		return flight, err
+	}
+	if observation.FiledRoute == nil {
+		if flight.State != aman.StatePlanned {
+			markPredictionNonPublishable(&flight, missingEssentialReason(observation))
+		}
+		return flight, nil
+	}
 	feeder, ok := s.feeder(*observation.FiledRoute, group)
 	if !ok {
 		markUnknownSTARFamily(&flight, now)

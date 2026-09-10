@@ -11,6 +11,8 @@ const (
 	AMANSetManualETAType      EventType = "aman.set_manual_eta"
 	AMANResetTETAOverrideType EventType = "aman.reset_teta_override"
 	AMANReportGoAroundType    EventType = "aman.report_go_around"
+	AMANConfirmGoAroundType   EventType = "aman.confirm_go_around"
+	AMANRejectGoAroundType    EventType = "aman.reject_go_around"
 )
 
 type AMANCommandMeta struct {
@@ -56,6 +58,12 @@ type AMANReportGoAroundRequest struct {
 	DetectedAt string `json:"detected_at"`
 }
 
+type AMANGoAroundDecisionRequest struct {
+	AMANCommandMeta
+	FlightID  string `json:"flight_id"`
+	EpisodeID string `json:"episode_id"`
+}
+
 type AMANMoveFlightMessage struct {
 	Type    EventType             `json:"type"`
 	Version int                   `json:"version"`
@@ -90,4 +98,10 @@ type AMANReportGoAroundMessage struct {
 	Type    EventType                 `json:"type"`
 	Version int                       `json:"version"`
 	Data    AMANReportGoAroundRequest `json:"data"`
+}
+
+type AMANGoAroundDecisionMessage struct {
+	Type    EventType                   `json:"type"`
+	Version int                         `json:"version"`
+	Data    AMANGoAroundDecisionRequest `json:"data"`
 }

@@ -129,6 +129,22 @@ func TestAMANFlightRoundsLegacyFractionalInputAgeForWire(t *testing.T) {
 	require.EqualValues(t, 61, *mapped.GainLossSeconds)
 }
 
+func TestAMANFlightPublishesPendingGoAroundEvidence(t *testing.T) {
+	state := goldenAMANState()
+	detectedAt := state.GeneratedAt.Add(-time.Minute)
+	state.Flights[0].GoAroundConfirmation = &aman.GoAroundConfirmation{
+		EpisodeID: "flight-123/go-around/1", Reason: "climb", DetectedAt: detectedAt,
+		EvidenceTimes: []time.Time{detectedAt.Add(-time.Second), detectedAt}, Status: aman.GoAroundConfirmationPending,
+	}
+
+	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
+	require.NoError(t, err)
+	require.Equal(t, "flight-123/go-around/1", mapped.GoAroundConfirmation.EpisodeID)
+	require.Equal(t, "pending", mapped.GoAroundConfirmation.Status)
+	require.Len(t, mapped.GoAroundConfirmation.EvidenceTimes, 2)
+	require.Nil(t, mapped.GoAroundConfirmation.DecidedAt)
+}
+
 func TestAMANCommandRejectionCarriesStableCorrelation(t *testing.T) {
 	event, err := NewAMANCommandRejectedEvent("command-7", 9, &aman.DomainError{
 		Class: aman.ErrorRevisionConflict, Message: "revision changed",

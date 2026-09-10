@@ -92,6 +92,19 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(wrongBoundary)).toBe(false);
   });
 
+  it("validates persisted go-around confirmation evidence", () => {
+    const pending = replacement(8);
+    pending.data.flights[0].go_around_confirmation = {
+      episode_id: "flight-123/go-around/1", reason: "climb", detected_at: "2026-07-22T10:00:00.000Z",
+      evidence_times: ["2026-07-22T09:59:58.000Z", "2026-07-22T09:59:59.000Z"], status: "pending",
+      decided_at: null, decided_by: null, resulting_revision: null,
+    };
+    expect(isAMANStateEvent(pending)).toBe(true);
+
+    pending.data.flights[0].go_around_confirmation.evidence_times = [];
+    expect(isAMANStateEvent(pending)).toBe(false);
+  });
+
   it("accepts an explicit disabled-mode health replacement", () => {
     const disabled = replacement(8);
     disabled.data.effective_mode = "disabled";

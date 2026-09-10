@@ -263,31 +263,99 @@ func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGo
 		if index < 0 {
 			return sequence.CommandChange{}, domainNotFound(command.FlightID)
 		}
-		if state.Flights[index].Prediction == nil {
-			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "go-around requires a current operational prediction"}
+		flight := state.Flights[index]
+		activeEpisode := flight.GoAroundDetection != nil && flight.GoAroundDetection.AwaitingReset
+		confirmedEpisode := flight.GoAroundConfirmation != nil && flight.GoAroundConfirmation.Status == aman.GoAroundConfirmationConfirmed
+		if activeEpisode && (confirmedEpisode || flight.State == aman.StateGoAround) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "go-around episode is already confirmed"}
 		}
-		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
-		flight := &state.Flights[index]
-		expireActiveRouteFact(flight)
-		target := command.DetectedAt.Add(DefaultGoAroundDelay)
-		updatedPrediction := *flight.Prediction
-		updatedPrediction.OperationalTETA = target
-		updatedPrediction.OperationalReason = aman.OperationalReasonGoAround
-		updatedPrediction.Publishable = true
-		flight.Prediction = &updatedPrediction
-		flight.State = aman.StateGoAround
-		flight.UpdatedAt = auth.ReceivedAt
-		flight.Lifecycle = &aman.LifecycleState{
-			EnteredAt: command.DetectedAt, Reason: aman.LifecycleReasonGoAroundConfirmed,
-			LastEventID: "go-around:" + command.Metadata.CommandID, LastEventFingerprint: modelVersion, LastEventAt: command.DetectedAt,
+		detectedAt := command.DetectedAt
+		if pending := flight.GoAroundConfirmation; pending != nil && pending.Status == aman.GoAroundConfirmationPending {
+			detectedAt = pending.DetectedAt
 		}
-		input := s.sequenceInput(state)
-		decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: DefaultGoAroundDelay, MaxCascade: len(input.Flights) + 1}, sequence.ApplyGoAroundCommand{Metadata: command.Metadata, FlightID: command.FlightID, DetectedAt: command.DetectedAt})
+		return s.applyConfirmedGoAround(state, index, auth, command.Metadata, detectedAt, "report_go_around")
+	}, nil
+}
+
+func (s *Service) ConfirmGoAround(auth aman.CommandContext, command aman.ConfirmGoAroundCommand) (sequence.CommandMutation, error) {
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index, pending, err := pendingGoAround(state, command.FlightID, command.EpisodeID)
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
-		return s.commandChange(applyDecision(state, decision), true, "report_go_around", command.FlightID, nil)
+		return s.applyConfirmedGoAround(state, index, auth, command.Metadata, pending.DetectedAt, "confirm_go_around")
 	}, nil
+}
+
+func (s *Service) RejectGoAround(auth aman.CommandContext, command aman.RejectGoAroundCommand) (sequence.CommandMutation, error) {
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index, _, err := pendingGoAround(state, command.FlightID, command.EpisodeID)
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		flight := &state.Flights[index]
+		resolved := *flight.GoAroundConfirmation
+		resolved.Status = aman.GoAroundConfirmationRejected
+		resolved.DecidedAt, resolved.DecidedBy, resolved.DecisionCommandID = timePointer(auth.ReceivedAt), stringPointer(auth.Actor), stringPointer(command.Metadata.CommandID)
+		revision := state.Revision + 1
+		resolved.ResultingRevision = &revision
+		flight.GoAroundConfirmation = &resolved
+		flight.UpdatedAt = auth.ReceivedAt
+		return commandChange(state, true, "reject_go_around", command.FlightID, map[string]any{"episode_id": command.EpisodeID, "reason": resolved.Reason, "detected_at": resolved.DetectedAt, "evidence_times": resolved.EvidenceTimes, "decision": "rejected", "actor": auth.Actor, "resulting_revision": revision})
+	}, nil
+}
+
+func pendingGoAround(state aman.AirportState, flightID aman.FlightID, episodeID string) (int, *aman.GoAroundConfirmation, error) {
+	index := flightIndex(state.Flights, flightID)
+	if index < 0 {
+		return -1, nil, domainNotFound(flightID)
+	}
+	pending := state.Flights[index].GoAroundConfirmation
+	if pending == nil || pending.Status != aman.GoAroundConfirmationPending || pending.EpisodeID != episodeID {
+		return -1, nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "go-around confirmation is no longer pending"}
+	}
+	return index, pending, nil
+}
+
+func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, auth aman.CommandContext, metadata aman.CommandMetadata, detectedAt time.Time, action string) (sequence.CommandChange, error) {
+	if state.Flights[index].Prediction == nil {
+		return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "go-around requires a current operational prediction"}
+	}
+	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+	flight := &state.Flights[index]
+	expireActiveRouteFact(flight)
+	updatedPrediction := *flight.Prediction
+	updatedPrediction.OperationalTETA = detectedAt.Add(DefaultGoAroundDelay)
+	updatedPrediction.OperationalReason = aman.OperationalReasonGoAround
+	updatedPrediction.Publishable = true
+	flight.Prediction = &updatedPrediction
+	flight.State, flight.UpdatedAt = aman.StateGoAround, auth.ReceivedAt
+	flight.Lifecycle = &aman.LifecycleState{EnteredAt: detectedAt, Reason: aman.LifecycleReasonGoAroundConfirmed, LastEventID: "go-around:" + metadata.CommandID, LastEventFingerprint: modelVersion, LastEventAt: detectedAt}
+	extra := map[string]any{"decision": "confirmed", "actor": auth.Actor, "detected_at": detectedAt}
+	if flight.GoAroundConfirmation != nil && (flight.GoAroundConfirmation.Status == aman.GoAroundConfirmationPending || action == "report_go_around" && flight.GoAroundConfirmation.Status == aman.GoAroundConfirmationRejected) {
+		resolved := *flight.GoAroundConfirmation
+		resolved.Status = aman.GoAroundConfirmationConfirmed
+		resolved.DecidedAt, resolved.DecidedBy, resolved.DecisionCommandID = timePointer(auth.ReceivedAt), stringPointer(auth.Actor), stringPointer(metadata.CommandID)
+		revision := state.Revision + 1
+		resolved.ResultingRevision = &revision
+		flight.GoAroundConfirmation = &resolved
+		extra["episode_id"], extra["reason"], extra["evidence_times"], extra["resulting_revision"] = resolved.EpisodeID, resolved.Reason, resolved.EvidenceTimes, revision
+	}
+	if flight.GoAroundDetection == nil {
+		flight.GoAroundDetection = &aman.GoAroundDetectionState{PolicyVersion: liveGoAroundPolicyVersion + "/" + s.deps.Terminal.ConfigVersion}
+	}
+	flight.GoAroundDetection.Armed = false
+	flight.GoAroundDetection.ArmedAt, flight.GoAroundDetection.ArmedCorridorID = nil, ""
+	flight.GoAroundDetection.ArmCount, flight.GoAroundDetection.ClimbCount, flight.GoAroundDetection.TrackAwayCount, flight.GoAroundDetection.RunwayExitCount = 0, 0, 0, 0
+	flight.GoAroundDetection.ThresholdCrossed, flight.GoAroundDetection.AwaitingReset = false, true
+	flight.GoAroundDetection.LastControllerCommandID = metadata.CommandID
+	input := s.sequenceInput(state)
+	decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: DefaultGoAroundDelay, MaxCascade: len(input.Flights) + 1}, sequence.ApplyGoAroundCommand{Metadata: metadata, FlightID: flight.ID, DetectedAt: detectedAt})
+	if err != nil {
+		return sequence.CommandChange{}, err
+	}
+	return s.commandChange(applyDecision(state, decision), true, action, flight.ID, extra)
 }
 
 func (s *Service) sequenceMutation(action string, flightID aman.FlightID, at time.Time, apply func(sequence.Input) (sequence.Decision, error)) sequence.CommandMutation {
@@ -392,6 +460,8 @@ func flightIndex(flights []aman.AMANFlight, id aman.FlightID) int {
 	}
 	return -1
 }
+
+func timePointer(value time.Time) *time.Time { return &value }
 
 func domainNotFound(id aman.FlightID) error {
 	return &aman.DomainError{Class: aman.ErrorNotFound, Message: fmt.Sprintf("AMAN flight %q was not found", id)}

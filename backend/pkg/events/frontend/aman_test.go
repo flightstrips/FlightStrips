@@ -26,6 +26,25 @@ func TestAMANStateEventMatchesSharedV1Golden(t *testing.T) {
 	require.Equal(t, expectedJSON, actualJSON)
 }
 
+func TestAMANStateEventIncludesAuthoritativeTrafficPrediction(t *testing.T) {
+	state := goldenAMANState()
+	effective := state.GeneratedAt.Add(-time.Hour)
+	state.RunwayGroups[0].Selected = true
+	state.RunwayGroups[0].ActiveRatePerHour = 20
+	state.RunwayGroups[0].RateEffectiveAt = &effective
+	state.RunwayGroups[0].SelectionSchedule = []aman.RunwayGroupSelectionPoint{{EffectiveAt: effective}}
+	state.RunwayGroups[0].RateSchedule = []aman.RunwayGroupRatePoint{{EffectiveAt: effective, ArrivalsPerHour: 20}}
+
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, "2026-07-22T10:00:00.000Z", event.Data.TrafficPrediction.RangeStart)
+	require.Equal(t, "2026-07-22T13:00:00.000Z", event.Data.TrafficPrediction.RangeEnd)
+	require.Len(t, event.Data.TrafficPrediction.Buckets, 12)
+	require.Equal(t, 1, event.Data.TrafficPrediction.Buckets[1].AirborneCount)
+	require.Equal(t, "aman", event.Data.TrafficPrediction.Buckets[1].Flights[0].TimingSource)
+	require.EqualValues(t, 20, event.Data.TrafficPrediction.Buckets[1].SelectedRate.ArrivalsPerHour)
+}
+
 func TestAMANStateEventRejectsEffectiveModeHealthFromAnotherState(t *testing.T) {
 	health := goldenAMANHealth()
 	health.EffectiveMode = aman.EffectiveBlocked

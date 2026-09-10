@@ -27,6 +27,14 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(golden)).toBe(true);
   });
 
+  it("accepts a legacy V1 replacement without the TMT extension", () => {
+    const legacy = replacement(8);
+    delete legacy.data.traffic_prediction;
+
+    expect(isAMANStateEvent(legacy)).toBe(true);
+    expect(replaceAMANState(null, legacy)).toMatchObject({accepted: true, error: null});
+  });
+
   it("ignores duplicate and older revisions, then atomically accepts any newer revision", () => {
     const initial = replaceAMANState(null, replacement(7));
     expect(initial.accepted).toBe(true);
@@ -72,6 +80,16 @@ describe("AMAN V1 full replacement contract", () => {
       error: "invalid_aman_state",
       accepted: false,
     });
+  });
+
+  it("rejects traffic buckets whose authoritative totals or boundaries were changed", () => {
+    const wrongTotal = replacement(8);
+    wrongTotal.data.traffic_prediction!.buckets[1].count = 2;
+    expect(isAMANStateEvent(wrongTotal)).toBe(false);
+
+    const wrongBoundary = replacement(8);
+    wrongBoundary.data.traffic_prediction!.buckets[1].start = "2026-07-22T10:14:00.000Z";
+    expect(isAMANStateEvent(wrongBoundary)).toBe(false);
   });
 
   it("accepts an explicit disabled-mode health replacement", () => {

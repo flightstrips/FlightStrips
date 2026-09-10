@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/trafficprediction"
 )
 
 const AMANWireVersion = 1
@@ -27,15 +28,56 @@ func (e AMANStateEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (AMANStateEvent) GetType() EventType         { return AMANStateType }
 
 type AMANState struct {
-	Airport         string              `json:"airport"`
-	Revision        uint64              `json:"revision"`
+	Airport           string                `json:"airport"`
+	Revision          uint64                `json:"revision"`
+	GeneratedAt       string                `json:"generated_at"`
+	PolicyVersion     string                `json:"policy_version"`
+	EffectiveMode     string                `json:"effective_mode"`
+	Authoritative     bool                  `json:"authoritative"`
+	Flights           []AMANFlight          `json:"flights"`
+	RunwayGroups      []AMANRunwayGroup     `json:"runway_groups"`
+	TrafficPrediction AMANTrafficPrediction `json:"traffic_prediction"`
+	TechnicalHealth   AMANTechnicalHealth   `json:"technical_health"`
+}
+
+type AMANTrafficPrediction struct {
 	GeneratedAt     string              `json:"generated_at"`
-	PolicyVersion   string              `json:"policy_version"`
-	EffectiveMode   string              `json:"effective_mode"`
-	Authoritative   bool                `json:"authoritative"`
-	Flights         []AMANFlight        `json:"flights"`
-	RunwayGroups    []AMANRunwayGroup   `json:"runway_groups"`
-	TechnicalHealth AMANTechnicalHealth `json:"technical_health"`
+	RangeStart      string              `json:"range_start"`
+	RangeEnd        string              `json:"range_end"`
+	BucketMinutes   int                 `json:"bucket_minutes"`
+	SourceStatus    string              `json:"source_status"`
+	Status          string              `json:"status"`
+	DegradedReasons []string            `json:"degraded_reasons"`
+	Buckets         []AMANTrafficBucket `json:"buckets"`
+}
+
+type AMANTrafficBucket struct {
+	Start         string                   `json:"start"`
+	End           string                   `json:"end"`
+	PlannedCount  int                      `json:"planned_count"`
+	AirborneCount int                      `json:"airborne_count"`
+	Count         int                      `json:"count"`
+	LoadFactor    int                      `json:"load_factor"`
+	SelectedRate  *AMANTrafficSelectedRate `json:"selected_rate"`
+	BucketHigh    bool                     `json:"bucket_high"`
+	WindowHigh    bool                     `json:"window_high"`
+	Alert         string                   `json:"alert"`
+	Flights       []AMANTrafficFlight      `json:"flights"`
+}
+
+type AMANTrafficSelectedRate struct {
+	RunwayGroupID   string `json:"runway_group_id"`
+	ArrivalsPerHour uint32 `json:"arrivals_per_hour"`
+	EffectiveAt     string `json:"effective_at"`
+}
+
+type AMANTrafficFlight struct {
+	FlightID     string `json:"flight_id"`
+	Callsign     string `json:"callsign"`
+	Airborne     bool   `json:"airborne"`
+	LandingAt    string `json:"landing_at"`
+	TimingSource string `json:"timing_source"`
+	DataStatus   string `json:"data_status"`
 }
 
 type AMANFlight struct {
@@ -190,6 +232,10 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		Flights: make([]AMANFlight, len(state.Flights)), RunwayGroups: make([]AMANRunwayGroup, len(state.RunwayGroups)),
 		TechnicalHealth: technicalHealth,
 	}
+	data.TrafficPrediction, err = mapAMANTrafficPrediction(trafficprediction.Build(state, health.VATSIM))
+	if err != nil {
+		return AMANStateEvent{}, fmt.Errorf("map AMAN traffic prediction: %w", err)
+	}
 	for i := range state.Flights {
 		data.Flights[i], err = mapAMANFlight(state.GeneratedAt, state.Flights[i])
 		if err != nil {
@@ -221,6 +267,61 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		data.RunwayGroups[i] = mapped
 	}
 	return AMANStateEvent{Version: AMANWireVersion, Data: data}, nil
+}
+
+func mapAMANTrafficPrediction(model trafficprediction.ReadModel) (AMANTrafficPrediction, error) {
+	if err := model.Validate(); err != nil {
+		return AMANTrafficPrediction{}, err
+	}
+	generatedAt, err := aman.FormatTime(model.GeneratedAt)
+	if err != nil {
+		return AMANTrafficPrediction{}, err
+	}
+	rangeStart, err := aman.FormatTime(model.RangeStart)
+	if err != nil {
+		return AMANTrafficPrediction{}, err
+	}
+	rangeEnd, err := aman.FormatTime(model.RangeEnd)
+	if err != nil {
+		return AMANTrafficPrediction{}, err
+	}
+	result := AMANTrafficPrediction{
+		GeneratedAt: generatedAt, RangeStart: rangeStart, RangeEnd: rangeEnd,
+		BucketMinutes: model.BucketMinutes, SourceStatus: string(model.SourceStatus), Status: string(model.Status),
+		DegradedReasons: append([]string(nil), model.DegradedReasons...),
+		Buckets:         make([]AMANTrafficBucket, len(model.Buckets)),
+	}
+	for index, bucket := range model.Buckets {
+		start, formatErr := aman.FormatTime(bucket.Start)
+		if formatErr != nil {
+			return AMANTrafficPrediction{}, formatErr
+		}
+		end, formatErr := aman.FormatTime(bucket.End)
+		if formatErr != nil {
+			return AMANTrafficPrediction{}, formatErr
+		}
+		mapped := AMANTrafficBucket{
+			Start: start, End: end, PlannedCount: bucket.PlannedCount, AirborneCount: bucket.AirborneCount,
+			Count: bucket.Count, LoadFactor: bucket.LoadFactor, BucketHigh: bucket.BucketHigh,
+			WindowHigh: bucket.WindowHigh, Alert: string(bucket.Alert), Flights: make([]AMANTrafficFlight, len(bucket.Flights)),
+		}
+		if bucket.SelectedRate != nil {
+			effectiveAt, effectiveErr := aman.FormatTime(bucket.SelectedRate.EffectiveAt)
+			if effectiveErr != nil {
+				return AMANTrafficPrediction{}, effectiveErr
+			}
+			mapped.SelectedRate = &AMANTrafficSelectedRate{RunwayGroupID: string(bucket.SelectedRate.RunwayGroupID), ArrivalsPerHour: bucket.SelectedRate.ArrivalsPerHour, EffectiveAt: effectiveAt}
+		}
+		for flightIndex, flight := range bucket.Flights {
+			landingAt, landingErr := aman.FormatTime(flight.LandingAt)
+			if landingErr != nil {
+				return AMANTrafficPrediction{}, landingErr
+			}
+			mapped.Flights[flightIndex] = AMANTrafficFlight{FlightID: string(flight.FlightID), Callsign: flight.Callsign, Airborne: flight.Airborne, LandingAt: landingAt, TimingSource: string(flight.TimingSource), DataStatus: string(flight.DataStatus)}
+		}
+		result.Buckets[index] = mapped
+	}
+	return result, nil
 }
 
 func NewAMANCommandRejectedEvent(commandID string, currentRevision aman.SequenceRevision, domainError *aman.DomainError, retryable bool) (AMANCommandRejectedEvent, error) {

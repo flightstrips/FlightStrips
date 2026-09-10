@@ -79,6 +79,7 @@ set(ALL_FILES
         # WebSocket
         websocket/WebSocketTest.cpp
         websocket/WebSocketServiceTest.cpp
+        websocket/ProtoCodecTest.cpp
 )
 
 ################################################################################
@@ -224,6 +225,7 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE libcrypto.lib libssl.lib libcurl_a.lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE protobuf::libprotobuf-lite)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})
 

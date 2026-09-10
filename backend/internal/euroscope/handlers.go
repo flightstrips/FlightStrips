@@ -5,13 +5,9 @@ import (
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/shared"
-	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -24,16 +20,12 @@ func handleAMANRouteFact(ctx context.Context, client *Client, message Message) e
 	if client.hub.amanRouteFacts == nil {
 		return &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN route facts are disabled"}
 	}
-	decoder := json.NewDecoder(bytes.NewReader(message.Message))
-	decoder.DisallowUnknownFields()
 	var event euroscope.AMANRouteFactEvent
-	if err := decoder.Decode(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid trailing AMAN route fact data"}
-	}
-	if event.Type != euroscope.AMANRouteFact || event.Version != 1 || event.Data.Kind != "direct_to" {
+	if event.Version != 1 || event.Data == nil || event.Data.Kind != "direct_to" ||
+		len(event.ProtoReflect().GetUnknown()) != 0 || len(event.Data.ProtoReflect().GetUnknown()) != 0 {
 		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN route fact contract"}
 	}
 	observedAt, err := time.Parse(time.RFC3339Nano, event.Data.ObservedAt)
@@ -59,9 +51,9 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 	client.position = event.Position
 	client.callsign = event.Callsign
 	client.observer = event.Observer
-	client.localIP = event.LocalIP
+	client.localIP = event.LocalIp
 	client.hub.setObserverCid(client.GetCid(), event.Observer)
-	client.hub.setClientLocalIP(client.session, client.GetCid(), event.LocalIP)
+	client.hub.setClientLocalIP(client.session, client.GetCid(), event.LocalIp)
 	if master := client.hub.getMasterClient(client.session); master == client && previousCallsign != client.callsign {
 		client.hub.setMasterClient(client)
 	}
@@ -81,8 +73,8 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 var hhmmPattern = regexp.MustCompile(`^(?:[01]\d|2[0-3])[0-5]\d$`)
 
 func handleTokenEvent(ctx context.Context, client *Client, message Message) error {
-	var event events.AuthenticationEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	var event euroscope.TokenEvent
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 
@@ -104,7 +96,7 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 
 func handleControllerOnline(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ControllerOnlineEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	session := client.session
@@ -159,7 +151,7 @@ func handleControllerOnline(ctx context.Context, client *Client, message Message
 
 func handleControllerOffline(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ControllerOfflineEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	session := client.session
@@ -188,7 +180,7 @@ func handleControllerOffline(ctx context.Context, client *Client, message Messag
 
 func handleAssignedSquawk(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.AssignedSquawkEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	if client.hasCachedAssignedSquawk(event.Callsign, event.Squawk) {
@@ -203,7 +195,7 @@ func handleAssignedSquawk(ctx context.Context, client *Client, message Message) 
 
 func handleSquawk(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.SquawkEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateSquawk(ctx, client.session, event.Callsign, event.Squawk)
@@ -211,7 +203,7 @@ func handleSquawk(ctx context.Context, client *Client, message Message) error {
 
 func handleRequestedAltitude(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.RequestedAltitudeEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateRequestedAltitude(ctx, client.session, event.Callsign, event.Altitude)
@@ -219,7 +211,7 @@ func handleRequestedAltitude(ctx context.Context, client *Client, message Messag
 
 func handleClearedAltitude(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ClearedAltitudeEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateClearedAltitude(ctx, client.session, event.Callsign, event.Altitude)
@@ -227,7 +219,7 @@ func handleClearedAltitude(ctx context.Context, client *Client, message Message)
 
 func handleCommunicationType(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CommunicationTypeEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateCommunicationType(ctx, client.session, event.Callsign, event.CommunicationType)
@@ -235,7 +227,7 @@ func handleCommunicationType(ctx context.Context, client *Client, message Messag
 
 func handleGroundState(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.GroundStateEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateGroundState(ctx, client.session, event.Callsign, event.GroundState, client.airport)
@@ -243,7 +235,7 @@ func handleGroundState(ctx context.Context, client *Client, message Message) err
 
 func handleClearedFlag(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.ClearedFlagEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateClearedFlag(ctx, client.session, event.Callsign, event.Cleared)
@@ -251,7 +243,7 @@ func handleClearedFlag(ctx context.Context, client *Client, message Message) err
 
 func handleSetHeading(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.HeadingEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateHeading(ctx, client.session, event.Callsign, event.Heading)
@@ -259,7 +251,7 @@ func handleSetHeading(ctx context.Context, client *Client, message Message) erro
 
 func handleAircraftDisconnected(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.AircraftDisconnectEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	client.forgetFlightPlanCache(event.Callsign)
@@ -269,7 +261,7 @@ func handleAircraftDisconnected(ctx context.Context, client *Client, message Mes
 
 func handleStand(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.StandEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateStand(ctx, client.session, event.Callsign, event.Stand)
@@ -277,7 +269,7 @@ func handleStand(ctx context.Context, client *Client, message Message) error {
 
 func handleHold(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.HoldEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.UpdateHold(ctx, client.session, event.Callsign, event.Hold, event.HoldType, event.HoldEat)
@@ -285,7 +277,7 @@ func handleHold(ctx context.Context, client *Client, message Message) error {
 
 func handleCdmTobtUpdate(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CdmTobtUpdateEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	if !hhmmPattern.MatchString(event.Tobt) {
@@ -296,7 +288,7 @@ func handleCdmTobtUpdate(ctx context.Context, client *Client, message Message) e
 
 func handleCdmDeiceUpdate(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CdmDeiceUpdateEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	switch event.DeiceType {
@@ -309,7 +301,7 @@ func handleCdmDeiceUpdate(ctx context.Context, client *Client, message Message) 
 
 func handleCdmAsrtToggle(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CdmAsrtToggleEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.server.GetCdmService().HandleAsrtToggle(ctx, client.session, event.Callsign, event.Asrt)
@@ -317,7 +309,7 @@ func handleCdmAsrtToggle(ctx context.Context, client *Client, message Message) e
 
 func handleCdmTsacUpdate(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CdmTsacUpdateEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.server.GetCdmService().HandleTsacUpdate(ctx, client.session, event.Callsign, event.Tsac)
@@ -325,7 +317,7 @@ func handleCdmTsacUpdate(ctx context.Context, client *Client, message Message) e
 
 func handleCdmManualCtot(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CdmManualCtotEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	if !hhmmPattern.MatchString(event.Ctot) {
@@ -336,7 +328,7 @@ func handleCdmManualCtot(ctx context.Context, client *Client, message Message) e
 
 func handleCdmCtotRemove(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CdmCtotRemoveEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.server.GetCdmService().HandleCtotRemove(ctx, client.session, event.Callsign)
@@ -344,7 +336,7 @@ func handleCdmCtotRemove(ctx context.Context, client *Client, message Message) e
 
 func handleCdmReady(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CdmReadyEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.server.GetCdmService().HandleReadyRequest(ctx, client.session, event.Callsign, client.callsign, clientRole(client))
@@ -352,7 +344,7 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 
 func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.AircraftPositionUpdateEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	if client.hub.getMasterClient(client.session) != client {
@@ -374,7 +366,7 @@ func handlePositionUpdate(ctx context.Context, client *Client, message Message) 
 
 func handleTrackingControllerChanged(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.TrackingControllerChangedEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.HandleTrackingControllerChanged(ctx, client.session, event.Callsign, event.TrackingController)
@@ -382,7 +374,7 @@ func handleTrackingControllerChanged(ctx context.Context, client *Client, messag
 
 func handleCoordinationReceived(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.CoordinationReceivedEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.stripService.HandleCoordinationReceived(
@@ -398,7 +390,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	startedAt := time.Now()
 
 	var event euroscope.SyncEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 
@@ -433,46 +425,50 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 
 func handleStripUpdateEvent(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.StripUpdateEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	if client.hasCachedOperationalStrip(event.Strip) {
+	strip := event.GetStrip()
+	if strip == nil {
+		return errors.New("strip update contains no strip")
+	}
+	if client.hasCachedOperationalStrip(*strip) {
 		if client.hub.getMasterClient(client.session) != client {
 			return nil
 		}
-		recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
-		client.queuePositionOnlyUpdate(event.Strip)
+		recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, strip.Callsign)
+		client.queuePositionOnlyUpdate(*strip)
 		if recoveredFromDisconnect && client.hub.server != nil && client.hub.server.GetFrontendHub() != nil {
-			client.hub.server.GetFrontendHub().SendStripUpdate(client.session, event.Callsign)
+			client.hub.server.GetFrontendHub().SendStripUpdate(client.session, strip.Callsign)
 		}
 		return nil
 	}
-	recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
-	processLock := client.positionProcessLock(event.Callsign)
+	recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, strip.Callsign)
+	processLock := client.positionProcessLock(strip.Callsign)
 	processLock.Lock()
-	err := client.hub.stripService.SyncStrip(ctx, client.session, client.GetCid(), event.Strip, client.airport)
+	err := client.hub.stripService.SyncStrip(ctx, client.session, client.GetCid(), *strip, client.airport)
 	if err == nil {
-		client.rememberOperationalStrip(event.Strip)
+		client.rememberOperationalStrip(*strip)
 	}
 	processLock.Unlock()
 	if err != nil {
 		return err
 	}
 	if recoveredFromDisconnect && client.hub.server != nil && client.hub.server.GetFrontendHub() != nil {
-		client.hub.server.GetFrontendHub().SendStripUpdate(client.session, event.Callsign)
+		client.hub.server.GetFrontendHub().SendStripUpdate(client.session, strip.Callsign)
 	}
 	return nil
 }
 
 func handleRunways(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.RunwayEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 
 	slog.DebugContext(ctx, "Received runway configuration change", slog.Int("session", int(client.session)), slog.Any("event", event))
 
-	_, err := applyOrValidateRunways(ctx, client, event.Runways)
+	_, err := applyOrValidateRunways(ctx, client, runwayValues(event.Runways))
 	return err
 }
 
@@ -497,7 +493,7 @@ func clientRole(client *Client) string {
 
 func handleIssuePdcClearance(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.IssuePdcClearanceEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.pdcService.IssueClearance(ctx, event.Callsign, event.Remarks, client.GetCid(), client.session)
@@ -505,7 +501,7 @@ func handleIssuePdcClearance(ctx context.Context, client *Client, message Messag
 
 func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.PdcRevertToVoiceEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	return client.hub.pdcService.RevertToVoice(ctx, event.Callsign, client.session, client.GetCid())
@@ -513,7 +509,7 @@ func handlePdcRevertToVoice(ctx context.Context, client *Client, message Message
 
 func handleSendPrivateMessage(ctx context.Context, client *Client, message Message) error {
 	var event euroscope.SendPrivateMessageEvent
-	if err := message.JsonUnmarshal(&event); err != nil {
+	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
 	client.hub.Broadcast(client.session, event)

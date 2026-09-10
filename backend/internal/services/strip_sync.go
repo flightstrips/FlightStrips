@@ -64,6 +64,9 @@ type syncRouteComputer interface {
 }
 
 func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, cid string, strip euroscope.Strip, airport string) error {
+	positionLatitude := strip.GetPosition().GetLat()
+	positionLongitude := strip.GetPosition().GetLon()
+	positionAltitude := strip.GetPosition().GetAltitude()
 	routeRecalculator := s.getRouteRecalculator()
 	routeComputer := s.getRouteComputer()
 
@@ -170,9 +173,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Heading:            &strip.Heading,
 			AircraftType:       &strip.AircraftType,
 			AircraftCategory:   &strip.AircraftCategory,
-			PositionLatitude:   &strip.Position.Lat,
-			PositionLongitude:  &strip.Position.Lon,
-			PositionAltitude:   &strip.Position.Altitude,
+			PositionLatitude:   &positionLatitude,
+			PositionLongitude:  &positionLongitude,
+			PositionAltitude:   &positionAltitude,
 			Stand:              &strip.Stand,
 			Capabilities:       &strip.Capabilities,
 			CommunicationType:  &strip.CommunicationType,
@@ -181,7 +184,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			TrackingController: strip.TrackingController,
 			EngineType:         strip.EngineType,
 			SpokenCallsign:     &strip.SpokenCallsign,
-			HasFP:              strip.HasFP,
+			HasFP:              strip.HasFp,
 			StartReq:           false,
 		}
 		validationStrip = newStrip
@@ -477,9 +480,9 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			Stand:                    stand,
 			Cleared:                  effectiveCleared,
 			State:                    &effectiveGroundState,
-			PositionLatitude:         &strip.Position.Lat,
-			PositionLongitude:        &strip.Position.Lon,
-			PositionAltitude:         &strip.Position.Altitude,
+			PositionLatitude:         &positionLatitude,
+			PositionLongitude:        &positionLongitude,
+			PositionAltitude:         &positionAltitude,
 			Sequence:                 sequence,
 			Bay:                      bay,
 			CdmData:                  cdmData,
@@ -500,7 +503,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 			StartReq:                 startReq,
 			UnexpectedChangeFields:   unexpectedChangeFields,
 			ValidationStatus:         validationStatus,
-			HasFP:                    strip.HasFP,
+			HasFP:                    strip.HasFp,
 			ReleasePoint:             releasePoint,
 			Marked:                   marked,
 			RunwayCleared:            runwayCleared,
@@ -804,14 +807,15 @@ func shouldRestartStripLifecycle(existingStrip *internalModels.Strip, strip euro
 	newOrigin := strings.TrimSpace(strings.ToUpper(strip.Origin))
 	newDestination := strings.TrimSpace(strings.ToUpper(strip.Destination))
 	if existingStrip.Bay == shared.BAY_HIDDEN_DEP {
+		position := strip.GetPosition()
 		if existingStrip.EuroscopeSeenAt != nil ||
 			newOrigin != normalizedAirport ||
 			newDestination == "" || newDestination == normalizedAirport ||
-			(strip.Position.Lat == 0 && strip.Position.Lon == 0) ||
-			shared.GetDistance(strip.Position.Lat, strip.Position.Lon, shared.AirportLatitude, shared.AirportLongitude) > shared.RelevantDistance {
+			(position.GetLat() == 0 && position.GetLon() == 0) ||
+			shared.GetDistance(position.GetLat(), position.GetLon(), shared.AirportLatitude, shared.AirportLongitude) > shared.RelevantDistance {
 			return false
 		}
-		return int64(strip.Position.Altitude) <= int64(shared.AirportElevation)+config.GetAirborneAltitudeAGL()
+		return int64(position.GetAltitude()) <= int64(shared.AirportElevation)+config.GetAirborneAltitudeAGL()
 	}
 
 	if existingDestination != normalizedAirport {

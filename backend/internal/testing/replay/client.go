@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"FlightStrips/internal/testing/recorder"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 
 	"github.com/gorilla/websocket"
+	"google.golang.org/protobuf/proto"
 )
 
 // ReceivedMessage represents a message received from the server
@@ -19,7 +21,7 @@ type ReceivedMessage struct {
 	MessageType int
 	Data        []byte
 	ReceivedAt  time.Time
-	EventType   string // Parsed from JSON
+	EventType   string // Parsed from the protobuf envelope
 }
 
 // Client simulates an EuroScope WebSocket client for replay
@@ -67,11 +69,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.conn = conn
 
 	// Send authentication token immediately after connection
-	authEvent := map[string]string{
-		"type":  "token",
-		"token": "__TEST_TOKEN__",
-	}
-	if err := c.SendRawMessage(authEvent); err != nil {
+	if err := c.SendProtobuf(&euroscopeEvents.TokenEvent{Token: "__TEST_TOKEN__"}, euroscopeEvents.Authentication); err != nil {
 		c.conn.Close()
 		return fmt.Errorf("failed to authenticate: %w", err)
 	}
@@ -96,26 +94,29 @@ func (c *Client) SendEvent(event recorder.RecordedEvent) error {
 			slog.Int64("timestamp_ms", event.TimestampMs))
 	}
 
-	// Send the raw payload
-	if err := c.conn.WriteMessage(websocket.TextMessage, event.Payload); err != nil {
+	var envelope []byte
+	if err := json.Unmarshal(event.Payload, &envelope); err != nil {
+		return fmt.Errorf("recorded event is not a protobuf envelope: %w", err)
+	}
+	if err := c.conn.WriteMessage(websocket.BinaryMessage, envelope); err != nil {
 		return fmt.Errorf("failed to send event: %w", err)
 	}
 
 	return nil
 }
 
-// SendRawMessage sends a raw JSON message to the server
-func (c *Client) SendRawMessage(message interface{}) error {
+// SendProtobuf wraps and sends one binary protobuf event.
+func (c *Client) SendProtobuf(message proto.Message, eventType euroscopeEvents.EventType) error {
 	if c.conn == nil {
 		return fmt.Errorf("not connected")
 	}
 
-	data, err := json.Marshal(message)
+	data, err := euroscopeEvents.MarshalEnvelope(message, eventType)
 	if err != nil {
-		return fmt.Errorf("failed to marshal message: %w", err)
+		return fmt.Errorf("failed to marshal protobuf message: %w", err)
 	}
 
-	if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	if err := c.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
@@ -174,12 +175,8 @@ func (c *Client) ReadMessages(ctx context.Context, handler func(messageType int,
 					ReceivedAt:  time.Now(),
 				}
 
-				// Try to parse event type from JSON
-				var eventData map[string]interface{}
-				if err := json.Unmarshal(data, &eventData); err == nil {
-					if eventType, ok := eventData["type"].(string); ok {
-						msg.EventType = eventType
-					}
+				if eventType, _, err := euroscopeEvents.UnmarshalEnvelope(data); err == nil {
+					msg.EventType = euroscopeEvents.EventName(eventType)
 				}
 
 				c.mu.Lock()

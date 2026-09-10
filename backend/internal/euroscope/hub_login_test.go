@@ -2,7 +2,6 @@ package euroscope
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestHandleLogin_UsesReportedSweatboxSessionName(t *testing.T) {
@@ -41,8 +41,7 @@ func TestHandleLogin_UsesReportedSweatboxSessionName(t *testing.T) {
 	hub := &Hub{server: server}
 	user := shared.NewAuthenticatedUser("1234567", 0, nil)
 
-	payload, err := json.Marshal(euroscopeEvents.LoginEvent{
-		Type:       euroscopeEvents.Login,
+	payload, err := proto.Marshal(&euroscopeEvents.LoginEvent{
 		Connection: "SWEATBOX",
 		Airport:    "EKCH",
 		Position:   "121.500",
@@ -80,8 +79,7 @@ func TestHandleLogin_PlaybackSessionGetsUniqueName(t *testing.T) {
 	hub := &Hub{server: server}
 	user := shared.NewAuthenticatedUser("1234567", 0, nil)
 
-	payload, err := json.Marshal(euroscopeEvents.LoginEvent{
-		Type:       euroscopeEvents.Login,
+	payload, err := proto.Marshal(&euroscopeEvents.LoginEvent{
 		Connection: "PLAYBACK",
 		Airport:    "EKCH",
 		Position:   "121.500",

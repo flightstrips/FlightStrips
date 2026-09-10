@@ -130,7 +130,7 @@ func TestSequenceService_RecalculateAirportPersistsAndBroadcasts(t *testing.T) {
 	if event.Tsat != truncateCDMClockValue(secondTsat) || event.Ttot != truncateCDMClockValue(secondTtot) {
 		t.Fatalf("unexpected broadcast event timings: %#v", event)
 	}
-	if event.EcfmpID != "REGUL" {
+	if event.EcfmpId != "REGUL" {
 		t.Fatalf("unexpected broadcast event metadata: %#v", event)
 	}
 }

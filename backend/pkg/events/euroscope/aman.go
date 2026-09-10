@@ -14,11 +14,11 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 	}
 	event := AMANGainLossEvent{
 		Version: 1, Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
-		Authoritative: state.Authoritative, Values: make([]AMANGainLossValue, len(state.Flights)),
+		Authoritative: state.Authoritative, Values: make([]*AMANGainLossValue, len(state.Flights)),
 	}
 	for index, flight := range state.Flights {
-		value := AMANGainLossValue{
-			FlightID: string(flight.ID), Callsign: flight.CurrentCallsign, DataStatus: string(flight.DataStatus),
+		value := &AMANGainLossValue{
+			FlightId: string(flight.ID), Callsign: flight.CurrentCallsign, DataStatus: string(flight.DataStatus),
 		}
 		if flight.Prediction != nil && flight.Prediction.Publishable && flight.Slot != nil && flight.Prediction.Calculation != nil && len(flight.Prediction.Calculation.Legs) > 0 {
 			referencePoint := strings.TrimSpace(flight.Prediction.Calculation.Legs[len(flight.Prediction.Calculation.Legs)-1].To)
@@ -49,4 +49,8 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 
 func (e AMANGainLossEvent) GetType() EventType { return AMANGainLoss }
 
-func (e AMANGainLossEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (e AMANGainLossEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
+
+func (e AMANRouteFactEvent) GetType() EventType { return AMANRouteFact }
+
+func (e AMANRouteFactEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }

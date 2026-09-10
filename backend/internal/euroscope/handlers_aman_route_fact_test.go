@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestHandleAMANRouteFactDerivesTrustedConnectionFields(t *testing.T) {
@@ -14,9 +16,12 @@ func TestHandleAMANRouteFactDerivesTrustedConnectionFields(t *testing.T) {
 	client := &Client{
 		hub: &Hub{amanRouteFacts: reporter}, session: 42, airport: "EKCH", callsign: "EKCH_A_APP",
 	}
-	payload := []byte(`{"type":"aman.route_fact","version":1,"data":{"callsign":"SAS123","kind":"direct_to","direct_to_fix":"KEMAX","observed_at":"2026-08-20T11:59:00Z"}}`)
+	payload, err := proto.Marshal(&euroscopeEvents.AMANRouteFactEvent{Version: 1, Data: &euroscopeEvents.AMANRouteFactData{
+		Callsign: "SAS123", Kind: "direct_to", DirectToFix: stringPointer("KEMAX"), ObservedAt: "2026-08-20T11:59:00Z",
+	}})
+	require.NoError(t, err)
 
-	err := handleAMANRouteFact(context.Background(), client, Message{Type: euroscopeEvents.AMANRouteFact, Message: payload})
+	err = handleAMANRouteFact(context.Background(), client, Message{Type: euroscopeEvents.AMANRouteFact, Message: payload})
 	require.NoError(t, err)
 	require.Equal(t, int32(42), reporter.session)
 	require.Equal(t, "EKCH", reporter.airport)
@@ -30,16 +35,27 @@ func TestHandleAMANRouteFactRejectsSpoofableOrExtendedContract(t *testing.T) {
 	reporter := &routeFactReporter{}
 	client := &Client{hub: &Hub{amanRouteFacts: reporter}, session: 42, airport: "EKCH", callsign: "EKCH_A_APP"}
 
-	for _, payload := range []string{
-		`{"type":"aman.route_fact","version":1,"data":{"callsign":"SAS123","kind":"direct_to","direct_to_fix":null,"observed_at":"2026-08-20T11:59:00Z","airport":"EKBI"}}`,
-		`{"type":"aman.route_fact","version":1,"data":{"callsign":"SAS123","kind":"direct_to","direct_to_fix":null,"observed_at":"2026-08-20T11:59:00Z","issuer":"OTHER"}}`,
-		`{"type":"aman.route_fact","version":1,"data":{"callsign":"SAS123","kind":"direct_to","direct_to_fix":null,"observed_at":"2026-08-20T11:59:00Z","flight_id":"spoofed"}}`,
-		`{"type":"aman.route_fact","version":2,"data":{"callsign":"SAS123","kind":"direct_to","direct_to_fix":null,"observed_at":"2026-08-20T11:59:00Z"}}`,
-	} {
-		require.Error(t, handleAMANRouteFact(context.Background(), client, Message{Type: euroscopeEvents.AMANRouteFact, Message: []byte(payload)}))
+	validData := &euroscopeEvents.AMANRouteFactData{Callsign: "SAS123", Kind: "direct_to", ObservedAt: "2026-08-20T11:59:00Z"}
+	unknownField, err := proto.Marshal(&euroscopeEvents.AMANRouteFactEvent{Version: 1, Data: validData})
+	require.NoError(t, err)
+	unknownField = protowire.AppendTag(unknownField, 99, protowire.VarintType)
+	unknownField = protowire.AppendVarint(unknownField, 1)
+
+	invalidEvents := []*euroscopeEvents.AMANRouteFactEvent{
+		{Version: 2, Data: validData},
+		{Version: 1},
+		{Version: 1, Data: &euroscopeEvents.AMANRouteFactData{Callsign: "SAS123", Kind: "other", ObservedAt: "2026-08-20T11:59:00Z"}},
 	}
+	for _, event := range invalidEvents {
+		payload, marshalErr := proto.Marshal(event)
+		require.NoError(t, marshalErr)
+		require.Error(t, handleAMANRouteFact(context.Background(), client, Message{Type: euroscopeEvents.AMANRouteFact, Message: payload}))
+	}
+	require.Error(t, handleAMANRouteFact(context.Background(), client, Message{Type: euroscopeEvents.AMANRouteFact, Message: unknownField}))
 	require.Zero(t, reporter.calls)
 }
+
+func stringPointer(value string) *string { return &value }
 
 type routeFactReporter struct {
 	calls                         int

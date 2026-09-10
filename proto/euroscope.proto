@@ -1,0 +1,384 @@
+syntax = "proto3";
+
+package flightstrips.euroscope.v1;
+
+option go_package = "FlightStrips/pkg/events/euroscope;euroscope";
+option optimize_for = LITE_RUNTIME;
+
+// EventType mirrors Envelope's oneof cases and is used by application routing.
+// It is not serialized separately on the wire.
+enum EventType {
+  EVENT_UNKNOWN = 0;
+  EVENT_TOKEN = 1;
+  EVENT_LOGIN = 2;
+  EVENT_CONTROLLER_ONLINE = 3;
+  EVENT_CONTROLLER_OFFLINE = 4;
+  EVENT_SYNC = 5;
+  EVENT_ASSIGNED_SQUAWK = 6;
+  EVENT_SQUAWK = 7;
+  EVENT_REQUESTED_ALTITUDE = 8;
+  EVENT_CLEARED_ALTITUDE = 9;
+  EVENT_COMMUNICATION_TYPE = 10;
+  EVENT_GROUND_STATE = 11;
+  EVENT_CLEARED_FLAG = 12;
+  EVENT_AIRCRAFT_POSITION_UPDATE = 13;
+  EVENT_HEADING = 14;
+  EVENT_AIRCRAFT_DISCONNECT = 15;
+  EVENT_STAND = 16;
+  EVENT_TRACKING_CONTROLLER_CHANGED = 17;
+  EVENT_STRIP_UPDATE = 18;
+  EVENT_RUNWAY = 19;
+  EVENT_SESSION_INFO = 20;
+  EVENT_RUNWAY_MISMATCH_ALERT = 21;
+  EVENT_GENERATE_SQUAWK = 22;
+  EVENT_EOBT = 23;
+  EVENT_ROUTE = 24;
+  EVENT_REMARKS = 25;
+  EVENT_AIRCRAFT_INFO = 26;
+  EVENT_AIRCRAFT_INFO_REMARKS = 27;
+  EVENT_SID = 28;
+  EVENT_AIRCRAFT_RUNWAY = 29;
+  EVENT_COORDINATION_HANDOVER = 30;
+  EVENT_COORDINATION_RECEIVED = 31;
+  EVENT_ASSUME_ONLY = 32;
+  EVENT_ASSUME_AND_DROP = 33;
+  EVENT_DROP_TRACKING = 34;
+  EVENT_BACKEND_SYNC = 35;
+  EVENT_CREATE_FPL = 36;
+  EVENT_CDM_UPDATE = 37;
+  EVENT_CDM_UPDATE_BATCH = 38;
+  EVENT_CDM_TOBT_UPDATE = 39;
+  EVENT_CDM_ASRT_TOGGLE = 40;
+  EVENT_CDM_TSAC_UPDATE = 41;
+  EVENT_CDM_DEICE_UPDATE = 42;
+  EVENT_CDM_MANUAL_CTOT = 43;
+  EVENT_CDM_CTOT_REMOVE = 44;
+  EVENT_CDM_READY = 45;
+  EVENT_PDC_STATE_CHANGE = 46;
+  EVENT_ISSUE_PDC_CLEARANCE = 47;
+  EVENT_PDC_REVERT_TO_VOICE = 48;
+  EVENT_SEND_PRIVATE_MESSAGE = 49;
+  EVENT_HOLD = 50;
+  EVENT_AMAN_GAIN_LOSS = 51;
+  EVENT_AMAN_ROUTE_FACT = 52;
+}
+
+// Every websocket frame contains exactly one event. Using a oneof makes the
+// event discriminator and payload inseparable and gives both languages an
+// exhaustive generated dispatch API.
+message Envelope {
+  oneof event {
+    TokenEvent token = 1;
+    LoginEvent login = 2;
+    ControllerOnlineEvent controller_online = 3;
+    ControllerOfflineEvent controller_offline = 4;
+    SyncEvent sync = 5;
+    AssignedSquawkEvent assigned_squawk = 6;
+    SquawkEvent squawk = 7;
+    RequestedAltitudeEvent requested_altitude = 8;
+    ClearedAltitudeEvent cleared_altitude = 9;
+    CommunicationTypeEvent communication_type = 10;
+    GroundStateEvent ground_state = 11;
+    ClearedFlagEvent cleared_flag = 12;
+    AircraftPositionUpdateEvent aircraft_position_update = 13;
+    HeadingEvent heading = 14;
+    AircraftDisconnectEvent aircraft_disconnect = 15;
+    StandEvent stand = 16;
+    TrackingControllerChangedEvent tracking_controller_changed = 17;
+    StripUpdateEvent strip_update = 18;
+    RunwayEvent runway = 19;
+    SessionInfoEvent session_info = 20;
+    RunwayMismatchAlertEvent runway_mismatch_alert = 21;
+    GenerateSquawkEvent generate_squawk = 22;
+    EobtEvent eobt = 23;
+    RouteEvent route = 24;
+    RemarksEvent remarks = 25;
+    AircraftInfoEvent aircraft_info = 26;
+    AircraftInfoRemarksEvent aircraft_info_remarks = 27;
+    SidEvent sid = 28;
+    AircraftRunwayEvent aircraft_runway = 29;
+    CoordinationHandoverEvent coordination_handover = 30;
+    CoordinationReceivedEvent coordination_received = 31;
+    AssumeOnlyEvent assume_only = 32;
+    AssumeAndDropEvent assume_and_drop = 33;
+    DropTrackingEvent drop_tracking = 34;
+    BackendSyncEvent backend_sync = 35;
+    CreateFPLEvent create_fpl = 36;
+    CdmUpdateEvent cdm_update = 37;
+    CdmUpdateBatchEvent cdm_update_batch = 38;
+    CdmTobtUpdateEvent cdm_tobt_update = 39;
+    CdmAsrtToggleEvent cdm_asrt_toggle = 40;
+    CdmTsacUpdateEvent cdm_tsac_update = 41;
+    CdmDeiceUpdateEvent cdm_deice_update = 42;
+    CdmManualCtotEvent cdm_manual_ctot = 43;
+    CdmCtotRemoveEvent cdm_ctot_remove = 44;
+    CdmReadyEvent cdm_ready = 45;
+    PdcStateChangeEvent pdc_state_change = 46;
+    IssuePdcClearanceEvent issue_pdc_clearance = 47;
+    PdcRevertToVoiceEvent pdc_revert_to_voice = 48;
+    SendPrivateMessageEvent send_private_message = 49;
+    HoldEvent hold = 50;
+    AMANGainLossEvent aman_gain_loss = 51;
+    AMANRouteFactEvent aman_route_fact = 52;
+  }
+}
+
+message TokenEvent {
+  string token = 1;
+  string version = 2;
+}
+
+message LoginEvent {
+  string airport = 1;
+  string connection = 2;
+  string position = 3;
+  string callsign = 4;
+  int32 range = 5;
+  bool observer = 6;
+  string local_ip = 7;
+}
+
+message Runway {
+  string name = 1;
+  bool departure = 2;
+  bool arrival = 3;
+}
+
+message SidEntry {
+  string name = 1;
+  string runway = 2;
+}
+
+message Position {
+  double lat = 1;
+  double lon = 2;
+  int32 altitude = 3;
+}
+
+message Controller {
+  string position = 1;
+  string callsign = 2;
+}
+
+message Strip {
+  string callsign = 1;
+  string origin = 2;
+  string destination = 3;
+  string alternate = 4;
+  string route = 5;
+  string remarks = 6;
+  string runway = 7;
+  string squawk = 8;
+  string assigned_squawk = 9;
+  string sid = 10;
+  string star = 11;
+  bool cleared = 12;
+  string ground_state = 13;
+  int32 cleared_altitude = 14;
+  int32 requested_altitude = 15;
+  int32 heading = 16;
+  string aircraft_type = 17;
+  string aircraft_category = 18;
+  string spoken_callsign = 19;
+  Position position = 20;
+  string stand = 21;
+  string capabilities = 22;
+  string communication_type = 23;
+  string eobt = 24;
+  string eldt = 25;
+  string tracking_controller = 26;
+  string engine_type = 27;
+  bool has_fp = 28;
+  bool hold_supported = 29;
+  string hold = 30;
+  string hold_type = 31;
+  string hold_eat = 32;
+}
+
+message StripUpdateEvent {
+  Strip strip = 1;
+}
+
+message SyncEvent {
+  repeated Controller controllers = 1;
+  repeated Strip strips = 2;
+  repeated Runway runways = 3;
+  repeated SidEntry sids = 4;
+}
+
+message RunwayEvent {
+  repeated Runway runways = 1;
+}
+
+message EcfmpRestriction {
+  int64 measure_id = 1;
+  string ident = 2;
+  string type = 3;
+  string reason = 4;
+  repeated string routes = 5;
+  string destination = 6;
+  optional int32 max_level = 7;
+  optional int32 min_level = 8;
+  repeated int32 exact_levels = 9;
+  bool has_ctot = 10;
+}
+
+message CdmUpdateEvent {
+  string callsign = 1;
+  string eobt = 2;
+  string tobt = 3;
+  string tobt_set_by = 4;
+  string tobt_confirmed_by = 5;
+  string tsat = 6;
+  string ttot = 7;
+  string ctot = 8;
+  string ctot_source = 9;
+  string asat = 10;
+  string asrt = 11;
+  string tsac = 12;
+  string status = 13;
+  string manual_ctot = 14;
+  string deice_type = 15;
+  string ecfmp_id = 16;
+  string phase = 17;
+  repeated EcfmpRestriction ecfmp_restrictions = 18;
+}
+
+message CdmUpdateBatchEvent {
+  repeated CdmUpdateEvent updates = 1;
+}
+
+message BackendSyncCdmData {
+  string eobt = 1;
+  string tobt = 2;
+  string tobt_set_by = 3;
+  string tobt_confirmed_by = 4;
+  string tsat = 5;
+  string ttot = 6;
+  string ctot = 7;
+  string ctot_source = 8;
+  string asat = 9;
+  string asrt = 10;
+  string tsac = 11;
+  string status = 12;
+  string manual_ctot = 13;
+  string deice_type = 14;
+  string ecfmp_id = 15;
+  string phase = 16;
+  repeated EcfmpRestriction ecfmp_restrictions = 17;
+}
+
+message BackendSyncStrip {
+  string callsign = 1;
+  string assigned_squawk = 2;
+  bool cleared = 3;
+  string ground_state = 4;
+  string stand = 5;
+  BackendSyncCdmData cdm = 6;
+  string pdc_state = 7;
+  string pdc_request_remarks = 8;
+}
+
+message BackendSyncEvent {
+  repeated BackendSyncStrip strips = 1;
+  double latitude = 2;
+  double longitude = 3;
+}
+
+message RunwayMismatchAlertEvent {
+  repeated string expected_departure = 1;
+  repeated string expected_arrival = 2;
+  repeated string current_departure = 3;
+  repeated string current_arrival = 4;
+}
+
+message CreateFPLEvent {
+  string callsign = 1;
+  string origin = 2;
+  string destination = 3;
+  string alternate_ad = 4;
+  string sid = 5;
+  string assigned_squawk = 6;
+  string eobt = 7;
+  string aircraft_type = 8;
+  int32 requested_altitude = 9;
+  string route = 10;
+  string stand = 11;
+  string runway = 12;
+  string remarks = 13;
+  int32 persons_on_board = 14;
+  string fpl_type = 15;
+  string language = 16;
+}
+
+message SessionInfoEvent { string role = 1; }
+message GenerateSquawkEvent { string callsign = 1; }
+message EobtEvent { string callsign = 1; string eobt = 2; }
+message RouteEvent { string callsign = 1; string route = 2; }
+message RemarksEvent { string callsign = 1; string remarks = 2; }
+message AircraftInfoEvent { string callsign = 1; string aircraft_type = 2; }
+message AircraftInfoRemarksEvent { string callsign = 1; string aircraft_type = 2; string remarks = 3; }
+message SidEvent { string callsign = 1; string sid = 2; }
+message AircraftRunwayEvent { string callsign = 1; string runway = 2; }
+message CoordinationHandoverEvent { string callsign = 1; string target_callsign = 2; }
+message CoordinationReceivedEvent { string callsign = 1; string source_controller_callsign = 2; string controller_callsign = 3; }
+message TrackingControllerChangedEvent { string callsign = 1; string tracking_controller = 2; }
+message AssignedSquawkEvent { string callsign = 1; string squawk = 2; }
+message SquawkEvent { string callsign = 1; string squawk = 2; }
+message ClearedAltitudeEvent { string callsign = 1; int32 altitude = 2; }
+message RequestedAltitudeEvent { string callsign = 1; int32 altitude = 2; }
+message CommunicationTypeEvent { string callsign = 1; string communication_type = 2; }
+message GroundStateEvent { string callsign = 1; string ground_state = 2; }
+message ClearedFlagEvent { string callsign = 1; bool cleared = 2; }
+message AircraftPositionUpdateEvent { string callsign = 1; double lat = 2; double lon = 3; int64 altitude = 4; }
+message HeadingEvent { string callsign = 1; int32 heading = 2; }
+message AircraftDisconnectEvent { string callsign = 1; }
+message ControllerOnlineEvent { string position = 1; string callsign = 2; }
+message ControllerOfflineEvent { string callsign = 1; }
+message StandEvent { string callsign = 1; string stand = 2; }
+message HoldEvent { string callsign = 1; string hold = 2; string hold_type = 3; string hold_eat = 4; }
+message AssumeOnlyEvent { string callsign = 1; }
+message AssumeAndDropEvent { string callsign = 1; }
+message DropTrackingEvent { string callsign = 1; }
+message CdmTobtUpdateEvent { string callsign = 1; string tobt = 2; }
+message CdmAsrtToggleEvent { string callsign = 1; string asrt = 2; }
+message CdmTsacUpdateEvent { string callsign = 1; string tsac = 2; }
+message CdmDeiceUpdateEvent { string callsign = 1; string deice_type = 2; }
+message CdmManualCtotEvent { string callsign = 1; string ctot = 2; }
+message CdmCtotRemoveEvent { string callsign = 1; }
+message CdmReadyEvent { string callsign = 1; }
+message PdcStateChangeEvent { string callsign = 1; string state = 2; string pdc_request_remarks = 3; }
+message IssuePdcClearanceEvent { string callsign = 1; string remarks = 2; }
+message PdcRevertToVoiceEvent { string callsign = 1; }
+message SendPrivateMessageEvent { string callsign = 1; string message = 2; }
+
+message AMANGainLossValue {
+  string flight_id = 1;
+  string callsign = 2;
+  optional int64 gain_loss_seconds = 3;
+  optional string reference_point = 4;
+  optional string target_time = 5;
+  optional string predicted_time = 6;
+  string data_status = 7;
+}
+
+message AMANGainLossEvent {
+  int32 version = 1;
+  string airport = 2;
+  uint64 revision = 3;
+  string generated_at = 4;
+  bool authoritative = 5;
+  repeated AMANGainLossValue values = 6;
+}
+
+message AMANRouteFactData {
+  string callsign = 1;
+  string kind = 2;
+  optional string direct_to_fix = 3;
+  string observed_at = 4;
+}
+
+message AMANRouteFactEvent {
+  int32 version = 1;
+  AMANRouteFactData data = 2;
+}

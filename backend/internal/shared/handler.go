@@ -1,9 +1,11 @@
-﻿package shared
+package shared
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"google.golang.org/protobuf/proto"
 )
 
 type Message[TType comparable] struct {
@@ -13,6 +15,10 @@ type Message[TType comparable] struct {
 
 func (m *Message[TType]) JsonUnmarshal(v interface{}) error {
 	return json.Unmarshal(m.Message, v)
+}
+
+func (m *Message[TType]) ProtoUnmarshal(v proto.Message) error {
+	return proto.Unmarshal(m.Message, v)
 }
 
 type Handler[TType comparable, T any] func(ctx context.Context, client T, message Message[TType]) error

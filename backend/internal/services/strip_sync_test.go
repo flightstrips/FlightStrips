@@ -366,7 +366,7 @@ func TestSyncEuroscopeStrip_NewStripWithFlightPlanDoesNotCallSeparateHasFPUpdate
 	err := svc.syncEuroscopeStrip(ctx, session, "", euroscope.Strip{
 		Callsign: callsign,
 		Origin:   "EKCH",
-		HasFP:    true,
+		HasFp:    true,
 	}, "EKCH")
 	require.NoError(t, err)
 	require.NotNil(t, createdStrip)
@@ -433,7 +433,7 @@ func TestSyncEuroscopeStrip_ExistingStripWritesRouteAndHasFPInPrimaryUpdate(t *t
 		Origin:      "EKCH",
 		Destination: "EGLL",
 		Runway:      "22L",
-		HasFP:       true,
+		HasFp:       true,
 	}, "EKCH")
 	require.NoError(t, err)
 	require.NotNil(t, updatedStrip)
@@ -576,7 +576,7 @@ func TestSyncEuroscopeStrip_ExistingStripUpdatesSpokenCallsign(t *testing.T) {
 		Destination:    "EGLL",
 		Runway:         "22L",
 		SpokenCallsign: "WOLFAIR",
-		HasFP:          true,
+		HasFp:          true,
 	}, "EKCH")
 	require.NoError(t, err)
 	require.NotNil(t, updatedStrip)
@@ -677,7 +677,7 @@ func TestSyncEuroscopeStrip_ParkedArrivalRefilesAsDepartureResetsLifecycleState(
 		Stand:           "B7",
 		Heading:         195,
 		ClearedAltitude: 3000,
-		HasFP:           true,
+		HasFp:           true,
 	}, "EKCH")
 	require.NoError(t, err)
 
@@ -763,7 +763,8 @@ func TestSyncEuroscopeStrip_ArrivalRefilesAsTaxiDepartureDoesNotStayHidden(t *te
 		Origin:      "EKCH",
 		Destination: "EGLL",
 		GroundState: euroscope.GroundStateTaxi,
-		HasFP:       true,
+		Position:    &euroscope.Position{},
+		HasFp:       true,
 	}, "EKCH")
 	require.NoError(t, err)
 
@@ -979,6 +980,7 @@ func TestSyncEuroscopeStrip_AirborneWithStoredTaxiTreatsStaleTaxiAsUnknown(t *te
 		Origin:      "EKCH",
 		Destination: "EGLL",
 		GroundState: euroscope.GroundStateTaxi,
+		Position:    &euroscope.Position{},
 	}
 	strip.Position.Lat = shared.AirportLatitude
 	strip.Position.Lon = shared.AirportLongitude
@@ -1709,7 +1711,8 @@ func TestShouldRestartStripLifecycle_ReusedCompletedDepartureOnGround(t *testing
 		Destination: "ENGM",
 		Bay:         shared.BAY_HIDDEN_DEP,
 	}
-	incoming := euroscope.Strip{Origin: "EKCH", Destination: "ENGM"}
+	incoming := euroscope.Strip{Origin: "EKCH", Destination: "ENGM", Position: &euroscope.Position{}}
+	incoming.Position = &euroscope.Position{}
 	incoming.Position.Lat = shared.AirportLatitude
 	incoming.Position.Lon = shared.AirportLongitude
 	incoming.Position.Altitude = shared.AirportElevation
@@ -1723,7 +1726,8 @@ func TestShouldRestartStripLifecycle_AirborneCompletedDepartureDoesNotRestart(t 
 		Destination: "ENGM",
 		Bay:         shared.BAY_HIDDEN_DEP,
 	}
-	incoming := euroscope.Strip{Origin: "EKCH", Destination: "ENGM"}
+	incoming := euroscope.Strip{Origin: "EKCH", Destination: "ENGM", Position: &euroscope.Position{}}
+	incoming.Position = &euroscope.Position{}
 	incoming.Position.Lat = shared.AirportLatitude
 	incoming.Position.Lon = shared.AirportLongitude
 	incoming.Position.Altitude = int32(shared.AirportElevation) + int32(config.GetAirborneAltitudeAGL()) + 1
@@ -1786,7 +1790,7 @@ func TestSyncEuroscopeStrip_FirstEuroscopeSyncOfVatsimDepartureWithReservedAssig
 		Origin:         "EKCH",
 		Destination:    "EGLL",
 		AssignedSquawk: reservedSquawk,
-		HasFP:          true,
+		HasFp:          true,
 	}, "EKCH")
 	require.NoError(t, err)
 	require.Len(t, esHub.GenerateSquawks, 1)
@@ -1825,7 +1829,7 @@ func TestSyncEuroscopeStrip_RepeatEuroscopeSyncOfVatsimDepartureDoesNotGenerateS
 		Origin:         "EKCH",
 		Destination:    "EGLL",
 		AssignedSquawk: reservedSquawk,
-		HasFP:          true,
+		HasFp:          true,
 	}, "EKCH")
 	require.NoError(t, err)
 	assert.Empty(t, esHub.GenerateSquawks)

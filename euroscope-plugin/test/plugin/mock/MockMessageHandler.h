@@ -4,5 +4,5 @@
 
 class MockMessageHandler : public FlightStrips::handlers::MessageHandler {
 public:
-    MOCK_METHOD1(OnMessages, void(const std::vector<nlohmann::json>&));
+    MOCK_METHOD1(OnMessages, void(const std::vector<std::string>&));
 };

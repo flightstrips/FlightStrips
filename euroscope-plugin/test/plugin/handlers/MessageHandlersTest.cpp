@@ -21,7 +21,7 @@ TEST_F(MessageHandlersTest, OnMessages_CallsAllHandlers) {
     auto h1 = std::make_shared<StrictMock<MockMessageHandler>>();
     auto h2 = std::make_shared<StrictMock<MockMessageHandler>>();
 
-    std::vector<nlohmann::json> msgs = {nlohmann::json{{"type", "test"}}};
+    std::vector<std::string> msgs = {"test"};
 
     EXPECT_CALL(*h1, OnMessages(msgs)).Times(1);
     EXPECT_CALL(*h2, OnMessages(msgs)).Times(1);
@@ -33,7 +33,7 @@ TEST_F(MessageHandlersTest, OnMessages_CallsAllHandlers) {
 
 TEST_F(MessageHandlersTest, OnMessages_EmptyList_CallsHandlers) {
     auto h = std::make_shared<StrictMock<MockMessageHandler>>();
-    std::vector<nlohmann::json> empty;
+    std::vector<std::string> empty;
     EXPECT_CALL(*h, OnMessages(empty)).Times(1);
 
     handlers.RegisterHandler(h);
@@ -50,7 +50,7 @@ TEST_F(MessageHandlersTest, Clear_RemovesAllHandlers) {
 
 TEST_F(MessageHandlersTest, RegisterSameHandlerTwice_CallsItTwice) {
     auto h = std::make_shared<StrictMock<MockMessageHandler>>();
-    std::vector<nlohmann::json> msgs;
+    std::vector<std::string> msgs;
     EXPECT_CALL(*h, OnMessages(msgs)).Times(2);
 
     handlers.RegisterHandler(h);
@@ -61,10 +61,10 @@ TEST_F(MessageHandlersTest, RegisterSameHandlerTwice_CallsItTwice) {
 TEST_F(MessageHandlersTest, ThrowingHandler_DoesNotPropagateAndStillCallsRemainingHandlers) {
     auto throwingHandler = std::make_shared<StrictMock<MockMessageHandler>>();
     auto nextHandler = std::make_shared<StrictMock<MockMessageHandler>>();
-    std::vector<nlohmann::json> msgs = {nlohmann::json{{"type", "test"}}};
+    std::vector<std::string> msgs = {"test"};
 
     EXPECT_CALL(*throwingHandler, OnMessages(msgs))
-        .WillOnce(::testing::Invoke([](const std::vector<nlohmann::json>&) {
+        .WillOnce(::testing::Invoke([](const std::vector<std::string>&) {
             throw std::runtime_error("boom");
         }));
     EXPECT_CALL(*nextHandler, OnMessages(msgs)).Times(1);

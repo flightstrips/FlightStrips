@@ -1,12 +1,11 @@
 #include "WebSocketService.h"
 
-#include <nlohmann/json.hpp>
-
 #include "ExceptionHandling.h"
 #include "Events.h"
 #include "Logger.hpp"
 #include "network/LocalIpAddress.h"
 #include "version.h"
+#include "websocket/generated/proto/euroscope.pb.h"
 
 namespace FlightStrips::websocket {
     WebSocketService::WebSocketService(std::string baseUrl,
@@ -144,7 +143,7 @@ namespace FlightStrips::websocket {
             SendLoginEvent();
         }
 
-        std::vector<nlohmann::json> messages;
+        std::vector<std::string> messages;
         {
             std::lock_guard lock(message_mutex_);
             if (messages_.empty()) return;
@@ -234,14 +233,14 @@ namespace FlightStrips::websocket {
     void WebSocketService::OnMessage(const std::string &message) {
         exceptions::RunGuarded("WebSocketService::OnMessage", [this, &message] {
             rx++;
-            const auto json = nlohmann::json::parse(message, nullptr, false, false);
-            if (json.is_discarded()) {
-                Logger::Warning("Invalid JSON message: {}", message);
+            protobuf::wire::Envelope envelope;
+            if (!protobuf::ParseEnvelope(message, envelope)) {
+                Logger::Warning("Invalid protobuf websocket message ({} bytes)", message.size());
                 return;
             }
 
             std::lock_guard lock(message_mutex_);
-            messages_.push_back(json);
+            messages_.push_back(message);
         });
     }
 

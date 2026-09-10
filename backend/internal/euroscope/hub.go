@@ -10,7 +10,6 @@ import (
 	"FlightStrips/pkg/events"
 	"FlightStrips/pkg/events/euroscope"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,6 +22,7 @@ import (
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
+	"google.golang.org/protobuf/proto"
 )
 
 type internalMessage struct {
@@ -174,7 +174,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(euroscope.AircraftDisconnected, handleAircraftDisconnected)
 	handlers.Add(euroscope.Sync, handleSync)
 	handlers.Add(euroscope.StripUpdate, handleStripUpdateEvent)
-	handlers.Add(euroscope.Runway, handleRunways)
+	handlers.Add(euroscope.RunwayType, handleRunways)
 	handlers.Add(euroscope.CdmTobtUpdate, handleCdmTobtUpdate)
 	handlers.Add(euroscope.CdmDeiceUpdate, handleCdmDeiceUpdate)
 	handlers.Add(euroscope.CdmManualCtot, handleCdmManualCtot)
@@ -347,7 +347,7 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		return
 	}
 
-	syncStrips := make([]euroscope.BackendSyncStrip, 0, len(strips))
+	syncStrips := make([]*euroscope.BackendSyncStrip, 0, len(strips))
 	for _, strip := range strips {
 		if !shouldIncludeInBackendSync(strip) {
 			continue
@@ -367,12 +367,13 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 			entry.PdcRequestRemarks = *strip.PdcRequestRemarks
 		}
 		if strip.CdmData != nil {
-			entry.Cdm = shared.BuildEuroscopeBackendSyncCdmData(strip.CdmData)
+			cdm := shared.BuildEuroscopeBackendSyncCdmData(strip.CdmData)
+			entry.Cdm = &cdm
 		}
 		if strip.PdcState != "" {
 			entry.PdcState = strip.PdcState
 		}
-		syncStrips = append(syncStrips, entry)
+		syncStrips = append(syncStrips, &entry)
 	}
 
 	lat, lon := config.GetAirportCoordinates()
@@ -424,6 +425,17 @@ func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[euroscope.EventType,
 	return hub.handlers
 }
 
+func (hub *Hub) DecodeAuthentication(frameType int, message []byte) (events.AuthenticationEvent, error) {
+	if frameType != gorilla.BinaryMessage {
+		return events.AuthenticationEvent{}, fmt.Errorf("EuroScope authentication must use a binary websocket frame")
+	}
+	var event euroscope.TokenEvent
+	if err := euroscope.UnmarshalEvent(message, euroscope.Authentication, &event); err != nil {
+		return events.AuthenticationEvent{}, err
+	}
+	return events.AuthenticationEvent{Token: event.Token, Version: event.Version}, nil
+}
+
 func (hub *Hub) GetServer() shared.Server {
 	return hub.server
 }
@@ -439,13 +451,23 @@ func (hub *Hub) SetControllerService(controllerService shared.ControllerService)
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser, authenticationEvent events.AuthenticationEvent) (*Client, error) {
 	slog.Debug("Euroscope client connected", slog.String("cid", user.GetCid()))
 	// Read the login message
-	_, msg, err := conn.ReadMessage()
+	frameType, msg, err := conn.ReadMessage()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read login message: %w", err)
 	}
+	if frameType != gorilla.BinaryMessage {
+		return nil, fmt.Errorf("EuroScope login must use a binary websocket frame")
+	}
+	eventType, loginPayload, err := euroscope.UnmarshalEnvelope(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode login message: %w", err)
+	}
+	if eventType != euroscope.Login {
+		return nil, fmt.Errorf("invalid initial event type, expected login")
+	}
 
 	// Handle the login
-	event, sessionID, err := hub.handleLogin(msg, user)
+	event, sessionID, err := hub.handleLogin(loginPayload, user)
 	if err != nil {
 		return nil, fmt.Errorf("login failed: %w", err)
 	}
@@ -471,7 +493,7 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		airport:     event.Airport,
 		version:     strings.TrimSpace(authenticationEvent.Version),
 		observer:    event.Observer,
-		localIP:     event.LocalIP,
+		localIP:     event.LocalIp,
 	}
 
 	if !event.Observer {
@@ -488,13 +510,8 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 }
 
 func (hub *Hub) handleLogin(msg []byte, user shared.AuthenticatedUser) (event euroscope.LoginEvent, sessionID int32, err error) {
-	err = json.Unmarshal(msg, &event)
+	err = proto.Unmarshal(msg, &event)
 	if err != nil {
-		return
-	}
-
-	if event.Type != euroscope.Login {
-		err = fmt.Errorf("invalid initial event type, expected login")
 		return
 	}
 
@@ -1108,7 +1125,11 @@ func (hub *Hub) BroadcastCdmUpdates(session int32, events []euroscope.CdmUpdateE
 	case 1:
 		hub.Broadcast(session, events[0])
 	default:
-		hub.Broadcast(session, euroscope.CdmUpdateBatchEvent{Updates: events})
+		updates := make([]*euroscope.CdmUpdateEvent, 0, len(events))
+		for i := range events {
+			updates = append(updates, &events[i])
+		}
+		hub.Broadcast(session, euroscope.CdmUpdateBatchEvent{Updates: updates})
 	}
 }
 
@@ -1171,6 +1192,13 @@ func (hub *Hub) RecordEvent(sessionID int32, eventType string, payload interface
 		return rec.RecordEvent(eventType, payload)
 	}
 	return nil // Not recording, no error
+}
+
+func (hub *Hub) RecordProtobufEvent(sessionID int32, eventType string, envelope []byte) error {
+	if rec, ok := hub.recorders[sessionID]; ok {
+		return rec.RecordProtobufEvent(eventType, envelope)
+	}
+	return nil
 }
 
 // StartRecording starts recording for a session

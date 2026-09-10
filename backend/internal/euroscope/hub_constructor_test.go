@@ -26,8 +26,6 @@ func TestNewHubRejectsMissingRequiredDependencies(t *testing.T) {
 
 func TestHubOmitsPDCHandlersUntilFeatureRegistration(t *testing.T) {
 	hub := &Hub{handlers: shared.NewMessageHandlers[euroscopeEvents.EventType, *Client]()}
-	err := hub.handlers.Handle(context.Background(), nil, shared.Message[euroscopeEvents.EventType]{
-		Type: euroscopeEvents.IssuePdcClearance,
-	})
-	require.EqualError(t, err, "no handler for event type: issue_pdc_clearance")
+	err := hub.handlers.Handle(context.Background(), nil, shared.Message[euroscopeEvents.EventType]{Type: euroscopeEvents.IssuePdcClearance})
+	require.EqualError(t, err, "no handler for event type: EVENT_ISSUE_PDC_CLEARANCE")
 }

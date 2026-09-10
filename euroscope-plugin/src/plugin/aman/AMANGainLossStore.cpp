@@ -6,13 +6,11 @@
 
 namespace FlightStrips::aman {
     namespace {
-        auto RequiredTrimmedString(const nlohmann::json& object, const char* key) -> std::string {
-            if (!object.contains(key) || !object.at(key).is_string()) throw std::invalid_argument(key);
-            auto value = object.at(key).get<std::string>();
+        auto RequiredTrimmedString(std::string value, const char* field) -> std::string {
             const auto first = value.find_first_not_of(" \t\r\n");
-            if (first == std::string::npos) throw std::invalid_argument(key);
+            if (first == std::string::npos) throw std::invalid_argument(field);
             const auto last = value.find_last_not_of(" \t\r\n");
-            if (first != 0 || last + 1 != value.size()) throw std::invalid_argument(key);
+            if (first != 0 || last + 1 != value.size()) throw std::invalid_argument(field);
             return value;
         }
     }
@@ -20,11 +18,13 @@ namespace FlightStrips::aman {
     AMANGainLossStore::AMANGainLossStore()
         : snapshot_(std::make_shared<const GainLossSnapshot>()) {}
 
-    void AMANGainLossStore::OnMessages(const std::vector<nlohmann::json>& messages) {
-        for (const auto& message : messages) {
-            if (!message.is_object() || message.value("type", "") != "aman_gain_loss") continue;
+    void AMANGainLossStore::OnMessages(const std::vector<std::string>& messages) {
+        for (const auto& bytes : messages) {
+            flightstrips::euroscope::v1::Envelope envelope;
+            if (!envelope.ParseFromString(bytes) ||
+                envelope.event_case() != flightstrips::euroscope::v1::Envelope::kAmanGainLoss) continue;
             try {
-                auto replacement = Parse(message);
+                auto replacement = Parse(envelope.aman_gain_loss());
                 const auto current = Snapshot();
                 if (!current->hasRevision || replacement->revision > current->revision ||
                     (replacement->revision == current->revision && replacement->authoritative != current->authoritative)) {
@@ -66,46 +66,38 @@ namespace FlightStrips::aman {
         return callsign;
     }
 
-    auto AMANGainLossStore::Parse(const nlohmann::json& message) -> std::shared_ptr<const GainLossSnapshot> {
-        if (!message.contains("version") || !message.at("version").is_number_integer() || message.at("version").get<int>() != 1 ||
-            !message.contains("revision") ||
-            !(message.at("revision").is_number_unsigned() || message.at("revision").is_number_integer()) ||
-            message.at("revision").get<long long>() < 0 ||
-            !message.contains("authoritative") || !message.at("authoritative").is_boolean() ||
-            !message.contains("values") || !message.at("values").is_array()) {
+    auto AMANGainLossStore::Parse(const flightstrips::euroscope::v1::AMANGainLossEvent& message)
+        -> std::shared_ptr<const GainLossSnapshot> {
+        if (message.version() != 1) {
             throw std::invalid_argument("invalid AMAN gain/loss envelope");
         }
 
         auto result = std::make_shared<GainLossSnapshot>();
-        result->version = message.at("version").get<int>();
-        result->revision = message.at("revision").get<unsigned long long>();
+        result->version = message.version();
+        result->revision = message.revision();
         result->hasRevision = true;
-        result->airport = RequiredTrimmedString(message, "airport");
-        result->generatedAt = RequiredTrimmedString(message, "generated_at");
-        result->authoritative = message.at("authoritative").get<bool>();
+        result->airport = RequiredTrimmedString(message.airport(), "airport");
+        result->generatedAt = RequiredTrimmedString(message.generated_at(), "generated_at");
+        result->authoritative = message.authoritative();
 
-        for (const auto& item : message.at("values")) {
-            if (!item.is_object()) throw std::invalid_argument("invalid AMAN gain/loss value");
+        for (const auto& item : message.values()) {
             GainLossValue value;
-            value.flightId = RequiredTrimmedString(item, "flight_id");
-            value.callsign = NormalizeCallsign(RequiredTrimmedString(item, "callsign"));
-            value.dataStatus = RequiredTrimmedString(item, "data_status");
+            value.flightId = RequiredTrimmedString(item.flight_id(), "flight_id");
+            value.callsign = NormalizeCallsign(RequiredTrimmedString(item.callsign(), "callsign"));
+            value.dataStatus = RequiredTrimmedString(item.data_status(), "data_status");
             if (value.dataStatus != "fresh" && value.dataStatus != "stale" && value.dataStatus != "disconnected") {
                 throw std::invalid_argument("invalid AMAN data status");
             }
-            if (!item.contains("gain_loss_seconds") || !item.contains("reference_point") ||
-                !item.contains("target_time") || !item.contains("predicted_time")) {
-                throw std::invalid_argument("missing AMAN presentation value");
-            }
-            if (!item.at("gain_loss_seconds").is_null()) {
-                if (!item.at("gain_loss_seconds").is_number_integer()) throw std::invalid_argument("invalid gain/loss value");
-                value.seconds = item.at("gain_loss_seconds").get<long long>();
-                value.referencePoint = RequiredTrimmedString(item, "reference_point");
-                value.targetTime = RequiredTrimmedString(item, "target_time");
-                value.predictedTime = RequiredTrimmedString(item, "predicted_time");
-            } else if (!item.at("reference_point").is_null() || !item.at("target_time").is_null() ||
-                       !item.at("predicted_time").is_null()) {
+            const auto hasPresentation = item.has_gain_loss_seconds();
+            if (hasPresentation != item.has_reference_point() || hasPresentation != item.has_target_time() ||
+                hasPresentation != item.has_predicted_time()) {
                 throw std::invalid_argument("partial AMAN presentation value");
+            }
+            if (hasPresentation) {
+                value.seconds = item.gain_loss_seconds();
+                value.referencePoint = RequiredTrimmedString(item.reference_point(), "reference_point");
+                value.targetTime = RequiredTrimmedString(item.target_time(), "target_time");
+                value.predictedTime = RequiredTrimmedString(item.predicted_time(), "predicted_time");
             }
             if (!result->byFlightId.emplace(value.flightId, value).second ||
                 !result->flightIdByCallsign.emplace(value.callsign, value.flightId).second) {

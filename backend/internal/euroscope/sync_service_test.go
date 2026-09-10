@@ -330,7 +330,7 @@ func TestEuroscopeSyncServiceApplySync_MasterRunwaysRecalculateSession(t *testin
 		IsMaster:    true,
 		HasMaster:   true,
 		Event: esEvents.SyncEvent{
-			Runways: []esEvents.SyncRunway{
+			Runways: []*esEvents.Runway{
 				{Name: "22L", Departure: true},
 				{Name: "04R", Arrival: true},
 			},
@@ -413,7 +413,7 @@ func TestEuroscopeSyncServiceApplySync_SlaveRunwaysDoNotPersist(t *testing.T) {
 		IsMaster:    false,
 		HasMaster:   true,
 		Event: esEvents.SyncEvent{
-			Runways: []esEvents.SyncRunway{
+			Runways: []*esEvents.Runway{
 				{Name: "22L", Departure: true},
 				{Name: "04R", Arrival: true},
 			},
@@ -494,10 +494,7 @@ func TestEuroscopeSyncServiceApplySync_ChangedControllersTriggerOrchestration(t 
 		Callsign:    "EKCH_TWR",
 		Position:    "118.700",
 		Event: esEvents.SyncEvent{
-			Controllers: []struct {
-				Position string `json:"position"`
-				Callsign string `json:"callsign"`
-			}{
+			Controllers: []*esEvents.Controller{
 				{Callsign: "EKCH_A_GND", Position: "121.800"},
 			},
 		},
@@ -574,7 +571,7 @@ func TestEuroscopeSyncServiceApplySync_FinalizesChangedStrips(t *testing.T) {
 		Callsign:    "EKCH_TWR",
 		Position:    "118.700",
 		Event: esEvents.SyncEvent{
-			Strips: []esEvents.Strip{
+			Strips: []*esEvents.Strip{
 				{Callsign: "SAS123"},
 			},
 		},
@@ -642,7 +639,7 @@ func TestEuroscopeSyncServiceApplySync_DynamicMasterStatusOverridesStaleRequestS
 		IsMaster:    true,
 		HasMaster:   true,
 		Event: esEvents.SyncEvent{
-			Runways: []esEvents.SyncRunway{
+			Runways: []*esEvents.Runway{
 				{Name: "22L", Departure: true},
 			},
 		},

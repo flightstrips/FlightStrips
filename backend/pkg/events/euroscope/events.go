@@ -2,75 +2,80 @@ package euroscope
 
 import (
 	"FlightStrips/pkg/events"
-	"FlightStrips/pkg/models"
-	"encoding/json"
-)
-
-type EventType string
-
-const (
-	Authentication            EventType = "token"
-	Login                     EventType = "login"
-	ControllerOnline          EventType = "controller_online"
-	ControllerOffline         EventType = "controller_offline"
-	Sync                      EventType = "sync"
-	AssignedSquawk            EventType = "assigned_squawk"
-	Squawk                    EventType = "squawk"
-	RequestedAltitude         EventType = "requested_altitude"
-	ClearedAltitude           EventType = "cleared_altitude"
-	CommunicationType         EventType = "communication_type"
-	GroundState               EventType = "ground_state"
-	ClearedFlag               EventType = "cleared_flag"
-	PositionUpdate            EventType = "aircraft_position_update"
-	SetHeading                EventType = "heading"
-	AircraftDisconnected      EventType = "aircraft_disconnect"
-	Stand                     EventType = "stand"
-	Hold                      EventType = "hold"
-	StripUpdate               EventType = "strip_update"
-	Runway                    EventType = "runway"
-	AircraftRunway            EventType = "aircraft_runway"
-	SessionInfo               EventType = "session_info"
-	RunwayMismatchAlert       EventType = "runway_mismatch_alert"
-	CdmUpdate                 EventType = "cdm_update"
-	CdmUpdateBatch            EventType = "cdm_update_batch"
-	CdmTobtUpdate             EventType = "cdm_tobt_update"
-	CdmDeiceUpdate            EventType = "cdm_deice_update"
-	CdmManualCtot             EventType = "cdm_manual_ctot"
-	CdmCtotRemove             EventType = "cdm_ctot_remove"
-	CdmAsrtToggle             EventType = "cdm_asrt_toggle"
-	CdmTsacUpdate             EventType = "cdm_tsac_update"
-	CdmReady                  EventType = "cdm_ready"
-	GenerateSquawk            EventType = "generate_squawk"
-	Eobt                      EventType = "eobt"
-	Route                     EventType = "route"
-	Remarks                   EventType = "remarks"
-	AircraftInfo              EventType = "aircraft_info"
-	AircraftInfoRemarks       EventType = "aircraft_info_remarks"
-	Sid                       EventType = "sid"
-	CoordinationHandover      EventType = "coordination_handover"
-	TrackingControllerChanged EventType = "tracking_controller_changed"
-	CoordinationReceived      EventType = "coordination_received"
-	AssumeOnly                EventType = "assume_only"
-	AssumeAndDrop             EventType = "assume_and_drop"
-	DropTracking              EventType = "drop_tracking"
-	BackendSync               EventType = "backend_sync"
-	CreateFPL                 EventType = "create_fpl"
-	PdcStateChange            EventType = "pdc_state_change"
-	IssuePdcClearance         EventType = "issue_pdc_clearance"
-	PdcRevertToVoice          EventType = "pdc_revert_to_voice"
-	SendPrivateMessage        EventType = "send_private_message"
-	AMANGainLoss              EventType = "aman_gain_loss"
-	AMANRouteFact             EventType = "aman.route_fact"
+	"fmt"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"strings"
 )
 
 const (
-	GroundStateUnknown = ""
-	GroundStateStartup = "ST-UP"
-	GroundStatePush    = "PUSH"
-	GroundStateTaxi    = "TAXI"
-	GroundStateLineup  = "LINEUP"
-	GroundStateDepart  = "DEPA"
-	GroundStateParked  = "PARK"
+	Authentication            = EventType_EVENT_TOKEN
+	Login                     = EventType_EVENT_LOGIN
+	ControllerOnline          = EventType_EVENT_CONTROLLER_ONLINE
+	ControllerOffline         = EventType_EVENT_CONTROLLER_OFFLINE
+	Sync                      = EventType_EVENT_SYNC
+	AssignedSquawk            = EventType_EVENT_ASSIGNED_SQUAWK
+	Squawk                    = EventType_EVENT_SQUAWK
+	RequestedAltitude         = EventType_EVENT_REQUESTED_ALTITUDE
+	ClearedAltitude           = EventType_EVENT_CLEARED_ALTITUDE
+	CommunicationType         = EventType_EVENT_COMMUNICATION_TYPE
+	GroundState               = EventType_EVENT_GROUND_STATE
+	ClearedFlag               = EventType_EVENT_CLEARED_FLAG
+	PositionUpdate            = EventType_EVENT_AIRCRAFT_POSITION_UPDATE
+	SetHeading                = EventType_EVENT_HEADING
+	AircraftDisconnected      = EventType_EVENT_AIRCRAFT_DISCONNECT
+	Stand                     = EventType_EVENT_STAND
+	TrackingControllerChanged = EventType_EVENT_TRACKING_CONTROLLER_CHANGED
+	StripUpdate               = EventType_EVENT_STRIP_UPDATE
+	RunwayType                = EventType_EVENT_RUNWAY
+	SessionInfo               = EventType_EVENT_SESSION_INFO
+	RunwayMismatchAlert       = EventType_EVENT_RUNWAY_MISMATCH_ALERT
+	GenerateSquawk            = EventType_EVENT_GENERATE_SQUAWK
+	Eobt                      = EventType_EVENT_EOBT
+	Route                     = EventType_EVENT_ROUTE
+	Remarks                   = EventType_EVENT_REMARKS
+	AircraftInfo              = EventType_EVENT_AIRCRAFT_INFO
+	AircraftInfoRemarks       = EventType_EVENT_AIRCRAFT_INFO_REMARKS
+	Sid                       = EventType_EVENT_SID
+	AircraftRunway            = EventType_EVENT_AIRCRAFT_RUNWAY
+	CoordinationHandover      = EventType_EVENT_COORDINATION_HANDOVER
+	CoordinationReceived      = EventType_EVENT_COORDINATION_RECEIVED
+	AssumeOnly                = EventType_EVENT_ASSUME_ONLY
+	AssumeAndDrop             = EventType_EVENT_ASSUME_AND_DROP
+	DropTracking              = EventType_EVENT_DROP_TRACKING
+	BackendSync               = EventType_EVENT_BACKEND_SYNC
+	CreateFPL                 = EventType_EVENT_CREATE_FPL
+	CdmUpdate                 = EventType_EVENT_CDM_UPDATE
+	CdmUpdateBatch            = EventType_EVENT_CDM_UPDATE_BATCH
+	CdmTobtUpdate             = EventType_EVENT_CDM_TOBT_UPDATE
+	CdmAsrtToggle             = EventType_EVENT_CDM_ASRT_TOGGLE
+	CdmTsacUpdate             = EventType_EVENT_CDM_TSAC_UPDATE
+	CdmDeiceUpdate            = EventType_EVENT_CDM_DEICE_UPDATE
+	CdmManualCtot             = EventType_EVENT_CDM_MANUAL_CTOT
+	CdmCtotRemove             = EventType_EVENT_CDM_CTOT_REMOVE
+	CdmReady                  = EventType_EVENT_CDM_READY
+	PdcStateChange            = EventType_EVENT_PDC_STATE_CHANGE
+	IssuePdcClearance         = EventType_EVENT_ISSUE_PDC_CLEARANCE
+	PdcRevertToVoice          = EventType_EVENT_PDC_REVERT_TO_VOICE
+	SendPrivateMessage        = EventType_EVENT_SEND_PRIVATE_MESSAGE
+	Hold                      = EventType_EVENT_HOLD
+	AMANGainLoss              = EventType_EVENT_AMAN_GAIN_LOSS
+	AMANRouteFact             = EventType_EVENT_AMAN_ROUTE_FACT
+)
+
+type SyncRunway = Runway
+
+const (
+	GroundStateUnknown  = ""
+	GroundStateStartup  = "ST-UP"
+	GroundStatePush     = "PUSH"
+	GroundStateTaxi     = "TAXI"
+	GroundStateLineup   = "LINEUP"
+	GroundStateDepart   = "DEPA"
+	GroundStateParked   = "PARK"
+	SessionInfoMaster   = "master"
+	SessionInfoSlave    = "slave"
+	SessionInfoObserver = "observer"
 )
 
 type OutgoingMessage interface {
@@ -78,753 +83,236 @@ type OutgoingMessage interface {
 	GetType() EventType
 }
 
-type AMANGainLossValue struct {
-	FlightID        string  `json:"flight_id"`
-	Callsign        string  `json:"callsign"`
-	GainLossSeconds *int64  `json:"gain_loss_seconds"`
-	ReferencePoint  *string `json:"reference_point"`
-	TargetTime      *string `json:"target_time"`
-	PredictedTime   *string `json:"predicted_time"`
-	DataStatus      string  `json:"data_status"`
+type typedProtoMessage interface {
+	proto.Message
+	GetType() EventType
 }
 
-// AMANGainLossEvent is the complete, backend-derived replacement consumed by
-// EuroScope. Absolute presentation times share the exact backend reference
-// point used for gain/loss, so the plugin never needs to predict a trajectory.
-type AMANGainLossEvent struct {
-	Type          EventType           `json:"type"`
-	Version       int                 `json:"version"`
-	Airport       string              `json:"airport"`
-	Revision      uint64              `json:"revision"`
-	GeneratedAt   string              `json:"generated_at"`
-	Authoritative bool                `json:"authoritative"`
-	Values        []AMANGainLossValue `json:"values"`
+func marshalMessage(message typedProtoMessage) ([]byte, error) {
+	return MarshalEnvelope(message, message.GetType())
 }
 
-type AMANRouteFactData struct {
-	Callsign    string  `json:"callsign"`
-	Kind        string  `json:"kind"`
-	DirectToFix *string `json:"direct_to_fix"`
-	ObservedAt  string  `json:"observed_at"`
-}
-
-type AMANRouteFactEvent struct {
-	Type    EventType         `json:"type"`
-	Version int               `json:"version"`
-	Data    AMANRouteFactData `json:"data"`
-}
-
-func marshall[T OutgoingMessage](message T) (result []byte, err error) {
-	// This is really hacky
-	original, err := json.Marshal(message)
-	if err != nil {
-		return
+func MarshalEnvelope(message proto.Message, eventType EventType) ([]byte, error) {
+	envelope := &Envelope{}
+	oneof := envelope.ProtoReflect().Descriptor().Oneofs().ByName("event")
+	field := oneof.Fields().ByNumber(protoreflect.FieldNumber(eventType))
+	if field == nil || field.Message().FullName() != message.ProtoReflect().Descriptor().FullName() {
+		return nil, fmt.Errorf("protobuf event %s does not match envelope field %d", message.ProtoReflect().Descriptor().FullName(), eventType)
 	}
 
-	var properties map[string]interface{}
-	err = json.Unmarshal(original, &properties)
-	if err != nil {
-		return
+	envelope.ProtoReflect().Set(field, protoreflect.ValueOfMessage(message.ProtoReflect()))
+	return proto.Marshal(envelope)
+}
+
+func UnmarshalEnvelope(data []byte) (EventType, []byte, error) {
+	var envelope Envelope
+	if err := proto.Unmarshal(data, &envelope); err != nil {
+		return EventType_EVENT_UNKNOWN, nil, err
 	}
 
-	properties["type"] = message.GetType()
-	return json.Marshal(properties)
+	reflection := envelope.ProtoReflect()
+	field := reflection.WhichOneof(reflection.Descriptor().Oneofs().ByName("event"))
+	if field == nil {
+		return EventType_EVENT_UNKNOWN, nil, fmt.Errorf("protobuf envelope contains no event")
+	}
+	payload, err := proto.Marshal(reflection.Get(field).Message().Interface())
+	if err != nil {
+		return EventType_EVENT_UNKNOWN, nil, err
+	}
+	return EventType(field.Number()), payload, nil
 }
 
-type LoginEvent struct {
-	Type       EventType `json:"type"`
-	Connection string    `json:"connection"`
-	Airport    string    `json:"airport"`
-	Position   string    `json:"position"`
-	Callsign   string    `json:"callsign"`
-	Range      int32     `json:"range"`
-	Observer   bool      `json:"observer"`
-	LocalIP    string    `json:"local_ip,omitempty"`
+func UnmarshalEvent(data []byte, expected EventType, target proto.Message) error {
+	eventType, payload, err := UnmarshalEnvelope(data)
+	if err != nil {
+		return err
+	}
+	if eventType != expected {
+		return fmt.Errorf("unexpected protobuf event %s, expected %s", eventType, expected)
+	}
+	return proto.Unmarshal(payload, target)
 }
 
-type ControllerOnlineEvent struct {
-	Type     EventType `json:"type"`
-	Position string    `json:"position"`
-	Callsign string    `json:"callsign"`
+func EventName(eventType EventType) string {
+	return strings.ToLower(strings.TrimPrefix(eventType.String(), "EVENT_"))
 }
 
-type ControllerOfflineEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-}
-
-type Strip struct {
-	Callsign          string `json:"callsign"`
-	Origin            string `json:"origin"`
-	Destination       string `json:"destination"`
-	Alternate         string `json:"alternate"`
-	Route             string `json:"route"`
-	Remarks           string `json:"remarks"`
-	Runway            string `json:"runway"`
-	Squawk            string `json:"squawk"`
-	AssignedSquawk    string `json:"assigned_squawk"`
-	Sid               string `json:"sid"`
-	Star              string `json:"star"`
-	Cleared           bool   `json:"cleared"`
-	GroundState       string `json:"ground_state"`
-	ClearedAltitude   int32  `json:"cleared_altitude"`
-	RequestedAltitude int32  `json:"requested_altitude"`
-	Heading           int32  `json:"heading"`
-	AircraftType      string `json:"aircraft_type"`
-	AircraftCategory  string `json:"aircraft_category"`
-	SpokenCallsign    string `json:"spoken_callsign"`
-	Position          struct {
-		Lat      float64 `json:"lat"`
-		Lon      float64 `json:"lon"`
-		Altitude int32   `json:"altitude"`
-	} `json:"position"`
-	Stand              string `json:"stand"`
-	Capabilities       string `json:"capabilities"`
-	CommunicationType  string `json:"communication_type"`
-	Eobt               string `json:"eobt"`
-	Eldt               string `json:"eldt"`
-	TrackingController string `json:"tracking_controller"`
-	EngineType         string `json:"engine_type"`
-	HasFP              bool   `json:"has_fp"`
-	// HoldSupported distinguishes an explicit empty hold from an older plugin
-	// that does not send hold state during synchronization.
-	HoldSupported bool `json:"hold_supported"`
-	// TopSky holding clearance. Empty means not holding.
-	Hold     string `json:"hold"`
-	HoldType string `json:"hold_type"`
-	HoldEat  string `json:"hold_eat"`
-}
-
-type SyncRunway struct {
-	Arrival   bool   `json:"arrival"`
-	Departure bool   `json:"departure"`
-	Name      string `json:"name"`
-}
-
-type SyncEvent struct {
-	Type        EventType `json:"type"`
-	Controllers []struct {
-		Position string `json:"position"`
-		Callsign string `json:"callsign"`
-	} `json:"controllers"`
-	Strips  []Strip          `json:"strips"`
-	Runways []SyncRunway     `json:"runways"`
-	Sids    []models.SidInfo `json:"sids"`
-}
-
-type AssignedSquawkEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Squawk   string    `json:"squawk"`
-}
-
-type SquawkEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Squawk   string    `json:"squawk"`
-}
-
-type ClearedAltitudeEvent struct {
-	Type     EventType `json:"type"`
-	Altitude int32     `json:"altitude"`
-	Callsign string    `json:"callsign"`
-}
-
-type RequestedAltitudeEvent struct {
-	Type     EventType `json:"type"`
-	Altitude int32     `json:"altitude"`
-	Callsign string    `json:"callsign"`
-}
-
-type CommunicationTypeEvent struct {
-	Type              EventType `json:"type"`
-	Callsign          string    `json:"callsign"`
-	CommunicationType string    `json:"communication_type"`
-}
-
-type GroundStateEvent struct {
-	Type        EventType `json:"type"`
-	Callsign    string    `json:"callsign"`
-	GroundState string    `json:"ground_state"`
-}
-
-type ClearedFlagEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Cleared  bool      `json:"cleared"`
-}
-
-type AircraftPositionUpdateEvent struct {
-	Type     EventType `json:"type"`
-	Altitude int64     `json:"altitude"`
-	Callsign string    `json:"callsign"`
-	Lat      float64   `json:"lat"`
-	Lon      float64   `json:"lon"`
-}
-
-type TrackingControllerChangedEvent struct {
-	Type               EventType `json:"type"`
-	Callsign           string    `json:"callsign"`
-	TrackingController string    `json:"tracking_controller"`
-}
-
-type CoordinationReceivedEvent struct {
-	Type                     EventType `json:"type"`
-	Callsign                 string    `json:"callsign"`
-	ControllerCallsign       string    `json:"controller_callsign"`
-	SourceControllerCallsign string    `json:"source_controller_callsign"`
-}
-
-type AssumeOnlyEvent struct {
-	Callsign string `json:"callsign"`
-}
-
-type AssumeAndDropEvent struct {
-	Callsign string `json:"callsign"`
-}
-
-type DropTrackingEvent struct {
-	Callsign string `json:"callsign"`
-}
-
-type HeadingEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Heading  int32     `json:"heading"`
-}
-
-type AircraftDisconnectEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-}
-
-type StandEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Stand    string    `json:"stand"`
-}
-
-// An empty Hold means the clearance was cancelled.
-type HoldEvent struct {
-	Type     EventType `json:"type"`
-	Callsign string    `json:"callsign"`
-	Hold     string    `json:"hold"`
-	HoldType string    `json:"hold_type"`
-	HoldEat  string    `json:"hold_eat"`
-}
-
-type StripUpdateEvent struct {
-	Type EventType `json:"type"`
-	Strip
-}
-
-type RunwayEvent struct {
-	Type    EventType    `json:"type"`
-	Runways []SyncRunway `json:"runways"`
-}
-
-type SessionInfoRole string
-
-const (
-	SessionInfoMaster   SessionInfoRole = "master"
-	SessionInfoSlave    SessionInfoRole = "slave"
-	SessionInfoObserver SessionInfoRole = "observer"
-)
-
-type SessionInfoEvent struct {
-	Role SessionInfoRole `json:"role"`
-}
-
-func (e SessionInfoEvent) GetType() EventType {
-	return SessionInfo
-}
-
+func (e SessionInfoEvent) GetType() EventType { return SessionInfo }
 func (e SessionInfoEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-type RunwayMismatchAlertEvent struct {
-	ExpectedDeparture []string `json:"expected_departure"`
-	ExpectedArrival   []string `json:"expected_arrival"`
-	CurrentDeparture  []string `json:"current_departure"`
-	CurrentArrival    []string `json:"current_arrival"`
-}
-
-func (e RunwayMismatchAlertEvent) GetType() EventType {
-	return RunwayMismatchAlert
-}
-
+func (e RunwayMismatchAlertEvent) GetType() EventType { return RunwayMismatchAlert }
 func (e RunwayMismatchAlertEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-type GenerateSquawkEvent struct {
-	Callsign string `json:"callsign"`
-}
-
-type EobtEvent struct {
-	Callsign string `json:"callsign"`
-	Eobt     string `json:"eobt"`
-}
-
-type EcfmpRestrictionDTO struct {
-	MeasureID   int64    `json:"measure_id,omitempty"`
-	Ident       string   `json:"ident,omitempty"`
-	Type        string   `json:"type"`
-	Reason      string   `json:"reason,omitempty"`
-	Routes      []string `json:"routes,omitempty"`
-	Destination string   `json:"destination,omitempty"`
-	MaxLevel    *int     `json:"max_level,omitempty"`
-	MinLevel    *int     `json:"min_level,omitempty"`
-	ExactLevels []int    `json:"exact_levels,omitempty"`
-	HasCtot     bool     `json:"has_ctot,omitempty"`
-}
-
-type CdmUpdateEvent struct {
-	Callsign              string `json:"callsign"`
-	Eobt                  string `json:"eobt,omitempty"`
-	Tobt                  string `json:"tobt,omitempty"`
-	TobtSetBy             string `json:"tobt_set_by,omitempty"`
-	TobtConfirmedBy       string `json:"tobt_confirmed_by,omitempty"`
-	Tsat                  string `json:"tsat,omitempty"`
-	Ttot                  string `json:"ttot,omitempty"`
-	Ctot                  string `json:"ctot,omitempty"`
-	CtotSource            string `json:"ctot_source,omitempty"`
-	Asat                  string `json:"asat,omitempty"`
-	Asrt                  string `json:"asrt,omitempty"`
-	Tsac                  string `json:"tsac,omitempty"`
-	Status                string `json:"status,omitempty"`
-	EcfmpID               string `json:"ecfmp_id,omitempty"`
-	Phase                 string `json:"phase,omitempty"`
-	EcfmpRestrictionsJSON string `json:"ecfmp_restrictions_json,omitempty"`
-}
-
-type CdmUpdateBatchEvent struct {
-	Updates []CdmUpdateEvent `json:"updates"`
-}
-
-type CdmTobtUpdateEvent struct {
-	Callsign string `json:"callsign"`
-	Tobt     string `json:"tobt"`
-}
-
-type CdmDeiceUpdateEvent struct {
-	Callsign  string `json:"callsign"`
-	DeiceType string `json:"deice_type"`
-}
-
-type CdmManualCtotEvent struct {
-	Callsign string `json:"callsign"`
-	Ctot     string `json:"ctot"`
-}
-
-type CdmCtotRemoveEvent struct {
-	Callsign string `json:"callsign"`
-}
-
-type CdmReadyEvent struct {
-	Callsign string `json:"callsign"`
-}
-
-type BackendSyncCdmData struct {
-	Eobt                  string `json:"eobt,omitempty"`
-	Tobt                  string `json:"tobt,omitempty"`
-	TobtSetBy             string `json:"tobt_set_by,omitempty"`
-	TobtConfirmedBy       string `json:"tobt_confirmed_by,omitempty"`
-	Tsat                  string `json:"tsat,omitempty"`
-	Ttot                  string `json:"ttot,omitempty"`
-	Ctot                  string `json:"ctot,omitempty"`
-	CtotSource            string `json:"ctot_source,omitempty"`
-	Asat                  string `json:"asat,omitempty"`
-	Asrt                  string `json:"asrt,omitempty"`
-	Tsac                  string `json:"tsac,omitempty"`
-	Status                string `json:"status,omitempty"`
-	EcfmpID               string `json:"ecfmp_id,omitempty"`
-	Phase                 string `json:"phase,omitempty"`
-	EcfmpRestrictionsJSON string `json:"ecfmp_restrictions_json,omitempty"`
-}
-
-type CdmAsrtToggleEvent struct {
-	Callsign string `json:"callsign"`
-	Asrt     string `json:"asrt"`
-}
-
-type CdmTsacUpdateEvent struct {
-	Callsign string `json:"callsign"`
-	Tsac     string `json:"tsac"`
-}
-
-func (e CdmAsrtToggleEvent) GetType() EventType {
-	return CdmAsrtToggle
-}
-
+func (e CdmAsrtToggleEvent) GetType() EventType { return CdmAsrtToggle }
 func (e CdmAsrtToggleEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CdmTsacUpdateEvent) GetType() EventType {
-	return CdmTsacUpdate
-}
-
+func (e CdmTsacUpdateEvent) GetType() EventType { return CdmTsacUpdate }
 func (e CdmTsacUpdateEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CdmUpdateEvent) GetType() EventType {
-	return CdmUpdate
-}
-
+func (e CdmUpdateEvent) GetType() EventType { return CdmUpdate }
 func (e CdmUpdateEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CdmUpdateBatchEvent) GetType() EventType {
-	return CdmUpdateBatch
-}
-
+func (e CdmUpdateBatchEvent) GetType() EventType { return CdmUpdateBatch }
 func (e CdmUpdateBatchEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CdmTobtUpdateEvent) GetType() EventType {
-	return CdmTobtUpdate
-}
-
+func (e CdmTobtUpdateEvent) GetType() EventType { return CdmTobtUpdate }
 func (e CdmTobtUpdateEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CdmDeiceUpdateEvent) GetType() EventType {
-	return CdmDeiceUpdate
-}
-
+func (e CdmDeiceUpdateEvent) GetType() EventType { return CdmDeiceUpdate }
 func (e CdmDeiceUpdateEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CdmManualCtotEvent) GetType() EventType {
-	return CdmManualCtot
-}
-
+func (e CdmManualCtotEvent) GetType() EventType { return CdmManualCtot }
 func (e CdmManualCtotEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CdmCtotRemoveEvent) GetType() EventType {
-	return CdmCtotRemove
-}
-
+func (e CdmCtotRemoveEvent) GetType() EventType { return CdmCtotRemove }
 func (e CdmCtotRemoveEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CdmReadyEvent) GetType() EventType {
-	return CdmReady
-}
-
+func (e CdmReadyEvent) GetType() EventType { return CdmReady }
 func (e CdmReadyEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e GenerateSquawkEvent) GetType() EventType {
-	return GenerateSquawk
-}
-
+func (e GenerateSquawkEvent) GetType() EventType { return GenerateSquawk }
 func (e GenerateSquawkEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e EobtEvent) GetType() EventType {
-	return Eobt
-}
-
+func (e EobtEvent) GetType() EventType { return Eobt }
 func (e EobtEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e GroundStateEvent) GetType() EventType {
-	return GroundState
-}
-
+func (e GroundStateEvent) GetType() EventType { return GroundState }
 func (e GroundStateEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e ClearedFlagEvent) GetType() EventType {
-	return ClearedFlag
-}
-
+func (e ClearedFlagEvent) GetType() EventType { return ClearedFlag }
 func (e ClearedFlagEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e AssignedSquawkEvent) GetType() EventType {
-	return AssignedSquawk
-}
-
+func (e AssignedSquawkEvent) GetType() EventType { return AssignedSquawk }
 func (e AssignedSquawkEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e RequestedAltitudeEvent) GetType() EventType {
-	return RequestedAltitude
-}
-
+func (e RequestedAltitudeEvent) GetType() EventType { return RequestedAltitude }
 func (e RequestedAltitudeEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e ClearedAltitudeEvent) GetType() EventType {
-	return ClearedAltitude
-}
-
+func (e ClearedAltitudeEvent) GetType() EventType { return ClearedAltitude }
 func (e ClearedAltitudeEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CommunicationTypeEvent) GetType() EventType {
-	return CommunicationType
-}
-
+func (e CommunicationTypeEvent) GetType() EventType { return CommunicationType }
 func (e CommunicationTypeEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e HeadingEvent) GetType() EventType {
-	return SetHeading
-}
-
+func (e HeadingEvent) GetType() EventType { return SetHeading }
 func (e HeadingEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e StandEvent) GetType() EventType {
-	return Stand
-}
-
+func (e StandEvent) GetType() EventType { return Stand }
 func (e StandEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-type RouteEvent struct {
-	Callsign string `json:"callsign"`
-	Route    string `json:"route"`
-}
-
-type RemarksEvent struct {
-	Callsign string `json:"callsign"`
-	Remarks  string `json:"remarks"`
-}
-
-type AircraftInfoEvent struct {
-	Callsign     string `json:"callsign"`
-	AircraftType string `json:"aircraft_type"`
-}
-
-type AircraftInfoRemarksEvent struct {
-	Callsign     string `json:"callsign"`
-	AircraftType string `json:"aircraft_type"`
-	Remarks      string `json:"remarks"`
-}
-
-type SidEvent struct {
-	Callsign string `json:"callsign"`
-	Sid      string `json:"sid"`
-}
-
-type AircraftRunwayEvent struct {
-	Callsign string `json:"callsign"`
-	Runway   string `json:"runway"`
-}
-
-type CoordinationHandoverEvent struct {
-	Callsign       string `json:"callsign"`
-	TargetCallsign string `json:"target_callsign"`
-}
-
-func (e RouteEvent) GetType() EventType {
-	return Route
-}
-
+func (e RouteEvent) GetType() EventType { return Route }
 func (e RouteEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e RemarksEvent) GetType() EventType {
-	return Remarks
-}
-
+func (e RemarksEvent) GetType() EventType { return Remarks }
 func (e RemarksEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e AircraftInfoEvent) GetType() EventType {
-	return AircraftInfo
-}
-
+func (e AircraftInfoEvent) GetType() EventType { return AircraftInfo }
 func (e AircraftInfoEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e AircraftInfoRemarksEvent) GetType() EventType {
-	return AircraftInfoRemarks
-}
-
+func (e AircraftInfoRemarksEvent) GetType() EventType { return AircraftInfoRemarks }
 func (e AircraftInfoRemarksEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e SidEvent) GetType() EventType {
-	return Sid
-}
-
+func (e SidEvent) GetType() EventType { return Sid }
 func (e SidEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e AircraftRunwayEvent) GetType() EventType {
-	return AircraftRunway
-}
-
+func (e AircraftRunwayEvent) GetType() EventType { return AircraftRunway }
 func (e AircraftRunwayEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e TrackingControllerChangedEvent) GetType() EventType {
-	return TrackingControllerChanged
-}
-
+func (e TrackingControllerChangedEvent) GetType() EventType { return TrackingControllerChanged }
 func (e TrackingControllerChangedEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e AssumeOnlyEvent) GetType() EventType {
-	return AssumeOnly
-}
-
+func (e AssumeOnlyEvent) GetType() EventType { return AssumeOnly }
 func (e AssumeOnlyEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e AssumeAndDropEvent) GetType() EventType {
-	return AssumeAndDrop
-}
-
+func (e AssumeAndDropEvent) GetType() EventType { return AssumeAndDrop }
 func (e AssumeAndDropEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e DropTrackingEvent) GetType() EventType {
-	return DropTracking
-}
-
+func (e DropTrackingEvent) GetType() EventType { return DropTracking }
 func (e DropTrackingEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-func (e CoordinationHandoverEvent) GetType() EventType {
-	return CoordinationHandover
-}
-
+func (e CoordinationHandoverEvent) GetType() EventType { return CoordinationHandover }
 func (e CoordinationHandoverEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-// BackendSyncStrip holds the backend-authoritative state for a single aircraft
-// that the connecting EuroScope client must apply locally.
-type BackendSyncStrip struct {
-	Callsign          string             `json:"callsign"`
-	AssignedSquawk    string             `json:"assigned_squawk"`
-	Cleared           bool               `json:"cleared"`
-	GroundState       string             `json:"ground_state"`
-	Stand             string             `json:"stand"`
-	Cdm               BackendSyncCdmData `json:"cdm"`
-	PdcState          string             `json:"pdc_state,omitempty"`
-	PdcRequestRemarks string             `json:"pdc_request_remarks,omitempty"`
-}
-
-// BackendSyncEvent is sent by the backend to every connecting EuroScope client
-// immediately before the session_info event. It contains all strips in the session
-// with the state fields that EuroScope must reflect locally.
-type BackendSyncEvent struct {
-	Strips    []BackendSyncStrip `json:"strips"`
-	Latitude  float64            `json:"latitude"`
-	Longitude float64            `json:"longitude"`
-}
-
-func (e BackendSyncEvent) GetType() EventType {
-	return BackendSync
-}
-
+func (e BackendSyncEvent) GetType() EventType { return BackendSync }
 func (e BackendSyncEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-// CreateFPLEvent instructs EuroScope to create a flight plan in its session.
-type CreateFPLEvent struct {
-	Callsign          string `json:"callsign"`
-	Origin            string `json:"origin"`
-	Destination       string `json:"destination"`
-	AlternateAD       string `json:"alternate_ad"`
-	Sid               string `json:"sid"`
-	AssignedSquawk    string `json:"assigned_squawk"`
-	Eobt              string `json:"eobt"`
-	AircraftType      string `json:"aircraft_type"`
-	RequestedAltitude int32  `json:"requested_altitude"`
-	Route             string `json:"route"`
-	Stand             string `json:"stand"`
-	Runway            string `json:"runway"`
-	Remarks           string `json:"remarks"`
-	PersonsOnBoard    int    `json:"persons_on_board"`
-	FplType           string `json:"fpl_type"`
-	Language          string `json:"language"`
-}
-
-func (e CreateFPLEvent) GetType() EventType {
-	return CreateFPL
-}
-
+func (e CreateFPLEvent) GetType() EventType { return CreateFPL }
 func (e CreateFPLEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-// PdcStateChangeEvent is sent by the backend to EuroScope clients when PDC state changes.
-type PdcStateChangeEvent struct {
-	Callsign          string `json:"callsign"`
-	State             string `json:"state"`
-	PdcRequestRemarks string `json:"pdc_request_remarks,omitempty"`
-}
-
-func (e PdcStateChangeEvent) GetType() EventType {
-	return PdcStateChange
-}
-
+func (e PdcStateChangeEvent) GetType() EventType { return PdcStateChange }
 func (e PdcStateChangeEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }
 
-// IssuePdcClearanceEvent is sent by the EuroScope plugin to issue a PDC clearance.
-type IssuePdcClearanceEvent struct {
-	Callsign string `json:"callsign"`
-	Remarks  string `json:"remarks"`
-}
-
-// PdcRevertToVoiceEvent is sent by the EuroScope plugin to revert PDC to voice.
-type PdcRevertToVoiceEvent struct {
-	Callsign string `json:"callsign"`
-}
-
-// SendPrivateMessageEvent is sent by the frontend/backend to request a private
-// message be sent via EuroScope's .msg command.
-type SendPrivateMessageEvent struct {
-	Callsign string `json:"callsign"`
-	Message  string `json:"message"`
-}
-
-func (e SendPrivateMessageEvent) GetType() EventType {
-	return SendPrivateMessage
-}
-
+func (e SendPrivateMessageEvent) GetType() EventType { return SendPrivateMessage }
 func (e SendPrivateMessageEvent) Marshal() ([]byte, error) {
-	return marshall(e)
+	return marshalMessage(&e)
 }

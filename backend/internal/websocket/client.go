@@ -5,12 +5,14 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/constants"
 	"FlightStrips/pkg/events"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	frontend "FlightStrips/pkg/events/frontend"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -69,10 +71,14 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 	})
 
 	for {
-		_, message, err := client.GetConnection().ReadMessage()
+		frameType, message, err := client.GetConnection().ReadMessage()
 		if err != nil {
 			logReadError(client, err)
 			break
+		}
+		if isEuroscopeType[TType]() && frameType != websocket.BinaryMessage {
+			slog.Warn("Rejected non-binary EuroScope websocket message")
+			continue
 		}
 
 		// Record the message if recording is enabled
@@ -84,7 +90,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			continue
 		}
 
-		msgType := fmt.Sprintf("%v", parsedMessage.Type)
+		msgType := messageTypeName(parsedMessage.Type)
 		metrics.MessageReceived(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), len(message))
 
 		tracer := otel.Tracer("websocket")
@@ -117,8 +123,12 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		if err != nil {
 			span.SetStatus(codes.Error, err.Error())
 			span.RecordError(err)
-			slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
-			client.Enqueue(actionRejectedEvent(fmt.Sprintf("%v", parsedMessage.Type), parsedMessage.Message, err))
+			if isEuroscopeType[TType]() {
+				slog.ErrorContext(ctx, "Failed to handle protobuf message", slog.Any("error", err), slog.Int("message_bytes", len(message)))
+			} else {
+				slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
+				client.Enqueue(actionRejectedEvent(fmt.Sprintf("%v", parsedMessage.Type), parsedMessage.Message, err))
+			}
 		} else {
 			span.SetStatus(codes.Ok, "")
 		}
@@ -200,6 +210,18 @@ type internalMessage[TType comparable] struct {
 }
 
 func parseMessage[TType comparable](message []byte) (shared.Message[TType], error) {
+	if isEuroscopeType[TType]() {
+		euroscopeType, payload, err := euroscopeEvents.UnmarshalEnvelope(message)
+		if err != nil {
+			return shared.Message[TType]{}, err
+		}
+		eventType, ok := any(euroscopeType).(TType)
+		if !ok {
+			return shared.Message[TType]{}, errors.New("invalid EuroScope event type")
+		}
+		return shared.Message[TType]{Type: eventType, Message: payload}, nil
+	}
+
 	var msg internalMessage[TType]
 	err := json.Unmarshal(message, &msg)
 	if err != nil {
@@ -209,6 +231,19 @@ func parseMessage[TType comparable](message []byte) (shared.Message[TType], erro
 		Type:    msg.Type,
 		Message: message,
 	}, nil
+}
+
+func isEuroscopeType[TType comparable]() bool {
+	var zero TType
+	_, ok := any(zero).(euroscopeEvents.EventType)
+	return ok
+}
+
+func messageTypeName[TType comparable](messageType TType) string {
+	if eventType, ok := any(messageType).(euroscopeEvents.EventType); ok {
+		return strings.ToLower(strings.TrimPrefix(eventType.String(), "EVENT_"))
+	}
+	return fmt.Sprintf("%v", messageType)
 }
 
 // WritePump pumps messages from the hub to the WebSocket connection.
@@ -245,14 +280,28 @@ func WritePump[TClient Client](client TClient) {
 				continue
 			}
 
-			var typeHolder struct {
-				Type string `json:"type"`
+			messageType := "unknown"
+			frameType := websocket.TextMessage
+			typed, isEuroscopeMessage := message.(euroscopeEvents.OutgoingMessage)
+			if client.GetSource() == "euroscope" && !isEuroscopeMessage {
+				slog.Error("Refusing to send a non-protobuf message to an EuroScope client")
+				continue
 			}
-			_ = json.Unmarshal(bytes, &typeHolder)
-			if err := writeOutboundMessage(context.Background(), client.GetConnection(), client.GetSource(), typeHolder.Type, bytes); err != nil {
+			if isEuroscopeMessage {
+				messageType = messageTypeName(typed.GetType())
+				frameType = websocket.BinaryMessage
+			} else {
+				var typeHolder struct {
+					Type string `json:"type"`
+				}
+				_ = json.Unmarshal(bytes, &typeHolder)
+				messageType = typeHolder.Type
+			}
+
+			if err := writeOutboundFrame(context.Background(), client.GetConnection(), client.GetSource(), messageType, frameType, bytes); err != nil {
 				return
 			}
-			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), typeHolder.Type, client.GetVersion())
+			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), messageType, client.GetVersion())
 		case <-ticker.C:
 			if err := client.GetConnection().SetWriteDeadline(time.Now().Add(constants.WriteWait)); err != nil {
 				return
@@ -277,7 +326,11 @@ type websocketMessageWriter interface {
 }
 
 func writeOutboundMessage(ctx context.Context, writer websocketMessageWriter, source, messageType string, payload []byte) error {
-	if err := writer.WriteMessage(websocket.TextMessage, payload); err != nil {
+	return writeOutboundFrame(ctx, writer, source, messageType, websocket.TextMessage, payload)
+}
+
+func writeOutboundFrame(ctx context.Context, writer websocketMessageWriter, source, messageType string, frameType int, payload []byte) error {
+	if err := writer.WriteMessage(frameType, payload); err != nil {
 		return err
 	}
 	metrics.RecordOutboundPayload(ctx, source, messageType, len(payload))

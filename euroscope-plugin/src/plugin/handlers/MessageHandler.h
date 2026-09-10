@@ -1,10 +1,11 @@
 #pragma once
-#include <nlohmann/json.hpp>
+#include <string>
+#include <vector>
 
 namespace FlightStrips::handlers {
     class MessageHandler {
     public:
         virtual ~MessageHandler() = default;
-        virtual void OnMessages(const std::vector<nlohmann::json>& messages) = 0;
+        virtual void OnMessages(const std::vector<std::string>& messages) = 0;
     };
 }

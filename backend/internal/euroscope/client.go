@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	gorilla "github.com/gorilla/websocket"
 )
 
@@ -184,10 +186,13 @@ func (c *Client) RecordMessage(rawMessage []byte) {
 }
 
 func cachedOperationalStrip(strip eventseuroscope.Strip) eventseuroscope.Strip {
-	strip.Position.Lat = 0
-	strip.Position.Lon = 0
-	strip.Position.Altitude = 0
-	return strip
+	normalized := proto.Clone(&strip).(*eventseuroscope.Strip)
+	if normalized.Position != nil {
+		normalized.Position.Lat = 0
+		normalized.Position.Lon = 0
+		normalized.Position.Altitude = 0
+	}
+	return *normalized
 }
 
 func flightPlanCacheKey(callsign string) string {
@@ -215,7 +220,8 @@ func (c *Client) hasCachedOperationalStrip(strip eventseuroscope.Strip) bool {
 	defer c.flightPlanCacheMu.Unlock()
 
 	cached, ok := c.stripUpdateCache[flightPlanCacheKey(strip.Callsign)]
-	return ok && cached == cachedOperationalStrip(strip)
+	normalized := cachedOperationalStrip(strip)
+	return ok && proto.Equal(&cached, &normalized)
 }
 
 func (c *Client) rememberOperationalStrip(strip eventseuroscope.Strip) {
@@ -238,9 +244,7 @@ func (c *Client) rememberOperationalStrip(strip eventseuroscope.Strip) {
 	}
 	c.stripUpdateCache[key] = cachedOperationalStrip(strip)
 	c.assignedSquawkCache[key] = strip.AssignedSquawk
-	c.positionUpdateCache[key] = cachedAircraftPosition{
-		lat: strip.Position.Lat, lon: strip.Position.Lon, altitude: strip.Position.Altitude,
-	}
+	c.positionUpdateCache[key] = cachedPositionFromStrip(strip)
 }
 
 func (c *Client) hasCachedAssignedSquawk(callsign, squawk string) bool {
@@ -313,9 +317,7 @@ func (c *Client) processAircraftPosition(ctx context.Context, callsign string, p
 
 func (c *Client) queuePositionOnlyUpdate(strip eventseuroscope.Strip) {
 	key := flightPlanCacheKey(strip.Callsign)
-	position := cachedAircraftPosition{
-		lat: strip.Position.Lat, lon: strip.Position.Lon, altitude: strip.Position.Altitude,
-	}
+	position := cachedPositionFromStrip(strip)
 
 	c.flightPlanCacheMu.Lock()
 	if cached, ok := c.positionUpdateCache[key]; ok && cached == position {
@@ -338,6 +340,15 @@ func (c *Client) queuePositionOnlyUpdate(strip eventseuroscope.Strip) {
 	pending.timer = time.AfterFunc(delay, func() { c.flushPositionOnlyUpdate(key) })
 	c.pendingPositions[key] = pending
 	c.flightPlanCacheMu.Unlock()
+}
+
+func cachedPositionFromStrip(strip eventseuroscope.Strip) cachedAircraftPosition {
+	if strip.Position == nil {
+		return cachedAircraftPosition{}
+	}
+	return cachedAircraftPosition{
+		lat: strip.Position.Lat, lon: strip.Position.Lon, altitude: strip.Position.Altitude,
+	}
 }
 
 func (c *Client) flushPositionOnlyUpdate(key string) {

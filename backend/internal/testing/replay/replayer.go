@@ -11,6 +11,7 @@ import (
 	"FlightStrips/internal/testing/assertions"
 	testFrontend "FlightStrips/internal/testing/frontend"
 	"FlightStrips/internal/testing/recorder"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 )
 
 // Replayer orchestrates the replay of a recorded session
@@ -178,31 +179,30 @@ func (r *Replayer) connectFrontendClient(ctx context.Context) error {
 
 // sendLoginEvent synthesizes and sends a login event from metadata
 func (r *Replayer) sendLoginEvent() error {
-	loginEvent := map[string]interface{}{
-		"type":       "login",
-		"connection": r.session.Metadata.Connection,
-		"airport":    r.session.Metadata.Airport,
-		"position":   r.session.Metadata.Position,
-		"callsign":   r.session.Metadata.Callsign,
-		"range":      r.session.Metadata.Range,
+	loginEvent := &euroscopeEvents.LoginEvent{
+		Connection: r.session.Metadata.Connection,
+		Airport:    r.session.Metadata.Airport,
+		Position:   r.session.Metadata.Position,
+		Callsign:   r.session.Metadata.Callsign,
+		Range:      r.session.Metadata.Range,
 	}
 
 	// Use default values if not set in metadata
-	if loginEvent["position"] == "" {
-		loginEvent["position"] = "REPLAY_POS"
+	if loginEvent.Position == "" {
+		loginEvent.Position = "REPLAY_POS"
 	}
-	if loginEvent["callsign"] == "" {
-		loginEvent["callsign"] = "REPLAY_CTR"
+	if loginEvent.Callsign == "" {
+		loginEvent.Callsign = "REPLAY_CTR"
 	}
-	if loginEvent["range"] == int32(0) {
-		loginEvent["range"] = 200
+	if loginEvent.Range == int32(0) {
+		loginEvent.Range = 200
 	}
 
 	if r.config.Verbose {
 		slog.Info("Sending synthesized login event", slog.Any("event", loginEvent))
 	}
 
-	return r.client.SendRawMessage(loginEvent)
+	return r.client.SendProtobuf(loginEvent, euroscopeEvents.Login)
 }
 
 // replayEvents replays all events from the session

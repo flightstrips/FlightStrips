@@ -21,7 +21,7 @@ func LoadSession(filepath string) (*recorder.RecordedSession, error) {
 	}
 
 	// Validate session format
-	if session.Version != "1.0" {
+	if session.Version != "2.0" {
 		return nil, fmt.Errorf("unsupported session version: %s", session.Version)
 	}
 

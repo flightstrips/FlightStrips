@@ -78,12 +78,13 @@ serialised behind one loop.
   sustained rate means back-pressure is now stalling the code producing events.
 - **`websocket.clients.slow_disconnects`** counts clients dropped for failing to
   drain their own send queue.
-- **`websocket.message.bytes.sent`** counts serialized application payload bytes
-  accepted by the WebSocket writer, split only by the bounded `source` and
-  `type` labels. **`websocket.message.size.bytes`** records the corresponding
-  payload-size distribution. These measurements include the JSON or protobuf
-  payload itself, but exclude WebSocket frame headers, TLS overhead, and any
-  reduction from WebSocket compression.
+- **`websocket.message.bytes.received`** and **`websocket.message.bytes.sent`**
+  count serialized application payload bytes received from clients and accepted
+  by the WebSocket writer. **`websocket.message.size.bytes`** records the
+  corresponding payload-size distribution. All three use only the bounded
+  `direction`, `source`, and `type` labels. These measurements include the JSON
+  or protobuf payload itself, but exclude WebSocket frame headers, TLS overhead,
+  and any reduction from WebSocket compression.
 
 ### 4. Is it the database?
 

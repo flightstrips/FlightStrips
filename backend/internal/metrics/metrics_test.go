@@ -116,7 +116,7 @@ func findInt64Histogram(t *testing.T, rm metricdata.ResourceMetrics, metricName 
 	return metricdata.HistogramDataPoint[int64]{}
 }
 
-func TestOutboundPayloadMetricsRecordSerializedBytesWithBoundedDimensions(t *testing.T) {
+func TestPayloadMetricsRecordSerializedBytesWithBoundedDimensions(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	previousProvider := otel.GetMeterProvider()
@@ -124,27 +124,29 @@ func TestOutboundPayloadMetricsRecordSerializedBytesWithBoundedDimensions(t *tes
 	resetInstrumentsForTest()
 	t.Cleanup(func() { otel.SetMeterProvider(previousProvider); resetInstrumentsForTest() })
 
+	MessageReceived(context.Background(), "live", "ekch", "frontend", "strip_update", "0.16.0", 89)
 	RecordOutboundPayload(context.Background(), "frontend", "strip_update", 137)
 	RecordOutboundPayload(context.Background(), "euroscope", "backend_sync", 2048)
 	rm := collectMetrics(t, reader)
 
 	for _, test := range []struct {
-		source, messageType string
-		size                int64
+		direction, source, messageType, metricName string
+		size                                       int64
 	}{
-		{source: "frontend", messageType: "strip_update", size: 137},
-		{source: "euroscope", messageType: "backend_sync", size: 2048},
+		{direction: "inbound", source: "frontend", messageType: "strip_update", metricName: "websocket.message.bytes.received", size: 89},
+		{direction: "outbound", source: "frontend", messageType: "strip_update", metricName: "websocket.message.bytes.sent", size: 137},
+		{direction: "outbound", source: "euroscope", messageType: "backend_sync", metricName: "websocket.message.bytes.sent", size: 2048},
 	} {
-		attrs := map[string]string{"source": test.source, "type": test.messageType}
-		if got := findInt64MetricValue(t, rm, "websocket.message.bytes.sent", attrs); got != test.size {
-			t.Fatalf("%s payload byte counter = %d, want %d", test.source, got, test.size)
+		attrs := map[string]string{"direction": test.direction, "source": test.source, "type": test.messageType}
+		if got := findInt64MetricValue(t, rm, test.metricName, attrs); got != test.size {
+			t.Fatalf("%s %s payload byte counter = %d, want %d", test.direction, test.source, got, test.size)
 		}
 		point := findInt64Histogram(t, rm, "websocket.message.size.bytes", attrs)
 		if point.Count != 1 || point.Sum != test.size {
-			t.Fatalf("%s payload histogram count/sum = %d/%d, want 1/%d", test.source, point.Count, point.Sum, test.size)
+			t.Fatalf("%s %s payload histogram count/sum = %d/%d, want 1/%d", test.direction, test.source, point.Count, point.Sum, test.size)
 		}
-		if point.Attributes.Len() != 2 {
-			t.Fatalf("payload metrics have %d dimensions, want only source and type", point.Attributes.Len())
+		if point.Attributes.Len() != 3 {
+			t.Fatalf("payload metrics have %d dimensions, want only direction, source, and type", point.Attributes.Len())
 		}
 	}
 }

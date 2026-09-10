@@ -85,7 +85,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		}
 
 		msgType := fmt.Sprintf("%v", parsedMessage.Type)
-		metrics.MessageReceived(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion())
+		metrics.MessageReceived(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), len(message))
 
 		tracer := otel.Tracer("websocket")
 		ctx, span := tracer.Start(context.Background(), msgType,

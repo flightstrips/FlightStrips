@@ -32,7 +32,7 @@
       }
     ],
     "cursorSync": "Crosshair",
-    "description": "Host CPU saturation, Go runtime attribution, work amplification, hub dispatch and connection pool pressure. Read it top to bottom: the first row says how hard the server is working, the rest say what the backend is working on.",
+    "description": "Host CPU saturation, Go runtime attribution, WebSocket traffic, work amplification, hub dispatch and connection pool pressure. Read it top to bottom: the first row says how hard the server is working, the rest say what the backend is working on.",
     "editable": true,
     "elements": {
       "panel-1": {
@@ -2460,6 +2460,76 @@
           }
         }
       },
+      "panel-26": {
+        "kind": "Panel",
+        "spec": {
+          "id": 26,
+          "title": "Inbound Message Rate by Type",
+          "description": "Rate of decoded client messages received by the backend, grouped by message type.",
+          "links": [],
+          "data": { "kind": "QueryGroup", "spec": { "queries": [
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "sum(rate(websocket_messages_received_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (type)", "legendFormat": "{{type}}" } }, "refId": "A", "hidden": false } }
+          ], "transformations": [], "queryOptions": {} } },
+          "vizConfig": { "kind": "VizConfig", "group": "timeseries", "version": "13.1.0-24556818486", "spec": { "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" } }, "fieldConfig": { "defaults": { "unit": "reqps", "min": 0, "color": { "mode": "palette-classic" } }, "overrides": [] } } }
+        }
+      },
+      "panel-27": {
+        "kind": "Panel",
+        "spec": {
+          "id": 27,
+          "title": "Payload Bytes per Second by Direction and Client Type",
+          "description": "Serialized application payload throughput. Inbound is measured when a client payload is decoded; outbound when a payload is accepted by the writer. Framing, TLS, and compression are excluded.",
+          "links": [],
+          "data": { "kind": "QueryGroup", "spec": { "queries": [
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "sum(rate(websocket_message_bytes_received_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (source)", "legendFormat": "inbound {{source}}" } }, "refId": "A", "hidden": false } },
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "sum(rate(websocket_message_bytes_sent_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (source)", "legendFormat": "outbound {{source}}" } }, "refId": "B", "hidden": false } }
+          ], "transformations": [], "queryOptions": {} } },
+          "vizConfig": { "kind": "VizConfig", "group": "timeseries", "version": "13.1.0-24556818486", "spec": { "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" } }, "fieldConfig": { "defaults": { "unit": "Bps", "min": 0, "color": { "mode": "palette-classic" } }, "overrides": [] } } }
+        }
+      },
+      "panel-28": {
+        "kind": "Panel",
+        "spec": {
+          "id": 28,
+          "title": "Payload Bytes per Second by Direction and Message Type",
+          "description": "Top message types by serialized application payload throughput in either direction.",
+          "links": [],
+          "data": { "kind": "QueryGroup", "spec": { "queries": [
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "topk(15, sum(rate(websocket_message_bytes_received_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (type))", "legendFormat": "inbound {{type}}" } }, "refId": "A", "hidden": false } },
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "topk(15, sum(rate(websocket_message_bytes_sent_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (type))", "legendFormat": "outbound {{type}}" } }, "refId": "B", "hidden": false } }
+          ], "transformations": [], "queryOptions": {} } },
+          "vizConfig": { "kind": "VizConfig", "group": "timeseries", "version": "13.1.0-24556818486", "spec": { "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" } }, "fieldConfig": { "defaults": { "unit": "Bps", "min": 0, "color": { "mode": "palette-classic" } }, "overrides": [] } } }
+        }
+      },
+      "panel-29": {
+        "kind": "Panel",
+        "spec": {
+          "id": 29,
+          "title": "Total Payload Bytes by Direction",
+          "description": "Serialized application payload bytes transferred during the selected time range.",
+          "links": [],
+          "data": { "kind": "QueryGroup", "spec": { "queries": [
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "sum(increase(websocket_message_bytes_received_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__range]))", "legendFormat": "Inbound" } }, "refId": "A", "hidden": false } },
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "sum(increase(websocket_message_bytes_sent_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__range]))", "legendFormat": "Outbound" } }, "refId": "B", "hidden": false } }
+          ], "transformations": [], "queryOptions": {} } },
+          "vizConfig": { "kind": "VizConfig", "group": "stat", "version": "12.0.0", "spec": { "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true }, "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } }, "overrides": [] } } }
+        }
+      },
+      "panel-30": {
+        "kind": "Panel",
+        "spec": {
+          "id": 30,
+          "title": "Payload Size Percentiles by Direction and Message Type",
+          "description": "P50, P95, and P99 serialized application payload size for each inbound and outbound message type.",
+          "links": [],
+          "data": { "kind": "QueryGroup", "spec": { "queries": [
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "histogram_quantile(0.50, sum(rate(websocket_message_size_bytes_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",direction=~\"inbound|outbound\"}[$__rate_interval])) by (le, direction, type))", "legendFormat": "P50 {{direction}} {{type}}" } }, "refId": "A", "hidden": false } },
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "histogram_quantile(0.95, sum(rate(websocket_message_size_bytes_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",direction=~\"inbound|outbound\"}[$__rate_interval])) by (le, direction, type))", "legendFormat": "P95 {{direction}} {{type}}" } }, "refId": "B", "hidden": false } },
+            { "kind": "PanelQuery", "spec": { "query": { "kind": "DataQuery", "group": "prometheus", "version": "v0", "datasource": { "name": "grafanacloud-prom" }, "spec": { "expr": "histogram_quantile(0.99, sum(rate(websocket_message_size_bytes_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",direction=~\"inbound|outbound\"}[$__rate_interval])) by (le, direction, type))", "legendFormat": "P99 {{direction}} {{type}}" } }, "refId": "C", "hidden": false } }
+          ], "transformations": [], "queryOptions": {} } },
+          "vizConfig": { "kind": "VizConfig", "group": "timeseries", "version": "13.1.0-24556818486", "spec": { "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "hideZeros": false, "mode": "multi", "sort": "desc" } }, "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "color": { "mode": "palette-classic" } }, "overrides": [] } } }
+        }
+      },
       "panel-22": {
         "kind": "Panel",
         "spec": {
@@ -3216,6 +3286,40 @@
                           "name": "panel-21"
                         }
                       }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "title": "WebSocket Traffic — throughput and payload size",
+              "collapse": false,
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 0, "y": 0, "width": 12, "height": 8, "element": { "kind": "ElementReference", "name": "panel-26" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 12, "y": 0, "width": 12, "height": 8, "element": { "kind": "ElementReference", "name": "panel-27" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 0, "y": 8, "width": 12, "height": 8, "element": { "kind": "ElementReference", "name": "panel-28" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 12, "y": 8, "width": 12, "height": 8, "element": { "kind": "ElementReference", "name": "panel-29" } }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": { "x": 0, "y": 16, "width": 24, "height": 10, "element": { "kind": "ElementReference", "name": "panel-30" } }
                     }
                   ]
                 }

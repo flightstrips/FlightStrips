@@ -95,6 +95,7 @@ const (
 	ReasonFreezeTMA         CandidateReason = "freeze_tma"
 	ReasonFreezeManual      CandidateReason = "freeze_manual"
 	ReasonStable            CandidateReason = "stable"
+	ReasonQueuePromotion    CandidateReason = "queue_promotion"
 	ReasonGoAround          CandidateReason = "go_around"
 	ReasonGoAroundCascade   CandidateReason = "go_around_cascade"
 )
@@ -194,6 +195,10 @@ type allocatedEntry struct {
 // Generate calculates a candidate sequence without mutating input or
 // allocating a committed revision.
 func Generate(input Input) (Result, error) {
+	return generate(input, nil)
+}
+
+func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, error) {
 	policies, err := preparePolicies(input.Policies)
 	if err != nil {
 		return Result{}, err
@@ -212,7 +217,7 @@ func Generate(input Input) (Result, error) {
 
 	for _, groupID := range groupIDs {
 		groupFlights := slices.Clone(flights[groupID])
-		entries, warnings, err := generateGroup(policies[groupID], groupFlights)
+		entries, warnings, err := generateGroup(policies[groupID], groupFlights, promotions)
 		if err != nil {
 			return Result{}, err
 		}
@@ -365,7 +370,7 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 	return result, nil
 }
 
-func generateGroup(policy preparedPolicy, flights []preparedFlight) ([]allocatedEntry, []Warning, error) {
+func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions map[aman.FlightID]aman.Slot) ([]allocatedEntry, []Warning, error) {
 	warnings := []Warning{}
 	protected := []preparedFlight{}
 	movable := []preparedFlight{}
@@ -379,7 +384,8 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight) ([]allocated
 		if flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
 			continue
 		}
-		if flight.FreezeReason == aman.FreezeNone && !flight.ProtectCurrentSlot {
+		_, promoted := promotions[flight.ID]
+		if flight.FreezeReason == aman.FreezeNone && !flight.ProtectCurrentSlot && !promoted {
 			movable = append(movable, flight)
 		} else {
 			protected = append(protected, flight)
@@ -392,6 +398,9 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight) ([]allocated
 		slot := flight.CapturedSlot
 		if flight.ProtectCurrentSlot && flight.FreezeReason == aman.FreezeNone {
 			slot = flight.CurrentSlot
+		}
+		if promoted, ok := promotions[flight.ID]; ok {
+			slot = &promoted
 		}
 		if slot == nil {
 			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotMissing, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
@@ -406,6 +415,8 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight) ([]allocated
 			reason = ReasonFreezeSuperstable
 		} else if flight.FreezeReason == aman.FreezeTMA {
 			reason = ReasonFreezeTMA
+		} else if _, ok := promotions[flight.ID]; ok {
+			reason = ReasonQueuePromotion
 		} else if flight.ProtectCurrentSlot {
 			reason = ReasonStable
 		}
@@ -483,11 +494,11 @@ func placement(policy preparedPolicy, entries []allocatedEntry, flight preparedF
 	return placementWithStableOrder(policy, entries, flight, candidate, true)
 }
 
-// queuePlacement evaluates a possible queue offer. Stable order constrains
-// allocation, but an offered stable flight is intentionally eligible to move
-// into an earlier vacant slot without making that allocation invariant apply.
+// queuePlacement evaluates a possible queue offer while retaining Stable
+// relative order. A Stable flight may move into a vacancy, but never ahead of
+// another Stable flight that remains in the sequence.
 func queuePlacement(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time) (bool, time.Time, time.Time) {
-	return placementWithStableOrder(policy, entries, flight, candidate, false)
+	return placementWithStableOrder(policy, entries, flight, candidate, true)
 }
 
 func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time, preserveStableOrder bool) (bool, time.Time, time.Time) {

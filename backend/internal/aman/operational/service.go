@@ -4,6 +4,7 @@ package operational
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -378,7 +379,7 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		}
 	}
 
-	s.resequence(&next, now)
+	promotions := s.resequence(&next, now)
 	if !initializing && statesEqual(current, next) {
 		if publisher, ok := s.deps.Publisher.(authorityPublisher); ok {
 			return publisher.PublishAMANAuthority(context.WithoutCancel(ctx), current)
@@ -403,7 +404,11 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 	if err != nil {
 		return fmt.Errorf("project AMAN queue offers: %w", err)
 	}
-	committed, err := s.deps.Repository.Commit(ctx, aman.StateCommit{ExpectedRevision: current.Revision, State: next})
+	committed, err := s.deps.Repository.Commit(ctx, aman.StateCommit{
+		ExpectedRevision: current.Revision,
+		State:            next,
+		AuditRecords:     vacancyPromotionAuditRecords(next, promotions, now),
+	})
 	if err != nil {
 		s.setHealthComponent("repository", aman.HealthUnavailable, "repository_commit_failed", now)
 		return err
@@ -707,7 +712,7 @@ func (s *Service) feeder(route string, runwayGroup aman.RunwayGroupID) (navdata.
 	return "", false
 }
 
-func (s *Service) resequence(state *aman.AirportState, now time.Time) {
+func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence.VacancyPromotion {
 	defer refreshHoldingPlans(state)
 	targets := releaseGainResequenceTargets(state)
 	input := s.sequenceInput(*state)
@@ -719,11 +724,22 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) {
 		}
 	}
 	if len(input.Flights) == 0 || len(input.Policies) == 0 {
-		return
+		return nil
 	}
-	result, err := sequence.Generate(input)
+	offers := make([]aman.QueueOffer, 0)
+	for _, flight := range state.Flights {
+		offers = append(offers, flight.QueueOffers...)
+	}
+	var result sequence.Result
+	var promotions []sequence.VacancyPromotion
+	var err error
+	if len(offers) == 0 {
+		result, err = sequence.Generate(input)
+	} else {
+		result, promotions, err = sequence.GenerateWithVacancyPromotions(input, offers, now)
+	}
 	if err != nil || result.HasConflicts() {
-		return
+		return nil
 	}
 	entries := make(map[aman.FlightID]sequence.CandidateEntry, len(result.Entries))
 	for _, entry := range result.Entries {
@@ -739,6 +755,34 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) {
 		state.Flights[i].Order = &order
 		state.Flights[i].UpdatedAt = now
 	}
+	return promotions
+}
+
+func vacancyPromotionAuditRecords(state aman.AirportState, promotions []sequence.VacancyPromotion, recordedAt time.Time) []aman.AuditRecord {
+	records := make([]aman.AuditRecord, 0, len(promotions))
+	for _, entry := range vacancyPromotionAuditEntries(promotions) {
+		records = append(records, aman.AuditRecord{
+			Airport: state.Airport, Revision: state.Revision, Category: entry.Category,
+			Payload: entry.Payload, RecordedAt: recordedAt,
+		})
+	}
+	return records
+}
+
+func vacancyPromotionAuditEntries(promotions []sequence.VacancyPromotion) []sequence.AuditEntry {
+	entries := make([]sequence.AuditEntry, 0, len(promotions))
+	for _, promotion := range promotions {
+		payload, err := json.Marshal(map[string]any{
+			"action": "queue_promotion", "flight_id": promotion.FlightID,
+			"from_sequence": promotion.From.Sequence, "from_time": promotion.From.Time,
+			"to_sequence": promotion.To.Sequence, "to_time": promotion.To.Time,
+			"runway_group_id": promotion.To.RunwayGroupID,
+		})
+		if err == nil {
+			entries = append(entries, sequence.AuditEntry{Category: "aman.queue_promotion", Payload: payload})
+		}
+	}
+	return entries
 }
 
 // refreshHoldingPlans derives a holding/release plan from the immutable slot

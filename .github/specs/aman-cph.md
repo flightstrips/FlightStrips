@@ -176,16 +176,16 @@ Clicking a target opens the aircraft dialog. The Figma menu contains the followi
 - **Change ETA-FF** applies an explicit, audited manual feeder-fix ETA override and displays its provenance.
 - **Maximum Delay** defines an operational upper bound for that aircraft. It may move the aircraft to the earliest legal position but never bypass wake separation or silently displace protected traffic.
 - **Coordination** opens the tactical-request dialog for routing/direct or speed requests. A request is distinct from an accepted controller clearance and does not become a route fact until the authoritative workflow accepts it. The inspected dialog is `370 × 471`.
-- **Missed Approach** opens a confirmation action and then uses the configured go-around model. The ten-minute value in the source mock-up remains subject to the open decision below.
+- **Missed Approach** opens a confirmation action and then uses the configured ten-minute go-around model.
 - **De-sequence** moves the aircraft into DSEQ without deleting it. DSEQ shows a count and allows an authorized controller to resume or remove an entry.
-- **Insert Closure** begins a runway-capacity closure after the selected aircraft and renders a red overlay across every visible lane for the affected runway.
+- **Insert Closure** begins a runway-capacity closure either after a selected aircraft or at an explicit absolute UTC time and renders a red overlay across every visible lane for the affected runway.
 - **Insert Gap** creates the first-class runway GAP defined elsewhere in this specification, using a requested duration after the selected aircraft.
 - **Extra Flight** reserves one normal flight opportunity. In the domain this is a named capacity reservation/GAP with an optional display label (default `FLIGHT`), never a fabricated aircraft or callsign.
 - **Remove** is restricted to cases such as diversion, requires explicit confirmation, removes the aircraft from the active sequence, and remains auditable even though the UI does not offer undo.
 
 ### MAESTRO settings bar
 
-The settings bar spans the MAESTRO width and contains two rows.
+The settings bar spans the MAESTRO width and contains two rows. At the reference composition its height follows the inspected Figma annotation of 13⅓% of MAESTRO height. Figma is the visual source of truth where that proportion fits coherently with the rest of the responsive design; implementations may use equivalent grid/flex constraints rather than a hard-coded height.
 
 The primary row contains:
 
@@ -396,7 +396,7 @@ This behavior must be configurable per STAR entry family. The minimum policy val
 - `disabled`: holding altitude does not affect sequence order;
 - `lowest-first`: the lowest confirmed aircraft in the same holding stack is preferred first.
 
-Different STAR families or holding IDs must not influence one another. Missing/stale altitude or uncertain holding detection leaves the normal order intact. Manual order, Stable protection, and Superstable/manual freezes retain precedence. A validated TMA freeze has the same precedence. Configuration should use an enum so future strategies can be added without changing the meaning of a boolean.
+The initial default for every STAR entry family is `disabled`: sequence order follows the current landing-time/slot calculation without reordering aircraft from their physical position in a holding stack. Different STAR families or holding IDs must not influence one another. When a family is explicitly configured as `lowest-first`, missing/stale altitude or uncertain holding detection leaves the normal order intact. Manual order, Stable protection, and Superstable/manual freezes retain precedence. A validated TMA freeze has the same precedence. Configuration uses an enum so future strategies can be added without changing the meaning of a boolean.
 
 ## Landing-runway GAPs and approach stops
 
@@ -421,7 +421,7 @@ Removing or expiring a GAP reopens capacity and triggers deterministic normal re
 
 ## Go-around behavior
 
-When a go-around is confirmed, AMAN creates a new physical prediction using the configured go-around model (the original concept assumed approximately 10 minutes). The aircraft is reinserted into the earliest feasible slot and downstream movable traffic is shifted as necessary until a valid sequence is restored.
+When a go-around is confirmed, AMAN creates a new physical prediction using the configured ten-minute go-around delay. The aircraft is reinserted into the earliest feasible slot and downstream movable traffic is shifted as necessary until a valid sequence is restored.
 
 Automatic detection creates a visible confirmation request and must not mutate lifecycle, slots, or protected traffic by itself. An authorized controller must confirm the detected episode before AMAN applies the go-around; an explicit authorized controller report may act as that confirmation. Rejection and duplicate observations must not create repeated mutations or prompts for the same episode. Detection evidence, confirmation, frozen-slot exceptions, and reset of direct/route facts remain explicit and auditable.
 
@@ -480,11 +480,8 @@ Implementation references include `backend/config/aman/ekch-terminal-2609.json`,
 
 Update this section when decisions are made:
 
-1. Select the initial holding-stack ordering value for each STAR entry family.
-2. Confirm whether the current fixed ten-minute go-around delay remains the desired time model. Controller confirmation of automatic detection is already decided.
-3. Resolve the MAESTRO settings-bar height conflict: the opening prose says 7.5% of MAESTRO height, while the detailed specification and inspected Figma annotation say 13⅓%.
-4. Define runway-closure termination/removal, protected-slot interaction, and whether a closure may start only after an aircraft or also at an absolute time.
-5. Define Maximum Delay semantics, authorization, and interaction with Stable/Superstable traffic beyond the invariant that separation and protected traffic cannot be bypassed.
+1. Define runway-closure termination/removal and protected-slot interaction. Starting after an aircraft and starting at an explicit absolute UTC time are both approved.
+2. Define Maximum Delay semantics, authorization, and interaction with Stable/Superstable traffic beyond the invariant that separation and protected traffic cannot be bypassed.
 
 ## GitHub issue relationship
 

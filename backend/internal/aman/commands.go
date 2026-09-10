@@ -40,6 +40,12 @@ type SetRateCommand struct {
 	EffectiveAt     time.Time
 }
 
+type SelectRunwayGroupCommand struct {
+	Metadata      CommandMetadata
+	RunwayGroupID RunwayGroupID
+	EffectiveAt   time.Time
+}
+
 type AcceptTETACommand struct {
 	Metadata CommandMetadata
 	FlightID FlightID
@@ -86,6 +92,7 @@ type CommandService interface {
 	LockFlight(context.Context, CommandContext, LockFlightCommand) (CommandExecution, error)
 	UnlockFlight(context.Context, CommandContext, UnlockFlightCommand) (CommandExecution, error)
 	SetRate(context.Context, CommandContext, SetRateCommand) (CommandExecution, error)
+	SelectRunwayGroup(context.Context, CommandContext, SelectRunwayGroupCommand) (CommandExecution, error)
 	AcceptTETA(context.Context, CommandContext, AcceptTETACommand) (CommandExecution, error)
 	KeepFPLETA(context.Context, CommandContext, KeepFPLETACommand) (CommandExecution, error)
 	SetManualETA(context.Context, CommandContext, SetManualETACommand) (CommandExecution, error)
@@ -137,6 +144,16 @@ func (c SetRateCommand) Validate() error {
 	}
 	if !trimmed(string(c.RunwayGroupID)) || c.ArrivalsPerHour == 0 || !utc(c.EffectiveAt) {
 		return commandInvalid("rate requires a runway group, positive rate, and UTC effective time")
+	}
+	return nil
+}
+
+func (c SelectRunwayGroupCommand) Validate() error {
+	if err := validateCommandMetadata(c.Metadata); err != nil {
+		return err
+	}
+	if !trimmed(string(c.RunwayGroupID)) || !utc(c.EffectiveAt) {
+		return commandInvalid("runway selection requires a runway group and UTC effective time")
 	}
 	return nil
 }

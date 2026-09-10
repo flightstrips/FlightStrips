@@ -3,6 +3,7 @@ package operational
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -76,21 +77,106 @@ func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand)
 			}
 		}
 		updateActiveRates(state.RunwayGroups, auth.ReceivedAt)
-		for i := range state.RunwayGroups {
-			if state.RunwayGroups[i].ID == command.RunwayGroupID {
-				state.RunwayGroups[i].SelectionSchedule = upsertRunwayGroupSelection(
-					state.RunwayGroups[i].SelectionSchedule,
-					aman.RunwayGroupSelectionPoint{EffectiveAt: command.EffectiveAt, CommandRevision: state.Revision},
-				)
+		return s.commandChange(state, decision.Changed, "set_rate", "", map[string]any{"runway_group_id": command.RunwayGroupID, "arrivals_per_hour": command.ArrivalsPerHour})
+	}, nil
+}
+
+func (s *Service) SelectRunwayGroup(auth aman.CommandContext, command aman.SelectRunwayGroupCommand) (sequence.CommandMutation, error) {
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		groupIndex := -1
+		for index := range state.RunwayGroups {
+			if state.RunwayGroups[index].ID == command.RunwayGroupID {
+				groupIndex = index
+				break
 			}
 		}
-		selected, selectionChanged := updateSelectedRunwayGroup(state.RunwayGroups, auth.ReceivedAt)
-		if selectionChanged {
-			reassignFlightsToGroup(&state, selected)
-			s.resequence(&state, auth.ReceivedAt)
+		if groupIndex < 0 {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "runway selection group was not found"}
 		}
-		return s.commandChange(state, decision.Changed || selectionChanged, "set_rate", "", map[string]any{"runway_group_id": command.RunwayGroupID, "arrivals_per_hour": command.ArrivalsPerHour})
+
+		state.RunwayGroups = append([]aman.RunwayGroupPolicy(nil), state.RunwayGroups...)
+		if legacySelected, reset := discardLegacyRunwayGroupSelections(state.RunwayGroups); reset {
+			state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+			reassignFlightsToGroup(&state, legacySelected)
+		}
+		before := append([]aman.RunwayGroupSelectionPoint(nil), state.RunwayGroups[groupIndex].SelectionSchedule...)
+		state.RunwayGroups[groupIndex].SelectionSchedule = upsertRunwayGroupSelection(
+			before,
+			aman.RunwayGroupSelectionPoint{
+				EffectiveAt: command.EffectiveAt, CommandRevision: state.Revision + 1,
+				Source: aman.RunwayGroupSelectionSourceFMPCommand,
+			},
+		)
+		scheduleChanged := !reflect.DeepEqual(before, state.RunwayGroups[groupIndex].SelectionSchedule)
+		protected := []aman.FlightID{}
+		for _, flight := range state.Flights {
+			if flight.SelectedRunwayGroup != nil && *flight.SelectedRunwayGroup != command.RunwayGroupID &&
+				(flight.State == aman.StateStable || flight.FreezeReason != aman.FreezeNone) {
+				protected = append(protected, flight.ID)
+			}
+		}
+		selected, selectionChanged := selectedRunwayGroupAt(state.RunwayGroups, auth.ReceivedAt)
+		if selectionChanged {
+			if err := s.activateRunwayGroup(&state, selected, auth.ReceivedAt); err != nil {
+				return sequence.CommandChange{}, err
+			}
+		} else {
+			clearRunwayGroupSelectionConflicts(state.RunwayGroups)
+		}
+		return s.commandChange(state, scheduleChanged || selectionChanged, "select_runway_group", "", map[string]any{
+			"runway_group_id": command.RunwayGroupID, "effective_at": command.EffectiveAt, "protected_flight_ids": protected,
+		})
 	}, nil
+}
+
+func selectedRunwayGroupAt(groups []aman.RunwayGroupPolicy, now time.Time) (aman.RunwayGroupID, bool) {
+	working := append([]aman.RunwayGroupPolicy(nil), groups...)
+	return updateSelectedRunwayGroup(working, now)
+}
+
+func (s *Service) activateRunwayGroup(state *aman.AirportState, selected aman.RunwayGroupID, now time.Time) error {
+	candidate := *state
+	candidate.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+	candidate.RunwayGroups = append([]aman.RunwayGroupPolicy(nil), state.RunwayGroups...)
+	for index := range candidate.RunwayGroups {
+		candidate.RunwayGroups[index].Selected = candidate.RunwayGroups[index].ID == selected
+		candidate.RunwayGroups[index].SelectionConflict = nil
+	}
+	reassignFlightsToGroup(&candidate, selected)
+	input := s.sequenceInput(candidate)
+	if len(input.Flights) > 0 && len(input.Policies) > 0 {
+		generated, err := sequence.Generate(input)
+		if err != nil {
+			return &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "runway selection could not produce a valid sequence"}
+		}
+		for _, warning := range generated.Warnings {
+			if warning.RunwayGroupID == selected && warning.Severity == sequence.SeverityConflict {
+				return &aman.DomainError{
+					Class:   aman.ErrorInvalidTransition,
+					Message: fmt.Sprintf("%s: protected flight %q conflicts with the requested runway selection", warning.Code, warning.FlightID),
+				}
+			}
+		}
+		candidate = applyDecision(candidate, sequence.Decision{Input: input, Candidate: generated, Changed: true})
+	}
+	*state = candidate
+	return nil
+}
+
+func setRunwayGroupSelectionConflict(groups []aman.RunwayGroupPolicy, selected aman.RunwayGroupID, message string) {
+	for index := range groups {
+		if groups[index].ID == selected {
+			groups[index].SelectionConflict = &message
+		} else {
+			groups[index].SelectionConflict = nil
+		}
+	}
+}
+
+func clearRunwayGroupSelectionConflicts(groups []aman.RunwayGroupPolicy) {
+	for index := range groups {
+		groups[index].SelectionConflict = nil
+	}
 }
 
 func upsertRunwayGroupSelection(schedule []aman.RunwayGroupSelectionPoint, point aman.RunwayGroupSelectionPoint) []aman.RunwayGroupSelectionPoint {

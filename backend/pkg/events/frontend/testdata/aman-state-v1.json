@@ -41,7 +41,7 @@
         "queue_offers": []
       }
     ],
-    "runway_groups": [{"id": "ARRIVAL-22"}],
+    "runway_groups": [{"id": "ARRIVAL-22", "selected": true, "selection_schedule": []}],
     "technical_health": {
       "status": "ready",
       "ready": true,

@@ -58,7 +58,7 @@ describe("AMAN FMP controls", () => {
 
   it("maps rate, manual ETA, and go-around inputs to their typed timestamps", () => {
     const multiRunwayState = state();
-    multiRunwayState.runway_groups.push({id: "ARRIVAL-04"});
+    multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
     const {onCommand} = renderControls({state: multiRunwayState});
     fireEvent.change(screen.getByLabelText("Rate runway group"), {target: {value: "ARRIVAL-04"}});
     fireEvent.change(screen.getByLabelText("Arrivals per hour"), {target: {value: "24"}});
@@ -78,6 +78,36 @@ describe("AMAN FMP controls", () => {
     });
     expect(onCommand).toHaveBeenNthCalledWith(3, {
       type: "aman.report_go_around", flight_id: "flight-1", detected_at: new Date("2026-07-22T12:15").toISOString(),
+    });
+  });
+
+  it("keeps runway selection separate from arrival-rate changes", () => {
+    const multiRunwayState = state();
+    multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
+    const {onCommand} = renderControls({state: multiRunwayState});
+
+    fireEvent.change(screen.getByLabelText("Runway group selection"), {target: {value: "ARRIVAL-04"}});
+    fireEvent.change(screen.getByLabelText("Runway selection effective at"), {target: {value: "2026-07-22T12:05"}});
+    fireEvent.click(screen.getByRole("button", {name: "Schedule runway selection"}));
+
+    expect(onCommand).toHaveBeenCalledWith({
+      type: "aman.select_runway_group",
+      runway_group_id: "ARRIVAL-04",
+      effective_at: new Date("2026-07-22T12:05").toISOString(),
+    });
+    expect(screen.getByText(/Selected:/)).toHaveTextContent("ARRIVAL-22");
+  });
+
+  it("uses authoritative state time for immediate runway selection", () => {
+    const multiRunwayState = state();
+    multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
+    const {onCommand} = renderControls({state: multiRunwayState});
+    fireEvent.change(screen.getByLabelText("Runway group selection"), {target: {value: "ARRIVAL-04"}});
+
+    fireEvent.click(screen.getByRole("button", {name: "Select runway now"}));
+
+    expect(onCommand).toHaveBeenCalledWith({
+      type: "aman.select_runway_group", runway_group_id: "ARRIVAL-04", effective_at: multiRunwayState.generated_at,
     });
   });
 
@@ -131,6 +161,44 @@ describe("AMAN FMP controls", () => {
     expect(screen.getByText(/Geometry\/navigation: degraded/)).toHaveTextContent("geometry_stale");
     expect(screen.getByText(/Weather: unavailable/)).toHaveTextContent("metar_missing");
     expect(screen.getByRole("button", {name: "Release manual freeze"})).toBeDisabled();
+  });
+
+  it("shows independent pending and rejection states for runway and rate controls", () => {
+    renderControls({
+      pendingCommands: {
+        runway: {command_id: "runway", type: "aman.select_runway_group", expected_revision: 7, runway_group_id: "ARRIVAL-22"},
+        rate: {command_id: "rate", type: "aman.set_rate", expected_revision: 7, runway_group_id: "ARRIVAL-22"},
+      },
+      commandRejections: {
+        rejected: {command_id: "rejected", command_type: "aman.select_runway_group", code: "invalid_transition", message: "protected traffic conflicts", current_revision: 8, retryable: false},
+      },
+    });
+
+    expect(screen.getByText("Runway selection pending")).toBeInTheDocument();
+    expect(screen.getByText("Arrival rate change pending")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Runway selection rejected");
+    expect(screen.getByRole("button", {name: "Select runway now"})).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Set arrival rate"})).toBeDisabled();
+  });
+
+  it("reports protected traffic retained outside the selected runway group", () => {
+    const protectedState = state();
+    protectedState.flights[0].runway_group_id = "ARRIVAL-04";
+
+    renderControls({state: protectedState});
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Protected traffic retained");
+    expect(screen.getByRole("alert")).toHaveTextContent("SAS123");
+  });
+
+  it("shows a blocked scheduled selection reported by the backend", () => {
+    const conflicted = state();
+    conflicted.runway_groups[0].selection_conflict = "protected slot conflict";
+
+    renderControls({state: conflicted});
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Scheduled selection of ARRIVAL-22 is blocked");
+    expect(screen.getByRole("alert")).toHaveTextContent("protected slot conflict");
   });
 
   it("distinguishes manual freeze and enables only deliberate release", () => {

@@ -22,6 +22,7 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANLockFlightType, handleAMANLockFlight)
 	handlers.Add(events.AMANUnlockFlightType, handleAMANUnlockFlight)
 	handlers.Add(events.AMANSetRateType, handleAMANSetRate)
+	handlers.Add(events.AMANSelectRunwayGroupType, handleAMANSelectRunwayGroup)
 	handlers.Add(events.AMANAcceptTETAType, handleAMANAcceptTETA)
 	handlers.Add(events.AMANKeepFPLETAType, handleAMANKeepFPLETA)
 	handlers.Add(events.AMANSetManualETAType, handleAMANSetManualETA)
@@ -89,6 +90,23 @@ func handleAMANSetRate(ctx context.Context, client *Client, message Message) err
 	}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.SetRate(ctx, auth, command)
+	})
+}
+
+func handleAMANSelectRunwayGroup(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANSelectRunwayGroupMessage
+	if err := decodeAMANMessage(message, events.AMANSelectRunwayGroupType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	effectiveAt, err := parseAMANTime(wire.Data.EffectiveAt)
+	if err != nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+	}
+	command := aman.SelectRunwayGroupCommand{
+		Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), EffectiveAt: effectiveAt,
+	}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.SelectRunwayGroup(ctx, auth, command)
 	})
 }
 

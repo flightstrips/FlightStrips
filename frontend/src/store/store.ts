@@ -60,6 +60,7 @@ import {
   replaceAMANState,
   type AMANCommandIntent,
   type AMANCommandRejection,
+  type AMANCommandType,
   type AMANConnectionState,
   type AMANPendingCommand,
   type AMANPresentationStatus,
@@ -182,6 +183,7 @@ export interface WebSocketState {
   amanConnectionState: AMANConnectionState;
   amanFMPAuthority: boolean;
   amanPendingCommands: Record<string, AMANPendingCommand>;
+  amanCommandTypes: Record<string, AMANCommandType>;
   amanCommandRejections: Record<string, AMANCommandRejection>;
   setAMANConnectionState: (connectionState: AMANConnectionState) => void;
   sendAMANCommand: (intent: AMANCommandIntent) => string | null;
@@ -310,6 +312,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     amanConnectionState: "disconnected" as AMANConnectionState,
     amanFMPAuthority: false,
     amanPendingCommands: {},
+    amanCommandTypes: {},
     amanCommandRejections: {},
     selectedCallsign: null,
     tagRequestArmed: false,
@@ -447,6 +450,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
            ...("flight_id" in message.data ? {flight_id: message.data.flight_id} : {}),
            ...("runway_group_id" in message.data ? {runway_group_id: message.data.runway_group_id} : {}),
          };
+         draft.amanCommandTypes[commandID] = message.type;
+         const correlationIDs = Object.keys(draft.amanCommandTypes);
+         if (correlationIDs.length > 100) {
+           delete draft.amanCommandTypes[correlationIDs[0]];
+         }
        }));
        return commandID;
      },
@@ -1595,8 +1603,14 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     }
     store.setState(
       produce((state: WebSocketState) => {
+        const commandType = state.amanCommandTypes[event.data.command_id]
+          ?? state.amanPendingCommands[event.data.command_id]?.type;
         delete state.amanPendingCommands[event.data.command_id];
-        state.amanCommandRejections[event.data.command_id] = event.data;
+        delete state.amanCommandTypes[event.data.command_id];
+        state.amanCommandRejections[event.data.command_id] = {
+          ...event.data,
+          ...(commandType ? {command_type: commandType} : {}),
+        };
       }),
     );
   });

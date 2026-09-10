@@ -5,6 +5,7 @@ const (
 	AMANLockFlightType        EventType = "aman.lock_flight"
 	AMANUnlockFlightType      EventType = "aman.unlock_flight"
 	AMANSetRateType           EventType = "aman.set_rate"
+	AMANSelectRunwayGroupType EventType = "aman.select_runway_group"
 	AMANAcceptTETAType        EventType = "aman.accept_teta"
 	AMANKeepFPLETAType        EventType = "aman.keep_fpl_eta"
 	AMANSetManualETAType      EventType = "aman.set_manual_eta"
@@ -37,6 +38,12 @@ type AMANSetRateRequest struct {
 	EffectiveAt     string `json:"effective_at"`
 }
 
+type AMANSelectRunwayGroupRequest struct {
+	AMANCommandMeta
+	RunwayGroupID string `json:"runway_group_id"`
+	EffectiveAt   string `json:"effective_at"`
+}
+
 type AMANSetManualETARequest struct {
 	AMANCommandMeta
 	FlightID  string `json:"flight_id"`
@@ -65,6 +72,12 @@ type AMANSetRateMessage struct {
 	Type    EventType          `json:"type"`
 	Version int                `json:"version"`
 	Data    AMANSetRateRequest `json:"data"`
+}
+
+type AMANSelectRunwayGroupMessage struct {
+	Type    EventType                    `json:"type"`
+	Version int                          `json:"version"`
+	Data    AMANSelectRunwayGroupRequest `json:"data"`
 }
 
 type AMANSetManualETAMessage struct {

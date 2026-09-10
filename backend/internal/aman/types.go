@@ -658,6 +658,7 @@ type RunwayGroupPolicy struct {
 	ID                RunwayGroupID
 	Selected          bool
 	SelectionSchedule []RunwayGroupSelectionPoint
+	SelectionConflict *string
 	ActiveRatePerHour uint32
 	RateEffectiveAt   *time.Time
 	RateSchedule      []RunwayGroupRatePoint
@@ -667,7 +668,12 @@ type RunwayGroupPolicy struct {
 type RunwayGroupSelectionPoint struct {
 	EffectiveAt     time.Time
 	CommandRevision SequenceRevision
+	Source          RunwayGroupSelectionSource
 }
+
+type RunwayGroupSelectionSource string
+
+const RunwayGroupSelectionSourceFMPCommand RunwayGroupSelectionSource = "fmp_command"
 
 type RunwayGroupRatePoint struct {
 	EffectiveAt     time.Time
@@ -1489,6 +1495,12 @@ func (s AirportState) Validate() error {
 			if index > 0 && !selection.EffectiveAt.After(group.SelectionSchedule[index-1].EffectiveAt) {
 				return invalid("runway group selection schedule must be strictly ordered")
 			}
+			if selection.Source != "" && selection.Source != RunwayGroupSelectionSourceFMPCommand {
+				return invalid("runway group selection source is invalid")
+			}
+		}
+		if group.SelectionConflict != nil && strings.TrimSpace(*group.SelectionConflict) == "" {
+			return invalid("runway group selection conflict cannot be empty")
 		}
 		if group.RateEffectiveAt != nil {
 			if group.ActiveRatePerHour == 0 {

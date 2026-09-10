@@ -315,7 +315,10 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		next.RunwayGroups = s.initialState(airport, now).RunwayGroups
 		resetFlightsForRunwayConfiguration(&next)
 	}
-	if s.deps.Runways != nil {
+	if legacySelected, reset := discardLegacyRunwayGroupSelections(next.RunwayGroups); reset {
+		reassignFlightsToGroup(&next, legacySelected)
+	}
+	if s.deps.Runways != nil && !hasRunwayGroupSelectionSchedule(next.RunwayGroups) {
 		selectedGroup, selectionChanged, selectionErr := s.selectSessionRunwayGroup(ctx, airport, next.RunwayGroups)
 		if selectionErr != nil {
 			return selectionErr
@@ -324,9 +327,13 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 			reassignFlightsToGroup(&next, selectedGroup)
 		}
 	} else {
-		selectedGroup, selectionChanged := updateSelectedRunwayGroup(next.RunwayGroups, now)
+		selectedGroup, selectionChanged := selectedRunwayGroupAt(next.RunwayGroups, now)
 		if selectionChanged {
-			reassignFlightsToGroup(&next, selectedGroup)
+			if selectionErr := s.activateRunwayGroup(&next, selectedGroup, now); selectionErr != nil {
+				setRunwayGroupSelectionConflict(next.RunwayGroups, selectedGroup, selectionErr.Error())
+			}
+		} else {
+			clearRunwayGroupSelectionConflicts(next.RunwayGroups)
 		}
 	}
 	updateActiveRates(next.RunwayGroups, now)
@@ -415,6 +422,42 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 	return s.deps.Publisher.PublishAMANState(context.WithoutCancel(ctx), committed.State)
 }
 
+func hasRunwayGroupSelectionSchedule(groups []aman.RunwayGroupPolicy) bool {
+	for _, group := range groups {
+		for _, selection := range group.SelectionSchedule {
+			if selection.Source == aman.RunwayGroupSelectionSourceFMPCommand {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func discardLegacyRunwayGroupSelections(groups []aman.RunwayGroupPolicy) (aman.RunwayGroupID, bool) {
+	removed := false
+	for index := range groups {
+		filtered := make([]aman.RunwayGroupSelectionPoint, 0, len(groups[index].SelectionSchedule))
+		for _, selection := range groups[index].SelectionSchedule {
+			if selection.Source == aman.RunwayGroupSelectionSourceFMPCommand {
+				filtered = append(filtered, selection)
+			} else {
+				removed = true
+			}
+		}
+		groups[index].SelectionSchedule = filtered
+	}
+	if removed && !hasRunwayGroupSelectionSchedule(groups) {
+		for index := range groups {
+			groups[index].Selected = index == 0
+			groups[index].SelectionConflict = nil
+		}
+		if len(groups) > 0 {
+			return groups[0].ID, true
+		}
+	}
+	return "", false
+}
+
 func (s *Service) observations(airport string) map[aman.FlightID]aman.FlightObservation {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -433,9 +476,6 @@ func (s *Service) initialState(airport string, now time.Time) aman.AirportState 
 		group := aman.RunwayGroupPolicy{
 			ID: configured.ID, Selected: index == 0, ActiveRatePerHour: rate, RateEffectiveAt: &effective,
 			RateSchedule: []aman.RunwayGroupRatePoint{{EffectiveAt: effective, ArrivalsPerHour: rate}},
-		}
-		if index == 0 {
-			group.SelectionSchedule = []aman.RunwayGroupSelectionPoint{{EffectiveAt: effective}}
 		}
 		if spacing := configured.SameSTARSpacing; spacing != nil {
 			group.SameSTARSpacing = &aman.SameSTARSpacingPolicy{Enabled: spacing.Enabled, ActivationRatePerHour: spacing.ActivationRatePerHour, MinimumEmptySlots: spacing.MinimumEmptySlots}
@@ -882,6 +922,9 @@ func updateSelectedRunwayGroup(groups []aman.RunwayGroupPolicy, now time.Time) (
 	candidateIndex, candidatePoint := -1, aman.RunwayGroupSelectionPoint{}
 	for index := range groups {
 		for _, point := range groups[index].SelectionSchedule {
+			if point.Source != aman.RunwayGroupSelectionSourceFMPCommand {
+				continue
+			}
 			if point.EffectiveAt.After(now) {
 				break
 			}

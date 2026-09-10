@@ -30,6 +30,11 @@ func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 		}, func() error {
 			return (aman.SetRateCommand{Metadata: meta, RunwayGroupID: "A", EffectiveAt: now}).Validate()
 		}},
+		{"runway selection", func() error {
+			return (aman.SelectRunwayGroupCommand{Metadata: meta, RunwayGroupID: "A", EffectiveAt: now}).Validate()
+		}, func() error {
+			return (aman.SelectRunwayGroupCommand{Metadata: meta, EffectiveAt: now}).Validate()
+		}},
 		{"accept TETA", func() error { return (aman.AcceptTETACommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.AcceptTETACommand{Metadata: meta}).Validate() }},
 		{"keep FPL ETA", func() error { return (aman.KeepFPLETACommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.KeepFPLETACommand{Metadata: meta}).Validate() }},
 		{"manual ETA", func() error {

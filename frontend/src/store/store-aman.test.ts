@@ -151,4 +151,20 @@ describe("AMAN command store", () => {
     store.getState().dismissAMANCommandRejection(commandID);
     expect(store.getState().amanCommandRejections[commandID]).toBeUndefined();
   });
+
+  it("retains command type correlation after a newer state clears pending", () => {
+    const commandID = store.getState().sendAMANCommand({
+      type: "aman.select_runway_group", runway_group_id: "ARRIVAL-22", effective_at: golden.data.generated_at,
+    })!;
+    client._emit(EventType.FrontendAMANState, replacement(8));
+    expect(store.getState().amanPendingCommands[commandID]).toBeUndefined();
+
+    client._emit(EventType.FrontendAMANCommandRejected, {
+      type: "aman.command_rejected",
+      version: 1,
+      data: {command_id: commandID, code: "revision_conflict", message: "revision changed", current_revision: 8, retryable: true},
+    });
+
+    expect(store.getState().amanCommandRejections[commandID].command_type).toBe("aman.select_runway_group");
+  });
 });

@@ -45,6 +45,12 @@ function timelinePosition(timestamp: string | null, range: AMANTimelineRange): n
   return percent === null ? null : 100 - percent;
 }
 
+function gainLossTone(label: string): string {
+  if (label === "Unavailable") return "text-slate-300";
+  if (!label.startsWith("L")) return "text-[#96d796]";
+  return Number.parseInt(label.slice(1), 10) >= 4 ? "text-[#9c0000]" : "text-[#f0e129]";
+}
+
 function buildScrollableTimelineRange(flights: AMANFlight[], generatedAt: string): AMANTimelineRange {
   const timestamps = [generatedAt, ...flights.flatMap((flight) => [operationalMarkerTimestamp(flight), flight.raw_teta])]
     .map((value) => value === null ? Number.NaN : Date.parse(value))
@@ -175,6 +181,8 @@ function HoldingTimeline({
   fillAvailableSpace,
   showStar,
   currentPosition,
+  gainLossAuthoritative,
+  gainLossConnected,
   selectedFlightID,
   onSelectFlight,
 }: {
@@ -185,6 +193,8 @@ function HoldingTimeline({
   fillAvailableSpace: boolean;
   showStar: boolean;
   currentPosition: number | null;
+  gainLossAuthoritative: boolean;
+  gainLossConnected: boolean;
   selectedFlightID: string | null;
   onSelectFlight: (flightID: string) => void;
 }) {
@@ -199,14 +209,12 @@ function HoldingTimeline({
       {markers.map((marker) => {
         const selected = marker.flight.flight_id === selectedFlightID;
         const top = timelinePosition(marker.timestamp, range) ?? 0;
-        const gainLoss = formatGainLoss(marker.flight.gain_loss_seconds);
-        const gainLossTone = marker.flight.gain_loss_seconds === null
-          ? "text-slate-300"
-          : marker.flight.gain_loss_seconds < 0
-            ? "text-amber-300"
-            : marker.flight.gain_loss_seconds > 0
-              ? "text-lime-300"
-              : "text-white";
+        const gainLoss = formatGainLoss(marker.flight.gain_loss_seconds, {
+          authoritative: gainLossAuthoritative,
+          connected: gainLossConnected,
+          fresh: marker.flight.data_status === "fresh",
+        });
+        const guidanceTone = gainLossTone(gainLoss);
         const sequence = String(marker.flight.order ?? marker.flight.slot?.sequence ?? "").padStart(2, "0");
         const star = showStar ? marker.flight.star : null;
         const rulerEdge = stripSide === "left"
@@ -245,7 +253,7 @@ function HoldingTimeline({
                 <span className="w-[66px] truncate">{marker.flight.callsign}</span>
                 <span>{formatAMANTime(marker.timestamp)}</span>
                 {star !== null && <span className="w-[50px] truncate text-[#a9bdc5]">{star}</span>}
-                <span className={cn("ml-auto", gainLossTone)}>{gainLoss}</span>
+                <span className={cn("ml-auto", guidanceTone)}>{gainLoss}</span>
               </button>
               {stripSide === "left" && <span className={cn(
                 "relative h-px shrink-0",
@@ -394,6 +402,8 @@ export function AMANBoardView({
                 fillAvailableSpace={view === "runway"}
                 showStar={view === "runway"}
                 currentPosition={nowPosition}
+                gainLossAuthoritative={state.authoritative && state.effective_mode === "authoritative"}
+                gainLossConnected={connectionState === "connected"}
               />
             ))}
           </div>

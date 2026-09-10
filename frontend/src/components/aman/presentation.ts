@@ -21,6 +21,12 @@ export interface AMANTimelineMarker {
   track: number;
 }
 
+export interface AMANGainLossPresentationContext {
+  authoritative: boolean;
+  connected: boolean;
+  fresh: boolean;
+}
+
 function sequenceValue(flight: AMANFlight): number | null {
   return flight.order ?? flight.slot?.sequence ?? null;
 }
@@ -136,10 +142,13 @@ export function formatAMANTime(value: string | null): string {
   return Number.isNaN(parsed.valueOf()) ? "Invalid" : parsed.toISOString().slice(11, 16);
 }
 
-export function formatGainLoss(seconds: number | null): string {
-  if (seconds === null) return "Unavailable";
-  if (seconds === 0) return "0:00";
-  const sign = seconds > 0 ? "+" : "−";
+export function formatGainLoss(seconds: number | null, context: AMANGainLossPresentationContext): string {
+  if (seconds === null || !context.authoritative || !context.connected || !context.fresh) return "Unavailable";
+
   const absolute = Math.abs(seconds);
-  return `${sign}${Math.floor(absolute / 60)}:${String(absolute % 60).padStart(2, "0")}`;
+  if (absolute < 30) return "=00";
+
+  const prefix = seconds > 0 ? "G" : "L";
+  const minutes = Math.floor((absolute + 30) / 60);
+  return minutes > 99 ? `${prefix}99+` : `${prefix}${String(minutes).padStart(2, "0")}`;
 }

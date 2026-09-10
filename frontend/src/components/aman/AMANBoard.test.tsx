@@ -52,7 +52,7 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByText("ARRIVAL-22 : 1")).toBeInTheDocument();
     expect(marker).toHaveTextContent("SAS123");
     expect(marker).toHaveTextContent("10:18");
-    expect(marker).toHaveTextContent("+1:00");
+    expect(marker).toHaveTextContent("G01");
     expect(marker).not.toHaveTextContent("Prediction");
     expect(marker).toHaveAttribute("title", expect.stringContaining("fresh"));
   });
@@ -109,6 +109,18 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("title", expect.stringContaining("go_around"));
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("title", expect.stringContaining("stale"));
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveClass("border-fuchsia-200");
+    expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("Unavailable");
+  });
+
+  it("does not show guidance from a non-authoritative AMAN state", () => {
+    const readOnly = state();
+    readOnly.authoritative = false;
+    readOnly.effective_mode = "read_only";
+
+    renderBoard(readOnly);
+
+    expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("Unavailable");
+    expect(screen.getByTestId("operational-marker-flight-123")).not.toHaveTextContent("G01");
   });
 
   it("supports compact timeline marker hit testing from the designed scrolling layout", () => {

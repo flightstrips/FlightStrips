@@ -323,7 +323,7 @@ export function AMANControls({
       hasFMPAuthority={hasFMPAuthority}
       pendingCommands={pendingCommands}
       commandRejections={commandRejections}
-      onCommand={(intent) => { sendCommand(intent, hasFMPAuthority); }}
+      onCommand={(intent) => { sendCommand(intent); }}
       onDismissRejection={dismissRejection}
       selectedFlightID={selectedFlightID}
       onSelectedFlightIDChange={onSelectedFlightIDChange}

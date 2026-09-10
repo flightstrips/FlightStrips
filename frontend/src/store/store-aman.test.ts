@@ -4,7 +4,7 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 import type {StoreApi} from "zustand/vanilla";
 
 import type {AMANStateEvent} from "@/api/aman";
-import {EventType} from "@/api/models";
+import {EventType, type FrontendInitialEvent} from "@/api/models";
 import type {WebSocketClient} from "@/api/websocket";
 import {createWebSocketStore, type WebSocketState} from "./store";
 
@@ -18,6 +18,31 @@ function replacement(revision: number): AMANStateEvent {
   event.data.revision = revision;
   event.data.flights[0].slot!.revision = revision;
   return event;
+}
+
+function initialSnapshot(amanFMP: boolean, readOnly = false): FrontendInitialEvent {
+  return {
+    type: EventType.FrontendInitial,
+    controllers: [],
+    strips: [],
+    tactical_strips: [],
+    me: {callsign: "EKCH_FMH", position: "120.500", identifier: "FMH", section: "", owned_sectors: []},
+    airport: "EKCH",
+    layout: "AA",
+    callsign: "EKCH_FMH",
+    runway_setup: {departure: [], arrival: [], runway_status: {}},
+    coordinations: [],
+    messages: [],
+    available_sids: [],
+    initial_cfl_by_runway: {},
+    transition_altitude: 7000,
+    read_only: readOnly,
+    position_available: true,
+    stand_assignment_enabled: false,
+    stand_assignments: [],
+    stand_blocks: [],
+    capabilities: {aman_fmp: amanFMP},
+  };
 }
 
 function createMockClient() {
@@ -41,11 +66,12 @@ describe("AMAN command store", () => {
     client = createMockClient();
     store = createWebSocketStore(client);
     store.getState().setAMANConnectionState("connected");
+    client._emit(EventType.FrontendInitial, initialSnapshot(true));
     client._emit(EventType.FrontendAMANState, replacement(7));
   });
 
   it("adds only command metadata to the matching typed request and tracks it as pending", () => {
-    const commandID = store.getState().sendAMANCommand({type: "aman.accept_teta", flight_id: "flight-123"}, true);
+    const commandID = store.getState().sendAMANCommand({type: "aman.accept_teta", flight_id: "flight-123"});
 
     expect(commandID).toEqual(expect.any(String));
     expect(client.send).toHaveBeenCalledWith({
@@ -64,20 +90,38 @@ describe("AMAN command store", () => {
 
   it("does not send while disconnected, unauthorized, read-only, non-authoritative, or unready", () => {
     store.getState().setAMANConnectionState("disconnected");
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"}, true)).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
     store.getState().setAMANConnectionState("connected");
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"}, false)).toBeNull();
-    store.setState({readOnly: true});
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"}, true)).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
+    client._emit(EventType.FrontendInitial, initialSnapshot(false));
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
+    client._emit(EventType.FrontendInitial, initialSnapshot(true, true));
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
     store.setState({readOnly: false, amanState: {...store.getState().amanState!, authoritative: false, effective_mode: "read_only"}});
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"}, true)).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
     store.setState({amanState: {...replacement(7).data, technical_health: {...replacement(7).data.technical_health, ready: false}}});
-    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"}, true)).toBeNull();
+    expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();
     expect(client.send).not.toHaveBeenCalled();
   });
 
+  it("replaces authority from server snapshots and fails closed across reconnects", () => {
+    expect(store.getState().amanFMPAuthority).toBe(true);
+
+    client._emit(EventType.FrontendInitial, initialSnapshot(false));
+    expect(store.getState().amanFMPAuthority).toBe(false);
+
+    client._emit(EventType.FrontendInitial, initialSnapshot(true));
+    store.getState().setAMANConnectionState("disconnected");
+    expect(store.getState().amanFMPAuthority).toBe(false);
+
+    store.getState().setAMANConnectionState("connected");
+    expect(store.getState().amanFMPAuthority).toBe(false);
+    client._emit(EventType.FrontendInitial, initialSnapshot(true));
+    expect(store.getState().amanFMPAuthority).toBe(true);
+  });
+
   it("keeps pending correlation through reconnect and clears it only on a newer replacement", () => {
-    const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"}, true)!;
+    const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})!;
     store.getState().setAMANConnectionState("disconnected");
     store.getState().setAMANConnectionState("connected");
     client._emit(EventType.FrontendAMANState, replacement(7));
@@ -89,7 +133,7 @@ describe("AMAN command store", () => {
   });
 
   it("turns a correlated rejection into a durable visible result, including conflicts", () => {
-    const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"}, true)!;
+    const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})!;
     client._emit(EventType.FrontendAMANCommandRejected, {
       type: "aman.command_rejected",
       version: 1,
@@ -111,7 +155,7 @@ describe("AMAN command store", () => {
   it("retains command type correlation after a newer state clears pending", () => {
     const commandID = store.getState().sendAMANCommand({
       type: "aman.select_runway_group", runway_group_id: "ARRIVAL-22", effective_at: golden.data.generated_at,
-    }, true)!;
+    })!;
     client._emit(EventType.FrontendAMANState, replacement(8));
     expect(store.getState().amanPendingCommands[commandID]).toBeUndefined();
 

@@ -294,6 +294,14 @@ type InitialEvent struct {
 	StandAssignmentEnabled bool                    `json:"stand_assignment_enabled"`
 	StandAssignments       []StandAssignmentEntry  `json:"stand_assignments"`
 	StandBlocks            []StandBlockEntry       `json:"stand_blocks"`
+	Capabilities           FrontendCapabilities    `json:"capabilities"`
+}
+
+// FrontendCapabilities contains server-derived permissions for the authenticated
+// frontend session. These are presentation hints only; command handlers must
+// continue to enforce the same policy independently.
+type FrontendCapabilities struct {
+	AMANFMP bool `json:"aman_fmp"`
 }
 
 func (i InitialEvent) Marshal() ([]byte, error) {

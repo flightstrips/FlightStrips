@@ -11,6 +11,7 @@ const {controlsSpy, storeState} = vi.hoisted(() => ({
     amanPresentationStatus: "empty",
     amanError: null,
     amanConnectionState: "connected",
+    amanFMPAuthority: false,
   },
 }));
 
@@ -35,7 +36,10 @@ vi.mock("@/lib/aman-performance", () => ({
 }));
 
 describe("AMAN route authorization", () => {
-  beforeEach(() => controlsSpy.mockClear());
+  beforeEach(() => {
+    controlsSpy.mockClear();
+    storeState.amanFMPAuthority = false;
+  });
 
   it("keeps FMP controls unauthorized without a server-backed capability", () => {
     render(<AMAN />);
@@ -43,5 +47,12 @@ describe("AMAN route authorization", () => {
     expect(screen.getByText("AMAN board")).toBeInTheDocument();
     expect(screen.getByText("AMAN controls")).toBeInTheDocument();
     expect(controlsSpy).toHaveBeenCalledWith(expect.objectContaining({hasFMPAuthority: false}));
+  });
+
+  it("enables FMP controls from the server-backed session capability", () => {
+    storeState.amanFMPAuthority = true;
+    render(<AMAN />);
+
+    expect(controlsSpy).toHaveBeenCalledWith(expect.objectContaining({hasFMPAuthority: true}));
   });
 });

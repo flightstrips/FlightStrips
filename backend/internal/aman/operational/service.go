@@ -862,26 +862,18 @@ const gainResequenceThreshold = 4 * time.Minute
 // releaseGainResequenceTargets authorizes the narrow automatic exception to
 // committed-slot immutability. Stable slots around the target stay protected;
 // a late target is reinserted at the earliest policy-valid open grid slot.
+// Superstable freezes are never routine targets; only an authorized manual
+// workflow or a confirmed go-around may release their captured values.
 func releaseGainResequenceTargets(state *aman.AirportState) map[aman.FlightID]struct{} {
 	targets := map[aman.FlightID]struct{}{}
 	for index := range state.Flights {
 		flight := &state.Flights[index]
-		if flight.State != aman.StateStable || flight.Slot == nil || flight.Prediction == nil || flight.FreezeReason == aman.FreezeTMA {
+		if flight.State != aman.StateStable || flight.Slot == nil || flight.Prediction == nil ||
+			flight.FreezeReason == aman.FreezeTMA || flight.FreezeReason == aman.FreezeSuperstable {
 			continue
 		}
-		reference := flight.Prediction.OperationalTETA
-		if flight.FreezeReason == aman.FreezeSuperstable {
-			reference = flight.Prediction.RawTETA
-		}
-		if reference.Sub(flight.Slot.Time) <= gainResequenceThreshold {
+		if flight.Prediction.OperationalTETA.Sub(flight.Slot.Time) <= gainResequenceThreshold {
 			continue
-		}
-		if flight.FreezeReason == aman.FreezeSuperstable {
-			flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
-			prediction := *flight.Prediction
-			prediction.OperationalTETA = prediction.RawTETA
-			prediction.OperationalReason = aman.OperationalReasonPredicted
-			flight.Prediction = &prediction
 		}
 		flight.ManualOrder = nil
 		targets[flight.ID] = struct{}{}

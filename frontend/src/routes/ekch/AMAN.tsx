@@ -11,6 +11,7 @@ export default function AMAN() {
   const presentationStatus = useWebSocketStore((value) => value.amanPresentationStatus);
   const error = useWebSocketStore((value) => value.amanError);
   const connectionState = useWebSocketStore((value) => value.amanConnectionState);
+  const hasFMPAuthority = useWebSocketStore((value) => value.amanFMPAuthority);
   const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const controlsRef = useRef<HTMLElement>(null);
@@ -44,7 +45,7 @@ export default function AMAN() {
       />
       <aside className="h-full min-h-0 overflow-y-auto pr-1" ref={controlsRef} tabIndex={-1}>
         <AMANControls
-          hasFMPAuthority={false}
+          hasFMPAuthority={hasFMPAuthority}
           onSelectedFlightIDChange={setSelectedFlightID}
           selectedFlightID={effectiveSelectedFlightID}
         />

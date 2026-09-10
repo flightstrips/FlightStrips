@@ -430,6 +430,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 		slog.Error("Failed to build initial frontend snapshot", slog.Any("error", err), slog.Int("session", int(client.session)))
 		return
 	}
+	event.Capabilities.AMANFMP = hub.hasAMANFMPAuthority(client)
 
 	client.Enqueue(event)
 	if hub.amanStateProvider != nil {
@@ -640,6 +641,8 @@ func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
 		oldSessionName := client.sessionName
 		oldAirport := client.airport
 		oldCallsign := client.callsign
+		oldReadOnly := client.readOnly
+		oldAMANFMPAuthority := hub.hasAMANFMPAuthority(client)
 		wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
 
 		slog.Debug("Associating frontend client with session",
@@ -668,7 +671,7 @@ func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
 			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
 		}
 
-		if wasWaiting || client.readOnly {
+		if wasWaiting || oldReadOnly != client.readOnly || oldAMANFMPAuthority != hub.hasAMANFMPAuthority(client) {
 			initialClients = append(initialClients, client)
 		}
 	}

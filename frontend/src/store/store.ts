@@ -180,10 +180,11 @@ export interface WebSocketState {
   amanPresentationStatus: AMANPresentationStatus;
   amanError: string | null;
   amanConnectionState: AMANConnectionState;
+  amanFMPAuthority: boolean;
   amanPendingCommands: Record<string, AMANPendingCommand>;
   amanCommandRejections: Record<string, AMANCommandRejection>;
   setAMANConnectionState: (connectionState: AMANConnectionState) => void;
-  sendAMANCommand: (intent: AMANCommandIntent, hasFMPAuthority: boolean) => string | null;
+  sendAMANCommand: (intent: AMANCommandIntent) => string | null;
   dismissAMANCommandRejection: (commandID: string) => void;
 
   selectedCallsign: string | null;
@@ -307,6 +308,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     amanPresentationStatus: "empty" as AMANPresentationStatus,
     amanError: null,
     amanConnectionState: "disconnected" as AMANConnectionState,
+    amanFMPAuthority: false,
     amanPendingCommands: {},
     amanCommandRejections: {},
     selectedCallsign: null,
@@ -415,14 +417,17 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     return {
      ...initialState,
      selectStrip: (callsign) => set({ selectedCallsign: callsign }),
-     setAMANConnectionState: (connectionState) => set({amanConnectionState: connectionState}),
-     sendAMANCommand: (intent, hasFMPAuthority) => {
+     setAMANConnectionState: (connectionState) => set({
+       amanConnectionState: connectionState,
+       ...(connectionState === "disconnected" ? {amanFMPAuthority: false} : {}),
+     }),
+     sendAMANCommand: (intent) => {
        const state = get();
        if (getAMANMutationBlockReason({
          state: state.amanState,
          connection_state: state.amanConnectionState,
          read_only: state.readOnly,
-         has_fmp_authority: hasFMPAuthority,
+         has_fmp_authority: state.amanFMPAuthority,
        }) !== null || state.amanState === null) {
          return null;
        }
@@ -989,6 +994,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         state.airport = data.airport;
         state.callsign = data.callsign;
         state.readOnly = data.read_only ?? false;
+        state.amanFMPAuthority = data.capabilities?.aman_fmp ?? false;
         state.positionAvailable = data.position_available ?? true;
         state.localIp = data.local_ip ?? "";
         const normalizedLayout = normalizeLayout(data.layout);

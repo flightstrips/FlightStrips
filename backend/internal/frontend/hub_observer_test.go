@@ -178,6 +178,66 @@ func TestAssociateCidOnlineClients_AssociatesAllMatchingClients(t *testing.T) {
 	assert.Equal(t, WaitingForEuroscopeConnectionSessionId, other.session)
 }
 
+func TestAssociateCidOnlineClients_RequestsNewSnapshotWhenAMANCapabilityChanges(t *testing.T) {
+	controllerCID := "1234567"
+	hub := &Hub{
+		clients:      map[*Client]bool{},
+		amanFMPRoles: map[string]struct{}{"EKCH_FMH": {}},
+		amanRoleForPosition: func(position string) string {
+			if position == "118.105" {
+				return "EKCH_FMH"
+			}
+			return "EKCH_A_TWR"
+		},
+		server: &testutil.MockServer{
+			ControllerRepoVal: &testutil.MockControllerRepository{GetByCidFn: func(context.Context, string) (*internalModels.Controller, error) {
+				return &internalModels.Controller{Cid: &controllerCID, Session: 42, Position: "118.105", Callsign: "EKCH_FMH"}, nil
+			}},
+			SessionRepoVal: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*internalModels.Session, error) {
+				return &internalModels.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}, nil
+			}},
+			EuroscopeHubVal: &testutil.MockEuroscopeHub{IsObserverCidFn: func(string) bool { return false }},
+		},
+	}
+	client := &Client{
+		hub: hub, session: 42, sessionName: "LIVE", position: "121.730", airport: "EKCH", callsign: "EKCH_A_TWR",
+		user: validFrontendUser(controllerCID),
+	}
+	hub.clients[client] = true
+	require.False(t, hub.hasAMANFMPAuthority(client))
+
+	initialClients := hub.associateCidOnlineClients(cidOnlineMessage{session: 42, cid: controllerCID})
+
+	require.Equal(t, []*Client{client}, initialClients)
+	require.True(t, hub.hasAMANFMPAuthority(client))
+}
+
+func TestAssociateCidOnlineClients_RequestsNewSnapshotWhenReadOnlyStatusChanges(t *testing.T) {
+	controllerCID := "1234567"
+	hub := &Hub{
+		clients: map[*Client]bool{},
+		server: &testutil.MockServer{
+			ControllerRepoVal: &testutil.MockControllerRepository{GetByCidFn: func(context.Context, string) (*internalModels.Controller, error) {
+				return &internalModels.Controller{Cid: &controllerCID, Session: 42, Position: "118.105", Callsign: "EKCH_FMH"}, nil
+			}},
+			SessionRepoVal: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*internalModels.Session, error) {
+				return &internalModels.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}, nil
+			}},
+			EuroscopeHubVal: &testutil.MockEuroscopeHub{IsObserverCidFn: func(string) bool { return false }},
+		},
+	}
+	client := &Client{
+		hub: hub, session: 42, sessionName: "LIVE", position: "118.105", airport: "EKCH", callsign: "EKCH_FMH",
+		user: validFrontendUser(controllerCID), readOnly: true,
+	}
+	hub.clients[client] = true
+
+	initialClients := hub.associateCidOnlineClients(cidOnlineMessage{session: 42, cid: controllerCID})
+
+	require.Equal(t, []*Client{client}, initialClients)
+	require.False(t, client.readOnly)
+}
+
 func TestCidDisconnect_ClearsAllMatchingClients(t *testing.T) {
 	hub := &Hub{
 		clients: map[*Client]bool{},

@@ -25,7 +25,7 @@ The system must remain deterministic across restarts and replay. Navigation geom
 These concepts are deliberately distinct:
 
 - **STAR entry family**: the outer arrival-route family, currently TESPI, TUDLO, MONAK, TIDVU, or ERNOV. It is used to select terminal geometry and may be used by STAR-family sequencing policy.
-- **Feeder fix**: the downstream operational fix from which Stable and Superstable timing is measured. Examples include TNO and KOR. A feeder fix is not automatically the STAR entry family or holding fix.
+- **Feeder fix**: the downstream operational fix from which Stable and Superstable timing is measured. The configured EKCH feeder fixes are NEKSO, KOR, TNO, ERNOV, ESJAH, KUBIS, and WUPJA according to STAR family and runway direction. A feeder fix is not automatically the STAR entry family or holding fix.
 - **Holding fix**: the fix of a published holding used to detect holding occupancy and calculate an expected release.
 - **Merge fix**: the point at which configured terminal paths converge toward final approach.
 - **RETA**: raw ETA supplied by or derived from an external source before the AMAN performance correction.
@@ -109,6 +109,16 @@ The initial ACC position mapping is:
 | `ESMS_APP` | TIDVU |
 
 Position-derived defaults are conveniences, not authorization. A locally selected view may override the default without changing shared AMAN state.
+
+Until an operator-specific layout supersedes it, the initial versioned FMP/ALL lane mapping is:
+
+| Timeline | Left side | Right side |
+| --- | --- | --- |
+| 1 | TESPI | TUDLO |
+| 2 | MONAK | TIDVU |
+| 3 | ERNOV | unused |
+
+If one controller identity matches multiple ACC-family mappings, or no standard mapping matches, the initial view is ALL. The user may then select a local view without changing shared state. These defaults are deliberately configuration-owned so they can be adjusted without redesigning the timeline.
 
 ### Timeline behavior
 
@@ -239,7 +249,18 @@ The EAT box is green when the EAT is within the next four minutes and yellow oth
 
 ### TMT warning tool
 
-The design reserves a warning-box region, but its events, severity, acknowledgement, retention, and authority behavior are not yet defined. No agent should invent warning semantics from the visual placeholder.
+The initial warning tool presents warnings that AMAN already derives authoritatively; it does not introduce a separate operator-authored warning system. Its initial sources are technical-health blocked/component states and sequence-engine warnings published in the full replacement state.
+
+- Warning identity is deterministic from its source, stable code/component, runway group, flight, and related flight where applicable.
+- Duplicate identities collapse to one item. Items sort by severity and then stable identity.
+- Blocked, unavailable, and sequence-conflict conditions are errors. Degraded component/input conditions are warnings.
+- Warnings are full-replacement current state, not retained history. An item disappears when its authoritative source no longer publishes it.
+- The initial version has no acknowledgement workflow or warning persistence independent of its source state.
+- All users who can view AMAN can view these warnings; warning visibility is not mutation authority.
+- A stale or disconnected client presents its existing connection/data-state warning even when it cannot receive a newer replacement.
+- Every warning uses text and a non-color cue in addition to severity color.
+
+Additional warning sources, shared acknowledgement, retention, and role-specific audiences may be added later as explicit versioned product changes.
 
 ### Visual design references
 
@@ -269,9 +290,21 @@ Every configured STAR-family/runway path must identify, separately:
 4. merge fix;
 5. final approach and runway threshold.
 
-The active configuration already contains route fixes such as TNO and KOR inside its paths, but currently names the outer TESPI/TUDLO-style family as the feeder. The model must be corrected without losing the outer family identity. Each configured feeder fix must resolve uniquely and occur on its associated path.
+The active configuration already contains the operational feeder fixes inside its paths, but currently names the outer TESPI/TUDLO-style family as the feeder. The model must be corrected without losing the outer family identity. Each configured feeder fix must resolve uniquely and occur on its associated path.
 
-TNO and KOR are confirmed examples. Remaining feeder-fix mappings must be verified from the operational design rather than guessed, especially where a family uses different downstream fixes for different runway directions.
+The approved mapping and nominal holding-to-feeder time are:
+
+| STAR entry family | Runway groups | Holding fix | Feeder fix | Nominal time |
+| --- | --- | --- | --- | --- |
+| TESPI | all | ROSBI | TNO | 3:15 |
+| TUDLO | all | LUGAS | KOR | 4:15 |
+| MONAK | 04L, 04R, 22L, 22R, 12 | OLPIB | NEKSO | 3:20 |
+| MONAK | 30 | OLPIB | KUBIS | unavailable |
+| TIDVU | 04L, 04R, 22L, 22R | TIDVU | ESJAH | 2:20 |
+| TIDVU | 12, 30 | TIDVU | WUPJA | unavailable |
+| ERNOV | all | ERNOV | ERNOV | 0:00 |
+
+`MONAK/30` and `TIDVU/12,30` deliberately keep their correct KUBIS and WUPJA feeder identities while their nominal times remain unavailable pending operator measurement. Configuration represents those durations as absent, never zero. Consumers that require the missing time degrade visibly and must not substitute landing ETA, holding ETA, or another runway's duration. TODO: add the approved OLPIB-KUBIS and TIDVU-WUPJA times when supplied.
 
 ## Flight lifecycle
 
@@ -338,13 +371,11 @@ Minimum separation is the maximum of the base interval and applicable wake polic
 
 Unknown wake categories must use an explicit safe fallback and produce degraded-state visibility.
 
-### Same-STAR spacing: current behavior and open decision
+### Same-STAR-family spacing
 
-The current EKCH configuration enables same-STAR spacing for every runway group at 20 arrivals per hour and above with one empty grid opportunity between aircraft from the same STAR entry family.
+The initial EKCH policy enables same-STAR-family spacing independently per STAR entry family at 20 arrivals per hour and above with one empty grid opportunity between aircraft from that family. Each STAR family has explicit versioned configuration, initially using the same retained values.
 
-This is sometimes described as requiring an “alternating arrival,” but the implementation does not require another aircraft to occupy the intervening opportunity; it can remain empty. Below the activation rate, the additional same-family spacing is inactive.
-
-Whether to retain, reconfigure, or disable this policy is an open operational decision. Until that decision is recorded, implementations must not silently change the live default. Future wording should call it **same-STAR-family spacing** rather than alternating arrivals.
+This is sometimes described as requiring an “alternating arrival,” but the policy does not require another aircraft to occupy the intervening opportunity; it can remain empty. Below the configured activation rate for that STAR family, the additional spacing is inactive. Future changes may configure or disable individual families without silently changing the others.
 
 ## Sequence protection and queueing
 
@@ -354,7 +385,7 @@ Stable aircraft retain their established relative order. When an earlier legal s
 
 Superstable and manually frozen aircraft retain their captured slot except under a specifically authorized manual workflow or a confirmed go-around. A late raw TETA is informational and must never automatically release Superstable or change its captured operational TETA and slot. Queue offers are removed when they can no longer be used or when the aircraft becomes fully frozen.
 
-TMA freeze must not use entry into a configured terminal path as its boundary. It may operate only against a dedicated, versioned three-dimensional TMA volume supplied and approved by the operator, including horizontal geometry and applicable altitude limits. The required TMA box is an external prerequisite and must not be guessed. Until it is available and validated, TMA-based freeze behavior must not be enabled.
+TMA freeze must not use entry into a configured terminal path as its boundary. The approved horizontal boundary is the EKCH Copenhagen Approach `MultiPolygon` from the SimAware TRACON project, vendored from [`Boundaries/EKCH/EKCH.json` at commit `d860ed77135b057168148184880a41cc183bf881`](https://github.com/vatsimnetwork/simaware-tracon-project/blob/d860ed77135b057168148184880a41cc183bf881/Boundaries/EKCH/EKCH.json). The operational volume extends from the surface to strictly below FL195; an observation at FL195 or above is outside it. This operator-approved boundary remains valid until explicitly superseded and does not cycle automatically with AIRAC data. Production configuration must use a validated local/versioned copy with source provenance rather than fetching the mutable upstream file during runtime.
 
 ### Holding-stack ordering
 
@@ -375,14 +406,16 @@ A GAP is first-class persisted operational state with:
 
 - stable identity and command/audit identity;
 - runway group;
-- absolute UTC start and end, or an unambiguous start plus slot count;
+- required explicit absolute UTC start and end, or an unambiguous start plus slot count; neither form has a default;
 - operational reason;
 - creator and creation time;
 - active/removed/expired state.
 
-The frontend renders a GAP distinctly from an aircraft and from automatic separation. The sequence engine never assigns an aircraft inside an active GAP and moves affected movable aircraft to later valid opportunities using all normal rate, wake, STAR, lifecycle, and queue policies.
+Slot-count input is converted to an absolute UTC interval when the command is accepted, using the then-current arrival rate. The persisted GAP is always time-based, so a later rate change never resizes it.
 
-By default, inserting a GAP that intersects a protected Stable/Superstable/manual or validated TMA-frozen slot is rejected with a useful conflict. Any ability to override protected slots requires its own explicit authorization and product decision; it must not be implied by ordinary GAP creation.
+The frontend renders a GAP distinctly from an aircraft and from automatic separation. When a GAP is inserted, every aircraft already assigned inside the interval is moved to a later valid opportunity using all normal rate, wake, STAR, lifecycle, and queue policies, irrespective of Stable, Superstable, manual, or validated TMA freeze protection. The displacement and resulting revision remain explicitly audited.
+
+Automatic sequencing never assigns an aircraft inside an active GAP. A later explicitly authorized manual placement inside the GAP is allowed, remains visibly exceptional, and is audited; the GAP itself remains active for all other traffic.
 
 Removing or expiring a GAP reopens capacity and triggers deterministic normal resequencing. A GAP must survive restart and replay and must never be represented as a fake aircraft or callsign.
 
@@ -414,22 +447,22 @@ This section records what the repository does today so that agents do not mistak
 
 | Area | Current implementation | Relationship to this specification |
 | --- | --- | --- |
-| Route terminology | EKCH configuration calls TESPI/TUDLO/MONAK/TIDVU/ERNOV `feeders`; downstream fixes such as TNO and KOR are undifferentiated path fixes. `SelectedFeeder` is also published as both feeder and STAR. | Model change required; feeder-fix mappings need an operator decision. |
+| Route terminology | EKCH configuration calls TESPI/TUDLO/MONAK/TIDVU/ERNOV `feeders`; downstream fixes such as TNO and KOR are undifferentiated path fixes. `SelectedFeeder` is also published as both feeder and STAR. | Model change required; the approved feeder-fix mapping is recorded above. |
 | Controller directs | The trajectory domain can apply route facts and can infer track-aligned off-route recovery. The EuroScope/backend event contract does not carry an explicit controller-issued direct-to fact. | Ingestion and transport work required. Track inference is not a substitute for the clearance. |
 | Stable/Superstable clock | The operational lifecycle currently uses hard-coded landing-TETA horizons. A second prediction reducer uses holding-fix ETA for Superstable. Neither consistently uses ETA to a distinct feeder fix. | Must be consolidated on configured feeder-fix ETA. |
-| Freeze policy | Entering the configured terminal path can create a `tma` freeze. Separately, a Superstable flight whose raw TETA is over four minutes later than its slot is automatically unfrozen and resequenced. | Both conflict with the approved behavior. Track corrections in #560 and #561; #561 requires the operator-provided altitude-bounded TMA volume. |
-| Same-STAR spacing | Enabled for all configured EKCH runway groups at 20 arrivals/hour and above, with one empty grid opportunity. Identity is the current outer `SelectedFeeder`. | Live default is documented, but final policy and corrected identity remain open. |
+| Freeze policy | Entering the configured terminal path can create a `tma` freeze. Separately, a Superstable flight whose raw TETA is over four minutes later than its slot is automatically unfrozen and resequenced. | Both conflict with the approved behavior. Track corrections in #560 and #561; the approved TMA volume is recorded above. |
+| Same-STAR spacing | Enabled for all configured EKCH runway groups at 20 arrivals/hour and above, with one empty grid opportunity. Identity is the current outer `SelectedFeeder`. | Migrate the retained values to explicit per-STAR-family configuration and corrected family identity. |
 | Holding order | Confirmed aircraft in the same holding are globally ordered lowest-first, after manual/protected rules. The strategy is not configurable by STAR. | Per-STAR configuration required. |
 | Queueing | Backend queue offers describe occupied earlier slots and expire with a revision. There is no accept-offer command, and the calculation does not allocate a newly vacant slot. | Automatic promotion is approved; track the correction in #562. |
 | Runway group and rate | Setting a rate for a runway group also schedules that group as selected; there is no independent runway-selection command. | Independent operations are approved; track the correction in #563. |
 | WTC/L | The predictor applies a performance/wind model to Light aircraft. Light piston aircraft are excluded from automatic sequencing until manually included. | All WTC/L must follow the documented RETA policy and remain eligible; track in #564. |
-| GAP | No first-class runway GAP state or command exists. | Implementation required. |
+| GAP | No first-class runway GAP state or command exists. | Implementation required using the approved normalization and displacement policy above. |
 | Go-around | A manual command applies a ten-minute delay and cascade. A surveillance detector exists in lifecycle/replay code but is not wired into the live operational service. | Live detection must request controller confirmation; track in #565. The exact time model remains open. |
 | Gain/lose display | Backend publishes signed seconds. The web UI displays signed `m:ss`; the EuroScope Gain/Lose display remains separately tracked. | Rounded controller `Gxx`/`Lxx` presentation is approved and tracked in #334 for EuroScope and #567 for the web frontend. |
 | FMP controls | Backend role authorization and commands exist, but the EKCH page currently passes `hasFMPAuthority=false`, so controls are unavailable. | A server-backed capability must reach the frontend; track in #566. |
 | Freeze contract | Backend can publish freeze reason `tma`; the frontend validator accepts only `none`, `superstable`, and `manual`. | Current TMA-frozen state can invalidate the complete frontend AMAN payload; correct as part of #561. |
 | MAESTRO workspace | The current route renders `AMANBoardView` beside a generic `AMANControls` sidebar. It does not implement the FMP/RWY/ACC workspace, three timelines, local target fields, or the two-row MAESTRO settings bar. | Frontend implementation work required against the design section and Figma references above. |
-| TMT tools | No AMAN traffic-prediction, holding-information, or warning tool is present in the live AMAN route. | Traffic and holding tools require backend read models and frontend implementation. Warning behavior remains an open product decision. |
+| TMT tools | No AMAN traffic-prediction, holding-information, or warning tool is present in the live AMAN route. | Traffic and holding tools require backend read models and frontend implementation. The initial warning policy is recorded above. |
 | Aircraft operations | Current controls cover a subset of move/freeze/rate/ETA/go-around actions. Alternate/change runway, maximum delay, coordination, DSEQ, closure, reserved capacity, and confirmed removal do not exist as the complete designed workflows. | Add only through typed backend commands; reuse #557 for GAP and do not implement fake aircraft. |
 
 Implementation references include `backend/config/aman/ekch-terminal-2609.json`, `backend/internal/aman/operational/service.go`, `backend/internal/aman/operational/mutations.go`, `backend/internal/aman/prediction/reducer.go`, `backend/internal/aman/sequence/queue.go`, `backend/internal/aman/lifecycle/go_around.go`, `backend/pkg/events/frontend/aman.go`, `frontend/src/api/aman.ts`, and `frontend/src/routes/ekch/AMAN.tsx`.
@@ -447,17 +480,11 @@ Implementation references include `backend/config/aman/ekch-terminal-2609.json`,
 
 Update this section when decisions are made:
 
-1. Confirm the feeder fix for every STAR-family/runway path beyond the known TNO and KOR examples.
-2. Decide whether current same-STAR-family spacing is retained, reconfigured, or disabled.
-3. Select the initial holding-stack ordering value for each STAR entry family.
-4. Confirm the default duration/slot-count interaction and protected-slot conflict workflow for an approach-stop GAP.
-5. Confirm whether the current fixed ten-minute go-around delay remains the desired time model. Controller confirmation of automatic detection is already decided.
-6. Resolve the MAESTRO settings-bar height conflict: the opening prose says 7.5% of MAESTRO height, while the detailed specification and inspected Figma annotation say 13⅓%.
-7. Confirm the configured assignment of the five STAR families/feeder fixes to the three FMP timelines and their left/right target sides.
-8. Define runway-closure termination/removal, protected-slot interaction, and whether a closure may start only after an aircraft or also at an absolute time.
-9. Define Maximum Delay semantics, authorization, and interaction with Stable/Superstable traffic beyond the invariant that separation and protected traffic cannot be bypassed.
-10. Define TMT warning sources, severity, acknowledgement, retention, and audience. The current Figma warning boxes are placeholders only.
-11. Confirm how controller positions with multiple applicable sectors or nonstandard callsigns select the initial ACC family.
+1. Select the initial holding-stack ordering value for each STAR entry family.
+2. Confirm whether the current fixed ten-minute go-around delay remains the desired time model. Controller confirmation of automatic detection is already decided.
+3. Resolve the MAESTRO settings-bar height conflict: the opening prose says 7.5% of MAESTRO height, while the detailed specification and inspected Figma annotation say 13⅓%.
+4. Define runway-closure termination/removal, protected-slot interaction, and whether a closure may start only after an aircraft or also at an absolute time.
+5. Define Maximum Delay semantics, authorization, and interaction with Stable/Superstable traffic beyond the invariant that separation and protected traffic cannot be bypassed.
 
 ## GitHub issue relationship
 

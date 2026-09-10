@@ -8,7 +8,9 @@ import (
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -98,6 +100,40 @@ func TestOnRegister_EnqueuesLatestAMANReplacementOnInitialConnectAndReconnect(t 
 	provider.revision = 9 // simulates committed revisions missed while disconnected
 	require.Equal(t, uint64(9), connect().Data.Revision)
 	require.Equal(t, []string{"EKCH", "EKCH"}, provider.airports)
+}
+
+func TestOnRegister_DerivesAMANFMPCapabilityFromAuthenticatedServerRole(t *testing.T) {
+	tests := []struct {
+		name       string
+		role       string
+		authorized bool
+	}{
+		{name: "authorized FMP", role: "EKCH_FMH", authorized: true},
+		{name: "unauthorized controller", role: "EKCH_A_TWR", authorized: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			hub := newAMANInitialTestHub(t, nil)
+			hub.amanFMPRoles = map[string]struct{}{"EKCH_FMH": {}}
+			hub.amanRoleForPosition = func(string) string { return test.role }
+			client := startQueuedTestClient(&Client{
+				hub: hub, session: 42, position: "118.105", airport: "EKCH", callsign: test.role,
+				user: validFrontendUser("1234567"), send: make(chan events.OutgoingMessage, 2),
+			})
+
+			hub.OnRegister(client)
+
+			event, ok := waitForOutgoingMessage(t, client.send).(frontendEvents.InitialEvent)
+			require.True(t, ok)
+			assert.Equal(t, test.authorized, event.Capabilities.AMANFMP)
+		})
+	}
+}
+
+func validFrontendUser(cid string) shared.AuthenticatedUser {
+	token := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"exp": float64(time.Now().Add(time.Hour).Unix())})
+	return shared.NewAuthenticatedUser(cid, 0, token)
 }
 
 type reconnectAMANProvider struct {

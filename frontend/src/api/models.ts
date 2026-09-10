@@ -307,6 +307,9 @@ export interface FrontendInitialEvent {
   stand_assignment_enabled: boolean;
   stand_assignments: FrontendStandAssignmentEntry[];
   stand_blocks: FrontendStandBlockEntry[];
+  capabilities?: {
+    aman_fmp: boolean;
+  };
 }
 
 export interface FrontendStripUpdateEvent {

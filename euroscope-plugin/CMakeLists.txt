@@ -24,7 +24,14 @@ FetchContent_Declare(
         GIT_SHALLOW TRUE
         GIT_SUBMODULES_RECURSE TRUE
 )
-FetchContent_MakeAvailable(protobuf)
+FetchContent_GetProperties(protobuf)
+if(NOT protobuf_POPULATED)
+    FetchContent_Populate(protobuf)
+    # Protobuf adds its full runtime and every Abseil target to ALL_BUILD. Keep
+    # the dependency subtree out of the default build so linking libprotobuf-lite
+    # compiles only that runtime and its actual transitive dependencies.
+    add_subdirectory("${protobuf_SOURCE_DIR}" "${protobuf_BINARY_DIR}" EXCLUDE_FROM_ALL)
+endif()
 
 # Export compile commands for language servers
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

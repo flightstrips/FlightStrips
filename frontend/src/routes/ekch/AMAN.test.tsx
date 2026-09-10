@@ -2,12 +2,14 @@ import {render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {WebSocketState} from "@/store/store";
+import type {AMANState} from "@/api/aman";
 import AMAN from "./AMAN";
 
-const {controlsSpy, storeState} = vi.hoisted(() => ({
+const {controlsSpy, tmtSpy, storeState} = vi.hoisted(() => ({
   controlsSpy: vi.fn(),
+  tmtSpy: vi.fn(),
   storeState: {
-    amanState: null,
+    amanState: null as AMANState | null,
     amanPresentationStatus: "empty",
     amanError: null,
     amanConnectionState: "connected",
@@ -30,6 +32,13 @@ vi.mock("@/components/aman/AMANControls", () => ({
   },
 }));
 
+vi.mock("@/components/aman/TMTTrafficPrediction", () => ({
+  TMTTrafficPrediction: (props: {prediction: unknown}) => {
+    tmtSpy(props);
+    return <div>TMT traffic</div>;
+  },
+}));
+
 vi.mock("@/lib/aman-performance", () => ({
   markAMANStateReceived: vi.fn(),
   measureAMANStatePaint: vi.fn(() => () => undefined),
@@ -38,6 +47,8 @@ vi.mock("@/lib/aman-performance", () => ({
 describe("AMAN route authorization", () => {
   beforeEach(() => {
     controlsSpy.mockClear();
+    tmtSpy.mockClear();
+    storeState.amanState = null;
     storeState.amanFMPAuthority = false;
   });
 
@@ -54,5 +65,14 @@ describe("AMAN route authorization", () => {
     render(<AMAN />);
 
     expect(controlsSpy).toHaveBeenCalledWith(expect.objectContaining({hasFMPAuthority: true}));
+  });
+
+  it("mounts TMT through the focused authoritative read-model seam", () => {
+    const trafficPrediction = {status: "ready"};
+    storeState.amanState = {airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights: [], traffic_prediction: trafficPrediction} as unknown as AMANState;
+    render(<AMAN />);
+
+    expect(screen.getByText("TMT traffic")).toBeInTheDocument();
+    expect(tmtSpy).toHaveBeenCalledWith({prediction: trafficPrediction});
   });
 });

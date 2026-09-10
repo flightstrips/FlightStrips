@@ -42,6 +42,184 @@
       }
     ],
     "runway_groups": [{"id": "ARRIVAL-22", "selected": true, "selection_schedule": []}],
+    "traffic_prediction": {
+      "generated_at": "2026-07-22T10:00:00.000Z",
+      "range_start": "2026-07-22T10:00:00.000Z",
+      "range_end": "2026-07-22T13:00:00.000Z",
+      "bucket_minutes": 15,
+      "source_status": "fresh",
+      "status": "degraded",
+      "degraded_reasons": [
+        "missing_selected_rate"
+      ],
+      "buckets": [
+        {
+          "start": "2026-07-22T10:00:00.000Z",
+          "end": "2026-07-22T10:15:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T10:15:00.000Z",
+          "end": "2026-07-22T10:30:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 1,
+          "count": 1,
+          "load_factor": 4,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": [
+            {
+              "flight_id": "flight-123",
+              "callsign": "SAS123",
+              "airborne": true,
+              "landing_at": "2026-07-22T10:19:00.000Z",
+              "timing_source": "aman",
+              "data_status": "fresh"
+            }
+          ]
+        },
+        {
+          "start": "2026-07-22T10:30:00.000Z",
+          "end": "2026-07-22T10:45:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T10:45:00.000Z",
+          "end": "2026-07-22T11:00:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T11:00:00.000Z",
+          "end": "2026-07-22T11:15:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T11:15:00.000Z",
+          "end": "2026-07-22T11:30:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T11:30:00.000Z",
+          "end": "2026-07-22T11:45:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T11:45:00.000Z",
+          "end": "2026-07-22T12:00:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T12:00:00.000Z",
+          "end": "2026-07-22T12:15:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T12:15:00.000Z",
+          "end": "2026-07-22T12:30:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T12:30:00.000Z",
+          "end": "2026-07-22T12:45:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        },
+        {
+          "start": "2026-07-22T12:45:00.000Z",
+          "end": "2026-07-22T13:00:00.000Z",
+          "planned_count": 0,
+          "airborne_count": 0,
+          "count": 0,
+          "load_factor": 0,
+          "selected_rate": null,
+          "bucket_high": false,
+          "window_high": false,
+          "alert": "none",
+          "flights": []
+        }
+      ]
+    },
     "technical_health": {
       "status": "ready",
       "ready": true,

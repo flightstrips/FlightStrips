@@ -22,7 +22,53 @@ export interface AMANState {
   authoritative: boolean;
   flights: AMANFlight[];
   runway_groups: AMANRunwayGroup[];
+  /** Optional while V1 clients and servers roll through the TMT extension. */
+  traffic_prediction?: AMANTrafficPrediction;
   technical_health: AMANTechnicalHealth;
+}
+
+export type AMANTrafficStatus = "ready" | "degraded" | "disconnected";
+export type AMANTrafficAlert = "none" | "yellow" | "red";
+export type AMANTrafficTimingSource = "aman" | "vatsim_planned" | "vatsim_airborne";
+
+export interface AMANTrafficPrediction {
+  generated_at: string;
+  range_start: string;
+  range_end: string;
+  bucket_minutes: 15;
+  source_status: AMANDataStatus;
+  status: AMANTrafficStatus;
+  degraded_reasons: string[];
+  buckets: AMANTrafficBucket[];
+}
+
+export interface AMANTrafficBucket {
+  start: string;
+  end: string;
+  planned_count: number;
+  airborne_count: number;
+  count: number;
+  load_factor: number;
+  selected_rate: AMANTrafficSelectedRate | null;
+  bucket_high: boolean;
+  window_high: boolean;
+  alert: AMANTrafficAlert;
+  flights: AMANTrafficFlight[];
+}
+
+export interface AMANTrafficSelectedRate {
+  runway_group_id: string;
+  arrivals_per_hour: number;
+  effective_at: string;
+}
+
+export interface AMANTrafficFlight {
+  flight_id: string;
+  callsign: string;
+  airborne: boolean;
+  landing_at: string;
+  timing_source: AMANTrafficTimingSource;
+  data_status: AMANDataStatus;
 }
 
 export interface AMANFlight {
@@ -242,6 +288,9 @@ const freezeReasons = new Set<AMANFreezeReason>(["none", "superstable", "manual"
 const confidences = new Set<AMANConfidence>(["unknown", "low", "medium", "high"]);
 const healthStatuses = new Set<AMANHealthStatus>(["disabled", "ready", "degraded", "unavailable"]);
 const routeFactStates = new Set(["active", "expired"]);
+const trafficStatuses = new Set<AMANTrafficStatus>(["ready", "degraded", "disconnected"]);
+const trafficAlerts = new Set<AMANTrafficAlert>(["none", "yellow", "red"]);
+const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned", "vatsim_airborne"]);
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isString = (value: unknown): value is string => typeof value === "string";
@@ -320,6 +369,31 @@ function isRunwayGroup(value: unknown): value is AMANRunwayGroup {
     && (value.rate_effective_at === undefined || isTimestamp(value.rate_effective_at));
 }
 
+function isTrafficPrediction(value: unknown): value is AMANTrafficPrediction {
+  if (!isObject(value) || !isTimestamp(value.generated_at) || !isTimestamp(value.range_start) || !isTimestamp(value.range_end)
+    || value.bucket_minutes !== 15 || !isString(value.source_status) || !dataStatuses.has(value.source_status as AMANDataStatus)
+    || !isString(value.status) || !trafficStatuses.has(value.status as AMANTrafficStatus)
+    || !isStringArray(value.degraded_reasons) || !Array.isArray(value.buckets) || value.buckets.length !== 12) return false;
+  const rangeStart = value.range_start;
+  return value.buckets.every((bucket, index) => {
+    if (!isObject(bucket) || !isTimestamp(bucket.start) || !isTimestamp(bucket.end)
+      || !isNonNegativeInteger(bucket.planned_count) || !isNonNegativeInteger(bucket.airborne_count)
+      || !isNonNegativeInteger(bucket.count) || bucket.count !== bucket.planned_count + bucket.airborne_count
+      || !isNonNegativeInteger(bucket.load_factor) || bucket.load_factor !== bucket.count * 4
+      || typeof bucket.bucket_high !== "boolean" || typeof bucket.window_high !== "boolean"
+      || !isString(bucket.alert) || !trafficAlerts.has(bucket.alert as AMANTrafficAlert) || !Array.isArray(bucket.flights)) return false;
+    const expectedStart = Date.parse(rangeStart) + index * 15 * 60_000;
+    if (Date.parse(bucket.start) !== expectedStart || Date.parse(bucket.end) !== expectedStart + 15 * 60_000) return false;
+    const rate = bucket.selected_rate;
+    if (rate !== null && (!isObject(rate) || !isString(rate.runway_group_id) || !isNonNegativeInteger(rate.arrivals_per_hour)
+      || rate.arrivals_per_hour === 0 || !isTimestamp(rate.effective_at))) return false;
+    return bucket.flights.every((flight) => isObject(flight) && isString(flight.flight_id) && isString(flight.callsign)
+      && typeof flight.airborne === "boolean" && isTimestamp(flight.landing_at) && isString(flight.timing_source)
+      && trafficSources.has(flight.timing_source as AMANTrafficTimingSource) && isString(flight.data_status)
+      && dataStatuses.has(flight.data_status as AMANDataStatus));
+  }) && Date.parse(value.range_end) === Date.parse(value.range_start) + 3 * 60 * 60_000;
+}
+
 export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
   if (!isObject(value) || value.type !== "aman.state" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
   const data = value.data;
@@ -328,6 +402,7 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && effectiveModes.has(data.effective_mode as AMANEffectiveMode) && typeof data.authoritative === "boolean"
     && Array.isArray(data.flights) && data.flights.every(isFlight)
     && Array.isArray(data.runway_groups) && data.runway_groups.every(isRunwayGroup)
+    && (data.traffic_prediction === undefined || isTrafficPrediction(data.traffic_prediction))
     && isTechnicalHealth(data.technical_health);
 }
 

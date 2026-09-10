@@ -33,13 +33,13 @@ func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightComma
 }
 
 func (s *Service) LockFlight(auth aman.CommandContext, command aman.LockFlightCommand) (sequence.CommandMutation, error) {
-	return s.sequenceMutation("lock_flight", command.FlightID, func(input sequence.Input) (sequence.Decision, error) {
+	return s.sequenceMutation("lock_flight", command.FlightID, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
 		return sequence.ApplyManualFreeze(input, sequence.ApplyManualFreezeCommand{Metadata: command.Metadata, FlightID: command.FlightID, At: auth.ReceivedAt})
 	}), nil
 }
 
 func (s *Service) UnlockFlight(auth aman.CommandContext, command aman.UnlockFlightCommand) (sequence.CommandMutation, error) {
-	return s.sequenceMutation("unlock_flight", command.FlightID, func(input sequence.Input) (sequence.Decision, error) {
+	return s.sequenceMutation("unlock_flight", command.FlightID, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
 		return sequence.ReleaseManualFreeze(input, sequence.ReleaseManualFreezeCommand{Metadata: command.Metadata, FlightID: command.FlightID, At: auth.ReceivedAt})
 	}), nil
 }
@@ -74,7 +74,13 @@ func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand)
 			}
 		}
 		updateActiveRates(state.RunwayGroups, auth.ReceivedAt)
-		return s.commandChange(state, decision.Changed, "set_rate", "", map[string]any{"runway_group_id": command.RunwayGroupID, "arrivals_per_hour": command.ArrivalsPerHour})
+		var promotions []sequence.VacancyPromotion
+		if decision.Changed {
+			promotions = s.resequence(&state, auth.ReceivedAt)
+		}
+		change, err := s.commandChange(state, decision.Changed, "set_rate", "", map[string]any{"runway_group_id": command.RunwayGroupID, "arrivals_per_hour": command.ArrivalsPerHour})
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
 	}, nil
 }
 
@@ -284,13 +290,20 @@ func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGo
 	}, nil
 }
 
-func (s *Service) sequenceMutation(action string, flightID aman.FlightID, apply func(sequence.Input) (sequence.Decision, error)) sequence.CommandMutation {
+func (s *Service) sequenceMutation(action string, flightID aman.FlightID, at time.Time, apply func(sequence.Input) (sequence.Decision, error)) sequence.CommandMutation {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		decision, err := apply(s.sequenceInput(state))
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
-		return s.commandChange(applyDecision(state, decision), decision.Changed, action, flightID, nil)
+		state = applyDecision(state, decision)
+		var promotions []sequence.VacancyPromotion
+		if decision.Changed {
+			promotions = s.resequence(&state, at)
+		}
+		change, err := s.commandChange(state, decision.Changed, action, flightID, nil)
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
 	}
 }
 
@@ -306,10 +319,13 @@ func (s *Service) flightMutation(action string, flightID aman.FlightID, apply fu
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		state.Flights[index] = updated
+		var promotions []sequence.VacancyPromotion
 		if changed {
-			s.resequence(&state, updated.UpdatedAt)
+			promotions = s.resequence(&state, updated.UpdatedAt)
 		}
-		return s.commandChange(state, changed, action, flightID, nil)
+		change, err := s.commandChange(state, changed, action, flightID, nil)
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
 	}
 }
 

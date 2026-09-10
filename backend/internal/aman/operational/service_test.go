@@ -233,6 +233,46 @@ func TestResequenceKeepsLateSuperstableFlightLockedAcrossReplay(t *testing.T) {
 	require.Equal(t, frozenAt, *updated.FrozenAt)
 }
 
+func TestResequencePromotesVacancyAndBuildsSameRevisionAudit(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, wake := aman.RunwayGroupID("ARRIVAL-22"), "M"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	lead := operationalFlight("LEAD", group, "MONAK", wake, start)
+	lead.State = aman.StateStable
+	lead.Slot = &aman.Slot{Time: start, RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "rate_wtc"}
+	removed := operationalFlight("REMOVED", group, "MONAK", wake, start.Add(3*time.Minute))
+	removed.State = aman.StateRemoved
+	removed.Slot = &aman.Slot{Time: start.Add(3 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7, Reason: "rate_wtc"}
+	target := operationalFlight("TARGET", group, "MONAK", wake, start.Add(3*time.Minute))
+	target.State = aman.StateStable
+	target.Slot = &aman.Slot{Time: start.Add(6 * time.Minute), RunwayGroupID: group, Sequence: 3, Revision: 7, Reason: "rate_wtc"}
+	target.QueueOffers = []aman.QueueOffer{{
+		FlightID: target.ID, RunwayGroupID: group,
+		CandidateSlot: aman.Slot{Time: start.Add(3 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7, Reason: "rate_wtc"},
+		QueuePosition: 1, ExpiresAt: start.Add(2 * time.Minute), AirportRevision: 7, Reason: aman.QueueOfferEarlierOccupiedSlot,
+	}}
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{lead, removed, target},
+	}
+
+	promotions := service.resequence(&state, start)
+	require.Len(t, promotions, 1)
+	require.Equal(t, target.ID, promotions[0].FlightID)
+	require.Equal(t, start.Add(3*time.Minute), state.Flights[2].Slot.Time)
+	require.Equal(t, string(sequence.ReasonQueuePromotion), state.Flights[2].Slot.Reason)
+
+	state.Revision++
+	records := vacancyPromotionAuditRecords(state, promotions, start)
+	require.Len(t, records, 1)
+	require.Equal(t, state.Revision, records[0].Revision)
+	require.Equal(t, "aman.queue_promotion", records[0].Category)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(records[0].Payload, &payload))
+	require.Equal(t, "TARGET", payload["flight_id"])
+}
+
 type testAircraftEngines struct {
 	engine sat.EngineType
 	wtc    string

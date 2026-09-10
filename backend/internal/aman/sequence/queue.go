@@ -22,6 +22,14 @@ type QueueOfferCalculation struct {
 	Config QueueOfferConfig
 }
 
+// VacancyPromotion records an automatic move from a flight's committed slot
+// into an earlier queue opportunity that became vacant.
+type VacancyPromotion struct {
+	FlightID aman.FlightID
+	From     aman.Slot
+	To       aman.Slot
+}
+
 type queueEntry struct {
 	flight preparedFlight
 	slot   aman.Slot
@@ -37,6 +45,195 @@ type offerKey struct {
 	group    aman.RunwayGroupID
 	sequence int
 	at       time.Time
+}
+
+// GenerateWithVacancyPromotions consumes revision-bound queue offers whose
+// candidate slots are no longer occupied, revalidates them against the current
+// sequence policy, and generates one authoritative result. Offers are only
+// evidence of queue order: every promotion is checked again for lifecycle,
+// TETA, runway, manual/freeze boundaries, Stable order, WTC, and same-STAR
+// spacing before it is applied.
+func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at time.Time) (Result, []VacancyPromotion, error) {
+	if input.Revision == 0 {
+		return Result{}, nil, fmt.Errorf("vacancy promotion requires a committed airport revision")
+	}
+	if !validUTC(at) {
+		return Result{}, nil, fmt.Errorf("vacancy promotion time must be UTC")
+	}
+	policies, err := preparePolicies(input.Policies)
+	if err != nil {
+		return Result{}, nil, err
+	}
+	prepared, err := prepareFlights(input.Flights, policies)
+	if err != nil {
+		return Result{}, nil, err
+	}
+	baseline, err := generate(input, nil)
+	if err != nil || baseline.HasConflicts() {
+		return baseline, nil, err
+	}
+
+	canonical := append([]aman.QueueOffer(nil), offers...)
+	sort.Slice(canonical, func(i, j int) bool {
+		a, b := canonical[i], canonical[j]
+		if a.RunwayGroupID != b.RunwayGroupID {
+			return a.RunwayGroupID < b.RunwayGroupID
+		}
+		if a.CandidateSlot.Sequence != b.CandidateSlot.Sequence {
+			return a.CandidateSlot.Sequence < b.CandidateSlot.Sequence
+		}
+		if !a.CandidateSlot.Time.Equal(b.CandidateSlot.Time) {
+			return a.CandidateSlot.Time.Before(b.CandidateSlot.Time)
+		}
+		if a.QueuePosition != b.QueuePosition {
+			return a.QueuePosition < b.QueuePosition
+		}
+		return a.FlightID < b.FlightID
+	})
+
+	promotionSlots := make(map[aman.FlightID]aman.Slot)
+	promotions := make([]VacancyPromotion, 0)
+	groupIDs := make([]aman.RunwayGroupID, 0, len(prepared))
+	for group := range prepared {
+		groupIDs = append(groupIDs, group)
+	}
+	sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
+	for _, group := range groupIDs {
+		flights := prepared[group]
+		entries, entryErr := baselineQueueEntries(input.Revision, group, flights, baseline)
+		if entryErr != nil {
+			return Result{}, nil, entryErr
+		}
+		policy := policies[group]
+		for _, offer := range canonical {
+			if offer.RunwayGroupID != group || offer.AirportRevision != input.Revision || offer.CandidateSlot.Revision != input.Revision ||
+				offer.CandidateSlot.RunwayGroupID != group || !offer.ExpiresAt.After(at) {
+				continue
+			}
+			if _, alreadyPromoted := promotionSlots[offer.FlightID]; alreadyPromoted {
+				continue
+			}
+			if queueSlotOccupied(entries, offer.CandidateSlot) {
+				continue
+			}
+			targetIndex := queueEntryIndex(entries, offer.FlightID)
+			if targetIndex < 0 {
+				continue
+			}
+			target := entries[targetIndex]
+			if !queueEligible(target.flight) || !offer.CandidateSlot.Time.Before(target.slot.Time) || !isGridSlot(policy, offer.CandidateSlot.Time) ||
+				offer.CandidateSlot.Time.Before(target.flight.OperationalTETA.Add(-policy.EarlyTolerance)) || crossesProtectedTime(entries, offer.CandidateSlot.Time, target.slot.Time) {
+				continue
+			}
+			remaining := make([]allocatedEntry, 0, len(entries)-1)
+			for index, entry := range entries {
+				if index == targetIndex {
+					continue
+				}
+				remaining = append(remaining, allocatedEntry{flight: entry.flight, time: entry.slot.Time, reason: CandidateReason(entry.slot.Reason)})
+			}
+			valid, _, _ := placement(policy, remaining, target.flight, offer.CandidateSlot.Time)
+			if !valid {
+				continue
+			}
+
+			if target.flight.CurrentSlot == nil {
+				continue
+			}
+			from, to := *target.flight.CurrentSlot, offer.CandidateSlot
+			promotionSlots[target.flight.ID] = to
+			promotions = append(promotions, VacancyPromotion{FlightID: target.flight.ID, From: from, To: to})
+			entries[targetIndex].slot = to
+			sort.Slice(entries, func(i, j int) bool {
+				if !entries[i].slot.Time.Equal(entries[j].slot.Time) {
+					return entries[i].slot.Time.Before(entries[j].slot.Time)
+				}
+				if entries[i].slot.Sequence != entries[j].slot.Sequence {
+					return entries[i].slot.Sequence < entries[j].slot.Sequence
+				}
+				return entries[i].flight.ID < entries[j].flight.ID
+			})
+		}
+	}
+
+	result, err := generate(input, promotionSlots)
+	if err != nil {
+		return Result{}, nil, err
+	}
+	if result.HasConflicts() {
+		fallback, fallbackErr := Generate(input)
+		return fallback, nil, fallbackErr
+	}
+	for index := range promotions {
+		for _, entry := range result.Entries {
+			if entry.FlightID != promotions[index].FlightID {
+				continue
+			}
+			promotions[index].To = aman.Slot{
+				Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence,
+				Revision: input.Revision, Reason: string(entry.Reason),
+			}
+			break
+		}
+	}
+	return result, promotions, nil
+}
+
+func baselineQueueEntries(revision aman.SequenceRevision, group aman.RunwayGroupID, flights []preparedFlight, baseline Result) ([]queueEntry, error) {
+	byID := make(map[aman.FlightID]preparedFlight, len(flights))
+	for _, flight := range flights {
+		byID[flight.ID] = flight
+	}
+	entries := make([]queueEntry, 0, len(flights))
+	for _, candidate := range baseline.Entries {
+		if candidate.RunwayGroupID != group {
+			continue
+		}
+		flight, exists := byID[candidate.FlightID]
+		if !exists {
+			return nil, fmt.Errorf("baseline flight %q is missing from runway group %q", candidate.FlightID, group)
+		}
+		entries = append(entries, queueEntry{flight: flight, slot: aman.Slot{
+			Time: candidate.Time, RunwayGroupID: group, Sequence: candidate.Sequence,
+			Revision: revision, Reason: string(candidate.Reason),
+		}})
+	}
+	return entries, nil
+}
+
+func queueEntryIndex(entries []queueEntry, flightID aman.FlightID) int {
+	for index := range entries {
+		if entries[index].flight.ID == flightID {
+			return index
+		}
+	}
+	return -1
+}
+
+func queueSlotOccupied(entries []queueEntry, slot aman.Slot) bool {
+	for _, entry := range entries {
+		if entry.slot.Time.Equal(slot.Time) {
+			return true
+		}
+	}
+	return false
+}
+
+func crossesProtectedTime(entries []queueEntry, candidateTime, targetTime time.Time) bool {
+	for _, entry := range entries {
+		if !entry.slot.Time.After(candidateTime) || !entry.slot.Time.Before(targetTime) {
+			continue
+		}
+		if entry.flight.FreezeReason != aman.FreezeNone || entry.flight.ManualOrder != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func isGridSlot(policy preparedPolicy, candidate time.Time) bool {
+	grid, ok := previousGridAtOrBefore(policy, candidate)
+	return ok && grid.Equal(candidate)
 }
 
 // CalculateQueueOffers calculates occupied earlier-slot opportunities from a

@@ -25,6 +25,7 @@ type instruments struct {
 	activeMasterClients     metric.Int64UpDownCounter
 	messagesReceived        metric.Int64Counter
 	messagesSent            metric.Int64Counter
+	messageBytesReceived    metric.Int64Counter
 	messageBytesSent        metric.Int64Counter
 	messageSizeBytes        metric.Int64Histogram
 	messageHandledDuration  metric.Float64Histogram
@@ -109,6 +110,11 @@ func get() *instruments {
 			metric.WithDescription("WebSocket messages sent"),
 			metric.WithUnit("{message}"),
 		)
+		messageBytesReceived, _ := meter.Int64Counter(
+			"websocket.message.bytes.received",
+			metric.WithDescription("Serialized WebSocket payload bytes received from clients"),
+			metric.WithUnit("{byte}"),
+		)
 		messageBytesSent, _ := meter.Int64Counter(
 			"websocket.message.bytes.sent",
 			metric.WithDescription("Serialized WebSocket payload bytes successfully passed to the writer"),
@@ -116,7 +122,7 @@ func get() *instruments {
 		)
 		messageSizeBytes, _ := meter.Int64Histogram(
 			"websocket.message.size.bytes",
-			metric.WithDescription("Serialized WebSocket payload size successfully passed to the writer"),
+			metric.WithDescription("Serialized WebSocket payload size by traffic direction"),
 			metric.WithUnit("{byte}"),
 			metric.WithExplicitBucketBoundaries(64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576),
 		)
@@ -298,6 +304,7 @@ func get() *instruments {
 			activeMasterClients:     activeMasterClients,
 			messagesReceived:        messagesReceived,
 			messagesSent:            messagesSent,
+			messageBytesReceived:    messageBytesReceived,
 			messageBytesSent:        messageBytesSent,
 			messageSizeBytes:        messageSizeBytes,
 			messageHandledDuration:  messageHandledDuration,
@@ -579,7 +586,7 @@ func MasterClientCleared(ctx context.Context, sessionName, airport, callsign, ve
 	)
 }
 
-func MessageReceived(ctx context.Context, sessionName, airport, source, msgType, version string) {
+func MessageReceived(ctx context.Context, sessionName, airport, source, msgType, version string, sizeBytes int) {
 	get().messagesReceived.Add(ctx, 1,
 		sessionAttributes(sessionName, airport,
 			attribute.String("source", source),
@@ -587,6 +594,7 @@ func MessageReceived(ctx context.Context, sessionName, airport, source, msgType,
 			attribute.String("client_version", normalizeVersion(version)),
 		),
 	)
+	recordPayload(ctx, "inbound", source, msgType, sizeBytes)
 }
 
 func MessageHandled(ctx context.Context, sessionName, airport, source, msgType, version string, duration time.Duration, handlerErr error) {
@@ -836,20 +844,30 @@ func MessageSent(ctx context.Context, sessionName, airport, source, msgType, ver
 
 // RecordOutboundPayload records the serialized application payload accepted by
 // the WebSocket writer. It excludes WebSocket framing, TLS overhead, and any
-// change in size caused by transport compression. Only source and message type
-// are dimensions, keeping the metric independent of clients and sessions.
+// change in size caused by transport compression. Only direction, source, and
+// message type are dimensions, keeping the metric independent of clients and
+// sessions.
 func RecordOutboundPayload(ctx context.Context, source, msgType string, sizeBytes int) {
+	recordPayload(ctx, "outbound", source, msgType, sizeBytes)
+}
+
+func recordPayload(ctx context.Context, direction, source, msgType string, sizeBytes int) {
 	attrs := metric.WithAttributes(
+		attribute.String("direction", direction),
 		attribute.String("source", normalizeHubSource(source)),
-		attribute.String("type", normalizeOutboundMessageType(msgType)),
+		attribute.String("type", normalizeMessageType(msgType)),
 	)
 	size := int64(max(sizeBytes, 0))
 	i := get()
-	i.messageBytesSent.Add(ctx, size, attrs)
+	if direction == "inbound" {
+		i.messageBytesReceived.Add(ctx, size, attrs)
+	} else {
+		i.messageBytesSent.Add(ctx, size, attrs)
+	}
 	i.messageSizeBytes.Record(ctx, size, attrs)
 }
 
-func normalizeOutboundMessageType(msgType string) string {
+func normalizeMessageType(msgType string) string {
 	msgType = strings.TrimSpace(msgType)
 	if msgType == "" {
 		return "unknown"

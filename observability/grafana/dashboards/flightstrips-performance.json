@@ -57,8 +57,8 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"integrations/node_exporter\",mode=\"idle\"}[$__rate_interval]))",
-                        "legendFormat": "host busy"
+                        "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{job=\"integrations/node_exporter\",mode=\"idle\"}[$__rate_interval]))",
+                        "legendFormat": "{{instance}} busy"
                       }
                     },
                     "refId": "A",
@@ -145,7 +145,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(go_cpu_time_seconds_total{deployment_environment=\"$env\",class=\"gc\"}[$__rate_interval])) / clamp_min(sum(rate(go_cpu_time_seconds_total{deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])), 0.0001)",
+                        "expr": "sum(rate(go_cpu_time_seconds_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",class=\"gc\"}[$__rate_interval])) / clamp_min(sum(rate(go_cpu_time_seconds_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])), 0.0001)",
                         "legendFormat": "gc share"
                       }
                     },
@@ -233,7 +233,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "max(go_schedule_latency_seconds{deployment_environment=\"$env\",quantile=\"p99\"})",
+                        "expr": "max(go_schedule_latency_seconds{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",quantile=\"p99\"})",
                         "legendFormat": "p99"
                       }
                     },
@@ -320,7 +320,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "max(process_runtime_go_goroutines{deployment_environment=\"$env\"})",
+                        "expr": "sum(process_runtime_go_goroutines{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "goroutines"
                       }
                     },
@@ -399,7 +399,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(go_cpu_time_seconds_total{deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])) by (class) / on() group_left() clamp_min(sum(rate(go_cpu_time_seconds_total{deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])), 0.0001)",
+                        "expr": "sum(rate(go_cpu_time_seconds_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])) by (class) / on() group_left() clamp_min(sum(rate(go_cpu_time_seconds_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",class!=\"idle\"}[$__rate_interval])), 0.0001)",
                         "legendFormat": "{{class}}"
                       }
                     },
@@ -516,7 +516,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "go_schedule_latency_seconds{deployment_environment=\"$env\"}",
+                        "expr": "max by (quantile) (go_schedule_latency_seconds{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "schedule {{quantile}}"
                       }
                     },
@@ -535,7 +535,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(go_mutex_wait_time_seconds_total{deployment_environment=\"$env\"}[$__rate_interval]))",
+                        "expr": "sum(rate(go_mutex_wait_time_seconds_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval]))",
                         "legendFormat": "mutex wait per second"
                       }
                     },
@@ -652,7 +652,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(go_gc_cycles_total{deployment_environment=\"$env\"}[$__rate_interval])) by (trigger)",
+                        "expr": "sum(rate(go_gc_cycles_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (trigger)",
                         "legendFormat": "cycles/s {{trigger}}"
                       }
                     },
@@ -671,7 +671,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "go_gc_pause_latency_seconds{deployment_environment=\"$env\",quantile=\"p99\"}",
+                        "expr": "max(go_gc_pause_latency_seconds{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",quantile=\"p99\"})",
                         "legendFormat": "pause p99 (s)"
                       }
                     },
@@ -788,7 +788,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "max(process_runtime_go_mem_heap_alloc_bytes{deployment_environment=\"$env\"})",
+                        "expr": "sum(process_runtime_go_mem_heap_alloc_bytes{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "heap allocated (bytes)"
                       }
                     },
@@ -807,7 +807,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "max(process_runtime_go_goroutines{deployment_environment=\"$env\"})",
+                        "expr": "sum(process_runtime_go_goroutines{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "goroutines"
                       }
                     },
@@ -826,7 +826,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "max(go_thread_count{deployment_environment=\"$env\"})",
+                        "expr": "sum(go_thread_count{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "os threads"
                       }
                     },
@@ -943,7 +943,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(euroscope_sync_outcomes_total{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (outcome)",
+                        "expr": "sum(rate(euroscope_sync_outcomes_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (outcome)",
                         "legendFormat": "{{outcome}}"
                       }
                     },
@@ -1043,7 +1043,7 @@
         "spec": {
           "id": 10,
           "title": "Follow-up Work Scheduled by Sync",
-          "description": "Work items each sync queued for its finalization phase. This is the amplification factor between one inbound message and the work it causes; a flat line here with a rising sync rate is healthy, a rising line is not.",
+          "description": "Average follow-up work items scheduled by each sync, split by kind. This normalizes away changes in sync traffic so a rising line means each sync is amplifying more work.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1060,8 +1060,8 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(euroscope_sync_follow_up_work_total{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (kind)",
-                        "legendFormat": "{{kind}}"
+                        "expr": "sum(rate(euroscope_sync_follow_up_work_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (kind) / on() group_left() clamp_min(sum(rate(euroscope_sync_outcomes_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])), 0.001)",
+                        "legendFormat": "{{kind}} per sync"
                       }
                     },
                     "refId": "A",
@@ -1177,7 +1177,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(euroscope_sync_follow_up_work_total{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\",kind=\"cdm_recalculation\"}[$__rate_interval])) / clamp_min(sum(rate(euroscope_sync_outcomes_total{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\",outcome=\"unchanged\"}[$__rate_interval])), 0.001)",
+                        "expr": "sum(rate(euroscope_sync_follow_up_work_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\",kind=\"cdm_recalculation\"}[$__rate_interval])) / clamp_min(sum(rate(euroscope_sync_outcomes_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\",outcome=\"unchanged\"}[$__rate_interval])), 0.001)",
                         "legendFormat": "recalculations per unchanged sync"
                       }
                     },
@@ -1265,7 +1265,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(euroscope_sync_db_operations_total{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) / clamp_min(sum(rate(euroscope_sync_outcomes_total{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])), 0.001)",
+                        "expr": "sum(rate(euroscope_sync_db_operations_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) / clamp_min(sum(rate(euroscope_sync_outcomes_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])), 0.001)",
                         "legendFormat": "db operations per sync"
                       }
                     },
@@ -1353,7 +1353,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "histogram_quantile(0.99, sum(rate(euroscope_sync_phase_duration_seconds_bucket{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (le, phase))",
+                        "expr": "histogram_quantile(0.99, sum(rate(euroscope_sync_phase_duration_seconds_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (le, phase))",
                         "legendFormat": "{{phase}}"
                       }
                     },
@@ -1470,7 +1470,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(cdm_recalculations_total{deployment_environment=\"$env\",airport=\"$airport\"}[$__rate_interval]))",
+                        "expr": "sum(rate(cdm_recalculations_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\"}[$__rate_interval]))",
                         "legendFormat": "recalculations/s"
                       }
                     },
@@ -1489,7 +1489,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "histogram_quantile(0.99, sum(rate(cdm_recalculation_duration_seconds_bucket{deployment_environment=\"$env\",airport=\"$airport\"}[$__rate_interval])) by (le))",
+                        "expr": "histogram_quantile(0.99, sum(rate(cdm_recalculation_duration_seconds_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\"}[$__rate_interval])) by (le))",
                         "legendFormat": "duration p99 (s)"
                       }
                     },
@@ -1508,7 +1508,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "histogram_quantile(0.99, sum(rate(cdm_recalculation_strips_bucket{deployment_environment=\"$env\",airport=\"$airport\"}[$__rate_interval])) by (le))",
+                        "expr": "histogram_quantile(0.99, sum(rate(cdm_recalculation_strips_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\"}[$__rate_interval])) by (le))",
                         "legendFormat": "strips p99"
                       }
                     },
@@ -1625,7 +1625,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(cdm_recalculation_duration_seconds_sum{deployment_environment=\"$env\",airport=\"$airport\"}[$__rate_interval]))",
+                        "expr": "sum(rate(cdm_recalculation_duration_seconds_sum{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\"}[$__rate_interval]))",
                         "legendFormat": "processor-seconds per second"
                       }
                     },
@@ -1724,8 +1724,8 @@
         "kind": "Panel",
         "spec": {
           "id": 16,
-          "title": "Handler Time by Message Type",
-          "description": "Seconds of handler time consumed per second, by message type. Unlike a latency percentile this weights by call rate, so the top line is the message type actually consuming the backend.",
+          "title": "Handler Load by Message Type",
+          "description": "Seconds of handler time consumed per second, by message type. This weights latency by call rate; series are not stacked, so each line is the actual load contributed by that message type.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1742,7 +1742,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "topk(10, sum(rate(websocket_message_duration_seconds_sum{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (type))",
+                        "expr": "topk(10, sum(rate(websocket_message_duration_seconds_sum{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (type))",
                         "legendFormat": "{{type}}"
                       }
                     },
@@ -1782,7 +1782,7 @@
               },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "short",
+                  "unit": "s",
                   "min": 0,
                   "thresholds": {
                     "mode": "absolute",
@@ -1824,7 +1824,7 @@
                     "spanNulls": false,
                     "stacking": {
                       "group": "A",
-                      "mode": "normal"
+                      "mode": "none"
                     },
                     "thresholdsStyle": {
                       "mode": "off"
@@ -1841,8 +1841,8 @@
         "kind": "Panel",
         "spec": {
           "id": 17,
-          "title": "DB Operations by Message Type",
-          "description": "Database operations attributed to the message that caused them. A type whose operations grow faster than its call rate is amplifying work.",
+          "title": "DB Operations per Message",
+          "description": "Average database operations performed by each handled message, split by type. This normalizes away traffic volume so a rising line means an individual message is doing more database work.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1859,7 +1859,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "topk(10, sum(rate(websocket_message_db_operations_total{deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (type))",
+                        "expr": "topk(10, sum(rate(websocket_message_db_operations_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (type) / clamp_min(sum(rate(websocket_message_duration_seconds_count{service_name=\"flightstrips-backend\",deployment_environment=\"$env\",airport=\"$airport\",session_name=\"$session\"}[$__rate_interval])) by (type), 0.001))",
                         "legendFormat": "{{type}}"
                       }
                     },
@@ -1976,7 +1976,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "histogram_quantile(0.99, sum(rate(websocket_hub_queue_depth_bucket{deployment_environment=\"$env\"}[$__rate_interval])) by (le, source))",
+                        "expr": "histogram_quantile(0.99, sum(rate(websocket_hub_queue_depth_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (le, source))",
                         "legendFormat": "{{source}}"
                       }
                     },
@@ -2093,7 +2093,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "histogram_quantile(0.99, sum(rate(websocket_hub_dispatch_duration_seconds_bucket{deployment_environment=\"$env\"}[$__rate_interval])) by (le, source, kind))",
+                        "expr": "histogram_quantile(0.99, sum(rate(websocket_hub_dispatch_duration_seconds_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (le, source, kind))",
                         "legendFormat": "{{source}} {{kind}}"
                       }
                     },
@@ -2210,7 +2210,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "histogram_quantile(0.99, sum(rate(websocket_hub_broadcast_fanout_bucket{deployment_environment=\"$env\"}[$__rate_interval])) by (le, source))",
+                        "expr": "histogram_quantile(0.99, sum(rate(websocket_hub_broadcast_fanout_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (le, source))",
                         "legendFormat": "{{source}}"
                       }
                     },
@@ -2327,7 +2327,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(websocket_hub_publish_blocked_total{deployment_environment=\"$env\"}[$__rate_interval])) by (source)",
+                        "expr": "sum(rate(websocket_hub_publish_blocked_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (source)",
                         "legendFormat": "blocked publishes {{source}}"
                       }
                     },
@@ -2346,7 +2346,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "histogram_quantile(0.99, sum(rate(websocket_hub_publish_blocked_duration_seconds_bucket{deployment_environment=\"$env\"}[$__rate_interval])) by (le, source))",
+                        "expr": "histogram_quantile(0.99, sum(rate(websocket_hub_publish_blocked_duration_seconds_bucket{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (le, source))",
                         "legendFormat": "blocked p99 (s) {{source}}"
                       }
                     },
@@ -2365,7 +2365,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(websocket_clients_slow_disconnects_total{deployment_environment=\"$env\"}[$__rate_interval])) by (source)",
+                        "expr": "sum(rate(websocket_clients_slow_disconnects_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval])) by (source)",
                         "legendFormat": "slow consumer disconnects {{source}}"
                       }
                     },
@@ -2482,7 +2482,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "max(pgxpool_acquired_connections{deployment_environment=\"$env\"})",
+                        "expr": "sum(pgxpool_acquired_connections{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "acquired"
                       }
                     },
@@ -2501,7 +2501,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "max(pgxpool_idle_connections{deployment_environment=\"$env\"})",
+                        "expr": "sum(pgxpool_idle_connections{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "idle"
                       }
                     },
@@ -2520,7 +2520,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "max(pgxpool_max_connections{deployment_environment=\"$env\"})",
+                        "expr": "sum(pgxpool_max_connections{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"})",
                         "legendFormat": "maximum"
                       }
                     },
@@ -2637,7 +2637,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(pgxpool_acquires_total{deployment_environment=\"$env\"}[$__rate_interval]))",
+                        "expr": "sum(rate(pgxpool_acquires_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval]))",
                         "legendFormat": "acquires/s"
                       }
                     },
@@ -2656,7 +2656,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(pgxpool_empty_acquire_total{deployment_environment=\"$env\"}[$__rate_interval]))",
+                        "expr": "sum(rate(pgxpool_empty_acquire_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval]))",
                         "legendFormat": "empty acquires/s"
                       }
                     },
@@ -2675,7 +2675,7 @@
                         "name": "grafanacloud-prom"
                       },
                       "spec": {
-                        "expr": "sum(rate(pgxpool_new_connections_total{deployment_environment=\"$env\"}[$__rate_interval]))",
+                        "expr": "sum(rate(pgxpool_new_connections_total{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"}[$__rate_interval]))",
                         "legendFormat": "new connections/s"
                       }
                     },
@@ -2792,7 +2792,7 @@
                         "name": "grafanacloud-logs"
                       },
                       "spec": {
-                        "expr": "{service_name=\"FlightStrips\"} |= \"\" | logfmt | level =~ \"WARN|ERROR\" |~ \"CDM recalculation finished|Disconnecting slow websocket client\"",
+                        "expr": "{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"} | label_format level=detected_level | level =~ `warn|error` |~ \"CDM recalculation finished|Disconnecting slow websocket client\"",
                         "queryType": "range"
                       }
                     },
@@ -2851,7 +2851,7 @@
                         "name": "grafanacloud-logs"
                       },
                       "spec": {
-                        "expr": "{service_name=\"FlightStrips\"} | logfmt | level =~ \"WARN|ERROR\"",
+                        "expr": "{service_name=\"flightstrips-backend\",deployment_environment=\"$env\"} | label_format level=detected_level | level =~ `warn|error`",
                         "queryType": "range"
                       }
                     },

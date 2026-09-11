@@ -1,12 +1,13 @@
-import {render, screen} from "@testing-library/react";
+import {fireEvent, render, screen} from "@testing-library/react";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {WebSocketState} from "@/store/store";
 import type {AMANState} from "@/api/aman";
 import AMAN from "./AMAN";
 
-const {controlsSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() => ({
+const {controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() => ({
   controlsSpy: vi.fn(),
+  detailSpy: vi.fn(),
   holdingSpy: vi.fn(),
   tmtSpy: vi.fn(),
   storeState: {
@@ -23,7 +24,14 @@ vi.mock("@/store/store-hooks", () => ({
 }));
 
 vi.mock("@/components/aman/AMANBoard", () => ({
-  AMANBoardView: ({onOpenControls}: {onOpenControls?: () => void}) => <button onClick={onOpenControls} type="button">AMAN board</button>,
+  AMANBoardView: ({onOpenControls, onOpenFlightDetails}: {onOpenControls?: () => void; onOpenFlightDetails?: (flightID: string) => void}) => <><button onClick={onOpenControls} type="button">AMAN board</button><button onClick={() => onOpenFlightDetails?.("flight-123")} type="button">Open target</button></>,
+}));
+
+vi.mock("@/components/aman/AMANFlightDetailDialog", () => ({
+  AMANFlightDetailDialog: (props: {airport: string; flightID: string; onClose: () => void}) => {
+    detailSpy(props);
+    return <button onClick={props.onClose} type="button">Close mocked detail</button>;
+  },
 }));
 
 vi.mock("@/components/aman/AMANControls", () => ({
@@ -57,6 +65,7 @@ describe("AMAN route authorization", () => {
     controlsSpy.mockClear();
     holdingSpy.mockClear();
     tmtSpy.mockClear();
+    detailSpy.mockClear();
     storeState.amanState = null;
     storeState.amanFMPAuthority = false;
   });
@@ -86,5 +95,15 @@ describe("AMAN route authorization", () => {
     expect(screen.getByText("TMT holding")).toBeInTheDocument();
     expect(tmtSpy).toHaveBeenCalledWith({prediction: trafficPrediction});
     expect(holdingSpy).toHaveBeenCalledWith({entries: holdingInformation});
+  });
+
+  it("opens and closes the existing detail view for the activated target", () => {
+    storeState.amanState = {airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights: [{flight_id: "flight-123"}]} as unknown as AMANState;
+    render(<AMAN />);
+
+    fireEvent.click(screen.getByRole("button", {name: "Open target"}));
+    expect(detailSpy).toHaveBeenCalledWith(expect.objectContaining({airport: "EKCH", flightID: "flight-123"}));
+    fireEvent.click(screen.getByRole("button", {name: "Close mocked detail"}));
+    expect(screen.queryByRole("button", {name: "Close mocked detail"})).not.toBeInTheDocument();
   });
 });

@@ -73,6 +73,9 @@ describe("AMAN route authorization", () => {
   it("keeps FMP controls unauthorized without a server-backed capability", () => {
     render(<AMAN />);
 
+    expect(screen.getByRole("main", {name: "Arrival management workspace"})).toBeInTheDocument();
+    expect(screen.getByRole("region", {name: "MAESTRO sequence workspace"})).toContainElement(screen.getByText("AMAN board"));
+    expect(screen.getByRole("complementary", {name: "TMT analysis area"})).toContainElement(screen.getByText("AMAN controls"));
     expect(screen.getByText("AMAN board")).toBeInTheDocument();
     expect(screen.getByText("AMAN controls")).toBeInTheDocument();
     expect(controlsSpy).toHaveBeenCalledWith(expect.objectContaining({hasFMPAuthority: false}));

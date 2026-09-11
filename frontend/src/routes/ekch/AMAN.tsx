@@ -3,6 +3,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from "react";
 import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
+import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
@@ -33,32 +34,37 @@ export default function AMAN() {
   }, [state]);
 
   return (
-    <main className="h-[95.28dvh] overflow-hidden bg-[#242424] p-3 text-white">
-      <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(320px,420px)] items-start gap-3">
-      <AMANBoardView
-        connectionState={connectionState}
-        error={error}
-        onOpenControls={() => controlsRef.current?.focus()}
-        onOpenFlightDetails={(flightID) => {
-          setSelectedFlightID(flightID);
-          setDetailOpen(true);
-        }}
-        onSelectFlight={setSelectedFlightID}
-        presentationStatus={presentationStatus}
-        selectedFlightID={effectiveSelectedFlightID}
-        state={state}
+    <>
+      <AMANWorkspaceShell
+        maestro={(
+          <AMANBoardView
+            connectionState={connectionState}
+            error={error}
+            onOpenControls={() => controlsRef.current?.focus()}
+            onOpenFlightDetails={(flightID) => {
+              setSelectedFlightID(flightID);
+              setDetailOpen(true);
+            }}
+            onSelectFlight={setSelectedFlightID}
+            presentationStatus={presentationStatus}
+            selectedFlightID={effectiveSelectedFlightID}
+            state={state}
+          />
+        )}
+        tmt={(
+          <>
+            {state?.traffic_prediction !== undefined && <TMTTrafficPrediction prediction={state.traffic_prediction} />}
+            {state?.holding_information !== undefined && <TMTHoldingGraph entries={state.holding_information} />}
+            <AMANControls
+              hasFMPAuthority={hasFMPAuthority}
+              onSelectedFlightIDChange={setSelectedFlightID}
+              selectedFlightID={effectiveSelectedFlightID}
+            />
+          </>
+        )}
+        tmtRef={controlsRef}
       />
-      <aside className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1" ref={controlsRef} tabIndex={-1}>
-        {state?.traffic_prediction !== undefined && <TMTTrafficPrediction prediction={state.traffic_prediction} />}
-        {state?.holding_information !== undefined && <TMTHoldingGraph entries={state.holding_information} />}
-        <AMANControls
-          hasFMPAuthority={hasFMPAuthority}
-          onSelectedFlightIDChange={setSelectedFlightID}
-          selectedFlightID={effectiveSelectedFlightID}
-        />
-      </aside>
-      </div>
       {detailOpen && state !== null && effectiveSelectedFlightID !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} />}
-    </main>
+    </>
   );
 }

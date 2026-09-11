@@ -117,6 +117,37 @@ body.public-content-page {
 }
 
 @layer components {
+  /* ── AMAN desktop workspace ─────────────────────────────────────────────── */
+  .aman-workspace-page {
+    @apply h-[95.28dvh] overflow-hidden bg-[#242424] p-3 text-white;
+  }
+
+  .aman-workspace-shell {
+    --aman-workspace-height: calc(95.28dvh - 1.5rem);
+    display: grid;
+    grid-template-columns:
+      clamp(
+        calc(var(--aman-workspace-height) * 0.666667),
+        42vw,
+        calc(var(--aman-workspace-height) * 0.9)
+      )
+      minmax(0.75rem, 1fr)
+      calc(var(--aman-workspace-height) * 0.75);
+    @apply h-full min-h-0;
+  }
+
+  .aman-workspace-maestro {
+    @apply col-start-1 h-full min-h-0 min-w-0 bg-bay-panel;
+  }
+
+  .aman-workspace-separator {
+    @apply col-start-2 h-full min-w-3 bg-[#242424];
+  }
+
+  .aman-workspace-tmt {
+    @apply col-start-3 flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-y-auto bg-[#242424] pr-1;
+  }
+
   /* ── Bay page wrapper ───────────────────────────────────────────────────── */
   .bay-page-wrapper {
     @apply bg-bay-border w-screen h-[95.28dvh] min-h-0 overflow-hidden flex divide-x-[6px] divide-bay-border border-x-2 border-t-2 border-bay-border;

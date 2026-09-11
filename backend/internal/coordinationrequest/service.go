@@ -40,6 +40,15 @@ type submitRepository interface {
 	Submit(context.Context, Request, uint64) (CommitResult, error)
 	Get(context.Context, string, RequestID) (Request, error)
 	Decide(context.Context, RequestID, Decision, uint64) (CommitResult, error)
+	TransferPending(context.Context, OwnershipFact) (TransferResult, error)
+}
+
+// ObserveOwnership applies a trusted authoritative tracking-controller fact.
+func (s *Service) ObserveOwnership(ctx context.Context, fact OwnershipFact) (TransferResult, error) {
+	if s == nil || s.repository == nil {
+		return TransferResult{}, errors.New("coordination request service is not configured")
+	}
+	return s.repository.TransferPending(ctx, fact)
 }
 
 func (s *Service) Accept(ctx context.Context, auth CommandContext, command DecisionCommand) (CommitResult, error) {

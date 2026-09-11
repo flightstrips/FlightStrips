@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -25,6 +26,21 @@ type CommitResult struct {
 	SupersededRequest *Request
 	Revision          uint64
 	Duplicate         bool
+}
+
+type TransferResult struct {
+	Requests  []Request
+	Revision  uint64
+	Duplicate bool
+}
+
+type OwnershipFact struct {
+	Airport    string
+	FlightID   FlightID
+	FactID     string
+	Revision   uint64
+	Owner      ControllerID
+	ObservedAt time.Time
 }
 
 // Repository is the sole persistence owner for coordination request aggregates.
@@ -143,12 +159,97 @@ func (r *Repository) Decide(ctx context.Context, id RequestID, decision Decision
 
 func coordinationRevision(requests []Request) uint64 {
 	revision := uint64(len(requests))
+	transfers := make(map[string]struct{})
 	for _, request := range requests {
 		if request.Decision != nil {
 			revision++
 		}
+		for _, transfer := range request.RecipientTransfers {
+			key := string(request.FlightID) + "\x00" + transfer.OwnershipFact + "\x00" + fmt.Sprint(transfer.OwnershipRevision)
+			transfers[key] = struct{}{}
+		}
 	}
-	return revision
+	return revision + uint64(len(transfers))
+}
+
+// TransferPending atomically applies one authoritative ownership fact to every
+// pending request for its flight. Replaying the same fact is a durable no-op.
+func (r *Repository) TransferPending(ctx context.Context, fact OwnershipFact) (TransferResult, error) {
+	if fact.Airport == "" || fact.Airport != strings.TrimSpace(fact.Airport) || fact.FlightID == "" ||
+		fact.FactID == "" || fact.FactID != strings.TrimSpace(fact.FactID) || fact.Revision == 0 ||
+		fact.Owner != ControllerID(strings.TrimSpace(string(fact.Owner))) || !utc(fact.ObservedAt) {
+		return TransferResult{}, errors.New("authoritative ownership fact is invalid")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return TransferResult{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fact.Airport); err != nil {
+		return TransferResult{}, err
+	}
+	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, fact.Airport)
+	if err != nil {
+		return TransferResult{}, err
+	}
+	var current []Request
+	for rows.Next() {
+		var raw []byte
+		var request Request
+		if err = rows.Scan(&raw); err == nil {
+			err = json.Unmarshal(raw, &request)
+		}
+		if err == nil {
+			err = request.Validate()
+		}
+		if err != nil {
+			rows.Close()
+			return TransferResult{}, err
+		}
+		current = append(current, request)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return TransferResult{}, err
+	}
+	var duplicates []Request
+	for _, request := range current {
+		for _, transfer := range request.RecipientTransfers {
+			if request.FlightID == fact.FlightID && transfer.OwnershipFact == fact.FactID && transfer.OwnershipRevision == fact.Revision {
+				if transfer.NewRecipient != fact.Owner || !transfer.TransferredAt.Equal(fact.ObservedAt) {
+					return TransferResult{}, ErrCommandConflict
+				}
+				duplicates = append(duplicates, request)
+				break
+			}
+		}
+	}
+	if len(duplicates) > 0 {
+		return TransferResult{Requests: duplicates, Revision: coordinationRevision(current), Duplicate: true}, tx.Commit(ctx)
+	}
+	result := TransferResult{Revision: coordinationRevision(current)}
+	for _, request := range current {
+		if request.FlightID != fact.FlightID || request.State != StatePending ||
+			(request.RecipientController == fact.Owner && request.effectiveRecipientStatus() == RecipientAssigned) ||
+			(fact.Owner == "" && request.effectiveRecipientStatus() == RecipientUnassigned) {
+			continue
+		}
+		updated, transferErr := request.TransferRecipient(fact.FactID, fact.Revision, fact.Owner, fact.ObservedAt)
+		if transferErr != nil {
+			return TransferResult{}, transferErr
+		}
+		if err = save(ctx, tx, updated); err != nil {
+			return TransferResult{}, err
+		}
+		result.Requests = append(result.Requests, updated)
+	}
+	if len(result.Requests) > 0 {
+		result.Revision++
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return TransferResult{}, err
+	}
+	return result, nil
 }
 
 // ReplayAirport restores validated requests in deterministic creation order.

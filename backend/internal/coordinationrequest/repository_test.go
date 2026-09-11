@@ -220,6 +220,89 @@ func TestConcurrentSubmissionsCommitAtomically(t *testing.T) {
 	require.Equal(t, StatePending, replayed[0].State)
 }
 
+func TestTransferPendingIsAtomicTerminalSafeAndReplayIdempotent(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	repository := NewRepository(pool)
+	route := routeRequest(t, "route-transfer", testTime)
+	speed, err := New("speed-transfer", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindSpeed,
+		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime.Add(time.Second))
+	require.NoError(t, err)
+	accepted, err := routeRequest(t, "accepted", testTime).Decide("accept-terminal", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(time.Second))
+	require.NoError(t, err)
+	rejected, err := routeRequest(t, "rejected", testTime).Decide("reject-terminal", "7654321", "EKCH_APP", "EKCH_APP", StateRejected, "traffic", testTime.Add(time.Second))
+	require.NoError(t, err)
+	superseded, err := routeRequest(t, "superseded-terminal", testTime).Supersede("replacement", testTime.Add(time.Second))
+	require.NoError(t, err)
+	expired, err := routeRequest(t, "expired", testTime).Transition(StateExpired, testTime.Add(time.Second))
+	require.NoError(t, err)
+	terminal := []Request{accepted, rejected, superseded, expired}
+	for _, request := range append([]Request{route, speed}, terminal...) {
+		require.NoError(t, repository.Save(ctx, request))
+	}
+
+	fact := OwnershipFact{Airport: "EKCH", FlightID: "flight-1", FactID: "es/17", Revision: 17,
+		Owner: "EKCH_DEP", ObservedAt: testTime.Add(time.Minute)}
+	result, err := repository.TransferPending(ctx, fact)
+	require.NoError(t, err)
+	require.Len(t, result.Requests, 2)
+	require.Equal(t, uint64(9), result.Revision, "six requests, two decisions, and one ownership fact")
+	for _, request := range result.Requests {
+		require.Equal(t, ControllerID("EKCH_DEP"), request.RecipientController)
+		require.Equal(t, StatePending, request.State)
+		require.Len(t, request.RecipientTransfers, 1)
+	}
+
+	retry, err := NewRepository(pool).TransferPending(ctx, fact)
+	require.NoError(t, err)
+	require.True(t, retry.Duplicate)
+	require.Equal(t, result.Revision, retry.Revision)
+	require.Len(t, retry.Requests, 2)
+	replayed, err := NewRepository(pool).ReplayAirport(ctx, "EKCH")
+	require.NoError(t, err)
+	for _, want := range terminal {
+		for _, request := range replayed {
+			if request.ID == want.ID {
+				require.Equal(t, want.State, request.State)
+				require.Empty(t, request.RecipientTransfers, "terminal requests never transfer")
+			}
+		}
+	}
+
+	noOwner := OwnershipFact{Airport: "EKCH", FlightID: "flight-1", FactID: "es/18", Revision: 18,
+		ObservedAt: testTime.Add(2 * time.Minute)}
+	unassigned, err := repository.TransferPending(ctx, noOwner)
+	require.NoError(t, err)
+	require.Len(t, unassigned.Requests, 2)
+	for _, request := range unassigned.Requests {
+		require.Equal(t, RecipientUnassigned, request.RecipientStatus)
+		require.Empty(t, request.RecipientController)
+	}
+}
+
+func TestTransferPendingRollsBackEveryRequestWhenPersistenceFails(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	repository := NewRepository(pool)
+	route := routeRequest(t, "atomic-route", testTime)
+	speed, err := New("atomic-speed", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindSpeed,
+		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime.Add(time.Second))
+	require.NoError(t, err)
+	require.NoError(t, repository.Save(ctx, route))
+	require.NoError(t, repository.Save(ctx, speed))
+	_, err = pool.Exec(ctx, `CREATE FUNCTION fail_speed_transfer() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN IF NEW.request_id = 'coordination-request/atomic-speed' THEN RAISE EXCEPTION 'forced failure'; END IF; RETURN NEW; END $$;
+CREATE TRIGGER fail_speed_transfer BEFORE UPDATE ON aman_coordination_requests FOR EACH ROW EXECUTE FUNCTION fail_speed_transfer()`)
+	require.NoError(t, err)
+
+	_, err = repository.TransferPending(ctx, OwnershipFact{Airport: "EKCH", FlightID: "flight-1", FactID: "es/atomic",
+		Revision: 2, Owner: "EKCH_DEP", ObservedAt: testTime.Add(time.Minute)})
+	require.ErrorContains(t, err, "forced failure")
+	replayed, err := repository.ReplayAirport(ctx, "EKCH")
+	require.NoError(t, err)
+	require.Equal(t, []Request{route, speed}, replayed)
+}
+
 func boolCount(values ...bool) int {
 	count := 0
 	for _, value := range values {

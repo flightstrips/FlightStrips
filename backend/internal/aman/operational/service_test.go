@@ -84,6 +84,67 @@ func TestSequenceInputDoesNotInferHoldingPolicyFamilyFromLegacyIdentity(t *testi
 	require.Empty(t, input.Flights[0].SelectedSTARFamily, "holding policy requires explicit family identity")
 }
 
+func TestSequenceInputUsesOnlyFreshKnownHoldingCFL(t *testing.T) {
+	start := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	effective := start
+	clearedAltitude, observedAltitude, expectedCFL := int32(5000), 9000, 5000
+	base := operationalFlight("HOLDING", group, "MONAK", "M", start)
+	base.SelectedSTARFamily = stringPointer("MONAK")
+	base.HoldingStack = &aman.HoldingStackState{HoldingID: "MONAK-HOLD", Confirmed: true}
+	base.HoldingClearance = &aman.HoldingClearance{
+		Hold: "MONAK-HOLD", HoldType: aman.HoldingClearanceEnroute,
+		ClearedAltitude: &clearedAltitude, ObservedAt: start,
+	}
+	base.LatestObservation.Surveillance = &aman.SurveillanceFact{AltitudeFeet: &observedAltitude}
+	config := terminal.Configuration{
+		RunwayGroups: []terminal.RunwayGroup{{ID: group}},
+		STARFamilyPolicies: []terminal.STARFamilyPolicy{{
+			STARFamily: "MONAK", HoldingSequencePolicy: navdata.HoldingSequenceLowestAltitudeFirst,
+		}},
+	}
+	stateFor := func(flight aman.AMANFlight) aman.AirportState {
+		return aman.AirportState{
+			RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective}},
+			Flights:      []aman.AMANFlight{flight},
+		}
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*aman.AMANFlight)
+		want   *int
+	}{
+		{name: "fresh confirmed CFL", mutate: func(flight *aman.AMANFlight) { flight.DataStatus = aman.DataFresh }, want: &expectedCFL},
+		{name: "stale source", mutate: func(flight *aman.AMANFlight) { flight.DataStatus = aman.DataStale }},
+		{name: "disconnected source", mutate: func(flight *aman.AMANFlight) { flight.DataStatus = aman.DataDisconnected }},
+		{name: "missing CFL", mutate: func(flight *aman.AMANFlight) {
+			flight.DataStatus = aman.DataFresh
+			flight.HoldingClearance.ClearedAltitude = nil
+		}},
+		{name: "unconfirmed stack", mutate: func(flight *aman.AMANFlight) {
+			flight.DataStatus = aman.DataFresh
+			flight.HoldingStack.Confirmed = false
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			flight := base
+			stack, clearance := *base.HoldingStack, *base.HoldingClearance
+			flight.HoldingStack, flight.HoldingClearance = &stack, &clearance
+			test.mutate(&flight)
+			input := sequenceInput(stateFor(flight), config)
+			require.Len(t, input.Flights, 1)
+			if flight.HoldingStack.Confirmed {
+				require.Equal(t, "MONAK-HOLD", input.Flights[0].HoldingStackID)
+			} else {
+				require.Empty(t, input.Flights[0].HoldingStackID)
+			}
+			require.Equal(t, test.want, input.Flights[0].HoldingAltitudeFeet)
+		})
+	}
+}
+
 func TestResequencePersistsAndResolvesProtectedSameSTARWarnings(t *testing.T) {
 	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	group := aman.RunwayGroupID("ARRIVAL-22")

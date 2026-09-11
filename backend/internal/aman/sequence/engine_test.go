@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/sequence"
 	"github.com/stretchr/testify/require"
 )
@@ -198,19 +199,138 @@ func TestStableSlotProtectionKeepsCommittedTime(t *testing.T) {
 	require.Equal(t, sequence.ReasonStable, result.Entries[0].Reason)
 }
 
-func TestConfirmedHoldingStackUsesLowestAltitudeFirst(t *testing.T) {
+func TestHoldingStackOrderingRequiresEnabledMatchingEvidence(t *testing.T) {
 	start := testTime()
-	high := flight("HIGH", "A", start, "M")
-	high.HoldingStackID, high.HoldingAltitudeFeet = "MONAK-HOLD", intPointer(7000)
-	// The stack order is a tie-breaker between aircraft that are both eligible
-	// for release. It does not permit a lower aircraft to be assigned before
-	// its own physically achievable arrival time.
-	low := flight("LOW", "A", start, "M")
-	low.HoldingStackID, low.HoldingAltitudeFeet = "MONAK-HOLD", intPointer(5000)
+	enabled := sequence.STARFamilyPolicy{STARFamily: "MONAK", HoldingSequencePolicy: navdata.HoldingSequenceLowestAltitudeFirst}
+	disabled := sequence.STARFamilyPolicy{STARFamily: "MONAK", HoldingSequencePolicy: navdata.HoldingSequenceDisabled}
+	secondEnabled := sequence.STARFamilyPolicy{STARFamily: "TESPI", HoldingSequencePolicy: navdata.HoldingSequenceLowestAltitudeFirst}
 
-	result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{high, low}})
-	require.NoError(t, err)
-	require.Equal(t, []aman.FlightID{"LOW", "HIGH"}, entryIDs(result))
+	tests := []struct {
+		name           string
+		familyPolicies []sequence.STARFamilyPolicy
+		highFamily     string
+		lowFamily      string
+		highStack      string
+		lowStack       string
+		highAltitude   *int
+		lowAltitude    *int
+		want           []aman.FlightID
+	}{
+		{
+			name: "enabled same family and stack", familyPolicies: []sequence.STARFamilyPolicy{enabled},
+			highFamily: "MONAK", lowFamily: "MONAK", highStack: "MONAK-HOLD", lowStack: "MONAK-HOLD",
+			highAltitude: intPointer(7000), lowAltitude: intPointer(5000), want: []aman.FlightID{"LOW", "HIGH"},
+		},
+		{
+			name: "disabled policy", familyPolicies: []sequence.STARFamilyPolicy{disabled},
+			highFamily: "MONAK", lowFamily: "MONAK", highStack: "MONAK-HOLD", lowStack: "MONAK-HOLD",
+			highAltitude: intPointer(7000), lowAltitude: intPointer(5000), want: []aman.FlightID{"HIGH", "LOW"},
+		},
+		{
+			name: "mixed family policies", familyPolicies: []sequence.STARFamilyPolicy{disabled, secondEnabled},
+			highFamily: "MONAK", lowFamily: "TESPI", highStack: "SHARED", lowStack: "SHARED",
+			highAltitude: intPointer(7000), lowAltitude: intPointer(5000), want: []aman.FlightID{"HIGH", "LOW"},
+		},
+		{
+			name: "different enabled families", familyPolicies: []sequence.STARFamilyPolicy{enabled, secondEnabled},
+			highFamily: "MONAK", lowFamily: "TESPI", highStack: "SHARED", lowStack: "SHARED",
+			highAltitude: intPointer(7000), lowAltitude: intPointer(5000), want: []aman.FlightID{"HIGH", "LOW"},
+		},
+		{
+			name: "different stacks", familyPolicies: []sequence.STARFamilyPolicy{enabled},
+			highFamily: "MONAK", lowFamily: "MONAK", highStack: "STACK-A", lowStack: "STACK-B",
+			highAltitude: intPointer(7000), lowAltitude: intPointer(5000), want: []aman.FlightID{"HIGH", "LOW"},
+		},
+		{
+			name: "unconfirmed empty stack", familyPolicies: []sequence.STARFamilyPolicy{enabled},
+			highFamily: "MONAK", lowFamily: "MONAK",
+			highAltitude: intPointer(7000), lowAltitude: intPointer(5000), want: []aman.FlightID{"HIGH", "LOW"},
+		},
+		{
+			name: "equal altitude", familyPolicies: []sequence.STARFamilyPolicy{enabled},
+			highFamily: "MONAK", lowFamily: "MONAK", highStack: "MONAK-HOLD", lowStack: "MONAK-HOLD",
+			highAltitude: intPointer(5000), lowAltitude: intPointer(5000), want: []aman.FlightID{"HIGH", "LOW"},
+		},
+		{
+			name: "missing altitude", familyPolicies: []sequence.STARFamilyPolicy{enabled},
+			highFamily: "MONAK", lowFamily: "MONAK", highStack: "MONAK-HOLD", lowStack: "MONAK-HOLD",
+			highAltitude: intPointer(7000), want: []aman.FlightID{"HIGH", "LOW"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			high := holdingFlight("HIGH", start, test.highFamily, test.highStack, test.highAltitude)
+			low := holdingFlight("LOW", start, test.lowFamily, test.lowStack, test.lowAltitude)
+			result, err := sequence.Generate(sequence.Input{
+				Policies: []sequence.Policy{simplePolicy("A", start, 60)}, STARFamilyPolicies: test.familyPolicies,
+				Flights: []sequence.Flight{low, high},
+			})
+			require.NoError(t, err)
+			require.Equal(t, test.want, entryIDs(result))
+		})
+	}
+}
+
+func TestHoldingStackOrderingRespectsManualStableAndFreezePrecedence(t *testing.T) {
+	start := testTime()
+	policy := []sequence.STARFamilyPolicy{{STARFamily: "MONAK", HoldingSequencePolicy: navdata.HoldingSequenceLowestAltitudeFirst}}
+	generate := func(t *testing.T, flights ...sequence.Flight) sequence.Result {
+		t.Helper()
+		result, err := sequence.Generate(sequence.Input{
+			Revision: 1, Policies: []sequence.Policy{simplePolicy("A", start, 60)},
+			STARFamilyPolicies: policy, Flights: flights,
+		})
+		require.NoError(t, err)
+		return result
+	}
+
+	t.Run("manual order", func(t *testing.T) {
+		high := holdingFlight("HIGH", start, "MONAK", "MONAK-HOLD", intPointer(7000))
+		low := holdingFlight("LOW", start, "MONAK", "MONAK-HOLD", intPointer(5000))
+		high.ManualOrder, low.ManualOrder = intPointer(1), intPointer(2)
+		require.Equal(t, []aman.FlightID{"HIGH", "LOW"}, entryIDs(generate(t, low, high)))
+	})
+
+	t.Run("stable relative order", func(t *testing.T) {
+		high := holdingFlight("HIGH", start, "MONAK", "MONAK-HOLD", intPointer(7000))
+		low := holdingFlight("LOW", start, "MONAK", "MONAK-HOLD", intPointer(5000))
+		high.State, low.State = aman.StateStable, aman.StateStable
+		high.CurrentSlot = &aman.Slot{Time: start, RunwayGroupID: "A", Sequence: 1, Revision: 1, Reason: "rate_wtc"}
+		low.CurrentSlot = &aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: 1, Reason: "rate_wtc"}
+		require.Equal(t, []aman.FlightID{"HIGH", "LOW"}, entryIDs(generate(t, low, high)))
+	})
+
+	t.Run("stable slot protection", func(t *testing.T) {
+		high := holdingFlight("HIGH", start, "MONAK", "MONAK-HOLD", intPointer(7000))
+		high.State, high.ProtectCurrentSlot = aman.StateStable, true
+		high.CurrentSlot = &aman.Slot{Time: start, RunwayGroupID: "A", Sequence: 1, Revision: 1, Reason: "rate_wtc"}
+		low := holdingFlight("LOW", start, "MONAK", "MONAK-HOLD", intPointer(5000))
+		require.Equal(t, []aman.FlightID{"HIGH", "LOW"}, entryIDs(generate(t, low, high)))
+	})
+
+	for _, freeze := range []aman.FreezeReason{aman.FreezeSuperstable, aman.FreezeManual, aman.FreezeTMA} {
+		t.Run(string(freeze)+" freeze", func(t *testing.T) {
+			high := holdingFlight("HIGH", start, "MONAK", "MONAK-HOLD", intPointer(7000))
+			high.FreezeReason = freeze
+			high.CapturedSlot = &aman.Slot{Time: start, RunwayGroupID: "A", Sequence: 1, Revision: 1, Reason: "captured"}
+			low := holdingFlight("LOW", start, "MONAK", "MONAK-HOLD", intPointer(5000))
+			require.Equal(t, []aman.FlightID{"HIGH", "LOW"}, entryIDs(generate(t, low, high)))
+		})
+	}
+
+	t.Run("protected conflict remains visible", func(t *testing.T) {
+		high := holdingFlight("HIGH", start, "MONAK", "MONAK-HOLD", intPointer(7000))
+		low := holdingFlight("LOW", start, "MONAK", "MONAK-HOLD", intPointer(5000))
+		high.FreezeReason, low.FreezeReason = aman.FreezeManual, aman.FreezeSuperstable
+		high.CapturedSlot = &aman.Slot{Time: start, RunwayGroupID: "A", Sequence: 1, Revision: 1, Reason: "captured"}
+		low.CapturedSlot = &aman.Slot{Time: start.Add(30 * time.Second), RunwayGroupID: "A", Sequence: 2, Revision: 1, Reason: "captured"}
+		result := generate(t, low, high)
+		require.Equal(t, []aman.FlightID{"HIGH", "LOW"}, entryIDs(result))
+		require.Equal(t, []time.Time{start, start.Add(30 * time.Second)}, entryTimes(result))
+		require.True(t, result.HasConflicts())
+		require.Equal(t, sequence.WarningProtectedSpacing, result.Warnings[0].Code)
+	})
 }
 
 func rateIntervalForTest(rate uint32) time.Duration {
@@ -502,6 +622,13 @@ func wtcPolicy(group aman.RunwayGroupID, start time.Time, rate uint32) sequence.
 
 func flight(id aman.FlightID, group aman.RunwayGroupID, teta time.Time, category sequence.WakeCategory) sequence.Flight {
 	return sequence.Flight{ID: id, RunwayGroupID: group, State: aman.StateAirborne, OperationalTETA: teta, WakeCategory: category, FreezeReason: aman.FreezeNone}
+}
+
+func holdingFlight(id aman.FlightID, teta time.Time, family, stack string, altitude *int) sequence.Flight {
+	value := flight(id, "A", teta, "M")
+	value.STARFamily, value.SelectedSTARFamily = family, family
+	value.HoldingStackID, value.HoldingAltitudeFeet = stack, altitude
+	return value
 }
 
 func protectedFlight(id aman.FlightID, group aman.RunwayGroupID, teta time.Time, category sequence.WakeCategory, slotTime time.Time, reason aman.FreezeReason) sequence.Flight {

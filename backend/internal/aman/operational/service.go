@@ -1161,10 +1161,15 @@ func holdingStackID(flight aman.AMANFlight) string {
 }
 
 func holdingStackAltitude(flight aman.AMANFlight) *int {
-	if holdingStackID(flight) == "" || flight.LatestObservation == nil || flight.LatestObservation.Surveillance == nil || flight.LatestObservation.Surveillance.AltitudeFeet == nil {
+	// Holding order uses the controller-confirmed CFL, not a possibly transient
+	// surveillance level. DataStatus is the existing freshness authority shared
+	// by the holding-clearance read model; stale/disconnected facts must not
+	// influence sequencing.
+	if holdingStackID(flight) == "" || flight.DataStatus != aman.DataFresh ||
+		flight.HoldingClearance == nil || flight.HoldingClearance.ClearedAltitude == nil {
 		return nil
 	}
-	altitude := *flight.LatestObservation.Surveillance.AltitudeFeet
+	altitude := int(*flight.HoldingClearance.ClearedAltitude)
 	return &altitude
 }
 

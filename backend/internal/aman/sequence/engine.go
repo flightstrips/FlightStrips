@@ -451,7 +451,9 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 				return nil, fmt.Errorf("flight %q has invalid current slot", raw.ID)
 			}
 		}
-		if raw.HoldingStackID != "" && (raw.HoldingAltitudeFeet == nil || *raw.HoldingAltitudeFeet < 0) {
+		// A confirmed stack remains valid when the current CFL is unavailable.
+		// The comparator treats nil as non-comparable and preserves normal order.
+		if raw.HoldingAltitudeFeet != nil && *raw.HoldingAltitudeFeet < 0 {
 			return nil, fmt.Errorf("flight %q has invalid holding stack altitude", raw.ID)
 		}
 		if raw.ProtectCurrentSlot && raw.CurrentSlot == nil {
@@ -788,15 +790,9 @@ func flightLess(a, b preparedFlight) bool {
 			return *a.ManualOrder < *b.ManualOrder
 		}
 	}
-	// Among confirmed occupants of the same hold, the lowest aircraft is
-	// closest to release and must be sequenced first. This never overrides a
-	// protected slot or an explicit controller order above.
-	if a.HoldingStackID != "" && a.HoldingStackID == b.HoldingStackID && a.HoldingAltitudeFeet != nil && b.HoldingAltitudeFeet != nil && *a.HoldingAltitudeFeet != *b.HoldingAltitudeFeet {
-		return *a.HoldingAltitudeFeet < *b.HoldingAltitudeFeet
-	}
 	// Stable order is retained from the last committed sequence. A stable
 	// aircraft may move into a legal vacancy, but recalculation never sorts two
-	// stable aircraft back by their changing TETAs.
+	// stable aircraft back by their changing TETAs or holding altitudes.
 	if a.State == aman.StateStable && b.State == aman.StateStable && a.CurrentSlot != nil && b.CurrentSlot != nil {
 		if a.CurrentSlot.Sequence != b.CurrentSlot.Sequence {
 			return a.CurrentSlot.Sequence < b.CurrentSlot.Sequence
@@ -804,6 +800,13 @@ func flightLess(a, b preparedFlight) bool {
 		if !a.CurrentSlot.Time.Equal(b.CurrentSlot.Time) {
 			return a.CurrentSlot.Time.Before(b.CurrentSlot.Time)
 		}
+	}
+	// Physical stack order is deliberately a narrow tie-breaker. Both flights
+	// must independently resolve the enabled policy from the same explicit STAR
+	// family, occupy the same confirmed stack, and carry usable fresh altitude.
+	// Missing or ambiguous evidence falls through to normal lifecycle/TETA order.
+	if less, comparable := holdingAltitudeLess(a, b); comparable {
+		return less
 	}
 	if aPriority, bPriority := lifecyclePriority(a.State), lifecyclePriority(b.State); aPriority != bPriority {
 		return aPriority < bPriority
@@ -823,6 +826,24 @@ func flightLess(a, b preparedFlight) bool {
 		}
 	}
 	return a.ID < b.ID
+}
+
+func holdingAltitudeLess(a, b preparedFlight) (less, comparable bool) {
+	if a.holdingSequencePolicy != navdata.HoldingSequenceLowestAltitudeFirst ||
+		b.holdingSequencePolicy != navdata.HoldingSequenceLowestAltitudeFirst {
+		return false, false
+	}
+	if a.SelectedSTARFamily == "" || a.SelectedSTARFamily != b.SelectedSTARFamily {
+		return false, false
+	}
+	if a.HoldingStackID == "" || a.HoldingStackID != b.HoldingStackID {
+		return false, false
+	}
+	if a.HoldingAltitudeFeet == nil || b.HoldingAltitudeFeet == nil ||
+		*a.HoldingAltitudeFeet == *b.HoldingAltitudeFeet {
+		return false, false
+	}
+	return *a.HoldingAltitudeFeet < *b.HoldingAltitudeFeet, true
 }
 
 func lifecyclePriority(state aman.FlightState) int {

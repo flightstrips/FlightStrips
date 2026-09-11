@@ -122,18 +122,22 @@ export function layoutTimelineMarkers(
     if (timestamp === null) return [];
     const timeMs = Date.parse(timestamp);
     if (!Number.isFinite(timeMs)) return [];
-    return [{flight, timestamp, leftPercent: Math.max(0, Math.min(100, ((timeMs - range.startMs) / span) * 100))}];
+    if (timeMs < range.startMs || timeMs > range.endMs) return [];
+    return [{flight, timestamp, leftPercent: ((timeMs - range.startMs) / span) * 100}];
   });
 
   const trackEnds: number[] = [];
-  return candidates
-    .sort((left, right) => left.leftPercent - right.leftPercent)
-    .map((candidate) => {
+  const tracks = new Map<string, number>();
+  candidates
+    .map((candidate, index) => ({candidate, index}))
+    .sort((left, right) => left.candidate.leftPercent - right.candidate.leftPercent || left.index - right.index)
+    .forEach(({candidate}) => {
       let track = trackEnds.findIndex((end) => candidate.leftPercent - end >= minimumGapPercent);
       if (track === -1) track = trackEnds.length;
       trackEnds[track] = candidate.leftPercent;
-      return {...candidate, track};
+      tracks.set(candidate.flight.flight_id, track);
     });
+  return candidates.map((candidate) => ({...candidate, track: tracks.get(candidate.flight.flight_id) ?? 0}));
 }
 
 export function formatAMANTime(value: string | null): string {

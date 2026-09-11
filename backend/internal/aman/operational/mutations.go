@@ -75,6 +75,88 @@ func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightComma
 	}, nil
 }
 
+func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (sequence.CommandMutation, error) {
+	if command.AllowGap {
+		if err := s.authorizeRunwayGap(auth); err != nil {
+			return nil, err
+		}
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.FlightID)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+		}
+		flight := state.Flights[index]
+		if flight.State == aman.StatePlanned || flight.State == aman.StateLanded || flight.State == aman.StateRemoved ||
+			flight.Prediction == nil || !flight.SequenceDisposition.Participates() {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "flight is not eligible for manual grid placement"}
+		}
+		groupIndex := runwayGroupIndex(state.RunwayGroups, command.RunwayGroupID)
+		if groupIndex < 0 {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN runway group was not found"}
+		}
+		if !slices.Contains(state.ActiveRunwayGroups, command.RunwayGroupID) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "requested runway group is not active"}
+		}
+		if !s.runwayAssignmentCompatible(flight, command.RunwayGroupID) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "requested runway group is not compatible with the flight's arrival"}
+		}
+		input := s.sequenceInput(state)
+		onGrid, err := sequence.IsGridOpportunity(input, command.RunwayGroupID, command.SlotTime)
+		if err != nil || !onGrid {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "requested time is not a runway-grid opportunity"}
+		}
+		var overridden *aman.RunwayGap
+		for gapIndex := range state.RunwayGroups[groupIndex].Gaps {
+			gap := &state.RunwayGroups[groupIndex].Gaps[gapIndex]
+			if !command.SlotTime.Before(gap.Start) && command.SlotTime.Before(gap.End) {
+				overridden = gap
+				break
+			}
+		}
+		if overridden != nil && !command.AllowGap {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "normal manual placement cannot use an active runway GAP"}
+		}
+		if overridden == nil && command.AllowGap {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "GAP exception requested outside an active runway GAP"}
+		}
+
+		candidate := state
+		candidate.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		target := &candidate.Flights[index]
+		priorSlot := target.Slot
+		assignFlightToRunwayGroup(target, command.RunwayGroupID)
+		target.FreezeReason, target.FrozenAt = aman.FreezeManual, timePointer(auth.ReceivedAt)
+		frozenTETA := target.Prediction.OperationalTETA
+		target.FrozenOperationalTETA = &frozenTETA
+		target.FrozenSlot = &aman.Slot{Time: command.SlotTime, RunwayGroupID: command.RunwayGroupID, Sequence: 1, Revision: state.Revision, Reason: string(sequence.ReasonFreezeManual)}
+		target.ManualOrder, target.RunwayGapException, target.UpdatedAt = nil, nil, auth.ReceivedAt
+		input = s.sequenceInput(candidate)
+		result, err := sequence.Generate(input)
+		if err != nil || result.HasConflicts() {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "requested opportunity cannot produce a legal atomic sequence"}
+		}
+		candidate = s.applyDecision(candidate, sequence.Decision{Input: input, Candidate: result, Changed: true})
+		placed := &candidate.Flights[index]
+		if placed.Slot == nil || !placed.Slot.Time.Equal(command.SlotTime) || placed.Slot.RunwayGroupID != command.RunwayGroupID {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "requested opportunity was not retained by sequencing"}
+		}
+		placed.FrozenSlot = retargetSlot(placed.Slot, command.RunwayGroupID)
+		var gapID aman.RunwayGapID
+		if overridden != nil {
+			gapID = overridden.ID
+			placed.RunwayGapException = &aman.RunwayGapException{
+				GapID: gapID, FlightID: placed.ID, RunwayGroupID: command.RunwayGroupID,
+				Opportunity: command.SlotTime, CommandID: command.Metadata.CommandID,
+			}
+		}
+		return s.commandChange(candidate, true, "place_flight_at_time", command.FlightID, map[string]any{
+			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+			"prior_slot": priorSlot, "new_slot": placed.Slot, "allow_gap": command.AllowGap, "overridden_gap_id": gapID,
+		})
+	}, nil
+}
+
 // ChangeRunway builds and validates a complete candidate before returning it
 // to the coordinator. Protected flights keep their committed time and order;
 // incompatible or conflicting candidates never reach persistence.
@@ -661,6 +743,12 @@ func (s *Service) RemoveRunwayGap(auth aman.CommandContext, command aman.RemoveR
 		}
 		removed := group.Gaps[gapIndex]
 		group.Gaps = append(group.Gaps[:gapIndex], group.Gaps[gapIndex+1:]...)
+		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		for index := range state.Flights {
+			if exception := state.Flights[index].RunwayGapException; exception != nil && exception.GapID == removed.ID {
+				state.Flights[index].RunwayGapException = nil
+			}
+		}
 		return commandChange(state, true, "remove_runway_gap", "", map[string]any{
 			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 			"runway_group_id": command.RunwayGroupID, "gap_id": removed.ID,
@@ -1177,8 +1265,30 @@ func (s *Service) applyDecision(state aman.AirportState, decision sequence.Decis
 			state.Flights[i].Order = &order
 		}
 	}
+	clearInvalidRunwayGapExceptions(&state)
 	s.refreshHoldingPlans(&state)
 	return state
+}
+
+func clearInvalidRunwayGapExceptions(state *aman.AirportState) {
+	for index := range state.Flights {
+		flight, exception := &state.Flights[index], state.Flights[index].RunwayGapException
+		if exception == nil {
+			continue
+		}
+		validSlot := flight.Slot != nil && flight.Slot.RunwayGroupID == exception.RunwayGroupID && flight.Slot.Time.Equal(exception.Opportunity)
+		validGap := false
+		for _, group := range state.RunwayGroups {
+			for _, gap := range group.Gaps {
+				if gap.ID == exception.GapID {
+					validGap = group.ID == exception.RunwayGroupID && !exception.Opportunity.Before(gap.Start) && exception.Opportunity.Before(gap.End)
+				}
+			}
+		}
+		if !validSlot || !validGap {
+			flight.RunwayGapException = nil
+		}
+	}
 }
 
 func commandChange(state aman.AirportState, changed bool, action string, flightID aman.FlightID, extra map[string]any) (sequence.CommandChange, error) {

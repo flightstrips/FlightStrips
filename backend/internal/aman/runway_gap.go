@@ -25,6 +25,22 @@ type RunwayGap struct {
 	CreatedBy string
 }
 
+type RunwayGapException struct {
+	GapID         RunwayGapID
+	FlightID      FlightID
+	RunwayGroupID RunwayGroupID
+	Opportunity   time.Time
+	CommandID     string
+}
+
+func (e RunwayGapException) Validate() error {
+	if !isTrimmedNonEmpty(string(e.GapID)) || !isTrimmedNonEmpty(string(e.FlightID)) ||
+		!isTrimmedNonEmpty(string(e.RunwayGroupID)) || !isTrimmedNonEmpty(e.CommandID) {
+		return invalid("runway gap exception identity is incomplete")
+	}
+	return requireUTCTime("runway gap exception opportunity", e.Opportunity)
+}
+
 // RunwayGapMergeInput describes one accepted GAP before it is combined with
 // persisted runway capacity. CommandID becomes the stable identity of the
 // resulting union; authorization and command handling remain outside this

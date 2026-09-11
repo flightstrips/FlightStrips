@@ -271,6 +271,19 @@ func Generate(input Input) (Result, error) {
 	return generate(input, nil)
 }
 
+func IsGridOpportunity(input Input, groupID aman.RunwayGroupID, at time.Time) (bool, error) {
+	policies, err := preparePolicies(input.Policies)
+	if err != nil {
+		return false, err
+	}
+	policy, exists := policies[groupID]
+	if !exists {
+		return false, nil
+	}
+	candidate, ok := nextRateGridAtOrAfter(policy, at)
+	return ok && candidate.Equal(at), nil
+}
+
 func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, error) {
 	starFamilies, err := prepareSTARFamilyPolicies(input.STARFamilyPolicies)
 	if err != nil {

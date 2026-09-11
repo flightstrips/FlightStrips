@@ -23,6 +23,14 @@ type MoveFlightCommand struct {
 	AfterFlightID  *FlightID
 }
 
+type PlaceFlightAtTimeCommand struct {
+	Metadata      CommandMetadata
+	FlightID      FlightID
+	RunwayGroupID RunwayGroupID
+	SlotTime      time.Time
+	AllowGap      bool
+}
+
 type LockFlightCommand struct {
 	Metadata CommandMetadata
 	FlightID FlightID
@@ -167,6 +175,7 @@ type CommandService interface {
 	Component
 	CurrentRevision(context.Context, string) (SequenceRevision, error)
 	MoveFlight(context.Context, CommandContext, MoveFlightCommand) (CommandExecution, error)
+	PlaceFlightAtTime(context.Context, CommandContext, PlaceFlightAtTimeCommand) (CommandExecution, error)
 	LockFlight(context.Context, CommandContext, LockFlightCommand) (CommandExecution, error)
 	UnlockFlight(context.Context, CommandContext, UnlockFlightCommand) (CommandExecution, error)
 	DesequenceFlight(context.Context, CommandContext, DesequenceFlightCommand) (CommandExecution, error)
@@ -216,6 +225,16 @@ func (c MoveFlightCommand) Validate() error {
 	}
 	if !trimmed(string(*anchor)) || *anchor == c.FlightID {
 		return commandInvalid("move anchor must identify another flight")
+	}
+	return nil
+}
+
+func (c PlaceFlightAtTimeCommand) Validate(receivedAt time.Time) error {
+	if err := validateFlightCommand(c.Metadata, c.FlightID); err != nil {
+		return err
+	}
+	if !trimmed(string(c.RunwayGroupID)) || !utc(c.SlotTime) || !c.SlotTime.After(receivedAt) {
+		return commandInvalid("manual placement requires a runway group and future UTC slot time")
 	}
 	return nil
 }

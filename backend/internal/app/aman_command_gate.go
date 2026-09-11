@@ -40,6 +40,13 @@ func (g *amanCommandGate) MoveFlight(ctx context.Context, auth aman.CommandConte
 	return g.commands.MoveFlight(ctx, auth, command)
 }
 
+func (g *amanCommandGate) PlaceFlightAtTime(ctx context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.PlaceFlightAtTime(ctx, auth, command)
+}
+
 func (g *amanCommandGate) LockFlight(ctx context.Context, auth aman.CommandContext, command aman.LockFlightCommand) (aman.CommandExecution, error) {
 	if err := g.authorize(ctx); err != nil {
 		return aman.CommandExecution{}, err

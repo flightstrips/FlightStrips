@@ -142,6 +142,7 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[TMAEntryState](),
 		reflect.TypeFor[RunwayGap](),
 		reflect.TypeFor[RunwayClosure](),
+		reflect.TypeFor[RunwayGapException](),
 		reflect.TypeFor[RunwayGroupPolicy](),
 		reflect.TypeFor[AMANFlight](),
 		reflect.TypeFor[AirportState](),

@@ -141,6 +141,7 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[LifecycleState](),
 		reflect.TypeFor[TMAEntryState](),
 		reflect.TypeFor[RunwayGap](),
+		reflect.TypeFor[RunwayClosure](),
 		reflect.TypeFor[RunwayGroupPolicy](),
 		reflect.TypeFor[AMANFlight](),
 		reflect.TypeFor[AirportState](),
@@ -195,6 +196,101 @@ func TestRunwayGapJSONReplayIsAdditiveAndDeterministic(t *testing.T) {
 	}
 	if string(first) != string(second) || sha256.Sum256(first) != sha256.Sum256(second) {
 		t.Fatalf("runway gap replay changed canonical bytes:\nfirst:  %s\nsecond: %s", first, second)
+	}
+}
+
+func TestRunwayClosureJSONReplayIsAdditiveAndDeterministic(t *testing.T) {
+	var legacy RunwayGroupPolicy
+	if err := json.Unmarshal([]byte(`{"ID":"north","Selected":true}`), &legacy); err != nil {
+		t.Fatalf("decode legacy runway group: %v", err)
+	}
+	if legacy.Closures != nil {
+		t.Fatalf("legacy closures = %#v, want nil", legacy.Closures)
+	}
+
+	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	finiteEnd := now.Add(2 * time.Hour)
+	state := AirportState{
+		Airport: "EKCH", GeneratedAt: now, PolicyVersion: "closure-v1", Mode: ModeReadOnly,
+		RunwayGroups: []RunwayGroupPolicy{{ID: "north", Closures: []RunwayClosure{
+			{ID: "finite", Start: now.Add(time.Hour), End: &finiteEnd, Reason: "runway inspection", CreatedAt: now, CreatedBy: "controller-1"},
+			{ID: "indefinite", Start: now.Add(3 * time.Hour), Reason: "surface damage", CreatedAt: now.Add(time.Minute), CreatedBy: "controller-2"},
+		}}},
+	}
+	if err := state.Validate(); err != nil {
+		t.Fatalf("validate runway closures: %v", err)
+	}
+	first, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("marshal runway closures: %v", err)
+	}
+	var restored AirportState
+	if err := json.Unmarshal(first, &restored); err != nil {
+		t.Fatalf("restore runway closures: %v", err)
+	}
+	if err := restored.Validate(); err != nil {
+		t.Fatalf("validate restored runway closures: %v", err)
+	}
+	second, err := json.Marshal(restored)
+	if err != nil {
+		t.Fatalf("marshal restored runway closures: %v", err)
+	}
+	if string(first) != string(second) || sha256.Sum256(first) != sha256.Sum256(second) {
+		t.Fatalf("runway closure replay changed canonical bytes:\nfirst:  %s\nsecond: %s", first, second)
+	}
+}
+
+func TestAirportStateValidatesCanonicalRunwayClosures(t *testing.T) {
+	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	end := now.Add(2 * time.Hour)
+	closure := RunwayClosure{ID: "closure-1", Start: now.Add(time.Hour), End: &end, Reason: "runway inspection", CreatedAt: now, CreatedBy: "controller-1"}
+	indefinite := closure
+	indefinite.ID, indefinite.End = "closure-2", nil
+	valid := AirportState{Airport: "EKCH", GeneratedAt: now, PolicyVersion: "closure-v1", Mode: ModeReadOnly, RunwayGroups: []RunwayGroupPolicy{{ID: "north", Closures: []RunwayClosure{closure, indefinite}}}}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("validate runway closures: %v", err)
+	}
+
+	for name, mutate := range map[string]func(*AirportState){
+		"empty ID":       func(state *AirportState) { state.RunwayGroups[0].Closures[0].ID = "" },
+		"unclean ID":     func(state *AirportState) { state.RunwayGroups[0].Closures[0].ID = " closure-1 " },
+		"unclean reason": func(state *AirportState) { state.RunwayGroups[0].Closures[0].Reason = " inspection " },
+		"empty creator":  func(state *AirportState) { state.RunwayGroups[0].Closures[0].CreatedBy = "" },
+		"zero start":     func(state *AirportState) { state.RunwayGroups[0].Closures[0].Start = time.Time{} },
+		"non-UTC start": func(state *AirportState) {
+			state.RunwayGroups[0].Closures[0].Start = closure.Start.In(time.FixedZone("CEST", 2*60*60))
+		},
+		"non-UTC end": func(state *AirportState) {
+			local := end.In(time.FixedZone("CEST", 2*60*60))
+			state.RunwayGroups[0].Closures[0].End = &local
+		},
+		"non-UTC created": func(state *AirportState) {
+			state.RunwayGroups[0].Closures[0].CreatedAt = now.In(time.FixedZone("CEST", 2*60*60))
+		},
+		"empty interval": func(state *AirportState) { value := closure.Start; state.RunwayGroups[0].Closures[0].End = &value },
+		"reverse interval": func(state *AirportState) {
+			value := closure.Start.Add(-time.Second)
+			state.RunwayGroups[0].Closures[0].End = &value
+		},
+		"duplicate ID": func(state *AirportState) {
+			state.RunwayGroups = append(state.RunwayGroups, RunwayGroupPolicy{ID: "south", Closures: []RunwayClosure{closure}})
+		},
+		"indefinite before finite": func(state *AirportState) {
+			state.RunwayGroups[0].Closures[0], state.RunwayGroups[0].Closures[1] = state.RunwayGroups[0].Closures[1], state.RunwayGroups[0].Closures[0]
+		},
+		"non-canonical order": func(state *AirportState) {
+			earlier := closure
+			earlier.ID, earlier.Start = "closure-0", closure.Start.Add(-time.Minute)
+			state.RunwayGroups[0].Closures = append(state.RunwayGroups[0].Closures, earlier)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			state := valid
+			state.RunwayGroups = append([]RunwayGroupPolicy(nil), valid.RunwayGroups...)
+			state.RunwayGroups[0].Closures = append([]RunwayClosure(nil), valid.RunwayGroups[0].Closures...)
+			mutate(&state)
+			assertInvalidArgument(t, state.Validate())
+		})
 	}
 }
 

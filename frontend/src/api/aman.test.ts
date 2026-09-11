@@ -58,11 +58,55 @@ describe("AMAN V1 full replacement contract", () => {
     delete legacy.data.flights[0].feeder_fix_eta_source;
     delete legacy.data.flights[0].feeder_fix_passed;
     delete legacy.data.active_runway_groups;
+    delete legacy.data.warnings;
 
     expect(isAMANStateEvent(legacy)).toBe(true);
     const accepted = replaceAMANState(null, legacy);
     expect(accepted).toMatchObject({accepted: true, error: null});
     expect(accepted.state?.active_runway_groups).toEqual(["ARRIVAL-22"]);
+  });
+
+  it("accepts complete warning snapshots and clears them with an empty replacement", () => {
+    const warned = replacement(8);
+    warned.data.warnings = [
+      {
+        id: 'warning:"sequence"/-/"protected_same_star_spacing"/"ARRIVAL-22"/"TRAIL"/"LEAD"',
+        source: "sequence", severity: "error", code: "protected_same_star_spacing",
+        runway_group_id: "ARRIVAL-22", flight_id: "TRAIL", related_flight_id: "LEAD",
+        message: "Flights TRAIL and LEAD conflict with protected MONAK spacing on runway group ARRIVAL-22",
+      },
+      {
+        id: 'warning:"technical_health"/"navigation"/"airac_expired"/-/-/-',
+        source: "technical_health", component: "navigation", severity: "warning", code: "airac_expired",
+        message: "AMAN navigation is degraded: airac_expired",
+      },
+    ];
+    const accepted = replaceAMANState(null, warned);
+    expect(accepted.state?.warnings).toEqual(warned.data.warnings);
+
+    const cleared = replacement(9);
+    cleared.data.warnings = [];
+    expect(replaceAMANState(accepted.state, cleared).state?.warnings).toEqual([]);
+  });
+
+  it.each([
+    ["non-array snapshot", "invalid"],
+    ["unknown source", [{id: "warning-1", source: "future", severity: "error", code: "blocked", message: "Blocked"}]],
+    ["unknown severity", [{id: "warning-1", source: "sequence", severity: "fatal", code: "blocked", message: "Blocked"}]],
+    ["malformed optional identity", [{id: "warning-1", source: "sequence", severity: "error", code: "blocked", flight_id: " PADDED ", message: "Blocked"}]],
+    ["mismatched stable ID", [{id: "warning-1", source: "technical_health", severity: "error", code: "authority_blocked", message: "Blocked"}]],
+    ["inconsistent source scope", [{
+      id: 'warning:"technical_health"/-/"blocked"/"ARRIVAL-22"/-/-', source: "technical_health", severity: "error",
+      code: "blocked", runway_group_id: "ARRIVAL-22", message: "Blocked",
+    }]],
+    ["duplicate stable ID", [
+      {id: "warning-1", source: "sequence", severity: "error", code: "blocked", message: "Blocked"},
+      {id: "warning-1", source: "technical_health", severity: "warning", code: "stale", message: "Stale"},
+    ]],
+  ])("rejects a %s in the optional warning field", (_name, warnings) => {
+    const malformed = replacement(8) as unknown as {data: Record<string, unknown>};
+    malformed.data.warnings = warnings;
+    expect(isAMANStateEvent(malformed)).toBe(false);
   });
 
   it("accepts optional ordered timeline mappings and rejects ambiguous mappings", () => {

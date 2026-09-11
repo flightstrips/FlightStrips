@@ -7,6 +7,8 @@ export type AMANFreezeReason = "none" | "superstable" | "tma" | "manual";
 export type AMANConfidence = "unknown" | "low" | "medium" | "high";
 export type AMANFeederETASource = "route" | "holding" | "manual" | "passed";
 export type AMANHealthStatus = "disabled" | "ready" | "degraded" | "unavailable";
+export type AMANWarningSource = "technical_health" | "sequence";
+export type AMANWarningSeverity = "error" | "warning";
 
 export interface AMANStateEvent {
   type: "aman.state";
@@ -31,7 +33,21 @@ export interface AMANState {
   traffic_prediction?: AMANTrafficPrediction;
   /** Optional while V1 clients and servers roll through the holding extension. */
   holding_information?: AMANHoldingEntry[];
+  /** Complete current replacement; an empty array clears previously published warnings. */
+  warnings?: AMANWarning[];
   technical_health: AMANTechnicalHealth;
+}
+
+export interface AMANWarning {
+  id: string;
+  source: AMANWarningSource;
+  component?: string;
+  severity: AMANWarningSeverity;
+  code: string;
+  runway_group_id?: string;
+  flight_id?: string;
+  related_flight_id?: string;
+  message: string;
 }
 
 export interface AMANTimelineConfiguration {
@@ -355,6 +371,8 @@ const routeFactStates = new Set(["active", "expired"]);
 const trafficStatuses = new Set<AMANTrafficStatus>(["ready", "degraded", "disconnected"]);
 const trafficAlerts = new Set<AMANTrafficAlert>(["none", "yellow", "red"]);
 const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned", "vatsim_airborne"]);
+const warningSources = new Set<AMANWarningSource>(["technical_health", "sequence"]);
+const warningSeverities = new Set<AMANWarningSeverity>(["error", "warning"]);
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isString = (value: unknown): value is string => typeof value === "string";
@@ -369,6 +387,7 @@ const isStringArray = (value: unknown): value is string[] => Array.isArray(value
 const isTimestamp = (value: unknown): value is string => isString(value) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value);
 const isNullableTimestamp = (value: unknown): value is string | null => value === null || isTimestamp(value);
 const isOptionalNullableTimestamp = (value: unknown): value is string | null | undefined => value === undefined || isNullableTimestamp(value);
+const isOptionalIdentity = (value: unknown): value is string | undefined => value === undefined || isIdentity(value);
 
 function hasValidFeederETA(value: Record<string, unknown>): boolean {
   if (value.feeder_fix_eta === undefined && value.feeder_fix_eta_source === undefined && value.feeder_fix_passed === undefined) return true;
@@ -521,6 +540,39 @@ function isHoldingEntry(value: unknown): value is AMANHoldingEntry {
     && isTimestamp(value.observed_at);
 }
 
+function warningIdentity(warning: AMANWarning): string {
+  const optional = (value: string | undefined) => value === undefined ? "-" : JSON.stringify(value);
+  return `warning:${[
+    JSON.stringify(warning.source), optional(warning.component), JSON.stringify(warning.code),
+    optional(warning.runway_group_id), optional(warning.flight_id), optional(warning.related_flight_id),
+  ].join("/")}`;
+}
+
+function hasValidWarningScope(warning: AMANWarning): boolean {
+  if (warning.source === "technical_health") {
+    return warning.runway_group_id === undefined && warning.flight_id === undefined && warning.related_flight_id === undefined;
+  }
+  return warning.component === undefined && warning.runway_group_id !== undefined
+    && warning.flight_id !== undefined && warning.related_flight_id !== undefined;
+}
+
+function hasValidWarnings(value: unknown): value is AMANWarning[] {
+  if (!Array.isArray(value)) return false;
+  const ids = new Set<string>();
+  return value.every((warning) => {
+    if (!isObject(warning) || !isIdentity(warning.id) || ids.has(warning.id)
+      || !isString(warning.source) || !warningSources.has(warning.source as AMANWarningSource)
+      || !isString(warning.severity) || !warningSeverities.has(warning.severity as AMANWarningSeverity)
+      || !isIdentity(warning.code) || !isOptionalIdentity(warning.component)
+      || !isOptionalIdentity(warning.runway_group_id) || !isOptionalIdentity(warning.flight_id)
+      || !isOptionalIdentity(warning.related_flight_id) || !isIdentity(warning.message)) return false;
+    const typed = warning as unknown as AMANWarning;
+    if (!hasValidWarningScope(typed) || typed.id !== warningIdentity(typed)) return false;
+    ids.add(warning.id);
+    return true;
+  });
+}
+
 export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
   if (!isObject(value) || value.type !== "aman.state" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
   const data = value.data;
@@ -533,6 +585,7 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && (data.timeline_configuration === undefined || isTimelineConfiguration(data.timeline_configuration))
     && (data.traffic_prediction === undefined || isTrafficPrediction(data.traffic_prediction))
     && (data.holding_information === undefined || (Array.isArray(data.holding_information) && data.holding_information.every(isHoldingEntry)))
+    && (data.warnings === undefined || hasValidWarnings(data.warnings))
     && isTechnicalHealth(data.technical_health);
 }
 

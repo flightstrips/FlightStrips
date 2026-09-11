@@ -863,6 +863,7 @@ type AMANFlight struct {
 	VATSIMCID           string
 	CurrentCallsign     string
 	State               FlightState
+	SequenceDisposition SequenceDisposition
 	DataStatus          DataStatus
 	Prediction          *Prediction
 	RawTETASamples      []RawTETASample
@@ -1231,6 +1232,9 @@ func (f AMANFlight) Validate() error {
 	}
 	if !f.State.Valid() || !f.DataStatus.Valid() || !f.FreezeReason.Valid() {
 		return invalid("flight has an invalid state")
+	}
+	if !f.SequenceDisposition.OrDefault().Valid() {
+		return invalid("flight has an invalid sequence disposition")
 	}
 	if f.State != StateRemoved && (!isTrimmedNonEmpty(f.VATSIMCID) || !isTrimmedNonEmpty(f.CurrentCallsign)) {
 		return invalid("active flight requires VATSIM CID and current callsign")

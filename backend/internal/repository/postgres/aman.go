@@ -352,6 +352,11 @@ func decodeAMANFlightPayload(encoded []byte) (aman.AMANFlight, error) {
 	if err := json.Unmarshal(encoded, &flight); err != nil {
 		return aman.AMANFlight{}, err
 	}
+	disposition, err := decodeSequenceDisposition(encoded)
+	if err != nil {
+		return aman.AMANFlight{}, err
+	}
+	flight.SequenceDisposition = disposition
 	if flight.SelectedSTARFamily == nil && flight.SelectedFeeder != nil {
 		starFamily := *flight.SelectedFeeder
 		flight.SelectedSTARFamily = &starFamily

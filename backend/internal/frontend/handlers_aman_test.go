@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	frontendEvents "FlightStrips/pkg/events/frontend"
@@ -58,6 +59,49 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 			require.Empty(t, client.send)
 		})
 	}
+}
+
+func TestAMANCoordinationTransportKeepsKindsDistinctAndReturnsFMPProjection(t *testing.T) {
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+	for _, payload := range []string{
+		`{"type":"aman.submit_coordination_request","version":1,"data":{"command_id":"route","expected_revision":0,"flight_id":"flight-1","kind":"route_direct","direct_to":"TUDLO"}}`,
+		`{"type":"aman.submit_coordination_request","version":1,"data":{"command_id":"speed","expected_revision":0,"flight_id":"flight-1","kind":"speed","requested":"220 KT"}}`,
+	} {
+		repository := &coordinationRecorder{}
+		service := coordinationrequest.NewService(repository, coordinationOwner{}, []string{"EKCH_FMH"})
+		hub, client := newAMANCommandTestClient(&recordingAMANCommandService{}, now)
+		hub.amanCoordination = service
+		hub.handlers.Add(frontendEvents.AMANSubmitCoordinationType, handleAMANSubmitCoordination)
+		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANSubmitCoordinationType, Message: []byte(payload)}))
+		require.Equal(t, "1234567", repository.request.SubmittedBy)
+		event := (<-client.send).(frontendEvents.AMANCoordinationStateEvent)
+		require.Equal(t, []coordinationrequest.Request{repository.request}, event.Requests)
+	}
+}
+
+type coordinationOwner struct{}
+
+func (coordinationOwner) TrackingController(context.Context, string, coordinationrequest.FlightID) (coordinationrequest.ControllerID, error) {
+	return "EKCH_APP", nil
+}
+
+type coordinationRecorder struct{ request coordinationrequest.Request }
+
+func (r *coordinationRecorder) Submit(_ context.Context, request coordinationrequest.Request, revision uint64) (coordinationrequest.CommitResult, error) {
+	r.request = request
+	return coordinationrequest.CommitResult{Request: request, Revision: revision + 1}, nil
+}
+func (r *coordinationRecorder) Get(context.Context, string, coordinationrequest.RequestID) (coordinationrequest.Request, error) {
+	return r.request, nil
+}
+func (r *coordinationRecorder) Decide(context.Context, coordinationrequest.RequestID, coordinationrequest.Decision, uint64) (coordinationrequest.CommitResult, error) {
+	return coordinationrequest.CommitResult{}, nil
+}
+func (r *coordinationRecorder) TransferPending(context.Context, coordinationrequest.OwnershipFact) (coordinationrequest.TransferResult, error) {
+	return coordinationrequest.TransferResult{}, nil
+}
+func (r *coordinationRecorder) ReplayAirport(context.Context, string) ([]coordinationrequest.Request, error) {
+	return []coordinationrequest.Request{r.request}, nil
 }
 
 func TestAMANGapTransportMapsOperationalFields(t *testing.T) {

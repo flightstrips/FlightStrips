@@ -13,6 +13,7 @@ type recordingSubmitter struct {
 	request  Request
 	decision Decision
 	fact     OwnershipFact
+	requests []Request
 }
 
 func (r *recordingSubmitter) Submit(_ context.Context, request Request, revision uint64) (CommitResult, error) {
@@ -32,6 +33,10 @@ func (r *recordingSubmitter) Decide(_ context.Context, _ RequestID, decision Dec
 func (r *recordingSubmitter) TransferPending(_ context.Context, fact OwnershipFact) (TransferResult, error) {
 	r.fact = fact
 	return TransferResult{Revision: 4}, nil
+}
+
+func (r *recordingSubmitter) ReplayAirport(context.Context, string) ([]Request, error) {
+	return r.requests, nil
 }
 
 type trackingControllerResolver struct {
@@ -126,4 +131,15 @@ func TestServiceObservesTrustedOwnershipFact(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(4), result.Revision)
 	require.Equal(t, fact, repository.fact)
+}
+
+func TestServiceSnapshotUsesAuthoritativeAudienceProjection(t *testing.T) {
+	request := routeRequest(t, "route", testTime)
+	repository := &recordingSubmitter{requests: []Request{request}}
+	result, err := NewService(repository, &trackingControllerResolver{}, []string{"EKCH_FMH"}).Snapshot(context.Background(), CommandContext{
+		Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: testTime,
+	})
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), result.Revision)
+	require.Equal(t, []Request{request}, result.Requests)
 }

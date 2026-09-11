@@ -54,7 +54,7 @@ import {
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
 import {
-  createAMANCommand,
+  createAMANCommand, isAMANCoordinationStateEvent,
   getAMANMutationBlockReason,
   isAMANCommandRejectedEvent,
   replaceAMANState,
@@ -457,7 +457,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
          ?? `aman-${Date.now()}-${Object.keys(state.amanPendingCommands).length + 1}`;
        const message = createAMANCommand(intent, {
          command_id: commandID,
-         expected_revision: state.amanState.revision,
+         expected_revision: intent.type === "aman.submit_coordination_request" ? state.amanState.coordination_revision ?? 0 : state.amanState.revision,
        });
        wsClient.send(message);
        set(produce((draft: WebSocketState) => {
@@ -1593,7 +1593,12 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   wsClient.on(EventType.FrontendActionRejected, handleActionRejectedEvent);
 
   wsClient.on(EventType.FrontendAMANState, (event) => {
-    const replacement = replaceAMANState(store.getState().amanState, event);
+    const previous = store.getState().amanState;
+    const replacement = replaceAMANState(previous, event);
+    if (replacement.accepted && replacement.state && previous?.coordination_revision !== undefined) {
+      replacement.state.coordination_revision = previous.coordination_revision;
+      replacement.state.coordination_requests = previous.coordination_requests;
+    }
     if (replacement.accepted && replacement.state !== null) {
       markAMANStateReceived(replacement.state.revision);
     }
@@ -1609,7 +1614,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       }
       if (replacement.accepted && replacement.state !== null) {
         for (const [commandID, pending] of Object.entries(state.amanPendingCommands)) {
-          if (replacement.state.revision > pending.expected_revision) {
+          if (pending.type !== "aman.submit_coordination_request" && replacement.state.revision > pending.expected_revision) {
             delete state.amanPendingCommands[commandID];
           }
         }
@@ -1621,8 +1626,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     if (!isAMANCommandRejectedEvent(event)) {
       return;
     }
-    const currentRevision = store.getState().amanState?.revision;
-    if (currentRevision !== undefined && event.data.current_revision < currentRevision) {
+    const current = store.getState();
+    const knownType = current.amanCommandTypes[event.data.command_id] ?? current.amanPendingCommands[event.data.command_id]?.type;
+    const currentRevision = current.amanState?.revision;
+    if (knownType !== "aman.submit_coordination_request" && currentRevision !== undefined && event.data.current_revision < currentRevision) {
       return;
     }
     store.setState(
@@ -1637,6 +1644,18 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         };
       }),
     );
+  });
+
+  wsClient.on(EventType.FrontendAMANCoordinationState, (event) => {
+    if (!isAMANCoordinationStateEvent(event)) return;
+    store.setState(produce((state: WebSocketState) => {
+      if (state.amanState === null || event.revision < (state.amanState.coordination_revision ?? 0)) return;
+      state.amanState.coordination_revision = event.revision;
+      state.amanState.coordination_requests = event.requests;
+      for (const [id, command] of Object.entries(state.amanPendingCommands)) {
+        if (command.type === "aman.submit_coordination_request" && event.revision > command.expected_revision) delete state.amanPendingCommands[id];
+      }
+    }));
   });
 
   wsClient.on(EventType.FrontendAvailableSids, (data) => {

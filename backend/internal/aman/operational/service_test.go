@@ -1185,6 +1185,59 @@ func TestHoldingETAUsesPerLegDurations(t *testing.T) {
 	require.Nil(t, holdingETA(now, []time.Duration{20 * time.Minute}, legs, "HOLD"))
 }
 
+func TestRouteFeederETASumsAcceptedLegDurations(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	legs := []trajectory.RemainingLeg{{To: "BEFORE"}, {To: "TNO"}, {To: "RUNWAY"}}
+
+	got := routeFeederETA(now, []time.Duration{2 * time.Minute, 3 * time.Minute, 4 * time.Minute}, legs, "TNO", trajectory.FeederProgressAhead)
+
+	require.NotNil(t, got)
+	require.Equal(t, now.Add(5*time.Minute), *got.ETA)
+	require.Equal(t, aman.FeederETASourceRoute, got.Source)
+	require.False(t, got.Passed)
+}
+
+func TestRouteFeederETAMissingFeederLegIsUnavailable(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	legs := []trajectory.RemainingLeg{{To: "BEFORE"}, {To: "RUNWAY"}}
+
+	require.Nil(t, routeFeederETA(now, []time.Duration{2 * time.Minute, 4 * time.Minute}, legs, "TNO", trajectory.FeederProgressUnknown))
+	require.Nil(t, routeFeederETA(now, []time.Duration{2 * time.Minute}, legs, "TNO", trajectory.FeederProgressAhead))
+}
+
+func TestRouteFeederETAPassedUsesExplicitTerminalState(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+
+	got := routeFeederETA(now, []time.Duration{4 * time.Minute}, []trajectory.RemainingLeg{{To: "RUNWAY"}}, "TNO", trajectory.FeederProgressPassed)
+
+	require.Equal(t, &aman.FeederETAState{Source: aman.FeederETASourcePassed, Passed: true}, got)
+}
+
+func TestRouteFeederETAUsesGeometryIdentityAndModelDurations(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	legs := []trajectory.RemainingLeg{
+		{ID: "ACTIVE-GEOMETRY-1", To: "TNO", DistanceNM: 900},
+		{ID: "ACTIVE-GEOMETRY-2", To: "RUNWAY", DistanceNM: 1},
+	}
+
+	got := routeFeederETA(now, []time.Duration{90 * time.Second, 12 * time.Hour}, legs, "TNO", trajectory.FeederProgressAhead)
+
+	require.Equal(t, now.Add(90*time.Second), *got.ETA, "ETA must retain the accepted model duration rather than estimate from distance")
+	require.Equal(t, aman.FeederETASourceRoute, got.Source)
+}
+
+func TestRouteFeederETARecalculatesDeterministically(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	legs := []trajectory.RemainingLeg{{To: "TNO"}, {To: "RUNWAY"}}
+
+	first := routeFeederETA(now, []time.Duration{3 * time.Minute, 5 * time.Minute}, legs, "TNO", trajectory.FeederProgressAhead)
+	replay := routeFeederETA(now, []time.Duration{3 * time.Minute, 5 * time.Minute}, legs, "TNO", trajectory.FeederProgressAhead)
+	recalculated := routeFeederETA(now.Add(time.Minute), []time.Duration{2 * time.Minute, 5 * time.Minute}, legs, "TNO", trajectory.FeederProgressAhead)
+
+	require.Equal(t, first, replay)
+	require.Equal(t, *first.ETA, *recalculated.ETA, "equivalent accepted inputs must reproduce the same absolute ETA")
+}
+
 func TestHoldingPlanKeepsSlotFixedAndRecalculatesDelayFromLatestTrajectory(t *testing.T) {
 	now := time.Date(2026, time.July, 24, 12, 0, 0, 0, time.UTC)
 	holdingEntry := now.Add(8 * time.Minute)

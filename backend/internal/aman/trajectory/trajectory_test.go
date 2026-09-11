@@ -43,6 +43,38 @@ func TestReduceMarksEntryIntoConfiguredTerminalPath(t *testing.T) {
 	require.True(t, inTMA.InTMA)
 }
 
+func TestFeederProgressRequiresGeometryAndAcceptedProgress(t *testing.T) {
+	legs := []leg{
+		{id: "TO-FEEDER", from: "A", to: "TNO"},
+		{id: "AFTER-FEEDER", from: "TNO", to: "B"},
+	}
+
+	require.Equal(t, FeederProgressAhead, feederProgress(legs, "TNO", 0, false))
+	require.Equal(t, FeederProgressPassed, feederProgress(legs, "TNO", 1, false))
+	require.Equal(t, FeederProgressUnknown, feederProgress(legs, "MISSING", 1, false))
+	require.Equal(t, FeederProgressPassed, feederProgress([]leg{{to: "B"}}, "TNO", 0, true), "an accepted direct beyond the feeder is authoritative")
+}
+
+func TestReducePublishesFeederRelationFromProjectedRoute(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	snapshot.TerminalPaths[0].FeederFix = "B"
+	input.FeederFix = "B"
+
+	ahead := Reduce(snapshot, route, input, Config{})
+	require.Equal(t, FeederProgressAhead, ahead.FeederProgress)
+
+	input.Observation.LongitudeDegrees = 1.5
+	input.Prior = ahead.Progress
+	passed := Reduce(snapshot, route, input, Config{MaxForwardSearchNM: 100})
+	require.Equal(t, FeederProgressPassed, passed.FeederProgress)
+
+	snapshot.TerminalPaths[0].FeederFix = "NOT-IN-GEOMETRY"
+	input.FeederFix = "NOT-IN-GEOMETRY"
+	input.Prior = nil
+	missing := Reduce(snapshot, route, input, Config{})
+	require.Equal(t, FeederProgressUnknown, missing.FeederProgress)
+}
+
 func TestHoldingCandidateRequiresPublishedHoldingFootprint(t *testing.T) {
 	seconds, groundspeed := int64(60), 180.0
 	holding := &navdata.HoldingPattern{ID: "MONAK-HOLD", Fix: "MONAK", LegTimeSeconds: &seconds}

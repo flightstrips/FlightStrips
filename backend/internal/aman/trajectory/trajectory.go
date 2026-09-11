@@ -96,6 +96,18 @@ type RemainingLeg struct {
 	Start             navdata.Coordinate
 	End               navdata.Coordinate
 }
+
+// FeederProgress describes the configured feeder fix relative to accepted
+// route progress. Unknown means the fix is not present in usable geometry;
+// callers must not turn that absence into a passed-feeder fact.
+type FeederProgress string
+
+const (
+	FeederProgressUnknown FeederProgress = ""
+	FeederProgressAhead   FeederProgress = "ahead"
+	FeederProgressPassed  FeederProgress = "passed"
+)
+
 type Result struct {
 	Remaining        []RemainingLeg
 	AlongTrackNM     float64
@@ -107,6 +119,7 @@ type Result struct {
 	SelectedHolding  *navdata.HoldingPattern
 	HoldingCandidate *HoldingCandidate
 	Progress         *aman.RouteProgress
+	FeederProgress   FeederProgress
 	InTMA            bool
 }
 
@@ -146,7 +159,7 @@ func DirectToTargetOnForwardPath(snapshot navdata.ActiveGeometrySnapshot, route 
 	}
 	baseIsCompatible := baseCompatible(input.Prior, route.Digest, snapshot, input)
 	input.RouteFact = nil
-	legs, _, _, _, _ := compose(snapshot, route, input, fixes, baseIsCompatible)
+	legs, _, _, _, _, _ := compose(snapshot, route, input, fixes, baseIsCompatible)
 	floor := 0
 	if baseIsCompatible {
 		floor = max(0, input.Prior.RejoinLegIndex)
@@ -197,7 +210,7 @@ func ReadFiledRoute(ctx context.Context, readers Readers, airport navdata.Airpor
 	for _, fix := range snapshot.Fixes {
 		fixes[fix.ID] = fix
 	}
-	legs, reasons, _, _, _ := compose(snapshot, route, Input{FeederFix: feederFix, Feeder: legacyFeeder, RunwayGroup: runwayGroup}, fixes, false)
+	legs, reasons, _, _, _, _ := compose(snapshot, route, Input{FeederFix: feederFix, Feeder: legacyFeeder, RunwayGroup: runwayGroup}, fixes, false)
 	result := FiledRouteResult{Legs: make([]RemainingLeg, len(legs)), Reasons: displayReasons(reasons)}
 	for i, leg := range legs {
 		_, bearing := wgs84Inverse(leg.a, leg.b)
@@ -236,7 +249,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		fixes[fix.ID] = fix
 	}
 	baseCompatible := baseCompatible(input.Prior, route.Digest, snapshot, input)
-	legs, reasons, holding, directRejoin, terminalStart := compose(snapshot, route, input, fixes, baseCompatible)
+	legs, reasons, holding, directRejoin, terminalStart, feederBypassed := compose(snapshot, route, input, fixes, baseCompatible)
 	if len(legs) == 0 {
 		result.Reasons = reasons
 		if len(reasons) == 0 {
@@ -303,6 +316,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					LegIndex: progressLeg, RejoinLegIndex: rejoin, AlongTrackNM: progress,
 					RecoveryCandidateFix: candidateFix, RecoveryCandidateSamples: candidateSamples,
 				}
+				result.FeederProgress = feederProgress(legs, input.FeederFix, progressLeg, feederBypassed)
 				return result
 			}
 		}
@@ -336,6 +350,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		rejoin = directRejoin
 	}
 	result.Progress = &aman.RouteProgress{GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest, FlightPlanRevision: input.FlightPlanRevision, RouteFactID: routeFactID, RunwayGroupID: input.RunwayGroup, LegIndex: best.index, RejoinLegIndex: rejoin, AlongTrackNM: progress}
+	result.FeederProgress = feederProgress(legs, input.FeederFix, best.index, feederBypassed)
 	return result
 }
 
@@ -346,7 +361,7 @@ type leg struct {
 	distance float64
 }
 
-func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry, input Input, fixes map[navdata.FixID]navdata.Fix, baseCompatible bool) ([]leg, []string, *navdata.HoldingPattern, int, int) {
+func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry, input Input, fixes map[navdata.FixID]navdata.Fix, baseCompatible bool) ([]leg, []string, *navdata.HoldingPattern, int, int, bool) {
 	// A route parser can disambiguate a globally duplicated fix identifier
 	// using the filed route context. Preserve those coordinates when the same
 	// fix joins the configured terminal path or owns its selected holding.
@@ -474,7 +489,7 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 		target := navdata.FixID(input.RouteFact.Fix)
 		targetFix, ok := fixes[target]
 		if !ok {
-			return out, append(reasons, "DIRECT_TO_TARGET_UNRESOLVED:"+input.RouteFact.Fix), selected, -1, terminalStart
+			return out, append(reasons, "DIRECT_TO_TARGET_UNRESOLVED:"+input.RouteFact.Fix), selected, -1, terminalStart, false
 		}
 		rejoin := -1
 		floor := 0
@@ -488,8 +503,10 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 			}
 		}
 		if rejoin < 0 {
-			return out, append(reasons, "DIRECT_TO_TARGET_NOT_ON_FORWARD_PATH:"+input.RouteFact.Fix), selected, -1, terminalStart
+			return out, append(reasons, "DIRECT_TO_TARGET_NOT_ON_FORWARD_PATH:"+input.RouteFact.Fix), selected, -1, terminalStart, false
 		}
+		feederLeg := legEndingAt(out, input.FeederFix)
+		feederBypassed := feederLeg >= 0 && rejoin > feederLeg
 		current := coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees)
 		direct := leg{id: "DIRECT_TO:" + string(target), from: "", to: target, a: current, b: targetFix.Position, distance: wgs84NM(current, targetFix.Position)}
 		out = append([]leg{direct}, out[rejoin+1:]...)
@@ -500,9 +517,35 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 				terminalStart = 0
 			}
 		}
-		return out, dedupe(reasons), selected, rejoin, terminalStart
+		return out, dedupe(reasons), selected, rejoin, terminalStart, feederBypassed
 	}
-	return out, dedupe(reasons), selected, -1, terminalStart
+	return out, dedupe(reasons), selected, -1, terminalStart, false
+}
+
+func feederProgress(legs []leg, feeder navdata.FixID, currentLeg int, bypassed bool) FeederProgress {
+	if bypassed {
+		return FeederProgressPassed
+	}
+	feederLeg := legEndingAt(legs, feeder)
+	if feederLeg < 0 {
+		return FeederProgressUnknown
+	}
+	if currentLeg > feederLeg {
+		return FeederProgressPassed
+	}
+	return FeederProgressAhead
+}
+
+func legEndingAt(legs []leg, fix navdata.FixID) int {
+	if fix == "" {
+		return -1
+	}
+	for index, value := range legs {
+		if value.to == fix {
+			return index
+		}
+	}
+	return -1
 }
 
 // selectedTerminalPath gives the explicit feeder fix strict precedence. A

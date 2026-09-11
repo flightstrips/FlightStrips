@@ -1169,7 +1169,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			continue
 		}
 		policy := sequence.Policy{
-			RunwayGroupID: group.ID, Rates: rates,
+			RunwayGroupID: group.ID, Rates: rates, Gaps: sequenceGaps(group.Gaps),
 			EarlyTolerance: 30 * time.Second, SeparationRules: amanCPHSeparations(), UnknownSeparation: 3 * time.Minute,
 		}
 		if spacing := group.SameSTARSpacing; spacing != nil {
@@ -1203,6 +1203,14 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		})
 	}
 	return input
+}
+
+func sequenceGaps(persisted []aman.RunwayGap) []sequence.Gap {
+	gaps := make([]sequence.Gap, len(persisted))
+	for index, gap := range persisted {
+		gaps[index] = sequence.Gap{Start: gap.Start, End: gap.End}
+	}
+	return gaps
 }
 
 func sequenceSTARFamilyPolicies(configured []terminal.STARFamilyPolicy) []sequence.STARFamilyPolicy {

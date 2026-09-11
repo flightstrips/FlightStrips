@@ -28,6 +28,13 @@ type RatePoint struct {
 	ArrivalsPerHour uint32
 }
 
+// Gap is an accepted absolute [Start, End) runway-capacity interval. It carries
+// neither an arrival rate nor a slot count, so later rate changes cannot resize it.
+type Gap struct {
+	Start time.Time
+	End   time.Time
+}
+
 // SeparationRule is the minimum directional spacing from a leading category
 // to a trailing category. A policy must provide the complete matrix for every
 // category named by its rules.
@@ -41,6 +48,7 @@ type SeparationRule struct {
 type Policy struct {
 	RunwayGroupID     aman.RunwayGroupID
 	Rates             []RatePoint
+	Gaps              []Gap
 	EarlyTolerance    time.Duration
 	SeparationRules   []SeparationRule
 	UnknownSeparation time.Duration
@@ -378,6 +386,7 @@ func preparePoliciesWithSTARFamilies(input []Policy, starFamilies preparedSTARFa
 			categories: map[WakeCategory]struct{}{}, fallback: raw.UnknownSeparation,
 			starFamilies: starFamilies,
 		}
+		prepared.Gaps = slices.Clone(raw.Gaps)
 		if len(prepared.rates) == 0 {
 			return nil, fmt.Errorf("runway group %q requires at least one rate", raw.RunwayGroupID)
 		}
@@ -388,6 +397,20 @@ func preparePoliciesWithSTARFamilies(input []Policy, starFamilies preparedSTARFa
 			}
 			if index > 0 && rate.EffectiveAt.Equal(prepared.rates[index-1].EffectiveAt) {
 				return nil, fmt.Errorf("runway group %q has duplicate rate effective time", raw.RunwayGroupID)
+			}
+		}
+		sort.Slice(prepared.Gaps, func(i, j int) bool {
+			if !prepared.Gaps[i].Start.Equal(prepared.Gaps[j].Start) {
+				return prepared.Gaps[i].Start.Before(prepared.Gaps[j].Start)
+			}
+			return prepared.Gaps[i].End.Before(prepared.Gaps[j].End)
+		})
+		for index, gap := range prepared.Gaps {
+			if !validUTC(gap.Start) || !validUTC(gap.End) || !gap.Start.Before(gap.End) {
+				return nil, fmt.Errorf("runway group %q has invalid absolute gap", raw.RunwayGroupID)
+			}
+			if index > 0 && !prepared.Gaps[index-1].End.Before(gap.Start) {
+				return nil, fmt.Errorf("runway group %q has overlapping or touching gaps", raw.RunwayGroupID)
 			}
 		}
 
@@ -628,6 +651,9 @@ func queuePlacement(policy preparedPolicy, entries []allocatedEntry, flight prep
 }
 
 func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time, preserveStableOrder bool) (bool, time.Time, time.Time) {
+	if gap, blocked := policy.blockingGap(candidate); blocked {
+		return false, gap.Start.Add(-time.Nanosecond), gap.End
+	}
 	index := sort.Search(len(entries), func(i int) bool { return !entries[i].time.Before(candidate) })
 	valid := true
 	earlier, later := candidate.Add(-time.Nanosecond), candidate.Add(time.Nanosecond)
@@ -742,6 +768,20 @@ func rateInterval(rate uint32) time.Duration {
 }
 
 func nextGridAtOrAfter(policy preparedPolicy, target time.Time) (time.Time, bool) {
+	for {
+		candidate, ok := nextRateGridAtOrAfter(policy, target)
+		if !ok {
+			return time.Time{}, false
+		}
+		gap, blocked := policy.blockingGap(candidate)
+		if !blocked {
+			return candidate, true
+		}
+		target = gap.End
+	}
+}
+
+func nextRateGridAtOrAfter(policy preparedPolicy, target time.Time) (time.Time, bool) {
 	for index, rate := range policy.rates {
 		if index+1 < len(policy.rates) && !target.Before(policy.rates[index+1].EffectiveAt) {
 			continue
@@ -765,6 +805,20 @@ func nextGridAtOrAfter(policy preparedPolicy, target time.Time) (time.Time, bool
 }
 
 func previousGridAtOrBefore(policy preparedPolicy, target time.Time) (time.Time, bool) {
+	for {
+		candidate, ok := previousRateGridAtOrBefore(policy, target)
+		if !ok {
+			return time.Time{}, false
+		}
+		gap, blocked := policy.blockingGap(candidate)
+		if !blocked {
+			return candidate, true
+		}
+		target = gap.Start.Add(-time.Nanosecond)
+	}
+}
+
+func previousRateGridAtOrBefore(policy preparedPolicy, target time.Time) (time.Time, bool) {
 	index := sort.Search(len(policy.rates), func(i int) bool { return policy.rates[i].EffectiveAt.After(target) }) - 1
 	if index < 0 {
 		return time.Time{}, false
@@ -772,6 +826,18 @@ func previousGridAtOrBefore(policy preparedPolicy, target time.Time) (time.Time,
 	rate := policy.rates[index]
 	interval := rateInterval(rate.ArrivalsPerHour)
 	return rate.EffectiveAt.Add((target.Sub(rate.EffectiveAt) / interval) * interval), true
+}
+
+// blockingGap applies persisted runway capacity exactly as [Start, End).
+// Canonical ordering lets the search stop at the first interval ending after
+// the candidate without deriving or resizing any interval from current rates.
+func (p preparedPolicy) blockingGap(candidate time.Time) (Gap, bool) {
+	index := sort.Search(len(p.Gaps), func(i int) bool { return p.Gaps[i].End.After(candidate) })
+	if index == len(p.Gaps) {
+		return Gap{}, false
+	}
+	gap := p.Gaps[index]
+	return gap, !candidate.Before(gap.Start) && candidate.Before(gap.End)
 }
 
 func flightLess(a, b preparedFlight) bool {

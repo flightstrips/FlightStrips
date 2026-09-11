@@ -164,12 +164,124 @@ func (s *Service) SetActiveRunwayGroups(auth aman.CommandContext, command aman.S
 			state.RunwayGroups[i].SelectionSchedule = nil
 			state.RunwayGroups[i].SelectionConflict = nil
 		}
-		changed := !reflect.DeepEqual(beforeActive, state.ActiveRunwayGroups) || !reflect.DeepEqual(beforeGroups, state.RunwayGroups)
+		beforeFlights := append([]aman.AMANFlight(nil), state.Flights...)
+		protectedIncompatible, err := s.reconcileActiveRunwayAssignments(&state, ordered)
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		changed := !reflect.DeepEqual(beforeActive, state.ActiveRunwayGroups) ||
+			!reflect.DeepEqual(beforeGroups, state.RunwayGroups) || !reflect.DeepEqual(beforeFlights, state.Flights)
 		return s.commandChange(state, changed, "set_active_runway_groups", "", map[string]any{
 			"runway_group_ids": ordered, "airport": auth.Airport, "actor": auth.Actor,
 			"role": auth.Role, "received_at": auth.ReceivedAt,
+			"protected_incompatible_flight_ids": protectedIncompatible,
 		})
 	}, nil
+}
+
+func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, active []aman.RunwayGroupID) ([]aman.FlightID, error) {
+	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+	input := s.sequenceInput(*state)
+	working := input
+	working.Flights = nil
+	activeSet := make(map[aman.RunwayGroupID]struct{}, len(active))
+	for _, group := range active {
+		activeSet[group] = struct{}{}
+	}
+
+	movable := make([]sequence.Flight, 0, len(input.Flights))
+	protectedIncompatible := make([]aman.FlightID, 0)
+	for _, flight := range state.Flights {
+		if flight.SelectedRunwayGroup == nil || (flight.State != aman.StateStable && flight.FreezeReason == aman.FreezeNone) ||
+			flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
+			continue
+		}
+		_, isActive := activeSet[*flight.SelectedRunwayGroup]
+		if !isActive || !s.runwayAssignmentCompatible(flight, *flight.SelectedRunwayGroup) {
+			protectedIncompatible = append(protectedIncompatible, flight.ID)
+		}
+	}
+	for _, flight := range input.Flights {
+		index := flightIndex(state.Flights, flight.ID)
+		if index < 0 {
+			continue
+		}
+		operational := state.Flights[index]
+		if operational.State != aman.StateStable && operational.FreezeReason == aman.FreezeNone {
+			movable = append(movable, flight)
+			continue
+		}
+		working.Flights = append(working.Flights, flight)
+	}
+	sort.Slice(movable, func(i, j int) bool {
+		if !movable[i].OperationalTETA.Equal(movable[j].OperationalTETA) {
+			return movable[i].OperationalTETA.Before(movable[j].OperationalTETA)
+		}
+		return movable[i].ID < movable[j].ID
+	})
+
+	for _, flight := range movable {
+		index := flightIndex(state.Flights, flight.ID)
+		var selected aman.RunwayGroupID
+		var earliest time.Time
+		for _, group := range active {
+			if !s.runwayAssignmentCompatible(state.Flights[index], group) {
+				continue
+			}
+			candidate := flight
+			candidate.RunwayGroupID = group
+			candidate.CurrentSlot = nil
+			candidate.ManualOrder = nil
+			trial := working
+			trial.Flights = append(append([]sequence.Flight(nil), working.Flights...), candidate)
+			result, err := sequence.Generate(trial)
+			if err != nil {
+				return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "active runway assignment could not produce a valid sequence"}
+			}
+			for _, entry := range result.Entries {
+				if entry.FlightID == flight.ID && (selected == "" || entry.Time.Before(earliest)) {
+					selected, earliest = group, entry.Time
+					break
+				}
+			}
+		}
+		if selected == "" {
+			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: fmt.Sprintf("flight %q has no compatible active runway opportunity", flight.ID)}
+		}
+		assignFlightToRunwayGroup(&state.Flights[index], selected)
+		flight.RunwayGroupID, flight.CurrentSlot, flight.ManualOrder = selected, nil, nil
+		working.Flights = append(working.Flights, flight)
+	}
+
+	if len(working.Flights) > 0 {
+		result, err := sequence.Generate(working)
+		if err != nil {
+			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "active runway assignments could not produce a valid sequence"}
+		}
+		*state = applyDecision(*state, sequence.Decision{Input: working, Candidate: result, Changed: true})
+	}
+	sort.Slice(protectedIncompatible, func(i, j int) bool { return protectedIncompatible[i] < protectedIncompatible[j] })
+	return protectedIncompatible, nil
+}
+
+func (s *Service) runwayAssignmentCompatible(flight aman.AMANFlight, group aman.RunwayGroupID) bool {
+	if flight.SelectedFeeder == nil {
+		return false
+	}
+	for _, path := range s.deps.Terminal.Paths {
+		if string(path.Feeder) == *flight.SelectedFeeder && path.RunwayGroup == group {
+			return true
+		}
+	}
+	return false
+}
+
+func assignFlightToRunwayGroup(flight *aman.AMANFlight, group aman.RunwayGroupID) {
+	flight.SelectedRunwayGroup = &group
+	flight.SelectedHolding, flight.HoldingStack = nil, nil
+	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
+	flight.Slot, flight.Order, flight.ManualOrder = nil, nil, nil
+	flight.QueueOffers = nil
 }
 
 func (s *Service) activeRunwayGroupSetConfigured(requested []aman.RunwayGroupID) bool {
@@ -272,16 +384,7 @@ func reassignFlightsToGroup(state *aman.AirportState, selected aman.RunwayGroupI
 		if flight.SelectedRunwayGroup != nil && *flight.SelectedRunwayGroup == selected {
 			continue
 		}
-		group := selected
-		flight.SelectedRunwayGroup = &group
-		flight.SelectedHolding = nil
-		flight.HoldingStack = nil
-		flight.ActiveRouteKey = nil
-		flight.ActiveRouteDatasetID = nil
-		flight.RouteProgress = nil
-		flight.Slot = nil
-		flight.Order = nil
-		flight.ManualOrder = nil
+		assignFlightToRunwayGroup(flight, selected)
 	}
 }
 

@@ -645,6 +645,10 @@ func TestSetActiveRunwayGroupsIsAtomicRevisionedAndIdempotent(t *testing.T) {
 		Airport: "EKCH", ConfigVersion: "test",
 		RunwayGroups:          []terminal.RunwayGroup{{ID: "ARRIVAL-04L"}, {ID: "ARRIVAL-04R"}, {ID: "ARRIVAL-22L"}},
 		ActiveRunwayGroupSets: [][]aman.RunwayGroupID{{"ARRIVAL-04L"}, {"ARRIVAL-04L", "ARRIVAL-04R"}, {"ARRIVAL-22L"}},
+		Paths: []terminal.Path{
+			{Feeder: "MONAK", RunwayGroup: "ARRIVAL-04L"},
+			{Feeder: "MONAK", RunwayGroup: "ARRIVAL-04R"},
+		},
 	}
 	repository := &memoryRepository{}
 	publisher := &recordingPublisher{}
@@ -655,14 +659,6 @@ func TestSetActiveRunwayGroupsIsAtomicRevisionedAndIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	repository.state, repository.has = service.initialState("EKCH", now), true
 	repository.state.Revision = 7
-	flight := operationalFlight("UNCHANGED", "ARRIVAL-04L", "MONAK", "M", now.Add(20*time.Minute))
-	unreconciled := repository.state
-	unreconciled.Flights = []aman.AMANFlight{flight}
-	mutation, err := service.SetActiveRunwayGroups(aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}, aman.SetActiveRunwayGroupsCommand{RunwayGroupIDs: []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R"}})
-	require.NoError(t, err)
-	change, err := mutation(unreconciled)
-	require.NoError(t, err)
-	require.Equal(t, flight, change.State.Flights[0], "runway activation must not reconcile assignments in this slice")
 	coordinator, err := sequence.NewCoordinator(sequence.CoordinatorDependencies{
 		States: repository, Outcomes: repository, Committer: repository, Publisher: publisher, Now: func() time.Time { return now },
 	})
@@ -696,6 +692,85 @@ func TestSetActiveRunwayGroupsIsAtomicRevisionedAndIdempotent(t *testing.T) {
 	_, err = actions.SetActiveRunwayGroups(context.Background(), auth, stale)
 	requireDomainClass(t, err, aman.ErrorRevisionConflict)
 	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R"}, repository.state.ActiveRunwayGroups)
+}
+
+func TestSetActiveRunwayGroupsDeterministicallyUsesEarliestOpportunityAndRetainsProtectedIncompatibility(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	config := terminal.Configuration{
+		Airport: "EKCH", RunwayGroups: []terminal.RunwayGroup{{ID: "A"}, {ID: "B"}, {ID: "C"}},
+		ActiveRunwayGroupSets: [][]aman.RunwayGroupID{{"A", "B"}, {"C"}},
+		Paths: []terminal.Path{
+			{Feeder: "MONAK", RunwayGroup: "A"},
+			{Feeder: "MONAK", RunwayGroup: "B"},
+		},
+	}
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: &recordingPublisher{}, Terminal: config, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	state := service.initialState("EKCH", now)
+	state.Revision = 7
+	state.ActiveRunwayGroups = []aman.RunwayGroupID{"C"}
+	for i := range state.RunwayGroups {
+		state.RunwayGroups[i].Selected = state.RunwayGroups[i].ID == "C"
+	}
+	compatible := protectedOperationalFlight("PROTECTED-B", "B", "MONAK", "M", now.Add(6*time.Minute), 1, aman.FreezeManual)
+	compatible.Slot = compatible.FrozenSlot
+	incompatible := protectedOperationalFlight("PROTECTED-C", "C", "MONAK", "M", now.Add(9*time.Minute), 1, aman.FreezeManual)
+	incompatible.Slot = incompatible.FrozenSlot
+	state.Flights = []aman.AMANFlight{
+		operationalFlight("MOVABLE", "C", "MONAK", "M", now.Add(6*time.Minute)),
+		compatible,
+		incompatible,
+	}
+
+	mutation, err := service.SetActiveRunwayGroups(aman.CommandContext{Airport: "EKCH", ReceivedAt: now}, aman.SetActiveRunwayGroupsCommand{
+		RunwayGroupIDs: []aman.RunwayGroupID{"B", "A"},
+	})
+	require.NoError(t, err)
+	change, err := mutation(state)
+	require.NoError(t, err)
+	require.Equal(t, []aman.RunwayGroupID{"A", "B"}, change.State.ActiveRunwayGroups)
+	require.Equal(t, aman.RunwayGroupID("A"), *change.State.Flights[0].SelectedRunwayGroup)
+	require.Equal(t, now.Add(6*time.Minute), change.State.Flights[0].Slot.Time)
+	require.Equal(t, aman.RunwayGroupID("B"), *change.State.Flights[1].SelectedRunwayGroup)
+	require.Equal(t, compatible.FrozenSlot, change.State.Flights[1].FrozenSlot)
+	require.Equal(t, aman.RunwayGroupID("C"), *change.State.Flights[2].SelectedRunwayGroup)
+	require.Equal(t, incompatible.FrozenSlot, change.State.Flights[2].FrozenSlot)
+	require.Contains(t, string(change.Outcome), `"protected_incompatible_flight_ids":["PROTECTED-C"]`)
+
+	reordered := state
+	reordered.Flights = []aman.AMANFlight{incompatible, compatible, state.Flights[0]}
+	reorderedChange, err := mutation(reordered)
+	require.NoError(t, err)
+	require.Equal(t, aman.RunwayGroupID("C"), *reorderedChange.State.Flights[0].SelectedRunwayGroup)
+	require.Equal(t, aman.RunwayGroupID("B"), *reorderedChange.State.Flights[1].SelectedRunwayGroup)
+	require.Equal(t, aman.RunwayGroupID("A"), *reorderedChange.State.Flights[2].SelectedRunwayGroup)
+	require.Equal(t, change.State.Flights[0].Slot.Time, reorderedChange.State.Flights[2].Slot.Time)
+}
+
+func TestSetActiveRunwayGroupsRejectsUnassignableMovableFlightAtomically(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	config := terminal.Configuration{
+		Airport: "EKCH", RunwayGroups: []terminal.RunwayGroup{{ID: "A"}, {ID: "B"}},
+		ActiveRunwayGroupSets: [][]aman.RunwayGroupID{{"A"}, {"B"}},
+		Paths:                 []terminal.Path{{Feeder: "MONAK", RunwayGroup: "A"}},
+	}
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: &recordingPublisher{}, Terminal: config, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	state := service.initialState("EKCH", now)
+	state.Flights = []aman.AMANFlight{operationalFlight("MOVABLE", "A", "MONAK", "M", now.Add(6*time.Minute))}
+	before := state
+
+	mutation, err := service.SetActiveRunwayGroups(aman.CommandContext{Airport: "EKCH", ReceivedAt: now}, aman.SetActiveRunwayGroupsCommand{RunwayGroupIDs: []aman.RunwayGroupID{"B"}})
+	require.NoError(t, err)
+	_, err = mutation(state)
+	requireDomainClass(t, err, aman.ErrorInvalidTransition)
+	require.Equal(t, before, state)
 }
 
 func TestSetActiveRunwayGroupsRejectsUnknownIncompatibleAndMismatchedConfiguration(t *testing.T) {

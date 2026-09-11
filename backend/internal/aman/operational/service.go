@@ -844,6 +844,7 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 		}
 	}
 	if len(input.Flights) == 0 || len(input.Policies) == 0 {
+		setProtectedSameSTARWarnings(state.RunwayGroups, nil)
 		return nil
 	}
 	offers := make([]aman.QueueOffer, 0)
@@ -859,8 +860,12 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 		result, promotions, err = sequence.GenerateWithVacancyPromotions(input, offers, now)
 	}
 	if err != nil || result.HasConflicts() {
+		if err == nil {
+			setProtectedSameSTARWarnings(state.RunwayGroups, result.Warnings)
+		}
 		return nil
 	}
+	setProtectedSameSTARWarnings(state.RunwayGroups, result.Warnings)
 	entries := make(map[aman.FlightID]sequence.CandidateEntry, len(result.Entries))
 	for _, entry := range result.Entries {
 		entries[entry.FlightID] = entry
@@ -876,6 +881,22 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 		state.Flights[i].UpdatedAt = now
 	}
 	return promotions
+}
+
+func setProtectedSameSTARWarnings(groups []aman.RunwayGroupPolicy, warnings []sequence.Warning) {
+	byGroup := make(map[aman.RunwayGroupID][]aman.RunwayGroupSequenceWarning)
+	for _, warning := range warnings {
+		if warning.Code != sequence.WarningProtectedSameSTAR || warning.RelatedFlightID == nil || warning.STARFamily == "" {
+			continue
+		}
+		byGroup[warning.RunwayGroupID] = append(byGroup[warning.RunwayGroupID], aman.RunwayGroupSequenceWarning{
+			Code: string(warning.Code), FlightID: warning.FlightID,
+			RelatedFlightID: *warning.RelatedFlightID, STARFamily: warning.STARFamily,
+		})
+	}
+	for index := range groups {
+		groups[index].SequenceWarnings = byGroup[groups[index].ID]
+	}
 }
 
 func vacancyPromotionAuditRecords(state aman.AirportState, promotions []sequence.VacancyPromotion, recordedAt time.Time) []aman.AuditRecord {

@@ -98,7 +98,7 @@ func TestAMANRepositoryRestartsWithActiveRunwaySetAndDecodesLegacySelection(t *t
 	require.NoError(t, err)
 	var stored []byte
 	require.NoError(t, pool.QueryRow(ctx, "SELECT runway_groups FROM aman_airport_states WHERE airport = $1", state.Airport).Scan(&stored))
-	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null}]`, string(stored))
+	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null}]`, string(stored))
 	var legacyDecoder []struct {
 		ID       aman.RunwayGroupID
 		Selected bool
@@ -117,6 +117,21 @@ func TestAMANRepositoryRestartsWithActiveRunwaySetAndDecodesLegacySelection(t *t
 	require.NoError(t, err)
 	require.Equal(t, []aman.RunwayGroupID{"north"}, legacy.ActiveRunwayGroups)
 	require.True(t, legacy.RunwayGroups[0].Selected, "legacy Selected remains the deterministic compatibility source")
+}
+
+func TestAMANRepositoryRestartsWithProtectedSameSTARWarning(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-WARNING", "SAS101")
+	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{
+		Code: "protected_same_star_spacing", FlightID: "flight-2", RelatedFlightID: "flight-1", STARFamily: "MONAK",
+	}}
+
+	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state.RunwayGroups[0].SequenceWarnings, restored.RunwayGroups[0].SequenceWarnings)
 }
 
 func TestAMANRepositoryPersistsNoOpCommandWithoutAdvancingState(t *testing.T) {

@@ -28,7 +28,7 @@ func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightComma
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
-		return s.commandChange(applyDecision(state, decision), decision.Changed, "move_flight", command.FlightID, nil)
+		return s.commandChange(s.applyDecision(state, decision), decision.Changed, "move_flight", command.FlightID, nil)
 	}, nil
 }
 
@@ -58,7 +58,7 @@ func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand)
 				}
 			}
 		}
-		state = applyDecision(state, decision)
+		state = s.applyDecision(state, decision)
 		for i := range state.RunwayGroups {
 			if state.RunwayGroups[i].ID == command.RunwayGroupID {
 				for _, policy := range decision.Input.Policies {
@@ -258,7 +258,7 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 		if err != nil {
 			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "active runway assignments could not produce a valid sequence"}
 		}
-		*state = applyDecision(*state, sequence.Decision{Input: working, Candidate: result, Changed: true})
+		*state = s.applyDecision(*state, sequence.Decision{Input: working, Candidate: result, Changed: true})
 	}
 	sort.Slice(protectedIncompatible, func(i, j int) bool { return protectedIncompatible[i] < protectedIncompatible[j] })
 	return protectedIncompatible, nil
@@ -336,7 +336,7 @@ func (s *Service) activateRunwayGroup(state *aman.AirportState, selected aman.Ru
 				}
 			}
 		}
-		candidate = applyDecision(candidate, sequence.Decision{Input: input, Candidate: generated, Changed: true})
+		candidate = s.applyDecision(candidate, sequence.Decision{Input: input, Candidate: generated, Changed: true})
 	}
 	*state = candidate
 	return nil
@@ -522,7 +522,7 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	if err != nil {
 		return sequence.CommandChange{}, err
 	}
-	return s.commandChange(applyDecision(state, decision), true, action, flight.ID, extra)
+	return s.commandChange(s.applyDecision(state, decision), true, action, flight.ID, extra)
 }
 
 func (s *Service) sequenceMutation(action string, flightID aman.FlightID, at time.Time, apply func(sequence.Input) (sequence.Decision, error)) sequence.CommandMutation {
@@ -531,7 +531,7 @@ func (s *Service) sequenceMutation(action string, flightID aman.FlightID, at tim
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
-		state = applyDecision(state, decision)
+		state = s.applyDecision(state, decision)
 		var promotions []sequence.VacancyPromotion
 		if decision.Changed {
 			promotions = s.resequence(&state, at)
@@ -576,7 +576,7 @@ func (s *Service) commandChange(state aman.AirportState, changed bool, action st
 	return change, nil
 }
 
-func applyDecision(state aman.AirportState, decision sequence.Decision) aman.AirportState {
+func (s *Service) applyDecision(state aman.AirportState, decision sequence.Decision) aman.AirportState {
 	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 	inputFlights := make(map[aman.FlightID]sequence.Flight, len(decision.Input.Flights))
 	for _, flight := range decision.Input.Flights {
@@ -600,7 +600,7 @@ func applyDecision(state aman.AirportState, decision sequence.Decision) aman.Air
 			state.Flights[i].Order = &order
 		}
 	}
-	refreshHoldingPlans(&state)
+	s.refreshHoldingPlans(&state)
 	return state
 }
 

@@ -49,4 +49,4 @@ jobs:
         file: ./frontend/Dockerfile
         push: false
         cache-from: type=gha,scope=frontend
-        cache-to: type=gha,mode=max,scope=frontend
+        cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=frontend' || '' }}

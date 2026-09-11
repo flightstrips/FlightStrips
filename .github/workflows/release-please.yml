@@ -40,6 +40,8 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.plugin_release_created == 'true'
     runs-on: windows-2025
+    env:
+      SCCACHE_GHA_ENABLED: "true"
     defaults:
       run:
         working-directory: ./euroscope-plugin
@@ -54,9 +56,14 @@ jobs:
       - name: Setup Ninja
         uses: seanmiddleditch/gha-setup-ninja@master
 
+      - name: Set up compiler cache
+        uses: mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11
+        with:
+          version: "v0.17.0"
+
       - name: Run CMake
         run: |
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -G Ninja -Bbuild
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -G Ninja -Bbuild
 
       - name: Run Ninja Build
         working-directory: ./euroscope-plugin/build

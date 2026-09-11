@@ -51,6 +51,28 @@ func TestActionServiceCurrentRevisionUsesCoordinatorState(t *testing.T) {
 	require.Equal(t, aman.SequenceRevision(13), revision)
 }
 
+func TestSetActiveRunwayGroupsUsesOnlyServerCommandContext(t *testing.T) {
+	coordinator := &recordingActionCoordinator{}
+	mutations := &recordingActionMutations{}
+	service := &ActionService{coordinator: coordinator, mutations: mutations}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)}
+	command := aman.SetActiveRunwayGroupsCommand{Metadata: aman.CommandMetadata{CommandID: "set-runways", ExpectedRevision: 7}, RunwayGroupIDs: []aman.RunwayGroupID{"A", "B"}}
+
+	_, err := service.SetActiveRunwayGroups(context.Background(), auth, command)
+	require.NoError(t, err)
+	require.Equal(t, "active_runway_groups", mutations.called)
+	require.Equal(t, auth, mutations.auth)
+	require.Equal(t, auth.Airport, coordinator.airport)
+
+	invalidContext := auth
+	invalidContext.Role = ""
+	_, err = service.SetActiveRunwayGroups(context.Background(), invalidContext, command)
+	var domain *aman.DomainError
+	require.ErrorAs(t, err, &domain)
+	require.Equal(t, aman.ErrorInvalidArgument, domain.Class)
+	require.Equal(t, auth, mutations.auth, "invalid server authority must not reach the mutation")
+}
+
 type recordingActionCoordinator struct {
 	state          aman.AirportState
 	airport        string
@@ -97,6 +119,9 @@ func (m *recordingActionMutations) SetRate(auth aman.CommandContext, _ aman.SetR
 }
 func (m *recordingActionMutations) SelectRunwayGroup(auth aman.CommandContext, _ aman.SelectRunwayGroupCommand) (CommandMutation, error) {
 	return m.mutation("runway_selection", auth)
+}
+func (m *recordingActionMutations) SetActiveRunwayGroups(auth aman.CommandContext, _ aman.SetActiveRunwayGroupsCommand) (CommandMutation, error) {
+	return m.mutation("active_runway_groups", auth)
 }
 func (m *recordingActionMutations) AcceptTETA(auth aman.CommandContext, _ aman.AcceptTETACommand) (CommandMutation, error) {
 	return m.mutation("accept", auth)

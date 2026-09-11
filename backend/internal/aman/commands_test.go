@@ -35,6 +35,11 @@ func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 		}, func() error {
 			return (aman.SelectRunwayGroupCommand{Metadata: meta, EffectiveAt: now}).Validate()
 		}},
+		{"active runway groups", func() error {
+			return (aman.SetActiveRunwayGroupsCommand{Metadata: meta, RunwayGroupIDs: []aman.RunwayGroupID{"A", "B"}}).Validate()
+		}, func() error {
+			return (aman.SetActiveRunwayGroupsCommand{Metadata: meta}).Validate()
+		}},
 		{"accept TETA", func() error { return (aman.AcceptTETACommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.AcceptTETACommand{Metadata: meta}).Validate() }},
 		{"keep FPL ETA", func() error { return (aman.KeepFPLETACommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.KeepFPLETACommand{Metadata: meta}).Validate() }},
 		{"manual ETA", func() error {
@@ -68,6 +73,16 @@ func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 			require.Equal(t, aman.ErrorInvalidArgument, domain.Class)
 		})
 	}
+}
+
+func TestSetActiveRunwayGroupsRejectsDuplicateIDs(t *testing.T) {
+	command := aman.SetActiveRunwayGroupsCommand{
+		Metadata:       aman.CommandMetadata{CommandID: "set-runways", ExpectedRevision: 7},
+		RunwayGroupIDs: []aman.RunwayGroupID{"A", "A"},
+	}
+	var domain *aman.DomainError
+	require.ErrorAs(t, command.Validate(), &domain)
+	require.Equal(t, aman.ErrorInvalidArgument, domain.Class)
 }
 
 func TestCommandContextRequiresServerDerivedAuthorityAndUTCReceipt(t *testing.T) {

@@ -132,6 +132,69 @@ func (s *Service) SelectRunwayGroup(auth aman.CommandContext, command aman.Selec
 	}, nil
 }
 
+func (s *Service) SetActiveRunwayGroups(auth aman.CommandContext, command aman.SetActiveRunwayGroupsCommand) (sequence.CommandMutation, error) {
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		if !runwayGroupsMatchTerminal(state.RunwayGroups, s.deps.Terminal.RunwayGroups) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "airport runway groups do not match active terminal configuration"}
+		}
+		requested := make(map[aman.RunwayGroupID]struct{}, len(command.RunwayGroupIDs))
+		for _, id := range command.RunwayGroupIDs {
+			requested[id] = struct{}{}
+		}
+		ordered := make([]aman.RunwayGroupID, 0, len(requested))
+		for _, group := range s.deps.Terminal.RunwayGroups {
+			if _, active := requested[group.ID]; active {
+				ordered = append(ordered, group.ID)
+				delete(requested, group.ID)
+			}
+		}
+		if len(requested) > 0 {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "active runway group was not found"}
+		}
+		if !s.activeRunwayGroupSetConfigured(ordered) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "active runway group set is not operationally compatible"}
+		}
+
+		beforeActive := append([]aman.RunwayGroupID(nil), state.ActiveRunwayGroups...)
+		beforeGroups := append([]aman.RunwayGroupPolicy(nil), state.RunwayGroups...)
+		state.ActiveRunwayGroups = append([]aman.RunwayGroupID(nil), ordered...)
+		state.RunwayGroups = append([]aman.RunwayGroupPolicy(nil), state.RunwayGroups...)
+		for i := range state.RunwayGroups {
+			state.RunwayGroups[i].Selected = state.RunwayGroups[i].ID == ordered[0]
+			state.RunwayGroups[i].SelectionSchedule = nil
+			state.RunwayGroups[i].SelectionConflict = nil
+		}
+		changed := !reflect.DeepEqual(beforeActive, state.ActiveRunwayGroups) || !reflect.DeepEqual(beforeGroups, state.RunwayGroups)
+		return s.commandChange(state, changed, "set_active_runway_groups", "", map[string]any{
+			"runway_group_ids": ordered, "airport": auth.Airport, "actor": auth.Actor,
+			"role": auth.Role, "received_at": auth.ReceivedAt,
+		})
+	}, nil
+}
+
+func (s *Service) activeRunwayGroupSetConfigured(requested []aman.RunwayGroupID) bool {
+	for _, configured := range s.deps.Terminal.ActiveRunwayGroupSets {
+		if len(configured) != len(requested) {
+			continue
+		}
+		members := make(map[aman.RunwayGroupID]struct{}, len(configured))
+		for _, id := range configured {
+			members[id] = struct{}{}
+		}
+		compatible := true
+		for _, id := range requested {
+			_, compatible = members[id]
+			if !compatible {
+				break
+			}
+		}
+		if compatible {
+			return true
+		}
+	}
+	return false
+}
+
 func selectedRunwayGroupAt(groups []aman.RunwayGroupPolicy, now time.Time) (aman.RunwayGroupID, bool) {
 	working := append([]aman.RunwayGroupPolicy(nil), groups...)
 	return updateSelectedRunwayGroup(working, now)

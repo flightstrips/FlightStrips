@@ -104,6 +104,9 @@ type AMANFlight struct {
 	Star                      *string                   `json:"star"`
 	STARFamily                *string                   `json:"star_family"`
 	FeederFix                 *string                   `json:"feeder_fix"`
+	FeederFixETA              *string                   `json:"feeder_fix_eta,omitempty"`
+	FeederFixETASource        *string                   `json:"feeder_fix_eta_source,omitempty"`
+	FeederFixPassed           *bool                     `json:"feeder_fix_passed,omitempty"`
 	HoldingFix                *string                   `json:"holding_fix"`
 	HoldingFixETA             *string                   `json:"holding_fix_eta"`
 	HoldingEntryTime          *string                   `json:"holding_entry_time"`
@@ -397,6 +400,13 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 	var err error
 	if result.FrozenAt, err = formatOptionalTime(flight.FrozenAt); err != nil {
 		return AMANFlight{}, err
+	}
+	if flight.FeederETA != nil {
+		if result.FeederFixETA, err = formatOptionalTime(flight.FeederETA.ETA); err != nil {
+			return AMANFlight{}, err
+		}
+		source, passed := string(flight.FeederETA.Source), flight.FeederETA.Passed
+		result.FeederFixETASource, result.FeederFixPassed = &source, &passed
 	}
 	if flight.ActiveRouteFact != nil {
 		observedAt, formatErr := aman.FormatTime(flight.ActiveRouteFact.ObservedAt)

@@ -363,6 +363,9 @@ message AMANGainLossValue {
   optional string star_family = 8;
   optional string feeder_fix = 9;
   optional string holding_fix = 10;
+  optional string feeder_fix_eta = 11;
+  optional string feeder_fix_eta_source = 12;
+  optional bool feeder_fix_passed = 13;
 }
 
 message AMANGainLossEvent {

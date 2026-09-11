@@ -293,6 +293,19 @@ func TestDecodeLegacyAMANFlightRestoresSTARFamilyOnly(t *testing.T) {
 	require.Nil(t, flight.SelectedFeederFix)
 }
 
+func TestDecodeAMANFlightPayloadPreservesOptionalFeederETAState(t *testing.T) {
+	legacy, err := decodeAMANFlightPayload([]byte(`{"SelectedFeeder":"TESPI"}`))
+	require.NoError(t, err)
+	require.Nil(t, legacy.FeederETA, "old persisted payloads must not invent feeder timing")
+
+	encoded := []byte(`{"SelectedFeeder":"TESPI","SelectedSTARFamily":"TESPI","SelectedFeederFix":"TNO","FeederETA":{"ETA":"2026-09-11T20:10:00Z","Source":"manual","Passed":false}}`)
+	restored, err := decodeAMANFlightPayload(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, restored.FeederETA)
+	require.Equal(t, aman.FeederETASourceManual, restored.FeederETA.Source)
+	require.Equal(t, time.Date(2026, time.September, 11, 20, 10, 0, 0, time.UTC), *restored.FeederETA.ETA)
+}
+
 func TestAMANRepositoryRestoresRevisionBoundQueueOffers(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

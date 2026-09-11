@@ -89,6 +89,7 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[FlightPlanFact](),
 		reflect.TypeFor[SurveillanceFact](),
 		reflect.TypeFor[Prediction](),
+		reflect.TypeFor[FeederETAState](),
 		reflect.TypeFor[RawTETASample](),
 		reflect.TypeFor[BaselineState](),
 		reflect.TypeFor[Slot](),
@@ -134,6 +135,55 @@ func TestPredictionRejectsUnknownAsZeroAndNonUTC(t *testing.T) {
 	base = validPrediction()
 	base.Sources = nil
 	assertInvalidArgument(t, base.Validate())
+}
+
+func TestFeederETAStateValidatesTimingAndPassedProvenance(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 20, 0, 0, 0, time.UTC)
+	for _, source := range []FeederETASource{FeederETASourceRoute, FeederETASourceHolding, FeederETASourceManual} {
+		state := FeederETAState{ETA: &now, Source: source}
+		if err := state.Validate(); err != nil {
+			t.Fatalf("validate %q feeder ETA: %v", source, err)
+		}
+	}
+	if err := (FeederETAState{Source: FeederETASourcePassed, Passed: true}).Validate(); err != nil {
+		t.Fatalf("validate passed feeder: %v", err)
+	}
+
+	nonUTC := now.In(time.FixedZone("CEST", 2*60*60))
+	for _, invalid := range []FeederETAState{
+		{ETA: &now, Source: "landing"},
+		{ETA: &nonUTC, Source: FeederETASourceRoute},
+		{Source: FeederETASourceRoute},
+		{ETA: &now, Source: FeederETASourcePassed},
+		{ETA: &now, Source: FeederETASourcePassed, Passed: true},
+		{Source: FeederETASourceManual, Passed: true},
+	} {
+		assertInvalidArgument(t, invalid.Validate())
+	}
+}
+
+func TestAMANFlightFeederETAJSONAcceptsLegacyAbsenceAndReplaysNewState(t *testing.T) {
+	var legacy AMANFlight
+	if err := json.Unmarshal([]byte(`{"SelectedFeederFix":"TNO"}`), &legacy); err != nil {
+		t.Fatalf("decode legacy flight: %v", err)
+	}
+	if legacy.FeederETA != nil {
+		t.Fatal("legacy flight invented feeder ETA state")
+	}
+
+	eta := time.Date(2026, time.September, 11, 20, 10, 0, 0, time.UTC)
+	want := AMANFlight{FeederETA: &FeederETAState{ETA: &eta, Source: FeederETASourceRoute}}
+	encoded, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("encode feeder ETA state: %v", err)
+	}
+	var restored AMANFlight
+	if err := json.Unmarshal(encoded, &restored); err != nil {
+		t.Fatalf("restore feeder ETA state: %v", err)
+	}
+	if !reflect.DeepEqual(want.FeederETA, restored.FeederETA) {
+		t.Fatalf("restored feeder ETA = %#v, want %#v", restored.FeederETA, want.FeederETA)
+	}
 }
 
 func TestFlightFreezeHasOneCanonicalRepresentation(t *testing.T) {

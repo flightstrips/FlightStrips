@@ -5,6 +5,7 @@ export type AMANLifecycleState = "planned" | "airborne" | "unstable" | "stable" 
 export type AMANDataStatus = "fresh" | "stale" | "disconnected";
 export type AMANFreezeReason = "none" | "superstable" | "manual";
 export type AMANConfidence = "unknown" | "low" | "medium" | "high";
+export type AMANFeederETASource = "route" | "holding" | "manual" | "passed";
 export type AMANHealthStatus = "disabled" | "ready" | "degraded" | "unavailable";
 
 export interface AMANStateEvent {
@@ -97,6 +98,12 @@ export interface AMANFlight {
   star_family?: string | null;
   /** Optional while V1 clients and servers roll through explicit terminal identities. */
   feeder_fix?: string | null;
+  /** Optional while V1 clients and servers roll through feeder-fix timing. */
+  feeder_fix_eta?: string | null;
+  /** Optional while V1 clients and servers roll through feeder-fix timing. */
+  feeder_fix_eta_source?: AMANFeederETASource;
+  /** Optional while V1 clients and servers roll through feeder-fix timing. */
+  feeder_fix_passed?: boolean;
   holding_fix: string | null;
   holding_fix_eta: string | null;
   holding_entry_time: string | null;
@@ -319,6 +326,7 @@ const lifecycleStates = new Set<AMANLifecycleState>(["planned", "airborne", "uns
 const dataStatuses = new Set<AMANDataStatus>(["fresh", "stale", "disconnected"]);
 const freezeReasons = new Set<AMANFreezeReason>(["none", "superstable", "manual"]);
 const confidences = new Set<AMANConfidence>(["unknown", "low", "medium", "high"]);
+const feederETASources = new Set<AMANFeederETASource>(["route", "holding", "manual", "passed"]);
 const healthStatuses = new Set<AMANHealthStatus>(["disabled", "ready", "degraded", "unavailable"]);
 const routeFactStates = new Set(["active", "expired"]);
 const trafficStatuses = new Set<AMANTrafficStatus>(["ready", "degraded", "disconnected"]);
@@ -337,6 +345,16 @@ const isNullableFiniteNumber = (value: unknown): value is number | null => value
 const isStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every(isString);
 const isTimestamp = (value: unknown): value is string => isString(value) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value);
 const isNullableTimestamp = (value: unknown): value is string | null => value === null || isTimestamp(value);
+const isOptionalNullableTimestamp = (value: unknown): value is string | null | undefined => value === undefined || isNullableTimestamp(value);
+
+function hasValidFeederETA(value: Record<string, unknown>): boolean {
+  if (value.feeder_fix_eta === undefined && value.feeder_fix_eta_source === undefined && value.feeder_fix_passed === undefined) return true;
+  if (!isOptionalNullableTimestamp(value.feeder_fix_eta) || !isString(value.feeder_fix_eta_source)
+    || !feederETASources.has(value.feeder_fix_eta_source as AMANFeederETASource) || typeof value.feeder_fix_passed !== "boolean") return false;
+  return value.feeder_fix_passed
+    ? value.feeder_fix_eta_source === "passed" && value.feeder_fix_eta == null
+    : value.feeder_fix_eta_source !== "passed" && isTimestamp(value.feeder_fix_eta);
+}
 
 function isSlot(value: unknown): value is AMANSlot {
   return isObject(value) && isTimestamp(value.time) && isString(value.runway_group_id)
@@ -380,6 +398,7 @@ function isFlight(value: unknown): value is AMANFlight {
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
     && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star)
     && isOptionalNullableIdentity(value.star_family) && isOptionalNullableIdentity(value.feeder_fix) && isNullableIdentity(value.holding_fix)
+    && hasValidFeederETA(value)
     && isNullableTimestamp(value.holding_fix_eta) && isNullableTimestamp(value.holding_entry_time) && isNullableTimestamp(value.approach_release_time)
     && isNullableFiniteNumber(value.expected_holding_seconds) && isNullableFiniteNumber(value.post_holding_transit_seconds) && (value.route_fact === null || isRouteFact(value.route_fact))
     && isNullableTimestamp(value.raw_teta) && isNullableTimestamp(value.operational_teta)

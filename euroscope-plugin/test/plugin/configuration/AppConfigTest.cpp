@@ -14,11 +14,15 @@ static AppConfig MakeDefault() {
 }
 
 static AppConfig MakeConfigured(const std::string& contents) {
-    const auto path = std::filesystem::temp_directory_path() / "flightstrips-appconfig-test.ini";
+    const auto* testInfo = testing::UnitTest::GetInstance()->current_test_info();
+    const auto path = std::filesystem::temp_directory_path() /
+        ("flightstrips-appconfig-" + std::string(testInfo->name()) + ".ini");
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
     output << contents;
     output.close();
-    return AppConfig(path.string());
+    auto config = AppConfig(path.string());
+    std::filesystem::remove(path);
+    return config;
 }
 
 // ---------------------------------------------------------------------------

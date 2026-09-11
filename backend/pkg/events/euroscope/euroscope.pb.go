@@ -4884,19 +4884,22 @@ func (x *SendPrivateMessageEvent) GetMessage() string {
 }
 
 type AMANGainLossValue struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	FlightId        string                 `protobuf:"bytes,1,opt,name=flight_id,json=flightId,proto3" json:"flight_id,omitempty"`
-	Callsign        string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
-	GainLossSeconds *int64                 `protobuf:"varint,3,opt,name=gain_loss_seconds,json=gainLossSeconds,proto3,oneof" json:"gain_loss_seconds,omitempty"`
-	ReferencePoint  *string                `protobuf:"bytes,4,opt,name=reference_point,json=referencePoint,proto3,oneof" json:"reference_point,omitempty"`
-	TargetTime      *string                `protobuf:"bytes,5,opt,name=target_time,json=targetTime,proto3,oneof" json:"target_time,omitempty"`
-	PredictedTime   *string                `protobuf:"bytes,6,opt,name=predicted_time,json=predictedTime,proto3,oneof" json:"predicted_time,omitempty"`
-	DataStatus      string                 `protobuf:"bytes,7,opt,name=data_status,json=dataStatus,proto3" json:"data_status,omitempty"`
-	StarFamily      *string                `protobuf:"bytes,8,opt,name=star_family,json=starFamily,proto3,oneof" json:"star_family,omitempty"`
-	FeederFix       *string                `protobuf:"bytes,9,opt,name=feeder_fix,json=feederFix,proto3,oneof" json:"feeder_fix,omitempty"`
-	HoldingFix      *string                `protobuf:"bytes,10,opt,name=holding_fix,json=holdingFix,proto3,oneof" json:"holding_fix,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	FlightId           string                 `protobuf:"bytes,1,opt,name=flight_id,json=flightId,proto3" json:"flight_id,omitempty"`
+	Callsign           string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	GainLossSeconds    *int64                 `protobuf:"varint,3,opt,name=gain_loss_seconds,json=gainLossSeconds,proto3,oneof" json:"gain_loss_seconds,omitempty"`
+	ReferencePoint     *string                `protobuf:"bytes,4,opt,name=reference_point,json=referencePoint,proto3,oneof" json:"reference_point,omitempty"`
+	TargetTime         *string                `protobuf:"bytes,5,opt,name=target_time,json=targetTime,proto3,oneof" json:"target_time,omitempty"`
+	PredictedTime      *string                `protobuf:"bytes,6,opt,name=predicted_time,json=predictedTime,proto3,oneof" json:"predicted_time,omitempty"`
+	DataStatus         string                 `protobuf:"bytes,7,opt,name=data_status,json=dataStatus,proto3" json:"data_status,omitempty"`
+	StarFamily         *string                `protobuf:"bytes,8,opt,name=star_family,json=starFamily,proto3,oneof" json:"star_family,omitempty"`
+	FeederFix          *string                `protobuf:"bytes,9,opt,name=feeder_fix,json=feederFix,proto3,oneof" json:"feeder_fix,omitempty"`
+	HoldingFix         *string                `protobuf:"bytes,10,opt,name=holding_fix,json=holdingFix,proto3,oneof" json:"holding_fix,omitempty"`
+	FeederFixEta       *string                `protobuf:"bytes,11,opt,name=feeder_fix_eta,json=feederFixEta,proto3,oneof" json:"feeder_fix_eta,omitempty"`
+	FeederFixEtaSource *string                `protobuf:"bytes,12,opt,name=feeder_fix_eta_source,json=feederFixEtaSource,proto3,oneof" json:"feeder_fix_eta_source,omitempty"`
+	FeederFixPassed    *bool                  `protobuf:"varint,13,opt,name=feeder_fix_passed,json=feederFixPassed,proto3,oneof" json:"feeder_fix_passed,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *AMANGainLossValue) Reset() {
@@ -4997,6 +5000,27 @@ func (x *AMANGainLossValue) GetHoldingFix() string {
 		return *x.HoldingFix
 	}
 	return ""
+}
+
+func (x *AMANGainLossValue) GetFeederFixEta() string {
+	if x != nil && x.FeederFixEta != nil {
+		return *x.FeederFixEta
+	}
+	return ""
+}
+
+func (x *AMANGainLossValue) GetFeederFixEtaSource() string {
+	if x != nil && x.FeederFixEtaSource != nil {
+		return *x.FeederFixEtaSource
+	}
+	return ""
+}
+
+func (x *AMANGainLossValue) GetFeederFixPassed() bool {
+	if x != nil && x.FeederFixPassed != nil {
+		return *x.FeederFixPassed
+	}
+	return false
 }
 
 type AMANGainLossEvent struct {
@@ -5559,7 +5583,7 @@ const file_euroscope_proto_rawDesc = "" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\"O\n" +
 	"\x17SendPrivateMessageEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x8a\x04\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xe1\x05\n" +
 	"\x11AMANGainLossValue\x12\x1b\n" +
 	"\tflight_id\x18\x01 \x01(\tR\bflightId\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12/\n" +
@@ -5576,14 +5600,20 @@ const file_euroscope_proto_rawDesc = "" +
 	"feeder_fix\x18\t \x01(\tH\x05R\tfeederFix\x88\x01\x01\x12$\n" +
 	"\vholding_fix\x18\n" +
 	" \x01(\tH\x06R\n" +
-	"holdingFix\x88\x01\x01B\x14\n" +
+	"holdingFix\x88\x01\x01\x12)\n" +
+	"\x0efeeder_fix_eta\x18\v \x01(\tH\aR\ffeederFixEta\x88\x01\x01\x126\n" +
+	"\x15feeder_fix_eta_source\x18\f \x01(\tH\bR\x12feederFixEtaSource\x88\x01\x01\x12/\n" +
+	"\x11feeder_fix_passed\x18\r \x01(\bH\tR\x0ffeederFixPassed\x88\x01\x01B\x14\n" +
 	"\x12_gain_loss_secondsB\x12\n" +
 	"\x10_reference_pointB\x0e\n" +
 	"\f_target_timeB\x11\n" +
 	"\x0f_predicted_timeB\x0e\n" +
 	"\f_star_familyB\r\n" +
 	"\v_feeder_fixB\x0e\n" +
-	"\f_holding_fix\"\xf2\x01\n" +
+	"\f_holding_fixB\x11\n" +
+	"\x0f_feeder_fix_etaB\x18\n" +
+	"\x16_feeder_fix_eta_sourceB\x14\n" +
+	"\x12_feeder_fix_passed\"\xf2\x01\n" +
 	"\x11AMANGainLossEvent\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x18\n" +
 	"\aairport\x18\x02 \x01(\tR\aairport\x12\x1a\n" +

@@ -21,6 +21,17 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			FlightId: string(flight.ID), Callsign: flight.CurrentCallsign, DataStatus: string(flight.DataStatus),
 			StarFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		}
+		if flight.FeederETA != nil {
+			if flight.FeederETA.ETA != nil {
+				feederETA, formatErr := aman.FormatTime(*flight.FeederETA.ETA)
+				if formatErr != nil {
+					return AMANGainLossEvent{}, fmt.Errorf("map AMAN feeder ETA flight %q: %w", flight.ID, formatErr)
+				}
+				value.FeederFixEta = &feederETA
+			}
+			source, passed := string(flight.FeederETA.Source), flight.FeederETA.Passed
+			value.FeederFixEtaSource, value.FeederFixPassed = &source, &passed
+		}
 		if flight.Prediction != nil && flight.Prediction.Publishable && flight.Slot != nil && flight.Prediction.Calculation != nil && len(flight.Prediction.Calculation.Legs) > 0 {
 			referencePoint := strings.TrimSpace(flight.Prediction.Calculation.Legs[len(flight.Prediction.Calculation.Legs)-1].To)
 			if referencePoint == "" {

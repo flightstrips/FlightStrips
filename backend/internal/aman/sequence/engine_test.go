@@ -385,27 +385,87 @@ func TestSTARFamilyPolicyValidation(t *testing.T) {
 	}
 }
 
-func TestSTARFamilyPoliciesAcceptEnabledAndDisabledSettingsWithoutAllocatingSpacing(t *testing.T) {
+func TestSTARFamilyPoliciesAllocateDeterministicSpacing(t *testing.T) {
 	start := testTime()
-	input := sequence.Input{
-		Policies: []sequence.Policy{simplePolicy("A", start, 20)},
-		STARFamilyPolicies: []sequence.STARFamilyPolicy{
-			{STARFamily: "MONAK", SameSTARSpacing: sequence.SameSTARSpacing{ActivationRatePerHour: 18, MinimumEmptySlots: 2}},
-			{STARFamily: "TESPI", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}},
+	enabled := sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	disabled := sequence.SameSTARSpacing{ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+
+	tests := []struct {
+		name         string
+		rate         uint32
+		firstFamily  string
+		secondFamily string
+		secondTETA   time.Duration
+		wake         time.Duration
+		legacy       sequence.SameSTARSpacing
+		families     []sequence.STARFamilyPolicy
+		want         time.Duration
+	}{
+		{
+			name: "same family leaves one opportunity", rate: 20,
+			firstFamily: "TESPI", secondFamily: "TESPI",
+			families: []sequence.STARFamilyPolicy{{STARFamily: "TESPI", SameSTARSpacing: enabled}},
+			want:     6 * time.Minute,
 		},
-		Flights: []sequence.Flight{
-			flight("ONE", "A", start, "M"),
-			flight("TWO", "A", start, "M"),
+		{
+			name: "different families use consecutive opportunities", rate: 20,
+			firstFamily: "TESPI", secondFamily: "TUDLO",
+			families: []sequence.STARFamilyPolicy{
+				{STARFamily: "TESPI", SameSTARSpacing: enabled},
+				{STARFamily: "TUDLO", SameSTARSpacing: enabled},
+			},
+			want: 3 * time.Minute,
+		},
+		{
+			name: "below activation rate uses base interval", rate: 19,
+			firstFamily: "TESPI", secondFamily: "TESPI",
+			families: []sequence.STARFamilyPolicy{{STARFamily: "TESPI", SameSTARSpacing: enabled}},
+			want:     rateIntervalForTest(19),
+		},
+		{
+			name: "exact spacing equality is accepted", rate: 20,
+			firstFamily: "TESPI", secondFamily: "TESPI", secondTETA: 6 * time.Minute,
+			families: []sequence.STARFamilyPolicy{{STARFamily: "TESPI", SameSTARSpacing: enabled}},
+			want:     6 * time.Minute,
+		},
+		{
+			name: "stricter wake separation wins", rate: 60,
+			firstFamily: "TESPI", secondFamily: "TESPI", wake: 3 * time.Minute,
+			families: []sequence.STARFamilyPolicy{{STARFamily: "TESPI", SameSTARSpacing: enabled}},
+			want:     3 * time.Minute,
+		},
+		{
+			name: "disabled family overrides runway compatibility policy", rate: 20,
+			firstFamily: "TESPI", secondFamily: "TESPI", legacy: enabled,
+			families: []sequence.STARFamilyPolicy{{STARFamily: "TESPI", SameSTARSpacing: disabled}},
+			want:     3 * time.Minute,
 		},
 	}
-	input.Flights[0].STARFamily = "TESPI"
-	input.Flights[1].STARFamily = "TESPI"
 
-	result, err := sequence.Generate(input)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			policy := simplePolicy("A", start, test.rate)
+			policy.SameSTARSpacing = test.legacy
+			if test.wake > 0 {
+				policy.SeparationRules[0].Minimum = test.wake
+				policy.UnknownSeparation = test.wake
+			}
+			first := flight("ONE", "A", start, "M")
+			first.STARFamily = test.firstFamily
+			second := flight("TWO", "A", start.Add(test.secondTETA), "M")
+			second.STARFamily = test.secondFamily
+			input := sequence.Input{Policies: []sequence.Policy{policy}, STARFamilyPolicies: test.families, Flights: []sequence.Flight{second, first}}
 
-	require.NoError(t, err)
-	require.Equal(t, 3*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time),
-		"family policy is an input contract only until its enforcement slice")
+			result, err := sequence.Generate(input)
+			require.NoError(t, err)
+			require.Equal(t, test.want, entryFor(t, result, "TWO").Time.Sub(entryFor(t, result, "ONE").Time))
+
+			input.Flights = []sequence.Flight{first, second}
+			repeated, err := sequence.Generate(input)
+			require.NoError(t, err)
+			require.Equal(t, result, repeated, "allocation must not depend on input order")
+		})
+	}
 }
 
 func simplePolicy(group aman.RunwayGroupID, start time.Time, rate uint32) sequence.Policy {

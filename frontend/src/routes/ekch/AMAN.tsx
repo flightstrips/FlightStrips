@@ -3,6 +3,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from "react";
 import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
+import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
@@ -46,6 +47,7 @@ export default function AMAN() {
       />
       <aside className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1" ref={controlsRef} tabIndex={-1}>
         {state?.traffic_prediction !== undefined && <TMTTrafficPrediction prediction={state.traffic_prediction} />}
+        {state?.holding_information !== undefined && <TMTHoldingGraph entries={state.holding_information} />}
         <AMANControls
           hasFMPAuthority={hasFMPAuthority}
           onSelectedFlightIDChange={setSelectedFlightID}

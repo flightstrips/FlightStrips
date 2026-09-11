@@ -1099,8 +1099,9 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		input.Flights = append(input.Flights, sequence.Flight{
 			ID: flight.ID, RunwayGroupID: *flight.SelectedRunwayGroup, State: flight.State, OperationalTETA: flight.Prediction.OperationalTETA,
 			WakeCategory: sequence.WakeCategory(wakeCategory), STARFamily: flight.STARFamilyIdentity(),
-			ManualOrder:  flight.ManualOrder,
-			FreezeReason: flight.FreezeReason, FrozenAt: flight.FrozenAt, FrozenOperationalTETA: flight.FrozenOperationalTETA,
+			SelectedSTARFamily: explicitSTARFamily(flight.SelectedSTARFamily),
+			ManualOrder:        flight.ManualOrder,
+			FreezeReason:       flight.FreezeReason, FrozenAt: flight.FrozenAt, FrozenOperationalTETA: flight.FrozenOperationalTETA,
 			CapturedSlot: flight.FrozenSlot, CurrentSlot: flight.Slot,
 			ProtectCurrentSlot: flight.State == aman.StateStable && flight.ManualOrder == nil && flight.Slot != nil && flight.FreezeReason == aman.FreezeNone,
 			HoldingStackID:     holdingStackID(flight), HoldingAltitudeFeet: holdingStackAltitude(flight),
@@ -1114,7 +1115,8 @@ func sequenceSTARFamilyPolicies(configured []terminal.STARFamilyPolicy) []sequen
 	for index, policy := range configured {
 		spacing := policy.SameSTARSpacing
 		policies[index] = sequence.STARFamilyPolicy{
-			STARFamily: string(policy.STARFamily),
+			STARFamily:            string(policy.STARFamily),
+			HoldingSequencePolicy: policy.EffectiveHoldingSequencePolicy(),
 			SameSTARSpacing: sequence.SameSTARSpacing{
 				Enabled: spacing.Enabled, ActivationRatePerHour: spacing.ActivationRatePerHour,
 				MinimumEmptySlots: spacing.MinimumEmptySlots,
@@ -1123,6 +1125,13 @@ func sequenceSTARFamilyPolicies(configured []terminal.STARFamilyPolicy) []sequen
 	}
 	sort.Slice(policies, func(i, j int) bool { return policies[i].STARFamily < policies[j].STARFamily })
 	return policies
+}
+
+func explicitSTARFamily(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 const holdingConfirmationObservations = uint32(2)

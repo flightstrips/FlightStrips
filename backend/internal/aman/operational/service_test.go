@@ -41,7 +41,7 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 	config := terminal.Configuration{
 		RunwayGroups: []terminal.RunwayGroup{{ID: group}},
 		STARFamilyPolicies: []terminal.STARFamilyPolicy{
-			{STARFamily: "TUDLO", SameSTARSpacing: terminal.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}},
+			{STARFamily: "TUDLO", SameSTARSpacing: terminal.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, HoldingSequencePolicy: navdata.HoldingSequenceLowestAltitudeFirst},
 			{STARFamily: "MONAK", SameSTARSpacing: terminal.SameSTARSpacing{ActivationRatePerHour: 18, MinimumEmptySlots: 2}},
 		},
 	}
@@ -49,15 +49,39 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 	require.Len(t, input.Policies, 1)
 	require.Equal(t, sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, input.Policies[0].SameSTARSpacing)
 	require.Equal(t, []sequence.STARFamilyPolicy{
-		{STARFamily: "MONAK", SameSTARSpacing: sequence.SameSTARSpacing{ActivationRatePerHour: 18, MinimumEmptySlots: 2}},
-		{STARFamily: "TUDLO", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}},
+		{STARFamily: "MONAK", SameSTARSpacing: sequence.SameSTARSpacing{ActivationRatePerHour: 18, MinimumEmptySlots: 2}, HoldingSequencePolicy: navdata.HoldingSequenceDisabled},
+		{STARFamily: "TUDLO", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, HoldingSequencePolicy: navdata.HoldingSequenceLowestAltitudeFirst},
 	}, input.STARFamilyPolicies)
 	require.Equal(t, explicitFamily, input.Flights[0].STARFamily)
+	require.Equal(t, explicitFamily, input.Flights[0].SelectedSTARFamily)
 
 	result, err := sequence.Generate(input)
 	require.NoError(t, err)
 	require.Len(t, result.Entries, 2)
 	require.Equal(t, 6*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time))
+}
+
+func TestSequenceInputDoesNotInferHoldingPolicyFamilyFromLegacyIdentity(t *testing.T) {
+	start := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
+	effective := start
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	flight := operationalFlight("LEGACY", group, "TESPI", "M", start)
+	flight.SelectedSTARFamily = nil
+	state := aman.AirportState{
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective}},
+		Flights:      []aman.AMANFlight{flight},
+	}
+	config := terminal.Configuration{
+		RunwayGroups: []terminal.RunwayGroup{{ID: group}},
+		STARFamilyPolicies: []terminal.STARFamilyPolicy{{
+			STARFamily: "TESPI", HoldingSequencePolicy: navdata.HoldingSequenceLowestAltitudeFirst,
+		}},
+	}
+
+	input := sequenceInput(state, config)
+	require.Len(t, input.Flights, 1)
+	require.Equal(t, "TESPI", input.Flights[0].STARFamily, "legacy identity remains available to same-STAR spacing")
+	require.Empty(t, input.Flights[0].SelectedSTARFamily, "holding policy requires explicit family identity")
 }
 
 func TestResequencePersistsAndResolvesProtectedSameSTARWarnings(t *testing.T) {

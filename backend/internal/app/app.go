@@ -234,8 +234,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, fmt.Errorf("initialize AMAN runtime: %w", err)
 	}
 	if amanRuntime.Enabled() {
+		identityRepository := postgres.NewAMANRepository(dbpool)
 		euroScopeObserver, observerErr := operational.NewEuroScopePositionObserver(operational.EuroScopePositionObserverDependencies{
-			Sink: amanDependencies.ObservationSink, Identities: postgres.NewAMANRepository(dbpool), EnabledAirports: cfg.AMAN.EnabledAirports, Now: satNow,
+			Sink: amanDependencies.ObservationSink, Identities: identityRepository, EnabledAirports: cfg.AMAN.EnabledAirports, Now: satNow,
 		})
 		if observerErr != nil {
 			if closeDB {
@@ -244,6 +245,15 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			return nil, fmt.Errorf("initialize AMAN EuroScope surveillance: %w", observerErr)
 		}
 		stripService.SetArrivalPositionObserver(euroScopeObserver)
+		if amanDependencies.HoldingClearanceSink != nil {
+			holdingObserver, holdingErr := operational.NewEuroScopeHoldingClearanceObserver(operational.EuroScopeHoldingClearanceObserverDependencies{
+				Sink: amanDependencies.HoldingClearanceSink, Identities: identityRepository, Now: satNow,
+			})
+			if holdingErr != nil {
+				return nil, fmt.Errorf("initialize AMAN EuroScope holding clearances: %w", holdingErr)
+			}
+			stripService.SetHoldingClearanceObserver(holdingObserver)
+		}
 	}
 	amanCommands, hasAMANCommands := amanDependencies.SequenceService.(aman.CommandService)
 	if amanRuntime.Ownership().ControllerMutationAuthorized && !hasAMANCommands {

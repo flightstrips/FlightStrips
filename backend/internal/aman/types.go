@@ -258,6 +258,29 @@ type FlightObservation struct {
 	Missing            bool
 }
 
+// HoldingClearanceFact is the authoritative controller clearance copied from
+// an EuroScope strip. EAT deliberately remains the source HHMM text here; the
+// AMAN owner resolves it against a trusted clock when it accepts the fact.
+type HoldingClearanceFact struct {
+	FlightID        FlightID
+	VATSIMCID       string
+	Callsign        string
+	Origin          string
+	Destination     string
+	Hold            string
+	HoldType        HoldingClearanceType
+	HoldEAT         string
+	ClearedAltitude *int32
+	ObservedAt      time.Time
+}
+
+type HoldingClearanceType string
+
+const (
+	HoldingClearanceEnroute HoldingClearanceType = "enroute"
+	HoldingClearanceTSA     HoldingClearanceType = "tsa"
+)
+
 type SurveillanceSource string
 
 const (

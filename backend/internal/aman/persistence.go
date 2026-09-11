@@ -92,6 +92,12 @@ type ObservationSink interface {
 	Observe(context.Context, FlightObservation) error
 }
 
+// HoldingClearanceSink receives raw authoritative strip facts. Eligibility,
+// EAT resolution, persistence, and read-model policy belong downstream.
+type HoldingClearanceSink interface {
+	ObserveHoldingClearance(context.Context, HoldingClearanceFact) error
+}
+
 // ObservationSourceHealthSink receives source-wide health even when a fresh
 // snapshot contains no flights.
 type ObservationSourceHealthSink interface {

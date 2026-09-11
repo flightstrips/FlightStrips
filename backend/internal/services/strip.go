@@ -41,6 +41,7 @@ type StripService struct {
 	cdmService           StripCdmService
 	departureObserver    departurePositionObserver
 	arrivalObserver      arrivalPositionObserver
+	holdingObserver      holdingClearanceObserver
 }
 
 type departurePositionObserver interface {
@@ -52,6 +53,13 @@ type departurePositionObserver interface {
 // remains usable when AMAN is disabled.
 type arrivalPositionObserver interface {
 	ObserveEuroScopePosition(ctx context.Context, session int32, strip *internalModels.Strip, latitude, longitude float64, altitude int32) error
+}
+
+// holdingClearanceObserver receives the persisted authoritative strip view.
+// It remains policy-neutral: arrival/departure and en-route/TSA selection is
+// owned by AMAN's later read model.
+type holdingClearanceObserver interface {
+	ObserveHoldingClearance(context.Context, *internalModels.Strip) error
 }
 
 func NewStripService(stripReader StripReader, options ...StripServiceOption) *StripService {
@@ -185,6 +193,10 @@ func (s *StripService) SetDeparturePositionObserver(observer departurePositionOb
 
 func (s *StripService) SetArrivalPositionObserver(observer arrivalPositionObserver) {
 	s.arrivalObserver = observer
+}
+
+func (s *StripService) SetHoldingClearanceObserver(observer holdingClearanceObserver) {
+	s.holdingObserver = observer
 }
 
 func (s *StripService) ClearMandatoryRouteCdm(ctx context.Context, sessionID int32, callsign string) {

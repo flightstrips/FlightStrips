@@ -75,6 +75,52 @@ func TestFeederDoesNotGuessFromSharedTerminalPathFix(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestReconciliationPopulatesResolvedTerminalIdentities(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22L")
+	version := navdata.DatasetVersion{Cycle: "2609", SourceRevision: "test", EffectiveFrom: now.Add(-24 * time.Hour), EffectiveUntil: now.Add(24 * time.Hour)}
+	origin, star, feederFix := navdata.FixID("ORIGIN"), navdata.FixID("TESPI"), navdata.FixID("TNO")
+	path := navdata.TerminalPath{
+		Version: version, Airport: "EKCH", Feeder: "TESPI", STARFamily: "TESPI", FeederFix: feederFix, RunwayGroup: group,
+		Legs: []navdata.ProcedureLeg{{ID: "TERMINAL", PathTerminator: navdata.PathTF, FromFix: &star, ToFix: &feederFix}},
+	}
+	service := Service{deps: Dependencies{
+		Materializer: fixedNavigation{key: "route"},
+		Geometry: terminalIdentityGeometry{
+			version: version, path: path,
+			route: navdata.RouteGeometry{Version: version, Digest: "route-digest", Coverage: navdata.CoverageComplete, Legs: []navdata.ProcedureLeg{{ID: "ROUTE", PathTerminator: navdata.PathTF, FromFix: &origin, ToFix: &star}}},
+			fixes: []navdata.Fix{{ID: origin, Position: navdata.Coordinate{LatitudeDeg: 55, LongitudeDeg: 12}}, {ID: star, Position: navdata.Coordinate{LatitudeDeg: 55.1, LongitudeDeg: 12.1}}, {ID: feederFix, Position: navdata.Coordinate{LatitudeDeg: 55.2, LongitudeDeg: 12.2}}},
+		},
+		Terminal: terminal.Configuration{
+			ConfigVersion: "test-v1",
+			Feeders:       []terminal.Feeder{{ID: "TESPI"}},
+			Paths:         []terminal.Path{{Feeder: "TESPI", RunwayGroup: group}},
+		},
+	}}
+	altitude, groundspeed, route, wake := 10_000, 300.0, "DCT TESPI", "L"
+	observation := aman.FlightObservation{
+		FlightID: "flight-identity", VATSIMCID: "123", Callsign: "SAS123", Origin: "ENGM", Destination: "EKCH",
+		FiledRoute: &route, WakeCategory: &wake, ReconciledAt: now, SourceStatus: aman.DataFresh,
+		Surveillance: &aman.SurveillanceFact{LatitudeDegrees: 55.01, LongitudeDegrees: 12.01, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, ObservedAt: &now},
+	}
+	state := aman.AirportState{RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, Selected: true}}}
+
+	updated, err := service.reconcileFlight(context.Background(), state, newFlight(observation, now), observation, now)
+
+	require.NoError(t, err)
+	require.Equal(t, "TESPI", *updated.SelectedFeeder)
+	require.Equal(t, "TESPI", *updated.SelectedSTARFamily)
+	require.Equal(t, "TNO", *updated.SelectedFeederFix)
+}
+
+func TestResolvedLegacyTerminalPathDoesNotFabricateFeederFix(t *testing.T) {
+	flight := aman.AMANFlight{}
+	applyResolvedTerminalIdentity(&flight, navdata.TerminalPath{Feeder: "TESPI"})
+	require.Equal(t, "TESPI", *flight.SelectedFeeder)
+	require.Equal(t, "TESPI", *flight.SelectedSTARFamily)
+	require.Nil(t, flight.SelectedFeederFix)
+}
+
 func TestSequenceInputIncludesEligibleLightAircraftRegardlessOfEngine(t *testing.T) {
 	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	effective, group, wake := start, aman.RunwayGroupID("ARRIVAL-22"), "L"
@@ -1252,6 +1298,12 @@ func (readyNavigation) MaterializeRoute(context.Context, navdata.RouteQuery, str
 	return "", errors.New("not implemented")
 }
 
+type fixedNavigation struct{ key navdata.RouteKey }
+
+func (n fixedNavigation) MaterializeRoute(context.Context, navdata.RouteQuery, string) (navdata.RouteKey, error) {
+	return n.key, nil
+}
+
 type unavailableGeometry struct{}
 
 func (unavailableGeometry) ActiveVersion(context.Context, navdata.AirportID) (navdata.DatasetVersion, error) {
@@ -1265,6 +1317,29 @@ func (unavailableGeometry) TerminalPath(context.Context, navdata.AirportID, navd
 }
 func (unavailableGeometry) ActiveGeometrySnapshot(context.Context, navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
 	return navdata.ActiveGeometrySnapshot{}, errors.New("offline")
+}
+
+type terminalIdentityGeometry struct {
+	version navdata.DatasetVersion
+	path    navdata.TerminalPath
+	route   navdata.RouteGeometry
+	fixes   []navdata.Fix
+}
+
+func (g terminalIdentityGeometry) ActiveVersion(context.Context, navdata.AirportID) (navdata.DatasetVersion, error) {
+	return g.version, nil
+}
+
+func (g terminalIdentityGeometry) Route(context.Context, navdata.RouteKey) (navdata.RouteGeometry, error) {
+	return g.route, nil
+}
+
+func (g terminalIdentityGeometry) TerminalPath(context.Context, navdata.AirportID, navdata.FeederID, aman.RunwayGroupID) (navdata.TerminalPath, error) {
+	return g.path, nil
+}
+
+func (g terminalIdentityGeometry) ActiveGeometrySnapshot(context.Context, navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
+	return navdata.ActiveGeometrySnapshot{Manifest: navdata.ManifestCandidate{Version: g.version}, ManifestRevision: 1, Fixes: g.fixes, TerminalPaths: []navdata.TerminalPath{g.path}}, nil
 }
 
 type unavailableWind struct{}

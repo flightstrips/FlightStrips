@@ -601,11 +601,18 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		markUnknownSTARFamily(&flight, now)
 		return flight, nil
 	}
-	flight.SelectedFeeder = stringPointer(string(feeder))
 	version, err := s.deps.Geometry.ActiveVersion(ctx, navdata.AirportID(observation.Destination))
 	if err != nil {
 		return flight, err
 	}
+	terminalPath, err := s.deps.Geometry.TerminalPath(ctx, navdata.AirportID(observation.Destination), feeder, group)
+	if err != nil {
+		return flight, err
+	}
+	if !terminalPath.Version.Equal(version) {
+		return flight, fmt.Errorf("terminal path dataset does not match active navigation version")
+	}
+	applyResolvedTerminalIdentity(&flight, terminalPath)
 	query := navdata.RouteQuery{Version: version, Origin: navdata.AirportID(observation.Origin), Destination: navdata.AirportID(observation.Destination), FiledRoute: *observation.FiledRoute, RunwayGroup: &group}
 	revision := revisionValue(observation.FlightPlan.Revision)
 	projectionRevision := routeProjectionRevision(flight, revision)
@@ -758,6 +765,23 @@ func (s *Service) feeder(route string, runwayGroup aman.RunwayGroupID) (navdata.
 		}
 	}
 	return "", false
+}
+
+// applyResolvedTerminalIdentity keeps the deployed SelectedFeeder field as a
+// STAR-family alias while persisting the two explicit operational identities.
+// A legacy terminal path can identify its family, but an empty FeederFix is
+// intentionally retained as unknown rather than inferred from path geometry.
+func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.TerminalPath) {
+	starFamily := string(path.STARFamily)
+	if starFamily == "" {
+		starFamily = string(path.Feeder)
+	}
+	flight.SelectedFeeder = stringPointer(starFamily)
+	flight.SelectedSTARFamily = stringPointer(starFamily)
+	flight.SelectedFeederFix = nil
+	if path.FeederFix != "" {
+		flight.SelectedFeederFix = stringPointer(string(path.FeederFix))
+	}
 }
 
 func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence.VacancyPromotion {
@@ -1147,6 +1171,9 @@ func resetFlightsForRunwayConfiguration(state *aman.AirportState) {
 	for index := range state.Flights {
 		flight := &state.Flights[index]
 		flight.SelectedRunwayGroup = nil
+		flight.SelectedFeeder = nil
+		flight.SelectedSTARFamily = nil
+		flight.SelectedFeederFix = nil
 		flight.SelectedHolding = nil
 		flight.HoldingStack = nil
 		flight.ActiveRouteKey = nil
@@ -1367,7 +1394,8 @@ func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObs
 }
 
 func clearGroundedOperationalState(flight *aman.AMANFlight) {
-	flight.SelectedFeeder, flight.SelectedHolding, flight.HoldingStack = nil, nil, nil
+	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
+	flight.SelectedHolding, flight.HoldingStack = nil, nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
@@ -1512,6 +1540,8 @@ func useObservedGroundspeedForRoute(observation aman.FlightObservation, inTMA bo
 
 func markUnknownSTARFamily(flight *aman.AMANFlight, now time.Time) {
 	flight.SelectedFeeder = nil
+	flight.SelectedSTARFamily = nil
+	flight.SelectedFeederFix = nil
 	flight.SelectedHolding = nil
 	flight.HoldingStack = nil
 	flight.ActiveRouteKey = nil

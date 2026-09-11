@@ -281,6 +281,17 @@ const (
 	HoldingClearanceTSA     HoldingClearanceType = "tsa"
 )
 
+// HoldingClearance is the normalized, authoritative clearance retained on the
+// flight aggregate. An empty Hold is a durable cancellation marker; keeping
+// it prevents an older replayed observation from restoring a cleared hold.
+type HoldingClearance struct {
+	Hold            string
+	HoldType        HoldingClearanceType
+	HoldEAT         string
+	ClearedAltitude *int32
+	ObservedAt      time.Time
+}
+
 type SurveillanceSource string
 
 const (
@@ -775,6 +786,7 @@ type AMANFlight struct {
 	SelectedRunwayGroup  *RunwayGroupID
 	SelectedFeeder       *string
 	SelectedHolding      *string
+	HoldingClearance     *HoldingClearance
 	HoldingStack         *HoldingStackState
 	ActiveRouteFact      *RouteFact
 	ActiveRouteKey       *string
@@ -1144,6 +1156,21 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.ActiveRouteFact != nil && !f.ActiveRouteFact.State.Valid() {
 		return invalid("route fact state is invalid")
+	}
+	if f.HoldingClearance != nil {
+		if err := requireUTCTime("holding clearance observation", f.HoldingClearance.ObservedAt); err != nil {
+			return err
+		}
+		if f.HoldingClearance.Hold != strings.ToUpper(strings.TrimSpace(f.HoldingClearance.Hold)) ||
+			f.HoldingClearance.HoldEAT != strings.TrimSpace(f.HoldingClearance.HoldEAT) {
+			return invalid("holding clearance is not normalized")
+		}
+		if f.HoldingClearance.Hold == "" && f.HoldingClearance.HoldType != "" {
+			return invalid("cleared holding clearance cannot retain a type")
+		}
+		if f.HoldingClearance.Hold != "" && f.HoldingClearance.HoldType != HoldingClearanceEnroute && f.HoldingClearance.HoldType != HoldingClearanceTSA {
+			return invalid("holding clearance type is invalid")
+		}
 	}
 	if f.ActiveRouteKey != nil && strings.TrimSpace(*f.ActiveRouteKey) == "" {
 		return invalid("active route key cannot be empty")

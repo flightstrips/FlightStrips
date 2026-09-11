@@ -126,6 +126,7 @@ export function AMANControlsView({
   const [manualETA, setManualETA] = useState("");
   const [feederDialogOpen, setFeederDialogOpen] = useState(false);
   const [runwayDialogOpen, setRunwayDialogOpen] = useState(false);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [alternateRunwayGroupID, setAlternateRunwayGroupID] = useState("");
   const [manualFeederETA, setManualFeederETA] = useState("");
   const [goAroundAt, setGoAroundAt] = useState("");
@@ -160,6 +161,9 @@ export function AMANControlsView({
     || rejection.command_type === "aman.reset_manual_feeder_eta");
   const runwayPending = pending.some((command) => command.type === "aman.change_runway" && command.flight_id === effectiveSelectedFlightID);
   const runwayRejection = rejections.find((rejection) => rejection.command_type === "aman.change_runway");
+  const dispositionPending = pending.some((command) => command.flight_id === effectiveSelectedFlightID
+    && (command.type === "aman.desequence_flight" || command.type === "aman.resume_flight" || command.type === "aman.remove_flight"));
+  const disposition = selectedFlight?.sequence_disposition ?? "active";
   const alternateRunwayGroups = activeRunwayGroups.filter((group) => group.id !== selectedFlight?.runway_group_id);
   const effectiveAlternateRunwayGroupID = alternateRunwayGroups.some((group) => group.id === alternateRunwayGroupID)
     ? alternateRunwayGroupID : alternateRunwayGroups[0]?.id ?? "";
@@ -222,7 +226,7 @@ export function AMANControlsView({
       )}
       {rejections.map((rejection) => (
         <div role="alert" key={rejection.command_id} className="flex items-start justify-between gap-2 rounded border border-red-500 bg-red-950 p-2 text-sm">
-          <span>{rejection.command_type === "aman.select_runway_group" ? "Runway selection" : rejection.command_type === "aman.change_runway" ? "Flight runway change" : rejection.command_type === "aman.set_rate" ? "Arrival rate change" : "Command"} rejected: {rejection.message} ({rejection.code}, server revision {rejection.current_revision})</span>
+          <span>{rejection.command_type === "aman.select_runway_group" ? "Runway selection" : rejection.command_type === "aman.change_runway" ? "Flight runway change" : rejection.command_type === "aman.set_rate" ? "Arrival rate change" : rejection.command_type?.includes("flight") ? "Flight disposition" : "Command"} rejected: {rejection.message} ({rejection.code}, server revision {rejection.current_revision})</span>
           {onDismissRejection && <button className={controlClass} onClick={() => onDismissRejection(rejection.command_id)}>Dismiss</button>}
         </div>
       ))}
@@ -288,6 +292,31 @@ export function AMANControlsView({
           </label>
 
           {selectedFlight && <FlightStatus flight={selectedFlight} />}
+
+          {selectedFlight && <section aria-label={`${selectedFlight.callsign} sequence disposition`} className="grid gap-2 rounded border border-violet-500/70 bg-violet-950/40 p-3 text-sm">
+            <div>Server-confirmed disposition: <b>{selectedFlight.lifecycle_state === "removed" ? "removed" : disposition}</b></div>
+            {selectedFlight.lifecycle_state !== "removed" && <div className="flex flex-wrap gap-2">
+              {disposition === "active" ? <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.desequence_flight", flight_id: selectedFlight.flight_id})}>Desequence flight</button> : <>
+                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => onCommand({type: "aman.resume_flight", flight_id: selectedFlight.flight_id})}>Resume at earliest legal opportunity</button>
+                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => setRemoveDialogOpen(true)}>Remove flight…</button>
+              </>}
+            </div>}
+            {dispositionPending && <div aria-live="polite" role="status" className="text-sky-200">Waiting for server-confirmed disposition</div>}
+          </section>}
+
+          <Dialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
+            <DialogContent className="w-[28rem] max-w-[calc(100vw-2rem)] border-slate-600 bg-slate-900 text-slate-100">
+              <DialogHeader><DialogTitle>Confirm removal · {selectedFlight?.callsign}</DialogTitle></DialogHeader>
+              <p className="text-sm">This permanently removes the flight from AMAN. It cannot be resumed.</p>
+              <DialogFooter className="gap-2">
+                <button className={controlClass} onClick={() => setRemoveDialogOpen(false)}>Cancel removal</button>
+                <button className={controlClass} disabled={disabled || dispositionPending} onClick={() => {
+                  if (selectedFlight) onCommand({type: "aman.remove_flight", flight_id: selectedFlight.flight_id});
+                  setRemoveDialogOpen(false);
+                }}>Confirm remove flight</button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <button className={controlClass} disabled={disabled || alternateRunwayGroups.length === 0} onClick={() => setRunwayDialogOpen(true)}>Change runway</button>
           <Dialog open={runwayDialogOpen} onOpenChange={setRunwayDialogOpen}>

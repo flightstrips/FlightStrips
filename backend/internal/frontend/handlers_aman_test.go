@@ -24,6 +24,9 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		{"move", frontendEvents.AMANMoveFlightType, `{"type":"aman.move_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","before_flight_id":"flight-2"}}`, "move"},
 		{"lock", frontendEvents.AMANLockFlightType, `{"type":"aman.lock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "lock"},
 		{"unlock", frontendEvents.AMANUnlockFlightType, `{"type":"aman.unlock_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "unlock"},
+		{"desequence", frontendEvents.AMANDesequenceFlightType, `{"type":"aman.desequence_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "desequence"},
+		{"resume", frontendEvents.AMANResumeFlightType, `{"type":"aman.resume_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "resume"},
+		{"remove", frontendEvents.AMANRemoveFlightType, `{"type":"aman.remove_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "remove"},
 		{"rate", frontendEvents.AMANSetRateType, `{"type":"aman.set_rate","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","arrivals_per_hour":30,"effective_at":"2026-07-22T12:05:00Z"}}`, "rate"},
 		{"runway selection", frontendEvents.AMANSelectRunwayGroupType, `{"type":"aman.select_runway_group","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","effective_at":"2026-07-22T12:05:00Z"}}`, "runway_selection"},
 		{"accept", frontendEvents.AMANAcceptTETAType, `{"type":"aman.accept_teta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "accept"},
@@ -51,6 +54,18 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 			require.Equal(t, aman.SequenceRevision(7), service.metadata.ExpectedRevision)
 			require.Empty(t, client.send)
 		})
+	}
+}
+
+func TestAMANDispositionCommandsRejectClientOwnedResults(t *testing.T) {
+	for _, eventType := range []frontendEvents.EventType{frontendEvents.AMANDesequenceFlightType, frontendEvents.AMANResumeFlightType, frontendEvents.AMANRemoveFlightType} {
+		service := &recordingAMANCommandService{}
+		hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+		payload := `{"type":"` + string(eventType) + `","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","slot":{"time":"2026-07-22T12:10:00Z"}}}`
+
+		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: eventType, Message: []byte(payload)}))
+		require.Empty(t, service.operation)
+		require.Equal(t, string(aman.ErrorInvalidArgument), (<-client.send).(frontendEvents.AMANCommandRejectedEvent).Data.Code)
 	}
 }
 

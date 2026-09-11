@@ -56,6 +56,44 @@ describe("AMAN FMP controls", () => {
     ]);
   });
 
+  it("shows authoritative disposition and confirms permanent removal accessibly", () => {
+    const desequenced = state();
+    desequenced.flights[0].sequence_disposition = "desequenced";
+    const {onCommand} = renderControls({state: desequenced});
+
+    expect(screen.getByLabelText("SAS123 sequence disposition")).toHaveTextContent("Server-confirmed disposition: desequenced");
+    fireEvent.click(screen.getByRole("button", {name: "Resume at earliest legal opportunity"}));
+    fireEvent.click(screen.getByRole("button", {name: "Remove flight…"}));
+    expect(screen.getByRole("dialog", {name: "Confirm removal · SAS123"})).toHaveTextContent("cannot be resumed");
+    fireEvent.click(screen.getByRole("button", {name: "Confirm remove flight"}));
+
+    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.resume_flight", flight_id: "flight-1"});
+    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.remove_flight", flight_id: "flight-1"});
+  });
+
+  it("shows disposition pending, stale revision, authorization, and no-capacity states", () => {
+    const desequenced = state();
+    desequenced.flights[0].sequence_disposition = "desequenced";
+    renderControls({
+      state: desequenced,
+      pendingCommands: {resume: {command_id: "resume", type: "aman.resume_flight", expected_revision: 7, flight_id: "flight-1"}},
+      commandRejections: {
+        stale: {command_id: "stale", command_type: "aman.resume_flight", code: "revision_conflict", message: "revision changed", current_revision: 8, retryable: true},
+        capacity: {command_id: "capacity", command_type: "aman.resume_flight", code: "invalid_transition", message: "resume could not produce a complete legal sequence", current_revision: 8, retryable: false},
+      },
+    });
+
+    expect(screen.getByText("Waiting for server-confirmed disposition")).toBeInTheDocument();
+    expect(screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("revision_conflict"))).toBe(true);
+    expect(screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("complete legal sequence"))).toBe(true);
+    expect(screen.getByRole("button", {name: "Resume at earliest legal opportunity"})).toBeDisabled();
+
+    cleanup();
+    renderControls({state: desequenced, hasFMPAuthority: false});
+    expect(screen.getByRole("status")).toHaveTextContent("FMP authority is required");
+    expect(screen.getByRole("button", {name: "Resume at earliest legal opportunity"})).toBeDisabled();
+  });
+
   it("maps rate, manual ETA, and go-around inputs to their typed timestamps", () => {
     const multiRunwayState = state();
     multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});

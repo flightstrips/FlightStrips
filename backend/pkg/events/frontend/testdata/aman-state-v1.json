@@ -13,6 +13,7 @@
         "flight_id": "flight-123",
         "callsign": "SAS123",
         "lifecycle_state": "stable",
+        "sequence_disposition": "active",
         "data_status": "fresh",
         "runway_group_id": "ARRIVAL-22",
         "feeder": "TESPI",

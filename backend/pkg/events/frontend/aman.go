@@ -150,11 +150,12 @@ type AMANTrafficFlight struct {
 }
 
 type AMANFlight struct {
-	FlightID       string  `json:"flight_id"`
-	Callsign       string  `json:"callsign"`
-	LifecycleState string  `json:"lifecycle_state"`
-	DataStatus     string  `json:"data_status"`
-	RunwayGroupID  *string `json:"runway_group_id"`
+	FlightID            string  `json:"flight_id"`
+	Callsign            string  `json:"callsign"`
+	LifecycleState      string  `json:"lifecycle_state"`
+	SequenceDisposition string  `json:"sequence_disposition"`
+	DataStatus          string  `json:"data_status"`
+	RunwayGroupID       *string `json:"runway_group_id"`
 	// Feeder and Star retain the deployed STAR-family aliases for older V1
 	// clients. New clients must use the explicit identities below.
 	Feeder                    *string                   `json:"feeder"`
@@ -490,7 +491,8 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 	}
 	result := AMANFlight{
 		FlightID: string(flight.ID), Callsign: flight.CurrentCallsign, LifecycleState: string(flight.State),
-		DataStatus: string(flight.DataStatus), RunwayGroupID: stringPointer(flight.SelectedRunwayGroup),
+		SequenceDisposition: string(flight.SequenceDisposition.OrDefault()),
+		DataStatus:          string(flight.DataStatus), RunwayGroupID: stringPointer(flight.SelectedRunwayGroup),
 		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder),
 		STARFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		FreezeReason: freezeReason, Order: cloneInt(flight.Order), QueueOffers: make([]AMANQueueOffer, len(flight.QueueOffers)),

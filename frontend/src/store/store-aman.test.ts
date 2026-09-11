@@ -170,6 +170,27 @@ describe("AMAN command store", () => {
     });
   });
 
+  it("sends and confirms typed disposition commands without client-owned sequence results", () => {
+    const desequenceID = store.getState().sendAMANCommand({type: "aman.desequence_flight", flight_id: "flight-123"})!;
+    expect(client.send).toHaveBeenLastCalledWith({
+      type: "aman.desequence_flight", version: 1,
+      data: {command_id: desequenceID, expected_revision: 7, flight_id: "flight-123"},
+    });
+
+    const confirmed = replacement(8);
+    confirmed.data.flights[0].sequence_disposition = "desequenced";
+    client._emit(EventType.FrontendAMANState, confirmed);
+    expect(store.getState().amanPendingCommands[desequenceID]).toBeUndefined();
+    expect(store.getState().amanState?.flights[0].sequence_disposition).toBe("desequenced");
+
+    for (const type of ["aman.resume_flight", "aman.remove_flight"] as const) {
+      const commandID = store.getState().sendAMANCommand({type, flight_id: "flight-123"})!;
+      expect(client.send).toHaveBeenLastCalledWith({
+        type, version: 1, data: {command_id: commandID, expected_revision: 8, flight_id: "flight-123"},
+      });
+    }
+  });
+
   it("does not send while disconnected, unauthorized, read-only, non-authoritative, or unready", () => {
     store.getState().setAMANConnectionState("disconnected");
     expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();

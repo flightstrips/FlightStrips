@@ -278,6 +278,18 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(pending)).toBe(false);
   });
 
+  it("accepts legacy missing and current sequence dispositions", () => {
+    const legacy = replacement(8);
+    delete legacy.data.flights[0].sequence_disposition;
+    expect(isAMANStateEvent(legacy)).toBe(true);
+
+    const desequenced = replacement(9);
+    desequenced.data.flights[0].sequence_disposition = "desequenced";
+    expect(isAMANStateEvent(desequenced)).toBe(true);
+    desequenced.data.flights[0].sequence_disposition = "reserved" as "active";
+    expect(isAMANStateEvent(desequenced)).toBe(false);
+  });
+
   it("accepts an explicit disabled-mode health replacement", () => {
     const disabled = replacement(8);
     disabled.data.effective_mode = "disabled";

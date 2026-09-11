@@ -2,6 +2,7 @@ export const AMAN_WIRE_VERSION = 1 as const;
 
 export type AMANEffectiveMode = "disabled" | "shadow" | "read_only" | "authoritative" | "blocked";
 export type AMANLifecycleState = "planned" | "airborne" | "unstable" | "stable" | "landed" | "go_around" | "removed";
+export type AMANSequenceDisposition = "active" | "desequenced";
 export type AMANDataStatus = "fresh" | "stale" | "disconnected";
 export type AMANFreezeReason = "none" | "superstable" | "tma" | "manual";
 export type AMANConfidence = "unknown" | "low" | "medium" | "high";
@@ -119,6 +120,8 @@ export interface AMANFlight {
   flight_id: string;
   callsign: string;
   lifecycle_state: AMANLifecycleState;
+  /** Missing on older V1 publishers and therefore interpreted as active. */
+  sequence_disposition?: AMANSequenceDisposition;
   data_status: AMANDataStatus;
   runway_group_id: string | null;
   /** @deprecated Deployed alias for the STAR family; retained for older V1 clients. */
@@ -264,6 +267,9 @@ export type AMANCommandType =
   | "aman.move_flight"
   | "aman.lock_flight"
   | "aman.unlock_flight"
+  | "aman.desequence_flight"
+  | "aman.resume_flight"
+  | "aman.remove_flight"
   | "aman.set_rate"
   | "aman.select_runway_group"
   | "aman.accept_teta"
@@ -286,7 +292,7 @@ export interface AMANCommandMeta {
 export type AMANCommandIntent =
   | {type: "aman.move_flight"; flight_id: string; runway_group_id: string; before_flight_id: string}
   | {type: "aman.move_flight"; flight_id: string; runway_group_id: string; after_flight_id: string}
-  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; flight_id: string}
+  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; flight_id: string}
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
   | {type: "aman.set_manual_eta"; flight_id: string; manual_eta: string}
@@ -362,6 +368,7 @@ export interface AMANReplacementResult {
 
 const effectiveModes = new Set<AMANEffectiveMode>(["disabled", "shadow", "read_only", "authoritative", "blocked"]);
 const lifecycleStates = new Set<AMANLifecycleState>(["planned", "airborne", "unstable", "stable", "landed", "go_around", "removed"]);
+const sequenceDispositions = new Set<AMANSequenceDisposition>(["active", "desequenced"]);
 const dataStatuses = new Set<AMANDataStatus>(["fresh", "stale", "disconnected"]);
 const freezeReasons = new Set<AMANFreezeReason>(["none", "superstable", "tma", "manual"]);
 const confidences = new Set<AMANConfidence>(["unknown", "low", "medium", "high"]);
@@ -437,6 +444,7 @@ function isGoAroundConfirmation(value: unknown): value is AMANGoAroundConfirmati
 function isFlight(value: unknown): value is AMANFlight {
   return isObject(value) && isString(value.flight_id) && value.flight_id !== "" && isString(value.callsign)
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
+    && (value.sequence_disposition === undefined || (isString(value.sequence_disposition) && sequenceDispositions.has(value.sequence_disposition as AMANSequenceDisposition)))
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
     && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star)
     && isOptionalNullableIdentity(value.star_family) && isOptionalNullableIdentity(value.feeder_fix) && isNullableIdentity(value.holding_fix)

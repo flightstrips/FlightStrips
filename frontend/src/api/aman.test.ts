@@ -99,14 +99,21 @@ describe("AMAN V1 full replacement contract", () => {
       id: 'warning:"technical_health"/-/"blocked"/"ARRIVAL-22"/-/-', source: "technical_health", severity: "error",
       code: "blocked", runway_group_id: "ARRIVAL-22", message: "Blocked",
     }]],
-    ["duplicate stable ID", [
-      {id: "warning-1", source: "sequence", severity: "error", code: "blocked", message: "Blocked"},
-      {id: "warning-1", source: "technical_health", severity: "warning", code: "stale", message: "Stale"},
-    ]],
   ])("rejects a %s in the optional warning field", (_name, warnings) => {
     const malformed = replacement(8) as unknown as {data: Record<string, unknown>};
     malformed.data.warnings = warnings;
     expect(isAMANStateEvent(malformed)).toBe(false);
+  });
+
+  it("accepts structurally valid duplicate warning identities for defensive store deduplication", () => {
+    const duplicated = replacement(8);
+    const warning = {
+      id: 'warning:"technical_health"/"weather"/"weather_stale"/-/-/-',
+      source: "technical_health" as const, component: "weather", severity: "warning" as const,
+      code: "weather_stale", message: "AMAN weather is degraded: weather_stale",
+    };
+    duplicated.data.warnings = [warning, {...warning}];
+    expect(isAMANStateEvent(duplicated)).toBe(true);
   });
 
   it("accepts optional ordered timeline mappings and rejects ambiguous mappings", () => {

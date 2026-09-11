@@ -77,6 +77,7 @@ import {
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { toast } from "sonner";
 import {markAMANStateReceived} from "@/lib/aman-performance";
+import {currentWarningsFromAMANState, type AMANCurrentWarnings} from "@/store/aman-warning-store";
 import {
   AMAN_ALL_VIEW,
   readAMANViewPreference,
@@ -188,6 +189,7 @@ export interface WebSocketState {
   amanPresentationStatus: AMANPresentationStatus;
   amanError: string | null;
   amanConnectionState: AMANConnectionState;
+  amanWarnings: AMANCurrentWarnings;
   amanFMPAuthority: boolean;
   amanPendingCommands: Record<string, AMANPendingCommand>;
   amanCommandTypes: Record<string, AMANCommandType>;
@@ -319,6 +321,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     amanPresentationStatus: "empty" as AMANPresentationStatus,
     amanError: null,
     amanConnectionState: "disconnected" as AMANConnectionState,
+    amanWarnings: currentWarningsFromAMANState(null),
     amanFMPAuthority: false,
     amanPendingCommands: {},
     amanCommandTypes: {},
@@ -1598,6 +1601,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       state.amanState = replacement.state;
       state.amanPresentationStatus = replacement.status;
       state.amanError = replacement.error;
+      if (replacement.accepted || replacement.state === null) {
+        state.amanWarnings = currentWarningsFromAMANState(replacement.state);
+      }
       if (replacement.accepted) {
         state.amanSelectedView = resolveAMANView(replacement.state, state.amanSelectedView);
       }

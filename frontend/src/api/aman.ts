@@ -558,9 +558,8 @@ function hasValidWarningScope(warning: AMANWarning): boolean {
 
 function hasValidWarnings(value: unknown): value is AMANWarning[] {
   if (!Array.isArray(value)) return false;
-  const ids = new Set<string>();
   return value.every((warning) => {
-    if (!isObject(warning) || !isIdentity(warning.id) || ids.has(warning.id)
+    if (!isObject(warning) || !isIdentity(warning.id)
       || !isString(warning.source) || !warningSources.has(warning.source as AMANWarningSource)
       || !isString(warning.severity) || !warningSeverities.has(warning.severity as AMANWarningSeverity)
       || !isIdentity(warning.code) || !isOptionalIdentity(warning.component)
@@ -568,7 +567,6 @@ function hasValidWarnings(value: unknown): value is AMANWarning[] {
       || !isOptionalIdentity(warning.related_flight_id) || !isIdentity(warning.message)) return false;
     const typed = warning as unknown as AMANWarning;
     if (!hasValidWarningScope(typed) || typed.id !== warningIdentity(typed)) return false;
-    ids.add(warning.id);
     return true;
   });
 }

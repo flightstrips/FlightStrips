@@ -124,6 +124,13 @@ func (g *amanCommandGate) RecomputeFlight(ctx context.Context, auth aman.Command
 	return g.commands.RecomputeFlight(ctx, auth, command)
 }
 
+func (g *amanCommandGate) ChangeRunway(ctx context.Context, auth aman.CommandContext, command aman.ChangeRunwayCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.ChangeRunway(ctx, auth, command)
+}
+
 func (g *amanCommandGate) ReportGoAround(ctx context.Context, auth aman.CommandContext, command aman.ReportGoAroundCommand) (aman.CommandExecution, error) {
 	if err := g.authorize(ctx); err != nil {
 		return aman.CommandExecution{}, err

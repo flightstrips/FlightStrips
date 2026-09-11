@@ -100,6 +100,22 @@ describe("AMAN command store", () => {
     expect(store.getState().amanPendingCommands[commandID]).toBeUndefined();
   });
 
+  it("tracks a typed runway change through rejection and server confirmation", () => {
+    const rejectedID = store.getState().sendAMANCommand({type: "aman.change_runway", flight_id: "flight-123", runway_group_id: "ARRIVAL-04"})!;
+    expect(client.send).toHaveBeenCalledWith({
+      type: "aman.change_runway", version: 1,
+      data: {command_id: rejectedID, expected_revision: 7, flight_id: "flight-123", runway_group_id: "ARRIVAL-04"},
+    });
+    client._emit(EventType.FrontendAMANCommandRejected, {type: "aman.command_rejected", version: 1, data: {command_id: rejectedID, code: "invalid_transition", message: "protected conflict", current_revision: 7, retryable: false}});
+    expect(store.getState().amanPendingCommands[rejectedID]).toBeUndefined();
+    expect(store.getState().amanCommandRejections[rejectedID].command_type).toBe("aman.change_runway");
+
+    const confirmedID = store.getState().sendAMANCommand({type: "aman.change_runway", flight_id: "flight-123", runway_group_id: "ARRIVAL-04"})!;
+    expect(store.getState().amanPendingCommands[confirmedID]).toMatchObject({type: "aman.change_runway", runway_group_id: "ARRIVAL-04"});
+    client._emit(EventType.FrontendAMANState, replacement(8));
+    expect(store.getState().amanPendingCommands[confirmedID]).toBeUndefined();
+  });
+
   it("sends typed manual feeder ETA set and reset commands", () => {
     const setID = store.getState().sendAMANCommand({type: "aman.set_manual_feeder_eta", flight_id: "flight-123", feeder_eta: "2026-07-22T12:10:00.000Z"})!;
     const resetID = store.getState().sendAMANCommand({type: "aman.reset_manual_feeder_eta", flight_id: "flight-123"})!;

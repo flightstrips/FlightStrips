@@ -144,6 +144,9 @@ func (m *recordingActionMutations) ResetManualFeederETA(auth aman.CommandContext
 func (m *recordingActionMutations) RecomputeFlight(_ context.Context, auth aman.CommandContext, _ aman.RecomputeFlightCommand) (CommandMutation, error) {
 	return m.mutation("recompute", auth)
 }
+func (m *recordingActionMutations) ChangeRunway(auth aman.CommandContext, _ aman.ChangeRunwayCommand) (CommandMutation, error) {
+	return m.mutation("change_runway", auth)
+}
 func (m *recordingActionMutations) ReportGoAround(auth aman.CommandContext, _ aman.ReportGoAroundCommand) (CommandMutation, error) {
 	return m.mutation("go_around", auth)
 }

@@ -88,6 +88,18 @@ describe("AMAN command store", () => {
     expect(store.getState().amanState?.revision).toBe(7);
   });
 
+  it("tracks recompute until a server replacement confirms it", () => {
+    const commandID = store.getState().sendAMANCommand({type: "aman.recompute_flight", flight_id: "flight-123"})!;
+
+    expect(client.send).toHaveBeenCalledWith({
+      type: "aman.recompute_flight", version: 1,
+      data: {command_id: commandID, expected_revision: 7, flight_id: "flight-123"},
+    });
+    expect(store.getState().amanPendingCommands[commandID]?.type).toBe("aman.recompute_flight");
+    client._emit(EventType.FrontendAMANState, replacement(8));
+    expect(store.getState().amanPendingCommands[commandID]).toBeUndefined();
+  });
+
   it("sends typed manual feeder ETA set and reset commands", () => {
     const setID = store.getState().sendAMANCommand({type: "aman.set_manual_feeder_eta", flight_id: "flight-123", feeder_eta: "2026-07-22T12:10:00.000Z"})!;
     const resetID = store.getState().sendAMANCommand({type: "aman.reset_manual_feeder_eta", flight_id: "flight-123"})!;

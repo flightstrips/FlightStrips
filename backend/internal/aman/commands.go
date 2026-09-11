@@ -87,6 +87,14 @@ type ResetManualFeederETACommand struct {
 	FlightID FlightID
 }
 
+// RecomputeFlightCommand deliberately carries no prediction fields. The
+// operational owner rebuilds the physical prediction from its persisted,
+// authoritative observation at the revision named by Metadata.
+type RecomputeFlightCommand struct {
+	Metadata CommandMetadata
+	FlightID FlightID
+}
+
 type ReportGoAroundCommand struct {
 	Metadata   CommandMetadata
 	FlightID   FlightID
@@ -132,6 +140,7 @@ type CommandService interface {
 	ResetTETAOverride(context.Context, CommandContext, ResetTETAOverrideCommand) (CommandExecution, error)
 	SetManualFeederETA(context.Context, CommandContext, SetManualFeederETACommand) (CommandExecution, error)
 	ResetManualFeederETA(context.Context, CommandContext, ResetManualFeederETACommand) (CommandExecution, error)
+	RecomputeFlight(context.Context, CommandContext, RecomputeFlightCommand) (CommandExecution, error)
 	ReportGoAround(context.Context, CommandContext, ReportGoAroundCommand) (CommandExecution, error)
 	ConfirmGoAround(context.Context, CommandContext, ConfirmGoAroundCommand) (CommandExecution, error)
 	RejectGoAround(context.Context, CommandContext, RejectGoAroundCommand) (CommandExecution, error)
@@ -186,6 +195,10 @@ func (c SetManualFeederETACommand) Validate() error {
 }
 
 func (c ResetManualFeederETACommand) Validate() error {
+	return validateFlightCommand(c.Metadata, c.FlightID)
+}
+
+func (c RecomputeFlightCommand) Validate() error {
 	return validateFlightCommand(c.Metadata, c.FlightID)
 }
 

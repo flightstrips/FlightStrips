@@ -56,6 +56,9 @@ func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 		{"reset manual feeder ETA", func() error {
 			return (aman.ResetManualFeederETACommand{Metadata: meta, FlightID: "flight"}).Validate()
 		}, func() error { return (aman.ResetManualFeederETACommand{Metadata: meta}).Validate() }},
+		{"recompute flight", func() error {
+			return (aman.RecomputeFlightCommand{Metadata: meta, FlightID: "flight"}).Validate()
+		}, func() error { return (aman.RecomputeFlightCommand{Metadata: meta}).Validate() }},
 		{"go around", func() error {
 			return (aman.ReportGoAroundCommand{Metadata: meta, FlightID: "flight", DetectedAt: now.Add(-time.Second)}).Validate(now)
 		}, func() error {

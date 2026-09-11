@@ -29,6 +29,7 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANResetTETAOverrideType, handleAMANResetTETAOverride)
 	handlers.Add(events.AMANSetManualFeederETAType, handleAMANSetManualFeederETA)
 	handlers.Add(events.AMANResetManualFeederETAType, handleAMANResetManualFeederETA)
+	handlers.Add(events.AMANRecomputeFlightType, handleAMANRecomputeFlight)
 	handlers.Add(events.AMANReportGoAroundType, handleAMANReportGoAround)
 	handlers.Add(events.AMANConfirmGoAroundType, handleAMANConfirmGoAround)
 	handlers.Add(events.AMANRejectGoAroundType, handleAMANRejectGoAround)
@@ -147,6 +148,12 @@ func handleAMANSetManualFeederETA(ctx context.Context, client *Client, message M
 func handleAMANResetManualFeederETA(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANResetManualFeederETAType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.ResetManualFeederETA(ctx, auth, aman.ResetManualFeederETACommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+	})
+}
+
+func handleAMANRecomputeFlight(ctx context.Context, client *Client, message Message) error {
+	return handleAMANFlightCommand(ctx, client, message, events.AMANRecomputeFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.RecomputeFlight(ctx, auth, aman.RecomputeFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
 	})
 }
 

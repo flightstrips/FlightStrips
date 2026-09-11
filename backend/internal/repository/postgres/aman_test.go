@@ -267,6 +267,32 @@ func TestAMANRepositoryRestoresAuthoritativeHoldingClearance(t *testing.T) {
 	require.Equal(t, state.Flights[0].HoldingClearance, restored.Flights[0].HoldingClearance)
 }
 
+func TestAMANRepositoryRestoresExplicitTerminalIdentitiesAfterRestart(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-IDENTITY", "SAS553")
+	legacy, starFamily, feederFix := "TESPI", "TESPI", "TNO"
+	state.Flights[0].SelectedFeeder = &legacy
+	state.Flights[0].SelectedSTARFamily = &starFamily
+	state.Flights[0].SelectedFeederFix = &feederFix
+
+	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, legacy, *restored.Flights[0].SelectedFeeder)
+	require.Equal(t, starFamily, *restored.Flights[0].SelectedSTARFamily)
+	require.Equal(t, feederFix, *restored.Flights[0].SelectedFeederFix)
+}
+
+func TestDecodeLegacyAMANFlightRestoresSTARFamilyOnly(t *testing.T) {
+	flight, err := decodeAMANFlightPayload([]byte(`{"SelectedFeeder":"TESPI"}`))
+	require.NoError(t, err)
+	require.Equal(t, "TESPI", *flight.SelectedFeeder)
+	require.Equal(t, "TESPI", *flight.SelectedSTARFamily)
+	require.Nil(t, flight.SelectedFeederFix)
+}
+
 func TestAMANRepositoryRestoresRevisionBoundQueueOffers(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

@@ -323,8 +323,8 @@ func loadAMANAirportState(ctx context.Context, queries *database.Queries, airpor
 		state.RunwayGroups[index].Active = false
 	}
 	for _, row := range flights {
-		var flight aman.AMANFlight
-		if err := json.Unmarshal(row.Payload, &flight); err != nil {
+		flight, err := decodeAMANFlightPayload(row.Payload)
+		if err != nil {
 			return aman.AirportState{}, corruptAMANData("decode flight", err)
 		}
 		// Identity and lifecycle columns support database constraints; prefer them
@@ -341,6 +341,22 @@ func loadAMANAirportState(ctx context.Context, queries *database.Queries, airpor
 		return aman.AirportState{}, corruptAMANData("validate stored airport state", err)
 	}
 	return state, nil
+}
+
+// decodeAMANFlightPayload owns compatibility restoration for deployed flight
+// JSON. SelectedFeeder historically meant the STAR family, so legacy rows can
+// restore only SelectedSTARFamily; no persisted value can justify inventing a
+// SelectedFeederFix.
+func decodeAMANFlightPayload(encoded []byte) (aman.AMANFlight, error) {
+	var flight aman.AMANFlight
+	if err := json.Unmarshal(encoded, &flight); err != nil {
+		return aman.AMANFlight{}, err
+	}
+	if flight.SelectedSTARFamily == nil && flight.SelectedFeeder != nil {
+		starFamily := *flight.SelectedFeeder
+		flight.SelectedSTARFamily = &starFamily
+	}
+	return flight, nil
 }
 
 func commandOutcomeFromRow(row database.AmanCommandOutcome) (aman.CommandOutcome, error) {

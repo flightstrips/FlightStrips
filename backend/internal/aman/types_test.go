@@ -1,11 +1,32 @@
 package aman
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
 	"time"
 )
+
+func TestAMANFlightTerminalIdentityJSONReplayIsDeterministic(t *testing.T) {
+	legacy, starFamily, feederFix := "TESPI", "TESPI", "TNO"
+	want := AMANFlight{SelectedFeeder: &legacy, SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix}
+	first, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("marshal first flight: %v", err)
+	}
+	var restored AMANFlight
+	if err := json.Unmarshal(first, &restored); err != nil {
+		t.Fatalf("restore flight: %v", err)
+	}
+	second, err := json.Marshal(restored)
+	if err != nil {
+		t.Fatalf("marshal replayed flight: %v", err)
+	}
+	if string(first) != string(second) {
+		t.Fatalf("replayed JSON changed:\nfirst:  %s\nsecond: %s", first, second)
+	}
+}
 
 func TestFormatTimeUsesRFC3339MillisecondsIncludingExactSeconds(t *testing.T) {
 	instant := time.Date(2026, time.July, 18, 12, 34, 56, 123000000, time.UTC)

@@ -803,16 +803,20 @@ type AMANFlight struct {
 	ID FlightID
 	// VATSIMCID remains bound to the aggregate while CurrentCallsign may be
 	// corrected without rekeying FlightID.
-	VATSIMCID            string
-	CurrentCallsign      string
-	State                FlightState
-	DataStatus           DataStatus
-	Prediction           *Prediction
-	RawTETASamples       []RawTETASample
-	ArrivalBaseline      *BaselineState
-	LatestObservation    *FlightObservation
-	SelectedRunwayGroup  *RunwayGroupID
+	VATSIMCID           string
+	CurrentCallsign     string
+	State               FlightState
+	DataStatus          DataStatus
+	Prediction          *Prediction
+	RawTETASamples      []RawTETASample
+	ArrivalBaseline     *BaselineState
+	LatestObservation   *FlightObservation
+	SelectedRunwayGroup *RunwayGroupID
+	// SelectedFeeder remains the deployed JSON compatibility field. It carries
+	// the STAR-family identity until all persisted-state consumers migrate.
 	SelectedFeeder       *string
+	SelectedSTARFamily   *string
+	SelectedFeederFix    *string
 	SelectedHolding      *string
 	HoldingClearance     *HoldingClearance
 	HoldingStack         *HoldingStackState
@@ -1142,6 +1146,17 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.State != StateRemoved && (!isTrimmedNonEmpty(f.VATSIMCID) || !isTrimmedNonEmpty(f.CurrentCallsign)) {
 		return invalid("active flight requires VATSIM CID and current callsign")
+	}
+	if f.SelectedSTARFamily != nil {
+		if !isTrimmedNonEmpty(*f.SelectedSTARFamily) {
+			return invalid("selected STAR family is invalid")
+		}
+		if f.SelectedFeeder == nil || *f.SelectedFeeder != *f.SelectedSTARFamily {
+			return invalid("selected legacy feeder must match selected STAR family")
+		}
+	}
+	if f.SelectedFeederFix != nil && (f.SelectedSTARFamily == nil || !isTrimmedNonEmpty(*f.SelectedFeederFix)) {
+		return invalid("selected feeder fix requires a valid selected STAR family")
 	}
 	if f.Prediction != nil {
 		if err := f.Prediction.Validate(); err != nil {

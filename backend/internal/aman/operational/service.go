@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"reflect"
 	"slices"
 	"sort"
@@ -35,6 +36,7 @@ const (
 	weatherRefreshEvery        = 30 * time.Minute
 	queueOfferValidity         = 2 * time.Minute
 	euroScopeSurveillanceFresh = 30 * time.Second
+	tmaSurveillanceFresh       = 2 * time.Minute
 	wtcLightRETAPolicyReason   = "wtc_light_reta_policy"
 	wtcLightRETAMissingReason  = "wtc_light_reta_unavailable"
 )
@@ -81,6 +83,7 @@ type Dependencies struct {
 	Runways         ActiveArrivalRunwaySource
 	AircraftEngines AircraftEngineReference
 	Terminal        terminal.Configuration
+	TMAVolumePath   string
 	Airports        []string
 	Mode            aman.RolloutMode
 	Publisher       sequence.FullStatePublisher
@@ -90,6 +93,8 @@ type Dependencies struct {
 type Service struct {
 	deps             Dependencies
 	goAroundDetector lifecycle.GoAroundDetector
+	tmaVolume        *terminal.TMAVolume
+	tmaGeometryErr   error
 
 	mu                 sync.Mutex
 	observed           map[string]map[aman.FlightID]aman.FlightObservation
@@ -118,12 +123,24 @@ func New(deps Dependencies) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("configure AMAN go-around detector: %w", err)
 	}
+	var tmaVolume *terminal.TMAVolume
+	var tmaGeometryErr error
+	if deps.TMAVolumePath != "" {
+		volume, loadErr := terminal.LoadTMAVolume(deps.TMAVolumePath)
+		if loadErr != nil {
+			tmaGeometryErr = loadErr
+			slog.Error("AMAN TMA geometry unavailable", "path", deps.TMAVolumePath, "error", loadErr)
+		} else {
+			tmaVolume = &volume
+		}
+	}
 	now := deps.Now().UTC()
 	pending := func(reason string) aman.ComponentHealth {
 		return componentHealth(aman.HealthUnavailable, reason, now)
 	}
 	return &Service{
-		deps: deps, goAroundDetector: detector, observed: map[string]map[aman.FlightID]aman.FlightObservation{}, lastWeatherRefresh: map[string]time.Time{},
+		deps: deps, goAroundDetector: detector, tmaVolume: tmaVolume, tmaGeometryErr: tmaGeometryErr,
+		observed: map[string]map[aman.FlightID]aman.FlightObservation{}, lastWeatherRefresh: map[string]time.Time{},
 		health: serviceHealth{
 			vatsim: pending("source_not_observed"), navigation: pending("navigation_not_refreshed"),
 			weather: pending("weather_not_observed"), repository: pending("repository_not_checked"),
@@ -293,6 +310,12 @@ func observedWeatherProfile(profile predictor.WindProfile, request predictor.Win
 
 func (s *Service) observeNavigationCache(ctx context.Context, airport string) {
 	updatedAt := s.deps.Now().UTC()
+	if s.tmaGeometryErr != nil {
+		s.mu.Lock()
+		s.health.navigation = componentHealth(aman.HealthUnavailable, "terminal_geometry_invalid", updatedAt)
+		s.mu.Unlock()
+		return
+	}
 	_, err := s.deps.Geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(airport))
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -376,6 +399,13 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		next.Flights[index] = updated
 		if flight.FreezeReason != aman.FreezeSuperstable && updated.FreezeReason == aman.FreezeSuperstable {
 			record, auditErr := superstableAuditRecord(airport, updated, now)
+			if auditErr != nil {
+				return auditErr
+			}
+			auditRecords = append(auditRecords, record)
+		}
+		if flight.FreezeReason != aman.FreezeTMA && updated.FreezeReason == aman.FreezeTMA {
+			record, auditErr := tmaFreezeAuditRecord(airport, updated, now)
 			if auditErr != nil {
 				return auditErr
 			}
@@ -590,6 +620,10 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		}
 		return flight, nil
 	}
+	if degraded := s.observeTMAEntry(&flight, observation, now); degraded != "" {
+		markPredictionDegraded(&flight, degraded)
+		return flight, nil
+	}
 	group, ok := s.selectedGroup(flight, state.RunwayGroups)
 	if !ok {
 		return flight, fmt.Errorf("terminal has no configured runway group")
@@ -738,7 +772,6 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		Raw:                          raw,
 		State:                        nextState,
 		Slot:                         flight.Slot,
-		FreezeForTMA:                 projection.InTMA,
 		ReplacePreliminaryPrediction: isPreliminaryPrediction(flight.Prediction),
 	})
 	if err != nil {
@@ -748,6 +781,57 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	updateLifecycle(&updated, previousState, nextState, now)
 	applySuperstable(lifecycle.DefaultConfig(), &updated, previousFreeze, now)
 	return updated, nil
+}
+
+// observeTMAEntry accepts only a fresh surveillance fact into the persisted
+// containment cursor. Route progress is deliberately irrelevant: the
+// operator-approved volume is the sole entry authority.
+func (s *Service) observeTMAEntry(flight *aman.AMANFlight, observation aman.FlightObservation, now time.Time) string {
+	if s.tmaVolume == nil || observation.Surveillance == nil || observation.Surveillance.AltitudeFeet == nil {
+		return ""
+	}
+	fact := observation.Surveillance
+	if observation.SourceStatus != aman.DataFresh || fact.ObservedAt == nil || fact.ObservedAt.After(now) || now.Sub(*fact.ObservedAt) > tmaSurveillanceFresh {
+		return "tma_entry_surveillance_stale"
+	}
+	if math.IsNaN(fact.LatitudeDegrees) || math.IsInf(fact.LatitudeDegrees, 0) ||
+		math.IsNaN(fact.LongitudeDegrees) || math.IsInf(fact.LongitudeDegrees, 0) ||
+		fact.LatitudeDegrees < -90 || fact.LatitudeDegrees > 90 || fact.LongitudeDegrees < -180 || fact.LongitudeDegrees > 180 ||
+		*fact.AltitudeFeet < 0 {
+		return "tma_entry_surveillance_invalid"
+	}
+	contained := s.tmaVolume.Contains(fact.LatitudeDegrees, fact.LongitudeDegrees, float64(*fact.AltitudeFeet))
+	next, entered, err := aman.ObserveTMAContainment(flight.TMAEntry, contained, fact.ObservedAt.UTC())
+	if err != nil {
+		return "tma_entry_surveillance_invalid"
+	}
+	if entered && flight.FreezeReason == aman.FreezeNone && !captureTMAFreeze(flight, fact.ObservedAt.UTC()) {
+		return "tma_entry_capture_unavailable"
+	}
+	flight.TMAEntry = &next
+	return ""
+}
+
+func captureTMAFreeze(flight *aman.AMANFlight, capturedAt time.Time) bool {
+	if flight.FreezeReason != aman.FreezeNone || flight.Prediction == nil || flight.Slot == nil {
+		return false
+	}
+	frozenTETA, frozenSlot := flight.Prediction.OperationalTETA, *flight.Slot
+	flight.FreezeReason, flight.FrozenAt = aman.FreezeTMA, &capturedAt
+	flight.FrozenOperationalTETA, flight.FrozenSlot = &frozenTETA, &frozenSlot
+	prediction := *flight.Prediction
+	prediction.OperationalReason = aman.OperationalReasonTMAFreeze
+	flight.Prediction = &prediction
+	return true
+}
+
+func markPredictionDegraded(flight *aman.AMANFlight, reason string) {
+	if flight.Prediction == nil {
+		return
+	}
+	prediction := *flight.Prediction
+	prediction.Publishable, prediction.DegradationReason = false, &reason
+	flight.Prediction = &prediction
 }
 
 // applySuperstable runs after feeder-based lifecycle evaluation and prediction
@@ -780,6 +864,17 @@ func superstableAuditRecord(airport string, flight aman.AMANFlight, recordedAt t
 		return aman.AuditRecord{}, fmt.Errorf("marshal Superstable audit result: %w", err)
 	}
 	return aman.AuditRecord{Airport: airport, Category: "aman.superstable_applied", Payload: payload, RecordedAt: recordedAt}, nil
+}
+
+func tmaFreezeAuditRecord(airport string, flight aman.AMANFlight, recordedAt time.Time) (aman.AuditRecord, error) {
+	payload, err := json.Marshal(map[string]any{
+		"flight_id": flight.ID, "freeze_reason": flight.FreezeReason, "tma_entry": flight.TMAEntry,
+		"frozen_at": flight.FrozenAt, "frozen_operational_teta": flight.FrozenOperationalTETA, "frozen_slot": flight.FrozenSlot,
+	})
+	if err != nil {
+		return aman.AuditRecord{}, fmt.Errorf("marshal TMA freeze audit result: %w", err)
+	}
+	return aman.AuditRecord{Airport: airport, Category: "aman.tma_freeze_applied", Payload: payload, RecordedAt: recordedAt}, nil
 }
 
 func (s *Service) feeder(route string, runwayGroup aman.RunwayGroupID) (navdata.FeederID, bool) {
@@ -1586,6 +1681,7 @@ func clearGroundedOperationalState(flight *aman.AMANFlight) {
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
+	flight.TMAEntry = nil
 }
 
 func expireActiveRouteFact(flight *aman.AMANFlight) {

@@ -135,7 +135,8 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		}
 		flight := state.Flights[flightIndex]
 		if fix != nil {
-			if flight.ActiveRouteKey == nil || flight.SelectedFeeder == nil || flight.SelectedRunwayGroup == nil {
+			feederFix, legacySTARFamily := flight.TerminalPathIdentity()
+			if flight.ActiveRouteKey == nil || (feederFix == "" && legacySTARFamily == "") || flight.SelectedRunwayGroup == nil {
 				return domain(aman.ErrorDegradedOrIncompleteGeometry, "flight has no active route geometry for direct-to validation")
 			}
 			route, routeErr := s.deps.Geometry.Route(ctx, navdata.RouteKey(*flight.ActiveRouteKey))
@@ -147,7 +148,7 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 				flightPlanRevision = flight.RouteProgress.FlightPlanRevision
 			}
 			if !trajectory.DirectToTargetOnForwardPath(snapshot, route, trajectory.Input{
-				Feeder: navdata.FeederID(*flight.SelectedFeeder), RunwayGroup: *flight.SelectedRunwayGroup,
+				FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: *flight.SelectedRunwayGroup,
 				FlightPlanRevision: flightPlanRevision, Prior: flight.RouteProgress,
 			}, navdata.FixID(*fix)) {
 				return domain(aman.ErrorDegradedOrIncompleteGeometry, "direct-to fix is not on the flight's forward route")

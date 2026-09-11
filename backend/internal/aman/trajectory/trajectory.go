@@ -73,8 +73,11 @@ func (c Config) normalized() Config {
 // Input selects already-materialized geometry. Approach and missed approach
 // are explicit: projection never guesses them from a runway or route string.
 type Input struct {
-	Airport            navdata.AirportID
-	RouteKey           navdata.RouteKey
+	Airport  navdata.AirportID
+	RouteKey navdata.RouteKey
+	// FeederFix selects the terminal path by its operational downstream fix.
+	// Feeder remains only as a family-based fallback for persisted legacy rows.
+	FeederFix          navdata.FixID
 	Feeder             navdata.FeederID
 	RunwayGroup        aman.RunwayGroupID
 	Approach           *navdata.ProcedureID
@@ -175,7 +178,7 @@ func Project(ctx context.Context, readers Readers, input Input, config Config) (
 // ReadFiledRoute loads the full filed-route geometry for an on-demand display.
 // It reads only the active cache and never materializes or acquires navigation
 // data on the request path.
-func ReadFiledRoute(ctx context.Context, readers Readers, airport navdata.AirportID, routeKey navdata.RouteKey, feeder navdata.FeederID, runwayGroup aman.RunwayGroupID) (FiledRouteResult, error) {
+func ReadFiledRoute(ctx context.Context, readers Readers, airport navdata.AirportID, routeKey navdata.RouteKey, feederFix navdata.FixID, legacyFeeder navdata.FeederID, runwayGroup aman.RunwayGroupID) (FiledRouteResult, error) {
 	if readers.Geometry == nil || readers.Snapshot == nil {
 		return FiledRouteResult{}, fmt.Errorf("filed route requires cache-only geometry and snapshot readers")
 	}
@@ -194,7 +197,7 @@ func ReadFiledRoute(ctx context.Context, readers Readers, airport navdata.Airpor
 	for _, fix := range snapshot.Fixes {
 		fixes[fix.ID] = fix
 	}
-	legs, reasons, _, _, _ := compose(snapshot, route, Input{Feeder: feeder, RunwayGroup: runwayGroup}, fixes, false)
+	legs, reasons, _, _, _ := compose(snapshot, route, Input{FeederFix: feederFix, Feeder: legacyFeeder, RunwayGroup: runwayGroup}, fixes, false)
 	result := FiledRouteResult{Legs: make([]RemainingLeg, len(legs)), Reasons: displayReasons(reasons)}
 	for i, leg := range legs {
 		_, bearing := wgs84Inverse(leg.a, leg.b)
@@ -366,16 +369,11 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 	var all []navdata.ProcedureLeg
 	all = append(all, route.Legs...)
 	terminalSourceStart, terminalSourceEnd := -1, -1
-	var terminal *navdata.TerminalPath
-	for i := range snapshot.TerminalPaths {
-		p := &snapshot.TerminalPaths[i]
-		if p.Feeder == input.Feeder && p.RunwayGroup == input.RunwayGroup {
-			terminal = p
-			terminalSourceStart = len(all)
-			all = append(all, terminalContinuation(route.Legs, p.Legs)...)
-			terminalSourceEnd = len(all)
-			break
-		}
+	terminal := selectedTerminalPath(snapshot.TerminalPaths, input)
+	if terminal != nil {
+		terminalSourceStart = len(all)
+		all = append(all, terminalContinuation(route.Legs, terminal.Legs)...)
+		terminalSourceEnd = len(all)
 	}
 	reasons := slices.Clone(route.Unresolved)
 	if terminal == nil {
@@ -505,6 +503,26 @@ func compose(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometr
 		return out, dedupe(reasons), selected, rejoin, terminalStart
 	}
 	return out, dedupe(reasons), selected, -1, terminalStart
+}
+
+// selectedTerminalPath gives the explicit feeder fix strict precedence. A
+// missing explicit match is unresolved rather than being masked by the legacy
+// family alias; family lookup is permitted only when no explicit fix exists.
+func selectedTerminalPath(paths []navdata.TerminalPath, input Input) *navdata.TerminalPath {
+	if input.FeederFix != "" {
+		for i := range paths {
+			if paths[i].FeederFix == input.FeederFix && paths[i].RunwayGroup == input.RunwayGroup {
+				return &paths[i]
+			}
+		}
+		return nil
+	}
+	for i := range paths {
+		if paths[i].Feeder == input.Feeder && paths[i].RunwayGroup == input.RunwayGroup {
+			return &paths[i]
+		}
+	}
+	return nil
 }
 
 func terminalContinuation(route, terminal []navdata.ProcedureLeg) []navdata.ProcedureLeg {

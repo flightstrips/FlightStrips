@@ -633,8 +633,10 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		flight.ActiveRouteKey = &activeKey
 		flight.ActiveRouteDatasetID = &datasetID
 	}
+	feederFix, legacySTARFamily := flight.TerminalPathIdentity()
 	projection, err := trajectory.Project(ctx, trajectory.Readers{Geometry: s.deps.Geometry, Snapshot: s.deps.Geometry}, trajectory.Input{
-		Airport: navdata.AirportID(observation.Destination), RouteKey: key, Feeder: feeder, RunwayGroup: group,
+		Airport: navdata.AirportID(observation.Destination), RouteKey: key,
+		FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: group,
 		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: flight.RouteProgress,
 	}, trajectory.Config{ReferenceTime: now, MaxObservationAge: 2 * time.Minute})
 	if err != nil {
@@ -941,7 +943,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		}
 		input.Flights = append(input.Flights, sequence.Flight{
 			ID: flight.ID, RunwayGroupID: *flight.SelectedRunwayGroup, State: flight.State, OperationalTETA: flight.Prediction.OperationalTETA,
-			WakeCategory: sequence.WakeCategory(wakeCategory), STARFamily: stringValue(flight.SelectedFeeder),
+			WakeCategory: sequence.WakeCategory(wakeCategory), STARFamily: flight.STARFamilyIdentity(),
 			ManualOrder:  flight.ManualOrder,
 			FreezeReason: flight.FreezeReason, FrozenAt: flight.FrozenAt, FrozenOperationalTETA: flight.FrozenOperationalTETA,
 			CapturedSlot: flight.FrozenSlot, CurrentSlot: flight.Slot,

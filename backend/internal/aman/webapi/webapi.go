@@ -286,10 +286,11 @@ func mapHoldingPlan(plan aman.HoldingPlan) (holdingPlan, error) {
 }
 
 func (a *WebAPI) mapFiledRouteGeometry(ctx context.Context, state aman.AirportState, flight aman.AMANFlight) *filedRouteGeometry {
-	if a.geometry == nil || a.snapshots == nil || flight.ActiveRouteKey == nil || flight.SelectedFeeder == nil || flight.SelectedRunwayGroup == nil {
+	feederFix, legacySTARFamily := flight.TerminalPathIdentity()
+	if a.geometry == nil || a.snapshots == nil || flight.ActiveRouteKey == nil || (feederFix == "" && legacySTARFamily == "") || flight.SelectedRunwayGroup == nil {
 		return nil
 	}
-	result, err := trajectory.ReadFiledRoute(ctx, trajectory.Readers{Geometry: a.geometry, Snapshot: a.snapshots}, navdata.AirportID(state.Airport), navdata.RouteKey(*flight.ActiveRouteKey), navdata.FeederID(*flight.SelectedFeeder), *flight.SelectedRunwayGroup)
+	result, err := trajectory.ReadFiledRoute(ctx, trajectory.Readers{Geometry: a.geometry, Snapshot: a.snapshots}, navdata.AirportID(state.Airport), navdata.RouteKey(*flight.ActiveRouteKey), navdata.FixID(feederFix), navdata.FeederID(legacySTARFamily), *flight.SelectedRunwayGroup)
 	if err != nil || len(result.Legs) == 0 {
 		return nil
 	}

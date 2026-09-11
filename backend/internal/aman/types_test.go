@@ -28,6 +28,27 @@ func TestAMANFlightTerminalIdentityJSONReplayIsDeterministic(t *testing.T) {
 	}
 }
 
+func TestAMANFlightIdentityConsumersPreferExplicitValuesWithLegacyFallback(t *testing.T) {
+	legacy, family, fix := "TESPI", "TUDLO", "KOR"
+	flight := AMANFlight{SelectedFeeder: &legacy, SelectedSTARFamily: &family, SelectedFeederFix: &fix}
+	if actual := flight.STARFamilyIdentity(); actual != family {
+		t.Fatalf("STAR family = %q, want %q", actual, family)
+	}
+	feederFix, legacyFamily := flight.TerminalPathIdentity()
+	if feederFix != fix || legacyFamily != "" {
+		t.Fatalf("terminal identity = (%q, %q), want (%q, empty)", feederFix, legacyFamily, fix)
+	}
+
+	flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil
+	if actual := flight.STARFamilyIdentity(); actual != legacy {
+		t.Fatalf("legacy STAR family = %q, want %q", actual, legacy)
+	}
+	feederFix, legacyFamily = flight.TerminalPathIdentity()
+	if feederFix != "" || legacyFamily != legacy {
+		t.Fatalf("legacy terminal identity = (%q, %q), want (empty, %q)", feederFix, legacyFamily, legacy)
+	}
+}
+
 func TestFormatTimeUsesRFC3339MillisecondsIncludingExactSeconds(t *testing.T) {
 	instant := time.Date(2026, time.July, 18, 12, 34, 56, 123000000, time.UTC)
 	encoded, err := FormatTime(instant)

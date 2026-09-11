@@ -9,6 +9,33 @@ export interface AMANFlightLane {
   flights: AMANFlight[];
 }
 
+export function buildRWYTimelineLanes(state: AMANState): {lanes: AMANFlightLane[]; unavailable: boolean; truncated: boolean} {
+  const configured = new Set(state.runway_groups.map((group) => group.id));
+  const published = state.active_runway_groups;
+  const activeIDs = published === undefined
+    ? state.runway_groups.filter((group) => group.selected === true).map((group) => group.id)
+    : published;
+  const valid = Array.isArray(activeIDs) && activeIDs.length > 0
+    && new Set(activeIDs).size === activeIDs.length
+    && activeIDs.every((id) => typeof id === "string" && configured.has(id));
+  if (!valid) return {lanes: [], unavailable: true, truncated: false};
+
+  const lanes = state.runway_groups
+    .filter((group) => activeIDs.includes(group.id))
+    .map((group, configuredIndex) => ({
+      id: group.id,
+      label: group.id,
+      configuredIndex,
+      flights: orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === group.id)),
+    }))
+    .sort((left, right) => right.flights.length - left.flights.length || left.configuredIndex - right.configuredIndex);
+  return {
+    lanes: lanes.slice(0, 4).map(({id, label, flights}) => ({id, label, flights})),
+    unavailable: false,
+    truncated: lanes.length > 4,
+  };
+}
+
 export interface AMANTimelineRange {
   startMs: number;
   endMs: number;

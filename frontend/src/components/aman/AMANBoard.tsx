@@ -12,6 +12,7 @@ import {AMANAircraftTarget, type AMANAircraftTargetField} from "./AMANAircraftTa
 import {AMANAircraftTargetPreferenceControls} from "./AMANAircraftTargetPreferences";
 import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from "./amanAircraftTargetPreferenceModel";
 import {FMPPairedTimeline} from "./FMPPairedTimeline";
+import {RWYPairedTimeline} from "./RWYPairedTimeline";
 import {AMANAxisTopPercent, AMANTimelineAxis, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
 import {
   buildAMANHoldingLanes,
@@ -240,9 +241,6 @@ export function AMANBoardView({
     () => Math.max(720, Math.ceil((range.endMs - range.startMs) / 60_000) * TIMELINE_PIXELS_PER_MINUTE),
     [range],
   );
-  const visibleTimelineLanes = useMemo(() => view === "runway"
-    ? [{id: "runway", label: activeRunwayLane?.label ?? "Runway", flights: timelineFlights}]
-    : holdingLanes, [activeRunwayLane?.label, holdingLanes, timelineFlights, view]);
   const nowPosition = AMANAxisTopPercent(axis.clockMs, range);
   const axisStatus = connectionState === "disconnected" ? "disconnected" : presentationStatus === "degraded" ? "stale" : "fresh";
   const gainLossAuthoritative = state?.authoritative === true && state.effective_mode === "authoritative";
@@ -269,6 +267,12 @@ export function AMANBoardView({
       selected={flight.flight_id === selectedFlightID}
       trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
     />
+  );
+  const renderRWYTarget = (flight: AMANFlight) => (
+    <div className="flex min-h-7 items-stretch">
+      {renderFMPTarget(flight)}
+      {flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]">{flight.star_family}</span>}
+    </div>
   );
   const syncTimelineScroll = () => {
     const timeline = timelineScrollRef.current;
@@ -334,8 +338,8 @@ export function AMANBoardView({
         </div>
         <div className="mt-1 flex h-9 items-center gap-1 rounded-sm bg-[#888] px-1">
           <span className="rounded border border-black bg-[#86a4af] px-3 py-1 text-xs font-bold">MAESTRO</span>
-          <button className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "holds" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("holds")} type="button">ALL</button>
-          <button className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "runway" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("runway")} type="button">RWY</button>
+          <button aria-controls="aman-timeline-grid" aria-pressed={view === "holds"} className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "holds" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("holds")} type="button">ALL</button>
+          <button aria-controls="aman-timeline-grid" aria-pressed={view === "runway"} className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "runway" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("runway")} type="button">RWY</button>
           <span className="rounded border border-black bg-[#d6d6d6] px-3 py-1 text-xs font-bold text-black">DSEQ - 0</span>
           <span className="ml-2 border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>
           <span className={cn("ml-auto", badgeBase, modeTone(state.effective_mode))}>{state.effective_mode.replace("_", " ")}</span>
@@ -347,7 +351,16 @@ export function AMANBoardView({
       <div className="relative min-h-0 flex-1">
         <div className="h-full overflow-auto pl-9 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
           <div className={cn("relative flex", view === "runway" ? "min-w-full" : "min-w-max")} data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
-            {view === "holds" && state.timeline_configuration !== undefined ? (
+            {view === "runway" ? (
+              <RWYPairedTimeline
+                clockMs={axis.clockMs}
+                currentPosition={nowPosition}
+                range={range}
+                renderTarget={renderRWYTarget}
+                state={state}
+                status={axisStatus}
+              />
+            ) : state.timeline_configuration !== undefined ? (
               <FMPPairedTimeline
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
@@ -357,7 +370,7 @@ export function AMANBoardView({
                 renderTarget={renderFMPTarget}
                 status={axisStatus}
               />
-            ) : visibleTimelineLanes.map((lane, index) => (
+            ) : holdingLanes.map((lane, index) => (
               <HoldingTimeline
                 flights={lane.flights}
                 key={lane.id}
@@ -367,8 +380,8 @@ export function AMANBoardView({
                 range={range}
                 selectedFlightID={selectedFlightID}
                 stripSide={index % 2 === 0 ? "left" : "right"}
-                fillAvailableSpace={view === "runway"}
-                showStar={view === "runway"}
+                fillAvailableSpace={false}
+                showStar={false}
                 currentPosition={nowPosition}
                 clockMs={axis.clockMs}
                 axisStatus={axisStatus}

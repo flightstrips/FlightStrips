@@ -238,6 +238,29 @@ func TestQueueOfferProjectionPersistsWithOneAirportRevision(t *testing.T) {
 	require.Equal(t, aman.ErrorRevisionConflict, domainError.Class)
 }
 
+func TestQueueOfferProjectionIgnoresDesequencedPersistedSlot(t *testing.T) {
+	start := testTime()
+	input := sequence.Input{Revision: 7, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{
+		queueFlight("ACTIVE", "A", start, "M", 1, start),
+	}}
+	bindQueueRevision(&input)
+	state := queueState(input, start.Add(-time.Minute))
+	desequenced := state.Flights[0]
+	desequenced.ID = "DSEQ"
+	desequenced.VATSIMCID = "CID-DSEQ"
+	desequenced.CurrentCallsign = "DSEQ"
+	desequenced.SequenceDisposition = aman.SequenceDispositionDesequenced
+	desequenced.QueueOffers = []aman.QueueOffer{{FlightID: desequenced.ID}}
+	state.Flights = append([]aman.AMANFlight{desequenced}, state.Flights...)
+
+	projected, err := sequence.ProjectQueueOffers(state, input, sequence.QueueOfferConfig{Validity: time.Minute}, start.Add(-time.Minute))
+
+	require.NoError(t, err)
+	require.Len(t, projected.Flights, 2)
+	require.Equal(t, desequenced.Slot, projected.Flights[0].Slot, "projection must preserve DSEQ operational state")
+	require.Empty(t, projected.Flights[0].QueueOffers, "stale DSEQ offers must not re-enter allocation")
+}
+
 func TestCoordinatorRecomputesQueueOffersInChangedSlotRevision(t *testing.T) {
 	start := testTime()
 	input := sequence.Input{Revision: 12, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{

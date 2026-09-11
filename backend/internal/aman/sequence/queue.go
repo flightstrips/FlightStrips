@@ -370,7 +370,7 @@ func ProjectQueueOffers(state aman.AirportState, input Input, config QueueOfferC
 	}
 	for _, flight := range projected.Flights {
 		inputFlight, exists := inputFlights[flight.ID]
-		if flight.Slot != nil && (!exists || !slotsEqual(flight.Slot, inputFlight.CurrentSlot)) {
+		if flight.SequenceDisposition.Participates() && flight.Slot != nil && (!exists || !slotsEqual(flight.Slot, inputFlight.CurrentSlot)) {
 			return aman.AirportState{}, fmt.Errorf("airport slot flight %q is missing from queue offer input", flight.ID)
 		}
 	}

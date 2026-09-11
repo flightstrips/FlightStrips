@@ -357,4 +357,47 @@ describe("AMAN FMP controls", () => {
 
     expect(screen.queryByRole("button", {name: "Confirm go-around"})).not.toBeInTheDocument();
   });
+
+  it("requires an explicit GAP mode and sends both input forms without normalizing duration", () => {
+    const {onCommand} = renderControls();
+    fireEvent.click(screen.getByRole("button", {name: "Manage GAPs…"}));
+    expect(screen.getByLabelText("GAP runway group")).toHaveFocus();
+    expect(screen.getByLabelText("GAP input mode")).toHaveValue("");
+    expect(screen.getByRole("button", {name: "Create GAP"})).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("GAP input mode"), {target: {value: "absolute"}});
+    fireEvent.change(screen.getByLabelText("GAP start UTC"), {target: {value: "2026-07-22T12:00"}});
+    fireEvent.change(screen.getByLabelText("GAP end UTC exclusive"), {target: {value: "2026-07-22T12:06"}});
+    fireEvent.change(screen.getByLabelText("GAP operational reason"), {target: {value: "approach stop"}});
+    fireEvent.click(screen.getByRole("button", {name: "Create GAP"}));
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_gap", runway_group_id: "ARRIVAL-22", start: "2026-07-22T12:00:00.000Z", end: "2026-07-22T12:06:00.000Z", label: "approach stop"});
+
+    fireEvent.change(screen.getByLabelText("GAP input mode"), {target: {value: "slots"}});
+    fireEvent.change(screen.getByLabelText("GAP slot count"), {target: {value: "2"}});
+    fireEvent.click(screen.getByRole("button", {name: "Create GAP"}));
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_gap", runway_group_id: "ARRIVAL-22", start: "2026-07-22T12:00:00.000Z", slot_count: 2, label: "approach stop"});
+  });
+
+  it("shows the server-confirmed merged union, removal, pending, and atomic rejection", () => {
+    const current = state();
+    current.runway_groups[0].gaps = [{id: "gap-merged", start: "2026-07-22T12:00:00.000Z", end: "2026-07-22T12:09:00.000Z", label: "merged stop", created_at: "2026-07-22T11:59:00.000Z", created_by: "fmp-1"}];
+    const {onCommand} = renderControls({state: current, pendingCommands: {gap: {command_id: "gap", type: "aman.create_gap", expected_revision: 7, runway_group_id: "ARRIVAL-22"}}, commandRejections: {gap: {command_id: "rejected", command_type: "aman.create_gap", code: "revision_conflict", message: "protected flights cannot be displaced atomically", current_revision: 9, retryable: true}}});
+    expect(screen.getByText(/Server-confirmed union:/).parentElement).toHaveTextContent("12:00–12:09 UTC [start,end)");
+    expect(screen.getAllByRole("status").some((item) => item.textContent?.includes("server-confirmed revision"))).toBe(true);
+    expect(screen.getByRole("button", {name: /Remove GAP merged stop/})).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", {name: "Manage GAPs…"}));
+    expect(screen.getAllByRole("alert").some((item) => item.textContent?.includes("revision_conflict; server revision 9") && item.textContent.includes("No displacement was applied"))).toBe(true);
+
+    cleanup();
+    const ready = renderControls({state: current});
+    fireEvent.click(screen.getByRole("button", {name: /Remove GAP merged stop/}));
+    expect(ready.onCommand).toHaveBeenCalledWith({type: "aman.remove_gap", runway_group_id: "ARRIVAL-22", gap_id: "gap-merged"});
+    expect(onCommand).not.toHaveBeenCalled();
+  });
+
+  it("keeps GAP controls compatible with an older V1 state", () => {
+    const legacy = state();
+    delete legacy.runway_groups[0].gaps;
+    renderControls({state: legacy});
+    expect(screen.getByText("GAP state unavailable from this older server.")).toBeInTheDocument();
+  });
 });

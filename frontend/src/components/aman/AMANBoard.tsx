@@ -16,6 +16,7 @@ import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from 
 import {ACCTimeline} from "./ACCTimeline";
 import {FMPPairedTimeline} from "./FMPPairedTimeline";
 import {RWYPairedTimeline} from "./RWYPairedTimeline";
+import {RunwayGapOverlay} from "./RunwayGapOverlay";
 import {AMANAxisTopPercent, AMANTimelineAxis, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
 import {
   buildAMANHoldingLanes,
@@ -409,6 +410,7 @@ export function AMANBoardView({
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
                 flights={state.flights}
+                runwayGroups={state.runway_groups}
                 range={range}
                 renderTarget={renderACCTarget}
                 status={axisStatus}
@@ -418,12 +420,14 @@ export function AMANBoardView({
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
                 flights={state.flights}
+                gaps={activeRunwayLane?.gaps ?? []}
                 mappings={state.timeline_configuration.mappings}
                 range={range}
                 renderTarget={renderFMPTarget}
+                runway={activeRunwayLane?.id ?? "runway"}
                 status={axisStatus}
               />
-            ) : holdingLanes.map((lane, index) => (
+            ) : <><RunwayGapOverlay gaps={activeRunwayLane?.gaps ?? []} range={range} runway={activeRunwayLane?.id ?? "runway"} />{holdingLanes.map((lane, index) => (
               <HoldingTimeline
                 flights={lane.flights}
                 key={lane.id}
@@ -443,7 +447,7 @@ export function AMANBoardView({
                 leadingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
                 trailingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
               />
-            ))}
+            ))}</>}
           </div>
         </div>
         <TimelineScrollRail

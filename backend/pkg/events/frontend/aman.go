@@ -229,6 +229,14 @@ type AMANFlight struct {
 	ETAReview                 *AMANETAReview            `json:"eta_review"`
 	QueueOffers               []AMANQueueOffer          `json:"queue_offers"`
 	GoAroundConfirmation      *AMANGoAroundConfirmation `json:"go_around_confirmation"`
+	RunwayGapException        *AMANRunwayGapException   `json:"runway_gap_exception,omitempty"`
+}
+
+type AMANRunwayGapException struct {
+	GapID         string `json:"gap_id"`
+	RunwayGroupID string `json:"runway_group_id"`
+	Opportunity   string `json:"opportunity"`
+	CommandID     string `json:"command_id"`
 }
 
 type AMANGoAroundConfirmation struct {
@@ -296,6 +304,16 @@ type AMANRunwayGroup struct {
 	ActiveRatePerHour *uint32                          `json:"active_rate_per_hour,omitempty"`
 	RateEffectiveAt   *string                          `json:"rate_effective_at,omitempty"`
 	SequenceWarnings  []AMANRunwayGroupSequenceWarning `json:"sequence_warnings,omitempty"`
+	Gaps              []AMANRunwayGap                  `json:"gaps"`
+}
+
+type AMANRunwayGap struct {
+	ID        string `json:"id"`
+	Start     string `json:"start"`
+	End       string `json:"end"`
+	Label     string `json:"label"`
+	CreatedAt string `json:"created_at"`
+	CreatedBy string `json:"created_by"`
 }
 
 type AMANRunwayGroupSequenceWarning struct {
@@ -397,7 +415,16 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 	for i, group := range state.RunwayGroups {
 		mapped := AMANRunwayGroup{
 			ID: string(group.ID), Selected: group.Selected, SelectionSchedule: make([]string, len(group.SelectionSchedule)),
-			SelectionConflict: group.SelectionConflict, SequenceWarnings: make([]AMANRunwayGroupSequenceWarning, len(group.SequenceWarnings)),
+			SelectionConflict: group.SelectionConflict, SequenceWarnings: make([]AMANRunwayGroupSequenceWarning, len(group.SequenceWarnings)), Gaps: make([]AMANRunwayGap, 0, len(group.Gaps)),
+		}
+		for _, gap := range group.Gaps {
+			start, startErr := aman.FormatTime(gap.Start)
+			end, endErr := aman.FormatTime(gap.End)
+			createdAt, createdErr := aman.FormatTime(gap.CreatedAt)
+			if err := errors.Join(startErr, endErr, createdErr); err != nil {
+				return AMANStateEvent{}, fmt.Errorf("map AMAN runway gap %q: %w", gap.ID, err)
+			}
+			mapped.Gaps = append(mapped.Gaps, AMANRunwayGap{ID: string(gap.ID), Start: start, End: end, Label: gap.Label, CreatedAt: createdAt, CreatedBy: gap.CreatedBy})
 		}
 		for warningIndex, warning := range group.SequenceWarnings {
 			mapped.SequenceWarnings[warningIndex] = AMANRunwayGroupSequenceWarning{
@@ -573,6 +600,13 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder),
 		STARFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		FreezeReason: freezeReason, Order: cloneInt(flight.Order), QueueOffers: make([]AMANQueueOffer, len(flight.QueueOffers)),
+	}
+	if exception := flight.RunwayGapException; exception != nil {
+		opportunity, formatErr := aman.FormatTime(exception.Opportunity)
+		if formatErr != nil {
+			return AMANFlight{}, formatErr
+		}
+		result.RunwayGapException = &AMANRunwayGapException{GapID: string(exception.GapID), RunwayGroupID: string(exception.RunwayGroupID), Opportunity: opportunity, CommandID: exception.CommandID}
 	}
 	if result.FrozenAt, err = formatOptionalTime(flight.FrozenAt); err != nil {
 		return AMANFlight{}, err

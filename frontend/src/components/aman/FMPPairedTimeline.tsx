@@ -1,9 +1,10 @@
 import type {ReactNode} from "react";
 
-import type {AMANDataStatus, AMANFlight, AMANTimelineMapping} from "@/api/aman";
+import type {AMANDataStatus, AMANFlight, AMANRunwayGap, AMANTimelineMapping} from "@/api/aman";
 import {cn} from "@/lib/utils";
 import {AMANAxisTopPercent, AMANTimelineAxis} from "./AMANTimelineAxis";
 import {layoutTimelineMarkers, type AMANTimelineRange} from "./presentation";
+import {RunwayGapOverlay} from "./RunwayGapOverlay";
 
 const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
@@ -69,6 +70,8 @@ export function FMPPairedTimeline({
   currentPosition,
   status,
   renderTarget,
+  gaps = [],
+  runway = "runway",
 }: {
   mappings: AMANTimelineMapping[];
   flights: AMANFlight[];
@@ -77,6 +80,8 @@ export function FMPPairedTimeline({
   currentPosition: number | null;
   status: AMANDataStatus;
   renderTarget: (flight: AMANFlight) => ReactNode;
+  gaps?: AMANRunwayGap[];
+  runway?: string;
 }) {
   return (
     <>
@@ -90,6 +95,7 @@ export function FMPPairedTimeline({
           <div className="absolute inset-x-0 bottom-0 top-5">
             {currentPosition !== null && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
             <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
+            <RunwayGapOverlay gaps={gaps} range={range} runway={runway} />
             <FeederSide family={mapping.left} flights={flights} range={range} renderTarget={renderTarget} side="left" />
             <FeederSide family={mapping.right} flights={flights} range={range} renderTarget={renderTarget} side="right" />
           </div>

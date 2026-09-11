@@ -1,4 +1,4 @@
-import type {AMANFlight, AMANState} from "@/api/aman";
+import type {AMANFlight, AMANRunwayGap, AMANState} from "@/api/aman";
 
 export const AMAN_TIMELINE_MINUTES = 10;
 export const AMAN_MARKER_GAP_PERCENT = 8;
@@ -7,6 +7,7 @@ export interface AMANFlightLane {
   id: string;
   label: string;
   flights: AMANFlight[];
+  gaps?: AMANRunwayGap[];
 }
 
 export function buildRWYTimelineLanes(state: AMANState): {lanes: AMANFlightLane[]; unavailable: boolean; truncated: boolean} {
@@ -27,10 +28,11 @@ export function buildRWYTimelineLanes(state: AMANState): {lanes: AMANFlightLane[
       label: group.id,
       configuredIndex,
       flights: orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === group.id)),
+      gaps: group.gaps ?? [],
     }))
     .sort((left, right) => right.flights.length - left.flights.length || left.configuredIndex - right.configuredIndex);
   return {
-    lanes: lanes.slice(0, 4).map(({id, label, flights}) => ({id, label, flights})),
+    lanes: lanes.slice(0, 4).map(({id, label, flights, gaps}) => ({id, label, flights, gaps})),
     unavailable: false,
     truncated: lanes.length > 4,
   };
@@ -85,10 +87,11 @@ export function buildAMANLanes(state: AMANState): AMANFlightLane[] {
     id: groupID,
     label: groupID,
     flights: orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === groupID)),
+    gaps: state.runway_groups.find((group) => group.id === groupID)?.gaps ?? [],
   }));
   const unassigned = orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === null));
   if (unassigned.length > 0) {
-    lanes.push({id: "unassigned", label: "Unassigned runway group", flights: unassigned});
+    lanes.push({id: "unassigned", label: "Unassigned runway group", flights: unassigned, gaps: []});
   }
   return lanes;
 }

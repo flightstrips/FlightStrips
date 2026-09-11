@@ -27,6 +27,17 @@ func TestAMANStateEventMatchesSharedV1Golden(t *testing.T) {
 	require.Equal(t, expectedJSON, actualJSON)
 }
 
+func TestAMANStateEventProjectsCanonicalGapAndAuditedException(t *testing.T) {
+	state := goldenAMANState()
+	state.RunwayGroups[0].Gaps = []aman.RunwayGap{{ID: "gap-union", Start: testTime(10, 17), End: testTime(10, 19), Label: "approach stop", CreatedAt: testTime(9, 59), CreatedBy: "fmp-1"}}
+	state.Flights[0].RunwayGapException = &aman.RunwayGapException{GapID: "gap-union", FlightID: state.Flights[0].ID, RunwayGroupID: state.RunwayGroups[0].ID, Opportunity: state.Flights[0].Slot.Time, CommandID: "manual-placement"}
+
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, AMANRunwayGap{ID: "gap-union", Start: "2026-07-22T10:17:00.000Z", End: "2026-07-22T10:19:00.000Z", Label: "approach stop", CreatedAt: "2026-07-22T09:59:00.000Z", CreatedBy: "fmp-1"}, event.Data.RunwayGroups[0].Gaps[0])
+	require.Equal(t, &AMANRunwayGapException{GapID: "gap-union", RunwayGroupID: "ARRIVAL-22", Opportunity: "2026-07-22T10:18:00.000Z", CommandID: "manual-placement"}, event.Data.Flights[0].RunwayGapException)
+}
+
 func TestAMANStateEventIncludesAuthoritativeTrafficPrediction(t *testing.T) {
 	state := goldenAMANState()
 	effective := state.GeneratedAt.Add(-time.Hour)
@@ -475,3 +486,6 @@ func goldenAMANHealth() aman.TechnicalHealth {
 
 func timePointer(value time.Time) *time.Time { return &value }
 func intPointer(value int) *int              { return &value }
+func testTime(hour, minute int) time.Time {
+	return time.Date(2026, 7, 22, hour, minute, 0, 0, time.UTC)
+}

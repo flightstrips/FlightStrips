@@ -1,14 +1,16 @@
 import type {ReactNode} from "react";
 
-import type {AMANDataStatus, AMANFlight} from "@/api/aman";
+import type {AMANDataStatus, AMANFlight, AMANRunwayGroup} from "@/api/aman";
 import {AMANAxisTopPercent, AMANTimelineAxis} from "./AMANTimelineAxis";
 import {layoutTimelineMarkers, type AMANTimelineRange} from "./presentation";
+import {RunwayGapOverlay} from "./RunwayGapOverlay";
 
 const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
 
-export function ACCTimeline({flights, range, clockMs, currentPosition, status, renderTarget}: {
+export function ACCTimeline({flights, runwayGroups = [], range, clockMs, currentPosition, status, renderTarget}: {
   flights: AMANFlight[];
+  runwayGroups?: AMANRunwayGroup[];
   range: AMANTimelineRange;
   clockMs: number;
   currentPosition: number | null;
@@ -23,6 +25,7 @@ export function ACCTimeline({flights, range, clockMs, currentPosition, status, r
       <div className="absolute inset-x-0 bottom-0 top-5">
         {currentPosition !== null && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
         <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
+        {runwayGroups.map((group) => <RunwayGapOverlay gaps={group.gaps ?? []} key={group.id} range={range} runway={group.id} />)}
         <div aria-label="ACC arrivals in authoritative order" role="list">
           {markers.map((marker) => {
             const top = AMANAxisTopPercent(marker.timestamp, range) ?? 0;

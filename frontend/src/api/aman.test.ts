@@ -31,6 +31,8 @@ describe("AMAN V1 full replacement contract", () => {
     const legacy = replacement(8);
     delete legacy.data.traffic_prediction;
     delete legacy.data.holding_information;
+    delete legacy.data.flights[0].star_family;
+    delete legacy.data.flights[0].feeder_fix;
 
     expect(isAMANStateEvent(legacy)).toBe(true);
     expect(replaceAMANState(null, legacy)).toMatchObject({accepted: true, error: null});
@@ -46,6 +48,16 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(event)).toBe(true);
     event.data.holding_information[0].source_status = "unknown" as "fresh";
     expect(isAMANStateEvent(event)).toBe(false);
+  });
+
+  it.each(["star_family", "feeder_fix", "holding_fix"] as const)("rejects a malformed %s identity", (field) => {
+    const malformed = replacement(8) as unknown as {data: {flights: Array<Record<string, unknown>>}};
+    malformed.data.flights[0][field] = 123;
+
+    expect(isAMANStateEvent(malformed)).toBe(false);
+
+    malformed.data.flights[0][field] = " PADDED ";
+    expect(isAMANStateEvent(malformed)).toBe(false);
   });
 
   it("ignores duplicate and older revisions, then atomically accepts any newer revision", () => {

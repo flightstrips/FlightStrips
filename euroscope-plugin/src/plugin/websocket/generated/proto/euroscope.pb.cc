@@ -1282,6 +1282,15 @@ inline constexpr AMANGainLossValue::Impl_::Impl_(
         data_status_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        star_family_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        feeder_fix_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        holding_fix_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         gain_loss_seconds_{::int64_t{0}} {}
 
 template <typename>
@@ -20993,7 +21002,10 @@ inline PROTOBUF_NDEBUG_INLINE AMANGainLossValue::Impl_::Impl_(
         reference_point_(arena, from.reference_point_),
         target_time_(arena, from.target_time_),
         predicted_time_(arena, from.predicted_time_),
-        data_status_(arena, from.data_status_) {}
+        data_status_(arena, from.data_status_),
+        star_family_(arena, from.star_family_),
+        feeder_fix_(arena, from.feeder_fix_),
+        holding_fix_(arena, from.holding_fix_) {}
 
 AMANGainLossValue::AMANGainLossValue(
     ::google::protobuf::Arena* arena,
@@ -21017,7 +21029,10 @@ inline PROTOBUF_NDEBUG_INLINE AMANGainLossValue::Impl_::Impl_(
         reference_point_(arena),
         target_time_(arena),
         predicted_time_(arena),
-        data_status_(arena) {}
+        data_status_(arena),
+        star_family_(arena),
+        feeder_fix_(arena),
+        holding_fix_(arena) {}
 
 inline void AMANGainLossValue::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
@@ -21036,6 +21051,9 @@ inline void AMANGainLossValue::SharedDtor() {
   _impl_.target_time_.Destroy();
   _impl_.predicted_time_.Destroy();
   _impl_.data_status_.Destroy();
+  _impl_.star_family_.Destroy();
+  _impl_.feeder_fix_.Destroy();
+  _impl_.holding_fix_.Destroy();
   _impl_.~Impl_();
 }
 
@@ -21079,6 +21097,17 @@ PROTOBUF_NOINLINE void AMANGainLossValue::Clear() {
     }
   }
   _impl_.data_status_.ClearToEmpty();
+  if (cached_has_bits & 0x00000038u) {
+    if (cached_has_bits & 0x00000008u) {
+      _impl_.star_family_.ClearNonDefaultToEmpty();
+    }
+    if (cached_has_bits & 0x00000010u) {
+      _impl_.feeder_fix_.ClearNonDefaultToEmpty();
+    }
+    if (cached_has_bits & 0x00000020u) {
+      _impl_.holding_fix_.ClearNonDefaultToEmpty();
+    }
+  }
   _impl_.gain_loss_seconds_ = ::int64_t{0};
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<std::string>();
@@ -21092,15 +21121,15 @@ const char* AMANGainLossValue::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
+const ::_pbi::TcParseTable<4, 10, 0, 160, 2> AMANGainLossValue::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_._has_bits_),
     0, // no _extensions_
-    7, 56,  // max_field_number, fast_idx_mask
+    10, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967168,  // skipmap
+    4294966272,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    7,  // num_field_entries
+    10,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_AMANGainLossValue_default_instance_._instance,
@@ -21118,7 +21147,7 @@ const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
      {18, 63, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.callsign_)}},
     // optional int64 gain_loss_seconds = 3;
     {::_pbi::TcParser::FastV64S1,
-     {24, 3, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.gain_loss_seconds_)}},
+     {24, 6, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.gain_loss_seconds_)}},
     // optional string reference_point = 4;
     {::_pbi::TcParser::FastUS1,
      {34, 0, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.reference_point_)}},
@@ -21131,6 +21160,20 @@ const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
     // string data_status = 7;
     {::_pbi::TcParser::FastUS1,
      {58, 63, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.data_status_)}},
+    // optional string star_family = 8;
+    {::_pbi::TcParser::FastUS1,
+     {66, 3, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.star_family_)}},
+    // optional string feeder_fix = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 4, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_)}},
+    // optional string holding_fix = 10;
+    {::_pbi::TcParser::FastUS1,
+     {82, 5, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.holding_fix_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -21141,7 +21184,7 @@ const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
     {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.callsign_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // optional int64 gain_loss_seconds = 3;
-    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.gain_loss_seconds_), _Internal::kHasBitsOffset + 3, 0,
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.gain_loss_seconds_), _Internal::kHasBitsOffset + 6, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
     // optional string reference_point = 4;
     {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.reference_point_), _Internal::kHasBitsOffset + 0, 0,
@@ -21155,10 +21198,19 @@ const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
     // string data_status = 7;
     {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.data_status_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // optional string star_family = 8;
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.star_family_), _Internal::kHasBitsOffset + 3, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // optional string feeder_fix = 9;
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_), _Internal::kHasBitsOffset + 4, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // optional string holding_fix = 10;
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.holding_fix_), _Internal::kHasBitsOffset + 5, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
-    "\53\11\10\0\17\13\16\13"
+    "\53\11\10\0\17\13\16\13\13\12\13\0\0\0\0\0"
     "flightstrips.euroscope.v1.AMANGainLossValue"
     "flight_id"
     "callsign"
@@ -21166,6 +21218,9 @@ const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
     "target_time"
     "predicted_time"
     "data_status"
+    "star_family"
+    "feeder_fix"
+    "holding_fix"
   }},
 };
 
@@ -21194,7 +21249,7 @@ const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
 
   cached_has_bits = _impl_._has_bits_[0];
   // optional int64 gain_loss_seconds = 3;
-  if (cached_has_bits & 0x00000008u) {
+  if (cached_has_bits & 0x00000040u) {
     target = ::google::protobuf::internal::WireFormatLite::
         WriteInt64ToArrayWithField<3>(
             stream, this->_internal_gain_loss_seconds(), target);
@@ -21230,6 +21285,30 @@ const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
     ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
         _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.AMANGainLossValue.data_status");
     target = stream->WriteStringMaybeAliased(7, _s, target);
+  }
+
+  // optional string star_family = 8;
+  if (cached_has_bits & 0x00000008u) {
+    const std::string& _s = this->_internal_star_family();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.AMANGainLossValue.star_family");
+    target = stream->WriteStringMaybeAliased(8, _s, target);
+  }
+
+  // optional string feeder_fix = 9;
+  if (cached_has_bits & 0x00000010u) {
+    const std::string& _s = this->_internal_feeder_fix();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix");
+    target = stream->WriteStringMaybeAliased(9, _s, target);
+  }
+
+  // optional string holding_fix = 10;
+  if (cached_has_bits & 0x00000020u) {
+    const std::string& _s = this->_internal_holding_fix();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.AMANGainLossValue.holding_fix");
+    target = stream->WriteStringMaybeAliased(10, _s, target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -21288,12 +21367,32 @@ const ::_pbi::TcParseTable<3, 7, 0, 120, 2> AMANGainLossValue::_table_ = {
                                     this->_internal_data_status());
   }
 
-  // optional int64 gain_loss_seconds = 3;
-  if (cached_has_bits & 0x00000008u) {
-    total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
-        this->_internal_gain_loss_seconds());
-  }
+  if (cached_has_bits & 0x00000078u) {
+    // optional string star_family = 8;
+    if (cached_has_bits & 0x00000008u) {
+      total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                      this->_internal_star_family());
+    }
 
+    // optional string feeder_fix = 9;
+    if (cached_has_bits & 0x00000010u) {
+      total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                      this->_internal_feeder_fix());
+    }
+
+    // optional string holding_fix = 10;
+    if (cached_has_bits & 0x00000020u) {
+      total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                      this->_internal_holding_fix());
+    }
+
+    // optional int64 gain_loss_seconds = 3;
+    if (cached_has_bits & 0x00000040u) {
+      total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+          this->_internal_gain_loss_seconds());
+    }
+
+  }
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     total_size += _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).size();
   }
@@ -21335,8 +21434,19 @@ void AMANGainLossValue::MergeFrom(const AMANGainLossValue& from) {
   if (!from._internal_data_status().empty()) {
     _this->_internal_set_data_status(from._internal_data_status());
   }
-  if (cached_has_bits & 0x00000008u) {
-    _this->_impl_.gain_loss_seconds_ = from._impl_.gain_loss_seconds_;
+  if (cached_has_bits & 0x00000078u) {
+    if (cached_has_bits & 0x00000008u) {
+      _this->_internal_set_star_family(from._internal_star_family());
+    }
+    if (cached_has_bits & 0x00000010u) {
+      _this->_internal_set_feeder_fix(from._internal_feeder_fix());
+    }
+    if (cached_has_bits & 0x00000020u) {
+      _this->_internal_set_holding_fix(from._internal_holding_fix());
+    }
+    if (cached_has_bits & 0x00000040u) {
+      _this->_impl_.gain_loss_seconds_ = from._impl_.gain_loss_seconds_;
+    }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<std::string>(from._internal_metadata_);
@@ -21365,6 +21475,9 @@ void AMANGainLossValue::InternalSwap(AMANGainLossValue* PROTOBUF_RESTRICT other)
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.target_time_, &other->_impl_.target_time_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.predicted_time_, &other->_impl_.predicted_time_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.data_status_, &other->_impl_.data_status_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.star_family_, &other->_impl_.star_family_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.feeder_fix_, &other->_impl_.feeder_fix_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.holding_fix_, &other->_impl_.holding_fix_, arena);
         swap(_impl_.gain_loss_seconds_, other->_impl_.gain_loss_seconds_);
 }
 

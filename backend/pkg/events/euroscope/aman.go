@@ -19,6 +19,7 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 	for index, flight := range state.Flights {
 		value := &AMANGainLossValue{
 			FlightId: string(flight.ID), Callsign: flight.CurrentCallsign, DataStatus: string(flight.DataStatus),
+			StarFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		}
 		if flight.Prediction != nil && flight.Prediction.Publishable && flight.Slot != nil && flight.Prediction.Calculation != nil && len(flight.Prediction.Calculation.Legs) > 0 {
 			referencePoint := strings.TrimSpace(flight.Prediction.Calculation.Legs[len(flight.Prediction.Calculation.Legs)-1].To)
@@ -54,3 +55,11 @@ func (e AMANGainLossEvent) Marshal() ([]byte, error) { return marshalMessage(&e)
 func (e AMANRouteFactEvent) GetType() EventType { return AMANRouteFact }
 
 func (e AMANRouteFactEvent) Marshal() ([]byte, error) { return marshalMessage(&e) }
+
+func cloneString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}

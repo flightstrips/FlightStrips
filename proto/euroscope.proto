@@ -360,6 +360,9 @@ message AMANGainLossValue {
   optional string target_time = 5;
   optional string predicted_time = 6;
   string data_status = 7;
+  optional string star_family = 8;
+  optional string feeder_fix = 9;
+  optional string holding_fix = 10;
 }
 
 message AMANGainLossEvent {

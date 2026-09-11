@@ -74,6 +74,8 @@ function FlightStatus({flight}: {flight: AMANFlight}) {
         <span>Operational slot: <b>{displayTime(flight.slot?.time ?? null)}{flight.freeze_reason !== "none" ? ` (fixed by ${flight.freeze_reason} freeze)` : ""}</b></span>
         <span className={flight.raw_teta !== flight.operational_teta ? "text-amber-300" : ""}>Raw TETA (informational): <b>{displayTime(flight.raw_teta)}</b></span>
         <span>Freeze: <b className={flight.freeze_reason === "superstable" ? "text-cyan-300" : flight.freeze_reason === "manual" ? "text-fuchsia-300" : ""}>{flight.freeze_reason}</b></span>
+        <span>STAR family: <b>{flight.star_family ?? "Unavailable"}</b></span>
+        <span>Feeder fix: <b>{flight.feeder_fix ?? "Unavailable"}</b></span>
         <span>Holding fix: <b>{flight.holding_fix ?? "Unavailable"}</b></span>
         <span>Geometry: <b>{flight.geometry_version ?? "Unavailable"}</b></span>
         <span>{direct}</span>

@@ -98,10 +98,12 @@ type AMANFlight struct {
 	LifecycleState string  `json:"lifecycle_state"`
 	DataStatus     string  `json:"data_status"`
 	RunwayGroupID  *string `json:"runway_group_id"`
-	Feeder         *string `json:"feeder"`
-	// Star is the AMAN-selected arrival family, derived from the filed route
-	// and the active terminal configuration rather than an EuroScope strip.
+	// Feeder and Star retain the deployed STAR-family aliases for older V1
+	// clients. New clients must use the explicit identities below.
+	Feeder                    *string                   `json:"feeder"`
 	Star                      *string                   `json:"star"`
+	STARFamily                *string                   `json:"star_family"`
+	FeederFix                 *string                   `json:"feeder_fix"`
 	HoldingFix                *string                   `json:"holding_fix"`
 	HoldingFixETA             *string                   `json:"holding_fix_eta"`
 	HoldingEntryTime          *string                   `json:"holding_entry_time"`
@@ -388,7 +390,8 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 	result := AMANFlight{
 		FlightID: string(flight.ID), Callsign: flight.CurrentCallsign, LifecycleState: string(flight.State),
 		DataStatus: string(flight.DataStatus), RunwayGroupID: stringPointer(flight.SelectedRunwayGroup),
-		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder), HoldingFix: cloneString(flight.SelectedHolding),
+		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder),
+		STARFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		FreezeReason: string(flight.FreezeReason), Order: cloneInt(flight.Order), QueueOffers: make([]AMANQueueOffer, len(flight.QueueOffers)),
 	}
 	var err error

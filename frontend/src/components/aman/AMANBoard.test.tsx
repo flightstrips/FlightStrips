@@ -130,7 +130,7 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(onSelectFlight).toHaveBeenNthCalledWith(1, "flight-123");
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-max");
-    expect(screen.getByTestId("holding-timeline-lane-SOK-HF")).toBeInTheDocument();
+    expect(screen.getByTestId("holding-timeline-lane-ROSBI")).toBeInTheDocument();
   });
 
   it("opens the selected flight's on-demand route detail without changing the board state", () => {
@@ -173,12 +173,12 @@ describe("complete AMAN timeline and strips", () => {
     });
 
     renderBoard(multiRunwayState);
-    expect(screen.getByTestId("holding-timeline-lane-SOK-HF")).toBeInTheDocument();
+    expect(screen.getByTestId("holding-timeline-lane-ROSBI")).toBeInTheDocument();
     expect(screen.queryByTestId("holding-timeline-lane-TIDVU")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", {name: /ARRIVAL-04/}));
     expect(screen.getByTestId("holding-timeline-lane-TIDVU")).toBeInTheDocument();
-    expect(screen.queryByTestId("holding-timeline-lane-SOK-HF")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();
   });
 
   it("switches to one unsplit runway timeline with a scrollable hour-aligned scale", () => {
@@ -188,16 +188,20 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "1080px"});
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("holding-timeline-lane-ARRIVAL-22")).toBeInTheDocument();
-    expect(screen.queryByTestId("holding-timeline-lane-SOK-HF")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
   });
 
-  it("shows the AMAN event STAR on runway markers only", () => {
-    renderBoard(state());
+  it("shows only the explicit STAR family on runway markers", () => {
+    const identities = state();
+    identities.flights[0].star = "LEGACY-STAR";
+    identities.flights[0].star_family = "TESPI";
+    renderBoard(identities);
 
-    expect(screen.getByTestId("operational-marker-flight-123")).not.toHaveTextContent("SOK");
+    expect(screen.getByTestId("operational-marker-flight-123")).not.toHaveTextContent("TESPI");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("SOK");
+    expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("TESPI");
+    expect(screen.getByTestId("operational-marker-flight-123")).not.toHaveTextContent("LEGACY-STAR");
   });
 
 });

@@ -181,7 +181,10 @@ func TestAMANFlightRoundsLegacyFractionalInputAgeForWire(t *testing.T) {
 	state.Flights[0].Prediction.OperationalTETA = state.Flights[0].Prediction.OperationalTETA.Add(600 * time.Millisecond)
 	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
 	require.NoError(t, err)
-	require.Equal(t, "SOK", *mapped.Star)
+	require.Equal(t, "TESPI", *mapped.Star)
+	require.Equal(t, "TESPI", *mapped.STARFamily)
+	require.Equal(t, "TNO", *mapped.FeederFix)
+	require.Equal(t, "ROSBI", *mapped.HoldingFix)
 	require.EqualValues(t, 121, *mapped.InputAgeSeconds)
 	require.EqualValues(t, 61, *mapped.GainLossSeconds)
 }
@@ -215,7 +218,7 @@ func TestAMANCommandRejectionCarriesStableCorrelation(t *testing.T) {
 func goldenAMANState() aman.AirportState {
 	now := time.Date(2026, time.July, 22, 10, 0, 0, 0, time.UTC)
 	runwayGroup := aman.RunwayGroupID("ARRIVAL-22")
-	feeder, holding := "SOK", "SOK-HF"
+	starFamily, feederFix, holding := "TESPI", "TNO", "ROSBI"
 	dtg := 87.5
 	return aman.AirportState{
 		Airport: "EKCH", Revision: 7, GeneratedAt: now, PolicyVersion: "ekch-aman-v1",
@@ -224,7 +227,7 @@ func goldenAMANState() aman.AirportState {
 		Flights: []aman.AMANFlight{{
 			ID: "flight-123", VATSIMCID: "1234567", CurrentCallsign: "SAS123",
 			State: aman.StateStable, DataStatus: aman.DataFresh, SelectedRunwayGroup: &runwayGroup,
-			SelectedFeeder: &feeder, SelectedHolding: &holding,
+			SelectedFeeder: &starFamily, SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix, SelectedHolding: &holding,
 			ActiveRouteFact: &aman.RouteFact{ID: "route-fact-1", Fix: "SOK", ObservedAt: now.Add(-2 * time.Minute), State: aman.RouteFactActive},
 			Prediction: &aman.Prediction{
 				RawTETA: now.Add(20 * time.Minute), OperationalTETA: now.Add(19 * time.Minute), OperationalReason: aman.OperationalReasonSmoothed,

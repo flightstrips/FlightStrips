@@ -46,9 +46,42 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, fragment.Paths, len(config.Feeders)*len(config.RunwayGroups))
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings))
+	wantDigests := map[string]string{
+		"TESPI/ARRIVAL-04L": "4f26f2897e15675cd8dbd0420246414863aa62df25d76dacc59a1db32583dd03",
+		"TESPI/ARRIVAL-04R": "d67f57b85e18254ae527c8f1bec33779552573a832dc40a97858570de8a26f64",
+		"TUDLO/ARRIVAL-04L": "52f61ed22a37b0f8bebae10d6663c29970615fd470e8a11b216ff6cf0ed17f6a",
+		"TUDLO/ARRIVAL-04R": "36fd313e0add7fed25016562feaed53b31f82c75671e8baf8b588cf36b0b574f",
+		"MONAK/ARRIVAL-04L": "fb83cbffef4ee76b89d1584565cad0697023c233541fa5c6d18dd2f4bcd73777",
+		"MONAK/ARRIVAL-04R": "3853533b42021c172eba816cfef42c5a6d87a6ddba621e6e819ddd767f96c9f5",
+		"TIDVU/ARRIVAL-04L": "5d313de9d246484642cc90f869a4bce084ecb60a400e79a99f4c97d07d38777f",
+		"TIDVU/ARRIVAL-04R": "75f4e4785621ba49ed968fffefafe0e149e96c82313e766b215465f0d2198ed7",
+		"ERNOV/ARRIVAL-04L": "cd2600a16cfb66f2d2d54bea4faa26b37a34245ca298043618239d8b8e3c5907",
+		"ERNOV/ARRIVAL-04R": "ab1d046cf055fdb1df720e46eb2e9fdf40086295b81e8df5ea845bf4db5d8a5c",
+		"TESPI/ARRIVAL-22L": "068f22bda6f6eaad6e652e8989e253940ca48b3c01bb76c9b47880e1282beb41",
+		"TESPI/ARRIVAL-22R": "88874cc15f49b7751442f316593e262748bc0505949b15a2749537ea9dff347f",
+		"TUDLO/ARRIVAL-22L": "9accd4566dd3960aa0c26e30bb799656787c9f7c2cfcae7c2dab733630bc2231",
+		"TUDLO/ARRIVAL-22R": "c0796baa6ed03fcd74e7cfae00b43290f4f7b9a13404b8b7c7e633319687ae93",
+		"MONAK/ARRIVAL-22L": "e6371d70e30a043179cca358d892b5ca27a834dd3fbfa29f29ae4c05b150f871",
+		"MONAK/ARRIVAL-22R": "222536c1a3a9fbd28a7f28ae1a83f726d2ea3c167952ea6357463c17c1e0c1e3",
+		"TIDVU/ARRIVAL-22L": "239684d01302d88a45d0d8a96ace3bc60136d92fb5553cc033ea384167cb2c59",
+		"TIDVU/ARRIVAL-22R": "5927fe12ec45a282466b42a6158aa40f7b8d4d4d2ceccb511c81124b06c2f1b9",
+		"ERNOV/ARRIVAL-22L": "ded96aa96756de2accbe9e402a3bdd6d2617ec5c4423e4685875a4aaec99967b",
+		"ERNOV/ARRIVAL-22R": "0a7ee21fd5f96bae5176202e8b1d53732d0f941c1b621c84a6883b1d217349c5",
+		"TESPI/ARRIVAL-12":  "7a455392c178f77ea3f7d71fcf67cda03514d0010d9b1928029150d45e973e1d",
+		"TUDLO/ARRIVAL-12":  "023df13fc940e5bd8c4699cca741cf91faf9981678b2a22b05af8b3c8baf2162",
+		"MONAK/ARRIVAL-12":  "dd5843e753b7a10cbf94c9c24ab118806d32986e8bd011943ec10e4c07fddfda",
+		"TIDVU/ARRIVAL-12":  "69a3d71e36ef48dff19f58955bb7a1339b84dc6ce1bdd4143374892db0195428",
+		"ERNOV/ARRIVAL-12":  "e03446b918cfacb895c826da3875f7cf4bf0c18e6ef15183877208783f208255",
+		"TESPI/ARRIVAL-30":  "0ced02100055602ecfe088d473b5fb9e2e0ade6f367bdacb4e75a01a7c941cb4",
+		"TUDLO/ARRIVAL-30":  "2efaf1bdff7b57d9de83949cd92408e1889c73a72ca416c18a9ef5107511b367",
+		"MONAK/ARRIVAL-30":  "02a08d801f0bf0a85ddd2bb186c39f14b0518a37d0f794633eaaa0a23d9a31a9",
+		"TIDVU/ARRIVAL-30":  "1addffbc2a33cf286594c5df69736844c4b94fcaa4827b12d45d5d5d999460cd",
+		"ERNOV/ARRIVAL-30":  "7349c6ac3bc4769085576eddb974baebf2f65ea7bf800118bbf59f0f6bdc5abe",
+	}
 	for _, path := range fragment.Paths {
+		key := string(path.STARFamily) + "/" + string(path.RunwayGroup)
 		require.Len(t, path.HoldingIDs, 1)
-		require.NotEmpty(t, path.Digest)
+		require.Equal(t, wantDigests[key], path.Digest, key)
 		require.GreaterOrEqual(t, len(path.Legs), 2)
 		require.Contains(t, path.Legs[len(path.Legs)-2].ID, "FINAL-APPROACH-FIX")
 		require.Contains(t, path.Legs[len(path.Legs)-1].ID, "-RUNWAY")
@@ -67,6 +100,12 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 func TestLegacyFeederConfigurationMaterializesWithoutExplicitMetadata(t *testing.T) {
 	config := goldenConfig(t)
 	require.NotEmpty(t, config.Paths)
+	for i := range config.Paths {
+		config.Paths[i].Feeder = navdata.FeederID(config.Paths[i].STARFamily)
+		config.Paths[i].STARFamily = ""
+		config.Paths[i].FeederFix = ""
+		config.Paths[i].HoldingToFeederSeconds = nil
+	}
 	require.Equal(t, navdata.FeederID("TESPI"), config.Paths[0].Feeder)
 	require.Empty(t, config.Paths[0].STARFamily)
 	require.Empty(t, config.Paths[0].FeederFix)
@@ -83,8 +122,6 @@ func TestLegacyFeederConfigurationMaterializesWithoutExplicitMetadata(t *testing
 func TestCandidateMaterializesExplicitTerminalPathMetadata(t *testing.T) {
 	config := goldenConfig(t)
 	seconds := int64(3*60 + 15)
-	config.Paths[0].STARFamily = "TESPI"
-	config.Paths[0].FeederFix = "TNO"
 	config.Paths[0].HoldingToFeederSeconds = &seconds
 
 	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
@@ -100,7 +137,7 @@ func TestCandidateMaterializesExplicitTerminalPathMetadata(t *testing.T) {
 
 func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) {
 	config := goldenConfig(t)
-	require.Equal(t, "EKCH-AIP-2609-V1", config.ConfigVersion)
+	require.Equal(t, "EKCH-AIP-2609-V2", config.ConfigVersion)
 	require.Equal(t, "2609", config.Dataset.Cycle)
 	require.Equal(t, time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
 	require.Equal(t, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
@@ -214,6 +251,15 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		"TIDVU/ARRIVAL-30": {fixIDs("TIDVU", "WUPJA", "CH940", "CH932", "CH925", "HOFFO"), "EKCH-TIDVU-PRIMARY-LOW"},
 		"ERNOV/ARRIVAL-30": {fixIDs("ERNOV", "CH956", "CH949", "CH941", "CH932", "CH925", "HOFFO"), "EKCH-ERNOV-PRIMARY"},
 	}
+	wantFeederFixes := map[navdata.STARFamilyID]navdata.FixID{
+		"TESPI": "TNO", "TUDLO": "KOR", "MONAK": "NEKSO", "TIDVU": "ESJAH", "ERNOV": "ERNOV",
+	}
+	wantHoldingToFeederSeconds := map[navdata.STARFamilyID]int64{
+		"TESPI": 195, "TUDLO": 255, "MONAK": 200, "TIDVU": 140, "ERNOV": 0,
+	}
+	missingHoldingToFeederDuration := map[string]navdata.FixID{
+		"MONAK/ARRIVAL-30": "KUBIS", "TIDVU/ARRIVAL-12": "WUPJA", "TIDVU/ARRIVAL-30": "WUPJA",
+	}
 	require.Len(t, config.Paths, len(wantPaths)+2*len(config.Feeders))
 	for _, path := range config.Paths {
 		group := string(path.RunwayGroup)
@@ -226,6 +272,16 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 		require.True(t, found, path.Feeder)
 		require.Equal(t, want.fixes, path.Fixes)
 		require.Equal(t, want.hold, path.SelectedHolding)
+		require.Equal(t, navdata.STARFamilyID(path.Feeder), path.STARFamily)
+		key := string(path.STARFamily) + "/" + string(path.RunwayGroup)
+		if feederFix, missing := missingHoldingToFeederDuration[key]; missing {
+			require.Equal(t, feederFix, path.FeederFix, key)
+			require.Nil(t, path.HoldingToFeederSeconds, key)
+		} else {
+			require.Equal(t, wantFeederFixes[path.STARFamily], path.FeederFix, key)
+			require.NotNil(t, path.HoldingToFeederSeconds, key)
+			require.Equal(t, wantHoldingToFeederSeconds[path.STARFamily], *path.HoldingToFeederSeconds, key)
+		}
 	}
 	require.Len(t, config.FixAliases, 1)
 	require.Equal(t, navdata.FixID("CDA"), config.FixAliases[0].Alias)
@@ -297,10 +353,12 @@ func TestConfigurationRejectsTerminalSafetyViolations(t *testing.T) {
 	}{
 		{"first fix differs from feeder", func(c *Configuration, _ *ReferenceSet) { c.Paths[0].Fixes[0] = "ROSBI" }, "paths[0].fixes[0]"},
 		{"explicit feeder fix requires family", func(c *Configuration, _ *ReferenceSet) {
+			c.Paths[0].STARFamily = ""
 			c.Paths[0].FeederFix = "TNO"
 		}, "paths[0].starFamily: is required"},
 		{"explicit family requires feeder fix", func(c *Configuration, _ *ReferenceSet) {
 			c.Paths[0].STARFamily = "TESPI"
+			c.Paths[0].FeederFix = ""
 		}, "paths[0].feederFix: is required"},
 		{"explicit family matches legacy feeder", func(c *Configuration, _ *ReferenceSet) {
 			c.Paths[0].STARFamily = "TUDLO"

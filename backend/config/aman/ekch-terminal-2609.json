@@ -1,6 +1,6 @@
 {
   "schemaVersion": "aman-terminal/v1",
-  "configVersion": "EKCH-AIP-2609-V1",
+  "configVersion": "EKCH-AIP-2609-V2",
   "airport": "EKCH",
   "applicabilityFrom": "2026-09-03T00:00:00Z",
   "applicabilityUntil": "2026-10-01T00:00:00Z",
@@ -405,7 +405,9 @@
   ],
   "paths": [
     {
-      "feeder": "TESPI",
+      "starFamily": "TESPI",
+      "feederFix": "TNO",
+      "holdingToFeederSeconds": 195,
       "runwayGroup": "ARRIVAL-04L",
       "fixes": [
         "TESPI",
@@ -422,7 +424,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "TESPI",
+      "starFamily": "TESPI",
+      "feederFix": "TNO",
+      "holdingToFeederSeconds": 195,
       "runwayGroup": "ARRIVAL-04R",
       "fixes": [
         "TESPI",
@@ -439,7 +443,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "TUDLO",
+      "starFamily": "TUDLO",
+      "feederFix": "KOR",
+      "holdingToFeederSeconds": 255,
       "runwayGroup": "ARRIVAL-04L",
       "fixes": [
         "TUDLO",
@@ -456,7 +462,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "TUDLO",
+      "starFamily": "TUDLO",
+      "feederFix": "KOR",
+      "holdingToFeederSeconds": 255,
       "runwayGroup": "ARRIVAL-04R",
       "fixes": [
         "TUDLO",
@@ -473,7 +481,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "MONAK",
+      "starFamily": "MONAK",
+      "feederFix": "NEKSO",
+      "holdingToFeederSeconds": 200,
       "runwayGroup": "ARRIVAL-04L",
       "fixes": [
         "MONAK",
@@ -488,7 +498,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "MONAK",
+      "starFamily": "MONAK",
+      "feederFix": "NEKSO",
+      "holdingToFeederSeconds": 200,
       "runwayGroup": "ARRIVAL-04R",
       "fixes": [
         "MONAK",
@@ -503,7 +515,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "TIDVU",
+      "starFamily": "TIDVU",
+      "feederFix": "ESJAH",
+      "holdingToFeederSeconds": 140,
       "runwayGroup": "ARRIVAL-04L",
       "fixes": [
         "TIDVU",
@@ -519,7 +533,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "TIDVU",
+      "starFamily": "TIDVU",
+      "feederFix": "ESJAH",
+      "holdingToFeederSeconds": 140,
       "runwayGroup": "ARRIVAL-04R",
       "fixes": [
         "TIDVU",
@@ -535,7 +551,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "ERNOV",
+      "starFamily": "ERNOV",
+      "feederFix": "ERNOV",
+      "holdingToFeederSeconds": 0,
       "runwayGroup": "ARRIVAL-04L",
       "fixes": [
         "ERNOV",
@@ -548,7 +566,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "ERNOV",
+      "starFamily": "ERNOV",
+      "feederFix": "ERNOV",
+      "holdingToFeederSeconds": 0,
       "runwayGroup": "ARRIVAL-04R",
       "fixes": [
         "ERNOV",
@@ -561,7 +581,9 @@
       "publishedHeadingMagneticDeg": 217
     },
     {
-      "feeder": "TESPI",
+      "starFamily": "TESPI",
+      "feederFix": "TNO",
+      "holdingToFeederSeconds": 195,
       "runwayGroup": "ARRIVAL-22L",
       "fixes": [
         "TESPI",
@@ -579,7 +601,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "TESPI",
+      "starFamily": "TESPI",
+      "feederFix": "TNO",
+      "holdingToFeederSeconds": 195,
       "runwayGroup": "ARRIVAL-22R",
       "fixes": [
         "TESPI",
@@ -597,7 +621,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "TUDLO",
+      "starFamily": "TUDLO",
+      "feederFix": "KOR",
+      "holdingToFeederSeconds": 255,
       "runwayGroup": "ARRIVAL-22L",
       "fixes": [
         "TUDLO",
@@ -615,7 +641,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "TUDLO",
+      "starFamily": "TUDLO",
+      "feederFix": "KOR",
+      "holdingToFeederSeconds": 255,
       "runwayGroup": "ARRIVAL-22R",
       "fixes": [
         "TUDLO",
@@ -633,7 +661,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "MONAK",
+      "starFamily": "MONAK",
+      "feederFix": "NEKSO",
+      "holdingToFeederSeconds": 200,
       "runwayGroup": "ARRIVAL-22L",
       "fixes": [
         "MONAK",
@@ -650,7 +680,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "MONAK",
+      "starFamily": "MONAK",
+      "feederFix": "NEKSO",
+      "holdingToFeederSeconds": 200,
       "runwayGroup": "ARRIVAL-22R",
       "fixes": [
         "MONAK",
@@ -667,7 +699,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "TIDVU",
+      "starFamily": "TIDVU",
+      "feederFix": "ESJAH",
+      "holdingToFeederSeconds": 140,
       "runwayGroup": "ARRIVAL-22L",
       "fixes": [
         "TIDVU",
@@ -683,7 +717,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "TIDVU",
+      "starFamily": "TIDVU",
+      "feederFix": "ESJAH",
+      "holdingToFeederSeconds": 140,
       "runwayGroup": "ARRIVAL-22R",
       "fixes": [
         "TIDVU",
@@ -699,7 +735,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "ERNOV",
+      "starFamily": "ERNOV",
+      "feederFix": "ERNOV",
+      "holdingToFeederSeconds": 0,
       "runwayGroup": "ARRIVAL-22L",
       "fixes": [
         "ERNOV",
@@ -711,7 +749,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "ERNOV",
+      "starFamily": "ERNOV",
+      "feederFix": "ERNOV",
+      "holdingToFeederSeconds": 0,
       "runwayGroup": "ARRIVAL-22R",
       "fixes": [
         "ERNOV",
@@ -723,7 +763,9 @@
       "publishedHeadingMagneticDeg": 37
     },
     {
-      "feeder": "TESPI",
+      "starFamily": "TESPI",
+      "feederFix": "TNO",
+      "holdingToFeederSeconds": 195,
       "runwayGroup": "ARRIVAL-12",
       "fixes": [
         "TESPI",
@@ -740,7 +782,9 @@
       "publishedHeadingMagneticDeg": 299
     },
     {
-      "feeder": "TUDLO",
+      "starFamily": "TUDLO",
+      "feederFix": "KOR",
+      "holdingToFeederSeconds": 255,
       "runwayGroup": "ARRIVAL-12",
       "fixes": [
         "TUDLO",
@@ -756,7 +800,9 @@
       "publishedHeadingMagneticDeg": 299
     },
     {
-      "feeder": "MONAK",
+      "starFamily": "MONAK",
+      "feederFix": "NEKSO",
+      "holdingToFeederSeconds": 200,
       "runwayGroup": "ARRIVAL-12",
       "fixes": [
         "MONAK",
@@ -772,7 +818,8 @@
       "publishedHeadingMagneticDeg": 299
     },
     {
-      "feeder": "TIDVU",
+      "starFamily": "TIDVU",
+      "feederFix": "WUPJA",
       "runwayGroup": "ARRIVAL-12",
       "fixes": [
         "TIDVU",
@@ -787,7 +834,9 @@
       "publishedHeadingMagneticDeg": 299
     },
     {
-      "feeder": "ERNOV",
+      "starFamily": "ERNOV",
+      "feederFix": "ERNOV",
+      "holdingToFeederSeconds": 0,
       "runwayGroup": "ARRIVAL-12",
       "fixes": [
         "ERNOV",
@@ -800,7 +849,9 @@
       "publishedHeadingMagneticDeg": 299
     },
     {
-      "feeder": "TESPI",
+      "starFamily": "TESPI",
+      "feederFix": "TNO",
+      "holdingToFeederSeconds": 195,
       "runwayGroup": "ARRIVAL-30",
       "fixes": [
         "TESPI",
@@ -818,7 +869,9 @@
       "publishedHeadingMagneticDeg": 119
     },
     {
-      "feeder": "TUDLO",
+      "starFamily": "TUDLO",
+      "feederFix": "KOR",
+      "holdingToFeederSeconds": 255,
       "runwayGroup": "ARRIVAL-30",
       "fixes": [
         "TUDLO",
@@ -833,7 +886,8 @@
       "publishedHeadingMagneticDeg": 119
     },
     {
-      "feeder": "MONAK",
+      "starFamily": "MONAK",
+      "feederFix": "KUBIS",
       "runwayGroup": "ARRIVAL-30",
       "fixes": [
         "MONAK",
@@ -847,7 +901,8 @@
       "publishedHeadingMagneticDeg": 119
     },
     {
-      "feeder": "TIDVU",
+      "starFamily": "TIDVU",
+      "feederFix": "WUPJA",
       "runwayGroup": "ARRIVAL-30",
       "fixes": [
         "TIDVU",
@@ -862,7 +917,9 @@
       "publishedHeadingMagneticDeg": 119
     },
     {
-      "feeder": "ERNOV",
+      "starFamily": "ERNOV",
+      "feederFix": "ERNOV",
+      "holdingToFeederSeconds": 0,
       "runwayGroup": "ARRIVAL-30",
       "fixes": [
         "ERNOV",

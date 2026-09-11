@@ -23,6 +23,8 @@ export interface AMANState {
   authoritative: boolean;
   flights: AMANFlight[];
   runway_groups: AMANRunwayGroup[];
+  /** Optional while V1 clients and servers roll through multi-runway support. */
+  active_runway_groups?: string[];
   /** Optional while V1 clients and servers roll through the TMT extension. */
   traffic_prediction?: AMANTrafficPrediction;
   /** Optional while V1 clients and servers roll through the holding extension. */
@@ -426,12 +428,25 @@ function isTechnicalHealth(value: unknown): value is AMANTechnicalHealth {
 }
 
 function isRunwayGroup(value: unknown): value is AMANRunwayGroup {
-  return isObject(value) && isString(value.id)
+  return isObject(value) && isIdentity(value.id)
     && (value.selected === undefined || typeof value.selected === "boolean")
     && (value.selection_schedule === undefined || (Array.isArray(value.selection_schedule) && value.selection_schedule.every(isTimestamp)))
     && (value.selection_conflict === undefined || isString(value.selection_conflict))
     && (value.active_rate_per_hour === undefined || (isNonNegativeInteger(value.active_rate_per_hour) && value.active_rate_per_hour > 0))
     && (value.rate_effective_at === undefined || isTimestamp(value.rate_effective_at));
+}
+
+function hasValidActiveRunwayGroups(data: Record<string, unknown>): boolean {
+  if (data.active_runway_groups === undefined) return true;
+  if (!Array.isArray(data.active_runway_groups) || data.active_runway_groups.length === 0
+    || !Array.isArray(data.runway_groups)) return false;
+  const configured = new Set(data.runway_groups.map((group) => isObject(group) ? group.id : undefined));
+  const active = new Set<string>();
+  for (const id of data.active_runway_groups) {
+    if (!isIdentity(id) || active.has(id) || !configured.has(id)) return false;
+    active.add(id);
+  }
+  return data.runway_groups.every((group) => !isObject(group) || group.selected !== true || active.has(group.id as string));
 }
 
 function isTrafficPrediction(value: unknown): value is AMANTrafficPrediction {
@@ -475,6 +490,7 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && effectiveModes.has(data.effective_mode as AMANEffectiveMode) && typeof data.authoritative === "boolean"
     && Array.isArray(data.flights) && data.flights.every(isFlight)
     && Array.isArray(data.runway_groups) && data.runway_groups.every(isRunwayGroup)
+    && hasValidActiveRunwayGroups(data)
     && (data.traffic_prediction === undefined || isTrafficPrediction(data.traffic_prediction))
     && (data.holding_information === undefined || (Array.isArray(data.holding_information) && data.holding_information.every(isHoldingEntry)))
     && isTechnicalHealth(data.technical_health);
@@ -488,7 +504,16 @@ export function replaceAMANState(current: AMANState | null, event: unknown): AMA
     return {state: current, status: presentationStatus(current), error: null, accepted: false};
   }
   const state = structuredClone(event.data);
+  const active = new Set(state.active_runway_groups
+    ?? state.runway_groups.filter((group) => group.selected).map((group) => group.id));
+  state.active_runway_groups = state.runway_groups.filter((group) => active.has(group.id)).map((group) => group.id);
   return {state, status: presentationStatus(state), error: null, accepted: true};
+}
+
+export function getActiveAMANRunwayGroups(state: AMANState): AMANRunwayGroup[] {
+  const active = new Set(state.active_runway_groups
+    ?? state.runway_groups.filter((group) => group.selected).map((group) => group.id));
+  return state.runway_groups.filter((group) => active.has(group.id));
 }
 
 function presentationStatus(state: AMANState): AMANPresentationStatus {

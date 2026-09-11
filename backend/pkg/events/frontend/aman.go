@@ -37,6 +37,7 @@ type AMANState struct {
 	Authoritative      bool                  `json:"authoritative"`
 	Flights            []AMANFlight          `json:"flights"`
 	RunwayGroups       []AMANRunwayGroup     `json:"runway_groups"`
+	ActiveRunwayGroups []string              `json:"active_runway_groups,omitempty"`
 	TrafficPrediction  AMANTrafficPrediction `json:"traffic_prediction"`
 	HoldingInformation []AMANHoldingEntry    `json:"holding_information"`
 	TechnicalHealth    AMANTechnicalHealth   `json:"technical_health"`
@@ -260,6 +261,17 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		PolicyVersion: state.PolicyVersion, EffectiveMode: string(effectiveMode), Authoritative: state.Authoritative,
 		Flights: make([]AMANFlight, len(state.Flights)), RunwayGroups: make([]AMANRunwayGroup, len(state.RunwayGroups)),
 		TechnicalHealth: technicalHealth,
+	}
+	if state.ActiveRunwayGroups != nil {
+		active := make(map[aman.RunwayGroupID]struct{}, len(state.ActiveRunwayGroups))
+		for _, id := range state.ActiveRunwayGroups {
+			active[id] = struct{}{}
+		}
+		for _, group := range state.RunwayGroups {
+			if _, ok := active[group.ID]; ok {
+				data.ActiveRunwayGroups = append(data.ActiveRunwayGroups, string(group.ID))
+			}
+		}
 	}
 	data.HoldingInformation, err = mapAMANHoldingInformation(holdingclearance.BuildReadModel(state))
 	if err != nil {

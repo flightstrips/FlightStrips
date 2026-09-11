@@ -95,7 +95,20 @@ describe("AMAN FMP controls", () => {
       runway_group_id: "ARRIVAL-04",
       effective_at: new Date("2026-07-22T12:05").toISOString(),
     });
-    expect(screen.getByText(/Selected:/)).toHaveTextContent("ARRIVAL-22");
+    expect(screen.getByText(/Active:/)).toHaveTextContent("ARRIVAL-22");
+  });
+
+  it("represents every active runway without treating traffic on another active runway as a conflict", () => {
+    const multiRunwayState = state();
+    multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
+    multiRunwayState.active_runway_groups = ["ARRIVAL-22", "ARRIVAL-04"];
+    multiRunwayState.flights[1].runway_group_id = "ARRIVAL-04";
+    multiRunwayState.flights[1].lifecycle_state = "stable";
+
+    renderControls({state: multiRunwayState});
+
+    expect(screen.getByText(/Active:/)).toHaveTextContent("ARRIVAL-22, ARRIVAL-04");
+    expect(screen.queryByText(/Protected traffic retained/)).not.toBeInTheDocument();
   });
 
   it("uses authoritative state time for immediate runway selection", () => {

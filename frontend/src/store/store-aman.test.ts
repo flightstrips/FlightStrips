@@ -132,6 +132,17 @@ describe("AMAN command store", () => {
     expect(store.getState().amanState?.revision).toBe(8);
   });
 
+  it("stores the complete active runway set and derives it from legacy selection", () => {
+    expect(store.getState().amanState?.active_runway_groups).toEqual(["ARRIVAL-22"]);
+
+    const multiRunway = replacement(8);
+    multiRunway.data.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
+    multiRunway.data.active_runway_groups = ["ARRIVAL-04", "ARRIVAL-22"];
+    client._emit(EventType.FrontendAMANState, multiRunway);
+
+    expect(store.getState().amanState?.active_runway_groups).toEqual(["ARRIVAL-22", "ARRIVAL-04"]);
+  });
+
   it("turns a correlated rejection into a durable visible result, including conflicts", () => {
     const commandID = store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})!;
     client._emit(EventType.FrontendAMANCommandRejected, {

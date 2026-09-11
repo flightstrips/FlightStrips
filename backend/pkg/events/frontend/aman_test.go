@@ -157,6 +157,42 @@ func TestAMANStateEventIncludesRunwaySelectionStateAndSchedule(t *testing.T) {
 	require.Equal(t, conflict, *event.Data.RunwayGroups[0].SelectionConflict)
 }
 
+func TestAMANStateEventProjectsActiveRunwayGroupsInConfiguredOrder(t *testing.T) {
+	state := goldenAMANState()
+	state.RunwayGroups = append(state.RunwayGroups, aman.RunwayGroupPolicy{ID: "ARRIVAL-04"})
+	state.ActiveRunwayGroups = []aman.RunwayGroupID{"ARRIVAL-04", "ARRIVAL-22"}
+
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, []string{"ARRIVAL-22", "ARRIVAL-04"}, event.Data.ActiveRunwayGroups)
+}
+
+func TestAMANStateEventOmitsActiveRunwayGroupsForLegacyState(t *testing.T) {
+	event, err := NewAMANStateEvent(goldenAMANState(), aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	encoded, err := event.Marshal()
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), `"active_runway_groups"`)
+}
+
+func TestAMANStateEventActiveSetIsAdditiveForLegacyV1Decoders(t *testing.T) {
+	state := goldenAMANState()
+	state.ActiveRunwayGroups = []aman.RunwayGroupID{"ARRIVAL-22"}
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	encoded, err := event.Marshal()
+	require.NoError(t, err)
+
+	var legacy struct {
+		Data struct {
+			RunwayGroups []AMANRunwayGroup `json:"runway_groups"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &legacy))
+	require.Equal(t, "ARRIVAL-22", legacy.Data.RunwayGroups[0].ID)
+	require.True(t, legacy.Data.RunwayGroups[0].Selected)
+}
+
 func TestAMANFlightOmitsNonPublishablePredictionData(t *testing.T) {
 	state := goldenAMANState()
 	state.Flights[0].Prediction.Publishable = false

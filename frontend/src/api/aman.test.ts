@@ -3,6 +3,7 @@ import {resolve} from "node:path";
 import {describe, expect, it} from "vitest";
 
 import {
+  getActiveAMANRunwayGroups,
   isAMANCommandRejectedEvent,
   isAMANStateEvent,
   replaceAMANState,
@@ -36,9 +37,38 @@ describe("AMAN V1 full replacement contract", () => {
     delete legacy.data.flights[0].feeder_fix_eta;
     delete legacy.data.flights[0].feeder_fix_eta_source;
     delete legacy.data.flights[0].feeder_fix_passed;
+    delete legacy.data.active_runway_groups;
 
     expect(isAMANStateEvent(legacy)).toBe(true);
-    expect(replaceAMANState(null, legacy)).toMatchObject({accepted: true, error: null});
+    const accepted = replaceAMANState(null, legacy);
+    expect(accepted).toMatchObject({accepted: true, error: null});
+    expect(accepted.state?.active_runway_groups).toEqual(["ARRIVAL-22"]);
+  });
+
+  it("accepts and orders a multi-runway active set by configured runway groups", () => {
+    const event = replacement(8);
+    event.data.runway_groups.unshift({id: "ARRIVAL-04", selected: false, selection_schedule: []});
+    event.data.active_runway_groups = ["ARRIVAL-22", "ARRIVAL-04"];
+
+    expect(isAMANStateEvent(event)).toBe(true);
+    expect(getActiveAMANRunwayGroups(event.data).map((group) => group.id)).toEqual(["ARRIVAL-04", "ARRIVAL-22"]);
+  });
+
+  it.each([
+    ["empty", []],
+    ["duplicate", ["ARRIVAL-22", "ARRIVAL-22"]],
+    ["unknown", ["ARRIVAL-04"]],
+    ["malformed", [" PADDED "]],
+  ])("rejects an %s active runway set", (_name, activeRunwayGroups) => {
+    const event = replacement(8);
+    event.data.active_runway_groups = activeRunwayGroups;
+    expect(isAMANStateEvent(event)).toBe(false);
+  });
+
+  it("rejects a non-array active runway field", () => {
+    const event = replacement(8) as unknown as {data: Record<string, unknown>};
+    event.data.active_runway_groups = "ARRIVAL-22";
+    expect(isAMANStateEvent(event)).toBe(false);
   });
 
   it("validates new feeder ETA provenance and passed state", () => {

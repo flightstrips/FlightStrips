@@ -713,6 +713,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		legDurations = estimate.LegDurations
 	}
 	s.setHealthComponent("predictor", aman.HealthReady, "", now)
+	flight.FeederETA = routeFeederETA(now, legDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress)
 	if projection.SelectedHolding != nil {
 		holding := string(projection.SelectedHolding.ID)
 		flight.SelectedHolding = &holding
@@ -1630,6 +1631,26 @@ func calculationSegments(segments []predictor.DescentSegmentCalculation) []aman.
 }
 
 func holdingETA(now time.Time, durations []time.Duration, legs []trajectory.RemainingLeg, fix navdata.FixID) *time.Time {
+	return waypointETA(now, durations, legs, fix)
+}
+
+// routeFeederETA reuses the predictor's accepted per-leg duration vector. The
+// trajectory relation is authoritative for passage; absent geometry is not.
+func routeFeederETA(now time.Time, durations []time.Duration, legs []trajectory.RemainingLeg, fix navdata.FixID, progress trajectory.FeederProgress) *aman.FeederETAState {
+	if progress == trajectory.FeederProgressPassed {
+		return &aman.FeederETAState{Source: aman.FeederETASourcePassed, Passed: true}
+	}
+	if progress != trajectory.FeederProgressAhead {
+		return nil
+	}
+	eta := waypointETA(now, durations, legs, fix)
+	if eta == nil {
+		return nil
+	}
+	return &aman.FeederETAState{ETA: eta, Source: aman.FeederETASourceRoute}
+}
+
+func waypointETA(now time.Time, durations []time.Duration, legs []trajectory.RemainingLeg, fix navdata.FixID) *time.Time {
 	if len(durations) != len(legs) {
 		return nil
 	}

@@ -394,6 +394,7 @@ func cloneAirportState(value aman.AirportState) aman.AirportState {
 	for index := range value.RunwayGroups {
 		value.RunwayGroups[index].Gaps = append([]aman.RunwayGap(nil), value.RunwayGroups[index].Gaps...)
 		value.RunwayGroups[index].Closures = append([]aman.RunwayClosure(nil), value.RunwayGroups[index].Closures...)
+		value.RunwayGroups[index].CapacityReservations = append([]aman.RunwayCapacityReservation(nil), value.RunwayGroups[index].CapacityReservations...)
 	}
 	value.ActiveRunwayGroups = append([]aman.RunwayGroupID(nil), value.ActiveRunwayGroups...)
 	return value
@@ -427,6 +428,7 @@ func encodeRunwayGroups(state aman.AirportState) []aman.RunwayGroupPolicy {
 		_, groups[index].Active = active[groups[index].ID]
 		groups[index].Gaps = append([]aman.RunwayGap(nil), groups[index].Gaps...)
 		groups[index].Closures = append([]aman.RunwayClosure(nil), groups[index].Closures...)
+		groups[index].CapacityReservations = append([]aman.RunwayCapacityReservation(nil), groups[index].CapacityReservations...)
 	}
 	return groups
 }

@@ -98,7 +98,7 @@ func TestAMANRepositoryRestartsWithActiveRunwaySetAndDecodesLegacySelection(t *t
 	require.NoError(t, err)
 	var stored []byte
 	require.NoError(t, pool.QueryRow(ctx, "SELECT runway_groups FROM aman_airport_states WHERE airport = $1", state.Airport).Scan(&stored))
-	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null,"Closures":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null,"Closures":null}]`, string(stored))
+	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null,"Closures":null,"CapacityReservations":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null,"Closures":null,"CapacityReservations":null}]`, string(stored))
 	var legacyDecoder []struct {
 		ID       aman.RunwayGroupID
 		Selected bool

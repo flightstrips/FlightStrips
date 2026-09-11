@@ -784,17 +784,18 @@ type RunwayGroupPolicy struct {
 	ID RunwayGroupID
 	// Active is the additive persistence marker for ActiveRunwayGroups. Selected
 	// remains the single-group compatibility projection during the rollout.
-	Active            bool
-	Selected          bool
-	SelectionSchedule []RunwayGroupSelectionPoint
-	SelectionConflict *string
-	ActiveRatePerHour uint32
-	RateEffectiveAt   *time.Time
-	RateSchedule      []RunwayGroupRatePoint
-	SameSTARSpacing   *SameSTARSpacingPolicy
-	SequenceWarnings  []RunwayGroupSequenceWarning
-	Gaps              []RunwayGap
-	Closures          []RunwayClosure
+	Active               bool
+	Selected             bool
+	SelectionSchedule    []RunwayGroupSelectionPoint
+	SelectionConflict    *string
+	ActiveRatePerHour    uint32
+	RateEffectiveAt      *time.Time
+	RateSchedule         []RunwayGroupRatePoint
+	SameSTARSpacing      *SameSTARSpacingPolicy
+	SequenceWarnings     []RunwayGroupSequenceWarning
+	Gaps                 []RunwayGap
+	Closures             []RunwayClosure
+	CapacityReservations []RunwayCapacityReservation
 }
 
 // RunwayGroupSequenceWarning is a persisted, message-independent conflict
@@ -1805,6 +1806,7 @@ func (s AirportState) Validate() error {
 	}
 	gapIDs := make(map[RunwayGapID]gapOwner)
 	closureIDs := make(map[RunwayClosureID]struct{})
+	reservationIDs := make(map[RunwayCapacityReservationID]struct{})
 	selectedGroups := 0
 	var selectedGroup RunwayGroupID
 	for _, group := range s.RunwayGroups {
@@ -1892,6 +1894,18 @@ func (s AirportState) Validate() error {
 			closureIDs[closure.ID] = struct{}{}
 			if index > 0 && !runwayClosureLess(group.Closures[index-1], closure) {
 				return invalid("runway group closures must be unique and strictly ordered")
+			}
+		}
+		for index, reservation := range group.CapacityReservations {
+			if err := reservation.Validate(); err != nil {
+				return err
+			}
+			if _, exists := reservationIDs[reservation.ID]; exists {
+				return invalid("airport state contains duplicate capacity reservation ID")
+			}
+			reservationIDs[reservation.ID] = struct{}{}
+			if index > 0 && !runwayCapacityReservationLess(group.CapacityReservations[index-1], reservation) {
+				return invalid("runway group capacity reservations must be unique and strictly ordered")
 			}
 		}
 	}

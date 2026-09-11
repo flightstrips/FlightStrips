@@ -140,6 +140,14 @@ body.public-content-page {
     @apply col-start-1 h-full min-h-0 min-w-0 bg-bay-panel;
   }
 
+  .aman-settings-header {
+    @apply grid min-h-0 grid-rows-[minmax(0,2fr)_minmax(2.25rem,1fr)] gap-1 overflow-hidden bg-[#292929] p-1;
+  }
+
+  .aman-settings-button {
+    @apply grid min-w-[4.25rem] place-items-center border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
+  }
+
   .aman-workspace-separator {
     @apply col-start-2 h-full min-w-3 bg-[#242424];
   }

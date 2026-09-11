@@ -12,6 +12,7 @@ import {cn} from "@/lib/utils";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {AMANAircraftTarget, type AMANAircraftTargetField} from "./AMANAircraftTarget";
 import {AMANAircraftTargetPreferenceControls} from "./AMANAircraftTargetPreferences";
+import {AMANSettingsHeader} from "./AMANSettingsHeader";
 import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from "./amanAircraftTargetPreferenceModel";
 import {ACCTimeline} from "./ACCTimeline";
 import {FMPPairedTimeline} from "./FMPPairedTimeline";
@@ -25,20 +26,9 @@ import {
   type AMANTimelineRange,
 } from "./presentation";
 
-const badgeBase = "inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide";
 const TIMELINE_PIXELS_PER_MINUTE = 18;
 const RULER_WIDTH_PIXELS = 58;
 const STRIP_STACK_PIXELS = 30;
-
-function modeTone(mode: AMANState["effective_mode"]): string {
-  switch (mode) {
-    case "authoritative": return "border-emerald-400 bg-emerald-950 text-emerald-200";
-    case "shadow": return "border-sky-400 bg-sky-950 text-sky-200";
-    case "read_only": return "border-amber-400 bg-amber-950 text-amber-200";
-    case "blocked": return "border-red-400 bg-red-950 text-red-200";
-    case "disabled": return "border-slate-500 bg-slate-900 text-slate-300";
-  }
-}
 
 function timelinePosition(timestamp: string | null, range: AMANTimelineRange): number | null {
   return AMANAxisTopPercent(timestamp, range);
@@ -352,46 +342,19 @@ export function AMANBoardView({
   }
 
   return (
-    <section aria-label="AMAN presentation" className="flex h-[calc(95.28dvh-24px)] min-h-[640px] w-full max-w-[1440px] flex-col overflow-hidden bg-[#505052] text-white shadow-2xl">
-      <header className="shrink-0 bg-[#292929] p-1.5">
-        <div className="flex h-16 gap-1 overflow-x-auto">
-          <div className="grid place-items-center rounded-md bg-[#f3d02e] px-3 font-display text-xl font-bold text-black">{state.airport}</div>
-          {lanes.map((lane) => (
-            <button
-              aria-pressed={activeRunwayLane?.id === lane.id}
-              className={cn(
-                "min-w-[120px] rounded-md border border-black px-4 text-left font-display text-lg font-bold text-black",
-                activeRunwayLane?.id === lane.id ? "bg-[#f3d02e] ring-2 ring-white" : "bg-[#e6c933] hover:bg-[#f3d02e]",
-              )}
-              key={lane.id}
-              onClick={() => setSelectedRunwayGroupID(lane.id)}
-              type="button"
-            >
-              {lane.label} : {lane.flights.length}
-            </button>
-          ))}
-          <div className="ml-auto grid min-w-[126px] place-items-center rounded-md bg-[#e4e4e4] px-3 text-center text-xs text-black">TMA: {state.flights.length}<br />Health: {state.technical_health.status}</div>
-          <button aria-label="Open target information preferences" className="grid min-w-[164px] place-items-center rounded-md bg-[#e4e4e4] px-3 text-center font-mono text-sm text-[#555] hover:ring-2 hover:ring-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => setTargetPreferencesOpen(true)} type="button">{new Date(state.generated_at).toISOString().slice(11, 19)}</button>
-        </div>
-        <div className="mt-1 flex h-9 items-center gap-1 rounded-sm bg-[#888] px-1">
-          <span className="rounded border border-black bg-[#86a4af] px-3 py-1 text-xs font-bold">MAESTRO</span>
-          <button aria-controls="aman-timeline-grid" aria-pressed={view === "holds"} className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "holds" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("holds")} type="button">ALL</button>
-          <button aria-controls="aman-timeline-grid" aria-pressed={view === "runway"} className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "runway" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("runway")} type="button">RWY</button>
-          <button aria-controls="aman-timeline-grid" aria-pressed={view === "acc"} className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "acc" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("acc")} type="button">ACC</button>
-          {view === "acc" && <label className="ml-1 flex items-center gap-1 text-xs font-bold text-black">Emphasis
-            <select aria-label="ACC STAR family emphasis" className="rounded border border-black bg-white px-1 py-0.5" onChange={(event) => setACCView(event.target.value)} value={accView}>
-              <option value={AMAN_ALL_VIEW}>ALL</option>
-              {[...availableAMANViews(state)].map((family) => <option key={family} value={family}>{family}</option>)}
-            </select>
-          </label>}
-          <span className="rounded border border-black bg-[#d6d6d6] px-3 py-1 text-xs font-bold text-black">DSEQ - 0</span>
-          <span className="ml-2 border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>
-          <span className={cn("ml-auto", badgeBase, modeTone(state.effective_mode))}>{state.effective_mode.replace("_", " ")}</span>
-          <span className={cn(badgeBase, connectionState === "connected" ? "border-emerald-400 bg-emerald-950 text-emerald-200" : "border-red-400 bg-red-950 text-red-100")}>{connectionState}</span>
-          {presentationStatus !== "ready" && <span className={cn(badgeBase, "border-amber-400 bg-amber-950 text-amber-100")}>{presentationStatus}</span>}
-        </div>
-      </header>
-
+    <section aria-label="AMAN presentation" className="grid h-full min-h-[640px] w-full max-w-[1440px] grid-rows-[clamp(7.5rem,13.333%,9rem)_minmax(0,1fr)_3.5rem] overflow-hidden bg-[#505052] text-white shadow-2xl">
+      <AMANSettingsHeader
+        connectionState={connectionState}
+        onOpenTargetPreferences={() => setTargetPreferencesOpen(true)}
+        onRunwayGroupViewChange={setSelectedRunwayGroupID}
+        onViewChange={setView}
+        presentationStatus={presentationStatus}
+        runwayGroupOptions={lanes.map((lane) => ({id: lane.id, label: `${lane.label} : ${lane.flights.length}`}))}
+        secondaryAccessory={<><span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>{view === "acc" && <label className="flex items-center gap-1 text-xs font-bold text-black">Emphasis<select aria-label="ACC STAR family emphasis" className="border border-black bg-white px-1" onChange={(event) => setACCView(event.target.value)} value={accView}><option value={AMAN_ALL_VIEW}>ALL</option>{[...availableAMANViews(state)].map((family) => <option key={family} value={family}>{family}</option>)}</select></label>}</>}
+        selectedRunwayGroupID={activeRunwayLane?.id ?? null}
+        state={state}
+        view={view}
+      />
       <div className="relative min-h-0 flex-1">
         <div className="h-full overflow-auto pl-9 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
           <div className={cn("relative flex", view === "holds" ? "min-w-max" : "min-w-full")} data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>

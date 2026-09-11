@@ -328,8 +328,9 @@ func (r *Replayer) calculateDelay(currentTimestamp, lastTimestamp int64) time.Du
 
 // executeFrontendAction executes a single frontend action
 func (r *Replayer) executeFrontendAction(ctx context.Context, action recorder.FrontendAction) error {
-	// Apply delay if specified
-	if action.DelayMs > 0 {
+	// Recorded action delays preserve timing in time-based replays. Fast mode is
+	// used by tests specifically to run the recording without wall-clock waits.
+	if action.DelayMs > 0 && r.config.Mode != ModeFast {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

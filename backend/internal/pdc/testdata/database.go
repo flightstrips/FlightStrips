@@ -3,17 +3,31 @@ package testdata
 import (
 	"FlightStrips/internal/database"
 	"context"
+	"fmt"
 	"path/filepath"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
+
+var sharedPostgres struct {
+	once      sync.Once
+	container *postgres.PostgresContainer
+	adminPool *pgxpool.Pool
+	baseURL   string
+	err       error
+}
+
+var databaseSequence atomic.Uint64
 
 // getMigrationsPath returns the absolute path to the migrations directory
 func getMigrationsPath() string {
@@ -23,49 +37,78 @@ func getMigrationsPath() string {
 	return filepath.Join(filepath.Dir(filename), "..", "..", "..", "migrations")
 }
 
-// SetupTestDB creates a test database connection with automatic PostgreSQL container
+// SetupTestDB creates an isolated database cloned from a migrated template. A single
+// PostgreSQL container is shared by all tests in a package's test process; starting
+// a container and replaying every migration for each test made the suite needlessly
+// spend most of its time in Docker setup.
 func SetupTestDB(t *testing.T) (*pgxpool.Pool, *database.Queries) {
+	t.Helper()
 	ctx := context.Background()
 
-	// Start PostgreSQL container
-	postgresContainer, err := postgres.Run(ctx,
-		"postgres:16-alpine",
-		postgres.WithDatabase("testdb"),
-		postgres.WithUsername("postgres"),
-		postgres.WithPassword("postgres"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(30*time.Second)),
-	)
-	require.NoError(t, err, "Failed to start PostgreSQL container")
-
-	// Cleanup container when test finishes
-	t.Cleanup(func() {
-		if err := testcontainers.TerminateContainer(postgresContainer); err != nil {
-			t.Logf("Failed to terminate PostgreSQL container: %v", err)
+	sharedPostgres.once.Do(func() {
+		sharedPostgres.container, sharedPostgres.err = postgres.Run(ctx,
+			"postgres:16-alpine",
+			postgres.WithDatabase("testdb"),
+			postgres.WithUsername("postgres"),
+			postgres.WithPassword("postgres"),
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("database system is ready to accept connections").
+					WithOccurrence(2).
+					WithStartupTimeout(30*time.Second)),
+		)
+		if sharedPostgres.err != nil {
+			return
 		}
+
+		sharedPostgres.baseURL, sharedPostgres.err = sharedPostgres.container.ConnectionString(ctx, "sslmode=disable")
+		if sharedPostgres.err != nil {
+			return
+		}
+		sharedPostgres.err = database.Migrate(sharedPostgres.baseURL, getMigrationsPath())
+		if sharedPostgres.err != nil {
+			return
+		}
+
+		adminConfig, err := pgxpool.ParseConfig(sharedPostgres.baseURL)
+		if err != nil {
+			sharedPostgres.err = err
+			return
+		}
+		adminConfig.ConnConfig.Database = "postgres"
+		sharedPostgres.adminPool, sharedPostgres.err = pgxpool.NewWithConfig(ctx, adminConfig)
 	})
+	require.NoError(t, sharedPostgres.err, "Failed to prepare shared PostgreSQL test container")
 
-	// Get connection string
-	connStr, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
+	databaseName := fmt.Sprintf("test_%d", databaseSequence.Add(1))
+	_, err := sharedPostgres.adminPool.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{databaseName}.Sanitize()+" TEMPLATE testdb")
+	require.NoError(t, err, "Failed to clone PostgreSQL test database")
+
+	testConfig, err := pgxpool.ParseConfig(sharedPostgres.baseURL)
 	require.NoError(t, err)
-
-	// Run migrations
-	migrationsPath := getMigrationsPath()
-	err = database.Migrate(connStr, migrationsPath)
-	require.NoError(t, err, "Failed to run migrations")
-
-	// Connect to database
-	pool, err := pgxpool.New(ctx, connStr)
+	testConfig.ConnConfig.Database = databaseName
+	pool, err := pgxpool.NewWithConfig(ctx, testConfig)
 	require.NoError(t, err, "Failed to connect to test database")
 
 	t.Cleanup(func() {
 		pool.Close()
+		if _, err := sharedPostgres.adminPool.Exec(context.Background(), "DROP DATABASE "+pgx.Identifier{databaseName}.Sanitize()+" WITH (FORCE)"); err != nil {
+			t.Logf("Failed to drop PostgreSQL test database %s: %v", databaseName, err)
+		}
 	})
 
 	queries := database.New(pool)
 	return pool, queries
+}
+
+// ShutdownTestDB terminates the package test process's shared PostgreSQL container.
+func ShutdownTestDB() error {
+	if sharedPostgres.adminPool != nil {
+		sharedPostgres.adminPool.Close()
+	}
+	if sharedPostgres.container != nil {
+		return testcontainers.TerminateContainer(sharedPostgres.container)
+	}
+	return nil
 }
 
 // SeedTestSession inserts a test session with realistic sector owners including an

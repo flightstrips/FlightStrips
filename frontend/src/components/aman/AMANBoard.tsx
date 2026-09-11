@@ -11,12 +11,12 @@ import {cn} from "@/lib/utils";
 import {AMANAircraftTarget, type AMANAircraftTargetField} from "./AMANAircraftTarget";
 import {AMANAircraftTargetPreferenceControls} from "./AMANAircraftTargetPreferences";
 import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from "./amanAircraftTargetPreferenceModel";
+import {AMANAxisTopPercent, AMANTimelineAxis, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
 import {
   buildAMANHoldingLanes,
   buildAMANLanes,
   formatAMANTime,
   layoutTimelineMarkers,
-  operationalMarkerTimestamp,
   type AMANTimelineRange,
 } from "./presentation";
 
@@ -35,73 +35,8 @@ function modeTone(mode: AMANState["effective_mode"]): string {
   }
 }
 
-function timelinePercent(timestamp: string | null, range: AMANTimelineRange): number | null {
-  if (timestamp === null) return null;
-  const value = Date.parse(timestamp);
-  if (!Number.isFinite(value)) return null;
-  return Math.max(0, Math.min(100, ((value - range.startMs) / (range.endMs - range.startMs)) * 100));
-}
-
-/** The operational ruler follows the reference: later times are above earlier times. */
 function timelinePosition(timestamp: string | null, range: AMANTimelineRange): number | null {
-  const percent = timelinePercent(timestamp, range);
-  return percent === null ? null : 100 - percent;
-}
-
-function buildScrollableTimelineRange(flights: AMANFlight[], generatedAt: string): AMANTimelineRange {
-  const timestamps = [generatedAt, ...flights.flatMap((flight) => [operationalMarkerTimestamp(flight), flight.raw_teta])]
-    .map((value) => value === null ? Number.NaN : Date.parse(value))
-    .filter(Number.isFinite);
-  const fallback = Date.parse(generatedAt);
-  const minimum = timestamps.length > 0 ? Math.min(...timestamps) : fallback;
-  const maximum = timestamps.length > 0 ? Math.max(...timestamps) : fallback;
-  const hour = 3_600_000;
-  const startMs = Math.floor(minimum / hour) * hour;
-  const endMs = Math.max(startMs + hour, Math.ceil(maximum / hour) * hour);
-  return {startMs, endMs};
-}
-
-function buildTimelineTicks(range: AMANTimelineRange): Array<{position: number; timestamp: string; major: boolean}> {
-  const minute = 60_000;
-  const count = Math.round((range.endMs - range.startMs) / minute);
-  return Array.from({length: count + 1}, (_, index) => {
-    const timeMs = range.startMs + index * minute;
-    return {
-      position: 100 - index / count * 100,
-      timestamp: new Date(timeMs).toISOString(),
-      major: new Date(timeMs).getUTCMinutes() % 5 === 0,
-    };
-  });
-}
-
-function TimelineRuler({range, currentPosition}: {range: AMANTimelineRange; currentPosition: number | null}) {
-  const ticks = buildTimelineTicks(range);
-
-  return (
-    <div className="absolute inset-y-0 left-1/2 w-[58px] -translate-x-1/2 overflow-visible border border-[#d8d8d8]" aria-hidden="true">
-      {currentPosition !== null && <>
-        <div className="absolute inset-x-0 bottom-0 bg-[#3a3a3a]" style={{top: `${currentPosition}%`}} />
-        <div className="absolute inset-x-0 z-10 -translate-y-1/2" style={{top: `${currentPosition}%`}}>
-          {/* Each ruler border is bracketed as >|<, not a chevron pair on one side. */}
-          <i className="absolute top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-y-transparent border-l-[5px] border-l-white" style={{right: "calc(100% + 1px)"}} />
-          <i className="absolute left-px top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-y-transparent border-r-[5px] border-r-white" />
-          <span className="absolute left-[7px] right-[7px] top-1/2 border-t border-dashed border-white" />
-          <i className="absolute right-px top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-y-transparent border-l-[5px] border-l-white" />
-          <i className="absolute top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-y-transparent border-r-[5px] border-r-white" style={{left: "calc(100% + 1px)"}} />
-        </div>
-      </>}
-      {ticks.map(({position, major, timestamp}) => {
-        const isCurrentMarker = currentPosition !== null && Math.abs(position - currentPosition) < 0.5;
-        return (
-          <div className="absolute inset-x-0 z-[1] -translate-y-1/2" key={timestamp} style={{top: `${position}%`}}>
-            <span className={cn("absolute left-0 block h-px bg-[#d8d8d8]", major ? "w-3" : "w-1.5")} />
-            <span className={cn("absolute right-0 block h-px bg-[#d8d8d8]", major ? "w-3" : "w-1.5")} />
-            {major && !isCurrentMarker && <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#505052] px-0.5 font-mono text-[11px] font-semibold text-white">{formatAMANTime(timestamp)}</span>}
-          </div>
-        );
-      })}
-    </div>
-  );
+  return AMANAxisTopPercent(timestamp, range);
 }
 
 function TimelineScrollRail({
@@ -178,6 +113,8 @@ function HoldingTimeline({
   fillAvailableSpace,
   showStar,
   currentPosition,
+  clockMs,
+  axisStatus,
   gainLossAuthoritative,
   gainLossConnected,
   selectedFlightID,
@@ -193,6 +130,8 @@ function HoldingTimeline({
   fillAvailableSpace: boolean;
   showStar: boolean;
   currentPosition: number | null;
+  clockMs: number;
+  axisStatus: "fresh" | "stale" | "disconnected";
   gainLossAuthoritative: boolean;
   gainLossConnected: boolean;
   selectedFlightID: string | null;
@@ -208,7 +147,7 @@ function HoldingTimeline({
     <section className={cn("relative h-full", fillAvailableSpace ? "min-w-[520px] flex-1" : "min-w-[520px]")} data-testid={`holding-timeline-lane-${label}`}>
       <div className="absolute inset-x-0 bottom-12 top-5">
         {currentPosition !== null && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
-        <TimelineRuler currentPosition={currentPosition} range={range} />
+        <AMANTimelineAxis clockMs={clockMs} range={range} status={axisStatus} />
       {markers.map((marker) => {
         const selected = marker.flight.flight_id === selectedFlightID;
         const top = timelinePosition(marker.timestamp, range) ?? 0;
@@ -294,7 +233,8 @@ export function AMANBoardView({
   const activeRunwayLane = lanes.find((lane) => lane.id === selectedRunwayGroupID) ?? lanes[0] ?? null;
   const timelineFlights = useMemo(() => activeRunwayLane?.flights ?? [], [activeRunwayLane]);
   const holdingLanes = useMemo(() => buildAMANHoldingLanes(timelineFlights), [timelineFlights]);
-  const range = useMemo(() => buildScrollableTimelineRange(timelineFlights, state?.generated_at ?? ""), [state?.generated_at, timelineFlights]);
+  const axis = useAMANTimelineAxis(state?.generated_at ?? new Date(0).toISOString());
+  const range = axis.range;
   const timelineHeight = useMemo(
     () => Math.max(720, Math.ceil((range.endMs - range.startMs) / 60_000) * TIMELINE_PIXELS_PER_MINUTE),
     [range],
@@ -302,7 +242,8 @@ export function AMANBoardView({
   const visibleTimelineLanes = useMemo(() => view === "runway"
     ? [{id: "runway", label: activeRunwayLane?.label ?? "Runway", flights: timelineFlights}]
     : holdingLanes, [activeRunwayLane?.label, holdingLanes, timelineFlights, view]);
-  const nowPosition = timelinePosition(state?.generated_at ?? null, range);
+  const nowPosition = AMANAxisTopPercent(axis.clockMs, range);
+  const axisStatus = connectionState === "disconnected" ? "disconnected" : presentationStatus === "degraded" ? "stale" : "fresh";
   const targetFields = (flight: AMANFlight): AMANAircraftTargetField[] => [
     {id: "feeder-fix-eta", label: "Feeder-fix ETA", value: flight.feeder_fix_eta ? formatAMANTime(flight.feeder_fix_eta) : "—"},
     {id: "total-delay", label: "Total delay", value: flight.expected_holding_seconds === null ? "—" : `D${String(Math.ceil(flight.expected_holding_seconds / 60)).padStart(2, "0")}`},
@@ -378,7 +319,7 @@ export function AMANBoardView({
           <button className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "holds" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("holds")} type="button">ALL</button>
           <button className={cn("rounded border border-black px-3 py-1 text-xs font-bold", view === "runway" ? "bg-white text-black" : "bg-[#d6d6d6] text-black")} onClick={() => setView("runway")} type="button">RWY</button>
           <span className="rounded border border-black bg-[#d6d6d6] px-3 py-1 text-xs font-bold text-black">DSEQ - 0</span>
-          <span className="ml-2 border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANTime(new Date(range.startMs).toISOString())}–{formatAMANTime(new Date(range.endMs).toISOString())} · scroll timeline</span>
+          <span className="ml-2 border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>
           <span className={cn("ml-auto", badgeBase, modeTone(state.effective_mode))}>{state.effective_mode.replace("_", " ")}</span>
           <span className={cn(badgeBase, connectionState === "connected" ? "border-emerald-400 bg-emerald-950 text-emerald-200" : "border-red-400 bg-red-950 text-red-100")}>{connectionState}</span>
           {presentationStatus !== "ready" && <span className={cn(badgeBase, "border-amber-400 bg-amber-950 text-amber-100")}>{presentationStatus}</span>}
@@ -401,6 +342,8 @@ export function AMANBoardView({
                 fillAvailableSpace={view === "runway"}
                 showStar={view === "runway"}
                 currentPosition={nowPosition}
+                clockMs={axis.clockMs}
+                axisStatus={axisStatus}
                 gainLossAuthoritative={state.authoritative && state.effective_mode === "authoritative"}
                 gainLossConnected={connectionState === "connected"}
                 leadingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}

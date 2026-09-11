@@ -11,6 +11,7 @@ import (
 	amanWebAPI "FlightStrips/internal/aman/webapi"
 	"FlightStrips/internal/cdm"
 	appconfig "FlightStrips/internal/config"
+	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/ecfmp"
 	ecfmpWebAPI "FlightStrips/internal/ecfmp/webapi"
@@ -309,7 +310,12 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			}
 		}
 	}
-	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanRouteFacts, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled)
+	var amanCoordination *coordinationrequest.Service
+	if amanRuntime.Enabled() {
+		repository := coordinationrequest.NewRepository(dbpool)
+		amanCoordination = coordinationrequest.NewService(repository, repository, cfg.AMAN.FMPRoles)
+	}
+	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanCoordination, amanRouteFacts, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -714,9 +720,9 @@ type realtimeAssembly struct {
 	euroscope *euroscope.Hub
 }
 
-func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanRouteFacts euroscope.AMANRouteFactReporter, amanFMPRoles []string, amanMutations bool, amanGainLossEnabled bool) (realtimeAssembly, error) {
+func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanCoordination *coordinationrequest.Service, amanRouteFacts euroscope.AMANRouteFactReporter, amanFMPRoles []string, amanMutations bool, amanGainLossEnabled bool) (realtimeAssembly, error) {
 	frontendHub, err := frontend.NewHub(frontend.HubDependencies{
-		Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANFMPRoles: amanFMPRoles, AMANMutations: amanMutations,
+		Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANCoordination: amanCoordination, AMANFMPRoles: amanFMPRoles, AMANMutations: amanMutations,
 	})
 	if err != nil {
 		return realtimeAssembly{}, fmt.Errorf("initialize frontend hub: %w", err)

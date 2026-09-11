@@ -13,6 +13,7 @@ import (
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/shared"
 	events "FlightStrips/pkg/events/frontend"
 )
@@ -40,6 +41,40 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANCreateGapType, handleAMANCreateGap)
 	handlers.Add(events.AMANRemoveGapType, handleAMANRemoveGap)
 	handlers.Add(events.AMANPlaceFlightAtTimeType, handleAMANPlaceFlightAtTime)
+}
+
+func handleAMANSubmitCoordination(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANSubmitCoordinationMessage
+	if err := decodeAMANMessage(message, events.AMANSubmitCoordinationType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	auth, err := client.hub.amanContext(client)
+	if err != nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+	}
+	payload := coordinationrequest.Payload{}
+	switch coordinationrequest.Kind(wire.Data.Kind) {
+	case coordinationrequest.KindRouteDirect:
+		if wire.Data.Requested != "" {
+			return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("route/direct request cannot contain speed")))
+		}
+		payload.RouteDirect = &coordinationrequest.RouteDirectPayload{Route: wire.Data.Route, DirectTo: wire.Data.DirectTo}
+	case coordinationrequest.KindSpeed:
+		if wire.Data.Route != "" || wire.Data.DirectTo != "" {
+			return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("speed request cannot contain route/direct")))
+		}
+		payload.Speed = &coordinationrequest.SpeedPayload{Requested: wire.Data.Requested}
+	default:
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("unknown coordination request kind")))
+	}
+	result, err := client.hub.amanCoordination.Submit(ctx, coordinationrequest.CommandContext{Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, coordinationrequest.SubmitCommand{
+		CommandID: wire.Data.CommandID, ExpectedRevision: wire.Data.ExpectedRevision, FlightID: coordinationrequest.FlightID(wire.Data.FlightID), Kind: coordinationrequest.Kind(wire.Data.Kind), Payload: payload,
+	})
+	if err != nil {
+		return rejectAMAN(ctx, client, wire.Data.CommandID, aman.SequenceRevision(result.Revision), err)
+	}
+	client.hub.sendAMANCoordinationSnapshot(ctx, client)
+	return nil
 }
 
 func handleAMANCreateGap(ctx context.Context, client *Client, message Message) error {
@@ -381,6 +416,12 @@ func stableAMANError(err error) *aman.DomainError {
 	var domain *aman.DomainError
 	if errors.As(err, &domain) && domain != nil && domain.Class.Valid() {
 		return domain
+	}
+	if errors.Is(err, coordinationrequest.ErrRevisionConflict) {
+		return &aman.DomainError{Class: aman.ErrorRevisionConflict, Message: err.Error()}
+	}
+	if errors.Is(err, coordinationrequest.ErrUnauthorized) {
+		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: err.Error()}
 	}
 	return &aman.DomainError{Class: aman.ErrorDependencyUnavailable, Message: "AMAN command could not be completed"}
 }

@@ -38,7 +38,33 @@ export interface AMANState {
   holding_information?: AMANHoldingEntry[];
   /** Complete current replacement; an empty array clears previously published warnings. */
   warnings?: AMANWarning[];
+  /** Audience-filtered coordination replacement for the authenticated FMP. */
+  coordination_requests?: AMANCoordinationRequest[];
+  coordination_revision?: number;
   technical_health: AMANTechnicalHealth;
+}
+
+export type AMANCoordinationKind = "route_direct" | "speed";
+export type AMANCoordinationState = "pending" | "accepted" | "rejected" | "superseded" | "expired";
+export interface AMANCoordinationRequest {
+  id: string;
+  flight_id: string;
+  recipient_controller: string;
+  recipient_status: "assigned" | "unassigned";
+  kind: AMANCoordinationKind;
+  state: AMANCoordinationState;
+  payload: {route_direct?: {route?: string; direct_to?: string}; speed?: {requested: string}};
+  created_at: string;
+  updated_at: string;
+  supersedes?: string;
+  superseded_by?: string;
+}
+
+export interface AMANCoordinationStateEvent {
+  type: "aman.coordination_state";
+  version: typeof AMAN_WIRE_VERSION;
+  revision: number;
+  requests: AMANCoordinationRequest[];
 }
 
 export interface AMANHeader {
@@ -346,7 +372,8 @@ export type AMANCommandType =
   | "aman.reject_go_around"
   | "aman.create_gap"
   | "aman.remove_gap"
-  | "aman.place_flight_at_time";
+  | "aman.place_flight_at_time"
+  | "aman.submit_coordination_request";
 
 export interface AMANCommandMeta {
   command_id: string;
@@ -368,7 +395,11 @@ export type AMANCommandIntent =
   | {type: "aman.confirm_go_around" | "aman.reject_go_around"; flight_id: string; episode_id: string}
   | ({type: "aman.create_gap"; runway_group_id: string; start: string; label: string} & ({end: string; slot_count?: never} | {slot_count: number; end?: never}))
   | {type: "aman.remove_gap"; runway_group_id: string; gap_id: string}
-  | {type: "aman.place_flight_at_time"; flight_id: string; runway_group_id: string; slot_time: string; allow_gap: boolean};
+  | {type: "aman.place_flight_at_time"; flight_id: string; runway_group_id: string; slot_time: string; allow_gap: boolean}
+  | ({type: "aman.submit_coordination_request"; flight_id: string} & (
+      {kind: "route_direct"; route?: string; direct_to?: string; requested?: never}
+      | {kind: "speed"; requested: string; route?: never; direct_to?: never}
+    ));
 
 export type AMANCommandMessage = AMANCommandIntent extends infer Intent
   ? Intent extends {type: AMANCommandType}
@@ -688,6 +719,22 @@ function hasValidWarnings(value: unknown): value is AMANWarning[] {
   });
 }
 
+function hasValidCoordinationRequests(value: unknown): value is AMANCoordinationRequest[] {
+  return Array.isArray(value) && value.every((request) => isObject(request) && isIdentity(request.id)
+    && isIdentity(request.flight_id) && isString(request.recipient_controller)
+    && (request.recipient_status === "assigned" ? isIdentity(request.recipient_controller) : request.recipient_status === "unassigned" && request.recipient_controller === "")
+    && (request.kind === "route_direct" || request.kind === "speed")
+    && ["pending", "accepted", "rejected", "superseded", "expired"].includes(String(request.state))
+    && isObject(request.payload) && isTimestamp(request.created_at) && isTimestamp(request.updated_at)
+    && (request.supersedes === undefined || isIdentity(request.supersedes))
+    && (request.superseded_by === undefined || isIdentity(request.superseded_by)));
+}
+
+export function isAMANCoordinationStateEvent(value: unknown): value is AMANCoordinationStateEvent {
+  return isObject(value) && value.type === "aman.coordination_state" && value.version === AMAN_WIRE_VERSION
+    && isNonNegativeInteger(value.revision) && hasValidCoordinationRequests(value.requests);
+}
+
 export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
   if (!isObject(value) || value.type !== "aman.state" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
   const data = value.data;
@@ -702,7 +749,9 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && isTechnicalHealth(data.technical_health)
     && hasValidHeader(data)
     && (data.holding_information === undefined || (Array.isArray(data.holding_information) && data.holding_information.every(isHoldingEntry)))
-    && (data.warnings === undefined || hasValidWarnings(data.warnings));
+    && (data.warnings === undefined || hasValidWarnings(data.warnings))
+    && (data.coordination_requests === undefined || hasValidCoordinationRequests(data.coordination_requests))
+    && (data.coordination_revision === undefined || isNonNegativeInteger(data.coordination_revision));
 }
 
 export function replaceAMANState(current: AMANState | null, event: unknown): AMANReplacementResult {

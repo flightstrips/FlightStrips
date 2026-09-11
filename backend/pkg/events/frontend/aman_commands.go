@@ -1,5 +1,7 @@
 package frontend
 
+import "FlightStrips/internal/coordinationrequest"
+
 const (
 	AMANMoveFlightType           EventType = "aman.move_flight"
 	AMANLockFlightType           EventType = "aman.lock_flight"
@@ -23,6 +25,8 @@ const (
 	AMANCreateGapType            EventType = "aman.create_gap"
 	AMANRemoveGapType            EventType = "aman.remove_gap"
 	AMANPlaceFlightAtTimeType    EventType = "aman.place_flight_at_time"
+	AMANSubmitCoordinationType   EventType = "aman.submit_coordination_request"
+	AMANCoordinationStateType    EventType = "aman.coordination_state"
 )
 
 type AMANCommandMeta struct {
@@ -108,6 +112,31 @@ type AMANPlaceFlightAtTimeRequest struct {
 	SlotTime      string `json:"slot_time"`
 	AllowGap      *bool  `json:"allow_gap"`
 }
+
+type AMANSubmitCoordinationRequest struct {
+	AMANCommandMeta
+	FlightID  string `json:"flight_id"`
+	Kind      string `json:"kind"`
+	Route     string `json:"route,omitempty"`
+	DirectTo  string `json:"direct_to,omitempty"`
+	Requested string `json:"requested,omitempty"`
+}
+
+type AMANSubmitCoordinationMessage struct {
+	Type    EventType                     `json:"type"`
+	Version int                           `json:"version"`
+	Data    AMANSubmitCoordinationRequest `json:"data"`
+}
+
+type AMANCoordinationStateEvent struct {
+	Type     EventType                     `json:"type"`
+	Version  int                           `json:"version"`
+	Revision uint64                        `json:"revision"`
+	Requests []coordinationrequest.Request `json:"requests"`
+}
+
+func (e AMANCoordinationStateEvent) Marshal() ([]byte, error) { return marshall(e) }
+func (AMANCoordinationStateEvent) GetType() EventType         { return AMANCoordinationStateType }
 
 type AMANMoveFlightMessage struct {
 	Type    EventType             `json:"type"`

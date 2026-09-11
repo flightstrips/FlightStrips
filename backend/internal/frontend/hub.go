@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/clx"
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
 	internalModels "FlightStrips/internal/models"
@@ -94,6 +95,7 @@ type Hub struct {
 	standActionService  *services.StandActionService
 	amanStateProvider   AMANStateProvider
 	amanCommandService  aman.CommandService
+	amanCoordination    *coordinationrequest.Service
 	amanFMPRoles        map[string]struct{}
 	amanMutations       bool
 	amanNow             func() time.Time
@@ -121,12 +123,13 @@ type validationStatusAcknowledger interface {
 }
 
 type HubDependencies struct {
-	Strips         shared.StripService
-	Authentication shared.AuthenticationService
-	AMANState      AMANStateProvider
-	AMANCommands   aman.CommandService
-	AMANFMPRoles   []string
-	AMANMutations  bool
+	Strips           shared.StripService
+	Authentication   shared.AuthenticationService
+	AMANState        AMANStateProvider
+	AMANCommands     aman.CommandService
+	AMANCoordination *coordinationrequest.Service
+	AMANFMPRoles     []string
+	AMANMutations    bool
 }
 
 func NewHub(deps HubDependencies) (*Hub, error) {
@@ -188,6 +191,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		authenticationService: deps.Authentication,
 		amanStateProvider:     deps.AMANState,
 		amanCommandService:    deps.AMANCommands,
+		amanCoordination:      deps.AMANCoordination,
 		amanFMPRoles:          normalizedAMANRoles(deps.AMANFMPRoles),
 		amanMutations:         deps.AMANMutations,
 		amanNow:               time.Now,
@@ -200,6 +204,9 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	}
 	if deps.AMANCommands != nil {
 		registerAMANCommandHandlers(&hub.handlers)
+	}
+	if deps.AMANCoordination != nil {
+		hub.handlers.Add(frontend.AMANSubmitCoordinationType, handleAMANSubmitCoordination)
 	}
 
 	return hub, nil
@@ -454,9 +461,23 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 			client.Enqueue(amanState)
 		}
 	}
+	if hub.amanCoordination != nil && hub.hasAMANFMPAuthority(client) {
+		hub.sendAMANCoordinationSnapshot(ctx, client)
+	}
 	if cachedAtis != nil {
 		client.Enqueue(*cachedAtis)
 	}
+}
+
+func (hub *Hub) sendAMANCoordinationSnapshot(ctx context.Context, client *Client) {
+	result, err := hub.amanCoordination.Snapshot(ctx, coordinationrequest.CommandContext{
+		Airport: client.airport, Actor: client.GetCid(), Role: hub.amanRole(client.position), ReceivedAt: hub.amanNow().UTC(),
+	})
+	if err != nil {
+		slog.Error("Failed to project AMAN coordination", slog.Any("error", err))
+		return
+	}
+	client.Enqueue(frontend.AMANCoordinationStateEvent{Type: frontend.AMANCoordinationStateType, Version: frontend.AMANWireVersion, Revision: result.Revision, Requests: result.Requests})
 }
 
 func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.TacticalStripPayload {

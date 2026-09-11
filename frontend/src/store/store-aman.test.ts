@@ -71,6 +71,18 @@ describe("AMAN command store", () => {
     client._emit(EventType.FrontendAMANState, replacement(7));
   });
 
+  it("submits coordination against its own revision and applies the authoritative replacement", () => {
+    client._emit(EventType.FrontendAMANCoordinationState, {type: "aman.coordination_state", version: 1, revision: 3, requests: []});
+    const commandID = store.getState().sendAMANCommand({type: "aman.submit_coordination_request", flight_id: "flight-123", kind: "speed", requested: "220 KT"})!;
+    expect(client.send).toHaveBeenLastCalledWith(expect.objectContaining({data: expect.objectContaining({expected_revision: 3, kind: "speed", requested: "220 KT"})}));
+    client._emit(EventType.FrontendAMANCoordinationState, {type: "aman.coordination_state", version: 1, revision: 4, requests: [{
+      id: `coordination-request/${commandID}`, flight_id: "flight-123", recipient_controller: "", recipient_status: "unassigned",
+      kind: "speed", state: "pending", payload: {speed: {requested: "220 KT"}}, created_at: "2026-07-22T12:00:00.000Z", updated_at: "2026-07-22T12:00:00.000Z",
+    }]});
+    expect(store.getState().amanPendingCommands[commandID]).toBeUndefined();
+    expect(store.getState().amanState?.coordination_requests?.[0]).toMatchObject({recipient_status: "unassigned", state: "pending"});
+  });
+
   it("replaces current warnings, retains the snapshot through reconnect, and clears empty or omitted snapshots", () => {
     const warned = replacement(8);
     warned.data.warnings = [{

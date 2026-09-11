@@ -7,6 +7,7 @@ import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
+import {getAMANMutationBlockReason} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
 
@@ -17,8 +18,13 @@ export default function AMAN() {
   const connectionState = useWebSocketStore((value) => value.amanConnectionState);
   const hasFMPAuthority = useWebSocketStore((value) => value.amanFMPAuthority);
   const warnings = useWebSocketStore((value) => value.amanWarnings);
+  const readOnly = useWebSocketStore((value) => value.readOnly);
+  const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
+  const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
+  const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
   const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [coordinationCommandID, setCoordinationCommandID] = useState<string | null>(null);
   const controlsRef = useRef<HTMLElement>(null);
   const stateAtMount = useRef(state);
 
@@ -79,7 +85,13 @@ export default function AMAN() {
         )}
         tmtRef={controlsRef}
       />
-      {detailOpen && state !== null && effectiveSelectedFlightID !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} />}
+      {detailOpen && state !== null && effectiveSelectedFlightID !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} coordination={hasFMPAuthority ? {
+        requests: (state.coordination_requests ?? []).filter((request) => request.flight_id === effectiveSelectedFlightID),
+        canSubmit: getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority}) === null,
+        submitting: coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined,
+        rejection: coordinationCommandID ? commandRejections[coordinationCommandID]?.message : null,
+        onSubmit: (submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", flight_id: effectiveSelectedFlightID, ...submission})),
+      } : undefined} />}
     </>
   );
 }

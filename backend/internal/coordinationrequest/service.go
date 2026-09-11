@@ -43,6 +43,35 @@ type submitRepository interface {
 	TransferPending(context.Context, OwnershipFact) (TransferResult, error)
 }
 
+type replayRepository interface {
+	ReplayAirport(context.Context, string) ([]Request, error)
+}
+
+// Snapshot returns the complete authoritative replacement visible to the caller.
+func (s *Service) Snapshot(ctx context.Context, auth CommandContext) (TransferResult, error) {
+	if err := s.validateContext(auth); err != nil {
+		return TransferResult{}, err
+	}
+	replay, ok := s.repository.(replayRepository)
+	if !ok {
+		return TransferResult{}, errors.New("coordination request projection is not configured")
+	}
+	requests, err := replay.ReplayAirport(ctx, auth.Airport)
+	if err != nil {
+		return TransferResult{}, err
+	}
+	projected, err := Project(requests, Audience{Controller: ControllerID(auth.Role), Role: auth.Role}, keys(s.fmpRoles))
+	return TransferResult{Requests: projected, Revision: coordinationRevision(requests)}, err
+}
+
+func keys(values map[string]struct{}) []string {
+	result := make([]string, 0, len(values))
+	for value := range values {
+		result = append(result, value)
+	}
+	return result
+}
+
 // ObserveOwnership applies a trusted authoritative tracking-controller fact.
 func (s *Service) ObserveOwnership(ctx context.Context, fact OwnershipFact) (TransferResult, error) {
 	if s == nil || s.repository == nil {

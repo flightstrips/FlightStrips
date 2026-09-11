@@ -23,6 +23,8 @@ type ActionMutations interface {
 	SetActiveRunwayGroups(aman.CommandContext, aman.SetActiveRunwayGroupsCommand) (CommandMutation, error)
 	CreateRunwayGap(aman.CommandContext, aman.CreateRunwayGapCommand) (CommandMutation, error)
 	RemoveRunwayGap(aman.CommandContext, aman.RemoveRunwayGapCommand) (CommandMutation, error)
+	CreateRunwayClosure(aman.CommandContext, aman.CreateRunwayClosureCommand) (CommandMutation, error)
+	RemoveRunwayClosure(aman.CommandContext, aman.RemoveRunwayClosureCommand) (CommandMutation, error)
 	AcceptTETA(aman.CommandContext, aman.AcceptTETACommand) (CommandMutation, error)
 	KeepFPLETA(aman.CommandContext, aman.KeepFPLETACommand) (CommandMutation, error)
 	SetManualETA(aman.CommandContext, aman.SetManualETACommand) (CommandMutation, error)
@@ -119,6 +121,18 @@ func (s *ActionService) CreateRunwayGap(ctx context.Context, auth aman.CommandCo
 func (s *ActionService) RemoveRunwayGap(ctx context.Context, auth aman.CommandContext, command aman.RemoveRunwayGapCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) {
 		return s.mutations.RemoveRunwayGap(auth, command)
+	})
+}
+
+func (s *ActionService) CreateRunwayClosure(ctx context.Context, auth aman.CommandContext, command aman.CreateRunwayClosureCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) {
+		return s.mutations.CreateRunwayClosure(auth, command)
+	})
+}
+
+func (s *ActionService) RemoveRunwayClosure(ctx context.Context, auth aman.CommandContext, command aman.RemoveRunwayClosureCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) {
+		return s.mutations.RemoveRunwayClosure(auth, command)
 	})
 }
 

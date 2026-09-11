@@ -377,7 +377,10 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		}
 	}
 	updateActiveRates(next.RunwayGroups, now)
-	auditRecords := make([]aman.AuditRecord, 0)
+	auditRecords, err := expireRunwayClosures(&next, now)
+	if err != nil {
+		return err
+	}
 	observations := s.observations(airport)
 	indexes := make(map[aman.FlightID]int, len(next.Flights))
 	for i := range next.Flights {

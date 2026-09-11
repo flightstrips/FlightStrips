@@ -91,6 +91,21 @@ type RemoveRunwayGapCommand struct {
 	GapID         RunwayGapID
 }
 
+// CreateRunwayClosureCommand carries only operator-selected closure facts.
+// Authority, airport identity, creator, and acceptance time are server-owned.
+type CreateRunwayClosureCommand struct {
+	Metadata CommandMetadata
+	Interval RunwayClosureIntervalInput
+	Reason   string
+}
+
+type RemoveRunwayClosureCommand struct {
+	Metadata      CommandMetadata
+	RunwayGroupID RunwayGroupID
+	ClosureID     RunwayClosureID
+	Reason        string
+}
+
 type AcceptTETACommand struct {
 	Metadata CommandMetadata
 	FlightID FlightID
@@ -186,6 +201,8 @@ type CommandService interface {
 	SetActiveRunwayGroups(context.Context, CommandContext, SetActiveRunwayGroupsCommand) (CommandExecution, error)
 	CreateRunwayGap(context.Context, CommandContext, CreateRunwayGapCommand) (CommandExecution, error)
 	RemoveRunwayGap(context.Context, CommandContext, RemoveRunwayGapCommand) (CommandExecution, error)
+	CreateRunwayClosure(context.Context, CommandContext, CreateRunwayClosureCommand) (CommandExecution, error)
+	RemoveRunwayClosure(context.Context, CommandContext, RemoveRunwayClosureCommand) (CommandExecution, error)
 	AcceptTETA(context.Context, CommandContext, AcceptTETACommand) (CommandExecution, error)
 	KeepFPLETA(context.Context, CommandContext, KeepFPLETACommand) (CommandExecution, error)
 	SetManualETA(context.Context, CommandContext, SetManualETACommand) (CommandExecution, error)
@@ -336,6 +353,26 @@ func (c RemoveRunwayGapCommand) Validate() error {
 	}
 	if !trimmed(string(c.RunwayGroupID)) || !trimmed(string(c.GapID)) {
 		return commandInvalid("runway GAP removal requires a runway group and GAP ID")
+	}
+	return nil
+}
+
+func (c CreateRunwayClosureCommand) Validate() error {
+	if err := validateCommandMetadata(c.Metadata); err != nil {
+		return err
+	}
+	if !trimmed(string(c.Interval.RunwayGroupID)) || !trimmed(c.Reason) {
+		return commandInvalid("runway closure requires a runway group and canonical reason")
+	}
+	return nil
+}
+
+func (c RemoveRunwayClosureCommand) Validate() error {
+	if err := validateCommandMetadata(c.Metadata); err != nil {
+		return err
+	}
+	if !trimmed(string(c.RunwayGroupID)) || !trimmed(string(c.ClosureID)) || !trimmed(c.Reason) {
+		return commandInvalid("runway closure removal requires a runway group, closure ID, and canonical reason")
 	}
 	return nil
 }

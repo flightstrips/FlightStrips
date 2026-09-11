@@ -293,6 +293,12 @@ func (s *recordingAMANCommandService) RemoveRunwayGap(_ context.Context, auth am
 	s.removeGap = command
 	return s.record("remove_runway_gap", auth, command.Metadata)
 }
+func (s *recordingAMANCommandService) CreateRunwayClosure(_ context.Context, auth aman.CommandContext, command aman.CreateRunwayClosureCommand) (aman.CommandExecution, error) {
+	return s.record("create_runway_closure", auth, command.Metadata)
+}
+func (s *recordingAMANCommandService) RemoveRunwayClosure(_ context.Context, auth aman.CommandContext, command aman.RemoveRunwayClosureCommand) (aman.CommandExecution, error) {
+	return s.record("remove_runway_closure", auth, command.Metadata)
+}
 func (s *recordingAMANCommandService) AcceptTETA(_ context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {
 	return s.record("accept", auth, command.Metadata)
 }

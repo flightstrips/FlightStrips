@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -16,6 +17,21 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestPathDecodesLegacyAndExplicitSTARFamilyKeys(t *testing.T) {
+	var legacy Path
+	require.NoError(t, json.Unmarshal([]byte(`{"feeder":"TESPI"}`), &legacy))
+	require.Equal(t, navdata.FeederID("TESPI"), legacy.Feeder)
+	require.Empty(t, legacy.STARFamily)
+
+	var explicit Path
+	require.NoError(t, json.Unmarshal([]byte(`{"starFamily":"TESPI","feederFix":"TNO","holdingToFeederSeconds":195}`), &explicit))
+	require.Equal(t, navdata.FeederID("TESPI"), explicit.Feeder, "legacy runtime alias is populated")
+	require.Equal(t, navdata.STARFamilyID("TESPI"), explicit.STARFamily)
+	require.Equal(t, navdata.FixID("TNO"), explicit.FeederFix)
+	require.NotNil(t, explicit.HoldingToFeederSeconds)
+	require.EqualValues(t, 195, *explicit.HoldingToFeederSeconds)
+}
 
 func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	config := goldenConfig(t)
@@ -46,6 +62,40 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 		require.NotNil(t, path.PublishedHeadingMagneticDeg, path.Feeder)
 		require.Equal(t, wantHeadings[path.RunwayGroup], *path.PublishedHeadingMagneticDeg, path.Feeder)
 	}
+}
+
+func TestLegacyFeederConfigurationMaterializesWithoutExplicitMetadata(t *testing.T) {
+	config := goldenConfig(t)
+	require.NotEmpty(t, config.Paths)
+	require.Equal(t, navdata.FeederID("TESPI"), config.Paths[0].Feeder)
+	require.Empty(t, config.Paths[0].STARFamily)
+	require.Empty(t, config.Paths[0].FeederFix)
+	require.Nil(t, config.Paths[0].HoldingToFeederSeconds)
+
+	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	require.Equal(t, navdata.FeederID("TESPI"), fragment.Paths[0].Feeder)
+	require.Empty(t, fragment.Paths[0].STARFamily)
+	require.Empty(t, fragment.Paths[0].FeederFix)
+	require.Nil(t, fragment.Paths[0].HoldingToFeederDuration)
+}
+
+func TestCandidateMaterializesExplicitTerminalPathMetadata(t *testing.T) {
+	config := goldenConfig(t)
+	seconds := int64(3*60 + 15)
+	config.Paths[0].STARFamily = "TESPI"
+	config.Paths[0].FeederFix = "TNO"
+	config.Paths[0].HoldingToFeederSeconds = &seconds
+
+	fragment, err := config.Candidate(referencesFor(t, config), time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	path := fragment.Paths[0]
+	require.Equal(t, navdata.FeederID("TESPI"), path.Feeder, "legacy family remains populated")
+	require.Equal(t, navdata.STARFamilyID("TESPI"), path.STARFamily)
+	require.Equal(t, navdata.FixID("TNO"), path.FeederFix)
+	require.NotNil(t, path.HoldingToFeederDuration)
+	require.Equal(t, 3*time.Minute+15*time.Second, *path.HoldingToFeederDuration)
+	require.NoError(t, path.Validate())
 }
 
 func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) {
@@ -246,6 +296,30 @@ func TestConfigurationRejectsTerminalSafetyViolations(t *testing.T) {
 		want   string
 	}{
 		{"first fix differs from feeder", func(c *Configuration, _ *ReferenceSet) { c.Paths[0].Fixes[0] = "ROSBI" }, "paths[0].fixes[0]"},
+		{"explicit feeder fix requires family", func(c *Configuration, _ *ReferenceSet) {
+			c.Paths[0].FeederFix = "TNO"
+		}, "paths[0].starFamily: is required"},
+		{"explicit family requires feeder fix", func(c *Configuration, _ *ReferenceSet) {
+			c.Paths[0].STARFamily = "TESPI"
+		}, "paths[0].feederFix: is required"},
+		{"explicit family matches legacy feeder", func(c *Configuration, _ *ReferenceSet) {
+			c.Paths[0].STARFamily = "TUDLO"
+			c.Paths[0].FeederFix = "TNO"
+		}, "paths[0].starFamily: must match the legacy feeder"},
+		{"feeder fix occurs on path", func(c *Configuration, _ *ReferenceSet) {
+			c.Paths[0].STARFamily = "TESPI"
+			c.Paths[0].FeederFix = "MISSING"
+		}, "paths[0].feederFix: must occur exactly once"},
+		{"feeder fix follows selected holding", func(c *Configuration, _ *ReferenceSet) {
+			c.Paths[0].STARFamily = "TESPI"
+			c.Paths[0].FeederFix = "TESPI"
+		}, "paths[0].feederFix: must not precede the selected holding fix"},
+		{"holding transit cannot be negative", func(c *Configuration, _ *ReferenceSet) {
+			seconds := int64(-1)
+			c.Paths[0].STARFamily = "TESPI"
+			c.Paths[0].FeederFix = "TNO"
+			c.Paths[0].HoldingToFeederSeconds = &seconds
+		}, "paths[0].holdingToFeederSeconds: must be a non-negative"},
 		{"duplicate overlay ID", func(c *Configuration, _ *ReferenceSet) {
 			c.OverlayHoldings = append(c.OverlayHoldings, c.OverlayHoldings[0])
 		}, "overlayHoldings[5].id"},

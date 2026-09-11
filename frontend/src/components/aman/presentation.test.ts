@@ -116,6 +116,18 @@ describe("AMAN presentation model", () => {
     expect(markers.map((marker) => marker.timestamp)).toEqual(flights.map((value) => value.slot!.time));
   });
 
+  it("clips markers to the local horizon without changing authoritative reading order", () => {
+    const range = {startMs: Date.UTC(2026, 6, 22, 10), endMs: Date.UTC(2026, 6, 22, 10, 30)};
+    const laterFirst = flight("first", 1, 20);
+    const earlierSecond = flight("second", 2, 10);
+    const clipped = flight("clipped", 3, 31);
+
+    const markers = layoutTimelineMarkers([earlierSecond, clipped, laterFirst], range);
+
+    expect(markers.map((marker) => marker.flight.flight_id)).toEqual(["first", "second"]);
+    expect(markers.map((marker) => marker.timestamp)).toEqual([laterFirst.slot!.time, earlierSecond.slot!.time]);
+  });
+
   it("builds a 200-flight replacement presentation without partial lanes", () => {
     const state = structuredClone(golden.data);
     state.runway_groups = [{id: "NORTH"}, {id: "SOUTH"}];

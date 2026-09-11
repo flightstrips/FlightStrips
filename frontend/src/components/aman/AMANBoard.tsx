@@ -11,6 +11,7 @@ import {cn} from "@/lib/utils";
 import {AMANAircraftTarget, type AMANAircraftTargetField} from "./AMANAircraftTarget";
 import {AMANAircraftTargetPreferenceControls} from "./AMANAircraftTargetPreferences";
 import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from "./amanAircraftTargetPreferenceModel";
+import {FMPPairedTimeline} from "./FMPPairedTimeline";
 import {AMANAxisTopPercent, AMANTimelineAxis, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
 import {
   buildAMANHoldingLanes,
@@ -244,6 +245,7 @@ export function AMANBoardView({
     : holdingLanes, [activeRunwayLane?.label, holdingLanes, timelineFlights, view]);
   const nowPosition = AMANAxisTopPercent(axis.clockMs, range);
   const axisStatus = connectionState === "disconnected" ? "disconnected" : presentationStatus === "degraded" ? "stale" : "fresh";
+  const gainLossAuthoritative = state?.authoritative === true && state.effective_mode === "authoritative";
   const targetFields = (flight: AMANFlight): AMANAircraftTargetField[] => [
     {id: "feeder-fix-eta", label: "Feeder-fix ETA", value: flight.feeder_fix_eta ? formatAMANTime(flight.feeder_fix_eta) : "—"},
     {id: "total-delay", label: "Total delay", value: flight.expected_holding_seconds === null ? "—" : `D${String(Math.ceil(flight.expected_holding_seconds / 60)).padStart(2, "0")}`},
@@ -252,6 +254,22 @@ export function AMANBoardView({
     {id: "aircraft-type", label: "Aircraft type", value: "—"},
     {id: "feeder-fix", label: "Feeder fix", value: flight.feeder_fix ?? "—"},
   ];
+  const renderFMPTarget = (flight: AMANFlight) => (
+    <AMANAircraftTarget
+      flight={flight}
+      guidance={{
+        authoritative: gainLossAuthoritative,
+        connected: connectionState === "connected",
+      }}
+      leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
+      onSelect={() => {
+        onSelectFlight(flight.flight_id);
+        onOpenFlightDetails?.(flight.flight_id);
+      }}
+      selected={flight.flight_id === selectedFlightID}
+      trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
+    />
+  );
   const syncTimelineScroll = () => {
     const timeline = timelineScrollRef.current;
     if (timeline === null) return;
@@ -329,7 +347,17 @@ export function AMANBoardView({
       <div className="relative min-h-0 flex-1">
         <div className="h-full overflow-auto pl-9 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
           <div className={cn("relative flex", view === "runway" ? "min-w-full" : "min-w-max")} data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
-            {visibleTimelineLanes.map((lane, index) => (
+            {view === "holds" && state.timeline_configuration !== undefined ? (
+              <FMPPairedTimeline
+                clockMs={axis.clockMs}
+                currentPosition={nowPosition}
+                flights={state.flights}
+                mappings={state.timeline_configuration.mappings}
+                range={range}
+                renderTarget={renderFMPTarget}
+                status={axisStatus}
+              />
+            ) : visibleTimelineLanes.map((lane, index) => (
               <HoldingTimeline
                 flights={lane.flights}
                 key={lane.id}
@@ -344,7 +372,7 @@ export function AMANBoardView({
                 currentPosition={nowPosition}
                 clockMs={axis.clockMs}
                 axisStatus={axisStatus}
-                gainLossAuthoritative={state.authoritative && state.effective_mode === "authoritative"}
+                gainLossAuthoritative={gainLossAuthoritative}
                 gainLossConnected={connectionState === "connected"}
                 leadingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
                 trailingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}

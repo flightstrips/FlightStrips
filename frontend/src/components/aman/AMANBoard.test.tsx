@@ -219,6 +219,22 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
   });
 
+  it("renders the backend-configured FMP paired timelines without inferring an unused family", () => {
+    const configured = state();
+    configured.timeline_configuration = {version: "mapping-v1", mappings: [
+      {id: 1, left: "TESPI", right: "TUDLO"},
+      {id: 2, left: "MONAK", right: "TIDVU"},
+      {id: 3, left: "ERNOV", right: null},
+    ]};
+
+    renderBoard(configured);
+
+    expect(screen.getAllByTestId(/^fmp-timeline-/)).toHaveLength(3);
+    expect(screen.getByRole("region", {name: "Timeline 1: TESPI left, TUDLO right"})).toBeInTheDocument();
+    expect(screen.getByLabelText("Unused right side")).toBeInTheDocument();
+    expect(screen.getByLabelText(/SAS123 at/)).toHaveAttribute("data-family", "TESPI");
+  });
+
   it("shows only the explicit STAR family on runway markers", () => {
     const identities = state();
     identities.flights[0].star = "LEGACY-STAR";

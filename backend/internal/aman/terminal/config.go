@@ -717,12 +717,15 @@ func terminalDigest(path navdata.TerminalPath) string {
 		Version                     navdata.DatasetVersion
 		Airport                     navdata.AirportID
 		Feeder                      navdata.FeederID
+		STARFamily                  navdata.STARFamilyID `json:",omitempty"`
+		FeederFix                   navdata.FixID        `json:",omitempty"`
+		HoldingToFeederDuration     *time.Duration       `json:",omitempty"`
 		Group                       aman.RunwayGroupID
 		Legs                        []navdata.ProcedureLeg
 		Holdings                    []navdata.HoldingID
 		PublishedHeadingMagneticDeg *int
 		Provenance                  navdata.Provenance
-	}{path.Version, path.Airport, path.Feeder, path.RunwayGroup, path.Legs, path.HoldingIDs, path.PublishedHeadingMagneticDeg, path.Provenance})
+	}{path.Version, path.Airport, path.Feeder, path.STARFamily, path.FeederFix, path.HoldingToFeederDuration, path.RunwayGroup, path.Legs, path.HoldingIDs, path.PublishedHeadingMagneticDeg, path.Provenance})
 	return digest
 }
 

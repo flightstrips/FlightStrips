@@ -89,6 +89,22 @@ func TestCompleteCoverageRejectsUnsupportedAndUnresolvedGeometry(t *testing.T) {
 	assertInvalid(t, path.Validate())
 }
 
+func TestTerminalPathValidatesExplicitOperationalIdentity(t *testing.T) {
+	duration := 3*time.Minute + 15*time.Second
+	path := TerminalPath{Version: testVersion(), Airport: "EKCH", Feeder: "TESPI", STARFamily: "TESPI", FeederFix: "TNO", HoldingToFeederDuration: &duration, RunwayGroup: "SOUTH", Coverage: CoverageComplete, Provenance: testProvenance(), Digest: "digest"}
+	require.NoError(t, path.Validate())
+
+	path.FeederFix = ""
+	assertInvalid(t, path.Validate())
+	path.FeederFix = "TNO"
+	path.STARFamily = "TUDLO"
+	assertInvalid(t, path.Validate())
+	path.STARFamily = "TESPI"
+	negative := -time.Second
+	path.HoldingToFeederDuration = &negative
+	assertInvalid(t, path.Validate())
+}
+
 func TestQueriesRejectNonCanonicalOptionalIdentifiers(t *testing.T) {
 	version := testVersion()
 	procedure := ProcedureID("SOK1P")

@@ -20,6 +20,7 @@ type AirwayID string
 type ProcedureID string
 type HoldingID string
 type FeederID string
+type STARFamilyID string
 type RouteKey string
 
 // DatasetVersion identifies a particular imported AIRAC dataset.  It contains
@@ -691,9 +692,14 @@ func (g RouteGeometry) validateCanonical() error {
 }
 
 type TerminalPath struct {
-	Version                     DatasetVersion
-	Airport                     AirportID
+	Version DatasetVersion
+	Airport AirportID
+	// Feeder is the legacy STAR-family identity. It remains populated while
+	// callers migrate to STARFamily and FeederFix separately.
 	Feeder                      FeederID
+	STARFamily                  STARFamilyID   `json:",omitempty"`
+	FeederFix                   FixID          `json:",omitempty"`
+	HoldingToFeederDuration     *time.Duration `json:",omitempty"`
 	RunwayGroup                 aman.RunwayGroupID
 	Legs                        []ProcedureLeg
 	HoldingIDs                  []HoldingID
@@ -710,6 +716,18 @@ func (p TerminalPath) Validate() error {
 	}
 	if !validIdentifier(string(p.Airport)) || !validIdentifier(string(p.Feeder)) || !validIdentifier(string(p.RunwayGroup)) || !p.Coverage.Valid() || strings.TrimSpace(p.Digest) == "" {
 		return invalid("terminal path is incomplete")
+	}
+	explicitIdentity := p.STARFamily != "" || p.FeederFix != "" || p.HoldingToFeederDuration != nil
+	if explicitIdentity {
+		if !validIdentifier(string(p.STARFamily)) || !validIdentifier(string(p.FeederFix)) {
+			return invalid("terminal path STAR family and feeder fix must both be explicit")
+		}
+		if STARFamilyID(p.Feeder) != p.STARFamily {
+			return invalid("terminal path legacy feeder must match STAR family")
+		}
+	}
+	if p.HoldingToFeederDuration != nil && *p.HoldingToFeederDuration < 0 {
+		return invalid("terminal path holding-to-feeder duration cannot be negative")
 	}
 	if err := p.Provenance.Validate(); err != nil {
 		return err

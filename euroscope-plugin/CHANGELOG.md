@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.0.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v1.0.0...plugin/v2.0.0) (2026-09-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **websocket:** EuroScope websocket clients must use the protobuf envelope protocol; JSON clients are no longer supported.
+
+### Features
+
+* **aman:** accept authenticated direct-to facts ([#575](https://github.com/flightstrips/FlightStrips/issues/575)) ([df4dde1](https://github.com/flightstrips/FlightStrips/commit/df4dde132eaa1da6b46630b15768bb7232227ca1))
+* **aman:** add EuroScope gain-loss tag ([#574](https://github.com/flightstrips/FlightStrips/issues/574)) ([0acd6f5](https://github.com/flightstrips/FlightStrips/commit/0acd6f56e29eb5f26cd31fe22f565481099eeac6))
+* **aman:** stream gain-loss replacements to EuroScope ([#573](https://github.com/flightstrips/FlightStrips/issues/573)) ([f53cbf3](https://github.com/flightstrips/FlightStrips/commit/f53cbf3d776348aeef5791ee92d00e6851c5b44f))
+* **websocket:** replace JSON transport with protobuf ([#598](https://github.com/flightstrips/FlightStrips/issues/598)) ([2612c56](https://github.com/flightstrips/FlightStrips/commit/2612c5613ecb70f27fe37840eb859a02f36d523f))
+
 ## [1.0.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v0.21.0...plugin/v1.0.0) (2026-09-03)
 
 

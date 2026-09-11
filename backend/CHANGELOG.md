@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.0.0](https://github.com/flightstrips/FlightStrips/compare/backend/v1.4.0...backend/v2.0.0) (2026-09-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **websocket:** EuroScope websocket clients must use the protobuf envelope protocol; JSON clients are no longer supported.
+
+### Features
+
+* **aman:** accept authenticated direct-to facts ([#575](https://github.com/flightstrips/FlightStrips/issues/575)) ([df4dde1](https://github.com/flightstrips/FlightStrips/commit/df4dde132eaa1da6b46630b15768bb7232227ca1))
+* **aman:** add live go-around confirmation ([#602](https://github.com/flightstrips/FlightStrips/issues/602)) ([5193fb6](https://github.com/flightstrips/FlightStrips/commit/5193fb6314007fcb9f9906f8061d2e76705d7dc9))
+* **aman:** add TMT traffic prediction ([#601](https://github.com/flightstrips/FlightStrips/issues/601)) ([f4b78a3](https://github.com/flightstrips/FlightStrips/commit/f4b78a3d2761c5d45fbd4774909c9bee38b52942))
+* **aman:** stream gain-loss replacements to EuroScope ([#573](https://github.com/flightstrips/FlightStrips/issues/573)) ([f53cbf3](https://github.com/flightstrips/FlightStrips/commit/f53cbf3d776348aeef5791ee92d00e6851c5b44f))
+* **websocket:** add bidirectional payload metrics ([#593](https://github.com/flightstrips/FlightStrips/issues/593)) ([cd879f0](https://github.com/flightstrips/FlightStrips/commit/cd879f0fb375d49cc0e51cfe55da41c42c95b701))
+* **websocket:** replace JSON transport with protobuf ([#598](https://github.com/flightstrips/FlightStrips/issues/598)) ([2612c56](https://github.com/flightstrips/FlightStrips/commit/2612c5613ecb70f27fe37840eb859a02f36d523f))
+
+
+### Bug Fixes
+
+* align WTC/L sequencing with RETA policy ([#599](https://github.com/flightstrips/FlightStrips/issues/599)) ([844e1d6](https://github.com/flightstrips/FlightStrips/commit/844e1d62e295b25dd52dd69bd57f69a463d7d998))
+* **aman:** enable server-authorized FMP controls ([#596](https://github.com/flightstrips/FlightStrips/issues/596)) ([dea967a](https://github.com/flightstrips/FlightStrips/commit/dea967a76058f504a92dbf30c75ea6bc3b4bf0a5))
+* **aman:** keep late superstable aircraft locked ([#594](https://github.com/flightstrips/FlightStrips/issues/594)) ([0a42bde](https://github.com/flightstrips/FlightStrips/commit/0a42bde256c55b129fffc4284e0a2468733c88be))
+* **aman:** promote flights into vacant slots ([#600](https://github.com/flightstrips/FlightStrips/issues/600)) ([6828b8b](https://github.com/flightstrips/FlightStrips/commit/6828b8b01b66d10b5f7ceac31796f7162518ee92))
+* **aman:** separate runway selection from arrival rates ([#597](https://github.com/flightstrips/FlightStrips/issues/597)) ([d0d2a6b](https://github.com/flightstrips/FlightStrips/commit/d0d2a6b3a6465727ad1835c9593df393ac7af698))
+
 ## [1.4.0](https://github.com/flightstrips/FlightStrips/compare/backend/v1.3.3...backend/v1.4.0) (2026-09-09)
 
 

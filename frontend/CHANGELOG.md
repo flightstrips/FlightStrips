@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.2.2...frontend/v1.3.0) (2026-09-11)
+
+
+### Features
+
+* **aman:** add live go-around confirmation ([#602](https://github.com/flightstrips/FlightStrips/issues/602)) ([5193fb6](https://github.com/flightstrips/FlightStrips/commit/5193fb6314007fcb9f9906f8061d2e76705d7dc9))
+* **aman:** add TMT traffic prediction ([#601](https://github.com/flightstrips/FlightStrips/issues/601)) ([f4b78a3](https://github.com/flightstrips/FlightStrips/commit/f4b78a3d2761c5d45fbd4774909c9bee38b52942))
+* **aman:** display rounded gain lose guidance ([#595](https://github.com/flightstrips/FlightStrips/issues/595)) ([d03a8e6](https://github.com/flightstrips/FlightStrips/commit/d03a8e6cbea42fde4ee2be15bc599a4164876970))
+
+
+### Bug Fixes
+
+* align WTC/L sequencing with RETA policy ([#599](https://github.com/flightstrips/FlightStrips/issues/599)) ([844e1d6](https://github.com/flightstrips/FlightStrips/commit/844e1d62e295b25dd52dd69bd57f69a463d7d998))
+* **aman:** enable server-authorized FMP controls ([#596](https://github.com/flightstrips/FlightStrips/issues/596)) ([dea967a](https://github.com/flightstrips/FlightStrips/commit/dea967a76058f504a92dbf30c75ea6bc3b4bf0a5))
+* **aman:** separate runway selection from arrival rates ([#597](https://github.com/flightstrips/FlightStrips/issues/597)) ([d0d2a6b](https://github.com/flightstrips/FlightStrips/commit/d0d2a6b3a6465727ad1835c9593df393ac7af698))
+
 ## [1.2.2](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.2.1...frontend/v1.2.2) (2026-09-08)
 
 

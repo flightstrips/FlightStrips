@@ -793,6 +793,7 @@ type RunwayGroupPolicy struct {
 	RateSchedule      []RunwayGroupRatePoint
 	SameSTARSpacing   *SameSTARSpacingPolicy
 	SequenceWarnings  []RunwayGroupSequenceWarning
+	Gaps              []RunwayGap
 }
 
 // RunwayGroupSequenceWarning is a persisted, message-independent conflict
@@ -1782,6 +1783,7 @@ func (s AirportState) Validate() error {
 		}
 	}
 	groupIDs := make(map[RunwayGroupID]struct{}, len(s.RunwayGroups))
+	gapIDs := make(map[RunwayGapID]struct{})
 	selectedGroups := 0
 	var selectedGroup RunwayGroupID
 	for _, group := range s.RunwayGroups {
@@ -1842,6 +1844,18 @@ func (s AirportState) Validate() error {
 			}
 			if index > 0 && !runwayGroupWarningLess(group.SequenceWarnings[index-1], warning) {
 				return invalid("runway group sequence warnings must be unique and strictly ordered")
+			}
+		}
+		for index, gap := range group.Gaps {
+			if err := gap.Validate(); err != nil {
+				return err
+			}
+			if _, exists := gapIDs[gap.ID]; exists {
+				return invalid("airport state contains duplicate runway gap ID")
+			}
+			gapIDs[gap.ID] = struct{}{}
+			if index > 0 && !runwayGapLess(group.Gaps[index-1], gap) {
+				return invalid("runway group gaps must be unique and strictly ordered")
 			}
 		}
 	}

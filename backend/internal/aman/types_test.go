@@ -1,6 +1,7 @@
 package aman
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -100,6 +101,7 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[GoAroundDetectionState](),
 		reflect.TypeFor[LifecycleState](),
 		reflect.TypeFor[TMAEntryState](),
+		reflect.TypeFor[RunwayGap](),
 		reflect.TypeFor[RunwayGroupPolicy](),
 		reflect.TypeFor[AMANFlight](),
 		reflect.TypeFor[AirportState](),
@@ -114,6 +116,88 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 				t.Errorf("%s.%s declares wire JSON tag %q", domainType.Name(), field.Name, tag)
 			}
 		}
+	}
+}
+
+func TestRunwayGapJSONReplayIsAdditiveAndDeterministic(t *testing.T) {
+	var legacy RunwayGroupPolicy
+	if err := json.Unmarshal([]byte(`{"ID":"north","Selected":true}`), &legacy); err != nil {
+		t.Fatalf("decode legacy runway group: %v", err)
+	}
+	if legacy.Gaps != nil {
+		t.Fatalf("legacy gaps = %#v, want nil", legacy.Gaps)
+	}
+
+	now := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
+	state := AirportState{
+		Airport: "EKCH", GeneratedAt: now, PolicyVersion: "gap-v1", Mode: ModeReadOnly,
+		RunwayGroups: []RunwayGroupPolicy{{ID: "north", Gaps: []RunwayGap{
+			{ID: "gap-1", Start: now.Add(time.Hour), End: now.Add(70 * time.Minute), Label: "approach stop", CreatedAt: now, CreatedBy: "controller-1"},
+			{ID: "gap-2", Start: now.Add(time.Hour), End: now.Add(80 * time.Minute), Label: "runway inspection", CreatedAt: now.Add(time.Minute), CreatedBy: "controller-2"},
+		}}},
+	}
+	if err := state.Validate(); err != nil {
+		t.Fatalf("validate runway gaps: %v", err)
+	}
+	first, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("marshal runway gaps: %v", err)
+	}
+	var restored AirportState
+	if err := json.Unmarshal(first, &restored); err != nil {
+		t.Fatalf("restore runway gaps: %v", err)
+	}
+	if err := restored.Validate(); err != nil {
+		t.Fatalf("validate restored runway gaps: %v", err)
+	}
+	second, err := json.Marshal(restored)
+	if err != nil {
+		t.Fatalf("marshal restored runway gaps: %v", err)
+	}
+	if string(first) != string(second) || sha256.Sum256(first) != sha256.Sum256(second) {
+		t.Fatalf("runway gap replay changed canonical bytes:\nfirst:  %s\nsecond: %s", first, second)
+	}
+}
+
+func TestAirportStateValidatesCanonicalRunwayGaps(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
+	gap := RunwayGap{ID: "gap-1", Start: now.Add(time.Hour), End: now.Add(70 * time.Minute), Label: "approach stop", CreatedAt: now, CreatedBy: "controller-1"}
+	valid := AirportState{Airport: "EKCH", GeneratedAt: now, PolicyVersion: "gap-v1", Mode: ModeReadOnly, RunwayGroups: []RunwayGroupPolicy{{ID: "north", Gaps: []RunwayGap{gap}}}}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("validate runway gap: %v", err)
+	}
+
+	for name, mutate := range map[string]func(*AirportState){
+		"empty ID":      func(state *AirportState) { state.RunwayGroups[0].Gaps[0].ID = "" },
+		"unclean label": func(state *AirportState) { state.RunwayGroups[0].Gaps[0].Label = " reason " },
+		"empty creator": func(state *AirportState) { state.RunwayGroups[0].Gaps[0].CreatedBy = "" },
+		"non-UTC start": func(state *AirportState) {
+			state.RunwayGroups[0].Gaps[0].Start = now.In(time.FixedZone("CEST", 2*60*60))
+		},
+		"non-UTC end": func(state *AirportState) {
+			state.RunwayGroups[0].Gaps[0].End = gap.End.In(time.FixedZone("CEST", 2*60*60))
+		},
+		"non-UTC created": func(state *AirportState) {
+			state.RunwayGroups[0].Gaps[0].CreatedAt = now.In(time.FixedZone("CEST", 2*60*60))
+		},
+		"empty interval":   func(state *AirportState) { state.RunwayGroups[0].Gaps[0].End = gap.Start },
+		"reverse interval": func(state *AirportState) { state.RunwayGroups[0].Gaps[0].End = gap.Start.Add(-time.Second) },
+		"duplicate ID": func(state *AirportState) {
+			state.RunwayGroups = append(state.RunwayGroups, RunwayGroupPolicy{ID: "south", Gaps: []RunwayGap{gap}})
+		},
+		"non-canonical order": func(state *AirportState) {
+			earlier := gap
+			earlier.ID, earlier.Start, earlier.End = "gap-0", gap.Start.Add(-time.Minute), gap.End.Add(-time.Minute)
+			state.RunwayGroups[0].Gaps = append(state.RunwayGroups[0].Gaps, earlier)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			state := valid
+			state.RunwayGroups = append([]RunwayGroupPolicy(nil), valid.RunwayGroups...)
+			state.RunwayGroups[0].Gaps = append([]RunwayGap(nil), valid.RunwayGroups[0].Gaps...)
+			mutate(&state)
+			assertInvalidArgument(t, state.Validate())
+		})
 	}
 }
 

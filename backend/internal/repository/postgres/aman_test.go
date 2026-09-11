@@ -98,7 +98,7 @@ func TestAMANRepositoryRestartsWithActiveRunwaySetAndDecodesLegacySelection(t *t
 	require.NoError(t, err)
 	var stored []byte
 	require.NoError(t, pool.QueryRow(ctx, "SELECT runway_groups FROM aman_airport_states WHERE airport = $1", state.Airport).Scan(&stored))
-	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null}]`, string(stored))
+	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null}]`, string(stored))
 	var legacyDecoder []struct {
 		ID       aman.RunwayGroupID
 		Selected bool
@@ -132,6 +132,24 @@ func TestAMANRepositoryRestartsWithProtectedSameSTARWarning(t *testing.T) {
 	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
 	require.NoError(t, err)
 	require.Equal(t, state.RunwayGroups[0].SequenceWarnings, restored.RunwayGroups[0].SequenceWarnings)
+}
+
+func TestAMANRepositoryRestartsWithRunwayGaps(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-GAP", "SAS101")
+	state.RunwayGroups[0].Gaps = []aman.RunwayGap{
+		{ID: "gap-1", Start: amanTestTime.Add(time.Hour), End: amanTestTime.Add(70 * time.Minute), Label: "approach stop", CreatedAt: amanTestTime, CreatedBy: "controller-1"},
+		{ID: "gap-2", Start: amanTestTime.Add(2 * time.Hour), End: amanTestTime.Add(130 * time.Minute), Label: "runway inspection", CreatedAt: amanTestTime.Add(time.Minute), CreatedBy: "controller-2"},
+	}
+
+	committed, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	require.Equal(t, state.RunwayGroups[0].Gaps, committed.State.RunwayGroups[0].Gaps)
+
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, restored, "a reconstructed repository must preserve runway-owned GAP intervals")
 }
 
 func TestAMANRepositoryPersistsNoOpCommandWithoutAdvancingState(t *testing.T) {

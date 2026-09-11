@@ -25,11 +25,24 @@ export interface AMANState {
   runway_groups: AMANRunwayGroup[];
   /** Optional while V1 clients and servers roll through multi-runway support. */
   active_runway_groups?: string[];
+  /** Optional while V1 clients and servers roll through configured timelines. */
+  timeline_configuration?: AMANTimelineConfiguration;
   /** Optional while V1 clients and servers roll through the TMT extension. */
   traffic_prediction?: AMANTrafficPrediction;
   /** Optional while V1 clients and servers roll through the holding extension. */
   holding_information?: AMANHoldingEntry[];
   technical_health: AMANTechnicalHealth;
+}
+
+export interface AMANTimelineConfiguration {
+  version: string;
+  mappings: AMANTimelineMapping[];
+}
+
+export interface AMANTimelineMapping {
+  id: number;
+  left: string | null;
+  right: string | null;
 }
 
 export interface AMANHoldingEntry {
@@ -457,6 +470,24 @@ function hasValidActiveRunwayGroups(data: Record<string, unknown>): boolean {
   return data.runway_groups.every((group) => !isObject(group) || group.selected !== true || active.has(group.id as string));
 }
 
+function isTimelineConfiguration(value: unknown): value is AMANTimelineConfiguration {
+  if (!isObject(value) || !isIdentity(value.version) || !Array.isArray(value.mappings) || value.mappings.length === 0) return false;
+  const families = new Set<string>();
+  let previousID = 0;
+  return value.mappings.every((mapping) => {
+    if (!isObject(mapping) || !Number.isSafeInteger(mapping.id) || Number(mapping.id) <= previousID
+      || !isNullableIdentity(mapping.left) || !isNullableIdentity(mapping.right)
+      || (mapping.left === null && mapping.right === null)) return false;
+    previousID = Number(mapping.id);
+    for (const family of [mapping.left, mapping.right]) {
+      if (family === null) continue;
+      if (families.has(family)) return false;
+      families.add(family);
+    }
+    return true;
+  });
+}
+
 function isTrafficPrediction(value: unknown): value is AMANTrafficPrediction {
   if (!isObject(value) || !isTimestamp(value.generated_at) || !isTimestamp(value.range_start) || !isTimestamp(value.range_end)
     || value.bucket_minutes !== 15 || !isString(value.source_status) || !dataStatuses.has(value.source_status as AMANDataStatus)
@@ -499,6 +530,7 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && Array.isArray(data.flights) && data.flights.every(isFlight)
     && Array.isArray(data.runway_groups) && data.runway_groups.every(isRunwayGroup)
     && hasValidActiveRunwayGroups(data)
+    && (data.timeline_configuration === undefined || isTimelineConfiguration(data.timeline_configuration))
     && (data.traffic_prediction === undefined || isTrafficPrediction(data.traffic_prediction))
     && (data.holding_information === undefined || (Array.isArray(data.holding_information) && data.holding_information.every(isHoldingEntry)))
     && isTechnicalHealth(data.technical_health);

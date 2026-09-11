@@ -32,6 +32,29 @@ func TestAMANTransportAppliesCurrentAuthorityGateToGainLoss(t *testing.T) {
 	require.True(t, allowed.Authoritative)
 }
 
+func TestAMANTransportProjectsAvailableTimelineConfiguration(t *testing.T) {
+	now := time.Now().UTC()
+	state := aman.AirportState{Airport: "EKCH", GeneratedAt: now, PolicyVersion: "policy-v1", Mode: aman.ModeDisabled, Flights: []aman.AMANFlight{}, RunwayGroups: []aman.RunwayGroupPolicy{}}
+	health := aman.EvaluateTechnicalHealth(aman.ModeDisabled, aman.ComponentHealth{}, aman.ComponentHealth{}, aman.ComponentHealth{}, aman.ComponentHealth{}, aman.ComponentHealth{}, aman.ComponentHealth{})
+	family := navdata.STARFamilyID("NORTH")
+	transport := &amanTransport{geometry: testTimelineGeometry{snapshot: navdata.ActiveGeometrySnapshot{
+		TerminalVersion: "mapping-v1", TimelineMappings: []navdata.TimelineMapping{{ID: 1, Left: &family}},
+	}}}
+
+	event, err := transport.newStateEvent(context.Background(), state, health)
+	require.NoError(t, err)
+	require.Equal(t, "mapping-v1", event.Data.TimelineConfig.Version)
+	require.Equal(t, "NORTH", *event.Data.TimelineConfig.Mappings[0].Left)
+}
+
+type testTimelineGeometry struct {
+	snapshot navdata.ActiveGeometrySnapshot
+}
+
+func (g testTimelineGeometry) ActiveGeometrySnapshot(context.Context, navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
+	return g.snapshot, nil
+}
+
 func TestValidateTerminalAirportCoverage(t *testing.T) {
 	configuration := terminal.Configuration{Airport: navdata.AirportID("EKCH")}
 

@@ -77,6 +77,13 @@ import {
 import { normalizeCdmTime } from "@/lib/cdmTime";
 import { toast } from "sonner";
 import {markAMANStateReceived} from "@/lib/aman-performance";
+import {
+  AMAN_ALL_VIEW,
+  readAMANViewPreference,
+  resolveAMANView,
+  writeAMANViewPreference,
+  type AMANView,
+} from "@/lib/aman-view-preference";
 
 const MANUAL_COMPANION_LAYOUTS = new Set(["EST", "AMAN"]);
 const KNOWN_LAYOUTS = new Set(["CLX", "AAAD", "AA", "AD", ...MANUAL_COMPANION_LAYOUTS, "GEGW", "TWTE", "TWRGND"]);
@@ -185,7 +192,9 @@ export interface WebSocketState {
   amanPendingCommands: Record<string, AMANPendingCommand>;
   amanCommandTypes: Record<string, AMANCommandType>;
   amanCommandRejections: Record<string, AMANCommandRejection>;
+  amanSelectedView: AMANView;
   setAMANConnectionState: (connectionState: AMANConnectionState) => void;
+  setAMANSelectedView: (view: AMANView) => void;
   sendAMANCommand: (intent: AMANCommandIntent) => string | null;
   dismissAMANCommandRejection: (commandID: string) => void;
 
@@ -314,6 +323,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     amanPendingCommands: {},
     amanCommandTypes: {},
     amanCommandRejections: {},
+    amanSelectedView: readAMANViewPreference() ?? AMAN_ALL_VIEW,
     selectedCallsign: null,
     tagRequestArmed: false,
     markArmed: false,
@@ -424,6 +434,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
        amanConnectionState: connectionState,
        ...(connectionState === "disconnected" ? {amanFMPAuthority: false} : {}),
      }),
+     setAMANSelectedView: (view) => {
+       const selected = resolveAMANView(get().amanState, view);
+       set({amanSelectedView: selected});
+       writeAMANViewPreference(selected);
+     },
      sendAMANCommand: (intent) => {
        const state = get();
        if (getAMANMutationBlockReason({
@@ -1583,6 +1598,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       state.amanState = replacement.state;
       state.amanPresentationStatus = replacement.status;
       state.amanError = replacement.error;
+      if (replacement.accepted) {
+        state.amanSelectedView = resolveAMANView(replacement.state, state.amanSelectedView);
+      }
       if (replacement.accepted && replacement.state !== null) {
         for (const [commandID, pending] of Object.entries(state.amanPendingCommands)) {
           if (replacement.state.revision > pending.expected_revision) {

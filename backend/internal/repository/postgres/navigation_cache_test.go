@@ -82,6 +82,7 @@ func TestNavigationCacheRoundTripsTimelineMappingsInActiveSnapshot(t *testing.T)
 
 	snapshot, err := NewNavigationCache(pool).ActiveGeometrySnapshot(ctx, "EKCH")
 	require.NoError(t, err)
+	require.Equal(t, terminal.ConfigVersion, snapshot.TerminalVersion)
 	require.Equal(t, terminal.TimelineMappings, snapshot.TimelineMappings)
 }
 

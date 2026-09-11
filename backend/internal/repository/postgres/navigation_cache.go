@@ -293,6 +293,7 @@ func (r *navigationCache) ActiveGeometrySnapshot(ctx context.Context, airport na
 			return result, loadErr
 		}
 		result.TerminalPaths = append([]navdata.TerminalPath(nil), fragment.Paths...)
+		result.TerminalVersion = fragment.ConfigVersion
 		result.TimelineMappings = append([]navdata.TimelineMapping(nil), fragment.TimelineMappings...)
 		for _, holding := range fragment.Holdings {
 			if addErr := addHolding(holding); addErr != nil {

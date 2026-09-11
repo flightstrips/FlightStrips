@@ -9,6 +9,8 @@ import (
 
 const EKCHTMAUpperAltitudeFeet = 19_500
 
+const DefaultEKCHTMAVolumePath = "config/aman/boundaries/EKCH.json"
+
 type geoJSONFeature struct {
 	Type     string `json:"type"`
 	Geometry struct {

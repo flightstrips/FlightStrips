@@ -652,6 +652,9 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	}
 	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 	flight := &state.Flights[index]
+	recaptureTMA := flight.TMAEntry != nil && flight.TMAEntry.LastContainment == aman.TMAInside &&
+		!flight.TMAEntry.LastObservedAt.After(auth.ReceivedAt) && auth.ReceivedAt.Sub(flight.TMAEntry.LastObservedAt) <= tmaSurveillanceFresh
+	entry := flight.TMAEntry
 	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	expireActiveRouteFact(flight)
 	updatedPrediction := *flight.Prediction
@@ -685,7 +688,18 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 		return sequence.CommandChange{}, err
 	}
 	state = s.applyDecision(state, decision)
-	state.Flights[index].FeederETA, state.Flights[index].DerivedFeederETA = nil, nil
+	updated := &state.Flights[index]
+	updated.FeederETA, updated.DerivedFeederETA, updated.TMAEntry = nil, nil, nil
+	if entry != nil {
+		recaptured := *entry
+		recaptured.FreezeTriggered = false
+		updated.TMAEntry = &recaptured
+		if recaptureTMA {
+			recaptured.FreezeTriggered = true
+			updated.TMAEntry = &recaptured
+			captureTMAFreeze(updated, auth.ReceivedAt)
+		}
+	}
 	return s.commandChange(state, true, action, flight.ID, extra)
 }
 

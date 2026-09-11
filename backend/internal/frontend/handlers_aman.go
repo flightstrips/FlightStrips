@@ -21,6 +21,9 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANMoveFlightType, handleAMANMoveFlight)
 	handlers.Add(events.AMANLockFlightType, handleAMANLockFlight)
 	handlers.Add(events.AMANUnlockFlightType, handleAMANUnlockFlight)
+	handlers.Add(events.AMANDesequenceFlightType, handleAMANDesequenceFlight)
+	handlers.Add(events.AMANResumeFlightType, handleAMANResumeFlight)
+	handlers.Add(events.AMANRemoveFlightType, handleAMANRemoveFlight)
 	handlers.Add(events.AMANSetRateType, handleAMANSetRate)
 	handlers.Add(events.AMANSelectRunwayGroupType, handleAMANSelectRunwayGroup)
 	handlers.Add(events.AMANAcceptTETAType, handleAMANAcceptTETA)
@@ -60,6 +63,24 @@ func handleAMANLockFlight(ctx context.Context, client *Client, message Message) 
 func handleAMANUnlockFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANUnlockFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.UnlockFlight(ctx, auth, aman.UnlockFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+	})
+}
+
+func handleAMANDesequenceFlight(ctx context.Context, client *Client, message Message) error {
+	return handleAMANFlightCommand(ctx, client, message, events.AMANDesequenceFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.DesequenceFlight(ctx, auth, aman.DesequenceFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+	})
+}
+
+func handleAMANResumeFlight(ctx context.Context, client *Client, message Message) error {
+	return handleAMANFlightCommand(ctx, client, message, events.AMANResumeFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.ResumeFlight(ctx, auth, aman.ResumeFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+	})
+}
+
+func handleAMANRemoveFlight(ctx context.Context, client *Client, message Message) error {
+	return handleAMANFlightCommand(ctx, client, message, events.AMANRemoveFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.RemoveFlight(ctx, auth, aman.RemoveFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
 	})
 }
 

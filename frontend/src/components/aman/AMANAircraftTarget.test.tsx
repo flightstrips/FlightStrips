@@ -18,6 +18,13 @@ function flight(overrides: Partial<AMANFlight> = {}): AMANFlight {
 const guidance = {authoritative: true, connected: true};
 
 describe("compact MAESTRO aircraft target", () => {
+  it("presents desequenced disposition distinctly without replacing lifecycle state", () => {
+    render(<AMANAircraftTarget flight={flight({sequence_disposition: "desequenced"})} guidance={guidance} />);
+
+    expect(screen.getByRole("button", {name: /Desequenced/})).toBeInTheDocument();
+    expect(screen.getByTitle("Desequenced")).toHaveTextContent("DSEQ");
+  });
+
   it("shows only callsign, current delay, and a non-color lifecycle cue by default", () => {
     render(<AMANAircraftTarget flight={flight()} guidance={guidance} />);
 

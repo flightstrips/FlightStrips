@@ -256,6 +256,22 @@ func TestAMANFlightProjectsTMAFreezeForNewAndLegacyV1Decoders(t *testing.T) {
 	require.Equal(t, "tma", legacy.FreezeReason)
 }
 
+func TestAMANFlightProjectsDesequencedDispositionAdditively(t *testing.T) {
+	state := goldenAMANState()
+	state.Flights[0].SequenceDisposition = aman.SequenceDispositionDesequenced
+	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
+	require.NoError(t, err)
+	require.Equal(t, "desequenced", mapped.SequenceDisposition)
+
+	encoded, err := json.Marshal(mapped)
+	require.NoError(t, err)
+	var legacy struct {
+		FlightID string `json:"flight_id"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &legacy))
+	require.Equal(t, "flight-123", legacy.FlightID)
+}
+
 func TestAMANFlightRejectsUnknownFreezeReason(t *testing.T) {
 	state := goldenAMANState()
 	state.Flights[0].FreezeReason = aman.FreezeReason("future")

@@ -53,6 +53,21 @@ type SetActiveRunwayGroupsCommand struct {
 	RunwayGroupIDs []RunwayGroupID
 }
 
+// CreateRunwayGapCommand carries only operator-selected GAP facts. Airport,
+// creator, role, and acceptance time come exclusively from CommandContext.
+type CreateRunwayGapCommand struct {
+	Metadata      CommandMetadata
+	RunwayGroupID RunwayGroupID
+	Interval      RunwayGapIntervalInput
+	Label         string
+}
+
+type RemoveRunwayGapCommand struct {
+	Metadata      CommandMetadata
+	RunwayGroupID RunwayGroupID
+	GapID         RunwayGapID
+}
+
 type AcceptTETACommand struct {
 	Metadata CommandMetadata
 	FlightID FlightID
@@ -142,6 +157,8 @@ type CommandService interface {
 	SetRate(context.Context, CommandContext, SetRateCommand) (CommandExecution, error)
 	SelectRunwayGroup(context.Context, CommandContext, SelectRunwayGroupCommand) (CommandExecution, error)
 	SetActiveRunwayGroups(context.Context, CommandContext, SetActiveRunwayGroupsCommand) (CommandExecution, error)
+	CreateRunwayGap(context.Context, CommandContext, CreateRunwayGapCommand) (CommandExecution, error)
+	RemoveRunwayGap(context.Context, CommandContext, RemoveRunwayGapCommand) (CommandExecution, error)
 	AcceptTETA(context.Context, CommandContext, AcceptTETACommand) (CommandExecution, error)
 	KeepFPLETA(context.Context, CommandContext, KeepFPLETACommand) (CommandExecution, error)
 	SetManualETA(context.Context, CommandContext, SetManualETACommand) (CommandExecution, error)
@@ -257,6 +274,26 @@ func (c SetActiveRunwayGroupsCommand) Validate() error {
 			return commandInvalid("active runway group IDs must be unique")
 		}
 		seen[id] = struct{}{}
+	}
+	return nil
+}
+
+func (c CreateRunwayGapCommand) Validate() error {
+	if err := validateCommandMetadata(c.Metadata); err != nil {
+		return err
+	}
+	if !trimmed(string(c.RunwayGroupID)) || !trimmed(c.Label) {
+		return commandInvalid("runway GAP requires a runway group and canonical label")
+	}
+	return nil
+}
+
+func (c RemoveRunwayGapCommand) Validate() error {
+	if err := validateCommandMetadata(c.Metadata); err != nil {
+		return err
+	}
+	if !trimmed(string(c.RunwayGroupID)) || !trimmed(string(c.GapID)) {
+		return commandInvalid("runway GAP removal requires a runway group and GAP ID")
 	}
 	return nil
 }

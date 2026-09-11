@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"FlightStrips/internal/aman"
@@ -295,6 +296,91 @@ func (s *Service) SetActiveRunwayGroups(auth aman.CommandContext, command aman.S
 			"protected_incompatible_flight_ids": protectedIncompatible,
 		})
 	}, nil
+}
+
+func (s *Service) CreateRunwayGap(auth aman.CommandContext, command aman.CreateRunwayGapCommand) (sequence.CommandMutation, error) {
+	if err := s.authorizeRunwayGap(auth); err != nil {
+		return nil, err
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		groupIndex := runwayGroupIndex(state.RunwayGroups, command.RunwayGroupID)
+		if groupIndex < 0 {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN runway group was not found"}
+		}
+		interval, err := aman.NormalizeRunwayGapInterval(command.Interval, state.RunwayGroups[groupIndex].ActiveRatePerHour)
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		merged, err := aman.MergeRunwayGap(state.RunwayGroups, aman.RunwayGapMergeInput{
+			RunwayGroupID: command.RunwayGroupID, CommandID: command.Metadata.CommandID,
+			Interval: interval, Label: command.Label, CreatedAt: auth.ReceivedAt, CreatedBy: auth.Actor,
+		})
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		state.RunwayGroups = merged.RunwayGroups
+		return commandChange(state, true, "create_runway_gap", "", map[string]any{
+			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+			"runway_group_id": command.RunwayGroupID, "gap_id": merged.Union.ID, "label": merged.Union.Label,
+			"before_interval": gapIntervalAudit(interval.Start(), interval.End()),
+			"after_interval":  gapIntervalAudit(merged.Union.Start, merged.Union.End), "replaced_ids": merged.ReplacedIDs,
+		})
+	}, nil
+}
+
+func (s *Service) RemoveRunwayGap(auth aman.CommandContext, command aman.RemoveRunwayGapCommand) (sequence.CommandMutation, error) {
+	if err := s.authorizeRunwayGap(auth); err != nil {
+		return nil, err
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		groupIndex := runwayGroupIndex(state.RunwayGroups, command.RunwayGroupID)
+		if groupIndex < 0 {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN runway group was not found"}
+		}
+		state.RunwayGroups = append([]aman.RunwayGroupPolicy(nil), state.RunwayGroups...)
+		group := &state.RunwayGroups[groupIndex]
+		group.Gaps = append([]aman.RunwayGap(nil), group.Gaps...)
+		gapIndex := -1
+		for index := range group.Gaps {
+			if group.Gaps[index].ID == command.GapID {
+				gapIndex = index
+				break
+			}
+		}
+		if gapIndex < 0 {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN runway GAP was not found"}
+		}
+		removed := group.Gaps[gapIndex]
+		group.Gaps = append(group.Gaps[:gapIndex], group.Gaps[gapIndex+1:]...)
+		return commandChange(state, true, "remove_runway_gap", "", map[string]any{
+			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+			"runway_group_id": command.RunwayGroupID, "gap_id": removed.ID,
+			"before_interval": gapIntervalAudit(removed.Start, removed.End), "after_interval": nil,
+			"removed_ids": []aman.RunwayGapID{removed.ID},
+		})
+	}, nil
+}
+
+func (s *Service) authorizeRunwayGap(auth aman.CommandContext) error {
+	for _, role := range s.deps.FMPRoles {
+		if strings.EqualFold(strings.TrimSpace(role), auth.Role) {
+			return nil
+		}
+	}
+	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "runway GAP command requires a configured FMP role"}
+}
+
+func runwayGroupIndex(groups []aman.RunwayGroupPolicy, id aman.RunwayGroupID) int {
+	for index := range groups {
+		if groups[index].ID == id {
+			return index
+		}
+	}
+	return -1
+}
+
+func gapIntervalAudit(start, end time.Time) map[string]time.Time {
+	return map[string]time.Time{"start": start, "end": end}
 }
 
 func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, active []aman.RunwayGroupID) ([]aman.FlightID, error) {

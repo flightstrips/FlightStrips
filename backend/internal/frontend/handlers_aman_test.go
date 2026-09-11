@@ -183,6 +183,12 @@ func (s *recordingAMANCommandService) SelectRunwayGroup(_ context.Context, auth 
 func (s *recordingAMANCommandService) SetActiveRunwayGroups(_ context.Context, auth aman.CommandContext, command aman.SetActiveRunwayGroupsCommand) (aman.CommandExecution, error) {
 	return s.record("set_active_runway_groups", auth, command.Metadata)
 }
+func (s *recordingAMANCommandService) CreateRunwayGap(_ context.Context, auth aman.CommandContext, command aman.CreateRunwayGapCommand) (aman.CommandExecution, error) {
+	return s.record("create_runway_gap", auth, command.Metadata)
+}
+func (s *recordingAMANCommandService) RemoveRunwayGap(_ context.Context, auth aman.CommandContext, command aman.RemoveRunwayGapCommand) (aman.CommandExecution, error) {
+	return s.record("remove_runway_gap", auth, command.Metadata)
+}
 func (s *recordingAMANCommandService) AcceptTETA(_ context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {
 	return s.record("accept", auth, command.Metadata)
 }

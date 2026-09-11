@@ -36,10 +36,20 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 	for index := range state.Flights {
 		state.Flights[index].SelectedSTARFamily = &explicitFamily
 	}
-	config := terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}
+	config := terminal.Configuration{
+		RunwayGroups: []terminal.RunwayGroup{{ID: group}},
+		STARFamilyPolicies: []terminal.STARFamilyPolicy{
+			{STARFamily: "TUDLO", SameSTARSpacing: terminal.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}},
+			{STARFamily: "MONAK", SameSTARSpacing: terminal.SameSTARSpacing{ActivationRatePerHour: 18, MinimumEmptySlots: 2}},
+		},
+	}
 	input := sequenceInput(state, config)
 	require.Len(t, input.Policies, 1)
 	require.Equal(t, sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, input.Policies[0].SameSTARSpacing)
+	require.Equal(t, []sequence.STARFamilyPolicy{
+		{STARFamily: "MONAK", SameSTARSpacing: sequence.SameSTARSpacing{ActivationRatePerHour: 18, MinimumEmptySlots: 2}},
+		{STARFamily: "TUDLO", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}},
+	}, input.STARFamilyPolicies)
 	require.Equal(t, explicitFamily, input.Flights[0].STARFamily)
 
 	result, err := sequence.Generate(input)

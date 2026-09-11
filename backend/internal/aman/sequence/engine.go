@@ -55,6 +55,19 @@ type SameSTARSpacing struct {
 	MinimumEmptySlots     uint32
 }
 
+// STARFamilyPolicy contains terminal-entry-family policy independently from
+// the runway group eventually selected by a flight. FamilyPolicies on Input
+// must be ordered by STARFamily so pure-policy snapshots and replay payloads
+// remain deterministic. Terminal conversion supplies that canonical order.
+//
+// SameSTARSpacing is intentionally not consumed by candidate allocation yet.
+// The runway-group compatibility field above remains authoritative until the
+// family-policy enforcement slice lands.
+type STARFamilyPolicy struct {
+	STARFamily      string
+	SameSTARSpacing SameSTARSpacing
+}
+
 // Flight is the narrow sequencing view of an AMAN flight. CapturedSlot is a
 // protected slot reference supplied by freeze/manual policy; CurrentSlot is
 // used only to report movements and never influences candidate generation.
@@ -81,9 +94,10 @@ type Flight struct {
 
 // Input is a complete, point-in-time pure sequence calculation.
 type Input struct {
-	Revision aman.SequenceRevision
-	Policies []Policy
-	Flights  []Flight
+	Revision           aman.SequenceRevision
+	Policies           []Policy
+	STARFamilyPolicies []STARFamilyPolicy
+	Flights            []Flight
 }
 
 // CandidateReason explains how a candidate slot was selected.
@@ -199,6 +213,9 @@ func Generate(input Input) (Result, error) {
 }
 
 func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, error) {
+	if err := validateSTARFamilyPolicies(input.STARFamilyPolicies); err != nil {
+		return Result{}, err
+	}
 	policies, err := preparePolicies(input.Policies)
 	if err != nil {
 		return Result{}, err
@@ -239,6 +256,34 @@ func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, erro
 
 	sortWarnings(result.Warnings)
 	return result, nil
+}
+
+func validateSTARFamilyPolicies(input []STARFamilyPolicy) error {
+	seen := make(map[string]struct{}, len(input))
+	previous := ""
+	for _, policy := range input {
+		family := strings.TrimSpace(policy.STARFamily)
+		if family == "" {
+			return fmt.Errorf("STAR-family policy identity is required")
+		}
+		if family != policy.STARFamily {
+			return fmt.Errorf("STAR-family policy %q is not canonical", policy.STARFamily)
+		}
+		if _, duplicate := seen[family]; duplicate {
+			return fmt.Errorf("duplicate STAR-family policy %q", family)
+		}
+		if previous != "" && family < previous {
+			return fmt.Errorf("STAR-family policies must be ordered canonically")
+		}
+		seen[family] = struct{}{}
+		previous = family
+
+		spacing := policy.SameSTARSpacing
+		if spacing.Enabled && (spacing.ActivationRatePerHour == 0 || spacing.MinimumEmptySlots == 0) {
+			return fmt.Errorf("STAR-family policy %q has invalid same-STAR spacing", family)
+		}
+	}
+	return nil
 }
 
 func preparePolicies(input []Policy) (map[aman.RunwayGroupID]preparedPolicy, error) {

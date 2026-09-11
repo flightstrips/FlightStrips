@@ -329,6 +329,85 @@ func TestPolicyValidationRejectsIncompleteWTCMatrixAndDuplicateRateBoundary(t *t
 	require.ErrorContains(t, err, "duplicate rate effective time")
 }
 
+func TestSTARFamilyPolicyValidation(t *testing.T) {
+	start := testTime()
+	base := sequence.Input{Policies: []sequence.Policy{simplePolicy("A", start, 20)}}
+
+	for _, test := range []struct {
+		name     string
+		policies []sequence.STARFamilyPolicy
+		want     string
+	}{
+		{
+			name: "missing identity",
+			policies: []sequence.STARFamilyPolicy{{
+				SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1},
+			}},
+			want: "identity is required",
+		},
+		{
+			name: "non-canonical identity",
+			policies: []sequence.STARFamilyPolicy{{
+				STARFamily: " TESPI ", SameSTARSpacing: sequence.SameSTARSpacing{},
+			}},
+			want: "is not canonical",
+		},
+		{
+			name: "duplicate identity",
+			policies: []sequence.STARFamilyPolicy{
+				{STARFamily: "TESPI", SameSTARSpacing: sequence.SameSTARSpacing{}},
+				{STARFamily: "TESPI", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}},
+			},
+			want: "duplicate STAR-family policy",
+		},
+		{
+			name: "non-canonical order",
+			policies: []sequence.STARFamilyPolicy{
+				{STARFamily: "TESPI", SameSTARSpacing: sequence.SameSTARSpacing{}},
+				{STARFamily: "MONAK", SameSTARSpacing: sequence.SameSTARSpacing{}},
+			},
+			want: "must be ordered canonically",
+		},
+		{
+			name: "enabled incomplete spacing",
+			policies: []sequence.STARFamilyPolicy{{
+				STARFamily: "TESPI", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20},
+			}},
+			want: "invalid same-STAR spacing",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			input := base
+			input.STARFamilyPolicies = test.policies
+			_, err := sequence.Generate(input)
+			require.ErrorContains(t, err, test.want)
+		})
+	}
+}
+
+func TestSTARFamilyPoliciesAcceptEnabledAndDisabledSettingsWithoutAllocatingSpacing(t *testing.T) {
+	start := testTime()
+	input := sequence.Input{
+		Policies: []sequence.Policy{simplePolicy("A", start, 20)},
+		STARFamilyPolicies: []sequence.STARFamilyPolicy{
+			{STARFamily: "MONAK", SameSTARSpacing: sequence.SameSTARSpacing{ActivationRatePerHour: 18, MinimumEmptySlots: 2}},
+			{STARFamily: "TESPI", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}},
+		},
+		Flights: []sequence.Flight{
+			flight("ONE", "A", start, "M"),
+			flight("TWO", "A", start, "M"),
+		},
+	}
+	input.Flights[0].STARFamily = "TESPI"
+	input.Flights[1].STARFamily = "TESPI"
+
+	result, err := sequence.Generate(input)
+
+	require.NoError(t, err)
+	require.Equal(t, 3*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time),
+		"family policy is an input contract only until its enforcement slice")
+}
+
 func simplePolicy(group aman.RunwayGroupID, start time.Time, rate uint32) sequence.Policy {
 	return sequence.Policy{
 		RunwayGroupID:     group,

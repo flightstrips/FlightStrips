@@ -353,7 +353,7 @@ func resultWithGoAroundGroup(input Input, group aman.RunwayGroupID, allocated []
 				flights = append(flights, flight)
 			}
 		}
-		other, err := Generate(Input{Revision: input.Revision, Policies: []Policy{policy}, Flights: flights})
+		other, err := Generate(Input{Revision: input.Revision, Policies: []Policy{policy}, STARFamilyPolicies: input.STARFamilyPolicies, Flights: flights})
 		if err != nil {
 			return Result{}, err
 		}
@@ -378,7 +378,10 @@ func resultWithGoAroundGroup(input Input, group aman.RunwayGroupID, allocated []
 }
 
 func cloneInput(input Input) Input {
-	copy := Input{Revision: input.Revision, Policies: make([]Policy, len(input.Policies)), Flights: make([]Flight, len(input.Flights))}
+	copy := Input{
+		Revision: input.Revision, Policies: make([]Policy, len(input.Policies)),
+		STARFamilyPolicies: slices.Clone(input.STARFamilyPolicies), Flights: make([]Flight, len(input.Flights)),
+	}
 	for index, policy := range input.Policies {
 		copy.Policies[index] = policy
 		copy.Policies[index].Rates = slices.Clone(policy.Rates)

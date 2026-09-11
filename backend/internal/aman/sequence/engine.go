@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
 )
 
 // WakeCategory is an airport-policy category used for directional spacing.
@@ -60,21 +61,27 @@ type SameSTARSpacing struct {
 // must be ordered by STARFamily so pure-policy snapshots and replay payloads
 // remain deterministic. Terminal conversion supplies that canonical order.
 type STARFamilyPolicy struct {
-	STARFamily      string
-	SameSTARSpacing SameSTARSpacing
+	STARFamily            string
+	SameSTARSpacing       SameSTARSpacing
+	HoldingSequencePolicy navdata.HoldingSequencePolicy
 }
 
 // Flight is the narrow sequencing view of an AMAN flight. CapturedSlot is a
 // protected slot reference supplied by freeze/manual policy; CurrentSlot is
 // used only to report movements and never influences candidate generation.
 type Flight struct {
-	ID                    aman.FlightID
-	RunwayGroupID         aman.RunwayGroupID
-	State                 aman.FlightState
-	OperationalTETA       time.Time
-	InitialBaselineTETA   *time.Time
-	WakeCategory          WakeCategory
-	STARFamily            string
+	ID                  aman.FlightID
+	RunwayGroupID       aman.RunwayGroupID
+	State               aman.FlightState
+	OperationalTETA     time.Time
+	InitialBaselineTETA *time.Time
+	WakeCategory        WakeCategory
+	STARFamily          string
+	// SelectedSTARFamily is the explicit terminal-path family identity used
+	// for holding-sequence policy. It deliberately remains separate from
+	// STARFamily, which may contain a legacy compatibility identity for
+	// same-STAR spacing during migration.
+	SelectedSTARFamily    string
 	ManualOrder           *int
 	FreezeReason          aman.FreezeReason
 	FrozenAt              *time.Time
@@ -205,23 +212,43 @@ func (r spacingRequirements) minimum() time.Duration {
 // migration; an explicit collection is authoritative, including disabled or
 // absent family entries.
 type preparedSTARFamilyPolicies struct {
-	byFamily      map[string]SameSTARSpacing
+	byFamily      map[string]preparedSTARFamilyPolicy
 	authoritative bool
+}
+
+type preparedSTARFamilyPolicy struct {
+	sameSTARSpacing       SameSTARSpacing
+	holdingSequencePolicy navdata.HoldingSequencePolicy
 }
 
 func (p preparedSTARFamilyPolicies) spacingFor(family string, fallback SameSTARSpacing) (SameSTARSpacing, bool) {
 	if !p.authoritative {
 		return fallback, true
 	}
-	spacing, configured := p.byFamily[family]
-	return spacing, configured
+	policy, configured := p.byFamily[family]
+	return policy.sameSTARSpacing, configured
+}
+
+// holdingSequencePolicyFor resolves only an explicit STAR-family identity.
+// An absent identity or family entry is disabled so legacy/replayed flights
+// cannot acquire holding priority from a runway, feeder fix, or holding name.
+func (p preparedSTARFamilyPolicies) holdingSequencePolicyFor(selectedSTARFamily string) navdata.HoldingSequencePolicy {
+	if selectedSTARFamily == "" {
+		return navdata.HoldingSequenceDisabled
+	}
+	policy, configured := p.byFamily[selectedSTARFamily]
+	if !configured {
+		return navdata.HoldingSequenceDisabled
+	}
+	return policy.holdingSequencePolicy
 }
 
 type preparedFlight struct {
 	Flight
-	category    WakeCategory
-	known       bool
-	stableOrder *int
+	category              WakeCategory
+	known                 bool
+	stableOrder           *int
+	holdingSequencePolicy navdata.HoldingSequencePolicy
 }
 
 type allocatedEntry struct {
@@ -284,7 +311,7 @@ func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, erro
 }
 
 func prepareSTARFamilyPolicies(input []STARFamilyPolicy) (preparedSTARFamilyPolicies, error) {
-	result := preparedSTARFamilyPolicies{byFamily: make(map[string]SameSTARSpacing, len(input)), authoritative: len(input) > 0}
+	result := preparedSTARFamilyPolicies{byFamily: make(map[string]preparedSTARFamilyPolicy, len(input)), authoritative: len(input) > 0}
 	seen := make(map[string]struct{}, len(input))
 	previous := ""
 	for _, policy := range input {
@@ -308,7 +335,14 @@ func prepareSTARFamilyPolicies(input []STARFamilyPolicy) (preparedSTARFamilyPoli
 		if spacing.Enabled && (spacing.ActivationRatePerHour == 0 || spacing.MinimumEmptySlots == 0) {
 			return preparedSTARFamilyPolicies{}, fmt.Errorf("STAR-family policy %q has invalid same-STAR spacing", family)
 		}
-		result.byFamily[family] = spacing
+		holdingSequencePolicy := policy.HoldingSequencePolicy.Effective()
+		if !holdingSequencePolicy.Valid() {
+			return preparedSTARFamilyPolicies{}, fmt.Errorf("STAR-family policy %q has invalid holding-sequence policy", family)
+		}
+		result.byFamily[family] = preparedSTARFamilyPolicy{
+			sameSTARSpacing:       spacing,
+			holdingSequencePolicy: holdingSequencePolicy,
+		}
 	}
 	return result, nil
 }
@@ -439,8 +473,12 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		if !known {
 			category = WakeUnknown
 		}
-		raw.STARFamily = strings.ToUpper(strings.TrimSpace(raw.STARFamily))
-		prepared := preparedFlight{Flight: raw, category: category, known: known}
+		raw.STARFamily = canonicalSTARFamily(raw.STARFamily)
+		raw.SelectedSTARFamily = canonicalSTARFamily(raw.SelectedSTARFamily)
+		prepared := preparedFlight{
+			Flight: raw, category: category, known: known,
+			holdingSequencePolicy: policy.starFamilies.holdingSequencePolicyFor(raw.SelectedSTARFamily),
+		}
 		if raw.State == aman.StateStable && raw.ManualOrder == nil && raw.CurrentSlot != nil {
 			order := raw.CurrentSlot.Sequence
 			prepared.stableOrder = &order
@@ -448,6 +486,10 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		result[raw.RunwayGroupID] = append(result[raw.RunwayGroupID], prepared)
 	}
 	return result, nil
+}
+
+func canonicalSTARFamily(value string) string {
+	return strings.ToUpper(strings.TrimSpace(value))
 }
 
 func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions map[aman.FlightID]aman.Slot) ([]allocatedEntry, []Warning, error) {

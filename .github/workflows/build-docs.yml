@@ -45,4 +45,4 @@ jobs:
         file: ./docs/Dockerfile
         push: false
         cache-from: type=gha,scope=docs
-        cache-to: type=gha,mode=max,scope=docs
+        cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=docs' || '' }}

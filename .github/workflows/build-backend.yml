@@ -45,7 +45,7 @@ jobs:
         file: ./backend/Dockerfile
         push: false
         cache-from: type=gha,scope=backend-api
-        cache-to: type=gha,mode=max,scope=backend-api
+        cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=backend-api' || '' }}
     - name: Build Docker image (migrate)
       uses: docker/build-push-action@v7
       with:
@@ -53,4 +53,4 @@ jobs:
         file: ./backend/Dockerfile.Migrate
         push: false
         cache-from: type=gha,scope=backend-migrate
-        cache-to: type=gha,mode=max,scope=backend-migrate
+        cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=backend-migrate' || '' }}

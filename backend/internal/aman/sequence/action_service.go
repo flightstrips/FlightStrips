@@ -14,6 +14,9 @@ type ActionMutations interface {
 	MoveFlight(aman.CommandContext, aman.MoveFlightCommand) (CommandMutation, error)
 	LockFlight(aman.CommandContext, aman.LockFlightCommand) (CommandMutation, error)
 	UnlockFlight(aman.CommandContext, aman.UnlockFlightCommand) (CommandMutation, error)
+	DesequenceFlight(aman.CommandContext, aman.DesequenceFlightCommand) (CommandMutation, error)
+	ResumeFlight(aman.CommandContext, aman.ResumeFlightCommand) (CommandMutation, error)
+	RemoveFlight(aman.CommandContext, aman.RemoveFlightCommand) (CommandMutation, error)
 	SetRate(aman.CommandContext, aman.SetRateCommand) (CommandMutation, error)
 	SelectRunwayGroup(aman.CommandContext, aman.SelectRunwayGroupCommand) (CommandMutation, error)
 	SetActiveRunwayGroups(aman.CommandContext, aman.SetActiveRunwayGroupsCommand) (CommandMutation, error)
@@ -72,6 +75,18 @@ func (s *ActionService) LockFlight(ctx context.Context, auth aman.CommandContext
 
 func (s *ActionService) UnlockFlight(ctx context.Context, auth aman.CommandContext, command aman.UnlockFlightCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.UnlockFlight(auth, command) })
+}
+
+func (s *ActionService) DesequenceFlight(ctx context.Context, auth aman.CommandContext, command aman.DesequenceFlightCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.DesequenceFlight(auth, command) })
+}
+
+func (s *ActionService) ResumeFlight(ctx context.Context, auth aman.CommandContext, command aman.ResumeFlightCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.ResumeFlight(auth, command) })
+}
+
+func (s *ActionService) RemoveFlight(ctx context.Context, auth aman.CommandContext, command aman.RemoveFlightCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.RemoveFlight(auth, command) })
 }
 
 func (s *ActionService) SetRate(ctx context.Context, auth aman.CommandContext, command aman.SetRateCommand) (aman.CommandExecution, error) {

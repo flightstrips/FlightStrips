@@ -54,6 +54,27 @@ func (g *amanCommandGate) UnlockFlight(ctx context.Context, auth aman.CommandCon
 	return g.commands.UnlockFlight(ctx, auth, command)
 }
 
+func (g *amanCommandGate) DesequenceFlight(ctx context.Context, auth aman.CommandContext, command aman.DesequenceFlightCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.DesequenceFlight(ctx, auth, command)
+}
+
+func (g *amanCommandGate) ResumeFlight(ctx context.Context, auth aman.CommandContext, command aman.ResumeFlightCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.ResumeFlight(ctx, auth, command)
+}
+
+func (g *amanCommandGate) RemoveFlight(ctx context.Context, auth aman.CommandContext, command aman.RemoveFlightCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.RemoveFlight(ctx, auth, command)
+}
+
 func (g *amanCommandGate) SetRate(ctx context.Context, auth aman.CommandContext, command aman.SetRateCommand) (aman.CommandExecution, error) {
 	if err := g.authorize(ctx); err != nil {
 		return aman.CommandExecution{}, err

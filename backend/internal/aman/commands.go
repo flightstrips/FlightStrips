@@ -33,6 +33,21 @@ type UnlockFlightCommand struct {
 	FlightID FlightID
 }
 
+type DesequenceFlightCommand struct {
+	Metadata CommandMetadata
+	FlightID FlightID
+}
+
+type ResumeFlightCommand struct {
+	Metadata CommandMetadata
+	FlightID FlightID
+}
+
+type RemoveFlightCommand struct {
+	Metadata CommandMetadata
+	FlightID FlightID
+}
+
 type SetRateCommand struct {
 	Metadata        CommandMetadata
 	RunwayGroupID   RunwayGroupID
@@ -154,6 +169,9 @@ type CommandService interface {
 	MoveFlight(context.Context, CommandContext, MoveFlightCommand) (CommandExecution, error)
 	LockFlight(context.Context, CommandContext, LockFlightCommand) (CommandExecution, error)
 	UnlockFlight(context.Context, CommandContext, UnlockFlightCommand) (CommandExecution, error)
+	DesequenceFlight(context.Context, CommandContext, DesequenceFlightCommand) (CommandExecution, error)
+	ResumeFlight(context.Context, CommandContext, ResumeFlightCommand) (CommandExecution, error)
+	RemoveFlight(context.Context, CommandContext, RemoveFlightCommand) (CommandExecution, error)
 	SetRate(context.Context, CommandContext, SetRateCommand) (CommandExecution, error)
 	SelectRunwayGroup(context.Context, CommandContext, SelectRunwayGroupCommand) (CommandExecution, error)
 	SetActiveRunwayGroups(context.Context, CommandContext, SetActiveRunwayGroupsCommand) (CommandExecution, error)
@@ -204,6 +222,11 @@ func (c MoveFlightCommand) Validate() error {
 
 func (c LockFlightCommand) Validate() error   { return validateFlightCommand(c.Metadata, c.FlightID) }
 func (c UnlockFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.FlightID) }
+func (c DesequenceFlightCommand) Validate() error {
+	return validateFlightCommand(c.Metadata, c.FlightID)
+}
+func (c ResumeFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.FlightID) }
+func (c RemoveFlightCommand) Validate() error { return validateFlightCommand(c.Metadata, c.FlightID) }
 func (c AcceptTETACommand) Validate() error   { return validateFlightCommand(c.Metadata, c.FlightID) }
 func (c KeepFPLETACommand) Validate() error   { return validateFlightCommand(c.Metadata, c.FlightID) }
 func (c ResetTETAOverrideCommand) Validate() error {

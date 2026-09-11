@@ -114,6 +114,15 @@ func (m *recordingActionMutations) LockFlight(auth aman.CommandContext, _ aman.L
 func (m *recordingActionMutations) UnlockFlight(auth aman.CommandContext, _ aman.UnlockFlightCommand) (CommandMutation, error) {
 	return m.mutation("unlock", auth)
 }
+func (m *recordingActionMutations) DesequenceFlight(auth aman.CommandContext, _ aman.DesequenceFlightCommand) (CommandMutation, error) {
+	return m.mutation("deselect", auth)
+}
+func (m *recordingActionMutations) ResumeFlight(auth aman.CommandContext, _ aman.ResumeFlightCommand) (CommandMutation, error) {
+	return m.mutation("resume", auth)
+}
+func (m *recordingActionMutations) RemoveFlight(auth aman.CommandContext, _ aman.RemoveFlightCommand) (CommandMutation, error) {
+	return m.mutation("remove", auth)
+}
 func (m *recordingActionMutations) SetRate(auth aman.CommandContext, _ aman.SetRateCommand) (CommandMutation, error) {
 	return m.mutation("rate", auth)
 }

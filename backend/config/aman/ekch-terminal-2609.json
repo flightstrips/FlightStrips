@@ -1,6 +1,6 @@
 {
   "schemaVersion": "aman-terminal/v1",
-  "configVersion": "EKCH-AIP-2609-V2",
+  "configVersion": "EKCH-AIP-2609-V3",
   "airport": "EKCH",
   "applicabilityFrom": "2026-09-03T00:00:00Z",
   "applicabilityUntil": "2026-10-01T00:00:00Z",
@@ -262,6 +262,48 @@
     ["ARRIVAL-22L", "ARRIVAL-22R"],
     ["ARRIVAL-12"],
     ["ARRIVAL-30"]
+  ],
+  "starFamilyPolicies": [
+    {
+      "starFamily": "ERNOV",
+      "sameStarSpacing": {
+        "enabled": true,
+        "activationRatePerHour": 20,
+        "minimumEmptySlots": 1
+      }
+    },
+    {
+      "starFamily": "MONAK",
+      "sameStarSpacing": {
+        "enabled": true,
+        "activationRatePerHour": 20,
+        "minimumEmptySlots": 1
+      }
+    },
+    {
+      "starFamily": "TESPI",
+      "sameStarSpacing": {
+        "enabled": true,
+        "activationRatePerHour": 20,
+        "minimumEmptySlots": 1
+      }
+    },
+    {
+      "starFamily": "TIDVU",
+      "sameStarSpacing": {
+        "enabled": true,
+        "activationRatePerHour": 20,
+        "minimumEmptySlots": 1
+      }
+    },
+    {
+      "starFamily": "TUDLO",
+      "sameStarSpacing": {
+        "enabled": true,
+        "activationRatePerHour": 20,
+        "minimumEmptySlots": 1
+      }
+    }
   ],
   "feeders": [
     {

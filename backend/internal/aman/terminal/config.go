@@ -127,6 +127,14 @@ type SameSTARSpacing struct {
 	MinimumEmptySlots     uint32 `json:"minimumEmptySlots"`
 }
 
+// STARFamilyPolicy owns policy for one terminal entry family independently
+// from runway selection. RunwayGroup.SameSTARSpacing remains as a temporary
+// compatibility source for sequencing consumers.
+type STARFamilyPolicy struct {
+	STARFamily      navdata.STARFamilyID `json:"starFamily"`
+	SameSTARSpacing SameSTARSpacing      `json:"sameStarSpacing"`
+}
+
 type Feeder struct {
 	ID      navdata.FeederID   `json:"id"`
 	Aliases []navdata.FeederID `json:"aliases"`
@@ -196,6 +204,7 @@ type Configuration struct {
 	Dataset            DatasetCompatibility `json:"dataset"`
 	Sources            []Source             `json:"sources"`
 	RunwayGroups       []RunwayGroup        `json:"runwayGroups"`
+	STARFamilyPolicies []STARFamilyPolicy   `json:"starFamilyPolicies,omitempty"`
 	// ActiveRunwayGroupSets declares the complete operationally compatible
 	// combinations accepted by the atomic runway-set command.
 	ActiveRunwayGroupSets [][]aman.RunwayGroupID `json:"activeRunwayGroupSets,omitempty"`
@@ -287,6 +296,24 @@ func (c Configuration) ValidateOperationalSettings() error {
 			if spacing.MinimumEmptySlots == 0 {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].sameStarSpacing.minimumEmptySlots", i), "must be greater than zero when enabled")
 			}
+		}
+	}
+	families := make(map[navdata.STARFamilyID]struct{}, len(c.STARFamilyPolicies))
+	for i, policy := range c.STARFamilyPolicies {
+		path := fmt.Sprintf("starFamilyPolicies[%d]", i)
+		if strings.TrimSpace(string(policy.STARFamily)) == "" {
+			add(&errs, path+".starFamily", "is required")
+		}
+		if _, exists := families[policy.STARFamily]; exists {
+			add(&errs, path+".starFamily", "is duplicated")
+		}
+		families[policy.STARFamily] = struct{}{}
+		spacing := policy.SameSTARSpacing
+		if spacing.Enabled && spacing.ActivationRatePerHour == 0 {
+			add(&errs, path+".sameStarSpacing.activationRatePerHour", "must be greater than zero when enabled")
+		}
+		if spacing.Enabled && spacing.MinimumEmptySlots == 0 {
+			add(&errs, path+".sameStarSpacing.minimumEmptySlots", "must be greater than zero when enabled")
 		}
 	}
 	seenSets := make(map[string]struct{}, len(c.ActiveRunwayGroupSets))
@@ -581,6 +608,7 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		}
 	}
 	seenPaths := map[string]bool{}
+	pathFamilies := map[navdata.STARFamilyID]struct{}{}
 	for i, path := range c.Paths {
 		key := string(path.Feeder) + "/" + string(path.RunwayGroup)
 		if !feeders[path.Feeder] {
@@ -611,6 +639,11 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 				add(&errs, fmt.Sprintf("paths[%d].feederFix", i), "must occur exactly once on the terminal path after normalization")
 			}
 		}
+		family := path.STARFamily
+		if family == "" {
+			family = navdata.STARFamilyID(path.Feeder)
+		}
+		pathFamilies[family] = struct{}{}
 		if path.HoldingToFeederSeconds != nil && (*path.HoldingToFeederSeconds < 0 || *path.HoldingToFeederSeconds > math.MaxInt64/int64(time.Second)) {
 			add(&errs, fmt.Sprintf("paths[%d].holdingToFeederSeconds", i), "must be a non-negative time.Duration in whole seconds")
 		}
@@ -648,6 +681,20 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 						add(&errs, fmt.Sprintf("paths[%d].mergeFix", i), "does not connect plausibly to final approach "+string(final.Runway))
 					}
 				}
+			}
+		}
+	}
+	if len(c.STARFamilyPolicies) > 0 {
+		policyFamilies := make(map[navdata.STARFamilyID]int, len(c.STARFamilyPolicies))
+		for i, policy := range c.STARFamilyPolicies {
+			policyFamilies[policy.STARFamily] = i
+			if _, exists := pathFamilies[policy.STARFamily]; !exists {
+				add(&errs, fmt.Sprintf("starFamilyPolicies[%d].starFamily", i), "has no configured terminal path")
+			}
+		}
+		for family := range pathFamilies {
+			if _, exists := policyFamilies[family]; !exists {
+				add(&errs, "starFamilyPolicies", "is missing configured STAR family "+string(family))
 			}
 		}
 	}
@@ -786,18 +833,29 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 		}
 	}
 	validated := importedAt
-	fragment := navdata.CandidateTerminalFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: refs.Version, Airport: c.Airport, ConfigVersion: c.ConfigVersion, Paths: paths, Holdings: overlays, Provenance: provenance, ImportedAt: importedAt, ValidatedAt: &validated, State: navdata.ValidationValidated}
-	digest, err := navdata.CanonicalFragmentDigest(fragment.SchemaVersion, fragment.Version, fragment.Provenance, struct {
-		Airport       navdata.AirportID
-		ConfigVersion string
-		Paths         []navdata.TerminalPath
-		Holdings      []navdata.HoldingPattern
-	}{fragment.Airport, fragment.ConfigVersion, fragment.Paths, fragment.Holdings})
+	policies := make([]navdata.STARFamilyPolicy, len(c.STARFamilyPolicies))
+	for i, policy := range c.STARFamilyPolicies {
+		spacing := policy.SameSTARSpacing
+		policies[i] = navdata.STARFamilyPolicy{STARFamily: policy.STARFamily, SameSTARSpacing: navdata.SameSTARSpacingPolicy{Enabled: spacing.Enabled, ActivationRatePerHour: spacing.ActivationRatePerHour, MinimumEmptySlots: spacing.MinimumEmptySlots}}
+	}
+	sort.Slice(policies, func(i, j int) bool { return policies[i].STARFamily < policies[j].STARFamily })
+	fragment := navdata.CandidateTerminalFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: refs.Version, Airport: c.Airport, ConfigVersion: c.ConfigVersion, STARFamilyPolicies: policies, Paths: paths, Holdings: overlays, Provenance: provenance, ImportedAt: importedAt, ValidatedAt: &validated, State: navdata.ValidationValidated}
+	digest, err := navdata.CanonicalFragmentDigest(fragment.SchemaVersion, fragment.Version, fragment.Provenance, fragmentPayload(fragment))
 	if err != nil {
 		return navdata.CandidateTerminalFragment{}, err
 	}
 	fragment.Digest = digest
 	return fragment, fragment.Validate()
+}
+
+func fragmentPayload(fragment navdata.CandidateTerminalFragment) any {
+	return struct {
+		Airport            navdata.AirportID
+		ConfigVersion      string
+		STARFamilyPolicies []navdata.STARFamilyPolicy `json:",omitempty"`
+		Paths              []navdata.TerminalPath
+		Holdings           []navdata.HoldingPattern
+	}{fragment.Airport, fragment.ConfigVersion, fragment.STARFamilyPolicies, fragment.Paths, fragment.Holdings}
 }
 
 func publishedILSFinal(merge navdata.FixID, final FinalApproachDefinition) []navdata.ProcedureLeg {
@@ -866,6 +924,7 @@ func cloneConfiguration(value Configuration) Configuration {
 			clone.RunwayGroups[i].FinalApproaches[j].Threshold.CourseTrueDeg = clonePointer(final.Threshold.CourseTrueDeg)
 		}
 	}
+	clone.STARFamilyPolicies = slices.Clone(value.STARFamilyPolicies)
 	clone.ActiveRunwayGroupSets = make([][]aman.RunwayGroupID, len(value.ActiveRunwayGroupSets))
 	for i := range value.ActiveRunwayGroupSets {
 		clone.ActiveRunwayGroupSets[i] = slices.Clone(value.ActiveRunwayGroupSets[i])

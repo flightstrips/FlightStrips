@@ -63,3 +63,30 @@ func TestTerminalFragmentExplicitFieldsAffectDigestAndRoundTrip(t *testing.T) {
 	require.Equal(t, "TNO", storedPath["FeederFix"])
 	require.EqualValues(t, duration, storedPath["HoldingToFeederDuration"])
 }
+
+func TestTerminalFragmentSTARFamilyPoliciesAffectDigestAndLegacyDecode(t *testing.T) {
+	legacy := CandidateTerminalFragment{Airport: "EKCH", ConfigVersion: "legacy-v1"}
+	encoded, err := MarshalTerminalFragmentPayload(legacy)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "STARFamilyPolicies")
+
+	var decoded CandidateTerminalFragment
+	require.NoError(t, UnmarshalTerminalFragmentPayload(encoded, &decoded))
+	require.Nil(t, decoded.STARFamilyPolicies)
+
+	configured := legacy
+	configured.STARFamilyPolicies = []STARFamilyPolicy{{
+		STARFamily:      "TESPI",
+		SameSTARSpacing: SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1},
+	}}
+	legacyDigest, err := CanonicalPayloadDigest(legacy.payload())
+	require.NoError(t, err)
+	configuredDigest, err := CanonicalPayloadDigest(configured.payload())
+	require.NoError(t, err)
+	require.NotEqual(t, legacyDigest, configuredDigest)
+
+	encoded, err = MarshalTerminalFragmentPayload(configured)
+	require.NoError(t, err)
+	require.NoError(t, UnmarshalTerminalFragmentPayload(encoded, &decoded))
+	require.Equal(t, configured.STARFamilyPolicies, decoded.STARFamilyPolicies)
+}

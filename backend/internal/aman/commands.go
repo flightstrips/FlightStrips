@@ -75,7 +75,7 @@ type ResetTETAOverrideCommand struct {
 }
 
 // SetManualFeederETACommand and ResetManualFeederETACommand are domain
-// commands. External transport is intentionally added by the following slice.
+// commands used by the authenticated AMAN transport.
 type SetManualFeederETACommand struct {
 	Metadata  CommandMetadata
 	FlightID  FlightID
@@ -130,6 +130,8 @@ type CommandService interface {
 	KeepFPLETA(context.Context, CommandContext, KeepFPLETACommand) (CommandExecution, error)
 	SetManualETA(context.Context, CommandContext, SetManualETACommand) (CommandExecution, error)
 	ResetTETAOverride(context.Context, CommandContext, ResetTETAOverrideCommand) (CommandExecution, error)
+	SetManualFeederETA(context.Context, CommandContext, SetManualFeederETACommand) (CommandExecution, error)
+	ResetManualFeederETA(context.Context, CommandContext, ResetManualFeederETACommand) (CommandExecution, error)
 	ReportGoAround(context.Context, CommandContext, ReportGoAroundCommand) (CommandExecution, error)
 	ConfirmGoAround(context.Context, CommandContext, ConfirmGoAroundCommand) (CommandExecution, error)
 	RejectGoAround(context.Context, CommandContext, RejectGoAroundCommand) (CommandExecution, error)

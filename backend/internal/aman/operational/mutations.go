@@ -428,7 +428,9 @@ func (s *Service) SetManualFeederETA(auth aman.CommandContext, command aman.SetM
 	if err := command.Validate(); err != nil {
 		return nil, err
 	}
-	return s.flightMutation("set_manual_feeder_eta", command.FlightID, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+	return s.flightMutationWithAudit("set_manual_feeder_eta", command.FlightID, map[string]any{
+		"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt, "feeder_eta": command.FeederETA,
+	}, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
 		if flight.SelectedFeederFix == nil {
 			return flight, false, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "manual feeder ETA requires a selected feeder fix"}
 		}
@@ -453,7 +455,9 @@ func (s *Service) ResetManualFeederETA(auth aman.CommandContext, command aman.Re
 	if err := command.Validate(); err != nil {
 		return nil, err
 	}
-	return s.flightMutation("reset_manual_feeder_eta", command.FlightID, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+	return s.flightMutationWithAudit("reset_manual_feeder_eta", command.FlightID, map[string]any{
+		"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+	}, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
 		if flight.FeederETA == nil || flight.FeederETA.Source != aman.FeederETASourceManual {
 			return flight, false, nil
 		}
@@ -585,6 +589,10 @@ func (s *Service) sequenceMutation(action string, flightID aman.FlightID, at tim
 }
 
 func (s *Service) flightMutation(action string, flightID aman.FlightID, apply func(aman.AMANFlight) (aman.AMANFlight, bool, error)) sequence.CommandMutation {
+	return s.flightMutationWithAudit(action, flightID, nil, apply)
+}
+
+func (s *Service) flightMutationWithAudit(action string, flightID aman.FlightID, extra map[string]any, apply func(aman.AMANFlight) (aman.AMANFlight, bool, error)) sequence.CommandMutation {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		index := flightIndex(state.Flights, flightID)
 		if index < 0 {
@@ -600,7 +608,7 @@ func (s *Service) flightMutation(action string, flightID aman.FlightID, apply fu
 		if changed {
 			promotions = s.resequence(&state, updated.UpdatedAt)
 		}
-		change, err := s.commandChange(state, changed, action, flightID, nil)
+		change, err := s.commandChange(state, changed, action, flightID, extra)
 		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
 		return change, err
 	}

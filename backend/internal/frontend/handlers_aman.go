@@ -27,6 +27,8 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANKeepFPLETAType, handleAMANKeepFPLETA)
 	handlers.Add(events.AMANSetManualETAType, handleAMANSetManualETA)
 	handlers.Add(events.AMANResetTETAOverrideType, handleAMANResetTETAOverride)
+	handlers.Add(events.AMANSetManualFeederETAType, handleAMANSetManualFeederETA)
+	handlers.Add(events.AMANResetManualFeederETAType, handleAMANResetManualFeederETA)
 	handlers.Add(events.AMANReportGoAroundType, handleAMANReportGoAround)
 	handlers.Add(events.AMANConfirmGoAroundType, handleAMANConfirmGoAround)
 	handlers.Add(events.AMANRejectGoAroundType, handleAMANRejectGoAround)
@@ -124,6 +126,27 @@ func handleAMANSetManualETA(ctx context.Context, client *Client, message Message
 	command := aman.SetManualETACommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), ManualETA: manualETA}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.SetManualETA(ctx, auth, command)
+	})
+}
+
+func handleAMANSetManualFeederETA(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANSetManualFeederETAMessage
+	if err := decodeAMANMessage(message, events.AMANSetManualFeederETAType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	feederETA, err := parseAMANTime(wire.Data.FeederETA)
+	if err != nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+	}
+	command := aman.SetManualFeederETACommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), FeederETA: feederETA}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.SetManualFeederETA(ctx, auth, command)
+	})
+}
+
+func handleAMANResetManualFeederETA(ctx context.Context, client *Client, message Message) error {
+	return handleAMANFlightCommand(ctx, client, message, events.AMANResetManualFeederETAType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.ResetManualFeederETA(ctx, auth, aman.ResetManualFeederETACommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
 	})
 }
 

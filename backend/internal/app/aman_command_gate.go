@@ -103,6 +103,20 @@ func (g *amanCommandGate) ResetTETAOverride(ctx context.Context, auth aman.Comma
 	return g.commands.ResetTETAOverride(ctx, auth, command)
 }
 
+func (g *amanCommandGate) SetManualFeederETA(ctx context.Context, auth aman.CommandContext, command aman.SetManualFeederETACommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.SetManualFeederETA(ctx, auth, command)
+}
+
+func (g *amanCommandGate) ResetManualFeederETA(ctx context.Context, auth aman.CommandContext, command aman.ResetManualFeederETACommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.ResetManualFeederETA(ctx, auth, command)
+}
+
 func (g *amanCommandGate) ReportGoAround(ctx context.Context, auth aman.CommandContext, command aman.ReportGoAroundCommand) (aman.CommandExecution, error) {
 	if err := g.authorize(ctx); err != nil {
 		return aman.CommandExecution{}, err

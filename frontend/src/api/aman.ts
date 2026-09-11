@@ -241,6 +241,8 @@ export type AMANCommandType =
   | "aman.keep_fpl_eta"
   | "aman.set_manual_eta"
   | "aman.reset_teta_override"
+  | "aman.set_manual_feeder_eta"
+  | "aman.reset_manual_feeder_eta"
   | "aman.report_go_around"
   | "aman.confirm_go_around"
   | "aman.reject_go_around";
@@ -257,6 +259,8 @@ export type AMANCommandIntent =
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
   | {type: "aman.set_manual_eta"; flight_id: string; manual_eta: string}
+  | {type: "aman.set_manual_feeder_eta"; flight_id: string; feeder_eta: string}
+  | {type: "aman.reset_manual_feeder_eta"; flight_id: string}
   | {type: "aman.report_go_around"; flight_id: string; detected_at: string}
   | {type: "aman.confirm_go_around" | "aman.reject_go_around"; flight_id: string; episode_id: string};
 

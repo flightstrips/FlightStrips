@@ -56,13 +56,9 @@ type SameSTARSpacing struct {
 }
 
 // STARFamilyPolicy contains terminal-entry-family policy independently from
-// the runway group eventually selected by a flight. FamilyPolicies on Input
+// the runway group eventually selected by a flight. STARFamilyPolicies on Input
 // must be ordered by STARFamily so pure-policy snapshots and replay payloads
 // remain deterministic. Terminal conversion supplies that canonical order.
-//
-// SameSTARSpacing is intentionally not consumed by candidate allocation yet.
-// The runway-group compatibility field above remains authoritative until the
-// family-policy enforcement slice lands.
 type STARFamilyPolicy struct {
 	STARFamily      string
 	SameSTARSpacing SameSTARSpacing
@@ -185,13 +181,40 @@ func (r Result) HasConflicts() bool {
 
 type preparedPolicy struct {
 	Policy
-	rates      []RatePoint
-	spacing    map[categoryPair]time.Duration
-	categories map[WakeCategory]struct{}
-	fallback   time.Duration
+	rates        []RatePoint
+	spacing      map[categoryPair]time.Duration
+	categories   map[WakeCategory]struct{}
+	fallback     time.Duration
+	starFamilies preparedSTARFamilyPolicies
 }
 
 type categoryPair struct{ leading, trailing WakeCategory }
+
+type spacingRequirements struct {
+	base, wake, sameSTAR time.Duration
+}
+
+func (r spacingRequirements) minimum() time.Duration {
+	return max(r.base, r.wake, r.sameSTAR)
+}
+
+// preparedSTARFamilyPolicies distinguishes an omitted policy collection from
+// an explicit collection that does not contain a flight's family. Omission
+// retains compatibility with runway-group policy during configuration
+// migration; an explicit collection is authoritative, including disabled or
+// absent family entries.
+type preparedSTARFamilyPolicies struct {
+	byFamily      map[string]SameSTARSpacing
+	authoritative bool
+}
+
+func (p preparedSTARFamilyPolicies) spacingFor(family string, fallback SameSTARSpacing) (SameSTARSpacing, bool) {
+	if !p.authoritative {
+		return fallback, true
+	}
+	spacing, configured := p.byFamily[family]
+	return spacing, configured
+}
 
 type preparedFlight struct {
 	Flight
@@ -213,10 +236,11 @@ func Generate(input Input) (Result, error) {
 }
 
 func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, error) {
-	if err := validateSTARFamilyPolicies(input.STARFamilyPolicies); err != nil {
+	starFamilies, err := prepareSTARFamilyPolicies(input.STARFamilyPolicies)
+	if err != nil {
 		return Result{}, err
 	}
-	policies, err := preparePolicies(input.Policies)
+	policies, err := preparePoliciesWithSTARFamilies(input.Policies, starFamilies)
 	if err != nil {
 		return Result{}, err
 	}
@@ -258,35 +282,41 @@ func generate(input Input, promotions map[aman.FlightID]aman.Slot) (Result, erro
 	return result, nil
 }
 
-func validateSTARFamilyPolicies(input []STARFamilyPolicy) error {
+func prepareSTARFamilyPolicies(input []STARFamilyPolicy) (preparedSTARFamilyPolicies, error) {
+	result := preparedSTARFamilyPolicies{byFamily: make(map[string]SameSTARSpacing, len(input)), authoritative: len(input) > 0}
 	seen := make(map[string]struct{}, len(input))
 	previous := ""
 	for _, policy := range input {
 		family := strings.TrimSpace(policy.STARFamily)
 		if family == "" {
-			return fmt.Errorf("STAR-family policy identity is required")
+			return preparedSTARFamilyPolicies{}, fmt.Errorf("STAR-family policy identity is required")
 		}
 		if family != policy.STARFamily {
-			return fmt.Errorf("STAR-family policy %q is not canonical", policy.STARFamily)
+			return preparedSTARFamilyPolicies{}, fmt.Errorf("STAR-family policy %q is not canonical", policy.STARFamily)
 		}
 		if _, duplicate := seen[family]; duplicate {
-			return fmt.Errorf("duplicate STAR-family policy %q", family)
+			return preparedSTARFamilyPolicies{}, fmt.Errorf("duplicate STAR-family policy %q", family)
 		}
 		if previous != "" && family < previous {
-			return fmt.Errorf("STAR-family policies must be ordered canonically")
+			return preparedSTARFamilyPolicies{}, fmt.Errorf("STAR-family policies must be ordered canonically")
 		}
 		seen[family] = struct{}{}
 		previous = family
 
 		spacing := policy.SameSTARSpacing
 		if spacing.Enabled && (spacing.ActivationRatePerHour == 0 || spacing.MinimumEmptySlots == 0) {
-			return fmt.Errorf("STAR-family policy %q has invalid same-STAR spacing", family)
+			return preparedSTARFamilyPolicies{}, fmt.Errorf("STAR-family policy %q has invalid same-STAR spacing", family)
 		}
+		result.byFamily[family] = spacing
 	}
-	return nil
+	return result, nil
 }
 
 func preparePolicies(input []Policy) (map[aman.RunwayGroupID]preparedPolicy, error) {
+	return preparePoliciesWithSTARFamilies(input, preparedSTARFamilyPolicies{})
+}
+
+func preparePoliciesWithSTARFamilies(input []Policy, starFamilies preparedSTARFamilyPolicies) (map[aman.RunwayGroupID]preparedPolicy, error) {
 	if len(input) == 0 {
 		return nil, fmt.Errorf("sequence requires at least one runway-group policy")
 	}
@@ -308,7 +338,11 @@ func preparePolicies(input []Policy) (map[aman.RunwayGroupID]preparedPolicy, err
 			return nil, fmt.Errorf("runway group %q has invalid same-STAR spacing", raw.RunwayGroupID)
 		}
 
-		prepared := preparedPolicy{Policy: raw, rates: slices.Clone(raw.Rates), spacing: map[categoryPair]time.Duration{}, categories: map[WakeCategory]struct{}{}, fallback: raw.UnknownSeparation}
+		prepared := preparedPolicy{
+			Policy: raw, rates: slices.Clone(raw.Rates), spacing: map[categoryPair]time.Duration{},
+			categories: map[WakeCategory]struct{}{}, fallback: raw.UnknownSeparation,
+			starFamilies: starFamilies,
+		}
 		if len(prepared.rates) == 0 {
 			return nil, fmt.Errorf("runway group %q requires at least one rate", raw.RunwayGroupID)
 		}
@@ -613,21 +647,23 @@ func adjacentValid(policy preparedPolicy, leading, trailing allocatedEntry) bool
 }
 
 func requiredGap(policy preparedPolicy, leading, trailing preparedFlight, trailingAt time.Time) time.Duration {
-	wtc := policy.fallback
+	required := spacingRequirements{
+		base:     policy.intervalAt(trailingAt),
+		wake:     policy.fallback,
+		sameSTAR: sameSTARGap(policy, leading, trailing, trailingAt),
+	}
 	if leading.known && trailing.known {
-		wtc = policy.spacing[categoryPair{leading.category, trailing.category}]
+		required.wake = policy.spacing[categoryPair{leading.category, trailing.category}]
 	}
-	base := policy.intervalAt(trailingAt)
-	required := max(base, wtc)
-	if star := sameSTARGap(policy, leading, trailing, trailingAt); star > required {
-		required = star
-	}
-	return required
+	return required.minimum()
 }
 
 func sameSTARGap(policy preparedPolicy, leading, trailing preparedFlight, trailingAt time.Time) time.Duration {
-	spacing := policy.SameSTARSpacing
-	if !spacing.Enabled || leading.STARFamily == "" || trailing.STARFamily == "" || leading.STARFamily != trailing.STARFamily {
+	if leading.STARFamily == "" || trailing.STARFamily == "" || leading.STARFamily != trailing.STARFamily {
+		return 0
+	}
+	spacing, configured := policy.starFamilies.spacingFor(leading.STARFamily, policy.SameSTARSpacing)
+	if !configured || !spacing.Enabled {
 		return 0
 	}
 	rate := policy.rateAt(trailingAt)

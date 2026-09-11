@@ -170,6 +170,56 @@ func TestAMANStateEventProjectsProtectedSameSTARWarningIdentity(t *testing.T) {
 	}}, event.Data.RunwayGroups[0].SequenceWarnings)
 }
 
+func TestAMANStateEventProjectsCompleteCurrentWarnings(t *testing.T) {
+	state := goldenAMANState()
+	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{
+		Code: "protected_same_star_spacing", FlightID: "TRAIL", RelatedFlightID: "LEAD", STARFamily: "MONAK",
+	}}
+	health := goldenAMANHealth()
+	reason := "airac_expired"
+	health.Status, health.Ready = aman.HealthDegraded, false
+	health.Navigation = aman.ComponentHealth{Status: aman.HealthDegraded, Reason: reason}
+
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, health)
+	require.NoError(t, err)
+	require.Len(t, event.Data.Warnings, 2)
+	require.Equal(t, AMANWarning{
+		ID:     `warning:"sequence"/-/"protected_same_star_spacing"/"ARRIVAL-22"/"TRAIL"/"LEAD"`,
+		Source: "sequence", Severity: "error", Code: "protected_same_star_spacing",
+		RunwayGroupID: stringPointer(&state.RunwayGroups[0].ID), FlightID: stringPointer(&state.RunwayGroups[0].SequenceWarnings[0].FlightID),
+		RelatedFlightID: stringPointer(&state.RunwayGroups[0].SequenceWarnings[0].RelatedFlightID),
+		Message:         "Flights TRAIL and LEAD conflict with protected MONAK spacing on runway group ARRIVAL-22",
+	}, event.Data.Warnings[0])
+	require.Equal(t, "technical_health", event.Data.Warnings[1].Source)
+	require.Equal(t, "navigation", *event.Data.Warnings[1].Component)
+	require.Equal(t, "airac_expired", event.Data.Warnings[1].Code)
+
+	clearEvent, err := NewAMANStateEvent(goldenAMANState(), aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.NotNil(t, clearEvent.Data.Warnings)
+	require.Empty(t, clearEvent.Data.Warnings)
+	encoded, err := clearEvent.Marshal()
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"warnings":[]`)
+}
+
+func TestAMANWarningsAreAdditiveForLegacyV1Decoders(t *testing.T) {
+	event, err := NewAMANStateEvent(goldenAMANState(), aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	encoded, err := event.Marshal()
+	require.NoError(t, err)
+
+	var legacy struct {
+		Version int `json:"version"`
+		Data    struct {
+			Airport string `json:"airport"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &legacy))
+	require.Equal(t, AMANWireVersion, legacy.Version)
+	require.Equal(t, "EKCH", legacy.Data.Airport)
+}
+
 func TestAMANStateEventProjectsActiveRunwayGroupsInConfiguredOrder(t *testing.T) {
 	state := goldenAMANState()
 	state.RunwayGroups = append(state.RunwayGroups, aman.RunwayGroupPolicy{ID: "ARRIVAL-04"})

@@ -227,6 +227,7 @@
       ]
     },
     "holding_information": [],
+    "warnings": [],
     "technical_health": {
       "status": "ready",
       "ready": true,

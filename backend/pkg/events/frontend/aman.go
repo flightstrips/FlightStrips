@@ -55,7 +55,20 @@ type AMANState struct {
 	TimelineConfig     *AMANTimelineConfig   `json:"timeline_configuration,omitempty"`
 	TrafficPrediction  AMANTrafficPrediction `json:"traffic_prediction"`
 	HoldingInformation []AMANHoldingEntry    `json:"holding_information"`
+	Warnings           []AMANWarning         `json:"warnings"`
 	TechnicalHealth    AMANTechnicalHealth   `json:"technical_health"`
+}
+
+type AMANWarning struct {
+	ID              string  `json:"id"`
+	Source          string  `json:"source"`
+	Component       *string `json:"component,omitempty"`
+	Severity        string  `json:"severity"`
+	Code            string  `json:"code"`
+	RunwayGroupID   *string `json:"runway_group_id,omitempty"`
+	FlightID        *string `json:"flight_id,omitempty"`
+	RelatedFlightID *string `json:"related_flight_id,omitempty"`
+	Message         string  `json:"message"`
 }
 
 type AMANTimelineConfig struct {
@@ -328,6 +341,7 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 	if err != nil {
 		return AMANStateEvent{}, fmt.Errorf("map AMAN holding information: %w", err)
 	}
+	data.Warnings = mapAMANWarnings(aman.CurrentWarningSnapshot(health, state))
 	data.TrafficPrediction, err = mapAMANTrafficPrediction(trafficprediction.Build(state, health.VATSIM))
 	if err != nil {
 		return AMANStateEvent{}, fmt.Errorf("map AMAN traffic prediction: %w", err)
@@ -368,6 +382,18 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		data.RunwayGroups[i] = mapped
 	}
 	return AMANStateEvent{Version: AMANWireVersion, Data: data}, nil
+}
+
+func mapAMANWarnings(snapshot aman.WarningSnapshot) []AMANWarning {
+	result := make([]AMANWarning, len(snapshot.Warnings))
+	for index, warning := range snapshot.Warnings {
+		result[index] = AMANWarning{
+			ID: warning.ID, Source: string(warning.Source), Component: stringPointer(warning.Component),
+			Severity: string(warning.Severity), Code: warning.Code, RunwayGroupID: stringPointer(warning.RunwayGroupID),
+			FlightID: stringPointer(warning.FlightID), RelatedFlightID: stringPointer(warning.RelatedFlightID), Message: warning.Message,
+		}
+	}
+	return result
 }
 
 func mapAMANHoldingInformation(model holdingclearance.ReadModel) ([]AMANHoldingEntry, error) {

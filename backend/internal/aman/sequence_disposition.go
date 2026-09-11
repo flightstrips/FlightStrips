@@ -14,6 +14,12 @@ func (d SequenceDisposition) Valid() bool {
 	return d == SequenceDispositionActive || d == SequenceDispositionDesequenced
 }
 
+// Participates reports whether the flight consumes an AMAN sequence
+// opportunity. The zero value remains active for legacy aggregate state.
+func (d SequenceDisposition) Participates() bool {
+	return d.OrDefault() == SequenceDispositionActive
+}
+
 // OrDefault preserves source compatibility for aggregate values created before
 // the field existed. Persistence adapters should write the returned explicit
 // value back to the aggregate after decoding legacy state.

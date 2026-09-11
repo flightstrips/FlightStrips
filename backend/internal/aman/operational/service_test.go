@@ -61,6 +61,75 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 	require.Equal(t, 6*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time))
 }
 
+func TestSequenceInputExcludesDesequencedFlightsAcrossProtectedLifecycleState(t *testing.T) {
+	start := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	group, wake := aman.RunwayGroupID("ARRIVAL-22"), "M"
+	effective := start
+	groups := []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective}}
+	legacy := operationalFlight("LEGACY", group, "MONAK", wake, start)
+	active := operationalFlight("ACTIVE", group, "MONAK", wake, start.Add(3*time.Minute))
+	active.SequenceDisposition = aman.SequenceDispositionActive
+	for _, test := range []struct {
+		name   string
+		flight aman.AMANFlight
+	}{
+		{name: "unstable", flight: operationalFlight("DSEQ-UNSTABLE", group, "MONAK", wake, start.Add(6*time.Minute))},
+		{name: "manual protected", flight: protectedOperationalFlight("DSEQ-MANUAL", group, "MONAK", wake, start.Add(9*time.Minute), 4, aman.FreezeManual)},
+		{name: "superstable protected", flight: protectedOperationalFlight("DSEQ-SUPERSTABLE", group, "MONAK", wake, start.Add(12*time.Minute), 5, aman.FreezeSuperstable)},
+		{name: "TMA protected", flight: protectedOperationalFlight("DSEQ-TMA", group, "MONAK", wake, start.Add(15*time.Minute), 6, aman.FreezeTMA)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := test.flight
+			candidate.SequenceDisposition = aman.SequenceDispositionDesequenced
+			input := sequenceInput(aman.AirportState{
+				RunwayGroups: groups,
+				Flights:      []aman.AMANFlight{legacy, candidate, active},
+			}, terminal.Configuration{})
+			require.Len(t, input.Flights, 2)
+			require.Equal(t, aman.FlightID("LEGACY"), input.Flights[0].ID)
+			require.Equal(t, aman.FlightID("ACTIVE"), input.Flights[1].ID)
+		})
+	}
+}
+
+func TestResequenceDesequencedFlightDoesNotReserveSlotOrLoseStateAcrossReplay(t *testing.T) {
+	start := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	group, wake := aman.RunwayGroupID("ARRIVAL-22"), "M"
+	desequenced := protectedOperationalFlight("DSEQ", group, "MONAK", wake, start, 1, aman.FreezeManual)
+	desequenced.SequenceDisposition = aman.SequenceDispositionDesequenced
+	desequenced.Slot = &aman.Slot{Time: start, RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "manual"}
+	manualOrder := 1
+	desequenced.ManualOrder = &manualOrder
+	desequenced.QueueOffers = []aman.QueueOffer{{
+		FlightID: desequenced.ID, RunwayGroupID: group,
+		CandidateSlot: aman.Slot{Time: start, RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "rate_wtc"},
+		QueuePosition: 1, ExpiresAt: start.Add(time.Minute), AirportRevision: 7, Reason: aman.QueueOfferEarlierOccupiedSlot,
+	}}
+	active := operationalFlight("ACTIVE", group, "MONAK", wake, start)
+	state := aman.AirportState{
+		Revision:     7,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{desequenced, active},
+	}
+	persisted, err := json.Marshal(state)
+	require.NoError(t, err)
+
+	var first, second aman.AirportState
+	require.NoError(t, json.Unmarshal(persisted, &first))
+	require.NoError(t, json.Unmarshal(persisted, &second))
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	service.resequence(&first, start.Add(30*time.Second))
+	service.resequence(&second, start.Add(30*time.Second))
+
+	require.Equal(t, first, second, "the same persisted state must replay deterministically")
+	require.Len(t, first.Flights, 2)
+	require.Equal(t, desequenced, first.Flights[0], "DSEQ must preserve its lifecycle, protection, slot, and queue state")
+	require.Equal(t, active.ID, first.Flights[1].ID)
+	require.NotNil(t, first.Flights[1].Slot)
+	require.Equal(t, start, first.Flights[1].Slot.Time, "the old DSEQ slot must not consume sequence capacity")
+	require.Equal(t, 1, first.Flights[1].Slot.Sequence)
+}
+
 func TestSequenceInputCarriesPersistedAbsoluteRunwayGaps(t *testing.T) {
 	start := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	effective := start.Add(-time.Hour)

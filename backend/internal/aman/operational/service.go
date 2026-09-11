@@ -946,6 +946,9 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 	}
 	offers := make([]aman.QueueOffer, 0)
 	for _, flight := range state.Flights {
+		if !flight.SequenceDisposition.Participates() {
+			continue
+		}
 		offers = append(offers, flight.QueueOffers...)
 	}
 	var result sequence.Result
@@ -1182,7 +1185,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		input.Policies = append(input.Policies, policy)
 	}
 	for _, flight := range state.Flights {
-		if flight.Prediction == nil || flight.SelectedRunwayGroup == nil || flight.State == aman.StatePlanned || flight.State == aman.StateLanded || flight.State == aman.StateRemoved ||
+		if !flight.SequenceDisposition.Participates() || flight.Prediction == nil || flight.SelectedRunwayGroup == nil || flight.State == aman.StatePlanned || flight.State == aman.StateLanded || flight.State == aman.StateRemoved ||
 			(!flight.Prediction.Publishable && flight.FreezeReason == aman.FreezeNone) {
 			continue
 		}
@@ -1289,7 +1292,7 @@ func releaseGainResequenceTargets(state *aman.AirportState) map[aman.FlightID]st
 	targets := map[aman.FlightID]struct{}{}
 	for index := range state.Flights {
 		flight := &state.Flights[index]
-		if flight.State != aman.StateStable || flight.Slot == nil || flight.Prediction == nil ||
+		if !flight.SequenceDisposition.Participates() || flight.State != aman.StateStable || flight.Slot == nil || flight.Prediction == nil ||
 			flight.FreezeReason == aman.FreezeTMA || flight.FreezeReason == aman.FreezeSuperstable {
 			continue
 		}

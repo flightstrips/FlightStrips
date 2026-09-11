@@ -60,6 +60,12 @@ func TestSequenceDispositionValuesAndDefault(t *testing.T) {
 	if got := (SequenceDisposition("")).OrDefault(); got != SequenceDispositionActive {
 		t.Fatalf("default disposition = %q, want active", got)
 	}
+	if !(SequenceDisposition("")).Participates() || !SequenceDispositionActive.Participates() {
+		t.Fatal("default and active dispositions must participate in sequencing")
+	}
+	if SequenceDispositionDesequenced.Participates() {
+		t.Fatal("desequenced disposition must not participate in sequencing")
+	}
 }
 
 func TestAMANFlightIdentityConsumersPreferExplicitValuesWithLegacyFallback(t *testing.T) {

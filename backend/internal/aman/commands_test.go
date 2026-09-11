@@ -48,6 +48,14 @@ func TestTypedCommandsValidateOnlyTheirOwnFields(t *testing.T) {
 			return (aman.SetManualETACommand{Metadata: meta, FlightID: "flight", ManualETA: now}).Validate(now)
 		}},
 		{"reset TETA", func() error { return (aman.ResetTETAOverrideCommand{Metadata: meta, FlightID: "flight"}).Validate() }, func() error { return (aman.ResetTETAOverrideCommand{Metadata: meta}).Validate() }},
+		{"manual feeder ETA", func() error {
+			return (aman.SetManualFeederETACommand{Metadata: meta, FlightID: "flight", FeederETA: now}).Validate()
+		}, func() error {
+			return (aman.SetManualFeederETACommand{Metadata: meta, FlightID: "flight", FeederETA: now.In(time.FixedZone("CEST", 2*60*60))}).Validate()
+		}},
+		{"reset manual feeder ETA", func() error {
+			return (aman.ResetManualFeederETACommand{Metadata: meta, FlightID: "flight"}).Validate()
+		}, func() error { return (aman.ResetManualFeederETACommand{Metadata: meta}).Validate() }},
 		{"go around", func() error {
 			return (aman.ReportGoAroundCommand{Metadata: meta, FlightID: "flight", DetectedAt: now.Add(-time.Second)}).Validate(now)
 		}, func() error {

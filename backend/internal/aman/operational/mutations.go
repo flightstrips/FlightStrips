@@ -424,6 +424,45 @@ func (s *Service) ResetTETAOverride(auth aman.CommandContext, command aman.Reset
 	}), nil
 }
 
+func (s *Service) SetManualFeederETA(auth aman.CommandContext, command aman.SetManualFeederETACommand) (sequence.CommandMutation, error) {
+	if err := command.Validate(); err != nil {
+		return nil, err
+	}
+	return s.flightMutation("set_manual_feeder_eta", command.FlightID, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+		if flight.SelectedFeederFix == nil {
+			return flight, false, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "manual feeder ETA requires a selected feeder fix"}
+		}
+		if flight.DerivedFeederETA == nil && flight.FeederETA != nil && flight.FeederETA.Source != aman.FeederETASourceManual {
+			flight.DerivedFeederETA = cloneFeederETA(flight.FeederETA)
+		}
+		passed := flight.DerivedFeederETA != nil && flight.DerivedFeederETA.Passed
+		if command.FeederETA.Before(auth.ReceivedAt) && !passed {
+			return flight, false, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "past manual feeder ETA requires authoritative passed-feeder progress"}
+		}
+		manual := &aman.FeederETAState{ETA: timePointer(command.FeederETA), Source: aman.FeederETASourceManual}
+		changed := !reflect.DeepEqual(flight.FeederETA, manual)
+		flight.FeederETA = manual
+		if changed {
+			flight.UpdatedAt = auth.ReceivedAt
+		}
+		return flight, changed, nil
+	}), nil
+}
+
+func (s *Service) ResetManualFeederETA(auth aman.CommandContext, command aman.ResetManualFeederETACommand) (sequence.CommandMutation, error) {
+	if err := command.Validate(); err != nil {
+		return nil, err
+	}
+	return s.flightMutation("reset_manual_feeder_eta", command.FlightID, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+		if flight.FeederETA == nil || flight.FeederETA.Source != aman.FeederETASourceManual {
+			return flight, false, nil
+		}
+		flight.FeederETA = cloneFeederETA(flight.DerivedFeederETA)
+		flight.UpdatedAt = auth.ReceivedAt
+		return flight, true, nil
+	}), nil
+}
+
 func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGoAroundCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		index := flightIndex(state.Flights, command.FlightID)
@@ -491,6 +530,7 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	}
 	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 	flight := &state.Flights[index]
+	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	expireActiveRouteFact(flight)
 	updatedPrediction := *flight.Prediction
 	updatedPrediction.OperationalTETA = detectedAt.Add(DefaultGoAroundDelay)
@@ -522,7 +562,9 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	if err != nil {
 		return sequence.CommandChange{}, err
 	}
-	return s.commandChange(s.applyDecision(state, decision), true, action, flight.ID, extra)
+	state = s.applyDecision(state, decision)
+	state.Flights[index].FeederETA, state.Flights[index].DerivedFeederETA = nil, nil
+	return s.commandChange(state, true, action, flight.ID, extra)
 }
 
 func (s *Service) sequenceMutation(action string, flightID aman.FlightID, at time.Time, apply func(sequence.Input) (sequence.Decision, error)) sequence.CommandMutation {

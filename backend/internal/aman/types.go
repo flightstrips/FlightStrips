@@ -860,11 +860,15 @@ type AMANFlight struct {
 	SelectedRunwayGroup *RunwayGroupID
 	// SelectedFeeder remains the deployed JSON compatibility field. It carries
 	// the STAR-family identity until all persisted-state consumers migrate.
-	SelectedFeeder       *string
-	SelectedSTARFamily   *string
-	SelectedFeederFix    *string
-	SelectedHolding      *string
-	FeederETA            *FeederETAState
+	SelectedFeeder     *string
+	SelectedSTARFamily *string
+	SelectedFeederFix  *string
+	SelectedHolding    *string
+	FeederETA          *FeederETAState
+	// DerivedFeederETA keeps the latest route/holding result while a manual
+	// override owns FeederETA. It is additive so legacy persisted JSON remains
+	// readable and reset can fall back to nil until the next derivation.
+	DerivedFeederETA     *FeederETAState
 	HoldingClearance     *HoldingClearance
 	HoldingStack         *HoldingStackState
 	ActiveRouteFact      *RouteFact
@@ -1239,6 +1243,17 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if f.DerivedFeederETA != nil {
+		if f.SelectedFeederFix == nil || f.DerivedFeederETA.Source == FeederETASourceManual {
+			return invalid("derived feeder ETA requires a feeder fix and non-manual provenance")
+		}
+		if err := f.DerivedFeederETA.Validate(); err != nil {
+			return err
+		}
+		if f.FeederETA == nil || f.FeederETA.Source != FeederETASourceManual && !sameFeederETA(f.FeederETA, f.DerivedFeederETA) {
+			return invalid("effective and derived feeder ETA provenance is inconsistent")
+		}
+	}
 	if f.Prediction != nil {
 		if err := f.Prediction.Validate(); err != nil {
 			return err
@@ -1396,6 +1411,13 @@ func (f AMANFlight) Validate() error {
 		}
 	}
 	return requireUTCTime("updated at", f.UpdatedAt)
+}
+
+func sameFeederETA(left, right *FeederETAState) bool {
+	if left == nil || right == nil || left.Source != right.Source || left.Passed != right.Passed || (left.ETA == nil) != (right.ETA == nil) {
+		return false
+	}
+	return left.ETA == nil || left.ETA.Equal(*right.ETA)
 }
 
 func (s GoAroundDetectionState) Validate() error {

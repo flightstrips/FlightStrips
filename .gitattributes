@@ -31,3 +31,6 @@ nginx.conf   text eol=lf
 *.dll        binary
 *.so         binary
 *.dylib      binary
+
+# Preserve the operator-approved vendored boundary byte-for-byte.
+backend/config/aman/boundaries/EKCH.json binary

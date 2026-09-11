@@ -40,6 +40,20 @@ func TestConfigurationDecodesLegacyRunwayGroupSpacing(t *testing.T) {
 	require.Equal(t, &SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, config.RunwayGroups[0].SameSTARSpacing)
 }
 
+func TestHoldingSequencePolicyDefaultsAndValidates(t *testing.T) {
+	var config Configuration
+	require.NoError(t, json.Unmarshal([]byte(`{"starFamilyPolicies":[{"starFamily":"TESPI","sameStarSpacing":{}}]}`), &config))
+	require.Equal(t, navdata.HoldingSequenceDisabled, config.STARFamilyPolicies[0].HoldingSequencePolicy.Effective())
+	require.NoError(t, config.ValidateOperationalSettings())
+
+	config.STARFamilyPolicies[0].HoldingSequencePolicy = navdata.HoldingSequenceDisabled
+	require.NoError(t, config.ValidateOperationalSettings())
+	config.STARFamilyPolicies[0].HoldingSequencePolicy = navdata.HoldingSequenceLowestAltitudeFirst
+	require.NoError(t, config.ValidateOperationalSettings())
+	config.STARFamilyPolicies[0].HoldingSequencePolicy = "highest_first"
+	require.ErrorContains(t, config.ValidateOperationalSettings(), "starFamilyPolicies[0].holdingSequencePolicy: must be disabled or lowest_altitude_first")
+}
+
 func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
@@ -54,6 +68,7 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	require.Equal(t, []navdata.STARFamilyID{"ERNOV", "MONAK", "TESPI", "TIDVU", "TUDLO"}, starFamilyPolicyIDs(fragment.STARFamilyPolicies))
 	for _, policy := range fragment.STARFamilyPolicies {
 		require.Equal(t, navdata.SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, policy.SameSTARSpacing, policy.STARFamily)
+		require.Equal(t, navdata.HoldingSequenceDisabled, policy.HoldingSequencePolicy, policy.STARFamily)
 		require.Equal(t, 6*time.Minute, (time.Hour/time.Duration(policy.SameSTARSpacing.ActivationRatePerHour))*time.Duration(policy.SameSTARSpacing.MinimumEmptySlots+1))
 	}
 	require.Len(t, fragment.Paths, len(config.Feeders)*len(config.RunwayGroups))
@@ -162,6 +177,7 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 	require.Equal(t, []navdata.STARFamilyID{"ERNOV", "MONAK", "TESPI", "TIDVU", "TUDLO"}, configuredSTARFamilyPolicyIDs(config.STARFamilyPolicies))
 	for _, policy := range config.STARFamilyPolicies {
 		require.Equal(t, SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, policy.SameSTARSpacing, policy.STARFamily)
+		require.Equal(t, navdata.HoldingSequenceDisabled, policy.HoldingSequencePolicy, policy.STARFamily)
 	}
 
 	wantFinals := map[navdata.RunwayID]struct{ latitude, longitude, course float64 }{
@@ -388,6 +404,12 @@ func TestSTARFamilyPolicyValidationAndDeterministicDigest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, baseline.Digest, reordered.Digest)
 	require.Equal(t, baseline.STARFamilyPolicies, reordered.STARFamilyPolicies)
+
+	config.STARFamilyPolicies[0].HoldingSequencePolicy = navdata.HoldingSequenceLowestAltitudeFirst
+	enabled, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	require.NotEqual(t, baseline.Digest, enabled.Digest)
+	require.Equal(t, navdata.HoldingSequenceLowestAltitudeFirst, enabled.STARFamilyPolicies[4].HoldingSequencePolicy)
 
 	config.STARFamilyPolicies[0].SameSTARSpacing = SameSTARSpacing{Enabled: true}
 	err = config.Validate(refs)

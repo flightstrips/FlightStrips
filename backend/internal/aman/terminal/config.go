@@ -131,8 +131,15 @@ type SameSTARSpacing struct {
 // from runway selection. RunwayGroup.SameSTARSpacing remains as a temporary
 // compatibility source for sequencing consumers.
 type STARFamilyPolicy struct {
-	STARFamily      navdata.STARFamilyID `json:"starFamily"`
-	SameSTARSpacing SameSTARSpacing      `json:"sameStarSpacing"`
+	STARFamily            navdata.STARFamilyID          `json:"starFamily"`
+	SameSTARSpacing       SameSTARSpacing               `json:"sameStarSpacing"`
+	HoldingSequencePolicy navdata.HoldingSequencePolicy `json:"holdingSequencePolicy,omitempty"`
+}
+
+// EffectiveHoldingSequencePolicy resolves an omitted additive field to the
+// documented migration-safe default without changing the decoded wire value.
+func (p STARFamilyPolicy) EffectiveHoldingSequencePolicy() navdata.HoldingSequencePolicy {
+	return p.HoldingSequencePolicy.Effective()
 }
 
 type Feeder struct {
@@ -308,6 +315,9 @@ func (c Configuration) ValidateOperationalSettings() error {
 			add(&errs, path+".starFamily", "is duplicated")
 		}
 		families[policy.STARFamily] = struct{}{}
+		if policy.HoldingSequencePolicy != "" && !policy.HoldingSequencePolicy.Valid() {
+			add(&errs, path+".holdingSequencePolicy", "must be disabled or lowest_altitude_first")
+		}
 		spacing := policy.SameSTARSpacing
 		if spacing.Enabled && spacing.ActivationRatePerHour == 0 {
 			add(&errs, path+".sameStarSpacing.activationRatePerHour", "must be greater than zero when enabled")
@@ -836,7 +846,11 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 	policies := make([]navdata.STARFamilyPolicy, len(c.STARFamilyPolicies))
 	for i, policy := range c.STARFamilyPolicies {
 		spacing := policy.SameSTARSpacing
-		policies[i] = navdata.STARFamilyPolicy{STARFamily: policy.STARFamily, SameSTARSpacing: navdata.SameSTARSpacingPolicy{Enabled: spacing.Enabled, ActivationRatePerHour: spacing.ActivationRatePerHour, MinimumEmptySlots: spacing.MinimumEmptySlots}}
+		policies[i] = navdata.STARFamilyPolicy{
+			STARFamily:            policy.STARFamily,
+			SameSTARSpacing:       navdata.SameSTARSpacingPolicy{Enabled: spacing.Enabled, ActivationRatePerHour: spacing.ActivationRatePerHour, MinimumEmptySlots: spacing.MinimumEmptySlots},
+			HoldingSequencePolicy: policy.EffectiveHoldingSequencePolicy(),
+		}
 	}
 	sort.Slice(policies, func(i, j int) bool { return policies[i].STARFamily < policies[j].STARFamily })
 	fragment := navdata.CandidateTerminalFragment{SchemaVersion: navdata.CanonicalSchemaVersion, Version: refs.Version, Airport: c.Airport, ConfigVersion: c.ConfigVersion, STARFamilyPolicies: policies, Paths: paths, Holdings: overlays, Provenance: provenance, ImportedAt: importedAt, ValidatedAt: &validated, State: navdata.ValidationValidated}

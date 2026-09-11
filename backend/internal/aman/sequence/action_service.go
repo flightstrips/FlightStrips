@@ -16,6 +16,7 @@ type ActionMutations interface {
 	UnlockFlight(aman.CommandContext, aman.UnlockFlightCommand) (CommandMutation, error)
 	SetRate(aman.CommandContext, aman.SetRateCommand) (CommandMutation, error)
 	SelectRunwayGroup(aman.CommandContext, aman.SelectRunwayGroupCommand) (CommandMutation, error)
+	SetActiveRunwayGroups(aman.CommandContext, aman.SetActiveRunwayGroupsCommand) (CommandMutation, error)
 	AcceptTETA(aman.CommandContext, aman.AcceptTETACommand) (CommandMutation, error)
 	KeepFPLETA(aman.CommandContext, aman.KeepFPLETACommand) (CommandMutation, error)
 	SetManualETA(aman.CommandContext, aman.SetManualETACommand) (CommandMutation, error)
@@ -73,6 +74,12 @@ func (s *ActionService) SetRate(ctx context.Context, auth aman.CommandContext, c
 
 func (s *ActionService) SelectRunwayGroup(ctx context.Context, auth aman.CommandContext, command aman.SelectRunwayGroupCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.SelectRunwayGroup(auth, command) })
+}
+
+func (s *ActionService) SetActiveRunwayGroups(ctx context.Context, auth aman.CommandContext, command aman.SetActiveRunwayGroupsCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) {
+		return s.mutations.SetActiveRunwayGroups(auth, command)
+	})
 }
 
 func (s *ActionService) AcceptTETA(ctx context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {

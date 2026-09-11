@@ -162,11 +162,14 @@ type Configuration struct {
 	Dataset            DatasetCompatibility `json:"dataset"`
 	Sources            []Source             `json:"sources"`
 	RunwayGroups       []RunwayGroup        `json:"runwayGroups"`
-	Feeders            []Feeder             `json:"feeders"`
-	FixAliases         []FixAlias           `json:"fixAliases"`
-	OverlayFixes       []FixDefinition      `json:"overlayFixes"`
-	Paths              []Path               `json:"paths"`
-	OverlayHoldings    []HoldingDefinition  `json:"overlayHoldings"`
+	// ActiveRunwayGroupSets declares the complete operationally compatible
+	// combinations accepted by the atomic runway-set command.
+	ActiveRunwayGroupSets [][]aman.RunwayGroupID `json:"activeRunwayGroupSets,omitempty"`
+	Feeders               []Feeder               `json:"feeders"`
+	FixAliases            []FixAlias             `json:"fixAliases"`
+	OverlayFixes          []FixDefinition        `json:"overlayFixes"`
+	Paths                 []Path                 `json:"paths"`
+	OverlayHoldings       []HoldingDefinition    `json:"overlayHoldings"`
 }
 
 func (c CoordinateDefinition) canonical() navdata.Coordinate {
@@ -240,7 +243,9 @@ func LoadFile(path string) (Configuration, error) {
 // sequencing settings that must fail startup before navigation acquisition.
 func (c Configuration) ValidateOperationalSettings() error {
 	var errs ValidationErrors
+	groups := make(map[aman.RunwayGroupID]struct{}, len(c.RunwayGroups))
 	for i, group := range c.RunwayGroups {
+		groups[group.ID] = struct{}{}
 		if spacing := group.SameSTARSpacing; spacing != nil && spacing.Enabled {
 			if spacing.ActivationRatePerHour == 0 {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].sameStarSpacing.activationRatePerHour", i), "must be greater than zero when enabled")
@@ -249,6 +254,30 @@ func (c Configuration) ValidateOperationalSettings() error {
 				add(&errs, fmt.Sprintf("runwayGroups[%d].sameStarSpacing.minimumEmptySlots", i), "must be greater than zero when enabled")
 			}
 		}
+	}
+	seenSets := make(map[string]struct{}, len(c.ActiveRunwayGroupSets))
+	for i, set := range c.ActiveRunwayGroupSets {
+		members := make(map[aman.RunwayGroupID]struct{}, len(set))
+		canonical := make([]string, 0, len(set))
+		if len(set) == 0 {
+			add(&errs, fmt.Sprintf("activeRunwayGroupSets[%d]", i), "cannot be empty")
+		}
+		for j, id := range set {
+			if _, exists := groups[id]; !exists {
+				add(&errs, fmt.Sprintf("activeRunwayGroupSets[%d][%d]", i, j), "must name a configured runway group")
+			}
+			if _, exists := members[id]; exists {
+				add(&errs, fmt.Sprintf("activeRunwayGroupSets[%d][%d]", i, j), "must be unique within the set")
+			}
+			members[id] = struct{}{}
+			canonical = append(canonical, string(id))
+		}
+		sort.Strings(canonical)
+		key := strings.Join(canonical, "\x1f")
+		if _, exists := seenSets[key]; exists {
+			add(&errs, fmt.Sprintf("activeRunwayGroupSets[%d]", i), "duplicates another configured set")
+		}
+		seenSets[key] = struct{}{}
 	}
 	if len(errs) == 0 {
 		return nil
@@ -766,6 +795,10 @@ func cloneConfiguration(value Configuration) Configuration {
 			clone.RunwayGroups[i].FinalApproaches[j].Threshold.ElevationFt = clonePointer(final.Threshold.ElevationFt)
 			clone.RunwayGroups[i].FinalApproaches[j].Threshold.CourseTrueDeg = clonePointer(final.Threshold.CourseTrueDeg)
 		}
+	}
+	clone.ActiveRunwayGroupSets = make([][]aman.RunwayGroupID, len(value.ActiveRunwayGroupSets))
+	for i := range value.ActiveRunwayGroupSets {
+		clone.ActiveRunwayGroupSets[i] = slices.Clone(value.ActiveRunwayGroupSets[i])
 	}
 	clone.Feeders = make([]Feeder, len(value.Feeders))
 	for i, feeder := range value.Feeders {

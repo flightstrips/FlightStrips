@@ -264,6 +264,18 @@ func TestConfigurationRejectsTerminalSafetyViolations(t *testing.T) {
 		{"missing final runway", func(c *Configuration, _ *ReferenceSet) {
 			c.RunwayGroups[0].FinalApproaches = nil
 		}, "runwayGroups[0]: requires exactly one runway and final approach"},
+		{"empty active runway group set", func(c *Configuration, _ *ReferenceSet) {
+			c.ActiveRunwayGroupSets = append(c.ActiveRunwayGroupSets, nil)
+		}, "activeRunwayGroupSets[8]: cannot be empty"},
+		{"unknown active runway group", func(c *Configuration, _ *ReferenceSet) {
+			c.ActiveRunwayGroupSets[0] = []aman.RunwayGroupID{"MISSING"}
+		}, "activeRunwayGroupSets[0][0]: must name a configured runway group"},
+		{"duplicate active runway group", func(c *Configuration, _ *ReferenceSet) {
+			c.ActiveRunwayGroupSets[0] = []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04L"}
+		}, "activeRunwayGroupSets[0][1]: must be unique within the set"},
+		{"duplicate active runway group set", func(c *Configuration, _ *ReferenceSet) {
+			c.ActiveRunwayGroupSets = append(c.ActiveRunwayGroupSets, []aman.RunwayGroupID{"ARRIVAL-04R", "ARRIVAL-04L"})
+		}, "activeRunwayGroupSets[8]: duplicates another configured set"},
 		{"absent selected holding", func(c *Configuration, _ *ReferenceSet) { c.Paths[0].SelectedHolding = "MISSING" }, "paths[0].selectedHolding: is missing"},
 		{"off-path selected holding", func(c *Configuration, _ *ReferenceSet) { c.Paths[0].SelectedHolding = "EKCH-ERNOV-PRIMARY" }, "paths[0].selectedHolding: holding fix must occur"},
 		{"conflicting overlay holding", func(c *Configuration, refs *ReferenceSet) {
@@ -393,12 +405,14 @@ func TestActiveReturnsDefensiveConfigurationClone(t *testing.T) {
 
 	active := store.Active()
 	active.RunwayGroups[0].Aliases[0] = "MUTATED"
+	active.ActiveRunwayGroupSets[0][0] = "MUTATED"
 	active.RunwayGroups[0].FinalApproaches[0].Threshold.Position.LatitudeDeg = 0
 	active.Paths[0].Fixes[0] = "MUTATED"
 	active.OverlayHoldings[0].MinimumAltitudeFt = intPtr(1)
 
 	next := store.Active()
 	require.Equal(t, aman.RunwayGroupID("04L"), next.RunwayGroups[0].Aliases[0])
+	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04L"), next.ActiveRunwayGroupSets[0][0])
 	require.Equal(t, 55.5922, next.RunwayGroups[0].FinalApproaches[0].Threshold.Position.LatitudeDeg)
 	require.Equal(t, navdata.FixID("TESPI"), next.Paths[0].Fixes[0])
 	require.NotNil(t, next.OverlayHoldings[0].MinimumAltitudeFt)

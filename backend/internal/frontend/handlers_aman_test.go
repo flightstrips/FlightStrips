@@ -152,6 +152,9 @@ func (s *recordingAMANCommandService) SetRate(_ context.Context, auth aman.Comma
 func (s *recordingAMANCommandService) SelectRunwayGroup(_ context.Context, auth aman.CommandContext, command aman.SelectRunwayGroupCommand) (aman.CommandExecution, error) {
 	return s.record("runway_selection", auth, command.Metadata)
 }
+func (s *recordingAMANCommandService) SetActiveRunwayGroups(_ context.Context, auth aman.CommandContext, command aman.SetActiveRunwayGroupsCommand) (aman.CommandExecution, error) {
+	return s.record("set_active_runway_groups", auth, command.Metadata)
+}
 func (s *recordingAMANCommandService) AcceptTETA(_ context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {
 	return s.record("accept", auth, command.Metadata)
 }

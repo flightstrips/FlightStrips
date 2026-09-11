@@ -253,6 +253,16 @@
       ]
     }
   ],
+  "activeRunwayGroupSets": [
+    ["ARRIVAL-04L"],
+    ["ARRIVAL-04R"],
+    ["ARRIVAL-04L", "ARRIVAL-04R"],
+    ["ARRIVAL-22L"],
+    ["ARRIVAL-22R"],
+    ["ARRIVAL-22L", "ARRIVAL-22R"],
+    ["ARRIVAL-12"],
+    ["ARRIVAL-30"]
+  ],
   "feeders": [
     {
       "id": "TESPI",

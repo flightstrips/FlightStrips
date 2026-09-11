@@ -639,6 +639,99 @@ func TestSetRateDoesNotChangeRunwaySelectionOrFlightAssignments(t *testing.T) {
 	require.Equal(t, aman.RunwayGroupID("ARRIVAL-04"), *change.State.Flights[0].SelectedRunwayGroup)
 }
 
+func TestSetActiveRunwayGroupsIsAtomicRevisionedAndIdempotent(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	config := terminal.Configuration{
+		Airport: "EKCH", ConfigVersion: "test",
+		RunwayGroups:          []terminal.RunwayGroup{{ID: "ARRIVAL-04L"}, {ID: "ARRIVAL-04R"}, {ID: "ARRIVAL-22L"}},
+		ActiveRunwayGroupSets: [][]aman.RunwayGroupID{{"ARRIVAL-04L"}, {"ARRIVAL-04L", "ARRIVAL-04R"}, {"ARRIVAL-22L"}},
+	}
+	repository := &memoryRepository{}
+	publisher := &recordingPublisher{}
+	service, err := New(Dependencies{
+		Repository: repository, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: publisher, Terminal: config, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	repository.state, repository.has = service.initialState("EKCH", now), true
+	repository.state.Revision = 7
+	flight := operationalFlight("UNCHANGED", "ARRIVAL-04L", "MONAK", "M", now.Add(20*time.Minute))
+	unreconciled := repository.state
+	unreconciled.Flights = []aman.AMANFlight{flight}
+	mutation, err := service.SetActiveRunwayGroups(aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}, aman.SetActiveRunwayGroupsCommand{RunwayGroupIDs: []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R"}})
+	require.NoError(t, err)
+	change, err := mutation(unreconciled)
+	require.NoError(t, err)
+	require.Equal(t, flight, change.State.Flights[0], "runway activation must not reconcile assignments in this slice")
+	coordinator, err := sequence.NewCoordinator(sequence.CoordinatorDependencies{
+		States: repository, Outcomes: repository, Committer: repository, Publisher: publisher, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	actions, err := sequence.NewActionService(coordinator, service)
+	require.NoError(t, err)
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	command := aman.SetActiveRunwayGroupsCommand{
+		Metadata:       aman.CommandMetadata{CommandID: "set-runways", ExpectedRevision: 7},
+		RunwayGroupIDs: []aman.RunwayGroupID{"ARRIVAL-04R", "ARRIVAL-04L"},
+	}
+
+	first, err := actions.SetActiveRunwayGroups(context.Background(), auth, command)
+	require.NoError(t, err)
+	require.True(t, first.Changed)
+	require.Equal(t, aman.SequenceRevision(8), first.CurrentRevision)
+	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R"}, repository.state.ActiveRunwayGroups)
+	require.Empty(t, repository.state.Flights)
+	require.Contains(t, string(first.Outcome.Payload), `"actor":"1234567"`)
+	require.Contains(t, string(first.Outcome.Payload), `"role":"EKCH_FMH"`)
+
+	retry, err := actions.SetActiveRunwayGroups(context.Background(), auth, command)
+	require.NoError(t, err)
+	require.True(t, retry.Duplicate)
+	require.False(t, retry.Changed)
+	require.Equal(t, aman.SequenceRevision(8), retry.CurrentRevision)
+	require.Len(t, repository.commits, 1)
+
+	stale := command
+	stale.Metadata.CommandID = "stale-set"
+	_, err = actions.SetActiveRunwayGroups(context.Background(), auth, stale)
+	requireDomainClass(t, err, aman.ErrorRevisionConflict)
+	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R"}, repository.state.ActiveRunwayGroups)
+}
+
+func TestSetActiveRunwayGroupsRejectsUnknownIncompatibleAndMismatchedConfiguration(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	config := terminal.Configuration{
+		Airport: "EKCH", RunwayGroups: []terminal.RunwayGroup{{ID: "A"}, {ID: "B"}, {ID: "C"}},
+		ActiveRunwayGroupSets: [][]aman.RunwayGroupID{{"A"}, {"A", "B"}, {"C"}},
+	}
+	service := &Service{deps: Dependencies{Terminal: config}}
+	base := aman.AirportState{
+		Airport: "EKCH", ActiveRunwayGroups: []aman.RunwayGroupID{"A"},
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: "A", Selected: true}, {ID: "B"}, {ID: "C"}},
+	}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+
+	for _, test := range []struct {
+		name   string
+		groups []aman.RunwayGroupID
+		state  aman.AirportState
+		class  aman.ErrorClass
+	}{
+		{name: "unknown", groups: []aman.RunwayGroupID{"MISSING"}, state: base, class: aman.ErrorNotFound},
+		{name: "incompatible", groups: []aman.RunwayGroupID{"A", "C"}, state: base, class: aman.ErrorInvalidArgument},
+		{name: "configuration mismatch", groups: []aman.RunwayGroupID{"A"}, state: func() aman.AirportState { value := base; value.RunwayGroups = value.RunwayGroups[:2]; return value }(), class: aman.ErrorInvalidArgument},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			before := test.state
+			mutation, err := service.SetActiveRunwayGroups(auth, aman.SetActiveRunwayGroupsCommand{RunwayGroupIDs: test.groups})
+			require.NoError(t, err)
+			_, err = mutation(test.state)
+			requireDomainClass(t, err, test.class)
+			require.Equal(t, before, test.state)
+		})
+	}
+}
+
 func TestImmediateRunwaySelectionMovesOnlyReorderableFlights(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	service, err := New(Dependencies{
@@ -1089,9 +1182,10 @@ func protectedOperationalFlight(id string, group aman.RunwayGroupID, feeder, wak
 }
 
 type memoryRepository struct {
-	state   aman.AirportState
-	has     bool
-	commits []aman.StateCommit
+	state    aman.AirportState
+	has      bool
+	commits  []aman.StateCommit
+	outcomes map[string]aman.CommandOutcome
 }
 
 type staticArrivalRunway struct {
@@ -1110,12 +1204,33 @@ func (r *memoryRepository) LoadAirportState(context.Context, string) (aman.Airpo
 	return r.state, nil
 }
 func (r *memoryRepository) Commit(_ context.Context, commit aman.StateCommit) (aman.CommitResult, error) {
+	if commit.CommandOutcome != nil && r.outcomes != nil {
+		if outcome, exists := r.outcomes[commit.CommandOutcome.CommandID]; exists {
+			return aman.CommitResult{State: r.state, CommandOutcome: &outcome, DuplicateCommand: true}, nil
+		}
+	}
 	if err := commit.Validate(); err != nil {
 		return aman.CommitResult{}, err
 	}
 	r.state, r.has = commit.State, true
 	r.commits = append(r.commits, commit)
-	return aman.CommitResult{State: commit.State}, nil
+	result := aman.CommitResult{State: commit.State}
+	if commit.CommandOutcome != nil {
+		if r.outcomes == nil {
+			r.outcomes = make(map[string]aman.CommandOutcome)
+		}
+		outcome := *commit.CommandOutcome
+		r.outcomes[outcome.CommandID] = outcome
+		result.CommandOutcome = &outcome
+	}
+	return result, nil
+}
+
+func (r *memoryRepository) LoadCommandOutcome(_ context.Context, commandID string) (aman.CommandOutcome, error) {
+	if outcome, exists := r.outcomes[commandID]; exists {
+		return outcome, nil
+	}
+	return aman.CommandOutcome{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "missing"}
 }
 
 type recordingPublisher struct{ states []aman.AirportState }
@@ -1179,4 +1294,11 @@ func (w *observedWind) WindProfile(_ context.Context, request predictor.WindProf
 			Levels: []predictor.WindLevel{{AltitudeFeet: 10000}},
 		}},
 	}, nil
+}
+
+func requireDomainClass(t *testing.T, err error, class aman.ErrorClass) {
+	t.Helper()
+	var domain *aman.DomainError
+	require.ErrorAs(t, err, &domain)
+	require.Equal(t, class, domain.Class)
 }

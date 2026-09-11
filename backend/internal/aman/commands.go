@@ -46,6 +46,13 @@ type SelectRunwayGroupCommand struct {
 	EffectiveAt   time.Time
 }
 
+// SetActiveRunwayGroupsCommand replaces the complete active landing-runway
+// set. Authority, airport identity, and receipt time belong to CommandContext.
+type SetActiveRunwayGroupsCommand struct {
+	Metadata       CommandMetadata
+	RunwayGroupIDs []RunwayGroupID
+}
+
 type AcceptTETACommand struct {
 	Metadata CommandMetadata
 	FlightID FlightID
@@ -105,6 +112,7 @@ type CommandService interface {
 	UnlockFlight(context.Context, CommandContext, UnlockFlightCommand) (CommandExecution, error)
 	SetRate(context.Context, CommandContext, SetRateCommand) (CommandExecution, error)
 	SelectRunwayGroup(context.Context, CommandContext, SelectRunwayGroupCommand) (CommandExecution, error)
+	SetActiveRunwayGroups(context.Context, CommandContext, SetActiveRunwayGroupsCommand) (CommandExecution, error)
 	AcceptTETA(context.Context, CommandContext, AcceptTETACommand) (CommandExecution, error)
 	KeepFPLETA(context.Context, CommandContext, KeepFPLETACommand) (CommandExecution, error)
 	SetManualETA(context.Context, CommandContext, SetManualETACommand) (CommandExecution, error)
@@ -168,6 +176,26 @@ func (c SelectRunwayGroupCommand) Validate() error {
 	}
 	if !trimmed(string(c.RunwayGroupID)) || !utc(c.EffectiveAt) {
 		return commandInvalid("runway selection requires a runway group and UTC effective time")
+	}
+	return nil
+}
+
+func (c SetActiveRunwayGroupsCommand) Validate() error {
+	if err := validateCommandMetadata(c.Metadata); err != nil {
+		return err
+	}
+	if len(c.RunwayGroupIDs) == 0 {
+		return commandInvalid("active runway group set cannot be empty")
+	}
+	seen := make(map[RunwayGroupID]struct{}, len(c.RunwayGroupIDs))
+	for _, id := range c.RunwayGroupIDs {
+		if !trimmed(string(id)) {
+			return commandInvalid("active runway group ID is required")
+		}
+		if _, exists := seen[id]; exists {
+			return commandInvalid("active runway group IDs must be unique")
+		}
+		seen[id] = struct{}{}
 	}
 	return nil
 }

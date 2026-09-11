@@ -74,6 +74,19 @@ type ResetTETAOverrideCommand struct {
 	FlightID FlightID
 }
 
+// SetManualFeederETACommand and ResetManualFeederETACommand are domain
+// commands. External transport is intentionally added by the following slice.
+type SetManualFeederETACommand struct {
+	Metadata  CommandMetadata
+	FlightID  FlightID
+	FeederETA time.Time
+}
+
+type ResetManualFeederETACommand struct {
+	Metadata CommandMetadata
+	FlightID FlightID
+}
+
 type ReportGoAroundCommand struct {
 	Metadata   CommandMetadata
 	FlightID   FlightID
@@ -157,6 +170,20 @@ func (c UnlockFlightCommand) Validate() error { return validateFlightCommand(c.M
 func (c AcceptTETACommand) Validate() error   { return validateFlightCommand(c.Metadata, c.FlightID) }
 func (c KeepFPLETACommand) Validate() error   { return validateFlightCommand(c.Metadata, c.FlightID) }
 func (c ResetTETAOverrideCommand) Validate() error {
+	return validateFlightCommand(c.Metadata, c.FlightID)
+}
+
+func (c SetManualFeederETACommand) Validate() error {
+	if err := validateFlightCommand(c.Metadata, c.FlightID); err != nil {
+		return err
+	}
+	if !utc(c.FeederETA) {
+		return commandInvalid("manual feeder ETA must be a UTC value")
+	}
+	return nil
+}
+
+func (c ResetManualFeederETACommand) Validate() error {
 	return validateFlightCommand(c.Metadata, c.FlightID)
 }
 

@@ -721,7 +721,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		legDurations = estimate.LegDurations
 	}
 	s.setHealthComponent("predictor", aman.HealthReady, "", now)
-	flight.FeederETA = routeFeederETA(now, legDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress)
+	applyDerivedFeederETA(&flight, routeFeederETA(now, legDurations, projection.Remaining, navdata.FixID(feederFix), projection.FeederProgress))
 	if projection.SelectedHolding != nil {
 		holding := string(projection.SelectedHolding.ID)
 		flight.SelectedHolding = &holding
@@ -732,7 +732,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	previousState := flight.State
 	previousFreeze := flight.FreezeReason
 	raw.HoldingPlan = holdingPlan(raw, flight.Slot)
-	flight.FeederETA = holdingFeederETA(state.Authoritative, flight, raw, s.deps.Terminal)
+	applyDerivedFeederETA(&flight, holdingFeederETA(state.Authoritative, flight, raw, s.deps.Terminal))
 	nextState := lifecycleState(lifecycle.DefaultConfig(), flight, raw.RawTETA, now)
 	reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{
 		Raw:                          raw,
@@ -920,7 +920,7 @@ func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
 		}
 		prediction := *flight.Prediction
 		prediction.HoldingPlan = holdingPlan(prediction, flight.Slot)
-		flight.FeederETA = holdingFeederETA(state.Authoritative, *flight, prediction, s.deps.Terminal)
+		applyDerivedFeederETA(flight, holdingFeederETA(state.Authoritative, *flight, prediction, s.deps.Terminal))
 		flight.Prediction = &prediction
 	}
 }
@@ -930,14 +930,18 @@ func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
 // configuration versions differ or the selected path has no approved nominal
 // transit. A passed-feeder fact remains authoritative over any derived clock.
 func holdingFeederETA(authoritative bool, flight aman.AMANFlight, prediction aman.Prediction, config terminal.Configuration) *aman.FeederETAState {
-	if flight.FeederETA != nil && flight.FeederETA.Passed {
-		return flight.FeederETA
+	derived := flight.DerivedFeederETA
+	if derived == nil && (flight.FeederETA == nil || flight.FeederETA.Source != aman.FeederETASourceManual) {
+		derived = flight.FeederETA
+	}
+	if derived != nil && derived.Passed {
+		return derived
 	}
 	if !authoritative || prediction.HoldingPlan == nil {
-		if flight.FeederETA != nil && flight.FeederETA.Source == aman.FeederETASourceHolding {
+		if derived != nil && derived.Source == aman.FeederETASourceHolding {
 			return nil
 		}
-		return flight.FeederETA
+		return derived
 	}
 	transit := configuredHoldingToFeederTransit(flight, prediction.ConfigVersion, config)
 	if transit == nil {
@@ -948,9 +952,30 @@ func holdingFeederETA(authoritative bool, flight aman.AMANFlight, prediction ama
 }
 
 func clearInactiveHoldingFeederETA(flight *aman.AMANFlight) {
-	if flight.FeederETA != nil && flight.FeederETA.Source == aman.FeederETASourceHolding {
-		flight.FeederETA = nil
+	if flight.DerivedFeederETA != nil && flight.DerivedFeederETA.Source == aman.FeederETASourceHolding {
+		applyDerivedFeederETA(flight, nil)
+	} else if flight.DerivedFeederETA == nil && flight.FeederETA != nil && flight.FeederETA.Source == aman.FeederETASourceHolding {
+		applyDerivedFeederETA(flight, nil)
 	}
+}
+
+func applyDerivedFeederETA(flight *aman.AMANFlight, derived *aman.FeederETAState) {
+	flight.DerivedFeederETA = cloneFeederETA(derived)
+	if flight.FeederETA == nil || flight.FeederETA.Source != aman.FeederETASourceManual {
+		flight.FeederETA = cloneFeederETA(derived)
+	}
+}
+
+func cloneFeederETA(value *aman.FeederETAState) *aman.FeederETAState {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	if value.ETA != nil {
+		eta := *value.ETA
+		copy.ETA = &eta
+	}
+	return &copy
 }
 
 func configuredHoldingToFeederTransit(flight aman.AMANFlight, predictionConfigVersion string, config terminal.Configuration) *time.Duration {
@@ -1675,6 +1700,7 @@ func markUnknownSTARFamily(flight *aman.AMANFlight, now time.Time) {
 	flight.ActiveRouteDatasetID = nil
 	flight.RouteProgress = nil
 	flight.FeederETA = nil
+	flight.DerivedFeederETA = nil
 	if flight.Prediction == nil {
 		return
 	}

@@ -172,7 +172,11 @@ func TestAMANFlightFeederETAJSONAcceptsLegacyAbsenceAndReplaysNewState(t *testin
 	}
 
 	eta := time.Date(2026, time.September, 11, 20, 10, 0, 0, time.UTC)
-	want := AMANFlight{FeederETA: &FeederETAState{ETA: &eta, Source: FeederETASourceRoute}}
+	manual := eta.Add(-time.Minute)
+	want := AMANFlight{
+		FeederETA:        &FeederETAState{ETA: &manual, Source: FeederETASourceManual},
+		DerivedFeederETA: &FeederETAState{ETA: &eta, Source: FeederETASourceRoute},
+	}
 	encoded, err := json.Marshal(want)
 	if err != nil {
 		t.Fatalf("encode feeder ETA state: %v", err)
@@ -183,6 +187,9 @@ func TestAMANFlightFeederETAJSONAcceptsLegacyAbsenceAndReplaysNewState(t *testin
 	}
 	if !reflect.DeepEqual(want.FeederETA, restored.FeederETA) {
 		t.Fatalf("restored feeder ETA = %#v, want %#v", restored.FeederETA, want.FeederETA)
+	}
+	if !reflect.DeepEqual(want.DerivedFeederETA, restored.DerivedFeederETA) {
+		t.Fatalf("restored derived feeder ETA = %#v, want %#v", restored.DerivedFeederETA, want.DerivedFeederETA)
 	}
 }
 

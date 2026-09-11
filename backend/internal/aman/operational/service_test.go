@@ -1065,6 +1065,10 @@ func TestGoAroundUpdatesOperationalTETABeforeCascading(t *testing.T) {
 	state.Revision = 4
 	flight := operationalFlight("GO-AROUND", "ARRIVAL-22", "MONAK", "M", now.Add(3*time.Minute))
 	flight.State = aman.StateStable
+	manualFeederETA := now.Add(2 * time.Minute)
+	derivedFeederETA := now.Add(4 * time.Minute)
+	flight.FeederETA = &aman.FeederETAState{ETA: &manualFeederETA, Source: aman.FeederETASourceManual}
+	flight.DerivedFeederETA = &aman.FeederETAState{ETA: &derivedFeederETA, Source: aman.FeederETASourceRoute}
 	flight.ActiveRouteFact = &aman.RouteFact{ID: "direct-to", Fix: "MONAK", State: aman.RouteFactActive}
 	flight.Slot = &aman.Slot{
 		Time: now.Add(3 * time.Minute), RunwayGroupID: "ARRIVAL-22",
@@ -1088,6 +1092,8 @@ func TestGoAroundUpdatesOperationalTETABeforeCascading(t *testing.T) {
 	require.NotNil(t, updated.Slot)
 	require.False(t, updated.Slot.Time.Before(now.Add(DefaultGoAroundDelay)))
 	require.Equal(t, aman.RouteFactExpired, updated.ActiveRouteFact.State)
+	require.Nil(t, updated.FeederETA)
+	require.Nil(t, updated.DerivedFeederETA)
 	require.True(t, updated.GoAroundDetection.AwaitingReset, "manual reporting suppresses a duplicate detector prompt")
 	require.NotNil(t, change.QueueOffers)
 }

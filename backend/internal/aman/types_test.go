@@ -104,6 +104,8 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[AMANFlight](),
 		reflect.TypeFor[AirportState](),
 		reflect.TypeFor[CommandMetadata](),
+		reflect.TypeFor[Warning](),
+		reflect.TypeFor[WarningSnapshot](),
 	}
 	for _, domainType := range types {
 		for index := range domainType.NumField() {

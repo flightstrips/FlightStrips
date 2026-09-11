@@ -4892,6 +4892,9 @@ type AMANGainLossValue struct {
 	TargetTime      *string                `protobuf:"bytes,5,opt,name=target_time,json=targetTime,proto3,oneof" json:"target_time,omitempty"`
 	PredictedTime   *string                `protobuf:"bytes,6,opt,name=predicted_time,json=predictedTime,proto3,oneof" json:"predicted_time,omitempty"`
 	DataStatus      string                 `protobuf:"bytes,7,opt,name=data_status,json=dataStatus,proto3" json:"data_status,omitempty"`
+	StarFamily      *string                `protobuf:"bytes,8,opt,name=star_family,json=starFamily,proto3,oneof" json:"star_family,omitempty"`
+	FeederFix       *string                `protobuf:"bytes,9,opt,name=feeder_fix,json=feederFix,proto3,oneof" json:"feeder_fix,omitempty"`
+	HoldingFix      *string                `protobuf:"bytes,10,opt,name=holding_fix,json=holdingFix,proto3,oneof" json:"holding_fix,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -4971,6 +4974,27 @@ func (x *AMANGainLossValue) GetPredictedTime() string {
 func (x *AMANGainLossValue) GetDataStatus() string {
 	if x != nil {
 		return x.DataStatus
+	}
+	return ""
+}
+
+func (x *AMANGainLossValue) GetStarFamily() string {
+	if x != nil && x.StarFamily != nil {
+		return *x.StarFamily
+	}
+	return ""
+}
+
+func (x *AMANGainLossValue) GetFeederFix() string {
+	if x != nil && x.FeederFix != nil {
+		return *x.FeederFix
+	}
+	return ""
+}
+
+func (x *AMANGainLossValue) GetHoldingFix() string {
+	if x != nil && x.HoldingFix != nil {
+		return *x.HoldingFix
 	}
 	return ""
 }
@@ -5535,7 +5559,7 @@ const file_euroscope_proto_rawDesc = "" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\"O\n" +
 	"\x17SendPrivateMessageEvent\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xeb\x02\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x8a\x04\n" +
 	"\x11AMANGainLossValue\x12\x1b\n" +
 	"\tflight_id\x18\x01 \x01(\tR\bflightId\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12/\n" +
@@ -5545,11 +5569,21 @@ const file_euroscope_proto_rawDesc = "" +
 	"targetTime\x88\x01\x01\x12*\n" +
 	"\x0epredicted_time\x18\x06 \x01(\tH\x03R\rpredictedTime\x88\x01\x01\x12\x1f\n" +
 	"\vdata_status\x18\a \x01(\tR\n" +
-	"dataStatusB\x14\n" +
+	"dataStatus\x12$\n" +
+	"\vstar_family\x18\b \x01(\tH\x04R\n" +
+	"starFamily\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"feeder_fix\x18\t \x01(\tH\x05R\tfeederFix\x88\x01\x01\x12$\n" +
+	"\vholding_fix\x18\n" +
+	" \x01(\tH\x06R\n" +
+	"holdingFix\x88\x01\x01B\x14\n" +
 	"\x12_gain_loss_secondsB\x12\n" +
 	"\x10_reference_pointB\x0e\n" +
 	"\f_target_timeB\x11\n" +
-	"\x0f_predicted_time\"\xf2\x01\n" +
+	"\x0f_predicted_timeB\x0e\n" +
+	"\f_star_familyB\r\n" +
+	"\v_feeder_fixB\x0e\n" +
+	"\f_holding_fix\"\xf2\x01\n" +
 	"\x11AMANGainLossEvent\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x18\n" +
 	"\aairport\x18\x02 \x01(\tR\aairport\x12\x1a\n" +

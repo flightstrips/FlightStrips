@@ -13,11 +13,13 @@ import (
 func TestAMANGainLossGoldenFixture(t *testing.T) {
 	now := time.Date(2026, time.September, 8, 12, 0, 0, 0, time.UTC)
 	slot := aman.Slot{Time: now.Add(10 * time.Minute), RunwayGroupID: "22", Sequence: 1, Revision: 42, Reason: "sequence"}
+	starFamily, feederFix, holdingFix := "TESPI", "TNO", "ROSBI"
 	state := aman.AirportState{
 		Airport: "EKCH", Revision: 42, GeneratedAt: now, PolicyVersion: "test", Mode: aman.ModeAuthoritative,
 		Authoritative: true,
 		Flights: []aman.AMANFlight{
 			{ID: "flight-1", VATSIMCID: "1", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, Slot: &slot,
+				SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix, SelectedHolding: &holdingFix,
 				Prediction: &aman.Prediction{OperationalTETA: slot.Time.Add(90 * time.Second), Publishable: true, Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}}}},
 			{ID: "flight-2", VATSIMCID: "2", CurrentCallsign: "DAT456", State: aman.StateUnstable, DataStatus: aman.DataStale, FreezeReason: aman.FreezeNone},
 		},
@@ -42,4 +44,10 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 	require.EqualValues(t, 42, decoded.Revision)
 	require.Len(t, decoded.Values, 2)
 	require.Equal(t, "flight-1", decoded.Values[0].FlightId)
+	require.Equal(t, "TESPI", decoded.Values[0].GetStarFamily())
+	require.Equal(t, "TNO", decoded.Values[0].GetFeederFix())
+	require.Equal(t, "ROSBI", decoded.Values[0].GetHoldingFix())
+	require.Nil(t, decoded.Values[1].StarFamily, "old payloads omit additive identity fields")
+	require.Nil(t, decoded.Values[1].FeederFix, "old payloads omit additive identity fields")
+	require.Nil(t, decoded.Values[1].HoldingFix, "old payloads omit additive identity fields")
 }

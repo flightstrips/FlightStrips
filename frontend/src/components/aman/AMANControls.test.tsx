@@ -157,10 +157,28 @@ describe("AMAN FMP controls", () => {
     expect(screen.getByText(/Operational slot/)).toHaveTextContent("fixed by superstable freeze");
     expect(screen.getByText("Accepted direct SOK")).toBeInTheDocument();
     expect(screen.getByText(/Geometry:/)).toHaveTextContent("Unavailable");
+    expect(screen.getByText(/STAR family:/)).toHaveTextContent("TESPI");
+    expect(screen.getByText(/Feeder fix:/)).toHaveTextContent("TNO");
     expect(screen.getByText(/Holding fix:/)).toHaveTextContent("Unavailable");
     expect(screen.getByText(/Geometry\/navigation: degraded/)).toHaveTextContent("geometry_stale");
     expect(screen.getByText(/Weather: unavailable/)).toHaveTextContent("metar_missing");
     expect(screen.getByRole("button", {name: "Release manual freeze"})).toBeDisabled();
+  });
+
+  it("presents terminal identities independently without legacy-field fallback", () => {
+    const identities = state();
+    identities.flights[0].star = "LEGACY-STAR";
+    identities.flights[0].feeder = "LEGACY-FEEDER";
+    identities.flights[0].star_family = null;
+    identities.flights[0].feeder_fix = "TNO";
+    identities.flights[0].holding_fix = "ROSBI";
+
+    renderControls({state: identities});
+
+    expect(screen.getByText(/STAR family:/)).toHaveTextContent("Unavailable");
+    expect(screen.getByText(/Feeder fix:/)).toHaveTextContent("TNO");
+    expect(screen.getByText(/Holding fix:/)).toHaveTextContent("ROSBI");
+    expect(screen.queryByText(/LEGACY-STAR|LEGACY-FEEDER/)).not.toBeInTheDocument();
   });
 
   it("shows independent pending and rejection states for runway and rate controls", () => {

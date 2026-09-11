@@ -89,8 +89,14 @@ export interface AMANFlight {
   lifecycle_state: AMANLifecycleState;
   data_status: AMANDataStatus;
   runway_group_id: string | null;
+  /** @deprecated Deployed alias for the STAR family; retained for older V1 clients. */
   feeder: string | null;
+  /** @deprecated Deployed alias for the STAR family; retained for older V1 clients. */
   star: string | null;
+  /** Optional while V1 clients and servers roll through explicit terminal identities. */
+  star_family?: string | null;
+  /** Optional while V1 clients and servers roll through explicit terminal identities. */
+  feeder_fix?: string | null;
   holding_fix: string | null;
   holding_fix_eta: string | null;
   holding_entry_time: string | null;
@@ -322,6 +328,9 @@ const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isString = (value: unknown): value is string => typeof value === "string";
 const isNullableString = (value: unknown): value is string | null => value === null || isString(value);
+const isIdentity = (value: unknown): value is string => isString(value) && value !== "" && value.trim() === value;
+const isNullableIdentity = (value: unknown): value is string | null => value === null || isIdentity(value);
+const isOptionalNullableIdentity = (value: unknown): value is string | null | undefined => value === undefined || isNullableIdentity(value);
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const isNonNegativeInteger = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0;
 const isNullableFiniteNumber = (value: unknown): value is number | null => value === null || isFiniteNumber(value);
@@ -369,7 +378,8 @@ function isFlight(value: unknown): value is AMANFlight {
   return isObject(value) && isString(value.flight_id) && value.flight_id !== "" && isString(value.callsign)
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)
-    && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star) && isNullableString(value.holding_fix)
+    && isNullableString(value.runway_group_id) && isNullableString(value.feeder) && isNullableString(value.star)
+    && isOptionalNullableIdentity(value.star_family) && isOptionalNullableIdentity(value.feeder_fix) && isNullableIdentity(value.holding_fix)
     && isNullableTimestamp(value.holding_fix_eta) && isNullableTimestamp(value.holding_entry_time) && isNullableTimestamp(value.approach_release_time)
     && isNullableFiniteNumber(value.expected_holding_seconds) && isNullableFiniteNumber(value.post_holding_transit_seconds) && (value.route_fact === null || isRouteFact(value.route_fact))
     && isNullableTimestamp(value.raw_teta) && isNullableTimestamp(value.operational_teta)

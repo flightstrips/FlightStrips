@@ -216,7 +216,7 @@ function HoldingTimeline({
         });
         const guidanceTone = gainLossTone(gainLoss);
         const sequence = String(marker.flight.order ?? marker.flight.slot?.sequence ?? "").padStart(2, "0");
-        const star = showStar ? marker.flight.star : null;
+        const star = showStar ? marker.flight.star_family : null;
         const rulerEdge = stripSide === "left"
           ? `calc(50% - ${RULER_WIDTH_PIXELS / 2}px)`
           : `calc(50% + ${RULER_WIDTH_PIXELS / 2}px)`;

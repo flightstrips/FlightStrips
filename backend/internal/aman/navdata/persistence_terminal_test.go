@@ -2,6 +2,7 @@ package navdata
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,28 +66,68 @@ func TestTerminalFragmentExplicitFieldsAffectDigestAndRoundTrip(t *testing.T) {
 }
 
 func TestTerminalFragmentSTARFamilyPoliciesAffectDigestAndLegacyDecode(t *testing.T) {
-	legacy := CandidateTerminalFragment{Airport: "EKCH", ConfigVersion: "legacy-v1"}
-	encoded, err := MarshalTerminalFragmentPayload(legacy)
+	withoutPolicies := CandidateTerminalFragment{Airport: "EKCH", ConfigVersion: "legacy-v1"}
+	encoded, err := MarshalTerminalFragmentPayload(withoutPolicies)
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), "STARFamilyPolicies")
 
+	legacy := withoutPolicies
+	legacy.STARFamilyPolicies = []STARFamilyPolicy{{STARFamily: "TESPI"}}
+	encoded, err = MarshalTerminalFragmentPayload(legacy)
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), "STARFamilyPolicies")
+	require.NotContains(t, string(encoded), "HoldingSequencePolicy")
+
 	var decoded CandidateTerminalFragment
 	require.NoError(t, UnmarshalTerminalFragmentPayload(encoded, &decoded))
-	require.Nil(t, decoded.STARFamilyPolicies)
+	require.Equal(t, HoldingSequenceDisabled, decoded.STARFamilyPolicies[0].HoldingSequencePolicy.Effective())
 
 	configured := legacy
-	configured.STARFamilyPolicies = []STARFamilyPolicy{{
-		STARFamily:      "TESPI",
-		SameSTARSpacing: SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1},
-	}}
+	configured.STARFamilyPolicies = append([]STARFamilyPolicy(nil), legacy.STARFamilyPolicies...)
+	configured.STARFamilyPolicies[0].HoldingSequencePolicy = HoldingSequenceDisabled
 	legacyDigest, err := CanonicalPayloadDigest(legacy.payload())
 	require.NoError(t, err)
-	configuredDigest, err := CanonicalPayloadDigest(configured.payload())
+	disabledDigest, err := CanonicalPayloadDigest(configured.payload())
 	require.NoError(t, err)
-	require.NotEqual(t, legacyDigest, configuredDigest)
+	require.NotEqual(t, legacyDigest, disabledDigest)
 
 	encoded, err = MarshalTerminalFragmentPayload(configured)
 	require.NoError(t, err)
 	require.NoError(t, UnmarshalTerminalFragmentPayload(encoded, &decoded))
 	require.Equal(t, configured.STARFamilyPolicies, decoded.STARFamilyPolicies)
+
+	configured.STARFamilyPolicies[0].HoldingSequencePolicy = HoldingSequenceLowestAltitudeFirst
+	enabledDigest, err := CanonicalPayloadDigest(configured.payload())
+	require.NoError(t, err)
+	require.NotEqual(t, disabledDigest, enabledDigest)
+}
+
+func TestTerminalFragmentRejectsInvalidHoldingSequencePolicy(t *testing.T) {
+	version, provenance := testVersion(), testProvenance()
+	validated := provenance.ImportedAt.Add(time.Minute)
+	path := TerminalPath{Version: version, Airport: "EKCH", Feeder: "TESPI", RunwayGroup: "SOUTH", Coverage: CoverageComplete, Provenance: provenance, Digest: "path"}
+	fragment := CandidateTerminalFragment{
+		SchemaVersion: CanonicalSchemaVersion, Version: version, Airport: "EKCH", ConfigVersion: "invalid-policy",
+		STARFamilyPolicies: []STARFamilyPolicy{{STARFamily: "TESPI", HoldingSequencePolicy: "highest_first"}}, Paths: []TerminalPath{path},
+		Provenance: provenance, ImportedAt: provenance.ImportedAt, ValidatedAt: &validated, State: ValidationValidated,
+	}
+	digest, err := CanonicalFragmentDigest(fragment.SchemaVersion, fragment.Version, fragment.Provenance, fragment.payload())
+	require.NoError(t, err)
+	fragment.Digest = digest
+	require.ErrorContains(t, fragment.Validate(), "holding sequence policy is invalid")
+}
+
+func TestTerminalFragmentPolicySerializationIsSorted(t *testing.T) {
+	fragment := CandidateTerminalFragment{Airport: "EKCH", ConfigVersion: "sorted-v1", STARFamilyPolicies: []STARFamilyPolicy{
+		{STARFamily: "TUDLO", HoldingSequencePolicy: HoldingSequenceDisabled},
+		{STARFamily: "ERNOV", HoldingSequencePolicy: HoldingSequenceLowestAltitudeFirst},
+	}}
+	encoded, err := MarshalTerminalFragmentPayload(fragment)
+	require.NoError(t, err)
+	ernov := strings.Index(string(encoded), `"STARFamily":"ERNOV"`)
+	tudlo := strings.Index(string(encoded), `"STARFamily":"TUDLO"`)
+	require.NotEqual(t, -1, ernov)
+	require.NotEqual(t, -1, tudlo)
+	require.Less(t, ernov, tudlo)
+	require.Equal(t, STARFamilyID("TUDLO"), fragment.STARFamilyPolicies[0].STARFamily, "serialization must not mutate the caller")
 }

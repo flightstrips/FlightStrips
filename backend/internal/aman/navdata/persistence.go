@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -107,14 +108,21 @@ type terminalFragmentPayload struct {
 // STAR entry family. Additional family-scoped policies can be added here
 // without coupling them to a landing-runway group.
 type STARFamilyPolicy struct {
-	STARFamily      STARFamilyID
-	SameSTARSpacing SameSTARSpacingPolicy
+	STARFamily            STARFamilyID
+	SameSTARSpacing       SameSTARSpacingPolicy
+	HoldingSequencePolicy HoldingSequencePolicy `json:",omitempty"`
 }
 
 type SameSTARSpacingPolicy struct {
 	Enabled               bool
 	ActivationRatePerHour uint32
 	MinimumEmptySlots     uint32
+}
+
+// EffectiveHoldingSequencePolicy returns the configured policy or the
+// migration-safe behavior for fragments written before the field existed.
+func (p STARFamilyPolicy) EffectiveHoldingSequencePolicy() HoldingSequencePolicy {
+	return p.HoldingSequencePolicy.Effective()
 }
 
 // MarshalTerminalFragmentPayload encodes the provider-neutral terminal body
@@ -380,6 +388,9 @@ func (f CandidateTerminalFragment) Validate() error {
 			return invalid("terminal fragment contains duplicate STAR family policy")
 		}
 		families[policy.STARFamily] = struct{}{}
+		if policy.HoldingSequencePolicy != "" && !policy.HoldingSequencePolicy.Valid() {
+			return invalid("terminal fragment holding sequence policy is invalid")
+		}
 		spacing := policy.SameSTARSpacing
 		if spacing.Enabled && (spacing.ActivationRatePerHour == 0 || spacing.MinimumEmptySlots == 0) {
 			return invalid("terminal fragment enabled same-STAR spacing policy is incomplete")
@@ -515,7 +526,21 @@ func (f CandidateFixFragment) payload() any {
 	}{f.Fixes, f.Coverage}
 }
 func (f CandidateTerminalFragment) payload() any {
-	return terminalFragmentPayload{f.Airport, f.ConfigVersion, f.STARFamilyPolicies, f.Paths, f.Holdings}
+	return terminalFragmentPayload{f.Airport, f.ConfigVersion, canonicalSTARFamilyPolicies(f.STARFamilyPolicies), f.Paths, f.Holdings}
+}
+
+// canonicalSTARFamilyPolicies prevents insertion order from affecting either
+// terminal cache bytes or their digest. Clone before sorting so marshaling and
+// validation remain read-only operations for callers.
+func canonicalSTARFamilyPolicies(policies []STARFamilyPolicy) []STARFamilyPolicy {
+	if policies == nil {
+		return nil
+	}
+	canonical := slices.Clone(policies)
+	sort.Slice(canonical, func(i, j int) bool {
+		return canonical[i].STARFamily < canonical[j].STARFamily
+	})
+	return canonical
 }
 
 func cloneProcedures(value []Procedure) []Procedure { return slices.Clone(value) }

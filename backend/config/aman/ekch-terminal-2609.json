@@ -266,6 +266,7 @@
   "starFamilyPolicies": [
     {
       "starFamily": "ERNOV",
+      "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
         "enabled": true,
         "activationRatePerHour": 20,
@@ -274,6 +275,7 @@
     },
     {
       "starFamily": "MONAK",
+      "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
         "enabled": true,
         "activationRatePerHour": 20,
@@ -282,6 +284,7 @@
     },
     {
       "starFamily": "TESPI",
+      "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
         "enabled": true,
         "activationRatePerHour": 20,
@@ -290,6 +293,7 @@
     },
     {
       "starFamily": "TIDVU",
+      "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
         "enabled": true,
         "activationRatePerHour": 20,
@@ -298,6 +302,7 @@
     },
     {
       "starFamily": "TUDLO",
+      "holdingSequencePolicy": "disabled",
       "sameStarSpacing": {
         "enabled": true,
         "activationRatePerHour": 20,

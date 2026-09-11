@@ -4,6 +4,7 @@ import type {AMANState} from "@/api/aman";
 import {
   AMAN_ALL_VIEW,
   AMAN_VIEW_PREFERENCE_KEY,
+  controllerAMANViews,
   readAMANViewPreference,
   resolveAMANView,
   writeAMANViewPreference,
@@ -29,6 +30,15 @@ describe("local AMAN view preference", () => {
     expect(resolveAMANView(state, null, [])).toBe(AMAN_ALL_VIEW);
     expect(resolveAMANView(state, null, ["NORTH", "EAST"])).toBe(AMAN_ALL_VIEW);
     expect(resolveAMANView(state, null, ["retired", "SOUTH"])).toBe("SOUTH");
+  });
+
+  it("derives controller defaults through backend-owned mapping sides", () => {
+    expect(controllerAMANViews(state, ["EKDK_E_CTR"])).toEqual(["NORTH"]);
+    expect(controllerAMANViews(state, ["EKDK_D_CTR"])).toEqual(["EAST"]);
+    expect(controllerAMANViews(state, ["EKDK_B_CTR", "EKDK_D_CTR"])).toEqual(["SOUTH", "EAST"]);
+    expect(resolveAMANView(state, null, controllerAMANViews(state, ["EKDK_E_CTR"]))).toBe("NORTH");
+    expect(resolveAMANView(state, null, controllerAMANViews(state, ["EKDK_B_CTR", "EKDK_D_CTR"]))).toBe(AMAN_ALL_VIEW);
+    expect(resolveAMANView(state, null, controllerAMANViews(state, ["NONSTANDARD_CTR"]))).toBe(AMAN_ALL_VIEW);
   });
 
   it("tolerates old servers and stale or malformed local preferences", () => {

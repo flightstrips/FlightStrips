@@ -1857,6 +1857,9 @@ func (s AirportState) Validate() error {
 			if index > 0 && !runwayGapLess(group.Gaps[index-1], gap) {
 				return invalid("runway group gaps must be unique and strictly ordered")
 			}
+			if index > 0 && !group.Gaps[index-1].End.Before(gap.Start) {
+				return invalid("runway group gaps must not overlap or touch")
+			}
 		}
 	}
 	if s.ActiveRunwayGroups != nil {

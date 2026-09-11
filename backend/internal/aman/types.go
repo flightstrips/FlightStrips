@@ -769,6 +769,34 @@ type SameSTARSpacingPolicy struct {
 	MinimumEmptySlots     uint32
 }
 
+type TMAContainment string
+
+const (
+	TMAOutside TMAContainment = "outside"
+	TMAInside  TMAContainment = "inside"
+)
+
+func (c TMAContainment) Valid() bool {
+	return c == TMAOutside || c == TMAInside
+}
+
+// TMAEntryState is the persisted observation cursor for one arrival episode.
+// Its presence distinguishes a flight with an accepted prior containment
+// observation from a legacy or newly observed flight. FreezeTriggered is
+// sticky until the owning lifecycle starts a new arrival episode.
+type TMAEntryState struct {
+	LastContainment TMAContainment
+	LastObservedAt  time.Time
+	FreezeTriggered bool
+}
+
+func (s TMAEntryState) Validate() error {
+	if !s.LastContainment.Valid() {
+		return invalid("TMA containment is invalid")
+	}
+	return requireUTCTime("TMA containment observed at", s.LastObservedAt)
+}
+
 // AMANFlight is the persisted aggregate shape. All operational TETA, state,
 // freeze, slot, and order changes are backend-owned.
 type AMANFlight struct {
@@ -792,6 +820,7 @@ type AMANFlight struct {
 	ActiveRouteKey       *string
 	ActiveRouteDatasetID *string
 	RouteProgress        *RouteProgress
+	TMAEntry             *TMAEntryState
 	// ManualSequenceIncluded is retained for persisted-state compatibility.
 	// WTC/L aircraft are automatically sequenceable regardless of engine.
 	ManualSequenceIncluded bool
@@ -1187,6 +1216,11 @@ func (f AMANFlight) Validate() error {
 		}
 		if f.RouteProgress.DescentConfirmed && f.RouteProgress.DescentEvidenceSamples == 0 {
 			return invalid("confirmed route descent requires surveillance evidence")
+		}
+	}
+	if f.TMAEntry != nil {
+		if err := f.TMAEntry.Validate(); err != nil {
+			return err
 		}
 	}
 	if f.HoldingStack != nil {

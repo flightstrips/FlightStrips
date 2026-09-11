@@ -56,6 +56,7 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 		reflect.TypeFor[OperationalException](),
 		reflect.TypeFor[GoAroundDetectionState](),
 		reflect.TypeFor[LifecycleState](),
+		reflect.TypeFor[TMAEntryState](),
 		reflect.TypeFor[RunwayGroupPolicy](),
 		reflect.TypeFor[AMANFlight](),
 		reflect.TypeFor[AirportState](),
@@ -69,6 +70,14 @@ func TestDomainTypesDoNotDeclareWireJSONTags(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestTMAEntryStateRejectsInvalidObservationTime(t *testing.T) {
+	state := TMAEntryState{LastContainment: TMAOutside, LastObservedAt: time.Date(2026, time.July, 18, 14, 0, 0, 0, time.FixedZone("CEST", 2*60*60))}
+	assertInvalidArgument(t, state.Validate())
+	state.LastObservedAt = time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	state.LastContainment = "unknown"
+	assertInvalidArgument(t, state.Validate())
 }
 
 func TestPredictionRejectsUnknownAsZeroAndNonUTC(t *testing.T) {

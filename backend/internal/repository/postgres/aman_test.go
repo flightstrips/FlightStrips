@@ -295,6 +295,29 @@ func TestAMANRepositoryRestoresRevisionBoundQueueOffers(t *testing.T) {
 	require.Equal(t, state, restored)
 }
 
+func TestAMANRepositoryRestoresTMAEntryStateAndAcceptsLegacyFlightPayload(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-TMA", "SAS321")
+	state.Flights[0].TMAEntry = &aman.TMAEntryState{
+		LastContainment: aman.TMAInside, LastObservedAt: state.GeneratedAt.Add(-time.Second), FreezeTriggered: true,
+	}
+
+	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state.Flights[0].TMAEntry, restored.Flights[0].TMAEntry)
+
+	// A payload written before TMAEntry existed has no field and must continue
+	// to load as an unobserved arrival episode.
+	_, err = pool.Exec(ctx, `UPDATE aman_flights SET payload = payload - 'TMAEntry' WHERE flight_id = $1`, string(state.Flights[0].ID))
+	require.NoError(t, err)
+	legacy, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Nil(t, legacy.Flights[0].TMAEntry)
+}
+
 func TestAMANRepositoryRestoresETAReviewAndKeepsResolutionAtomicAndIdempotent(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

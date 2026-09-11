@@ -82,6 +82,7 @@ type CandidateTerminalFragment struct {
 	// runway geometry. It remains optional while legacy terminal fragments
 	// containing runway-group-owned policy are still deployed.
 	STARFamilyPolicies []STARFamilyPolicy `json:",omitempty"`
+	TimelineMappings   []TimelineMapping  `json:",omitempty"`
 	Paths              []TerminalPath
 	// Holdings contains only official-AIP fallback definitions that were not
 	// present in the canonical procedure fragments for this dataset.
@@ -100,6 +101,7 @@ type terminalFragmentPayload struct {
 	Airport            AirportID
 	ConfigVersion      string
 	STARFamilyPolicies []STARFamilyPolicy `json:",omitempty"`
+	TimelineMappings   []TimelineMapping  `json:",omitempty"`
 	Paths              []TerminalPath
 	Holdings           []HoldingPattern
 }
@@ -111,6 +113,16 @@ type STARFamilyPolicy struct {
 	STARFamily            STARFamilyID
 	SameSTARSpacing       SameSTARSpacingPolicy
 	HoldingSequencePolicy HoldingSequencePolicy `json:",omitempty"`
+}
+
+type TimelineMappingID uint32
+
+// TimelineMapping assigns configured STAR families to the two sides of one
+// FMP timeline. A nil side is deliberately unused rather than inferred.
+type TimelineMapping struct {
+	ID    TimelineMappingID
+	Left  *STARFamilyID `json:",omitempty"`
+	Right *STARFamilyID `json:",omitempty"`
 }
 
 type SameSTARSpacingPolicy struct {
@@ -148,6 +160,7 @@ func UnmarshalTerminalFragmentPayload(encoded []byte, fragment *CandidateTermina
 	fragment.Airport = payload.Airport
 	fragment.ConfigVersion = payload.ConfigVersion
 	fragment.STARFamilyPolicies = payload.STARFamilyPolicies
+	fragment.TimelineMappings = payload.TimelineMappings
 	fragment.Paths = payload.Paths
 	fragment.Holdings = payload.Holdings
 	return nil
@@ -283,6 +296,7 @@ type ActiveGeometrySnapshot struct {
 	Fixes            []Fix
 	Procedures       []Procedure
 	TerminalPaths    []TerminalPath
+	TimelineMappings []TimelineMapping
 	Holdings         []HoldingPattern
 }
 
@@ -441,6 +455,34 @@ func (f CandidateTerminalFragment) Validate() error {
 			}
 		}
 	}
+	knownFamilies := pathFamilies
+	if len(families) > 0 {
+		knownFamilies = families
+	}
+	mappingIDs := map[TimelineMappingID]struct{}{}
+	for _, mapping := range f.TimelineMappings {
+		if mapping.ID == 0 {
+			return invalid("terminal fragment timeline mapping ID is invalid")
+		}
+		if _, exists := mappingIDs[mapping.ID]; exists {
+			return invalid("terminal fragment contains duplicate timeline mapping ID")
+		}
+		mappingIDs[mapping.ID] = struct{}{}
+		if mapping.Left == nil && mapping.Right == nil {
+			return invalid("terminal fragment timeline mapping is empty")
+		}
+		for _, family := range []*STARFamilyID{mapping.Left, mapping.Right} {
+			if family == nil {
+				continue
+			}
+			if !validIdentifier(string(*family)) {
+				return invalid("terminal fragment timeline mapping STAR family is invalid")
+			}
+			if _, exists := knownFamilies[*family]; !exists {
+				return invalid("terminal fragment timeline mapping references unknown STAR family")
+			}
+		}
+	}
 	return nil
 }
 
@@ -526,7 +568,7 @@ func (f CandidateFixFragment) payload() any {
 	}{f.Fixes, f.Coverage}
 }
 func (f CandidateTerminalFragment) payload() any {
-	return terminalFragmentPayload{f.Airport, f.ConfigVersion, canonicalSTARFamilyPolicies(f.STARFamilyPolicies), f.Paths, f.Holdings}
+	return terminalFragmentPayload{f.Airport, f.ConfigVersion, canonicalSTARFamilyPolicies(f.STARFamilyPolicies), canonicalTimelineMappings(f.TimelineMappings), f.Paths, f.Holdings}
 }
 
 // canonicalSTARFamilyPolicies prevents insertion order from affecting either
@@ -540,6 +582,15 @@ func canonicalSTARFamilyPolicies(policies []STARFamilyPolicy) []STARFamilyPolicy
 	sort.Slice(canonical, func(i, j int) bool {
 		return canonical[i].STARFamily < canonical[j].STARFamily
 	})
+	return canonical
+}
+
+func canonicalTimelineMappings(mappings []TimelineMapping) []TimelineMapping {
+	if mappings == nil {
+		return nil
+	}
+	canonical := slices.Clone(mappings)
+	sort.Slice(canonical, func(i, j int) bool { return canonical[i].ID < canonical[j].ID })
 	return canonical
 }
 

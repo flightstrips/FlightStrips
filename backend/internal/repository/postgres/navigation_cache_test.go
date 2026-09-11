@@ -63,6 +63,28 @@ func TestNavigationCacheRoundTripsExplicitTerminalPathMetadata(t *testing.T) {
 	require.Equal(t, duration, *path.HoldingToFeederDuration)
 }
 
+func TestNavigationCacheRoundTripsTimelineMappingsInActiveSnapshot(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	data := fixture.EKCH()
+	repo := NewNavigationCache(pool)
+	manifest, _ := writeNavigationFixture(t, ctx, repo, data)
+	terminal := newTerminalFragment(t, data)
+	family := navdata.STARFamilyID("SOK")
+	terminal.STARFamilyPolicies = []navdata.STARFamilyPolicy{{STARFamily: family}}
+	terminal.TimelineMappings = []navdata.TimelineMapping{{ID: 1, Left: &family}}
+	terminal.Digest = digestTerminalFragment(t, terminal)
+	digest, err := repo.PutTerminalFragment(ctx, terminal)
+	require.NoError(t, err)
+	manifest.TerminalDigest = digest
+	_, err = repo.ActivateManifest(ctx, manifest)
+	require.NoError(t, err)
+
+	snapshot, err := NewNavigationCache(pool).ActiveGeometrySnapshot(ctx, "EKCH")
+	require.NoError(t, err)
+	require.Equal(t, terminal.TimelineMappings, snapshot.TimelineMappings)
+}
+
 func TestNavigationCacheReadsManifestConsistentTerminalReferences(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()
@@ -541,11 +563,13 @@ func newTerminalFragment(t *testing.T, data fixture.Dataset) navdata.CandidateTe
 func digestTerminalFragment(t *testing.T, fragment navdata.CandidateTerminalFragment) string {
 	t.Helper()
 	digest, err := navdata.CanonicalFragmentDigest(fragment.SchemaVersion, fragment.Version, fragment.Provenance, struct {
-		Airport       navdata.AirportID
-		ConfigVersion string
-		Paths         []navdata.TerminalPath
-		Holdings      []navdata.HoldingPattern
-	}{fragment.Airport, fragment.ConfigVersion, fragment.Paths, fragment.Holdings})
+		Airport            navdata.AirportID
+		ConfigVersion      string
+		STARFamilyPolicies []navdata.STARFamilyPolicy `json:",omitempty"`
+		TimelineMappings   []navdata.TimelineMapping  `json:",omitempty"`
+		Paths              []navdata.TerminalPath
+		Holdings           []navdata.HoldingPattern
+	}{fragment.Airport, fragment.ConfigVersion, fragment.STARFamilyPolicies, fragment.TimelineMappings, fragment.Paths, fragment.Holdings})
 	require.NoError(t, err)
 	return digest
 }

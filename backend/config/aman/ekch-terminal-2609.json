@@ -1,6 +1,6 @@
 {
   "schemaVersion": "aman-terminal/v1",
-  "configVersion": "EKCH-AIP-2609-V3",
+  "configVersion": "EKCH-AIP-2609-V4",
   "airport": "EKCH",
   "applicabilityFrom": "2026-09-03T00:00:00Z",
   "applicabilityUntil": "2026-10-01T00:00:00Z",
@@ -308,6 +308,22 @@
         "activationRatePerHour": 20,
         "minimumEmptySlots": 1
       }
+    }
+  ],
+  "timelineMappings": [
+    {
+      "id": 1,
+      "left": "TESPI",
+      "right": "TUDLO"
+    },
+    {
+      "id": 2,
+      "left": "MONAK",
+      "right": "TIDVU"
+    },
+    {
+      "id": 3,
+      "left": "ERNOV"
     }
   ],
   "feeders": [

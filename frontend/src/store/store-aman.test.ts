@@ -71,6 +71,31 @@ describe("AMAN command store", () => {
     client._emit(EventType.FrontendAMANState, replacement(7));
   });
 
+  it("replaces current warnings, retains the snapshot through reconnect, and clears empty or omitted snapshots", () => {
+    const warned = replacement(8);
+    warned.data.warnings = [{
+      id: 'warning:"technical_health"/"weather"/"weather_stale"/-/-/-',
+      source: "technical_health", component: "weather", severity: "warning",
+      code: "weather_stale", message: "AMAN weather is degraded: weather_stale",
+    }];
+    client._emit(EventType.FrontendAMANState, warned);
+    expect(store.getState().amanWarnings).toMatchObject({snapshot: "available", items: [{code: "weather_stale"}]});
+
+    store.getState().setAMANConnectionState("disconnected");
+    store.getState().setAMANConnectionState("connected");
+    expect(store.getState().amanWarnings.items).toHaveLength(1);
+
+    const cleared = replacement(9);
+    cleared.data.warnings = [];
+    client._emit(EventType.FrontendAMANState, cleared);
+    expect(store.getState().amanWarnings).toEqual({items: [], snapshot: "available"});
+
+    const legacy = replacement(10);
+    delete legacy.data.warnings;
+    client._emit(EventType.FrontendAMANState, legacy);
+    expect(store.getState().amanWarnings).toEqual({items: [], snapshot: "omitted"});
+  });
+
   it("restores a valid local view and rejects selections absent from server mappings", () => {
     localStorage.setItem("flightstrips.aman.selected-view.v1", JSON.stringify({version: 1, view: "EAST"}));
     client = createMockClient();

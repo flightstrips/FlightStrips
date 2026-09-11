@@ -16,11 +16,12 @@ const {controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() =
     amanError: null,
     amanConnectionState: "connected",
     amanFMPAuthority: false,
+    amanWarnings: {items: [], snapshot: "available"},
   },
 }));
 
 vi.mock("@/store/store-hooks", () => ({
-  useWebSocketStore: (selector: (state: WebSocketState) => unknown) => selector(storeState as WebSocketState),
+  useWebSocketStore: (selector: (state: WebSocketState) => unknown) => selector(storeState as unknown as WebSocketState),
 }));
 
 vi.mock("@/components/aman/AMANBoard", () => ({
@@ -39,6 +40,10 @@ vi.mock("@/components/aman/AMANControls", () => ({
     controlsSpy(props);
     return <div>AMAN controls</div>;
   },
+}));
+
+vi.mock("@/components/aman/AMANWarningPanel", () => ({
+  AMANWarningPanel: () => <div>AMAN warnings</div>,
 }));
 
 vi.mock("@/components/aman/TMTTrafficPrediction", () => ({
@@ -78,6 +83,7 @@ describe("AMAN route authorization", () => {
     expect(screen.getByRole("complementary", {name: "TMT analysis area"})).toContainElement(screen.getByText("AMAN controls"));
     expect(screen.getByText("AMAN board")).toBeInTheDocument();
     expect(screen.getByText("AMAN controls")).toBeInTheDocument();
+    expect(screen.getByText("AMAN warnings")).toBeInTheDocument();
     expect(controlsSpy).toHaveBeenCalledWith(expect.objectContaining({hasFMPAuthority: false}));
   });
 

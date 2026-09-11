@@ -4,6 +4,7 @@ import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
+import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
 import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
@@ -15,6 +16,7 @@ export default function AMAN() {
   const error = useWebSocketStore((value) => value.amanError);
   const connectionState = useWebSocketStore((value) => value.amanConnectionState);
   const hasFMPAuthority = useWebSocketStore((value) => value.amanFMPAuthority);
+  const warnings = useWebSocketStore((value) => value.amanWarnings);
   const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const controlsRef = useRef<HTMLElement>(null);
@@ -53,6 +55,7 @@ export default function AMAN() {
         )}
         tmt={(
           <>
+            <AMANWarningPanel connectionState={connectionState} current={warnings} presentationStatus={presentationStatus} />
             {state?.traffic_prediction !== undefined && <TMTTrafficPrediction prediction={state.traffic_prediction} />}
             {state?.holding_information !== undefined && <TMTHoldingGraph entries={state.holding_information} />}
             <AMANControls

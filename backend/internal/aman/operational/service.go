@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -908,7 +909,7 @@ func sequenceInput(state aman.AirportState, config terminal.Configuration) seque
 }
 
 func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configuration, _ AircraftEngineReference) sequence.Input {
-	input := sequence.Input{Revision: state.Revision}
+	input := sequence.Input{Revision: state.Revision, STARFamilyPolicies: sequenceSTARFamilyPolicies(config.STARFamilyPolicies)}
 	configured := map[aman.RunwayGroupID]terminal.RunwayGroup{}
 	for _, group := range config.RunwayGroups {
 		configured[group.ID] = group
@@ -952,6 +953,22 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		})
 	}
 	return input
+}
+
+func sequenceSTARFamilyPolicies(configured []terminal.STARFamilyPolicy) []sequence.STARFamilyPolicy {
+	policies := make([]sequence.STARFamilyPolicy, len(configured))
+	for index, policy := range configured {
+		spacing := policy.SameSTARSpacing
+		policies[index] = sequence.STARFamilyPolicy{
+			STARFamily: string(policy.STARFamily),
+			SameSTARSpacing: sequence.SameSTARSpacing{
+				Enabled: spacing.Enabled, ActivationRatePerHour: spacing.ActivationRatePerHour,
+				MinimumEmptySlots: spacing.MinimumEmptySlots,
+			},
+		}
+	}
+	sort.Slice(policies, func(i, j int) bool { return policies[i].STARFamily < policies[j].STARFamily })
+	return policies
 }
 
 const holdingConfirmationObservations = uint32(2)

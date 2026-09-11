@@ -59,9 +59,13 @@ func TestSuperstableAndManualSlotsAreTheOnlyRoutineConstraints(t *testing.T) {
 
 func TestRateTimelineImmediateFutureSameInstantAndRunwayIsolation(t *testing.T) {
 	start := testTime()
-	input := sequence.Input{Revision: 4, Policies: []sequence.Policy{simplePolicy("B", start, 30), simplePolicy("A", start, 60)}, Flights: []sequence.Flight{
-		flight("A", "A", start, "M"), flight("B", "B", start, "M"),
-	}}
+	input := sequence.Input{
+		Revision: 4, Policies: []sequence.Policy{simplePolicy("B", start, 30), simplePolicy("A", start, 60)},
+		STARFamilyPolicies: []sequence.STARFamilyPolicy{{
+			STARFamily: "TESPI", SameSTARSpacing: sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1},
+		}},
+		Flights: []sequence.Flight{flight("A", "A", start, "M"), flight("B", "B", start, "M")},
+	}
 	first, err := sequence.ApplyRate(input, sequence.SetRateCommand{
 		Metadata: aman.CommandMetadata{CommandID: "future", ExpectedRevision: 4}, RunwayGroupID: "A", ArrivalsPerHour: 40, EffectiveAt: start.Add(10 * time.Minute),
 	})
@@ -79,6 +83,7 @@ func TestRateTimelineImmediateFutureSameInstantAndRunwayIsolation(t *testing.T) 
 	policyA := policyFor(t, third.Input, "A")
 	require.Equal(t, []sequence.RatePoint{{EffectiveAt: start, ArrivalsPerHour: 45}, {EffectiveAt: start.Add(10 * time.Minute), ArrivalsPerHour: 20}}, policyA.Rates)
 	require.Equal(t, []sequence.RatePoint{{EffectiveAt: start, ArrivalsPerHour: 30}}, policyFor(t, third.Input, "B").Rates)
+	require.Equal(t, input.STARFamilyPolicies, third.Input.STARFamilyPolicies)
 
 	snapshot, err := json.Marshal(second.Input)
 	require.NoError(t, err)

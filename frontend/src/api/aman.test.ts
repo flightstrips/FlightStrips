@@ -88,6 +88,17 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(passed)).toBe(false);
   });
 
+  it("accepts manual feeder ETA projection but rejects partial optional fields", () => {
+    const manual = replacement(8);
+    manual.data.flights[0].feeder_fix_eta = "2026-07-22T10:12:00.000Z";
+    manual.data.flights[0].feeder_fix_eta_source = "manual";
+    manual.data.flights[0].feeder_fix_passed = false;
+    expect(isAMANStateEvent(manual)).toBe(true);
+
+    delete manual.data.flights[0].feeder_fix_eta_source;
+    expect(isAMANStateEvent(manual)).toBe(false);
+  });
+
   it("accepts holding information with missing EAT and CFL", () => {
     const event = replacement(8);
     event.data.holding_information = [{

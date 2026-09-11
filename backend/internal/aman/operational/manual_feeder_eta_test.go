@@ -116,14 +116,14 @@ func TestManualFeederETACommandRetryUsesPersistedCommandIdentity(t *testing.T) {
 	command := aman.SetManualFeederETACommand{
 		Metadata: aman.CommandMetadata{CommandID: "manual-feeder-retry", ExpectedRevision: state.Revision}, FlightID: "flight-1", FeederETA: manual,
 	}
-	mutation, err := service.SetManualFeederETA(aman.CommandContext{ReceivedAt: now}, command)
-	require.NoError(t, err)
-
 	coordinator, err := sequence.NewCoordinator(sequence.CoordinatorDependencies{
 		States: repository, Outcomes: repository, Committer: repository, Publisher: publisher, Now: func() time.Time { return now },
 	})
 	require.NoError(t, err)
-	first, err := coordinator.ExecuteCommand(context.Background(), state.Airport, command.Metadata, mutation)
+	actions, err := sequence.NewActionService(coordinator, service)
+	require.NoError(t, err)
+	auth := aman.CommandContext{Airport: state.Airport, Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	first, err := actions.SetManualFeederETA(context.Background(), auth, command)
 	require.NoError(t, err)
 	require.True(t, first.Changed)
 	require.False(t, first.Duplicate)
@@ -132,12 +132,15 @@ func TestManualFeederETACommandRetryUsesPersistedCommandIdentity(t *testing.T) {
 		States: repository, Outcomes: repository, Committer: repository, Publisher: publisher, Now: func() time.Time { return now },
 	})
 	require.NoError(t, err)
-	retry, err := restarted.ExecuteCommand(context.Background(), state.Airport, command.Metadata, mutation)
+	restartedActions, err := sequence.NewActionService(restarted, service)
+	require.NoError(t, err)
+	retry, err := restartedActions.SetManualFeederETA(context.Background(), auth, command)
 	require.NoError(t, err)
 	require.True(t, retry.Duplicate)
 	require.False(t, retry.Changed)
 	require.Len(t, repository.commits, 1)
 	require.Equal(t, first.Outcome, retry.Outcome)
+	require.JSONEq(t, `{"action":"set_manual_feeder_eta","actor":"1234567","airport":"EKCH","changed":true,"feeder_eta":"2026-09-11T20:16:00Z","flight_id":"flight-1","received_at":"2026-09-11T20:00:00Z","role":"EKCH_FMH"}`, string(repository.commits[0].AuditRecords[0].Payload))
 }
 
 func manualFeederETAState(now time.Time, derived *aman.FeederETAState) (*Service, aman.AirportState) {

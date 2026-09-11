@@ -135,6 +135,12 @@ func (m *recordingActionMutations) SetManualETA(auth aman.CommandContext, _ aman
 func (m *recordingActionMutations) ResetTETAOverride(auth aman.CommandContext, _ aman.ResetTETAOverrideCommand) (CommandMutation, error) {
 	return m.mutation("reset", auth)
 }
+func (m *recordingActionMutations) SetManualFeederETA(auth aman.CommandContext, _ aman.SetManualFeederETACommand) (CommandMutation, error) {
+	return m.mutation("manual_feeder", auth)
+}
+func (m *recordingActionMutations) ResetManualFeederETA(auth aman.CommandContext, _ aman.ResetManualFeederETACommand) (CommandMutation, error) {
+	return m.mutation("reset_manual_feeder", auth)
+}
 func (m *recordingActionMutations) ReportGoAround(auth aman.CommandContext, _ aman.ReportGoAroundCommand) (CommandMutation, error) {
 	return m.mutation("go_around", auth)
 }

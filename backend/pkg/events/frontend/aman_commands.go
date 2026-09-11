@@ -1,18 +1,20 @@
 package frontend
 
 const (
-	AMANMoveFlightType        EventType = "aman.move_flight"
-	AMANLockFlightType        EventType = "aman.lock_flight"
-	AMANUnlockFlightType      EventType = "aman.unlock_flight"
-	AMANSetRateType           EventType = "aman.set_rate"
-	AMANSelectRunwayGroupType EventType = "aman.select_runway_group"
-	AMANAcceptTETAType        EventType = "aman.accept_teta"
-	AMANKeepFPLETAType        EventType = "aman.keep_fpl_eta"
-	AMANSetManualETAType      EventType = "aman.set_manual_eta"
-	AMANResetTETAOverrideType EventType = "aman.reset_teta_override"
-	AMANReportGoAroundType    EventType = "aman.report_go_around"
-	AMANConfirmGoAroundType   EventType = "aman.confirm_go_around"
-	AMANRejectGoAroundType    EventType = "aman.reject_go_around"
+	AMANMoveFlightType           EventType = "aman.move_flight"
+	AMANLockFlightType           EventType = "aman.lock_flight"
+	AMANUnlockFlightType         EventType = "aman.unlock_flight"
+	AMANSetRateType              EventType = "aman.set_rate"
+	AMANSelectRunwayGroupType    EventType = "aman.select_runway_group"
+	AMANAcceptTETAType           EventType = "aman.accept_teta"
+	AMANKeepFPLETAType           EventType = "aman.keep_fpl_eta"
+	AMANSetManualETAType         EventType = "aman.set_manual_eta"
+	AMANResetTETAOverrideType    EventType = "aman.reset_teta_override"
+	AMANSetManualFeederETAType   EventType = "aman.set_manual_feeder_eta"
+	AMANResetManualFeederETAType EventType = "aman.reset_manual_feeder_eta"
+	AMANReportGoAroundType       EventType = "aman.report_go_around"
+	AMANConfirmGoAroundType      EventType = "aman.confirm_go_around"
+	AMANRejectGoAroundType       EventType = "aman.reject_go_around"
 )
 
 type AMANCommandMeta struct {
@@ -50,6 +52,12 @@ type AMANSetManualETARequest struct {
 	AMANCommandMeta
 	FlightID  string `json:"flight_id"`
 	ManualETA string `json:"manual_eta"`
+}
+
+type AMANSetManualFeederETARequest struct {
+	AMANCommandMeta
+	FlightID  string `json:"flight_id"`
+	FeederETA string `json:"feeder_eta"`
 }
 
 type AMANReportGoAroundRequest struct {
@@ -92,6 +100,12 @@ type AMANSetManualETAMessage struct {
 	Type    EventType               `json:"type"`
 	Version int                     `json:"version"`
 	Data    AMANSetManualETARequest `json:"data"`
+}
+
+type AMANSetManualFeederETAMessage struct {
+	Type    EventType                     `json:"type"`
+	Version int                           `json:"version"`
+	Data    AMANSetManualFeederETARequest `json:"data"`
 }
 
 type AMANReportGoAroundMessage struct {

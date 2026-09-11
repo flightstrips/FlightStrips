@@ -88,6 +88,20 @@ describe("AMAN command store", () => {
     expect(store.getState().amanState?.revision).toBe(7);
   });
 
+  it("sends typed manual feeder ETA set and reset commands", () => {
+    const setID = store.getState().sendAMANCommand({type: "aman.set_manual_feeder_eta", flight_id: "flight-123", feeder_eta: "2026-07-22T12:10:00.000Z"})!;
+    const resetID = store.getState().sendAMANCommand({type: "aman.reset_manual_feeder_eta", flight_id: "flight-123"})!;
+
+    expect(client.send).toHaveBeenNthCalledWith(1, {
+      type: "aman.set_manual_feeder_eta", version: 1,
+      data: {command_id: setID, expected_revision: 7, flight_id: "flight-123", feeder_eta: "2026-07-22T12:10:00.000Z"},
+    });
+    expect(client.send).toHaveBeenNthCalledWith(2, {
+      type: "aman.reset_manual_feeder_eta", version: 1,
+      data: {command_id: resetID, expected_revision: 7, flight_id: "flight-123"},
+    });
+  });
+
   it("does not send while disconnected, unauthorized, read-only, non-authoritative, or unready", () => {
     store.getState().setAMANConnectionState("disconnected");
     expect(store.getState().sendAMANCommand({type: "aman.lock_flight", flight_id: "flight-123"})).toBeNull();

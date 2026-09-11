@@ -12,6 +12,7 @@ import {
   type AMANState,
 } from "@/api/aman";
 import {useWebSocketStore} from "@/store/store-hooks";
+import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 
 const blockReasonLabels: Record<AMANMutationBlockReason, string> = {
   no_state: "Waiting for AMAN state",
@@ -123,6 +124,8 @@ export function AMANControlsView({
   const [selectionRunwayGroupID, setSelectionRunwayGroupID] = useState("");
   const [selectionEffectiveAt, setSelectionEffectiveAt] = useState("");
   const [manualETA, setManualETA] = useState("");
+  const [feederDialogOpen, setFeederDialogOpen] = useState(false);
+  const [manualFeederETA, setManualFeederETA] = useState("");
   const [goAroundAt, setGoAroundAt] = useState("");
 
   const flights = state?.flights ?? [];
@@ -149,6 +152,10 @@ export function AMANControlsView({
   const rejections = Object.values(commandRejections);
   const ratePending = pending.some((command) => command.type === "aman.set_rate");
   const selectionPending = pending.some((command) => command.type === "aman.select_runway_group");
+  const feederPending = pending.some((command) => command.flight_id === effectiveSelectedFlightID
+    && (command.type === "aman.set_manual_feeder_eta" || command.type === "aman.reset_manual_feeder_eta"));
+  const feederRejection = rejections.find((rejection) => rejection.command_type === "aman.set_manual_feeder_eta"
+    || rejection.command_type === "aman.reset_manual_feeder_eta");
   const scheduledSelections = (state?.runway_groups ?? []).flatMap((group) =>
     (group.selection_schedule ?? [])
       .filter((effectiveAt) => new Date(effectiveAt).valueOf() > Date.now())
@@ -303,7 +310,33 @@ export function AMANControlsView({
                 if (selectedFlight && value) onCommand({type: "aman.set_manual_eta", flight_id: selectedFlight.flight_id, manual_eta: value});
               }}>Set manual ETA</button>
             </div>
+            <button className={controlClass} disabled={disabled || !selectedFlight?.feeder_fix} onClick={() => setFeederDialogOpen(true)}>Edit feeder-fix ETA</button>
           </div>
+
+          <Dialog open={feederDialogOpen} onOpenChange={setFeederDialogOpen}>
+            <DialogContent className="w-[28rem] max-w-[calc(100vw-2rem)] border-slate-600 bg-slate-900 text-slate-100">
+              <DialogHeader>
+                <DialogTitle>Manual feeder-fix ETA · {selectedFlight?.callsign}</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-3 text-sm">
+                <div>Server-confirmed: <b>{displayTime(selectedFlight?.feeder_fix_eta ?? null)}</b> · provenance <b>{selectedFlight?.feeder_fix_eta_source ?? "unavailable"}</b>{selectedFlight?.feeder_fix_passed ? " · passed" : ""}</div>
+                <label className="grid gap-1">UTC feeder ETA
+                  <input aria-label="Manual feeder-fix ETA" className={inputClass} type="datetime-local" value={manualFeederETA} onChange={(event) => setManualFeederETA(event.target.value)} />
+                </label>
+                {feederPending && <div role="status" className="rounded border border-sky-600 bg-sky-950 p-2 text-sky-100">Waiting for server confirmation</div>}
+                {feederRejection && <div role="alert" className="rounded border border-red-500 bg-red-950 p-2 text-red-100">Rejected: {feederRejection.message} ({feederRejection.code})</div>}
+              </div>
+              <DialogFooter className="justify-end gap-2">
+                <button className={controlClass} disabled={disabled || feederPending || selectedFlight?.feeder_fix_eta_source !== "manual"} onClick={() => {
+                  if (selectedFlight) onCommand({type: "aman.reset_manual_feeder_eta", flight_id: selectedFlight.flight_id});
+                }}>Reset to predicted ETA</button>
+                <button className={controlClass} disabled={disabled || feederPending || !toWireTimestamp(manualFeederETA)} onClick={() => {
+                  const value = toWireTimestamp(manualFeederETA);
+                  if (selectedFlight && value) onCommand({type: "aman.set_manual_feeder_eta", flight_id: selectedFlight.flight_id, feeder_eta: value});
+                }}>Set feeder ETA</button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <div className="grid gap-2 rounded border border-slate-600 p-3">
             <h3 className="font-semibold">Go-around</h3>

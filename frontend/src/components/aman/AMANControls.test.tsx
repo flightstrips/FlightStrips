@@ -81,6 +81,34 @@ describe("AMAN FMP controls", () => {
     });
   });
 
+  it("sets and resets feeder ETA from a dialog with server-confirmed provenance", () => {
+    const manual = state();
+    manual.flights[0].feeder_fix_eta = "2026-07-22T12:09:00.000Z";
+    manual.flights[0].feeder_fix_eta_source = "manual";
+    const {onCommand} = renderControls({state: manual});
+
+    fireEvent.click(screen.getByRole("button", {name: "Edit feeder-fix ETA"}));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Server-confirmed: 12:09 · provenance manual");
+    fireEvent.change(screen.getByLabelText("Manual feeder-fix ETA"), {target: {value: "2026-07-22T12:10"}});
+    fireEvent.click(screen.getByRole("button", {name: "Set feeder ETA"}));
+    fireEvent.click(screen.getByRole("button", {name: "Reset to predicted ETA"}));
+
+    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.set_manual_feeder_eta", flight_id: "flight-1", feeder_eta: new Date("2026-07-22T12:10").toISOString()});
+    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.reset_manual_feeder_eta", flight_id: "flight-1"});
+  });
+
+  it("shows feeder ETA pending and rejection states", () => {
+    renderControls({
+      pendingCommands: {feeder: {command_id: "feeder", type: "aman.set_manual_feeder_eta", expected_revision: 7, flight_id: "flight-1"}},
+      commandRejections: {rejected: {command_id: "rejected", command_type: "aman.set_manual_feeder_eta", code: "invalid_argument", message: "past ETA", current_revision: 7, retryable: false}},
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Edit feeder-fix ETA"}));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Waiting for server confirmation");
+    expect(screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("past ETA"))).toBe(true);
+    expect(screen.getByRole("button", {name: "Set feeder ETA"})).toBeDisabled();
+  });
+
   it("keeps runway selection separate from arrival-rate changes", () => {
     const multiRunwayState = state();
     multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});

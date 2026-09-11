@@ -21,6 +21,8 @@ type ActionMutations interface {
 	KeepFPLETA(aman.CommandContext, aman.KeepFPLETACommand) (CommandMutation, error)
 	SetManualETA(aman.CommandContext, aman.SetManualETACommand) (CommandMutation, error)
 	ResetTETAOverride(aman.CommandContext, aman.ResetTETAOverrideCommand) (CommandMutation, error)
+	SetManualFeederETA(aman.CommandContext, aman.SetManualFeederETACommand) (CommandMutation, error)
+	ResetManualFeederETA(aman.CommandContext, aman.ResetManualFeederETACommand) (CommandMutation, error)
 	ReportGoAround(aman.CommandContext, aman.ReportGoAroundCommand) (CommandMutation, error)
 	ConfirmGoAround(aman.CommandContext, aman.ConfirmGoAroundCommand) (CommandMutation, error)
 	RejectGoAround(aman.CommandContext, aman.RejectGoAroundCommand) (CommandMutation, error)
@@ -96,6 +98,14 @@ func (s *ActionService) SetManualETA(ctx context.Context, auth aman.CommandConte
 
 func (s *ActionService) ResetTETAOverride(ctx context.Context, auth aman.CommandContext, command aman.ResetTETAOverrideCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.ResetTETAOverride(auth, command) })
+}
+
+func (s *ActionService) SetManualFeederETA(ctx context.Context, auth aman.CommandContext, command aman.SetManualFeederETACommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.SetManualFeederETA(auth, command) })
+}
+
+func (s *ActionService) ResetManualFeederETA(ctx context.Context, auth aman.CommandContext, command aman.ResetManualFeederETACommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.ResetManualFeederETA(auth, command) })
 }
 
 func (s *ActionService) ReportGoAround(ctx context.Context, auth aman.CommandContext, command aman.ReportGoAroundCommand) (aman.CommandExecution, error) {

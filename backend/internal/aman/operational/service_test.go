@@ -32,11 +32,15 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 			operationalFlight("TWO", group, feeder, wake, start),
 		},
 	}
+	explicitFamily := "TUDLO"
+	for index := range state.Flights {
+		state.Flights[index].SelectedSTARFamily = &explicitFamily
+	}
 	config := terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}
 	input := sequenceInput(state, config)
 	require.Len(t, input.Policies, 1)
 	require.Equal(t, sequence.SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, input.Policies[0].SameSTARSpacing)
-	require.Equal(t, feeder, input.Flights[0].STARFamily)
+	require.Equal(t, explicitFamily, input.Flights[0].STARFamily)
 
 	result, err := sequence.Generate(input)
 	require.NoError(t, err)

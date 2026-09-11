@@ -297,6 +297,8 @@ func configureReplayRunway(repo *memoryRepository, group aman.RunwayGroupID, rat
 		selected := group
 		flight.SelectedRunwayGroup = &selected
 		flight.SelectedFeeder = nil
+		flight.SelectedSTARFamily = nil
+		flight.SelectedFeederFix = nil
 		flight.SelectedHolding = nil
 		flight.HoldingStack = nil
 		flight.ActiveRouteKey = nil
@@ -353,9 +355,7 @@ func forecastPointFromFlight(flight aman.AMANFlight) forecastPoint {
 	}
 	point.holdingFixETA = cloneTime(prediction.HoldingFixETA)
 	point.holdingFix = holdingFixFromCalculation(prediction)
-	if flight.SelectedFeeder != nil {
-		point.star = *flight.SelectedFeeder
-	}
+	point.star = flight.STARFamilyIdentity()
 	if prediction.HoldingPlan != nil {
 		point.holdingDuration = prediction.HoldingPlan.ExpectedHoldingDuration
 		point.postHoldingTransit = prediction.HoldingPlan.PostHoldingTransit

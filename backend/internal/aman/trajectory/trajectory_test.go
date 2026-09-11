@@ -77,7 +77,7 @@ func TestReadFiledRouteUsesCompleteUnamendedGeometry(t *testing.T) {
 	snapshot, route, input := fixtureInput(t)
 	reader := fixtureReader{snapshot: snapshot, route: route}
 
-	result, err := ReadFiledRoute(context.Background(), Readers{Geometry: reader, Snapshot: reader}, input.Airport, input.RouteKey, input.Feeder, input.RunwayGroup)
+	result, err := ReadFiledRoute(context.Background(), Readers{Geometry: reader, Snapshot: reader}, input.Airport, input.RouteKey, "", input.Feeder, input.RunwayGroup)
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"L1", "L2"}, legIDs(result.Legs))
@@ -94,7 +94,7 @@ func TestReadFiledRouteUsesParserCoordinatesWithoutManifestFixes(t *testing.T) {
 	route.Legs = []navdata.ProcedureLeg{{ID: "ROUTE-0001", PathTerminator: navdata.PathTF, FromFix: &from, ToFix: &to, FromPosition: &fromPosition, ToPosition: &toPosition}}
 	reader := fixtureReader{snapshot: snapshot, route: route}
 
-	result, err := ReadFiledRoute(context.Background(), Readers{Geometry: reader, Snapshot: reader}, input.Airport, input.RouteKey, input.Feeder, input.RunwayGroup)
+	result, err := ReadFiledRoute(context.Background(), Readers{Geometry: reader, Snapshot: reader}, input.Airport, input.RouteKey, "", input.Feeder, input.RunwayGroup)
 
 	require.NoError(t, err)
 	require.Equal(t, []string{"ROUTE-0001"}, legIDs(result.Legs))
@@ -126,6 +126,41 @@ func TestRouteCoordinatesDisambiguateSharedTerminalFix(t *testing.T) {
 	require.Len(t, result.Remaining, 2)
 	require.Equal(t, correctFeeder, result.Remaining[1].Start)
 	require.Less(t, result.Remaining[1].DistanceNM, 20.0)
+}
+
+func TestReduceSelectsExplicitFeederFixAndItsResolvedHolding(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	a, join, tnoEnd, korEnd := navdata.FixID("A"), navdata.FixID("B"), navdata.FixID("TNO-END"), navdata.FixID("KOR-END")
+	snapshot.Fixes = []navdata.Fix{
+		{ID: a, Position: coordinate(0, 0)}, {ID: join, Position: coordinate(0, 1)},
+		{ID: tnoEnd, Position: coordinate(0, 2)}, {ID: korEnd, Position: coordinate(1, 1)},
+	}
+	route.Legs = []navdata.ProcedureLeg{{ID: "FILED", PathTerminator: navdata.PathTF, FromFix: &a, ToFix: &join}}
+	tnoHolding, korHolding := navdata.HoldingID("ROSBI-HOLD"), navdata.HoldingID("LUGAS-HOLD")
+	snapshot.Holdings = []navdata.HoldingPattern{{ID: tnoHolding, Fix: join}, {ID: korHolding, Fix: korEnd}}
+	snapshot.TerminalPaths = []navdata.TerminalPath{
+		{Feeder: "TESPI", FeederFix: "TNO", RunwayGroup: input.RunwayGroup, HoldingIDs: []navdata.HoldingID{tnoHolding}, Legs: []navdata.ProcedureLeg{{ID: "TNO-PATH", PathTerminator: navdata.PathTF, FromFix: &join, ToFix: &tnoEnd}}},
+		{Feeder: "TUDLO", FeederFix: "KOR", RunwayGroup: input.RunwayGroup, HoldingIDs: []navdata.HoldingID{korHolding}, Legs: []navdata.ProcedureLeg{{ID: "KOR-PATH", PathTerminator: navdata.PathTF, FromFix: &join, ToFix: &korEnd}}},
+	}
+	input.FeederFix = "TNO"
+	input.Feeder = "TUDLO" // must not override the explicit feeder-fix identity
+
+	result := Reduce(snapshot, route, input, Config{})
+
+	require.Equal(t, []string{"FILED", "TNO-PATH"}, legIDs(result.Remaining))
+	require.NotNil(t, result.SelectedHolding)
+	require.Equal(t, tnoHolding, result.SelectedHolding.ID)
+	require.Equal(t, join, result.SelectedHolding.Fix)
+}
+
+func TestReduceFallsBackToLegacySTARFamilyWithoutExplicitFeederFix(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	snapshot.TerminalPaths[0].FeederFix = "NEW-FIX"
+	input.FeederFix = ""
+
+	result := Reduce(snapshot, route, input, Config{})
+
+	require.NotContains(t, result.Reasons, "TERMINAL_PATH_UNRESOLVED")
 }
 
 func TestReduceRecoversOffRouteArrivalViaTrackAlignedWaypoint(t *testing.T) {

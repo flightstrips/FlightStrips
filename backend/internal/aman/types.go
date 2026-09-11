@@ -844,6 +844,32 @@ type AMANFlight struct {
 	UpdatedAt              time.Time
 }
 
+// STARFamilyIdentity returns the explicit sequencing identity when present,
+// falling back to the deployed compatibility field for persisted legacy rows.
+func (f AMANFlight) STARFamilyIdentity() string {
+	if f.SelectedSTARFamily != nil {
+		return *f.SelectedSTARFamily
+	}
+	if f.SelectedFeeder != nil {
+		return *f.SelectedFeeder
+	}
+	return ""
+}
+
+// TerminalPathIdentity separates the operational feeder-fix selector from
+// the legacy STAR-family selector. Callers should pass both values through to
+// trajectory lookup: explicit state must never silently fall back, while a
+// row persisted before feeder fixes existed still resolves by SelectedFeeder.
+func (f AMANFlight) TerminalPathIdentity() (feederFix, legacySTARFamily string) {
+	if f.SelectedFeederFix != nil {
+		return *f.SelectedFeederFix, ""
+	}
+	if f.SelectedFeeder != nil {
+		return "", *f.SelectedFeeder
+	}
+	return "", ""
+}
+
 // AirportState is the sole source for one coherent AMAN replacement state.
 // Revisions are allocated only when a committed domain result changes it.
 type AirportState struct {

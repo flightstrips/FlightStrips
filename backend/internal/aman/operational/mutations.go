@@ -764,7 +764,7 @@ func (s *Service) authorizeRunwayGap(auth aman.CommandContext) error {
 			return nil
 		}
 	}
-	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "runway GAP command requires a configured FMP role"}
+	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "runway capacity command requires a configured FMP role"}
 }
 
 func runwayGroupIndex(groups []aman.RunwayGroupPolicy, id aman.RunwayGroupID) int {

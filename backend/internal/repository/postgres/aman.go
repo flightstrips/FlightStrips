@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/database"
 	"context"
 	"encoding/json"
@@ -196,6 +197,13 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 		return aman.CommitResult{}, revisionConflict()
 	}
 	changed := commit.State.Revision == commit.ExpectedRevision+1
+	var previous aman.AirportState
+	if changed && err == nil {
+		previous, err = loadAMANAirportState(ctx, queries, commit.State.Airport)
+		if err != nil {
+			return aman.CommitResult{}, err
+		}
+	}
 	if !changed {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return aman.CommitResult{}, revisionConflict()
@@ -258,6 +266,11 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 				return aman.CommitResult{}, mapAMANWriteError(err)
 			}
 		}
+		for _, fact := range coordinationExpiryFacts(previous, commit.State) {
+			if _, err := coordinationrequest.ExpirePendingTx(ctx, tx, fact); err != nil {
+				return aman.CommitResult{}, err
+			}
+		}
 	}
 
 	if commit.CommandOutcome != nil {
@@ -297,6 +310,38 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 		result.CommandOutcome = &outcome
 	}
 	return result, nil
+}
+
+func coordinationExpiryFacts(previous, next aman.AirportState) []coordinationrequest.ExpiryFact {
+	before := make(map[aman.FlightID]aman.AMANFlight, len(previous.Flights))
+	for _, flight := range previous.Flights {
+		before[flight.ID] = flight
+	}
+	facts := make([]coordinationrequest.ExpiryFact, 0)
+	for _, flight := range next.Flights {
+		prior, exists := before[flight.ID]
+		if !exists {
+			continue
+		}
+		reason := coordinationrequest.ExpiryReason("")
+		switch {
+		case flight.State == aman.StateLanded && prior.State != aman.StateLanded:
+			reason = coordinationrequest.ExpiryFlightCompleted
+		case flight.State == aman.StateGoAround && prior.State != aman.StateGoAround:
+			reason = coordinationrequest.ExpiryGoAroundConfirmed
+		case flight.State == aman.StateRemoved && prior.State != aman.StateRemoved:
+			reason = coordinationrequest.ExpiryAuthoritativeRemoval
+		case flight.SequenceDisposition == aman.SequenceDispositionDesequenced && prior.SequenceDisposition.OrDefault() != aman.SequenceDispositionDesequenced:
+			reason = coordinationrequest.ExpiryDesequenced
+		}
+		if reason == "" {
+			continue
+		}
+		factID := fmt.Sprintf("aman/%s/%d/%s/%s", next.Airport, next.Revision, flight.ID, reason)
+		facts = append(facts, coordinationrequest.ExpiryFact{Airport: next.Airport, FlightID: coordinationrequest.FlightID(flight.ID), FactID: factID,
+			Revision: uint64(next.Revision), Reason: reason, OccurredAt: next.GeneratedAt})
+	}
+	return facts
 }
 
 func loadAMANAirportState(ctx context.Context, queries *database.Queries, airport string) (aman.AirportState, error) {

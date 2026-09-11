@@ -3,10 +3,12 @@ package postgres
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/predictor"
+	"FlightStrips/internal/coordinationrequest"
 	"FlightStrips/internal/pdc/testdata"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +19,125 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestAMANLifecycleTransitionsExpireBothCoordinationKindsAtomically(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		reason coordinationrequest.ExpiryReason
+		apply  func(*aman.AMANFlight)
+	}{
+		{"landing completion", coordinationrequest.ExpiryFlightCompleted, func(f *aman.AMANFlight) { f.State = aman.StateLanded }},
+		{"confirmed go around", coordinationrequest.ExpiryGoAroundConfirmed, func(f *aman.AMANFlight) { f.State = aman.StateGoAround }},
+		{"authoritative removal", coordinationrequest.ExpiryAuthoritativeRemoval, func(f *aman.AMANFlight) { f.State = aman.StateRemoved }},
+		{"DSEQ", coordinationrequest.ExpiryDesequenced, func(f *aman.AMANFlight) { f.SequenceDisposition = aman.SequenceDispositionDesequenced }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			pool, _ := testdata.SetupTestDB(t)
+			ctx := context.Background()
+			repo := NewAMANRepository(pool)
+			initial := amanState(1, "CID-EXPIRY", "SAS604")
+			_, err := repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: initial})
+			require.NoError(t, err)
+			requests := expiryRequests(t, initial.Airport, initial.Flights[0].ID)
+			coordination := coordinationrequest.NewRepository(pool)
+			for _, request := range requests {
+				require.NoError(t, coordination.Save(ctx, request))
+			}
+
+			next := amanState(2, "CID-EXPIRY", "SAS604")
+			test.apply(&next.Flights[0])
+			if next.Flights[0].State == aman.StateLanded || next.Flights[0].State == aman.StateRemoved {
+				next.Flights[0].Slot, next.Flights[0].Order = nil, nil
+			}
+			outcome := aman.CommandOutcome{CommandID: "trigger-" + string(test.reason), Airport: next.Airport, Revision: 2, Payload: []byte(`{"expired":true}`), RecordedAt: next.GeneratedAt}
+			_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 1, State: next, CommandOutcome: &outcome})
+			require.NoError(t, err)
+
+			stored, err := coordinationrequest.NewRepository(pool).ReplayAirport(ctx, initial.Airport)
+			require.NoError(t, err)
+			original := make(map[coordinationrequest.RequestID]coordinationrequest.Request, len(requests))
+			for _, request := range requests {
+				original[request.ID] = request
+			}
+			for _, request := range stored {
+				if request.ID == coordinationrequest.IDForCommand("expire-route") || request.ID == coordinationrequest.IDForCommand("expire-speed") {
+					require.Equal(t, coordinationrequest.StateExpired, request.State)
+					require.Equal(t, test.reason, request.Expiry.Reason)
+					require.Equal(t, uint64(2), request.Expiry.FactRevision)
+					require.Equal(t, next.GeneratedAt, request.Expiry.ExpiredAt)
+					require.Contains(t, request.Expiry.FactID, string(test.reason))
+					continue
+				}
+				require.Equal(t, original[request.ID], request, "terminal request history must be immutable")
+			}
+			factID := fmt.Sprintf("aman/%s/2/%s/%s", next.Airport, next.Flights[0].ID, test.reason)
+			replayedFact, err := coordinationrequest.NewRepository(pool).ExpirePending(ctx, coordinationrequest.ExpiryFact{
+				Airport: next.Airport, FlightID: coordinationrequest.FlightID(next.Flights[0].ID), FactID: factID,
+				Revision: 2, Reason: test.reason, OccurredAt: next.GeneratedAt,
+			})
+			require.NoError(t, err)
+			require.True(t, replayedFact.Duplicate)
+			require.Len(t, replayedFact.Requests, 2)
+
+			// A restarted repository receiving the same committed state/fact cannot
+			// allocate another AMAN or coordination revision or audit.
+			_, err = NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 2, State: next, CommandOutcome: &outcome})
+			require.NoError(t, err)
+			replayed, err := coordinationrequest.NewRepository(pool).ReplayAirport(ctx, initial.Airport)
+			require.NoError(t, err)
+			require.Equal(t, stored, replayed)
+		})
+	}
+}
+
+func TestAMANTransitionAndCoordinationExpiryRollBackTogether(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	repo := NewAMANRepository(pool)
+	initial := amanState(1, "CID-ROLLBACK", "SAS605")
+	_, err := repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: initial})
+	require.NoError(t, err)
+	request := expiryRequests(t, initial.Airport, initial.Flights[0].ID)[0]
+	coordination := coordinationrequest.NewRepository(pool)
+	require.NoError(t, coordination.Save(ctx, request))
+	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_coordination_expiry() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced expiry failure'; END $$;
+		CREATE TRIGGER reject_coordination_expiry BEFORE UPDATE ON aman_coordination_requests FOR EACH ROW EXECUTE FUNCTION reject_coordination_expiry()`)
+	require.NoError(t, err)
+
+	next := amanState(2, "CID-ROLLBACK", "SAS605")
+	next.Flights[0].SequenceDisposition = aman.SequenceDispositionDesequenced
+	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 1, State: next})
+	require.ErrorContains(t, err, "forced expiry failure")
+	storedState, err := repo.LoadAirportState(ctx, initial.Airport)
+	require.NoError(t, err)
+	require.Equal(t, initial, storedState)
+	storedRequests, err := coordination.ReplayAirport(ctx, initial.Airport)
+	require.NoError(t, err)
+	require.Equal(t, []coordinationrequest.Request{request}, storedRequests)
+}
+
+func expiryRequests(t *testing.T, airport string, flightID aman.FlightID) []coordinationrequest.Request {
+	t.Helper()
+	newRequest := func(id string, kind coordinationrequest.Kind) coordinationrequest.Request {
+		payload := coordinationrequest.Payload{RouteDirect: &coordinationrequest.RouteDirectPayload{DirectTo: "MONAK"}}
+		if kind == coordinationrequest.KindSpeed {
+			payload = coordinationrequest.Payload{Speed: &coordinationrequest.SpeedPayload{Requested: "220 KT"}}
+		}
+		request, err := coordinationrequest.New(id, airport, coordinationrequest.FlightID(flightID), "EKCH_APP", "1234567", "EKCH_FMH", kind, payload, amanTestTime)
+		require.NoError(t, err)
+		return request
+	}
+	route, speed := newRequest("expire-route", coordinationrequest.KindRouteDirect), newRequest("expire-speed", coordinationrequest.KindSpeed)
+	accepted, err := newRequest("accepted-terminal", coordinationrequest.KindRouteDirect).Decide("accepted", "7654321", "EKCH_APP", "EKCH_APP", coordinationrequest.StateAccepted, "", amanTestTime.Add(10*time.Second))
+	require.NoError(t, err)
+	rejected, err := newRequest("rejected-terminal", coordinationrequest.KindSpeed).Decide("rejected", "7654321", "EKCH_APP", "EKCH_APP", coordinationrequest.StateRejected, "traffic", amanTestTime.Add(10*time.Second))
+	require.NoError(t, err)
+	superseded, err := newRequest("superseded-terminal", coordinationrequest.KindRouteDirect).Supersede("replacement", amanTestTime.Add(10*time.Second))
+	require.NoError(t, err)
+	expired, err := newRequest("expired-terminal", coordinationrequest.KindSpeed).Expire(coordinationrequest.Expiry{FactID: "prior/expiry", FactRevision: 1, Reason: coordinationrequest.ExpiryDesequenced, ExpiredAt: amanTestTime.Add(10 * time.Second)})
+	require.NoError(t, err)
+	return []coordinationrequest.Request{route, speed, accepted, rejected, superseded, expired}
+}
 
 func TestAMANRepositoryRoundTripIdempotencyAndRollback(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)

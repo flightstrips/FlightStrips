@@ -8,6 +8,7 @@ import (
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/holdingclearance"
+	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/operational"
 	"FlightStrips/internal/aman/predictor/openmeteo"
 	"FlightStrips/internal/aman/sequence"
@@ -67,6 +68,7 @@ func (s sessionArrivalRunwaySource) ActiveArrivalRunway(ctx context.Context, air
 
 type amanTransport struct {
 	repository      aman.AirportStateReader
+	geometry        navdata.GeometrySnapshotReader
 	mode            aman.RolloutMode
 	health          aman.TechnicalHealthReporter
 	gainLossEnabled bool
@@ -98,7 +100,19 @@ func (p *amanTransport) CurrentAMANState(ctx context.Context, airport string) (f
 		return frontendEvents.AMANStateEvent{}, err
 	}
 	health := p.health.TechnicalHealth(ctx)
-	return frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
+	return p.newStateEvent(ctx, state, health)
+}
+
+func (p *amanTransport) newStateEvent(ctx context.Context, state aman.AirportState, health aman.TechnicalHealth) (frontendEvents.AMANStateEvent, error) {
+	event, err := frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
+	if err != nil || p.geometry == nil {
+		return event, err
+	}
+	snapshot, snapshotErr := p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	if snapshotErr == nil {
+		event.Data.TimelineConfig = frontendEvents.ProjectAMANTimelineConfig(snapshot.TerminalVersion, snapshot.TimelineMappings)
+	}
+	return event, nil
 }
 
 func (p *amanTransport) CurrentAMANGainLoss(ctx context.Context, airport string) (euroscopeEvents.AMANGainLossEvent, error) {
@@ -126,7 +140,7 @@ func (p *amanTransport) newGainLossEvent(ctx context.Context, state aman.Airport
 
 func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.AirportState) error {
 	health := p.health.TechnicalHealth(ctx)
-	event, err := frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
+	event, err := p.newStateEvent(ctx, state, health)
 	if err != nil {
 		return err
 	}
@@ -196,6 +210,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	amanRepository := postgres.NewAMANRepository(pool)
 	transport := &amanTransport{
 		repository:      amanRepository,
+		geometry:        source.Geometry,
 		mode:            config.Mode,
 		gainLossEnabled: config.EnableEuroScopeGainLoseTags,
 	}

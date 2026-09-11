@@ -3,10 +3,12 @@ package frontend
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/holdingclearance"
+	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/trafficprediction"
 )
 
@@ -38,9 +40,38 @@ type AMANState struct {
 	Flights            []AMANFlight          `json:"flights"`
 	RunwayGroups       []AMANRunwayGroup     `json:"runway_groups"`
 	ActiveRunwayGroups []string              `json:"active_runway_groups,omitempty"`
+	TimelineConfig     *AMANTimelineConfig   `json:"timeline_configuration,omitempty"`
 	TrafficPrediction  AMANTrafficPrediction `json:"traffic_prediction"`
 	HoldingInformation []AMANHoldingEntry    `json:"holding_information"`
 	TechnicalHealth    AMANTechnicalHealth   `json:"technical_health"`
+}
+
+type AMANTimelineConfig struct {
+	Version  string                `json:"version"`
+	Mappings []AMANTimelineMapping `json:"mappings"`
+}
+
+type AMANTimelineMapping struct {
+	ID    uint32  `json:"id"`
+	Left  *string `json:"left"`
+	Right *string `json:"right"`
+}
+
+// ProjectAMANTimelineConfig maps the active terminal snapshot without making
+// presentation preferences part of shared AMAN state.
+func ProjectAMANTimelineConfig(version string, mappings []navdata.TimelineMapping) *AMANTimelineConfig {
+	if version == "" || len(mappings) == 0 {
+		return nil
+	}
+	ordered := append([]navdata.TimelineMapping(nil), mappings...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
+	result := &AMANTimelineConfig{Version: version, Mappings: make([]AMANTimelineMapping, len(ordered))}
+	for i, mapping := range ordered {
+		result.Mappings[i] = AMANTimelineMapping{
+			ID: uint32(mapping.ID), Left: stringPointer(mapping.Left), Right: stringPointer(mapping.Right),
+		}
+	}
+	return result
 }
 
 type AMANHoldingEntry struct {

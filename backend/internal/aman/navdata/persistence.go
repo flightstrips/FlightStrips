@@ -296,6 +296,7 @@ type ActiveGeometrySnapshot struct {
 	Fixes            []Fix
 	Procedures       []Procedure
 	TerminalPaths    []TerminalPath
+	TerminalVersion  string
 	TimelineMappings []TimelineMapping
 	Holdings         []HoldingPattern
 }

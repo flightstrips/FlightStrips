@@ -63,11 +63,26 @@ describe("AMAN command store", () => {
   let store: StoreApi<WebSocketState>;
 
   beforeEach(() => {
+    localStorage.clear();
     client = createMockClient();
     store = createWebSocketStore(client);
     store.getState().setAMANConnectionState("connected");
     client._emit(EventType.FrontendInitial, initialSnapshot(true));
     client._emit(EventType.FrontendAMANState, replacement(7));
+  });
+
+  it("restores a valid local view and rejects selections absent from server mappings", () => {
+    localStorage.setItem("flightstrips.aman.selected-view.v1", JSON.stringify({version: 1, view: "EAST"}));
+    client = createMockClient();
+    store = createWebSocketStore(client);
+    const event = replacement(8);
+    event.data.timeline_configuration = {version: "mapping-v1", mappings: [{id: 1, left: "NORTH", right: "EAST"}]};
+    client._emit(EventType.FrontendAMANState, event);
+    expect(store.getState().amanSelectedView).toBe("EAST");
+
+    store.getState().setAMANSelectedView("retired");
+    expect(store.getState().amanSelectedView).toBe("ALL");
+    expect(JSON.parse(localStorage.getItem("flightstrips.aman.selected-view.v1")!)).toEqual({version: 1, view: "ALL"});
   });
 
   it("adds only command metadata to the matching typed request and tracks it as pending", () => {

@@ -45,6 +45,22 @@ describe("AMAN V1 full replacement contract", () => {
     expect(accepted.state?.active_runway_groups).toEqual(["ARRIVAL-22"]);
   });
 
+  it("accepts optional ordered timeline mappings and rejects ambiguous mappings", () => {
+    const event = replacement(8);
+    event.data.timeline_configuration = {
+      version: "EKCH-AIP-2609-V4",
+      mappings: [{id: 1, left: "TESPI", right: "TUDLO"}, {id: 3, left: "ERNOV", right: null}],
+    };
+    expect(isAMANStateEvent(event)).toBe(true);
+
+    event.data.timeline_configuration.mappings[1].id = 1;
+    expect(isAMANStateEvent(event)).toBe(false);
+    event.data.timeline_configuration.mappings[1] = {id: 3, left: "TESPI", right: null};
+    expect(isAMANStateEvent(event)).toBe(false);
+    event.data.timeline_configuration.mappings[1] = {id: 3, left: null, right: null};
+    expect(isAMANStateEvent(event)).toBe(false);
+  });
+
   it("accepts and orders a multi-runway active set by configured runway groups", () => {
     const event = replacement(8);
     event.data.runway_groups.unshift({id: "ARRIVAL-04", selected: false, selection_schedule: []});

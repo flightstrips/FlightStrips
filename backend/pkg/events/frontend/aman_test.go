@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/navdata"
 
 	"github.com/stretchr/testify/require"
 )
@@ -203,6 +204,37 @@ func TestAMANStateEventActiveSetIsAdditiveForLegacyV1Decoders(t *testing.T) {
 	require.NoError(t, json.Unmarshal(encoded, &legacy))
 	require.Equal(t, "ARRIVAL-22", legacy.Data.RunwayGroups[0].ID)
 	require.True(t, legacy.Data.RunwayGroups[0].Selected)
+}
+
+func TestProjectAMANTimelineConfigOrdersMappingsAndPreservesUnusedSides(t *testing.T) {
+	tespi, tudlo, ernov := navdata.STARFamilyID("TESPI"), navdata.STARFamilyID("TUDLO"), navdata.STARFamilyID("ERNOV")
+	source := []navdata.TimelineMapping{{ID: 3, Left: &ernov}, {ID: 1, Left: &tespi, Right: &tudlo}}
+	projected := ProjectAMANTimelineConfig("EKCH-AIP-2609-V4", source)
+	require.Equal(t, &AMANTimelineConfig{Version: "EKCH-AIP-2609-V4", Mappings: []AMANTimelineMapping{
+		{ID: 1, Left: stringPointer(&tespi), Right: stringPointer(&tudlo)},
+		{ID: 3, Left: stringPointer(&ernov), Right: nil},
+	}}, projected)
+	require.Equal(t, navdata.TimelineMappingID(3), source[0].ID, "projection must not mutate source order")
+}
+
+func TestAMANTimelineConfigIsOptionalAndAdditiveForLegacyV1Decoders(t *testing.T) {
+	event, err := NewAMANStateEvent(goldenAMANState(), aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Nil(t, ProjectAMANTimelineConfig("", nil))
+	tespi := navdata.STARFamilyID("TESPI")
+	event.Data.TimelineConfig = ProjectAMANTimelineConfig("mapping-v1", []navdata.TimelineMapping{{ID: 1, Left: &tespi}})
+	encoded, err := event.Marshal()
+	require.NoError(t, err)
+
+	var legacy struct {
+		Version int `json:"version"`
+		Data    struct {
+			Airport string `json:"airport"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &legacy))
+	require.Equal(t, AMANWireVersion, legacy.Version)
+	require.Equal(t, "EKCH", legacy.Data.Airport)
 }
 
 func TestAMANFlightOmitsNonPublishablePredictionData(t *testing.T) {

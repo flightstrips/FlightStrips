@@ -34,6 +34,14 @@ type TransferResult struct {
 	Duplicate bool
 }
 
+type ExpiryFact struct {
+	Airport, FactID string
+	FlightID        FlightID
+	Revision        uint64
+	Reason          ExpiryReason
+	OccurredAt      time.Time
+}
+
 type OwnershipFact struct {
 	Airport    string
 	FlightID   FlightID
@@ -160,6 +168,7 @@ func (r *Repository) Decide(ctx context.Context, id RequestID, decision Decision
 func coordinationRevision(requests []Request) uint64 {
 	revision := uint64(len(requests))
 	transfers := make(map[string]struct{})
+	expiries := make(map[string]struct{})
 	for _, request := range requests {
 		if request.Decision != nil {
 			revision++
@@ -168,8 +177,92 @@ func coordinationRevision(requests []Request) uint64 {
 			key := string(request.FlightID) + "\x00" + transfer.OwnershipFact + "\x00" + fmt.Sprint(transfer.OwnershipRevision)
 			transfers[key] = struct{}{}
 		}
+		if request.Expiry != nil {
+			expiries[request.Expiry.FactID+"\x00"+fmt.Sprint(request.Expiry.FactRevision)] = struct{}{}
+		}
 	}
-	return revision + uint64(len(transfers))
+	return revision + uint64(len(transfers)) + uint64(len(expiries))
+}
+
+// ExpirePending atomically applies one authoritative lifecycle/DSEQ fact to
+// every pending request for the flight. Exact fact replay is a durable no-op.
+func (r *Repository) ExpirePending(ctx context.Context, fact ExpiryFact) (TransferResult, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return TransferResult{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	result, err := ExpirePendingTx(ctx, tx, fact)
+	if err != nil {
+		return TransferResult{}, err
+	}
+	return result, tx.Commit(ctx)
+}
+
+// ExpirePendingTx joins expiry to an owning operational transaction.
+func ExpirePendingTx(ctx context.Context, tx pgx.Tx, fact ExpiryFact) (TransferResult, error) {
+	if fact.Airport == "" || fact.Airport != strings.TrimSpace(fact.Airport) || fact.FlightID == "" ||
+		fact.FactID == "" || fact.FactID != strings.TrimSpace(fact.FactID) || fact.Revision == 0 ||
+		!fact.Reason.valid() || !utc(fact.OccurredAt) {
+		return TransferResult{}, errors.New("authoritative coordination expiry fact is invalid")
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fact.Airport); err != nil {
+		return TransferResult{}, err
+	}
+	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, fact.Airport)
+	if err != nil {
+		return TransferResult{}, err
+	}
+	var current []Request
+	for rows.Next() {
+		var raw []byte
+		var request Request
+		if err = rows.Scan(&raw); err == nil {
+			err = json.Unmarshal(raw, &request)
+		}
+		if err == nil {
+			err = request.Validate()
+		}
+		if err != nil {
+			rows.Close()
+			return TransferResult{}, err
+		}
+		current = append(current, request)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return TransferResult{}, err
+	}
+	result := TransferResult{Revision: coordinationRevision(current)}
+	var duplicates []Request
+	for _, request := range current {
+		if request.Expiry != nil && request.Expiry.FactID == fact.FactID && request.Expiry.FactRevision == fact.Revision {
+			if request.Expiry.Reason != fact.Reason || !request.Expiry.ExpiredAt.Equal(fact.OccurredAt) {
+				return TransferResult{}, ErrCommandConflict
+			}
+			duplicates = append(duplicates, request)
+		}
+	}
+	if len(duplicates) > 0 {
+		return TransferResult{Requests: duplicates, Revision: result.Revision, Duplicate: true}, nil
+	}
+	for _, request := range current {
+		if request.FlightID != fact.FlightID || request.State != StatePending {
+			continue
+		}
+		updated, expireErr := request.Expire(Expiry{FactID: fact.FactID, FactRevision: fact.Revision, Reason: fact.Reason, ExpiredAt: fact.OccurredAt})
+		if expireErr != nil {
+			return TransferResult{}, expireErr
+		}
+		if err = save(ctx, tx, updated); err != nil {
+			return TransferResult{}, err
+		}
+		result.Requests = append(result.Requests, updated)
+	}
+	if len(result.Requests) > 0 {
+		result.Revision++
+	}
+	return result, nil
 }
 
 // TransferPending atomically applies one authoritative ownership fact to every

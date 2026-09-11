@@ -13,6 +13,7 @@ type RequestID string
 type FlightID string
 type ControllerID string
 type RecipientStatus string
+type ExpiryReason string
 
 const (
 	KindRouteDirect Kind = "route_direct"
@@ -26,6 +27,11 @@ const (
 
 	RecipientAssigned   RecipientStatus = "assigned"
 	RecipientUnassigned RecipientStatus = "unassigned"
+
+	ExpiryFlightCompleted      ExpiryReason = "flight_completed"
+	ExpiryGoAroundConfirmed    ExpiryReason = "go_around_confirmed"
+	ExpiryAuthoritativeRemoval ExpiryReason = "authoritative_removal"
+	ExpiryDesequenced          ExpiryReason = "desequenced"
 )
 
 type RouteDirectPayload struct {
@@ -68,6 +74,15 @@ type RecipientTransfer struct {
 	TransferredAt     time.Time    `json:"transferred_at"`
 }
 
+// Expiry records the authoritative operational fact that made a pending
+// request irrelevant without discarding its identity or prior history.
+type Expiry struct {
+	FactID       string       `json:"fact_id"`
+	FactRevision uint64       `json:"fact_revision"`
+	Reason       ExpiryReason `json:"reason"`
+	ExpiredAt    time.Time    `json:"expired_at"`
+}
+
 // Request is the durable aggregate. CommandID is retained so the derived ID
 // remains verifiable after restart and duplicate submissions remain idempotent.
 type Request struct {
@@ -89,6 +104,7 @@ type Request struct {
 	SupersededBy        *RequestID          `json:"superseded_by,omitempty"`
 	Decision            *Decision           `json:"decision,omitempty"`
 	RecipientTransfers  []RecipientTransfer `json:"recipient_transfers,omitempty"`
+	Expiry              *Expiry             `json:"expiry,omitempty"`
 }
 
 func IDForCommand(commandID string) RequestID {
@@ -132,7 +148,7 @@ func (r Request) Validate() error {
 		return err
 	}
 	if r.State == StatePending {
-		if r.ResolvedAt != nil || r.SupersededBy != nil || r.Decision != nil {
+		if r.ResolvedAt != nil || r.SupersededBy != nil || r.Decision != nil || r.Expiry != nil {
 			return errors.New("pending coordination request cannot be resolved")
 		}
 		return nil
@@ -153,6 +169,14 @@ func (r Request) Validate() error {
 		}
 	} else if r.Decision != nil {
 		return errors.New("only accepted or rejected requests may contain a decision audit")
+	}
+	if r.State == StateExpired {
+		if r.Expiry == nil || !present(r.Expiry.FactID) || r.Expiry.FactRevision == 0 || !r.Expiry.Reason.valid() ||
+			!r.Expiry.ExpiredAt.Equal(*r.ResolvedAt) {
+			return errors.New("expired coordination request requires an authoritative expiry audit")
+		}
+	} else if r.Expiry != nil {
+		return errors.New("only expired requests may contain an expiry audit")
 	}
 	return nil
 }
@@ -175,15 +199,20 @@ func (r Request) Supersede(next RequestID, at time.Time) (Request, error) {
 	return r, r.Validate()
 }
 
-func (r Request) Transition(next State, at time.Time) (Request, error) {
+func (r Request) Expire(fact Expiry) (Request, error) {
 	if err := r.Validate(); err != nil {
 		return Request{}, err
 	}
-	if r.State != StatePending || next != StateExpired || !utc(at) || at.Before(r.UpdatedAt) {
+	if r.State != StatePending || !present(fact.FactID) || fact.FactRevision == 0 || !fact.Reason.valid() ||
+		!utc(fact.ExpiredAt) || fact.ExpiredAt.Before(r.UpdatedAt) {
 		return Request{}, errors.New("coordination request transition is invalid")
 	}
-	r.State, r.UpdatedAt, r.ResolvedAt = next, at, &at
+	r.State, r.UpdatedAt, r.ResolvedAt, r.Expiry = StateExpired, fact.ExpiredAt, &fact.ExpiredAt, &fact
 	return r, r.Validate()
+}
+
+func (r ExpiryReason) valid() bool {
+	return r == ExpiryFlightCompleted || r == ExpiryGoAroundConfirmed || r == ExpiryAuthoritativeRemoval || r == ExpiryDesequenced
 }
 
 func (r Request) Decide(commandID, actor, role string, recipient ControllerID, next State, reason string, at time.Time) (Request, error) {

@@ -174,7 +174,7 @@ func TestDecideRejectsSupersededAndExpiredRequestsWithoutMutation(t *testing.T) 
 	repository := NewRepository(pool)
 	superseded, err := routeRequest(t, "superseded", testTime).Supersede("replacement", testTime.Add(time.Minute))
 	require.NoError(t, err)
-	expired, err := routeRequest(t, "expired", testTime).Transition(StateExpired, testTime.Add(time.Minute))
+	expired, err := routeRequest(t, "expired", testTime).Expire(Expiry{FactID: "aman/EKCH/2/flight-1/flight_completed", FactRevision: 2, Reason: ExpiryFlightCompleted, ExpiredAt: testTime.Add(time.Minute)})
 	require.NoError(t, err)
 	require.NoError(t, repository.Save(ctx, superseded))
 	require.NoError(t, repository.Save(ctx, expired))
@@ -183,7 +183,7 @@ func TestDecideRejectsSupersededAndExpiredRequestsWithoutMutation(t *testing.T) 
 		decision := Decision{CommandID: "decide-" + request.CommandID, Airport: "EKCH", Actor: "7654321", Role: "EKCH_APP",
 			AuthoritativeRecipient: "EKCH_APP", RequestID: request.ID, RequestKind: request.Kind,
 			BeforeState: StatePending, AfterState: StateAccepted, ReceivedAt: testTime.Add(2 * time.Minute)}
-		_, err = repository.Decide(ctx, request.ID, decision, 2)
+		_, err = repository.Decide(ctx, request.ID, decision, 3)
 		require.ErrorIs(t, err, ErrInvalidState)
 	}
 	replayed, err := repository.ReplayAirport(ctx, "EKCH")
@@ -234,7 +234,7 @@ func TestTransferPendingIsAtomicTerminalSafeAndReplayIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	superseded, err := routeRequest(t, "superseded-terminal", testTime).Supersede("replacement", testTime.Add(time.Second))
 	require.NoError(t, err)
-	expired, err := routeRequest(t, "expired", testTime).Transition(StateExpired, testTime.Add(time.Second))
+	expired, err := routeRequest(t, "expired", testTime).Expire(Expiry{FactID: "aman/EKCH/2/flight-1/flight_completed", FactRevision: 2, Reason: ExpiryFlightCompleted, ExpiredAt: testTime.Add(time.Second)})
 	require.NoError(t, err)
 	terminal := []Request{accepted, rejected, superseded, expired}
 	for _, request := range append([]Request{route, speed}, terminal...) {
@@ -246,7 +246,7 @@ func TestTransferPendingIsAtomicTerminalSafeAndReplayIdempotent(t *testing.T) {
 	result, err := repository.TransferPending(ctx, fact)
 	require.NoError(t, err)
 	require.Len(t, result.Requests, 2)
-	require.Equal(t, uint64(9), result.Revision, "six requests, two decisions, and one ownership fact")
+	require.Equal(t, uint64(10), result.Revision, "six requests, two decisions, one expiry, and one ownership fact")
 	for _, request := range result.Requests {
 		require.Equal(t, ControllerID("EKCH_DEP"), request.RecipientController)
 		require.Equal(t, StatePending, request.State)

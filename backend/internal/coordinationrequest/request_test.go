@@ -68,7 +68,7 @@ func TestRequestAllowsOnlyPendingToTerminalTransitions(t *testing.T) {
 		})
 	}
 	request := routeRequest(t, "command-expired", testTime)
-	expired, err := request.Transition(StateExpired, testTime.Add(time.Minute))
+	expired, err := request.Expire(Expiry{FactID: "aman/EKCH/2/flight-1/flight_completed", FactRevision: 2, Reason: ExpiryFlightCompleted, ExpiredAt: testTime.Add(time.Minute)})
 	require.NoError(t, err)
 	require.Equal(t, StateExpired, expired.State)
 	_, err = expired.Decide("late", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(2*time.Minute))
@@ -81,7 +81,7 @@ func TestRequestAllowsOnlyPendingToTerminalTransitions(t *testing.T) {
 	require.Error(t, err)
 
 	request = routeRequest(t, "command-invalid", testTime)
-	_, err = request.Transition(StatePending, testTime.Add(time.Minute))
+	_, err = request.Expire(Expiry{FactID: "invalid", Reason: ExpiryFlightCompleted, ExpiredAt: testTime.Add(time.Minute)})
 	require.Error(t, err)
 	_, err = request.Decide("bad", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(-time.Minute))
 	require.Error(t, err)

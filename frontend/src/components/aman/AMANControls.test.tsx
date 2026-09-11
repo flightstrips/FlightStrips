@@ -1,6 +1,6 @@
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
-import {fireEvent, render, screen} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {describe, expect, it, vi} from "vitest";
 
 import type {AMANCommandIntent, AMANStateEvent} from "@/api/aman";
@@ -95,6 +95,29 @@ describe("AMAN FMP controls", () => {
 
     expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.set_manual_feeder_eta", flight_id: "flight-1", feeder_eta: new Date("2026-07-22T12:10").toISOString()});
     expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.reset_manual_feeder_eta", flight_id: "flight-1"});
+  });
+
+  it("requests an alternate active runway and exposes pending and rejected results", () => {
+    const multiRunwayState = state();
+    multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
+    multiRunwayState.active_runway_groups = ["ARRIVAL-22", "ARRIVAL-04"];
+    renderControls({
+      state: multiRunwayState,
+      pendingCommands: {runway: {command_id: "runway", type: "aman.change_runway", expected_revision: 7, flight_id: "flight-1", runway_group_id: "ARRIVAL-04"}},
+      commandRejections: {rejected: {command_id: "rejected", command_type: "aman.change_runway", code: "invalid_transition", message: "protected conflict", current_revision: 7, retryable: false}},
+    });
+
+    fireEvent.click(screen.getByRole("button", {name: "Change runway"}));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Server-confirmed runway: ARRIVAL-22");
+    expect(screen.getByRole("status")).toHaveTextContent("Waiting for server confirmation");
+    expect(screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("protected conflict"))).toBe(true);
+    expect(screen.getByRole("button", {name: "Request runway change"})).toBeDisabled();
+
+    cleanup();
+    const {onCommand} = renderControls({state: multiRunwayState});
+    fireEvent.click(screen.getByRole("button", {name: "Change runway"}));
+    fireEvent.click(screen.getByRole("button", {name: "Request runway change"}));
+    expect(onCommand).toHaveBeenCalledWith({type: "aman.change_runway", flight_id: "flight-1", runway_group_id: "ARRIVAL-04"});
   });
 
   it("shows feeder ETA pending and rejection states", () => {

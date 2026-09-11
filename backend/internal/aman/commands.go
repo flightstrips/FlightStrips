@@ -95,6 +95,14 @@ type RecomputeFlightCommand struct {
 	FlightID FlightID
 }
 
+// ChangeRunwayCommand assigns one flight to an explicitly requested active
+// runway group. Authority and timing remain server-owned CommandContext facts.
+type ChangeRunwayCommand struct {
+	Metadata      CommandMetadata
+	FlightID      FlightID
+	RunwayGroupID RunwayGroupID
+}
+
 type ReportGoAroundCommand struct {
 	Metadata   CommandMetadata
 	FlightID   FlightID
@@ -141,6 +149,7 @@ type CommandService interface {
 	SetManualFeederETA(context.Context, CommandContext, SetManualFeederETACommand) (CommandExecution, error)
 	ResetManualFeederETA(context.Context, CommandContext, ResetManualFeederETACommand) (CommandExecution, error)
 	RecomputeFlight(context.Context, CommandContext, RecomputeFlightCommand) (CommandExecution, error)
+	ChangeRunway(context.Context, CommandContext, ChangeRunwayCommand) (CommandExecution, error)
 	ReportGoAround(context.Context, CommandContext, ReportGoAroundCommand) (CommandExecution, error)
 	ConfirmGoAround(context.Context, CommandContext, ConfirmGoAroundCommand) (CommandExecution, error)
 	RejectGoAround(context.Context, CommandContext, RejectGoAroundCommand) (CommandExecution, error)
@@ -200,6 +209,16 @@ func (c ResetManualFeederETACommand) Validate() error {
 
 func (c RecomputeFlightCommand) Validate() error {
 	return validateFlightCommand(c.Metadata, c.FlightID)
+}
+
+func (c ChangeRunwayCommand) Validate() error {
+	if err := validateFlightCommand(c.Metadata, c.FlightID); err != nil {
+		return err
+	}
+	if !trimmed(string(c.RunwayGroupID)) {
+		return commandInvalid("change runway requires a runway group")
+	}
+	return nil
 }
 
 func (c SetRateCommand) Validate() error {

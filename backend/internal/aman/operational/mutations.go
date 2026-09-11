@@ -72,6 +72,84 @@ func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightComma
 	}, nil
 }
 
+// ChangeRunway builds and validates a complete candidate before returning it
+// to the coordinator. Protected flights keep their committed time and order;
+// incompatible or conflicting candidates never reach persistence.
+func (s *Service) ChangeRunway(auth aman.CommandContext, command aman.ChangeRunwayCommand) (sequence.CommandMutation, error) {
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.FlightID)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+		}
+		flight := state.Flights[index]
+		if flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "inactive AMAN flight cannot change runway"}
+		}
+		active := false
+		for _, group := range state.ActiveRunwayGroups {
+			active = active || group == command.RunwayGroupID
+		}
+		if !active {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "requested runway group is not active"}
+		}
+		if !s.runwayAssignmentCompatible(flight, command.RunwayGroupID) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "requested runway group is not compatible with the flight's arrival"}
+		}
+		beforeGroup := flight.SelectedRunwayGroup
+		if beforeGroup != nil && *beforeGroup == command.RunwayGroupID {
+			return s.commandChange(state, false, "change_runway", command.FlightID, map[string]any{
+				"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+				"before_runway_group_id": *beforeGroup, "after_runway_group_id": command.RunwayGroupID,
+			})
+		}
+
+		candidate := state
+		candidate.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		target := &candidate.Flights[index]
+		oldSlot, oldFrozenSlot, oldOrder, oldManualOrder := target.Slot, target.FrozenSlot, target.Order, target.ManualOrder
+		protected := target.State == aman.StateStable || target.FreezeReason != aman.FreezeNone || target.ManualOrder != nil
+		if protected && oldSlot == nil {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "protected flight has no committed slot to preserve"}
+		}
+		assignFlightToRunwayGroup(target, command.RunwayGroupID)
+		if protected {
+			target.Slot, target.FrozenSlot, target.Order, target.ManualOrder = retargetSlot(oldSlot, command.RunwayGroupID), retargetSlot(oldFrozenSlot, command.RunwayGroupID), oldOrder, oldManualOrder
+		}
+		target.UpdatedAt = auth.ReceivedAt
+		input := s.sequenceInput(candidate)
+		result, err := sequence.Generate(input)
+		if err != nil || result.HasConflicts() {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "requested runway change cannot produce a legal atomic sequence"}
+		}
+		candidate = s.applyDecision(candidate, sequence.Decision{Input: input, Candidate: result, Changed: true})
+		displaced := make([]map[string]any, 0)
+		for i, before := range state.Flights {
+			after := candidate.Flights[i]
+			if before.ID == command.FlightID || reflect.DeepEqual(before.Slot, after.Slot) {
+				continue
+			}
+			displaced = append(displaced, map[string]any{"flight_id": before.ID, "before_slot": before.Slot, "after_slot": after.Slot})
+		}
+		beforeID := aman.RunwayGroupID("")
+		if beforeGroup != nil {
+			beforeID = *beforeGroup
+		}
+		return s.commandChange(candidate, true, "change_runway", command.FlightID, map[string]any{
+			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+			"before_runway_group_id": beforeID, "after_runway_group_id": command.RunwayGroupID, "displacements": displaced,
+		})
+	}, nil
+}
+
+func retargetSlot(slot *aman.Slot, group aman.RunwayGroupID) *aman.Slot {
+	if slot == nil {
+		return nil
+	}
+	copy := *slot
+	copy.RunwayGroupID = group
+	return &copy
+}
+
 func (s *Service) LockFlight(auth aman.CommandContext, command aman.LockFlightCommand) (sequence.CommandMutation, error) {
 	return s.sequenceMutation("lock_flight", command.FlightID, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
 		return sequence.ApplyManualFreeze(input, sequence.ApplyManualFreezeCommand{Metadata: command.Metadata, FlightID: command.FlightID, At: auth.ReceivedAt})

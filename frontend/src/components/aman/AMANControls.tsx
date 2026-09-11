@@ -125,6 +125,8 @@ export function AMANControlsView({
   const [selectionEffectiveAt, setSelectionEffectiveAt] = useState("");
   const [manualETA, setManualETA] = useState("");
   const [feederDialogOpen, setFeederDialogOpen] = useState(false);
+  const [runwayDialogOpen, setRunwayDialogOpen] = useState(false);
+  const [alternateRunwayGroupID, setAlternateRunwayGroupID] = useState("");
   const [manualFeederETA, setManualFeederETA] = useState("");
   const [goAroundAt, setGoAroundAt] = useState("");
 
@@ -156,6 +158,11 @@ export function AMANControlsView({
     && (command.type === "aman.set_manual_feeder_eta" || command.type === "aman.reset_manual_feeder_eta"));
   const feederRejection = rejections.find((rejection) => rejection.command_type === "aman.set_manual_feeder_eta"
     || rejection.command_type === "aman.reset_manual_feeder_eta");
+  const runwayPending = pending.some((command) => command.type === "aman.change_runway" && command.flight_id === effectiveSelectedFlightID);
+  const runwayRejection = rejections.find((rejection) => rejection.command_type === "aman.change_runway");
+  const alternateRunwayGroups = activeRunwayGroups.filter((group) => group.id !== selectedFlight?.runway_group_id);
+  const effectiveAlternateRunwayGroupID = alternateRunwayGroups.some((group) => group.id === alternateRunwayGroupID)
+    ? alternateRunwayGroupID : alternateRunwayGroups[0]?.id ?? "";
   const scheduledSelections = (state?.runway_groups ?? []).flatMap((group) =>
     (group.selection_schedule ?? [])
       .filter((effectiveAt) => new Date(effectiveAt).valueOf() > Date.now())
@@ -215,7 +222,7 @@ export function AMANControlsView({
       )}
       {rejections.map((rejection) => (
         <div role="alert" key={rejection.command_id} className="flex items-start justify-between gap-2 rounded border border-red-500 bg-red-950 p-2 text-sm">
-          <span>{rejection.command_type === "aman.select_runway_group" ? "Runway selection" : rejection.command_type === "aman.set_rate" ? "Arrival rate change" : "Command"} rejected: {rejection.message} ({rejection.code}, server revision {rejection.current_revision})</span>
+          <span>{rejection.command_type === "aman.select_runway_group" ? "Runway selection" : rejection.command_type === "aman.change_runway" ? "Flight runway change" : rejection.command_type === "aman.set_rate" ? "Arrival rate change" : "Command"} rejected: {rejection.message} ({rejection.code}, server revision {rejection.current_revision})</span>
           {onDismissRejection && <button className={controlClass} onClick={() => onDismissRejection(rejection.command_id)}>Dismiss</button>}
         </div>
       ))}
@@ -281,6 +288,24 @@ export function AMANControlsView({
           </label>
 
           {selectedFlight && <FlightStatus flight={selectedFlight} />}
+
+          <button className={controlClass} disabled={disabled || alternateRunwayGroups.length === 0} onClick={() => setRunwayDialogOpen(true)}>Change runway</button>
+          <Dialog open={runwayDialogOpen} onOpenChange={setRunwayDialogOpen}>
+            <DialogContent className="w-[28rem] max-w-[calc(100vw-2rem)] border-slate-600 bg-slate-900 text-slate-100">
+              <DialogHeader><DialogTitle>Change runway · {selectedFlight?.callsign}</DialogTitle></DialogHeader>
+              <div className="grid gap-3 text-sm">
+                <div>Server-confirmed runway: <b>{selectedFlight?.runway_group_id ?? "Unassigned"}</b></div>
+                <select aria-label="Alternate runway group" className={inputClass} value={effectiveAlternateRunwayGroupID} onChange={(event) => setAlternateRunwayGroupID(event.target.value)}>
+                  {alternateRunwayGroups.map((group) => <option key={group.id} value={group.id}>{group.id}</option>)}
+                </select>
+                {runwayPending && <div role="status" className="rounded border border-sky-600 bg-sky-950 p-2 text-sky-100">Waiting for server confirmation</div>}
+                {runwayRejection && <div role="alert" className="rounded border border-red-500 bg-red-950 p-2 text-red-100">Rejected: {runwayRejection.message} ({runwayRejection.code})</div>}
+              </div>
+              <DialogFooter><button className={controlClass} disabled={disabled || runwayPending || !effectiveAlternateRunwayGroupID} onClick={() => {
+                if (selectedFlight) onCommand({type: "aman.change_runway", flight_id: selectedFlight.flight_id, runway_group_id: effectiveAlternateRunwayGroupID});
+              }}>Request runway change</button></DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <div className="grid gap-2 rounded border border-slate-600 p-3">
             <h3 className="font-semibold">Sequence and freeze</h3>

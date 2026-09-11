@@ -13,6 +13,7 @@ const (
 	AMANSetManualFeederETAType   EventType = "aman.set_manual_feeder_eta"
 	AMANResetManualFeederETAType EventType = "aman.reset_manual_feeder_eta"
 	AMANRecomputeFlightType      EventType = "aman.recompute_flight"
+	AMANChangeRunwayType         EventType = "aman.change_runway"
 	AMANReportGoAroundType       EventType = "aman.report_go_around"
 	AMANConfirmGoAroundType      EventType = "aman.confirm_go_around"
 	AMANRejectGoAroundType       EventType = "aman.reject_go_around"
@@ -34,6 +35,12 @@ type AMANMoveFlightRequest struct {
 type AMANFlightRequest struct {
 	AMANCommandMeta
 	FlightID string `json:"flight_id"`
+}
+
+type AMANChangeRunwayRequest struct {
+	AMANCommandMeta
+	FlightID      string `json:"flight_id"`
+	RunwayGroupID string `json:"runway_group_id"`
 }
 
 type AMANSetRateRequest struct {
@@ -83,6 +90,12 @@ type AMANFlightMessage struct {
 	Type    EventType         `json:"type"`
 	Version int               `json:"version"`
 	Data    AMANFlightRequest `json:"data"`
+}
+
+type AMANChangeRunwayMessage struct {
+	Type    EventType               `json:"type"`
+	Version int                     `json:"version"`
+	Data    AMANChangeRunwayRequest `json:"data"`
 }
 
 type AMANSetRateMessage struct {

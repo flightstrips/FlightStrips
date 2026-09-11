@@ -30,6 +30,7 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANSetManualFeederETAType, handleAMANSetManualFeederETA)
 	handlers.Add(events.AMANResetManualFeederETAType, handleAMANResetManualFeederETA)
 	handlers.Add(events.AMANRecomputeFlightType, handleAMANRecomputeFlight)
+	handlers.Add(events.AMANChangeRunwayType, handleAMANChangeRunway)
 	handlers.Add(events.AMANReportGoAroundType, handleAMANReportGoAround)
 	handlers.Add(events.AMANConfirmGoAroundType, handleAMANConfirmGoAround)
 	handlers.Add(events.AMANRejectGoAroundType, handleAMANRejectGoAround)
@@ -154,6 +155,17 @@ func handleAMANResetManualFeederETA(ctx context.Context, client *Client, message
 func handleAMANRecomputeFlight(ctx context.Context, client *Client, message Message) error {
 	return handleAMANFlightCommand(ctx, client, message, events.AMANRecomputeFlightType, func(auth aman.CommandContext, data events.AMANFlightRequest) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.RecomputeFlight(ctx, auth, aman.RecomputeFlightCommand{Metadata: commandMetadata(data.AMANCommandMeta), FlightID: aman.FlightID(data.FlightID)})
+	})
+}
+
+func handleAMANChangeRunway(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANChangeRunwayMessage
+	if err := decodeAMANMessage(message, events.AMANChangeRunwayType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	command := aman.ChangeRunwayCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID)}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.ChangeRunway(ctx, auth, command)
 	})
 }
 

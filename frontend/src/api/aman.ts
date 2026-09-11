@@ -24,7 +24,19 @@ export interface AMANState {
   runway_groups: AMANRunwayGroup[];
   /** Optional while V1 clients and servers roll through the TMT extension. */
   traffic_prediction?: AMANTrafficPrediction;
+  /** Optional while V1 clients and servers roll through the holding extension. */
+  holding_information?: AMANHoldingEntry[];
   technical_health: AMANTechnicalHealth;
+}
+
+export interface AMANHoldingEntry {
+  flight_id: string;
+  callsign: string;
+  holding: string;
+  eat: string | null;
+  cleared_altitude: number | null;
+  source_status: AMANDataStatus;
+  observed_at: string;
 }
 
 export type AMANTrafficStatus = "ready" | "degraded" | "disconnected";
@@ -418,6 +430,14 @@ function isTrafficPrediction(value: unknown): value is AMANTrafficPrediction {
   }) && Date.parse(value.range_end) === Date.parse(value.range_start) + 3 * 60 * 60_000;
 }
 
+function isHoldingEntry(value: unknown): value is AMANHoldingEntry {
+  return isObject(value) && isString(value.flight_id) && value.flight_id.length > 0
+    && isString(value.callsign) && isString(value.holding) && value.holding.length > 0
+    && isNullableTimestamp(value.eat) && isNullableFiniteNumber(value.cleared_altitude)
+    && isString(value.source_status) && dataStatuses.has(value.source_status as AMANDataStatus)
+    && isTimestamp(value.observed_at);
+}
+
 export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
   if (!isObject(value) || value.type !== "aman.state" || value.version !== AMAN_WIRE_VERSION || !isObject(value.data)) return false;
   const data = value.data;
@@ -427,6 +447,7 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && Array.isArray(data.flights) && data.flights.every(isFlight)
     && Array.isArray(data.runway_groups) && data.runway_groups.every(isRunwayGroup)
     && (data.traffic_prediction === undefined || isTrafficPrediction(data.traffic_prediction))
+    && (data.holding_information === undefined || (Array.isArray(data.holding_information) && data.holding_information.every(isHoldingEntry)))
     && isTechnicalHealth(data.technical_health);
 }
 

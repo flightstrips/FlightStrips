@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/holdingclearance"
 	"FlightStrips/internal/aman/trafficprediction"
 )
 
@@ -28,16 +29,27 @@ func (e AMANStateEvent) Marshal() ([]byte, error) { return marshall(e) }
 func (AMANStateEvent) GetType() EventType         { return AMANStateType }
 
 type AMANState struct {
-	Airport           string                `json:"airport"`
-	Revision          uint64                `json:"revision"`
-	GeneratedAt       string                `json:"generated_at"`
-	PolicyVersion     string                `json:"policy_version"`
-	EffectiveMode     string                `json:"effective_mode"`
-	Authoritative     bool                  `json:"authoritative"`
-	Flights           []AMANFlight          `json:"flights"`
-	RunwayGroups      []AMANRunwayGroup     `json:"runway_groups"`
-	TrafficPrediction AMANTrafficPrediction `json:"traffic_prediction"`
-	TechnicalHealth   AMANTechnicalHealth   `json:"technical_health"`
+	Airport            string                `json:"airport"`
+	Revision           uint64                `json:"revision"`
+	GeneratedAt        string                `json:"generated_at"`
+	PolicyVersion      string                `json:"policy_version"`
+	EffectiveMode      string                `json:"effective_mode"`
+	Authoritative      bool                  `json:"authoritative"`
+	Flights            []AMANFlight          `json:"flights"`
+	RunwayGroups       []AMANRunwayGroup     `json:"runway_groups"`
+	TrafficPrediction  AMANTrafficPrediction `json:"traffic_prediction"`
+	HoldingInformation []AMANHoldingEntry    `json:"holding_information"`
+	TechnicalHealth    AMANTechnicalHealth   `json:"technical_health"`
+}
+
+type AMANHoldingEntry struct {
+	FlightID        string  `json:"flight_id"`
+	Callsign        string  `json:"callsign"`
+	Holding         string  `json:"holding"`
+	EAT             *string `json:"eat"`
+	ClearedAltitude *int32  `json:"cleared_altitude"`
+	SourceStatus    string  `json:"source_status"`
+	ObservedAt      string  `json:"observed_at"`
 }
 
 type AMANTrafficPrediction struct {
@@ -244,6 +256,10 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		Flights: make([]AMANFlight, len(state.Flights)), RunwayGroups: make([]AMANRunwayGroup, len(state.RunwayGroups)),
 		TechnicalHealth: technicalHealth,
 	}
+	data.HoldingInformation, err = mapAMANHoldingInformation(holdingclearance.BuildReadModel(state))
+	if err != nil {
+		return AMANStateEvent{}, fmt.Errorf("map AMAN holding information: %w", err)
+	}
 	data.TrafficPrediction, err = mapAMANTrafficPrediction(trafficprediction.Build(state, health.VATSIM))
 	if err != nil {
 		return AMANStateEvent{}, fmt.Errorf("map AMAN traffic prediction: %w", err)
@@ -279,6 +295,28 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		data.RunwayGroups[i] = mapped
 	}
 	return AMANStateEvent{Version: AMANWireVersion, Data: data}, nil
+}
+
+func mapAMANHoldingInformation(model holdingclearance.ReadModel) ([]AMANHoldingEntry, error) {
+	result := make([]AMANHoldingEntry, len(model.Entries))
+	for index, entry := range model.Entries {
+		observedAt, err := aman.FormatTime(entry.ObservedAt)
+		if err != nil {
+			return nil, err
+		}
+		result[index] = AMANHoldingEntry{
+			FlightID: string(entry.FlightID), Callsign: entry.Callsign, Holding: entry.Holding,
+			ClearedAltitude: cloneInt32(entry.ClearedAltitude), SourceStatus: string(entry.SourceStatus), ObservedAt: observedAt,
+		}
+		if entry.EAT != nil {
+			formatted, formatErr := aman.FormatTime(*entry.EAT)
+			if formatErr != nil {
+				return nil, formatErr
+			}
+			result[index].EAT = &formatted
+		}
+	}
+	return result, nil
 }
 
 func mapAMANTrafficPrediction(model trafficprediction.ReadModel) (AMANTrafficPrediction, error) {
@@ -579,6 +617,14 @@ func cloneInt(value *int) *int {
 	}
 	result := *value
 	return &result
+}
+
+func cloneInt32(value *int32) *int32 {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 func cloneFloat(value *float64) *float64 {
 	if value == nil {

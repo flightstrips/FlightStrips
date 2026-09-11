@@ -19,6 +19,18 @@ const (
 	AMANCommandRejectedType EventType = "aman.command_rejected"
 )
 
+// AMANFreezeReason is an additive string enum in the V1 wire contract. Keeping
+// the JSON representation as a string lets deployed V1 decoders retain the
+// surrounding flight when a newer producer publishes a newly known reason.
+type AMANFreezeReason string
+
+const (
+	AMANFreezeNone        AMANFreezeReason = "none"
+	AMANFreezeSuperstable AMANFreezeReason = "superstable"
+	AMANFreezeTMA         AMANFreezeReason = "tma"
+	AMANFreezeManual      AMANFreezeReason = "manual"
+)
+
 // AMANStateEvent is the only frontend AMAN state event. Data is a complete
 // replacement; the wire contract has no patch, gap-repair, or subscription
 // messages.
@@ -149,7 +161,7 @@ type AMANFlight struct {
 	RawTETA                   *string                   `json:"raw_teta"`
 	OperationalTETA           *string                   `json:"operational_teta"`
 	GainLossSeconds           *int64                    `json:"gain_loss_seconds"`
-	FreezeReason              string                    `json:"freeze_reason"`
+	FreezeReason              AMANFreezeReason          `json:"freeze_reason"`
 	FrozenAt                  *string                   `json:"frozen_at"`
 	Confidence                *string                   `json:"confidence"`
 	Provenance                *AMANProvenance           `json:"provenance"`
@@ -446,14 +458,17 @@ func NewAMANCommandRejectedEvent(commandID string, currentRevision aman.Sequence
 }
 
 func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, error) {
+	freezeReason, err := mapAMANFreezeReason(flight.FreezeReason)
+	if err != nil {
+		return AMANFlight{}, err
+	}
 	result := AMANFlight{
 		FlightID: string(flight.ID), Callsign: flight.CurrentCallsign, LifecycleState: string(flight.State),
 		DataStatus: string(flight.DataStatus), RunwayGroupID: stringPointer(flight.SelectedRunwayGroup),
 		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder),
 		STARFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
-		FreezeReason: string(flight.FreezeReason), Order: cloneInt(flight.Order), QueueOffers: make([]AMANQueueOffer, len(flight.QueueOffers)),
+		FreezeReason: freezeReason, Order: cloneInt(flight.Order), QueueOffers: make([]AMANQueueOffer, len(flight.QueueOffers)),
 	}
-	var err error
 	if result.FrozenAt, err = formatOptionalTime(flight.FrozenAt); err != nil {
 		return AMANFlight{}, err
 	}
@@ -575,6 +590,21 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		result.QueueOffers[i] = AMANQueueOffer{FlightID: string(offer.FlightID), RunwayGroupID: string(offer.RunwayGroupID), CandidateSlot: candidate, QueuePosition: offer.QueuePosition, ExpiresAt: expiresAt, AirportRevision: uint64(offer.AirportRevision), Reason: string(offer.Reason)}
 	}
 	return result, nil
+}
+
+func mapAMANFreezeReason(reason aman.FreezeReason) (AMANFreezeReason, error) {
+	switch reason {
+	case aman.FreezeNone:
+		return AMANFreezeNone, nil
+	case aman.FreezeSuperstable:
+		return AMANFreezeSuperstable, nil
+	case aman.FreezeTMA:
+		return AMANFreezeTMA, nil
+	case aman.FreezeManual:
+		return AMANFreezeManual, nil
+	default:
+		return "", fmt.Errorf("unsupported freeze reason %q", reason)
+	}
 }
 
 func mapAMANSlot(slot aman.Slot) (AMANSlot, error) {

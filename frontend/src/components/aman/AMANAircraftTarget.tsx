@@ -2,6 +2,7 @@ import type {ReactNode} from "react";
 
 import type {AMANFlight} from "@/api/aman";
 import {cn} from "@/lib/utils";
+import {freezePresentation} from "./freeze-presentation";
 import {formatGainLoss, type AMANGainLossPresentationContext} from "./presentation";
 
 export type AMANAircraftTargetOptionalField =
@@ -29,19 +30,17 @@ export interface AMANAircraftTargetProps {
 }
 
 function lifecyclePresentation(flight: AMANAircraftTargetProps["flight"]): {label: string; shortLabel: string; tone: string} {
-  if (flight.freeze_reason === "superstable") {
-    return {label: "Superstable", shortLabel: "SS", tone: "bg-[#dcdcdc] text-[#202020]"};
-  }
-
-  const manualFreeze = flight.freeze_reason === "manual";
+  const freeze = freezePresentation(flight.freeze_reason);
+  if (freeze && flight.freeze_reason !== "manual") return freeze;
 
   switch (flight.lifecycle_state) {
     case "unstable":
       return {label: "Unstable", shortLabel: "U", tone: "bg-[#6e996e] text-white"};
     case "stable":
+      if (freeze) return freeze;
       return {
-        label: manualFreeze ? "Stable, manual freeze" : "Stable",
-        shortLabel: manualFreeze ? "S·M" : "S",
+        label: "Stable",
+        shortLabel: "S",
         tone: "bg-[#96d796] text-[#202020]",
       };
     default:

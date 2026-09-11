@@ -28,6 +28,26 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(golden)).toBe(true);
   });
 
+  it.each(["none", "superstable", "manual", "tma"] as const)("accepts the V1 freeze reason %s", (reason) => {
+    const event = replacement(8);
+    event.data.flights[0].freeze_reason = reason;
+    expect(isAMANStateEvent(event)).toBe(true);
+    expect(replaceAMANState(null, event).state?.flights[0].freeze_reason).toBe(reason);
+  });
+
+  it("rejects an unknown freeze reason without retaining stale AMAN state", () => {
+    const current = replaceAMANState(null, replacement(7)).state;
+    const event = replacement(8) as unknown as {data: {flights: Array<{freeze_reason: string}>}};
+    event.data.flights[0].freeze_reason = "future";
+
+    expect(replaceAMANState(current, event as unknown as AMANStateEvent)).toEqual({
+      state: null,
+      status: "degraded",
+      error: "invalid_aman_state",
+      accepted: false,
+    });
+  });
+
   it("accepts a legacy V1 replacement without the TMT extension", () => {
     const legacy = replacement(8);
     delete legacy.data.traffic_prediction;

@@ -250,6 +250,23 @@ func TestAMANRepositoryRestoresHeldAirborneBaselineForFreshPredictor(t *testing.
 	require.Equal(t, first.State, held.State)
 }
 
+func TestAMANRepositoryRestoresAuthoritativeHoldingClearance(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-HOLD", "SAS318")
+	altitude := int32(12000)
+	state.Flights[0].HoldingClearance = &aman.HoldingClearance{
+		Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: "1422",
+		ClearedAltitude: &altitude, ObservedAt: amanTestTime,
+	}
+
+	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state.Flights[0].HoldingClearance, restored.Flights[0].HoldingClearance)
+}
+
 func TestAMANRepositoryRestoresRevisionBoundQueueOffers(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

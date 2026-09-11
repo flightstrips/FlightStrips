@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/holdingclearance"
 	"FlightStrips/internal/aman/operational"
 	"FlightStrips/internal/aman/predictor/openmeteo"
 	"FlightStrips/internal/aman/sequence"
@@ -221,12 +222,17 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	if err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN action service: %w", err)
 	}
+	holdingClearances, err := holdingclearance.New(holdingclearance.Dependencies{Repository: amanRepository, Publisher: transport})
+	if err != nil {
+		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN holding clearances: %w", err)
+	}
 	return operationalAMANAssembly{
 		commands: actions, transport: transport,
 		dependencies: aman.Dependencies{
 			Repositories: amanRepository, NavigationMaterializer: source, NavigationReader: source.Geometry,
 			Predictor: service, StateEngine: service, SequenceService: actions, Publisher: transport,
-			ValidationService: service, HealthService: service, ObservationSink: service, ReconciliationWorker: service,
+			ValidationService: service, HealthService: service, ObservationSink: service,
+			HoldingClearanceSink: holdingClearances, ReconciliationWorker: service,
 		},
 	}, nil
 }

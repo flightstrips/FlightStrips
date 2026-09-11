@@ -5,7 +5,8 @@ import type {WebSocketState} from "@/store/store";
 import type {AMANState} from "@/api/aman";
 import AMAN from "./AMAN";
 
-const {controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() => ({
+const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.hoisted(() => ({
+  boardSpy: vi.fn(),
   controlsSpy: vi.fn(),
   detailSpy: vi.fn(),
   holdingSpy: vi.fn(),
@@ -25,7 +26,10 @@ vi.mock("@/store/store-hooks", () => ({
 }));
 
 vi.mock("@/components/aman/AMANBoard", () => ({
-  AMANBoardView: ({onOpenControls, onOpenFlightDetails}: {onOpenControls?: () => void; onOpenFlightDetails?: (flightID: string) => void}) => <><button onClick={onOpenControls} type="button">AMAN board</button><button onClick={() => onOpenFlightDetails?.("flight-123")} type="button">Open target</button></>,
+  AMANBoardView: (props: {state: AMANState | null; selectedFlightID: string | null; onOpenControls?: () => void; onOpenFlightDetails?: (flightID: string) => void}) => {
+    boardSpy(props);
+    return <><button onClick={props.onOpenControls} type="button">AMAN board</button><button onClick={() => props.onOpenFlightDetails?.("flight-123")} type="button">Open target</button></>;
+  },
 }));
 
 vi.mock("@/components/aman/AMANFlightDetailDialog", () => ({
@@ -43,7 +47,7 @@ vi.mock("@/components/aman/AMANControls", () => ({
 }));
 
 vi.mock("@/components/aman/AMANWarningPanel", () => ({
-  AMANWarningPanel: () => <div>AMAN warnings</div>,
+  AMANWarningPanel: ({onNavigateToFlight}: {onNavigateToFlight: (flightID: string) => boolean}) => <div>AMAN warnings<button onClick={() => onNavigateToFlight("flight-123")} type="button">Warning primary</button><button onClick={() => onNavigateToFlight("flight-456")} type="button">Warning related</button><button onClick={(event) => { if (!onNavigateToFlight("missing")) event.currentTarget.focus(); }} type="button">Warning missing</button></div>,
 }));
 
 vi.mock("@/components/aman/TMTTrafficPrediction", () => ({
@@ -68,6 +72,7 @@ vi.mock("@/lib/aman-performance", () => ({
 describe("AMAN route authorization", () => {
   beforeEach(() => {
     controlsSpy.mockClear();
+    boardSpy.mockClear();
     holdingSpy.mockClear();
     tmtSpy.mockClear();
     detailSpy.mockClear();
@@ -114,5 +119,26 @@ describe("AMAN route authorization", () => {
     expect(detailSpy).toHaveBeenCalledWith(expect.objectContaining({airport: "EKCH", flightID: "flight-123"}));
     fireEvent.click(screen.getByRole("button", {name: "Close mocked detail"}));
     expect(screen.queryByRole("button", {name: "Close mocked detail"})).not.toBeInTheDocument();
+  });
+
+  it("selects primary and related warning flights by authoritative identity without a command", () => {
+    storeState.amanState = {airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights: [{flight_id: "flight-123"}, {flight_id: "flight-456"}]} as unknown as AMANState;
+    render(<AMAN />);
+
+    fireEvent.click(screen.getByRole("button", {name: "Warning primary"}));
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedFlightID: "flight-123"}));
+    fireEvent.click(screen.getByRole("button", {name: "Warning related"}));
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedFlightID: "flight-456"}));
+  });
+
+  it("leaves selection and focus stable when a warning references an absent flight", () => {
+    storeState.amanState = {airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights: [{flight_id: "flight-123"}]} as unknown as AMANState;
+    render(<AMAN />);
+    const missing = screen.getByRole("button", {name: "Warning missing"});
+    missing.focus();
+    fireEvent.click(missing);
+
+    expect(missing).toHaveFocus();
+    expect(boardSpy).toHaveBeenLastCalledWith(expect.objectContaining({selectedFlightID: "flight-123"}));
   });
 });

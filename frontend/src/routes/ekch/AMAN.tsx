@@ -26,6 +26,12 @@ export default function AMAN() {
     ? selectedFlightID
     : state?.flights[0]?.flight_id ?? null;
 
+  const navigateToWarningFlight = (flightID: string): boolean => {
+    if (!state?.flights.some((flight) => flight.flight_id === flightID)) return false;
+    setSelectedFlightID(flightID);
+    return true;
+  };
+
   useLayoutEffect(() => {
     if (stateAtMount.current !== null) markAMANStateReceived(stateAtMount.current.revision);
   }, []);
@@ -55,7 +61,13 @@ export default function AMAN() {
         )}
         tmt={(
           <>
-            <AMANWarningPanel connectionState={connectionState} current={warnings} presentationStatus={presentationStatus} />
+            <AMANWarningPanel
+              connectionState={connectionState}
+              current={warnings}
+              flights={state?.flights}
+              onNavigateToFlight={navigateToWarningFlight}
+              presentationStatus={presentationStatus}
+            />
             {state?.traffic_prediction !== undefined && <TMTTrafficPrediction prediction={state.traffic_prediction} />}
             {state?.holding_information !== undefined && <TMTHoldingGraph entries={state.holding_information} />}
             <AMANControls

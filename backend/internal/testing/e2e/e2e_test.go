@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/pdc/testdata"
 )
 
 var testServer *TestServer
@@ -26,7 +27,7 @@ func TestMain(m *testing.M) {
 		panic("failed to initialize config: " + err.Error())
 	}
 
-	// Start test server (with its own test container)
+	// Start the test server with an isolated database.
 	var err error
 	testServer, err = StartTestServer()
 	if err != nil {
@@ -37,7 +38,12 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	// Cleanup
-	testServer.Stop()
+	if err := testServer.Stop(); err != nil && code == 0 {
+		code = 1
+	}
+	if err := testdata.ShutdownTestDB(); err != nil && code == 0 {
+		code = 1
+	}
 
 	os.Exit(code)
 }

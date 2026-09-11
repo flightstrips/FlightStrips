@@ -25,7 +25,7 @@ docker compose --profile database up --build -d
 go run cmd/server/main.go
 
 # Run tests
-go test ./...
+go run ./internal/testing/testdb ./...
 
 # Run specific package tests
 go test ./internal/pdc -v

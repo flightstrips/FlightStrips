@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/database"
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -29,6 +30,8 @@ var sharedPostgres struct {
 
 var databaseSequence atomic.Uint64
 
+const testDatabaseServerURLEnv = "FLIGHTSTRIPS_TEST_DATABASE_SERVER_URL"
+
 // getMigrationsPath returns the absolute path to the migrations directory
 func getMigrationsPath() string {
 	// Get the path to this file
@@ -37,15 +40,33 @@ func getMigrationsPath() string {
 	return filepath.Join(filepath.Dir(filename), "..", "..", "..", "migrations")
 }
 
-// SetupTestDB creates an isolated database cloned from a migrated template. A single
-// PostgreSQL container is shared by all tests in a package's test process; starting
-// a container and replaying every migration for each test made the suite needlessly
-// spend most of its time in Docker setup.
+// SetupTestDB creates an isolated database cloned from a migrated template. When
+// the test suite is run through internal/testing/testdb, all package test processes
+// share that command's PostgreSQL server. Direct package test runs fall back to one
+// server for that package process.
 func SetupTestDB(t *testing.T) (*pgxpool.Pool, *database.Queries) {
 	t.Helper()
-	ctx := context.Background()
+	pool, queries, cleanup, err := OpenTestDB(context.Background())
+	require.NoError(t, err, "Failed to prepare isolated PostgreSQL test database")
+	t.Cleanup(func() {
+		if err := cleanup(); err != nil {
+			t.Logf("Failed to clean up PostgreSQL test database: %v", err)
+		}
+	})
+	return pool, queries
+}
+
+// OpenTestDB creates an isolated database without requiring a testing.T. Callers
+// must invoke the returned cleanup function after all database users have stopped.
+func OpenTestDB(ctx context.Context) (*pgxpool.Pool, *database.Queries, func() error, error) {
 
 	sharedPostgres.once.Do(func() {
+		if serverURL := os.Getenv(testDatabaseServerURLEnv); serverURL != "" {
+			sharedPostgres.baseURL = serverURL
+			sharedPostgres.err = openAdminPool(ctx)
+			return
+		}
+
 		sharedPostgres.container, sharedPostgres.err = postgres.Run(ctx,
 			"postgres:16-alpine",
 			postgres.WithDatabase("testdb"),
@@ -69,38 +90,52 @@ func SetupTestDB(t *testing.T) (*pgxpool.Pool, *database.Queries) {
 			return
 		}
 
-		adminConfig, err := pgxpool.ParseConfig(sharedPostgres.baseURL)
-		if err != nil {
-			sharedPostgres.err = err
-			return
-		}
-		adminConfig.ConnConfig.Database = "postgres"
-		sharedPostgres.adminPool, sharedPostgres.err = pgxpool.NewWithConfig(ctx, adminConfig)
+		sharedPostgres.err = openAdminPool(ctx)
 	})
-	require.NoError(t, sharedPostgres.err, "Failed to prepare shared PostgreSQL test container")
+	if sharedPostgres.err != nil {
+		return nil, nil, nil, sharedPostgres.err
+	}
 
-	databaseName := fmt.Sprintf("test_%d", databaseSequence.Add(1))
+	databaseName := fmt.Sprintf("test_%d_%d", os.Getpid(), databaseSequence.Add(1))
 	_, err := sharedPostgres.adminPool.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{databaseName}.Sanitize()+" TEMPLATE testdb")
-	require.NoError(t, err, "Failed to clone PostgreSQL test database")
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("clone PostgreSQL test database: %w", err)
+	}
 
 	testConfig, err := pgxpool.ParseConfig(sharedPostgres.baseURL)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parse PostgreSQL test database URL: %w", err)
+	}
 	testConfig.ConnConfig.Database = databaseName
 	pool, err := pgxpool.NewWithConfig(ctx, testConfig)
-	require.NoError(t, err, "Failed to connect to test database")
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("connect to PostgreSQL test database: %w", err)
+	}
 
-	t.Cleanup(func() {
+	cleanup := func() error {
 		pool.Close()
 		if _, err := sharedPostgres.adminPool.Exec(context.Background(), "DROP DATABASE "+pgx.Identifier{databaseName}.Sanitize()+" WITH (FORCE)"); err != nil {
-			t.Logf("Failed to drop PostgreSQL test database %s: %v", databaseName, err)
+			return fmt.Errorf("drop PostgreSQL test database %s: %w", databaseName, err)
 		}
-	})
+		return nil
+	}
 
 	queries := database.New(pool)
-	return pool, queries
+	return pool, queries, cleanup, nil
 }
 
-// ShutdownTestDB terminates the package test process's shared PostgreSQL container.
+func openAdminPool(ctx context.Context) error {
+	adminConfig, err := pgxpool.ParseConfig(sharedPostgres.baseURL)
+	if err != nil {
+		return err
+	}
+	adminConfig.ConnConfig.Database = "postgres"
+	sharedPostgres.adminPool, err = pgxpool.NewWithConfig(ctx, adminConfig)
+	return err
+}
+
+// ShutdownTestDB closes this package process's server connection and terminates
+// its fallback container. A suite-level server is owned by the testdb command.
 func ShutdownTestDB() error {
 	if sharedPostgres.adminPool != nil {
 		sharedPostgres.adminPool.Close()

@@ -20,13 +20,13 @@ env:
 
 jobs:
   build:
-    runs-on: blacksmith-4vcpu-windows-2025
+    runs-on: windows-2025
     defaults:
       run:
         working-directory: ./euroscope-plugin
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
       - name: Set up Visual Studio Shell
         uses: egor-tensin/vs-shell@v2

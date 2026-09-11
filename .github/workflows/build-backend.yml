@@ -17,12 +17,12 @@ on:
 jobs:
   build:
     name: Build & test
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: ./backend
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
     - uses: actions/setup-go@v5
       with:
         go-version: '1.25'
@@ -33,20 +33,24 @@ jobs:
 
   docker:
     name: Docker build
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
     - name: Set up Docker Buildx
-      uses: useblacksmith/setup-docker-builder@v1
+      uses: docker/setup-buildx-action@v4
     - name: Build Docker image (api)
-      uses: useblacksmith/build-push-action@v2
+      uses: docker/build-push-action@v7
       with:
         context: ./backend
         file: ./backend/Dockerfile
         push: false
+        cache-from: type=gha,scope=backend-api
+        cache-to: type=gha,mode=max,scope=backend-api
     - name: Build Docker image (migrate)
-      uses: useblacksmith/build-push-action@v2
+      uses: docker/build-push-action@v7
       with:
         context: ./backend
         file: ./backend/Dockerfile.Migrate
         push: false
+        cache-from: type=gha,scope=backend-migrate
+        cache-to: type=gha,mode=max,scope=backend-migrate

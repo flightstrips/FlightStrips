@@ -133,7 +133,7 @@ func TestRunwayGapJSONReplayIsAdditiveAndDeterministic(t *testing.T) {
 		Airport: "EKCH", GeneratedAt: now, PolicyVersion: "gap-v1", Mode: ModeReadOnly,
 		RunwayGroups: []RunwayGroupPolicy{{ID: "north", Gaps: []RunwayGap{
 			{ID: "gap-1", Start: now.Add(time.Hour), End: now.Add(70 * time.Minute), Label: "approach stop", CreatedAt: now, CreatedBy: "controller-1"},
-			{ID: "gap-2", Start: now.Add(time.Hour), End: now.Add(80 * time.Minute), Label: "runway inspection", CreatedAt: now.Add(time.Minute), CreatedBy: "controller-2"},
+			{ID: "gap-2", Start: now.Add(80 * time.Minute), End: now.Add(90 * time.Minute), Label: "runway inspection", CreatedAt: now.Add(time.Minute), CreatedBy: "controller-2"},
 		}}},
 	}
 	if err := state.Validate(); err != nil {
@@ -189,6 +189,16 @@ func TestAirportStateValidatesCanonicalRunwayGaps(t *testing.T) {
 			earlier := gap
 			earlier.ID, earlier.Start, earlier.End = "gap-0", gap.Start.Add(-time.Minute), gap.End.Add(-time.Minute)
 			state.RunwayGroups[0].Gaps = append(state.RunwayGroups[0].Gaps, earlier)
+		},
+		"overlapping intervals": func(state *AirportState) {
+			overlap := gap
+			overlap.ID, overlap.Start, overlap.End = "gap-2", gap.End.Add(-time.Minute), gap.End.Add(time.Minute)
+			state.RunwayGroups[0].Gaps = append(state.RunwayGroups[0].Gaps, overlap)
+		},
+		"touching intervals": func(state *AirportState) {
+			touching := gap
+			touching.ID, touching.Start, touching.End = "gap-2", gap.End, gap.End.Add(time.Minute)
+			state.RunwayGroups[0].Gaps = append(state.RunwayGroups[0].Gaps, touching)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

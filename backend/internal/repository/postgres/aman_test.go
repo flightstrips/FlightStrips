@@ -152,6 +152,33 @@ func TestAMANRepositoryRestartsWithRunwayGaps(t *testing.T) {
 	require.Equal(t, state, restored, "a reconstructed repository must preserve runway-owned GAP intervals")
 }
 
+func TestAMANRepositoryRestartsWithMergedRunwayGapUnion(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-GAP-UNION", "SAS102")
+	state.RunwayGroups[0].Gaps = []aman.RunwayGap{
+		{ID: "first", Start: amanTestTime.Add(time.Hour), End: amanTestTime.Add(70 * time.Minute), Label: "first reason", CreatedAt: amanTestTime, CreatedBy: "controller-1"},
+		{ID: "second", Start: amanTestTime.Add(80 * time.Minute), End: amanTestTime.Add(90 * time.Minute), Label: "second reason", CreatedAt: amanTestTime, CreatedBy: "controller-2"},
+	}
+	end := amanTestTime.Add(80 * time.Minute)
+	interval, err := aman.NormalizeRunwayGapInterval(aman.RunwayGapIntervalInput{Start: amanTestTime.Add(70 * time.Minute), End: &end}, 20)
+	require.NoError(t, err)
+	merged, err := aman.MergeRunwayGap(state.RunwayGroups, aman.RunwayGapMergeInput{
+		RunwayGroupID: "north", CommandID: "merge-command", Interval: interval,
+		Label: "combined stop", CreatedAt: amanTestTime.Add(time.Minute), CreatedBy: "controller-3",
+	})
+	require.NoError(t, err)
+	require.Equal(t, []aman.RunwayGapID{"first", "second"}, merged.ReplacedIDs)
+	state.RunwayGroups = merged.RunwayGroups
+
+	_, err = NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, restored)
+	require.Equal(t, []aman.RunwayGap{merged.Union}, restored.RunwayGroups[0].Gaps, "restart must not restore replaced fragments")
+}
+
 func TestAMANRepositoryPersistsNoOpCommandWithoutAdvancingState(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

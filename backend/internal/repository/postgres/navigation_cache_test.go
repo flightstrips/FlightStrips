@@ -43,6 +43,26 @@ func TestNavigationCachePersistsCompleteManifestAndWarmRoute(t *testing.T) {
 	require.Equal(t, route.Geometry, warm)
 }
 
+func TestNavigationCacheRoundTripsExplicitTerminalPathMetadata(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	data := fixture.EKCH()
+	duration := 3*time.Minute + 15*time.Second
+	data.TerminalPaths[0].STARFamily = "SOK"
+	data.TerminalPaths[0].FeederFix = "SOK"
+	data.TerminalPaths[0].HoldingToFeederDuration = &duration
+	repo := NewNavigationCache(pool)
+	manifest, _ := writeNavigationFixture(t, ctx, repo, data)
+	_, err := repo.ActivateManifest(ctx, manifest)
+	require.NoError(t, err)
+
+	path, err := repo.TerminalPath(ctx, "EKCH", "SOK", "SOUTH")
+	require.NoError(t, err)
+	require.Equal(t, navdata.STARFamilyID("SOK"), path.STARFamily)
+	require.Equal(t, navdata.FixID("SOK"), path.FeederFix)
+	require.Equal(t, duration, *path.HoldingToFeederDuration)
+}
+
 func TestNavigationCacheReadsManifestConsistentTerminalReferences(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

@@ -75,12 +75,7 @@ func (r *navigationCache) PutTerminalFragment(ctx context.Context, value navdata
 	if err := value.Validate(); err != nil {
 		return "", err
 	}
-	payload, err := json.Marshal(struct {
-		Airport       navdata.AirportID
-		ConfigVersion string
-		Paths         []navdata.TerminalPath
-		Holdings      []navdata.HoldingPattern
-	}{value.Airport, value.ConfigVersion, value.Paths, value.Holdings})
+	payload, err := navdata.MarshalTerminalFragmentPayload(value)
 	if err != nil {
 		return "", err
 	}
@@ -673,19 +668,9 @@ func loadTerminalFragment(ctx context.Context, db rowQuerier, digest string) (na
 	if err := json.Unmarshal(provenance, &value.Provenance); err != nil {
 		return value, cacheCorrupt("decode terminal provenance")
 	}
-	var body struct {
-		Airport       navdata.AirportID
-		ConfigVersion string
-		Paths         []navdata.TerminalPath
-		Holdings      []navdata.HoldingPattern
-	}
-	if err := json.Unmarshal(payload, &body); err != nil {
+	if err := navdata.UnmarshalTerminalFragmentPayload(payload, &value); err != nil {
 		return value, cacheCorrupt("decode terminal fragment")
 	}
-	value.Airport = body.Airport
-	value.ConfigVersion = body.ConfigVersion
-	value.Paths = body.Paths
-	value.Holdings = body.Holdings
 	value.Version.EffectiveFrom = value.Version.EffectiveFrom.UTC()
 	value.Version.EffectiveUntil = value.Version.EffectiveUntil.UTC()
 	value.ImportedAt = value.ImportedAt.UTC()

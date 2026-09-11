@@ -88,6 +88,43 @@ type CandidateTerminalFragment struct {
 	Digest      string
 }
 
+// terminalFragmentPayload is the single canonical representation used for
+// terminal-fragment digests and cache bytes. Keeping it here prevents storage
+// adapters from silently drifting from the digest input.
+type terminalFragmentPayload struct {
+	Airport       AirportID
+	ConfigVersion string
+	Paths         []TerminalPath
+	Holdings      []HoldingPattern
+}
+
+// MarshalTerminalFragmentPayload encodes the provider-neutral terminal body
+// stored by persistent caches. New TerminalPath fields use omitempty so a
+// legacy path retains its original canonical bytes and digest.
+func MarshalTerminalFragmentPayload(fragment CandidateTerminalFragment) ([]byte, error) {
+	encoded, err := json.Marshal(fragment.payload())
+	if err != nil {
+		return nil, fmt.Errorf("encode terminal fragment payload: %w", err)
+	}
+	return encoded, nil
+}
+
+// UnmarshalTerminalFragmentPayload accepts both legacy paths containing only
+// Feeder and new paths carrying the separate STAR-family and feeder-fix
+// identities. Validation decides whether the decoded representation is a
+// complete explicit identity or a valid legacy value.
+func UnmarshalTerminalFragmentPayload(encoded []byte, fragment *CandidateTerminalFragment) error {
+	var payload terminalFragmentPayload
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		return fmt.Errorf("decode terminal fragment payload: %w", err)
+	}
+	fragment.Airport = payload.Airport
+	fragment.ConfigVersion = payload.ConfigVersion
+	fragment.Paths = payload.Paths
+	fragment.Holdings = payload.Holdings
+	return nil
+}
+
 // RouteCandidate stores a resolver output independently from catalog
 // fragments. ResolverVersion is part of its persistence key so changing the
 // resolver deterministically produces a cache miss.
@@ -426,12 +463,7 @@ func (f CandidateFixFragment) payload() any {
 	}{f.Fixes, f.Coverage}
 }
 func (f CandidateTerminalFragment) payload() any {
-	return struct {
-		Airport       AirportID
-		ConfigVersion string
-		Paths         []TerminalPath
-		Holdings      []HoldingPattern
-	}{f.Airport, f.ConfigVersion, f.Paths, f.Holdings}
+	return terminalFragmentPayload{f.Airport, f.ConfigVersion, f.Paths, f.Holdings}
 }
 
 func cloneProcedures(value []Procedure) []Procedure { return slices.Clone(value) }

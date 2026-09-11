@@ -593,7 +593,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 
 		if !primaryChange {
 			s.sendCorrectedEuroscopeEobt(session, cid, strip.Callsign, correctedEobt, eobtClamped)
-			return nil
+			return s.observeHoldingClearance(ctx, existingStrip)
 		}
 
 		if primaryChange {
@@ -647,7 +647,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		if needsStripBroadcast {
 			syncState.MarkStripUpdate(strip.Callsign)
 		}
-		return nil
+		return s.observeHoldingClearance(ctx, validationStrip)
 	}
 
 	if routeNeedsUpdate {
@@ -686,7 +686,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		s.publisher.SendStripUpdate(session, strip.Callsign)
 	}
 
-	return nil
+	return s.observeHoldingClearance(ctx, validationStrip)
+}
+
+func (s *StripService) observeHoldingClearance(ctx context.Context, strip *internalModels.Strip) error {
+	if s.holdingObserver == nil || strip == nil {
+		return nil
+	}
+	return s.holdingObserver.ObserveHoldingClearance(ctx, strip)
 }
 
 func (s *StripService) prepareEuroscopeEobtSync(session int32, data *internalModels.CdmData, eobt string, now time.Time) (*internalModels.CdmData, string, bool) {

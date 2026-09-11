@@ -181,6 +181,7 @@ type Dependencies struct {
 	ValidationService      Component
 	HealthService          Component
 	ObservationSink        ObservationSink
+	HoldingClearanceSink   HoldingClearanceSink
 	ReconciliationWorker   Worker
 }
 

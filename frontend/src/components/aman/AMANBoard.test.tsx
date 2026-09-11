@@ -208,11 +208,11 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();
   });
 
-  it("switches to one unsplit runway timeline with a scrollable hour-aligned scale", () => {
+  it("switches to one unsplit runway timeline with the local horizon scale", () => {
     renderBoard(state());
 
-    expect(screen.getByText("10:00–11:00 · scroll timeline")).toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "1080px"});
+    expect(screen.getByText("10:00–10:30 UTC · 30 min")).toBeInTheDocument();
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "720px"});
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("holding-timeline-lane-ARRIVAL-22")).toBeInTheDocument();
     expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();

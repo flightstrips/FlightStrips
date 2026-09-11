@@ -20,6 +20,12 @@ for (const viewport of VIEWPORTS) {
     expect(maestroBox!.x + maestroBox!.width).toBeLessThan(tmtBox!.x);
     expect(tmtBox!.x + tmtBox!.width).toBeLessThanOrEqual(viewport.width);
     expect(tmtBox!.width / tmtBox!.height).toBeCloseTo(3 / 4, 2);
+
+    const settings = (await page.locator('header[aria-label="MAESTRO settings"]').boundingBox())!;
+    expect(settings.height / maestroBox!.height).toBeGreaterThanOrEqual(0.125);
+    expect(settings.height / maestroBox!.height).toBeLessThanOrEqual(0.145);
+    await expect(page.getByTestId("timeline-reference")).toHaveCSS("width", "48px");
+    await expect(page.getByTestId("target-reference")).toHaveCSS("width", "96px");
   });
 }
 
@@ -32,4 +38,19 @@ test("gives useful extra width to MAESTRO on a wide viewport", async ({page}) =>
   const wideWidth = (await page.getByRole("region", {name: "MAESTRO sequence workspace"}).boundingBox())!.width;
 
   expect(wideWidth).toBeGreaterThan(referenceWidth);
+});
+
+test("shows keyboard focus and selected state without relying on color", async ({page}) => {
+  await page.setViewportSize(VIEWPORTS[0]);
+  await page.goto("/visual-tests/aman-workspace-shell-preview.html");
+  const maestro = page.getByRole("button", {name: "Open target information preferences"});
+  const all = page.getByRole("button", {name: "ALL"});
+
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(maestro).toBeFocused();
+  await expect(maestro).toHaveCSS("outline-style", "solid");
+  await expect(all).toHaveAttribute("aria-pressed", "true");
+  await expect(all).toContainText("✓");
+  await expect(page.getByText(/READ ONLY/)).toBeVisible();
 });

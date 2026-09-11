@@ -39,7 +39,10 @@ export default function AMAN() {
         connectionState={connectionState}
         error={error}
         onOpenControls={() => controlsRef.current?.focus()}
-        onOpenFlightDetails={() => setDetailOpen(true)}
+        onOpenFlightDetails={(flightID) => {
+          setSelectedFlightID(flightID);
+          setDetailOpen(true);
+        }}
         onSelectFlight={setSelectedFlightID}
         presentationStatus={presentationStatus}
         selectedFlightID={effectiveSelectedFlightID}

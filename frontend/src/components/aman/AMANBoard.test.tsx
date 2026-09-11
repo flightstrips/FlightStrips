@@ -1,7 +1,7 @@
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {fireEvent, render, screen} from "@testing-library/react";
-import {describe, expect, it, vi} from "vitest";
+import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {AMANState, AMANStateEvent} from "@/api/aman";
 import {AMANBoardView, type AMANBoardViewProps} from "./AMANBoard";
@@ -32,6 +32,8 @@ function renderBoard(value: AMANState | null, overrides: Partial<AMANBoardViewPr
 }
 
 describe("complete AMAN timeline and strips", () => {
+  beforeEach(() => localStorage.clear());
+
   it("renders null and invalid replacement state explicitly without stale partial data", () => {
     const {rerender} = render(
       <AMANBoardView connectionState="disconnected" error={null} onSelectFlight={() => undefined} presentationStatus="empty" selectedFlightID={null} state={null} />,
@@ -46,15 +48,14 @@ describe("complete AMAN timeline and strips", () => {
 
   it("renders the normal golden state with backend values and explicit unavailable contract fields", () => {
     renderBoard(state());
-    const marker = screen.getByRole("button", {name: "Select SAS123 timeline marker"});
+    const marker = screen.getByRole("button", {name: /Select SAS123; Stable; current delay G01/});
 
     expect(screen.getByText("EKCH")).toBeInTheDocument();
     expect(screen.getByText("ARRIVAL-22 : 1")).toBeInTheDocument();
     expect(marker).toHaveTextContent("SAS123");
-    expect(marker).toHaveTextContent("10:18");
     expect(marker).toHaveTextContent("G01");
     expect(marker).not.toHaveTextContent("Prediction");
-    expect(marker).toHaveAttribute("title", expect.stringContaining("fresh"));
+    expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
   });
 
   it("keeps frozen operational markers fixed without adding a raw-TETA timeline marker", () => {
@@ -66,7 +67,7 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
     expect(screen.queryByTestId("raw-marker-flight-123")).not.toBeInTheDocument();
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveClass("border-cyan-200");
+    expect(screen.getByTitle("Superstable")).toHaveTextContent("SS");
   });
 
   it("golden-renders degraded, stale, go-around, manual freeze, queue, and discrepancy facts", () => {
@@ -106,9 +107,7 @@ describe("complete AMAN timeline and strips", () => {
     renderBoard(degraded, {presentationStatus: "degraded", connectionState: "disconnected"});
     expect(screen.getAllByText("degraded").length).toBeGreaterThan(0);
     expect(screen.getByText("predictor stale")).toBeInTheDocument();
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("title", expect.stringContaining("go_around"));
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("title", expect.stringContaining("stale"));
-    expect(screen.getByTestId("operational-marker-flight-123")).toHaveClass("border-fuchsia-200");
+    expect(screen.getByRole("button", {name: /Select SAS123; go around; current delay Unavailable/})).toBeInTheDocument();
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("Unavailable");
   });
 
@@ -124,13 +123,41 @@ describe("complete AMAN timeline and strips", () => {
   });
 
   it("supports compact timeline marker hit testing from the designed scrolling layout", () => {
-    const onSelectFlight = renderBoard(state());
-    const marker = screen.getByRole("button", {name: "Select SAS123 timeline marker"});
+    const onSelectFlight = vi.fn();
+    const onOpenFlightDetails = vi.fn();
+    renderBoard(state(), {onSelectFlight, onOpenFlightDetails});
+    const marker = screen.getByRole("button", {name: /Select SAS123/});
     fireEvent.click(marker);
 
     expect(onSelectFlight).toHaveBeenNthCalledWith(1, "flight-123");
+    expect(onOpenFlightDetails).toHaveBeenNthCalledWith(1, "flight-123");
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-max");
     expect(screen.getByTestId("holding-timeline-lane-ROSBI")).toBeInTheDocument();
+  });
+
+  it("activates a focused compact target through the keyboard click contract", () => {
+    const onSelectFlight = vi.fn();
+    const onOpenFlightDetails = vi.fn();
+    renderBoard(state(), {onSelectFlight, onOpenFlightDetails});
+    const target = screen.getByRole("button", {name: /Select SAS123/});
+
+    target.focus();
+    fireEvent.click(target, {detail: 0});
+
+    expect(target).toHaveFocus();
+    expect(onSelectFlight).toHaveBeenCalledWith("flight-123");
+    expect(onOpenFlightDetails).toHaveBeenCalledWith("flight-123");
+  });
+
+  it("applies local feeder and runway fields and labels their preferences dialog", () => {
+    localStorage.setItem("flightstrips.aman.target-fields.v1", JSON.stringify({version: 1, feeder: ["feeder-fix-eta"], runway: ["runway"]}));
+    const current = state();
+    current.flights[0].feeder_fix_eta = "2026-07-22T10:12:00.000Z";
+    renderBoard(current);
+
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22S");
+    fireEvent.click(screen.getByRole("button", {name: "Open target information preferences"}));
+    expect(screen.getByRole("dialog", {name: "Target information"})).toBeInTheDocument();
   });
 
   it("opens the selected flight's on-demand route detail without changing the board state", () => {

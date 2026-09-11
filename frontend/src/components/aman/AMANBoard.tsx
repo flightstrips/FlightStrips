@@ -6,12 +6,15 @@ import type {
   AMANPresentationStatus,
   AMANState,
 } from "@/api/aman";
+import {Dialog, DialogClose, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {cn} from "@/lib/utils";
+import {AMANAircraftTarget, type AMANAircraftTargetField} from "./AMANAircraftTarget";
+import {AMANAircraftTargetPreferenceControls} from "./AMANAircraftTargetPreferences";
+import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from "./amanAircraftTargetPreferenceModel";
 import {
   buildAMANHoldingLanes,
   buildAMANLanes,
   formatAMANTime,
-  formatGainLoss,
   layoutTimelineMarkers,
   operationalMarkerTimestamp,
   type AMANTimelineRange,
@@ -20,7 +23,7 @@ import {
 const badgeBase = "inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide";
 const TIMELINE_PIXELS_PER_MINUTE = 18;
 const RULER_WIDTH_PIXELS = 58;
-const STRIP_STACK_PIXELS = 18;
+const STRIP_STACK_PIXELS = 30;
 
 function modeTone(mode: AMANState["effective_mode"]): string {
   switch (mode) {
@@ -43,12 +46,6 @@ function timelinePercent(timestamp: string | null, range: AMANTimelineRange): nu
 function timelinePosition(timestamp: string | null, range: AMANTimelineRange): number | null {
   const percent = timelinePercent(timestamp, range);
   return percent === null ? null : 100 - percent;
-}
-
-function gainLossTone(label: string): string {
-  if (label === "Unavailable") return "text-slate-300";
-  if (!label.startsWith("L")) return "text-[#96d796]";
-  return Number.parseInt(label.slice(1), 10) >= 4 ? "text-[#9c0000]" : "text-[#f0e129]";
 }
 
 function buildScrollableTimelineRange(flights: AMANFlight[], generatedAt: string): AMANTimelineRange {
@@ -185,6 +182,9 @@ function HoldingTimeline({
   gainLossConnected,
   selectedFlightID,
   onSelectFlight,
+  onOpenFlightDetails,
+  leadingFields,
+  trailingFields,
 }: {
   label: string;
   flights: AMANFlight[];
@@ -197,6 +197,9 @@ function HoldingTimeline({
   gainLossConnected: boolean;
   selectedFlightID: string | null;
   onSelectFlight: (flightID: string) => void;
+  onOpenFlightDetails?: (flightID: string) => void;
+  leadingFields: (flight: AMANFlight) => readonly AMANAircraftTargetField[];
+  trailingFields: (flight: AMANFlight) => readonly AMANAircraftTargetField[];
 }) {
   const minimumGapPercent = (60_000 / (range.endMs - range.startMs)) * 100;
   const markers = layoutTimelineMarkers(flights, range, minimumGapPercent);
@@ -209,14 +212,6 @@ function HoldingTimeline({
       {markers.map((marker) => {
         const selected = marker.flight.flight_id === selectedFlightID;
         const top = timelinePosition(marker.timestamp, range) ?? 0;
-        const gainLoss = formatGainLoss(marker.flight.gain_loss_seconds, {
-          authoritative: gainLossAuthoritative,
-          connected: gainLossConnected,
-          fresh: marker.flight.data_status === "fresh",
-        });
-        const guidanceTone = gainLossTone(gainLoss);
-        const sequence = String(marker.flight.order ?? marker.flight.slot?.sequence ?? "").padStart(2, "0");
-        const star = showStar ? marker.flight.star_family : null;
         const rulerEdge = stripSide === "left"
           ? `calc(50% - ${RULER_WIDTH_PIXELS / 2}px)`
           : `calc(50% + ${RULER_WIDTH_PIXELS / 2}px)`;
@@ -225,7 +220,7 @@ function HoldingTimeline({
           <div key={marker.flight.flight_id}>
             <div
               className={cn(
-                "absolute z-20 flex h-4 -translate-y-1/2 items-center",
+                "absolute z-20 flex min-h-7 -translate-y-1/2 items-center",
                 stripSide === "left" ? "-translate-x-full" : "translate-x-0",
               )}
               style={{left: rulerEdge, top: `calc(${top}% + ${stackOffset}px)`}}
@@ -234,27 +229,20 @@ function HoldingTimeline({
                 "relative h-px shrink-0",
                 marker.flight.freeze_reason === "superstable" ? "bg-cyan-200" : marker.flight.freeze_reason === "manual" ? "bg-fuchsia-200" : "bg-[#a9bdc5]",
               )} style={{width: "24px"}}><i className="absolute -left-0.5 -top-0.5 block h-1 w-1 rounded-full bg-[#e4e4e4]" /></span>}
-              <button
-                aria-label={`Select ${marker.flight.callsign} timeline marker`}
-                className={cn(
-                  "flex h-4 items-center gap-1 border border-[#666] bg-[#303030] px-1.5 text-left font-mono text-[10px] font-semibold leading-none text-[#e8e8e8] shadow-[0_1px_1px_rgb(0_0_0_/_70%)] focus:outline-none focus:ring-2 focus:ring-white",
-                  star === null ? "w-[204px]" : "w-[260px]",
-                  marker.flight.freeze_reason === "superstable" && "border-cyan-200",
-                  marker.flight.freeze_reason === "manual" && "border-fuchsia-200",
-                  selected && "border-[#f3d02e] ring-1 ring-[#f3d02e]",
-                )}
-                data-marker-time={marker.timestamp}
-                data-testid={`operational-marker-${marker.flight.flight_id}`}
-                onClick={() => onSelectFlight(marker.flight.flight_id)}
-                title={`${marker.flight.callsign} · ${formatAMANTime(marker.timestamp)}${star === null ? "" : ` · STAR ${star}`} · ${marker.flight.lifecycle_state} · ${marker.flight.data_status}`}
-                type="button"
-              >
-                <span className="w-4 text-right text-slate-300">{sequence}</span>
-                <span className="w-[66px] truncate">{marker.flight.callsign}</span>
-                <span>{formatAMANTime(marker.timestamp)}</span>
-                {star !== null && <span className="w-[50px] truncate text-[#a9bdc5]">{star}</span>}
-                <span className={cn("ml-auto", guidanceTone)}>{gainLoss}</span>
-              </button>
+              <div className="flex min-h-7 items-stretch" data-marker-time={marker.timestamp} data-testid={`operational-marker-${marker.flight.flight_id}`}>
+                <AMANAircraftTarget
+                  flight={marker.flight}
+                  guidance={{authoritative: gainLossAuthoritative, connected: gainLossConnected}}
+                  leadingFields={leadingFields(marker.flight)}
+                  onSelect={() => {
+                    onSelectFlight(marker.flight.flight_id);
+                    onOpenFlightDetails?.(marker.flight.flight_id);
+                  }}
+                  selected={selected}
+                  trailingFields={trailingFields(marker.flight)}
+                />
+                {showStar && marker.flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]">{marker.flight.star_family}</span>}
+              </div>
               {stripSide === "left" && <span className={cn(
                 "relative h-px shrink-0",
                 marker.flight.freeze_reason === "superstable" ? "bg-cyan-200" : marker.flight.freeze_reason === "manual" ? "bg-fuchsia-200" : "bg-[#a9bdc5]",
@@ -282,7 +270,7 @@ export interface AMANBoardViewProps {
   selectedFlightID: string | null;
   onSelectFlight: (flightID: string) => void;
   onOpenControls?: () => void;
-  onOpenFlightDetails?: () => void;
+  onOpenFlightDetails?: (flightID: string) => void;
 }
 
 export function AMANBoardView({
@@ -298,6 +286,8 @@ export function AMANBoardView({
   const lanes = useMemo(() => state ? buildAMANLanes(state) : [], [state]);
   const [view, setView] = useState<"holds" | "runway">("holds");
   const [selectedRunwayGroupID, setSelectedRunwayGroupID] = useState<string | null>(null);
+  const [targetPreferences, setTargetPreferences] = useAMANAircraftTargetPreferences();
+  const [targetPreferencesOpen, setTargetPreferencesOpen] = useState(false);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const initializedTimelineScroll = useRef(false);
   const [timelineScroll, setTimelineScroll] = useState({top: 0, viewportHeight: 0, contentHeight: 0});
@@ -313,6 +303,14 @@ export function AMANBoardView({
     ? [{id: "runway", label: activeRunwayLane?.label ?? "Runway", flights: timelineFlights}]
     : holdingLanes, [activeRunwayLane?.label, holdingLanes, timelineFlights, view]);
   const nowPosition = timelinePosition(state?.generated_at ?? null, range);
+  const targetFields = (flight: AMANFlight): AMANAircraftTargetField[] => [
+    {id: "feeder-fix-eta", label: "Feeder-fix ETA", value: flight.feeder_fix_eta ? formatAMANTime(flight.feeder_fix_eta) : "—"},
+    {id: "total-delay", label: "Total delay", value: flight.expected_holding_seconds === null ? "—" : `D${String(Math.ceil(flight.expected_holding_seconds / 60)).padStart(2, "0")}`},
+    {id: "runway", label: "Runway", value: flight.slot?.runway_group_id ?? flight.runway_group_id ?? "—"},
+    {id: "wtc", label: "WTC", value: "—"},
+    {id: "aircraft-type", label: "Aircraft type", value: "—"},
+    {id: "feeder-fix", label: "Feeder fix", value: flight.feeder_fix ?? "—"},
+  ];
   const syncTimelineScroll = () => {
     const timeline = timelineScrollRef.current;
     if (timeline === null) return;
@@ -373,7 +371,7 @@ export function AMANBoardView({
             </button>
           ))}
           <div className="ml-auto grid min-w-[126px] place-items-center rounded-md bg-[#e4e4e4] px-3 text-center text-xs text-black">TMA: {state.flights.length}<br />Health: {state.technical_health.status}</div>
-          <div className="grid min-w-[164px] place-items-center rounded-md bg-[#e4e4e4] px-3 text-center font-mono text-sm text-[#555]">{new Date(state.generated_at).toISOString().slice(11, 19)}</div>
+          <button aria-label="Open target information preferences" className="grid min-w-[164px] place-items-center rounded-md bg-[#e4e4e4] px-3 text-center font-mono text-sm text-[#555] hover:ring-2 hover:ring-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => setTargetPreferencesOpen(true)} type="button">{new Date(state.generated_at).toISOString().slice(11, 19)}</button>
         </div>
         <div className="mt-1 flex h-9 items-center gap-1 rounded-sm bg-[#888] px-1">
           <span className="rounded border border-black bg-[#86a4af] px-3 py-1 text-xs font-bold">MAESTRO</span>
@@ -396,6 +394,7 @@ export function AMANBoardView({
                 key={lane.id}
                 label={lane.label}
                 onSelectFlight={onSelectFlight}
+                onOpenFlightDetails={onOpenFlightDetails}
                 range={range}
                 selectedFlightID={selectedFlightID}
                 stripSide={index % 2 === 0 ? "left" : "right"}
@@ -404,6 +403,8 @@ export function AMANBoardView({
                 currentPosition={nowPosition}
                 gainLossAuthoritative={state.authoritative && state.effective_mode === "authoritative"}
                 gainLossConnected={connectionState === "connected"}
+                leadingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
+                trailingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
               />
             ))}
           </div>
@@ -425,10 +426,17 @@ export function AMANBoardView({
 
       <footer className="flex h-14 shrink-0 items-center border-t-4 border-[#292929] bg-[#353535] px-4">
         <button className="bg-lime-400 px-5 py-2 font-display text-lg font-bold text-black shadow-[0_2px_0_#1c1c1c]" onClick={onOpenControls} type="button">FMP</button>
-        <button className="ml-2 border border-slate-300 bg-[#4b5563] px-4 py-2 font-display text-sm font-bold text-white hover:bg-[#5b6676] disabled:cursor-not-allowed disabled:opacity-50" disabled={selectedFlightID === null} onClick={onOpenFlightDetails} type="button">DETAIL</button>
+        <button className="ml-2 border border-slate-300 bg-[#4b5563] px-4 py-2 font-display text-sm font-bold text-white hover:bg-[#5b6676] disabled:cursor-not-allowed disabled:opacity-50" disabled={selectedFlightID === null} onClick={() => selectedFlightID !== null && onOpenFlightDetails?.(selectedFlightID)} type="button">DETAIL</button>
         <span className="ml-4 text-xs text-slate-300">{activeRunwayLane?.label ?? "No runway group"} · operational marker</span>
         {state.technical_health.blocked_reasons.length > 0 && <span className="ml-auto text-xs text-red-200">{state.technical_health.blocked_reasons.join(", ")}</span>}
       </footer>
+      <Dialog onOpenChange={setTargetPreferencesOpen} open={targetPreferencesOpen}>
+        <DialogContent className="w-[min(720px,calc(100vw-2rem))] bg-[#e4e4e4] text-[#202020]">
+          <DialogTitle>Target information</DialogTitle>
+          <AMANAircraftTargetPreferenceControls onChange={setTargetPreferences} preferences={targetPreferences} />
+          <DialogClose className="justify-self-end rounded border border-black bg-[#555355] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6b696b]">Close target information</DialogClose>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

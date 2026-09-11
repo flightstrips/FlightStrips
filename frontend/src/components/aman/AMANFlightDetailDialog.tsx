@@ -1,10 +1,11 @@
 import {useAuth0} from "@auth0/auth0-react";
-import {useEffect, useMemo, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {divIcon, type LatLngTuple} from "leaflet";
 import {CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 import {fetchAMANFlightDetail, type AMANCalculation, type AMANCalculationLeg, type AMANCalculationSegment, type AMANFlightDetail} from "@/api/aman-detail";
+import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {mapLongitude, mapRouteLegs, type MapRouteLeg} from "./aman-route-map";
 
 function displayTime(value: string | null | undefined): string {
@@ -191,7 +192,10 @@ export function AMANFlightDetailDialog({airport, flightID, onClose}: {airport: s
   const [detail, setDetail] = useState<AMANFlightDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const returnFocusRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const detailKey = useMemo(() => `${airport}/${flightID}`, [airport, flightID]);
+
+  useEffect(() => () => returnFocusRef.current?.focus(), []);
 
   useEffect(() => {
     const abort = new AbortController();
@@ -210,9 +214,11 @@ export function AMANFlightDetailDialog({airport, flightID, onClose}: {airport: s
     return () => abort.abort();
   }, [airport, flightID, getAccessTokenSilently, detailKey]);
 
-  return <div aria-modal="true" aria-label="AMAN route and prediction detail" className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-5" role="dialog" onMouseDown={onClose}>
-    <section className="flex max-h-[calc(100dvh-2.5rem)] w-full max-w-[1400px] flex-col overflow-hidden border border-slate-500 bg-[#161d27] text-slate-100 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
-      <header className="flex items-center justify-between border-b border-slate-600 bg-[#242d3a] px-5 py-3"><div><h2 className="text-lg font-semibold">{detail?.flight.callsign ?? flightID} — route & prediction detail</h2><p className="text-xs text-slate-400">On-demand AMAN evidence · state revision {detail?.revision ?? "—"}</p></div><button className="rounded border border-slate-400 px-3 py-1 text-sm hover:bg-slate-700" onClick={onClose} type="button">Close</button></header>
+  const title = `${detail?.flight.callsign ?? flightID} — route & prediction detail`;
+
+  return <Dialog onOpenChange={(open) => !open && onClose()} open>
+    <DialogContent className="flex max-h-[calc(100dvh-2.5rem)] w-[calc(100vw-2.5rem)] max-w-[1400px] flex-col gap-0 overflow-hidden border-slate-500 bg-[#161d27] p-0 text-slate-100 shadow-2xl [&>button]:hidden">
+      <header className="flex items-center justify-between border-b border-slate-600 bg-[#242d3a] px-5 py-3"><div><DialogTitle className="text-left text-lg font-semibold">{title}</DialogTitle><p className="text-xs text-slate-400">On-demand AMAN evidence · state revision {detail?.revision ?? "—"}</p></div><button className="rounded border border-slate-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={onClose} type="button">Close flight detail</button></header>
       <div className="min-h-0 overflow-x-hidden overflow-y-auto p-3 sm:p-5">
         {loading && <div className="grid min-h-80 place-items-center text-slate-300">Loading current AMAN detail…</div>}
         {error && <div role="alert" className="rounded border border-red-500 bg-red-950 p-4 text-red-100">{error}</div>}
@@ -227,6 +233,6 @@ export function AMANFlightDetailDialog({airport, flightID, onClose}: {airport: s
           <div className="min-w-0 2xl:col-span-2"><PredictionSections calculation={detail.calculation} /></div>
         </div>}
       </div>
-    </section>
-  </div>;
+    </DialogContent>
+  </Dialog>;
 }

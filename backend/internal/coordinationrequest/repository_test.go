@@ -30,7 +30,7 @@ func TestRepositoryRestartReplayIsDeterministicAndAdditive(t *testing.T) {
 	require.Equal(t, []RequestID{earlier.ID, later.ID}, []RequestID{replayed[0].ID, replayed[1].ID})
 	require.Equal(t, earlier, replayed[0])
 
-	accepted, err := earlier.Transition(StateAccepted, testTime.Add(2*time.Minute))
+	accepted, err := earlier.Decide("accept-a", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(2*time.Minute))
 	require.NoError(t, err)
 	require.NoError(t, NewRepository(pool).Save(ctx, accepted))
 	replayed, err = NewRepository(pool).ReplayAirport(ctx, "EKCH")
@@ -106,6 +106,89 @@ func TestSubmitRetryIsIdempotentAcrossRepositoryRestart(t *testing.T) {
 	replayed, err := NewRepository(pool).ReplayAirport(ctx, "EKCH")
 	require.NoError(t, err)
 	require.Equal(t, []Request{request}, replayed)
+}
+
+func TestDecideIsAuditedRevisionCheckedAndIdempotentAcrossRestart(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	repository := NewRepository(pool)
+	request := routeRequest(t, "route-decision", testTime)
+	_, err := repository.Submit(ctx, request, 0)
+	require.NoError(t, err)
+
+	decision := Decision{CommandID: "accept-1", Airport: "EKCH", Actor: "7654321", Role: "EKCH_APP",
+		AuthoritativeRecipient: "EKCH_APP", RequestID: request.ID, RequestKind: request.Kind,
+		BeforeState: StatePending, AfterState: StateAccepted, ReceivedAt: testTime.Add(time.Minute)}
+	accepted, err := repository.Decide(ctx, request.ID, decision, 1)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), accepted.Revision)
+	require.Equal(t, StateAccepted, accepted.Request.State)
+	require.Equal(t, request.Payload, accepted.Request.Payload, "acceptance must not alter route or prediction inputs")
+	require.Equal(t, &decision, accepted.Request.Decision)
+
+	retried, err := repository.Decide(ctx, request.ID, decision, 1)
+	require.NoError(t, err)
+	require.True(t, retried.Duplicate)
+	require.Equal(t, uint64(2), retried.Revision)
+	retried, err = NewRepository(pool).Decide(ctx, request.ID, decision, 1)
+	require.NoError(t, err)
+	require.True(t, retried.Duplicate)
+	replayed, err := NewRepository(pool).ReplayAirport(ctx, "EKCH")
+	require.NoError(t, err)
+	require.Len(t, replayed, 1)
+	require.Equal(t, &decision, replayed[0].Decision, "retry must not add another transition or audit")
+
+	_, err = repository.Decide(ctx, request.ID, Decision{CommandID: "second-decision", Airport: "EKCH", Actor: "7654321", Role: "EKCH_APP",
+		AuthoritativeRecipient: "EKCH_APP", RequestID: request.ID, RequestKind: request.Kind,
+		BeforeState: StatePending, AfterState: StateRejected, Reason: "unable", ReceivedAt: testTime.Add(2 * time.Minute)}, 2)
+	require.ErrorIs(t, err, ErrInvalidState)
+}
+
+func TestDecideRejectsStaleRevisionWrongRecipientAndRecordsReason(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	repository := NewRepository(pool)
+	request := routeRequest(t, "route-reject", testTime)
+	_, err := repository.Submit(ctx, request, 0)
+	require.NoError(t, err)
+	decision := Decision{CommandID: "reject-1", Airport: "EKCH", Actor: "7654321", Role: "EKCH_APP",
+		AuthoritativeRecipient: "EKCH_APP", RequestID: request.ID, RequestKind: request.Kind,
+		BeforeState: StatePending, AfterState: StateRejected, Reason: "traffic", ReceivedAt: testTime.Add(time.Minute)}
+
+	_, err = repository.Decide(ctx, request.ID, decision, 0)
+	require.ErrorIs(t, err, ErrRevisionConflict)
+	wrong := decision
+	wrong.CommandID, wrong.AuthoritativeRecipient = "wrong-owner", "EKCH_DEP"
+	_, err = repository.Decide(ctx, request.ID, wrong, 1)
+	require.ErrorIs(t, err, ErrWrongRecipient)
+
+	rejected, err := repository.Decide(ctx, request.ID, decision, 1)
+	require.NoError(t, err)
+	require.Equal(t, StateRejected, rejected.Request.State)
+	require.Equal(t, "traffic", rejected.Request.Decision.Reason)
+}
+
+func TestDecideRejectsSupersededAndExpiredRequestsWithoutMutation(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	repository := NewRepository(pool)
+	superseded, err := routeRequest(t, "superseded", testTime).Supersede("replacement", testTime.Add(time.Minute))
+	require.NoError(t, err)
+	expired, err := routeRequest(t, "expired", testTime).Transition(StateExpired, testTime.Add(time.Minute))
+	require.NoError(t, err)
+	require.NoError(t, repository.Save(ctx, superseded))
+	require.NoError(t, repository.Save(ctx, expired))
+
+	for _, request := range []Request{superseded, expired} {
+		decision := Decision{CommandID: "decide-" + request.CommandID, Airport: "EKCH", Actor: "7654321", Role: "EKCH_APP",
+			AuthoritativeRecipient: "EKCH_APP", RequestID: request.ID, RequestKind: request.Kind,
+			BeforeState: StatePending, AfterState: StateAccepted, ReceivedAt: testTime.Add(2 * time.Minute)}
+		_, err = repository.Decide(ctx, request.ID, decision, 2)
+		require.ErrorIs(t, err, ErrInvalidState)
+	}
+	replayed, err := repository.ReplayAirport(ctx, "EKCH")
+	require.NoError(t, err)
+	require.Equal(t, []Request{expired, superseded}, replayed)
 }
 
 func TestConcurrentSubmissionsCommitAtomically(t *testing.T) {

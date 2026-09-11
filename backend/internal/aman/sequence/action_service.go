@@ -12,6 +12,7 @@ import (
 // this service retains coordinator ownership of command IDs and revisions.
 type ActionMutations interface {
 	MoveFlight(aman.CommandContext, aman.MoveFlightCommand) (CommandMutation, error)
+	PlaceFlightAtTime(aman.CommandContext, aman.PlaceFlightAtTimeCommand) (CommandMutation, error)
 	LockFlight(aman.CommandContext, aman.LockFlightCommand) (CommandMutation, error)
 	UnlockFlight(aman.CommandContext, aman.UnlockFlightCommand) (CommandMutation, error)
 	DesequenceFlight(aman.CommandContext, aman.DesequenceFlightCommand) (CommandMutation, error)
@@ -67,6 +68,12 @@ func (s *ActionService) CurrentRevision(ctx context.Context, airport string) (am
 
 func (s *ActionService) MoveFlight(ctx context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.MoveFlight(auth, command) })
+}
+
+func (s *ActionService) PlaceFlightAtTime(ctx context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, func() error { return command.Validate(auth.ReceivedAt) }, func() (CommandMutation, error) {
+		return s.mutations.PlaceFlightAtTime(auth, command)
+	})
 }
 
 func (s *ActionService) LockFlight(ctx context.Context, auth aman.CommandContext, command aman.LockFlightCommand) (aman.CommandExecution, error) {

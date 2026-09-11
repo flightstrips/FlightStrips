@@ -183,6 +183,9 @@ func (s *recordingAMANCommandService) record(operation string, auth aman.Command
 func (s *recordingAMANCommandService) MoveFlight(_ context.Context, auth aman.CommandContext, command aman.MoveFlightCommand) (aman.CommandExecution, error) {
 	return s.record("move", auth, command.Metadata)
 }
+func (s *recordingAMANCommandService) PlaceFlightAtTime(_ context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {
+	return s.record("place_at_time", auth, command.Metadata)
+}
 func (s *recordingAMANCommandService) LockFlight(_ context.Context, auth aman.CommandContext, command aman.LockFlightCommand) (aman.CommandExecution, error) {
 	return s.record("lock", auth, command.Metadata)
 }

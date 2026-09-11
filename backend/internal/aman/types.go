@@ -902,6 +902,7 @@ type AMANFlight struct {
 	QueueOffers            []QueueOffer
 	ETAReview              *ETAReview
 	OperationalException   *OperationalException
+	RunwayGapException     *RunwayGapException
 	GoAroundDetection      *GoAroundDetectionState
 	GoAroundConfirmation   *GoAroundConfirmation
 	Lifecycle              *LifecycleState
@@ -1385,6 +1386,16 @@ func (f AMANFlight) Validate() error {
 			return err
 		}
 	}
+	if f.RunwayGapException != nil {
+		if err := f.RunwayGapException.Validate(); err != nil {
+			return err
+		}
+		if f.RunwayGapException.FlightID != f.ID || f.Slot == nil ||
+			f.RunwayGapException.RunwayGroupID != f.Slot.RunwayGroupID ||
+			!f.RunwayGapException.Opportunity.Equal(f.Slot.Time) {
+			return invalid("runway gap exception does not match its flight slot")
+		}
+	}
 	if f.GoAroundDetection != nil {
 		if err := f.GoAroundDetection.Validate(); err != nil {
 			return err
@@ -1788,7 +1799,11 @@ func (s AirportState) Validate() error {
 		}
 	}
 	groupIDs := make(map[RunwayGroupID]struct{}, len(s.RunwayGroups))
-	gapIDs := make(map[RunwayGapID]struct{})
+	type gapOwner struct {
+		group RunwayGroupID
+		gap   RunwayGap
+	}
+	gapIDs := make(map[RunwayGapID]gapOwner)
 	closureIDs := make(map[RunwayClosureID]struct{})
 	selectedGroups := 0
 	var selectedGroup RunwayGroupID
@@ -1859,7 +1874,7 @@ func (s AirportState) Validate() error {
 			if _, exists := gapIDs[gap.ID]; exists {
 				return invalid("airport state contains duplicate runway gap ID")
 			}
-			gapIDs[gap.ID] = struct{}{}
+			gapIDs[gap.ID] = gapOwner{group: group.ID, gap: gap}
 			if index > 0 && !runwayGapLess(group.Gaps[index-1], gap) {
 				return invalid("runway group gaps must be unique and strictly ordered")
 			}
@@ -1877,6 +1892,14 @@ func (s AirportState) Validate() error {
 			closureIDs[closure.ID] = struct{}{}
 			if index > 0 && !runwayClosureLess(group.Closures[index-1], closure) {
 				return invalid("runway group closures must be unique and strictly ordered")
+			}
+		}
+	}
+	for _, flight := range s.Flights {
+		if exception := flight.RunwayGapException; exception != nil {
+			owner, exists := gapIDs[exception.GapID]
+			if !exists || owner.group != exception.RunwayGroupID || exception.Opportunity.Before(owner.gap.Start) || !exception.Opportunity.Before(owner.gap.End) {
+				return invalid("runway gap exception does not match an active gap")
 			}
 		}
 	}

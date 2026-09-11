@@ -117,6 +117,13 @@ func (g *amanCommandGate) ResetManualFeederETA(ctx context.Context, auth aman.Co
 	return g.commands.ResetManualFeederETA(ctx, auth, command)
 }
 
+func (g *amanCommandGate) RecomputeFlight(ctx context.Context, auth aman.CommandContext, command aman.RecomputeFlightCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.RecomputeFlight(ctx, auth, command)
+}
+
 func (g *amanCommandGate) ReportGoAround(ctx context.Context, auth aman.CommandContext, command aman.ReportGoAroundCommand) (aman.CommandExecution, error) {
 	if err := g.authorize(ctx); err != nil {
 		return aman.CommandExecution{}, err

@@ -12,6 +12,7 @@ const (
 	AMANResetTETAOverrideType    EventType = "aman.reset_teta_override"
 	AMANSetManualFeederETAType   EventType = "aman.set_manual_feeder_eta"
 	AMANResetManualFeederETAType EventType = "aman.reset_manual_feeder_eta"
+	AMANRecomputeFlightType      EventType = "aman.recompute_flight"
 	AMANReportGoAroundType       EventType = "aman.report_go_around"
 	AMANConfirmGoAroundType      EventType = "aman.confirm_go_around"
 	AMANRejectGoAroundType       EventType = "aman.reject_go_around"

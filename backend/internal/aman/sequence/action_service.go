@@ -23,6 +23,7 @@ type ActionMutations interface {
 	ResetTETAOverride(aman.CommandContext, aman.ResetTETAOverrideCommand) (CommandMutation, error)
 	SetManualFeederETA(aman.CommandContext, aman.SetManualFeederETACommand) (CommandMutation, error)
 	ResetManualFeederETA(aman.CommandContext, aman.ResetManualFeederETACommand) (CommandMutation, error)
+	RecomputeFlight(context.Context, aman.CommandContext, aman.RecomputeFlightCommand) (CommandMutation, error)
 	ReportGoAround(aman.CommandContext, aman.ReportGoAroundCommand) (CommandMutation, error)
 	ConfirmGoAround(aman.CommandContext, aman.ConfirmGoAroundCommand) (CommandMutation, error)
 	RejectGoAround(aman.CommandContext, aman.RejectGoAroundCommand) (CommandMutation, error)
@@ -106,6 +107,12 @@ func (s *ActionService) SetManualFeederETA(ctx context.Context, auth aman.Comman
 
 func (s *ActionService) ResetManualFeederETA(ctx context.Context, auth aman.CommandContext, command aman.ResetManualFeederETACommand) (aman.CommandExecution, error) {
 	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) { return s.mutations.ResetManualFeederETA(auth, command) })
+}
+
+func (s *ActionService) RecomputeFlight(ctx context.Context, auth aman.CommandContext, command aman.RecomputeFlightCommand) (aman.CommandExecution, error) {
+	return executeTyped(s, ctx, auth, command.Metadata, command.Validate, func() (CommandMutation, error) {
+		return s.mutations.RecomputeFlight(ctx, auth, command)
+	})
 }
 
 func (s *ActionService) ReportGoAround(ctx context.Context, auth aman.CommandContext, command aman.ReportGoAroundCommand) (aman.CommandExecution, error) {

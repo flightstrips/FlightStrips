@@ -243,6 +243,7 @@ export type AMANCommandType =
   | "aman.reset_teta_override"
   | "aman.set_manual_feeder_eta"
   | "aman.reset_manual_feeder_eta"
+  | "aman.recompute_flight"
   | "aman.report_go_around"
   | "aman.confirm_go_around"
   | "aman.reject_go_around";
@@ -261,6 +262,7 @@ export type AMANCommandIntent =
   | {type: "aman.set_manual_eta"; flight_id: string; manual_eta: string}
   | {type: "aman.set_manual_feeder_eta"; flight_id: string; feeder_eta: string}
   | {type: "aman.reset_manual_feeder_eta"; flight_id: string}
+  | {type: "aman.recompute_flight"; flight_id: string}
   | {type: "aman.report_go_around"; flight_id: string; detected_at: string}
   | {type: "aman.confirm_go_around" | "aman.reject_go_around"; flight_id: string; episode_id: string};
 

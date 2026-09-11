@@ -32,6 +32,7 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		{"reset", frontendEvents.AMANResetTETAOverrideType, `{"type":"aman.reset_teta_override","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "reset"},
 		{"manual feeder", frontendEvents.AMANSetManualFeederETAType, `{"type":"aman.set_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","feeder_eta":"2026-07-22T12:10:00Z"}}`, "manual_feeder"},
 		{"reset manual feeder", frontendEvents.AMANResetManualFeederETAType, `{"type":"aman.reset_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "reset_manual_feeder"},
+		{"recompute", frontendEvents.AMANRecomputeFlightType, `{"type":"aman.recompute_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "recompute"},
 		{"go around", frontendEvents.AMANReportGoAroundType, `{"type":"aman.report_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","detected_at":"2026-07-22T11:59:00Z"}}`, "go_around"},
 		{"confirm go around", frontendEvents.AMANConfirmGoAroundType, `{"type":"aman.confirm_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","episode_id":"flight-1/go-around/1"}}`, "confirm_go_around"},
 		{"reject go around", frontendEvents.AMANRejectGoAroundType, `{"type":"aman.reject_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","episode_id":"flight-1/go-around/1"}}`, "reject_go_around"},
@@ -52,20 +53,22 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 	}
 }
 
-func TestAMANHandlerRejectsSpoofedContextFieldsStrictly(t *testing.T) {
-	service := &recordingAMANCommandService{}
-	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
-	payload := `{"type":"aman.set_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","feeder_eta":"2026-07-22T12:10:00Z","airport":"ZZZZ","actor":"spoof","role":"ADMIN","received_at":"2026-07-22T12:00:00Z"}}`
-
-	err := hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANSetManualFeederETAType, Message: []byte(payload)})
-
-	require.NoError(t, err)
-	require.Empty(t, service.operation)
-	rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)
-	require.Equal(t, "command-1", rejection.Data.CommandID)
-	require.Equal(t, string(aman.ErrorInvalidArgument), rejection.Data.Code)
-	require.Equal(t, uint64(7), rejection.Data.CurrentRevision)
-	require.False(t, rejection.Data.Retryable)
+func TestAMANRecomputeRejectsSpoofedContextAndClientResultsStrictly(t *testing.T) {
+	for _, extra := range []string{
+		`,"airport":"ZZZZ","actor":"spoof","role":"ADMIN","received_at":"2026-07-22T12:00:00Z"`,
+		`,"teta":"2026-07-22T12:10:00Z"`, `,"result":{"raw_teta":"2026-07-22T12:10:00Z"}`,
+		`,"before_flight_id":"flight-2"`,
+	} {
+		service := &recordingAMANCommandService{}
+		hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+		payload := `{"type":"aman.recompute_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"` + extra + `}}`
+		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRecomputeFlightType, Message: []byte(payload)}))
+		require.Empty(t, service.operation)
+		rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)
+		require.Equal(t, string(aman.ErrorInvalidArgument), rejection.Data.Code)
+		require.Equal(t, uint64(7), rejection.Data.CurrentRevision)
+		require.False(t, rejection.Data.Retryable)
+	}
 }
 
 func TestAMANSetManualFeederETARejectsNonUTCTimestamp(t *testing.T) {
@@ -96,8 +99,8 @@ func TestAMANHandlerRejectsObserverFMPAndReadOnlyBeforeCommandService(t *testing
 			service := &recordingAMANCommandService{}
 			hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
 			test.configure(hub, client)
-			payload := `{"type":"aman.reset_manual_feeder_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`
-			require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANResetManualFeederETAType, Message: []byte(payload)}))
+			payload := `{"type":"aman.recompute_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`
+			require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRecomputeFlightType, Message: []byte(payload)}))
 			require.Empty(t, service.operation)
 			rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)
 			require.Equal(t, string(test.code), rejection.Data.Code)
@@ -186,6 +189,9 @@ func (s *recordingAMANCommandService) SetManualFeederETA(_ context.Context, auth
 }
 func (s *recordingAMANCommandService) ResetManualFeederETA(_ context.Context, auth aman.CommandContext, command aman.ResetManualFeederETACommand) (aman.CommandExecution, error) {
 	return s.record("reset_manual_feeder", auth, command.Metadata)
+}
+func (s *recordingAMANCommandService) RecomputeFlight(_ context.Context, auth aman.CommandContext, command aman.RecomputeFlightCommand) (aman.CommandExecution, error) {
+	return s.record("recompute", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) ReportGoAround(_ context.Context, auth aman.CommandContext, command aman.ReportGoAroundCommand) (aman.CommandExecution, error) {
 	return s.record("go_around", auth, command.Metadata)

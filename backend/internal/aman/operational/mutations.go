@@ -1,6 +1,7 @@
 package operational
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -12,6 +13,45 @@ import (
 	"FlightStrips/internal/aman/prediction"
 	"FlightStrips/internal/aman/sequence"
 )
+
+// RecomputeFlight reruns the physical predictor from the observation stored in
+// the revision-checked airport aggregate. It does not accept a client result,
+// release a freeze, or apply a client-selected order.
+func (s *Service) RecomputeFlight(ctx context.Context, auth aman.CommandContext, command aman.RecomputeFlightCommand) (sequence.CommandMutation, error) {
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.FlightID)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+		}
+		current := state.Flights[index]
+		if current.State == aman.StateLanded || current.State == aman.StateRemoved {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "inactive AMAN flight cannot be recomputed"}
+		}
+		if current.LatestObservation == nil {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "AMAN flight has no authoritative observation to recompute"}
+		}
+		observation := *current.LatestObservation
+		if observation.Missing || observation.SourceStatus != aman.DataFresh {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "AMAN flight observation is not current"}
+		}
+		updated, err := s.reconcileFlight(ctx, state, current, observation, auth.ReceivedAt)
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		state.Flights[index] = updated
+		promotions := s.resequence(&state, auth.ReceivedAt)
+		// A completed calculation is itself an authoritative state change even
+		// when policy retains the same TETA. This allocates and publishes the
+		// confirming revision that resolves the client's pending command.
+		change, err := s.commandChange(state, true, "recompute_flight", command.FlightID, map[string]any{
+			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role,
+			"received_at": auth.ReceivedAt, "input_observed_at": observation.ReconciledAt,
+		})
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
+	}, nil
+}
 
 // DefaultGoAroundDelay is the operational landing-time target applied from
 // go-around detection until a new physical prediction is established.

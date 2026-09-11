@@ -95,14 +95,15 @@ func (k EventKind) Valid() bool {
 }
 
 // Event is a clock-injected fact presented to the reducer. DataStatus is used
-// only by EventDataStatusChanged. OperationalTETA is used only by
-// EventPredictionAccepted.
+// only by EventDataStatusChanged. OperationalTETA and the optional authoritative
+// feeder-fix state are used only by EventPredictionAccepted.
 type Event struct {
 	ID              string
 	Kind            EventKind
 	OccurredAt      time.Time
 	DataStatus      aman.DataStatus
 	OperationalTETA *time.Time
+	FeederETA       *aman.FeederETAState
 }
 
 // Transition is emitted once for a real state change. It can be recorded in
@@ -206,7 +207,19 @@ func fingerprint(event Event) string {
 	if event.OperationalTETA != nil {
 		operationalTETA = event.OperationalTETA.Format(time.RFC3339Nano)
 	}
-	return fmt.Sprintf("%s|%s|%s|%s", event.Kind, event.OccurredAt.Format(time.RFC3339Nano), event.DataStatus, operationalTETA)
+	feederETA := ""
+	if event.FeederETA != nil {
+		eta := ""
+		if event.FeederETA.ETA != nil {
+			eta = event.FeederETA.ETA.Format(time.RFC3339Nano)
+		}
+		feederETA = fmt.Sprintf("%s|%t|%s", event.FeederETA.Source, event.FeederETA.Passed, eta)
+	} else {
+		// Preserve retry compatibility with events accepted before feeder timing
+		// became lifecycle evidence.
+		return fmt.Sprintf("%s|%s|%s|%s", event.Kind, event.OccurredAt.Format(time.RFC3339Nano), event.DataStatus, operationalTETA)
+	}
+	return fmt.Sprintf("%s|%s|%s|%s|%s", event.Kind, event.OccurredAt.Format(time.RFC3339Nano), event.DataStatus, operationalTETA, feederETA)
 }
 
 func nextState(config Config, flight aman.AMANFlight, enteredAt time.Time, event Event) (aman.FlightState, aman.LifecycleReason, error) {
@@ -271,7 +284,7 @@ func nextState(config Config, flight aman.AMANFlight, enteredAt time.Time, event
 				return aman.StateUnstable, aman.LifecycleReasonUnstableHorizon, nil
 			}
 		case aman.StateUnstable:
-			if untilArrival <= config.StableHorizon && event.OccurredAt.Sub(enteredAt) >= config.MinimumUnstableDwell {
+			if StableFeederEligible(event.FeederETA, event.OccurredAt, config.StableHorizon) && event.OccurredAt.Sub(enteredAt) >= config.MinimumUnstableDwell {
 				return aman.StateStable, aman.LifecycleReasonStableHorizon, nil
 			}
 		case aman.StateStable:
@@ -341,12 +354,26 @@ func validateEvent(event Event) error {
 		if event.OperationalTETA == nil || event.OperationalTETA.IsZero() || event.OperationalTETA.Location() != time.UTC {
 			return invalidArgument("accepted prediction requires a UTC operational TETA")
 		}
+		if event.FeederETA != nil {
+			if err := event.FeederETA.Validate(); err != nil {
+				return invalidArgument("accepted prediction feeder ETA is invalid")
+			}
+		}
 		return nil
 	}
-	if event.OperationalTETA != nil {
-		return invalidArgument("only an accepted prediction may carry operational TETA")
+	if event.OperationalTETA != nil || event.FeederETA != nil {
+		return invalidArgument("only an accepted prediction may carry timing evidence")
 	}
 	return nil
+}
+
+// StableFeederEligible accepts only validated feeder-fix timing. Landing and
+// holding-fix ETA are intentionally unavailable to this predicate.
+func StableFeederEligible(feeder *aman.FeederETAState, now time.Time, horizon time.Duration) bool {
+	if feeder == nil || feeder.Validate() != nil {
+		return false
+	}
+	return feeder.Passed || feeder.ETA.Sub(now) <= horizon
 }
 
 func applyOperationalExceptionState(config Config, flight *aman.AMANFlight, event Event) {

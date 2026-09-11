@@ -26,7 +26,7 @@ func TestReduceRunsFullLifecycleWithRecordedReasons(t *testing.T) {
 	}{
 		{event: event("airborne", lifecycle.EventAirborneDetected, now), want: aman.StateAirborne, reason: aman.LifecycleReasonAirborneDetected},
 		{event: predictionEvent("unstable", now.Add(time.Minute), now.Add(46*time.Minute)), want: aman.StateUnstable, reason: aman.LifecycleReasonUnstableHorizon},
-		{event: predictionEvent("stable", now.Add(6*time.Minute), now.Add(26*time.Minute)), want: aman.StateStable, reason: aman.LifecycleReasonStableHorizon},
+		{event: predictionEvent("stable", now.Add(6*time.Minute), now.Add(26*time.Minute), feederAt(now.Add(26*time.Minute))), want: aman.StateStable, reason: aman.LifecycleReasonStableHorizon},
 		{event: event("go-around", lifecycle.EventGoAroundConfirmed, now.Add(7*time.Minute)), want: aman.StateGoAround, reason: aman.LifecycleReasonGoAroundConfirmed},
 		{event: predictionEvent("re-enter", now.Add(8*time.Minute), now.Add(53*time.Minute)), want: aman.StateUnstable, reason: aman.LifecycleReasonUnstableHorizon},
 		{event: event("landed", lifecycle.EventLandingConfirmed, now.Add(9*time.Minute)), want: aman.StateLanded, reason: aman.LifecycleReasonLandingConfirmed},
@@ -62,11 +62,12 @@ func TestReduceUsesExactHorizonAndDwellBoundaries(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, aman.StateUnstable, atUnstable.Flight.State)
 
-	beforeDwell, err := lifecycle.Reduce(config, atUnstable.Flight, predictionEvent("before-dwell", now.Add(4*time.Minute-time.Nanosecond), now.Add(24*time.Minute-time.Nanosecond)))
+	beforeDwellAt := now.Add(4*time.Minute - time.Nanosecond)
+	beforeDwell, err := lifecycle.Reduce(config, atUnstable.Flight, predictionEvent("before-dwell", beforeDwellAt, now.Add(24*time.Minute-time.Nanosecond), feederAt(beforeDwellAt.Add(config.StableHorizon))))
 	require.NoError(t, err)
 	require.Equal(t, aman.StateUnstable, beforeDwell.Flight.State)
 
-	atDwell, err := lifecycle.Reduce(config, beforeDwell.Flight, predictionEvent("at-dwell", now.Add(4*time.Minute), now.Add(24*time.Minute)))
+	atDwell, err := lifecycle.Reduce(config, beforeDwell.Flight, predictionEvent("at-dwell", now.Add(4*time.Minute), now.Add(24*time.Minute), feederAt(now.Add(24*time.Minute))))
 	require.NoError(t, err)
 	require.Equal(t, aman.StateStable, atDwell.Flight.State)
 	require.Equal(t, aman.LifecycleReasonStableHorizon, atDwell.Flight.Lifecycle.Reason)
@@ -279,12 +280,76 @@ func TestReduceRestartReplayIsEquivalent(t *testing.T) {
 	require.NoError(t, json.Unmarshal(persisted, &restored))
 	require.NoError(t, restored.Validate())
 
-	next := predictionEvent("stable", now.Add(6*time.Minute), now.Add(26*time.Minute))
+	next := predictionEvent("stable", now.Add(6*time.Minute), now.Add(26*time.Minute), feederAt(now.Add(26*time.Minute)))
 	want, err := lifecycle.Reduce(config, unstable.Flight, next)
 	require.NoError(t, err)
 	got, err := lifecycle.Reduce(config, restored, next)
 	require.NoError(t, err)
 	require.Equal(t, want, got)
+}
+
+func TestReduceStableUsesOnlyAuthoritativeFeederEvidence(t *testing.T) {
+	now := lifecycleTime()
+	config := lifecycle.DefaultConfig()
+	landing := now.Add(5 * time.Minute)
+	tests := []struct {
+		name   string
+		feeder *aman.FeederETAState
+		want   aman.FlightState
+	}{
+		{name: "missing feeder does not fall back to landing TETA", want: aman.StateUnstable},
+		{name: "above threshold", feeder: feederAt(now.Add(config.StableHorizon + time.Nanosecond)), want: aman.StateUnstable},
+		{name: "exact threshold", feeder: feederAt(now.Add(config.StableHorizon)), want: aman.StateStable},
+		{name: "below threshold", feeder: feederAt(now.Add(config.StableHorizon - time.Nanosecond)), want: aman.StateStable},
+		{name: "authoritatively passed", feeder: &aman.FeederETAState{Source: aman.FeederETASourcePassed, Passed: true}, want: aman.StateStable},
+	}
+	for index, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			flight := lifecycleFlight(now.Add(-config.MinimumUnstableDwell), aman.StateUnstable)
+			result, err := lifecycle.Reduce(config, flight, predictionEvent(fmt.Sprintf("boundary-%d", index), now, landing, tt.feeder))
+			require.NoError(t, err)
+			require.Equal(t, tt.want, result.Flight.State)
+		})
+	}
+}
+
+func TestReduceUnstableDwellContinuesAcrossFeederRevisionsAndResetsOnReentry(t *testing.T) {
+	now := lifecycleTime()
+	config := lifecycle.DefaultConfig()
+	flight := lifecycleFlight(now, aman.StateAirborne)
+	unstable, err := lifecycle.Reduce(config, flight, predictionEvent("unstable", now.Add(time.Minute), now.Add(46*time.Minute)))
+	require.NoError(t, err)
+
+	outside, err := lifecycle.Reduce(config, unstable.Flight, predictionEvent("route-outside", now.Add(2*time.Minute), now.Add(25*time.Minute), feederAt(now.Add(23*time.Minute))))
+	require.NoError(t, err)
+	inside, err := lifecycle.Reduce(config, outside.Flight, predictionEvent("route-inside", now.Add(3*time.Minute), now.Add(24*time.Minute), feederAt(now.Add(23*time.Minute))))
+	require.NoError(t, err)
+	require.Equal(t, aman.StateStable, inside.Flight.State, "route revisions must not reset time already spent Unstable")
+
+	goAround, err := lifecycle.Reduce(config, inside.Flight, event("go-around", lifecycle.EventGoAroundConfirmed, now.Add(4*time.Minute)))
+	require.NoError(t, err)
+	reentered, err := lifecycle.Reduce(config, goAround.Flight, predictionEvent("reenter", now.Add(5*time.Minute), now.Add(30*time.Minute), feederAt(now.Add(10*time.Minute))))
+	require.NoError(t, err)
+	require.Equal(t, aman.StateUnstable, reentered.Flight.State)
+	beforeResetDwell, err := lifecycle.Reduce(config, reentered.Flight, predictionEvent("before-reset-dwell", now.Add(7*time.Minute-time.Nanosecond), now.Add(29*time.Minute), feederAt(now.Add(10*time.Minute))))
+	require.NoError(t, err)
+	require.Equal(t, aman.StateUnstable, beforeResetDwell.Flight.State)
+}
+
+func TestReduceAcceptsLegacyPredictionFingerprintWithoutFeederEvidence(t *testing.T) {
+	now := lifecycleTime()
+	event := predictionEvent("legacy", now, now.Add(10*time.Minute))
+	flight := lifecycleFlight(now, aman.StateUnstable)
+	flight.Lifecycle = &aman.LifecycleState{
+		EnteredAt: now.Add(-time.Minute), Reason: aman.LifecycleReasonUnstableHorizon,
+		LastEventID: event.ID, LastEventAt: event.OccurredAt,
+		LastEventFingerprint: fmt.Sprintf("%s|%s||%s", event.Kind, event.OccurredAt.Format(time.RFC3339Nano), event.OperationalTETA.Format(time.RFC3339Nano)),
+	}
+
+	result, err := lifecycle.Reduce(lifecycle.DefaultConfig(), flight, event)
+	require.NoError(t, err)
+	require.True(t, result.Duplicate)
+	require.Equal(t, aman.StateUnstable, result.Flight.State)
 }
 
 func TestLifecycleAndPredictionPreserveCanonicalFreezePolicy(t *testing.T) {
@@ -296,7 +361,7 @@ func TestLifecycleAndPredictionPreserveCanonicalFreezePolicy(t *testing.T) {
 		LastEventID: "unstable", LastEventFingerprint: "persisted", LastEventAt: now.Add(-lifecycleConfig.MinimumUnstableDwell),
 	}
 
-	stable, err := lifecycle.Reduce(lifecycleConfig, state, predictionEvent("stable", now, now.Add(20*time.Minute)))
+	stable, err := lifecycle.Reduce(lifecycleConfig, state, predictionEvent("stable", now, now.Add(20*time.Minute), feederAt(now.Add(20*time.Minute))))
 	require.NoError(t, err)
 	require.Equal(t, aman.StateStable, stable.Flight.State)
 	holding := "north-hold"
@@ -359,8 +424,16 @@ func event(id string, kind lifecycle.EventKind, at time.Time) lifecycle.Event {
 	return lifecycle.Event{ID: id, Kind: kind, OccurredAt: at}
 }
 
-func predictionEvent(id string, at, operationalTETA time.Time) lifecycle.Event {
-	return lifecycle.Event{ID: id, Kind: lifecycle.EventPredictionAccepted, OccurredAt: at, OperationalTETA: &operationalTETA}
+func predictionEvent(id string, at, operationalTETA time.Time, feeder ...*aman.FeederETAState) lifecycle.Event {
+	result := lifecycle.Event{ID: id, Kind: lifecycle.EventPredictionAccepted, OccurredAt: at, OperationalTETA: &operationalTETA}
+	if len(feeder) > 0 {
+		result.FeederETA = feeder[0]
+	}
+	return result
+}
+
+func feederAt(at time.Time) *aman.FeederETAState {
+	return &aman.FeederETAState{ETA: &at, Source: aman.FeederETASourceRoute}
 }
 
 func suddenEvent(id string, at, operationalTETA time.Time) lifecycle.Event {

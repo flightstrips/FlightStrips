@@ -1,6 +1,7 @@
 import {useMemo, useState} from "react";
 
 import {
+  getActiveAMANRunwayGroups,
   getAMANMutationBlockReason,
   type AMANCommandIntent,
   type AMANCommandRejection,
@@ -129,7 +130,8 @@ export function AMANControlsView({
   const selectedFlight = flights.find((flight) => flight.flight_id === requestedFlightID) ?? flights[0] ?? null;
   const effectiveSelectedFlightID = selectedFlight?.flight_id ?? "";
   const runwayGroupID = selectedFlight?.runway_group_id ?? state?.runway_groups[0]?.id ?? null;
-  const selectedRunwayGroup = state?.runway_groups.find((group) => group.selected) ?? null;
+  const activeRunwayGroups = state ? getActiveAMANRunwayGroups(state) : [];
+  const selectedRunwayGroup = activeRunwayGroups[0] ?? null;
   const effectiveRateRunwayGroupID = state?.runway_groups.some((group) => group.id === rateRunwayGroupID)
     ? rateRunwayGroupID
     : selectedRunwayGroup?.id ?? state?.runway_groups[0]?.id ?? "";
@@ -152,8 +154,9 @@ export function AMANControlsView({
       .filter((effectiveAt) => new Date(effectiveAt).valueOf() > Date.now())
       .map((effectiveAt) => `${group.id} at ${displayTime(effectiveAt)}`),
   );
-  const protectedRunwayConflicts = selectedRunwayGroup === null ? [] : flights.filter((flight) =>
-    flight.runway_group_id !== null && flight.runway_group_id !== selectedRunwayGroup.id
+  const activeRunwayGroupIDs = new Set(activeRunwayGroups.map((group) => group.id));
+  const protectedRunwayConflicts = activeRunwayGroups.length === 0 ? [] : flights.filter((flight) =>
+    flight.runway_group_id !== null && !activeRunwayGroupIDs.has(flight.runway_group_id)
       && (flight.lifecycle_state === "stable" || flight.freeze_reason !== "none"),
   );
   const selectionConflicts = (state?.runway_groups ?? []).filter((group) => group.selection_conflict);
@@ -212,7 +215,7 @@ export function AMANControlsView({
 
       <div className="grid gap-2 rounded border border-slate-600 p-3">
         <h3 className="font-semibold">Runway in use</h3>
-        <div className="text-sm">Selected: <b>{selectedRunwayGroup?.id ?? "Unavailable"}</b></div>
+        <div className="text-sm">Active: <b>{activeRunwayGroups.map((group) => group.id).join(", ") || "Unavailable"}</b></div>
         {scheduledSelections.length > 0 && <div className="text-sm">Scheduled: <b>{scheduledSelections.join(", ")}</b></div>}
         {selectionConflicts.map((group) => (
           <div role="alert" key={group.id} className="rounded border border-red-500 bg-red-950 p-2 text-sm text-red-100">

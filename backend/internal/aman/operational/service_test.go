@@ -1264,6 +1264,122 @@ func TestHoldingPlanKeepsSlotFixedAndRecalculatesDelayFromLatestTrajectory(t *te
 	require.Nil(t, holdingPlan(prediction, slot), "an infeasible fixed slot must not invent a hold plan")
 }
 
+func TestRefreshHoldingPlansDerivesFeederETAFromAuthoritativeReleaseAndConfiguredTransit(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	service, state := holdingFeederETAServiceState(now, "TESPI", "TNO", "EKCH-TESPI-PRIMARY", "ARRIVAL-22L", int64Pointer(195))
+	state.Flights[0].Prediction.ModelVersion = "performance-wind-v7"
+
+	service.refreshHoldingPlans(&state)
+
+	flight := state.Flights[0]
+	require.NotNil(t, flight.Prediction.HoldingPlan)
+	require.Equal(t, now.Add(20*time.Minute), flight.Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Equal(t, &aman.FeederETAState{
+		ETA: timePointer(now.Add(23*time.Minute + 15*time.Second)), Source: aman.FeederETASourceHolding,
+	}, flight.FeederETA)
+	require.Equal(t, "performance-wind-v7", flight.Prediction.ModelVersion)
+	require.Equal(t, "ekch-test-v1", flight.Prediction.ConfigVersion)
+
+	first := flight.FeederETA
+	service.refreshHoldingPlans(&state)
+	require.Equal(t, first, state.Flights[0].FeederETA, "replaying the same release and configuration must be deterministic")
+}
+
+func TestRefreshHoldingPlansAllowsZeroDurationWhenHoldingAndFeederAreERNOV(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	service, state := holdingFeederETAServiceState(now, "ERNOV", "ERNOV", "EKCH-ERNOV-PRIMARY", "ARRIVAL-22L", int64Pointer(0))
+
+	service.refreshHoldingPlans(&state)
+
+	require.Equal(t, now.Add(20*time.Minute), *state.Flights[0].FeederETA.ETA)
+	require.Equal(t, aman.FeederETASourceHolding, state.Flights[0].FeederETA.Source)
+}
+
+func TestRefreshHoldingPlansExposesAbsentTransitAsUnavailable(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	for _, test := range []struct {
+		family, feederFix, holding string
+		group                      aman.RunwayGroupID
+	}{
+		{family: "MONAK", feederFix: "KUBIS", holding: "EKCH-MONAK-PRIMARY", group: "ARRIVAL-30"},
+		{family: "TIDVU", feederFix: "WUPJA", holding: "EKCH-TIDVU-PRIMARY", group: "ARRIVAL-12"},
+	} {
+		t.Run(test.feederFix, func(t *testing.T) {
+			service, state := holdingFeederETAServiceState(now, test.family, test.feederFix, test.holding, test.group, nil)
+			routeETA := now.Add(7 * time.Minute)
+			state.Flights[0].FeederETA = &aman.FeederETAState{ETA: &routeETA, Source: aman.FeederETASourceRoute}
+
+			service.refreshHoldingPlans(&state)
+
+			require.NotNil(t, state.Flights[0].Prediction.HoldingPlan)
+			require.Nil(t, state.Flights[0].FeederETA, "an active hold without approved transit must not retain route ETA or serialize zero")
+		})
+	}
+}
+
+func TestRefreshHoldingPlansRejectsInactiveAndNonAuthoritativeHoldingETA(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	service, authoritative := holdingFeederETAServiceState(now, "TESPI", "TNO", "EKCH-TESPI-PRIMARY", "ARRIVAL-22L", int64Pointer(195))
+	staleETA := now.Add(time.Minute)
+	authoritative.Flights[0].FeederETA = &aman.FeederETAState{ETA: &staleETA, Source: aman.FeederETASourceHolding}
+	authoritative.Flights[0].Slot = nil
+
+	service.refreshHoldingPlans(&authoritative)
+
+	require.Nil(t, authoritative.Flights[0].Prediction.HoldingPlan)
+	require.Nil(t, authoritative.Flights[0].FeederETA)
+
+	_, shadow := holdingFeederETAServiceState(now, "TESPI", "TNO", "EKCH-TESPI-PRIMARY", "ARRIVAL-22L", int64Pointer(195))
+	shadow.Authoritative = false
+	routeETA := now.Add(6 * time.Minute)
+	shadow.Flights[0].FeederETA = &aman.FeederETAState{ETA: &routeETA, Source: aman.FeederETASourceRoute}
+
+	service.refreshHoldingPlans(&shadow)
+
+	require.NotNil(t, shadow.Flights[0].Prediction.HoldingPlan)
+	require.Equal(t, aman.FeederETASourceRoute, shadow.Flights[0].FeederETA.Source)
+	require.Equal(t, routeETA, *shadow.Flights[0].FeederETA.ETA)
+}
+
+func TestHoldingFeederETARequiresMatchingPredictionConfigAndPreservesPassedProvenance(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	service, state := holdingFeederETAServiceState(now, "TESPI", "TNO", "EKCH-TESPI-PRIMARY", "ARRIVAL-22L", int64Pointer(195))
+	state.Flights[0].Prediction.ConfigVersion = "stale-config"
+
+	service.refreshHoldingPlans(&state)
+	require.Nil(t, state.Flights[0].FeederETA)
+
+	state.Flights[0].Prediction.ConfigVersion = service.deps.Terminal.ConfigVersion
+	state.Flights[0].FeederETA = &aman.FeederETAState{Source: aman.FeederETASourcePassed, Passed: true}
+	service.refreshHoldingPlans(&state)
+	require.Equal(t, &aman.FeederETAState{Source: aman.FeederETASourcePassed, Passed: true}, state.Flights[0].FeederETA)
+}
+
+func holdingFeederETAServiceState(now time.Time, family, feederFix, holding string, group aman.RunwayGroupID, transit *int64) (*Service, aman.AirportState) {
+	config := terminal.Configuration{
+		ConfigVersion: "ekch-test-v1",
+		Paths: []terminal.Path{{
+			Feeder: navdata.FeederID(family), STARFamily: navdata.STARFamilyID(family), FeederFix: navdata.FixID(feederFix),
+			HoldingToFeederSeconds: transit, RunwayGroup: group, SelectedHolding: navdata.HoldingID(holding),
+		}},
+	}
+	service := &Service{deps: Dependencies{Terminal: config}}
+	entry := now.Add(8 * time.Minute)
+	return service, aman.AirportState{
+		Authoritative: true,
+		Flights: []aman.AMANFlight{{
+			SelectedFeeder: &family, SelectedSTARFamily: &family, SelectedFeederFix: &feederFix,
+			SelectedHolding: &holding, SelectedRunwayGroup: &group, Slot: &aman.Slot{Time: now.Add(32 * time.Minute)},
+			Prediction: &aman.Prediction{
+				Publishable: true, RawTETA: now.Add(20 * time.Minute), HoldingFixETA: &entry,
+				ModelVersion: "test-model", ConfigVersion: config.ConfigVersion,
+			},
+		}},
+	}
+}
+
+func int64Pointer(value int64) *int64 { return &value }
+
 func TestOffRouteFallbackReasonLowersPredictionConfidenceWithoutHidingWaypoint(t *testing.T) {
 	reason := offRouteFallbackReason([]string{"UNRESOLVED_LEG:X", "OFF_ROUTE", "OFF_ROUTE_NEXT_WAYPOINT:TESPI"})
 	require.Equal(t, "off_route_next_waypoint:tespi", reason)

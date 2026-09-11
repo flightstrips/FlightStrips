@@ -424,7 +424,7 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 			next.Flights[i].Slot.Revision = next.Revision
 		}
 	}
-	refreshHoldingPlans(&next)
+	s.refreshHoldingPlans(&next)
 	queueInput := s.sequenceInput(next)
 	next, err = sequence.ProjectQueueOffers(next, queueInput, sequence.QueueOfferConfig{Validity: queueOfferValidity}, now)
 	if err != nil {
@@ -789,7 +789,7 @@ func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.Termina
 }
 
 func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence.VacancyPromotion {
-	defer refreshHoldingPlans(state)
+	defer s.refreshHoldingPlans(state)
 	targets := releaseGainResequenceTargets(state)
 	input := s.sequenceInput(*state)
 	for index := range input.Flights {
@@ -867,16 +867,79 @@ func vacancyPromotionAuditEntries(promotions []sequence.VacancyPromotion) []sequ
 // rather than moving the committed slot. If the slot is no longer feasible,
 // no holding plan is emitted and the existing slot remains for controller
 // review or an authorized action.
-func refreshHoldingPlans(state *aman.AirportState) {
+func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
 	for index := range state.Flights {
 		flight := &state.Flights[index]
 		if flight.Prediction == nil {
+			clearInactiveHoldingFeederETA(flight)
 			continue
 		}
 		prediction := *flight.Prediction
 		prediction.HoldingPlan = holdingPlan(prediction, flight.Slot)
+		flight.FeederETA = holdingFeederETA(state.Authoritative, *flight, prediction, s.deps.Terminal)
 		flight.Prediction = &prediction
 	}
+}
+
+// holdingFeederETA lets an active authoritative holding plan supersede the
+// route clock. It deliberately fails closed when the prediction and terminal
+// configuration versions differ or the selected path has no approved nominal
+// transit. A passed-feeder fact remains authoritative over any derived clock.
+func holdingFeederETA(authoritative bool, flight aman.AMANFlight, prediction aman.Prediction, config terminal.Configuration) *aman.FeederETAState {
+	if flight.FeederETA != nil && flight.FeederETA.Passed {
+		return flight.FeederETA
+	}
+	if !authoritative || prediction.HoldingPlan == nil {
+		if flight.FeederETA != nil && flight.FeederETA.Source == aman.FeederETASourceHolding {
+			return nil
+		}
+		return flight.FeederETA
+	}
+	transit := configuredHoldingToFeederTransit(flight, prediction.ConfigVersion, config)
+	if transit == nil {
+		return nil
+	}
+	eta := prediction.HoldingPlan.ApproachReleaseTime.Add(*transit)
+	return &aman.FeederETAState{ETA: &eta, Source: aman.FeederETASourceHolding}
+}
+
+func clearInactiveHoldingFeederETA(flight *aman.AMANFlight) {
+	if flight.FeederETA != nil && flight.FeederETA.Source == aman.FeederETASourceHolding {
+		flight.FeederETA = nil
+	}
+}
+
+func configuredHoldingToFeederTransit(flight aman.AMANFlight, predictionConfigVersion string, config terminal.Configuration) *time.Duration {
+	if predictionConfigVersion == "" || predictionConfigVersion != config.ConfigVersion || flight.SelectedRunwayGroup == nil {
+		return nil
+	}
+	family := flight.STARFamilyIdentity()
+	if family == "" || flight.SelectedFeederFix == nil || flight.SelectedHolding == nil {
+		return nil
+	}
+	for _, path := range config.Paths {
+		pathFamily := string(path.STARFamily)
+		if pathFamily == "" {
+			pathFamily = string(path.Feeder)
+		}
+		configuredFeederFix := path.FeederFix
+		for _, alias := range config.FixAliases {
+			if configuredFeederFix == alias.Alias {
+				configuredFeederFix = alias.Canonical
+				break
+			}
+		}
+		if pathFamily != family || path.RunwayGroup != *flight.SelectedRunwayGroup ||
+			string(configuredFeederFix) != *flight.SelectedFeederFix || string(path.SelectedHolding) != *flight.SelectedHolding {
+			continue
+		}
+		if path.HoldingToFeederSeconds == nil {
+			return nil
+		}
+		duration := time.Duration(*path.HoldingToFeederSeconds) * time.Second
+		return &duration
+	}
+	return nil
 }
 
 func holdingPlan(prediction aman.Prediction, slot *aman.Slot) *aman.HoldingPlan {

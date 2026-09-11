@@ -61,6 +61,24 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 	require.Equal(t, 6*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time))
 }
 
+func TestSequenceInputCarriesPersistedAbsoluteRunwayGaps(t *testing.T) {
+	start := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	effective := start.Add(-time.Hour)
+	gap := aman.RunwayGap{
+		ID: "gap", Start: start, End: start.Add(6 * time.Minute), Label: "approach stop",
+		CreatedAt: start.Add(-time.Hour), CreatedBy: "controller",
+	}
+	state := aman.AirportState{RunwayGroups: []aman.RunwayGroupPolicy{{
+		ID: "A", ActiveRatePerHour: 20, RateEffectiveAt: &effective, Gaps: []aman.RunwayGap{gap},
+	}}}
+
+	input := sequenceInput(state, terminal.Configuration{})
+	require.Len(t, input.Policies, 1)
+	require.Equal(t, []sequence.Gap{{Start: gap.Start, End: gap.End}}, input.Policies[0].Gaps)
+	input.Policies[0].Gaps[0].End = start.Add(time.Minute)
+	require.Equal(t, start.Add(6*time.Minute), state.RunwayGroups[0].Gaps[0].End, "pure input must not alias persisted state")
+}
+
 func TestSequenceInputDoesNotInferHoldingPolicyFamilyFromLegacyIdentity(t *testing.T) {
 	start := time.Date(2026, time.September, 11, 12, 0, 0, 0, time.UTC)
 	effective := start

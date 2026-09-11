@@ -362,6 +362,24 @@ func TestVacancyPromotionReportsFinalRenumberedSlot(t *testing.T) {
 	require.Equal(t, string(entry.Reason), promotions[0].To.Reason)
 }
 
+func TestVacancyPromotionRejectsRunwayGapOpportunity(t *testing.T) {
+	start := testTime()
+	policy := queuePolicy("A", start, 60)
+	policy.Gaps = []sequence.Gap{{Start: start.Add(time.Minute), End: start.Add(2 * time.Minute)}}
+	lead := queueFlight("LEAD", "A", start, "M", 1, start)
+	target := queueFlight("TARGET", "A", start.Add(time.Minute), "M", 3, start.Add(2*time.Minute))
+	target.ProtectCurrentSlot = true
+	input := sequence.Input{Revision: 27, Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{lead, target}}
+	bindQueueRevision(&input)
+	candidate := aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"}
+	offer := aman.QueueOffer{FlightID: target.ID, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
+
+	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, []aman.QueueOffer{offer}, start)
+	require.NoError(t, err)
+	require.Empty(t, promotions)
+	require.Equal(t, target.CurrentSlot.Time, candidateEntry(result, target.ID).Time)
+}
+
 func TestVacancyPromotionPreservesStableOrderAndProtectedBoundaries(t *testing.T) {
 	start := testTime()
 	frozenAt := start.Add(-time.Minute)

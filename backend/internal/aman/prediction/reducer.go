@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"FlightStrips/internal/aman"
@@ -20,7 +19,6 @@ const smoothingWindowSize = 3
 type Config struct {
 	Deadband           time.Duration
 	MaximumRoutineMove time.Duration
-	SuperstableHorizon time.Duration
 	ExcessiveDrift     time.Duration
 }
 
@@ -30,7 +28,6 @@ func DefaultConfig() Config {
 	return Config{
 		Deadband:           30 * time.Second,
 		MaximumRoutineMove: time.Minute,
-		SuperstableHorizon: 10 * time.Minute,
 		ExcessiveDrift:     2 * time.Minute,
 	}
 }
@@ -41,9 +38,6 @@ func (c Config) Validate() error {
 	}
 	if c.MaximumRoutineMove <= 0 {
 		return fmt.Errorf("prediction maximum routine movement must be greater than zero")
-	}
-	if c.SuperstableHorizon <= 0 {
-		return fmt.Errorf("prediction Superstable horizon must be greater than zero")
 	}
 	if c.ExcessiveDrift <= 0 {
 		return fmt.Errorf("prediction excessive drift threshold must be greater than zero")
@@ -174,19 +168,6 @@ func Reduce(config Config, flight aman.AMANFlight, input Input) (Result, error) 
 	candidate, reason := routineOperational(config, flight, previousState, input)
 	setOperational(&flight, input.Raw, candidate, reason)
 
-	// Superstable begins at or inside the configured holding-fix horizon and
-	// never until a complete slot exists.
-	if atSuperstableBoundary(input.Raw.GeneratedAt, input.Raw.HoldingFixETA, config.SuperstableHorizon) &&
-		flight.SelectedHolding != nil && strings.TrimSpace(*flight.SelectedHolding) != "" && flight.Slot != nil {
-		freezeAt := input.Raw.GeneratedAt
-		frozenTETA := candidate
-		frozenSlot := cloneSlot(flight.Slot)
-		flight.FreezeReason = aman.FreezeSuperstable
-		flight.FrozenAt = &freezeAt
-		flight.FrozenOperationalTETA = &frozenTETA
-		flight.FrozenSlot = &frozenSlot
-		flight.Prediction.OperationalReason = aman.OperationalReasonSuperstableFreeze
-	}
 	return result(config, flight), nil
 }
 
@@ -336,10 +317,6 @@ func median(values []time.Time) time.Time {
 		return values[middle]
 	}
 	return values[middle-1].Add(values[middle].Sub(values[middle-1]) / 2)
-}
-
-func atSuperstableBoundary(now time.Time, holdingFixETA *time.Time, horizon time.Duration) bool {
-	return holdingFixETA != nil && !holdingFixETA.After(now.Add(horizon)) && holdingFixETA.After(now)
 }
 
 func clearFreeze(flight *aman.AMANFlight) {

@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	policyVersion              = "aman-cph-v2"
+	policyVersion              = "aman-cph-v3"
 	modelVersion               = "aman-cph-teta-v3"
 	routeResolverVersion       = "airacnet-route-v4"
 	defaultArrivalRate         = uint32(20)
@@ -374,6 +374,13 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 			updated = applyUnavailablePrediction(updated, observation, now, updateErr)
 		}
 		next.Flights[index] = updated
+		if flight.FreezeReason != aman.FreezeSuperstable && updated.FreezeReason == aman.FreezeSuperstable {
+			record, auditErr := superstableAuditRecord(airport, updated, now)
+			if auditErr != nil {
+				return auditErr
+			}
+			auditRecords = append(auditRecords, record)
+		}
 		if pendingCreated(flight.GoAroundConfirmation, updated.GoAroundConfirmation) {
 			payload, marshalErr := json.Marshal(map[string]any{
 				"flight_id": updated.ID, "episode_id": updated.GoAroundConfirmation.EpisodeID,
@@ -723,6 +730,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	flight.HoldingStack = updateHoldingStack(flight.HoldingStack, projection.HoldingCandidate, observedAt(observation.Surveillance, now))
 	flight.RouteProgress = projection.Progress
 	previousState := flight.State
+	previousFreeze := flight.FreezeReason
 	raw.HoldingPlan = holdingPlan(raw, flight.Slot)
 	flight.FeederETA = holdingFeederETA(state.Authoritative, flight, raw, s.deps.Terminal)
 	nextState := lifecycleState(lifecycle.DefaultConfig(), flight, raw.RawTETA, now)
@@ -738,7 +746,40 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	}
 	updated := reduced.Flight
 	updateLifecycle(&updated, previousState, nextState, now)
+	applySuperstable(lifecycle.DefaultConfig(), &updated, previousFreeze, now)
 	return updated, nil
+}
+
+// applySuperstable runs after feeder-based lifecycle evaluation and prediction
+// acceptance. This keeps the Stable transition and its current slot/TETA
+// capture in the single airport reconciliation commit owned by the caller.
+func applySuperstable(config lifecycle.Config, flight *aman.AMANFlight, previousFreeze aman.FreezeReason, now time.Time) bool {
+	if flight.State != aman.StateStable || previousFreeze != aman.FreezeNone || flight.Slot == nil || flight.Prediction == nil ||
+		(flight.FreezeReason != aman.FreezeNone && flight.FreezeReason != aman.FreezeTMA) ||
+		!lifecycle.SuperstableFeederEligible(flight.FeederETA, now, config.SuperstableHorizon) {
+		return false
+	}
+	frozenAt := now
+	frozenTETA := flight.Prediction.OperationalTETA
+	frozenSlot := *flight.Slot
+	flight.FreezeReason = aman.FreezeSuperstable
+	flight.FrozenAt = &frozenAt
+	flight.FrozenOperationalTETA = &frozenTETA
+	flight.FrozenSlot = &frozenSlot
+	flight.Prediction.OperationalReason = aman.OperationalReasonSuperstableFreeze
+	return true
+}
+
+func superstableAuditRecord(airport string, flight aman.AMANFlight, recordedAt time.Time) (aman.AuditRecord, error) {
+	payload, err := json.Marshal(map[string]any{
+		"flight_id": flight.ID, "state": flight.State, "freeze_reason": flight.FreezeReason,
+		"feeder_eta": flight.FeederETA, "frozen_at": flight.FrozenAt,
+		"frozen_operational_teta": flight.FrozenOperationalTETA, "frozen_slot": flight.FrozenSlot,
+	})
+	if err != nil {
+		return aman.AuditRecord{}, fmt.Errorf("marshal Superstable audit result: %w", err)
+	}
+	return aman.AuditRecord{Airport: airport, Category: "aman.superstable_applied", Payload: payload, RecordedAt: recordedAt}, nil
 }
 
 func (s *Service) feeder(route string, runwayGroup aman.RunwayGroupID) (navdata.FeederID, bool) {

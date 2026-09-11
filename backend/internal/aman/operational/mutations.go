@@ -145,6 +145,7 @@ func (s *Service) activateRunwayGroup(state *aman.AirportState, selected aman.Ru
 		candidate.RunwayGroups[index].Selected = candidate.RunwayGroups[index].ID == selected
 		candidate.RunwayGroups[index].SelectionConflict = nil
 	}
+	candidate.ActiveRunwayGroups = []aman.RunwayGroupID{selected}
 	reassignFlightsToGroup(&candidate, selected)
 	input := s.sequenceInput(candidate)
 	if len(input.Flights) > 0 && len(input.Policies) > 0 {

@@ -183,6 +183,31 @@ func TestAirportStateRejectsMismatchedSlotRevisionAndDuplicateFlight(t *testing.
 	assertInvalidArgument(t, state.Validate())
 }
 
+func TestAirportStateValidatesAdditiveActiveRunwaySetWithLegacySelection(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	valid := AirportState{
+		Airport: "EKCH", GeneratedAt: now, PolicyVersion: "v1", Mode: ModeReadOnly,
+		RunwayGroups:       []RunwayGroupPolicy{{ID: "north", Selected: true}, {ID: "south"}},
+		ActiveRunwayGroups: []RunwayGroupID{"north", "south"},
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("validate active runway set: %v", err)
+	}
+
+	invalid := valid
+	invalid.ActiveRunwayGroups = []RunwayGroupID{}
+	assertInvalidArgument(t, invalid.Validate())
+	invalid.ActiveRunwayGroups = []RunwayGroupID{"north", "north"}
+	assertInvalidArgument(t, invalid.Validate())
+	invalid.ActiveRunwayGroups = []RunwayGroupID{"unknown"}
+	assertInvalidArgument(t, invalid.Validate())
+	invalid.ActiveRunwayGroups = []RunwayGroupID{"south"}
+	assertInvalidArgument(t, invalid.Validate())
+	invalid.RunwayGroups = []RunwayGroupPolicy{{ID: "north"}, {ID: "south"}}
+	invalid.ActiveRunwayGroups = []RunwayGroupID{"north"}
+	assertInvalidArgument(t, invalid.Validate())
+}
+
 func TestQueueOfferRequiresMatchingFlightSlotAndAirportRevision(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	flight := validFlight(now)

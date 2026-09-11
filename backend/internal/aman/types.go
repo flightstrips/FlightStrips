@@ -701,7 +701,10 @@ type AbsenceState struct {
 // RunwayGroupPolicy is the airport-state identity for a runway group. The
 // sequence component owns the policy's rate and spacing declarations.
 type RunwayGroupPolicy struct {
-	ID                RunwayGroupID
+	ID RunwayGroupID
+	// Active is the additive persistence marker for ActiveRunwayGroups. Selected
+	// remains the single-group compatibility projection during the rollout.
+	Active            bool
 	Selected          bool
 	SelectionSchedule []RunwayGroupSelectionPoint
 	SelectionConflict *string
@@ -784,6 +787,9 @@ type AirportState struct {
 	Authoritative bool
 	Flights       []AMANFlight
 	RunwayGroups  []RunwayGroupPolicy
+	// ActiveRunwayGroups is the canonical active landing-runway set. A nil slice
+	// denotes persisted legacy state that is still represented by Selected.
+	ActiveRunwayGroups []RunwayGroupID
 }
 
 // CommandMetadata is shared by typed command values. It deliberately does not
@@ -1565,6 +1571,7 @@ func (s AirportState) Validate() error {
 	}
 	groupIDs := make(map[RunwayGroupID]struct{}, len(s.RunwayGroups))
 	selectedGroups := 0
+	var selectedGroup RunwayGroupID
 	for _, group := range s.RunwayGroups {
 		if strings.TrimSpace(string(group.ID)) == "" {
 			return invalid("runway group ID is required")
@@ -1575,6 +1582,7 @@ func (s AirportState) Validate() error {
 		groupIDs[group.ID] = struct{}{}
 		if group.Selected {
 			selectedGroups++
+			selectedGroup = group.ID
 			if selectedGroups > 1 {
 				return invalid("airport state cannot select more than one runway group")
 			}
@@ -1614,6 +1622,30 @@ func (s AirportState) Validate() error {
 		}
 		if spacing := group.SameSTARSpacing; spacing != nil && spacing.Enabled && (spacing.ActivationRatePerHour == 0 || spacing.MinimumEmptySlots == 0) {
 			return invalid("runway group same-STAR spacing is invalid")
+		}
+	}
+	if s.ActiveRunwayGroups != nil {
+		if len(s.ActiveRunwayGroups) == 0 {
+			return invalid("airport state active runway groups cannot be empty")
+		}
+		active := make(map[RunwayGroupID]struct{}, len(s.ActiveRunwayGroups))
+		for _, id := range s.ActiveRunwayGroups {
+			if strings.TrimSpace(string(id)) == "" {
+				return invalid("airport state active runway group ID is required")
+			}
+			if _, exists := groupIDs[id]; !exists {
+				return invalid("airport state active runway group is not configured")
+			}
+			if _, exists := active[id]; exists {
+				return invalid("airport state contains duplicate active runway group")
+			}
+			active[id] = struct{}{}
+		}
+		if selectedGroups != 1 {
+			return invalid("airport state with active runway groups requires one legacy selected runway group")
+		}
+		if _, exists := active[selectedGroup]; !exists {
+			return invalid("legacy selected runway group must be active")
 		}
 	}
 	return nil

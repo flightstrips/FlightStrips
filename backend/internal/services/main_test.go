@@ -2,6 +2,7 @@ package services
 
 import (
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/pdc/testdata"
 	"os"
 	"testing"
 )
@@ -14,5 +15,9 @@ func TestMain(m *testing.M) {
 	if err := config.InitConfig(); err != nil {
 		panic("failed to initialize config: " + err.Error())
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	if err := testdata.ShutdownTestDB(); err != nil && code == 0 {
+		code = 1
+	}
+	os.Exit(code)
 }

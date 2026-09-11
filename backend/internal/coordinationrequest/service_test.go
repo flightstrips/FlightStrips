@@ -12,6 +12,7 @@ import (
 type recordingSubmitter struct {
 	request  Request
 	decision Decision
+	fact     OwnershipFact
 }
 
 func (r *recordingSubmitter) Submit(_ context.Context, request Request, revision uint64) (CommitResult, error) {
@@ -26,6 +27,11 @@ func (r *recordingSubmitter) Get(_ context.Context, _ string, _ RequestID) (Requ
 func (r *recordingSubmitter) Decide(_ context.Context, _ RequestID, decision Decision, revision uint64) (CommitResult, error) {
 	r.decision = decision
 	return CommitResult{Request: r.request, Revision: revision + 1}, nil
+}
+
+func (r *recordingSubmitter) TransferPending(_ context.Context, fact OwnershipFact) (TransferResult, error) {
+	r.fact = fact
+	return TransferResult{Revision: 4}, nil
 }
 
 type trackingControllerResolver struct {
@@ -109,4 +115,15 @@ func TestDecisionPayloadCannotSpoofAuthorityOrAudit(t *testing.T) {
 		_, present := typeOf.FieldByName(forbidden)
 		require.Falsef(t, present, "decision payload must not accept server-owned %s", forbidden)
 	}
+}
+
+func TestServiceObservesTrustedOwnershipFact(t *testing.T) {
+	repository := &recordingSubmitter{}
+	service := NewService(repository, &trackingControllerResolver{}, nil)
+	fact := OwnershipFact{Airport: "EKCH", FlightID: "flight-1", FactID: "es/42", Revision: 42,
+		Owner: "EKCH_DEP", ObservedAt: testTime}
+	result, err := service.ObserveOwnership(context.Background(), fact)
+	require.NoError(t, err)
+	require.Equal(t, uint64(4), result.Revision)
+	require.Equal(t, fact, repository.fact)
 }

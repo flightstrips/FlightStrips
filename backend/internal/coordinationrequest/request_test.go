@@ -113,3 +113,22 @@ func TestRequestRecipientStatusIsRollingCompatible(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(raw), `"recipient_status":"unassigned"`)
 }
+
+func TestPendingRequestTransfersRecipientWithoutChangingIdentityOrContent(t *testing.T) {
+	request := routeRequest(t, "transfer", testTime)
+	transferred, err := request.TransferRecipient("es/2", 2, "EKCH_DEP", testTime.Add(time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, request.ID, transferred.ID)
+	require.Equal(t, request.Payload, transferred.Payload)
+	require.Equal(t, request.Kind, transferred.Kind)
+	require.Equal(t, request.CreatedAt, transferred.CreatedAt)
+	require.Equal(t, request.State, transferred.State)
+	require.Equal(t, ControllerID("EKCH_DEP"), transferred.RecipientController)
+	require.Equal(t, []RecipientTransfer{{OwnershipFact: "es/2", OwnershipRevision: 2, PreviousRecipient: "EKCH_APP",
+		NewRecipient: "EKCH_DEP", TransferredAt: testTime.Add(time.Minute)}}, transferred.RecipientTransfers)
+
+	unassigned, err := transferred.TransferRecipient("es/3", 3, "", testTime.Add(2*time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, RecipientUnassigned, unassigned.RecipientStatus)
+	require.Empty(t, unassigned.RecipientController)
+}

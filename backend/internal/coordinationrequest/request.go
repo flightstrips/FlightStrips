@@ -58,26 +58,37 @@ type Decision struct {
 	ReceivedAt             time.Time    `json:"received_at"`
 }
 
+// RecipientTransfer records the authoritative ownership fact that moved a
+// pending request. An empty NewRecipient is the explicit unassigned state.
+type RecipientTransfer struct {
+	OwnershipFact     string       `json:"ownership_fact"`
+	OwnershipRevision uint64       `json:"ownership_revision"`
+	PreviousRecipient ControllerID `json:"previous_recipient,omitempty"`
+	NewRecipient      ControllerID `json:"new_recipient,omitempty"`
+	TransferredAt     time.Time    `json:"transferred_at"`
+}
+
 // Request is the durable aggregate. CommandID is retained so the derived ID
 // remains verifiable after restart and duplicate submissions remain idempotent.
 type Request struct {
-	ID                  RequestID       `json:"id"`
-	CommandID           string          `json:"command_id"`
-	Airport             string          `json:"airport"`
-	FlightID            FlightID        `json:"flight_id"`
-	RecipientController ControllerID    `json:"recipient_controller"`
-	RecipientStatus     RecipientStatus `json:"recipient_status,omitempty"`
-	SubmittedBy         string          `json:"submitted_by"`
-	SubmittedRole       string          `json:"submitted_role"`
-	Kind                Kind            `json:"kind"`
-	State               State           `json:"state"`
-	Payload             Payload         `json:"payload"`
-	CreatedAt           time.Time       `json:"created_at"`
-	UpdatedAt           time.Time       `json:"updated_at"`
-	ResolvedAt          *time.Time      `json:"resolved_at,omitempty"`
-	Supersedes          *RequestID      `json:"supersedes,omitempty"`
-	SupersededBy        *RequestID      `json:"superseded_by,omitempty"`
-	Decision            *Decision       `json:"decision,omitempty"`
+	ID                  RequestID           `json:"id"`
+	CommandID           string              `json:"command_id"`
+	Airport             string              `json:"airport"`
+	FlightID            FlightID            `json:"flight_id"`
+	RecipientController ControllerID        `json:"recipient_controller"`
+	RecipientStatus     RecipientStatus     `json:"recipient_status,omitempty"`
+	SubmittedBy         string              `json:"submitted_by"`
+	SubmittedRole       string              `json:"submitted_role"`
+	Kind                Kind                `json:"kind"`
+	State               State               `json:"state"`
+	Payload             Payload             `json:"payload"`
+	CreatedAt           time.Time           `json:"created_at"`
+	UpdatedAt           time.Time           `json:"updated_at"`
+	ResolvedAt          *time.Time          `json:"resolved_at,omitempty"`
+	Supersedes          *RequestID          `json:"supersedes,omitempty"`
+	SupersededBy        *RequestID          `json:"superseded_by,omitempty"`
+	Decision            *Decision           `json:"decision,omitempty"`
+	RecipientTransfers  []RecipientTransfer `json:"recipient_transfers,omitempty"`
 }
 
 func IDForCommand(commandID string) RequestID {
@@ -109,6 +120,13 @@ func (r Request) Validate() error {
 	}
 	if !utc(r.CreatedAt) || !utc(r.UpdatedAt) || r.UpdatedAt.Before(r.CreatedAt) {
 		return errors.New("coordination request timestamps must be chronological UTC values")
+	}
+	for index, transfer := range r.RecipientTransfers {
+		if !present(transfer.OwnershipFact) || transfer.OwnershipRevision == 0 || !utc(transfer.TransferredAt) ||
+			transfer.TransferredAt.Before(r.CreatedAt) || transfer.PreviousRecipient == transfer.NewRecipient ||
+			(index > 0 && transfer.OwnershipRevision <= r.RecipientTransfers[index-1].OwnershipRevision) {
+			return errors.New("coordination request recipient transfer audit is invalid")
+		}
 	}
 	if err := r.Payload.validate(r.Kind); err != nil {
 		return err
@@ -184,6 +202,22 @@ func (r Request) Decide(commandID, actor, role string, recipient ControllerID, n
 	resolved.Decision = &Decision{CommandID: commandID, Actor: actor, Role: role, AuthoritativeRecipient: recipient,
 		Airport: r.Airport, RequestID: r.ID, RequestKind: r.Kind, BeforeState: r.State, AfterState: next, Reason: reason, ReceivedAt: at}
 	return resolved, resolved.Validate()
+}
+
+func (r Request) TransferRecipient(fact string, revision uint64, recipient ControllerID, at time.Time) (Request, error) {
+	if err := r.Validate(); err != nil || r.State != StatePending || !present(fact) || revision == 0 || !utc(at) || at.Before(r.UpdatedAt) ||
+		r.RecipientController == recipient {
+		return Request{}, errors.New("coordination request recipient transfer is invalid")
+	}
+	transfer := RecipientTransfer{OwnershipFact: fact, OwnershipRevision: revision, PreviousRecipient: r.RecipientController,
+		NewRecipient: recipient, TransferredAt: at}
+	r.RecipientController, r.UpdatedAt = recipient, at
+	r.RecipientStatus = RecipientAssigned
+	if recipient == "" {
+		r.RecipientStatus = RecipientUnassigned
+	}
+	r.RecipientTransfers = append(r.RecipientTransfers, transfer)
+	return r, r.Validate()
 }
 
 func (p Payload) validate(kind Kind) error {

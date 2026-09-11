@@ -12,7 +12,7 @@ var testTime = time.Date(2026, 9, 12, 10, 0, 0, 0, time.UTC)
 
 func routeRequest(t *testing.T, commandID string, at time.Time) Request {
 	t.Helper()
-	request, err := New(commandID, "EKCH", "flight-1", "EKCH_APP", KindRouteDirect,
+	request, err := New(commandID, "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindRouteDirect,
 		Payload{RouteDirect: &RouteDirectPayload{DirectTo: "MONAK"}}, at)
 	require.NoError(t, err)
 	return request
@@ -22,7 +22,7 @@ func TestRequestKindsAndCommandDerivedIdentity(t *testing.T) {
 	route := routeRequest(t, "command-1", testTime)
 	require.Equal(t, RequestID("coordination-request/command-1"), route.ID)
 
-	speed, err := New("command-2", "EKCH", "flight-1", "EKCH_APP", KindSpeed,
+	speed, err := New("command-2", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindSpeed,
 		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime)
 	require.NoError(t, err)
 	require.Equal(t, KindSpeed, speed.Kind)
@@ -51,7 +51,7 @@ func TestRequestValidationRejectsIncompleteOrMismatchedAggregates(t *testing.T) 
 }
 
 func TestRequestAllowsOnlyPendingToTerminalTransitions(t *testing.T) {
-	for _, state := range []State{StateAccepted, StateRejected, StateSuperseded, StateExpired} {
+	for _, state := range []State{StateAccepted, StateRejected, StateExpired} {
 		t.Run(string(state), func(t *testing.T) {
 			request := routeRequest(t, "command-"+string(state), testTime)
 			resolved, err := request.Transition(state, testTime.Add(time.Minute))
@@ -62,9 +62,13 @@ func TestRequestAllowsOnlyPendingToTerminalTransitions(t *testing.T) {
 			require.Error(t, err, "terminal state must be immutable")
 		})
 	}
+	request := routeRequest(t, "command-superseded", testTime)
+	superseded, err := request.Supersede("coordination-request/replacement", testTime.Add(time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, StateSuperseded, superseded.State)
 
-	request := routeRequest(t, "command-invalid", testTime)
-	_, err := request.Transition(StatePending, testTime.Add(time.Minute))
+	request = routeRequest(t, "command-invalid", testTime)
+	_, err = request.Transition(StatePending, testTime.Add(time.Minute))
 	require.Error(t, err)
 	_, err = request.Transition(StateAccepted, testTime.Add(-time.Minute))
 	require.Error(t, err)
@@ -74,7 +78,7 @@ func TestRequestJSONIgnoresAdditiveFields(t *testing.T) {
 	var request Request
 	err := json.Unmarshal([]byte(`{
         "id":"coordination-request/command-1","command_id":"command-1","airport":"EKCH",
-        "flight_id":"flight-1","recipient_controller":"EKCH_APP","kind":"route_direct","state":"pending",
+        "flight_id":"flight-1","recipient_controller":"EKCH_APP","submitted_by":"1234567","submitted_role":"EKCH_FMH","kind":"route_direct","state":"pending",
         "payload":{"route_direct":{"direct_to":"MONAK","future_detail":"kept-by-new-writers"},"future_payload":true},
         "created_at":"2026-09-12T10:00:00Z","updated_at":"2026-09-12T10:00:00Z","future_top_level":42}`), &request)
 	require.NoError(t, err)

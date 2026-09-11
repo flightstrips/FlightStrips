@@ -26,6 +26,7 @@ func TestTerminalFragmentLegacyPayloadRetainsCanonicalDigest(t *testing.T) {
 	encoded, err := MarshalTerminalFragmentPayload(fragment)
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), "STARFamily")
+	require.NotContains(t, string(encoded), "TimelineMappings")
 	require.NotContains(t, string(encoded), "FeederFix")
 	require.NoError(t, UnmarshalTerminalFragmentPayload(encoded, &fragment))
 	require.NoError(t, fragment.Validate())
@@ -130,4 +131,57 @@ func TestTerminalFragmentPolicySerializationIsSorted(t *testing.T) {
 	require.NotEqual(t, -1, tudlo)
 	require.Less(t, ernov, tudlo)
 	require.Equal(t, STARFamilyID("TUDLO"), fragment.STARFamilyPolicies[0].STARFamily, "serialization must not mutate the caller")
+}
+
+func TestTerminalFragmentTimelineMappingsRoundTripSortedAndAffectDigest(t *testing.T) {
+	tespi, tudlo, ernov := STARFamilyID("TESPI"), STARFamilyID("TUDLO"), STARFamilyID("ERNOV")
+	fragment := CandidateTerminalFragment{Airport: "EKCH", ConfigVersion: "mapping-v1",
+		STARFamilyPolicies: []STARFamilyPolicy{{STARFamily: tespi}, {STARFamily: tudlo}, {STARFamily: ernov}},
+		TimelineMappings:   []TimelineMapping{{ID: 3, Left: &ernov}, {ID: 1, Left: &tespi, Right: &tudlo}},
+	}
+	encoded, err := MarshalTerminalFragmentPayload(fragment)
+	require.NoError(t, err)
+	require.Less(t, strings.Index(string(encoded), `"ID":1`), strings.Index(string(encoded), `"ID":3`))
+	require.Equal(t, TimelineMappingID(3), fragment.TimelineMappings[0].ID, "serialization must not mutate the caller")
+
+	var decoded CandidateTerminalFragment
+	require.NoError(t, UnmarshalTerminalFragmentPayload(encoded, &decoded))
+	require.Equal(t, []TimelineMapping{{ID: 1, Left: &tespi, Right: &tudlo}, {ID: 3, Left: &ernov}}, decoded.TimelineMappings)
+
+	without := fragment
+	without.TimelineMappings = nil
+	withDigest, err := CanonicalPayloadDigest(fragment.payload())
+	require.NoError(t, err)
+	withoutDigest, err := CanonicalPayloadDigest(without.payload())
+	require.NoError(t, err)
+	require.NotEqual(t, withoutDigest, withDigest)
+}
+
+func TestTerminalFragmentRejectsInvalidTimelineMappings(t *testing.T) {
+	tespi, unknown, noncanonical := STARFamilyID("TESPI"), STARFamilyID("UNKNOWN"), STARFamilyID("tespi")
+	version, provenance := testVersion(), testProvenance()
+	validated := provenance.ImportedAt.Add(time.Minute)
+	path := TerminalPath{Version: version, Airport: "EKCH", Feeder: "TESPI", RunwayGroup: "SOUTH", Coverage: CoverageComplete, Provenance: provenance, Digest: "path"}
+	base := CandidateTerminalFragment{SchemaVersion: CanonicalSchemaVersion, Version: version, Airport: "EKCH", ConfigVersion: "mapping-v1", Paths: []TerminalPath{path}, Provenance: provenance, ImportedAt: provenance.ImportedAt, ValidatedAt: &validated, State: ValidationValidated}
+	tests := []struct {
+		name     string
+		mappings []TimelineMapping
+		want     string
+	}{
+		{"zero ID", []TimelineMapping{{ID: 0, Left: &tespi}}, "mapping ID is invalid"},
+		{"duplicate ID", []TimelineMapping{{ID: 1, Left: &tespi}, {ID: 1, Right: &tespi}}, "duplicate timeline mapping ID"},
+		{"empty", []TimelineMapping{{ID: 1}}, "timeline mapping is empty"},
+		{"unknown family", []TimelineMapping{{ID: 1, Left: &unknown}}, "references unknown STAR family"},
+		{"noncanonical family", []TimelineMapping{{ID: 1, Left: &noncanonical}}, "STAR family is invalid"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fragment := base
+			fragment.TimelineMappings = test.mappings
+			digest, err := CanonicalFragmentDigest(fragment.SchemaVersion, fragment.Version, fragment.Provenance, fragment.payload())
+			require.NoError(t, err)
+			fragment.Digest = digest
+			require.ErrorContains(t, fragment.Validate(), test.want)
+		})
+	}
 }

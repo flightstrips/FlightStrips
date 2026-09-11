@@ -33,9 +33,29 @@ describe("AMAN V1 full replacement contract", () => {
     delete legacy.data.holding_information;
     delete legacy.data.flights[0].star_family;
     delete legacy.data.flights[0].feeder_fix;
+    delete legacy.data.flights[0].feeder_fix_eta;
+    delete legacy.data.flights[0].feeder_fix_eta_source;
+    delete legacy.data.flights[0].feeder_fix_passed;
 
     expect(isAMANStateEvent(legacy)).toBe(true);
     expect(replaceAMANState(null, legacy)).toMatchObject({accepted: true, error: null});
+  });
+
+  it("validates new feeder ETA provenance and passed state", () => {
+    const route = replacement(8);
+    expect(isAMANStateEvent(route)).toBe(true);
+
+    const passed = replacement(9);
+    passed.data.flights[0].feeder_fix_eta = null;
+    passed.data.flights[0].feeder_fix_eta_source = "passed";
+    passed.data.flights[0].feeder_fix_passed = true;
+    expect(isAMANStateEvent(passed)).toBe(true);
+
+    passed.data.flights[0].feeder_fix_eta = "2026-07-22T10:12:00.000Z";
+    expect(isAMANStateEvent(passed)).toBe(false);
+    passed.data.flights[0].feeder_fix_eta = null;
+    passed.data.flights[0].feeder_fix_eta_source = "landing" as "route";
+    expect(isAMANStateEvent(passed)).toBe(false);
   });
 
   it("accepts holding information with missing EAT and CFL", () => {

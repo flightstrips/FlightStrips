@@ -9634,7 +9634,10 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     kStarFamilyFieldNumber = 8,
     kFeederFixFieldNumber = 9,
     kHoldingFixFieldNumber = 10,
+    kFeederFixEtaFieldNumber = 11,
+    kFeederFixEtaSourceFieldNumber = 12,
     kGainLossSecondsFieldNumber = 3,
+    kFeederFixPassedFieldNumber = 13,
   };
   // string flight_id = 1;
   void clear_flight_id() ;
@@ -9786,6 +9789,40 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   std::string* _internal_mutable_holding_fix();
 
   public:
+  // optional string feeder_fix_eta = 11;
+  bool has_feeder_fix_eta() const;
+  void clear_feeder_fix_eta() ;
+  const std::string& feeder_fix_eta() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_feeder_fix_eta(Arg_&& arg, Args_... args);
+  std::string* mutable_feeder_fix_eta();
+  PROTOBUF_NODISCARD std::string* release_feeder_fix_eta();
+  void set_allocated_feeder_fix_eta(std::string* value);
+
+  private:
+  const std::string& _internal_feeder_fix_eta() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_feeder_fix_eta(
+      const std::string& value);
+  std::string* _internal_mutable_feeder_fix_eta();
+
+  public:
+  // optional string feeder_fix_eta_source = 12;
+  bool has_feeder_fix_eta_source() const;
+  void clear_feeder_fix_eta_source() ;
+  const std::string& feeder_fix_eta_source() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_feeder_fix_eta_source(Arg_&& arg, Args_... args);
+  std::string* mutable_feeder_fix_eta_source();
+  PROTOBUF_NODISCARD std::string* release_feeder_fix_eta_source();
+  void set_allocated_feeder_fix_eta_source(std::string* value);
+
+  private:
+  const std::string& _internal_feeder_fix_eta_source() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_feeder_fix_eta_source(
+      const std::string& value);
+  std::string* _internal_mutable_feeder_fix_eta_source();
+
+  public:
   // optional int64 gain_loss_seconds = 3;
   bool has_gain_loss_seconds() const;
   void clear_gain_loss_seconds() ;
@@ -9797,13 +9834,24 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   void _internal_set_gain_loss_seconds(::int64_t value);
 
   public:
+  // optional bool feeder_fix_passed = 13;
+  bool has_feeder_fix_passed() const;
+  void clear_feeder_fix_passed() ;
+  bool feeder_fix_passed() const;
+  void set_feeder_fix_passed(bool value);
+
+  private:
+  bool _internal_feeder_fix_passed() const;
+  void _internal_set_feeder_fix_passed(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.AMANGainLossValue)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 10, 0,
-      160, 2>
+      4, 13, 0,
+      195, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -9829,7 +9877,10 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr star_family_;
     ::google::protobuf::internal::ArenaStringPtr feeder_fix_;
     ::google::protobuf::internal::ArenaStringPtr holding_fix_;
+    ::google::protobuf::internal::ArenaStringPtr feeder_fix_eta_;
+    ::google::protobuf::internal::ArenaStringPtr feeder_fix_eta_source_;
     ::int64_t gain_loss_seconds_;
+    bool feeder_fix_passed_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -28807,13 +28858,13 @@ inline void AMANGainLossValue::set_allocated_callsign(std::string* value) {
 
 // optional int64 gain_loss_seconds = 3;
 inline bool AMANGainLossValue::has_gain_loss_seconds() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000040u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000100u) != 0;
   return value;
 }
 inline void AMANGainLossValue::clear_gain_loss_seconds() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.gain_loss_seconds_ = ::int64_t{0};
-  _impl_._has_bits_[0] &= ~0x00000040u;
+  _impl_._has_bits_[0] &= ~0x00000100u;
 }
 inline ::int64_t AMANGainLossValue::gain_loss_seconds() const {
   // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.gain_loss_seconds)
@@ -28821,7 +28872,7 @@ inline ::int64_t AMANGainLossValue::gain_loss_seconds() const {
 }
 inline void AMANGainLossValue::set_gain_loss_seconds(::int64_t value) {
   _internal_set_gain_loss_seconds(value);
-  _impl_._has_bits_[0] |= 0x00000040u;
+  _impl_._has_bits_[0] |= 0x00000100u;
   // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.gain_loss_seconds)
 }
 inline ::int64_t AMANGainLossValue::_internal_gain_loss_seconds() const {
@@ -29307,6 +29358,176 @@ inline void AMANGainLossValue::set_allocated_holding_fix(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.AMANGainLossValue.holding_fix)
+}
+
+// optional string feeder_fix_eta = 11;
+inline bool AMANGainLossValue::has_feeder_fix_eta() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000040u) != 0;
+  return value;
+}
+inline void AMANGainLossValue::clear_feeder_fix_eta() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.feeder_fix_eta_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000040u;
+}
+inline const std::string& AMANGainLossValue::feeder_fix_eta() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta)
+  return _internal_feeder_fix_eta();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void AMANGainLossValue::set_feeder_fix_eta(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000040u;
+  _impl_.feeder_fix_eta_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta)
+}
+inline std::string* AMANGainLossValue::mutable_feeder_fix_eta() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_feeder_fix_eta();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta)
+  return _s;
+}
+inline const std::string& AMANGainLossValue::_internal_feeder_fix_eta() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.feeder_fix_eta_.Get();
+}
+inline void AMANGainLossValue::_internal_set_feeder_fix_eta(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000040u;
+  _impl_.feeder_fix_eta_.Set(value, GetArena());
+}
+inline std::string* AMANGainLossValue::_internal_mutable_feeder_fix_eta() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000040u;
+  return _impl_.feeder_fix_eta_.Mutable( GetArena());
+}
+inline std::string* AMANGainLossValue::release_feeder_fix_eta() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta)
+  if ((_impl_._has_bits_[0] & 0x00000040u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000040u;
+  auto* released = _impl_.feeder_fix_eta_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.feeder_fix_eta_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void AMANGainLossValue::set_allocated_feeder_fix_eta(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000040u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000040u;
+  }
+  _impl_.feeder_fix_eta_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.feeder_fix_eta_.IsDefault()) {
+          _impl_.feeder_fix_eta_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta)
+}
+
+// optional string feeder_fix_eta_source = 12;
+inline bool AMANGainLossValue::has_feeder_fix_eta_source() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000080u) != 0;
+  return value;
+}
+inline void AMANGainLossValue::clear_feeder_fix_eta_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.feeder_fix_eta_source_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000080u;
+}
+inline const std::string& AMANGainLossValue::feeder_fix_eta_source() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta_source)
+  return _internal_feeder_fix_eta_source();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void AMANGainLossValue::set_feeder_fix_eta_source(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000080u;
+  _impl_.feeder_fix_eta_source_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta_source)
+}
+inline std::string* AMANGainLossValue::mutable_feeder_fix_eta_source() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_feeder_fix_eta_source();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta_source)
+  return _s;
+}
+inline const std::string& AMANGainLossValue::_internal_feeder_fix_eta_source() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.feeder_fix_eta_source_.Get();
+}
+inline void AMANGainLossValue::_internal_set_feeder_fix_eta_source(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000080u;
+  _impl_.feeder_fix_eta_source_.Set(value, GetArena());
+}
+inline std::string* AMANGainLossValue::_internal_mutable_feeder_fix_eta_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000080u;
+  return _impl_.feeder_fix_eta_source_.Mutable( GetArena());
+}
+inline std::string* AMANGainLossValue::release_feeder_fix_eta_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta_source)
+  if ((_impl_._has_bits_[0] & 0x00000080u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000080u;
+  auto* released = _impl_.feeder_fix_eta_source_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.feeder_fix_eta_source_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void AMANGainLossValue::set_allocated_feeder_fix_eta_source(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000080u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000080u;
+  }
+  _impl_.feeder_fix_eta_source_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.feeder_fix_eta_source_.IsDefault()) {
+          _impl_.feeder_fix_eta_source_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_eta_source)
+}
+
+// optional bool feeder_fix_passed = 13;
+inline bool AMANGainLossValue::has_feeder_fix_passed() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000200u) != 0;
+  return value;
+}
+inline void AMANGainLossValue::clear_feeder_fix_passed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.feeder_fix_passed_ = false;
+  _impl_._has_bits_[0] &= ~0x00000200u;
+}
+inline bool AMANGainLossValue::feeder_fix_passed() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_passed)
+  return _internal_feeder_fix_passed();
+}
+inline void AMANGainLossValue::set_feeder_fix_passed(bool value) {
+  _internal_set_feeder_fix_passed(value);
+  _impl_._has_bits_[0] |= 0x00000200u;
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.feeder_fix_passed)
+}
+inline bool AMANGainLossValue::_internal_feeder_fix_passed() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.feeder_fix_passed_;
+}
+inline void AMANGainLossValue::_internal_set_feeder_fix_passed(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.feeder_fix_passed_ = value;
 }
 
 // -------------------------------------------------------------------

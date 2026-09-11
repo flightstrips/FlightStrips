@@ -375,6 +375,52 @@ type Prediction struct {
 	Calculation *PredictionCalculation
 }
 
+// FeederETASource records which policy owns the current feeder-fix timing.
+// It is deliberately independent from landing and holding-fix prediction
+// provenance so later lifecycle policy cannot silently substitute either.
+type FeederETASource string
+
+const (
+	FeederETASourceRoute   FeederETASource = "route"
+	FeederETASourceHolding FeederETASource = "holding"
+	FeederETASourceManual  FeederETASource = "manual"
+	FeederETASourcePassed  FeederETASource = "passed"
+)
+
+func (s FeederETASource) Valid() bool {
+	switch s {
+	case FeederETASourceRoute, FeederETASourceHolding, FeederETASourceManual, FeederETASourcePassed:
+		return true
+	default:
+		return false
+	}
+}
+
+// FeederETAState is the persisted feeder-fix timing and its provenance.
+// Passed is an authoritative route-progress fact, not a synthetic timestamp:
+// a passed feeder therefore has no ETA and uses the passed source.
+type FeederETAState struct {
+	ETA    *time.Time
+	Source FeederETASource
+	Passed bool
+}
+
+func (s FeederETAState) Validate() error {
+	if !s.Source.Valid() {
+		return invalid("feeder ETA source is invalid")
+	}
+	if s.Passed {
+		if s.Source != FeederETASourcePassed || s.ETA != nil {
+			return invalid("passed feeder must use passed provenance without an ETA")
+		}
+		return nil
+	}
+	if s.Source == FeederETASourcePassed || s.ETA == nil {
+		return invalid("unpassed feeder requires an ETA and timing provenance")
+	}
+	return requireUTCTime("feeder ETA", *s.ETA)
+}
+
 type PredictionBasis string
 
 const (
@@ -818,6 +864,7 @@ type AMANFlight struct {
 	SelectedSTARFamily   *string
 	SelectedFeederFix    *string
 	SelectedHolding      *string
+	FeederETA            *FeederETAState
 	HoldingClearance     *HoldingClearance
 	HoldingStack         *HoldingStackState
 	ActiveRouteFact      *RouteFact
@@ -1183,6 +1230,14 @@ func (f AMANFlight) Validate() error {
 	}
 	if f.SelectedFeederFix != nil && (f.SelectedSTARFamily == nil || !isTrimmedNonEmpty(*f.SelectedFeederFix)) {
 		return invalid("selected feeder fix requires a valid selected STAR family")
+	}
+	if f.FeederETA != nil {
+		if f.SelectedFeederFix == nil {
+			return invalid("feeder ETA requires a selected feeder fix")
+		}
+		if err := f.FeederETA.Validate(); err != nil {
+			return err
+		}
 	}
 	if f.Prediction != nil {
 		if err := f.Prediction.Validate(); err != nil {

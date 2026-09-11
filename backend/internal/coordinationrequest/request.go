@@ -12,6 +12,7 @@ type State string
 type RequestID string
 type FlightID string
 type ControllerID string
+type RecipientStatus string
 
 const (
 	KindRouteDirect Kind = "route_direct"
@@ -22,6 +23,9 @@ const (
 	StateRejected   State = "rejected"
 	StateSuperseded State = "superseded"
 	StateExpired    State = "expired"
+
+	RecipientAssigned   RecipientStatus = "assigned"
+	RecipientUnassigned RecipientStatus = "unassigned"
 )
 
 type RouteDirectPayload struct {
@@ -41,21 +45,22 @@ type Payload struct {
 // Request is the durable aggregate. CommandID is retained so the derived ID
 // remains verifiable after restart and duplicate submissions remain idempotent.
 type Request struct {
-	ID                  RequestID    `json:"id"`
-	CommandID           string       `json:"command_id"`
-	Airport             string       `json:"airport"`
-	FlightID            FlightID     `json:"flight_id"`
-	RecipientController ControllerID `json:"recipient_controller"`
-	SubmittedBy         string       `json:"submitted_by"`
-	SubmittedRole       string       `json:"submitted_role"`
-	Kind                Kind         `json:"kind"`
-	State               State        `json:"state"`
-	Payload             Payload      `json:"payload"`
-	CreatedAt           time.Time    `json:"created_at"`
-	UpdatedAt           time.Time    `json:"updated_at"`
-	ResolvedAt          *time.Time   `json:"resolved_at,omitempty"`
-	Supersedes          *RequestID   `json:"supersedes,omitempty"`
-	SupersededBy        *RequestID   `json:"superseded_by,omitempty"`
+	ID                  RequestID       `json:"id"`
+	CommandID           string          `json:"command_id"`
+	Airport             string          `json:"airport"`
+	FlightID            FlightID        `json:"flight_id"`
+	RecipientController ControllerID    `json:"recipient_controller"`
+	RecipientStatus     RecipientStatus `json:"recipient_status,omitempty"`
+	SubmittedBy         string          `json:"submitted_by"`
+	SubmittedRole       string          `json:"submitted_role"`
+	Kind                Kind            `json:"kind"`
+	State               State           `json:"state"`
+	Payload             Payload         `json:"payload"`
+	CreatedAt           time.Time       `json:"created_at"`
+	UpdatedAt           time.Time       `json:"updated_at"`
+	ResolvedAt          *time.Time      `json:"resolved_at,omitempty"`
+	Supersedes          *RequestID      `json:"supersedes,omitempty"`
+	SupersededBy        *RequestID      `json:"superseded_by,omitempty"`
 }
 
 func IDForCommand(commandID string) RequestID {
@@ -63,15 +68,27 @@ func IDForCommand(commandID string) RequestID {
 }
 
 func New(commandID, airport string, flightID FlightID, recipient ControllerID, actor, role string, kind Kind, payload Payload, at time.Time) (Request, error) {
+	status := RecipientAssigned
+	if recipient == "" {
+		status = RecipientUnassigned
+	}
 	r := Request{ID: IDForCommand(commandID), CommandID: commandID, Airport: airport, FlightID: flightID,
-		RecipientController: recipient, SubmittedBy: actor, SubmittedRole: role, Kind: kind, State: StatePending, Payload: payload, CreatedAt: at, UpdatedAt: at}
+		RecipientController: recipient, RecipientStatus: status, SubmittedBy: actor, SubmittedRole: role,
+		Kind: kind, State: StatePending, Payload: payload, CreatedAt: at, UpdatedAt: at}
 	return r, r.Validate()
 }
 
 func (r Request) Validate() error {
 	if !present(r.CommandID) || r.ID != IDForCommand(r.CommandID) || !present(r.Airport) ||
-		!present(string(r.FlightID)) || !present(string(r.RecipientController)) || !present(r.SubmittedBy) || !present(r.SubmittedRole) {
+		!present(string(r.FlightID)) || !present(r.SubmittedBy) || !present(r.SubmittedRole) {
 		return errors.New("coordination request identity and ownership must be complete and trimmed")
+	}
+	// An omitted status is the rolling-upgrade representation written before
+	// unassigned recipients were supported.
+	if (r.RecipientStatus == "" || r.RecipientStatus == RecipientAssigned) && !present(string(r.RecipientController)) ||
+		r.RecipientStatus == RecipientUnassigned && r.RecipientController != "" ||
+		r.RecipientStatus != "" && r.RecipientStatus != RecipientAssigned && r.RecipientStatus != RecipientUnassigned {
+		return errors.New("coordination request recipient assignment is invalid")
 	}
 	if !utc(r.CreatedAt) || !utc(r.UpdatedAt) || r.UpdatedAt.Before(r.CreatedAt) {
 		return errors.New("coordination request timestamps must be chronological UTC values")
@@ -93,6 +110,13 @@ func (r Request) Validate() error {
 		return errors.New("coordination request supersede audit links are invalid")
 	}
 	return nil
+}
+
+func (r Request) effectiveRecipientStatus() RecipientStatus {
+	if r.RecipientStatus == "" {
+		return RecipientAssigned
+	}
+	return r.RecipientStatus
 }
 
 func (r Request) Supersede(next RequestID, at time.Time) (Request, error) {

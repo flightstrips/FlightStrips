@@ -30,6 +30,7 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		{"remove", frontendEvents.AMANRemoveFlightType, `{"type":"aman.remove_flight","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "remove"},
 		{"rate", frontendEvents.AMANSetRateType, `{"type":"aman.set_rate","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","arrivals_per_hour":30,"effective_at":"2026-07-22T12:05:00Z"}}`, "rate"},
 		{"runway selection", frontendEvents.AMANSelectRunwayGroupType, `{"type":"aman.select_runway_group","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","effective_at":"2026-07-22T12:05:00Z"}}`, "runway_selection"},
+		{"active runway set", frontendEvents.AMANSetActiveRunwayGroupsType, `{"type":"aman.set_active_runway_groups","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_ids":["A","B"]}}`, "set_active_runway_groups"},
 		{"accept", frontendEvents.AMANAcceptTETAType, `{"type":"aman.accept_teta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "accept"},
 		{"keep", frontendEvents.AMANKeepFPLETAType, `{"type":"aman.keep_fpl_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1"}}`, "keep"},
 		{"manual", frontendEvents.AMANSetManualETAType, `{"type":"aman.set_manual_eta","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","manual_eta":"2026-07-22T12:10:00Z"}}`, "manual"},
@@ -102,6 +103,14 @@ func (r *coordinationRecorder) TransferPending(context.Context, coordinationrequ
 }
 func (r *coordinationRecorder) ReplayAirport(context.Context, string) ([]coordinationrequest.Request, error) {
 	return []coordinationrequest.Request{r.request}, nil
+}
+
+func TestAMANActiveRunwayTransportPreservesCompleteSet(t *testing.T) {
+	service := &recordingAMANCommandService{}
+	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+	payload := `{"type":"aman.set_active_runway_groups","version":1,"data":{"command_id":"runways","expected_revision":7,"runway_group_ids":["A","B"]}}`
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANSetActiveRunwayGroupsType, Message: []byte(payload)}))
+	require.Equal(t, []aman.RunwayGroupID{"A", "B"}, service.activeRunways.RunwayGroupIDs)
 }
 
 func TestAMANGapTransportMapsOperationalFields(t *testing.T) {
@@ -275,15 +284,16 @@ func newAMANCommandTestClient(service aman.CommandService, now time.Time) (*Hub,
 }
 
 type recordingAMANCommandService struct {
-	operation   string
-	auth        aman.CommandContext
-	metadata    aman.CommandMetadata
-	execution   aman.CommandExecution
-	err         error
-	calls       int
-	createGap   aman.CreateRunwayGapCommand
-	removeGap   aman.RemoveRunwayGapCommand
-	placeAtTime aman.PlaceFlightAtTimeCommand
+	operation     string
+	auth          aman.CommandContext
+	metadata      aman.CommandMetadata
+	execution     aman.CommandExecution
+	err           error
+	calls         int
+	createGap     aman.CreateRunwayGapCommand
+	removeGap     aman.RemoveRunwayGapCommand
+	placeAtTime   aman.PlaceFlightAtTimeCommand
+	activeRunways aman.SetActiveRunwayGroupsCommand
 }
 
 func (*recordingAMANCommandService) Name() string { return "recording AMAN command service" }
@@ -327,6 +337,7 @@ func (s *recordingAMANCommandService) SelectRunwayGroup(_ context.Context, auth 
 	return s.record("runway_selection", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) SetActiveRunwayGroups(_ context.Context, auth aman.CommandContext, command aman.SetActiveRunwayGroupsCommand) (aman.CommandExecution, error) {
+	s.activeRunways = command
 	return s.record("set_active_runway_groups", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) CreateRunwayGap(_ context.Context, auth aman.CommandContext, command aman.CreateRunwayGapCommand) (aman.CommandExecution, error) {

@@ -250,6 +250,11 @@ describe("AMAN command store", () => {
   it("stores the complete active runway set and derives it from legacy selection", () => {
     expect(store.getState().amanState?.active_runway_groups).toEqual(["ARRIVAL-22"]);
 
+    const commandID = store.getState().sendAMANCommand({type: "aman.set_active_runway_groups", runway_group_ids: ["ARRIVAL-22", "ARRIVAL-04"]})!;
+    expect(client.send).toHaveBeenLastCalledWith({type: "aman.set_active_runway_groups", version: 1, data: {command_id: commandID, expected_revision: 7, runway_group_ids: ["ARRIVAL-22", "ARRIVAL-04"]}});
+    expect(store.getState().amanPendingCommands[commandID]).toMatchObject({runway_group_ids: ["ARRIVAL-22", "ARRIVAL-04"]});
+    expect(store.getState().amanState?.active_runway_groups).toEqual(["ARRIVAL-22"]);
+
     const multiRunway = replacement(8);
     multiRunway.data.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
     multiRunway.data.active_runway_groups = ["ARRIVAL-04", "ARRIVAL-22"];

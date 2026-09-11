@@ -3,30 +3,31 @@ package frontend
 import "FlightStrips/internal/coordinationrequest"
 
 const (
-	AMANMoveFlightType           EventType = "aman.move_flight"
-	AMANLockFlightType           EventType = "aman.lock_flight"
-	AMANUnlockFlightType         EventType = "aman.unlock_flight"
-	AMANDesequenceFlightType     EventType = "aman.desequence_flight"
-	AMANResumeFlightType         EventType = "aman.resume_flight"
-	AMANRemoveFlightType         EventType = "aman.remove_flight"
-	AMANSetRateType              EventType = "aman.set_rate"
-	AMANSelectRunwayGroupType    EventType = "aman.select_runway_group"
-	AMANAcceptTETAType           EventType = "aman.accept_teta"
-	AMANKeepFPLETAType           EventType = "aman.keep_fpl_eta"
-	AMANSetManualETAType         EventType = "aman.set_manual_eta"
-	AMANResetTETAOverrideType    EventType = "aman.reset_teta_override"
-	AMANSetManualFeederETAType   EventType = "aman.set_manual_feeder_eta"
-	AMANResetManualFeederETAType EventType = "aman.reset_manual_feeder_eta"
-	AMANRecomputeFlightType      EventType = "aman.recompute_flight"
-	AMANChangeRunwayType         EventType = "aman.change_runway"
-	AMANReportGoAroundType       EventType = "aman.report_go_around"
-	AMANConfirmGoAroundType      EventType = "aman.confirm_go_around"
-	AMANRejectGoAroundType       EventType = "aman.reject_go_around"
-	AMANCreateGapType            EventType = "aman.create_gap"
-	AMANRemoveGapType            EventType = "aman.remove_gap"
-	AMANPlaceFlightAtTimeType    EventType = "aman.place_flight_at_time"
-	AMANSubmitCoordinationType   EventType = "aman.submit_coordination_request"
-	AMANCoordinationStateType    EventType = "aman.coordination_state"
+	AMANMoveFlightType            EventType = "aman.move_flight"
+	AMANLockFlightType            EventType = "aman.lock_flight"
+	AMANUnlockFlightType          EventType = "aman.unlock_flight"
+	AMANDesequenceFlightType      EventType = "aman.desequence_flight"
+	AMANResumeFlightType          EventType = "aman.resume_flight"
+	AMANRemoveFlightType          EventType = "aman.remove_flight"
+	AMANSetRateType               EventType = "aman.set_rate"
+	AMANSelectRunwayGroupType     EventType = "aman.select_runway_group"
+	AMANSetActiveRunwayGroupsType EventType = "aman.set_active_runway_groups"
+	AMANAcceptTETAType            EventType = "aman.accept_teta"
+	AMANKeepFPLETAType            EventType = "aman.keep_fpl_eta"
+	AMANSetManualETAType          EventType = "aman.set_manual_eta"
+	AMANResetTETAOverrideType     EventType = "aman.reset_teta_override"
+	AMANSetManualFeederETAType    EventType = "aman.set_manual_feeder_eta"
+	AMANResetManualFeederETAType  EventType = "aman.reset_manual_feeder_eta"
+	AMANRecomputeFlightType       EventType = "aman.recompute_flight"
+	AMANChangeRunwayType          EventType = "aman.change_runway"
+	AMANReportGoAroundType        EventType = "aman.report_go_around"
+	AMANConfirmGoAroundType       EventType = "aman.confirm_go_around"
+	AMANRejectGoAroundType        EventType = "aman.reject_go_around"
+	AMANCreateGapType             EventType = "aman.create_gap"
+	AMANRemoveGapType             EventType = "aman.remove_gap"
+	AMANPlaceFlightAtTimeType     EventType = "aman.place_flight_at_time"
+	AMANSubmitCoordinationType    EventType = "aman.submit_coordination_request"
+	AMANCoordinationStateType     EventType = "aman.coordination_state"
 )
 
 type AMANCommandMeta struct {
@@ -64,6 +65,11 @@ type AMANSelectRunwayGroupRequest struct {
 	AMANCommandMeta
 	RunwayGroupID string `json:"runway_group_id"`
 	EffectiveAt   string `json:"effective_at"`
+}
+
+type AMANSetActiveRunwayGroupsRequest struct {
+	AMANCommandMeta
+	RunwayGroupIDs []string `json:"runway_group_ids"`
 }
 
 type AMANSetManualETARequest struct {
@@ -166,6 +172,12 @@ type AMANSelectRunwayGroupMessage struct {
 	Type    EventType                    `json:"type"`
 	Version int                          `json:"version"`
 	Data    AMANSelectRunwayGroupRequest `json:"data"`
+}
+
+type AMANSetActiveRunwayGroupsMessage struct {
+	Type    EventType                        `json:"type"`
+	Version int                              `json:"version"`
+	Data    AMANSetActiveRunwayGroupsRequest `json:"data"`
 }
 
 type AMANSetManualETAMessage struct {

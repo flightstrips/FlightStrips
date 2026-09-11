@@ -170,12 +170,12 @@ Clicking a target opens the aircraft dialog. The Figma menu contains the followi
 
 - **Information** opens the read-only flight-information view.
 - **Recompute** requests a new physical prediction without silently releasing Stable, Superstable, manual, or validated TMA protection.
-- **Refresh Delay** re-renders/re-requests authoritative gain/lose information. It is a recovery action and must not create an independent frontend calculation.
+- **Refresh Delay** is deferred from the initial workspace. Authoritative gain/lose already arrives through full replacement state; no distinct operational refresh behavior has been approved.
 - **Alternate Runway** selects the configured paired runway: 22L ↔ 22R and 04L ↔ 04R for the initial EKCH configuration.
 - **Change Runway** assigns a chosen runway. For Stable/Superstable aircraft, the established sequence position remains protected while a valid target-runway slot is resolved; conflicts are rejected visibly.
 - **Change ETA-FF** applies an explicit, audited manual feeder-fix ETA override and displays its provenance.
-- **Maximum Delay** defines an operational upper bound for that aircraft. It may move the aircraft to the earliest legal position but never bypass wake separation or silently displace protected traffic.
-- **Coordination** opens the tactical-request dialog for routing/direct or speed requests. A request is distinct from an accepted controller clearance and does not become a route fact until the authoritative workflow accepts it. The inspected dialog is `370 × 471`.
+- **Maximum Delay** is deferred from the initial workspace because its operational meaning has not been defined. The initial menu must omit it rather than expose placeholder or disabled behavior.
+- **Coordination** opens an in-application request from FMP to the aircraft's authoritative tracking controller for either routing/direct or speed. One request per kind may be pending; a newer request of the same kind supersedes the older one. A tracking-controller handoff transfers the request and is audited. Acceptance records agreement but does not change AMAN route or speed inputs until the authoritative clearance fact is observed. The inspected dialog is `370 × 471`; implementation is tracked as a separate child feature rather than folded into the target/dialog PR.
 - **Missed Approach** opens a confirmation action and then uses the configured ten-minute go-around model.
 - **De-sequence** moves the aircraft into DSEQ without deleting it. DSEQ shows a count and allows an authorized controller to resume or remove an entry.
 - **Insert Closure** begins a runway-capacity closure either after a selected aircraft or at an explicit absolute UTC time and renders a red overlay across every visible lane for the affected runway.
@@ -328,17 +328,19 @@ A flight appearing close to EKCH must remain Unstable for at least two minutes b
 
 ### Stable
 
-Stable is based on predicted time remaining to the configured feeder fix, normally about 20 minutes, and requires at least two minutes in Unstable.
+Stable is based on predicted time remaining to the configured feeder fix. It begins at or below 20 minutes and requires at least two continuous minutes in Unstable.
 
 On becoming Stable, the flight keeps its relative sequence and current slot protection. It may move into a legal vacancy under the defined queue/resequence rules but must not displace protected traffic merely because its TETA changes.
 
 ### Superstable
 
-Superstable is the locked phase of a Stable flight. It is based on predicted time remaining to the same configured feeder fix, normally about 10 minutes. The current implementation represents this as a freeze reason rather than a separate lifecycle enum; that representation may remain as long as external behavior is unambiguous.
+Superstable is the locked phase of a Stable flight. It begins at or below 10 minutes to the same configured feeder fix. The current implementation represents this as a freeze reason rather than a separate lifecycle enum; that representation may remain as long as external behavior is unambiguous. If the two-minute Unstable dwell completes when the aircraft is already within the Superstable threshold, Stable transition and Superstable slot capture occur atomically in one committed airport revision.
 
 At the boundary, AMAN captures the operational TETA and landing slot. Raw prediction continues for drift monitoring. Only explicitly authorized exceptional behavior, such as the defined go-around or manual workflow, may change the protected result.
 
-Stable and Superstable must not use landing TETA or a holding-fix ETA as a silent substitute when feeder-fix ETA is unavailable. Missing feeder-fix prediction is a visible degraded state.
+Stable and Superstable must not use landing TETA or a holding-fix ETA as a silent substitute when feeder-fix ETA is unavailable. Missing feeder-fix prediction is a visible degraded state. Route-derived feeder ETA reuses the accepted performance/wind-adjusted predictor leg durations. For an active holding plan, feeder ETA is approach release plus the configured nominal holding-to-feeder transit. An aircraft authoritatively known to have passed the feeder qualifies after the normal dwell without inventing a future ETA.
+
+A manual feeder-fix ETA survives route and runway recalculation until explicitly reset or a go-around is confirmed. A past manual time is accepted only when authoritative route progress confirms that the feeder has already been passed.
 
 ## TETA calculation
 
@@ -373,7 +375,7 @@ Unknown wake categories must use an explicit safe fallback and produce degraded-
 
 ### Same-STAR-family spacing
 
-The initial EKCH policy enables same-STAR-family spacing independently per STAR entry family at 20 arrivals per hour and above with one empty grid opportunity between aircraft from that family. Each STAR family has explicit versioned configuration, initially using the same retained values.
+The initial EKCH policy enables same-STAR-family spacing independently per STAR entry family at 20 arrivals per hour and above with one empty grid opportunity between aircraft from that family. At 20 arrivals per hour this means six minutes between two aircraft from the same family, leaving the intervening three-minute opportunity available to other traffic. Each STAR family has explicit versioned configuration, initially using the same retained values.
 
 This is sometimes described as requiring an “alternating arrival,” but the policy does not require another aircraft to occupy the intervening opportunity; it can remain empty. Below the configured activation rate for that STAR family, the additional spacing is inactive. Future changes may configure or disable individual families without silently changing the others.
 
@@ -385,7 +387,7 @@ Stable aircraft retain their established relative order. When an earlier legal s
 
 Superstable and manually frozen aircraft retain their captured slot except under a specifically authorized manual workflow or a confirmed go-around. A late raw TETA is informational and must never automatically release Superstable or change its captured operational TETA and slot. Queue offers are removed when they can no longer be used or when the aircraft becomes fully frozen.
 
-TMA freeze must not use entry into a configured terminal path as its boundary. The approved horizontal boundary is the EKCH Copenhagen Approach `MultiPolygon` from the SimAware TRACON project, vendored from [`Boundaries/EKCH/EKCH.json` at commit `d860ed77135b057168148184880a41cc183bf881`](https://github.com/vatsimnetwork/simaware-tracon-project/blob/d860ed77135b057168148184880a41cc183bf881/Boundaries/EKCH/EKCH.json). The operational volume extends from the surface to strictly below FL195; an observation at FL195 or above is outside it. This operator-approved boundary remains valid until explicitly superseded and does not cycle automatically with AIRAC data. Production configuration must use a validated local/versioned copy with source provenance rather than fetching the mutable upstream file during runtime.
+TMA freeze must not use entry into a configured terminal path as its boundary. The approved horizontal boundary is the EKCH Copenhagen Approach `MultiPolygon` from the SimAware TRACON project, vendored from [`Boundaries/EKCH/EKCH.json` at commit `d860ed77135b057168148184880a41cc183bf881`](https://github.com/vatsimnetwork/simaware-tracon-project/blob/d860ed77135b057168148184880a41cc183bf881/Boundaries/EKCH/EKCH.json). Edges and vertices are inside. The operational volume extends from the surface to strictly below FL195; an observation at FL195 or above is outside it. The first fresh outside-to-inside observation captures the slot/TETA once and the freeze remains sticky after exit. A confirmed go-around atomically releases the old capture, applies the ten-minute delay, allocates a new slot, and immediately captures that slot as TMA-protected because the aircraft normally remains inside. This operator-approved boundary remains valid until explicitly superseded and does not cycle automatically with AIRAC data. Production configuration must use a validated local/versioned copy with source provenance rather than fetching the mutable upstream file during runtime.
 
 ### Holding-stack ordering
 
@@ -413,9 +415,13 @@ A GAP is first-class persisted operational state with:
 
 Slot-count input is converted to an absolute UTC interval when the command is accepted, using the then-current arrival rate. The persisted GAP is always time-based, so a later rate change never resizes it.
 
+GAP intervals are start-inclusive and end-exclusive. At 20 arrivals per hour, a two-slot GAP starting at 12:00 is `[12:00, 12:06)`. Overlapping or touching GAPs on the same runway merge into one persisted union interval; its audit record references the replaced identities and removing it restores the entire merged interval.
+
 The frontend renders a GAP distinctly from an aircraft and from automatic separation. When a GAP is inserted, every aircraft already assigned inside the interval is moved to a later valid opportunity using all normal rate, wake, STAR, lifecycle, and queue policies, irrespective of Stable, Superstable, manual, or validated TMA freeze protection. The displacement and resulting revision remain explicitly audited.
 
 Automatic sequencing never assigns an aircraft inside an active GAP. A later explicitly authorized manual placement inside the GAP is allowed, remains visibly exceptional, and is audited; the GAP itself remains active for all other traffic.
+
+Manual placement inside a GAP is an explicit time-placement command rather than a before/after move. It must select a valid runway-grid opportunity, name that GAP use as an exception, and clear the exception when the aircraft moves elsewhere or the GAP is removed.
 
 Removing or expiring a GAP reopens capacity and triggers deterministic normal resequencing. A GAP must survive restart and replay and must never be represented as a fake aircraft or callsign.
 
@@ -478,10 +484,32 @@ Implementation references include `backend/config/aman/ekch-terminal-2609.json`,
 
 ## Open operational decisions
 
-Update this section when decisions are made:
+There are no unresolved operational decisions for the initial scope. Maximum Delay and Refresh Delay are deliberately deferred rather than implicitly specified.
 
-1. Define runway-closure termination/removal and protected-slot interaction. Starting after an aircraft and starting at an explicit absolute UTC time are both approved.
-2. Define Maximum Delay semantics, authorization, and interaction with Stable/Superstable traffic beyond the invariant that separation and protected traffic cannot be bypassed.
+## Detailed delivery slices
+
+Implementation uses stacked, compile-safe pull requests containing approximately 75-200 changed production lines, measured as additions plus deletions and excluding tests and generated output. Every mutation derives actor, role, airport, and receipt time from trusted server context; uses an idempotent command identity and expected airport revision; commits atomically; and records protected overrides and displaced flights. New version-1 response fields remain optional during rolling deployment.
+
+The issue stacks are:
+
+- **#553**: canonical terminal-path fields and digest/cache compatibility; terminal schema/validation; EKCH configuration; additive persisted flight fields; internal-consumer migration; optional frontend projection; later legacy cleanup.
+- **#554**: feeder-ETA state/provenance; route derivation from existing predictor leg durations; holding derivation; Stable transition; atomic Superstable capture; manual override/reset; command transport and dialog.
+- **#555**: per-family terminal policy; sequence-policy input; engine enforcement; persisted protected-conflict warnings.
+- **#556**: holding-order enum; policy propagation; policy-gated lowest-first comparison.
+- **#557**: runway-owned GAP state; input normalization; merging; capacity exclusion; create/remove commands; protected displacement; explicit manual time placement; wire transport; UI.
+- **#561**: pinned boundary data; validated MultiPolygon containment; persisted entry state; operational freeze/go-around integration; frontend `tma` compatibility.
+- **Multi-runway prerequisite**: additive active-runway set; atomic set command; assignment reconciliation; optional frontend projection.
+- **#585**: workspace shell; header read model; responsive Figma-aligned layout; authorized active-runway/rate controls.
+- **#586**: configuration-owned timeline mappings; projection/local selection; UTC axis; FMP view; RWY and ACC views; capacity overlays.
+- **#587**: compact target; local fields; existing detail-dialog integration; recompute; runway actions; feeder-ETA dialog; missed approach; confirmed removal. Maximum Delay, Refresh Delay, and Coordination are absent.
+- **#604 Coordination child feature**: request persistence; submit/supersede; recipient projection; accept/reject; tracking handoff; lifecycle expiry; FMP dialog; controller inbox; clearance-fact correlation.
+- **#588**: orthogonal DSEQ disposition; sequence exclusion; commands; UI; closure model/input/expiry/enforcement/UI; reserved-capacity model/command/UI.
+- **#590**: authoritative strip-to-AMAN holding fact; persisted normalized state; HHMM resolution; read model; graph placement; graph UI; degraded/accessibility behavior.
+- **#591**: persisted current sequence warnings; deterministic technical/sequence aggregation; optional wire fields; warning panel; affected-flight focus.
+
+Runway selection becomes an atomic replacement of a validated nonempty active-runway set. A closure may start at absolute UTC or at the first opportunity after a selected aircraft, and may end at explicit UTC or remain until removed. It moves affected protected traffic. If its runway has no future capacity, AMAN tries the earliest legal opportunity on another active compatible runway, then moves the flight to DSEQ with an explicit reason. DSEQ is orthogonal to lifecycle and resumes at the earliest currently legal opportunity without reserving its former slot. Extra Flight reserves one absolute opportunity and may displace protected traffic with explicit auditing; it never creates a fake flight.
+
+Holding information is ingested authoritatively from strip hold type/fix, EAT, and cleared altitude. Only en-route arrival holds are shown. HHMM EAT resolves to the nearest UTC occurrence within twelve hours before or after server time. Missing EAT/CFL remains visible as degraded `—`; past and out-of-range values pin to labeled fixed graph edges.
 
 ## GitHub issue relationship
 

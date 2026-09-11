@@ -12,10 +12,12 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
 	"FlightStrips/pkg/events"
+	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 
 	gorilla "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(t *testing.T) {
@@ -98,7 +100,12 @@ func TestHandleNewConnection_SeedsPendingOnlineOrchestrationForOperationalLogin(
 	require.NoError(t, err)
 	defer wsConn.Close()
 
-	err = wsConn.WriteMessage(gorilla.TextMessage, buildLoginPayload(t, callsign, position, "EKCH"))
+	loginPayload := buildLoginPayload(t, callsign, position, "EKCH")
+	var login euroscopeEvents.LoginEvent
+	require.NoError(t, proto.Unmarshal(loginPayload, &login))
+	envelope, err := euroscopeEvents.MarshalEnvelope(&login, euroscopeEvents.Login)
+	require.NoError(t, err)
+	err = wsConn.WriteMessage(gorilla.BinaryMessage, envelope)
 	require.NoError(t, err)
 
 	select {

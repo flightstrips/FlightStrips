@@ -3,13 +3,11 @@ package euroscope_test
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/pkg/events/euroscope"
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestAMANGainLossGoldenFixture(t *testing.T) {
@@ -35,12 +33,13 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 	payload, err := event.Marshal()
 	require.NoError(t, err)
 
-	want, err := os.ReadFile(filepath.Join("testdata", "aman-gain-loss.json"))
+	eventType, inner, err := euroscope.UnmarshalEnvelope(payload)
 	require.NoError(t, err)
-	require.JSONEq(t, string(want), string(payload))
-
-	var decoded map[string]any
-	require.NoError(t, json.Unmarshal(payload, &decoded))
-	require.Equal(t, "aman_gain_loss", decoded["type"])
-	require.Equal(t, float64(1), decoded["version"])
+	require.Equal(t, euroscope.AMANGainLoss, eventType)
+	var decoded euroscope.AMANGainLossEvent
+	require.NoError(t, proto.Unmarshal(inner, &decoded))
+	require.EqualValues(t, 1, decoded.Version)
+	require.EqualValues(t, 42, decoded.Revision)
+	require.Len(t, decoded.Values, 2)
+	require.Equal(t, "flight-1", decoded.Values[0].FlightId)
 }

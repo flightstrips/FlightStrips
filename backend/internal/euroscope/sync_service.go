@@ -216,7 +216,7 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 	runwaysChanged := false
 	if len(request.Event.Runways) > 0 {
 		phase = timings.begin()
-		runwaysChanged, err = s.applyOrValidateRunways(ctx, request, request.Event.Runways)
+		runwaysChanged, err = s.applyOrValidateRunways(ctx, request, runwayValues(request.Event.Runways))
 		timings.observe(metrics.SyncPhaseRunways, phase)
 		if err != nil {
 			return EuroscopeSyncResult{}, syncFailure(span, err)
@@ -251,7 +251,7 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 	}
 
 	phase = timings.begin()
-	err = s.syncStripsFromEvent(ctx, request, request.Event.Strips)
+	err = s.syncStripsFromEvent(ctx, request, stripValues(request.Event.Strips))
 	timings.observe(metrics.SyncPhaseStrips, phase)
 	if err != nil {
 		return EuroscopeSyncResult{}, syncFailure(span, err)
@@ -285,7 +285,7 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 	sidsChanged := false
 	if len(request.Event.Sids) > 0 {
 		phase = timings.begin()
-		sidsChanged = s.persistSIDs(ctx, request.Session, syncState, models.AvailableSids(request.Event.Sids))
+		sidsChanged = s.persistSIDs(ctx, request.Session, syncState, sidValues(request.Event.Sids))
 		timings.observe(metrics.SyncPhaseSids, phase)
 	}
 
@@ -401,10 +401,40 @@ func syncFailure(span trace.Span, err error) error {
 	return err
 }
 
-// syncController mirrors the anonymous struct inside euroscope.SyncEvent.Controllers.
+// syncController is the value form used by the sync service after protobuf decoding.
 type syncController struct {
-	Position string `json:"position"`
-	Callsign string `json:"callsign"`
+	Position string
+	Callsign string
+}
+
+func runwayValues(values []*euroscope.Runway) []euroscope.SyncRunway {
+	result := make([]euroscope.SyncRunway, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			result = append(result, *value)
+		}
+	}
+	return result
+}
+
+func stripValues(values []*euroscope.Strip) []euroscope.Strip {
+	result := make([]euroscope.Strip, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			result = append(result, *value)
+		}
+	}
+	return result
+}
+
+func sidValues(values []*euroscope.SidEntry) models.AvailableSids {
+	result := make(models.AvailableSids, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			result = append(result, models.SidInfo{Name: value.Name, Runway: value.Runway})
+		}
+	}
+	return result
 }
 
 type syncStripFinalizer interface {

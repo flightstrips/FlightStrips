@@ -33,21 +33,21 @@ func TestBuildEuroscopeBackendSyncCdmData_MatchesCdmUpdateFields(t *testing.T) {
 	sync := BuildEuroscopeBackendSyncCdmData(data)
 
 	assert.Equal(t, euroscopeEvents.BackendSyncCdmData{
-		Eobt:                  update.Eobt,
-		Tobt:                  update.Tobt,
-		TobtSetBy:             update.TobtSetBy,
-		TobtConfirmedBy:       update.TobtConfirmedBy,
-		Tsat:                  update.Tsat,
-		Ttot:                  update.Ttot,
-		Ctot:                  update.Ctot,
-		CtotSource:            update.CtotSource,
-		Asat:                  update.Asat,
-		Asrt:                  update.Asrt,
-		Tsac:                  update.Tsac,
-		Status:                update.Status,
-		EcfmpID:               update.EcfmpID,
-		Phase:                 update.Phase,
-		EcfmpRestrictionsJSON: update.EcfmpRestrictionsJSON,
+		Eobt:              update.Eobt,
+		Tobt:              update.Tobt,
+		TobtSetBy:         update.TobtSetBy,
+		TobtConfirmedBy:   update.TobtConfirmedBy,
+		Tsat:              update.Tsat,
+		Ttot:              update.Ttot,
+		Ctot:              update.Ctot,
+		CtotSource:        update.CtotSource,
+		Asat:              update.Asat,
+		Asrt:              update.Asrt,
+		Tsac:              update.Tsac,
+		Status:            update.Status,
+		EcfmpId:           update.EcfmpId,
+		Phase:             update.Phase,
+		EcfmpRestrictions: update.EcfmpRestrictions,
 	}, sync)
 }
 

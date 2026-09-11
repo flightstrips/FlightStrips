@@ -1,6 +1,8 @@
 #include "MessageService.h"
 #include "flightplan/TopSkyHold.h"
 #include "PrivateMessageSender.h"
+#include "websocket/ProtoCodec.h"
+#include "websocket/generated/proto/euroscope.pb.h"
 
 #include "Logger.hpp"
 
@@ -50,84 +52,67 @@ namespace FlightStrips::messages {
         }
     }
 
-    void MessageService::OnMessages(const std::vector<nlohmann::json> &messages) {
+    void MessageService::OnMessages(const std::vector<std::string> &messages) {
         for (const auto &message: messages) {
             HandleMessage(message);
         }
     }
 
-    void MessageService::HandleMessage(const nlohmann::json &message) const {
+    void MessageService::HandleMessage(const std::string &message) const {
         try {
+            websocket::protobuf::wire::Envelope envelope;
+            if (!websocket::protobuf::ParseEnvelope(message, envelope)) {
+                Logger::Warning("Invalid protobuf message ({} bytes)", message.size());
+                return;
+            }
 
-        const auto type = message["type"].get<std::string>();
+#define HANDLE_PROTO(caseName, accessor, domainType, handler, typeName) \
+            case websocket::protobuf::wire::Envelope::caseName: { \
+                if (!m_webSocketService->ShouldProcessServerMessageType(typeName)) return; \
+                domainType event; \
+                websocket::protobuf::Decode(envelope.accessor(), event); \
+                handler(event); \
+                break; \
+            }
 
-        // TODO change to debug
-        Logger::Info("Received message: {}", type);
-
-        if (!m_webSocketService->ShouldProcessServerMessageType(type)) {
-            Logger::Debug("Ignoring server message while observer mode is active: {}", type);
-            return;
-        }
-
-        if (type == EVENT_SESSION_INFO_NAME) {
-            HandleSessionInfoEvent(message.get<SessionInfoEvent>());
-        } else if (type == EVENT_RUNWAY_MISMATCH_ALERT_NAME) {
-            HandleRunwayMismatchAlertEvent(message.get<RunwayMismatchAlertEvent>());
-        } else if (type == EVENT_CDM_UPDATE_NAME) {
-            HandleCdmUpdateEvent(message.get<CdmUpdateEvent>());
-        } else if (type == EVENT_CDM_UPDATE_BATCH_NAME) {
-            HandleCdmUpdateBatchEvent(message.get<CdmUpdateBatchEvent>());
-        } else if (type == EVENT_ASSIGNED_SQUAWK_NAME) {
-            HandleAssignedSquawkEvent(message.get<AssignedSquawkEvent>());
-        } else if (type == EVENT_REQUESTED_ALTITUDE_NAME) {
-            HandleRequestedAltitudeEvent(message.get<RequestedAltitudeEvent>());
-        } else if (type == EVENT_CLEARED_ALTITUDE_NAME) {
-            HandleClearedAltitudeEvent(message.get<ClearedAltitudeEvent>());
-        } else if (type == EVENT_COMMUNICATION_TYPE_NAME) {
-            HandleCommunicationTypeEvent(message.get<CommunicationTypeEvent>());
-        } else if (type == EVENT_GROUND_STATE_NAME) {
-            HandleGroundStateEvent(message.get<GroundStateEvent>());
-        } else if (type == EVENT_CLEARED_FLAG_NAME) {
-            HandleClearedFlagEvent(message.get<ClearedFlagEvent>());
-        } else if (type == EVENT_HEADING_NAME) {
-            HandleHeadingEvent(message.get<HeadingEvent>());
-        } else if (type == EVENT_STAND_NAME) {
-            HandleStandEvent(message.get<StandEvent>());
-        } else if (type == EVENT_EOBT_NAME) {
-            HandleEobtEvent(message.get<EobtEvent>());
-        } else if (type == EVENT_GENERATE_SQUAWK_NAME) {
-            HandleGenerateSquawkEvent(message.get<GenerateSquawkEvent>());
-        } else if (type == EVENT_ROUTE_NAME) {
-            HandleRouteEvent(message.get<RouteEvent>());
-        } else if (type == EVENT_REMARKS_NAME) {
-            HandleRemarksEvent(message.get<RemarksEvent>());
-        } else if (type == EVENT_AIRCRAFT_INFO_NAME) {
-            HandleAircraftInfoEvent(message.get<AircraftInfoEvent>());
-        } else if (type == EVENT_AIRCRAFT_INFO_REMARKS_NAME) {
-            HandleAircraftInfoRemarksEvent(message.get<AircraftInfoRemarksEvent>());
-        } else if (type == EVENT_SID_NAME) {
-            HandleSidEvent(message.get<SidEvent>());
-        } else if (type == EVENT_AIRCRAFT_RUNWAY_NAME) {
-            HandleAircraftRunwayEvent(message.get<AircraftRunwayEvent>());
-        } else if (type == EVENT_COORDINATION_HANDOVER_NAME) {
-            HandleCoordinationHandoverEvent(message.get<CoordinationHandoverEvent>());
-        } else if (type == EVENT_ASSUME_ONLY_NAME) {
-            HandleEsAssumeOnlyEvent(message.get<AssumeOnlyEvent>());
-        } else if (type == EVENT_ASSUME_AND_DROP_NAME) {
-            HandleEsAssumeAndDropEvent(message.get<AssumeAndDropEvent>());
-        } else if (type == EVENT_DROP_TRACKING_NAME) {
-            HandleEsDropTrackingEvent(message.get<DropTrackingEvent>());
-        } else if (type == EVENT_BACKEND_SYNC_NAME) {
-            HandleBackendSyncEvent(message.get<BackendSyncEvent>());
-        } else if (type == EVENT_CREATE_FPL_NAME) {
-            HandleCreateFPLEvent(message.get<CreateFPLEvent>());
-        } else if (type == EVENT_PDC_STATE_CHANGE_NAME) {
-            HandlePdcStateChangeEvent(message.get<PdcStateChangeEvent>());
-        } else if (type == EVENT_SEND_PRIVATE_MESSAGE_NAME) {
-            HandleSendPrivateMessageEvent(message.get<SendPrivateMessageEvent>());
-        } else {
-            Logger::Warning("Unknown message type: {}", type);
-        }
+            Logger::Info("Received protobuf event type {}", static_cast<int>(envelope.event_case()));
+            switch (envelope.event_case()) {
+            HANDLE_PROTO(kSessionInfo, session_info, SessionInfoEvent, HandleSessionInfoEvent, EVENT_SESSION_INFO_NAME)
+            HANDLE_PROTO(kRunwayMismatchAlert, runway_mismatch_alert, RunwayMismatchAlertEvent, HandleRunwayMismatchAlertEvent, EVENT_RUNWAY_MISMATCH_ALERT_NAME)
+            HANDLE_PROTO(kCdmUpdate, cdm_update, CdmUpdateEvent, HandleCdmUpdateEvent, EVENT_CDM_UPDATE_NAME)
+            HANDLE_PROTO(kCdmUpdateBatch, cdm_update_batch, CdmUpdateBatchEvent, HandleCdmUpdateBatchEvent, EVENT_CDM_UPDATE_BATCH_NAME)
+            HANDLE_PROTO(kAssignedSquawk, assigned_squawk, AssignedSquawkEvent, HandleAssignedSquawkEvent, EVENT_ASSIGNED_SQUAWK_NAME)
+            HANDLE_PROTO(kRequestedAltitude, requested_altitude, RequestedAltitudeEvent, HandleRequestedAltitudeEvent, EVENT_REQUESTED_ALTITUDE_NAME)
+            HANDLE_PROTO(kClearedAltitude, cleared_altitude, ClearedAltitudeEvent, HandleClearedAltitudeEvent, EVENT_CLEARED_ALTITUDE_NAME)
+            HANDLE_PROTO(kCommunicationType, communication_type, CommunicationTypeEvent, HandleCommunicationTypeEvent, EVENT_COMMUNICATION_TYPE_NAME)
+            HANDLE_PROTO(kGroundState, ground_state, GroundStateEvent, HandleGroundStateEvent, EVENT_GROUND_STATE_NAME)
+            HANDLE_PROTO(kClearedFlag, cleared_flag, ClearedFlagEvent, HandleClearedFlagEvent, EVENT_CLEARED_FLAG_NAME)
+            HANDLE_PROTO(kHeading, heading, HeadingEvent, HandleHeadingEvent, EVENT_HEADING_NAME)
+            HANDLE_PROTO(kStand, stand, StandEvent, HandleStandEvent, EVENT_STAND_NAME)
+            HANDLE_PROTO(kEobt, eobt, EobtEvent, HandleEobtEvent, EVENT_EOBT_NAME)
+            HANDLE_PROTO(kGenerateSquawk, generate_squawk, GenerateSquawkEvent, HandleGenerateSquawkEvent, EVENT_GENERATE_SQUAWK_NAME)
+            HANDLE_PROTO(kRoute, route, RouteEvent, HandleRouteEvent, EVENT_ROUTE_NAME)
+            HANDLE_PROTO(kRemarks, remarks, RemarksEvent, HandleRemarksEvent, EVENT_REMARKS_NAME)
+            HANDLE_PROTO(kAircraftInfo, aircraft_info, AircraftInfoEvent, HandleAircraftInfoEvent, EVENT_AIRCRAFT_INFO_NAME)
+            HANDLE_PROTO(kAircraftInfoRemarks, aircraft_info_remarks, AircraftInfoRemarksEvent, HandleAircraftInfoRemarksEvent, EVENT_AIRCRAFT_INFO_REMARKS_NAME)
+            HANDLE_PROTO(kSid, sid, SidEvent, HandleSidEvent, EVENT_SID_NAME)
+            HANDLE_PROTO(kAircraftRunway, aircraft_runway, AircraftRunwayEvent, HandleAircraftRunwayEvent, EVENT_AIRCRAFT_RUNWAY_NAME)
+            HANDLE_PROTO(kCoordinationHandover, coordination_handover, CoordinationHandoverEvent, HandleCoordinationHandoverEvent, EVENT_COORDINATION_HANDOVER_NAME)
+            HANDLE_PROTO(kAssumeOnly, assume_only, AssumeOnlyEvent, HandleEsAssumeOnlyEvent, EVENT_ASSUME_ONLY_NAME)
+            HANDLE_PROTO(kAssumeAndDrop, assume_and_drop, AssumeAndDropEvent, HandleEsAssumeAndDropEvent, EVENT_ASSUME_AND_DROP_NAME)
+            HANDLE_PROTO(kDropTracking, drop_tracking, DropTrackingEvent, HandleEsDropTrackingEvent, EVENT_DROP_TRACKING_NAME)
+            HANDLE_PROTO(kBackendSync, backend_sync, BackendSyncEvent, HandleBackendSyncEvent, EVENT_BACKEND_SYNC_NAME)
+            HANDLE_PROTO(kCreateFpl, create_fpl, CreateFPLEvent, HandleCreateFPLEvent, EVENT_CREATE_FPL_NAME)
+            HANDLE_PROTO(kPdcStateChange, pdc_state_change, PdcStateChangeEvent, HandlePdcStateChangeEvent, EVENT_PDC_STATE_CHANGE_NAME)
+            HANDLE_PROTO(kSendPrivateMessage, send_private_message, SendPrivateMessageEvent, HandleSendPrivateMessageEvent, EVENT_SEND_PRIVATE_MESSAGE_NAME)
+            case websocket::protobuf::wire::Envelope::kAmanGainLoss:
+                // Consumed by AMANGainLossStore, which is registered separately.
+                break;
+            default:
+                Logger::Warning("Unsupported server protobuf event type {}", static_cast<int>(envelope.event_case()));
+                break;
+            }
+#undef HANDLE_PROTO
 
         } catch (const std::exception &e) {
             Logger::Error("Exception handling message: {}", e.what());

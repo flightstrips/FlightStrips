@@ -130,7 +130,7 @@ func (s *StripService) CreateVFRFPL(ctx context.Context, session int32, req fron
 		Remarks:        req.Remarks,
 		FplType:        req.FPLType,
 		Language:       req.Language,
-		PersonsOnBoard: req.PersonsOnBoard,
+		PersonsOnBoard: int32(req.PersonsOnBoard),
 	})
 
 	return nil

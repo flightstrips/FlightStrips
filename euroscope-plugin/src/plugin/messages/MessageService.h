@@ -24,7 +24,7 @@ namespace FlightStrips::messages {
               m_runwayService(m_runway_service) {
         }
 
-        void OnMessages(const std::vector<nlohmann::json> &messages) override;
+        void OnMessages(const std::vector<std::string> &messages) override;
         bool SendCdmTobtUpdate(const std::string& callsign, const std::string& tobt) const;
         bool SendCdmAsrtToggle(const std::string& callsign, const std::string& asrt) const;
         bool SendCdmTsacUpdate(const std::string& callsign, const std::string& tsac) const;
@@ -40,7 +40,7 @@ namespace FlightStrips::messages {
         std::shared_ptr<flightplan::RouteService> m_routeService;
         std::shared_ptr<runway::RunwayService> m_runwayService;
 
-        void HandleMessage(const nlohmann::json &message) const;
+        void HandleMessage(const std::string &message) const;
         void HandleCdmUpdateEvent(const CdmUpdateEvent& event) const;
         void HandleCdmUpdateBatchEvent(const CdmUpdateBatchEvent& event) const;
         void HandleSessionInfoEvent(const SessionInfoEvent& event) const;

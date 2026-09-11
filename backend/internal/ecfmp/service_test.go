@@ -81,7 +81,8 @@ func TestService_InjectTestMeasures_AppliesRestrictionsImmediately(t *testing.T)
 	require.Len(t, euroscopeHub.Broadcasts, 1)
 	event, ok := euroscopeHub.Broadcasts[0].(euroscopeEvents.CdmUpdateEvent)
 	require.True(t, ok, "expected ECFMP update broadcast to use a CdmUpdateEvent")
-	assert.Contains(t, event.EcfmpRestrictionsJSON, "mandatory_route")
+	require.Len(t, event.EcfmpRestrictions, 1)
+	assert.Equal(t, "mandatory_route", event.EcfmpRestrictions[0].Type)
 }
 
 func TestService_InjectTestMeasures_DefaultsMissingTimeWindow(t *testing.T) {

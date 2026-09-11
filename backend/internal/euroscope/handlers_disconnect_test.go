@@ -2,7 +2,6 @@ package euroscope
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 type aircraftAliveStripService struct {
@@ -84,10 +84,10 @@ func newAircraftDisconnectTestHub(stripService shared.StripService) *Hub {
 	}
 }
 
-func mustMarshalMessage(t *testing.T, payload interface{}) []byte {
+func mustMarshalMessage(t *testing.T, payload proto.Message) []byte {
 	t.Helper()
 
-	data, err := json.Marshal(payload)
+	data, err := proto.Marshal(payload)
 	require.NoError(t, err)
 
 	return data
@@ -101,10 +101,8 @@ func TestHandleStripUpdateEvent_CancelsPendingAircraftDisconnect(t *testing.T) {
 	hub.scheduleAircraftDisconnect(client.session, "BAW819K", 25*time.Millisecond)
 
 	err := handleStripUpdateEvent(context.Background(), client, Message{
-		Type: eventseuroscope.StripUpdate,
-		Message: mustMarshalMessage(t, eventseuroscope.StripUpdateEvent{
-			Type: eventseuroscope.StripUpdate,
-			Strip: eventseuroscope.Strip{
+		Message: mustMarshalMessage(t, &eventseuroscope.StripUpdateEvent{
+			Strip: &eventseuroscope.Strip{
 				Callsign: "BAW819K",
 			},
 		}),
@@ -138,6 +136,7 @@ func TestHandleStripUpdateEvent_DeduplicatesPositionOnlyCallbacks(t *testing.T) 
 		Destination:    "ESSA",
 		Route:          "NEXEN",
 		AssignedSquawk: "1234",
+		Position:       &eventseuroscope.Position{},
 	}
 	strip.Position.Lat = 55.6
 	strip.Position.Lon = 12.6
@@ -146,21 +145,19 @@ func TestHandleStripUpdateEvent_DeduplicatesPositionOnlyCallbacks(t *testing.T) 
 	sendStrip := func(value eventseuroscope.Strip) {
 		t.Helper()
 		require.NoError(t, handleStripUpdateEvent(context.Background(), client, Message{
-			Type: eventseuroscope.StripUpdate,
-			Message: mustMarshalMessage(t, eventseuroscope.StripUpdateEvent{
-				Type:  eventseuroscope.StripUpdate,
-				Strip: value,
+			Message: mustMarshalMessage(t, &eventseuroscope.StripUpdateEvent{
+				Strip: &value,
 			}),
 		}))
 	}
 
 	sendStrip(strip)
-	moved := strip
+	moved := *proto.Clone(&strip).(*eventseuroscope.Strip)
 	moved.Position.Lat = 55.7
 	moved.Position.Lon = 12.7
 	moved.Position.Altitude = 2000
 	sendStrip(moved)
-	movedAgain := moved
+	movedAgain := *proto.Clone(&moved).(*eventseuroscope.Strip)
 	movedAgain.Position.Lat = 55.8
 	movedAgain.Position.Lon = 12.8
 	movedAgain.Position.Altitude = 3000
@@ -172,12 +169,11 @@ func TestHandleStripUpdateEvent_DeduplicatesPositionOnlyCallbacks(t *testing.T) 
 		"coalescing should retain the newest position")
 	slave := &Client{hub: hub, session: client.session, airport: client.airport, positionCoalesceDelay: time.Millisecond}
 	slave.rememberOperationalStrip(movedAgain)
-	slavePosition := movedAgain
+	slavePosition := *proto.Clone(&movedAgain).(*eventseuroscope.Strip)
 	slavePosition.Position.Lat = 55.9
 	require.NoError(t, handleStripUpdateEvent(context.Background(), slave, Message{
-		Type: eventseuroscope.StripUpdate,
-		Message: mustMarshalMessage(t, eventseuroscope.StripUpdateEvent{
-			Type: eventseuroscope.StripUpdate, Strip: slavePosition,
+		Message: mustMarshalMessage(t, &eventseuroscope.StripUpdateEvent{
+			Strip: &slavePosition,
 		}),
 	}))
 	time.Sleep(5 * time.Millisecond)
@@ -193,9 +189,7 @@ func TestHandleStripUpdateEvent_DeduplicatesPositionOnlyCallbacks(t *testing.T) 
 	sendAssigned := func(squawk string) {
 		t.Helper()
 		require.NoError(t, handleAssignedSquawk(context.Background(), client, Message{
-			Type: eventseuroscope.AssignedSquawk,
-			Message: mustMarshalMessage(t, eventseuroscope.AssignedSquawkEvent{
-				Type:     eventseuroscope.AssignedSquawk,
+			Message: mustMarshalMessage(t, &eventseuroscope.AssignedSquawkEvent{
 				Callsign: strip.Callsign,
 				Squawk:   squawk,
 			}),
@@ -257,9 +251,7 @@ func TestHandlePositionUpdate_CancelsPendingAircraftDisconnect(t *testing.T) {
 	hub.scheduleAircraftDisconnect(client.session, "DLH9HV", 25*time.Millisecond)
 
 	err := handlePositionUpdate(context.Background(), client, Message{
-		Type: eventseuroscope.PositionUpdate,
-		Message: mustMarshalMessage(t, eventseuroscope.AircraftPositionUpdateEvent{
-			Type:     eventseuroscope.PositionUpdate,
+		Message: mustMarshalMessage(t, &eventseuroscope.AircraftPositionUpdateEvent{
 			Callsign: "DLH9HV",
 			Lat:      55.62583,
 			Lon:      12.64562,
@@ -283,9 +275,8 @@ func TestHandlePositionUpdate_CancelsPendingAircraftDisconnect(t *testing.T) {
 
 	slave := &Client{hub: hub, session: 42, airport: "EKCH"}
 	err = handlePositionUpdate(context.Background(), slave, Message{
-		Type: eventseuroscope.PositionUpdate,
-		Message: mustMarshalMessage(t, eventseuroscope.AircraftPositionUpdateEvent{
-			Type: eventseuroscope.PositionUpdate, Callsign: "DLH9HV", Lat: 56, Lon: 13, Altitude: 100,
+		Message: mustMarshalMessage(t, &eventseuroscope.AircraftPositionUpdateEvent{
+			Callsign: "DLH9HV", Lat: 56, Lon: 13, Altitude: 100,
 		}),
 	})
 	require.NoError(t, err)

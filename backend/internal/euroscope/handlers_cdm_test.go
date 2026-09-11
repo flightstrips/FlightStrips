@@ -2,7 +2,6 @@ package euroscope
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"FlightStrips/internal/shared"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 type spyLocalCdmService struct {
@@ -96,14 +96,13 @@ func TestHandleCdmTobtUpdate_ForwardsValidatedEvent(t *testing.T) {
 	}
 	hub.master[42] = client
 
-	payload, err := json.Marshal(euroscopeEvents.CdmTobtUpdateEvent{
+	payload, err := proto.Marshal(&euroscopeEvents.CdmTobtUpdateEvent{
 		Callsign: "SAS321",
 		Tobt:     "1030",
 	})
 	require.NoError(t, err)
 
 	err = handleCdmTobtUpdate(context.Background(), client, Message{
-		Type:    euroscopeEvents.CdmTobtUpdate,
 		Message: payload,
 	})
 	require.NoError(t, err)
@@ -121,14 +120,13 @@ func TestHandleCdmTobtUpdate_IgnoresInvalidClock(t *testing.T) {
 	hub := &Hub{server: server, master: map[int32]*Client{}}
 	client := &Client{hub: hub, session: 42, callsign: "EKCH_B_GND"}
 
-	payload, err := json.Marshal(euroscopeEvents.CdmTobtUpdateEvent{
+	payload, err := proto.Marshal(&euroscopeEvents.CdmTobtUpdateEvent{
 		Callsign: "SAS321",
 		Tobt:     "25:00",
 	})
 	require.NoError(t, err)
 
 	err = handleCdmTobtUpdate(context.Background(), client, Message{
-		Type:    euroscopeEvents.CdmTobtUpdate,
 		Message: payload,
 	})
 	require.NoError(t, err)

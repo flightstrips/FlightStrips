@@ -7,7 +7,7 @@ namespace FlightStrips::handlers {
         m_handlers.clear();
     }
 
-    void MessageHandlers::OnMessages(const std::vector<nlohmann::json>& messages) const {
+    void MessageHandlers::OnMessages(const std::vector<std::string>& messages) const {
         for (const auto & m_handler : this->m_handlers) {
             exceptions::RunGuarded("MessageHandlers::OnMessages", [m_handler, &messages] {
                 m_handler->OnMessages(messages);

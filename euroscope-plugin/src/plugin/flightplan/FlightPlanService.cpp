@@ -5,41 +5,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
-#include <nlohmann/json.hpp>
 
 namespace FlightStrips::flightplan {
-    std::vector<EcfmpRestriction> ParseEcfmpRestrictions(const std::string& jsonStr) {
-        std::vector<EcfmpRestriction> result;
-        if (jsonStr.empty()) return result;
-        try {
-            auto arr = nlohmann::json::parse(jsonStr);
-            if (!arr.is_array()) return result;
-            for (const auto& item : arr) {
-                EcfmpRestriction r{};
-                if (item.contains("measure_id") && item["measure_id"].is_number()) r.measure_id = item["measure_id"].get<int64_t>();
-                if (item.contains("ident") && item["ident"].is_string()) r.ident = item["ident"].get<std::string>();
-                if (item.contains("type") && item["type"].is_string()) r.type = item["type"].get<std::string>();
-                if (item.contains("reason") && item["reason"].is_string()) r.reason = item["reason"].get<std::string>();
-                if (item.contains("routes") && item["routes"].is_array()) {
-                    for (const auto& route : item["routes"]) {
-                        if (route.is_string()) r.routes.push_back(route.get<std::string>());
-                    }
-                }
-                if (item.contains("destination") && item["destination"].is_string()) r.destination = item["destination"].get<std::string>();
-                if (item.contains("max_level") && item["max_level"].is_number()) r.max_level = item["max_level"].get<int>();
-                if (item.contains("min_level") && item["min_level"].is_number()) r.min_level = item["min_level"].get<int>();
-                if (item.contains("exact_levels") && item["exact_levels"].is_array()) {
-                    for (const auto& lvl : item["exact_levels"]) {
-                        if (lvl.is_number()) r.exact_levels.push_back(lvl.get<int>());
-                    }
-                }
-                if (item.contains("has_ctot") && item["has_ctot"].is_boolean()) r.has_ctot = item["has_ctot"].get<bool>();
-                result.push_back(r);
-            }
-        } catch (...) {
-        }
-        return result;
-    }
     // Returns whether the hold changed; the scratch pad callback fires on edits
     // that have nothing to do with holding.
     bool ApplyHold(FlightPlan& plan, const TopSkyHold& hold, const std::string& eatPulse) {
@@ -404,7 +371,7 @@ namespace FlightStrips::flightplan {
         plan.cdm.deice_type = event.deice_type;
         plan.cdm.ecfmp_id = event.ecfmp_id;
         plan.cdm.phase = event.phase;
-        plan.cdm.ecfmp_restrictions = ParseEcfmpRestrictions(event.ecfmp_restrictions_json);
+        plan.cdm.ecfmp_restrictions = event.ecfmp_restrictions;
     }
 
     void FlightPlanService::ApplyBackendSyncCdm(const std::string& callsign, const BackendSyncCdmData& cdmData) {
@@ -425,7 +392,7 @@ namespace FlightStrips::flightplan {
         event.deice_type = cdmData.deice_type;
         event.ecfmp_id = cdmData.ecfmp_id;
         event.phase = cdmData.phase;
-        event.ecfmp_restrictions_json = cdmData.ecfmp_restrictions_json;
+        event.ecfmp_restrictions = cdmData.ecfmp_restrictions;
         ApplyCdmUpdate(event);
     }
 

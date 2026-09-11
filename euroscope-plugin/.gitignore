@@ -81,6 +81,7 @@
 # CMake
 cmake-build-*/
 build/
+build-*/
 .cache/
 
 # Mongo Explorer plugin

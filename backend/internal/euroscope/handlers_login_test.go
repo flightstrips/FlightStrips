@@ -2,7 +2,6 @@ package euroscope
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"FlightStrips/internal/config"
@@ -15,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func buildLoginPayload(t *testing.T, callsign, position, airport string) []byte {
@@ -27,15 +27,14 @@ func buildLoginPayloadWithObserver(t *testing.T, callsign, position, airport str
 
 func buildLoginPayloadWithObserverAndLocalIP(t *testing.T, callsign, position, airport string, observer bool, localIP string) []byte {
 	t.Helper()
-	payload, err := json.Marshal(euroscopeEvents.LoginEvent{
-		Type:       euroscopeEvents.Login,
+	payload, err := proto.Marshal(&euroscopeEvents.LoginEvent{
 		Callsign:   callsign,
 		Position:   position,
 		Airport:    airport,
 		Connection: "LIVE",
 		Range:      100,
 		Observer:   observer,
-		LocalIP:    localIP,
+		LocalIp:    localIP,
 	})
 	require.NoError(t, err)
 	return payload
@@ -88,7 +87,6 @@ func TestHandleLoginEvent_UpdatesPositionOnSwitch(t *testing.T) {
 	}
 
 	err := handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: buildLoginPayload(t, "EKCH_M_TWR", "119.700", "EKCH"),
 	})
 
@@ -135,7 +133,6 @@ func TestHandleLoginEvent_NoSetPositionWhenUnchanged(t *testing.T) {
 	}
 
 	err := handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: buildLoginPayload(t, "EKCH_M_TWR", "118.105", "EKCH"),
 	})
 
@@ -178,7 +175,6 @@ func TestHandleLoginEvent_UpdatesLocalIPOnRelogin(t *testing.T) {
 	}
 
 	err := handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: buildLoginPayloadWithObserverAndLocalIP(t, "EKCH_M_TWR", "118.105", "EKCH", false, "192.168.1.25"),
 	})
 
@@ -221,7 +217,6 @@ func TestHandleLoginEvent_CreatesControllerIfNew(t *testing.T) {
 	}
 
 	err := handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: buildLoginPayload(t, "EKCH_D_GND", "121.750", "EKCH"),
 	})
 
@@ -270,7 +265,6 @@ func TestHandleLoginEvent_CallsUpdateLayouts(t *testing.T) {
 	}
 
 	err := handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: buildLoginPayload(t, "EKCH_M_TWR", "118.105", "EKCH"),
 	})
 
@@ -314,8 +308,7 @@ func TestHandleLoginEvent_ObserverSkipsUpdateLayouts(t *testing.T) {
 		user:     shared.NewAuthenticatedUser("1234567", 0, nil),
 	}
 
-	payload, err := json.Marshal(euroscopeEvents.LoginEvent{
-		Type:     euroscopeEvents.Login,
+	payload, err := proto.Marshal(&euroscopeEvents.LoginEvent{
 		Callsign: "EKCH_M_TWR",
 		Position: "118.105",
 		Airport:  "EKCH",
@@ -324,7 +317,6 @@ func TestHandleLoginEvent_ObserverSkipsUpdateLayouts(t *testing.T) {
 	require.NoError(t, err)
 
 	err = handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: payload,
 	})
 
@@ -375,7 +367,6 @@ func TestHandleLoginEvent_ObserverPositionChangeRefreshesFrontend(t *testing.T) 
 	}
 
 	err := handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: buildLoginPayloadWithObserver(t, "FR_OBS", "118.105", "EKCH", true),
 	})
 
@@ -428,7 +419,6 @@ func TestHandleLoginEvent_MasterCallsignRefreshesOnRelogin(t *testing.T) {
 	hub.masterCallsigns.Store(int32(42), "EKCH_A_TWR")
 
 	err := handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: buildLoginPayload(t, "EKCH_D_TWR", "118.105", "EKCH"),
 	})
 
@@ -539,20 +529,17 @@ func TestHandleLoginEvent_ThenControllerOnline_ForcesOrchestrationForSamePositio
 	}
 
 	err := handleLoginEvent(context.Background(), client, Message{
-		Type:    euroscopeEvents.Login,
 		Message: buildLoginPayload(t, callsign, position, "EKCH"),
 	})
 	require.NoError(t, err)
 
-	payload, err := json.Marshal(euroscopeEvents.ControllerOnlineEvent{
-		Type:     euroscopeEvents.ControllerOnline,
+	payload, err := proto.Marshal(&euroscopeEvents.ControllerOnlineEvent{
 		Callsign: callsign,
 		Position: position,
 	})
 	require.NoError(t, err)
 
 	err = handleControllerOnline(context.Background(), client, Message{
-		Type:    euroscopeEvents.ControllerOnline,
 		Message: payload,
 	})
 	require.NoError(t, err)

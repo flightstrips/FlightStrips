@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"FlightStrips/internal/shared"
-	"FlightStrips/pkg/events"
 	"log/slog"
 	"net/http"
 
@@ -46,11 +45,16 @@ func (u ConnectionUpgrader[TType, TClient]) Upgrade(w http.ResponseWriter, r *ht
 	}
 
 	// authentication
-	var authenticationEvent events.AuthenticationEvent
-	err = conn.ReadJSON(&authenticationEvent)
+	frameType, authenticationMessage, err := conn.ReadMessage()
 	if err != nil {
 		span.RecordError(err)
 		slog.Debug("Failed to read authentication event", slog.Any("error", err))
+		return
+	}
+	authenticationEvent, err := u.hub.DecodeAuthentication(frameType, authenticationMessage)
+	if err != nil {
+		span.RecordError(err)
+		slog.Debug("Failed to decode authentication event", slog.Any("error", err))
 		return
 	}
 

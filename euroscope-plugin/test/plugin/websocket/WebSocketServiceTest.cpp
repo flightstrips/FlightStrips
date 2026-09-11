@@ -3,6 +3,7 @@
 #include "websocket/WebSocketService.h"
 #include "version.h"
 #include "websocket/Events.h"
+#include "websocket/generated/proto/euroscope.pb.h"
 #include "mock/MockFlightStripsPlugin.h"
 #include "mock/MockAuthenticationService.h"
 #include "handlers/ConnectionEventHandlers.h"
@@ -545,18 +546,20 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_DirectConnection_UsesSelectedS
     state.prefer_sweatbox = true;
     ON_CALL(*mockAuth, GetAccessToken()).WillByDefault(Return("token-123"));
 
-    std::vector<nlohmann::json> sent;
+    std::vector<flightstrips::euroscope::v1::Envelope> sent;
     EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&sent](const std::string& payload) {
-        sent.push_back(nlohmann::json::parse(payload));
+        flightstrips::euroscope::v1::Envelope envelope;
+        EXPECT_TRUE(envelope.ParseFromString(payload));
+        sent.push_back(std::move(envelope));
     }));
 
     svc->SimulateConnected();
 
     ASSERT_EQ(sent.size(), 2u);
-    EXPECT_EQ(sent[0]["type"], EVENT_TOKEN_NAME);
-    EXPECT_EQ(sent[0]["version"], PLUGIN_VERSION);
-    EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
-    EXPECT_EQ(sent[1]["connection"], "SWEATBOX");
+    EXPECT_TRUE(sent[0].has_token());
+    EXPECT_EQ(sent[0].token().version(), PLUGIN_VERSION);
+    EXPECT_TRUE(sent[1].has_login());
+    EXPECT_EQ(sent[1].login().connection(), "SWEATBOX");
 }
 
 TEST_F(WebSocketServiceReconnectTest, OnConnected_PlaybackConnection_OverridesManualPreferenceInLoginEvent) {
@@ -568,16 +571,18 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_PlaybackConnection_OverridesMa
     state.prefer_sweatbox = false;
     ON_CALL(*mockAuth, GetAccessToken()).WillByDefault(Return("token-123"));
 
-    std::vector<nlohmann::json> sent;
+    std::vector<flightstrips::euroscope::v1::Envelope> sent;
     EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&sent](const std::string& payload) {
-        sent.push_back(nlohmann::json::parse(payload));
+        flightstrips::euroscope::v1::Envelope envelope;
+        EXPECT_TRUE(envelope.ParseFromString(payload));
+        sent.push_back(std::move(envelope));
     }));
 
     svc->SimulateConnected();
 
     ASSERT_EQ(sent.size(), 2u);
-    EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
-    EXPECT_EQ(sent[1]["connection"], "PLAYBACK");
+    EXPECT_TRUE(sent[1].has_login());
+    EXPECT_EQ(sent[1].login().connection(), "PLAYBACK");
 }
 
 TEST_F(WebSocketServiceReconnectTest, OnConnected_ObserverLoginIncludesObserverFlag) {
@@ -589,16 +594,18 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_ObserverLoginIncludesObserverF
     state.observer = true;
     ON_CALL(*mockAuth, GetAccessToken()).WillByDefault(Return("token-123"));
 
-    std::vector<nlohmann::json> sent;
+    std::vector<flightstrips::euroscope::v1::Envelope> sent;
     EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&sent](const std::string& payload) {
-        sent.push_back(nlohmann::json::parse(payload));
+        flightstrips::euroscope::v1::Envelope envelope;
+        EXPECT_TRUE(envelope.ParseFromString(payload));
+        sent.push_back(std::move(envelope));
     }));
 
     svc->SimulateConnected();
 
     ASSERT_EQ(sent.size(), 2u);
-    EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
-    EXPECT_EQ(sent[1]["observer"], true);
+    EXPECT_TRUE(sent[1].has_login());
+    EXPECT_TRUE(sent[1].login().observer());
 }
 
 TEST_F(WebSocketServiceReconnectTest, OnConnected_LoginIncludesLocalIpWhenAvailable) {
@@ -616,16 +623,18 @@ TEST_F(WebSocketServiceReconnectTest, OnConnected_LoginIncludesLocalIpWhenAvaila
     svcOwner = std::make_unique<ReconnectSeam>(mockAuth, mockPlugin, connHandlers, msgHandlers, std::move(ws), "192.168.1.25");
     svc = svcOwner.get();
 
-    std::vector<nlohmann::json> sent;
+    std::vector<flightstrips::euroscope::v1::Envelope> sent;
     EXPECT_CALL(*mockImpl, Send(_)).Times(2).WillRepeatedly(Invoke([&sent](const std::string& payload) {
-        sent.push_back(nlohmann::json::parse(payload));
+        flightstrips::euroscope::v1::Envelope envelope;
+        EXPECT_TRUE(envelope.ParseFromString(payload));
+        sent.push_back(std::move(envelope));
     }));
 
     svc->SimulateConnected();
 
     ASSERT_EQ(sent.size(), 2u);
-    EXPECT_EQ(sent[1]["type"], EVENT_LOGIN_NAME);
-    EXPECT_EQ(sent[1]["local_ip"], "192.168.1.25");
+    EXPECT_TRUE(sent[1].has_login());
+    EXPECT_EQ(sent[1].login().local_ip(), "192.168.1.25");
 }
 
 // ---------------------------------------------------------------------------

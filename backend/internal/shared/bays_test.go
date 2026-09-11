@@ -8,8 +8,9 @@ import (
 
 func TestGetDepartureBayUsesConfiguredAirborneThreshold(t *testing.T) {
 	strip := euroscope.Strip{
-		Origin:  "EKCH",
-		Cleared: true,
+		Origin:   "EKCH",
+		Cleared:  true,
+		Position: &euroscope.Position{},
 	}
 	strip.Position.Lat = AirportLatitude
 	strip.Position.Lon = AirportLongitude
@@ -159,6 +160,7 @@ func TestGetDepartureBay_DepartIgnoresStaleTaxiGroundState(t *testing.T) {
 	strip := euroscope.Strip{
 		Origin:      "EKCH",
 		GroundState: euroscope.GroundStateTaxi,
+		Position:    &euroscope.Position{},
 	}
 	strip.Position.Lat = AirportLatitude
 	strip.Position.Lon = AirportLongitude
@@ -178,6 +180,7 @@ func TestGetDepartureBay_AirborneIgnoresStaleTaxiGroundState(t *testing.T) {
 	strip := euroscope.Strip{
 		Origin:      "EKCH",
 		GroundState: euroscope.GroundStateTaxi,
+		Position:    &euroscope.Position{},
 	}
 	strip.Position.Lat = AirportLatitude
 	strip.Position.Lon = AirportLongitude
@@ -213,6 +216,7 @@ func TestGetDepartureBay_HiddenPreservedForDepartureSync(t *testing.T) {
 	strip := euroscope.Strip{
 		Origin:      "EKCH",
 		GroundState: euroscope.GroundStateDepart,
+		Position:    &euroscope.Position{},
 	}
 	strip.Position.Lat = AirportLatitude
 	strip.Position.Lon = AirportLongitude

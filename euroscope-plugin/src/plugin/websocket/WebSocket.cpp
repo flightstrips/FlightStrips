@@ -108,9 +108,9 @@ namespace FlightStrips::websocket {
 
             void Send(const std::string& message) override {
                 websocketpp::lib::error_code ec;
-                m_endpoint.send(m_hdl, message, websocketpp::frame::opcode::text, ec);
+                m_endpoint.send(m_hdl, message, websocketpp::frame::opcode::binary, ec);
                 if (ec) {
-                    Logger::Warning("Failed to send message '{}' with error code {}: {}.", message, ec.value(), ec.message());
+                    Logger::Warning("Failed to send protobuf message ({} bytes) with error code {}: {}.", message.size(), ec.value(), ec.message());
                 }
             }
 
@@ -133,8 +133,12 @@ namespace FlightStrips::websocket {
 
             void OnMessage(const websocketpp::connection_hdl&, const typename ClientT::message_ptr& msg) const {
                 exceptions::RunGuarded("WebSocket::OnMessage", [this, &msg] {
+                    if (msg->get_opcode() != websocketpp::frame::opcode::binary) {
+                        Logger::Warning("Ignoring non-binary websocket message from server");
+                        return;
+                    }
                     auto payload = msg->get_payload();
-                    Logger::Debug("Got message from server: {}", payload);
+                    Logger::Debug("Got protobuf message from server ({} bytes)", payload.size());
                     message_cb(payload);
                 });
             }

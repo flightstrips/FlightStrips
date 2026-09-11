@@ -17,7 +17,9 @@ import (
 	"FlightStrips/pkg/helpers"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -245,6 +247,17 @@ func (hub *Hub) Unregister(client *Client) {
 
 func (hub *Hub) GetMessageHandlers() shared.MessageHandlers[frontend.EventType, *Client] {
 	return hub.handlers
+}
+
+func (hub *Hub) DecodeAuthentication(frameType int, message []byte) (events.AuthenticationEvent, error) {
+	if frameType != gorilla.TextMessage {
+		return events.AuthenticationEvent{}, fmt.Errorf("frontend authentication must use a text websocket frame")
+	}
+	var event events.AuthenticationEvent
+	if err := json.Unmarshal(message, &event); err != nil {
+		return events.AuthenticationEvent{}, err
+	}
+	return event, nil
 }
 
 func (hub *Hub) Broadcast(session int32, message frontend.OutgoingMessage) {

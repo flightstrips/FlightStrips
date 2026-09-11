@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 #include "Events.h"
+#include "ProtoCodec.h"
 #include "Logger.hpp"
 #include "WebSocket.h"
 #include "authentication/IAuthenticationService.h"
@@ -81,7 +82,7 @@ namespace FlightStrips::websocket {
         std::string local_ip_;
 
         mutable std::mutex message_mutex_;
-        std::vector<nlohmann::json> messages_ {};
+        std::vector<std::string> messages_ {};
 
         bool enabled;
 
@@ -116,10 +117,9 @@ void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
         return;
     }
     ++tx;
-    const nlohmann::json json = event;
-    const auto json_str = json.dump(-1, ' ', false, nlohmann::detail::error_handler_t::ignore);
-    webSocket->Send(json_str);
-    Logger::Debug("Sending event: {}", json_str);
+    const auto bytes = protobuf::Serialize(event);
+    webSocket->Send(bytes);
+    Logger::Debug("Sending protobuf event type {} ({} bytes)", static_cast<int>(event.type), bytes.size());
 }
 
 template void FlightStrips::websocket::WebSocketService::SendEvent<AircraftDisconnectEvent>(const AircraftDisconnectEvent & event);

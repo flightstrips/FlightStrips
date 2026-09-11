@@ -27,7 +27,7 @@ type Recorder struct {
 func NewRecorder(airport, connection, description string) *Recorder {
 	return &Recorder{
 		session: &RecordedSession{
-			Version: "1.0",
+			Version: "2.0",
 			Metadata: SessionMetadata{
 				Airport:         airport,
 				Connection:      connection,
@@ -45,6 +45,27 @@ func NewRecorder(airport, connection, description string) *Recorder {
 	}
 }
 
+// RecordProtobufEvent stores an encoded protobuf envelope as base64 inside the
+// JSON recording container. The JSON file is only a replay artifact; websocket
+// traffic remains binary protobuf.
+func (r *Recorder) RecordProtobufEvent(eventType string, envelope []byte) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	payloadBytes, err := json.Marshal(envelope)
+	if err != nil {
+		return fmt.Errorf("failed to encode protobuf event payload: %w", err)
+	}
+	r.session.Events = append(r.session.Events, RecordedEvent{
+		Index:       r.eventIndex,
+		TimestampMs: time.Since(r.startTime).Milliseconds(),
+		Type:        eventType,
+		Payload:     payloadBytes,
+	})
+	r.eventIndex++
+	return nil
+}
+
 // SetLoginInfo sets the login information in metadata
 func (r *Recorder) SetLoginInfo(position, callsign string, rang int32) {
 	r.mu.Lock()
@@ -60,7 +81,7 @@ func (r *Recorder) Start() {
 	defer r.mu.Unlock()
 
 	r.startTime = time.Now()
-	slog.Info("Recording started", 
+	slog.Info("Recording started",
 		slog.String("airport", r.session.Metadata.Airport),
 		slog.String("connection", r.session.Metadata.Connection))
 
@@ -155,7 +176,7 @@ func (r *Recorder) Stop() error {
 // saveToFile writes the recorded session to a JSON file
 func (r *Recorder) saveToFile() error {
 	recordingPath := config.GetRecordingPath()
-	
+
 	// Create recording directory if it doesn't exist
 	if err := os.MkdirAll(recordingPath, 0755); err != nil {
 		return fmt.Errorf("failed to create recording directory: %w", err)

@@ -55,6 +55,7 @@
 #define EVENT_PDC_REVERT_TO_VOICE_NAME "pdc_revert_to_voice"
 #define EVENT_SEND_PRIVATE_MESSAGE_NAME "send_private_message"
 #define EVENT_HOLD_NAME "hold"
+#define EVENT_AMAN_GAIN_LOSS_NAME "aman_gain_loss"
 #define EVENT_AMAN_ROUTE_FACT_NAME "aman.route_fact"
 
 enum EventType {
@@ -110,6 +111,7 @@ enum EventType {
     EVENT_PDC_REVERT_TO_VOICE,
     EVENT_SEND_PRIVATE_MESSAGE,
     EVENT_HOLD,
+    EVENT_AMAN_GAIN_LOSS,
     EVENT_AMAN_ROUTE_FACT,
 };
 
@@ -165,6 +167,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                                  {EVENT_PDC_REVERT_TO_VOICE, EVENT_PDC_REVERT_TO_VOICE_NAME},
                                  {EVENT_SEND_PRIVATE_MESSAGE, EVENT_SEND_PRIVATE_MESSAGE_NAME},
                              {EVENT_HOLD, EVENT_HOLD_NAME},
+                             {EVENT_AMAN_GAIN_LOSS, EVENT_AMAN_GAIN_LOSS_NAME},
                              {EVENT_AMAN_ROUTE_FACT, EVENT_AMAN_ROUTE_FACT_NAME},
                                  })
 
@@ -251,7 +254,7 @@ struct CdmUpdateEvent final : Event {
     std::string deice_type;
     std::string ecfmp_id;
     std::string phase;
-    std::string ecfmp_restrictions_json;
+    std::vector<FlightStrips::flightplan::EcfmpRestriction> ecfmp_restrictions;
 
     CdmUpdateEvent()
         : Event(EVENT_CDM_UPDATE) {
@@ -274,7 +277,7 @@ struct CdmUpdateEvent final : Event {
         deice_type,
         ecfmp_id,
         phase,
-        ecfmp_restrictions_json,
+        ecfmp_restrictions,
         type
     );
 };
@@ -383,7 +386,7 @@ struct BackendSyncCdmData final {
     std::string deice_type;
     std::string ecfmp_id;
     std::string phase;
-    std::string ecfmp_restrictions_json;
+    std::vector<FlightStrips::flightplan::EcfmpRestriction> ecfmp_restrictions;
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
         BackendSyncCdmData,
@@ -401,7 +404,7 @@ struct BackendSyncCdmData final {
         deice_type,
         ecfmp_id,
         phase,
-        ecfmp_restrictions_json
+        ecfmp_restrictions
     );
 };
 

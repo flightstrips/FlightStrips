@@ -8,6 +8,7 @@
 
 #include "handlers/MessageHandler.h"
 #include "handlers/ConnectionEventHandler.h"
+#include "websocket/generated/proto/euroscope.pb.h"
 
 namespace FlightStrips::aman {
     struct GainLossValue {
@@ -35,7 +36,7 @@ namespace FlightStrips::aman {
     public:
         AMANGainLossStore();
 
-        void OnMessages(const std::vector<nlohmann::json>& messages) override;
+        void OnMessages(const std::vector<std::string>& messages) override;
         void Online() override;
         [[nodiscard]] std::shared_ptr<const GainLossSnapshot> Snapshot() const;
         [[nodiscard]] std::optional<GainLossValue> FindByCallsign(const std::string& callsign) const;
@@ -44,7 +45,8 @@ namespace FlightStrips::aman {
         std::atomic<std::shared_ptr<const GainLossSnapshot>> snapshot_;
 
         static std::string NormalizeCallsign(std::string callsign);
-        static std::shared_ptr<const GainLossSnapshot> Parse(const nlohmann::json& message);
+        static std::shared_ptr<const GainLossSnapshot> Parse(
+            const flightstrips::euroscope::v1::AMANGainLossEvent& message);
         void Clear();
     };
 }

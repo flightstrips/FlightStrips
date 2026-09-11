@@ -128,13 +128,14 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	}
 
 	// Departures from this airport.
+	position := strip.GetPosition()
 	if existing != nil && existing.Bay == BAY_HIDDEN_DEP {
 		return BAY_HIDDEN_DEP
 	}
 
 	// TODO: airport latitude/longitude should be stored in config, not hardcoded
-	if hasKnownPosition(strip.Position.Lat, strip.Position.Lon) &&
-		GetDistance(strip.Position.Lat, strip.Position.Lon, AirportLatitude, AirportLongitude) > RelevantDistance {
+	if hasKnownPosition(position.GetLat(), position.GetLon()) &&
+		GetDistance(position.GetLat(), position.GetLon(), AirportLatitude, AirportLongitude) > RelevantDistance {
 		return BAY_HIDDEN
 	}
 
@@ -171,7 +172,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	// If the strip is already at rwy-dep, preserve it and only allow a forward
 	// transition to AIRBORNE. Never fall back to TAXI/CLEARED based on stale sync data.
 	if existing != nil && existing.Bay == BAY_DEPART {
-		if int64(strip.Position.Altitude) > int64(AirportElevation)+airborneAltitudeAGL {
+		if int64(position.GetAltitude()) > int64(AirportElevation)+airborneAltitudeAGL {
 			return BAY_AIRBORNE
 		}
 		return BAY_DEPART
@@ -185,11 +186,11 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 		return BAY_NOT_CLEARED
 	}
 
-	if !hasKnownPosition(strip.Position.Lat, strip.Position.Lon) {
+	if !hasKnownPosition(position.GetLat(), position.GetLon()) {
 		return BAY_CLEARED
 	}
 
-	if int64(strip.Position.Altitude) < int64(AirportElevation)+airborneAltitudeAGL {
+	if int64(position.GetAltitude()) < int64(AirportElevation)+airborneAltitudeAGL {
 		return BAY_CLEARED
 	}
 

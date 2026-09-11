@@ -117,6 +117,10 @@ set(src__graphics
 source_group("src\\graphics" FILES ${src__graphics})
 
 set(src__websocket
+        websocket/generated/proto/euroscope.pb.cc
+        websocket/generated/proto/euroscope.pb.h
+        websocket/ProtoCodec.h
+        websocket/ProtoCodec.cpp
         websocket/WebSocket.h
         websocket/WebSocket.cpp
         websocket/WebSocketService.cpp
@@ -216,6 +220,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
 ################################################################################
 target_include_directories(${PROJECT_NAME} PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/."
+        "${CMAKE_CURRENT_SOURCE_DIR}/websocket/generated"
 )
 
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
@@ -312,6 +317,7 @@ set(ADDITIONAL_LIBRARY_DEPENDENCIES
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE libcrypto.lib libssl.lib libcurl_a.lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE protobuf::libprotobuf-lite)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${ADDITIONAL_LIBRARY_DEPENDENCIES})
 

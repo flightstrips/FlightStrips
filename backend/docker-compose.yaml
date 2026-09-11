@@ -17,7 +17,7 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - postgres:/var/lib/postgresql/database
+      - postgres:/var/lib/postgresql/data
       # Disabled for development convenience - consider enabling for production or completely remove it.
       # - ./pg_hba.conf:/var/lib/postgresql/pg_hba.conf
     environment:
@@ -31,6 +31,12 @@ services:
       - flightstrips
     restart: unless-stopped
     command: ["postgres"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
     profiles: [all, database]
 
   flightstrips-migrator:
@@ -41,7 +47,7 @@ services:
     restart: on-failure
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
     environment:
       - DATABASE_CONNECTIONSTRING_FILE=/run/secrets/database_connectionstring
     secrets:
@@ -69,7 +75,7 @@ services:
       aspire-dashboard:
         condition: service_started
       postgres:
-        condition: service_started
+        condition: service_healthy
       flightstrips-migrator:
         condition: service_completed_successfully
     secrets:
@@ -89,4 +95,4 @@ secrets:
   postgres_password:
     environment: POSTGRES_PASSWORD
   database_connectionstring:
-    environment: DATABASE_CONNECTIONSTRING
+    environment: DOCKER_DATABASE_CONNECTIONSTRING

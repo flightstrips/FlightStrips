@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	policyVersion              = "aman-cph-v1"
+	policyVersion              = "aman-cph-v2"
 	modelVersion               = "aman-cph-teta-v3"
 	routeResolverVersion       = "airacnet-route-v4"
 	defaultArrivalRate         = uint32(20)
@@ -320,6 +320,7 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		s.setHealthComponent("repository", aman.HealthReady, "", now)
 	}
 	next := current
+	next.PolicyVersion = policyVersion
 	next.Flights = slices.Clone(current.Flights)
 	next.RunwayGroups = slices.Clone(current.RunwayGroups)
 	if !runwayGroupsMatchTerminal(next.RunwayGroups, s.deps.Terminal.RunwayGroups) {
@@ -722,7 +723,9 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	flight.HoldingStack = updateHoldingStack(flight.HoldingStack, projection.HoldingCandidate, observedAt(observation.Surveillance, now))
 	flight.RouteProgress = projection.Progress
 	previousState := flight.State
-	nextState := lifecycleState(flight, raw.RawTETA, now)
+	raw.HoldingPlan = holdingPlan(raw, flight.Slot)
+	flight.FeederETA = holdingFeederETA(state.Authoritative, flight, raw, s.deps.Terminal)
+	nextState := lifecycleState(lifecycle.DefaultConfig(), flight, raw.RawTETA, now)
 	reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{
 		Raw:                          raw,
 		State:                        nextState,
@@ -1327,11 +1330,11 @@ func isPreliminaryPrediction(value *aman.Prediction) bool {
 		strings.HasPrefix(value.ModelVersion, "aman-airborne-")
 }
 
-func lifecycleState(flight aman.AMANFlight, teta, now time.Time) aman.FlightState {
+func lifecycleState(config lifecycle.Config, flight aman.AMANFlight, teta, now time.Time) aman.FlightState {
 	until := teta.Sub(now)
 	switch flight.State {
 	case aman.StatePlanned, aman.StateAirborne, aman.StateGoAround:
-		if until <= 45*time.Minute {
+		if until <= config.UnstableHorizon {
 			return aman.StateUnstable
 		}
 	case aman.StateUnstable:
@@ -1339,7 +1342,7 @@ func lifecycleState(flight aman.AMANFlight, teta, now time.Time) aman.FlightStat
 		if flight.Lifecycle != nil {
 			entered = flight.Lifecycle.EnteredAt
 		}
-		if until <= 20*time.Minute && now.Sub(entered) >= 2*time.Minute {
+		if lifecycle.StableFeederEligible(flight.FeederETA, now, config.StableHorizon) && now.Sub(entered) >= config.MinimumUnstableDwell {
 			return aman.StateStable
 		}
 	}
@@ -1630,6 +1633,7 @@ func markUnknownSTARFamily(flight *aman.AMANFlight, now time.Time) {
 	flight.ActiveRouteKey = nil
 	flight.ActiveRouteDatasetID = nil
 	flight.RouteProgress = nil
+	flight.FeederETA = nil
 	if flight.Prediction == nil {
 		return
 	}
@@ -1644,7 +1648,7 @@ func markUnknownSTARFamily(flight *aman.AMANFlight, now time.Time) {
 	}
 	flight.Prediction = &prediction
 	previousState := flight.State
-	nextState := lifecycleState(*flight, prediction.OperationalTETA, now)
+	nextState := lifecycleState(lifecycle.DefaultConfig(), *flight, prediction.OperationalTETA, now)
 	updateLifecycle(flight, previousState, nextState, now)
 }
 

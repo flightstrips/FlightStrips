@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/aman"
+	"FlightStrips/internal/aman/lifecycle"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/aman/sequence"
@@ -1236,6 +1237,18 @@ func TestRouteFeederETARecalculatesDeterministically(t *testing.T) {
 
 	require.Equal(t, first, replay)
 	require.Equal(t, *first.ETA, *recalculated.ETA, "equivalent accepted inputs must reproduce the same absolute ETA")
+}
+
+func TestLifecycleStateUsesFeederETAAfterPersistedUnstableDwell(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 18, 0, 0, 0, time.UTC)
+	config := lifecycle.DefaultConfig()
+	flight := operationalFlight("SAS123", "ARRIVAL-22", "TESPI", "M", now.Add(5*time.Minute))
+	flight.Lifecycle = &aman.LifecycleState{EnteredAt: now.Add(-config.MinimumUnstableDwell), Reason: aman.LifecycleReasonUnstableHorizon}
+
+	require.Equal(t, aman.StateUnstable, lifecycleState(config, flight, now.Add(5*time.Minute), now), "landing TETA must not substitute for missing feeder ETA")
+	feederETA := now.Add(config.StableHorizon)
+	flight.FeederETA = &aman.FeederETAState{ETA: &feederETA, Source: aman.FeederETASourceHolding}
+	require.Equal(t, aman.StateStable, lifecycleState(config, flight, now.Add(time.Hour), now), "the feeder boundary controls Stable independently of landing TETA")
 }
 
 func TestHoldingPlanKeepsSlotFixedAndRecalculatesDelayFromLatestTrajectory(t *testing.T) {

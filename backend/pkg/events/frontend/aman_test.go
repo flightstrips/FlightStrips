@@ -45,6 +45,63 @@ func TestAMANStateEventIncludesAuthoritativeTrafficPrediction(t *testing.T) {
 	require.EqualValues(t, 20, event.Data.TrafficPrediction.Buckets[1].SelectedRate.ArrivalsPerHour)
 }
 
+func TestAMANStateEventSerializesOptionalHoldingFacts(t *testing.T) {
+	state := goldenAMANState()
+	altitude := int32(12000)
+	state.Flights[0].LatestObservation = &aman.FlightObservation{
+		FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: " ekch ",
+		ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
+	}
+	state.Flights[0].HoldingClearance = &aman.HoldingClearance{
+		Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: "1015",
+		ClearedAltitude: &altitude, ObservedAt: state.GeneratedAt,
+	}
+
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	expectedEAT := "2026-07-22T10:15:00.000Z"
+	require.Equal(t, []AMANHoldingEntry{{
+		FlightID: "flight-123", Callsign: "SAS123", Holding: "OLPIB", EAT: &expectedEAT,
+		ClearedAltitude: &altitude, SourceStatus: "fresh", ObservedAt: "2026-07-22T10:00:00.000Z",
+	}}, event.Data.HoldingInformation)
+
+	encoded, err := event.Marshal()
+	require.NoError(t, err)
+	require.JSONEq(t, `{"flight_id":"flight-123","callsign":"SAS123","holding":"OLPIB","eat":"2026-07-22T10:15:00.000Z","cleared_altitude":12000,"source_status":"fresh","observed_at":"2026-07-22T10:00:00.000Z"}`, firstHoldingJSON(t, encoded))
+}
+
+func TestAMANStateEventSerializesMissingHoldingDataAsNull(t *testing.T) {
+	state := goldenAMANState()
+	state.Flights[0].LatestObservation = &aman.FlightObservation{
+		FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
+		ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
+	}
+	state.Flights[0].HoldingClearance = &aman.HoldingClearance{
+		Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, ObservedAt: state.GeneratedAt,
+	}
+
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Nil(t, event.Data.HoldingInformation[0].EAT)
+	require.Nil(t, event.Data.HoldingInformation[0].ClearedAltitude)
+	encoded, err := event.Marshal()
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"eat":null`)
+	require.Contains(t, string(encoded), `"cleared_altitude":null`)
+}
+
+func firstHoldingJSON(t *testing.T, payload []byte) string {
+	t.Helper()
+	var event struct {
+		Data struct {
+			HoldingInformation []json.RawMessage `json:"holding_information"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(payload, &event))
+	require.Len(t, event.Data.HoldingInformation, 1)
+	return string(event.Data.HoldingInformation[0])
+}
+
 func TestAMANStateEventRejectsEffectiveModeHealthFromAnotherState(t *testing.T) {
 	health := goldenAMANHealth()
 	health.EffectiveMode = aman.EffectiveBlocked

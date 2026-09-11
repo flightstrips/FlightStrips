@@ -30,9 +30,22 @@ describe("AMAN V1 full replacement contract", () => {
   it("accepts a legacy V1 replacement without the TMT extension", () => {
     const legacy = replacement(8);
     delete legacy.data.traffic_prediction;
+    delete legacy.data.holding_information;
 
     expect(isAMANStateEvent(legacy)).toBe(true);
     expect(replaceAMANState(null, legacy)).toMatchObject({accepted: true, error: null});
+  });
+
+  it("accepts holding information with missing EAT and CFL", () => {
+    const event = replacement(8);
+    event.data.holding_information = [{
+      flight_id: "flight-123", callsign: "SAS123", holding: "OLPIB", eat: null,
+      cleared_altitude: null, source_status: "stale", observed_at: "2026-07-22T10:00:00.000Z",
+    }];
+
+    expect(isAMANStateEvent(event)).toBe(true);
+    event.data.holding_information[0].source_status = "unknown" as "fresh";
+    expect(isAMANStateEvent(event)).toBe(false);
   });
 
   it("ignores duplicate and older revisions, then atomically accepts any newer revision", () => {

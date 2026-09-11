@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/etareview"
+	"FlightStrips/internal/aman/lifecycle"
 	"FlightStrips/internal/aman/prediction"
 	"FlightStrips/internal/aman/sequence"
 )
@@ -161,6 +163,143 @@ func (s *Service) UnlockFlight(auth aman.CommandContext, command aman.UnlockFlig
 	return s.sequenceMutation("unlock_flight", command.FlightID, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
 		return sequence.ReleaseManualFreeze(input, sequence.ReleaseManualFreezeCommand{Metadata: command.Metadata, FlightID: command.FlightID, At: auth.ReceivedAt})
 	}), nil
+}
+
+func (s *Service) DesequenceFlight(auth aman.CommandContext, command aman.DesequenceFlightCommand) (sequence.CommandMutation, error) {
+	if err := s.authorizeFlightDisposition(auth); err != nil {
+		return nil, err
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.FlightID)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+		}
+		before := state.Flights[index]
+		if before.State == aman.StateRemoved {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "removed AMAN flight cannot be desequenced"}
+		}
+		if before.SequenceDisposition == aman.SequenceDispositionDesequenced {
+			return s.dispositionChange(state, false, "desequence_flight", auth, before, before)
+		}
+		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		state.Flights[index].SequenceDisposition = aman.SequenceDispositionDesequenced
+		state.Flights[index].UpdatedAt = auth.ReceivedAt
+		s.resequence(&state, auth.ReceivedAt)
+		return s.dispositionChange(state, true, "desequence_flight", auth, before, state.Flights[index])
+	}, nil
+}
+
+func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlightCommand) (sequence.CommandMutation, error) {
+	if err := s.authorizeFlightDisposition(auth); err != nil {
+		return nil, err
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.FlightID)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+		}
+		before := state.Flights[index]
+		if before.SequenceDisposition.Participates() {
+			return s.dispositionChange(state, false, "resume_flight", auth, before, before)
+		}
+		if before.State == aman.StateLanded || before.State == aman.StateRemoved || before.Prediction == nil || before.SelectedRunwayGroup == nil {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "desequenced flight has no resumable operational prediction"}
+		}
+		if !slices.Contains(state.ActiveRunwayGroups, *before.SelectedRunwayGroup) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "desequenced flight is not assigned to an active runway group"}
+		}
+
+		candidate := state
+		candidate.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		candidate.Flights[index].SequenceDisposition = aman.SequenceDispositionActive
+		input := s.sequenceInput(candidate)
+		for i := range input.Flights {
+			if input.Flights[i].ID != command.FlightID {
+				continue
+			}
+			input.Flights[i].FreezeReason, input.Flights[i].FrozenAt = aman.FreezeNone, nil
+			input.Flights[i].FrozenOperationalTETA, input.Flights[i].CapturedSlot = nil, nil
+			input.Flights[i].CurrentSlot, input.Flights[i].ManualOrder = nil, nil
+			input.Flights[i].ProtectCurrentSlot = false
+		}
+		result, err := sequence.Generate(input)
+		if err != nil || result.HasConflicts() {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "resume could not produce a complete legal sequence"}
+		}
+		if !slices.ContainsFunc(result.Entries, func(entry sequence.CandidateEntry) bool { return entry.FlightID == command.FlightID }) {
+			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "resume could not produce a complete legal sequence"}
+		}
+		candidate = s.applyDecision(candidate, sequence.Decision{Input: input, Candidate: result, Changed: true})
+		after := &candidate.Flights[index]
+		after.UpdatedAt = auth.ReceivedAt
+		after.FreezeReason, after.FrozenAt, after.FrozenOperationalTETA = before.FreezeReason, before.FrozenAt, before.FrozenOperationalTETA
+		if before.FreezeReason != aman.FreezeNone && after.Slot != nil {
+			after.FrozenSlot = retargetSlot(after.Slot, after.Slot.RunwayGroupID)
+		}
+		if before.ManualOrder != nil && after.Order != nil {
+			order := *after.Order
+			after.ManualOrder = &order
+		}
+		return s.dispositionChange(candidate, true, "resume_flight", auth, before, *after)
+	}, nil
+}
+
+func (s *Service) RemoveFlight(auth aman.CommandContext, command aman.RemoveFlightCommand) (sequence.CommandMutation, error) {
+	if err := s.authorizeFlightDisposition(auth); err != nil {
+		return nil, err
+	}
+	return func(state aman.AirportState) (sequence.CommandChange, error) {
+		index := flightIndex(state.Flights, command.FlightID)
+		if index < 0 {
+			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+		}
+		before := state.Flights[index]
+		result, err := lifecycle.Reduce(lifecycle.DefaultConfig(), before, lifecycle.Event{
+			ID: command.Metadata.CommandID, Kind: lifecycle.EventManualRemoval, OccurredAt: auth.ReceivedAt,
+		})
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
+		state.Flights[index] = result.Flight
+		clearSequencingState(&state.Flights[index])
+		expireActiveRouteFact(&state.Flights[index])
+		s.resequence(&state, auth.ReceivedAt)
+		return s.dispositionChange(state, true, "remove_flight", auth, before, state.Flights[index])
+	}, nil
+}
+
+func (s *Service) authorizeFlightDisposition(auth aman.CommandContext) error {
+	for _, role := range s.deps.FMPRoles {
+		if strings.EqualFold(strings.TrimSpace(role), auth.Role) {
+			return nil
+		}
+	}
+	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "flight disposition command requires a configured FMP role"}
+}
+
+func (s *Service) dispositionChange(state aman.AirportState, changed bool, action string, auth aman.CommandContext, before, after aman.AMANFlight) (sequence.CommandChange, error) {
+	return s.commandChange(state, changed, action, before.ID, map[string]any{
+		"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
+		"before_disposition": before.SequenceDisposition.OrDefault(), "after_disposition": after.SequenceDisposition.OrDefault(),
+		"before_slot": slotAudit(before.Slot), "after_slot": slotAudit(after.Slot), "before_state": before.State, "after_state": after.State,
+		"before_removed": before.State == aman.StateRemoved, "after_removed": after.State == aman.StateRemoved,
+		"before_removal_reason": lifecycleReason(before), "after_removal_reason": lifecycleReason(after),
+	})
+}
+
+func slotAudit(slot *aman.Slot) any {
+	if slot == nil {
+		return nil
+	}
+	return map[string]any{"time": slot.Time, "runway_group_id": slot.RunwayGroupID, "sequence": slot.Sequence, "reason": slot.Reason}
+}
+
+func lifecycleReason(flight aman.AMANFlight) aman.LifecycleReason {
+	if flight.Lifecycle == nil {
+		return ""
+	}
+	return flight.Lifecycle.Reason
 }
 
 func (s *Service) SetRate(auth aman.CommandContext, command aman.SetRateCommand) (sequence.CommandMutation, error) {

@@ -174,6 +174,15 @@ func (s *recordingAMANCommandService) LockFlight(_ context.Context, auth aman.Co
 func (s *recordingAMANCommandService) UnlockFlight(_ context.Context, auth aman.CommandContext, command aman.UnlockFlightCommand) (aman.CommandExecution, error) {
 	return s.record("unlock", auth, command.Metadata)
 }
+func (s *recordingAMANCommandService) DesequenceFlight(_ context.Context, auth aman.CommandContext, command aman.DesequenceFlightCommand) (aman.CommandExecution, error) {
+	return s.record("desequence", auth, command.Metadata)
+}
+func (s *recordingAMANCommandService) ResumeFlight(_ context.Context, auth aman.CommandContext, command aman.ResumeFlightCommand) (aman.CommandExecution, error) {
+	return s.record("resume", auth, command.Metadata)
+}
+func (s *recordingAMANCommandService) RemoveFlight(_ context.Context, auth aman.CommandContext, command aman.RemoveFlightCommand) (aman.CommandExecution, error) {
+	return s.record("remove", auth, command.Metadata)
+}
 func (s *recordingAMANCommandService) SetRate(_ context.Context, auth aman.CommandContext, command aman.SetRateCommand) (aman.CommandExecution, error) {
 	return s.record("rate", auth, command.Metadata)
 }

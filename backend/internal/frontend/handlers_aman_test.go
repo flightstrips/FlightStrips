@@ -40,6 +40,9 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		{"go around", frontendEvents.AMANReportGoAroundType, `{"type":"aman.report_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","detected_at":"2026-07-22T11:59:00Z"}}`, "go_around"},
 		{"confirm go around", frontendEvents.AMANConfirmGoAroundType, `{"type":"aman.confirm_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","episode_id":"flight-1/go-around/1"}}`, "confirm_go_around"},
 		{"reject go around", frontendEvents.AMANRejectGoAroundType, `{"type":"aman.reject_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","episode_id":"flight-1/go-around/1"}}`, "reject_go_around"},
+		{"create GAP", frontendEvents.AMANCreateGapType, `{"type":"aman.create_gap","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T12:05:00Z","slot_count":2,"label":"approach stop"}}`, "create_runway_gap"},
+		{"remove GAP", frontendEvents.AMANRemoveGapType, `{"type":"aman.remove_gap","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","gap_id":"gap-1"}}`, "remove_runway_gap"},
+		{"place at time", frontendEvents.AMANPlaceFlightAtTimeType, `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z","allow_gap":true}}`, "place_at_time"},
 	}
 
 	for _, test := range tests {
@@ -55,6 +58,72 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 			require.Empty(t, client.send)
 		})
 	}
+}
+
+func TestAMANGapTransportMapsOperationalFields(t *testing.T) {
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+	service := &recordingAMANCommandService{}
+	hub, client := newAMANCommandTestClient(service, now)
+	messages := []struct {
+		type_   frontendEvents.EventType
+		payload string
+	}{
+		{frontendEvents.AMANCreateGapType, `{"type":"aman.create_gap","version":1,"data":{"command_id":"gap-create","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T12:05:00Z","end":"2026-07-22T12:11:00Z","label":"approach stop"}}`},
+		{frontendEvents.AMANRemoveGapType, `{"type":"aman.remove_gap","version":1,"data":{"command_id":"gap-remove","expected_revision":8,"runway_group_id":"A","gap_id":"gap-create"}}`},
+		{frontendEvents.AMANPlaceFlightAtTimeType, `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"place","expected_revision":9,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:08:00Z","allow_gap":true}}`},
+	}
+	for _, message := range messages {
+		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: message.type_, Message: []byte(message.payload)}))
+	}
+	require.Equal(t, now.Add(5*time.Minute), service.createGap.Interval.Start)
+	require.Equal(t, now.Add(11*time.Minute), *service.createGap.Interval.End)
+	require.Nil(t, service.createGap.Interval.SlotCount)
+	require.Equal(t, "approach stop", service.createGap.Label)
+	require.Equal(t, aman.RunwayGapID("gap-create"), service.removeGap.GapID)
+	require.Equal(t, now.Add(8*time.Minute), service.placeAtTime.SlotTime)
+	require.True(t, service.placeAtTime.AllowGap)
+}
+
+func TestAMANGapTransportRejectsAmbiguousMalformedAndSpoofedFields(t *testing.T) {
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+	payloads := []string{
+		`{"type":"aman.create_gap","version":1,"data":{"command_id":"bad","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T12:05:00Z","label":"stop"}}`,
+		`{"type":"aman.create_gap","version":1,"data":{"command_id":"bad","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T12:05:00Z","end":"2026-07-22T12:11:00Z","slot_count":2,"label":"stop"}}`,
+		`{"type":"aman.create_gap","version":1,"data":{"command_id":"bad","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T14:05:00+02:00","slot_count":2,"label":"stop"}}`,
+		`{"type":"aman.create_gap","version":1,"data":{"command_id":"bad","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T12:05:00Z","slot_count":2,"label":"stop","actor":"spoof","role":"ADMIN","airport":"ZZZZ","received_at":"2026-07-22T12:00:00Z"}}`,
+	}
+	for _, payload := range payloads {
+		service := &recordingAMANCommandService{}
+		hub, client := newAMANCommandTestClient(service, now)
+		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANCreateGapType, Message: []byte(payload)}))
+		require.Empty(t, service.operation)
+		require.Equal(t, string(aman.ErrorInvalidArgument), (<-client.send).(frontendEvents.AMANCommandRejectedEvent).Data.Code)
+	}
+}
+
+func TestAMANPlacementTransportRequiresExplicitAllowGap(t *testing.T) {
+	service := &recordingAMANCommandService{}
+	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+	payload := `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"bad","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z"}}`
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANPlaceFlightAtTimeType, Message: []byte(payload)}))
+	require.Empty(t, service.operation)
+	require.Equal(t, string(aman.ErrorInvalidArgument), (<-client.send).(frontendEvents.AMANCommandRejectedEvent).Data.Code)
+}
+
+func TestAMANGapTransportPreservesRetryIDAndStaleRevision(t *testing.T) {
+	service := &recordingAMANCommandService{execution: aman.CommandExecution{CurrentRevision: 12}, err: &aman.DomainError{Class: aman.ErrorRevisionConflict, Message: "revision changed"}}
+	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+	payload := `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"stable-retry-id","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z","allow_gap":false}}`
+	for range 2 {
+		require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANPlaceFlightAtTimeType, Message: []byte(payload)}))
+		rejection := (<-client.send).(frontendEvents.AMANCommandRejectedEvent)
+		require.Equal(t, "stable-retry-id", rejection.Data.CommandID)
+		require.Equal(t, uint64(12), rejection.Data.CurrentRevision)
+		require.True(t, rejection.Data.Retryable)
+	}
+	require.Equal(t, 2, service.calls)
+	require.Equal(t, "stable-retry-id", service.metadata.CommandID)
+	require.Equal(t, aman.SequenceRevision(7), service.metadata.ExpectedRevision)
 }
 
 func TestAMANDispositionCommandsRejectClientOwnedResults(t *testing.T) {
@@ -162,11 +231,15 @@ func newAMANCommandTestClient(service aman.CommandService, now time.Time) (*Hub,
 }
 
 type recordingAMANCommandService struct {
-	operation string
-	auth      aman.CommandContext
-	metadata  aman.CommandMetadata
-	execution aman.CommandExecution
-	err       error
+	operation   string
+	auth        aman.CommandContext
+	metadata    aman.CommandMetadata
+	execution   aman.CommandExecution
+	err         error
+	calls       int
+	createGap   aman.CreateRunwayGapCommand
+	removeGap   aman.RemoveRunwayGapCommand
+	placeAtTime aman.PlaceFlightAtTimeCommand
 }
 
 func (*recordingAMANCommandService) Name() string { return "recording AMAN command service" }
@@ -175,6 +248,7 @@ func (*recordingAMANCommandService) CurrentRevision(context.Context, string) (am
 }
 func (s *recordingAMANCommandService) record(operation string, auth aman.CommandContext, metadata aman.CommandMetadata) (aman.CommandExecution, error) {
 	s.operation, s.auth, s.metadata = operation, auth, metadata
+	s.calls++
 	if s.execution.CurrentRevision == 0 && s.err == nil {
 		s.execution.CurrentRevision = metadata.ExpectedRevision + 1
 	}
@@ -184,6 +258,7 @@ func (s *recordingAMANCommandService) MoveFlight(_ context.Context, auth aman.Co
 	return s.record("move", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) PlaceFlightAtTime(_ context.Context, auth aman.CommandContext, command aman.PlaceFlightAtTimeCommand) (aman.CommandExecution, error) {
+	s.placeAtTime = command
 	return s.record("place_at_time", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) LockFlight(_ context.Context, auth aman.CommandContext, command aman.LockFlightCommand) (aman.CommandExecution, error) {
@@ -211,9 +286,11 @@ func (s *recordingAMANCommandService) SetActiveRunwayGroups(_ context.Context, a
 	return s.record("set_active_runway_groups", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) CreateRunwayGap(_ context.Context, auth aman.CommandContext, command aman.CreateRunwayGapCommand) (aman.CommandExecution, error) {
+	s.createGap = command
 	return s.record("create_runway_gap", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) RemoveRunwayGap(_ context.Context, auth aman.CommandContext, command aman.RemoveRunwayGapCommand) (aman.CommandExecution, error) {
+	s.removeGap = command
 	return s.record("remove_runway_gap", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) AcceptTETA(_ context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {

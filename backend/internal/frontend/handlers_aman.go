@@ -37,6 +37,64 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANReportGoAroundType, handleAMANReportGoAround)
 	handlers.Add(events.AMANConfirmGoAroundType, handleAMANConfirmGoAround)
 	handlers.Add(events.AMANRejectGoAroundType, handleAMANRejectGoAround)
+	handlers.Add(events.AMANCreateGapType, handleAMANCreateGap)
+	handlers.Add(events.AMANRemoveGapType, handleAMANRemoveGap)
+	handlers.Add(events.AMANPlaceFlightAtTimeType, handleAMANPlaceFlightAtTime)
+}
+
+func handleAMANCreateGap(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANCreateGapMessage
+	if err := decodeAMANMessage(message, events.AMANCreateGapType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	if (wire.Data.End == nil) == (wire.Data.SlotCount == nil) {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("create GAP requires exactly one end or slot_count")))
+	}
+	start, err := parseAMANTime(wire.Data.Start)
+	if err != nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+	}
+	interval := aman.RunwayGapIntervalInput{Start: start, SlotCount: wire.Data.SlotCount}
+	if wire.Data.End != nil {
+		end, parseErr := parseAMANTime(*wire.Data.End)
+		if parseErr != nil {
+			return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, parseErr)
+		}
+		interval.End = &end
+	}
+	command := aman.CreateRunwayGapCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), Interval: interval, Label: wire.Data.Label}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.CreateRunwayGap(ctx, auth, command)
+	})
+}
+
+func handleAMANRemoveGap(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANRemoveGapMessage
+	if err := decodeAMANMessage(message, events.AMANRemoveGapType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	command := aman.RemoveRunwayGapCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), GapID: aman.RunwayGapID(wire.Data.GapID)}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.RemoveRunwayGap(ctx, auth, command)
+	})
+}
+
+func handleAMANPlaceFlightAtTime(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANPlaceFlightAtTimeMessage
+	if err := decodeAMANMessage(message, events.AMANPlaceFlightAtTimeType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	if wire.Data.AllowGap == nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("manual placement requires explicit allow_gap")))
+	}
+	slotTime, err := parseAMANTime(wire.Data.SlotTime)
+	if err != nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+	}
+	command := aman.PlaceFlightAtTimeCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), FlightID: aman.FlightID(wire.Data.FlightID), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), SlotTime: slotTime, AllowGap: *wire.Data.AllowGap}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.PlaceFlightAtTime(ctx, auth, command)
+	})
 }
 
 func handleAMANMoveFlight(ctx context.Context, client *Client, message Message) error {

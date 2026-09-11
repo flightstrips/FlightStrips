@@ -77,7 +77,11 @@ type CandidateTerminalFragment struct {
 	Version       DatasetVersion
 	Airport       AirportID
 	ConfigVersion string
-	Paths         []TerminalPath
+	// STARFamilyPolicies owns terminal operating policy independently from
+	// runway geometry. It remains optional while legacy terminal fragments
+	// containing runway-group-owned policy are still deployed.
+	STARFamilyPolicies []STARFamilyPolicy `json:",omitempty"`
+	Paths              []TerminalPath
 	// Holdings contains only official-AIP fallback definitions that were not
 	// present in the canonical procedure fragments for this dataset.
 	Holdings    []HoldingPattern
@@ -92,10 +96,25 @@ type CandidateTerminalFragment struct {
 // terminal-fragment digests and cache bytes. Keeping it here prevents storage
 // adapters from silently drifting from the digest input.
 type terminalFragmentPayload struct {
-	Airport       AirportID
-	ConfigVersion string
-	Paths         []TerminalPath
-	Holdings      []HoldingPattern
+	Airport            AirportID
+	ConfigVersion      string
+	STARFamilyPolicies []STARFamilyPolicy `json:",omitempty"`
+	Paths              []TerminalPath
+	Holdings           []HoldingPattern
+}
+
+// STARFamilyPolicy is the canonical, airport-versioned policy contract for a
+// STAR entry family. Additional family-scoped policies can be added here
+// without coupling them to a landing-runway group.
+type STARFamilyPolicy struct {
+	STARFamily      STARFamilyID
+	SameSTARSpacing SameSTARSpacingPolicy
+}
+
+type SameSTARSpacingPolicy struct {
+	Enabled               bool
+	ActivationRatePerHour uint32
+	MinimumEmptySlots     uint32
 }
 
 // MarshalTerminalFragmentPayload encodes the provider-neutral terminal body
@@ -120,6 +139,7 @@ func UnmarshalTerminalFragmentPayload(encoded []byte, fragment *CandidateTermina
 	}
 	fragment.Airport = payload.Airport
 	fragment.ConfigVersion = payload.ConfigVersion
+	fragment.STARFamilyPolicies = payload.STARFamilyPolicies
 	fragment.Paths = payload.Paths
 	fragment.Holdings = payload.Holdings
 	return nil
@@ -351,7 +371,22 @@ func (f CandidateTerminalFragment) Validate() error {
 		return err
 	}
 	seen := map[string]struct{}{}
+	families := map[STARFamilyID]struct{}{}
+	for _, policy := range f.STARFamilyPolicies {
+		if !validIdentifier(string(policy.STARFamily)) {
+			return invalid("terminal fragment STAR family policy identity is invalid")
+		}
+		if _, exists := families[policy.STARFamily]; exists {
+			return invalid("terminal fragment contains duplicate STAR family policy")
+		}
+		families[policy.STARFamily] = struct{}{}
+		spacing := policy.SameSTARSpacing
+		if spacing.Enabled && (spacing.ActivationRatePerHour == 0 || spacing.MinimumEmptySlots == 0) {
+			return invalid("terminal fragment enabled same-STAR spacing policy is incomplete")
+		}
+	}
 	holdings := map[HoldingID]string{}
+	pathFamilies := map[STARFamilyID]struct{}{}
 	for _, holding := range f.Holdings {
 		if err := holding.Validate(); err != nil {
 			return err
@@ -377,6 +412,23 @@ func (f CandidateTerminalFragment) Validate() error {
 			return invalid("terminal fragment contains duplicate path")
 		}
 		seen[key] = struct{}{}
+		family := path.STARFamily
+		if family == "" {
+			family = STARFamilyID(path.Feeder)
+		}
+		pathFamilies[family] = struct{}{}
+	}
+	if len(families) > 0 {
+		for family := range families {
+			if _, exists := pathFamilies[family]; !exists {
+				return invalid("terminal fragment STAR family policy has no path")
+			}
+		}
+		for family := range pathFamilies {
+			if _, exists := families[family]; !exists {
+				return invalid("terminal fragment is missing a STAR family policy")
+			}
+		}
 	}
 	return nil
 }
@@ -463,7 +515,7 @@ func (f CandidateFixFragment) payload() any {
 	}{f.Fixes, f.Coverage}
 }
 func (f CandidateTerminalFragment) payload() any {
-	return terminalFragmentPayload{f.Airport, f.ConfigVersion, f.Paths, f.Holdings}
+	return terminalFragmentPayload{f.Airport, f.ConfigVersion, f.STARFamilyPolicies, f.Paths, f.Holdings}
 }
 
 func cloneProcedures(value []Procedure) []Procedure { return slices.Clone(value) }

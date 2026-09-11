@@ -33,6 +33,13 @@ func TestPathDecodesLegacyAndExplicitSTARFamilyKeys(t *testing.T) {
 	require.EqualValues(t, 195, *explicit.HoldingToFeederSeconds)
 }
 
+func TestConfigurationDecodesLegacyRunwayGroupSpacing(t *testing.T) {
+	var config Configuration
+	require.NoError(t, json.Unmarshal([]byte(`{"runwayGroups":[{"id":"SOUTH","sameStarSpacing":{"enabled":true,"activationRatePerHour":20,"minimumEmptySlots":1}}]}`), &config))
+	require.Nil(t, config.STARFamilyPolicies)
+	require.Equal(t, &SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, config.RunwayGroups[0].SameSTARSpacing)
+}
+
 func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	config := goldenConfig(t)
 	refs := referencesFor(t, config)
@@ -44,39 +51,44 @@ func TestGoldenEKCHConfigurationValidatesAndBuildsCandidate(t *testing.T) {
 	}
 	fragment, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
+	require.Equal(t, []navdata.STARFamilyID{"ERNOV", "MONAK", "TESPI", "TIDVU", "TUDLO"}, starFamilyPolicyIDs(fragment.STARFamilyPolicies))
+	for _, policy := range fragment.STARFamilyPolicies {
+		require.Equal(t, navdata.SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, policy.SameSTARSpacing, policy.STARFamily)
+		require.Equal(t, 6*time.Minute, (time.Hour/time.Duration(policy.SameSTARSpacing.ActivationRatePerHour))*time.Duration(policy.SameSTARSpacing.MinimumEmptySlots+1))
+	}
 	require.Len(t, fragment.Paths, len(config.Feeders)*len(config.RunwayGroups))
 	require.Len(t, fragment.Holdings, len(config.OverlayHoldings))
 	wantDigests := map[string]string{
-		"TESPI/ARRIVAL-04L": "4f26f2897e15675cd8dbd0420246414863aa62df25d76dacc59a1db32583dd03",
-		"TESPI/ARRIVAL-04R": "d67f57b85e18254ae527c8f1bec33779552573a832dc40a97858570de8a26f64",
-		"TUDLO/ARRIVAL-04L": "52f61ed22a37b0f8bebae10d6663c29970615fd470e8a11b216ff6cf0ed17f6a",
-		"TUDLO/ARRIVAL-04R": "36fd313e0add7fed25016562feaed53b31f82c75671e8baf8b588cf36b0b574f",
-		"MONAK/ARRIVAL-04L": "fb83cbffef4ee76b89d1584565cad0697023c233541fa5c6d18dd2f4bcd73777",
-		"MONAK/ARRIVAL-04R": "3853533b42021c172eba816cfef42c5a6d87a6ddba621e6e819ddd767f96c9f5",
-		"TIDVU/ARRIVAL-04L": "5d313de9d246484642cc90f869a4bce084ecb60a400e79a99f4c97d07d38777f",
-		"TIDVU/ARRIVAL-04R": "75f4e4785621ba49ed968fffefafe0e149e96c82313e766b215465f0d2198ed7",
-		"ERNOV/ARRIVAL-04L": "cd2600a16cfb66f2d2d54bea4faa26b37a34245ca298043618239d8b8e3c5907",
-		"ERNOV/ARRIVAL-04R": "ab1d046cf055fdb1df720e46eb2e9fdf40086295b81e8df5ea845bf4db5d8a5c",
-		"TESPI/ARRIVAL-22L": "068f22bda6f6eaad6e652e8989e253940ca48b3c01bb76c9b47880e1282beb41",
-		"TESPI/ARRIVAL-22R": "88874cc15f49b7751442f316593e262748bc0505949b15a2749537ea9dff347f",
-		"TUDLO/ARRIVAL-22L": "9accd4566dd3960aa0c26e30bb799656787c9f7c2cfcae7c2dab733630bc2231",
-		"TUDLO/ARRIVAL-22R": "c0796baa6ed03fcd74e7cfae00b43290f4f7b9a13404b8b7c7e633319687ae93",
-		"MONAK/ARRIVAL-22L": "e6371d70e30a043179cca358d892b5ca27a834dd3fbfa29f29ae4c05b150f871",
-		"MONAK/ARRIVAL-22R": "222536c1a3a9fbd28a7f28ae1a83f726d2ea3c167952ea6357463c17c1e0c1e3",
-		"TIDVU/ARRIVAL-22L": "239684d01302d88a45d0d8a96ace3bc60136d92fb5553cc033ea384167cb2c59",
-		"TIDVU/ARRIVAL-22R": "5927fe12ec45a282466b42a6158aa40f7b8d4d4d2ceccb511c81124b06c2f1b9",
-		"ERNOV/ARRIVAL-22L": "ded96aa96756de2accbe9e402a3bdd6d2617ec5c4423e4685875a4aaec99967b",
-		"ERNOV/ARRIVAL-22R": "0a7ee21fd5f96bae5176202e8b1d53732d0f941c1b621c84a6883b1d217349c5",
-		"TESPI/ARRIVAL-12":  "7a455392c178f77ea3f7d71fcf67cda03514d0010d9b1928029150d45e973e1d",
-		"TUDLO/ARRIVAL-12":  "023df13fc940e5bd8c4699cca741cf91faf9981678b2a22b05af8b3c8baf2162",
-		"MONAK/ARRIVAL-12":  "dd5843e753b7a10cbf94c9c24ab118806d32986e8bd011943ec10e4c07fddfda",
-		"TIDVU/ARRIVAL-12":  "69a3d71e36ef48dff19f58955bb7a1339b84dc6ce1bdd4143374892db0195428",
-		"ERNOV/ARRIVAL-12":  "e03446b918cfacb895c826da3875f7cf4bf0c18e6ef15183877208783f208255",
-		"TESPI/ARRIVAL-30":  "0ced02100055602ecfe088d473b5fb9e2e0ade6f367bdacb4e75a01a7c941cb4",
-		"TUDLO/ARRIVAL-30":  "2efaf1bdff7b57d9de83949cd92408e1889c73a72ca416c18a9ef5107511b367",
-		"MONAK/ARRIVAL-30":  "02a08d801f0bf0a85ddd2bb186c39f14b0518a37d0f794633eaaa0a23d9a31a9",
-		"TIDVU/ARRIVAL-30":  "1addffbc2a33cf286594c5df69736844c4b94fcaa4827b12d45d5d5d999460cd",
-		"ERNOV/ARRIVAL-30":  "7349c6ac3bc4769085576eddb974baebf2f65ea7bf800118bbf59f0f6bdc5abe",
+		"TESPI/ARRIVAL-04L": "bef2855dd861ec6465a9ef44c0ae801e1f8869be46dcc3d812547a2816186105",
+		"TESPI/ARRIVAL-04R": "34be26cb5b3af5f70d0d782c00e9881235df9c9abdb8e28ca1c7a131f4a04377",
+		"TUDLO/ARRIVAL-04L": "9ea0e127a1006323ef0e4a0b7ee59109625e9d46c004ca239c191dd4de0ff7e8",
+		"TUDLO/ARRIVAL-04R": "023328771f957877e49c2f5754d3c647b257cd37bcf09525515ca5fb1059e089",
+		"MONAK/ARRIVAL-04L": "ff5f58f8fa8dc7c4dc165dd0a366dcf76e0cd6c172418044192177183de4e0a3",
+		"MONAK/ARRIVAL-04R": "01c85f22224c3f7521f792c0f23d76397d959eb0a7d71ea7b215fef4a6938e4b",
+		"TIDVU/ARRIVAL-04L": "70de7dab937ff463e7f6179892875f66f27b5da0d74ae8de8405ba65ebf9feb4",
+		"TIDVU/ARRIVAL-04R": "0e71cc7cfefa04a0cc9d358b5222b65db070bd46ac0eff47079e55be3f8964f0",
+		"ERNOV/ARRIVAL-04L": "80c2ae1c3fa3dfd0d64c1fce81d02759fc435091bcd1fa1b2693dcf48e2184d8",
+		"ERNOV/ARRIVAL-04R": "19e168c5c99c3f62c35f5156969dc2fd0fa13b5c01aeb815598bf85ae9018404",
+		"TESPI/ARRIVAL-22L": "ada4fce932980c6fa5e55552199c4c72c864a9a8b58c24354eddc5dcf92d29e9",
+		"TESPI/ARRIVAL-22R": "4b0cd1fb26e70a1cdde5ec114c0e5e12989dd162cc5979c3f44a2813025ae679",
+		"TUDLO/ARRIVAL-22L": "063c7769ad6bc7383466799ff4bd64cc1ffe6fb49f0935a75d4d6c6817660339",
+		"TUDLO/ARRIVAL-22R": "33d7f009107383d4a513b99f7ee70744bd98cff720dc1e49f5345d79f7668ada",
+		"MONAK/ARRIVAL-22L": "41a6de8bc4c6d483b8ce23ad7ca6c96d30347f64050f5beb7e2830b3183dc94d",
+		"MONAK/ARRIVAL-22R": "db41dc36a6177ebcf16876f76978d0b9a4a4675a8c333b29a03ccb11a433d593",
+		"TIDVU/ARRIVAL-22L": "92a414e51ca021a6e6c9e7a5423ce7e6a6baebfa763b08ebc288cef2827d1979",
+		"TIDVU/ARRIVAL-22R": "28f0cfb4df13d8fc7e14c298b9deba643e9e359edbb30ccec3b929ab24bf0685",
+		"ERNOV/ARRIVAL-22L": "21e83108f5f82603a5b6a7b79f02c07a7386f185fe139fa91b1d84f013046839",
+		"ERNOV/ARRIVAL-22R": "4645e486a2432a39df28e1b24ccf08357f5efc72e9bb3e04399e2490c4929e08",
+		"TESPI/ARRIVAL-12":  "1bbfe2a6105caee099762059e7bcabd9b636588192808e07ffbbfccde5f7fa2f",
+		"TUDLO/ARRIVAL-12":  "416b9f32c38d45f4aa36018be23714755d5d456e1234dab7e2609f63ae421ce3",
+		"MONAK/ARRIVAL-12":  "8eae1b2641bd8b798a38a8344924c3017ffbd293302fa26f3e6767ef2c4e957a",
+		"TIDVU/ARRIVAL-12":  "f84984e0189c9e61864e29e11c7f2fe436ee370b751b6ee46f23be00e6c964b5",
+		"ERNOV/ARRIVAL-12":  "a32b4083500a6fe6a0898f344c746de11af99a39c001f22b7c9e2d12a17109a8",
+		"TESPI/ARRIVAL-30":  "140832cad3e8f76caef4cf6489e80bab827369046c49e45153ac0a8006f67e4f",
+		"TUDLO/ARRIVAL-30":  "31a620968a5c8e2c00376d675fdee5327a39707eeaf920af32a680db775b705c",
+		"MONAK/ARRIVAL-30":  "a0fc4c1f1e7b9394aec4a3f47c4dbbf648e822a0be9e1c27311ba662ad8da5f7",
+		"TIDVU/ARRIVAL-30":  "f08cf455ee79e161bd1b404471acbd7c9941bbe8dfc921b1bb311a544f1f47e7",
+		"ERNOV/ARRIVAL-30":  "169b23a9883deba4b076774803cd98463ea971bed41d309da4cbe90e4363727c",
 	}
 	for _, path := range fragment.Paths {
 		key := string(path.STARFamily) + "/" + string(path.RunwayGroup)
@@ -137,7 +149,7 @@ func TestCandidateMaterializesExplicitTerminalPathMetadata(t *testing.T) {
 
 func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) {
 	config := goldenConfig(t)
-	require.Equal(t, "EKCH-AIP-2609-V2", config.ConfigVersion)
+	require.Equal(t, "EKCH-AIP-2609-V3", config.ConfigVersion)
 	require.Equal(t, "2609", config.Dataset.Cycle)
 	require.Equal(t, time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC), config.ApplicabilityFrom)
 	require.Equal(t, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), config.ApplicabilityUntil)
@@ -146,6 +158,10 @@ func TestGoldenEKCHConfigurationMatchesIndependentOfficialContent(t *testing.T) 
 	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R", "ARRIVAL-22L", "ARRIVAL-22R", "ARRIVAL-12", "ARRIVAL-30"}, groupIDs(config.RunwayGroups))
 	for _, group := range config.RunwayGroups {
 		require.Equal(t, &SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, group.SameSTARSpacing, group.ID)
+	}
+	require.Equal(t, []navdata.STARFamilyID{"ERNOV", "MONAK", "TESPI", "TIDVU", "TUDLO"}, configuredSTARFamilyPolicyIDs(config.STARFamilyPolicies))
+	for _, policy := range config.STARFamilyPolicies {
+		require.Equal(t, SameSTARSpacing{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}, policy.SameSTARSpacing, policy.STARFamily)
 	}
 
 	wantFinals := map[navdata.RunwayID]struct{ latitude, longitude, course float64 }{
@@ -304,6 +320,22 @@ func groupIDs(groups []RunwayGroup) []aman.RunwayGroupID {
 	return result
 }
 
+func configuredSTARFamilyPolicyIDs(policies []STARFamilyPolicy) []navdata.STARFamilyID {
+	result := make([]navdata.STARFamilyID, len(policies))
+	for i, policy := range policies {
+		result[i] = policy.STARFamily
+	}
+	return result
+}
+
+func starFamilyPolicyIDs(policies []navdata.STARFamilyPolicy) []navdata.STARFamilyID {
+	result := make([]navdata.STARFamilyID, len(policies))
+	for i, policy := range policies {
+		result[i] = policy.STARFamily
+	}
+	return result
+}
+
 func fixIDs(values ...string) []navdata.FixID {
 	result := make([]navdata.FixID, len(values))
 	for i, value := range values {
@@ -343,6 +375,28 @@ func TestSameSTARSpacingValidation(t *testing.T) {
 	err := config.Validate(refs)
 	require.ErrorContains(t, err, "sameStarSpacing.activationRatePerHour")
 	require.ErrorContains(t, err, "sameStarSpacing.minimumEmptySlots")
+}
+
+func TestSTARFamilyPolicyValidationAndDeterministicDigest(t *testing.T) {
+	config := goldenConfig(t)
+	refs := referencesFor(t, config)
+	baseline, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	slices.Reverse(config.STARFamilyPolicies)
+	reordered, err := config.Candidate(refs, time.Date(2026, 9, 3, 1, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	require.Equal(t, baseline.Digest, reordered.Digest)
+	require.Equal(t, baseline.STARFamilyPolicies, reordered.STARFamilyPolicies)
+
+	config.STARFamilyPolicies[0].SameSTARSpacing = SameSTARSpacing{Enabled: true}
+	err = config.Validate(refs)
+	require.ErrorContains(t, err, "starFamilyPolicies[0].sameStarSpacing.activationRatePerHour")
+	require.ErrorContains(t, err, "starFamilyPolicies[0].sameStarSpacing.minimumEmptySlots")
+
+	config = goldenConfig(t)
+	config.STARFamilyPolicies = config.STARFamilyPolicies[1:]
+	require.ErrorContains(t, config.Validate(refs), "starFamilyPolicies: is missing configured STAR family ERNOV")
 }
 
 func TestConfigurationRejectsTerminalSafetyViolations(t *testing.T) {

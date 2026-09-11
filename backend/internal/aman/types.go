@@ -792,6 +792,16 @@ type RunwayGroupPolicy struct {
 	RateEffectiveAt   *time.Time
 	RateSchedule      []RunwayGroupRatePoint
 	SameSTARSpacing   *SameSTARSpacingPolicy
+	SequenceWarnings  []RunwayGroupSequenceWarning
+}
+
+// RunwayGroupSequenceWarning is a persisted, message-independent conflict
+// identity. FlightID is the trailing flight and RelatedFlightID is its leader.
+type RunwayGroupSequenceWarning struct {
+	Code            string
+	FlightID        FlightID
+	RelatedFlightID FlightID
+	STARFamily      string
 }
 
 type RunwayGroupSelectionPoint struct {
@@ -1825,6 +1835,15 @@ func (s AirportState) Validate() error {
 		if spacing := group.SameSTARSpacing; spacing != nil && spacing.Enabled && (spacing.ActivationRatePerHour == 0 || spacing.MinimumEmptySlots == 0) {
 			return invalid("runway group same-STAR spacing is invalid")
 		}
+		for index, warning := range group.SequenceWarnings {
+			if warning.Code != "protected_same_star_spacing" || !isTrimmedNonEmpty(string(warning.FlightID)) ||
+				!isTrimmedNonEmpty(string(warning.RelatedFlightID)) || !isTrimmedNonEmpty(warning.STARFamily) || warning.FlightID == warning.RelatedFlightID {
+				return invalid("runway group sequence warning is invalid")
+			}
+			if index > 0 && !runwayGroupWarningLess(group.SequenceWarnings[index-1], warning) {
+				return invalid("runway group sequence warnings must be unique and strictly ordered")
+			}
+		}
 	}
 	if s.ActiveRunwayGroups != nil {
 		if len(s.ActiveRunwayGroups) == 0 {
@@ -1851,6 +1870,16 @@ func (s AirportState) Validate() error {
 		}
 	}
 	return nil
+}
+
+func runwayGroupWarningLess(left, right RunwayGroupSequenceWarning) bool {
+	if left.FlightID != right.FlightID {
+		return left.FlightID < right.FlightID
+	}
+	if left.RelatedFlightID != right.RelatedFlightID {
+		return left.RelatedFlightID < right.RelatedFlightID
+	}
+	return left.STARFamily < right.STARFamily
 }
 
 func requireUTCTime(name string, value time.Time) error {

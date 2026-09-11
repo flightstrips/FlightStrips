@@ -163,6 +163,7 @@ type Warning struct {
 	RunwayGroupID   aman.RunwayGroupID
 	FlightID        aman.FlightID
 	RelatedFlightID *aman.FlightID
+	STARFamily      string
 }
 
 // Result is ordered canonically by runway group, slot, and flight ID. It uses
@@ -507,10 +508,12 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 		if !adjacentValid(policy, leading, trailing) {
 			related := leading.flight.ID
 			code := WarningProtectedSpacing
+			family := ""
 			if sameSTARGap(policy, leading.flight, trailing.flight, trailing.time) > 0 && trailing.time.Sub(leading.time) < sameSTARGap(policy, leading.flight, trailing.flight, trailing.time) {
 				code = WarningProtectedSameSTAR
+				family = trailing.flight.STARFamily
 			}
-			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: code, RunwayGroupID: policy.RunwayGroupID, FlightID: trailing.flight.ID, RelatedFlightID: &related})
+			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: code, RunwayGroupID: policy.RunwayGroupID, FlightID: trailing.flight.ID, RelatedFlightID: &related, STARFamily: family})
 		}
 	}
 
@@ -833,7 +836,10 @@ func sortWarnings(warnings []Warning) {
 		if a.Code != b.Code {
 			return a.Code < b.Code
 		}
-		return relatedID(a.RelatedFlightID) < relatedID(b.RelatedFlightID)
+		if relatedID(a.RelatedFlightID) != relatedID(b.RelatedFlightID) {
+			return relatedID(a.RelatedFlightID) < relatedID(b.RelatedFlightID)
+		}
+		return a.STARFamily < b.STARFamily
 	})
 }
 

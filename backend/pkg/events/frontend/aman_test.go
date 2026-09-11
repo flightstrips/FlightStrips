@@ -157,6 +157,18 @@ func TestAMANStateEventIncludesRunwaySelectionStateAndSchedule(t *testing.T) {
 	require.Equal(t, conflict, *event.Data.RunwayGroups[0].SelectionConflict)
 }
 
+func TestAMANStateEventProjectsProtectedSameSTARWarningIdentity(t *testing.T) {
+	state := goldenAMANState()
+	state.RunwayGroups[0].SequenceWarnings = []aman.RunwayGroupSequenceWarning{{
+		Code: "protected_same_star_spacing", FlightID: "TRAIL", RelatedFlightID: "LEAD", STARFamily: "MONAK",
+	}}
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, []AMANRunwayGroupSequenceWarning{{
+		Code: "protected_same_star_spacing", FlightID: "TRAIL", RelatedFlightID: "LEAD", STARFamily: "MONAK",
+	}}, event.Data.RunwayGroups[0].SequenceWarnings)
+}
+
 func TestAMANStateEventProjectsActiveRunwayGroupsInConfiguredOrder(t *testing.T) {
 	state := goldenAMANState()
 	state.RunwayGroups = append(state.RunwayGroups, aman.RunwayGroupPolicy{ID: "ARRIVAL-04"})

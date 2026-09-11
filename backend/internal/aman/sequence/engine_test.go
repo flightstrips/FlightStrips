@@ -157,11 +157,20 @@ func TestSameSTARSpacingWarningsAreDeterministic(t *testing.T) {
 	trail.STARFamily = "MONAK"
 	unknown := flight("UNKNOWN", "A", start.Add(9*time.Minute), "M")
 
-	result, err := sequence.Generate(sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{trail, unknown, lead}})
+	input := sequence.Input{Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{trail, unknown, lead}}
+	result, err := sequence.Generate(input)
 	require.NoError(t, err)
 	require.True(t, result.HasConflicts())
-	require.Contains(t, result.Warnings, sequence.Warning{Severity: sequence.SeverityConflict, Code: sequence.WarningProtectedSameSTAR, RunwayGroupID: "A", FlightID: "TRAIL", RelatedFlightID: flightIDPointer("LEAD")})
+	require.Contains(t, result.Warnings, sequence.Warning{Severity: sequence.SeverityConflict, Code: sequence.WarningProtectedSameSTAR, RunwayGroupID: "A", FlightID: "TRAIL", RelatedFlightID: flightIDPointer("LEAD"), STARFamily: "MONAK"})
 	require.Contains(t, result.Warnings, sequence.Warning{Severity: sequence.SeverityDegraded, Code: sequence.WarningUnknownSTARFamily, RunwayGroupID: "A", FlightID: "UNKNOWN"})
+
+	encoded, err := json.Marshal(input)
+	require.NoError(t, err)
+	var restored sequence.Input
+	require.NoError(t, json.Unmarshal(encoded, &restored))
+	replayed, err := sequence.Generate(restored)
+	require.NoError(t, err)
+	require.Equal(t, result, replayed, "restored sequence input must reproduce warning identity and ordering")
 }
 
 func TestStableFlightsRetainCommittedRelativeOrder(t *testing.T) {

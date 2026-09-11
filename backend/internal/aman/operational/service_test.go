@@ -60,6 +60,41 @@ func TestSequenceInputCarriesConfiguredSTARFamilySpacingAndWTC(t *testing.T) {
 	require.Equal(t, 6*time.Minute, result.Entries[1].Time.Sub(result.Entries[0].Time))
 }
 
+func TestResequencePersistsAndResolvesProtectedSameSTARWarnings(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	spacing := &aman.SameSTARSpacingPolicy{Enabled: true, ActivationRatePerHour: 20, MinimumEmptySlots: 1}
+	effective := start
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	state := aman.AirportState{RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &effective, SameSTARSpacing: spacing}}}
+	state.Flights = []aman.AMANFlight{
+		protectedOperationalFlight("LEAD", group, "MONAK", "M", start, 1, aman.FreezeManual),
+		protectedOperationalFlight("TRAIL", group, "MONAK", "M", start.Add(3*time.Minute), 2, aman.FreezeSuperstable),
+	}
+	want := []aman.RunwayGroupSequenceWarning{{
+		Code: string(sequence.WarningProtectedSameSTAR), FlightID: "TRAIL", RelatedFlightID: "LEAD", STARFamily: "MONAK",
+	}}
+
+	service.resequence(&state, start)
+	require.Equal(t, want, state.RunwayGroups[0].SequenceWarnings)
+	require.Equal(t, start, state.Flights[0].FrozenSlot.Time)
+	require.Equal(t, start.Add(3*time.Minute), state.Flights[1].FrozenSlot.Time)
+	service.resequence(&state, start.Add(time.Minute))
+	require.Equal(t, want, state.RunwayGroups[0].SequenceWarnings, "reconciliation replaces rather than duplicates warnings")
+
+	state.RunwayGroups[0].ActiveRatePerHour = 19
+	service.resequence(&state, start.Add(2*time.Minute))
+	require.Empty(t, state.RunwayGroups[0].SequenceWarnings, "falling below the activation rate resolves the warning")
+	state.RunwayGroups[0].ActiveRatePerHour = 20
+	state.Flights[1].SelectedFeeder = stringPointer("TUDLO")
+	service.resequence(&state, start.Add(3*time.Minute))
+	require.Empty(t, state.RunwayGroups[0].SequenceWarnings, "different STAR families do not conflict")
+	state.Flights[1].SelectedFeeder = stringPointer("MONAK")
+	state.Flights[1].FrozenSlot.Time = start.Add(6 * time.Minute)
+	service.resequence(&state, start.Add(4*time.Minute))
+	require.Empty(t, state.RunwayGroups[0].SequenceWarnings, "exact spacing resolves the warning")
+}
+
 func TestFeederRecognizesUniqueDownstreamTerminalPathJoin(t *testing.T) {
 	group := aman.RunwayGroupID("ARRIVAL-22L")
 	service := Service{deps: Dependencies{Terminal: terminal.Configuration{

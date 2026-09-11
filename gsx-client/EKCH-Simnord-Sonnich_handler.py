@@ -32,8 +32,9 @@
 API_BASE = "https://api.flightstrips.dk"
 SCENERY = "Simnord-Sonnich"
 
-POLL_INTERVAL_MS = 30000   # how often to re-check
-POLL_LIMIT = 240           # stop after this many polls (~2h at 30s)
+POLL_INTERVAL_MS = 5000    # how often to re-check
+POLL_LIMIT = 1440          # stop after this many polls (~2h at 5s)
+SHOW_ON_VDGS = True        # also show the assigned push on the stand display
 
 
 # --------------------------------------------------------------------------
@@ -52,17 +53,22 @@ def _standEscape(value):
 
 
 def _standReadCallsign(self):
-    """The callsign the pilot filed with.
+    """The callsign the pilot filed with, and whether it came from SimBrief.
 
     FlightStrips keys strips on the VATSIM callsign, so this has to reproduce
     what the pilot connected with. SimBrief is the reliable source: sb.callsign
     is the ATC callsign from the filed plan, and GSX already falls back to
     icao_airline + flight_number internally when the plan omits it.
+
+    The second return value says whether to keep looking. GSX loads the
+    SimBrief plan a few seconds after the airport handler activates, so an
+    early read falls through to the sim - and a tail number is a confident,
+    non-empty, wrong answer that would otherwise be cached for the session.
     """
     try:
         sb = getSimbrief()
         if sb is not None and not sb.last_error and sb.callsign:
-            return _standEscape(sb.callsign.upper())
+            return _standEscape(sb.callsign.upper()), True
     except Exception as err:
         print("[stands] SimBrief unavailable: %s" % err)
 
@@ -73,7 +79,7 @@ def _standReadCallsign(self):
         tail, flight = USER.requestData(ddef)
     except Exception as err:
         print("[stands] could not read aircraft identity: %s" % err)
-        return ""
+        return "", False
 
     airline = ""
     try:
@@ -82,8 +88,8 @@ def _standReadCallsign(self):
         pass
 
     if airline and flight:
-        return _standEscape((airline + flight).upper())
-    return _standEscape(str(tail).upper())
+        return _standEscape((airline + flight).upper()), False
+    return _standEscape(str(tail).upper()), False
 
 
 def _standFetch(self):
@@ -92,10 +98,29 @@ def _standFetch(self):
     etag=True makes GSX send If-None-Match; an unchanged assignment costs a 304
     with no payload.
     """
-    if self._standCallsign is None:
-        self._standCallsign = _standReadCallsign(self)
+    # Keep looking until SimBrief answers. The handler activates seconds before
+    # GSX has the plan, so an early read falls through to the sim and returns a
+    # tail number - non-empty and wrong. Caching that would poll a callsign with
+    # no strip for the whole session, quietly, which is exactly what it did.
+    if not self._standCallsignTrusted:
+        callsign, trusted = _standReadCallsign(self)
+        if callsign and (trusted or not self._standCallsign):
+            if callsign != self._standCallsign:
+                print("[stands] callsign %s (from %s)"
+                      % (callsign, "SimBrief" if trusted else "the sim"))
+                # A different identity invalidates whatever we applied for the
+                # previous one.
+                self._standAssigned = None
+                self._standPushback = None
+            self._standCallsign = callsign
+            self._standCallsignTrusted = trusted
+
     if not self._standCallsign:
+        if not self._standWarnedNoCallsign:
+            print("[stands] no callsign yet (SimBrief not loaded?) - will retry")
+            self._standWarnedNoCallsign = True
         return None
+    self._standWarnedNoCallsign = False
 
     airport = getAirport()
     icao = airport.icao if airport else ""
@@ -107,7 +132,46 @@ def _standFetch(self):
 def _standSay(self, text):
     """showMessage only lands while the GSX menu is open, so log it too."""
     print("[stands] %s" % text)
-    showMessage(text)
+    try:
+        showMessage(text)
+    except Exception as err:
+        print("[stands] showMessage failed: %s" % err)
+
+
+VDGS_ID = "flightstrips_pushback"
+
+
+def _standShowOnVdgs(self, routes):
+    """Put the assigned push on the stand's docking display.
+
+    showMessage only renders while the GSX menu is open, so on its own a pilot
+    can miss that ATC assigned anything. The VDGS is always in view from the
+    cockpit at a stand that has one - 76 of EKCH's 119 in this scenery.
+
+    Re-injecting the same id replaces the previous message rather than stacking
+    duplicates, so this is safe to call on every apply.
+    """
+    if not SHOW_ON_VDGS or not routes:
+        return
+    route = str(routes[0]).upper()
+    try:
+        addVdgsMessage({
+            "id": VDGS_ID,
+            "display": {
+                "narrow": {"pages": [{"lines": ["PUSH", route[:12]], "duration": 8000}]},
+                "wide": {"pages": [{"lines": ["PUSH " + route[:20]], "duration": 8000}]},
+            },
+        })
+    except Exception as err:
+        print("[stands] VDGS message failed: %s" % err)
+
+
+def _standClearVdgs(self):
+    """Take our message off the display when it no longer applies."""
+    try:
+        removeVdgsMessage(VDGS_ID)
+    except Exception:
+        pass
 
 
 def _standSame(a, b):
@@ -213,7 +277,8 @@ def _standApplyPushback(self, wanted):
 
         gate.pushbackAddPos = keep
         gate.pushback = direction
-        _standSay(self, "Pushback: %s" % " or ".join(wanted))
+        _standSay(self, "ATC pushback: %s" % " or ".join(wanted))
+        _standShowOnVdgs(self, wanted)
         return True
     except Exception as err:
         print("[stands] could not set pushback: %s" % err)
@@ -258,11 +323,41 @@ def _standCheckArrival(self, stand):
     return True                              # selectGate lands next cycle
 
 
+def _standPushbackUnderway(self):
+    """True once the aircraft is actually being pushed.
+
+    Deliberately not "the tug is connected". GSX offers to attach the tug
+    during boarding to save time later, so most pilots have one sitting there
+    long before they ask to move - treating that as too-late would refuse every
+    assignment made during boarding, which is when most of them arrive.
+
+    FSDT_VAR_Frozen is the precise signal: GSX sets it to 1 when the pushback
+    starts pushing and back to 0 when it is done.
+    """
+    try:
+        return executeCalculatorCode("(L:FSDT_VAR_Frozen, number)") == 1
+    except Exception:
+        return False
+
+
 def _standCheckDeparture(self, pushback):
     """Outbound: narrow the push menu on the stand we are already parked on."""
     key = "|".join(pushback)
     if key == (self._standPushback or ""):
         return True                          # already applied
+
+    if _standPushbackUnderway(self):
+        # Too late to change this push. Say so rather than writing properties
+        # that will not take effect and reporting success for it.
+        if self._standPushback is not None:
+            _standSay(self, "ATC changed your push to %s - stop and request again"
+                      % " or ".join(pushback))
+        else:
+            _standSay(self, "ATC assigned %s after your push began"
+                      % " or ".join(pushback))
+        _standShowOnVdgs(self, pushback)
+        self._standPushback = key            # do not repeat the warning
+        return True
 
     if self._standPushback is not None:
         _standSay(self, "Pushback changed by ATC")
@@ -271,13 +366,32 @@ def _standCheckDeparture(self, pushback):
     return True
 
 
+def _standCancelPoll(self):
+    """Stop the watch, tolerating a handle GSX will not take back.
+
+    Some builds return something from runAsync that cancelAsync then rejects
+    with "'_SafeCallable' object has no attribute 'alive'". Cancelling is only
+    housekeeping - GSX kills every tasklet on script reload and on airport exit
+    anyway - so a failure here must never propagate into the callback that
+    called us and abort the useful work that follows.
+    """
+    handle = self._standPoll
+    self._standPoll = None
+    if handle is None:
+        return
+    try:
+        cancelAsync(handle)
+    except Exception as err:
+        print("[stands] cancelAsync declined the handle (%s) - harmless" % err)
+
+
 def _standStartPolling(self):
     """Run the check loop in a tasklet so GSX is never blocked.
 
     truewait uses wall-clock time, so the interval does not stretch with the sim
     rate. Tasklets are killed automatically on airport exit.
     """
-    cancelAsync(self._standPoll)
+    _standCancelPoll(self)
 
     def loop():
         for _ in range(POLL_LIMIT):
@@ -285,7 +399,11 @@ def _standStartPolling(self):
             if not _standCheck(self):
                 return
 
-    self._standPoll = runAsync(loop)
+    try:
+        self._standPoll = runAsync(loop)
+    except Exception as err:
+        print("[stands] could not start the watch: %s" % err)
+        self._standPoll = None
 
 
 # --------------------------------------------------------------------------
@@ -299,13 +417,20 @@ def _standInit(self):
         self._standPushback = None
         self._standPoll = None
         self._standCallsign = None
+        self._standCallsignTrusted = False
+        self._standWarnedNoCallsign = False
 
 
 def onEnterAirport(self):
     """Fires once the airport handler activates: on the ground, at low speed."""
     _standInit(self)
 
-    payload = _standFetch(self)
+    try:
+        payload = _standFetch(self)
+    except Exception as err:
+        print("[stands] onEnterAirport fetch failed: %s" % err)
+        _standStartPolling(self)
+        return
 
     # Poll even when there is nothing yet. A departure is the normal case here:
     # the pilot spawns cold on a stand and the controller assigns their pushback
@@ -330,19 +455,66 @@ def onEnterAirport(self):
     _standStartPolling(self)
 
 
-def onDepartureRequested(self, *args):
-    """Re-apply the pushback route in case it was set after we last polled."""
+def _standEnsurePolling(self):
+    """Restart the watch if it is not running.
+
+    F9 in the Handler Editor kills every tasklet and re-executes the script,
+    but onEnterAirport does not fire again - the airport handler is already
+    active. Without this the script sits idle after every reload, which is
+    exactly when someone is most likely to be testing it.
+
+    _standStartPolling cancels before it starts, so calling this repeatedly
+    replaces the loop rather than stacking up duplicates.
+    """
     _standInit(self)
     if not self._standUserOverride:
-        payload = _standFetch(self)
-        if payload:
-            _standApplyPushback(self, _standRoutes(payload.get("pushback")))
-    if hasattr(self, "_super_onDepartureRequested"):
-        self._super_onDepartureRequested()
+        _standStartPolling(self)
 
 
-def onGateReset(self, reason):
+def onAirportBeforeVehicleSelect(self, *args):
+    """Fires whenever the gate is set, including right after onEnterAirport."""
+    try:
+        _standEnsurePolling(self)
+    except Exception as err:
+        print("[stands] onAirportBeforeVehicleSelect failed: %s" % err)
+    if hasattr(self, "_super_onAirportBeforeVehicleSelect"):
+        self._super_onAirportBeforeVehicleSelect(*args)
+
+
+def onAirportDepartureRequested(self, *args):
+    """The pilot asked for pushback.
+
+    Apply the assigned route now rather than waiting for the next poll - this
+    is the moment it matters, and the controller may have assigned it seconds
+    ago. Note the onAirport prefix: airport handlers use it for every service
+    callback, and a plain onDepartureRequested here would never be called.
+    """
+    try:
+        _standInit(self)
+        if not self._standUserOverride:
+            _standEnsurePolling(self)
+            # Always re-ask here, whatever the poll last saw. This is the last
+            # moment before GSX builds the route menu, and with the tug already
+            # connected - which is how most pilots fly it - the assignment may
+            # have landed since the last poll.
+            payload = _standFetch(self)
+            if payload:
+                routes = _standRoutes(payload.get("pushback"))
+                if routes and _standApplyPushback(self, routes):
+                    # Record it so the poll does not report it as a change.
+                    self._standPushback = "|".join(routes)
+    except Exception as err:
+        print("[stands] onAirportDepartureRequested failed: %s" % err)
+    if hasattr(self, "_super_onAirportDepartureRequested"):
+        self._super_onAirportDepartureRequested(*args)
+
+
+def onAirportGateReset(self, reason):
     """The pilot took control: back off for the rest of this visit.
+
+    Named onAirportGateReset, not onGateReset: airport handlers take the
+    onAirport prefix for every service callback, and the unprefixed name is
+    simply never called here.
 
     Nothing is written back to FlightStrips. The controller's board is the
     source of truth, and a pilot parking elsewhere is a discrepancy they should
@@ -351,15 +523,18 @@ def onGateReset(self, reason):
     _standInit(self)
     if reason in ("user_changed", "user_revoked") and (self._standAssigned or self._standPushback):
         self._standUserOverride = True
-        cancelAsync(self._standPoll)
-        self._standPoll = None
+        _standCancelPoll(self)
+        _standClearVdgs(self)
         print("[stands] pilot took over (%s) - ATC updates stopped" % reason)
 
 
 def onExitAirport(self):
-    cancelAsync(self._standPoll)
-    self._standPoll = None
+    _standInit(self)
+    _standCancelPoll(self)
+    _standClearVdgs(self)
     self._standAssigned = None
     self._standPushback = None
     self._standUserOverride = False
     self._standCallsign = None
+    self._standCallsignTrusted = False
+    self._standWarnedNoCallsign = False

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { CAPABILITIES } from "./content";
-import { Reveal } from "./primitives";
 
 /**
  * Four capability entries in normal document order, with a sticky index that
@@ -74,7 +73,6 @@ export function CapabilityStory() {
             }}
             className="scroll-mt-32 border-b border-[var(--fsl-line)] py-12 first:pt-0 last:border-b-0 last:pb-0"
           >
-            <Reveal>
               <p className="fsl-eyebrow mb-5 lg:hidden">{capability.eyebrow}</p>
               <h3 className="fsl-display mb-6 max-w-2xl text-[30px] sm:text-[38px] lg:text-[44px]">
                 {capability.title}
@@ -90,7 +88,6 @@ export function CapabilityStory() {
                 {capability.link.label}
                 <span aria-hidden="true">→</span>
               </a>
-            </Reveal>
           </article>
         ))}
       </div>

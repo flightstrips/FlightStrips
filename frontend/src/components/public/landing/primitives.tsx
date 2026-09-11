@@ -167,3 +167,30 @@ export function SwapLink({
     </a>
   );
 }
+
+/**
+ * A secondary action. Text with a nudging arrow, so it reads as subordinate to
+ * the single primary call to action rather than competing with it.
+ */
+export function ArrowLink({
+  href,
+  children,
+  external = false,
+  className = "",
+}: {
+  href: string;
+  children: ReactNode;
+  external?: boolean;
+  className?: string;
+}) {
+  return (
+    <a
+      href={href}
+      className={`fsl-arrow-link ${className}`}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+    >
+      <span>{children}</span>
+      <span aria-hidden="true">→</span>
+    </a>
+  );
+}

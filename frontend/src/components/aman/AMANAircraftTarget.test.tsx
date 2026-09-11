@@ -42,13 +42,20 @@ describe("compact MAESTRO aircraft target", () => {
     expect(screen.getByText("Unavailable")).toBeInTheDocument();
   });
 
-  it("uses the authoritative freeze reason for Superstable and manual protection cues", () => {
+  it("uses the authoritative freeze reason for visible protection cues", () => {
     const {rerender} = render(<AMANAircraftTarget flight={flight({freeze_reason: "superstable", lifecycle_state: "stable"})} guidance={guidance} />);
     expect(screen.getByTitle("Superstable")).toHaveTextContent("SS");
 
     rerender(<AMANAircraftTarget flight={flight({freeze_reason: "manual", lifecycle_state: "stable"})} guidance={guidance} />);
     expect(screen.getByRole("button")).toHaveAccessibleName(/Stable, manual freeze/);
     expect(screen.getByTitle("Stable, manual freeze")).toHaveTextContent("S·M");
+  });
+
+  it.each(["fresh", "stale", "disconnected"] as const)("announces TMA protection with %s surveillance data", (dataStatus) => {
+    render(<AMANAircraftTarget flight={flight({data_status: dataStatus, freeze_reason: "tma", lifecycle_state: "stable"})} guidance={guidance} />);
+    const target = screen.getByRole("button", {name: /TMA entry protection/});
+    expect(screen.getByTitle("TMA entry protection")).toHaveTextContent("TMA");
+    expect(target).toHaveTextContent(dataStatus === "fresh" ? "L02" : "Unavailable");
   });
 
   it("is keyboard-focusable, semantically selected, and invokes its selection callback", () => {

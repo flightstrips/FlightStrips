@@ -1,4 +1,5 @@
 import {getApiUrl} from "@/lib/api-url";
+import type {AMANFreezeReason} from "./aman";
 
 export interface AMANFlightDetail {
   airport: string;
@@ -97,7 +98,7 @@ export interface AMANTETABasis {
   generated_at: string;
   input_observed_at: string;
   operational_reason: string;
-  freeze_reason: string;
+  freeze_reason: AMANFreezeReason;
   frozen_at: string | null;
   confidence: string;
   model_version: string;

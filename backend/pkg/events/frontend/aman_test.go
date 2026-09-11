@@ -188,6 +188,31 @@ func TestAMANStateEventOmitsActiveRunwayGroupsForLegacyState(t *testing.T) {
 	require.NotContains(t, string(encoded), `"active_runway_groups"`)
 }
 
+func TestAMANFlightProjectsTMAFreezeForNewAndLegacyV1Decoders(t *testing.T) {
+	state := goldenAMANState()
+	state.Flights[0].FreezeReason = aman.FreezeTMA
+	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
+	require.NoError(t, err)
+	require.Equal(t, AMANFreezeTMA, mapped.FreezeReason)
+
+	encoded, err := json.Marshal(mapped)
+	require.NoError(t, err)
+	var legacy struct {
+		FlightID     string `json:"flight_id"`
+		FreezeReason string `json:"freeze_reason"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &legacy))
+	require.Equal(t, "flight-123", legacy.FlightID)
+	require.Equal(t, "tma", legacy.FreezeReason)
+}
+
+func TestAMANFlightRejectsUnknownFreezeReason(t *testing.T) {
+	state := goldenAMANState()
+	state.Flights[0].FreezeReason = aman.FreezeReason("future")
+	_, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
+	require.EqualError(t, err, `unsupported freeze reason "future"`)
+}
+
 func TestAMANStateEventActiveSetIsAdditiveForLegacyV1Decoders(t *testing.T) {
 	state := goldenAMANState()
 	state.ActiveRunwayGroups = []aman.RunwayGroupID{"ARRIVAL-22"}

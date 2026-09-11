@@ -3,7 +3,7 @@ export const AMAN_WIRE_VERSION = 1 as const;
 export type AMANEffectiveMode = "disabled" | "shadow" | "read_only" | "authoritative" | "blocked";
 export type AMANLifecycleState = "planned" | "airborne" | "unstable" | "stable" | "landed" | "go_around" | "removed";
 export type AMANDataStatus = "fresh" | "stale" | "disconnected";
-export type AMANFreezeReason = "none" | "superstable" | "manual";
+export type AMANFreezeReason = "none" | "superstable" | "tma" | "manual";
 export type AMANConfidence = "unknown" | "low" | "medium" | "high";
 export type AMANFeederETASource = "route" | "holding" | "manual" | "passed";
 export type AMANHealthStatus = "disabled" | "ready" | "degraded" | "unavailable";
@@ -347,7 +347,7 @@ export interface AMANReplacementResult {
 const effectiveModes = new Set<AMANEffectiveMode>(["disabled", "shadow", "read_only", "authoritative", "blocked"]);
 const lifecycleStates = new Set<AMANLifecycleState>(["planned", "airborne", "unstable", "stable", "landed", "go_around", "removed"]);
 const dataStatuses = new Set<AMANDataStatus>(["fresh", "stale", "disconnected"]);
-const freezeReasons = new Set<AMANFreezeReason>(["none", "superstable", "manual"]);
+const freezeReasons = new Set<AMANFreezeReason>(["none", "superstable", "tma", "manual"]);
 const confidences = new Set<AMANConfidence>(["unknown", "low", "medium", "high"]);
 const feederETASources = new Set<AMANFeederETASource>(["route", "holding", "manual", "passed"]);
 const healthStatuses = new Set<AMANHealthStatus>(["disabled", "ready", "degraded", "unavailable"]);

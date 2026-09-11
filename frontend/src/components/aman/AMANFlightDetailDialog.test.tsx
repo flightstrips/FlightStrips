@@ -64,4 +64,24 @@ describe("AMAN flight detail dialog integration", () => {
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     expect(opener).toHaveFocus();
   });
+
+  it("presents TMA slot protection with a visible non-color label", async () => {
+    fetchDetail.mockResolvedValue({
+      ...detail,
+      teta_basis: {
+        raw_teta: "2026-07-22T10:20:00.000Z", raw_reta: "2026-07-22T10:20:00.000Z",
+        operational_teta: "2026-07-22T10:19:00.000Z", generated_at: detail.generated_at,
+        input_observed_at: detail.generated_at, operational_reason: "tma_freeze", freeze_reason: "tma",
+        frozen_at: detail.generated_at, confidence: "high", model_version: "model-v1", config_version: "config-v1",
+        prediction_basis: "performance_wind", performance_profile_id: "A320", weather_source: "metar",
+        sources: ["surveillance"], degradation_reason: null, raw_samples: [], baseline: null, eta_review: null,
+      },
+    });
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", {name: "Open SAS123"}));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Freeze protectionTMA entry protection");
+    expect(screen.getByText("TMA entry protection")).toHaveClass("bg-cyan-950", "text-cyan-200");
+  });
 });

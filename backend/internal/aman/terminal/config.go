@@ -145,12 +145,46 @@ type FixAlias struct {
 // PublishedHeadingMagneticDeg is a published post-terminal-fix instruction;
 // it is never a controller-assigned heading.
 type Path struct {
-	Feeder                      navdata.FeederID   `json:"feeder"`
-	RunwayGroup                 aman.RunwayGroupID `json:"runwayGroup"`
-	Fixes                       []navdata.FixID    `json:"fixes"`
-	MergeFix                    navdata.FixID      `json:"mergeFix"`
-	SelectedHolding             navdata.HoldingID  `json:"selectedHolding"`
-	PublishedHeadingMagneticDeg *int               `json:"publishedHeadingMagneticDeg,omitempty"`
+	// Feeder is the legacy JSON name for the STAR family. It remains required
+	// until configuration producers and runtime selectors have migrated.
+	Feeder                      navdata.FeederID     `json:"feeder"`
+	STARFamily                  navdata.STARFamilyID `json:"starFamily,omitempty"`
+	FeederFix                   navdata.FixID        `json:"feederFix,omitempty"`
+	HoldingToFeederSeconds      *int64               `json:"holdingToFeederSeconds,omitempty"`
+	RunwayGroup                 aman.RunwayGroupID   `json:"runwayGroup"`
+	Fixes                       []navdata.FixID      `json:"fixes"`
+	MergeFix                    navdata.FixID        `json:"mergeFix"`
+	SelectedHolding             navdata.HoldingID    `json:"selectedHolding"`
+	PublishedHeadingMagneticDeg *int                 `json:"publishedHeadingMagneticDeg,omitempty"`
+}
+
+// UnmarshalJSON keeps the checked-in legacy "feeder" key readable while
+// allowing the explicit schema to use "starFamily" as the sole family key.
+// Runtime selectors still read Feeder, so populate that compatibility alias at
+// the configuration boundary rather than teaching consumers about both names.
+func (p *Path) UnmarshalJSON(encoded []byte) error {
+	type pathWire Path
+	var decoded pathWire
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		return fmt.Errorf("decode terminal path: %w", err)
+	}
+	if decoded.Feeder == "" && decoded.STARFamily != "" {
+		decoded.Feeder = navdata.FeederID(decoded.STARFamily)
+	}
+	*p = Path(decoded)
+	return nil
+}
+
+func (p Path) hasExplicitOperationalIdentity() bool {
+	return p.STARFamily != "" || p.FeederFix != "" || p.HoldingToFeederSeconds != nil
+}
+
+func (p Path) holdingToFeederDuration() *time.Duration {
+	if p.HoldingToFeederSeconds == nil {
+		return nil
+	}
+	duration := time.Duration(*p.HoldingToFeederSeconds) * time.Second
+	return &duration
 }
 
 type Configuration struct {
@@ -536,6 +570,21 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 		if len(path.Fixes) > 0 && canonicalFix(path.Fixes[0], aliases) != canonicalFix(navdata.FixID(path.Feeder), aliases) {
 			add(&errs, fmt.Sprintf("paths[%d].fixes[0]", i), "must equal the configured feeder after normalization")
 		}
+		if path.hasExplicitOperationalIdentity() {
+			if path.STARFamily == "" {
+				add(&errs, fmt.Sprintf("paths[%d].starFamily", i), "is required with explicit feeder metadata")
+			} else if navdata.FeederID(path.STARFamily) != path.Feeder {
+				add(&errs, fmt.Sprintf("paths[%d].starFamily", i), "must match the legacy feeder")
+			}
+			if path.FeederFix == "" {
+				add(&errs, fmt.Sprintf("paths[%d].feederFix", i), "is required with explicit feeder metadata")
+			} else if countCanonicalFix(path.Fixes, path.FeederFix, aliases) != 1 {
+				add(&errs, fmt.Sprintf("paths[%d].feederFix", i), "must occur exactly once on the terminal path after normalization")
+			}
+		}
+		if path.HoldingToFeederSeconds != nil && (*path.HoldingToFeederSeconds < 0 || *path.HoldingToFeederSeconds > math.MaxInt64/int64(time.Second)) {
+			add(&errs, fmt.Sprintf("paths[%d].holdingToFeederSeconds", i), "must be a non-negative time.Duration in whole seconds")
+		}
 		if len(path.Fixes) > 0 && path.Fixes[len(path.Fixes)-1] != path.MergeFix {
 			add(&errs, fmt.Sprintf("paths[%d].mergeFix", i), "must be final path fix")
 		}
@@ -558,6 +607,8 @@ func (c Configuration) Validate(refs ReferenceSet) error {
 			add(&errs, fmt.Sprintf("paths[%d].selectedHolding", i), "is missing or ambiguous in active/overlay holdings")
 		} else if !containsCanonicalFix(path.Fixes, holding.Fix, aliases) {
 			add(&errs, fmt.Sprintf("paths[%d].selectedHolding", i), "holding fix must occur on the terminal path")
+		} else if path.FeederFix != "" && indexCanonicalFix(path.Fixes, path.FeederFix, aliases) < indexCanonicalFix(path.Fixes, holding.Fix, aliases) {
+			add(&errs, fmt.Sprintf("paths[%d].feederFix", i), "must not precede the selected holding fix")
 		}
 		if group, ok := groups[path.RunwayGroup]; ok && len(path.Fixes) > 0 {
 			merge, found := refFix(refs.Fixes, canonicalFix(path.MergeFix, aliases))
@@ -601,6 +652,22 @@ func containsCanonicalFix(values []navdata.FixID, want navdata.FixID, aliases ma
 		}
 	}
 	return false
+}
+func countCanonicalFix(values []navdata.FixID, want navdata.FixID, aliases map[navdata.FixID]navdata.FixID) int {
+	want = canonicalFix(want, aliases)
+	count := 0
+	for _, value := range values {
+		if canonicalFix(value, aliases) == want {
+			count++
+		}
+	}
+	return count
+}
+func indexCanonicalFix(values []navdata.FixID, want navdata.FixID, aliases map[navdata.FixID]navdata.FixID) int {
+	want = canonicalFix(want, aliases)
+	return slices.IndexFunc(values, func(value navdata.FixID) bool {
+		return canonicalFix(value, aliases) == want
+	})
 }
 func sameCourse(value float64, expected *float64) bool {
 	return expected != nil && near(value, *expected)
@@ -672,7 +739,7 @@ func (c Configuration) Candidate(refs ReferenceSet, importedAt time.Time) (navda
 		// published final-approach fix rather than inventing an intercept point,
 		// then continue to that runway's threshold.
 		legs = append(legs, publishedILSFinal(canonicalFix(value.MergeFix, aliases), groups[value.RunwayGroup].FinalApproaches[0])...)
-		path := navdata.TerminalPath{Version: refs.Version, Airport: c.Airport, Feeder: value.Feeder, RunwayGroup: value.RunwayGroup, Legs: legs, HoldingIDs: []navdata.HoldingID{value.SelectedHolding}, PublishedHeadingMagneticDeg: clonePointer(value.PublishedHeadingMagneticDeg), Coverage: navdata.CoverageComplete, Provenance: provenance}
+		path := navdata.TerminalPath{Version: refs.Version, Airport: c.Airport, Feeder: value.Feeder, STARFamily: value.STARFamily, FeederFix: canonicalFix(value.FeederFix, aliases), HoldingToFeederDuration: value.holdingToFeederDuration(), RunwayGroup: value.RunwayGroup, Legs: legs, HoldingIDs: []navdata.HoldingID{value.SelectedHolding}, PublishedHeadingMagneticDeg: clonePointer(value.PublishedHeadingMagneticDeg), Coverage: navdata.CoverageComplete, Provenance: provenance}
 		path.Digest = terminalDigest(path)
 		paths = append(paths, path)
 	}

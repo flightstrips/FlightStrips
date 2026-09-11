@@ -367,13 +367,15 @@ func TestLifecycleAndPredictionPreserveCanonicalFreezePolicy(t *testing.T) {
 	holding := "north-hold"
 	stable.Flight.SelectedHolding = &holding
 
-	predictionConfig := prediction.DefaultConfig()
 	raw := rawPrediction(now.Add(time.Minute), now.Add(20*time.Minute))
-	holdingFix := raw.GeneratedAt.Add(predictionConfig.SuperstableHorizon)
-	raw.HoldingFixETA = &holdingFix
 	slot := aman.Slot{Time: now.Add(25 * time.Minute), RunwayGroupID: "north", Sequence: 3, Reason: "spacing"}
+	predictionConfig := prediction.DefaultConfig()
 	frozen, err := prediction.Reduce(predictionConfig, stable.Flight, prediction.Input{Raw: raw, State: stable.Flight.State, Slot: &slot})
 	require.NoError(t, err)
+	freezeAt, frozenTETA, frozenSlot := raw.GeneratedAt, frozen.Flight.Prediction.OperationalTETA, slot
+	frozen.Flight.FreezeReason = aman.FreezeSuperstable
+	frozen.Flight.FrozenAt, frozen.Flight.FrozenOperationalTETA, frozen.Flight.FrozenSlot = &freezeAt, &frozenTETA, &frozenSlot
+	frozen.Flight.Prediction.OperationalReason = aman.OperationalReasonSuperstableFreeze
 	require.Equal(t, aman.StateStable, frozen.Flight.State)
 	require.Equal(t, aman.FreezeSuperstable, frozen.Flight.FreezeReason)
 	require.Equal(t, slot, *frozen.Flight.FrozenSlot)

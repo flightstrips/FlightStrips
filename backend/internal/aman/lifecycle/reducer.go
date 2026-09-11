@@ -1,6 +1,7 @@
 // Package lifecycle owns deterministic AMAN flight-state transitions.
 // Source freshness remains orthogonal to the lifecycle state, and prediction
-// and freeze mechanics remain owned by the prediction reducer.
+// and freeze mechanics remain owned by operational reconciliation and the
+// prediction reducer.
 package lifecycle
 
 import (
@@ -374,6 +375,13 @@ func StableFeederEligible(feeder *aman.FeederETAState, now time.Time, horizon ti
 		return false
 	}
 	return feeder.Passed || feeder.ETA.Sub(now) <= horizon
+}
+
+// SuperstableFeederEligible uses the same authoritative feeder evidence as
+// Stable. Callers apply it only after the lifecycle decision has entered or
+// retained Stable, so the persisted Unstable dwell cannot be bypassed.
+func SuperstableFeederEligible(feeder *aman.FeederETAState, now time.Time, horizon time.Duration) bool {
+	return StableFeederEligible(feeder, now, horizon)
 }
 
 func applyOperationalExceptionState(config Config, flight *aman.AMANFlight, event Event) {

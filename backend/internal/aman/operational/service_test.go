@@ -10,6 +10,7 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/lifecycle"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/aman/prediction"
 	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
@@ -1249,6 +1250,134 @@ func TestLifecycleStateUsesFeederETAAfterPersistedUnstableDwell(t *testing.T) {
 	feederETA := now.Add(config.StableHorizon)
 	flight.FeederETA = &aman.FeederETAState{ETA: &feederETA, Source: aman.FeederETASourceHolding}
 	require.Equal(t, aman.StateStable, lifecycleState(config, flight, now.Add(time.Hour), now), "the feeder boundary controls Stable independently of landing TETA")
+}
+
+func TestApplySuperstableUsesInclusiveFeederBoundaryAndAuthoritativePassedState(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 19, 0, 0, 0, time.UTC)
+	config := lifecycle.DefaultConfig()
+	tests := []struct {
+		name        string
+		feeder      *aman.FeederETAState
+		withoutSlot bool
+		want        bool
+	}{
+		{name: "above threshold", feeder: feederETAAt(now.Add(config.SuperstableHorizon + time.Nanosecond))},
+		{name: "exact threshold", feeder: feederETAAt(now.Add(config.SuperstableHorizon)), want: true},
+		{name: "below threshold", feeder: feederETAAt(now.Add(config.SuperstableHorizon - time.Nanosecond)), want: true},
+		{name: "authoritatively passed", feeder: &aman.FeederETAState{Source: aman.FeederETASourcePassed, Passed: true}, want: true},
+		{name: "missing feeder"},
+		{name: "missing slot", feeder: feederETAAt(now.Add(config.SuperstableHorizon)), withoutSlot: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			flight := superstableCandidate(now, tt.feeder)
+			if tt.withoutSlot {
+				flight.Slot = nil
+			}
+			require.Equal(t, tt.want, applySuperstable(config, &flight, aman.FreezeNone, now))
+			if !tt.want {
+				require.Equal(t, aman.FreezeNone, flight.FreezeReason)
+				return
+			}
+			require.Equal(t, aman.StateStable, flight.State)
+			require.Equal(t, aman.FreezeSuperstable, flight.FreezeReason)
+			require.Equal(t, now, *flight.FrozenAt)
+			require.Equal(t, flight.Prediction.OperationalTETA, *flight.FrozenOperationalTETA)
+			require.Equal(t, *flight.Slot, *flight.FrozenSlot)
+			require.Equal(t, aman.OperationalReasonSuperstableFreeze, flight.Prediction.OperationalReason)
+		})
+	}
+}
+
+func TestLateFeederEntryCompletesDwellAndCapturesStableInOneResult(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 20, 0, 0, 0, time.UTC)
+	config := lifecycle.DefaultConfig()
+	flight := superstableCandidate(now, feederETAAt(now.Add(config.SuperstableHorizon)))
+	flight.State = aman.StateUnstable
+	flight.Lifecycle = &aman.LifecycleState{
+		EnteredAt: now.Add(-config.MinimumUnstableDwell), Reason: aman.LifecycleReasonUnstableHorizon,
+		LastEventID: "unstable", LastEventFingerprint: "unstable", LastEventAt: now.Add(-config.MinimumUnstableDwell),
+	}
+
+	previousState := flight.State
+	nextState := lifecycleState(config, flight, now.Add(30*time.Minute), now)
+	reduced, err := prediction.Reduce(prediction.DefaultConfig(), flight, prediction.Input{
+		Raw: acceptedRawPrediction(now, now.Add(18*time.Minute)), State: nextState, Slot: flight.Slot,
+	})
+	require.NoError(t, err)
+	updated := reduced.Flight
+	updateLifecycle(&updated, previousState, nextState, now)
+	require.True(t, applySuperstable(config, &updated, aman.FreezeNone, now))
+
+	require.Equal(t, aman.StateStable, updated.State)
+	require.Equal(t, aman.LifecycleReasonStableHorizon, updated.Lifecycle.Reason)
+	require.Equal(t, aman.FreezeSuperstable, updated.FreezeReason)
+	require.Equal(t, updated.Prediction.OperationalTETA, *updated.FrozenOperationalTETA)
+	require.Equal(t, *updated.Slot, *updated.FrozenSlot)
+}
+
+func TestSuperstableResultIsAuditedAndIdempotentAcrossRestartReplay(t *testing.T) {
+	now := time.Date(2026, time.September, 11, 21, 0, 0, 0, time.UTC)
+	config := lifecycle.DefaultConfig()
+	flight := superstableCandidate(now, feederETAAt(now.Add(config.SuperstableHorizon)))
+	require.True(t, applySuperstable(config, &flight, aman.FreezeNone, now))
+
+	record, err := superstableAuditRecord("EKCH", flight, now)
+	require.NoError(t, err)
+	record.Revision = 7
+	require.Equal(t, "aman.superstable_applied", record.Category)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal(record.Payload, &payload))
+	require.Equal(t, string(flight.ID), payload["flight_id"])
+	require.Equal(t, string(aman.StateStable), payload["state"])
+	require.Equal(t, string(aman.FreezeSuperstable), payload["freeze_reason"])
+	repository := &memoryRepository{}
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7, GeneratedAt: now, PolicyVersion: policyVersion, Mode: aman.ModeShadow,
+		Flights: []aman.AMANFlight{flight}, RunwayGroups: []aman.RunwayGroupPolicy{{ID: "ARRIVAL-22", Selected: true}},
+		ActiveRunwayGroups: []aman.RunwayGroupID{"ARRIVAL-22"},
+	}
+	_, err = repository.Commit(context.Background(), aman.StateCommit{
+		ExpectedRevision: 6, State: state, AuditRecords: []aman.AuditRecord{record},
+	})
+	require.NoError(t, err)
+	require.Len(t, repository.commits, 1)
+	require.Equal(t, aman.FreezeSuperstable, repository.commits[0].State.Flights[0].FreezeReason)
+	require.Equal(t, record, repository.commits[0].AuditRecords[0])
+
+	persisted, err := json.Marshal(repository.state.Flights[0])
+	require.NoError(t, err)
+	var restarted aman.AMANFlight
+	require.NoError(t, json.Unmarshal(persisted, &restarted))
+	replayed := restarted
+	require.False(t, applySuperstable(config, &replayed, restarted.FreezeReason, now), "an already committed freeze must not emit a second result")
+	require.Equal(t, restarted, replayed)
+}
+
+func feederETAAt(at time.Time) *aman.FeederETAState {
+	return &aman.FeederETAState{ETA: &at, Source: aman.FeederETASourceRoute}
+}
+
+func superstableCandidate(now time.Time, feeder *aman.FeederETAState) aman.AMANFlight {
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	slot := aman.Slot{Time: now.Add(20 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7, Reason: "spacing"}
+	flight := operationalFlight("SAS123", group, "TESPI", "M", now.Add(18*time.Minute))
+	feederFix := "TNO"
+	prediction := acceptedRawPrediction(now, now.Add(18*time.Minute))
+	prediction.OperationalTETA, prediction.OperationalReason = prediction.RawTETA, aman.OperationalReasonPredicted
+	flight.VATSIMCID, flight.CurrentCallsign, flight.DataStatus = "1234567", "SAS123", aman.DataFresh
+	flight.State, flight.SelectedSTARFamily, flight.SelectedFeederFix, flight.FeederETA = aman.StateStable, flight.SelectedFeeder, &feederFix, feeder
+	flight.Slot, flight.Prediction, flight.LatestObservation, flight.UpdatedAt = &slot, &prediction, nil, now
+	return flight
+}
+
+func acceptedRawPrediction(generatedAt, rawTETA time.Time) aman.Prediction {
+	return aman.Prediction{
+		RawTETA: rawTETA, GeneratedAt: generatedAt, InputObservedAt: generatedAt,
+		Confidence: aman.ConfidenceHigh, Publishable: true, DatasetVersion: "2609",
+		GeometryDigest: "geometry", ModelVersion: "performance-wind-v1", ConfigVersion: "ekch-v1",
+		Sources: []string{"vatsim", "airacnet"},
+	}
 }
 
 func TestHoldingPlanKeepsSlotFixedAndRecalculatesDelayFromLatestTrajectory(t *testing.T) {

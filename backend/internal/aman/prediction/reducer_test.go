@@ -94,11 +94,13 @@ func TestReduceRestoresWindowAndSuperstableFreezeDeterministically(t *testing.T)
 	config.ExcessiveDrift = time.Minute
 	slot := aman.Slot{Time: now.Add(25 * time.Minute), RunwayGroupID: "north", Sequence: 3, Reason: "spacing"}
 	freezeRaw := rawPrediction(now, now.Add(20*time.Minute))
-	holdingFix := now.Add(config.SuperstableHorizon)
-	freezeRaw.HoldingFixETA = &holdingFix
 
 	frozen, err := Reduce(config, predictionFlight(now), Input{Raw: freezeRaw, State: aman.StateStable, Slot: &slot})
 	require.NoError(t, err)
+	freezeAt, frozenTETA, frozenSlot := now, frozen.Flight.Prediction.OperationalTETA, slot
+	frozen.Flight.FreezeReason = aman.FreezeSuperstable
+	frozen.Flight.FrozenAt, frozen.Flight.FrozenOperationalTETA, frozen.Flight.FrozenSlot = &freezeAt, &frozenTETA, &frozenSlot
+	frozen.Flight.Prediction.OperationalReason = aman.OperationalReasonSuperstableFreeze
 	require.Equal(t, aman.FreezeSuperstable, frozen.Flight.FreezeReason)
 	require.Equal(t, aman.OperationalReasonSuperstableFreeze, frozen.Flight.Prediction.OperationalReason)
 	require.NotNil(t, frozen.Flight.FrozenSlot)
@@ -134,11 +136,11 @@ func TestReduceRestoresWindowAndSuperstableFreezeDeterministically(t *testing.T)
 	require.Equal(t, now.Add(30*time.Minute), goAround.Flight.Prediction.OperationalTETA)
 }
 
-func TestReduceDoesNotFreezeWithoutSlotOrOutsideExactBoundary(t *testing.T) {
+func TestReduceDoesNotDeriveSuperstableFromHoldingFixETA(t *testing.T) {
 	now := predictionTime()
 	config := DefaultConfig()
 	raw := rawPrediction(now, now.Add(20*time.Minute))
-	holdingFix := now.Add(config.SuperstableHorizon + time.Second)
+	holdingFix := now.Add(10 * time.Minute)
 	raw.HoldingFixETA = &holdingFix
 	slot := aman.Slot{Time: now.Add(25 * time.Minute), RunwayGroupID: "north", Sequence: 1, Reason: "spacing"}
 
@@ -146,9 +148,8 @@ func TestReduceDoesNotFreezeWithoutSlotOrOutsideExactBoundary(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, aman.FreezeNone, result.Flight.FreezeReason)
 
-	holdingFix = now.Add(config.SuperstableHorizon)
 	raw = rawPrediction(now.Add(time.Minute), now.Add(20*time.Minute))
-	holdingFix = raw.GeneratedAt.Add(config.SuperstableHorizon)
+	holdingFix = raw.GeneratedAt.Add(10 * time.Minute)
 	raw.HoldingFixETA = &holdingFix
 	result, err = Reduce(config, predictionFlight(now), Input{Raw: raw, State: aman.StateStable})
 	require.NoError(t, err)
@@ -195,11 +196,13 @@ func TestReduceIgnoresStaleRawAndFrozenSlotUpdates(t *testing.T) {
 	config := DefaultConfig()
 	slot := aman.Slot{Time: now.Add(25 * time.Minute), RunwayGroupID: "north", Sequence: 1, Reason: "spacing"}
 	raw := rawPrediction(now, now.Add(20*time.Minute))
-	holdingFix := now.Add(config.SuperstableHorizon)
-	raw.HoldingFixETA = &holdingFix
 
 	frozen, err := Reduce(config, predictionFlight(now), Input{Raw: raw, State: aman.StateStable, Slot: &slot})
 	require.NoError(t, err)
+	freezeAt, frozenTETA, frozenSlot := now, frozen.Flight.Prediction.OperationalTETA, slot
+	frozen.Flight.FreezeReason = aman.FreezeSuperstable
+	frozen.Flight.FrozenAt, frozen.Flight.FrozenOperationalTETA, frozen.Flight.FrozenSlot = &freezeAt, &frozenTETA, &frozenSlot
+	frozen.Flight.Prediction.OperationalReason = aman.OperationalReasonSuperstableFreeze
 	require.Equal(t, aman.FreezeSuperstable, frozen.Flight.FreezeReason)
 
 	changedSlot := slot

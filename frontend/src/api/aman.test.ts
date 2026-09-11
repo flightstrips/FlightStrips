@@ -3,6 +3,7 @@ import {resolve} from "node:path";
 import {describe, expect, it} from "vitest";
 
 import {
+  createAMANCommand,
   getActiveAMANRunwayGroups,
   getAMANHeaderReadModel,
   isAMANCommandRejectedEvent,
@@ -25,6 +26,22 @@ function replacement(revision: number, callsign = "SAS123"): AMANStateEvent {
 }
 
 describe("AMAN V1 full replacement contract", () => {
+  it("creates additive GAP and explicit-placement V1 command shapes", () => {
+    const meta = {command_id: "retry-id", expected_revision: 7};
+    expect(createAMANCommand({
+      type: "aman.create_gap", runway_group_id: "ARRIVAL-22", start: "2026-07-22T12:00:00Z",
+      slot_count: 2, label: "approach stop",
+    }, meta)).toEqual({
+      type: "aman.create_gap", version: 1,
+      data: {...meta, runway_group_id: "ARRIVAL-22", start: "2026-07-22T12:00:00Z", slot_count: 2, label: "approach stop"},
+    });
+    expect(createAMANCommand({type: "aman.remove_gap", runway_group_id: "ARRIVAL-22", gap_id: "gap-1"}, meta).data.command_id).toBe("retry-id");
+    expect(createAMANCommand({
+      type: "aman.place_flight_at_time", flight_id: "flight-1", runway_group_id: "ARRIVAL-22",
+      slot_time: "2026-07-22T12:06:00Z", allow_gap: true,
+    }, meta)).toMatchObject({type: "aman.place_flight_at_time", version: 1, data: {...meta, allow_gap: true}});
+  });
+
   it("accepts the shared Go/TypeScript golden fixture", () => {
     expect(isAMANStateEvent(golden)).toBe(true);
   });

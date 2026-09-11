@@ -323,7 +323,10 @@ export type AMANCommandType =
   | "aman.change_runway"
   | "aman.report_go_around"
   | "aman.confirm_go_around"
-  | "aman.reject_go_around";
+  | "aman.reject_go_around"
+  | "aman.create_gap"
+  | "aman.remove_gap"
+  | "aman.place_flight_at_time";
 
 export interface AMANCommandMeta {
   command_id: string;
@@ -342,7 +345,10 @@ export type AMANCommandIntent =
   | {type: "aman.recompute_flight"; flight_id: string}
   | {type: "aman.change_runway"; flight_id: string; runway_group_id: string}
   | {type: "aman.report_go_around"; flight_id: string; detected_at: string}
-  | {type: "aman.confirm_go_around" | "aman.reject_go_around"; flight_id: string; episode_id: string};
+  | {type: "aman.confirm_go_around" | "aman.reject_go_around"; flight_id: string; episode_id: string}
+  | ({type: "aman.create_gap"; runway_group_id: string; start: string; label: string} & ({end: string; slot_count?: never} | {slot_count: number; end?: never}))
+  | {type: "aman.remove_gap"; runway_group_id: string; gap_id: string}
+  | {type: "aman.place_flight_at_time"; flight_id: string; runway_group_id: string; slot_time: string; allow_gap: boolean};
 
 export type AMANCommandMessage = AMANCommandIntent extends infer Intent
   ? Intent extends {type: AMANCommandType}

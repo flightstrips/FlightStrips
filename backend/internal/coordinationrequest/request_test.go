@@ -51,26 +51,39 @@ func TestRequestValidationRejectsIncompleteOrMismatchedAggregates(t *testing.T) 
 }
 
 func TestRequestAllowsOnlyPendingToTerminalTransitions(t *testing.T) {
-	for _, state := range []State{StateAccepted, StateRejected, StateExpired} {
+	for _, state := range []State{StateAccepted, StateRejected} {
 		t.Run(string(state), func(t *testing.T) {
 			request := routeRequest(t, "command-"+string(state), testTime)
-			resolved, err := request.Transition(state, testTime.Add(time.Minute))
+			reason := ""
+			if state == StateRejected {
+				reason = "unable"
+			}
+			resolved, err := request.Decide("decision-"+string(state), "7654321", "EKCH_APP", "EKCH_APP", state, reason, testTime.Add(time.Minute))
 			require.NoError(t, err)
 			require.Equal(t, state, resolved.State)
 			require.Equal(t, resolved.UpdatedAt, *resolved.ResolvedAt)
-			_, err = resolved.Transition(StateRejected, testTime.Add(2*time.Minute))
+			require.Equal(t, StatePending, resolved.Decision.BeforeState)
+			_, err = resolved.Decide("another", "7654321", "EKCH_APP", "EKCH_APP", StateRejected, "unable", testTime.Add(2*time.Minute))
 			require.Error(t, err, "terminal state must be immutable")
 		})
 	}
-	request := routeRequest(t, "command-superseded", testTime)
+	request := routeRequest(t, "command-expired", testTime)
+	expired, err := request.Transition(StateExpired, testTime.Add(time.Minute))
+	require.NoError(t, err)
+	require.Equal(t, StateExpired, expired.State)
+	_, err = expired.Decide("late", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(2*time.Minute))
+	require.Error(t, err)
+	request = routeRequest(t, "command-superseded", testTime)
 	superseded, err := request.Supersede("coordination-request/replacement", testTime.Add(time.Minute))
 	require.NoError(t, err)
 	require.Equal(t, StateSuperseded, superseded.State)
+	_, err = superseded.Decide("stale", "7654321", "EKCH_APP", "EKCH_APP", StateRejected, "unable", testTime.Add(2*time.Minute))
+	require.Error(t, err)
 
 	request = routeRequest(t, "command-invalid", testTime)
 	_, err = request.Transition(StatePending, testTime.Add(time.Minute))
 	require.Error(t, err)
-	_, err = request.Transition(StateAccepted, testTime.Add(-time.Minute))
+	_, err = request.Decide("bad", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(-time.Minute))
 	require.Error(t, err)
 }
 

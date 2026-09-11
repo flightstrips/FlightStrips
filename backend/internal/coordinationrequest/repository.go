@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -15,6 +16,8 @@ import (
 var (
 	ErrRevisionConflict = errors.New("coordination request revision conflict")
 	ErrCommandConflict  = errors.New("coordination request command identity conflict")
+	ErrRequestNotFound  = errors.New("coordination request not found")
+	ErrInvalidState     = errors.New("coordination request is not pending")
 )
 
 type CommitResult struct {
@@ -49,6 +52,105 @@ func (r *Repository) Save(ctx context.Context, request Request) error {
 	return err
 }
 
+func (r *Repository) Get(ctx context.Context, airport string, id RequestID) (Request, error) {
+	var raw []byte
+	err := r.pool.QueryRow(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 AND request_id=$2`, airport, id).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Request{}, fmt.Errorf("%w: %s", ErrRequestNotFound, id)
+	}
+	if err != nil {
+		return Request{}, err
+	}
+	var request Request
+	if err = json.Unmarshal(raw, &request); err != nil {
+		return Request{}, err
+	}
+	return request, request.Validate()
+}
+
+// Decide atomically accepts or rejects a pending request. Persisted command
+// identity is checked before revision/state so exact retries remain idempotent.
+func (r *Repository) Decide(ctx context.Context, id RequestID, decision Decision, expectedRevision uint64) (CommitResult, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return CommitResult{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, decision.Airport); err != nil {
+		return CommitResult{}, err
+	}
+	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, decision.Airport)
+	if err != nil {
+		return CommitResult{}, err
+	}
+	var current []Request
+	for rows.Next() {
+		var raw []byte
+		var request Request
+		if err = rows.Scan(&raw); err == nil {
+			err = json.Unmarshal(raw, &request)
+		}
+		if err != nil {
+			rows.Close()
+			return CommitResult{}, err
+		}
+		if err = request.Validate(); err != nil {
+			rows.Close()
+			return CommitResult{}, err
+		}
+		current = append(current, request)
+	}
+	rows.Close()
+	for _, request := range current {
+		if request.CommandID == decision.CommandID {
+			return CommitResult{}, ErrCommandConflict
+		}
+		if request.Decision != nil && request.Decision.CommandID == decision.CommandID {
+			if request.ID != id || request.Decision.AfterState != decision.AfterState || request.Decision.Reason != decision.Reason ||
+				request.Decision.Actor != decision.Actor || request.Decision.Role != decision.Role || request.Decision.AuthoritativeRecipient != decision.AuthoritativeRecipient {
+				return CommitResult{}, ErrCommandConflict
+			}
+			return CommitResult{Request: request, Revision: coordinationRevision(current), Duplicate: true}, tx.Commit(ctx)
+		}
+	}
+	if coordinationRevision(current) != expectedRevision {
+		return CommitResult{}, fmt.Errorf("%w: expected %d, current %d", ErrRevisionConflict, expectedRevision, coordinationRevision(current))
+	}
+	for _, request := range current {
+		if request.ID != id {
+			continue
+		}
+		if request.State != StatePending {
+			return CommitResult{}, fmt.Errorf("%w: current state %s", ErrInvalidState, request.State)
+		}
+		if request.RecipientController != decision.AuthoritativeRecipient || request.Airport == "" {
+			return CommitResult{}, ErrWrongRecipient
+		}
+		resolved, resolveErr := request.Decide(decision.CommandID, decision.Actor, decision.Role, decision.AuthoritativeRecipient, decision.AfterState, decision.Reason, decision.ReceivedAt)
+		if resolveErr != nil {
+			return CommitResult{}, resolveErr
+		}
+		if err = save(ctx, tx, resolved); err != nil {
+			return CommitResult{}, err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return CommitResult{}, err
+		}
+		return CommitResult{Request: resolved, Revision: expectedRevision + 1}, nil
+	}
+	return CommitResult{}, ErrRequestNotFound
+}
+
+func coordinationRevision(requests []Request) uint64 {
+	revision := uint64(len(requests))
+	for _, request := range requests {
+		if request.Decision != nil {
+			revision++
+		}
+	}
+	return revision
+}
+
 // ReplayAirport restores validated requests in deterministic creation order.
 func (r *Repository) ReplayAirport(ctx context.Context, airport string) ([]Request, error) {
 	if airport == "" || airport != strings.TrimSpace(airport) {
@@ -80,7 +182,7 @@ func (r *Repository) ReplayAirport(ctx context.Context, airport string) ([]Reque
 
 // Submit atomically records a request and supersedes only the prior pending
 // request for the same flight and kind. The airport row count is the command
-// revision because every successful non-duplicate submission adds one row.
+// revision. Submissions and decisions each advance it exactly once.
 func (r *Repository) Submit(ctx context.Context, request Request, expectedRevision uint64) (CommitResult, error) {
 	if err := request.Validate(); err != nil {
 		return CommitResult{}, err
@@ -118,16 +220,19 @@ func (r *Repository) Submit(ctx context.Context, request Request, expectedRevisi
 		if err := persisted.Validate(); err != nil {
 			return CommitResult{}, fmt.Errorf("validate persisted coordination request: %w", err)
 		}
+		if persisted.Decision != nil && persisted.Decision.CommandID == request.CommandID {
+			return CommitResult{}, ErrCommandConflict
+		}
 		if persisted.ID == request.ID {
 			if persisted.Airport != request.Airport || persisted.FlightID != request.FlightID || persisted.Kind != request.Kind ||
 				persisted.SubmittedBy != request.SubmittedBy || persisted.SubmittedRole != request.SubmittedRole || !reflect.DeepEqual(persisted.Payload, request.Payload) {
 				return CommitResult{}, ErrCommandConflict
 			}
-			return CommitResult{Request: persisted, Revision: uint64(len(current)), Duplicate: true}, tx.Commit(ctx)
+			return CommitResult{Request: persisted, Revision: coordinationRevision(current), Duplicate: true}, tx.Commit(ctx)
 		}
 	}
-	if uint64(len(current)) != expectedRevision {
-		return CommitResult{}, fmt.Errorf("%w: expected %d, current %d", ErrRevisionConflict, expectedRevision, len(current))
+	if coordinationRevision(current) != expectedRevision {
+		return CommitResult{}, fmt.Errorf("%w: expected %d, current %d", ErrRevisionConflict, expectedRevision, coordinationRevision(current))
 	}
 	var superseded *Request
 	for index := len(current) - 1; index >= 0; index-- {
@@ -151,7 +256,7 @@ func (r *Repository) Submit(ctx context.Context, request Request, expectedRevisi
 	if err = tx.Commit(ctx); err != nil {
 		return CommitResult{}, err
 	}
-	return CommitResult{Request: request, SupersededRequest: superseded, Revision: uint64(len(current) + 1)}, nil
+	return CommitResult{Request: request, SupersededRequest: superseded, Revision: coordinationRevision(current) + 1}, nil
 }
 
 type executor interface {

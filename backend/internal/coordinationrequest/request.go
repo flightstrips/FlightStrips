@@ -42,6 +42,22 @@ type Payload struct {
 	Speed       *SpeedPayload       `json:"speed,omitempty"`
 }
 
+// Decision is the immutable audit of an accept or reject command. Identity
+// and authority fields are copied from trusted server context at receipt.
+type Decision struct {
+	CommandID              string       `json:"command_id"`
+	Airport                string       `json:"airport"`
+	Actor                  string       `json:"actor"`
+	Role                   string       `json:"role"`
+	AuthoritativeRecipient ControllerID `json:"authoritative_recipient"`
+	RequestID              RequestID    `json:"request_id"`
+	RequestKind            Kind         `json:"request_kind"`
+	BeforeState            State        `json:"before_state"`
+	AfterState             State        `json:"after_state"`
+	Reason                 string       `json:"reason,omitempty"`
+	ReceivedAt             time.Time    `json:"received_at"`
+}
+
 // Request is the durable aggregate. CommandID is retained so the derived ID
 // remains verifiable after restart and duplicate submissions remain idempotent.
 type Request struct {
@@ -61,6 +77,7 @@ type Request struct {
 	ResolvedAt          *time.Time      `json:"resolved_at,omitempty"`
 	Supersedes          *RequestID      `json:"supersedes,omitempty"`
 	SupersededBy        *RequestID      `json:"superseded_by,omitempty"`
+	Decision            *Decision       `json:"decision,omitempty"`
 }
 
 func IDForCommand(commandID string) RequestID {
@@ -97,7 +114,7 @@ func (r Request) Validate() error {
 		return err
 	}
 	if r.State == StatePending {
-		if r.ResolvedAt != nil || r.SupersededBy != nil {
+		if r.ResolvedAt != nil || r.SupersededBy != nil || r.Decision != nil {
 			return errors.New("pending coordination request cannot be resolved")
 		}
 		return nil
@@ -108,6 +125,16 @@ func (r Request) Validate() error {
 	}
 	if (r.State == StateSuperseded) != (r.SupersededBy != nil) || r.SupersededBy != nil && *r.SupersededBy == r.ID || r.Supersedes != nil && *r.Supersedes == r.ID {
 		return errors.New("coordination request supersede audit links are invalid")
+	}
+	if r.State == StateAccepted || r.State == StateRejected {
+		if r.Decision == nil || !present(r.Decision.CommandID) || r.Decision.Airport != r.Airport || !present(r.Decision.Actor) || !present(r.Decision.Role) ||
+			r.Decision.AuthoritativeRecipient != r.RecipientController || r.Decision.RequestID != r.ID || r.Decision.RequestKind != r.Kind ||
+			r.Decision.BeforeState != StatePending || r.Decision.AfterState != r.State || !r.Decision.ReceivedAt.Equal(*r.ResolvedAt) ||
+			(r.State == StateRejected && !present(r.Decision.Reason)) || (r.State == StateAccepted && r.Decision.Reason != "") {
+			return errors.New("coordination request decision audit is invalid")
+		}
+	} else if r.Decision != nil {
+		return errors.New("only accepted or rejected requests may contain a decision audit")
 	}
 	return nil
 }
@@ -134,11 +161,29 @@ func (r Request) Transition(next State, at time.Time) (Request, error) {
 	if err := r.Validate(); err != nil {
 		return Request{}, err
 	}
-	if r.State != StatePending || !terminal(next) || !utc(at) || at.Before(r.UpdatedAt) {
+	if r.State != StatePending || next != StateExpired || !utc(at) || at.Before(r.UpdatedAt) {
 		return Request{}, errors.New("coordination request transition is invalid")
 	}
 	r.State, r.UpdatedAt, r.ResolvedAt = next, at, &at
 	return r, r.Validate()
+}
+
+func (r Request) Decide(commandID, actor, role string, recipient ControllerID, next State, reason string, at time.Time) (Request, error) {
+	if next != StateAccepted && next != StateRejected {
+		return Request{}, errors.New("coordination request decision must accept or reject")
+	}
+	if !present(commandID) || !present(actor) || !present(role) || recipient == "" ||
+		(next == StateRejected && !present(reason)) || (next == StateAccepted && reason != "") {
+		return Request{}, errors.New("coordination request decision identity and reason are invalid")
+	}
+	if err := r.Validate(); err != nil || r.State != StatePending || !utc(at) || at.Before(r.UpdatedAt) {
+		return Request{}, errors.New("coordination request decision transition is invalid")
+	}
+	resolved := r
+	resolved.State, resolved.UpdatedAt, resolved.ResolvedAt = next, at, &at
+	resolved.Decision = &Decision{CommandID: commandID, Actor: actor, Role: role, AuthoritativeRecipient: recipient,
+		Airport: r.Airport, RequestID: r.ID, RequestKind: r.Kind, BeforeState: r.State, AfterState: next, Reason: reason, ReceivedAt: at}
+	return resolved, resolved.Validate()
 }
 
 func (p Payload) validate(kind Kind) error {

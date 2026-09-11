@@ -2,16 +2,30 @@ package coordinationrequest
 
 import (
 	"context"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-type recordingSubmitter struct{ request Request }
+type recordingSubmitter struct {
+	request  Request
+	decision Decision
+}
 
 func (r *recordingSubmitter) Submit(_ context.Context, request Request, revision uint64) (CommitResult, error) {
 	r.request = request
 	return CommitResult{Request: request, Revision: revision + 1}, nil
+}
+
+func (r *recordingSubmitter) Get(_ context.Context, _ string, _ RequestID) (Request, error) {
+	return r.request, nil
+}
+
+func (r *recordingSubmitter) Decide(_ context.Context, _ RequestID, decision Decision, revision uint64) (CommitResult, error) {
+	r.decision = decision
+	return CommitResult{Request: r.request, Revision: revision + 1}, nil
 }
 
 type trackingControllerResolver struct {
@@ -61,4 +75,38 @@ func TestServicePersistsVisibleUnassignedRecipient(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, repository.request.RecipientController)
 	require.Equal(t, RecipientUnassigned, repository.request.RecipientStatus)
+}
+
+func TestServiceDecisionUsesAuthoritativeRecipientAndTrustedContext(t *testing.T) {
+	request := routeRequest(t, "submit-1", testTime)
+	repository := &recordingSubmitter{request: request}
+	owners := &trackingControllerResolver{controller: "EKCH_APP"}
+	service := NewService(repository, owners, []string{"EKCH_FMH"})
+	auth := CommandContext{Airport: "EKCH", Actor: "7654321", Role: "EKCH_APP", ReceivedAt: testTime.Add(time.Minute)}
+
+	_, err := service.Reject(context.Background(), auth, DecisionCommand{
+		CommandID: "reject-1", ExpectedRevision: 1, RequestID: request.ID, Reason: "unable",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "EKCH", repository.decision.Airport)
+	require.Equal(t, "7654321", repository.decision.Actor)
+	require.Equal(t, "EKCH_APP", repository.decision.Role)
+	require.Equal(t, ControllerID("EKCH_APP"), repository.decision.AuthoritativeRecipient)
+	require.Equal(t, StateRejected, repository.decision.AfterState)
+
+	auth.Role = "EKCH_DEP"
+	_, err = service.Accept(context.Background(), auth, DecisionCommand{CommandID: "spoof", RequestID: request.ID})
+	require.ErrorIs(t, err, ErrUnauthorized)
+
+	auth.Role, owners.controller = "EKCH_DEP", "EKCH_DEP"
+	_, err = service.Accept(context.Background(), auth, DecisionCommand{CommandID: "wrong-recipient", RequestID: request.ID})
+	require.ErrorIs(t, err, ErrWrongRecipient)
+}
+
+func TestDecisionPayloadCannotSpoofAuthorityOrAudit(t *testing.T) {
+	typeOf := reflect.TypeFor[DecisionCommand]()
+	for _, forbidden := range []string{"Airport", "Actor", "Role", "Recipient", "ReceivedAt", "BeforeState", "AfterState", "Kind"} {
+		_, present := typeOf.FieldByName(forbidden)
+		require.Falsef(t, present, "decision payload must not accept server-owned %s", forbidden)
+	}
 }

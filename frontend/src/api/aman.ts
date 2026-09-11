@@ -28,6 +28,8 @@ export interface AMANState {
   runway_groups: AMANRunwayGroup[];
   /** Optional while V1 clients and servers roll through multi-runway support. */
   active_runway_groups?: string[];
+  /** Optional while V1 clients and servers roll through the MAESTRO header projection. */
+  header?: AMANHeader;
   /** Optional while V1 clients and servers roll through configured timelines. */
   timeline_configuration?: AMANTimelineConfiguration;
   /** Optional while V1 clients and servers roll through the TMT extension. */
@@ -37,6 +39,45 @@ export interface AMANState {
   /** Complete current replacement; an empty array clears previously published warnings. */
   warnings?: AMANWarning[];
   technical_health: AMANTechnicalHealth;
+}
+
+export interface AMANHeader {
+  active_runway_groups: AMANHeaderRunwayGroup[];
+  readiness: {status: AMANHealthStatus; ready: boolean; blocked_reasons: string[]};
+  traffic_summary: {
+    status: AMANTrafficStatus;
+    tma_above_1500_feet_count: number;
+    maestro_horizon_count: number;
+  };
+  wind: AMANHeaderWind | null;
+}
+
+export interface AMANHeaderRunwayGroup {
+  id: string;
+  active_rate_per_hour: number | null;
+  rate_effective_at: string | null;
+}
+
+export interface AMANHeaderWind {
+  surface_direction_degrees: number;
+  surface_speed_knots: number;
+  direction_10000_degrees: number;
+  speed_10000_knots: number;
+  observed_at: string;
+  source: string;
+}
+
+export type AMANHeaderAvailability = "ready" | "degraded" | "unavailable";
+export interface AMANHeaderReadModel {
+  availability: AMANHeaderAvailability;
+  airport: string;
+  generated_at: string;
+  effective_mode: AMANEffectiveMode;
+  authoritative: boolean;
+  active_runway_groups: AMANHeaderRunwayGroup[];
+  readiness: AMANHeader["readiness"];
+  traffic_summary: AMANHeader["traffic_summary"] | {status: "unavailable"; tma_above_1500_feet_count: null; maestro_horizon_count: null};
+  wind: AMANHeaderWind | null;
 }
 
 export interface AMANWarning {
@@ -497,6 +538,42 @@ function hasValidActiveRunwayGroups(data: Record<string, unknown>): boolean {
   return data.runway_groups.every((group) => !isObject(group) || group.selected !== true || active.has(group.id as string));
 }
 
+function isHeaderWind(value: unknown): value is AMANHeaderWind {
+  return isObject(value) && isNonNegativeInteger(value.surface_direction_degrees) && value.surface_direction_degrees < 360
+    && isNonNegativeInteger(value.surface_speed_knots) && isNonNegativeInteger(value.direction_10000_degrees)
+    && value.direction_10000_degrees < 360 && isNonNegativeInteger(value.speed_10000_knots)
+    && isTimestamp(value.observed_at) && isIdentity(value.source);
+}
+
+function hasValidHeader(data: Record<string, unknown>): boolean {
+  if (data.header === undefined) return true;
+  if (!isObject(data.header) || !Array.isArray(data.header.active_runway_groups)
+    || !isObject(data.header.readiness) || !isObject(data.header.traffic_summary)) return false;
+  const header = data.header as Record<string, unknown>;
+  const headerRunways = header.active_runway_groups as unknown[];
+  const activeIDs = data.active_runway_groups as string[] | undefined;
+  const expectedGroups = (data.runway_groups as AMANRunwayGroup[])
+    .filter((group) => activeIDs === undefined ? group.selected === true : activeIDs.includes(group.id));
+  const runwaysValid = headerRunways.every((group, index) => isObject(group)
+    && group.id === expectedGroups[index]?.id && group.active_rate_per_hour === (expectedGroups[index]?.active_rate_per_hour ?? null)
+    && group.rate_effective_at === (expectedGroups[index]?.rate_effective_at ?? null)
+    && (group.active_rate_per_hour === null
+      || (isNonNegativeInteger(group.active_rate_per_hour) && group.active_rate_per_hour > 0))
+    && isNullableTimestamp(group.rate_effective_at));
+  const readiness = header.readiness as Record<string, unknown>;
+  const traffic = header.traffic_summary as Record<string, unknown>;
+  return runwaysValid && headerRunways.length === expectedGroups.length
+    && isString(readiness.status) && healthStatuses.has(readiness.status as AMANHealthStatus)
+    && readiness.status === (data.technical_health as AMANTechnicalHealth).status
+    && readiness.ready === (data.technical_health as AMANTechnicalHealth).ready
+    && isStringArray(readiness.blocked_reasons)
+    && JSON.stringify(readiness.blocked_reasons) === JSON.stringify((data.technical_health as AMANTechnicalHealth).blocked_reasons)
+    && isString(traffic.status) && trafficStatuses.has(traffic.status as AMANTrafficStatus)
+    && (data.traffic_prediction === undefined || traffic.status === (data.traffic_prediction as AMANTrafficPrediction).status)
+    && isNonNegativeInteger(traffic.tma_above_1500_feet_count) && isNonNegativeInteger(traffic.maestro_horizon_count)
+    && (header.wind === null || isHeaderWind(header.wind));
+}
+
 function isTimelineConfiguration(value: unknown): value is AMANTimelineConfiguration {
   if (!isObject(value) || !isIdentity(value.version) || !Array.isArray(value.mappings) || value.mappings.length === 0) return false;
   const families = new Set<string>();
@@ -590,9 +667,10 @@ export function isAMANStateEvent(value: unknown): value is AMANStateEvent {
     && hasValidActiveRunwayGroups(data)
     && (data.timeline_configuration === undefined || isTimelineConfiguration(data.timeline_configuration))
     && (data.traffic_prediction === undefined || isTrafficPrediction(data.traffic_prediction))
+    && isTechnicalHealth(data.technical_health)
+    && hasValidHeader(data)
     && (data.holding_information === undefined || (Array.isArray(data.holding_information) && data.holding_information.every(isHoldingEntry)))
-    && (data.warnings === undefined || hasValidWarnings(data.warnings))
-    && isTechnicalHealth(data.technical_health);
+    && (data.warnings === undefined || hasValidWarnings(data.warnings));
 }
 
 export function replaceAMANState(current: AMANState | null, event: unknown): AMANReplacementResult {
@@ -613,6 +691,23 @@ export function getActiveAMANRunwayGroups(state: AMANState): AMANRunwayGroup[] {
   const active = new Set(state.active_runway_groups
     ?? state.runway_groups.filter((group) => group.selected).map((group) => group.id));
   return state.runway_groups.filter((group) => active.has(group.id));
+}
+
+/** Return only backend-projected header values; operational counts are never reconstructed in React. */
+export function getAMANHeaderReadModel(state: AMANState): AMANHeaderReadModel {
+  const context = {
+    airport: state.airport, generated_at: state.generated_at,
+    effective_mode: state.effective_mode, authoritative: state.authoritative,
+  };
+  if (state.header === undefined) {
+    return {
+      ...context, availability: "unavailable", active_runway_groups: [], wind: null,
+      readiness: {status: "unavailable", ready: false, blocked_reasons: ["header_projection_unavailable"]},
+      traffic_summary: {status: "unavailable", tma_above_1500_feet_count: null, maestro_horizon_count: null},
+    };
+  }
+  const degraded = !state.header.readiness.ready || state.header.traffic_summary.status !== "ready";
+  return {...context, ...state.header, availability: degraded ? "degraded" : "ready"};
 }
 
 function presentationStatus(state: AMANState): AMANPresentationStatus {

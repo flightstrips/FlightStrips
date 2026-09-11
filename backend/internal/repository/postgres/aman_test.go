@@ -98,7 +98,7 @@ func TestAMANRepositoryRestartsWithActiveRunwaySetAndDecodesLegacySelection(t *t
 	require.NoError(t, err)
 	var stored []byte
 	require.NoError(t, pool.QueryRow(ctx, "SELECT runway_groups FROM aman_airport_states WHERE airport = $1", state.Airport).Scan(&stored))
-	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null}]`, string(stored))
+	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null,"Closures":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null,"SequenceWarnings":null,"Gaps":null,"Closures":null}]`, string(stored))
 	var legacyDecoder []struct {
 		ID       aman.RunwayGroupID
 		Selected bool
@@ -150,6 +150,24 @@ func TestAMANRepositoryRestartsWithRunwayGaps(t *testing.T) {
 	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
 	require.NoError(t, err)
 	require.Equal(t, state, restored, "a reconstructed repository must preserve runway-owned GAP intervals")
+}
+
+func TestAMANRepositoryRestartsWithRunwayClosures(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-CLOSURE", "SAS101")
+	end := amanTestTime.Add(2 * time.Hour)
+	state.RunwayGroups[0].Closures = []aman.RunwayClosure{
+		{ID: "finite", Start: amanTestTime.Add(time.Hour), End: &end, Reason: "runway inspection", CreatedAt: amanTestTime, CreatedBy: "controller-1"},
+		{ID: "indefinite", Start: amanTestTime.Add(3 * time.Hour), Reason: "surface damage", CreatedAt: amanTestTime.Add(time.Minute), CreatedBy: "controller-2"},
+	}
+
+	committed, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	require.Equal(t, state.RunwayGroups[0].Closures, committed.State.RunwayGroups[0].Closures)
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, restored, "a reconstructed repository must preserve finite and indefinite runway closures")
 }
 
 func TestAMANRepositoryRestartsWithMergedRunwayGapUnion(t *testing.T) {

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "airport": "EKCH",
+  "boundaryName": "Copenhagen Approach",
+  "artifact": "EKCH.json",
+  "sourceRepository": "https://github.com/vatsimnetwork/simaware-tracon-project",
+  "sourcePath": "Boundaries/EKCH/EKCH.json",
+  "sourceCommit": "d860ed77135b057168148184880a41cc183bf881",
+  "sourceUrl": "https://raw.githubusercontent.com/vatsimnetwork/simaware-tracon-project/d860ed77135b057168148184880a41cc183bf881/Boundaries/EKCH/EKCH.json",
+  "upstreamGitBlob": "cb103b63566b09b69e5da24e83f9cd0a550705fb",
+  "sha256": "818b9417a444fec91e43a2e9d98f147d027fd85d78b4b7cd2d589895d89d203a",
+  "importedAt": "2026-09-11",
+  "importMethod": "Byte-for-byte copy from sourceUrl; no geometry transformation"
+}

@@ -49,6 +49,12 @@
       }
     ],
     "runway_groups": [{"id": "ARRIVAL-22", "selected": true, "selection_schedule": []}],
+    "header": {
+      "active_runway_groups": [{"id": "ARRIVAL-22", "active_rate_per_hour": null, "rate_effective_at": null}],
+      "readiness": {"status": "ready", "ready": true, "blocked_reasons": []},
+      "traffic_summary": {"status": "degraded", "tma_above_1500_feet_count": 0, "maestro_horizon_count": 1},
+      "wind": null
+    },
     "traffic_prediction": {
       "generated_at": "2026-07-22T10:00:00.000Z",
       "range_start": "2026-07-22T10:00:00.000Z",

@@ -228,6 +228,33 @@ func TestAMANStateEventProjectsActiveRunwayGroupsInConfiguredOrder(t *testing.T)
 	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
 	require.NoError(t, err)
 	require.Equal(t, []string{"ARRIVAL-22", "ARRIVAL-04"}, event.Data.ActiveRunwayGroups)
+	require.Equal(t, []string{"ARRIVAL-22", "ARRIVAL-04"}, []string{
+		event.Data.Header.ActiveRunwayGroups[0].ID, event.Data.Header.ActiveRunwayGroups[1].ID,
+	})
+}
+
+func TestAMANStateEventProjectsAuthoritativeHeaderSummaryWithoutInventingWind(t *testing.T) {
+	state := goldenAMANState()
+	altitude := 2_000
+	state.Flights[0].LatestObservation = &aman.FlightObservation{
+		FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
+		ReconciledAt: state.GeneratedAt, SourceStatus: aman.DataFresh,
+		Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude, ObservedAt: &state.GeneratedAt},
+	}
+	state.Flights[0].TMAEntry = &aman.TMAEntryState{LastContainment: aman.TMAInside, LastObservedAt: state.GeneratedAt}
+	effective := state.GeneratedAt.Add(-time.Hour)
+	state.RunwayGroups[0].ActiveRatePerHour, state.RunwayGroups[0].RateEffectiveAt = 20, &effective
+	state.ActiveRunwayGroups = []aman.RunwayGroupID{"ARRIVAL-22"}
+	health := goldenAMANHealth()
+	health.Status, health.Ready, health.BlockedReasons = aman.HealthDegraded, false, []string{"weather_degraded"}
+
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, health)
+	require.NoError(t, err)
+	require.Equal(t, AMANHeaderReadiness{Status: "degraded", Ready: false, BlockedReasons: []string{"weather_degraded"}}, event.Data.Header.Readiness)
+	require.Equal(t, 1, event.Data.Header.TrafficSummary.TMAAbove1500FeetCount)
+	require.Equal(t, 1, event.Data.Header.TrafficSummary.MaestroHorizonCount)
+	require.EqualValues(t, 20, *event.Data.Header.ActiveRunwayGroups[0].ActiveRatePerHour)
+	require.Nil(t, event.Data.Header.Wind, "the upper-wind predictor is not an authoritative surface-wind source")
 }
 
 func TestAMANStateEventOmitsActiveRunwayGroupsForLegacyState(t *testing.T) {
@@ -235,7 +262,11 @@ func TestAMANStateEventOmitsActiveRunwayGroupsForLegacyState(t *testing.T) {
 	require.NoError(t, err)
 	encoded, err := event.Marshal()
 	require.NoError(t, err)
-	require.NotContains(t, string(encoded), `"active_runway_groups"`)
+	var payload struct {
+		Data map[string]json.RawMessage `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(encoded, &payload))
+	require.NotContains(t, payload.Data, "active_runway_groups")
 }
 
 func TestAMANFlightProjectsTMAFreezeForNewAndLegacyV1Decoders(t *testing.T) {

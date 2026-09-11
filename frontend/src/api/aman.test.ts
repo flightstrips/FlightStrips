@@ -4,6 +4,7 @@ import {describe, expect, it} from "vitest";
 
 import {
   getActiveAMANRunwayGroups,
+  getAMANHeaderReadModel,
   isAMANCommandRejectedEvent,
   isAMANStateEvent,
   replaceAMANState,
@@ -58,12 +59,46 @@ describe("AMAN V1 full replacement contract", () => {
     delete legacy.data.flights[0].feeder_fix_eta_source;
     delete legacy.data.flights[0].feeder_fix_passed;
     delete legacy.data.active_runway_groups;
+    delete legacy.data.header;
     delete legacy.data.warnings;
 
     expect(isAMANStateEvent(legacy)).toBe(true);
     const accepted = replaceAMANState(null, legacy);
     expect(accepted).toMatchObject({accepted: true, error: null});
     expect(accepted.state?.active_runway_groups).toEqual(["ARRIVAL-22"]);
+    expect(getAMANHeaderReadModel(accepted.state!)).toMatchObject({
+      availability: "unavailable",
+      readiness: {status: "unavailable", ready: false},
+      traffic_summary: {status: "unavailable", tma_above_1500_feet_count: null, maestro_horizon_count: null},
+      wind: null,
+    });
+  });
+
+  it("uses the backend header summary without recalculating operational values", () => {
+    const event = replacement(8);
+    event.data.header!.traffic_summary = {
+      status: "degraded", tma_above_1500_feet_count: 7, maestro_horizon_count: 11,
+    };
+    const model = getAMANHeaderReadModel(replaceAMANState(null, event).state!);
+
+    expect(model).toMatchObject({
+      availability: "degraded", airport: "EKCH", authoritative: true,
+      traffic_summary: {tma_above_1500_feet_count: 7, maestro_horizon_count: 11},
+      wind: null,
+    });
+  });
+
+  it.each([
+    ["misordered runway", (header: NonNullable<AMANStateEvent["data"]["header"]>) => { header.active_runway_groups[0].id = "ARRIVAL-04"; }],
+    ["fractional traffic count", (header: NonNullable<AMANStateEvent["data"]["header"]>) => { header.traffic_summary.maestro_horizon_count = 1.5; }],
+    ["mismatched readiness", (header: NonNullable<AMANStateEvent["data"]["header"]>) => { header.readiness.ready = false; }],
+    ["invalid wind", (header: NonNullable<AMANStateEvent["data"]["header"]>) => {
+      (header as unknown as {wind: unknown}).wind = {surface_direction_degrees: 360};
+    }],
+  ])("rejects a malformed header: %s", (_name, mutate) => {
+    const event = replacement(8);
+    mutate(event.data.header!);
+    expect(isAMANStateEvent(event)).toBe(false);
   });
 
   it("accepts complete warning snapshots and clears them with an empty replacement", () => {
@@ -136,9 +171,13 @@ describe("AMAN V1 full replacement contract", () => {
     const event = replacement(8);
     event.data.runway_groups.unshift({id: "ARRIVAL-04", selected: false, selection_schedule: []});
     event.data.active_runway_groups = ["ARRIVAL-22", "ARRIVAL-04"];
-
+    event.data.header!.active_runway_groups = [
+      {id: "ARRIVAL-04", active_rate_per_hour: null, rate_effective_at: null},
+      {id: "ARRIVAL-22", active_rate_per_hour: null, rate_effective_at: null},
+    ];
     expect(isAMANStateEvent(event)).toBe(true);
     expect(getActiveAMANRunwayGroups(event.data).map((group) => group.id)).toEqual(["ARRIVAL-04", "ARRIVAL-22"]);
+    expect(getAMANHeaderReadModel(event.data).active_runway_groups.map((group) => group.id)).toEqual(["ARRIVAL-04", "ARRIVAL-22"]);
   });
 
   it.each([
@@ -228,6 +267,7 @@ describe("AMAN V1 full replacement contract", () => {
     newer.data.technical_health.status = "degraded";
     newer.data.technical_health.ready = false;
     newer.data.technical_health.blocked_reasons = ["predictor:stale"];
+    newer.data.header!.readiness = {status: "degraded", ready: false, blocked_reasons: ["predictor:stale"]};
     const accepted = replaceAMANState(initial.state, newer);
 
     expect(accepted).toMatchObject({accepted: true, status: "degraded", error: null});
@@ -296,8 +336,10 @@ describe("AMAN V1 full replacement contract", () => {
     disabled.data.authoritative = false;
     disabled.data.flights = [];
     disabled.data.runway_groups = [];
+    disabled.data.header!.active_runway_groups = [];
     disabled.data.technical_health.status = "disabled";
     disabled.data.technical_health.ready = false;
+    disabled.data.header!.readiness = {status: "disabled", ready: false, blocked_reasons: []};
     for (const component of [
       disabled.data.technical_health.vatsim,
       disabled.data.technical_health.navigation,
@@ -317,6 +359,8 @@ describe("AMAN V1 full replacement contract", () => {
     const event = replacement(8);
     event.data.technical_health.status = healthStatus;
     event.data.technical_health.ready = false;
+    event.data.header!.readiness.status = healthStatus;
+    event.data.header!.readiness.ready = false;
 
     const accepted = replaceAMANState(null, event);
     expect(accepted).toMatchObject({accepted: true, status: "degraded", error: null});

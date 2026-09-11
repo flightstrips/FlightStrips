@@ -241,6 +241,7 @@ describe("AMAN command store", () => {
     const multiRunway = replacement(8);
     multiRunway.data.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
     multiRunway.data.active_runway_groups = ["ARRIVAL-04", "ARRIVAL-22"];
+    multiRunway.data.header!.active_runway_groups.push({id: "ARRIVAL-04", active_rate_per_hour: null, rate_effective_at: null});
     client._emit(EventType.FrontendAMANState, multiRunway);
 
     expect(store.getState().amanState?.active_runway_groups).toEqual(["ARRIVAL-22", "ARRIVAL-04"]);

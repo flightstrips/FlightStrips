@@ -52,11 +52,52 @@ type AMANState struct {
 	Flights            []AMANFlight          `json:"flights"`
 	RunwayGroups       []AMANRunwayGroup     `json:"runway_groups"`
 	ActiveRunwayGroups []string              `json:"active_runway_groups,omitempty"`
+	Header             *AMANHeader           `json:"header,omitempty"`
 	TimelineConfig     *AMANTimelineConfig   `json:"timeline_configuration,omitempty"`
 	TrafficPrediction  AMANTrafficPrediction `json:"traffic_prediction"`
 	HoldingInformation []AMANHoldingEntry    `json:"holding_information"`
 	Warnings           []AMANWarning         `json:"warnings"`
 	TechnicalHealth    AMANTechnicalHealth   `json:"technical_health"`
+}
+
+// AMANHeader is a display-ready projection of backend-owned state. It keeps
+// operational counting and readiness decisions out of React while remaining
+// optional for rolling V1 deployments.
+type AMANHeader struct {
+	ActiveRunwayGroups []AMANHeaderRunwayGroup  `json:"active_runway_groups"`
+	Readiness          AMANHeaderReadiness      `json:"readiness"`
+	TrafficSummary     AMANHeaderTrafficSummary `json:"traffic_summary"`
+	Wind               *AMANHeaderWind          `json:"wind"`
+}
+
+type AMANHeaderRunwayGroup struct {
+	ID                string  `json:"id"`
+	ActiveRatePerHour *uint32 `json:"active_rate_per_hour"`
+	RateEffectiveAt   *string `json:"rate_effective_at"`
+}
+
+type AMANHeaderReadiness struct {
+	Status         string   `json:"status"`
+	Ready          bool     `json:"ready"`
+	BlockedReasons []string `json:"blocked_reasons"`
+}
+
+type AMANHeaderTrafficSummary struct {
+	Status                string `json:"status"`
+	TMAAbove1500FeetCount int    `json:"tma_above_1500_feet_count"`
+	MaestroHorizonCount   int    `json:"maestro_horizon_count"`
+}
+
+// AMANHeaderWind is reserved for an authoritative airport observation. The
+// current upper-wind predictor source does not provide a surface observation,
+// so the projection deliberately publishes null instead of deriving values.
+type AMANHeaderWind struct {
+	SurfaceDirectionDegrees int    `json:"surface_direction_degrees"`
+	SurfaceSpeedKnots       int    `json:"surface_speed_knots"`
+	Direction10000Degrees   int    `json:"direction_10000_degrees"`
+	Speed10000Knots         int    `json:"speed_10000_knots"`
+	ObservedAt              string `json:"observed_at"`
+	Source                  string `json:"source"`
 }
 
 type AMANWarning struct {
@@ -382,7 +423,43 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		}
 		data.RunwayGroups[i] = mapped
 	}
+	data.Header = projectAMANHeader(state, technicalHealth, data.TrafficPrediction.Status, data.RunwayGroups, data.ActiveRunwayGroups)
 	return AMANStateEvent{Version: AMANWireVersion, Data: data}, nil
+}
+
+func projectAMANHeader(state aman.AirportState, health AMANTechnicalHealth, trafficStatus string, groups []AMANRunwayGroup, activeIDs []string) *AMANHeader {
+	active := make(map[string]struct{}, len(activeIDs))
+	for _, id := range activeIDs {
+		active[id] = struct{}{}
+	}
+	result := &AMANHeader{
+		ActiveRunwayGroups: []AMANHeaderRunwayGroup{},
+		Readiness:          AMANHeaderReadiness{Status: health.Status, Ready: health.Ready, BlockedReasons: health.BlockedReasons},
+		TrafficSummary:     AMANHeaderTrafficSummary{Status: trafficStatus},
+	}
+	for _, group := range groups {
+		_, explicitlyActive := active[group.ID]
+		if (activeIDs != nil && !explicitlyActive) || (activeIDs == nil && !group.Selected) {
+			continue
+		}
+		result.ActiveRunwayGroups = append(result.ActiveRunwayGroups, AMANHeaderRunwayGroup{
+			ID: group.ID, ActiveRatePerHour: group.ActiveRatePerHour, RateEffectiveAt: group.RateEffectiveAt,
+		})
+	}
+	for _, flight := range state.Flights {
+		if flight.SequenceDisposition.Participates() && (flight.State == aman.StateUnstable || flight.State == aman.StateStable) {
+			result.TrafficSummary.MaestroHorizonCount++
+		}
+		if flight.State == aman.StateLanded || flight.State == aman.StateRemoved || flight.TMAEntry == nil ||
+			flight.TMAEntry.LastContainment != aman.TMAInside || flight.LatestObservation == nil ||
+			flight.LatestObservation.Surveillance == nil || flight.LatestObservation.Surveillance.AltitudeFeet == nil {
+			continue
+		}
+		if *flight.LatestObservation.Surveillance.AltitudeFeet > 1500 {
+			result.TrafficSummary.TMAAbove1500FeetCount++
+		}
+	}
+	return result
 }
 
 func mapAMANWarnings(snapshot aman.WarningSnapshot) []AMANWarning {

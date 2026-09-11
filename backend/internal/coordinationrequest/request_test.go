@@ -85,3 +85,18 @@ func TestRequestJSONIgnoresAdditiveFields(t *testing.T) {
 	require.NoError(t, request.Validate())
 	require.Equal(t, "MONAK", request.Payload.RouteDirect.DirectTo)
 }
+
+func TestRequestRecipientStatusIsRollingCompatible(t *testing.T) {
+	legacy := routeRequest(t, "legacy", testTime)
+	legacy.RecipientStatus = ""
+	require.NoError(t, legacy.Validate())
+
+	unassigned, err := New("unassigned", "EKCH", "flight-1", "", "1234567", "EKCH_FMH", KindSpeed,
+		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime)
+	require.NoError(t, err)
+	require.Equal(t, RecipientUnassigned, unassigned.RecipientStatus)
+
+	raw, err := json.Marshal(unassigned)
+	require.NoError(t, err)
+	require.Contains(t, string(raw), `"recipient_status":"unassigned"`)
+}

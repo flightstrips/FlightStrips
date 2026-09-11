@@ -159,6 +159,19 @@ describe("complete AMAN timeline and strips", () => {
     expect(onOpenFlightDetails).toHaveBeenCalledWith("flight-123");
   });
 
+  it("renders GAP intervals and audited manual exceptions in every timeline view", () => {
+    const current = state();
+    current.runway_groups[0].gaps = [{id: "gap-1", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:18:00.000Z", label: "approach stop", created_at: "2026-07-22T10:01:00.000Z", created_by: "fmp-1"}];
+    current.flights[0].runway_gap_exception = {gap_id: "gap-1", runway_group_id: "ARRIVAL-22", opportunity: "2026-07-22T10:18:00.000Z", command_id: "place-1"};
+    renderBoard(current);
+    expect(screen.getAllByRole("note", {name: /GAP ARRIVAL-22: approach stop/}).length).toBeGreaterThan(0);
+    expect(screen.getByText("GAP EXCEPTION")).toHaveAttribute("title", "Audited manual placement inside GAP gap-1");
+    fireEvent.click(screen.getByRole("button", {name: "RWY"}));
+    expect(screen.getAllByRole("note", {name: /GAP ARRIVAL-22/}).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", {name: "ACC"}));
+    expect(screen.getAllByRole("note", {name: /GAP ARRIVAL-22/}).length).toBeGreaterThan(0);
+  });
+
   it("applies local feeder and runway fields and labels their preferences dialog", () => {
     localStorage.setItem("flightstrips.aman.target-fields.v1", JSON.stringify({version: 1, feeder: ["feeder-fix-eta"], runway: ["runway"]}));
     const current = state();

@@ -48,7 +48,7 @@
         "go_around_confirmation": null
       }
     ],
-    "runway_groups": [{"id": "ARRIVAL-22", "selected": true, "selection_schedule": []}],
+    "runway_groups": [{"id": "ARRIVAL-22", "selected": true, "selection_schedule": [], "gaps": []}],
     "header": {
       "active_runway_groups": [{"id": "ARRIVAL-22", "active_rate_per_hour": null, "rate_effective_at": null}],
       "readiness": {"status": "ready", "ready": true, "blocked_reasons": []},

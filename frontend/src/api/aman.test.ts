@@ -46,6 +46,17 @@ describe("AMAN V1 full replacement contract", () => {
     expect(isAMANStateEvent(golden)).toBe(true);
   });
 
+  it("accepts optional backend-normalized GAP unions and audited exceptions", () => {
+    const event = replacement(8);
+    event.data.runway_groups[0].gaps = [{id: "gap-union", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:18:00.000Z", label: "approach stop", created_at: "2026-07-22T10:01:00.000Z", created_by: "fmp-1"}];
+    event.data.flights[0].runway_gap_exception = {gap_id: "gap-union", runway_group_id: "ARRIVAL-22", opportunity: "2026-07-22T10:18:00.000Z", command_id: "place-1"};
+    expect(isAMANStateEvent(event)).toBe(true);
+
+    delete event.data.runway_groups[0].gaps;
+    delete event.data.flights[0].runway_gap_exception;
+    expect(isAMANStateEvent(event)).toBe(true);
+  });
+
   it.each(["none", "superstable", "manual", "tma"] as const)("accepts the V1 freeze reason %s", (reason) => {
     const event = replacement(8);
     event.data.flights[0].freeze_reason = reason;
@@ -76,6 +87,7 @@ describe("AMAN V1 full replacement contract", () => {
     delete legacy.data.flights[0].feeder_fix_eta_source;
     delete legacy.data.flights[0].feeder_fix_passed;
     delete legacy.data.active_runway_groups;
+    delete legacy.data.runway_groups[0].gaps;
     delete legacy.data.header;
     delete legacy.data.warnings;
 

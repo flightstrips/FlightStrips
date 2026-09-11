@@ -13,6 +13,7 @@ import {
 } from "@/api/aman";
 import {useWebSocketStore} from "@/store/store-hooks";
 import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
+import {AMANGapControls} from "./AMANGapControls";
 
 const blockReasonLabels: Record<AMANMutationBlockReason, string> = {
   no_state: "Waiting for AMAN state",
@@ -276,6 +277,8 @@ export function AMANControlsView({
         </div>
         {ratePending && <div role="status" className="text-sm text-sky-200">Arrival rate change pending</div>}
       </div>
+
+      <AMANGapControls disabled={disabled} groups={state?.runway_groups ?? []} onCommand={onCommand} pending={pending} rejections={rejections} />
 
       {flights.length === 0 ? (
         <div>No AMAN flights available.</div>

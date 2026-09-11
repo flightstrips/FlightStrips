@@ -202,6 +202,15 @@ export interface AMANFlight {
   eta_review: AMANETAReview | null;
   queue_offers: AMANQueueOffer[];
   go_around_confirmation: AMANGoAroundConfirmation | null;
+  /** Optional while V1 clients and servers roll through GAP presentation. */
+  runway_gap_exception?: AMANRunwayGapException;
+}
+
+export interface AMANRunwayGapException {
+  gap_id: string;
+  runway_group_id: string;
+  opportunity: string;
+  command_id: string;
 }
 
 export interface AMANGoAroundConfirmation {
@@ -268,6 +277,17 @@ export interface AMANRunwayGroup {
   selection_conflict?: string;
   active_rate_per_hour?: number;
   rate_effective_at?: string;
+  /** Backend-normalized, canonical [start,end) unions. */
+  gaps?: AMANRunwayGap[];
+}
+
+export interface AMANRunwayGap {
+  id: string;
+  start: string;
+  end: string;
+  label: string;
+  created_at: string;
+  created_by: string;
 }
 
 export interface AMANTechnicalHealth {
@@ -507,7 +527,10 @@ function isFlight(value: unknown): value is AMANFlight {
     && isNullableFiniteNumber(value.distance_to_go_nm) && (value.slot === null || isSlot(value.slot))
     && (value.order === null || isNonNegativeInteger(value.order)) && (value.eta_review === null || isETAReview(value.eta_review))
     && Array.isArray(value.queue_offers) && value.queue_offers.every(isQueueOffer)
-    && (value.go_around_confirmation === null || isGoAroundConfirmation(value.go_around_confirmation));
+    && (value.go_around_confirmation === null || isGoAroundConfirmation(value.go_around_confirmation))
+    && (value.runway_gap_exception === undefined || (isObject(value.runway_gap_exception)
+      && isIdentity(value.runway_gap_exception.gap_id) && isIdentity(value.runway_gap_exception.runway_group_id)
+      && isTimestamp(value.runway_gap_exception.opportunity) && isIdentity(value.runway_gap_exception.command_id)));
 }
 
 function isComponentHealth(value: unknown): value is AMANComponentHealth {
@@ -528,7 +551,10 @@ function isRunwayGroup(value: unknown): value is AMANRunwayGroup {
     && (value.selection_schedule === undefined || (Array.isArray(value.selection_schedule) && value.selection_schedule.every(isTimestamp)))
     && (value.selection_conflict === undefined || isString(value.selection_conflict))
     && (value.active_rate_per_hour === undefined || (isNonNegativeInteger(value.active_rate_per_hour) && value.active_rate_per_hour > 0))
-    && (value.rate_effective_at === undefined || isTimestamp(value.rate_effective_at));
+    && (value.rate_effective_at === undefined || isTimestamp(value.rate_effective_at))
+    && (value.gaps === undefined || (Array.isArray(value.gaps) && value.gaps.every((gap) => isObject(gap)
+      && isIdentity(gap.id) && isTimestamp(gap.start) && isTimestamp(gap.end) && Date.parse(gap.start) < Date.parse(gap.end)
+      && isIdentity(gap.label) && isTimestamp(gap.created_at) && isIdentity(gap.created_by))));
 }
 
 function hasValidActiveRunwayGroups(data: Record<string, unknown>): boolean {

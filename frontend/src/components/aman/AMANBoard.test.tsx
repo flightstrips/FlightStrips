@@ -6,6 +6,16 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 import type {AMANState, AMANStateEvent} from "@/api/aman";
 import {AMANBoardView, type AMANBoardViewProps} from "./AMANBoard";
 
+const boardStore = vi.hoisted(() => ({
+  amanSelectedView: "ALL",
+  position: "",
+  setAMANSelectedView: vi.fn(),
+}));
+
+vi.mock("@/store/store-hooks", () => ({
+  useWebSocketStore: (selector: (state: typeof boardStore) => unknown) => selector(boardStore),
+}));
+
 const golden = JSON.parse(readFileSync(
   resolve(process.cwd(), "../backend/pkg/events/frontend/testdata/aman-state-v1.json"),
   "utf8",
@@ -245,6 +255,33 @@ describe("complete AMAN timeline and strips", () => {
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveTextContent("TESPI");
     expect(screen.getByTestId("operational-marker-flight-123")).not.toHaveTextContent("LEGACY-STAR");
+  });
+
+  it("emphasizes one ACC family without filtering traffic and exposes a local ALL override", () => {
+    const configured = state();
+    configured.timeline_configuration = {version: "mapping-v1", mappings: [
+      {id: 1, left: "TESPI", right: "TUDLO"},
+    ]};
+    configured.flights.push({
+      ...structuredClone(configured.flights[0]),
+      flight_id: "flight-tudlo",
+      callsign: "TUDLO2",
+      star_family: "TUDLO",
+      order: 2,
+      slot: {...configured.flights[0].slot!, sequence: 2, time: "2026-07-22T10:20:00.000Z"},
+    });
+    const onACCViewChange = vi.fn();
+    renderBoard(configured, {accView: "TESPI", onACCViewChange});
+
+    fireEvent.click(screen.getByRole("button", {name: "ACC"}));
+    expect(screen.getByRole("button", {name: /Select SAS123.*emphasized STAR family/})).toHaveAttribute("data-emphasis", "primary");
+    const subdued = screen.getByRole("button", {name: /Select TUDLO2.*other STAR family/});
+    expect(subdued).toHaveAttribute("data-emphasis", "subdued");
+    expect(subdued).toHaveClass("bg-[#686868]");
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+
+    fireEvent.change(screen.getByRole("combobox", {name: "ACC STAR family emphasis"}), {target: {value: "ALL"}});
+    expect(onACCViewChange).toHaveBeenCalledWith("ALL");
   });
 
 });

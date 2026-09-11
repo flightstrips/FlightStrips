@@ -27,6 +27,7 @@ export interface AMANAircraftTargetProps {
   leadingFields?: readonly AMANAircraftTargetField[];
   trailingFields?: readonly AMANAircraftTargetField[];
   onSelect?: () => void;
+  emphasis?: "primary" | "subdued";
 }
 
 function lifecyclePresentation(flight: AMANAircraftTargetProps["flight"]): {label: string; shortLabel: string; tone: string} {
@@ -77,6 +78,7 @@ export function AMANAircraftTarget({
   leadingFields = [],
   trailingFields = [],
   onSelect,
+  emphasis,
 }: AMANAircraftTargetProps) {
   const delay = formatGainLoss(flight.gain_loss_seconds, {
     ...guidance,
@@ -86,14 +88,17 @@ export function AMANAircraftTarget({
 
   return (
     <button
-      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}`}
+      aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
       aria-pressed={selected}
       className={cn(
         "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded-sm border border-[#b8b8b8] bg-[#3f3f3f] text-left font-mono text-[11px] font-semibold leading-none text-white shadow-[0_1px_2px_rgb(0_0_0_/_70%)]",
         "hover:rounded hover:border-white hover:bg-[#a3d5e8] hover:text-white focus-visible:rounded focus-visible:border-white focus-visible:bg-[#a3d5e8] focus-visible:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         "disabled:cursor-not-allowed disabled:opacity-60",
         selected && "ring-2 ring-[#f3d02e] ring-offset-1 ring-offset-[#555355]",
+        emphasis === "primary" && "border-2 border-white",
+        emphasis === "subdued" && "bg-[#686868] [&>span]:!bg-[#686868]",
       )}
+      data-emphasis={emphasis}
       disabled={disabled}
       onClick={onSelect}
       type="button"

@@ -6,39 +6,27 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
+	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/services"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/testcontainers/testcontainers-go"
-	postgrescontainer "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 // TestServer wraps the FlightStrips server for testing
 type TestServer struct {
-	Server            *http.Server
-	App               *app.App
-	DBPool            *pgxpool.Pool
-	Queries           *database.Queries
-	ServerAddr        string
-	postgresContainer testcontainers.Container
-	ctx               context.Context
-	cancel            context.CancelFunc
-}
-
-// getMigrationsPath returns the absolute path to the migrations directory
-func getMigrationsPath() string {
-	// Get the path to this file
-	_, filename, _, _ := runtime.Caller(0)
-	// Navigate up to backend/internal/testing/e2e -> backend -> migrations
-	return filepath.Join(filepath.Dir(filename), "..", "..", "..", "migrations")
+	Server          *http.Server
+	App             *app.App
+	DBPool          *pgxpool.Pool
+	Queries         *database.Queries
+	ServerAddr      string
+	databaseCleanup func() error
+	ctx             context.Context
+	cancel          context.CancelFunc
 }
 
 // StartTestServer starts a test instance of the FlightStrips server
@@ -50,53 +38,12 @@ func StartTestServer() (*TestServer, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Start PostgreSQL container
-	slog.Info("Starting PostgreSQL test container...")
-	postgresContainer, err := postgrescontainer.Run(ctx,
-		"postgres:16-alpine",
-		postgrescontainer.WithDatabase("testdb"),
-		postgrescontainer.WithUsername("postgres"),
-		postgrescontainer.WithPassword("postgres"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(30*time.Second)),
-	)
+	// Allocate an isolated database on the suite's shared PostgreSQL server.
+	slog.Info("Creating PostgreSQL test database...")
+	dbpool, _, databaseCleanup, err := testdata.OpenTestDB(ctx)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("failed to start PostgreSQL container: %w", err)
-	}
-
-	// Get connection string
-	connStr, err := postgresContainer.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		testcontainers.TerminateContainer(postgresContainer)
-		cancel()
-		return nil, fmt.Errorf("failed to get connection string: %w", err)
-	}
-
-	slog.Info("Running database migrations...")
-	// Run migrations
-	migrationsPath := getMigrationsPath()
-	if err := database.Migrate(connStr, migrationsPath); err != nil {
-		testcontainers.TerminateContainer(postgresContainer)
-		cancel()
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
-	}
-
-	// Connect to database
-	poolConfig, err := pgxpool.ParseConfig(connStr)
-	if err != nil {
-		testcontainers.TerminateContainer(postgresContainer)
-		cancel()
-		return nil, fmt.Errorf("failed to parse connection string: %w", err)
-	}
-
-	dbpool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		testcontainers.TerminateContainer(postgresContainer)
-		cancel()
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, fmt.Errorf("failed to create PostgreSQL test database: %w", err)
 	}
 
 	application, err := app.Build(ctx, app.Config{
@@ -118,7 +65,7 @@ func StartTestServer() (*TestServer, error) {
 	})
 	if err != nil {
 		dbpool.Close()
-		testcontainers.TerminateContainer(postgresContainer)
+		_ = databaseCleanup()
 		cancel()
 		return nil, fmt.Errorf("failed to build app: %w", err)
 	}
@@ -128,6 +75,7 @@ func StartTestServer() (*TestServer, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		_ = application.Close(context.Background())
+		_ = databaseCleanup()
 		cancel()
 		return nil, fmt.Errorf("failed to bind listener: %w", err)
 	}
@@ -151,6 +99,7 @@ func StartTestServer() (*TestServer, error) {
 	select {
 	case err := <-serverErr:
 		_ = application.Close(context.Background())
+		_ = databaseCleanup()
 		cancel()
 		return nil, fmt.Errorf("server failed to start: %w", err)
 	default:
@@ -160,14 +109,14 @@ func StartTestServer() (*TestServer, error) {
 	queries := database.New(dbpool)
 
 	testServer := &TestServer{
-		Server:            httpServer,
-		App:               application,
-		DBPool:            dbpool,
-		Queries:           queries,
-		ServerAddr:        addr,
-		postgresContainer: postgresContainer,
-		ctx:               ctx,
-		cancel:            cancel,
+		Server:          httpServer,
+		App:             application,
+		DBPool:          dbpool,
+		Queries:         queries,
+		ServerAddr:      addr,
+		databaseCleanup: databaseCleanup,
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 
 	slog.Info("Test server started", slog.String("addr", addr))
@@ -194,13 +143,13 @@ func (ts *TestServer) Stop() error {
 		slog.Error("Failed to close app", slog.Any("error", err))
 	}
 
-	// Terminate PostgreSQL container
-	if err := testcontainers.TerminateContainer(ts.postgresContainer); err != nil {
-		slog.Error("Failed to terminate PostgreSQL container", slog.Any("error", err))
+	// Drop the isolated database. The suite-level server is stopped by testdb.
+	if err := ts.databaseCleanup(); err != nil {
+		slog.Error("Failed to drop PostgreSQL test database", slog.Any("error", err))
 		return err
 	}
 
-	slog.Info("Test server stopped and container terminated")
+	slog.Info("Test server stopped and database dropped")
 	return nil
 }
 

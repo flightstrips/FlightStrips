@@ -16,5 +16,16 @@ For local development only the database can be started using:
 docker compose --profile database up --build -d
 ```
 
+Run the complete backend test suite with one shared PostgreSQL server and an
+isolated database for every database-backed test:
+
+```sh
+go run ./internal/testing/testdb ./...
+```
+
+Arguments after `testdb` are passed to `go test`, so package and `-run` filters
+continue to work. Direct `go test` package runs remain supported and start a
+package-local fallback server when needed.
+
 When running the backend locally with `go run`, `.env.dev` is loaded after `.env` for development-only overrides. Aspire OTLP export is configured there and is not included in the Docker image.
 

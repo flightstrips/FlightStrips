@@ -123,6 +123,12 @@ func (m *recordingActionMutations) SelectRunwayGroup(auth aman.CommandContext, _
 func (m *recordingActionMutations) SetActiveRunwayGroups(auth aman.CommandContext, _ aman.SetActiveRunwayGroupsCommand) (CommandMutation, error) {
 	return m.mutation("active_runway_groups", auth)
 }
+func (m *recordingActionMutations) CreateRunwayGap(auth aman.CommandContext, _ aman.CreateRunwayGapCommand) (CommandMutation, error) {
+	return m.mutation("create_runway_gap", auth)
+}
+func (m *recordingActionMutations) RemoveRunwayGap(auth aman.CommandContext, _ aman.RemoveRunwayGapCommand) (CommandMutation, error) {
+	return m.mutation("remove_runway_gap", auth)
+}
 func (m *recordingActionMutations) AcceptTETA(auth aman.CommandContext, _ aman.AcceptTETACommand) (CommandMutation, error) {
 	return m.mutation("accept", auth)
 }

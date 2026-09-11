@@ -85,6 +85,7 @@ type Dependencies struct {
 	Terminal        terminal.Configuration
 	TMAVolumePath   string
 	Airports        []string
+	FMPRoles        []string
 	Mode            aman.RolloutMode
 	Publisher       sequence.FullStatePublisher
 	Now             func() time.Time

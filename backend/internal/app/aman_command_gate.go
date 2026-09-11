@@ -75,6 +75,20 @@ func (g *amanCommandGate) SetActiveRunwayGroups(ctx context.Context, auth aman.C
 	return g.commands.SetActiveRunwayGroups(ctx, auth, command)
 }
 
+func (g *amanCommandGate) CreateRunwayGap(ctx context.Context, auth aman.CommandContext, command aman.CreateRunwayGapCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.CreateRunwayGap(ctx, auth, command)
+}
+
+func (g *amanCommandGate) RemoveRunwayGap(ctx context.Context, auth aman.CommandContext, command aman.RemoveRunwayGapCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.RemoveRunwayGap(ctx, auth, command)
+}
+
 func (g *amanCommandGate) AcceptTETA(ctx context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {
 	if err := g.authorize(ctx); err != nil {
 		return aman.CommandExecution{}, err

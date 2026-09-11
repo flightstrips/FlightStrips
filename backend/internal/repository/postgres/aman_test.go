@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/pdc/testdata"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -83,6 +84,39 @@ func TestAMANRepositoryRoundTripIdempotencyAndRollback(t *testing.T) {
 	loaded, err = repo.LoadAirportState(ctx, first.Airport)
 	require.NoError(t, err)
 	require.Equal(t, corrected, loaded, "a failed transaction must leave the complete prior aggregate")
+}
+
+func TestAMANRepositoryRestartsWithActiveRunwaySetAndDecodesLegacySelection(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-ACTIVE", "SAS101")
+	state.RunwayGroups[0].Selected = true
+	state.RunwayGroups = append(state.RunwayGroups, aman.RunwayGroupPolicy{ID: "south"})
+	state.ActiveRunwayGroups = []aman.RunwayGroupID{"north", "south"}
+
+	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	var stored []byte
+	require.NoError(t, pool.QueryRow(ctx, "SELECT runway_groups FROM aman_airport_states WHERE airport = $1", state.Airport).Scan(&stored))
+	require.JSONEq(t, `[{"ID":"north","Active":true,"Selected":true,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null},{"ID":"south","Active":true,"Selected":false,"SelectionSchedule":null,"SelectionConflict":null,"ActiveRatePerHour":0,"RateEffectiveAt":null,"RateSchedule":null,"SameSTARSpacing":null}]`, string(stored))
+	var legacyDecoder []struct {
+		ID       aman.RunwayGroupID
+		Selected bool
+	}
+	require.NoError(t, json.Unmarshal(stored, &legacyDecoder), "legacy decoders must ignore the additive marker")
+	require.Equal(t, "north", string(legacyDecoder[0].ID))
+	require.True(t, legacyDecoder[0].Selected)
+
+	restored, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, restored, "a reconstructed repository must preserve the complete active set")
+
+	_, err = pool.Exec(ctx, `UPDATE aman_airport_states SET runway_groups = '[{"ID":"north","Selected":true}]' WHERE airport = $1`, state.Airport)
+	require.NoError(t, err)
+	legacy, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, []aman.RunwayGroupID{"north"}, legacy.ActiveRunwayGroups)
+	require.True(t, legacy.RunwayGroups[0].Selected, "legacy Selected remains the deterministic compatibility source")
 }
 
 func TestAMANRepositoryPersistsNoOpCommandWithoutAdvancingState(t *testing.T) {

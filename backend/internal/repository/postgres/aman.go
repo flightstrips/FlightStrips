@@ -210,7 +210,7 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 	}
 
 	if changed {
-		runwayGroups, err := json.Marshal(commit.State.RunwayGroups)
+		runwayGroups, err := json.Marshal(encodeRunwayGroups(commit.State))
 		if err != nil {
 			return aman.CommitResult{}, fmt.Errorf("encode AMAN runway groups: %w", err)
 		}
@@ -318,6 +318,10 @@ func loadAMANAirportState(ctx context.Context, queries *database.Queries, airpor
 		Mode: aman.RolloutMode(stateRow.Mode), Authoritative: stateRow.Authoritative, RunwayGroups: runwayGroups,
 		Flights: make([]aman.AMANFlight, 0, len(flights)),
 	}
+	state.ActiveRunwayGroups = decodeActiveRunwayGroups(runwayGroups)
+	for index := range state.RunwayGroups {
+		state.RunwayGroups[index].Active = false
+	}
 	for _, row := range flights {
 		var flight aman.AMANFlight
 		if err := json.Unmarshal(row.Payload, &flight); err != nil {
@@ -366,7 +370,38 @@ func cloneCommandOutcome(value aman.CommandOutcome) aman.CommandOutcome {
 func cloneAirportState(value aman.AirportState) aman.AirportState {
 	value.Flights = append([]aman.AMANFlight(nil), value.Flights...)
 	value.RunwayGroups = append([]aman.RunwayGroupPolicy(nil), value.RunwayGroups...)
+	value.ActiveRunwayGroups = append([]aman.RunwayGroupID(nil), value.ActiveRunwayGroups...)
 	return value
+}
+
+func decodeActiveRunwayGroups(groups []aman.RunwayGroupPolicy) []aman.RunwayGroupID {
+	active := make([]aman.RunwayGroupID, 0, len(groups))
+	for index := range groups {
+		if groups[index].Active {
+			active = append(active, groups[index].ID)
+		}
+	}
+	if len(active) > 0 {
+		return active
+	}
+	for index := range groups {
+		if groups[index].Selected {
+			return []aman.RunwayGroupID{groups[index].ID}
+		}
+	}
+	return nil
+}
+
+func encodeRunwayGroups(state aman.AirportState) []aman.RunwayGroupPolicy {
+	groups := append([]aman.RunwayGroupPolicy(nil), state.RunwayGroups...)
+	active := make(map[aman.RunwayGroupID]struct{}, len(state.ActiveRunwayGroups))
+	for _, id := range state.ActiveRunwayGroups {
+		active[id] = struct{}{}
+	}
+	for index := range groups {
+		_, groups[index].Active = active[groups[index].ID]
+	}
+	return groups
 }
 
 func airportStatesEqual(left, right aman.AirportState) bool {

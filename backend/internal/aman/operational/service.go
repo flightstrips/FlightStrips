@@ -322,10 +322,13 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 	next.Flights = slices.Clone(current.Flights)
 	next.RunwayGroups = slices.Clone(current.RunwayGroups)
 	if !runwayGroupsMatchTerminal(next.RunwayGroups, s.deps.Terminal.RunwayGroups) {
-		next.RunwayGroups = s.initialState(airport, now).RunwayGroups
+		initial := s.initialState(airport, now)
+		next.RunwayGroups = initial.RunwayGroups
+		next.ActiveRunwayGroups = initial.ActiveRunwayGroups
 		resetFlightsForRunwayConfiguration(&next)
 	}
 	if legacySelected, reset := discardLegacyRunwayGroupSelections(next.RunwayGroups); reset {
+		next.ActiveRunwayGroups = []aman.RunwayGroupID{legacySelected}
 		reassignFlightsToGroup(&next, legacySelected)
 	}
 	if s.deps.Runways != nil && !hasRunwayGroupSelectionSchedule(next.RunwayGroups) {
@@ -334,6 +337,7 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 			return selectionErr
 		}
 		if selectionChanged {
+			next.ActiveRunwayGroups = []aman.RunwayGroupID{selectedGroup}
 			reassignFlightsToGroup(&next, selectedGroup)
 		}
 	} else {
@@ -515,7 +519,17 @@ func (s *Service) initialState(airport string, now time.Time) aman.AirportState 
 	return aman.AirportState{
 		Airport: airport, GeneratedAt: now, PolicyVersion: policyVersion, Mode: s.deps.Mode,
 		Authoritative: s.deps.Mode == aman.ModeAuthoritative, Flights: []aman.AMANFlight{}, RunwayGroups: groups,
+		ActiveRunwayGroups: activeRunwayGroupsFromSelected(groups),
 	}
+}
+
+func activeRunwayGroupsFromSelected(groups []aman.RunwayGroupPolicy) []aman.RunwayGroupID {
+	for index := range groups {
+		if groups[index].Selected {
+			return []aman.RunwayGroupID{groups[index].ID}
+		}
+	}
+	return nil
 }
 
 func defaultRateForAirport(airport string) uint32 {

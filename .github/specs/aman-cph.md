@@ -498,7 +498,7 @@ The issue stacks are:
 - **#556**: holding-order enum; policy propagation; policy-gated lowest-first comparison.
 - **#557**: runway-owned GAP state; input normalization; merging; capacity exclusion; create/remove commands; protected displacement; explicit manual time placement; wire transport; UI.
 - **#561**: pinned boundary data; validated MultiPolygon containment; persisted entry state; operational freeze/go-around integration; frontend `tma` compatibility.
-- **Multi-runway prerequisite**: additive active-runway set; atomic set command; assignment reconciliation; optional frontend projection.
+- **#606 Multi-runway prerequisite**: additive active-runway set; atomic set command; assignment reconciliation; optional frontend projection.
 - **#585**: workspace shell; header read model; responsive Figma-aligned layout; authorized active-runway/rate controls.
 - **#586**: configuration-owned timeline mappings; projection/local selection; UTC axis; FMP view; RWY and ACC views; capacity overlays.
 - **#587**: compact target; local fields; existing detail-dialog integration; recompute; runway actions; feeder-ETA dialog; missed approach; confirmed removal. Maximum Delay, Refresh Delay, and Coordination are absent.

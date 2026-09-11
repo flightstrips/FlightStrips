@@ -319,13 +319,183 @@ func (s *Service) CreateRunwayGap(auth aman.CommandContext, command aman.CreateR
 			return sequence.CommandChange{}, err
 		}
 		state.RunwayGroups = merged.RunwayGroups
-		return commandChange(state, true, "create_runway_gap", "", map[string]any{
+		displacements, err := s.displaceFlightsFromRunwayGap(&state, command.RunwayGroupID, merged.Union)
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		change, err := commandChange(state, true, "create_runway_gap", "", map[string]any{
 			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 			"runway_group_id": command.RunwayGroupID, "gap_id": merged.Union.ID, "label": merged.Union.Label,
 			"before_interval": gapIntervalAudit(interval.Start(), interval.End()),
 			"after_interval":  gapIntervalAudit(merged.Union.Start, merged.Union.End), "replaced_ids": merged.ReplacedIDs,
+			"displaced_flight_ids": gapDisplacementIDs(displacements),
 		})
+		if err != nil {
+			return sequence.CommandChange{}, err
+		}
+		queueInput := s.sequenceInput(state)
+		if len(queueInput.Flights) > 0 && len(queueInput.Policies) > 0 {
+			change.QueueOffers = &sequence.QueueOfferCalculation{Input: queueInput, Config: sequence.QueueOfferConfig{Validity: queueOfferValidity}}
+		}
+		for _, displacement := range displacements {
+			payload, marshalErr := json.Marshal(map[string]any{
+				"action": "runway_gap_displacement", "gap_id": merged.Union.ID,
+				"runway_group_id": command.RunwayGroupID, "flight_id": displacement.FlightID,
+				"previous_opportunity": displacement.Previous, "new_opportunity": displacement.New,
+				"overridden_protection_reason": displacement.ProtectionReason,
+			})
+			if marshalErr != nil {
+				return sequence.CommandChange{}, marshalErr
+			}
+			change.Audit = append(change.Audit, sequence.AuditEntry{Category: "aman.runway_gap_displacement", Payload: payload})
+		}
+		return change, nil
 	}, nil
+}
+
+type gapOpportunity struct {
+	Time          time.Time          `json:"time"`
+	RunwayGroupID aman.RunwayGroupID `json:"runway_group_id"`
+	Sequence      int                `json:"sequence"`
+}
+
+type gapDisplacement struct {
+	FlightID         aman.FlightID
+	Previous         gapOpportunity
+	New              gapOpportunity
+	ProtectionReason string
+}
+
+func (s *Service) displaceFlightsFromRunwayGap(state *aman.AirportState, groupID aman.RunwayGroupID, gap aman.RunwayGap) ([]gapDisplacement, error) {
+	affected := make(map[aman.FlightID]struct{})
+	cascade := make(map[aman.FlightID]gapDisplacement)
+	for _, flight := range state.Flights {
+		if flight.SelectedRunwayGroup == nil || *flight.SelectedRunwayGroup != groupID || flight.Slot == nil || flight.Slot.Time.Before(gap.Start) {
+			continue
+		}
+		cascade[flight.ID] = gapDisplacement{
+			FlightID: flight.ID, Previous: gapOpportunity{Time: flight.Slot.Time, RunwayGroupID: flight.Slot.RunwayGroupID, Sequence: flight.Slot.Sequence},
+			ProtectionReason: gapProtectionReason(flight),
+		}
+		if flight.Slot.Time.Before(gap.End) {
+			affected[flight.ID] = struct{}{}
+		}
+	}
+	if len(affected) == 0 {
+		return nil, nil
+	}
+
+	input := s.sequenceInput(*state)
+	earlyTolerance := time.Duration(0)
+	for _, policy := range input.Policies {
+		if policy.RunwayGroupID == groupID {
+			earlyTolerance = policy.EarlyTolerance
+			break
+		}
+	}
+	original := make(map[aman.FlightID]sequence.Flight, len(cascade))
+	orderedIDs := make([]aman.FlightID, 0, len(cascade))
+	for id := range cascade {
+		orderedIDs = append(orderedIDs, id)
+	}
+	sort.Slice(orderedIDs, func(i, j int) bool {
+		left, right := cascade[orderedIDs[i]].Previous, cascade[orderedIDs[j]].Previous
+		if left.Sequence != right.Sequence {
+			return left.Sequence < right.Sequence
+		}
+		if !left.Time.Equal(right.Time) {
+			return left.Time.Before(right.Time)
+		}
+		return orderedIDs[i] < orderedIDs[j]
+	})
+	sequenceOrder := make(map[aman.FlightID]int, len(orderedIDs))
+	for index, id := range orderedIDs {
+		sequenceOrder[id] = index + 1
+	}
+	for index := range input.Flights {
+		displacement, cascades := cascade[input.Flights[index].ID]
+		if !cascades {
+			continue
+		}
+		original[input.Flights[index].ID] = input.Flights[index]
+		input.Flights[index].FreezeReason = aman.FreezeNone
+		input.Flights[index].FrozenAt = nil
+		input.Flights[index].FrozenOperationalTETA = nil
+		input.Flights[index].CapturedSlot = nil
+		input.Flights[index].ProtectCurrentSlot = false
+		order := sequenceOrder[input.Flights[index].ID]
+		input.Flights[index].ManualOrder = &order
+		earliest := displacement.Previous.Time.Add(earlyTolerance).Add(time.Nanosecond)
+		if _, directlyAffected := affected[input.Flights[index].ID]; directlyAffected && gap.End.After(earliest) {
+			earliest = gap.End
+		}
+		if input.Flights[index].OperationalTETA.Before(earliest) {
+			input.Flights[index].OperationalTETA = earliest
+		}
+	}
+	if len(original) != len(cascade) {
+		return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "runway GAP contains a flight that is not eligible for a complete sequence"}
+	}
+
+	result, err := sequence.Generate(input)
+	if err != nil || result.HasConflicts() {
+		return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "runway GAP cannot produce a legal atomic sequence"}
+	}
+	for _, entry := range result.Entries {
+		displacement, cascades := cascade[entry.FlightID]
+		if !cascades {
+			continue
+		}
+		if _, directlyAffected := affected[entry.FlightID]; directlyAffected && entry.Time.Before(gap.End) {
+			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "runway GAP displacement did not produce a later opportunity"}
+		}
+		displacement.New = gapOpportunity{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence}
+		cascade[entry.FlightID] = displacement
+	}
+	ordered := make([]gapDisplacement, 0, len(cascade))
+	for id, displacement := range cascade {
+		if displacement.New.Time.IsZero() {
+			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: fmt.Sprintf("runway GAP displacement omitted flight %q", id)}
+		}
+		if !displacement.New.Time.After(displacement.Previous.Time) {
+			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: fmt.Sprintf("runway GAP displacement did not move flight %q behind its previous opportunity", id)}
+		}
+		ordered = append(ordered, displacement)
+	}
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].FlightID < ordered[j].FlightID })
+	for index := range input.Flights {
+		if saved, affected := original[input.Flights[index].ID]; affected {
+			input.Flights[index] = saved
+		}
+	}
+	*state = s.applyDecision(*state, sequence.Decision{Input: input, Candidate: result, Changed: true})
+	for index := range state.Flights {
+		if _, cascades := cascade[state.Flights[index].ID]; cascades && state.Flights[index].FreezeReason != aman.FreezeNone {
+			state.Flights[index].FrozenSlot = retargetSlot(state.Flights[index].Slot, groupID)
+		}
+	}
+	return ordered, nil
+}
+
+func gapProtectionReason(flight aman.AMANFlight) string {
+	if flight.FreezeReason != aman.FreezeNone {
+		return string(flight.FreezeReason)
+	}
+	if flight.State == aman.StateStable {
+		return "stable"
+	}
+	if flight.ManualOrder != nil {
+		return "manual_order"
+	}
+	return "none"
+}
+
+func gapDisplacementIDs(displacements []gapDisplacement) []aman.FlightID {
+	ids := make([]aman.FlightID, len(displacements))
+	for index := range displacements {
+		ids[index] = displacements[index].FlightID
+	}
+	return ids
 }
 
 func (s *Service) RemoveRunwayGap(auth aman.CommandContext, command aman.RemoveRunwayGapCommand) (sequence.CommandMutation, error) {

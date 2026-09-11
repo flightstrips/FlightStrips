@@ -586,7 +586,8 @@ func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFligh
 	copy := observation
 	return aman.AMANFlight{
 		ID: observation.FlightID, VATSIMCID: observation.VATSIMCID, CurrentCallsign: observation.Callsign,
-		State: state, DataStatus: observation.SourceStatus, LatestObservation: &copy,
+		State: state, SequenceDisposition: aman.SequenceDispositionActive,
+		DataStatus: observation.SourceStatus, LatestObservation: &copy,
 		FreezeReason: aman.FreezeNone, UpdatedAt: now,
 	}
 }

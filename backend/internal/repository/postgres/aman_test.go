@@ -348,9 +348,31 @@ func TestAMANRepositoryRestoresExplicitTerminalIdentitiesAfterRestart(t *testing
 func TestDecodeLegacyAMANFlightRestoresSTARFamilyOnly(t *testing.T) {
 	flight, err := decodeAMANFlightPayload([]byte(`{"SelectedFeeder":"TESPI"}`))
 	require.NoError(t, err)
+	require.Equal(t, aman.SequenceDispositionActive, flight.SequenceDisposition)
 	require.Equal(t, "TESPI", *flight.SelectedFeeder)
 	require.Equal(t, "TESPI", *flight.SelectedSTARFamily)
 	require.Nil(t, flight.SelectedFeederFix)
+}
+
+func TestDecodeAMANFlightPayloadRejectsInvalidSequenceDisposition(t *testing.T) {
+	for _, encoded := range []string{`{"SequenceDisposition":""}`, `{"SequenceDisposition":"removed"}`, `{"SequenceDisposition":null}`} {
+		_, err := decodeAMANFlightPayload([]byte(encoded))
+		require.Error(t, err, encoded)
+	}
+}
+
+func TestAMANRepositoryRestoresSequenceDispositionAfterRestart(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	state := amanState(1, "CID-DISPOSITION", "SAS588")
+	state.Flights[0].SequenceDisposition = aman.SequenceDispositionDesequenced
+
+	_, err := NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	restarted, err := NewAMANRepository(pool).LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, restarted)
+	require.Equal(t, aman.SequenceDispositionDesequenced, restarted.Flights[0].SequenceDisposition)
 }
 
 func TestDecodeAMANFlightPayloadPreservesOptionalFeederETAState(t *testing.T) {
@@ -618,7 +640,8 @@ func amanState(revision aman.SequenceRevision, vatsimCID, callsign string) aman.
 		Mode: aman.ModeShadow, RunwayGroups: []aman.RunwayGroupPolicy{{ID: "north"}},
 		Flights: []aman.AMANFlight{{
 			ID: aman.FlightID("flight-1"), VATSIMCID: vatsimCID, CurrentCallsign: callsign,
-			State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone,
+			State: aman.StateStable, SequenceDisposition: aman.SequenceDispositionActive,
+			DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone,
 			UpdatedAt: flightTime,
 			Prediction: &aman.Prediction{
 				RawTETA: flightTime.Add(20 * time.Minute), OperationalTETA: flightTime.Add(21 * time.Minute), OperationalReason: "smoothed",

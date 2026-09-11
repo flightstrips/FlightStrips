@@ -29,6 +29,39 @@ func TestAMANFlightTerminalIdentityJSONReplayIsDeterministic(t *testing.T) {
 	}
 }
 
+func TestAMANFlightSequenceDispositionJSONReplaysDeterministically(t *testing.T) {
+	want := AMANFlight{State: StateLanded, SequenceDisposition: SequenceDispositionDesequenced}
+	first, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("marshal flight: %v", err)
+	}
+	var restored AMANFlight
+	if err := json.Unmarshal(first, &restored); err != nil {
+		t.Fatalf("restore flight: %v", err)
+	}
+	second, err := json.Marshal(restored)
+	if err != nil {
+		t.Fatalf("marshal restored flight: %v", err)
+	}
+	if !reflect.DeepEqual(want, restored) || string(first) != string(second) {
+		t.Fatalf("disposition replay changed:\nflight: %#v\nrestored: %#v\nfirst: %s\nsecond: %s", want, restored, first, second)
+	}
+}
+
+func TestSequenceDispositionValuesAndDefault(t *testing.T) {
+	for _, valid := range []SequenceDisposition{SequenceDispositionActive, SequenceDispositionDesequenced} {
+		if !valid.Valid() {
+			t.Fatalf("disposition %q should be valid", valid)
+		}
+	}
+	if SequenceDisposition("removed").Valid() {
+		t.Fatal("unknown disposition should be invalid")
+	}
+	if got := (SequenceDisposition("")).OrDefault(); got != SequenceDispositionActive {
+		t.Fatalf("default disposition = %q, want active", got)
+	}
+}
+
 func TestAMANFlightIdentityConsumersPreferExplicitValuesWithLegacyFallback(t *testing.T) {
 	legacy, family, fix := "TESPI", "TUDLO", "KOR"
 	flight := AMANFlight{SelectedFeeder: &legacy, SelectedSTARFamily: &family, SelectedFeederFix: &fix}

@@ -44,6 +44,8 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		{"reject go around", frontendEvents.AMANRejectGoAroundType, `{"type":"aman.reject_go_around","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","episode_id":"flight-1/go-around/1"}}`, "reject_go_around"},
 		{"create GAP", frontendEvents.AMANCreateGapType, `{"type":"aman.create_gap","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","start":"2026-07-22T12:05:00Z","slot_count":2,"label":"approach stop"}}`, "create_runway_gap"},
 		{"remove GAP", frontendEvents.AMANRemoveGapType, `{"type":"aman.remove_gap","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","gap_id":"gap-1"}}`, "remove_runway_gap"},
+		{"create closure", frontendEvents.AMANCreateRunwayClosureType, `{"type":"aman.create_runway_closure","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","after_flight_id":"flight-1","reason":"inspection"}}`, "create_runway_closure"},
+		{"remove closure", frontendEvents.AMANRemoveRunwayClosureType, `{"type":"aman.remove_runway_closure","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","closure_id":"closure-1","reason":"inspection complete"}}`, "remove_runway_closure"},
 		{"place at time", frontendEvents.AMANPlaceFlightAtTimeType, `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z","allow_gap":true}}`, "place_at_time"},
 	}
 

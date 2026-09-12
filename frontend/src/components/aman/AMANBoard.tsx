@@ -18,6 +18,7 @@ import {ACCTimeline} from "./ACCTimeline";
 import {FMPPairedTimeline} from "./FMPPairedTimeline";
 import {RWYPairedTimeline} from "./RWYPairedTimeline";
 import {RunwayGapOverlay} from "./RunwayGapOverlay";
+import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
 import {AMANAxisTopPercent, AMANTimelineAxis, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
 import {
   buildAMANHoldingLanes,
@@ -394,13 +395,14 @@ export function AMANBoardView({
                 currentPosition={nowPosition}
                 flights={state.flights}
                 gaps={activeRunwayLane?.gaps ?? []}
+                closures={activeRunwayLane?.closures ?? []}
                 mappings={state.timeline_configuration.mappings}
                 range={range}
                 renderTarget={renderFMPTarget}
                 runway={activeRunwayLane?.id ?? "runway"}
                 status={axisStatus}
               />
-            ) : <><RunwayGapOverlay gaps={activeRunwayLane?.gaps ?? []} range={range} runway={activeRunwayLane?.id ?? "runway"} />{holdingLanes.map((lane, index) => (
+            ) : <><RunwayGapOverlay gaps={activeRunwayLane?.gaps ?? []} range={range} runway={activeRunwayLane?.id ?? "runway"} /><RunwayClosureOverlay closures={activeRunwayLane?.closures ?? []} range={range} runway={activeRunwayLane?.id ?? "runway"} status={axisStatus} />{holdingLanes.map((lane, index) => (
               <HoldingTimeline
                 flights={lane.flights}
                 key={lane.id}

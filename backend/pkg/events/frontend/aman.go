@@ -305,6 +305,7 @@ type AMANRunwayGroup struct {
 	RateEffectiveAt   *string                          `json:"rate_effective_at,omitempty"`
 	SequenceWarnings  []AMANRunwayGroupSequenceWarning `json:"sequence_warnings,omitempty"`
 	Gaps              []AMANRunwayGap                  `json:"gaps"`
+	Closures          []AMANRunwayClosure              `json:"closures"`
 }
 
 type AMANRunwayGap struct {
@@ -314,6 +315,15 @@ type AMANRunwayGap struct {
 	Label     string `json:"label"`
 	CreatedAt string `json:"created_at"`
 	CreatedBy string `json:"created_by"`
+}
+
+type AMANRunwayClosure struct {
+	ID        string  `json:"id"`
+	Start     string  `json:"start"`
+	End       *string `json:"end"`
+	Reason    string  `json:"reason"`
+	CreatedAt string  `json:"created_at"`
+	CreatedBy string  `json:"created_by"`
 }
 
 type AMANRunwayGroupSequenceWarning struct {
@@ -415,7 +425,23 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 	for i, group := range state.RunwayGroups {
 		mapped := AMANRunwayGroup{
 			ID: string(group.ID), Selected: group.Selected, SelectionSchedule: make([]string, len(group.SelectionSchedule)),
-			SelectionConflict: group.SelectionConflict, SequenceWarnings: make([]AMANRunwayGroupSequenceWarning, len(group.SequenceWarnings)), Gaps: make([]AMANRunwayGap, 0, len(group.Gaps)),
+			SelectionConflict: group.SelectionConflict, SequenceWarnings: make([]AMANRunwayGroupSequenceWarning, len(group.SequenceWarnings)), Gaps: make([]AMANRunwayGap, 0, len(group.Gaps)), Closures: make([]AMANRunwayClosure, 0, len(group.Closures)),
+		}
+		for _, closure := range group.Closures {
+			start, startErr := aman.FormatTime(closure.Start)
+			createdAt, createdErr := aman.FormatTime(closure.CreatedAt)
+			var end *string
+			if closure.End != nil {
+				value, endErr := aman.FormatTime(*closure.End)
+				if endErr != nil {
+					return AMANStateEvent{}, fmt.Errorf("map AMAN runway closure %q: %w", closure.ID, endErr)
+				}
+				end = &value
+			}
+			if err := errors.Join(startErr, createdErr); err != nil {
+				return AMANStateEvent{}, fmt.Errorf("map AMAN runway closure %q: %w", closure.ID, err)
+			}
+			mapped.Closures = append(mapped.Closures, AMANRunwayClosure{ID: string(closure.ID), Start: start, End: end, Reason: closure.Reason, CreatedAt: createdAt, CreatedBy: closure.CreatedBy})
 		}
 		for _, gap := range group.Gaps {
 			start, startErr := aman.FormatTime(gap.Start)

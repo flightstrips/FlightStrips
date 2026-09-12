@@ -363,4 +363,20 @@ describe("AMAN FMP controls", () => {
     renderControls({state: legacy});
     expect(screen.getByText("GAP state unavailable from this older server.")).toBeInTheDocument();
   });
+
+  it("sends absolute and after-aircraft closures and removes only confirmed state", () => {
+    const current = state();
+    current.runway_groups[0].closures = [{id: "closure-1", start: "2026-07-22T12:00:00.000Z", end: null, reason: "works", created_at: "2026-07-22T11:59:00.000Z", created_by: "fmp-1"}];
+    const {onCommand} = renderControls({state: current});
+    fireEvent.change(screen.getByLabelText("Closure reason"), {target: {value: "inspection"}});
+    fireEvent.change(screen.getByLabelText("Closure start"), {target: {value: "2026-07-22T12:10"}});
+    fireEvent.click(screen.getByRole("button", {name: "Insert closure"}));
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_runway_closure", runway_group_id: "ARRIVAL-22", start: "2026-07-22T12:10:00.000Z", end: undefined, reason: "inspection"});
+    fireEvent.change(screen.getByLabelText("Closure start mode"), {target: {value: "after"}});
+    fireEvent.change(screen.getByLabelText("Closure anchor aircraft"), {target: {value: "flight-1"}});
+    fireEvent.click(screen.getByRole("button", {name: "Insert closure"}));
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_runway_closure", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", end: undefined, reason: "inspection"});
+    fireEvent.click(screen.getByRole("button", {name: /Remove closure closure-1/}));
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.remove_runway_closure", runway_group_id: "ARRIVAL-22", closure_id: "closure-1", reason: "inspection"});
+  });
 });

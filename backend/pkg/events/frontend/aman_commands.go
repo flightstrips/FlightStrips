@@ -25,6 +25,8 @@ const (
 	AMANRejectGoAroundType        EventType = "aman.reject_go_around"
 	AMANCreateGapType             EventType = "aman.create_gap"
 	AMANRemoveGapType             EventType = "aman.remove_gap"
+	AMANCreateRunwayClosureType   EventType = "aman.create_runway_closure"
+	AMANRemoveRunwayClosureType   EventType = "aman.remove_runway_closure"
 	AMANPlaceFlightAtTimeType     EventType = "aman.place_flight_at_time"
 	AMANSubmitCoordinationType    EventType = "aman.submit_coordination_request"
 	AMANAcceptCoordinationType    EventType = "aman.accept_coordination_request"
@@ -111,6 +113,22 @@ type AMANRemoveGapRequest struct {
 	AMANCommandMeta
 	RunwayGroupID string `json:"runway_group_id"`
 	GapID         string `json:"gap_id"`
+}
+
+type AMANCreateRunwayClosureRequest struct {
+	AMANCommandMeta
+	RunwayGroupID string  `json:"runway_group_id"`
+	Start         *string `json:"start,omitempty"`
+	AfterFlightID *string `json:"after_flight_id,omitempty"`
+	End           *string `json:"end,omitempty"`
+	Reason        string  `json:"reason"`
+}
+
+type AMANRemoveRunwayClosureRequest struct {
+	AMANCommandMeta
+	RunwayGroupID string `json:"runway_group_id"`
+	ClosureID     string `json:"closure_id"`
+	Reason        string `json:"reason"`
 }
 
 type AMANPlaceFlightAtTimeRequest struct {
@@ -228,6 +246,17 @@ type AMANRemoveGapMessage struct {
 	Type    EventType            `json:"type"`
 	Version int                  `json:"version"`
 	Data    AMANRemoveGapRequest `json:"data"`
+}
+
+type AMANCreateRunwayClosureMessage struct {
+	Type    EventType                      `json:"type"`
+	Version int                            `json:"version"`
+	Data    AMANCreateRunwayClosureRequest `json:"data"`
+}
+type AMANRemoveRunwayClosureMessage struct {
+	Type    EventType                      `json:"type"`
+	Version int                            `json:"version"`
+	Data    AMANRemoveRunwayClosureRequest `json:"data"`
 }
 
 type AMANPlaceFlightAtTimeMessage struct {

@@ -1,11 +1,12 @@
 import type {ReactNode} from "react";
 
-import type {AMANDataStatus, AMANFlight, AMANRunwayClosure, AMANRunwayGap, AMANTimelineMapping} from "@/api/aman";
+import type {AMANCapacityReservation, AMANDataStatus, AMANFlight, AMANRunwayClosure, AMANRunwayGap, AMANTimelineMapping} from "@/api/aman";
 import {cn} from "@/lib/utils";
 import {AMANAxisTopPercent, AMANTimelineAxis} from "./AMANTimelineAxis";
 import {layoutTimelineMarkers, type AMANTimelineRange} from "./presentation";
 import {RunwayGapOverlay} from "./RunwayGapOverlay";
 import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
+import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
 const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
@@ -73,6 +74,7 @@ export function FMPPairedTimeline({
   renderTarget,
   gaps = [],
   closures = [],
+  capacityReservations = [],
   runway = "runway",
 }: {
   mappings: AMANTimelineMapping[];
@@ -84,6 +86,7 @@ export function FMPPairedTimeline({
   renderTarget: (flight: AMANFlight) => ReactNode;
   gaps?: AMANRunwayGap[];
   closures?: AMANRunwayClosure[];
+  capacityReservations?: AMANCapacityReservation[];
   runway?: string;
 }) {
   return (
@@ -100,6 +103,7 @@ export function FMPPairedTimeline({
             <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
             <RunwayGapOverlay gaps={gaps} range={range} runway={runway} />
             <RunwayClosureOverlay closures={closures} range={range} runway={runway} status={status} />
+            <CapacityReservationOverlay range={range} reservations={capacityReservations} runway={runway} status={status} />
             <FeederSide family={mapping.left} flights={flights} range={range} renderTarget={renderTarget} side="left" />
             <FeederSide family={mapping.right} flights={flights} range={range} renderTarget={renderTarget} side="right" />
           </div>

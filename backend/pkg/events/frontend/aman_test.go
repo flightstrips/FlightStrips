@@ -167,6 +167,15 @@ func TestAMANStateEventIncludesPersistedActiveRate(t *testing.T) {
 	require.Equal(t, expected, *event.Data.RunwayGroups[0].RateEffectiveAt)
 }
 
+func TestAMANStateEventProjectsImmutableCapacityReservation(t *testing.T) {
+	state := goldenAMANState()
+	state.RunwayGroups[0].CapacityReservations = []aman.RunwayCapacityReservation{{ID: "extra-1", Start: state.GeneratedAt.Add(time.Minute), End: state.GeneratedAt.Add(4 * time.Minute), Label: "FLIGHT", CreatedAt: state.GeneratedAt, CreatedBy: "1234567"}}
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, AMANCapacityReservation{ID: "extra-1", Start: "2026-07-22T10:01:00.000Z", End: "2026-07-22T10:04:00.000Z", Label: "FLIGHT", CreatedAt: "2026-07-22T10:00:00.000Z", CreatedBy: "1234567"}, event.Data.RunwayGroups[0].CapacityReservations[0])
+	require.Len(t, event.Data.Flights, 1, "capacity projection must not invent a flight")
+}
+
 func TestAMANStateEventIncludesRunwaySelectionStateAndSchedule(t *testing.T) {
 	state := goldenAMANState()
 	effective := state.GeneratedAt.Add(15 * time.Minute)

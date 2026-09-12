@@ -297,15 +297,25 @@ type AMANQueueOffer struct {
 }
 
 type AMANRunwayGroup struct {
-	ID                string                           `json:"id"`
-	Selected          bool                             `json:"selected"`
-	SelectionSchedule []string                         `json:"selection_schedule"`
-	SelectionConflict *string                          `json:"selection_conflict,omitempty"`
-	ActiveRatePerHour *uint32                          `json:"active_rate_per_hour,omitempty"`
-	RateEffectiveAt   *string                          `json:"rate_effective_at,omitempty"`
-	SequenceWarnings  []AMANRunwayGroupSequenceWarning `json:"sequence_warnings,omitempty"`
-	Gaps              []AMANRunwayGap                  `json:"gaps"`
-	Closures          []AMANRunwayClosure              `json:"closures"`
+	ID                   string                           `json:"id"`
+	Selected             bool                             `json:"selected"`
+	SelectionSchedule    []string                         `json:"selection_schedule"`
+	SelectionConflict    *string                          `json:"selection_conflict,omitempty"`
+	ActiveRatePerHour    *uint32                          `json:"active_rate_per_hour,omitempty"`
+	RateEffectiveAt      *string                          `json:"rate_effective_at,omitempty"`
+	SequenceWarnings     []AMANRunwayGroupSequenceWarning `json:"sequence_warnings,omitempty"`
+	Gaps                 []AMANRunwayGap                  `json:"gaps"`
+	Closures             []AMANRunwayClosure              `json:"closures"`
+	CapacityReservations []AMANCapacityReservation        `json:"capacity_reservations"`
+}
+
+type AMANCapacityReservation struct {
+	ID        string `json:"id"`
+	Start     string `json:"start"`
+	End       string `json:"end"`
+	Label     string `json:"label"`
+	CreatedAt string `json:"created_at"`
+	CreatedBy string `json:"created_by"`
 }
 
 type AMANRunwayGap struct {
@@ -425,7 +435,16 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 	for i, group := range state.RunwayGroups {
 		mapped := AMANRunwayGroup{
 			ID: string(group.ID), Selected: group.Selected, SelectionSchedule: make([]string, len(group.SelectionSchedule)),
-			SelectionConflict: group.SelectionConflict, SequenceWarnings: make([]AMANRunwayGroupSequenceWarning, len(group.SequenceWarnings)), Gaps: make([]AMANRunwayGap, 0, len(group.Gaps)), Closures: make([]AMANRunwayClosure, 0, len(group.Closures)),
+			SelectionConflict: group.SelectionConflict, SequenceWarnings: make([]AMANRunwayGroupSequenceWarning, len(group.SequenceWarnings)), Gaps: make([]AMANRunwayGap, 0, len(group.Gaps)), Closures: make([]AMANRunwayClosure, 0, len(group.Closures)), CapacityReservations: make([]AMANCapacityReservation, 0, len(group.CapacityReservations)),
+		}
+		for _, reservation := range group.CapacityReservations {
+			start, startErr := aman.FormatTime(reservation.Start)
+			end, endErr := aman.FormatTime(reservation.End)
+			createdAt, createdErr := aman.FormatTime(reservation.CreatedAt)
+			if err := errors.Join(startErr, endErr, createdErr); err != nil {
+				return AMANStateEvent{}, fmt.Errorf("map AMAN capacity reservation %q: %w", reservation.ID, err)
+			}
+			mapped.CapacityReservations = append(mapped.CapacityReservations, AMANCapacityReservation{ID: string(reservation.ID), Start: start, End: end, Label: reservation.Label, CreatedAt: createdAt, CreatedBy: reservation.CreatedBy})
 		}
 		for _, closure := range group.Closures {
 			start, startErr := aman.FormatTime(closure.Start)

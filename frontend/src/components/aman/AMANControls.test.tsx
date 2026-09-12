@@ -35,6 +35,36 @@ function renderControls(overrides: Partial<AMANControlsViewProps> = {}) {
 }
 
 describe("AMAN FMP controls", () => {
+  it("creates capacity without a fake flight and exposes pending, rejection, and displacement states", () => {
+    const current = state();
+    current.flights[1].freeze_reason = "tma";
+    current.flights[1].slot!.time = "2026-07-22T10:24:00.000Z";
+    current.runway_groups[0].capacity_reservations = [{id: "extra-1", start: "2026-07-22T10:21:00.000Z", end: "2026-07-22T10:24:00.000Z", label: "VIP", created_at: "2026-07-22T10:00:00.000Z", created_by: "1234567"}];
+    const {onCommand} = renderControls({state: current, pendingCommands: {pending: {command_id: "pending", type: "aman.create_capacity_reservation", expected_revision: 7, runway_group_id: "ARRIVAL-22"}}, commandRejections: {bad: {command_id: "bad", command_type: "aman.create_capacity_reservation", code: "revision_conflict", message: "changed", current_revision: 8, retryable: true}}});
+    expect(screen.getByText(/Server-confirmed immutable interval/).parentElement).toHaveTextContent("VIP");
+    expect(screen.getByRole("status")).toHaveTextContent("overlays remain server-confirmed");
+    expect(screen.getByText(/Extra Flight rejected/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Insert Extra Flight after"), {target: {value: "flight-1"}});
+    expect(screen.getByText(/displace protected traffic/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Extra Flight reason"), {target: {value: "medevac"}});
+    expect(screen.getByRole("button", {name: "Insert Extra Flight"})).toBeDisabled();
+    expect(onCommand).not.toHaveBeenCalled();
+  });
+
+  it("sends default and custom Extra Flight labels without aircraft-shaped fields", () => {
+    const current = state();
+    current.runway_groups[0].capacity_reservations = [{id: "extra-1", start: "2026-07-22T10:21:00.000Z", end: "2026-07-22T10:24:00.000Z", label: "FLIGHT", created_at: "2026-07-22T10:00:00.000Z", created_by: "1234567"}];
+    const {onCommand} = renderControls({state: current});
+    fireEvent.change(screen.getByLabelText("Insert Extra Flight after"), {target: {value: "flight-1"}});
+    fireEvent.change(screen.getByLabelText("Extra Flight reason"), {target: {value: "medevac"}});
+    fireEvent.click(screen.getByRole("button", {name: "Insert Extra Flight"}));
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", reason: "medevac"});
+    fireEvent.change(screen.getByLabelText("Extra Flight label"), {target: {value: "VIP"}});
+    fireEvent.click(screen.getByRole("button", {name: "Insert Extra Flight"}));
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", label: "VIP", reason: "medevac"});
+    fireEvent.click(screen.getByRole("button", {name: "Remove Extra Flight FLIGHT from ARRIVAL-22"}));
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.remove_capacity_reservation", runway_group_id: "ARRIVAL-22", reservation_id: "extra-1", reason: "medevac"});
+  });
   it("maps every flight control to only its typed command fields", () => {
     const {onCommand} = renderControls();
 

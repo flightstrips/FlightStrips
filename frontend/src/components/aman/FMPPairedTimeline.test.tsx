@@ -35,10 +35,12 @@ describe("FMP paired feeder timelines", () => {
       flight("ernov", "ERNOV", 6, "2026-07-23T00:20:00.000Z"),
     ];
     const range = {startMs: Date.parse("2026-07-22T23:55:00.000Z"), endMs: Date.parse("2026-07-23T00:25:00.000Z")};
+    const reservations = [{id: "extra-1", start: "2026-07-23T00:04:00.000Z", end: "2026-07-23T00:07:00.000Z", label: "FLIGHT", created_at: "2026-07-22T23:50:00.000Z", created_by: "fmp"}];
 
     render(<FMPPairedTimeline
       clockMs={range.startMs}
       currentPosition={100}
+      capacityReservations={reservations}
       flights={flights}
       mappings={[
         {id: 1, left: "TESPI", right: "TUDLO"},
@@ -58,5 +60,6 @@ describe("FMP paired feeder timelines", () => {
     expect(screen.getByLabelText(/TESPI-FIRST at/)).toHaveAttribute("data-marker-time", "2026-07-23T00:02:00.000Z");
     expect(screen.queryByText("TIDVU-CLIPPED")).not.toBeInTheDocument();
     expect(screen.getAllByRole("img", {name: /23:55 to 00:25 \+1d/})).toHaveLength(3);
+    expect(screen.getAllByRole("note", {name: /Extra Flight FLIGHT/})).toHaveLength(3);
   });
 });

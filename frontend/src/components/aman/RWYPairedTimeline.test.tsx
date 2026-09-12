@@ -75,6 +75,7 @@ describe("RWY paired timeline", () => {
 
   it("preserves authoritative order and timing while clipping the local horizon", () => {
     const state = runwayState(["A"]);
+    state.runway_groups[0].capacity_reservations = [{id: "extra-1", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:15:00.000Z", label: "FLIGHT", created_at: "2026-07-22T10:00:00.000Z", created_by: "fmp"}];
     state.flights = [flight("second", "A", 2, 10), flight("clipped", "A", 3, 31), flight("first", "A", 1, 20)];
     renderTimeline(state);
 
@@ -84,6 +85,7 @@ describe("RWY paired timeline", () => {
       "SECOND at 2026-07-22T10:10:00.000Z",
     ]);
     expect(items.map((item) => item.dataset.sequence)).toEqual(["1", "2"]);
+    expect(screen.getByRole("note", {name: /server confirmed immutable interval/})).toBeInTheDocument();
   });
 
   it("keeps target keyboard activation in stable accessible lane order", () => {

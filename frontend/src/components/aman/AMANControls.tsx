@@ -15,6 +15,7 @@ import {useWebSocketStore} from "@/store/store-hooks";
 import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {AMANGapControls} from "./AMANGapControls";
 import {AMANClosureControls} from "./AMANClosureControls";
+import {AMANCapacityControls} from "./AMANCapacityControls";
 
 const blockReasonLabels: Record<AMANMutationBlockReason, string> = {
   no_state: "Waiting for AMAN state",
@@ -261,6 +262,7 @@ export function AMANControlsView({
 
       <AMANGapControls disabled={disabled} groups={state?.runway_groups ?? []} onCommand={onCommand} pending={pending} rejections={rejections} />
       <AMANClosureControls disabled={disabled} flights={flights} groups={state?.runway_groups ?? []} onCommand={onCommand} pending={pending} />
+      <AMANCapacityControls disabled={disabled} flights={flights} groups={state?.runway_groups ?? []} onCommand={onCommand} pending={pending} rejections={rejections} />
 
       {flights.length === 0 ? (
         <div>No AMAN flights available.</div>

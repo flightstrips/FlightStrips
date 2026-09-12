@@ -46,6 +46,8 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 		{"remove GAP", frontendEvents.AMANRemoveGapType, `{"type":"aman.remove_gap","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","gap_id":"gap-1"}}`, "remove_runway_gap"},
 		{"create closure", frontendEvents.AMANCreateRunwayClosureType, `{"type":"aman.create_runway_closure","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","after_flight_id":"flight-1","reason":"inspection"}}`, "create_runway_closure"},
 		{"remove closure", frontendEvents.AMANRemoveRunwayClosureType, `{"type":"aman.remove_runway_closure","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","closure_id":"closure-1","reason":"inspection complete"}}`, "remove_runway_closure"},
+		{"create capacity", frontendEvents.AMANCreateCapacityReservationType, `{"type":"aman.create_capacity_reservation","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","after_flight_id":"flight-1","reason":"medevac"}}`, "create_capacity_reservation"},
+		{"remove capacity", frontendEvents.AMANRemoveCapacityReservationType, `{"type":"aman.remove_capacity_reservation","version":1,"data":{"command_id":"command-1","expected_revision":7,"runway_group_id":"A","reservation_id":"extra-1","reason":"released"}}`, "remove_capacity_reservation"},
 		{"place at time", frontendEvents.AMANPlaceFlightAtTimeType, `{"type":"aman.place_flight_at_time","version":1,"data":{"command_id":"command-1","expected_revision":7,"flight_id":"flight-1","runway_group_id":"A","slot_time":"2026-07-22T12:10:00Z","allow_gap":true}}`, "place_at_time"},
 	}
 
@@ -164,6 +166,15 @@ func TestAMANGapTransportMapsOperationalFields(t *testing.T) {
 	require.Equal(t, aman.RunwayGapID("gap-create"), service.removeGap.GapID)
 	require.Equal(t, now.Add(8*time.Minute), service.placeAtTime.SlotTime)
 	require.True(t, service.placeAtTime.AllowGap)
+}
+
+func TestAMANCapacityTransportMapsOnlyReservationFields(t *testing.T) {
+	service := &recordingAMANCommandService{}
+	hub, client := newAMANCommandTestClient(service, time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC))
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANCreateCapacityReservationType, Message: []byte(`{"type":"aman.create_capacity_reservation","version":1,"data":{"command_id":"extra-1","expected_revision":7,"runway_group_id":"A","after_flight_id":"flight-1","label":"VIP","reason":"medevac"}}`)}))
+	require.Equal(t, aman.CreateCapacityReservationCommand{Metadata: aman.CommandMetadata{CommandID: "extra-1", ExpectedRevision: 7}, RunwayGroupID: "A", AfterFlightID: "flight-1", Label: "VIP", Reason: "medevac"}, service.createCapacity)
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANRemoveCapacityReservationType, Message: []byte(`{"type":"aman.remove_capacity_reservation","version":1,"data":{"command_id":"remove-1","expected_revision":8,"runway_group_id":"A","reservation_id":"extra-1","reason":"released"}}`)}))
+	require.Equal(t, aman.RemoveCapacityReservationCommand{Metadata: aman.CommandMetadata{CommandID: "remove-1", ExpectedRevision: 8}, RunwayGroupID: "A", ReservationID: "extra-1", Reason: "released"}, service.removeCapacity)
 }
 
 func TestAMANGapTransportRejectsAmbiguousMalformedAndSpoofedFields(t *testing.T) {
@@ -313,16 +324,18 @@ func newAMANCommandTestClient(service aman.CommandService, now time.Time) (*Hub,
 }
 
 type recordingAMANCommandService struct {
-	operation     string
-	auth          aman.CommandContext
-	metadata      aman.CommandMetadata
-	execution     aman.CommandExecution
-	err           error
-	calls         int
-	createGap     aman.CreateRunwayGapCommand
-	removeGap     aman.RemoveRunwayGapCommand
-	placeAtTime   aman.PlaceFlightAtTimeCommand
-	activeRunways aman.SetActiveRunwayGroupsCommand
+	operation      string
+	auth           aman.CommandContext
+	metadata       aman.CommandMetadata
+	execution      aman.CommandExecution
+	err            error
+	calls          int
+	createGap      aman.CreateRunwayGapCommand
+	removeGap      aman.RemoveRunwayGapCommand
+	placeAtTime    aman.PlaceFlightAtTimeCommand
+	activeRunways  aman.SetActiveRunwayGroupsCommand
+	createCapacity aman.CreateCapacityReservationCommand
+	removeCapacity aman.RemoveCapacityReservationCommand
 }
 
 func (*recordingAMANCommandService) Name() string { return "recording AMAN command service" }
@@ -384,9 +397,11 @@ func (s *recordingAMANCommandService) RemoveRunwayClosure(_ context.Context, aut
 	return s.record("remove_runway_closure", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) CreateCapacityReservation(_ context.Context, auth aman.CommandContext, command aman.CreateCapacityReservationCommand) (aman.CommandExecution, error) {
+	s.createCapacity = command
 	return s.record("create_capacity_reservation", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) RemoveCapacityReservation(_ context.Context, auth aman.CommandContext, command aman.RemoveCapacityReservationCommand) (aman.CommandExecution, error) {
+	s.removeCapacity = command
 	return s.record("remove_capacity_reservation", auth, command.Metadata)
 }
 func (s *recordingAMANCommandService) AcceptTETA(_ context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {

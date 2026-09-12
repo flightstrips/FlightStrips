@@ -386,6 +386,7 @@ func cloneInput(input Input) Input {
 		copy.Policies[index] = policy
 		copy.Policies[index].Rates = slices.Clone(policy.Rates)
 		copy.Policies[index].Gaps = slices.Clone(policy.Gaps)
+		copy.Policies[index].Closures = slices.Clone(policy.Closures)
 		copy.Policies[index].SeparationRules = slices.Clone(policy.SeparationRules)
 	}
 	for index, flight := range input.Flights {

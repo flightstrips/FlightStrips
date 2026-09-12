@@ -49,6 +49,7 @@ type Policy struct {
 	RunwayGroupID     aman.RunwayGroupID
 	Rates             []RatePoint
 	Gaps              []Gap
+	Closures          []aman.RunwayClosure
 	EarlyTolerance    time.Duration
 	SeparationRules   []SeparationRule
 	UnknownSeparation time.Duration
@@ -400,6 +401,7 @@ func preparePoliciesWithSTARFamilies(input []Policy, starFamilies preparedSTARFa
 			starFamilies: starFamilies,
 		}
 		prepared.Gaps = slices.Clone(raw.Gaps)
+		prepared.Closures = slices.Clone(raw.Closures)
 		if len(prepared.rates) == 0 {
 			return nil, fmt.Errorf("runway group %q requires at least one rate", raw.RunwayGroupID)
 		}
@@ -424,6 +426,12 @@ func preparePoliciesWithSTARFamilies(input []Policy, starFamilies preparedSTARFa
 			}
 			if index > 0 && !prepared.Gaps[index-1].End.Before(gap.Start) {
 				return nil, fmt.Errorf("runway group %q has overlapping or touching gaps", raw.RunwayGroupID)
+			}
+		}
+		sort.Slice(prepared.Closures, func(i, j int) bool { return prepared.Closures[i].Start.Before(prepared.Closures[j].Start) })
+		for _, closure := range prepared.Closures {
+			if !validUTC(closure.Start) || (closure.End != nil && (!validUTC(*closure.End) || !closure.Start.Before(*closure.End))) {
+				return nil, fmt.Errorf("runway group %q has invalid closure", raw.RunwayGroupID)
 			}
 		}
 
@@ -566,7 +574,8 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotMissing, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
 			continue
 		}
-		if !validUTC(slot.Time) || slot.RunwayGroupID != policy.RunwayGroupID || slot.Sequence < 1 || policy.intervalAt(slot.Time) == 0 {
+		_, closed, _ := policy.blockingClosure(slot.Time)
+		if !validUTC(slot.Time) || slot.RunwayGroupID != policy.RunwayGroupID || slot.Sequence < 1 || policy.intervalAt(slot.Time) == 0 || closed {
 			warnings = append(warnings, Warning{Severity: SeverityConflict, Code: WarningProtectedSlotInvalid, RunwayGroupID: policy.RunwayGroupID, FlightID: flight.ID})
 			continue
 		}
@@ -786,6 +795,13 @@ func nextGridAtOrAfter(policy preparedPolicy, target time.Time) (time.Time, bool
 		if !ok {
 			return time.Time{}, false
 		}
+		if end, closed, indefinite := policy.blockingClosure(candidate); closed {
+			if indefinite {
+				return time.Time{}, false
+			}
+			target = end
+			continue
+		}
 		gap, blocked := policy.blockingGap(candidate)
 		if !blocked {
 			return candidate, true
@@ -823,6 +839,15 @@ func previousGridAtOrBefore(policy preparedPolicy, target time.Time) (time.Time,
 		if !ok {
 			return time.Time{}, false
 		}
+		if _, closed, _ := policy.blockingClosure(candidate); closed {
+			for _, closure := range policy.Closures {
+				if !candidate.Before(closure.Start) && (closure.End == nil || candidate.Before(*closure.End)) {
+					target = closure.Start.Add(-time.Nanosecond)
+					break
+				}
+			}
+			continue
+		}
 		gap, blocked := policy.blockingGap(candidate)
 		if !blocked {
 			return candidate, true
@@ -851,6 +876,21 @@ func (p preparedPolicy) blockingGap(candidate time.Time) (Gap, bool) {
 	}
 	gap := p.Gaps[index]
 	return gap, !candidate.Before(gap.Start) && candidate.Before(gap.End)
+}
+
+func (p preparedPolicy) blockingClosure(candidate time.Time) (time.Time, bool, bool) {
+	for _, closure := range p.Closures {
+		if candidate.Before(closure.Start) {
+			break
+		}
+		if closure.End == nil || candidate.Before(*closure.End) {
+			if closure.End == nil {
+				return time.Time{}, true, true
+			}
+			return *closure.End, true, false
+		}
+	}
+	return time.Time{}, false, false
 }
 
 func flightLess(a, b preparedFlight) bool {

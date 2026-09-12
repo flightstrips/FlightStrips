@@ -101,6 +101,11 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 		if !s.runwayAssignmentCompatible(flight, command.RunwayGroupID) {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "requested runway group is not compatible with the flight's arrival"}
 		}
+		for _, closure := range state.RunwayGroups[groupIndex].Closures {
+			if !command.SlotTime.Before(closure.Start) && (closure.End == nil || command.SlotTime.Before(*closure.End)) {
+				return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "manual placement cannot use runway closure capacity"}
+			}
+		}
 		input := s.sequenceInput(state)
 		onGrid, err := sequence.IsGridOpportunity(input, command.RunwayGroupID, command.SlotTime)
 		if err != nil || !onGrid {

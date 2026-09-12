@@ -58,6 +58,7 @@ export interface AMANCoordinationRequest {
   updated_at: string;
   supersedes?: string;
   superseded_by?: string;
+	clearance?: {fact_id: string; kind: AMANCoordinationKind; value: string; issuer: string; observed_at: string};
 }
 
 export interface AMANCoordinationStateEvent {
@@ -254,7 +255,7 @@ export interface AMANRouteFact {
   id: string;
   fix: string;
   observed_at: string;
-  state: "active" | "expired";
+	state: "active" | "cleared" | "expired";
 }
 
 export interface AMANProvenance {
@@ -494,7 +495,7 @@ const freezeReasons = new Set<AMANFreezeReason>(["none", "superstable", "tma", "
 const confidences = new Set<AMANConfidence>(["unknown", "low", "medium", "high"]);
 const feederETASources = new Set<AMANFeederETASource>(["route", "holding", "manual", "passed"]);
 const healthStatuses = new Set<AMANHealthStatus>(["disabled", "ready", "degraded", "unavailable"]);
-const routeFactStates = new Set(["active", "expired"]);
+const routeFactStates = new Set(["active", "cleared", "expired"]);
 const trafficStatuses = new Set<AMANTrafficStatus>(["ready", "degraded", "disconnected"]);
 const trafficAlerts = new Set<AMANTrafficAlert>(["none", "yellow", "red"]);
 const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned", "vatsim_airborne"]);
@@ -532,7 +533,8 @@ function isSlot(value: unknown): value is AMANSlot {
 
 function isRouteFact(value: unknown): value is AMANRouteFact {
   return isObject(value) && isString(value.id) && isString(value.fix) && isTimestamp(value.observed_at)
-    && isString(value.state) && routeFactStates.has(value.state);
+	&& isString(value.state) && routeFactStates.has(value.state)
+	&& (value.state === "cleared" ? value.fix === "" : isIdentity(value.fix));
 }
 
 function isProvenance(value: unknown): value is AMANProvenance {
@@ -752,7 +754,10 @@ function hasValidCoordinationRequests(value: unknown): value is AMANCoordination
     && ["pending", "accepted", "rejected", "superseded", "expired"].includes(String(request.state))
     && isObject(request.payload) && isTimestamp(request.created_at) && isTimestamp(request.updated_at)
     && (request.supersedes === undefined || isIdentity(request.supersedes))
-    && (request.superseded_by === undefined || isIdentity(request.superseded_by)));
+	&& (request.superseded_by === undefined || isIdentity(request.superseded_by))
+	&& (request.clearance === undefined || request.state === "accepted" && isObject(request.clearance) && isIdentity(request.clearance.fact_id)
+	  && request.clearance.kind === request.kind && isIdentity(request.clearance.value)
+	  && isIdentity(request.clearance.issuer) && isTimestamp(request.clearance.observed_at) && request.clearance.observed_at >= request.updated_at));
 }
 
 export function isAMANCoordinationStateEvent(value: unknown): value is AMANCoordinationStateEvent {

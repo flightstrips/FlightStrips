@@ -7,6 +7,7 @@ import {
   getActiveAMANRunwayGroups,
   getAMANHeaderReadModel,
   isAMANCommandRejectedEvent,
+	isAMANCoordinationStateEvent,
   isAMANStateEvent,
   replaceAMANState,
   type AMANStateEvent,
@@ -26,6 +27,13 @@ function replacement(revision: number, callsign = "SAS123"): AMANStateEvent {
 }
 
 describe("AMAN V1 full replacement contract", () => {
+	it("accepts additive clearance correlation on the coordination V1 wire", () => {
+		expect(isAMANCoordinationStateEvent({type: "aman.coordination_state", version: 1, revision: 3, requests: [{
+			id: "request-1", flight_id: "flight-1", recipient_controller: "EKCH_APP", recipient_status: "assigned",
+			kind: "speed", state: "accepted", payload: {speed: {requested: "220 KT"}}, created_at: "2026-07-22T10:00:00.000Z", updated_at: "2026-07-22T10:01:00.000Z",
+			clearance: {fact_id: "fact-1", kind: "speed", value: "220 KT", issuer: "EKCH_APP", observed_at: "2026-07-22T10:02:00.000Z"},
+		}]})).toBe(true);
+	});
   it("creates additive GAP and explicit-placement V1 command shapes", () => {
     const meta = {command_id: "retry-id", expected_revision: 7};
     expect(createAMANCommand({
@@ -56,6 +64,14 @@ describe("AMAN V1 full replacement contract", () => {
   it("accepts the shared Go/TypeScript golden fixture", () => {
     expect(isAMANStateEvent(golden)).toBe(true);
   });
+
+	it("accepts the backend cleared-direct replacement and rejects an empty active fix", () => {
+		const cleared = replacement(8);
+		cleared.data.flights[0].route_fact = {id: "fact-clear", fix: "", observed_at: "2026-07-22T10:02:00.000Z", state: "cleared"};
+		expect(isAMANStateEvent(cleared)).toBe(true);
+		cleared.data.flights[0].route_fact.state = "active";
+		expect(isAMANStateEvent(cleared)).toBe(false);
+	});
 
   it("accepts optional backend-normalized GAP unions and audited exceptions", () => {
     const event = replacement(8);

@@ -8,6 +8,7 @@ import (
 	"FlightStrips/pkg/events/euroscope"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -24,7 +25,7 @@ func handleAMANRouteFact(ctx context.Context, client *Client, message Message) e
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	if event.Version != 1 || event.Data == nil || event.Data.Kind != "direct_to" ||
+	if event.Version != 1 || event.Data == nil || (event.Data.Kind != "direct_to" && event.Data.Kind != "speed") ||
 		len(event.ProtoReflect().GetUnknown()) != 0 || len(event.Data.ProtoReflect().GetUnknown()) != 0 {
 		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN route fact contract"}
 	}
@@ -32,8 +33,35 @@ func handleAMANRouteFact(ctx context.Context, client *Client, message Message) e
 	if err != nil {
 		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN route fact observation time"}
 	}
-	return client.hub.amanRouteFacts.ReportDirectTo(
-		ctx, client.session, client.airport, event.Data.Callsign, client.callsign, event.Data.DirectToFix, observedAt.UTC())
+	if event.Data.Kind == "speed" {
+		if event.Data.DirectToFix != nil || event.Data.AssignedSpeed == nil || len(event.Data.AssignedSpeed.ProtoReflect().GetUnknown()) != 0 {
+			return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN speed fact contract"}
+		}
+		value, valid := assignedSpeedValue(event.Data.AssignedSpeed)
+		if !valid {
+			return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN assigned speed"}
+		}
+		return client.hub.amanRouteFacts.ReportSpeed(ctx, client.session, client.airport, event.Data.Callsign, client.callsign, value, observedAt.UTC())
+	}
+	if event.Data.AssignedSpeed != nil {
+		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN direct-to fact contract"}
+	}
+	return client.hub.amanRouteFacts.ReportDirectTo(ctx, client.session, client.airport, event.Data.Callsign, client.callsign, event.Data.DirectToFix, observedAt.UTC())
+}
+
+func assignedSpeedValue(speed *euroscope.AssignedSpeed) (string, bool) {
+	switch value := speed.Value.(type) {
+	case *euroscope.AssignedSpeed_Knots:
+		return fmt.Sprintf("%d KT", value.Knots), value.Knots > 0
+	case *euroscope.AssignedSpeed_MachThousandths:
+		if value.MachThousandths == 0 {
+			return "", false
+		}
+		formatted := strings.TrimRight(fmt.Sprintf("%.3f", float64(value.MachThousandths)/1000), "0")
+		return "M" + strings.TrimSuffix(formatted, "."), true
+	default:
+		return "", false
+	}
 }
 
 type Message = shared.Message[euroscope.EventType]

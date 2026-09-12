@@ -233,6 +233,19 @@ namespace FlightStrips::flightplan {
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
+		if ((dataType == EuroScopePlugIn::CTR_DATA_TYPE_SPEED || dataType == EuroScopePlugIn::CTR_DATA_TYPE_MACH) &&
+			m_websocketService->IsConnected() && flightPlan.GetTrackingControllerIsMe()) {
+			const auto assigned = dataType == EuroScopePlugIn::CTR_DATA_TYPE_SPEED
+				? flightPlan.GetControllerAssignedData().GetAssignedSpeed()
+				: flightPlan.GetControllerAssignedData().GetAssignedMach();
+			if (assigned > 0) {
+				const auto value = dataType == EuroScopePlugIn::CTR_DATA_TYPE_SPEED
+					? AMANAssignedSpeed{static_cast<unsigned int>(assigned), std::nullopt}
+					: AMANAssignedSpeed{std::nullopt, static_cast<unsigned int>(assigned)};
+				m_websocketService->SendEvent(AMANRouteFactEvent(callsign, value, CurrentUtcTimestamp()));
+			}
+			return;
+		}
         if (dataType == EuroScopePlugIn::CTR_DATA_TYPE_DIRECT_TO) {
             auto& plan = m_flightPlans.try_emplace(callsign).first->second;
             const auto directTo = NormalizeDirectToFix(flightPlan.GetControllerAssignedData().GetDirectToPointName());

@@ -181,6 +181,11 @@ namespace FlightStrips::websocket::protobuf {
             data->set_kind(value.data.kind);
             if (value.data.direct_to_fix.has_value()) data->set_direct_to_fix(*value.data.direct_to_fix);
             data->set_observed_at(value.data.observed_at);
+			if (value.data.assigned_speed.has_value()) {
+				auto* assignedSpeed = data->mutable_assigned_speed();
+				if (value.data.assigned_speed->knots.has_value()) assignedSpeed->set_knots(*value.data.assigned_speed->knots);
+				if (value.data.assigned_speed->mach_thousandths.has_value()) assignedSpeed->set_mach_thousandths(*value.data.assigned_speed->mach_thousandths);
+			}
             break;
         }
         ENCODE_TWO(EVENT_CONTROLLER_ONLINE, ControllerOnlineEvent, controller_online, position, callsign)

@@ -32,6 +32,19 @@ TEST(ProtoCodecTest, SerializesLoginPayloadWithoutASeparateTypeHeader) {
     EXPECT_EQ(envelope.login().local_ip(), "127.0.0.1");
 }
 
+TEST(ProtoCodecTest, SerializesAssignedSpeedAsTypedOneof) {
+    const AMANRouteFactEvent event("SAS123", AMANAssignedSpeed{std::nullopt, 750}, "2026-08-20T11:59:00Z");
+
+    const auto bytes = protobuf::Serialize(event);
+    protobuf::wire::Envelope envelope;
+
+    ASSERT_TRUE(protobuf::ParseEnvelope(bytes, envelope));
+    ASSERT_TRUE(envelope.aman_route_fact().data().has_assigned_speed());
+    const auto& speed = envelope.aman_route_fact().data().assigned_speed();
+    EXPECT_EQ(speed.value_case(), protobuf::wire::AssignedSpeed::kMachThousandths);
+    EXPECT_EQ(speed.mach_thousandths(), 750);
+}
+
 TEST(ProtoCodecTest, DecodesBackendEventFromOneofPayload) {
     protobuf::wire::Envelope envelope;
     auto* payload = envelope.mutable_cdm_update();

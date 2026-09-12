@@ -492,6 +492,8 @@ func (hub *Hub) refreshAMANCoordination(airport string) {
 	}
 }
 
+func (hub *Hub) RefreshAMANCoordination(airport string) { hub.refreshAMANCoordination(airport) }
+
 func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.TacticalStripPayload {
 	aircraft := ""
 	if ts.Aircraft != nil {

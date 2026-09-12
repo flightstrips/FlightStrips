@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.20.1...docs/v0.21.0) (2026-09-12)
+
+
+### Features
+
+* **aman:** add offline VATSIM replay controls ([#714](https://github.com/flightstrips/FlightStrips/issues/714)) ([9971d54](https://github.com/flightstrips/FlightStrips/commit/9971d5454110ea645ebd7b2c1f4922ac2eea34bf))
+
 ## [0.20.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.20.0...docs/v0.20.1) (2026-09-08)
 
 

@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.4.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.3.0...frontend/v1.4.0) (2026-09-12)
+
+
+### Features
+
+* **aman:** add ACC sequence emphasis ([#684](https://github.com/flightstrips/FlightStrips/issues/684)) ([fc4de8c](https://github.com/flightstrips/FlightStrips/commit/fc4de8cace644fe299fe13c628cc799195d43d6f))
+* **aman:** add active runway timelines ([#678](https://github.com/flightstrips/FlightStrips/issues/678)) ([b396c1b](https://github.com/flightstrips/FlightStrips/commit/b396c1bfa92e8dac95b735e70b2f01075f5aea1e))
+* **aman:** add authoritative flight recompute command ([#656](https://github.com/flightstrips/FlightStrips/issues/656)) ([dd0635a](https://github.com/flightstrips/FlightStrips/commit/dd0635a6052b918f37a00556bdd0aecd2168248b))
+* **aman:** add authorized runway settings controls ([#699](https://github.com/flightstrips/FlightStrips/issues/699)) ([d50e2f6](https://github.com/flightstrips/FlightStrips/commit/d50e2f67e00db251f32d60ceb3352cbc9edfd747))
+* **aman:** add compact aircraft target primitive ([#645](https://github.com/flightstrips/FlightStrips/issues/645)) ([c11222a](https://github.com/flightstrips/FlightStrips/commit/c11222a426b1774069e8e7c21654b06d686f0986))
+* **aman:** add confirmed audited flight removal ([#704](https://github.com/flightstrips/FlightStrips/issues/704)) ([b2c3bdd](https://github.com/flightstrips/FlightStrips/commit/b2c3bdd3c33779bd5b771caa78f011a968c4b9b8))
+* **aman:** add confirmed missed approach action ([#701](https://github.com/flightstrips/FlightStrips/issues/701)) ([61b7509](https://github.com/flightstrips/FlightStrips/commit/61b7509da02780bcf1fec6e096d9e833080abb5a))
+* **aman:** add DSEQ transport and controls ([#687](https://github.com/flightstrips/FlightStrips/issues/687)) ([8d1c2ac](https://github.com/flightstrips/FlightStrips/commit/8d1c2ac394379115161e0547f1b1968030fb1479))
+* **aman:** add feeder-fix ETA state ([#633](https://github.com/flightstrips/FlightStrips/issues/633)) ([383cec0](https://github.com/flightstrips/FlightStrips/commit/383cec05939b4002daf6c9117248ace36e666fe5))
+* **aman:** add GAP command transport ([#693](https://github.com/flightstrips/FlightStrips/issues/693)) ([22fe1a8](https://github.com/flightstrips/FlightStrips/commit/22fe1a834921a02c2ce1a53f74b932599f0aead1))
+* **aman:** add GAP controls and timeline rendering ([#697](https://github.com/flightstrips/FlightStrips/issues/697)) ([bab70cf](https://github.com/flightstrips/FlightStrips/commit/bab70cfba133b39ad7b52ec027a443002c248cb8))
+* **aman:** add local target field preferences ([#650](https://github.com/flightstrips/FlightStrips/issues/650)) ([7cafc6e](https://github.com/flightstrips/FlightStrips/commit/7cafc6ee054d64ca284999f4aedef50bf00d23e0))
+* **aman:** add local timeline selection ([#665](https://github.com/flightstrips/FlightStrips/issues/665)) ([cbadfa5](https://github.com/flightstrips/FlightStrips/commit/cbadfa5325286f7bda9b02ad9429eb27259d8adb))
+* **aman:** add manual feeder ETA commands ([#651](https://github.com/flightstrips/FlightStrips/issues/651)) ([505f422](https://github.com/flightstrips/FlightStrips/commit/505f4226840742605469649ba80b88f1e988d164))
+* **aman:** add offline VATSIM replay controls ([#714](https://github.com/flightstrips/FlightStrips/issues/714)) ([9971d54](https://github.com/flightstrips/FlightStrips/commit/9971d5454110ea645ebd7b2c1f4922ac2eea34bf))
+* **aman:** add paired FMP timelines ([#675](https://github.com/flightstrips/FlightStrips/issues/675)) ([36f69f0](https://github.com/flightstrips/FlightStrips/commit/36f69f06b6832719103e549af58fae32332c2712))
+* **aman:** add protected flight runway changes ([#661](https://github.com/flightstrips/FlightStrips/issues/661)) ([51e3513](https://github.com/flightstrips/FlightStrips/commit/51e35136048c4498e8291410dde7a29be6884286))
+* **aman:** add shared UTC timeline axis ([#668](https://github.com/flightstrips/FlightStrips/issues/668)) ([8248607](https://github.com/flightstrips/FlightStrips/commit/8248607549acb1de48360b125b063433b29b5dda))
+* **aman:** align responsive settings header ([#696](https://github.com/flightstrips/FlightStrips/issues/696)) ([dd132d0](https://github.com/flightstrips/FlightStrips/commit/dd132d0718e14f804cdfa39cd73444e1f8f8bf3d))
+* **aman:** expose explicit terminal identities ([#631](https://github.com/flightstrips/FlightStrips/issues/631)) ([86b7ae9](https://github.com/flightstrips/FlightStrips/commit/86b7ae9ae26fde23165519825e064a6946192d89))
+* **aman:** expose holding information read model ([#625](https://github.com/flightstrips/FlightStrips/issues/625)) ([b1dd381](https://github.com/flightstrips/FlightStrips/commit/b1dd381939e673d429cccf26d158c38bb4e919bb))
+* **aman:** integrate aircraft flight details ([#653](https://github.com/flightstrips/FlightStrips/issues/653)) ([7099723](https://github.com/flightstrips/FlightStrips/commit/7099723ff610cfa849d616e2480a18da501a5a43))
+* **aman:** introduce MAESTRO TMT workspace shell ([#659](https://github.com/flightstrips/FlightStrips/issues/659)) ([edf2feb](https://github.com/flightstrips/FlightStrips/commit/edf2febc5d22eab411809b22b12750ae98790591))
+* **aman:** make holding graph accessible ([#630](https://github.com/flightstrips/FlightStrips/issues/630)) ([8ee49fb](https://github.com/flightstrips/FlightStrips/commit/8ee49fbe98b1b0fbdcbb94a76b30c23f45623cfd))
+* **aman:** navigate warnings to affected flights ([#683](https://github.com/flightstrips/FlightStrips/issues/683)) ([20af880](https://github.com/flightstrips/FlightStrips/commit/20af880232e598b649f25a8d975326d547229080))
+* **aman:** position holding graph entries ([#627](https://github.com/flightstrips/FlightStrips/issues/627)) ([3bb043d](https://github.com/flightstrips/FlightStrips/commit/3bb043d2cb702941ee7ade4aa41235c7d1d476e6))
+* **aman:** project active runway set to V1 ([#649](https://github.com/flightstrips/FlightStrips/issues/649)) ([9c1be50](https://github.com/flightstrips/FlightStrips/commit/9c1be50cad066b7983da4672923854dfb272a6df))
+* **aman:** project authoritative header state ([#690](https://github.com/flightstrips/FlightStrips/issues/690)) ([496786a](https://github.com/flightstrips/FlightStrips/commit/496786a51d1b79dc92b573920e4c3ba64d736f94))
+* **aman:** publish current warnings in V1 state ([#673](https://github.com/flightstrips/FlightStrips/issues/673)) ([6190fd3](https://github.com/flightstrips/FlightStrips/commit/6190fd3d0c3fde6d27bbc8c4fafe9d88b132aacc))
+* **aman:** render holding information graph ([#629](https://github.com/flightstrips/FlightStrips/issues/629)) ([b762804](https://github.com/flightstrips/FlightStrips/commit/b76280400e7c37c11e041824e995d898566f3655))
+* **aman:** show current warnings ([#679](https://github.com/flightstrips/FlightStrips/issues/679)) ([13bafa1](https://github.com/flightstrips/FlightStrips/commit/13bafa16915a0783c623a5a3a357e478f4135900))
+* **capacity:** add Extra Flight controls and overlays ([#711](https://github.com/flightstrips/FlightStrips/issues/711)) ([b4db593](https://github.com/flightstrips/FlightStrips/commit/b4db5939f780cd321cf52a2e7b4b5905b09bcf12))
+* **closure:** add runway closure controls and overlays ([#706](https://github.com/flightstrips/FlightStrips/issues/706)) ([5227b6d](https://github.com/flightstrips/FlightStrips/commit/5227b6dd64c5b58ac6525d2d11ddb5bd59fa87ab))
+* **coordination:** add controller decision inbox ([#702](https://github.com/flightstrips/FlightStrips/issues/702)) ([89f5604](https://github.com/flightstrips/FlightStrips/commit/89f56048ea9dc480214f950ecd61fcfa682490a9))
+* **coordination:** add FMP request dialog ([#698](https://github.com/flightstrips/FlightStrips/issues/698)) ([c8ee934](https://github.com/flightstrips/FlightStrips/commit/c8ee934d3d4f333b0756d386d8f91d033171d9df))
+* **coordination:** correlate accepted requests with clearances ([#709](https://github.com/flightstrips/FlightStrips/issues/709)) ([f228c04](https://github.com/flightstrips/FlightStrips/commit/f228c047e0697fedbff8a3171349bb751f4ee5bd))
+* **tma:** publish AMAN freeze protection ([#669](https://github.com/flightstrips/FlightStrips/issues/669)) ([b4acf3c](https://github.com/flightstrips/FlightStrips/commit/b4acf3cd2ee4a94c300d762cc64a8e26ffabe1e8))
+
 ## [1.3.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.2.2...frontend/v1.3.0) (2026-09-11)
 
 

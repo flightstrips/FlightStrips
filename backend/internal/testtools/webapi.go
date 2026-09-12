@@ -25,6 +25,42 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/test/sat/scenarios", a.authenticated(a.handleScenarios))
 	mux.HandleFunc("/test/sat/scenarios/", a.authenticated(a.handleScenario))
 	mux.HandleFunc("/test/sat/blocks", a.authenticated(a.handleBlocks))
+	mux.HandleFunc("/test/replay/status", a.authenticated(a.handleReplayStatus))
+	mux.HandleFunc("/test/replay", a.authenticated(a.handleReplay))
+}
+
+func (a *WebAPI) handleReplayStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	writeJSON(w, http.StatusOK, a.service.ReplayStatus())
+}
+func (a *WebAPI) handleReplay(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var request struct {
+		Command   string  `json:"command"`
+		Directory string  `json:"directory"`
+		Speed     float64 `json:"speed"`
+	}
+	if err := decodeJSON(r, &request); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	var err error
+	if request.Command == "load" {
+		err = a.service.LoadReplay(r.Context(), request.Directory)
+	} else {
+		err = a.service.ReplayCommand(r.Context(), request.Command, request.Speed)
+	}
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, a.service.ReplayStatus())
 }
 
 func (a *WebAPI) authenticated(next http.HandlerFunc) http.HandlerFunc {

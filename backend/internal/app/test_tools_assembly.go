@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testtools"
 	"FlightStrips/internal/vatsim"
+	"context"
 )
 
 type testToolsAssembly struct {
@@ -21,6 +22,9 @@ type testToolsAssemblyDependencies struct {
 	core                            coreRepositories
 	stripDeleter                    testtools.StripDeleter
 	clock                           *testtools.Clock
+	amanObserver                    interface{ Publish(context.Context) error }
+	amanReconciler                  interface{ Reconcile(context.Context) }
+	replayRoot                      string
 	euroscope                       *euroscope.Hub
 	enableStandAssignmentESMessages bool
 }
@@ -34,7 +38,7 @@ func assembleTestTools(enabled bool, deps testToolsAssemblyDependencies) testToo
 	}
 
 	service := testtools.NewService(testtools.ServiceConfig{
-		Source: deps.source, Reconciler: deps.reconciler,
+		Source: deps.source, Reconciler: deps.reconciler, AMANObserver: deps.amanObserver, AMANReconciler: deps.amanReconciler, ReplayRoot: deps.replayRoot,
 		Departures: deps.sat.departures, Arrivals: deps.sat.arrivals,
 		Allocations: deps.sat.allocations, Sessions: deps.core.sessions, Strips: deps.core.strips,
 		StripDeleter: deps.stripDeleter,

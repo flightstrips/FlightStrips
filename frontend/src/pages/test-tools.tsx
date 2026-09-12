@@ -45,6 +45,7 @@ type Status = {
   sat: { enabled: boolean; ready: boolean; reason?: string };
 };
 type ScenarioState = { scenarios: Scenario[]; blocks: StandBlock[]; simulated_time: string };
+type ReplayStatus = { directory: string; files: { name: string; index: number }[]; index: number; speed: number; playing: boolean; simulated_time: string };
 
 const emptyForm = {
   preset: "departure" as Scenario["preset"],
@@ -99,6 +100,8 @@ export default function TestToolsPage() {
   const [blockReason, setBlockReason] = useState("Local test console");
   const [manualStands, setManualStands] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [replay, setReplay] = useState<ReplayStatus | null>(null);
+  const [replayDirectory, setReplayDirectory] = useState("recordings");
 
   const authorizedFetch = useCallback(async (path: string, init?: RequestInit) => {
     const token = await getAccessTokenSilently();
@@ -122,6 +125,8 @@ export default function TestToolsPage() {
     try {
       const value = await authorizedFetch("/api/test/status") as Status;
       setStatus(value);
+      const replayStatus = await authorizedFetch("/api/test/replay/status") as Partial<ReplayStatus> | null;
+      setReplay(replayStatus ? {...replayStatus, files: replayStatus.files ?? [], speed: replayStatus.speed ?? 1, index: replayStatus.index ?? 0, playing: replayStatus.playing ?? false} as ReplayStatus : null);
       setNotAvailable(false);
       setStatusError("");
       setSessionID(current => current || value.sessions[0]?.id || 0);
@@ -135,6 +140,21 @@ export default function TestToolsPage() {
       }
     }
   }, [authorizedFetch]);
+
+  const replayAction = useCallback(async (command: string, extra: Record<string, unknown> = {}) => {
+    setBusy(true);
+    try { const value = await authorizedFetch("/api/test/replay", {method: "POST", body: JSON.stringify({command, ...extra})}) as ReplayStatus; setReplay(value); toast.success(command === "load" ? "Recording loaded" : `Replay ${command}`); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Replay action failed"); }
+    finally { setBusy(false); }
+  }, [authorizedFetch]);
+
+  useEffect(() => {
+    if (!replay?.playing) return;
+    const timer = window.setInterval(async () => {
+      try { setReplay(await authorizedFetch("/api/test/replay/status") as ReplayStatus); } catch { /* the action path reports actionable errors */ }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [authorizedFetch, replay?.playing]);
 
   const loadState = useCallback(async () => {
     if (!sessionID || !status?.sat.ready) return;
@@ -245,6 +265,19 @@ export default function TestToolsPage() {
             </Button>
           </div>
         </header>
+
+        <section className="grid gap-3 rounded-xl border border-cyan-900/70 bg-slate-900 p-5">
+          <div><h2 className="font-semibold text-cyan-200">Offline VATSIM / AMAN replay</h2><p className="text-sm text-slate-400">Feeds saved VATSIM v3 snapshots through the normal reconciliation and authenticated AMAN WebSocket.</p></div>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="Recording directory"><input className={`${inputClass} min-w-[20rem]`} value={replayDirectory} onChange={event => setReplayDirectory(event.target.value)} placeholder="C:\\flightstrips\\recordings" /></Field>
+            <Button disabled={busy} onClick={() => void replayAction("load", {directory: replayDirectory})}>Load</Button>
+            <Button variant="outline" disabled={busy || !replay} onClick={() => void replayAction(replay?.playing ? "pause" : "play")}>{replay?.playing ? "Pause" : "Play"}</Button>
+            <Button variant="outline" disabled={busy || !replay} onClick={() => void replayAction("step")}>Step</Button>
+            <Button variant="outline" disabled={busy || !replay} onClick={() => void replayAction("reset")}>Reset</Button>
+            <Field label="Speed"><select className={inputClass} value={replay?.speed ?? 1} onChange={event => void replayAction("speed", {speed: Number(event.target.value)})}><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="10">10×</option></select></Field>
+          </div>
+          {replay && <p className="text-xs text-slate-400">{replay.directory || "No directory loaded"} · snapshot {Math.min(replay.index + 1, replay.files?.length ?? 0)} / {replay.files?.length ?? 0} · {replay.simulated_time ? new Date(replay.simulated_time).toISOString() : "—"}</p>}
+        </section>
 
         {!status.sat.ready && (
           <div className="flex gap-3 rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-100">

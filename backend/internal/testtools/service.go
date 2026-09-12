@@ -9,6 +9,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,17 +118,26 @@ type StripDeleter interface {
 }
 
 type Service struct {
-	source       *vatsim.SyntheticSource
-	reconciler   *vatsim.Reconciler
-	departures   *services.DepartureLifecycleService
-	arrivals     *services.ArrivalLifecycleService
-	allocations  *services.StandAllocationService
-	sessions     repository.SessionRepository
-	strips       repository.StripRepository
-	stripDeleter StripDeleter
-	assignments  repository.StandAssignmentRepository
-	stands       *sat.StandCapabilityRegistry
-	clock        *Clock
+	source         *vatsim.SyntheticSource
+	reconciler     *vatsim.Reconciler
+	departures     *services.DepartureLifecycleService
+	arrivals       *services.ArrivalLifecycleService
+	allocations    *services.StandAllocationService
+	sessions       repository.SessionRepository
+	strips         repository.StripRepository
+	stripDeleter   StripDeleter
+	assignments    repository.StandAssignmentRepository
+	stands         *sat.StandCapabilityRegistry
+	clock          *Clock
+	amanObserver   interface{ Publish(context.Context) error }
+	amanReconciler interface{ Reconcile(context.Context) }
+	replayDir      string
+	replayFiles    []string
+	replayIndex    int
+	replaySpeed    float64
+	replayPlaying  bool
+	replayCancel   context.CancelFunc
+	replayRoot     string
 
 	operations sync.Mutex
 	mu         sync.RWMutex
@@ -133,17 +146,20 @@ type Service struct {
 }
 
 type ServiceConfig struct {
-	Source       *vatsim.SyntheticSource
-	Reconciler   *vatsim.Reconciler
-	Departures   *services.DepartureLifecycleService
-	Arrivals     *services.ArrivalLifecycleService
-	Allocations  *services.StandAllocationService
-	Sessions     repository.SessionRepository
-	Strips       repository.StripRepository
-	StripDeleter StripDeleter
-	Assignments  repository.StandAssignmentRepository
-	Stands       *sat.StandCapabilityRegistry
-	Clock        *Clock
+	Source         *vatsim.SyntheticSource
+	Reconciler     *vatsim.Reconciler
+	Departures     *services.DepartureLifecycleService
+	Arrivals       *services.ArrivalLifecycleService
+	Allocations    *services.StandAllocationService
+	Sessions       repository.SessionRepository
+	Strips         repository.StripRepository
+	StripDeleter   StripDeleter
+	Assignments    repository.StandAssignmentRepository
+	Stands         *sat.StandCapabilityRegistry
+	Clock          *Clock
+	AMANObserver   interface{ Publish(context.Context) error }
+	AMANReconciler interface{ Reconcile(context.Context) }
+	ReplayRoot     string
 }
 
 func NewService(cfg ServiceConfig) *Service {
@@ -152,8 +168,240 @@ func NewService(cfg ServiceConfig) *Service {
 		arrivals: cfg.Arrivals, allocations: cfg.Allocations, sessions: cfg.Sessions,
 		strips: cfg.Strips, stripDeleter: cfg.StripDeleter,
 		assignments: cfg.Assignments, stands: cfg.Stands,
-		clock: cfg.Clock, scenarios: make(map[string]*Scenario), nextCID: testCIDBase,
+		clock: cfg.Clock, amanObserver: cfg.AMANObserver, amanReconciler: cfg.AMANReconciler, replaySpeed: 1, scenarios: make(map[string]*Scenario), nextCID: testCIDBase,
+		replayRoot: filepath.Clean(cfg.ReplayRoot),
 	}
+}
+
+type ReplayFile struct {
+	Name  string `json:"name"`
+	Index int    `json:"index"`
+}
+type ReplayStatus struct {
+	Directory     string       `json:"directory"`
+	Files         []ReplayFile `json:"files"`
+	Index         int          `json:"index"`
+	Speed         float64      `json:"speed"`
+	Playing       bool         `json:"playing"`
+	SimulatedTime time.Time    `json:"simulated_time"`
+}
+
+func (s *Service) ReplayStatus() ReplayStatus {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	files := make([]ReplayFile, len(s.replayFiles))
+	for i, p := range s.replayFiles {
+		files[i] = ReplayFile{filepath.Base(p), i}
+	}
+	return ReplayStatus{s.replayDir, files, s.replayIndex, s.replaySpeed, s.replayPlaying, s.Now()}
+}
+
+func replayFiles(root, path string) ([]string, error) {
+	path = filepath.Clean(strings.TrimSpace(path))
+	root = filepath.Clean(strings.TrimSpace(root))
+	if root == "" || root == "." {
+		return nil, fmt.Errorf("%w: recording root is not configured", ErrInvalid)
+	}
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid recording root", ErrInvalid)
+	}
+	path, err = filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid recording directory", ErrInvalid)
+	}
+	rootReal, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return nil, fmt.Errorf("%w: recording root is unavailable", ErrInvalid)
+	}
+	pathReal, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: recording directory is unavailable", ErrInvalid)
+	}
+	rel, err := filepath.Rel(rootReal, pathReal)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil, fmt.Errorf("%w: recording directory must be inside the configured recording root", ErrInvalid)
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("%w: recording directory is not a directory", ErrInvalid)
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	result := []string{}
+	for _, e := range entries {
+		entryInfo, infoErr := e.Info()
+		if infoErr != nil {
+			return nil, fmt.Errorf("%w: cannot inspect %s", ErrInvalid, e.Name())
+		}
+		if !e.IsDir() && entryInfo.Mode()&os.ModeSymlink == 0 && strings.EqualFold(filepath.Ext(e.Name()), ".json") {
+			result = append(result, filepath.Join(path, e.Name()))
+		}
+	}
+	for _, path := range result {
+		file, openErr := os.Open(path)
+		if openErr != nil {
+			return nil, fmt.Errorf("%w: cannot open %s: %v", ErrInvalid, filepath.Base(path), openErr)
+		}
+		decodeErr := vatsim.NewSnapshotReplaySource().Load(io.LimitReader(file, 20<<20), time.Now().UTC())
+		file.Close()
+		if decodeErr != nil {
+			return nil, fmt.Errorf("%w: invalid JSON snapshot %s", ErrInvalid, filepath.Base(path))
+		}
+	}
+	sort.Strings(result)
+	if len(result) == 0 {
+		return nil, fmt.Errorf("%w: no .json recording snapshots found", ErrInvalid)
+	}
+	return result, nil
+}
+
+func (s *Service) LoadReplay(ctx context.Context, path string) error {
+	if s == nil || s.source == nil || s.clock == nil {
+		return ErrUnavailable
+	}
+	files, err := replayFiles(s.replayRoot, path)
+	if err != nil {
+		return err
+	}
+	s.operations.Lock()
+	defer s.operations.Unlock()
+	s.stopReplayLocked()
+	s.source.ResetReplay()
+	s.mu.Lock()
+	s.replayDir = filepath.Clean(path)
+	s.replayFiles = files
+	s.replayIndex = 0
+	s.replayPlaying = false
+	s.replaySpeed = 1
+	s.mu.Unlock()
+	return s.replayStep(ctx)
+}
+func (s *Service) ReplayCommand(ctx context.Context, command string, speed float64) error {
+	if s == nil || s.source == nil || s.clock == nil {
+		return ErrUnavailable
+	}
+	s.operations.Lock()
+	defer s.operations.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch command {
+	case "play":
+		if len(s.replayFiles) == 0 {
+			return fmt.Errorf("%w: load a recording directory first", ErrInvalid)
+		}
+		if s.replayPlaying {
+			return nil
+		}
+		s.replayPlaying = true
+		var playbackCtx context.Context
+		playbackCtx, s.replayCancel = context.WithCancel(context.Background())
+		go s.runReplay(playbackCtx)
+		return nil
+	case "pause":
+		s.replayPlaying = false
+		s.stopReplayLocked()
+		return nil
+	case "speed":
+		if speed < 0.1 || speed > 100 {
+			return fmt.Errorf("%w: speed must be between 0.1 and 100", ErrInvalid)
+		}
+		s.replaySpeed = speed
+		return nil
+	case "reset":
+		s.stopReplayLocked()
+		s.source.ResetReplay()
+		s.replayIndex = 0
+		s.replayPlaying = false
+		s.clock.Reset()
+		return s.replayStep(ctx)
+	case "step":
+		return s.replayStep(ctx)
+	default:
+		return fmt.Errorf("%w: unknown replay command", ErrInvalid)
+	}
+}
+func (s *Service) stopReplayLocked() {
+	if s.replayCancel != nil {
+		s.replayCancel()
+		s.replayCancel = nil
+	}
+}
+func (s *Service) runReplay(ctx context.Context) {
+	for {
+		s.mu.RLock()
+		speed := s.replaySpeed
+		playing := s.replayPlaying
+		s.mu.RUnlock()
+		if !playing {
+			return
+		}
+		delay := time.Duration(float64(time.Second) / speed)
+		if delay < 10*time.Millisecond {
+			delay = 10 * time.Millisecond
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		s.operations.Lock()
+		s.mu.Lock()
+		if !s.replayPlaying {
+			s.mu.Unlock()
+			s.operations.Unlock()
+			return
+		}
+		err := s.replayStep(ctx)
+		if err != nil {
+			s.replayPlaying = false
+		}
+		s.mu.Unlock()
+		s.operations.Unlock()
+		if err != nil {
+			return
+		}
+	}
+}
+func (s *Service) replayStep(ctx context.Context) error {
+	if s.replayIndex >= len(s.replayFiles) {
+		s.replayPlaying = false
+		return nil
+	}
+	path := s.replayFiles[s.replayIndex]
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err = s.source.LoadReplay(f, s.Now()); err != nil {
+		s.replayPlaying = false
+		return fmt.Errorf("load %s: %w", filepath.Base(path), err)
+	}
+	if timestamp := s.source.Snapshot().Timestamp; !timestamp.IsZero() {
+		s.clock.Set(timestamp)
+	}
+	if s.reconciler != nil {
+		if err = s.reconciler.Reconcile(ctx); err != nil {
+			s.replayPlaying = false
+			return fmt.Errorf("reconcile replay snapshot: %w", err)
+		}
+	}
+	if s.amanObserver != nil {
+		if err = s.amanObserver.Publish(ctx); err != nil {
+			s.replayPlaying = false
+			return fmt.Errorf("publish AMAN replay: %w", err)
+		}
+	}
+	if s.amanReconciler != nil {
+		s.amanReconciler.Reconcile(ctx)
+	}
+	s.replayIndex++
+	return nil
 }
 
 func (s *Service) Available() bool {

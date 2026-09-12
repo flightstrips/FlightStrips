@@ -2,6 +2,8 @@ package vatsim
 
 import (
 	"context"
+	"errors"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -12,10 +14,26 @@ import (
 type SyntheticSource struct {
 	mu      sync.RWMutex
 	flights map[string]Flight
+	replay  *SnapshotReplaySource
 }
 
 func NewSyntheticSource() *SyntheticSource {
-	return &SyntheticSource{flights: make(map[string]Flight)}
+	return &SyntheticSource{flights: make(map[string]Flight), replay: NewSnapshotReplaySource()}
+}
+
+// LoadReplay adds one saved VATSIM generation to this offline source. The
+// synthetic records remain available for the SAT test console as well.
+func (s *SyntheticSource) LoadReplay(reader io.Reader, receivedAt time.Time) error {
+	if s == nil {
+		return errors.New("synthetic source is unavailable")
+	}
+	return s.replay.Load(reader, receivedAt)
+}
+
+func (s *SyntheticSource) ResetReplay() {
+	if s != nil {
+		s.replay.Reset()
+	}
 }
 
 func (s *SyntheticSource) Upsert(flight Flight) {
@@ -56,12 +74,22 @@ func (s *SyntheticSource) Snapshot() Snapshot {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	now := time.Now().UTC()
+	replayed := s.replay.Snapshot()
+	now := replayed.Timestamp
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
 
 	byCallsign := make(map[string]Flight, len(s.flights))
 	byCID := make(map[string]Flight, len(s.flights))
 	for callsign, flight := range s.flights {
 		byCallsign[callsign] = flight
+		if current, ok := byCID[flight.CID]; !ok || preferFlight(flight, current) {
+			byCID[flight.CID] = flight
+		}
+	}
+	for _, flight := range replayed.Flights() {
+		byCallsign[flight.Callsign] = flight
 		if current, ok := byCID[flight.CID]; !ok || preferFlight(flight, current) {
 			byCID[flight.CID] = flight
 		}

@@ -27,6 +27,8 @@ const (
 	AMANRemoveGapType             EventType = "aman.remove_gap"
 	AMANPlaceFlightAtTimeType     EventType = "aman.place_flight_at_time"
 	AMANSubmitCoordinationType    EventType = "aman.submit_coordination_request"
+	AMANAcceptCoordinationType    EventType = "aman.accept_coordination_request"
+	AMANRejectCoordinationType    EventType = "aman.reject_coordination_request"
 	AMANCoordinationStateType     EventType = "aman.coordination_state"
 )
 
@@ -132,6 +134,18 @@ type AMANSubmitCoordinationMessage struct {
 	Type    EventType                     `json:"type"`
 	Version int                           `json:"version"`
 	Data    AMANSubmitCoordinationRequest `json:"data"`
+}
+
+type AMANCoordinationDecisionRequest struct {
+	AMANCommandMeta
+	RequestID string `json:"request_id"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+type AMANCoordinationDecisionMessage struct {
+	Type    EventType                       `json:"type"`
+	Version int                             `json:"version"`
+	Data    AMANCoordinationDecisionRequest `json:"data"`
 }
 
 type AMANCoordinationStateEvent struct {

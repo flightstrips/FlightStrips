@@ -75,6 +75,39 @@ func handleAMANSubmitCoordination(ctx context.Context, client *Client, message M
 		return rejectAMAN(ctx, client, wire.Data.CommandID, aman.SequenceRevision(result.Revision), err)
 	}
 	client.hub.sendAMANCoordinationSnapshot(ctx, client)
+	client.hub.refreshAMANCoordination(auth.Airport)
+	return nil
+}
+
+func handleAMANAcceptCoordination(ctx context.Context, client *Client, message Message) error {
+	return handleAMANCoordinationDecision(ctx, client, message, events.AMANAcceptCoordinationType, true)
+}
+
+func handleAMANRejectCoordination(ctx context.Context, client *Client, message Message) error {
+	return handleAMANCoordinationDecision(ctx, client, message, events.AMANRejectCoordinationType, false)
+}
+
+func handleAMANCoordinationDecision(ctx context.Context, client *Client, message Message, eventType events.EventType, accept bool) error {
+	var wire events.AMANCoordinationDecisionMessage
+	if err := decodeAMANMessage(message, eventType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	auth, err := client.hub.coordinationContext(client)
+	if err != nil {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+	}
+	command := coordinationrequest.DecisionCommand{CommandID: wire.Data.CommandID, ExpectedRevision: wire.Data.ExpectedRevision, RequestID: coordinationrequest.RequestID(wire.Data.RequestID), Reason: wire.Data.Reason}
+	var result coordinationrequest.CommitResult
+	if accept {
+		result, err = client.hub.amanCoordination.Accept(ctx, auth, command)
+	} else {
+		result, err = client.hub.amanCoordination.Reject(ctx, auth, command)
+	}
+	if err != nil {
+		return rejectAMAN(ctx, client, wire.Data.CommandID, aman.SequenceRevision(result.Revision), err)
+	}
+	client.hub.sendAMANCoordinationSnapshot(ctx, client)
+	client.hub.refreshAMANCoordination(auth.Airport)
 	return nil
 }
 
@@ -358,24 +391,32 @@ func runAMANCommand(ctx context.Context, client *Client, commandID string, execu
 }
 
 func (hub *Hub) amanContext(client *Client) (aman.CommandContext, error) {
-	if client == nil || !client.IsAuthenticated() {
-		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires an authenticated session"}
+	auth, err := hub.coordinationContext(client)
+	if err != nil {
+		return aman.CommandContext{}, err
 	}
-	if client.readOnly {
-		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "observer clients cannot mutate AMAN state"}
-	}
-	if !hub.amanMutations {
-		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN controller mutations are read-only in the current rollout mode"}
-	}
-	role := hub.amanRole(client.position)
 	if !hub.hasAMANFMPAuthority(client) {
 		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires a configured FMP role"}
 	}
+	return aman.CommandContext{Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, nil
+}
+
+func (hub *Hub) coordinationContext(client *Client) (coordinationrequest.CommandContext, error) {
+	if client == nil || !client.IsAuthenticated() {
+		return coordinationrequest.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires an authenticated session"}
+	}
+	if client.readOnly {
+		return coordinationrequest.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "observer clients cannot mutate AMAN state"}
+	}
+	if !hub.amanMutations {
+		return coordinationrequest.CommandContext{}, &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN controller mutations are read-only in the current rollout mode"}
+	}
+	role := hub.amanRole(client.position)
 	now := time.Now
 	if hub.amanNow != nil {
 		now = hub.amanNow
 	}
-	return aman.CommandContext{Airport: client.airport, Actor: client.GetCid(), Role: role, ReceivedAt: now().UTC()}, nil
+	return coordinationrequest.CommandContext{Airport: client.airport, Actor: client.GetCid(), Role: role, ReceivedAt: now().UTC()}, nil
 }
 
 func (hub *Hub) amanRole(position string) string {
@@ -436,7 +477,7 @@ func stableAMANError(err error) *aman.DomainError {
 	if errors.Is(err, coordinationrequest.ErrRevisionConflict) {
 		return &aman.DomainError{Class: aman.ErrorRevisionConflict, Message: err.Error()}
 	}
-	if errors.Is(err, coordinationrequest.ErrUnauthorized) {
+	if errors.Is(err, coordinationrequest.ErrUnauthorized) || errors.Is(err, coordinationrequest.ErrWrongRecipient) {
 		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: err.Error()}
 	}
 	return &aman.DomainError{Class: aman.ErrorDependencyUnavailable, Message: "AMAN command could not be completed"}

@@ -83,6 +83,18 @@ describe("AMAN command store", () => {
     expect(store.getState().amanState?.coordination_requests?.[0]).toMatchObject({recipient_status: "unassigned", state: "pending"});
   });
 
+  it("allows controller decisions against the coordination revision without FMP authority", () => {
+    client._emit(EventType.FrontendInitial, initialSnapshot(false));
+    client._emit(EventType.FrontendAMANCoordinationState, {type: "aman.coordination_state", version: 1, revision: 4, requests: []});
+    const commandID = store.getState().sendAMANCommand({type: "aman.reject_coordination_request", request_id: "request-1", reason: "Traffic"});
+    expect(client.send).toHaveBeenLastCalledWith({
+      type: "aman.reject_coordination_request", version: 1,
+      data: {command_id: commandID, expected_revision: 4, request_id: "request-1", reason: "Traffic"},
+    });
+    client._emit(EventType.FrontendAMANCoordinationState, {type: "aman.coordination_state", version: 1, revision: 5, requests: []});
+    expect(store.getState().amanPendingCommands[commandID!]).toBeUndefined();
+  });
+
   it("replaces current warnings, retains the snapshot through reconnect, and clears empty or omitted snapshots", () => {
     const warned = replacement(8);
     warned.data.warnings = [{

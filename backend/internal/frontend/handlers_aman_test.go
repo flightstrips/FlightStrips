@@ -80,13 +80,35 @@ func TestAMANCoordinationTransportKeepsKindsDistinctAndReturnsFMPProjection(t *t
 	}
 }
 
+func TestAMANCoordinationDecisionUsesAuthoritativeControllerContext(t *testing.T) {
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+	request, err := coordinationrequest.New("submit", "EKCH", "flight-1", "EKCH_APP", "7654321", "EKCH_FMH", coordinationrequest.KindSpeed, coordinationrequest.Payload{Speed: &coordinationrequest.SpeedPayload{Requested: "220 KT"}}, now.Add(-time.Minute))
+	require.NoError(t, err)
+	repository := &coordinationRecorder{request: request}
+	service := coordinationrequest.NewService(repository, coordinationOwner{}, []string{"EKCH_FMH"})
+	hub, client := newAMANCommandTestClient(&recordingAMANCommandService{}, now)
+	hub.amanCoordination = service
+	hub.amanRoleForPosition = func(string) string { return "EKCH_APP" }
+	hub.handlers.Add(frontendEvents.AMANAcceptCoordinationType, handleAMANAcceptCoordination)
+	payload := `{"type":"aman.accept_coordination_request","version":1,"data":{"command_id":"accept-1","expected_revision":1,"request_id":"coordination-request/submit"}}`
+
+	require.NoError(t, hub.handlers.Handle(context.Background(), client, Message{Type: frontendEvents.AMANAcceptCoordinationType, Message: []byte(payload)}))
+	require.Equal(t, "1234567", repository.decision.Actor)
+	require.Equal(t, "EKCH_APP", repository.decision.Role)
+	require.Equal(t, coordinationrequest.StateAccepted, repository.decision.AfterState)
+	require.Empty(t, (<-client.send).(frontendEvents.AMANCoordinationStateEvent).Requests)
+}
+
 type coordinationOwner struct{}
 
 func (coordinationOwner) TrackingController(context.Context, string, coordinationrequest.FlightID) (coordinationrequest.ControllerID, error) {
 	return "EKCH_APP", nil
 }
 
-type coordinationRecorder struct{ request coordinationrequest.Request }
+type coordinationRecorder struct {
+	request  coordinationrequest.Request
+	decision coordinationrequest.Decision
+}
 
 func (r *coordinationRecorder) Submit(_ context.Context, request coordinationrequest.Request, revision uint64) (coordinationrequest.CommitResult, error) {
 	r.request = request
@@ -95,8 +117,13 @@ func (r *coordinationRecorder) Submit(_ context.Context, request coordinationreq
 func (r *coordinationRecorder) Get(context.Context, string, coordinationrequest.RequestID) (coordinationrequest.Request, error) {
 	return r.request, nil
 }
-func (r *coordinationRecorder) Decide(context.Context, coordinationrequest.RequestID, coordinationrequest.Decision, uint64) (coordinationrequest.CommitResult, error) {
-	return coordinationrequest.CommitResult{}, nil
+func (r *coordinationRecorder) Decide(_ context.Context, _ coordinationrequest.RequestID, decision coordinationrequest.Decision, revision uint64) (coordinationrequest.CommitResult, error) {
+	r.decision = decision
+	resolved, err := r.request.Decide(decision.CommandID, decision.Actor, decision.Role, decision.AuthoritativeRecipient, decision.AfterState, decision.Reason, decision.ReceivedAt)
+	if err == nil {
+		r.request = resolved
+	}
+	return coordinationrequest.CommitResult{Request: resolved, Revision: revision + 1}, err
 }
 func (r *coordinationRecorder) TransferPending(context.Context, coordinationrequest.OwnershipFact) (coordinationrequest.TransferResult, error) {
 	return coordinationrequest.TransferResult{}, nil

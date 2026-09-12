@@ -76,6 +76,7 @@ type Hub struct {
 	unregister    chan *Client
 	cidOnline     chan cidOnlineMessage
 	cidDisconnect chan cidDisconnectMessage
+	amanRefresh   chan string
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
 
@@ -185,6 +186,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		unregister:            make(chan *Client),
 		cidOnline:             make(chan cidOnlineMessage),
 		cidDisconnect:         make(chan cidDisconnectMessage),
+		amanRefresh:           make(chan string, 16),
 		clients:               make(map[*Client]bool),
 		handlers:              handlers,
 		stripService:          deps.Strips,
@@ -207,6 +209,8 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	}
 	if deps.AMANCoordination != nil {
 		hub.handlers.Add(frontend.AMANSubmitCoordinationType, handleAMANSubmitCoordination)
+		hub.handlers.Add(frontend.AMANAcceptCoordinationType, handleAMANAcceptCoordination)
+		hub.handlers.Add(frontend.AMANRejectCoordinationType, handleAMANRejectCoordination)
 	}
 
 	return hub, nil
@@ -461,7 +465,7 @@ func (hub *Hub) sendInitialEvent(ctx context.Context, client *Client) {
 			client.Enqueue(amanState)
 		}
 	}
-	if hub.amanCoordination != nil && hub.hasAMANFMPAuthority(client) {
+	if hub.amanCoordination != nil {
 		hub.sendAMANCoordinationSnapshot(ctx, client)
 	}
 	if cachedAtis != nil {
@@ -478,6 +482,14 @@ func (hub *Hub) sendAMANCoordinationSnapshot(ctx context.Context, client *Client
 		return
 	}
 	client.Enqueue(frontend.AMANCoordinationStateEvent{Type: frontend.AMANCoordinationStateType, Version: frontend.AMANWireVersion, Revision: result.Revision, Requests: result.Requests})
+}
+
+func (hub *Hub) refreshAMANCoordination(airport string) {
+	select {
+	case hub.amanRefresh <- airport:
+	default:
+		slog.Warn("Dropping duplicate AMAN coordination refresh", slog.String("airport", airport))
+	}
 }
 
 func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.TacticalStripPayload {
@@ -1558,6 +1570,12 @@ func (hub *Hub) Run(ctx context.Context) {
 			hub.handleCidOnline(msg)
 		case msg := <-hub.cidDisconnect:
 			hub.handleCidDisconnect(msg.cid)
+		case airport := <-hub.amanRefresh:
+			for client := range hub.clients {
+				if client.airport == airport {
+					hub.sendAMANCoordinationSnapshot(ctx, client)
+				}
+			}
 		case message := <-hub.send:
 			// Sampled before the fan-out so the depth reflects the backlog this
 			// dispatch is working through rather than what arrived during it.

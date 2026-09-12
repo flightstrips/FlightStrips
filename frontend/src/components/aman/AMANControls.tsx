@@ -122,8 +122,6 @@ export function AMANControlsView({
   const [rateRunwayGroupID, setRateRunwayGroupID] = useState("");
   const [rate, setRate] = useState("30");
   const [rateEffectiveAt, setRateEffectiveAt] = useState("");
-  const [selectionRunwayGroupID, setSelectionRunwayGroupID] = useState("");
-  const [selectionEffectiveAt, setSelectionEffectiveAt] = useState("");
   const [manualETA, setManualETA] = useState("");
   const [feederDialogOpen, setFeederDialogOpen] = useState(false);
   const [runwayDialogOpen, setRunwayDialogOpen] = useState(false);
@@ -142,9 +140,6 @@ export function AMANControlsView({
   const effectiveRateRunwayGroupID = state?.runway_groups.some((group) => group.id === rateRunwayGroupID)
     ? rateRunwayGroupID
     : selectedRunwayGroup?.id ?? state?.runway_groups[0]?.id ?? "";
-  const effectiveSelectionRunwayGroupID = state?.runway_groups.some((group) => group.id === selectionRunwayGroupID)
-    ? selectionRunwayGroupID
-    : selectedRunwayGroup?.id ?? state?.runway_groups[0]?.id ?? "";
   const gateReason = getAMANMutationBlockReason({
     state,
     connection_state: connectionState,
@@ -155,7 +150,6 @@ export function AMANControlsView({
   const pending = Object.values(pendingCommands);
   const rejections = Object.values(commandRejections);
   const ratePending = pending.some((command) => command.type === "aman.set_rate");
-  const selectionPending = pending.some((command) => command.type === "aman.select_runway_group");
   const feederPending = pending.some((command) => command.flight_id === effectiveSelectedFlightID
     && (command.type === "aman.set_manual_feeder_eta" || command.type === "aman.reset_manual_feeder_eta"));
   const feederRejection = rejections.find((rejection) => rejection.command_type === "aman.set_manual_feeder_eta"
@@ -246,20 +240,6 @@ export function AMANControlsView({
             Protected traffic retained on its committed runway: {protectedRunwayConflicts.map((flight) => flight.callsign).join(", ")}
           </div>
         )}
-        <div className="flex flex-wrap gap-2">
-          <select aria-label="Runway group selection" className={inputClass} value={effectiveSelectionRunwayGroupID} onChange={(event) => setSelectionRunwayGroupID(event.target.value)}>
-            {state?.runway_groups.map((group) => <option key={group.id} value={group.id}>{group.id}</option>)}
-          </select>
-          <input aria-label="Runway selection effective at" className={inputClass} type="datetime-local" value={selectionEffectiveAt} onChange={(event) => setSelectionEffectiveAt(event.target.value)} />
-          <button className={controlClass} disabled={disabled || selectionPending || !effectiveSelectionRunwayGroupID} onClick={() => {
-            if (state) onCommand({type: "aman.select_runway_group", runway_group_id: effectiveSelectionRunwayGroupID, effective_at: state.generated_at});
-          }}>Select runway now</button>
-          <button className={controlClass} disabled={disabled || selectionPending || !effectiveSelectionRunwayGroupID || !toWireTimestamp(selectionEffectiveAt)} onClick={() => {
-            const effectiveAt = toWireTimestamp(selectionEffectiveAt);
-            if (effectiveAt) onCommand({type: "aman.select_runway_group", runway_group_id: effectiveSelectionRunwayGroupID, effective_at: effectiveAt});
-          }}>Schedule runway selection</button>
-        </div>
-        {selectionPending && <div role="status" className="text-sm text-sky-200">Runway selection pending</div>}
       </div>
 
       <div className="grid gap-2 rounded border border-slate-600 p-3">

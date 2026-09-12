@@ -7,8 +7,13 @@ import type {AMANState, AMANStateEvent} from "@/api/aman";
 import {AMANBoardView, type AMANBoardViewProps} from "./AMANBoard";
 
 const boardStore = vi.hoisted(() => ({
+  amanCommandRejections: {},
+  amanFMPAuthority: true,
+  amanPendingCommands: {},
   amanSelectedView: "ALL",
   position: "",
+  readOnly: false,
+  sendAMANCommand: vi.fn(),
   setAMANSelectedView: vi.fn(),
 }));
 
@@ -61,7 +66,7 @@ describe("complete AMAN timeline and strips", () => {
     const marker = screen.getByRole("button", {name: /Select SAS123; Stable; current delay G01/});
 
     expect(screen.getByText("EKCH")).toBeInTheDocument();
-    expect(screen.getByText("ARRIVAL-22 : 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "ARRIVAL-22"})).toBeInTheDocument();
     expect(marker).toHaveTextContent("SAS123");
     expect(marker).toHaveTextContent("G01");
     expect(marker).not.toHaveTextContent("Prediction");
@@ -226,7 +231,8 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("holding-timeline-lane-ROSBI")).toBeInTheDocument();
     expect(screen.queryByTestId("holding-timeline-lane-TIDVU")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", {name: /ARRIVAL-04/}));
+    fireEvent.click(screen.getByRole("button", {name: "ARRIVAL-22"}));
+    fireEvent.click(screen.getByRole("checkbox", {name: /ARRIVAL-04/}));
     expect(screen.getByTestId("holding-timeline-lane-TIDVU")).toBeInTheDocument();
     expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();
   });

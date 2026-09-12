@@ -359,6 +359,7 @@ export type AMANCommandType =
   | "aman.remove_flight"
   | "aman.set_rate"
   | "aman.select_runway_group"
+  | "aman.set_active_runway_groups"
   | "aman.accept_teta"
   | "aman.keep_fpl_eta"
   | "aman.set_manual_eta"
@@ -386,6 +387,7 @@ export type AMANCommandIntent =
   | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; flight_id: string}
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
+  | {type: "aman.set_active_runway_groups"; runway_group_ids: string[]}
   | {type: "aman.set_manual_eta"; flight_id: string; manual_eta: string}
   | {type: "aman.set_manual_feeder_eta"; flight_id: string; feeder_eta: string}
   | {type: "aman.reset_manual_feeder_eta"; flight_id: string}
@@ -417,6 +419,9 @@ export interface AMANPendingCommand {
   expected_revision: number;
   flight_id?: string;
   runway_group_id?: string;
+  runway_group_ids?: string[];
+  arrivals_per_hour?: number;
+  effective_at?: string;
 }
 
 export type AMANConnectionState = "connected" | "disconnected";

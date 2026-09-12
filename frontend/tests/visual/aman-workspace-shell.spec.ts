@@ -43,10 +43,16 @@ test("gives useful extra width to MAESTRO on a wide viewport", async ({page}) =>
 test("shows keyboard focus and selected state without relying on color", async ({page}) => {
   await page.setViewportSize(VIEWPORTS[0]);
   await page.goto("/visual-tests/aman-workspace-shell-preview.html");
+  const riu = page.getByRole("button", {name: "ARRIVAL-22", exact: true});
+  const rate = page.getByRole("button", {name: "ARRIVAL-22: 30/h"});
   const maestro = page.getByRole("button", {name: "Open target information preferences"});
   const all = page.getByRole("button", {name: "ALL"});
 
   await page.keyboard.press("Tab");
+  await expect(riu).toBeFocused();
+  await expect(riu).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("Tab");
+  await expect(rate).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(maestro).toBeFocused();
   await expect(maestro).toHaveCSS("outline-style", "solid");

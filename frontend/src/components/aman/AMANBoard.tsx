@@ -225,6 +225,11 @@ export function AMANBoardView({
   const position = useWebSocketStore((value) => value.position);
   const storedACCView = useWebSocketStore((value) => value.amanSelectedView);
   const setStoredACCView = useWebSocketStore((value) => value.setAMANSelectedView);
+  const readOnly = useWebSocketStore((value) => value.readOnly);
+  const hasFMPAuthority = useWebSocketStore((value) => value.amanFMPAuthority);
+  const pendingCommands = useWebSocketStore((value) => value.amanPendingCommands);
+  const commandRejections = useWebSocketStore((value) => value.amanCommandRejections);
+  const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
   const preferredACCView = readAMANViewPreference();
   const accView = suppliedACCView ?? resolveAMANView(
     state,
@@ -346,11 +351,16 @@ export function AMANBoardView({
     <section aria-label="AMAN presentation" className="grid h-full min-h-[640px] w-full max-w-[1440px] grid-rows-[clamp(7.5rem,13.333%,9rem)_minmax(0,1fr)_3.5rem] overflow-hidden bg-[#505052] text-white shadow-2xl">
       <AMANSettingsHeader
         connectionState={connectionState}
+        commandRejections={commandRejections}
+        hasFMPAuthority={hasFMPAuthority}
+        onCommand={sendCommand}
         onOpenTargetPreferences={() => setTargetPreferencesOpen(true)}
         onRunwayGroupViewChange={setSelectedRunwayGroupID}
         onViewChange={setView}
         presentationStatus={presentationStatus}
-        runwayGroupOptions={lanes.map((lane) => ({id: lane.id, label: `${lane.label} : ${lane.flights.length}`}))}
+        pendingCommands={pendingCommands}
+        readOnly={readOnly}
+        runwayGroupOptions={state.runway_groups.map((group) => ({id: group.id, label: `${group.id} : ${state.flights.filter((flight) => flight.runway_group_id === group.id).length}`}))}
         secondaryAccessory={<><span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>{view === "acc" && <label className="flex items-center gap-1 text-xs font-bold text-black">Emphasis<select aria-label="ACC STAR family emphasis" className="border border-black bg-white px-1" onChange={(event) => setACCView(event.target.value)} value={accView}><option value={AMAN_ALL_VIEW}>ALL</option>{[...availableAMANViews(state)].map((family) => <option key={family} value={family}>{family}</option>)}</select></label>}</>}
         selectedRunwayGroupID={activeRunwayLane?.id ?? null}
         state={state}

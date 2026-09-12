@@ -27,6 +27,7 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANRemoveFlightType, handleAMANRemoveFlight)
 	handlers.Add(events.AMANSetRateType, handleAMANSetRate)
 	handlers.Add(events.AMANSelectRunwayGroupType, handleAMANSelectRunwayGroup)
+	handlers.Add(events.AMANSetActiveRunwayGroupsType, handleAMANSetActiveRunwayGroups)
 	handlers.Add(events.AMANAcceptTETAType, handleAMANAcceptTETA)
 	handlers.Add(events.AMANKeepFPLETAType, handleAMANKeepFPLETA)
 	handlers.Add(events.AMANSetManualETAType, handleAMANSetManualETA)
@@ -227,6 +228,21 @@ func handleAMANSelectRunwayGroup(ctx context.Context, client *Client, message Me
 	}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.SelectRunwayGroup(ctx, auth, command)
+	})
+}
+
+func handleAMANSetActiveRunwayGroups(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANSetActiveRunwayGroupsMessage
+	if err := decodeAMANMessage(message, events.AMANSetActiveRunwayGroupsType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	ids := make([]aman.RunwayGroupID, len(wire.Data.RunwayGroupIDs))
+	for index, id := range wire.Data.RunwayGroupIDs {
+		ids[index] = aman.RunwayGroupID(id)
+	}
+	command := aman.SetActiveRunwayGroupsCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupIDs: ids}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.SetActiveRunwayGroups(ctx, auth, command)
 	})
 }
 

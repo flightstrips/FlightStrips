@@ -170,23 +170,6 @@ describe("AMAN FMP controls", () => {
     expect(screen.getByRole("button", {name: "Set feeder ETA"})).toBeDisabled();
   });
 
-  it("keeps runway selection separate from arrival-rate changes", () => {
-    const multiRunwayState = state();
-    multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
-    const {onCommand} = renderControls({state: multiRunwayState});
-
-    fireEvent.change(screen.getByLabelText("Runway group selection"), {target: {value: "ARRIVAL-04"}});
-    fireEvent.change(screen.getByLabelText("Runway selection effective at"), {target: {value: "2026-07-22T12:05"}});
-    fireEvent.click(screen.getByRole("button", {name: "Schedule runway selection"}));
-
-    expect(onCommand).toHaveBeenCalledWith({
-      type: "aman.select_runway_group",
-      runway_group_id: "ARRIVAL-04",
-      effective_at: new Date("2026-07-22T12:05").toISOString(),
-    });
-    expect(screen.getByText(/Active:/)).toHaveTextContent("ARRIVAL-22");
-  });
-
   it("represents every active runway without treating traffic on another active runway as a conflict", () => {
     const multiRunwayState = state();
     multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
@@ -198,19 +181,6 @@ describe("AMAN FMP controls", () => {
 
     expect(screen.getByText(/Active:/)).toHaveTextContent("ARRIVAL-22, ARRIVAL-04");
     expect(screen.queryByText(/Protected traffic retained/)).not.toBeInTheDocument();
-  });
-
-  it("uses authoritative state time for immediate runway selection", () => {
-    const multiRunwayState = state();
-    multiRunwayState.runway_groups.push({id: "ARRIVAL-04", selected: false, selection_schedule: []});
-    const {onCommand} = renderControls({state: multiRunwayState});
-    fireEvent.change(screen.getByLabelText("Runway group selection"), {target: {value: "ARRIVAL-04"}});
-
-    fireEvent.click(screen.getByRole("button", {name: "Select runway now"}));
-
-    expect(onCommand).toHaveBeenCalledWith({
-      type: "aman.select_runway_group", runway_group_id: "ARRIVAL-04", effective_at: multiRunwayState.generated_at,
-    });
   });
 
   it("keeps runway-group rate controls available without active flights", () => {
@@ -283,21 +253,14 @@ describe("AMAN FMP controls", () => {
     expect(screen.queryByText(/LEGACY-STAR|LEGACY-FEEDER/)).not.toBeInTheDocument();
   });
 
-  it("shows independent pending and rejection states for runway and rate controls", () => {
+  it("shows pending state for the remaining detailed rate control", () => {
     renderControls({
       pendingCommands: {
-        runway: {command_id: "runway", type: "aman.select_runway_group", expected_revision: 7, runway_group_id: "ARRIVAL-22"},
         rate: {command_id: "rate", type: "aman.set_rate", expected_revision: 7, runway_group_id: "ARRIVAL-22"},
-      },
-      commandRejections: {
-        rejected: {command_id: "rejected", command_type: "aman.select_runway_group", code: "invalid_transition", message: "protected traffic conflicts", current_revision: 8, retryable: false},
       },
     });
 
-    expect(screen.getByText("Runway selection pending")).toBeInTheDocument();
     expect(screen.getByText("Arrival rate change pending")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Runway selection rejected");
-    expect(screen.getByRole("button", {name: "Select runway now"})).toBeDisabled();
     expect(screen.getByRole("button", {name: "Set arrival rate"})).toBeDisabled();
   });
 

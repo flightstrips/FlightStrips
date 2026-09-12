@@ -25,12 +25,15 @@ export default function AMAN() {
   const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [coordinationCommandID, setCoordinationCommandID] = useState<string | null>(null);
+  const [missedApproachCommandID, setMissedApproachCommandID] = useState<string | null>(null);
   const controlsRef = useRef<HTMLElement>(null);
   const stateAtMount = useRef(state);
 
   const effectiveSelectedFlightID = state?.flights.some((flight) => flight.flight_id === selectedFlightID)
     ? selectedFlightID
     : state?.flights[0]?.flight_id ?? null;
+  const selectedFlight = state?.flights.find((flight) => flight.flight_id === effectiveSelectedFlightID) ?? null;
+  const mutationBlockReason = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority});
 
   const navigateToWarningFlight = (flightID: string): boolean => {
     if (!state?.flights.some((flight) => flight.flight_id === flightID)) return false;
@@ -57,6 +60,7 @@ export default function AMAN() {
             onOpenControls={() => controlsRef.current?.focus()}
             onOpenFlightDetails={(flightID) => {
               setSelectedFlightID(flightID);
+              setMissedApproachCommandID(null);
               setDetailOpen(true);
             }}
             onSelectFlight={setSelectedFlightID}
@@ -85,7 +89,19 @@ export default function AMAN() {
         )}
         tmtRef={controlsRef}
       />
-      {detailOpen && state !== null && effectiveSelectedFlightID !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} coordination={hasFMPAuthority ? {
+      {detailOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} missedApproach={{
+        blockReason: mutationBlockReason,
+        confirmation: selectedFlight.go_around_confirmation,
+        confirmed: selectedFlight.lifecycle_state === "go_around",
+        pending: missedApproachCommandID !== null && pendingCommands[missedApproachCommandID] !== undefined,
+        rejection: missedApproachCommandID ? commandRejections[missedApproachCommandID] ?? null : null,
+        onConfirm: () => {
+          const detection = selectedFlight.go_around_confirmation;
+          setMissedApproachCommandID(sendCommand(detection?.status === "pending"
+            ? {type: "aman.confirm_go_around", flight_id: effectiveSelectedFlightID, episode_id: detection.episode_id}
+            : {type: "aman.report_go_around", flight_id: effectiveSelectedFlightID, detected_at: new Date().toISOString()}));
+        },
+      }} coordination={hasFMPAuthority ? {
         requests: (state.coordination_requests ?? []).filter((request) => request.flight_id === effectiveSelectedFlightID),
         canSubmit: getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority}) === null,
         submitting: coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined,

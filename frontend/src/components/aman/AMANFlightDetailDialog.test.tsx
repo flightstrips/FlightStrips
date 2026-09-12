@@ -5,10 +5,10 @@ import {describe, expect, it, vi} from "vitest";
 import type {AMANFlightDetail} from "@/api/aman-detail";
 import {AMANFlightDetailDialog} from "./AMANFlightDetailDialog";
 
-const {fetchDetail} = vi.hoisted(() => ({fetchDetail: vi.fn()}));
+const {fetchDetail, getToken} = vi.hoisted(() => ({fetchDetail: vi.fn(), getToken: vi.fn().mockResolvedValue("token")}));
 
 vi.mock("@auth0/auth0-react", () => ({
-  useAuth0: () => ({getAccessTokenSilently: vi.fn().mockResolvedValue("token")}),
+  useAuth0: () => ({getAccessTokenSilently: getToken}),
 }));
 
 vi.mock("@/api/aman-detail", async (importOriginal) => ({
@@ -83,5 +83,57 @@ describe("AMAN flight detail dialog integration", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("Freeze protectionTMA entry protection");
     expect(screen.getByText("TMA entry protection")).toHaveClass("bg-cyan-950", "text-cyan-200");
+  });
+
+  it("requires confirmation before reporting a missed approach", async () => {
+    fetchDetail.mockResolvedValue(detail);
+    const onConfirm = vi.fn();
+    render(<AMANFlightDetailDialog airport="EKCH" flightID="flight-123" missedApproach={{
+      blockReason: null, confirmation: null, confirmed: false, pending: false, onConfirm,
+    }} onClose={vi.fn()} />);
+    await screen.findByRole("dialog", {name: /SAS123/});
+    await screen.findByText("A320");
+
+    fireEvent.click(screen.getByRole("button", {name: "Missed approach"}));
+    const confirm = screen.getByRole("button", {name: "Confirm missed approach"});
+    expect(confirm).toHaveFocus();
+    expect(screen.getByText(/configured ten-minute go-around model/)).toBeInTheDocument();
+    expect(onConfirm).not.toHaveBeenCalled();
+    fireEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledOnce();
+  });
+
+  it("shows detector evidence and pending, rejected, and server-confirmed states without relying on color", async () => {
+    fetchDetail.mockResolvedValue(detail);
+    const props = {
+      blockReason: null, confirmed: false, pending: true, onConfirm: vi.fn(),
+      confirmation: {episode_id: "episode-1", reason: "climb", detected_at: "2026-07-22T12:00:00.000Z", evidence_times: ["2026-07-22T11:59:58.000Z"], status: "pending" as const, decided_at: null, decided_by: null, decision_command_id: null, resulting_revision: null},
+      rejection: {code: "stale_revision", message: "state changed"},
+    };
+    const {rerender} = render(<AMANFlightDetailDialog airport="EKCH" flightID="flight-123" missedApproach={props} onClose={vi.fn()} />);
+    await screen.findByRole("dialog", {name: /SAS123/});
+    await screen.findByText("A320");
+    fireEvent.click(screen.getByRole("button", {name: "Missed approach"}));
+
+    expect(screen.getByText(/detected episode at 12:00:00 from 1 surveillance samples/)).toBeInTheDocument();
+    expect(screen.getByRole("status", {name: ""})).toHaveTextContent("Waiting for server confirmation");
+    expect(screen.getByRole("alert")).toHaveTextContent("Rejected: state changed (stale_revision)");
+
+    rerender(<AMANFlightDetailDialog airport="EKCH" flightID="flight-123" missedApproach={{...props, pending: false, rejection: null, confirmed: true}} onClose={vi.fn()} />);
+    expect(screen.getByText(/Server confirmed missed approach/)).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Missed approach confirmed"})).toBeDisabled();
+  });
+
+  it("exposes the server-backed authorization reason and disables confirmation", async () => {
+    fetchDetail.mockResolvedValue(detail);
+    render(<AMANFlightDetailDialog airport="EKCH" flightID="flight-123" missedApproach={{
+      blockReason: "unauthorized", confirmation: null, confirmed: false, pending: false, onConfirm: vi.fn(),
+    }} onClose={vi.fn()} />);
+    await screen.findByRole("dialog", {name: /SAS123/});
+    await screen.findByText("A320");
+    fireEvent.click(screen.getByRole("button", {name: "Missed approach"}));
+
+    expect(screen.getByText("Unavailable: FMP authority is required.")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Confirm missed approach"})).toBeDisabled();
   });
 });

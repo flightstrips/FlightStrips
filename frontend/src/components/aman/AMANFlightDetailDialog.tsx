@@ -4,7 +4,7 @@ import {divIcon, type LatLngTuple} from "leaflet";
 import {CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
-import type {AMANCoordinationRequest} from "@/api/aman";
+import type {AMANCoordinationRequest, AMANGoAroundConfirmation, AMANMutationBlockReason} from "@/api/aman";
 import {fetchAMANFlightDetail, type AMANCalculation, type AMANCalculationLeg, type AMANCalculationSegment, type AMANFlightDetail} from "@/api/aman-detail";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {AMANCoordinationRequestDialog} from "./AMANCoordinationRequestDialog";
@@ -15,6 +15,56 @@ function displayTime(value: string | null | undefined): string {
   if (!value) return "Unavailable";
   const parsed = new Date(value);
   return Number.isNaN(parsed.valueOf()) ? value : parsed.toISOString().slice(11, 19);
+}
+
+const mutationBlockLabels: Record<AMANMutationBlockReason, string> = {
+  no_state: "Current AMAN state is unavailable.",
+  disconnected: "AMAN is disconnected.",
+  observer: "Observer mode cannot report a missed approach.",
+  unauthorized: "FMP authority is required.",
+  not_authoritative: "AMAN is not in authoritative mode.",
+  not_ready: "AMAN health is not ready for mutations.",
+};
+
+interface MissedApproachAction {
+  blockReason: AMANMutationBlockReason | null;
+  confirmation: AMANGoAroundConfirmation | null;
+  confirmed: boolean;
+  pending: boolean;
+  rejection?: {code: string; message: string} | null;
+  onConfirm: () => void;
+}
+
+function MissedApproachConfirmation({action, onClose}: {action: MissedApproachAction; onClose: () => void}) {
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => confirmRef.current?.focus(), []);
+  const detected = action.confirmation?.status === "pending" ? action.confirmation : null;
+
+  return <section aria-labelledby="missed-approach-title" className="grid gap-3 border-b border-amber-500 bg-amber-950 px-5 py-4 text-sm text-amber-50">
+    <h2 className="font-semibold" id="missed-approach-title">Confirm missed approach</h2>
+    <p>{detected
+      ? `This confirms the detected episode at ${displayTime(detected.detected_at)} from ${detected.evidence_times.length} surveillance samples.`
+      : "This applies the configured ten-minute go-around model, reinserts the aircraft at the earliest feasible slot, and may shift downstream movable traffic."}</p>
+    <p className="text-xs text-amber-200">The authoritative server applies and audits the change. There is no client-side sequence mutation.</p>
+    {action.blockReason && <div role="status">Unavailable: {mutationBlockLabels[action.blockReason]}</div>}
+    {action.pending && <div aria-live="polite" role="status">Waiting for server confirmation</div>}
+    {action.rejection && <div className="rounded border border-red-400 bg-red-950 p-2 text-red-100" role="alert">
+      Rejected: {action.rejection.message} ({action.rejection.code})
+    </div>}
+    {action.confirmed && <div aria-live="polite" className="font-semibold text-emerald-200" role="status">
+      Server confirmed missed approach and updated the authoritative sequence.
+    </div>}
+    <div className="flex gap-2">
+      <button
+        className="rounded border border-amber-200 bg-amber-900 px-3 py-1 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={action.blockReason !== null || action.pending || action.confirmed}
+        onClick={action.onConfirm}
+        ref={confirmRef}
+        type="button"
+      >Confirm missed approach</button>
+      <button className="rounded border border-amber-200 px-3 py-1 disabled:opacity-50" disabled={action.pending} onClick={onClose} type="button">Cancel</button>
+    </div>
+  </section>;
 }
 
 function duration(seconds: number): string {
@@ -196,15 +246,16 @@ function PredictionSections({calculation}: {calculation: AMANCalculation | null}
   return <section className="min-w-0"><h3 className="mb-3 font-semibold">Prediction sections</h3><div className="mb-3 grid gap-3 sm:grid-cols-4 text-sm"><span className="rounded bg-slate-800 p-3">Distance <b>{number(calculation.distance_to_go_nm, " NM")}</b></span><span className="rounded bg-slate-800 p-3">No wind <b>{duration(calculation.no_wind_duration_seconds)}</b></span><span className="rounded bg-slate-800 p-3">Wind model <b>{duration(calculation.duration_seconds)}</b></span><span className="rounded bg-slate-800 p-3">Wind delta <b className={windDelta > 0 ? "text-amber-300" : windDelta < 0 ? "text-emerald-300" : ""}>{windDelta > 0 ? "+" : windDelta < 0 ? "−" : ""}{duration(Math.abs(windDelta))}</b></span></div><LegTable legs={calculation.legs} /><div className="mb-3 mt-6 flex flex-wrap items-end justify-between gap-3"><div><h4 className="font-semibold">Descent-model inner workings</h4><p className="mt-1 text-xs text-slate-400">The phase view groups the persisted model slices; raw mode exposes every individual calculation slice.</p></div><div className="flex overflow-hidden rounded border border-slate-600 text-xs"><button className={traceView === "phases" ? "bg-slate-600 px-3 py-2 text-white" : "bg-slate-900 px-3 py-2 text-slate-300 hover:bg-slate-800"} onClick={() => setTraceView("phases")} type="button">Calculation phases</button><button className={traceView === "raw" ? "bg-slate-600 px-3 py-2 text-white" : "bg-slate-900 px-3 py-2 text-slate-300 hover:bg-slate-800"} onClick={() => setTraceView("raw")} type="button">Raw model segments</button></div></div>{traceView === "phases" ? <PhaseTable legs={calculation.legs} segments={calculation.segments} /> : <SegmentTable legs={calculation.legs} segments={calculation.segments} />}</section>;
 }
 
-export function AMANFlightDetailDialog({airport, flightID, coordination, onClose}: {airport: string; flightID: string; coordination?: {
+export function AMANFlightDetailDialog({airport, flightID, coordination, missedApproach, onClose}: {airport: string; flightID: string; coordination?: {
   requests: AMANCoordinationRequest[]; canSubmit: boolean; submitting: boolean; rejection?: string | null;
   onSubmit: (submission: {kind: "route_direct"; route?: string; direct_to?: string} | {kind: "speed"; requested: string}) => void;
-}; onClose: () => void}) {
+}; missedApproach?: MissedApproachAction; onClose: () => void}) {
   const {getAccessTokenSilently} = useAuth0();
   const [detail, setDetail] = useState<AMANFlightDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [coordinationOpen, setCoordinationOpen] = useState(false);
+  const [missedApproachOpen, setMissedApproachOpen] = useState(false);
   const returnFocusRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const detailKey = useMemo(() => `${airport}/${flightID}`, [airport, flightID]);
 
@@ -231,7 +282,8 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, onClose
 
   return <Dialog onOpenChange={(open) => !open && onClose()} open>
     <DialogContent className="flex max-h-[calc(100dvh-2.5rem)] w-[calc(100vw-2.5rem)] max-w-[1400px] flex-col gap-0 overflow-hidden border-slate-500 bg-[#161d27] p-0 text-slate-100 shadow-2xl [&>button]:hidden">
-      <header className="flex items-center justify-between border-b border-slate-600 bg-[#242d3a] px-5 py-3"><div><DialogTitle className="text-left text-lg font-semibold">{title}</DialogTitle><p className="text-xs text-slate-400">On-demand AMAN evidence · state revision {detail?.revision ?? "—"}</p></div><div className="flex gap-2">{coordination && <button className="rounded border border-cyan-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => setCoordinationOpen(true)} type="button">Coordinate</button>}<button className="rounded border border-slate-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={onClose} type="button">Close flight detail</button></div></header>
+      <header className="flex items-center justify-between border-b border-slate-600 bg-[#242d3a] px-5 py-3"><div><DialogTitle className="text-left text-lg font-semibold">{title}</DialogTitle><p className="text-xs text-slate-400">On-demand AMAN evidence · state revision {detail?.revision ?? "—"}</p></div><div className="flex gap-2">{missedApproach && <button className="rounded border border-amber-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" disabled={missedApproach.confirmed} onClick={() => setMissedApproachOpen(true)} type="button">{missedApproach.confirmed ? "Missed approach confirmed" : "Missed approach"}</button>}{coordination && <button className="rounded border border-cyan-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => setCoordinationOpen(true)} type="button">Coordinate</button>}<button className="rounded border border-slate-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={onClose} type="button">Close flight detail</button></div></header>
+      {missedApproachOpen && missedApproach && <MissedApproachConfirmation action={missedApproach} onClose={() => setMissedApproachOpen(false)} />}
       <div className="min-h-0 overflow-x-hidden overflow-y-auto p-3 sm:p-5">
         {loading && <div className="grid min-h-80 place-items-center text-slate-300">Loading current AMAN detail…</div>}
         {error && <div role="alert" className="rounded border border-red-500 bg-red-950 p-4 text-red-100">{error}</div>}

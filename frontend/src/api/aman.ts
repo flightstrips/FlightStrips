@@ -306,7 +306,10 @@ export interface AMANRunwayGroup {
   /** Backend-normalized, canonical [start,end) unions. */
   gaps?: AMANRunwayGap[];
   closures?: AMANRunwayClosure[];
+  capacity_reservations?: AMANCapacityReservation[];
 }
+
+export interface AMANCapacityReservation {id: string; start: string; end: string; label: string; created_at: string; created_by: string}
 
 export interface AMANRunwayGap {
   id: string;
@@ -378,6 +381,8 @@ export type AMANCommandType =
   | "aman.remove_gap"
   | "aman.create_runway_closure"
   | "aman.remove_runway_closure"
+  | "aman.create_capacity_reservation"
+  | "aman.remove_capacity_reservation"
   | "aman.place_flight_at_time"
   | "aman.submit_coordination_request"
   | "aman.accept_coordination_request"
@@ -406,6 +411,8 @@ export type AMANCommandIntent =
   | {type: "aman.remove_gap"; runway_group_id: string; gap_id: string}
   | ({type: "aman.create_runway_closure"; runway_group_id: string; end?: string; reason: string} & ({start: string; after_flight_id?: never} | {after_flight_id: string; start?: never}))
   | {type: "aman.remove_runway_closure"; runway_group_id: string; closure_id: string; reason: string}
+  | {type: "aman.create_capacity_reservation"; runway_group_id: string; after_flight_id: string; label?: string; reason: string}
+  | {type: "aman.remove_capacity_reservation"; runway_group_id: string; reservation_id: string; reason: string}
   | {type: "aman.place_flight_at_time"; flight_id: string; runway_group_id: string; slot_time: string; allow_gap: boolean}
   | {type: "aman.accept_coordination_request" | "aman.reject_coordination_request"; request_id: string; reason?: string}
   | ({type: "aman.submit_coordination_request"; flight_id: string} & (
@@ -600,7 +607,10 @@ function isRunwayGroup(value: unknown): value is AMANRunwayGroup {
     && (value.rate_effective_at === undefined || isTimestamp(value.rate_effective_at))
     && (value.gaps === undefined || (Array.isArray(value.gaps) && value.gaps.every((gap) => isObject(gap)
       && isIdentity(gap.id) && isTimestamp(gap.start) && isTimestamp(gap.end) && Date.parse(gap.start) < Date.parse(gap.end)
-      && isIdentity(gap.label) && isTimestamp(gap.created_at) && isIdentity(gap.created_by))));
+      && isIdentity(gap.label) && isTimestamp(gap.created_at) && isIdentity(gap.created_by))))
+    && (value.capacity_reservations === undefined || (Array.isArray(value.capacity_reservations) && value.capacity_reservations.every((item) => isObject(item)
+      && isIdentity(item.id) && isTimestamp(item.start) && isTimestamp(item.end) && Date.parse(item.start) < Date.parse(item.end)
+      && isIdentity(item.label) && isTimestamp(item.created_at) && isIdentity(item.created_by))));
 }
 
 function hasValidActiveRunwayGroups(data: Record<string, unknown>): boolean {

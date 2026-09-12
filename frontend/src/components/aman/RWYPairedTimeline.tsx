@@ -6,6 +6,7 @@ import {AMANAxisTopPercent, AMANTimelineAxis} from "./AMANTimelineAxis";
 import {buildRWYTimelineLanes, layoutTimelineMarkers, type AMANFlightLane, type AMANTimelineRange} from "./presentation";
 import {RunwayGapOverlay} from "./RunwayGapOverlay";
 import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
+import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
 const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
@@ -27,6 +28,7 @@ function RunwaySide({lane, range, side, placement, renderTarget, status}: {
     <div aria-label={`${lane.id} active runway arrivals`} data-placement={placement} data-testid={`rwy-lane-${lane.id}`} role="list">
       <RunwayGapOverlay gaps={lane.gaps ?? []} range={range} runway={lane.id} />
       <RunwayClosureOverlay closures={lane.closures ?? []} range={range} runway={lane.id} status={status} />
+      <CapacityReservationOverlay range={range} reservations={lane.capacityReservations ?? []} runway={lane.id} status={status} />
       {markers.map((marker) => {
         const top = AMANAxisTopPercent(marker.timestamp, range) ?? 0;
         const offset = -marker.track * TARGET_TRACK_HEIGHT;

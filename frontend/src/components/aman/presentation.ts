@@ -1,4 +1,4 @@
-import type {AMANFlight, AMANRunwayClosure, AMANRunwayGap, AMANState} from "@/api/aman";
+import type {AMANCapacityReservation, AMANFlight, AMANRunwayClosure, AMANRunwayGap, AMANState} from "@/api/aman";
 
 export const AMAN_TIMELINE_MINUTES = 10;
 export const AMAN_MARKER_GAP_PERCENT = 8;
@@ -9,6 +9,7 @@ export interface AMANFlightLane {
   flights: AMANFlight[];
   gaps?: AMANRunwayGap[];
   closures?: AMANRunwayClosure[];
+  capacityReservations?: AMANCapacityReservation[];
 }
 
 export function buildRWYTimelineLanes(state: AMANState): {lanes: AMANFlightLane[]; unavailable: boolean; truncated: boolean} {
@@ -31,10 +32,11 @@ export function buildRWYTimelineLanes(state: AMANState): {lanes: AMANFlightLane[
       flights: orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === group.id)),
       gaps: group.gaps ?? [],
       closures: group.closures ?? [],
+      capacityReservations: group.capacity_reservations ?? [],
     }))
     .sort((left, right) => right.flights.length - left.flights.length || left.configuredIndex - right.configuredIndex);
   return {
-    lanes: lanes.slice(0, 4).map(({id, label, flights, gaps, closures}) => ({id, label, flights, gaps, closures})),
+    lanes: lanes.slice(0, 4).map(({id, label, flights, gaps, closures, capacityReservations}) => ({id, label, flights, gaps, closures, capacityReservations})),
     unavailable: false,
     truncated: lanes.length > 4,
   };
@@ -91,10 +93,11 @@ export function buildAMANLanes(state: AMANState): AMANFlightLane[] {
     flights: orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === groupID)),
     gaps: state.runway_groups.find((group) => group.id === groupID)?.gaps ?? [],
     closures: state.runway_groups.find((group) => group.id === groupID)?.closures ?? [],
+    capacityReservations: state.runway_groups.find((group) => group.id === groupID)?.capacity_reservations ?? [],
   }));
   const unassigned = orderAMANFlights(state.flights.filter((flight) => flight.runway_group_id === null));
   if (unassigned.length > 0) {
-    lanes.push({id: "unassigned", label: "Unassigned runway group", flights: unassigned, gaps: [], closures: []});
+    lanes.push({id: "unassigned", label: "Unassigned runway group", flights: unassigned, gaps: [], closures: [], capacityReservations: []});
   }
   return lanes;
 }

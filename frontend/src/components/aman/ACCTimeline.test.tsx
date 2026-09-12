@@ -31,9 +31,10 @@ describe("ACC timeline", () => {
         flight("clipped", 3, "2026-07-22T10:31:00.000Z"),
         flight("first", 1, "2026-07-22T10:20:00.000Z"),
       ]}
+      runwayGroups={[{id: "A", capacity_reservations: [{id: "extra-1", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:15:00.000Z", label: "FLIGHT", created_at: "2026-07-22T10:00:00.000Z", created_by: "fmp"}]}]}
       range={range}
       renderTarget={(value) => <button type="button">{value.callsign}</button>}
-      status="fresh"
+      status="stale"
     />);
 
     const items = screen.getAllByRole("listitem");
@@ -43,5 +44,6 @@ describe("ACC timeline", () => {
       "2026-07-22T10:10:00.000Z",
     ]);
     expect(screen.queryByText("CLIPPED")).not.toBeInTheDocument();
+    expect(screen.getByRole("note", {name: /Extra Flight FLIGHT.*stale state/})).toBeInTheDocument();
   });
 });

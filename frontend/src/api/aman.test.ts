@@ -42,6 +42,17 @@ describe("AMAN V1 full replacement contract", () => {
     }, meta)).toMatchObject({type: "aman.place_flight_at_time", version: 1, data: {...meta, allow_gap: true}});
   });
 
+  it("keeps Extra Flight commands capacity-only and accepts rolling reservation state", () => {
+    const meta = {command_id: "extra-1", expected_revision: 7};
+    expect(createAMANCommand({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", reason: "medevac"}, meta))
+      .toEqual({type: "aman.create_capacity_reservation", version: 1, data: {...meta, runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", reason: "medevac"}});
+    const event = replacement(8);
+    event.data.runway_groups[0].capacity_reservations = [{id: "extra-1", start: "2026-07-22T10:21:00.000Z", end: "2026-07-22T10:24:00.000Z", label: "FLIGHT", created_at: "2026-07-22T10:00:00.000Z", created_by: "1234567"}];
+    expect(isAMANStateEvent(event)).toBe(true);
+    delete event.data.runway_groups[0].capacity_reservations;
+    expect(isAMANStateEvent(event)).toBe(true);
+  });
+
   it("accepts the shared Go/TypeScript golden fixture", () => {
     expect(isAMANStateEvent(golden)).toBe(true);
   });

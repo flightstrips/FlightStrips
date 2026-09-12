@@ -5,6 +5,7 @@ import {AMANAxisTopPercent, AMANTimelineAxis} from "./AMANTimelineAxis";
 import {layoutTimelineMarkers, type AMANTimelineRange} from "./presentation";
 import {RunwayGapOverlay} from "./RunwayGapOverlay";
 import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
+import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
 const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
@@ -28,6 +29,7 @@ export function ACCTimeline({flights, runwayGroups = [], range, clockMs, current
         <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
         {runwayGroups.map((group) => <RunwayGapOverlay gaps={group.gaps ?? []} key={group.id} range={range} runway={group.id} />)}
         {runwayGroups.map((group) => <RunwayClosureOverlay closures={group.closures ?? []} key={group.id} range={range} runway={group.id} status={status} />)}
+        {runwayGroups.map((group) => <CapacityReservationOverlay key={group.id} range={range} reservations={group.capacity_reservations ?? []} runway={group.id} status={status} />)}
         <div aria-label="ACC arrivals in authoritative order" role="list">
           {markers.map((marker) => {
             const top = AMANAxisTopPercent(marker.timestamp, range) ?? 0;

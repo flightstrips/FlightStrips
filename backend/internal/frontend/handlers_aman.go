@@ -43,6 +43,8 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANRemoveGapType, handleAMANRemoveGap)
 	handlers.Add(events.AMANCreateRunwayClosureType, handleAMANCreateRunwayClosure)
 	handlers.Add(events.AMANRemoveRunwayClosureType, handleAMANRemoveRunwayClosure)
+	handlers.Add(events.AMANCreateCapacityReservationType, handleAMANCreateCapacityReservation)
+	handlers.Add(events.AMANRemoveCapacityReservationType, handleAMANRemoveCapacityReservation)
 	handlers.Add(events.AMANPlaceFlightAtTimeType, handleAMANPlaceFlightAtTime)
 }
 
@@ -191,6 +193,28 @@ func handleAMANRemoveRunwayClosure(ctx context.Context, client *Client, message 
 	command := aman.RemoveRunwayClosureCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), ClosureID: aman.RunwayClosureID(wire.Data.ClosureID), Reason: wire.Data.Reason}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.RemoveRunwayClosure(ctx, auth, command)
+	})
+}
+
+func handleAMANCreateCapacityReservation(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANCreateCapacityReservationMessage
+	if err := decodeAMANMessage(message, events.AMANCreateCapacityReservationType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	command := aman.CreateCapacityReservationCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), AfterFlightID: aman.FlightID(wire.Data.AfterFlightID), Label: wire.Data.Label, Reason: wire.Data.Reason}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.CreateCapacityReservation(ctx, auth, command)
+	})
+}
+
+func handleAMANRemoveCapacityReservation(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANRemoveCapacityReservationMessage
+	if err := decodeAMANMessage(message, events.AMANRemoveCapacityReservationType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	command := aman.RemoveCapacityReservationCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), ReservationID: aman.RunwayCapacityReservationID(wire.Data.ReservationID), Reason: wire.Data.Reason}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.RemoveCapacityReservation(ctx, auth, command)
 	})
 }
 

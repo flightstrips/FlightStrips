@@ -43,6 +43,27 @@ type submitRepository interface {
 	TransferPending(context.Context, OwnershipFact) (TransferResult, error)
 }
 
+type clearanceRepository interface {
+	CorrelateAccepted(context.Context, ClearanceFact) (CommitResult, error)
+}
+
+func (s *Service) ObserveClearance(ctx context.Context, fact ClearanceFact) (CommitResult, error) {
+	if s == nil || s.repository == nil {
+		return CommitResult{}, errors.New("coordination request service is not configured")
+	}
+	repository, ok := s.repository.(clearanceRepository)
+	if !ok {
+		return CommitResult{}, errors.New("coordination clearance correlation is not configured")
+	}
+	result, err := repository.CorrelateAccepted(ctx, fact)
+	if err == nil && result.Request.ID != "" && !result.Duplicate && s.notify != nil {
+		s.notify(fact.Airport)
+	}
+	return result, err
+}
+
+func (s *Service) SetClearanceNotifier(notify func(string)) { s.notify = notify }
+
 type replayRepository interface {
 	ReplayAirport(context.Context, string) ([]Request, error)
 }
@@ -132,6 +153,7 @@ type Service struct {
 	repository submitRepository
 	owners     TrackingControllerResolver
 	fmpRoles   map[string]struct{}
+	notify     func(string)
 }
 
 func NewService(repository submitRepository, owners TrackingControllerResolver, fmpRoles []string) *Service {

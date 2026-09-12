@@ -31,6 +31,28 @@ func TestHandleAMANRouteFactDerivesTrustedConnectionFields(t *testing.T) {
 	require.Equal(t, time.Date(2026, 8, 20, 11, 59, 0, 0, time.UTC), reporter.observedAt)
 }
 
+func TestHandleAMANSpeedFactUsesTrustedConnectionFields(t *testing.T) {
+	reporter := &routeFactReporter{}
+	client := &Client{hub: &Hub{amanRouteFacts: reporter}, session: 42, airport: "EKCH", callsign: "EKCH_A_APP"}
+	payload, err := proto.Marshal(&euroscopeEvents.AMANRouteFactEvent{Version: 1, Data: &euroscopeEvents.AMANRouteFactData{
+		Callsign: "SAS123", Kind: "speed", AssignedSpeed: &euroscopeEvents.AssignedSpeed{
+			Value: &euroscopeEvents.AssignedSpeed_Knots{Knots: 220},
+		}, ObservedAt: "2026-08-20T11:59:00Z",
+	}})
+	require.NoError(t, err)
+	require.NoError(t, handleAMANRouteFact(context.Background(), client, Message{Type: euroscopeEvents.AMANRouteFact, Message: payload}))
+	require.Equal(t, "220 KT", reporter.value)
+	require.Equal(t, "EKCH_A_APP", reporter.controller)
+}
+
+func TestAssignedSpeedValueFormatsMachThousandths(t *testing.T) {
+	value, valid := assignedSpeedValue(&euroscopeEvents.AssignedSpeed{
+		Value: &euroscopeEvents.AssignedSpeed_MachThousandths{MachThousandths: 750},
+	})
+	require.True(t, valid)
+	require.Equal(t, "M0.75", value)
+}
+
 func TestHandleAMANRouteFactRejectsSpoofableOrExtendedContract(t *testing.T) {
 	reporter := &routeFactReporter{}
 	client := &Client{hub: &Hub{amanRouteFacts: reporter}, session: 42, airport: "EKCH", callsign: "EKCH_A_APP"}
@@ -63,10 +85,18 @@ type routeFactReporter struct {
 	airport, callsign, controller string
 	fix                           *string
 	observedAt                    time.Time
+	value                         string
 }
 
 func (r *routeFactReporter) ReportDirectTo(_ context.Context, session int32, airport, callsign, controller string, fix *string, observedAt time.Time) error {
 	r.calls++
 	r.session, r.airport, r.callsign, r.controller, r.fix, r.observedAt = session, airport, callsign, controller, fix, observedAt
+	return nil
+}
+
+func (r *routeFactReporter) ReportSpeed(_ context.Context, session int32, airport, callsign, controller, value string, observedAt time.Time) error {
+	r.calls++
+	r.session, r.airport, r.callsign, r.controller, r.observedAt = session, airport, callsign, controller, observedAt
+	r.value = value
 	return nil
 }

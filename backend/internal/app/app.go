@@ -293,6 +293,11 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		}
 	}
 	var amanRouteFacts euroscope.AMANRouteFactReporter
+	var amanCoordination *coordinationrequest.Service
+	if amanRuntime.Enabled() {
+		repository := coordinationrequest.NewRepository(dbpool)
+		amanCoordination = coordinationrequest.NewService(repository, repository, cfg.AMAN.FMPRoles)
+	}
 	if amanRuntime.Enabled() {
 		repository, repositoryOK := amanDependencies.Repositories.(routefact.Repository)
 		geometry, geometryOK := amanDependencies.NavigationReader.(routefact.GeometryReader)
@@ -300,7 +305,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		reconciler, reconcilerOK := amanDependencies.StateEngine.(routefact.Reconciler)
 		if repositoryOK && geometryOK && publisherOK && reconcilerOK {
 			amanRouteFacts, err = routefact.New(routefact.Dependencies{
-				Repository: repository, Strips: stripRepo, Geometry: geometry, Publisher: publisher, Reconciler: reconciler,
+				Repository: repository, Strips: stripRepo, Geometry: geometry, Publisher: publisher, Reconciler: reconciler, Correlator: amanCoordination,
 			})
 			if err != nil {
 				if closeDB {
@@ -310,11 +315,6 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			}
 		}
 	}
-	var amanCoordination *coordinationrequest.Service
-	if amanRuntime.Enabled() {
-		repository := coordinationrequest.NewRepository(dbpool)
-		amanCoordination = coordinationrequest.NewService(repository, repository, cfg.AMAN.FMPRoles)
-	}
 	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanCoordination, amanRouteFacts, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled)
 	if err != nil {
 		if closeDB {
@@ -323,6 +323,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, err
 	}
 	frontendHub := realtime.frontend
+	if amanCoordination != nil {
+		amanCoordination.SetClearanceNotifier(frontendHub.RefreshAMANCoordination)
+	}
 	euroscopeHub := realtime.euroscope
 	if defaultAMAN.transport != nil {
 		defaultAMAN.transport.setHubs(frontendHub, euroscopeHub)

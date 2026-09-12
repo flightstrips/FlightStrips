@@ -382,6 +382,14 @@ message AMANRouteFactData {
   string kind = 2;
   optional string direct_to_fix = 3;
   string observed_at = 4;
+  AssignedSpeed assigned_speed = 5;
+}
+
+message AssignedSpeed {
+  oneof value {
+    uint32 knots = 1;
+    uint32 mach_thousandths = 2;
+  }
 }
 
 message AMANRouteFactEvent {

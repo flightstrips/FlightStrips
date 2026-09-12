@@ -63,7 +63,7 @@ function FlightStatus({flight}: {flight: AMANFlight}) {
     ? "No accepted direct"
     : flight.route_fact.state === "active"
       ? `Accepted direct ${flight.route_fact.fix}`
-      : `Direct ${flight.route_fact.fix} expired`;
+		  : flight.route_fact.state === "cleared" ? "Direct clearance cleared" : `Direct ${flight.route_fact.fix} expired`;
 
   return (
     <section aria-label={`${flight.callsign} AMAN status`} className="grid gap-2 rounded border border-slate-600 bg-slate-900 p-3 text-sm text-slate-100">

@@ -51,6 +51,13 @@ type OwnershipFact struct {
 	ObservedAt time.Time
 }
 
+type ClearanceFact struct {
+	Airport, FactID, Issuer, Value string
+	FlightID                       FlightID
+	Kind                           Kind
+	ObservedAt                     time.Time
+}
+
 // Repository is the sole persistence owner for coordination request aggregates.
 type Repository struct{ pool *pgxpool.Pool }
 
@@ -169,6 +176,7 @@ func coordinationRevision(requests []Request) uint64 {
 	revision := uint64(len(requests))
 	transfers := make(map[string]struct{})
 	expiries := make(map[string]struct{})
+	clearances := make(map[string]struct{})
 	for _, request := range requests {
 		if request.Decision != nil {
 			revision++
@@ -180,8 +188,88 @@ func coordinationRevision(requests []Request) uint64 {
 		if request.Expiry != nil {
 			expiries[request.Expiry.FactID+"\x00"+fmt.Sprint(request.Expiry.FactRevision)] = struct{}{}
 		}
+		if request.Clearance != nil {
+			clearances[request.Clearance.FactID] = struct{}{}
+		}
 	}
-	return revision + uint64(len(transfers)) + uint64(len(expiries))
+	return revision + uint64(len(transfers)) + uint64(len(expiries)) + uint64(len(clearances))
+}
+
+// CorrelateAccepted attaches a later authoritative fact to the newest matching
+// accepted request. The request remains accepted and no AMAN input is changed.
+func (r *Repository) CorrelateAccepted(ctx context.Context, fact ClearanceFact) (CommitResult, error) {
+	if fact.Airport == "" || fact.FlightID == "" || !present(fact.FactID) || !present(fact.Issuer) ||
+		!present(fact.Value) || (fact.Kind != KindRouteDirect && fact.Kind != KindSpeed) || !utc(fact.ObservedAt) {
+		return CommitResult{}, errors.New("authoritative clearance fact is invalid")
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return CommitResult{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fact.Airport); err != nil {
+		return CommitResult{}, err
+	}
+	current, err := lockedRequests(ctx, tx, fact.Airport)
+	if err != nil {
+		return CommitResult{}, err
+	}
+	for index := len(current) - 1; index >= 0; index-- {
+		request := current[index]
+		if request.Clearance != nil && request.Clearance.FactID == fact.FactID {
+			return CommitResult{Request: request, Revision: coordinationRevision(current), Duplicate: true}, tx.Commit(ctx)
+		}
+	}
+	for index := len(current) - 1; index >= 0; index-- {
+		request := current[index]
+		if request.FlightID != fact.FlightID || request.Kind != fact.Kind || request.State != StateAccepted ||
+			request.Clearance != nil || request.ResolvedAt.After(fact.ObservedAt) || !matchesClearance(request, fact.Value) {
+			continue
+		}
+		updated, correlateErr := request.Correlate(ClearanceAudit{FactID: fact.FactID, Kind: fact.Kind, Value: fact.Value, Issuer: fact.Issuer, ObservedAt: fact.ObservedAt})
+		if correlateErr != nil {
+			return CommitResult{}, correlateErr
+		}
+		if err = save(ctx, tx, updated); err != nil {
+			return CommitResult{}, err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return CommitResult{}, err
+		}
+		return CommitResult{Request: updated, Revision: coordinationRevision(current) + 1}, nil
+	}
+	return CommitResult{Revision: coordinationRevision(current)}, tx.Commit(ctx)
+}
+
+func matchesClearance(request Request, value string) bool {
+	if request.Kind == KindSpeed {
+		return strings.EqualFold(request.Payload.Speed.Requested, value)
+	}
+	return request.Payload.RouteDirect.DirectTo != "" && strings.EqualFold(request.Payload.RouteDirect.DirectTo, value)
+}
+
+func lockedRequests(ctx context.Context, tx pgx.Tx, airport string) ([]Request, error) {
+	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, airport)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var requests []Request
+	for rows.Next() {
+		var raw []byte
+		var request Request
+		if err = rows.Scan(&raw); err == nil {
+			err = json.Unmarshal(raw, &request)
+		}
+		if err == nil {
+			err = request.Validate()
+		}
+		if err != nil {
+			return nil, err
+		}
+		requests = append(requests, request)
+	}
+	return requests, rows.Err()
 }
 
 // ExpirePending atomically applies one authoritative lifecycle/DSEQ fact to
@@ -209,28 +297,8 @@ func ExpirePendingTx(ctx context.Context, tx pgx.Tx, fact ExpiryFact) (TransferR
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fact.Airport); err != nil {
 		return TransferResult{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, fact.Airport)
+	current, err := lockedRequests(ctx, tx, fact.Airport)
 	if err != nil {
-		return TransferResult{}, err
-	}
-	var current []Request
-	for rows.Next() {
-		var raw []byte
-		var request Request
-		if err = rows.Scan(&raw); err == nil {
-			err = json.Unmarshal(raw, &request)
-		}
-		if err == nil {
-			err = request.Validate()
-		}
-		if err != nil {
-			rows.Close()
-			return TransferResult{}, err
-		}
-		current = append(current, request)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
 		return TransferResult{}, err
 	}
 	result := TransferResult{Revision: coordinationRevision(current)}
@@ -281,28 +349,8 @@ func (r *Repository) TransferPending(ctx context.Context, fact OwnershipFact) (T
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, fact.Airport); err != nil {
 		return TransferResult{}, err
 	}
-	rows, err := tx.Query(ctx, `SELECT payload FROM aman_coordination_requests WHERE airport=$1 ORDER BY created_at, request_id FOR UPDATE`, fact.Airport)
+	current, err := lockedRequests(ctx, tx, fact.Airport)
 	if err != nil {
-		return TransferResult{}, err
-	}
-	var current []Request
-	for rows.Next() {
-		var raw []byte
-		var request Request
-		if err = rows.Scan(&raw); err == nil {
-			err = json.Unmarshal(raw, &request)
-		}
-		if err == nil {
-			err = request.Validate()
-		}
-		if err != nil {
-			rows.Close()
-			return TransferResult{}, err
-		}
-		current = append(current, request)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
 		return TransferResult{}, err
 	}
 	var duplicates []Request

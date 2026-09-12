@@ -787,13 +787,21 @@ struct Strip final {
                                    hold_supported);
 };
 
+struct AMANAssignedSpeed {
+    std::optional<unsigned int> knots;
+    std::optional<unsigned int> mach_thousandths;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AMANAssignedSpeed, knots, mach_thousandths);
+};
+
 struct AMANRouteFactData {
     std::string callsign;
     std::string kind = "direct_to";
     std::optional<std::string> direct_to_fix;
     std::string observed_at;
+	std::optional<AMANAssignedSpeed> assigned_speed;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(AMANRouteFactData, callsign, kind, direct_to_fix, observed_at);
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(AMANRouteFactData, callsign, kind, direct_to_fix, observed_at, assigned_speed);
 };
 
 struct AMANRouteFactEvent final : Event {
@@ -802,7 +810,11 @@ struct AMANRouteFactEvent final : Event {
 
     AMANRouteFactEvent(std::string callsign, std::optional<std::string> directToFix, std::string observedAt)
         : Event(EVENT_AMAN_ROUTE_FACT),
-          data{std::move(callsign), "direct_to", std::move(directToFix), std::move(observedAt)} {}
+		  data{std::move(callsign), "direct_to", std::move(directToFix), std::move(observedAt), std::nullopt} {}
+
+	AMANRouteFactEvent(std::string callsign, AMANAssignedSpeed speed, std::string observedAt)
+		: Event(EVENT_AMAN_ROUTE_FACT),
+		  data{std::move(callsign), "speed", std::nullopt, std::move(observedAt), std::move(speed)} {}
 
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(AMANRouteFactEvent, type, version, data);
 };

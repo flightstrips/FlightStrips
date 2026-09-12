@@ -49,6 +49,14 @@ describe("FMP coordination request dialog", () => {
     expect(history).toHaveTextContent("Agreed only — awaiting authoritative clearance.");
   });
 
+  it("announces a later authoritative clearance without replacing accepted status", () => {
+    const accepted = {...route, state: "accepted" as const, clearance: {fact_id: "fact-1", kind: "route_direct" as const, value: "TUDLO", issuer: "EKCH_APP", observed_at: "2026-09-12T10:02:00.000Z"}};
+    renderDialog({requests: [accepted]});
+    expect(screen.getByRole("status")).toHaveTextContent("Authoritative clearance observed: TUDLO · EKCH_APP");
+    expect(screen.getByRole("region", {name: "Request history"})).toHaveTextContent("Route / direct: accepted");
+    expect(screen.queryByText(/awaiting authoritative clearance/)).not.toBeInTheDocument();
+  });
+
   it("announces pending submission, rejection and read-only authority", () => {
     const {rerender} = render(<AMANCoordinationRequestDialog callsign="SAS123" requests={[]} canSubmit submitting onSubmit={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByRole("button", {name: "Submitting…"})).toBeDisabled();

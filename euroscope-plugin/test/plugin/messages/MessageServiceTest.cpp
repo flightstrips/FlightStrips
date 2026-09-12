@@ -104,6 +104,14 @@ TEST(MessageServiceEventsTest, AmanRouteFactRepresentsClearAsNull) {
     EXPECT_TRUE(json.at("data").at("direct_to_fix").is_null());
 }
 
+TEST(MessageServiceEventsTest, AmanSpeedFactSerializesAssignedSpeed) {
+	const nlohmann::json json = AMANRouteFactEvent{"SAS123", AMANAssignedSpeed{220, std::nullopt}, "2026-08-20T11:59:00Z"};
+	EXPECT_EQ(json.at("data").at("kind").get<std::string>(), "speed");
+	EXPECT_EQ(json.at("data").at("assigned_speed").at("knots").get<unsigned int>(), 220);
+	EXPECT_TRUE(json.at("data").at("assigned_speed").at("mach_thousandths").is_null());
+	EXPECT_TRUE(json.at("data").at("direct_to_fix").is_null());
+}
+
 TEST(MessageServiceEventsTest, AircraftInfoEventDeserializesExpectedShape) {
     const auto json = nlohmann::json::parse(R"({
         "type":"aircraft_info",

@@ -3,6 +3,7 @@ package routefact
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
+	"FlightStrips/internal/coordinationrequest"
 	internalModels "FlightStrips/internal/models"
 	"context"
 	"errors"
@@ -21,6 +22,7 @@ func TestReportDirectToPersistsBackendOwnedFactAndPublishes(t *testing.T) {
 	strips := &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &cid}}
 	publisher := &publisher{}
 	reconciler := &reconciler{}
+	correlator := &correlator{}
 	service, err := New(Dependencies{
 		Repository: repository,
 		Strips:     strips,
@@ -29,6 +31,7 @@ func TestReportDirectToPersistsBackendOwnedFactAndPublishes(t *testing.T) {
 		Reconciler: reconciler,
 		Now:        func() time.Time { return now },
 		NewID:      func() string { return "fact-1" },
+		Correlator: correlator,
 	})
 	require.NoError(t, err)
 
@@ -45,6 +48,8 @@ func TestReportDirectToPersistsBackendOwnedFactAndPublishes(t *testing.T) {
 		ObservedAt: now.Add(-time.Minute), ReceivedAt: now,
 		DatasetVersion: "2608|revision-a|2026-08-19T12:00:00Z|2026-08-21T12:00:00Z", State: aman.RouteFactActive,
 	}, fact)
+	require.Equal(t, coordinationrequest.ClearanceFact{Airport: "EKCH", FlightID: "flight-1", FactID: "fact-1", Kind: coordinationrequest.KindRouteDirect,
+		Value: "KEMAX", Issuer: "EKCH_A_APP", ObservedAt: now.Add(-time.Minute)}, correlator.fact)
 
 	// A repeated callback is idempotent across a fresh service instance because
 	// the accepted fact is part of the persisted aggregate.
@@ -66,6 +71,15 @@ func TestReportDirectToPersistsBackendOwnedFactAndPublishes(t *testing.T) {
 	require.Equal(t, 2, repository.commits)
 	require.Equal(t, 2, publisher.calls)
 	require.Equal(t, 2, reconciler.calls)
+}
+
+type correlator struct {
+	fact coordinationrequest.ClearanceFact
+}
+
+func (c *correlator) ObserveClearance(_ context.Context, fact coordinationrequest.ClearanceFact) (coordinationrequest.CommitResult, error) {
+	c.fact = fact
+	return coordinationrequest.CommitResult{}, nil
 }
 
 func TestReportDirectToEnforcesCurrentTrackingControllerAndNavigationSnapshot(t *testing.T) {
@@ -144,6 +158,23 @@ func TestReportDirectToToleratesBoundedControllerClockSkew(t *testing.T) {
 	repository.state.Flights[0].ActiveRouteFact = nil
 	err = service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", &fix, now.Add(maximumFutureClockSkew+time.Second))
 	requireDomainClass(t, err, aman.ErrorInvalidArgument)
+}
+
+func TestReportSpeedCorrelatesWithoutChangingAMANInputs(t *testing.T) {
+	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
+	cid := "1234567"
+	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight(cid)}}}
+	correlator := &correlator{}
+	service, err := New(Dependencies{Repository: repository,
+		Strips:   &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &cid}},
+		Geometry: geometry(now), Publisher: &publisher{}, Reconciler: &reconciler{}, Correlator: correlator,
+		Now: func() time.Time { return now }, NewID: func() string { return "speed-fact" }})
+	require.NoError(t, err)
+	require.NoError(t, service.ReportSpeed(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", "220 kt", now))
+	require.Zero(t, repository.commits)
+	require.Equal(t, aman.SequenceRevision(7), repository.state.Revision)
+	require.Equal(t, coordinationrequest.ClearanceFact{Airport: "EKCH", FlightID: "flight-1", FactID: "speed-fact", Kind: coordinationrequest.KindSpeed,
+		Value: "220 KT", Issuer: "EKCH_A_APP", ObservedAt: now}, correlator.fact)
 }
 
 type memoryRepository struct {

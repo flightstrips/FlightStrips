@@ -111,6 +111,7 @@ type AMANGainLossProvider interface {
 
 type AMANRouteFactReporter interface {
 	ReportDirectTo(context.Context, int32, string, string, string, *string, time.Time) error
+	ReportSpeed(context.Context, int32, string, string, string, string, time.Time) error
 }
 
 // SetAircraftDisconnectRetainer installs an optional source-of-truth check

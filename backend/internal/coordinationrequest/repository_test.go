@@ -280,6 +280,46 @@ func TestTransferPendingIsAtomicTerminalSafeAndReplayIdempotent(t *testing.T) {
 	}
 }
 
+func TestCorrelateAcceptedUsesLaterMatchingAuthoritativeFactOnly(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	repository := NewRepository(pool)
+	ctx := context.Background()
+	route, err := routeRequest(t, "route-clearance", testTime).Decide("accept-route", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(time.Minute))
+	require.NoError(t, err)
+	speed, err := New("speed-clearance", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindSpeed,
+		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime)
+	require.NoError(t, err)
+	speed, err = speed.Decide("accept-speed", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(time.Minute))
+	require.NoError(t, err)
+	require.NoError(t, repository.Save(ctx, route))
+	require.NoError(t, repository.Save(ctx, speed))
+
+	tooEarly := ClearanceFact{Airport: "EKCH", FlightID: "flight-1", FactID: "speed-early", Kind: KindSpeed, Value: "220 KT", Issuer: "EKCH_APP", ObservedAt: testTime}
+	result, err := repository.CorrelateAccepted(ctx, tooEarly)
+	require.NoError(t, err)
+	require.Empty(t, result.Request.ID)
+	wrong := tooEarly
+	wrong.FactID, wrong.Value, wrong.ObservedAt = "speed-wrong", "210 KT", testTime.Add(2*time.Minute)
+	result, err = repository.CorrelateAccepted(ctx, wrong)
+	require.NoError(t, err)
+	require.Empty(t, result.Request.ID)
+
+	fact := wrong
+	fact.FactID, fact.Value = "speed-fact", "220 kt"
+	result, err = repository.CorrelateAccepted(ctx, fact)
+	require.NoError(t, err)
+	require.Equal(t, StateAccepted, result.Request.State)
+	require.Equal(t, "speed-fact", result.Request.Clearance.FactID)
+	require.Equal(t, uint64(5), result.Revision)
+	retry, err := NewRepository(pool).CorrelateAccepted(ctx, fact)
+	require.NoError(t, err)
+	require.True(t, retry.Duplicate)
+	replayed, err := NewRepository(pool).ReplayAirport(ctx, "EKCH")
+	require.NoError(t, err)
+	require.Nil(t, replayed[0].Clearance, "speed facts cannot correlate route/direct requests")
+	require.NotNil(t, replayed[1].Clearance)
+}
+
 func TestTransferPendingRollsBackEveryRequestWhenPersistenceFails(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()

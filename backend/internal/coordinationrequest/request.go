@@ -83,6 +83,16 @@ type Expiry struct {
 	ExpiredAt    time.Time    `json:"expired_at"`
 }
 
+// ClearanceAudit links agreement to the later controller fact. It is
+// evidence only: attaching it never changes request state or AMAN inputs.
+type ClearanceAudit struct {
+	FactID     string    `json:"fact_id"`
+	Kind       Kind      `json:"kind"`
+	Value      string    `json:"value"`
+	Issuer     string    `json:"issuer"`
+	ObservedAt time.Time `json:"observed_at"`
+}
+
 // Request is the durable aggregate. CommandID is retained so the derived ID
 // remains verifiable after restart and duplicate submissions remain idempotent.
 type Request struct {
@@ -105,6 +115,7 @@ type Request struct {
 	Decision            *Decision           `json:"decision,omitempty"`
 	RecipientTransfers  []RecipientTransfer `json:"recipient_transfers,omitempty"`
 	Expiry              *Expiry             `json:"expiry,omitempty"`
+	Clearance           *ClearanceAudit     `json:"clearance,omitempty"`
 }
 
 func IDForCommand(commandID string) RequestID {
@@ -170,6 +181,11 @@ func (r Request) Validate() error {
 	} else if r.Decision != nil {
 		return errors.New("only accepted or rejected requests may contain a decision audit")
 	}
+	if r.Clearance != nil && (r.State != StateAccepted || r.Clearance.Kind != r.Kind ||
+		!present(r.Clearance.FactID) || !present(r.Clearance.Value) || !present(r.Clearance.Issuer) ||
+		!utc(r.Clearance.ObservedAt) || r.Clearance.ObservedAt.Before(*r.ResolvedAt)) {
+		return errors.New("coordination clearance correlation is invalid")
+	}
 	if r.State == StateExpired {
 		if r.Expiry == nil || !present(r.Expiry.FactID) || r.Expiry.FactRevision == 0 || !r.Expiry.Reason.valid() ||
 			!r.Expiry.ExpiredAt.Equal(*r.ResolvedAt) {
@@ -179,6 +195,14 @@ func (r Request) Validate() error {
 		return errors.New("only expired requests may contain an expiry audit")
 	}
 	return nil
+}
+
+func (r Request) Correlate(fact ClearanceAudit) (Request, error) {
+	if err := r.Validate(); err != nil || r.State != StateAccepted || r.Clearance != nil {
+		return Request{}, errors.New("coordination request cannot be correlated")
+	}
+	r.Clearance = &fact
+	return r, r.Validate()
 }
 
 func (r Request) effectiveRecipientStatus() RecipientStatus {

@@ -8,6 +8,7 @@ import (
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/trajectory"
+	"FlightStrips/internal/coordinationrequest"
 	internalModels "FlightStrips/internal/models"
 	"context"
 	"errors"
@@ -44,6 +45,10 @@ type Reconciler interface {
 	Reconcile(context.Context)
 }
 
+type ClearanceCorrelator interface {
+	ObserveClearance(context.Context, coordinationrequest.ClearanceFact) (coordinationrequest.CommitResult, error)
+}
+
 type Dependencies struct {
 	Repository Repository
 	Strips     StripReader
@@ -52,6 +57,7 @@ type Dependencies struct {
 	Reconciler Reconciler
 	Now        func() time.Time
 	NewID      func() string
+	Correlator ClearanceCorrelator
 }
 
 type Service struct{ deps Dependencies }
@@ -163,6 +169,9 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 
 		current := state.Flights[flightIndex].ActiveRouteFact
 		if sameFact(current, fix) {
+			if fix != nil && s.deps.Correlator != nil {
+				return s.correlateDirect(context.WithoutCancel(ctx), report.Airport, state.Flights[flightIndex].ID, current.ID, *fix, current.Issuer, current.ObservedAt)
+			}
 			return nil
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
@@ -192,9 +201,62 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		// direct leg from cached canonical geometry, and preserves frozen
 		// operational TETA/slot policy while updating raw drift.
 		s.deps.Reconciler.Reconcile(publishCtx)
+		if fix != nil && s.deps.Correlator != nil {
+			return s.correlateDirect(publishCtx, report.Airport, state.Flights[flightIndex].ID, state.Flights[flightIndex].ActiveRouteFact.ID, *fix, report.ControllerCallsign, report.ObservedAt)
+		}
 		return nil
 	}
 	return domain(aman.ErrorRevisionConflict, "direct-to fact conflicted with concurrent AMAN updates")
+}
+
+func (s *Service) correlateDirect(ctx context.Context, airport string, flightID aman.FlightID, factID, fix, issuer string, observedAt time.Time) error {
+	_, err := s.deps.Correlator.ObserveClearance(ctx, coordinationrequest.ClearanceFact{Airport: airport,
+		FlightID: coordinationrequest.FlightID(flightID), FactID: factID, Kind: coordinationrequest.KindRouteDirect,
+		Value: fix, Issuer: issuer, ObservedAt: observedAt})
+	if err != nil {
+		return fmt.Errorf("correlate direct-to clearance: %w", err)
+	}
+	return nil
+}
+
+// ReportSpeed correlates a controller-assigned EuroScope speed without using
+// agreement as, or introducing the value into, a prediction input.
+func (s *Service) ReportSpeed(ctx context.Context, session int32, airport, callsign, controllerCallsign, value string, observedAt time.Time) error {
+	report := Report{Session: session, Airport: strings.ToUpper(strings.TrimSpace(airport)), Callsign: strings.ToUpper(strings.TrimSpace(callsign)),
+		ControllerCallsign: strings.ToUpper(strings.TrimSpace(controllerCallsign)), ObservedAt: observedAt}
+	value = strings.ToUpper(strings.TrimSpace(value))
+	now := s.deps.Now().UTC()
+	if report.Session <= 0 || len(report.Airport) != 4 || report.Callsign == "" || report.ControllerCallsign == "" || value == "" || !utcObservation(observedAt, now) {
+		return domain(aman.ErrorInvalidArgument, "speed report is incomplete")
+	}
+	if observedAt.After(now) {
+		observedAt, report.ObservedAt = now, now
+	}
+	strip, err := s.authorize(ctx, report)
+	if err != nil {
+		return err
+	}
+	state, err := s.deps.Repository.LoadAirportState(ctx, report.Airport)
+	if err != nil {
+		return err
+	}
+	for _, flight := range state.Flights {
+		if matchesFlight(flight, strip, report.Callsign) && flight.State != aman.StateLanded && flight.State != aman.StateRemoved {
+			if s.deps.Correlator == nil {
+				return nil
+			}
+			_, err = s.deps.Correlator.ObserveClearance(context.WithoutCancel(ctx), coordinationrequest.ClearanceFact{
+				Airport: report.Airport, FlightID: coordinationrequest.FlightID(flight.ID), FactID: s.deps.NewID(), Kind: coordinationrequest.KindSpeed,
+				Value: value, Issuer: report.ControllerCallsign, ObservedAt: observedAt,
+			})
+			return err
+		}
+	}
+	return domain(aman.ErrorNotFound, "active AMAN flight was not found")
+}
+
+func utcObservation(value, now time.Time) bool {
+	return !value.IsZero() && value.Location() == time.UTC && !value.After(now.Add(maximumFutureClockSkew))
 }
 
 func (s *Service) authorize(ctx context.Context, report Report) (*internalModels.Strip, error) {

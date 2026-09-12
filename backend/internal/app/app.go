@@ -404,6 +404,14 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		source: vatsimGraph.synthetic, reconciler: vatsimReconciler,
 		sat: satGraph, core: core, stripDeleter: stripService,
 		clock: testClock, euroscope: euroscopeHub, enableStandAssignmentESMessages: cfg.EnableStandAssignmentESMessages,
+		amanObserver: amanObservationWorker,
+		amanReconciler: func() interface{ Reconcile(context.Context) } {
+			if value, ok := amanDependencies.StateEngine.(interface{ Reconcile(context.Context) }); ok {
+				return value
+			}
+			return nil
+		}(),
+		replayRoot: appconfig.GetRecordingPath(),
 	})
 	var albHub *alb.Hub
 	if cfg.EnableALB {

@@ -129,6 +129,31 @@ arrival, or wrong-stand preset. `Next` drives the real reconciliation and SAT
 lifecycle; manual time, position, block, remove, and reset controls are also
 available.
 
+### Offline VATSIM / AMAN replay
+
+The same `/test` page can drive saved VATSIM v3 generation JSON files through
+the real VATSIM normalizer, AMAN observation worker, reconciliation path, and
+authenticated frontend WebSocket. It never starts the public VATSIM feed while
+test tools are enabled. From a PowerShell terminal:
+
+```powershell
+Set-Location .\backend
+$env:ENV = "development"
+$env:ENABLE_TEST_TOOLS = "true"
+$env:RECORDING_PATH = "C:\vatsim-data2"
+$env:AMAN_MODE = "shadow"
+$env:AMAN_ENABLED_AIRPORTS = "EKCH"
+go run ./cmd/server
+```
+
+Open `http://localhost:8080/test`, enter the absolute directory containing the
+saved `*.json` VATSIM v3 generations (for example
+`C:\vatsim-data2`), and click **Load**. Use **Play**, **Pause**, **Step**,
+**Reset**, and the speed selector. The files are applied in filename order;
+each file is validated as JSON before loading and the recorded feed timestamp
+is used as simulated time. Keep the local EuroScope plugin connected to the
+intended EKCH Sweatbox session when identity/tag testing is needed.
+
 `ENABLE_TEST_TOOLS` defaults to false. The backend refuses to start when it is
 true in a `live`, `prod`, or `production` environment, and `/api/test/*` is not
 registered while it is false.

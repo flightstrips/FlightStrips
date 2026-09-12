@@ -58,4 +58,13 @@ func (s *SnapshotReplaySource) Snapshot() Snapshot {
 	return Snapshot{Timestamp: s.snapshot.timestamp, flightsByCallsign: s.snapshot.flightsByCallsign, flightsByCID: s.snapshot.flightsByCID}
 }
 
+func (s *SnapshotReplaySource) Reset() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.snapshot = newCacheSnapshot(time.Time{}, time.Time{})
+	s.mu.Unlock()
+}
+
 var _ SnapshotSource = (*SnapshotReplaySource)(nil)

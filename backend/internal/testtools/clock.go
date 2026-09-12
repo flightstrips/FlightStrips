@@ -27,6 +27,13 @@ func (c *Clock) Advance(duration time.Duration) time.Time {
 	return c.now
 }
 
+func (c *Clock) Set(value time.Time) time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.now = value.UTC()
+	return c.now
+}
+
 func (c *Clock) Reset() time.Time {
 	c.mu.Lock()
 	defer c.mu.Unlock()

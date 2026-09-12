@@ -2,6 +2,7 @@ package vatsim
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,4 +48,16 @@ func TestSyntheticSourceSupportsOfflineScenarioControl(t *testing.T) {
 	source.Remove("TST101")
 	assert.Empty(t, source.Snapshot().Flights())
 	assert.False(t, source.Snapshot().Timestamp.IsZero())
+}
+
+func TestSyntheticSourceMergesValidatedReplayAndResetsIt(t *testing.T) {
+	source := NewSyntheticSource()
+	received := time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+	payload := `{"general":{"update_timestamp":"2026-08-03T11:59:00Z"},"pilots":[{"cid":123,"callsign":"SAS123","latitude":55.6,"longitude":12.6,"altitude":12000,"groundspeed":220,"last_updated":"2026-08-03T11:59:00Z"}]}`
+	require.NoError(t, source.LoadReplay(strings.NewReader(payload), received))
+	snapshot := source.Snapshot()
+	assert.Equal(t, time.Date(2026, 8, 3, 11, 59, 0, 0, time.UTC), snapshot.Timestamp)
+	assert.Equal(t, "SAS123", snapshot.Flights()[0].Callsign)
+	source.ResetReplay()
+	assert.Empty(t, source.Snapshot().Flights())
 }

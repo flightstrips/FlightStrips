@@ -18,6 +18,10 @@ const {boardSpy, controlsSpy, detailSpy, holdingSpy, tmtSpy, storeState} = vi.ho
     amanConnectionState: "connected",
     amanFMPAuthority: false,
     amanWarnings: {items: [], snapshot: "available"},
+    readOnly: false,
+    amanPendingCommands: {},
+    amanCommandRejections: {},
+    sendAMANCommand: vi.fn(() => "command-1"),
   },
 }));
 
@@ -33,9 +37,9 @@ vi.mock("@/components/aman/AMANBoard", () => ({
 }));
 
 vi.mock("@/components/aman/AMANFlightDetailDialog", () => ({
-  AMANFlightDetailDialog: (props: {airport: string; flightID: string; onClose: () => void}) => {
+  AMANFlightDetailDialog: (props: {airport: string; flightID: string; onClose: () => void; missedApproach?: {onConfirm: () => void}}) => {
     detailSpy(props);
-    return <button onClick={props.onClose} type="button">Close mocked detail</button>;
+    return <><button onClick={props.onClose} type="button">Close mocked detail</button><button onClick={props.missedApproach?.onConfirm} type="button">Confirm mocked missed approach</button></>;
   },
 }));
 
@@ -70,12 +74,18 @@ vi.mock("@/lib/aman-performance", () => ({
 }));
 
 describe("AMAN route authorization", () => {
+  const authoritativeState = (flights: unknown[]) => ({
+    airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights,
+    authoritative: true, effective_mode: "authoritative", technical_health: {ready: true},
+  } as unknown as AMANState);
+
   beforeEach(() => {
     controlsSpy.mockClear();
     boardSpy.mockClear();
     holdingSpy.mockClear();
     tmtSpy.mockClear();
     detailSpy.mockClear();
+    storeState.sendAMANCommand.mockClear();
     storeState.amanState = null;
     storeState.amanFMPAuthority = false;
   });
@@ -102,7 +112,7 @@ describe("AMAN route authorization", () => {
   it("mounts TMT through the focused authoritative read-model seam", () => {
     const trafficPrediction = {status: "ready"};
     const holdingInformation = [{flight_id: "holding-1"}];
-    storeState.amanState = {airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights: [], traffic_prediction: trafficPrediction, holding_information: holdingInformation} as unknown as AMANState;
+    storeState.amanState = {...authoritativeState([]), traffic_prediction: trafficPrediction, holding_information: holdingInformation} as unknown as AMANState;
     render(<AMAN />);
 
     expect(screen.getByText("TMT traffic")).toBeInTheDocument();
@@ -112,7 +122,7 @@ describe("AMAN route authorization", () => {
   });
 
   it("opens and closes the existing detail view for the activated target", () => {
-    storeState.amanState = {airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights: [{flight_id: "flight-123"}]} as unknown as AMANState;
+    storeState.amanState = authoritativeState([{flight_id: "flight-123", lifecycle_state: "stable", go_around_confirmation: null}]);
     render(<AMAN />);
 
     fireEvent.click(screen.getByRole("button", {name: "Open target"}));
@@ -121,8 +131,24 @@ describe("AMAN route authorization", () => {
     expect(screen.queryByRole("button", {name: "Close mocked detail"})).not.toBeInTheDocument();
   });
 
+  it("maps manual and detected confirmations to the existing authoritative go-around commands", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = authoritativeState([{flight_id: "flight-123", lifecycle_state: "stable", go_around_confirmation: null}]);
+    const manual = render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open target"}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm mocked missed approach"}));
+    expect(storeState.sendAMANCommand).toHaveBeenLastCalledWith(expect.objectContaining({type: "aman.report_go_around", flight_id: "flight-123", detected_at: expect.any(String)}));
+
+    manual.unmount();
+    storeState.amanState = authoritativeState([{flight_id: "flight-123", lifecycle_state: "stable", go_around_confirmation: {status: "pending", episode_id: "episode-1"}}]);
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open target"}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm mocked missed approach"}));
+    expect(storeState.sendAMANCommand).toHaveBeenLastCalledWith({type: "aman.confirm_go_around", flight_id: "flight-123", episode_id: "episode-1"});
+  });
+
   it("selects primary and related warning flights by authoritative identity without a command", () => {
-    storeState.amanState = {airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights: [{flight_id: "flight-123"}, {flight_id: "flight-456"}]} as unknown as AMANState;
+    storeState.amanState = authoritativeState([{flight_id: "flight-123"}, {flight_id: "flight-456"}]);
     render(<AMAN />);
 
     fireEvent.click(screen.getByRole("button", {name: "Warning primary"}));
@@ -132,7 +158,7 @@ describe("AMAN route authorization", () => {
   });
 
   it("leaves selection and focus stable when a warning references an absent flight", () => {
-    storeState.amanState = {airport: "EKCH", revision: 1, generated_at: "2026-07-22T20:44:00.000Z", flights: [{flight_id: "flight-123"}]} as unknown as AMANState;
+    storeState.amanState = authoritativeState([{flight_id: "flight-123"}]);
     render(<AMAN />);
     const missing = screen.getByRole("button", {name: "Warning missing"});
     missing.focus();

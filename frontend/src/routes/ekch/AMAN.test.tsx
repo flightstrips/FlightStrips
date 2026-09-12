@@ -37,9 +37,9 @@ vi.mock("@/components/aman/AMANBoard", () => ({
 }));
 
 vi.mock("@/components/aman/AMANFlightDetailDialog", () => ({
-  AMANFlightDetailDialog: (props: {airport: string; flightID: string; onClose: () => void; missedApproach?: {onConfirm: () => void}}) => {
+  AMANFlightDetailDialog: (props: {airport: string; flightID: string; onClose: () => void; missedApproach?: {onConfirm: () => void}; removal?: {onConfirm: () => void}}) => {
     detailSpy(props);
-    return <><button onClick={props.onClose} type="button">Close mocked detail</button><button onClick={props.missedApproach?.onConfirm} type="button">Confirm mocked missed approach</button></>;
+    return <><button onClick={props.onClose} type="button">Close mocked detail</button><button onClick={props.missedApproach?.onConfirm} type="button">Confirm mocked missed approach</button><button onClick={props.removal?.onConfirm} type="button">Confirm mocked removal</button></>;
   },
 }));
 
@@ -145,6 +145,18 @@ describe("AMAN route authorization", () => {
     fireEvent.click(screen.getByRole("button", {name: "Open target"}));
     fireEvent.click(screen.getByRole("button", {name: "Confirm mocked missed approach"}));
     expect(storeState.sendAMANCommand).toHaveBeenLastCalledWith({type: "aman.confirm_go_around", flight_id: "flight-123", episode_id: "episode-1"});
+  });
+
+  it("maps confirmed removal to exactly one typed backend command", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = authoritativeState([{flight_id: "flight-123", lifecycle_state: "stable", go_around_confirmation: null}]);
+    render(<AMAN />);
+    fireEvent.click(screen.getByRole("button", {name: "Open target"}));
+
+    fireEvent.click(screen.getByRole("button", {name: "Confirm mocked removal"}));
+
+    expect(storeState.sendAMANCommand).toHaveBeenCalledOnce();
+    expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.remove_flight", flight_id: "flight-123"});
   });
 
   it("selects primary and related warning flights by authoritative identity without a command", () => {

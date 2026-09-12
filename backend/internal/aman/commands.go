@@ -106,6 +106,23 @@ type RemoveRunwayClosureCommand struct {
 	Reason        string
 }
 
+// CreateCapacityReservationCommand reserves the first runway opportunity
+// strictly after AfterFlightID. The accepted interval is server-normalized.
+type CreateCapacityReservationCommand struct {
+	Metadata      CommandMetadata
+	RunwayGroupID RunwayGroupID
+	AfterFlightID FlightID
+	Label         string
+	Reason        string
+}
+
+type RemoveCapacityReservationCommand struct {
+	Metadata      CommandMetadata
+	RunwayGroupID RunwayGroupID
+	ReservationID RunwayCapacityReservationID
+	Reason        string
+}
+
 type AcceptTETACommand struct {
 	Metadata CommandMetadata
 	FlightID FlightID
@@ -203,6 +220,8 @@ type CommandService interface {
 	RemoveRunwayGap(context.Context, CommandContext, RemoveRunwayGapCommand) (CommandExecution, error)
 	CreateRunwayClosure(context.Context, CommandContext, CreateRunwayClosureCommand) (CommandExecution, error)
 	RemoveRunwayClosure(context.Context, CommandContext, RemoveRunwayClosureCommand) (CommandExecution, error)
+	CreateCapacityReservation(context.Context, CommandContext, CreateCapacityReservationCommand) (CommandExecution, error)
+	RemoveCapacityReservation(context.Context, CommandContext, RemoveCapacityReservationCommand) (CommandExecution, error)
 	AcceptTETA(context.Context, CommandContext, AcceptTETACommand) (CommandExecution, error)
 	KeepFPLETA(context.Context, CommandContext, KeepFPLETACommand) (CommandExecution, error)
 	SetManualETA(context.Context, CommandContext, SetManualETACommand) (CommandExecution, error)
@@ -373,6 +392,26 @@ func (c RemoveRunwayClosureCommand) Validate() error {
 	}
 	if !trimmed(string(c.RunwayGroupID)) || !trimmed(string(c.ClosureID)) || !trimmed(c.Reason) {
 		return commandInvalid("runway closure removal requires a runway group, closure ID, and canonical reason")
+	}
+	return nil
+}
+
+func (c CreateCapacityReservationCommand) Validate() error {
+	if err := validateCommandMetadata(c.Metadata); err != nil {
+		return err
+	}
+	if !trimmed(string(c.RunwayGroupID)) || !trimmed(string(c.AfterFlightID)) || (c.Label != "" && !trimmed(c.Label)) || !trimmed(c.Reason) {
+		return commandInvalid("capacity reservation requires a runway group, anchor flight, canonical optional label, and reason")
+	}
+	return nil
+}
+
+func (c RemoveCapacityReservationCommand) Validate() error {
+	if err := validateCommandMetadata(c.Metadata); err != nil {
+		return err
+	}
+	if !trimmed(string(c.RunwayGroupID)) || !trimmed(string(c.ReservationID)) || !trimmed(c.Reason) {
+		return commandInvalid("capacity reservation removal requires a runway group, reservation ID, and reason")
 	}
 	return nil
 }

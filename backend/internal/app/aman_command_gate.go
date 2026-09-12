@@ -131,6 +131,20 @@ func (g *amanCommandGate) RemoveRunwayClosure(ctx context.Context, auth aman.Com
 	return g.commands.RemoveRunwayClosure(ctx, auth, command)
 }
 
+func (g *amanCommandGate) CreateCapacityReservation(ctx context.Context, auth aman.CommandContext, command aman.CreateCapacityReservationCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.CreateCapacityReservation(ctx, auth, command)
+}
+
+func (g *amanCommandGate) RemoveCapacityReservation(ctx context.Context, auth aman.CommandContext, command aman.RemoveCapacityReservationCommand) (aman.CommandExecution, error) {
+	if err := g.authorize(ctx); err != nil {
+		return aman.CommandExecution{}, err
+	}
+	return g.commands.RemoveCapacityReservation(ctx, auth, command)
+}
+
 func (g *amanCommandGate) AcceptTETA(ctx context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {
 	if err := g.authorize(ctx); err != nil {
 		return aman.CommandExecution{}, err

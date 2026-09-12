@@ -383,6 +383,12 @@ func (s *recordingAMANCommandService) CreateRunwayClosure(_ context.Context, aut
 func (s *recordingAMANCommandService) RemoveRunwayClosure(_ context.Context, auth aman.CommandContext, command aman.RemoveRunwayClosureCommand) (aman.CommandExecution, error) {
 	return s.record("remove_runway_closure", auth, command.Metadata)
 }
+func (s *recordingAMANCommandService) CreateCapacityReservation(_ context.Context, auth aman.CommandContext, command aman.CreateCapacityReservationCommand) (aman.CommandExecution, error) {
+	return s.record("create_capacity_reservation", auth, command.Metadata)
+}
+func (s *recordingAMANCommandService) RemoveCapacityReservation(_ context.Context, auth aman.CommandContext, command aman.RemoveCapacityReservationCommand) (aman.CommandExecution, error) {
+	return s.record("remove_capacity_reservation", auth, command.Metadata)
+}
 func (s *recordingAMANCommandService) AcceptTETA(_ context.Context, auth aman.CommandContext, command aman.AcceptTETACommand) (aman.CommandExecution, error) {
 	return s.record("accept", auth, command.Metadata)
 }

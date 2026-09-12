@@ -128,6 +128,93 @@ func TestCreateRunwayClosureReplaysDeterministically(t *testing.T) {
 	require.Equal(t, commits[0], commits[1])
 }
 
+func TestCreateRunwayClosureDisplacesProtectedFlightToSameRunwayCapacity(t *testing.T) {
+	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("north")
+	flight := gapCommandFlight("PROTECTED", group, now.Add(time.Minute), 1, aman.StateStable, aman.FreezeSuperstable)
+	repository := closureRepository(now, []aman.RunwayGroupID{group}, flight)
+	end := now.Add(5 * time.Minute)
+	result, err := closureActions(t, repository, now).CreateRunwayClosure(context.Background(), closureAuth(now), aman.CreateRunwayClosureCommand{
+		Metadata: aman.CommandMetadata{CommandID: "finite", ExpectedRevision: 7},
+		Interval: aman.RunwayClosureIntervalInput{RunwayGroupID: group, Start: &now, End: &end}, Reason: "inspection",
+	})
+	require.NoError(t, err)
+	require.True(t, result.Changed)
+	moved := stateFlight(t, repository.state, "PROTECTED")
+	require.Equal(t, end, moved.Slot.Time)
+	require.Equal(t, aman.FreezeSuperstable, moved.FreezeReason)
+	require.Equal(t, end, moved.FrozenSlot.Time)
+	require.Len(t, repository.commits, 1)
+	require.Len(t, repository.commits[0].AuditRecords, 2, "closure and displacement audit must share one commit")
+}
+
+func TestCreateIndefiniteRunwayClosureFallsBackToAlternateThenDSEQ(t *testing.T) {
+	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	north, south := aman.RunwayGroupID("north"), aman.RunwayGroupID("south")
+
+	t.Run("compatible active alternate", func(t *testing.T) {
+		flight := gapCommandFlight("ALTERNATE", north, now.Add(time.Minute), 1, aman.StateStable, aman.FreezeManual)
+		repository := closureRepository(now, []aman.RunwayGroupID{north, south}, flight)
+		_, err := closureActions(t, repository, now).CreateRunwayClosure(context.Background(), closureAuth(now), aman.CreateRunwayClosureCommand{
+			Metadata: aman.CommandMetadata{CommandID: "alternate", ExpectedRevision: 7},
+			Interval: aman.RunwayClosureIntervalInput{RunwayGroupID: north, Start: &now}, Reason: "works",
+		})
+		require.NoError(t, err)
+		moved := stateFlight(t, repository.state, "ALTERNATE")
+		require.Equal(t, south, *moved.SelectedRunwayGroup)
+		require.Equal(t, south, moved.Slot.RunwayGroupID)
+		require.Equal(t, aman.SequenceDispositionActive, moved.SequenceDisposition.OrDefault())
+	})
+
+	t.Run("no compatible alternate", func(t *testing.T) {
+		flight := gapCommandFlight("DSEQ", north, now.Add(time.Minute), 1, aman.StateStable, aman.FreezeTMA)
+		repository := closureRepository(now, []aman.RunwayGroupID{north}, flight)
+		_, err := closureActions(t, repository, now).CreateRunwayClosure(context.Background(), closureAuth(now), aman.CreateRunwayClosureCommand{
+			Metadata: aman.CommandMetadata{CommandID: "dseq", ExpectedRevision: 7},
+			Interval: aman.RunwayClosureIntervalInput{RunwayGroupID: north, Start: &now}, Reason: "works",
+		})
+		require.NoError(t, err)
+		desequenced := stateFlight(t, repository.state, "DSEQ")
+		require.Equal(t, aman.SequenceDispositionDesequenced, desequenced.SequenceDisposition)
+		require.Equal(t, flight.Slot.Time, desequenced.Slot.Time, "DSEQ retains its former opportunity as non-capacity history")
+		require.Equal(t, flight.Slot.RunwayGroupID, desequenced.Slot.RunwayGroupID)
+		var audit map[string]any
+		require.NoError(t, json.Unmarshal(repository.commits[0].AuditRecords[1].Payload, &audit))
+		require.Equal(t, "closure_no_capacity", audit["reason"])
+		require.Nil(t, audit["new_opportunity"])
+	})
+}
+
+func closureRepository(now time.Time, active []aman.RunwayGroupID, flights ...aman.AMANFlight) *memoryRepository {
+	rateAt := now.Add(-time.Hour)
+	groups := make([]aman.RunwayGroupPolicy, len(active))
+	for index, id := range active {
+		groups[index] = aman.RunwayGroupPolicy{ID: id, Selected: index == 0, ActiveRatePerHour: 60, RateEffectiveAt: &rateAt}
+	}
+	return &memoryRepository{has: true, state: aman.AirportState{
+		Airport: "EKCH", Revision: 7, GeneratedAt: now.Add(-time.Minute), PolicyVersion: "closure-v1", Mode: aman.ModeAuthoritative,
+		ActiveRunwayGroups: active, Flights: flights, RunwayGroups: groups,
+	}}
+}
+
+func closureActions(t *testing.T, repository *memoryRepository, now time.Time) *sequence.ActionService {
+	t.Helper()
+	coordinator, err := sequence.NewCoordinator(sequence.CoordinatorDependencies{
+		States: repository, Outcomes: repository, Committer: repository, Publisher: &recordingPublisher{}, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	config := terminal.Configuration{Airport: "EKCH", RunwayGroups: []terminal.RunwayGroup{{ID: "north"}, {ID: "south"}}, Paths: []terminal.Path{
+		{Feeder: "MONAK", RunwayGroup: "north"}, {Feeder: "MONAK", RunwayGroup: "south"},
+	}}
+	actions, err := sequence.NewActionService(coordinator, &Service{deps: Dependencies{FMPRoles: []string{"EKCH_FMH"}, Terminal: config}})
+	require.NoError(t, err)
+	return actions
+}
+
+func closureAuth(now time.Time) aman.CommandContext {
+	return aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+}
+
 func TestReconciliationExpiresFiniteClosuresAtExclusiveEndExactlyOnce(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	created := now.Add(-time.Hour)

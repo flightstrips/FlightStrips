@@ -1177,7 +1177,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			continue
 		}
 		policy := sequence.Policy{
-			RunwayGroupID: group.ID, Rates: rates, Gaps: sequenceGaps(group.Gaps),
+			RunwayGroupID: group.ID, Rates: rates, Gaps: sequenceGaps(group.Gaps), Closures: append([]aman.RunwayClosure(nil), group.Closures...),
 			EarlyTolerance: 30 * time.Second, SeparationRules: amanCPHSeparations(), UnknownSeparation: 3 * time.Minute,
 		}
 		if spacing := group.SameSTARSpacing; spacing != nil {

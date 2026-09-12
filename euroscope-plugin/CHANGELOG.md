@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.1.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.0.0...plugin/v2.1.0) (2026-09-12)
+
+
+### Features
+
+* **aman:** add feeder-fix ETA state ([#633](https://github.com/flightstrips/FlightStrips/issues/633)) ([383cec0](https://github.com/flightstrips/FlightStrips/commit/383cec05939b4002daf6c9117248ace36e666fe5))
+* **aman:** expose explicit terminal identities ([#631](https://github.com/flightstrips/FlightStrips/issues/631)) ([86b7ae9](https://github.com/flightstrips/FlightStrips/commit/86b7ae9ae26fde23165519825e064a6946192d89))
+* **coordination:** correlate accepted requests with clearances ([#709](https://github.com/flightstrips/FlightStrips/issues/709)) ([f228c04](https://github.com/flightstrips/FlightStrips/commit/f228c047e0697fedbff8a3171349bb751f4ee5bd))
+
 ## [2.0.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v1.0.0...plugin/v2.0.0) (2026-09-11)
 
 

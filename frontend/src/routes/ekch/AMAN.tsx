@@ -28,6 +28,7 @@ export default function AMAN() {
   const [coordinationCommandID, setCoordinationCommandID] = useState<string | null>(null);
   const [missedApproachCommandID, setMissedApproachCommandID] = useState<string | null>(null);
   const [decisionCommandID, setDecisionCommandID] = useState<string | null>(null);
+  const [removalCommandID, setRemovalCommandID] = useState<string | null>(null);
   const controlsRef = useRef<HTMLElement>(null);
   const stateAtMount = useRef(state);
 
@@ -63,6 +64,7 @@ export default function AMAN() {
             onOpenFlightDetails={(flightID) => {
               setSelectedFlightID(flightID);
               setMissedApproachCommandID(null);
+              setRemovalCommandID(null);
               setDetailOpen(true);
             }}
             onSelectFlight={setSelectedFlightID}
@@ -111,6 +113,12 @@ export default function AMAN() {
             ? {type: "aman.confirm_go_around", flight_id: effectiveSelectedFlightID, episode_id: detection.episode_id}
             : {type: "aman.report_go_around", flight_id: effectiveSelectedFlightID, detected_at: new Date().toISOString()}));
         },
+      }} removal={{
+        blockReason: mutationBlockReason,
+        confirmed: selectedFlight.lifecycle_state === "removed",
+        pending: removalCommandID !== null && pendingCommands[removalCommandID] !== undefined,
+        rejection: removalCommandID ? commandRejections[removalCommandID] ?? null : null,
+        onConfirm: () => setRemovalCommandID(sendCommand({type: "aman.remove_flight", flight_id: effectiveSelectedFlightID})),
       }} coordination={hasFMPAuthority ? {
         requests: (state.coordination_requests ?? []).filter((request) => request.flight_id === effectiveSelectedFlightID),
         canSubmit: getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority}) === null,

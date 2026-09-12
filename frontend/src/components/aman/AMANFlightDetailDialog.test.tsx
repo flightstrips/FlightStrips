@@ -136,4 +136,46 @@ describe("AMAN flight detail dialog integration", () => {
     expect(screen.getByText("Unavailable: FMP authority is required.")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "Confirm missed approach"})).toBeDisabled();
   });
+
+  it("requires a focused, explicitly labeled confirmation before removal", async () => {
+    fetchDetail.mockResolvedValue(detail);
+    const onConfirm = vi.fn();
+    render(<AMANFlightDetailDialog airport="EKCH" flightID="flight-123" removal={{
+      blockReason: null, confirmed: false, pending: false, onConfirm,
+    }} onClose={vi.fn()} />);
+    await screen.findByRole("dialog", {name: /SAS123/});
+    await screen.findByText("A320");
+
+    fireEvent.click(screen.getByRole("button", {name: "Remove from AMAN"}));
+    expect(screen.getByRole("heading", {name: "Confirm AMAN removal"})).toBeInTheDocument();
+    const confirm = screen.getByRole("button", {name: "Confirm removal"});
+    expect(confirm).toHaveFocus();
+    expect(screen.getByText(/authoritative server applies and audits the removal/)).toBeInTheDocument();
+    expect(onConfirm).not.toHaveBeenCalled();
+    fireEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledOnce();
+  });
+
+  it("shows authorization, pending, rejection, and server confirmation without relying on color", async () => {
+    fetchDetail.mockResolvedValue(detail);
+    const props = {
+      blockReason: "unauthorized" as const, confirmed: false, pending: false, onConfirm: vi.fn(),
+      rejection: null,
+    };
+    const {rerender} = render(<AMANFlightDetailDialog airport="EKCH" flightID="flight-123" removal={props} onClose={vi.fn()} />);
+    await screen.findByRole("dialog", {name: /SAS123/});
+    await screen.findByText("A320");
+    fireEvent.click(screen.getByRole("button", {name: "Remove from AMAN"}));
+
+    expect(screen.getByText("Unavailable: FMP authority is required.")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Confirm removal"})).toBeDisabled();
+
+    rerender(<AMANFlightDetailDialog airport="EKCH" flightID="flight-123" removal={{...props, blockReason: null, pending: true, rejection: {code: "stale_revision", message: "state changed"}}} onClose={vi.fn()} />);
+    expect(screen.getByText("Waiting for server confirmation")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Rejected: state changed (stale_revision)");
+
+    rerender(<AMANFlightDetailDialog airport="EKCH" flightID="flight-123" removal={{...props, blockReason: null, confirmed: true}} onClose={vi.fn()} />);
+    expect(screen.getByText(/Server confirmed removal from AMAN/)).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Removed from AMAN"})).toBeDisabled();
+  });
 });

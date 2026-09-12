@@ -108,6 +108,9 @@ func TestRemoveFlightUsesLifecycleAndPersistsIdempotentAudit(t *testing.T) {
 
 	var audit map[string]any
 	require.NoError(t, json.Unmarshal(repository.commits[0].AuditRecords[0].Payload, &audit))
+	require.Equal(t, "remove_flight", audit["action"])
+	require.Equal(t, "1234567", audit["actor"])
+	require.Equal(t, "EKCH_FMH", audit["role"])
 	require.Equal(t, "stable_horizon", audit["before_removal_reason"])
 	require.Equal(t, "manual_removal", audit["after_removal_reason"])
 	require.Equal(t, "stable", audit["before_state"])

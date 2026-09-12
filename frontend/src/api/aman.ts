@@ -305,6 +305,7 @@ export interface AMANRunwayGroup {
   rate_effective_at?: string;
   /** Backend-normalized, canonical [start,end) unions. */
   gaps?: AMANRunwayGap[];
+  closures?: AMANRunwayClosure[];
 }
 
 export interface AMANRunwayGap {
@@ -315,6 +316,8 @@ export interface AMANRunwayGap {
   created_at: string;
   created_by: string;
 }
+
+export interface AMANRunwayClosure { id: string; start: string; end: string | null; reason: string; created_at: string; created_by: string }
 
 export interface AMANTechnicalHealth {
   status: AMANHealthStatus;
@@ -373,6 +376,8 @@ export type AMANCommandType =
   | "aman.reject_go_around"
   | "aman.create_gap"
   | "aman.remove_gap"
+  | "aman.create_runway_closure"
+  | "aman.remove_runway_closure"
   | "aman.place_flight_at_time"
   | "aman.submit_coordination_request";
 
@@ -397,6 +402,8 @@ export type AMANCommandIntent =
   | {type: "aman.confirm_go_around" | "aman.reject_go_around"; flight_id: string; episode_id: string}
   | ({type: "aman.create_gap"; runway_group_id: string; start: string; label: string} & ({end: string; slot_count?: never} | {slot_count: number; end?: never}))
   | {type: "aman.remove_gap"; runway_group_id: string; gap_id: string}
+  | ({type: "aman.create_runway_closure"; runway_group_id: string; end?: string; reason: string} & ({start: string; after_flight_id?: never} | {after_flight_id: string; start?: never}))
+  | {type: "aman.remove_runway_closure"; runway_group_id: string; closure_id: string; reason: string}
   | {type: "aman.place_flight_at_time"; flight_id: string; runway_group_id: string; slot_time: string; allow_gap: boolean}
   | ({type: "aman.submit_coordination_request"; flight_id: string} & (
       {kind: "route_direct"; route?: string; direct_to?: string; requested?: never}

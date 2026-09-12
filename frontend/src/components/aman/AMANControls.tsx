@@ -14,6 +14,7 @@ import {
 import {useWebSocketStore} from "@/store/store-hooks";
 import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {AMANGapControls} from "./AMANGapControls";
+import {AMANClosureControls} from "./AMANClosureControls";
 
 const blockReasonLabels: Record<AMANMutationBlockReason, string> = {
   no_state: "Waiting for AMAN state",
@@ -221,7 +222,7 @@ export function AMANControlsView({
       )}
       {rejections.map((rejection) => (
         <div role="alert" key={rejection.command_id} className="flex items-start justify-between gap-2 rounded border border-red-500 bg-red-950 p-2 text-sm">
-          <span>{rejection.command_type === "aman.select_runway_group" ? "Runway selection" : rejection.command_type === "aman.change_runway" ? "Flight runway change" : rejection.command_type === "aman.set_rate" ? "Arrival rate change" : rejection.command_type?.includes("flight") ? "Flight disposition" : "Command"} rejected: {rejection.message} ({rejection.code}, server revision {rejection.current_revision})</span>
+          <span>{rejection.command_type === "aman.select_runway_group" ? "Runway selection" : rejection.command_type === "aman.change_runway" ? "Flight runway change" : rejection.command_type === "aman.set_rate" ? "Arrival rate change" : rejection.command_type?.includes("runway_closure") ? "Runway closure" : rejection.command_type?.includes("flight") ? "Flight disposition" : "Command"} rejected: {rejection.message} ({rejection.code}, server revision {rejection.current_revision})</span>
           {onDismissRejection && <button className={controlClass} onClick={() => onDismissRejection(rejection.command_id)}>Dismiss</button>}
         </div>
       ))}
@@ -259,6 +260,7 @@ export function AMANControlsView({
       </div>
 
       <AMANGapControls disabled={disabled} groups={state?.runway_groups ?? []} onCommand={onCommand} pending={pending} rejections={rejections} />
+      <AMANClosureControls disabled={disabled} flights={flights} groups={state?.runway_groups ?? []} onCommand={onCommand} pending={pending} />
 
       {flights.length === 0 ? (
         <div>No AMAN flights available.</div>

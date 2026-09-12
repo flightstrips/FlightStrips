@@ -41,6 +41,8 @@ func registerAMANCommandHandlers(handlers *shared.MessageHandlers[events.EventTy
 	handlers.Add(events.AMANRejectGoAroundType, handleAMANRejectGoAround)
 	handlers.Add(events.AMANCreateGapType, handleAMANCreateGap)
 	handlers.Add(events.AMANRemoveGapType, handleAMANRemoveGap)
+	handlers.Add(events.AMANCreateRunwayClosureType, handleAMANCreateRunwayClosure)
+	handlers.Add(events.AMANRemoveRunwayClosureType, handleAMANRemoveRunwayClosure)
 	handlers.Add(events.AMANPlaceFlightAtTimeType, handleAMANPlaceFlightAtTime)
 }
 
@@ -112,6 +114,50 @@ func handleAMANRemoveGap(ctx context.Context, client *Client, message Message) e
 	command := aman.RemoveRunwayGapCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), GapID: aman.RunwayGapID(wire.Data.GapID)}
 	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
 		return client.hub.amanCommandService.RemoveRunwayGap(ctx, auth, command)
+	})
+}
+
+func handleAMANCreateRunwayClosure(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANCreateRunwayClosureMessage
+	if err := decodeAMANMessage(message, events.AMANCreateRunwayClosureType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	if (wire.Data.Start == nil) == (wire.Data.AfterFlightID == nil) {
+		return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, invalidAMANPayload(errors.New("closure requires exactly one start or after_flight_id")))
+	}
+	interval := aman.RunwayClosureIntervalInput{RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID)}
+	if wire.Data.Start != nil {
+		value, err := parseAMANTime(*wire.Data.Start)
+		if err != nil {
+			return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+		}
+		interval.Start = &value
+	}
+	if wire.Data.AfterFlightID != nil {
+		value := aman.FlightID(*wire.Data.AfterFlightID)
+		interval.AfterFlightID = &value
+	}
+	if wire.Data.End != nil {
+		value, err := parseAMANTime(*wire.Data.End)
+		if err != nil {
+			return rejectDecodedAMAN(ctx, client, wire.Data.CommandID, err)
+		}
+		interval.End = &value
+	}
+	command := aman.CreateRunwayClosureCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), Interval: interval, Reason: wire.Data.Reason}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.CreateRunwayClosure(ctx, auth, command)
+	})
+}
+
+func handleAMANRemoveRunwayClosure(ctx context.Context, client *Client, message Message) error {
+	var wire events.AMANRemoveRunwayClosureMessage
+	if err := decodeAMANMessage(message, events.AMANRemoveRunwayClosureType, &wire); err != nil {
+		return rejectDecodedAMAN(ctx, client, commandIDFromMessage(message), err)
+	}
+	command := aman.RemoveRunwayClosureCommand{Metadata: commandMetadata(wire.Data.AMANCommandMeta), RunwayGroupID: aman.RunwayGroupID(wire.Data.RunwayGroupID), ClosureID: aman.RunwayClosureID(wire.Data.ClosureID), Reason: wire.Data.Reason}
+	return runAMANCommand(ctx, client, command.Metadata.CommandID, func(auth aman.CommandContext) (aman.CommandExecution, error) {
+		return client.hub.amanCommandService.RemoveRunwayClosure(ctx, auth, command)
 	})
 }
 

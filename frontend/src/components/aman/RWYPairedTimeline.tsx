@@ -5,16 +5,18 @@ import {cn} from "@/lib/utils";
 import {AMANAxisTopPercent, AMANTimelineAxis} from "./AMANTimelineAxis";
 import {buildRWYTimelineLanes, layoutTimelineMarkers, type AMANFlightLane, type AMANTimelineRange} from "./presentation";
 import {RunwayGapOverlay} from "./RunwayGapOverlay";
+import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
 
 const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
 
-function RunwaySide({lane, range, side, placement, renderTarget}: {
+function RunwaySide({lane, range, side, placement, renderTarget, status}: {
   lane: AMANFlightLane | undefined;
   range: AMANTimelineRange;
   side: "left" | "right";
   placement: string;
   renderTarget: (flight: AMANFlight) => ReactNode;
+  status: AMANDataStatus;
 }) {
   if (lane === undefined) return <span aria-hidden="true" className={cn("absolute bottom-3 text-[11px] uppercase text-slate-500", side === "left" ? "left-3" : "right-3")}>No active runway</span>;
 
@@ -24,6 +26,7 @@ function RunwaySide({lane, range, side, placement, renderTarget}: {
   return (
     <div aria-label={`${lane.id} active runway arrivals`} data-placement={placement} data-testid={`rwy-lane-${lane.id}`} role="list">
       <RunwayGapOverlay gaps={lane.gaps ?? []} range={range} runway={lane.id} />
+      <RunwayClosureOverlay closures={lane.closures ?? []} range={range} runway={lane.id} status={status} />
       {markers.map((marker) => {
         const top = AMANAxisTopPercent(marker.timestamp, range) ?? 0;
         const offset = -marker.track * TARGET_TRACK_HEIGHT;
@@ -75,8 +78,8 @@ export function RWYPairedTimeline({state, range, clockMs, currentPosition, statu
           <div className="absolute inset-x-0 bottom-0 top-5">
             {currentPosition !== null && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
             <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
-            <RunwaySide lane={lanes[timelineIndex * 2]} placement={`${timelineIndex === 0 ? "middle" : "right"}-left`} range={range} renderTarget={renderTarget} side="left" />
-            <RunwaySide lane={lanes[timelineIndex * 2 + 1]} placement={`${timelineIndex === 0 ? "middle" : "right"}-right`} range={range} renderTarget={renderTarget} side="right" />
+            <RunwaySide lane={lanes[timelineIndex * 2]} placement={`${timelineIndex === 0 ? "middle" : "right"}-left`} range={range} renderTarget={renderTarget} side="left" status={status} />
+            <RunwaySide lane={lanes[timelineIndex * 2 + 1]} placement={`${timelineIndex === 0 ? "middle" : "right"}-right`} range={range} renderTarget={renderTarget} side="right" status={status} />
           </div>
         </section>
       ))}

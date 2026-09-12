@@ -38,6 +38,19 @@ func TestAMANStateEventProjectsCanonicalGapAndAuditedException(t *testing.T) {
 	require.Equal(t, &AMANRunwayGapException{GapID: "gap-union", RunwayGroupID: "ARRIVAL-22", Opportunity: "2026-07-22T10:18:00.000Z", CommandID: "manual-placement"}, event.Data.Flights[0].RunwayGapException)
 }
 
+func TestAMANStateEventProjectsFiniteAndIndefiniteRunwayClosures(t *testing.T) {
+	state := goldenAMANState()
+	end := testTime(10, 25)
+	state.RunwayGroups[0].Closures = []aman.RunwayClosure{
+		{ID: "finite", Start: testTime(10, 15), End: &end, Reason: "inspection", CreatedAt: testTime(9, 55), CreatedBy: "fmp-1"},
+		{ID: "indefinite", Start: testTime(10, 30), Reason: "works", CreatedAt: testTime(9, 56), CreatedBy: "fmp-2"},
+	}
+	event, err := NewAMANStateEvent(state, aman.EffectiveAuthoritative, goldenAMANHealth())
+	require.NoError(t, err)
+	require.Equal(t, "2026-07-22T10:25:00.000Z", *event.Data.RunwayGroups[0].Closures[0].End)
+	require.Nil(t, event.Data.RunwayGroups[0].Closures[1].End)
+}
+
 func TestAMANStateEventIncludesAuthoritativeTrafficPrediction(t *testing.T) {
 	state := goldenAMANState()
 	effective := state.GeneratedAt.Add(-time.Hour)

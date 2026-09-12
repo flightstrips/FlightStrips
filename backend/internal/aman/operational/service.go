@@ -1177,7 +1177,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			continue
 		}
 		policy := sequence.Policy{
-			RunwayGroupID: group.ID, Rates: rates, Gaps: sequenceGaps(group.Gaps), Closures: append([]aman.RunwayClosure(nil), group.Closures...),
+			RunwayGroupID: group.ID, Rates: rates, Gaps: sequenceGaps(group.Gaps, group.CapacityReservations), Closures: append([]aman.RunwayClosure(nil), group.Closures...),
 			EarlyTolerance: 30 * time.Second, SeparationRules: amanCPHSeparations(), UnknownSeparation: 3 * time.Minute,
 		}
 		if spacing := group.SameSTARSpacing; spacing != nil {
@@ -1213,12 +1213,24 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 	return input
 }
 
-func sequenceGaps(persisted []aman.RunwayGap) []sequence.Gap {
-	gaps := make([]sequence.Gap, len(persisted))
-	for index, gap := range persisted {
-		gaps[index] = sequence.Gap{Start: gap.Start, End: gap.End}
+func sequenceGaps(persisted []aman.RunwayGap, reservations []aman.RunwayCapacityReservation) []sequence.Gap {
+	gaps := make([]sequence.Gap, 0, len(persisted)+len(reservations))
+	for _, gap := range persisted {
+		gaps = append(gaps, sequence.Gap{Start: gap.Start, End: gap.End})
 	}
-	return gaps
+	for _, reservation := range reservations {
+		gaps = append(gaps, sequence.Gap{Start: reservation.Start, End: reservation.End})
+	}
+	sort.Slice(gaps, func(i, j int) bool { return gaps[i].Start.Before(gaps[j].Start) })
+	merged := make([]sequence.Gap, 0, len(gaps))
+	for _, gap := range gaps {
+		if len(merged) == 0 || merged[len(merged)-1].End.Before(gap.Start) {
+			merged = append(merged, gap)
+		} else if gap.End.After(merged[len(merged)-1].End) {
+			merged[len(merged)-1].End = gap.End
+		}
+	}
+	return merged
 }
 
 func sequenceSTARFamilyPolicies(configured []terminal.STARFamilyPolicy) []sequence.STARFamilyPolicy {

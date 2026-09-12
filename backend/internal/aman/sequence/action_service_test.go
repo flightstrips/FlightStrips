@@ -147,6 +147,12 @@ func (m *recordingActionMutations) CreateRunwayClosure(auth aman.CommandContext,
 func (m *recordingActionMutations) RemoveRunwayClosure(auth aman.CommandContext, _ aman.RemoveRunwayClosureCommand) (CommandMutation, error) {
 	return m.mutation("remove_runway_closure", auth)
 }
+func (m *recordingActionMutations) CreateCapacityReservation(auth aman.CommandContext, _ aman.CreateCapacityReservationCommand) (CommandMutation, error) {
+	return m.mutation("create_capacity_reservation", auth)
+}
+func (m *recordingActionMutations) RemoveCapacityReservation(auth aman.CommandContext, _ aman.RemoveCapacityReservationCommand) (CommandMutation, error) {
+	return m.mutation("remove_capacity_reservation", auth)
+}
 func (m *recordingActionMutations) AcceptTETA(auth aman.CommandContext, _ aman.AcceptTETACommand) (CommandMutation, error) {
 	return m.mutation("accept", auth)
 }

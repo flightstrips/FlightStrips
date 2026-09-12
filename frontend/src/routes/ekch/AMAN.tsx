@@ -2,6 +2,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from "react";
 
 import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
+import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
@@ -26,6 +27,7 @@ export default function AMAN() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [coordinationCommandID, setCoordinationCommandID] = useState<string | null>(null);
   const [missedApproachCommandID, setMissedApproachCommandID] = useState<string | null>(null);
+  const [decisionCommandID, setDecisionCommandID] = useState<string | null>(null);
   const controlsRef = useRef<HTMLElement>(null);
   const stateAtMount = useRef(state);
 
@@ -71,6 +73,14 @@ export default function AMAN() {
         )}
         tmt={(
           <>
+            {!hasFMPAuthority && <AMANCoordinationInbox
+              canDecide={getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: true}) === null}
+              deciding={decisionCommandID !== null && pendingCommands[decisionCommandID] !== undefined}
+              flights={state?.flights ?? []}
+              onDecision={(requestID, decision, reason) => setDecisionCommandID(sendCommand({type: `aman.${decision}_coordination_request`, request_id: requestID, ...(reason ? {reason} : {})}))}
+              rejection={decisionCommandID ? commandRejections[decisionCommandID]?.message : null}
+              requests={state?.coordination_requests ?? []}
+            />}
             <AMANWarningPanel
               connectionState={connectionState}
               current={warnings}

@@ -374,7 +374,9 @@ export type AMANCommandType =
   | "aman.create_gap"
   | "aman.remove_gap"
   | "aman.place_flight_at_time"
-  | "aman.submit_coordination_request";
+  | "aman.submit_coordination_request"
+  | "aman.accept_coordination_request"
+  | "aman.reject_coordination_request";
 
 export interface AMANCommandMeta {
   command_id: string;
@@ -398,6 +400,7 @@ export type AMANCommandIntent =
   | ({type: "aman.create_gap"; runway_group_id: string; start: string; label: string} & ({end: string; slot_count?: never} | {slot_count: number; end?: never}))
   | {type: "aman.remove_gap"; runway_group_id: string; gap_id: string}
   | {type: "aman.place_flight_at_time"; flight_id: string; runway_group_id: string; slot_time: string; allow_gap: boolean}
+  | {type: "aman.accept_coordination_request" | "aman.reject_coordination_request"; request_id: string; reason?: string}
   | ({type: "aman.submit_coordination_request"; flight_id: string} & (
       {kind: "route_direct"; route?: string; direct_to?: string; requested?: never}
       | {kind: "speed"; requested: string; route?: never; direct_to?: never}

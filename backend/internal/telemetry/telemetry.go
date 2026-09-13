@@ -198,6 +198,9 @@ func (m *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
 
 func (m *multiHandler) Handle(ctx context.Context, record slog.Record) error {
 	for _, h := range m.handlers {
+		if !h.Enabled(ctx, record.Level) {
+			continue
+		}
 		if err := h.Handle(ctx, record.Clone()); err != nil {
 			return err
 		}

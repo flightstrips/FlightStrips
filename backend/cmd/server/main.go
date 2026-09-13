@@ -28,12 +28,12 @@ var addr = flag.String("addr", "", "http service address (overrides SERVER_ADDR 
 func main() {
 	flag.Parse()
 
+	initializeEnvironment()
+
 	if *addr == "" {
 		*addr = getEnv("SERVER_ADDR", "127.0.0.1:8090")
 	}
 
-	configureLogging()
-	loadEnvFiles()
 	if err := envconfig.ApplyFileOverrides(
 		"DATABASE_CONNECTIONSTRING",
 		"CDM_KEY",
@@ -86,7 +86,7 @@ func main() {
 			}
 		}()
 
-		telemetry.SetupDualLogger()
+		telemetry.SetupDualLogger(slog.Default().Handler())
 		slog.Info("OpenTelemetry initialized", slog.String("endpoint", otlpEndpoint))
 	}
 
@@ -175,6 +175,11 @@ func main() {
 	}
 
 	slog.Info("Server shutdown complete")
+}
+
+func initializeEnvironment() {
+	loadEnvFiles()
+	configureLogging()
 }
 
 func standAssignmentAircraftFile(configured string) string {

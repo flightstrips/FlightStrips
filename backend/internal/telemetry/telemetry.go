@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"os"
 	"time"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -143,12 +142,9 @@ func SetupLogger() {
 	slog.SetDefault(logger)
 }
 
-// SetupDualLogger configures slog to output to both stdout and OpenTelemetry
-func SetupDualLogger() {
+// SetupDualLogger configures slog to output to both the supplied console handler and OpenTelemetry.
+func SetupDualLogger(consoleHandler slog.Handler) {
 	otelHandler := otelslog.NewHandler("FlightStrips")
-	consoleHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	})
 	multi := &multiHandler{
 		handlers: []slog.Handler{consoleHandler, otelHandler},
 	}
@@ -202,6 +198,9 @@ func (m *multiHandler) Enabled(ctx context.Context, level slog.Level) bool {
 
 func (m *multiHandler) Handle(ctx context.Context, record slog.Record) error {
 	for _, h := range m.handlers {
+		if !h.Enabled(ctx, record.Level) {
+			continue
+		}
 		if err := h.Handle(ctx, record.Clone()); err != nil {
 			return err
 		}

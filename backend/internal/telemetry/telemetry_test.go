@@ -1,12 +1,54 @@
 package telemetry
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"log/slog"
+	"strings"
 	"testing"
 
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
+
+func TestSetupDualLoggerPreservesConsoleLogLevel(t *testing.T) {
+	originalLogger := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(originalLogger) })
+
+	var output bytes.Buffer
+	consoleHandler := slog.NewTextHandler(&output, &slog.HandlerOptions{Level: slog.LevelWarn})
+	SetupDualLogger(consoleHandler)
+
+	slog.Info("filtered info message")
+	slog.Warn("visible warning message")
+
+	logged := output.String()
+	if strings.Contains(logged, "filtered info message") {
+		t.Fatal("console handler logged a message below its configured level")
+	}
+	if !strings.Contains(logged, "visible warning message") {
+		t.Fatal("console handler did not log a message at its configured level")
+	}
+}
+
+func TestMultiHandlerFiltersEachDestinationIndependently(t *testing.T) {
+	var consoleOutput bytes.Buffer
+	consoleHandler := slog.NewTextHandler(&consoleOutput, &slog.HandlerOptions{Level: slog.LevelWarn})
+	alwaysEnabledHandler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
+	logger := slog.New(&multiHandler{handlers: []slog.Handler{consoleHandler, alwaysEnabledHandler}})
+
+	logger.Info("telemetry-only info message")
+	logger.Warn("console warning message")
+
+	logged := consoleOutput.String()
+	if strings.Contains(logged, "telemetry-only info message") {
+		t.Fatal("console handler logged a message below its configured level when another handler was enabled")
+	}
+	if !strings.Contains(logged, "console warning message") {
+		t.Fatal("console handler did not log a message at its configured level")
+	}
+}
 
 func collectMetrics(t *testing.T, reader *sdkmetric.ManualReader) metricdata.ResourceMetrics {
 	t.Helper()

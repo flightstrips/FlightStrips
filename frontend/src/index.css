@@ -131,8 +131,8 @@ body.public-content-page {
         42vw,
         calc(var(--aman-workspace-height) * 0.9)
       )
-      minmax(0.75rem, 1fr)
-      calc(var(--aman-workspace-height) * 0.75);
+      clamp(0.75rem, 1.5vw, 1.5rem)
+      minmax(calc(var(--aman-workspace-height) * 0.75), 1fr);
     @apply h-full min-h-0;
   }
 

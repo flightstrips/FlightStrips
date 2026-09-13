@@ -19,7 +19,8 @@ for (const viewport of VIEWPORTS) {
     expect(maestroBox!.x).toBeLessThan(tmtBox!.x);
     expect(maestroBox!.x + maestroBox!.width).toBeLessThan(tmtBox!.x);
     expect(tmtBox!.x + tmtBox!.width).toBeLessThanOrEqual(viewport.width);
-    expect(tmtBox!.width / tmtBox!.height).toBeCloseTo(3 / 4, 2);
+    expect(tmtBox!.x - (maestroBox!.x + maestroBox!.width)).toBeLessThanOrEqual(24);
+    expect(tmtBox!.width / tmtBox!.height).toBeGreaterThanOrEqual(3 / 4);
 
     const settings = (await page.locator('header[aria-label="MAESTRO settings"]').boundingBox())!;
     expect(settings.height / maestroBox!.height).toBeGreaterThanOrEqual(0.125);

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
@@ -44,6 +45,25 @@ func TestUpdateHold_NotifiesFrontend(t *testing.T) {
 	assert.Equal(t, "OLPIB", hub.HoldEvents[0].Hold)
 	assert.Equal(t, "enroute", hub.HoldEvents[0].HoldType)
 	assert.Equal(t, "1422", hub.HoldEvents[0].HoldEat)
+}
+
+func TestUpdateHoldImmediatelyNotifiesAMANFromPersistedStrip(t *testing.T) {
+	persisted := &models.Strip{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}
+	stripRepo := &testutil.MockStripRepository{
+		UpdateHoldFn: func(context.Context, int32, string, string, string, string, *int32) (int64, error) { return 1, nil },
+		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
+			require.EqualValues(t, 1, session)
+			require.Equal(t, "SAS123", callsign)
+			return persisted, nil
+		},
+	}
+	observer := &holdingObserverSpy{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetHoldingClearanceObserver(observer)
+
+	require.NoError(t, svc.UpdateHold(context.Background(), 1, "SAS123", "OLPIB", "enroute", "1422"))
+	require.Equal(t, []*models.Strip{persisted}, observer.strips)
 }
 
 // A cancellation is an empty hold and must still reach the frontend.

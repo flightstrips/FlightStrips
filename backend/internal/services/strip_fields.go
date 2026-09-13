@@ -154,7 +154,15 @@ func (s *StripService) UpdateHold(ctx context.Context, session int32, callsign s
 		return nil
 	}
 	s.publisher.SendHoldEvent(session, callsign, hold, holdType, holdEat)
-	return nil
+	if s.holdingObserver == nil {
+		return nil
+	}
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	shared.AddDBOperations(ctx, 1)
+	if err != nil {
+		return err
+	}
+	return s.observeHoldingClearance(ctx, strip)
 }
 
 // UpdateCommunicationType updates the communication type for a strip and notifies the frontend.

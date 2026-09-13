@@ -35,6 +35,17 @@ func TestOutgoingMessageMarshalWrapsPayloadInEnvelope(t *testing.T) {
 	require.Equal(t, SessionInfo, eventType)
 }
 
+func TestHoldEventCanBeSentToEuroScope(t *testing.T) {
+	encoded, err := (HoldEvent{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}).Marshal()
+	require.NoError(t, err)
+
+	var hold HoldEvent
+	require.NoError(t, UnmarshalEvent(encoded, Hold, &hold))
+	require.Equal(t, "SAS123", hold.Callsign)
+	require.Equal(t, "OLPIB", hold.Hold)
+	require.Equal(t, "1422", hold.HoldEat)
+}
+
 func TestMarshalEnvelopeRejectsMismatchedOneofField(t *testing.T) {
 	_, err := MarshalEnvelope(&LoginEvent{}, Authentication)
 	require.ErrorContains(t, err, "does not match envelope field")

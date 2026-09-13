@@ -2,13 +2,12 @@ import type {ReactNode} from "react";
 
 import type {AMANDataStatus, AMANFlight, AMANState} from "@/api/aman";
 import {cn} from "@/lib/utils";
-import {AMANAxisTopPercent, AMANTimelineAxis} from "./AMANTimelineAxis";
+import {AMANAxisTopPercent, AMANTimelineAxis, AMAN_TIMELINE_RULER_HALF_WIDTH} from "./AMANTimelineAxis";
 import {buildRWYTimelineLanes, layoutTimelineMarkers, type AMANFlightLane, type AMANTimelineRange} from "./presentation";
 import {RunwayGapOverlay} from "./RunwayGapOverlay";
 import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
 import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
-const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
 
 function RunwaySide({lane, range, side, placement, renderTarget, status}: {
@@ -23,7 +22,7 @@ function RunwaySide({lane, range, side, placement, renderTarget, status}: {
 
   const gap = 60_000 / (range.endMs - range.startMs) * 100;
   const markers = layoutTimelineMarkers(lane.flights, range, gap);
-  const rulerEdge = side === "left" ? `calc(50% - ${RULER_HALF_WIDTH}px)` : `calc(50% + ${RULER_HALF_WIDTH}px)`;
+  const rulerEdge = side === "left" ? `calc(50% - ${AMAN_TIMELINE_RULER_HALF_WIDTH}px)` : `calc(50% + ${AMAN_TIMELINE_RULER_HALF_WIDTH}px)`;
   return (
     <div aria-label={`${lane.id} active runway arrivals`} data-placement={placement} data-testid={`rwy-lane-${lane.id}`} role="list">
       <RunwayGapOverlay gaps={lane.gaps ?? []} range={range} runway={lane.id} />
@@ -44,9 +43,7 @@ function RunwaySide({lane, range, side, placement, renderTarget, status}: {
             role="listitem"
             style={{left: rulerEdge, top: `calc(${top}% + ${offset}px)`}}
           >
-            {side === "right" && <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#a9bdc5]" />}
             {renderTarget(marker.flight)}
-            {side === "left" && <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#a9bdc5]" />}
           </div>
         );
       })}

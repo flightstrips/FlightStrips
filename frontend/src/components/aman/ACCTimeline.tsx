@@ -1,13 +1,12 @@
 import type {ReactNode} from "react";
 
 import type {AMANDataStatus, AMANFlight, AMANRunwayGroup} from "@/api/aman";
-import {AMANAxisTopPercent, AMANTimelineAxis} from "./AMANTimelineAxis";
+import {AMANAxisTopPercent, AMANTimelineAxis, AMAN_TIMELINE_RULER_HALF_WIDTH} from "./AMANTimelineAxis";
 import {layoutTimelineMarkers, type AMANTimelineRange} from "./presentation";
 import {RunwayGapOverlay} from "./RunwayGapOverlay";
 import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
 import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
-const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
 
 export function ACCTimeline({flights, runwayGroups = [], range, clockMs, currentPosition, status, renderTarget}: {
@@ -42,10 +41,9 @@ export function ACCTimeline({flights, runwayGroups = [], range, clockMs, current
                 data-sequence={marker.flight.order ?? marker.flight.slot?.sequence ?? undefined}
                 key={marker.flight.flight_id}
                 role="listitem"
-                style={{left: `calc(50% - ${RULER_HALF_WIDTH}px)`, top: `calc(${top}% + ${offset}px)`}}
+                style={{left: `calc(50% - ${AMAN_TIMELINE_RULER_HALF_WIDTH}px)`, top: `calc(${top}% + ${offset}px)`}}
               >
                 {renderTarget(marker.flight)}
-                <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#a9bdc5]" />
               </div>
             );
           })}

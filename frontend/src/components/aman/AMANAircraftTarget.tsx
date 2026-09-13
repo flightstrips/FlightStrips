@@ -33,41 +33,43 @@ export interface AMANAircraftTargetProps {
 
 function lifecyclePresentation(flight: AMANAircraftTargetProps["flight"]): {label: string; shortLabel: string; tone: string} {
   if (flight.sequence_disposition === "desequenced") {
-    return {label: "Desequenced", shortLabel: "DSEQ", tone: "bg-violet-800 text-white"};
+    return {label: "Desequenced", shortLabel: "DSEQ", tone: "text-violet-300"};
   }
   const freeze = freezePresentation(flight.freeze_reason);
-  if (freeze && flight.freeze_reason !== "manual") return freeze;
+  if (freeze && flight.freeze_reason !== "manual") {
+    return {...freeze, tone: flight.freeze_reason === "superstable" ? "text-[#dcdcdc]" : "text-cyan-200"};
+  }
 
   switch (flight.lifecycle_state) {
     case "unstable":
-      return {label: "Unstable", shortLabel: "U", tone: "bg-[#6e996e] text-white"};
+      return {label: "Unstable", shortLabel: "U", tone: "text-[#6e996e]"};
     case "stable":
-      if (freeze) return freeze;
+      if (freeze) return {...freeze, tone: "text-[#96d796]"};
       return {
         label: "Stable",
         shortLabel: "S",
-        tone: "bg-[#96d796] text-[#202020]",
+        tone: "text-[#96d796]",
       };
     default:
       return {
         label: flight.lifecycle_state.replace("_", " "),
         shortLabel: flight.lifecycle_state === "go_around" ? "GA" : flight.lifecycle_state.slice(0, 1).toUpperCase(),
-        tone: "bg-[#707070] text-white",
+        tone: "text-[#dcdcdc]",
       };
   }
 }
 
 function delayTone(delay: string): string {
-  if (delay === "Unavailable") return "bg-[#555355] text-white";
-  if (!delay.startsWith("L")) return "bg-[#96d796] text-[#202020]";
+  if (delay === "Unavailable") return "text-[#dcdcdc]";
+  if (!delay.startsWith("L")) return "text-[#96d796]";
   return Number.parseInt(delay.slice(1), 10) >= 4
-    ? "bg-[#9c0000] text-white"
-    : "bg-[#f0e129] text-[#202020]";
+    ? "text-[#e65b5b]"
+    : "text-[#f0e129]";
 }
 
 function TargetFields({fields}: {fields: readonly AMANAircraftTargetField[]}): ReactNode {
   return fields.map((field) => (
-    <span className="truncate border-r border-white/40 px-1.5" data-field={field.id} key={field.id} title={field.label}>
+    <span className="truncate px-1" data-field={field.id} key={field.id} title={field.label}>
       {field.value}
     </span>
   ));
@@ -96,12 +98,12 @@ export function AMANAircraftTarget({
       aria-label={`Select ${flight.callsign}; ${lifecycle.label}; current delay ${delay}${emphasis ? `; ${emphasis === "primary" ? "emphasized STAR family" : "other STAR family"}` : ""}`}
       aria-pressed={selected}
       className={cn(
-        "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded-sm border border-[#b8b8b8] bg-[#3f3f3f] text-left font-mono text-[11px] font-semibold leading-none text-white shadow-[0_1px_2px_rgb(0_0_0_/_70%)]",
-        "hover:rounded hover:border-white hover:bg-[#a3d5e8] hover:text-white focus-visible:rounded focus-visible:border-white focus-visible:bg-[#a3d5e8] focus-visible:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+        "group inline-flex min-h-7 max-w-[358px] items-stretch overflow-hidden rounded border border-transparent bg-transparent text-left font-mono text-[11px] font-semibold leading-none text-[#dcdcdc]",
+        "hover:border-white hover:bg-[#a3d5e8] hover:text-white [&:hover>span]:!text-white focus-visible:border-white focus-visible:bg-[#a3d5e8] focus-visible:text-white [&:focus-visible>span]:!text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
         "disabled:cursor-not-allowed disabled:opacity-60",
         selected && "ring-2 ring-[#f3d02e] ring-offset-1 ring-offset-[#555355]",
         emphasis === "primary" && "border-2 border-white",
-        emphasis === "subdued" && "bg-[#686868] [&>span]:!bg-[#686868]",
+        emphasis === "subdued" && "text-[#686868] [&>span]:!text-[#686868]",
       )}
       data-emphasis={emphasis}
       disabled={disabled}
@@ -109,10 +111,10 @@ export function AMANAircraftTarget({
       type="button"
     >
       <TargetFields fields={leadingFields} />
-      <span className={cn("flex items-center truncate", compact ? "min-w-[72px] px-1.5" : "min-w-20 px-2")}>{flight.callsign}</span>
-      <span className={cn("flex items-center justify-center border-l border-white/40", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", delayTone(delay))}>{delay}</span>
+      <span className={cn("flex items-center truncate", compact ? "min-w-[72px] px-1.5" : "min-w-20 px-2", lifecycle.tone)}>{flight.callsign}</span>
+      <span className={cn("flex items-center justify-center", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", delayTone(delay))}>{delay}</span>
       <TargetFields fields={trailingFields} />
-      <span className={cn("flex items-center justify-center border-l border-white/40 px-1", compact ? "min-w-6" : "min-w-7", lifecycle.tone)} title={lifecycle.label}>
+      <span className={cn("flex items-center justify-center px-1", compact ? "min-w-6" : "min-w-7", lifecycle.tone)} title={lifecycle.label}>
         {lifecycle.shortLabel}
       </span>
       {flight.runway_gap_exception && <span className="flex items-center border-l border-dashed border-amber-200 bg-amber-950 px-1 text-[9px] text-amber-100" title={`Audited manual placement inside GAP ${flight.runway_gap_exception.gap_id}`}>GAP EXCEPTION</span>}

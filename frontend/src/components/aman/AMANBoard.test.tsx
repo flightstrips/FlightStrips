@@ -320,7 +320,7 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByRole("button", {name: /Select SAS123.*emphasized STAR family/})).toHaveAttribute("data-emphasis", "primary");
     const subdued = screen.getByRole("button", {name: /Select TUDLO2.*other STAR family/});
     expect(subdued).toHaveAttribute("data-emphasis", "subdued");
-    expect(subdued).toHaveClass("bg-[#686868]");
+    expect(subdued).toHaveClass("text-[#686868]");
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
 
     fireEvent.change(screen.getByRole("combobox", {name: "ACC STAR family emphasis"}), {target: {value: "ALL"}});

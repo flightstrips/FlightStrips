@@ -35,10 +35,10 @@ describe("compact MAESTRO aircraft target", () => {
   });
 
   it.each([
-    [-30, "L01", "bg-[#f0e129]"],
-    [-240, "L04", "bg-[#9c0000]"],
-    [0, "=00", "bg-[#96d796]"],
-    [60, "G01", "bg-[#96d796]"],
+    [-30, "L01", "text-[#f0e129]"],
+    [-240, "L04", "text-[#e65b5b]"],
+    [0, "=00", "text-[#96d796]"],
+    [60, "G01", "text-[#96d796]"],
   ] as const)("presents %i seconds as %s with the documented emphasis", (seconds, label, tone) => {
     render(<AMANAircraftTarget flight={flight({gain_loss_seconds: seconds})} guidance={guidance} />);
     expect(screen.getByText(label)).toHaveClass(tone);

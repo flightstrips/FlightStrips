@@ -58,7 +58,7 @@ function TimelineScrollRail({
       aria-valuemax={maximumScroll}
       aria-valuemin={0}
       aria-valuenow={Math.round(scrollTop)}
-      className="absolute bottom-0 left-0 top-0 z-40 w-9 border border-[#ddd] bg-[#242424] touch-none"
+      className="absolute bottom-0 left-0 top-0 z-40 w-6 border border-[#dcdcdc] bg-[#242424] touch-none"
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
         setScrollFromPointer(event.clientY, event.currentTarget);
@@ -273,7 +273,7 @@ export function AMANBoardView({
         view={view}
       />
       <div className="relative min-h-0 flex-1">
-        <div className="h-full overflow-auto pl-9 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
+        <div className="h-full overflow-auto pl-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
           <div className="relative flex min-w-[37.5rem]" data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
             {view === "runway" ? (
               <RWYPairedTimeline

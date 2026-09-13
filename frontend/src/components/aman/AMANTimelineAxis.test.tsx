@@ -67,7 +67,7 @@ describe("AMAN UTC timeline axis", () => {
   it.each([30, 60, 90])("marks the final ten minutes of a %i-minute horizon", (minutes) => {
     const range = buildAMANAxisRange(Date.parse("2026-07-22T10:00:00.000Z"), minutes);
     render(<AMANTimelineAxis clockMs={range.startMs} range={range} status="fresh" />);
-    expect(Number.parseFloat(screen.getByTestId("final-ten-minute-region").style.height)).toBeCloseTo(10 / minutes * 100, 8);
+    expect(Number.parseFloat(screen.getByTestId("final-ten-minute-region").style.top)).toBeCloseTo(100 - 10 / minutes * 100, 8);
     expect(screen.getByText("FINAL 10")).toBeInTheDocument();
   });
 

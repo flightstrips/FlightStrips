@@ -164,7 +164,7 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(onSelectFlight).toHaveBeenNthCalledWith(1, "flight-123");
     expect(onOpenFlightActions).toHaveBeenNthCalledWith(1, "flight-123");
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-[37.5rem]");
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
     expect(screen.getAllByTestId(/^fmp-timeline-/)).toHaveLength(3);
   });
 
@@ -202,8 +202,8 @@ describe("complete AMAN timeline and strips", () => {
     renderBoard(current);
 
     expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22");
-    fireEvent.click(screen.getByRole("button", {name: "Open target information preferences"}));
-    expect(screen.getByRole("dialog", {name: "Target information"})).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", {name: "Open target information preferences"})[0]);
+    expect(screen.getByRole("dialog", {name: "Target Information"})).toBeInTheDocument();
   });
 
   it("opens the selected flight's on-demand route detail without changing the board state", () => {
@@ -269,7 +269,7 @@ describe("complete AMAN timeline and strips", () => {
     expect(scrollRail).toHaveAttribute("aria-valuenow", "960");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("rwy-lane-ARRIVAL-22")).toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-[37.5rem]");
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
   });
 
   it("renders the backend-configured FMP paired timelines without inferring an unused family", () => {
@@ -321,6 +321,8 @@ describe("complete AMAN timeline and strips", () => {
     const subdued = screen.getByRole("button", {name: /Select TUDLO2.*other STAR family/});
     expect(subdued).toHaveAttribute("data-emphasis", "subdued");
     expect(subdued).toHaveClass("text-[#686868]");
+    expect(screen.getByRole("button", {name: /Select SAS123.*emphasized STAR family/})).toHaveClass("text-[#96d796]");
+    expect(screen.queryByText("★ TESPI")).not.toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
 
     fireEvent.change(screen.getByRole("combobox", {name: "ACC STAR family emphasis"}), {target: {value: "ALL"}});

@@ -12,8 +12,12 @@ function prediction(): AMANTrafficPrediction {
     degraded_reasons: ["missing_selected_rate"],
     buckets: Array.from({length: 12}, (_, index) => ({
       start: new Date(start + index * 15 * 60_000).toISOString(), end: new Date(start + (index + 1) * 15 * 60_000).toISOString(),
-      planned_count: index === 0 ? 1 : 0, airborne_count: index === 0 ? 2 : 0, count: index === 0 ? 3 : 0,
-      load_factor: index === 0 ? 12 : 0, selected_rate: null, bucket_high: false, window_high: false,
+      planned_count: index === 0 ? 1 : index === 2 ? 4 : 0,
+      airborne_count: index === 0 ? 2 : index === 2 ? 8 : 0,
+      count: index === 0 ? 3 : index === 2 ? 12 : 0,
+      load_factor: index === 0 ? 12 : index === 2 ? 48 : 0,
+      selected_rate: index === 2 ? {runway_group_id: "22L", arrivals_per_hour: 40, effective_at: new Date(start).toISOString()} : null,
+      bucket_high: index === 2, window_high: index === 2,
       alert: index === 1 ? "yellow" : index === 2 ? "red" : "none",
       flights: index === 0 ? [{flight_id: "1", callsign: "SAS101", airborne: true, landing_at: "2026-07-22T20:32:00.000Z", timing_source: "aman", data_status: "fresh"}] : [],
     })),
@@ -21,18 +25,19 @@ function prediction(): AMANTrafficPrediction {
 }
 
 describe("TMTTrafficPrediction", () => {
-  it("renders backend-authored buckets, status, rates, colours, and local details", () => {
-    const model = prediction();
-    render(<TMTTrafficPrediction prediction={model} />);
+  it("renders one continuous, accessible bucket chart with stacked and alert segments", () => {
+    render(<TMTTrafficPrediction prediction={prediction()} />);
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(12);
+    const buckets = screen.getAllByRole("listitem");
+    expect(buckets).toHaveLength(12);
     expect(screen.getByLabelText("20:30 to 20:45: 3 arrivals, load factor 12")).toBeInTheDocument();
     expect(screen.getByText(/Arrival rate unavailable/)).toBeInTheDocument();
-    fireEvent.focus(screen.getAllByRole("listitem")[0]);
-    expect(screen.getByText(/SAS101 20:32/)).toBeInTheDocument();
-    expect(screen.getAllByText("RATE —")).toHaveLength(12);
-    expect(screen.getAllByRole("listitem")[1]).toHaveClass("bg-[#f0e129]");
-    expect(screen.getAllByRole("listitem")[2]).toHaveClass("bg-[#9c0000]");
-    expect(screen.getByText("20:30–23:30 UTC")).toBeInTheDocument();
+    expect(screen.getByTestId("traffic-bar-20:30")).toBeInTheDocument();
+    expect(screen.getByTestId("traffic-bar-21:00").querySelector('[data-alert="red"]')).toBeInTheDocument();
+    expect(screen.queryByText("RATE —")).not.toBeInTheDocument();
+    expect(screen.queryByText("Load = aircraft × 4")).not.toBeInTheDocument();
+
+    fireEvent.focus(buckets[0]);
+    expect(screen.getByText(/SAS101 20:32/, {selector: ".sr-only"})).toBeInTheDocument();
   });
 });

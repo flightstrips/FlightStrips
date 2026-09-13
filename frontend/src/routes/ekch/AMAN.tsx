@@ -3,6 +3,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from "react";
 import {AMANBoardView} from "@/components/aman/AMANBoard";
 import {AMANControls} from "@/components/aman/AMANControls";
 import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
+import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationRequestDialog";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
@@ -27,7 +28,9 @@ export default function AMAN() {
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
   const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [detailAction, setDetailAction] = useState<"none" | "all" | "missed" | "remove">("none");
   const [flightActionsOpen, setFlightActionsOpen] = useState(false);
+  const [coordinationOpen, setCoordinationOpen] = useState(false);
   const [coordinationCommandID, setCoordinationCommandID] = useState<string | null>(null);
   const [missedApproachCommandID, setMissedApproachCommandID] = useState<string | null>(null);
   const [decisionCommandID, setDecisionCommandID] = useState<string | null>(null);
@@ -72,6 +75,7 @@ export default function AMAN() {
             }}
             onOpenFlightDetails={(flightID) => {
               setSelectedFlightID(flightID);
+              setDetailAction("all");
               setMissedApproachCommandID(null);
               setRemovalCommandID(null);
               setDetailOpen(true);
@@ -119,44 +123,62 @@ export default function AMAN() {
         </DialogContent>
       </Dialog>
       <Dialog onOpenChange={setFlightActionsOpen} open={flightActionsOpen}>
-        <DialogContent className="w-[min(34rem,calc(100vw-2rem))] max-w-none border-[#dcdcdc] bg-[#3f3f3f] p-3 text-white">
-          <DialogTitle className="border-b border-[#dcdcdc] pb-2 font-display text-base font-bold">Aircraft actions · {selectedFlight?.callsign ?? "Unavailable"}</DialogTitle>
-          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-            <button className="border border-[#dcdcdc] bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => {
+        <DialogContent className="w-40 max-w-[calc(100vw-1rem)] gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-1 font-display text-[11px] font-bold text-white [&>button]:hidden">
+          <DialogTitle className="px-2 py-1 text-center text-xs font-bold text-[#bba8ee]">{selectedFlight?.callsign ?? "Unavailable"}</DialogTitle>
+          <div className="grid gap-0">
+            <button className="flex min-h-6 items-center rounded-md border border-[#dcdcdc] bg-[#a3d5e8] px-3 text-left text-[#10265c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => {
               if (effectiveSelectedFlightID !== null) {
                 setFlightActionsOpen(false);
+                setDetailAction("none");
                 setDetailOpen(true);
               }
             }} type="button">Information</button>
-            <button className="border border-[#dcdcdc] bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8] disabled:opacity-50" disabled={mutationBlockReason !== null || effectiveSelectedFlightID === null} onClick={() => {
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2] disabled:opacity-50" disabled={mutationBlockReason !== null || effectiveSelectedFlightID === null} onClick={() => {
               if (effectiveSelectedFlightID !== null) {
                 sendCommand({type: "aman.recompute_flight", flight_id: effectiveSelectedFlightID});
                 setFlightActionsOpen(false);
               }
             }} type="button">Recompute</button>
-            {["Alternate Runway", "Change Runway", "Change ETA-FF", "De-sequence", "Insert Closure", "Insert Gap", "Extra Flight"].map((label) => (
-              <button className="border border-[#dcdcdc] bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8]" key={label} onClick={() => {
+            <div className="mx-1 my-0.5 border-t-2 border-white" />
+            {[{label: "Alternate Runway", child: false}, {label: "Change Runway", child: true}, {label: "Change ETA-FF", child: false}].map(({label, child}) => (
+              <button className="flex min-h-5 items-center justify-between px-3 text-left hover:bg-[#6685c2]" key={label} onClick={() => {
                 setFlightActionsOpen(false);
                 setControlsOpen(true);
-              }} type="button">{label}</button>
+              }} type="button"><span>{label}</span>{child && <span aria-hidden="true">▶</span>}</button>
             ))}
-            <button className="border border-[#dcdcdc] bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8]" onClick={() => {
+            <div className="mx-1 my-0.5 border-t-2 border-white" />
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2]" onClick={() => {
               setFlightActionsOpen(false);
-              setDetailOpen(true);
+              setCoordinationOpen(true);
             }} type="button">Coordination</button>
-            <button className="border border-amber-300 bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8]" onClick={() => {
-              setFlightActionsOpen(false);
-              setDetailOpen(true);
-            }} type="button">Missed Approach</button>
-            <button className="border border-red-300 bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8]" onClick={() => {
-              setFlightActionsOpen(false);
-              setDetailOpen(true);
-            }} type="button">Remove…</button>
+            <div className="mx-1 my-0.5 border-t-2 border-white" />
+            {["Missed Approach", "De-Sequence", "Insert Closure", "Insert Gap"].map((label) => (
+              <button className="flex min-h-5 items-center justify-between px-3 text-left hover:bg-[#6685c2]" key={label} onClick={() => {
+                setFlightActionsOpen(false);
+                if (label === "Missed Approach") {
+                  setDetailAction("missed");
+                  setDetailOpen(true);
+                }
+                else setControlsOpen(true);
+              }} type="button"><span>{label}</span><span aria-hidden="true">▶</span></button>
+            ))}
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2]" onClick={() => { setFlightActionsOpen(false); setControlsOpen(true); }} type="button">Extra Flight</button>
+            <div className="mx-1 my-0.5 border-t-2 border-white" />
+            <button className="min-h-5 px-3 text-left hover:bg-[#6685c2]" onClick={() => { setFlightActionsOpen(false); setDetailAction("remove"); setDetailOpen(true); }} type="button">Remove</button>
           </div>
-          {mutationBlockReason !== null && <p className="text-xs text-amber-200">Operational changes are currently unavailable: {mutationBlockReason.replaceAll("_", " ")}.</p>}
+          {mutationBlockReason !== null && <p className="sr-only">Operational changes are currently unavailable: {mutationBlockReason.replaceAll("_", " ")}.</p>}
         </DialogContent>
       </Dialog>
-      {detailOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} missedApproach={{
+      {coordinationOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANCoordinationRequestDialog
+        callsign={selectedFlight.callsign}
+        canSubmit={mutationBlockReason === null}
+        onClose={() => setCoordinationOpen(false)}
+        onSubmit={(submission) => setCoordinationCommandID(sendCommand({type: "aman.submit_coordination_request", flight_id: effectiveSelectedFlightID, ...submission}))}
+        rejection={coordinationCommandID ? commandRejections[coordinationCommandID]?.message : null}
+        requests={(state.coordination_requests ?? []).filter((request) => request.flight_id === effectiveSelectedFlightID)}
+        submitting={coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined}
+      />}
+      {detailOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} initialAction={detailAction === "missed" ? "missed-approach" : detailAction === "remove" ? "removal" : undefined} onClose={() => setDetailOpen(false)} missedApproach={detailAction === "none" ? undefined : {
         blockReason: mutationBlockReason,
         confirmation: selectedFlight.go_around_confirmation,
         confirmed: selectedFlight.lifecycle_state === "go_around",
@@ -168,13 +190,13 @@ export default function AMAN() {
             ? {type: "aman.confirm_go_around", flight_id: effectiveSelectedFlightID, episode_id: detection.episode_id}
             : {type: "aman.report_go_around", flight_id: effectiveSelectedFlightID, detected_at: new Date().toISOString()}));
         },
-      }} removal={{
+      }} removal={detailAction === "none" ? undefined : {
         blockReason: mutationBlockReason,
         confirmed: selectedFlight.lifecycle_state === "removed",
         pending: removalCommandID !== null && pendingCommands[removalCommandID] !== undefined,
         rejection: removalCommandID ? commandRejections[removalCommandID] ?? null : null,
         onConfirm: () => setRemovalCommandID(sendCommand({type: "aman.remove_flight", flight_id: effectiveSelectedFlightID})),
-      }} coordination={hasFMPAuthority ? {
+      }} coordination={detailAction === "all" && hasFMPAuthority ? {
         requests: (state.coordination_requests ?? []).filter((request) => request.flight_id === effectiveSelectedFlightID),
         canSubmit: getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority}) === null,
         submitting: coordinationCommandID !== null && pendingCommands[coordinationCommandID] !== undefined,

@@ -58,6 +58,7 @@ describe("AMAN flight detail dialog integration", () => {
     expect(screen.getByRole("button", {name: "Close flight detail"})).toHaveFocus();
     expect(dialog).toHaveTextContent("state revision 17");
     expect(dialog).toHaveTextContent("A320");
+    fireEvent.click(screen.getByRole("button", {name: "Technical evidence"}));
     expect(dialog).toHaveTextContent("Wake categoryM");
 
     fireEvent.keyDown(document, {key: "Escape"});
@@ -81,6 +82,7 @@ describe("AMAN flight detail dialog integration", () => {
     fireEvent.click(screen.getByRole("button", {name: "Open SAS123"}));
 
     const dialog = await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("button", {name: "Technical evidence"}));
     expect(dialog).toHaveTextContent("Freeze protectionTMA entry protection");
     expect(screen.getByText("TMA entry protection")).toHaveClass("bg-cyan-950", "text-cyan-200");
   });

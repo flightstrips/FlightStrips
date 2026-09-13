@@ -74,7 +74,7 @@ export function useAMANTimelineAxis(authoritativeTime: string) {
   );
 }
 
-export function AMANTimelineAxis({range, clockMs, status}: {range: AMANTimelineRange; clockMs: number; status: AMANDataStatus}) {
+export function AMANTimelineAxis({range, clockMs, status, onOpenTargetInformation}: {range: AMANTimelineRange; clockMs: number; status: AMANDataStatus; onOpenTargetInformation?: () => void}) {
   const firstTick = Math.ceil(range.startMs / ONE_MINUTE_MS) * ONE_MINUTE_MS;
   const ticks = Array.from(
     {length: Math.max(0, Math.floor((range.endMs - firstTick) / ONE_MINUTE_MS) + 1)},
@@ -102,9 +102,16 @@ export function AMANTimelineAxis({range, clockMs, status}: {range: AMANTimelineR
         </div>;
       })}
       {status !== "fresh" && <span className={cn("absolute bottom-1 left-1/2 z-20 -translate-x-1/2 text-[8px] font-bold uppercase", status === "disconnected" ? "text-red-200" : "text-amber-200")}>{status}</span>}
-      <span className="absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border-2 border-[#dcdcdc] bg-[#555355] px-2 py-1 font-display text-[11px] font-semibold text-[#dcdcdc]">
+      <button
+        aria-haspopup={onOpenTargetInformation ? "dialog" : undefined}
+        aria-label={onOpenTargetInformation ? "Open target information preferences" : undefined}
+        className="absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border-2 border-[#dcdcdc] bg-[#555355] px-2 py-1 font-display text-[11px] font-semibold text-[#dcdcdc] hover:bg-[#a3d5e8] hover:text-white focus-visible:bg-[#a3d5e8] focus-visible:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:pointer-events-none"
+        disabled={!onOpenTargetInformation}
+        onClick={onOpenTargetInformation}
+        type="button"
+      >
         {formatAMANAxisLabel(clockMs, range.startMs)}
-      </span>
+      </button>
     </div>
   );
 }

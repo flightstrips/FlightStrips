@@ -145,7 +145,7 @@ body.public-content-page {
   }
 
   .aman-settings-button {
-    @apply grid min-w-[4.25rem] place-items-center border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
+    @apply flex min-w-[4.25rem] items-center justify-center gap-1 whitespace-nowrap border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
   }
 
   .aman-workspace-separator {

@@ -32,7 +32,7 @@ function FeederSide({
   renderTarget: (flight: AMANFlight) => ReactNode;
 }) {
   if (family === null) {
-    return <div aria-label={`Unused ${side} side`} className={cn("absolute -bottom-9 whitespace-nowrap text-[11px] uppercase text-slate-400", side === "left" ? "right-[29px]" : "left-[29px]")}>Unused</div>;
+    return null;
   }
 
   const familyFlights = flights.filter((flight) => familyOf(flight) === family);
@@ -61,9 +61,18 @@ function FeederSide({
           </div>
         );
       })}
-      <span className={cn("absolute -bottom-9 whitespace-nowrap font-display text-xs font-semibold text-[#dcdcdc]", side === "left" ? "right-[29px]" : "left-[29px]")}>{family}</span>
     </div>
   );
+}
+
+function laneLabelPosition(index: number, side: "left" | "right"): number {
+  const position = FMP_AXIS_POSITIONS[index] ?? (index + 1) / 4 * 100;
+  if (side === "left") {
+    const previous = index === 0 ? 0 : FMP_AXIS_POSITIONS[index - 1] ?? 0;
+    return index === 0 ? position / 2 : (previous + position * 3) / 4;
+  }
+  const next = index === FMP_AXIS_POSITIONS.length - 1 ? 100 : FMP_AXIS_POSITIONS[index + 1] ?? 100;
+  return index === FMP_AXIS_POSITIONS.length - 1 ? (position + 100) / 2 : (position * 3 + next) / 4;
 }
 
 export function FMPPairedTimeline({
@@ -78,6 +87,7 @@ export function FMPPairedTimeline({
   closures = [],
   capacityReservations = [],
   runway = "runway",
+  onOpenTargetInformation,
 }: {
   mappings: AMANTimelineMapping[];
   flights: AMANFlight[];
@@ -90,6 +100,7 @@ export function FMPPairedTimeline({
   closures?: AMANRunwayClosure[];
   capacityReservations?: AMANCapacityReservation[];
   runway?: string;
+  onOpenTargetInformation?: () => void;
 }) {
   const finalTenBoundary = Math.max(0, (currentPosition ?? 100) - 10 * 60_000 / (range.endMs - range.startMs) * 100);
   return (
@@ -108,7 +119,7 @@ export function FMPPairedTimeline({
             style={{left: `${position}%`, width: "max(6%, 46px)"}}
           >
             <div className="absolute inset-0">
-              <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
+              <AMANTimelineAxis clockMs={clockMs} onOpenTargetInformation={onOpenTargetInformation} range={range} status={status} />
               <RunwayGapOverlay gaps={gaps} range={range} runway={runway} />
               <RunwayClosureOverlay closures={closures} range={range} runway={runway} status={status} />
               <CapacityReservationOverlay range={range} reservations={capacityReservations} runway={runway} status={status} />
@@ -118,6 +129,17 @@ export function FMPPairedTimeline({
           </section>
         );
       })}
+      <div aria-label="Feeder lane labels" className="pointer-events-none absolute inset-x-0 bottom-4 z-30 font-display text-xs font-semibold text-[#dcdcdc]">
+        {mappings.flatMap((mapping, index) => (["left", "right"] as const).map((side) => {
+          const family = mapping[side];
+          return <span
+            aria-label={family === null ? `Unused ${side} side` : `${family} feeder lane`}
+            className={cn("absolute -translate-x-1/2 whitespace-nowrap", family === null && "font-normal uppercase text-slate-400")}
+            key={`${mapping.id}-${side}`}
+            style={{left: `${laneLabelPosition(index, side)}%`}}
+          >{family ?? "Unused"}</span>;
+        }))}
+      </div>
     </div>
   );
 }

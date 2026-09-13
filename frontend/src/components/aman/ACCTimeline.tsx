@@ -9,7 +9,7 @@ import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
 const TARGET_TRACK_HEIGHT = 30;
 
-export function ACCTimeline({flights, runwayGroups = [], range, clockMs, currentPosition, status, renderTarget}: {
+export function ACCTimeline({flights, runwayGroups = [], range, clockMs, currentPosition, status, renderTarget, onOpenTargetInformation, label = "ALL"}: {
   flights: AMANFlight[];
   runwayGroups?: AMANRunwayGroup[];
   range: AMANTimelineRange;
@@ -17,6 +17,8 @@ export function ACCTimeline({flights, runwayGroups = [], range, clockMs, current
   currentPosition: number | null;
   status: AMANDataStatus;
   renderTarget: (flight: AMANFlight) => ReactNode;
+  onOpenTargetInformation?: () => void;
+  label?: string;
 }) {
   const gap = 60_000 / (range.endMs - range.startMs) * 100;
   const markers = layoutTimelineMarkers(flights, range, gap);
@@ -25,7 +27,7 @@ export function ACCTimeline({flights, runwayGroups = [], range, clockMs, current
     <section aria-label="ACC authoritative arrival sequence" className="relative h-full min-w-[520px] flex-1" data-testid="acc-timeline">
       <div className="absolute inset-x-0 bottom-0 top-5">
         {currentPosition !== null && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
-        <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
+        <AMANTimelineAxis clockMs={clockMs} onOpenTargetInformation={onOpenTargetInformation} range={range} status={status} />
         {runwayGroups.map((group) => <RunwayGapOverlay gaps={group.gaps ?? []} key={group.id} range={range} runway={group.id} />)}
         {runwayGroups.map((group) => <RunwayClosureOverlay closures={group.closures ?? []} key={group.id} range={range} runway={group.id} status={status} />)}
         {runwayGroups.map((group) => <CapacityReservationOverlay key={group.id} range={range} reservations={group.capacity_reservations ?? []} runway={group.id} status={status} />)}
@@ -48,7 +50,7 @@ export function ACCTimeline({flights, runwayGroups = [], range, clockMs, current
             );
           })}
         </div>
-        <span className="absolute bottom-3 left-3 font-display text-sm font-bold text-white">ACC</span>
+        <span className="absolute bottom-3 -translate-x-full whitespace-nowrap pr-3 font-display text-sm font-bold text-white" style={{left: `calc(50% - ${AMAN_TIMELINE_RULER_HALF_WIDTH}px)`}}>{label}</span>
       </div>
     </section>
   );

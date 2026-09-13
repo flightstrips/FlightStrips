@@ -6,7 +6,7 @@ import type {
   AMANPresentationStatus,
   AMANState,
 } from "@/api/aman";
-import {Dialog, DialogClose, DialogContent, DialogTitle} from "@/components/ui/dialog";
+import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {AMAN_ALL_VIEW, availableAMANViews, controllerAMANViews, readAMANViewPreference, resolveAMANView, type AMANView} from "@/lib/aman-view-preference";
 import {cn} from "@/lib/utils";
 import {useWebSocketStore} from "@/store/store-hooks";
@@ -198,21 +198,20 @@ export function AMANBoardView({
   const renderACCTarget = (flight: AMANFlight) => {
     const emphasized = accView === AMAN_ALL_VIEW || flight.star_family === accView;
     return (
-      <div className="flex min-h-7 items-stretch">
-        <AMANAircraftTarget
-          emphasis={emphasized ? "primary" : "subdued"}
-          flight={flight}
-          guidance={{authoritative: gainLossAuthoritative, connected: connectionState === "connected"}}
-          leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
-          onSelect={() => {
-            onSelectFlight(flight.flight_id);
-            onOpenFlightActions?.(flight.flight_id);
-          }}
-          selected={flight.flight_id === selectedFlightID}
-          trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
-        />
-        {flight.star_family && <span className={cn("flex items-center border border-l-0 border-[#b8b8b8] px-1.5 font-mono text-[11px]", emphasized ? "bg-[#3f3f3f] text-[#a9bdc5]" : "bg-[#686868] text-white")}>{emphasized && accView !== AMAN_ALL_VIEW ? "★ " : ""}{flight.star_family}</span>}
-      </div>
+      <AMANAircraftTarget
+        compact
+        delayFirst
+        emphasis={emphasized ? "primary" : "subdued"}
+        flight={flight}
+        guidance={{authoritative: gainLossAuthoritative, connected: connectionState === "connected"}}
+        leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
+        onSelect={() => {
+          onSelectFlight(flight.flight_id);
+          onOpenFlightActions?.(flight.flight_id);
+        }}
+        selected={flight.flight_id === selectedFlightID}
+        trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
+      />
     );
   };
   const syncTimelineScroll = () => {
@@ -262,25 +261,28 @@ export function AMANBoardView({
         commandRejections={commandRejections}
         hasFMPAuthority={hasFMPAuthority}
         onCommand={sendCommand}
-        onOpenTargetPreferences={() => setTargetPreferencesOpen(true)}
         onRunwayGroupViewChange={setSelectedRunwayGroupID}
         onViewChange={setView}
+        onACCViewChange={(next) => setACCView(next as AMANView)}
         presentationStatus={presentationStatus}
         pendingCommands={pendingCommands}
         readOnly={readOnly}
         runwayGroupOptions={state.runway_groups.map((group) => ({id: group.id, label: `${group.id} : ${state.flights.filter((flight) => flight.runway_group_id === group.id).length}`}))}
-        secondaryAccessory={<><span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>{view === "acc" && <label className="flex items-center gap-1 text-xs font-bold text-black">Emphasis<select aria-label="ACC STAR family emphasis" className="border border-black bg-white px-1" onChange={(event) => setACCView(event.target.value)} value={accView}><option value={AMAN_ALL_VIEW}>ALL</option>{[...availableAMANViews(state)].map((family) => <option key={family} value={family}>{family}</option>)}</select></label>}</>}
+        secondaryAccessory={<span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>}
+        accViewOptions={[AMAN_ALL_VIEW, ...availableAMANViews(state)]}
+        selectedACCView={accView}
         selectedRunwayGroupID={activeRunwayLane?.id ?? null}
         state={state}
         view={view}
       />
       <div className="relative min-h-0 flex-1">
         <div className="h-full overflow-auto pl-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
-          <div className="relative flex min-w-[37.5rem]" data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
+          <div className="relative flex min-w-full" data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
             {view === "runway" ? (
               <RWYPairedTimeline
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
+                onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
                 range={range}
                 renderTarget={renderRWYTarget}
                 state={state}
@@ -291,6 +293,8 @@ export function AMANBoardView({
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
                 flights={state.flights}
+                label={accView}
+                onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
                 runwayGroups={state.runway_groups}
                 range={range}
                 renderTarget={renderACCTarget}
@@ -305,6 +309,7 @@ export function AMANBoardView({
                 closures={activeRunwayLane?.closures ?? []}
                 capacityReservations={activeRunwayLane?.capacityReservations ?? []}
                 mappings={state.timeline_configuration.mappings}
+                onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
                 range={range}
                 renderTarget={renderFMPTarget}
                 runway={activeRunwayLane?.id ?? "runway"}
@@ -340,10 +345,9 @@ export function AMANBoardView({
         {state.technical_health.blocked_reasons.length > 0 && <span className="ml-auto text-xs text-red-200">{state.technical_health.blocked_reasons.join(", ")}</span>}
       </footer>
       <Dialog onOpenChange={setTargetPreferencesOpen} open={targetPreferencesOpen}>
-        <DialogContent className="w-[min(720px,calc(100vw-2rem))] bg-[#e4e4e4] text-[#202020]">
-          <DialogTitle>Target information</DialogTitle>
+        <DialogContent className="w-[min(493px,calc(100vw-2rem))] max-w-none gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-0 text-white [&>button]:hidden">
+          <DialogTitle className="border-b-2 border-[#dcdcdc] px-5 py-3 text-center font-display text-lg font-bold uppercase">Target Information</DialogTitle>
           <AMANAircraftTargetPreferenceControls onChange={setTargetPreferences} preferences={targetPreferences} />
-          <DialogClose className="justify-self-end rounded border border-black bg-[#555355] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6b696b]">Close target information</DialogClose>
         </DialogContent>
       </Dialog>
     </section>

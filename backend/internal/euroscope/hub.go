@@ -99,6 +99,7 @@ type Hub struct {
 
 	squawkThrottle *squawkThrottle
 	amanGainLoss   AMANGainLossProvider
+	amanHoldingEAT AMANHoldingEATProvider
 	amanRouteFacts AMANRouteFactReporter
 }
 
@@ -107,6 +108,12 @@ type Hub struct {
 // protocol.
 type AMANGainLossProvider interface {
 	CurrentAMANGainLoss(context.Context, string) (euroscope.AMANGainLossEvent, error)
+}
+
+// AMANHoldingEATProvider returns the currently required TopSky holding EAT
+// pulses for an airport. It is used both for live updates and reconnect repair.
+type AMANHoldingEATProvider interface {
+	CurrentAMANHoldingEAT(context.Context, string) ([]euroscope.HoldEvent, error)
 }
 
 type AMANRouteFactReporter interface {
@@ -141,6 +148,7 @@ type HubDependencies struct {
 	Controllers    shared.ControllerService
 	Authentication shared.AuthenticationService
 	AMANGainLoss   AMANGainLossProvider
+	AMANHoldingEAT AMANHoldingEATProvider
 	AMANRouteFacts AMANRouteFactReporter
 }
 
@@ -201,6 +209,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		controllerService:           deps.Controllers,
 		authenticationService:       deps.Authentication,
 		amanGainLoss:                deps.AMANGainLoss,
+		amanHoldingEAT:              deps.AMANHoldingEAT,
 		amanRouteFacts:              deps.AMANRouteFacts,
 		recorders:                   make(map[int32]*recorder.Recorder),
 		offlineTimers:               make(map[string]*offlineTimerEntry),
@@ -250,6 +259,15 @@ func (hub *Hub) PublishAMANGainLoss(event euroscope.AMANGainLossEvent) {
 	hub.publish(internalMessage{airport: event.Airport, message: event})
 }
 
+// PublishAMANHoldingEAT sends authoritative holding release times to all
+// operational EuroScope clients for the airport. Each plugin independently
+// verifies that it is tracking the aircraft before producing the TopSky pulse.
+func (hub *Hub) PublishAMANHoldingEAT(airport string, updates []euroscope.HoldEvent) {
+	for _, update := range updates {
+		hub.publish(internalMessage{airport: airport, message: update})
+	}
+}
+
 func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessage) {
 	hub.publish(internalMessage{
 		session: session,
@@ -280,6 +298,7 @@ func (hub *Hub) OnRegister(client *Client) {
 	hub.setClientLocalIP(client.session, client.GetCid(), client.localIP)
 	hub.adjustAirportClientCount(client.airport, client.observer, 1)
 	hub.sendInitialAMANGainLoss(client)
+	hub.sendInitialAMANHoldingEAT(client)
 	// Start recording if in record mode and not already recording this session
 	if config.IsRecordMode() && !hub.IsRecording(client.session) {
 		err := hub.StartRecording(client.session, client.airport, "LIVE", "Auto-recorded session")
@@ -334,6 +353,20 @@ func (hub *Hub) sendInitialAMANGainLoss(client *Client) {
 		} else {
 			client.Enqueue(event)
 		}
+	}
+}
+
+func (hub *Hub) sendInitialAMANHoldingEAT(client *Client) {
+	if hub.amanHoldingEAT == nil || client.observer {
+		return
+	}
+	events, err := hub.amanHoldingEAT.CurrentAMANHoldingEAT(context.Background(), client.airport)
+	if err != nil {
+		slog.Error("Failed to load initial AMAN holding EAT", slog.String("airport", client.airport), slog.Any("error", err))
+		return
+	}
+	for _, event := range events {
+		client.Enqueue(event)
 	}
 }
 

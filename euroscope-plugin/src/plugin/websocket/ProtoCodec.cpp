@@ -259,6 +259,13 @@ namespace FlightStrips::websocket::protobuf {
     DECODE_ONE(DropTrackingEvent, DropTrackingEvent, callsign)
     DECODE_TWO(SendPrivateMessageEvent, SendPrivateMessageEvent, callsign, message)
 
+    void Decode(const wire::HoldEvent& source, HoldEvent& target) {
+		target.callsign = source.callsign();
+		target.hold = source.hold();
+		target.hold_type = source.hold_type();
+		target.hold_eat = source.hold_eat();
+	}
+
     void Decode(const wire::RunwayMismatchAlertEvent& source, RunwayMismatchAlertEvent& target) {
         target.expected_departure.assign(source.expected_departure().begin(), source.expected_departure().end());
         target.expected_arrival.assign(source.expected_arrival().begin(), source.expected_arrival().end());

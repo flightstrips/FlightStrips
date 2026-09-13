@@ -35,4 +35,12 @@ namespace FlightStrips::flightplan {
     // An absent time means "nothing new" rather than "cleared", the pulse being
     // transient, so callers keep the previous value.
     std::string ParseTopSkyHoldEat(std::string_view scratchPad);
+
+    // Builds the transient TopSky command only when the backend update matches
+    // the durable en-route hold currently present in EuroScope.
+    std::string BuildTopSkyHoldEatCommand(
+        const TopSkyHold& current,
+        std::string_view expectedPoint,
+        std::string_view expectedType,
+        std::string_view hhmm);
 }

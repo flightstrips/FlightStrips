@@ -62,12 +62,22 @@ func runtimeTestDependencies() Dependencies {
 func TestDefaultRuntimeConfigIsDisabledAndReleaseSafe(t *testing.T) {
 	config := DefaultRuntimeConfig()
 	require.Equal(t, ModeDisabled, config.Mode)
+	require.False(t, config.EnableHoldingEATWriteback)
 	require.NoError(t, config.Validate())
 
 	runtime, err := NewRuntime(RuntimeConfig{}, Dependencies{})
 	require.NoError(t, err)
 	require.False(t, runtime.Enabled())
 	require.True(t, runtime.Ownership().LegacyArrivalETAWriter)
+}
+
+func TestRuntimeOwnershipCarriesBackendHoldingEATWritebackGate(t *testing.T) {
+	config := validRuntimeConfig(ModeAuthoritative)
+	config.EnableHoldingEATWriteback = true
+
+	runtime, err := NewRuntime(config, runtimeTestDependencies())
+	require.NoError(t, err)
+	require.True(t, runtime.Ownership().HoldingEATWritebackEnabled)
 }
 
 func TestRuntimeAcceptsAllConfiguredModes(t *testing.T) {

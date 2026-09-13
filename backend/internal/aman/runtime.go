@@ -25,6 +25,7 @@ type RuntimeConfig struct {
 	ReconciliationInterval      time.Duration
 	SurveillanceInterval        time.Duration
 	EnableEuroScopeGainLoseTags bool
+	EnableHoldingEATWriteback   bool
 }
 
 // DefaultRuntimeConfig returns the release-safe runtime configuration.
@@ -192,6 +193,7 @@ type Ownership struct {
 	SequenceAuthoritative        bool
 	ControllerMutationAuthorized bool
 	EuroScopeGainLoseTagsEnabled bool
+	HoldingEATWritebackEnabled   bool
 }
 
 // Runtime owns AMAN mode and worker lifecycle. It deliberately does not
@@ -241,7 +243,10 @@ func NewRuntime(config RuntimeConfig, deps Dependencies) (*Runtime, error) {
 }
 
 func ownershipFor(config RuntimeConfig) Ownership {
-	ownership := Ownership{EuroScopeGainLoseTagsEnabled: config.EnableEuroScopeGainLoseTags}
+	ownership := Ownership{
+		EuroScopeGainLoseTagsEnabled: config.EnableEuroScopeGainLoseTags,
+		HoldingEATWritebackEnabled:   config.EnableHoldingEATWriteback,
+	}
 	switch config.Mode {
 	case ModeDisabled, ModeShadow:
 		ownership.LegacyArrivalETAWriter = true

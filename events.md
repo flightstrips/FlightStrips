@@ -268,6 +268,13 @@ visible even for aircraft this controller is not tracking.
 empty `hold` means the clearance was cancelled. `hold_eat` is the expect
 approach time, empty when none was given.
 
+For an authoritative AMAN holding plan, the server can send the same event to
+EuroScope with the calculated release time in `hold_eat`. The tracking plugin
+then writes the transient TopSky `/HOLD_EAT/HHMM/` command, provided the
+aircraft is confirmed in the matching en-route hold. Both live publication and
+reconnect replay are controlled centrally by the backend
+`ENABLE_AMAN_HOLDING_EAT_WRITEBACK` setting, which defaults to `false`.
+
 ```json
 {
     "type": "hold",

@@ -62,4 +62,19 @@ namespace FlightStrips::flightplan {
         if (scratchPad.empty()) return {};
         return Between(scratchPad, EAT_TOKEN, EAT_CLOSE, false);
     }
+
+    std::string BuildTopSkyHoldEatCommand(
+        const TopSkyHold& current,
+        const std::string_view expectedPoint,
+        const std::string_view expectedType,
+        const std::string_view hhmm) {
+        if (!current.active || current.tsa || current.point != expectedPoint || expectedType != "enroute" || hhmm.size() != 4 ||
+            !std::all_of(hhmm.begin(), hhmm.end(), [](const unsigned char character) { return std::isdigit(character) != 0; })) {
+            return {};
+        }
+        const auto hour = (hhmm[0] - '0') * 10 + hhmm[1] - '0';
+        const auto minute = (hhmm[2] - '0') * 10 + hhmm[3] - '0';
+        if (hour > 23 || minute > 59) return {};
+        return std::string(EAT_TOKEN) + std::string(hhmm) + std::string(EAT_CLOSE);
+    }
 }

@@ -316,3 +316,8 @@ func (e SendPrivateMessageEvent) GetType() EventType { return SendPrivateMessage
 func (e SendPrivateMessageEvent) Marshal() ([]byte, error) {
 	return marshalMessage(&e)
 }
+
+func (e HoldEvent) GetType() EventType { return Hold }
+func (e HoldEvent) Marshal() ([]byte, error) {
+	return marshalMessage(&e)
+}

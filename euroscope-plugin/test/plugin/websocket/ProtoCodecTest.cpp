@@ -70,3 +70,20 @@ TEST(ProtoCodecTest, DecodesBackendEventFromOneofPayload) {
     EXPECT_EQ(event.ecfmp_restrictions[0].type, "mandatory_route");
     EXPECT_EQ(event.ecfmp_restrictions[0].routes, std::vector<std::string>{"VEDAR DCT"});
 }
+
+TEST(ProtoCodecTest, DecodesBackendHoldingEatWriteback) {
+	protobuf::wire::Envelope envelope;
+	auto* payload = envelope.mutable_hold();
+	payload->set_callsign("SAS123");
+	payload->set_hold("OLPIB");
+	payload->set_hold_type("enroute");
+	payload->set_hold_eat("1422");
+
+	HoldEvent event;
+	protobuf::Decode(envelope.hold(), event);
+
+	EXPECT_EQ(event.callsign, "SAS123");
+	EXPECT_EQ(event.hold, "OLPIB");
+	EXPECT_EQ(event.hold_type, "enroute");
+	EXPECT_EQ(event.hold_eat, "1422");
+}

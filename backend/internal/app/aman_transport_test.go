@@ -7,7 +7,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAMANTransportDoesNotInstallEuroScopeHubWhenGainLossIsDisabled(t *testing.T) {
+func TestAMANTransportKeepsEuroScopeHubForHoldingEATWhenGainLossIsDisabled(t *testing.T) {
+	transport := &amanTransport{holdingEATEnabled: true}
+	hub := &internalEuroscope.Hub{}
+	transport.setHubs(nil, hub)
+
+	require.Same(t, hub, transport.euroscopeHub)
+}
+
+func TestAMANTransportDoesNotInstallEuroScopeHubWhenOutputsAreDisabled(t *testing.T) {
 	transport := &amanTransport{}
 	transport.setHubs(nil, &internalEuroscope.Hub{})
 

@@ -85,7 +85,7 @@ export default function AMAN() {
                 : <section className="aman-tmt-placeholder" aria-label="TMT traffic prediction unavailable"><b>TMT · TRAFFIC PREDICTION</b><span>Prediction data unavailable</span></section>}
             </div>
             <div aria-label="TMT holding workspaces" className="aman-tmt-holdings">
-              {tmtHoldings.map((holding) => <TMTHoldingGraph entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} />)}
+              {tmtHoldings.map((holding) => <TMTHoldingGraph compact entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} />)}
             </div>
             <div className="aman-tmt-notices">
               {!hasFMPAuthority && <AMANCoordinationInbox

@@ -131,8 +131,8 @@ body.public-content-page {
         42vw,
         calc(var(--aman-workspace-height) * 0.9)
       )
-      minmax(0.75rem, 1fr)
-      calc(var(--aman-workspace-height) * 0.75);
+      clamp(0.75rem, 1.5vw, 1.5rem)
+      minmax(calc(var(--aman-workspace-height) * 0.75), 1fr);
     @apply h-full min-h-0;
   }
 
@@ -145,7 +145,7 @@ body.public-content-page {
   }
 
   .aman-settings-button {
-    @apply grid min-w-[4.25rem] place-items-center border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
+    @apply flex min-w-[4.25rem] items-center justify-center gap-1 whitespace-nowrap border border-black px-2 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white;
   }
 
   .aman-workspace-separator {
@@ -173,16 +173,6 @@ body.public-content-page {
   .aman-tmt-holdings {
     grid-template-columns: repeat(5, minmax(8rem, 1fr));
     @apply mt-2 grid min-h-0 gap-1 overflow-x-auto overflow-y-hidden;
-  }
-
-  .aman-tmt-holdings > section > header,
-  .aman-tmt-holdings > section > footer {
-    @apply hidden;
-  }
-
-  .aman-tmt-holdings .tmt-holding-entry {
-    grid-template-columns: 2.5rem minmax(3rem, 1fr) 2rem;
-    @apply text-[8px];
   }
 
   .aman-tmt-notices {

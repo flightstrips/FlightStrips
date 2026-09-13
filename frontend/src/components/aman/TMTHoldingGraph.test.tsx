@@ -32,6 +32,16 @@ describe("TMT holding graph", () => {
     expect(screen.getByText("1030")).toHaveClass("text-[#f0e129]");
   });
 
+  it("uses the graph-only Figma composition in compact dashboard cards", () => {
+    render(<TMTHoldingGraph compact entries={[]} holding="OLPIB" now={now} />);
+
+    expect(screen.queryByText("TMT · HOLDING INFORMATION")).not.toBeInTheDocument();
+    expect(screen.queryByText("S SCHEDULED")).not.toBeInTheDocument();
+    expect(screen.getByText("OLPIB")).toBeInTheDocument();
+    expect(screen.getAllByText("00")).toHaveLength(2);
+    expect(screen.getByText("NONE")).toBeInTheDocument();
+  });
+
   it("marks the exact four-minute boundary and overdue entries without relying on color", () => {
     render(<TMTHoldingGraph entries={[
       entry("SOON4", "2026-09-11T10:04:00.000Z", 12000),

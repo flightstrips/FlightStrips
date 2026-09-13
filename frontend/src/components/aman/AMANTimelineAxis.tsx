@@ -8,6 +8,7 @@ import type {AMANTimelineRange} from "./presentation";
 export const AMAN_HORIZON_PREFERENCE_KEY = "flightstrips.aman.timeline-horizon.v1";
 export const AMAN_DEFAULT_HORIZON_MINUTES = 30;
 export const AMAN_CLOCK_STEP_MS = 6_000;
+export const AMAN_TIMELINE_RULER_HALF_WIDTH = 23;
 const MINIMUM_HORIZON_MINUTES = 30;
 const MAXIMUM_HORIZON_MINUTES = 90;
 const ONE_MINUTE_MS = 60_000;
@@ -73,35 +74,44 @@ export function useAMANTimelineAxis(authoritativeTime: string) {
   );
 }
 
-export function AMANTimelineAxis({range, clockMs, status}: {range: AMANTimelineRange; clockMs: number; status: AMANDataStatus}) {
+export function AMANTimelineAxis({range, clockMs, status, onOpenTargetInformation}: {range: AMANTimelineRange; clockMs: number; status: AMANDataStatus; onOpenTargetInformation?: () => void}) {
   const firstTick = Math.ceil(range.startMs / ONE_MINUTE_MS) * ONE_MINUTE_MS;
   const ticks = Array.from(
     {length: Math.max(0, Math.floor((range.endMs - firstTick) / ONE_MINUTE_MS) + 1)},
     (_, index) => firstTick + index * ONE_MINUTE_MS,
   );
-  const finalRegionBottom = AMANAxisTopPercent(range.endMs - 10 * 60_000, range) ?? 0;
+  const finalRegionTop = AMANAxisTopPercent(clockMs + 10 * 60_000, range) ?? 100;
 
   return (
     <div
       aria-label={`UTC timeline, ${formatAMANAxisLabel(range.startMs, range.startMs)} to ${formatAMANAxisLabel(range.endMs, range.startMs)}, ${status}`}
-      className="absolute inset-y-0 left-1/2 w-[58px] -translate-x-1/2 overflow-visible border border-[#d8d8d8]"
+      className="absolute inset-y-0 left-1/2 w-[46px] -translate-x-1/2 overflow-visible border-2 border-[#dcdcdc]"
       data-status={status}
       role="img"
     >
-      <div className="absolute inset-x-0 top-0 border-b border-amber-300/80 bg-amber-300/15" data-testid="final-ten-minute-region" style={{height: `${finalRegionBottom}%`}}>
-        <span className="absolute right-full top-1 whitespace-nowrap pr-1 text-[9px] font-semibold text-amber-200">FINAL 10</span>
+      <div className="absolute inset-x-0 bottom-0 border-t-2 border-[#9c0000] bg-[#3f3f3f]" data-testid="final-ten-minute-region" style={{top: `${finalRegionTop}%`}}>
+        <span className="sr-only">FINAL 10</span>
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-[#3a3a3a]" style={{top: `${AMANAxisTopPercent(clockMs, range) ?? 100}%`}} />
-      <div className="absolute inset-x-0 z-10 -translate-y-1/2 border-t border-dashed border-white" data-testid="aman-visual-clock" style={{top: `${AMANAxisTopPercent(clockMs, range) ?? 100}%`}} />
+      <div className="absolute inset-x-0 z-10 -translate-y-1/2 border-t border-dashed border-white/60" data-testid="aman-visual-clock" style={{top: `${AMANAxisTopPercent(clockMs, range) ?? 100}%`}} />
       {ticks.map((timeMs) => {
         const major = new Date(timeMs).getUTCMinutes() % 5 === 0;
         return <div className="absolute inset-x-0 z-[1] -translate-y-1/2" data-major={major} data-testid="aman-axis-tick" key={timeMs} style={{top: `${AMANAxisTopPercent(timeMs, range)}%`}}>
-          <span className={cn("absolute left-0 border-t border-[#d8d8d8]", major ? "w-3" : "w-1.5")} />
-          <span className={cn("absolute right-0 border-t border-[#d8d8d8]", major ? "w-3" : "w-1.5")} />
-          {major && <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#505052] px-0.5 font-mono text-[11px] font-semibold text-white">{formatAMANAxisLabel(timeMs, range.startMs)}</span>}
+          <span className={cn("absolute left-0 border-t-2 border-[#dcdcdc]", major ? "w-2.5" : "w-1.5")} />
+          <span className={cn("absolute right-0 border-t-2 border-[#dcdcdc]", major ? "w-2.5" : "w-1.5")} />
+          {major && <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#555355] px-0.5 font-display text-[11px] font-semibold text-[#dcdcdc]">{String(new Date(timeMs).getUTCMinutes()).padStart(2, "0")}</span>}
         </div>;
       })}
       {status !== "fresh" && <span className={cn("absolute bottom-1 left-1/2 z-20 -translate-x-1/2 text-[8px] font-bold uppercase", status === "disconnected" ? "text-red-200" : "text-amber-200")}>{status}</span>}
+      <button
+        aria-haspopup={onOpenTargetInformation ? "dialog" : undefined}
+        aria-label={onOpenTargetInformation ? "Open target information preferences" : undefined}
+        className="absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border-2 border-[#dcdcdc] bg-[#555355] px-2 py-1 font-display text-[11px] font-semibold text-[#dcdcdc] hover:bg-[#a3d5e8] hover:text-white focus-visible:bg-[#a3d5e8] focus-visible:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:pointer-events-none"
+        disabled={!onOpenTargetInformation}
+        onClick={onOpenTargetInformation}
+        type="button"
+      >
+        {formatAMANAxisLabel(clockMs, range.startMs)}
+      </button>
     </div>
   );
 }

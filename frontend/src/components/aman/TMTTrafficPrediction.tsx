@@ -1,16 +1,24 @@
 import {useState} from "react";
 
 import type {AMANTrafficBucket, AMANTrafficPrediction} from "@/api/aman";
-import {cn} from "@/lib/utils";
+
+const CHART_MIN = 16;
+const CHART_MAX = 50;
+const TICKS = Array.from({length: 17}, (_, index) => CHART_MAX - index * 2);
 
 function timeLabel(timestamp: string): string {
   return timestamp.slice(11, 16);
 }
 
-function alertTone(bucket: AMANTrafficBucket): string {
-  if (bucket.alert === "red") return "border-[#9c0000] bg-[#9c0000]";
-  if (bucket.alert === "yellow") return "border-[#f0e129] bg-[#f0e129]";
-  return "border-[#777] bg-[#343434]";
+function chartHeight(value: number): number {
+  if (value <= 0) return 0;
+  return Math.max(2, Math.min(100, ((value - CHART_MIN) / (CHART_MAX - CHART_MIN)) * 100));
+}
+
+function alertColour(bucket: AMANTrafficBucket): string | null {
+  if (bucket.alert === "red") return "#9c0000";
+  if (bucket.alert === "yellow") return "#f0e129";
+  return null;
 }
 
 function reasonLabel(reason: string): string {
@@ -30,60 +38,83 @@ function bucketDetails(bucket: AMANTrafficBucket): string {
 export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPrediction}) {
   const [activeBucketStart, setActiveBucketStart] = useState<string | null>(null);
   const activeBucket = prediction.buckets.find((bucket) => bucket.start === activeBucketStart) ?? null;
-  return (
-    <section aria-label="TMT traffic prediction" className="flex min-h-0 flex-col border border-[#777] bg-[#292929] text-white">
-      <header className="flex items-center gap-2 border-b border-[#777] px-3 py-2">
-        <h2 className="font-display text-sm font-bold tracking-wide">TMT · TRAFFIC PREDICTION</h2>
-        <span className="text-[10px] uppercase text-slate-300">VATSIM {prediction.source_status}</span>
-        <span className={cn("ml-auto rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase", prediction.status === "ready" ? "border-emerald-400 text-emerald-200" : "border-amber-300 text-amber-200")}>{prediction.status}</span>
-      </header>
 
-      {prediction.degraded_reasons.length > 0 && (
-        <div className="border-b border-amber-400/60 bg-amber-950/70 px-3 py-2 text-xs text-amber-100" role="status">
+  return (
+    <section aria-label="TMT traffic prediction" className="relative flex min-h-0 flex-col overflow-hidden border border-[#777] bg-[#3c3c3c] text-white">
+      {prediction.status !== "ready" && (
+        <div className="absolute right-1 top-1 z-20 max-w-[70%] border border-amber-300 bg-[#40200f] px-2 py-1 text-[10px] text-amber-100" role="status">
+          <strong className="mr-1 uppercase">{prediction.status}</strong>
           {prediction.degraded_reasons.map(reasonLabel).join(" ")}
         </div>
       )}
 
-      <div className="grid min-h-[260px] flex-1 grid-cols-12 gap-px overflow-x-auto bg-[#777]" role="list">
-        {prediction.buckets.map((bucket) => {
-          const details = bucketDetails(bucket);
-          return (
-            <article
-              aria-label={`${timeLabel(bucket.start)} to ${timeLabel(bucket.end)}: ${bucket.count} arrivals, load factor ${bucket.load_factor}`}
-              className={cn("group relative flex min-w-0 flex-col justify-end border-t-4 px-0.5 pb-2 pt-6 text-center text-black", alertTone(bucket))}
-              key={bucket.start}
-              onBlur={() => setActiveBucketStart(null)}
-              onFocus={() => setActiveBucketStart(bucket.start)}
-              onMouseEnter={() => setActiveBucketStart(bucket.start)}
-              onMouseLeave={() => setActiveBucketStart(null)}
-              role="listitem"
-              tabIndex={0}
-              title={details}
-            >
-              <div className="absolute inset-x-0 top-1 truncate px-px text-[9px] font-bold text-white drop-shadow">{bucket.selected_rate === null ? "RATE —" : `${bucket.selected_rate.runway_group_id} · ${bucket.selected_rate.arrivals_per_hour}`}</div>
-              <div className="mx-auto flex h-[180px] w-5 flex-col justify-end overflow-hidden border border-black bg-[#222] sm:w-7" aria-hidden="true">
-                {bucket.airborne_count > 0 && <div className="w-full bg-[#dcdcdc]" style={{height: `${Math.max(8, bucket.airborne_count * 8)}px`}} />}
-                {bucket.planned_count > 0 && <div className="w-full bg-[#96d796]" style={{height: `${Math.max(8, bucket.planned_count * 8)}px`}} />}
-              </div>
-              <strong className="mt-1 font-mono text-sm text-white">{bucket.load_factor}</strong>
-              <span className="font-mono text-[10px] text-white">{timeLabel(bucket.start)}</span>
-            </article>
-          );
-        })}
+      <div className="flex min-h-0 flex-1">
+        <div aria-hidden="true" className="relative mb-6 mt-2 w-9 shrink-0 font-mono text-[10px] font-bold text-[#dcdcdc]">
+          {TICKS.map((tick) => (
+            <span className="absolute right-1 -translate-y-1/2" key={tick} style={{top: `${((CHART_MAX - tick) / (CHART_MAX - CHART_MIN)) * 100}%`}}>{tick}</span>
+          ))}
+        </div>
+
+        <div className="relative min-w-0 flex-1">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-6 top-2 z-0">
+            {TICKS.map((tick) => (
+              <i className="absolute inset-x-0 border-t border-[#777]" key={tick} style={{top: `${((CHART_MAX - tick) / (CHART_MAX - CHART_MIN)) * 100}%`}} />
+            ))}
+          </div>
+
+          <div className="relative z-10 grid h-full" role="list" style={{gridTemplateColumns: `repeat(${prediction.buckets.length}, minmax(2.75rem, 1fr))`}}>
+            {prediction.buckets.map((bucket) => {
+              const totalHeight = chartHeight(bucket.load_factor);
+              const plannedShare = bucket.count === 0 ? 0 : bucket.planned_count / bucket.count;
+              const selectedRate = bucket.selected_rate?.arrivals_per_hour ?? null;
+              const overload = selectedRate === null ? 0 : Math.max(0, bucket.load_factor - selectedRate);
+              const alertShare = bucket.alert === "none" || bucket.load_factor === 0
+                ? 0
+                : Math.min(1, (overload > 0 ? overload : 4) / bucket.load_factor);
+              const details = bucketDetails(bucket);
+              return (
+                <article
+                  aria-label={`${timeLabel(bucket.start)} to ${timeLabel(bucket.end)}: ${bucket.count} arrivals, load factor ${bucket.load_factor}`}
+                  className="group flex min-w-0 flex-col border-l border-black/70 first:border-l-0 focus-visible:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+                  key={bucket.start}
+                  onBlur={() => setActiveBucketStart(null)}
+                  onFocus={() => setActiveBucketStart(bucket.start)}
+                  onMouseEnter={() => setActiveBucketStart(bucket.start)}
+                  onMouseLeave={() => setActiveBucketStart(null)}
+                  role="listitem"
+                  tabIndex={0}
+                  title={details}
+                >
+                  <div className="relative mt-2 min-h-0 flex-1" aria-hidden="true">
+                    {bucket.load_factor > 0 && (
+                      <div className="absolute inset-x-0 bottom-0 flex flex-col-reverse overflow-hidden border border-black bg-[#dcdcdc]" data-testid={`traffic-bar-${timeLabel(bucket.start)}`} style={{height: `${totalHeight}%`}}>
+                        {bucket.planned_count > 0 && <div className="w-full shrink-0 bg-[#96d796]" style={{height: `${plannedShare * 100}%`}} />}
+                        {bucket.airborne_count > 0 && <div className="min-h-0 flex-1 bg-[#dcdcdc]" />}
+                        {alertColour(bucket) !== null && alertShare > 0 && (
+                          <div className="absolute inset-x-0 top-0" data-alert={bucket.alert} style={{backgroundColor: alertColour(bucket) ?? undefined, height: `${alertShare * 100}%`}} />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <time className="grid h-6 shrink-0 place-items-center border-y border-[#dcdcdc] bg-[#454545] font-mono text-[10px] font-bold text-white" dateTime={bucket.start}>{timeLabel(bucket.start)}</time>
+                </article>
+              );
+            })}
+          </div>
+
+          {activeBucket !== null && (
+            <div className="pointer-events-none absolute bottom-7 left-1 z-30 max-h-24 max-w-[calc(100%_-_0.5rem)] overflow-hidden border border-[#dcdcdc] bg-black/95 px-2 py-1 text-[10px] leading-4 text-white shadow-lg" aria-hidden="true">
+              <strong className="mr-2 font-mono">{timeLabel(activeBucket.start)}–{timeLabel(activeBucket.end)}</strong>
+              <span className="whitespace-pre-line">{bucketDetails(activeBucket)}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div aria-live="polite" className="min-h-14 border-t border-[#777] bg-black px-3 py-2 text-xs text-white">
-        {activeBucket === null
-          ? "Hover or focus a quarter-hour bucket for flight details."
-          : <><strong className="mr-2 font-mono">{timeLabel(activeBucket.start)}–{timeLabel(activeBucket.end)}</strong><span className="whitespace-pre-line">{bucketDetails(activeBucket)}</span></>}
-      </div>
-
-      <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[#777] px-3 py-2 text-[10px] text-slate-200">
-        <span><i className="mr-1 inline-block h-2.5 w-2.5 bg-[#96d796]" />Planned</span>
-        <span><i className="mr-1 inline-block h-2.5 w-2.5 bg-[#dcdcdc]" />Airborne</span>
-        <span>Load = aircraft × 4</span>
-        <span className="ml-auto font-mono">{timeLabel(prediction.range_start)}–{timeLabel(prediction.range_end)} UTC</span>
-      </footer>
+      <p className="sr-only" aria-live="polite">
+        {activeBucket === null ? "Focus a quarter-hour bucket for flight details." : `${timeLabel(activeBucket.start)} to ${timeLabel(activeBucket.end)}. ${bucketDetails(activeBucket)}`}
+      </p>
+      <p className="sr-only">Planned traffic is green. Airborne traffic is light grey. Load factor equals aircraft count times four. Range {timeLabel(prediction.range_start)} to {timeLabel(prediction.range_end)} UTC. Source {prediction.source_status}.</p>
     </section>
   );
 }

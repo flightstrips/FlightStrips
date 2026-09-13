@@ -73,6 +73,15 @@ describe("RWY paired timeline", () => {
     expect(screen.getByTestId("rwy-lane-FOURTH")).toHaveAttribute("data-placement", "right-right");
   });
 
+  it("uses one centered ruler for the first runway pair", () => {
+    renderTimeline(runwayState(["22L"]));
+
+    expect(screen.getByRole("region", {name: "Middle runway timeline"})).toBeInTheDocument();
+    expect(screen.queryByRole("region", {name: "Right runway timeline"})).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rwy-timeline-left-spacer")).not.toBeInTheDocument();
+    expect(screen.getByText("22L")).toBeInTheDocument();
+  });
+
   it("preserves authoritative order and timing while clipping the local horizon", () => {
     const state = runwayState(["A"]);
     state.runway_groups[0].capacity_reservations = [{id: "extra-1", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:15:00.000Z", label: "FLIGHT", created_at: "2026-07-22T10:00:00.000Z", created_by: "fmp"}];
@@ -90,7 +99,7 @@ describe("RWY paired timeline", () => {
 
   it("keeps target keyboard activation in stable accessible lane order", () => {
     const onSelect = renderTimeline(runwayState(["A", "B"]));
-    const buttons = screen.getAllByRole("button");
+    const buttons = screen.getAllByRole("button").filter((button) => /^[AB]-/.test(button.textContent ?? ""));
     expect(buttons.map((button) => button.textContent)).toEqual(["A-0", "A-1", "B-0"]);
 
     buttons[0].focus();

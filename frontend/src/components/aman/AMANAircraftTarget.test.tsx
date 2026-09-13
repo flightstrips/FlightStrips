@@ -18,27 +18,27 @@ function flight(overrides: Partial<AMANFlight> = {}): AMANFlight {
 const guidance = {authoritative: true, connected: true};
 
 describe("compact MAESTRO aircraft target", () => {
-  it("presents desequenced disposition distinctly without replacing lifecycle state", () => {
+  it("presents desequenced disposition through colour and an accessible label", () => {
     render(<AMANAircraftTarget flight={flight({sequence_disposition: "desequenced"})} guidance={guidance} />);
 
-    expect(screen.getByRole("button", {name: /Desequenced/})).toBeInTheDocument();
-    expect(screen.getByTitle("Desequenced")).toHaveTextContent("DSEQ");
+    expect(screen.getByRole("button", {name: /Desequenced/})).toHaveTextContent("SAS123L02");
+    expect(screen.getByText("SAS123")).toHaveClass("text-violet-300");
   });
 
-  it("shows only callsign, current delay, and a non-color lifecycle cue by default", () => {
+  it("shows only callsign and current delay while conveying lifecycle by colour", () => {
     render(<AMANAircraftTarget flight={flight()} guidance={guidance} />);
 
     const target = screen.getByRole("button", {name: /Select SAS123; Unstable; current delay L02/});
-    expect(target).toHaveTextContent("SAS123L02U");
+    expect(target).toHaveTextContent("SAS123L02");
     expect(target).not.toHaveTextContent("TNO");
-    expect(screen.getByTitle("Unstable")).toHaveTextContent("U");
+    expect(screen.getByText("SAS123")).toHaveClass("text-[#6e996e]");
   });
 
   it.each([
-    [-30, "L01", "bg-[#f0e129]"],
-    [-240, "L04", "bg-[#9c0000]"],
-    [0, "=00", "bg-[#96d796]"],
-    [60, "G01", "bg-[#96d796]"],
+    [-30, "L01", "text-[#f0e129]"],
+    [-240, "L04", "text-[#e65b5b]"],
+    [0, "=00", "text-[#96d796]"],
+    [60, "G01", "text-[#96d796]"],
   ] as const)("presents %i seconds as %s with the documented emphasis", (seconds, label, tone) => {
     render(<AMANAircraftTarget flight={flight({gain_loss_seconds: seconds})} guidance={guidance} />);
     expect(screen.getByText(label)).toHaveClass(tone);
@@ -51,18 +51,19 @@ describe("compact MAESTRO aircraft target", () => {
 
   it("uses the authoritative freeze reason for visible protection cues", () => {
     const {rerender} = render(<AMANAircraftTarget flight={flight({freeze_reason: "superstable", lifecycle_state: "stable"})} guidance={guidance} />);
-    expect(screen.getByTitle("Superstable")).toHaveTextContent("SS");
+    expect(screen.getByRole("button", {name: /Superstable/})).toBeInTheDocument();
+    expect(screen.getByText("SAS123")).toHaveClass("text-[#dcdcdc]");
 
     rerender(<AMANAircraftTarget flight={flight({freeze_reason: "manual", lifecycle_state: "stable"})} guidance={guidance} />);
     expect(screen.getByRole("button")).toHaveAccessibleName(/Stable, manual freeze/);
-    expect(screen.getByTitle("Stable, manual freeze")).toHaveTextContent("S·M");
+    expect(screen.getByText("SAS123")).toHaveClass("text-[#96d796]");
   });
 
   it.each(["fresh", "stale", "disconnected"] as const)("announces TMA protection with %s surveillance data", (dataStatus) => {
     render(<AMANAircraftTarget flight={flight({data_status: dataStatus, freeze_reason: "tma", lifecycle_state: "stable"})} guidance={guidance} />);
     const target = screen.getByRole("button", {name: /TMA entry protection/});
-    expect(screen.getByTitle("TMA entry protection")).toHaveTextContent("TMA");
     expect(target).toHaveTextContent(dataStatus === "fresh" ? "L02" : "Unavailable");
+    expect(screen.getByText("SAS123")).toHaveClass("text-[#96d796]");
   });
 
   it("is keyboard-focusable, semantically selected, and invokes its selection callback", () => {
@@ -73,6 +74,7 @@ describe("compact MAESTRO aircraft target", () => {
     target.focus();
     expect(target).toHaveFocus();
     expect(target).toHaveAttribute("aria-pressed", "true");
+    expect(target).toHaveClass("ring-inset", "ring-[#f3d02e]");
     fireEvent.click(target);
     expect(onSelect).toHaveBeenCalledOnce();
   });
@@ -82,6 +84,6 @@ describe("compact MAESTRO aircraft target", () => {
     const trailingFields: AMANAircraftTargetField[] = [{id: "runway", label: "Runway", value: "22L"}];
     render(<AMANAircraftTarget flight={flight()} guidance={guidance} leadingFields={leadingFields} trailingFields={trailingFields} />);
 
-    expect(screen.getByRole("button")).toHaveTextContent("10:12SAS123L0222LU");
+    expect(screen.getByRole("button")).toHaveTextContent("10:12SAS123L0222L");
   });
 });

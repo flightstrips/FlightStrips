@@ -17,7 +17,7 @@ const state = {
 
 describe("AMANSettingsHeader", () => {
   it("renders authoritative projections with explicit non-color degraded and read-only cues", () => {
-    render(<AMANSettingsHeader commandRejections={{}} connectionState="disconnected" hasFMPAuthority={false} onCommand={vi.fn()} onOpenTargetPreferences={vi.fn()} onRunwayGroupViewChange={vi.fn()} onViewChange={vi.fn()} pendingCommands={{}} presentationStatus="degraded" readOnly={true} selectedRunwayGroupID="ARRIVAL-22" state={state} view="holds" />);
+    render(<AMANSettingsHeader commandRejections={{}} connectionState="disconnected" hasFMPAuthority={false} onCommand={vi.fn()} onRunwayGroupViewChange={vi.fn()} onViewChange={vi.fn()} pendingCommands={{}} presentationStatus="degraded" readOnly={true} selectedRunwayGroupID="ARRIVAL-22" state={state} view="holds" />);
 
     expect(screen.getByRole("button", {name: "ARRIVAL-22"})).toBeInTheDocument();
     expect(screen.getByText("ARRIVAL-22: 30/h")).toBeInTheDocument();
@@ -26,18 +26,19 @@ describe("AMANSettingsHeader", () => {
     expect(screen.getByText(/DISCONNECTED.*STALE.*DEGRADED.*READ ONLY/)).toBeInTheDocument();
     expect(screen.getByText("DSEQ · 1")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "ALL"})).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", {name: "ALL"})).toHaveTextContent("✓ ALL");
+    const selectedView = screen.getByRole("button", {name: "ALL"});
+    expect(selectedView).toHaveTextContent("✓ALL");
+    expect(selectedView.children).toHaveLength(2);
   });
 
-  it("keeps view and preference interactions local to callbacks", () => {
+  it("keeps view interactions local and opens the MAESTRO selector", () => {
     const onViewChange = vi.fn();
-    const onOpenTargetPreferences = vi.fn();
-    render(<AMANSettingsHeader commandRejections={{}} connectionState="connected" hasFMPAuthority={false} onCommand={vi.fn()} onOpenTargetPreferences={onOpenTargetPreferences} onRunwayGroupViewChange={vi.fn()} onViewChange={onViewChange} pendingCommands={{}} presentationStatus="ready" readOnly={true} selectedRunwayGroupID="ARRIVAL-22" state={state} view="holds" />);
+    render(<AMANSettingsHeader commandRejections={{}} connectionState="connected" hasFMPAuthority={false} onCommand={vi.fn()} onRunwayGroupViewChange={vi.fn()} onViewChange={onViewChange} pendingCommands={{}} presentationStatus="ready" readOnly={true} selectedRunwayGroupID="ARRIVAL-22" state={state} view="holds" />);
 
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
-    fireEvent.click(screen.getByRole("button", {name: "Open target information preferences"}));
+    fireEvent.click(screen.getByRole("button", {name: "MAESTRO"}));
     expect(onViewChange).toHaveBeenCalledWith("runway");
-    expect(onOpenTargetPreferences).toHaveBeenCalledOnce();
+    expect(screen.getByRole("dialog", {name: "MAESTRO"})).toBeInTheDocument();
   });
 
   it("sends independent active-set and rate commands without optimistic replacement", () => {
@@ -48,7 +49,7 @@ describe("AMANSettingsHeader", () => {
     writable.runway_groups = [{id: "ARRIVAL-22", selected: true, selection_schedule: []}, {id: "ARRIVAL-04", selected: false, selection_schedule: []}];
     writable.header!.active_runway_groups = [{id: "ARRIVAL-22", active_rate_per_hour: 30, rate_effective_at: null}];
     const onCommand = vi.fn();
-    const props = {commandRejections: {}, connectionState: "connected" as const, hasFMPAuthority: true, onCommand, onOpenTargetPreferences: vi.fn(), onRunwayGroupViewChange: vi.fn(), onViewChange: vi.fn(), pendingCommands: {}, presentationStatus: "ready" as const, readOnly: false, selectedRunwayGroupID: "ARRIVAL-22", state: writable, view: "holds" as const};
+    const props = {commandRejections: {}, connectionState: "connected" as const, hasFMPAuthority: true, onCommand, onRunwayGroupViewChange: vi.fn(), onViewChange: vi.fn(), pendingCommands: {}, presentationStatus: "ready" as const, readOnly: false, selectedRunwayGroupID: "ARRIVAL-22", state: writable, view: "holds" as const};
     const {rerender} = render(<AMANSettingsHeader {...props} />);
 
     fireEvent.click(screen.getByRole("button", {name: "ARRIVAL-22"}));
@@ -73,7 +74,7 @@ describe("AMANSettingsHeader", () => {
     writable.effective_mode = "authoritative";
     writable.technical_health = {status: "ready", ready: true, blocked_reasons: [], ...({navigation: {status: "ready", reason: null, updated_at: null, age_seconds: null}, weather: {status: "ready", reason: null, updated_at: null, age_seconds: null}, vatsim: {status: "ready", reason: null, updated_at: null, age_seconds: null}, repository: {status: "ready", reason: null, updated_at: null, age_seconds: null}, predictor: {status: "ready", reason: null, updated_at: null, age_seconds: null}, replay_validation: {status: "ready", reason: null, updated_at: null, age_seconds: null}})};
     writable.runway_groups = [{id: "ARRIVAL-22", selected: true, selection_schedule: []}];
-    const common = {connectionState: "connected" as const, hasFMPAuthority: true, onCommand: vi.fn(), onOpenTargetPreferences: vi.fn(), onRunwayGroupViewChange: vi.fn(), onViewChange: vi.fn(), presentationStatus: "ready" as const, readOnly: false, selectedRunwayGroupID: "ARRIVAL-22", state: writable, view: "holds" as const};
+    const common = {connectionState: "connected" as const, hasFMPAuthority: true, onCommand: vi.fn(), onRunwayGroupViewChange: vi.fn(), onViewChange: vi.fn(), presentationStatus: "ready" as const, readOnly: false, selectedRunwayGroupID: "ARRIVAL-22", state: writable, view: "holds" as const};
     const {rerender} = render(<AMANSettingsHeader {...common} commandRejections={{stale: {command_id: "stale", command_type: "aman.set_active_runway_groups", code: "revision_conflict", message: "revision changed", current_revision: 8, retryable: true}}} pendingCommands={{}} />);
 
     fireEvent.click(screen.getByRole("button", {name: "ARRIVAL-22"}));

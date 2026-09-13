@@ -283,10 +283,10 @@ function PredictionSections({calculation}: {calculation: AMANCalculation | null}
   return <section className="min-w-0"><h3 className="mb-3 font-semibold">Prediction sections</h3><div className="mb-3 grid gap-3 sm:grid-cols-4 text-sm"><span className="rounded bg-slate-800 p-3">Distance <b>{number(calculation.distance_to_go_nm, " NM")}</b></span><span className="rounded bg-slate-800 p-3">No wind <b>{duration(calculation.no_wind_duration_seconds)}</b></span><span className="rounded bg-slate-800 p-3">Wind model <b>{duration(calculation.duration_seconds)}</b></span><span className="rounded bg-slate-800 p-3">Wind delta <b className={windDelta > 0 ? "text-amber-300" : windDelta < 0 ? "text-emerald-300" : ""}>{windDelta > 0 ? "+" : windDelta < 0 ? "−" : ""}{duration(Math.abs(windDelta))}</b></span></div><LegTable legs={calculation.legs} /><div className="mb-3 mt-6 flex flex-wrap items-end justify-between gap-3"><div><h4 className="font-semibold">Descent-model inner workings</h4><p className="mt-1 text-xs text-slate-400">The phase view groups the persisted model slices; raw mode exposes every individual calculation slice.</p></div><div className="flex overflow-hidden rounded border border-slate-600 text-xs"><button className={traceView === "phases" ? "bg-slate-600 px-3 py-2 text-white" : "bg-slate-900 px-3 py-2 text-slate-300 hover:bg-slate-800"} onClick={() => setTraceView("phases")} type="button">Calculation phases</button><button className={traceView === "raw" ? "bg-slate-600 px-3 py-2 text-white" : "bg-slate-900 px-3 py-2 text-slate-300 hover:bg-slate-800"} onClick={() => setTraceView("raw")} type="button">Raw model segments</button></div></div>{traceView === "phases" ? <PhaseTable legs={calculation.legs} segments={calculation.segments} /> : <SegmentTable legs={calculation.legs} segments={calculation.segments} />}</section>;
 }
 
-export function AMANFlightDetailDialog({airport, flightID, coordination, missedApproach, removal, onClose}: {airport: string; flightID: string; coordination?: {
+export function AMANFlightDetailDialog({airport, flightID, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; flightID: string; coordination?: {
   requests: AMANCoordinationRequest[]; canSubmit: boolean; submitting: boolean; rejection?: string | null;
   onSubmit: (submission: {kind: "route_direct"; route?: string; direct_to?: string} | {kind: "speed"; requested: string}) => void;
-}; missedApproach?: MissedApproachAction; removal?: RemovalAction; onClose: () => void}) {
+}; initialAction?: "missed-approach" | "removal"; missedApproach?: MissedApproachAction; removal?: RemovalAction; onClose: () => void}) {
   const {getAccessTokenSilently} = useAuth0();
   const [detail, setDetail] = useState<AMANFlightDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -294,6 +294,7 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, missedA
   const [coordinationOpen, setCoordinationOpen] = useState(false);
   const [missedApproachOpen, setMissedApproachOpen] = useState(false);
   const [removalOpen, setRemovalOpen] = useState(false);
+  const [technicalOpen, setTechnicalOpen] = useState(false);
   const returnFocusRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const detailKey = useMemo(() => `${airport}/${flightID}`, [airport, flightID]);
 
@@ -301,9 +302,10 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, missedA
 
   useEffect(() => {
     setCoordinationOpen(false);
-    setMissedApproachOpen(false);
-    setRemovalOpen(false);
-  }, [detailKey]);
+    setMissedApproachOpen(initialAction === "missed-approach");
+    setRemovalOpen(initialAction === "removal");
+    setTechnicalOpen(false);
+  }, [detailKey, initialAction]);
 
   useEffect(() => {
     const abort = new AbortController();
@@ -340,9 +342,9 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, missedA
   };
 
   return <Dialog onOpenChange={(open) => !open && onClose()} open>
-    <DialogContent className="flex max-h-[calc(100dvh-2.5rem)] w-[calc(100vw-2.5rem)] max-w-[1400px] flex-col gap-0 overflow-hidden border-slate-500 bg-[#161d27] p-0 text-slate-100 shadow-2xl [&>button]:hidden">
-      <header className="flex items-center justify-between border-b border-slate-600 bg-[#242d3a] px-5 py-3">
-        <div><DialogTitle className="text-left text-lg font-semibold">{title}</DialogTitle><p className="text-xs text-slate-400">On-demand AMAN evidence · state revision {detail?.revision ?? "—"}</p></div>
+    <DialogContent className="flex max-h-[calc(100dvh-2.5rem)] w-[calc(100vw-2.5rem)] max-w-[1668px] flex-col gap-0 overflow-hidden border-2 border-[#dcdcdc] bg-[#555355] p-0 text-white shadow-2xl [&>button]:hidden">
+      <header className="flex items-center justify-between border-b-2 border-[#dcdcdc] bg-[#86a4af] px-4 py-2 text-black">
+        <div><DialogTitle className="text-left text-base font-bold"><span aria-hidden="true">{detail?.flight.callsign ?? flightID} · FLIGHT INFORMATION</span><span className="sr-only">{title}</span></DialogTitle><p className="text-[11px]">state revision {detail?.revision ?? "—"}</p></div>
         <div className="flex gap-2">
           {missedApproach && <button aria-expanded={missedApproachOpen} className="rounded border border-amber-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" disabled={missedApproach.confirmed} onClick={openMissedApproach} type="button">{missedApproach.confirmed ? "Missed approach confirmed" : "Missed approach"}</button>}
           {removal && <button
@@ -354,12 +356,24 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, missedA
             type="button"
           >{removal.confirmed ? "Removed from AMAN" : "Remove from AMAN"}</button>}
           {coordination && <button aria-expanded={coordinationOpen} className="rounded border border-cyan-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={openCoordination} type="button">Coordinate</button>}
-          <button className="rounded border border-slate-400 px-3 py-1 text-sm hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={onClose} type="button">Close flight detail</button>
+          <button aria-expanded={technicalOpen} className="border border-black bg-[#d6d6d6] px-3 py-1 text-xs font-bold hover:bg-white" onClick={() => setTechnicalOpen((open) => !open)} type="button">{technicalOpen ? "Hide technical evidence" : "Technical evidence"}</button>
+          <button autoFocus className="border border-black bg-[#d6d6d6] px-3 py-1 text-xs font-bold hover:bg-white" onClick={onClose} type="button">Close flight detail</button>
         </div>
       </header>
+      <div aria-label="Flight information summary" className="grid grid-cols-7 border-b-2 border-[#dcdcdc] bg-[#d6d6d6] font-display text-black">
+        {[
+          ["CALLSIGN", detail?.flight.callsign ?? flightID],
+          ["RUNWAY", detail?.flight.runway_group_id ?? "Unavailable"],
+          ["FEEDER", detail?.flight.feeder ?? "Unavailable"],
+          ["STAR", detail?.flight.star ?? "Unavailable"],
+          ["ATYP", detail?.flight.aircraft_type ?? "Unavailable"],
+          ["WTC", detail?.flight.wake_category ?? "Unavailable"],
+          ["SLOT", displayTime(detail?.slot_basis?.time)],
+        ].map(([label, value]) => <div className="min-w-0 border-r border-[#555355] last:border-r-0" key={label}><b className="block bg-[#86a4af] px-2 py-1 text-[10px]">{label}</b><span className="block truncate px-2 py-2 text-sm font-bold">{value}</span></div>)}
+      </div>
       {missedApproachOpen && missedApproach && <MissedApproachConfirmation action={missedApproach} onClose={() => setMissedApproachOpen(false)} />}
       {removalOpen && removal && <RemovalConfirmation action={removal} onClose={() => setRemovalOpen(false)} />}
-      <div className="min-h-0 overflow-x-hidden overflow-y-auto p-3 sm:p-5">
+      {technicalOpen && <div className="min-h-0 overflow-x-hidden overflow-y-auto p-3 sm:p-5">
         {loading && <div className="grid min-h-80 place-items-center text-slate-300">Loading current AMAN detail…</div>}
         {error && <div role="alert" className="rounded border border-red-500 bg-red-950 p-4 text-red-100">{error}</div>}
         {detail && <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
@@ -372,7 +386,7 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, missedA
           </div>
           <div className="min-w-0 2xl:col-span-2"><PredictionSections calculation={detail.calculation} /></div>
         </div>}
-      </div>
+      </div>}
       {coordinationOpen && detail && coordination && <AMANCoordinationRequestDialog
         callsign={detail.flight.callsign}
         canSubmit={coordination.canSubmit}

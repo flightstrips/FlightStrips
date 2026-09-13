@@ -100,7 +100,7 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
     expect(screen.queryByTestId("raw-marker-flight-123")).not.toBeInTheDocument();
-    expect(screen.getByTitle("Superstable")).toHaveTextContent("SS");
+    expect(screen.getByRole("button", {name: /Superstable/})).toBeInTheDocument();
   });
 
   it("golden-renders degraded, stale, go-around, manual freeze, queue, and discrepancy facts", () => {
@@ -157,21 +157,21 @@ describe("complete AMAN timeline and strips", () => {
 
   it("supports compact timeline marker hit testing from the designed scrolling layout", () => {
     const onSelectFlight = vi.fn();
-    const onOpenFlightDetails = vi.fn();
-    renderBoard(state(), {onSelectFlight, onOpenFlightDetails});
+    const onOpenFlightActions = vi.fn();
+    renderBoard(state(), {onSelectFlight, onOpenFlightActions});
     const marker = screen.getByRole("button", {name: /Select SAS123/});
     fireEvent.click(marker);
 
     expect(onSelectFlight).toHaveBeenNthCalledWith(1, "flight-123");
-    expect(onOpenFlightDetails).toHaveBeenNthCalledWith(1, "flight-123");
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-[37.5rem]");
+    expect(onOpenFlightActions).toHaveBeenNthCalledWith(1, "flight-123");
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
     expect(screen.getAllByTestId(/^fmp-timeline-/)).toHaveLength(3);
   });
 
   it("activates a focused compact target through the keyboard click contract", () => {
     const onSelectFlight = vi.fn();
-    const onOpenFlightDetails = vi.fn();
-    renderBoard(state(), {onSelectFlight, onOpenFlightDetails});
+    const onOpenFlightActions = vi.fn();
+    renderBoard(state(), {onSelectFlight, onOpenFlightActions});
     const target = screen.getByRole("button", {name: /Select SAS123/});
 
     target.focus();
@@ -179,7 +179,7 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(target).toHaveFocus();
     expect(onSelectFlight).toHaveBeenCalledWith("flight-123");
-    expect(onOpenFlightDetails).toHaveBeenCalledWith("flight-123");
+    expect(onOpenFlightActions).toHaveBeenCalledWith("flight-123");
   });
 
   it("renders GAP intervals and audited manual exceptions in every timeline view", () => {
@@ -201,9 +201,9 @@ describe("complete AMAN timeline and strips", () => {
     current.flights[0].feeder_fix_eta = "2026-07-22T10:12:00.000Z";
     renderBoard(current);
 
-    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22S");
-    fireEvent.click(screen.getByRole("button", {name: "Open target information preferences"}));
-    expect(screen.getByRole("dialog", {name: "Target information"})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22");
+    fireEvent.click(screen.getAllByRole("button", {name: "Open target information preferences"})[0]);
+    expect(screen.getByRole("dialog", {name: "Target Information"})).toBeInTheDocument();
   });
 
   it("opens the selected flight's on-demand route detail without changing the board state", () => {
@@ -260,10 +260,16 @@ describe("complete AMAN timeline and strips", () => {
     renderBoard(state());
 
     expect(screen.getByText("10:00–10:30 UTC · 30 min")).toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "720px"});
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "960px"});
+    const scrollRail = screen.getByRole("scrollbar", {name: "Timeline scroll position"});
+    expect(scrollRail).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(scrollRail, {key: "Home"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
+    fireEvent.keyDown(scrollRail, {key: "End"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "960");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("rwy-lane-ARRIVAL-22")).toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-[37.5rem]");
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
   });
 
   it("renders the backend-configured FMP paired timelines without inferring an unused family", () => {
@@ -314,7 +320,9 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByRole("button", {name: /Select SAS123.*emphasized STAR family/})).toHaveAttribute("data-emphasis", "primary");
     const subdued = screen.getByRole("button", {name: /Select TUDLO2.*other STAR family/});
     expect(subdued).toHaveAttribute("data-emphasis", "subdued");
-    expect(subdued).toHaveClass("bg-[#686868]");
+    expect(subdued).toHaveClass("text-[#686868]");
+    expect(screen.getByRole("button", {name: /Select SAS123.*emphasized STAR family/})).toHaveClass("text-[#96d796]");
+    expect(screen.queryByText("★ TESPI")).not.toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
 
     fireEvent.change(screen.getByRole("combobox", {name: "ACC STAR family emphasis"}), {target: {value: "ALL"}});

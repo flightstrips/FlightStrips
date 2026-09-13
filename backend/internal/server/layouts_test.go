@@ -100,3 +100,43 @@ func TestUpdateLayoutsContext_UsesCallsignRoleAtActualPrimedFrequency(t *testing
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{"119.805": "TWR"}, layouts)
 }
+
+func TestUpdateLayoutsContext_AssignsAMANToFMHAtPrimedFrequency(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_FMH", Frequency: "120.500"},
+	}))
+	t.Cleanup(config.SetLayoutsForTest(map[string][]config.LayoutVariant{
+		"EKCH_FMH": {{Layout: "AMAN"}},
+	}))
+
+	ctx := shared.WithSyncState(context.Background(), &shared.SyncState{
+		Session: &models.Session{
+			ID: 1,
+			ActiveRunways: pkgModels.ActiveRunways{
+				DepartureRunways: []string{"22L"},
+				ArrivalRunways:   []string{"22L"},
+			},
+		},
+		ExistingControllers: map[string]*models.Controller{
+			"EKCH_FMH": {Callsign: "EKCH_FMH", Position: "131.040"},
+		},
+	})
+
+	layouts := make(map[string]string)
+	server := &Server{
+		sessionRepo: &testutil.MockSessionRepository{},
+		controllerRepo: &testutil.MockControllerRepository{
+			SetLayoutFn: func(_ context.Context, session int32, position string, layout *string) (int64, error) {
+				assert.Equal(t, int32(1), session)
+				require.NotNil(t, layout)
+				layouts[position] = *layout
+				return 1, nil
+			},
+		},
+		frontendHub: &testutil.MockFrontendHub{},
+	}
+
+	err := server.UpdateLayoutsContext(ctx, 1)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"131.040": "AMAN"}, layouts)
+}

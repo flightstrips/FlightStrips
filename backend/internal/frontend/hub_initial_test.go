@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -129,6 +130,22 @@ func TestOnRegister_DerivesAMANFMPCapabilityFromAuthenticatedServerRole(t *testi
 			assert.Equal(t, test.authorized, event.Capabilities.AMANFMP)
 		})
 	}
+}
+
+func TestOnRegister_DerivesAMANFMPCapabilityFromCallsignAtPrimedFrequency(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{{Name: "EKCH_FMH", Frequency: "120.500"}}))
+	hub := newAMANInitialTestHub(t, nil)
+	hub.amanFMPRoles = map[string]struct{}{"EKCH_FMH": {}}
+	client := startQueuedTestClient(&Client{
+		hub: hub, session: 42, position: "131.040", airport: "EKCH", callsign: "EKCH_FMH",
+		user: validFrontendUser("1234567"), send: make(chan events.OutgoingMessage, 2),
+	})
+
+	hub.OnRegister(client)
+
+	event, ok := waitForOutgoingMessage(t, client.send).(frontendEvents.InitialEvent)
+	require.True(t, ok)
+	assert.True(t, event.Capabilities.AMANFMP)
 }
 
 func validFrontendUser(cid string) shared.AuthenticatedUser {

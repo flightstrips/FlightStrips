@@ -587,7 +587,7 @@ func mapAMANTrafficPrediction(model trafficprediction.ReadModel) (AMANTrafficPre
 	result := AMANTrafficPrediction{
 		GeneratedAt: generatedAt, RangeStart: rangeStart, RangeEnd: rangeEnd,
 		BucketMinutes: model.BucketMinutes, SourceStatus: string(model.SourceStatus), Status: string(model.Status),
-		DegradedReasons: append([]string(nil), model.DegradedReasons...),
+		DegradedReasons: append([]string{}, model.DegradedReasons...),
 		Buckets:         make([]AMANTrafficBucket, len(model.Buckets)),
 	}
 	for index, bucket := range model.Buckets {

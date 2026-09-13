@@ -20,6 +20,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/vatsim"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 
@@ -72,6 +73,9 @@ type amanTransport struct {
 	geometry          navdata.GeometrySnapshotReader
 	mode              aman.RolloutMode
 	health            aman.TechnicalHealthReporter
+	vatsimSource      vatsim.SnapshotSource
+	vatsimStaleAfter  time.Duration
+	now               func() time.Time
 	gainLossEnabled   bool
 	holdingEATEnabled bool
 
@@ -102,8 +106,24 @@ func (p *amanTransport) CurrentAMANState(ctx context.Context, airport string) (f
 	if err != nil {
 		return frontendEvents.AMANStateEvent{}, err
 	}
-	health := p.health.TechnicalHealth(ctx)
+	health := p.currentTechnicalHealth(ctx)
 	return p.newStateEvent(ctx, state, health)
+}
+
+func (p *amanTransport) currentTechnicalHealth(ctx context.Context) aman.TechnicalHealth {
+	health := p.health.TechnicalHealth(ctx)
+	if p.vatsimSource == nil {
+		return health
+	}
+	now := time.Now
+	if p.now != nil {
+		now = p.now
+	}
+	health.VATSIM = amanVATSIMHealth(p.vatsimSource, p.vatsimStaleAfter, now)
+	return aman.EvaluateTechnicalHealth(
+		health.Mode, health.VATSIM, health.Navigation, health.Weather,
+		health.Repository, health.Predictor, health.ReplayValidation,
+	)
 }
 
 func (p *amanTransport) newStateEvent(ctx context.Context, state aman.AirportState, health aman.TechnicalHealth) (frontendEvents.AMANStateEvent, error) {
@@ -148,7 +168,7 @@ func (p *amanTransport) newHoldingEATEvents(ctx context.Context, state aman.Airp
 }
 
 func (p *amanTransport) holdingEATEvents(ctx context.Context, state aman.AirportState, suppressCurrent bool) []euroscopeEvents.HoldEvent {
-	if !p.holdingEATEnabled || !state.Authoritative || !p.health.TechnicalHealth(ctx).AuthorityAllowed || p.geometry == nil {
+	if !p.holdingEATEnabled || !state.Authoritative || !p.currentTechnicalHealth(ctx).AuthorityAllowed || p.geometry == nil {
 		return nil
 	}
 	snapshot, err := p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
@@ -196,12 +216,12 @@ func (p *amanTransport) newGainLossEvent(ctx context.Context, state aman.Airport
 	}
 	// Persisted authority describes the state when it was committed. Transport
 	// consumers must also observe the current technical authority gate.
-	event.Authoritative = event.Authoritative && p.health.TechnicalHealth(ctx).AuthorityAllowed
+	event.Authoritative = event.Authoritative && p.currentTechnicalHealth(ctx).AuthorityAllowed
 	return event, nil
 }
 
 func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.AirportState) error {
-	health := p.health.TechnicalHealth(ctx)
+	health := p.currentTechnicalHealth(ctx)
 	event, err := p.newStateEvent(ctx, state, health)
 	if err != nil {
 		return err
@@ -268,7 +288,7 @@ func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.Air
 	return nil
 }
 
-func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Source, pool *pgxpool.Pool, now func() time.Time) (operationalAMANAssembly, error) {
+func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Source, vatsimSource vatsim.SnapshotSource, vatsimStaleAfter time.Duration, pool *pgxpool.Pool, now func() time.Time) (operationalAMANAssembly, error) {
 	if source == nil {
 		return operationalAMANAssembly{}, fmt.Errorf("AMAN requires an enabled navigation source")
 	}
@@ -284,6 +304,9 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 		repository:        amanRepository,
 		geometry:          source.Geometry,
 		mode:              config.Mode,
+		vatsimSource:      vatsimSource,
+		vatsimStaleAfter:  vatsimStaleAfter,
+		now:               now,
 		gainLossEnabled:   config.EnableEuroScopeGainLoseTags,
 		holdingEATEnabled: config.EnableHoldingEATWriteback,
 	}

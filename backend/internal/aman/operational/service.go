@@ -170,7 +170,15 @@ func (s *Service) Observe(_ context.Context, observation aman.FlightObservation)
 	if s.observed[airport] == nil {
 		s.observed[airport] = map[aman.FlightID]aman.FlightObservation{}
 	}
-	if previous, ok := s.observed[airport][observation.FlightID]; ok {
+	previous, known := s.observed[airport][observation.FlightID]
+	// EuroScope is a surveillance overlay, not a complete flight source. If it
+	// wins the startup/new-flight race against VATSIM, admitting its partial
+	// observation creates a transient flight with no usable timing or wake
+	// facts. Wait for the VATSIM observation to establish the aggregate first.
+	if isEuroScopeSurveillance && !known {
+		return nil
+	}
+	if known {
 		observation = mergeSurveillanceObservation(previous, observation)
 	}
 	s.observed[airport][observation.FlightID] = observation
@@ -344,6 +352,8 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		s.setHealthComponent("repository", aman.HealthReady, "", now)
 	}
 	next := current
+	next.Mode = s.deps.Mode
+	next.Authoritative = s.deps.Mode == aman.ModeAuthoritative
 	next.PolicyVersion = policyVersion
 	next.Flights = slices.Clone(current.Flights)
 	next.RunwayGroups = slices.Clone(current.RunwayGroups)
@@ -390,6 +400,7 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 	for _, observation := range observations {
 		index, found := indexes[observation.FlightID]
 		if !found {
+			removeSupersededActiveIdentity(&next, observation, now)
 			next.Flights = append(next.Flights, newFlight(observation, now))
 			index = len(next.Flights) - 1
 			indexes[observation.FlightID] = index
@@ -443,6 +454,7 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 			expireActiveRouteFact(&next.Flights[i])
 		}
 	}
+	repairIneligibleSequencingState(&next)
 
 	promotions := s.resequence(&next, now)
 	if !initializing && statesEqual(current, next) {
@@ -597,6 +609,12 @@ func newFlight(observation aman.FlightObservation, now time.Time) aman.AMANFligh
 }
 
 func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) (aman.AMANFlight, error) {
+	// Removed aggregates are terminal. Their final source observation can
+	// remain in the in-memory observation set until the VATSIM worker observes
+	// the disappearance; replaying it must not resurrect a retired identity.
+	if flight.State == aman.StateRemoved {
+		return flight, nil
+	}
 	previousObservation := flight.LatestObservation
 	copy := observation
 	flight.LatestObservation = &copy
@@ -788,6 +806,28 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 	return updated, nil
 }
 
+func removeSupersededActiveIdentity(state *aman.AirportState, observation aman.FlightObservation, now time.Time) {
+	cid := strings.TrimSpace(observation.VATSIMCID)
+	if cid == "" {
+		return
+	}
+	for index := range state.Flights {
+		flight := &state.Flights[index]
+		if flight.ID == observation.FlightID || flight.State == aman.StateRemoved || strings.TrimSpace(flight.VATSIMCID) != cid {
+			continue
+		}
+		clearSequencingState(flight)
+		expireActiveRouteFact(flight)
+		invalidateLiveGoAroundEpisode(flight)
+		flight.State = aman.StateRemoved
+		flight.UpdatedAt = now
+		flight.Lifecycle = &aman.LifecycleState{
+			EnteredAt: now, Reason: aman.LifecycleReasonSourceDisappearance,
+			LastEventID: "identity-superseded", LastEventFingerprint: string(observation.FlightID), LastEventAt: now,
+		}
+	}
+}
+
 // observeTMAEntry accepts only a fresh surveillance fact into the persisted
 // containment cursor. Route progress is deliberately irrelevant: the
 // operator-approved volume is the sole entry authority.
@@ -924,11 +964,16 @@ func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.Termina
 	if starFamily == "" {
 		starFamily = string(path.Feeder)
 	}
+	feederFix := string(path.FeederFix)
+	if flight.SelectedFeederFix == nil || *flight.SelectedFeederFix != feederFix {
+		flight.FeederETA = nil
+		flight.DerivedFeederETA = nil
+	}
 	flight.SelectedFeeder = stringPointer(starFamily)
 	flight.SelectedSTARFamily = stringPointer(starFamily)
 	flight.SelectedFeederFix = nil
-	if path.FeederFix != "" {
-		flight.SelectedFeederFix = stringPointer(string(path.FeederFix))
+	if feederFix != "" {
+		flight.SelectedFeederFix = stringPointer(feederFix)
 	}
 }
 
@@ -1188,11 +1233,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		input.Policies = append(input.Policies, policy)
 	}
 	for _, flight := range state.Flights {
-		if !flight.SequenceDisposition.Participates() || flight.Prediction == nil || flight.SelectedRunwayGroup == nil || flight.State == aman.StatePlanned || flight.State == aman.StateLanded || flight.State == aman.StateRemoved ||
-			(!flight.Prediction.Publishable && flight.FreezeReason == aman.FreezeNone) {
-			continue
-		}
-		if flight.FreezeReason == aman.FreezeTMA && flight.Slot == nil {
+		if !sequenceEligible(flight) {
 			continue
 		}
 		wakeCategory := ""
@@ -1211,6 +1252,27 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		})
 	}
 	return input
+}
+
+func sequenceEligible(flight aman.AMANFlight) bool {
+	return flight.SequenceDisposition.Participates() &&
+		flight.Prediction != nil &&
+		flight.SelectedRunwayGroup != nil &&
+		flight.State != aman.StatePlanned &&
+		flight.State != aman.StateLanded &&
+		flight.State != aman.StateRemoved &&
+		(flight.Prediction.Publishable || flight.FreezeReason != aman.FreezeNone) &&
+		(flight.FreezeReason != aman.FreezeTMA || flight.Slot != nil)
+}
+
+func repairIneligibleSequencingState(state *aman.AirportState) {
+	for index := range state.Flights {
+		flight := &state.Flights[index]
+		if !flight.SequenceDisposition.Participates() || flight.Slot == nil || sequenceEligible(*flight) {
+			continue
+		}
+		clearSequencingState(flight)
+	}
 }
 
 func sequenceGaps(persisted []aman.RunwayGap, reservations []aman.RunwayCapacityReservation) []sequence.Gap {
@@ -1484,6 +1546,8 @@ func resetFlightsForRunwayConfiguration(state *aman.AirportState) {
 		flight.SelectedFeeder = nil
 		flight.SelectedSTARFamily = nil
 		flight.SelectedFeederFix = nil
+		flight.FeederETA = nil
+		flight.DerivedFeederETA = nil
 		flight.SelectedHolding = nil
 		flight.HoldingStack = nil
 		flight.ActiveRouteKey = nil
@@ -1499,6 +1563,9 @@ func containsRunwayGroup(groups []aman.RunwayGroupPolicy, want aman.RunwayGroupI
 
 func applyBaseline(flight *aman.AMANFlight, observation aman.FlightObservation, now time.Time) {
 	if observation.TakeoffDetected == nil || observation.PlannedTiming == nil || observation.PlannedTiming.EstimatedEnrouteTime == nil || flight.ArrivalBaseline != nil {
+		return
+	}
+	if *observation.PlannedTiming.EstimatedEnrouteTime <= 0 {
 		return
 	}
 	arrival := observation.TakeoffDetected.Add(*observation.PlannedTiming.EstimatedEnrouteTime)
@@ -1680,7 +1747,7 @@ func groundedSurveillance(surveillance *aman.SurveillanceFact) bool {
 // arrival and must no longer participate in route prediction or sequencing.
 func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time) aman.AMANFlight {
 	clearGroundedOperationalState(&flight)
-	if observation.TakeoffDetected == nil {
+	if observation.TakeoffDetected == nil && flight.State == aman.StatePlanned {
 		flight.State = aman.StatePlanned
 		// A previous airborne prediction cannot be reused while the aircraft is
 		// still on the ground. Rebuild the planned baseline from filed times.
@@ -1705,6 +1772,7 @@ func applyGroundedObservation(flight aman.AMANFlight, observation aman.FlightObs
 
 func clearGroundedOperationalState(flight *aman.AMANFlight) {
 	flight.SelectedFeeder, flight.SelectedSTARFamily, flight.SelectedFeederFix = nil, nil, nil
+	flight.FeederETA, flight.DerivedFeederETA = nil, nil
 	flight.SelectedHolding, flight.HoldingStack = nil, nil
 	flight.ActiveRouteKey, flight.ActiveRouteDatasetID, flight.RouteProgress = nil, nil, nil
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
@@ -1777,6 +1845,7 @@ func clearSequencingState(flight *aman.AMANFlight) {
 	flight.Slot, flight.Order, flight.ManualOrder, flight.QueueOffers = nil, nil, nil, nil
 	flight.FreezeReason, flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = aman.FreezeNone, nil, nil, nil
 	flight.HoldingStack = nil
+	flight.RunwayGapException = nil
 }
 
 func predictionCruiseAltitude(observation aman.FlightObservation) float64 {

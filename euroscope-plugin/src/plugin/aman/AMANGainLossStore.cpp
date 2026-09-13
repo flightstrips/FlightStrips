@@ -1,5 +1,7 @@
 #include "AMANGainLossStore.h"
 
+#include "Logger.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
@@ -26,11 +28,20 @@ namespace FlightStrips::aman {
             try {
                 auto replacement = Parse(envelope.aman_gain_loss());
                 const auto current = Snapshot();
-                if (!current->hasRevision || replacement->revision > current->revision ||
-                    (replacement->revision == current->revision && replacement->authoritative != current->authoritative)) {
+                // Reconciliation can update prediction-derived presentation
+                // values without advancing the airport sequence revision.
+                // Reject only older snapshots; same-revision replacements are
+                // still newer projections and must be applied.
+                if (!current->hasRevision || replacement->revision >= current->revision) {
+                    Logger::Debug("Accepted AMAN gain/loss replacement revision={} authoritative={} values={}",
+                                  replacement->revision, replacement->authoritative, replacement->byFlightId.size());
                     snapshot_.store(std::move(replacement));
                 }
+            } catch (const std::exception& exception) {
+                Logger::Warning("Rejected AMAN gain/loss replacement: {}", exception.what());
+                Clear();
             } catch (...) {
+                Logger::Warning("Rejected AMAN gain/loss replacement: unknown parsing error");
                 Clear();
             }
         }
@@ -115,4 +126,5 @@ namespace FlightStrips::aman {
         empty->authoritative = current->authoritative;
         snapshot_.store(std::move(empty));
     }
+
 }

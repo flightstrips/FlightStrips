@@ -218,7 +218,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	var defaultAMAN operationalAMANAssembly
 	if amanEnabled && amanDependencies.ObservationSink == nil {
-		defaultAMAN, err = assembleOperationalAMAN(cfg.AMAN, navigationSource, dbpool, satNow)
+		defaultAMAN, err = assembleOperationalAMAN(
+			cfg.AMAN, navigationSource, vatsimGraph.source, satStaleAfter(deps.VATSIMPollInterval), dbpool, satNow,
+		)
 		if err != nil {
 			if closeDB {
 				dbpool.Close()

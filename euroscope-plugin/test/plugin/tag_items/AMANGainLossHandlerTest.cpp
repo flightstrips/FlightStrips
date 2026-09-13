@@ -37,6 +37,23 @@ TEST(AMANGainLossHandlerTest, RendersNothingUnlessFlightIsArrivalForCurrentAirpo
     EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "EKCH", "").text.empty());
 }
 
+TEST(AMANGainLossHandlerTest, ColorsGuidanceByDisplayedLoseMinutes) {
+    const std::vector<std::pair<long long, COLORREF>> cases = {
+        {-6001, RGB(156, 0, 0)},
+        {-210, RGB(156, 0, 0)},
+        {-209, RGB(240, 225, 41)},
+        {-30, RGB(240, 225, 41)},
+        {-29, RGB(150, 215, 150)},
+        {0, RGB(150, 215, 150)},
+        {600, RGB(150, 215, 150)},
+    };
+    for (const auto& [seconds, expected] : cases) {
+        EXPECT_EQ(AMANGainLossHandler::Resolve(
+                      true, Snapshot(true, "fresh", seconds), "SAS123", "EKCH", "EKCH").color,
+                  expected) << seconds;
+    }
+}
+
 TEST(AMANGainLossHandlerTest, HidesUnavailableGuidance) {
     EXPECT_EQ(AMANGainLossHandler::Resolve(false, Snapshot(), "SAS123", "EKCH", "EKCH").text, "----");
     EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(false), "SAS123", "EKCH", "EKCH").text, "----");

@@ -153,7 +153,53 @@ body.public-content-page {
   }
 
   .aman-workspace-tmt {
-    @apply col-start-3 flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-y-auto bg-[#242424] pr-1;
+    @apply col-start-3 h-full min-h-0 min-w-0 overflow-hidden bg-[#242424] pr-1;
+  }
+
+  .aman-tmt-dashboard {
+    display: grid;
+    grid-template-rows: minmax(0, 43.5%) minmax(0, 32.25%) minmax(0, 1fr) minmax(0, 15%);
+    @apply h-full min-h-0;
+  }
+
+  .aman-tmt-traffic {
+    @apply min-h-0 overflow-hidden;
+  }
+
+  .aman-tmt-traffic > * {
+    @apply h-full;
+  }
+
+  .aman-tmt-holdings {
+    grid-template-columns: repeat(5, minmax(8rem, 1fr));
+    @apply mt-2 grid min-h-0 gap-1 overflow-x-auto overflow-y-hidden;
+  }
+
+  .aman-tmt-holdings > section > header,
+  .aman-tmt-holdings > section > footer {
+    @apply hidden;
+  }
+
+  .aman-tmt-holdings .tmt-holding-entry {
+    grid-template-columns: 2.5rem minmax(3rem, 1fr) 2rem;
+    @apply text-[8px];
+  }
+
+  .aman-tmt-notices {
+    grid-row: 4;
+    @apply grid min-h-0 grid-cols-2 gap-2 overflow-hidden;
+  }
+
+  .aman-tmt-notices > * {
+    @apply min-h-0 overflow-auto;
+  }
+
+  .aman-tmt-notices > :only-child {
+    @apply col-span-2;
+  }
+
+  .aman-tmt-placeholder {
+    @apply grid h-full place-content-center gap-2 border border-[#777] bg-[#3c3c3c] text-center text-xs text-slate-300;
   }
 
   /* ── Bay page wrapper ───────────────────────────────────────────────────── */

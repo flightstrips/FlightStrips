@@ -62,7 +62,7 @@ vi.mock("@/components/aman/TMTTrafficPrediction", () => ({
 }));
 
 vi.mock("@/components/aman/TMTHoldingGraph", () => ({
-  TMTHoldingGraph: (props: {entries: unknown}) => {
+  TMTHoldingGraph: (props: {entries: unknown; holding?: string}) => {
     holdingSpy(props);
     return <div>TMT holding</div>;
   },
@@ -95,10 +95,11 @@ describe("AMAN route authorization", () => {
 
     expect(screen.getByRole("main", {name: "Arrival management workspace"})).toBeInTheDocument();
     expect(screen.getByRole("region", {name: "MAESTRO sequence workspace"})).toContainElement(screen.getByText("AMAN board"));
-    expect(screen.getByRole("complementary", {name: "TMT analysis area"})).toContainElement(screen.getByText("AMAN controls"));
     expect(screen.getByText("AMAN board")).toBeInTheDocument();
-    expect(screen.getByText("AMAN controls")).toBeInTheDocument();
+    expect(screen.queryByText("AMAN controls")).not.toBeInTheDocument();
     expect(screen.getByText("AMAN warnings")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "AMAN board"}));
+    expect(screen.getByText("AMAN controls")).toBeInTheDocument();
     expect(controlsSpy).toHaveBeenCalledWith(expect.objectContaining({hasFMPAuthority: false}));
   });
 
@@ -106,19 +107,24 @@ describe("AMAN route authorization", () => {
     storeState.amanFMPAuthority = true;
     render(<AMAN />);
 
+    fireEvent.click(screen.getByRole("button", {name: "AMAN board"}));
     expect(controlsSpy).toHaveBeenCalledWith(expect.objectContaining({hasFMPAuthority: true}));
   });
 
   it("mounts TMT through the focused authoritative read-model seam", () => {
     const trafficPrediction = {status: "ready"};
-    const holdingInformation = [{flight_id: "holding-1"}];
+    const holdingInformation = [
+      {flight_id: "holding-1", holding: "OLPIB"},
+      {flight_id: "holding-2", holding: "NEWIX"},
+    ];
     storeState.amanState = {...authoritativeState([]), traffic_prediction: trafficPrediction, holding_information: holdingInformation} as unknown as AMANState;
     render(<AMAN />);
 
     expect(screen.getByText("TMT traffic")).toBeInTheDocument();
-    expect(screen.getByText("TMT holding")).toBeInTheDocument();
+    expect(screen.getAllByText("TMT holding")).toHaveLength(6);
     expect(tmtSpy).toHaveBeenCalledWith({prediction: trafficPrediction});
-    expect(holdingSpy).toHaveBeenCalledWith({entries: holdingInformation});
+    expect(holdingSpy).toHaveBeenCalledWith({entries: [holdingInformation[0]], holding: "OLPIB"});
+    expect(holdingSpy).toHaveBeenCalledWith({entries: [holdingInformation[1]], holding: "NEWIX"});
   });
 
   it("opens and closes the existing detail view for the activated target", () => {

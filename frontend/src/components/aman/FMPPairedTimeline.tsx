@@ -49,6 +49,7 @@ function FeederSide({
             data-family={family}
             data-marker-time={marker.timestamp}
             data-track={marker.track}
+            data-testid={`operational-marker-${marker.flight.flight_id}`}
             key={marker.flight.flight_id}
             role="listitem"
             style={{left: rulerEdge, top: `calc(${top}% + ${offset}px)`}}
@@ -94,7 +95,7 @@ export function FMPPairedTimeline({
       {mappings.map((mapping) => (
         <section
           aria-label={`Timeline ${mapping.id}: ${mapping.left ?? "unused"} left, ${mapping.right ?? "unused"} right`}
-          className="relative h-full min-w-[520px]"
+          className="relative h-full min-w-[12.5rem] flex-1"
           data-testid={`fmp-timeline-${mapping.id}`}
           key={mapping.id}
         >

@@ -17,26 +17,10 @@ import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from 
 import {ACCTimeline} from "./ACCTimeline";
 import {FMPPairedTimeline} from "./FMPPairedTimeline";
 import {RWYPairedTimeline} from "./RWYPairedTimeline";
-import {RunwayGapOverlay} from "./RunwayGapOverlay";
-import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
-import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
-import {AMANAxisTopPercent, AMANTimelineAxis, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
-import {
-  buildAMANHoldingLanes,
-  buildAMANLanes,
-  formatAMANTime,
-  layoutTimelineMarkers,
-  type AMANTimelineRange,
-} from "./presentation";
+import {AMANAxisTopPercent, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
+import {buildAMANLanes, formatAMANTime} from "./presentation";
 
 const TIMELINE_PIXELS_PER_MINUTE = 18;
-const RULER_WIDTH_PIXELS = 58;
-const STRIP_STACK_PIXELS = 30;
-
-function timelinePosition(timestamp: string | null, range: AMANTimelineRange): number | null {
-  return AMANAxisTopPercent(timestamp, range);
-}
-
 function TimelineScrollRail({
   scrollTop,
   viewportHeight,
@@ -103,102 +87,6 @@ function TimelineScrollRail({
   );
 }
 
-function HoldingTimeline({
-  label,
-  flights,
-  range,
-  stripSide,
-  fillAvailableSpace,
-  showStar,
-  currentPosition,
-  clockMs,
-  axisStatus,
-  gainLossAuthoritative,
-  gainLossConnected,
-  selectedFlightID,
-  onSelectFlight,
-  onOpenFlightDetails,
-  leadingFields,
-  trailingFields,
-}: {
-  label: string;
-  flights: AMANFlight[];
-  range: AMANTimelineRange;
-  stripSide: "left" | "right";
-  fillAvailableSpace: boolean;
-  showStar: boolean;
-  currentPosition: number | null;
-  clockMs: number;
-  axisStatus: "fresh" | "stale" | "disconnected";
-  gainLossAuthoritative: boolean;
-  gainLossConnected: boolean;
-  selectedFlightID: string | null;
-  onSelectFlight: (flightID: string) => void;
-  onOpenFlightDetails?: (flightID: string) => void;
-  leadingFields: (flight: AMANFlight) => readonly AMANAircraftTargetField[];
-  trailingFields: (flight: AMANFlight) => readonly AMANAircraftTargetField[];
-}) {
-  const minimumGapPercent = (60_000 / (range.endMs - range.startMs)) * 100;
-  const markers = layoutTimelineMarkers(flights, range, minimumGapPercent);
-
-  return (
-    <section className={cn("relative h-full", fillAvailableSpace ? "min-w-[520px] flex-1" : "min-w-[520px]")} data-testid={`holding-timeline-lane-${label}`}>
-      <div className="absolute inset-x-0 bottom-12 top-5">
-        {currentPosition !== null && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
-        <AMANTimelineAxis clockMs={clockMs} range={range} status={axisStatus} />
-      {markers.map((marker) => {
-        const selected = marker.flight.flight_id === selectedFlightID;
-        const top = timelinePosition(marker.timestamp, range) ?? 0;
-        const rulerEdge = stripSide === "left"
-          ? `calc(50% - ${RULER_WIDTH_PIXELS / 2}px)`
-          : `calc(50% + ${RULER_WIDTH_PIXELS / 2}px)`;
-        const stackOffset = -marker.track * STRIP_STACK_PIXELS;
-        return (
-          <div key={marker.flight.flight_id}>
-            <div
-              className={cn(
-                "absolute z-20 flex min-h-7 -translate-y-1/2 items-center",
-                stripSide === "left" ? "-translate-x-full" : "translate-x-0",
-              )}
-              style={{left: rulerEdge, top: `calc(${top}% + ${stackOffset}px)`}}
-            >
-              {stripSide === "right" && <span className={cn(
-                "relative h-px shrink-0",
-                marker.flight.freeze_reason === "superstable" ? "bg-cyan-200" : marker.flight.freeze_reason === "manual" ? "bg-fuchsia-200" : "bg-[#a9bdc5]",
-              )} style={{width: "24px"}}><i className="absolute -left-0.5 -top-0.5 block h-1 w-1 rounded-full bg-[#e4e4e4]" /></span>}
-              <div className="flex min-h-7 items-stretch" data-marker-time={marker.timestamp} data-testid={`operational-marker-${marker.flight.flight_id}`}>
-                <AMANAircraftTarget
-                  flight={marker.flight}
-                  guidance={{authoritative: gainLossAuthoritative, connected: gainLossConnected}}
-                  leadingFields={leadingFields(marker.flight)}
-                  onSelect={() => {
-                    onSelectFlight(marker.flight.flight_id);
-                    onOpenFlightDetails?.(marker.flight.flight_id);
-                  }}
-                  selected={selected}
-                  trailingFields={trailingFields(marker.flight)}
-                />
-                {showStar && marker.flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]">{marker.flight.star_family}</span>}
-              </div>
-              {stripSide === "left" && <span className={cn(
-                "relative h-px shrink-0",
-                marker.flight.freeze_reason === "superstable" ? "bg-cyan-200" : marker.flight.freeze_reason === "manual" ? "bg-fuchsia-200" : "bg-[#a9bdc5]",
-              )} style={{width: "24px"}}><i className="absolute -right-0.5 -top-0.5 block h-1 w-1 rounded-full bg-[#e4e4e4]" /></span>}
-            </div>
-            {marker.track > 0 && <span
-              aria-hidden="true"
-              className="absolute z-10 w-px bg-[#a9bdc5]"
-              style={{height: `${Math.abs(stackOffset)}px`, left: rulerEdge, top: `calc(${top}% + ${stackOffset}px)`}}
-            />}
-          </div>
-        );
-      })}
-      </div>
-      <footer className="absolute bottom-0 left-0 right-0 pb-3 text-center font-display text-sm font-bold text-white">{label}</footer>
-    </section>
-  );
-}
-
 export interface AMANBoardViewProps {
   state: AMANState | null;
   presentationStatus: AMANPresentationStatus;
@@ -248,8 +136,6 @@ export function AMANBoardView({
   const initializedTimelineScroll = useRef(false);
   const [timelineScroll, setTimelineScroll] = useState({top: 0, viewportHeight: 0, contentHeight: 0});
   const activeRunwayLane = lanes.find((lane) => lane.id === selectedRunwayGroupID) ?? lanes[0] ?? null;
-  const timelineFlights = useMemo(() => activeRunwayLane?.flights ?? [], [activeRunwayLane]);
-  const holdingLanes = useMemo(() => buildAMANHoldingLanes(timelineFlights), [timelineFlights]);
   const axis = useAMANTimelineAxis(state?.generated_at ?? new Date(0).toISOString());
   const range = axis.range;
   const timelineHeight = useMemo(
@@ -370,7 +256,7 @@ export function AMANBoardView({
       />
       <div className="relative min-h-0 flex-1">
         <div className="h-full overflow-auto pl-9 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
-          <div className={cn("relative flex", view === "holds" ? "min-w-max" : "min-w-full")} data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
+          <div className="relative flex min-w-[37.5rem]" data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
             {view === "runway" ? (
               <RWYPairedTimeline
                 clockMs={axis.clockMs}
@@ -404,27 +290,12 @@ export function AMANBoardView({
                 runway={activeRunwayLane?.id ?? "runway"}
                 status={axisStatus}
               />
-            ) : <><RunwayGapOverlay gaps={activeRunwayLane?.gaps ?? []} range={range} runway={activeRunwayLane?.id ?? "runway"} /><RunwayClosureOverlay closures={activeRunwayLane?.closures ?? []} range={range} runway={activeRunwayLane?.id ?? "runway"} status={axisStatus} /><CapacityReservationOverlay range={range} reservations={activeRunwayLane?.capacityReservations ?? []} runway={activeRunwayLane?.id ?? "runway"} status={axisStatus} />{holdingLanes.map((lane, index) => (
-              <HoldingTimeline
-                flights={lane.flights}
-                key={lane.id}
-                label={lane.label}
-                onSelectFlight={onSelectFlight}
-                onOpenFlightDetails={onOpenFlightDetails}
-                range={range}
-                selectedFlightID={selectedFlightID}
-                stripSide={index % 2 === 0 ? "left" : "right"}
-                fillAvailableSpace={false}
-                showStar={false}
-                currentPosition={nowPosition}
-                clockMs={axis.clockMs}
-                axisStatus={axisStatus}
-                gainLossAuthoritative={gainLossAuthoritative}
-                gainLossConnected={connectionState === "connected"}
-                leadingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
-                trailingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
-              />
-            ))}</>}
+            ) : (
+              <section aria-label="AMAN timeline configuration unavailable" className="grid h-full min-w-[37.5rem] flex-1 place-content-center gap-2 border border-amber-400/60 bg-[#3f3f3f] p-8 text-center">
+                <h2 className="font-display text-lg font-bold text-amber-100">Timeline configuration unavailable</h2>
+                <p className="max-w-md text-sm text-slate-200">Waiting for a versioned terminal-layout projection from AMAN.</p>
+              </section>
+            )}
           </div>
         </div>
         <TimelineScrollRail

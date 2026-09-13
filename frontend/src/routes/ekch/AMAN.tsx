@@ -11,6 +11,8 @@ import {TMTTrafficPrediction} from "@/components/aman/TMTTrafficPrediction";
 import {getAMANMutationBlockReason} from "@/api/aman";
 import {markAMANStateReceived, measureAMANStatePaint} from "@/lib/aman-performance";
 import {useWebSocketStore} from "@/store/store-hooks";
+import {orderedEKCHTMTHoldings} from "@/config/aman";
+import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 
 export default function AMAN() {
   const state = useWebSocketStore((value) => value.amanState);
@@ -29,13 +31,15 @@ export default function AMAN() {
   const [missedApproachCommandID, setMissedApproachCommandID] = useState<string | null>(null);
   const [decisionCommandID, setDecisionCommandID] = useState<string | null>(null);
   const [removalCommandID, setRemovalCommandID] = useState<string | null>(null);
-  const controlsRef = useRef<HTMLElement>(null);
+  const [controlsOpen, setControlsOpen] = useState(false);
   const stateAtMount = useRef(state);
 
   const effectiveSelectedFlightID = state?.flights.some((flight) => flight.flight_id === selectedFlightID)
     ? selectedFlightID
     : state?.flights[0]?.flight_id ?? null;
   const selectedFlight = state?.flights.find((flight) => flight.flight_id === effectiveSelectedFlightID) ?? null;
+  const holdingInformation = state?.holding_information ?? [];
+  const tmtHoldings = orderedEKCHTMTHoldings(holdingInformation);
   const mutationBlockReason = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority});
 
   const navigateToWarningFlight = (flightID: string): boolean => {
@@ -60,7 +64,7 @@ export default function AMAN() {
           <AMANBoardView
             connectionState={connectionState}
             error={error}
-            onOpenControls={() => controlsRef.current?.focus()}
+            onOpenControls={() => setControlsOpen(true)}
             onOpenFlightDetails={(flightID) => {
               setSelectedFlightID(flightID);
               setMissedApproachCommandID(null);
@@ -74,33 +78,41 @@ export default function AMAN() {
           />
         )}
         tmt={(
-          <>
-            {!hasFMPAuthority && <AMANCoordinationInbox
+          <div className="aman-tmt-dashboard">
+            <div className="aman-tmt-traffic">
+              {state?.traffic_prediction !== undefined
+                ? <TMTTrafficPrediction prediction={state.traffic_prediction} />
+                : <section className="aman-tmt-placeholder" aria-label="TMT traffic prediction unavailable"><b>TMT · TRAFFIC PREDICTION</b><span>Prediction data unavailable</span></section>}
+            </div>
+            <div aria-label="TMT holding workspaces" className="aman-tmt-holdings">
+              {tmtHoldings.map((holding) => <TMTHoldingGraph entries={holdingInformation.filter((entry) => entry.holding === holding)} holding={holding} key={holding} />)}
+            </div>
+            <div className="aman-tmt-notices">
+              {!hasFMPAuthority && <AMANCoordinationInbox
               canDecide={getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: true}) === null}
               deciding={decisionCommandID !== null && pendingCommands[decisionCommandID] !== undefined}
               flights={state?.flights ?? []}
               onDecision={(requestID, decision, reason) => setDecisionCommandID(sendCommand({type: `aman.${decision}_coordination_request`, request_id: requestID, ...(reason ? {reason} : {})}))}
               rejection={decisionCommandID ? commandRejections[decisionCommandID]?.message : null}
               requests={state?.coordination_requests ?? []}
-            />}
-            <AMANWarningPanel
+              />}
+              <AMANWarningPanel
               connectionState={connectionState}
               current={warnings}
               flights={state?.flights}
               onNavigateToFlight={navigateToWarningFlight}
               presentationStatus={presentationStatus}
-            />
-            {state?.traffic_prediction !== undefined && <TMTTrafficPrediction prediction={state.traffic_prediction} />}
-            {state?.holding_information !== undefined && <TMTHoldingGraph entries={state.holding_information} />}
-            <AMANControls
-              hasFMPAuthority={hasFMPAuthority}
-              onSelectedFlightIDChange={setSelectedFlightID}
-              selectedFlightID={effectiveSelectedFlightID}
-            />
-          </>
+              />
+            </div>
+          </div>
         )}
-        tmtRef={controlsRef}
       />
+      <Dialog onOpenChange={setControlsOpen} open={controlsOpen}>
+        <DialogContent className="max-h-[90dvh] w-[min(72rem,calc(100vw-2rem))] max-w-none overflow-y-auto border-slate-600 bg-slate-900 p-0 text-slate-100">
+          <DialogTitle className="sr-only">AMAN FMP controls</DialogTitle>
+          <AMANControls hasFMPAuthority={hasFMPAuthority} onSelectedFlightIDChange={setSelectedFlightID} selectedFlightID={effectiveSelectedFlightID} />
+        </DialogContent>
+      </Dialog>
       {detailOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} missedApproach={{
         blockReason: mutationBlockReason,
         confirmation: selectedFlight.go_around_confirmation,

@@ -3,9 +3,44 @@ package main
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/navigation"
+	"context"
+	"log/slog"
+	"os"
 	"testing"
 	"time"
 )
+
+func TestInitializeEnvironmentConfiguresLoggingFromDotEnv(t *testing.T) {
+	originalLogger := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(originalLogger) })
+
+	originalLogLevel, hadLogLevel := os.LookupEnv("LOG_LEVEL")
+	if err := os.Unsetenv("LOG_LEVEL"); err != nil {
+		t.Fatalf("unset LOG_LEVEL: %v", err)
+	}
+	t.Cleanup(func() {
+		if hadLogLevel {
+			_ = os.Setenv("LOG_LEVEL", originalLogLevel)
+		} else {
+			_ = os.Unsetenv("LOG_LEVEL")
+		}
+	})
+
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile(".env", []byte("LOG_LEVEL=ERROR\n"), 0o600); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+
+	initializeEnvironment()
+
+	handler := slog.Default().Handler()
+	if handler.Enabled(context.Background(), slog.LevelWarn) {
+		t.Fatal("logger enabled warnings below the .env ERROR level")
+	}
+	if !handler.Enabled(context.Background(), slog.LevelError) {
+		t.Fatal("logger did not enable errors at the .env ERROR level")
+	}
+}
 
 func TestEnvBool(t *testing.T) {
 	tests := []struct {

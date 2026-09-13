@@ -20,7 +20,8 @@ import {RWYPairedTimeline} from "./RWYPairedTimeline";
 import {AMANAxisTopPercent, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
 import {buildAMANLanes, formatAMANTime} from "./presentation";
 
-const TIMELINE_PIXELS_PER_MINUTE = 18;
+const TIMELINE_PIXELS_PER_MINUTE = 32;
+const MINIMUM_TIMELINE_HEIGHT_PIXELS = 960;
 function TimelineScrollRail({
   scrollTop,
   viewportHeight,
@@ -65,12 +66,27 @@ function TimelineScrollRail({
       onPointerMove={(event) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) setScrollFromPointer(event.clientY, event.currentTarget);
       }}
+      onKeyDown={(event) => {
+        const lineStep = 64;
+        const pageStep = Math.max(lineStep, viewportHeight * 0.8);
+        let next: number | null = null;
+        if (event.key === "ArrowUp") next = scrollTop - lineStep;
+        else if (event.key === "ArrowDown") next = scrollTop + lineStep;
+        else if (event.key === "PageUp") next = scrollTop - pageStep;
+        else if (event.key === "PageDown") next = scrollTop + pageStep;
+        else if (event.key === "Home") next = 0;
+        else if (event.key === "End") next = maximumScroll;
+        if (next === null) return;
+        event.preventDefault();
+        onScrollTo(Math.max(0, Math.min(maximumScroll, next)));
+      }}
       role="scrollbar"
+      tabIndex={0}
     >
       <div className="absolute inset-x-2 bottom-8 top-1 border-x border-[#dadada]">
         {tickPositions.map((position) => (
           <span
-            className={cn("absolute left-1 right-1 h-px", currentPosition !== null && position > currentPosition ? "bg-lime-300" : "bg-[#e2e2e2]")}
+            className={cn("absolute left-1 right-1 h-px", currentPosition !== null && position < currentPosition ? "bg-lime-300" : "bg-[#e2e2e2]")}
             key={position}
             style={{top: `${position}%`}}
           />
@@ -139,7 +155,7 @@ export function AMANBoardView({
   const axis = useAMANTimelineAxis(state?.generated_at ?? new Date(0).toISOString());
   const range = axis.range;
   const timelineHeight = useMemo(
-    () => Math.max(720, Math.ceil((range.endMs - range.startMs) / 60_000) * TIMELINE_PIXELS_PER_MINUTE),
+    () => Math.max(MINIMUM_TIMELINE_HEIGHT_PIXELS, Math.ceil((range.endMs - range.startMs) / 60_000) * TIMELINE_PIXELS_PER_MINUTE),
     [range],
   );
   const nowPosition = AMANAxisTopPercent(axis.clockMs, range);

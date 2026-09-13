@@ -260,7 +260,13 @@ describe("complete AMAN timeline and strips", () => {
     renderBoard(state());
 
     expect(screen.getByText("10:00–10:30 UTC · 30 min")).toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "720px"});
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "960px"});
+    const scrollRail = screen.getByRole("scrollbar", {name: "Timeline scroll position"});
+    expect(scrollRail).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(scrollRail, {key: "Home"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
+    fireEvent.keyDown(scrollRail, {key: "End"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "960");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("rwy-lane-ARRIVAL-22")).toBeInTheDocument();
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-[37.5rem]");

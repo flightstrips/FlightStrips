@@ -13,7 +13,7 @@ import (
 
 func TestEvaluateSATHealthFeedStates(t *testing.T) {
 	ready := appconfig.StandAssignmentReadiness{Enabled: true, Ready: true}
-	now := time.Now().UTC()
+	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
 		name       string
 		snapshot   vatsim.Snapshot
@@ -28,7 +28,7 @@ func TestEvaluateSATHealthFeedStates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := evaluateSATHealth(ready, tt.snapshot, time.Minute)
+			got := evaluateSATHealth(ready, tt.snapshot, time.Minute, func() time.Time { return now })
 			assert.Equal(t, tt.wantStatus, got.Status)
 			assert.Equal(t, tt.wantReady, got.Ready)
 		})
@@ -36,14 +36,18 @@ func TestEvaluateSATHealthFeedStates(t *testing.T) {
 }
 
 func TestAMANVATSIMHealthReportsStaleReasonAndRestoration(t *testing.T) {
-	now := time.Now().UTC()
-	stale := amanVATSIMHealth(amanHealthSnapshotSource{snapshot: vatsim.Snapshot{Timestamp: now.Add(-2 * time.Minute)}}, time.Minute)
-	fresh := amanVATSIMHealth(amanHealthSnapshotSource{snapshot: vatsim.Snapshot{Timestamp: now}}, time.Minute)
+	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	stale := amanVATSIMHealth(amanHealthSnapshotSource{snapshot: vatsim.Snapshot{Timestamp: now.Add(-2 * time.Minute)}}, time.Minute, clock)
+	fresh := amanVATSIMHealth(amanHealthSnapshotSource{snapshot: vatsim.Snapshot{Timestamp: now}}, time.Minute, clock)
 	if stale.Status != aman.HealthDegraded || stale.Reason != "snapshot_stale" || stale.AgeSeconds == nil {
 		t.Fatalf("stale AMAN VATSIM health = %#v", stale)
 	}
 	if fresh.Status != aman.HealthReady || fresh.Reason != "" || fresh.AgeSeconds == nil {
 		t.Fatalf("fresh AMAN VATSIM health = %#v", fresh)
+	}
+	if *fresh.AgeSeconds != 0 {
+		t.Fatalf("fresh historical snapshot age = %v, want 0", *fresh.AgeSeconds)
 	}
 }
 

@@ -28,22 +28,27 @@ TEST(AMANGainLossHandlerTest, FormatsRequiredRoundingBoundaries) {
 }
 
 TEST(AMANGainLossHandlerTest, DisplaysFreshAuthoritativeValueByNormalizedCallsign) {
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), " sas123 ").text, "G02");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "fresh", -90), "SAS123").text, "L02");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), " sas123 ", "EKCH", "EKCH").text, "G02");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "fresh", -90), "SAS123", "ekch", " EKCH ").text, "L02");
+}
+
+TEST(AMANGainLossHandlerTest, RendersNothingUnlessFlightIsArrivalForCurrentAirport) {
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "ESSA", "EKCH").text.empty());
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "EKCH", "").text.empty());
 }
 
 TEST(AMANGainLossHandlerTest, HidesUnavailableGuidance) {
-    EXPECT_EQ(AMANGainLossHandler::Resolve(false, Snapshot(), "SAS123").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(false), "SAS123").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "stale"), "SAS123").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "disconnected"), "SAS123").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "fresh", std::nullopt), "SAS123").text, "----");
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), "MISSING").text, "----");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(false, Snapshot(), "SAS123", "EKCH", "EKCH").text, "----");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(false), "SAS123", "EKCH", "EKCH").text, "----");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "stale"), "SAS123", "EKCH", "EKCH").text, "----");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "disconnected"), "SAS123", "EKCH", "EKCH").text, "----");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(true, "fresh", std::nullopt), "SAS123", "EKCH", "EKCH").text, "----");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), "MISSING", "EKCH", "EKCH").text, "----");
 }
 
 TEST(AMANGainLossHandlerTest, DoesNotInferAValueFromMissingFlightIdentity) {
     auto snapshot = std::make_shared<FlightStrips::aman::GainLossSnapshot>();
     snapshot->authoritative = true;
     snapshot->flightIdByCallsign["SAS123"] = "missing-flight";
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123").text, "----");
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH").text, "----");
 }

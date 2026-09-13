@@ -15,7 +15,8 @@ namespace FlightStrips::TagItems {
 
     class AMANGainLossHandler final : public TagItemHandler {
     public:
-        AMANGainLossHandler(std::shared_ptr<aman::AMANGainLossStore> store, std::function<bool()> connected);
+        AMANGainLossHandler(std::shared_ptr<aman::AMANGainLossStore> store, std::function<bool()> connected,
+                            std::function<std::string()> currentAirport);
 
         void Handle(EuroScopePlugIn::CFlightPlan FlightPlan, EuroScopePlugIn::CRadarTarget RadarTarget,
                     int ItemCode, int TagData, char sItemString[16], int* pColorCode,
@@ -24,10 +25,12 @@ namespace FlightStrips::TagItems {
         [[nodiscard]] static std::string Format(long long seconds);
         [[nodiscard]] static AMANGainLossPresentation Resolve(
             bool connected, const std::shared_ptr<const aman::GainLossSnapshot>& snapshot,
-            const std::string& callsign);
+            const std::string& callsign, const std::string& destination,
+            const std::string& currentAirport);
 
     private:
         std::shared_ptr<aman::AMANGainLossStore> store_;
         std::function<bool()> connected_;
+        std::function<std::string()> currentAirport_;
     };
 }

@@ -467,7 +467,7 @@ export default function StandStatusPage() {
     } catch (authError) {
       if (requiresLoginPrompt(authError)) {
         await resetExpiredAuthentication();
-        throw new Error("Your session expired. Signing you in again…");
+        throw Object.assign(new Error("Your session expired. Signing you in again…"), {cause: authError});
       }
       throw authError;
     }

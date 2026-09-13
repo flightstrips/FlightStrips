@@ -70,7 +70,7 @@ export function TMTHoldingGraph({entries, now = new Date()}: {entries: AMANHoldi
 
   function moveFocus(event: KeyboardEvent<HTMLLIElement>, flightID: string) {
     const current = positions.findIndex(({entry}) => entry.flight_id === flightID);
-    let target = current;
+    let target: number;
     if (event.key === "ArrowDown" || event.key === "ArrowRight") target = (current + 1) % positions.length;
     else if (event.key === "ArrowUp" || event.key === "ArrowLeft") target = (current - 1 + positions.length) % positions.length;
     else if (event.key === "Home") target = 0;

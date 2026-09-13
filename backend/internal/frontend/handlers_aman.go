@@ -481,7 +481,7 @@ func (hub *Hub) coordinationContext(client *Client) (coordinationrequest.Command
 	if !hub.amanMutations {
 		return coordinationrequest.CommandContext{}, &aman.DomainError{Class: aman.ErrorReadOnly, Message: "AMAN controller mutations are read-only in the current rollout mode"}
 	}
-	role := hub.amanRole(client.position)
+	role := hub.amanRole(client)
 	now := time.Now
 	if hub.amanNow != nil {
 		now = hub.amanNow
@@ -489,19 +489,25 @@ func (hub *Hub) coordinationContext(client *Client) (coordinationrequest.Command
 	return coordinationrequest.CommandContext{Airport: client.airport, Actor: client.GetCid(), Role: role, ReceivedAt: now().UTC()}, nil
 }
 
-func (hub *Hub) amanRole(position string) string {
+func (hub *Hub) amanRole(client *Client) string {
+	if client == nil {
+		return ""
+	}
+	if value, err := config.GetPositionByName(client.callsign); err == nil {
+		return value.Name
+	}
 	roleForPosition := configuredAMANRole
 	if hub.amanRoleForPosition != nil {
 		roleForPosition = hub.amanRoleForPosition
 	}
-	return roleForPosition(position)
+	return roleForPosition(client.position)
 }
 
 func (hub *Hub) hasAMANFMPAuthority(client *Client) bool {
 	if client == nil || !client.IsAuthenticated() || client.session == WaitingForEuroscopeConnectionSessionId {
 		return false
 	}
-	_, authorized := hub.amanFMPRoles[strings.ToUpper(hub.amanRole(client.position))]
+	_, authorized := hub.amanFMPRoles[strings.ToUpper(hub.amanRole(client))]
 	return authorized
 }
 

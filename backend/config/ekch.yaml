@@ -850,6 +850,11 @@ runways:
   - "30"
 
 layouts:
+  EKCH_FMH:
+    - online: []
+      offline: []
+      layout: AMAN
+
   EKCH_DEL:
     - online: []
       offline: []

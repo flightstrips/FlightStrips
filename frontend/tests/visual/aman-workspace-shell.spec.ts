@@ -46,7 +46,7 @@ test("shows keyboard focus and selected state without relying on color", async (
   await page.goto("/visual-tests/aman-workspace-shell-preview.html");
   const riu = page.getByRole("button", {name: "ARRIVAL-22", exact: true});
   const rate = page.getByRole("button", {name: "ARRIVAL-22: 30/h"});
-  const maestro = page.getByRole("button", {name: "Open target information preferences"});
+  const maestro = page.getByRole("button", {name: "MAESTRO", exact: true});
   const all = page.getByRole("button", {name: "ALL"});
 
   await page.keyboard.press("Tab");

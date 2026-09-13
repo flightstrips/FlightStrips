@@ -10,6 +10,10 @@ import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
 const RULER_HALF_WIDTH = 29;
 const TARGET_TRACK_HEIGHT = 30;
+// Figma node 3056:371 places the three ruler centres at 264.91, 571.91,
+// and 1045.91 on the 1280 px MAESTRO canvas. Keeping those proportions
+// preserves the shared TUDLO/MONAK and TIDVU/ERNOV target fields.
+const FMP_AXIS_POSITIONS = [20.696, 44.681, 81.712] as const;
 
 function familyOf(flight: AMANFlight): string | null {
   return flight.star_family ?? flight.feeder ?? flight.star;
@@ -54,13 +58,11 @@ function FeederSide({
             role="listitem"
             style={{left: rulerEdge, top: `calc(${top}% + ${offset}px)`}}
           >
-            {side === "right" && <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#a9bdc5]" />}
             {renderTarget(marker.flight)}
-            {side === "left" && <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#a9bdc5]" />}
           </div>
         );
       })}
-      <span className={cn("absolute bottom-3 font-display text-sm font-bold text-white", side === "left" ? "left-3" : "right-3")}>{family}</span>
+      <span className={cn("absolute bottom-3 whitespace-nowrap font-display text-sm font-bold text-white", side === "left" ? "right-[35px]" : "left-[35px]")}>{family}</span>
     </div>
   );
 }
@@ -91,25 +93,33 @@ export function FMPPairedTimeline({
   runway?: string;
 }) {
   return (
-    <>
-      {mappings.map((mapping) => (
-        <section
-          aria-label={`Timeline ${mapping.id}: ${mapping.left ?? "unused"} left, ${mapping.right ?? "unused"} right`}
-          className="relative h-full min-w-[12.5rem] flex-1"
-          data-testid={`fmp-timeline-${mapping.id}`}
-          key={mapping.id}
-        >
-          <div className="absolute inset-x-0 bottom-0 top-5">
-            {currentPosition !== null && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
-            <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
-            <RunwayGapOverlay gaps={gaps} range={range} runway={runway} />
-            <RunwayClosureOverlay closures={closures} range={range} runway={runway} status={status} />
-            <CapacityReservationOverlay range={range} reservations={capacityReservations} runway={runway} status={status} />
-            <FeederSide family={mapping.left} flights={flights} range={range} renderTarget={renderTarget} side="left" />
-            <FeederSide family={mapping.right} flights={flights} range={range} renderTarget={renderTarget} side="right" />
-          </div>
-        </section>
-      ))}
-    </>
+    <div className="relative h-full min-w-[50rem] flex-1" data-testid="fmp-paired-layout">
+      {currentPosition !== null && (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 top-5">
+          <div className="absolute inset-x-0 bottom-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />
+        </div>
+      )}
+      {mappings.map((mapping, index) => {
+        const position = FMP_AXIS_POSITIONS[index] ?? (index + 1) / (mappings.length + 1) * 100;
+        return (
+          <section
+            aria-label={`Timeline ${mapping.id}: ${mapping.left ?? "unused"} left, ${mapping.right ?? "unused"} right`}
+            className="absolute bottom-0 top-5 -translate-x-1/2"
+            data-testid={`fmp-timeline-${mapping.id}`}
+            key={mapping.id}
+            style={{left: `${position}%`, width: "max(6%, 58px)"}}
+          >
+            <div className="absolute inset-0">
+              <AMANTimelineAxis clockMs={clockMs} range={range} status={status} />
+              <RunwayGapOverlay gaps={gaps} range={range} runway={runway} />
+              <RunwayClosureOverlay closures={closures} range={range} runway={runway} status={status} />
+              <CapacityReservationOverlay range={range} reservations={capacityReservations} runway={runway} status={status} />
+              <FeederSide family={mapping.left} flights={flights} range={range} renderTarget={renderTarget} side="left" />
+              <FeederSide family={mapping.right} flights={flights} range={range} renderTarget={renderTarget} side="right" />
+            </div>
+          </section>
+        );
+      })}
+    </div>
   );
 }

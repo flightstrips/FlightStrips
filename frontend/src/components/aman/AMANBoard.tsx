@@ -169,8 +169,9 @@ export function AMANBoardView({
     {id: "aircraft-type", label: "Aircraft type", value: "—"},
     {id: "feeder-fix", label: "Feeder fix", value: flight.feeder_fix ?? "—"},
   ];
-  const renderFMPTarget = (flight: AMANFlight) => (
+  const renderTarget = (flight: AMANFlight, compact = false) => (
     <AMANAircraftTarget
+      compact={compact}
       flight={flight}
       guidance={{
         authoritative: gainLossAuthoritative,
@@ -185,9 +186,10 @@ export function AMANBoardView({
       trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
     />
   );
+  const renderFMPTarget = (flight: AMANFlight) => renderTarget(flight, true);
   const renderRWYTarget = (flight: AMANFlight) => (
     <div className="flex min-h-7 items-stretch">
-      {renderFMPTarget(flight)}
+      {renderTarget(flight)}
       {flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]">{flight.star_family}</span>}
     </div>
   );

@@ -54,6 +54,10 @@ describe("FMP paired feeder timelines", () => {
 
     expect(screen.getByRole("region", {name: "Timeline 1: TESPI left, TUDLO right"})).toBeInTheDocument();
     expect(screen.getByRole("region", {name: "Timeline 3: ERNOV left, unused right"})).toBeInTheDocument();
+    expect(screen.getByTestId("fmp-paired-layout")).toHaveClass("min-w-[50rem]");
+    expect(screen.getByTestId("fmp-timeline-1")).toHaveStyle({left: "20.696%"});
+    expect(screen.getByTestId("fmp-timeline-2")).toHaveStyle({left: "44.681%"});
+    expect(screen.getByTestId("fmp-timeline-3")).toHaveStyle({left: "81.712%"});
     expect(screen.getByLabelText("Unused right side")).toBeInTheDocument();
     expect(within(screen.getByRole("list", {name: "TESPI arrivals"})).getAllByRole("listitem").map((item) => item.textContent))
       .toEqual(["TESPI-FIRST", "TESPI-SECOND"]);

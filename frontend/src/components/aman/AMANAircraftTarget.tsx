@@ -28,6 +28,7 @@ export interface AMANAircraftTargetProps {
   trailingFields?: readonly AMANAircraftTargetField[];
   onSelect?: () => void;
   emphasis?: "primary" | "subdued";
+  compact?: boolean;
 }
 
 function lifecyclePresentation(flight: AMANAircraftTargetProps["flight"]): {label: string; shortLabel: string; tone: string} {
@@ -82,6 +83,7 @@ export function AMANAircraftTarget({
   trailingFields = [],
   onSelect,
   emphasis,
+  compact = false,
 }: AMANAircraftTargetProps) {
   const delay = formatGainLoss(flight.gain_loss_seconds, {
     ...guidance,
@@ -107,10 +109,10 @@ export function AMANAircraftTarget({
       type="button"
     >
       <TargetFields fields={leadingFields} />
-      <span className="flex min-w-20 items-center truncate px-2">{flight.callsign}</span>
-      <span className={cn("flex min-w-10 items-center justify-center border-l border-white/40 px-1.5", delayTone(delay))}>{delay}</span>
+      <span className={cn("flex items-center truncate", compact ? "min-w-[72px] px-1.5" : "min-w-20 px-2")}>{flight.callsign}</span>
+      <span className={cn("flex items-center justify-center border-l border-white/40", compact ? "min-w-7 px-1" : "min-w-10 px-1.5", delayTone(delay))}>{delay}</span>
       <TargetFields fields={trailingFields} />
-      <span className={cn("flex min-w-7 items-center justify-center border-l border-white/40 px-1", lifecycle.tone)} title={lifecycle.label}>
+      <span className={cn("flex items-center justify-center border-l border-white/40 px-1", compact ? "min-w-6" : "min-w-7", lifecycle.tone)} title={lifecycle.label}>
         {lifecycle.shortLabel}
       </span>
       {flight.runway_gap_exception && <span className="flex items-center border-l border-dashed border-amber-200 bg-amber-950 px-1 text-[9px] text-amber-100" title={`Audited manual placement inside GAP ${flight.runway_gap_exception.gap_id}`}>GAP EXCEPTION</span>}

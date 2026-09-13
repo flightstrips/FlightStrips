@@ -8,6 +8,24 @@ namespace FlightStrips::TagItems {
     namespace {
         constexpr int TagColorRGBDefinedValue = 1;
         constexpr COLORREF ActiveTagColor = RGB(0, 192, 0);
+        constexpr COLORREF GainOrOnTimeTagColor = RGB(150, 215, 150);
+        constexpr COLORREF ShortLossTagColor = RGB(240, 225, 41);
+        constexpr COLORREF LongLossTagColor = RGB(156, 0, 0);
+
+        auto Magnitude(const long long seconds) -> unsigned long long {
+            return seconds < 0
+                ? static_cast<unsigned long long>(-(seconds + 1)) + 1
+                : static_cast<unsigned long long>(seconds);
+        }
+
+        auto DisplayedMinutes(const long long seconds) -> unsigned long long {
+            return (Magnitude(seconds) + 30) / 60;
+        }
+
+        auto GuidanceColor(const long long seconds) -> COLORREF {
+            if (seconds >= 0 || Magnitude(seconds) < 30) return GainOrOnTimeTagColor;
+            return DisplayedMinutes(seconds) >= 4 ? LongLossTagColor : ShortLossTagColor;
+        }
 
         auto Normalize(std::string callsign) -> std::string {
             const auto first = callsign.find_first_not_of(" \t\r\n");
@@ -43,11 +61,9 @@ namespace FlightStrips::TagItems {
     }
 
     auto AMANGainLossHandler::Format(const long long seconds) -> std::string {
-        const auto magnitude = seconds < 0
-            ? static_cast<unsigned long long>(-(seconds + 1)) + 1
-            : static_cast<unsigned long long>(seconds);
+        const auto magnitude = Magnitude(seconds);
         if (magnitude < 30) return "=00";
-        const auto minutes = (magnitude + 30) / 60;
+        const auto minutes = DisplayedMinutes(seconds);
         const char prefix = seconds < 0 ? 'L' : 'G';
         if (minutes > 99) return std::format("{}99+", prefix);
         return std::format("{}{:02}", prefix, minutes);
@@ -66,6 +82,6 @@ namespace FlightStrips::TagItems {
         if (value == snapshot->byFlightId.end() || value->second.dataStatus != "fresh" || !value->second.seconds) {
             return {"----", ActiveTagColor};
         }
-        return {Format(*value->second.seconds), ActiveTagColor};
+        return {Format(*value->second.seconds), GuidanceColor(*value->second.seconds)};
     }
 }

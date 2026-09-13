@@ -3,6 +3,7 @@ package telemetry
 import (
 	"bytes"
 	"context"
+	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -27,6 +28,24 @@ func TestSetupDualLoggerPreservesConsoleLogLevel(t *testing.T) {
 		t.Fatal("console handler logged a message below its configured level")
 	}
 	if !strings.Contains(logged, "visible warning message") {
+		t.Fatal("console handler did not log a message at its configured level")
+	}
+}
+
+func TestMultiHandlerFiltersEachDestinationIndependently(t *testing.T) {
+	var consoleOutput bytes.Buffer
+	consoleHandler := slog.NewTextHandler(&consoleOutput, &slog.HandlerOptions{Level: slog.LevelWarn})
+	alwaysEnabledHandler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
+	logger := slog.New(&multiHandler{handlers: []slog.Handler{consoleHandler, alwaysEnabledHandler}})
+
+	logger.Info("telemetry-only info message")
+	logger.Warn("console warning message")
+
+	logged := consoleOutput.String()
+	if strings.Contains(logged, "telemetry-only info message") {
+		t.Fatal("console handler logged a message below its configured level when another handler was enabled")
+	}
+	if !strings.Contains(logged, "console warning message") {
 		t.Fatal("console handler did not log a message at its configured level")
 	}
 }

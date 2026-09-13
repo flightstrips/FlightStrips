@@ -47,19 +47,20 @@ TEST(AMANGainLossStoreTest, ReadsProtobufReplacement) {
     EXPECT_EQ(store.FindByCallsign("SAS123")->predictedTime, "2026-09-08T12:11:30Z");
 }
 
-TEST(AMANGainLossStoreTest, ReplacesAtomicallyAndIgnoresOldOrDuplicateRevisions) {
+TEST(AMANGainLossStoreTest, AppliesSameRevisionProjectionUpdatesAndIgnoresOlderRevisions) {
     AMANGainLossStore store;
     store.OnMessages({Bytes(Event(2))});
     store.OnMessages({Bytes(Event(2, "DUP2")), Bytes(Event(1, "OLD1"))});
-    EXPECT_TRUE(store.FindByCallsign("SAS123").has_value());
-    EXPECT_FALSE(store.FindByCallsign("DUP2").has_value());
+    EXPECT_FALSE(store.FindByCallsign("SAS123").has_value());
+    EXPECT_TRUE(store.FindByCallsign("DUP2").has_value());
+    EXPECT_FALSE(store.FindByCallsign("OLD1").has_value());
 
     store.OnMessages({Bytes(Event(3, "NEW123"))});
     EXPECT_FALSE(store.FindByCallsign("SAS123").has_value());
     EXPECT_EQ(store.FindByCallsign("new123")->flightId, "flight-1");
 }
 
-TEST(AMANGainLossStoreTest, InvalidReplacementClearsValuesUntilANewerValidRevision) {
+TEST(AMANGainLossStoreTest, InvalidReplacementClearsValuesUntilAValidSameRevisionReplacement) {
     AMANGainLossStore store;
     store.OnMessages({Bytes(Event(2))});
     auto invalid = Event(3);
@@ -69,8 +70,6 @@ TEST(AMANGainLossStoreTest, InvalidReplacementClearsValuesUntilANewerValidRevisi
     EXPECT_EQ(store.Snapshot()->revision, 2);
 
     store.OnMessages({Bytes(Event(2))});
-    EXPECT_TRUE(store.Snapshot()->byFlightId.empty());
-    store.OnMessages({Bytes(Event(3))});
     EXPECT_TRUE(store.FindByCallsign("SAS123").has_value());
 }
 

@@ -337,11 +337,32 @@ func TestReconciliationPopulatesResolvedTerminalIdentities(t *testing.T) {
 }
 
 func TestResolvedLegacyTerminalPathDoesNotFabricateFeederFix(t *testing.T) {
-	flight := aman.AMANFlight{}
+	eta := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	oldFix := "TNO"
+	flight := aman.AMANFlight{
+		SelectedFeederFix: &oldFix,
+		FeederETA:         &aman.FeederETAState{ETA: &eta, Source: aman.FeederETASourceManual},
+		DerivedFeederETA:  &aman.FeederETAState{ETA: &eta, Source: aman.FeederETASourceRoute},
+	}
 	applyResolvedTerminalIdentity(&flight, navdata.TerminalPath{Feeder: "TESPI"})
 	require.Equal(t, "TESPI", *flight.SelectedFeeder)
 	require.Equal(t, "TESPI", *flight.SelectedSTARFamily)
 	require.Nil(t, flight.SelectedFeederFix)
+	require.Nil(t, flight.FeederETA)
+	require.Nil(t, flight.DerivedFeederETA)
+}
+
+func TestResolvedTerminalPathPreservesFeederETAForSameFix(t *testing.T) {
+	eta := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	feederFix := "TNO"
+	manual := &aman.FeederETAState{ETA: &eta, Source: aman.FeederETASourceManual}
+	derived := &aman.FeederETAState{ETA: &eta, Source: aman.FeederETASourceRoute}
+	flight := aman.AMANFlight{SelectedFeederFix: &feederFix, FeederETA: manual, DerivedFeederETA: derived}
+
+	applyResolvedTerminalIdentity(&flight, navdata.TerminalPath{Feeder: "TESPI", FeederFix: navdata.FixID(feederFix)})
+
+	require.Same(t, manual, flight.FeederETA)
+	require.Same(t, derived, flight.DerivedFeederETA)
 }
 
 func TestSequenceInputIncludesEligibleLightAircraftRegardlessOfEngine(t *testing.T) {
@@ -582,6 +603,23 @@ func TestPreliminaryPredictionsUseDocumentedPlannedAndAirborneTimes(t *testing.T
 	require.Equal(t, takeoff.Add(eet), anchored.Prediction.RawTETA)
 }
 
+func TestApplyBaselineIgnoresNonPositiveFiledEET(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	takeoff := now.Add(-time.Minute)
+
+	for _, eet := range []time.Duration{0, -time.Minute} {
+		flight := aman.AMANFlight{State: aman.StateAirborne}
+		observation := aman.FlightObservation{
+			TakeoffDetected: &takeoff,
+			PlannedTiming:   &aman.PlannedTiming{EstimatedEnrouteTime: &eet},
+		}
+
+		applyBaseline(&flight, observation, now)
+
+		require.Nil(t, flight.ArrivalBaseline)
+	}
+}
+
 func TestServicePersistsLatestObservationAndRemovesAfterSixtySeconds(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	repository := &memoryRepository{}
@@ -615,6 +653,38 @@ func TestServicePersistsLatestObservationAndRemovesAfterSixtySeconds(t *testing.
 	now = now.Add(time.Minute)
 	require.NoError(t, service.reconcileAirport(context.Background(), "EKCH"))
 	require.Equal(t, aman.StateRemoved, repository.state.Flights[0].State)
+}
+
+func TestNewFlightIdentityImmediatelyRemovesActiveAggregateForSameVATSIMCID(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	old := aman.AMANFlight{
+		ID: "old", VATSIMCID: "123", CurrentCallsign: "OLD123", State: aman.StateAirborne,
+		Slot: &aman.Slot{Time: now.Add(time.Minute)}, ActiveRouteFact: &aman.RouteFact{ID: "route", State: aman.RouteFactActive},
+	}
+	state := aman.AirportState{Flights: []aman.AMANFlight{old}}
+	observation := aman.FlightObservation{FlightID: "new", VATSIMCID: "123", Callsign: "NEW123"}
+
+	removeSupersededActiveIdentity(&state, observation, now)
+
+	require.Equal(t, aman.StateRemoved, state.Flights[0].State)
+	require.Nil(t, state.Flights[0].Slot)
+	require.Equal(t, aman.RouteFactExpired, state.Flights[0].ActiveRouteFact.State)
+	require.Equal(t, "identity-superseded", state.Flights[0].Lifecycle.LastEventID)
+}
+
+func TestRemovedFlightCannotBeResurrectedByLingeringObservation(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	altitude, groundspeed := 10, 2.0
+	removed := aman.AMANFlight{ID: "old", VATSIMCID: "123", CurrentCallsign: "OLD123", State: aman.StateRemoved, UpdatedAt: now.Add(-time.Minute)}
+	observation := aman.FlightObservation{
+		FlightID: "old", VATSIMCID: "123", Callsign: "OLD123", Origin: "ESSA", Destination: "EKCH",
+		Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed},
+	}
+
+	updated, err := (&Service{}).reconcileFlight(context.Background(), aman.AirportState{}, removed, observation, now)
+
+	require.NoError(t, err)
+	require.Equal(t, removed, updated)
 }
 
 func TestUnknownSTARFamilyRemainsDegradedAndSequenceable(t *testing.T) {
@@ -796,7 +866,7 @@ func TestGroundedSurveillanceKeepsPreTakeoffFlightPlanned(t *testing.T) {
 	altitude, groundspeed := 124, 0.0
 	eobt, eet := now.Add(time.Hour), 90*time.Minute
 	observation := aman.FlightObservation{PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &eet}, Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed}}
-	flight := aman.AMANFlight{State: aman.StateAirborne, FreezeReason: aman.FreezeNone, Prediction: &aman.Prediction{Publishable: true}, Slot: &aman.Slot{Time: now.Add(time.Minute)}}
+	flight := aman.AMANFlight{State: aman.StatePlanned, FreezeReason: aman.FreezeNone, Prediction: &aman.Prediction{Publishable: true}, Slot: &aman.Slot{Time: now.Add(time.Minute)}}
 
 	updated := applyGroundedObservation(flight, observation, now)
 
@@ -804,6 +874,19 @@ func TestGroundedSurveillanceKeepsPreTakeoffFlightPlanned(t *testing.T) {
 	require.Nil(t, updated.Slot)
 	require.NotNil(t, updated.Prediction)
 	require.Equal(t, "aman-planned-eobt-exot-eet-v1", updated.Prediction.ModelVersion)
+}
+
+func TestGroundedSurveillanceLandsPreviouslyAirborneFlightWithoutVATSIMTakeoffFact(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	altitude, groundspeed := 26, 4.0
+	observation := aman.FlightObservation{Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed}}
+	flight := aman.AMANFlight{State: aman.StateStable, Prediction: &aman.Prediction{Publishable: true}}
+
+	updated := applyGroundedObservation(flight, observation, now)
+
+	require.Equal(t, aman.StateLanded, updated.State)
+	require.Equal(t, aman.LifecycleReasonLandingConfirmed, updated.Lifecycle.Reason)
+	require.False(t, updated.Prediction.Publishable)
 }
 
 func TestGroundedSurveillanceLandsPostTakeoffFlight(t *testing.T) {
@@ -818,6 +901,10 @@ func TestGroundedSurveillanceLandsPostTakeoffFlight(t *testing.T) {
 		Prediction: &aman.Prediction{Publishable: true}, Slot: &aman.Slot{Time: now.Add(time.Minute)}, ManualOrder: &manualOrder,
 		ActiveRouteFact: &aman.RouteFact{ID: "direct-to", Fix: "MONAK", State: aman.RouteFactActive},
 	}
+	feederFix := "TNO"
+	flight.SelectedSTARFamily, flight.SelectedFeederFix = &feeder, &feederFix
+	flight.FeederETA = &aman.FeederETAState{ETA: &now, Source: aman.FeederETASourceManual}
+	flight.DerivedFeederETA = &aman.FeederETAState{ETA: &now, Source: aman.FeederETASourceRoute}
 
 	updated := applyGroundedObservation(flight, observation, now)
 
@@ -827,6 +914,8 @@ func TestGroundedSurveillanceLandsPostTakeoffFlight(t *testing.T) {
 	require.Equal(t, "landed", *updated.Prediction.DegradationReason)
 	require.Nil(t, updated.Slot)
 	require.Nil(t, updated.SelectedHolding)
+	require.Nil(t, updated.FeederETA)
+	require.Nil(t, updated.DerivedFeederETA)
 	require.Equal(t, aman.FreezeNone, updated.FreezeReason)
 	require.Equal(t, aman.RouteFactExpired, updated.ActiveRouteFact.State)
 }
@@ -1121,6 +1210,10 @@ func TestRunwayConfigurationUpgradeReleasesObsoleteGroupState(t *testing.T) {
 		State: aman.StateStable, SelectedRunwayGroup: &selected, FreezeReason: aman.FreezeSuperstable,
 		Slot: &aman.Slot{Time: now.Add(time.Minute), RunwayGroupID: selected, Sequence: 1},
 	}
+	feederFix := "TNO"
+	flight.SelectedFeederFix = &feederFix
+	flight.FeederETA = &aman.FeederETAState{ETA: &now, Source: aman.FeederETASourceRoute}
+	flight.DerivedFeederETA = &aman.FeederETAState{ETA: &now, Source: aman.FeederETASourceRoute}
 	state := aman.AirportState{RunwayGroups: oldGroups, Flights: []aman.AMANFlight{flight}}
 	configured := []terminal.RunwayGroup{{ID: "ARRIVAL-22L"}, {ID: "ARRIVAL-22R"}}
 
@@ -1130,6 +1223,8 @@ func TestRunwayConfigurationUpgradeReleasesObsoleteGroupState(t *testing.T) {
 
 	require.Nil(t, state.Flights[0].SelectedRunwayGroup)
 	require.Nil(t, state.Flights[0].Slot)
+	require.Nil(t, state.Flights[0].FeederETA)
+	require.Nil(t, state.Flights[0].DerivedFeederETA)
 	require.Equal(t, aman.FreezeNone, state.Flights[0].FreezeReason)
 }
 
@@ -1812,6 +1907,60 @@ func TestServiceCommitsInitialEmptyAirportState(t *testing.T) {
 	require.True(t, repository.has)
 	require.Equal(t, aman.SequenceRevision(1), repository.state.Revision)
 	require.Empty(t, repository.state.Flights)
+	require.Len(t, publisher.states, 1)
+}
+
+func TestServiceReconcilesPersistedRolloutMode(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	repository := &memoryRepository{}
+	publisher := &recordingPublisher{}
+	service, err := New(Dependencies{
+		Repository: repository, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: publisher, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeAuthoritative, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+
+	repository.state = service.initialState("EKCH", now.Add(-time.Minute))
+	repository.state.Mode = aman.ModeShadow
+	repository.state.Authoritative = false
+	repository.state.Revision = 7
+	repository.has = true
+
+	require.NoError(t, service.reconcileAirport(context.Background(), "EKCH"))
+	require.Equal(t, aman.SequenceRevision(8), repository.state.Revision)
+	require.Equal(t, aman.ModeAuthoritative, repository.state.Mode)
+	require.True(t, repository.state.Authoritative)
+	require.Len(t, publisher.states, 1)
+	require.Equal(t, aman.ModeAuthoritative, publisher.states[0].Mode)
+	require.True(t, publisher.states[0].Authoritative)
+}
+
+func TestServiceReleasesPersistedSlotForIneligibleActiveFlight(t *testing.T) {
+	now := time.Date(2026, time.September, 13, 18, 4, 42, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	repository := &memoryRepository{}
+	publisher := &recordingPublisher{}
+	service, err := New(Dependencies{
+		Repository: repository, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: publisher, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: group}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeAuthoritative, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+
+	repository.state = service.initialState("EKCH", now.Add(-time.Minute))
+	repository.state.Revision = 7
+	repository.state.Flights = []aman.AMANFlight{{
+		ID: "6064ae38-305b-41eb-ad5a-50d8631d0638", VATSIMCID: "1234567", CurrentCallsign: "SAS123",
+		State: aman.StateUnstable, SequenceDisposition: aman.SequenceDispositionActive, DataStatus: aman.DataFresh,
+		SelectedRunwayGroup: &group, FreezeReason: aman.FreezeNone, UpdatedAt: now.Add(-time.Minute),
+		Slot: &aman.Slot{Time: now.Add(10 * time.Minute), RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "rate_wtc"},
+	}}
+	repository.has = true
+
+	require.NoError(t, service.reconcileAirport(context.Background(), "EKCH"))
+	require.Equal(t, aman.SequenceRevision(8), repository.state.Revision)
+	require.Nil(t, repository.state.Flights[0].Slot)
 	require.Len(t, publisher.states, 1)
 }
 

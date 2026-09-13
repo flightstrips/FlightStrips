@@ -68,6 +68,11 @@ func TestAMANStateEventIncludesAuthoritativeTrafficPrediction(t *testing.T) {
 	require.Equal(t, 1, event.Data.TrafficPrediction.Buckets[1].AirborneCount)
 	require.Equal(t, "aman", event.Data.TrafficPrediction.Buckets[1].Flights[0].TimingSource)
 	require.EqualValues(t, 20, event.Data.TrafficPrediction.Buckets[1].SelectedRate.ArrivalsPerHour)
+	require.NotNil(t, event.Data.TrafficPrediction.DegradedReasons)
+	require.Empty(t, event.Data.TrafficPrediction.DegradedReasons)
+	encoded, err := event.Marshal()
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"degraded_reasons":[]`)
 }
 
 func TestAMANStateEventSerializesOptionalHoldingFacts(t *testing.T) {

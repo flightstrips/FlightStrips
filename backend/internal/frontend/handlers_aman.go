@@ -500,7 +500,13 @@ func (hub *Hub) amanRole(client *Client) string {
 	if hub.amanRoleForPosition != nil {
 		roleForPosition = hub.amanRoleForPosition
 	}
-	return roleForPosition(client.position)
+	if role := roleForPosition(client.position); role != "" {
+		return role
+	}
+	// Controller callsigns are populated from the server-side controller
+	// repository. An unlisted position is not an authorized FMP role, but its
+	// callsign is still the authoritative coordination audience identity.
+	return strings.TrimSpace(client.callsign)
 }
 
 func (hub *Hub) hasAMANFMPAuthority(client *Client) bool {

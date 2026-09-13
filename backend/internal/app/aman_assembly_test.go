@@ -10,16 +10,44 @@ import (
 	"FlightStrips/internal/aman/terminal"
 	internalEuroscope "FlightStrips/internal/euroscope"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/vatsim"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	pkgModels "FlightStrips/pkg/models"
 	"github.com/stretchr/testify/require"
 )
 
-type testAMANHealthReporter struct{ authorityAllowed bool }
+type testAMANHealthReporter struct {
+	authorityAllowed bool
+	report           *aman.TechnicalHealth
+}
 
 func (testAMANHealthReporter) Name() string { return "test AMAN health" }
 func (r testAMANHealthReporter) TechnicalHealth(context.Context) aman.TechnicalHealth {
+	if r.report != nil {
+		return *r.report
+	}
 	return aman.TechnicalHealth{AuthorityAllowed: r.authorityAllowed}
+}
+
+func TestAMANTransportUsesLiveVATSIMCacheForFrontendHealth(t *testing.T) {
+	now := time.Date(2026, time.September, 13, 18, 45, 10, 0, time.UTC)
+	ready := aman.ComponentHealth{Status: aman.HealthReady}
+	lagging := aman.EvaluateTechnicalHealth(
+		aman.ModeAuthoritative,
+		aman.ComponentHealth{Status: aman.HealthUnavailable, Reason: "source_not_observed"},
+		ready, ready, ready, ready, ready,
+	)
+	transport := &amanTransport{
+		health:           testAMANHealthReporter{report: &lagging},
+		vatsimSource:     amanHealthSnapshotSource{snapshot: vatsim.Snapshot{Timestamp: now.Add(-10 * time.Second)}},
+		vatsimStaleAfter: time.Minute,
+		now:              func() time.Time { return now },
+	}
+
+	health := transport.currentTechnicalHealth(context.Background())
+	require.Equal(t, aman.HealthReady, health.VATSIM.Status)
+	require.True(t, health.Ready)
+	require.True(t, health.AuthorityAllowed)
 }
 
 func TestAMANTransportAppliesCurrentAuthorityGateToGainLoss(t *testing.T) {

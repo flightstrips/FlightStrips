@@ -103,6 +103,29 @@ func TestAMANCoordinationDecisionUsesAuthoritativeControllerContext(t *testing.T
 	require.Empty(t, (<-client.send).(frontendEvents.AMANCoordinationStateEvent).Requests)
 }
 
+func TestAMANCoordinationSnapshotFallsBackToServerCallsignForUnlistedPosition(t *testing.T) {
+	now := time.Date(2026, 9, 13, 18, 51, 37, 0, time.UTC)
+	request, err := coordinationrequest.New(
+		"submit", "EKCH", "flight-1", "EKDK_FMP", "7654321", "EKCH_FMH",
+		coordinationrequest.KindSpeed,
+		coordinationrequest.Payload{Speed: &coordinationrequest.SpeedPayload{Requested: "220 KT"}},
+		now.Add(-time.Minute),
+	)
+	require.NoError(t, err)
+	repository := &coordinationRecorder{request: request}
+	hub, client := newAMANCommandTestClient(&recordingAMANCommandService{}, now)
+	hub.amanCoordination = coordinationrequest.NewService(repository, coordinationOwner{}, []string{"EKCH_FMH"})
+	hub.amanRoleForPosition = func(string) string { return "" }
+	client.position = "131.040"
+	client.callsign = "EKDK_FMP"
+
+	hub.sendAMANCoordinationSnapshot(context.Background(), client)
+
+	event := (<-client.send).(frontendEvents.AMANCoordinationStateEvent)
+	require.Equal(t, []coordinationrequest.Request{request}, event.Requests)
+	require.False(t, hub.hasAMANFMPAuthority(client), "a callsign fallback must not grant an unconfigured FMP role")
+}
+
 type coordinationOwner struct{}
 
 func (coordinationOwner) TrackingController(context.Context, string, coordinationrequest.FlightID) (coordinationrequest.ControllerID, error) {

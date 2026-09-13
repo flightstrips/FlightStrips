@@ -267,7 +267,7 @@ func plannedTiming(now time.Time, plan FlightPlan) *aman.PlannedTiming {
 		return nil
 	}
 	duration, err := parseDuration(plan.EnrouteDuration)
-	if err != nil {
+	if err != nil || duration <= 0 {
 		return &aman.PlannedTiming{EstimatedOffBlockTime: &departure}
 	}
 	return &aman.PlannedTiming{EstimatedOffBlockTime: &departure, EstimatedEnrouteTime: &duration}

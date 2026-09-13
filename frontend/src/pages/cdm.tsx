@@ -158,7 +158,7 @@ export default function CdmPage() {
     if (!response.ok) {
       const contentType = response.headers.get("content-type") ?? "";
       const fallbackMessage = `Request failed (${response.status} ${response.statusText})`;
-      let message = fallbackMessage;
+      let message: string;
 
       if (contentType.includes("application/json")) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;

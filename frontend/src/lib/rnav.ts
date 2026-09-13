@@ -65,13 +65,12 @@ function addEquipmentMarkerR(aircraftInfo: string): string {
 }
 
 function addEquipmentMarkerRToToken(token: string): string {
-  let dash = token.indexOf("-");
+  const dash = token.indexOf("-");
   if (dash >= 0) {
     let end = segmentEnd(token, dash + 1);
     if (end <= dash + 1) return token;
     if (!hasWakeTurbulenceCategoryBeforeDash(token, dash)) {
       token = `${token.slice(0, dash)}/M${token.slice(dash)}`;
-      dash += 2;
       end += 2;
     }
     return `${token.slice(0, end)}R${token.slice(end)}`;

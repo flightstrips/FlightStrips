@@ -3,6 +3,7 @@ import {describe, expect, it} from "vitest";
 
 import type {AMANHoldingEntry} from "@/api/aman";
 import {TMTHoldingGraph} from "./TMTHoldingGraph";
+import {layoutHoldingGraph} from "./holding-graph-positioning";
 
 const now = new Date("2026-09-11T10:00:00.000Z");
 
@@ -27,7 +28,7 @@ describe("TMT holding graph", () => {
     expect(within(graph).getByText("11:00")).toBeInTheDocument();
     expect(within(graph).getByText("300")).toBeInTheDocument();
     expect(within(graph).getByText("90")).toBeInTheDocument();
-    expect(screen.getByLabelText("SAS101, OLPIB, FL195, EAT 10:30, SCHEDULED, LIVE DATA")).toHaveStyle({top: "clamp(14px, 50%, calc(100% - 14px))"});
+    expect(layoutHoldingGraph([entry("SAS101", "2026-09-11T10:30:00.000Z", 19500)], now)[0].altitude.percent).toBe(50);
     expect(screen.getByText("1030")).toHaveClass("text-[#f0e129]");
   });
 

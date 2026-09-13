@@ -55,7 +55,7 @@ function accessibleEntryLabel(position: ReturnType<typeof layoutHoldingGraph>[nu
   ].join(", ");
 }
 
-export function TMTHoldingGraph({entries, now = new Date()}: {entries: AMANHoldingEntry[]; now?: Date}) {
+export function TMTHoldingGraph({entries, holding, now = new Date()}: {entries: AMANHoldingEntry[]; holding?: string; now?: Date}) {
   const positions = layoutHoldingGraph(entries, now);
   const placed = positions.filter(({time, altitude}) => time.percent !== null && altitude.percent !== null);
   const unplaced = positions.filter(({time, altitude}) => time.percent === null || altitude.percent === null);
@@ -81,7 +81,7 @@ export function TMTHoldingGraph({entries, now = new Date()}: {entries: AMANHoldi
   }
 
   return (
-    <section aria-label="TMT holding information" className="flex flex-col border border-[#777] bg-[#292929] text-[#dcdcdc]">
+    <section aria-label={holding ? `TMT holding information for ${holding}` : "TMT holding information"} className="flex h-full min-w-0 flex-col border border-[#777] bg-[#292929] text-[#dcdcdc]">
       <header className="flex items-center border-b border-[#777] px-3 py-2">
         <h2 className="font-display text-sm font-bold tracking-wide">TMT · HOLDING INFORMATION</h2>
         <span className="ml-auto font-mono text-[10px]">{entries.length} HOLDING</span>
@@ -93,7 +93,7 @@ export function TMTHoldingGraph({entries, now = new Date()}: {entries: AMANHoldi
         </p>
       )}
 
-      <div aria-describedby={instructionsId} className="relative mx-2 h-[500px] min-h-[420px] bg-[#3c3c3c]" data-testid="holding-graph">
+      <div aria-describedby={instructionsId} className="relative mx-1 mb-7 min-h-0 flex-1 bg-[#3c3c3c]" data-testid="holding-graph">
         <div aria-hidden="true" className="absolute inset-y-3 left-[14%] border-l-[3px] border-[#dcdcdc]">
           {timeTicks.map((minutes) => (
             <span className="absolute left-0 w-3 -translate-y-1/2 border-t-2 border-[#dcdcdc]" key={minutes} style={{top: `${100 - minutes / HOLDING_GRAPH_WINDOW_MINUTES * 100}%`}}>
@@ -130,7 +130,7 @@ export function TMTHoldingGraph({entries, now = new Date()}: {entries: AMANHoldi
               <li
                 aria-label={accessibleEntryLabel(position)}
                 aria-keyshortcuts="ArrowDown ArrowRight ArrowUp ArrowLeft Home End"
-                className="absolute left-[34%] grid w-[51%] -translate-y-1/2 grid-cols-[54px_1fr_52px] border border-[#cdcdcd] bg-[#3c3c3c] font-mono text-[10px] font-semibold hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
+                className="tmt-holding-entry absolute left-[34%] grid w-[51%] -translate-y-1/2 grid-cols-[54px_1fr_52px] border border-[#cdcdcd] bg-[#3c3c3c] font-mono text-[10px] font-semibold hover:z-10 focus:z-20 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-white"
                 key={position.entry.flight_id}
                 onKeyDown={(event) => moveFocus(event, position.entry.flight_id)}
                 ref={(element) => setEntryRef(position.entry.flight_id, element)}
@@ -152,7 +152,7 @@ export function TMTHoldingGraph({entries, now = new Date()}: {entries: AMANHoldi
 
         {placed.length === 0 && <p className="absolute inset-0 grid place-items-center text-xs text-slate-300">No positioned holding aircraft</p>}
         <div className="absolute inset-x-0 bottom-0 grid translate-y-full grid-cols-[22%_1fr_22%] border-[3px] border-[#dcdcdc] bg-[#3b3b3b] text-center text-xs font-bold">
-          <span className="border-r-[3px] border-[#dcdcdc] py-1">EAT</span><span className="py-1">HOLDING</span><span className="border-l-[3px] border-[#dcdcdc] py-1">ALT</span>
+          <span className="border-r-[3px] border-[#dcdcdc] py-1">EAT</span><span className="truncate py-1">{holding ?? "HOLDING"}</span><span className="border-l-[3px] border-[#dcdcdc] py-1">ALT</span>
         </div>
       </div>
 

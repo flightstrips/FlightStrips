@@ -27,7 +27,13 @@ const golden = JSON.parse(readFileSync(
 )) as AMANStateEvent;
 
 function state(): AMANState {
-  return structuredClone(golden.data);
+  const value = structuredClone(golden.data);
+  value.timeline_configuration = {version: "mapping-v1", mappings: [
+    {id: 1, left: "TESPI", right: "TUDLO"},
+    {id: 2, left: "MONAK", right: "TIDVU"},
+    {id: 3, left: "ERNOV", right: null},
+  ]};
+  return value;
 }
 
 function renderBoard(value: AMANState | null, overrides: Partial<AMANBoardViewProps> = {}) {
@@ -71,6 +77,18 @@ describe("complete AMAN timeline and strips", () => {
     expect(marker).toHaveTextContent("G01");
     expect(marker).not.toHaveTextContent("Prediction");
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
+  });
+
+  it("does not invent operational lane mappings when configuration is unavailable", () => {
+    const unconfigured = state();
+    delete unconfigured.timeline_configuration;
+
+    renderBoard(unconfigured);
+
+    expect(screen.getByRole("region", {name: "AMAN timeline configuration unavailable"})).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for a versioned terminal-layout projection/)).toBeInTheDocument();
+    expect(screen.queryByTestId(/^fmp-timeline-/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /Select SAS123/})).not.toBeInTheDocument();
   });
 
   it("keeps frozen operational markers fixed without adding a raw-TETA timeline marker", () => {
@@ -146,8 +164,8 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(onSelectFlight).toHaveBeenNthCalledWith(1, "flight-123");
     expect(onOpenFlightDetails).toHaveBeenNthCalledWith(1, "flight-123");
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-max");
-    expect(screen.getByTestId("holding-timeline-lane-ROSBI")).toBeInTheDocument();
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-[37.5rem]");
+    expect(screen.getAllByTestId(/^fmp-timeline-/)).toHaveLength(3);
   });
 
   it("activates a focused compact target through the keyboard click contract", () => {
@@ -211,11 +229,11 @@ describe("complete AMAN timeline and strips", () => {
     });
 
     renderBoard(overlapping);
-    expect(screen.getByTestId("operational-marker-flight-123").parentElement).toHaveClass("-translate-x-full");
-    expect(screen.getByTestId("operational-marker-flight-124").parentElement).toHaveClass("-translate-x-full");
+    expect(screen.getByTestId("operational-marker-flight-123")).toHaveClass("-translate-x-full");
+    expect(screen.getByTestId("operational-marker-flight-124")).toHaveClass("-translate-x-full");
   });
 
-  it("shows one runway group at a time and splits its flights by holding", () => {
+  it("keeps the FMP overview complete while runway selection remains local", () => {
     const multiRunwayState = state();
     multiRunwayState.runway_groups.push({id: "ARRIVAL-04"});
     multiRunwayState.flights.push({
@@ -228,13 +246,14 @@ describe("complete AMAN timeline and strips", () => {
     });
 
     renderBoard(multiRunwayState);
-    expect(screen.getByTestId("holding-timeline-lane-ROSBI")).toBeInTheDocument();
-    expect(screen.queryByTestId("holding-timeline-lane-TIDVU")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SKY404/})).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", {name: "ARRIVAL-22"}));
     fireEvent.click(screen.getByRole("checkbox", {name: /ARRIVAL-04/}));
-    expect(screen.getByTestId("holding-timeline-lane-TIDVU")).toBeInTheDocument();
-    expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Cancel"}));
+    expect(screen.getByRole("button", {name: /Select SKY404/})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
   });
 
   it("switches to active runway timelines with the local horizon scale", () => {
@@ -244,8 +263,7 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "720px"});
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("rwy-lane-ARRIVAL-22")).toBeInTheDocument();
-    expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-[37.5rem]");
   });
 
   it("renders the backend-configured FMP paired timelines without inferring an unused family", () => {

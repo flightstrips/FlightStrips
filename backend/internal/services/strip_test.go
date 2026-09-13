@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
 	"FlightStrips/internal/testutil"
@@ -1312,6 +1313,135 @@ func TestUpdateStand_TriggersRouteRecalculation(t *testing.T) {
 	assert.Equal(t, callsign, routeUpdateCallsign)
 	assert.Equal(t, session, routeUpdateSession)
 	assert.True(t, routeUpdateSendUpdate, "UpdateStand must send owner update to frontend")
+}
+
+func TestUpdateStand_IgnoresArrivalAirportStandForCompletedDeparture(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(8)
+	latitude := 56.92292
+	longitude := 23.97676
+	currentStand := "A12"
+
+	standUpdated := false
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:          "SAS1644",
+				Origin:            "EKCH",
+				Destination:       "EVRA",
+				Stand:             &currentStand,
+				Bay:               shared.BAY_HIDDEN,
+				PositionLatitude:  &latitude,
+				PositionLongitude: &longitude,
+			}, nil
+		},
+		UpdateStandFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
+			standUpdated = true
+			return 1, nil
+		},
+	}
+
+	routeUpdated := false
+	svc := NewStripService(stripRepo)
+	svc.SetSessionRepo(&testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			assert.Equal(t, session, id)
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	})
+	svc.SetRouteRecalculator(&testutil.MockServer{
+		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error {
+			routeUpdated = true
+			return nil
+		},
+	})
+
+	err := svc.UpdateStand(ctx, session, "SAS1644", "107")
+	require.NoError(t, err)
+	assert.False(t, standUpdated, "the arrival-airport stand must not replace the departure stand")
+	assert.False(t, routeUpdated, "an ignored arrival-airport stand must not recalculate the departure route")
+}
+
+func TestUpdateStand_IgnoresNearbyArrivalStandForAirborneDeparture(t *testing.T) {
+	ctx := context.Background()
+	latitude, longitude := config.GetAirportCoordinates()
+	currentStand := "A12"
+
+	standUpdated := false
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:          "DTR123",
+				Origin:            "EKCH",
+				Destination:       "EKRK",
+				Stand:             &currentStand,
+				Bay:               shared.BAY_AIRBORNE,
+				PositionLatitude:  &latitude,
+				PositionLongitude: &longitude,
+			}, nil
+		},
+		UpdateStandFn: func(_ context.Context, _ int32, _ string, _ *string, _ *int32) (int64, error) {
+			standUpdated = true
+			return 1, nil
+		},
+	}
+
+	routeUpdated := false
+	svc := NewStripService(stripRepo)
+	svc.SetSessionRepo(&testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	})
+	svc.SetRouteRecalculator(&testutil.MockServer{
+		UpdateRouteForStripFn: func(_ string, _ int32, _ bool) error {
+			routeUpdated = true
+			return nil
+		},
+	})
+
+	err := svc.UpdateStand(ctx, 8, "DTR123", "1")
+	require.NoError(t, err)
+	assert.False(t, standUpdated, "an airborne departure must not adopt its destination stand")
+	assert.False(t, routeUpdated, "an ignored destination stand must not recalculate the departure route")
+}
+
+func TestUpdateStand_AcceptsStandForDepartureAtOriginAirport(t *testing.T) {
+	ctx := context.Background()
+	latitude, longitude := config.GetAirportCoordinates()
+	currentStand := "A12"
+
+	standUpdated := false
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:          "SAS1644",
+				Origin:            "EKCH",
+				Destination:       "EVRA",
+				Stand:             &currentStand,
+				Bay:               shared.BAY_HIDDEN,
+				PositionLatitude:  &latitude,
+				PositionLongitude: &longitude,
+			}, nil
+		},
+		UpdateStandFn: func(_ context.Context, _ int32, _ string, stand *string, _ *int32) (int64, error) {
+			standUpdated = true
+			assert.Equal(t, "A15", *stand)
+			return 1, nil
+		},
+	}
+
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetSessionRepo(&testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	})
+
+	err := svc.UpdateStand(ctx, 8, "SAS1644", "A15")
+	require.NoError(t, err)
+	assert.True(t, standUpdated, "an origin-airport stand must still be persisted")
 }
 
 func TestUpdateStand_StandChangeClearsStartReq(t *testing.T) {

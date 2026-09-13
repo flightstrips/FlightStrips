@@ -44,7 +44,7 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
         </div>
       )}
 
-      <div className="grid min-h-[260px] flex-1 grid-cols-12 gap-px overflow-x-auto bg-[#777]" role="list">
+      <div className="grid min-h-0 flex-1 grid-cols-12 gap-px overflow-x-auto bg-[#777]" role="list">
         {prediction.buckets.map((bucket) => {
           const details = bucketDetails(bucket);
           return (
@@ -61,7 +61,7 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
               title={details}
             >
               <div className="absolute inset-x-0 top-1 truncate px-px text-[9px] font-bold text-white drop-shadow">{bucket.selected_rate === null ? "RATE —" : `${bucket.selected_rate.runway_group_id} · ${bucket.selected_rate.arrivals_per_hour}`}</div>
-              <div className="mx-auto flex h-[180px] w-5 flex-col justify-end overflow-hidden border border-black bg-[#222] sm:w-7" aria-hidden="true">
+              <div className="mx-auto flex h-[clamp(6rem,18vh,11.25rem)] max-h-full w-5 flex-col justify-end overflow-hidden border border-black bg-[#222] sm:w-7" aria-hidden="true">
                 {bucket.airborne_count > 0 && <div className="w-full bg-[#dcdcdc]" style={{height: `${Math.max(8, bucket.airborne_count * 8)}px`}} />}
                 {bucket.planned_count > 0 && <div className="w-full bg-[#96d796]" style={{height: `${Math.max(8, bucket.planned_count * 8)}px`}} />}
               </div>
@@ -72,7 +72,7 @@ export function TMTTrafficPrediction({prediction}: {prediction: AMANTrafficPredi
         })}
       </div>
 
-      <div aria-live="polite" className="min-h-14 border-t border-[#777] bg-black px-3 py-2 text-xs text-white">
+      <div aria-live="polite" className="min-h-14 max-h-24 overflow-y-auto border-t border-[#777] bg-black px-3 py-2 text-xs leading-4 text-white [overflow-wrap:anywhere]">
         {activeBucket === null
           ? "Hover or focus a quarter-hour bucket for flight details."
           : <><strong className="mr-2 font-mono">{timeLabel(activeBucket.start)}–{timeLabel(activeBucket.end)}</strong><span className="whitespace-pre-line">{bucketDetails(activeBucket)}</span></>}

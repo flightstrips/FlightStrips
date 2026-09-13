@@ -111,6 +111,7 @@ export interface AMANBoardViewProps {
   selectedFlightID: string | null;
   onSelectFlight: (flightID: string) => void;
   onOpenControls?: () => void;
+  onOpenFlightActions?: (flightID: string) => void;
   onOpenFlightDetails?: (flightID: string) => void;
   accView?: AMANView;
   onACCViewChange?: (view: AMANView) => void;
@@ -124,6 +125,7 @@ export function AMANBoardView({
   selectedFlightID,
   onSelectFlight,
   onOpenControls,
+  onOpenFlightActions,
   onOpenFlightDetails,
   accView: suppliedACCView,
   onACCViewChange,
@@ -180,7 +182,7 @@ export function AMANBoardView({
       leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
       onSelect={() => {
         onSelectFlight(flight.flight_id);
-        onOpenFlightDetails?.(flight.flight_id);
+        onOpenFlightActions?.(flight.flight_id);
       }}
       selected={flight.flight_id === selectedFlightID}
       trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
@@ -204,7 +206,7 @@ export function AMANBoardView({
           leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
           onSelect={() => {
             onSelectFlight(flight.flight_id);
-            onOpenFlightDetails?.(flight.flight_id);
+            onOpenFlightActions?.(flight.flight_id);
           }}
           selected={flight.flight_id === selectedFlightID}
           trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}

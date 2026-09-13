@@ -27,6 +27,7 @@ export default function AMAN() {
   const sendCommand = useWebSocketStore((value) => value.sendAMANCommand);
   const [selectedFlightID, setSelectedFlightID] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [flightActionsOpen, setFlightActionsOpen] = useState(false);
   const [coordinationCommandID, setCoordinationCommandID] = useState<string | null>(null);
   const [missedApproachCommandID, setMissedApproachCommandID] = useState<string | null>(null);
   const [decisionCommandID, setDecisionCommandID] = useState<string | null>(null);
@@ -65,6 +66,10 @@ export default function AMAN() {
             connectionState={connectionState}
             error={error}
             onOpenControls={() => setControlsOpen(true)}
+            onOpenFlightActions={(flightID) => {
+              setSelectedFlightID(flightID);
+              setFlightActionsOpen(true);
+            }}
             onOpenFlightDetails={(flightID) => {
               setSelectedFlightID(flightID);
               setMissedApproachCommandID(null);
@@ -111,6 +116,44 @@ export default function AMAN() {
         <DialogContent className="max-h-[90dvh] w-[min(72rem,calc(100vw-2rem))] max-w-none overflow-y-auto border-slate-600 bg-slate-900 p-0 text-slate-100">
           <DialogTitle className="sr-only">AMAN FMP controls</DialogTitle>
           <AMANControls hasFMPAuthority={hasFMPAuthority} onSelectedFlightIDChange={setSelectedFlightID} selectedFlightID={effectiveSelectedFlightID} />
+        </DialogContent>
+      </Dialog>
+      <Dialog onOpenChange={setFlightActionsOpen} open={flightActionsOpen}>
+        <DialogContent className="w-[min(34rem,calc(100vw-2rem))] max-w-none border-[#dcdcdc] bg-[#3f3f3f] p-3 text-white">
+          <DialogTitle className="border-b border-[#dcdcdc] pb-2 font-display text-base font-bold">Aircraft actions · {selectedFlight?.callsign ?? "Unavailable"}</DialogTitle>
+          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+            <button className="border border-[#dcdcdc] bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white" onClick={() => {
+              if (effectiveSelectedFlightID !== null) {
+                setFlightActionsOpen(false);
+                setDetailOpen(true);
+              }
+            }} type="button">Information</button>
+            <button className="border border-[#dcdcdc] bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8] disabled:opacity-50" disabled={mutationBlockReason !== null || effectiveSelectedFlightID === null} onClick={() => {
+              if (effectiveSelectedFlightID !== null) {
+                sendCommand({type: "aman.recompute_flight", flight_id: effectiveSelectedFlightID});
+                setFlightActionsOpen(false);
+              }
+            }} type="button">Recompute</button>
+            {["Alternate Runway", "Change Runway", "Change ETA-FF", "De-sequence", "Insert Closure", "Insert Gap", "Extra Flight"].map((label) => (
+              <button className="border border-[#dcdcdc] bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8]" key={label} onClick={() => {
+                setFlightActionsOpen(false);
+                setControlsOpen(true);
+              }} type="button">{label}</button>
+            ))}
+            <button className="border border-[#dcdcdc] bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8]" onClick={() => {
+              setFlightActionsOpen(false);
+              setDetailOpen(true);
+            }} type="button">Coordination</button>
+            <button className="border border-amber-300 bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8]" onClick={() => {
+              setFlightActionsOpen(false);
+              setDetailOpen(true);
+            }} type="button">Missed Approach</button>
+            <button className="border border-red-300 bg-[#555355] px-3 py-2 text-left hover:bg-[#a3d5e8]" onClick={() => {
+              setFlightActionsOpen(false);
+              setDetailOpen(true);
+            }} type="button">Remove…</button>
+          </div>
+          {mutationBlockReason !== null && <p className="text-xs text-amber-200">Operational changes are currently unavailable: {mutationBlockReason.replaceAll("_", " ")}.</p>}
         </DialogContent>
       </Dialog>
       {detailOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANFlightDetailDialog airport={state.airport} flightID={effectiveSelectedFlightID} onClose={() => setDetailOpen(false)} missedApproach={{

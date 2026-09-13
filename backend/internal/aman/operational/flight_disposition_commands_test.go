@@ -24,7 +24,7 @@ func TestDesequenceAndResumeAreAuditedDurableAndEarliestLegal(t *testing.T) {
 	leader.FrozenSlot = retargetSlot(leader.Slot, group)
 	repository := dispositionRepository(now, group, target, leader)
 	actions := dispositionActions(t, repository, now)
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	desequence := aman.DesequenceFlightCommand{Metadata: aman.CommandMetadata{CommandID: "dseq-1", ExpectedRevision: 5}, FlightID: target.ID}
 
 	accepted, err := actions.DesequenceFlight(context.Background(), auth, desequence)
@@ -80,7 +80,7 @@ func TestResumeNoCapacityRollsBackAtomically(t *testing.T) {
 	actions := dispositionActions(t, repository, now)
 
 	_, err := actions.ResumeFlight(context.Background(), aman.CommandContext{
-		Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now,
+		Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now,
 	}, aman.ResumeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "no-capacity", ExpectedRevision: 5}, FlightID: flight.ID})
 	requireDomainErrorClass(t, err, aman.ErrorInvalidTransition)
 	require.Equal(t, before, repository.state)
@@ -95,7 +95,7 @@ func TestRemoveFlightUsesLifecycleAndPersistsIdempotentAudit(t *testing.T) {
 	flight.Lifecycle = &aman.LifecycleState{EnteredAt: now.Add(-time.Hour), Reason: aman.LifecycleReasonStableHorizon, LastEventID: "stable", LastEventFingerprint: "test", LastEventAt: now.Add(-time.Minute)}
 	repository := dispositionRepository(now, group, flight)
 	actions := dispositionActions(t, repository, now)
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	command := aman.RemoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "remove-1", ExpectedRevision: 5}, FlightID: flight.ID}
 
 	removed, err := actions.RemoveFlight(context.Background(), auth, command)
@@ -110,7 +110,7 @@ func TestRemoveFlightUsesLifecycleAndPersistsIdempotentAudit(t *testing.T) {
 	require.NoError(t, json.Unmarshal(repository.commits[0].AuditRecords[0].Payload, &audit))
 	require.Equal(t, "remove_flight", audit["action"])
 	require.Equal(t, "1234567", audit["actor"])
-	require.Equal(t, "EKCH_FMH", audit["role"])
+	require.Equal(t, "EKDK_FMP", audit["role"])
 	require.Equal(t, "stable_horizon", audit["before_removal_reason"])
 	require.Equal(t, "manual_removal", audit["after_removal_reason"])
 	require.Equal(t, "stable", audit["before_state"])
@@ -192,7 +192,7 @@ func dispositionActions(t *testing.T, repository *memoryRepository, recordedAt t
 	})
 	require.NoError(t, err)
 	service := &Service{deps: Dependencies{
-		FMPRoles: []string{"EKCH_FMH"}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "north"}}},
+		Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "north"}}},
 	}}
 	actions, err := sequence.NewActionService(coordinator, service)
 	require.NoError(t, err)

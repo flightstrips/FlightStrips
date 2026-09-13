@@ -24,7 +24,7 @@ func TestCapacityReservationCreateRetryRestartAndRemove(t *testing.T) {
 			ID: group, ActiveRatePerHour: 60, RateEffectiveAt: &now,
 		}},
 	}}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	command := aman.CreateCapacityReservationCommand{
 		Metadata: aman.CommandMetadata{CommandID: "extra-1", ExpectedRevision: 7}, RunwayGroupID: group,
 		AfterFlightID: anchor.ID, Reason: "medevac capacity",

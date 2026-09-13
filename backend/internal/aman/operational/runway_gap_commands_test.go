@@ -25,7 +25,7 @@ func TestRunwayGapCommandsAuthorizePersistMergeRetryAndRemove(t *testing.T) {
 	}}
 	publisher := &recordingPublisher{}
 	actions := runwayGapActions(t, repository, publisher, now.Add(time.Second))
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	slots := uint32(2)
 	create := aman.CreateRunwayGapCommand{
 		Metadata: aman.CommandMetadata{CommandID: "create-gap", ExpectedRevision: 7}, RunwayGroupID: "north",
@@ -107,7 +107,7 @@ func TestCreateRunwayGapAtomicallyDisplacesEveryProtectionClassAndAuditsReplay(t
 		Metadata: aman.CommandMetadata{CommandID: "gap-displace", ExpectedRevision: state.Revision}, RunwayGroupID: "north",
 		Interval: aman.RunwayGapIntervalInput{Start: now, End: &end}, Label: "approach stop",
 	}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 
 	firstRepository := &memoryRepository{has: true, state: cloneGapState(t, state)}
 	first, err := runwayGapActions(t, firstRepository, &recordingPublisher{}, now.Add(time.Second)).CreateRunwayGap(ctx, auth, command)
@@ -191,7 +191,7 @@ func TestCreateRunwayGapImpossibleCapacityRollsBackStateRevisionAndAudit(t *test
 	end := now.Add(10 * time.Minute)
 
 	_, err := runwayGapActions(t, repository, &recordingPublisher{}, now.Add(time.Second)).CreateRunwayGap(context.Background(), aman.CommandContext{
-		Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now,
+		Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now,
 	}, aman.CreateRunwayGapCommand{
 		Metadata: aman.CommandMetadata{CommandID: "impossible-gap", ExpectedRevision: state.Revision}, RunwayGroupID: "north",
 		Interval: aman.RunwayGapIntervalInput{Start: now, End: &end}, Label: "approach stop",
@@ -269,7 +269,7 @@ func runwayGapActions(t *testing.T, repository *memoryRepository, publisher *rec
 		States: repository, Outcomes: repository, Committer: repository, Publisher: publisher, Now: func() time.Time { return recordedAt },
 	})
 	require.NoError(t, err)
-	actions, err := sequence.NewActionService(coordinator, &Service{deps: Dependencies{FMPRoles: []string{"EKCH_FMH"}}})
+	actions, err := sequence.NewActionService(coordinator, &Service{})
 	require.NoError(t, err)
 	return actions
 }

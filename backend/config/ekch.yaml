@@ -165,8 +165,8 @@ positions:
   - name: "EKCH_GW_TWR"
     frequency: "118.580"
     section: "TWR"
-  - name: "EKCH_FMH"
-    frequency: "120.500"
+  - name: "EKDK_FMP"
+    frequency: "131.040"
     section: "APP"
   - name: "EKCH_K_DEP"
     frequency: "124.980"
@@ -850,7 +850,7 @@ runways:
   - "30"
 
 layouts:
-  EKCH_FMH:
+  EKDK_FMP:
     - online: []
       offline: []
       layout: AMAN

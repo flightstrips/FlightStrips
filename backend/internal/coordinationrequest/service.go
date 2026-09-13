@@ -1,6 +1,7 @@
 package coordinationrequest
 
 import (
+	"FlightStrips/internal/aman"
 	"context"
 	"errors"
 	"strings"
@@ -81,16 +82,8 @@ func (s *Service) Snapshot(ctx context.Context, auth CommandContext) (TransferRe
 	if err != nil {
 		return TransferResult{}, err
 	}
-	projected, err := Project(requests, Audience{Controller: ControllerID(auth.Role), Role: auth.Role}, keys(s.fmpRoles))
+	projected, err := Project(requests, Audience{Controller: ControllerID(auth.Role), Role: auth.Role})
 	return TransferResult{Requests: projected, Revision: coordinationRevision(requests)}, err
-}
-
-func keys(values map[string]struct{}) []string {
-	result := make([]string, 0, len(values))
-	for value := range values {
-		result = append(result, value)
-	}
-	return result
 }
 
 // ObserveOwnership applies a trusted authoritative tracking-controller fact.
@@ -152,25 +145,18 @@ type TrackingControllerResolver interface {
 type Service struct {
 	repository submitRepository
 	owners     TrackingControllerResolver
-	fmpRoles   map[string]struct{}
 	notify     func(string)
 }
 
-func NewService(repository submitRepository, owners TrackingControllerResolver, fmpRoles []string) *Service {
-	roles := make(map[string]struct{}, len(fmpRoles))
-	for _, role := range fmpRoles {
-		if role == strings.TrimSpace(role) && role != "" {
-			roles[role] = struct{}{}
-		}
-	}
-	return &Service{repository: repository, owners: owners, fmpRoles: roles}
+func NewService(repository submitRepository, owners TrackingControllerResolver) *Service {
+	return &Service{repository: repository, owners: owners}
 }
 
 func (s *Service) Submit(ctx context.Context, auth CommandContext, command SubmitCommand) (CommitResult, error) {
 	if err := s.validateContext(auth); err != nil {
 		return CommitResult{}, err
 	}
-	if _, authorized := s.fmpRoles[auth.Role]; !authorized {
+	if !aman.IsFMPRole(auth.Role) {
 		return CommitResult{}, ErrUnauthorized
 	}
 	recipient, err := s.owners.TrackingController(ctx, auth.Airport, command.FlightID)

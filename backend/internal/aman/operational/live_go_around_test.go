@@ -81,7 +81,7 @@ func TestGoAroundPendingDecisionRejectsWithoutMutationAndConfirmsExactlyOnce(t *
 	flight.Slot = &aman.Slot{Time: base.Add(3 * time.Minute), RunwayGroupID: "ARRIVAL-22", Sequence: 1, Revision: 4, Reason: string(sequence.ReasonRateWTC)}
 	flight.GoAroundConfirmation = pendingConfirmation(base)
 	state.Flights = []aman.AMANFlight{flight}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: base.Add(time.Minute)}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: base.Add(time.Minute)}
 
 	reject, err := service.RejectGoAround(auth, aman.RejectGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "reject-1", ExpectedRevision: 4}, FlightID: flight.ID, EpisodeID: "flight-1/go-around/1"})
 	require.NoError(t, err)

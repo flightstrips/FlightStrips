@@ -122,7 +122,7 @@ func TestManualFeederETACommandRetryUsesPersistedCommandIdentity(t *testing.T) {
 	require.NoError(t, err)
 	actions, err := sequence.NewActionService(coordinator, service)
 	require.NoError(t, err)
-	auth := aman.CommandContext{Airport: state.Airport, Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: state.Airport, Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	first, err := actions.SetManualFeederETA(context.Background(), auth, command)
 	require.NoError(t, err)
 	require.True(t, first.Changed)
@@ -140,7 +140,7 @@ func TestManualFeederETACommandRetryUsesPersistedCommandIdentity(t *testing.T) {
 	require.False(t, retry.Changed)
 	require.Len(t, repository.commits, 1)
 	require.Equal(t, first.Outcome, retry.Outcome)
-	require.JSONEq(t, `{"action":"set_manual_feeder_eta","actor":"1234567","airport":"EKCH","changed":true,"feeder_eta":"2026-09-11T20:16:00Z","flight_id":"flight-1","received_at":"2026-09-11T20:00:00Z","role":"EKCH_FMH"}`, string(repository.commits[0].AuditRecords[0].Payload))
+	require.JSONEq(t, `{"action":"set_manual_feeder_eta","actor":"1234567","airport":"EKCH","changed":true,"feeder_eta":"2026-09-11T20:16:00Z","flight_id":"flight-1","received_at":"2026-09-11T20:00:00Z","role":"EKDK_FMP"}`, string(repository.commits[0].AuditRecords[0].Payload))
 }
 
 func manualFeederETAState(now time.Time, derived *aman.FeederETAState) (*Service, aman.AirportState) {

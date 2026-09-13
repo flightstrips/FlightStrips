@@ -58,7 +58,7 @@ func TestAMANHandlersMapEveryTypedCommandWithServerDerivedContext(t *testing.T) 
 			err := hub.handlers.Handle(context.Background(), client, Message{Type: test.eventType, Message: []byte(test.payload)})
 			require.NoError(t, err)
 			require.Equal(t, test.operation, service.operation)
-			require.Equal(t, aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}, service.auth)
+			require.Equal(t, aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, service.auth)
 			require.Equal(t, "command-1", service.metadata.CommandID)
 			require.Equal(t, aman.SequenceRevision(7), service.metadata.ExpectedRevision)
 			require.Empty(t, client.send)
@@ -73,7 +73,7 @@ func TestAMANCoordinationTransportKeepsKindsDistinctAndReturnsFMPProjection(t *t
 		`{"type":"aman.submit_coordination_request","version":1,"data":{"command_id":"speed","expected_revision":0,"flight_id":"flight-1","kind":"speed","requested":"220 KT"}}`,
 	} {
 		repository := &coordinationRecorder{}
-		service := coordinationrequest.NewService(repository, coordinationOwner{}, []string{"EKCH_FMH"})
+		service := coordinationrequest.NewService(repository, coordinationOwner{})
 		hub, client := newAMANCommandTestClient(&recordingAMANCommandService{}, now)
 		hub.amanCoordination = service
 		hub.handlers.Add(frontendEvents.AMANSubmitCoordinationType, handleAMANSubmitCoordination)
@@ -86,10 +86,10 @@ func TestAMANCoordinationTransportKeepsKindsDistinctAndReturnsFMPProjection(t *t
 
 func TestAMANCoordinationDecisionUsesAuthoritativeControllerContext(t *testing.T) {
 	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
-	request, err := coordinationrequest.New("submit", "EKCH", "flight-1", "EKCH_APP", "7654321", "EKCH_FMH", coordinationrequest.KindSpeed, coordinationrequest.Payload{Speed: &coordinationrequest.SpeedPayload{Requested: "220 KT"}}, now.Add(-time.Minute))
+	request, err := coordinationrequest.New("submit", "EKCH", "flight-1", "EKCH_APP", "7654321", "EKDK_FMP", coordinationrequest.KindSpeed, coordinationrequest.Payload{Speed: &coordinationrequest.SpeedPayload{Requested: "220 KT"}}, now.Add(-time.Minute))
 	require.NoError(t, err)
 	repository := &coordinationRecorder{request: request}
-	service := coordinationrequest.NewService(repository, coordinationOwner{}, []string{"EKCH_FMH"})
+	service := coordinationrequest.NewService(repository, coordinationOwner{})
 	hub, client := newAMANCommandTestClient(&recordingAMANCommandService{}, now)
 	hub.amanCoordination = service
 	hub.amanRoleForPosition = func(string) string { return "EKCH_APP" }
@@ -103,10 +103,10 @@ func TestAMANCoordinationDecisionUsesAuthoritativeControllerContext(t *testing.T
 	require.Empty(t, (<-client.send).(frontendEvents.AMANCoordinationStateEvent).Requests)
 }
 
-func TestAMANCoordinationSnapshotFallsBackToServerCallsignForUnlistedPosition(t *testing.T) {
+func TestAMANCoordinationSnapshotAuthorizesFMPCallsignAtUnlistedFrequency(t *testing.T) {
 	now := time.Date(2026, 9, 13, 18, 51, 37, 0, time.UTC)
 	request, err := coordinationrequest.New(
-		"submit", "EKCH", "flight-1", "EKDK_FMP", "7654321", "EKCH_FMH",
+		"submit", "EKCH", "flight-1", "EKDK_FMP", "7654321", "EKDK_FMP",
 		coordinationrequest.KindSpeed,
 		coordinationrequest.Payload{Speed: &coordinationrequest.SpeedPayload{Requested: "220 KT"}},
 		now.Add(-time.Minute),
@@ -114,7 +114,7 @@ func TestAMANCoordinationSnapshotFallsBackToServerCallsignForUnlistedPosition(t 
 	require.NoError(t, err)
 	repository := &coordinationRecorder{request: request}
 	hub, client := newAMANCommandTestClient(&recordingAMANCommandService{}, now)
-	hub.amanCoordination = coordinationrequest.NewService(repository, coordinationOwner{}, []string{"EKCH_FMH"})
+	hub.amanCoordination = coordinationrequest.NewService(repository, coordinationOwner{})
 	hub.amanRoleForPosition = func(string) string { return "" }
 	client.position = "131.040"
 	client.callsign = "EKDK_FMP"
@@ -123,7 +123,7 @@ func TestAMANCoordinationSnapshotFallsBackToServerCallsignForUnlistedPosition(t 
 
 	event := (<-client.send).(frontendEvents.AMANCoordinationStateEvent)
 	require.Equal(t, []coordinationrequest.Request{request}, event.Requests)
-	require.False(t, hub.hasAMANFMPAuthority(client), "a callsign fallback must not grant an unconfigured FMP role")
+	require.True(t, hub.hasAMANFMPAuthority(client))
 }
 
 type coordinationOwner struct{}
@@ -302,7 +302,7 @@ func TestAMANHandlerRejectsObserverFMPAndReadOnlyBeforeCommandService(t *testing
 	}{
 		{"unauthenticated", func(_ *Hub, client *Client) { client.user = shared.AuthenticatedUser{} }, aman.ErrorUnauthorized},
 		{"observer", func(_ *Hub, client *Client) { client.readOnly = true }, aman.ErrorUnauthorized},
-		{"non FMP", func(hub *Hub, _ *Client) { hub.amanFMPRoles = map[string]struct{}{} }, aman.ErrorUnauthorized},
+		{"non FMP", func(hub *Hub, _ *Client) { hub.amanRoleForPosition = func(string) string { return "EKCH_APP" } }, aman.ErrorUnauthorized},
 		{"rollout read only", func(hub *Hub, _ *Client) { hub.amanMutations = false }, aman.ErrorReadOnly},
 	}
 	for _, test := range tests {
@@ -335,12 +335,12 @@ func newAMANCommandTestClient(service aman.CommandService, now time.Time) (*Hub,
 	handlers := shared.NewMessageHandlers[frontendEvents.EventType, *Client]()
 	registerAMANCommandHandlers(&handlers)
 	hub := &Hub{
-		handlers: handlers, amanCommandService: service, amanFMPRoles: map[string]struct{}{"EKCH_FMH": {}},
-		amanMutations: true, amanNow: func() time.Time { return now }, amanRoleForPosition: func(string) string { return "EKCH_FMH" },
+		handlers: handlers, amanCommandService: service,
+		amanMutations: true, amanNow: func() time.Time { return now }, amanRoleForPosition: func(string) string { return "EKDK_FMP" },
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"exp": float64(time.Now().Add(time.Hour).Unix())})
 	client := &Client{
-		hub: hub, airport: "EKCH", position: "120.500", send: make(chan events.OutgoingMessage, 4),
+		hub: hub, airport: "EKCH", position: "131.040", send: make(chan events.OutgoingMessage, 4),
 		closed: make(chan struct{}), user: shared.NewAuthenticatedUser("1234567", 0, token),
 	}
 	return hub, client

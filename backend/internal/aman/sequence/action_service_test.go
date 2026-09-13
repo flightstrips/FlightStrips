@@ -14,7 +14,7 @@ func TestActionServiceRoutesTypedMetadataThroughCoordinator(t *testing.T) {
 	coordinator := &recordingActionCoordinator{state: aman.AirportState{Airport: "EKCH", Revision: 7}}
 	mutations := &recordingActionMutations{}
 	service := &ActionService{coordinator: coordinator, mutations: mutations}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)}
 	before := aman.FlightID("flight-2")
 
 	result, err := service.MoveFlight(context.Background(), auth, aman.MoveFlightCommand{
@@ -35,7 +35,7 @@ func TestActionServiceRejectsInvalidCommandBeforeMutationOrCoordinator(t *testin
 	coordinator := &recordingActionCoordinator{}
 	mutations := &recordingActionMutations{}
 	service := &ActionService{coordinator: coordinator, mutations: mutations}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)}
 
 	_, err := service.LockFlight(context.Background(), auth, aman.LockFlightCommand{Metadata: aman.CommandMetadata{CommandID: "lock-1"}})
 
@@ -55,7 +55,7 @@ func TestSetActiveRunwayGroupsUsesOnlyServerCommandContext(t *testing.T) {
 	coordinator := &recordingActionCoordinator{}
 	mutations := &recordingActionMutations{}
 	service := &ActionService{coordinator: coordinator, mutations: mutations}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)}
 	command := aman.SetActiveRunwayGroupsCommand{Metadata: aman.CommandMetadata{CommandID: "set-runways", ExpectedRevision: 7}, RunwayGroupIDs: []aman.RunwayGroupID{"A", "B"}}
 
 	_, err := service.SetActiveRunwayGroups(context.Background(), auth, command)

@@ -466,7 +466,7 @@ func (hub *Hub) amanContext(client *Client) (aman.CommandContext, error) {
 		return aman.CommandContext{}, err
 	}
 	if !hub.hasAMANFMPAuthority(client) {
-		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires a configured FMP role"}
+		return aman.CommandContext{}, &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "AMAN command requires an FMP role"}
 	}
 	return aman.CommandContext{Airport: auth.Airport, Actor: auth.Actor, Role: auth.Role, ReceivedAt: auth.ReceivedAt}, nil
 }
@@ -504,8 +504,7 @@ func (hub *Hub) amanRole(client *Client) string {
 		return role
 	}
 	// Controller callsigns are populated from the server-side controller
-	// repository. An unlisted position is not an authorized FMP role, but its
-	// callsign is still the authoritative coordination audience identity.
+	// repository and remain the authoritative identity at a primed frequency.
 	return strings.TrimSpace(client.callsign)
 }
 
@@ -513,8 +512,7 @@ func (hub *Hub) hasAMANFMPAuthority(client *Client) bool {
 	if client == nil || !client.IsAuthenticated() || client.session == WaitingForEuroscopeConnectionSessionId {
 		return false
 	}
-	_, authorized := hub.amanFMPRoles[strings.ToUpper(hub.amanRole(client))]
-	return authorized
+	return aman.IsFMPRole(hub.amanRole(client))
 }
 
 func configuredAMANRole(position string) string {

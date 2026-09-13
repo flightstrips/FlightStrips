@@ -1,6 +1,7 @@
 package coordinationrequest
 
 import (
+	"FlightStrips/internal/aman"
 	"fmt"
 	"sort"
 )
@@ -15,14 +16,8 @@ type Audience struct {
 // Project returns the request read model visible to one audience. Controllers
 // receive only pending requests assigned to them. The originating FMP position
 // retains every state so supersession and later decisions remain observable.
-func Project(requests []Request, audience Audience, fmpRoles []string) ([]Request, error) {
-	authorizedFMP := false
-	for _, role := range fmpRoles {
-		if role == audience.Role {
-			authorizedFMP = true
-			break
-		}
-	}
+func Project(requests []Request, audience Audience) ([]Request, error) {
+	authorizedFMP := aman.IsFMPRole(audience.Role)
 
 	projected := make([]Request, 0, len(requests))
 	for _, request := range requests {

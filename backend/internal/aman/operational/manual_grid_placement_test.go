@@ -16,7 +16,7 @@ import (
 func TestPlaceFlightAtTimeAuditsGapExceptionAndRetriesAfterRestart(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	repository := &memoryRepository{has: true, state: manualPlacementState(now)}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	command := aman.PlaceFlightAtTimeCommand{
 		Metadata: aman.CommandMetadata{CommandID: "place-in-gap", ExpectedRevision: 7}, FlightID: "TARGET",
 		RunwayGroupID: "north", SlotTime: now.Add(5 * time.Minute), AllowGap: true,
@@ -66,7 +66,7 @@ func TestPlaceFlightAtTimeEnforcesGapAuthorityAndPayloadTrust(t *testing.T) {
 	}{
 		{name: "non FMP cannot request exception", auth: aman.CommandContext{Airport: "EKCH", Actor: "spoof", Role: "EKCH_TWR", ReceivedAt: now}, want: aman.ErrorUnauthorized},
 		{name: "normal placement cannot enter GAP", auth: aman.CommandContext{Airport: "EKCH", Actor: "123", Role: "EKCH_TWR", ReceivedAt: now}, edit: func(c *aman.PlaceFlightAtTimeCommand) { c.AllowGap = false }, want: aman.ErrorInvalidTransition},
-		{name: "exception must name real GAP use", auth: aman.CommandContext{Airport: "EKCH", Actor: "123", Role: "EKCH_FMH", ReceivedAt: now}, edit: func(c *aman.PlaceFlightAtTimeCommand) { c.SlotTime = now.Add(8 * time.Minute) }, want: aman.ErrorInvalidArgument},
+		{name: "exception must name real GAP use", auth: aman.CommandContext{Airport: "EKCH", Actor: "123", Role: "EKDK_FMP", ReceivedAt: now}, edit: func(c *aman.PlaceFlightAtTimeCommand) { c.SlotTime = now.Add(8 * time.Minute) }, want: aman.ErrorInvalidArgument},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			repository := &memoryRepository{has: true, state: manualPlacementState(now)}
@@ -131,7 +131,7 @@ func TestPlaceFlightAtTimeValidatesGridRunwayRevisionAndAtomicResult(t *testing.
 				test.editCommand(&command)
 			}
 			_, err := manualPlacementActions(t, repository, now).PlaceFlightAtTime(context.Background(), aman.CommandContext{
-				Airport: "EKCH", Actor: "123", Role: "EKCH_FMH", ReceivedAt: now,
+				Airport: "EKCH", Actor: "123", Role: "EKDK_FMP", ReceivedAt: now,
 			}, command)
 			requireDomainErrorClass(t, err, test.want)
 			require.Equal(t, before, repository.state)
@@ -145,7 +145,7 @@ func TestRunwayGapExceptionClearsOnMoveAndGapRemoval(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	place := func(t *testing.T) (*memoryRepository, *sequence.ActionService, aman.CommandContext) {
 		repository := &memoryRepository{has: true, state: manualPlacementState(now)}
-		auth := aman.CommandContext{Airport: "EKCH", Actor: "123", Role: "EKCH_FMH", ReceivedAt: now}
+		auth := aman.CommandContext{Airport: "EKCH", Actor: "123", Role: "EKDK_FMP", ReceivedAt: now}
 		actions := manualPlacementActions(t, repository, now.Add(time.Second))
 		_, err := actions.PlaceFlightAtTime(context.Background(), auth, aman.PlaceFlightAtTimeCommand{
 			Metadata: aman.CommandMetadata{CommandID: "place", ExpectedRevision: 7}, FlightID: "TARGET",
@@ -196,7 +196,7 @@ func manualPlacementActions(t *testing.T, repository *memoryRepository, recorded
 	})
 	require.NoError(t, err)
 	actions, err := sequence.NewActionService(coordinator, &Service{deps: Dependencies{
-		FMPRoles: []string{"EKCH_FMH"}, Terminal: terminal.Configuration{
+		Terminal: terminal.Configuration{
 			RunwayGroups: []terminal.RunwayGroup{{ID: "north"}, {ID: "south"}},
 			Paths:        []terminal.Path{{Feeder: "MONAK", RunwayGroup: "north"}},
 		},

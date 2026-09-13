@@ -97,7 +97,6 @@ type Hub struct {
 	amanStateProvider   AMANStateProvider
 	amanCommandService  aman.CommandService
 	amanCoordination    *coordinationrequest.Service
-	amanFMPRoles        map[string]struct{}
 	amanMutations       bool
 	amanNow             func() time.Time
 	amanRoleForPosition func(string) string
@@ -129,7 +128,6 @@ type HubDependencies struct {
 	AMANState        AMANStateProvider
 	AMANCommands     aman.CommandService
 	AMANCoordination *coordinationrequest.Service
-	AMANFMPRoles     []string
 	AMANMutations    bool
 }
 
@@ -194,7 +192,6 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		amanStateProvider:     deps.AMANState,
 		amanCommandService:    deps.AMANCommands,
 		amanCoordination:      deps.AMANCoordination,
-		amanFMPRoles:          normalizedAMANRoles(deps.AMANFMPRoles),
 		amanMutations:         deps.AMANMutations,
 		amanNow:               time.Now,
 		amanRoleForPosition:   configuredAMANRole,
@@ -214,16 +211,6 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	}
 
 	return hub, nil
-}
-
-func normalizedAMANRoles(values []string) map[string]struct{} {
-	roles := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		if role := strings.ToUpper(strings.TrimSpace(value)); role != "" {
-			roles[role] = struct{}{}
-		}
-	}
-	return roles
 }
 
 func (hub *Hub) RegisterPDCHandlers(service shared.PdcService) error {

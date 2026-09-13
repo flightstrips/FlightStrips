@@ -15,6 +15,11 @@ type CommandContext struct {
 	ReceivedAt time.Time
 }
 
+// IsFMPRole reports whether a server-derived controller role is an FMP position.
+func IsFMPRole(role string) bool {
+	return strings.HasSuffix(strings.ToUpper(strings.TrimSpace(role)), "_FMP")
+}
+
 type MoveFlightCommand struct {
 	Metadata       CommandMetadata
 	FlightID       FlightID

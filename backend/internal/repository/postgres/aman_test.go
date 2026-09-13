@@ -123,7 +123,7 @@ func expiryRequests(t *testing.T, airport string, flightID aman.FlightID) []coor
 		if kind == coordinationrequest.KindSpeed {
 			payload = coordinationrequest.Payload{Speed: &coordinationrequest.SpeedPayload{Requested: "220 KT"}}
 		}
-		request, err := coordinationrequest.New(id, airport, coordinationrequest.FlightID(flightID), "EKCH_APP", "1234567", "EKCH_FMH", kind, payload, amanTestTime)
+		request, err := coordinationrequest.New(id, airport, coordinationrequest.FlightID(flightID), "EKCH_APP", "1234567", "EKDK_FMP", kind, payload, amanTestTime)
 		require.NoError(t, err)
 		return request
 	}

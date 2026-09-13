@@ -97,7 +97,7 @@ func TestSetActiveRunwayGroupsRejectsDuplicateIDs(t *testing.T) {
 }
 
 func TestCommandContextRequiresServerDerivedAuthorityAndUTCReceipt(t *testing.T) {
-	valid := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: time.Now().UTC()}
+	valid := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: time.Now().UTC()}
 	require.NoError(t, valid.Validate())
 
 	for _, invalid := range []aman.CommandContext{
@@ -107,5 +107,14 @@ func TestCommandContextRequiresServerDerivedAuthorityAndUTCReceipt(t *testing.T)
 		{Airport: valid.Airport, Actor: valid.Actor, Role: valid.Role, ReceivedAt: time.Now()},
 	} {
 		require.Error(t, invalid.Validate())
+	}
+}
+
+func TestIsFMPRoleUsesPositionSuffix(t *testing.T) {
+	for _, role := range []string{"EKDK_FMP", " ekdk_fmp "} {
+		require.True(t, aman.IsFMPRole(role))
+	}
+	for _, role := range []string{"", "FMP", "EKCH_APP", "EKDK_FMP_EXTRA"} {
+		require.False(t, aman.IsFMPRole(role))
 	}
 }

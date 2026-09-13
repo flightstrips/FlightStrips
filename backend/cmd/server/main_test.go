@@ -111,7 +111,7 @@ func TestStandAssignmentAircraftFilePreservesExplicitConfiguration(t *testing.T)
 }
 
 func TestAMANConfigFromEnvDefaultsDisabled(t *testing.T) {
-	for _, key := range []string{"AMAN_MODE", "AMAN_ENABLED_AIRPORTS", "AMAN_FMP_ROLES", "AMAN_RECONCILIATION_INTERVAL", "AMAN_SURVEILLANCE_INTERVAL", "ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", "ENABLE_AMAN_HOLDING_EAT_WRITEBACK"} {
+	for _, key := range []string{"AMAN_MODE", "AMAN_ENABLED_AIRPORTS", "AMAN_RECONCILIATION_INTERVAL", "AMAN_SURVEILLANCE_INTERVAL", "ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", "ENABLE_AMAN_HOLDING_EAT_WRITEBACK"} {
 		t.Setenv(key, "")
 	}
 	config, err := amanConfigFromEnv()
@@ -126,7 +126,6 @@ func TestAMANConfigFromEnvDefaultsDisabled(t *testing.T) {
 func TestAMANConfigFromEnvParsesConfiguredRuntime(t *testing.T) {
 	t.Setenv("AMAN_MODE", "authoritative")
 	t.Setenv("AMAN_ENABLED_AIRPORTS", "EKCH,EKRN")
-	t.Setenv("AMAN_FMP_ROLES", "EKCH_APP,EKCH_CTR")
 	t.Setenv("AMAN_RECONCILIATION_INTERVAL", "21s")
 	t.Setenv("AMAN_SURVEILLANCE_INTERVAL", "34s")
 	t.Setenv("ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", "true")
@@ -136,7 +135,7 @@ func TestAMANConfigFromEnvParsesConfiguredRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("amanConfigFromEnv() error = %v", err)
 	}
-	if config.Mode != aman.ModeAuthoritative || len(config.EnabledAirports) != 2 || len(config.FMPRoles) != 2 || config.FMPRoles[0] != "EKCH_APP" || config.ReconciliationInterval != 21*time.Second || config.SurveillanceInterval != 34*time.Second || !config.EnableEuroScopeGainLoseTags || !config.EnableHoldingEATWriteback {
+	if config.Mode != aman.ModeAuthoritative || len(config.EnabledAirports) != 2 || config.ReconciliationInterval != 21*time.Second || config.SurveillanceInterval != 34*time.Second || !config.EnableEuroScopeGainLoseTags || !config.EnableHoldingEATWriteback {
 		t.Fatalf("unexpected AMAN config: %#v", config)
 	}
 }

@@ -52,17 +52,17 @@ func (r *trackingControllerResolver) TrackingController(_ context.Context, _ str
 func TestServiceAuthorizesFMPAndUsesOnlyTrustedContext(t *testing.T) {
 	repository := &recordingSubmitter{}
 	owners := &trackingControllerResolver{controller: "EKCH_APP"}
-	service := NewService(repository, owners, []string{"EKCH_FMH"})
+	service := NewService(repository, owners)
 	command := SubmitCommand{CommandID: "submit-1", ExpectedRevision: 3, FlightID: "flight-1", Kind: KindSpeed,
 		Payload: Payload{Speed: &SpeedPayload{Requested: "220 KT"}}}
-	auth := CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: testTime}
+	auth := CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: testTime}
 
 	result, err := service.Submit(context.Background(), auth, command)
 	require.NoError(t, err)
 	require.Equal(t, uint64(4), result.Revision)
 	require.Equal(t, "EKCH", repository.request.Airport)
 	require.Equal(t, "1234567", repository.request.SubmittedBy)
-	require.Equal(t, "EKCH_FMH", repository.request.SubmittedRole)
+	require.Equal(t, "EKDK_FMP", repository.request.SubmittedRole)
 	require.Equal(t, ControllerID("EKCH_APP"), repository.request.RecipientController)
 	require.Equal(t, RecipientAssigned, repository.request.RecipientStatus)
 	require.Equal(t, []FlightID{"flight-1"}, owners.requests)
@@ -75,12 +75,12 @@ func TestServiceAuthorizesFMPAndUsesOnlyTrustedContext(t *testing.T) {
 
 func TestServicePersistsVisibleUnassignedRecipient(t *testing.T) {
 	repository := &recordingSubmitter{}
-	service := NewService(repository, &trackingControllerResolver{}, []string{"EKCH_FMH"})
+	service := NewService(repository, &trackingControllerResolver{})
 	command := SubmitCommand{CommandID: "submit-1", FlightID: "flight-1", Kind: KindSpeed,
 		Payload: Payload{Speed: &SpeedPayload{Requested: "220 KT"}}}
 
 	_, err := service.Submit(context.Background(), CommandContext{
-		Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: testTime,
+		Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: testTime,
 	}, command)
 
 	require.NoError(t, err)
@@ -92,7 +92,7 @@ func TestServiceDecisionUsesAuthoritativeRecipientAndTrustedContext(t *testing.T
 	request := routeRequest(t, "submit-1", testTime)
 	repository := &recordingSubmitter{request: request}
 	owners := &trackingControllerResolver{controller: "EKCH_APP"}
-	service := NewService(repository, owners, []string{"EKCH_FMH"})
+	service := NewService(repository, owners)
 	auth := CommandContext{Airport: "EKCH", Actor: "7654321", Role: "EKCH_APP", ReceivedAt: testTime.Add(time.Minute)}
 
 	_, err := service.Reject(context.Background(), auth, DecisionCommand{
@@ -124,7 +124,7 @@ func TestDecisionPayloadCannotSpoofAuthorityOrAudit(t *testing.T) {
 
 func TestServiceObservesTrustedOwnershipFact(t *testing.T) {
 	repository := &recordingSubmitter{}
-	service := NewService(repository, &trackingControllerResolver{}, nil)
+	service := NewService(repository, &trackingControllerResolver{})
 	fact := OwnershipFact{Airport: "EKCH", FlightID: "flight-1", FactID: "es/42", Revision: 42,
 		Owner: "EKCH_DEP", ObservedAt: testTime}
 	result, err := service.ObserveOwnership(context.Background(), fact)
@@ -136,8 +136,8 @@ func TestServiceObservesTrustedOwnershipFact(t *testing.T) {
 func TestServiceSnapshotUsesAuthoritativeAudienceProjection(t *testing.T) {
 	request := routeRequest(t, "route", testTime)
 	repository := &recordingSubmitter{requests: []Request{request}}
-	result, err := NewService(repository, &trackingControllerResolver{}, []string{"EKCH_FMH"}).Snapshot(context.Background(), CommandContext{
-		Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: testTime,
+	result, err := NewService(repository, &trackingControllerResolver{}).Snapshot(context.Background(), CommandContext{
+		Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: testTime,
 	})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), result.Revision)

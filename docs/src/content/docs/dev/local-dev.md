@@ -143,8 +143,13 @@ $env:ENABLE_TEST_TOOLS = "true"
 $env:RECORDING_PATH = "C:\vatsim-data2"
 $env:AMAN_MODE = "shadow"
 $env:AMAN_ENABLED_AIRPORTS = "EKCH"
+$env:ENABLE_AMAN_HOLDING_EAT_WRITEBACK = "false"
 go run ./cmd/server
 ```
+
+`ENABLE_AMAN_HOLDING_EAT_WRITEBACK` is the backend-owned equivalent of ALB's
+`HLW` permission. It defaults to `false`. Enable it only for an authoritative
+AMAN deployment that should publish confirmed holding release times to TopSky.
 
 Open `http://localhost:8080/test`, enter the absolute directory containing the
 saved `*.json` VATSIM v3 generations (for example

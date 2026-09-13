@@ -6,7 +6,7 @@ import type {
   AMANPresentationStatus,
   AMANState,
 } from "@/api/aman";
-import {Dialog, DialogClose, DialogContent, DialogTitle} from "@/components/ui/dialog";
+import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {AMAN_ALL_VIEW, availableAMANViews, controllerAMANViews, readAMANViewPreference, resolveAMANView, type AMANView} from "@/lib/aman-view-preference";
 import {cn} from "@/lib/utils";
 import {useWebSocketStore} from "@/store/store-hooks";
@@ -17,26 +17,11 @@ import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from 
 import {ACCTimeline} from "./ACCTimeline";
 import {FMPPairedTimeline} from "./FMPPairedTimeline";
 import {RWYPairedTimeline} from "./RWYPairedTimeline";
-import {RunwayGapOverlay} from "./RunwayGapOverlay";
-import {RunwayClosureOverlay} from "./RunwayClosureOverlay";
-import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
-import {AMANAxisTopPercent, AMANTimelineAxis, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
-import {
-  buildAMANHoldingLanes,
-  buildAMANLanes,
-  formatAMANTime,
-  layoutTimelineMarkers,
-  type AMANTimelineRange,
-} from "./presentation";
+import {AMANAxisTopPercent, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
+import {buildAMANLanes, formatAMANTime} from "./presentation";
 
-const TIMELINE_PIXELS_PER_MINUTE = 18;
-const RULER_WIDTH_PIXELS = 58;
-const STRIP_STACK_PIXELS = 30;
-
-function timelinePosition(timestamp: string | null, range: AMANTimelineRange): number | null {
-  return AMANAxisTopPercent(timestamp, range);
-}
-
+const TIMELINE_PIXELS_PER_MINUTE = 32;
+const MINIMUM_TIMELINE_HEIGHT_PIXELS = 960;
 function TimelineScrollRail({
   scrollTop,
   viewportHeight,
@@ -73,7 +58,7 @@ function TimelineScrollRail({
       aria-valuemax={maximumScroll}
       aria-valuemin={0}
       aria-valuenow={Math.round(scrollTop)}
-      className="absolute bottom-0 left-0 top-0 z-40 w-9 border border-[#ddd] bg-[#242424] touch-none"
+      className="absolute bottom-0 left-0 top-0 z-40 w-6 border border-[#dcdcdc] bg-[#242424] touch-none"
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId);
         setScrollFromPointer(event.clientY, event.currentTarget);
@@ -81,12 +66,27 @@ function TimelineScrollRail({
       onPointerMove={(event) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) setScrollFromPointer(event.clientY, event.currentTarget);
       }}
+      onKeyDown={(event) => {
+        const lineStep = 64;
+        const pageStep = Math.max(lineStep, viewportHeight * 0.8);
+        let next: number | null = null;
+        if (event.key === "ArrowUp") next = scrollTop - lineStep;
+        else if (event.key === "ArrowDown") next = scrollTop + lineStep;
+        else if (event.key === "PageUp") next = scrollTop - pageStep;
+        else if (event.key === "PageDown") next = scrollTop + pageStep;
+        else if (event.key === "Home") next = 0;
+        else if (event.key === "End") next = maximumScroll;
+        if (next === null) return;
+        event.preventDefault();
+        onScrollTo(Math.max(0, Math.min(maximumScroll, next)));
+      }}
       role="scrollbar"
+      tabIndex={0}
     >
       <div className="absolute inset-x-2 bottom-8 top-1 border-x border-[#dadada]">
         {tickPositions.map((position) => (
           <span
-            className={cn("absolute left-1 right-1 h-px", currentPosition !== null && position > currentPosition ? "bg-lime-300" : "bg-[#e2e2e2]")}
+            className={cn("absolute left-1 right-1 h-px", currentPosition !== null && position < currentPosition ? "bg-lime-300" : "bg-[#e2e2e2]")}
             key={position}
             style={{top: `${position}%`}}
           />
@@ -103,102 +103,6 @@ function TimelineScrollRail({
   );
 }
 
-function HoldingTimeline({
-  label,
-  flights,
-  range,
-  stripSide,
-  fillAvailableSpace,
-  showStar,
-  currentPosition,
-  clockMs,
-  axisStatus,
-  gainLossAuthoritative,
-  gainLossConnected,
-  selectedFlightID,
-  onSelectFlight,
-  onOpenFlightDetails,
-  leadingFields,
-  trailingFields,
-}: {
-  label: string;
-  flights: AMANFlight[];
-  range: AMANTimelineRange;
-  stripSide: "left" | "right";
-  fillAvailableSpace: boolean;
-  showStar: boolean;
-  currentPosition: number | null;
-  clockMs: number;
-  axisStatus: "fresh" | "stale" | "disconnected";
-  gainLossAuthoritative: boolean;
-  gainLossConnected: boolean;
-  selectedFlightID: string | null;
-  onSelectFlight: (flightID: string) => void;
-  onOpenFlightDetails?: (flightID: string) => void;
-  leadingFields: (flight: AMANFlight) => readonly AMANAircraftTargetField[];
-  trailingFields: (flight: AMANFlight) => readonly AMANAircraftTargetField[];
-}) {
-  const minimumGapPercent = (60_000 / (range.endMs - range.startMs)) * 100;
-  const markers = layoutTimelineMarkers(flights, range, minimumGapPercent);
-
-  return (
-    <section className={cn("relative h-full", fillAvailableSpace ? "min-w-[520px] flex-1" : "min-w-[520px]")} data-testid={`holding-timeline-lane-${label}`}>
-      <div className="absolute inset-x-0 bottom-12 top-5">
-        {currentPosition !== null && <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
-        <AMANTimelineAxis clockMs={clockMs} range={range} status={axisStatus} />
-      {markers.map((marker) => {
-        const selected = marker.flight.flight_id === selectedFlightID;
-        const top = timelinePosition(marker.timestamp, range) ?? 0;
-        const rulerEdge = stripSide === "left"
-          ? `calc(50% - ${RULER_WIDTH_PIXELS / 2}px)`
-          : `calc(50% + ${RULER_WIDTH_PIXELS / 2}px)`;
-        const stackOffset = -marker.track * STRIP_STACK_PIXELS;
-        return (
-          <div key={marker.flight.flight_id}>
-            <div
-              className={cn(
-                "absolute z-20 flex min-h-7 -translate-y-1/2 items-center",
-                stripSide === "left" ? "-translate-x-full" : "translate-x-0",
-              )}
-              style={{left: rulerEdge, top: `calc(${top}% + ${stackOffset}px)`}}
-            >
-              {stripSide === "right" && <span className={cn(
-                "relative h-px shrink-0",
-                marker.flight.freeze_reason === "superstable" ? "bg-cyan-200" : marker.flight.freeze_reason === "manual" ? "bg-fuchsia-200" : "bg-[#a9bdc5]",
-              )} style={{width: "24px"}}><i className="absolute -left-0.5 -top-0.5 block h-1 w-1 rounded-full bg-[#e4e4e4]" /></span>}
-              <div className="flex min-h-7 items-stretch" data-marker-time={marker.timestamp} data-testid={`operational-marker-${marker.flight.flight_id}`}>
-                <AMANAircraftTarget
-                  flight={marker.flight}
-                  guidance={{authoritative: gainLossAuthoritative, connected: gainLossConnected}}
-                  leadingFields={leadingFields(marker.flight)}
-                  onSelect={() => {
-                    onSelectFlight(marker.flight.flight_id);
-                    onOpenFlightDetails?.(marker.flight.flight_id);
-                  }}
-                  selected={selected}
-                  trailingFields={trailingFields(marker.flight)}
-                />
-                {showStar && marker.flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]">{marker.flight.star_family}</span>}
-              </div>
-              {stripSide === "left" && <span className={cn(
-                "relative h-px shrink-0",
-                marker.flight.freeze_reason === "superstable" ? "bg-cyan-200" : marker.flight.freeze_reason === "manual" ? "bg-fuchsia-200" : "bg-[#a9bdc5]",
-              )} style={{width: "24px"}}><i className="absolute -right-0.5 -top-0.5 block h-1 w-1 rounded-full bg-[#e4e4e4]" /></span>}
-            </div>
-            {marker.track > 0 && <span
-              aria-hidden="true"
-              className="absolute z-10 w-px bg-[#a9bdc5]"
-              style={{height: `${Math.abs(stackOffset)}px`, left: rulerEdge, top: `calc(${top}% + ${stackOffset}px)`}}
-            />}
-          </div>
-        );
-      })}
-      </div>
-      <footer className="absolute bottom-0 left-0 right-0 pb-3 text-center font-display text-sm font-bold text-white">{label}</footer>
-    </section>
-  );
-}
-
 export interface AMANBoardViewProps {
   state: AMANState | null;
   presentationStatus: AMANPresentationStatus;
@@ -207,6 +111,7 @@ export interface AMANBoardViewProps {
   selectedFlightID: string | null;
   onSelectFlight: (flightID: string) => void;
   onOpenControls?: () => void;
+  onOpenFlightActions?: (flightID: string) => void;
   onOpenFlightDetails?: (flightID: string) => void;
   accView?: AMANView;
   onACCViewChange?: (view: AMANView) => void;
@@ -220,6 +125,7 @@ export function AMANBoardView({
   selectedFlightID,
   onSelectFlight,
   onOpenControls,
+  onOpenFlightActions,
   onOpenFlightDetails,
   accView: suppliedACCView,
   onACCViewChange,
@@ -248,12 +154,10 @@ export function AMANBoardView({
   const initializedTimelineScroll = useRef(false);
   const [timelineScroll, setTimelineScroll] = useState({top: 0, viewportHeight: 0, contentHeight: 0});
   const activeRunwayLane = lanes.find((lane) => lane.id === selectedRunwayGroupID) ?? lanes[0] ?? null;
-  const timelineFlights = useMemo(() => activeRunwayLane?.flights ?? [], [activeRunwayLane]);
-  const holdingLanes = useMemo(() => buildAMANHoldingLanes(timelineFlights), [timelineFlights]);
   const axis = useAMANTimelineAxis(state?.generated_at ?? new Date(0).toISOString());
   const range = axis.range;
   const timelineHeight = useMemo(
-    () => Math.max(720, Math.ceil((range.endMs - range.startMs) / 60_000) * TIMELINE_PIXELS_PER_MINUTE),
+    () => Math.max(MINIMUM_TIMELINE_HEIGHT_PIXELS, Math.ceil((range.endMs - range.startMs) / 60_000) * TIMELINE_PIXELS_PER_MINUTE),
     [range],
   );
   const nowPosition = AMANAxisTopPercent(axis.clockMs, range);
@@ -267,8 +171,9 @@ export function AMANBoardView({
     {id: "aircraft-type", label: "Aircraft type", value: "—"},
     {id: "feeder-fix", label: "Feeder fix", value: flight.feeder_fix ?? "—"},
   ];
-  const renderFMPTarget = (flight: AMANFlight) => (
+  const renderTarget = (flight: AMANFlight, compact = false) => (
     <AMANAircraftTarget
+      compact={compact}
       flight={flight}
       guidance={{
         authoritative: gainLossAuthoritative,
@@ -277,36 +182,36 @@ export function AMANBoardView({
       leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
       onSelect={() => {
         onSelectFlight(flight.flight_id);
-        onOpenFlightDetails?.(flight.flight_id);
+        onOpenFlightActions?.(flight.flight_id);
       }}
       selected={flight.flight_id === selectedFlightID}
       trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
     />
   );
+  const renderFMPTarget = (flight: AMANFlight) => renderTarget(flight, true);
   const renderRWYTarget = (flight: AMANFlight) => (
     <div className="flex min-h-7 items-stretch">
-      {renderFMPTarget(flight)}
+      {renderTarget(flight)}
       {flight.star_family && <span className="flex items-center border border-l-0 border-[#b8b8b8] bg-[#3f3f3f] px-1.5 font-mono text-[11px] text-[#a9bdc5]">{flight.star_family}</span>}
     </div>
   );
   const renderACCTarget = (flight: AMANFlight) => {
     const emphasized = accView === AMAN_ALL_VIEW || flight.star_family === accView;
     return (
-      <div className="flex min-h-7 items-stretch">
-        <AMANAircraftTarget
-          emphasis={emphasized ? "primary" : "subdued"}
-          flight={flight}
-          guidance={{authoritative: gainLossAuthoritative, connected: connectionState === "connected"}}
-          leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
-          onSelect={() => {
-            onSelectFlight(flight.flight_id);
-            onOpenFlightDetails?.(flight.flight_id);
-          }}
-          selected={flight.flight_id === selectedFlightID}
-          trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
-        />
-        {flight.star_family && <span className={cn("flex items-center border border-l-0 border-[#b8b8b8] px-1.5 font-mono text-[11px]", emphasized ? "bg-[#3f3f3f] text-[#a9bdc5]" : "bg-[#686868] text-white")}>{emphasized && accView !== AMAN_ALL_VIEW ? "★ " : ""}{flight.star_family}</span>}
-      </div>
+      <AMANAircraftTarget
+        compact
+        delayFirst
+        emphasis={emphasized ? "primary" : "subdued"}
+        flight={flight}
+        guidance={{authoritative: gainLossAuthoritative, connected: connectionState === "connected"}}
+        leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
+        onSelect={() => {
+          onSelectFlight(flight.flight_id);
+          onOpenFlightActions?.(flight.flight_id);
+        }}
+        selected={flight.flight_id === selectedFlightID}
+        trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
+      />
     );
   };
   const syncTimelineScroll = () => {
@@ -356,25 +261,28 @@ export function AMANBoardView({
         commandRejections={commandRejections}
         hasFMPAuthority={hasFMPAuthority}
         onCommand={sendCommand}
-        onOpenTargetPreferences={() => setTargetPreferencesOpen(true)}
         onRunwayGroupViewChange={setSelectedRunwayGroupID}
         onViewChange={setView}
+        onACCViewChange={(next) => setACCView(next as AMANView)}
         presentationStatus={presentationStatus}
         pendingCommands={pendingCommands}
         readOnly={readOnly}
         runwayGroupOptions={state.runway_groups.map((group) => ({id: group.id, label: `${group.id} : ${state.flights.filter((flight) => flight.runway_group_id === group.id).length}`}))}
-        secondaryAccessory={<><span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>{view === "acc" && <label className="flex items-center gap-1 text-xs font-bold text-black">Emphasis<select aria-label="ACC STAR family emphasis" className="border border-black bg-white px-1" onChange={(event) => setACCView(event.target.value)} value={accView}><option value={AMAN_ALL_VIEW}>ALL</option>{[...availableAMANViews(state)].map((family) => <option key={family} value={family}>{family}</option>)}</select></label>}</>}
+        secondaryAccessory={<span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>}
+        accViewOptions={[AMAN_ALL_VIEW, ...availableAMANViews(state)]}
+        selectedACCView={accView}
         selectedRunwayGroupID={activeRunwayLane?.id ?? null}
         state={state}
         view={view}
       />
       <div className="relative min-h-0 flex-1">
-        <div className="h-full overflow-auto pl-9 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
-          <div className={cn("relative flex", view === "holds" ? "min-w-max" : "min-w-full")} data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
+        <div className="h-full overflow-auto pl-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" onScroll={syncTimelineScroll} ref={timelineScrollRef}>
+          <div className="relative flex min-w-full" data-testid="aman-timeline-grid" id="aman-timeline-grid" style={{height: `${timelineHeight}px`}}>
             {view === "runway" ? (
               <RWYPairedTimeline
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
+                onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
                 range={range}
                 renderTarget={renderRWYTarget}
                 state={state}
@@ -385,6 +293,8 @@ export function AMANBoardView({
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
                 flights={state.flights}
+                label={accView}
+                onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
                 runwayGroups={state.runway_groups}
                 range={range}
                 renderTarget={renderACCTarget}
@@ -399,32 +309,18 @@ export function AMANBoardView({
                 closures={activeRunwayLane?.closures ?? []}
                 capacityReservations={activeRunwayLane?.capacityReservations ?? []}
                 mappings={state.timeline_configuration.mappings}
+                onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
                 range={range}
                 renderTarget={renderFMPTarget}
                 runway={activeRunwayLane?.id ?? "runway"}
                 status={axisStatus}
               />
-            ) : <><RunwayGapOverlay gaps={activeRunwayLane?.gaps ?? []} range={range} runway={activeRunwayLane?.id ?? "runway"} /><RunwayClosureOverlay closures={activeRunwayLane?.closures ?? []} range={range} runway={activeRunwayLane?.id ?? "runway"} status={axisStatus} /><CapacityReservationOverlay range={range} reservations={activeRunwayLane?.capacityReservations ?? []} runway={activeRunwayLane?.id ?? "runway"} status={axisStatus} />{holdingLanes.map((lane, index) => (
-              <HoldingTimeline
-                flights={lane.flights}
-                key={lane.id}
-                label={lane.label}
-                onSelectFlight={onSelectFlight}
-                onOpenFlightDetails={onOpenFlightDetails}
-                range={range}
-                selectedFlightID={selectedFlightID}
-                stripSide={index % 2 === 0 ? "left" : "right"}
-                fillAvailableSpace={false}
-                showStar={false}
-                currentPosition={nowPosition}
-                clockMs={axis.clockMs}
-                axisStatus={axisStatus}
-                gainLossAuthoritative={gainLossAuthoritative}
-                gainLossConnected={connectionState === "connected"}
-                leadingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
-                trailingFields={(flight) => fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
-              />
-            ))}</>}
+            ) : (
+              <section aria-label="AMAN timeline configuration unavailable" className="grid h-full min-w-[37.5rem] flex-1 place-content-center gap-2 border border-amber-400/60 bg-[#3f3f3f] p-8 text-center">
+                <h2 className="font-display text-lg font-bold text-amber-100">Timeline configuration unavailable</h2>
+                <p className="max-w-md text-sm text-slate-200">Waiting for a versioned terminal-layout projection from AMAN.</p>
+              </section>
+            )}
           </div>
         </div>
         <TimelineScrollRail
@@ -449,10 +345,9 @@ export function AMANBoardView({
         {state.technical_health.blocked_reasons.length > 0 && <span className="ml-auto text-xs text-red-200">{state.technical_health.blocked_reasons.join(", ")}</span>}
       </footer>
       <Dialog onOpenChange={setTargetPreferencesOpen} open={targetPreferencesOpen}>
-        <DialogContent className="w-[min(720px,calc(100vw-2rem))] bg-[#e4e4e4] text-[#202020]">
-          <DialogTitle>Target information</DialogTitle>
+        <DialogContent className="w-[min(493px,calc(100vw-2rem))] max-w-none gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-0 text-white [&>button]:hidden">
+          <DialogTitle className="border-b-2 border-[#dcdcdc] px-5 py-3 text-center font-display text-lg font-bold uppercase">Target Information</DialogTitle>
           <AMANAircraftTargetPreferenceControls onChange={setTargetPreferences} preferences={targetPreferences} />
-          <DialogClose className="justify-self-end rounded border border-black bg-[#555355] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6b696b]">Close target information</DialogClose>
         </DialogContent>
       </Dialog>
     </section>

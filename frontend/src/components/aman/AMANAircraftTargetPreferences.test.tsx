@@ -57,9 +57,8 @@ describe("local AMAN target field preferences", () => {
     expect(JSON.parse(localStorage.getItem(AMAN_TARGET_PREFERENCES_KEY)!)).toMatchObject({feeder: ["feeder-fix-eta"], runway: []});
   });
 
-  it("reorders visible fields and compacts hidden fields without placeholders", () => {
+  it("toggles visible fields and compacts hidden fields without placeholders", () => {
     render(<Harness initial={{version: 1, feeder: ["feeder-fix-eta", "total-delay", "runway"], runway: []}} />);
-    fireEvent.click(screen.getByRole("button", {name: "Move Runway earlier on feeder side"}));
     fireEvent.click(screen.getByRole("checkbox", {name: "Show Total delay on feeder side"}));
     const target = screen.getByRole("button", {name: /Select SAS123/});
     expect(target).toHaveTextContent("10:1222LSAS123L02U");
@@ -79,10 +78,10 @@ describe("local AMAN target field preferences", () => {
     expect(readAMANAircraftTargetPreferences()).toEqual({version: 1, feeder: ["runway"], runway: ["wtc"]});
   });
 
-  it("labels each side group and every ordering control accessibly", () => {
+  it("labels both sides and uses the Figma field names", () => {
     render(<Harness initial={{version: 1, feeder: ["runway", "wtc"], runway: []}} />);
-    expect(screen.getByRole("group", {name: "Feeder-fix-side target fields"})).toBeInTheDocument();
-    expect(screen.getByRole("group", {name: "Runway-side target fields"})).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: "Move WTC earlier on feeder side"})).toBeEnabled();
+    expect(screen.getByText("STA FF")).toBeInTheDocument();
+    expect(screen.getAllByText("RWY").length).toBeGreaterThan(0);
+    expect(screen.getByRole("checkbox", {name: "Show WTC on feeder side"})).toBeChecked();
   });
 });

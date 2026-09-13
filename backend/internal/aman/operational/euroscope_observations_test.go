@@ -58,6 +58,36 @@ func TestEuroScopeSurveillanceOverlaysVATSIMUntilItExpires(t *testing.T) {
 	require.Equal(t, 55.6, fallback.Surveillance.LatitudeDegrees)
 }
 
+func TestServiceWaitsForVATSIMBeforeAdmittingEuroScopeOverlay(t *testing.T) {
+	now := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
+	altitude, groundspeed := 9000, 250.0
+	euroScope := aman.FlightObservation{
+		FlightID: "F", VATSIMCID: "123", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH",
+		Surveillance:       &aman.SurveillanceFact{LatitudeDegrees: 55.5, LongitudeDegrees: 12, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, ObservedAt: &now},
+		SurveillanceSource: aman.SurveillanceSourceEuroScope, ReconciledAt: now, SourceStatus: aman.DataFresh,
+	}
+	service := &Service{observed: map[string]map[aman.FlightID]aman.FlightObservation{}}
+
+	require.NoError(t, service.Observe(context.Background(), euroScope))
+	require.Empty(t, service.observations("EKCH"))
+
+	eet := time.Hour
+	vatsim := euroScope
+	vatsim.SurveillanceSource = aman.SurveillanceSourceVATSIM
+	vatsim.PlannedTiming = &aman.PlannedTiming{EstimatedEnrouteTime: &eet}
+	require.NoError(t, service.Observe(context.Background(), vatsim))
+	require.Len(t, service.observations("EKCH"), 1)
+
+	now = now.Add(10 * time.Second)
+	euroScope.ReconciledAt = now
+	euroScope.Surveillance.ObservedAt = &now
+	require.NoError(t, service.Observe(context.Background(), euroScope))
+	merged := service.observations("EKCH")["F"]
+	require.Equal(t, aman.SurveillanceSourceEuroScope, merged.SurveillanceSource)
+	require.NotNil(t, merged.PlannedTiming)
+	require.Equal(t, eet, *merged.PlannedTiming.EstimatedEnrouteTime)
+}
+
 type euroScopeObservationSink struct{ observations []aman.FlightObservation }
 
 func (s *euroScopeObservationSink) Observe(_ context.Context, observation aman.FlightObservation) error {

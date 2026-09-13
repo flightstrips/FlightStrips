@@ -69,6 +69,7 @@ namespace FlightStrips::messages {
         void HandleCreateFPLEvent(const CreateFPLEvent& event) const;
         void HandlePdcStateChangeEvent(const PdcStateChangeEvent& event) const;
         void HandleSendPrivateMessageEvent(const SendPrivateMessageEvent& event) const;
+        void HandleHoldEvent(const HoldEvent& event) const;
     };
 
 }

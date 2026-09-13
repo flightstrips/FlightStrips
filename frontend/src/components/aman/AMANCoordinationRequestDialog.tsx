@@ -7,8 +7,8 @@ type Submission =
   | {kind: "route_direct"; route?: string; direct_to?: string}
   | {kind: "speed"; requested: string};
 
-const inputClass = "w-full rounded border border-slate-500 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300 disabled:opacity-60";
-const buttonClass = "rounded border border-slate-400 px-3 py-2 text-sm font-semibold hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-50";
+const inputClass = "w-full border-2 border-[#dcdcdc] bg-[#d6d6d6] px-3 py-2 text-sm font-bold text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:opacity-60";
+const buttonClass = "border border-[#dcdcdc] bg-[#6b7f9f] px-3 py-2 text-sm font-bold uppercase hover:bg-[#a3d5e8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-50";
 
 function requestValue(request: AMANCoordinationRequest): string {
   if (request.kind === "speed") return request.payload.speed?.requested ?? "Unavailable";
@@ -36,10 +36,10 @@ export function AMANCoordinationRequestDialog({callsign, requests, canSubmit, su
   useEffect(() => () => returnFocusRef.current?.focus(), []);
 
   return <Dialog onOpenChange={(open) => !open && onClose()} open>
-    <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-md overflow-y-auto border-slate-500 bg-[#161d27] text-slate-100">
-      <DialogTitle>Coordinate {callsign}</DialogTitle>
-      <DialogDescription className="text-slate-300">Send a request to the aircraft&apos;s authoritative tracking controller. Agreement is not a clearance and does not change the prediction.</DialogDescription>
-      <form className="grid gap-4" onSubmit={(event) => {
+    <DialogContent className="max-h-[calc(100dvh-2rem)] w-[min(370px,calc(100vw-2rem))] max-w-none gap-0 overflow-y-auto rounded-none border-2 border-[#dcdcdc] bg-[#5174b8] p-0 font-display text-white [&>button]:hidden">
+      <DialogTitle className="border-b-2 border-[#dcdcdc] px-4 py-3 text-center text-lg font-bold uppercase"><span aria-hidden="true">Coordination</span><span className="sr-only">Coordinate {callsign}</span></DialogTitle>
+      <DialogDescription className="sr-only">Send a request to the aircraft&apos;s authoritative tracking controller. Agreement is not a clearance and does not change the prediction.</DialogDescription>
+      <form className="grid gap-4 px-5 py-4" onSubmit={(event) => {
         event.preventDefault();
         if (!valid || !canSubmit || submitting) return;
         onSubmit(kind === "speed" ? {kind, requested: speed.trim()} : {
@@ -47,24 +47,23 @@ export function AMANCoordinationRequestDialog({callsign, requests, canSubmit, su
         });
       }}>
         <fieldset className="grid grid-cols-2 gap-2" disabled={submitting}>
-          <legend className="mb-2 text-sm font-semibold">Request kind</legend>
-          <label className="flex items-center gap-2 rounded border border-slate-600 p-2"><input checked={kind === "route_direct"} name="request-kind" onChange={() => setKind("route_direct")} type="radio" /> Route / direct</label>
-          <label className="flex items-center gap-2 rounded border border-slate-600 p-2"><input checked={kind === "speed"} name="request-kind" onChange={() => setKind("speed")} type="radio" /> Speed</label>
+          <legend className="sr-only">Request kind</legend>
+          <label className="flex items-center gap-2 border border-[#dcdcdc] bg-[#6b7f9f] p-2 uppercase"><input checked={kind === "route_direct"} name="request-kind" onChange={() => setKind("route_direct")} type="radio" /> Route / direct</label>
+          <label className="flex items-center gap-2 border border-[#dcdcdc] bg-[#6b7f9f] p-2 uppercase"><input checked={kind === "speed"} name="request-kind" onChange={() => setKind("speed")} type="radio" /> Speed</label>
         </fieldset>
         {kind === "route_direct" ? <div className="grid gap-3">
-          <label className="grid gap-1 text-sm" htmlFor="coordination-route">Requested route<input autoFocus className={inputClass} disabled={submitting} id="coordination-route" onChange={(event) => setRoute(event.target.value)} value={route} /></label>
-          <label className="grid gap-1 text-sm" htmlFor="coordination-direct">Direct to<input className={inputClass} disabled={submitting} id="coordination-direct" onChange={(event) => setDirectTo(event.target.value)} value={directTo} /></label>
-          <p className="text-xs text-slate-400">Enter a route, a direct-to fix, or both.</p>
-        </div> : <label className="grid gap-1 text-sm" htmlFor="coordination-speed">Requested speed<input autoFocus className={inputClass} disabled={submitting} id="coordination-speed" onChange={(event) => setSpeed(event.target.value)} placeholder="e.g. 250 KT or M0.78" value={speed} /></label>}
-        <div aria-live="polite" className="min-h-10 rounded border border-slate-600 bg-slate-900 p-2 text-sm">
+          <label className="grid gap-1 text-sm font-bold" htmlFor="coordination-route">Request Routing<input autoFocus className={inputClass} disabled={submitting} id="coordination-route" onChange={(event) => setRoute(event.target.value)} value={route} /></label>
+          <label className="grid gap-1 text-sm font-bold" htmlFor="coordination-direct">Direct to<input className={inputClass} disabled={submitting} id="coordination-direct" onChange={(event) => setDirectTo(event.target.value)} value={directTo} /></label>
+        </div> : <label className="grid gap-1 text-sm font-bold" htmlFor="coordination-speed">Request Speed<input aria-label="Requested speed" autoFocus className={inputClass} disabled={submitting} id="coordination-speed" onChange={(event) => setSpeed(event.target.value)} placeholder="250 KT or M0.78" value={speed} /></label>}
+        <div aria-live="polite" className="min-h-10 border border-[#dcdcdc] bg-[#6b7f9f] p-2 text-sm">
           Recipient: <strong>{pending?.recipient_status === "assigned" ? pending.recipient_controller : pending ? "Unassigned — no tracking controller" : "Resolved authoritatively on submit"}</strong>
           {pending && <p className="mt-1 text-amber-300">Submitting replaces the existing pending {kind === "speed" ? "speed" : "route/direct"} request.</p>}
         </div>
-        {rejection && <p className="rounded border border-red-500 bg-red-950 p-2 text-sm" role="alert">Request rejected by server: {rejection}</p>}
-        {!canSubmit && <p className="rounded border border-amber-500 bg-amber-950 p-2 text-sm" role="status">Requests are read-only without connected authoritative FMP access.</p>}
-        <div className="flex justify-end gap-2"><button className={buttonClass} onClick={onClose} type="button">Cancel</button><button className={buttonClass} disabled={!valid || !canSubmit || submitting} type="submit">{submitting ? "Submitting…" : pending ? "Replace request" : "Send request"}</button></div>
+        {rejection && <p className="border border-amber-200 p-2 text-sm" role="alert">Request rejected by server: {rejection}</p>}
+        {!canSubmit && <p className="border border-amber-200 p-2 text-sm" role="status">Requests are read-only without connected authoritative FMP access.</p>}
+        <div className="grid grid-cols-2 gap-2"><button aria-label={submitting ? "Submitting…" : pending ? "Replace request" : "Send request"} className={buttonClass} disabled={!valid || !canSubmit || submitting} type="submit">{submitting ? "Submitting…" : "Send"}</button><button aria-label="Cancel" className={buttonClass} onClick={onClose} type="button">ESC</button></div>
       </form>
-	  <section aria-label="Request history" className="border-t border-slate-600 pt-4"><h3 className="mb-2 font-semibold">Request history</h3>{relevant.length === 0 ? <p className="text-sm text-slate-400">No requests for this flight.</p> : <ol className="grid gap-2">{relevant.map((request) => <li className="rounded border border-slate-700 p-2 text-sm" key={request.id}><strong>{request.kind === "speed" ? "Speed" : "Route / direct"}: {request.state}</strong><br />{requestValue(request)}<br /><span className="text-slate-400">Recipient: {request.recipient_status === "assigned" ? request.recipient_controller : "Unassigned"}</span>{request.clearance ? <p className="mt-1 text-emerald-200" role="status">Authoritative clearance observed: {request.clearance.value} · {request.clearance.issuer}</p> : request.state === "accepted" && <p className="mt-1 text-cyan-200">Agreed only — awaiting authoritative clearance.</p>}</li>)}</ol>}</section>
+	  {relevant.length > 0 && <section aria-label="Request history" className="border-t-2 border-[#dcdcdc] px-5 py-3"><h3 className="mb-2 font-semibold">Request history</h3><ol className="grid gap-2">{relevant.map((request) => <li className="border border-[#dcdcdc] bg-[#6b7f9f] p-2 text-sm" key={request.id}><strong>{request.kind === "speed" ? "Speed" : "Route / direct"}: {request.state}</strong><br />{requestValue(request)}<br /><span>Recipient: {request.recipient_status === "assigned" ? request.recipient_controller : "Unassigned"}</span>{request.clearance ? <p className="mt-1" role="status">Authoritative clearance observed: {request.clearance.value} · {request.clearance.issuer}</p> : request.state === "accepted" && <p className="mt-1">Agreed only — awaiting authoritative clearance.</p>}</li>)}</ol></section>}
     </DialogContent>
   </Dialog>;
 }

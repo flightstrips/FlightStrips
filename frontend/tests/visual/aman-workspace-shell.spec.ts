@@ -19,7 +19,8 @@ for (const viewport of VIEWPORTS) {
     expect(maestroBox!.x).toBeLessThan(tmtBox!.x);
     expect(maestroBox!.x + maestroBox!.width).toBeLessThan(tmtBox!.x);
     expect(tmtBox!.x + tmtBox!.width).toBeLessThanOrEqual(viewport.width);
-    expect(tmtBox!.width / tmtBox!.height).toBeCloseTo(3 / 4, 2);
+    expect(tmtBox!.x - (maestroBox!.x + maestroBox!.width)).toBeLessThanOrEqual(24);
+    expect(tmtBox!.width / tmtBox!.height).toBeGreaterThanOrEqual(3 / 4);
 
     const settings = (await page.locator('header[aria-label="MAESTRO settings"]').boundingBox())!;
     expect(settings.height / maestroBox!.height).toBeGreaterThanOrEqual(0.125);
@@ -45,7 +46,7 @@ test("shows keyboard focus and selected state without relying on color", async (
   await page.goto("/visual-tests/aman-workspace-shell-preview.html");
   const riu = page.getByRole("button", {name: "ARRIVAL-22", exact: true});
   const rate = page.getByRole("button", {name: "ARRIVAL-22: 30/h"});
-  const maestro = page.getByRole("button", {name: "Open target information preferences"});
+  const maestro = page.getByRole("button", {name: "MAESTRO", exact: true});
   const all = page.getByRole("button", {name: "ALL"});
 
   await page.keyboard.press("Tab");

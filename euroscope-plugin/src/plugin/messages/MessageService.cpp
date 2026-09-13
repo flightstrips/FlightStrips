@@ -105,6 +105,7 @@ namespace FlightStrips::messages {
             HANDLE_PROTO(kCreateFpl, create_fpl, CreateFPLEvent, HandleCreateFPLEvent, EVENT_CREATE_FPL_NAME)
             HANDLE_PROTO(kPdcStateChange, pdc_state_change, PdcStateChangeEvent, HandlePdcStateChangeEvent, EVENT_PDC_STATE_CHANGE_NAME)
             HANDLE_PROTO(kSendPrivateMessage, send_private_message, SendPrivateMessageEvent, HandleSendPrivateMessageEvent, EVENT_SEND_PRIVATE_MESSAGE_NAME)
+            HANDLE_PROTO(kHold, hold, HoldEvent, HandleHoldEvent, EVENT_HOLD_NAME)
             case websocket::protobuf::wire::Envelope::kAmanGainLoss:
                 // Consumed by AMANGainLossStore, which is registered separately.
                 break;
@@ -578,6 +579,21 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
     void MessageService::HandleSendPrivateMessageEvent(const SendPrivateMessageEvent &event) const {
         Logger::Info("Sending private message to {}: {}", event.callsign, event.message);
         PrivateMessageSender::SendPrivateMessage(event.callsign, event.message);
+    }
+
+    void MessageService::HandleHoldEvent(const HoldEvent &event) const {
+        auto flightPlan = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!flightPlan.IsValid() || !flightPlan.GetTrackingControllerIsMe()) return;
+
+        auto controllerData = flightPlan.GetControllerAssignedData();
+        const auto annotation = controllerData.GetFlightStripAnnotation(flightplan::TOPSKY_HOLD_ANNOTATION);
+        const auto command = flightplan::BuildTopSkyHoldEatCommand(
+            flightplan::ParseTopSkyHoldAnnotation(annotation == nullptr ? "" : annotation), event.hold, event.hold_type, event.hold_eat);
+        if (command.empty()) return;
+
+        const auto cached = m_flightPlanService->GetFlightPlan(event.callsign);
+        if (cached != nullptr && cached->hold == event.hold && cached->hold_type == event.hold_type && cached->hold_eat == event.hold_eat) return;
+        m_plugin->UpdateViaScratchPad(event.callsign.c_str(), command.c_str());
     }
 
     bool MessageService::SendCdmTobtUpdate(const std::string& callsign, const std::string& tobt) const {

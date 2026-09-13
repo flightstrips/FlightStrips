@@ -27,7 +27,13 @@ const golden = JSON.parse(readFileSync(
 )) as AMANStateEvent;
 
 function state(): AMANState {
-  return structuredClone(golden.data);
+  const value = structuredClone(golden.data);
+  value.timeline_configuration = {version: "mapping-v1", mappings: [
+    {id: 1, left: "TESPI", right: "TUDLO"},
+    {id: 2, left: "MONAK", right: "TIDVU"},
+    {id: 3, left: "ERNOV", right: null},
+  ]};
+  return value;
 }
 
 function renderBoard(value: AMANState | null, overrides: Partial<AMANBoardViewProps> = {}) {
@@ -73,6 +79,18 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
   });
 
+  it("does not invent operational lane mappings when configuration is unavailable", () => {
+    const unconfigured = state();
+    delete unconfigured.timeline_configuration;
+
+    renderBoard(unconfigured);
+
+    expect(screen.getByRole("region", {name: "AMAN timeline configuration unavailable"})).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for a versioned terminal-layout projection/)).toBeInTheDocument();
+    expect(screen.queryByTestId(/^fmp-timeline-/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /Select SAS123/})).not.toBeInTheDocument();
+  });
+
   it("keeps frozen operational markers fixed without adding a raw-TETA timeline marker", () => {
     const frozen = state();
     frozen.flights[0].freeze_reason = "superstable";
@@ -82,7 +100,7 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
     expect(screen.queryByTestId("raw-marker-flight-123")).not.toBeInTheDocument();
-    expect(screen.getByTitle("Superstable")).toHaveTextContent("SS");
+    expect(screen.getByRole("button", {name: /Superstable/})).toBeInTheDocument();
   });
 
   it("golden-renders degraded, stale, go-around, manual freeze, queue, and discrepancy facts", () => {
@@ -139,21 +157,21 @@ describe("complete AMAN timeline and strips", () => {
 
   it("supports compact timeline marker hit testing from the designed scrolling layout", () => {
     const onSelectFlight = vi.fn();
-    const onOpenFlightDetails = vi.fn();
-    renderBoard(state(), {onSelectFlight, onOpenFlightDetails});
+    const onOpenFlightActions = vi.fn();
+    renderBoard(state(), {onSelectFlight, onOpenFlightActions});
     const marker = screen.getByRole("button", {name: /Select SAS123/});
     fireEvent.click(marker);
 
     expect(onSelectFlight).toHaveBeenNthCalledWith(1, "flight-123");
-    expect(onOpenFlightDetails).toHaveBeenNthCalledWith(1, "flight-123");
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-max");
-    expect(screen.getByTestId("holding-timeline-lane-ROSBI")).toBeInTheDocument();
+    expect(onOpenFlightActions).toHaveBeenNthCalledWith(1, "flight-123");
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
+    expect(screen.getAllByTestId(/^fmp-timeline-/)).toHaveLength(3);
   });
 
   it("activates a focused compact target through the keyboard click contract", () => {
     const onSelectFlight = vi.fn();
-    const onOpenFlightDetails = vi.fn();
-    renderBoard(state(), {onSelectFlight, onOpenFlightDetails});
+    const onOpenFlightActions = vi.fn();
+    renderBoard(state(), {onSelectFlight, onOpenFlightActions});
     const target = screen.getByRole("button", {name: /Select SAS123/});
 
     target.focus();
@@ -161,7 +179,7 @@ describe("complete AMAN timeline and strips", () => {
 
     expect(target).toHaveFocus();
     expect(onSelectFlight).toHaveBeenCalledWith("flight-123");
-    expect(onOpenFlightDetails).toHaveBeenCalledWith("flight-123");
+    expect(onOpenFlightActions).toHaveBeenCalledWith("flight-123");
   });
 
   it("renders GAP intervals and audited manual exceptions in every timeline view", () => {
@@ -183,9 +201,9 @@ describe("complete AMAN timeline and strips", () => {
     current.flights[0].feeder_fix_eta = "2026-07-22T10:12:00.000Z";
     renderBoard(current);
 
-    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22S");
-    fireEvent.click(screen.getByRole("button", {name: "Open target information preferences"}));
-    expect(screen.getByRole("dialog", {name: "Target information"})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22");
+    fireEvent.click(screen.getAllByRole("button", {name: "Open target information preferences"})[0]);
+    expect(screen.getByRole("dialog", {name: "Target Information"})).toBeInTheDocument();
   });
 
   it("opens the selected flight's on-demand route detail without changing the board state", () => {
@@ -211,11 +229,11 @@ describe("complete AMAN timeline and strips", () => {
     });
 
     renderBoard(overlapping);
-    expect(screen.getByTestId("operational-marker-flight-123").parentElement).toHaveClass("-translate-x-full");
-    expect(screen.getByTestId("operational-marker-flight-124").parentElement).toHaveClass("-translate-x-full");
+    expect(screen.getByTestId("operational-marker-flight-123")).toHaveClass("-translate-x-full");
+    expect(screen.getByTestId("operational-marker-flight-124")).toHaveClass("-translate-x-full");
   });
 
-  it("shows one runway group at a time and splits its flights by holding", () => {
+  it("keeps the FMP overview complete while runway selection remains local", () => {
     const multiRunwayState = state();
     multiRunwayState.runway_groups.push({id: "ARRIVAL-04"});
     multiRunwayState.flights.push({
@@ -228,23 +246,29 @@ describe("complete AMAN timeline and strips", () => {
     });
 
     renderBoard(multiRunwayState);
-    expect(screen.getByTestId("holding-timeline-lane-ROSBI")).toBeInTheDocument();
-    expect(screen.queryByTestId("holding-timeline-lane-TIDVU")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SKY404/})).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", {name: "ARRIVAL-22"}));
     fireEvent.click(screen.getByRole("checkbox", {name: /ARRIVAL-04/}));
-    expect(screen.getByTestId("holding-timeline-lane-TIDVU")).toBeInTheDocument();
-    expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Cancel"}));
+    expect(screen.getByRole("button", {name: /Select SKY404/})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
   });
 
   it("switches to active runway timelines with the local horizon scale", () => {
     renderBoard(state());
 
     expect(screen.getByText("10:00–10:30 UTC · 30 min")).toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "720px"});
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "960px"});
+    const scrollRail = screen.getByRole("scrollbar", {name: "Timeline scroll position"});
+    expect(scrollRail).toHaveAttribute("tabindex", "0");
+    fireEvent.keyDown(scrollRail, {key: "Home"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
+    fireEvent.keyDown(scrollRail, {key: "End"});
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "960");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("rwy-lane-ARRIVAL-22")).toBeInTheDocument();
-    expect(screen.queryByTestId("holding-timeline-lane-ROSBI")).not.toBeInTheDocument();
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");
   });
 
@@ -296,7 +320,9 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByRole("button", {name: /Select SAS123.*emphasized STAR family/})).toHaveAttribute("data-emphasis", "primary");
     const subdued = screen.getByRole("button", {name: /Select TUDLO2.*other STAR family/});
     expect(subdued).toHaveAttribute("data-emphasis", "subdued");
-    expect(subdued).toHaveClass("bg-[#686868]");
+    expect(subdued).toHaveClass("text-[#686868]");
+    expect(screen.getByRole("button", {name: /Select SAS123.*emphasized STAR family/})).toHaveClass("text-[#96d796]");
+    expect(screen.queryByText("★ TESPI")).not.toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
 
     fireEvent.change(screen.getByRole("combobox", {name: "ACC STAR family emphasis"}), {target: {value: "ALL"}});

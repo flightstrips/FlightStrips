@@ -34,6 +34,7 @@ namespace flightstrips::euroscope::v1 {
     class CreateFPLEvent;
     class PdcStateChangeEvent;
     class SendPrivateMessageEvent;
+    class HoldEvent;
 }
 
 namespace FlightStrips::websocket::protobuf {
@@ -71,4 +72,5 @@ namespace FlightStrips::websocket::protobuf {
     void Decode(const wire::CreateFPLEvent& source, CreateFPLEvent& target);
     void Decode(const wire::PdcStateChangeEvent& source, PdcStateChangeEvent& target);
     void Decode(const wire::SendPrivateMessageEvent& source, SendPrivateMessageEvent& target);
+    void Decode(const wire::HoldEvent& source, HoldEvent& target);
 }

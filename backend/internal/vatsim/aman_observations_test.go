@@ -147,6 +147,16 @@ func TestPreserveNewerObservationFactsKeepsFirstTakeoffDetection(t *testing.T) {
 	require.Equal(t, first, *preserved.TakeoffDetected)
 }
 
+func TestPlannedTimingIgnoresZeroEnrouteDuration(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+
+	timing := plannedTiming(now, FlightPlan{EOBT: "1130", EnrouteDuration: "0000"})
+
+	require.NotNil(t, timing)
+	require.NotNil(t, timing.EstimatedOffBlockTime)
+	require.Nil(t, timing.EstimatedEnrouteTime)
+}
+
 func TestWakeCategoryAndRequestedLevelMappingRejectInvalidSourceValues(t *testing.T) {
 	for _, test := range []struct {
 		aircraft, level string

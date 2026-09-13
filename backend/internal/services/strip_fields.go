@@ -1,6 +1,7 @@
 package services
 
 import (
+	"FlightStrips/internal/config"
 	"FlightStrips/internal/database"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
@@ -9,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -152,7 +154,15 @@ func (s *StripService) UpdateHold(ctx context.Context, session int32, callsign s
 		return nil
 	}
 	s.publisher.SendHoldEvent(session, callsign, hold, holdType, holdEat)
-	return nil
+	if s.holdingObserver == nil {
+		return nil
+	}
+	strip, err := s.stripReader.GetByCallsign(ctx, session, callsign)
+	shared.AddDBOperations(ctx, 1)
+	if err != nil {
+		return err
+	}
+	return s.observeHoldingClearance(ctx, strip)
 }
 
 // UpdateCommunicationType updates the communication type for a strip and notifies the frontend.
@@ -316,6 +326,19 @@ func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign 
 	if err != nil {
 		return err
 	}
+	ignore, err := s.shouldIgnoreRemoteDepartureStand(ctx, session, strip)
+	if err != nil {
+		return err
+	}
+	if ignore {
+		slog.DebugContext(ctx, "Ignoring EuroScope stand update for departure outside its origin airport",
+			slog.Int("session", int(session)),
+			slog.String("callsign", callsign),
+			slog.String("origin", strip.Origin),
+			slog.String("destination", strip.Destination),
+			slog.String("received_stand", stand))
+		return nil
+	}
 
 	count, err := s.fieldStore.UpdateStand(ctx, session, callsign, &stand, nil)
 	if err != nil {
@@ -342,6 +365,32 @@ func (s *StripService) UpdateStand(ctx context.Context, session int32, callsign 
 		return err
 	}
 	return nil
+}
+
+func (s *StripService) shouldIgnoreRemoteDepartureStand(ctx context.Context, sessionID int32, strip *internalModels.Strip) (bool, error) {
+	if strip == nil || s.sessionRepo == nil {
+		return false, nil
+	}
+
+	session, err := s.sessionRepo.GetByID(ctx, sessionID)
+	shared.AddDBOperations(ctx, 1)
+	if err != nil {
+		return false, err
+	}
+	if session == nil || !strings.EqualFold(strings.TrimSpace(strip.Origin), strings.TrimSpace(session.Airport)) ||
+		strings.EqualFold(strings.TrimSpace(strip.Destination), strings.TrimSpace(session.Airport)) {
+		return false, nil
+	}
+	if strip.Bay == shared.BAY_AIRBORNE || strip.Bay == shared.BAY_HIDDEN_DEP {
+		return true, nil
+	}
+	if strip.PositionLatitude == nil || strip.PositionLongitude == nil ||
+		(*strip.PositionLatitude == 0 && *strip.PositionLongitude == 0) {
+		return false, nil
+	}
+
+	airportLatitude, airportLongitude := config.GetAirportCoordinates()
+	return shared.GetDistance(*strip.PositionLatitude, *strip.PositionLongitude, airportLatitude, airportLongitude) > shared.RelevantDistance, nil
 }
 
 // notifyStripUpdate broadcasts a strip_update to frontend clients.

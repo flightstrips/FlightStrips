@@ -20,6 +20,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/repository/postgres"
+	"FlightStrips/internal/vatsim"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 
@@ -68,11 +69,15 @@ func (s sessionArrivalRunwaySource) ActiveArrivalRunway(ctx context.Context, air
 }
 
 type amanTransport struct {
-	repository      aman.AirportStateReader
-	geometry        navdata.GeometrySnapshotReader
-	mode            aman.RolloutMode
-	health          aman.TechnicalHealthReporter
-	gainLossEnabled bool
+	repository        aman.AirportStateReader
+	geometry          navdata.GeometrySnapshotReader
+	mode              aman.RolloutMode
+	health            aman.TechnicalHealthReporter
+	vatsimSource      vatsim.SnapshotSource
+	vatsimStaleAfter  time.Duration
+	now               func() time.Time
+	gainLossEnabled   bool
+	holdingEATEnabled bool
 
 	mu           sync.RWMutex
 	frontendHub  *internalFrontend.Hub
@@ -87,7 +92,8 @@ func (*amanTransport) Name() string { return "AMAN frontend state publisher" }
 func (p *amanTransport) setHubs(frontendHub *internalFrontend.Hub, euroscopeHub *internalEuroscope.Hub) {
 	p.mu.Lock()
 	p.frontendHub = frontendHub
-	if p.gainLossEnabled {
+	// EuroScope outputs are independently controlled by backend rollout gates.
+	if p.gainLossEnabled || p.holdingEATEnabled {
 		p.euroscopeHub = euroscopeHub
 	} else {
 		p.euroscopeHub = nil
@@ -100,8 +106,24 @@ func (p *amanTransport) CurrentAMANState(ctx context.Context, airport string) (f
 	if err != nil {
 		return frontendEvents.AMANStateEvent{}, err
 	}
-	health := p.health.TechnicalHealth(ctx)
+	health := p.currentTechnicalHealth(ctx)
 	return p.newStateEvent(ctx, state, health)
+}
+
+func (p *amanTransport) currentTechnicalHealth(ctx context.Context) aman.TechnicalHealth {
+	health := p.health.TechnicalHealth(ctx)
+	if p.vatsimSource == nil {
+		return health
+	}
+	now := time.Now
+	if p.now != nil {
+		now = p.now
+	}
+	health.VATSIM = amanVATSIMHealth(p.vatsimSource, p.vatsimStaleAfter, now)
+	return aman.EvaluateTechnicalHealth(
+		health.Mode, health.VATSIM, health.Navigation, health.Weather,
+		health.Repository, health.Predictor, health.ReplayValidation,
+	)
 }
 
 func (p *amanTransport) newStateEvent(ctx context.Context, state aman.AirportState, health aman.TechnicalHealth) (frontendEvents.AMANStateEvent, error) {
@@ -128,6 +150,65 @@ func (p *amanTransport) CurrentAMANGainLoss(ctx context.Context, airport string)
 	return event, err
 }
 
+func (p *amanTransport) CurrentAMANHoldingEAT(ctx context.Context, airport string) ([]euroscopeEvents.HoldEvent, error) {
+	if !p.holdingEATEnabled {
+		return nil, nil
+	}
+	state, err := p.repository.LoadAirportState(ctx, airport)
+	if err != nil {
+		return nil, err
+	}
+	// Reconnect repair must replay the authoritative value even when the
+	// backend already stores it: TopSky receives EAT as a transient command.
+	return p.holdingEATEvents(ctx, state, false), nil
+}
+
+func (p *amanTransport) newHoldingEATEvents(ctx context.Context, state aman.AirportState) []euroscopeEvents.HoldEvent {
+	return p.holdingEATEvents(ctx, state, true)
+}
+
+func (p *amanTransport) holdingEATEvents(ctx context.Context, state aman.AirportState, suppressCurrent bool) []euroscopeEvents.HoldEvent {
+	if !p.holdingEATEnabled || !state.Authoritative || !p.currentTechnicalHealth(ctx).AuthorityAllowed || p.geometry == nil {
+		return nil
+	}
+	snapshot, err := p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	if err != nil {
+		return nil
+	}
+	holdingFixes := make(map[navdata.HoldingID]navdata.FixID, len(snapshot.Holdings))
+	for _, holding := range snapshot.Holdings {
+		holdingFixes[holding.ID] = holding.Fix
+	}
+
+	events := make([]euroscopeEvents.HoldEvent, 0)
+	for _, flight := range state.Flights {
+		clearance := flight.HoldingClearance
+		prediction := flight.Prediction
+		stack := flight.HoldingStack
+		if clearance == nil || clearance.Hold == "" || clearance.HoldType != aman.HoldingClearanceEnroute ||
+			prediction == nil || prediction.HoldingPlan == nil || stack == nil || !stack.Confirmed ||
+			flight.SelectedHolding == nil || stack.HoldingID != *flight.SelectedHolding {
+			continue
+		}
+		selectedFix, found := holdingFixes[navdata.HoldingID(*flight.SelectedHolding)]
+		if !found || !strings.EqualFold(strings.TrimSpace(clearance.Hold), string(selectedFix)) {
+			continue
+		}
+
+		eat := prediction.HoldingPlan.ApproachReleaseTime.UTC().Format("1504")
+		if suppressCurrent && clearance.HoldEAT == eat {
+			continue
+		}
+		events = append(events, euroscopeEvents.HoldEvent{
+			Callsign: flight.CurrentCallsign,
+			Hold:     clearance.Hold,
+			HoldType: string(clearance.HoldType),
+			HoldEat:  eat,
+		})
+	}
+	return events
+}
+
 func (p *amanTransport) newGainLossEvent(ctx context.Context, state aman.AirportState) (euroscopeEvents.AMANGainLossEvent, error) {
 	event, err := euroscopeEvents.NewAMANGainLossEvent(state)
 	if err != nil {
@@ -135,12 +216,12 @@ func (p *amanTransport) newGainLossEvent(ctx context.Context, state aman.Airport
 	}
 	// Persisted authority describes the state when it was committed. Transport
 	// consumers must also observe the current technical authority gate.
-	event.Authoritative = event.Authoritative && p.health.TechnicalHealth(ctx).AuthorityAllowed
+	event.Authoritative = event.Authoritative && p.currentTechnicalHealth(ctx).AuthorityAllowed
 	return event, nil
 }
 
 func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.AirportState) error {
-	health := p.health.TechnicalHealth(ctx)
+	health := p.currentTechnicalHealth(ctx)
 	event, err := p.newStateEvent(ctx, state, health)
 	if err != nil {
 		return err
@@ -156,9 +237,12 @@ func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.Airport
 	if frontendHub != nil {
 		frontendHub.PublishAMANStateEvent(event)
 	}
-	if euroscopeHub != nil {
+	if euroscopeHub != nil && p.gainLossEnabled {
 		p.rememberGainLossAuthority(gainLoss)
 		euroscopeHub.PublishAMANGainLoss(gainLoss)
+	}
+	if euroscopeHub != nil && p.holdingEATEnabled {
+		euroscopeHub.PublishAMANHoldingEAT(state.Airport, p.newHoldingEATEvents(ctx, state))
 	}
 	return nil
 }
@@ -176,28 +260,35 @@ func (p *amanTransport) rememberGainLossAuthority(event euroscopeEvents.AMANGain
 // It emits only when current technical health changes the authority projected
 // to EuroScope, retaining the aggregate revision and payload.
 func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.AirportState) error {
-	if !p.gainLossEnabled {
+	if !p.gainLossEnabled && !p.holdingEATEnabled {
 		return nil
 	}
-	event, err := p.newGainLossEvent(ctx, state)
-	if err != nil {
-		return err
-	}
-	p.mu.Lock()
-	if p.lastGainLossAuthority == nil {
-		p.lastGainLossAuthority = map[string]bool{}
-	}
-	previous, known := p.lastGainLossAuthority[event.Airport]
-	p.lastGainLossAuthority[event.Airport] = event.Authoritative
+	p.mu.RLock()
 	hub := p.euroscopeHub
-	p.mu.Unlock()
-	if hub != nil && (!known || previous != event.Authoritative) {
-		hub.PublishAMANGainLoss(event)
+	p.mu.RUnlock()
+	if p.gainLossEnabled {
+		event, err := p.newGainLossEvent(ctx, state)
+		if err != nil {
+			return err
+		}
+		p.mu.Lock()
+		if p.lastGainLossAuthority == nil {
+			p.lastGainLossAuthority = map[string]bool{}
+		}
+		previous, known := p.lastGainLossAuthority[event.Airport]
+		p.lastGainLossAuthority[event.Airport] = event.Authoritative
+		p.mu.Unlock()
+		if hub != nil && (!known || previous != event.Authoritative) {
+			hub.PublishAMANGainLoss(event)
+		}
+	}
+	if hub != nil && p.holdingEATEnabled {
+		hub.PublishAMANHoldingEAT(state.Airport, p.newHoldingEATEvents(ctx, state))
 	}
 	return nil
 }
 
-func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Source, pool *pgxpool.Pool, now func() time.Time) (operationalAMANAssembly, error) {
+func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Source, vatsimSource vatsim.SnapshotSource, vatsimStaleAfter time.Duration, pool *pgxpool.Pool, now func() time.Time) (operationalAMANAssembly, error) {
 	if source == nil {
 		return operationalAMANAssembly{}, fmt.Errorf("AMAN requires an enabled navigation source")
 	}
@@ -210,10 +301,14 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 	}
 	amanRepository := postgres.NewAMANRepository(pool)
 	transport := &amanTransport{
-		repository:      amanRepository,
-		geometry:        source.Geometry,
-		mode:            config.Mode,
-		gainLossEnabled: config.EnableEuroScopeGainLoseTags,
+		repository:        amanRepository,
+		geometry:          source.Geometry,
+		mode:              config.Mode,
+		vatsimSource:      vatsimSource,
+		vatsimStaleAfter:  vatsimStaleAfter,
+		now:               now,
+		gainLossEnabled:   config.EnableEuroScopeGainLoseTags,
+		holdingEATEnabled: config.EnableHoldingEATWriteback,
 	}
 	aircraftEngines, err := appconfig.LoadAMANAircraftEngineReference()
 	if err != nil {
@@ -264,4 +359,5 @@ func validateTerminalAirportCoverage(terminalConfig terminal.Configuration, enab
 var _ sequence.FullStatePublisher = (*amanTransport)(nil)
 var _ internalFrontend.AMANStateProvider = (*amanTransport)(nil)
 var _ internalEuroscope.AMANGainLossProvider = (*amanTransport)(nil)
+var _ internalEuroscope.AMANHoldingEATProvider = (*amanTransport)(nil)
 var _ aman.Component = (*amanTransport)(nil)

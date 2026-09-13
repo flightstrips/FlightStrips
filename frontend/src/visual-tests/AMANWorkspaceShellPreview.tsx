@@ -18,7 +18,7 @@ const state = {
 createRoot(document.getElementById("root")!).render(
   <AMANWorkspaceShell
     maestro={<div className="grid h-full min-h-0 grid-rows-[clamp(7.5rem,13.333%,9rem)_minmax(0,1fr)]">
-      <AMANSettingsHeader connectionState="connected" onOpenTargetPreferences={() => undefined} onRunwayGroupViewChange={() => undefined} onViewChange={() => undefined} presentationStatus="ready" selectedRunwayGroupID="ARRIVAL-22" state={state} view="holds" />
+      <AMANSettingsHeader connectionState="connected" onRunwayGroupViewChange={() => undefined} onViewChange={() => undefined} presentationStatus="ready" selectedRunwayGroupID="ARRIVAL-22" state={state} view="holds" />
       <div data-testid="maestro-work-area" className="relative min-h-0 overflow-hidden border border-[#777] bg-[#555355]">
         <div className="absolute inset-x-0 bottom-0 h-1/6 border-t-2 border-[#9c0000] bg-[#3f3f3f]" />
         <div data-testid="timeline-reference" className="absolute bottom-8 left-1/2 top-8 w-12 -translate-x-1/2 border-2 border-[#dcdcdc]" />

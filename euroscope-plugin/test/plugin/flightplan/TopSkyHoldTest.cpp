@@ -4,6 +4,7 @@
 using FlightStrips::flightplan::ParseTopSkyHoldAnnotation;
 using FlightStrips::flightplan::ParseTopSkyHoldEat;
 using FlightStrips::flightplan::TopSkyHold;
+using FlightStrips::flightplan::BuildTopSkyHoldEatCommand;
 
 // Expected values were read off a live TopSky session:
 //   SP=[/HOLD/OLPIB/]  A6=[h/OLPIB/h]   at assignment
@@ -82,4 +83,14 @@ TEST(TopSkyHold, ParseEat_AbsentYieldsNothing) {
 
 TEST(TopSkyHold, ParseEat_UnterminatedYieldsNothing) {
     EXPECT_TRUE(ParseTopSkyHoldEat("/HOLD_EAT/1422").empty());
+}
+
+TEST(TopSkyHold, BuildsBackendEatPulseForMatchingEnrouteHold) {
+	EXPECT_EQ(BuildTopSkyHoldEatCommand(TopSkyHold{true, false, "OLPIB"}, "OLPIB", "enroute", "1422"), "/HOLD_EAT/1422/");
+}
+
+TEST(TopSkyHold, RejectsMismatchedOrInvalidBackendEatPulse) {
+	EXPECT_TRUE(BuildTopSkyHoldEatCommand(TopSkyHold{true, false, "ERNOV"}, "OLPIB", "enroute", "1422").empty());
+	EXPECT_TRUE(BuildTopSkyHoldEatCommand(TopSkyHold{true, true, "OLPIB"}, "OLPIB", "enroute", "1422").empty());
+	EXPECT_TRUE(BuildTopSkyHoldEatCommand(TopSkyHold{true, false, "OLPIB"}, "OLPIB", "enroute", "2460").empty());
 }

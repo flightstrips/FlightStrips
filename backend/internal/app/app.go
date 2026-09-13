@@ -218,7 +218,9 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 	}
 	var defaultAMAN operationalAMANAssembly
 	if amanEnabled && amanDependencies.ObservationSink == nil {
-		defaultAMAN, err = assembleOperationalAMAN(cfg.AMAN, navigationSource, dbpool, satNow)
+		defaultAMAN, err = assembleOperationalAMAN(
+			cfg.AMAN, navigationSource, vatsimGraph.source, satStaleAfter(deps.VATSIMPollInterval), dbpool, satNow,
+		)
 		if err != nil {
 			if closeDB {
 				dbpool.Close()
@@ -315,7 +317,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 			}
 		}
 	}
-	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanCoordination, amanRouteFacts, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled)
+	realtime, err := assembleRealtime(stripService, controllerService, authService, amanStateProvider, amanCommands, amanCoordination, amanRouteFacts, cfg.AMAN.FMPRoles, amanRuntime.Ownership().ControllerMutationAuthorized, amanRuntime.Ownership().EuroScopeGainLoseTagsEnabled, amanRuntime.Ownership().HoldingEATWritebackEnabled)
 	if err != nil {
 		if closeDB {
 			dbpool.Close()
@@ -732,7 +734,7 @@ type realtimeAssembly struct {
 	euroscope *euroscope.Hub
 }
 
-func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanCoordination *coordinationrequest.Service, amanRouteFacts euroscope.AMANRouteFactReporter, amanFMPRoles []string, amanMutations bool, amanGainLossEnabled bool) (realtimeAssembly, error) {
+func assembleRealtime(stripService shared.StripService, controllerService shared.ControllerService, authService shared.AuthenticationService, amanState frontend.AMANStateProvider, amanCommands aman.CommandService, amanCoordination *coordinationrequest.Service, amanRouteFacts euroscope.AMANRouteFactReporter, amanFMPRoles []string, amanMutations bool, amanGainLossEnabled bool, holdingEATEnabled bool) (realtimeAssembly, error) {
 	frontendHub, err := frontend.NewHub(frontend.HubDependencies{
 		Strips: stripService, Authentication: authService, AMANState: amanState, AMANCommands: amanCommands, AMANCoordination: amanCoordination, AMANFMPRoles: amanFMPRoles, AMANMutations: amanMutations,
 	})
@@ -740,12 +742,20 @@ func assembleRealtime(stripService shared.StripService, controllerService shared
 		return realtimeAssembly{}, fmt.Errorf("initialize frontend hub: %w", err)
 	}
 	euroscopeHub, err := euroscope.NewHub(euroscope.HubDependencies{
-		Strips: stripService, Controllers: controllerService, Authentication: authService, AMANGainLoss: asAMANGainLossProvider(amanState, amanGainLossEnabled), AMANRouteFacts: amanRouteFacts,
+		Strips: stripService, Controllers: controllerService, Authentication: authService, AMANGainLoss: asAMANGainLossProvider(amanState, amanGainLossEnabled), AMANHoldingEAT: asAMANHoldingEATProvider(amanState, holdingEATEnabled), AMANRouteFacts: amanRouteFacts,
 	})
 	if err != nil {
 		return realtimeAssembly{}, fmt.Errorf("initialize EuroScope hub: %w", err)
 	}
 	return realtimeAssembly{frontend: frontendHub, euroscope: euroscopeHub}, nil
+}
+
+func asAMANHoldingEATProvider(provider frontend.AMANStateProvider, enabled bool) euroscope.AMANHoldingEATProvider {
+	if provider == nil || !enabled {
+		return nil
+	}
+	result, _ := provider.(euroscope.AMANHoldingEATProvider)
+	return result
 }
 
 func asAMANGainLossProvider(provider frontend.AMANStateProvider, enabled bool) euroscope.AMANGainLossProvider {

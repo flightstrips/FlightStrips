@@ -52,7 +52,7 @@ func TestSubmitSupersedesSameKindButKeepsKindsIndependent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), created.Revision)
 
-	speed, err := New("speed-1", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindSpeed,
+	speed, err := New("speed-1", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKDK_FMP", KindSpeed,
 		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime.Add(time.Minute))
 	require.NoError(t, err)
 	independent, err := repository.Submit(ctx, speed, 1)
@@ -225,7 +225,7 @@ func TestTransferPendingIsAtomicTerminalSafeAndReplayIdempotent(t *testing.T) {
 	ctx := context.Background()
 	repository := NewRepository(pool)
 	route := routeRequest(t, "route-transfer", testTime)
-	speed, err := New("speed-transfer", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindSpeed,
+	speed, err := New("speed-transfer", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKDK_FMP", KindSpeed,
 		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime.Add(time.Second))
 	require.NoError(t, err)
 	accepted, err := routeRequest(t, "accepted", testTime).Decide("accept-terminal", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(time.Second))
@@ -286,7 +286,7 @@ func TestCorrelateAcceptedUsesLaterMatchingAuthoritativeFactOnly(t *testing.T) {
 	ctx := context.Background()
 	route, err := routeRequest(t, "route-clearance", testTime).Decide("accept-route", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(time.Minute))
 	require.NoError(t, err)
-	speed, err := New("speed-clearance", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindSpeed,
+	speed, err := New("speed-clearance", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKDK_FMP", KindSpeed,
 		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime)
 	require.NoError(t, err)
 	speed, err = speed.Decide("accept-speed", "7654321", "EKCH_APP", "EKCH_APP", StateAccepted, "", testTime.Add(time.Minute))
@@ -325,7 +325,7 @@ func TestTransferPendingRollsBackEveryRequestWhenPersistenceFails(t *testing.T) 
 	ctx := context.Background()
 	repository := NewRepository(pool)
 	route := routeRequest(t, "atomic-route", testTime)
-	speed, err := New("atomic-speed", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKCH_FMH", KindSpeed,
+	speed, err := New("atomic-speed", "EKCH", "flight-1", "EKCH_APP", "1234567", "EKDK_FMP", KindSpeed,
 		Payload{Speed: &SpeedPayload{Requested: "220 KT"}}, testTime.Add(time.Second))
 	require.NoError(t, err)
 	require.NoError(t, repository.Save(ctx, route))

@@ -181,17 +181,16 @@ func TestAssociateCidOnlineClients_AssociatesAllMatchingClients(t *testing.T) {
 func TestAssociateCidOnlineClients_RequestsNewSnapshotWhenAMANCapabilityChanges(t *testing.T) {
 	controllerCID := "1234567"
 	hub := &Hub{
-		clients:      map[*Client]bool{},
-		amanFMPRoles: map[string]struct{}{"EKCH_FMH": {}},
+		clients: map[*Client]bool{},
 		amanRoleForPosition: func(position string) string {
 			if position == "118.105" {
-				return "EKCH_FMH"
+				return "EKDK_FMP"
 			}
 			return "EKCH_A_TWR"
 		},
 		server: &testutil.MockServer{
 			ControllerRepoVal: &testutil.MockControllerRepository{GetByCidFn: func(context.Context, string) (*internalModels.Controller, error) {
-				return &internalModels.Controller{Cid: &controllerCID, Session: 42, Position: "118.105", Callsign: "EKCH_FMH"}, nil
+				return &internalModels.Controller{Cid: &controllerCID, Session: 42, Position: "118.105", Callsign: "EKDK_FMP"}, nil
 			}},
 			SessionRepoVal: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*internalModels.Session, error) {
 				return &internalModels.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}, nil
@@ -218,7 +217,7 @@ func TestAssociateCidOnlineClients_RequestsNewSnapshotWhenReadOnlyStatusChanges(
 		clients: map[*Client]bool{},
 		server: &testutil.MockServer{
 			ControllerRepoVal: &testutil.MockControllerRepository{GetByCidFn: func(context.Context, string) (*internalModels.Controller, error) {
-				return &internalModels.Controller{Cid: &controllerCID, Session: 42, Position: "118.105", Callsign: "EKCH_FMH"}, nil
+				return &internalModels.Controller{Cid: &controllerCID, Session: 42, Position: "118.105", Callsign: "EKDK_FMP"}, nil
 			}},
 			SessionRepoVal: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*internalModels.Session, error) {
 				return &internalModels.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}, nil
@@ -227,7 +226,7 @@ func TestAssociateCidOnlineClients_RequestsNewSnapshotWhenReadOnlyStatusChanges(
 		},
 	}
 	client := &Client{
-		hub: hub, session: 42, sessionName: "LIVE", position: "118.105", airport: "EKCH", callsign: "EKCH_FMH",
+		hub: hub, session: 42, sessionName: "LIVE", position: "118.105", airport: "EKCH", callsign: "EKDK_FMP",
 		user: validFrontendUser(controllerCID), readOnly: true,
 	}
 	hub.clients[client] = true

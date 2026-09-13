@@ -1023,7 +1023,7 @@ func TestSetActiveRunwayGroupsIsAtomicRevisionedAndIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	actions, err := sequence.NewActionService(coordinator, service)
 	require.NoError(t, err)
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	command := aman.SetActiveRunwayGroupsCommand{
 		Metadata:       aman.CommandMetadata{CommandID: "set-runways", ExpectedRevision: 7},
 		RunwayGroupIDs: []aman.RunwayGroupID{"ARRIVAL-04R", "ARRIVAL-04L"},
@@ -1036,7 +1036,7 @@ func TestSetActiveRunwayGroupsIsAtomicRevisionedAndIdempotent(t *testing.T) {
 	require.Equal(t, []aman.RunwayGroupID{"ARRIVAL-04L", "ARRIVAL-04R"}, repository.state.ActiveRunwayGroups)
 	require.Empty(t, repository.state.Flights)
 	require.Contains(t, string(first.Outcome.Payload), `"actor":"1234567"`)
-	require.Contains(t, string(first.Outcome.Payload), `"role":"EKCH_FMH"`)
+	require.Contains(t, string(first.Outcome.Payload), `"role":"EKDK_FMP"`)
 
 	retry, err := actions.SetActiveRunwayGroups(context.Background(), auth, command)
 	require.NoError(t, err)
@@ -1142,7 +1142,7 @@ func TestSetActiveRunwayGroupsRejectsUnknownIncompatibleAndMismatchedConfigurati
 		Airport: "EKCH", ActiveRunwayGroups: []aman.RunwayGroupID{"A"},
 		RunwayGroups: []aman.RunwayGroupPolicy{{ID: "A", Selected: true}, {ID: "B"}, {ID: "C"}},
 	}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 
 	for _, test := range []struct {
 		name   string

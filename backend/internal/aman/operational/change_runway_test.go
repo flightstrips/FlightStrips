@@ -24,7 +24,7 @@ func TestChangeRunwayIsProtectedAuditedRevisionedAndDurablyIdempotent(t *testing
 	repository := &memoryRepository{state: state, has: true}
 	publisher := &recordingPublisher{}
 	actions := recomputeActions(t, service, repository, publisher, now)
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	command := aman.ChangeRunwayCommand{Metadata: aman.CommandMetadata{CommandID: "runway-1", ExpectedRevision: state.Revision}, FlightID: flight.ID, RunwayGroupID: alternate}
 
 	first, err := actions.ChangeRunway(context.Background(), auth, command)
@@ -82,7 +82,7 @@ func TestChangeRunwayRejectsInactiveIncompatibleAndProtectedConflictAtomically(t
 			test.prepare(service, &state, alternate)
 			repository := &memoryRepository{state: state, has: true}
 			actions := recomputeActions(t, service, repository, &recordingPublisher{}, now)
-			_, err := actions.ChangeRunway(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}, aman.ChangeRunwayCommand{Metadata: aman.CommandMetadata{CommandID: test.name, ExpectedRevision: state.Revision}, FlightID: "flight-1", RunwayGroupID: test.requested})
+			_, err := actions.ChangeRunway(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, aman.ChangeRunwayCommand{Metadata: aman.CommandMetadata{CommandID: test.name, ExpectedRevision: state.Revision}, FlightID: "flight-1", RunwayGroupID: test.requested})
 			requireDomainClass(t, err, test.class)
 			require.Empty(t, repository.commits)
 			require.Equal(t, state, repository.state)
@@ -114,7 +114,7 @@ func TestChangeRunwayPreservesEveryProtectedOrderingContract(t *testing.T) {
 				flight.FrozenAt, flight.FrozenOperationalTETA, flight.FrozenSlot = &frozenAt, &frozenTETA, &frozenSlot
 			}
 			beforeTime, beforeOrder := flight.Slot.Time, flight.ManualOrder
-			mutation, err := service.ChangeRunway(aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}, aman.ChangeRunwayCommand{FlightID: flight.ID, RunwayGroupID: alternate})
+			mutation, err := service.ChangeRunway(aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, aman.ChangeRunwayCommand{FlightID: flight.ID, RunwayGroupID: alternate})
 			require.NoError(t, err)
 			change, err := mutation(state)
 			require.NoError(t, err)

@@ -109,14 +109,13 @@ func TestOnRegister_DerivesAMANFMPCapabilityFromAuthenticatedServerRole(t *testi
 		role       string
 		authorized bool
 	}{
-		{name: "authorized FMP", role: "EKCH_FMH", authorized: true},
+		{name: "authorized FMP", role: "EKDK_FMP", authorized: true},
 		{name: "unauthorized controller", role: "EKCH_A_TWR", authorized: false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			hub := newAMANInitialTestHub(t, nil)
-			hub.amanFMPRoles = map[string]struct{}{"EKCH_FMH": {}}
 			hub.amanRoleForPosition = func(string) string { return test.role }
 			client := startQueuedTestClient(&Client{
 				hub: hub, session: 42, position: "118.105", airport: "EKCH", callsign: test.role,
@@ -133,11 +132,10 @@ func TestOnRegister_DerivesAMANFMPCapabilityFromAuthenticatedServerRole(t *testi
 }
 
 func TestOnRegister_DerivesAMANFMPCapabilityFromCallsignAtPrimedFrequency(t *testing.T) {
-	t.Cleanup(config.SetPositionsForTest([]config.Position{{Name: "EKCH_FMH", Frequency: "120.500"}}))
+	t.Cleanup(config.SetPositionsForTest([]config.Position{{Name: "EKDK_FMP", Frequency: "131.040"}}))
 	hub := newAMANInitialTestHub(t, nil)
-	hub.amanFMPRoles = map[string]struct{}{"EKCH_FMH": {}}
 	client := startQueuedTestClient(&Client{
-		hub: hub, session: 42, position: "131.040", airport: "EKCH", callsign: "EKCH_FMH",
+		hub: hub, session: 42, position: "131.040", airport: "EKCH", callsign: "EKDK_FMP",
 		user: validFrontendUser("1234567"), send: make(chan events.OutgoingMessage, 2),
 	})
 

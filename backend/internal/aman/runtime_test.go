@@ -98,8 +98,6 @@ func TestRuntimeRejectsInvalidConfiguration(t *testing.T) {
 	}{
 		{"airport", func(c *RuntimeConfig) { c.EnabledAirports = []string{"bad"} }, "ICAO"},
 		{"duplicate airport", func(c *RuntimeConfig) { c.EnabledAirports = []string{" EKCH ", "ekch"} }, "unique"},
-		{"FMP role", func(c *RuntimeConfig) { c.FMPRoles = []string{"EKCH APP"} }, "position name"},
-		{"duplicate FMP role", func(c *RuntimeConfig) { c.FMPRoles = []string{" EKCH_FMH ", "ekch_fmh"} }, "unique"},
 		{"reconciliation timing", func(c *RuntimeConfig) { c.ReconciliationInterval = -time.Second }, "reconciliation interval"},
 		{"surveillance timing", func(c *RuntimeConfig) { c.SurveillanceInterval = -time.Second }, "surveillance interval"},
 	}
@@ -140,14 +138,12 @@ func TestRuntimeStoresNormalizedConfiguration(t *testing.T) {
 	config := validRuntimeConfig(ModeShadow)
 	config.Mode = " SHADOW "
 	config.EnabledAirports = []string{" ekch ", "ekrn"}
-	config.FMPRoles = []string{" ekch_fmh ", "ekdk_v_ctr"}
 
 	runtime, err := NewRuntime(config, runtimeTestDependencies())
 	require.NoError(t, err)
 	require.Equal(t, RuntimeConfig{
 		Mode:                   ModeShadow,
 		EnabledAirports:        []string{"EKCH", "EKRN"},
-		FMPRoles:               []string{"EKCH_FMH", "EKDK_V_CTR"},
 		ReconciliationInterval: 3 * time.Second,
 		SurveillanceInterval:   4 * time.Second,
 	}, runtime.Config())

@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"FlightStrips/internal/aman"
@@ -357,12 +356,10 @@ func (s *Service) RemoveFlight(auth aman.CommandContext, command aman.RemoveFlig
 }
 
 func (s *Service) authorizeFlightDisposition(auth aman.CommandContext) error {
-	for _, role := range s.deps.FMPRoles {
-		if strings.EqualFold(strings.TrimSpace(role), auth.Role) {
-			return nil
-		}
+	if aman.IsFMPRole(auth.Role) {
+		return nil
 	}
-	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "flight disposition command requires a configured FMP role"}
+	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "flight disposition command requires an FMP role"}
 }
 
 func (s *Service) dispositionChange(state aman.AirportState, changed bool, action string, auth aman.CommandContext, before, after aman.AMANFlight) (sequence.CommandChange, error) {
@@ -764,12 +761,10 @@ func (s *Service) RemoveRunwayGap(auth aman.CommandContext, command aman.RemoveR
 }
 
 func (s *Service) authorizeRunwayGap(auth aman.CommandContext) error {
-	for _, role := range s.deps.FMPRoles {
-		if strings.EqualFold(strings.TrimSpace(role), auth.Role) {
-			return nil
-		}
+	if aman.IsFMPRole(auth.Role) {
+		return nil
 	}
-	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "runway capacity command requires a configured FMP role"}
+	return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "runway capacity command requires an FMP role"}
 }
 
 func runwayGroupIndex(groups []aman.RunwayGroupPolicy, id aman.RunwayGroupID) int {

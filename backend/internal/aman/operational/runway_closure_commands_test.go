@@ -23,7 +23,7 @@ func TestRunwayClosureCommandsNormalizeRetryAcrossRestartAndRemove(t *testing.T)
 		Airport: "EKCH", Revision: 7, GeneratedAt: now.Add(-time.Minute), PolicyVersion: "closure-v1", Mode: aman.ModeAuthoritative,
 		Flights: []aman.AMANFlight{anchor}, RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 60, RateEffectiveAt: &rateAt}},
 	}}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	end := now.Add(20 * time.Minute)
 	explicitStart := now.Add(10 * time.Minute)
 	explicit := aman.CreateRunwayClosureCommand{
@@ -114,7 +114,7 @@ func TestCreateRunwayClosureReplaysDeterministically(t *testing.T) {
 		Metadata: aman.CommandMetadata{CommandID: "deterministic", ExpectedRevision: 3},
 		Interval: aman.RunwayClosureIntervalInput{RunwayGroupID: "north", Start: &start, End: &end}, Reason: "inspection",
 	}
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	commits := make([][]byte, 0, 2)
 	for range 2 {
 		repository := &memoryRepository{has: true, state: cloneGapState(t, initial)}
@@ -206,13 +206,13 @@ func closureActions(t *testing.T, repository *memoryRepository, now time.Time) *
 	config := terminal.Configuration{Airport: "EKCH", RunwayGroups: []terminal.RunwayGroup{{ID: "north"}, {ID: "south"}}, Paths: []terminal.Path{
 		{Feeder: "MONAK", RunwayGroup: "north"}, {Feeder: "MONAK", RunwayGroup: "south"},
 	}}
-	actions, err := sequence.NewActionService(coordinator, &Service{deps: Dependencies{FMPRoles: []string{"EKCH_FMH"}, Terminal: config}})
+	actions, err := sequence.NewActionService(coordinator, &Service{deps: Dependencies{Terminal: config}})
 	require.NoError(t, err)
 	return actions
 }
 
 func closureAuth(now time.Time) aman.CommandContext {
-	return aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	return aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 }
 
 func TestReconciliationExpiresFiniteClosuresAtExclusiveEndExactlyOnce(t *testing.T) {

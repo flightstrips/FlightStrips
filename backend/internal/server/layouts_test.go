@@ -101,12 +101,12 @@ func TestUpdateLayoutsContext_UsesCallsignRoleAtActualPrimedFrequency(t *testing
 	assert.Equal(t, map[string]string{"119.805": "TWR"}, layouts)
 }
 
-func TestUpdateLayoutsContext_AssignsAMANToFMHAtPrimedFrequency(t *testing.T) {
+func TestUpdateLayoutsContext_AssignsAMANToFMPAtPrimedFrequency(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
-		{Name: "EKCH_FMH", Frequency: "120.500"},
+		{Name: "EKDK_FMP", Frequency: "131.040"},
 	}))
 	t.Cleanup(config.SetLayoutsForTest(map[string][]config.LayoutVariant{
-		"EKCH_FMH": {{Layout: "AMAN"}},
+		"EKDK_FMP": {{Layout: "AMAN"}},
 	}))
 
 	ctx := shared.WithSyncState(context.Background(), &shared.SyncState{
@@ -118,7 +118,7 @@ func TestUpdateLayoutsContext_AssignsAMANToFMHAtPrimedFrequency(t *testing.T) {
 			},
 		},
 		ExistingControllers: map[string]*models.Controller{
-			"EKCH_FMH": {Callsign: "EKCH_FMH", Position: "131.040"},
+			"EKDK_FMP": {Callsign: "EKDK_FMP", Position: "131.040"},
 		},
 	})
 

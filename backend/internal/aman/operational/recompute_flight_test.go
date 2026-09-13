@@ -17,7 +17,7 @@ func TestRecomputeFlightIsRevisionCheckedAuditedAndDurablyIdempotent(t *testing.
 	repository := &memoryRepository{state: state, has: true}
 	publisher := &recordingPublisher{}
 	actions := recomputeActions(t, service, repository, publisher, now)
-	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	command := aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "recompute-1", ExpectedRevision: state.Revision}, FlightID: "flight-1"}
 
 	first, err := actions.RecomputeFlight(context.Background(), auth, command)
@@ -26,7 +26,7 @@ func TestRecomputeFlightIsRevisionCheckedAuditedAndDurablyIdempotent(t *testing.
 	require.False(t, first.Duplicate)
 	require.Equal(t, state.Revision+1, first.CurrentRevision)
 	require.Len(t, publisher.states, 1, "the replacement state is the server confirmation")
-	require.JSONEq(t, `{"action":"recompute_flight","actor":"1234567","airport":"EKCH","changed":true,"flight_id":"flight-1","input_observed_at":"2026-09-11T12:00:00Z","received_at":"2026-09-11T12:01:00Z","role":"EKCH_FMH"}`, string(repository.commits[0].AuditRecords[0].Payload))
+	require.JSONEq(t, `{"action":"recompute_flight","actor":"1234567","airport":"EKCH","changed":true,"flight_id":"flight-1","input_observed_at":"2026-09-11T12:00:00Z","received_at":"2026-09-11T12:01:00Z","role":"EKDK_FMP"}`, string(repository.commits[0].AuditRecords[0].Payload))
 
 	retry, err := actions.RecomputeFlight(context.Background(), auth, command)
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestRecomputeFlightPreservesFrozenOperationalSlotAndProtectedOrder(t *testi
 	other := protectedOperationalFlight("flight-2", *flight.SelectedRunwayGroup, flight.STARFamilyIdentity(), "L", frozenTETA.Add(3*time.Minute), 2, aman.FreezeManual)
 	state.Flights = append(state.Flights, other)
 
-	mutation, err := service.RecomputeFlight(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}, aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "frozen", ExpectedRevision: state.Revision}, FlightID: flight.ID})
+	mutation, err := service.RecomputeFlight(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "frozen", ExpectedRevision: state.Revision}, FlightID: flight.ID})
 	require.NoError(t, err)
 	change, err := mutation(state)
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestRecomputeFlightPredictionFailureIsAtomic(t *testing.T) {
 	service.deps.Geometry = unavailableGeometry{}
 	repository := &memoryRepository{state: state, has: true}
 	actions := recomputeActions(t, service, repository, &recordingPublisher{}, now)
-	_, err := actions.RecomputeFlight(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKCH_FMH", ReceivedAt: now}, aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "failure", ExpectedRevision: state.Revision}, FlightID: "flight-1"})
+	_, err := actions.RecomputeFlight(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "failure", ExpectedRevision: state.Revision}, FlightID: "flight-1"})
 	require.Error(t, err)
 	require.Empty(t, repository.commits)
 	require.Equal(t, state, repository.state)

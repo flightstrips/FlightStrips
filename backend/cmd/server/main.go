@@ -252,7 +252,6 @@ func amanConfigFromEnv() (aman.RuntimeConfig, error) {
 		config.Mode = aman.RolloutMode(strings.ToLower(value))
 	}
 	config.EnabledAirports = splitEnvList(os.Getenv("AMAN_ENABLED_AIRPORTS"))
-	config.FMPRoles = splitEnvList(os.Getenv("AMAN_FMP_ROLES"))
 	config.EnableEuroScopeGainLoseTags = envBool("ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", false)
 	config.EnableHoldingEATWriteback = envBool("ENABLE_AMAN_HOLDING_EAT_WRITEBACK", false)
 

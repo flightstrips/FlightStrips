@@ -62,7 +62,7 @@ vi.mock("@/components/aman/TMTTrafficPrediction", () => ({
 }));
 
 vi.mock("@/components/aman/TMTHoldingGraph", () => ({
-  TMTHoldingGraph: (props: {entries: unknown; holding?: string}) => {
+  TMTHoldingGraph: (props: {compact?: boolean; entries: unknown; holding?: string}) => {
     holdingSpy(props);
     return <div>TMT holding</div>;
   },
@@ -123,8 +123,8 @@ describe("AMAN route authorization", () => {
     expect(screen.getByText("TMT traffic")).toBeInTheDocument();
     expect(screen.getAllByText("TMT holding")).toHaveLength(6);
     expect(tmtSpy).toHaveBeenCalledWith({prediction: trafficPrediction});
-    expect(holdingSpy).toHaveBeenCalledWith({entries: [holdingInformation[0]], holding: "OLPIB"});
-    expect(holdingSpy).toHaveBeenCalledWith({entries: [holdingInformation[1]], holding: "NEWIX"});
+    expect(holdingSpy).toHaveBeenCalledWith({compact: true, entries: [holdingInformation[0]], holding: "OLPIB"});
+    expect(holdingSpy).toHaveBeenCalledWith({compact: true, entries: [holdingInformation[1]], holding: "NEWIX"});
   });
 
   it("opens and closes the existing detail view for the activated target", () => {

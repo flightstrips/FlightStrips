@@ -175,16 +175,6 @@ body.public-content-page {
     @apply mt-2 grid min-h-0 gap-1 overflow-x-auto overflow-y-hidden;
   }
 
-  .aman-tmt-holdings > section > header,
-  .aman-tmt-holdings > section > footer {
-    @apply hidden;
-  }
-
-  .aman-tmt-holdings .tmt-holding-entry {
-    grid-template-columns: 2.5rem minmax(3rem, 1fr) 2rem;
-    @apply text-[8px];
-  }
-
   .aman-tmt-notices {
     grid-row: 4;
     @apply grid min-h-0 grid-cols-2 gap-2 overflow-hidden;

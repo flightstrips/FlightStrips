@@ -22,14 +22,21 @@ namespace FlightStrips::TagItems {
     }
 
     AMANGainLossHandler::AMANGainLossHandler(std::shared_ptr<aman::AMANGainLossStore> store,
-                                             std::function<bool()> connected)
-        : store_(std::move(store)), connected_(std::move(connected)) {}
+                                             std::function<bool()> connected,
+                                             std::function<std::string()> currentAirport)
+        : store_(std::move(store)), connected_(std::move(connected)), currentAirport_(std::move(currentAirport)) {}
 
     void AMANGainLossHandler::Handle(EuroScopePlugIn::CFlightPlan flightPlan, EuroScopePlugIn::CRadarTarget,
                                      int, int, char sItemString[16], int* pColorCode,
                                      COLORREF* pRGB, double*) {
         const auto callsign = flightPlan.IsValid() ? std::string(flightPlan.GetCallsign()) : std::string{};
-        const auto presentation = Resolve(connected_ && connected_(), store_ ? store_->Snapshot() : nullptr, callsign);
+        const auto destination = flightPlan.IsValid()
+            ? std::string(flightPlan.GetFlightPlanData().GetDestination())
+            : std::string{};
+        const auto currentAirport = currentAirport_ ? currentAirport_() : std::string{};
+        const auto presentation = Resolve(
+            connected_ && connected_(), store_ ? store_->Snapshot() : nullptr, callsign, destination, currentAirport);
+        if (presentation.text.empty()) return;
         std::snprintf(sItemString, 16, "%s", presentation.text.c_str());
         if (pColorCode != nullptr) *pColorCode = TagColorRGBDefinedValue;
         if (pRGB != nullptr) *pRGB = presentation.color;
@@ -48,7 +55,10 @@ namespace FlightStrips::TagItems {
 
     auto AMANGainLossHandler::Resolve(const bool connected,
                                       const std::shared_ptr<const aman::GainLossSnapshot>& snapshot,
-                                      const std::string& callsign) -> AMANGainLossPresentation {
+                                      const std::string& callsign, const std::string& destination,
+                                      const std::string& currentAirport) -> AMANGainLossPresentation {
+        const auto normalizedAirport = Normalize(currentAirport);
+        if (normalizedAirport.empty() || Normalize(destination) != normalizedAirport) return {"", ActiveTagColor};
         if (!connected || !snapshot || !snapshot->authoritative) return {"----", ActiveTagColor};
         const auto index = snapshot->flightIdByCallsign.find(Normalize(callsign));
         if (index == snapshot->flightIdByCallsign.end()) return {"----", ActiveTagColor};

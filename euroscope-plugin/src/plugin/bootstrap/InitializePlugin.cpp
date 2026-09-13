@@ -83,11 +83,16 @@ namespace FlightStrips {
             this->container->authenticationService, this->container->plugin,
             this->container->connectionEventHandlers, this->container->messageHandlers);
         const auto weakWebSocket = std::weak_ptr<websocket::WebSocketService>(this->container->webSocketService);
+        const auto weakPlugin = std::weak_ptr<FlightStripsPlugin>(this->container->plugin);
         this->container->amanGainLossHandler = std::make_shared<TagItems::AMANGainLossHandler>(
             this->container->amanGainLossStore,
             [weakWebSocket] {
                 const auto webSocket = weakWebSocket.lock();
                 return webSocket && webSocket->IsConnected();
+            },
+            [weakPlugin] {
+                const auto plugin = weakPlugin.lock();
+                return plugin ? plugin->GetConnectionState().relevant_airport : std::string{};
             });
         this->container->tagItemHandlers->RegisterHandler(
             this->container->amanGainLossHandler, TAG_ITEM_AMAN_GAIN_LOSS);

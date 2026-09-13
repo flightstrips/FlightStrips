@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.1.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.0.0...plugin/v2.1.0) (2026-09-13)
+
+
+### Features
+
+* **aman:** add feeder-fix ETA state ([#633](https://github.com/flightstrips/FlightStrips/issues/633)) ([383cec0](https://github.com/flightstrips/FlightStrips/commit/383cec05939b4002daf6c9117248ace36e666fe5))
+* **aman:** expose explicit terminal identities ([#631](https://github.com/flightstrips/FlightStrips/issues/631)) ([86b7ae9](https://github.com/flightstrips/FlightStrips/commit/86b7ae9ae26fde23165519825e064a6946192d89))
+* **aman:** write holding release times to TopSky ([#725](https://github.com/flightstrips/FlightStrips/issues/725)) ([d865262](https://github.com/flightstrips/FlightStrips/commit/d865262273de30bd7036ca5b975f7583e9cff28d))
+* **coordination:** correlate accepted requests with clearances ([#709](https://github.com/flightstrips/FlightStrips/issues/709)) ([f228c04](https://github.com/flightstrips/FlightStrips/commit/f228c047e0697fedbff8a3171349bb751f4ee5bd))
+
+
+### Bug Fixes
+
+* **aman:** color EuroScope gain-loss guidance ([#724](https://github.com/flightstrips/FlightStrips/issues/724)) ([28b9136](https://github.com/flightstrips/FlightStrips/commit/28b91363d9864a2fd03d45f1f96bddd31d523a22))
+* **aman:** hide gain loss tag for unrelated flights ([#719](https://github.com/flightstrips/FlightStrips/issues/719)) ([5b4a0a7](https://github.com/flightstrips/FlightStrips/commit/5b4a0a770c97cf35da694e6e031ff7a11bbea709))
+* **aman:** stabilize reconciliation and gain-loss updates ([#726](https://github.com/flightstrips/FlightStrips/issues/726)) ([e9e0f12](https://github.com/flightstrips/FlightStrips/commit/e9e0f12fa5913ad23a933d7dd2518e3d1a3a32ab))
+
 ## [2.0.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v1.0.0...plugin/v2.0.0) (2026-09-11)
 
 

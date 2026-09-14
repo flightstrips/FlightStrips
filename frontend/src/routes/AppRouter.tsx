@@ -10,7 +10,6 @@ import EKCHTWRGND from "@/routes/ekch/TWRGND";
 import ChooseLayoutScreen from "@/components/ChooseLayoutScreen";
 import ObserverInvalidFrequencyScreen from "@/components/ObserverInvalidFrequencyScreen";
 import EKCHAMAN from "@/routes/ekch/AMAN";
-import {isLocalDevelopment} from "@/lib/local-development";
 
 const LAYOUT_MAP: Record<string, React.ComponentType> = {
   CLX: EKCHDEL,
@@ -21,7 +20,7 @@ const LAYOUT_MAP: Record<string, React.ComponentType> = {
   GEGW: EKCHGEGW,
   TWTE: EKCHTWTE,
   TWRGND: EKCHTWRGND,
-  ...(isLocalDevelopment ? {AMAN: EKCHAMAN} : {}),
+  AMAN: EKCHAMAN,
 };
 
 export default function AppRouter() {

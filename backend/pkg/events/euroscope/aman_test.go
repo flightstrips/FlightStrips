@@ -47,6 +47,7 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 	require.NoError(t, proto.Unmarshal(inner, &decoded))
 	require.EqualValues(t, 1, decoded.Version)
 	require.EqualValues(t, 42, decoded.Revision)
+	require.True(t, decoded.Authoritative)
 	require.Len(t, decoded.Values, 3)
 	require.Equal(t, "flight-1", decoded.Values[0].FlightId)
 	require.Equal(t, "TESPI", decoded.Values[0].GetStarFamily())
@@ -64,4 +65,14 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 	require.Nil(t, decoded.Values[2].FeederFixEta, "passed state must not invent an ETA")
 	require.Equal(t, "passed", decoded.Values[2].GetFeederFixEtaSource())
 	require.True(t, decoded.Values[2].GetFeederFixPassed())
+}
+
+func TestAMANGainLossIsAlwaysAuthoritativeForEuroScope(t *testing.T) {
+	event, err := euroscope.NewAMANGainLossEvent(aman.AirportState{
+		Airport: "EKCH", GeneratedAt: time.Date(2026, time.September, 8, 12, 0, 0, 0, time.UTC),
+		Authoritative: false,
+	})
+
+	require.NoError(t, err)
+	require.True(t, event.Authoritative)
 }

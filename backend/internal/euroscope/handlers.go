@@ -41,12 +41,12 @@ func handleAMANRouteFact(ctx context.Context, client *Client, message Message) e
 		if !valid {
 			return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN assigned speed"}
 		}
-		return client.hub.amanRouteFacts.ReportSpeed(ctx, client.session, client.airport, event.Data.Callsign, client.callsign, value, observedAt.UTC())
+		return client.hub.amanRouteFacts.ReportSpeed(ctx, client.session, client.airport, event.Data.Callsign, client.GetCallsign(), value, observedAt.UTC())
 	}
 	if event.Data.AssignedSpeed != nil {
 		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "invalid AMAN direct-to fact contract"}
 	}
-	return client.hub.amanRouteFacts.ReportDirectTo(ctx, client.session, client.airport, event.Data.Callsign, client.callsign, event.Data.DirectToFix, observedAt.UTC())
+	return client.hub.amanRouteFacts.ReportDirectTo(ctx, client.session, client.airport, event.Data.Callsign, client.GetCallsign(), event.Data.DirectToFix, observedAt.UTC())
 }
 
 func assignedSpeedValue(speed *euroscope.AssignedSpeed) (string, bool) {
@@ -67,8 +67,7 @@ func assignedSpeedValue(speed *euroscope.AssignedSpeed) (string, bool) {
 type Message = shared.Message[euroscope.EventType]
 
 func handleLoginEvent(ctx context.Context, client *Client, message Message) error {
-	previousPosition := client.position
-	previousCallsign := client.callsign
+	previousIdentity := client.identitySnapshot()
 	previousAirport := client.airport
 
 	event, _, err := client.hub.handleLogin(message.Message, client.user)
@@ -76,22 +75,17 @@ func handleLoginEvent(ctx context.Context, client *Client, message Message) erro
 		return err
 	}
 
-	client.position = event.Position
-	client.callsign = event.Callsign
-	client.observer = event.Observer
-	client.localIP = event.LocalIp
+	client.updateIdentity(event.Position, event.Callsign, event.Observer, event.LocalIp)
 	client.hub.setObserverCid(client.GetCid(), event.Observer)
 	client.hub.setClientLocalIP(client.session, client.GetCid(), event.LocalIp)
-	if master := client.hub.getMasterClient(client.session); master == client && previousCallsign != client.callsign {
-		client.hub.setMasterClient(client)
-	}
+	client.hub.reconsiderMasterAfterLogin(client)
 
 	if !event.Observer {
-		client.hub.markPendingOnlineOrchestration(client.session, client.callsign)
+		client.hub.markPendingOnlineOrchestration(client.session, event.Callsign)
 		if layoutErr := client.hub.server.UpdateLayouts(client.session); layoutErr != nil {
 			slog.ErrorContext(ctx, "Failed to update layouts after ES re-login", slog.String("cid", client.GetCid()), slog.Any("error", layoutErr))
 		}
-	} else if previousPosition != client.position || previousCallsign != client.callsign || previousAirport != client.airport {
+	} else if previousIdentity.position != event.Position || previousIdentity.callsign != event.Callsign || previousAirport != client.airport {
 		client.hub.server.GetFrontendHub().CidOnline(client.session, client.GetCid())
 	}
 
@@ -311,7 +305,7 @@ func handleCdmTobtUpdate(ctx context.Context, client *Client, message Message) e
 	if !hhmmPattern.MatchString(event.Tobt) {
 		return nil
 	}
-	return client.hub.server.GetCdmService().HandleTobtUpdate(ctx, client.session, event.Callsign, event.Tobt, client.callsign, clientRole(client))
+	return client.hub.server.GetCdmService().HandleTobtUpdate(ctx, client.session, event.Callsign, event.Tobt, client.GetCallsign(), clientRole(client))
 }
 
 func handleCdmDeiceUpdate(ctx context.Context, client *Client, message Message) error {
@@ -367,7 +361,7 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.server.GetCdmService().HandleReadyRequest(ctx, client.session, event.Callsign, client.callsign, clientRole(client))
+	return client.hub.server.GetCdmService().HandleReadyRequest(ctx, client.session, event.Callsign, client.GetCallsign(), clientRole(client))
 }
 
 func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {

@@ -297,6 +297,18 @@ describe("complete AMAN timeline and strips", () => {
     expect(screen.getByRole("button", {name: /Select SAS123/})).toBeInTheDocument();
   });
 
+  it("selects the server-declared active runway by default", () => {
+    const configured = state();
+    configured.runway_groups.unshift({id: "ARRIVAL-04", selected: false});
+    configured.active_runway_groups = ["ARRIVAL-22"];
+
+    renderBoard(configured);
+    fireEvent.click(screen.getByRole("button", {name: "ARRIVAL-22"}));
+
+    expect(screen.getByText("22")).toHaveClass("text-[#f3d02e]");
+    expect(screen.getByText("04")).not.toHaveClass("text-[#f3d02e]");
+  });
+
   it("switches to active runway timelines with the local horizon scale", () => {
     renderBoard(state());
 

@@ -124,21 +124,18 @@ Due to the high-frequency communication from Euroscope, one Euroscope client mus
 Non-master Euroscope clients will send only limited configuration-related events to the backend, while the master
 client handles all events for strips and controllers.
 
-Each airport should have a prioritized list of positions to determine the master client. For example, at **EKCH**:
+Each airport should have a prioritized list of positions to determine the master client. The current temporary priority
+for **EKCH** is:
 
-1. EKCH_A_TWR
-2. EKCH_D_TWR
-3. EKCH_C_TWR
-4. EKCH_A_GND (may not be used due to limited range)
-5. EKCH_B_GND (may not be used due to limited range)
-6. EKCH_S_GND (may not be used due to limited range)
-7. EKCH_DEL (may not be used due to limited range)
-8. EKCH_W_APP
-9. EKCH_O_APP
-10. EKCH_K_DEP
-11. EKDH_CTR (and so on...)
+1. EKDK_FMP
+2. EKDK_B_CTR
+3. EKDK_D_CTR
+4. EKDK_UC_CTR
+5. EKCH_A_TWR
+6. Any other non-observer client as a last-resort fallback
 
-The system must determine this priority based on the **primary frequency**, not callsigns.
+Configured positions are matched by **primary frequency**, with the canonical callsign retained as a fallback. FMP
+currently uses the live `EKDK_FMP` identity / `131.040` primary frequency.
 
 ## Updating a Flight Plan in Euroscope
 

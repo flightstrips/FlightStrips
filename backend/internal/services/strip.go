@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/shared"
 	"context"
 	"log/slog"
+	"sync"
 
 	internalModels "FlightStrips/internal/models"
 )
@@ -42,6 +43,7 @@ type StripService struct {
 	departureObserver    departurePositionObserver
 	arrivalObserver      arrivalPositionObserver
 	holdingObserver      holdingClearanceObserver
+	routeRefreshPending  sync.Map
 }
 
 type departurePositionObserver interface {

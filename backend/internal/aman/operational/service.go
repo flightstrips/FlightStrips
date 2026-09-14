@@ -247,7 +247,7 @@ func (s *Service) reconcileAll(ctx context.Context) {
 	for _, airport := range s.deps.Airports {
 		airport = strings.ToUpper(strings.TrimSpace(airport))
 		s.observeNavigationCache(ctx, airport)
-		s.refreshWeather(ctx, airport, s.deps.Now().UTC().Truncate(time.Second))
+		s.refreshWeather(ctx, airport, s.deps.Now().UTC())
 		if err := s.reconcileAirport(ctx, airport); err != nil {
 			slog.WarnContext(ctx, "AMAN reconciliation failed", "airport", airport, "error", err)
 		}
@@ -277,7 +277,11 @@ func (s *Service) refreshWeather(ctx context.Context, airport string, now time.T
 		s.setHealthComponent("weather", aman.HealthUnavailable, "weather_refresh_failed", now)
 		return
 	}
-	if !observedWeatherProfile(profile, request, now) {
+	// The provider records when the fetch starts, which is necessarily after the
+	// cycle timestamp used by the request. Validate against the clock after the
+	// fetch so a fresh profile is not rejected as a few milliseconds "future".
+	validatedAt := s.deps.Now().UTC()
+	if !observedWeatherProfile(profile, request, validatedAt) {
 		s.setHealthComponent("weather", aman.HealthUnavailable, "weather_profile_invalid", now)
 		return
 	}

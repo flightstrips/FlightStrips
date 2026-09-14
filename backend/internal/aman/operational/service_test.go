@@ -1854,7 +1854,7 @@ func TestNavigationHealthFailsClosedWhenNoActiveCacheSnapshotExists(t *testing.T
 }
 
 func TestReconcileAllObservesAirportWeatherWithoutFlights(t *testing.T) {
-	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	now := time.Date(2026, time.July, 23, 12, 0, 0, int(400*time.Millisecond), time.UTC)
 	wind := &observedWind{now: now}
 	service, err := New(Dependencies{
 		Repository: &memoryRepository{}, Materializer: readyNavigation{}, Geometry: unavailableGeometry{}, Wind: wind,
@@ -1869,6 +1869,25 @@ func TestReconcileAllObservesAirportWeatherWithoutFlights(t *testing.T) {
 	require.Len(t, wind.requests, 1)
 	require.Equal(t, 55.6254, wind.requests[0].Samples[0].Position.LatitudeDegrees)
 	require.Equal(t, 12.6676, wind.requests[0].Samples[0].Position.LongitudeDegrees)
+	require.Equal(t, now, wind.requests[0].Samples[0].At)
+	require.Equal(t, aman.HealthReady, service.TechnicalHealth(context.Background()).Weather.Status)
+}
+
+func TestWeatherRefreshAcceptsProfileObservedWhileFetchIsInProgress(t *testing.T) {
+	cycleAt := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	fetchedAt := cycleAt.Add(400 * time.Millisecond)
+	completedAt := fetchedAt.Add(100 * time.Millisecond)
+	wind := &observedWind{now: fetchedAt}
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: readyNavigation{}, Geometry: unavailableGeometry{}, Wind: wind,
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{
+			ID: "ARRIVAL-22", FinalApproaches: []terminal.FinalApproachDefinition{{Runway: "22L", Threshold: terminal.ThresholdDefinition{Position: terminal.CoordinateDefinition{LatitudeDeg: 55.6254, LongitudeDeg: 12.6676}}}},
+		}}}, Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return completedAt },
+	})
+	require.NoError(t, err)
+
+	service.refreshWeather(context.Background(), "EKCH", cycleAt)
+
 	require.Equal(t, aman.HealthReady, service.TechnicalHealth(context.Background()).Weather.Status)
 }
 

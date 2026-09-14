@@ -162,6 +162,7 @@ type MockFrontendHub struct {
 	TacticalStripMoves      []TacticalStripMovedCall
 	SentMessages            []SentMessageCall
 	CidOnlines              []CidOnlineCall
+	SyncedSessions          []int32
 	CidDisconnects          []CidDisconnectCall
 }
 
@@ -185,6 +186,10 @@ func (m *MockFrontendHub) GetAtisCodes(session int32) (arr string, dep string) {
 
 func (m *MockFrontendHub) CidOnline(session int32, cid string) {
 	m.CidOnlines = append(m.CidOnlines, CidOnlineCall{Session: session, Cid: cid})
+}
+
+func (m *MockFrontendHub) SessionSynced(session int32) {
+	m.SyncedSessions = append(m.SyncedSessions, session)
 }
 
 func (m *MockFrontendHub) CidDisconnect(cid string) {

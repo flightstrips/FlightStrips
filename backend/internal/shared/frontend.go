@@ -12,6 +12,7 @@ type FrontendHub interface {
 	Send(session int32, cid string, message frontend.OutgoingMessage)
 	GetAtisCodes(session int32) (arr string, dep string)
 	CidOnline(session int32, cid string)
+	SessionSynced(session int32)
 	CidDisconnect(cid string)
 	SendStripUpdate(session int32, callsign string)
 	SendControllerOnline(session int32, callsign string, position string, identifier string, ownedSectors []string)

@@ -424,6 +424,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 
 	if result.MarkSessionSynced {
 		client.hub.markSessionSynced(client.session)
+		client.hub.server.GetFrontendHub().SessionSynced(client.session)
 	}
 	if result.WakeFrontendCID != "" {
 		client.hub.server.GetFrontendHub().CidOnline(client.session, result.WakeFrontendCID)

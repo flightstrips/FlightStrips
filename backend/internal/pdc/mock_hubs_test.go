@@ -60,6 +60,10 @@ func (m *mockPdcFrontendHub) CidOnline(session int32, cid string) {
 	m.Called(session, cid)
 }
 
+func (m *mockPdcFrontendHub) SessionSynced(session int32) {
+	m.Called(session)
+}
+
 func (m *mockPdcFrontendHub) CidDisconnect(cid string) {
 	m.Called(cid)
 }

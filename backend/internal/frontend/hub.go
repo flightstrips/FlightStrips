@@ -76,6 +76,7 @@ type Hub struct {
 	unregister    chan *Client
 	cidOnline     chan cidOnlineMessage
 	cidDisconnect chan cidDisconnectMessage
+	sessionSynced chan int32
 	amanRefresh   chan string
 
 	handlers shared.MessageHandlers[frontend.EventType, *Client]
@@ -184,6 +185,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 		unregister:            make(chan *Client),
 		cidOnline:             make(chan cidOnlineMessage),
 		cidDisconnect:         make(chan cidDisconnectMessage),
+		sessionSynced:         make(chan int32),
 		amanRefresh:           make(chan string, 16),
 		clients:               make(map[*Client]bool),
 		handlers:              handlers,
@@ -637,6 +639,14 @@ func (hub *Hub) CidOnline(session int32, cid string) {
 	hub.cidOnline <- cidOnlineMessage{session: session, cid: cid}
 }
 
+// SessionSynced releases every frontend that was connected while the session
+// was still waiting for its first complete EuroScope sync. A session becomes
+// ready as a unit; tying that transition to only the CID that supplied the sync
+// leaves the other already-connected controllers waiting indefinitely.
+func (hub *Hub) SessionSynced(session int32) {
+	hub.sessionSynced <- session
+}
+
 func (hub *Hub) CidDisconnect(cid string) {
 	hub.cidDisconnect <- cidDisconnectMessage{cid: cid}
 }
@@ -671,47 +681,145 @@ func (hub *Hub) associateCidOnlineClients(msg cidOnlineMessage) []*Client {
 		if client.user.GetCid() != msg.cid {
 			continue
 		}
-
-		oldSession := client.session
-		oldSessionName := client.sessionName
-		oldAirport := client.airport
-		oldCallsign := client.callsign
-		oldReadOnly := client.readOnly
-		oldAMANFMPAuthority := hub.hasAMANFMPAuthority(client)
-		wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
-
-		slog.Debug("Associating frontend client with session",
-			slog.String("cid", msg.cid),
-			slog.Int("session", int(msg.session)))
-		client.session = msg.session
-		client.readOnly = readOnly
-
-		// Always refresh callsign, position, and airport from DB so that
-		// sendInitialEvent and LayoutUpdateEvent routing always use the most
-		// current values. Without this, a controller who changed position in
-		// EuroScope while their browser tab was open would receive layout
-		// updates keyed to their old position.
-		if controller != nil && dbSession != nil {
-			client.position = controller.Position
-			client.setIdentity(dbSession.Name, dbSession.Airport, controller.Callsign)
-		}
-
-		switch {
-		case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
-			metrics.ConnectionClosed(context.Background(), "", "", "frontend", "", client.version)
-			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
-		case oldSession != WaitingForEuroscopeConnectionSessionId &&
-			(oldSessionName != client.sessionName || oldAirport != client.airport || oldCallsign != client.callsign):
-			metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign, client.version)
-			metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
-		}
-
-		if wasWaiting || oldReadOnly != client.readOnly || oldAMANFMPAuthority != hub.hasAMANFMPAuthority(client) {
+		if hub.associateClientWithSession(client, msg.session, controller, dbSession, readOnly) {
 			initialClients = append(initialClients, client)
 		}
 	}
 
 	return initialClients
+}
+
+func (hub *Hub) associateSessionSyncedClients(session int32) []*Client {
+	controllerRepo := hub.server.GetControllerRepository()
+	sessionRepo := hub.server.GetSessionRepository()
+
+	controllers, err := controllerRepo.ListBySession(context.Background(), session)
+	if err != nil {
+		slog.Error("Failed to list controllers for synced frontend session",
+			slog.Int("session", int(session)), slog.Any("error", err))
+		return nil
+	}
+	dbSession, err := sessionRepo.GetByID(context.Background(), session)
+	if err != nil {
+		slog.Error("Failed to get synced frontend session",
+			slog.Int("session", int(session)), slog.Any("error", err))
+		return nil
+	}
+
+	controllersByCID := make(map[string]*internalModels.Controller, len(controllers))
+	for _, controller := range controllers {
+		if controller == nil || controller.Cid == nil {
+			continue
+		}
+		cid := strings.TrimSpace(*controller.Cid)
+		if cid != "" {
+			controllersByCID[cid] = controller
+		}
+	}
+
+	initialClients := make([]*Client, 0)
+	for client := range hub.clients {
+		if client.session != WaitingForEuroscopeConnectionSessionId {
+			continue
+		}
+		controller := controllersByCID[strings.TrimSpace(client.user.GetCid())]
+		if controller == nil {
+			continue
+		}
+		readOnly := false
+		if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
+			readOnly = esHub.IsObserverCid(client.user.GetCid())
+		}
+		if hub.associateClientWithSession(client, session, controller, dbSession, readOnly) {
+			initialClients = append(initialClients, client)
+		}
+	}
+	return initialClients
+}
+
+func (hub *Hub) associateWaitingClientIfSessionReady(client *Client) bool {
+	if client == nil || client.session != WaitingForEuroscopeConnectionSessionId || hub.server == nil {
+		return false
+	}
+
+	controller, err := hub.server.GetControllerRepository().GetByCid(context.Background(), client.user.GetCid())
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.Error("Failed to recheck controller for waiting frontend client",
+				slog.String("cid", client.user.GetCid()), slog.Any("error", err))
+		}
+		return false
+	}
+
+	dbSession, err := hub.server.GetSessionRepository().GetByID(context.Background(), controller.Session)
+	if err != nil {
+		slog.Error("Failed to recheck session for waiting frontend client",
+			slog.String("cid", client.user.GetCid()), slog.Any("error", err))
+		return false
+	}
+
+	esHub := hub.server.GetEuroscopeHub()
+	if esHub == nil || !esHub.HasActiveClientForAirport(dbSession.Airport) || !esHub.IsSessionSynced(controller.Session) {
+		return false
+	}
+
+	return hub.associateClientWithSession(client, controller.Session, controller, dbSession, esHub.IsObserverCid(client.user.GetCid()))
+}
+
+func (hub *Hub) associateClientWithSession(client *Client, session int32, controller *internalModels.Controller, dbSession *internalModels.Session, readOnly bool) bool {
+	if client == nil || controller == nil || dbSession == nil {
+		return false
+	}
+	oldSession := client.session
+	oldSessionName := client.sessionName
+	oldAirport := client.airport
+	oldCallsign := client.callsign
+	oldReadOnly := client.readOnly
+	oldAMANFMPAuthority := hub.hasAMANFMPAuthority(client)
+	wasWaiting := oldSession == WaitingForEuroscopeConnectionSessionId
+
+	slog.Debug("Associating frontend client with session",
+		slog.String("cid", client.user.GetCid()),
+		slog.Int("session", int(session)))
+	client.session = session
+	client.readOnly = readOnly
+	client.position = controller.Position
+	client.setIdentity(dbSession.Name, dbSession.Airport, controller.Callsign)
+
+	switch {
+	case oldSession == WaitingForEuroscopeConnectionSessionId && client.sessionName != "":
+		metrics.ConnectionClosed(context.Background(), "", "", "frontend", "", client.version)
+		metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
+	case oldSession != WaitingForEuroscopeConnectionSessionId &&
+		(oldSessionName != client.sessionName || oldAirport != client.airport || oldCallsign != client.callsign):
+		metrics.ConnectionClosed(context.Background(), oldSessionName, oldAirport, "frontend", oldCallsign, client.version)
+		metrics.ConnectionOpened(context.Background(), client.sessionName, client.airport, "frontend", client.callsign, client.version)
+	}
+
+	return wasWaiting || oldReadOnly != client.readOnly || oldAMANFMPAuthority != hub.hasAMANFMPAuthority(client)
+}
+
+func (hub *Hub) handleSessionSynced(session int32) {
+	hasWaitingClients := false
+	for client := range hub.clients {
+		if client.session == WaitingForEuroscopeConnectionSessionId {
+			hasWaitingClients = true
+			break
+		}
+	}
+	if !hasWaitingClients {
+		return
+	}
+
+	clients := hub.associateSessionSyncedClients(session)
+	if len(clients) > 0 {
+		slog.Info("EuroScope session synced; releasing waiting frontend clients",
+			slog.Int("session", int(session)),
+			slog.Int("client_count", len(clients)))
+	}
+	for _, client := range clients {
+		hub.sendInitialEvent(context.Background(), client)
+	}
 }
 
 func (hub *Hub) handleCidOnline(msg cidOnlineMessage) {
@@ -1493,6 +1601,10 @@ func (hub *Hub) OnRegister(client *Client) {
 		hub.sendInitialEvent(context.Background(), client)
 		return
 	}
+	if hub.associateWaitingClientIfSessionReady(client) {
+		hub.sendInitialEvent(context.Background(), client)
+		return
+	}
 
 	client.Enqueue(frontend.DisconnectEvent{ReadOnly: client.readOnly})
 }
@@ -1569,6 +1681,8 @@ func (hub *Hub) Run(ctx context.Context) {
 			hub.handleCidOnline(msg)
 		case msg := <-hub.cidDisconnect:
 			hub.handleCidDisconnect(msg.cid)
+		case session := <-hub.sessionSynced:
+			hub.handleSessionSynced(session)
 		case airport := <-hub.amanRefresh:
 			for client := range hub.clients {
 				if client.airport == airport {

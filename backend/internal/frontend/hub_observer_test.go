@@ -178,6 +178,88 @@ func TestAssociateCidOnlineClients_AssociatesAllMatchingClients(t *testing.T) {
 	assert.Equal(t, WaitingForEuroscopeConnectionSessionId, other.session)
 }
 
+func TestAssociateSessionSyncedClients_ReleasesEveryWaitingControllerInSession(t *testing.T) {
+	firstCID := "1234567"
+	secondCID := "7654321"
+	hub := &Hub{
+		clients: map[*Client]bool{},
+		server: &testutil.MockServer{
+			ControllerRepoVal: &testutil.MockControllerRepository{
+				ListBySessionFn: func(_ context.Context, session int32) ([]*internalModels.Controller, error) {
+					assert.Equal(t, int32(42), session)
+					return []*internalModels.Controller{
+						{Cid: &firstCID, Session: 42, Position: "118.105", Callsign: "EKCH_A_TWR"},
+						{Cid: &secondCID, Session: 42, Position: "121.730", Callsign: "EKCH_C_GND"},
+					}, nil
+				},
+			},
+			SessionRepoVal: &testutil.MockSessionRepository{
+				GetByIDFn: func(_ context.Context, id int32) (*internalModels.Session, error) {
+					assert.Equal(t, int32(42), id)
+					return &internalModels.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}, nil
+				},
+			},
+			EuroscopeHubVal: &testutil.MockEuroscopeHub{IsObserverCidFn: func(string) bool { return false }},
+		},
+	}
+	first := &Client{hub: hub, session: WaitingForEuroscopeConnectionSessionId, user: validFrontendUser(firstCID)}
+	second := &Client{hub: hub, session: WaitingForEuroscopeConnectionSessionId, user: validFrontendUser(secondCID)}
+	otherSession := &Client{hub: hub, session: WaitingForEuroscopeConnectionSessionId, user: validFrontendUser("9999999")}
+	alreadyReady := &Client{hub: hub, session: 42, sessionName: "LIVE", airport: "EKCH", user: validFrontendUser(firstCID)}
+	for _, client := range []*Client{first, second, otherSession, alreadyReady} {
+		hub.clients[client] = true
+	}
+
+	initialClients := hub.associateSessionSyncedClients(42)
+
+	assert.ElementsMatch(t, []*Client{first, second}, initialClients)
+	assert.Equal(t, int32(42), first.session)
+	assert.Equal(t, "EKCH_A_TWR", first.callsign)
+	assert.Equal(t, int32(42), second.session)
+	assert.Equal(t, "EKCH_C_GND", second.callsign)
+	assert.Equal(t, WaitingForEuroscopeConnectionSessionId, otherSession.session)
+	assert.Equal(t, int32(42), alreadyReady.session)
+}
+
+func TestAssociateWaitingClientIfSessionReady_ClosesRegistrationRace(t *testing.T) {
+	controllerCID := "1234567"
+	hub := &Hub{
+		server: &testutil.MockServer{
+			ControllerRepoVal: &testutil.MockControllerRepository{
+				GetByCidFn: func(_ context.Context, cid string) (*internalModels.Controller, error) {
+					assert.Equal(t, controllerCID, cid)
+					return &internalModels.Controller{
+						Cid: &controllerCID, Session: 42, Position: "118.105", Callsign: "EKCH_A_TWR",
+					}, nil
+				},
+			},
+			SessionRepoVal: &testutil.MockSessionRepository{
+				GetByIDFn: func(_ context.Context, id int32) (*internalModels.Session, error) {
+					assert.Equal(t, int32(42), id)
+					return &internalModels.Session{ID: 42, Name: "LIVE", Airport: "EKCH"}, nil
+				},
+			},
+			EuroscopeHubVal: &testutil.MockEuroscopeHub{
+				HasActiveClientForAirportFn: func(airport string) bool {
+					assert.Equal(t, "EKCH", airport)
+					return true
+				},
+			},
+		},
+	}
+	client := &Client{
+		hub: hub, session: WaitingForEuroscopeConnectionSessionId, user: validFrontendUser(controllerCID),
+	}
+
+	associated := hub.associateWaitingClientIfSessionReady(client)
+
+	assert.True(t, associated)
+	assert.Equal(t, int32(42), client.session)
+	assert.Equal(t, "LIVE", client.sessionName)
+	assert.Equal(t, "EKCH", client.airport)
+	assert.Equal(t, "EKCH_A_TWR", client.callsign)
+}
+
 func TestAssociateCidOnlineClients_RequestsNewSnapshotWhenAMANCapabilityChanges(t *testing.T) {
 	controllerCID := "1234567"
 	hub := &Hub{

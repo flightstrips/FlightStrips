@@ -33,6 +33,7 @@ const (
 	routeResolverVersion       = "airacnet-route-v4"
 	defaultArrivalRate         = uint32(20)
 	ekchDefaultArrivalRate     = uint32(40)
+	trafficPredictionLookback  = 15 * time.Minute
 	weatherRefreshEvery        = 30 * time.Minute
 	queueOfferValidity         = 2 * time.Minute
 	euroScopeSurveillanceFresh = 30 * time.Second
@@ -564,7 +565,11 @@ func (s *Service) initialState(airport string, now time.Time) aman.AirportState 
 	rate := defaultRateForAirport(airport)
 	groups := make([]aman.RunwayGroupPolicy, 0, len(s.deps.Terminal.RunwayGroups))
 	for index, configured := range s.deps.Terminal.RunwayGroups {
-		effective := now
+		// The first traffic-prediction overload window starts one bucket before
+		// the displayed range. Backdate the configured default by whole rate
+		// intervals so it covers that lookback without shifting the landing grid
+		// that starts at initialization time.
+		effective := initialRateEffectiveAt(now, rate)
 		group := aman.RunwayGroupPolicy{
 			ID: configured.ID, Selected: index == 0, ActiveRatePerHour: rate, RateEffectiveAt: &effective,
 			RateSchedule: []aman.RunwayGroupRatePoint{{EffectiveAt: effective, ArrivalsPerHour: rate}},
@@ -579,6 +584,17 @@ func (s *Service) initialState(airport string, now time.Time) aman.AirportState 
 		Authoritative: s.deps.Mode == aman.ModeAuthoritative, Flights: []aman.AMANFlight{}, RunwayGroups: groups,
 		ActiveRunwayGroups: activeRunwayGroupsFromSelected(groups),
 	}
+}
+
+func initialRateEffectiveAt(now time.Time, rate uint32) time.Time {
+	lookbackStart := now.Truncate(15 * time.Minute).Add(-trafficPredictionLookback)
+	interval := time.Duration((uint64(time.Hour) + uint64(rate) - 1) / uint64(rate))
+	span := now.Sub(lookbackStart)
+	intervals := span / interval
+	if span%interval != 0 {
+		intervals++
+	}
+	return now.Add(-intervals * interval)
 }
 
 func activeRunwayGroupsFromSelected(groups []aman.RunwayGroupPolicy) []aman.RunwayGroupID {

@@ -14,6 +14,7 @@ import (
 	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
+	"FlightStrips/internal/aman/trafficprediction"
 	"FlightStrips/internal/aman/trajectory"
 	"FlightStrips/internal/sat"
 	"github.com/stretchr/testify/require"
@@ -960,13 +961,33 @@ func TestFutureRateChangePreservesCurrentAndPendingSchedule(t *testing.T) {
 	require.Equal(t, uint32(40), group.ActiveRatePerHour)
 	require.Len(t, group.RateSchedule, 2)
 	require.Equal(t, []sequence.RatePoint{
-		{EffectiveAt: now, ArrivalsPerHour: 40},
+		{EffectiveAt: now.Add(-trafficPredictionLookback), ArrivalsPerHour: 40},
 		{EffectiveAt: future, ArrivalsPerHour: 30},
 	}, sequenceInput(change.State, service.deps.Terminal).Policies[0].Rates)
 
 	updateActiveRates(change.State.RunwayGroups, future)
 	require.Equal(t, uint32(30), change.State.RunwayGroups[0].ActiveRatePerHour)
 	require.Equal(t, future, *change.State.RunwayGroups[0].RateEffectiveAt)
+}
+
+func TestInitialRateCoversTrafficPredictionLookback(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 7, 0, 0, time.UTC)
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+
+	state := service.initialState("EKCH", now)
+	group := state.RunwayGroups[0]
+	wantEffectiveAt := time.Date(2026, time.July, 23, 11, 44, 30, 0, time.UTC)
+	require.Equal(t, wantEffectiveAt, *group.RateEffectiveAt)
+	require.Equal(t, wantEffectiveAt, group.RateSchedule[0].EffectiveAt)
+	require.Zero(t, now.Sub(wantEffectiveAt)%(90*time.Second), "backdating must preserve the original 40/h grid phase")
+	prediction := trafficprediction.Build(state, aman.ComponentHealth{Status: aman.HealthReady})
+	require.Equal(t, trafficprediction.StatusReady, prediction.Status)
+	require.NotContains(t, prediction.DegradedReasons, "missing_selected_rate")
 }
 
 func TestSetRateDoesNotChangeRunwaySelectionOrFlightAssignments(t *testing.T) {

@@ -748,16 +748,16 @@ func (hub *Hub) setMasterClientLocked(client *Client) {
 }
 
 const (
-	aTowerMasterPriority = iota
-	fmpMasterPriority
+	fmpMasterPriority = iota
 	bCtrMasterPriority
 	dCtrMasterPriority
 	ucCtrMasterPriority
+	aTowerMasterPriority
 	defaultMasterPriority
 )
 
 // masterClientPriority is intentionally a small, temporary operational policy:
-// prefer EKCH_A_TWR, then FMP and the listed EKDK control positions, while
+// prefer FMP, then the listed EKDK control positions, then EKCH_A_TWR, while
 // retaining any non-observer as a last-resort master.
 func masterClientPriority(client *Client) int {
 	if client == nil {

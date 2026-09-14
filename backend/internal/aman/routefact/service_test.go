@@ -96,11 +96,6 @@ func TestReportDirectToEnforcesCurrentTrackingControllerAndNavigationSnapshot(t 
 	fix := "KEMAX"
 	err = service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_B_APP", &fix, now)
 	requireDomainClass(t, err, aman.ErrorUnauthorized)
-	mismatch := "7654321"
-	strips.strip.VatsimCID = &mismatch
-	err = service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", &fix, now)
-	requireDomainClass(t, err, aman.ErrorNotFound)
-	strips.strip.VatsimCID = &cid
 	repository.state.Flights[0].State = aman.StateLanded
 	err = service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", &fix, now)
 	requireDomainClass(t, err, aman.ErrorNotFound)
@@ -175,6 +170,29 @@ func TestReportSpeedCorrelatesWithoutChangingAMANInputs(t *testing.T) {
 	require.Equal(t, aman.SequenceRevision(7), repository.state.Revision)
 	require.Equal(t, coordinationrequest.ClearanceFact{Airport: "EKCH", FlightID: "flight-1", FactID: "speed-fact", Kind: coordinationrequest.KindSpeed,
 		Value: "220 KT", Issuer: "EKCH_A_APP", ObservedAt: now}, correlator.fact)
+}
+
+func TestRouteFactsMatchActiveFlightByCallsignOnly(t *testing.T) {
+	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
+	amanCID, stripCID := "1234567", "7654321"
+	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{routedFlight(amanCID)}}}
+	correlator := &correlator{}
+	service, err := New(Dependencies{
+		Repository: repository,
+		Strips: &stripReader{strip: &internalModels.Strip{
+			Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &stripCID,
+		}},
+		Geometry: geometry(now), Publisher: &publisher{}, Reconciler: &reconciler{}, Correlator: correlator,
+		Now: func() time.Time { return now }, NewID: func() string { return "fact" },
+	})
+	require.NoError(t, err)
+
+	fix := "KEMAX"
+	require.NoError(t, service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", &fix, now))
+	require.Equal(t, aman.FlightID("flight-1"), repository.state.Flights[0].ActiveRouteFact.FlightID)
+
+	require.NoError(t, service.ReportSpeed(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", "220 KT", now))
+	require.Equal(t, coordinationrequest.FlightID("flight-1"), correlator.fact.FlightID)
 }
 
 type memoryRepository struct {

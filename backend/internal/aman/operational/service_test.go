@@ -1930,6 +1930,53 @@ func TestServiceCommitsInitialEmptyAirportState(t *testing.T) {
 	require.Len(t, publisher.states, 1)
 }
 
+func TestServiceRetriesRevisionConflictWithoutDegradingRepositoryHealth(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 15, 45, 27, 0, time.UTC)
+	repository := &reconciliationConflictRepository{remaining: 1}
+	publisher := &recordingPublisher{}
+	service, err := New(Dependencies{
+		Repository: repository, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: publisher, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeAuthoritative, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	repository.state = service.initialState("EKCH", now.Add(-time.Minute))
+	repository.state.Mode = aman.ModeShadow
+	repository.state.Authoritative = false
+	repository.state.Revision = 7
+	repository.has = true
+
+	require.NoError(t, service.reconcileAirport(context.Background(), "EKCH"))
+	require.Equal(t, 2, repository.attempts)
+	require.Equal(t, aman.SequenceRevision(9), repository.state.Revision)
+	require.Equal(t, aman.ModeAuthoritative, repository.state.Mode)
+	require.Len(t, publisher.states, 1)
+	require.Equal(t, aman.HealthReady, service.TechnicalHealth(context.Background()).Repository.Status)
+}
+
+func TestServiceDegradesRepositoryHealthAfterRepeatedRevisionConflicts(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 15, 45, 27, 0, time.UTC)
+	repository := &reconciliationConflictRepository{remaining: maxReconciliationAttempts}
+	publisher := &recordingPublisher{}
+	service, err := New(Dependencies{
+		Repository: repository, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: publisher, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeAuthoritative, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	repository.state = service.initialState("EKCH", now.Add(-time.Minute))
+	repository.state.Mode = aman.ModeShadow
+	repository.state.Authoritative = false
+	repository.state.Revision = 7
+	repository.has = true
+
+	err = service.reconcileAirport(context.Background(), "EKCH")
+	requireDomainClass(t, err, aman.ErrorRevisionConflict)
+	require.Equal(t, maxReconciliationAttempts, repository.attempts)
+	require.Empty(t, publisher.states)
+	require.Equal(t, aman.HealthUnavailable, service.TechnicalHealth(context.Background()).Repository.Status)
+}
+
 func TestServiceReconcilesPersistedRolloutMode(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	repository := &memoryRepository{}
@@ -2014,6 +2061,24 @@ type memoryRepository struct {
 	has      bool
 	commits  []aman.StateCommit
 	outcomes map[string]aman.CommandOutcome
+}
+
+type reconciliationConflictRepository struct {
+	memoryRepository
+	remaining int
+	attempts  int
+}
+
+func (r *reconciliationConflictRepository) Commit(ctx context.Context, commit aman.StateCommit) (aman.CommitResult, error) {
+	r.attempts++
+	if r.remaining > 0 {
+		r.remaining--
+		r.state.Revision++
+		r.state.GeneratedAt = commit.State.GeneratedAt
+		r.has = true
+		return aman.CommitResult{}, &aman.DomainError{Class: aman.ErrorRevisionConflict, Message: "airport revision changed before commit"}
+	}
+	return r.memoryRepository.Commit(ctx, commit)
 }
 
 type staticArrivalRunway struct {

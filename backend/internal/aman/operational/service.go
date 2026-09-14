@@ -39,6 +39,7 @@ const (
 	tmaSurveillanceFresh       = 2 * time.Minute
 	wtcLightRETAPolicyReason   = "wtc_light_reta_policy"
 	wtcLightRETAMissingReason  = "wtc_light_reta_unavailable"
+	maxReconciliationAttempts  = 3
 )
 
 type NavigationMaterializer interface {
@@ -339,6 +340,20 @@ func (s *Service) observeNavigationCache(ctx context.Context, airport string) {
 }
 
 func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
+	for attempt := 0; attempt < maxReconciliationAttempts; attempt++ {
+		err := s.reconcileAirportOnce(ctx, airport)
+		if err == nil {
+			return nil
+		}
+		if !isRevisionConflict(err) {
+			return err
+		}
+	}
+	s.setHealthComponent("repository", aman.HealthUnavailable, "repository_commit_failed", s.deps.Now().UTC())
+	return &aman.DomainError{Class: aman.ErrorRevisionConflict, Message: "airport revision changed during all reconciliation attempts"}
+}
+
+func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) error {
 	now := s.deps.Now().UTC().Truncate(time.Second)
 	initializing := false
 	current, err := s.deps.Repository.LoadAirportState(ctx, airport)
@@ -494,6 +509,12 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		AuditRecords:     auditRecords,
 	})
 	if err != nil {
+		// A command or another reconciliation worker may commit after this
+		// cycle loads its input. Reload and recompute rather than revoking AMAN
+		// authority for an expected optimistic-concurrency collision.
+		if isRevisionConflict(err) {
+			return err
+		}
 		s.setHealthComponent("repository", aman.HealthUnavailable, "repository_commit_failed", now)
 		return err
 	}
@@ -512,6 +533,11 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		}
 	}
 	return s.deps.Publisher.PublishAMANState(context.WithoutCancel(ctx), committed.State)
+}
+
+func isRevisionConflict(err error) bool {
+	var domain *aman.DomainError
+	return errors.As(err, &domain) && domain.Class == aman.ErrorRevisionConflict
 }
 
 func hasRunwayGroupSelectionSchedule(groups []aman.RunwayGroupPolicy) bool {

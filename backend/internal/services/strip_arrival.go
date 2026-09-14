@@ -55,11 +55,13 @@ func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, 
 
 // UpdateAircraftPosition updates the aircraft position and moves the strip to a new bay if needed.
 func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int32, airport string) error {
+	routeRefreshKey := positionRouteRefreshKey{session: session, callsign: strings.ToUpper(strings.TrimSpace(callsign))}
 	var existingStrip *internalModels.Strip
 	var observedStrip internalModels.Strip
 	var previousBay string
 	var bay string
 	positionStored := false
+	routeRefreshNeeded := false
 
 	// A controller move and an EuroScope position update can arrive concurrently.
 	// Guard the combined position/bay write with the strip version, then reload
@@ -90,6 +92,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		}
 		previousBay = existingStrip.Bay
 		bay = shared.GetDepartureBayFromPosition(lat, lon, int64(altitude), dbStrip, config.GetAirborneAltitudeAGL(), airport)
+		routeRefreshNeeded = positionMayChangeRoute(existingStrip, airport, previousBay, bay, lat, lon)
 
 		existingState := "<nil>"
 		if existingStrip.State != nil {
@@ -161,8 +164,12 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	// Route ownership can depend on aircraft position. Recalculate it from this
 	// coalesced position stream instead of every full EuroScope flight-plan
 	// callback, which may arrive many times for the same radar update.
-	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil {
+	if _, pending := s.routeRefreshPending.Load(routeRefreshKey); pending {
+		routeRefreshNeeded = true
+	}
+	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil && routeRefreshNeeded {
 		if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, true); err != nil {
+			s.routeRefreshPending.Store(routeRefreshKey, struct{}{})
 			// The position is already persisted and drives safety-critical lifecycle
 			// observations below. A route refresh failure must not prevent those
 			// transitions; a later position update will retry the recalculation.
@@ -170,6 +177,8 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 				slog.String("callsign", callsign),
 				slog.Any("error", err),
 			)
+		} else {
+			s.routeRefreshPending.Delete(routeRefreshKey)
 		}
 	}
 
@@ -222,6 +231,53 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	}
 
 	return nil
+}
+
+type positionRouteRefreshKey struct {
+	session  int32
+	callsign string
+}
+
+// positionMayChangeRoute reports whether a surveillance update changed an input
+// used by route ownership. Departures do not use aircraft coordinates, and an
+// arrival's route changes only when it crosses into a different ground sector
+// (or its bay changes). Avoiding a full route reload for movement within the
+// same sector removes several database reads from the high-frequency position
+// path without delaying runway, stand, or lifecycle observations.
+func positionMayChangeRoute(strip *internalModels.Strip, airport, previousBay, nextBay string, lat, lon float64) bool {
+	if strip == nil || previousBay != nextBay {
+		return true
+	}
+	if !strings.EqualFold(strings.TrimSpace(strip.Destination), strings.TrimSpace(airport)) {
+		return false
+	}
+	if strip.PositionLatitude == nil || strip.PositionLongitude == nil {
+		return true
+	}
+	if strip.Stand == nil || strings.TrimSpace(*strip.Stand) == "" {
+		return false
+	}
+	if *strip.PositionLatitude == lat && *strip.PositionLongitude == lon {
+		return false
+	}
+
+	previousRegion, previousErr := config.GetRegionForPosition(*strip.PositionLatitude, *strip.PositionLongitude)
+	nextRegion, nextErr := config.GetRegionForPosition(lat, lon)
+	previousUnsupported := errors.Is(previousErr, config.ErrUnsupportedRegion)
+	nextUnsupported := errors.Is(nextErr, config.ErrUnsupportedRegion)
+	if previousUnsupported && nextUnsupported {
+		return false
+	}
+	if previousErr != nil || nextErr != nil {
+		return true
+	}
+
+	previousSector, previousErr := config.GetSectorFromRegion(previousRegion, true)
+	nextSector, nextErr := config.GetSectorFromRegion(nextRegion, true)
+	if previousErr != nil || nextErr != nil {
+		return true
+	}
+	return !strings.EqualFold(previousSector, nextSector)
 }
 
 // handleArrivalPositionUpdate detects landing and runway-vacated transitions for

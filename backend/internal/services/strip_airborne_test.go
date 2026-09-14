@@ -498,6 +498,91 @@ func TestUpdateAircraftPosition_ReusesUpdatedStripWithinMessage(t *testing.T) {
 	assert.Equal(t, 2, state.DBOperations, "one strip read and one position write form the base query budget")
 }
 
+func TestPositionMayChangeRouteSkipsMovementWithinArrivalSector(t *testing.T) {
+	stand := "A17"
+	previousLat, previousLon := 55.6235, 12.6380
+	strip := &models.Strip{
+		Destination:       "EKCH",
+		Stand:             &stand,
+		PositionLatitude:  &previousLat,
+		PositionLongitude: &previousLon,
+	}
+
+	assert.False(t, positionMayChangeRoute(strip, "EKCH", shared.BAY_ARR_HIDDEN, shared.BAY_ARR_HIDDEN, 55.62351, 12.63801),
+		"movement inside one ground sector cannot change the ownership route")
+}
+
+func TestPositionMayChangeRouteRefreshesArrivalSectorEntry(t *testing.T) {
+	stand := "A17"
+	previousLat, previousLon := 0.0, 0.0
+	strip := &models.Strip{
+		Destination:       "EKCH",
+		Stand:             &stand,
+		PositionLatitude:  &previousLat,
+		PositionLongitude: &previousLon,
+	}
+
+	assert.True(t, positionMayChangeRoute(strip, "EKCH", shared.BAY_ARR_HIDDEN, shared.BAY_ARR_HIDDEN, 55.6235, 12.6380),
+		"entering a supported airport sector must refresh the ownership route")
+}
+
+func TestPositionMayChangeRouteSkipsDepartureCoordinates(t *testing.T) {
+	strip := &models.Strip{Origin: "EKCH", Destination: "ESSA"}
+
+	assert.False(t, positionMayChangeRoute(strip, "EKCH", shared.BAY_AIRBORNE, shared.BAY_AIRBORNE, 55.7, 12.6),
+		"departure ownership routes do not depend on aircraft coordinates")
+	assert.True(t, positionMayChangeRoute(strip, "EKCH", shared.BAY_DEPART, shared.BAY_AIRBORNE, 55.7, 12.6),
+		"a bay transition must still refresh route state")
+}
+
+func TestUpdateAircraftPositionRetriesFailedRouteRefresh(t *testing.T) {
+	ctx := context.Background()
+	const session = int32(1)
+	const callsign = "DLH8LL"
+	stand := "A17"
+	version := int32(1)
+	var storedLat, storedLon *float64
+
+	stripRepo := &testutil.MockStripRepository{
+		GetByCallsignFn: func(_ context.Context, _ int32, _ string) (*models.Strip, error) {
+			return &models.Strip{
+				Callsign:          callsign,
+				Origin:            "EDDF",
+				Destination:       "EKCH",
+				Bay:               shared.BAY_HIDDEN,
+				Stand:             &stand,
+				PositionLatitude:  storedLat,
+				PositionLongitude: storedLon,
+				Version:           version,
+			}, nil
+		},
+		UpdateAircraftPositionAndBayFn: func(_ context.Context, _ int32, _ string, lat, lon *float64, _ *int32, _ string, _ int32, _ int32) (int64, error) {
+			storedLat, storedLon = lat, lon
+			version++
+			return 1, nil
+		},
+	}
+
+	routeCalls := 0
+	service := NewStripService(stripRepo)
+	service.SetRouteRecalculator(&testutil.MockServer{
+		UpdateRouteForStripCtxFn: func(_ context.Context, _ string, _ int32, _ bool) error {
+			routeCalls++
+			if routeCalls == 1 {
+				return errors.New("temporary route failure")
+			}
+			return nil
+		},
+	})
+
+	require.NoError(t, service.UpdateAircraftPosition(ctx, session, callsign, 55.6235, 12.6380, 10042, "EKCH"))
+	require.NoError(t, service.UpdateAircraftPosition(ctx, session, callsign, 55.62351, 12.63801, 10042, "EKCH"))
+	assert.Equal(t, 2, routeCalls, "the next position must retry a failed route refresh")
+
+	require.NoError(t, service.UpdateAircraftPosition(ctx, session, callsign, 55.62352, 12.63802, 10042, "EKCH"))
+	assert.Equal(t, 2, routeCalls, "successful refreshes resume same-sector suppression")
+}
+
 func TestUpdateCachedStripStandAdvancesSnapshotVersion(t *testing.T) {
 	state := &shared.WebsocketMessageState{ExistingStrips: map[string]*models.Strip{
 		"SAS570": {Callsign: "SAS570", Version: 4},

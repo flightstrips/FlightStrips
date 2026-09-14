@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.1...backend/v2.2.2) (2026-09-14)
+
+
+### Bug Fixes
+
+* **aman:** always mark EuroScope payloads authoritative ([#739](https://github.com/flightstrips/FlightStrips/issues/739)) ([4f1a484](https://github.com/flightstrips/FlightStrips/commit/4f1a4840368d045744de5c3718683b6a65244207))
+
 ## [2.2.1](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.0...backend/v2.2.1) (2026-09-14)
 
 

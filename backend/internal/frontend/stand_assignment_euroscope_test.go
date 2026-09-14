@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/services"
 	"FlightStrips/internal/testutil"
@@ -12,6 +13,29 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type standAssignmentSnapshotRepository struct {
+	repository.StandAssignmentRepository
+	assignments []*models.StandAssignment
+	blocks      []*models.StandBlock
+}
+
+func (r *standAssignmentSnapshotRepository) ListAssignments(context.Context, int32) ([]*models.StandAssignment, error) {
+	return r.assignments, nil
+}
+
+func (r *standAssignmentSnapshotRepository) ListBlocks(context.Context, int32) ([]*models.StandBlock, error) {
+	return r.blocks, nil
+}
+
+type standAllocationPublishingServer struct {
+	*testutil.MockServer
+	assignments repository.StandAssignmentRepository
+}
+
+func (s *standAllocationPublishingServer) GetStandAssignmentRepository() repository.StandAssignmentRepository {
+	return s.assignments
+}
 
 func TestSendAllocatedStandToEuroscope_ArrivalWaitsForConfirmedAndTargetsMaster(t *testing.T) {
 	const (
@@ -162,4 +186,34 @@ func TestPublishStandAllocationForwardsPilotRequestToControllersAndEuroscope(t *
 	assert.Equal(t, stand, update.Assignment.Stand)
 	require.Len(t, esHub.Stands, 1)
 	require.Equal(t, testutil.StandCall{Session: session, Cid: "MASTER-CID", Callsign: callsign, Stand: stand}, esHub.Stands[0])
+}
+
+func TestPublishStandAllocationSendsOneAuthoritativeSnapshot(t *testing.T) {
+	const session = int32(7)
+	assignments := []*models.StandAssignment{
+		{SessionID: session, Callsign: "SAS501", Stand: "A1"},
+		{SessionID: session, Callsign: "SAS502", Stand: "A2"},
+		{SessionID: session, Callsign: "SAS503", Stand: "A3"},
+	}
+	hub := &Hub{
+		send: make(chan internalMessage, 10),
+		server: &standAllocationPublishingServer{
+			MockServer: &testutil.MockServer{
+				SessionRepoVal: &testutil.MockSessionRepository{GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+					return &models.Session{ID: session, Airport: "EKCH"}, nil
+				}},
+			},
+			assignments: &standAssignmentSnapshotRepository{assignments: assignments},
+		},
+	}
+
+	require.NoError(t, hub.PublishStandAllocation(t.Context(), services.StandAllocationResult{
+		Assignment: *assignments[0],
+	}))
+
+	require.Len(t, hub.send, 1, "one change must enqueue one frontend state message")
+	message := <-hub.send
+	snapshot, ok := message.message.(frontendEvents.StandStatusSnapshotEvent)
+	require.True(t, ok)
+	assert.Len(t, snapshot.Assignments, len(assignments))
 }

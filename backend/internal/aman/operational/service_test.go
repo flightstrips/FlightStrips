@@ -1108,7 +1108,7 @@ func TestSetActiveRunwayGroupsDeterministicallyUsesEarliestOpportunityAndRetains
 	require.Equal(t, change.State.Flights[0].Slot.Time, reorderedChange.State.Flights[2].Slot.Time)
 }
 
-func TestSetActiveRunwayGroupsRejectsUnassignableMovableFlightAtomically(t *testing.T) {
+func TestSetActiveRunwayGroupsDesequencesUnassignableMovableFlight(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	config := terminal.Configuration{
 		Airport: "EKCH", RunwayGroups: []terminal.RunwayGroup{{ID: "A"}, {ID: "B"}},
@@ -1122,13 +1122,14 @@ func TestSetActiveRunwayGroupsRejectsUnassignableMovableFlightAtomically(t *test
 	require.NoError(t, err)
 	state := service.initialState("EKCH", now)
 	state.Flights = []aman.AMANFlight{operationalFlight("MOVABLE", "A", "MONAK", "M", now.Add(6*time.Minute))}
-	before := state
-
 	mutation, err := service.SetActiveRunwayGroups(aman.CommandContext{Airport: "EKCH", ReceivedAt: now}, aman.SetActiveRunwayGroupsCommand{RunwayGroupIDs: []aman.RunwayGroupID{"B"}})
 	require.NoError(t, err)
-	_, err = mutation(state)
-	requireDomainClass(t, err, aman.ErrorInvalidTransition)
-	require.Equal(t, before, state)
+	change, err := mutation(state)
+	require.NoError(t, err)
+	require.Equal(t, []aman.RunwayGroupID{"B"}, change.State.ActiveRunwayGroups)
+	require.Equal(t, aman.SequenceDispositionDesequenced, change.State.Flights[0].SequenceDisposition)
+	require.Equal(t, now, change.State.Flights[0].UpdatedAt)
+	require.Contains(t, string(change.Outcome), `"desequenced_incompatible_flight_ids":["MOVABLE"]`)
 }
 
 func TestSetActiveRunwayGroupsRejectsUnknownIncompatibleAndMismatchedConfiguration(t *testing.T) {

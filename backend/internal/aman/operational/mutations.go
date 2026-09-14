@@ -507,7 +507,7 @@ func (s *Service) SetActiveRunwayGroups(auth aman.CommandContext, command aman.S
 			state.RunwayGroups[i].SelectionConflict = nil
 		}
 		beforeFlights := append([]aman.AMANFlight(nil), state.Flights...)
-		protectedIncompatible, err := s.reconcileActiveRunwayAssignments(&state, ordered)
+		protectedIncompatible, desequencedIncompatible, err := s.reconcileActiveRunwayAssignments(&state, ordered, auth.ReceivedAt)
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
@@ -516,7 +516,8 @@ func (s *Service) SetActiveRunwayGroups(auth aman.CommandContext, command aman.S
 		return s.commandChange(state, changed, "set_active_runway_groups", "", map[string]any{
 			"runway_group_ids": ordered, "airport": auth.Airport, "actor": auth.Actor,
 			"role": auth.Role, "received_at": auth.ReceivedAt,
-			"protected_incompatible_flight_ids": protectedIncompatible,
+			"protected_incompatible_flight_ids":   protectedIncompatible,
+			"desequenced_incompatible_flight_ids": desequencedIncompatible,
 		})
 	}, nil
 }
@@ -780,7 +781,7 @@ func gapIntervalAudit(start, end time.Time) map[string]time.Time {
 	return map[string]time.Time{"start": start, "end": end}
 }
 
-func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, active []aman.RunwayGroupID) ([]aman.FlightID, error) {
+func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, active []aman.RunwayGroupID, at time.Time) ([]aman.FlightID, []aman.FlightID, error) {
 	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 	input := s.sequenceInput(*state)
 	working := input
@@ -792,6 +793,7 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 
 	movable := make([]sequence.Flight, 0, len(input.Flights))
 	protectedIncompatible := make([]aman.FlightID, 0)
+	desequencedIncompatible := make([]aman.FlightID, 0)
 	for _, flight := range state.Flights {
 		if flight.SelectedRunwayGroup == nil || (flight.State != aman.StateStable && flight.FreezeReason == aman.FreezeNone) ||
 			flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
@@ -836,8 +838,8 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 			trial := working
 			trial.Flights = append(append([]sequence.Flight(nil), working.Flights...), candidate)
 			result, err := sequence.Generate(trial)
-			if err != nil {
-				return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "active runway assignment could not produce a valid sequence"}
+			if err != nil || result.HasConflicts() {
+				continue
 			}
 			for _, entry := range result.Entries {
 				if entry.FlightID == flight.ID && (selected == "" || entry.Time.Before(earliest)) {
@@ -847,7 +849,10 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 			}
 		}
 		if selected == "" {
-			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: fmt.Sprintf("flight %q has no compatible active runway opportunity", flight.ID)}
+			state.Flights[index].SequenceDisposition = aman.SequenceDispositionDesequenced
+			state.Flights[index].UpdatedAt = at
+			desequencedIncompatible = append(desequencedIncompatible, flight.ID)
+			continue
 		}
 		assignFlightToRunwayGroup(&state.Flights[index], selected)
 		flight.RunwayGroupID, flight.CurrentSlot, flight.ManualOrder = selected, nil, nil
@@ -856,13 +861,14 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 
 	if len(working.Flights) > 0 {
 		result, err := sequence.Generate(working)
-		if err != nil {
-			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "active runway assignments could not produce a valid sequence"}
+		if err != nil || result.HasConflicts() {
+			return nil, nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "active runway assignments could not produce a valid sequence"}
 		}
 		*state = s.applyDecision(*state, sequence.Decision{Input: working, Candidate: result, Changed: true})
 	}
 	sort.Slice(protectedIncompatible, func(i, j int) bool { return protectedIncompatible[i] < protectedIncompatible[j] })
-	return protectedIncompatible, nil
+	sort.Slice(desequencedIncompatible, func(i, j int) bool { return desequencedIncompatible[i] < desequencedIncompatible[j] })
+	return protectedIncompatible, desequencedIncompatible, nil
 }
 
 func (s *Service) runwayAssignmentCompatible(flight aman.AMANFlight, group aman.RunwayGroupID) bool {

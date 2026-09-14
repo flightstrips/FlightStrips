@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.6](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.5...backend/v2.2.6) (2026-09-14)
+
+
+### Bug Fixes
+
+* **session:** release waiting frontends after EuroScope sync ([#751](https://github.com/flightstrips/FlightStrips/issues/751)) ([2cea42a](https://github.com/flightstrips/FlightStrips/commit/2cea42aea7ea895ae7cc1f5efaf7a731de7499cc))
+
 ## [2.2.5](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.4...backend/v2.2.5) (2026-09-14)
 
 

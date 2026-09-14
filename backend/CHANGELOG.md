@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.3](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.2...backend/v2.2.3) (2026-09-14)
+
+
+### Bug Fixes
+
+* **aman:** reconcile unchanged holding clearances ([#743](https://github.com/flightstrips/FlightStrips/issues/743)) ([08eaf16](https://github.com/flightstrips/FlightStrips/commit/08eaf16b8d483101db081a544c222325d008dcbc))
+* **aman:** retain arrival timing during vectors ([#741](https://github.com/flightstrips/FlightStrips/issues/741)) ([d291ff6](https://github.com/flightstrips/FlightStrips/commit/d291ff62a1af5b1e356044341d02990411352c8f))
+* **websocket:** prevent stand update queue floods ([#744](https://github.com/flightstrips/FlightStrips/issues/744)) ([0b1dab2](https://github.com/flightstrips/FlightStrips/commit/0b1dab2c00cb1d0ff9eef2e84c332981fcca5bf9))
+* **websocket:** reduce aircraft position handler load ([#745](https://github.com/flightstrips/FlightStrips/issues/745)) ([eee3847](https://github.com/flightstrips/FlightStrips/commit/eee38474bbf39a9a184c139b379d8386494bf32c))
+
 ## [2.2.2](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.1...backend/v2.2.2) (2026-09-14)
 
 

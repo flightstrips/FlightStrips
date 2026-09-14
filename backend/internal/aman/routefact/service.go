@@ -109,8 +109,7 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 	}
 
 	for attempt := 0; attempt < maxCommitAttempts; attempt++ {
-		strip, err := s.authorize(ctx, report)
-		if err != nil {
+		if _, err := s.authorize(ctx, report); err != nil {
 			return err
 		}
 		state, err := s.deps.Repository.LoadAirportState(ctx, report.Airport)
@@ -119,7 +118,7 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		}
 		flightIndex := -1
 		for index := range state.Flights {
-			if matchesFlight(state.Flights[index], strip, report.Callsign) &&
+			if matchesFlight(state.Flights[index], report.Callsign) &&
 				state.Flights[index].State != aman.StateLanded && state.Flights[index].State != aman.StateRemoved {
 				if flightIndex >= 0 {
 					return domain(aman.ErrorActiveFlightConflict, "callsign resolves to multiple active AMAN flights")
@@ -232,8 +231,7 @@ func (s *Service) ReportSpeed(ctx context.Context, session int32, airport, calls
 	if observedAt.After(now) {
 		observedAt, report.ObservedAt = now, now
 	}
-	strip, err := s.authorize(ctx, report)
-	if err != nil {
+	if _, err := s.authorize(ctx, report); err != nil {
 		return err
 	}
 	state, err := s.deps.Repository.LoadAirportState(ctx, report.Airport)
@@ -241,7 +239,7 @@ func (s *Service) ReportSpeed(ctx context.Context, session int32, airport, calls
 		return err
 	}
 	for _, flight := range state.Flights {
-		if matchesFlight(flight, strip, report.Callsign) && flight.State != aman.StateLanded && flight.State != aman.StateRemoved {
+		if matchesFlight(flight, report.Callsign) && flight.State != aman.StateLanded && flight.State != aman.StateRemoved {
 			if s.deps.Correlator == nil {
 				return nil
 			}
@@ -270,11 +268,8 @@ func (s *Service) authorize(ctx context.Context, report Report) (*internalModels
 	return strip, nil
 }
 
-func matchesFlight(flight aman.AMANFlight, strip *internalModels.Strip, callsign string) bool {
-	if !strings.EqualFold(flight.CurrentCallsign, callsign) {
-		return false
-	}
-	return strip.VatsimCID == nil || strings.TrimSpace(*strip.VatsimCID) == "" || strings.TrimSpace(flight.VATSIMCID) == strings.TrimSpace(*strip.VatsimCID)
+func matchesFlight(flight aman.AMANFlight, callsign string) bool {
+	return strings.EqualFold(strings.TrimSpace(flight.CurrentCallsign), strings.TrimSpace(callsign))
 }
 
 func containsCompleteFix(snapshot navdata.ActiveGeometrySnapshot, identifier string) bool {

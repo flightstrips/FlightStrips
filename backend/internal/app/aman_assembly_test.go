@@ -50,16 +50,16 @@ func TestAMANTransportUsesLiveVATSIMCacheForFrontendHealth(t *testing.T) {
 	require.True(t, health.AuthorityAllowed)
 }
 
-func TestAMANTransportAppliesCurrentAuthorityGateToGainLoss(t *testing.T) {
-	state := aman.AirportState{Airport: "EKCH", Revision: 7, GeneratedAt: time.Now().UTC(), Authoritative: true}
+func TestAMANTransportAlwaysMarksGainLossAuthoritative(t *testing.T) {
+	state := aman.AirportState{Airport: "EKCH", Revision: 7, GeneratedAt: time.Now().UTC(), Authoritative: false}
 
-	blocked, err := (&amanTransport{health: testAMANHealthReporter{}}).newGainLossEvent(context.Background(), state)
+	unhealthy, err := (&amanTransport{health: testAMANHealthReporter{}}).newGainLossEvent(context.Background(), state)
 	require.NoError(t, err)
-	require.False(t, blocked.Authoritative)
+	require.True(t, unhealthy.Authoritative)
 
-	allowed, err := (&amanTransport{health: testAMANHealthReporter{authorityAllowed: true}}).newGainLossEvent(context.Background(), state)
+	healthy, err := (&amanTransport{health: testAMANHealthReporter{authorityAllowed: true}}).newGainLossEvent(context.Background(), state)
 	require.NoError(t, err)
-	require.True(t, allowed.Authoritative)
+	require.True(t, healthy.Authoritative)
 }
 
 func TestAMANTransportProjectsConfirmedHoldingReleaseAsTopSkyEAT(t *testing.T) {

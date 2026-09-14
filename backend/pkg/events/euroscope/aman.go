@@ -14,7 +14,7 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 	}
 	event := AMANGainLossEvent{
 		Version: 1, Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
-		Authoritative: state.Authoritative, Values: make([]*AMANGainLossValue, len(state.Flights)),
+		Authoritative: true, Values: make([]*AMANGainLossValue, len(state.Flights)),
 	}
 	for index, flight := range state.Flights {
 		value := &AMANGainLossValue{

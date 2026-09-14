@@ -82,8 +82,8 @@ type amanTransport struct {
 	mu           sync.RWMutex
 	frontendHub  *internalFrontend.Hub
 	euroscopeHub *internalEuroscope.Hub
-	// lastGainLossAuthority tracks the projected transport authority rather
-	// than the persisted aggregate flag, which can outlive a health change.
+	// lastGainLossAuthority tracks whether EuroScope has received the current
+	// authoritative transport marker for each airport.
 	lastGainLossAuthority map[string]bool
 }
 
@@ -209,15 +209,8 @@ func (p *amanTransport) holdingEATEvents(ctx context.Context, state aman.Airport
 	return events
 }
 
-func (p *amanTransport) newGainLossEvent(ctx context.Context, state aman.AirportState) (euroscopeEvents.AMANGainLossEvent, error) {
-	event, err := euroscopeEvents.NewAMANGainLossEvent(state)
-	if err != nil {
-		return euroscopeEvents.AMANGainLossEvent{}, err
-	}
-	// Persisted authority describes the state when it was committed. Transport
-	// consumers must also observe the current technical authority gate.
-	event.Authoritative = event.Authoritative && p.currentTechnicalHealth(ctx).AuthorityAllowed
-	return event, nil
+func (p *amanTransport) newGainLossEvent(_ context.Context, state aman.AirportState) (euroscopeEvents.AMANGainLossEvent, error) {
+	return euroscopeEvents.NewAMANGainLossEvent(state)
 }
 
 func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.AirportState) error {
@@ -257,8 +250,8 @@ func (p *amanTransport) rememberGainLossAuthority(event euroscopeEvents.AMANGain
 }
 
 // PublishAMANAuthority is called on otherwise unchanged reconciliation ticks.
-// It emits only when current technical health changes the authority projected
-// to EuroScope, retaining the aggregate revision and payload.
+// It ensures EuroScope has received the authoritative marker and reevaluates
+// holding EAT writeback without changing the aggregate revision or payload.
 func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.AirportState) error {
 	if !p.gainLossEnabled && !p.holdingEATEnabled {
 		return nil

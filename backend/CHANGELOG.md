@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.4](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.3...backend/v2.2.4) (2026-09-14)
+
+
+### Bug Fixes
+
+* **websocket:** limit controller update fanout ([#747](https://github.com/flightstrips/FlightStrips/issues/747)) ([923356b](https://github.com/flightstrips/FlightStrips/commit/923356b8ba120b2470d0b9341d5856c0e55bf27a))
+
 ## [2.2.3](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.2...backend/v2.2.3) (2026-09-14)
 
 

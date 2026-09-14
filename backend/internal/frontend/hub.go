@@ -1074,7 +1074,15 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 				slog.ErrorContext(ctx, "Failed to reconcile stand assignment validation", slog.String("callsign", published.Callsign), slog.Any("error", err))
 			}
 		}
-		hub.SendStandAssignmentBroadcast(sessionID, published)
+		// A successful reload is followed by one authoritative snapshot below.
+		// Sending every assignment individually as well turns one lifecycle
+		// change into O(assignments * clients) queued websocket messages and can
+		// disconnect otherwise healthy clients during a short burst. Keep the
+		// incremental event only as the degraded fallback when a snapshot could
+		// not be assembled.
+		if !snapshotReady {
+			hub.SendStandAssignmentBroadcast(sessionID, published)
+		}
 	}
 
 	removed := make([]internalModels.StandAssignment, 0, len(result.RemovedAssignments)+1)
@@ -1102,7 +1110,9 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 				slog.ErrorContext(ctx, "Failed to clear removed stand assignment validation", slog.String("callsign", assignment.Callsign), slog.Any("error", err))
 			}
 		}
-		hub.SendStandAssignmentRemoved(sessionID, assignment.Callsign)
+		if !snapshotReady {
+			hub.SendStandAssignmentRemoved(sessionID, assignment.Callsign)
+		}
 	}
 
 	if snapshotReady {

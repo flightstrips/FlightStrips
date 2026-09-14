@@ -40,7 +40,7 @@ const (
 	tmaSurveillanceFresh       = 2 * time.Minute
 	wtcLightRETAPolicyReason   = "wtc_light_reta_policy"
 	wtcLightRETAMissingReason  = "wtc_light_reta_unavailable"
-	maxReconciliationAttempts  = 3
+	maxReconciliationAttempts  = 5
 )
 
 type NavigationMaterializer interface {
@@ -349,9 +349,26 @@ func (s *Service) reconcileAirport(ctx context.Context, airport string) error {
 		if !isRevisionConflict(err) {
 			return err
 		}
+		if attempt+1 < maxReconciliationAttempts {
+			if err := waitForReconciliationRetry(ctx, attempt+1); err != nil {
+				return err
+			}
+		}
 	}
 	s.setHealthComponent("repository", aman.HealthUnavailable, "repository_commit_failed", s.deps.Now().UTC())
 	return &aman.DomainError{Class: aman.ErrorRevisionConflict, Message: "airport revision changed during all reconciliation attempts"}
+}
+
+func waitForReconciliationRetry(ctx context.Context, attempt int) error {
+	delay := 10 * time.Millisecond * time.Duration(1<<min(max(attempt-1, 0), 3))
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) error {

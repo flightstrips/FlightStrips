@@ -271,7 +271,9 @@ func (s *StandAllocationService) publishCommitted(ctx context.Context, result St
 // assignment in one transaction. Publishing happens only after commit so
 // connected clients never observe a removal that was rolled back.
 func (s *StandAllocationService) ReleaseAssignment(ctx context.Context, assignment *models.StandAssignment) error {
-	return s.releaseAssignment(ctx, assignment, true)
+	return retrySerializableOperation(ctx, func() error {
+		return s.releaseAssignment(ctx, assignment, true)
+	})
 }
 
 // ReleaseAssignmentRetainingStand removes the SAT assignment without clearing
@@ -279,7 +281,9 @@ func (s *StandAllocationService) ReleaseAssignment(ctx context.Context, assignme
 // the stand becomes available to SAT, while the strip keeps the origin stand
 // needed by downstream routing.
 func (s *StandAllocationService) ReleaseAssignmentRetainingStand(ctx context.Context, assignment *models.StandAssignment) error {
-	return s.releaseAssignment(ctx, assignment, false)
+	return retrySerializableOperation(ctx, func() error {
+		return s.releaseAssignment(ctx, assignment, false)
+	})
 }
 
 func (s *StandAllocationService) releaseAssignment(ctx context.Context, assignment *models.StandAssignment, clearStand bool) error {
@@ -946,6 +950,11 @@ func (s *StandAllocationService) allocateWithFailureLogging(ctx context.Context,
 		metrics.RecordSATConflict(ctx, "database_contention")
 		recordRetryableDBError(ctx, err)
 		slog.WarnContext(ctx, "SAT allocation contention; retrying", slog.String("callsign", request.Callsign), slog.Int("attempt", attempt), slog.Any("error", err))
+		if attempt < s.attempts {
+			if waitErr := waitForSerializableRetry(ctx, attempt); waitErr != nil {
+				return nil, waitErr
+			}
+		}
 	}
 	metrics.RecordSATOutcome(ctx, "database_contention", string(request.Direction))
 	err := fmt.Errorf("%w after %d attempts", ErrAllocationRetriesExhausted, s.attempts)
@@ -2054,14 +2063,36 @@ func retryableStandAllocationError(err error) bool {
 	return errors.As(err, &pgErr) && (pgErr.Code == "40001" || pgErr.Code == "40P01" || pgErr.Code == "23505")
 }
 
+const maxSerializableOperationAttempts = 4
+
 func retrySerializableOperation(ctx context.Context, operation func() error) error {
-	err := operation()
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) || (pgErr.Code != "40001" && pgErr.Code != "40P01") {
-		return err
+	for attempt := 1; attempt <= maxSerializableOperationAttempts; attempt++ {
+		err := operation()
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || (pgErr.Code != "40001" && pgErr.Code != "40P01") {
+			return err
+		}
+		if attempt == maxSerializableOperationAttempts {
+			return err
+		}
+		recordRetryableDBError(ctx, err)
+		if err := waitForSerializableRetry(ctx, attempt); err != nil {
+			return err
+		}
 	}
-	recordRetryableDBError(ctx, err)
-	return operation()
+	return nil
+}
+
+func waitForSerializableRetry(ctx context.Context, attempt int) error {
+	delay := 5 * time.Millisecond * time.Duration(1<<min(max(attempt-1, 0), 3))
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func recordRetryableDBError(ctx context.Context, err error) {

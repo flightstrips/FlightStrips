@@ -733,7 +733,9 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 		return err
 	}
 	if strip == nil {
-		err := s.allocations.ReleaseAssignment(ctx, assignment)
+		// ReleaseExpired owns the retry boundary for the entire due check. Use
+		// the single-attempt operation here so retries do not multiply.
+		err := s.allocations.releaseAssignment(ctx, assignment, true)
 		recordSATExpiry(ctx, assignment, "strip_removed", err)
 		return err
 	}
@@ -754,9 +756,9 @@ func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session in
 		return nil
 	}
 	if assignment.Stage == StageDepartureBlock {
-		err = s.allocations.ReleaseAssignmentRetainingStand(ctx, assignment)
+		err = s.allocations.releaseAssignment(ctx, assignment, false)
 	} else {
-		err = s.allocations.ReleaseAssignment(ctx, assignment)
+		err = s.allocations.releaseAssignment(ctx, assignment, true)
 	}
 	recordSATExpiry(ctx, assignment, "expired", err)
 	return err

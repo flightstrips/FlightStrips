@@ -11,20 +11,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRetrySerializableOperationRetriesSerializationFailureOnce(t *testing.T) {
+func TestRetrySerializableOperationRetriesSerializationFailuresUntilSuccess(t *testing.T) {
 	attempts := 0
 	state := &shared.WebsocketMessageState{}
 	err := retrySerializableOperation(shared.WithWebsocketMessageState(context.Background(), state), func() error {
 		attempts++
-		if attempts == 1 {
+		if attempts < maxSerializableOperationAttempts {
 			return &pgconn.PgError{Code: "40001"}
 		}
 		return nil
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, 2, attempts)
-	assert.Equal(t, 1, state.DBRetries["serialization_conflict"])
+	assert.Equal(t, maxSerializableOperationAttempts, attempts)
+	assert.Equal(t, maxSerializableOperationAttempts-1, state.DBRetries["serialization_conflict"])
+}
+
+func TestRetrySerializableOperationReturnsLastSerializationFailure(t *testing.T) {
+	attempts := 0
+	want := &pgconn.PgError{Code: "40001"}
+	err := retrySerializableOperation(context.Background(), func() error {
+		attempts++
+		return want
+	})
+
+	require.ErrorIs(t, err, want)
+	assert.Equal(t, maxSerializableOperationAttempts, attempts)
 }
 
 func TestRetrySerializableOperationDoesNotRetryOtherFailures(t *testing.T) {

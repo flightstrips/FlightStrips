@@ -214,6 +214,32 @@ func TestRefreshSessionSectors_UpdatesEverySession(t *testing.T) {
 	assert.Equal(t, []int32{11, 42}, updated)
 }
 
+func TestChangedSectorOwnerPositionsIgnoresOrdering(t *testing.T) {
+	previous := []*models.SectorOwner{
+		{Session: 1, Position: "118.100", Identifier: "TWR", Sector: []string{"TW", "GW"}},
+		{Session: 1, Position: "119.805", Identifier: "APP", Sector: []string{"AE", "AW"}},
+	}
+	current := []*models.SectorOwner{
+		{Session: 1, Position: "119.805", Identifier: "APP", Sector: []string{"AW", "AE"}},
+		{Session: 1, Position: "118.100", Identifier: "TWR", Sector: []string{"GW", "TW"}},
+	}
+
+	assert.Empty(t, changedSectorOwnerPositions(previous, current))
+}
+
+func TestChangedSectorOwnerPositionsReturnsOnlyChangedFrequencies(t *testing.T) {
+	previous := []*models.SectorOwner{
+		{Session: 1, Position: "118.100", Identifier: "TWR", Sector: []string{"TW"}},
+		{Session: 1, Position: "119.805", Identifier: "APP", Sector: []string{"AE"}},
+	}
+	current := []*models.SectorOwner{
+		{Session: 1, Position: "118.100", Identifier: "TWR-2", Sector: []string{"TW"}},
+		{Session: 1, Position: "119.805", Identifier: "APP", Sector: []string{"AE"}},
+	}
+
+	assert.Equal(t, map[string]struct{}{"118.100": {}}, changedSectorOwnerPositions(previous, current))
+}
+
 func TestTransceiverRefreshSkipsUnchangedEffectiveRouteInputs(t *testing.T) {
 	t.Cleanup(config.SetPositionsForTest([]config.Position{
 		{Name: "EKCH_A_TWR", Frequency: "118.100"},
@@ -356,6 +382,34 @@ func TestSendControllerUpdates_DoesNotAssignSectorsToWrongPrefix(t *testing.T) {
 	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerUpdates[1].Callsign)
 	assert.Equal(t, "EKCH_S_TWR", frontendHub.ControllerUpdates[1].Identifier)
 	assert.Equal(t, []string{"TW"}, frontendHub.ControllerUpdates[1].OwnedSectors)
+}
+
+func TestSendControllerUpdatesForPositionsSkipsUnaffectedControllers(t *testing.T) {
+	t.Cleanup(config.SetPositionsForTest([]config.Position{
+		{Name: "EKCH_A_TWR", Frequency: "118.100"},
+		{Name: "EKCH_W_APP", Frequency: "119.805"},
+	}))
+	t.Cleanup(config.SetOwnerCallsignPrefixesForTest([]string{"EKCH"}))
+
+	frontendHub := &testutil.MockFrontendHub{}
+	controllerRepo := &testutil.MockControllerRepository{
+		ListFn: func(_ context.Context, _ int32) ([]*models.Controller, error) {
+			return []*models.Controller{
+				{Callsign: "EKCH_A_TWR", Position: "118.100"},
+				{Callsign: "EKCH_W_APP", Position: "119.805"},
+			}, nil
+		},
+	}
+
+	server := &Server{frontendHub: frontendHub}
+	err := server.sendControllerUpdatesForPositions(1, []*models.SectorOwner{
+		{Session: 1, Position: "118.100", Sector: []string{"TW"}, Identifier: "EKCH_A_TWR"},
+		{Session: 1, Position: "119.805", Sector: []string{"AW"}, Identifier: "EKCH_W_APP"},
+	}, controllerRepo, map[string]struct{}{"118.100": {}})
+
+	require.NoError(t, err)
+	require.Len(t, frontendHub.ControllerUpdates, 1)
+	assert.Equal(t, "EKCH_A_TWR", frontendHub.ControllerUpdates[0].Callsign)
 }
 
 func TestGetCurrentControllerCoverage_UsesSyncStateControllers(t *testing.T) {

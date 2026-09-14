@@ -82,8 +82,9 @@ func (s *Server) updateSectorsContextUnlocked(ctx context.Context, sessionId int
 	slog.Debug("Found sectors for session", slog.Int("session", int(sessionId)), slog.Int("sectors", len(currentOwners)))
 
 	changes := computeSectorChanges(previousOwners, currentOwners)
+	changedPositions := changedSectorOwnerPositions(previousOwners, currentOwners)
 
-	if !slices.EqualFunc(currentOwners, previousOwners, sectorsEqual) {
+	if len(changedPositions) > 0 {
 		tx, err := s.GetDatabasePool().Begin(ctx)
 		if err != nil {
 			return nil, err
@@ -107,7 +108,7 @@ func (s *Server) updateSectorsContextUnlocked(ctx context.Context, sessionId int
 			return nil, err
 		}
 
-		if err := s.sendControllerUpdates(sessionId, currentOwners, controllerRepo); err != nil {
+		if err := s.sendControllerUpdatesForPositions(sessionId, currentOwners, controllerRepo, changedPositions); err != nil {
 			return nil, err
 		}
 	}
@@ -197,8 +198,44 @@ func freqToPositionName(freq string) string {
 	return freq
 }
 
-func sectorsEqual(a, b *models.SectorOwner) bool {
-	return a.Session == b.Session && a.Position == b.Position && slices.Equal(a.Sector, b.Sector)
+type sectorOwnerState struct {
+	identifier string
+	sectors    []string
+}
+
+// changedSectorOwnerPositions compares ownership as a set keyed by frequency.
+// Repository row order and PostgreSQL array order are not operational changes
+// and must not trigger a full controller broadcast.
+func changedSectorOwnerPositions(previous, current []*models.SectorOwner) map[string]struct{} {
+	states := func(owners []*models.SectorOwner) map[string]sectorOwnerState {
+		result := make(map[string]sectorOwnerState, len(owners))
+		for _, owner := range owners {
+			if owner == nil {
+				continue
+			}
+			sectors := slices.Clone(owner.Sector)
+			slices.Sort(sectors)
+			result[owner.Position] = sectorOwnerState{identifier: owner.Identifier, sectors: sectors}
+		}
+		return result
+	}
+
+	previousStates := states(previous)
+	currentStates := states(current)
+	positions := make(map[string]struct{})
+	for position, previousState := range previousStates {
+		currentState, exists := currentStates[position]
+		if !exists || previousState.identifier != currentState.identifier || !slices.Equal(previousState.sectors, currentState.sectors) {
+			positions[position] = struct{}{}
+		}
+	}
+	for position, currentState := range currentStates {
+		previousState, exists := previousStates[position]
+		if !exists || previousState.identifier != currentState.identifier || !slices.Equal(previousState.sectors, currentState.sectors) {
+			positions[position] = struct{}{}
+		}
+	}
+	return positions
 }
 
 func sectorsCompare(e, e2 config.Sector) int {
@@ -321,6 +358,10 @@ func refreshSessionSectors(ctx context.Context, sessionRepo repository.SessionRe
 }
 
 func (s *Server) sendControllerUpdates(sessionId int32, owners []*models.SectorOwner, controllerRepo repository.ControllerRepository) error {
+	return s.sendControllerUpdatesForPositions(sessionId, owners, controllerRepo, nil)
+}
+
+func (s *Server) sendControllerUpdatesForPositions(sessionId int32, owners []*models.SectorOwner, controllerRepo repository.ControllerRepository, positions map[string]struct{}) error {
 	controllers, err := controllerRepo.List(context.Background(), sessionId)
 	if err != nil {
 		return err
@@ -335,8 +376,14 @@ func (s *Server) sendControllerUpdates(sessionId int32, owners []*models.SectorO
 		identifier := ""
 		ownedSectors := []string{}
 		position, ok := resolveOperationalPosition(controller)
+		frequency := controllerPrimaryFrequency(controller, position)
+		if positions != nil {
+			if _, changed := positions[frequency]; !changed {
+				continue
+			}
+		}
 		if ok && shared.IsOperationalControllerForPosition(controller, position) {
-			if sector, ok := ownerMap[controllerPrimaryFrequency(controller, position)]; ok {
+			if sector, ok := ownerMap[frequency]; ok {
 				identifier = sector.Identifier
 				ownedSectors = slices.Clone(sector.Sector)
 			}

@@ -153,7 +153,13 @@ export function AMANBoardView({
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const initializedTimelineScroll = useRef(false);
   const [timelineScroll, setTimelineScroll] = useState({top: 0, viewportHeight: 0, contentHeight: 0});
-  const activeRunwayLane = lanes.find((lane) => lane.id === selectedRunwayGroupID) ?? lanes[0] ?? null;
+  const defaultRunwayGroupID = state?.active_runway_groups?.[0]
+    ?? state?.runway_groups.find((group) => group.selected)?.id
+    ?? null;
+  const activeRunwayLane = lanes.find((lane) => lane.id === selectedRunwayGroupID)
+    ?? lanes.find((lane) => lane.id === defaultRunwayGroupID)
+    ?? lanes[0]
+    ?? null;
   const axis = useAMANTimelineAxis(state?.generated_at ?? new Date(0).toISOString());
   const range = axis.range;
   const timelineHeight = useMemo(

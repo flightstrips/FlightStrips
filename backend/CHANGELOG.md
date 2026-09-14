@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.5](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.4...backend/v2.2.5) (2026-09-14)
+
+
+### Bug Fixes
+
+* **session:** prefer EKCH A TWR as EuroScope master ([#746](https://github.com/flightstrips/FlightStrips/issues/746)) ([8836490](https://github.com/flightstrips/FlightStrips/commit/8836490a7a6a821d7b6d328b93c3c935da78cfb8))
+
 ## [2.2.4](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.3...backend/v2.2.4) (2026-09-14)
 
 

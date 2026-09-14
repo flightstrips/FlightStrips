@@ -1,9 +1,11 @@
 package operational
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/aman/sequence"
 	"FlightStrips/internal/aman/terminal"
+	"FlightStrips/internal/aman/trafficprediction"
 	"FlightStrips/internal/aman/trajectory"
 	"FlightStrips/internal/sat"
 	"github.com/stretchr/testify/require"
@@ -687,6 +690,33 @@ func TestRemovedFlightCannotBeResurrectedByLingeringObservation(t *testing.T) {
 	require.Equal(t, removed, updated)
 }
 
+func TestRetireVATSIMFlightDoesNotLogAlreadyMissingIdentity(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	retireVATSIMFlight(context.Background(), staticVATSIMFlightRetirer{
+		err: &aman.DomainError{Class: aman.ErrorNotFound, Message: "active VATSIM flight identity was not found"},
+	}, "1b4435e2-bb17-41c6-aefe-d7f91a1bb600")
+
+	require.Empty(t, output.String())
+}
+
+func TestRetireVATSIMFlightWarnsForUnexpectedFailureWithStringFlightID(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	retireVATSIMFlight(context.Background(), staticVATSIMFlightRetirer{err: errors.New("database unavailable")}, "flight-1")
+
+	require.Contains(t, output.String(), "retire removed AMAN VATSIM identity failed")
+	require.Contains(t, output.String(), "flight_id=flight-1")
+	require.Contains(t, output.String(), "error=\"database unavailable\"")
+	require.NotContains(t, output.String(), "unhandled:")
+}
+
 func TestUnknownSTARFamilyRemainsDegradedAndSequenceable(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	service, err := New(Dependencies{
@@ -889,6 +919,51 @@ func TestGroundedSurveillanceLandsPreviouslyAirborneFlightWithoutVATSIMTakeoffFa
 	require.False(t, updated.Prediction.Publishable)
 }
 
+func TestUnavailableRoutePredictionPreservesStableTimingAndCapacityReservation(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 16, 22, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	flight := operationalFlight("VECTORED", group, "MONAK", "M", now.Add(20*time.Minute))
+	flight.State = aman.StateStable
+	flight.Slot = &aman.Slot{Time: now.Add(21 * time.Minute), RunwayGroupID: group, Sequence: 3, Revision: 7, Reason: "rate_wtc"}
+	wantPrediction, wantSlot := *flight.Prediction, *flight.Slot
+	observation := aman.FlightObservation{SourceStatus: aman.DataFresh}
+	cause := errors.New("route geometry is not publishable: partial")
+
+	updated := applyUnavailablePrediction(flight, observation, now, cause)
+
+	require.NotNil(t, updated.Prediction)
+	require.True(t, updated.Prediction.Publishable)
+	require.Equal(t, wantPrediction.OperationalTETA, updated.Prediction.OperationalTETA)
+	require.Equal(t, wantSlot, *updated.Slot)
+	require.Equal(t, cause.Error(), *updated.Prediction.DegradationReason)
+	require.Equal(t, now, updated.UpdatedAt)
+	require.Equal(t, aman.DataFresh, updated.DataStatus)
+}
+
+func TestUnavailableRoutePredictionPreservesSuperstableTimingEvenWithIncompleteStateRestore(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 16, 22, 0, 0, time.UTC)
+	flight := operationalFlight("SUPERSTABLE", "ARRIVAL-22", "MONAK", "M", now.Add(10*time.Minute))
+	flight.State = aman.StateUnstable
+	flight.FreezeReason = aman.FreezeSuperstable
+	wantTETA := flight.Prediction.OperationalTETA
+
+	updated := applyUnavailablePrediction(flight, aman.FlightObservation{SourceStatus: aman.DataFresh}, now, errors.New("route geometry is not publishable: partial"))
+
+	require.True(t, updated.Prediction.Publishable)
+	require.Equal(t, wantTETA, updated.Prediction.OperationalTETA)
+}
+
+func TestUnavailableRoutePredictionStillWithdrawsUnstableTiming(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 16, 22, 0, 0, time.UTC)
+	flight := operationalFlight("UNSTABLE", "ARRIVAL-22", "MONAK", "M", now.Add(30*time.Minute))
+	flight.Slot = &aman.Slot{Time: now.Add(31 * time.Minute), RunwayGroupID: "ARRIVAL-22", Sequence: 1}
+
+	updated := applyUnavailablePrediction(flight, aman.FlightObservation{SourceStatus: aman.DataFresh}, now, errors.New("route geometry is not publishable: partial"))
+
+	require.False(t, updated.Prediction.Publishable)
+	require.Nil(t, updated.Slot)
+}
+
 func TestGroundedSurveillanceLandsPostTakeoffFlight(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	altitude, groundspeed := 26, 4.0
@@ -960,13 +1035,33 @@ func TestFutureRateChangePreservesCurrentAndPendingSchedule(t *testing.T) {
 	require.Equal(t, uint32(40), group.ActiveRatePerHour)
 	require.Len(t, group.RateSchedule, 2)
 	require.Equal(t, []sequence.RatePoint{
-		{EffectiveAt: now, ArrivalsPerHour: 40},
+		{EffectiveAt: now.Add(-trafficPredictionLookback), ArrivalsPerHour: 40},
 		{EffectiveAt: future, ArrivalsPerHour: 30},
 	}, sequenceInput(change.State, service.deps.Terminal).Policies[0].Rates)
 
 	updateActiveRates(change.State.RunwayGroups, future)
 	require.Equal(t, uint32(30), change.State.RunwayGroups[0].ActiveRatePerHour)
 	require.Equal(t, future, *change.State.RunwayGroups[0].RateEffectiveAt)
+}
+
+func TestInitialRateCoversTrafficPredictionLookback(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 7, 0, 0, time.UTC)
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+
+	state := service.initialState("EKCH", now)
+	group := state.RunwayGroups[0]
+	wantEffectiveAt := time.Date(2026, time.July, 23, 11, 44, 30, 0, time.UTC)
+	require.Equal(t, wantEffectiveAt, *group.RateEffectiveAt)
+	require.Equal(t, wantEffectiveAt, group.RateSchedule[0].EffectiveAt)
+	require.Zero(t, now.Sub(wantEffectiveAt)%(90*time.Second), "backdating must preserve the original 40/h grid phase")
+	prediction := trafficprediction.Build(state, aman.ComponentHealth{Status: aman.HealthReady})
+	require.Equal(t, trafficprediction.StatusReady, prediction.Status)
+	require.NotContains(t, prediction.DegradedReasons, "missing_selected_rate")
 }
 
 func TestSetRateDoesNotChangeRunwaySelectionOrFlightAssignments(t *testing.T) {
@@ -1834,6 +1929,8 @@ func int64Pointer(value int64) *int64 { return &value }
 func TestOffRouteFallbackReasonLowersPredictionConfidenceWithoutHidingWaypoint(t *testing.T) {
 	reason := offRouteFallbackReason([]string{"UNRESOLVED_LEG:X", "OFF_ROUTE", "OFF_ROUTE_NEXT_WAYPOINT:TESPI"})
 	require.Equal(t, "off_route_next_waypoint:tespi", reason)
+	require.Equal(t, "vectored_to_last_direct:monak", offRouteFallbackReason([]string{"OFF_ROUTE", "VECTORED_TO_LAST_DIRECT:MONAK"}))
+	require.Equal(t, "vectored_to_next_waypoint:monak", offRouteFallbackReason([]string{"OFF_ROUTE", "VECTORED_PAST_LAST_DIRECT:TUDLO", "VECTORED_TO_NEXT_WAYPOINT:MONAK"}))
 	require.Empty(t, offRouteFallbackReason([]string{"OFF_ROUTE"}))
 }
 
@@ -2131,6 +2228,12 @@ type recordingPublisher struct{ states []aman.AirportState }
 func (p *recordingPublisher) PublishAMANState(_ context.Context, state aman.AirportState) error {
 	p.states = append(p.states, state)
 	return nil
+}
+
+type staticVATSIMFlightRetirer struct{ err error }
+
+func (r staticVATSIMFlightRetirer) RetireVATSIMFlight(context.Context, aman.FlightID) error {
+	return r.err
 }
 
 type unavailableNavigation struct{}

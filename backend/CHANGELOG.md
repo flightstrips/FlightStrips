@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.2.2](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.1...backend/v2.2.2) (2026-09-14)
+
+
+### Bug Fixes
+
+* **aman:** always mark EuroScope payloads authoritative ([#739](https://github.com/flightstrips/FlightStrips/issues/739)) ([4f1a484](https://github.com/flightstrips/FlightStrips/commit/4f1a4840368d045744de5c3718683b6a65244207))
+
+## [2.2.1](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.0...backend/v2.2.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **aman:** ignore already retired VATSIM identities ([#736](https://github.com/flightstrips/FlightStrips/issues/736)) ([3ecc064](https://github.com/flightstrips/FlightStrips/commit/3ecc0648a4f92e46d1c18333b6516b31f3cbd3d0))
+* **aman:** keep default rate available for overload prediction ([#738](https://github.com/flightstrips/FlightStrips/issues/738)) ([24449e8](https://github.com/flightstrips/FlightStrips/commit/24449e8134aa5f54700dc01b20f5017f89e8bfd4))
+* **aman:** match route facts by callsign ([#735](https://github.com/flightstrips/FlightStrips/issues/735)) ([6985368](https://github.com/flightstrips/FlightStrips/commit/6985368c3cd0b9a4cf57c542bb0380767df9024a))
+
 ## [2.2.0](https://github.com/flightstrips/FlightStrips/compare/backend/v2.1.0...backend/v2.2.0) (2026-09-14)
 
 

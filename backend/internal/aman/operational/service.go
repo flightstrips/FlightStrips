@@ -33,6 +33,7 @@ const (
 	routeResolverVersion       = "airacnet-route-v4"
 	defaultArrivalRate         = uint32(20)
 	ekchDefaultArrivalRate     = uint32(40)
+	trafficPredictionLookback  = 15 * time.Minute
 	weatherRefreshEvery        = 30 * time.Minute
 	queueOfferValidity         = 2 * time.Minute
 	euroScopeSurveillanceFresh = 30 * time.Second
@@ -526,9 +527,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 		}
 		for _, flight := range committed.State.Flights {
 			if flight.State == aman.StateRemoved && previous[flight.ID] != aman.StateRemoved {
-				if retireErr := s.deps.Retirer.RetireVATSIMFlight(context.WithoutCancel(ctx), flight.ID); retireErr != nil {
-					slog.WarnContext(ctx, "retire removed AMAN VATSIM identity failed", "flight_id", flight.ID, "error", retireErr)
-				}
+				retireVATSIMFlight(ctx, s.deps.Retirer, flight.ID)
 			}
 		}
 	}
@@ -538,6 +537,20 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 func isRevisionConflict(err error) bool {
 	var domain *aman.DomainError
 	return errors.As(err, &domain) && domain.Class == aman.ErrorRevisionConflict
+}
+
+func retireVATSIMFlight(ctx context.Context, retirer aman.VATSIMFlightIdentityRetirer, flightID aman.FlightID) {
+	err := retirer.RetireVATSIMFlight(context.WithoutCancel(ctx), flightID)
+	if err == nil {
+		return
+	}
+	var domainErr *aman.DomainError
+	if errors.As(err, &domainErr) && domainErr.Class == aman.ErrorNotFound {
+		// Retirement is idempotent: no active identity means the desired cleanup
+		// state has already been reached.
+		return
+	}
+	slog.WarnContext(ctx, "retire removed AMAN VATSIM identity failed", slog.String("flight_id", string(flightID)), slog.Any("error", err))
 }
 
 func hasRunwayGroupSelectionSchedule(groups []aman.RunwayGroupPolicy) bool {
@@ -590,7 +603,11 @@ func (s *Service) initialState(airport string, now time.Time) aman.AirportState 
 	rate := defaultRateForAirport(airport)
 	groups := make([]aman.RunwayGroupPolicy, 0, len(s.deps.Terminal.RunwayGroups))
 	for index, configured := range s.deps.Terminal.RunwayGroups {
-		effective := now
+		// The first traffic-prediction overload window starts one bucket before
+		// the displayed range. Backdate the configured default by whole rate
+		// intervals so it covers that lookback without shifting the landing grid
+		// that starts at initialization time.
+		effective := initialRateEffectiveAt(now, rate)
 		group := aman.RunwayGroupPolicy{
 			ID: configured.ID, Selected: index == 0, ActiveRatePerHour: rate, RateEffectiveAt: &effective,
 			RateSchedule: []aman.RunwayGroupRatePoint{{EffectiveAt: effective, ArrivalsPerHour: rate}},
@@ -605,6 +622,17 @@ func (s *Service) initialState(airport string, now time.Time) aman.AirportState 
 		Authoritative: s.deps.Mode == aman.ModeAuthoritative, Flights: []aman.AMANFlight{}, RunwayGroups: groups,
 		ActiveRunwayGroups: activeRunwayGroupsFromSelected(groups),
 	}
+}
+
+func initialRateEffectiveAt(now time.Time, rate uint32) time.Time {
+	lookbackStart := now.Truncate(15 * time.Minute).Add(-trafficPredictionLookback)
+	interval := time.Duration((uint64(time.Hour) + uint64(rate) - 1) / uint64(rate))
+	span := now.Sub(lookbackStart)
+	intervals := span / interval
+	if span%interval != 0 {
+		intervals++
+	}
+	return now.Add(-intervals * interval)
 }
 
 func activeRunwayGroupsFromSelected(groups []aman.RunwayGroupPolicy) []aman.RunwayGroupID {
@@ -733,6 +761,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		Airport: navdata.AirportID(observation.Destination), RouteKey: key,
 		FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: group,
 		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: flight.RouteProgress,
+		HoldingClearanceFix: operationalHoldingClearanceFix(flight),
 	}, trajectory.Config{ReferenceTime: now, MaxObservationAge: 2 * time.Minute})
 	if err != nil {
 		return flight, err
@@ -1528,11 +1557,20 @@ func amanCPHSeparations() []sequence.SeparationRule {
 
 func offRouteFallbackReason(reasons []string) string {
 	for _, reason := range reasons {
-		if strings.HasPrefix(reason, "OFF_ROUTE_NEXT_WAYPOINT:") {
+		if strings.HasPrefix(reason, "OFF_ROUTE_NEXT_WAYPOINT:") ||
+			strings.HasPrefix(reason, "VECTORED_TO_LAST_DIRECT:") ||
+			strings.HasPrefix(reason, "VECTORED_TO_NEXT_WAYPOINT:") {
 			return strings.ToLower(reason)
 		}
 	}
 	return ""
+}
+
+func operationalHoldingClearanceFix(flight aman.AMANFlight) navdata.FixID {
+	if flight.HoldingClearance == nil || flight.HoldingClearance.HoldType != aman.HoldingClearanceEnroute {
+		return ""
+	}
+	return navdata.FixID(flight.HoldingClearance.Hold)
 }
 
 func (s *Service) selectedGroup(flight aman.AMANFlight, groups []aman.RunwayGroupPolicy) (aman.RunwayGroupID, bool) {
@@ -1724,6 +1762,20 @@ func clearAbsence(value *aman.LifecycleState) *aman.LifecycleState {
 func applyUnavailablePrediction(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time, cause error) aman.AMANFlight {
 	copy := observation
 	flight.LatestObservation, flight.DataStatus, flight.UpdatedAt = &copy, observation.SourceStatus, now
+	// Once a flight is stable, its accepted timing and capacity reservation are
+	// operational facts. A later route-projection failure commonly means the
+	// aircraft is flying a direct or vectors, not that its landing demand has
+	// disappeared. Retain the last publishable timing while exposing the route
+	// degradation for diagnosis. Superstable is checked independently so a
+	// partially restored aggregate cannot accidentally lose its frozen timing.
+	if (flight.State == aman.StateStable || flight.FreezeReason == aman.FreezeSuperstable) &&
+		flight.Prediction != nil && flight.Prediction.Publishable && !flight.Prediction.OperationalTETA.IsZero() {
+		prediction := *flight.Prediction
+		reason := cause.Error()
+		prediction.DegradationReason = &reason
+		flight.Prediction = &prediction
+		return flight
+	}
 	markPredictionNonPublishable(&flight, cause.Error())
 	return flight
 }

@@ -177,6 +177,11 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		factState, factFix := aman.RouteFactCleared, ""
 		if fix != nil {
 			factState, factFix = aman.RouteFactActive, *fix
+		} else if current != nil && (current.State == "" || current.State == aman.RouteFactActive) {
+			// Preserve the last accepted target as evidence after EuroScope clears
+			// the direct. Trajectory ignores it while the aircraft projects onto
+			// its route, but can use it as a conservative vectors fallback.
+			factFix = current.Fix
 		}
 		state.Flights[flightIndex].ActiveRouteFact = &aman.RouteFact{
 			ID: s.deps.NewID(), FlightID: state.Flights[flightIndex].ID, Fix: factFix, Issuer: report.ControllerCallsign,

@@ -14,7 +14,6 @@ import { useAtisCode, useMarkArmed, useMetar, useRunwaySetup, useSelectedCallsig
 import { CLS_CMDBTN } from "@/components/strip/shared";
 import { Bay } from "@/api/models";
 import { FRONTEND_VERSION } from "@/lib/app-version";
-import { isLocalDevelopment } from "@/lib/local-development";
 
 // Bar height matches strip height (4.72dvh). Inner elements: calc(4.72dvh - 14px) + 7px top/bottom margin.
 const CLS_BAR = "h-[4.72dvh] w-screen bg-bay-commandbar flex justify-between text-white items-center border-t-2 border-bay-border";
@@ -31,7 +30,7 @@ const SCOPE_LABELS: Record<string, string> = {
   "AAAD": "AA + AD",
   "AD":   "APRON DEP",
   "EST":  "SEQ PLN",
-  ...(isLocalDevelopment ? {"AMAN": "AMAN"} : {}),
+  "AMAN": "AMAN",
   "GEGW": "GE + GW",
   "TWTE": "TE + TW",
   "TWRGND": "TWR + GND",
@@ -40,7 +39,7 @@ const SCOPE_LABELS: Record<string, string> = {
 const EKCH_SCOPES = [
   { label: "CLR DEL",    layout: "CLX" },
   { label: "SEQ PLN",    layout: "EST" },
-  ...(isLocalDevelopment ? [{ label: "AMAN", layout: "AMAN" }] : []),
+  { label: "AMAN",       layout: "AMAN" },
   { label: "APRON DEP",  layout: "AD" },
   { label: "APRON ARR",  layout: "AA" },
   { label: "AA + AD",    layout: "AAAD" },

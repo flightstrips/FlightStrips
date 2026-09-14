@@ -136,10 +136,21 @@ describe("manual companion layout behavior", () => {
     expect(store.getState().followRecommendedLayout).toBe(false);
   });
 
-  it("does not automatically open AMAN and keeps a manually opened AMAN board after reconnecting", () => {
+  it("automatically opens AMAN from the server recommendation", () => {
     client._emit(EventType.FrontendInitial, initialEvent("AMAN"));
-    expect(store.getState().displayedLayout).toBe("");
+    expect(store.getState().displayedLayout).toBe("AMAN");
+    expect(store.getState().followRecommendedLayout).toBe(true);
+  });
 
+  it("follows a live AMAN server recommendation", () => {
+    client._emit(EventType.FrontendInitial, initialEvent("AD"));
+    client._emit(EventType.FrontendLayoutUpdate, {type: EventType.FrontendLayoutUpdate, layout: "AMAN"});
+
+    expect(store.getState().displayedLayout).toBe("AMAN");
+    expect(store.getState().followRecommendedLayout).toBe(true);
+  });
+
+  it("keeps a manually opened AMAN board after reconnecting", () => {
     client._emit(EventType.FrontendInitial, initialEvent("AD"));
     store.getState().setDisplayedLayout("AMAN");
     client._emit(EventType.FrontendLayoutUpdate, {type: EventType.FrontendLayoutUpdate, layout: "AAAD"});

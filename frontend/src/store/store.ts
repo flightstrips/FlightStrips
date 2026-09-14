@@ -106,7 +106,7 @@ function isServerSelectableLayout(layout: string) {
   const serverLayout = layout.trim().toUpperCase();
   const normalizedLayout = normalizeLayout(serverLayout);
 
-  return serverLayout === "SEQPLN" || (
+  return serverLayout === "SEQPLN" || normalizedLayout === "AMAN" || (
     KNOWN_LAYOUTS.has(normalizedLayout) && !MANUAL_COMPANION_LAYOUTS.has(normalizedLayout)
   );
 }

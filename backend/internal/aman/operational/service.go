@@ -526,9 +526,7 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 		}
 		for _, flight := range committed.State.Flights {
 			if flight.State == aman.StateRemoved && previous[flight.ID] != aman.StateRemoved {
-				if retireErr := s.deps.Retirer.RetireVATSIMFlight(context.WithoutCancel(ctx), flight.ID); retireErr != nil {
-					slog.WarnContext(ctx, "retire removed AMAN VATSIM identity failed", "flight_id", flight.ID, "error", retireErr)
-				}
+				retireVATSIMFlight(ctx, s.deps.Retirer, flight.ID)
 			}
 		}
 	}
@@ -538,6 +536,20 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 func isRevisionConflict(err error) bool {
 	var domain *aman.DomainError
 	return errors.As(err, &domain) && domain.Class == aman.ErrorRevisionConflict
+}
+
+func retireVATSIMFlight(ctx context.Context, retirer aman.VATSIMFlightIdentityRetirer, flightID aman.FlightID) {
+	err := retirer.RetireVATSIMFlight(context.WithoutCancel(ctx), flightID)
+	if err == nil {
+		return
+	}
+	var domainErr *aman.DomainError
+	if errors.As(err, &domainErr) && domainErr.Class == aman.ErrorNotFound {
+		// Retirement is idempotent: no active identity means the desired cleanup
+		// state has already been reached.
+		return
+	}
+	slog.WarnContext(ctx, "retire removed AMAN VATSIM identity failed", slog.String("flight_id", string(flightID)), slog.Any("error", err))
 }
 
 func hasRunwayGroupSelectionSchedule(groups []aman.RunwayGroupPolicy) bool {

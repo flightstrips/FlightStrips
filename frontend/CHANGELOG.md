@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.4.1...frontend/v1.5.0) (2026-09-14)
+
+
+### Features
+
+* **aman:** expose view in production ([#733](https://github.com/flightstrips/FlightStrips/issues/733)) ([d0fa3f2](https://github.com/flightstrips/FlightStrips/commit/d0fa3f2bcd7fa726d525cdc6f6e02cd9dde74bf9))
+
 ## [1.4.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.4.0...frontend/v1.4.1) (2026-09-14)
 
 

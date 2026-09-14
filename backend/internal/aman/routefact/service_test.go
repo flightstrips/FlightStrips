@@ -67,10 +67,35 @@ func TestReportDirectToPersistsBackendOwnedFactAndPublishes(t *testing.T) {
 	// the audit fact.
 	require.NoError(t, restarted.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", nil, now))
 	require.Equal(t, aman.RouteFactCleared, repository.state.Flights[0].ActiveRouteFact.State)
-	require.Empty(t, repository.state.Flights[0].ActiveRouteFact.Fix)
+	require.Equal(t, "KEMAX", repository.state.Flights[0].ActiveRouteFact.Fix)
 	require.Equal(t, 2, repository.commits)
 	require.Equal(t, 2, publisher.calls)
 	require.Equal(t, 2, reconciler.calls)
+}
+
+func TestReportDirectToDoesNotRestoreExpiredTargetOnClear(t *testing.T) {
+	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
+	cid := "1234567"
+	flight := routedFlight(cid)
+	flight.State = aman.StateGoAround
+	flight.ActiveRouteFact = &aman.RouteFact{
+		ID: "expired-direct", FlightID: flight.ID, Fix: "KEMAX", Issuer: "EKCH_A_APP",
+		ObservedAt: now.Add(-time.Minute), ReceivedAt: now.Add(-time.Minute), State: aman.RouteFactExpired,
+	}
+	repository := &memoryRepository{state: aman.AirportState{Airport: "EKCH", Revision: 7, Flights: []aman.AMANFlight{flight}}}
+	service, err := New(Dependencies{
+		Repository: repository,
+		Strips:     &stripReader{strip: &internalModels.Strip{Callsign: "SAS123", Session: 42, TrackingController: "EKCH_A_APP", VatsimCID: &cid}},
+		Geometry:   geometry(now), Publisher: &publisher{}, Reconciler: &reconciler{},
+		Now: func() time.Time { return now }, NewID: func() string { return "cleared-direct" },
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, service.ReportDirectTo(context.Background(), 42, "EKCH", "SAS123", "EKCH_A_APP", nil, now))
+
+	fact := repository.state.Flights[0].ActiveRouteFact
+	require.Equal(t, aman.RouteFactCleared, fact.State)
+	require.Empty(t, fact.Fix, "an expired pre-go-around target must not seed vector recovery")
 }
 
 type correlator struct {

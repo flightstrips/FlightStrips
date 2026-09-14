@@ -505,6 +505,128 @@ func TestReduceOffRouteStaleDirectAndPartialReasons(t *testing.T) {
 	require.Contains(t, partial.Reasons, "UNSUPPORTED_LEG:L2:UNSUPPORTED")
 }
 
+func TestReduceVectorsTowardLastClearedDirectUntilRouteRejoin(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	input.RouteFact = &aman.RouteFact{ID: "cleared-direct", Fix: "B", State: aman.RouteFactCleared}
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = 1, .25
+	trackAwayFromFiledRoute := 180.0
+	input.Observation.TrackTrueDegrees = &trackAwayFromFiledRoute
+
+	vectored := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+
+	require.Equal(t, Partial, vectored.Completeness)
+	require.Equal(t, "LAST_DIRECT_TO:B", vectored.Remaining[0].ID)
+	require.Contains(t, vectored.Reasons, "VECTORED_TO_LAST_DIRECT:B")
+	require.NotNil(t, vectored.DistanceToGoNM)
+
+	input.Prior = vectored.Progress
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = 0, 1.25
+	rejoined := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+	require.Equal(t, Complete, rejoined.Completeness)
+	require.NotEqual(t, "LAST_DIRECT_TO:B", rejoined.Remaining[0].ID)
+}
+
+func TestReduceAdvancesPastLastClearedDirectWhenWaypointIsBehind(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	input.RouteFact = &aman.RouteFact{ID: "cleared-direct", Fix: "B", State: aman.RouteFactCleared}
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = .3, 1.25
+	eastbound := 90.0
+	input.Observation.TrackTrueDegrees = &eastbound
+
+	result := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+
+	require.Equal(t, Partial, result.Completeness)
+	require.Equal(t, "LAST_DIRECT_TO:C", result.Remaining[0].ID)
+	require.Contains(t, result.Reasons, "VECTORED_PAST_LAST_DIRECT:B")
+	require.Contains(t, result.Reasons, "VECTORED_TO_NEXT_WAYPOINT:C")
+
+	// A later vector can put B in front of the aircraft again, but passing it is
+	// monotonic: the retained direct must not pull route progress back to B.
+	input.Prior = result.Progress
+	towardB := 225.0
+	input.Observation.TrackTrueDegrees = &towardB
+	stillAdvanced := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+	require.Equal(t, "LAST_DIRECT_TO:C", stillAdvanced.Remaining[0].ID)
+	require.Equal(t, result.Progress.LegIndex, stillAdvanced.Progress.LegIndex)
+	require.GreaterOrEqual(t, stillAdvanced.Progress.AlongTrackNM, result.Progress.AlongTrackNM)
+}
+
+func TestReduceDoesNotAdvancePastLastClearedDirectWithHoldingClearance(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	holdID := navdata.HoldingID("B-HOLD")
+	snapshot.Holdings = []navdata.HoldingPattern{{ID: holdID, Fix: "B"}}
+	snapshot.TerminalPaths[0].HoldingIDs = []navdata.HoldingID{holdID}
+	input.RouteFact = &aman.RouteFact{ID: "cleared-direct", Fix: "B", State: aman.RouteFactCleared}
+	input.HoldingClearanceFix = "B"
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = .04, 1.01
+	eastbound := 90.0
+	input.Observation.TrackTrueDegrees = &eastbound
+
+	result := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 1})
+
+	require.Equal(t, Partial, result.Completeness)
+	require.Equal(t, "LAST_DIRECT_TO:B", result.Remaining[0].ID)
+	require.Contains(t, result.Reasons, "VECTORED_TO_LAST_DIRECT:B")
+	require.NotNil(t, result.HoldingCandidate)
+	require.Equal(t, holdID, result.HoldingCandidate.HoldingID)
+}
+
+func TestReduceHonorsHoldingClearanceWithoutResolvedHoldingGeometry(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	input.RouteFact = &aman.RouteFact{ID: "cleared-direct", Fix: "B", State: aman.RouteFactCleared}
+	input.HoldingClearanceFix = "B"
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = .3, 1.25
+	eastbound := 90.0
+	input.Observation.TrackTrueDegrees = &eastbound
+
+	result := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12})
+
+	require.Equal(t, Partial, result.Completeness)
+	require.Equal(t, "LAST_DIRECT_TO:B", result.Remaining[0].ID)
+	require.Contains(t, result.Reasons, "VECTORED_TO_LAST_DIRECT:B")
+	require.Nil(t, result.SelectedHolding)
+	require.Nil(t, result.HoldingCandidate)
+}
+
+func TestReduceAdvancesPastHoldingFixWhenOnlyProximityIsObserved(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	holdID := navdata.HoldingID("B-HOLD")
+	snapshot.Holdings = []navdata.HoldingPattern{{ID: holdID, Fix: "B"}}
+	snapshot.TerminalPaths[0].HoldingIDs = []navdata.HoldingID{holdID}
+	input.RouteFact = &aman.RouteFact{ID: "cleared-direct", Fix: "B", State: aman.RouteFactCleared}
+	input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees = .04, 1.01
+	eastbound := 90.0
+	input.Observation.TrackTrueDegrees = &eastbound
+
+	for sample := 0; sample < 3; sample++ {
+		result := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 1})
+		require.Equal(t, "LAST_DIRECT_TO:C", result.Remaining[0].ID)
+		require.NotNil(t, result.HoldingCandidate, "proximity remains useful for holding-stack observations")
+		require.Contains(t, result.Reasons, "VECTORED_PAST_LAST_DIRECT:B")
+		input.Prior = result.Progress
+	}
+}
+
+func TestReduceRejectsImplausibleForwardJumpBeforeClearedDirectRecovery(t *testing.T) {
+	snapshot, route, input := fixtureInput(t)
+	initial := Reduce(snapshot, route, input, Config{})
+	require.NotNil(t, initial.Progress)
+
+	input.Prior = initial.Progress
+	input.RouteFact = &aman.RouteFact{ID: "cleared-direct", Fix: "B", State: aman.RouteFactCleared}
+	input.Observation.LongitudeDegrees = 1.5
+	eastbound := 90.0
+	input.Observation.TrackTrueDegrees = &eastbound
+
+	result := Reduce(snapshot, route, input, Config{MaxCrossTrackNM: 12, MaxForwardSearchNM: 10})
+
+	require.Equal(t, Partial, result.Completeness)
+	require.Contains(t, result.Reasons, "FORWARD_PROGRESS_OUT_OF_RANGE")
+	require.NotContains(t, result.Reasons, "VECTORED_PAST_LAST_DIRECT:B")
+	require.Nil(t, result.Progress)
+	require.Nil(t, result.DistanceToGoNM)
+}
+
 func TestRouteProgressRejectsNonFiniteValue(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	f := validFlight(now)

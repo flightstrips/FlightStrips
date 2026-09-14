@@ -733,6 +733,7 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		Airport: navdata.AirportID(observation.Destination), RouteKey: key,
 		FeederFix: navdata.FixID(feederFix), Feeder: navdata.FeederID(legacySTARFamily), RunwayGroup: group,
 		FlightPlanRevision: projectionRevision, Observation: *observation.Surveillance, RouteFact: flight.ActiveRouteFact, Prior: flight.RouteProgress,
+		HoldingClearanceFix: operationalHoldingClearanceFix(flight),
 	}, trajectory.Config{ReferenceTime: now, MaxObservationAge: 2 * time.Minute})
 	if err != nil {
 		return flight, err
@@ -1528,11 +1529,20 @@ func amanCPHSeparations() []sequence.SeparationRule {
 
 func offRouteFallbackReason(reasons []string) string {
 	for _, reason := range reasons {
-		if strings.HasPrefix(reason, "OFF_ROUTE_NEXT_WAYPOINT:") {
+		if strings.HasPrefix(reason, "OFF_ROUTE_NEXT_WAYPOINT:") ||
+			strings.HasPrefix(reason, "VECTORED_TO_LAST_DIRECT:") ||
+			strings.HasPrefix(reason, "VECTORED_TO_NEXT_WAYPOINT:") {
 			return strings.ToLower(reason)
 		}
 	}
 	return ""
+}
+
+func operationalHoldingClearanceFix(flight aman.AMANFlight) navdata.FixID {
+	if flight.HoldingClearance == nil || flight.HoldingClearance.HoldType != aman.HoldingClearanceEnroute {
+		return ""
+	}
+	return navdata.FixID(flight.HoldingClearance.Hold)
 }
 
 func (s *Service) selectedGroup(flight aman.AMANFlight, groups []aman.RunwayGroupPolicy) (aman.RunwayGroupID, bool) {
@@ -1724,6 +1734,20 @@ func clearAbsence(value *aman.LifecycleState) *aman.LifecycleState {
 func applyUnavailablePrediction(flight aman.AMANFlight, observation aman.FlightObservation, now time.Time, cause error) aman.AMANFlight {
 	copy := observation
 	flight.LatestObservation, flight.DataStatus, flight.UpdatedAt = &copy, observation.SourceStatus, now
+	// Once a flight is stable, its accepted timing and capacity reservation are
+	// operational facts. A later route-projection failure commonly means the
+	// aircraft is flying a direct or vectors, not that its landing demand has
+	// disappeared. Retain the last publishable timing while exposing the route
+	// degradation for diagnosis. Superstable is checked independently so a
+	// partially restored aggregate cannot accidentally lose its frozen timing.
+	if (flight.State == aman.StateStable || flight.FreezeReason == aman.FreezeSuperstable) &&
+		flight.Prediction != nil && flight.Prediction.Publishable && !flight.Prediction.OperationalTETA.IsZero() {
+		prediction := *flight.Prediction
+		reason := cause.Error()
+		prediction.DegradationReason = &reason
+		flight.Prediction = &prediction
+		return flight
+	}
 	markPredictionNonPublishable(&flight, cause.Error())
 	return flight
 }

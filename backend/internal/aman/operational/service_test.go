@@ -889,6 +889,51 @@ func TestGroundedSurveillanceLandsPreviouslyAirborneFlightWithoutVATSIMTakeoffFa
 	require.False(t, updated.Prediction.Publishable)
 }
 
+func TestUnavailableRoutePredictionPreservesStableTimingAndCapacityReservation(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 16, 22, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	flight := operationalFlight("VECTORED", group, "MONAK", "M", now.Add(20*time.Minute))
+	flight.State = aman.StateStable
+	flight.Slot = &aman.Slot{Time: now.Add(21 * time.Minute), RunwayGroupID: group, Sequence: 3, Revision: 7, Reason: "rate_wtc"}
+	wantPrediction, wantSlot := *flight.Prediction, *flight.Slot
+	observation := aman.FlightObservation{SourceStatus: aman.DataFresh}
+	cause := errors.New("route geometry is not publishable: partial")
+
+	updated := applyUnavailablePrediction(flight, observation, now, cause)
+
+	require.NotNil(t, updated.Prediction)
+	require.True(t, updated.Prediction.Publishable)
+	require.Equal(t, wantPrediction.OperationalTETA, updated.Prediction.OperationalTETA)
+	require.Equal(t, wantSlot, *updated.Slot)
+	require.Equal(t, cause.Error(), *updated.Prediction.DegradationReason)
+	require.Equal(t, now, updated.UpdatedAt)
+	require.Equal(t, aman.DataFresh, updated.DataStatus)
+}
+
+func TestUnavailableRoutePredictionPreservesSuperstableTimingEvenWithIncompleteStateRestore(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 16, 22, 0, 0, time.UTC)
+	flight := operationalFlight("SUPERSTABLE", "ARRIVAL-22", "MONAK", "M", now.Add(10*time.Minute))
+	flight.State = aman.StateUnstable
+	flight.FreezeReason = aman.FreezeSuperstable
+	wantTETA := flight.Prediction.OperationalTETA
+
+	updated := applyUnavailablePrediction(flight, aman.FlightObservation{SourceStatus: aman.DataFresh}, now, errors.New("route geometry is not publishable: partial"))
+
+	require.True(t, updated.Prediction.Publishable)
+	require.Equal(t, wantTETA, updated.Prediction.OperationalTETA)
+}
+
+func TestUnavailableRoutePredictionStillWithdrawsUnstableTiming(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 16, 22, 0, 0, time.UTC)
+	flight := operationalFlight("UNSTABLE", "ARRIVAL-22", "MONAK", "M", now.Add(30*time.Minute))
+	flight.Slot = &aman.Slot{Time: now.Add(31 * time.Minute), RunwayGroupID: "ARRIVAL-22", Sequence: 1}
+
+	updated := applyUnavailablePrediction(flight, aman.FlightObservation{SourceStatus: aman.DataFresh}, now, errors.New("route geometry is not publishable: partial"))
+
+	require.False(t, updated.Prediction.Publishable)
+	require.Nil(t, updated.Slot)
+}
+
 func TestGroundedSurveillanceLandsPostTakeoffFlight(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	altitude, groundspeed := 26, 4.0
@@ -1834,6 +1879,8 @@ func int64Pointer(value int64) *int64 { return &value }
 func TestOffRouteFallbackReasonLowersPredictionConfidenceWithoutHidingWaypoint(t *testing.T) {
 	reason := offRouteFallbackReason([]string{"UNRESOLVED_LEG:X", "OFF_ROUTE", "OFF_ROUTE_NEXT_WAYPOINT:TESPI"})
 	require.Equal(t, "off_route_next_waypoint:tespi", reason)
+	require.Equal(t, "vectored_to_last_direct:monak", offRouteFallbackReason([]string{"OFF_ROUTE", "VECTORED_TO_LAST_DIRECT:MONAK"}))
+	require.Equal(t, "vectored_to_next_waypoint:monak", offRouteFallbackReason([]string{"OFF_ROUTE", "VECTORED_PAST_LAST_DIRECT:TUDLO", "VECTORED_TO_NEXT_WAYPOINT:MONAK"}))
 	require.Empty(t, offRouteFallbackReason([]string{"OFF_ROUTE"}))
 }
 

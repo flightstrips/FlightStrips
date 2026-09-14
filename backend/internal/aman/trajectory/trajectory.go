@@ -86,6 +86,9 @@ type Input struct {
 	Observation        aman.SurveillanceFact
 	RouteFact          *aman.RouteFact
 	Prior              *aman.RouteProgress
+	// HoldingClearanceFix is the controller-authoritative hold instruction. It
+	// must not be inferred from proximity to a published holding fix alone.
+	HoldingClearanceFix navdata.FixID
 }
 
 type RemainingLeg struct {
@@ -264,11 +267,42 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		start = min(input.Prior.LegIndex, len(legs)-1)
 	}
 	obs := coordinate(input.Observation.LatitudeDegrees, input.Observation.LongitudeDegrees)
+	holdCandidate := holdingCandidate(holding, fixes, input.Observation)
 	best, ok, progressOutOfRange := projectForward(obs, legs, start, config.MaxCrossTrackNM, config.MaxForwardSearchNM, config.JitterToleranceNM, input.Prior, compatible)
 	if !ok {
+		// A position that is still on the route but implausibly far ahead is a
+		// surveillance/progress discontinuity, not vectors. Preserve the forward
+		// jump guard before considering any off-route recovery.
 		if progressOutOfRange && best.cross <= config.MaxCrossTrackNM {
 			result.Completeness, result.Reasons, result.CrossTrackNM = Partial, append(reasons, "FORWARD_PROGRESS_OUT_OF_RANGE"), best.cross
 			return result
+		}
+		if recovery := clearedDirectRecovery(input.RouteFact, legs, obs, input.Observation.TrackTrueDegrees, input.HoldingClearanceFix, start); recovery.next >= 0 {
+			next := recovery.next
+			remaining := remainingFromNextWaypointWithPrefix(obs, legs, next, "LAST_DIRECT_TO:")
+			if len(remaining) > 0 {
+				progress := progressAtLegEnd(legs, next)
+				dtg := remainingLegDistance(remaining)
+				feederLeg := legEndingAt(legs, input.FeederFix)
+				feederBypassed = feederBypassed || (feederLeg >= 0 && next > feederLeg)
+				result.Completeness = Partial
+				result.Reasons = append(reasons, "OFF_ROUTE")
+				if recovery.advanced {
+					result.Reasons = append(result.Reasons, "VECTORED_PAST_LAST_DIRECT:"+input.RouteFact.Fix, "VECTORED_TO_NEXT_WAYPOINT:"+string(legs[next].to))
+				} else {
+					result.Reasons = append(result.Reasons, "VECTORED_TO_LAST_DIRECT:"+input.RouteFact.Fix)
+				}
+				result.CrossTrackNM, result.AlongTrackNM = best.cross, progress
+				result.SelectedHolding, result.HoldingCandidate, result.DistanceToGoNM, result.Remaining = holding, holdCandidate, &dtg, remaining
+				result.InTMA = terminalStart >= 0 && next >= terminalStart
+				result.Progress = &aman.RouteProgress{
+					GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest,
+					FlightPlanRevision: input.FlightPlanRevision, RunwayGroupID: input.RunwayGroup,
+					LegIndex: next, RejoinLegIndex: next, AlongTrackNM: progress,
+				}
+				result.FeederProgress = feederProgress(legs, input.FeederFix, next, feederBypassed)
+				return result
+			}
 		}
 		recovery := nextWaypointRecovery(obs, legs, start, input.Observation.TrackTrueDegrees, input.Prior, config)
 		if recovery.next >= 0 {
@@ -308,7 +342,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 					result.Reasons = append(result.Reasons, fmt.Sprintf("OFF_ROUTE_DIRECT_CANDIDATE:%s:%d/%d", candidateFix, candidateSamples, config.RecoveryConfirmationSamples))
 				}
 				result.CrossTrackNM, result.AlongTrackNM = best.cross, progress
-				result.SelectedHolding, result.HoldingCandidate, result.DistanceToGoNM, result.Remaining = holding, holdingCandidate(holding, fixes, input.Observation), &dtg, remaining
+				result.SelectedHolding, result.HoldingCandidate, result.DistanceToGoNM, result.Remaining = holding, holdCandidate, &dtg, remaining
 				result.InTMA = terminalStart >= 0 && progressLeg >= terminalStart
 				result.Progress = &aman.RouteProgress{
 					GeometryDigest: route.Digest, ManifestRevision: snapshot.ManifestRevision, TerminalDigest: snapshot.Manifest.TerminalDigest,
@@ -330,7 +364,7 @@ func Reduce(snapshot navdata.ActiveGeometrySnapshot, route navdata.RouteGeometry
 		best = projectionAt(legs, progress)
 		best.cross = observedCross
 	}
-	result.AlongTrackNM, result.CrossTrackNM, result.SelectedHolding, result.HoldingCandidate = progress, best.cross, holding, holdingCandidate(holding, fixes, input.Observation)
+	result.AlongTrackNM, result.CrossTrackNM, result.SelectedHolding, result.HoldingCandidate = progress, best.cross, holding, holdCandidate
 	result.InTMA = terminalStart >= 0 && best.index >= terminalStart
 	dtg := remainingDistance(legs, progress)
 	result.DistanceToGoNM = &dtg
@@ -849,6 +883,52 @@ func angularDifferenceDegrees(left, right float64) float64 {
 
 func activeRouteFact(value *aman.RouteFact) bool {
 	return value != nil && (value.State == "" || value.State == aman.RouteFactActive)
+}
+
+type clearedDirectFallback struct {
+	next     int
+	advanced bool
+}
+
+func clearedDirectRecovery(value *aman.RouteFact, legs []leg, observation navdata.Coordinate, track *float64, holdingClearanceFix navdata.FixID, floor int) clearedDirectFallback {
+	if value == nil || value.State != aman.RouteFactCleared || strings.TrimSpace(value.Fix) == "" {
+		return clearedDirectFallback{next: -1}
+	}
+	target := navdata.FixID(value.Fix)
+	for index, leg := range legs {
+		if leg.to != target {
+			continue
+		}
+		// A racetrack's outbound half points away from its fix. The controller's
+		// clearance is sufficient authority to retain the target even when partial
+		// navigation data cannot resolve a selected holding pattern.
+		inTargetHold := holdingClearanceFix == target
+		if inTargetHold {
+			return clearedDirectFallback{next: index}
+		}
+		if floor > index {
+			if floor < len(legs) {
+				return clearedDirectFallback{next: floor, advanced: true}
+			}
+			return clearedDirectFallback{next: -1}
+		}
+		if waypointIsBehind(observation, leg.b, track) {
+			if index+1 < len(legs) {
+				return clearedDirectFallback{next: index + 1, advanced: true}
+			}
+			return clearedDirectFallback{next: -1}
+		}
+		return clearedDirectFallback{next: index}
+	}
+	return clearedDirectFallback{next: -1}
+}
+
+func waypointIsBehind(observation, waypoint navdata.Coordinate, track *float64) bool {
+	if track == nil || !finite(*track) {
+		return false
+	}
+	_, bearing := wgs84Inverse(observation, waypoint)
+	return angularDifferenceDegrees(*track, bearing*180/math.Pi) > 90
 }
 func finite(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) }
 func projectionAt(legs []leg, distance float64) projected {

@@ -10,13 +10,15 @@ import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
 const TARGET_TRACK_HEIGHT = 30;
 
-function RunwaySide({lane, range, side, placement, renderTarget, status}: {
+function RunwaySide({lane, range, side, placement, renderTarget, status, gapRemovalDisabled, onRemoveGap}: {
   lane: AMANFlightLane | undefined;
   range: AMANTimelineRange;
   side: "left" | "right";
   placement: string;
   renderTarget: (flight: AMANFlight) => ReactNode;
   status: AMANDataStatus;
+  gapRemovalDisabled: boolean;
+  onRemoveGap?: (gap: NonNullable<AMANFlightLane["gaps"]>[number], runway: string) => void;
 }) {
   const rulerEdge = side === "left" ? `calc(50% - ${AMAN_TIMELINE_RULER_HALF_WIDTH}px)` : `calc(50% + ${AMAN_TIMELINE_RULER_HALF_WIDTH}px)`;
   if (lane === undefined) return null;
@@ -25,7 +27,7 @@ function RunwaySide({lane, range, side, placement, renderTarget, status}: {
   const markers = layoutTimelineMarkers(lane.flights, range, gap);
   return (
     <div aria-label={`${lane.id} active runway arrivals`} data-placement={placement} data-testid={`rwy-lane-${lane.id}`} role="list">
-      <RunwayGapOverlay gaps={lane.gaps ?? []} range={range} runway={lane.id} />
+      <RunwayGapOverlay disabled={gapRemovalDisabled} gaps={lane.gaps ?? []} onRemove={onRemoveGap} range={range} runway={lane.id} />
       <RunwayClosureOverlay closures={lane.closures ?? []} range={range} runway={lane.id} status={status} />
       <CapacityReservationOverlay range={range} reservations={lane.capacityReservations ?? []} runway={lane.id} status={status} />
       {markers.map((marker) => {
@@ -52,7 +54,7 @@ function RunwaySide({lane, range, side, placement, renderTarget, status}: {
   );
 }
 
-export function RWYPairedTimeline({state, range, clockMs, currentPosition, status, renderTarget, onOpenTargetInformation}: {
+export function RWYPairedTimeline({state, range, clockMs, currentPosition, status, renderTarget, onOpenTargetInformation, gapRemovalDisabled = false, onRemoveGap}: {
   state: AMANState;
   range: AMANTimelineRange;
   clockMs: number;
@@ -60,6 +62,8 @@ export function RWYPairedTimeline({state, range, clockMs, currentPosition, statu
   status: AMANDataStatus;
   renderTarget: (flight: AMANFlight) => ReactNode;
   onOpenTargetInformation?: () => void;
+  gapRemovalDisabled?: boolean;
+  onRemoveGap?: (gap: NonNullable<AMANFlightLane["gaps"]>[number], runway: string) => void;
 }) {
   const {lanes, unavailable, truncated} = buildRWYTimelineLanes(state);
   if (unavailable) return <div className="grid min-w-full place-items-center text-sm font-semibold text-amber-200" role="status">Active runway data unavailable</div>;
@@ -79,8 +83,8 @@ export function RWYPairedTimeline({state, range, clockMs, currentPosition, statu
           <div className="absolute inset-x-0 bottom-0 top-5">
             {currentPosition !== null && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
             <AMANTimelineAxis clockMs={clockMs} onOpenTargetInformation={onOpenTargetInformation} range={range} status={status} />
-            <RunwaySide lane={lanes[timelineIndex * 2]} placement={`${timelineIndex === 0 ? "middle" : "right"}-left`} range={range} renderTarget={renderTarget} side="left" status={status} />
-            <RunwaySide lane={lanes[timelineIndex * 2 + 1]} placement={`${timelineIndex === 0 ? "middle" : "right"}-right`} range={range} renderTarget={renderTarget} side="right" status={status} />
+            <RunwaySide gapRemovalDisabled={gapRemovalDisabled} lane={lanes[timelineIndex * 2]} onRemoveGap={onRemoveGap} placement={`${timelineIndex === 0 ? "middle" : "right"}-left`} range={range} renderTarget={renderTarget} side="left" status={status} />
+            <RunwaySide gapRemovalDisabled={gapRemovalDisabled} lane={lanes[timelineIndex * 2 + 1]} onRemoveGap={onRemoveGap} placement={`${timelineIndex === 0 ? "middle" : "right"}-right`} range={range} renderTarget={renderTarget} side="right" status={status} />
           </div>
         </section>
       ))}

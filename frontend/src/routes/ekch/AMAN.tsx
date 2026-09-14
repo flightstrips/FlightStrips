@@ -5,6 +5,7 @@ import {AMANControls} from "@/components/aman/AMANControls";
 import {AMANCoordinationInbox} from "@/components/aman/AMANCoordinationInbox";
 import {AMANCoordinationRequestDialog} from "@/components/aman/AMANCoordinationRequestDialog";
 import {AMANFlightDetailDialog} from "@/components/aman/AMANFlightDetailDialog";
+import {AMANQuickGapDialog} from "@/components/aman/AMANQuickGapDialog";
 import {AMANWorkspaceShell} from "@/components/aman/AMANWorkspaceShell";
 import {AMANWarningPanel} from "@/components/aman/AMANWarningPanel";
 import {TMTHoldingGraph} from "@/components/aman/TMTHoldingGraph";
@@ -36,6 +37,8 @@ export default function AMAN() {
   const [decisionCommandID, setDecisionCommandID] = useState<string | null>(null);
   const [removalCommandID, setRemovalCommandID] = useState<string | null>(null);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [quickGapOpen, setQuickGapOpen] = useState(false);
+  const [focusedRunwayGroupID, setFocusedRunwayGroupID] = useState<string | null>(null);
   const stateAtMount = useRef(state);
 
   const effectiveSelectedFlightID = state?.flights.some((flight) => flight.flight_id === selectedFlightID)
@@ -68,6 +71,7 @@ export default function AMAN() {
           <AMANBoardView
             connectionState={connectionState}
             error={error}
+            focusedRunwayGroupID={focusedRunwayGroupID}
             onOpenControls={() => setControlsOpen(true)}
             onOpenFlightActions={(flightID) => {
               setSelectedFlightID(flightID);
@@ -159,6 +163,7 @@ export default function AMAN() {
                   setDetailAction("missed");
                   setDetailOpen(true);
                 }
+                else if (label === "Insert Gap") setQuickGapOpen(true);
                 else setControlsOpen(true);
               }} type="button"><span>{label}</span><span aria-hidden="true">▶</span></button>
             ))}
@@ -169,6 +174,19 @@ export default function AMAN() {
           {mutationBlockReason !== null && <p className="sr-only">Operational changes are currently unavailable: {mutationBlockReason.replaceAll("_", " ")}.</p>}
         </DialogContent>
       </Dialog>
+      <AMANQuickGapDialog
+        busy={Object.values(pendingCommands).some((command) => command.type === "aman.create_gap" || command.type === "aman.remove_gap")}
+        disabled={mutationBlockReason !== null}
+        flight={selectedFlight}
+        groups={state?.runway_groups ?? []}
+        onCommand={(intent) => {
+          if (intent.type === "aman.create_gap") setFocusedRunwayGroupID(intent.runway_group_id);
+          sendCommand(intent);
+        }}
+        onOpenChange={setQuickGapOpen}
+        open={quickGapOpen}
+        rejection={Object.values(commandRejections).find((item) => item.command_type === "aman.create_gap")?.message ?? null}
+      />
       {coordinationOpen && state !== null && effectiveSelectedFlightID !== null && selectedFlight !== null && <AMANCoordinationRequestDialog
         callsign={selectedFlight.callsign}
         canSubmit={mutationBlockReason === null}

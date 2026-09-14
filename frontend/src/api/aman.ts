@@ -187,6 +187,10 @@ export interface AMANTrafficFlight {
 export interface AMANFlight {
   flight_id: string;
   callsign: string;
+  /** Optional for compatibility with older AMAN state publishers. */
+  aircraft_type?: string;
+  /** Optional for compatibility with older AMAN state publishers. */
+  wake_category?: string;
   lifecycle_state: AMANLifecycleState;
   /** Missing on older V1 publishers and therefore interpreted as active. */
   sequence_disposition?: AMANSequenceDisposition;
@@ -565,6 +569,8 @@ function isGoAroundConfirmation(value: unknown): value is AMANGoAroundConfirmati
 
 function isFlight(value: unknown): value is AMANFlight {
   return isObject(value) && isString(value.flight_id) && value.flight_id !== "" && isString(value.callsign)
+    && (value.aircraft_type === undefined || isIdentity(value.aircraft_type))
+    && (value.wake_category === undefined || isIdentity(value.wake_category))
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
     && (value.sequence_disposition === undefined || (isString(value.sequence_disposition) && sequenceDispositions.has(value.sequence_disposition as AMANSequenceDisposition)))
     && isString(value.data_status) && dataStatuses.has(value.data_status as AMANDataStatus)

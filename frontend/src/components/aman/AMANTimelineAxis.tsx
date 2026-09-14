@@ -6,10 +6,10 @@ import {cn} from "@/lib/utils";
 import type {AMANTimelineRange} from "./presentation";
 
 export const AMAN_HORIZON_PREFERENCE_KEY = "flightstrips.aman.timeline-horizon.v1";
-export const AMAN_DEFAULT_HORIZON_MINUTES = 30;
+export const AMAN_DEFAULT_HORIZON_MINUTES = 90;
 export const AMAN_CLOCK_STEP_MS = 6_000;
 export const AMAN_TIMELINE_RULER_HALF_WIDTH = 23;
-const MINIMUM_HORIZON_MINUTES = 30;
+const MINIMUM_HORIZON_MINUTES = 60;
 const MAXIMUM_HORIZON_MINUTES = 90;
 const ONE_MINUTE_MS = 60_000;
 
@@ -74,7 +74,7 @@ export function useAMANTimelineAxis(authoritativeTime: string) {
   );
 }
 
-export function AMANTimelineAxis({range, clockMs, status, onOpenTargetInformation}: {range: AMANTimelineRange; clockMs: number; status: AMANDataStatus; onOpenTargetInformation?: () => void}) {
+export function AMANTimelineAxis({range, clockMs, status, onOpenTargetInformation, showFooterButton = true}: {range: AMANTimelineRange; clockMs: number; status: AMANDataStatus; onOpenTargetInformation?: () => void; showFooterButton?: boolean}) {
   const firstTick = Math.ceil(range.startMs / ONE_MINUTE_MS) * ONE_MINUTE_MS;
   const ticks = Array.from(
     {length: Math.max(0, Math.floor((range.endMs - firstTick) / ONE_MINUTE_MS) + 1)},
@@ -102,7 +102,7 @@ export function AMANTimelineAxis({range, clockMs, status, onOpenTargetInformatio
         </div>;
       })}
       {status !== "fresh" && <span className={cn("absolute bottom-1 left-1/2 z-20 -translate-x-1/2 text-[8px] font-bold uppercase", status === "disconnected" ? "text-red-200" : "text-amber-200")}>{status}</span>}
-      <button
+      {showFooterButton && <button
         aria-haspopup={onOpenTargetInformation ? "dialog" : undefined}
         aria-label={onOpenTargetInformation ? "Open target information preferences" : undefined}
         className="absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border-2 border-[#dcdcdc] bg-[#555355] px-2 py-1 font-display text-[11px] font-semibold text-[#dcdcdc] hover:bg-[#a3d5e8] hover:text-white focus-visible:bg-[#a3d5e8] focus-visible:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:pointer-events-none"
@@ -111,7 +111,7 @@ export function AMANTimelineAxis({range, clockMs, status, onOpenTargetInformatio
         type="button"
       >
         {formatAMANAxisLabel(clockMs, range.startMs)}
-      </button>
+      </button>}
     </div>
   );
 }

@@ -86,4 +86,18 @@ describe("compact MAESTRO aircraft target", () => {
 
     expect(screen.getByRole("button")).toHaveTextContent("10:12SAS123L0222L");
   });
+
+  it("vertically centers every added field with the callsign and delay", () => {
+    const leadingFields: AMANAircraftTargetField[] = [{id: "wtc", label: "WTC", value: "—"}];
+    const trailingFields: AMANAircraftTargetField[] = [
+      {id: "feeder-fix", label: "Feeder fix", value: "KOR"},
+      {id: "aircraft-type", label: "Aircraft type", value: "—"},
+    ];
+    const {container} = render(<AMANAircraftTarget flight={flight({callsign: "BAW81CB", gain_loss_seconds: 0})} guidance={guidance} leadingFields={leadingFields} trailingFields={trailingFields} />);
+
+    expect(screen.getByRole("button")).toHaveTextContent("—BAW81CB=00KOR—");
+    for (const field of container.querySelectorAll("[data-field]")) {
+      expect(field).toHaveClass("flex", "items-center", "truncate");
+    }
+  });
 });

@@ -53,7 +53,10 @@ function renderBoard(value: AMANState | null, overrides: Partial<AMANBoardViewPr
 }
 
 describe("complete AMAN timeline and strips", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    boardStore.sendAMANCommand.mockClear();
+  });
 
   it("renders null and invalid replacement state explicitly without stale partial data", () => {
     const {rerender} = render(
@@ -187,23 +190,61 @@ describe("complete AMAN timeline and strips", () => {
     current.runway_groups[0].gaps = [{id: "gap-1", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:18:00.000Z", label: "approach stop", created_at: "2026-07-22T10:01:00.000Z", created_by: "fmp-1"}];
     current.flights[0].runway_gap_exception = {gap_id: "gap-1", runway_group_id: "ARRIVAL-22", opportunity: "2026-07-22T10:18:00.000Z", command_id: "place-1"};
     renderBoard(current);
-    expect(screen.getAllByRole("note", {name: /GAP ARRIVAL-22: approach stop/}).length).toBeGreaterThan(0);
+    const gap = screen.getAllByRole("button", {name: /GAP ARRIVAL-22: approach stop/})[0];
+    fireEvent.click(gap);
+    expect(screen.getByRole("dialog", {name: "Remove GAP"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "YES"}));
+    expect(boardStore.sendAMANCommand).toHaveBeenCalledWith({type: "aman.remove_gap", runway_group_id: "ARRIVAL-22", gap_id: "gap-1"});
     expect(screen.getByText("GAP EXCEPTION")).toHaveAttribute("title", "Audited manual placement inside GAP gap-1");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
-    expect(screen.getAllByRole("note", {name: /GAP ARRIVAL-22/}).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", {name: /GAP ARRIVAL-22/}).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", {name: "ACC"}));
-    expect(screen.getAllByRole("note", {name: /GAP ARRIVAL-22/}).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", {name: /GAP ARRIVAL-22/}).length).toBeGreaterThan(0);
+  });
+
+  it("renders the selected flight runway GAP in the FMP view", () => {
+    const current = state();
+    current.runway_groups.unshift({id: "ARRIVAL-04", gaps: []});
+    current.runway_groups[1].gaps = [{id: "gap-selected", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:18:00.000Z", label: "selected runway gap", created_at: "2026-07-22T10:01:00.000Z", created_by: "fmp-1"}];
+
+    renderBoard(current, {selectedFlightID: "flight-123"});
+
+    expect(screen.getAllByRole("button", {name: /GAP ARRIVAL-22: selected runway gap/})).toHaveLength(3);
+  });
+
+  it("renders a newly focused GAP runway even when the selected flight uses another runway", () => {
+    const current = state();
+    current.runway_groups.push({
+      id: "ARRIVAL-04",
+      gaps: [{id: "gap-new", start: "2026-07-22T10:12:00.000Z", end: "2026-07-22T10:18:00.000Z", label: "new gap", created_at: "2026-07-22T10:01:00.000Z", created_by: "fmp-1"}],
+    });
+
+    renderBoard(current, {focusedRunwayGroupID: "ARRIVAL-04", selectedFlightID: "flight-123"});
+
+    expect(screen.getAllByRole("button", {name: /GAP ARRIVAL-04: new gap/})).toHaveLength(3);
   });
 
   it("applies local feeder and runway fields and labels their preferences dialog", () => {
-    localStorage.setItem("flightstrips.aman.target-fields.v1", JSON.stringify({version: 1, feeder: ["feeder-fix-eta"], runway: ["runway"]}));
+    localStorage.setItem("flightstrips.aman.target-fields.v1", JSON.stringify({version: 1, feeder: ["feeder-fix-eta"], runway: ["runway", "aircraft-type", "wtc"]}));
     const current = state();
     current.flights[0].feeder_fix_eta = "2026-07-22T10:12:00.000Z";
+    current.flights[0].aircraft_type = "B38M";
+    current.flights[0].wake_category = "M";
     renderBoard(current);
 
-    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22");
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22B38MM");
     fireEvent.click(screen.getAllByRole("button", {name: "Open target information preferences"})[0]);
     expect(screen.getByRole("dialog", {name: "Target Information"})).toBeInTheDocument();
+  });
+
+  it("omits configured ATYP and WTC cells when the publisher has no value", () => {
+    localStorage.setItem("flightstrips.aman.target-fields.v1", JSON.stringify({version: 1, feeder: [], runway: ["aircraft-type", "wtc"]}));
+    renderBoard(state());
+
+    const target = screen.getByRole("button", {name: /Select SAS123/});
+    expect(target.querySelector('[data-field="aircraft-type"]')).not.toBeInTheDocument();
+    expect(target.querySelector('[data-field="wtc"]')).not.toBeInTheDocument();
+    expect(target).not.toHaveTextContent("—");
   });
 
   it("opens the selected flight's on-demand route detail without changing the board state", () => {
@@ -259,14 +300,15 @@ describe("complete AMAN timeline and strips", () => {
   it("switches to active runway timelines with the local horizon scale", () => {
     renderBoard(state());
 
-    expect(screen.getByText("10:00–10:30 UTC · 30 min")).toBeInTheDocument();
-    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "960px"});
+    expect(screen.getByText("10:00–11:30 UTC · 90 min")).toBeInTheDocument();
+    expect(screen.getByTestId("aman-timeline-grid")).toHaveStyle({height: "2880px"});
+    expect(screen.getByTestId("aman-timeline-footer")).toHaveClass("absolute", "bottom-0");
     const scrollRail = screen.getByRole("scrollbar", {name: "Timeline scroll position"});
     expect(scrollRail).toHaveAttribute("tabindex", "0");
     fireEvent.keyDown(scrollRail, {key: "Home"});
     expect(scrollRail).toHaveAttribute("aria-valuenow", "0");
     fireEvent.keyDown(scrollRail, {key: "End"});
-    expect(scrollRail).toHaveAttribute("aria-valuenow", "960");
+    expect(scrollRail).toHaveAttribute("aria-valuenow", "2880");
     fireEvent.click(screen.getByRole("button", {name: "RWY"}));
     expect(screen.getByTestId("rwy-lane-ARRIVAL-22")).toBeInTheDocument();
     expect(screen.getByTestId("aman-timeline-grid")).toHaveClass("min-w-full");

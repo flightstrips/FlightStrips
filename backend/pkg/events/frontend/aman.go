@@ -193,6 +193,8 @@ type AMANTrafficFlight struct {
 type AMANFlight struct {
 	FlightID            string  `json:"flight_id"`
 	Callsign            string  `json:"callsign"`
+	AircraftType        *string `json:"aircraft_type,omitempty"`
+	WakeCategory        *string `json:"wake_category,omitempty"`
 	LifecycleState      string  `json:"lifecycle_state"`
 	SequenceDisposition string  `json:"sequence_disposition"`
 	DataStatus          string  `json:"data_status"`
@@ -645,6 +647,10 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder),
 		STARFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		FreezeReason: freezeReason, Order: cloneInt(flight.Order), QueueOffers: make([]AMANQueueOffer, len(flight.QueueOffers)),
+	}
+	if flight.LatestObservation != nil {
+		result.AircraftType = cloneString(flight.LatestObservation.AircraftType)
+		result.WakeCategory = cloneString(flight.LatestObservation.WakeCategory)
 	}
 	if exception := flight.RunwayGapException; exception != nil {
 		opportunity, formatErr := aman.FormatTime(exception.Opportunity)

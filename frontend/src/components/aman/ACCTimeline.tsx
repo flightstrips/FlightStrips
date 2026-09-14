@@ -1,6 +1,6 @@
 import type {ReactNode} from "react";
 
-import type {AMANDataStatus, AMANFlight, AMANRunwayGroup} from "@/api/aman";
+import type {AMANDataStatus, AMANFlight, AMANRunwayGap, AMANRunwayGroup} from "@/api/aman";
 import {AMANAxisTopPercent, AMANTimelineAxis, AMAN_TIMELINE_RULER_HALF_WIDTH} from "./AMANTimelineAxis";
 import {layoutTimelineMarkers, type AMANTimelineRange} from "./presentation";
 import {RunwayGapOverlay} from "./RunwayGapOverlay";
@@ -9,7 +9,7 @@ import {CapacityReservationOverlay} from "./CapacityReservationOverlay";
 
 const TARGET_TRACK_HEIGHT = 30;
 
-export function ACCTimeline({flights, runwayGroups = [], range, clockMs, currentPosition, status, renderTarget, onOpenTargetInformation, label = "ALL"}: {
+export function ACCTimeline({flights, runwayGroups = [], range, clockMs, currentPosition, status, renderTarget, onOpenTargetInformation, label = "ALL", gapRemovalDisabled = false, onRemoveGap}: {
   flights: AMANFlight[];
   runwayGroups?: AMANRunwayGroup[];
   range: AMANTimelineRange;
@@ -19,6 +19,8 @@ export function ACCTimeline({flights, runwayGroups = [], range, clockMs, current
   renderTarget: (flight: AMANFlight) => ReactNode;
   onOpenTargetInformation?: () => void;
   label?: string;
+  gapRemovalDisabled?: boolean;
+  onRemoveGap?: (gap: AMANRunwayGap, runway: string) => void;
 }) {
   const gap = 60_000 / (range.endMs - range.startMs) * 100;
   const markers = layoutTimelineMarkers(flights, range, gap);
@@ -28,7 +30,7 @@ export function ACCTimeline({flights, runwayGroups = [], range, clockMs, current
       <div className="absolute inset-x-0 bottom-0 top-5">
         {currentPosition !== null && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 bg-[#464646]" style={{top: `${currentPosition}%`}} />}
         <AMANTimelineAxis clockMs={clockMs} onOpenTargetInformation={onOpenTargetInformation} range={range} status={status} />
-        {runwayGroups.map((group) => <RunwayGapOverlay gaps={group.gaps ?? []} key={group.id} range={range} runway={group.id} />)}
+        {runwayGroups.map((group) => <RunwayGapOverlay disabled={gapRemovalDisabled} gaps={group.gaps ?? []} key={group.id} onRemove={onRemoveGap} range={range} runway={group.id} />)}
         {runwayGroups.map((group) => <RunwayClosureOverlay closures={group.closures ?? []} key={group.id} range={range} runway={group.id} status={status} />)}
         {runwayGroups.map((group) => <CapacityReservationOverlay key={group.id} range={range} reservations={group.capacity_reservations ?? []} runway={group.id} status={status} />)}
         <div aria-label="ACC arrivals in authoritative order" role="list">

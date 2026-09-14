@@ -4,7 +4,7 @@ import {render, screen, within} from "@testing-library/react";
 import {describe, expect, it} from "vitest";
 
 import type {AMANFlight, AMANStateEvent} from "@/api/aman";
-import {FMPPairedTimeline} from "./FMPPairedTimeline";
+import {FMPPairedTimeline, FMPPairedTimelineFooter} from "./FMPPairedTimeline";
 
 const golden = JSON.parse(readFileSync(
   resolve(process.cwd(), "../backend/pkg/events/frontend/testdata/aman-state-v1.json"),
@@ -37,20 +37,21 @@ describe("FMP paired feeder timelines", () => {
     const range = {startMs: Date.parse("2026-07-22T23:55:00.000Z"), endMs: Date.parse("2026-07-23T00:25:00.000Z")};
     const reservations = [{id: "extra-1", start: "2026-07-23T00:04:00.000Z", end: "2026-07-23T00:07:00.000Z", label: "FLIGHT", created_at: "2026-07-22T23:50:00.000Z", created_by: "fmp"}];
 
-    render(<FMPPairedTimeline
+    const mappings = [
+      {id: 1, left: "TESPI", right: "TUDLO"},
+      {id: 2, left: "MONAK", right: "TIDVU"},
+      {id: 3, left: "ERNOV", right: null},
+    ];
+    render(<><FMPPairedTimeline
       clockMs={range.startMs}
       currentPosition={100}
       capacityReservations={reservations}
       flights={flights}
-      mappings={[
-        {id: 1, left: "TESPI", right: "TUDLO"},
-        {id: 2, left: "MONAK", right: "TIDVU"},
-        {id: 3, left: "ERNOV", right: null},
-      ]}
+      mappings={mappings}
       range={range}
       renderTarget={(value) => <span>{value.callsign}</span>}
       status="fresh"
-    />);
+    /><FMPPairedTimelineFooter clockMs={range.startMs} mappings={mappings} range={range} /></>);
 
     expect(screen.getByRole("region", {name: "Timeline 1: TESPI left, TUDLO right"})).toBeInTheDocument();
     expect(screen.getByRole("region", {name: "Timeline 3: ERNOV left, unused right"})).toBeInTheDocument();

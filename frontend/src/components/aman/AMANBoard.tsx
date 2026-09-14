@@ -4,8 +4,10 @@ import type {
   AMANConnectionState,
   AMANFlight,
   AMANPresentationStatus,
+  AMANRunwayGap,
   AMANState,
 } from "@/api/aman";
+import {getAMANMutationBlockReason} from "@/api/aman";
 import {Dialog, DialogContent, DialogTitle} from "@/components/ui/dialog";
 import {AMAN_ALL_VIEW, availableAMANViews, controllerAMANViews, readAMANViewPreference, resolveAMANView, type AMANView} from "@/lib/aman-view-preference";
 import {cn} from "@/lib/utils";
@@ -15,7 +17,7 @@ import {AMANAircraftTargetPreferenceControls} from "./AMANAircraftTargetPreferen
 import {AMANSettingsHeader} from "./AMANSettingsHeader";
 import {fieldsForAMANAircraftTargetSide, useAMANAircraftTargetPreferences} from "./amanAircraftTargetPreferenceModel";
 import {ACCTimeline} from "./ACCTimeline";
-import {FMPPairedTimeline} from "./FMPPairedTimeline";
+import {FMPPairedTimeline, FMPPairedTimelineFooter} from "./FMPPairedTimeline";
 import {RWYPairedTimeline} from "./RWYPairedTimeline";
 import {AMANAxisTopPercent, formatAMANAxisLabel, useAMANTimelineAxis} from "./AMANTimelineAxis";
 import {buildAMANLanes, formatAMANTime} from "./presentation";
@@ -113,6 +115,7 @@ export interface AMANBoardViewProps {
   onOpenControls?: () => void;
   onOpenFlightActions?: (flightID: string) => void;
   onOpenFlightDetails?: (flightID: string) => void;
+  focusedRunwayGroupID?: string | null;
   accView?: AMANView;
   onACCViewChange?: (view: AMANView) => void;
 }
@@ -127,6 +130,7 @@ export function AMANBoardView({
   onOpenControls,
   onOpenFlightActions,
   onOpenFlightDetails,
+  focusedRunwayGroupID = null,
   accView: suppliedACCView,
   onACCViewChange,
 }: AMANBoardViewProps) {
@@ -150,13 +154,17 @@ export function AMANBoardView({
   const [selectedRunwayGroupID, setSelectedRunwayGroupID] = useState<string | null>(null);
   const [targetPreferences, setTargetPreferences] = useAMANAircraftTargetPreferences();
   const [targetPreferencesOpen, setTargetPreferencesOpen] = useState(false);
+  const [gapRemoval, setGapRemoval] = useState<{gap: AMANRunwayGap; runway: string} | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const initializedTimelineScroll = useRef(false);
   const [timelineScroll, setTimelineScroll] = useState({top: 0, viewportHeight: 0, contentHeight: 0});
+  const selectedFlightRunwayGroupID = state?.flights.find((flight) => flight.flight_id === selectedFlightID)?.runway_group_id ?? null;
   const defaultRunwayGroupID = state?.active_runway_groups?.[0]
     ?? state?.runway_groups.find((group) => group.selected)?.id
     ?? null;
   const activeRunwayLane = lanes.find((lane) => lane.id === selectedRunwayGroupID)
+    ?? lanes.find((lane) => lane.id === focusedRunwayGroupID)
+    ?? lanes.find((lane) => lane.id === selectedFlightRunwayGroupID)
     ?? lanes.find((lane) => lane.id === defaultRunwayGroupID)
     ?? lanes[0]
     ?? null;
@@ -169,13 +177,15 @@ export function AMANBoardView({
   const nowPosition = AMANAxisTopPercent(axis.clockMs, range);
   const axisStatus = connectionState === "disconnected" ? "disconnected" : presentationStatus === "degraded" ? "stale" : "fresh";
   const gainLossAuthoritative = state?.authoritative === true && state.effective_mode === "authoritative";
+  const gapRemovalDisabled = getAMANMutationBlockReason({state, connection_state: connectionState, read_only: readOnly, has_fmp_authority: hasFMPAuthority}) !== null
+    || Object.values(pendingCommands).some((command) => command.type === "aman.create_gap" || command.type === "aman.remove_gap");
   const targetFields = (flight: AMANFlight): AMANAircraftTargetField[] => [
-    {id: "feeder-fix-eta", label: "Feeder-fix ETA", value: flight.feeder_fix_eta ? formatAMANTime(flight.feeder_fix_eta) : "—"},
-    {id: "total-delay", label: "Total delay", value: flight.expected_holding_seconds === null ? "—" : `D${String(Math.ceil(flight.expected_holding_seconds / 60)).padStart(2, "0")}`},
-    {id: "runway", label: "Runway", value: flight.slot?.runway_group_id ?? flight.runway_group_id ?? "—"},
-    {id: "wtc", label: "WTC", value: "—"},
-    {id: "aircraft-type", label: "Aircraft type", value: "—"},
-    {id: "feeder-fix", label: "Feeder fix", value: flight.feeder_fix ?? "—"},
+    ...(flight.feeder_fix_eta ? [{id: "feeder-fix-eta", label: "Feeder-fix ETA", value: formatAMANTime(flight.feeder_fix_eta)}] as const : []),
+    ...(flight.expected_holding_seconds === null ? [] : [{id: "total-delay", label: "Total delay", value: `D${String(Math.ceil(flight.expected_holding_seconds / 60)).padStart(2, "0")}`}] as const),
+    ...(flight.slot?.runway_group_id ?? flight.runway_group_id ? [{id: "runway", label: "Runway", value: flight.slot?.runway_group_id ?? flight.runway_group_id}] as const : []),
+    ...(flight.wake_category ? [{id: "wtc", label: "WTC", value: flight.wake_category}] as const : []),
+    ...(flight.aircraft_type ? [{id: "aircraft-type", label: "Aircraft type", value: flight.aircraft_type}] as const : []),
+    ...(flight.feeder_fix ? [{id: "feeder-fix", label: "Feeder fix", value: flight.feeder_fix}] as const : []),
   ];
   const renderTarget = (flight: AMANFlight, compact = false) => (
     <AMANAircraftTarget
@@ -261,7 +271,7 @@ export function AMANBoardView({
   }
 
   return (
-    <section aria-label="AMAN presentation" className="grid h-full min-h-[640px] w-full max-w-[1440px] grid-rows-[clamp(7.5rem,13.333%,9rem)_minmax(0,1fr)_3.5rem] overflow-hidden bg-[#505052] text-white shadow-2xl">
+    <section aria-label="AMAN presentation" className="grid h-full min-h-[640px] w-full max-w-[1440px] grid-rows-[clamp(7.5rem,13.333%,9rem)_minmax(0,1fr)] overflow-hidden bg-[#505052] text-white shadow-2xl">
       <AMANSettingsHeader
         connectionState={connectionState}
         commandRejections={commandRejections}
@@ -274,7 +284,12 @@ export function AMANBoardView({
         pendingCommands={pendingCommands}
         readOnly={readOnly}
         runwayGroupOptions={state.runway_groups.map((group) => ({id: group.id, label: `${group.id} : ${state.flights.filter((flight) => flight.runway_group_id === group.id).length}`}))}
-        secondaryAccessory={<span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>}
+        secondaryAccessory={<>
+          <span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>
+          <button className="aman-settings-button bg-lime-400 text-black" onClick={onOpenControls} type="button">FMP</button>
+          <button className="aman-settings-button bg-[#4b5563] text-white disabled:opacity-50" disabled={selectedFlightID === null} onClick={() => selectedFlightID !== null && onOpenFlightDetails?.(selectedFlightID)} type="button">DETAIL</button>
+          {state.technical_health.blocked_reasons.length > 0 && <span className="self-center text-xs text-red-900">{state.technical_health.blocked_reasons.join(", ")}</span>}
+        </>}
         accViewOptions={[AMAN_ALL_VIEW, ...availableAMANViews(state)]}
         selectedACCView={accView}
         selectedRunwayGroupID={activeRunwayLane?.id ?? null}
@@ -288,7 +303,9 @@ export function AMANBoardView({
               <RWYPairedTimeline
                 clockMs={axis.clockMs}
                 currentPosition={nowPosition}
+                gapRemovalDisabled={gapRemovalDisabled}
                 onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
+                onRemoveGap={(gap, runway) => setGapRemoval({gap, runway})}
                 range={range}
                 renderTarget={renderRWYTarget}
                 state={state}
@@ -300,7 +317,9 @@ export function AMANBoardView({
                 currentPosition={nowPosition}
                 flights={state.flights}
                 label={accView}
+                gapRemovalDisabled={gapRemovalDisabled}
                 onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
+                onRemoveGap={(gap, runway) => setGapRemoval({gap, runway})}
                 runwayGroups={state.runway_groups}
                 range={range}
                 renderTarget={renderACCTarget}
@@ -315,7 +334,8 @@ export function AMANBoardView({
                 closures={activeRunwayLane?.closures ?? []}
                 capacityReservations={activeRunwayLane?.capacityReservations ?? []}
                 mappings={state.timeline_configuration.mappings}
-                onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
+                gapRemovalDisabled={gapRemovalDisabled}
+                onRemoveGap={(gap, runway) => setGapRemoval({gap, runway})}
                 range={range}
                 renderTarget={renderFMPTarget}
                 runway={activeRunwayLane?.id ?? "runway"}
@@ -342,18 +362,31 @@ export function AMANBoardView({
           scrollTop={timelineScroll.top}
           viewportHeight={timelineScroll.viewportHeight}
         />
+        {view === "holds" && state.timeline_configuration !== undefined && <FMPPairedTimelineFooter
+          clockMs={axis.clockMs}
+          mappings={state.timeline_configuration.mappings}
+          onOpenTargetInformation={() => setTargetPreferencesOpen(true)}
+          range={range}
+        />}
       </div>
-
-      <footer className="flex h-14 shrink-0 items-center border-t-4 border-[#292929] bg-[#353535] px-4">
-        <button className="bg-lime-400 px-5 py-2 font-display text-lg font-bold text-black shadow-[0_2px_0_#1c1c1c]" onClick={onOpenControls} type="button">FMP</button>
-        <button className="ml-2 border border-slate-300 bg-[#4b5563] px-4 py-2 font-display text-sm font-bold text-white hover:bg-[#5b6676] disabled:cursor-not-allowed disabled:opacity-50" disabled={selectedFlightID === null} onClick={() => selectedFlightID !== null && onOpenFlightDetails?.(selectedFlightID)} type="button">DETAIL</button>
-        <span className="ml-4 text-xs text-slate-300">{activeRunwayLane?.label ?? "No runway group"} · operational marker</span>
-        {state.technical_health.blocked_reasons.length > 0 && <span className="ml-auto text-xs text-red-200">{state.technical_health.blocked_reasons.join(", ")}</span>}
-      </footer>
       <Dialog onOpenChange={setTargetPreferencesOpen} open={targetPreferencesOpen}>
         <DialogContent className="w-[min(493px,calc(100vw-2rem))] max-w-none gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-0 text-white [&>button]:hidden">
           <DialogTitle className="border-b-2 border-[#dcdcdc] px-5 py-3 text-center font-display text-lg font-bold uppercase">Target Information</DialogTitle>
           <AMANAircraftTargetPreferenceControls onChange={setTargetPreferences} preferences={targetPreferences} />
+        </DialogContent>
+      </Dialog>
+      <Dialog onOpenChange={(open) => !open && setGapRemoval(null)} open={gapRemoval !== null}>
+        <DialogContent className="w-[min(22rem,calc(100vw-1rem))] max-w-none gap-0 rounded-md border-2 border-[#dcdcdc] bg-[#5174b8] p-0 font-display text-white [&>button]:hidden">
+          <DialogTitle className="border-b-2 border-[#dcdcdc] px-4 py-3 text-center text-base font-bold uppercase">Remove GAP</DialogTitle>
+          <p className="px-4 py-4 text-center text-sm">Remove {gapRemoval?.gap.label} from {gapRemoval?.runway}?</p>
+          <div className="grid grid-cols-2 border-t-2 border-[#dcdcdc]">
+            <button className="border-r border-[#dcdcdc] bg-[#6b7f9f] py-2 font-bold hover:bg-[#a3d5e8] disabled:opacity-40" disabled={gapRemovalDisabled} onClick={() => {
+              if (gapRemoval === null) return;
+              sendCommand({type: "aman.remove_gap", runway_group_id: gapRemoval.runway, gap_id: gapRemoval.gap.id});
+              setGapRemoval(null);
+            }} type="button">YES</button>
+            <button className="bg-[#6b7f9f] py-2 font-bold hover:bg-[#a3d5e8]" onClick={() => setGapRemoval(null)} type="button">NO</button>
+          </div>
         </DialogContent>
       </Dialog>
     </section>

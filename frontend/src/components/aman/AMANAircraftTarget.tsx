@@ -67,7 +67,7 @@ function delayTone(delay: string): string {
 
 function TargetFields({fields}: {fields: readonly AMANAircraftTargetField[]}): ReactNode {
   return fields.map((field) => (
-    <span className="truncate px-1" data-field={field.id} key={field.id} title={field.label}>
+    <span className="flex items-center truncate px-1" data-field={field.id} key={field.id} title={field.label}>
       {field.value}
     </span>
   ));

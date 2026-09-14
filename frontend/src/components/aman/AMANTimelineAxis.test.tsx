@@ -27,18 +27,18 @@ describe("AMAN UTC timeline axis", () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it("validates and persists only a browser-local 30–90 minute horizon", () => {
-    expect([validateAMANHorizon(12), validateAMANHorizon(45.4), validateAMANHorizon(120)]).toEqual([30, 45, 90]);
-    expect(validateAMANHorizon("60")).toBe(30);
+  it("validates and persists only a browser-local 60–90 minute horizon", () => {
+    expect([validateAMANHorizon(12), validateAMANHorizon(75.4), validateAMANHorizon(120)]).toEqual([60, 75, 90]);
+    expect(validateAMANHorizon("60")).toBe(90);
     writeAMANHorizon(120);
     expect(readAMANHorizon()).toBe(90);
     expect(JSON.parse(localStorage.getItem(AMAN_HORIZON_PREFERENCE_KEY)!)).toEqual({version: 1, minutes: 90});
   });
 
-  it.each([30, 90])("renders a %i-minute horizon from authoritative backend time", (minutes) => {
+  it.each([60, 90])("renders a %i-minute horizon from authoritative backend time", (minutes) => {
     writeAMANHorizon(minutes);
     render(<AxisHarness time="2026-07-22T10:00:00.000Z" />);
-    expect(screen.getByRole("img", {name: new RegExp(`10:00 to ${minutes === 30 ? "10:30" : "11:30"}, fresh`)})).toBeInTheDocument();
+    expect(screen.getByRole("img", {name: new RegExp(`10:00 to ${minutes === 60 ? "11:00" : "11:30"}, fresh`)})).toBeInTheDocument();
   });
 
   it("advances only the presentation clock on six-second ticks", () => {
@@ -48,7 +48,7 @@ describe("AMAN UTC timeline axis", () => {
 
     act(() => vi.advanceTimersByTime(6_000));
 
-    expect(Number.parseFloat(marker.style.top)).toBeCloseTo(99.6666666667, 6);
+    expect(Number.parseFloat(marker.style.top)).toBeCloseTo(99.8888888889, 6);
   });
 
   it("formats UTC midnight rollover deterministically", () => {
@@ -59,12 +59,12 @@ describe("AMAN UTC timeline axis", () => {
 
   it("renders one-minute ticks and labels five-minute UTC intervals", () => {
     render(<AxisHarness time="2026-07-22T10:00:00.000Z" />);
-    expect(screen.getAllByTestId("aman-axis-tick")).toHaveLength(31);
-    expect(screen.getAllByTestId("aman-axis-tick").filter((tick) => tick.dataset.major === "true")).toHaveLength(7);
+    expect(screen.getAllByTestId("aman-axis-tick")).toHaveLength(91);
+    expect(screen.getAllByTestId("aman-axis-tick").filter((tick) => tick.dataset.major === "true")).toHaveLength(19);
     expect(screen.queryByText("10:01")).not.toBeInTheDocument();
   });
 
-  it.each([30, 60, 90])("marks the final ten minutes of a %i-minute horizon", (minutes) => {
+  it.each([60, 90])("marks the final ten minutes of a %i-minute horizon", (minutes) => {
     const range = buildAMANAxisRange(Date.parse("2026-07-22T10:00:00.000Z"), minutes);
     render(<AMANTimelineAxis clockMs={range.startMs} range={range} status="fresh" />);
     expect(Number.parseFloat(screen.getByTestId("final-ten-minute-region").style.top)).toBeCloseTo(100 - 10 / minutes * 100, 8);

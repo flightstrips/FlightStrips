@@ -30,9 +30,9 @@ vi.mock("@/store/store-hooks", () => ({
 }));
 
 vi.mock("@/components/aman/AMANBoard", () => ({
-  AMANBoardView: (props: {state: AMANState | null; selectedFlightID: string | null; onOpenControls?: () => void; onOpenFlightDetails?: (flightID: string) => void}) => {
+  AMANBoardView: (props: {state: AMANState | null; selectedFlightID: string | null; onOpenControls?: () => void; onOpenFlightActions?: (flightID: string) => void; onOpenFlightDetails?: (flightID: string) => void}) => {
     boardSpy(props);
-    return <><button onClick={props.onOpenControls} type="button">AMAN board</button><button onClick={() => props.onOpenFlightDetails?.("flight-123")} type="button">Open target</button></>;
+    return <><button onClick={props.onOpenControls} type="button">AMAN board</button><button onClick={() => props.onOpenFlightActions?.("flight-123")} type="button">Open actions</button><button onClick={() => props.onOpenFlightDetails?.("flight-123")} type="button">Open target</button></>;
   },
 }));
 
@@ -163,6 +163,28 @@ describe("AMAN route authorization", () => {
 
     expect(storeState.sendAMANCommand).toHaveBeenCalledOnce();
     expect(storeState.sendAMANCommand).toHaveBeenCalledWith({type: "aman.remove_flight", flight_id: "flight-123"});
+  });
+
+  it("opens the compact GAP workflow from the target action menu", () => {
+    storeState.amanFMPAuthority = true;
+    storeState.amanState = {
+      ...authoritativeState([{flight_id: "flight-123", callsign: "SAS123", lifecycle_state: "stable", runway_group_id: "ARRIVAL-22", slot: {time: "2026-07-22T20:50:00.000Z"}}]),
+      runway_groups: [{id: "ARRIVAL-22"}],
+    } as AMANState;
+    render(<AMAN />);
+
+    fireEvent.click(screen.getByRole("button", {name: "Open actions"}));
+    fireEvent.click(screen.getByRole("button", {name: "Insert Gap"}));
+    expect(screen.getByRole("dialog", {name: "Insert GAP SAS123"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "OK"}));
+
+    expect(storeState.sendAMANCommand).toHaveBeenCalledWith({
+      type: "aman.create_gap",
+      runway_group_id: "ARRIVAL-22",
+      start: "2026-07-22T20:50:00.000Z",
+      end: "2026-07-22T20:55:00.000Z",
+      label: "5 min after SAS123",
+    });
   });
 
   it("selects primary and related warning flights by authoritative identity without a command", () => {

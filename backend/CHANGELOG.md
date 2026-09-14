@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.2.0](https://github.com/flightstrips/FlightStrips/compare/backend/v2.1.0...backend/v2.2.0) (2026-09-14)
+
+
+### Features
+
+* **session:** prioritize EuroScope master selection ([#507](https://github.com/flightstrips/FlightStrips/issues/507)) ([b1c1d51](https://github.com/flightstrips/FlightStrips/commit/b1c1d51e24b715bfbd8dbec89a98379b6ffd93bd))
+
+
+### Bug Fixes
+
+* **aman:** accept weather profiles completed after cycle start ([#728](https://github.com/flightstrips/FlightStrips/issues/728)) ([47017a7](https://github.com/flightstrips/FlightStrips/commit/47017a7d9615b33f5b50ba3653a7c8fc62baaa6d))
+* **aman:** align timeline gaps and target details ([#731](https://github.com/flightstrips/FlightStrips/issues/731)) ([a1a96f3](https://github.com/flightstrips/FlightStrips/commit/a1a96f3e46af8a6f81d1e9b7e60447e229808cfe))
+* **aman:** handle incompatible flights during runway changes ([#730](https://github.com/flightstrips/FlightStrips/issues/730)) ([f27ec90](https://github.com/flightstrips/FlightStrips/commit/f27ec909cbee2bcbcc70fc9e135b08b43f01399a))
+* **aman:** retry reconciliation revision conflicts ([#732](https://github.com/flightstrips/FlightStrips/issues/732)) ([98b8a4c](https://github.com/flightstrips/FlightStrips/commit/98b8a4c056d39cf8d878006b39583ced0eb1e7df))
+
 ## [2.1.0](https://github.com/flightstrips/FlightStrips/compare/backend/v2.0.0...backend/v2.1.0) (2026-09-13)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.4.0...frontend/v1.4.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **aman:** align timeline gaps and target details ([#731](https://github.com/flightstrips/FlightStrips/issues/731)) ([a1a96f3](https://github.com/flightstrips/FlightStrips/commit/a1a96f3e46af8a6f81d1e9b7e60447e229808cfe))
+* **aman:** handle incompatible flights during runway changes ([#730](https://github.com/flightstrips/FlightStrips/issues/730)) ([f27ec90](https://github.com/flightstrips/FlightStrips/commit/f27ec909cbee2bcbcc70fc9e135b08b43f01399a))
+
 ## [1.4.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.3.0...frontend/v1.4.0) (2026-09-13)
 
 

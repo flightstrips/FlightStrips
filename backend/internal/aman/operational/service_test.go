@@ -1,9 +1,11 @@
 package operational
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -685,6 +687,33 @@ func TestRemovedFlightCannotBeResurrectedByLingeringObservation(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, removed, updated)
+}
+
+func TestRetireVATSIMFlightDoesNotLogAlreadyMissingIdentity(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	retireVATSIMFlight(context.Background(), staticVATSIMFlightRetirer{
+		err: &aman.DomainError{Class: aman.ErrorNotFound, Message: "active VATSIM flight identity was not found"},
+	}, "1b4435e2-bb17-41c6-aefe-d7f91a1bb600")
+
+	require.Empty(t, output.String())
+}
+
+func TestRetireVATSIMFlightWarnsForUnexpectedFailureWithStringFlightID(t *testing.T) {
+	var output bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
+	retireVATSIMFlight(context.Background(), staticVATSIMFlightRetirer{err: errors.New("database unavailable")}, "flight-1")
+
+	require.Contains(t, output.String(), "retire removed AMAN VATSIM identity failed")
+	require.Contains(t, output.String(), "flight_id=flight-1")
+	require.Contains(t, output.String(), "error=\"database unavailable\"")
+	require.NotContains(t, output.String(), "unhandled:")
 }
 
 func TestUnknownSTARFamilyRemainsDegradedAndSequenceable(t *testing.T) {
@@ -2131,6 +2160,12 @@ type recordingPublisher struct{ states []aman.AirportState }
 func (p *recordingPublisher) PublishAMANState(_ context.Context, state aman.AirportState) error {
 	p.states = append(p.states, state)
 	return nil
+}
+
+type staticVATSIMFlightRetirer struct{ err error }
+
+func (r staticVATSIMFlightRetirer) RetireVATSIMFlight(context.Context, aman.FlightID) error {
+	return r.err
 }
 
 type unavailableNavigation struct{}

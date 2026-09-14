@@ -8,6 +8,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -102,6 +103,39 @@ func TestUpdateHold_UnchangedHoldIsNotBroadcast(t *testing.T) {
 
 	require.NoError(t, svc.UpdateHold(ctx, 1, "SAS123", "OLPIB", "enroute", ""))
 	assert.Empty(t, hub.HoldEvents)
+}
+
+func TestUpdateHold_UnchangedHoldStillReconcilesAMANFromPersistedStrip(t *testing.T) {
+	persisted := &models.Strip{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}
+	stripRepo := &testutil.MockStripRepository{
+		UpdateHoldFn: func(context.Context, int32, string, string, string, string, *int32) (int64, error) { return 0, nil },
+		GetByCallsignFn: func(_ context.Context, session int32, callsign string) (*models.Strip, error) {
+			require.EqualValues(t, 1, session)
+			require.Equal(t, "SAS123", callsign)
+			return persisted, nil
+		},
+	}
+	observer := &holdingObserverSpy{}
+	hub := &testutil.MockFrontendHub{}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(hub)
+	svc.SetHoldingClearanceObserver(observer)
+
+	require.NoError(t, svc.UpdateHold(context.Background(), 1, "SAS123", "OLPIB", "enroute", "1422"))
+	require.Equal(t, []*models.Strip{persisted}, observer.strips)
+	assert.Empty(t, hub.HoldEvents, "an unchanged strip field must not be rebroadcast")
+}
+
+func TestUpdateHold_UnchangedMissingStripRemainsANoOp(t *testing.T) {
+	stripRepo := &testutil.MockStripRepository{
+		UpdateHoldFn:    func(context.Context, int32, string, string, string, string, *int32) (int64, error) { return 0, nil },
+		GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return nil, pgx.ErrNoRows },
+	}
+	svc := NewStripService(stripRepo)
+	svc.SetFrontendHub(&testutil.MockFrontendHub{})
+	svc.SetHoldingClearanceObserver(&holdingObserverSpy{})
+
+	require.NoError(t, svc.UpdateHold(context.Background(), 1, "MISSING", "OLPIB", "enroute", "1422"))
 }
 
 func TestUpdateHold_RepositoryError(t *testing.T) {

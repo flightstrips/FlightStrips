@@ -151,6 +151,21 @@ func (s *StripService) UpdateHold(ctx context.Context, session int32, callsign s
 	}
 	if count != 1 {
 		slog.DebugContext(ctx, "Hold update skipped: strip not found or hold unchanged", slog.String("callsign", callsign))
+		// The strip may have learned this clearance from a full sync before the
+		// aircraft existed in the AMAN aggregate. Re-observe the persisted strip
+		// even when the field update is a no-op so the authoritative holding read
+		// model can catch up when the dedicated TopSky event arrives.
+		if count == 0 && s.holdingObserver != nil {
+			strip, readErr := s.stripReader.GetByCallsign(ctx, session, callsign)
+			shared.AddDBOperations(ctx, 1)
+			if errors.Is(readErr, pgx.ErrNoRows) {
+				return nil
+			}
+			if readErr != nil {
+				return readErr
+			}
+			return s.observeHoldingClearance(ctx, strip)
+		}
 		return nil
 	}
 	s.publisher.SendHoldEvent(session, callsign, hold, holdType, holdEat)

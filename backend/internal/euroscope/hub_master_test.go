@@ -40,10 +40,11 @@ func TestPreferredMasterClient_UsesOperationalPriorityOrder(t *testing.T) {
 	bCtr := masterTestClient(session, "EKDK_B_CTR", "b-ctr")
 	fmp := masterTestClient(session, "EKDK_FMP", "fmp")
 
-	assert.Same(t, fmp, preferredMasterClient([]*Client{other, aTower, ucCtr, dCtr, bCtr, fmp}, session, nil))
-	assert.Same(t, bCtr, preferredMasterClient([]*Client{other, aTower, ucCtr, dCtr, bCtr}, session, nil))
-	assert.Same(t, dCtr, preferredMasterClient([]*Client{other, aTower, ucCtr, dCtr}, session, nil))
-	assert.Same(t, ucCtr, preferredMasterClient([]*Client{other, aTower, ucCtr}, session, nil))
+	assert.Same(t, aTower, preferredMasterClient([]*Client{other, aTower, ucCtr, dCtr, bCtr, fmp}, session, nil))
+	assert.Same(t, fmp, preferredMasterClient([]*Client{other, ucCtr, dCtr, bCtr, fmp}, session, nil))
+	assert.Same(t, bCtr, preferredMasterClient([]*Client{other, ucCtr, dCtr, bCtr}, session, nil))
+	assert.Same(t, dCtr, preferredMasterClient([]*Client{other, ucCtr, dCtr}, session, nil))
+	assert.Same(t, ucCtr, preferredMasterClient([]*Client{other, ucCtr}, session, nil))
 	assert.Same(t, aTower, preferredMasterClient([]*Client{other, aTower}, session, nil))
 	assert.Same(t, other, preferredMasterClient([]*Client{other}, session, nil))
 }
@@ -96,33 +97,33 @@ func TestMasterClientPriority_UsesAtomicIdentitySnapshot(t *testing.T) {
 	wg.Wait()
 }
 
-func TestPromoteMasterIfPreferred_FMPPreemptsATower(t *testing.T) {
+func TestPromoteMasterIfPreferred_ATowerPreemptsFMP(t *testing.T) {
 	const session = int32(42)
 	hub := &Hub{master: make(map[int32]*Client)}
 	aTower := masterTestClient(session, "EKCH_A_TWR", "tower")
 	fmp := masterTestClient(session, "EKDK_FMP", "fmp")
-	hub.master[session] = aTower
+	hub.master[session] = fmp
 
-	require.True(t, hub.promoteMasterIfPreferred(fmp, true))
-	assert.Same(t, fmp, hub.getMasterClient(session))
+	require.True(t, hub.promoteMasterIfPreferred(aTower, true))
+	assert.Same(t, aTower, hub.getMasterClient(session))
 
-	oldRole := (<-aTower.send).(euroscope.SessionInfoEvent)
-	newRole := (<-fmp.send).(euroscope.SessionInfoEvent)
+	oldRole := (<-fmp.send).(euroscope.SessionInfoEvent)
+	newRole := (<-aTower.send).(euroscope.SessionInfoEvent)
 	assert.Equal(t, euroscope.SessionInfoSlave, oldRole.Role)
 	assert.Equal(t, euroscope.SessionInfoMaster, newRole.Role)
 }
 
-func TestPromoteMasterIfPreferred_ATowerCannotPreemptFMP(t *testing.T) {
+func TestPromoteMasterIfPreferred_FMPCannotPreemptATower(t *testing.T) {
 	const session = int32(42)
 	hub := &Hub{master: make(map[int32]*Client)}
 	fmp := masterTestClient(session, "EKDK_FMP", "fmp")
 	aTower := masterTestClient(session, "EKCH_A_TWR", "tower")
-	hub.master[session] = fmp
+	hub.master[session] = aTower
 
-	assert.False(t, hub.promoteMasterIfPreferred(aTower, true))
-	assert.Same(t, fmp, hub.getMasterClient(session))
-	assert.Empty(t, fmp.send)
-	assert.Equal(t, euroscope.SessionInfoSlave, (<-aTower.send).(euroscope.SessionInfoEvent).Role)
+	assert.False(t, hub.promoteMasterIfPreferred(fmp, true))
+	assert.Same(t, aTower, hub.getMasterClient(session))
+	assert.Empty(t, aTower.send)
+	assert.Equal(t, euroscope.SessionInfoSlave, (<-fmp.send).(euroscope.SessionInfoEvent).Role)
 }
 
 func TestPromoteMasterIfPreferred_ATowerPreemptsFallback(t *testing.T) {
@@ -182,9 +183,9 @@ func TestReconsiderMasterAfterLogin_SelectsBestCandidate(t *testing.T) {
 
 	hub.reconsiderMasterAfterLogin(current)
 
-	assert.Same(t, bCtr, hub.getMasterClient(session))
+	assert.Same(t, aTower, hub.getMasterClient(session))
 	assert.Equal(t, euroscope.SessionInfoSlave, (<-current.send).(euroscope.SessionInfoEvent).Role)
-	assert.Equal(t, euroscope.SessionInfoMaster, (<-bCtr.send).(euroscope.SessionInfoEvent).Role)
+	assert.Equal(t, euroscope.SessionInfoMaster, (<-aTower.send).(euroscope.SessionInfoEvent).Role)
 }
 
 func TestPromoteMasterIfPreferred_ConcurrentPromotionsKeepHighestPriority(t *testing.T) {

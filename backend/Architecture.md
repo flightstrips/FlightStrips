@@ -127,11 +127,11 @@ client handles all events for strips and controllers.
 Each airport should have a prioritized list of positions to determine the master client. The current temporary priority
 for **EKCH** is:
 
-1. EKDK_FMP
-2. EKDK_B_CTR
-3. EKDK_D_CTR
-4. EKDK_UC_CTR
-5. EKCH_A_TWR
+1. EKCH_A_TWR
+2. EKDK_FMP
+3. EKDK_B_CTR
+4. EKDK_D_CTR
+5. EKDK_UC_CTR
 6. Any other non-observer client as a last-resort fallback
 
 Configured positions are matched by **primary frequency**, with the canonical callsign retained as a fallback. FMP

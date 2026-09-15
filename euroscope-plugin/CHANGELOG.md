@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.0...plugin/v2.1.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **aman:** hide gain loss guidance in holds and TMA ([#755](https://github.com/flightstrips/FlightStrips/issues/755)) ([79c2c83](https://github.com/flightstrips/FlightStrips/commit/79c2c83a899a26ffe75dde010654bb751c3e2315))
+* **session:** reduce sync database work and preserve authoritative updates ([#753](https://github.com/flightstrips/FlightStrips/issues/753)) ([17860db](https://github.com/flightstrips/FlightStrips/commit/17860db85ddf2ee3a4c61da7d0e9a52ae64e3f8e))
+
 ## [2.1.0](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.0.0...plugin/v2.1.0) (2026-09-13)
 
 

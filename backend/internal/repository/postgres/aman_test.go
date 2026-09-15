@@ -756,7 +756,7 @@ func TestAMANRepositoryCompareAndSwapAllocatesOneRevision(t *testing.T) {
 	require.Equal(t, aman.SequenceRevision(1), state.Revision)
 }
 
-func TestAMANVATSIMObservationIdentitySurvivesRestartCorrectsCallsignAndRetires(t *testing.T) {
+func TestAMANVATSIMObservationIdentitySurvivesRestartAndCIDChangeAndRetires(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()
 	firstRepository := NewAMANRepository(pool)
@@ -764,39 +764,43 @@ func TestAMANVATSIMObservationIdentitySurvivesRestartCorrectsCallsignAndRetires(
 	require.NoError(t, err)
 	require.NotEmpty(t, first)
 
-	// A reconstructed repository must find the same active flight and update
-	// only its mutable callsign.
+	// A reconnect under the same normalized callsign retains the flight,
+	// including when its supporting CID changes.
 	secondRepository := NewAMANRepository(pool)
-	corrected, err := secondRepository.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "123456", CurrentCallsign: "SAS456"})
+	corrected, err := secondRepository.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "654321", CurrentCallsign: " sas123 "})
 	require.NoError(t, err)
 	require.Equal(t, first, corrected)
-	var callsign string
-	require.NoError(t, pool.QueryRow(ctx, "SELECT current_callsign FROM aman_vatsim_observation_identities WHERE flight_id = $1", string(first)).Scan(&callsign))
-	require.Equal(t, "SAS456", callsign)
+	var callsign, cid string
+	require.NoError(t, pool.QueryRow(ctx, "SELECT current_callsign, vatsim_cid FROM aman_vatsim_observation_identities WHERE flight_id = $1", string(first)).Scan(&callsign, &cid))
+	require.Equal(t, "SAS123", callsign)
+	require.Equal(t, "654321", cid)
+	different, err := secondRepository.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "654321", CurrentCallsign: "SAS456"})
+	require.NoError(t, err)
+	require.NotEqual(t, first, different, "CID must not merge distinct callsigns")
 
 	require.NoError(t, secondRepository.RetireVATSIMFlight(ctx, first))
-	next, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "123456", CurrentCallsign: "SAS789"})
+	next, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "123456", CurrentCallsign: "SAS123"})
 	require.NoError(t, err)
 	require.NotEqual(t, first, next, "a later flight from the same VATSIM user receives a new FlightID")
 	requireDomainErrorClass(t, secondRepository.RetireVATSIMFlight(ctx, first), aman.ErrorNotFound)
 }
 
-func TestAMANVATSIMObservationIdentityAllowsOnlyOneConcurrentActiveCID(t *testing.T) {
+func TestAMANVATSIMObservationIdentityAllowsOnlyOneConcurrentActiveCallsign(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
 	ctx := context.Background()
 	start := make(chan struct{})
 	ids := make(chan aman.FlightID, 2)
 	errs := make(chan error, 2)
 	var wait sync.WaitGroup
-	for _, callsign := range []string{"SAS123", "SAS456"} {
+	for _, cid := range []string{"123456", "654321"} {
 		wait.Add(1)
-		go func(callsign string) {
+		go func(cid string) {
 			defer wait.Done()
 			<-start
-			id, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "123456", CurrentCallsign: callsign})
+			id, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: cid, CurrentCallsign: "SAS123"})
 			ids <- id
 			errs <- err
-		}(callsign)
+		}(cid)
 	}
 	close(start)
 	wait.Wait()
@@ -812,8 +816,34 @@ func TestAMANVATSIMObservationIdentityAllowsOnlyOneConcurrentActiveCID(t *testin
 	require.Len(t, observed, 2)
 	require.Equal(t, observed[0], observed[1])
 	var activeCount int
-	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM aman_vatsim_observation_identities WHERE vatsim_cid = $1 AND retired_at IS NULL", "123456").Scan(&activeCount))
+	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM aman_vatsim_observation_identities WHERE current_callsign = $1 AND retired_at IS NULL", "SAS123").Scan(&activeCount))
 	require.Equal(t, 1, activeCount)
+}
+
+func TestAMANCallsignMigrationRetiresDuplicateBindings(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		DROP INDEX ux_aman_vatsim_observation_identities_active_callsign;
+		CREATE UNIQUE INDEX ux_aman_vatsim_observation_identities_active_cid
+		ON aman_vatsim_observation_identities (vatsim_cid) WHERE retired_at IS NULL;
+		INSERT INTO aman_vatsim_observation_identities
+		(flight_id, vatsim_cid, current_callsign, updated_at) VALUES
+		('old', '101', ' sas123 ', '2026-09-14T18:00:00Z'),
+		('current', '202', 'SAS123', '2026-09-14T19:00:00Z');`)
+	require.NoError(t, err)
+	_, sourceFile, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	migration, err := os.ReadFile(filepath.Join(filepath.Dir(sourceFile), "..", "..", "..", "migrations", "0047-match-aman-identities-by-callsign.sql"))
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, string(migration))
+	require.NoError(t, err)
+	id, err := NewAMANRepository(pool).BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{VATSIMCID: "303", CurrentCallsign: "sas123"})
+	require.NoError(t, err)
+	require.Equal(t, aman.FlightID("current"), id)
+	var retired bool
+	require.NoError(t, pool.QueryRow(ctx, "SELECT retired_at IS NOT NULL FROM aman_vatsim_observation_identities WHERE flight_id = 'old'").Scan(&retired))
+	require.True(t, retired)
 }
 
 func TestAMANPersistenceDoesNotDependOnTransportOrCreateOutbox(t *testing.T) {

@@ -47,6 +47,67 @@ TEST(AMANGainLossStoreTest, ReadsProtobufReplacement) {
     EXPECT_EQ(store.FindByCallsign("SAS123")->predictedTime, "2026-09-08T12:11:30Z");
 }
 
+TEST(AMANGainLossStoreTest, MatchesCallsignAcrossReconnectAndBackendIdentityChanges) {
+    AMANGainLossStore store;
+    store.OnMessages({Bytes(Event(1))});
+    auto replacement = Event(2, "sas123");
+    replacement.mutable_aman_gain_loss()->mutable_values(0)->set_flight_id("reconnected");
+    replacement.mutable_aman_gain_loss()->mutable_values(0)->set_gain_loss_seconds(-120);
+    store.OnMessages({Bytes(replacement)});
+    ASSERT_TRUE(store.FindByCallsign("SAS123").has_value());
+    EXPECT_EQ(store.FindByCallsign("SAS123")->seconds, -120);
+    EXPECT_EQ(store.Snapshot()->byCallsign.size(), 1);
+}
+
+TEST(AMANGainLossStoreTest, DuplicateCallsignWithUnavailableRowHidesOnlyThatCallsignInEitherOrder) {
+    for (const bool historyFirst : {true, false}) {
+        AMANGainLossStore store;
+        auto replacement = Event(1);
+        auto live = replacement.aman_gain_loss().values(0);
+        auto history = live;
+        history.set_flight_id("old-identity");
+        history.clear_gain_loss_seconds();
+        history.clear_reference_point();
+        history.clear_target_time();
+        history.clear_predicted_time();
+        auto* event = replacement.mutable_aman_gain_loss();
+        event->clear_values();
+        *event->add_values() = historyFirst ? history : live;
+        *event->add_values() = historyFirst ? live : history;
+        auto other = live;
+        other.set_callsign("OTHER123");
+        // Even repeated backend IDs do not collide across different callsigns.
+        *event->add_values() = other;
+        store.OnMessages({Bytes(replacement)});
+        ASSERT_EQ(store.Snapshot()->byCallsign.size(), 1);
+        EXPECT_FALSE(store.FindByCallsign("SAS123").has_value());
+        EXPECT_EQ(store.FindByCallsign("OTHER123")->seconds, 90);
+    }
+}
+
+TEST(AMANGainLossStoreTest, ConflictingGuidanceStaysHiddenUntilAnUnambiguousReplacement) {
+    for (const bool reverse : {true, false}) {
+        AMANGainLossStore store;
+        auto replacement = Event(1);
+        auto first = replacement.aman_gain_loss().values(0);
+        auto second = first;
+        second.set_flight_id("another-identity");
+        second.set_callsign("sas123");
+        second.set_gain_loss_seconds(-120);
+        auto* event = replacement.mutable_aman_gain_loss();
+        event->clear_values();
+        *event->add_values() = reverse ? second : first;
+        *event->add_values() = reverse ? first : second;
+        *event->add_values() = first; // A third row must not restore hidden guidance.
+        store.OnMessages({Bytes(replacement)});
+        EXPECT_FALSE(store.FindByCallsign("SAS123").has_value());
+
+        store.OnMessages({Bytes(Event(2))});
+        ASSERT_TRUE(store.FindByCallsign("SAS123").has_value());
+        EXPECT_EQ(store.FindByCallsign("SAS123")->seconds, 90);
+    }
+}
+
 TEST(AMANGainLossStoreTest, AppliesSameRevisionProjectionUpdatesAndIgnoresOlderRevisions) {
     AMANGainLossStore store;
     store.OnMessages({Bytes(Event(2))});
@@ -66,7 +127,7 @@ TEST(AMANGainLossStoreTest, InvalidReplacementClearsValuesUntilAValidSameRevisio
     auto invalid = Event(3);
     invalid.mutable_aman_gain_loss()->mutable_values(0)->set_data_status("unknown");
     store.OnMessages({Bytes(invalid)});
-    EXPECT_TRUE(store.Snapshot()->byFlightId.empty());
+    EXPECT_TRUE(store.Snapshot()->byCallsign.empty());
     EXPECT_EQ(store.Snapshot()->revision, 2);
 
     store.OnMessages({Bytes(Event(2))});
@@ -98,7 +159,7 @@ TEST(AMANGainLossStoreTest, ReadersNeverObservePartialReplacement) {
     while (!done) {
         const auto snapshot = store.Snapshot();
         EXPECT_TRUE(snapshot->revision == 1 || snapshot->revision == 2);
-        EXPECT_EQ(snapshot->byFlightId.size(), 199);
+        EXPECT_EQ(snapshot->byCallsign.size(), 199);
     }
     writer.join();
 }
@@ -110,7 +171,7 @@ TEST(AMANGainLossStoreTest, ReconnectHidesOldValuesAndAcceptsTheNewConnectionRev
     store.Online();
     EXPECT_FALSE(store.Snapshot()->hasRevision);
     EXPECT_FALSE(store.Snapshot()->authoritative);
-    EXPECT_TRUE(store.Snapshot()->byFlightId.empty());
+    EXPECT_TRUE(store.Snapshot()->byCallsign.empty());
 
     store.OnMessages({Bytes(Event(42, "NEW123"))});
     EXPECT_TRUE(store.Snapshot()->hasRevision);
@@ -134,10 +195,10 @@ TEST(AMANGainLossStoreTest, RejectsPartialOrUnknownPresentationContract) {
     auto partial = Event(1);
     partial.mutable_aman_gain_loss()->mutable_values(0)->clear_target_time();
     store.OnMessages({Bytes(partial)});
-    EXPECT_TRUE(store.Snapshot()->byFlightId.empty());
+    EXPECT_TRUE(store.Snapshot()->byCallsign.empty());
 
     auto unknownVersion = Event(1);
     unknownVersion.mutable_aman_gain_loss()->set_version(2);
     store.OnMessages({Bytes(unknownVersion)});
-    EXPECT_TRUE(store.Snapshot()->byFlightId.empty());
+    EXPECT_TRUE(store.Snapshot()->byCallsign.empty());
 }

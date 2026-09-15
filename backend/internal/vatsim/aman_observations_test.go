@@ -17,10 +17,10 @@ import (
 )
 
 type observationTestBinder struct {
-	mu       sync.Mutex
-	next     int
-	byCID    map[string]aman.FlightID
-	bindings []aman.VATSIMFlightIdentity
+	mu         sync.Mutex
+	next       int
+	byCallsign map[string]aman.FlightID
+	bindings   []aman.VATSIMFlightIdentity
 }
 
 func (b *observationTestBinder) BindVATSIMFlight(_ context.Context, identity aman.VATSIMFlightIdentity) (aman.FlightID, error) {
@@ -29,16 +29,16 @@ func (b *observationTestBinder) BindVATSIMFlight(_ context.Context, identity ama
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.byCID == nil {
-		b.byCID = make(map[string]aman.FlightID)
+	if b.byCallsign == nil {
+		b.byCallsign = make(map[string]aman.FlightID)
 	}
-	if id, ok := b.byCID[identity.VATSIMCID]; ok {
+	if id, ok := b.byCallsign[identity.CurrentCallsign]; ok {
 		b.bindings = append(b.bindings, identity)
 		return id, nil
 	}
 	b.next++
 	id := aman.FlightID("flight-" + string(rune('0'+b.next)))
-	b.byCID[identity.VATSIMCID] = id
+	b.byCallsign[identity.CurrentCallsign] = id
 	b.bindings = append(b.bindings, identity)
 	return id, nil
 }
@@ -183,7 +183,6 @@ func TestObservationWorkerPreservesFlightIDAndRejectsOlderFacts(t *testing.T) {
 	first := sink.observations[0]
 
 	older := newer
-	older.Callsign = "SAS102"
 	older.LastUpdated = now.Add(-time.Minute)
 	older.Latitude = 54.0
 	older.FlightPlan.Route = "OLD ROUTE"
@@ -191,10 +190,10 @@ func TestObservationWorkerPreservesFlightIDAndRejectsOlderFacts(t *testing.T) {
 	setObservationCacheSnapshot(cache, now.Add(time.Second), nil, older)
 	now = now.Add(time.Second)
 	require.NoError(t, worker.Publish(context.Background()))
-	require.Len(t, sink.observations, 2)
-	second := sink.observations[1]
-	require.Equal(t, first.FlightID, second.FlightID, "callsign corrections must not rekey AMAN state")
-	require.Equal(t, "SAS102", second.Callsign)
+	require.Len(t, sink.observations, 1, "older facts do not republish unchanged guidance")
+	second := worker.known["SAS101"]
+	require.Equal(t, first.FlightID, second.FlightID)
+	require.Equal(t, "SAS101", second.Callsign)
 	require.Equal(t, "NEW ROUTE", *second.FiledRoute)
 	require.Equal(t, uint64(8), *second.FlightPlan.Revision)
 	require.Equal(t, 55.1, second.Surveillance.LatitudeDegrees)
@@ -217,6 +216,53 @@ func TestObservationWorkerReusesKnownIDButRebindsCallsignCorrection(t *testing.T
 	require.Len(t, binder.bindings, 2, "callsign correction must verify the active binding")
 }
 
+func TestObservationWorkerReconnectMatchesCallsignWithChangedCID(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
+	require.NoError(t, worker.Publish(context.Background()))
+	first := sink.observations[0]
+	flight.CID, flight.Callsign = "202", "sas101"
+	now = now.Add(time.Second)
+	setObservationCacheSnapshot(cache, now, nil, flight)
+	require.NoError(t, worker.Publish(context.Background()))
+	require.Len(t, sink.observations, 2, "CID change must not publish a disappearance for the same callsign")
+	require.Equal(t, first.FlightID, sink.observations[1].FlightID)
+	require.Equal(t, "202", sink.observations[1].VATSIMCID)
+	require.Equal(t, "SAS101", sink.observations[1].Callsign)
+	require.False(t, sink.observations[1].Missing)
+}
+
+func TestObservationWorkerCIDChangeResetsSourceHistory(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS123", State: FlightStateOnline, LastUpdated: now,
+		Latitude: 55, Longitude: 12, Altitude: 18000, Groundspeed: 400,
+		FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Route: "OLD ROUTE", Revision: 8, EOBT: "1700", EnrouteDuration: "0100"}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
+	require.NoError(t, worker.Publish(context.Background()))
+	first := sink.observations[0]
+	require.NotNil(t, first.TakeoffDetected)
+	now = now.Add(15 * time.Second)
+	flight.CID, flight.LastUpdated = "202", now
+	flight.Latitude, flight.Longitude, flight.Altitude, flight.Groundspeed = 56, 13, 0, 0
+	flight.FlightPlan = FlightPlan{Origin: "ESSA", Destination: "EKCH", Route: "NEW ROUTE", Revision: 1, EOBT: "1800", EnrouteDuration: "0200"}
+	setObservationCacheSnapshot(cache, now, nil, flight)
+	require.NoError(t, worker.Publish(context.Background()))
+	require.Len(t, sink.observations, 2)
+	current := sink.observations[1]
+	require.Equal(t, first.FlightID, current.FlightID)
+	require.Equal(t, "NEW ROUTE", *current.FiledRoute)
+	require.Equal(t, "ESSA", current.Origin)
+	require.EqualValues(t, 1, *current.FlightPlan.Revision)
+	require.Equal(t, 2*time.Hour, *current.PlannedTiming.EstimatedEnrouteTime)
+	require.Nil(t, current.TakeoffDetected, "do not inherit the previous CID's takeoff")
+	require.Nil(t, current.Surveillance.TrackTrueDegrees, "do not derive a track between different CIDs")
+}
+
 func TestObservationWorkerPublishesExplicitDisappearance(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, Latitude: 55, Longitude: 12, Altitude: 10000, Groundspeed: 300, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
@@ -231,7 +277,7 @@ func TestObservationWorkerPublishesExplicitDisappearance(t *testing.T) {
 	require.Len(t, sink.observations, 2)
 	require.True(t, sink.observations[1].Missing)
 	require.Equal(t, aman.DataFresh, sink.observations[1].SourceStatus)
-	require.NotContains(t, worker.known, "101")
+	require.NotContains(t, worker.known, "SAS101")
 }
 
 func TestObservationWorkerPublishesHealthForFreshEmptySnapshot(t *testing.T) {
@@ -257,8 +303,8 @@ func TestObservationWorkerContinuesAfterPerFlightMappingAndDeliveryFailures(t *t
 	require.ErrorContains(t, err, "publish VATSIM observation for CID 303")
 	require.Len(t, sink.observations, 1)
 	require.Equal(t, "202", sink.observations[0].VATSIMCID)
-	require.Contains(t, worker.known, "202")
-	require.NotContains(t, worker.known, "303")
+	require.Contains(t, worker.known, "SAS202")
+	require.NotContains(t, worker.known, "SAS303")
 
 	delete(sink.errsByCID, "303")
 	setObservationCacheSnapshot(cache, now, nil, good, deliveryFailure)

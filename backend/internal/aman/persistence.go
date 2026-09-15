@@ -105,8 +105,8 @@ type ObservationSourceHealthSink interface {
 }
 
 // VATSIMFlightIdentityBinder is the narrow durable identity capability needed
-// by a VATSIM observation adapter. It finds the active binding for a stable
-// VATSIM CID, so a corrected callsign never rekeys an active AMAN flight.
+// by an observation adapter. It finds the active binding for the normalized
+// network callsign, retaining CID as supporting metadata across reconnects.
 //
 // It deliberately does not offer aliases, merges, tombstones, or a general
 // identity lookup API.
@@ -114,9 +114,9 @@ type VATSIMFlightIdentityBinder interface {
 	BindVATSIMFlight(context.Context, VATSIMFlightIdentity) (FlightID, error)
 }
 
-// VATSIMFlightIdentityRetirer releases an active CID binding once the AMAN
+// VATSIMFlightIdentityRetirer releases an active callsign binding once the AMAN
 // lifecycle removes that flight. Lifecycle policy owns when to invoke this;
-// this narrow repository seam only makes a later flight from the same CID able
+// this narrow repository seam only makes a later flight with the same callsign able
 // to receive a new generated FlightID.
 type VATSIMFlightIdentityRetirer interface {
 	RetireVATSIMFlight(context.Context, FlightID) error

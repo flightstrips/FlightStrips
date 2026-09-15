@@ -76,7 +76,7 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 	if cid == "" {
 		return nil
 	}
-	callsign, origin := strings.TrimSpace(strip.Callsign), strings.ToUpper(strings.TrimSpace(strip.Origin))
+	callsign, origin := strings.ToUpper(strings.TrimSpace(strip.Callsign)), strings.ToUpper(strings.TrimSpace(strip.Origin))
 	if callsign == "" || origin == "" {
 		return nil
 	}
@@ -90,8 +90,8 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 	now := o.now().UTC()
 	current := euroScopePosition{latitude: latitude, longitude: longitude, at: now}
 	o.mu.Lock()
-	previous, known := o.previous[cid]
-	o.previous[cid] = current
+	previous, known := o.previous[callsign]
+	o.previous[callsign] = current
 	o.mu.Unlock()
 	if !known || !current.at.After(previous.at) {
 		return nil

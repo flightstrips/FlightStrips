@@ -70,7 +70,7 @@ func (o *EuroScopeHoldingClearanceObserver) holdingClearanceFact(ctx context.Con
 		return nil, nil
 	}
 	cid := stripStringValue(strip.VatsimCID)
-	callsign := strings.TrimSpace(strip.Callsign)
+	callsign := strings.ToUpper(strings.TrimSpace(strip.Callsign))
 	if cid == "" || callsign == "" {
 		return nil, nil
 	}

@@ -7,7 +7,7 @@ SELECT pg_advisory_xact_lock(hashtextextended($1, 0));
 -- name: GetActiveAMANVATSIMObservationIdentity :one
 SELECT flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
 FROM aman_vatsim_observation_identities
-WHERE vatsim_cid = $1
+WHERE current_callsign = $1
   AND retired_at IS NULL;
 
 -- name: CreateAMANVATSIMObservationIdentity :one
@@ -17,9 +17,9 @@ INSERT INTO aman_vatsim_observation_identities (
 VALUES ($1, $2, $3)
 RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at;
 
--- name: UpdateAMANVATSIMObservationIdentityCallsign :one
+-- name: UpdateAMANVATSIMObservationIdentityCID :one
 UPDATE aman_vatsim_observation_identities
-SET current_callsign = $2,
+SET vatsim_cid = $2,
     updated_at = NOW()
 WHERE flight_id = $1
   AND retired_at IS NULL

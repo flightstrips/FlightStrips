@@ -165,12 +165,12 @@ func (q *Queries) GetAMANCommandOutcome(ctx context.Context, commandID string) (
 const getActiveAMANVATSIMObservationIdentity = `-- name: GetActiveAMANVATSIMObservationIdentity :one
 SELECT flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
 FROM aman_vatsim_observation_identities
-WHERE vatsim_cid = $1
+WHERE current_callsign = $1
   AND retired_at IS NULL
 `
 
-func (q *Queries) GetActiveAMANVATSIMObservationIdentity(ctx context.Context, vatsimCid string) (AmanVatsimObservationIdentity, error) {
-	row := q.db.QueryRow(ctx, getActiveAMANVATSIMObservationIdentity, vatsimCid)
+func (q *Queries) GetActiveAMANVATSIMObservationIdentity(ctx context.Context, currentCallsign string) (AmanVatsimObservationIdentity, error) {
+	row := q.db.QueryRow(ctx, getActiveAMANVATSIMObservationIdentity, currentCallsign)
 	var i AmanVatsimObservationIdentity
 	err := row.Scan(
 		&i.FlightID,
@@ -334,22 +334,22 @@ func (q *Queries) RetireAMANVATSIMObservationIdentity(ctx context.Context, fligh
 	return result.RowsAffected(), nil
 }
 
-const updateAMANVATSIMObservationIdentityCallsign = `-- name: UpdateAMANVATSIMObservationIdentityCallsign :one
+const updateAMANVATSIMObservationIdentityCID = `-- name: UpdateAMANVATSIMObservationIdentityCID :one
 UPDATE aman_vatsim_observation_identities
-SET current_callsign = $2,
+SET vatsim_cid = $2,
     updated_at = NOW()
 WHERE flight_id = $1
   AND retired_at IS NULL
 RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
 `
 
-type UpdateAMANVATSIMObservationIdentityCallsignParams struct {
-	FlightID        string
-	CurrentCallsign string
+type UpdateAMANVATSIMObservationIdentityCIDParams struct {
+	FlightID  string
+	VatsimCid string
 }
 
-func (q *Queries) UpdateAMANVATSIMObservationIdentityCallsign(ctx context.Context, arg UpdateAMANVATSIMObservationIdentityCallsignParams) (AmanVatsimObservationIdentity, error) {
-	row := q.db.QueryRow(ctx, updateAMANVATSIMObservationIdentityCallsign, arg.FlightID, arg.CurrentCallsign)
+func (q *Queries) UpdateAMANVATSIMObservationIdentityCID(ctx context.Context, arg UpdateAMANVATSIMObservationIdentityCIDParams) (AmanVatsimObservationIdentity, error) {
+	row := q.db.QueryRow(ctx, updateAMANVATSIMObservationIdentityCID, arg.FlightID, arg.VatsimCid)
 	var i AmanVatsimObservationIdentity
 	err := row.Scan(
 		&i.FlightID,

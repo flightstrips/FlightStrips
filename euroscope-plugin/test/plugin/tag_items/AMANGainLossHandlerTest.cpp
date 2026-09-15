@@ -9,8 +9,7 @@ namespace {
                   std::optional<long long> seconds = 90) -> std::shared_ptr<const FlightStrips::aman::GainLossSnapshot> {
         auto snapshot = std::make_shared<FlightStrips::aman::GainLossSnapshot>();
         snapshot->authoritative = authoritative;
-        snapshot->flightIdByCallsign["SAS123"] = "flight-1";
-        snapshot->byFlightId["flight-1"] = {
+        snapshot->byCallsign["SAS123"] = {
             .flightId = "flight-1", .callsign = "SAS123", .seconds = seconds, .dataStatus = std::move(status)
         };
         return snapshot;
@@ -63,9 +62,9 @@ TEST(AMANGainLossHandlerTest, HidesUnavailableGuidance) {
     EXPECT_EQ(AMANGainLossHandler::Resolve(true, Snapshot(), "MISSING", "EKCH", "EKCH").text, "----");
 }
 
-TEST(AMANGainLossHandlerTest, DoesNotInferAValueFromMissingFlightIdentity) {
+TEST(AMANGainLossHandlerTest, DoesNotRequireBackendFlightIdentity) {
     auto snapshot = std::make_shared<FlightStrips::aman::GainLossSnapshot>();
     snapshot->authoritative = true;
-    snapshot->flightIdByCallsign["SAS123"] = "missing-flight";
-    EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH").text, "----");
+    snapshot->byCallsign["SAS123"] = {.callsign = "SAS123", .seconds = 90, .dataStatus = "fresh"};
+    EXPECT_EQ(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH").text, "G02");
 }

@@ -119,52 +119,56 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 			if _, enabled := w.airports[strings.ToUpper(strings.TrimSpace(flight.FlightPlan.Destination))]; !enabled {
 				continue
 			}
-			previous, known := w.known[flight.CID]
-			observation, err := w.mapFlight(ctx, flight, snapshot.Timestamp, status, now, optionalObservation(previous, known))
+			callsign := strings.ToUpper(strings.TrimSpace(flight.Callsign))
+			previous, known := w.known[callsign]
+			// Callsign owns the AMAN identity, but revisions and movement history
+			// belong to the source CID. Do not carry them into a different source.
+			sameSource := known && previous.VATSIMCID == strings.TrimSpace(flight.CID)
+			observation, err := w.mapFlight(ctx, flight, snapshot.Timestamp, status, now, optionalObservation(previous, sameSource))
 			if err != nil {
-				failed[flight.CID] = struct{}{}
+				failed[callsign] = struct{}{}
 				publishErrors = append(publishErrors, fmt.Errorf("map VATSIM observation for CID %s: %w", flight.CID, err))
 				continue
 			}
-			if known {
+			if sameSource {
 				observation = preserveNewerObservationFacts(previous, observation)
 			}
-			current[flight.CID] = observation
+			current[callsign] = observation
 		}
 	}
 	if status == aman.DataDisconnected {
-		for cid, observation := range w.known {
+		for callsign, observation := range w.known {
 			observation.SourceStatus = status
 			observation.ReconciledAt = now
-			current[cid] = observation
+			current[callsign] = observation
 		}
 	}
 
-	for cid, observation := range current {
-		if previous, exists := w.known[cid]; exists && sameObservation(previous, observation) {
+	for callsign, observation := range current {
+		if previous, exists := w.known[callsign]; exists && sameObservation(previous, observation) {
 			continue
 		}
 		if err := w.sink.Observe(ctx, observation); err != nil {
-			publishErrors = append(publishErrors, fmt.Errorf("publish VATSIM observation for CID %s: %w", cid, err))
+			publishErrors = append(publishErrors, fmt.Errorf("publish VATSIM observation for CID %s: %w", observation.VATSIMCID, err))
 			continue
 		}
-		w.known[cid] = observation
+		w.known[callsign] = observation
 	}
 	if status != aman.DataDisconnected {
-		for cid := range w.known {
-			if _, mappingFailed := failed[cid]; mappingFailed {
+		for callsign := range w.known {
+			if _, mappingFailed := failed[callsign]; mappingFailed {
 				continue
 			}
-			if _, present := current[cid]; !present {
-				missing := w.known[cid]
+			if _, present := current[callsign]; !present {
+				missing := w.known[callsign]
 				missing.Missing = true
 				missing.SourceStatus = status
 				missing.ReconciledAt = now
 				if err := w.sink.Observe(ctx, missing); err != nil {
-					publishErrors = append(publishErrors, fmt.Errorf("publish missing VATSIM observation for CID %s: %w", cid, err))
+					publishErrors = append(publishErrors, fmt.Errorf("publish missing VATSIM observation for CID %s: %w", missing.VATSIMCID, err))
 					continue
 				}
-				delete(w.known, cid)
+				delete(w.known, callsign)
 			}
 		}
 	}
@@ -172,9 +176,9 @@ func (w *ObservationWorker) Publish(ctx context.Context) error {
 }
 
 func (w *ObservationWorker) mapFlight(ctx context.Context, flight Flight, snapshotAt time.Time, status aman.DataStatus, reconciledAt time.Time, previous *aman.FlightObservation) (aman.FlightObservation, error) {
-	identity := aman.VATSIMFlightIdentity{VATSIMCID: strings.TrimSpace(flight.CID), CurrentCallsign: strings.TrimSpace(flight.Callsign)}
+	identity := aman.VATSIMFlightIdentity{VATSIMCID: strings.TrimSpace(flight.CID), CurrentCallsign: strings.ToUpper(strings.TrimSpace(flight.Callsign))}
 	flightID := aman.FlightID("")
-	if previous != nil && previous.Callsign == identity.CurrentCallsign {
+	if previous != nil && previous.Callsign == identity.CurrentCallsign && previous.VATSIMCID == identity.VATSIMCID {
 		flightID = previous.FlightID
 	} else {
 		var err error

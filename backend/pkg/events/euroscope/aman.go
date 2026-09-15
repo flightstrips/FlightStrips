@@ -14,11 +14,34 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 	}
 	event := AMANGainLossEvent{
 		Version: 1, Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt,
-		Authoritative: true, Values: make([]*AMANGainLossValue, len(state.Flights)),
+		Authoritative: true, Values: make([]*AMANGainLossValue, 0, len(state.Flights)),
+	}
+	// Existing state may still contain duplicate active rows during migration.
+	// Publish only the most recently updated flight per network callsign, with
+	// a stable identity tie-breaker so slice order cannot change the result.
+	selected := make(map[string]int, len(state.Flights))
+	for index, flight := range state.Flights {
+		if flight.State == aman.StateRemoved {
+			continue
+		}
+		callsign := strings.ToUpper(strings.TrimSpace(flight.CurrentCallsign))
+		previous, exists := selected[callsign]
+		if !exists || flight.UpdatedAt.After(state.Flights[previous].UpdatedAt) ||
+			(flight.UpdatedAt.Equal(state.Flights[previous].UpdatedAt) && flight.ID > state.Flights[previous].ID) {
+			selected[callsign] = index
+		}
 	}
 	for index, flight := range state.Flights {
+		// Commit results retain removed flights for lifecycle processing even
+		// though the repository excludes them from subsequent reads. Match that
+		// active projection: a retired callsign can belong to a new identity,
+		// and older EuroScope plugins reject duplicate callsigns outright.
+		callsign := strings.ToUpper(strings.TrimSpace(flight.CurrentCallsign))
+		if flight.State == aman.StateRemoved || selected[callsign] != index {
+			continue
+		}
 		value := &AMANGainLossValue{
-			FlightId: string(flight.ID), Callsign: flight.CurrentCallsign, DataStatus: string(flight.DataStatus),
+			FlightId: string(flight.ID), Callsign: callsign, DataStatus: string(flight.DataStatus),
 			StarFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		}
 		if flight.FeederETA != nil {
@@ -54,7 +77,7 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			value.TargetTime = &targetTime
 			value.PredictedTime = &predictedTime
 		}
-		event.Values[index] = value
+		event.Values = append(event.Values, value)
 	}
 	return event, nil
 }

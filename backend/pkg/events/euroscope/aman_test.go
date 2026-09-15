@@ -76,3 +76,55 @@ func TestAMANGainLossIsAlwaysAuthoritativeForEuroScope(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, event.Authoritative)
 }
+
+func TestAMANGainLossExcludesRemovedIdentitiesFromReplacement(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
+	live := aman.AMANFlight{
+		ID: "live", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh,
+		Slot: &aman.Slot{Time: now.Add(10 * time.Minute)},
+		Prediction: &aman.Prediction{
+			OperationalTETA: now.Add(11 * time.Minute), Publishable: true,
+			Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}},
+		},
+	}
+	removed := live
+	removed.ID, removed.State, removed.Slot = "retired", aman.StateRemoved, nil
+	for _, flights := range [][]aman.AMANFlight{{removed, live}, {live, removed}, {removed}} {
+		event, err := euroscope.NewAMANGainLossEvent(aman.AirportState{
+			Airport: "EKCH", Revision: 42, GeneratedAt: now, Flights: flights,
+		})
+		require.NoError(t, err)
+		payload, err := event.Marshal()
+		require.NoError(t, err)
+		_, inner, err := euroscope.UnmarshalEnvelope(payload)
+		require.NoError(t, err)
+		var decoded euroscope.AMANGainLossEvent
+		require.NoError(t, proto.Unmarshal(inner, &decoded))
+		if len(flights) == 1 {
+			require.Empty(t, decoded.Values, "a complete empty replacement clears retired tags")
+			continue
+		}
+		// EuroScope rejects the entire replacement on duplicate callsigns,
+		// even when the retired identity has no gain/loss value.
+		require.Len(t, decoded.Values, 1)
+		require.Equal(t, "live", decoded.Values[0].FlightId)
+		require.EqualValues(t, 60, decoded.Values[0].GetGainLossSeconds())
+	}
+}
+
+func TestAMANGainLossPublishesOneCurrentRowPerNormalizedCallsign(t *testing.T) {
+	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
+	old := aman.AMANFlight{ID: "old", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, UpdatedAt: now.Add(-time.Minute)}
+	current := old
+	current.ID, current.CurrentCallsign, current.UpdatedAt = "current", " sas123 ", now
+	other := old
+	other.ID, other.CurrentCallsign = "other", "DAT456"
+	for _, flights := range [][]aman.AMANFlight{{old, current, other}, {current, old, other}} {
+		event, err := euroscope.NewAMANGainLossEvent(aman.AirportState{Airport: "EKCH", GeneratedAt: now, Flights: flights})
+		require.NoError(t, err)
+		require.Len(t, event.Values, 2)
+		require.Equal(t, "SAS123", event.Values[0].Callsign)
+		require.Equal(t, "current", event.Values[0].FlightId)
+		require.Equal(t, "DAT456", event.Values[1].Callsign)
+	}
+}

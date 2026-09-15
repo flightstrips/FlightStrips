@@ -14,6 +14,10 @@ import (
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/services"
 
+	"FlightStrips/internal/shared"
+	"github.com/exaring/otelpgx"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/multitracer"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -30,7 +34,10 @@ type TestServer struct {
 }
 
 // StartTestServer starts a test instance of the FlightStrips server
-func StartTestServer() (*TestServer, error) {
+func StartTestServer() (*TestServer, error) { return StartTestServerWithConfig(nil) }
+
+// StartTestServerWithConfig configures an isolated full application for load tests.
+func StartTestServerWithConfig(configure func(*app.Config)) (*TestServer, error) {
 	// Ensure TEST_MODE is enabled
 	if !config.IsTestMode() {
 		return nil, fmt.Errorf("TEST_MODE must be enabled for E2E tests")
@@ -46,7 +53,7 @@ func StartTestServer() (*TestServer, error) {
 		return nil, fmt.Errorf("failed to create PostgreSQL test database: %w", err)
 	}
 
-	application, err := app.Build(ctx, app.Config{
+	cfg := app.Config{
 		Environment:    "test",
 		CloseDBOnClose: true,
 		EnablePDC:      false,
@@ -58,12 +65,29 @@ func StartTestServer() (*TestServer, error) {
 		EnableVATSIM:   false,
 		EnableTraffic:  false,
 		EnableDBSeed:   false,
-	}, app.Dependencies{
-		DBPool:                dbpool,
+	}
+	if configure != nil {
+		configure(&cfg)
+	}
+	dependencyPool := dbpool
+	if cfg.EnablePostgresTracing {
+		poolConfig := dbpool.Config()
+		poolConfig.ConnConfig.Tracer = multitracer.New(loadDBTracer{}, otelpgx.NewTracer())
+		dependencyPool, err = pgxpool.NewWithConfig(ctx, poolConfig)
+		if err != nil {
+			dbpool.Close()
+			_ = databaseCleanup()
+			cancel()
+			return nil, err
+		}
+	}
+	application, err := app.Build(ctx, cfg, app.Dependencies{
+		DBPool:                dependencyPool,
 		AuthenticationService: services.NewTestAuthenticationService(),
 		TransceiversInterval:  30 * time.Second,
 	})
 	if err != nil {
+		dependencyPool.Close()
 		dbpool.Close()
 		_ = databaseCleanup()
 		cancel()
@@ -75,6 +99,7 @@ func StartTestServer() (*TestServer, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		_ = application.Close(context.Background())
+		dbpool.Close()
 		_ = databaseCleanup()
 		cancel()
 		return nil, fmt.Errorf("failed to bind listener: %w", err)
@@ -99,6 +124,7 @@ func StartTestServer() (*TestServer, error) {
 	select {
 	case err := <-serverErr:
 		_ = application.Close(context.Background())
+		dbpool.Close()
 		_ = databaseCleanup()
 		cancel()
 		return nil, fmt.Errorf("server failed to start: %w", err)
@@ -128,6 +154,8 @@ func StartTestServer() (*TestServer, error) {
 func (ts *TestServer) Stop() error {
 	slog.Info("Stopping test server")
 
+	// Drain accepted positions before stopping hubs or closing PostgreSQL.
+	_ = ts.App.DrainPositions(context.Background())
 	// Cancel context to stop services
 	ts.cancel()
 
@@ -142,6 +170,8 @@ func (ts *TestServer) Stop() error {
 	if err := ts.App.Close(context.Background()); err != nil {
 		slog.Error("Failed to close app", slog.Any("error", err))
 	}
+
+	ts.DBPool.Close()
 
 	// Drop the isolated database. The suite-level server is stopped by testdb.
 	if err := ts.databaseCleanup(); err != nil {
@@ -194,3 +224,11 @@ func (ts *TestServer) GetWebSocketURL() string {
 func (ts *TestServer) GetFrontendWebSocketURL() string {
 	return fmt.Sprintf("ws://%s/frontEndEvents", ts.ServerAddr)
 }
+
+type loadDBTracer struct{}
+
+func (loadDBTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
+	shared.TraceDBOperation(ctx)
+	return ctx
+}
+func (loadDBTracer) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}

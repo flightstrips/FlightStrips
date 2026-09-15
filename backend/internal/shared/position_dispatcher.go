@@ -10,6 +10,13 @@ type positionJob struct {
 	run func(context.Context)
 }
 
+// PositionBatchScope shares only one bounded group's database work. Done must
+// release waiters when a job is cancelled or takes a non-batched path.
+type PositionBatchScope interface {
+	Context(context.Context, int) context.Context
+	Done(int)
+}
+
 // PositionDispatcher bounds work, preserves FIFO per aircraft and lets ready
 // aircraft overlap database waits. Jobs must honor cancellation and not panic.
 type PositionDispatcher struct {
@@ -25,6 +32,108 @@ type PositionDispatcher struct {
 	cancel  context.CancelFunc
 	workers sync.WaitGroup
 	budget  chan struct{}
+}
+
+// NewBatchPositionDispatcher keeps the same per-report concurrency budget, but
+// gives already-ready distinct aircraft a shared, short-lived batch scope.
+func NewBatchPositionDispatcher(workers, pending int, budget chan struct{}, factory func(int) PositionBatchScope) *PositionDispatcher {
+	if workers < 1 || pending < 1 || factory == nil {
+		panic("invalid position batch dispatcher capacity")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	d := &PositionDispatcher{active: make(map[string]bool), limit: pending, ctx: ctx, cancel: cancel, budget: budget}
+	d.changed = sync.NewCond(&d.mu)
+	d.workers.Add(1)
+	go d.batchScheduler(workers, factory)
+	return d
+}
+
+func (d *PositionDispatcher) batchScheduler(limit int, factory func(int) PositionBatchScope) {
+	defer d.workers.Done()
+	for {
+		d.mu.Lock()
+		ready := func() bool {
+			if d.paused || d.running >= limit {
+				return false
+			}
+			for _, job := range d.queue {
+				if !d.active[job.key] {
+					return true
+				}
+			}
+			return false
+		}
+		for !ready() {
+			if d.closing && len(d.queue) == 0 {
+				d.mu.Unlock()
+				return
+			}
+			d.changed.Wait()
+		}
+		capacity := limit - d.running
+		d.mu.Unlock()
+
+		// Never block while holding a partial global reservation: another client
+		// may need those slots to finish its own batch.
+		reserved := 0
+		if d.budget != nil {
+			select {
+			case d.budget <- struct{}{}:
+				reserved = 1
+			case <-d.ctx.Done():
+			}
+			if reserved > 0 {
+			reserve:
+				for reserved < capacity {
+					select {
+					case d.budget <- struct{}{}:
+						reserved++
+					default:
+						break reserve
+					}
+				}
+				capacity = reserved
+			}
+		}
+		d.mu.Lock()
+		var jobs []positionJob
+		for i := 0; i < len(d.queue) && len(jobs) < capacity; {
+			job := d.queue[i]
+			if d.active[job.key] {
+				i++
+				continue
+			}
+			jobs = append(jobs, job)
+			d.active[job.key] = true
+			copy(d.queue[i:], d.queue[i+1:])
+			d.queue[len(d.queue)-1] = positionJob{}
+			d.queue = d.queue[:len(d.queue)-1]
+		}
+		d.running += len(jobs)
+		d.changed.Broadcast()
+		d.mu.Unlock()
+		for reserved > len(jobs) {
+			<-d.budget
+			reserved--
+		}
+		scope := factory(len(jobs))
+		for i, job := range jobs {
+			d.workers.Add(1)
+			go func(index int, job positionJob, release bool) {
+				defer d.workers.Done()
+				job.run(scope.Context(d.ctx, index))
+				scope.Done(index)
+				if release {
+					<-d.budget
+				}
+				d.mu.Lock()
+				delete(d.active, job.key)
+				d.running--
+				d.changed.Broadcast()
+				d.mu.Unlock()
+			}(i, job, i < reserved)
+		}
+	}
 }
 
 func NewPositionDispatcher(workers, pending int, budget chan struct{}) *PositionDispatcher {

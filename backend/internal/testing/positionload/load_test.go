@@ -57,12 +57,28 @@ type capture struct {
 	errors            int
 	operationalErrors int
 	events            map[string]int
+	batches           []batchSample
+}
+
+type batchSample struct {
+	At       time.Time
+	Kind     string
+	Size, MS float64
 }
 
 func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, s := range spans {
+		if s.Name() == "position.batch.snapshot" || s.Name() == "position.batch.persist" {
+			entry := batchSample{At: s.StartTime(), Kind: s.Name(), MS: float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond)}
+			for _, a := range s.Attributes() {
+				if string(a.Key) == "position.batch.size" {
+					entry.Size = float64(a.Value.AsInt64())
+				}
+			}
+			c.batches = append(c.batches, entry)
+		}
 		id := s.SpanContext().TraceID()
 		if s.Name() == "pool.acquire" {
 			c.pools[id] += float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond)
@@ -442,6 +458,7 @@ func TestPositionLoad(t *testing.T) {
 		}
 	}
 	failures := collector.errors
+	batchSamples := append([]batchSample(nil), collector.batches...)
 	operationalFailures := collector.operationalErrors
 	observedEvents := make(map[string]int, len(collector.events))
 	for k, v := range collector.events {
@@ -462,6 +479,19 @@ func TestPositionLoad(t *testing.T) {
 	require.NoError(t, server.DBPool.QueryRow(ctx, "SELECT version()").Scan(&postgresVersion))
 	report := map[string]any{"platform": runtime.GOOS + "/" + runtime.GOARCH, "cpus": runtime.NumCPU(), "go": runtime.Version(), "postgres": postgresVersion, "topology": loadTopology(), "pool_max_connections": server.DBPool.Config().MaxConns, "release": os.Getenv("POSITION_LOAD_REVISION"), "position_workers": os.Getenv("POSITION_WORKERS_PER_CLIENT"), "arrival_percent": arrivalPercent, "warmup": warmup.String(), "duration": measurement.String(), "sent": sent, "completed": collector.count(), "errors": failures, "operational_errors": operationalFailures, "observed_events": observedEvents, "samples": len(times), "p95_ms": percentile(times, .95), "p99_ms": percentile(times, .99), "average_ms": average(times), "average_db_operations": average(queries), "average_pool_wait_ms": average(pools), "p99_queue_ms": percentile(queueTimes, .99), "p99_processing_ms": percentile(processingTimes, .99), "max_outstanding": maxBacklog, "burst_drain_ms": float64(burstDrain) / float64(time.Millisecond), "sender_p99_lag_ms": percentile(senderLag, .99)}
 	report["traffic_pattern"] = pattern
+	report["position_db_batching"] = os.Getenv("POSITION_DB_BATCHING_ENABLED") == "true"
+	for _, kind := range []string{"snapshot", "persist"} {
+		var sizes, durations []float64
+		for _, entry := range batchSamples {
+			if entry.Kind == "position.batch."+kind && !entry.At.Before(measureStart) && entry.At.Before(measureEnd) {
+				sizes = append(sizes, entry.Size)
+				durations = append(durations, entry.MS)
+			}
+		}
+		report["batch_"+kind+"_groups"] = len(sizes)
+		report["batch_"+kind+"_mean_size"] = average(sizes)
+		report["batch_"+kind+"_mean_ms"] = average(durations)
+	}
 	report["p95_scheduled_completion_ms"] = percentile(scheduledTimes, .95)
 	report["p99_scheduled_completion_ms"] = percentile(scheduledTimes, .99)
 	if pattern == "second-burst" {

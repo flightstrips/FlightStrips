@@ -7,13 +7,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type stripRepository struct {
+	pool    *pgxpool.Pool
 	queries *database.Queries
 }
 
@@ -21,6 +24,7 @@ type stripRepository struct {
 func NewStripRepository(db *pgxpool.Pool) *stripRepository {
 	return &stripRepository{
 		queries: database.New(db),
+		pool:    db,
 	}
 }
 
@@ -261,6 +265,41 @@ func (r *stripRepository) GetByCallsign(ctx context.Context, session int32, call
 		return nil, err
 	}
 	return stripToModel(dbStrip)
+}
+
+// GetPositionSnapshot loads both records with one database snapshot.
+func (r *stripRepository) GetPositionSnapshot(ctx context.Context, session int32, callsign string) (*models.PositionSnapshot, error) {
+	row, err := r.queries.GetPositionSnapshot(ctx, database.GetPositionSnapshotParams{Session: session, Callsign: callsign})
+	if err != nil {
+		return nil, err
+	}
+	strip, err := stripToModel(row.Strip)
+	if err != nil {
+		return nil, err
+	}
+	result := &models.PositionSnapshot{Strip: strip}
+	if len(row.Assignment) != 0 && string(row.Assignment) != "null" {
+		// PostgreSQL column names are snake_case; sqlc's database record uses Go
+		// field names. Normalize only keys, preserving pgtype's timestamp decoding.
+		var columns map[string]json.RawMessage
+		if err := json.Unmarshal(row.Assignment, &columns); err != nil {
+			return nil, err
+		}
+		fields := make(map[string]json.RawMessage, len(columns))
+		for key, value := range columns {
+			fields[strings.ReplaceAll(key, "_", "")] = value
+		}
+		raw, err := json.Marshal(fields)
+		if err != nil {
+			return nil, err
+		}
+		var assignment database.StandAssignment
+		if err := json.Unmarshal(raw, &assignment); err != nil {
+			return nil, err
+		}
+		result.Assignment = standAssignmentToModel(assignment)
+	}
+	return result, nil
 }
 
 // LockByCallsign retrieves a strip and holds a row lock until the caller's
@@ -1113,4 +1152,127 @@ func (r *stripRepository) AcknowledgeValidationStatus(ctx context.Context, sessi
 // ClearValidationStatus removes the validation status from the strip.
 func (r *stripRepository) ClearValidationStatus(ctx context.Context, session int32, callsign string) error {
 	return r.queries.ClearValidationStatus(ctx, session, callsign)
+}
+
+// UpdateAircraftPositionAndAppendBay reserves the end position while holding the
+// session row lock. Both the sequence and surveillance write commit together.
+func (r *stripRepository) UpdateAircraftPositionAndAppendBay(ctx context.Context, session int32, callsign string, lat, lon *float64, alt *int32, bay string, version, spacing int32) (int64, int32, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SELECT id FROM sessions WHERE id=$1 FOR UPDATE", session); err != nil {
+		return 0, 0, err
+	}
+	q := r.queries.WithTx(tx)
+	sequence, err := q.GetMaxSequenceInBayUnified(ctx, database.GetMaxSequenceInBayUnifiedParams{Session: session, Bay: bay})
+	if err != nil {
+		return 0, 0, err
+	}
+	sequence += spacing
+	n, err := q.UpdateStripAircraftPositionAndBay(ctx, database.UpdateStripAircraftPositionAndBayParams{Session: session, Callsign: callsign, PositionLatitude: lat, PositionLongitude: lon, PositionAltitude: alt, Bay: bay, Sequence: sequence, Version: version})
+	if err != nil {
+		return 0, 0, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return 0, 0, err
+	}
+	return n, sequence, nil
+}
+
+func (r *stripRepository) AppendToBay(ctx context.Context, session int32, callsign, bay string, spacing int32) (int32, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SELECT id FROM sessions WHERE id=$1 FOR UPDATE", session); err != nil {
+		return 0, err
+	}
+	q := r.queries.WithTx(tx)
+	sequence, err := q.GetMaxSequenceInBayUnified(ctx, database.GetMaxSequenceInBayUnifiedParams{Session: session, Bay: bay})
+	if err != nil {
+		return 0, err
+	}
+	sequence += spacing
+	n, err := q.UpdateStripBayAndSequence(ctx, database.UpdateStripBayAndSequenceParams{Session: session, Callsign: callsign, Bay: bay, Sequence: sequence})
+	if err != nil {
+		return 0, err
+	}
+	if n != 1 {
+		return 0, pgx.ErrNoRows
+	}
+	return sequence, tx.Commit(ctx)
+}
+
+// PersistAtEndOfBay keeps full-strip creation/restart append operations under
+// the same lock as dedicated positions and frontend moves.
+func (r *stripRepository) PersistAtEndOfBay(ctx context.Context, strip *models.Strip, create bool, spacing int32) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SELECT id FROM sessions WHERE id=$1 FOR UPDATE", strip.Session); err != nil {
+		return err
+	}
+	q := r.queries.WithTx(tx)
+	seq, err := q.GetMaxSequenceInBayUnified(ctx, database.GetMaxSequenceInBayUnifiedParams{Session: strip.Session, Bay: strip.Bay})
+	if err != nil {
+		return err
+	}
+	seq += spacing
+	strip.Sequence = &seq
+	bound := &stripRepository{queries: q}
+	if create {
+		err = bound.Create(ctx, strip)
+	} else {
+		var n int64
+		n, err = bound.Update(ctx, strip)
+		if err == nil && n != 1 {
+			err = &pgconn.PgError{Code: "40001", Message: "strip append version conflict"}
+		}
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *stripRepository) UpdateRunwayClearanceAtEndOfBay(ctx context.Context, session int32, callsign string, spacing int32) (int64, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SELECT id FROM sessions WHERE id=$1 FOR UPDATE", session); err != nil {
+		return 0, err
+	}
+	q := r.queries.WithTx(tx)
+	before, err := q.GetStrip(ctx, database.GetStripParams{Session: session, Callsign: callsign})
+	if err != nil {
+		return 0, err
+	}
+	n, err := q.UpdateRunwayClearance(ctx, database.UpdateRunwayClearanceParams{Session: session, Callsign: callsign})
+	if err != nil {
+		return 0, err
+	}
+	bay := before.Bay
+	switch bay {
+	case "TAXI_LWR":
+		bay = "DEPART"
+	case "FINAL":
+		bay = "RWY_ARR"
+	}
+	if bay != before.Bay {
+		seq, err := q.GetMaxSequenceInBayUnified(ctx, database.GetMaxSequenceInBayUnifiedParams{Session: session, Bay: bay})
+		if err != nil {
+			return 0, err
+		}
+		if _, err = q.UpdateStripBayAndSequence(ctx, database.UpdateStripBayAndSequenceParams{Session: session, Callsign: callsign, Bay: bay, Sequence: seq + spacing}); err != nil {
+			return 0, err
+		}
+	}
+	return n, tx.Commit(ctx)
 }

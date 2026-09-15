@@ -39,29 +39,41 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 		return errors.New("strip is locked by an active validation")
 	}
 
-	targetBay := runwayClearanceTargetBay(strip.Bay)
-	var targetSequence *int32
-	if targetBay != strip.Bay {
-		sequence, err := s.nextSequenceAtEndOfBay(ctx, session, targetBay)
+	if updater, ok := s.fieldStore.(interface {
+		UpdateRunwayClearanceAtEndOfBay(context.Context, int32, string, int32) (int64, error)
+	}); ok {
+		n, err := updater.UpdateRunwayClearanceAtEndOfBay(ctx, session, callsign, InitialOrderSpacing)
 		if err != nil {
 			return err
 		}
-		targetSequence = &sequence
-	}
+		if n != 1 {
+			return errors.New("failed to update runway clearance")
+		}
+	} else {
+		targetBay := runwayClearanceTargetBay(strip.Bay)
+		var targetSequence *int32
+		if targetBay != strip.Bay {
+			sequence, err := s.nextSequenceAtEndOfBay(ctx, session, targetBay)
+			if err != nil {
+				return err
+			}
+			targetSequence = &sequence
+		}
 
-	affected, err := s.fieldStore.UpdateRunwayClearance(ctx, session, callsign)
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return errors.New("failed to update runway clearance")
-	}
-	if targetSequence != nil {
-		if err := s.updateStripSequence(ctx, session, callsign, *targetSequence, targetBay, false); err != nil {
+		affected, err := s.fieldStore.UpdateRunwayClearance(ctx, session, callsign)
+		if err != nil {
 			return err
 		}
-	}
+		if affected != 1 {
+			return errors.New("failed to update runway clearance")
+		}
+		if targetSequence != nil {
+			if err := s.updateStripSequence(ctx, session, callsign, *targetSequence, targetBay, false); err != nil {
+				return err
+			}
+		}
 
+	}
 	// For departures moving to or already at rwy-dep, set state to DEPA and notify ES.
 	isAtOrMovingToDepart := strip.Bay == shared.BAY_DEPART || strip.Bay == shared.BAY_TAXI_LWR
 	if isAtOrMovingToDepart && strip.Origin == airport {
@@ -78,7 +90,7 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 		return err
 	}
 
-	s.publisher.SendStripUpdate(session, callsign)
+	shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	return nil
 }
 
@@ -100,7 +112,7 @@ func (s *StripService) RunwayConfirmation(ctx context.Context, session int32, ca
 	if affected != 1 {
 		return errors.New("failed to update runway confirmation")
 	}
-	s.publisher.SendStripUpdate(session, callsign)
+	shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	return nil
 }
 

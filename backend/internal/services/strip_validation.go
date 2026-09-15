@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/dependencies"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/sat"
+	"FlightStrips/internal/shared"
 	"context"
 	"errors"
 	"strings"
@@ -63,7 +64,7 @@ func (s *StripValidationService) SetValidationStatus(ctx context.Context, sessio
 	if err := s.validationStore.SetValidationStatus(ctx, session, callsign, status); err != nil {
 		return err
 	}
-	s.sendStripUpdate(session, callsign)
+	s.sendStripUpdate(ctx, session, callsign)
 	return nil
 }
 
@@ -96,7 +97,7 @@ func (s *StripValidationService) AcknowledgeValidationStatus(ctx context.Context
 		// Key mismatch or already acknowledged — not an error, just a no-op.
 		return nil
 	}
-	s.sendStripUpdate(session, callsign)
+	s.sendStripUpdate(ctx, session, callsign)
 	return nil
 }
 
@@ -105,7 +106,7 @@ func (s *StripValidationService) ClearValidationStatus(ctx context.Context, sess
 	if err := s.validationStore.ClearValidationStatus(ctx, session, callsign); err != nil {
 		return err
 	}
-	s.sendStripUpdate(session, callsign)
+	s.sendStripUpdate(ctx, session, callsign)
 	return nil
 }
 
@@ -177,6 +178,6 @@ func (s *StripValidationService) IsValidationBlocking(ctx context.Context, sessi
 	return strip.IsValidationLocked(), nil
 }
 
-func (s *StripValidationService) sendStripUpdate(session int32, callsign string) {
-	s.publisher.SendStripUpdate(session, callsign)
+func (s *StripValidationService) sendStripUpdate(ctx context.Context, session int32, callsign string) {
+	shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 }

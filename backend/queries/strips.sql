@@ -233,6 +233,7 @@ WHERE callsign = $5 AND session = $6 AND (version = sqlc.narg('version') OR sqlc
 -- name: UpdateStripAircraftPositionAndBay :execrows
 UPDATE strips
 SET position_latitude  = sqlc.arg(position_latitude),
+    euroscope_seen_at = NOW(),
     position_longitude = sqlc.arg(position_longitude),
     position_altitude  = sqlc.arg(position_altitude),
     sequence           = CASE
@@ -511,3 +512,10 @@ WHERE session = $1 AND callsign = $2;
 UPDATE strips
 SET controller_modified_fields = array_append(controller_modified_fields, $3)
 WHERE session = $1 AND callsign = $2 AND NOT ($3 = ANY(controller_modified_fields));
+
+-- name: GetPositionSnapshot :one
+SELECT sqlc.embed(s),
+    (SELECT to_jsonb(a) FROM stand_assignments a
+     WHERE a.session_id = s.session AND a.callsign = s.callsign) AS assignment
+FROM strips s
+WHERE s.session = $1 AND s.callsign = $2;

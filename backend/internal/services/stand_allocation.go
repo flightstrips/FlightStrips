@@ -256,6 +256,7 @@ func (s *StandAllocationService) PublishConfirmedArrival(ctx context.Context, as
 }
 
 func (s *StandAllocationService) publishCommitted(ctx context.Context, result StandAllocationResult) {
+	shared.InvalidatePositionAssignment(ctx)
 	if s.publish == nil {
 		return
 	}
@@ -1308,16 +1309,7 @@ func (s *StandAllocationService) ConfirmedArrivalConflictAtStand(ctx context.Con
 	if target == "" {
 		return false, errors.New("stand conflict check requires a stand")
 	}
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-	if err != nil {
-		return false, err
-	}
-	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, "SELECT id FROM sessions WHERE id = $1 FOR UPDATE", request.SessionID); err != nil {
-		return false, err
-	}
-	store := s.assignments.WithTx(tx)
-	assignments, err := store.LockAssignments(ctx, request.SessionID, request.Callsign)
+	assignments, err := s.assignments.ListAssignments(ctx, request.SessionID)
 	if err != nil {
 		return false, err
 	}
@@ -2106,4 +2098,59 @@ func recordRetryableDBError(ctx context.Context, err error) {
 	case "40P01":
 		shared.AddDBRetry(ctx, "deadlock")
 	}
+}
+
+// ReconcileObservedDepartureConflict rechecks read-only conflict findings under
+// the allocator's normal transaction lock before changing a warning.
+func (s *StandAllocationService) ReconcileObservedDepartureConflict(ctx context.Context, request StandAllocationRequest, stand string) error {
+	return retrySerializableOperation(ctx, func() error {
+		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback(ctx)
+		if _, err = tx.Exec(ctx, "SELECT id FROM sessions WHERE id=$1 FOR UPDATE", request.SessionID); err != nil {
+			return err
+		}
+		store := s.assignments.WithTx(tx)
+		assignments, err := store.LockAssignments(ctx, request.SessionID, request.Callsign)
+		if err != nil {
+			return err
+		}
+		var current *models.StandAssignment
+		for _, a := range assignments {
+			if strings.EqualFold(a.Callsign, request.Callsign) {
+				current = a
+				break
+			}
+		}
+		if current == nil || current.Direction != string(sat.AssignmentDirectionDeparture) || !strings.EqualFold(current.Stand, standName(stand)) {
+			return nil
+		}
+		conflict := s.confirmedArrivalConflicts(request, standName(stand), assignments)
+		managed := current.ConflictReason != nil && strings.HasPrefix(*current.ConflictReason, observedDepartureConflictPrefix)
+		if conflict == managed {
+			return nil
+		}
+		if conflict {
+			current.ConflictReason = observedDepartureConflictReason(current.ConflictReason)
+		} else {
+			current.ConflictReason = priorObservedDepartureConflict(current.ConflictReason)
+		}
+		current.Acknowledged = false
+		current.AcknowledgedAt = nil
+		current.AcknowledgedBy = nil
+		n, err := store.UpdateAssignment(ctx, current)
+		if err != nil {
+			return err
+		}
+		if n != 1 {
+			return errAllocationVersionConflict
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return err
+		}
+		current.Version++
+		return s.PublishAssignment(ctx, *current)
+	})
 }

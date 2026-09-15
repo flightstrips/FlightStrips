@@ -7,6 +7,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"FlightStrips/internal/config"
@@ -730,4 +731,13 @@ func TestMoveToBay_TwyArrDoesNotDropTrackingInEs(t *testing.T) {
 
 	require.NoError(t, svc.MoveToBay(context.Background(), 1, cur.Callsign, shared.BAY_TWY_ARR, true))
 	assert.Empty(t, esHub.DropTrackings, "TWY_ARR transition must no longer drop tracking; touchdown/ALDT handles it")
+}
+
+func TestLandingPersistenceFailureIsNotSuccessfulHandling(t *testing.T) {
+	injectTestRunway(t)
+	failure := errors.New("database unavailable")
+	repo := &testutil.MockStripRepository{SetCdmDataFn: func(context.Context, int32, string, *models.CdmData) (int64, error) { return 0, failure }}
+	service := NewStripService(repo)
+	err := service.handleArrivalPositionUpdate(context.Background(), 1, "SAS123", insideLat, insideLon, int64(lowAltitude), &models.Strip{Callsign: "SAS123", Bay: shared.BAY_FINAL, Destination: "EKCH"})
+	require.ErrorIs(t, err, failure)
 }

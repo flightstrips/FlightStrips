@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -462,7 +463,7 @@ func TestUpdateAircraftPosition_StopsAfterSecondVersionConflict(t *testing.T) {
 	}
 
 	svc := NewStripService(stripRepo)
-	require.NoError(t, svc.UpdateAircraftPosition(
+	require.Error(t, svc.UpdateAircraftPosition(
 		ctx, 1, callsign, 55, 10, 8000, "EKCH",
 	))
 	assert.Equal(t, 2, readCount)
@@ -685,4 +686,9 @@ func TestUpdateAircraftPosition_NoAutoHandoverWhenAlreadyAirborne(t *testing.T) 
 	require.NoError(t, err)
 	assert.False(t, listBySessionCalled,
 		"controller list must not be queried for already-airborne strips")
+}
+
+func TestMissingPositionStripIsNotSuccessfulHandling(t *testing.T) {
+	service := NewStripService(&testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return nil, pgx.ErrNoRows }})
+	require.ErrorIs(t, service.UpdateAircraftPosition(context.Background(), 1, "UNKNOWN", 55, 12, 100, "EKCH"), pgx.ErrNoRows)
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (s *StripService) maybeDropArrivalTrackingInEuroscope(ctx context.Context, session int32, callsign string, ownerPosition string) {
@@ -62,6 +63,17 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	var bay string
 	positionStored := false
 	routeRefreshNeeded := false
+	var unlockTransition func()
+	ensureTransitionLock := func() {
+		if unlockTransition == nil {
+			unlockTransition = s.positionTransition(session)
+		}
+	}
+	defer func() {
+		if unlockTransition != nil {
+			unlockTransition()
+		}
+	}()
 
 	// A controller move and an EuroScope position update can arrive concurrently.
 	// Guard the combined position/bay write with the strip version, then reload
@@ -69,11 +81,22 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	// strip cannot create an unbounded read loop.
 	for attempt := 0; attempt < 2; attempt++ {
 		var err error
-		existingStrip, err = s.stripReader.GetByCallsign(ctx, session, callsign)
+		if reader, ok := s.stripReader.(interface {
+			GetPositionSnapshot(context.Context, int32, string) (*internalModels.PositionSnapshot, error)
+		}); ok {
+			var snapshot *internalModels.PositionSnapshot
+			snapshot, err = reader.GetPositionSnapshot(ctx, session, callsign)
+			if err == nil {
+				existingStrip = snapshot.Strip
+				shared.CachePositionAssignment(ctx, session, callsign, snapshot.Assignment)
+			}
+		} else {
+			existingStrip, err = s.stripReader.GetByCallsign(ctx, session, callsign)
+		}
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "FlightStripOffline"))
-				return nil
+				return err
 			}
 			return err
 		}
@@ -108,20 +131,27 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			slog.Int("attempt", attempt+1),
 		)
 
+		if previousBay != bay {
+			ensureTransitionLock()
+		}
 		sequence := int32(0)
 		if existingStrip.Sequence != nil {
 			sequence = *existingStrip.Sequence
 		}
-		if previousBay != bay {
-			sequence, err = s.nextSequenceAtEndOfBay(ctx, session, bay)
-			if err != nil {
-				return err
+		var updated int64
+		if appender, ok := s.fieldStore.(interface {
+			UpdateAircraftPositionAndAppendBay(context.Context, int32, string, *float64, *float64, *int32, string, int32, int32) (int64, int32, error)
+		}); ok && previousBay != bay {
+			updated, sequence, err = appender.UpdateAircraftPositionAndAppendBay(ctx, session, callsign, &lat, &lon, &altitude, bay, existingStrip.Version, InitialOrderSpacing)
+		} else {
+			if previousBay != bay {
+				sequence, err = s.nextSequenceAtEndOfBay(ctx, session, bay)
+				if err != nil {
+					return err
+				}
 			}
+			updated, err = s.fieldStore.UpdateAircraftPositionAndBay(ctx, session, callsign, &lat, &lon, &altitude, bay, sequence, existingStrip.Version)
 		}
-
-		updated, err := s.fieldStore.UpdateAircraftPositionAndBay(
-			ctx, session, callsign, &lat, &lon, &altitude, bay, sequence, existingStrip.Version,
-		)
 		if err != nil {
 			return err
 		}
@@ -135,6 +165,8 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			continue
 		}
 
+		now := time.Now().UTC()
+		existingStrip.EuroscopeSeenAt = &now
 		observedStrip = *existingStrip
 		existingStrip.PositionLatitude = &lat
 		existingStrip.PositionLongitude = &lon
@@ -158,7 +190,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 			slog.String("callsign", callsign),
 			slog.Int("max_attempts", 2),
 		)
-		return nil
+		return &pgconn.PgError{Code: "40001", Message: "position update exhausted version retries"}
 	}
 
 	// Route ownership can depend on aircraft position. Recalculate it from this
@@ -168,6 +200,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 		routeRefreshNeeded = true
 	}
 	if routeRecalculator := s.getRouteRecalculator(); routeRecalculator != nil && routeRefreshNeeded {
+		ensureTransitionLock()
 		if err := routeRecalculator.UpdateRouteForStripContext(ctx, callsign, session, true); err != nil {
 			s.routeRefreshPending.Store(routeRefreshKey, struct{}{})
 			// The position is already persisted and drives safety-critical lifecycle
@@ -188,13 +221,20 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	// EuroScope-first transition to a departure block.
 	if s.departureObserver != nil &&
 		strings.EqualFold(strings.TrimSpace(observedStrip.Origin), strings.TrimSpace(airport)) {
-		if err := s.departureObserver.ObserveDeparturePosition(ctx, session, &observedStrip, lat, lon); err != nil {
-			return err
-		}
-		if observedStrip.State != nil {
-			if err := s.releaseDepartureStandOnPush(ctx, session, &observedStrip, *observedStrip.State, airport); err != nil {
+		err := func() error {
+			ensureTransitionLock()
+			if err := s.departureObserver.ObserveDeparturePosition(ctx, session, &observedStrip, lat, lon); err != nil {
 				return err
 			}
+			if observedStrip.State != nil {
+				if err := s.releaseDepartureStandOnPush(ctx, session, &observedStrip, *observedStrip.State, airport); err != nil {
+					return err
+				}
+			}
+			return nil
+		}()
+		if err != nil {
+			return err
 		}
 	}
 	if s.arrivalObserver != nil && strings.EqualFold(strings.TrimSpace(observedStrip.Destination), strings.TrimSpace(airport)) {
@@ -227,7 +267,8 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	}
 
 	if observedStrip.Destination == airport {
-		s.handleArrivalPositionUpdate(ctx, session, callsign, lat, lon, int64(altitude), &observedStrip)
+		ensureTransitionLock()
+		return s.handleArrivalPositionUpdate(ctx, session, callsign, lat, lon, int64(altitude), &observedStrip)
 	}
 
 	return nil
@@ -282,7 +323,7 @@ func positionMayChangeRoute(strip *internalModels.Strip, airport, previousBay, n
 
 // handleArrivalPositionUpdate detects landing and runway-vacated transitions for
 // arrival strips using S2 runway polygon containment + altitude threshold.
-func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int64, strip *internalModels.Strip) {
+func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session int32, callsign string, lat, lon float64, altitude int64, strip *internalModels.Strip) error {
 	const logPrefix = "handleArrivalPositionUpdate"
 
 	landingThreshold := int64(shared.AirportElevation) + config.GetLandingAltitudeAGL()
@@ -321,6 +362,7 @@ func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session 
 				)
 				if err := s.MoveToBay(ctx, session, callsign, shared.BAY_FINAL, true); err != nil {
 					slog.ErrorContext(ctx, logPrefix+": failed to move to FINAL", slog.String("callsign", callsign), slog.Any("error", err))
+					return err
 				} else {
 					strip.Bay = shared.BAY_FINAL
 				}
@@ -335,15 +377,16 @@ func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session 
 		newCdm.Aldt = &aldt
 		if _, err := s.cdmStore.SetCdmData(ctx, session, callsign, newCdm); err != nil {
 			slog.ErrorContext(ctx, logPrefix+": failed to set ALDT", slog.String("callsign", callsign), slog.Any("error", err))
+			return err
 		} else {
 			slog.InfoContext(ctx, "ALDT recorded", slog.String("callsign", callsign), slog.String("aldt", aldt), slog.String("runway", runwayRegion.Name))
-			s.notifyStripUpdate(session, callsign)
+			shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 			if strip.Owner != nil {
 				s.maybeDropArrivalTrackingInEuroscope(ctx, session, callsign, *strip.Owner)
 			}
 		}
 		s.autoAcceptPendingCoordination(ctx, session, strip)
-		return
+		return nil
 	}
 
 	// Phase 2: aircraft exits runway polygon on the ground → strip vacated runway.
@@ -353,9 +396,11 @@ func (s *StripService) handleArrivalPositionUpdate(ctx context.Context, session 
 			slog.InfoContext(ctx, "Arrival vacated runway, moving to TWY_ARR", slog.String("callsign", callsign))
 			if err := s.MoveToBay(ctx, session, callsign, shared.BAY_TWY_ARR, true); err != nil {
 				slog.ErrorContext(ctx, logPrefix+": failed to move to TWY_ARR", slog.String("callsign", callsign), slog.Any("error", err))
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 // HandleTrackingControllerChanged processes a tracking controller change event,

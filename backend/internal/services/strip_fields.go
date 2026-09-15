@@ -124,7 +124,7 @@ func (s *StripService) UpdateRequestedAltitude(ctx context.Context, session int3
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "RequestedAltitude"))
 	} else {
 		s.publisher.SendRequestedAltitudeEvent(session, callsign, altitude)
-		s.publisher.SendStripUpdate(session, callsign)
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	}
 	return nil
 }
@@ -205,7 +205,7 @@ func (s *StripService) UpdateHeading(ctx context.Context, session int32, callsig
 		return nil
 	}
 	s.publisher.SendSetHeadingEvent(session, callsign, heading)
-	s.publisher.SendStripUpdate(session, callsign)
+	shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	return nil
 }
 
@@ -409,11 +409,11 @@ func (s *StripService) shouldIgnoreRemoteDepartureStand(ctx context.Context, ses
 }
 
 // notifyStripUpdate broadcasts a strip_update to frontend clients.
-func (s *StripService) notifyStripUpdate(session int32, callsign string) {
+func (s *StripService) notifyStripUpdate(ctx context.Context, session int32, callsign string) {
 	if s.publisher == nil {
 		return
 	}
-	s.publisher.SendStripUpdate(session, callsign)
+	shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 }
 
 // UpdateClearedFlagForMove handles the frontend "move to cleared/not-cleared bay" action.
@@ -526,7 +526,7 @@ func (s *StripService) updateGroundStateForMoveWithOptions(ctx context.Context, 
 		if _, err := s.fieldStore.ResetRunwayClearance(ctx, session, callsign); err != nil {
 			return nil, err
 		}
-		s.publisher.SendStripUpdate(session, callsign)
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	}
 
 	if reevaluate {
@@ -604,7 +604,7 @@ func (s *StripService) ApplyReleasePoint(ctx context.Context, session int32, cal
 	}
 
 	if unexpectedChange {
-		s.publisher.SendStripUpdate(session, callsign)
+		shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 	}
 	return nil
 }

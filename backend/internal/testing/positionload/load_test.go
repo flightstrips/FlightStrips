@@ -41,6 +41,7 @@ import (
 
 type sample struct {
 	At           time.Time
+	End          time.Time
 	MS           float64
 	Queries      int
 	PoolMS       float64
@@ -74,7 +75,7 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 			if s.Status().Code == codes.Error {
 				c.errors++
 			}
-			sample := sample{At: s.StartTime(), MS: float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond), Queries: c.queries[id], PoolMS: c.pools[id]}
+			sample := sample{At: s.StartTime(), End: s.EndTime(), MS: float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond), Queries: c.queries[id], PoolMS: c.pools[id]}
 			for _, a := range s.Attributes() {
 				switch string(a.Key) {
 				case "message.queue_ms":
@@ -122,6 +123,11 @@ func TestPositionLoad(t *testing.T) {
 	if os.Getenv("POSITION_LOAD_TEST") != "true" {
 		t.Skip("set POSITION_LOAD_TEST=true for the isolated PostgreSQL load gate")
 	}
+	pattern := os.Getenv("POSITION_LOAD_PATTERN")
+	if pattern == "" {
+		pattern = "even"
+	}
+	require.Contains(t, []string{"even", "second-burst"}, pattern)
 	require.NoError(t, os.Chdir("../../.."))
 	defer os.Chdir("internal/testing/positionload")
 	t.Setenv("TEST_MODE", "true")
@@ -283,7 +289,20 @@ func TestPositionLoad(t *testing.T) {
 	// Five interleaved operational messages/sec are sent from the same writer.
 	nextControl := start
 	nextFrontend := start
-	for due := start; due.Before(measureEnd); due = due.Add(10 * time.Millisecond) {
+	for n := 0; ; n++ {
+		due := start.Add(reportOffset(n, 100, pattern))
+		if !due.Before(measureEnd) {
+			break
+		}
+		// Even traffic fills the gaps; ES batches interleave all five controls
+		// inside the same one-second burst. Never wait for backend completion.
+		for pattern == "even" && nextControl.Before(due) {
+			if delay := time.Until(nextControl); delay > 0 {
+				time.Sleep(delay)
+			}
+			require.NoError(t, client.SendProtobuf(&es.HeadingEvent{Callsign: fmt.Sprintf("SAS%03d", sent%200), Heading: int32((sent / 200) % 360)}, es.SetHeading))
+			nextControl = nextControl.Add(200 * time.Millisecond)
+		}
 		if delay := time.Until(due); delay > 0 {
 			time.Sleep(delay)
 		}
@@ -326,7 +345,7 @@ func TestPositionLoad(t *testing.T) {
 		}
 		require.NoError(t, client.SendProtobuf(&es.AircraftPositionUpdateEvent{Callsign: fmt.Sprintf("SAS%03d", i), Lat: lat, Lon: lon, Altitude: int64(alt)}, es.PositionUpdate))
 		sent++
-		if !due.Before(nextControl) {
+		if (pattern == "even" && !due.Before(nextControl)) || (pattern == "second-burst" && (n+1)%20 == 0) {
 			require.NoError(t, client.SendProtobuf(&es.HeadingEvent{Callsign: fmt.Sprintf("SAS%03d", sent%200), Heading: int32(cycle % 360)}, es.SetHeading))
 			nextControl = nextControl.Add(200 * time.Millisecond)
 		}
@@ -339,10 +358,22 @@ func TestPositionLoad(t *testing.T) {
 			maxBacklog = max(maxBacklog, sent-collector.count())
 		}
 	}
+	steadySent := sent
+	// Finish the last one-second interval, including operational traffic.
+	for pattern == "even" && nextControl.Before(measureEnd) {
+		if delay := time.Until(nextControl); delay > 0 {
+			time.Sleep(delay)
+		}
+		require.NoError(t, client.SendProtobuf(&es.HeadingEvent{Callsign: fmt.Sprintf("SAS%03d", sent%200), Heading: int32((sent / 200) % 360)}, es.SetHeading))
+		nextControl = nextControl.Add(200 * time.Millisecond)
+	}
+	if delay := time.Until(measureEnd); delay > 0 {
+		time.Sleep(delay)
+	}
 	require.Eventually(t, func() bool { return collector.count() == sent }, 5*time.Second, time.Millisecond, "every sent report must complete")
 	burstStart := time.Now()
 	for n := 0; n < 2000; n++ {
-		due := burstStart.Add(time.Duration(n) * 5 * time.Millisecond)
+		due := burstStart.Add(reportOffset(n, 200, pattern))
 		if wait := time.Until(due); wait > 0 {
 			time.Sleep(wait)
 		}
@@ -350,13 +381,19 @@ func TestPositionLoad(t *testing.T) {
 		require.NoError(t, client.SendProtobuf(&es.AircraftPositionUpdateEvent{Callsign: fmt.Sprintf("SAS%03d", i), Lat: 55.7 + float64(n%50)*.00001, Lon: 12.8, Altitude: 4000}, es.PositionUpdate))
 		sent++
 	}
+	if wait := time.Until(burstStart.Add(10 * time.Second)); wait > 0 {
+		time.Sleep(wait)
+	}
 	drainStart := time.Now()
 	burstTarget := sent
 	var burstDrain time.Duration
 	for n := 0; n < 200; n++ {
-		due := drainStart.Add(time.Duration(n) * 10 * time.Millisecond)
-		if wait := time.Until(due); wait > 0 {
-			time.Sleep(wait)
+		due := drainStart.Add(reportOffset(n, 100, pattern))
+		for time.Now().Before(due) {
+			if burstDrain == 0 && collector.count() >= burstTarget {
+				burstDrain = time.Since(drainStart)
+			}
+			time.Sleep(min(time.Millisecond, time.Until(due)))
 		}
 		if burstDrain == 0 && collector.count() >= burstTarget {
 			burstDrain = time.Since(drainStart)
@@ -364,9 +401,36 @@ func TestPositionLoad(t *testing.T) {
 		require.NoError(t, client.SendProtobuf(&es.AircraftPositionUpdateEvent{Callsign: fmt.Sprintf("SAS%03d", n), Lat: 55.7 + float64(n%50)*.00001, Lon: 12.8, Altitude: 4000}, es.PositionUpdate))
 		sent++
 	}
+	for time.Since(drainStart) < 2*time.Second {
+		if burstDrain == 0 && collector.count() >= burstTarget {
+			burstDrain = time.Since(drainStart)
+		}
+		time.Sleep(time.Millisecond)
+	}
 	require.NotZero(t, burstDrain, "burst backlog must drain while continuing at 100/sec")
 	require.Eventually(t, func() bool { return collector.count() == sent }, 2*time.Second, time.Millisecond)
 	collector.mu.Lock()
+	// The single socket reader timestamps reports in wire order; workers may
+	// finish them out of order. Match that order to the sender's fixed schedule
+	// to include waiting in the socket while operational barriers block reads.
+	ordered := append([]sample(nil), collector.samples...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].At.Before(ordered[j].At) })
+	var scheduledTimes, batchTimes []float64
+	for i := 0; i < steadySent; i++ {
+		due := start.Add(reportOffset(i, 100, pattern))
+		if !due.Before(measureStart) {
+			scheduledTimes = append(scheduledTimes, float64(ordered[i].End.Sub(due))/float64(time.Millisecond))
+		}
+		if pattern == "second-burst" && i%100 == 99 && !due.Before(measureStart) {
+			last := ordered[i].End
+			for j := i - 99; j < i; j++ {
+				if ordered[j].End.After(last) {
+					last = ordered[j].End
+				}
+			}
+			batchTimes = append(batchTimes, float64(last.Sub(due))/float64(time.Millisecond))
+		}
+	}
 	var times, queries, pools, queueTimes, processingTimes []float64
 	for _, s := range collector.samples {
 		if !s.At.Before(measureStart) && s.At.Before(measureEnd) {
@@ -397,6 +461,16 @@ func TestPositionLoad(t *testing.T) {
 	var postgresVersion string
 	require.NoError(t, server.DBPool.QueryRow(ctx, "SELECT version()").Scan(&postgresVersion))
 	report := map[string]any{"platform": runtime.GOOS + "/" + runtime.GOARCH, "cpus": runtime.NumCPU(), "go": runtime.Version(), "postgres": postgresVersion, "topology": loadTopology(), "pool_max_connections": server.DBPool.Config().MaxConns, "release": os.Getenv("POSITION_LOAD_REVISION"), "position_workers": os.Getenv("POSITION_WORKERS_PER_CLIENT"), "arrival_percent": arrivalPercent, "warmup": warmup.String(), "duration": measurement.String(), "sent": sent, "completed": collector.count(), "errors": failures, "operational_errors": operationalFailures, "observed_events": observedEvents, "samples": len(times), "p95_ms": percentile(times, .95), "p99_ms": percentile(times, .99), "average_ms": average(times), "average_db_operations": average(queries), "average_pool_wait_ms": average(pools), "p99_queue_ms": percentile(queueTimes, .99), "p99_processing_ms": percentile(processingTimes, .99), "max_outstanding": maxBacklog, "burst_drain_ms": float64(burstDrain) / float64(time.Millisecond), "sender_p99_lag_ms": percentile(senderLag, .99)}
+	report["traffic_pattern"] = pattern
+	report["p95_scheduled_completion_ms"] = percentile(scheduledTimes, .95)
+	report["p99_scheduled_completion_ms"] = percentile(scheduledTimes, .99)
+	if pattern == "second-burst" {
+		report["operational_pattern"] = "five controls interleaved within each one-second position batch"
+		report["p95_batch_completion_ms"] = percentile(batchTimes, .95)
+		report["max_batch_completion_ms"] = percentile(batchTimes, 1)
+	}
+	report["average_queue_ms"] = average(queueTimes)
+	report["average_processing_ms"] = average(processingTimes)
 	raw, err := json.MarshalIndent(report, "", "  ")
 	require.NoError(t, err)
 	t.Log(string(raw))
@@ -417,9 +491,56 @@ func TestPositionLoad(t *testing.T) {
 		}
 	}
 	require.NotEmpty(t, times)
+	if pattern == "second-burst" {
+		require.Less(t, percentile(batchTimes, 1), 1000., "each measured batch must complete before the next second")
+	}
 	if os.Getenv("POSITION_LOAD_ENFORCE") != "false" {
 		require.LessOrEqual(t, percentile(times, .95), 20.)
 		require.LessOrEqual(t, percentile(times, .99), 50.)
+		require.LessOrEqual(t, percentile(scheduledTimes, .95), 20., "include socket/barrier waiting from the sender deadline")
+		require.LessOrEqual(t, percentile(scheduledTimes, .99), 50., "include socket/barrier waiting from the sender deadline")
+	}
+}
+
+// A batch shares one deadline: serial socket writes do not deliberately space
+// its reports out. Aircraft alternate between the two halves of the 200 fleet.
+func reportOffset(n, rate int, pattern string) time.Duration {
+	if pattern == "second-burst" {
+		return time.Duration(n/rate) * time.Second
+	}
+	return time.Duration(n) * time.Second / time.Duration(rate)
+}
+
+func TestReportSchedule(t *testing.T) {
+	for _, tc := range []struct {
+		n, rate     int
+		batch, even time.Duration
+	}{
+		{0, 100, 0, 0},
+		{99, 100, 0, 990 * time.Millisecond},
+		{100, 100, time.Second, time.Second},
+		{199, 100, time.Second, 1990 * time.Millisecond},
+		{200, 100, 2 * time.Second, 2 * time.Second},
+		{199, 200, 0, 995 * time.Millisecond},
+		{200, 200, time.Second, time.Second},
+		{1999, 200, 9 * time.Second, 9995 * time.Millisecond},
+	} {
+		require.Equal(t, tc.batch, reportOffset(tc.n, tc.rate, "second-burst"))
+		require.Equal(t, tc.even, reportOffset(tc.n, tc.rate, "even"))
+	}
+	for _, rate := range []int{100, 200} {
+		seen := make(map[time.Duration]map[int]bool)
+		for n := 0; n < rate*3; n++ {
+			tick, aircraft := reportOffset(n, rate, "second-burst"), n%200
+			if seen[tick] == nil {
+				seen[tick] = make(map[int]bool)
+			}
+			require.False(t, seen[tick][aircraft], "an aircraft must not report twice in one ES tick")
+			seen[tick][aircraft] = true
+		}
+		for _, aircraft := range seen {
+			require.Len(t, aircraft, rate)
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"FlightStrips/internal/metrics"
+	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	eventseuroscope "FlightStrips/pkg/events/euroscope"
@@ -509,7 +510,11 @@ func (c *Client) PositionDispatcher() *shared.PositionDispatcher {
 				workers = n
 			}
 		}
-		c.dispatcher = shared.NewPositionDispatcher(workers, 256, c.hub.positionBudget)
+		if workers > 1 && os.Getenv("POSITION_DB_BATCHING_ENABLED") == "true" {
+			c.dispatcher = shared.NewBatchPositionDispatcher(workers, 256, c.hub.positionBudget, postgres.NewPositionBatch)
+		} else {
+			c.dispatcher = shared.NewPositionDispatcher(workers, 256, c.hub.positionBudget)
+		}
 		if c.isClosed() {
 			c.dispatcher.Cancel()
 		}

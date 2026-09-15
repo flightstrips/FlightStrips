@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPositionDispatcherFIFOAndIndependentAircraft(t *testing.T) {
-	d := NewPositionDispatcher(4, 256, make(chan struct{}, 4))
+func testPositionDispatcherFIFOAndIndependentAircraft(t *testing.T, newDispatcher dispatcherFactory) {
+	d := newDispatcher(4, 256, make(chan struct{}, 4))
 	t.Cleanup(func() { require.NoError(t, d.Close(context.Background())) })
 	entered, release, other := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	var mu sync.Mutex
@@ -36,8 +36,8 @@ func TestPositionDispatcherFIFOAndIndependentAircraft(t *testing.T) {
 	}
 }
 
-func TestPositionDispatcherBoundsQueueAndCancelsDrain(t *testing.T) {
-	d := NewPositionDispatcher(1, 2, nil)
+func testPositionDispatcherBoundsQueueAndCancelsDrain(t *testing.T, newDispatcher dispatcherFactory) {
+	d := newDispatcher(1, 2, nil)
 	entered := make(chan struct{})
 	var completed, cancelled atomic.Int32
 	run := func(ctx context.Context) { <-ctx.Done(); completed.Add(1); cancelled.Add(1) }
@@ -55,9 +55,9 @@ func TestPositionDispatcherBoundsQueueAndCancelsDrain(t *testing.T) {
 	require.ErrorIs(t, d.Submit(context.Background(), "D", run), context.Canceled)
 }
 
-func TestPositionDispatcherGlobalBudget(t *testing.T) {
+func testPositionDispatcherGlobalBudget(t *testing.T, newDispatcher dispatcherFactory) {
 	budget := make(chan struct{}, 2)
-	a, b := NewPositionDispatcher(4, 16, budget), NewPositionDispatcher(4, 16, budget)
+	a, b := newDispatcher(4, 16, budget), newDispatcher(4, 16, budget)
 	var active, peak atomic.Int32
 	run := func(context.Context) {
 		n := active.Add(1)
@@ -79,8 +79,8 @@ func TestPositionDispatcherGlobalBudget(t *testing.T) {
 	require.Equal(t, int32(2), peak.Load())
 }
 
-func TestPositionDispatcherPausesDelayedCallbacksDuringBarrier(t *testing.T) {
-	d := NewPositionDispatcher(4, 256, nil)
+func testPositionDispatcherPausesDelayedCallbacksDuringBarrier(t *testing.T, newDispatcher dispatcherFactory) {
+	d := newDispatcher(4, 256, nil)
 	defer d.Close(context.Background())
 	ran := make(chan struct{})
 	require.NoError(t, d.RunBarrier(context.Background(), func() {
@@ -96,5 +96,28 @@ func TestPositionDispatcherPausesDelayedCallbacksDuringBarrier(t *testing.T) {
 	case <-ran:
 	default:
 		t.Fatal("delayed callback did not resume")
+	}
+}
+
+type dispatcherFactory func(int, int, chan struct{}) *PositionDispatcher
+
+type noopBatchScope struct{}
+
+func (noopBatchScope) Context(ctx context.Context, _ int) context.Context { return ctx }
+func (noopBatchScope) Done(int)                                           {}
+
+func TestPositionDispatcher(t *testing.T) {
+	for name, factory := range map[string]dispatcherFactory{
+		"individual": NewPositionDispatcher,
+		"batched": func(workers, pending int, budget chan struct{}) *PositionDispatcher {
+			return NewBatchPositionDispatcher(workers, pending, budget, func(int) PositionBatchScope { return noopBatchScope{} })
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Run("FIFOAndIndependentAircraft", func(t *testing.T) { testPositionDispatcherFIFOAndIndependentAircraft(t, factory) })
+			t.Run("BoundsQueueAndCancelsDrain", func(t *testing.T) { testPositionDispatcherBoundsQueueAndCancelsDrain(t, factory) })
+			t.Run("GlobalBudget", func(t *testing.T) { testPositionDispatcherGlobalBudget(t, factory) })
+			t.Run("PausesDelayedCallbacksDuringBarrier", func(t *testing.T) { testPositionDispatcherPausesDelayedCallbacksDuringBarrier(t, factory) })
+		})
 	}
 }

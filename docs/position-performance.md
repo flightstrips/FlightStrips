@@ -1,8 +1,74 @@
 # Aircraft position throughput
 
 PostgreSQL remains authoritative. Each dedicated position report persists its
-position and EuroScope presence synchronously. No persistence batching or
+position and EuroScope presence synchronously. The default path persists reports
+individually; an opt-in database batch prototype is described below. No
 cross-message strip/stand/identity cache is introduced.
+
+## Experimental database batches
+
+`POSITION_DB_BATCHING_ENABLED=true` enables a prototype when more than one
+position worker is configured. It remains off by default. The dispatcher groups
+already-ready distinct aircraft up to the existing per-client worker limit and
+available backend-wide report slots. It retains FIFO, operational barriers,
+backpressure, authority fences and shutdown accounting. A slow aircraft does not
+prevent spare worker slots from serving other aircraft.
+
+Reports in a group can share their first snapshot SELECT and version-guarded
+position/presence UPDATE. Each report still waits for persistence, then runs its
+existing route/stand/AMAN/publication logic. Bay-append transitions retain their
+session-locked transaction. Missing strips and conversion errors are returned
+per report; version conflicts take the existing bounded fresh-snapshot retry.
+Deadlock/serialization aborts of a bulk write use that same individual retry.
+
+A rendezvous flushes when participants arrive or leave, with a one-millisecond
+backstop for a participant blocked behind a master-change writer or another
+lock. Late participants and retries use the ordinary path. Single-report groups
+also use the ordinary path. The batch scope is discarded when its jobs finish.
+
+Multi-report writes use BEGIN, one UPDATE and COMMIT, with rollback on error or
+cancellation before commit. Results are delivered only after that transaction
+finishes; there is no background persistence. Snapshot reads use one statement.
+Tracing links each combined query span to its participating reports and counts
+the physical database operations once, including transaction overhead. Load
+reports record actual batch sizes and query durations.
+
+The production pool of four permits only two simultaneous reports under the
+reserved-connection rule. This prototype does not change that limit or production
+configuration. Any enablement requires measured benefit and passing correctness
+and latency gates; batching is not assumed to be faster.
+
+### Prototype measurements
+
+The paired four- and eight-worker runs used the same once-per-second mixed workload, local
+PostgreSQL pool of 16, ten-second warm-up and two-minute measurement, followed by
+overload/recovery. Each completed all 15,200 reports without position or
+operational errors; all four failed the sender-deadline latency gates.
+
+| Workers | DB batching | P95 from sender | P99 from sender | DB operations/report |
+|---|---|---:|---:|---:|
+| 4 | [Off](performance/2026-09-15/db-batch-off-4-workers.json) | 52.69 ms | 66.10 ms | 2.520 |
+| 4 | [On](performance/2026-09-15/db-batch-on-4-workers.json) | 57.07 ms | 82.92 ms | 2.464 |
+| 8 | [Off](performance/2026-09-15/db-batch-off-8-workers.json) | 41.73 ms | 60.85 ms | 2.519 |
+| 8 | [On](performance/2026-09-15/db-batch-on-8-workers.json) | 45.99 ms | 65.78 ms | 2.319 |
+
+Only about 16% of measured reports joined multi-report SQL batches, averaging
+2.43 reports per bulk write. Batch snapshot queries averaged 0.82 ms; the bulk
+write transactions averaged 1.49 ms. The small reduction in physical database
+operations did not offset coordination and transaction overhead. This version
+therefore remains a disabled experiment, not a recommended production setting.
+At eight workers, about 33% of reports joined bulk writes averaging 2.87 reports;
+transaction duration averaged 1.58 ms. It reduced database operations further but
+still increased latency compared with the same worker count without batching.
+
+The measured limitation is batch formation within the handler-worker budget:
+most reports still take individual paths, while small batches add transaction
+and coordination overhead. A subsequent experiment should separate SQL batch
+size from handler concurrency, preparing a larger run of independent positions
+before an operational barrier and bounding subsequent lifecycle work separately.
+That requires another correctness review; these measurements do not establish
+that the wider-batch design meets the target. The current prototype adds no
+cross-message operational cache or background database synchronization.
 
 ## Rollout
 

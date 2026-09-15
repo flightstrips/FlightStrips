@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.1...plugin/v2.1.2) (2026-09-15)
+
+
+### Bug Fixes
+
+* **aman:** match flights by callsign and preserve gain-loss tags ([#758](https://github.com/flightstrips/FlightStrips/issues/758)) ([1657909](https://github.com/flightstrips/FlightStrips/commit/1657909071ebb7b165165cc10efec6a6bc0b4e97))
+
 ## [2.1.1](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.0...plugin/v2.1.1) (2026-09-15)
 
 

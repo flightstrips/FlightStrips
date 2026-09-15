@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.21.0...docs/v0.21.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **strip:** improve aircraft position throughput with ordered dispatch ([#756](https://github.com/flightstrips/FlightStrips/issues/756)) ([3e803de](https://github.com/flightstrips/FlightStrips/commit/3e803debd595cd8aee3400c78dbff34ae7bce479))
+
 ## [0.21.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.20.1...docs/v0.21.0) (2026-09-13)
 
 

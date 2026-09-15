@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.8](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.7...backend/v2.2.8) (2026-09-15)
+
+
+### Bug Fixes
+
+* **aman:** match flights by callsign and preserve gain-loss tags ([#758](https://github.com/flightstrips/FlightStrips/issues/758)) ([1657909](https://github.com/flightstrips/FlightStrips/commit/1657909071ebb7b165165cc10efec6a6bc0b4e97))
+* **strip:** improve aircraft position throughput with ordered dispatch ([#756](https://github.com/flightstrips/FlightStrips/issues/756)) ([3e803de](https://github.com/flightstrips/FlightStrips/commit/3e803debd595cd8aee3400c78dbff34ae7bce479))
+
 ## [2.2.7](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.6...backend/v2.2.7) (2026-09-15)
 
 

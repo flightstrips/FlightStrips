@@ -39,6 +39,10 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
 
     void OnTimer(int counter) override;
 
+    void ReplayTrackedHold(EuroScopePlugIn::CFlightPlan flightPlan);
+    void ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
+                           const TopSkyHold& hold, const std::string& eatPulse);
+
     FlightPlan* GetFlightPlan(const std::string &callsign);
 
     void SetStand(const std::string& callsign, const std::string& stand);

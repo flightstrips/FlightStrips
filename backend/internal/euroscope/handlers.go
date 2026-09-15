@@ -294,6 +294,13 @@ func handleHold(ctx context.Context, client *Client, message Message) error {
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
+	strip, err := client.hub.server.GetStripRepository().GetByCallsign(ctx, client.session, event.Callsign)
+	if err != nil {
+		return err
+	}
+	if client.identitySnapshot().observer || strip == nil || !shared.IsTrackingController(client.GetCallsign(), strip.TrackingController) {
+		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "only the current tracking controller may report a hold"}
+	}
 	return client.hub.stripService.UpdateHold(ctx, client.session, event.Callsign, event.Hold, event.HoldType, event.HoldEat)
 }
 
@@ -365,12 +372,12 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 }
 
 func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {
+	if client.hub.getMasterClient(client.session) != client {
+		return nil
+	}
 	var event euroscope.AircraftPositionUpdateEvent
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
-	}
-	if client.hub.getMasterClient(client.session) != client {
-		return nil
 	}
 	recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
 	position := cachedAircraftPosition{
@@ -391,7 +398,13 @@ func handleTrackingControllerChanged(ctx context.Context, client *Client, messag
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	return client.hub.stripService.HandleTrackingControllerChanged(ctx, client.session, event.Callsign, event.TrackingController)
+	if err := client.hub.stripService.HandleTrackingControllerChanged(ctx, client.session, event.Callsign, event.TrackingController); err != nil {
+		return err
+	}
+	// A tracking client's clearance can arrive before the master's ownership
+	// update. Confirm persistence so that client can replay its current hold.
+	client.hub.Broadcast(client.session, event)
+	return nil
 }
 
 func handleCoordinationReceived(ctx context.Context, client *Client, message Message) error {
@@ -428,6 +441,16 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 	if result.WakeFrontendCID != "" {
 		client.hub.server.GetFrontendHub().CidOnline(client.session, result.WakeFrontendCID)
 	}
+	// A reconnecting slave may have reported before the master's snapshot
+	// created the strip or restored its owner. Confirm those owners as well;
+	// the master's polling cache need not change during a backend reconnect.
+	for _, strip := range event.Strips {
+		if strip != nil && strings.TrimSpace(strip.TrackingController) != "" {
+			client.hub.Broadcast(client.session, euroscope.TrackingControllerChangedEvent{
+				Callsign: strip.Callsign, TrackingController: strip.TrackingController,
+			})
+		}
+	}
 
 	metrics.RecordEuroscopeSync(
 		ctx,
@@ -446,6 +469,7 @@ func handleSync(ctx context.Context, client *Client, message Message) error {
 }
 
 func handleStripUpdateEvent(ctx context.Context, client *Client, message Message) error {
+	ctx = shared.WithStripSyncController(ctx, client.GetCallsign())
 	var event euroscope.StripUpdateEvent
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err

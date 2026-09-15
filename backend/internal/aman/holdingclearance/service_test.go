@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/aman"
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -75,10 +76,104 @@ func TestLegacyFlightJSONWithoutHoldingClearanceRemainsValid(t *testing.T) {
 type memoryRepository struct {
 	state   aman.AirportState
 	commits int
+	loads   int
 }
 
 func (r *memoryRepository) LoadAirportState(context.Context, string) (aman.AirportState, error) {
+	r.loads++
 	return cloneState(r.state), nil
+}
+
+func TestBatchLoadsCommitsAndPublishesOnceForAllFlights(t *testing.T) {
+	now := time.Date(2026, 9, 14, 19, 0, 0, 0, time.UTC)
+	state := airportState(now)
+	base := state.Flights[0]
+	state.Flights = nil
+	var facts []aman.HoldingClearanceFact
+	for i := 0; i < 100; i++ {
+		flight := base
+		flight.ID = aman.FlightID(fmt.Sprintf("flight-%d", i))
+		flight.VATSIMCID = fmt.Sprint(1000000 + i)
+		flight.CurrentCallsign = fmt.Sprintf("SAS%d", i)
+		state.Flights = append(state.Flights, flight)
+		facts = append(facts, aman.HoldingClearanceFact{
+			FlightID: flight.ID, VATSIMCID: flight.VATSIMCID, Destination: "EKCH",
+			Hold: "OLPIB", HoldType: "enroute", ObservedAt: now,
+		})
+	}
+	repo := &memoryRepository{state: state}
+	pub := &publisher{}
+	service, err := New(Dependencies{Repository: repo, Publisher: pub})
+	require.NoError(t, err)
+	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts))
+	require.Equal(t, 1, repo.loads)
+	require.Equal(t, 1, repo.commits)
+	require.Equal(t, 1, pub.calls)
+	require.Equal(t, aman.SequenceRevision(8), repo.state.Revision)
+	for _, flight := range repo.state.Flights {
+		require.Equal(t, "OLPIB", flight.HoldingClearance.Hold)
+	}
+	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts))
+	require.Equal(t, 2, repo.loads)
+	require.Equal(t, 1, repo.commits, "an unchanged full sync must not republish")
+	require.Equal(t, 1, pub.calls)
+}
+
+func TestBatchRetryPreservesNewerConcurrentClearanceAndAppliesOtherFacts(t *testing.T) {
+	now := time.Date(2026, 9, 14, 19, 0, 0, 0, time.UTC)
+	state := airportState(now)
+	second := state.Flights[0]
+	second.ID, second.VATSIMCID, second.CurrentCallsign = "flight-2", "2345678", "SAS456"
+	state.Flights = append(state.Flights, second)
+	repo := &conflictingRepository{memoryRepository: memoryRepository{state: state}, now: now}
+	pub := &publisher{}
+	service, err := New(Dependencies{Repository: repo, Publisher: pub})
+	require.NoError(t, err)
+	facts := []aman.HoldingClearanceFact{
+		{FlightID: "flight-1", VATSIMCID: "1234567", Destination: "EKCH", Hold: "OLPIB", HoldType: "enroute", ObservedAt: now},
+		{FlightID: "flight-2", VATSIMCID: "2345678", Destination: "EKCH", Hold: "OLPIB", HoldType: "enroute", ObservedAt: now},
+		{FlightID: "missing", VATSIMCID: "3456789", Destination: "EKCH", Hold: "OLPIB", ObservedAt: now},
+	}
+	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts))
+	require.Equal(t, 2, repo.loads)
+	require.Equal(t, 2, repo.attempts)
+	require.Equal(t, 1, repo.commits)
+	require.Equal(t, 1, pub.calls)
+	require.Equal(t, aman.SequenceRevision(9), repo.state.Revision)
+	require.Equal(t, "OLPIB", repo.state.Flights[0].HoldingClearance.Hold)
+	require.Empty(t, repo.state.Flights[1].HoldingClearance.Hold, "a newer cancellation must survive the retry")
+}
+
+type conflictingRepository struct {
+	memoryRepository
+	now      time.Time
+	attempts int
+}
+
+func (r *conflictingRepository) Commit(ctx context.Context, commit aman.StateCommit) (aman.CommitResult, error) {
+	r.attempts++
+	if r.attempts == 1 {
+		r.state.Revision++
+		r.state.Flights[1].HoldingClearance = &aman.HoldingClearance{ObservedAt: r.now.Add(time.Minute)}
+		return aman.CommitResult{}, &aman.DomainError{Class: aman.ErrorRevisionConflict}
+	}
+	return r.memoryRepository.Commit(ctx, commit)
+}
+
+func TestBatchRejectsInvalidFactsBeforeWritingAnyAirport(t *testing.T) {
+	now := time.Date(2026, 9, 14, 19, 0, 0, 0, time.UTC)
+	repo := &memoryRepository{state: airportState(now)}
+	pub := &publisher{}
+	service, err := New(Dependencies{Repository: repo, Publisher: pub})
+	require.NoError(t, err)
+	err = service.ObserveHoldingClearances(context.Background(), []aman.HoldingClearanceFact{
+		{FlightID: "flight-1", VATSIMCID: "1234567", Destination: "EKCH", Hold: "OLPIB", ObservedAt: now},
+		{FlightID: "flight-2", Destination: "ESSA"},
+	})
+	require.Error(t, err)
+	require.Zero(t, repo.loads)
+	require.Zero(t, repo.commits)
+	require.Zero(t, pub.calls)
 }
 
 func (r *memoryRepository) Commit(_ context.Context, commit aman.StateCommit) (aman.CommitResult, error) {

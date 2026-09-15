@@ -70,6 +70,7 @@ namespace FlightStrips::messages {
         void HandlePdcStateChangeEvent(const PdcStateChangeEvent& event) const;
         void HandleSendPrivateMessageEvent(const SendPrivateMessageEvent& event) const;
         void HandleHoldEvent(const HoldEvent& event) const;
+        void HandleTrackingControllerChangedEvent(const TrackingControllerChangedEvent& event) const;
     };
 
 }

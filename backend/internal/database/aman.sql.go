@@ -454,3 +454,46 @@ func (q *Queries) UpsertAMANFlight(ctx context.Context, arg UpsertAMANFlightPara
 	)
 	return err
 }
+
+const upsertAMANFlights = `-- name: UpsertAMANFlights :exec
+INSERT INTO aman_flights (
+    flight_id, airport, vatsim_cid, current_callsign, state, data_status, updated_at, payload
+)
+SELECT unnest($1::text[]), $2::text,
+    unnest($3::text[]), unnest($4::text[]),
+    unnest($5::text[]), unnest($6::text[]),
+    unnest($7::timestamptz[]), unnest($8::text[])::jsonb
+ON CONFLICT (flight_id) DO UPDATE
+SET airport = EXCLUDED.airport,
+    vatsim_cid = EXCLUDED.vatsim_cid,
+    current_callsign = EXCLUDED.current_callsign,
+    state = EXCLUDED.state,
+    data_status = EXCLUDED.data_status,
+    updated_at = EXCLUDED.updated_at,
+    payload = EXCLUDED.payload
+`
+
+type UpsertAMANFlightsParams struct {
+	FlightIds    []string
+	Airport      string
+	VatsimCids   []string
+	Callsigns    []string
+	States       []string
+	DataStatuses []string
+	UpdatedAts   []pgtype.Timestamptz
+	Payloads     []string
+}
+
+func (q *Queries) UpsertAMANFlights(ctx context.Context, arg UpsertAMANFlightsParams) error {
+	_, err := q.db.Exec(ctx, upsertAMANFlights,
+		arg.FlightIds,
+		arg.Airport,
+		arg.VatsimCids,
+		arg.Callsigns,
+		arg.States,
+		arg.DataStatuses,
+		arg.UpdatedAts,
+		arg.Payloads,
+	)
+	return err
+}

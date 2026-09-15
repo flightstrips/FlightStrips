@@ -9,6 +9,7 @@ import (
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/models"
 	"context"
+	"errors"
 	"log/slog"
 	"reflect"
 	"strings"
@@ -177,6 +178,7 @@ func newEuroscopeSyncRequest(client *Client, event euroscope.SyncEvent) Euroscop
 }
 
 func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeSyncRequest) (EuroscopeSyncResult, error) {
+	ctx = shared.WithStripSyncController(ctx, request.Callsign)
 	slog.DebugContext(ctx, "Received sync event", slog.Int("session", int(request.Session)), slog.String("client", request.Callsign))
 
 	ctx, span := otel.Tracer("euroscope").Start(ctx, "euroscope.sync",
@@ -189,6 +191,10 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 		),
 	)
 	defer span.End()
+	// Count the complete sync at the database boundary, including nested AMAN
+	// work and the initial snapshot reads. Repository fakes retain manual counts.
+	ctx, dbCounter := shared.WithDBOperationCounter(ctx)
+	defer dbCounter.Finish()
 
 	timings := &syncPhaseTimings{}
 
@@ -298,6 +304,9 @@ func (s *EuroscopeSyncService) ApplySync(ctx context.Context, request EuroscopeS
 	}
 
 	changed := syncState.ChangedStrips > 0 || syncState.ChangedControllers > 0 || runwaysChanged || sidsChanged
+	if operations := dbCounter.Finish(); operations > 0 {
+		syncState.DBOperations = operations
+	}
 	timings.publish(ctx, span, sessionName, airport)
 	publishSyncFollowUpWork(ctx, span, sessionName, airport, followUpWork)
 	metrics.RecordEuroscopeSyncOutcome(ctx, sessionName, airport, changed)
@@ -492,7 +501,10 @@ func updateLayoutsForSync(ctx context.Context, server shared.Server, session int
 }
 
 // syncStripsFromEvent syncs each strip to the DB and cancels any pending aircraft-disconnect timer.
-func (s *EuroscopeSyncService) syncStripsFromEvent(ctx context.Context, request EuroscopeSyncRequest, strips []euroscope.Strip) error {
+func (s *EuroscopeSyncService) syncStripsFromEvent(ctx context.Context, request EuroscopeSyncRequest, strips []euroscope.Strip) (resultErr error) {
+	if finalizer, ok := s.stripService.(interface{ FlushHoldingClearances(context.Context) error }); ok {
+		defer func() { resultErr = errors.Join(resultErr, finalizer.FlushHoldingClearances(ctx)) }()
+	}
 	for _, strip := range strips {
 		recoveredFromPendingDisconnect := s.runtime != nil && s.runtime.CancelAircraftDisconnect(request.Session, strip.Callsign)
 		if err := s.stripService.SyncStrip(ctx, request.Session, request.CID, strip, request.Airport); err != nil {

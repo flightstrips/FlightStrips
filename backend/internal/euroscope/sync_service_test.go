@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -23,6 +24,49 @@ type syncRuntimeEvaluateCall struct {
 	Current  pkgModels.ActiveRunways
 	Master   pkgModels.ActiveRunways
 	IsMaster bool
+}
+
+func TestSyncStripsFlushesHoldingBatchAfterSuccessAndPartialFailure(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(map[bool]string{false: "success", true: "partial failure"}[fail], func(t *testing.T) {
+			stripErr, flushErr := errors.New("strip failed"), errors.New("flush failed")
+			processed := 0
+			spy := &batchSyncStripService{flush: func(context.Context) error {
+				require.Equal(t, 2, processed)
+				if fail {
+					return flushErr
+				}
+				return nil
+			}}
+			spy.syncStripFn = func(context.Context, int32, string, interface{}, string) error {
+				processed++
+				if fail && processed == 2 {
+					return stripErr
+				}
+				return nil
+			}
+			service := &EuroscopeSyncService{stripService: spy}
+			err := service.syncStripsFromEvent(context.Background(), EuroscopeSyncRequest{Session: 1, Airport: "EKCH"}, []esEvents.Strip{{Callsign: "SAS123"}, {Callsign: "SAS456"}})
+			require.Equal(t, 1, spy.flushes)
+			if fail {
+				require.ErrorIs(t, err, stripErr)
+				require.ErrorIs(t, err, flushErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+type batchSyncStripService struct {
+	syncStripServiceSpy
+	flush   func(context.Context) error
+	flushes int
+}
+
+func (s *batchSyncStripService) FlushHoldingClearances(ctx context.Context) error {
+	s.flushes++
+	return s.flush(ctx)
 }
 
 func TestEuroscopeSyncServicePersistSIDsReportsPersistedChange(t *testing.T) {

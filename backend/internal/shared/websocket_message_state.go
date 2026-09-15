@@ -59,6 +59,10 @@ func AddDBOperations(ctx context.Context, count int) {
 // tracer. Automatic counting is enabled only for handlers whose full query
 // budget is measured at this boundary.
 func TraceDBOperation(ctx context.Context) {
+	if counter, ok := ctx.Value(dbOperationCounterKey{}).(*DBOperationCounter); ok {
+		counter.add()
+		return
+	}
 	if messageState := GetWebsocketMessageState(ctx); messageState != nil && messageState.AutoCountDBOperations {
 		messageState.AddDBOperations(1)
 	}

@@ -5,6 +5,16 @@
 
 using namespace FlightStrips::websocket;
 
+TEST(ProtoCodecTest, DecodesTrackingOwnershipConfirmation) {
+    protobuf::wire::TrackingControllerChangedEvent source;
+    source.set_callsign("SAS123");
+    source.set_tracking_controller("EKCH_B_APP");
+    TrackingControllerChangedEvent event;
+    protobuf::Decode(source, event);
+    EXPECT_EQ(event.callsign, "SAS123");
+    EXPECT_EQ(event.tracking_controller, "EKCH_B_APP");
+}
+
 TEST(ProtoCodecTest, SerializesTokenAsOneofEnvelope) {
     const TokenEvent event("access-token", "2.4.0");
 

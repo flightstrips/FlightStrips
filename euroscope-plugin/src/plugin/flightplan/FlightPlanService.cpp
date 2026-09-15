@@ -222,19 +222,40 @@ namespace FlightStrips::flightplan {
             std::string(flightPlan.GetTrackingControllerCallsign()),
             {flightPlanData.GetEngineType()},
             true,
-            plan.hold,
-            plan.hold_type,
-            plan.hold_eat
+            flightPlan.GetTrackingControllerIsMe() ? plan.hold : "",
+            flightPlan.GetTrackingControllerIsMe() ? plan.hold_type : "",
+            flightPlan.GetTrackingControllerIsMe() ? plan.hold_eat : "",
+            flightPlan.GetTrackingControllerIsMe()
         };
         m_websocketService->SendEvent(event);
         plan.strip_synchronized = true;
         plan.MarkRunwaySynced(runway);
     }
 
+    void FlightPlanService::ReplayTrackedHold(EuroScopePlugIn::CFlightPlan flightPlan) {
+        if (!flightPlan.IsValid() || flightPlan.GetSimulated() ||
+            !m_websocketService->ShouldSendTrackedAircraft(flightPlan.GetTrackingControllerIsMe())) return;
+        const auto callsign = std::string(flightPlan.GetCallsign());
+        const auto scratch = flightPlan.GetControllerAssignedData().GetScratchPadString();
+        ReplayTrackedHold(callsign, flightPlan.GetTrackingControllerIsMe(), ReadHold(flightPlan),
+                          ParseTopSkyHoldEat(scratch == nullptr ? "" : scratch));
+    }
+
+    void FlightPlanService::ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
+                                             const TopSkyHold& hold, const std::string& eatPulse) {
+        if (!m_websocketService->ShouldSendTrackedAircraft(trackingControllerIsMe)) return;
+        auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        ApplyHold(plan, hold, eatPulse);
+        // Replay even when the local cache is unchanged: an earlier report may
+        // have been missed while disconnected or before ownership was stored.
+        m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
+    }
+
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
         const auto callsign = std::string(flightPlan.GetCallsign());
+        const auto shouldSendTracked = m_websocketService->ShouldSendTrackedAircraft(flightPlan.GetTrackingControllerIsMe());
 		if ((dataType == EuroScopePlugIn::CTR_DATA_TYPE_SPEED || dataType == EuroScopePlugIn::CTR_DATA_TYPE_MACH) &&
-			m_websocketService->IsConnected() && flightPlan.GetTrackingControllerIsMe()) {
+			shouldSendTracked) {
 			const auto assigned = dataType == EuroScopePlugIn::CTR_DATA_TYPE_SPEED
 				? flightPlan.GetControllerAssignedData().GetAssignedSpeed()
 				: flightPlan.GetControllerAssignedData().GetAssignedMach();
@@ -249,7 +270,7 @@ namespace FlightStrips::flightplan {
         if (dataType == EuroScopePlugIn::CTR_DATA_TYPE_DIRECT_TO) {
             auto& plan = m_flightPlans.try_emplace(callsign).first->second;
             const auto directTo = NormalizeDirectToFix(flightPlan.GetControllerAssignedData().GetDirectToPointName());
-            if (m_websocketService->IsConnected() && flightPlan.GetTrackingControllerIsMe() &&
+            if (shouldSendTracked &&
                 (!plan.direct_to_initialized || plan.direct_to_fix != directTo)) {
                 m_websocketService->SendEvent(AMANRouteFactEvent(callsign, directTo, CurrentUtcTimestamp()));
                 plan.direct_to_fix = directTo;
@@ -296,7 +317,7 @@ namespace FlightStrips::flightplan {
 
                 // The pulse only signals a change; the state is re-read from
                 // annotation 6.
-                if (ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratch)) && shouldSend) {
+                if (ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratch)) && shouldSendTracked) {
                     m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
                 }
 
@@ -486,7 +507,10 @@ namespace FlightStrips::flightplan {
     }
 
     void FlightPlanService::FlushPositionUpdates() {
-        if (!m_websocketService->ShouldSend() || m_pendingPositionUpdates.empty()) return;
+        if (!m_websocketService->ShouldSend()) {
+            m_pendingPositionUpdates.clear();
+            return;
+        }
 
         for (const auto& [callsign, positionEvent] : m_pendingPositionUpdates) {
             m_websocketService->SendEvent(positionEvent);

@@ -183,6 +183,26 @@ func (g testTimelineGeometry) ActiveGeometrySnapshot(context.Context, navdata.Ai
 
 type countingTimelineGeometry struct{ calls *int }
 
+func TestAMANPublicationLoadsGeometryOnceAndRefreshesOnNextPublication(t *testing.T) {
+	calls := 0
+	ready := aman.ComponentHealth{Status: aman.HealthReady}
+	health := aman.EvaluateTechnicalHealth(aman.ModeAuthoritative, ready, ready, ready, ready, ready, ready)
+	transport := &amanTransport{
+		health: testAMANHealthReporter{report: &health}, holdingEATEnabled: true,
+		geometry: countingTimelineGeometry{calls: &calls},
+	}
+	transport.setHubs(nil, &internalEuroscope.Hub{})
+	state := aman.AirportState{
+		Airport: "EKCH", GeneratedAt: time.Now().UTC(), PolicyVersion: "policy-v1",
+		Mode: aman.ModeAuthoritative, Authoritative: true,
+		Flights: []aman.AMANFlight{}, RunwayGroups: []aman.RunwayGroupPolicy{},
+	}
+	require.NoError(t, transport.PublishAMANState(context.Background(), state))
+	require.Equal(t, 1, calls, "timeline and holding EAT must share one geometry snapshot")
+	require.NoError(t, transport.PublishAMANState(context.Background(), state))
+	require.Equal(t, 2, calls, "a subsequent publication must see newly activated geometry")
+}
+
 func (g countingTimelineGeometry) ActiveGeometrySnapshot(context.Context, navdata.AirportID) (navdata.ActiveGeometrySnapshot, error) {
 	*g.calls++
 	return navdata.ActiveGeometrySnapshot{}, nil

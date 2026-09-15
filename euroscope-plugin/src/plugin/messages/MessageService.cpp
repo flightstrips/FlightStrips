@@ -106,6 +106,7 @@ namespace FlightStrips::messages {
             HANDLE_PROTO(kPdcStateChange, pdc_state_change, PdcStateChangeEvent, HandlePdcStateChangeEvent, EVENT_PDC_STATE_CHANGE_NAME)
             HANDLE_PROTO(kSendPrivateMessage, send_private_message, SendPrivateMessageEvent, HandleSendPrivateMessageEvent, EVENT_SEND_PRIVATE_MESSAGE_NAME)
             HANDLE_PROTO(kHold, hold, HoldEvent, HandleHoldEvent, EVENT_HOLD_NAME)
+            HANDLE_PROTO(kTrackingControllerChanged, tracking_controller_changed, TrackingControllerChangedEvent, HandleTrackingControllerChangedEvent, EVENT_TRACKING_CONTROLLER_CHANGED_NAME)
             case websocket::protobuf::wire::Envelope::kAmanGainLoss:
                 // Consumed by AMANGainLossStore, which is registered separately.
                 break;
@@ -140,6 +141,12 @@ namespace FlightStrips::messages {
             state = websocket::STATE_OBSERVER;
         }
         m_webSocketService->SetSessionState(state);
+
+        // Every operational client owns the hold snapshot for its tracked
+        // aircraft, including slaves reconnecting after an offline cancellation.
+        for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
+            if (m_plugin->IsRelevant(it)) m_flightPlanService->ReplayTrackedHold(it);
+        }
 
         Logger::Debug("Is master: {}", state == websocket::STATE_MASTER);
 
@@ -240,9 +247,10 @@ namespace FlightStrips::messages {
                 std::string(it.GetTrackingControllerCallsign()),
                 {flightPlanData.GetEngineType()},
                 true,
-                hold.point,
-                hold.TypeName(),
-                holdEat
+                it.GetTrackingControllerIsMe() ? hold.point : "",
+                it.GetTrackingControllerIsMe() ? hold.TypeName() : "",
+                it.GetTrackingControllerIsMe() ? holdEat : "",
+                it.GetTrackingControllerIsMe()
             });
         }
 
@@ -579,6 +587,14 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
     void MessageService::HandleSendPrivateMessageEvent(const SendPrivateMessageEvent &event) const {
         Logger::Info("Sending private message to {}: {}", event.callsign, event.message);
         PrivateMessageSender::SendPrivateMessage(event.callsign, event.message);
+    }
+
+    void MessageService::HandleTrackingControllerChangedEvent(const TrackingControllerChangedEvent& event) const {
+        auto flightPlan = m_plugin->FlightPlanSelect(event.callsign.c_str());
+        if (!flightPlan.IsValid() || !m_plugin->IsRelevant(flightPlan)) return;
+        // Never replay against a confirmation of another controller's ownership.
+        if (_stricmp(flightPlan.GetTrackingControllerCallsign(), event.tracking_controller.c_str()) != 0) return;
+        m_flightPlanService->ReplayTrackedHold(flightPlan);
     }
 
     void MessageService::HandleHoldEvent(const HoldEvent &event) const {

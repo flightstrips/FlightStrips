@@ -30,6 +30,7 @@ namespace flightstrips::euroscope::v1 {
     class AssumeOnlyEvent;
     class AssumeAndDropEvent;
     class DropTrackingEvent;
+    class TrackingControllerChangedEvent;
     class BackendSyncEvent;
     class CreateFPLEvent;
     class PdcStateChangeEvent;
@@ -68,6 +69,7 @@ namespace FlightStrips::websocket::protobuf {
     void Decode(const wire::AssumeOnlyEvent& source, AssumeOnlyEvent& target);
     void Decode(const wire::AssumeAndDropEvent& source, AssumeAndDropEvent& target);
     void Decode(const wire::DropTrackingEvent& source, DropTrackingEvent& target);
+    void Decode(const wire::TrackingControllerChangedEvent& source, TrackingControllerChangedEvent& target);
     void Decode(const wire::BackendSyncEvent& source, BackendSyncEvent& target);
     void Decode(const wire::CreateFPLEvent& source, CreateFPLEvent& target);
     void Decode(const wire::PdcStateChangeEvent& source, PdcStateChangeEvent& target);

@@ -83,6 +83,23 @@ SET airport = EXCLUDED.airport,
     updated_at = EXCLUDED.updated_at,
     payload = EXCLUDED.payload;
 
+-- name: UpsertAMANFlights :exec
+INSERT INTO aman_flights (
+    flight_id, airport, vatsim_cid, current_callsign, state, data_status, updated_at, payload
+)
+SELECT unnest(sqlc.arg(flight_ids)::text[]), sqlc.arg(airport)::text,
+    unnest(sqlc.arg(vatsim_cids)::text[]), unnest(sqlc.arg(callsigns)::text[]),
+    unnest(sqlc.arg(states)::text[]), unnest(sqlc.arg(data_statuses)::text[]),
+    unnest(sqlc.arg(updated_ats)::timestamptz[]), unnest(sqlc.arg(payloads)::text[])::jsonb
+ON CONFLICT (flight_id) DO UPDATE
+SET airport = EXCLUDED.airport,
+    vatsim_cid = EXCLUDED.vatsim_cid,
+    current_callsign = EXCLUDED.current_callsign,
+    state = EXCLUDED.state,
+    data_status = EXCLUDED.data_status,
+    updated_at = EXCLUDED.updated_at,
+    payload = EXCLUDED.payload;
+
 -- name: GetAMANCommandOutcome :one
 SELECT *
 FROM aman_command_outcomes

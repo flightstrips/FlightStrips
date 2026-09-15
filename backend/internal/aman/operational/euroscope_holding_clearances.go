@@ -3,6 +3,7 @@ package operational
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"context"
 	"fmt"
 	"strings"
@@ -37,30 +38,55 @@ func NewEuroScopeHoldingClearanceObserver(deps EuroScopeHoldingClearanceObserver
 }
 
 func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearance(ctx context.Context, strip *models.Strip) error {
+	return o.ObserveHoldingClearances(ctx, []shared.HoldingClearanceObservation{{Strip: strip, ObservedAt: o.now().UTC()}})
+}
+
+func (o *EuroScopeHoldingClearanceObserver) ObserveHoldingClearances(ctx context.Context, strips []shared.HoldingClearanceObservation) error {
+	facts := make([]aman.HoldingClearanceFact, 0, len(strips))
+	for _, observation := range strips {
+		fact, err := o.holdingClearanceFact(ctx, observation.Strip, observation.ObservedAt)
+		if err != nil {
+			return err
+		}
+		if fact != nil {
+			facts = append(facts, *fact)
+		}
+	}
+	if sink, ok := o.sink.(interface {
+		ObserveHoldingClearances(context.Context, []aman.HoldingClearanceFact) error
+	}); ok {
+		return sink.ObserveHoldingClearances(ctx, facts)
+	}
+	for _, fact := range facts {
+		if err := o.sink.ObserveHoldingClearance(ctx, fact); err != nil {
+			return fmt.Errorf("publish EuroScope AMAN holding clearance: %w", err)
+		}
+	}
+	return nil
+}
+
+func (o *EuroScopeHoldingClearanceObserver) holdingClearanceFact(ctx context.Context, strip *models.Strip, observedAt time.Time) (*aman.HoldingClearanceFact, error) {
 	if strip == nil {
-		return nil
+		return nil, nil
 	}
 	cid := stripStringValue(strip.VatsimCID)
 	callsign := strings.TrimSpace(strip.Callsign)
 	if cid == "" || callsign == "" {
-		return nil
+		return nil, nil
 	}
 	flightID, err := o.identities.BindVATSIMFlight(ctx, aman.VATSIMFlightIdentity{
 		VATSIMCID: cid, CurrentCallsign: callsign,
 	})
 	if err != nil {
-		return fmt.Errorf("bind EuroScope AMAN holding-clearance identity: %w", err)
+		return nil, fmt.Errorf("bind EuroScope AMAN holding-clearance identity: %w", err)
 	}
 	fact := aman.HoldingClearanceFact{
 		FlightID: flightID, VATSIMCID: cid, Callsign: callsign,
 		Origin: strings.ToUpper(strings.TrimSpace(strip.Origin)), Destination: strings.ToUpper(strings.TrimSpace(strip.Destination)),
 		Hold: strip.Hold, HoldType: aman.HoldingClearanceType(strip.HoldType), HoldEAT: strip.HoldEat,
-		ClearedAltitude: cloneInt32(strip.ClearedAltitude), ObservedAt: o.now().UTC(),
+		ClearedAltitude: cloneInt32(strip.ClearedAltitude), ObservedAt: observedAt,
 	}
-	if err := o.sink.ObserveHoldingClearance(ctx, fact); err != nil {
-		return fmt.Errorf("publish EuroScope AMAN holding clearance: %w", err)
-	}
-	return nil
+	return &fact, nil
 }
 
 func cloneInt32(value *int32) *int32 {

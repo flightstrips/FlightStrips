@@ -102,10 +102,15 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 				attribute.Int("session", int(client.GetSession())),
 			),
 		)
+		var dbCounter *shared.DBOperationCounter
 		if shouldTrackMessageDBOperations(client.GetSource(), msgType) {
+			autoCount := msgType == "aircraft_position_update" || msgType == "strip_update"
 			ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{
-				MessageType: msgType, AutoCountDBOperations: msgType == "aircraft_position_update",
+				MessageType: msgType, AutoCountDBOperations: autoCount,
 			})
+			if autoCount {
+				ctx, dbCounter = shared.WithDBOperationCounter(ctx)
+			}
 		}
 
 		handlers := hub.GetMessageHandlers()
@@ -115,6 +120,9 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			err = handlers.Handle(ctx, client, parsedMessage)
 		}
 		if state := shared.GetWebsocketMessageState(ctx); state != nil {
+			if dbCounter != nil {
+				state.DBOperations = dbCounter.Finish()
+			}
 			metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBOperations)
 			metrics.MessageDBRetries(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBRetries)
 		}

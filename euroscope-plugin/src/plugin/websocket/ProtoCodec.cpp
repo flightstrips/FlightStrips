@@ -257,6 +257,7 @@ namespace FlightStrips::websocket::protobuf {
     DECODE_ONE(AssumeOnlyEvent, AssumeOnlyEvent, callsign)
     DECODE_ONE(AssumeAndDropEvent, AssumeAndDropEvent, callsign)
     DECODE_ONE(DropTrackingEvent, DropTrackingEvent, callsign)
+    DECODE_TWO(TrackingControllerChangedEvent, TrackingControllerChangedEvent, callsign, tracking_controller)
     DECODE_TWO(SendPrivateMessageEvent, SendPrivateMessageEvent, callsign, message)
 
     void Decode(const wire::HoldEvent& source, HoldEvent& target) {

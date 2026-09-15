@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace FlightStrips::aman {
     namespace {
@@ -34,7 +35,7 @@ namespace FlightStrips::aman {
                 // still newer projections and must be applied.
                 if (!current->hasRevision || replacement->revision >= current->revision) {
                     Logger::Debug("Accepted AMAN gain/loss replacement revision={} authoritative={} values={}",
-                                  replacement->revision, replacement->authoritative, replacement->byFlightId.size());
+                                  replacement->revision, replacement->authoritative, replacement->byCallsign.size());
                     snapshot_.store(std::move(replacement));
                 }
             } catch (const std::exception& exception) {
@@ -59,10 +60,8 @@ namespace FlightStrips::aman {
 
     auto AMANGainLossStore::FindByCallsign(const std::string& callsign) const -> std::optional<GainLossValue> {
         const auto snapshot = Snapshot();
-        const auto callsignEntry = snapshot->flightIdByCallsign.find(NormalizeCallsign(callsign));
-        if (callsignEntry == snapshot->flightIdByCallsign.end()) return std::nullopt;
-        const auto value = snapshot->byFlightId.find(callsignEntry->second);
-        if (value == snapshot->byFlightId.end()) return std::nullopt;
+        const auto value = snapshot->byCallsign.find(NormalizeCallsign(callsign));
+        if (value == snapshot->byCallsign.end()) return std::nullopt;
         return value->second;
     }
 
@@ -91,9 +90,10 @@ namespace FlightStrips::aman {
         result->generatedAt = RequiredTrimmedString(message.generated_at(), "generated_at");
         result->authoritative = message.authoritative();
 
+        std::unordered_set<std::string> ambiguousCallsigns;
         for (const auto& item : message.values()) {
             GainLossValue value;
-            value.flightId = RequiredTrimmedString(item.flight_id(), "flight_id");
+            value.flightId = item.flight_id(); // Backend metadata, never the tag lookup key.
             value.callsign = NormalizeCallsign(RequiredTrimmedString(item.callsign(), "callsign"));
             value.dataStatus = RequiredTrimmedString(item.data_status(), "data_status");
             value.insideTMA = item.has_inside_tma() && item.inside_tma();
@@ -111,9 +111,13 @@ namespace FlightStrips::aman {
                 value.targetTime = RequiredTrimmedString(item.target_time(), "target_time");
                 value.predictedTime = RequiredTrimmedString(item.predicted_time(), "predicted_time");
             }
-            if (!result->byFlightId.emplace(value.flightId, value).second ||
-                !result->flightIdByCallsign.emplace(value.callsign, value.flightId).second) {
-                throw std::invalid_argument("duplicate AMAN flight identity");
+            // The wire rows do not establish which duplicate is current.
+            // Hide only that callsign for this replacement, regardless of row
+            // order or available guidance. Later duplicates cannot restore it.
+            if (ambiguousCallsigns.contains(value.callsign)) continue;
+            if (!result->byCallsign.emplace(value.callsign, value).second) {
+                result->byCallsign.erase(value.callsign);
+                ambiguousCallsigns.insert(value.callsign);
             }
         }
         return result;

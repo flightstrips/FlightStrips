@@ -91,18 +91,20 @@ func (r *amanRepository) ListValidationEvidence(ctx context.Context, airport str
 }
 
 // BindVATSIMFlight creates an opaque FlightID once for an active VATSIM flight
-// and keeps the current callsign current across repository reconstruction. The
-// CID lock makes concurrent first observations converge without making the
-// caller choose or derive an identifier. A retired flight releases the CID for
+// keyed by normalized network callsign across repository reconstruction. The
+// callsign lock makes concurrent observations converge even if the CID changes.
+// CID remains supporting metadata. A retired flight releases the callsign for
 // a subsequent flight to receive a different generated FlightID.
 func (r *amanRepository) BindVATSIMFlight(ctx context.Context, identity aman.VATSIMFlightIdentity) (aman.FlightID, error) {
+	identity.CurrentCallsign = strings.ToUpper(strings.TrimSpace(identity.CurrentCallsign))
+	identity.VATSIMCID = strings.TrimSpace(identity.VATSIMCID)
 	if err := identity.Validate(); err != nil {
 		return "", err
 	}
 	// Established identities need no transaction, lock or write. The slow path
-	// rechecks under the identity lock after a miss or callsign change.
-	existing, lookupErr := r.queries.GetActiveAMANVATSIMObservationIdentity(ctx, identity.VATSIMCID)
-	if lookupErr == nil && existing.CurrentCallsign == identity.CurrentCallsign {
+	// rechecks under the callsign lock after a miss or supporting CID change.
+	existing, lookupErr := r.queries.GetActiveAMANVATSIMObservationIdentity(ctx, identity.CurrentCallsign)
+	if lookupErr == nil && existing.VatsimCid == identity.VATSIMCID {
 		return aman.FlightID(existing.FlightID), nil
 	}
 	if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
@@ -114,10 +116,10 @@ func (r *amanRepository) BindVATSIMFlight(ctx context.Context, identity aman.VAT
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	queries := r.queries.WithTx(tx)
-	if err := queries.LockAMANVATSIMObservationIdentity(ctx, identity.VATSIMCID); err != nil {
+	if err := queries.LockAMANVATSIMObservationIdentity(ctx, identity.CurrentCallsign); err != nil {
 		return "", err
 	}
-	row, err := queries.GetActiveAMANVATSIMObservationIdentity(ctx, identity.VATSIMCID)
+	row, err := queries.GetActiveAMANVATSIMObservationIdentity(ctx, identity.CurrentCallsign)
 	if errors.Is(err, pgx.ErrNoRows) {
 		row, err = queries.CreateAMANVATSIMObservationIdentity(ctx, database.CreateAMANVATSIMObservationIdentityParams{
 			FlightID: uuid.NewString(), VatsimCid: identity.VATSIMCID, CurrentCallsign: identity.CurrentCallsign,
@@ -126,9 +128,9 @@ func (r *amanRepository) BindVATSIMFlight(ctx context.Context, identity aman.VAT
 	if err != nil {
 		return "", err
 	}
-	if row.CurrentCallsign != identity.CurrentCallsign {
-		row, err = queries.UpdateAMANVATSIMObservationIdentityCallsign(ctx, database.UpdateAMANVATSIMObservationIdentityCallsignParams{
-			FlightID: row.FlightID, CurrentCallsign: identity.CurrentCallsign,
+	if row.VatsimCid != identity.VATSIMCID {
+		row, err = queries.UpdateAMANVATSIMObservationIdentityCID(ctx, database.UpdateAMANVATSIMObservationIdentityCIDParams{
+			FlightID: row.FlightID, VatsimCid: identity.VATSIMCID,
 		})
 		if err != nil {
 			return "", err

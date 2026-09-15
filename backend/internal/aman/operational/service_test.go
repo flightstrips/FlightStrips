@@ -658,14 +658,14 @@ func TestServicePersistsLatestObservationAndRemovesAfterSixtySeconds(t *testing.
 	require.Equal(t, aman.StateRemoved, repository.state.Flights[0].State)
 }
 
-func TestNewFlightIdentityImmediatelyRemovesActiveAggregateForSameVATSIMCID(t *testing.T) {
+func TestNewFlightIdentityImmediatelyRemovesActiveAggregateForSameCallsign(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	old := aman.AMANFlight{
 		ID: "old", VATSIMCID: "123", CurrentCallsign: "OLD123", State: aman.StateAirborne,
 		Slot: &aman.Slot{Time: now.Add(time.Minute)}, ActiveRouteFact: &aman.RouteFact{ID: "route", State: aman.RouteFactActive},
 	}
 	state := aman.AirportState{Flights: []aman.AMANFlight{old}}
-	observation := aman.FlightObservation{FlightID: "new", VATSIMCID: "123", Callsign: "NEW123"}
+	observation := aman.FlightObservation{FlightID: "new", VATSIMCID: "456", Callsign: "old123"}
 
 	removeSupersededActiveIdentity(&state, observation, now)
 
@@ -673,6 +673,22 @@ func TestNewFlightIdentityImmediatelyRemovesActiveAggregateForSameVATSIMCID(t *t
 	require.Nil(t, state.Flights[0].Slot)
 	require.Equal(t, aman.RouteFactExpired, state.Flights[0].ActiveRouteFact.State)
 	require.Equal(t, "identity-superseded", state.Flights[0].Lifecycle.LastEventID)
+}
+
+func TestObserveReplacesCallsignStreamAndIgnoresOldIdentityDisappearance(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	service := &Service{observed: map[string]map[aman.FlightID]aman.FlightObservation{}}
+	old := aman.FlightObservation{FlightID: "old", VATSIMCID: "101", Callsign: "SAS123", Origin: "ENGM", Destination: "EKCH", SourceStatus: aman.DataFresh, ReconciledAt: now}
+	require.NoError(t, service.Observe(context.Background(), old))
+	current := old
+	current.FlightID, current.VATSIMCID = "current", "202"
+	current.ReconciledAt = now.Add(time.Minute)
+	require.NoError(t, service.Observe(context.Background(), current))
+	old.Missing, old.ReconciledAt = true, now.Add(2*time.Minute)
+	require.NoError(t, service.Observe(context.Background(), old))
+	observed := service.observations("EKCH")
+	require.Len(t, observed, 1)
+	require.Equal(t, current, observed["current"])
 }
 
 func TestRemovedFlightCannotBeResurrectedByLingeringObservation(t *testing.T) {

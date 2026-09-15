@@ -85,11 +85,9 @@ namespace FlightStrips::TagItems {
         if (normalizedAirport.empty() || Normalize(destination) != normalizedAirport) return {"", ActiveTagColor};
         if (holding) return {"", ActiveTagColor};
         if (!connected || !snapshot || !snapshot->authoritative) return {"----", ActiveTagColor};
-        const auto index = snapshot->flightIdByCallsign.find(Normalize(callsign));
-        if (index == snapshot->flightIdByCallsign.end()) return {"----", ActiveTagColor};
-        const auto value = snapshot->byFlightId.find(index->second);
-        if (value != snapshot->byFlightId.end() && value->second.insideTMA) return {"", ActiveTagColor};
-        if (value == snapshot->byFlightId.end() || value->second.dataStatus != "fresh" || !value->second.seconds) {
+        const auto value = snapshot->byCallsign.find(Normalize(callsign));
+        if (value != snapshot->byCallsign.end() && value->second.insideTMA) return {"", ActiveTagColor};
+        if (value == snapshot->byCallsign.end() || value->second.dataStatus != "fresh" || !value->second.seconds) {
             return {"----", ActiveTagColor};
         }
         return {Format(*value->second.seconds), GuidanceColor(*value->second.seconds)};

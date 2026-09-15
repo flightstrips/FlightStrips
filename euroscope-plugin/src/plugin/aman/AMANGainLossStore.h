@@ -29,8 +29,7 @@ namespace FlightStrips::aman {
         std::string airport;
         std::string generatedAt;
         bool authoritative = false;
-        std::unordered_map<std::string, GainLossValue> byFlightId;
-        std::unordered_map<std::string, std::string> flightIdByCallsign;
+        std::unordered_map<std::string, GainLossValue> byCallsign;
     };
 
     class AMANGainLossStore final : public handlers::MessageHandler, public handlers::ConnectionEventHandler {

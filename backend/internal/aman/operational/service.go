@@ -179,6 +179,17 @@ func (s *Service) Observe(_ context.Context, observation aman.FlightObservation)
 	if isEuroScopeSurveillance && !known {
 		return nil
 	}
+	// Only one observation stream may own a network callsign. A lingering
+	// observation for a retired identity must not compete with its replacement.
+	for id, existing := range s.observed[airport] {
+		if id == observation.FlightID || !strings.EqualFold(existing.Callsign, observation.Callsign) {
+			continue
+		}
+		if observation.Missing || observation.ReconciledAt.Before(existing.ReconciledAt) {
+			return nil
+		}
+		delete(s.observed[airport], id)
+	}
 	if known {
 		observation = mergeSurveillanceObservation(previous, observation)
 	}
@@ -434,9 +445,9 @@ func (s *Service) reconcileAirportOnce(ctx context.Context, airport string) erro
 	}
 
 	for _, observation := range observations {
+		removeSupersededActiveIdentity(&next, observation, now)
 		index, found := indexes[observation.FlightID]
 		if !found {
-			removeSupersededActiveIdentity(&next, observation, now)
 			next.Flights = append(next.Flights, newFlight(observation, now))
 			index = len(next.Flights) - 1
 			indexes[observation.FlightID] = index
@@ -882,13 +893,13 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 }
 
 func removeSupersededActiveIdentity(state *aman.AirportState, observation aman.FlightObservation, now time.Time) {
-	cid := strings.TrimSpace(observation.VATSIMCID)
-	if cid == "" {
+	callsign := strings.TrimSpace(observation.Callsign)
+	if callsign == "" || observation.Missing {
 		return
 	}
 	for index := range state.Flights {
 		flight := &state.Flights[index]
-		if flight.ID == observation.FlightID || flight.State == aman.StateRemoved || strings.TrimSpace(flight.VATSIMCID) != cid {
+		if flight.ID == observation.FlightID || flight.State == aman.StateRemoved || !strings.EqualFold(strings.TrimSpace(flight.CurrentCallsign), callsign) {
 			continue
 		}
 		clearSequencingState(flight)

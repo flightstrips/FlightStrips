@@ -96,6 +96,7 @@ namespace FlightStrips::aman {
             value.flightId = RequiredTrimmedString(item.flight_id(), "flight_id");
             value.callsign = NormalizeCallsign(RequiredTrimmedString(item.callsign(), "callsign"));
             value.dataStatus = RequiredTrimmedString(item.data_status(), "data_status");
+            value.insideTMA = item.has_inside_tma() && item.inside_tma();
             if (value.dataStatus != "fresh" && value.dataStatus != "stale" && value.dataStatus != "disconnected") {
                 throw std::invalid_argument("invalid AMAN data status");
             }

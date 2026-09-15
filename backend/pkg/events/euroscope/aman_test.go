@@ -21,6 +21,7 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 		Flights: []aman.AMANFlight{
 			{ID: "flight-1", VATSIMCID: "1", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, Slot: &slot,
 				SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix, SelectedHolding: &holdingFix,
+				TMAEntry:   &aman.TMAEntryState{LastContainment: aman.TMAInside, LastObservedAt: now},
 				FeederETA:  &aman.FeederETAState{ETA: &feederETA, Source: aman.FeederETASourceHolding},
 				Prediction: &aman.Prediction{OperationalTETA: slot.Time.Add(90 * time.Second), Publishable: true, Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}}}},
 			{ID: "flight-2", VATSIMCID: "2", CurrentCallsign: "DAT456", State: aman.StateUnstable, DataStatus: aman.DataStale, FreezeReason: aman.FreezeNone},
@@ -56,12 +57,14 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 	require.Equal(t, "2026-09-08T12:05:00.000Z", decoded.Values[0].GetFeederFixEta())
 	require.Equal(t, "holding", decoded.Values[0].GetFeederFixEtaSource())
 	require.False(t, decoded.Values[0].GetFeederFixPassed())
+	require.True(t, decoded.Values[0].GetInsideTma())
 	require.Nil(t, decoded.Values[1].StarFamily, "old payloads omit additive identity fields")
 	require.Nil(t, decoded.Values[1].FeederFix, "old payloads omit additive identity fields")
 	require.Nil(t, decoded.Values[1].HoldingFix, "old payloads omit additive identity fields")
 	require.Nil(t, decoded.Values[1].FeederFixEta, "old payloads omit additive feeder timing fields")
 	require.Nil(t, decoded.Values[1].FeederFixEtaSource, "old payloads omit additive feeder timing fields")
 	require.Nil(t, decoded.Values[1].FeederFixPassed, "old payloads omit additive feeder timing fields")
+	require.Nil(t, decoded.Values[1].InsideTma, "old payloads omit additive TMA containment")
 	require.Nil(t, decoded.Values[2].FeederFixEta, "passed state must not invent an ETA")
 	require.Equal(t, "passed", decoded.Values[2].GetFeederFixEtaSource())
 	require.True(t, decoded.Values[2].GetFeederFixPassed())

@@ -102,9 +102,9 @@ func (r *amanRepository) BindVATSIMFlight(ctx context.Context, identity aman.VAT
 		return "", err
 	}
 	// Established identities need no transaction, lock or write. The slow path
-	// rechecks under the identity lock after a miss or callsign change.
-	existing, lookupErr := r.queries.GetActiveAMANVATSIMObservationIdentity(ctx, identity.VATSIMCID)
-	if lookupErr == nil && existing.CurrentCallsign == identity.CurrentCallsign {
+	// rechecks under the callsign lock after a miss or supporting CID change.
+	existing, lookupErr := r.queries.GetActiveAMANVATSIMObservationIdentity(ctx, identity.CurrentCallsign)
+	if lookupErr == nil && existing.VatsimCid == identity.VATSIMCID {
 		return aman.FlightID(existing.FlightID), nil
 	}
 	if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {

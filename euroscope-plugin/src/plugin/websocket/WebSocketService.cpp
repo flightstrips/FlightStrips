@@ -175,7 +175,12 @@ namespace FlightStrips::websocket {
     }
 
     bool WebSocketService::ShouldSend() const {
-        return IsConnected() && client_state == STATE_MASTER;
+        return IsConnected() && client_state == STATE_MASTER && !m_plugin->GetConnectionState().observer;
+    }
+
+    bool WebSocketService::ShouldSendTrackedAircraft(const bool trackingControllerIsMe) const {
+        return trackingControllerIsMe && IsConnected() && !m_plugin->GetConnectionState().observer &&
+               (client_state == STATE_MASTER || client_state == STATE_SLAVE);
     }
 
     bool WebSocketService::ShouldProcessServerMessageType(const std::string &type) const {
@@ -208,6 +213,7 @@ namespace FlightStrips::websocket {
     }
 
     bool WebSocketService::CanSendEventType(const EventType type) const {
+        if (type == EVENT_AIRCRAFT_POSITION_UPDATE) return ShouldSend();
         if (!(m_plugin->GetConnectionState().observer || client_state == STATE_OBSERVER)) {
             return true;
         }

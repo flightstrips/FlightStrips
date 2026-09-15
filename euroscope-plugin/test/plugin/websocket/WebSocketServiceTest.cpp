@@ -8,6 +8,7 @@
 #include "mock/MockAuthenticationService.h"
 #include "handlers/ConnectionEventHandlers.h"
 #include "handlers/MessageHandlers.h"
+#include "flightplan/FlightPlanService.h"
 
 using namespace FlightStrips;
 using namespace FlightStrips::websocket;
@@ -91,6 +92,43 @@ protected:
 // ---------------------------------------------------------------------------
 // enabled=false path
 // ---------------------------------------------------------------------------
+
+TEST_F(WebSocketServiceOnTimerTest, SlaveReplaysCachedHoldAndOfflineCancellation) {
+    auto socket = std::shared_ptr<WebSocketService>(std::move(svc));
+    flightplan::FlightPlanService plans(socket, {}, {}, {}, nullptr);
+    plans.SetStand("SAS123", "");
+    auto* plan = plans.GetFlightPlan("SAS123");
+    const flightplan::TopSkyHold active{true, false, "OLPIB"};
+    flightplan::ApplyHold(*plan, active, "1422");
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    socket->SetSessionState(STATE_SLAVE);
+    std::vector<protobuf::wire::HoldEvent> reports;
+    EXPECT_CALL(*mockImpl, Send(_)).Times(3).WillRepeatedly(Invoke([&](const std::string& bytes) {
+        protobuf::wire::Envelope envelope;
+        ASSERT_TRUE(envelope.ParseFromString(bytes));
+        ASSERT_TRUE(envelope.has_hold());
+        reports.push_back(envelope.hold());
+    }));
+    plans.ReplayTrackedHold("SAS123", true, active, "");
+    // Confirmation after an earlier rejection must replay the unchanged value.
+    plans.ReplayTrackedHold("SAS123", true, active, "");
+    flightplan::ApplyHold(*plan, {}, ""); // cancellation cached while offline
+    plans.ReplayTrackedHold("SAS123", true, {}, "");
+    ASSERT_EQ(reports.size(), 3u);
+    EXPECT_EQ(reports[0].hold(), "OLPIB");
+    EXPECT_EQ(reports[0].hold_eat(), "1422");
+    EXPECT_EQ(reports[1].hold(), "OLPIB");
+    EXPECT_TRUE(reports[2].hold().empty());
+    EXPECT_TRUE(reports[2].hold_type().empty());
+    EXPECT_TRUE(reports[2].hold_eat().empty());
+    // Neither loss of tracking nor observer/disconnected status permits replay.
+    plans.ReplayTrackedHold("SAS123", false, active, "");
+    socket->SetSessionState(STATE_OBSERVER);
+    plans.ReplayTrackedHold("SAS123", true, active, "");
+    socket->SetSessionState(STATE_SLAVE);
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+    plans.ReplayTrackedHold("SAS123", true, active, "");
+}
 
 TEST(WebSocketServiceDisabledTest, OnTimer_WhenDisabled_DoesNothing) {
     // Build a service with enabled=false; GetConnectionState must never be called.
@@ -1267,6 +1305,40 @@ TEST(SyncEventTest, EmptyCollections_SerializesCorrectly) {
     EXPECT_TRUE(j["controllers"].is_array());
     EXPECT_TRUE(j["runways"].is_array());
     EXPECT_TRUE(j["sids"].is_array());
+}
+
+TEST_F(WebSocketServiceOnTimerTest, TrackedAircraftFactsRequireTrackingButNotMasterRole) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    for (const auto role : {STATE_MASTER, STATE_SLAVE}) {
+        svc->SetSessionState(role);
+        EXPECT_TRUE(svc->ShouldSendTrackedAircraft(true));
+        EXPECT_FALSE(svc->ShouldSendTrackedAircraft(false));
+    }
+    for (const auto role : {STATE_UNKNOWN, STATE_OBSERVER}) {
+        svc->SetSessionState(role);
+        EXPECT_FALSE(svc->ShouldSendTrackedAircraft(true));
+    }
+    svc->SetSessionState(STATE_MASTER);
+    state.observer = true;
+    EXPECT_FALSE(svc->ShouldSendTrackedAircraft(true));
+    EXPECT_FALSE(svc->ShouldSend());
+    state.observer = false;
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
+    EXPECT_FALSE(svc->ShouldSendTrackedAircraft(true));
+}
+
+TEST_F(WebSocketServiceOnTimerTest, PositionEventsAreSuppressedAtSendBoundaryAfterMasterDemotion) {
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    const PositionEvent position("SAS123", 55.6, 12.6, 5000);
+    EXPECT_CALL(*mockImpl, Send(_)).Times(1);
+    svc->SetSessionState(STATE_MASTER);
+    svc->SendEvent(position);
+    svc->SetSessionState(STATE_SLAVE);
+    svc->SendEvent(position);
+    svc->SetSessionState(STATE_UNKNOWN);
+    svc->SendEvent(position);
+    svc->SetSessionState(STATE_OBSERVER);
+    svc->SendEvent(position);
 }
 
 TEST(StripUpdateEventTest, SerializesSpokenCallsignField) {

@@ -98,6 +98,15 @@ Individual query spans come from `otelpgx` and are enabled whenever
 
 ### Aircraft position query budget
 
+Only the session's master EuroScope client sends aircraft-position events. The
+plugin checks this both when flushing positions and at the WebSocket send
+boundary; the backend ignores position events from other clients. Direct-to,
+assigned-speed, and holding events instead come from the aircraft's tracking
+controller, which may be a slave. Hold fields in full-sync and strip-update
+snapshots follow tracking ownership too: a non-tracking sender cannot replace
+or clear the stored hold. Deploy the backend and plugin changes together so a
+tracking slave supplies holds rather than relying on the master to relay them.
+
 `aircraft_position_update` uses one message-scoped snapshot for strips,
 controllers, the session and sector owners. The core steady-state path performs
 one strip read, one position write, four route-state reads (coordination,
@@ -122,6 +131,35 @@ retried serialization conflicts and deadlocks are counted separately by
 `websocket.message.db_retries`.
 
 ## Traces
+
+### AMAN work during strip synchronization
+
+Full EuroScope syncs collect holding-clearance observations and apply them in
+one AMAN commit and publication per destination airport, rather than once per
+changed flight. Unchanged batches load the airport state once and do not commit
+or publish. Revision conflicts reload and reapply the batch, retaining newer
+concurrent clearances. A partial strip-sync failure still flushes observations
+for the strip writes that already succeeded.
+
+Each changed AMAN projection uses one bulk flight upsert statement inside the
+existing transaction. Timeline and holding-EAT projections share one navigation
+geometry snapshot per publication; the next publication reads a fresh snapshot.
+
+`euroscope.sync.db_operations` and the `strip_update` and
+`aircraft_position_update` samples in `websocket.message.db_operations` count
+actual pgx query calls during the handler, including nested AMAN queries and
+transaction commands. Detached work after the handler completes is excluded.
+Syncs retain manual accounting when no pgx tracer is installed. The expanded
+coverage means these counts are not directly comparable with older sync and
+strip-update metrics, which omitted downstream work. Pool acquires remain a
+separate measure: multiple statements inside a transaction share one acquire.
+
+For verification, compare LIVE sync/strip-update duration and pool acquire rate
+at similar traffic levels. In a full-sync trace, holding changes should produce
+at most one `UpsertAMANFlights` per affected airport without a revision retry,
+and no sequence of individual `UpsertAMANFlight` calls.
+
+### Trace coverage
 
 Spans exist for the WebSocket upgrade, every WebSocket message, EuroScope sync,
 CDM recalculation, and every database query. The sync span carries the same

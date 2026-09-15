@@ -127,11 +127,17 @@ func (p *amanTransport) currentTechnicalHealth(ctx context.Context) aman.Technic
 }
 
 func (p *amanTransport) newStateEvent(ctx context.Context, state aman.AirportState, health aman.TechnicalHealth) (frontendEvents.AMANStateEvent, error) {
+	return p.newStateEventWithGeometry(state, health, func() (navdata.ActiveGeometrySnapshot, error) {
+		return p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	})
+}
+
+func (p *amanTransport) newStateEventWithGeometry(state aman.AirportState, health aman.TechnicalHealth, geometry func() (navdata.ActiveGeometrySnapshot, error)) (frontendEvents.AMANStateEvent, error) {
 	event, err := frontendEvents.NewAMANStateEvent(state, health.EffectiveMode, health)
 	if err != nil || p.geometry == nil {
 		return event, err
 	}
-	snapshot, snapshotErr := p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	snapshot, snapshotErr := geometry()
 	if snapshotErr == nil {
 		event.Data.TimelineConfig = frontendEvents.ProjectAMANTimelineConfig(snapshot.TerminalVersion, snapshot.TimelineMappings)
 	}
@@ -168,10 +174,16 @@ func (p *amanTransport) newHoldingEATEvents(ctx context.Context, state aman.Airp
 }
 
 func (p *amanTransport) holdingEATEvents(ctx context.Context, state aman.AirportState, suppressCurrent bool) []euroscopeEvents.HoldEvent {
+	return p.holdingEATEventsWithGeometry(ctx, state, suppressCurrent, func() (navdata.ActiveGeometrySnapshot, error) {
+		return p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	})
+}
+
+func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state aman.AirportState, suppressCurrent bool, geometry func() (navdata.ActiveGeometrySnapshot, error)) []euroscopeEvents.HoldEvent {
 	if !p.holdingEATEnabled || !state.Authoritative || !p.currentTechnicalHealth(ctx).AuthorityAllowed || p.geometry == nil {
 		return nil
 	}
-	snapshot, err := p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	snapshot, err := geometry()
 	if err != nil {
 		return nil
 	}
@@ -215,7 +227,12 @@ func (p *amanTransport) newGainLossEvent(_ context.Context, state aman.AirportSt
 
 func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.AirportState) error {
 	health := p.currentTechnicalHealth(ctx)
-	event, err := p.newStateEvent(ctx, state, health)
+	// Both projections must use the same manifest, without loading all geometry
+	// twice. Keep the cache scoped to this publication so activation stays fresh.
+	geometry := sync.OnceValues(func() (navdata.ActiveGeometrySnapshot, error) {
+		return p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	})
+	event, err := p.newStateEventWithGeometry(state, health, geometry)
 	if err != nil {
 		return err
 	}
@@ -235,7 +252,7 @@ func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.Airport
 		euroscopeHub.PublishAMANGainLoss(gainLoss)
 	}
 	if euroscopeHub != nil && p.holdingEATEnabled {
-		euroscopeHub.PublishAMANHoldingEAT(state.Airport, p.newHoldingEATEvents(ctx, state))
+		euroscopeHub.PublishAMANHoldingEAT(state.Airport, p.holdingEATEventsWithGeometry(ctx, state, true, geometry))
 	}
 	return nil
 }

@@ -104,6 +104,18 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
+	if sender, authenticated := shared.StripSyncController(ctx); authenticated {
+		trackingController := strip.TrackingController
+		if existingStrip != nil {
+			trackingController = existingStrip.TrackingController
+		}
+		if !shared.IsTrackingController(sender, trackingController) {
+			// A master still synchronizes other strip fields, but another
+			// controller's snapshot must not replace or clear holding facts.
+			strip.HoldSupported = false
+			strip.Hold, strip.HoldType, strip.HoldEat = "", "", ""
+		}
+	}
 
 	var bay string
 	gndOnline := s.isGndOnline(ctx, session)
@@ -689,11 +701,65 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	return s.observeHoldingClearance(ctx, validationStrip)
 }
 
+type holdingClearanceBatchObserver interface {
+	ObserveHoldingClearances(context.Context, []shared.HoldingClearanceObservation) error
+}
+
 func (s *StripService) observeHoldingClearance(ctx context.Context, strip *internalModels.Strip) error {
 	if s.holdingObserver == nil || strip == nil {
 		return nil
 	}
+	if sender, authenticated := shared.StripSyncController(ctx); authenticated && !shared.IsTrackingController(sender, strip.TrackingController) {
+		return nil
+	}
+	if state := shared.GetSyncState(ctx); state != nil {
+		if _, ok := s.holdingObserver.(holdingClearanceBatchObserver); ok {
+			if state.HoldingClearanceStrips == nil {
+				state.HoldingClearanceStrips = make(map[string]shared.HoldingClearanceObservation)
+			}
+			// Snapshot the fields consumed by the observer; later strip processing
+			// must not mutate a queued authoritative clearance.
+			snapshot := *strip
+			if strip.ClearedAltitude != nil {
+				altitude := *strip.ClearedAltitude
+				snapshot.ClearedAltitude = &altitude
+			}
+			if strip.VatsimCID != nil {
+				cid := *strip.VatsimCID
+				snapshot.VatsimCID = &cid
+			}
+			state.HoldingClearanceStrips[strip.Callsign] = shared.HoldingClearanceObservation{Strip: &snapshot, ObservedAt: time.Now().UTC()}
+			return nil
+		}
+	}
 	return s.holdingObserver.ObserveHoldingClearance(ctx, strip)
+}
+
+// FlushHoldingClearances also runs when a later strip fails: earlier strip
+// writes have already committed and their holding facts must still be applied.
+func (s *StripService) FlushHoldingClearances(ctx context.Context) error {
+	state := shared.GetSyncState(ctx)
+	if state == nil || len(state.HoldingClearanceStrips) == 0 {
+		return nil
+	}
+	observer, ok := s.holdingObserver.(holdingClearanceBatchObserver)
+	if !ok {
+		return fmt.Errorf("holding-clearance batch observer is unavailable")
+	}
+	callsigns := make([]string, 0, len(state.HoldingClearanceStrips))
+	for callsign := range state.HoldingClearanceStrips {
+		callsigns = append(callsigns, callsign)
+	}
+	slices.Sort(callsigns)
+	strips := make([]shared.HoldingClearanceObservation, 0, len(callsigns))
+	for _, callsign := range callsigns {
+		strips = append(strips, state.HoldingClearanceStrips[callsign])
+	}
+	if err := observer.ObserveHoldingClearances(ctx, strips); err != nil {
+		return err
+	}
+	state.HoldingClearanceStrips = nil
+	return nil
 }
 
 func (s *StripService) prepareEuroscopeEobtSync(session int32, data *internalModels.CdmData, eobt string, now time.Time) (*internalModels.CdmData, string, bool) {

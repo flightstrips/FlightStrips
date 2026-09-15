@@ -7,6 +7,7 @@ import (
 	"FlightStrips/internal/aman/sequence"
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 )
@@ -33,14 +34,36 @@ func New(deps Dependencies) (*Service, error) {
 }
 
 func (s *Service) ObserveHoldingClearance(ctx context.Context, fact aman.HoldingClearanceFact) error {
-	fact.Destination = strings.ToUpper(strings.TrimSpace(fact.Destination))
-	if fact.FlightID == "" || fact.Destination == "" || fact.ObservedAt.IsZero() || fact.ObservedAt.Location() != time.UTC {
-		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "AMAN holding clearance fact is incomplete"}
-	}
+	return s.ObserveHoldingClearances(ctx, []aman.HoldingClearanceFact{fact})
+}
 
-	normalized := normalize(fact)
+// ObserveHoldingClearances applies a sync's facts with one aggregate revision and
+// publication per airport. A conflict reloads and reapplies the entire batch.
+func (s *Service) ObserveHoldingClearances(ctx context.Context, facts []aman.HoldingClearanceFact) error {
+	byAirport := make(map[string][]aman.HoldingClearanceFact)
+	var airports []string
+	for _, fact := range facts {
+		fact.Destination = strings.ToUpper(strings.TrimSpace(fact.Destination))
+		if fact.FlightID == "" || fact.Destination == "" || fact.ObservedAt.IsZero() || fact.ObservedAt.Location() != time.UTC {
+			return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "AMAN holding clearance fact is incomplete"}
+		}
+		if _, exists := byAirport[fact.Destination]; !exists {
+			airports = append(airports, fact.Destination)
+		}
+		byAirport[fact.Destination] = append(byAirport[fact.Destination], fact)
+	}
+	slices.Sort(airports)
+	for _, airport := range airports {
+		if err := s.observeAirportClearances(ctx, airport, byAirport[airport]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) observeAirportClearances(ctx context.Context, airport string, facts []aman.HoldingClearanceFact) error {
 	for attempt := 0; attempt < maxCommitAttempts; attempt++ {
-		state, err := s.deps.Repository.LoadAirportState(ctx, fact.Destination)
+		state, err := s.deps.Repository.LoadAirportState(ctx, airport)
 		if err != nil {
 			var domainErr *aman.DomainError
 			if errors.As(err, &domainErr) && domainErr.Class == aman.ErrorNotFound {
@@ -48,22 +71,33 @@ func (s *Service) ObserveHoldingClearance(ctx context.Context, fact aman.Holding
 			}
 			return err
 		}
-		index := flightIndex(state, fact)
-		if index < 0 {
-			return nil
-		}
-		current := state.Flights[index].HoldingClearance
-		if sameClearance(current, normalized) || (current != nil && !fact.ObservedAt.After(current.ObservedAt)) {
-			return nil
-		}
-
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
-		state.Flights[index].HoldingClearance = normalized
+		indices := make(map[aman.FlightID]int, len(state.Flights))
+		for index, flight := range state.Flights {
+			indices[flight.ID] = index
+		}
+		changed := false
+		for _, fact := range facts {
+			index, exists := indices[fact.FlightID]
+			if !exists || state.Flights[index].VATSIMCID != strings.TrimSpace(fact.VATSIMCID) {
+				continue
+			}
+			normalized := normalize(fact)
+			current := state.Flights[index].HoldingClearance
+			if sameClearance(current, normalized) || (current != nil && !fact.ObservedAt.After(current.ObservedAt)) {
+				continue
+			}
+			state.Flights[index].HoldingClearance = normalized
+			changed = true
+			if fact.ObservedAt.After(state.GeneratedAt) {
+				state.GeneratedAt = fact.ObservedAt
+			}
+		}
+		if !changed {
+			return nil
+		}
 		expectedRevision := state.Revision
 		advanceRevision(&state)
-		if fact.ObservedAt.After(state.GeneratedAt) {
-			state.GeneratedAt = fact.ObservedAt
-		}
 		committed, err := s.deps.Repository.Commit(ctx, aman.StateCommit{ExpectedRevision: expectedRevision, State: state})
 		if err == nil {
 			return s.deps.Publisher.PublishAMANState(context.WithoutCancel(ctx), committed.State)
@@ -104,16 +138,6 @@ func normalize(fact aman.HoldingClearanceFact) *aman.HoldingClearance {
 		Hold: hold, HoldType: holdType, HoldEAT: holdEAT,
 		ClearedAltitude: altitude, ObservedAt: fact.ObservedAt,
 	}
-}
-
-func flightIndex(state aman.AirportState, fact aman.HoldingClearanceFact) int {
-	for index := range state.Flights {
-		flight := state.Flights[index]
-		if flight.ID == fact.FlightID && flight.VATSIMCID == strings.TrimSpace(fact.VATSIMCID) {
-			return index
-		}
-	}
-	return -1
 }
 
 func sameClearance(current, next *aman.HoldingClearance) bool {

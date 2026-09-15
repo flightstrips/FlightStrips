@@ -4,6 +4,7 @@ import (
 	internalModels "FlightStrips/internal/models"
 	"context"
 	"slices"
+	"time"
 )
 
 type syncStateKey struct{}
@@ -28,6 +29,15 @@ type SyncState struct {
 	SquawkValidation     bool
 	LandingValidation    bool
 	CdmRecalculation     bool
+
+	HoldingClearanceStrips map[string]HoldingClearanceObservation
+}
+
+// HoldingClearanceObservation retains the persisted strip value and observation
+// time while a full sync defers its AMAN projection until the end of the batch.
+type HoldingClearanceObservation struct {
+	Strip      *internalModels.Strip
+	ObservedAt time.Time
 }
 
 func WithSyncState(ctx context.Context, state *SyncState) context.Context {

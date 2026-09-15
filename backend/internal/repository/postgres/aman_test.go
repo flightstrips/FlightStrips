@@ -14,11 +14,73 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAMANRepositoryWritesHundredFlightProjectionInOneStatement(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	config := pool.Config()
+	counter := &amanFlightWriteCounter{}
+	config.ConnConfig.Tracer = counter
+	tracedPool, err := pgxpool.NewWithConfig(context.Background(), config)
+	require.NoError(t, err)
+	defer tracedPool.Close()
+	repo := NewAMANRepository(tracedPool)
+	ctx := context.Background()
+	state := amanState(1, "unused", "unused")
+	state.Flights = nil
+	for i := 0; i < 100; i++ {
+		flight := amanState(1, fmt.Sprintf("CID-%03d", i), fmt.Sprintf("SAS%03d", i)).Flights[0]
+		flight.ID = aman.FlightID(fmt.Sprintf("flight-%03d", i))
+		flight.Slot.Sequence = i + 1
+		flight.Slot.Time = flight.Slot.Time.Add(time.Duration(i) * time.Minute)
+		flight.Order = intPtr(i + 1)
+		state.Flights = append(state.Flights, flight)
+	}
+	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), counter.bulk.Load())
+	require.Zero(t, counter.individual.Load())
+	loaded, err := repo.LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Equal(t, state, loaded, "all row fields and JSON payloads must round-trip")
+
+	// Empty projections still remove the prior rows atomically, without an
+	// invalid empty bulk insert or leaving flights behind.
+	empty := state
+	empty.Revision++
+	empty.Flights = []aman.AMANFlight{}
+	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: state.Revision, State: empty})
+	require.NoError(t, err)
+	loaded, err = repo.LoadAirportState(ctx, state.Airport)
+	require.NoError(t, err)
+	require.Empty(t, loaded.Flights)
+	require.Equal(t, empty.Revision, loaded.Revision)
+	require.Equal(t, int64(1), counter.bulk.Load())
+}
+
+type amanFlightWriteCounter struct {
+	bulk       atomic.Int64
+	individual atomic.Int64
+}
+
+func (c *amanFlightWriteCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	if strings.HasPrefix(data.SQL, "-- name: UpsertAMANFlights ") {
+		c.bulk.Add(1)
+	}
+	if strings.HasPrefix(data.SQL, "-- name: UpsertAMANFlight ") {
+		c.individual.Add(1)
+	}
+	return ctx
+}
+
+func (*amanFlightWriteCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
 
 func TestAMANLifecycleTransitionsExpireBothCoordinationKindsAtomically(t *testing.T) {
 	for _, test := range []struct {

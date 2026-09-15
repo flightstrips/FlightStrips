@@ -688,6 +688,7 @@ struct HoldEvent final : Event {
 };
 
 struct TrackingControllerChangedEvent final : Event {
+    TrackingControllerChangedEvent() : Event(EVENT_TRACKING_CONTROLLER_CHANGED) {}
     std::string callsign;
     std::string tracking_controller;
 

@@ -49,6 +49,7 @@ namespace FlightStrips::websocket {
         bool IsPendingConnect() const;
         bool IsBackingOff() const;
         bool ShouldSend() const;
+        bool ShouldSendTrackedAircraft(bool trackingControllerIsMe) const;
         bool ShouldProcessServerMessageType(const std::string& type) const;
         void Reconnect();
         void SetSessionState(ClientState state);
@@ -113,7 +114,7 @@ namespace FlightStrips::websocket {
 template<typename T> requires std::is_base_of_v<Event, T>
 void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
     if (!CanSendEventType(event.type)) {
-        Logger::Debug("Suppressing event type {} while observer mode is active", static_cast<int>(event.type));
+        Logger::Debug("Suppressing event type {} for current client role", static_cast<int>(event.type));
         return;
     }
     ++tx;

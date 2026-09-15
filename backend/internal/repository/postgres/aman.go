@@ -242,6 +242,7 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 		if err := queries.DeleteAMANFlightsForAirport(ctx, commit.State.Airport); err != nil {
 			return aman.CommitResult{}, err
 		}
+		rows := database.UpsertAMANFlightsParams{Airport: commit.State.Airport}
 		for _, flight := range commit.State.Flights {
 			// Removed flights have completed their lifecycle and are retained in
 			// audit records, not in the active AMAN projection. Keeping them here
@@ -253,16 +254,16 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 			if err != nil {
 				return aman.CommitResult{}, fmt.Errorf("encode AMAN flight %q: %w", flight.ID, err)
 			}
-			if err := queries.UpsertAMANFlight(ctx, database.UpsertAMANFlightParams{
-				FlightID:        string(flight.ID),
-				Airport:         commit.State.Airport,
-				VatsimCid:       flight.VATSIMCID,
-				CurrentCallsign: flight.CurrentCallsign,
-				State:           string(flight.State),
-				DataStatus:      string(flight.DataStatus),
-				UpdatedAt:       requiredTimestamp(flight.UpdatedAt),
-				Payload:         payload,
-			}); err != nil {
+			rows.FlightIds = append(rows.FlightIds, string(flight.ID))
+			rows.VatsimCids = append(rows.VatsimCids, flight.VATSIMCID)
+			rows.Callsigns = append(rows.Callsigns, flight.CurrentCallsign)
+			rows.States = append(rows.States, string(flight.State))
+			rows.DataStatuses = append(rows.DataStatuses, string(flight.DataStatus))
+			rows.UpdatedAts = append(rows.UpdatedAts, requiredTimestamp(flight.UpdatedAt))
+			rows.Payloads = append(rows.Payloads, string(payload))
+		}
+		if len(rows.FlightIds) > 0 {
+			if err := queries.UpsertAMANFlights(ctx, rows); err != nil {
 				return aman.CommitResult{}, mapAMANWriteError(err)
 			}
 		}

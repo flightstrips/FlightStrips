@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -73,7 +74,7 @@ func main() {
 	if otlpEndpoint != "" {
 		tel, err := telemetry.Initialize(ctx, telemetry.Config{
 			ServiceName:    "flightstrips-backend",
-			ServiceVersion: "1.0.0",
+			ServiceVersion: releaseVersion(),
 			Environment:    environment,
 		})
 		if err != nil {
@@ -159,6 +160,9 @@ func main() {
 
 	<-sigChan
 	slog.Info("Shutting down server...")
+	if err := application.DrainPositions(context.Background()); err != nil {
+		slog.Warn("Position shutdown drain cancelled", "error", err)
+	}
 	cancelWorkers()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -298,4 +302,37 @@ func isLiveEnvironment(environment string) bool {
 	default:
 		return false
 	}
+}
+
+// buildVersion is supplied by container builds when the Git directory is outside the build context.
+var buildVersion string
+
+func releaseVersion() string {
+	if value := strings.TrimSpace(os.Getenv("OTEL_SERVICE_VERSION")); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(buildVersion); value != "" {
+		return value
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		revision, dirty := "", false
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				revision = setting.Value
+			}
+			if setting.Key == "vcs.modified" {
+				dirty = setting.Value == "true"
+			}
+		}
+		if revision != "" {
+			if dirty {
+				return revision + "-dirty"
+			}
+			return revision
+		}
+		if info.Main.Version != "" && info.Main.Version != "(devel)" {
+			return info.Main.Version
+		}
+	}
+	return "development"
 }

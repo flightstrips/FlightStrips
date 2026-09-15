@@ -364,24 +364,7 @@ func (s *DepartureLifecycleService) reconcileConfirmedArrivalConflict(ctx contex
 	if conflict == currentManaged {
 		return nil
 	}
-	updated := *assignment
-	if conflict {
-		updated.ConflictReason = observedDepartureConflictReason(assignment.ConflictReason)
-	} else {
-		updated.ConflictReason = priorObservedDepartureConflict(assignment.ConflictReason)
-	}
-	updated.Acknowledged = false
-	updated.AcknowledgedAt = nil
-	updated.AcknowledgedBy = nil
-	affected, err := s.assignments.UpdateAssignment(ctx, &updated)
-	if err != nil {
-		return err
-	}
-	if affected != 1 {
-		return errAllocationVersionConflict
-	}
-	updated.Version++
-	return s.allocations.PublishAssignment(ctx, updated)
+	return s.allocations.ReconcileObservedDepartureConflict(ctx, request, stand)
 }
 
 func validDeparturePosition(latitude, longitude float64) bool {

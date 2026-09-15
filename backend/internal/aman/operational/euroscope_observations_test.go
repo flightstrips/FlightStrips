@@ -3,6 +3,7 @@ package operational
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"context"
 	"testing"
 	"time"
@@ -99,4 +100,18 @@ type euroScopeIdentityBinder struct{}
 
 func (euroScopeIdentityBinder) BindVATSIMFlight(_ context.Context, identity aman.VATSIMFlightIdentity) (aman.FlightID, error) {
 	return aman.FlightID("aman-" + identity.VATSIMCID), nil
+}
+
+func TestEuroScopePositionUsesReceiptTimeDespiteQueueDelay(t *testing.T) {
+	received := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	sink := &euroScopeObservationSink{}
+	observer, err := NewEuroScopePositionObserver(EuroScopePositionObserverDependencies{Sink: sink, Identities: euroScopeIdentityBinder{}, EnabledAirports: []string{"EKCH"}, Now: func() time.Time { return received.Add(time.Minute) }})
+	require.NoError(t, err)
+	cid, route := "123456", "MONAK OLPIB"
+	strip := &models.Strip{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", VatsimCID: &cid, Route: &route}
+	require.NoError(t, observer.ObserveEuroScopePosition(shared.WithReceiptTime(context.Background(), received), 1, strip, 55, 12, 9000))
+	require.NoError(t, observer.ObserveEuroScopePosition(shared.WithReceiptTime(context.Background(), received.Add(30*time.Second)), 1, strip, 55.01, 12, 8800))
+	require.Len(t, sink.observations, 1)
+	require.InDelta(t, 72, *sink.observations[0].Surveillance.GroundspeedKnots, 1)
+	require.Equal(t, received.Add(30*time.Second), *sink.observations[0].Surveillance.ObservedAt)
 }

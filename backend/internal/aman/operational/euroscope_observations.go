@@ -3,6 +3,7 @@ package operational
 import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/shared"
 	"context"
 	"fmt"
 	"math"
@@ -87,7 +88,7 @@ func (o *EuroScopePositionObserver) ObserveEuroScopePosition(ctx context.Context
 	if latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 {
 		return fmt.Errorf("EuroScope AMAN position has invalid coordinates")
 	}
-	now := o.now().UTC()
+	now := shared.ReceiptTime(ctx, o.now).UTC()
 	current := euroScopePosition{latitude: latitude, longitude: longitude, at: now}
 	o.mu.Lock()
 	previous, known := o.previous[cid]

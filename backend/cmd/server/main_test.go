@@ -169,3 +169,17 @@ func TestAMANConfigFromEnvRejectsInvalidTiming(t *testing.T) {
 		t.Fatal("amanConfigFromEnv() succeeded with invalid timing")
 	}
 }
+
+func TestReleaseVersionUsesBuildIdentityAndEnvironmentOverride(t *testing.T) {
+	previous := buildVersion
+	t.Cleanup(func() { buildVersion = previous })
+	buildVersion = "1.2.3+source-revision"
+	t.Setenv("OTEL_SERVICE_VERSION", "")
+	if got := releaseVersion(); got != buildVersion {
+		t.Fatalf("build identity: %s", got)
+	}
+	t.Setenv("OTEL_SERVICE_VERSION", "release-override")
+	if got := releaseVersion(); got != "release-override" {
+		t.Fatalf("environment override: %s", got)
+	}
+}

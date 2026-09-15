@@ -161,12 +161,30 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 		}
 	}
 
-	order, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
-	if err != nil {
-		return err
-	}
-	if err := s.updateStripSequence(ctx, session, callsign, order, bay, sendNotification); err != nil {
-		return err
+	if appender, ok := s.orderingStore.(interface {
+		AppendToBay(context.Context, int32, string, string, int32) (int32, error)
+	}); ok && shared.GetSyncState(ctx) == nil {
+		order, err := appender.AppendToBay(ctx, session, callsign, bay, InitialOrderSpacing)
+		if err != nil {
+			return err
+		}
+		if strip != nil {
+			strip.Bay = bay
+			strip.Sequence = &order
+			strip.Version++
+			s.cacheStrip(ctx, strip)
+		}
+		if sendNotification {
+			s.sendStripUpdate(session, callsign, order, bay)
+		}
+	} else {
+		order, err := s.nextSequenceAtEndOfBay(ctx, session, bay)
+		if err != nil {
+			return err
+		}
+		if err := s.updateStripSequence(ctx, session, callsign, order, bay, sendNotification); err != nil {
+			return err
+		}
 	}
 
 	return s.applyBayChangeEffects(ctx, session, callsign, previousBay, bay, sendNotification)

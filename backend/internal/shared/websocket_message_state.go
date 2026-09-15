@@ -11,6 +11,10 @@ type websocketMessageStateKey struct{}
 // handlers so follow-up validation and routing work can avoid reloading the same
 // session-scoped entities repeatedly.
 type WebsocketMessageState struct {
+	AssignmentSession     int32
+	AssignmentCallsign    string
+	Assignment            *internalModels.StandAssignment
+	AssignmentLoaded      bool
 	MessageType           string
 	Session               *internalModels.Session
 	ExistingControllers   map[string]*internalModels.Controller

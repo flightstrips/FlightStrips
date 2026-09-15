@@ -849,13 +849,17 @@ func (hub *Hub) handleCidDisconnect(cid string) {
 }
 
 func (hub *Hub) SendStripUpdate(session int32, callsign string) {
+	hub.SendStripUpdateContext(context.Background(), session, callsign)
+}
+
+func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, callsign string) {
 	if esHub := hub.server.GetEuroscopeHub(); esHub != nil {
 		if checker, ok := esHub.(pendingEuroscopeStripChecker); ok && checker.IsAircraftDisconnectPending(session, callsign) {
 			return
 		}
 	}
 	stripRepo := hub.server.GetStripRepository()
-	strip, err := stripRepo.GetByCallsign(context.Background(), session, callsign)
+	strip, err := stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
 		return
 	}
@@ -865,12 +869,12 @@ func (hub *Hub) SendStripUpdate(session int32, callsign string) {
 		return
 	}
 
-	hub.populateNextDisplay(strip, session)
+	hub.populateNextDisplayContext(ctx, strip, session)
 	model := MapStripToFrontendModelWithClx(strip, hub.makeClxValidationContext(session))
 	if repo := hub.server.GetStandAssignmentRepository(); repo != nil {
-		if assignment, assignmentErr := repo.GetAssignment(context.Background(), session, callsign); assignmentErr == nil && assignment != nil {
+		if assignment, assignmentErr := repo.GetAssignment(ctx, session, callsign); assignmentErr == nil && assignment != nil {
 			entry := mapStandAssignmentEntry(assignment)
-			all, _ := repo.ListAssignments(context.Background(), session)
+			all, _ := repo.ListAssignments(ctx, session)
 			entries := make([]frontend.StandAssignmentEntry, 0, len(all))
 			for _, item := range all {
 				if item != nil {

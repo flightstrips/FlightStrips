@@ -52,7 +52,7 @@ func (s *StripService) SyncStrip(ctx context.Context, session int32, cid string,
 			if syncState := shared.GetSyncState(ctx); syncState != nil {
 				syncState.MarkStripUpdate(esStrip.Callsign)
 			} else if s.publisher != nil {
-				s.publisher.SendStripUpdate(session, esStrip.Callsign)
+				shared.PublishStripUpdate(ctx, s.publisher, session, esStrip.Callsign)
 			}
 		}
 	}
@@ -224,7 +224,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		} else {
 			routeNeedsUpdate = true
 		}
-		if err = s.lifecycleStore.Create(ctx, newStrip); err != nil {
+		if appender, ok := s.lifecycleStore.(interface {
+			PersistAtEndOfBay(context.Context, *internalModels.Strip, bool, int32) error
+		}); ok {
+			err = appender.PersistAtEndOfBay(ctx, newStrip, true, InitialOrderSpacing)
+		} else {
+			err = s.lifecycleStore.Create(ctx, newStrip)
+		}
+		if err != nil {
 			return err
 		}
 		shared.AddDBOperations(ctx, 1)
@@ -609,7 +616,14 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 		}
 
 		if primaryChange {
-			if _, err = s.lifecycleStore.Update(ctx, updateStrip); err != nil {
+			if appender, ok := s.lifecycleStore.(interface {
+				PersistAtEndOfBay(context.Context, *internalModels.Strip, bool, int32) error
+			}); ok && (bayChanged || restartLifecycle) {
+				err = appender.PersistAtEndOfBay(ctx, updateStrip, false, InitialOrderSpacing)
+			} else {
+				_, err = s.lifecycleStore.Update(ctx, updateStrip)
+			}
+			if err != nil {
 				return err
 			}
 			shared.AddDBOperations(ctx, 1)
@@ -695,7 +709,7 @@ func (s *StripService) syncEuroscopeStrip(ctx context.Context, session int32, ci
 	}
 
 	if needsStripBroadcast {
-		s.publisher.SendStripUpdate(session, strip.Callsign)
+		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
 	}
 
 	return s.observeHoldingClearance(ctx, validationStrip)

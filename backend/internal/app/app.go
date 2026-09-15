@@ -112,6 +112,7 @@ type Dependencies struct {
 }
 
 type App struct {
+	positionHub              *euroscope.Hub
 	dbpool                   *pgxpool.Pool
 	closeDB                  bool
 	handler                  http.Handler
@@ -529,6 +530,7 @@ func Build(ctx context.Context, cfg Config, deps Dependencies) (*App, error) {
 		return nil, err
 	}
 	app := &App{
+		positionHub:              euroscopeHub,
 		dbpool:                   dbpool,
 		closeDB:                  closeDB,
 		standAssignmentReadiness: standAssignmentReadiness,
@@ -863,6 +865,9 @@ func (a *App) addWorker(worker func(context.Context)) {
 
 func buildDBPool(ctx context.Context, cfg Config, dbpool *pgxpool.Pool) (*pgxpool.Pool, bool, error) {
 	if dbpool != nil {
+		if dbpool.Config().MaxConns < 3 {
+			return nil, false, errors.New("PostgreSQL pool needs at least three connections: one for positions and two reserved")
+		}
 		return dbpool, cfg.CloseDBOnClose, nil
 	}
 
@@ -871,6 +876,9 @@ func buildDBPool(ctx context.Context, cfg Config, dbpool *pgxpool.Pool) (*pgxpoo
 		return nil, false, fmt.Errorf("parse database connection string: %w", err)
 	}
 
+	if poolConfig.MaxConns < 3 {
+		return nil, false, errors.New("PostgreSQL pool needs at least three connections: one for positions and two reserved")
+	}
 	dbCounter := dbOperationTracer{}
 	poolConfig.ConnConfig.Tracer = dbCounter
 	if cfg.EnablePostgresTracing {
@@ -1284,4 +1292,12 @@ func loadGSXSceneries(enabled bool) (gsx.Sceneries, error) {
 		slog.Info("no GSX scenery config found; publishing controller stand names only", "path", path)
 	}
 	return sceneries, nil
+}
+
+// DrainPositions must run before cancelling hub workers or closing PostgreSQL.
+func (a *App) DrainPositions(ctx context.Context) error {
+	if a.positionHub == nil {
+		return nil
+	}
+	return a.positionHub.DrainPositions(ctx)
 }

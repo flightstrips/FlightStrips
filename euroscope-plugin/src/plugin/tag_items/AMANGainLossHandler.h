@@ -26,7 +26,7 @@ namespace FlightStrips::TagItems {
         [[nodiscard]] static AMANGainLossPresentation Resolve(
             bool connected, const std::shared_ptr<const aman::GainLossSnapshot>& snapshot,
             const std::string& callsign, const std::string& destination,
-            const std::string& currentAirport);
+            const std::string& currentAirport, bool holding = false);
 
     private:
         std::shared_ptr<aman::AMANGainLossStore> store_;

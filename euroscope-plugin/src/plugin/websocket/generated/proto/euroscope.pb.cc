@@ -1288,7 +1288,8 @@ inline constexpr AMANGainLossValue::Impl_::Impl_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         gain_loss_seconds_{::int64_t{0}},
-        feeder_fix_passed_{false} {}
+        feeder_fix_passed_{false},
+        inside_tma_{false} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR AMANGainLossValue::AMANGainLossValue(::_pbi::ConstantInitialized)
@@ -21050,9 +21051,9 @@ AMANGainLossValue::AMANGainLossValue(
                offsetof(Impl_, gain_loss_seconds_),
            reinterpret_cast<const char *>(&from._impl_) +
                offsetof(Impl_, gain_loss_seconds_),
-           offsetof(Impl_, feeder_fix_passed_) -
+           offsetof(Impl_, inside_tma_) -
                offsetof(Impl_, gain_loss_seconds_) +
-               sizeof(Impl_::feeder_fix_passed_));
+               sizeof(Impl_::inside_tma_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.euroscope.v1.AMANGainLossValue)
 }
@@ -21077,9 +21078,9 @@ inline void AMANGainLossValue::SharedCtor(::_pb::Arena* arena) {
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, gain_loss_seconds_),
            0,
-           offsetof(Impl_, feeder_fix_passed_) -
+           offsetof(Impl_, inside_tma_) -
                offsetof(Impl_, gain_loss_seconds_) +
-               sizeof(Impl_::feeder_fix_passed_));
+               sizeof(Impl_::inside_tma_));
 }
 AMANGainLossValue::~AMANGainLossValue() {
   // @@protoc_insertion_point(destructor:flightstrips.euroscope.v1.AMANGainLossValue)
@@ -21159,10 +21160,10 @@ PROTOBUF_NOINLINE void AMANGainLossValue::Clear() {
       _impl_.feeder_fix_eta_source_.ClearNonDefaultToEmpty();
     }
   }
-  if (cached_has_bits & 0x00000300u) {
+  if (cached_has_bits & 0x00000700u) {
     ::memset(&_impl_.gain_loss_seconds_, 0, static_cast<::size_t>(
-        reinterpret_cast<char*>(&_impl_.feeder_fix_passed_) -
-        reinterpret_cast<char*>(&_impl_.gain_loss_seconds_)) + sizeof(_impl_.feeder_fix_passed_));
+        reinterpret_cast<char*>(&_impl_.inside_tma_) -
+        reinterpret_cast<char*>(&_impl_.gain_loss_seconds_)) + sizeof(_impl_.inside_tma_));
   }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<std::string>();
@@ -21176,15 +21177,15 @@ const char* AMANGainLossValue::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<4, 13, 0, 195, 2> AMANGainLossValue::_table_ = {
+const ::_pbi::TcParseTable<4, 14, 0, 195, 2> AMANGainLossValue::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_._has_bits_),
     0, // no _extensions_
-    13, 120,  // max_field_number, fast_idx_mask
+    14, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294959104,  // skipmap
+    4294950912,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    13,  // num_field_entries
+    14,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     &_AMANGainLossValue_default_instance_._instance,
@@ -21233,7 +21234,9 @@ const ::_pbi::TcParseTable<4, 13, 0, 195, 2> AMANGainLossValue::_table_ = {
     // optional bool feeder_fix_passed = 13;
     {::_pbi::TcParser::FastV8S1,
      {104, 9, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_)}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // optional bool inside_tma = 14;
+    {::_pbi::TcParser::FastV8S1,
+     {112, 10, 0, PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_)}},
     {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
@@ -21276,6 +21279,9 @@ const ::_pbi::TcParseTable<4, 13, 0, 195, 2> AMANGainLossValue::_table_ = {
     (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // optional bool feeder_fix_passed = 13;
     {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_), _Internal::kHasBitsOffset + 9, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // optional bool inside_tma = 14;
+    {PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_), _Internal::kHasBitsOffset + 10, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kBool)},
   }},
   // no aux_entries
@@ -21406,6 +21412,13 @@ const ::_pbi::TcParseTable<4, 13, 0, 195, 2> AMANGainLossValue::_table_ = {
         13, this->_internal_feeder_fix_passed(), target);
   }
 
+  // optional bool inside_tma = 14;
+  if (cached_has_bits & 0x00000400u) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        14, this->_internal_inside_tma(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -21494,7 +21507,7 @@ const ::_pbi::TcParseTable<4, 13, 0, 195, 2> AMANGainLossValue::_table_ = {
     }
 
   }
-  if (cached_has_bits & 0x00000300u) {
+  if (cached_has_bits & 0x00000700u) {
     // optional int64 gain_loss_seconds = 3;
     if (cached_has_bits & 0x00000100u) {
       total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
@@ -21503,6 +21516,11 @@ const ::_pbi::TcParseTable<4, 13, 0, 195, 2> AMANGainLossValue::_table_ = {
 
     // optional bool feeder_fix_passed = 13;
     if (cached_has_bits & 0x00000200u) {
+      total_size += 2;
+    }
+
+    // optional bool inside_tma = 14;
+    if (cached_has_bits & 0x00000400u) {
       total_size += 2;
     }
 
@@ -21565,12 +21583,15 @@ void AMANGainLossValue::MergeFrom(const AMANGainLossValue& from) {
       _this->_internal_set_feeder_fix_eta_source(from._internal_feeder_fix_eta_source());
     }
   }
-  if (cached_has_bits & 0x00000300u) {
+  if (cached_has_bits & 0x00000700u) {
     if (cached_has_bits & 0x00000100u) {
       _this->_impl_.gain_loss_seconds_ = from._impl_.gain_loss_seconds_;
     }
     if (cached_has_bits & 0x00000200u) {
       _this->_impl_.feeder_fix_passed_ = from._impl_.feeder_fix_passed_;
+    }
+    if (cached_has_bits & 0x00000400u) {
+      _this->_impl_.inside_tma_ = from._impl_.inside_tma_;
     }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
@@ -21606,8 +21627,8 @@ void AMANGainLossValue::InternalSwap(AMANGainLossValue* PROTOBUF_RESTRICT other)
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.feeder_fix_eta_, &other->_impl_.feeder_fix_eta_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.feeder_fix_eta_source_, &other->_impl_.feeder_fix_eta_source_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.feeder_fix_passed_)
-      + sizeof(AMANGainLossValue::_impl_.feeder_fix_passed_)
+      PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.inside_tma_)
+      + sizeof(AMANGainLossValue::_impl_.inside_tma_)
       - PROTOBUF_FIELD_OFFSET(AMANGainLossValue, _impl_.gain_loss_seconds_)>(
           reinterpret_cast<char*>(&_impl_.gain_loss_seconds_),
           reinterpret_cast<char*>(&other->_impl_.gain_loss_seconds_));

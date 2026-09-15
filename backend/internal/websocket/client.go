@@ -51,7 +51,20 @@ type Client interface {
 // ReadPump pumps messages from the WebSocket connection to the hub.
 func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub THub, client TClient) {
 	slog.Debug("ReadPump started", slog.String("cid", client.GetCid()))
+	var dispatcher *shared.PositionDispatcher
+	if provider, ok := any(client).(interface {
+		PositionDispatcher() *shared.PositionDispatcher
+	}); ok {
+		dispatcher = provider.PositionDispatcher()
+	}
 	defer func() {
+		if dispatcher != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := dispatcher.Close(ctx); err != nil {
+				slog.Warn("Position drain cancelled", "error", err)
+			}
+		}
 		hub.Unregister(client)
 		client.GetConnection().Close()
 	}()
@@ -74,6 +87,19 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		frameType, message, err := client.GetConnection().ReadMessage()
 		if err != nil {
 			logReadError(client, err)
+			// An unexpected disconnect fences queued work immediately. Explicit
+			// application shutdown uses the separate bounded drain path.
+			draining := false
+			if state, ok := any(client).(interface{ IsDraining() bool }); ok {
+				draining = state.IsDraining()
+			}
+			if dispatcher != nil && !draining {
+				_ = client.Close()
+				dispatcher.Cancel()
+			}
+			break
+		}
+		if draining, ok := any(client).(interface{ IsDraining() bool }); ok && draining.IsDraining() {
 			break
 		}
 		if isEuroscopeType[TType]() && frameType != websocket.BinaryMessage {
@@ -81,6 +107,7 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			continue
 		}
 
+		receivedAt := time.Now()
 		// Record the message if recording is enabled
 		client.RecordMessage(message)
 
@@ -93,54 +120,94 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		msgType := messageTypeName(parsedMessage.Type)
 		metrics.MessageReceived(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), len(message))
 
-		tracer := otel.Tracer("websocket")
-		ctx, span := tracer.Start(context.Background(), msgType,
-			trace.WithAttributes(
-				attribute.String("message.type", msgType),
-				attribute.String("client.cid", client.GetCid()),
-				attribute.String("client.position", client.GetPosition()),
-				attribute.Int("session", int(client.GetSession())),
-			),
-		)
-		var dbCounter *shared.DBOperationCounter
-		if shouldTrackMessageDBOperations(client.GetSource(), msgType) {
-			autoCount := msgType == "aircraft_position_update" || msgType == "strip_update"
-			ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{
-				MessageType: msgType, AutoCountDBOperations: autoCount,
-			})
-			if autoCount {
-				ctx, dbCounter = shared.WithDBOperationCounter(ctx)
+		var fence func(context.Context) context.Context
+		if msgType == "aircraft_position_update" {
+			if provider, ok := any(client).(interface {
+				PositionFence() func(context.Context) context.Context
+			}); ok {
+				fence = provider.PositionFence()
 			}
 		}
-
-		handlers := hub.GetMessageHandlers()
-		start := time.Now()
-		err = client.CanHandleMessage(msgType)
-		if err == nil {
-			err = handlers.Handle(ctx, client, parsedMessage)
-		}
-		if state := shared.GetWebsocketMessageState(ctx); state != nil {
-			if dbCounter != nil {
-				state.DBOperations = dbCounter.Finish()
+		run := func(jobCtx context.Context) {
+			if fence != nil {
+				jobCtx = fence(jobCtx)
 			}
-			metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBOperations)
-			metrics.MessageDBRetries(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBRetries)
-		}
-		metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), time.Since(start), err)
+			tracer := otel.Tracer("websocket")
+			ctx, span := tracer.Start(shared.WithReceiptTime(jobCtx, receivedAt), msgType,
+				trace.WithTimestamp(receivedAt),
+				trace.WithAttributes(
+					attribute.String("message.type", msgType),
+					attribute.String("client.cid", client.GetCid()),
+					attribute.String("client.position", client.GetPosition()),
+					attribute.Int("session", int(client.GetSession())),
+				),
+			)
+			var dbCounter *shared.DBOperationCounter
+			if shouldTrackMessageDBOperations(client.GetSource(), msgType) {
+				autoCount := msgType == "aircraft_position_update" || msgType == "strip_update"
+				ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{
+					MessageType: msgType, AutoCountDBOperations: autoCount,
+				})
+				if autoCount {
+					ctx, dbCounter = shared.WithDBOperationCounter(ctx)
+				}
+			}
 
-		if err != nil {
-			span.SetStatus(codes.Error, err.Error())
-			span.RecordError(err)
-			if isEuroscopeType[TType]() {
-				slog.ErrorContext(ctx, "Failed to handle protobuf message", slog.Any("error", err), slog.Int("message_bytes", len(message)))
+			handlers := hub.GetMessageHandlers()
+			start := time.Now()
+			err := jobCtx.Err()
+			if err == nil {
+				err = client.CanHandleMessage(msgType)
+			}
+			if err == nil {
+				err = handlers.Handle(ctx, client, parsedMessage)
+			}
+			if state := shared.GetWebsocketMessageState(ctx); state != nil {
+				if dbCounter != nil {
+					state.DBOperations = dbCounter.Finish()
+				}
+				metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBOperations)
+				metrics.MessageDBRetries(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBRetries)
+			}
+			metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), time.Since(start), err)
+
+			if err != nil {
+				span.SetStatus(codes.Error, err.Error())
+				span.RecordError(err)
+				if isEuroscopeType[TType]() {
+					slog.ErrorContext(ctx, "Failed to handle protobuf message", slog.Any("error", err), slog.Int("message_bytes", len(message)))
+				} else {
+					slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
+					client.Enqueue(actionRejectedEvent(fmt.Sprintf("%v", parsedMessage.Type), parsedMessage.Message, err))
+				}
 			} else {
-				slog.ErrorContext(ctx, "Failed to handle message", slog.Any("error", err), slog.String("message", string(message)))
-				client.Enqueue(actionRejectedEvent(fmt.Sprintf("%v", parsedMessage.Type), parsedMessage.Message, err))
+				span.SetStatus(codes.Ok, "")
 			}
-		} else {
-			span.SetStatus(codes.Ok, "")
+			span.SetAttributes(attribute.Float64("message.queue_ms", float64(start.Sub(receivedAt))/float64(time.Millisecond)), attribute.Float64("message.processing_ms", float64(time.Since(start))/float64(time.Millisecond)))
+			metrics.MessageCompletion(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, start.Sub(receivedAt), time.Since(receivedAt))
+			span.End()
 		}
-		span.End()
+		if dispatcher != nil && msgType == "aircraft_position_update" {
+			var position euroscopeEvents.AircraftPositionUpdateEvent
+			if decodeErr := parsedMessage.ProtoUnmarshal(&position); decodeErr == nil {
+				if receiver, ok := any(client).(interface{ PositionReceived(string) }); ok {
+					receiver.PositionReceived(position.Callsign)
+				}
+				key := fmt.Sprintf("%d/%s", client.GetSession(), strings.ToUpper(strings.TrimSpace(position.Callsign)))
+				if submitErr := dispatcher.Submit(context.Background(), key, run); submitErr != nil {
+					cancelled, cancel := context.WithCancel(context.Background())
+					cancel()
+					run(cancelled)
+				}
+				metrics.PositionQueueDepth(context.Background(), client.GetSessionName(), client.GetAirport(), dispatcher.Depth())
+				continue
+			}
+		}
+		if dispatcher != nil {
+			_ = dispatcher.RunBarrier(context.Background(), func() { run(context.Background()) })
+		} else {
+			run(context.Background())
+		}
 	}
 }
 

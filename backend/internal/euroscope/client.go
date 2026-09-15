@@ -8,8 +8,11 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -18,14 +21,19 @@ import (
 )
 
 type Client struct {
-	conn        *gorilla.Conn
-	session     int32
-	sessionName string
-	send        chan events.OutgoingMessage
-	closeOnce   sync.Once
-	closed      chan struct{}
-	hub         *Hub
-	user        shared.AuthenticatedUser
+	draining       atomic.Bool
+	positionEpoch  atomic.Uint64
+	dispatcherMu   sync.Mutex
+	dispatcherOnce sync.Once
+	dispatcher     *shared.PositionDispatcher
+	conn           *gorilla.Conn
+	session        int32
+	sessionName    string
+	send           chan events.OutgoingMessage
+	closeOnce      sync.Once
+	closed         chan struct{}
+	hub            *Hub
+	user           shared.AuthenticatedUser
 
 	identityMu sync.RWMutex
 	position   string
@@ -60,9 +68,11 @@ type cachedAircraftPosition struct {
 }
 
 type pendingPositionUpdate struct {
-	callsign string
-	position cachedAircraftPosition
-	timer    *time.Timer
+	fence      func(context.Context) context.Context
+	receivedAt time.Time
+	callsign   string
+	position   cachedAircraftPosition
+	timer      *time.Timer
 }
 
 func (c *Client) identitySnapshot() clientIdentity {
@@ -105,6 +115,7 @@ func (c *Client) disconnectSlowConsumer() {
 	shouldUnregister := false
 	c.closeOnce.Do(func() {
 		close(c.closed)
+		c.positionEpoch.Add(1)
 		shouldUnregister = true
 	})
 	if !shouldUnregister {
@@ -134,9 +145,15 @@ func (c *Client) Close() error {
 	if c.closed != nil {
 		c.closeOnce.Do(func() {
 			close(c.closed)
+			c.positionEpoch.Add(1)
 		})
 	}
 	c.stopPendingPositionUpdates()
+	c.dispatcherMu.Lock()
+	if c.dispatcher != nil {
+		c.dispatcher.Cancel()
+	}
+	c.dispatcherMu.Unlock()
 	if c.conn == nil {
 		return nil
 	}
@@ -322,6 +339,14 @@ func (c *Client) rememberAircraftPosition(callsign string, position cachedAircra
 }
 
 func (c *Client) processAircraftPosition(ctx context.Context, callsign string, position cachedAircraftPosition) error {
+	c.hub.masterTransitionMu.RLock()
+	defer c.hub.masterTransitionMu.RUnlock()
+	if c.isClosed() || ctx.Err() != nil || !c.validPositionFence(ctx) {
+		return context.Canceled
+	}
+	if c.hub.getMasterClient(c.session) != c {
+		return context.Canceled
+	}
 	processLock := c.positionProcessLock(callsign)
 	processLock.Lock()
 	defer processLock.Unlock()
@@ -334,16 +359,20 @@ func (c *Client) processAircraftPosition(ctx context.Context, callsign string, p
 	}
 	c.flightPlanCacheMu.Unlock()
 
+	recoveredFromDisconnect := c.hub.cancelAircraftDisconnect(c.session, callsign)
 	if err := c.hub.stripService.UpdateAircraftPosition(
 		ctx, c.session, callsign, position.lat, position.lon, position.altitude, c.airport,
 	); err != nil {
 		return err
 	}
 	c.rememberAircraftPosition(callsign, position)
+	if recoveredFromDisconnect && c.hub.server != nil && c.hub.server.GetFrontendHub() != nil {
+		shared.PublishStripUpdate(ctx, c.hub.server.GetFrontendHub(), c.session, callsign)
+	}
 	return nil
 }
 
-func (c *Client) queuePositionOnlyUpdate(strip eventseuroscope.Strip) {
+func (c *Client) queuePositionOnlyUpdate(ctx context.Context, strip eventseuroscope.Strip) {
 	key := flightPlanCacheKey(strip.Callsign)
 	position := cachedPositionFromStrip(strip)
 
@@ -354,6 +383,8 @@ func (c *Client) queuePositionOnlyUpdate(strip eventseuroscope.Strip) {
 	}
 	if pending := c.pendingPositions[key]; pending != nil {
 		pending.position = position
+		pending.receivedAt = shared.ReceiptTime(ctx, time.Now)
+		pending.fence = c.PositionFence()
 		c.flightPlanCacheMu.Unlock()
 		return
 	}
@@ -364,7 +395,7 @@ func (c *Client) queuePositionOnlyUpdate(strip eventseuroscope.Strip) {
 	if delay <= 0 {
 		delay = defaultPositionCoalesceDelay
 	}
-	pending := &pendingPositionUpdate{callsign: strip.Callsign, position: position}
+	pending := &pendingPositionUpdate{callsign: strip.Callsign, position: position, receivedAt: shared.ReceiptTime(ctx, time.Now), fence: c.PositionFence()}
 	pending.timer = time.AfterFunc(delay, func() { c.flushPositionOnlyUpdate(key) })
 	c.pendingPositions[key] = pending
 	c.flightPlanCacheMu.Unlock()
@@ -379,14 +410,43 @@ func cachedPositionFromStrip(strip eventseuroscope.Strip) cachedAircraftPosition
 	}
 }
 
+func (c *Client) PositionReceived(callsign string) {
+	c.flightPlanCacheMu.Lock()
+	defer c.flightPlanCacheMu.Unlock()
+	key := flightPlanCacheKey(callsign)
+	if pending := c.pendingPositions[key]; pending != nil {
+		pending.timer.Stop()
+		delete(c.pendingPositions, key)
+	}
+}
+
 func (c *Client) flushPositionOnlyUpdate(key string) {
+	c.flightPlanCacheMu.Lock()
+	pending := c.pendingPositions[key]
+	c.flightPlanCacheMu.Unlock()
+	if pending == nil {
+		return
+	}
+	dispatcher := c.PositionDispatcher()
+	_ = dispatcher.Submit(context.Background(), strconv.Itoa(int(c.session))+"/"+key, func(ctx context.Context) { c.applyPendingPosition(ctx, key, pending) })
+}
+
+func (c *Client) applyPendingPosition(ctx context.Context, key string, expected *pendingPositionUpdate) {
+	if expected.fence != nil {
+		ctx = expected.fence(ctx)
+	}
+	c.hub.masterTransitionMu.RLock()
+	defer c.hub.masterTransitionMu.RUnlock()
+	if c.hub.getMasterClient(c.session) != c || c.isClosed() || ctx.Err() != nil || !c.validPositionFence(ctx) {
+		return
+	}
 	processLock := c.positionProcessLock(key)
 	processLock.Lock()
 	defer processLock.Unlock()
 
 	c.flightPlanCacheMu.Lock()
 	pending := c.pendingPositions[key]
-	if pending == nil {
+	if pending == nil || pending != expected {
 		c.flightPlanCacheMu.Unlock()
 		return
 	}
@@ -400,7 +460,8 @@ func (c *Client) flushPositionOnlyUpdate(key string) {
 	if c.hub == nil || c.hub.stripService == nil || c.isClosed() {
 		return
 	}
-	ctx := context.Background()
+	ctx = shared.WithReceiptTime(ctx, pending.receivedAt)
+	ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{MessageType: "coalesced_position"})
 	if err := c.hub.stripService.UpdateAircraftPosition(
 		ctx, c.session, pending.callsign,
 		pending.position.lat, pending.position.lon, pending.position.altitude, c.airport,
@@ -410,7 +471,6 @@ func (c *Client) flushPositionOnlyUpdate(key string) {
 		return
 	}
 	c.rememberAircraftPosition(pending.callsign, pending.position)
-	c.hub.markEuroscopeSeen(ctx, c.session, pending.callsign)
 }
 
 func (c *Client) stopPendingPositionUpdates() {
@@ -432,4 +492,51 @@ func (c *Client) isClosed() bool {
 	default:
 		return false
 	}
+}
+
+// PositionDispatcher is lazily created after authentication. Production remains
+// serial until the load gates pass and POSITION_CONCURRENCY_ENABLED is set.
+func (c *Client) PositionDispatcher() *shared.PositionDispatcher {
+	c.dispatcherMu.Lock()
+	defer c.dispatcherMu.Unlock()
+	c.dispatcherOnce.Do(func() {
+		workers := 1
+		if os.Getenv("POSITION_CONCURRENCY_ENABLED") == "true" {
+			workers = 4
+		}
+		if raw := os.Getenv("POSITION_WORKERS_PER_CLIENT"); raw != "" {
+			if n, err := strconv.Atoi(raw); err == nil && n >= 1 && n <= 8 {
+				workers = n
+			}
+		}
+		c.dispatcher = shared.NewPositionDispatcher(workers, 256, c.hub.positionBudget)
+		if c.isClosed() {
+			c.dispatcher.Cancel()
+		}
+	})
+	return c.dispatcher
+}
+
+// Capture the authority epoch at receipt, so losing and regaining master status
+// cannot resurrect work accepted under an earlier election.
+type positionFenceKey struct{}
+type positionFence struct {
+	master  bool
+	epoch   uint64
+	session int32
+}
+
+func (c *Client) PositionFence() func(context.Context) context.Context {
+	c.hub.masterMu.RLock()
+	f := positionFence{c.hub.master[c.session] == c, c.positionEpoch.Load(), c.session}
+	c.hub.masterMu.RUnlock()
+	return func(ctx context.Context) context.Context { return context.WithValue(ctx, positionFenceKey{}, f) }
+}
+func (c *Client) validPositionFence(ctx context.Context) bool {
+	f, ok := ctx.Value(positionFenceKey{}).(positionFence)
+	return !ok || (f.master && f.epoch == c.positionEpoch.Load() && f.session == c.session)
+}
+
+func (c *Client) IsDraining() bool {
+	return c.draining.Load() || (c.hub != nil && c.hub.draining.Load())
 }

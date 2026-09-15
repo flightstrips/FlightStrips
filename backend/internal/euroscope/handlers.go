@@ -372,23 +372,15 @@ func handleCdmReady(ctx context.Context, client *Client, message Message) error 
 }
 
 func handlePositionUpdate(ctx context.Context, client *Client, message Message) error {
-	if client.hub.getMasterClient(client.session) != client {
-		return nil
-	}
 	var event euroscope.AircraftPositionUpdateEvent
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
-	recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, event.Callsign)
 	position := cachedAircraftPosition{
 		lat: event.Lat, lon: event.Lon, altitude: int32(event.Altitude),
 	}
 	if err := client.processAircraftPosition(ctx, event.Callsign, position); err != nil {
 		return err
-	}
-	client.hub.markEuroscopeSeen(ctx, client.session, event.Callsign)
-	if recoveredFromDisconnect && client.hub.server != nil && client.hub.server.GetFrontendHub() != nil {
-		client.hub.server.GetFrontendHub().SendStripUpdate(client.session, event.Callsign)
 	}
 	return nil
 }
@@ -484,7 +476,7 @@ func handleStripUpdateEvent(ctx context.Context, client *Client, message Message
 			return nil
 		}
 		recoveredFromDisconnect := client.hub.cancelAircraftDisconnect(client.session, strip.Callsign)
-		client.queuePositionOnlyUpdate(*strip)
+		client.queuePositionOnlyUpdate(ctx, *strip)
 		if recoveredFromDisconnect && client.hub.server != nil && client.hub.server.GetFrontendHub() != nil {
 			client.hub.server.GetFrontendHub().SendStripUpdate(client.session, strip.Callsign)
 		}

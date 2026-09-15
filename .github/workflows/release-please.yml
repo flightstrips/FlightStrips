@@ -116,6 +116,8 @@ jobs:
         with:
           context: ./backend
           file: ./backend/Dockerfile
+          build-args: |
+            BUILD_VERSION=${{ needs.release-please.outputs.backend_version }}+${{ github.sha }}
           push: true
           cache-from: type=gha,scope=backend-api
           cache-to: type=gha,mode=max,scope=backend-api

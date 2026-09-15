@@ -20,65 +20,68 @@ var (
 )
 
 type instruments struct {
-	activeConnections       metric.Int64UpDownCounter
-	activeClients           metric.Int64UpDownCounter
-	activeMasterClients     metric.Int64UpDownCounter
-	messagesReceived        metric.Int64Counter
-	messagesSent            metric.Int64Counter
-	messageBytesReceived    metric.Int64Counter
-	messageBytesSent        metric.Int64Counter
-	messageSizeBytes        metric.Int64Histogram
-	messageHandledDuration  metric.Float64Histogram
-	messageDBOperations     metric.Int64Counter
-	messageDBRetries        metric.Int64Counter
-	syncInputStrips         metric.Int64Counter
-	syncInputControllers    metric.Int64Counter
-	syncChangedStrips       metric.Int64Counter
-	syncChangedControllers  metric.Int64Counter
-	syncDBOperations        metric.Int64Counter
-	syncDuration            metric.Float64Histogram
-	syncPhaseDuration       metric.Float64Histogram
-	syncOutcomes            metric.Int64Counter
-	syncFollowUpWork        metric.Int64Counter
-	cdmRecalculations       metric.Int64Counter
-	cdmRecalculationTime    metric.Float64Histogram
-	cdmRecalculationStrips  metric.Int64Histogram
-	hubQueueDepth           metric.Int64Histogram
-	hubDispatchDuration     metric.Float64Histogram
-	hubBroadcastFanout      metric.Int64Histogram
-	hubPublishBlocked       metric.Int64Counter
-	hubPublishBlockedTime   metric.Float64Histogram
-	hubSlowConsumers        metric.Int64Counter
-	hubDispatchAttrs        map[hubDispatchKey]metric.MeasurementOption
-	pdcRequestsReceived     metric.Int64Counter
-	pdcRequestOutcomes      metric.Int64Counter
-	pdcStateChanges         metric.Int64Counter
-	trafficOnStand          metric.Int64Gauge
-	trafficTaxiing          metric.Int64Gauge
-	trafficArrivalRate15m   metric.Int64Gauge
-	trafficDepartureRate15m metric.Int64Gauge
-	satSnapshotAge          metric.Float64Gauge
-	satFeedRecords          metric.Int64Gauge
-	satAssignments          metric.Int64Counter
-	satOutcomes             metric.Int64Counter
-	satConflicts            metric.Int64Counter
-	satExpirations          metric.Int64Counter
-	satLifecycleEvents      metric.Int64Counter
-	satReconciliations      metric.Int64Counter
-	satReconciliationTime   metric.Float64Histogram
-	satReconciliationPasses metric.Int64Histogram
-	amanObservationAge      metric.Float64Histogram
-	amanGeometryCache       metric.Int64Counter
-	amanRouteMaterialized   metric.Int64Counter
-	amanRouteDuration       metric.Float64Histogram
-	amanPredictorDuration   metric.Float64Histogram
-	amanPredictionDrift     metric.Float64Histogram
-	amanSequenceRevisions   metric.Int64Counter
-	amanSequenceConflicts   metric.Int64Counter
-	amanCommandOutcomes     metric.Int64Counter
-	amanFlightDegradation   metric.Int64Counter
-	amanSourceRefreshes     metric.Int64Counter
-	amanPublicationFailures metric.Int64Counter
+	activeConnections         metric.Int64UpDownCounter
+	activeClients             metric.Int64UpDownCounter
+	activeMasterClients       metric.Int64UpDownCounter
+	messagesReceived          metric.Int64Counter
+	messagesSent              metric.Int64Counter
+	messageBytesReceived      metric.Int64Counter
+	messageBytesSent          metric.Int64Counter
+	messageSizeBytes          metric.Int64Histogram
+	messageHandledDuration    metric.Float64Histogram
+	messageCompletionDuration metric.Float64Histogram
+	messageQueueDuration      metric.Float64Histogram
+	positionQueueDepth        metric.Int64Histogram
+	messageDBOperations       metric.Int64Counter
+	messageDBRetries          metric.Int64Counter
+	syncInputStrips           metric.Int64Counter
+	syncInputControllers      metric.Int64Counter
+	syncChangedStrips         metric.Int64Counter
+	syncChangedControllers    metric.Int64Counter
+	syncDBOperations          metric.Int64Counter
+	syncDuration              metric.Float64Histogram
+	syncPhaseDuration         metric.Float64Histogram
+	syncOutcomes              metric.Int64Counter
+	syncFollowUpWork          metric.Int64Counter
+	cdmRecalculations         metric.Int64Counter
+	cdmRecalculationTime      metric.Float64Histogram
+	cdmRecalculationStrips    metric.Int64Histogram
+	hubQueueDepth             metric.Int64Histogram
+	hubDispatchDuration       metric.Float64Histogram
+	hubBroadcastFanout        metric.Int64Histogram
+	hubPublishBlocked         metric.Int64Counter
+	hubPublishBlockedTime     metric.Float64Histogram
+	hubSlowConsumers          metric.Int64Counter
+	hubDispatchAttrs          map[hubDispatchKey]metric.MeasurementOption
+	pdcRequestsReceived       metric.Int64Counter
+	pdcRequestOutcomes        metric.Int64Counter
+	pdcStateChanges           metric.Int64Counter
+	trafficOnStand            metric.Int64Gauge
+	trafficTaxiing            metric.Int64Gauge
+	trafficArrivalRate15m     metric.Int64Gauge
+	trafficDepartureRate15m   metric.Int64Gauge
+	satSnapshotAge            metric.Float64Gauge
+	satFeedRecords            metric.Int64Gauge
+	satAssignments            metric.Int64Counter
+	satOutcomes               metric.Int64Counter
+	satConflicts              metric.Int64Counter
+	satExpirations            metric.Int64Counter
+	satLifecycleEvents        metric.Int64Counter
+	satReconciliations        metric.Int64Counter
+	satReconciliationTime     metric.Float64Histogram
+	satReconciliationPasses   metric.Int64Histogram
+	amanObservationAge        metric.Float64Histogram
+	amanGeometryCache         metric.Int64Counter
+	amanRouteMaterialized     metric.Int64Counter
+	amanRouteDuration         metric.Float64Histogram
+	amanPredictorDuration     metric.Float64Histogram
+	amanPredictionDrift       metric.Float64Histogram
+	amanSequenceRevisions     metric.Int64Counter
+	amanSequenceConflicts     metric.Int64Counter
+	amanCommandOutcomes       metric.Int64Counter
+	amanFlightDegradation     metric.Int64Counter
+	amanSourceRefreshes       metric.Int64Counter
+	amanPublicationFailures   metric.Int64Counter
 }
 
 func get() *instruments {
@@ -132,6 +135,9 @@ func get() *instruments {
 			metric.WithUnit("s"),
 			metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
 		)
+		messageCompletionDuration, _ := meter.Float64Histogram("websocket.message.completion.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(.001, .002, .005, .01, .015, .02, .025, .05, .1, .25, .5, 1, 2, 5))
+		messageQueueDuration, _ := meter.Float64Histogram("websocket.message.queue.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(.001, .002, .005, .01, .02, .05, .1, .25, .5, 1, 2, 5))
+		positionQueueDepth, _ := meter.Int64Histogram("websocket.position.queue.depth", metric.WithExplicitBucketBoundaries(0, 1, 2, 4, 8, 16, 32, 64, 128, 256))
 		messageDBOperations, _ := meter.Int64Counter(
 			"websocket.message.db_operations",
 			metric.WithDescription("Database operations performed while handling tracked WebSocket messages"),
@@ -299,44 +305,47 @@ func get() *instruments {
 		amanPublicationFailures, _ := meter.Int64Counter("aman.publication.failures", metric.WithDescription("Post-commit AMAN replacement publication failures"), metric.WithUnit("{publication}"))
 
 		inst = &instruments{
-			activeConnections:       activeConnections,
-			activeClients:           activeClients,
-			activeMasterClients:     activeMasterClients,
-			messagesReceived:        messagesReceived,
-			messagesSent:            messagesSent,
-			messageBytesReceived:    messageBytesReceived,
-			messageBytesSent:        messageBytesSent,
-			messageSizeBytes:        messageSizeBytes,
-			messageHandledDuration:  messageHandledDuration,
-			messageDBOperations:     messageDBOperations,
-			messageDBRetries:        messageDBRetries,
-			syncInputStrips:         syncInputStrips,
-			syncInputControllers:    syncInputControllers,
-			syncChangedStrips:       syncChangedStrips,
-			syncChangedControllers:  syncChangedControllers,
-			syncDBOperations:        syncDBOperations,
-			syncDuration:            syncDuration,
-			syncPhaseDuration:       syncPhaseDuration,
-			syncOutcomes:            syncOutcomes,
-			syncFollowUpWork:        syncFollowUpWork,
-			cdmRecalculations:       cdmRecalculations,
-			cdmRecalculationTime:    cdmRecalculationTime,
-			cdmRecalculationStrips:  cdmRecalculationStrips,
-			hubQueueDepth:           hubQueueDepth,
-			hubDispatchDuration:     hubDispatchDuration,
-			hubBroadcastFanout:      hubBroadcastFanout,
-			hubPublishBlocked:       hubPublishBlocked,
-			hubPublishBlockedTime:   hubPublishBlockedTime,
-			hubSlowConsumers:        hubSlowConsumers,
-			hubDispatchAttrs:        buildHubDispatchAttributes(),
-			pdcRequestsReceived:     pdcRequestsReceived,
-			pdcRequestOutcomes:      pdcRequestOutcomes,
-			pdcStateChanges:         pdcStateChanges,
-			trafficOnStand:          trafficOnStand,
-			trafficTaxiing:          trafficTaxiing,
-			trafficArrivalRate15m:   trafficArrivalRate15m,
-			trafficDepartureRate15m: trafficDepartureRate15m,
-			satSnapshotAge:          satSnapshotAge, satFeedRecords: satFeedRecords,
+			activeConnections:         activeConnections,
+			activeClients:             activeClients,
+			activeMasterClients:       activeMasterClients,
+			messagesReceived:          messagesReceived,
+			messagesSent:              messagesSent,
+			messageBytesReceived:      messageBytesReceived,
+			messageBytesSent:          messageBytesSent,
+			messageSizeBytes:          messageSizeBytes,
+			messageCompletionDuration: messageCompletionDuration,
+			messageQueueDuration:      messageQueueDuration,
+			positionQueueDepth:        positionQueueDepth,
+			messageHandledDuration:    messageHandledDuration,
+			messageDBOperations:       messageDBOperations,
+			messageDBRetries:          messageDBRetries,
+			syncInputStrips:           syncInputStrips,
+			syncInputControllers:      syncInputControllers,
+			syncChangedStrips:         syncChangedStrips,
+			syncChangedControllers:    syncChangedControllers,
+			syncDBOperations:          syncDBOperations,
+			syncDuration:              syncDuration,
+			syncPhaseDuration:         syncPhaseDuration,
+			syncOutcomes:              syncOutcomes,
+			syncFollowUpWork:          syncFollowUpWork,
+			cdmRecalculations:         cdmRecalculations,
+			cdmRecalculationTime:      cdmRecalculationTime,
+			cdmRecalculationStrips:    cdmRecalculationStrips,
+			hubQueueDepth:             hubQueueDepth,
+			hubDispatchDuration:       hubDispatchDuration,
+			hubBroadcastFanout:        hubBroadcastFanout,
+			hubPublishBlocked:         hubPublishBlocked,
+			hubPublishBlockedTime:     hubPublishBlockedTime,
+			hubSlowConsumers:          hubSlowConsumers,
+			hubDispatchAttrs:          buildHubDispatchAttributes(),
+			pdcRequestsReceived:       pdcRequestsReceived,
+			pdcRequestOutcomes:        pdcRequestOutcomes,
+			pdcStateChanges:           pdcStateChanges,
+			trafficOnStand:            trafficOnStand,
+			trafficTaxiing:            trafficTaxiing,
+			trafficArrivalRate15m:     trafficArrivalRate15m,
+			trafficDepartureRate15m:   trafficDepartureRate15m,
+			satSnapshotAge:            satSnapshotAge, satFeedRecords: satFeedRecords,
 			satAssignments: satAssignments, satOutcomes: satOutcomes,
 			satConflicts: satConflicts, satExpirations: satExpirations, satLifecycleEvents: satLifecycleEvents,
 			satReconciliations: satReconciliations, satReconciliationTime: satReconciliationTime, satReconciliationPasses: satReconciliationPasses,
@@ -616,6 +625,9 @@ func MessageHandled(ctx context.Context, sessionName, airport, source, msgType, 
 func messageErrorClass(msgType string, err error) string {
 	if err == nil {
 		return "none"
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return "cancelled"
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
@@ -907,4 +919,15 @@ func RecordTrafficSnapshot(ctx context.Context, sessionName string, airport stri
 	i.trafficTaxiing.Record(ctx, taxiing, attrs)
 	i.trafficArrivalRate15m.Record(ctx, arr15m, attrs)
 	i.trafficDepartureRate15m.Record(ctx, dep15m, attrs)
+}
+
+// MessageCompletion includes queue and global capacity waits, and is emitted
+// only when a handler finishes. Enqueueing is never a successful completion.
+func MessageCompletion(ctx context.Context, session, airport, source, kind string, queued, elapsed time.Duration) {
+	attrs := sessionAttributes(session, airport, attribute.String("source", source), attribute.String("type", kind))
+	get().messageQueueDuration.Record(ctx, queued.Seconds(), attrs)
+	get().messageCompletionDuration.Record(ctx, elapsed.Seconds(), attrs)
+}
+func PositionQueueDepth(ctx context.Context, session, airport string, depth int) {
+	get().positionQueueDepth.Record(ctx, int64(depth), sessionAttributes(session, airport))
 }

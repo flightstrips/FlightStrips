@@ -8,7 +8,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-RUN go build -ldflags '-w -s' -a -o ./bin/api ./cmd/server
+ARG BUILD_VERSION
+RUN go build -ldflags "-w -s -X main.buildVersion=${BUILD_VERSION}" -a -o ./bin/api ./cmd/server
 
 # Final stage
 FROM alpine:latest

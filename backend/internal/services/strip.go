@@ -44,6 +44,7 @@ type StripService struct {
 	arrivalObserver      arrivalPositionObserver
 	holdingObserver      holdingClearanceObserver
 	routeRefreshPending  sync.Map
+	positionTransitions  sync.Map
 }
 
 type departurePositionObserver interface {
@@ -252,7 +253,7 @@ func (s *StripService) ClearMandatoryRouteCdm(ctx context.Context, sessionID int
 func (s *StripService) queueOrSendStripUpdate(ctx context.Context, session int32, callsign string, publish bool) {
 	if publish {
 		if s.publisher != nil {
-			s.publisher.SendStripUpdate(session, callsign)
+			shared.PublishStripUpdate(ctx, s.publisher, session, callsign)
 		}
 		return
 	}
@@ -260,4 +261,13 @@ func (s *StripService) queueOrSendStripUpdate(ctx context.Context, session int32
 	if syncState := shared.GetSyncState(ctx); syncState != nil {
 		syncState.MarkStripUpdate(callsign)
 	}
+}
+
+// Shared operational transitions serialize per session; ordinary position writes
+// and AMAN observations remain independent between aircraft.
+func (s *StripService) positionTransition(session int32) func() {
+	value, _ := s.positionTransitions.LoadOrStore(session, &sync.Mutex{})
+	lock := value.(*sync.Mutex)
+	lock.Lock()
+	return lock.Unlock
 }

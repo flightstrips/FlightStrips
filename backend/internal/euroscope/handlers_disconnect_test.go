@@ -209,6 +209,7 @@ func TestProcessAircraftPosition_DifferentCallsignsDoNotBlockEachOther(t *testin
 		releaseFirst: make(chan struct{}),
 	}
 	client := &Client{hub: newAircraftDisconnectTestHub(stripService), session: 42, airport: "EKCH"}
+	client.hub.master[client.session] = client
 	firstDone := make(chan error, 1)
 	secondDone := make(chan error, 1)
 	released := false
@@ -279,8 +280,8 @@ func TestHandlePositionUpdate_CancelsPendingAircraftDisconnect(t *testing.T) {
 			Callsign: "DLH9HV", Lat: 56, Lon: 13, Altitude: 100,
 		}),
 	})
-	require.NoError(t, err)
-	assert.Equal(t, int32(1), stripService.positionCalls.Load(), "slave position updates must be ignored")
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, int32(1), stripService.positionCalls.Load(), "slave position updates must be fenced")
 }
 
 func TestScheduleAircraftDisconnectResetsExistingWorker(t *testing.T) {
@@ -390,4 +391,75 @@ func TestCancelAircraftDisconnectJoinsInFlightProvenanceClear(t *testing.T) {
 	}
 	assert.False(t, hub.IsAircraftDisconnectPending(42, "SAS810"))
 	assert.Empty(t, frontendHub.AircraftDisconnects)
+}
+
+func TestPositionFenceRejectsWorkAfterMasterRegained(t *testing.T) {
+	service := &aircraftAliveStripService{}
+	hub := newAircraftDisconnectTestHub(service)
+	client := &Client{hub: hub, session: 42, airport: "EKCH"}
+	replacement := &Client{hub: hub, session: 42, airport: "EKCH"}
+	hub.master[42] = client
+	old := client.PositionFence()(context.Background())
+	hub.masterTransitionMu.Lock()
+	hub.masterMu.Lock()
+	hub.clearMasterClientLocked(42)
+	hub.master[42] = replacement
+	hub.masterMu.Unlock()
+	hub.masterTransitionMu.Unlock()
+	hub.masterTransitionMu.Lock()
+	hub.masterMu.Lock()
+	hub.master[42] = client
+	hub.masterMu.Unlock()
+	hub.masterTransitionMu.Unlock()
+	require.ErrorIs(t, client.processAircraftPosition(old, "SAS123", cachedAircraftPosition{}), context.Canceled)
+	require.Zero(t, service.positionCalls.Load())
+	require.NoError(t, client.processAircraftPosition(client.PositionFence()(context.Background()), "SAS123", cachedAircraftPosition{}))
+	require.Equal(t, int32(1), service.positionCalls.Load())
+}
+
+func TestPositionFenceRejectsSlaveReceiptAfterPromotion(t *testing.T) {
+	service := &aircraftAliveStripService{}
+	hub := newAircraftDisconnectTestHub(service)
+	client := &Client{hub: hub, session: 42, airport: "EKCH"}
+	old := client.PositionFence()(context.Background())
+	hub.master[42] = client
+	require.ErrorIs(t, client.processAircraftPosition(old, "SAS123", cachedAircraftPosition{}), context.Canceled)
+	require.Zero(t, service.positionCalls.Load())
+}
+
+func TestQueuedPositionsAreFencedOnDisconnectAndReplacement(t *testing.T) {
+	for _, disconnect := range []bool{false, true} {
+		t.Run(fmt.Sprintf("disconnect=%t", disconnect), func(t *testing.T) {
+			service := &aircraftAliveStripService{}
+			hub := newAircraftDisconnectTestHub(service)
+			hub.positionBudget = make(chan struct{}, 1)
+			hub.positionBudget <- struct{}{}
+			client := &Client{hub: hub, session: 42, airport: "EKCH", closed: make(chan struct{})}
+			replacement := &Client{hub: hub, session: 42, airport: "EKCH"}
+			hub.master[42] = client
+			dispatcher := client.PositionDispatcher()
+			fence := client.PositionFence()
+			results := make(chan error, 2)
+			for i := 0; i < 2; i++ {
+				require.NoError(t, dispatcher.Submit(context.Background(), "42/SAS123", func(ctx context.Context) {
+					results <- client.processAircraftPosition(fence(ctx), "SAS123", cachedAircraftPosition{})
+				}))
+			}
+			if disconnect {
+				require.NoError(t, client.Close())
+			} else {
+				hub.masterTransitionMu.Lock()
+				hub.masterMu.Lock()
+				hub.clearMasterClientLocked(42)
+				hub.master[42] = replacement
+				hub.masterMu.Unlock()
+				hub.masterTransitionMu.Unlock()
+			}
+			<-hub.positionBudget
+			require.NoError(t, dispatcher.Close(context.Background()))
+			require.ErrorIs(t, <-results, context.Canceled)
+			require.ErrorIs(t, <-results, context.Canceled)
+			require.Zero(t, service.positionCalls.Load())
+		})
+	}
 }

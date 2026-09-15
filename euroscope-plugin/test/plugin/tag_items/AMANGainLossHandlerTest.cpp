@@ -6,7 +6,7 @@ using FlightStrips::TagItems::AMANGainLossHandler;
 
 namespace {
     auto Snapshot(bool authoritative = true, std::string status = "fresh",
-                  std::optional<long long> seconds = 90) -> std::shared_ptr<const FlightStrips::aman::GainLossSnapshot> {
+                  std::optional<long long> seconds = 90) -> std::shared_ptr<FlightStrips::aman::GainLossSnapshot> {
         auto snapshot = std::make_shared<FlightStrips::aman::GainLossSnapshot>();
         snapshot->authoritative = authoritative;
         snapshot->byCallsign["SAS123"] = {
@@ -34,6 +34,19 @@ TEST(AMANGainLossHandlerTest, DisplaysFreshAuthoritativeValueByNormalizedCallsig
 TEST(AMANGainLossHandlerTest, RendersNothingUnlessFlightIsArrivalForCurrentAirport) {
     EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "ESSA", "EKCH").text.empty());
     EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "EKCH", "").text.empty());
+}
+
+TEST(AMANGainLossHandlerTest, RendersNothingWhileFlightHasAnActiveTopSkyHold) {
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(true, Snapshot(), "SAS123", "EKCH", "EKCH", true).text.empty());
+}
+
+TEST(AMANGainLossHandlerTest, RendersNothingWhileFlightIsInsideTMA) {
+    auto snapshot = Snapshot();
+    snapshot->byCallsign["SAS123"].insideTMA = true;
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH").text.empty());
+
+    snapshot->byCallsign["SAS123"].seconds = std::nullopt;
+    EXPECT_TRUE(AMANGainLossHandler::Resolve(true, snapshot, "SAS123", "EKCH", "EKCH").text.empty());
 }
 
 TEST(AMANGainLossHandlerTest, ColorsGuidanceByDisplayedLoseMinutes) {

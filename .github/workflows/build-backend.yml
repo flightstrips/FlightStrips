@@ -43,6 +43,8 @@ jobs:
       with:
         context: ./backend
         file: ./backend/Dockerfile
+        build-args: |
+          BUILD_VERSION=${{ github.sha }}
         push: false
         cache-from: type=gha,scope=backend-api
         cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=backend-api' || '' }}

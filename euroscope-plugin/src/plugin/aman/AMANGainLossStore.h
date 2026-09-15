@@ -19,6 +19,7 @@ namespace FlightStrips::aman {
         std::optional<std::string> targetTime;
         std::optional<std::string> predictedTime;
         std::string dataStatus;
+        bool insideTMA = false;
     };
 
     struct GainLossSnapshot {

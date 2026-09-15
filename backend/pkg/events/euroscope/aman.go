@@ -44,6 +44,10 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			FlightId: string(flight.ID), Callsign: callsign, DataStatus: string(flight.DataStatus),
 			StarFamily: cloneString(flight.SelectedSTARFamily), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 		}
+		if flight.TMAEntry != nil {
+			insideTMA := flight.TMAEntry.LastContainment == aman.TMAInside
+			value.InsideTma = &insideTMA
+		}
 		if flight.FeederETA != nil {
 			if flight.FeederETA.ETA != nil {
 				feederETA, formatErr := aman.FormatTime(*flight.FeederETA.ETA)

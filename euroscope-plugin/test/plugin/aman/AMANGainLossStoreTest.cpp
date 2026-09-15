@@ -35,7 +35,9 @@ namespace {
 
 TEST(AMANGainLossStoreTest, ReadsProtobufReplacement) {
     AMANGainLossStore store;
-    store.OnMessages({Bytes(Event(42))});
+    auto event = Event(42);
+    event.mutable_aman_gain_loss()->mutable_values(0)->set_inside_tma(true);
+    store.OnMessages({Bytes(event)});
 
     const auto snapshot = store.Snapshot();
     EXPECT_EQ(snapshot->version, 1);
@@ -45,6 +47,7 @@ TEST(AMANGainLossStoreTest, ReadsProtobufReplacement) {
     EXPECT_EQ(store.FindByCallsign("SAS123")->referencePoint, "ILS-22L-RUNWAY");
     EXPECT_EQ(store.FindByCallsign("SAS123")->targetTime, "2026-09-08T12:10:00Z");
     EXPECT_EQ(store.FindByCallsign("SAS123")->predictedTime, "2026-09-08T12:11:30Z");
+    EXPECT_TRUE(store.FindByCallsign("SAS123")->insideTMA);
 }
 
 TEST(AMANGainLossStoreTest, MatchesCallsignAcrossReconnectAndBackendIdentityChanges) {

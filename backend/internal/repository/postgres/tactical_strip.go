@@ -12,12 +12,14 @@ import (
 )
 
 type tacticalStripRepository struct {
+	pool    *pgxpool.Pool
 	queries *database.Queries
 }
 
 func NewTacticalStripRepository(db *pgxpool.Pool) *tacticalStripRepository {
 	return &tacticalStripRepository{
 		queries: database.New(db),
+		pool:    db,
 	}
 }
 
@@ -214,3 +216,28 @@ func (r *tacticalStripRepository) GetPrevSequenceUnified(ctx context.Context, se
 
 // Compile-time check: ensure pgtype is imported (used in tacticalStripToModel).
 var _ = pgtype.Timestamptz{}
+
+func (r *tacticalStripRepository) CreateAtEndOfBay(ctx context.Context, session int32, kind, bay, label string, aircraft *string, producer string, spacing int32) (*models.TacticalStrip, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, "SELECT id FROM sessions WHERE id=$1 FOR UPDATE", session); err != nil {
+		return nil, err
+	}
+	q := r.queries.WithTx(tx)
+	seq, err := q.GetMaxSequenceInBayUnified(ctx, database.GetMaxSequenceInBayUnifiedParams{Session: session, Bay: bay})
+	if err != nil {
+		return nil, err
+	}
+	bound := &tacticalStripRepository{queries: q}
+	strip, err := bound.Create(ctx, session, kind, bay, label, aircraft, producer, seq+spacing)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return strip, nil
+}

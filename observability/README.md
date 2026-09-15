@@ -107,23 +107,31 @@ snapshots follow tracking ownership too: a non-tracking sender cannot replace
 or clear the stored hold. Deploy the backend and plugin changes together so a
 tracking slave supplies holds rather than relying on the master to relay them.
 
-`aircraft_position_update` uses one message-scoped snapshot for strips,
-controllers, the session and sector owners. The core steady-state path performs
-one strip read, one position write, four route-state reads (coordination,
-session, sector owners and controllers), and one last-seen write: **seven
-database operations**, plus a route-state write only when ownership changes.
-An AMAN-enabled arrival with an established identity normally adds two identity
-queries. Departure stand observation and bay, stand, landing, or coordination
-transitions may perform additional reads and writes. The DB-operation metric is
-counted at the pgx boundary, so these downstream operations remain attributed
-to the originating message. Every path must still reuse or update the original
-strip snapshot; a normal trace should contain exactly one `GetStrip` span.
+`aircraft_position_update` reads a typed strip/stand-assignment snapshot and
+persists position, bay and `euroscope_seen_at` synchronously. The routine budget
+is **two database operations**, or **three with an established AMAN identity**.
+Unchanged stand-conflict evaluation may add one read. Genuine transitions,
+identity changes and optimistic retries have separate budgets. Routine movement
+inside the same routing region does not reload route state; failed refreshes
+remain pending for a later report.
 
-The Backend dashboard shows position-update P50/P95/P99. The Performance
-dashboard shows its total handler time and attributed DB-operation rate. Use
-those panels together with query spans to compare releases; compare like traffic
-classes against the stage budgets above. Repeated `GetStrip` spans indicate
-renewed fan-out.
+The Performance dashboard separates completion latency (socket receipt through
+persistence and synchronous effects), queue delay, completed messages/sec and
+sampled queue depth. Existing handler-duration sums measure accumulated wall
+seconds across handlers; concurrent handlers can accumulate more than one
+second per second. They are neither per-message latency nor CPU utilisation.
+DB operations count actual pgx calls, including transactions and synchronous
+publication reads. Traces use `OTEL_SERVICE_VERSION`, or embedded git revision
+with a dirty suffix when available, instead of a fixed release string.
+
+Production remains sequential until the load gates in
+[the position performance runbook](../docs/position-performance.md) pass.
+`POSITION_CONCURRENCY_ENABLED=true` selects four workers per connection;
+`POSITION_WORKERS_PER_CLIENT=1` restores sequential dispatch while retaining DB
+improvements. The shared position limit is eight, reduced for pool headroom.
+Every dedicated report is processed without coalescing, with per-aircraft FIFO,
+a 256-pending-report connection limit, and operational-message barriers.
+
 Failed handler samples carry the bounded `error_class` label, including
 `serialization_conflict`, `deadlock`, `missing_row`, and `coordination`, so
 terminal failures can be counted without parsing log messages. Successfully

@@ -65,7 +65,7 @@ func (s *StripService) CreateManualFPL(ctx context.Context, session int32, req f
 	}
 
 	// Broadcast full strip update to all frontend clients.
-	s.publisher.SendStripUpdate(session, req.Callsign)
+	shared.PublishStripUpdate(ctx, s.publisher, session, req.Callsign)
 
 	// Notify EuroScope so it can create the FPL in its session.
 	s.esCommander.SendCreateFPL(session, cid, euroscope.CreateFPLEvent{
@@ -119,7 +119,7 @@ func (s *StripService) CreateVFRFPL(ctx context.Context, session int32, req fron
 	}
 
 	// Broadcast full strip update to all frontend clients.
-	s.publisher.SendStripUpdate(session, req.Callsign)
+	shared.PublishStripUpdate(ctx, s.publisher, session, req.Callsign)
 
 	// Notify EuroScope.
 	s.esCommander.SendCreateFPL(session, cid, euroscope.CreateFPLEvent{

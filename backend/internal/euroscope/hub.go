@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	gorilla "github.com/gorilla/websocket"
@@ -41,6 +42,9 @@ const (
 )
 
 type Hub struct {
+	done                  chan struct{}
+	draining              atomic.Bool
+	positionBudget        chan struct{}
 	server                shared.Server
 	stripService          shared.StripService
 	controllerService     shared.ControllerService
@@ -63,7 +67,7 @@ type Hub struct {
 	unregister chan *Client
 
 	masterMu           sync.RWMutex
-	masterTransitionMu sync.Mutex
+	masterTransitionMu sync.RWMutex
 	master             map[int32]*Client
 	masterCallsigns    sync.Map // map[int32]string — concurrent-safe callsign of master per session
 	masterCids         sync.Map // map[int32]string — concurrent-safe CID of master per session
@@ -202,6 +206,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	hub := &Hub{
 		register:                    make(chan *Client),
 		unregister:                  make(chan *Client),
+		done:                        make(chan struct{}),
 		clients:                     make(map[*Client]bool),
 		send:                        make(chan internalMessage, hubSendQueueSize),
 		master:                      make(map[int32]*Client),
@@ -239,11 +244,19 @@ func (hub *Hub) RegisterPDCHandlers(service shared.PdcService) error {
 }
 
 func (hub *Hub) Register(client *Client) {
-	hub.register <- client
+	select {
+	case hub.register <- client:
+	case <-hub.done:
+		_ = client.Close()
+	}
 }
 
 func (hub *Hub) Unregister(client *Client) {
-	hub.unregister <- client
+	select {
+	case hub.unregister <- client:
+	case <-hub.done:
+		_ = client.Close()
+	}
 }
 
 func (hub *Hub) Broadcast(session int32, message euroscope.OutgoingMessage) {
@@ -283,13 +296,19 @@ func (hub *Hub) Send(session int32, cid string, message euroscope.OutgoingMessag
 // a plain channel send.
 func (hub *Hub) publish(message internalMessage) {
 	select {
+	case <-hub.done:
+		return
 	case hub.send <- message:
 		return
 	default:
 	}
 
 	started := time.Now()
-	hub.send <- message
+	select {
+	case hub.send <- message:
+	case <-hub.done:
+		return
+	}
 	metrics.RecordHubPublishBlocked(context.Background(), hubSource, time.Since(started))
 }
 
@@ -470,6 +489,11 @@ func (hub *Hub) GetServer() shared.Server {
 
 func (hub *Hub) SetServer(server shared.Server) {
 	hub.server = server
+	capacity := 8
+	if pool := server.GetDatabasePool(); pool != nil {
+		capacity = min(capacity, max(1, int(pool.Config().MaxConns)-2))
+	}
+	hub.positionBudget = make(chan struct{}, capacity)
 }
 
 func (hub *Hub) SetControllerService(controllerService shared.ControllerService) {
@@ -477,6 +501,9 @@ func (hub *Hub) SetControllerService(controllerService shared.ControllerService)
 }
 
 func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.AuthenticatedUser, authenticationEvent events.AuthenticationEvent) (*Client, error) {
+	if hub.draining.Load() {
+		return nil, context.Canceled
+	}
 	slog.Debug("Euroscope client connected", slog.String("cid", user.GetCid()))
 	// Read the login message
 	frameType, msg, err := conn.ReadMessage()
@@ -737,6 +764,7 @@ func (hub *Hub) setMasterClientLocked(client *Client) {
 	}
 
 	if current, ok := hub.master[client.session]; ok && current != nil {
+		current.positionEpoch.Add(1)
 		currentIdentity := current.identitySnapshot()
 		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, currentIdentity.callsign, current.version)
 	}
@@ -956,6 +984,7 @@ func (hub *Hub) clearMasterClient(session int32) {
 
 func (hub *Hub) clearMasterClientLocked(session int32) {
 	if current, ok := hub.master[session]; ok && current != nil {
+		current.positionEpoch.Add(1)
 		identity := current.identitySnapshot()
 		metrics.MasterClientCleared(context.Background(), current.sessionName, current.airport, identity.callsign, current.version)
 	}
@@ -1364,11 +1393,18 @@ func (hub *Hub) BroadcastCdmUpdates(session int32, events []euroscope.CdmUpdateE
 }
 
 func (hub *Hub) Run(ctx context.Context) {
+	if hub.done != nil {
+		defer close(hub.done)
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case client := <-hub.register:
+			if hub.draining.Load() {
+				_ = client.Close()
+				continue
+			}
 			hub.clientsMu.Lock()
 			hub.clients[client] = true
 			hub.clientsMu.Unlock()
@@ -1465,4 +1501,21 @@ func (hub *Hub) StopRecording(sessionID int32) error {
 func (hub *Hub) IsRecording(sessionID int32) bool {
 	_, ok := hub.recorders[sessionID]
 	return ok
+}
+
+// DrainPositions stops socket ingestion and drains all clients under one shared
+// five-second deadline, while the hub and database remain available.
+func (hub *Hub) DrainPositions(ctx context.Context) error {
+	hub.draining.Store(true)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var workers sync.WaitGroup
+	for _, client := range hub.clientsSnapshot() {
+		client.draining.Store(true)
+		client.stopPendingPositionUpdates()
+		workers.Add(1)
+		go func(c *Client) { defer workers.Done(); _ = c.PositionDispatcher().Close(ctx); _ = c.Close() }(client)
+	}
+	workers.Wait()
+	return ctx.Err()
 }

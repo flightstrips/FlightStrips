@@ -4,7 +4,9 @@ import (
 	"FlightStrips/internal/database"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/repository"
+	"FlightStrips/internal/shared"
 	"context"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -13,7 +15,8 @@ import (
 )
 
 type standAssignmentRepository struct {
-	queries *database.Queries
+	transactional bool
+	queries       *database.Queries
 }
 
 // NewStandAssignmentRepository creates a repository for SAT assignments and
@@ -120,6 +123,7 @@ func standBlockParams(block *models.StandBlock) database.CreateStandBlockParams 
 }
 
 func (r *standAssignmentRepository) CreateAssignment(ctx context.Context, assignment *models.StandAssignment) error {
+	shared.InvalidatePositionAssignment(ctx)
 	created, err := r.queries.CreateStandAssignment(ctx, standAssignmentParams(assignment))
 	if err != nil {
 		return err
@@ -129,6 +133,15 @@ func (r *standAssignmentRepository) CreateAssignment(ctx context.Context, assign
 }
 
 func (r *standAssignmentRepository) GetAssignment(ctx context.Context, session int32, callsign string) (*models.StandAssignment, error) {
+	if !r.transactional {
+		if state := shared.GetWebsocketMessageState(ctx); state != nil && state.AssignmentLoaded && state.AssignmentSession == session && strings.EqualFold(state.AssignmentCallsign, callsign) {
+			if state.Assignment == nil {
+				return nil, pgx.ErrNoRows
+			}
+			copy := *state.Assignment
+			return &copy, nil
+		}
+	}
 	assignment, err := r.queries.GetStandAssignment(ctx, database.GetStandAssignmentParams{SessionID: session, Callsign: callsign})
 	if err != nil {
 		return nil, err
@@ -164,6 +177,7 @@ func (r *standAssignmentRepository) LockAssignments(ctx context.Context, session
 }
 
 func (r *standAssignmentRepository) UpdateAssignment(ctx context.Context, assignment *models.StandAssignment) (int64, error) {
+	shared.InvalidatePositionAssignment(ctx)
 	return r.queries.UpdateStandAssignment(ctx, database.UpdateStandAssignmentParams{
 		ID:                 assignment.ID,
 		SessionID:          assignment.SessionID,
@@ -192,6 +206,7 @@ func (r *standAssignmentRepository) UpdateAssignment(ctx context.Context, assign
 }
 
 func (r *standAssignmentRepository) DeleteAssignment(ctx context.Context, session int32, id int64, version int32) (int64, error) {
+	shared.InvalidatePositionAssignment(ctx)
 	return r.queries.DeleteStandAssignment(ctx, database.DeleteStandAssignmentParams{ID: id, SessionID: session, Version: version})
 }
 
@@ -268,7 +283,7 @@ func (r *standAssignmentRepository) DeleteBlock(ctx context.Context, session int
 
 // WithTx returns a repository backed by the supplied transaction.
 func (r *standAssignmentRepository) WithTx(tx pgx.Tx) repository.StandAssignmentRepository {
-	return &standAssignmentRepository{queries: r.queries.WithTx(tx)}
+	return &standAssignmentRepository{queries: r.queries.WithTx(tx), transactional: true}
 }
 
 var _ repository.StandAssignmentRepository = (*standAssignmentRepository)(nil)

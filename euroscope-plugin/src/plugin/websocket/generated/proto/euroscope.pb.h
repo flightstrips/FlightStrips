@@ -9609,6 +9609,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     kFeederFixEtaSourceFieldNumber = 12,
     kGainLossSecondsFieldNumber = 3,
     kFeederFixPassedFieldNumber = 13,
+    kInsideTmaFieldNumber = 14,
   };
   // string flight_id = 1;
   void clear_flight_id() ;
@@ -9816,12 +9817,23 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
   void _internal_set_feeder_fix_passed(bool value);
 
   public:
+  // optional bool inside_tma = 14;
+  bool has_inside_tma() const;
+  void clear_inside_tma() ;
+  bool inside_tma() const;
+  void set_inside_tma(bool value);
+
+  private:
+  bool _internal_inside_tma() const;
+  void _internal_set_inside_tma(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.euroscope.v1.AMANGainLossValue)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 13, 0,
+      4, 14, 0,
       195, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -9852,6 +9864,7 @@ class AMANGainLossValue final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr feeder_fix_eta_source_;
     ::int64_t gain_loss_seconds_;
     bool feeder_fix_passed_;
+    bool inside_tma_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -29728,6 +29741,34 @@ inline bool AMANGainLossValue::_internal_feeder_fix_passed() const {
 inline void AMANGainLossValue::_internal_set_feeder_fix_passed(bool value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.feeder_fix_passed_ = value;
+}
+
+// optional bool inside_tma = 14;
+inline bool AMANGainLossValue::has_inside_tma() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000400u) != 0;
+  return value;
+}
+inline void AMANGainLossValue::clear_inside_tma() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.inside_tma_ = false;
+  _impl_._has_bits_[0] &= ~0x00000400u;
+}
+inline bool AMANGainLossValue::inside_tma() const {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.AMANGainLossValue.inside_tma)
+  return _internal_inside_tma();
+}
+inline void AMANGainLossValue::set_inside_tma(bool value) {
+  _internal_set_inside_tma(value);
+  _impl_._has_bits_[0] |= 0x00000400u;
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.AMANGainLossValue.inside_tma)
+}
+inline bool AMANGainLossValue::_internal_inside_tma() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.inside_tma_;
+}
+inline void AMANGainLossValue::_internal_set_inside_tma(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.inside_tma_ = value;
 }
 
 // -------------------------------------------------------------------

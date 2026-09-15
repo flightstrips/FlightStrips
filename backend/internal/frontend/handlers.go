@@ -556,20 +556,25 @@ func handleCreateTacticalStrip(ctx context.Context, client *Client, message Mess
 		return errors.New("tactical strip repository not available")
 	}
 
-	maxSeq, err := tacticalRepo.GetMaxSequenceInBayUnified(ctx, client.session, req.Bay)
-	if err != nil {
-		return err
-	}
-
-	sequence := maxSeq + 1000 // InitialOrderSpacing
-
 	var aircraft *string
 	if req.Aircraft != "" {
 		a := req.Aircraft
 		aircraft = &a
 	}
 
-	ts, err := tacticalRepo.Create(ctx, client.session, req.StripType, req.Bay, req.Label, aircraft, client.position, sequence)
+	var ts *internalModels.TacticalStrip
+	var err error
+	if appender, ok := tacticalRepo.(interface {
+		CreateAtEndOfBay(context.Context, int32, string, string, string, *string, string, int32) (*internalModels.TacticalStrip, error)
+	}); ok {
+		ts, err = appender.CreateAtEndOfBay(ctx, client.session, req.StripType, req.Bay, req.Label, aircraft, client.position, 1000)
+	} else {
+		var maxSeq int32
+		maxSeq, err = tacticalRepo.GetMaxSequenceInBayUnified(ctx, client.session, req.Bay)
+		if err == nil {
+			ts, err = tacticalRepo.Create(ctx, client.session, req.StripType, req.Bay, req.Label, aircraft, client.position, maxSeq+1000)
+		}
+	}
 	if err != nil {
 		return err
 	}

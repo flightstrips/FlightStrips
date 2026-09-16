@@ -5,6 +5,10 @@ position and EuroScope presence synchronously. The default path persists reports
 individually; an opt-in database batch prototype is described below. No
 cross-message strip/stand/identity cache is introduced.
 
+The [event update audit](performance/2026-09-16/event-update-audit.md) and
+[follow-up fixes](performance/2026-09-16/event-update-fixes.md) cover publication,
+validation, AMAN facts and PDC work beyond position persistence.
+
 ## Experimental database batches
 
 `POSITION_DB_BATCHING_ENABLED=true` enables database batching independently of

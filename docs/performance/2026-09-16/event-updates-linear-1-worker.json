@@ -1,0 +1,128 @@
+{
+  "arrival_percent": 50,
+  "average_db_operations": 0.2798333333333333,
+  "average_ms": 3.782510416666747,
+  "average_pool_wait_ms": 0.0018660749999999998,
+  "average_processing_ms": 3.5430403500000613,
+  "average_queue_ms": 0.23867892500000126,
+  "batch_aman_identity_groups": 301,
+  "batch_aman_identity_max_size": 18,
+  "batch_aman_identity_mean_ms": 0.7117401993355482,
+  "batch_aman_identity_mean_size": 17.88704318936877,
+  "batch_persist_groups": 604,
+  "batch_persist_max_size": 20,
+  "batch_persist_mean_ms": 1.3510423841059593,
+  "batch_persist_mean_size": 19.83112582781457,
+  "batch_snapshot_groups": 604,
+  "batch_snapshot_max_size": 20,
+  "batch_snapshot_mean_ms": 1.0863329470198675,
+  "batch_snapshot_mean_size": 19.867549668874172,
+  "burst_drain_ms": 0.5122,
+  "completed": 15200,
+  "control_placement": "interleaved",
+  "cpus": 16,
+  "duration": "2m0s",
+  "errors": 0,
+  "go": "go1.25.7",
+  "max_batch_completion_ms": 86.9582,
+  "max_outstanding": 100,
+  "observed_events": {
+    "aman.coordination_state": 1,
+    "bay": 18,
+    "bay:AIRBORNE": 41,
+    "bay:ARR_HIDDEN": 2,
+    "bay:DEPART": 2,
+    "bay:FINAL": 294,
+    "bay:NOT_CLEARED": 271,
+    "bay:PUSH": 12,
+    "bay:TWY_ARR": 43,
+    "cdm_data": 2,
+    "heading": 650,
+    "initial": 1,
+    "landing": 48,
+    "marked": 130,
+    "stand:DEPARTURE_BLOCK": 100,
+    "stand:ESTIMATED": 820,
+    "stand:RESERVED": 45,
+    "stand_assignment_removed": 10,
+    "stand_status_snapshot": 20,
+    "strip_update": 647
+  },
+  "operational_errors": 0,
+  "operational_pattern": "five controls interleaved within each one-second position batch",
+  "other_message_processing": {
+    "ground_state": {
+      "count": 4,
+      "mean_ms": 24.087675,
+      "mean_queries": 43.75,
+      "p95_ms": 41.1373,
+      "p99_ms": 41.1373,
+      "total_ms": 96.3507,
+      "total_queries": 175
+    },
+    "heading": {
+      "count": 600,
+      "mean_ms": 2.781876666666668,
+      "mean_queries": 2,
+      "p95_ms": 4.1784,
+      "p99_ms": 5.2169,
+      "total_ms": 1669.1260000000009,
+      "total_queries": 1200
+    },
+    "marked": {
+      "count": 120,
+      "mean_ms": 0.8450624999999996,
+      "mean_queries": 1,
+      "p95_ms": 1.252,
+      "p99_ms": 1.6214,
+      "total_ms": 101.40749999999996,
+      "total_queries": 120
+    }
+  },
+  "p95_batch_completion_ms": 42.2765,
+  "p95_ms": 5.3101,
+  "p95_scheduled_completion_ms": 36.1046,
+  "p99_ms": 11.7662,
+  "p99_processing_ms": 11.2191,
+  "p99_queue_ms": 0.7911,
+  "p99_scheduled_completion_ms": 60.2346,
+  "platform": "windows/amd64",
+  "pool_max_connections": 16,
+  "position_db_batching": true,
+  "position_sql_stages": {
+    "aman_identity": {
+      "count": 20,
+      "mean_ms": 0.39019999999999994,
+      "total_ms": 7.8039999999999985
+    },
+    "batch_aman_identity": {
+      "count": 301,
+      "mean_ms": 0.6957,
+      "total_ms": 209.4057
+    },
+    "batch_snapshot": {
+      "count": 604,
+      "mean_ms": 0.873488907284768,
+      "total_ms": 527.5872999999999
+    },
+    "batch_update": {
+      "count": 604,
+      "mean_ms": 0.7658403973509932,
+      "total_ms": 462.5675999999999
+    },
+    "other": {
+      "count": 1829,
+      "mean_ms": 0.3686769819573532,
+      "total_ms": 674.310199999999
+    }
+  },
+  "position_workers": "1",
+  "postgres": "PostgreSQL 16.11 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "release": "cc3dcb13",
+  "samples": 12000,
+  "sender_p99_lag_ms": 2.1567,
+  "sent": 15200,
+  "topology": "isolated local Docker PostgreSQL; Docker-managed storage; Windows loopback; CPU and storage not production-equivalent",
+  "traffic_pattern": "second-burst",
+  "warmup": "10s"
+}

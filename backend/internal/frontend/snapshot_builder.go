@@ -433,6 +433,33 @@ func enrichStandAssignmentBlocking(entries []frontendEvents.StandAssignmentEntry
 	}
 }
 
+// Single-strip publications only need this entry's conflicts. The full
+// snapshot still enriches every pair, but doing that here would be quadratic
+// work for each heading/altitude update.
+func enrichPublishedStandAssignment(entry frontendEvents.StandAssignmentEntry, all []frontendEvents.StandAssignmentEntry, airport string) frontendEvents.StandAssignmentEntry {
+	registry := config.GetStandCapabilities()
+	withBlocks := func(value frontendEvents.StandAssignmentEntry) frontendEvents.StandAssignmentEntry {
+		if stand, ok := registry.Lookup(airport, value.Stand); ok {
+			value.Blocks = append([]string(nil), stand.Blocks...)
+		}
+		if value.Blocks == nil {
+			value.Blocks = []string{}
+		}
+		return value
+	}
+	entry = withBlocks(entry)
+	entry.BlockedBy = []string{}
+	for _, other := range all {
+		if other.Callsign == entry.Callsign {
+			continue
+		}
+		if standAssignmentsOperationallyConflict(entry, withBlocks(other)) {
+			entry.BlockedBy = append(entry.BlockedBy, other.Callsign)
+		}
+	}
+	return entry
+}
+
 func standAssignmentsOperationallyConflict(left, right frontendEvents.StandAssignmentEntry) bool {
 	leftStand, rightStand := strings.TrimSpace(left.Stand), strings.TrimSpace(right.Stand)
 	if leftStand == "" || rightStand == "" {

@@ -22,7 +22,7 @@ func TestStripPublicationSnapshot(t *testing.T) {
 		testdata.SeedTestStrip(t, q, session, name)
 	}
 	testdata.SeedTestStrip(t, q, otherSession, "PUB1")
-	_, err := pool.Exec(ctx, `INSERT INTO controllers (session, callsign, position, cid, last_seen_euroscope, observer) VALUES ($1, 'EKCH_GND', '121.900', '123', NOW(), false)`, session)
+	_, err := pool.Exec(ctx, `INSERT INTO controllers (session, callsign, position, cid, last_seen_euroscope, observer) VALUES ($1, 'EKCH_GND', '121.900', '123', NOW(), false), ($1, 'EKCH_APP', '119.800', '456', NOW(), false)`, session)
 	require.NoError(t, err)
 	r := NewStripRepository(pool)
 	strip, err := r.GetByCallsign(ctx, session, "PUB1")
@@ -48,7 +48,7 @@ func TestStripPublicationSnapshot(t *testing.T) {
 	require.Equal(t, wantSession, snapshot.Session)
 	wantControllers, err := NewControllerRepository(pool).ListBySession(ctx, session)
 	require.NoError(t, err)
-	require.ElementsMatch(t, wantControllers, snapshot.Controllers)
+	require.Equal(t, wantControllers, snapshot.Controllers, "preserve controller ordering when frequencies overlap")
 	wantOwners, err := NewSectorOwnerRepository(pool).ListBySession(ctx, session)
 	require.NoError(t, err)
 	require.ElementsMatch(t, wantOwners, snapshot.SectorOwners)

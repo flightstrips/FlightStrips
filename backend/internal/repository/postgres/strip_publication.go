@@ -23,10 +23,10 @@ type stripPublicationRow struct {
 func (r *stripRepository) GetStripPublicationSnapshot(ctx context.Context, session int32, callsign string) (*models.StripPublicationSnapshot, error) {
 	rows, err := r.db.Query(ctx, `-- strip publication snapshot
 SELECT s.*, to_jsonb(se) AS publication_session,
- (SELECT COALESCE(jsonb_agg(c ORDER BY c.id), '[]') FROM controllers c WHERE c.session=s.session) AS controllers,
+ (SELECT COALESCE(jsonb_agg(c ORDER BY c.callsign), '[]') FROM controllers c WHERE c.session=s.session) AS controllers,
  (SELECT COALESCE(jsonb_agg(o ORDER BY o.id), '[]') FROM sector_owners o WHERE o.session=s.session) AS sector_owners,
  CASE WHEN EXISTS (SELECT 1 FROM stand_assignments a WHERE a.session_id=s.session AND a.callsign=s.callsign)
- THEN (SELECT COALESCE(jsonb_agg(a ORDER BY a.id), '[]') FROM stand_assignments a WHERE a.session_id=s.session)
+ THEN (SELECT COALESCE(jsonb_agg(a ORDER BY a.callsign), '[]') FROM stand_assignments a WHERE a.session_id=s.session)
  ELSE '[]'::jsonb END AS assignments,
  EXISTS (SELECT 1 FROM coordinations c WHERE c.session=s.session AND c.strip_id=s.id) AS coordination_pending
 FROM strips s JOIN sessions se ON se.id=s.session

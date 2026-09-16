@@ -909,13 +909,7 @@ func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, calls
 					entries = append(entries, mapStandAssignmentEntry(item))
 				}
 			}
-			enrichStandAssignmentBlocking(entries, clientAirport(strip, assignment.Direction))
-			for _, candidate := range entries {
-				if candidate.Callsign == callsign {
-					entry = candidate
-					break
-				}
-			}
+			entry = enrichPublishedStandAssignment(entry, entries, clientAirport(strip, assignment.Direction))
 			model.StandAssignment = &entry
 		}
 	}

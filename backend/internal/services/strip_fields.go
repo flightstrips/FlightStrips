@@ -246,7 +246,7 @@ func (s *StripService) UpdateGroundState(ctx context.Context, session int32, cal
 		return err
 	}
 	if existingStrip.Bay != bay {
-		if err := s.MoveToBay(context.Background(), session, callsign, bay, true); err != nil {
+		if err := s.MoveToBay(ctx, session, callsign, bay, true); err != nil {
 			return err
 		}
 	}

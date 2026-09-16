@@ -142,16 +142,14 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 					attribute.Int("session", int(client.GetSession())),
 				),
 			)
-			var dbCounter *shared.DBOperationCounter
 			if shouldTrackMessageDBOperations(client.GetSource(), msgType) {
-				autoCount := msgType == "aircraft_position_update" || msgType == "strip_update"
 				ctx = shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{
-					MessageType: msgType, AutoCountDBOperations: autoCount,
+					MessageType: msgType, AutoCountDBOperations: true,
 				})
-				if autoCount {
-					ctx, dbCounter = shared.WithDBOperationCounter(ctx)
-				}
 			}
+			// Count physical statements for every event without enabling mutable
+			// message caches in handlers that have not audited cache invalidation.
+			ctx, dbCounter := shared.WithDBOperationCounter(ctx)
 
 			handlers := hub.GetMessageHandlers()
 			start := time.Now()
@@ -162,11 +160,10 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 			if err == nil {
 				err = handlers.Handle(ctx, client, parsedMessage)
 			}
+			operations := dbCounter.Finish()
+			metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), operations)
 			if state := shared.GetWebsocketMessageState(ctx); state != nil {
-				if dbCounter != nil {
-					state.DBOperations = dbCounter.Finish()
-				}
-				metrics.MessageDBOperations(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBOperations)
+				state.DBOperations = operations
 				metrics.MessageDBRetries(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), state.DBRetries)
 			}
 			metrics.MessageHandled(ctx, client.GetSessionName(), client.GetAirport(), client.GetSource(), msgType, client.GetVersion(), time.Since(start), err)

@@ -7,21 +7,37 @@ cross-message strip/stand/identity cache is introduced.
 
 ## Experimental database batches
 
-`POSITION_DB_BATCHING_ENABLED=true` enables a prototype when more than one
-position worker is configured. It remains off by default. The dispatcher groups
-already-ready distinct aircraft up to the existing per-client worker limit and
-available backend-wide report slots. It retains FIFO, operational barriers,
-backpressure, authority fences and shutdown accounting. A slow aircraft does not
-prevent spare worker slots from serving other aircraft.
+`POSITION_DB_BATCHING_ENABLED=true` enables database batching independently of
+`POSITION_WORKERS_PER_CLIENT`, including its default of one. It remains off by
+default. The dispatcher collects up to 100 distinct aircraft during a bounded
+one-millisecond window, flushing immediately when an operational barrier arrives
+or the group fills. It never waits for the next one-second radar tick.
+
+Batch membership is separate from active execution: reports yield their slot
+while waiting for a shared snapshot or write, and the physical SQL batch takes
+one slot. Lifecycle processing retains the configured per-client limit and the
+existing backend-wide pool budget. With one worker, lifecycle work remains
+sequential. Up to 100 report continuations can wait inside a batch; they count
+toward the pending-work bound beyond the configured execution slots. There is no
+additional pool reservation per batch member.
+
+Reports also release their slot while acquiring the outer master-transition and
+aircraft locks. Otherwise a later report blocked behind a master-change writer
+could prevent an earlier reader from resuming its batch and releasing the fence.
+Authority is still rechecked after acquiring the fence, which stays held through
+persistence and lifecycle processing. FIFO, operational barriers, backpressure,
+authority epochs and completion accounting are retained.
 
 Reports in a group can share their first snapshot SELECT and version-guarded
 position/presence UPDATE. Each report still waits for persistence, then runs its
 existing route/stand/AMAN/publication logic. Bay-append transitions retain their
-session-locked transaction. Missing strips and conversion errors are returned
+session-locked transaction. Once a transition lock is acquired, the rest of that
+report (including conflict retries) bypasses batching so it cannot yield an
+execution slot while holding a lock needed by its peers. Missing strips and conversion errors are returned
 per report; version conflicts take the existing bounded fresh-snapshot retry.
 Deadlock/serialization aborts of a bulk write use that same individual retry.
 
-A rendezvous flushes when participants arrive or leave, with a one-millisecond
+A rendezvous flushes when participants arrive or leave, with a five-millisecond
 backstop for a participant blocked behind a master-change writer or another
 lock. Late participants and retries use the ordinary path. Single-report groups
 also use the ordinary path. The batch scope is discarded when its jobs finish.
@@ -33,12 +49,12 @@ Tracing links each combined query span to its participating reports and counts
 the physical database operations once, including transaction overhead. Load
 reports record actual batch sizes and query durations.
 
-The production pool of four permits only two simultaneous reports under the
-reserved-connection rule. This prototype does not change that limit or production
+The production pool of four permits only two simultaneous execution slots under
+the reserved-connection rule. A batch of 100 can use one of those slots. This prototype does not change that limit or production
 configuration. Any enablement requires measured benefit and passing correctness
 and latency gates; batching is not assumed to be faster.
 
-### Prototype measurements
+### Earlier worker-sized prototype measurements
 
 The paired four- and eight-worker runs used the same once-per-second mixed workload, local
 PostgreSQL pool of 16, ten-second warm-up and two-minute measurement, followed by
@@ -61,21 +77,82 @@ At eight workers, about 33% of reports joined bulk writes averaging 2.87 reports
 transaction duration averaged 1.58 ms. It reduced database operations further but
 still increased latency compared with the same worker count without batching.
 
-The measured limitation is batch formation within the handler-worker budget:
-most reports still take individual paths, while small batches add transaction
-and coordination overhead. A subsequent experiment should separate SQL batch
-size from handler concurrency, preparing a larger run of independent positions
-before an operational barrier and bounding subsequent lifecycle work separately.
-That requires another correctness review; these measurements do not establish
-that the wider-batch design meets the target. The current prototype adds no
-cross-message operational cache or background database synchronization.
+Those measurements motivated the larger-batch implementation above. They do not
+measure the revised implementation or establish that it meets the latency gates.
+
+### Larger-batch diagnostics (2026-09-16)
+
+The load tool now also accepts `POSITION_LOAD_CONTROLS=after-burst`: all 100
+positions precede the five heading messages within the same second. The default
+`interleaved` retains one heading after every 20 positions. Real lifecycle
+messages retain their wire order in either variant. These are two different
+workloads, not interchangeable benchmark results: operational barriers limit
+the default workload to groups of at most 20, even with a configured capacity of
+100. Reports record actual mean and maximum SQL batch sizes.
+
+The final implementation is committed as `1d205c18`. Sequential diagnostic runs
+used one worker, local Windows/Docker PostgreSQL 16.11, pool size 16, ten seconds
+of warm-up and two minutes of measurement, followed by ten seconds at 200/sec and
+two seconds of recovery. CPU utilization and memory use were not sampled. These
+are local diagnostics, not production-equivalent acceptance runs.
+
+| Configuration | P95 from sender | P99 from sender | DB operations/report | Mean bulk write size |
+|---|---:|---:|---:|---:|
+| [Batching off, interleaved controls](performance/2026-09-16/large-batch-off-1-worker.json) | 141.10 ms | 154.81 ms | 2.501 | — |
+| [Batching on, interleaved controls](performance/2026-09-16/large-batch-on-1-worker.json) | 63.45 ms | 69.68 ms | 0.703 | 19.80 |
+| [Batching on, controls after positions](performance/2026-09-16/large-batch-after-burst-1-worker.json) | 47.53 ms | 63.42 ms | 0.628 | 41.81 |
+
+Each run completed exactly 15,200 reports with zero position or operational
+errors. Lifecycle assertions and burst drainage passed; every measured one-second
+burst finished before the next second. **All latency gates failed.** The 15-minute
+acceptance runs and traffic-mix gates have not been claimed or repeated for this
+version because the short mixed-fleet run already fails the latency target. The
+overload phase currently contains position traffic only; operational messages
+are interleaved during warm-up and measurement.
+
+The after-burst run reached 100-report SQL batches, but arrival timing, the short
+collection window and real lifecycle barriers split many bursts into smaller
+groups. A previous [one-millisecond stage deadline](performance/2026-09-16/large-batch-short-timeout-after-burst.json)
+flushed too early: only 30.19 reports per bulk write, 1.404 DB operations/report,
+and P95/P99 87.11/97.55 ms. The five-millisecond correctness backstop allows more
+members to join while still bounding waits for a blocked or nonparticipating job.
+
+The final interleaved run's remaining position SQL time is dominated by 5,404
+AMAN identity reads averaging 0.372 ms (54% of position SQL time). Its 600 heading
+handlers average 3.54 ms of actual processing each, excluding barrier waits;
+interleaving them adds that synchronous work between position groups. The
+remaining limiting work is individual identity lookups and operational handlers,
+not pool acquisition (mean position pool wait 0.0024 ms). SQL time sums and handler
+time sums are diagnostic work totals, not additive latency percentiles. PostgreSQL
+remains authoritative; these measurements do not establish a need for in-memory
+persistence or additional handler concurrency.
+
+To exercise this path, use `POSITION_DB_BATCHING_ENABLED=true`,
+`POSITION_WORKERS_PER_CLIENT=1`, `POSITION_LOAD_PATTERN=second-burst`, and
+`POSITION_LOAD_CONTROLS=interleaved` (then repeat with `after-burst`).
+
+Correctness validation passed with batching enabled and one worker:
+
+- Full PostgreSQL-backed suite: `go run ./internal/testing/testdb ./...`.
+- PostgreSQL-backed race tests for `internal/shared`, `internal/euroscope`,
+  `internal/repository/postgres`, `internal/services`, and `internal/websocket`.
+- A 100-report regression test uses one execution slot and exactly four physical
+  operations: one snapshot SELECT plus BEGIN, UPDATE and COMMIT. It extends only
+  the test's rendezvous deadline to avoid timing sensitivity under the race detector.
+- Focused coverage includes master-change lock ordering, cancellation during
+  budget acquisition, and transition conflicts whose retries must bypass batching.
+
+The default remains disabled pending the latency and production-equivalent
+acceptance gates. No production configuration or dashboard changes accompany
+this experiment.
 
 ## Rollout
 
 Leave concurrency disabled until correctness and production-equivalent load
 gates pass. The default is one worker. Set `POSITION_CONCURRENCY_ENABLED=true`
 to select four workers per client; `POSITION_WORKERS_PER_CLIENT=1` restores
-sequential execution without reverting database improvements. An explicit
+sequential active execution without reverting database improvements. To restore
+individual report dispatch as well, disable `POSITION_DB_BATCHING_ENABLED`. An explicit
 `POSITION_WORKERS_PER_CLIENT` accepts 1 through 8 and overrides the default.
 
 The backend limit is `min(8, pool_max_conns - 2)`. Pools must configure at least

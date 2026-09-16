@@ -1,0 +1,108 @@
+{
+  "arrival_percent": 50,
+  "average_db_operations": 0.6276666666666667,
+  "average_ms": 19.98495680833331,
+  "average_pool_wait_ms": 0.0006647083333333333,
+  "average_processing_ms": 18.351517225000205,
+  "average_queue_ms": 1.632802666666682,
+  "batch_persist_groups": 280,
+  "batch_persist_max_size": 100,
+  "batch_persist_mean_ms": 1.6201910714285723,
+  "batch_persist_mean_size": 41.81071428571428,
+  "batch_snapshot_groups": 279,
+  "batch_snapshot_max_size": 100,
+  "batch_snapshot_mean_ms": 1.7721885304659497,
+  "batch_snapshot_mean_size": 42.60573476702509,
+  "burst_drain_ms": 0.5802,
+  "completed": 15200,
+  "control_placement": "after-burst",
+  "cpus": 16,
+  "duration": "2m0s",
+  "errors": 0,
+  "go": "go1.25.7",
+  "max_batch_completion_ms": 104.5147,
+  "max_outstanding": 100,
+  "observed_events": {
+    "aman.coordination_state": 1,
+    "bay": 18,
+    "bay:AIRBORNE": 41,
+    "bay:ARR_HIDDEN": 264,
+    "bay:DEPART": 2,
+    "bay:FINAL": 37,
+    "bay:NOT_CLEARED": 15,
+    "bay:PUSH": 12,
+    "bay:TAXI": 256,
+    "bay:TWY_ARR": 42,
+    "cdm_data": 2,
+    "heading": 650,
+    "initial": 1,
+    "landing": 47,
+    "marked": 130,
+    "stand:DEPARTURE_BLOCK": 100,
+    "stand:ESTIMATED": 820,
+    "stand:RESERVED": 45,
+    "stand_assignment_removed": 10,
+    "stand_status_snapshot": 20,
+    "strip_update": 651
+  },
+  "operational_errors": 0,
+  "operational_pattern": "five controls after the 100 positions in each one-second burst; lifecycle controls retain their original order",
+  "other_message_processing": {
+    "ground_state": {
+      "count": 4,
+      "mean_ms": 25.376325,
+      "total_ms": 101.5053
+    },
+    "heading": {
+      "count": 600,
+      "mean_ms": 3.3948531666666653,
+      "total_ms": 2036.9118999999992
+    },
+    "marked": {
+      "count": 120,
+      "mean_ms": 0.9083683333333332,
+      "total_ms": 109.00419999999998
+    }
+  },
+  "p95_batch_completion_ms": 53.0638,
+  "p95_ms": 44.1047,
+  "p95_scheduled_completion_ms": 47.5319,
+  "p99_ms": 55.8007,
+  "p99_processing_ms": 54.2675,
+  "p99_queue_ms": 4.7136,
+  "p99_scheduled_completion_ms": 63.4181,
+  "platform": "windows/amd64",
+  "pool_max_connections": 16,
+  "position_db_batching": true,
+  "position_sql_stages": {
+    "aman_identity": {
+      "count": 5404,
+      "mean_ms": 0.3678705588452992,
+      "total_ms": 1987.972499999997
+    },
+    "batch_snapshot": {
+      "count": 279,
+      "mean_ms": 1.3962333333333334,
+      "total_ms": 389.5491
+    },
+    "batch_update": {
+      "count": 280,
+      "mean_ms": 0.940085357142858,
+      "total_ms": 263.22390000000024
+    },
+    "other": {
+      "count": 1569,
+      "mean_ms": 0.43102740599107753,
+      "total_ms": 676.2820000000006
+    }
+  },
+  "position_workers": "1",
+  "postgres": "PostgreSQL 16.11 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "release": "671c32ac + final large batches (5ms rendezvous, cancellation and transition retry guards)",
+  "samples": 12000,
+  "sender_p99_lag_ms": 2.5545,
+  "sent": 15200,
+  "topology": "isolated local Docker PostgreSQL; Docker-managed storage; Windows loopback; CPU and storage not production-equivalent",
+  "traffic_pattern": "second-burst",
+  "warmup": "10s"
+}

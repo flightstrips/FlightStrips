@@ -68,6 +68,7 @@ type batchSample struct {
 	At       time.Time
 	Kind     string
 	Size, MS float64
+	Queries  int
 }
 
 func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) error {
@@ -135,7 +136,7 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 			if s.Name() != "aircraft_position_update" {
 				for _, a := range s.Attributes() {
 					if string(a.Key) == "message.processing_ms" {
-						c.operations = append(c.operations, batchSample{At: s.StartTime(), Kind: s.Name(), MS: a.Value.AsFloat64()})
+						c.operations = append(c.operations, batchSample{At: s.StartTime(), Kind: s.Name(), MS: a.Value.AsFloat64(), Queries: c.queries[id]})
 						break
 					}
 				}
@@ -533,6 +534,7 @@ func TestPositionLoad(t *testing.T) {
 	// Diagnostic stage time sums are work, not additive end-to-end percentiles.
 	for name, entries := range map[string][]batchSample{"position_sql_stages": positionQueries, "other_message_processing": operationalSamples} {
 		stages := map[string]map[string]float64{}
+		durations := map[string][]float64{}
 		for _, entry := range entries {
 			if entry.At.Before(measureStart) || !entry.At.Before(measureEnd) {
 				continue
@@ -542,9 +544,18 @@ func TestPositionLoad(t *testing.T) {
 			}
 			stages[entry.Kind]["count"]++
 			stages[entry.Kind]["total_ms"] += entry.MS
+			if name == "other_message_processing" {
+				stages[entry.Kind]["total_queries"] += float64(entry.Queries)
+				durations[entry.Kind] = append(durations[entry.Kind], entry.MS)
+			}
 		}
-		for _, stage := range stages {
+		for kind, stage := range stages {
 			stage["mean_ms"] = stage["total_ms"] / stage["count"]
+			if name == "other_message_processing" {
+				stage["mean_queries"] = stage["total_queries"] / stage["count"]
+				stage["p95_ms"] = percentile(durations[kind], .95)
+				stage["p99_ms"] = percentile(durations[kind], .99)
+			}
 		}
 		report[name] = stages
 	}

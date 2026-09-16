@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -58,6 +59,9 @@ type capture struct {
 	operationalErrors int
 	events            map[string]int
 	batches           []batchSample
+	queryDurations    map[trace.TraceID][]batchSample
+	positionQueries   []batchSample
+	operations        []batchSample
 }
 
 type batchSample struct {
@@ -85,9 +89,29 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 		}
 		if len(s.Name()) >= 5 && s.Name()[:5] == "query" {
 			c.queries[id]++
+			kind := "other"
+			for _, a := range s.Attributes() {
+				if string(a.Key) != "db.statement" && string(a.Key) != "db.query.text" {
+					continue
+				}
+				sql := a.Value.AsString()
+				switch {
+				case strings.Contains(sql, "GetActiveAMANVATSIMObservationIdentity"):
+					kind = "aman_identity"
+				case strings.Contains(sql, "position batch snapshot"):
+					kind = "batch_snapshot"
+				case strings.Contains(sql, "position batch persistence"):
+					kind = "batch_update"
+				}
+			}
+			if c.queryDurations == nil {
+				c.queryDurations = make(map[trace.TraceID][]batchSample)
+			}
+			c.queryDurations[id] = append(c.queryDurations[id], batchSample{At: s.StartTime(), Kind: kind, MS: float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond)})
 		}
 		if s.Name() == "aircraft_position_update" {
 			c.completed++
+			c.positionQueries = append(c.positionQueries, c.queryDurations[id]...)
 			if s.Status().Code == codes.Error {
 				c.errors++
 			}
@@ -106,6 +130,15 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 			c.operationalErrors++
 		}
 		if !s.Parent().IsValid() {
+			if s.Name() != "aircraft_position_update" {
+				for _, a := range s.Attributes() {
+					if string(a.Key) == "message.processing_ms" {
+						c.operations = append(c.operations, batchSample{At: s.StartTime(), Kind: s.Name(), MS: a.Value.AsFloat64()})
+						break
+					}
+				}
+			}
+			delete(c.queryDurations, id)
 			delete(c.queries, id)
 			delete(c.pools, id)
 		}
@@ -144,6 +177,12 @@ func TestPositionLoad(t *testing.T) {
 		pattern = "even"
 	}
 	require.Contains(t, []string{"even", "second-burst"}, pattern)
+	controlPlacement := os.Getenv("POSITION_LOAD_CONTROLS")
+	if controlPlacement == "" {
+		controlPlacement = "interleaved"
+	}
+	require.Contains(t, []string{"interleaved", "after-burst"}, controlPlacement)
+
 	require.NoError(t, os.Chdir("../../.."))
 	defer os.Chdir("internal/testing/positionload")
 	t.Setenv("TEST_MODE", "true")
@@ -361,10 +400,19 @@ func TestPositionLoad(t *testing.T) {
 		}
 		require.NoError(t, client.SendProtobuf(&es.AircraftPositionUpdateEvent{Callsign: fmt.Sprintf("SAS%03d", i), Lat: lat, Lon: lon, Altitude: int64(alt)}, es.PositionUpdate))
 		sent++
-		if (pattern == "even" && !due.Before(nextControl)) || (pattern == "second-burst" && (n+1)%20 == 0) {
-			require.NoError(t, client.SendProtobuf(&es.HeadingEvent{Callsign: fmt.Sprintf("SAS%03d", sent%200), Heading: int32(cycle % 360)}, es.SetHeading))
+
+		controls := 0
+		if pattern == "even" && !due.Before(nextControl) {
+			controls = 1
+		}
+		if pattern == "second-burst" {
+			controls = burstControls(n, controlPlacement)
+		}
+		for control := 0; control < controls; control++ {
+			require.NoError(t, client.SendProtobuf(&es.HeadingEvent{Callsign: fmt.Sprintf("SAS%03d", (sent+control)%200), Heading: int32(cycle % 360)}, es.SetHeading))
 			nextControl = nextControl.Add(200 * time.Millisecond)
 		}
+
 		if !due.Before(nextFrontend) {
 			require.NoError(t, frontend.SendRawMessage(map[string]any{"type": "marked", "callsign": fmt.Sprintf("SAS%03d", sent%200), "marked": cycle%2 == 0}))
 			nextFrontend = nextFrontend.Add(time.Second)
@@ -459,6 +507,8 @@ func TestPositionLoad(t *testing.T) {
 	}
 	failures := collector.errors
 	batchSamples := append([]batchSample(nil), collector.batches...)
+	positionQueries := append([]batchSample(nil), collector.positionQueries...)
+	operationalSamples := append([]batchSample(nil), collector.operations...)
 	operationalFailures := collector.operationalErrors
 	observedEvents := make(map[string]int, len(collector.events))
 	for k, v := range collector.events {
@@ -478,7 +528,26 @@ func TestPositionLoad(t *testing.T) {
 	var postgresVersion string
 	require.NoError(t, server.DBPool.QueryRow(ctx, "SELECT version()").Scan(&postgresVersion))
 	report := map[string]any{"platform": runtime.GOOS + "/" + runtime.GOARCH, "cpus": runtime.NumCPU(), "go": runtime.Version(), "postgres": postgresVersion, "topology": loadTopology(), "pool_max_connections": server.DBPool.Config().MaxConns, "release": os.Getenv("POSITION_LOAD_REVISION"), "position_workers": os.Getenv("POSITION_WORKERS_PER_CLIENT"), "arrival_percent": arrivalPercent, "warmup": warmup.String(), "duration": measurement.String(), "sent": sent, "completed": collector.count(), "errors": failures, "operational_errors": operationalFailures, "observed_events": observedEvents, "samples": len(times), "p95_ms": percentile(times, .95), "p99_ms": percentile(times, .99), "average_ms": average(times), "average_db_operations": average(queries), "average_pool_wait_ms": average(pools), "p99_queue_ms": percentile(queueTimes, .99), "p99_processing_ms": percentile(processingTimes, .99), "max_outstanding": maxBacklog, "burst_drain_ms": float64(burstDrain) / float64(time.Millisecond), "sender_p99_lag_ms": percentile(senderLag, .99)}
+	// Diagnostic stage time sums are work, not additive end-to-end percentiles.
+	for name, entries := range map[string][]batchSample{"position_sql_stages": positionQueries, "other_message_processing": operationalSamples} {
+		stages := map[string]map[string]float64{}
+		for _, entry := range entries {
+			if entry.At.Before(measureStart) || !entry.At.Before(measureEnd) {
+				continue
+			}
+			if stages[entry.Kind] == nil {
+				stages[entry.Kind] = map[string]float64{}
+			}
+			stages[entry.Kind]["count"]++
+			stages[entry.Kind]["total_ms"] += entry.MS
+		}
+		for _, stage := range stages {
+			stage["mean_ms"] = stage["total_ms"] / stage["count"]
+		}
+		report[name] = stages
+	}
 	report["traffic_pattern"] = pattern
+	report["control_placement"] = controlPlacement
 	report["position_db_batching"] = os.Getenv("POSITION_DB_BATCHING_ENABLED") == "true"
 	for _, kind := range []string{"snapshot", "persist"} {
 		var sizes, durations []float64
@@ -490,12 +559,16 @@ func TestPositionLoad(t *testing.T) {
 		}
 		report["batch_"+kind+"_groups"] = len(sizes)
 		report["batch_"+kind+"_mean_size"] = average(sizes)
+		report["batch_"+kind+"_max_size"] = percentile(sizes, 1)
 		report["batch_"+kind+"_mean_ms"] = average(durations)
 	}
 	report["p95_scheduled_completion_ms"] = percentile(scheduledTimes, .95)
 	report["p99_scheduled_completion_ms"] = percentile(scheduledTimes, .99)
 	if pattern == "second-burst" {
 		report["operational_pattern"] = "five controls interleaved within each one-second position batch"
+		if controlPlacement == "after-burst" {
+			report["operational_pattern"] = "five controls after the 100 positions in each one-second burst; lifecycle controls retain their original order"
+		}
 		report["p95_batch_completion_ms"] = percentile(batchTimes, .95)
 		report["max_batch_completion_ms"] = percentile(batchTimes, 1)
 	}
@@ -579,4 +652,37 @@ func loadTopology() string {
 		return value
 	}
 	return "isolated local Docker PostgreSQL; Docker-managed storage; Windows loopback; CPU and storage not production-equivalent"
+}
+
+// Both variants send five controls in the same second; only their wire order differs.
+func burstControls(n int, placement string) int {
+	if placement == "after-burst" {
+		if (n+1)%100 == 0 {
+			return 5
+		}
+		return 0
+	}
+	if (n+1)%20 == 0 {
+		return 1
+	}
+	return 0
+}
+
+func TestBurstControlOrder(t *testing.T) {
+	for _, placement := range []string{"interleaved", "after-burst"} {
+		for second := 0; second < 3; second++ {
+			total := 0
+			for i := 0; i < 100; i++ {
+				n := burstControls(second*100+i, placement)
+				total += n
+				if placement == "after-burst" && i < 99 {
+					require.Zero(t, n)
+				}
+				if placement == "interleaved" && (i+1)%20 != 0 {
+					require.Zero(t, n)
+				}
+			}
+			require.Equal(t, 5, total)
+		}
+	}
 }

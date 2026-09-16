@@ -1,7 +1,10 @@
 package postgres
 
 import (
+	"FlightStrips/internal/shared"
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -155,4 +158,70 @@ func TestPositionBatchCancelledWriteDoesNotCommitAnyRow(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, s.EuroscopeSeenAt)
 	}
+}
+
+// Batch membership must not require 100 execution slots or pool connections.
+func TestPositionBatchHundredReportsWithOneExecutionSlot(t *testing.T) {
+	pool, q := testdata.SetupTestDB(t)
+	session := testdata.SeedTestSessionNamedWithSectors(t, q, "BATCH_HUNDRED", nil)
+	for i := 0; i < 100; i++ {
+		testdata.SeedTestStrip(t, q, session, fmt.Sprintf("BIG%d", i))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	counter := &positionQueryCounter{}
+	cfg := pool.Config()
+	cfg.ConnConfig.Tracer = counter
+	traced, err := pgxpool.NewWithConfig(ctx, cfg)
+	require.NoError(t, err)
+	defer traced.Close()
+	r := NewStripRepository(traced)
+	var sizes []int
+	var mu sync.Mutex
+	d := shared.NewBatchPositionDispatcher(1, 256, make(chan struct{}, 1), func(size int) shared.PositionBatchScope {
+		mu.Lock()
+		sizes = append(sizes, size)
+		mu.Unlock()
+		b := NewPositionBatch(size).(*positionBatch)
+		// Keep this a deterministic SQL/budget test even under the race detector.
+		// The production 5ms timeout is covered separately by the absent-member test.
+		b.maxWait = time.Second
+		return b
+	})
+	results := make(chan error, 100)
+	require.NoError(t, d.RunBarrier(ctx, func() {
+		for i := 0; i < 100; i++ {
+			name := fmt.Sprintf("BIG%d", i)
+			require.NoError(t, d.Submit(ctx, name, func(ctx context.Context) {
+				s, err := r.GetPositionSnapshot(ctx, session, name)
+				if err == nil {
+					lat := 55.7
+					var n int64
+					n, err = r.UpdateAircraftPositionAndBay(ctx, session, name, &lat, nil, nil, s.Strip.Bay, 0, s.Strip.Version)
+					if err == nil && n != 1 {
+						err = fmt.Errorf("%s: persisted %d rows", name, n)
+					}
+				}
+				results <- err
+			}))
+		}
+	}))
+	require.NoError(t, d.Close(ctx))
+	for i := 0; i < 100; i++ {
+		require.NoError(t, <-results)
+	}
+	require.Equal(t, []int{100}, sizes)
+	require.Equal(t, int32(4), counter.n.Load(), "100 reports: one snapshot, BEGIN, UPDATE, COMMIT")
+	var stored int
+	require.NoError(t, pool.QueryRow(ctx, "SELECT count(*) FROM strips WHERE session = $1 AND position_latitude = 55.7 AND euroscope_seen_at IS NOT NULL", session).Scan(&stored))
+	require.Equal(t, 100, stored)
+}
+
+func TestPositionBatchTransitionContextBypassesRendezvous(t *testing.T) {
+	scope := NewPositionBatch(2)
+	ctx := shared.WithoutPositionBatching(scope.Context(context.Background(), 0))
+	_, _, joined := joinPositionBatch(ctx, "persist", nil, func([]*batchCall) { t.Fatal("transition joined a batch while holding its lock") })
+	require.False(t, joined)
+	scope.Done(0)
+	scope.Done(1)
 }

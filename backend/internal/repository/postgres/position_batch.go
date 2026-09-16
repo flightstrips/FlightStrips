@@ -26,9 +26,10 @@ type batchStage struct {
 	timer  *time.Timer
 }
 type positionBatch struct {
-	mu     sync.Mutex
-	done   []bool
-	stages map[string]*batchStage
+	mu      sync.Mutex
+	done    []bool
+	stages  map[string]*batchStage
+	maxWait time.Duration
 }
 type positionBatchMember struct {
 	batch *positionBatch
@@ -42,7 +43,7 @@ type positionBatchMember struct {
 // correctness backstop: a participant can be waiting behind a master-change
 // writer, a transactional transition, or another lock instead of joining us.
 func NewPositionBatch(size int) shared.PositionBatchScope {
-	return &positionBatch{done: make([]bool, size), stages: make(map[string]*batchStage)}
+	return &positionBatch{done: make([]bool, size), stages: make(map[string]*batchStage), maxWait: 5 * time.Millisecond}
 }
 func (b *positionBatch) Context(ctx context.Context, index int) context.Context {
 	return context.WithValue(ctx, positionBatchKey{}, &positionBatchMember{batch: b, index: index, used: make(map[string]bool)})
@@ -60,7 +61,13 @@ func (b *positionBatch) flushLocked(stage *batchStage) func() {
 	if len(calls) == 0 {
 		return nil
 	}
-	return func() { calls[0].execute(calls) }
+	return func() {
+		if err := shared.RunPositionBatch(calls[0].ctx, func() { calls[0].execute(calls) }); err != nil {
+			for _, call := range calls {
+				call.result <- batchResult{err: err}
+			}
+		}
+	}
 }
 func (b *positionBatch) ready(stage *batchStage) bool {
 	for i := range b.done {
@@ -88,6 +95,9 @@ func (b *positionBatch) Done(index int) {
 }
 
 func joinPositionBatch(ctx context.Context, operation string, input any, execute func([]*batchCall)) (any, error, bool) {
+	if shared.PositionBatchingDisabled(ctx) {
+		return nil, nil, false
+	}
 	member, _ := ctx.Value(positionBatchKey{}).(*positionBatchMember)
 	if member == nil {
 		return nil, nil, false
@@ -99,13 +109,15 @@ func joinPositionBatch(ctx context.Context, operation string, input any, execute
 	}
 	member.used[operation] = true // retries always obtain a fresh, individual snapshot
 	member.mu.Unlock()
+	resume := shared.SuspendPositionExecution(ctx)
+	defer resume()
 	b := member.batch
 	b.mu.Lock()
 	stage := b.stages[operation]
 	if stage == nil {
 		stage = &batchStage{seen: make([]bool, len(b.done))}
 		b.stages[operation] = stage
-		stage.timer = time.AfterFunc(time.Millisecond, func() {
+		stage.timer = time.AfterFunc(b.maxWait, func() {
 			b.mu.Lock()
 			flush := b.flushLocked(stage)
 			b.mu.Unlock()

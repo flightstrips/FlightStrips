@@ -191,6 +191,7 @@ func (s *StripService) MoveToBay(ctx context.Context, session int32, callsign st
 }
 
 func (s *StripService) applyBayChangeEffects(ctx context.Context, session int32, callsign string, previousBay string, bay string, sendNotification bool) error {
+	ctx = withValidationReadState(ctx)
 	pdcValidationRelevantBay := pdcRequestValidationAppliesInBay(previousBay) || pdcRequestValidationAppliesInBay(bay)
 	if syncState := shared.GetSyncState(ctx); syncState != nil {
 		syncState.SquawkValidation = true

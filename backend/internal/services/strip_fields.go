@@ -80,7 +80,7 @@ func (s *StripService) setStartReqState(ctx context.Context, session int32, call
 
 // UpdateAssignedSquawk updates the assigned squawk for a strip and notifies the frontend.
 func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, callsign string, squawk string) error {
-	count, err := s.fieldStore.UpdateAssignedSquawk(ctx, session, callsign, &squawk, nil)
+	previous, count, targeted, err := s.updateSquawkWithPrevious(ctx, session, callsign, squawk, true)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, 
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "AssignedSquawk"))
 	} else {
 		s.publisher.SendAssignedSquawkEvent(session, callsign, squawk)
-		if err := s.reevaluateSquawkValidationsForSession(ctx, session, true); err != nil {
+		if err := s.reevaluateChangedSquawk(ctx, session, callsign, previous, squawk, targeted); err != nil {
 			return err
 		}
 	}
@@ -98,7 +98,7 @@ func (s *StripService) UpdateAssignedSquawk(ctx context.Context, session int32, 
 
 // UpdateSquawk updates the current squawk for a strip and notifies the frontend.
 func (s *StripService) UpdateSquawk(ctx context.Context, session int32, callsign string, squawk string) error {
-	count, err := s.fieldStore.UpdateSquawk(ctx, session, callsign, &squawk, nil)
+	previous, count, targeted, err := s.updateSquawkWithPrevious(ctx, session, callsign, squawk, false)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (s *StripService) UpdateSquawk(ctx context.Context, session int32, callsign
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "Squawk"))
 	} else {
 		s.publisher.SendSquawkEvent(session, callsign, squawk)
-		if err := s.reevaluateSquawkValidationsForSession(ctx, session, true); err != nil {
+		if err := s.reevaluateChangedSquawk(ctx, session, callsign, previous, squawk, targeted); err != nil {
 			return err
 		}
 	}

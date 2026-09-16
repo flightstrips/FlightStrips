@@ -16,6 +16,7 @@ import (
 )
 
 type stripRepository struct {
+	db      database.DBTX
 	pool    *pgxpool.Pool
 	queries *database.Queries
 }
@@ -23,6 +24,7 @@ type stripRepository struct {
 // NewStripRepository creates a new StripRepository implementation
 func NewStripRepository(db *pgxpool.Pool) *stripRepository {
 	return &stripRepository{
+		db:      db,
 		queries: database.New(db),
 		pool:    db,
 	}
@@ -30,7 +32,7 @@ func NewStripRepository(db *pgxpool.Pool) *stripRepository {
 
 // WithTx returns a strip repository bound to tx.
 func (r *stripRepository) WithTx(tx pgx.Tx) repository.StripRepository {
-	return &stripRepository{queries: r.queries.WithTx(tx)}
+	return &stripRepository{queries: r.queries.WithTx(tx), db: tx}
 }
 
 func marshalCdmData(data *models.CdmData) ([]byte, error) {

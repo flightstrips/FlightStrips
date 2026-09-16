@@ -859,7 +859,20 @@ func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, calls
 		}
 	}
 	stripRepo := hub.server.GetStripRepository()
-	strip, err := stripRepo.GetByCallsign(ctx, session, callsign)
+	var strip *internalModels.Strip
+	var publication *internalModels.StripPublicationSnapshot
+	var err error
+	if reader, ok := stripRepo.(interface {
+		GetStripPublicationSnapshot(context.Context, int32, string) (*internalModels.StripPublicationSnapshot, error)
+	}); ok {
+		publication, err = reader.GetStripPublicationSnapshot(ctx, session, callsign)
+		if err == nil {
+			strip = publication.Strip
+			ctx = shared.WithStripPublication(ctx, publication)
+		}
+	} else {
+		strip, err = stripRepo.GetByCallsign(ctx, session, callsign)
+	}
 	if err != nil {
 		return
 	}
@@ -872,9 +885,24 @@ func (hub *Hub) SendStripUpdateContext(ctx context.Context, session int32, calls
 	hub.populateNextDisplayContext(ctx, strip, session)
 	model := MapStripToFrontendModelWithClx(strip, hub.makeClxValidationContext(session))
 	if repo := hub.server.GetStandAssignmentRepository(); repo != nil {
-		if assignment, assignmentErr := repo.GetAssignment(ctx, session, callsign); assignmentErr == nil && assignment != nil {
+		var assignment *internalModels.StandAssignment
+		var all []*internalModels.StandAssignment
+		if publication != nil {
+			all = publication.Assignments
+			for _, item := range all {
+				if item.Callsign == callsign {
+					assignment = item
+					break
+				}
+			}
+		} else {
+			assignment, err = repo.GetAssignment(ctx, session, callsign)
+			if err == nil && assignment != nil {
+				all, _ = repo.ListAssignments(ctx, session)
+			}
+		}
+		if assignment != nil {
 			entry := mapStandAssignmentEntry(assignment)
-			all, _ := repo.ListAssignments(ctx, session)
 			entries := make([]frontend.StandAssignmentEntry, 0, len(all))
 			for _, item := range all {
 				if item != nil {

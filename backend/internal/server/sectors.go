@@ -253,6 +253,9 @@ func getSessionForUpdate(ctx context.Context, sessionRepo repository.SessionRepo
 }
 
 func getControllersForUpdate(ctx context.Context, controllerRepo repository.ControllerRepository, sessionId int32) ([]*models.Controller, error) {
+	if snapshot := shared.StripPublication(ctx, sessionId); snapshot != nil {
+		return snapshot.Controllers, nil
+	}
 	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.ExistingControllers != nil {
 		controllers := make([]*models.Controller, 0, len(syncState.ExistingControllers))
 		for _, controller := range syncState.ExistingControllers {

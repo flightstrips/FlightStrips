@@ -74,7 +74,7 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, s := range spans {
-		if s.Name() == "position.batch.snapshot" || s.Name() == "position.batch.persist" {
+		if strings.HasPrefix(s.Name(), "position.batch.") {
 			entry := batchSample{At: s.StartTime(), Kind: s.Name(), MS: float64(s.EndTime().Sub(s.StartTime())) / float64(time.Millisecond)}
 			for _, a := range s.Attributes() {
 				if string(a.Key) == "position.batch.size" {
@@ -96,6 +96,8 @@ func (c *capture) ExportSpans(_ context.Context, spans []sdktrace.ReadOnlySpan) 
 				}
 				sql := a.Value.AsString()
 				switch {
+				case strings.Contains(sql, "position batch AMAN identity"):
+					kind = "batch_aman_identity"
 				case strings.Contains(sql, "GetActiveAMANVATSIMObservationIdentity"):
 					kind = "aman_identity"
 				case strings.Contains(sql, "position batch snapshot"):
@@ -549,7 +551,7 @@ func TestPositionLoad(t *testing.T) {
 	report["traffic_pattern"] = pattern
 	report["control_placement"] = controlPlacement
 	report["position_db_batching"] = os.Getenv("POSITION_DB_BATCHING_ENABLED") == "true"
-	for _, kind := range []string{"snapshot", "persist"} {
+	for _, kind := range []string{"snapshot", "persist", "aman_identity"} {
 		var sizes, durations []float64
 		for _, entry := range batchSamples {
 			if entry.Kind == "position.batch."+kind && !entry.At.Before(measureStart) && entry.At.Before(measureEnd) {

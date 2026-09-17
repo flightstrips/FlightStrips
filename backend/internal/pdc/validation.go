@@ -133,9 +133,8 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 	}
 
 	if strip.Sid != nil {
-		sidUpper := strings.ToUpper(*strip.Sid)
 		for _, restriction := range cfg.SIDRestrictions {
-			if strings.ToUpper(restriction.SID) != sidUpper {
+			if !sidRestrictionMatches(restriction.SID, *strip.Sid) {
 				continue
 			}
 			if len(restriction.EngineTypes) == 0 {
@@ -197,6 +196,21 @@ func validatePDCFlightPlanFaults(strip *models.Strip, activeDepartureRunways []s
 	}
 
 	return faults
+}
+
+func sidRestrictionMatches(restriction, sid string) bool {
+	restriction = strings.ToUpper(strings.TrimSpace(restriction))
+	sid = strings.ToUpper(strings.TrimSpace(sid))
+	if restriction == "" || sid == "" {
+		return false
+	}
+	if restriction == sid {
+		return true
+	}
+
+	// A restriction without a numbered procedure suffix names a SID family,
+	// such as KOPEX, and must also match published variants such as KOPEX2C.
+	return sidFamily(restriction) == restriction && sidFamily(sid) == restriction
 }
 
 type mandatoryRouteReview struct {

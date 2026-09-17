@@ -137,6 +137,38 @@ func TestValidatePDCFlightPlan_NoRoutingFaultWithUsableSID(t *testing.T) {
 	assert.NotContains(t, faults, "No SID or vectored departure assigned")
 }
 
+func TestValidatePDCFlightPlan_SIDFamilyRestrictionMatchesPublishedVariant(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{}
+	strip := &models.Strip{
+		AircraftType:   stringPtrTest("A321"),
+		EngineType:     "J",
+		Runway:         stringPtrTest("22R"),
+		Sid:            stringPtrTest("KOPEX2C"),
+		AssignedSquawk: stringPtrTest("4555"),
+	}
+
+	faults := service.validatePDCFlightPlan(strip, []string{"22R"}, nil)
+
+	assert.Contains(t, faults, "SID KOPEX is not available for engine type J")
+
+	outcome := service.EvaluatePdcRequest(strip, &models.Session{
+		ActiveRunways: pkgModels.ActiveRunways{DepartureRunways: []string{"22R"}},
+	}, "")
+	assert.Equal(t, PdcRequestTransitionRequestedWithFaults, outcome.Transition)
+	assert.False(t, outcome.AutoIssue)
+}
+
+func TestSidRestrictionMatches_ExactProcedureDoesNotRestrictWholeFamily(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, sidRestrictionMatches("KOPEX", "KOPEX2C"))
+	assert.True(t, sidRestrictionMatches("KOPEX2C", "KOPEX2C"))
+	assert.False(t, sidRestrictionMatches("KOPEX2C", "KOPEX2A"))
+	assert.False(t, sidRestrictionMatches("KOPEX", "VEMBO2C"))
+}
+
 func TestValidatePDCFlightPlan_NoRoutingFaultWithVectors(t *testing.T) {
 	t.Parallel()
 

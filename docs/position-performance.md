@@ -75,6 +75,69 @@ Staggered aircraft exercise approach, touchdown, runway vacation, stand
 reservations, push and airborne movement. AMAN uses socket receipt timestamps
 for speed and track even when handler execution waits.
 
+### EuroScope once-per-second batches
+
+Set `POSITION_LOAD_PATTERN=second-burst` to send 100 reports back-to-back at each
+one-second deadline, alternating halves of the 200-aircraft fleet. There is no
+intentional spacing within a batch and sending does not wait for completion.
+All five operational messages are interleaved within that same burst (one after
+each 20 positions); frontend actions and lifecycle transitions remain enabled.
+This is a synthetic ordering assumption, not a replay of a recorded ES batch.
+The overload phase sends 200 reports at
+each one-second deadline for ten seconds, then returns to 100-report batches.
+The default `POSITION_LOAD_PATTERN=even` retains the original evenly spaced run.
+
+Compare `POSITION_WORKERS_PER_CLIENT=1` and `4` on the same machine and database
+placement. Keep latency enforcement enabled: a completed test with failed
+latency assertions is evidence of a capacity gap, not a passing load gate.
+JSON reports identify the traffic pattern and include mean processing and queue
+time. They also measure completion from the sender's fixed deadline and whole
+batch completion. The single socket reader's receipt timestamps identify wire
+order, which is matched to the sender schedule after sorting completed spans.
+This includes waiting in the socket while a barrier blocks the reader, plus
+sender lateness and local network time. Latency enforcement checks both
+receipt-to-completion and scheduled-to-completion, and each measured batch must
+finish before the next second. Repeat the full warm-up/measurement and traffic mixes before claiming the
+100-report batch target is met; the earlier evenly spaced results do not establish
+that target.
+
+The production infrastructure manifest at commit
+`fad9ab78edae3e77ec182a28e1ee52991d1714df` specifies backend 2.2.8 and neither
+`POSITION_CONCURRENCY_ENABLED` nor `POSITION_WORKERS_PER_CLIENT`. This selects
+one worker, and the operator confirmed there are no runtime overrides. Direct
+inspection of the running container environment was not available. Production
+pool telemetry showed four maximum connections, limiting the shared position
+budget to two even if more workers are configured.
+
+#### Diagnostic batch results (2026-09-15)
+
+Sequential local runs used the same 16-logical-CPU Windows/Docker host and pool
+of 16 as above, ten seconds of warm-up and two minutes of measurement, mixed
+arrivals/departures, then the overload/recovery phases. Each one-second batch
+contains distinct aircraft; the 100-report phase alternates halves of the fleet
+and the 200-report phase includes each aircraft once. The checkout is `a7cd3d36`
+plus this load-tool change. CPU utilization and memory usage were not sampled.
+
+| Workers | P95 from receipt | P95 from sender deadline | P99 from sender deadline | Maximum whole-batch completion |
+|---|---:|---:|---:|---:|
+| [1](performance/2026-09-15/second-burst-1-worker.json) | 25.07 ms | 137.35 ms | 149.22 ms | 167.67 ms |
+| [4](performance/2026-09-15/second-burst-4-workers.json) | 7.64 ms | 52.81 ms | 67.20 ms | 90.17 ms |
+
+Both runs completed exactly 15,200 reports with zero position or operational
+errors, 650 heading messages and 130 frontend mark actions. Lifecycle assertions
+passed, and each measured batch completed before the next second. **Both latency
+gates failed.** Four workers passed the receipt-only gate but failed the sender
+deadline gate, demonstrating why socket/barrier waiting must be included.
+The overload target was already drained when the rate returned to 100/sec;
+sub-millisecond reported drain times describe that checkpoint, not the cost of
+processing a 200-report batch.
+
+These are short diagnostic results, not the 15-minute production-equivalent
+acceptance runs. They demonstrate stable throughput at this local load while
+leaving the stricter latency goal unresolved. PostgreSQL can remain authoritative;
+bounded database batches for independent positions are a candidate to measure
+next, with operational barriers and per-aircraft ordering preserved.
+
 The JSON report includes completed/error counts, latency percentiles, query and
 pool-wait measurements, maximum outstanding work, sender lateness, observed
 operational events and machine/database details. Event assertions check landing,

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.2](https://github.com/flightstrips/FlightStrips/compare/docs/v0.21.1...docs/v0.21.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **strip:** reduce database work for burst and operational updates ([#760](https://github.com/flightstrips/FlightStrips/issues/760)) ([c765674](https://github.com/flightstrips/FlightStrips/commit/c765674ed32cd5a5f65c2a1d05a08c7e1ee4b490))
+
 ## [0.21.1](https://github.com/flightstrips/FlightStrips/compare/docs/v0.21.0...docs/v0.21.1) (2026-09-15)
 
 

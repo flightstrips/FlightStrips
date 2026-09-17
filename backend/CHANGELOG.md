@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.9](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.8...backend/v2.2.9) (2026-09-17)
+
+
+### Bug Fixes
+
+* **pdc:** enforce SID family restrictions ([#762](https://github.com/flightstrips/FlightStrips/issues/762)) ([70f5452](https://github.com/flightstrips/FlightStrips/commit/70f5452a63da7250a898ae41e0fd1b9d784ed1b3))
+* **strip:** reduce database work for burst and operational updates ([#760](https://github.com/flightstrips/FlightStrips/issues/760)) ([c765674](https://github.com/flightstrips/FlightStrips/commit/c765674ed32cd5a5f65c2a1d05a08c7e1ee4b490))
+
 ## [2.2.8](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.7...backend/v2.2.8) (2026-09-15)
 
 

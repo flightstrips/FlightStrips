@@ -16,6 +16,7 @@ import (
 )
 
 type stripRepository struct {
+	db      database.DBTX
 	pool    *pgxpool.Pool
 	queries *database.Queries
 }
@@ -23,6 +24,7 @@ type stripRepository struct {
 // NewStripRepository creates a new StripRepository implementation
 func NewStripRepository(db *pgxpool.Pool) *stripRepository {
 	return &stripRepository{
+		db:      db,
 		queries: database.New(db),
 		pool:    db,
 	}
@@ -30,7 +32,7 @@ func NewStripRepository(db *pgxpool.Pool) *stripRepository {
 
 // WithTx returns a strip repository bound to tx.
 func (r *stripRepository) WithTx(tx pgx.Tx) repository.StripRepository {
-	return &stripRepository{queries: r.queries.WithTx(tx)}
+	return &stripRepository{queries: r.queries.WithTx(tx), db: tx}
 }
 
 func marshalCdmData(data *models.CdmData) ([]byte, error) {
@@ -269,20 +271,32 @@ func (r *stripRepository) GetByCallsign(ctx context.Context, session int32, call
 
 // GetPositionSnapshot loads both records with one database snapshot.
 func (r *stripRepository) GetPositionSnapshot(ctx context.Context, session int32, callsign string) (*models.PositionSnapshot, error) {
+	if r.pool != nil {
+		if value, err, handled := joinPositionBatch(ctx, "snapshot", positionRead{r, session, callsign}, batchPositionReads); handled {
+			if err != nil {
+				return nil, err
+			}
+			return value.(*models.PositionSnapshot), nil
+		}
+	}
 	row, err := r.queries.GetPositionSnapshot(ctx, database.GetPositionSnapshotParams{Session: session, Callsign: callsign})
 	if err != nil {
 		return nil, err
 	}
-	strip, err := stripToModel(row.Strip)
+	return positionSnapshotToModel(row.Strip, row.Assignment)
+}
+
+func positionSnapshotToModel(dbStrip database.Strip, assignmentJSON []byte) (*models.PositionSnapshot, error) {
+	strip, err := stripToModel(dbStrip)
 	if err != nil {
 		return nil, err
 	}
 	result := &models.PositionSnapshot{Strip: strip}
-	if len(row.Assignment) != 0 && string(row.Assignment) != "null" {
+	if len(assignmentJSON) != 0 && string(assignmentJSON) != "null" {
 		// PostgreSQL column names are snake_case; sqlc's database record uses Go
 		// field names. Normalize only keys, preserving pgtype's timestamp decoding.
 		var columns map[string]json.RawMessage
-		if err := json.Unmarshal(row.Assignment, &columns); err != nil {
+		if err := json.Unmarshal(assignmentJSON, &columns); err != nil {
 			return nil, err
 		}
 		fields := make(map[string]json.RawMessage, len(columns))
@@ -693,6 +707,14 @@ func (r *stripRepository) UpdateAircraftPosition(ctx context.Context, session in
 // UpdateAircraftPositionAndBay atomically stores surveillance data and its
 // derived bay, rejecting the write when the strip changed after it was read.
 func (r *stripRepository) UpdateAircraftPositionAndBay(ctx context.Context, session int32, callsign string, lat *float64, lon *float64, alt *int32, bay string, sequence int32, version int32) (int64, error) {
+	if r.pool != nil {
+		if value, err, handled := joinPositionBatch(ctx, "persist", positionWrite{r, session, callsign, lat, lon, alt, bay, sequence, version}, batchPositionWrites); handled {
+			if err != nil {
+				return 0, err
+			}
+			return value.(int64), nil
+		}
+	}
 	return r.queries.UpdateStripAircraftPositionAndBay(ctx, database.UpdateStripAircraftPositionAndBayParams{
 		PositionLatitude:  lat,
 		PositionLongitude: lon,

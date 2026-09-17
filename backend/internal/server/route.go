@@ -136,7 +136,14 @@ func (s *Server) ComputeNextDisplayForStripContext(ctx context.Context, strip *m
 	}
 	preserveRoute := false
 	if s.coordRepo != nil {
-		_, err := s.coordRepo.GetByStripID(ctx, sessionId, strip.ID)
+		var err error
+		if snapshot := shared.StripPublication(ctx, sessionId); snapshot != nil && snapshot.Strip.ID == strip.ID {
+			if !snapshot.CoordinationPending {
+				err = pgx.ErrNoRows
+			}
+		} else {
+			_, err = s.coordRepo.GetByStripID(ctx, sessionId, strip.ID)
+		}
 		switch {
 		case err == nil:
 			if strip.NextDisplay != nil || len(strip.NextOwners) == 0 {
@@ -976,6 +983,9 @@ func routeStripForCallsign(ctx context.Context, stripRepo routeStripReader, sess
 }
 
 func routeSessionByID(ctx context.Context, sessionRepo repository.SessionRepository, sessionId int32) (*models.Session, error) {
+	if snapshot := shared.StripPublication(ctx, sessionId); snapshot != nil {
+		return snapshot.Session, nil
+	}
 	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.Session != nil && syncState.Session.ID == sessionId {
 		return syncState.Session, nil
 	}
@@ -993,6 +1003,9 @@ func routeSessionByID(ctx context.Context, sessionRepo repository.SessionReposit
 }
 
 func routeSectorOwners(ctx context.Context, sectorRepo repository.SectorOwnerRepository, sessionId int32) ([]*models.SectorOwner, error) {
+	if snapshot := shared.StripPublication(ctx, sessionId); snapshot != nil {
+		return snapshot.SectorOwners, nil
+	}
 	if syncState := shared.GetSyncState(ctx); syncState != nil && syncState.SectorOwners != nil {
 		owners := make([]*models.SectorOwner, 0, len(syncState.SectorOwners))
 		for _, owner := range syncState.SectorOwners {

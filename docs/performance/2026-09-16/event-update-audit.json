@@ -1,0 +1,1601 @@
+{
+  "window_start": "2026-09-16T12:34:57Z",
+  "window_end": "2026-09-16T18:34:57Z",
+  "environment": "production",
+  "metrics": {
+    "count": [
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "coordination_assume_request"
+        },
+        "value": [
+          1789583697.117,
+          "19.05292479108635"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "delete_tactical_strip"
+        },
+        "value": [
+          1789583697.117,
+          "1.0025019773740584"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "generate_squawk"
+        },
+        "value": [
+          1789583697.117,
+          "8.022284122562674"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "move"
+        },
+        "value": [
+          1789583697.117,
+          "191.53203342618383"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "runway_clearance"
+        },
+        "value": [
+          1789583697.117,
+          "59.164345403899716"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "stand_assignment_acknowledge"
+        },
+        "value": [
+          1789583697.117,
+          "18.050139275766014"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "update_order"
+        },
+        "value": [
+          1789583697.117,
+          "2.0047427041985704"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "update_strip_data"
+        },
+        "value": [
+          1789583697.117,
+          "7.0132053247059"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "cleared_altitude"
+        },
+        "value": [
+          1789583697.117,
+          "204.56824512534817"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "coordination_received"
+        },
+        "value": [
+          1789583697.117,
+          "10.2460277516011"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "tracking_controller_changed"
+        },
+        "value": [
+          1789583697.117,
+          "1567.3537604456824"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "aman_route_fact"
+        },
+        "value": [
+          1789583697.117,
+          "54.15041782729805"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "token"
+        },
+        "value": [
+          1789583697.117,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "acknowledge_unexpected_change"
+        },
+        "value": [
+          1789583697.117,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "acknowledge_validation_status"
+        },
+        "value": [
+          1789583697.117,
+          "3.0083565459610027"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "clx_update_tobt"
+        },
+        "value": [
+          1789583697.117,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "coordination_force_assume_request"
+        },
+        "value": [
+          1789583697.117,
+          "16.044568245125348"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "create_tactical_strip"
+        },
+        "value": [
+          1789583697.117,
+          "1.0024399448778354"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "issue_pdc_clearance"
+        },
+        "value": [
+          1789583697.117,
+          "4.011142061281337"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "release_point"
+        },
+        "value": [
+          1789583697.117,
+          "91.25348189415041"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "stand_assignment_confirmed_override"
+        },
+        "value": [
+          1789583697.117,
+          "1.0027855153203342"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "stand_assignment_manual_request"
+        },
+        "value": [
+          1789583697.117,
+          "4.011142061281337"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "start_req"
+        },
+        "value": [
+          1789583697.117,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "aircraft_disconnect"
+        },
+        "value": [
+          1789583697.117,
+          "1757.8830083565458"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "assigned_squawk"
+        },
+        "value": [
+          1789583697.117,
+          "188.52367688022284"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "strip_update"
+        },
+        "value": [
+          1789583697.117,
+          "345.9610027855153"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "aircraft_position_update"
+        },
+        "value": [
+          1789583697.117,
+          "20774.707520891363"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "cleared_flag"
+        },
+        "value": [
+          1789583697.117,
+          "68.18941504178272"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "communication_type"
+        },
+        "value": [
+          1789583697.117,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "controller_offline"
+        },
+        "value": [
+          1789583697.117,
+          "59.164345403899716"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "controller_online"
+        },
+        "value": [
+          1789583697.117,
+          "17.04735376044568"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "ground_state"
+        },
+        "value": [
+          1789583697.117,
+          "160.44568245125348"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "heading"
+        },
+        "value": [
+          1789583697.117,
+          "51.14206128133704"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "hold"
+        },
+        "value": [
+          1789583697.117,
+          "66.18384401114206"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "requested_altitude"
+        },
+        "value": [
+          1789583697.117,
+          "7.0194986072423395"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "runway"
+        },
+        "value": [
+          1789583697.117,
+          "8.022284122562674"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "squawk"
+        },
+        "value": [
+          1789583697.117,
+          "220.61281337047353"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "stand"
+        },
+        "value": [
+          1789583697.117,
+          "113.31476323119777"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "sync"
+        },
+        "value": [
+          1789583697.117,
+          "3.0083565459610027"
+        ]
+      }
+    ],
+    "mean_ms": [
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "acknowledge_validation_status"
+        },
+        "value": [
+          1789583697.117,
+          "17.646221"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "clx_update_tobt"
+        },
+        "value": [
+          1789583697.117,
+          "NaN"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "coordination_assume_request"
+        },
+        "value": [
+          1789583697.117,
+          "35.4076917368421"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "coordination_force_assume_request"
+        },
+        "value": [
+          1789583697.117,
+          "28.637965374999997"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "create_tactical_strip"
+        },
+        "value": [
+          1789583697.117,
+          "4.931566999999999"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "generate_squawk"
+        },
+        "value": [
+          1789583697.117,
+          "0.0430575"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "move"
+        },
+        "value": [
+          1789583697.117,
+          "28.33055667539266"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "runway_clearance"
+        },
+        "value": [
+          1789583697.117,
+          "17.38393625423729"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "stand_assignment_confirmed_override"
+        },
+        "value": [
+          1789583697.117,
+          "25.422895"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "stand_assignment_manual_request"
+        },
+        "value": [
+          1789583697.117,
+          "26.383211749999997"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "assigned_squawk"
+        },
+        "value": [
+          1789583697.117,
+          "2.992388159574469"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "cleared_flag"
+        },
+        "value": [
+          1789583697.117,
+          "1.8045265147058833"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "coordination_received"
+        },
+        "value": [
+          1789583697.117,
+          "2.732119099999999"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "acknowledge_unexpected_change"
+        },
+        "value": [
+          1789583697.117,
+          "NaN"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "delete_tactical_strip"
+        },
+        "value": [
+          1789583697.117,
+          "3.4141809999999997"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "issue_pdc_clearance"
+        },
+        "value": [
+          1789583697.117,
+          "120.66366174999999"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "release_point"
+        },
+        "value": [
+          1789583697.117,
+          "10.009599439560438"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "stand_assignment_acknowledge"
+        },
+        "value": [
+          1789583697.117,
+          "5.816232666666667"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "start_req"
+        },
+        "value": [
+          1789583697.117,
+          "NaN"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "update_order"
+        },
+        "value": [
+          1789583697.117,
+          "10.668236"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "update_strip_data"
+        },
+        "value": [
+          1789583697.117,
+          "14.286395714285712"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "aircraft_disconnect"
+        },
+        "value": [
+          1789583697.117,
+          "0.08287883057615539"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "requested_altitude"
+        },
+        "value": [
+          1789583697.117,
+          "11.146011714285715"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "runway"
+        },
+        "value": [
+          1789583697.117,
+          "16.967902124999995"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "strip_update"
+        },
+        "value": [
+          1789583697.117,
+          "14.871251272463427"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "tracking_controller_changed"
+        },
+        "value": [
+          1789583697.117,
+          "2.9941483921944894"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "aircraft_position_update"
+        },
+        "value": [
+          1789583697.117,
+          "5.091239880532842"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "cleared_altitude"
+        },
+        "value": [
+          1789583697.117,
+          "3.742340259803923"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "communication_type"
+        },
+        "value": [
+          1789583697.117,
+          "NaN"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "controller_offline"
+        },
+        "value": [
+          1789583697.117,
+          "3.147027440677966"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "controller_online"
+        },
+        "value": [
+          1789583697.117,
+          "15.558724411764707"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "ground_state"
+        },
+        "value": [
+          1789583697.117,
+          "3.118580037500002"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "heading"
+        },
+        "value": [
+          1789583697.117,
+          "10.302156078431372"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "hold"
+        },
+        "value": [
+          1789583697.117,
+          "15.408766954545458"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "squawk"
+        },
+        "value": [
+          1789583697.117,
+          "7.3381510363636355"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "stand"
+        },
+        "value": [
+          1789583697.117,
+          "8.257018070796462"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "sync"
+        },
+        "value": [
+          1789583697.117,
+          "256.3077763333333"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "aman_route_fact"
+        },
+        "value": [
+          1789583697.117,
+          "17.50309177777778"
+        ]
+      },
+      {
+        "metric": {
+          "source": "frontend",
+          "type": "token"
+        },
+        "value": [
+          1789583697.117,
+          "NaN"
+        ]
+      }
+    ],
+    "p95_ms": [
+      {
+        "metric": {
+          "source": "<aggregated>",
+          "type": "<aggregated>"
+        },
+        "value": [
+          1789583697.117,
+          "17.242470972425785"
+        ]
+      }
+    ],
+    "dbops": [
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "tracking_controller_changed"
+        },
+        "value": [
+          1789583697.117,
+          "1.225207876580704"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "assigned_squawk"
+        },
+        "value": [
+          1789583697.117,
+          "1.1489361168731134"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "strip_update"
+        },
+        "value": [
+          1789583697.117,
+          "9.837680702703452"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "aircraft_position_update"
+        },
+        "value": [
+          1789583697.117,
+          "3.557223371081285"
+        ]
+      },
+      {
+        "metric": {
+          "source": "euroscope",
+          "type": "squawk"
+        },
+        "value": [
+          1789583697.117,
+          "2.999999860724241"
+        ]
+      }
+    ]
+  },
+  "samples": [
+    {
+      "event": "heading",
+      "trace_id": "55df9486cafab1a022dbab153b04c662",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 10.896585,
+      "queue_ms": 0.190619,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 8,
+      "query_total_ms": 9.062356,
+      "pool_acquire_total_ms": 0.11495000000000001,
+      "queries": [
+        {
+          "operation": "-- name: UpdateStripHeadingByID :execrows",
+          "duration_ms": 4.494791
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 1.134224
+        },
+        {
+          "operation": "-- name: GetCoordinationByStripID :one",
+          "duration_ms": 0.407047
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.440198
+        },
+        {
+          "operation": "-- name: GetSectorOwners :many",
+          "duration_ms": 0.33898
+        },
+        {
+          "operation": "-- name: ListControllers :many",
+          "duration_ms": 1.178533
+        },
+        {
+          "operation": "-- name: GetStandAssignment :one",
+          "duration_ms": 0.413507
+        },
+        {
+          "operation": "-- name: ListStandAssignments :many",
+          "duration_ms": 0.655076
+        }
+      ]
+    },
+    {
+      "event": "move",
+      "trace_id": "ebb045f8c05697c249110f8da186c1ec",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 25.56725,
+      "queue_ms": 0.053813,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 37,
+      "query_total_ms": 22.399462,
+      "pool_acquire_total_ms": 0.12980200000000003,
+      "queries": [
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.302894
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.186621
+        },
+        {
+          "operation": "-- name: UpdateStripGroundStateByID :execrows",
+          "duration_ms": 1.754946
+        },
+        {
+          "operation": "-- name: GetStandAssignment :one",
+          "duration_ms": 0.25509
+        },
+        {
+          "operation": "begin isolation level serializable",
+          "duration_ms": 0.110594
+        },
+        {
+          "operation": "SELECT id FROM sessions WHERE id = $1 FOR UPDATE",
+          "duration_ms": 0.191151
+        },
+        {
+          "operation": "-- name: LockStrip :one",
+          "duration_ms": 1.105961
+        },
+        {
+          "operation": "-- name: LockStandAssignments :many",
+          "duration_ms": 0.619939
+        },
+        {
+          "operation": "-- name: DeleteStandAssignment :execrows",
+          "duration_ms": 0.237572
+        },
+        {
+          "operation": "commit",
+          "duration_ms": 0.819932
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.322115
+        },
+        {
+          "operation": "-- name: ListStandAssignments :many",
+          "duration_ms": 0.228957
+        },
+        {
+          "operation": "-- name: ListStandBlocks :many",
+          "duration_ms": 0.182555
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.200703
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.298887
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.345731
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.833494
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.160841
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.493663
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 1.445
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.292487
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.27471
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.371931
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.75402
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.500383
+        },
+        {
+          "operation": "begin",
+          "duration_ms": 0.256762
+        },
+        {
+          "operation": "SELECT id FROM sessions WHERE id=$1 FOR UPDATE",
+          "duration_ms": 0.172269
+        },
+        {
+          "operation": "-- name: GetMaxSequenceInBayUnified :one",
+          "duration_ms": 0.966341
+        },
+        {
+          "operation": "-- name: UpdateStripBayAndSequence :execrows",
+          "duration_ms": 0.360754
+        },
+        {
+          "operation": "commit",
+          "duration_ms": 1.769659
+        },
+        {
+          "operation": "-- name: ListStrips :many",
+          "duration_ms": 1.567793
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.361126
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.328153
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.694036
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.542759
+        },
+        {
+          "operation": "-- name: GetCdmDataForCallsign :one",
+          "duration_ms": 1.196942
+        },
+        {
+          "operation": "-- name: SetCdmData :execrows",
+          "duration_ms": 1.892691
+        }
+      ]
+    },
+    {
+      "event": "hold",
+      "trace_id": "506f255a29bedcfbcd0c9f5e5c6a6ac8",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 36.605098,
+      "queue_ms": 0.321132,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 6,
+      "query_total_ms": 29.251602,
+      "pool_acquire_total_ms": 0.074556,
+      "queries": [
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 2.168703
+        },
+        {
+          "operation": "-- name: UpdateStripHoldByID :execrows",
+          "duration_ms": 6.655772
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.892336
+        },
+        {
+          "operation": "-- name: GetActiveAMANVATSIMObservationIdentity :one",
+          "duration_ms": 0.646181
+        },
+        {
+          "operation": "-- name: GetAMANAirportState :one",
+          "duration_ms": 4.176794
+        },
+        {
+          "operation": "-- name: ListAMANFlights :many",
+          "duration_ms": 14.711816
+        }
+      ]
+    },
+    {
+      "event": "aman_route_fact",
+      "trace_id": "0406c7c69075c12091efeb9ac2f30c1f",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 16.514937,
+      "queue_ms": 0.160992,
+      "status": {
+        "code": "STATUS_CODE_ERROR",
+        "message": "not_found: AMAN route fact: active AMAN flight was not found"
+      },
+      "query_count": 3,
+      "query_total_ms": 4.840522,
+      "pool_acquire_total_ms": 0.65151,
+      "queries": [
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.54314
+        },
+        {
+          "operation": "-- name: GetAMANAirportState :one",
+          "duration_ms": 0.283122
+        },
+        {
+          "operation": "-- name: ListAMANFlights :many",
+          "duration_ms": 4.01426
+        }
+      ]
+    },
+    {
+      "event": "ground_state",
+      "trace_id": "2d1d7f40e7085f6ee50c12ef66671f49",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 12.013995,
+      "queue_ms": 0.169996,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 5,
+      "query_total_ms": 9.517799000000002,
+      "pool_acquire_total_ms": 1.0341569999999998,
+      "queries": [
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 1.718007
+        },
+        {
+          "operation": "-- name: ListControllers :many",
+          "duration_ms": 2.385652
+        },
+        {
+          "operation": "-- name: UpdateStripGroundStateByID :execrows",
+          "duration_ms": 2.993883
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 1.712419
+        },
+        {
+          "operation": "-- name: GetCdmDataForCallsign :one",
+          "duration_ms": 0.707838
+        }
+      ]
+    },
+    {
+      "event": "squawk",
+      "trace_id": "ca257f20797f2662ebb8108d608c0b0e",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 5.129886,
+      "queue_ms": 0.078764,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 3,
+      "query_total_ms": 3.961499,
+      "pool_acquire_total_ms": 0.023466,
+      "queries": [
+        {
+          "operation": "-- name: UpdateStripSquawkByID :execrows",
+          "duration_ms": 2.127559
+        },
+        {
+          "operation": "-- name: ListStrips :many",
+          "duration_ms": 1.140424
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.693516
+        }
+      ]
+    },
+    {
+      "event": "strip_update",
+      "trace_id": "3faf63eb11311e7b00970d23dd42a84e",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 29.076974,
+      "queue_ms": 0.309333,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 18,
+      "query_total_ms": 23.983697,
+      "pool_acquire_total_ms": 0.710897,
+      "queries": [
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.543291
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.540405
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.417903
+        },
+        {
+          "operation": "-- name: ListControllers :many",
+          "duration_ms": 0.667594
+        },
+        {
+          "operation": "-- name: GetMaxSequenceInBayUnified :one",
+          "duration_ms": 4.044218
+        },
+        {
+          "operation": "-- name: GetSectorOwners :many",
+          "duration_ms": 0.580909
+        },
+        {
+          "operation": "-- name: GetCoordinationByStripID :one",
+          "duration_ms": 0.46701
+        },
+        {
+          "operation": "begin",
+          "duration_ms": 0.139068
+        },
+        {
+          "operation": "SELECT id FROM sessions WHERE id=$1 FOR UPDATE",
+          "duration_ms": 0.429793
+        },
+        {
+          "operation": "-- name: GetMaxSequenceInBayUnified :one",
+          "duration_ms": 2.037548
+        },
+        {
+          "operation": "-- name: InsertStrip :exec",
+          "duration_ms": 4.368115
+        },
+        {
+          "operation": "commit",
+          "duration_ms": 2.985681
+        },
+        {
+          "operation": "-- name: ListStrips :many",
+          "duration_ms": 2.525212
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.714008
+        },
+        {
+          "operation": "-- name: MarkStripEuroscopeSeen :exec",
+          "duration_ms": 2.192069
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.846565
+        },
+        {
+          "operation": "-- name: GetCoordinationByStripID :one",
+          "duration_ms": 0.284194
+        },
+        {
+          "operation": "-- name: GetStandAssignment :one",
+          "duration_ms": 0.200114
+        }
+      ]
+    },
+    {
+      "event": "stand",
+      "trace_id": "9937bca8628a7d97edbd7b8e74739c22",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 21.535671,
+      "queue_ms": 0.431525,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 12,
+      "query_total_ms": 19.123659,
+      "pool_acquire_total_ms": 0.252163,
+      "queries": [
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 2.342956
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.763855
+        },
+        {
+          "operation": "-- name: UpdateStripStandByID :execrows",
+          "duration_ms": 3.945382
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.956626
+        },
+        {
+          "operation": "-- name: GetCoordinationByStripID :one",
+          "duration_ms": 0.539814
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 2.790777
+        },
+        {
+          "operation": "-- name: GetSectorOwners :many",
+          "duration_ms": 2.044578
+        },
+        {
+          "operation": "-- name: ListControllers :many",
+          "duration_ms": 0.746288
+        },
+        {
+          "operation": "-- name: ListStrips :many",
+          "duration_ms": 3.54769
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.418775
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.473742
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.553176
+        }
+      ]
+    },
+    {
+      "event": "coordination_assume_request",
+      "trace_id": "2ecb7375ad99f7b88ea9f2c50e98053b",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 46.131229,
+      "queue_ms": 0.122272,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 25,
+      "query_total_ms": 38.726582,
+      "pool_acquire_total_ms": 2.0203119999999997,
+      "queries": [
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 1.102925
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.795925
+        },
+        {
+          "operation": "-- name: GetCoordinationByStripID :one",
+          "duration_ms": 0.572746
+        },
+        {
+          "operation": "-- name: SetNextAndPreviousOwners :exec",
+          "duration_ms": 2.868858
+        },
+        {
+          "operation": "-- name: SetStripOwner :execrows",
+          "duration_ms": 2.53757
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 1.795299
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.688738
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 1.097968
+        },
+        {
+          "operation": "-- name: ListStrips :many",
+          "duration_ms": 7.144968
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.975206
+        },
+        {
+          "operation": "-- name: ListStrips :many",
+          "duration_ms": 4.111962
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 1.360238
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.60672
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.919228
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 3.491571
+        },
+        {
+          "operation": "-- name: GetCoordinationByStripID :one",
+          "duration_ms": 1.799916
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 1.098628
+        },
+        {
+          "operation": "-- name: GetSectorOwners :many",
+          "duration_ms": 0.542077
+        },
+        {
+          "operation": "-- name: ListControllers :many",
+          "duration_ms": 0.887047
+        },
+        {
+          "operation": "-- name: SetRouteState :exec",
+          "duration_ms": 1.917319
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.527296
+        },
+        {
+          "operation": "-- name: GetCoordinationByStripID :one",
+          "duration_ms": 0.595901
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.54942
+        },
+        {
+          "operation": "-- name: GetSectorOwners :many",
+          "duration_ms": 0.304506
+        },
+        {
+          "operation": "-- name: ListControllers :many",
+          "duration_ms": 0.43455
+        }
+      ]
+    },
+    {
+      "event": "issue_pdc_clearance",
+      "trace_id": "9093f5be1dc8ce9c293886161ee029ae",
+      "release": "2.2.8+246871676f77ac828283c1eb668edf3401c6491c",
+      "processing_ms": 103.190494,
+      "queue_ms": 0.230931,
+      "status": {
+        "code": "STATUS_CODE_OK",
+        "message": ""
+      },
+      "query_count": 29,
+      "query_total_ms": 24.436910999999995,
+      "pool_acquire_total_ms": 0.665168,
+      "queries": [
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.877463
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 1.807398
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.74858
+        },
+        {
+          "operation": "-- name: GetSectorOwners :many",
+          "duration_ms": 0.455894
+        },
+        {
+          "operation": "-- name: ListControllers :many",
+          "duration_ms": 0.820804
+        },
+        {
+          "operation": "-- name: GetNextPdcSequence :one",
+          "duration_ms": 3.639824
+        },
+        {
+          "operation": "-- name: GetNextMessageSequence :one",
+          "duration_ms": 2.684239
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.712255
+        },
+        {
+          "operation": "-- name: SetPdcData :exec",
+          "duration_ms": 1.599051
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.592046
+        },
+        {
+          "operation": "-- name: SetPdcData :exec",
+          "duration_ms": 1.383604
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.4658
+        },
+        {
+          "operation": "begin",
+          "duration_ms": 0.184849
+        },
+        {
+          "operation": "SELECT id FROM sessions WHERE id=$1 FOR UPDATE",
+          "duration_ms": 0.134541
+        },
+        {
+          "operation": "-- name: GetMaxSequenceInBayUnified :one",
+          "duration_ms": 1.117297
+        },
+        {
+          "operation": "-- name: UpdateStripBayAndSequence :execrows",
+          "duration_ms": 0.687987
+        },
+        {
+          "operation": "commit",
+          "duration_ms": 1.179776
+        },
+        {
+          "operation": "-- name: ListStrips :many",
+          "duration_ms": 1.765902
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.412055
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.340763
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.308853
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.264353
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.358511
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.195947
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.2747
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.329465
+        },
+        {
+          "operation": "-- name: GetStrip :one",
+          "duration_ms": 0.330357
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.353694
+        },
+        {
+          "operation": "-- name: GetSessionById :one",
+          "duration_ms": 0.410903
+        }
+      ]
+    }
+  ]
+}

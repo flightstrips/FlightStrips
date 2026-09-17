@@ -66,6 +66,7 @@ func (s *StripService) UpdateAircraftPosition(ctx context.Context, session int32
 	var unlockTransition func()
 	ensureTransitionLock := func() {
 		if unlockTransition == nil {
+			ctx = shared.WithoutPositionBatching(ctx)
 			unlockTransition = s.positionTransition(session)
 		}
 	}

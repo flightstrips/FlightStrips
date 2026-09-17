@@ -112,6 +112,11 @@ func (s *Service) ReportDirectTo(ctx context.Context, session int32, airport, ca
 		if _, err := s.authorize(ctx, report); err != nil {
 			return err
 		}
+		if reader, ok := s.deps.Repository.(aman.FactFlightReader); ok {
+			if _, err := reader.FindActiveFactFlight(ctx, report.Airport, report.Callsign); err != nil {
+				return err
+			}
+		}
 		state, err := s.deps.Repository.LoadAirportState(ctx, report.Airport)
 		if err != nil {
 			return err
@@ -237,6 +242,20 @@ func (s *Service) ReportSpeed(ctx context.Context, session int32, airport, calls
 		observedAt, report.ObservedAt = now, now
 	}
 	if _, err := s.authorize(ctx, report); err != nil {
+		return err
+	}
+	if reader, ok := s.deps.Repository.(aman.FactFlightReader); ok {
+		id, err := reader.FindActiveFactFlight(ctx, report.Airport, report.Callsign)
+		if err != nil {
+			return err
+		}
+		if s.deps.Correlator == nil {
+			return nil
+		}
+		_, err = s.deps.Correlator.ObserveClearance(context.WithoutCancel(ctx), coordinationrequest.ClearanceFact{
+			Airport: report.Airport, FlightID: coordinationrequest.FlightID(id), FactID: s.deps.NewID(), Kind: coordinationrequest.KindSpeed,
+			Value: value, Issuer: report.ControllerCallsign, ObservedAt: observedAt,
+		})
 		return err
 	}
 	state, err := s.deps.Repository.LoadAirportState(ctx, report.Airport)

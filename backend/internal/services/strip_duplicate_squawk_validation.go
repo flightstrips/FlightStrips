@@ -272,6 +272,7 @@ func (s *StripService) reevaluateStoredDuplicateSquawkValidation(ctx context.Con
 }
 
 func (s *StripService) reevaluateDepartureValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
+	ctx = withValidationReadState(ctx)
 	strips, available, err := s.listStripsForDuplicateSquawkValidation(ctx, session)
 	if err != nil {
 		return err
@@ -351,6 +352,13 @@ func (s *StripService) reevaluateSquawkValidation(ctx context.Context, session i
 }
 
 func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context, session int32, publish bool) error {
+	return s.reevaluateSquawkValidations(ctx, session, publish, nil)
+}
+
+// Membership still uses the entire session: an affected peer can share a
+// second code with another aircraft outside the old/new-code group.
+func (s *StripService) reevaluateSquawkValidations(ctx context.Context, session int32, publish bool, relevant func(*internalModels.Strip) bool) error {
+	ctx = withValidationReadState(ctx)
 	strips, available, err := s.listStripsForDuplicateSquawkValidation(ctx, session)
 	if err != nil {
 		return err
@@ -361,6 +369,9 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 
 	membership := duplicateSquawkCodeMembership(strips)
 	for _, strip := range strips {
+		if relevant != nil && !relevant(strip) {
+			continue
+		}
 		if err := s.applyDuplicateSquawkValidation(ctx, session, strip, membership, publish, false); err != nil {
 			return err
 		}
@@ -368,6 +379,9 @@ func (s *StripService) reevaluateSquawkValidationsForSession(ctx context.Context
 
 	now := ctotValidationNow()
 	for _, strip := range strips {
+		if relevant != nil && !relevant(strip) {
+			continue
+		}
 		refreshed, refreshedAvailable, err := s.getStripForDuplicateSquawkValidation(ctx, session, strip.Callsign)
 		if err != nil {
 			return err

@@ -11,6 +11,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// Validation passes update their loaded strip's validation status after each
+// successful write. Keep those reads local to the pass when the caller has no
+// audited message state; subsequent operational mutations must load fresh data.
+func withValidationReadState(ctx context.Context) context.Context {
+	if shared.GetSyncState(ctx) != nil || shared.GetWebsocketMessageState(ctx) != nil {
+		return ctx
+	}
+	return shared.WithWebsocketMessageState(ctx, &shared.WebsocketMessageState{})
+}
+
 func messageStateStripsLoaded(state *shared.WebsocketMessageState) bool {
 	return state != nil && state.StripList != nil
 }

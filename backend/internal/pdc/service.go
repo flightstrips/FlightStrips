@@ -13,6 +13,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel"
 	"log/slog"
 	"slices"
 	"strings"
@@ -772,6 +773,8 @@ func (s *Service) IssueClearance(ctx context.Context, callsign, remarks, cid str
 }
 
 func (s *Service) BuildClearanceOptions(ctx context.Context, sessionInfo sessionInformation, strip *models.Strip, remarks string, webDelivery bool, mandatoryRouteReview *mandatoryRouteReview) (ClearanceOptions, error) {
+	ctx, span := otel.Tracer("pdc").Start(ctx, "pdc.clearance.prepare")
+	defer span.End()
 	if strip.Runway == nil || (strip.Sid == nil && strip.Heading == nil) {
 		return ClearanceOptions{}, fmt.Errorf("strip missing required clearance data (runway and SID or heading)")
 	}
@@ -855,6 +858,8 @@ func (s *Service) BuildClearanceOptions(ctx context.Context, sessionInfo session
 }
 
 func (s *Service) deliverPdcClearance(ctx context.Context, sessionInfo sessionInformation, callsign string, options ClearanceOptions, webDelivery bool) error {
+	ctx, span := otel.Tracer("pdc").Start(ctx, "pdc.clearance.delivery")
+	defer span.End()
 	if webDelivery {
 		return nil
 	}
@@ -871,13 +876,15 @@ func (s *Service) deliverPdcClearance(ctx context.Context, sessionInfo sessionIn
 }
 
 func (s *Service) persistIssuedPdcClearance(ctx context.Context, sessionID int32, callsign, cid string, options ClearanceOptions, webDelivery bool) error {
+	ctx, span := otel.Tracer("pdc").Start(ctx, "pdc.clearance.persist")
+	defer span.End()
 	now := time.Now().UTC()
-	if err := s.stripRepo.SetPdcMessageSent(ctx, sessionID, callsign, string(StateCleared), &options.Sequence, &now); err != nil {
-		return fmt.Errorf("failed to set PDC message sent: %w", err)
-	}
 
 	if err := s.updatePdcData(ctx, sessionID, callsign, func(pdcData *models.PdcData) {
 		pdcData.State = string(StateCleared)
+		pdcData.MessageSequence = &options.Sequence
+		pdcData.MessageSent = &now
+		pdcData.RequestRemarks = nil
 		pdcData.IssuedByCid = optionalString(cid)
 		if webDelivery {
 			if pdcData.Web == nil {
@@ -894,6 +901,8 @@ func (s *Service) persistIssuedPdcClearance(ctx context.Context, sessionID int32
 }
 
 func (s *Service) moveIssuedPdcStrip(ctx context.Context, sessionID int32, callsign string) {
+	ctx, span := otel.Tracer("pdc").Start(ctx, "pdc.clearance.move")
+	defer span.End()
 	if err := s.stripService.MoveToBay(ctx, sessionID, callsign, shared.BAY_CLEARED, true); err != nil {
 		slog.ErrorContext(ctx, "PDC Service: Warning - failed to move strip to cleared bay", slog.Any("error", err))
 	}
@@ -901,6 +910,8 @@ func (s *Service) moveIssuedPdcStrip(ctx context.Context, sessionID int32, calls
 }
 
 func (s *Service) notifyIssuedPdcClearance(ctx context.Context, sessionID int32, callsign string) error {
+	ctx, span := otel.Tracer("pdc").Start(ctx, "pdc.clearance.publish")
+	defer span.End()
 	if err := s.notifyStateChange(ctx, sessionID, callsign, StateCleared, ""); err != nil {
 		return fmt.Errorf("failed to notify cleared state change: %w", err)
 	}

@@ -2,6 +2,7 @@ package euroscope
 
 import (
 	"FlightStrips/internal/metrics"
+	"FlightStrips/internal/repository/postgres"
 	"FlightStrips/internal/shared"
 	"FlightStrips/pkg/events"
 	eventseuroscope "FlightStrips/pkg/events/euroscope"
@@ -339,7 +340,9 @@ func (c *Client) rememberAircraftPosition(callsign string, position cachedAircra
 }
 
 func (c *Client) processAircraftPosition(ctx context.Context, callsign string, position cachedAircraftPosition) error {
+	resume := shared.SuspendPositionExecution(ctx)
 	c.hub.masterTransitionMu.RLock()
+	resume()
 	defer c.hub.masterTransitionMu.RUnlock()
 	if c.isClosed() || ctx.Err() != nil || !c.validPositionFence(ctx) {
 		return context.Canceled
@@ -348,7 +351,9 @@ func (c *Client) processAircraftPosition(ctx context.Context, callsign string, p
 		return context.Canceled
 	}
 	processLock := c.positionProcessLock(callsign)
+	resumeProcess := shared.SuspendPositionExecution(ctx)
 	processLock.Lock()
+	resumeProcess()
 	defer processLock.Unlock()
 
 	key := flightPlanCacheKey(callsign)
@@ -435,13 +440,17 @@ func (c *Client) applyPendingPosition(ctx context.Context, key string, expected 
 	if expected.fence != nil {
 		ctx = expected.fence(ctx)
 	}
+	resume := shared.SuspendPositionExecution(ctx)
 	c.hub.masterTransitionMu.RLock()
+	resume()
 	defer c.hub.masterTransitionMu.RUnlock()
 	if c.hub.getMasterClient(c.session) != c || c.isClosed() || ctx.Err() != nil || !c.validPositionFence(ctx) {
 		return
 	}
 	processLock := c.positionProcessLock(key)
+	resumeProcess := shared.SuspendPositionExecution(ctx)
 	processLock.Lock()
+	resumeProcess()
 	defer processLock.Unlock()
 
 	c.flightPlanCacheMu.Lock()
@@ -509,7 +518,11 @@ func (c *Client) PositionDispatcher() *shared.PositionDispatcher {
 				workers = n
 			}
 		}
-		c.dispatcher = shared.NewPositionDispatcher(workers, 256, c.hub.positionBudget)
+		if os.Getenv("POSITION_DB_BATCHING_ENABLED") == "true" {
+			c.dispatcher = shared.NewBatchPositionDispatcher(workers, 256, c.hub.positionBudget, postgres.NewPositionBatch)
+		} else {
+			c.dispatcher = shared.NewPositionDispatcher(workers, 256, c.hub.positionBudget)
+		}
 		if c.isClosed() {
 			c.dispatcher.Cancel()
 		}

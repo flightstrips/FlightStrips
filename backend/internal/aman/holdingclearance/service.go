@@ -62,6 +62,34 @@ func (s *Service) ObserveHoldingClearances(ctx context.Context, facts []aman.Hol
 }
 
 func (s *Service) observeAirportClearances(ctx context.Context, airport string, facts []aman.HoldingClearanceFact) error {
+	if reader, ok := s.deps.Repository.(aman.HoldingFactReader); ok {
+		ids := make([]aman.FlightID, len(facts))
+		for i, fact := range facts {
+			ids[i] = fact.FlightID
+		}
+		snapshots, err := reader.LoadHoldingFactSnapshots(ctx, airport, ids)
+		if err != nil {
+			return err
+		}
+		byID := make(map[aman.FlightID]aman.HoldingFactSnapshot, len(snapshots))
+		for _, snapshot := range snapshots {
+			byID[snapshot.FlightID] = snapshot
+		}
+		changed := false
+		for _, fact := range facts {
+			current, exists := byID[fact.FlightID]
+			if !exists || current.VATSIMCID != strings.TrimSpace(fact.VATSIMCID) {
+				continue
+			}
+			if !sameClearance(current.Clearance, normalize(fact)) && (current.Clearance == nil || fact.ObservedAt.After(current.Clearance.ObservedAt)) {
+				changed = true
+				break
+			}
+		}
+		if !changed {
+			return nil
+		}
+	}
 	for attempt := 0; attempt < maxCommitAttempts; attempt++ {
 		state, err := s.deps.Repository.LoadAirportState(ctx, airport)
 		if err != nil {

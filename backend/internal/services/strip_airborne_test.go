@@ -692,3 +692,30 @@ func TestMissingPositionStripIsNotSuccessfulHandling(t *testing.T) {
 	service := NewStripService(&testutil.MockStripRepository{GetByCallsignFn: func(context.Context, int32, string) (*models.Strip, error) { return nil, pgx.ErrNoRows }})
 	require.ErrorIs(t, service.UpdateAircraftPosition(context.Background(), 1, "UNKNOWN", 55, 12, 100, "EKCH"), pgx.ErrNoRows)
 }
+
+func TestPositionTransitionConflictRetryDoesNotRejoinBatch(t *testing.T) {
+	reads, writes := 0, 0
+	repo := &testutil.MockStripRepository{
+		GetMaxSequenceInBayFn: func(context.Context, int32, string) (int32, error) { return 0, nil },
+		GetByCallsignFn: func(ctx context.Context, _ int32, callsign string) (*models.Strip, error) {
+			reads++
+			bay := shared.BAY_DEPART
+			if reads > 1 {
+				bay = shared.BAY_AIRBORNE
+				require.True(t, shared.PositionBatchingDisabled(ctx))
+			}
+			return &models.Strip{Callsign: callsign, Origin: "EKCH", Destination: "ESSA", Bay: bay, Version: int32(reads)}, nil
+		},
+		UpdateAircraftPositionAndBayFn: func(ctx context.Context, _ int32, _ string, _ *float64, _ *float64, _ *int32, _ string, _ int32, _ int32) (int64, error) {
+			writes++
+			require.True(t, shared.PositionBatchingDisabled(ctx), "transition lock remains held across the retry")
+			if writes == 1 {
+				return 0, nil
+			}
+			return 1, nil
+		},
+	}
+	svc := NewStripService(repo)
+	require.NoError(t, svc.UpdateAircraftPosition(context.Background(), 1, "SAS123", 55.65, 12.68, 8000, "EKCH"))
+	require.Equal(t, 2, writes)
+}

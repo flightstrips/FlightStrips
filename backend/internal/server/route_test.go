@@ -70,6 +70,34 @@ func TestComputeRouteStateForStrip_ClearsDepartureRouteUntilStandIsKnown(t *test
 	assert.Empty(t, result.NextOwners)
 }
 
+func TestComputeRouteStateForStrip_ClearsRouteForDepartureOutsideAirport(t *testing.T) {
+	latitude := 57.0488
+	longitude := 9.9217
+	strip := &models.Strip{
+		Callsign:          "SAS1207",
+		Origin:            "EKCH",
+		Destination:       "EKYT",
+		Runway:            stringPtr("22R"),
+		Stand:             stringPtr("5"),
+		PositionLatitude:  &latitude,
+		PositionLongitude: &longitude,
+		NextOwners:        []string{"121.630"},
+	}
+	session := &models.Session{
+		ID:      144,
+		Airport: "EKCH",
+		ActiveRunways: pkgModels.ActiveRunways{
+			DepartureRunways: []string{"22R"},
+		},
+	}
+
+	result, shouldUpdate, err := computeRouteStateForStrip(strip, session, nil, routeRadioState{})
+
+	require.NoError(t, err)
+	assert.True(t, shouldUpdate)
+	assert.Empty(t, result.NextOwners)
+}
+
 func TestComputeRouteStateForStrip_UsesAssignedDepartureRunwayWhenItIsNotActive(t *testing.T) {
 	owner := "121.905"
 	strip := &models.Strip{

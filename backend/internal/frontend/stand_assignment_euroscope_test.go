@@ -8,6 +8,7 @@ import (
 	"FlightStrips/internal/testutil"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,16 +17,18 @@ import (
 
 type standAssignmentSnapshotRepository struct {
 	repository.StandAssignmentRepository
-	assignments []*models.StandAssignment
-	blocks      []*models.StandBlock
+	assignments    []*models.StandAssignment
+	blocks         []*models.StandBlock
+	assignmentsErr error
+	blocksErr      error
 }
 
 func (r *standAssignmentSnapshotRepository) ListAssignments(context.Context, int32) ([]*models.StandAssignment, error) {
-	return r.assignments, nil
+	return r.assignments, r.assignmentsErr
 }
 
 func (r *standAssignmentSnapshotRepository) ListBlocks(context.Context, int32) ([]*models.StandBlock, error) {
-	return r.blocks, nil
+	return r.blocks, r.blocksErr
 }
 
 type standAllocationPublishingServer struct {
@@ -216,4 +219,51 @@ func TestPublishStandAllocationSendsOneAuthoritativeSnapshot(t *testing.T) {
 	snapshot, ok := message.message.(frontendEvents.StandStatusSnapshotEvent)
 	require.True(t, ok)
 	assert.Len(t, snapshot.Assignments, len(assignments))
+}
+
+func TestPublishStandAllocationFallbackPreservesState(t *testing.T) {
+	for _, test := range []struct {
+		name                      string
+		assignmentsErr, blocksErr error
+		wantUpdates               int
+	}{
+		{name: "assignment lookup failed", assignmentsErr: errors.New("assignments unavailable"), wantUpdates: 1},
+		{name: "block lookup failed", blocksErr: errors.New("blocks unavailable"), wantUpdates: 3},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			assignments := []*models.StandAssignment{
+				{SessionID: 7, Callsign: "SAS501", Stand: "A1"},
+				{SessionID: 7, Callsign: "SAS502", Stand: "A2"},
+				{SessionID: 7, Callsign: "SAS503", Stand: "A3"},
+			}
+			hub := &Hub{
+				send: make(chan internalMessage, 10),
+				server: &standAllocationPublishingServer{
+					MockServer: &testutil.MockServer{SessionRepoVal: &testutil.MockSessionRepository{
+						GetByIDFn: func(context.Context, int32) (*models.Session, error) {
+							return &models.Session{ID: 7, Airport: "EKCH"}, nil
+						},
+					}},
+					assignments: &standAssignmentSnapshotRepository{
+						assignments: assignments, assignmentsErr: test.assignmentsErr, blocksErr: test.blocksErr,
+					},
+				},
+			}
+			require.NoError(t, hub.PublishStandAllocation(t.Context(), services.StandAllocationResult{
+				Assignment:         *assignments[0],
+				RemovedAssignments: []models.StandAssignment{{SessionID: 7, Callsign: "REMOVED"}},
+			}))
+			require.Len(t, hub.send, test.wantUpdates+1)
+			for i := 0; i < test.wantUpdates; i++ {
+				message := <-hub.send
+				update, ok := message.message.(frontendEvents.StandAssignmentUpdateEvent)
+				require.True(t, ok, "a partial snapshot would incorrectly clear retained blocks")
+				assert.Equal(t, assignments[i].Callsign, update.Assignment.Callsign)
+			}
+			message := <-hub.send
+			removed, ok := message.message.(frontendEvents.StandAssignmentRemovedEvent)
+			require.True(t, ok)
+			assert.Equal(t, "REMOVED", removed.Callsign)
+		})
+	}
 }

@@ -8,7 +8,11 @@
 using FlightStrips::flightplan::FlightPlan;
 using FlightStrips::flightplan::FlightPlanService;
 using FlightStrips::flightplan::ApplyHold;
+using FlightStrips::flightplan::ApplyTopSkyHoldCommand;
+using FlightStrips::flightplan::ReconcileTopSkyHoldAnnotation;
+using FlightStrips::flightplan::ShouldReportTopSkyHoldCommand;
 using FlightStrips::flightplan::TopSkyHold;
+using FlightStrips::flightplan::TopSkyHoldCommandType;
 
 TEST(FlightPlanServiceStateTest, ApplyHoldCachesEatUntilReconnectSnapshot) {
     FlightPlan plan;
@@ -23,6 +27,87 @@ TEST(FlightPlanServiceStateTest, ApplyHoldCachesEatUntilReconnectSnapshot) {
     // preserve the cached EAT so a reconnect can resend the complete hold.
     EXPECT_FALSE(ApplyHold(plan, hold, ""));
     EXPECT_EQ(plan.hold_eat, "1234");
+}
+
+TEST(FlightPlanServiceStateTest, ScratchCommandsDriveHoldingState) {
+    FlightPlan plan;
+
+    EXPECT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB"}));
+    EXPECT_EQ(plan.hold, "OLPIB");
+    EXPECT_EQ(plan.hold_type, "enroute");
+    EXPECT_TRUE(plan.hold_eat.empty());
+
+    EXPECT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Eat, "1422"}));
+    EXPECT_EQ(plan.hold_eat, "1422");
+    EXPECT_FALSE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB"}));
+    EXPECT_EQ(plan.hold_eat, "1422");
+
+    EXPECT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "ROSBI"}));
+    EXPECT_EQ(plan.hold, "ROSBI");
+    EXPECT_TRUE(plan.hold_eat.empty());
+
+    EXPECT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Cancel, {}}));
+    EXPECT_TRUE(plan.hold.empty());
+    EXPECT_FALSE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Cancel, {}}));
+    EXPECT_FALSE(ReconcileTopSkyHoldAnnotation(plan, TopSkyHold{true, false, "OLPIB"}));
+    EXPECT_TRUE(plan.hold.empty());
+}
+
+TEST(FlightPlanServiceStateTest, CombinedAssignmentAndEatUpdatesAtomically) {
+    FlightPlan plan;
+    EXPECT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB", "1422"}));
+    EXPECT_EQ(plan.hold, "OLPIB");
+    EXPECT_EQ(plan.hold_type, "enroute");
+    EXPECT_EQ(plan.hold_eat, "1422");
+    EXPECT_FALSE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB", "1422"}));
+}
+
+TEST(FlightPlanServiceStateTest, EatWithoutKnownHoldDoesNotCreateOrClearState) {
+    FlightPlan plan;
+    EXPECT_FALSE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Eat, "1422"}));
+    EXPECT_TRUE(plan.hold.empty());
+    EXPECT_TRUE(plan.hold_eat.empty());
+}
+
+TEST(FlightPlanServiceStateTest, EatDoesNotAttachToTsaHold) {
+    FlightPlan plan;
+    ASSERT_TRUE(ReconcileTopSkyHoldAnnotation(plan, TopSkyHold{true, true, "EK-TSA-1"}));
+    EXPECT_FALSE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Eat, "1422"}));
+    EXPECT_TRUE(plan.hold_eat.empty());
+}
+
+TEST(FlightPlanServiceStateTest, MissingAnnotationDoesNotClearScratchState) {
+    FlightPlan plan;
+    ASSERT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB"}));
+    ASSERT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Eat, "1422"}));
+
+    EXPECT_FALSE(ReconcileTopSkyHoldAnnotation(plan, {}));
+    EXPECT_EQ(plan.hold, "OLPIB");
+    EXPECT_EQ(plan.hold_eat, "1422");
+}
+
+TEST(FlightPlanServiceStateTest, ActiveAnnotationCanReconcileUnknownState) {
+    FlightPlan plan;
+    EXPECT_TRUE(ReconcileTopSkyHoldAnnotation(plan, TopSkyHold{true, false, "OLPIB"}));
+    EXPECT_EQ(plan.hold, "OLPIB");
+    EXPECT_EQ(plan.hold_type, "enroute");
+}
+
+TEST(FlightPlanServiceStateTest, TsaAnnotationReplacesEarlierCommandState) {
+    FlightPlan plan;
+    ASSERT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB"}));
+
+    EXPECT_TRUE(ReconcileTopSkyHoldAnnotation(plan, TopSkyHold{true, true, "EK-TSA-1"}));
+    EXPECT_EQ(plan.hold, "EK-TSA-1");
+    EXPECT_EQ(plan.hold_type, "tsa");
+    EXPECT_FALSE(plan.hold_command_observed);
+}
+
+TEST(FlightPlanServiceStateTest, DuplicateAuthoritativeCommandsRemainReportable) {
+    EXPECT_TRUE(ShouldReportTopSkyHoldCommand({TopSkyHoldCommandType::Assign, "OLPIB"}, false));
+    EXPECT_TRUE(ShouldReportTopSkyHoldCommand({TopSkyHoldCommandType::Cancel, {}}, false));
+    EXPECT_FALSE(ShouldReportTopSkyHoldCommand({TopSkyHoldCommandType::Eat, "1422"}, false));
+    EXPECT_TRUE(ShouldReportTopSkyHoldCommand({TopSkyHoldCommandType::Eat, "1422"}, true));
 }
 
 TEST(FlightPlanServiceStaticTest, GetEstimatedLandingTime_ZeroPoints_ReturnsCurrentUtcHHMM) {
@@ -226,6 +311,47 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncCdm_SeedsCdmState) {
     EXPECT_EQ(flightPlan->cdm.asat, "1042");
     EXPECT_EQ(flightPlan->cdm.deice_type, "H");
     EXPECT_EQ(flightPlan->cdm.ecfmp_id, "ATFM");
+}
+
+TEST(FlightPlanServiceStateTest, ApplyBackendSyncHold_SeedsStateForLaterEat) {
+    FlightPlanService service(
+        std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
+        std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
+        std::shared_ptr<FlightStrips::stands::StandService>{},
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
+    );
+
+    service.ApplyBackendSyncHold("SAS322", "OLPIB", "enroute", "1415");
+
+    auto* flightPlan = service.GetFlightPlan("SAS322");
+    ASSERT_NE(flightPlan, nullptr);
+    ASSERT_TRUE(ApplyTopSkyHoldCommand(*flightPlan, {TopSkyHoldCommandType::Eat, "1422"}));
+    EXPECT_EQ(flightPlan->hold, "OLPIB");
+    EXPECT_EQ(flightPlan->hold_type, "enroute");
+    EXPECT_EQ(flightPlan->hold_eat, "1422");
+}
+
+TEST(FlightPlanServiceStateTest, ApplyBackendSyncHold_DoesNotOverwriteOfflineCommand) {
+    FlightPlanService service(
+        std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
+        std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
+        std::shared_ptr<FlightStrips::stands::StandService>{},
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
+    );
+
+    service.ApplyBackendSyncHold("SAS323", "OLPIB", "enroute", "1422");
+    auto* flightPlan = service.GetFlightPlan("SAS323");
+    ASSERT_NE(flightPlan, nullptr);
+    ASSERT_TRUE(ApplyTopSkyHoldCommand(*flightPlan, {TopSkyHoldCommandType::Cancel, {}}));
+    flightPlan->hold_command_pending = true;
+
+    service.ApplyBackendSyncHold("SAS323", "OLPIB", "enroute", "1422");
+    EXPECT_TRUE(flightPlan->hold.empty());
+    EXPECT_TRUE(flightPlan->hold_type.empty());
+    EXPECT_TRUE(flightPlan->hold_eat.empty());
+    EXPECT_TRUE(flightPlan->hold_command_observed);
 }
 
 TEST(FlightPlanServiceStateTest, ApplyPdcStateChange_SeedsTrackedState) {

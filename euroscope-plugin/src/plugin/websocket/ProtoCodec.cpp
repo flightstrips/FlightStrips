@@ -323,6 +323,9 @@ namespace FlightStrips::websocket::protobuf {
             decoded.stand = strip.stand();
             decoded.pdc_state = strip.pdc_state();
             decoded.pdc_request_remarks = strip.pdc_request_remarks();
+            decoded.hold = strip.hold();
+            decoded.hold_type = strip.hold_type();
+            decoded.hold_eat = strip.hold_eat();
             if (strip.has_cdm()) {
                 const auto& cdm = strip.cdm();
                 decoded.cdm.eobt = cdm.eobt();

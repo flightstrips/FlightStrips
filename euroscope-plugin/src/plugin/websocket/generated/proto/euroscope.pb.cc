@@ -1701,6 +1701,15 @@ inline constexpr BackendSyncStrip::Impl_::Impl_(
         pdc_request_remarks_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        hold_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        hold_type_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        hold_eat_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         cdm_{nullptr},
         cleared_{false} {}
 
@@ -10129,7 +10138,10 @@ inline PROTOBUF_NDEBUG_INLINE BackendSyncStrip::Impl_::Impl_(
         ground_state_(arena, from.ground_state_),
         stand_(arena, from.stand_),
         pdc_state_(arena, from.pdc_state_),
-        pdc_request_remarks_(arena, from.pdc_request_remarks_) {}
+        pdc_request_remarks_(arena, from.pdc_request_remarks_),
+        hold_(arena, from.hold_),
+        hold_type_(arena, from.hold_type_),
+        hold_eat_(arena, from.hold_eat_) {}
 
 BackendSyncStrip::BackendSyncStrip(
     ::google::protobuf::Arena* arena,
@@ -10157,7 +10169,10 @@ inline PROTOBUF_NDEBUG_INLINE BackendSyncStrip::Impl_::Impl_(
         ground_state_(arena),
         stand_(arena),
         pdc_state_(arena),
-        pdc_request_remarks_(arena) {}
+        pdc_request_remarks_(arena),
+        hold_(arena),
+        hold_type_(arena),
+        hold_eat_(arena) {}
 
 inline void BackendSyncStrip::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
@@ -10181,6 +10196,9 @@ inline void BackendSyncStrip::SharedDtor() {
   _impl_.stand_.Destroy();
   _impl_.pdc_state_.Destroy();
   _impl_.pdc_request_remarks_.Destroy();
+  _impl_.hold_.Destroy();
+  _impl_.hold_type_.Destroy();
+  _impl_.hold_eat_.Destroy();
   delete _impl_.cdm_;
   _impl_.~Impl_();
 }
@@ -10216,6 +10234,9 @@ PROTOBUF_NOINLINE void BackendSyncStrip::Clear() {
   _impl_.stand_.ClearToEmpty();
   _impl_.pdc_state_.ClearToEmpty();
   _impl_.pdc_request_remarks_.ClearToEmpty();
+  _impl_.hold_.ClearToEmpty();
+  _impl_.hold_type_.ClearToEmpty();
+  _impl_.hold_eat_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(_impl_.cdm_ != nullptr);
@@ -10234,15 +10255,15 @@ const char* BackendSyncStrip::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 8, 1, 127, 2> BackendSyncStrip::_table_ = {
+const ::_pbi::TcParseTable<4, 11, 1, 148, 2> BackendSyncStrip::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_._has_bits_),
     0, // no _extensions_
-    8, 56,  // max_field_number, fast_idx_mask
+    11, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967040,  // skipmap
+    4294965248,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    8,  // num_field_entries
+    11,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_BackendSyncStrip_default_instance_._instance,
@@ -10251,9 +10272,7 @@ const ::_pbi::TcParseTable<3, 8, 1, 127, 2> BackendSyncStrip::_table_ = {
     ::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::BackendSyncStrip>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string pdc_request_remarks = 8;
-    {::_pbi::TcParser::FastUS1,
-     {66, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.pdc_request_remarks_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string callsign = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.callsign_)}},
@@ -10275,6 +10294,22 @@ const ::_pbi::TcParseTable<3, 8, 1, 127, 2> BackendSyncStrip::_table_ = {
     // string pdc_state = 7;
     {::_pbi::TcParser::FastUS1,
      {58, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.pdc_state_)}},
+    // string pdc_request_remarks = 8;
+    {::_pbi::TcParser::FastUS1,
+     {66, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.pdc_request_remarks_)}},
+    // string hold = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.hold_)}},
+    // string hold_type = 10;
+    {::_pbi::TcParser::FastUS1,
+     {82, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.hold_type_)}},
+    // string hold_eat = 11;
+    {::_pbi::TcParser::FastUS1,
+     {90, 63, 0, PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.hold_eat_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -10302,10 +10337,19 @@ const ::_pbi::TcParseTable<3, 8, 1, 127, 2> BackendSyncStrip::_table_ = {
     // string pdc_request_remarks = 8;
     {PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.pdc_request_remarks_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string hold = 9;
+    {PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.hold_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string hold_type = 10;
+    {PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.hold_type_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string hold_eat = 11;
+    {PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.hold_eat_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::euroscope::v1::BackendSyncCdmData>()},
   }}, {{
-    "\52\10\17\0\14\5\0\11\23\0\0\0\0\0\0\0"
+    "\52\10\17\0\14\5\0\11\23\4\11\10\0\0\0\0"
     "flightstrips.euroscope.v1.BackendSyncStrip"
     "callsign"
     "assigned_squawk"
@@ -10313,6 +10357,9 @@ const ::_pbi::TcParseTable<3, 8, 1, 127, 2> BackendSyncStrip::_table_ = {
     "stand"
     "pdc_state"
     "pdc_request_remarks"
+    "hold"
+    "hold_type"
+    "hold_eat"
   }},
 };
 
@@ -10385,6 +10432,30 @@ const ::_pbi::TcParseTable<3, 8, 1, 127, 2> BackendSyncStrip::_table_ = {
     target = stream->WriteStringMaybeAliased(8, _s, target);
   }
 
+  // string hold = 9;
+  if (!this->_internal_hold().empty()) {
+    const std::string& _s = this->_internal_hold();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.BackendSyncStrip.hold");
+    target = stream->WriteStringMaybeAliased(9, _s, target);
+  }
+
+  // string hold_type = 10;
+  if (!this->_internal_hold_type().empty()) {
+    const std::string& _s = this->_internal_hold_type();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.BackendSyncStrip.hold_type");
+    target = stream->WriteStringMaybeAliased(10, _s, target);
+  }
+
+  // string hold_eat = 11;
+  if (!this->_internal_hold_eat().empty()) {
+    const std::string& _s = this->_internal_hold_eat();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.euroscope.v1.BackendSyncStrip.hold_eat");
+    target = stream->WriteStringMaybeAliased(11, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = stream->WriteRaw(
         _internal_metadata_.unknown_fields<std::string>(::google::protobuf::internal::GetEmptyString).data(),
@@ -10438,6 +10509,24 @@ const ::_pbi::TcParseTable<3, 8, 1, 127, 2> BackendSyncStrip::_table_ = {
                                     this->_internal_pdc_request_remarks());
   }
 
+  // string hold = 9;
+  if (!this->_internal_hold().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_hold());
+  }
+
+  // string hold_type = 10;
+  if (!this->_internal_hold_type().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_hold_type());
+  }
+
+  // string hold_eat = 11;
+  if (!this->_internal_hold_eat().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_hold_eat());
+  }
+
   // .flightstrips.euroscope.v1.BackendSyncCdmData cdm = 6;
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
@@ -10489,6 +10578,15 @@ void BackendSyncStrip::MergeFrom(const BackendSyncStrip& from) {
   if (!from._internal_pdc_request_remarks().empty()) {
     _this->_internal_set_pdc_request_remarks(from._internal_pdc_request_remarks());
   }
+  if (!from._internal_hold().empty()) {
+    _this->_internal_set_hold(from._internal_hold());
+  }
+  if (!from._internal_hold_type().empty()) {
+    _this->_internal_set_hold_type(from._internal_hold_type());
+  }
+  if (!from._internal_hold_eat().empty()) {
+    _this->_internal_set_hold_eat(from._internal_hold_eat());
+  }
   cached_has_bits = from._impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(from._impl_.cdm_ != nullptr);
@@ -10529,6 +10627,9 @@ void BackendSyncStrip::InternalSwap(BackendSyncStrip* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.stand_, &other->_impl_.stand_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.pdc_state_, &other->_impl_.pdc_state_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.pdc_request_remarks_, &other->_impl_.pdc_request_remarks_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_, &other->_impl_.hold_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_type_, &other->_impl_.hold_type_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.hold_eat_, &other->_impl_.hold_eat_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(BackendSyncStrip, _impl_.cleared_)
       + sizeof(BackendSyncStrip::_impl_.cleared_)

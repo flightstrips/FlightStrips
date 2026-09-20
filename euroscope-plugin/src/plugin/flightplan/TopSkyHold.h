@@ -6,11 +6,22 @@
 namespace FlightStrips::flightplan {
     constexpr int TOPSKY_HOLD_ANNOTATION = 6;
 
-    // TopSky stores a holding clearance in two places. The scratch pad carries a
-    // transient "/HOLD/<point>/" pulse that EuroScope broadcasts to controllers in
-    // range and TopSky then wipes; annotation 6 carries the durable "h/<point>/h".
-    // Only the annotation is state - reading the scratch pad gives a hold that
-    // vanishes a millisecond after it appears.
+    enum class TopSkyHoldCommandType {
+        None,
+        Assign,
+        Cancel,
+        Eat,
+    };
+
+    struct TopSkyHoldCommand final {
+        TopSkyHoldCommandType type{TopSkyHoldCommandType::None};
+        std::string value{};
+        std::string eat{};
+    };
+
+    // TopSky broadcasts holding commands through the scratch pad. Annotation 6
+    // may contain a local durable copy, but it is not guaranteed to be present on
+    // remote controllers and must therefore only be used for reconciliation.
     struct TopSkyHold final {
         bool active{false};
         bool tsa{false};
@@ -32,8 +43,12 @@ namespace FlightStrips::flightplan {
     // located within the slot and its payload validated. Never write this slot.
     TopSkyHold ParseTopSkyHoldAnnotation(std::string_view annotation);
 
-    // An absent time means "nothing new" rather than "cleared", the pulse being
-    // transient, so callers keep the previous value.
+    // Parses the live TopSky scratch-pad protocol. HOLD assigns an en-route
+    // hold, XHOLD cancels it (with or without a point), and HOLD_EAT changes its
+    // expect-approach time. Trailing TopSky data after the point is ignored.
+    TopSkyHoldCommand ParseTopSkyHoldCommand(std::string_view scratchPad);
+
+    // Retained for callers that only need the EAT value.
     std::string ParseTopSkyHoldEat(std::string_view scratchPad);
 
     // Builds the transient TopSky command only when the backend update matches

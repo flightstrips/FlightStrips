@@ -18,6 +18,9 @@
 
 namespace FlightStrips::flightplan {
     bool ApplyHold(FlightPlan& plan, const TopSkyHold& hold, const std::string& eatPulse);
+    bool ApplyTopSkyHoldCommand(FlightPlan& plan, const TopSkyHoldCommand& command);
+    bool ShouldReportTopSkyHoldCommand(const TopSkyHoldCommand& command, bool stateChanged);
+    bool ReconcileTopSkyHoldAnnotation(FlightPlan& plan, const TopSkyHold& hold);
 
 class FlightPlanService final : public handlers::FlightPlanEventHandler, public handlers::RadarTargetEventHandler, public handlers::TimedEventHandler  {
     public:
@@ -42,12 +45,15 @@ class FlightPlanService final : public handlers::FlightPlanEventHandler, public 
     void ReplayTrackedHold(EuroScopePlugIn::CFlightPlan flightPlan);
     void ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
                            const TopSkyHold& hold, const std::string& eatPulse);
+    void ReplayPendingHoldCommands();
 
     FlightPlan* GetFlightPlan(const std::string &callsign);
 
     void SetStand(const std::string& callsign, const std::string& stand);
     void ApplyCdmUpdate(const CdmUpdateEvent& event);
     void ApplyBackendSyncCdm(const std::string& callsign, const BackendSyncCdmData& cdmData);
+    void ApplyBackendSyncHold(const std::string& callsign, const std::string& hold,
+                              const std::string& holdType, const std::string& holdEat);
     void ApplyPdcStateChange(const std::string& callsign, const std::string& state, const std::string& requestRemarks = {});
 
     static std::string GetEstimatedLandingTime(const EuroScopePlugIn::CFlightPlan& flightPlan);

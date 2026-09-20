@@ -2445,6 +2445,9 @@ type BackendSyncStrip struct {
 	Cdm               *BackendSyncCdmData    `protobuf:"bytes,6,opt,name=cdm,proto3" json:"cdm,omitempty"`
 	PdcState          string                 `protobuf:"bytes,7,opt,name=pdc_state,json=pdcState,proto3" json:"pdc_state,omitempty"`
 	PdcRequestRemarks string                 `protobuf:"bytes,8,opt,name=pdc_request_remarks,json=pdcRequestRemarks,proto3" json:"pdc_request_remarks,omitempty"`
+	Hold              string                 `protobuf:"bytes,9,opt,name=hold,proto3" json:"hold,omitempty"`
+	HoldType          string                 `protobuf:"bytes,10,opt,name=hold_type,json=holdType,proto3" json:"hold_type,omitempty"`
+	HoldEat           string                 `protobuf:"bytes,11,opt,name=hold_eat,json=holdEat,proto3" json:"hold_eat,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -2531,6 +2534,27 @@ func (x *BackendSyncStrip) GetPdcState() string {
 func (x *BackendSyncStrip) GetPdcRequestRemarks() string {
 	if x != nil {
 		return x.PdcRequestRemarks
+	}
+	return ""
+}
+
+func (x *BackendSyncStrip) GetHold() string {
+	if x != nil {
+		return x.Hold
+	}
+	return ""
+}
+
+func (x *BackendSyncStrip) GetHoldType() string {
+	if x != nil {
+		return x.HoldType
+	}
+	return ""
+}
+
+func (x *BackendSyncStrip) GetHoldEat() string {
+	if x != nil {
+		return x.HoldEat
 	}
 	return ""
 }
@@ -5525,7 +5549,7 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"deice_type\x18\x0e \x01(\tR\tdeiceType\x12\x19\n" +
 	"\becfmp_id\x18\x0f \x01(\tR\aecfmpId\x12\x14\n" +
 	"\x05phase\x18\x10 \x01(\tR\x05phase\x12Z\n" +
-	"\x12ecfmp_restrictions\x18\x11 \x03(\v2+.flightstrips.euroscope.v1.EcfmpRestrictionR\x11ecfmpRestrictions\"\xb8\x02\n" +
+	"\x12ecfmp_restrictions\x18\x11 \x03(\v2+.flightstrips.euroscope.v1.EcfmpRestrictionR\x11ecfmpRestrictions\"\x84\x03\n" +
 	"\x10BackendSyncStrip\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12'\n" +
 	"\x0fassigned_squawk\x18\x02 \x01(\tR\x0eassignedSquawk\x12\x18\n" +
@@ -5534,7 +5558,11 @@ const file_proto_euroscope_proto_rawDesc = "" +
 	"\x05stand\x18\x05 \x01(\tR\x05stand\x12?\n" +
 	"\x03cdm\x18\x06 \x01(\v2-.flightstrips.euroscope.v1.BackendSyncCdmDataR\x03cdm\x12\x1b\n" +
 	"\tpdc_state\x18\a \x01(\tR\bpdcState\x12.\n" +
-	"\x13pdc_request_remarks\x18\b \x01(\tR\x11pdcRequestRemarks\"\x91\x01\n" +
+	"\x13pdc_request_remarks\x18\b \x01(\tR\x11pdcRequestRemarks\x12\x12\n" +
+	"\x04hold\x18\t \x01(\tR\x04hold\x12\x1b\n" +
+	"\thold_type\x18\n" +
+	" \x01(\tR\bholdType\x12\x19\n" +
+	"\bhold_eat\x18\v \x01(\tR\aholdEat\"\x91\x01\n" +
 	"\x10BackendSyncEvent\x12C\n" +
 	"\x06strips\x18\x01 \x03(\v2+.flightstrips.euroscope.v1.BackendSyncStripR\x06strips\x12\x1a\n" +
 	"\blatitude\x18\x02 \x01(\x01R\blatitude\x12\x1c\n" +

@@ -97,3 +97,21 @@ TEST(ProtoCodecTest, DecodesBackendHoldingEatWriteback) {
 	EXPECT_EQ(event.hold_type, "enroute");
 	EXPECT_EQ(event.hold_eat, "1422");
 }
+
+TEST(ProtoCodecTest, DecodesPersistedHoldFromBackendSync) {
+    protobuf::wire::BackendSyncEvent source;
+    auto* strip = source.add_strips();
+    strip->set_callsign("SAS123");
+    strip->set_hold("OLPIB");
+    strip->set_hold_type("enroute");
+    strip->set_hold_eat("1422");
+
+    BackendSyncEvent event;
+    protobuf::Decode(source, event);
+
+    ASSERT_EQ(event.strips.size(), 1u);
+    EXPECT_EQ(event.strips[0].callsign, "SAS123");
+    EXPECT_EQ(event.strips[0].hold, "OLPIB");
+    EXPECT_EQ(event.strips[0].hold_type, "enroute");
+    EXPECT_EQ(event.strips[0].hold_eat, "1422");
+}

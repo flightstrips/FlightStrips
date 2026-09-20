@@ -100,12 +100,19 @@ Individual query spans come from `otelpgx` and are enabled whenever
 
 Only the session's master EuroScope client sends aircraft-position events. The
 plugin checks this both when flushing positions and at the WebSocket send
-boundary; the backend ignores position events from other clients. Direct-to,
-assigned-speed, and holding events instead come from the aircraft's tracking
-controller, which may be a slave. Hold fields in full-sync and strip-update
-snapshots follow tracking ownership too: a non-tracking sender cannot replace
-or clear the stored hold. Deploy the backend and plugin changes together so a
-tracking slave supplies holds rather than relying on the master to relay them.
+boundary; the backend ignores position events from other clients. Direct-to and
+assigned-speed facts instead come from the aircraft's tracking controller,
+which may be a slave. Live TopSky `/HOLD/`, `/XHOLD/`, and `/HOLD_EAT/`
+scratch-pad commands are broadcast to every operational controller, so the
+session master publishes them once. Tracking controllers may reconcile active
+holds from annotation 6, but a missing annotation never clears stored state.
+Persisted hold fields are included in backend sync so a newly elected master
+can apply a later standalone EAT. Commands observed during a backend outage are
+replayed after reconnect. The backend accepts holding reports from either
+authority. Hold fields in
+full-sync and strip-update snapshots continue to follow tracking ownership so a
+non-tracking snapshot cannot replace or clear the stored hold. Deploy the
+backend and plugin changes together.
 
 `aircraft_position_update` reads a typed strip/stand-assignment snapshot and
 persists position, bay and `euroscope_seen_at` synchronously. The routine budget

@@ -93,7 +93,7 @@ protected:
 // enabled=false path
 // ---------------------------------------------------------------------------
 
-TEST_F(WebSocketServiceOnTimerTest, SlaveReplaysCachedHoldAndOfflineCancellation) {
+TEST_F(WebSocketServiceOnTimerTest, SlaveReplaysActiveAnnotationAndAuthoritativeCancellation) {
     auto socket = std::shared_ptr<WebSocketService>(std::move(svc));
     flightplan::FlightPlanService plans(socket, {}, {}, {}, nullptr);
     plans.SetStand("SAS123", "");
@@ -112,8 +112,14 @@ TEST_F(WebSocketServiceOnTimerTest, SlaveReplaysCachedHoldAndOfflineCancellation
     plans.ReplayTrackedHold("SAS123", true, active, "");
     // Confirmation after an earlier rejection must replay the unchanged value.
     plans.ReplayTrackedHold("SAS123", true, active, "");
-    flightplan::ApplyHold(*plan, {}, ""); // cancellation cached while offline
-    plans.ReplayTrackedHold("SAS123", true, {}, "");
+    ASSERT_TRUE(flightplan::ApplyTopSkyHoldCommand(
+        *plan, {flightplan::TopSkyHoldCommandType::Cancel, {}}));
+    // The stale annotation must not resurrect the hold after an XHOLD observed
+    // while the backend was unavailable.
+    plans.ReplayTrackedHold("SAS123", true, active, "");
+    plans.SetStand("SAS124", "");
+    // Without an observed command, a missing annotation is still inconclusive.
+    plans.ReplayTrackedHold("SAS124", true, {}, "");
     ASSERT_EQ(reports.size(), 3u);
     EXPECT_EQ(reports[0].hold(), "OLPIB");
     EXPECT_EQ(reports[0].hold_eat(), "1422");
@@ -128,6 +134,30 @@ TEST_F(WebSocketServiceOnTimerTest, SlaveReplaysCachedHoldAndOfflineCancellation
     socket->SetSessionState(STATE_SLAVE);
     ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_DISCONNECTED));
     plans.ReplayTrackedHold("SAS123", true, active, "");
+}
+
+TEST_F(WebSocketServiceOnTimerTest, MasterReplaysPendingCommandWithoutTrackingOwnership) {
+    auto socket = std::shared_ptr<WebSocketService>(std::move(svc));
+    flightplan::FlightPlanService plans(socket, {}, {}, {}, nullptr);
+    plans.SetStand("SAS125", "");
+    auto* plan = plans.GetFlightPlan("SAS125");
+    ASSERT_NE(plan, nullptr);
+    ASSERT_TRUE(flightplan::ApplyTopSkyHoldCommand(
+        *plan, {flightplan::TopSkyHoldCommandType::Assign, "OLPIB"}));
+    plan->hold_command_pending = true;
+
+    ON_CALL(*mockImpl, GetStatus()).WillByDefault(Return(WEBSOCKET_STATUS_CONNECTED));
+    socket->SetSessionState(STATE_MASTER);
+    EXPECT_CALL(*mockImpl, Send(_)).WillOnce(Invoke([](const std::string& bytes) {
+        protobuf::wire::Envelope envelope;
+        ASSERT_TRUE(envelope.ParseFromString(bytes));
+        ASSERT_TRUE(envelope.has_hold());
+        EXPECT_EQ(envelope.hold().callsign(), "SAS125");
+        EXPECT_EQ(envelope.hold().hold(), "OLPIB");
+    }));
+
+    plans.ReplayPendingHoldCommands();
+    EXPECT_FALSE(plan->hold_command_pending);
 }
 
 TEST(WebSocketServiceDisabledTest, OnTimer_WhenDisabled_DoesNothing) {
@@ -1250,7 +1280,10 @@ TEST(BackendSyncStripTest, Deserializes_AllFields) {
         "ground_state": "PUSH",
         "stand": "B5",
         "pdc_state": "REQUESTED",
-        "pdc_request_remarks": "NO SID"
+        "pdc_request_remarks": "NO SID",
+        "hold": "OLPIB",
+        "hold_type": "enroute",
+        "hold_eat": "1422"
     })");
     const auto s = j.get<BackendSyncStrip>();
     EXPECT_EQ(s.callsign,        "EKS010");
@@ -1260,6 +1293,9 @@ TEST(BackendSyncStripTest, Deserializes_AllFields) {
     EXPECT_EQ(s.stand,           "B5");
     EXPECT_EQ(s.pdc_state,       "REQUESTED");
     EXPECT_EQ(s.pdc_request_remarks, "NO SID");
+    EXPECT_EQ(s.hold, "OLPIB");
+    EXPECT_EQ(s.hold_type, "enroute");
+    EXPECT_EQ(s.hold_eat, "1422");
 }
 
 TEST(PdcStateChangeEventTest, Serializes_RequestRemarks) {

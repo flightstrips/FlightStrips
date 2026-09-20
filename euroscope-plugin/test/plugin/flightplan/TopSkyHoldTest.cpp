@@ -2,8 +2,10 @@
 #include "flightplan/TopSkyHold.h"
 
 using FlightStrips::flightplan::ParseTopSkyHoldAnnotation;
+using FlightStrips::flightplan::ParseTopSkyHoldCommand;
 using FlightStrips::flightplan::ParseTopSkyHoldEat;
 using FlightStrips::flightplan::TopSkyHold;
+using FlightStrips::flightplan::TopSkyHoldCommandType;
 using FlightStrips::flightplan::BuildTopSkyHoldEatCommand;
 
 // Expected values were read off a live TopSky session:
@@ -55,7 +57,8 @@ TEST(TopSkyHold, ParseAnnotation_UnterminatedIsNoHold) {
     EXPECT_FALSE(ParseTopSkyHoldAnnotation("h/OLPIB").active);
 }
 
-// The scratch pad token is a transient pulse, never state.
+// Scratch-pad commands have their own parser and must not be mistaken for the
+// annotation format.
 TEST(TopSkyHold, ParseAnnotation_ScratchPadTokenIsNotState) {
     EXPECT_FALSE(ParseTopSkyHoldAnnotation("/HOLD/OLPIB/").active);
 }
@@ -64,6 +67,47 @@ TEST(TopSkyHold, ParseAnnotation_ComparesByValue) {
     EXPECT_EQ(ParseTopSkyHoldAnnotation("h/OLPIB/h"), ParseTopSkyHoldAnnotation("h/OLPIB/h"));
     EXPECT_NE(ParseTopSkyHoldAnnotation("h/OLPIB/h"), ParseTopSkyHoldAnnotation("h/ERNOV/h"));
     EXPECT_NE(ParseTopSkyHoldAnnotation("h/OLPIB/h"), TopSkyHold{});
+}
+
+// ---------------------------------------------------------------------------
+// ParseTopSkyHoldCommand — the authoritative live scratch-pad protocol
+// ---------------------------------------------------------------------------
+
+TEST(TopSkyHold, ParseCommand_ReadsAssignment) {
+    const auto command = ParseTopSkyHoldCommand("/HOLD/OLPIB/");
+    EXPECT_EQ(command.type, TopSkyHoldCommandType::Assign);
+    EXPECT_EQ(command.value, "OLPIB");
+}
+
+TEST(TopSkyHold, ParseCommand_ReadsCombinedAssignmentAndEat) {
+    const auto command = ParseTopSkyHoldCommand("/HOLD/OLPIB//HOLD_EAT/1422/");
+    EXPECT_EQ(command.type, TopSkyHoldCommandType::Assign);
+    EXPECT_EQ(command.value, "OLPIB");
+    EXPECT_EQ(command.eat, "1422");
+}
+
+TEST(TopSkyHold, ParseCommand_IgnoresAssignmentSuffix) {
+    const auto command = ParseTopSkyHoldCommand("/HOLD/ROSBI/7");
+    EXPECT_EQ(command.type, TopSkyHoldCommandType::Assign);
+    EXPECT_EQ(command.value, "ROSBI");
+}
+
+TEST(TopSkyHold, ParseCommand_ReadsCancellationWithOrWithoutPoint) {
+    EXPECT_EQ(ParseTopSkyHoldCommand("/XHOLD/OLPIB/").type, TopSkyHoldCommandType::Cancel);
+    EXPECT_EQ(ParseTopSkyHoldCommand("/XHOLD/").type, TopSkyHoldCommandType::Cancel);
+}
+
+TEST(TopSkyHold, ParseCommand_ReadsAndValidatesEat) {
+    const auto command = ParseTopSkyHoldCommand("/HOLD_EAT/1422/");
+    EXPECT_EQ(command.type, TopSkyHoldCommandType::Eat);
+    EXPECT_EQ(command.value, "1422");
+    EXPECT_EQ(ParseTopSkyHoldCommand("/HOLD_EAT/2460/").type, TopSkyHoldCommandType::None);
+}
+
+TEST(TopSkyHold, ParseCommand_RejectsMalformedAssignment) {
+    EXPECT_EQ(ParseTopSkyHoldCommand("/HOLD//").type, TopSkyHoldCommandType::None);
+    EXPECT_EQ(ParseTopSkyHoldCommand("/HOLD/A B/").type, TopSkyHoldCommandType::None);
+    EXPECT_EQ(ParseTopSkyHoldCommand("/HOLD/OLPIB").type, TopSkyHoldCommandType::None);
 }
 
 // ---------------------------------------------------------------------------

@@ -142,10 +142,17 @@ namespace FlightStrips::messages {
         }
         m_webSocketService->SetSessionState(state);
 
-        // Every operational client owns the hold snapshot for its tracked
-        // aircraft, including slaves reconnecting after an offline cancellation.
+        // A tracking client may reconcile an active annotation after reconnect.
+        // Missing local annotation state is never inferred as a cancellation;
+        // an explicitly cached XHOLD remains authoritative and is replayed.
         for (auto it = m_plugin->FlightPlanSelectFirst(); it.IsValid(); it = m_plugin->FlightPlanSelectNext(it)) {
             if (m_plugin->IsRelevant(it)) m_flightPlanService->ReplayTrackedHold(it);
+        }
+
+        // The master can repair commands observed during a backend outage even
+        // when the tracking controller is not running FlightStrips.
+        if (state == websocket::STATE_MASTER) {
+            m_flightPlanService->ReplayPendingHoldCommands();
         }
 
         Logger::Debug("Is master: {}", state == websocket::STATE_MASTER);
@@ -576,6 +583,8 @@ namespace FlightStrips::messages {
             }
 
             m_flightPlanService->ApplyBackendSyncCdm(strip.callsign, strip.cdm);
+            m_flightPlanService->ApplyBackendSyncHold(
+                strip.callsign, strip.hold, strip.hold_type, strip.hold_eat);
         }
     }
 

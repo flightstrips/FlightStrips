@@ -8,6 +8,8 @@ namespace FlightStrips::flightplan {
         constexpr std::string_view ENROUTE_CLOSE = "/h";
         constexpr std::string_view TSA_OPEN = "t/";
         constexpr std::string_view TSA_CLOSE = "/t";
+        constexpr std::string_view HOLD_TOKEN = "/HOLD/";
+        constexpr std::string_view CANCEL_TOKEN = "/XHOLD/";
         constexpr std::string_view EAT_TOKEN = "/HOLD_EAT/";
         constexpr std::string_view EAT_CLOSE = "/";
 
@@ -18,6 +20,17 @@ namespace FlightStrips::flightplan {
             return std::all_of(value.begin(), value.end(), [](const unsigned char character) {
                 return std::isalnum(character) != 0 || character == '-' || character == '_';
             });
+        }
+
+        bool LooksLikeTime(const std::string_view value) {
+            if (value.size() != 4 || !std::all_of(value.begin(), value.end(), [](const unsigned char character) {
+                    return std::isdigit(character) != 0;
+                })) {
+                return false;
+            }
+            const auto hour = (value[0] - '0') * 10 + value[1] - '0';
+            const auto minute = (value[2] - '0') * 10 + value[3] - '0';
+            return hour <= 23 && minute <= 59;
         }
 
         std::string Between(
@@ -58,9 +71,32 @@ namespace FlightStrips::flightplan {
         return hold;
     }
 
-    std::string ParseTopSkyHoldEat(const std::string_view scratchPad) {
+    TopSkyHoldCommand ParseTopSkyHoldCommand(const std::string_view scratchPad) {
         if (scratchPad.empty()) return {};
-        return Between(scratchPad, EAT_TOKEN, EAT_CLOSE, false);
+
+        if (scratchPad.find(CANCEL_TOKEN) != std::string_view::npos) {
+            // The live protocol contains both /XHOLD/<point>/ and bare
+            // /XHOLD/. The callsign identifies the state to clear, so the
+            // optional point is deliberately not required.
+            return {TopSkyHoldCommandType::Cancel, {}, {}};
+        }
+
+        auto eat = Between(scratchPad, EAT_TOKEN, EAT_CLOSE, false);
+        if (!LooksLikeTime(eat)) eat.clear();
+
+        if (auto point = Between(scratchPad, HOLD_TOKEN, EAT_CLOSE, true); !point.empty()) {
+            return {TopSkyHoldCommandType::Assign, std::move(point), std::move(eat)};
+        }
+
+        if (!eat.empty()) return {TopSkyHoldCommandType::Eat, std::move(eat), {}};
+
+        return {};
+    }
+
+    std::string ParseTopSkyHoldEat(const std::string_view scratchPad) {
+        const auto command = ParseTopSkyHoldCommand(scratchPad);
+        if (command.type == TopSkyHoldCommandType::Eat) return command.value;
+        return command.type == TopSkyHoldCommandType::Assign ? command.eat : std::string{};
     }
 
     std::string BuildTopSkyHoldEatCommand(

@@ -519,6 +519,20 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 		return computedRouteState{}, true, nil
 	}
 
+	// A completed departure can remain in the shared EuroScope feed after it has
+	// left the airport, and its stand field may then refer to the destination
+	// airport. It no longer has a local ground route. Apply this in the central
+	// route computer so initial strip syncs and every later recalculation path use
+	// the same guard as the bay/stand lifecycle.
+	if !isArrival && departureIsOutsideRouteArea(strip) {
+		slog.Debug("Clearing route for departure outside session airport",
+			slog.Int("session", int(session.ID)),
+			slog.String("callsign", strip.Callsign),
+			slog.Float64("latitude", helpers.ValueOrDefault(strip.PositionLatitude)),
+			slog.Float64("longitude", helpers.ValueOrDefault(strip.PositionLongitude)))
+		return computedRouteState{}, true, nil
+	}
+
 	// Departures require a runway to compute a route.
 	if !isArrival && (strip.Runway == nil || *strip.Runway == "") {
 		slog.Debug("Skipping route recalculation for departure without runway",
@@ -722,6 +736,21 @@ func computeRouteStateForStrip(strip *models.Strip, session *models.Session, own
 		NextOwners:  actualRoute,
 		NextDisplay: cloneNextDisplay(nextDisplay),
 	}, true, nil
+}
+
+func departureIsOutsideRouteArea(strip *models.Strip) bool {
+	if strip == nil || strip.PositionLatitude == nil || strip.PositionLongitude == nil ||
+		(*strip.PositionLatitude == 0 && *strip.PositionLongitude == 0) {
+		return false
+	}
+
+	airportLatitude, airportLongitude := config.GetAirportCoordinates()
+	return shared.GetDistance(
+		*strip.PositionLatitude,
+		*strip.PositionLongitude,
+		airportLatitude,
+		airportLongitude,
+	) > shared.RelevantDistance
 }
 
 func resolveRouteStage(

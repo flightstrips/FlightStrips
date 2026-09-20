@@ -402,6 +402,9 @@ func (hub *Hub) sendBackendSyncIfNeeded(client *Client) {
 		entry := euroscope.BackendSyncStrip{
 			Callsign: strip.Callsign,
 			Cleared:  strip.Cleared,
+			Hold:     strip.Hold,
+			HoldType: strip.HoldType,
+			HoldEat:  strip.HoldEat,
 		}
 		if strip.AssignedSquawk != nil {
 			entry.AssignedSquawk = *strip.AssignedSquawk

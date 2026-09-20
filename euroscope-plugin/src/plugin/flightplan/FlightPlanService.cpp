@@ -31,6 +31,58 @@ namespace FlightStrips::flightplan {
         return true;
     }
 
+    bool ApplyTopSkyHoldCommand(FlightPlan& plan, const TopSkyHoldCommand& command) {
+        switch (command.type) {
+            case TopSkyHoldCommandType::Assign: {
+                plan.hold_command_observed = true;
+                const auto sameHold = plan.hold == command.value && plan.hold_type == "enroute";
+                if (!sameHold) {
+                    plan.hold = command.value;
+                    plan.hold_type = "enroute";
+                    plan.hold_eat.clear();
+                }
+                if (command.eat.empty()) return !sameHold;
+                if (sameHold && plan.hold_eat == command.eat) return false;
+                plan.hold_eat = command.eat;
+                return true;
+            }
+            case TopSkyHoldCommandType::Cancel:
+                plan.hold_command_observed = true;
+                return ApplyHold(plan, {}, {});
+            case TopSkyHoldCommandType::Eat:
+                if (plan.hold.empty() || plan.hold_type != "enroute") return false;
+                return ApplyHold(plan, TopSkyHold{true, false, plan.hold}, command.value);
+            case TopSkyHoldCommandType::None:
+                return false;
+        }
+        return false;
+    }
+
+    bool ReconcileTopSkyHoldAnnotation(FlightPlan& plan, const TopSkyHold& hold) {
+        // An absent annotation does not prove that a hold was cancelled: slot 6
+        // is local strip state and is frequently unavailable to remote clients.
+        if (!hold.active) return false;
+
+        // TSA clearances have no equivalent live scratch-pad command. A TSA
+        // annotation therefore starts a new annotation-authoritative state even
+        // when an earlier en-route HOLD/XHOLD command was observed.
+        if (hold.tsa) {
+            const auto changed = ApplyHold(plan, hold, {});
+            plan.hold_command_observed = false;
+            return changed;
+        }
+
+        return !plan.hold_command_observed && ApplyHold(plan, hold, {});
+    }
+
+    bool ShouldReportTopSkyHoldCommand(const TopSkyHoldCommand& command, const bool stateChanged) {
+        // Assignments and cancellations are safe, idempotent facts. Always
+        // publish them so a duplicate can repair backend state after a master
+        // transition or a command observed before the strip existed.
+        return stateChanged || command.type == TopSkyHoldCommandType::Assign ||
+               command.type == TopSkyHoldCommandType::Cancel;
+    }
+
     TopSkyHold ReadHold(const EuroScopePlugIn::CFlightPlan& flightPlan) {
         auto controllerData = const_cast<EuroScopePlugIn::CFlightPlan&>(flightPlan).GetControllerAssignedData();
         const auto annotation = controllerData.GetFlightStripAnnotation(TOPSKY_HOLD_ANNOTATION);
@@ -169,7 +221,12 @@ namespace FlightStrips::flightplan {
         // becomes the sender, the reconnect snapshot can then include the EAT.
         const auto controllerAssignedData = flightPlan.GetControllerAssignedData();
         const auto scratchPad = controllerAssignedData.GetScratchPadString();
-        ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratchPad == nullptr ? "" : scratchPad));
+        const auto command = ParseTopSkyHoldCommand(scratchPad == nullptr ? "" : scratchPad);
+        if (command.type != TopSkyHoldCommandType::None) {
+            ApplyTopSkyHoldCommand(plan, command);
+        } else {
+            ReconcileTopSkyHoldAnnotation(plan, ReadHold(flightPlan));
+        }
 
         if (!m_websocketService->ShouldSend()) return;
         const auto radarTarget = m_flightStripsPlugin->RadarTargetSelect(callsign.c_str());
@@ -236,19 +293,38 @@ namespace FlightStrips::flightplan {
         if (!flightPlan.IsValid() || flightPlan.GetSimulated() ||
             !m_websocketService->ShouldSendTrackedAircraft(flightPlan.GetTrackingControllerIsMe())) return;
         const auto callsign = std::string(flightPlan.GetCallsign());
-        const auto scratch = flightPlan.GetControllerAssignedData().GetScratchPadString();
-        ReplayTrackedHold(callsign, flightPlan.GetTrackingControllerIsMe(), ReadHold(flightPlan),
-                          ParseTopSkyHoldEat(scratch == nullptr ? "" : scratch));
+        ReplayTrackedHold(callsign, flightPlan.GetTrackingControllerIsMe(), ReadHold(flightPlan), {});
     }
 
     void FlightPlanService::ReplayTrackedHold(const std::string& callsign, bool trackingControllerIsMe,
                                              const TopSkyHold& hold, const std::string& eatPulse) {
         if (!m_websocketService->ShouldSendTrackedAircraft(trackingControllerIsMe)) return;
         auto& plan = m_flightPlans.try_emplace(callsign).first->second;
-        ApplyHold(plan, hold, eatPulse);
+        // A live command is authoritative even when it cleared the hold. Replay
+        // that cached state rather than resurrecting a stale annotation.
+        if (plan.hold_command_observed) {
+            m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
+            plan.hold_command_pending = false;
+            return;
+        }
+        if (!hold.active) return;
+        ReconcileTopSkyHoldAnnotation(plan, hold);
+        if (!eatPulse.empty()) {
+            ApplyHold(plan, hold, eatPulse);
+        }
         // Replay even when the local cache is unchanged: an earlier report may
         // have been missed while disconnected or before ownership was stored.
         m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
+        plan.hold_command_pending = false;
+    }
+
+    void FlightPlanService::ReplayPendingHoldCommands() {
+        if (!m_websocketService->ShouldSend()) return;
+        for (auto& [callsign, plan] : m_flightPlans) {
+            if (!plan.hold_command_pending) continue;
+            m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
+            plan.hold_command_pending = false;
+        }
     }
 
     void FlightPlanService::ControllerFlightPlanDataEvent(EuroScopePlugIn::CFlightPlan flightPlan, int dataType) {
@@ -315,9 +391,20 @@ namespace FlightStrips::flightplan {
                 const auto scratch = flightPlan.GetControllerAssignedData().GetScratchPadString();
                 if (scratch == nullptr) break;
 
-                // The pulse only signals a change; the state is re-read from
-                // annotation 6.
-                if (ApplyHold(plan, ReadHold(flightPlan), ParseTopSkyHoldEat(scratch)) && shouldSendTracked) {
+                const auto command = ParseTopSkyHoldCommand(scratch);
+                // Every operational controller receives this broadcast. The
+                // session master publishes it once; all clients still cache it
+                // so a later role transition preserves the observed state.
+                if (command.type != TopSkyHoldCommandType::None) {
+                    const auto changed = ApplyTopSkyHoldCommand(plan, command);
+                    if (!m_websocketService->IsConnected()) {
+                        plan.hold_command_pending = true;
+                    }
+                    if (ShouldReportTopSkyHoldCommand(command, changed) && shouldSend) {
+                        m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
+                        plan.hold_command_pending = false;
+                    }
+                } else if (ReconcileTopSkyHoldAnnotation(plan, ReadHold(flightPlan)) && shouldSendTracked) {
                     m_websocketService->SendEvent(HoldEvent(callsign, plan.hold, plan.hold_type, plan.hold_eat));
                 }
 
@@ -428,6 +515,17 @@ namespace FlightStrips::flightplan {
         event.phase = cdmData.phase;
         event.ecfmp_restrictions = cdmData.ecfmp_restrictions;
         ApplyCdmUpdate(event);
+    }
+
+    void FlightPlanService::ApplyBackendSyncHold(const std::string& callsign, const std::string& hold,
+                                                 const std::string& holdType, const std::string& holdEat) {
+        auto& plan = m_flightPlans.try_emplace(callsign).first->second;
+        // Preserve only commands observed while the backend was unavailable;
+        // otherwise the reconnect snapshot is the freshest durable state.
+        if (plan.hold_command_pending) return;
+        plan.hold = hold;
+        plan.hold_type = holdType;
+        plan.hold_eat = holdEat;
     }
 
     void FlightPlanService::ApplyPdcStateChange(const std::string& callsign, const std::string& state, const std::string& requestRemarks) {

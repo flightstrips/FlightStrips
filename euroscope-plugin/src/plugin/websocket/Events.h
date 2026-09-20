@@ -1053,10 +1053,13 @@ struct BackendSyncStrip final {
     BackendSyncCdmData cdm{};
     std::string pdc_state{};
     std::string pdc_request_remarks{};
+    std::string hold{};
+    std::string hold_type{};
+    std::string hold_eat{};
 
     BackendSyncStrip() = default;
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm, pdc_state, pdc_request_remarks);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(BackendSyncStrip, callsign, assigned_squawk, cleared, ground_state, stand, cdm, pdc_state, pdc_request_remarks, hold, hold_type, hold_eat);
 };
 
 struct BackendSyncEvent final : Event {

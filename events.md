@@ -260,9 +260,13 @@ Stand update
 
 Sent by: EuroScope and Server
 
-A TopSky holding clearance, read off the EuroScope scratch pad by the plugin.
-EuroScope broadcasts the scratch pad to every controller in range, so a hold is
-visible even for aircraft this controller is not tracking.
+A TopSky holding clearance, read from the live EuroScope scratch-pad protocol by
+the plugin. EuroScope broadcasts `/HOLD/<point>/`, `/XHOLD/` and
+`/HOLD_EAT/<HHMM>/` commands to every controller in range. The session master
+publishes those commands once; a tracking controller may additionally reconcile
+an active hold from TopSky annotation 6. An absent annotation is not a
+cancellation because remote controllers do not reliably receive that local
+strip state.
 
 `hold` is the holding point (or the area name when `hold_type` is `tsa`). An
 empty `hold` means the clearance was cancelled. `hold_eat` is the expect

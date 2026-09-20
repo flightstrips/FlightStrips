@@ -12714,6 +12714,9 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
     kStandFieldNumber = 5,
     kPdcStateFieldNumber = 7,
     kPdcRequestRemarksFieldNumber = 8,
+    kHoldFieldNumber = 9,
+    kHoldTypeFieldNumber = 10,
+    kHoldEatFieldNumber = 11,
     kCdmFieldNumber = 6,
     kClearedFieldNumber = 3,
   };
@@ -12813,6 +12816,54 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
   std::string* _internal_mutable_pdc_request_remarks();
 
   public:
+  // string hold = 9;
+  void clear_hold() ;
+  const std::string& hold() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_hold(Arg_&& arg, Args_... args);
+  std::string* mutable_hold();
+  PROTOBUF_NODISCARD std::string* release_hold();
+  void set_allocated_hold(std::string* value);
+
+  private:
+  const std::string& _internal_hold() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_hold(
+      const std::string& value);
+  std::string* _internal_mutable_hold();
+
+  public:
+  // string hold_type = 10;
+  void clear_hold_type() ;
+  const std::string& hold_type() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_hold_type(Arg_&& arg, Args_... args);
+  std::string* mutable_hold_type();
+  PROTOBUF_NODISCARD std::string* release_hold_type();
+  void set_allocated_hold_type(std::string* value);
+
+  private:
+  const std::string& _internal_hold_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_hold_type(
+      const std::string& value);
+  std::string* _internal_mutable_hold_type();
+
+  public:
+  // string hold_eat = 11;
+  void clear_hold_eat() ;
+  const std::string& hold_eat() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_hold_eat(Arg_&& arg, Args_... args);
+  std::string* mutable_hold_eat();
+  PROTOBUF_NODISCARD std::string* release_hold_eat();
+  void set_allocated_hold_eat(std::string* value);
+
+  private:
+  const std::string& _internal_hold_eat() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_hold_eat(
+      const std::string& value);
+  std::string* _internal_mutable_hold_eat();
+
+  public:
   // .flightstrips.euroscope.v1.BackendSyncCdmData cdm = 6;
   bool has_cdm() const;
   void clear_cdm() ;
@@ -12843,8 +12894,8 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 8, 1,
-      127, 2>
+      4, 11, 1,
+      148, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -12867,6 +12918,9 @@ class BackendSyncStrip final : public ::google::protobuf::MessageLite
     ::google::protobuf::internal::ArenaStringPtr stand_;
     ::google::protobuf::internal::ArenaStringPtr pdc_state_;
     ::google::protobuf::internal::ArenaStringPtr pdc_request_remarks_;
+    ::google::protobuf::internal::ArenaStringPtr hold_;
+    ::google::protobuf::internal::ArenaStringPtr hold_type_;
+    ::google::protobuf::internal::ArenaStringPtr hold_eat_;
     ::flightstrips::euroscope::v1::BackendSyncCdmData* cdm_;
     bool cleared_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -23892,6 +23946,156 @@ inline void BackendSyncStrip::set_allocated_pdc_request_remarks(std::string* val
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.BackendSyncStrip.pdc_request_remarks)
+}
+
+// string hold = 9;
+inline void BackendSyncStrip::clear_hold() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_.ClearToEmpty();
+}
+inline const std::string& BackendSyncStrip::hold() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.BackendSyncStrip.hold)
+  return _internal_hold();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void BackendSyncStrip::set_hold(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.BackendSyncStrip.hold)
+}
+inline std::string* BackendSyncStrip::mutable_hold() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_hold();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.BackendSyncStrip.hold)
+  return _s;
+}
+inline const std::string& BackendSyncStrip::_internal_hold() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.hold_.Get();
+}
+inline void BackendSyncStrip::_internal_set_hold(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_.Set(value, GetArena());
+}
+inline std::string* BackendSyncStrip::_internal_mutable_hold() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.hold_.Mutable( GetArena());
+}
+inline std::string* BackendSyncStrip::release_hold() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.BackendSyncStrip.hold)
+  return _impl_.hold_.Release();
+}
+inline void BackendSyncStrip::set_allocated_hold(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.hold_.IsDefault()) {
+          _impl_.hold_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.BackendSyncStrip.hold)
+}
+
+// string hold_type = 10;
+inline void BackendSyncStrip::clear_hold_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_type_.ClearToEmpty();
+}
+inline const std::string& BackendSyncStrip::hold_type() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.BackendSyncStrip.hold_type)
+  return _internal_hold_type();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void BackendSyncStrip::set_hold_type(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_type_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.BackendSyncStrip.hold_type)
+}
+inline std::string* BackendSyncStrip::mutable_hold_type() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_hold_type();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.BackendSyncStrip.hold_type)
+  return _s;
+}
+inline const std::string& BackendSyncStrip::_internal_hold_type() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.hold_type_.Get();
+}
+inline void BackendSyncStrip::_internal_set_hold_type(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_type_.Set(value, GetArena());
+}
+inline std::string* BackendSyncStrip::_internal_mutable_hold_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.hold_type_.Mutable( GetArena());
+}
+inline std::string* BackendSyncStrip::release_hold_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.BackendSyncStrip.hold_type)
+  return _impl_.hold_type_.Release();
+}
+inline void BackendSyncStrip::set_allocated_hold_type(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_type_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.hold_type_.IsDefault()) {
+          _impl_.hold_type_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.BackendSyncStrip.hold_type)
+}
+
+// string hold_eat = 11;
+inline void BackendSyncStrip::clear_hold_eat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_eat_.ClearToEmpty();
+}
+inline const std::string& BackendSyncStrip::hold_eat() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.euroscope.v1.BackendSyncStrip.hold_eat)
+  return _internal_hold_eat();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void BackendSyncStrip::set_hold_eat(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_eat_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.euroscope.v1.BackendSyncStrip.hold_eat)
+}
+inline std::string* BackendSyncStrip::mutable_hold_eat() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_hold_eat();
+  // @@protoc_insertion_point(field_mutable:flightstrips.euroscope.v1.BackendSyncStrip.hold_eat)
+  return _s;
+}
+inline const std::string& BackendSyncStrip::_internal_hold_eat() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.hold_eat_.Get();
+}
+inline void BackendSyncStrip::_internal_set_hold_eat(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_eat_.Set(value, GetArena());
+}
+inline std::string* BackendSyncStrip::_internal_mutable_hold_eat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.hold_eat_.Mutable( GetArena());
+}
+inline std::string* BackendSyncStrip::release_hold_eat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.euroscope.v1.BackendSyncStrip.hold_eat)
+  return _impl_.hold_eat_.Release();
+}
+inline void BackendSyncStrip::set_allocated_hold_eat(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hold_eat_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.hold_eat_.IsDefault()) {
+          _impl_.hold_eat_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.euroscope.v1.BackendSyncStrip.hold_eat)
 }
 
 // -------------------------------------------------------------------

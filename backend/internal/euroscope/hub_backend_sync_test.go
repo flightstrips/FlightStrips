@@ -94,6 +94,40 @@ func TestSendBackendSyncIfNeeded_ExcludesVatsimOnlyPlanningStrips(t *testing.T) 
 	assert.Equal(t, "SAS101", syncEvent.Strips[0].Callsign)
 }
 
+func TestSendBackendSyncIfNeeded_IncludesPersistedHold(t *testing.T) {
+	const session = int32(1)
+	seenAt := time.Now().UTC()
+	stripRepo := &testutil.MockStripRepository{
+		ListFn: func(_ context.Context, gotSession int32) ([]*internalModels.Strip, error) {
+			assert.Equal(t, session, gotSession)
+			return []*internalModels.Strip{{
+				Callsign:        "SAS105",
+				Bay:             shared.BAY_AIRBORNE,
+				EuroscopeSeenAt: &seenAt,
+				Hold:            "OLPIB",
+				HoldType:        "enroute",
+				HoldEat:         "1422",
+			}}, nil
+		},
+	}
+
+	hub := &Hub{server: &testutil.MockServer{StripRepoVal: stripRepo}}
+	client := startQueuedTestClient(&Client{
+		session: session,
+		user:    shared.NewAuthenticatedUser("1234567", 0, nil),
+	})
+
+	hub.sendBackendSyncIfNeeded(client)
+
+	message := <-client.send
+	syncEvent, ok := message.(euroscopeEvents.BackendSyncEvent)
+	require.True(t, ok)
+	require.Len(t, syncEvent.Strips, 1)
+	assert.Equal(t, "OLPIB", syncEvent.Strips[0].Hold)
+	assert.Equal(t, "enroute", syncEvent.Strips[0].HoldType)
+	assert.Equal(t, "1422", syncEvent.Strips[0].HoldEat)
+}
+
 func TestBackendSyncGroundState_DepartIgnoresStaleTaxiState(t *testing.T) {
 	taxiState := euroscopeEvents.GroundStateTaxi
 	strip := &internalModels.Strip{

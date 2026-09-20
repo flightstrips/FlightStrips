@@ -298,8 +298,10 @@ func handleHold(ctx context.Context, client *Client, message Message) error {
 	if err != nil {
 		return err
 	}
-	if client.identitySnapshot().observer || strip == nil || !shared.IsTrackingController(client.GetCallsign(), strip.TrackingController) {
-		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "only the current tracking controller may report a hold"}
+	isMaster := client.hub.getMasterClient(client.session) == client
+	if client.identitySnapshot().observer || strip == nil ||
+		(!isMaster && !shared.IsTrackingController(client.GetCallsign(), strip.TrackingController)) {
+		return &aman.DomainError{Class: aman.ErrorUnauthorized, Message: "only the session master or current tracking controller may report a hold"}
 	}
 	return client.hub.stripService.UpdateHold(ctx, client.session, event.Callsign, event.Hold, event.HoldType, event.HoldEat)
 }

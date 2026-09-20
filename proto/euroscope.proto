@@ -277,6 +277,9 @@ message BackendSyncStrip {
   BackendSyncCdmData cdm = 6;
   string pdc_state = 7;
   string pdc_request_remarks = 8;
+  string hold = 9;
+  string hold_type = 10;
+  string hold_eat = 11;
 }
 
 message BackendSyncEvent {

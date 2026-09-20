@@ -79,6 +79,10 @@ namespace FlightStrips::flightplan {
         std::string hold{};
         std::string hold_type{};
         std::string hold_eat{};
+        /// A live HOLD or XHOLD command has established authoritative state.
+        bool hold_command_observed{false};
+        /// A live command was observed while the backend connection was down.
+        bool hold_command_pending{false};
         std::string tracking_controller{};
         std::optional<std::string> direct_to_fix{};
         bool direct_to_initialized{false};

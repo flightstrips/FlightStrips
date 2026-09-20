@@ -13,17 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHoldRequiresTrackingControllerRegardlessOfMasterRole(t *testing.T) {
+func TestHoldRequiresSessionMasterOrTrackingController(t *testing.T) {
 	for _, test := range []struct {
 		name, sender, tracker     string
 		master, observer, allowed bool
 	}{
 		{"tracking slave", "EKCH_A_APP", "EKCH_A_APP", false, false, true},
 		{"tracking master", "EKCH_A_APP", "EKCH_A_APP", true, false, true},
-		{"other master", "EKCH_TWR", "EKCH_A_APP", true, false, false},
+		{"other master", "EKCH_TWR", "EKCH_A_APP", true, false, true},
 		{"other slave", "EKCH_B_APP", "EKCH_A_APP", false, false, false},
-		{"untracked", "EKCH_A_APP", "", true, false, false},
-		{"blank identities", "", "", true, false, false},
+		{"untracked master", "EKCH_A_APP", "", true, false, true},
+		{"blank identities", "", "", false, false, false},
 		{"observer", "EKCH_A_APP", "EKCH_A_APP", false, true, false},
 		{"normalized callsign", "ekch_a_app", " EKCH_A_APP ", false, false, true},
 	} {
@@ -74,7 +74,8 @@ func TestHoldReplayAfterTrackingConfirmation(t *testing.T) {
 	}}
 	tracker := &Client{hub: hub, session: 42, callsign: "EKCH_B_APP"}
 	master := &Client{hub: hub, session: 42, callsign: "EKCH_TWR"}
-	// An empty hold is an authoritative cancellation, including on replay.
+	// A tracking controller may still submit an explicit empty hold event for
+	// compatibility; the plugin no longer infers one from a missing annotation.
 	hold := Message{Message: mustMarshalMessage(t, &events.HoldEvent{Callsign: "SAS123"})}
 	require.Error(t, handleHold(context.Background(), tracker, hold))
 	require.Zero(t, service.calls)

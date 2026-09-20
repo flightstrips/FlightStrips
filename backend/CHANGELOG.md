@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.11](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.10...backend/v2.2.11) (2026-09-20)
+
+
+### Bug Fixes
+
+* **strip:** skip routes for remote departures ([#769](https://github.com/flightstrips/FlightStrips/issues/769)) ([16b55ba](https://github.com/flightstrips/FlightStrips/commit/16b55ba9468a39a20fffa5384155dfca780a1813))
+
 ## [2.2.10](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.9...backend/v2.2.10) (2026-09-20)
 
 

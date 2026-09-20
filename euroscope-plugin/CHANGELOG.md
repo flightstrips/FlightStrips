@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.4](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.3...plugin/v2.1.4) (2026-09-20)
+
+
+### Bug Fixes
+
+* keep EuroScope windows inside radar area ([#765](https://github.com/flightstrips/FlightStrips/issues/765)) ([d12b5db](https://github.com/flightstrips/FlightStrips/commit/d12b5db6932f68f8733588228431a8759e68a878))
+
 ## [2.1.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.2...plugin/v2.1.3) (2026-09-20)
 
 

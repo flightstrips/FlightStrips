@@ -6,6 +6,7 @@
 #define COMMAND_PREFIX ".fs"
 #define COMMAND_OPEN COMMAND_PREFIX " open"
 #define COMMAND_CLOSE COMMAND_PREFIX " close"
+#define COMMAND_RESET COMMAND_PREFIX " reset"
 
 constexpr int TAG_ITEM_DEICING_DESIGNATOR = 1;
 constexpr int TAG_ITEM_CDM_TOBT = 2;

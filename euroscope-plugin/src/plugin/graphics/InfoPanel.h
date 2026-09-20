@@ -33,6 +33,7 @@ namespace FlightStrips::graphics {
     [[nodiscard]] int CalculateInfoPanelContentHeight(const InfoPanelData& data);
     [[nodiscard]] AuthenticationButtonLayout CalculateAuthenticationButtonLayout(const InfoPanelData& data, int left, int right, int y);
     [[nodiscard]] std::string GetInfoPanelRoleLabel(websocket::ClientState role);
+    [[nodiscard]] RECT ClampRectToBounds(const RECT& rect, const RECT& bounds);
 
     void DrawInfoPanel(EuroScopePlugIn::CRadarScreen& screen,
                        Graphics& graphics,

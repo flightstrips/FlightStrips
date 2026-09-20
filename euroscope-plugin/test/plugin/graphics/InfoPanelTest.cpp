@@ -10,6 +10,7 @@ using FlightStrips::ConnectionState;
 using FlightStrips::graphics::CalculateInfoPanelContentHeight;
 using FlightStrips::graphics::GetInfoPanelRoleLabel;
 using FlightStrips::graphics::InfoPanelData;
+using FlightStrips::graphics::ClampRectToBounds;
 using FlightStrips::websocket::STATE_MASTER;
 using FlightStrips::websocket::STATE_OBSERVER;
 using FlightStrips::websocket::STATE_SLAVE;
@@ -84,4 +85,48 @@ TEST(InfoPanelTest, GetInfoPanelRoleLabelUsesObserverLabel) {
     EXPECT_EQ(GetInfoPanelRoleLabel(STATE_SLAVE), "SLAVE");
     EXPECT_EQ(GetInfoPanelRoleLabel(STATE_OBSERVER), "OBS");
     EXPECT_EQ(GetInfoPanelRoleLabel(STATE_UNKNOWN), "SYNC");
+}
+
+TEST(InfoPanelTest, ClampRectToBoundsLeavesVisibleRectUnchanged) {
+    const RECT rect{100, 100, 260, 300};
+    const RECT bounds{0, 0, 1920, 1080};
+
+    const auto result = ClampRectToBounds(rect, bounds);
+
+    EXPECT_EQ(result.left, 100);
+    EXPECT_EQ(result.top, 100);
+    EXPECT_EQ(result.right, 260);
+    EXPECT_EQ(result.bottom, 300);
+}
+
+TEST(InfoPanelTest, ClampRectToBoundsMovesOffscreenRectInside) {
+    const RECT rect{1900, 1050, 2060, 1250};
+    const RECT bounds{10, 20, 1920, 1080};
+
+    const auto result = ClampRectToBounds(rect, bounds);
+
+    EXPECT_EQ(result.left, 1760);
+    EXPECT_EQ(result.top, 880);
+    EXPECT_EQ(result.right, 1920);
+    EXPECT_EQ(result.bottom, 1080);
+}
+
+TEST(InfoPanelTest, ClampRectToBoundsHandlesNegativeCoordinates) {
+    const RECT rect{-500, -300, -340, -100};
+    const RECT bounds{10, 20, 1920, 1080};
+
+    const auto result = ClampRectToBounds(rect, bounds);
+
+    EXPECT_EQ(result.left, 10);
+    EXPECT_EQ(result.top, 20);
+}
+
+TEST(InfoPanelTest, ClampRectToBoundsKeepsHeaderReachableWhenWindowIsTooTall) {
+    const RECT rect{100, 500, 260, 1500};
+    const RECT bounds{0, 0, 800, 600};
+
+    const auto result = ClampRectToBounds(rect, bounds);
+
+    EXPECT_EQ(result.left, 100);
+    EXPECT_EQ(result.top, 0);
 }

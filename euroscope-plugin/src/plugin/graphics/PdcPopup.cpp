@@ -456,6 +456,17 @@ namespace FlightStrips::graphics {
         return IsRequestedPdcState(state);
     }
 
+    PdcPopupSize CalculatePdcPopupSize(const PdcPopupData& data) {
+        if (!IsRequestedPdcState(data.pdcState)) {
+            return {StandardPopupWidth, StandardPopupHeight};
+        }
+
+        const int requestRemarksOffset = HasRequestRemarks(data.requestRemarks)
+                                             ? RequestedFieldHeight + RequestedFieldRowGap
+                                             : 0;
+        return {RequestedPopupWidth, RequestedPopupHeight + requestRemarksOffset};
+    }
+
     std::optional<PdcPopupData> BuildPdcPopupData(const PdcClearancePopupState& state,
                                                   FlightStripsPlugin& plugin,
                                                   flightplan::FlightPlanService* flightPlanService,

@@ -71,6 +71,8 @@ namespace FlightStrips::graphics {
         bool HandleSessionModeClick(int objectType);
         bool HandlePdcPopupClick(int objectType, POINT pt, RECT area);
         bool HandlePdcFieldClick(int objectType, POINT pt, RECT area);
+        void KeepWindowsInsideRadarArea(const InfoPanelData& panelData, const std::optional<PdcPopupData>& popupData);
+        void ResetWindowPosition();
         void HandleOpenAppClick();
         void HandleAuthenticationClick();
     };

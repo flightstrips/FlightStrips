@@ -1198,6 +1198,14 @@ func (hub *Hub) PublishStandAllocation(ctx context.Context, result services.Stan
 		}
 	}
 
+	publicationMode := "assignment_fallback"
+	if snapshotReady {
+		publicationMode = "snapshot"
+	} else if assignmentStatusReady {
+		publicationMode = "block_fallback"
+	}
+	metrics.RecordStandPublication(ctx, publicationMode, len(publishEntries))
+
 	for _, published := range publishEntries {
 		conflictReason := ""
 		if published.ConflictReason != nil {
@@ -1742,6 +1750,7 @@ func (hub *Hub) Run(ctx context.Context) {
 				}
 			}
 			metrics.RecordHubDispatch(ctx, hubSource, kind, depth, fanout, time.Since(started))
+			metrics.RecordStandWebsocketFanout(ctx, string(message.message.GetType()), fanout)
 		case msg := <-hub.layoutUpdates:
 			depth := len(hub.layoutUpdates)
 			started := time.Now()

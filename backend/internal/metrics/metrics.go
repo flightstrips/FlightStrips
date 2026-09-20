@@ -70,6 +70,8 @@ type instruments struct {
 	satReconciliations        metric.Int64Counter
 	satReconciliationTime     metric.Float64Histogram
 	satReconciliationPasses   metric.Int64Histogram
+	satPublicationAssignments metric.Int64Histogram
+	satWebsocketFanout        metric.Int64Histogram
 	amanObservationAge        metric.Float64Histogram
 	amanGeometryCache         metric.Int64Counter
 	amanRouteMaterialized     metric.Int64Counter
@@ -288,6 +290,8 @@ func get() *instruments {
 		satConflicts, _ := meter.Int64Counter("sat.allocation.conflicts", metric.WithDescription("SAT allocation database and occupancy conflicts"), metric.WithUnit("{conflict}"))
 		satExpirations, _ := meter.Int64Counter("sat.assignments.expired", metric.WithDescription("SAT assignments expired or released"), metric.WithUnit("{assignment}"))
 		satLifecycleEvents, _ := meter.Int64Counter("sat.lifecycle.events", metric.WithDescription("SAT stage promotions, tier improvements, displacement, takeover, and relocation outcomes"), metric.WithUnit("{event}"))
+		satPublicationAssignments, _ := meter.Int64Histogram("sat.publication.assignments", metric.WithDescription("Assignment entries per committed allocation publication, before client fan-out"), metric.WithUnit("{assignment}"), metric.WithExplicitBucketBoundaries(0, 1, 10, 25, 50, 100, 200, 500))
+		satWebsocketFanout, _ := meter.Int64Histogram("sat.websocket.fanout", metric.WithDescription("Client enqueue attempts per dispatched stand state message; count measures source messages, sum measures fan-out attempts"), metric.WithUnit("{client}"), metric.WithExplicitBucketBoundaries(0, 1, 2, 5, 10, 25, 50, 100))
 		satReconciliations, _ := meter.Int64Counter("sat.reconciliation.cycles", metric.WithDescription("Completed SAT reconciliation cycles by outcome"), metric.WithUnit("{cycle}"))
 		satReconciliationTime, _ := meter.Float64Histogram("sat.reconciliation.duration", metric.WithDescription("SAT reconciliation cycle duration"), metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(.01, .05, .1, .25, .5, 1, 2, 5, 10, 15))
 		satReconciliationPasses, _ := meter.Int64Histogram("sat.reconciliation.passes", metric.WithDescription("Arrival convergence passes used by SAT"), metric.WithUnit("{pass}"), metric.WithExplicitBucketBoundaries(1, 2, 3, 4, 5))
@@ -348,6 +352,7 @@ func get() *instruments {
 			satSnapshotAge:            satSnapshotAge, satFeedRecords: satFeedRecords,
 			satAssignments: satAssignments, satOutcomes: satOutcomes,
 			satConflicts: satConflicts, satExpirations: satExpirations, satLifecycleEvents: satLifecycleEvents,
+			satPublicationAssignments: satPublicationAssignments, satWebsocketFanout: satWebsocketFanout,
 			satReconciliations: satReconciliations, satReconciliationTime: satReconciliationTime, satReconciliationPasses: satReconciliationPasses,
 			amanObservationAge: amanObservationAge, amanGeometryCache: amanGeometryCache,
 			amanRouteMaterialized: amanRouteMaterialized, amanRouteDuration: amanRouteDuration,

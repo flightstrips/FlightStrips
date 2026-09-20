@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.3](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.2...plugin/v2.1.3) (2026-09-20)
+
+
+### Bug Fixes
+
+* **strip:** report TopSky holds reliably ([#763](https://github.com/flightstrips/FlightStrips/issues/763)) ([74c6f76](https://github.com/flightstrips/FlightStrips/commit/74c6f76c826b21dfa49d0026e8edbac2159f4fd1))
+
 ## [2.1.2](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.1...plugin/v2.1.2) (2026-09-15)
 
 

@@ -272,4 +272,7 @@ include(GoogleTest)
 
 gtest_discover_tests(${PROJECT_NAME}
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    # Hosted Windows runners can take more than CMake's five-second default to
+    # start the 32-bit test binary after a cold Release build.
+    DISCOVERY_TIMEOUT 30
 )

@@ -10,6 +10,7 @@
 namespace FlightStrips::graphics {
     namespace {
         constexpr wchar_t OpenAppUrl[] = L"https://flightstrips.dk/app";
+        constexpr int ResetWindowInset = 20;
 
         void SetPreferredSessionMode(const std::shared_ptr<configuration::UserConfig>& userConfig,
                                      FlightStripsPlugin* plugin,
@@ -62,14 +63,18 @@ namespace FlightStrips::graphics {
             graphics.SetHandle(hdcHandle);
         }
 
-        DrawInfoPanel(*this, graphics, colors, menubar, BuildInfoPanelData(), isMinimized);
+        const auto panelData = BuildInfoPanelData();
+        const auto popupData = GetPdcPopupData();
+        KeepWindowsInsideRadarArea(panelData, popupData);
+
+        DrawInfoPanel(*this, graphics, colors, menubar, panelData, isMinimized);
         if (isMinimized) {
             canClick = true;
             return;
         }
 
         if (m_pdcPopup && m_pdcPopup->isOpen) {
-            if (const auto popupData = GetPdcPopupData()) {
+            if (popupData) {
                 DrawPdcPopup(*this, graphics, colors, *m_pdcPopup, *popupData);
             } else {
                 m_pdcPopup->isOpen = false;
@@ -108,6 +113,51 @@ namespace FlightStrips::graphics {
                                  *m_plugin,
                                  flightPlanService.get(),
                                  runwayService.get());
+    }
+
+    void InfoScreen::KeepWindowsInsideRadarArea(const InfoPanelData& panelData,
+                                                const std::optional<PdcPopupData>& popupData) {
+        const RECT radarArea = GetRadarArea();
+        RECT panelRect = menubar;
+        if (!isMinimized) {
+            panelRect.bottom += CalculateInfoPanelContentHeight(panelData);
+        }
+
+        const RECT clampedPanel = ClampRectToBounds(panelRect, radarArea);
+        const int panelOffsetX = clampedPanel.left - panelRect.left;
+        const int panelOffsetY = clampedPanel.top - panelRect.top;
+        if (panelOffsetX != 0 || panelOffsetY != 0) {
+            OffsetRect(&menubar, panelOffsetX, panelOffsetY);
+            userConfig->SetWindowState({menubar.left, menubar.top, isMinimized});
+        }
+
+        if (m_pdcPopup == nullptr || !m_pdcPopup->isOpen || !popupData) {
+            return;
+        }
+
+        const auto popupSize = CalculatePdcPopupSize(*popupData);
+        const RECT popupRect = {
+            m_pdcPopup->posX,
+            m_pdcPopup->posY,
+            m_pdcPopup->posX + popupSize.width,
+            m_pdcPopup->posY + popupSize.height,
+        };
+        const RECT clampedPopup = ClampRectToBounds(popupRect, radarArea);
+        m_pdcPopup->posX = clampedPopup.left;
+        m_pdcPopup->posY = clampedPopup.top;
+    }
+
+    void InfoScreen::ResetWindowPosition() {
+        const RECT radarArea = GetRadarArea();
+        const int radarWidth = radarArea.right - radarArea.left;
+        const int radarHeight = radarArea.bottom - radarArea.top;
+        const int x = radarWidth > 0 ? radarArea.left + std::min(ResetWindowInset, radarWidth - 1) : 400;
+        const int y = radarHeight > 0 ? radarArea.top + std::min(ResetWindowInset, radarHeight - 1) : 400;
+
+        menubar = {x, y, x + width, y + height};
+        isOpen = true;
+        userConfig->SetWindowState({menubar.left, menubar.top, isMinimized});
+        RequestRefresh();
     }
 
     void InfoScreen::OnAsrContentToBeClosed() {
@@ -361,6 +411,11 @@ namespace FlightStrips::graphics {
 
         if (_stricmp(sCommandLine, COMMAND_CLOSE) == 0) {
             isOpen = false;
+            return true;
+        }
+
+        if (_stricmp(sCommandLine, COMMAND_RESET) == 0) {
+            ResetWindowPosition();
             return true;
         }
 

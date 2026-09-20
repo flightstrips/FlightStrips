@@ -50,6 +50,24 @@ namespace FlightStrips::graphics {
         }
     }
 
+    RECT ClampRectToBounds(const RECT& rect, const RECT& bounds) {
+        const int boundsWidth = bounds.right - bounds.left;
+        const int boundsHeight = bounds.bottom - bounds.top;
+        if (boundsWidth <= 0 || boundsHeight <= 0) {
+            return rect;
+        }
+
+        const int width = std::max(0L, rect.right - rect.left);
+        const int height = std::max(0L, rect.bottom - rect.top);
+        const int left = boundsWidth >= width
+                             ? std::clamp(rect.left, bounds.left, bounds.right - width)
+                             : bounds.left;
+        const int top = boundsHeight >= height
+                            ? std::clamp(rect.top, bounds.top, bounds.bottom - height)
+                            : bounds.top;
+        return {left, top, left + width, top + height};
+    }
+
     void DrawInfoPanel(EuroScopePlugIn::CRadarScreen& screen,
                        Graphics& graphics,
                        const Colors& colors,

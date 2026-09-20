@@ -45,6 +45,11 @@ namespace FlightStrips::graphics {
         SetEuroscopeClearance,
     };
 
+    struct PdcPopupSize {
+        int width;
+        int height;
+    };
+
     [[nodiscard]] bool HasRequestRemarks(std::string_view remarks);
 
     [[nodiscard]] bool IsRequestedPdcState(std::string_view state);
@@ -52,6 +57,8 @@ namespace FlightStrips::graphics {
     [[nodiscard]] auto ResolvePdcPopupPrimaryAction(std::string_view state, bool alreadyClear) -> PdcPopupPrimaryAction;
 
     [[nodiscard]] bool ShouldSendPdcRevertToVoice(std::string_view state);
+
+    [[nodiscard]] PdcPopupSize CalculatePdcPopupSize(const PdcPopupData& data);
 
     [[nodiscard]] std::optional<PdcPopupData> BuildPdcPopupData(
         const PdcClearancePopupState& state,

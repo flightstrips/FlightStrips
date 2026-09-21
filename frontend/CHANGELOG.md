@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.5.0...frontend/v1.6.0) (2026-09-21)
+
+
+### Features
+
+* **aman:** match flight detail design ([#773](https://github.com/flightstrips/FlightStrips/issues/773)) ([7f05550](https://github.com/flightstrips/FlightStrips/commit/7f05550857eb01deb5fcbd64fe3159ebcbadc2d4))
+
+
+### Bug Fixes
+
+* **aman:** use live prediction for gain-loss guidance ([#772](https://github.com/flightstrips/FlightStrips/issues/772)) ([558d08a](https://github.com/flightstrips/FlightStrips/commit/558d08a94a5348d40eb6348960478ec53a8908dc))
+
 ## [1.5.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.4.1...frontend/v1.5.0) (2026-09-14)
 
 

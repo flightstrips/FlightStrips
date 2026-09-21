@@ -21,14 +21,19 @@ func TestFlightDetailReturnsOnDemandCalculationAndOperationalBasis(t *testing.T)
 	groundspeed := 280.0
 	altitude := 9000
 	aircraftType, wakeCategory, filedRoute := "A320", "M", "NEXIL M725 KEMAX TUDLO"
+	feederFix, starFamily := "TNO", "TESPI"
+	feederETA, derivedFeederETA := now.Add(11*time.Minute), now.Add(10*time.Minute)
 	state := aman.AirportState{
 		Airport: "EKCH", Revision: 14, GeneratedAt: now, PolicyVersion: "test", Mode: aman.ModeShadow,
 		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 30}},
 		Flights: []aman.AMANFlight{{
 			ID: "flight-123", VATSIMCID: "1234567", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh,
-			SelectedRunwayGroup: &group, LatestObservation: &aman.FlightObservation{FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", AircraftType: &aircraftType, WakeCategory: &wakeCategory, FiledRoute: &filedRoute, SourceStatus: aman.DataFresh, ReconciledAt: now, Surveillance: &aman.SurveillanceFact{LatitudeDegrees: 55.7, LongitudeDegrees: 12.2, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, ObservedAt: &observed}},
-			Prediction: &aman.Prediction{RawTETA: now.Add(20 * time.Minute), RawRETA: timePointer(now.Add(19 * time.Minute)), OperationalTETA: now.Add(18 * time.Minute), OperationalReason: aman.OperationalReasonSmoothed, GeneratedAt: now, InputObservedAt: observed, Confidence: aman.ConfidenceHigh, Publishable: true, DatasetVersion: "2607", GeometryDigest: "digest", ModelVersion: "model", ConfigVersion: "config", Basis: aman.PredictionBasisPerformanceWind, Sources: []string{"vatsim"}, Calculation: &aman.PredictionCalculation{NoWindDuration: 18 * time.Minute, Duration: 20 * time.Minute, Legs: []aman.PredictionLeg{{ID: "leg-1", From: "SOK", To: "SOK-HF", StartLatitude: 55.7, StartLongitude: 12.2, EndLatitude: 55.6, EndLongitude: 12.4, DistanceNM: 15, CourseTrueDegrees: 120, NoWindDuration: 18 * time.Minute, Duration: 20 * time.Minute}}, Segments: []aman.PredictionSegment{{RouteLegIndex: 0, PhaseID: "fl100_to_fl050", PhaseName: "Segment 4 · FL100 → FL050", PhaseFormula: "time = distance ÷ (TAS from 250 kt IAS + wind)", DistanceNM: 15, CourseTrueDegrees: 120, StartAltitudeFeet: 9000, EndAltitudeFeet: 4000, AltitudeFeet: 6500, NoWindGroundspeedKnots: 250, GroundspeedKnots: 230, NoWindDuration: 18 * time.Minute, Duration: 20 * time.Minute}}}},
-			Slot:       &aman.Slot{Time: now.Add(17 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 14, Reason: "rate_wtc"}, FreezeReason: aman.FreezeNone, QueueOffers: []aman.QueueOffer{},
+			SelectedRunwayGroup: &group, SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix,
+			FeederETA: &aman.FeederETAState{ETA: &feederETA, Source: aman.FeederETASourceManual}, DerivedFeederETA: &aman.FeederETAState{ETA: &derivedFeederETA, Source: aman.FeederETASourceRoute},
+			ActiveRouteFact:   &aman.RouteFact{Fix: "TNO", State: aman.RouteFactActive},
+			LatestObservation: &aman.FlightObservation{FlightID: "flight-123", VATSIMCID: "1234567", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", AircraftType: &aircraftType, WakeCategory: &wakeCategory, FiledRoute: &filedRoute, SourceStatus: aman.DataFresh, ReconciledAt: now, Surveillance: &aman.SurveillanceFact{LatitudeDegrees: 55.7, LongitudeDegrees: 12.2, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, ObservedAt: &observed}},
+			Prediction:        &aman.Prediction{RawTETA: now.Add(20 * time.Minute), RawRETA: timePointer(now.Add(19 * time.Minute)), OperationalTETA: now.Add(18 * time.Minute), OperationalReason: aman.OperationalReasonSmoothed, GeneratedAt: now, InputObservedAt: observed, Confidence: aman.ConfidenceHigh, Publishable: true, DatasetVersion: "2607", GeometryDigest: "digest", ModelVersion: "model", ConfigVersion: "config", Basis: aman.PredictionBasisPerformanceWind, Sources: []string{"vatsim"}, Calculation: &aman.PredictionCalculation{NoWindDuration: 18 * time.Minute, Duration: 20 * time.Minute, Legs: []aman.PredictionLeg{{ID: "leg-1", From: "SOK", To: "SOK-HF", StartLatitude: 55.7, StartLongitude: 12.2, EndLatitude: 55.6, EndLongitude: 12.4, DistanceNM: 15, CourseTrueDegrees: 120, NoWindDuration: 18 * time.Minute, Duration: 20 * time.Minute}}, Segments: []aman.PredictionSegment{{RouteLegIndex: 0, PhaseID: "fl100_to_fl050", PhaseName: "Segment 4 · FL100 → FL050", PhaseFormula: "time = distance ÷ (TAS from 250 kt IAS + wind)", DistanceNM: 15, CourseTrueDegrees: 120, StartAltitudeFeet: 9000, EndAltitudeFeet: 4000, AltitudeFeet: 6500, NoWindGroundspeedKnots: 250, GroundspeedKnots: 230, NoWindDuration: 18 * time.Minute, Duration: 20 * time.Minute}}}},
+			Slot:              &aman.Slot{Time: now.Add(17 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 14, Reason: "rate_wtc"}, FreezeReason: aman.FreezeNone, QueueOffers: []aman.QueueOffer{},
 		}},
 	}
 	mux := http.NewServeMux()
@@ -42,6 +47,12 @@ func TestFlightDetailReturnsOnDemandCalculationAndOperationalBasis(t *testing.T)
 	var detail flightDetail
 	require.NoError(t, json.NewDecoder(response.Body).Decode(&detail))
 	require.Equal(t, "SAS123", detail.Flight.Callsign)
+	require.Equal(t, "ESSA", detail.Flight.Origin)
+	require.Equal(t, "EKCH", detail.Flight.Destination)
+	require.Equal(t, feederFix, *detail.Flight.FeederFix)
+	require.Equal(t, "TNO", *detail.Flight.DirectTo)
+	require.Equal(t, "2026-07-23T10:11:00.000Z", *detail.Flight.FeederETA)
+	require.Equal(t, "2026-07-23T10:10:00.000Z", *detail.Flight.DerivedFeederETA)
 	require.Equal(t, "A320", *detail.Flight.AircraftType)
 	require.Equal(t, "M", *detail.Flight.WakeCategory)
 	require.Equal(t, filedRoute, *detail.Flight.FiledRoute)

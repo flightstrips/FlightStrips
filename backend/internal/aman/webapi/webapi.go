@@ -100,17 +100,23 @@ type flightDetail struct {
 }
 
 type flightSummary struct {
-	ID             string  `json:"id"`
-	Callsign       string  `json:"callsign"`
-	LifecycleState string  `json:"lifecycle_state"`
-	DataStatus     string  `json:"data_status"`
-	RunwayGroupID  *string `json:"runway_group_id"`
-	Feeder         *string `json:"feeder"`
-	Star           *string `json:"star"`
-	HoldingFix     *string `json:"holding_fix"`
-	AircraftType   *string `json:"aircraft_type"`
-	WakeCategory   *string `json:"wake_category"`
-	FiledRoute     *string `json:"filed_route"`
+	ID               string  `json:"id"`
+	Callsign         string  `json:"callsign"`
+	Origin           string  `json:"origin"`
+	Destination      string  `json:"destination"`
+	LifecycleState   string  `json:"lifecycle_state"`
+	DataStatus       string  `json:"data_status"`
+	RunwayGroupID    *string `json:"runway_group_id"`
+	Feeder           *string `json:"feeder"`
+	Star             *string `json:"star"`
+	FeederFix        *string `json:"feeder_fix"`
+	FeederETA        *string `json:"feeder_eta"`
+	DerivedFeederETA *string `json:"derived_feeder_eta"`
+	DirectTo         *string `json:"direct_to"`
+	HoldingFix       *string `json:"holding_fix"`
+	AircraftType     *string `json:"aircraft_type"`
+	WakeCategory     *string `json:"wake_category"`
+	FiledRoute       *string `json:"filed_route"`
 }
 type position struct {
 	Latitude         float64  `json:"latitude"`
@@ -236,12 +242,34 @@ func (a *WebAPI) mapDetail(ctx context.Context, state aman.AirportState, flight 
 	if err != nil {
 		return flightDetail{}, err
 	}
+	star := flight.SelectedSTARFamily
+	if star == nil {
+		star = flight.SelectedFeeder
+	}
 	result := flightDetail{Airport: state.Airport, Revision: uint64(state.Revision), GeneratedAt: generatedAt, Flight: flightSummary{
 		ID: string(flight.ID), Callsign: flight.CurrentCallsign, LifecycleState: string(flight.State), DataStatus: string(flight.DataStatus),
-		RunwayGroupID: stringPointer(flight.SelectedRunwayGroup), Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder), HoldingFix: cloneString(flight.SelectedHolding),
+		RunwayGroupID: stringPointer(flight.SelectedRunwayGroup), Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(star), FeederFix: cloneString(flight.SelectedFeederFix), HoldingFix: cloneString(flight.SelectedHolding),
 	}}
 	if observation := flight.LatestObservation; observation != nil {
+		result.Flight.Origin, result.Flight.Destination = observation.Origin, observation.Destination
 		result.Flight.AircraftType, result.Flight.WakeCategory, result.Flight.FiledRoute = cloneString(observation.AircraftType), cloneString(observation.WakeCategory), cloneString(observation.FiledRoute)
+	}
+	if flight.FeederETA != nil && flight.FeederETA.ETA != nil {
+		value, formatErr := format(*flight.FeederETA.ETA)
+		if formatErr != nil {
+			return flightDetail{}, formatErr
+		}
+		result.Flight.FeederETA = &value
+	}
+	if flight.DerivedFeederETA != nil && flight.DerivedFeederETA.ETA != nil {
+		value, formatErr := format(*flight.DerivedFeederETA.ETA)
+		if formatErr != nil {
+			return flightDetail{}, formatErr
+		}
+		result.Flight.DerivedFeederETA = &value
+	}
+	if flight.ActiveRouteFact != nil && flight.ActiveRouteFact.State == aman.RouteFactActive {
+		result.Flight.DirectTo = cloneString(&flight.ActiveRouteFact.Fix)
 	}
 	if observation := flight.LatestObservation; observation != nil && observation.Surveillance != nil {
 		observedAt, formatErr := format(*observation.Surveillance.ObservedAt)

@@ -72,12 +72,12 @@ describe("complete AMAN timeline and strips", () => {
 
   it("renders the normal golden state with backend values and explicit unavailable contract fields", () => {
     renderBoard(state());
-    const marker = screen.getByRole("button", {name: /Select SAS123; Stable; current delay G01/});
+    const marker = screen.getByRole("button", {name: /Select SAS123; Stable; current delay G02/});
 
     expect(screen.getByText("EKCH")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "ARRIVAL-22"})).toBeInTheDocument();
     expect(marker).toHaveTextContent("SAS123");
-    expect(marker).toHaveTextContent("G01");
+    expect(marker).toHaveTextContent("G02");
     expect(marker).not.toHaveTextContent("Prediction");
     expect(screen.getByTestId("operational-marker-flight-123")).toHaveAttribute("data-marker-time", "2026-07-22T10:18:00.000Z");
   });
@@ -232,7 +232,7 @@ describe("complete AMAN timeline and strips", () => {
     current.flights[0].wake_category = "M";
     renderBoard(current);
 
-    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G01ARRIVAL-22B38MM");
+    expect(screen.getByRole("button", {name: /Select SAS123/})).toHaveTextContent("10:12SAS123G02ARRIVAL-22B38MM");
     fireEvent.click(screen.getAllByRole("button", {name: "Open target information preferences"})[0]);
     expect(screen.getByRole("dialog", {name: "Target Information"})).toBeInTheDocument();
   });

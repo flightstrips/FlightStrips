@@ -23,7 +23,7 @@ func TestAMANGainLossGoldenFixture(t *testing.T) {
 				SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix, SelectedHolding: &holdingFix,
 				TMAEntry:   &aman.TMAEntryState{LastContainment: aman.TMAInside, LastObservedAt: now},
 				FeederETA:  &aman.FeederETAState{ETA: &feederETA, Source: aman.FeederETASourceHolding},
-				Prediction: &aman.Prediction{OperationalTETA: slot.Time.Add(90 * time.Second), Publishable: true, Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}}}},
+				Prediction: &aman.Prediction{RawTETA: slot.Time.Add(90 * time.Second), OperationalTETA: slot.Time.Add(90 * time.Second), Publishable: true, Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}}}},
 			{ID: "flight-2", VATSIMCID: "2", CurrentCallsign: "DAT456", State: aman.StateUnstable, DataStatus: aman.DataStale, FreezeReason: aman.FreezeNone},
 			{ID: "flight-3", VATSIMCID: "3", CurrentCallsign: "SAS789", State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone,
 				SelectedSTARFamily: &starFamily, SelectedFeederFix: &feederFix,
@@ -80,13 +80,34 @@ func TestAMANGainLossIsAlwaysAuthoritativeForEuroScope(t *testing.T) {
 	require.True(t, event.Authoritative)
 }
 
+func TestAMANGainLossUsesLiveRawTETAWhenOperationalTETAIsFrozen(t *testing.T) {
+	now := time.Date(2026, time.September, 8, 12, 0, 0, 0, time.UTC)
+	slot := aman.Slot{Time: now.Add(10 * time.Minute), RunwayGroupID: "22", Sequence: 1, Revision: 42, Reason: "sequence"}
+	state := aman.AirportState{
+		Airport: "EKCH", GeneratedAt: now,
+		Flights: []aman.AMANFlight{{
+			ID: "flight-1", CurrentCallsign: "SAS123", DataStatus: aman.DataFresh, Slot: &slot,
+			FreezeReason: aman.FreezeSuperstable,
+			Prediction: &aman.Prediction{
+				RawTETA: slot.Time.Add(20 * time.Second), OperationalTETA: slot.Time.Add(-9 * time.Minute), Publishable: true,
+				Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}},
+			},
+		}},
+	}
+
+	event, err := euroscope.NewAMANGainLossEvent(state)
+	require.NoError(t, err)
+	require.EqualValues(t, 20, *event.Values[0].GainLossSeconds)
+	require.Equal(t, "2026-09-08T12:10:20.000Z", *event.Values[0].PredictedTime)
+}
+
 func TestAMANGainLossExcludesRemovedIdentitiesFromReplacement(t *testing.T) {
 	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
 	live := aman.AMANFlight{
 		ID: "live", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh,
 		Slot: &aman.Slot{Time: now.Add(10 * time.Minute)},
 		Prediction: &aman.Prediction{
-			OperationalTETA: now.Add(11 * time.Minute), Publishable: true,
+			RawTETA: now.Add(11 * time.Minute), OperationalTETA: now.Add(11 * time.Minute), Publishable: true,
 			Calculation: &aman.PredictionCalculation{Legs: []aman.PredictionLeg{{To: "ILS-22L-RUNWAY"}}},
 		},
 	}

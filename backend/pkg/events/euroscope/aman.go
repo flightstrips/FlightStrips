@@ -64,7 +64,10 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			if referencePoint == "" {
 				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: terminal reference point is empty", flight.ID)
 			}
-			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.OperationalTETA.Sub(flight.Slot.Time).Round(time.Second))
+			// Gain/loss is live guidance against the committed target. The
+			// operational TETA may be frozen for sequencing, while RawTETA keeps
+			// following the aircraft's current physical trajectory.
+			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.RawTETA.Sub(flight.Slot.Time).Round(time.Second))
 			if secondsErr != nil {
 				return AMANGainLossEvent{}, fmt.Errorf("map AMAN gain/loss flight %q: %w", flight.ID, secondsErr)
 			}
@@ -72,7 +75,7 @@ func NewAMANGainLossEvent(state aman.AirportState) (AMANGainLossEvent, error) {
 			if targetErr != nil {
 				return AMANGainLossEvent{}, fmt.Errorf("map AMAN target time flight %q: %w", flight.ID, targetErr)
 			}
-			predictedTime, predictedErr := aman.FormatTime(flight.Prediction.OperationalTETA)
+			predictedTime, predictedErr := aman.FormatTime(flight.Prediction.RawTETA)
 			if predictedErr != nil {
 				return AMANGainLossEvent{}, fmt.Errorf("map AMAN predicted time flight %q: %w", flight.ID, predictedErr)
 			}

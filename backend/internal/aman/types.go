@@ -126,8 +126,9 @@ func (c Confidence) Valid() bool {
 }
 
 // OperationalReason explains why OperationalTETA differs from, or follows,
-// the latest physical prediction. Consumers must use OperationalTETA rather
-// than inferring policy from RawTETA or the flight state.
+// the latest physical prediction. Lifecycle and sequencing consumers must use
+// OperationalTETA rather than inferring policy from RawTETA or the flight
+// state. Live advisory comparisons such as gain/loss may use RawTETA directly.
 type OperationalReason string
 
 const (

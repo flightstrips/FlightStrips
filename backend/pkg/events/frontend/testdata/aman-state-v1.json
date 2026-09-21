@@ -32,7 +32,7 @@
         "route_fact": {"id": "route-fact-1", "fix": "SOK", "observed_at": "2026-07-22T09:58:00.000Z", "state": "active"},
         "raw_teta": "2026-07-22T10:20:00.000Z",
         "operational_teta": "2026-07-22T10:19:00.000Z",
-        "gain_loss_seconds": 60,
+        "gain_loss_seconds": 120,
         "freeze_reason": "none",
         "frozen_at": null,
         "confidence": "high",

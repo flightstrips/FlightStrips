@@ -732,7 +732,11 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		}
 		result.Slot = &mapped
 		if flight.Prediction != nil && flight.Prediction.Publishable {
-			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.OperationalTETA.Sub(flight.Slot.Time).Round(time.Second))
+			// Guidance compares the current physical prediction with the target.
+			// OperationalTETA can be frozen near the feeder/TMA and remains the
+			// sequencing value, but using it here would keep showing the original
+			// loss after the aircraft has already absorbed that delay.
+			seconds, secondsErr := aman.WholeSeconds(flight.Prediction.RawTETA.Sub(flight.Slot.Time).Round(time.Second))
 			if secondsErr != nil {
 				return AMANFlight{}, secondsErr
 			}

@@ -131,13 +131,17 @@ DB operations count actual pgx calls, including transactions and synchronous
 publication reads. Traces use `OTEL_SERVICE_VERSION`, or embedded git revision
 with a dirty suffix when available, instead of a fixed release string.
 
-Production remains sequential until the load gates in
+Lifecycle processing remains sequential until the concurrency load gates in
 [the position performance runbook](../docs/position-performance.md) pass.
+Position database work is batched by default; set
+`POSITION_DB_BATCHING_ENABLED=false` to restore individual statements.
 `POSITION_CONCURRENCY_ENABLED=true` selects four workers per connection;
 `POSITION_WORKERS_PER_CLIENT=1` restores sequential dispatch while retaining DB
 improvements. The shared position limit is eight, reduced for pool headroom.
 Every dedicated report is processed without coalescing, with per-aircraft FIFO,
-a 256-pending-report connection limit, and operational-message barriers.
+a 256-pending-report connection limit, while non-position operational messages
+bypass the position dispatcher. Aircraft disconnects drain accepted positions
+first to preserve lifecycle ordering.
 
 Failed handler samples carry the bounded `error_class` label, including
 `serialization_conflict`, `deadlock`, `missing_row`, and `coordination`, so

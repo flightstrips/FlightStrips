@@ -457,6 +457,8 @@ export interface FrontendSetHeadingEvent {
   type: EventType.FrontendSetHeading;
   callsign: string;
   heading: number;
+  version?: number;
+  clx_validation?: ClxValidation | null;
 }
 
 export enum CommunicationType {

@@ -53,6 +53,9 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      # Batch the once-per-second EuroScope position burst while retaining one
+      # lifecycle worker. Set false for immediate per-report rollback.
+      POSITION_DB_BATCHING_ENABLED: ${POSITION_DB_BATCHING_ENABLED:-true}
     volumes:
       - ./data/ICAO_Aircraft.json:/app/config/data/ICAO_Aircraft.json:ro
     depends_on:

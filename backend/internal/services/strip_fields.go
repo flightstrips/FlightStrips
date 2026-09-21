@@ -196,12 +196,27 @@ func (s *StripService) UpdateCommunicationType(ctx context.Context, session int3
 
 // UpdateHeading updates the heading for a strip and notifies the frontend.
 func (s *StripService) UpdateHeading(ctx context.Context, session int32, callsign string, heading int32) error {
-	count, err := s.fieldStore.UpdateHeading(ctx, session, callsign, &heading, nil)
+	var count int64
+	var updatedStrip *internalModels.Strip
+	var err error
+	if store, ok := s.fieldStore.(interface {
+		UpdateHeadingAndGetStrip(context.Context, int32, string, *int32, *int32) (*internalModels.Strip, int64, error)
+	}); ok {
+		updatedStrip, count, err = store.UpdateHeadingAndGetStrip(ctx, session, callsign, &heading, nil)
+	} else {
+		count, err = s.fieldStore.UpdateHeading(ctx, session, callsign, &heading, nil)
+	}
 	if err != nil {
 		return err
 	}
 	if count != 1 {
 		slog.DebugContext(ctx, "Strip being updated does not exist in database", slog.String("callsign", callsign), slog.String("event", "SetHeading"))
+		return nil
+	}
+	if publisher, ok := s.publisher.(interface {
+		SendSetHeadingEventWithStrip(int32, string, int32, *internalModels.Strip)
+	}); ok && updatedStrip != nil {
+		publisher.SendSetHeadingEventWithStrip(session, callsign, heading, updatedStrip)
 		return nil
 	}
 	s.publisher.SendSetHeadingEvent(session, callsign, heading)

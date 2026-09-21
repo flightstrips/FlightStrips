@@ -200,11 +200,21 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 				continue
 			}
 		}
+		// Only surveillance position reports belong to the bounded dispatcher.
+		// Operational messages normally bypass its backlog, but an aircraft
+		// disconnect must remain ordered after every position already accepted from
+		// this socket. Otherwise an older queued position can cancel the newer
+		// disconnect worker and leave the aircraft online indefinitely.
 		if dispatcher != nil {
-			_ = dispatcher.RunBarrier(context.Background(), func() { run(context.Background()) })
-		} else {
-			run(context.Background())
+			if msgType == "aircraft_disconnect" {
+				_ = dispatcher.RunBarrier(context.Background(), func() { run(context.Background()) })
+				continue
+			}
+			// Ask a database batch that is still collecting to start now, but do
+			// not wait for it.
+			dispatcher.Flush()
 		}
+		run(context.Background())
 	}
 }
 
@@ -371,6 +381,11 @@ func WritePump[TClient Client](client TClient) {
 			}
 
 			if err := writeOutboundFrame(context.Background(), client.GetConnection(), client.GetSource(), messageType, frameType, bytes); err != nil {
+				slog.Warn("Failed to write websocket message",
+					slog.String("source", client.GetSource()),
+					slog.String("cid", client.GetCid()),
+					slog.String("message_type", messageType),
+					slog.Any("error", err))
 				return
 			}
 			metrics.MessageSent(context.Background(), client.GetSessionName(), client.GetAirport(), client.GetSource(), messageType, client.GetVersion())
@@ -379,6 +394,10 @@ func WritePump[TClient Client](client TClient) {
 				return
 			}
 			if err := client.GetConnection().WriteMessage(websocket.PingMessage, nil); err != nil {
+				slog.Warn("Failed to write websocket ping",
+					slog.String("source", client.GetSource()),
+					slog.String("cid", client.GetCid()),
+					slog.Any("error", err))
 				return
 			}
 		case <-tokenTicker.C:

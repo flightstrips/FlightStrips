@@ -1252,7 +1252,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       produce((state: WebSocketState) => {
         const stripIndex = state.strips.findIndex(strip => strip.callsign === data.callsign);
         if (stripIndex !== -1) {
+          if (data.version !== undefined && data.version < state.strips[stripIndex].version) return;
           state.strips[stripIndex].heading = data.heading;
+          if (data.version !== undefined) state.strips[stripIndex].version = data.version;
+          if (data.clx_validation !== undefined) state.strips[stripIndex].clx_validation = data.clx_validation ?? undefined;
         }
       })
     )
@@ -1581,16 +1584,21 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
       return;
     }
     toast.error(data.reason);
-    if (data.action === ActionType.FrontendCoordinationForceAssumeRequest && data.request_id) {
-      const pending = pendingForceAssumeRoutes.get(data.request_id);
-      if (pending) {
-        pendingForceAssumeRoutes.delete(data.request_id);
-        clearTimeout(pending.timeout);
-        pending.reject(new Error(data.reason));
+    if (data.action === ActionType.FrontendCoordinationForceAssumeRequest) {
+      if (data.request_id) {
+        const pending = pendingForceAssumeRoutes.get(data.request_id);
+        if (pending) {
+          pendingForceAssumeRoutes.delete(data.request_id);
+          clearTimeout(pending.timeout);
+          pending.reject(new Error(data.reason));
+        }
       }
+      // Force-assume does not update the store optimistically, so its correlated
+      // rejection can be handled without reconnecting.
+      return;
     }
-    // Reconnect to receive a fresh initial event from the server,
-    // which overwrites any optimistic updates that were rejected.
+    // Most strip actions update the store optimistically. Reconnect to obtain an
+    // authoritative snapshot when the backend rejects one of those mutations.
     wsClient.reconnect();
   };
 

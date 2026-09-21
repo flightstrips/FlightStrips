@@ -503,8 +503,9 @@ func (c *Client) isClosed() bool {
 	}
 }
 
-// PositionDispatcher is lazily created after authentication. Production remains
-// serial until the load gates pass and POSITION_CONCURRENCY_ENABLED is set.
+// PositionDispatcher is lazily created after authentication. Database batching
+// is the default while lifecycle execution remains serial; operators can set
+// POSITION_DB_BATCHING_ENABLED=false for an immediate per-report rollback.
 func (c *Client) PositionDispatcher() *shared.PositionDispatcher {
 	c.dispatcherMu.Lock()
 	defer c.dispatcherMu.Unlock()
@@ -518,7 +519,7 @@ func (c *Client) PositionDispatcher() *shared.PositionDispatcher {
 				workers = n
 			}
 		}
-		if os.Getenv("POSITION_DB_BATCHING_ENABLED") == "true" {
+		if os.Getenv("POSITION_DB_BATCHING_ENABLED") != "false" {
 			c.dispatcher = shared.NewBatchPositionDispatcher(workers, 256, c.hub.positionBudget, postgres.NewPositionBatch)
 		} else {
 			c.dispatcher = shared.NewPositionDispatcher(workers, 256, c.hub.positionBudget)

@@ -86,3 +86,32 @@ func TestStripPublicationSnapshot(t *testing.T) {
 	require.Equal(t, &heading, updated.Strip.Heading)
 	require.Equal(t, strip.Version+1, updated.Strip.Version)
 }
+
+func TestUpdateHeadingAndGetStrip(t *testing.T) {
+	pool, q := testdata.SetupTestDB(t)
+	session := testdata.SeedTestSessionNamedWithSectors(t, q, "HEADING_PUBLICATION", nil)
+	testdata.SeedTestStrip(t, q, session, "PUB1")
+	before, err := NewStripRepository(pool).GetByCallsign(context.Background(), session, "PUB1")
+	require.NoError(t, err)
+
+	counter := &positionQueryCounter{}
+	cfg := pool.Config()
+	cfg.ConnConfig.Tracer = counter
+	traced, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	require.NoError(t, err)
+	defer traced.Close()
+
+	repo := NewStripRepository(traced)
+	heading := int32(275)
+	strip, count, err := repo.UpdateHeadingAndGetStrip(context.Background(), session, "PUB1", &heading, nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
+	require.Equal(t, int32(1), counter.n.Load(), "heading persistence returns the updated strip in one statement")
+	require.Equal(t, &heading, strip.Heading)
+	require.Equal(t, before.Version+1, strip.Version)
+
+	strip, count, err = repo.UpdateHeadingAndGetStrip(context.Background(), session, "MISSING", &heading, nil)
+	require.NoError(t, err)
+	require.Zero(t, count)
+	require.Nil(t, strip)
+}

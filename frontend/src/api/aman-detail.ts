@@ -8,11 +8,17 @@ export interface AMANFlightDetail {
   flight: {
     id: string;
     callsign: string;
+    origin: string;
+    destination: string;
     lifecycle_state: string;
     data_status: string;
     runway_group_id: string | null;
     feeder: string | null;
     star: string | null;
+    feeder_fix: string | null;
+    feeder_eta: string | null;
+    derived_feeder_eta: string | null;
+    direct_to: string | null;
     holding_fix: string | null;
     aircraft_type: string | null;
     wake_category: string | null;

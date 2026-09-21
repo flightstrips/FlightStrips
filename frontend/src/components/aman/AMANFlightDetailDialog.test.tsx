@@ -23,11 +23,17 @@ const detail: AMANFlightDetail = {
   flight: {
     id: "flight-123",
     callsign: "SAS123",
+    origin: "ESSA",
+    destination: "EKCH",
     lifecycle_state: "stable",
     data_status: "fresh",
     runway_group_id: "ARRIVAL-22",
     feeder: "ROSBI",
     star: "ROSBI1A",
+    feeder_fix: "TNO",
+    feeder_eta: "2026-07-22T10:12:00.000Z",
+    derived_feeder_eta: "2026-07-22T10:11:00.000Z",
+    direct_to: "TNO",
     holding_fix: null,
     aircraft_type: "A320",
     wake_category: "M",
@@ -64,6 +70,36 @@ describe("AMAN flight detail dialog integration", () => {
     fireEvent.keyDown(document, {key: "Escape"});
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     expect(opener).toHaveFocus();
+  });
+
+  it("maps operational flight data into the Figma flight-information strip", async () => {
+    fetchDetail.mockResolvedValue({
+      ...detail,
+      calculation: {
+        no_wind_duration_seconds: 120, duration_seconds: 120, distance_to_go_nm: 35, segments: [],
+        legs: [{id: "leg-1", from: "AIRCRAFT", to: "CH626", start_latitude: 55.7, start_longitude: 12.2, end_latitude: 55.6, end_longitude: 12.4, distance_nm: 8, course_true_degrees: 120, no_wind_duration_seconds: 120, duration_seconds: 120}],
+      },
+      teta_basis: {
+        raw_teta: "2026-07-22T10:20:00.000Z", raw_reta: "2026-07-22T10:19:00.000Z", operational_teta: "2026-07-22T10:19:00.000Z", generated_at: detail.generated_at,
+        input_observed_at: "2026-07-22T10:00:00.000Z", operational_reason: "predicted", freeze_reason: null, frozen_at: null, confidence: "high", model_version: "model-v1", config_version: "config-v1",
+        prediction_basis: "performance_wind", performance_profile_id: "A320", weather_source: "metar", sources: ["surveillance"], degradation_reason: null, raw_samples: [], baseline: null, eta_review: null,
+      },
+      slot_basis: {time: "2026-07-22T10:19:00.000Z", runway_group_id: "ARRIVAL-22L", reason: "rate_wtc", sequence: 2, revision: 17, rate_per_hour: 30, rate_effective_at: null, previous_flight: null, frozen: false, infeasible: false},
+      flight: {...detail.flight, runway_group_id: "ARRIVAL-22L", direct_to: null},
+    });
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", {name: "Open SAS123"}));
+
+    const summary = await screen.findByLabelText("Flight information summary");
+    expect(summary).toHaveTextContent("SAS123 / 2");
+    expect(summary).toHaveTextContent("ESSA EKCH");
+    expect(summary).toHaveTextContent("CH626");
+    expect(summary).toHaveTextContent("22L/2");
+    expect(summary).toHaveTextContent("35nm");
+    expect(screen.getByLabelText("Initial ETA-FF")).toBeEmptyDOMElement();
+    expect(screen.getByLabelText("Current STA-FF")).toHaveTextContent("10:11:00");
+    expect(screen.getByLabelText("Route via CH626")).toHaveTextContent("ROUTE35nmCH626");
+    expect(screen.getByRole("button", {name: "Technical evidence"})).toHaveTextContent("Trajectory");
   });
 
   it("presents TMA slot protection with a visible non-color label", async () => {

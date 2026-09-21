@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.12](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.11...backend/v2.2.12) (2026-09-21)
+
+
+### Bug Fixes
+
+* **aman:** align active flight uniqueness with callsigns ([#770](https://github.com/flightstrips/FlightStrips/issues/770)) ([2115868](https://github.com/flightstrips/FlightStrips/commit/21158683a9221fc3a06660530f2722c9bf7871fd))
+
 ## [2.2.11](https://github.com/flightstrips/FlightStrips/compare/backend/v2.2.10...backend/v2.2.11) (2026-09-20)
 
 

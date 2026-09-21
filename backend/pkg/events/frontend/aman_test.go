@@ -432,7 +432,7 @@ func TestAMANFlightOmitsNonPublishablePredictionData(t *testing.T) {
 func TestAMANFlightRoundsLegacyFractionalInputAgeForWire(t *testing.T) {
 	state := goldenAMANState()
 	state.GeneratedAt = state.GeneratedAt.Add(time.Minute + 600*time.Millisecond)
-	state.Flights[0].Prediction.OperationalTETA = state.Flights[0].Prediction.OperationalTETA.Add(600 * time.Millisecond)
+	state.Flights[0].Prediction.RawTETA = state.Flights[0].Prediction.RawTETA.Add(600 * time.Millisecond)
 	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
 	require.NoError(t, err)
 	require.Equal(t, "TESPI", *mapped.Star)
@@ -440,7 +440,18 @@ func TestAMANFlightRoundsLegacyFractionalInputAgeForWire(t *testing.T) {
 	require.Equal(t, "TNO", *mapped.FeederFix)
 	require.Equal(t, "ROSBI", *mapped.HoldingFix)
 	require.EqualValues(t, 121, *mapped.InputAgeSeconds)
-	require.EqualValues(t, 61, *mapped.GainLossSeconds)
+	require.EqualValues(t, 121, *mapped.GainLossSeconds)
+}
+
+func TestAMANFlightUsesLiveRawTETAForGainLossWhenOperationalTETAIsFrozen(t *testing.T) {
+	state := goldenAMANState()
+	state.Flights[0].FreezeReason = aman.FreezeSuperstable
+	state.Flights[0].Prediction.OperationalTETA = state.Flights[0].Slot.Time.Add(-9 * time.Minute)
+	state.Flights[0].Prediction.RawTETA = state.Flights[0].Slot.Time.Add(20 * time.Second)
+
+	mapped, err := mapAMANFlight(state.GeneratedAt, state.Flights[0])
+	require.NoError(t, err)
+	require.EqualValues(t, 20, *mapped.GainLossSeconds)
 }
 
 func TestAMANFlightSerializesFeederETAProvenanceWithoutInventingPassedTime(t *testing.T) {

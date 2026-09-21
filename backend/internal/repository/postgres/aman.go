@@ -506,8 +506,8 @@ func corruptAMANData(action string, err error) error {
 
 func mapAMANWriteError(err error) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "ux_aman_flights_active_vatsim_cid" {
-		return &aman.DomainError{Class: aman.ErrorActiveFlightConflict, Message: "active VATSIM CID already belongs to another AMAN flight"}
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "ux_aman_flights_active_callsign" {
+		return &aman.DomainError{Class: aman.ErrorActiveFlightConflict, Message: "active callsign already belongs to another AMAN flight"}
 	}
 	return err
 }

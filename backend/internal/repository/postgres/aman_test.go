@@ -257,16 +257,31 @@ func TestAMANRepositoryRoundTripIdempotencyAndRollback(t *testing.T) {
 	require.Equal(t, aman.FlightID("flight-1"), loaded.Flights[0].ID, "callsign corrections must not rekey FlightID")
 	require.Equal(t, "SAS456", loaded.Flights[0].CurrentCallsign)
 
-	conflicting := amanState(3, "CID-1", "SAS456")
-	second := conflicting.Flights[0]
+	sharedCID := amanState(3, "CID-1", "SAS456")
+	second := sharedCID.Flights[0]
 	second.ID = "flight-2"
 	second.CurrentCallsign = "SAS789"
-	conflicting.Flights = append(conflicting.Flights, second)
-	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 2, State: conflicting})
+	sharedCID.Flights = append(sharedCID.Flights, second)
+	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 2, State: sharedCID})
+	require.NoError(t, err, "distinct callsigns may share supporting CID metadata")
+	loaded, err = repo.LoadAirportState(ctx, first.Airport)
+	require.NoError(t, err)
+	require.Equal(t, sharedCID, loaded)
+
+	conflicting := amanState(4, "CID-1", "SAS456")
+	second = conflicting.Flights[0]
+	second.ID = "flight-2"
+	second.CurrentCallsign = "SAS789"
+	third := conflicting.Flights[0]
+	third.ID = "flight-3"
+	third.VATSIMCID = "CID-3"
+	third.CurrentCallsign = second.CurrentCallsign
+	conflicting.Flights = append(conflicting.Flights, second, third)
+	_, err = repo.Commit(ctx, aman.StateCommit{ExpectedRevision: 3, State: conflicting})
 	requireDomainErrorClass(t, err, aman.ErrorActiveFlightConflict)
 	loaded, err = repo.LoadAirportState(ctx, first.Airport)
 	require.NoError(t, err)
-	require.Equal(t, corrected, loaded, "a failed transaction must leave the complete prior aggregate")
+	require.Equal(t, sharedCID, loaded, "a failed transaction must leave the complete prior aggregate")
 }
 
 func TestAMANRepositoryRestartsWithActiveRunwaySetAndDecodesLegacySelection(t *testing.T) {
@@ -844,6 +859,44 @@ func TestAMANCallsignMigrationRetiresDuplicateBindings(t *testing.T) {
 	var retired bool
 	require.NoError(t, pool.QueryRow(ctx, "SELECT retired_at IS NOT NULL FROM aman_vatsim_observation_identities WHERE flight_id = 'old'").Scan(&retired))
 	require.True(t, retired)
+}
+
+func TestAMANFlightProjectionCallsignMigrationKeepsNewestDuplicate(t *testing.T) {
+	pool, _ := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		DROP INDEX ux_aman_flights_active_callsign;
+		CREATE UNIQUE INDEX ux_aman_flights_active_vatsim_cid
+		ON aman_flights (vatsim_cid) WHERE state <> 'removed';`)
+	require.NoError(t, err)
+
+	state := amanState(1, "101", "SAS123")
+	newest := state.Flights[0]
+	newest.ID = "flight-2"
+	newest.VATSIMCID = "202"
+	newest.UpdatedAt = newest.UpdatedAt.Add(time.Minute)
+	state.Flights = append(state.Flights, newest)
+	_, err = NewAMANRepository(pool).Commit(ctx, aman.StateCommit{ExpectedRevision: 0, State: state})
+	require.NoError(t, err)
+
+	_, sourceFile, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	migration, err := os.ReadFile(filepath.Join(filepath.Dir(sourceFile), "..", "..", "..", "migrations", "0048-match-aman-flight-projection-by-callsign.sql"))
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, string(migration))
+	require.NoError(t, err)
+
+	var flightIDs []string
+	rows, err := pool.Query(ctx, "SELECT flight_id FROM aman_flights ORDER BY flight_id")
+	require.NoError(t, err)
+	for rows.Next() {
+		var flightID string
+		require.NoError(t, rows.Scan(&flightID))
+		flightIDs = append(flightIDs, flightID)
+	}
+	require.NoError(t, rows.Err())
+	rows.Close()
+	require.Equal(t, []string{"flight-2"}, flightIDs)
 }
 
 func TestAMANPersistenceDoesNotDependOnTransportOrCreateOutbox(t *testing.T) {

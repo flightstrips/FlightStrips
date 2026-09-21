@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -41,9 +42,9 @@ func (*dispatchHub) HandleNewConnection(*gorilla.Conn, shared.AuthenticatedUser,
 	panic("unused")
 }
 
-func TestReadPumpPositionBarrierAndFIFO(t *testing.T) {
+func TestReadPumpOnlyDispatchesPositionsAndPreservesLifecycleOrdering(t *testing.T) {
 	h := &dispatchHub{handlers: shared.NewMessageHandlers[es.EventType, *dispatchClient](), done: make(chan struct{})}
-	entered, release, other, finished := make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{})
+	entered, release, other, operational, disconnected, finished := make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{})
 	var mu sync.Mutex
 	var order []string
 	add := func(s string) { mu.Lock(); order = append(order, s); mu.Unlock() }
@@ -65,7 +66,16 @@ func TestReadPumpPositionBarrierAndFIFO(t *testing.T) {
 		}
 		return nil
 	})
-	h.handlers.Add(es.SetHeading, func(context.Context, *dispatchClient, shared.Message[es.EventType]) error { add("barrier"); return nil })
+	h.handlers.Add(es.SetHeading, func(context.Context, *dispatchClient, shared.Message[es.EventType]) error {
+		add("heading")
+		close(operational)
+		return nil
+	})
+	h.handlers.Add(es.AircraftDisconnected, func(context.Context, *dispatchClient, shared.Message[es.EventType]) error {
+		add("disconnect")
+		close(disconnected)
+		return nil
+	})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := (&gorilla.Upgrader{}).Upgrade(w, r, nil)
 		if err != nil {
@@ -88,23 +98,49 @@ func TestReadPumpPositionBarrierAndFIFO(t *testing.T) {
 	send(&es.AircraftPositionUpdateEvent{Callsign: "A", Altitude: 2}, es.PositionUpdate)
 	send(&es.AircraftPositionUpdateEvent{Callsign: "B", Altitude: 1}, es.PositionUpdate)
 	send(&es.HeadingEvent{Callsign: "A"}, es.SetHeading)
-	send(&es.AircraftPositionUpdateEvent{Callsign: "A", Altitude: 3}, es.PositionUpdate)
 	select {
 	case <-other:
 	case <-time.After(time.Second):
 		t.Fatal("B blocked behind A")
 	}
+	select {
+	case <-operational:
+	case <-time.After(time.Second):
+		t.Fatal("operational message blocked behind position backlog")
+	}
 	mu.Lock()
-	require.Equal(t, []string{"B1"}, order)
+	require.Contains(t, order, "B1")
+	require.Contains(t, order, "heading")
+	require.NotContains(t, order, "A1")
 	mu.Unlock()
+	send(&es.AircraftDisconnectEvent{Callsign: "A"}, es.AircraftDisconnected)
+	select {
+	case <-disconnected:
+		t.Fatal("disconnect overtook an earlier position")
+	case <-time.After(50 * time.Millisecond):
+	}
 	close(release)
+	select {
+	case <-disconnected:
+	case <-time.After(time.Second):
+		t.Fatal("disconnect did not run after the position backlog drained")
+	}
+	send(&es.AircraftPositionUpdateEvent{Callsign: "A", Altitude: 3}, es.PositionUpdate)
 	select {
 	case <-finished:
 	case <-time.After(time.Second):
 		t.Fatal("reader did not finish")
 	}
 	mu.Lock()
-	require.Equal(t, []string{"B1", "A1", "A2", "barrier", "A3"}, order)
+	var aircraftA []string
+	for _, item := range order {
+		if strings.HasPrefix(item, "A") {
+			aircraftA = append(aircraftA, item)
+		}
+	}
+	require.Equal(t, []string{"A1", "A2", "A3"}, aircraftA)
+	require.Less(t, slices.Index(order, "A2"), slices.Index(order, "disconnect"))
+	require.Less(t, slices.Index(order, "disconnect"), slices.Index(order, "A3"))
 	mu.Unlock()
 	conn.Close()
 	select {

@@ -32,6 +32,7 @@ type PositionDispatcher struct {
 	closing      bool
 	paused       bool
 	barriers     int
+	flushPending bool
 	batchWorkers int
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -79,14 +80,15 @@ func (d *PositionDispatcher) batchScheduler(workers int, factory func(int) Posit
 		}
 		// Give the socket reader a bounded window to collect the current burst.
 		// A barrier wakes this immediately; never wait for the next radar tick.
-		if d.barriers == 0 && !d.closing && len(d.queue) < maxPositionBatchSize {
+		if d.barriers == 0 && !d.flushPending && !d.closing && len(d.queue) < maxPositionBatchSize {
 			expired := false
 			timer := time.AfterFunc(time.Millisecond, func() { d.mu.Lock(); expired = true; d.changed.Broadcast(); d.mu.Unlock() })
-			for !expired && d.barriers == 0 && !d.closing && len(d.queue) < maxPositionBatchSize {
+			for !expired && d.barriers == 0 && !d.flushPending && !d.closing && len(d.queue) < maxPositionBatchSize {
 				d.changed.Wait()
 			}
 			timer.Stop()
 		}
+		d.flushPending = false
 		var jobs []positionJob
 		for i := 0; i < len(d.queue) && len(jobs) < maxPositionBatchSize-d.running; {
 			job := d.queue[i]
@@ -174,6 +176,17 @@ func (d *PositionDispatcher) Depth() int {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.depthLocked()
+}
+
+// Flush starts the currently queued database batch without waiting for the
+// collection window. It never waits for accepted or running position work.
+func (d *PositionDispatcher) Flush() {
+	d.mu.Lock()
+	if d.batchWorkers > 0 && len(d.queue) > 0 {
+		d.flushPending = true
+		d.changed.Broadcast()
+	}
+	d.mu.Unlock()
 }
 
 func (d *PositionDispatcher) depthLocked() int {

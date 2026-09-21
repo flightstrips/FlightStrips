@@ -1,21 +1,25 @@
 # Aircraft position throughput
 
 PostgreSQL remains authoritative. Each dedicated position report persists its
-position and EuroScope presence synchronously. The default path persists reports
-individually; an opt-in database batch prototype is described below. No
-cross-message strip/stand/identity cache is introduced.
+position and EuroScope presence synchronously. The default path batches the
+database work from a single EuroScope burst while keeping lifecycle execution
+serial. Set `POSITION_DB_BATCHING_ENABLED=false` to restore individual database
+statements. No cross-message strip/stand/identity cache is introduced.
 
 The [event update audit](performance/2026-09-16/event-update-audit.md) and
 [follow-up fixes](performance/2026-09-16/event-update-fixes.md) cover publication,
 validation, AMAN facts and PDC work beyond position persistence.
 
-## Experimental database batches
+## Database batches
 
-`POSITION_DB_BATCHING_ENABLED=true` enables database batching independently of
-`POSITION_WORKERS_PER_CLIENT`, including its default of one. It remains off by
-default. The dispatcher collects up to 100 distinct aircraft during a bounded
-one-millisecond window, flushing immediately when an operational barrier arrives
-or the group fills. It never waits for the next one-second radar tick.
+Database batching is enabled unless `POSITION_DB_BATCHING_ENABLED=false`. It is
+independent of `POSITION_WORKERS_PER_CLIENT`, including its default of one. The
+dispatcher collects up to 100 distinct aircraft during a bounded
+one-millisecond window, flushing when that window expires or the group fills. It
+never waits for the next one-second radar tick. Non-position operational
+messages request a non-blocking flush of any batch still being collected, then
+bypass this dispatcher. Aircraft disconnects are the exception: they drain
+already accepted positions so an older report cannot cancel a newer disconnect.
 
 Batch membership is separate from active execution: reports yield their slot
 while waiting for a shared snapshot or write, and the physical SQL batch takes
@@ -29,8 +33,10 @@ Reports also release their slot while acquiring the outer master-transition and
 aircraft locks. Otherwise a later report blocked behind a master-change writer
 could prevent an earlier reader from resuming its batch and releasing the fence.
 Authority is still rechecked after acquiring the fence, which stays held through
-persistence and lifecycle processing. FIFO, operational barriers, backpressure,
-authority epochs and completion accounting are retained.
+persistence and lifecycle processing. Per-aircraft FIFO, backpressure, authority
+epochs and completion accounting are retained. Operational writes can overlap a
+position job; version-guarded position persistence performs its bounded fresh
+snapshot retry when those writes race.
 
 Reports in a group can share their first snapshot SELECT, version-guarded
 position/presence UPDATE, and established AMAN identity lookup. Each report still waits for persistence, then runs its
@@ -149,14 +155,14 @@ Correctness validation passed with batching enabled and one worker:
 - Focused coverage includes master-change lock ordering, cancellation during
   budget acquisition, and transition conflicts whose retries must bypass batching.
 
-The default remains disabled pending the latency and production-equivalent
-acceptance gates. No production configuration or dashboard changes accompany
-this experiment.
+These diagnostic results predate default enablement. They remain useful as a
+record of the stricter synthetic sender-deadline gate and are not a
+production-equivalent capacity claim.
 
 ### AMAN identity batching (2026-09-16)
 
 Commit `c5955e8b` adds a read-only AMAN identity stage to the same ephemeral batch.
-This is part of the existing `POSITION_DB_BATCHING_ENABLED` opt-in; it adds no
+This is part of the existing `POSITION_DB_BATCHING_ENABLED` path; it adds no
 worker setting, identity cache or background work. Only the first active-identity
 lookup is grouped. Creation and supporting CID changes still re-read under the
 callsign advisory lock, and transition-locked reports bypass the batch entirely.
@@ -188,7 +194,8 @@ Both runs completed exactly 15,200 reports with zero position/operational errors
 passing lifecycle and drainage checks. **Both still fail the sender-deadline
 P95/P99 gates.** The after-burst case passes receipt-only percentiles, which again
 shows why those alone are insufficient. Full 15-minute/mix acceptance runs have
-not been claimed. Batching remains disabled by default.
+not been claimed. Batching now defaults on with an explicit `false` rollback
+switch.
 
 AMAN identity lookup is no longer the largest measured SQL cost. Remaining work
 includes position snapshot/write transactions and synchronous operational
@@ -197,13 +204,41 @@ averaged 26.05 ms in the interleaved run. No extra position workers, cross-messa
 identity cache, background persistence, production configuration or dashboard
 changes were introduced.
 
+### Incremental heading publication (2026-09-21)
+
+Heading updates now use `UPDATE ... RETURNING` and add the updated strip version
+and CLX validation to the existing incremental heading event. This removes the
+second, full-publication query from a common operational barrier without making
+publication asynchronous or weakening database authority. Frontends that do not
+yet understand the added JSON fields continue to ignore them.
+
+Two consecutive short local diagnostics used one worker, database batching,
+three seconds of warm-up and 15 seconds of the same interleaved 100-report burst
+scenario. These runs are regression evidence only, not the required 15-minute or
+production-equivalent acceptance runs.
+
+| Metric | Full heading publication | Incremental heading publication |
+|---|---:|---:|
+| Mean heading processing | 3.70 ms | 0.60 ms |
+| Heading SQL statements | 2 | 1 |
+| Position P95 from sender deadline | 42.37 ms | 27.63 ms |
+| Position P99 from sender deadline | 49.97 ms | 33.02 ms |
+| Position P95 from receipt | 6.17 ms | 6.23 ms |
+| Position P99 from receipt | 9.22 ms | 8.70 ms |
+
+All 4,000 reports in each diagnostic completed with zero position or operational
+errors. The incremental run passed the receipt-to-completion and sender P99
+targets, but its sender P95 remained above 20 ms. Longer production-equivalent
+validation is still required before enabling handler concurrency.
+
 ## Rollout
 
 Leave concurrency disabled until correctness and production-equivalent load
-gates pass. The default is one worker. Set `POSITION_CONCURRENCY_ENABLED=true`
+gates pass. The default is one worker with database batching. Set
+`POSITION_CONCURRENCY_ENABLED=true`
 to select four workers per client; `POSITION_WORKERS_PER_CLIENT=1` restores
 sequential active execution without reverting database improvements. To restore
-individual report dispatch as well, disable `POSITION_DB_BATCHING_ENABLED`. An explicit
+individual database statements as well, set `POSITION_DB_BATCHING_ENABLED=false`. An explicit
 `POSITION_WORKERS_PER_CLIENT` accepts 1 through 8 and overrides the default.
 
 The backend limit is `min(8, pool_max_conns - 2)`. Pools must configure at least
@@ -212,13 +247,14 @@ running workers. When full, its single socket reader waits. Dedicated reports
 are never dropped or coalesced. Completion includes waiting for a worker and the
 backend limit. Cross-aircraft completion can differ from receipt order.
 
-FIFO keys are session and normalized callsign. Operational messages drain prior
-positions and pause timer callbacks while the operational handler executes.
-Delayed full-strip positions share the dispatcher; a newer dedicated receipt
-invalidates an older delayed snapshot. Each job carries receipt time and an
-authority epoch, checked under the master-transition fence before persistence.
-Losing and regaining master does not resurrect old jobs. Cancelled jobs are
-counted as errors with `error_class=cancelled`.
+FIFO keys are session and normalized callsign. Only position work enters the
+dispatcher; operational messages execute directly except aircraft disconnects,
+which drain accepted position work before running. Delayed full-strip positions
+share the dispatcher; a newer dedicated receipt invalidates an older delayed
+snapshot. Each job carries receipt time and
+an authority epoch, checked under the master-transition fence before
+persistence. Losing and regaining master does not resurrect old jobs. Cancelled
+jobs are counted as errors with `error_class=cancelled`.
 
 Shutdown drains accepted positions for up to five seconds before cancelling,
 while hubs and PostgreSQL are still available. The socket retains one reader and

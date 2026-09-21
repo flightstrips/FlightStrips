@@ -518,8 +518,10 @@ func (s StandEvent) GetType() EventType {
 }
 
 type SetHeadingEvent struct {
-	Callsign string `json:"callsign"`
-	Heading  int32  `json:"heading"`
+	Callsign      string         `json:"callsign"`
+	Heading       int32          `json:"heading"`
+	Version       int32          `json:"version,omitempty"`
+	ClxValidation *ClxValidation `json:"clx_validation"`
 }
 
 func (s SetHeadingEvent) Marshal() ([]byte, error) {

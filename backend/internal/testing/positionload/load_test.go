@@ -561,7 +561,7 @@ func TestPositionLoad(t *testing.T) {
 	}
 	report["traffic_pattern"] = pattern
 	report["control_placement"] = controlPlacement
-	report["position_db_batching"] = os.Getenv("POSITION_DB_BATCHING_ENABLED") == "true"
+	report["position_db_batching"] = os.Getenv("POSITION_DB_BATCHING_ENABLED") != "false"
 	for _, kind := range []string{"snapshot", "persist", "aman_identity"} {
 		var sizes, durations []float64
 		for _, entry := range batchSamples {

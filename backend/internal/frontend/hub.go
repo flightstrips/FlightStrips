@@ -1360,6 +1360,15 @@ func (hub *Hub) SendSetHeadingEvent(session int32, callsign string, heading int3
 	hub.Broadcast(session, event)
 }
 
+func (hub *Hub) SendSetHeadingEventWithStrip(session int32, callsign string, heading int32, strip *internalModels.Strip) {
+	event := frontend.SetHeadingEvent{Callsign: callsign, Heading: heading}
+	if strip != nil {
+		event.Version = strip.Version
+		event.ClxValidation = mapClxValidationToDTO(clx.Validate(strip, hub.makeClxValidationContext(session)))
+	}
+	hub.Broadcast(session, event)
+}
+
 func (hub *Hub) SendCommunicationTypeEvent(session int32, callsign string, communicationType string) {
 	event := frontend.CommunicationTypeEvent{
 		Callsign:          callsign,

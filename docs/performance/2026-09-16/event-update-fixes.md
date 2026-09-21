@@ -1,5 +1,9 @@
 # Event update fixes — 16 September 2026
 
+> This is a historical measurement record. Database batching was promoted to
+> the default on 21 September 2026; the current rollout contract is documented
+> in [the position performance runbook](../../position-performance.md).
+
 The changes following [the audit](event-update-audit.md) keep synchronous PostgreSQL persistence and one position execution worker. No dashboard or production configuration was changed.
 
 ## Delivered changes

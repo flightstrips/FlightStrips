@@ -213,6 +213,7 @@ describe("manual companion layout behavior", () => {
       request_id: "SAS123-1",
     });
     await expect(firstTransfer).resolves.toBe(false);
+    expect(client.reconnect).not.toHaveBeenCalled();
 
     client._emit(EventType.FrontendCoordinationForceAssumeResult, {
       type: EventType.FrontendCoordinationForceAssumeResult,
@@ -228,5 +229,15 @@ describe("manual companion layout behavior", () => {
       callsign: "SAS456",
       to: "EKCH_C_GND",
     });
+  });
+
+  it("resynchronizes after other rejected strip actions", () => {
+    client._emit(EventType.FrontendActionRejected, {
+      type: EventType.FrontendActionRejected,
+      action: ActionType.FrontendUpdateStripData,
+      reason: "stale strip version",
+    });
+
+    expect(client.reconnect).toHaveBeenCalledOnce();
   });
 });

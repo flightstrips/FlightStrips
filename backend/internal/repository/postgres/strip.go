@@ -747,6 +747,31 @@ func (r *stripRepository) UpdateHeading(ctx context.Context, session int32, call
 	})
 }
 
+// UpdateHeadingAndGetStrip persists a heading and returns the post-update strip
+// in one statement so incremental publications do not need to reload it.
+func (r *stripRepository) UpdateHeadingAndGetStrip(ctx context.Context, session int32, callsign string, heading *int32, version *int32) (*models.Strip, int64, error) {
+	rows, err := r.db.Query(ctx, `-- update heading returning strip
+UPDATE strips
+SET heading=$1, version=version+1
+WHERE callsign=$2 AND session=$3 AND (version=$4 OR $4 IS NULL)
+RETURNING *`, heading, callsign, session, version)
+	if err != nil {
+		return nil, 0, err
+	}
+	dbStrip, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[database.Strip])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, 0, nil
+		}
+		return nil, 0, err
+	}
+	strip, err := stripToModel(dbStrip)
+	if err != nil {
+		return nil, 0, err
+	}
+	return strip, 1, nil
+}
+
 // UpdateStand updates the stand of a strip
 func (r *stripRepository) UpdateStand(ctx context.Context, session int32, callsign string, stand *string, version *int32) (int64, error) {
 	return r.queries.UpdateStripStandByID(ctx, database.UpdateStripStandByIDParams{

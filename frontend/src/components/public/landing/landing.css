@@ -24,7 +24,7 @@
 
   /* ── Metrics ───────────────────────────────────────────── */
   --fsl-header-h: 68px;
-  --fsl-content-max: 84rem;
+  --fsl-content-max: 90rem;
   --fsl-gutter: 1rem;
 
   /* ── Motion ────────────────────────────────────────────── */
@@ -270,6 +270,65 @@
   container-type: inline-size;
   --sh: min(var(--fsl-strip-max, 54px), 11.5cqw);
   height: var(--sh);
+}
+
+/* ── Section rhythm ──────────────────────────────────────── */
+/* Deliberate, generous vertical space: major bands breathe, minor ones sit
+   closer. Compressing the page is what makes a site feel cheap. */
+.fsl-band       { padding-block: 5rem; }
+.fsl-band--tight { padding-block: 3.5rem; }
+
+@media (min-width: 769px) {
+  .fsl-band       { padding-block: 7.5rem; }
+  .fsl-band--tight { padding-block: 5rem; }
+}
+
+@media (min-width: 1025px) {
+  .fsl-band       { padding-block: 9.5rem; }
+  .fsl-band--tight { padding-block: 6rem; }
+}
+
+/* ── Arrow link ──────────────────────────────────────────── */
+/* Secondary actions are text links, not a second button competing with the
+   primary call to action. */
+.fsl-arrow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  color: var(--fsl-ink);
+  text-decoration: none;
+  padding-block: 0.5rem;
+}
+
+.fsl-arrow-link > span:last-child {
+  transition: transform 200ms var(--fsl-ease-out);
+}
+
+.fsl-arrow-link:hover > span:last-child,
+.fsl-arrow-link:focus-visible > span:last-child {
+  transform: translateX(4px);
+}
+
+.fsl-arrow-link:hover > span:first-child {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.fsl-arrow-link:focus-visible {
+  outline: 2px solid var(--fsl-brand-ink);
+  outline-offset: 3px;
+}
+
+/* ── Metric ──────────────────────────────────────────────── */
+.fsl-metric__value {
+  font-family: var(--fsl-font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+  font-size: clamp(3.5rem, 9vw, 6.5rem);
+  font-variant-numeric: tabular-nums;
+  display: block;
 }
 
 /* ── Reveal ──────────────────────────────────────────────── */

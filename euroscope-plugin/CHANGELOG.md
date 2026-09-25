@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.5](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.4...plugin/v2.1.5) (2026-09-25)
+
+
+### Bug Fixes
+
+* **aman:** retain holding EATs across ownership changes ([#778](https://github.com/flightstrips/FlightStrips/issues/778)) ([bb3daaf](https://github.com/flightstrips/FlightStrips/commit/bb3daaf75b1524f08be0b881b7ea8715c835ab94))
+
 ## [2.1.4](https://github.com/flightstrips/FlightStrips/compare/plugin/v2.1.3...plugin/v2.1.4) (2026-09-20)
 
 

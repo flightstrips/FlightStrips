@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.6.0...frontend/v2.0.0) (2026-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **aman:** Existing persisted AMAN sessions are cleared because generated flight identities and CID-backed projections are no longer supported.
+
+### Features
+
+* **aman:** use callsigns for EuroScope-only operation ([#780](https://github.com/flightstrips/FlightStrips/issues/780)) ([3172fb0](https://github.com/flightstrips/FlightStrips/commit/3172fb090bf17e5c102de98760ef043087819df2))
+
+
+### Bug Fixes
+
+* **websocket:** batch positions without blocking strip operations ([#775](https://github.com/flightstrips/FlightStrips/issues/775)) ([1099c6b](https://github.com/flightstrips/FlightStrips/commit/1099c6bb4d108976d4b35a08abb62f0fde939cad))
+
 ## [1.6.0](https://github.com/flightstrips/FlightStrips/compare/frontend/v1.5.0...frontend/v1.6.0) (2026-09-21)
 
 

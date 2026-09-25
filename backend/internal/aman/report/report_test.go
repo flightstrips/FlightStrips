@@ -2,6 +2,7 @@ package report
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -55,6 +56,37 @@ func TestInjectedIntegrityFindingsAreCritical(t *testing.T) {
 			require.Equal(t, 1, report.Integrity.Critical())
 		})
 	}
+}
+
+func TestSuperstablePromotionRequiresMatchingAuditEvidence(t *testing.T) {
+	start := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	frozenTETA := start.Add(3 * time.Minute)
+	oldSlot := aman.Slot{Time: start.Add(9 * time.Minute), RunwayGroupID: group, Sequence: 3, Revision: 7, Reason: "freeze_superstable"}
+	newSlot := aman.Slot{Time: start.Add(6 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 8, Reason: "freeze_superstable"}
+	old := aman.AMANFlight{ID: "HOLDING", FreezeReason: aman.FreezeSuperstable, FrozenAt: &start,
+		FrozenOperationalTETA: &frozenTETA, Slot: &oldSlot, FrozenSlot: &oldSlot}
+	current := old
+	current.Slot, current.FrozenSlot = &newSlot, &newSlot
+	payload, err := json.Marshal(map[string]any{
+		"action": "queue_promotion", "flight_id": current.ID,
+		"from_sequence": oldSlot.Sequence, "from_time": oldSlot.Time,
+		"to_sequence": newSlot.Sequence, "to_time": newSlot.Time,
+		"runway_group_id": group,
+	})
+	require.NoError(t, err)
+	audit := aman.AuditRecord{Revision: newSlot.Revision, Category: "aman.queue_promotion", Payload: payload}
+	result := replay.Result{Outputs: []replay.Output{
+		{Index: 0, Outcome: replay.Outcome{AirportState: &aman.AirportState{Revision: oldSlot.Revision, Flights: []aman.AMANFlight{old}}}},
+		{Index: 1, Outcome: replay.Outcome{AirportState: &aman.AirportState{Revision: newSlot.Revision, Flights: []aman.AMANFlight{current}}}},
+	}}
+
+	require.Equal(t, 1, integrity(replay.Dataset{}, result, nil).UnauthorizedFreezeMoves)
+	result.Outputs[1].Outcome.Audit = []aman.AuditRecord{audit}
+	require.Zero(t, integrity(replay.Dataset{}, result, nil).UnauthorizedFreezeMoves)
+	audit.Payload = []byte(`{"action":"queue_promotion","flight_id":"OTHER"}`)
+	result.Outputs[1].Outcome.Audit = []aman.AuditRecord{audit}
+	require.Equal(t, 1, integrity(replay.Dataset{}, result, nil).UnauthorizedFreezeMoves)
 }
 
 func validInput() Input {

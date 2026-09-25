@@ -306,7 +306,7 @@ func integrity(dataset replay.Dataset, result replay.Result, findings []Finding)
 					}
 					orders[key] = struct{}{}
 				}
-				if old, exists := previous[flight.ID]; exists && old.FreezeReason == aman.FreezeSuperstable && flight.FreezeReason == aman.FreezeSuperstable && !freezeEqual(old, flight) && !freezeMoveAuthorized(dataset, output, outcome) {
+				if old, exists := previous[flight.ID]; exists && old.FreezeReason == aman.FreezeSuperstable && flight.FreezeReason == aman.FreezeSuperstable && !freezeEqual(old, flight) && !freezeMoveAuthorized(dataset, output, outcome, old, flight) {
 					counts.UnauthorizedFreezeMoves++
 				}
 				previous[flight.ID] = flight
@@ -340,8 +340,11 @@ func integrity(dataset replay.Dataset, result replay.Result, findings []Finding)
 	return counts
 }
 
-func freezeMoveAuthorized(dataset replay.Dataset, output replay.Output, outcome replay.Outcome) bool {
+func freezeMoveAuthorized(dataset replay.Dataset, output replay.Output, outcome replay.Outcome, old, current aman.AMANFlight) bool {
 	if outcome.Lifecycle != nil && outcome.Lifecycle.To == aman.StateGoAround {
+		return true
+	}
+	if auditedEarlierQueuePromotion(outcome, old, current) {
 		return true
 	}
 	if int(output.Index) >= len(dataset.Records) {
@@ -349,6 +352,37 @@ func freezeMoveAuthorized(dataset replay.Dataset, output replay.Output, outcome 
 	}
 	command := dataset.Records[output.Index].Command
 	return command != nil && command.ManualFreeze != nil
+}
+
+func auditedEarlierQueuePromotion(outcome replay.Outcome, old, current aman.AMANFlight) bool {
+	if old.Slot == nil || current.Slot == nil || current.FrozenSlot == nil ||
+		old.Slot.RunwayGroupID != current.Slot.RunwayGroupID || !current.Slot.Time.Before(old.Slot.Time) ||
+		current.FrozenSlot.RunwayGroupID != current.Slot.RunwayGroupID ||
+		!current.FrozenSlot.Time.Equal(current.Slot.Time) || current.FrozenSlot.Sequence != current.Slot.Sequence ||
+		!timeEqual(old.FrozenAt, current.FrozenAt) || !timeEqual(old.FrozenOperationalTETA, current.FrozenOperationalTETA) {
+		return false
+	}
+	for _, audit := range outcome.Audit {
+		if audit.Category != "aman.queue_promotion" || audit.Revision != current.Slot.Revision {
+			continue
+		}
+		var payload struct {
+			Action        string             `json:"action"`
+			FlightID      aman.FlightID      `json:"flight_id"`
+			FromSequence  int                `json:"from_sequence"`
+			FromTime      time.Time          `json:"from_time"`
+			ToSequence    int                `json:"to_sequence"`
+			ToTime        time.Time          `json:"to_time"`
+			RunwayGroupID aman.RunwayGroupID `json:"runway_group_id"`
+		}
+		if json.Unmarshal(audit.Payload, &payload) == nil && payload.Action == "queue_promotion" &&
+			payload.FlightID == current.ID && payload.RunwayGroupID == current.Slot.RunwayGroupID &&
+			payload.FromSequence == old.Slot.Sequence && payload.FromTime.Equal(old.Slot.Time) &&
+			payload.ToSequence == current.Slot.Sequence && payload.ToTime.Equal(current.Slot.Time) {
+			return true
+		}
+	}
+	return false
 }
 
 func freezeEqual(a, b aman.AMANFlight) bool {

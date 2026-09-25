@@ -270,8 +270,10 @@ func (s *Service) DesequenceFlight(auth aman.CommandContext, command aman.Desequ
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 		state.Flights[index].SequenceDisposition = aman.SequenceDispositionDesequenced
 		state.Flights[index].UpdatedAt = auth.ReceivedAt
-		s.resequence(&state, auth.ReceivedAt)
-		return s.dispositionChange(state, true, "desequence_flight", auth, before, state.Flights[index])
+		promotions := s.resequence(&state, auth.ReceivedAt)
+		change, err := s.dispositionChange(state, true, "desequence_flight", auth, before, state.Flights[index])
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
 	}, nil
 }
 
@@ -350,8 +352,10 @@ func (s *Service) RemoveFlight(auth aman.CommandContext, command aman.RemoveFlig
 		state.Flights[index] = result.Flight
 		clearSequencingState(&state.Flights[index])
 		expireActiveRouteFact(&state.Flights[index])
-		s.resequence(&state, auth.ReceivedAt)
-		return s.dispositionChange(state, true, "remove_flight", auth, before, state.Flights[index])
+		promotions := s.resequence(&state, auth.ReceivedAt)
+		change, err := s.dispositionChange(state, true, "remove_flight", auth, before, state.Flights[index])
+		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
+		return change, err
 	}, nil
 }
 

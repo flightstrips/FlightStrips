@@ -566,6 +566,115 @@ func TestResequencePromotesVacancyAndBuildsSameRevisionAudit(t *testing.T) {
 	require.Equal(t, "TARGET", payload["flight_id"])
 }
 
+func TestResequenceCompactsStableFlightWithoutQueueOffer(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, wake := aman.RunwayGroupID("ARRIVAL-22"), "M"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	lead := operationalFlight("LEAD", group, "MONAK", wake, start)
+	lead.State = aman.StateStable
+	lead.Slot = &aman.Slot{Time: start, RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "rate_wtc"}
+	target := operationalFlight("TARGET", group, "MONAK", wake, start.Add(3*time.Minute))
+	target.State = aman.StateStable
+	target.Slot = &aman.Slot{Time: start.Add(6 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7, Reason: "rate_wtc"}
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{lead, target},
+	}
+
+	promotions := service.resequence(&state, start)
+	require.Len(t, promotions, 1)
+	require.Equal(t, target.ID, promotions[0].FlightID)
+	require.Equal(t, start.Add(3*time.Minute), state.Flights[1].Slot.Time)
+	require.Equal(t, string(sequence.ReasonQueuePromotion), state.Flights[1].Slot.Reason)
+}
+
+func TestResequencePromotionAutomaticallyRefreshesHoldingRelease(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, wake := aman.RunwayGroupID("ARRIVAL-22"), "M"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	lead := operationalFlight("LEAD", group, "MONAK", wake, start)
+	lead.State = aman.StateStable
+	lead.Slot = &aman.Slot{Time: start, RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "rate_wtc"}
+	target := operationalFlight("HOLDING", group, "MONAK", wake, start.Add(3*time.Minute))
+	target.State = aman.StateStable
+	target.Slot = &aman.Slot{Time: start.Add(6 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7, Reason: "rate_wtc"}
+	holdingEntry := start
+	target.Prediction.RawTETA = start.Add(2 * time.Minute)
+	target.Prediction.HoldingFixETA = &holdingEntry
+	target.Prediction.HoldingPlan = holdingPlan(*target.Prediction, target.Slot)
+	require.Equal(t, start.Add(4*time.Minute), target.Prediction.HoldingPlan.ApproachReleaseTime)
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{lead, target},
+	}
+
+	promotions := service.resequence(&state, start)
+
+	require.Len(t, promotions, 1)
+	require.Equal(t, start.Add(3*time.Minute), state.Flights[1].Slot.Time)
+	require.NotNil(t, state.Flights[1].Prediction.HoldingPlan)
+	require.Equal(t, start.Add(time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Equal(t, time.Minute, state.Flights[1].Prediction.HoldingPlan.ExpectedHoldingDuration)
+}
+
+func TestResequencePromotionKeepsConfirmedHoldingReleaseFeasible(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, wake := aman.RunwayGroupID("ARRIVAL-22"), "M"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	lead := operationalFlight("LEAD", group, "MONAK", wake, start)
+	lead.State = aman.StateStable
+	lead.Slot = &aman.Slot{Time: start, RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "rate_wtc"}
+	target := operationalFlight("HOLDING", group, "MONAK", wake, start.Add(3*time.Minute))
+	target.State = aman.StateStable
+	target.Slot = &aman.Slot{Time: start.Add(9 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7, Reason: "rate_wtc"}
+	holdingEntry := start.Add(time.Minute)
+	target.Prediction.RawTETA = start.Add(5 * time.Minute)
+	target.Prediction.HoldingFixETA = &holdingEntry
+	target.Prediction.HoldingPlan = holdingPlan(*target.Prediction, target.Slot)
+	target.HoldingClearance = &aman.HoldingClearance{Hold: "MONAK", HoldType: aman.HoldingClearanceEnroute}
+	target.HoldingStack = &aman.HoldingStackState{HoldingID: "EKCH-MONAK-PRIMARY", Confirmed: true}
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{lead, target},
+	}
+
+	promotions := service.resequence(&state, start)
+
+	require.Len(t, promotions, 1)
+	require.Equal(t, start.Add(6*time.Minute), state.Flights[1].Slot.Time)
+	require.NotNil(t, state.Flights[1].Prediction.HoldingPlan)
+	require.Equal(t, start.Add(2*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
+}
+
+func TestResequenceReanchorsSuperstableFreezeAfterEarlierPromotion(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, wake := aman.RunwayGroupID("ARRIVAL-22"), "M"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	lead := operationalFlight("LEAD", group, "MONAK", wake, start)
+	lead.State = aman.StateStable
+	lead.Slot = &aman.Slot{Time: start, RunwayGroupID: group, Sequence: 1, Revision: 7, Reason: "rate_wtc"}
+	target := operationalFlight("TARGET", group, "MONAK", wake, start.Add(3*time.Minute))
+	target.State = aman.StateStable
+	target.Slot = &aman.Slot{Time: start.Add(6 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7, Reason: "freeze_superstable"}
+	frozenAt, frozenTETA, frozenSlot := start.Add(-time.Minute), target.Prediction.OperationalTETA, *target.Slot
+	target.FreezeReason, target.FrozenAt = aman.FreezeSuperstable, &frozenAt
+	target.FrozenOperationalTETA, target.FrozenSlot = &frozenTETA, &frozenSlot
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{lead, target},
+	}
+
+	promotions := service.resequence(&state, start)
+	require.Len(t, promotions, 1)
+	require.Equal(t, start.Add(3*time.Minute), state.Flights[1].Slot.Time)
+	require.Equal(t, state.Flights[1].Slot, state.Flights[1].FrozenSlot)
+	require.Equal(t, string(sequence.ReasonFreezeSuperstable), state.Flights[1].Slot.Reason)
+}
+
 type testAircraftEngines struct {
 	engine sat.EngineType
 	wtc    string

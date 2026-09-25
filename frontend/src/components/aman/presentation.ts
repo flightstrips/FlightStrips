@@ -171,9 +171,9 @@ export function layoutTimelineMarkers(
       let track = trackEnds.findIndex((end) => candidate.leftPercent - end >= minimumGapPercent);
       if (track === -1) track = trackEnds.length;
       trackEnds[track] = candidate.leftPercent;
-      tracks.set(candidate.flight.flight_id, track);
+      tracks.set(candidate.flight.callsign, track);
     });
-  return candidates.map((candidate) => ({...candidate, track: tracks.get(candidate.flight.flight_id) ?? 0}));
+  return candidates.map((candidate) => ({...candidate, track: tracks.get(candidate.flight.callsign) ?? 0}));
 }
 
 export function formatAMANTime(value: string | null): string {

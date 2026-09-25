@@ -18,7 +18,7 @@ func TestManualFreezeApplyReleaseAndRoutineRecompute(t *testing.T) {
 		flight("B", "A", start.Add(time.Minute), "M"),
 	}})
 	metadata := aman.CommandMetadata{CommandID: "freeze-b", ExpectedRevision: 7}
-	frozen, err := sequence.ApplyManualFreeze(input, sequence.ApplyManualFreezeCommand{Metadata: metadata, FlightID: "B", At: start.Add(30 * time.Second)})
+	frozen, err := sequence.ApplyManualFreeze(input, sequence.ApplyManualFreezeCommand{Metadata: metadata, Callsign: "B", At: start.Add(30 * time.Second)})
 	require.NoError(t, err)
 	value := policyFlight(t, frozen.Input, "B")
 	require.Equal(t, aman.FreezeManual, value.FreezeReason)
@@ -33,7 +33,7 @@ func TestManualFreezeApplyReleaseAndRoutineRecompute(t *testing.T) {
 	require.Equal(t, value.CapturedSlot.Time, entryFor(t, rate.Candidate, "B").Time)
 
 	released, err := sequence.ReleaseManualFreeze(frozen.Input, sequence.ReleaseManualFreezeCommand{
-		Metadata: aman.CommandMetadata{CommandID: "release-b", ExpectedRevision: 7}, FlightID: "B", At: start.Add(time.Minute),
+		Metadata: aman.CommandMetadata{CommandID: "release-b", ExpectedRevision: 7}, Callsign: "B", At: start.Add(time.Minute),
 	})
 	require.NoError(t, err)
 	value = policyFlight(t, released.Input, "B")
@@ -103,32 +103,32 @@ func TestManualMoveAnchorsAndCommandValidation(t *testing.T) {
 	input := withCommittedSlots(t, sequence.Input{Revision: 11, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{
 		flight("A", "A", start, "M"), flight("B", "A", start.Add(time.Minute), "M"), flight("C", "A", start.Add(2*time.Minute), "M"),
 	}})
-	before := aman.FlightID("A")
+	before := aman.Callsign("A")
 	decision, err := sequence.ApplyMove(input, sequence.MoveFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "move-c", ExpectedRevision: 11}, FlightID: "C", RunwayGroupID: "A", BeforeFlightID: &before,
+		Metadata: aman.CommandMetadata{CommandID: "move-c", ExpectedRevision: 11}, Callsign: "C", RunwayGroupID: "A", BeforeCallsign: &before,
 	})
 	require.NoError(t, err)
-	require.Equal(t, []aman.FlightID{"C", "A", "B"}, entryIDs(decision.Candidate))
+	require.Equal(t, []aman.Callsign{"C", "A", "B"}, entryIDs(decision.Candidate))
 	require.Equal(t, 1, *policyFlight(t, decision.Input, "C").ManualOrder)
 
 	_, err = sequence.ApplyMove(input, sequence.MoveFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "stale", ExpectedRevision: 10}, FlightID: "C", RunwayGroupID: "A", BeforeFlightID: &before,
+		Metadata: aman.CommandMetadata{CommandID: "stale", ExpectedRevision: 10}, Callsign: "C", RunwayGroupID: "A", BeforeCallsign: &before,
 	})
 	requireDomainClass(t, err, aman.ErrorRevisionConflict)
 
 	_, err = sequence.ApplyMove(input, sequence.MoveFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "missing", ExpectedRevision: 11}, FlightID: "UNKNOWN", RunwayGroupID: "A", BeforeFlightID: &before,
+		Metadata: aman.CommandMetadata{CommandID: "missing", ExpectedRevision: 11}, Callsign: "UNKNOWN", RunwayGroupID: "A", BeforeCallsign: &before,
 	})
 	requireDomainClass(t, err, aman.ErrorNotFound)
 
 	_, err = sequence.ApplyMove(input, sequence.MoveFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "wrong-group", ExpectedRevision: 11}, FlightID: "C", RunwayGroupID: "B", BeforeFlightID: &before,
+		Metadata: aman.CommandMetadata{CommandID: "wrong-group", ExpectedRevision: 11}, Callsign: "C", RunwayGroupID: "B", BeforeCallsign: &before,
 	})
 	requireDomainClass(t, err, aman.ErrorInvalidArgument)
 
-	after := aman.FlightID("B")
+	after := aman.Callsign("B")
 	_, err = sequence.ApplyMove(input, sequence.MoveFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "two-anchors", ExpectedRevision: 11}, FlightID: "C", RunwayGroupID: "A", BeforeFlightID: &before, AfterFlightID: &after,
+		Metadata: aman.CommandMetadata{CommandID: "two-anchors", ExpectedRevision: 11}, Callsign: "C", RunwayGroupID: "A", BeforeCallsign: &before, AfterCallsign: &after,
 	})
 	requireDomainClass(t, err, aman.ErrorInvalidArgument)
 }
@@ -140,9 +140,9 @@ func TestManualMoveRejectsImpossibleWTCAndFrozenTarget(t *testing.T) {
 	trail := protectedFlight("TRAIL", "A", start.Add(4*time.Minute), "H", start.Add(4*time.Minute), aman.FreezeManual)
 	target := flight("TARGET", "A", start.Add(6*time.Minute), "M")
 	input := withCommittedSlots(t, sequence.Input{Revision: 2, Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{lead, trail, target}})
-	before := aman.FlightID("TRAIL")
+	before := aman.Callsign("TRAIL")
 	_, err := sequence.ApplyMove(input, sequence.MoveFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "bad-spacing", ExpectedRevision: 2}, FlightID: "TARGET", RunwayGroupID: "A", BeforeFlightID: &before,
+		Metadata: aman.CommandMetadata{CommandID: "bad-spacing", ExpectedRevision: 2}, Callsign: "TARGET", RunwayGroupID: "A", BeforeCallsign: &before,
 	})
 	requireDomainClass(t, err, aman.ErrorInvalidTransition)
 
@@ -150,7 +150,7 @@ func TestManualMoveRejectsImpossibleWTCAndFrozenTarget(t *testing.T) {
 	input.Flights[targetIndex].FreezeReason = aman.FreezeManual
 	input.Flights[targetIndex].CapturedSlot = input.Flights[targetIndex].CurrentSlot
 	_, err = sequence.ApplyMove(input, sequence.MoveFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "frozen", ExpectedRevision: 2}, FlightID: "TARGET", RunwayGroupID: "A", BeforeFlightID: &before,
+		Metadata: aman.CommandMetadata{CommandID: "frozen", ExpectedRevision: 2}, Callsign: "TARGET", RunwayGroupID: "A", BeforeCallsign: &before,
 	})
 	requireDomainClass(t, err, aman.ErrorInvalidTransition)
 }
@@ -166,7 +166,7 @@ func TestGoAroundCascadeMovesStableAndSuperstableWithinBound(t *testing.T) {
 	superstable := protectedFlight("SUPER", "A", start.Add(2*time.Minute), "M", start.Add(2*time.Minute), aman.FreezeSuperstable)
 	superstable.CurrentSlot = slot(start.Add(2*time.Minute), "A", 3)
 	input := sequence.Input{Revision: 9, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{target, stable, superstable}}
-	command := sequence.ApplyGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "go-around", ExpectedRevision: 9}, FlightID: "GO", DetectedAt: start}
+	command := sequence.ApplyGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "go-around", ExpectedRevision: 9}, Callsign: "GO", DetectedAt: start}
 	decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: time.Minute, MaxCascade: 2}, command)
 	require.NoError(t, err)
 	require.Equal(t, start.Add(time.Minute), entryFor(t, decision.Candidate, "GO").Time)
@@ -187,7 +187,7 @@ func TestGoAroundPreservesManualFreezeAndRestartsDeterministically(t *testing.T)
 	manual := protectedFlight("MANUAL", "A", start.Add(time.Minute), "M", start.Add(time.Minute), aman.FreezeManual)
 	manual.CurrentSlot = slot(start.Add(time.Minute), "A", 2)
 	input := sequence.Input{Revision: 5, Policies: []sequence.Policy{simplePolicy("A", start, 60)}, Flights: []sequence.Flight{target, manual}}
-	command := sequence.ApplyGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "replay-go-around", ExpectedRevision: 5}, FlightID: "GO", DetectedAt: start}
+	command := sequence.ApplyGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "replay-go-around", ExpectedRevision: 5}, Callsign: "GO", DetectedAt: start}
 	policy := sequence.GoAroundPolicy{Delay: time.Minute, MaxCascade: 4}
 
 	want, err := sequence.ApplyGoAround(input, policy, command)
@@ -220,7 +220,7 @@ func withCommittedSlots(t *testing.T, input sequence.Input) sequence.Input {
 		if input.Flights[index].State == aman.StateLanded || input.Flights[index].State == aman.StateRemoved {
 			continue
 		}
-		entry := entryFor(t, result, input.Flights[index].ID)
+		entry := entryFor(t, result, input.Flights[index].Callsign)
 		input.Flights[index].CurrentSlot = &aman.Slot{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence, Revision: input.Revision, Reason: string(entry.Reason)}
 		if input.Flights[index].FreezeReason != aman.FreezeNone {
 			input.Flights[index].CapturedSlot = input.Flights[index].CurrentSlot
@@ -229,16 +229,16 @@ func withCommittedSlots(t *testing.T, input sequence.Input) sequence.Input {
 	return input
 }
 
-func policyFlight(t *testing.T, input sequence.Input, id aman.FlightID) sequence.Flight {
+func policyFlight(t *testing.T, input sequence.Input, id aman.Callsign) sequence.Flight {
 	t.Helper()
 	index := policyFlightIndex(input, id)
 	require.NotEqual(t, -1, index)
 	return input.Flights[index]
 }
 
-func policyFlightIndex(input sequence.Input, id aman.FlightID) int {
+func policyFlightIndex(input sequence.Input, id aman.Callsign) int {
 	for index := range input.Flights {
-		if input.Flights[index].ID == id {
+		if input.Flights[index].Callsign == id {
 			return index
 		}
 	}

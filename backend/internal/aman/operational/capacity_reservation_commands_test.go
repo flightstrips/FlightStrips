@@ -27,7 +27,7 @@ func TestCapacityReservationCreateRetryRestartAndRemove(t *testing.T) {
 	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	command := aman.CreateCapacityReservationCommand{
 		Metadata: aman.CommandMetadata{CommandID: "extra-1", ExpectedRevision: 7}, RunwayGroupID: group,
-		AfterFlightID: anchor.ID, Reason: "medevac capacity",
+		AfterCallsign: anchor.Callsign, Reason: "medevac capacity",
 	}
 	actions := runwayGapActions(t, repository, &recordingPublisher{}, now.Add(time.Second))
 	created, err := actions.CreateCapacityReservation(context.Background(), auth, command)
@@ -39,16 +39,16 @@ func TestCapacityReservationCreateRetryRestartAndRemove(t *testing.T) {
 	require.Equal(t, now.Add(2*time.Minute), reservation.End)
 	require.Equal(t, aman.DefaultCapacityReservationLabel, reservation.Label)
 	require.Len(t, repository.state.Flights, 3, "capacity must not create an AMAN flight identity")
-	require.Equal(t, now.Add(3*time.Minute), stateFlight(t, repository.state, protected.ID).Slot.Time)
-	require.Equal(t, aman.FreezeTMA, stateFlight(t, repository.state, protected.ID).FreezeReason)
-	require.True(t, stateFlight(t, repository.state, trailing.ID).Slot.Time.After(trailing.Slot.Time))
-	require.Equal(t, aman.FreezeSuperstable, stateFlight(t, repository.state, trailing.ID).FreezeReason)
+	require.Equal(t, now.Add(3*time.Minute), stateFlight(t, repository.state, protected.Callsign).Slot.Time)
+	require.Equal(t, aman.FreezeTMA, stateFlight(t, repository.state, protected.Callsign).FreezeReason)
+	require.True(t, stateFlight(t, repository.state, trailing.Callsign).Slot.Time.After(trailing.Slot.Time))
+	require.Equal(t, aman.FreezeSuperstable, stateFlight(t, repository.state, trailing.Callsign).FreezeReason)
 	require.Len(t, repository.commits[0].AuditRecords, 3)
 
 	var createAudit map[string]any
 	require.NoError(t, json.Unmarshal(repository.commits[0].AuditRecords[0].Payload, &createAudit))
 	require.Equal(t, "extra-1", createAudit["command_id"])
-	require.Equal(t, "ANCHOR", createAudit["anchor_flight_id"])
+	require.Equal(t, "ANCHOR", createAudit["anchor_callsign"])
 	require.Equal(t, float64(60), createAudit["accepted_rate_per_hour"])
 	require.Equal(t, auth.Actor, createAudit["creator"])
 
@@ -96,7 +96,7 @@ func TestCapacityReservationFreezesAcceptedIntervalAndRollsBackAtomically(t *tes
 	actions := closureActions(t, repository, now.Add(time.Second))
 	_, err := actions.CreateCapacityReservation(context.Background(), auth, aman.CreateCapacityReservationCommand{
 		Metadata: aman.CommandMetadata{CommandID: "fixed-rate", ExpectedRevision: 7}, RunwayGroupID: group,
-		AfterFlightID: anchor.ID, Label: "VIP", Reason: "operational priority",
+		AfterCallsign: anchor.Callsign, Label: "VIP", Reason: "operational priority",
 	})
 	require.NoError(t, err)
 	accepted := repository.state.RunwayGroups[0].CapacityReservations[0]
@@ -109,7 +109,7 @@ func TestCapacityReservationFreezesAcceptedIntervalAndRollsBackAtomically(t *tes
 	before := cloneGapState(t, repository.state)
 	_, err = actions.CreateCapacityReservation(context.Background(), auth, aman.CreateCapacityReservationCommand{
 		Metadata: aman.CommandMetadata{CommandID: "impossible", ExpectedRevision: 8}, RunwayGroupID: group,
-		AfterFlightID: blocked.ID, Reason: "must rollback",
+		AfterCallsign: blocked.Callsign, Reason: "must rollback",
 	})
 	requireDomainErrorClass(t, err, aman.ErrorInvalidTransition)
 	require.Equal(t, before, repository.state)
@@ -122,7 +122,7 @@ func TestCapacityReservationCommandsRequireTrustedFMPContext(t *testing.T) {
 	_, err := closureActions(t, repository, now).CreateCapacityReservation(context.Background(), aman.CommandContext{
 		Airport: "EKCH", Actor: "attacker", Role: "EKCH_TWR", ReceivedAt: now,
 	}, aman.CreateCapacityReservationCommand{
-		Metadata: aman.CommandMetadata{CommandID: "spoof", ExpectedRevision: 7}, RunwayGroupID: "north", AfterFlightID: "ANCHOR", Reason: "spoof",
+		Metadata: aman.CommandMetadata{CommandID: "spoof", ExpectedRevision: 7}, RunwayGroupID: "north", AfterCallsign: "ANCHOR", Reason: "spoof",
 	})
 	requireDomainErrorClass(t, err, aman.ErrorUnauthorized)
 	require.Empty(t, repository.commits)

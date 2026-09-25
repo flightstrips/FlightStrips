@@ -14,7 +14,7 @@ import (
 func TestLiveGoAroundDetectionCreatesOnePendingConfirmationWithoutMutatingFlight(t *testing.T) {
 	base := time.Date(2026, time.September, 10, 12, 0, 0, 0, time.UTC)
 	service := liveGoAroundTestService(t, base)
-	flight := operationalFlight("flight-1", "ARRIVAL-22", "MONAK", "M", base.Add(3*time.Minute))
+	flight := operationalFlight("SAS123", "ARRIVAL-22", "MONAK", "M", base.Add(3*time.Minute))
 	flight.State = aman.StateStable
 	flight.Slot = &aman.Slot{Time: base.Add(3 * time.Minute), RunwayGroupID: "ARRIVAL-22", Sequence: 1, Revision: 4, Reason: string(sequence.ReasonRateWTC)}
 	originalSlot := *flight.Slot
@@ -37,7 +37,7 @@ func TestLiveGoAroundDetectionCreatesOnePendingConfirmationWithoutMutatingFlight
 
 	continuedEpisode := liveObservation(base.Add(5*time.Second), 5, -0.004, 1600)
 	require.NoError(t, service.detectLiveGoAround(&flight, continuedEpisode, "ARRIVAL-22", false, false, base.Add(5*time.Second)))
-	require.Equal(t, "flight-1/go-around/1", flight.GoAroundConfirmation.EpisodeID)
+	require.Equal(t, "SAS123/go-around/1", flight.GoAroundConfirmation.EpisodeID)
 	require.Equal(t, uint64(1), flight.GoAroundDetection.Episode)
 }
 
@@ -67,7 +67,7 @@ func TestReconcilePersistsAndAuditsPendingGoAroundAcrossRestart(t *testing.T) {
 	restarted := liveGoAroundService(t, repository, func() time.Time { return clock.Add(time.Second) })
 	require.NoError(t, restarted.Observe(context.Background(), liveObservation(clock, 4, -0.005, 1400)))
 	restarted.Reconcile(context.Background())
-	require.Equal(t, "flight-1/go-around/1", repository.state.Flights[0].GoAroundConfirmation.EpisodeID)
+	require.Equal(t, "SAS123/go-around/1", repository.state.Flights[0].GoAroundConfirmation.EpisodeID)
 	require.Equal(t, uint64(1), repository.state.Flights[0].GoAroundDetection.Episode)
 }
 
@@ -76,14 +76,14 @@ func TestGoAroundPendingDecisionRejectsWithoutMutationAndConfirmsExactlyOnce(t *
 	service := liveGoAroundTestService(t, base)
 	state := service.initialState("EKCH", base)
 	state.Revision = 4
-	flight := operationalFlight("flight-1", "ARRIVAL-22", "MONAK", "M", base.Add(3*time.Minute))
+	flight := operationalFlight("SAS123", "ARRIVAL-22", "MONAK", "M", base.Add(3*time.Minute))
 	flight.State = aman.StateStable
 	flight.Slot = &aman.Slot{Time: base.Add(3 * time.Minute), RunwayGroupID: "ARRIVAL-22", Sequence: 1, Revision: 4, Reason: string(sequence.ReasonRateWTC)}
 	flight.GoAroundConfirmation = pendingConfirmation(base)
 	state.Flights = []aman.AMANFlight{flight}
 	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: base.Add(time.Minute)}
 
-	reject, err := service.RejectGoAround(auth, aman.RejectGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "reject-1", ExpectedRevision: 4}, FlightID: flight.ID, EpisodeID: "flight-1/go-around/1"})
+	reject, err := service.RejectGoAround(auth, aman.RejectGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "reject-1", ExpectedRevision: 4}, Callsign: flight.Callsign, EpisodeID: "SAS123/go-around/1"})
 	require.NoError(t, err)
 	rejected, err := reject(state)
 	require.NoError(t, err)
@@ -94,16 +94,16 @@ func TestGoAroundPendingDecisionRejectsWithoutMutationAndConfirmsExactlyOnce(t *
 	require.Nil(t, rejected.QueueOffers, "rejection must not trigger unrelated queue projection")
 
 	state.Flights[0].GoAroundConfirmation = pendingConfirmation(base)
-	confirm, err := service.ConfirmGoAround(auth, aman.ConfirmGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "confirm-1", ExpectedRevision: 4}, FlightID: flight.ID, EpisodeID: "flight-1/go-around/1"})
+	confirm, err := service.ConfirmGoAround(auth, aman.ConfirmGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "confirm-1", ExpectedRevision: 4}, Callsign: flight.Callsign, EpisodeID: "SAS123/go-around/1"})
 	require.NoError(t, err)
 	confirmed, err := confirm(state)
 	require.NoError(t, err)
 	require.Equal(t, aman.StateGoAround, confirmed.State.Flights[0].State)
 	require.Equal(t, base.Add(10*time.Minute), confirmed.State.Flights[0].Prediction.OperationalTETA)
 	require.Equal(t, aman.GoAroundConfirmationConfirmed, confirmed.State.Flights[0].GoAroundConfirmation.Status)
-	_, _, err = pendingGoAround(confirmed.State, flight.ID, "flight-1/go-around/1")
+	_, _, err = pendingGoAround(confirmed.State, flight.Callsign, "SAS123/go-around/1")
 	require.Error(t, err)
-	reportAgain, err := service.ReportGoAround(auth, aman.ReportGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "report-again", ExpectedRevision: 4}, FlightID: flight.ID, DetectedAt: base})
+	reportAgain, err := service.ReportGoAround(auth, aman.ReportGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "report-again", ExpectedRevision: 4}, Callsign: flight.Callsign, DetectedAt: base})
 	require.NoError(t, err)
 	_, err = reportAgain(confirmed.State)
 	require.ErrorContains(t, err, "already confirmed")
@@ -115,7 +115,7 @@ func TestGoAroundPendingDecisionRejectsWithoutMutationAndConfirmsExactlyOnce(t *
 	require.Nil(t, resetFlight.GoAroundConfirmation)
 	resetFlight.State = aman.StateStable
 	confirmed.State.Flights[0] = resetFlight
-	reportNext, err := service.ReportGoAround(auth, aman.ReportGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "report-next", ExpectedRevision: 4}, FlightID: flight.ID, DetectedAt: base.Add(2 * time.Minute)})
+	reportNext, err := service.ReportGoAround(auth, aman.ReportGoAroundCommand{Metadata: aman.CommandMetadata{CommandID: "report-next", ExpectedRevision: 4}, Callsign: flight.Callsign, DetectedAt: base.Add(2 * time.Minute)})
 	require.NoError(t, err)
 	secondEpisode, err := reportNext(confirmed.State)
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestReconcileInvalidatesPendingGoAroundWhenEvidenceBecomesStaleOrLands(t *t
 	base := time.Date(2026, time.September, 10, 12, 0, 0, 0, time.UTC)
 	service := liveGoAroundTestService(t, base)
 	state := service.initialState("EKCH", base)
-	flight := operationalFlight("flight-1", "ARRIVAL-22", "MONAK", "M", base.Add(3*time.Minute))
+	flight := operationalFlight("SAS123", "ARRIVAL-22", "MONAK", "M", base.Add(3*time.Minute))
 	flight.State = aman.StateStable
 	flight.GoAroundConfirmation = pendingConfirmation(base)
 	flight.GoAroundDetection = &aman.GoAroundDetectionState{PolicyVersion: "aman-go-around-v1/test-v1", Episode: 1, LastEmittedEpisode: 1, AwaitingReset: true}
@@ -181,9 +181,9 @@ func liveGoAroundService(t *testing.T, repository *memoryRepository, now func() 
 
 func liveObservation(at time.Time, sequence uint64, latitude float64, altitude int) aman.FlightObservation {
 	groundspeed, track := 160.0, 0.0
-	return aman.FlightObservation{FlightID: "flight-1", VATSIMCID: "123", Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", ReconciledAt: at, SourceStatus: aman.DataFresh, Surveillance: &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: 0, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, TrackTrueDegrees: &track, Sequence: &sequence, ObservedAt: &at}}
+	return aman.FlightObservation{Callsign: "SAS123", Origin: "ESSA", Destination: "EKCH", ReconciledAt: at, SourceStatus: aman.DataFresh, Surveillance: &aman.SurveillanceFact{LatitudeDegrees: latitude, LongitudeDegrees: 0, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, TrackTrueDegrees: &track, Sequence: &sequence, ObservedAt: &at}}
 }
 
 func pendingConfirmation(at time.Time) *aman.GoAroundConfirmation {
-	return &aman.GoAroundConfirmation{EpisodeID: "flight-1/go-around/1", Reason: "climb", DetectedAt: at, EvidenceTimes: []time.Time{at.Add(-time.Second), at}, Status: aman.GoAroundConfirmationPending}
+	return &aman.GoAroundConfirmation{EpisodeID: "SAS123/go-around/1", Reason: "climb", DetectedAt: at, EvidenceTimes: []time.Time{at.Add(-time.Second), at}, Status: aman.GoAroundConfirmationPending}
 }

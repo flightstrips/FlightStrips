@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -81,33 +80,31 @@ type Command struct {
 
 type ManualFreezeCommand struct {
 	Metadata aman.CommandMetadata `json:"metadata"`
-	FlightID aman.FlightID        `json:"flight_id"`
+	Callsign aman.Callsign        `json:"callsign"`
 }
 
 type ReleaseFreezeCommand struct {
 	Metadata aman.CommandMetadata `json:"metadata"`
-	FlightID aman.FlightID        `json:"flight_id"`
+	Callsign aman.Callsign        `json:"callsign"`
 }
 
 type AssignHoldingCommand struct {
 	Metadata aman.CommandMetadata `json:"metadata"`
-	FlightID aman.FlightID        `json:"flight_id"`
+	Callsign aman.Callsign        `json:"callsign"`
 	Holding  string               `json:"holding"`
 }
 
 // LandingTruth is the independently recorded landing fact consumed by the
 // accuracy/integrity report owner. It is not a lifecycle inference.
 type LandingTruth struct {
-	FlightID aman.FlightID `json:"flight_id"`
+	Callsign aman.Callsign `json:"callsign"`
 	Source   string        `json:"source"`
 	LandedAt time.Time     `json:"landed_at"`
 }
 
-// Retirement explicitly ends the active CID lifetime in a fixture. This lets
-// a later, separate flight reuse the same CID without an alias/merge model.
+// Retirement explicitly ends one callsign lifetime in a fixture.
 type Retirement struct {
-	FlightID  aman.FlightID `json:"flight_id"`
-	VATSIMCID string        `json:"vatsim_cid"`
+	Callsign aman.Callsign `json:"callsign"`
 }
 
 // Input is the provider-neutral value presented to the same domain processor
@@ -131,7 +128,7 @@ type Outcome struct {
 }
 
 type LifecycleTransition struct {
-	FlightID     aman.FlightID
+	Callsign     aman.Callsign
 	From, To     aman.FlightState
 	DataStatus   aman.DataStatus
 	FreezeReason aman.FreezeReason
@@ -140,7 +137,7 @@ type LifecycleTransition struct {
 // LandingComparison is deliberately a report input/output fact. #329 owns
 // aggregation and presentation of these comparisons.
 type LandingComparison struct {
-	FlightID     aman.FlightID
+	Callsign     aman.Callsign
 	PredictedAt  *time.Time
 	LandedAt     time.Time
 	ErrorSeconds *int64
@@ -158,23 +155,16 @@ type Processor interface {
 
 type Clock interface{ Set(time.Time) }
 
-// FlightIDGenerator intentionally exists only in this fixture package. It is
-// never a production UUID or alias-resolution contract.
-type FlightIDGenerator interface {
-	FlightID(datasetID string, firstObservationIndex uint64) aman.FlightID
-}
-
 type Dependencies struct {
 	Clock     Clock
-	IDs       FlightIDGenerator
 	Processor Processor
 }
 
 type Runner struct{ deps Dependencies }
 
 func NewRunner(deps Dependencies) (*Runner, error) {
-	if deps.Clock == nil || deps.IDs == nil || deps.Processor == nil {
-		return nil, fmt.Errorf("replay runner requires clock, ID generator, and processor")
+	if deps.Clock == nil || deps.Processor == nil {
+		return nil, fmt.Errorf("replay runner requires clock and processor")
 	}
 	return &Runner{deps: deps}, nil
 }
@@ -191,18 +181,11 @@ type Result struct {
 	OutputDigest  string     `json:"output_digest"`
 }
 
-// Checkpoint stores the runner's replay-only CID bindings plus opaque state
-// owned by the domain processor. Bindings are sorted before serialization.
+// Checkpoint stores opaque state owned by the domain processor.
 type Checkpoint struct {
-	DatasetDigest string       `json:"dataset_digest"`
-	AfterIndex    uint64       `json:"after_index"`
-	Bindings      []CIDBinding `json:"bindings"`
-	Processor     []byte       `json:"processor"`
-}
-
-type CIDBinding struct {
-	VATSIMCID string        `json:"vatsim_cid"`
-	FlightID  aman.FlightID `json:"flight_id"`
+	DatasetDigest string `json:"dataset_digest"`
+	AfterIndex    uint64 `json:"after_index"`
+	Processor     []byte `json:"processor"`
 }
 
 func (d Dataset) Validate() error {
@@ -256,7 +239,7 @@ func (r Record) validate() error {
 		return errors.New("exactly one record payload is required")
 	}
 	if r.Observation != nil {
-		if strings.TrimSpace(r.Observation.VATSIMCID) == "" || strings.TrimSpace(r.Observation.Callsign) == "" ||
+		if strings.TrimSpace(r.Observation.Callsign) == "" ||
 			strings.TrimSpace(r.Observation.Origin) == "" || strings.TrimSpace(r.Observation.Destination) == "" || !utc(r.Observation.ReconciledAt) {
 			return errors.New("observation is incomplete")
 		}
@@ -270,10 +253,10 @@ func (r Record) validate() error {
 	if r.Command != nil {
 		return r.Command.validate()
 	}
-	if r.Landing != nil && (strings.TrimSpace(string(r.Landing.FlightID)) == "" || strings.TrimSpace(r.Landing.Source) == "" || !utc(r.Landing.LandedAt)) {
+	if r.Landing != nil && (strings.TrimSpace(string(r.Landing.Callsign)) == "" || strings.TrimSpace(r.Landing.Source) == "" || !utc(r.Landing.LandedAt)) {
 		return errors.New("landing truth is invalid")
 	}
-	if r.Retire != nil && (strings.TrimSpace(string(r.Retire.FlightID)) == "" || strings.TrimSpace(r.Retire.VATSIMCID) == "") {
+	if r.Retire != nil && strings.TrimSpace(string(r.Retire.Callsign)) == "" {
 		return errors.New("retirement is invalid")
 	}
 	return nil
@@ -294,19 +277,19 @@ func (c Command) validate() error {
 		return errors.New("exactly one typed command is required")
 	}
 	metadata := aman.CommandMetadata{}
-	flightID := aman.FlightID("")
+	callsign := aman.Callsign("")
 	switch {
 	case c.ManualFreeze != nil:
-		metadata, flightID = c.ManualFreeze.Metadata, c.ManualFreeze.FlightID
+		metadata, callsign = c.ManualFreeze.Metadata, c.ManualFreeze.Callsign
 	case c.ReleaseFreeze != nil:
-		metadata, flightID = c.ReleaseFreeze.Metadata, c.ReleaseFreeze.FlightID
+		metadata, callsign = c.ReleaseFreeze.Metadata, c.ReleaseFreeze.Callsign
 	case c.AssignHolding != nil:
-		metadata, flightID = c.AssignHolding.Metadata, c.AssignHolding.FlightID
+		metadata, callsign = c.AssignHolding.Metadata, c.AssignHolding.Callsign
 		if strings.TrimSpace(c.AssignHolding.Holding) == "" {
 			return errors.New("holding is required")
 		}
 	}
-	if strings.TrimSpace(metadata.CommandID) == "" || strings.TrimSpace(string(flightID)) == "" {
+	if strings.TrimSpace(metadata.CommandID) == "" || strings.TrimSpace(string(callsign)) == "" {
 		return errors.New("command identity is incomplete")
 	}
 	return nil
@@ -351,7 +334,7 @@ func (r *Runner) Replay(ctx context.Context, dataset Dataset) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return r.replay(ctx, dataset, digest, -1, len(dataset.Records)-1, nil)
+	return r.replay(ctx, dataset, digest, -1, len(dataset.Records)-1)
 }
 
 // ReplayTo creates a checkpoint after any fixture record. It exists for
@@ -364,7 +347,7 @@ func (r *Runner) ReplayTo(ctx context.Context, dataset Dataset, afterIndex uint6
 	if afterIndex >= uint64(len(dataset.Records)) {
 		return Result{}, fmt.Errorf("%w: record boundary is outside dataset", ErrInvalidCheckpoint)
 	}
-	return r.replay(ctx, dataset, digest, -1, int(afterIndex), nil)
+	return r.replay(ctx, dataset, digest, -1, int(afterIndex))
 }
 
 func (r *Runner) Resume(ctx context.Context, dataset Dataset, checkpoint Checkpoint) (Result, error) {
@@ -378,32 +361,21 @@ func (r *Runner) Resume(ctx context.Context, dataset Dataset, checkpoint Checkpo
 	if err := r.deps.Processor.Restore(ctx, slices.Clone(checkpoint.Processor)); err != nil {
 		return Result{}, fmt.Errorf("restore replay checkpoint: %w", err)
 	}
-	bindings := make(map[string]aman.FlightID, len(checkpoint.Bindings))
-	for _, binding := range checkpoint.Bindings {
-		bindings[binding.VATSIMCID] = binding.FlightID
-	}
-	return r.replay(ctx, dataset, digest, int(checkpoint.AfterIndex), len(dataset.Records)-1, bindings)
+	return r.replay(ctx, dataset, digest, int(checkpoint.AfterIndex), len(dataset.Records)-1)
 }
 
-func (r *Runner) replay(ctx context.Context, dataset Dataset, digest string, after, through int, bindings map[string]aman.FlightID) (Result, error) {
-	if bindings == nil {
-		bindings = map[string]aman.FlightID{}
-	}
+func (r *Runner) replay(ctx context.Context, dataset Dataset, digest string, after, through int) (Result, error) {
 	result := Result{DatasetDigest: digest, Outputs: []Output{}}
 	for i := after + 1; i <= through; i++ {
 		record := dataset.Records[i]
 		r.deps.Clock.Set(record.At)
-		bound, err := r.bind(dataset.Metadata.ID, record, bindings)
-		if err != nil {
-			return Result{}, fmt.Errorf("bind record %d: %w", record.Index, err)
-		}
-		outcome, err := r.deps.Processor.Apply(ctx, Input{DatasetID: dataset.Metadata.ID, Record: bound})
+		outcome, err := r.deps.Processor.Apply(ctx, Input{DatasetID: dataset.Metadata.ID, Record: record})
 		if err != nil {
 			return Result{}, fmt.Errorf("replay record %d: %w", record.Index, err)
 		}
 		result.Outputs = append(result.Outputs, Output{Index: record.Index, Outcome: outcome})
 	}
-	checkpoint, err := r.checkpoint(ctx, digest, uint64(through), bindings)
+	checkpoint, err := r.checkpoint(ctx, digest, uint64(through))
 	if err != nil {
 		return Result{}, err
 	}
@@ -415,60 +387,17 @@ func (r *Runner) replay(ctx context.Context, dataset Dataset, digest string, aft
 	return result, nil
 }
 
-func (r *Runner) bind(datasetID string, record Record, bindings map[string]aman.FlightID) (Record, error) {
-	if record.Observation != nil {
-		observation := *record.Observation
-		current, exists := bindings[observation.VATSIMCID]
-		if observation.FlightID == "" {
-			if exists {
-				observation.FlightID = current
-			} else {
-				observation.FlightID = r.deps.IDs.FlightID(datasetID, record.Index)
-			}
-		} else if exists && current != observation.FlightID {
-			return Record{}, errors.New("active CID cannot bind to a different flight ID")
-		}
-		if observation.FlightID == "" {
-			return Record{}, errors.New("ID generator returned an empty flight ID")
-		}
-		bindings[observation.VATSIMCID] = observation.FlightID
-		if err := observation.Validate(); err != nil {
-			return Record{}, err
-		}
-		record.Observation = &observation
-	}
-	if record.Retire != nil {
-		if bound, exists := bindings[record.Retire.VATSIMCID]; !exists || bound != record.Retire.FlightID {
-			return Record{}, errors.New("retirement does not match active CID binding")
-		}
-		delete(bindings, record.Retire.VATSIMCID)
-	}
-	return record, nil
-}
-
-func (r *Runner) checkpoint(ctx context.Context, digest string, after uint64, bindings map[string]aman.FlightID) (Checkpoint, error) {
+func (r *Runner) checkpoint(ctx context.Context, digest string, after uint64) (Checkpoint, error) {
 	processor, err := r.deps.Processor.Snapshot(ctx)
 	if err != nil {
 		return Checkpoint{}, fmt.Errorf("snapshot replay processor: %w", err)
 	}
-	values := make([]CIDBinding, 0, len(bindings))
-	for cid, flightID := range bindings {
-		values = append(values, CIDBinding{VATSIMCID: cid, FlightID: flightID})
-	}
-	sort.Slice(values, func(i, j int) bool { return values[i].VATSIMCID < values[j].VATSIMCID })
-	return Checkpoint{DatasetDigest: digest, AfterIndex: after, Bindings: values, Processor: slices.Clone(processor)}, nil
+	return Checkpoint{DatasetDigest: digest, AfterIndex: after, Processor: slices.Clone(processor)}, nil
 }
 
 func (c Checkpoint) validate(digest string, records int) error {
 	if c.DatasetDigest != digest || records == 0 || c.AfterIndex >= uint64(records) {
 		return fmt.Errorf("%w: dataset or record boundary mismatch", ErrInvalidCheckpoint)
-	}
-	last := ""
-	for _, binding := range c.Bindings {
-		if strings.TrimSpace(binding.VATSIMCID) == "" || strings.TrimSpace(string(binding.FlightID)) == "" || binding.VATSIMCID <= last {
-			return fmt.Errorf("%w: bindings must be non-empty and sorted", ErrInvalidCheckpoint)
-		}
-		last = binding.VATSIMCID
 	}
 	return nil
 }

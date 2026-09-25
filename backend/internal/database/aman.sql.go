@@ -59,34 +59,6 @@ func (q *Queries) CreateAMANCommandOutcome(ctx context.Context, arg CreateAMANCo
 	return err
 }
 
-const createAMANVATSIMObservationIdentity = `-- name: CreateAMANVATSIMObservationIdentity :one
-INSERT INTO aman_vatsim_observation_identities (
-    flight_id, vatsim_cid, current_callsign
-)
-VALUES ($1, $2, $3)
-RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
-`
-
-type CreateAMANVATSIMObservationIdentityParams struct {
-	FlightID        string
-	VatsimCid       string
-	CurrentCallsign string
-}
-
-func (q *Queries) CreateAMANVATSIMObservationIdentity(ctx context.Context, arg CreateAMANVATSIMObservationIdentityParams) (AmanVatsimObservationIdentity, error) {
-	row := q.db.QueryRow(ctx, createAMANVATSIMObservationIdentity, arg.FlightID, arg.VatsimCid, arg.CurrentCallsign)
-	var i AmanVatsimObservationIdentity
-	err := row.Scan(
-		&i.FlightID,
-		&i.VatsimCid,
-		&i.CurrentCallsign,
-		&i.RetiredAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const createAMANValidationEvidence = `-- name: CreateAMANValidationEvidence :exec
 INSERT INTO aman_validation_evidence (evidence_id, airport, kind, payload, recorded_at)
 VALUES ($1, $2, $3, $4, $5)
@@ -162,27 +134,6 @@ func (q *Queries) GetAMANCommandOutcome(ctx context.Context, commandID string) (
 	return i, err
 }
 
-const getActiveAMANVATSIMObservationIdentity = `-- name: GetActiveAMANVATSIMObservationIdentity :one
-SELECT flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
-FROM aman_vatsim_observation_identities
-WHERE current_callsign = $1
-  AND retired_at IS NULL
-`
-
-func (q *Queries) GetActiveAMANVATSIMObservationIdentity(ctx context.Context, currentCallsign string) (AmanVatsimObservationIdentity, error) {
-	row := q.db.QueryRow(ctx, getActiveAMANVATSIMObservationIdentity, currentCallsign)
-	var i AmanVatsimObservationIdentity
-	err := row.Scan(
-		&i.FlightID,
-		&i.VatsimCid,
-		&i.CurrentCallsign,
-		&i.RetiredAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const listAMANAuditRecords = `-- name: ListAMANAuditRecords :many
 SELECT id, airport, revision, category, payload, recorded_at
 FROM aman_audit_records
@@ -218,10 +169,10 @@ func (q *Queries) ListAMANAuditRecords(ctx context.Context, airport string) ([]A
 }
 
 const listAMANFlights = `-- name: ListAMANFlights :many
-SELECT flight_id, airport, vatsim_cid, current_callsign, state, data_status, updated_at, payload
+SELECT airport, state, data_status, updated_at, payload, callsign
 FROM aman_flights
 WHERE airport = $1
-ORDER BY flight_id
+ORDER BY callsign
 `
 
 func (q *Queries) ListAMANFlights(ctx context.Context, airport string) ([]AmanFlight, error) {
@@ -234,14 +185,12 @@ func (q *Queries) ListAMANFlights(ctx context.Context, airport string) ([]AmanFl
 	for rows.Next() {
 		var i AmanFlight
 		if err := rows.Scan(
-			&i.FlightID,
 			&i.Airport,
-			&i.VatsimCid,
-			&i.CurrentCallsign,
 			&i.State,
 			&i.DataStatus,
 			&i.UpdatedAt,
 			&i.Payload,
+			&i.Callsign,
 		); err != nil {
 			return nil, err
 		}
@@ -309,59 +258,6 @@ func (q *Queries) LockAMANCommand(ctx context.Context, hashtextextended string) 
 	return err
 }
 
-const lockAMANVATSIMObservationIdentity = `-- name: LockAMANVATSIMObservationIdentity :exec
-SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
-`
-
-func (q *Queries) LockAMANVATSIMObservationIdentity(ctx context.Context, hashtextextended string) error {
-	_, err := q.db.Exec(ctx, lockAMANVATSIMObservationIdentity, hashtextextended)
-	return err
-}
-
-const retireAMANVATSIMObservationIdentity = `-- name: RetireAMANVATSIMObservationIdentity :execrows
-UPDATE aman_vatsim_observation_identities
-SET retired_at = NOW(),
-    updated_at = NOW()
-WHERE flight_id = $1
-  AND retired_at IS NULL
-`
-
-func (q *Queries) RetireAMANVATSIMObservationIdentity(ctx context.Context, flightID string) (int64, error) {
-	result, err := q.db.Exec(ctx, retireAMANVATSIMObservationIdentity, flightID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const updateAMANVATSIMObservationIdentityCID = `-- name: UpdateAMANVATSIMObservationIdentityCID :one
-UPDATE aman_vatsim_observation_identities
-SET vatsim_cid = $2,
-    updated_at = NOW()
-WHERE flight_id = $1
-  AND retired_at IS NULL
-RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
-`
-
-type UpdateAMANVATSIMObservationIdentityCIDParams struct {
-	FlightID  string
-	VatsimCid string
-}
-
-func (q *Queries) UpdateAMANVATSIMObservationIdentityCID(ctx context.Context, arg UpdateAMANVATSIMObservationIdentityCIDParams) (AmanVatsimObservationIdentity, error) {
-	row := q.db.QueryRow(ctx, updateAMANVATSIMObservationIdentityCID, arg.FlightID, arg.VatsimCid)
-	var i AmanVatsimObservationIdentity
-	err := row.Scan(
-		&i.FlightID,
-		&i.VatsimCid,
-		&i.CurrentCallsign,
-		&i.RetiredAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const upsertAMANAirportState = `-- name: UpsertAMANAirportState :one
 INSERT INTO aman_airport_states (
     airport, revision, generated_at, policy_version, mode, authoritative, runway_groups
@@ -417,13 +313,11 @@ func (q *Queries) UpsertAMANAirportState(ctx context.Context, arg UpsertAMANAirp
 
 const upsertAMANFlight = `-- name: UpsertAMANFlight :exec
 INSERT INTO aman_flights (
-    flight_id, airport, vatsim_cid, current_callsign, state, data_status, updated_at, payload
+    airport, callsign, state, data_status, updated_at, payload
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-ON CONFLICT (flight_id) DO UPDATE
-SET airport = EXCLUDED.airport,
-    vatsim_cid = EXCLUDED.vatsim_cid,
-    current_callsign = EXCLUDED.current_callsign,
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (airport, callsign) DO UPDATE
+SET
     state = EXCLUDED.state,
     data_status = EXCLUDED.data_status,
     updated_at = EXCLUDED.updated_at,
@@ -431,22 +325,18 @@ SET airport = EXCLUDED.airport,
 `
 
 type UpsertAMANFlightParams struct {
-	FlightID        string
-	Airport         string
-	VatsimCid       string
-	CurrentCallsign string
-	State           string
-	DataStatus      string
-	UpdatedAt       pgtype.Timestamptz
-	Payload         []byte
+	Airport    string
+	Callsign   string
+	State      string
+	DataStatus string
+	UpdatedAt  pgtype.Timestamptz
+	Payload    []byte
 }
 
 func (q *Queries) UpsertAMANFlight(ctx context.Context, arg UpsertAMANFlightParams) error {
 	_, err := q.db.Exec(ctx, upsertAMANFlight,
-		arg.FlightID,
 		arg.Airport,
-		arg.VatsimCid,
-		arg.CurrentCallsign,
+		arg.Callsign,
 		arg.State,
 		arg.DataStatus,
 		arg.UpdatedAt,
@@ -457,16 +347,13 @@ func (q *Queries) UpsertAMANFlight(ctx context.Context, arg UpsertAMANFlightPara
 
 const upsertAMANFlights = `-- name: UpsertAMANFlights :exec
 INSERT INTO aman_flights (
-    flight_id, airport, vatsim_cid, current_callsign, state, data_status, updated_at, payload
+    airport, callsign, state, data_status, updated_at, payload
 )
-SELECT unnest($1::text[]), $2::text,
+SELECT $1::text, unnest($2::text[]),
     unnest($3::text[]), unnest($4::text[]),
-    unnest($5::text[]), unnest($6::text[]),
-    unnest($7::timestamptz[]), unnest($8::text[])::jsonb
-ON CONFLICT (flight_id) DO UPDATE
-SET airport = EXCLUDED.airport,
-    vatsim_cid = EXCLUDED.vatsim_cid,
-    current_callsign = EXCLUDED.current_callsign,
+    unnest($5::timestamptz[]), unnest($6::text[])::jsonb
+ON CONFLICT (airport, callsign) DO UPDATE
+SET
     state = EXCLUDED.state,
     data_status = EXCLUDED.data_status,
     updated_at = EXCLUDED.updated_at,
@@ -474,9 +361,7 @@ SET airport = EXCLUDED.airport,
 `
 
 type UpsertAMANFlightsParams struct {
-	FlightIds    []string
 	Airport      string
-	VatsimCids   []string
 	Callsigns    []string
 	States       []string
 	DataStatuses []string
@@ -486,9 +371,7 @@ type UpsertAMANFlightsParams struct {
 
 func (q *Queries) UpsertAMANFlights(ctx context.Context, arg UpsertAMANFlightsParams) error {
 	_, err := q.db.Exec(ctx, upsertAMANFlights,
-		arg.FlightIds,
 		arg.Airport,
-		arg.VatsimCids,
 		arg.Callsigns,
 		arg.States,
 		arg.DataStatuses,

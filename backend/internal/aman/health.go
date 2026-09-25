@@ -35,19 +35,22 @@ type TechnicalHealth struct {
 	// Mode is retained as the desired-mode compatibility field. New consumers
 	// must use DesiredMode and EffectiveMode so a gate cannot be mistaken for a
 	// configuration change.
-	Mode             RolloutMode          `json:"mode"`
-	DesiredMode      RolloutMode          `json:"desired_mode"`
-	EffectiveMode    EffectiveRolloutMode `json:"effective_mode"`
-	AuthorityAllowed bool                 `json:"authority_allowed"`
-	Ready            bool                 `json:"ready"`
-	Status           HealthStatus         `json:"status"`
-	BlockedReasons   []string             `json:"blocked_reasons,omitempty"`
-	VATSIM           ComponentHealth      `json:"vatsim"`
-	Navigation       ComponentHealth      `json:"navigation"`
-	Weather          ComponentHealth      `json:"weather"`
-	Repository       ComponentHealth      `json:"repository"`
-	Predictor        ComponentHealth      `json:"predictor"`
-	ReplayValidation ComponentHealth      `json:"replay_validation"`
+	Mode              RolloutMode          `json:"mode"`
+	DesiredMode       RolloutMode          `json:"desired_mode"`
+	EffectiveMode     EffectiveRolloutMode `json:"effective_mode"`
+	AuthorityAllowed  bool                 `json:"authority_allowed"`
+	Ready             bool                 `json:"ready"`
+	Status            HealthStatus         `json:"status"`
+	BlockedReasons    []string             `json:"blocked_reasons,omitempty"`
+	ObservationSource ComponentHealth      `json:"observation_source"`
+	// VATSIM mirrors ObservationSource for V1 frontend compatibility. It does
+	// not imply that a VATSIM feed is configured or required.
+	VATSIM           ComponentHealth `json:"vatsim"`
+	Navigation       ComponentHealth `json:"navigation"`
+	Weather          ComponentHealth `json:"weather"`
+	Repository       ComponentHealth `json:"repository"`
+	Predictor        ComponentHealth `json:"predictor"`
+	ReplayValidation ComponentHealth `json:"replay_validation"`
 }
 
 // TechnicalHealthReporter is the narrow runtime seam for a concrete health
@@ -60,13 +63,13 @@ type TechnicalHealthReporter interface {
 // EvaluateTechnicalHealth creates one deterministic snapshot from concrete
 // component checks. Every non-ready component is named in BlockedReasons so
 // operators can identify the technical authority blocker directly.
-func EvaluateTechnicalHealth(mode RolloutMode, vatsim, navigation, weather, repository, predictor, replay ComponentHealth) TechnicalHealth {
+func EvaluateTechnicalHealth(mode RolloutMode, observationSource, navigation, weather, repository, predictor, replay ComponentHealth) TechnicalHealth {
 	report := TechnicalHealth{
-		Enabled:       mode != ModeDisabled,
-		Mode:          mode,
-		DesiredMode:   mode,
-		EffectiveMode: EffectiveModeFor(mode),
-		VATSIM:        vatsim, Navigation: navigation, Weather: weather,
+		Enabled:           mode != ModeDisabled,
+		Mode:              mode,
+		DesiredMode:       mode,
+		EffectiveMode:     EffectiveModeFor(mode),
+		ObservationSource: observationSource, VATSIM: observationSource, Navigation: navigation, Weather: weather,
 		Repository: repository, Predictor: predictor, ReplayValidation: replay,
 	}
 	if !report.Enabled {
@@ -77,7 +80,7 @@ func EvaluateTechnicalHealth(mode RolloutMode, vatsim, navigation, weather, repo
 		name  string
 		value ComponentHealth
 	}{
-		{"vatsim", vatsim}, {"navigation", navigation}, {"weather", weather},
+		{"observation_source", observationSource}, {"navigation", navigation}, {"weather", weather},
 		{"repository", repository}, {"predictor", predictor}, {"replay_validation", replay},
 	}
 	for _, check := range checks {
@@ -121,8 +124,14 @@ func (r *Runtime) Health(ctx context.Context) TechnicalHealth {
 
 func normalizeTechnicalHealth(report TechnicalHealth) TechnicalHealth {
 	report.BlockedReasons = slices.Clone(report.BlockedReasons)
+	if report.ObservationSource.Status == "" {
+		report.ObservationSource = report.VATSIM
+	}
+	if report.VATSIM.Status == "" {
+		report.VATSIM = report.ObservationSource
+	}
 	if report.Status == "" {
-		report = EvaluateTechnicalHealth(report.Mode, report.VATSIM, report.Navigation, report.Weather, report.Repository, report.Predictor, report.ReplayValidation)
+		report = EvaluateTechnicalHealth(report.Mode, report.ObservationSource, report.Navigation, report.Weather, report.Repository, report.Predictor, report.ReplayValidation)
 	}
 	return report
 }

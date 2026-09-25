@@ -129,6 +129,58 @@ arrival, or wrong-stand preset. `Next` drives the real reconciliation and SAT
 lifecycle; manual time, position, block, remove, and reset controls are also
 available.
 
+### EuroScope-only AMAN for Sweatbox or Playback
+
+AMAN can use EuroScope strips and position reports without a VATSIM feed or a
+VATSIM CID. Start Postgres, then run the backend from `backend/` with:
+
+```powershell
+docker compose --profile database up --build -d
+$env:ENVIRONMENT = "development"
+$env:ENABLE_VATSIM = "false"
+$env:ENABLE_VATSIM_TRANSCEIVERS = "false"
+$env:AMAN_SOURCE_MODE = "euroscope"
+$env:AMAN_MODE = "shadow"
+$env:AMAN_ENABLED_AIRPORTS = "EKCH"
+$env:NAVIGATION_SOURCE = "airacnet"
+$env:ENABLE_TEST_TOOLS = "false"
+$env:ENABLE_AMAN_HOLDING_EAT_WRITEBACK = "false"
+go run ./cmd/server
+```
+
+`ENABLE_VATSIM=false` disables the public VATSIM data feed, and
+`ENABLE_VATSIM_TRANSCEIVERS=false` disables the separate public transceiver
+feed. `AMAN_SOURCE_MODE=euroscope` prevents AMAN startup, readiness, and
+reconciliation from requiring either feed. `NAVIGATION_SOURCE=airacnet` is
+still required for AMAN route geometry and is independent of VATSIM.
+
+Build and connect the local EuroScope plugin as described above, then open a
+Sweatbox or Playback session. Synchronize an arrival strip with `origin`,
+`destination`, route/type fields when available, and no CID. The first
+EuroScope position creates the surveillance fact; later reports derive track
+and groundspeed for prediction. The TopSky fields `hold`, `hold_type`, and
+`hold_eat` create or update the holding clearance. Clearing `hold` cancels it.
+
+Use `AMAN_MODE=shadow` first to verify the computed state without AMAN-owned
+writes. `read_only` enables AMAN ETA ownership but keeps controller mutations
+disabled. `authoritative` enables AMAN commands after the normal technical and
+rollout gates pass. Holding EAT writeback remains separately controlled by
+`ENABLE_AMAN_HOLDING_EAT_WRITEBACK`.
+
+The default `AMAN_SOURCE_MODE=hybrid` remains backwards compatible: EuroScope
+observations work in every session, while VATSIM observations and strip
+reconciliation are applied only to sessions named `LIVE`. The public VATSIM
+HTTP cache also polls only while at least one `LIVE` session exists. AMAN identity is the
+normalized callsign within each airport; CID is not part of AMAN state or
+commands, and AMAN never creates a synthetic CID. A callsign change is therefore
+treated as the old flight disappearing and a new callsign appearing. The
+`/test` VATSIM scenarios below are a separate replay path; they are not needed
+for EuroScope Sweatbox or Playback operation.
+
+The callsign-identity database migration intentionally clears existing AMAN
+airport state and coordination requests. Pre-migration AMAN sessions are not
+restored; connected sources rebuild the current projection after startup.
+
 ### Offline VATSIM / AMAN replay
 
 The same `/test` page can drive saved VATSIM v3 generation JSON files through
@@ -138,10 +190,11 @@ test tools are enabled. From a PowerShell terminal:
 
 ```powershell
 Set-Location .\backend
-$env:ENV = "development"
+$env:ENVIRONMENT = "development"
 $env:ENABLE_TEST_TOOLS = "true"
 $env:RECORDING_PATH = "C:\vatsim-data2"
 $env:AMAN_MODE = "shadow"
+$env:AMAN_SOURCE_MODE = "vatsim"
 $env:AMAN_ENABLED_AIRPORTS = "EKCH"
 $env:ENABLE_AMAN_HOLDING_EAT_WRITEBACK = "false"
 go run ./cmd/server

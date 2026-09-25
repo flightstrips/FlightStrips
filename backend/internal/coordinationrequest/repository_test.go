@@ -1,15 +1,38 @@
 package coordinationrequest
 
 import (
+	"FlightStrips/internal/database"
+	"FlightStrips/internal/pdc/testdata"
 	"context"
 	"errors"
 	"sync"
 	"testing"
 	"time"
 
-	"FlightStrips/internal/pdc/testdata"
 	"github.com/stretchr/testify/require"
 )
+
+func TestTrackingControllerUsesAMANCallsign(t *testing.T) {
+	pool, queries := testdata.SetupTestDB(t)
+	ctx := context.Background()
+	sessionID := testdata.SeedTestSession(t, queries)
+	require.NoError(t, queries.InsertStrip(ctx, database.InsertStripParams{
+		Callsign: "SAS123", Session: sessionID, Origin: "ESSA", Destination: "EKCH", Bay: "ARR_HIDDEN",
+		TrackingController: "EKCH_APP", EngineType: "J", CdmData: []byte("null"), NextOwners: []byte("[]"), PreviousOwners: []byte("[]"),
+	}))
+	_, err := pool.Exec(ctx, `INSERT INTO aman_airport_states
+		(airport, revision, generated_at, policy_version, mode, authoritative, runway_groups)
+		VALUES ('EKCH', 0, NOW(), 'test', 'shadow', false, '[]')`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO aman_flights
+		(airport, callsign, state, data_status, updated_at, payload)
+		VALUES ('EKCH', 'SAS123', 'active', 'fresh', NOW(), '{}')`)
+	require.NoError(t, err)
+
+	controller, err := NewRepository(pool).TrackingController(ctx, "EKCH", "SAS123")
+	require.NoError(t, err)
+	require.Equal(t, ControllerID("EKCH_APP"), controller)
+}
 
 func TestRepositoryRestartReplayIsDeterministicAndAdditive(t *testing.T) {
 	pool, _ := testdata.SetupTestDB(t)
@@ -241,7 +264,7 @@ func TestTransferPendingIsAtomicTerminalSafeAndReplayIdempotent(t *testing.T) {
 		require.NoError(t, repository.Save(ctx, request))
 	}
 
-	fact := OwnershipFact{Airport: "EKCH", FlightID: "flight-1", FactID: "es/17", Revision: 17,
+	fact := OwnershipFact{Airport: "EKCH", Callsign: "flight-1", FactID: "es/17", Revision: 17,
 		Owner: "EKCH_DEP", ObservedAt: testTime.Add(time.Minute)}
 	result, err := repository.TransferPending(ctx, fact)
 	require.NoError(t, err)
@@ -269,7 +292,7 @@ func TestTransferPendingIsAtomicTerminalSafeAndReplayIdempotent(t *testing.T) {
 		}
 	}
 
-	noOwner := OwnershipFact{Airport: "EKCH", FlightID: "flight-1", FactID: "es/18", Revision: 18,
+	noOwner := OwnershipFact{Airport: "EKCH", Callsign: "flight-1", FactID: "es/18", Revision: 18,
 		ObservedAt: testTime.Add(2 * time.Minute)}
 	unassigned, err := repository.TransferPending(ctx, noOwner)
 	require.NoError(t, err)
@@ -294,7 +317,7 @@ func TestCorrelateAcceptedUsesLaterMatchingAuthoritativeFactOnly(t *testing.T) {
 	require.NoError(t, repository.Save(ctx, route))
 	require.NoError(t, repository.Save(ctx, speed))
 
-	tooEarly := ClearanceFact{Airport: "EKCH", FlightID: "flight-1", FactID: "speed-early", Kind: KindSpeed, Value: "220 KT", Issuer: "EKCH_APP", ObservedAt: testTime}
+	tooEarly := ClearanceFact{Airport: "EKCH", Callsign: "flight-1", FactID: "speed-early", Kind: KindSpeed, Value: "220 KT", Issuer: "EKCH_APP", ObservedAt: testTime}
 	result, err := repository.CorrelateAccepted(ctx, tooEarly)
 	require.NoError(t, err)
 	require.Empty(t, result.Request.ID)
@@ -335,7 +358,7 @@ BEGIN IF NEW.request_id = 'coordination-request/atomic-speed' THEN RAISE EXCEPTI
 CREATE TRIGGER fail_speed_transfer BEFORE UPDATE ON aman_coordination_requests FOR EACH ROW EXECUTE FUNCTION fail_speed_transfer()`)
 	require.NoError(t, err)
 
-	_, err = repository.TransferPending(ctx, OwnershipFact{Airport: "EKCH", FlightID: "flight-1", FactID: "es/atomic",
+	_, err = repository.TransferPending(ctx, OwnershipFact{Airport: "EKCH", Callsign: "flight-1", FactID: "es/atomic",
 		Revision: 2, Owner: "EKCH_DEP", ObservedAt: testTime.Add(time.Minute)})
 	require.ErrorContains(t, err, "forced failure")
 	replayed, err := repository.ReplayAirport(ctx, "EKCH")

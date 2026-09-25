@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// FlightID identifies one active AMAN flight. It is generated once and is not
-// derived from a mutable callsign.
-type FlightID string
+// Callsign is the sole AMAN flight identity. All adapters normalize it before
+// observations enter the domain.
+type Callsign = string
 
 // RunwayGroupID identifies an airport-specific AMAN runway group.
 type RunwayGroupID string
@@ -105,6 +105,29 @@ func (m RolloutMode) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// ObservationSourceMode selects which external facts may establish and keep
+// AMAN flights current. Hybrid is the backwards-compatible live mode;
+// EuroScope mode is fully offline and never requires a VATSIM source.
+type ObservationSourceMode string
+
+const (
+	ObservationSourceHybrid    ObservationSourceMode = "hybrid"
+	ObservationSourceVATSIM    ObservationSourceMode = "vatsim"
+	ObservationSourceEuroScope ObservationSourceMode = "euroscope"
+)
+
+func (m ObservationSourceMode) Valid() bool {
+	return m == ObservationSourceHybrid || m == ObservationSourceVATSIM || m == ObservationSourceEuroScope
+}
+
+func (m ObservationSourceMode) UsesVATSIM() bool {
+	return m == ObservationSourceHybrid || m == ObservationSourceVATSIM
+}
+
+func (m ObservationSourceMode) UsesEuroScope() bool {
+	return m == ObservationSourceHybrid || m == ObservationSourceEuroScope
 }
 
 type Confidence string
@@ -237,8 +260,6 @@ func (r FreezeReason) Valid() bool {
 // FlightObservation is the provider-neutral reconciliation input. Adapters
 // map their vendor data to this value before it reaches AMAN.
 type FlightObservation struct {
-	FlightID       FlightID
-	VATSIMCID      string
 	Callsign       string
 	Origin         string
 	Destination    string
@@ -249,22 +270,28 @@ type FlightObservation struct {
 	PlannedTiming  *PlannedTiming
 	FlightPlan     FlightPlanFact
 	Surveillance   *SurveillanceFact
+	// HoldingClearance is an optional EuroScope strip fact. Keeping it with the
+	// observation lets initial strip synchronization create the aggregate and
+	// its clearance atomically on the next reconciliation.
+	HoldingClearance *HoldingClearance
 	// SurveillanceSource identifies the provider of Surveillance only. Flight
 	// plan facts remain provider-neutral, allowing a fresh EuroScope position
 	// to overlay VATSIM flight-plan data without replacing it.
 	SurveillanceSource SurveillanceSource
-	TakeoffDetected    *time.Time
-	ReconciledAt       time.Time
-	SourceStatus       DataStatus
-	Missing            bool
+	// Provider identifies the adapter that owns this complete source
+	// view. It is independent of SurveillanceSource because an EuroScope strip
+	// can exist before the first position report.
+	Provider        ObservationProvider
+	TakeoffDetected *time.Time
+	ReconciledAt    time.Time
+	SourceStatus    DataStatus
+	Missing         bool
 }
 
 // HoldingClearanceFact is the authoritative controller clearance copied from
 // an EuroScope strip. EAT deliberately remains the source HHMM text here; the
 // AMAN owner resolves it against a trusted clock when it accepts the fact.
 type HoldingClearanceFact struct {
-	FlightID        FlightID
-	VATSIMCID       string
 	Callsign        string
 	Origin          string
 	Destination     string
@@ -303,6 +330,22 @@ const (
 func (s SurveillanceSource) Valid() bool {
 	switch s {
 	case "", SurveillanceSourceVATSIM, SurveillanceSourceEuroScope:
+		return true
+	default:
+		return false
+	}
+}
+
+type ObservationProvider string
+
+const (
+	ObservationProviderVATSIM    ObservationProvider = "vatsim"
+	ObservationProviderEuroScope ObservationProvider = "euroscope"
+)
+
+func (s ObservationProvider) Valid() bool {
+	switch s {
+	case "", ObservationProviderVATSIM, ObservationProviderEuroScope:
 		return true
 	default:
 		return false
@@ -564,7 +607,7 @@ func (r QueueOfferReason) Valid() bool { return r == QueueOfferEarlierOccupiedSl
 // slot. CandidateSlot and AirportRevision always belong to the same committed
 // airport replacement state.
 type QueueOffer struct {
-	FlightID        FlightID
+	Callsign        string
 	RunwayGroupID   RunwayGroupID
 	CandidateSlot   Slot
 	QueuePosition   int
@@ -578,7 +621,7 @@ type QueueOffer struct {
 // contract.
 type RouteFact struct {
 	ID             string
-	FlightID       FlightID
+	Callsign       string
 	Fix            string
 	Issuer         string
 	ObservedAt     time.Time
@@ -799,12 +842,12 @@ type RunwayGroupPolicy struct {
 	CapacityReservations []RunwayCapacityReservation
 }
 
-// RunwayGroupSequenceWarning is a persisted, message-independent conflict
-// identity. FlightID is the trailing flight and RelatedFlightID is its leader.
+// RunwayGroupSequenceWarning is a persisted, message-independent conflict.
+// Callsign is the trailing flight and RelatedCallsign is its leader.
 type RunwayGroupSequenceWarning struct {
 	Code            string
-	FlightID        FlightID
-	RelatedFlightID FlightID
+	Callsign        string
+	RelatedCallsign string
 	STARFamily      string
 }
 
@@ -860,11 +903,7 @@ func (s TMAEntryState) Validate() error {
 // AMANFlight is the persisted aggregate shape. All operational TETA, state,
 // freeze, slot, and order changes are backend-owned.
 type AMANFlight struct {
-	ID FlightID
-	// VATSIMCID remains bound to the aggregate while CurrentCallsign may be
-	// corrected without rekeying FlightID.
-	VATSIMCID           string
-	CurrentCallsign     string
+	Callsign            string
 	State               FlightState
 	SequenceDisposition SequenceDisposition
 	DataStatus          DataStatus
@@ -1008,8 +1047,8 @@ func (e *DomainError) Error() string {
 // Validate checks the unit and nullability rules that can be established at
 // the neutral observation boundary without imposing a source implementation.
 func (o FlightObservation) Validate() error {
-	if strings.TrimSpace(string(o.FlightID)) == "" || strings.TrimSpace(o.VATSIMCID) == "" ||
-		strings.TrimSpace(o.Callsign) == "" || strings.TrimSpace(o.Origin) == "" || strings.TrimSpace(o.Destination) == "" {
+	if strings.TrimSpace(o.Callsign) == "" ||
+		strings.TrimSpace(o.Origin) == "" || strings.TrimSpace(o.Destination) == "" {
 		return invalid("flight observation identity is incomplete")
 	}
 	if !o.SourceStatus.Valid() {
@@ -1017,6 +1056,9 @@ func (o FlightObservation) Validate() error {
 	}
 	if !o.SurveillanceSource.Valid() {
 		return invalid("surveillance source is invalid")
+	}
+	if !o.Provider.Valid() {
+		return invalid("observation source is invalid")
 	}
 	if err := requireUTCTime("reconciled at", o.ReconciledAt); err != nil {
 		return err
@@ -1032,7 +1074,14 @@ func (o FlightObservation) Validate() error {
 		}
 	}
 	if o.Surveillance != nil {
-		return o.Surveillance.validate()
+		if err := o.Surveillance.validate(); err != nil {
+			return err
+		}
+	}
+	if o.HoldingClearance != nil {
+		if err := requireUTCTime("holding clearance observation", o.HoldingClearance.ObservedAt); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1231,8 +1280,8 @@ func (s BaselineSource) holdsAirborneBaseline() bool {
 }
 
 func (f AMANFlight) Validate() error {
-	if strings.TrimSpace(string(f.ID)) == "" {
-		return invalid("flight ID is required")
+	if strings.TrimSpace(f.Callsign) == "" {
+		return invalid("flight callsign is required")
 	}
 	if !f.State.Valid() || !f.DataStatus.Valid() || !f.FreezeReason.Valid() {
 		return invalid("flight has an invalid state")
@@ -1240,8 +1289,8 @@ func (f AMANFlight) Validate() error {
 	if !f.SequenceDisposition.OrDefault().Valid() {
 		return invalid("flight has an invalid sequence disposition")
 	}
-	if f.State != StateRemoved && (!isTrimmedNonEmpty(f.VATSIMCID) || !isTrimmedNonEmpty(f.CurrentCallsign)) {
-		return invalid("active flight requires VATSIM CID and current callsign")
+	if !isTrimmedNonEmpty(f.Callsign) {
+		return invalid("flight requires callsign")
 	}
 	if f.SelectedSTARFamily != nil {
 		if !isTrimmedNonEmpty(*f.SelectedSTARFamily) {
@@ -1282,7 +1331,7 @@ func (f AMANFlight) Validate() error {
 		if err := f.LatestObservation.Validate(); err != nil {
 			return err
 		}
-		if f.LatestObservation.FlightID != f.ID || f.LatestObservation.VATSIMCID != f.VATSIMCID || f.LatestObservation.Callsign != f.CurrentCallsign {
+		if f.LatestObservation.Callsign != f.Callsign {
 			return invalid("latest observation identity does not match flight")
 		}
 	}
@@ -1392,7 +1441,7 @@ func (f AMANFlight) Validate() error {
 		if err := f.RunwayGapException.Validate(); err != nil {
 			return err
 		}
-		if f.RunwayGapException.FlightID != f.ID || f.Slot == nil ||
+		if f.RunwayGapException.Callsign != f.Callsign || f.Slot == nil ||
 			f.RunwayGapException.RunwayGroupID != f.Slot.RunwayGroupID ||
 			!f.RunwayGapException.Opportunity.Equal(f.Slot.Time) {
 			return invalid("runway gap exception does not match its flight slot")
@@ -1421,7 +1470,7 @@ func (f AMANFlight) Validate() error {
 		if err := offer.validate(); err != nil {
 			return err
 		}
-		if offer.FlightID != f.ID {
+		if offer.Callsign != f.Callsign {
 			return invalid("queue offer flight does not match its aggregate")
 		}
 		if f.Slot == nil || offer.RunwayGroupID != f.Slot.RunwayGroupID || offer.CandidateSlot.RunwayGroupID != f.Slot.RunwayGroupID || offer.CandidateSlot.Sequence >= f.Slot.Sequence || !offer.CandidateSlot.Time.Before(f.Slot.Time) {
@@ -1754,7 +1803,7 @@ func (s Slot) validate() error {
 }
 
 func (o QueueOffer) validate() error {
-	if strings.TrimSpace(string(o.FlightID)) == "" || strings.TrimSpace(string(o.RunwayGroupID)) == "" || o.QueuePosition < 1 || o.AirportRevision == 0 || !o.Reason.Valid() {
+	if strings.TrimSpace(o.Callsign) == "" || strings.TrimSpace(string(o.RunwayGroupID)) == "" || o.QueuePosition < 1 || o.AirportRevision == 0 || !o.Reason.Valid() {
 		return invalid("queue offer is incomplete")
 	}
 	if err := o.CandidateSlot.validate(); err != nil {
@@ -1779,15 +1828,15 @@ func (s AirportState) Validate() error {
 	if err := requireUTCTime("generated at", s.GeneratedAt); err != nil {
 		return err
 	}
-	flightIDs := make(map[FlightID]struct{}, len(s.Flights))
+	callsigns := make(map[string]struct{}, len(s.Flights))
 	for _, flight := range s.Flights {
 		if err := flight.Validate(); err != nil {
 			return err
 		}
-		if _, exists := flightIDs[flight.ID]; exists {
-			return invalid("airport state contains duplicate flight ID")
+		if _, exists := callsigns[flight.Callsign]; exists {
+			return invalid("airport state contains duplicate callsign")
 		}
-		flightIDs[flight.ID] = struct{}{}
+		callsigns[flight.Callsign] = struct{}{}
 		if flight.Slot != nil && flight.Slot.Revision != s.Revision {
 			return invalid("slot revision must match airport state revision")
 		}
@@ -1862,8 +1911,8 @@ func (s AirportState) Validate() error {
 			return invalid("runway group same-STAR spacing is invalid")
 		}
 		for index, warning := range group.SequenceWarnings {
-			if warning.Code != "protected_same_star_spacing" || !isTrimmedNonEmpty(string(warning.FlightID)) ||
-				!isTrimmedNonEmpty(string(warning.RelatedFlightID)) || !isTrimmedNonEmpty(warning.STARFamily) || warning.FlightID == warning.RelatedFlightID {
+			if warning.Code != "protected_same_star_spacing" || !isTrimmedNonEmpty(warning.Callsign) ||
+				!isTrimmedNonEmpty(warning.RelatedCallsign) || !isTrimmedNonEmpty(warning.STARFamily) || warning.Callsign == warning.RelatedCallsign {
 				return invalid("runway group sequence warning is invalid")
 			}
 			if index > 0 && !runwayGroupWarningLess(group.SequenceWarnings[index-1], warning) {
@@ -1946,11 +1995,11 @@ func (s AirportState) Validate() error {
 }
 
 func runwayGroupWarningLess(left, right RunwayGroupSequenceWarning) bool {
-	if left.FlightID != right.FlightID {
-		return left.FlightID < right.FlightID
+	if left.Callsign != right.Callsign {
+		return left.Callsign < right.Callsign
 	}
-	if left.RelatedFlightID != right.RelatedFlightID {
-		return left.RelatedFlightID < right.RelatedFlightID
+	if left.RelatedCallsign != right.RelatedCallsign {
+		return left.RelatedCallsign < right.RelatedCallsign
 	}
 	return left.STARFamily < right.STARFamily
 }

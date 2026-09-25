@@ -73,7 +73,6 @@ type SelectedRate struct {
 }
 
 type Flight struct {
-	FlightID     aman.FlightID
 	Callsign     string
 	Airborne     bool
 	LandingAt    time.Time
@@ -89,9 +88,9 @@ type candidate struct {
 	hasTiming     bool
 }
 
-func Build(state aman.AirportState, vatsimHealth aman.ComponentHealth) ReadModel {
+func Build(state aman.AirportState, sourceHealth aman.ComponentHealth) ReadModel {
 	start := floorQuarter(state.GeneratedAt)
-	sourceStatus := sourceDataStatus(vatsimHealth)
+	sourceStatus := sourceDataStatus(sourceHealth)
 	result := ReadModel{
 		GeneratedAt: state.GeneratedAt.UTC(), RangeStart: start, RangeEnd: start.Add(Horizon),
 		BucketMinutes: int(BucketDuration / time.Minute), SourceStatus: sourceStatus, Status: StatusReady,
@@ -99,10 +98,10 @@ func Build(state aman.AirportState, vatsimHealth aman.ComponentHealth) ReadModel
 	}
 	if sourceStatus == aman.DataDisconnected {
 		result.Status = StatusDisconnected
-		addReason(&result, "vatsim_disconnected")
+		addReason(&result, "source_disconnected")
 	}
 	if sourceStatus == aman.DataStale {
-		addReason(&result, "stale_vatsim_source")
+		addReason(&result, "stale_observation_source")
 	}
 	for index := range result.Buckets {
 		bucketStart := start.Add(time.Duration(index) * BucketDuration)
@@ -120,13 +119,13 @@ func Build(state aman.AirportState, vatsimHealth aman.ComponentHealth) ReadModel
 		}
 		if flight.DataStatus == aman.DataDisconnected {
 			result.Status = StatusDisconnected
-			addReason(&result, "vatsim_disconnected")
+			addReason(&result, "source_disconnected")
 		} else if flight.DataStatus == aman.DataStale {
 			addReason(&result, "stale_flight_data")
 		}
 		landingAt, source, authoritative, ok := landingTime(flight)
 		value := candidate{flight: flight, landingAt: landingAt, timingSource: source, authoritative: authoritative, hasTiming: ok}
-		key := flightIdentity(flight)
+		key := normalizedCallsign(flight)
 		if previous, exists := deduplicated[key]; !exists || prefer(value, previous) {
 			deduplicated[key] = value
 		}
@@ -135,7 +134,7 @@ func Build(state aman.AirportState, vatsimHealth aman.ComponentHealth) ReadModel
 	allFlights := make([]candidate, 0, len(deduplicated))
 	for _, value := range deduplicated {
 		if !value.hasTiming {
-			addReason(&result, "missing_timing:"+strings.TrimSpace(value.flight.CurrentCallsign))
+			addReason(&result, "missing_timing:"+strings.TrimSpace(value.flight.Callsign))
 			continue
 		}
 		allFlights = append(allFlights, value)
@@ -145,7 +144,7 @@ func Build(state aman.AirportState, vatsimHealth aman.ComponentHealth) ReadModel
 		index := int(value.landingAt.Sub(result.RangeStart) / BucketDuration)
 		bucket := &result.Buckets[index]
 		airborne := value.flight.State != aman.StatePlanned
-		flight := Flight{FlightID: value.flight.ID, Callsign: value.flight.CurrentCallsign, Airborne: airborne, LandingAt: value.landingAt.UTC(), TimingSource: value.timingSource, DataStatus: value.flight.DataStatus}
+		flight := Flight{Callsign: value.flight.Callsign, Airborne: airborne, LandingAt: value.landingAt.UTC(), TimingSource: value.timingSource, DataStatus: value.flight.DataStatus}
 		bucket.Flights = append(bucket.Flights, flight)
 		if airborne {
 			bucket.AirborneCount++
@@ -243,14 +242,8 @@ func landingTime(flight aman.AMANFlight) (time.Time, TimingSource, bool, bool) {
 	return time.Time{}, "", false, false
 }
 
-func flightIdentity(flight aman.AMANFlight) string {
-	if cid := strings.TrimSpace(flight.VATSIMCID); cid != "" {
-		return "cid:" + cid
-	}
-	if callsign := strings.ToUpper(strings.TrimSpace(flight.CurrentCallsign)); callsign != "" {
-		return "callsign:" + callsign
-	}
-	return "id:" + strings.TrimSpace(string(flight.ID))
+func normalizedCallsign(flight aman.AMANFlight) string {
+	return strings.ToUpper(strings.TrimSpace(flight.Callsign))
 }
 
 func prefer(candidate, previous candidate) bool {
@@ -266,7 +259,7 @@ func prefer(candidate, previous candidate) bool {
 	if !candidate.flight.UpdatedAt.Equal(previous.flight.UpdatedAt) {
 		return candidate.flight.UpdatedAt.After(previous.flight.UpdatedAt)
 	}
-	return string(candidate.flight.ID) < string(previous.flight.ID)
+	return candidate.flight.Callsign < previous.flight.Callsign
 }
 
 func selectedRateAt(groups []aman.RunwayGroupPolicy, at time.Time) *SelectedRate {

@@ -29,9 +29,9 @@ func TestPrepareFlightsAssociatesExplicitSTARFamilyHoldingPolicy(t *testing.T) {
 	}, preparedPolicies)
 	require.NoError(t, err)
 
-	byID := make(map[aman.FlightID]preparedFlight, len(flights["ARRIVAL-22"]))
+	byID := make(map[aman.Callsign]preparedFlight, len(flights["ARRIVAL-22"]))
 	for _, flight := range flights["ARRIVAL-22"] {
-		byID[flight.ID] = flight
+		byID[flight.Callsign] = flight
 	}
 	require.Equal(t, navdata.HoldingSequenceLowestAltitudeFirst, byID["enabled"].holdingSequencePolicy)
 	require.Equal(t, navdata.HoldingSequenceDisabled, byID["disabled"].holdingSequencePolicy)
@@ -50,16 +50,16 @@ func TestPrepareFlightsHoldingPolicyLookupIsDeterministic(t *testing.T) {
 		preparationFlight("second", start, "MONAK", "MONAK"),
 		preparationFlight("first", start, "TESPI", "TESPI"),
 	}
-	prepare := func(flights []Flight) map[aman.FlightID]navdata.HoldingSequencePolicy {
+	prepare := func(flights []Flight) map[aman.Callsign]navdata.HoldingSequencePolicy {
 		families, err := prepareSTARFamilyPolicies(familyPolicies)
 		require.NoError(t, err)
 		policies, err := preparePoliciesWithSTARFamilies([]Policy{preparationPolicy(start)}, families)
 		require.NoError(t, err)
 		prepared, err := prepareFlights(flights, policies)
 		require.NoError(t, err)
-		result := map[aman.FlightID]navdata.HoldingSequencePolicy{}
+		result := map[aman.Callsign]navdata.HoldingSequencePolicy{}
 		for _, flight := range prepared["ARRIVAL-22"] {
-			result[flight.ID] = flight.holdingSequencePolicy
+			result[flight.Callsign] = flight.holdingSequencePolicy
 		}
 		return result
 	}
@@ -103,9 +103,9 @@ func preparationPolicy(start time.Time) Policy {
 	}
 }
 
-func preparationFlight(id aman.FlightID, at time.Time, family, selectedFamily string) Flight {
+func preparationFlight(id aman.Callsign, at time.Time, family, selectedFamily string) Flight {
 	return Flight{
-		ID: id, RunwayGroupID: "ARRIVAL-22", State: aman.StateAirborne,
+		Callsign: id, RunwayGroupID: "ARRIVAL-22", State: aman.StateAirborne,
 		OperationalTETA: at, WakeCategory: "M", STARFamily: family, SelectedSTARFamily: selectedFamily,
 		FreezeReason: aman.FreezeNone,
 	}

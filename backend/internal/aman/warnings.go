@@ -35,8 +35,8 @@ type Warning struct {
 	Severity        WarningSeverity
 	Code            string
 	RunwayGroupID   *RunwayGroupID
-	FlightID        *FlightID
-	RelatedFlightID *FlightID
+	Callsign        *Callsign
+	RelatedCallsign *Callsign
 	Message         string
 }
 
@@ -44,7 +44,7 @@ type Warning struct {
 func (w Warning) Identity() string {
 	return "warning:" + strings.Join([]string{
 		strconv.Quote(string(w.Source)), optionalWarningIdentity(w.Component), strconv.Quote(w.Code),
-		optionalWarningIdentity(w.RunwayGroupID), optionalWarningIdentity(w.FlightID), optionalWarningIdentity(w.RelatedFlightID),
+		optionalWarningIdentity(w.RunwayGroupID), optionalWarningIdentity(w.Callsign), optionalWarningIdentity(w.RelatedCallsign),
 	}, "/")
 }
 
@@ -74,11 +74,15 @@ func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState) Warni
 		}
 	}
 
+	observationSource := technical.ObservationSource
+	if observationSource.Status == "" {
+		observationSource = technical.VATSIM
+	}
 	components := []struct {
 		name   string
 		health ComponentHealth
 	}{
-		{"vatsim", technical.VATSIM},
+		{"observation_source", observationSource},
 		{"navigation", technical.Navigation},
 		{"weather", technical.Weather},
 		{"repository", technical.Repository},
@@ -120,11 +124,11 @@ func CurrentWarningSnapshot(technical TechnicalHealth, state AirportState) Warni
 
 	for _, group := range state.RunwayGroups {
 		for _, current := range group.SequenceWarnings {
-			groupID, flightID, relatedID := group.ID, current.FlightID, current.RelatedFlightID
+			groupID, callsign, relatedID := group.ID, current.Callsign, current.RelatedCallsign
 			add(Warning{Source: WarningSourceSequence, Severity: WarningSeverityError, Code: current.Code,
-				RunwayGroupID: &groupID, FlightID: &flightID, RelatedFlightID: &relatedID,
+				RunwayGroupID: &groupID, Callsign: &callsign, RelatedCallsign: &relatedID,
 				Message: fmt.Sprintf("Flights %s and %s conflict with protected %s spacing on runway group %s",
-					current.FlightID, current.RelatedFlightID, current.STARFamily, group.ID)})
+					current.Callsign, current.RelatedCallsign, current.STARFamily, group.ID)})
 		}
 	}
 
@@ -167,7 +171,7 @@ func blockedWarningIdentity(reason string) (*string, string) {
 
 func knownWarningComponent(component string) bool {
 	switch component {
-	case "vatsim", "navigation", "weather", "repository", "predictor", "replay_validation":
+	case "observation_source", "vatsim", "navigation", "weather", "repository", "predictor", "replay_validation":
 		return true
 	default:
 		return false

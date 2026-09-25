@@ -48,7 +48,7 @@ export type AMANCoordinationKind = "route_direct" | "speed";
 export type AMANCoordinationState = "pending" | "accepted" | "rejected" | "superseded" | "expired";
 export interface AMANCoordinationRequest {
   id: string;
-  flight_id: string;
+  callsign: string;
   recipient_controller: string;
   recipient_status: "assigned" | "unassigned";
   kind: AMANCoordinationKind;
@@ -114,8 +114,8 @@ export interface AMANWarning {
   severity: AMANWarningSeverity;
   code: string;
   runway_group_id?: string;
-  flight_id?: string;
-  related_flight_id?: string;
+  callsign?: string;
+  related_callsign?: string;
   message: string;
 }
 
@@ -131,7 +131,6 @@ export interface AMANTimelineMapping {
 }
 
 export interface AMANHoldingEntry {
-  flight_id: string;
   callsign: string;
   holding: string;
   eat: string | null;
@@ -176,7 +175,6 @@ export interface AMANTrafficSelectedRate {
 }
 
 export interface AMANTrafficFlight {
-  flight_id: string;
   callsign: string;
   airborne: boolean;
   landing_at: string;
@@ -185,7 +183,6 @@ export interface AMANTrafficFlight {
 }
 
 export interface AMANFlight {
-  flight_id: string;
   callsign: string;
   /** Optional for compatibility with older AMAN state publishers. */
   aircraft_type?: string;
@@ -292,7 +289,7 @@ export interface AMANETAReview {
 }
 
 export interface AMANQueueOffer {
-  flight_id: string;
+  callsign: string;
   runway_group_id: string;
   candidate_slot: AMANSlot;
   queue_position: number;
@@ -331,6 +328,9 @@ export interface AMANTechnicalHealth {
   status: AMANHealthStatus;
   ready: boolean;
   blocked_reasons: string[];
+  /** Source-neutral readiness; absent on older V1 servers. */
+  observation_source?: AMANComponentHealth;
+  /** Compatibility mirror of observation_source, not a promise of VATSIM use. */
   vatsim: AMANComponentHealth;
   navigation: AMANComponentHealth;
   weather: AMANComponentHealth;
@@ -399,28 +399,28 @@ export interface AMANCommandMeta {
 }
 
 export type AMANCommandIntent =
-  | {type: "aman.move_flight"; flight_id: string; runway_group_id: string; before_flight_id: string}
-  | {type: "aman.move_flight"; flight_id: string; runway_group_id: string; after_flight_id: string}
-  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; flight_id: string}
+  | {type: "aman.move_flight"; callsign: string; runway_group_id: string; before_callsign: string}
+  | {type: "aman.move_flight"; callsign: string; runway_group_id: string; after_callsign: string}
+  | {type: "aman.lock_flight" | "aman.unlock_flight" | "aman.desequence_flight" | "aman.resume_flight" | "aman.remove_flight" | "aman.accept_teta" | "aman.keep_fpl_eta" | "aman.reset_teta_override"; callsign: string}
   | {type: "aman.set_rate"; runway_group_id: string; arrivals_per_hour: number; effective_at: string}
   | {type: "aman.select_runway_group"; runway_group_id: string; effective_at: string}
   | {type: "aman.set_active_runway_groups"; runway_group_ids: string[]}
-  | {type: "aman.set_manual_eta"; flight_id: string; manual_eta: string}
-  | {type: "aman.set_manual_feeder_eta"; flight_id: string; feeder_eta: string}
-  | {type: "aman.reset_manual_feeder_eta"; flight_id: string}
-  | {type: "aman.recompute_flight"; flight_id: string}
-  | {type: "aman.change_runway"; flight_id: string; runway_group_id: string}
-  | {type: "aman.report_go_around"; flight_id: string; detected_at: string}
-  | {type: "aman.confirm_go_around" | "aman.reject_go_around"; flight_id: string; episode_id: string}
+  | {type: "aman.set_manual_eta"; callsign: string; manual_eta: string}
+  | {type: "aman.set_manual_feeder_eta"; callsign: string; feeder_eta: string}
+  | {type: "aman.reset_manual_feeder_eta"; callsign: string}
+  | {type: "aman.recompute_flight"; callsign: string}
+  | {type: "aman.change_runway"; callsign: string; runway_group_id: string}
+  | {type: "aman.report_go_around"; callsign: string; detected_at: string}
+  | {type: "aman.confirm_go_around" | "aman.reject_go_around"; callsign: string; episode_id: string}
   | ({type: "aman.create_gap"; runway_group_id: string; start: string; label: string} & ({end: string; slot_count?: never} | {slot_count: number; end?: never}))
   | {type: "aman.remove_gap"; runway_group_id: string; gap_id: string}
-  | ({type: "aman.create_runway_closure"; runway_group_id: string; end?: string; reason: string} & ({start: string; after_flight_id?: never} | {after_flight_id: string; start?: never}))
+  | ({type: "aman.create_runway_closure"; runway_group_id: string; end?: string; reason: string} & ({start: string; after_callsign?: never} | {after_callsign: string; start?: never}))
   | {type: "aman.remove_runway_closure"; runway_group_id: string; closure_id: string; reason: string}
-  | {type: "aman.create_capacity_reservation"; runway_group_id: string; after_flight_id: string; label?: string; reason: string}
+  | {type: "aman.create_capacity_reservation"; runway_group_id: string; after_callsign: string; label?: string; reason: string}
   | {type: "aman.remove_capacity_reservation"; runway_group_id: string; reservation_id: string; reason: string}
-  | {type: "aman.place_flight_at_time"; flight_id: string; runway_group_id: string; slot_time: string; allow_gap: boolean}
+  | {type: "aman.place_flight_at_time"; callsign: string; runway_group_id: string; slot_time: string; allow_gap: boolean}
   | {type: "aman.accept_coordination_request" | "aman.reject_coordination_request"; request_id: string; reason?: string}
-  | ({type: "aman.submit_coordination_request"; flight_id: string} & (
+  | ({type: "aman.submit_coordination_request"; callsign: string} & (
       {kind: "route_direct"; route?: string; direct_to?: string; requested?: never}
       | {kind: "speed"; requested: string; route?: never; direct_to?: never}
     ));
@@ -439,7 +439,7 @@ export interface AMANPendingCommand {
   command_id: string;
   type: AMANCommandType;
   expected_revision: number;
-  flight_id?: string;
+  callsign?: string;
   runway_group_id?: string;
   runway_group_ids?: string[];
   arrivals_per_hour?: number;
@@ -554,7 +554,7 @@ function isETAReview(value: unknown): value is AMANETAReview {
 }
 
 function isQueueOffer(value: unknown): value is AMANQueueOffer {
-  return isObject(value) && isString(value.flight_id) && isString(value.runway_group_id) && isSlot(value.candidate_slot)
+  return isObject(value) && isString(value.callsign) && isString(value.runway_group_id) && isSlot(value.candidate_slot)
     && isNonNegativeInteger(value.queue_position) && isTimestamp(value.expires_at)
     && isNonNegativeInteger(value.airport_revision) && isString(value.reason);
 }
@@ -568,7 +568,7 @@ function isGoAroundConfirmation(value: unknown): value is AMANGoAroundConfirmati
 }
 
 function isFlight(value: unknown): value is AMANFlight {
-  return isObject(value) && isString(value.flight_id) && value.flight_id !== "" && isString(value.callsign)
+  return isObject(value) && isString(value.callsign) && value.callsign !== "" && isString(value.callsign)
     && (value.aircraft_type === undefined || isIdentity(value.aircraft_type))
     && (value.wake_category === undefined || isIdentity(value.wake_category))
     && isString(value.lifecycle_state) && lifecycleStates.has(value.lifecycle_state as AMANLifecycleState)
@@ -602,6 +602,7 @@ function isComponentHealth(value: unknown): value is AMANComponentHealth {
 function isTechnicalHealth(value: unknown): value is AMANTechnicalHealth {
   return isObject(value) && isString(value.status) && healthStatuses.has(value.status as AMANHealthStatus)
     && typeof value.ready === "boolean" && isStringArray(value.blocked_reasons) && isComponentHealth(value.vatsim)
+    && (value.observation_source === undefined || isComponentHealth(value.observation_source))
     && isComponentHealth(value.navigation) && isComponentHealth(value.weather) && isComponentHealth(value.repository)
     && isComponentHealth(value.predictor) && isComponentHealth(value.replay_validation);
 }
@@ -706,7 +707,7 @@ function isTrafficPrediction(value: unknown): value is AMANTrafficPrediction {
     const rate = bucket.selected_rate;
     if (rate !== null && (!isObject(rate) || !isString(rate.runway_group_id) || !isNonNegativeInteger(rate.arrivals_per_hour)
       || rate.arrivals_per_hour === 0 || !isTimestamp(rate.effective_at))) return false;
-    return bucket.flights.every((flight) => isObject(flight) && isString(flight.flight_id) && isString(flight.callsign)
+    return bucket.flights.every((flight) => isObject(flight) && isString(flight.callsign) && isString(flight.callsign)
       && typeof flight.airborne === "boolean" && isTimestamp(flight.landing_at) && isString(flight.timing_source)
       && trafficSources.has(flight.timing_source as AMANTrafficTimingSource) && isString(flight.data_status)
       && dataStatuses.has(flight.data_status as AMANDataStatus));
@@ -714,7 +715,7 @@ function isTrafficPrediction(value: unknown): value is AMANTrafficPrediction {
 }
 
 function isHoldingEntry(value: unknown): value is AMANHoldingEntry {
-  return isObject(value) && isString(value.flight_id) && value.flight_id.length > 0
+  return isObject(value) && isString(value.callsign) && value.callsign.length > 0
     && isString(value.callsign) && isString(value.holding) && value.holding.length > 0
     && isNullableTimestamp(value.eat) && isNullableFiniteNumber(value.cleared_altitude)
     && isString(value.source_status) && dataStatuses.has(value.source_status as AMANDataStatus)
@@ -725,16 +726,16 @@ function warningIdentity(warning: AMANWarning): string {
   const optional = (value: string | undefined) => value === undefined ? "-" : JSON.stringify(value);
   return `warning:${[
     JSON.stringify(warning.source), optional(warning.component), JSON.stringify(warning.code),
-    optional(warning.runway_group_id), optional(warning.flight_id), optional(warning.related_flight_id),
+    optional(warning.runway_group_id), optional(warning.callsign), optional(warning.related_callsign),
   ].join("/")}`;
 }
 
 function hasValidWarningScope(warning: AMANWarning): boolean {
   if (warning.source === "technical_health") {
-    return warning.runway_group_id === undefined && warning.flight_id === undefined && warning.related_flight_id === undefined;
+    return warning.runway_group_id === undefined && warning.callsign === undefined && warning.related_callsign === undefined;
   }
   return warning.component === undefined && warning.runway_group_id !== undefined
-    && warning.flight_id !== undefined && warning.related_flight_id !== undefined;
+    && warning.callsign !== undefined && warning.related_callsign !== undefined;
 }
 
 function hasValidWarnings(value: unknown): value is AMANWarning[] {
@@ -744,8 +745,8 @@ function hasValidWarnings(value: unknown): value is AMANWarning[] {
       || !isString(warning.source) || !warningSources.has(warning.source as AMANWarningSource)
       || !isString(warning.severity) || !warningSeverities.has(warning.severity as AMANWarningSeverity)
       || !isIdentity(warning.code) || !isOptionalIdentity(warning.component)
-      || !isOptionalIdentity(warning.runway_group_id) || !isOptionalIdentity(warning.flight_id)
-      || !isOptionalIdentity(warning.related_flight_id) || !isIdentity(warning.message)) return false;
+      || !isOptionalIdentity(warning.runway_group_id) || !isOptionalIdentity(warning.callsign)
+      || !isOptionalIdentity(warning.related_callsign) || !isIdentity(warning.message)) return false;
     const typed = warning as unknown as AMANWarning;
     if (!hasValidWarningScope(typed) || typed.id !== warningIdentity(typed)) return false;
     return true;
@@ -754,7 +755,7 @@ function hasValidWarnings(value: unknown): value is AMANWarning[] {
 
 function hasValidCoordinationRequests(value: unknown): value is AMANCoordinationRequest[] {
   return Array.isArray(value) && value.every((request) => isObject(request) && isIdentity(request.id)
-    && isIdentity(request.flight_id) && isString(request.recipient_controller)
+    && isIdentity(request.callsign) && isString(request.recipient_controller)
     && (request.recipient_status === "assigned" ? isIdentity(request.recipient_controller) : request.recipient_status === "unassigned" && request.recipient_controller === "")
     && (request.kind === "route_direct" || request.kind === "speed")
     && ["pending", "accepted", "rejected", "superseded", "expired"].includes(String(request.state))

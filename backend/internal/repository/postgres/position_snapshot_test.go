@@ -1,7 +1,6 @@
 package postgres
 
 import (
-	"FlightStrips/internal/aman"
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/pdc/testdata"
 	"FlightStrips/internal/shared"
@@ -147,13 +146,4 @@ func TestPositionRepositoryQueryBudgets(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), n)
 	require.Equal(t, int32(2), counter.n.Load())
-	identities := NewAMANRepository(traced)
-	identity := aman.VATSIMFlightIdentity{VATSIMCID: "123456", CurrentCallsign: "SAS123"}
-	id, err := identities.BindVATSIMFlight(context.Background(), identity)
-	require.NoError(t, err)
-	counter.n.Store(0)
-	same, err := identities.BindVATSIMFlight(context.Background(), identity)
-	require.NoError(t, err)
-	require.Equal(t, id, same)
-	require.Equal(t, int32(1), counter.n.Load(), "established AMAN identity adds exactly one read")
 }

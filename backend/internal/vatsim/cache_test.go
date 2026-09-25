@@ -1,6 +1,7 @@
 package vatsim
 
 import (
+	"FlightStrips/internal/models"
 	"context"
 	"fmt"
 	"net/http"
@@ -13,6 +14,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCacheRefreshesOnlyForLiveSessions(t *testing.T) {
+	cache, _ := newTestCache(t, `{"general":{"update_timestamp":"2026-07-12T10:00:00Z"},"pilots":[]}`)
+	sessions := &reconciliationTestSessions{items: []*models.Session{{ID: 7, Name: "PLAYBACK", Airport: "EKCH"}}}
+
+	require.NoError(t, cache.refreshForLiveSessions(context.Background(), sessions))
+	require.True(t, cache.Snapshot().Timestamp.IsZero(), "Playback must not initiate a public VATSIM refresh")
+
+	sessions.items[0].Name = "LIVE"
+	require.NoError(t, cache.refreshForLiveSessions(context.Background(), sessions))
+	require.Equal(t, time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC), cache.Snapshot().Timestamp)
+}
 
 func TestCacheVerifyPilotOwnsCallsign(t *testing.T) {
 	t.Parallel()

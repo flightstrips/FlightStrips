@@ -9,7 +9,7 @@ import (
 type RunwayClosureIntervalInput struct {
 	RunwayGroupID RunwayGroupID
 	Start         *time.Time
-	AfterFlightID *FlightID
+	AfterCallsign *Callsign
 	End           *time.Time
 }
 
@@ -35,7 +35,7 @@ func NormalizeRunwayClosureInterval(input RunwayClosureIntervalInput, state Airp
 	if !isTrimmedNonEmpty(string(input.RunwayGroupID)) {
 		return RunwayClosureInterval{}, invalid("runway closure runway group is required")
 	}
-	if (input.Start == nil) == (input.AfterFlightID == nil) {
+	if (input.Start == nil) == (input.AfterCallsign == nil) {
 		return RunwayClosureInterval{}, invalid("runway closure requires exactly one absolute or after-aircraft start")
 	}
 
@@ -50,7 +50,7 @@ func NormalizeRunwayClosureInterval(input RunwayClosureIntervalInput, state Airp
 		}
 		start = *input.Start
 	} else {
-		flight, err := closureAnchorFlight(state.Flights, *input.AfterFlightID)
+		flight, err := closureAnchorFlight(state.Flights, *input.AfterCallsign)
 		if err != nil {
 			return RunwayClosureInterval{}, err
 		}
@@ -95,12 +95,12 @@ func closureRunwayGroup(groups []RunwayGroupPolicy, id RunwayGroupID) (*RunwayGr
 	return nil, invalid("runway closure runway group does not exist")
 }
 
-func closureAnchorFlight(flights []AMANFlight, id FlightID) (*AMANFlight, error) {
+func closureAnchorFlight(flights []AMANFlight, id Callsign) (*AMANFlight, error) {
 	if !isTrimmedNonEmpty(string(id)) {
 		return nil, invalid("runway closure anchor aircraft is required")
 	}
 	for index := range flights {
-		if flights[index].ID == id {
+		if flights[index].Callsign == id {
 			return &flights[index], nil
 		}
 	}

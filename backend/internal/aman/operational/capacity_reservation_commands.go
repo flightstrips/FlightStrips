@@ -19,9 +19,9 @@ func (s *Service) CreateCapacityReservation(auth aman.CommandContext, command am
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorNotFound, Message: "AMAN runway group was not found"}
 		}
 		group := state.RunwayGroups[groupIndex]
-		anchor := command.AfterFlightID
+		anchor := command.AfterCallsign
 		interval, err := aman.NormalizeRunwayClosureInterval(aman.RunwayClosureIntervalInput{
-			RunwayGroupID: command.RunwayGroupID, AfterFlightID: &anchor,
+			RunwayGroupID: command.RunwayGroupID, AfterCallsign: &anchor,
 		}, state)
 		if err != nil {
 			return sequence.CommandChange{}, err
@@ -68,7 +68,7 @@ func (s *Service) CreateCapacityReservation(auth aman.CommandContext, command am
 			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 			"command_id": command.Metadata.CommandID, "expected_revision": command.Metadata.ExpectedRevision,
 			"runway_group_id": command.RunwayGroupID, "reservation_id": reservation.ID, "label": reservation.Label,
-			"reason": command.Reason, "anchor_flight_id": command.AfterFlightID,
+			"reason": command.Reason, "anchor_callsign": command.AfterCallsign,
 			"normalized_interval": gapIntervalAudit(start, end), "accepted_rate_per_hour": group.ActiveRatePerHour,
 			"creator": reservation.CreatedBy, "created_at": reservation.CreatedAt,
 		})
@@ -79,7 +79,7 @@ func (s *Service) CreateCapacityReservation(auth aman.CommandContext, command am
 			payload, marshalErr := json.Marshal(map[string]any{
 				"action": "capacity_reservation_displacement", "reservation_id": reservation.ID,
 				"command_id": command.Metadata.CommandID, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
-				"runway_group_id": command.RunwayGroupID, "flight_id": displacement.FlightID,
+				"runway_group_id": command.RunwayGroupID, "callsign": displacement.Callsign,
 				"previous_opportunity": displacement.Previous, "new_opportunity": displacement.New,
 				"overridden_protection_reason": displacement.ProtectionReason,
 			})

@@ -24,7 +24,7 @@ function alertColour(bucket: AMANTrafficBucket): string | null {
 function reasonLabel(reason: string): string {
   if (reason === "missing_selected_rate") return "Arrival rate unavailable; overload status is not estimated.";
   if (reason === "stale_flight_data") return "Some flight timing data is stale.";
-  if (reason === "vatsim_disconnected") return "VATSIM timing source is disconnected.";
+  if (reason === "source_disconnected") return "AMAN observation source is disconnected.";
   if (reason.startsWith("missing_timing:")) return `No usable timing for ${reason.slice("missing_timing:".length)}.`;
   return reason.replace(/_/g, " ");
 }

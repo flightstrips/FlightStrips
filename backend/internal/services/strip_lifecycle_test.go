@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"FlightStrips/internal/models"
@@ -295,12 +296,28 @@ func TestDeleteStrip_CallsDeleteAndDisconnect(t *testing.T) {
 	hub := &testutil.MockFrontendHub{}
 	svc := NewStripService(stripRepo)
 	svc.SetFrontendHub(hub)
+	observer := &amanRemovalObserverSpy{}
+	svc.SetEuroScopeAMANStripObserver(observer)
 
 	err := svc.DeleteStrip(ctx, session, callsign)
 	require.NoError(t, err)
 	assert.True(t, deleteCalled)
 	require.Len(t, hub.AircraftDisconnects, 1)
 	assert.Equal(t, callsign, hub.AircraftDisconnects[0].Callsign)
+	require.Equal(t, []string{"1:KLM500"}, observer.removed)
+}
+
+type amanRemovalObserverSpy struct {
+	removed []string
+}
+
+func (*amanRemovalObserverSpy) ObserveEuroScopeStrip(context.Context, *models.Strip) error {
+	return nil
+}
+
+func (s *amanRemovalObserverSpy) RemoveEuroScopeStrip(_ context.Context, session int32, callsign string) error {
+	s.removed = append(s.removed, fmt.Sprintf("%d:%s", session, callsign))
+	return nil
 }
 
 func TestDeleteStrip_PropagatesRepositoryError(t *testing.T) {

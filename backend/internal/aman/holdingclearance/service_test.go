@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestServicePersistsNormalizedClearanceAcrossRestartAndReplay(t *testing.T) {
+func TestServicePersistsESOnlyClearanceCreateUpdateAndCancelWithoutCID(t *testing.T) {
 	now := time.Date(2026, 9, 11, 18, 0, 0, 0, time.UTC)
 	repository := &memoryRepository{state: airportState(now)}
 	publisher := &publisher{}
@@ -19,7 +19,7 @@ func TestServicePersistsNormalizedClearanceAcrossRestartAndReplay(t *testing.T) 
 	require.NoError(t, err)
 	altitude := int32(12000)
 	fact := aman.HoldingClearanceFact{
-		FlightID: "flight-1", VATSIMCID: "1234567", Callsign: "SAS123", Destination: " ekch ",
+		Callsign: "SAS123", Destination: " ekch ",
 		Hold: " olpib ", HoldType: "ENROUTE", HoldEAT: " 1422 ", ClearedAltitude: &altitude, ObservedAt: now,
 	}
 
@@ -31,6 +31,10 @@ func TestServicePersistsNormalizedClearanceAcrossRestartAndReplay(t *testing.T) 
 		Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: "1422",
 		ClearedAltitude: &altitude, ObservedAt: now,
 	}, repository.state.Flights[0].HoldingClearance)
+	fact.HoldEAT = "1430"
+	fact.ObservedAt = now.Add(30 * time.Second)
+	require.NoError(t, service.ObserveHoldingClearance(context.Background(), fact))
+	require.Equal(t, "1430", repository.state.Flights[0].HoldingClearance.HoldEAT)
 
 	// Reconstruct both repository and service from persisted JSON. Replaying the
 	// same source value must not allocate another aggregate revision.
@@ -92,12 +96,10 @@ func TestBatchLoadsCommitsAndPublishesOnceForAllFlights(t *testing.T) {
 	var facts []aman.HoldingClearanceFact
 	for i := 0; i < 100; i++ {
 		flight := base
-		flight.ID = aman.FlightID(fmt.Sprintf("flight-%d", i))
-		flight.VATSIMCID = fmt.Sprint(1000000 + i)
-		flight.CurrentCallsign = fmt.Sprintf("SAS%d", i)
+		flight.Callsign = fmt.Sprintf("SAS%d", i)
 		state.Flights = append(state.Flights, flight)
 		facts = append(facts, aman.HoldingClearanceFact{
-			FlightID: flight.ID, VATSIMCID: flight.VATSIMCID, Destination: "EKCH",
+			Callsign: flight.Callsign, Destination: "EKCH",
 			Hold: "OLPIB", HoldType: "enroute", ObservedAt: now,
 		})
 	}
@@ -123,16 +125,16 @@ func TestBatchRetryPreservesNewerConcurrentClearanceAndAppliesOtherFacts(t *test
 	now := time.Date(2026, 9, 14, 19, 0, 0, 0, time.UTC)
 	state := airportState(now)
 	second := state.Flights[0]
-	second.ID, second.VATSIMCID, second.CurrentCallsign = "flight-2", "2345678", "SAS456"
+	second.Callsign = "SAS456"
 	state.Flights = append(state.Flights, second)
 	repo := &conflictingRepository{memoryRepository: memoryRepository{state: state}, now: now}
 	pub := &publisher{}
 	service, err := New(Dependencies{Repository: repo, Publisher: pub})
 	require.NoError(t, err)
 	facts := []aman.HoldingClearanceFact{
-		{FlightID: "flight-1", VATSIMCID: "1234567", Destination: "EKCH", Hold: "OLPIB", HoldType: "enroute", ObservedAt: now},
-		{FlightID: "flight-2", VATSIMCID: "2345678", Destination: "EKCH", Hold: "OLPIB", HoldType: "enroute", ObservedAt: now},
-		{FlightID: "missing", VATSIMCID: "3456789", Destination: "EKCH", Hold: "OLPIB", ObservedAt: now},
+		{Callsign: "SAS123", Destination: "EKCH", Hold: "OLPIB", HoldType: "enroute", ObservedAt: now},
+		{Callsign: "SAS456", Destination: "EKCH", Hold: "OLPIB", HoldType: "enroute", ObservedAt: now},
+		{Callsign: "missing", Destination: "EKCH", Hold: "OLPIB", ObservedAt: now},
 	}
 	require.NoError(t, service.ObserveHoldingClearances(context.Background(), facts))
 	require.Equal(t, 2, repo.loads)
@@ -167,8 +169,8 @@ func TestBatchRejectsInvalidFactsBeforeWritingAnyAirport(t *testing.T) {
 	service, err := New(Dependencies{Repository: repo, Publisher: pub})
 	require.NoError(t, err)
 	err = service.ObserveHoldingClearances(context.Background(), []aman.HoldingClearanceFact{
-		{FlightID: "flight-1", VATSIMCID: "1234567", Destination: "EKCH", Hold: "OLPIB", ObservedAt: now},
-		{FlightID: "flight-2", Destination: "ESSA"},
+		{Callsign: "flight-1", Destination: "EKCH", Hold: "OLPIB", ObservedAt: now},
+		{Callsign: "flight-2", Destination: "ESSA"},
 	})
 	require.Error(t, err)
 	require.Zero(t, repo.loads)
@@ -208,7 +210,7 @@ func airportState(now time.Time) aman.AirportState {
 	return aman.AirportState{
 		Airport: "EKCH", Revision: 7, GeneratedAt: now.Add(-time.Minute), PolicyVersion: "test", Mode: aman.ModeShadow,
 		Flights: []aman.AMANFlight{{
-			ID: "flight-1", VATSIMCID: "1234567", CurrentCallsign: "SAS123", State: aman.StateAirborne,
+			Callsign: "SAS123", State: aman.StateAirborne,
 			DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now.Add(-time.Minute),
 		}},
 	}

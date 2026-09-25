@@ -18,7 +18,7 @@ func TestPlaceFlightAtTimeAuditsGapExceptionAndRetriesAfterRestart(t *testing.T)
 	repository := &memoryRepository{has: true, state: manualPlacementState(now)}
 	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
 	command := aman.PlaceFlightAtTimeCommand{
-		Metadata: aman.CommandMetadata{CommandID: "place-in-gap", ExpectedRevision: 7}, FlightID: "TARGET",
+		Metadata: aman.CommandMetadata{CommandID: "place-in-gap", ExpectedRevision: 7}, Callsign: "TARGET",
 		RunwayGroupID: "north", SlotTime: now.Add(5 * time.Minute), AllowGap: true,
 	}
 
@@ -31,7 +31,7 @@ func TestPlaceFlightAtTimeAuditsGapExceptionAndRetriesAfterRestart(t *testing.T)
 	require.Equal(t, aman.FreezeManual, target.FreezeReason)
 	require.Equal(t, target.Slot.Time, target.FrozenSlot.Time)
 	require.Equal(t, &aman.RunwayGapException{
-		GapID: "gap-1", FlightID: "TARGET", RunwayGroupID: "north", Opportunity: command.SlotTime, CommandID: "place-in-gap",
+		GapID: "gap-1", Callsign: "TARGET", RunwayGroupID: "north", Opportunity: command.SlotTime, CommandID: "place-in-gap",
 	}, target.RunwayGapException)
 	require.Len(t, repository.commits, 1)
 	var audit map[string]any
@@ -54,7 +54,7 @@ func TestPlaceFlightAtTimeAuditsGapExceptionAndRetriesAfterRestart(t *testing.T)
 func TestPlaceFlightAtTimeEnforcesGapAuthorityAndPayloadTrust(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	base := aman.PlaceFlightAtTimeCommand{
-		Metadata: aman.CommandMetadata{CommandID: "place", ExpectedRevision: 7}, FlightID: "TARGET",
+		Metadata: aman.CommandMetadata{CommandID: "place", ExpectedRevision: 7}, Callsign: "TARGET",
 		RunwayGroupID: "north", SlotTime: now.Add(5 * time.Minute), AllowGap: true,
 	}
 
@@ -85,7 +85,7 @@ func TestPlaceFlightAtTimeEnforcesGapAuthorityAndPayloadTrust(t *testing.T) {
 	placed, err := manualPlacementActions(t, repository, now).PlaceFlightAtTime(context.Background(), aman.CommandContext{
 		Airport: "EKCH", Actor: "tower", Role: "EKCH_TWR", ReceivedAt: now,
 	}, aman.PlaceFlightAtTimeCommand{
-		Metadata: aman.CommandMetadata{CommandID: "normal-placement", ExpectedRevision: 7}, FlightID: "TARGET",
+		Metadata: aman.CommandMetadata{CommandID: "normal-placement", ExpectedRevision: 7}, Callsign: "TARGET",
 		RunwayGroupID: "north", SlotTime: now.Add(8 * time.Minute),
 	})
 	require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestPlaceFlightAtTimeValidatesGridRunwayRevisionAndAtomicResult(t *testing.
 			repository := &memoryRepository{has: true, state: cloneGapState(t, state)}
 			before := cloneGapState(t, repository.state)
 			command := aman.PlaceFlightAtTimeCommand{
-				Metadata: aman.CommandMetadata{CommandID: test.name, ExpectedRevision: 7}, FlightID: "TARGET",
+				Metadata: aman.CommandMetadata{CommandID: test.name, ExpectedRevision: 7}, Callsign: "TARGET",
 				RunwayGroupID: "north", SlotTime: now.Add(5 * time.Minute), AllowGap: true,
 			}
 			if test.editCommand != nil {
@@ -148,7 +148,7 @@ func TestRunwayGapExceptionClearsOnMoveAndGapRemoval(t *testing.T) {
 		auth := aman.CommandContext{Airport: "EKCH", Actor: "123", Role: "EKDK_FMP", ReceivedAt: now}
 		actions := manualPlacementActions(t, repository, now.Add(time.Second))
 		_, err := actions.PlaceFlightAtTime(context.Background(), auth, aman.PlaceFlightAtTimeCommand{
-			Metadata: aman.CommandMetadata{CommandID: "place", ExpectedRevision: 7}, FlightID: "TARGET",
+			Metadata: aman.CommandMetadata{CommandID: "place", ExpectedRevision: 7}, Callsign: "TARGET",
 			RunwayGroupID: "north", SlotTime: now.Add(5 * time.Minute), AllowGap: true,
 		})
 		require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestRunwayGapExceptionClearsOnMoveAndGapRemoval(t *testing.T) {
 	t.Run("move elsewhere", func(t *testing.T) {
 		repository, actions, auth := place(t)
 		_, err := actions.PlaceFlightAtTime(context.Background(), auth, aman.PlaceFlightAtTimeCommand{
-			Metadata: aman.CommandMetadata{CommandID: "move-out", ExpectedRevision: 8}, FlightID: "TARGET",
+			Metadata: aman.CommandMetadata{CommandID: "move-out", ExpectedRevision: 8}, Callsign: "TARGET",
 			RunwayGroupID: "north", SlotTime: now.Add(8 * time.Minute),
 		})
 		require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestRunwayGapExceptionClearsOnMoveAndGapRemoval(t *testing.T) {
 func manualPlacementState(now time.Time) aman.AirportState {
 	state := runwayGapDisplacementState(now)
 	state.Flights = state.Flights[:1]
-	state.Flights[0].ID, state.Flights[0].VATSIMCID, state.Flights[0].CurrentCallsign = "TARGET", "TARGET", "TARGET"
+	state.Flights[0].Callsign = "TARGET"
 	state.Flights[0].SelectedFeeder = stringPointer("MONAK")
 	state.ActiveRunwayGroups = []aman.RunwayGroupID{"north"}
 	state.RunwayGroups = append(state.RunwayGroups, aman.RunwayGroupPolicy{ID: "south", ActiveRatePerHour: 60, RateEffectiveAt: &now})

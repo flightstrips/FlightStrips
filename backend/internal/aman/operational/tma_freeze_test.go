@@ -144,7 +144,7 @@ func TestConfirmedGoAroundAtomicallyRecapturesFreshInsideTMAFlight(t *testing.T)
 
 	command := aman.ReportGoAroundCommand{
 		Metadata: aman.CommandMetadata{CommandID: "go-around-tma", ExpectedRevision: state.Revision},
-		FlightID: flight.ID, DetectedAt: base,
+		Callsign: flight.Callsign, DetectedAt: base,
 	}
 	mutation, err := service.ReportGoAround(aman.CommandContext{ReceivedAt: base.Add(time.Second)}, command)
 	require.NoError(t, err)

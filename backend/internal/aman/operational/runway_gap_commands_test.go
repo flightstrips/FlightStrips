@@ -117,48 +117,48 @@ func TestCreateRunwayGapAtomicallyDisplacesEveryProtectionClassAndAuditsReplay(t
 	require.Len(t, firstRepository.commits, 1)
 	require.Len(t, firstRepository.commits[0].AuditRecords, 7, "the GAP and the complete displacement cascade share one commit")
 
-	wantReasons := map[aman.FlightID]string{
+	wantReasons := map[aman.Callsign]string{
 		"UNPROTECTED": "none", "STABLE": "stable", "SUPERSTABLE": "superstable", "MANUAL": "manual", "TMA": "tma", "TRAILING": "superstable",
 	}
-	directlyAffected := map[aman.FlightID]bool{"UNPROTECTED": true, "STABLE": true, "SUPERSTABLE": true, "MANUAL": true, "TMA": true}
-	seen := make(map[aman.FlightID]bool)
+	directlyAffected := map[aman.Callsign]bool{"UNPROTECTED": true, "STABLE": true, "SUPERSTABLE": true, "MANUAL": true, "TMA": true}
+	seen := make(map[aman.Callsign]bool)
 	for index, record := range firstRepository.commits[0].AuditRecords {
 		require.Equal(t, aman.SequenceRevision(8), record.Revision)
 		if index == 0 {
 			require.Equal(t, "aman.create_runway_gap", record.Category)
 			var gapAudit struct {
-				DisplacedFlightIDs []aman.FlightID `json:"displaced_flight_ids"`
+				DisplacedCallsigns []aman.Callsign `json:"displaced_callsigns"`
 			}
 			require.NoError(t, json.Unmarshal(record.Payload, &gapAudit))
-			require.Equal(t, []aman.FlightID{"MANUAL", "STABLE", "SUPERSTABLE", "TMA", "TRAILING", "UNPROTECTED"}, gapAudit.DisplacedFlightIDs)
+			require.Equal(t, []aman.Callsign{"MANUAL", "STABLE", "SUPERSTABLE", "TMA", "TRAILING", "UNPROTECTED"}, gapAudit.DisplacedCallsigns)
 			continue
 		}
 		require.Equal(t, "aman.runway_gap_displacement", record.Category)
 		var audit struct {
-			FlightID                   aman.FlightID  `json:"flight_id"`
+			Callsign                   aman.Callsign  `json:"callsign"`
 			OverriddenProtectionReason string         `json:"overridden_protection_reason"`
 			PreviousOpportunity        gapOpportunity `json:"previous_opportunity"`
 			NewOpportunity             gapOpportunity `json:"new_opportunity"`
 		}
 		require.NoError(t, json.Unmarshal(record.Payload, &audit))
-		require.Equal(t, wantReasons[audit.FlightID], audit.OverriddenProtectionReason)
-		if directlyAffected[audit.FlightID] {
+		require.Equal(t, wantReasons[audit.Callsign], audit.OverriddenProtectionReason)
+		if directlyAffected[audit.Callsign] {
 			require.True(t, audit.PreviousOpportunity.Time.Before(end))
 		}
 		require.False(t, audit.NewOpportunity.Time.Before(end))
 		require.True(t, audit.NewOpportunity.Time.After(audit.PreviousOpportunity.Time))
-		seen[audit.FlightID] = true
+		seen[audit.Callsign] = true
 	}
 	require.Len(t, seen, len(wantReasons))
 	for _, flight := range firstRepository.state.Flights {
-		require.False(t, flight.Slot.Time.Before(end), flight.ID)
+		require.False(t, flight.Slot.Time.Before(end), flight.Callsign)
 		require.Equal(t, aman.SequenceRevision(8), flight.Slot.Revision)
 		if flight.FreezeReason != aman.FreezeNone {
 			require.Equal(t, flight.Slot.Time, flight.FrozenSlot.Time, "freeze protection must reanchor after displacement")
-			require.Equal(t, flight.FreezeReason, stateFlight(t, state, flight.ID).FreezeReason)
+			require.Equal(t, flight.FreezeReason, stateFlight(t, state, flight.Callsign).FreezeReason)
 		}
 	}
-	for index, id := range []aman.FlightID{"UNPROTECTED", "STABLE", "SUPERSTABLE", "MANUAL", "TMA", "TRAILING"} {
+	for index, id := range []aman.Callsign{"UNPROTECTED", "STABLE", "SUPERSTABLE", "MANUAL", "TMA", "TRAILING"} {
 		require.Equal(t, index+1, stateFlight(t, firstRepository.state, id).Slot.Sequence, "GAP insertion must preserve committed sequence order")
 	}
 	require.True(t, stateFlight(t, firstRepository.state, "TRAILING").Slot.Time.After(end), "trailing protected traffic must move behind the displaced block")
@@ -231,7 +231,7 @@ func gapCommandFlight(id string, group aman.RunwayGroupID, at time.Time, sequenc
 	prediction := acceptedRawPrediction(at.Add(-time.Minute), at)
 	prediction.OperationalTETA, prediction.OperationalReason = at, aman.OperationalReasonPredicted
 	flight := aman.AMANFlight{
-		ID: aman.FlightID(id), VATSIMCID: id, CurrentCallsign: id, State: state, DataStatus: aman.DataFresh,
+		Callsign: id, State: state, DataStatus: aman.DataFresh,
 		Prediction: &prediction, SelectedRunwayGroup: &group, SelectedFeeder: &feeder, FreezeReason: freeze, UpdatedAt: at,
 	}
 	flight.Slot = &aman.Slot{Time: at, RunwayGroupID: group, Sequence: sequenceNumber, Revision: 7, Reason: "rate_wtc"}
@@ -252,10 +252,10 @@ func cloneGapState(t *testing.T, state aman.AirportState) aman.AirportState {
 	return clone
 }
 
-func stateFlight(t *testing.T, state aman.AirportState, id aman.FlightID) aman.AMANFlight {
+func stateFlight(t *testing.T, state aman.AirportState, id aman.Callsign) aman.AMANFlight {
 	t.Helper()
 	for _, flight := range state.Flights {
-		if flight.ID == id {
+		if flight.Callsign == id {
 			return flight
 		}
 	}

@@ -25,8 +25,8 @@ func TestBuildReadModelSelectsOnlyAuthoritativeEnrouteArrivals(t *testing.T) {
 
 	model := BuildReadModel(state)
 	require.Equal(t, []Entry{
-		{FlightID: "flight-1", Callsign: "SAS100", Holding: "SOK", SourceStatus: aman.DataFresh, ObservedAt: now},
-		{FlightID: "flight-2", Callsign: " sas200 ", Holding: "OLPIB", EAT: readModelTimePointer(now.Add(15 * time.Minute)), ClearedAltitude: &altitude, SourceStatus: aman.DataFresh, ObservedAt: now},
+		{Callsign: "SAS100", Holding: "SOK", SourceStatus: aman.DataFresh, ObservedAt: now},
+		{Callsign: " sas200 ", Holding: "OLPIB", EAT: readModelTimePointer(now.Add(15 * time.Minute)), ClearedAltitude: &altitude, SourceStatus: aman.DataFresh, ObservedAt: now},
 	}, model.Entries)
 }
 
@@ -42,7 +42,7 @@ func TestBuildReadModelOrderingDoesNotDependOnAggregateOrder(t *testing.T) {
 	slices.Reverse(state.Flights)
 
 	require.Equal(t, want, BuildReadModel(state))
-	require.Equal(t, []aman.FlightID{"a", "b"}, []aman.FlightID{want.Entries[0].FlightID, want.Entries[1].FlightID})
+	require.Equal(t, []aman.Callsign{"SAME", "same"}, []aman.Callsign{want.Entries[0].Callsign, want.Entries[1].Callsign})
 }
 
 func TestBuildReadModelRetainsInvalidLegacyEATAsMissing(t *testing.T) {
@@ -54,9 +54,9 @@ func TestBuildReadModelRetainsInvalidLegacyEATAsMissing(t *testing.T) {
 	require.Nil(t, model.Entries[0].EAT)
 }
 
-func readModelFlight(id aman.FlightID, callsign, destination string, holdType aman.HoldingClearanceType, hold, eat string, altitude *int32, observedAt time.Time) aman.AMANFlight {
+func readModelFlight(_ aman.Callsign, callsign, destination string, holdType aman.HoldingClearanceType, hold, eat string, altitude *int32, observedAt time.Time) aman.AMANFlight {
 	return aman.AMANFlight{
-		ID: id, CurrentCallsign: callsign, DataStatus: aman.DataFresh,
+		Callsign: callsign, DataStatus: aman.DataFresh,
 		LatestObservation: &aman.FlightObservation{Destination: destination},
 		HoldingClearance:  &aman.HoldingClearance{Hold: hold, HoldType: holdType, HoldEAT: eat, ClearedAltitude: altitude, ObservedAt: observedAt},
 	}

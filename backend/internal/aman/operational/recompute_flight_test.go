@@ -18,7 +18,7 @@ func TestRecomputeFlightIsRevisionCheckedAuditedAndDurablyIdempotent(t *testing.
 	publisher := &recordingPublisher{}
 	actions := recomputeActions(t, service, repository, publisher, now)
 	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
-	command := aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "recompute-1", ExpectedRevision: state.Revision}, FlightID: "flight-1"}
+	command := aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "recompute-1", ExpectedRevision: state.Revision}, Callsign: "SAS123"}
 
 	first, err := actions.RecomputeFlight(context.Background(), auth, command)
 	require.NoError(t, err)
@@ -26,7 +26,7 @@ func TestRecomputeFlightIsRevisionCheckedAuditedAndDurablyIdempotent(t *testing.
 	require.False(t, first.Duplicate)
 	require.Equal(t, state.Revision+1, first.CurrentRevision)
 	require.Len(t, publisher.states, 1, "the replacement state is the server confirmation")
-	require.JSONEq(t, `{"action":"recompute_flight","actor":"1234567","airport":"EKCH","changed":true,"flight_id":"flight-1","input_observed_at":"2026-09-11T12:00:00Z","received_at":"2026-09-11T12:01:00Z","role":"EKDK_FMP"}`, string(repository.commits[0].AuditRecords[0].Payload))
+	require.JSONEq(t, `{"action":"recompute_flight","actor":"1234567","airport":"EKCH","changed":true,"callsign":"SAS123","input_observed_at":"2026-09-11T12:00:00Z","received_at":"2026-09-11T12:01:00Z","role":"EKDK_FMP"}`, string(repository.commits[0].AuditRecords[0].Payload))
 
 	retry, err := actions.RecomputeFlight(context.Background(), auth, command)
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestRecomputeFlightPreservesFrozenOperationalSlotAndProtectedOrder(t *testi
 	other := protectedOperationalFlight("flight-2", *flight.SelectedRunwayGroup, flight.STARFamilyIdentity(), "L", frozenTETA.Add(3*time.Minute), 2, aman.FreezeManual)
 	state.Flights = append(state.Flights, other)
 
-	mutation, err := service.RecomputeFlight(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "frozen", ExpectedRevision: state.Revision}, FlightID: flight.ID})
+	mutation, err := service.RecomputeFlight(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "frozen", ExpectedRevision: state.Revision}, Callsign: flight.Callsign})
 	require.NoError(t, err)
 	change, err := mutation(state)
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestRecomputeFlightPredictionFailureIsAtomic(t *testing.T) {
 	service.deps.Geometry = unavailableGeometry{}
 	repository := &memoryRepository{state: state, has: true}
 	actions := recomputeActions(t, service, repository, &recordingPublisher{}, now)
-	_, err := actions.RecomputeFlight(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "failure", ExpectedRevision: state.Revision}, FlightID: "flight-1"})
+	_, err := actions.RecomputeFlight(context.Background(), aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}, aman.RecomputeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "failure", ExpectedRevision: state.Revision}, Callsign: "SAS123"})
 	require.Error(t, err)
 	require.Empty(t, repository.commits)
 	require.Equal(t, state, repository.state)
@@ -103,7 +103,7 @@ func recomputeFlightFixture(t *testing.T) (*Service, aman.AirportState, time.Tim
 	geometry := terminalIdentityGeometry{version: version, path: path, route: navdata.RouteGeometry{Version: version, Digest: "route-digest", Coverage: navdata.CoverageComplete, Legs: []navdata.ProcedureLeg{{ID: "ROUTE", PathTerminator: navdata.PathTF, FromFix: &origin, ToFix: &star}}}, fixes: []navdata.Fix{{ID: origin, Position: navdata.Coordinate{LatitudeDeg: 55, LongitudeDeg: 12}}, {ID: star, Position: navdata.Coordinate{LatitudeDeg: 55.1, LongitudeDeg: 12.1}}, {ID: feederFix, Position: navdata.Coordinate{LatitudeDeg: 55.2, LongitudeDeg: 12.2}}}}
 	service := &Service{deps: Dependencies{Materializer: fixedNavigation{key: "route"}, Geometry: geometry, Terminal: terminal.Configuration{ConfigVersion: "test-v1", Feeders: []terminal.Feeder{{ID: "TESPI"}}, Paths: []terminal.Path{{Feeder: "TESPI", RunwayGroup: group}}, RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
 	altitude, groundspeed, route, wake := 10_000, 300.0, "DCT TESPI", "L"
-	observation := aman.FlightObservation{FlightID: "flight-1", VATSIMCID: "123", Callsign: "SAS123", Origin: "ENGM", Destination: "EKCH", FiledRoute: &route, WakeCategory: &wake, ReconciledAt: observedAt, SourceStatus: aman.DataFresh, Surveillance: &aman.SurveillanceFact{LatitudeDegrees: 55.01, LongitudeDegrees: 12.01, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, ObservedAt: &observedAt}}
+	observation := aman.FlightObservation{Callsign: "SAS123", Origin: "ENGM", Destination: "EKCH", FiledRoute: &route, WakeCategory: &wake, ReconciledAt: observedAt, SourceStatus: aman.DataFresh, Surveillance: &aman.SurveillanceFact{LatitudeDegrees: 55.01, LongitudeDegrees: 12.01, AltitudeFeet: &altitude, GroundspeedKnots: &groundspeed, ObservedAt: &observedAt}}
 	effective := observedAt
 	state := aman.AirportState{Airport: "EKCH", Revision: 7, GeneratedAt: observedAt, PolicyVersion: "test", Mode: aman.ModeAuthoritative, Authoritative: true, RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, Selected: true, ActiveRatePerHour: 20, RateEffectiveAt: &effective, RateSchedule: []aman.RunwayGroupRatePoint{{EffectiveAt: effective, ArrivalsPerHour: 20}}}}}
 	flight, err := service.reconcileFlight(context.Background(), state, newFlight(observation, observedAt), observation, observedAt)

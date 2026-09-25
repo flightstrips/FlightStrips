@@ -302,9 +302,9 @@ function runwayLabel(value: string | null): string {
   return value?.replace(/^ARRIVAL-/, "") || "—";
 }
 
-function FlightInformationSummary({detail, flightID, onClose, onToggleTechnical, technicalOpen}: {
+function FlightInformationSummary({detail, callsign, onClose, onToggleTechnical, technicalOpen}: {
   detail: AMANFlightDetail | null;
-  flightID: string;
+  callsign: string;
   onClose: () => void;
   onToggleTechnical: () => void;
   technicalOpen: boolean;
@@ -313,7 +313,7 @@ function FlightInformationSummary({detail, flightID, onClose, onToggleTechnical,
   const sequence = detail?.slot_basis?.sequence;
   const runway = runwayLabel(flight?.runway_group_id ?? null);
   const runwayAndSequence = sequence ? `${runway}/${sequence}` : runway;
-  const callsignAndSequence = sequence ? `${flight?.callsign ?? flightID} / ${sequence}` : flight?.callsign ?? flightID;
+  const callsignAndSequence = sequence ? `${flight?.callsign ?? callsign} / ${sequence}` : flight?.callsign ?? callsign;
   const feeder = flight?.feeder_fix ?? flight?.feeder ?? "—";
   const initialRunwayETA = detail?.teta_basis?.eta_review?.initial_baseline_teta ?? detail?.teta_basis?.baseline?.arrival_at;
   const currentRunwayETA = detail?.teta_basis?.operational_teta;
@@ -339,7 +339,7 @@ function FlightInformationSummary({detail, flightID, onClose, onToggleTechnical,
 
   return <section aria-label="Flight information summary" className="[container-type:inline-size] w-full bg-[#313131] font-['Rubik',sans-serif] text-black">
     <DialogTitle className="grid h-[2.1cqw] min-h-5 place-items-center bg-[#313131] text-[clamp(11px,1.2cqw,20px)] font-bold leading-none text-white">
-      <span aria-hidden="true">Flight Information</span><span className="sr-only">{flight?.callsign ?? flightID} — route &amp; prediction detail</span>
+      <span aria-hidden="true">Flight Information</span><span className="sr-only">{flight?.callsign ?? callsign} — route &amp; prediction detail</span>
     </DialogTitle>
     <span className="sr-only">state revision {detail?.revision ?? "—"}</span>
     <div
@@ -395,7 +395,7 @@ function FlightInformationSummary({detail, flightID, onClose, onToggleTechnical,
   </section>;
 }
 
-export function AMANFlightDetailDialog({airport, flightID, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; flightID: string; coordination?: {
+export function AMANFlightDetailDialog({airport, callsign, coordination, initialAction, missedApproach, removal, onClose}: {airport: string; callsign: string; coordination?: {
   requests: AMANCoordinationRequest[]; canSubmit: boolean; submitting: boolean; rejection?: string | null;
   onSubmit: (submission: {kind: "route_direct"; route?: string; direct_to?: string} | {kind: "speed"; requested: string}) => void;
 }; initialAction?: "missed-approach" | "removal"; missedApproach?: MissedApproachAction; removal?: RemovalAction; onClose: () => void}) {
@@ -408,7 +408,7 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, initial
   const [removalOpen, setRemovalOpen] = useState(false);
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const returnFocusRef = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
-  const detailKey = useMemo(() => `${airport}/${flightID}`, [airport, flightID]);
+  const detailKey = useMemo(() => `${airport}/${callsign}`, [airport, callsign]);
 
   useEffect(() => () => returnFocusRef.current?.focus(), []);
 
@@ -425,7 +425,7 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, initial
       setLoading(true); setError(null); setDetail(null);
       try {
         const token = await getAccessTokenSilently();
-        const value = await fetchAMANFlightDetail(token, airport, flightID, abort.signal);
+        const value = await fetchAMANFlightDetail(token, airport, callsign, abort.signal);
         if (!abort.signal.aborted) setDetail(value);
       } catch (reason) {
         if (!abort.signal.aborted) setError(reason instanceof Error ? reason.message : "Unable to load AMAN flight detail.");
@@ -434,7 +434,7 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, initial
       }
     })();
     return () => abort.abort();
-  }, [airport, flightID, getAccessTokenSilently, detailKey]);
+  }, [airport, callsign, getAccessTokenSilently, detailKey]);
 
   const openMissedApproach = () => {
     setCoordinationOpen(false);
@@ -454,7 +454,7 @@ export function AMANFlightDetailDialog({airport, flightID, coordination, initial
 
   return <Dialog onOpenChange={(open) => !open && onClose()} open>
     <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[min(1668px,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden border-0 bg-[#555355] p-0 text-white shadow-2xl [&>button]:hidden">
-      <FlightInformationSummary detail={detail} flightID={flightID} onClose={onClose} onToggleTechnical={() => setTechnicalOpen((open) => !open)} technicalOpen={technicalOpen} />
+      <FlightInformationSummary callsign={callsign} detail={detail} onClose={onClose} onToggleTechnical={() => setTechnicalOpen((open) => !open)} technicalOpen={technicalOpen} />
       {(missedApproach || removal || coordination) && <header className="flex items-center justify-between border-t-2 border-[#dcdcdc] bg-[#555355] px-3 py-2 font-['Rubik',sans-serif]">
         <span className="text-xs">state revision {detail?.revision ?? "—"}</span>
         <div className="flex gap-2">

@@ -14,7 +14,6 @@ const golden = JSON.parse(readFileSync(
 function flight(id: string, family: string, order: number, slot: string): AMANFlight {
   return {
     ...structuredClone(golden.data.flights[0]),
-    flight_id: id,
     callsign: id.toUpperCase(),
     star_family: family,
     order,

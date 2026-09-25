@@ -26,15 +26,15 @@ func TestWarningIdentityIsStableAndIgnoresPresentation(t *testing.T) {
 func TestWarningIdentityIncludesSourceAndOptionalIdentities(t *testing.T) {
 	component := "navigation"
 	group := RunwayGroupID("north")
-	flight := FlightID("flight-1")
-	related := FlightID("flight-2")
+	flight := Callsign("flight-1")
+	related := Callsign("flight-2")
 	warnings := []Warning{
 		{Source: WarningSourceTechnicalHealth, Code: "same"},
 		{Source: WarningSourceSequence, Code: "same"},
 		{Source: WarningSourceTechnicalHealth, Component: &component, Code: "same"},
 		{Source: WarningSourceTechnicalHealth, Code: "same", RunwayGroupID: &group},
-		{Source: WarningSourceTechnicalHealth, Code: "same", FlightID: &flight},
-		{Source: WarningSourceTechnicalHealth, Code: "same", RelatedFlightID: &related},
+		{Source: WarningSourceTechnicalHealth, Code: "same", Callsign: &flight},
+		{Source: WarningSourceTechnicalHealth, Code: "same", RelatedCallsign: &related},
 	}
 	identities := make(map[string]struct{}, len(warnings))
 	for _, warning := range warnings {
@@ -56,7 +56,7 @@ func TestCurrentWarningSnapshotCombinesDeduplicatesAndOrders(t *testing.T) {
 		BlockedReasons:   []string{"validation_evidence_missing", "navigation:terminal_geometry_invalid"},
 	}
 	conflict := RunwayGroupSequenceWarning{
-		Code: "protected_same_star_spacing", FlightID: "trailing", RelatedFlightID: "leader", STARFamily: "TUDLO",
+		Code: "protected_same_star_spacing", Callsign: "trailing", RelatedCallsign: "leader", STARFamily: "TUDLO",
 	}
 	state := AirportState{RunwayGroups: []RunwayGroupPolicy{
 		{ID: "south", SequenceWarnings: []RunwayGroupSequenceWarning{conflict, conflict}},
@@ -88,14 +88,14 @@ func TestCurrentWarningSnapshotCombinesDeduplicatesAndOrders(t *testing.T) {
 func TestCurrentWarningSnapshotUsesCompleteReplacementForResolution(t *testing.T) {
 	degraded := TechnicalHealth{
 		Enabled: true, EffectiveMode: EffectiveBlocked,
-		VATSIM:     ComponentHealth{Status: HealthDegraded, Reason: "snapshot_stale"},
-		Navigation: ComponentHealth{Status: HealthReady}, Weather: ComponentHealth{Status: HealthReady},
+		ObservationSource: ComponentHealth{Status: HealthDegraded, Reason: "snapshot_stale"},
+		Navigation:        ComponentHealth{Status: HealthReady}, Weather: ComponentHealth{Status: HealthReady},
 		Repository: ComponentHealth{Status: HealthReady}, Predictor: ComponentHealth{Status: HealthReady},
 		ReplayValidation: ComponentHealth{Status: HealthReady},
-		BlockedReasons:   []string{"vatsim:snapshot_stale"},
+		BlockedReasons:   []string{"observation_source:snapshot_stale"},
 	}
 	state := AirportState{RunwayGroups: []RunwayGroupPolicy{{ID: "north", SequenceWarnings: []RunwayGroupSequenceWarning{{
-		Code: "protected_same_star_spacing", FlightID: "flight-1", RelatedFlightID: "flight-2", STARFamily: "TESPI",
+		Code: "protected_same_star_spacing", Callsign: "flight-1", RelatedCallsign: "flight-2", STARFamily: "TESPI",
 	}}}}}
 	if got := CurrentWarningSnapshot(degraded, state); len(got.Warnings) != 3 {
 		t.Fatalf("initial warnings = %#v", got.Warnings)
@@ -103,7 +103,7 @@ func TestCurrentWarningSnapshotUsesCompleteReplacementForResolution(t *testing.T
 
 	healthy := TechnicalHealth{
 		Enabled: true, EffectiveMode: EffectiveAuthoritative,
-		VATSIM: ComponentHealth{Status: HealthReady}, Navigation: ComponentHealth{Status: HealthReady},
+		ObservationSource: ComponentHealth{Status: HealthReady}, Navigation: ComponentHealth{Status: HealthReady},
 		Weather: ComponentHealth{Status: HealthReady}, Repository: ComponentHealth{Status: HealthReady},
 		Predictor: ComponentHealth{Status: HealthReady}, ReplayValidation: ComponentHealth{Status: HealthReady},
 	}
@@ -115,8 +115,8 @@ func TestCurrentWarningSnapshotUsesCompleteReplacementForResolution(t *testing.T
 
 func TestCurrentWarningSnapshotIsIndependentOfInputOrder(t *testing.T) {
 	first := AirportState{RunwayGroups: []RunwayGroupPolicy{
-		{ID: "south", SequenceWarnings: []RunwayGroupSequenceWarning{{Code: "protected_same_star_spacing", FlightID: "b", RelatedFlightID: "c", STARFamily: "B"}}},
-		{ID: "north", SequenceWarnings: []RunwayGroupSequenceWarning{{Code: "protected_same_star_spacing", FlightID: "a", RelatedFlightID: "b", STARFamily: "A"}}},
+		{ID: "south", SequenceWarnings: []RunwayGroupSequenceWarning{{Code: "protected_same_star_spacing", Callsign: "b", RelatedCallsign: "c", STARFamily: "B"}}},
+		{ID: "north", SequenceWarnings: []RunwayGroupSequenceWarning{{Code: "protected_same_star_spacing", Callsign: "a", RelatedCallsign: "b", STARFamily: "A"}}},
 	}}
 	second := AirportState{RunwayGroups: slices.Clone(first.RunwayGroups)}
 	slices.Reverse(second.RunwayGroups)

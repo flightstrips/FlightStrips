@@ -112,7 +112,7 @@ func TestRunwayGapPreservesLifecycleOrderAndDoesNotDisplaceProtectedSlots(t *tes
 	}})
 	require.NoError(t, err)
 	require.Equal(t, start.Add(time.Minute), entryFor(t, result, "PROTECTED").Time, "protected displacement belongs to the later GAP mutation policy")
-	require.Equal(t, []aman.FlightID{"PROTECTED", "STABLE", "UNSTABLE", "AIRBORNE"}, entryIDs(result))
+	require.Equal(t, []aman.Callsign{"PROTECTED", "STABLE", "UNSTABLE", "AIRBORNE"}, entryIDs(result))
 	require.Equal(t, start.Add(2*time.Minute), entryFor(t, result, "STABLE").Time)
 }
 

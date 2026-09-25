@@ -31,11 +31,19 @@ type SyncState struct {
 	CdmRecalculation     bool
 
 	HoldingClearanceStrips map[string]HoldingClearanceObservation
+	AMANStrips             map[string]EuroScopeStripObservation
 }
 
 // HoldingClearanceObservation retains the persisted strip value and observation
 // time while a full sync defers its AMAN projection until the end of the batch.
 type HoldingClearanceObservation struct {
+	Strip      *internalModels.Strip
+	ObservedAt time.Time
+}
+
+// EuroScopeStripObservation retains the persisted strip value and observation
+// time while a full sync defers its AMAN projection until the end of the batch.
+type EuroScopeStripObservation struct {
 	Strip      *internalModels.Strip
 	ObservedAt time.Time
 }

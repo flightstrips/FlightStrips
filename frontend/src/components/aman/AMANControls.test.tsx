@@ -13,8 +13,8 @@ const golden = JSON.parse(readFileSync(
 
 function state() {
   const value = structuredClone(golden.data);
-  value.flights[0].flight_id = "flight-1";
-  value.flights.push({...structuredClone(value.flights[0]), flight_id: "flight-2", callsign: "SAS456", order: 4});
+  value.flights[0].callsign = "SAS123";
+  value.flights.push({...structuredClone(value.flights[0]), callsign: "SAS456", order: 4});
   return value;
 }
 
@@ -44,7 +44,7 @@ describe("AMAN FMP controls", () => {
     expect(screen.getByText(/Server-confirmed immutable interval/).parentElement).toHaveTextContent("VIP");
     expect(screen.getByRole("status")).toHaveTextContent("overlays remain server-confirmed");
     expect(screen.getByText(/Extra Flight rejected/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Insert Extra Flight after"), {target: {value: "flight-1"}});
+    fireEvent.change(screen.getByLabelText("Insert Extra Flight after"), {target: {value: "SAS123"}});
     expect(screen.getByText(/displace protected traffic/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Extra Flight reason"), {target: {value: "medevac"}});
     expect(screen.getByRole("button", {name: "Insert Extra Flight"})).toBeDisabled();
@@ -55,20 +55,20 @@ describe("AMAN FMP controls", () => {
     const current = state();
     current.runway_groups[0].capacity_reservations = [{id: "extra-1", start: "2026-07-22T10:21:00.000Z", end: "2026-07-22T10:24:00.000Z", label: "FLIGHT", created_at: "2026-07-22T10:00:00.000Z", created_by: "1234567"}];
     const {onCommand} = renderControls({state: current});
-    fireEvent.change(screen.getByLabelText("Insert Extra Flight after"), {target: {value: "flight-1"}});
+    fireEvent.change(screen.getByLabelText("Insert Extra Flight after"), {target: {value: "SAS123"}});
     fireEvent.change(screen.getByLabelText("Extra Flight reason"), {target: {value: "medevac"}});
     fireEvent.click(screen.getByRole("button", {name: "Insert Extra Flight"}));
-    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", reason: "medevac"});
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_callsign: "SAS123", reason: "medevac"});
     fireEvent.change(screen.getByLabelText("Extra Flight label"), {target: {value: "VIP"}});
     fireEvent.click(screen.getByRole("button", {name: "Insert Extra Flight"}));
-    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", label: "VIP", reason: "medevac"});
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_callsign: "SAS123", label: "VIP", reason: "medevac"});
     fireEvent.click(screen.getByRole("button", {name: "Remove Extra Flight FLIGHT from ARRIVAL-22"}));
     expect(onCommand).toHaveBeenLastCalledWith({type: "aman.remove_capacity_reservation", runway_group_id: "ARRIVAL-22", reservation_id: "extra-1", reason: "medevac"});
   });
   it("maps every flight control to only its typed command fields", () => {
     const {onCommand} = renderControls();
 
-    fireEvent.change(screen.getByLabelText("Move target"), {target: {value: "flight-2"}});
+    fireEvent.change(screen.getByLabelText("Move target"), {target: {value: "SAS456"}});
     fireEvent.click(screen.getByRole("button", {name: "Move before"}));
     fireEvent.click(screen.getByRole("button", {name: "Move after"}));
     fireEvent.click(screen.getByRole("button", {name: "Apply manual freeze"}));
@@ -77,12 +77,12 @@ describe("AMAN FMP controls", () => {
     fireEvent.click(screen.getByRole("button", {name: "Reset ETA override"}));
 
     expect(onCommand.mock.calls.map(([intent]) => intent)).toEqual([
-      {type: "aman.move_flight", flight_id: "flight-1", runway_group_id: "ARRIVAL-22", before_flight_id: "flight-2"},
-      {type: "aman.move_flight", flight_id: "flight-1", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-2"},
-      {type: "aman.lock_flight", flight_id: "flight-1"},
-      {type: "aman.accept_teta", flight_id: "flight-1"},
-      {type: "aman.keep_fpl_eta", flight_id: "flight-1"},
-      {type: "aman.reset_teta_override", flight_id: "flight-1"},
+      {type: "aman.move_flight", callsign: "SAS123", runway_group_id: "ARRIVAL-22", before_callsign: "SAS456"},
+      {type: "aman.move_flight", callsign: "SAS123", runway_group_id: "ARRIVAL-22", after_callsign: "SAS456"},
+      {type: "aman.lock_flight", callsign: "SAS123"},
+      {type: "aman.accept_teta", callsign: "SAS123"},
+      {type: "aman.keep_fpl_eta", callsign: "SAS123"},
+      {type: "aman.reset_teta_override", callsign: "SAS123"},
     ]);
   });
 
@@ -97,8 +97,8 @@ describe("AMAN FMP controls", () => {
     expect(screen.getByRole("dialog", {name: "Confirm removal · SAS123"})).toHaveTextContent("cannot be resumed");
     fireEvent.click(screen.getByRole("button", {name: "Confirm remove flight"}));
 
-    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.resume_flight", flight_id: "flight-1"});
-    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.remove_flight", flight_id: "flight-1"});
+    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.resume_flight", callsign: "SAS123"});
+    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.remove_flight", callsign: "SAS123"});
   });
 
   it("shows disposition pending, stale revision, authorization, and no-capacity states", () => {
@@ -106,7 +106,7 @@ describe("AMAN FMP controls", () => {
     desequenced.flights[0].sequence_disposition = "desequenced";
     renderControls({
       state: desequenced,
-      pendingCommands: {resume: {command_id: "resume", type: "aman.resume_flight", expected_revision: 7, flight_id: "flight-1"}},
+      pendingCommands: {resume: {command_id: "resume", type: "aman.resume_flight", expected_revision: 7, callsign: "SAS123"}},
       commandRejections: {
         stale: {command_id: "stale", command_type: "aman.resume_flight", code: "revision_conflict", message: "revision changed", current_revision: 8, retryable: true},
         capacity: {command_id: "capacity", command_type: "aman.resume_flight", code: "invalid_transition", message: "resume could not produce a complete legal sequence", current_revision: 8, retryable: false},
@@ -142,10 +142,10 @@ describe("AMAN FMP controls", () => {
       effective_at: new Date("2026-07-22T12:05").toISOString(),
     });
     expect(onCommand).toHaveBeenNthCalledWith(2, {
-      type: "aman.set_manual_eta", flight_id: "flight-1", manual_eta: new Date("2026-07-22T12:10").toISOString(),
+      type: "aman.set_manual_eta", callsign: "SAS123", manual_eta: new Date("2026-07-22T12:10").toISOString(),
     });
     expect(onCommand).toHaveBeenNthCalledWith(3, {
-      type: "aman.report_go_around", flight_id: "flight-1", detected_at: new Date("2026-07-22T12:15").toISOString(),
+      type: "aman.report_go_around", callsign: "SAS123", detected_at: new Date("2026-07-22T12:15").toISOString(),
     });
   });
 
@@ -161,8 +161,8 @@ describe("AMAN FMP controls", () => {
     fireEvent.click(screen.getByRole("button", {name: "Set feeder ETA"}));
     fireEvent.click(screen.getByRole("button", {name: "Reset to predicted ETA"}));
 
-    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.set_manual_feeder_eta", flight_id: "flight-1", feeder_eta: new Date("2026-07-22T12:10").toISOString()});
-    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.reset_manual_feeder_eta", flight_id: "flight-1"});
+    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.set_manual_feeder_eta", callsign: "SAS123", feeder_eta: new Date("2026-07-22T12:10").toISOString()});
+    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.reset_manual_feeder_eta", callsign: "SAS123"});
   });
 
   it("requests an alternate active runway and exposes pending and rejected results", () => {
@@ -171,7 +171,7 @@ describe("AMAN FMP controls", () => {
     multiRunwayState.active_runway_groups = ["ARRIVAL-22", "ARRIVAL-04"];
     renderControls({
       state: multiRunwayState,
-      pendingCommands: {runway: {command_id: "runway", type: "aman.change_runway", expected_revision: 7, flight_id: "flight-1", runway_group_id: "ARRIVAL-04"}},
+      pendingCommands: {runway: {command_id: "runway", type: "aman.change_runway", expected_revision: 7, callsign: "SAS123", runway_group_id: "ARRIVAL-04"}},
       commandRejections: {rejected: {command_id: "rejected", command_type: "aman.change_runway", code: "invalid_transition", message: "protected conflict", current_revision: 7, retryable: false}},
     });
 
@@ -185,12 +185,12 @@ describe("AMAN FMP controls", () => {
     const {onCommand} = renderControls({state: multiRunwayState});
     fireEvent.click(screen.getByRole("button", {name: "Change runway"}));
     fireEvent.click(screen.getByRole("button", {name: "Request runway change"}));
-    expect(onCommand).toHaveBeenCalledWith({type: "aman.change_runway", flight_id: "flight-1", runway_group_id: "ARRIVAL-04"});
+    expect(onCommand).toHaveBeenCalledWith({type: "aman.change_runway", callsign: "SAS123", runway_group_id: "ARRIVAL-04"});
   });
 
   it("shows feeder ETA pending and rejection states", () => {
     renderControls({
-      pendingCommands: {feeder: {command_id: "feeder", type: "aman.set_manual_feeder_eta", expected_revision: 7, flight_id: "flight-1"}},
+      pendingCommands: {feeder: {command_id: "feeder", type: "aman.set_manual_feeder_eta", expected_revision: 7, callsign: "SAS123"}},
       commandRejections: {rejected: {command_id: "rejected", command_type: "aman.set_manual_feeder_eta", code: "invalid_argument", message: "past ETA", current_revision: 7, retryable: false}},
     });
     fireEvent.click(screen.getByRole("button", {name: "Edit feeder-fix ETA"}));
@@ -247,7 +247,7 @@ describe("AMAN FMP controls", () => {
 
     renderControls({
       state: degraded,
-      pendingCommands: {pending: {command_id: "pending", type: "aman.accept_teta", expected_revision: 7, flight_id: "flight-1"}},
+      pendingCommands: {pending: {command_id: "pending", type: "aman.accept_teta", expected_revision: 7, callsign: "SAS123"}},
       commandRejections: {conflict: {command_id: "conflict", code: "revision_conflict", message: "revision changed", current_revision: 8, retryable: true}},
     });
 
@@ -327,7 +327,7 @@ describe("AMAN FMP controls", () => {
   it("shows detected go-arounds to authorized controllers and sends episode-bound decisions", () => {
     const detected = state();
     detected.flights[0].go_around_confirmation = {
-      episode_id: "flight-1/go-around/1", reason: "track_away", detected_at: "2026-07-22T12:00:00.000Z",
+      episode_id: "SAS123/go-around/1", reason: "track_away", detected_at: "2026-07-22T12:00:00.000Z",
       evidence_times: ["2026-07-22T11:59:58.000Z", "2026-07-22T11:59:59.000Z"], status: "pending",
       decided_at: null, decided_by: null, resulting_revision: null,
     };
@@ -336,14 +336,14 @@ describe("AMAN FMP controls", () => {
     expect(screen.getByRole("alert", {name: "SAS123 go-around confirmation request"})).toHaveTextContent("track away");
     fireEvent.click(screen.getByRole("button", {name: "Confirm go-around"}));
     fireEvent.click(screen.getByRole("button", {name: "Reject detection"}));
-    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.confirm_go_around", flight_id: "flight-1", episode_id: "flight-1/go-around/1"});
-    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.reject_go_around", flight_id: "flight-1", episode_id: "flight-1/go-around/1"});
+    expect(onCommand).toHaveBeenNthCalledWith(1, {type: "aman.confirm_go_around", callsign: "SAS123", episode_id: "SAS123/go-around/1"});
+    expect(onCommand).toHaveBeenNthCalledWith(2, {type: "aman.reject_go_around", callsign: "SAS123", episode_id: "SAS123/go-around/1"});
   });
 
   it("does not present detector confirmation controls without FMP authority", () => {
     const detected = state();
     detected.flights[0].go_around_confirmation = {
-      episode_id: "flight-1/go-around/1", reason: "climb", detected_at: "2026-07-22T12:00:00.000Z",
+      episode_id: "SAS123/go-around/1", reason: "climb", detected_at: "2026-07-22T12:00:00.000Z",
       evidence_times: ["2026-07-22T11:59:59.000Z"], status: "pending", decided_at: null, decided_by: null, resulting_revision: null,
     };
     renderControls({state: detected, hasFMPAuthority: false});
@@ -403,9 +403,9 @@ describe("AMAN FMP controls", () => {
     fireEvent.click(screen.getByRole("button", {name: "Insert closure"}));
     expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_runway_closure", runway_group_id: "ARRIVAL-22", start: "2026-07-22T12:10:00.000Z", end: undefined, reason: "inspection"});
     fireEvent.change(screen.getByLabelText("Closure start mode"), {target: {value: "after"}});
-    fireEvent.change(screen.getByLabelText("Closure anchor aircraft"), {target: {value: "flight-1"}});
+    fireEvent.change(screen.getByLabelText("Closure anchor aircraft"), {target: {value: "SAS123"}});
     fireEvent.click(screen.getByRole("button", {name: "Insert closure"}));
-    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_runway_closure", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", end: undefined, reason: "inspection"});
+    expect(onCommand).toHaveBeenLastCalledWith({type: "aman.create_runway_closure", runway_group_id: "ARRIVAL-22", after_callsign: "SAS123", end: undefined, reason: "inspection"});
     fireEvent.click(screen.getByRole("button", {name: /Remove closure closure-1/}));
     expect(onCommand).toHaveBeenLastCalledWith({type: "aman.remove_runway_closure", runway_group_id: "ARRIVAL-22", closure_id: "closure-1", reason: "inspection"});
   });

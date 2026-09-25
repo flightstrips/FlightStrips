@@ -8,12 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -88,75 +85,6 @@ func (r *amanRepository) ListValidationEvidence(ctx context.Context, airport str
 		})
 	}
 	return evidence, nil
-}
-
-// BindVATSIMFlight creates an opaque FlightID once for an active VATSIM flight
-// keyed by normalized network callsign across repository reconstruction. The
-// callsign lock makes concurrent observations converge even if the CID changes.
-// CID remains supporting metadata. A retired flight releases the callsign for
-// a subsequent flight to receive a different generated FlightID.
-func (r *amanRepository) BindVATSIMFlight(ctx context.Context, identity aman.VATSIMFlightIdentity) (aman.FlightID, error) {
-	identity.CurrentCallsign = strings.ToUpper(strings.TrimSpace(identity.CurrentCallsign))
-	identity.VATSIMCID = strings.TrimSpace(identity.VATSIMCID)
-	if err := identity.Validate(); err != nil {
-		return "", err
-	}
-	// Established identities need no transaction, lock or write. The slow path
-	// rechecks under the callsign lock after a miss or supporting CID change.
-	existing, lookupErr := r.activeObservationIdentity(ctx, identity.CurrentCallsign)
-	if lookupErr == nil && existing.VatsimCid == identity.VATSIMCID {
-		return aman.FlightID(existing.FlightID), nil
-	}
-	if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
-		return "", lookupErr
-	}
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	queries := r.queries.WithTx(tx)
-	if err := queries.LockAMANVATSIMObservationIdentity(ctx, identity.CurrentCallsign); err != nil {
-		return "", err
-	}
-	row, err := queries.GetActiveAMANVATSIMObservationIdentity(ctx, identity.CurrentCallsign)
-	if errors.Is(err, pgx.ErrNoRows) {
-		row, err = queries.CreateAMANVATSIMObservationIdentity(ctx, database.CreateAMANVATSIMObservationIdentityParams{
-			FlightID: uuid.NewString(), VatsimCid: identity.VATSIMCID, CurrentCallsign: identity.CurrentCallsign,
-		})
-	}
-	if err != nil {
-		return "", err
-	}
-	if row.VatsimCid != identity.VATSIMCID {
-		row, err = queries.UpdateAMANVATSIMObservationIdentityCID(ctx, database.UpdateAMANVATSIMObservationIdentityCIDParams{
-			FlightID: row.FlightID, VatsimCid: identity.VATSIMCID,
-		})
-		if err != nil {
-			return "", err
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", err
-	}
-	return aman.FlightID(row.FlightID), nil
-}
-
-// RetireVATSIMFlight releases one active identity after its owning AMAN
-// lifecycle has removed the flight. It intentionally has no callsign or CID
-// alias behavior.
-func (r *amanRepository) RetireVATSIMFlight(ctx context.Context, flightID aman.FlightID) error {
-	if strings.TrimSpace(string(flightID)) == "" {
-		return &aman.DomainError{Class: aman.ErrorInvalidArgument, Message: "flight ID is required"}
-	}
-	retired, err := r.queries.RetireAMANVATSIMObservationIdentity(ctx, string(flightID))
-	if err != nil {
-		return err
-	}
-	if retired == 0 {
-		return &aman.DomainError{Class: aman.ErrorNotFound, Message: "active VATSIM flight identity was not found"}
-	}
-	return nil
 }
 
 // Commit provides the repository's one atomic transition. A returned result
@@ -263,17 +191,15 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 			}
 			payload, err := json.Marshal(flight)
 			if err != nil {
-				return aman.CommitResult{}, fmt.Errorf("encode AMAN flight %q: %w", flight.ID, err)
+				return aman.CommitResult{}, fmt.Errorf("encode AMAN flight %q: %w", flight.Callsign, err)
 			}
-			rows.FlightIds = append(rows.FlightIds, string(flight.ID))
-			rows.VatsimCids = append(rows.VatsimCids, flight.VATSIMCID)
-			rows.Callsigns = append(rows.Callsigns, flight.CurrentCallsign)
+			rows.Callsigns = append(rows.Callsigns, flight.Callsign)
 			rows.States = append(rows.States, string(flight.State))
 			rows.DataStatuses = append(rows.DataStatuses, string(flight.DataStatus))
 			rows.UpdatedAts = append(rows.UpdatedAts, requiredTimestamp(flight.UpdatedAt))
 			rows.Payloads = append(rows.Payloads, string(payload))
 		}
-		if len(rows.FlightIds) > 0 {
+		if len(rows.Callsigns) > 0 {
 			if err := queries.UpsertAMANFlights(ctx, rows); err != nil {
 				return aman.CommitResult{}, mapAMANWriteError(err)
 			}
@@ -325,13 +251,13 @@ func (r *amanRepository) Commit(ctx context.Context, commit aman.StateCommit) (a
 }
 
 func coordinationExpiryFacts(previous, next aman.AirportState) []coordinationrequest.ExpiryFact {
-	before := make(map[aman.FlightID]aman.AMANFlight, len(previous.Flights))
+	before := make(map[aman.Callsign]aman.AMANFlight, len(previous.Flights))
 	for _, flight := range previous.Flights {
-		before[flight.ID] = flight
+		before[flight.Callsign] = flight
 	}
 	facts := make([]coordinationrequest.ExpiryFact, 0)
 	for _, flight := range next.Flights {
-		prior, exists := before[flight.ID]
+		prior, exists := before[flight.Callsign]
 		if !exists {
 			continue
 		}
@@ -349,8 +275,8 @@ func coordinationExpiryFacts(previous, next aman.AirportState) []coordinationreq
 		if reason == "" {
 			continue
 		}
-		factID := fmt.Sprintf("aman/%s/%d/%s/%s", next.Airport, next.Revision, flight.ID, reason)
-		facts = append(facts, coordinationrequest.ExpiryFact{Airport: next.Airport, FlightID: coordinationrequest.FlightID(flight.ID), FactID: factID,
+		factID := fmt.Sprintf("aman/%s/%d/%s/%s", next.Airport, next.Revision, flight.Callsign, reason)
+		facts = append(facts, coordinationrequest.ExpiryFact{Airport: next.Airport, Callsign: coordinationrequest.Callsign(flight.Callsign), FactID: factID,
 			Revision: uint64(next.Revision), Reason: reason, OccurredAt: next.GeneratedAt})
 	}
 	return facts
@@ -384,11 +310,9 @@ func loadAMANAirportState(ctx context.Context, queries *database.Queries, airpor
 		if err != nil {
 			return aman.AirportState{}, corruptAMANData("decode flight", err)
 		}
-		// Identity and lifecycle columns support database constraints; prefer them
+		// Callsign and lifecycle columns support database constraints; prefer them
 		// on load so a malformed private payload cannot bypass those guarantees.
-		flight.ID = aman.FlightID(row.FlightID)
-		flight.VATSIMCID = row.VatsimCid
-		flight.CurrentCallsign = row.CurrentCallsign
+		flight.Callsign = row.Callsign
 		flight.State = aman.FlightState(row.State)
 		flight.DataStatus = aman.DataStatus(row.DataStatus)
 		flight.UpdatedAt = timestampValue(row.UpdatedAt).UTC()
@@ -504,21 +428,13 @@ func corruptAMANData(action string, err error) error {
 	return &aman.DomainError{Class: aman.ErrorCorruptData, Message: fmt.Sprintf("%s: %v", action, err)}
 }
 
-func mapAMANWriteError(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "ux_aman_flights_active_callsign" {
-		return &aman.DomainError{Class: aman.ErrorActiveFlightConflict, Message: "active callsign already belongs to another AMAN flight"}
-	}
-	return err
-}
+func mapAMANWriteError(err error) error { return err }
 
 var (
-	_ aman.AirportStateReader          = (*amanRepository)(nil)
-	_ aman.CommandOutcomeReader        = (*amanRepository)(nil)
-	_ aman.StateCommitter              = (*amanRepository)(nil)
-	_ aman.AuditReader                 = (*amanRepository)(nil)
-	_ aman.ValidationEvidenceReader    = (*amanRepository)(nil)
-	_ aman.VATSIMFlightIdentityBinder  = (*amanRepository)(nil)
-	_ aman.VATSIMFlightIdentityRetirer = (*amanRepository)(nil)
-	_ aman.Component                   = (*amanRepository)(nil)
+	_ aman.AirportStateReader       = (*amanRepository)(nil)
+	_ aman.CommandOutcomeReader     = (*amanRepository)(nil)
+	_ aman.StateCommitter           = (*amanRepository)(nil)
+	_ aman.AuditReader              = (*amanRepository)(nil)
+	_ aman.ValidationEvidenceReader = (*amanRepository)(nil)
+	_ aman.Component                = (*amanRepository)(nil)
 )

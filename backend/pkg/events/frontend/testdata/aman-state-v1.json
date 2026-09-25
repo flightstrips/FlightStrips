@@ -10,7 +10,6 @@
     "authoritative": true,
     "flights": [
       {
-        "flight_id": "flight-123",
         "callsign": "SAS123",
         "lifecycle_state": "stable",
         "sequence_disposition": "active",
@@ -92,7 +91,6 @@
           "alert": "none",
           "flights": [
             {
-              "flight_id": "flight-123",
               "callsign": "SAS123",
               "airborne": true,
               "landing_at": "2026-07-22T10:19:00.000Z",

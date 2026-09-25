@@ -20,6 +20,10 @@ type aircraftDisconnectEntry struct {
 	callsign string
 }
 
+type euroScopeAMANStripRemover interface {
+	RemoveEuroScopeAMANStrip(context.Context, int32, string) error
+}
+
 // scheduleAircraftDisconnect starts a worker that removes the strip after the given
 // delay, unless cancelAircraftDisconnect stops and joins it first. Duplicate schedules
 // leave the existing worker in charge.
@@ -106,6 +110,19 @@ func (hub *Hub) runAircraftDisconnect(ctx context.Context, key string, entry *ai
 					slog.Any("error", err))
 				wait = aircraftDisconnectRetryDelay
 				continue
+			}
+			if remover, ok := hub.stripService.(euroScopeAMANStripRemover); ok {
+				if err := remover.RemoveEuroScopeAMANStrip(ctx, entry.session, entry.callsign); err != nil {
+					if ctx.Err() != nil {
+						return
+					}
+					slog.Warn("Failed to retract EuroScope AMAN strip after retained disconnect; retrying",
+						slog.String("callsign", entry.callsign),
+						slog.Int("session", int(entry.session)),
+						slog.Any("error", err))
+					wait = aircraftDisconnectRetryDelay
+					continue
+				}
 			}
 			hub.aircraftDisconnectMu.Lock()
 			if ctx.Err() != nil || hub.aircraftDisconnectTimers[key] != entry {

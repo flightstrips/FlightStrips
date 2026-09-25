@@ -120,7 +120,15 @@ func (s *reconciliationTestStrips) Delete(_ context.Context, session int32, call
 type reconciliationTestSessions struct{ items []*models.Session }
 
 func (s reconciliationTestSessions) List(context.Context) ([]*models.Session, error) {
-	return s.items, nil
+	items := make([]*models.Session, 0, len(s.items))
+	for _, item := range s.items {
+		copy := *item
+		if copy.Name == "" {
+			copy.Name = "LIVE"
+		}
+		items = append(items, &copy)
+	}
+	return items, nil
 }
 
 type reconciliationTestAssignments struct {
@@ -396,7 +404,7 @@ func TestReconcileContinuesAfterSessionFailure(t *testing.T) {
 	}
 	reconciler := newTestReconciler(
 		newReconciliationTestCache(now),
-		reconciliationTestSessions{items: []*models.Session{{ID: 1, Name: "broken", Airport: "EKCH"}, {ID: 2, Name: "healthy", Airport: "EKCH"}}},
+		reconciliationTestSessions{items: []*models.Session{{ID: 1, Name: "LIVE", Airport: "EKCH"}, {ID: 2, Name: "LIVE", Airport: "EKCH"}}},
 		strips,
 		reconciliationTestAssignments{},
 		nil,
@@ -405,7 +413,7 @@ func TestReconcileContinuesAfterSessionFailure(t *testing.T) {
 
 	err := reconciler.Reconcile(context.Background())
 
-	require.ErrorContains(t, err, "reconcile session 1 (broken)")
+	require.ErrorContains(t, err, "reconcile session 1 (LIVE)")
 	assert.Equal(t, []int32{1, 2}, strips.listed)
 }
 
@@ -680,6 +688,21 @@ func TestRetainsStripHonorsReservationExpiry(t *testing.T) {
 
 	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS1"), "an active reservation keeps the strip alive")
 	assert.False(t, reconciler.RetainsStrip(context.Background(), 7, "SAS2"), "an expired reservation no longer retains the strip")
+}
+
+func TestRetainsStripUsesPublicFeedOnlyForLiveSessions(t *testing.T) {
+	now := time.Date(2026, 7, 12, 10, 0, 0, 0, time.UTC)
+	cache := newReconciliationTestCache(now, Flight{CID: "1234567", Callsign: "SAS123", State: FlightStateOnline})
+	sessions := reconciliationTestSessions{items: []*models.Session{
+		{ID: 7, Name: "LIVE", Airport: "EKCH"},
+		{ID: 8, Name: "PLAYBACK", Airport: "EKCH"},
+		{ID: 9, Name: "SWEATBOX", Airport: "EKCH"},
+	}}
+	reconciler := newTestReconciler(cache, sessions, &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}, reconciliationTestAssignments{}, nil, time.Second)
+
+	assert.True(t, reconciler.RetainsStrip(context.Background(), 7, "SAS123"))
+	assert.False(t, reconciler.RetainsStrip(context.Background(), 8, "SAS123"))
+	assert.False(t, reconciler.RetainsStrip(context.Background(), 9, "SAS123"))
 }
 
 func TestRetainsStripWhileArrivalLifecycleOwnsTheAssignment(t *testing.T) {

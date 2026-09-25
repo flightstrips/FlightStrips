@@ -9,7 +9,6 @@ const now = new Date("2026-09-11T10:00:00.000Z");
 
 function entry(callsign: string, eat: string | null, clearedAltitude: number | null): AMANHoldingEntry {
   return {
-    flight_id: callsign.toLowerCase(),
     callsign,
     holding: "OLPIB",
     eat,

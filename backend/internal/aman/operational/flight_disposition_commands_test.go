@@ -25,7 +25,7 @@ func TestDesequenceAndResumeAreAuditedDurableAndEarliestLegal(t *testing.T) {
 	repository := dispositionRepository(now, group, target, leader)
 	actions := dispositionActions(t, repository, now)
 	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
-	desequence := aman.DesequenceFlightCommand{Metadata: aman.CommandMetadata{CommandID: "dseq-1", ExpectedRevision: 5}, FlightID: target.ID}
+	desequence := aman.DesequenceFlightCommand{Metadata: aman.CommandMetadata{CommandID: "dseq-1", ExpectedRevision: 5}, Callsign: target.Callsign}
 
 	accepted, err := actions.DesequenceFlight(context.Background(), auth, desequence)
 	require.NoError(t, err)
@@ -44,13 +44,13 @@ func TestDesequenceAndResumeAreAuditedDurableAndEarliestLegal(t *testing.T) {
 	require.Len(t, repository.commits, 1)
 
 	_, err = restarted.ResumeFlight(context.Background(), auth, aman.ResumeFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "stale-resume", ExpectedRevision: 5}, FlightID: target.ID,
+		Metadata: aman.CommandMetadata{CommandID: "stale-resume", ExpectedRevision: 5}, Callsign: target.Callsign,
 	})
 	requireDomainErrorClass(t, err, aman.ErrorRevisionConflict)
 
 	auth.ReceivedAt = now.Add(2 * time.Second)
 	resumed, err := restarted.ResumeFlight(context.Background(), auth, aman.ResumeFlightCommand{
-		Metadata: aman.CommandMetadata{CommandID: "resume-1", ExpectedRevision: 6}, FlightID: target.ID,
+		Metadata: aman.CommandMetadata{CommandID: "resume-1", ExpectedRevision: 6}, Callsign: target.Callsign,
 	})
 	require.NoError(t, err)
 	require.True(t, resumed.Changed)
@@ -83,7 +83,7 @@ func TestDesequenceAuditsAutomaticSuperstablePromotion(t *testing.T) {
 	}
 	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
 	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
-	mutation, err := service.DesequenceFlight(auth, aman.DesequenceFlightCommand{FlightID: source.ID})
+	mutation, err := service.DesequenceFlight(auth, aman.DesequenceFlightCommand{Callsign: source.Callsign})
 	require.NoError(t, err)
 	change, err := mutation(state)
 	require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestDesequenceAuditsAutomaticSuperstablePromotion(t *testing.T) {
 	source.Lifecycle = &aman.LifecycleState{EnteredAt: now.Add(-time.Hour), Reason: aman.LifecycleReasonStableHorizon,
 		LastEventID: "stable", LastEventFingerprint: "test", LastEventAt: now.Add(-time.Minute)}
 	state.Flights[0] = source
-	remove, err := service.RemoveFlight(auth, aman.RemoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "remove-source"}, FlightID: source.ID})
+	remove, err := service.RemoveFlight(auth, aman.RemoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "remove-source"}, Callsign: source.Callsign})
 	require.NoError(t, err)
 	change, err = remove(state)
 	require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestResumeNoCapacityRollsBackAtomically(t *testing.T) {
 
 	_, err := actions.ResumeFlight(context.Background(), aman.CommandContext{
 		Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now,
-	}, aman.ResumeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "no-capacity", ExpectedRevision: 5}, FlightID: flight.ID})
+	}, aman.ResumeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "no-capacity", ExpectedRevision: 5}, Callsign: flight.Callsign})
 	requireDomainErrorClass(t, err, aman.ErrorInvalidTransition)
 	require.Equal(t, before, repository.state)
 	require.Empty(t, repository.commits)
@@ -129,7 +129,7 @@ func TestRemoveFlightUsesLifecycleAndPersistsIdempotentAudit(t *testing.T) {
 	repository := dispositionRepository(now, group, flight)
 	actions := dispositionActions(t, repository, now)
 	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
-	command := aman.RemoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "remove-1", ExpectedRevision: 5}, FlightID: flight.ID}
+	command := aman.RemoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "remove-1", ExpectedRevision: 5}, Callsign: flight.Callsign}
 
 	removed, err := actions.RemoveFlight(context.Background(), auth, command)
 	require.NoError(t, err)
@@ -171,15 +171,15 @@ func TestFlightDispositionCommandsRejectSpoofablePayloadsAndNonFMP(t *testing.T)
 	unauthorized := aman.CommandContext{Airport: "EKCH", Actor: "7654321", Role: "EKCH_TWR", ReceivedAt: now}
 	for name, invoke := range map[string]func(*sequence.ActionService) error{
 		"desequence": func(actions *sequence.ActionService) error {
-			_, err := actions.DesequenceFlight(context.Background(), unauthorized, aman.DesequenceFlightCommand{Metadata: aman.CommandMetadata{CommandID: "unauthorized-dseq", ExpectedRevision: 5}, FlightID: "DSEQ"})
+			_, err := actions.DesequenceFlight(context.Background(), unauthorized, aman.DesequenceFlightCommand{Metadata: aman.CommandMetadata{CommandID: "unauthorized-dseq", ExpectedRevision: 5}, Callsign: "DSEQ"})
 			return err
 		},
 		"resume": func(actions *sequence.ActionService) error {
-			_, err := actions.ResumeFlight(context.Background(), unauthorized, aman.ResumeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "unauthorized-resume", ExpectedRevision: 5}, FlightID: "DSEQ"})
+			_, err := actions.ResumeFlight(context.Background(), unauthorized, aman.ResumeFlightCommand{Metadata: aman.CommandMetadata{CommandID: "unauthorized-resume", ExpectedRevision: 5}, Callsign: "DSEQ"})
 			return err
 		},
 		"remove": func(actions *sequence.ActionService) error {
-			_, err := actions.RemoveFlight(context.Background(), unauthorized, aman.RemoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "unauthorized-remove", ExpectedRevision: 5}, FlightID: "DSEQ"})
+			_, err := actions.RemoveFlight(context.Background(), unauthorized, aman.RemoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "unauthorized-remove", ExpectedRevision: 5}, Callsign: "DSEQ"})
 			return err
 		},
 	} {
@@ -194,8 +194,8 @@ func TestFlightDispositionCommandsRejectSpoofablePayloadsAndNonFMP(t *testing.T)
 func dispositionFlight(id string, group aman.RunwayGroupID, teta, slotAt time.Time, order int) aman.AMANFlight {
 	star := "MONAK"
 	return aman.AMANFlight{
-		ID: aman.FlightID(id), VATSIMCID: "CID-" + id, CurrentCallsign: id,
-		State: aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone,
+		Callsign: id,
+		State:    aman.StateStable, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone,
 		Prediction: &aman.Prediction{
 			RawTETA: teta, OperationalTETA: teta, OperationalReason: aman.OperationalReasonPredicted,
 			GeneratedAt: teta.Add(-time.Minute), InputObservedAt: teta.Add(-time.Minute), Confidence: aman.ConfidenceHigh, Publishable: true,

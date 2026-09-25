@@ -22,13 +22,13 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 		return Decision{}, err
 	}
 	working := cloneInput(input)
-	targetIndex, target, err := activeFlight(working, command.FlightID)
+	targetIndex, target, err := activeFlight(working, command.Callsign)
 	if err != nil {
 		return Decision{}, err
 	}
-	anchorID := command.BeforeFlightID
+	anchorID := command.BeforeCallsign
 	if anchorID == nil {
-		anchorID = command.AfterFlightID
+		anchorID = command.AfterCallsign
 	}
 	_, anchor, err := activeFlight(working, *anchorID)
 	if err != nil {
@@ -51,24 +51,24 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 		return Decision{}, invalidTransition("move cannot start from a conflicting protected sequence")
 	}
 	order := groupOrder(current, command.RunwayGroupID)
-	from, anchorAt := slices.Index(order, command.FlightID), slices.Index(order, *anchorID)
+	from, anchorAt := slices.Index(order, command.Callsign), slices.Index(order, *anchorID)
 	if from < 0 || anchorAt < 0 {
 		return Decision{}, notFound("move flight or anchor has no active slot")
 	}
 	order = slices.Delete(order, from, from+1)
 	anchorAt = slices.Index(order, *anchorID)
 	insertAt := anchorAt
-	if command.AfterFlightID != nil {
+	if command.AfterCallsign != nil {
 		insertAt++
 	}
-	order = slices.Insert(order, insertAt, command.FlightID)
+	order = slices.Insert(order, insertAt, command.Callsign)
 
 	for position, id := range order {
 		index := flightIndex(working.Flights, id)
 		value := position + 1
 		working.Flights[index].ManualOrder = &value
 	}
-	working.Flights[targetIndex].ManualOrder = intPointer(slices.Index(order, command.FlightID) + 1)
+	working.Flights[targetIndex].ManualOrder = intPointer(slices.Index(order, command.Callsign) + 1)
 
 	candidate, err := Generate(working)
 	if err != nil {
@@ -78,8 +78,8 @@ func ApplyMove(input Input, command MoveFlightCommand) (Decision, error) {
 		return Decision{}, invalidTransition("move would conflict with a protected slot")
 	}
 	wantOrder := groupOrder(candidate, command.RunwayGroupID)
-	targetAt, finalAnchorAt := slices.Index(wantOrder, command.FlightID), slices.Index(wantOrder, *anchorID)
-	validAnchor := command.BeforeFlightID != nil && targetAt+1 == finalAnchorAt || command.AfterFlightID != nil && finalAnchorAt+1 == targetAt
+	targetAt, finalAnchorAt := slices.Index(wantOrder, command.Callsign), slices.Index(wantOrder, *anchorID)
+	validAnchor := command.BeforeCallsign != nil && targetAt+1 == finalAnchorAt || command.AfterCallsign != nil && finalAnchorAt+1 == targetAt
 	if !validAnchor {
 		return Decision{}, invalidTransition("move cannot satisfy the requested anchor under rate and WTC policy")
 	}
@@ -91,7 +91,7 @@ func ApplyManualFreeze(input Input, command ApplyManualFreezeCommand) (Decision,
 		return Decision{}, err
 	}
 	working := cloneInput(input)
-	index, flight, err := activeFlight(working, command.FlightID)
+	index, flight, err := activeFlight(working, command.Callsign)
 	if err != nil {
 		return Decision{}, err
 	}
@@ -121,7 +121,7 @@ func ReleaseManualFreeze(input Input, command ReleaseManualFreezeCommand) (Decis
 		return Decision{}, err
 	}
 	working := cloneInput(input)
-	index, flight, err := activeFlight(working, command.FlightID)
+	index, flight, err := activeFlight(working, command.Callsign)
 	if err != nil {
 		return Decision{}, err
 	}
@@ -185,7 +185,7 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 		return Decision{}, err
 	}
 	working := cloneInput(input)
-	targetIndex, target, err := activeFlight(working, command.FlightID)
+	targetIndex, target, err := activeFlight(working, command.Callsign)
 	if err != nil {
 		return Decision{}, err
 	}
@@ -208,7 +208,7 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 	var moving preparedFlight
 	entries := make([]allocatedEntry, 0, len(groupFlights))
 	for _, flight := range groupFlights {
-		if flight.ID == target.ID {
+		if flight.Callsign == target.Callsign {
 			moving = flight
 			continue
 		}
@@ -216,12 +216,12 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 			continue
 		}
 		if flight.CurrentSlot == nil {
-			return Decision{}, invalidTransition(fmt.Sprintf("go-around cascade requires current slot for flight %q", flight.ID))
+			return Decision{}, invalidTransition(fmt.Sprintf("go-around cascade requires current slot for flight %q", flight.Callsign))
 		}
 		slot := flight.CurrentSlot
 		if flight.FreezeReason != aman.FreezeNone {
 			if flight.CapturedSlot == nil {
-				return Decision{}, invalidTransition(fmt.Sprintf("frozen flight %q has no captured slot", flight.ID))
+				return Decision{}, invalidTransition(fmt.Sprintf("frozen flight %q has no captured slot", flight.Callsign))
 			}
 			slot = flight.CapturedSlot
 		}
@@ -236,7 +236,7 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 
 	earliest := command.DetectedAt.Add(policy.Delay)
 	var allocated []allocatedEntry
-	var cascaded map[aman.FlightID]struct{}
+	var cascaded map[aman.Callsign]struct{}
 	for attempts := 0; attempts <= len(entries)+1; attempts++ {
 		candidate, ok := nextGridAtOrAfter(groupPolicy, earliest)
 		if !ok {
@@ -260,7 +260,7 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 	working.Flights[targetIndex].CapturedSlot = nil
 	working.Flights[targetIndex].ManualOrder = nil
 
-	result, err := resultWithGoAroundGroup(working, target.RunwayGroupID, allocated, target.ID)
+	result, err := resultWithGoAroundGroup(working, target.RunwayGroupID, allocated, target.Callsign)
 	if err != nil {
 		return Decision{}, err
 	}
@@ -268,14 +268,14 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 		if entry.RunwayGroupID != target.RunwayGroupID {
 			continue
 		}
-		index := flightIndex(working.Flights, entry.FlightID)
+		index := flightIndex(working.Flights, entry.Callsign)
 		working.Flights[index].ManualOrder = intPointer(entry.Sequence)
 	}
 	for _, entry := range result.Entries {
-		if _, moved := cascaded[entry.FlightID]; !moved {
+		if _, moved := cascaded[entry.Callsign]; !moved {
 			continue
 		}
-		index := flightIndex(working.Flights, entry.FlightID)
+		index := flightIndex(working.Flights, entry.Callsign)
 		if working.Flights[index].FreezeReason == aman.FreezeSuperstable || working.Flights[index].FreezeReason == aman.FreezeTMA {
 			working.Flights[index].CapturedSlot = &aman.Slot{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence, Revision: input.Revision, Reason: string(entry.Reason)}
 		}
@@ -283,7 +283,7 @@ func ApplyGoAround(input Input, policy GoAroundPolicy, command ApplyGoAroundComm
 	return Decision{Input: working, Candidate: result, Changed: true}, nil
 }
 
-func cascadeGoAround(policy preparedPolicy, current []allocatedEntry, moving preparedFlight, candidate time.Time, limit int) ([]allocatedEntry, map[aman.FlightID]struct{}, time.Time, error) {
+func cascadeGoAround(policy preparedPolicy, current []allocatedEntry, moving preparedFlight, candidate time.Time, limit int) ([]allocatedEntry, map[aman.Callsign]struct{}, time.Time, error) {
 	index := sort.Search(len(current), func(i int) bool { return !current[i].time.Before(candidate) })
 	if index > 0 {
 		leading := current[index-1]
@@ -295,7 +295,7 @@ func cascadeGoAround(policy preparedPolicy, current []allocatedEntry, moving pre
 	result := append([]allocatedEntry(nil), current[:index]...)
 	last := allocatedEntry{flight: moving, time: candidate, reason: ReasonGoAround}
 	result = append(result, last)
-	cascaded := map[aman.FlightID]struct{}{}
+	cascaded := map[aman.Callsign]struct{}{}
 	for position := index; position < len(current); position++ {
 		next := current[position]
 		if adjacentValid(policy, last, next) {
@@ -323,16 +323,16 @@ func cascadeGoAround(policy preparedPolicy, current []allocatedEntry, moving pre
 		next.reason = ReasonGoAroundCascade
 		result = append(result, next)
 		last = next
-		cascaded[next.flight.ID] = struct{}{}
+		cascaded[next.flight.Callsign] = struct{}{}
 	}
 	return result, cascaded, time.Time{}, nil
 }
 
-func resultWithGoAroundGroup(input Input, group aman.RunwayGroupID, allocated []allocatedEntry, target aman.FlightID) (Result, error) {
+func resultWithGoAroundGroup(input Input, group aman.RunwayGroupID, allocated []allocatedEntry, target aman.Callsign) (Result, error) {
 	result := Result{Entries: []CandidateEntry{}, Movements: []SlotMovement{}, Warnings: []Warning{}}
 	for index, entry := range allocated {
-		candidate := CandidateEntry{FlightID: entry.flight.ID, RunwayGroupID: group, Sequence: index + 1, Time: entry.time, OperationalTETA: entry.flight.OperationalTETA, WakeCategory: entry.flight.category, FreezeReason: entry.flight.FreezeReason, Protected: entry.flight.FreezeReason != aman.FreezeNone, Reason: entry.reason}
-		if entry.flight.ID == target {
+		candidate := CandidateEntry{Callsign: entry.flight.Callsign, RunwayGroupID: group, Sequence: index + 1, Time: entry.time, OperationalTETA: entry.flight.OperationalTETA, WakeCategory: entry.flight.category, FreezeReason: entry.flight.FreezeReason, Protected: entry.flight.FreezeReason != aman.FreezeNone, Reason: entry.reason}
+		if entry.flight.Callsign == target {
 			candidate.FreezeReason, candidate.Protected, candidate.Reason = aman.FreezeNone, false, ReasonGoAround
 		}
 		result.Entries = append(result.Entries, candidate)
@@ -340,7 +340,7 @@ func resultWithGoAroundGroup(input Input, group aman.RunwayGroupID, allocated []
 			result.Movements = append(result.Movements, *movement)
 		}
 		if !entry.flight.known {
-			result.Warnings = append(result.Warnings, Warning{Severity: SeverityDegraded, Code: WarningUnknownWakeCategory, RunwayGroupID: group, FlightID: entry.flight.ID})
+			result.Warnings = append(result.Warnings, Warning{Severity: SeverityDegraded, Code: WarningUnknownWakeCategory, RunwayGroupID: group, Callsign: entry.flight.Callsign})
 		}
 	}
 	for _, policy := range input.Policies {
@@ -371,7 +371,7 @@ func resultWithGoAroundGroup(input Input, group aman.RunwayGroupID, allocated []
 		if result.Movements[i].RunwayGroupID != result.Movements[j].RunwayGroupID {
 			return result.Movements[i].RunwayGroupID < result.Movements[j].RunwayGroupID
 		}
-		return result.Movements[i].FlightID < result.Movements[j].FlightID
+		return result.Movements[i].Callsign < result.Movements[j].Callsign
 	})
 	sortWarnings(result.Warnings)
 	return result, nil
@@ -402,7 +402,7 @@ func cloneInput(input Input) Input {
 	return copy
 }
 
-func activeFlight(input Input, id aman.FlightID) (int, Flight, error) {
+func activeFlight(input Input, id aman.Callsign) (int, Flight, error) {
 	index := flightIndex(input.Flights, id)
 	if index < 0 {
 		return -1, Flight{}, notFound(fmt.Sprintf("flight %q was not found", id))
@@ -414,11 +414,11 @@ func activeFlight(input Input, id aman.FlightID) (int, Flight, error) {
 	return index, flight, nil
 }
 
-func groupOrder(result Result, group aman.RunwayGroupID) []aman.FlightID {
-	values := []aman.FlightID{}
+func groupOrder(result Result, group aman.RunwayGroupID) []aman.Callsign {
+	values := []aman.Callsign{}
 	for _, entry := range result.Entries {
 		if entry.RunwayGroupID == group {
-			values = append(values, entry.FlightID)
+			values = append(values, entry.Callsign)
 		}
 	}
 	return values
@@ -440,8 +440,8 @@ func protectedReason(flight preparedFlight) CandidateReason {
 	return ReasonRateWTC
 }
 
-func flightIndex(flights []Flight, id aman.FlightID) int {
-	return slices.IndexFunc(flights, func(flight Flight) bool { return flight.ID == id })
+func flightIndex(flights []Flight, id aman.Callsign) int {
+	return slices.IndexFunc(flights, func(flight Flight) bool { return flight.Callsign == id })
 }
 
 func cloneSlot(value *aman.Slot) *aman.Slot {

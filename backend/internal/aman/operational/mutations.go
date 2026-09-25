@@ -21,9 +21,9 @@ import (
 // release a freeze, or apply a client-selected order.
 func (s *Service) RecomputeFlight(ctx context.Context, auth aman.CommandContext, command aman.RecomputeFlightCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, command.FlightID)
+		index := flightIndex(state.Flights, command.Callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		current := state.Flights[index]
 		if current.State == aman.StateLanded || current.State == aman.StateRemoved {
@@ -46,7 +46,7 @@ func (s *Service) RecomputeFlight(ctx context.Context, auth aman.CommandContext,
 		// A completed calculation is itself an authoritative state change even
 		// when policy retains the same TETA. This allocates and publishes the
 		// confirming revision that resolves the client's pending command.
-		change, err := s.commandChange(state, true, "recompute_flight", command.FlightID, map[string]any{
+		change, err := s.commandChange(state, true, "recompute_flight", command.Callsign, map[string]any{
 			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role,
 			"received_at": auth.ReceivedAt, "input_observed_at": observation.ReconciledAt,
 		})
@@ -61,16 +61,16 @@ const DefaultGoAroundDelay = 10 * time.Minute
 
 func (s *Service) MoveFlight(_ aman.CommandContext, command aman.MoveFlightCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, command.FlightID)
+		index := flightIndex(state.Flights, command.Callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
-		decision, err := sequence.ApplyMove(s.sequenceInput(state), sequence.MoveFlightCommand{Metadata: command.Metadata, FlightID: command.FlightID, RunwayGroupID: command.RunwayGroupID, BeforeFlightID: command.BeforeFlightID, AfterFlightID: command.AfterFlightID})
+		decision, err := sequence.ApplyMove(s.sequenceInput(state), sequence.MoveFlightCommand{Metadata: command.Metadata, Callsign: command.Callsign, RunwayGroupID: command.RunwayGroupID, BeforeCallsign: command.BeforeCallsign, AfterCallsign: command.AfterCallsign})
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
-		return s.commandChange(s.applyDecision(state, decision), decision.Changed, "move_flight", command.FlightID, nil)
+		return s.commandChange(s.applyDecision(state, decision), decision.Changed, "move_flight", command.Callsign, nil)
 	}, nil
 }
 
@@ -81,9 +81,9 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 		}
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, command.FlightID)
+		index := flightIndex(state.Flights, command.Callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		flight := state.Flights[index]
 		if flight.State == aman.StatePlanned || flight.State == aman.StateLanded || flight.State == aman.StateRemoved ||
@@ -150,11 +150,11 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 		if overridden != nil {
 			gapID = overridden.ID
 			placed.RunwayGapException = &aman.RunwayGapException{
-				GapID: gapID, FlightID: placed.ID, RunwayGroupID: command.RunwayGroupID,
+				GapID: gapID, Callsign: placed.Callsign, RunwayGroupID: command.RunwayGroupID,
 				Opportunity: command.SlotTime, CommandID: command.Metadata.CommandID,
 			}
 		}
-		return s.commandChange(candidate, true, "place_flight_at_time", command.FlightID, map[string]any{
+		return s.commandChange(candidate, true, "place_flight_at_time", command.Callsign, map[string]any{
 			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 			"prior_slot": priorSlot, "new_slot": placed.Slot, "allow_gap": command.AllowGap, "overridden_gap_id": gapID,
 		})
@@ -166,9 +166,9 @@ func (s *Service) PlaceFlightAtTime(auth aman.CommandContext, command aman.Place
 // incompatible or conflicting candidates never reach persistence.
 func (s *Service) ChangeRunway(auth aman.CommandContext, command aman.ChangeRunwayCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, command.FlightID)
+		index := flightIndex(state.Flights, command.Callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		flight := state.Flights[index]
 		if flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
@@ -186,7 +186,7 @@ func (s *Service) ChangeRunway(auth aman.CommandContext, command aman.ChangeRunw
 		}
 		beforeGroup := flight.SelectedRunwayGroup
 		if beforeGroup != nil && *beforeGroup == command.RunwayGroupID {
-			return s.commandChange(state, false, "change_runway", command.FlightID, map[string]any{
+			return s.commandChange(state, false, "change_runway", command.Callsign, map[string]any{
 				"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 				"before_runway_group_id": *beforeGroup, "after_runway_group_id": command.RunwayGroupID,
 			})
@@ -214,16 +214,16 @@ func (s *Service) ChangeRunway(auth aman.CommandContext, command aman.ChangeRunw
 		displaced := make([]map[string]any, 0)
 		for i, before := range state.Flights {
 			after := candidate.Flights[i]
-			if before.ID == command.FlightID || reflect.DeepEqual(before.Slot, after.Slot) {
+			if before.Callsign == command.Callsign || reflect.DeepEqual(before.Slot, after.Slot) {
 				continue
 			}
-			displaced = append(displaced, map[string]any{"flight_id": before.ID, "before_slot": before.Slot, "after_slot": after.Slot})
+			displaced = append(displaced, map[string]any{"callsign": before.Callsign, "before_slot": before.Slot, "after_slot": after.Slot})
 		}
 		beforeID := aman.RunwayGroupID("")
 		if beforeGroup != nil {
 			beforeID = *beforeGroup
 		}
-		return s.commandChange(candidate, true, "change_runway", command.FlightID, map[string]any{
+		return s.commandChange(candidate, true, "change_runway", command.Callsign, map[string]any{
 			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 			"before_runway_group_id": beforeID, "after_runway_group_id": command.RunwayGroupID, "displacements": displaced,
 		})
@@ -240,14 +240,14 @@ func retargetSlot(slot *aman.Slot, group aman.RunwayGroupID) *aman.Slot {
 }
 
 func (s *Service) LockFlight(auth aman.CommandContext, command aman.LockFlightCommand) (sequence.CommandMutation, error) {
-	return s.sequenceMutation("lock_flight", command.FlightID, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
-		return sequence.ApplyManualFreeze(input, sequence.ApplyManualFreezeCommand{Metadata: command.Metadata, FlightID: command.FlightID, At: auth.ReceivedAt})
+	return s.sequenceMutation("lock_flight", command.Callsign, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
+		return sequence.ApplyManualFreeze(input, sequence.ApplyManualFreezeCommand{Metadata: command.Metadata, Callsign: command.Callsign, At: auth.ReceivedAt})
 	}), nil
 }
 
 func (s *Service) UnlockFlight(auth aman.CommandContext, command aman.UnlockFlightCommand) (sequence.CommandMutation, error) {
-	return s.sequenceMutation("unlock_flight", command.FlightID, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
-		return sequence.ReleaseManualFreeze(input, sequence.ReleaseManualFreezeCommand{Metadata: command.Metadata, FlightID: command.FlightID, At: auth.ReceivedAt})
+	return s.sequenceMutation("unlock_flight", command.Callsign, auth.ReceivedAt, func(input sequence.Input) (sequence.Decision, error) {
+		return sequence.ReleaseManualFreeze(input, sequence.ReleaseManualFreezeCommand{Metadata: command.Metadata, Callsign: command.Callsign, At: auth.ReceivedAt})
 	}), nil
 }
 
@@ -256,9 +256,9 @@ func (s *Service) DesequenceFlight(auth aman.CommandContext, command aman.Desequ
 		return nil, err
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, command.FlightID)
+		index := flightIndex(state.Flights, command.Callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		before := state.Flights[index]
 		if before.State == aman.StateRemoved {
@@ -282,9 +282,9 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 		return nil, err
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, command.FlightID)
+		index := flightIndex(state.Flights, command.Callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		before := state.Flights[index]
 		if before.SequenceDisposition.Participates() {
@@ -302,7 +302,7 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 		candidate.Flights[index].SequenceDisposition = aman.SequenceDispositionActive
 		input := s.sequenceInput(candidate)
 		for i := range input.Flights {
-			if input.Flights[i].ID != command.FlightID {
+			if input.Flights[i].Callsign != command.Callsign {
 				continue
 			}
 			input.Flights[i].FreezeReason, input.Flights[i].FrozenAt = aman.FreezeNone, nil
@@ -314,7 +314,7 @@ func (s *Service) ResumeFlight(auth aman.CommandContext, command aman.ResumeFlig
 		if err != nil || result.HasConflicts() {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "resume could not produce a complete legal sequence"}
 		}
-		if !slices.ContainsFunc(result.Entries, func(entry sequence.CandidateEntry) bool { return entry.FlightID == command.FlightID }) {
+		if !slices.ContainsFunc(result.Entries, func(entry sequence.CandidateEntry) bool { return entry.Callsign == command.Callsign }) {
 			return sequence.CommandChange{}, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "resume could not produce a complete legal sequence"}
 		}
 		candidate = s.applyDecision(candidate, sequence.Decision{Input: input, Candidate: result, Changed: true})
@@ -337,9 +337,9 @@ func (s *Service) RemoveFlight(auth aman.CommandContext, command aman.RemoveFlig
 		return nil, err
 	}
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, command.FlightID)
+		index := flightIndex(state.Flights, command.Callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		before := state.Flights[index]
 		result, err := lifecycle.Reduce(lifecycle.DefaultConfig(), before, lifecycle.Event{
@@ -367,7 +367,7 @@ func (s *Service) authorizeFlightDisposition(auth aman.CommandContext) error {
 }
 
 func (s *Service) dispositionChange(state aman.AirportState, changed bool, action string, auth aman.CommandContext, before, after aman.AMANFlight) (sequence.CommandChange, error) {
-	return s.commandChange(state, changed, action, before.ID, map[string]any{
+	return s.commandChange(state, changed, action, before.Callsign, map[string]any{
 		"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 		"before_disposition": before.SequenceDisposition.OrDefault(), "after_disposition": after.SequenceDisposition.OrDefault(),
 		"before_slot": slotAudit(before.Slot), "after_slot": slotAudit(after.Slot), "before_state": before.State, "after_state": after.State,
@@ -457,11 +457,11 @@ func (s *Service) SelectRunwayGroup(auth aman.CommandContext, command aman.Selec
 			},
 		)
 		scheduleChanged := !reflect.DeepEqual(before, state.RunwayGroups[groupIndex].SelectionSchedule)
-		protected := []aman.FlightID{}
+		protected := []aman.Callsign{}
 		for _, flight := range state.Flights {
 			if flight.SelectedRunwayGroup != nil && *flight.SelectedRunwayGroup != command.RunwayGroupID &&
 				(flight.State == aman.StateStable || flight.FreezeReason != aman.FreezeNone) {
-				protected = append(protected, flight.ID)
+				protected = append(protected, flight.Callsign)
 			}
 		}
 		selected, selectionChanged := selectedRunwayGroupAt(state.RunwayGroups, auth.ReceivedAt)
@@ -473,7 +473,7 @@ func (s *Service) SelectRunwayGroup(auth aman.CommandContext, command aman.Selec
 			clearRunwayGroupSelectionConflicts(state.RunwayGroups)
 		}
 		return s.commandChange(state, scheduleChanged || selectionChanged, "select_runway_group", "", map[string]any{
-			"runway_group_id": command.RunwayGroupID, "effective_at": command.EffectiveAt, "protected_flight_ids": protected,
+			"runway_group_id": command.RunwayGroupID, "effective_at": command.EffectiveAt, "protected_callsigns": protected,
 		})
 	}, nil
 }
@@ -520,8 +520,8 @@ func (s *Service) SetActiveRunwayGroups(auth aman.CommandContext, command aman.S
 		return s.commandChange(state, changed, "set_active_runway_groups", "", map[string]any{
 			"runway_group_ids": ordered, "airport": auth.Airport, "actor": auth.Actor,
 			"role": auth.Role, "received_at": auth.ReceivedAt,
-			"protected_incompatible_flight_ids":   protectedIncompatible,
-			"desequenced_incompatible_flight_ids": desequencedIncompatible,
+			"protected_incompatible_callsigns":   protectedIncompatible,
+			"desequenced_incompatible_callsigns": desequencedIncompatible,
 		})
 	}, nil
 }
@@ -556,7 +556,7 @@ func (s *Service) CreateRunwayGap(auth aman.CommandContext, command aman.CreateR
 			"runway_group_id": command.RunwayGroupID, "gap_id": merged.Union.ID, "label": merged.Union.Label,
 			"before_interval": gapIntervalAudit(interval.Start(), interval.End()),
 			"after_interval":  gapIntervalAudit(merged.Union.Start, merged.Union.End), "replaced_ids": merged.ReplacedIDs,
-			"displaced_flight_ids": gapDisplacementIDs(displacements),
+			"displaced_callsigns": gapDisplacementIDs(displacements),
 		})
 		if err != nil {
 			return sequence.CommandChange{}, err
@@ -568,7 +568,7 @@ func (s *Service) CreateRunwayGap(auth aman.CommandContext, command aman.CreateR
 		for _, displacement := range displacements {
 			payload, marshalErr := json.Marshal(map[string]any{
 				"action": "runway_gap_displacement", "gap_id": merged.Union.ID,
-				"runway_group_id": command.RunwayGroupID, "flight_id": displacement.FlightID,
+				"runway_group_id": command.RunwayGroupID, "callsign": displacement.Callsign,
 				"previous_opportunity": displacement.Previous, "new_opportunity": displacement.New,
 				"overridden_protection_reason": displacement.ProtectionReason,
 			})
@@ -588,25 +588,25 @@ type gapOpportunity struct {
 }
 
 type gapDisplacement struct {
-	FlightID         aman.FlightID
+	Callsign         aman.Callsign
 	Previous         gapOpportunity
 	New              gapOpportunity
 	ProtectionReason string
 }
 
 func (s *Service) displaceFlightsFromRunwayGap(state *aman.AirportState, groupID aman.RunwayGroupID, gap aman.RunwayGap) ([]gapDisplacement, error) {
-	affected := make(map[aman.FlightID]struct{})
-	cascade := make(map[aman.FlightID]gapDisplacement)
+	affected := make(map[aman.Callsign]struct{})
+	cascade := make(map[aman.Callsign]gapDisplacement)
 	for _, flight := range state.Flights {
 		if flight.SelectedRunwayGroup == nil || *flight.SelectedRunwayGroup != groupID || flight.Slot == nil || flight.Slot.Time.Before(gap.Start) {
 			continue
 		}
-		cascade[flight.ID] = gapDisplacement{
-			FlightID: flight.ID, Previous: gapOpportunity{Time: flight.Slot.Time, RunwayGroupID: flight.Slot.RunwayGroupID, Sequence: flight.Slot.Sequence},
+		cascade[flight.Callsign] = gapDisplacement{
+			Callsign: flight.Callsign, Previous: gapOpportunity{Time: flight.Slot.Time, RunwayGroupID: flight.Slot.RunwayGroupID, Sequence: flight.Slot.Sequence},
 			ProtectionReason: gapProtectionReason(flight),
 		}
 		if flight.Slot.Time.Before(gap.End) {
-			affected[flight.ID] = struct{}{}
+			affected[flight.Callsign] = struct{}{}
 		}
 	}
 	if len(affected) == 0 {
@@ -621,8 +621,8 @@ func (s *Service) displaceFlightsFromRunwayGap(state *aman.AirportState, groupID
 			break
 		}
 	}
-	original := make(map[aman.FlightID]sequence.Flight, len(cascade))
-	orderedIDs := make([]aman.FlightID, 0, len(cascade))
+	original := make(map[aman.Callsign]sequence.Flight, len(cascade))
+	orderedIDs := make([]aman.Callsign, 0, len(cascade))
 	for id := range cascade {
 		orderedIDs = append(orderedIDs, id)
 	}
@@ -636,25 +636,25 @@ func (s *Service) displaceFlightsFromRunwayGap(state *aman.AirportState, groupID
 		}
 		return orderedIDs[i] < orderedIDs[j]
 	})
-	sequenceOrder := make(map[aman.FlightID]int, len(orderedIDs))
+	sequenceOrder := make(map[aman.Callsign]int, len(orderedIDs))
 	for index, id := range orderedIDs {
 		sequenceOrder[id] = index + 1
 	}
 	for index := range input.Flights {
-		displacement, cascades := cascade[input.Flights[index].ID]
+		displacement, cascades := cascade[input.Flights[index].Callsign]
 		if !cascades {
 			continue
 		}
-		original[input.Flights[index].ID] = input.Flights[index]
+		original[input.Flights[index].Callsign] = input.Flights[index]
 		input.Flights[index].FreezeReason = aman.FreezeNone
 		input.Flights[index].FrozenAt = nil
 		input.Flights[index].FrozenOperationalTETA = nil
 		input.Flights[index].CapturedSlot = nil
 		input.Flights[index].ProtectCurrentSlot = false
-		order := sequenceOrder[input.Flights[index].ID]
+		order := sequenceOrder[input.Flights[index].Callsign]
 		input.Flights[index].ManualOrder = &order
 		earliest := displacement.Previous.Time.Add(earlyTolerance).Add(time.Nanosecond)
-		if _, directlyAffected := affected[input.Flights[index].ID]; directlyAffected && gap.End.After(earliest) {
+		if _, directlyAffected := affected[input.Flights[index].Callsign]; directlyAffected && gap.End.After(earliest) {
 			earliest = gap.End
 		}
 		if input.Flights[index].OperationalTETA.Before(earliest) {
@@ -670,15 +670,15 @@ func (s *Service) displaceFlightsFromRunwayGap(state *aman.AirportState, groupID
 		return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "runway GAP cannot produce a legal atomic sequence"}
 	}
 	for _, entry := range result.Entries {
-		displacement, cascades := cascade[entry.FlightID]
+		displacement, cascades := cascade[entry.Callsign]
 		if !cascades {
 			continue
 		}
-		if _, directlyAffected := affected[entry.FlightID]; directlyAffected && entry.Time.Before(gap.End) {
+		if _, directlyAffected := affected[entry.Callsign]; directlyAffected && entry.Time.Before(gap.End) {
 			return nil, &aman.DomainError{Class: aman.ErrorInvalidTransition, Message: "runway GAP displacement did not produce a later opportunity"}
 		}
 		displacement.New = gapOpportunity{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence}
-		cascade[entry.FlightID] = displacement
+		cascade[entry.Callsign] = displacement
 	}
 	ordered := make([]gapDisplacement, 0, len(cascade))
 	for id, displacement := range cascade {
@@ -690,15 +690,15 @@ func (s *Service) displaceFlightsFromRunwayGap(state *aman.AirportState, groupID
 		}
 		ordered = append(ordered, displacement)
 	}
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].FlightID < ordered[j].FlightID })
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Callsign < ordered[j].Callsign })
 	for index := range input.Flights {
-		if saved, affected := original[input.Flights[index].ID]; affected {
+		if saved, affected := original[input.Flights[index].Callsign]; affected {
 			input.Flights[index] = saved
 		}
 	}
 	*state = s.applyDecision(*state, sequence.Decision{Input: input, Candidate: result, Changed: true})
 	for index := range state.Flights {
-		if _, cascades := cascade[state.Flights[index].ID]; cascades && state.Flights[index].FreezeReason != aman.FreezeNone {
+		if _, cascades := cascade[state.Flights[index].Callsign]; cascades && state.Flights[index].FreezeReason != aman.FreezeNone {
 			state.Flights[index].FrozenSlot = retargetSlot(state.Flights[index].Slot, groupID)
 		}
 	}
@@ -718,10 +718,10 @@ func gapProtectionReason(flight aman.AMANFlight) string {
 	return "none"
 }
 
-func gapDisplacementIDs(displacements []gapDisplacement) []aman.FlightID {
-	ids := make([]aman.FlightID, len(displacements))
+func gapDisplacementIDs(displacements []gapDisplacement) []aman.Callsign {
+	ids := make([]aman.Callsign, len(displacements))
 	for index := range displacements {
-		ids[index] = displacements[index].FlightID
+		ids[index] = displacements[index].Callsign
 	}
 	return ids
 }
@@ -785,7 +785,7 @@ func gapIntervalAudit(start, end time.Time) map[string]time.Time {
 	return map[string]time.Time{"start": start, "end": end}
 }
 
-func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, active []aman.RunwayGroupID, at time.Time) ([]aman.FlightID, []aman.FlightID, error) {
+func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, active []aman.RunwayGroupID, at time.Time) ([]aman.Callsign, []aman.Callsign, error) {
 	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
 	input := s.sequenceInput(*state)
 	working := input
@@ -796,8 +796,8 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 	}
 
 	movable := make([]sequence.Flight, 0, len(input.Flights))
-	protectedIncompatible := make([]aman.FlightID, 0)
-	desequencedIncompatible := make([]aman.FlightID, 0)
+	protectedIncompatible := make([]aman.Callsign, 0)
+	desequencedIncompatible := make([]aman.Callsign, 0)
 	for _, flight := range state.Flights {
 		if flight.SelectedRunwayGroup == nil || (flight.State != aman.StateStable && flight.FreezeReason == aman.FreezeNone) ||
 			flight.State == aman.StateLanded || flight.State == aman.StateRemoved {
@@ -805,11 +805,11 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 		}
 		_, isActive := activeSet[*flight.SelectedRunwayGroup]
 		if !isActive || !s.runwayAssignmentCompatible(flight, *flight.SelectedRunwayGroup) {
-			protectedIncompatible = append(protectedIncompatible, flight.ID)
+			protectedIncompatible = append(protectedIncompatible, flight.Callsign)
 		}
 	}
 	for _, flight := range input.Flights {
-		index := flightIndex(state.Flights, flight.ID)
+		index := flightIndex(state.Flights, flight.Callsign)
 		if index < 0 {
 			continue
 		}
@@ -824,11 +824,11 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 		if !movable[i].OperationalTETA.Equal(movable[j].OperationalTETA) {
 			return movable[i].OperationalTETA.Before(movable[j].OperationalTETA)
 		}
-		return movable[i].ID < movable[j].ID
+		return movable[i].Callsign < movable[j].Callsign
 	})
 
 	for _, flight := range movable {
-		index := flightIndex(state.Flights, flight.ID)
+		index := flightIndex(state.Flights, flight.Callsign)
 		var selected aman.RunwayGroupID
 		var earliest time.Time
 		for _, group := range active {
@@ -846,7 +846,7 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 				continue
 			}
 			for _, entry := range result.Entries {
-				if entry.FlightID == flight.ID && (selected == "" || entry.Time.Before(earliest)) {
+				if entry.Callsign == flight.Callsign && (selected == "" || entry.Time.Before(earliest)) {
 					selected, earliest = group, entry.Time
 					break
 				}
@@ -855,7 +855,7 @@ func (s *Service) reconcileActiveRunwayAssignments(state *aman.AirportState, act
 		if selected == "" {
 			state.Flights[index].SequenceDisposition = aman.SequenceDispositionDesequenced
 			state.Flights[index].UpdatedAt = at
-			desequencedIncompatible = append(desequencedIncompatible, flight.ID)
+			desequencedIncompatible = append(desequencedIncompatible, flight.Callsign)
 			continue
 		}
 		assignFlightToRunwayGroup(&state.Flights[index], selected)
@@ -943,7 +943,7 @@ func (s *Service) activateRunwayGroup(state *aman.AirportState, selected aman.Ru
 			if warning.RunwayGroupID == selected && warning.Severity == sequence.SeverityConflict {
 				return &aman.DomainError{
 					Class:   aman.ErrorInvalidTransition,
-					Message: fmt.Sprintf("%s: protected flight %q conflicts with the requested runway selection", warning.Code, warning.FlightID),
+					Message: fmt.Sprintf("%s: protected flight %q conflicts with the requested runway selection", warning.Code, warning.Callsign),
 				}
 			}
 		}
@@ -1000,21 +1000,21 @@ func reassignFlightsToGroup(state *aman.AirportState, selected aman.RunwayGroupI
 }
 
 func (s *Service) AcceptTETA(auth aman.CommandContext, command aman.AcceptTETACommand) (sequence.CommandMutation, error) {
-	return s.flightMutation("accept_teta", command.FlightID, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+	return s.flightMutation("accept_teta", command.Callsign, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
 		result, err := etareview.ResolveAcceptCalculated(flight, etareview.AcceptCalculated{At: auth.ReceivedAt, Actor: auth.Actor})
 		return result.Flight, result.Changed, err
 	}), nil
 }
 
 func (s *Service) KeepFPLETA(auth aman.CommandContext, command aman.KeepFPLETACommand) (sequence.CommandMutation, error) {
-	return s.flightMutation("keep_fpl_eta", command.FlightID, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+	return s.flightMutation("keep_fpl_eta", command.Callsign, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
 		result, err := etareview.ResolveKeepInitial(flight, etareview.KeepInitial{At: auth.ReceivedAt, Actor: auth.Actor})
 		return result.Flight, result.Changed, err
 	}), nil
 }
 
 func (s *Service) SetManualETA(auth aman.CommandContext, command aman.SetManualETACommand) (sequence.CommandMutation, error) {
-	return s.flightMutation("set_manual_eta", command.FlightID, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+	return s.flightMutation("set_manual_eta", command.Callsign, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
 		if flight.ETAReview != nil && flight.ETAReview.Status == aman.ReviewPending {
 			result, err := etareview.ResolveSetManual(flight, etareview.SetManual{At: auth.ReceivedAt, Actor: auth.Actor, ManualTETA: command.ManualETA})
 			return result.Flight, result.Changed, err
@@ -1025,7 +1025,7 @@ func (s *Service) SetManualETA(auth aman.CommandContext, command aman.SetManualE
 }
 
 func (s *Service) ResetTETAOverride(auth aman.CommandContext, command aman.ResetTETAOverrideCommand) (sequence.CommandMutation, error) {
-	return s.flightMutation("reset_teta_override", command.FlightID, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
+	return s.flightMutation("reset_teta_override", command.Callsign, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
 		if flight.ETAReview != nil && flight.ETAReview.Status != aman.ReviewNone {
 			result, err := etareview.ResolveReset(prediction.DefaultConfig(), flight, etareview.Reset{At: auth.ReceivedAt, Actor: auth.Actor})
 			return result.Flight, result.Changed, err
@@ -1039,7 +1039,7 @@ func (s *Service) SetManualFeederETA(auth aman.CommandContext, command aman.SetM
 	if err := command.Validate(); err != nil {
 		return nil, err
 	}
-	return s.flightMutationWithAudit("set_manual_feeder_eta", command.FlightID, map[string]any{
+	return s.flightMutationWithAudit("set_manual_feeder_eta", command.Callsign, map[string]any{
 		"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt, "feeder_eta": command.FeederETA,
 	}, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
 		if flight.SelectedFeederFix == nil {
@@ -1066,7 +1066,7 @@ func (s *Service) ResetManualFeederETA(auth aman.CommandContext, command aman.Re
 	if err := command.Validate(); err != nil {
 		return nil, err
 	}
-	return s.flightMutationWithAudit("reset_manual_feeder_eta", command.FlightID, map[string]any{
+	return s.flightMutationWithAudit("reset_manual_feeder_eta", command.Callsign, map[string]any{
 		"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
 	}, func(flight aman.AMANFlight) (aman.AMANFlight, bool, error) {
 		if flight.FeederETA == nil || flight.FeederETA.Source != aman.FeederETASourceManual {
@@ -1080,9 +1080,9 @@ func (s *Service) ResetManualFeederETA(auth aman.CommandContext, command aman.Re
 
 func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGoAroundCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, command.FlightID)
+		index := flightIndex(state.Flights, command.Callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(command.FlightID)
+			return sequence.CommandChange{}, domainNotFound(command.Callsign)
 		}
 		flight := state.Flights[index]
 		activeEpisode := flight.GoAroundDetection != nil && flight.GoAroundDetection.AwaitingReset
@@ -1100,7 +1100,7 @@ func (s *Service) ReportGoAround(auth aman.CommandContext, command aman.ReportGo
 
 func (s *Service) ConfirmGoAround(auth aman.CommandContext, command aman.ConfirmGoAroundCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index, pending, err := pendingGoAround(state, command.FlightID, command.EpisodeID)
+		index, pending, err := pendingGoAround(state, command.Callsign, command.EpisodeID)
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
@@ -1110,7 +1110,7 @@ func (s *Service) ConfirmGoAround(auth aman.CommandContext, command aman.Confirm
 
 func (s *Service) RejectGoAround(auth aman.CommandContext, command aman.RejectGoAroundCommand) (sequence.CommandMutation, error) {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index, _, err := pendingGoAround(state, command.FlightID, command.EpisodeID)
+		index, _, err := pendingGoAround(state, command.Callsign, command.EpisodeID)
 		if err != nil {
 			return sequence.CommandChange{}, err
 		}
@@ -1123,14 +1123,14 @@ func (s *Service) RejectGoAround(auth aman.CommandContext, command aman.RejectGo
 		resolved.ResultingRevision = &revision
 		flight.GoAroundConfirmation = &resolved
 		flight.UpdatedAt = auth.ReceivedAt
-		return commandChange(state, true, "reject_go_around", command.FlightID, map[string]any{"episode_id": command.EpisodeID, "reason": resolved.Reason, "detected_at": resolved.DetectedAt, "evidence_times": resolved.EvidenceTimes, "decision": "rejected", "actor": auth.Actor, "resulting_revision": revision})
+		return commandChange(state, true, "reject_go_around", command.Callsign, map[string]any{"episode_id": command.EpisodeID, "reason": resolved.Reason, "detected_at": resolved.DetectedAt, "evidence_times": resolved.EvidenceTimes, "decision": "rejected", "actor": auth.Actor, "resulting_revision": revision})
 	}, nil
 }
 
-func pendingGoAround(state aman.AirportState, flightID aman.FlightID, episodeID string) (int, *aman.GoAroundConfirmation, error) {
-	index := flightIndex(state.Flights, flightID)
+func pendingGoAround(state aman.AirportState, callsign aman.Callsign, episodeID string) (int, *aman.GoAroundConfirmation, error) {
+	index := flightIndex(state.Flights, callsign)
 	if index < 0 {
-		return -1, nil, domainNotFound(flightID)
+		return -1, nil, domainNotFound(callsign)
 	}
 	pending := state.Flights[index].GoAroundConfirmation
 	if pending == nil || pending.Status != aman.GoAroundConfirmationPending || pending.EpisodeID != episodeID {
@@ -1176,7 +1176,7 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 	flight.GoAroundDetection.ThresholdCrossed, flight.GoAroundDetection.AwaitingReset = false, true
 	flight.GoAroundDetection.LastControllerCommandID = metadata.CommandID
 	input := s.sequenceInput(state)
-	decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: DefaultGoAroundDelay, MaxCascade: len(input.Flights) + 1}, sequence.ApplyGoAroundCommand{Metadata: metadata, FlightID: flight.ID, DetectedAt: detectedAt})
+	decision, err := sequence.ApplyGoAround(input, sequence.GoAroundPolicy{Delay: DefaultGoAroundDelay, MaxCascade: len(input.Flights) + 1}, sequence.ApplyGoAroundCommand{Metadata: metadata, Callsign: flight.Callsign, DetectedAt: detectedAt})
 	if err != nil {
 		return sequence.CommandChange{}, err
 	}
@@ -1193,10 +1193,10 @@ func (s *Service) applyConfirmedGoAround(state aman.AirportState, index int, aut
 			captureTMAFreeze(updated, auth.ReceivedAt)
 		}
 	}
-	return s.commandChange(state, true, action, flight.ID, extra)
+	return s.commandChange(state, true, action, flight.Callsign, extra)
 }
 
-func (s *Service) sequenceMutation(action string, flightID aman.FlightID, at time.Time, apply func(sequence.Input) (sequence.Decision, error)) sequence.CommandMutation {
+func (s *Service) sequenceMutation(action string, callsign aman.Callsign, at time.Time, apply func(sequence.Input) (sequence.Decision, error)) sequence.CommandMutation {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
 		decision, err := apply(s.sequenceInput(state))
 		if err != nil {
@@ -1207,21 +1207,21 @@ func (s *Service) sequenceMutation(action string, flightID aman.FlightID, at tim
 		if decision.Changed {
 			promotions = s.resequence(&state, at)
 		}
-		change, err := s.commandChange(state, decision.Changed, action, flightID, nil)
+		change, err := s.commandChange(state, decision.Changed, action, callsign, nil)
 		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
 		return change, err
 	}
 }
 
-func (s *Service) flightMutation(action string, flightID aman.FlightID, apply func(aman.AMANFlight) (aman.AMANFlight, bool, error)) sequence.CommandMutation {
-	return s.flightMutationWithAudit(action, flightID, nil, apply)
+func (s *Service) flightMutation(action string, callsign aman.Callsign, apply func(aman.AMANFlight) (aman.AMANFlight, bool, error)) sequence.CommandMutation {
+	return s.flightMutationWithAudit(action, callsign, nil, apply)
 }
 
-func (s *Service) flightMutationWithAudit(action string, flightID aman.FlightID, extra map[string]any, apply func(aman.AMANFlight) (aman.AMANFlight, bool, error)) sequence.CommandMutation {
+func (s *Service) flightMutationWithAudit(action string, callsign aman.Callsign, extra map[string]any, apply func(aman.AMANFlight) (aman.AMANFlight, bool, error)) sequence.CommandMutation {
 	return func(state aman.AirportState) (sequence.CommandChange, error) {
-		index := flightIndex(state.Flights, flightID)
+		index := flightIndex(state.Flights, callsign)
 		if index < 0 {
-			return sequence.CommandChange{}, domainNotFound(flightID)
+			return sequence.CommandChange{}, domainNotFound(callsign)
 		}
 		updated, changed, err := apply(state.Flights[index])
 		if err != nil {
@@ -1233,14 +1233,14 @@ func (s *Service) flightMutationWithAudit(action string, flightID aman.FlightID,
 		if changed {
 			promotions = s.resequence(&state, updated.UpdatedAt)
 		}
-		change, err := s.commandChange(state, changed, action, flightID, extra)
+		change, err := s.commandChange(state, changed, action, callsign, extra)
 		change.Audit = append(change.Audit, vacancyPromotionAuditEntries(promotions)...)
 		return change, err
 	}
 }
 
-func (s *Service) commandChange(state aman.AirportState, changed bool, action string, flightID aman.FlightID, extra map[string]any) (sequence.CommandChange, error) {
-	change, err := commandChange(state, changed, action, flightID, extra)
+func (s *Service) commandChange(state aman.AirportState, changed bool, action string, callsign aman.Callsign, extra map[string]any) (sequence.CommandChange, error) {
+	change, err := commandChange(state, changed, action, callsign, extra)
 	if err != nil || !changed {
 		return change, err
 	}
@@ -1253,23 +1253,23 @@ func (s *Service) commandChange(state aman.AirportState, changed bool, action st
 
 func (s *Service) applyDecision(state aman.AirportState, decision sequence.Decision) aman.AirportState {
 	state.Flights = append([]aman.AMANFlight(nil), state.Flights...)
-	inputFlights := make(map[aman.FlightID]sequence.Flight, len(decision.Input.Flights))
+	inputFlights := make(map[aman.Callsign]sequence.Flight, len(decision.Input.Flights))
 	for _, flight := range decision.Input.Flights {
-		inputFlights[flight.ID] = flight
+		inputFlights[flight.Callsign] = flight
 	}
-	entries := make(map[aman.FlightID]sequence.CandidateEntry, len(decision.Candidate.Entries))
+	entries := make(map[aman.Callsign]sequence.CandidateEntry, len(decision.Candidate.Entries))
 	for _, entry := range decision.Candidate.Entries {
-		entries[entry.FlightID] = entry
+		entries[entry.Callsign] = entry
 	}
 	for i := range state.Flights {
-		if input, ok := inputFlights[state.Flights[i].ID]; ok {
+		if input, ok := inputFlights[state.Flights[i].Callsign]; ok {
 			state.Flights[i].FreezeReason = input.FreezeReason
 			state.Flights[i].FrozenAt = input.FrozenAt
 			state.Flights[i].FrozenOperationalTETA = input.FrozenOperationalTETA
 			state.Flights[i].FrozenSlot = input.CapturedSlot
 			state.Flights[i].ManualOrder = input.ManualOrder
 		}
-		if entry, ok := entries[state.Flights[i].ID]; ok {
+		if entry, ok := entries[state.Flights[i].Callsign]; ok {
 			state.Flights[i].Slot = &aman.Slot{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence, Revision: state.Revision, Reason: string(entry.Reason)}
 			order := entry.Sequence
 			state.Flights[i].Order = &order
@@ -1301,10 +1301,10 @@ func clearInvalidRunwayGapExceptions(state *aman.AirportState) {
 	}
 }
 
-func commandChange(state aman.AirportState, changed bool, action string, flightID aman.FlightID, extra map[string]any) (sequence.CommandChange, error) {
+func commandChange(state aman.AirportState, changed bool, action string, callsign aman.Callsign, extra map[string]any) (sequence.CommandChange, error) {
 	payload := map[string]any{"action": action, "changed": changed}
-	if flightID != "" {
-		payload["flight_id"] = flightID
+	if callsign != "" {
+		payload["callsign"] = callsign
 	}
 	for key, value := range extra {
 		payload[key] = value
@@ -1316,9 +1316,9 @@ func commandChange(state aman.AirportState, changed bool, action string, flightI
 	return sequence.CommandChange{State: state, Changed: changed, Outcome: encoded, Audit: []sequence.AuditEntry{{Category: "aman." + action, Payload: encoded}}}, nil
 }
 
-func flightIndex(flights []aman.AMANFlight, id aman.FlightID) int {
+func flightIndex(flights []aman.AMANFlight, id aman.Callsign) int {
 	for index := range flights {
-		if flights[index].ID == id {
+		if flights[index].Callsign == id {
 			return index
 		}
 	}
@@ -1327,7 +1327,7 @@ func flightIndex(flights []aman.AMANFlight, id aman.FlightID) int {
 
 func timePointer(value time.Time) *time.Time { return &value }
 
-func domainNotFound(id aman.FlightID) error {
+func domainNotFound(id aman.Callsign) error {
 	return &aman.DomainError{Class: aman.ErrorNotFound, Message: fmt.Sprintf("AMAN flight %q was not found", id)}
 }
 

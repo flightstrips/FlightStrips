@@ -107,8 +107,8 @@ type AMANWarning struct {
 	Severity        string  `json:"severity"`
 	Code            string  `json:"code"`
 	RunwayGroupID   *string `json:"runway_group_id,omitempty"`
-	FlightID        *string `json:"flight_id,omitempty"`
-	RelatedFlightID *string `json:"related_flight_id,omitempty"`
+	Callsign        *string `json:"callsign,omitempty"`
+	RelatedCallsign *string `json:"related_callsign,omitempty"`
 	Message         string  `json:"message"`
 }
 
@@ -141,7 +141,6 @@ func ProjectAMANTimelineConfig(version string, mappings []navdata.TimelineMappin
 }
 
 type AMANHoldingEntry struct {
-	FlightID        string  `json:"flight_id"`
 	Callsign        string  `json:"callsign"`
 	Holding         string  `json:"holding"`
 	EAT             *string `json:"eat"`
@@ -182,7 +181,6 @@ type AMANTrafficSelectedRate struct {
 }
 
 type AMANTrafficFlight struct {
-	FlightID     string `json:"flight_id"`
 	Callsign     string `json:"callsign"`
 	Airborne     bool   `json:"airborne"`
 	LandingAt    string `json:"landing_at"`
@@ -191,7 +189,6 @@ type AMANTrafficFlight struct {
 }
 
 type AMANFlight struct {
-	FlightID            string  `json:"flight_id"`
 	Callsign            string  `json:"callsign"`
 	AircraftType        *string `json:"aircraft_type,omitempty"`
 	WakeCategory        *string `json:"wake_category,omitempty"`
@@ -289,7 +286,7 @@ type AMANETAReview struct {
 }
 
 type AMANQueueOffer struct {
-	FlightID        string   `json:"flight_id"`
+	Callsign        string   `json:"callsign"`
 	RunwayGroupID   string   `json:"runway_group_id"`
 	CandidateSlot   AMANSlot `json:"candidate_slot"`
 	QueuePosition   int      `json:"queue_position"`
@@ -340,8 +337,8 @@ type AMANRunwayClosure struct {
 
 type AMANRunwayGroupSequenceWarning struct {
 	Code            string `json:"code"`
-	FlightID        string `json:"flight_id"`
-	RelatedFlightID string `json:"related_flight_id"`
+	Callsign        string `json:"callsign"`
+	RelatedCallsign string `json:"related_callsign"`
 	STARFamily      string `json:"star_family"`
 }
 
@@ -431,7 +428,7 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 	for i := range state.Flights {
 		data.Flights[i], err = mapAMANFlight(state.GeneratedAt, state.Flights[i])
 		if err != nil {
-			return AMANStateEvent{}, fmt.Errorf("map AMAN flight %q: %w", state.Flights[i].ID, err)
+			return AMANStateEvent{}, fmt.Errorf("map AMAN flight %q: %w", state.Flights[i].Callsign, err)
 		}
 	}
 	for i, group := range state.RunwayGroups {
@@ -475,7 +472,7 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		}
 		for warningIndex, warning := range group.SequenceWarnings {
 			mapped.SequenceWarnings[warningIndex] = AMANRunwayGroupSequenceWarning{
-				Code: warning.Code, FlightID: string(warning.FlightID), RelatedFlightID: string(warning.RelatedFlightID), STARFamily: warning.STARFamily,
+				Code: warning.Code, Callsign: string(warning.Callsign), RelatedCallsign: string(warning.RelatedCallsign), STARFamily: warning.STARFamily,
 			}
 		}
 		for selectionIndex, selection := range group.SelectionSchedule {
@@ -542,7 +539,7 @@ func mapAMANWarnings(snapshot aman.WarningSnapshot) []AMANWarning {
 		result[index] = AMANWarning{
 			ID: warning.ID, Source: string(warning.Source), Component: stringPointer(warning.Component),
 			Severity: string(warning.Severity), Code: warning.Code, RunwayGroupID: stringPointer(warning.RunwayGroupID),
-			FlightID: stringPointer(warning.FlightID), RelatedFlightID: stringPointer(warning.RelatedFlightID), Message: warning.Message,
+			Callsign: stringPointer(warning.Callsign), RelatedCallsign: stringPointer(warning.RelatedCallsign), Message: warning.Message,
 		}
 	}
 	return result
@@ -556,7 +553,7 @@ func mapAMANHoldingInformation(model holdingclearance.ReadModel) ([]AMANHoldingE
 			return nil, err
 		}
 		result[index] = AMANHoldingEntry{
-			FlightID: string(entry.FlightID), Callsign: entry.Callsign, Holding: entry.Holding,
+			Callsign: entry.Callsign, Holding: entry.Holding,
 			ClearedAltitude: cloneInt32(entry.ClearedAltitude), SourceStatus: string(entry.SourceStatus), ObservedAt: observedAt,
 		}
 		if entry.EAT != nil {
@@ -618,7 +615,7 @@ func mapAMANTrafficPrediction(model trafficprediction.ReadModel) (AMANTrafficPre
 			if landingErr != nil {
 				return AMANTrafficPrediction{}, landingErr
 			}
-			mapped.Flights[flightIndex] = AMANTrafficFlight{FlightID: string(flight.FlightID), Callsign: flight.Callsign, Airborne: flight.Airborne, LandingAt: landingAt, TimingSource: string(flight.TimingSource), DataStatus: string(flight.DataStatus)}
+			mapped.Flights[flightIndex] = AMANTrafficFlight{Callsign: flight.Callsign, Airborne: flight.Airborne, LandingAt: landingAt, TimingSource: string(flight.TimingSource), DataStatus: string(flight.DataStatus)}
 		}
 		result.Buckets[index] = mapped
 	}
@@ -641,7 +638,7 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		return AMANFlight{}, err
 	}
 	result := AMANFlight{
-		FlightID: string(flight.ID), Callsign: flight.CurrentCallsign, LifecycleState: string(flight.State),
+		Callsign: flight.Callsign, LifecycleState: string(flight.State),
 		SequenceDisposition: string(flight.SequenceDisposition.OrDefault()),
 		DataStatus:          string(flight.DataStatus), RunwayGroupID: stringPointer(flight.SelectedRunwayGroup),
 		Feeder: cloneString(flight.SelectedFeeder), Star: cloneString(flight.SelectedFeeder),
@@ -781,7 +778,7 @@ func mapAMANFlight(generatedAt time.Time, flight aman.AMANFlight) (AMANFlight, e
 		if formatErr != nil {
 			return AMANFlight{}, formatErr
 		}
-		result.QueueOffers[i] = AMANQueueOffer{FlightID: string(offer.FlightID), RunwayGroupID: string(offer.RunwayGroupID), CandidateSlot: candidate, QueuePosition: offer.QueuePosition, ExpiresAt: expiresAt, AirportRevision: uint64(offer.AirportRevision), Reason: string(offer.Reason)}
+		result.QueueOffers[i] = AMANQueueOffer{Callsign: string(offer.Callsign), RunwayGroupID: string(offer.RunwayGroupID), CandidateSlot: candidate, QueuePosition: offer.QueuePosition, ExpiresAt: expiresAt, AirportRevision: uint64(offer.AirportRevision), Reason: string(offer.Reason)}
 	}
 	return result, nil
 }

@@ -664,7 +664,7 @@ func routeDistance(snapshot navdata.ActiveGeometrySnapshot, from, to navdata.Fix
 	return wgs84NM(fixes[from], fixes[to])
 }
 func validFlight(now time.Time) aman.AMANFlight {
-	return aman.AMANFlight{ID: "f", VATSIMCID: "1", CurrentCallsign: "SAS1", State: aman.StateAirborne, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now}
+	return aman.AMANFlight{Callsign: "SAS1", State: aman.StateAirborne, DataStatus: aman.DataFresh, FreezeReason: aman.FreezeNone, UpdatedAt: now}
 }
 
 type fixtureReader struct {

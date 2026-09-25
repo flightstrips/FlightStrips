@@ -466,7 +466,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
            command_id: commandID,
            type: message.type,
            expected_revision: message.data.expected_revision,
-           ...("flight_id" in message.data ? {flight_id: message.data.flight_id} : {}),
+           ...("callsign" in message.data ? {callsign: message.data.callsign} : {}),
            ...("runway_group_id" in message.data ? {runway_group_id: message.data.runway_group_id} : {}),
            ...("runway_group_ids" in message.data ? {runway_group_ids: message.data.runway_group_ids} : {}),
            ...("arrivals_per_hour" in message.data ? {arrivals_per_hour: message.data.arrivals_per_hour} : {}),

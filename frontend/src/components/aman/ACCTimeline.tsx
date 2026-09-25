@@ -43,7 +43,7 @@ export function ACCTimeline({flights, runwayGroups = [], range, clockMs, current
                 className="absolute z-20 flex min-h-7 -translate-x-full -translate-y-1/2 items-center"
                 data-marker-time={marker.timestamp}
                 data-sequence={marker.flight.order ?? marker.flight.slot?.sequence ?? undefined}
-                key={marker.flight.flight_id}
+                key={marker.flight.callsign}
                 role="listitem"
                 style={{left: `calc(50% - ${AMAN_TIMELINE_RULER_HALF_WIDTH}px)`, top: `calc(${top}% + ${offset}px)`}}
               >

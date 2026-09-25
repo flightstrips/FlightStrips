@@ -126,10 +126,10 @@ export function AMANSettingsHeader({accViewOptions = [], connectionState, comman
           <DialogTitle className={designTitleClass}>Desequenced</DialogTitle>
           <div className="grid min-h-24 gap-1 px-4 py-3">
             {desequencedFlights.length === 0 && <p className="place-self-center text-sm">No desequenced aircraft</p>}
-            {desequencedFlights.map((flight) => <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2" key={flight.flight_id}>
+            {desequencedFlights.map((flight) => <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2" key={flight.callsign}>
               <b>{flight.callsign}</b>
-              <button className="border border-[#dcdcdc] bg-[#6b7f9f] px-3 py-1 text-sm font-bold hover:bg-[#a3d5e8] disabled:opacity-50" disabled={blocked} onClick={() => onCommand({type: "aman.resume_flight", flight_id: flight.flight_id})} type="button">RESUME</button>
-              <button className="border border-[#dcdcdc] bg-[#6b7f9f] px-3 py-1 text-sm font-bold hover:bg-[#a3d5e8] disabled:opacity-50" disabled={blocked} onClick={() => { if (window.confirm(`Remove ${flight.callsign} from AMAN? This cannot be resumed.`)) onCommand({type: "aman.remove_flight", flight_id: flight.flight_id}); }} type="button">REMOVE</button>
+              <button className="border border-[#dcdcdc] bg-[#6b7f9f] px-3 py-1 text-sm font-bold hover:bg-[#a3d5e8] disabled:opacity-50" disabled={blocked} onClick={() => onCommand({type: "aman.resume_flight", callsign: flight.callsign})} type="button">RESUME</button>
+              <button className="border border-[#dcdcdc] bg-[#6b7f9f] px-3 py-1 text-sm font-bold hover:bg-[#a3d5e8] disabled:opacity-50" disabled={blocked} onClick={() => { if (window.confirm(`Remove ${flight.callsign} from AMAN? This cannot be resumed.`)) onCommand({type: "aman.remove_flight", callsign: flight.callsign}); }} type="button">REMOVE</button>
             </div>)}
           </div>
         </DialogContent>

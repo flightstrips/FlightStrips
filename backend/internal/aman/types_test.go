@@ -471,29 +471,19 @@ func TestBaselineStateRejectsCorruptHeldProvenance(t *testing.T) {
 	assertInvalidArgument(t, baseline.Validate())
 }
 
-func TestFlightCallsignCorrectionKeepsFlightIDAndVATSIMCID(t *testing.T) {
+func TestFlightCallsignIsTheIdentity(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	flight := validFlight(now)
-	originalID := flight.ID
-	originalCID := flight.VATSIMCID
-
-	flight.CurrentCallsign = "SAS124"
+	flight.Callsign = "SAS124"
 	if err := flight.Validate(); err != nil {
-		t.Fatalf("validate corrected callsign: %v", err)
-	}
-	if flight.ID != originalID || flight.VATSIMCID != originalCID {
-		t.Fatalf("callsign correction changed stable identity: ID=%q CID=%q", flight.ID, flight.VATSIMCID)
+		t.Fatalf("validate callsign identity: %v", err)
 	}
 }
 
-func TestActiveFlightRejectsEmptyOrUntrimmedProviderIdentity(t *testing.T) {
+func TestActiveFlightRejectsUntrimmedCallsign(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	flight := validFlight(now)
-	flight.VATSIMCID = ""
-	assertInvalidArgument(t, flight.Validate())
-
-	flight = validFlight(now)
-	flight.CurrentCallsign = " SAS123"
+	flight.Callsign = " SAS123"
 	assertInvalidArgument(t, flight.Validate())
 }
 
@@ -553,7 +543,7 @@ func TestQueueOfferRequiresMatchingFlightSlotAndAirportRevision(t *testing.T) {
 	flight := validFlight(now)
 	flight.Slot = &Slot{Time: now.Add(3 * time.Minute), RunwayGroupID: "north", Sequence: 3, Revision: 4, Reason: "rate_wtc"}
 	flight.QueueOffers = []QueueOffer{{
-		FlightID: flight.ID, RunwayGroupID: "north",
+		Callsign: flight.Callsign, RunwayGroupID: "north",
 		CandidateSlot: Slot{Time: now.Add(time.Minute), RunwayGroupID: "north", Sequence: 1, Revision: 4, Reason: "rate_wtc"},
 		QueuePosition: 1, ExpiresAt: now.Add(time.Minute), AirportRevision: 4, Reason: QueueOfferEarlierOccupiedSlot,
 	}}
@@ -568,9 +558,9 @@ func TestQueueOfferRequiresMatchingFlightSlotAndAirportRevision(t *testing.T) {
 	state.Flights[0].QueueOffers[0].AirportRevision = 3
 	assertInvalidArgument(t, state.Validate())
 	state.Flights[0].QueueOffers[0].AirportRevision = 4
-	state.Flights[0].QueueOffers[0].FlightID = "another-flight"
+	state.Flights[0].QueueOffers[0].Callsign = "another-flight"
 	assertInvalidArgument(t, state.Validate())
-	state.Flights[0].QueueOffers[0].FlightID = flight.ID
+	state.Flights[0].QueueOffers[0].Callsign = flight.Callsign
 	state.Flights[0].QueueOffers[0].ExpiresAt = now
 	assertInvalidArgument(t, state.Validate())
 }
@@ -579,8 +569,6 @@ func TestFlightObservationUsesNeutralUnitsAndOptionalFacts(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	track := 359.9
 	observation := FlightObservation{
-		FlightID:     "flight-1",
-		VATSIMCID:    "1234567",
 		Callsign:     "SAS123",
 		Origin:       "ESSA",
 		Destination:  "EKCH",
@@ -641,13 +629,11 @@ func validPrediction() Prediction {
 
 func validFlight(now time.Time) AMANFlight {
 	return AMANFlight{
-		ID:              "flight-1",
-		VATSIMCID:       "1234567",
-		CurrentCallsign: "SAS123",
-		State:           StateStable,
-		DataStatus:      DataFresh,
-		FreezeReason:    FreezeNone,
-		UpdatedAt:       now,
+		Callsign:     "SAS123",
+		State:        StateStable,
+		DataStatus:   DataFresh,
+		FreezeReason: FreezeNone,
+		UpdatedAt:    now,
 	}
 }
 

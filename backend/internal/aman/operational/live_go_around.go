@@ -32,7 +32,7 @@ func (s *Service) detectLiveGoAround(flight *aman.AMANFlight, observation aman.F
 		previous = *flight.GoAroundDetection
 	}
 	result, err := s.goAroundDetector.Detect(lifecycle.GoAroundInput{
-		FlightID: flight.ID, Observation: observation, Corridor: corridor, Previous: previous,
+		Callsign: flight.Callsign, Observation: observation, Corridor: corridor, Previous: previous,
 		PolicyVersion: liveGoAroundPolicyVersion + "/" + s.deps.Terminal.ConfigVersion,
 		Now:           now, InScope: true, LandingConfirmed: flight.State == aman.StateLanded,
 		RouteChanged: routeChanged, RunwayGroupChanged: runwayChanged,

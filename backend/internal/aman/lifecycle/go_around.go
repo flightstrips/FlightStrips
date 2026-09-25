@@ -87,7 +87,7 @@ func (c FinalPathCorridor) Validate() error {
 // GoAroundInput supplies one normalized observation and all explicit facts
 // that can disarm a detector. Previous is copied before reduction.
 type GoAroundInput struct {
-	FlightID           aman.FlightID
+	Callsign           aman.Callsign
 	Observation        aman.FlightObservation
 	Corridor           FinalPathCorridor
 	Previous           aman.GoAroundDetectionState
@@ -113,7 +113,7 @@ type ControllerGoAround struct {
 type GoAroundConfirmed struct {
 	ID                         string
 	EpisodeID                  string
-	FlightID                   aman.FlightID
+	Callsign                   aman.Callsign
 	Reason                     GoAroundReason
 	ConfirmedAt                time.Time
 	SupportingObservationTimes []time.Time
@@ -257,9 +257,9 @@ func (d *goAroundDetector) Detect(input GoAroundInput) (GoAroundResult, error) {
 		return checkedGoAroundResult(state, nil, false)
 	}
 
-	episodeID := fmt.Sprintf("%s/go-around/%d", input.FlightID, state.Episode)
+	episodeID := fmt.Sprintf("%s/go-around/%d", input.Callsign, state.Episode)
 	confirmed := &GoAroundConfirmed{
-		ID: episodeID + "/confirmed", EpisodeID: episodeID, FlightID: input.FlightID,
+		ID: episodeID + "/confirmed", EpisodeID: episodeID, Callsign: input.Callsign,
 		Reason: reason, ConfirmedAt: input.Now, SupportingObservationTimes: supportingTimes(state.Evidence, reason, d.config.ConfirmSamples),
 	}
 	state.LastEmittedEpisode = state.Episode
@@ -269,7 +269,7 @@ func (d *goAroundDetector) Detect(input GoAroundInput) (GoAroundResult, error) {
 }
 
 func validateGoAroundInput(input GoAroundInput) error {
-	if strings.TrimSpace(string(input.FlightID)) == "" || input.FlightID != input.Observation.FlightID {
+	if strings.TrimSpace(string(input.Callsign)) == "" || input.Callsign != input.Observation.Callsign {
 		return invalidArgument("go-around input flight identity is invalid")
 	}
 	if err := input.Observation.Validate(); err != nil {
@@ -302,9 +302,9 @@ func controllerConfirmed(state aman.GoAroundDetectionState, input GoAroundInput)
 	state.AwaitingReset = true
 	disarm(&state, false)
 	actor := command.Actor
-	episodeID := fmt.Sprintf("%s/go-around/controller/%s", input.FlightID, command.CommandID)
+	episodeID := fmt.Sprintf("%s/go-around/controller/%s", input.Callsign, command.CommandID)
 	confirmed := &GoAroundConfirmed{
-		ID: episodeID + "/confirmed", EpisodeID: episodeID, FlightID: input.FlightID,
+		ID: episodeID + "/confirmed", EpisodeID: episodeID, Callsign: input.Callsign,
 		Reason: GoAroundReasonController, ConfirmedAt: input.Now, ControllerActor: &actor,
 	}
 	return checkedGoAroundResult(state, confirmed, false)

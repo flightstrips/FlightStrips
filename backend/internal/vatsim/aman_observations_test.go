@@ -9,52 +9,24 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-type observationTestBinder struct {
-	mu         sync.Mutex
-	next       int
-	byCallsign map[string]aman.FlightID
-	bindings   []aman.VATSIMFlightIdentity
-}
-
-func (b *observationTestBinder) BindVATSIMFlight(_ context.Context, identity aman.VATSIMFlightIdentity) (aman.FlightID, error) {
-	if err := identity.Validate(); err != nil {
-		return "", err
-	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.byCallsign == nil {
-		b.byCallsign = make(map[string]aman.FlightID)
-	}
-	if id, ok := b.byCallsign[identity.CurrentCallsign]; ok {
-		b.bindings = append(b.bindings, identity)
-		return id, nil
-	}
-	b.next++
-	id := aman.FlightID("flight-" + string(rune('0'+b.next)))
-	b.byCallsign[identity.CurrentCallsign] = id
-	b.bindings = append(b.bindings, identity)
-	return id, nil
-}
-
 type observationTestSink struct {
-	observations []aman.FlightObservation
-	sourceHealth []aman.DataStatus
-	err          error
-	errsByCID    map[string]error
+	observations   []aman.FlightObservation
+	sourceHealth   []aman.DataStatus
+	err            error
+	errsByCallsign map[string]error
 }
 
 func (s *observationTestSink) Observe(_ context.Context, observation aman.FlightObservation) error {
 	if s.err != nil {
 		return s.err
 	}
-	if err := s.errsByCID[observation.VATSIMCID]; err != nil {
+	if err := s.errsByCallsign[observation.Callsign]; err != nil {
 		return err
 	}
 	s.observations = append(s.observations, observation)
@@ -66,18 +38,18 @@ func (s *observationTestSink) ObserveSourceHealth(_ context.Context, status aman
 	return nil
 }
 
-func newObservationTestWorker(t *testing.T, cache *Cache, now *time.Time, sink *observationTestSink) (*ObservationWorker, *observationTestBinder) {
+func newObservationTestWorker(t *testing.T, cache *Cache, now *time.Time, sink *observationTestSink) (*ObservationWorker, *reconciliationTestSessions) {
 	t.Helper()
-	binder := &observationTestBinder{}
+	sessions := &reconciliationTestSessions{items: []*models.Session{{ID: 7, Name: "LIVE", Airport: "EKCH"}}}
 	worker, err := NewObservationWorker(ObservationWorkerDependencies{
-		Cache: cache, Identities: binder, Sink: sink, EnabledAirports: []string{"EKCH"}, StaleAfter: time.Minute,
+		Cache: cache, Sessions: sessions, Sink: sink, EnabledAirports: []string{"EKCH"}, StaleAfter: time.Minute,
 		Now: func() time.Time { return *now },
 	})
 	require.NoError(t, err)
-	return worker, binder
+	return worker, sessions
 }
 
-func TestObservationWorkerMapsPrefileAndOnlineFlightsWithoutSession(t *testing.T) {
+func TestObservationWorkerMapsPrefileAndOnlineFlightsForLiveSession(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	cache := newReconciliationTestCache(now,
 		Flight{CID: "101", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now.Add(-time.Minute), FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Aircraft: "A20N/M-SDE2", AircraftShort: "A20N", RequestedLevel: "F350", Route: "NEXIL M725", EOBT: "1130", EnrouteDuration: "0145", Revision: 4}},
@@ -87,8 +59,8 @@ func TestObservationWorkerMapsPrefileAndOnlineFlightsWithoutSession(t *testing.T
 	worker, _ := newObservationTestWorker(t, cache, &now, sink)
 
 	require.NoError(t, worker.Publish(context.Background()))
-	require.Len(t, sink.observations, 2, "no session or EuroScope client is needed")
-	sort.Slice(sink.observations, func(i, j int) bool { return sink.observations[i].VATSIMCID < sink.observations[j].VATSIMCID })
+	require.Len(t, sink.observations, 2)
+	sort.Slice(sink.observations, func(i, j int) bool { return sink.observations[i].Callsign < sink.observations[j].Callsign })
 	prefile, online := sink.observations[0], sink.observations[1]
 	require.Equal(t, aman.DataFresh, prefile.SourceStatus)
 	require.Equal(t, "SAS101", prefile.Callsign)
@@ -173,7 +145,7 @@ func TestWakeCategoryAndRequestedLevelMappingRejectInvalidSourceValues(t *testin
 	}
 }
 
-func TestObservationWorkerPreservesFlightIDAndRejectsOlderFacts(t *testing.T) {
+func TestObservationWorkerPreservesCallsignAndRejectsOlderFacts(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	newer := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, Latitude: 55.1, Longitude: 12.1, Altitude: 18000, Groundspeed: 420, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EGLL", Destination: "EKCH", Route: "NEW ROUTE", Revision: 8}}
 	cache := newReconciliationTestCache(now, newer)
@@ -192,7 +164,7 @@ func TestObservationWorkerPreservesFlightIDAndRejectsOlderFacts(t *testing.T) {
 	require.NoError(t, worker.Publish(context.Background()))
 	require.Len(t, sink.observations, 1, "older facts do not republish unchanged guidance")
 	second := worker.known["SAS101"]
-	require.Equal(t, first.FlightID, second.FlightID)
+	require.Equal(t, first.Callsign, second.Callsign)
 	require.Equal(t, "SAS101", second.Callsign)
 	require.Equal(t, "NEW ROUTE", *second.FiledRoute)
 	require.Equal(t, uint64(8), *second.FlightPlan.Revision)
@@ -200,23 +172,24 @@ func TestObservationWorkerPreservesFlightIDAndRejectsOlderFacts(t *testing.T) {
 	require.Equal(t, *first.Surveillance.Sequence, *second.Surveillance.Sequence)
 }
 
-func TestObservationWorkerReusesKnownIDButRebindsCallsignCorrection(t *testing.T) {
+func TestObservationWorkerTreatsCallsignChangeAsNewFlight(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
 	cache := newReconciliationTestCache(now, flight)
 	sink := &observationTestSink{}
-	worker, binder := newObservationTestWorker(t, cache, &now, sink)
+	worker, _ := newObservationTestWorker(t, cache, &now, sink)
 	require.NoError(t, worker.Publish(context.Background()))
 	require.NoError(t, worker.Publish(context.Background()))
-	require.Len(t, binder.bindings, 1, "unchanged source fact reuses the delivered FlightID")
+	require.Len(t, sink.observations, 1, "unchanged source fact is not republished")
 	flight.Callsign = "SAS102"
 	setObservationCacheSnapshot(cache, now.Add(time.Second), nil, flight)
 	now = now.Add(time.Second)
 	require.NoError(t, worker.Publish(context.Background()))
-	require.Len(t, binder.bindings, 2, "callsign correction must verify the active binding")
+	require.Contains(t, worker.known, "SAS102")
+	require.NotContains(t, worker.known, "SAS101")
 }
 
-func TestObservationWorkerReconnectMatchesCallsignWithChangedCID(t *testing.T) {
+func TestObservationWorkerDoesNotRepublishForCIDOnlyChange(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
 	cache := newReconciliationTestCache(now, flight)
@@ -228,14 +201,93 @@ func TestObservationWorkerReconnectMatchesCallsignWithChangedCID(t *testing.T) {
 	now = now.Add(time.Second)
 	setObservationCacheSnapshot(cache, now, nil, flight)
 	require.NoError(t, worker.Publish(context.Background()))
-	require.Len(t, sink.observations, 2, "CID change must not publish a disappearance for the same callsign")
-	require.Equal(t, first.FlightID, sink.observations[1].FlightID)
-	require.Equal(t, "202", sink.observations[1].VATSIMCID)
-	require.Equal(t, "SAS101", sink.observations[1].Callsign)
-	require.False(t, sink.observations[1].Missing)
+	require.Len(t, sink.observations, 1, "CID is not part of an AMAN observation")
+	require.Equal(t, "SAS101", first.Callsign)
 }
 
-func TestObservationWorkerCIDChangeResetsSourceHistory(t *testing.T) {
+func TestObservationWorkerSkipsNonLiveSessions(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now,
+		FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	worker, sessions := newObservationTestWorker(t, cache, &now, sink)
+	sessions.items[0].Name = "PLAYBACK"
+
+	require.NoError(t, worker.Publish(context.Background()))
+	require.Empty(t, sink.observations)
+	require.Equal(t, []aman.DataStatus{aman.DataDisconnected}, sink.sourceHealth)
+}
+
+func TestObservationWorkerOfflineReplayPublishesWithoutLiveSession(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now,
+		FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	sessions := &reconciliationTestSessions{items: []*models.Session{{ID: 7, Name: "PLAYBACK", Airport: "EKCH"}}}
+	worker, err := NewObservationWorker(ObservationWorkerDependencies{
+		Cache: cache, Sessions: sessions, Sink: sink, EnabledAirports: []string{"EKCH"}, OfflineReplay: true,
+		StaleAfter: time.Minute, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	require.NoError(t, worker.Publish(context.Background()))
+	require.Len(t, sink.observations, 1)
+	require.Equal(t, aman.ObservationProviderVATSIM, sink.observations[0].Provider)
+}
+
+func TestObservationWorkerRetractsFlightsWhenLastLiveSessionEnds(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now,
+		FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	worker, sessions := newObservationTestWorker(t, cache, &now, sink)
+	require.NoError(t, worker.Publish(context.Background()))
+
+	sessions.items[0].Name = "PLAYBACK"
+	now = now.Add(time.Second)
+	require.NoError(t, worker.Publish(context.Background()))
+	require.Len(t, sink.observations, 2)
+	require.True(t, sink.observations[1].Missing)
+	require.Equal(t, aman.DataDisconnected, sink.observations[1].SourceStatus)
+	require.Equal(t, []aman.DataStatus{aman.DataFresh, aman.DataDisconnected}, sink.sourceHealth)
+	require.Empty(t, worker.known)
+}
+
+func TestObservationWorkerRetractsPreviousAirportOnDestinationChange(t *testing.T) {
+	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
+	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStateOnline, LastUpdated: now,
+		FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
+	cache := newReconciliationTestCache(now, flight)
+	sink := &observationTestSink{}
+	sessions := &reconciliationTestSessions{items: []*models.Session{
+		{ID: 7, Name: "LIVE", Airport: "EKCH"},
+		{ID: 8, Name: "LIVE", Airport: "EKBI"},
+	}}
+	worker, err := NewObservationWorker(ObservationWorkerDependencies{
+		Cache: cache, Sessions: sessions, Sink: sink, EnabledAirports: []string{"EKCH", "EKBI"}, StaleAfter: time.Minute,
+		Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	require.NoError(t, worker.Publish(context.Background()))
+
+	now = now.Add(time.Second)
+	flight.LastUpdated = now
+	flight.FlightPlan.Destination = "EKBI"
+	flight.FlightPlan.Revision = 2
+	setObservationCacheSnapshot(cache, now, nil, flight)
+	require.NoError(t, worker.Publish(context.Background()))
+
+	require.Len(t, sink.observations, 3)
+	require.Equal(t, "EKCH", sink.observations[1].Destination)
+	require.True(t, sink.observations[1].Missing)
+	require.Equal(t, "EKBI", sink.observations[2].Destination)
+	require.False(t, sink.observations[2].Missing)
+	require.Equal(t, "EKBI", worker.known["SAS101"].Destination)
+}
+
+func TestObservationWorkerIgnoresCIDChanges(t *testing.T) {
 	now := time.Date(2026, time.September, 14, 18, 0, 0, 0, time.UTC)
 	flight := Flight{CID: "101", Callsign: "SAS123", State: FlightStateOnline, LastUpdated: now,
 		Latitude: 55, Longitude: 12, Altitude: 18000, Groundspeed: 400,
@@ -254,13 +306,11 @@ func TestObservationWorkerCIDChangeResetsSourceHistory(t *testing.T) {
 	require.NoError(t, worker.Publish(context.Background()))
 	require.Len(t, sink.observations, 2)
 	current := sink.observations[1]
-	require.Equal(t, first.FlightID, current.FlightID)
-	require.Equal(t, "NEW ROUTE", *current.FiledRoute)
-	require.Equal(t, "ESSA", current.Origin)
-	require.EqualValues(t, 1, *current.FlightPlan.Revision)
-	require.Equal(t, 2*time.Hour, *current.PlannedTiming.EstimatedEnrouteTime)
-	require.Nil(t, current.TakeoffDetected, "do not inherit the previous CID's takeoff")
-	require.Nil(t, current.Surveillance.TrackTrueDegrees, "do not derive a track between different CIDs")
+	require.Equal(t, first.Callsign, current.Callsign)
+	require.Equal(t, "OLD ROUTE", *current.FiledRoute)
+	require.Equal(t, "ENGM", current.Origin)
+	require.EqualValues(t, 8, *current.FlightPlan.Revision)
+	require.NotNil(t, current.TakeoffDetected)
 }
 
 func TestObservationWorkerPublishesExplicitDisappearance(t *testing.T) {
@@ -296,21 +346,21 @@ func TestObservationWorkerContinuesAfterPerFlightMappingAndDeliveryFailures(t *t
 	good := Flight{CID: "202", Callsign: "SAS202", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
 	deliveryFailure := Flight{CID: "303", Callsign: "SAS303", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "EGLL", Destination: "EKCH", Revision: 1}}
 	cache := newReconciliationTestCache(now, malformed, good, deliveryFailure)
-	sink := &observationTestSink{errsByCID: map[string]error{"303": errors.New("temporary sink failure")}}
+	sink := &observationTestSink{errsByCallsign: map[string]error{"SAS303": errors.New("temporary sink failure")}}
 	worker, _ := newObservationTestWorker(t, cache, &now, sink)
 	err := worker.Publish(context.Background())
-	require.ErrorContains(t, err, "map VATSIM observation for CID 101")
-	require.ErrorContains(t, err, "publish VATSIM observation for CID 303")
+	require.ErrorContains(t, err, "map VATSIM observation for callsign BAD101")
+	require.ErrorContains(t, err, "publish VATSIM observation for callsign SAS303")
 	require.Len(t, sink.observations, 1)
-	require.Equal(t, "202", sink.observations[0].VATSIMCID)
+	require.Equal(t, "SAS202", sink.observations[0].Callsign)
 	require.Contains(t, worker.known, "SAS202")
 	require.NotContains(t, worker.known, "SAS303")
 
-	delete(sink.errsByCID, "303")
+	delete(sink.errsByCallsign, "SAS303")
 	setObservationCacheSnapshot(cache, now, nil, good, deliveryFailure)
 	require.NoError(t, worker.Publish(context.Background()))
 	require.Len(t, sink.observations, 2, "the valid retry publishes while already-delivered facts are not flooded")
-	require.Equal(t, "303", sink.observations[1].VATSIMCID)
+	require.Equal(t, "SAS303", sink.observations[1].Callsign)
 }
 
 func TestObservationWorkerPublishesSourceStatusTransitionsWithoutFlooding(t *testing.T) {
@@ -340,7 +390,7 @@ func TestObservationWorkerIsolatedFromSATReconciliationFailure(t *testing.T) {
 	flight := Flight{CID: "101", Callsign: "SAS101", State: FlightStatePrefile, LastUpdated: now, FlightPlan: FlightPlan{Origin: "ENGM", Destination: "EKCH", Revision: 1}}
 	cache := newReconciliationTestCache(now, flight)
 	strips := &reconciliationTestStrips{bySession: map[int32][]*models.Strip{}}
-	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
+	reconciler := newTestReconciler(cache, reconciliationTestSessions{items: []*models.Session{{ID: 7, Name: "LIVE", Airport: "EKCH"}}}, strips, reconciliationTestAssignments{}, nil, time.Second)
 	reconciler.arrivalLifecycle = failingArrivalLifecycle{}
 	require.Error(t, reconciler.Reconcile(context.Background()))
 

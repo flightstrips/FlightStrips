@@ -17,9 +17,9 @@ func (r *factReadRepository) LoadAirportState(ctx context.Context, airport strin
 	r.reads++
 	return r.memoryRepository.LoadAirportState(ctx, airport)
 }
-func (r *factReadRepository) LoadHoldingFactSnapshots(context.Context, string, []aman.FlightID) ([]aman.HoldingFactSnapshot, error) {
+func (r *factReadRepository) LoadHoldingFactSnapshots(context.Context, string, []aman.Callsign) ([]aman.HoldingFactSnapshot, error) {
 	f := r.state.Flights[0]
-	return []aman.HoldingFactSnapshot{{FlightID: f.ID, VATSIMCID: f.VATSIMCID, Clearance: f.HoldingClearance}}, nil
+	return []aman.HoldingFactSnapshot{{Callsign: f.Callsign, Clearance: f.HoldingClearance}}, nil
 }
 
 func TestHoldingFactPreflightOnlySkipsUnchangedAggregate(t *testing.T) {
@@ -28,7 +28,7 @@ func TestHoldingFactPreflightOnlySkipsUnchangedAggregate(t *testing.T) {
 	pub := &publisher{}
 	svc, err := New(Dependencies{Repository: repo, Publisher: pub})
 	require.NoError(t, err)
-	fact := aman.HoldingClearanceFact{FlightID: repo.state.Flights[0].ID, VATSIMCID: repo.state.Flights[0].VATSIMCID, Destination: repo.state.Airport, Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, ObservedAt: now}
+	fact := aman.HoldingClearanceFact{Callsign: repo.state.Flights[0].Callsign, Destination: repo.state.Airport, Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, ObservedAt: now}
 	require.NoError(t, svc.ObserveHoldingClearance(context.Background(), fact))
 	require.Equal(t, 1, repo.reads)
 	require.Equal(t, 1, repo.commits)

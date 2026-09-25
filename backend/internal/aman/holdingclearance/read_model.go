@@ -15,7 +15,6 @@ type ReadModel struct {
 }
 
 type Entry struct {
-	FlightID        aman.FlightID
 	Callsign        string
 	Holding         string
 	EAT             *time.Time
@@ -35,7 +34,7 @@ func BuildReadModel(state aman.AirportState) ReadModel {
 		}
 
 		entry := Entry{
-			FlightID: flight.ID, Callsign: flight.CurrentCallsign, Holding: clearance.Hold,
+			Callsign: flight.Callsign, Holding: clearance.Hold,
 			ClearedAltitude: cloneAltitude(clearance.ClearedAltitude), SourceStatus: flight.DataStatus,
 			ObservedAt: clearance.ObservedAt,
 		}
@@ -51,7 +50,7 @@ func BuildReadModel(state aman.AirportState) ReadModel {
 		if comparison := strings.Compare(strings.ToUpper(strings.TrimSpace(left.Callsign)), strings.ToUpper(strings.TrimSpace(right.Callsign))); comparison != 0 {
 			return comparison
 		}
-		return strings.Compare(string(left.FlightID), string(right.FlightID))
+		return strings.Compare(left.Callsign, right.Callsign)
 	})
 	return result
 }

@@ -36,7 +36,7 @@ type TransferResult struct {
 
 type ExpiryFact struct {
 	Airport, FactID string
-	FlightID        FlightID
+	Callsign        Callsign
 	Revision        uint64
 	Reason          ExpiryReason
 	OccurredAt      time.Time
@@ -44,7 +44,7 @@ type ExpiryFact struct {
 
 type OwnershipFact struct {
 	Airport    string
-	FlightID   FlightID
+	Callsign   Callsign
 	FactID     string
 	Revision   uint64
 	Owner      ControllerID
@@ -53,7 +53,7 @@ type OwnershipFact struct {
 
 type ClearanceFact struct {
 	Airport, FactID, Issuer, Value string
-	FlightID                       FlightID
+	Callsign                       Callsign
 	Kind                           Kind
 	ObservedAt                     time.Time
 }
@@ -182,7 +182,7 @@ func coordinationRevision(requests []Request) uint64 {
 			revision++
 		}
 		for _, transfer := range request.RecipientTransfers {
-			key := string(request.FlightID) + "\x00" + transfer.OwnershipFact + "\x00" + fmt.Sprint(transfer.OwnershipRevision)
+			key := string(request.Callsign) + "\x00" + transfer.OwnershipFact + "\x00" + fmt.Sprint(transfer.OwnershipRevision)
 			transfers[key] = struct{}{}
 		}
 		if request.Expiry != nil {
@@ -198,7 +198,7 @@ func coordinationRevision(requests []Request) uint64 {
 // CorrelateAccepted attaches a later authoritative fact to the newest matching
 // accepted request. The request remains accepted and no AMAN input is changed.
 func (r *Repository) CorrelateAccepted(ctx context.Context, fact ClearanceFact) (CommitResult, error) {
-	if fact.Airport == "" || fact.FlightID == "" || !present(fact.FactID) || !present(fact.Issuer) ||
+	if fact.Airport == "" || fact.Callsign == "" || !present(fact.FactID) || !present(fact.Issuer) ||
 		!present(fact.Value) || (fact.Kind != KindRouteDirect && fact.Kind != KindSpeed) || !utc(fact.ObservedAt) {
 		return CommitResult{}, errors.New("authoritative clearance fact is invalid")
 	}
@@ -222,7 +222,7 @@ func (r *Repository) CorrelateAccepted(ctx context.Context, fact ClearanceFact) 
 	}
 	for index := len(current) - 1; index >= 0; index-- {
 		request := current[index]
-		if request.FlightID != fact.FlightID || request.Kind != fact.Kind || request.State != StateAccepted ||
+		if request.Callsign != fact.Callsign || request.Kind != fact.Kind || request.State != StateAccepted ||
 			request.Clearance != nil || request.ResolvedAt.After(fact.ObservedAt) || !matchesClearance(request, fact.Value) {
 			continue
 		}
@@ -289,7 +289,7 @@ func (r *Repository) ExpirePending(ctx context.Context, fact ExpiryFact) (Transf
 
 // ExpirePendingTx joins expiry to an owning operational transaction.
 func ExpirePendingTx(ctx context.Context, tx pgx.Tx, fact ExpiryFact) (TransferResult, error) {
-	if fact.Airport == "" || fact.Airport != strings.TrimSpace(fact.Airport) || fact.FlightID == "" ||
+	if fact.Airport == "" || fact.Airport != strings.TrimSpace(fact.Airport) || fact.Callsign == "" ||
 		fact.FactID == "" || fact.FactID != strings.TrimSpace(fact.FactID) || fact.Revision == 0 ||
 		!fact.Reason.valid() || !utc(fact.OccurredAt) {
 		return TransferResult{}, errors.New("authoritative coordination expiry fact is invalid")
@@ -315,7 +315,7 @@ func ExpirePendingTx(ctx context.Context, tx pgx.Tx, fact ExpiryFact) (TransferR
 		return TransferResult{Requests: duplicates, Revision: result.Revision, Duplicate: true}, nil
 	}
 	for _, request := range current {
-		if request.FlightID != fact.FlightID || request.State != StatePending {
+		if request.Callsign != fact.Callsign || request.State != StatePending {
 			continue
 		}
 		updated, expireErr := request.Expire(Expiry{FactID: fact.FactID, FactRevision: fact.Revision, Reason: fact.Reason, ExpiredAt: fact.OccurredAt})
@@ -336,7 +336,7 @@ func ExpirePendingTx(ctx context.Context, tx pgx.Tx, fact ExpiryFact) (TransferR
 // TransferPending atomically applies one authoritative ownership fact to every
 // pending request for its flight. Replaying the same fact is a durable no-op.
 func (r *Repository) TransferPending(ctx context.Context, fact OwnershipFact) (TransferResult, error) {
-	if fact.Airport == "" || fact.Airport != strings.TrimSpace(fact.Airport) || fact.FlightID == "" ||
+	if fact.Airport == "" || fact.Airport != strings.TrimSpace(fact.Airport) || fact.Callsign == "" ||
 		fact.FactID == "" || fact.FactID != strings.TrimSpace(fact.FactID) || fact.Revision == 0 ||
 		fact.Owner != ControllerID(strings.TrimSpace(string(fact.Owner))) || !utc(fact.ObservedAt) {
 		return TransferResult{}, errors.New("authoritative ownership fact is invalid")
@@ -356,7 +356,7 @@ func (r *Repository) TransferPending(ctx context.Context, fact OwnershipFact) (T
 	var duplicates []Request
 	for _, request := range current {
 		for _, transfer := range request.RecipientTransfers {
-			if request.FlightID == fact.FlightID && transfer.OwnershipFact == fact.FactID && transfer.OwnershipRevision == fact.Revision {
+			if request.Callsign == fact.Callsign && transfer.OwnershipFact == fact.FactID && transfer.OwnershipRevision == fact.Revision {
 				if transfer.NewRecipient != fact.Owner || !transfer.TransferredAt.Equal(fact.ObservedAt) {
 					return TransferResult{}, ErrCommandConflict
 				}
@@ -370,7 +370,7 @@ func (r *Repository) TransferPending(ctx context.Context, fact OwnershipFact) (T
 	}
 	result := TransferResult{Revision: coordinationRevision(current)}
 	for _, request := range current {
-		if request.FlightID != fact.FlightID || request.State != StatePending ||
+		if request.Callsign != fact.Callsign || request.State != StatePending ||
 			(request.RecipientController == fact.Owner && request.effectiveRecipientStatus() == RecipientAssigned) ||
 			(fact.Owner == "" && request.effectiveRecipientStatus() == RecipientUnassigned) {
 			continue
@@ -466,7 +466,7 @@ func (r *Repository) Submit(ctx context.Context, request Request, expectedRevisi
 			return CommitResult{}, ErrCommandConflict
 		}
 		if persisted.ID == request.ID {
-			if persisted.Airport != request.Airport || persisted.FlightID != request.FlightID || persisted.Kind != request.Kind ||
+			if persisted.Airport != request.Airport || persisted.Callsign != request.Callsign || persisted.Kind != request.Kind ||
 				persisted.SubmittedBy != request.SubmittedBy || persisted.SubmittedRole != request.SubmittedRole || !reflect.DeepEqual(persisted.Payload, request.Payload) {
 				return CommitResult{}, ErrCommandConflict
 			}
@@ -479,7 +479,7 @@ func (r *Repository) Submit(ctx context.Context, request Request, expectedRevisi
 	var superseded *Request
 	for index := len(current) - 1; index >= 0; index-- {
 		candidate := current[index]
-		if candidate.FlightID == request.FlightID && candidate.Kind == request.Kind && candidate.State == StatePending {
+		if candidate.Callsign == request.Callsign && candidate.Kind == request.Kind && candidate.State == StatePending {
 			candidate, err = candidate.Supersede(request.ID, request.CreatedAt)
 			if err != nil {
 				return CommitResult{}, err

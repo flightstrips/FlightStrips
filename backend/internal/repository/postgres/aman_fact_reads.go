@@ -4,15 +4,16 @@ import (
 	"FlightStrips/internal/aman"
 	"context"
 	"encoding/json"
-	"github.com/jackc/pgx/v5"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
-func (r *amanRepository) FindActiveFactFlight(ctx context.Context, airport, callsign string) (aman.FlightID, error) {
+func (r *amanRepository) FindActiveFactFlight(ctx context.Context, airport, callsign string) (aman.Callsign, error) {
 	rows, err := r.pool.Query(ctx, `-- AMAN active fact identity
-SELECT flight_id FROM aman_flights
-WHERE airport=$1 AND upper(btrim(current_callsign))=$2 AND state NOT IN ('landed','removed')
-ORDER BY flight_id LIMIT 2`, airport, strings.ToUpper(strings.TrimSpace(callsign)))
+SELECT callsign FROM aman_flights
+WHERE airport=$1 AND callsign=$2 AND state NOT IN ('landed','removed')
+ORDER BY callsign LIMIT 2`, airport, strings.ToUpper(strings.TrimSpace(callsign)))
 	if err != nil {
 		return "", err
 	}
@@ -26,24 +27,24 @@ ORDER BY flight_id LIMIT 2`, airport, strings.ToUpper(strings.TrimSpace(callsign
 	if len(ids) > 1 {
 		return "", &aman.DomainError{Class: aman.ErrorActiveFlightConflict, Message: "callsign resolves to multiple active AMAN flights"}
 	}
-	return aman.FlightID(ids[0]), nil
+	return aman.Callsign(ids[0]), nil
 }
 
-func (r *amanRepository) LoadHoldingFactSnapshots(ctx context.Context, airport string, ids []aman.FlightID) ([]aman.HoldingFactSnapshot, error) {
+func (r *amanRepository) LoadHoldingFactSnapshots(ctx context.Context, airport string, ids []aman.Callsign) ([]aman.HoldingFactSnapshot, error) {
 	keys := make([]string, len(ids))
 	for i, id := range ids {
 		keys[i] = string(id)
 	}
 	rows, err := r.pool.Query(ctx, `-- AMAN holding fact snapshots
-SELECT flight_id, vatsim_cid, payload->'HoldingClearance' FROM aman_flights
-WHERE airport=$1 AND flight_id=ANY($2::text[])`, airport, keys)
+SELECT callsign, payload->'HoldingClearance' FROM aman_flights
+WHERE airport=$1 AND callsign=ANY($2::text[])`, airport, keys)
 	if err != nil {
 		return nil, err
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (aman.HoldingFactSnapshot, error) {
 		var value aman.HoldingFactSnapshot
 		var raw []byte
-		err := row.Scan(&value.FlightID, &value.VATSIMCID, &raw)
+		err := row.Scan(&value.Callsign, &raw)
 		if err == nil && len(raw) > 0 {
 			err = json.Unmarshal(raw, &value.Clearance)
 		}

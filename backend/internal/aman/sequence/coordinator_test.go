@@ -256,7 +256,7 @@ func coordinatorState(revision aman.SequenceRevision) aman.AirportState {
 		Airport: "EKCH", Revision: revision, GeneratedAt: at, PolicyVersion: "policy-v1", Mode: aman.ModeAuthoritative, Authoritative: true,
 		RunwayGroups: []aman.RunwayGroupPolicy{{ID: "A"}},
 		Flights: []aman.AMANFlight{{
-			ID: "flight-1", VATSIMCID: "123", CurrentCallsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh,
+			Callsign: "SAS123", State: aman.StateStable, DataStatus: aman.DataFresh,
 			FreezeReason: aman.FreezeNone, Slot: &aman.Slot{Time: at.Add(10 * time.Minute), RunwayGroupID: "A", Sequence: 1, Revision: revision, Reason: "rate_wtc"},
 			Order: intPointer(1), UpdatedAt: at,
 		}},

@@ -110,11 +110,11 @@ export interface AMANBoardViewProps {
   presentationStatus: AMANPresentationStatus;
   error: string | null;
   connectionState: AMANConnectionState;
-  selectedFlightID: string | null;
-  onSelectFlight: (flightID: string) => void;
+  selectedCallsign: string | null;
+  onSelectFlight: (callsign: string) => void;
   onOpenControls?: () => void;
-  onOpenFlightActions?: (flightID: string) => void;
-  onOpenFlightDetails?: (flightID: string) => void;
+  onOpenFlightActions?: (callsign: string) => void;
+  onOpenFlightDetails?: (callsign: string) => void;
   focusedRunwayGroupID?: string | null;
   accView?: AMANView;
   onACCViewChange?: (view: AMANView) => void;
@@ -125,7 +125,7 @@ export function AMANBoardView({
   presentationStatus,
   error,
   connectionState,
-  selectedFlightID,
+  selectedCallsign,
   onSelectFlight,
   onOpenControls,
   onOpenFlightActions,
@@ -158,7 +158,7 @@ export function AMANBoardView({
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const initializedTimelineScroll = useRef(false);
   const [timelineScroll, setTimelineScroll] = useState({top: 0, viewportHeight: 0, contentHeight: 0});
-  const selectedFlightRunwayGroupID = state?.flights.find((flight) => flight.flight_id === selectedFlightID)?.runway_group_id ?? null;
+  const selectedFlightRunwayGroupID = state?.flights.find((flight) => flight.callsign === selectedCallsign)?.runway_group_id ?? null;
   const defaultRunwayGroupID = state?.active_runway_groups?.[0]
     ?? state?.runway_groups.find((group) => group.selected)?.id
     ?? null;
@@ -197,10 +197,10 @@ export function AMANBoardView({
       }}
       leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
       onSelect={() => {
-        onSelectFlight(flight.flight_id);
-        onOpenFlightActions?.(flight.flight_id);
+        onSelectFlight(flight.callsign);
+        onOpenFlightActions?.(flight.callsign);
       }}
-      selected={flight.flight_id === selectedFlightID}
+      selected={flight.callsign === selectedCallsign}
       trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
     />
   );
@@ -222,10 +222,10 @@ export function AMANBoardView({
         guidance={{authoritative: gainLossAuthoritative, connected: connectionState === "connected"}}
         leadingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "feeder")}
         onSelect={() => {
-          onSelectFlight(flight.flight_id);
-          onOpenFlightActions?.(flight.flight_id);
+          onSelectFlight(flight.callsign);
+          onOpenFlightActions?.(flight.callsign);
         }}
-        selected={flight.flight_id === selectedFlightID}
+        selected={flight.callsign === selectedCallsign}
         trailingFields={fieldsForAMANAircraftTargetSide(targetFields(flight), targetPreferences, "runway")}
       />
     );
@@ -287,7 +287,7 @@ export function AMANBoardView({
         secondaryAccessory={<>
           <span className="border-l border-black/40 pl-2 font-mono text-xs text-black">{formatAMANAxisLabel(range.startMs, range.startMs)}–{formatAMANAxisLabel(range.endMs, range.startMs)} UTC · {axis.horizonMinutes} min</span>
           <button className="aman-settings-button bg-lime-400 text-black" onClick={onOpenControls} type="button">FMP</button>
-          <button className="aman-settings-button bg-[#4b5563] text-white disabled:opacity-50" disabled={selectedFlightID === null} onClick={() => selectedFlightID !== null && onOpenFlightDetails?.(selectedFlightID)} type="button">DETAIL</button>
+          <button className="aman-settings-button bg-[#4b5563] text-white disabled:opacity-50" disabled={selectedCallsign === null} onClick={() => selectedCallsign !== null && onOpenFlightDetails?.(selectedCallsign)} type="button">DETAIL</button>
           {state.technical_health.blocked_reasons.length > 0 && <span className="self-center text-xs text-red-900">{state.technical_health.blocked_reasons.join(", ")}</span>}
         </>}
         accViewOptions={[AMAN_ALL_VIEW, ...availableAMANViews(state)]}

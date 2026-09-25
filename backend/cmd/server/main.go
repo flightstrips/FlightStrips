@@ -54,6 +54,7 @@ func main() {
 	}
 	environment := getEnv("ENVIRONMENT", "development")
 	enableTestTools := envBool("ENABLE_TEST_TOOLS", false)
+	enableVATSIM := envBool("ENABLE_VATSIM", true)
 	if enableTestTools && isLiveEnvironment(environment) {
 		slog.Error("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
 		os.Exit(1)
@@ -113,8 +114,8 @@ func main() {
 		EnableGSXStandFeed:              envBool("ENABLE_GSX_STAND_FEED", false),
 		EnableALB:                       true,
 		EnableMetar:                     true,
-		EnableVATSIM:                    true,
-		EnableTransceivers:              true,
+		EnableVATSIM:                    enableVATSIM,
+		EnableTransceivers:              envBool("ENABLE_VATSIM_TRANSCEIVERS", enableVATSIM),
 		EnableTraffic:                   true,
 		EnableStandAssignment:           envBool("ENABLE_STAND_ASSIGNMENT", false),
 		EnableStandAssignmentESMessages: envBool("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES", false),
@@ -254,6 +255,9 @@ func amanConfigFromEnv() (aman.RuntimeConfig, error) {
 	config := aman.DefaultRuntimeConfig()
 	if value := strings.TrimSpace(os.Getenv("AMAN_MODE")); value != "" {
 		config.Mode = aman.RolloutMode(strings.ToLower(value))
+	}
+	if value := strings.TrimSpace(os.Getenv("AMAN_SOURCE_MODE")); value != "" {
+		config.SourceMode = aman.ObservationSourceMode(strings.ToLower(value))
 	}
 	config.EnabledAirports = splitEnvList(os.Getenv("AMAN_ENABLED_AIRPORTS"))
 	config.EnableEuroScopeGainLoseTags = envBool("ENABLE_AMAN_EUROSCOPE_GAIN_LOSE_TAGS", false)

@@ -39,16 +39,16 @@ position job; version-guarded position persistence performs its bounded fresh
 snapshot retry when those writes race.
 
 Reports in a group can share their first snapshot SELECT, version-guarded
-position/presence UPDATE, and established AMAN identity lookup. Each report still waits for persistence, then runs its
+position/presence UPDATE, and established AMAN callsign lookup. Each report still waits for persistence, then runs its
 existing route/stand/AMAN/publication logic. Bay-append transitions retain their
 session-locked transaction. Once a transition lock is acquired, the rest of that
 report (including conflict retries) bypasses batching so it cannot yield an
 execution slot while holding a lock needed by its peers. Missing strips and conversion errors are returned
 per report; version conflicts take the existing bounded fresh-snapshot retry.
 Deadlock/serialization aborts of a bulk write use that same individual retry.
-AMAN identity misses and CID changes retain their locked transaction and fresh
-revalidation. Retirement and callsign changes retain their existing semantics.
-No identity result is reused by a later message or batch.
+AMAN callsign misses retain their locked transaction and fresh revalidation.
+Retirement and callsign changes retain their existing semantics. No lookup
+result is reused by a later message or batch.
 
 A rendezvous flushes when participants arrive or leave, with a five-millisecond
 backstop for a participant blocked behind a master-change writer or another
@@ -159,7 +159,11 @@ These diagnostic results predate default enablement. They remain useful as a
 record of the stricter synthetic sender-deadline gate and are not a
 production-equivalent capacity claim.
 
-### AMAN identity batching (2026-09-16)
+### Historical AMAN identity batching (2026-09-16, removed)
+
+This section records the former CID-backed identity implementation for its
+benchmark history. It is not the current AMAN design: the callsign migration
+removed the identity batch and CID correlation described below.
 
 Commit `c5955e8b` adds a read-only AMAN identity stage to the same ephemeral batch.
 This is part of the existing `POSITION_DB_BATCHING_ENABLED` path; it adds no

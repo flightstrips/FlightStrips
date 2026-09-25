@@ -19,7 +19,7 @@ function prediction(): AMANTrafficPrediction {
       selected_rate: index === 2 ? {runway_group_id: "22L", arrivals_per_hour: 40, effective_at: new Date(start).toISOString()} : null,
       bucket_high: index === 2, window_high: index === 2,
       alert: index === 1 ? "yellow" : index === 2 ? "red" : "none",
-      flights: index === 0 ? [{flight_id: "1", callsign: "SAS101", airborne: true, landing_at: "2026-07-22T20:32:00.000Z", timing_source: "aman", data_status: "fresh"}] : [],
+      flights: index === 0 ? [{callsign: "SAS101", airborne: true, landing_at: "2026-07-22T20:32:00.000Z", timing_source: "aman", data_status: "fresh"}] : [],
     })),
   };
 }

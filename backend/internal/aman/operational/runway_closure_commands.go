@@ -40,8 +40,8 @@ func (s *Service) CreateRunwayClosure(auth aman.CommandContext, command aman.Cre
 			return sequence.CommandChange{}, err
 		}
 		provenance := map[string]any{"kind": "absolute", "requested_start": command.Interval.Start}
-		if command.Interval.AfterFlightID != nil {
-			provenance = map[string]any{"kind": "after_aircraft", "anchor_flight_id": *command.Interval.AfterFlightID}
+		if command.Interval.AfterCallsign != nil {
+			provenance = map[string]any{"kind": "after_aircraft", "anchor_callsign": *command.Interval.AfterCallsign}
 		}
 		change, err := commandChange(state, true, "create_runway_closure", "", map[string]any{
 			"airport": auth.Airport, "actor": auth.Actor, "role": auth.Role, "received_at": auth.ReceivedAt,
@@ -56,7 +56,7 @@ func (s *Service) CreateRunwayClosure(auth aman.CommandContext, command aman.Cre
 		for _, displacement := range displacements {
 			payload, marshalErr := json.Marshal(map[string]any{
 				"action": "runway_closure_displacement", "closure_id": closure.ID, "runway_group_id": command.Interval.RunwayGroupID,
-				"flight_id": displacement.FlightID, "previous_opportunity": displacement.Previous,
+				"callsign": displacement.Callsign, "previous_opportunity": displacement.Previous,
 				"new_opportunity": displacement.New, "overridden_protection_reason": displacement.ProtectionReason,
 				"reason": displacement.Reason,
 			})
@@ -70,7 +70,7 @@ func (s *Service) CreateRunwayClosure(auth aman.CommandContext, command aman.Cre
 }
 
 type closureDisplacement struct {
-	FlightID         aman.FlightID
+	Callsign         aman.Callsign
 	Previous         gapOpportunity
 	New              *gapOpportunity
 	ProtectionReason string
@@ -79,20 +79,20 @@ type closureDisplacement struct {
 
 func (s *Service) displaceFlightsFromRunwayClosure(state *aman.AirportState, groupID aman.RunwayGroupID, closure aman.RunwayClosure, at time.Time) ([]closureDisplacement, error) {
 	input := s.sequenceInput(*state)
-	affected := make(map[aman.FlightID]closureDisplacement)
+	affected := make(map[aman.Callsign]closureDisplacement)
 	for _, flight := range state.Flights {
 		if flight.SelectedRunwayGroup == nil || *flight.SelectedRunwayGroup != groupID || flight.Slot == nil ||
 			flight.Slot.Time.Before(closure.Start) || (closure.End != nil && !flight.Slot.Time.Before(*closure.End)) || !flight.SequenceDisposition.Participates() {
 			continue
 		}
-		affected[flight.ID] = closureDisplacement{FlightID: flight.ID,
+		affected[flight.Callsign] = closureDisplacement{Callsign: flight.Callsign,
 			Previous:         gapOpportunity{Time: flight.Slot.Time, RunwayGroupID: groupID, Sequence: flight.Slot.Sequence},
 			ProtectionReason: gapProtectionReason(flight)}
 	}
 	if len(affected) == 0 {
 		return nil, nil
 	}
-	ordered := make([]aman.FlightID, 0, len(affected))
+	ordered := make([]aman.Callsign, 0, len(affected))
 	for id := range affected {
 		ordered = append(ordered, id)
 	}
@@ -105,10 +105,10 @@ func (s *Service) displaceFlightsFromRunwayClosure(state *aman.AirportState, gro
 	})
 	working := input
 	working.Flights = nil
-	byID := make(map[aman.FlightID]sequence.Flight, len(input.Flights))
+	byID := make(map[aman.Callsign]sequence.Flight, len(input.Flights))
 	for _, flight := range input.Flights {
-		byID[flight.ID] = flight
-		if _, displaced := affected[flight.ID]; !displaced {
+		byID[flight.Callsign] = flight
+		if _, displaced := affected[flight.Callsign]; !displaced {
 			working.Flights = append(working.Flights, flight)
 		}
 	}
@@ -189,7 +189,7 @@ func closureCandidate(input sequence.Input, flight sequence.Flight, groupID aman
 		return sequence.CandidateEntry{}, false
 	}
 	for _, entry := range result.Entries {
-		if entry.FlightID == flight.ID {
+		if entry.Callsign == flight.Callsign {
 			return entry, true
 		}
 	}

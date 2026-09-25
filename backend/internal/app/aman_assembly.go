@@ -83,6 +83,7 @@ type amanTransport struct {
 	health            aman.TechnicalHealthReporter
 	vatsimSource      vatsim.SnapshotSource
 	vatsimStaleAfter  time.Duration
+	sourceMode        aman.ObservationSourceMode
 	now               func() time.Time
 	gainLossEnabled   bool
 	holdingEATEnabled bool
@@ -123,16 +124,16 @@ func (p *amanTransport) CurrentAMANState(ctx context.Context, airport string) (f
 
 func (p *amanTransport) currentTechnicalHealth(ctx context.Context) aman.TechnicalHealth {
 	health := p.health.TechnicalHealth(ctx)
-	if p.vatsimSource == nil {
+	if p.vatsimSource == nil || p.sourceMode != aman.ObservationSourceVATSIM {
 		return health
 	}
 	now := time.Now
 	if p.now != nil {
 		now = p.now
 	}
-	health.VATSIM = amanVATSIMHealth(p.vatsimSource, p.vatsimStaleAfter, now)
+	sourceHealth := amanVATSIMHealth(p.vatsimSource, p.vatsimStaleAfter, now)
 	return aman.EvaluateTechnicalHealth(
-		health.Mode, health.VATSIM, health.Navigation, health.Weather,
+		health.Mode, sourceHealth, health.Navigation, health.Weather,
 		health.Repository, health.Predictor, health.ReplayValidation,
 	)
 }
@@ -291,7 +292,7 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 			continue
 		}
 		events = append(events, euroscopeEvents.HoldEvent{
-			Callsign: flight.CurrentCallsign,
+			Callsign: flight.Callsign,
 			Hold:     clearance.Hold,
 			HoldType: string(clearance.HoldType),
 			HoldEat:  eat,
@@ -395,6 +396,7 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 		mode:              config.Mode,
 		vatsimSource:      vatsimSource,
 		vatsimStaleAfter:  vatsimStaleAfter,
+		sourceMode:        config.SourceMode,
 		now:               now,
 		gainLossEnabled:   config.EnableEuroScopeGainLoseTags,
 		holdingEATEnabled: config.EnableHoldingEATWriteback,
@@ -404,10 +406,10 @@ func assembleOperationalAMAN(config aman.RuntimeConfig, source *navigation.Sourc
 		return operationalAMANAssembly{}, err
 	}
 	service, err := operational.New(operational.Dependencies{
-		Repository: amanRepository, Retirer: amanRepository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
+		Repository: amanRepository, Materializer: source, Geometry: source.Geometry, Wind: openmeteo.New(openmeteo.Config{Cache: postgres.NewAMANWeatherCache(pool)}),
 		Runways: sessionArrivalRunwaySource{sessions: postgres.NewSessionRepository(pool)}, AircraftEngines: aircraftEngines,
 		Terminal: terminalConfig, TMAVolumePath: terminal.DefaultEKCHTMAVolumePath,
-		Airports: config.EnabledAirports, Mode: config.Mode, Publisher: transport, Now: now,
+		Airports: config.EnabledAirports, Mode: config.Mode, SourceMode: config.SourceMode, Publisher: transport, Now: now,
 	})
 	if err != nil {
 		return operationalAMANAssembly{}, fmt.Errorf("initialize AMAN operational service: %w", err)

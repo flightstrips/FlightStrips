@@ -75,7 +75,7 @@ func (k IntegrityKind) Valid() bool {
 // provider-neutral violation without defining another replay transport schema.
 type Finding struct {
 	Kind     IntegrityKind `json:"kind"`
-	FlightID aman.FlightID `json:"flight_id,omitempty"`
+	Callsign aman.Callsign `json:"callsign,omitempty"`
 	Detail   string        `json:"detail"`
 }
 
@@ -188,7 +188,7 @@ func Compile(input Input) (Report, error) {
 type sample struct{ horizon, errorSeconds int64 }
 
 func landingSamples(dataset replay.Dataset, result replay.Result) ([]sample, int, int) {
-	generated := map[aman.FlightID]time.Time{}
+	generated := map[aman.Callsign]time.Time{}
 	samples := []sample{}
 	missingTruth, missingPrediction := 0, 0
 	for _, output := range result.Outputs {
@@ -197,10 +197,10 @@ func landingSamples(dataset replay.Dataset, result replay.Result) ([]sample, int
 		}
 		record := dataset.Records[output.Index]
 		if record.Observation != nil && output.Outcome.Prediction != nil {
-			generated[record.Observation.FlightID] = output.Outcome.Prediction.GeneratedAt
+			generated[record.Observation.Callsign] = output.Outcome.Prediction.GeneratedAt
 		}
 		for _, comparison := range output.Outcome.LandingComparisons {
-			at, ok := generated[comparison.FlightID]
+			at, ok := generated[comparison.Callsign]
 			if !ok || comparison.ErrorSeconds == nil {
 				missingPrediction++
 				continue
@@ -279,7 +279,7 @@ func percentile(values []float64, p float64) float64 {
 func integrity(dataset replay.Dataset, result replay.Result, findings []Finding) IntegrityCounts {
 	counts := IntegrityCounts{}
 	revisions := map[aman.SequenceRevision]struct{}{}
-	previous := map[aman.FlightID]aman.AMANFlight{}
+	previous := map[aman.Callsign]aman.AMANFlight{}
 	commands := map[string][]byte{}
 	for _, output := range result.Outputs {
 		outcome := output.Outcome
@@ -288,13 +288,13 @@ func integrity(dataset replay.Dataset, result replay.Result, findings []Finding)
 				counts.DuplicateRevisions++
 			}
 			revisions[state.Revision] = struct{}{}
-			flights := map[aman.FlightID]struct{}{}
+			flights := map[aman.Callsign]struct{}{}
 			orders := map[string]struct{}{}
 			for _, flight := range state.Flights {
-				if _, exists := flights[flight.ID]; exists {
+				if _, exists := flights[flight.Callsign]; exists {
 					counts.DuplicateFlights++
 				}
-				flights[flight.ID] = struct{}{}
+				flights[flight.Callsign] = struct{}{}
 				if flight.Order != nil {
 					group := ""
 					if flight.SelectedRunwayGroup != nil {
@@ -306,10 +306,10 @@ func integrity(dataset replay.Dataset, result replay.Result, findings []Finding)
 					}
 					orders[key] = struct{}{}
 				}
-				if old, exists := previous[flight.ID]; exists && old.FreezeReason == aman.FreezeSuperstable && flight.FreezeReason == aman.FreezeSuperstable && !freezeEqual(old, flight) && !freezeMoveAuthorized(dataset, output, outcome, old, flight) {
+				if old, exists := previous[flight.Callsign]; exists && old.FreezeReason == aman.FreezeSuperstable && flight.FreezeReason == aman.FreezeSuperstable && !freezeEqual(old, flight) && !freezeMoveAuthorized(dataset, output, outcome, old, flight) {
 					counts.UnauthorizedFreezeMoves++
 				}
-				previous[flight.ID] = flight
+				previous[flight.Callsign] = flight
 			}
 		}
 		if command := outcome.CommandOutcome; command != nil {
@@ -368,7 +368,7 @@ func auditedEarlierQueuePromotion(outcome replay.Outcome, old, current aman.AMAN
 		}
 		var payload struct {
 			Action        string             `json:"action"`
-			FlightID      aman.FlightID      `json:"flight_id"`
+			Callsign      aman.Callsign      `json:"callsign"`
 			FromSequence  int                `json:"from_sequence"`
 			FromTime      time.Time          `json:"from_time"`
 			ToSequence    int                `json:"to_sequence"`
@@ -376,7 +376,7 @@ func auditedEarlierQueuePromotion(outcome replay.Outcome, old, current aman.AMAN
 			RunwayGroupID aman.RunwayGroupID `json:"runway_group_id"`
 		}
 		if json.Unmarshal(audit.Payload, &payload) == nil && payload.Action == "queue_promotion" &&
-			payload.FlightID == current.ID && payload.RunwayGroupID == current.Slot.RunwayGroupID &&
+			payload.Callsign == current.Callsign && payload.RunwayGroupID == current.Slot.RunwayGroupID &&
 			payload.FromSequence == old.Slot.Sequence && payload.FromTime.Equal(old.Slot.Time) &&
 			payload.ToSequence == current.Slot.Sequence && payload.ToTime.Equal(current.Slot.Time) {
 			return true

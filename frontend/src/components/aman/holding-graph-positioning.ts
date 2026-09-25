@@ -108,7 +108,7 @@ export function layoutHoldingGraph(
   }));
   const candidates = (axis: "time" | "altitude"): TrackCandidate[] => positioned.flatMap((position, index) => {
     const percent = position[axis].percent;
-    return percent === null ? [] : [{index, percent, key: `${position.entry.callsign}\0${position.entry.flight_id}`}];
+    return percent === null ? [] : [{index, percent, key: `${position.entry.callsign}\0${position.entry.callsign}`}];
   });
   const timeTracks = allocateTracks(candidates("time"), positioned.length, minimumGapPercent);
   const altitudeTracks = allocateTracks(candidates("altitude"), positioned.length, minimumGapPercent);

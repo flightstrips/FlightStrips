@@ -29,7 +29,7 @@ function replacement(revision: number, callsign = "SAS123"): AMANStateEvent {
 describe("AMAN V1 full replacement contract", () => {
 	it("accepts additive clearance correlation on the coordination V1 wire", () => {
 		expect(isAMANCoordinationStateEvent({type: "aman.coordination_state", version: 1, revision: 3, requests: [{
-			id: "request-1", flight_id: "flight-1", recipient_controller: "EKCH_APP", recipient_status: "assigned",
+			id: "request-1", callsign: "SAS123", recipient_controller: "EKCH_APP", recipient_status: "assigned",
 			kind: "speed", state: "accepted", payload: {speed: {requested: "220 KT"}}, created_at: "2026-07-22T10:00:00.000Z", updated_at: "2026-07-22T10:01:00.000Z",
 			clearance: {fact_id: "fact-1", kind: "speed", value: "220 KT", issuer: "EKCH_APP", observed_at: "2026-07-22T10:02:00.000Z"},
 		}]})).toBe(true);
@@ -45,15 +45,15 @@ describe("AMAN V1 full replacement contract", () => {
     });
     expect(createAMANCommand({type: "aman.remove_gap", runway_group_id: "ARRIVAL-22", gap_id: "gap-1"}, meta).data.command_id).toBe("retry-id");
     expect(createAMANCommand({
-      type: "aman.place_flight_at_time", flight_id: "flight-1", runway_group_id: "ARRIVAL-22",
+      type: "aman.place_flight_at_time", callsign: "SAS123", runway_group_id: "ARRIVAL-22",
       slot_time: "2026-07-22T12:06:00Z", allow_gap: true,
     }, meta)).toMatchObject({type: "aman.place_flight_at_time", version: 1, data: {...meta, allow_gap: true}});
   });
 
   it("keeps Extra Flight commands capacity-only and accepts rolling reservation state", () => {
     const meta = {command_id: "extra-1", expected_revision: 7};
-    expect(createAMANCommand({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", reason: "medevac"}, meta))
-      .toEqual({type: "aman.create_capacity_reservation", version: 1, data: {...meta, runway_group_id: "ARRIVAL-22", after_flight_id: "flight-1", reason: "medevac"}});
+    expect(createAMANCommand({type: "aman.create_capacity_reservation", runway_group_id: "ARRIVAL-22", after_callsign: "SAS123", reason: "medevac"}, meta))
+      .toEqual({type: "aman.create_capacity_reservation", version: 1, data: {...meta, runway_group_id: "ARRIVAL-22", after_callsign: "SAS123", reason: "medevac"}});
     const event = replacement(8);
     event.data.runway_groups[0].capacity_reservations = [{id: "extra-1", start: "2026-07-22T10:21:00.000Z", end: "2026-07-22T10:24:00.000Z", label: "FLIGHT", created_at: "2026-07-22T10:00:00.000Z", created_by: "1234567"}];
     expect(isAMANStateEvent(event)).toBe(true);
@@ -163,7 +163,7 @@ describe("AMAN V1 full replacement contract", () => {
       {
         id: 'warning:"sequence"/-/"protected_same_star_spacing"/"ARRIVAL-22"/"TRAIL"/"LEAD"',
         source: "sequence", severity: "error", code: "protected_same_star_spacing",
-        runway_group_id: "ARRIVAL-22", flight_id: "TRAIL", related_flight_id: "LEAD",
+        runway_group_id: "ARRIVAL-22", callsign: "TRAIL", related_callsign: "LEAD",
         message: "Flights TRAIL and LEAD conflict with protected MONAK spacing on runway group ARRIVAL-22",
       },
       {
@@ -184,7 +184,7 @@ describe("AMAN V1 full replacement contract", () => {
     ["non-array snapshot", "invalid"],
     ["unknown source", [{id: "warning-1", source: "future", severity: "error", code: "blocked", message: "Blocked"}]],
     ["unknown severity", [{id: "warning-1", source: "sequence", severity: "fatal", code: "blocked", message: "Blocked"}]],
-    ["malformed optional identity", [{id: "warning-1", source: "sequence", severity: "error", code: "blocked", flight_id: " PADDED ", message: "Blocked"}]],
+    ["malformed optional identity", [{id: "warning-1", source: "sequence", severity: "error", code: "blocked", callsign: " PADDED ", message: "Blocked"}]],
     ["mismatched stable ID", [{id: "warning-1", source: "technical_health", severity: "error", code: "authority_blocked", message: "Blocked"}]],
     ["inconsistent source scope", [{
       id: 'warning:"technical_health"/-/"blocked"/"ARRIVAL-22"/-/-', source: "technical_health", severity: "error",
@@ -284,7 +284,7 @@ describe("AMAN V1 full replacement contract", () => {
   it("accepts holding information with missing EAT and CFL", () => {
     const event = replacement(8);
     event.data.holding_information = [{
-      flight_id: "flight-123", callsign: "SAS123", holding: "OLPIB", eat: null,
+      callsign: "SAS123", holding: "OLPIB", eat: null,
       cleared_altitude: null, source_status: "stale", observed_at: "2026-07-22T10:00:00.000Z",
     }];
 
@@ -409,6 +409,15 @@ describe("AMAN V1 full replacement contract", () => {
 
     expect(isAMANStateEvent(disabled)).toBe(true);
     expect(replaceAMANState(null, disabled)).toMatchObject({accepted: true, status: "ready", error: null});
+  });
+
+  it("accepts source-neutral observation health while retaining V1 compatibility", () => {
+    const current = replacement(8);
+    current.data.technical_health.observation_source = structuredClone(current.data.technical_health.vatsim);
+    expect(isAMANStateEvent(current)).toBe(true);
+
+    current.data.technical_health.observation_source.status = "unknown" as "ready";
+    expect(isAMANStateEvent(current)).toBe(false);
   });
 
   it.each(["degraded", "unavailable"] as const)("marks valid %s health as degraded presentation", (healthStatus) => {

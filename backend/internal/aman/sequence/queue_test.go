@@ -31,7 +31,7 @@ func TestQueueOffersRespectToleranceAndAssignDeterministicPositions(t *testing.T
 		if offer.CandidateSlot.Sequence == 2 {
 			candidateTwo = append(candidateTwo, offer)
 		}
-		if offer.FlightID == "FIRST" {
+		if offer.Callsign == "FIRST" {
 			require.NotEqual(t, 1, offer.CandidateSlot.Sequence, "slot outside operational TETA tolerance must not be offered")
 		}
 	}
@@ -95,11 +95,11 @@ func TestQueueOffersDoNotCrossFreezeManualOrRunwayGroups(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, offers)
 	for _, offer := range offers {
-		require.NotContains(t, []aman.FlightID{"SUPER", "MANUAL", "ORDERED"}, offer.FlightID)
-		if offer.FlightID == "A-TARGET" {
+		require.NotContains(t, []aman.Callsign{"SUPER", "MANUAL", "ORDERED"}, offer.Callsign)
+		if offer.Callsign == "A-TARGET" {
 			t.Fatalf("target received protected/manual candidate offer: %+v", offer)
 		}
-		if offer.FlightID == "B-TARGET" {
+		if offer.Callsign == "B-TARGET" {
 			require.Equal(t, aman.RunwayGroupID("B"), offer.CandidateSlot.RunwayGroupID)
 		}
 	}
@@ -170,11 +170,11 @@ func TestQueueOffersExpireAndRateChangesRecompute(t *testing.T) {
 	bindQueueRevision(&rateInput)
 	beforeRateChange, err := sequence.CalculateQueueOffers(rateInput, sequence.QueueOfferConfig{Validity: time.Minute}, start.Add(-time.Minute))
 	require.NoError(t, err)
-	require.True(t, slices.ContainsFunc(beforeRateChange, func(offer aman.QueueOffer) bool { return offer.FlightID == "RATE-TARGET" }))
+	require.True(t, slices.ContainsFunc(beforeRateChange, func(offer aman.QueueOffer) bool { return offer.Callsign == "RATE-TARGET" }))
 	rateInput.Policies = []sequence.Policy{queuePolicy("A", start, 30)}
 	recomputed, err := sequence.CalculateQueueOffers(rateInput, sequence.QueueOfferConfig{Validity: time.Minute}, start.Add(-time.Minute))
 	require.NoError(t, err)
-	require.False(t, slices.ContainsFunc(recomputed, func(offer aman.QueueOffer) bool { return offer.FlightID == "RATE-TARGET" }), "the lower rate increases both adjacent base intervals")
+	require.False(t, slices.ContainsFunc(recomputed, func(offer aman.QueueOffer) bool { return offer.Callsign == "RATE-TARGET" }), "the lower rate increases both adjacent base intervals")
 }
 
 func TestQueueOffersRejectStaleRevisionAndReplayDeterministically(t *testing.T) {
@@ -246,11 +246,10 @@ func TestQueueOfferProjectionIgnoresDesequencedPersistedSlot(t *testing.T) {
 	bindQueueRevision(&input)
 	state := queueState(input, start.Add(-time.Minute))
 	desequenced := state.Flights[0]
-	desequenced.ID = "DSEQ"
-	desequenced.VATSIMCID = "CID-DSEQ"
-	desequenced.CurrentCallsign = "DSEQ"
+	desequenced.Callsign = "DSEQ"
+	desequenced.Callsign = "DSEQ"
 	desequenced.SequenceDisposition = aman.SequenceDispositionDesequenced
-	desequenced.QueueOffers = []aman.QueueOffer{{FlightID: desequenced.ID}}
+	desequenced.QueueOffers = []aman.QueueOffer{{Callsign: desequenced.Callsign}}
 	state.Flights = append([]aman.AMANFlight{desequenced}, state.Flights...)
 
 	projected, err := sequence.ProjectQueueOffers(state, input, sequence.QueueOfferConfig{Validity: time.Minute}, start.Add(-time.Minute))
@@ -314,15 +313,15 @@ func TestVacantSlotAutomaticallyPromotesFirstEligibleQueuedFlight(t *testing.T) 
 	bindQueueRevision(&input)
 	candidate := aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"}
 	offers := []aman.QueueOffer{
-		{FlightID: "NO-LONGER-ELIGIBLE", RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot},
-		{FlightID: "SECOND", RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 2, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot},
+		{Callsign: "NO-LONGER-ELIGIBLE", RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot},
+		{Callsign: "SECOND", RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 2, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot},
 	}
 
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, offers, start)
 	require.NoError(t, err)
 	promoted := candidate
 	promoted.Reason = string(sequence.ReasonQueuePromotion)
-	require.Equal(t, []sequence.VacancyPromotion{{FlightID: "SECOND", From: *input.Flights[1].CurrentSlot, To: promoted}}, promotions)
+	require.Equal(t, []sequence.VacancyPromotion{{Callsign: "SECOND", From: *input.Flights[1].CurrentSlot, To: promoted}}, promotions)
 	entry := candidateEntry(result, "SECOND")
 	require.Equal(t, candidate.Time, entry.Time)
 	require.Equal(t, sequence.ReasonQueuePromotion, entry.Reason)
@@ -340,10 +339,10 @@ func TestStableFlightCompactsIntoEmptyOpportunityWithoutPriorOffer(t *testing.T)
 
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
 	require.NoError(t, err)
-	require.Equal(t, start.Add(time.Minute), candidateEntry(result, target.ID).Time)
-	require.Equal(t, sequence.ReasonQueuePromotion, candidateEntry(result, target.ID).Reason)
+	require.Equal(t, start.Add(time.Minute), candidateEntry(result, target.Callsign).Time)
+	require.Equal(t, sequence.ReasonQueuePromotion, candidateEntry(result, target.Callsign).Reason)
 	require.Equal(t, []sequence.VacancyPromotion{{
-		FlightID: target.ID,
+		Callsign: target.Callsign,
 		From:     *target.CurrentSlot,
 		To: aman.Slot{
 			Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2,
@@ -364,13 +363,13 @@ func TestStableCompactionSkipsPastAndPhysicallyUnreachableSlots(t *testing.T) {
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start.Add(3*time.Minute))
 	require.NoError(t, err)
 	require.Len(t, promotions, 1)
-	require.Equal(t, start.Add(5*time.Minute), candidateEntry(result, target.ID).Time)
+	require.Equal(t, start.Add(5*time.Minute), candidateEntry(result, target.Callsign).Time)
 
 	input.Flights[0].PromotionNotBefore = nil
 	result, promotions, err = sequence.GenerateWithVacancyPromotions(input, nil, start.Add(4*time.Minute))
 	require.NoError(t, err)
 	require.Len(t, promotions, 1)
-	require.Equal(t, start.Add(5*time.Minute), candidateEntry(result, target.ID).Time,
+	require.Equal(t, start.Add(5*time.Minute), candidateEntry(result, target.Callsign).Time,
 		"an elapsed opportunity cannot be promoted even when the operational TETA is older")
 }
 
@@ -390,8 +389,8 @@ func TestStableCompactionCannotOvertakeStableFlightBehindUnstableNeighbor(t *tes
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
 	require.NoError(t, err)
 	require.Len(t, promotions, 1)
-	require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, target.ID).Time)
-	require.Equal(t, []aman.FlightID{"UNSTABLE", "EARLIER", "TARGET"}, entryIDs(result))
+	require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, target.Callsign).Time)
+	require.Equal(t, []aman.Callsign{"UNSTABLE", "EARLIER", "TARGET"}, entryIDs(result))
 }
 
 func TestStableCompactionPreservesRelativeOrderAndCascadesForward(t *testing.T) {
@@ -408,9 +407,9 @@ func TestStableCompactionPreservesRelativeOrderAndCascadesForward(t *testing.T) 
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
 	require.NoError(t, err)
 	require.Len(t, promotions, 2)
-	require.Equal(t, start.Add(time.Minute), candidateEntry(result, first.ID).Time)
-	require.Equal(t, start.Add(2*time.Minute), candidateEntry(result, second.ID).Time)
-	require.Equal(t, []aman.FlightID{"LEAD", "FIRST", "SECOND"}, entryIDs(result))
+	require.Equal(t, start.Add(time.Minute), candidateEntry(result, first.Callsign).Time)
+	require.Equal(t, start.Add(2*time.Minute), candidateEntry(result, second.Callsign).Time)
+	require.Equal(t, []aman.Callsign{"LEAD", "FIRST", "SECOND"}, entryIDs(result))
 }
 
 func TestStableCompactionDoesNotCrossFrozenBoundary(t *testing.T) {
@@ -430,8 +429,8 @@ func TestStableCompactionDoesNotCrossFrozenBoundary(t *testing.T) {
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
 	require.NoError(t, err)
 	require.Len(t, promotions, 1)
-	require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, target.ID).Time)
-	require.Equal(t, frozenTETA, candidateEntry(result, barrier.ID).Time)
+	require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, target.Callsign).Time)
+	require.Equal(t, frozenTETA, candidateEntry(result, barrier.Callsign).Time)
 }
 
 func TestSuperstableFlightMayPromoteEarlierWithoutCrossingProtection(t *testing.T) {
@@ -451,8 +450,8 @@ func TestSuperstableFlightMayPromoteEarlierWithoutCrossingProtection(t *testing.
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
 	require.NoError(t, err)
 	require.Len(t, promotions, 1)
-	require.Equal(t, start.Add(time.Minute), candidateEntry(result, target.ID).Time)
-	require.Equal(t, sequence.ReasonFreezeSuperstable, candidateEntry(result, target.ID).Reason)
+	require.Equal(t, start.Add(time.Minute), candidateEntry(result, target.Callsign).Time)
+	require.Equal(t, sequence.ReasonFreezeSuperstable, candidateEntry(result, target.Callsign).Reason)
 }
 
 func TestVacancyCreatedByBaselineResequencePromotesQueuedStableFlight(t *testing.T) {
@@ -466,14 +465,14 @@ func TestVacancyCreatedByBaselineResequencePromotesQueuedStableFlight(t *testing
 	input := sequence.Input{Revision: 24, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{lead, occupant, target}}
 	bindQueueRevision(&input)
 	candidate := aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"}
-	offer := aman.QueueOffer{FlightID: target.ID, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
+	offer := aman.QueueOffer{Callsign: target.Callsign, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
 
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, []aman.QueueOffer{offer}, start)
 	require.NoError(t, err)
 	require.Len(t, promotions, 1)
-	require.Equal(t, target.ID, promotions[0].FlightID)
-	require.Equal(t, candidate.Time, candidateEntry(result, target.ID).Time)
-	require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, occupant.ID).Time)
+	require.Equal(t, target.Callsign, promotions[0].Callsign)
+	require.Equal(t, candidate.Time, candidateEntry(result, target.Callsign).Time)
+	require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, occupant.Callsign).Time)
 }
 
 func TestVacancyPromotionRejectsOfferOutsideCurrentRateGrid(t *testing.T) {
@@ -486,12 +485,12 @@ func TestVacancyPromotionRejectsOfferOutsideCurrentRateGrid(t *testing.T) {
 	input := sequence.Input{Revision: 25, Policies: []sequence.Policy{queuePolicy("A", start, 40)}, Flights: []sequence.Flight{lead, target}}
 	bindQueueRevision(&input)
 	candidate := aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"}
-	offer := aman.QueueOffer{FlightID: target.ID, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
+	offer := aman.QueueOffer{Callsign: target.Callsign, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
 
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, []aman.QueueOffer{offer}, start)
 	require.NoError(t, err)
 	require.Empty(t, promotions)
-	require.Equal(t, target.CurrentSlot.Time, candidateEntry(result, target.ID).Time)
+	require.Equal(t, target.CurrentSlot.Time, candidateEntry(result, target.Callsign).Time)
 }
 
 func TestVacancyPromotionReportsFinalRenumberedSlot(t *testing.T) {
@@ -501,12 +500,12 @@ func TestVacancyPromotionReportsFinalRenumberedSlot(t *testing.T) {
 	input := sequence.Input{Revision: 26, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{target}}
 	bindQueueRevision(&input)
 	candidate := aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"}
-	offer := aman.QueueOffer{FlightID: target.ID, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
+	offer := aman.QueueOffer{Callsign: target.Callsign, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
 
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, []aman.QueueOffer{offer}, start)
 	require.NoError(t, err)
 	require.Len(t, promotions, 1)
-	entry := candidateEntry(result, target.ID)
+	entry := candidateEntry(result, target.Callsign)
 	require.Equal(t, 1, entry.Sequence)
 	require.Equal(t, entry.Sequence, promotions[0].To.Sequence)
 	require.Equal(t, string(entry.Reason), promotions[0].To.Reason)
@@ -522,12 +521,12 @@ func TestVacancyPromotionRejectsRunwayGapOpportunity(t *testing.T) {
 	input := sequence.Input{Revision: 27, Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{lead, target}}
 	bindQueueRevision(&input)
 	candidate := aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"}
-	offer := aman.QueueOffer{FlightID: target.ID, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
+	offer := aman.QueueOffer{Callsign: target.Callsign, RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
 
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, []aman.QueueOffer{offer}, start)
 	require.NoError(t, err)
 	require.Empty(t, promotions)
-	require.Equal(t, target.CurrentSlot.Time, candidateEntry(result, target.ID).Time)
+	require.Equal(t, target.CurrentSlot.Time, candidateEntry(result, target.Callsign).Time)
 }
 
 func TestVacancyPromotionPreservesStableOrderAndProtectedBoundaries(t *testing.T) {
@@ -545,7 +544,7 @@ func TestVacancyPromotionPreservesStableOrderAndProtectedBoundaries(t *testing.T
 	input := sequence.Input{Revision: 21, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{lead, protected, target}}
 	bindQueueRevision(&input)
 	candidate := aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"}
-	offer := aman.QueueOffer{FlightID: "TARGET", RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
+	offer := aman.QueueOffer{Callsign: "TARGET", RunwayGroupID: "A", CandidateSlot: candidate, QueuePosition: 1, ExpiresAt: candidate.Time, AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot}
 
 	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, []aman.QueueOffer{offer}, start)
 	require.NoError(t, err)
@@ -565,7 +564,7 @@ func TestVacancyPromotionPreservesStableOrderAndProtectedBoundaries(t *testing.T
 	require.Len(t, promotions, 2)
 	require.Equal(t, start.Add(time.Minute), candidateEntry(result, "PROTECTED").Time)
 	require.Equal(t, start.Add(2*time.Minute), candidateEntry(result, "TARGET").Time)
-	require.Equal(t, []aman.FlightID{"LEAD", "PROTECTED", "TARGET"}, entryIDs(result))
+	require.Equal(t, []aman.Callsign{"LEAD", "PROTECTED", "TARGET"}, entryIDs(result))
 }
 
 func TestVacancyPromotionRejectsStaleCrossRunwayTooEarlyAndFrozenOffers(t *testing.T) {
@@ -579,7 +578,7 @@ func TestVacancyPromotionRejectsStaleCrossRunwayTooEarlyAndFrozenOffers(t *testi
 	}}
 	bindQueueRevision(&input)
 	base := aman.QueueOffer{
-		FlightID: "TARGET", RunwayGroupID: "A",
+		Callsign: "TARGET", RunwayGroupID: "A",
 		CandidateSlot: aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"},
 		QueuePosition: 1, ExpiresAt: start.Add(time.Minute), AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot,
 	}
@@ -627,7 +626,7 @@ func TestVacancyPromotionIsDeterministicAcrossReplay(t *testing.T) {
 	}}
 	bindQueueRevision(&input)
 	offer := aman.QueueOffer{
-		FlightID: "TARGET", RunwayGroupID: "A", CandidateSlot: aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"},
+		Callsign: "TARGET", RunwayGroupID: "A", CandidateSlot: aman.Slot{Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2, Revision: input.Revision, Reason: "rate_wtc"},
 		QueuePosition: 1, ExpiresAt: start.Add(time.Minute), AirportRevision: input.Revision, Reason: aman.QueueOfferEarlierOccupiedSlot,
 	}
 	first, firstPromotions, err := sequence.GenerateWithVacancyPromotions(input, []aman.QueueOffer{offer}, start)
@@ -640,9 +639,9 @@ func TestVacancyPromotionIsDeterministicAcrossReplay(t *testing.T) {
 	require.Equal(t, firstPromotions, secondPromotions)
 }
 
-func candidateEntry(result sequence.Result, id aman.FlightID) sequence.CandidateEntry {
+func candidateEntry(result sequence.Result, id aman.Callsign) sequence.CandidateEntry {
 	for _, entry := range result.Entries {
-		if entry.FlightID == id {
+		if entry.Callsign == id {
 			return entry
 		}
 	}
@@ -656,16 +655,16 @@ func queuePolicy(group aman.RunwayGroupID, start time.Time, rate uint32) sequenc
 	}
 }
 
-func queueFlight(id aman.FlightID, group aman.RunwayGroupID, teta time.Time, category sequence.WakeCategory, number int, slotTime time.Time) sequence.Flight {
+func queueFlight(id aman.Callsign, group aman.RunwayGroupID, teta time.Time, category sequence.WakeCategory, number int, slotTime time.Time) sequence.Flight {
 	return sequence.Flight{
-		ID: id, RunwayGroupID: group, State: aman.StateStable, OperationalTETA: teta, WakeCategory: category, FreezeReason: aman.FreezeNone,
+		Callsign: id, RunwayGroupID: group, State: aman.StateStable, OperationalTETA: teta, WakeCategory: category, FreezeReason: aman.FreezeNone,
 		CurrentSlot: &aman.Slot{Time: slotTime, RunwayGroupID: group, Sequence: number, Revision: 7, Reason: "rate_wtc"},
 	}
 }
 
-func queueOffer(flightID aman.FlightID, group aman.RunwayGroupID, sequenceNumber int, slotTime time.Time, position int, revision aman.SequenceRevision, expiresAt time.Time) aman.QueueOffer {
+func queueOffer(flightID aman.Callsign, group aman.RunwayGroupID, sequenceNumber int, slotTime time.Time, position int, revision aman.SequenceRevision, expiresAt time.Time) aman.QueueOffer {
 	return aman.QueueOffer{
-		FlightID: flightID, RunwayGroupID: group,
+		Callsign: flightID, RunwayGroupID: group,
 		CandidateSlot: aman.Slot{Time: slotTime, RunwayGroupID: group, Sequence: sequenceNumber, Revision: revision, Reason: "rate_wtc"},
 		QueuePosition: position, ExpiresAt: expiresAt, AirportRevision: revision, Reason: aman.QueueOfferEarlierOccupiedSlot,
 	}
@@ -693,8 +692,8 @@ func queueState(input sequence.Input, generatedAt time.Time) aman.AirportState {
 	for index, flight := range input.Flights {
 		slot := *flight.CurrentSlot
 		state.Flights[index] = aman.AMANFlight{
-			ID: flight.ID, VATSIMCID: "CID-" + string(flight.ID), CurrentCallsign: string(flight.ID),
-			State: flight.State, DataStatus: aman.DataFresh, FreezeReason: flight.FreezeReason,
+			Callsign: string(flight.Callsign),
+			State:    flight.State, DataStatus: aman.DataFresh, FreezeReason: flight.FreezeReason,
 			Slot: &slot, UpdatedAt: generatedAt,
 		}
 	}

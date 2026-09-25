@@ -1,37 +1,6 @@
 -- name: LockAMANCommand :exec
 SELECT pg_advisory_xact_lock(hashtextextended($1, 0));
 
--- name: LockAMANVATSIMObservationIdentity :exec
-SELECT pg_advisory_xact_lock(hashtextextended($1, 0));
-
--- name: GetActiveAMANVATSIMObservationIdentity :one
-SELECT flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at
-FROM aman_vatsim_observation_identities
-WHERE current_callsign = $1
-  AND retired_at IS NULL;
-
--- name: CreateAMANVATSIMObservationIdentity :one
-INSERT INTO aman_vatsim_observation_identities (
-    flight_id, vatsim_cid, current_callsign
-)
-VALUES ($1, $2, $3)
-RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at;
-
--- name: UpdateAMANVATSIMObservationIdentityCID :one
-UPDATE aman_vatsim_observation_identities
-SET vatsim_cid = $2,
-    updated_at = NOW()
-WHERE flight_id = $1
-  AND retired_at IS NULL
-RETURNING flight_id, vatsim_cid, current_callsign, retired_at, created_at, updated_at;
-
--- name: RetireAMANVATSIMObservationIdentity :execrows
-UPDATE aman_vatsim_observation_identities
-SET retired_at = NOW(),
-    updated_at = NOW()
-WHERE flight_id = $1
-  AND retired_at IS NULL;
-
 -- name: GetAMANAirportState :one
 SELECT *
 FROM aman_airport_states
@@ -63,7 +32,7 @@ RETURNING *;
 SELECT *
 FROM aman_flights
 WHERE airport = $1
-ORDER BY flight_id;
+ORDER BY callsign;
 
 -- name: DeleteAMANFlightsForAirport :exec
 DELETE FROM aman_flights
@@ -71,13 +40,11 @@ WHERE airport = $1;
 
 -- name: UpsertAMANFlight :exec
 INSERT INTO aman_flights (
-    flight_id, airport, vatsim_cid, current_callsign, state, data_status, updated_at, payload
+    airport, callsign, state, data_status, updated_at, payload
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-ON CONFLICT (flight_id) DO UPDATE
-SET airport = EXCLUDED.airport,
-    vatsim_cid = EXCLUDED.vatsim_cid,
-    current_callsign = EXCLUDED.current_callsign,
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (airport, callsign) DO UPDATE
+SET
     state = EXCLUDED.state,
     data_status = EXCLUDED.data_status,
     updated_at = EXCLUDED.updated_at,
@@ -85,16 +52,13 @@ SET airport = EXCLUDED.airport,
 
 -- name: UpsertAMANFlights :exec
 INSERT INTO aman_flights (
-    flight_id, airport, vatsim_cid, current_callsign, state, data_status, updated_at, payload
+    airport, callsign, state, data_status, updated_at, payload
 )
-SELECT unnest(sqlc.arg(flight_ids)::text[]), sqlc.arg(airport)::text,
-    unnest(sqlc.arg(vatsim_cids)::text[]), unnest(sqlc.arg(callsigns)::text[]),
+SELECT sqlc.arg(airport)::text, unnest(sqlc.arg(callsigns)::text[]),
     unnest(sqlc.arg(states)::text[]), unnest(sqlc.arg(data_statuses)::text[]),
     unnest(sqlc.arg(updated_ats)::timestamptz[]), unnest(sqlc.arg(payloads)::text[])::jsonb
-ON CONFLICT (flight_id) DO UPDATE
-SET airport = EXCLUDED.airport,
-    vatsim_cid = EXCLUDED.vatsim_cid,
-    current_callsign = EXCLUDED.current_callsign,
+ON CONFLICT (airport, callsign) DO UPDATE
+SET
     state = EXCLUDED.state,
     data_status = EXCLUDED.data_status,
     updated_at = EXCLUDED.updated_at,

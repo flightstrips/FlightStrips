@@ -68,6 +68,39 @@ func TestDesequenceAndResumeAreAuditedDurableAndEarliestLegal(t *testing.T) {
 	require.Equal(t, auth.Actor, audit["actor"])
 }
 
+func TestDesequenceAuditsAutomaticSuperstablePromotion(t *testing.T) {
+	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
+	group := aman.RunwayGroupID("north")
+	source := dispositionFlight("SOURCE", group, now.Add(3*time.Minute), now.Add(3*time.Minute), 1)
+	target := dispositionFlight("TARGET", group, now.Add(3*time.Minute), now.Add(9*time.Minute), 2)
+	target.FreezeReason = aman.FreezeSuperstable
+	target.FrozenAt, target.FrozenOperationalTETA = timePointer(now), timePointer(now.Add(3*time.Minute))
+	target.FrozenSlot = retargetSlot(target.Slot, group)
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 5,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &now}},
+		Flights:      []aman.AMANFlight{source, target},
+	}
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	auth := aman.CommandContext{Airport: "EKCH", Actor: "1234567", Role: "EKDK_FMP", ReceivedAt: now}
+	mutation, err := service.DesequenceFlight(auth, aman.DesequenceFlightCommand{FlightID: source.ID})
+	require.NoError(t, err)
+	change, err := mutation(state)
+	require.NoError(t, err)
+	require.Equal(t, now.Add(3*time.Minute), change.State.Flights[1].Slot.Time)
+	require.Equal(t, []string{"aman.desequence_flight", "aman.queue_promotion"}, []string{change.Audit[0].Category, change.Audit[1].Category})
+
+	source.Lifecycle = &aman.LifecycleState{EnteredAt: now.Add(-time.Hour), Reason: aman.LifecycleReasonStableHorizon,
+		LastEventID: "stable", LastEventFingerprint: "test", LastEventAt: now.Add(-time.Minute)}
+	state.Flights[0] = source
+	remove, err := service.RemoveFlight(auth, aman.RemoveFlightCommand{Metadata: aman.CommandMetadata{CommandID: "remove-source"}, FlightID: source.ID})
+	require.NoError(t, err)
+	change, err = remove(state)
+	require.NoError(t, err)
+	require.Equal(t, now.Add(3*time.Minute), change.State.Flights[1].Slot.Time)
+	require.Equal(t, []string{"aman.remove_flight", "aman.queue_promotion"}, []string{change.Audit[0].Category, change.Audit[1].Category})
+}
+
 func TestResumeNoCapacityRollsBackAtomically(t *testing.T) {
 	now := time.Date(2026, time.September, 12, 12, 0, 0, 0, time.UTC)
 	group := aman.RunwayGroupID("north")

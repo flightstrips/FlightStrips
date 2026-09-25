@@ -392,6 +392,7 @@ func cloneInput(input Input) Input {
 	for index, flight := range input.Flights {
 		copy.Flights[index] = flight
 		copy.Flights[index].InitialBaselineTETA = cloneTime(flight.InitialBaselineTETA)
+		copy.Flights[index].PromotionNotBefore = cloneTime(flight.PromotionNotBefore)
 		copy.Flights[index].ManualOrder = cloneInt(flight.ManualOrder)
 		copy.Flights[index].FrozenAt = cloneTime(flight.FrozenAt)
 		copy.Flights[index].FrozenOperationalTETA = cloneTime(flight.FrozenOperationalTETA)

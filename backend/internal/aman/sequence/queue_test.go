@@ -329,6 +329,132 @@ func TestVacantSlotAutomaticallyPromotesFirstEligibleQueuedFlight(t *testing.T) 
 	require.Equal(t, 2, entry.Sequence)
 }
 
+func TestStableFlightCompactsIntoEmptyOpportunityWithoutPriorOffer(t *testing.T) {
+	start := testTime()
+	lead := queueFlight("LEAD", "A", start, "M", 1, start)
+	lead.ProtectCurrentSlot = true
+	target := queueFlight("TARGET", "A", start.Add(time.Minute), "M", 4, start.Add(3*time.Minute))
+	target.ProtectCurrentSlot = true
+	input := sequence.Input{Revision: 30, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{lead, target}}
+	bindQueueRevision(&input)
+
+	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
+	require.NoError(t, err)
+	require.Equal(t, start.Add(time.Minute), candidateEntry(result, target.ID).Time)
+	require.Equal(t, sequence.ReasonQueuePromotion, candidateEntry(result, target.ID).Reason)
+	require.Equal(t, []sequence.VacancyPromotion{{
+		FlightID: target.ID,
+		From:     *target.CurrentSlot,
+		To: aman.Slot{
+			Time: start.Add(time.Minute), RunwayGroupID: "A", Sequence: 2,
+			Revision: input.Revision, Reason: string(sequence.ReasonQueuePromotion),
+		},
+	}}, promotions)
+}
+
+func TestStableCompactionSkipsPastAndPhysicallyUnreachableSlots(t *testing.T) {
+	start := testTime()
+	target := queueFlight("TARGET", "A", start.Add(time.Minute), "M", 7, start.Add(6*time.Minute))
+	target.ProtectCurrentSlot = true
+	physicalETA := start.Add(4*time.Minute + time.Nanosecond)
+	target.PromotionNotBefore = &physicalETA
+	input := sequence.Input{Revision: 34, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{target}}
+	bindQueueRevision(&input)
+
+	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start.Add(3*time.Minute))
+	require.NoError(t, err)
+	require.Len(t, promotions, 1)
+	require.Equal(t, start.Add(5*time.Minute), candidateEntry(result, target.ID).Time)
+
+	input.Flights[0].PromotionNotBefore = nil
+	result, promotions, err = sequence.GenerateWithVacancyPromotions(input, nil, start.Add(4*time.Minute))
+	require.NoError(t, err)
+	require.Len(t, promotions, 1)
+	require.Equal(t, start.Add(5*time.Minute), candidateEntry(result, target.ID).Time,
+		"an elapsed opportunity cannot be promoted even when the operational TETA is older")
+}
+
+func TestStableCompactionCannotOvertakeStableFlightBehindUnstableNeighbor(t *testing.T) {
+	start := testTime()
+	policy := queuePolicy("A", start, 60)
+	policy.EarlyTolerance = 0
+	unstable := queueFlight("UNSTABLE", "A", start.Add(time.Minute), "M", 1, start.Add(time.Minute))
+	unstable.State = aman.StateUnstable
+	earlier := queueFlight("EARLIER", "A", start.Add(2*time.Minute), "M", 2, start.Add(2*time.Minute))
+	earlier.ProtectCurrentSlot = true
+	target := queueFlight("TARGET", "A", start, "M", 3, start.Add(4*time.Minute))
+	target.ProtectCurrentSlot = true
+	input := sequence.Input{Revision: 35, Policies: []sequence.Policy{policy}, Flights: []sequence.Flight{target, earlier, unstable}}
+	bindQueueRevision(&input)
+
+	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
+	require.NoError(t, err)
+	require.Len(t, promotions, 1)
+	require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, target.ID).Time)
+	require.Equal(t, []aman.FlightID{"UNSTABLE", "EARLIER", "TARGET"}, entryIDs(result))
+}
+
+func TestStableCompactionPreservesRelativeOrderAndCascadesForward(t *testing.T) {
+	start := testTime()
+	lead := queueFlight("LEAD", "A", start, "M", 1, start)
+	lead.ProtectCurrentSlot = true
+	first := queueFlight("FIRST", "A", start.Add(time.Minute), "M", 4, start.Add(3*time.Minute))
+	first.ProtectCurrentSlot = true
+	second := queueFlight("SECOND", "A", start.Add(time.Minute), "M", 5, start.Add(4*time.Minute))
+	second.ProtectCurrentSlot = true
+	input := sequence.Input{Revision: 31, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{second, lead, first}}
+	bindQueueRevision(&input)
+
+	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
+	require.NoError(t, err)
+	require.Len(t, promotions, 2)
+	require.Equal(t, start.Add(time.Minute), candidateEntry(result, first.ID).Time)
+	require.Equal(t, start.Add(2*time.Minute), candidateEntry(result, second.ID).Time)
+	require.Equal(t, []aman.FlightID{"LEAD", "FIRST", "SECOND"}, entryIDs(result))
+}
+
+func TestStableCompactionDoesNotCrossFrozenBoundary(t *testing.T) {
+	start := testTime()
+	frozenAt := start.Add(-time.Minute)
+	frozenTETA := start.Add(2 * time.Minute)
+	barrier := queueFlight("BARRIER", "A", frozenTETA, "M", 3, frozenTETA)
+	barrier.FreezeReason = aman.FreezeManual
+	barrier.FrozenAt = &frozenAt
+	barrier.FrozenOperationalTETA = &frozenTETA
+	barrier.CapturedSlot = barrier.CurrentSlot
+	target := queueFlight("TARGET", "A", start.Add(time.Minute), "M", 5, start.Add(4*time.Minute))
+	target.ProtectCurrentSlot = true
+	input := sequence.Input{Revision: 32, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{target, barrier}}
+	bindQueueRevision(&input)
+
+	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
+	require.NoError(t, err)
+	require.Len(t, promotions, 1)
+	require.Equal(t, start.Add(3*time.Minute), candidateEntry(result, target.ID).Time)
+	require.Equal(t, frozenTETA, candidateEntry(result, barrier.ID).Time)
+}
+
+func TestSuperstableFlightMayPromoteEarlierWithoutCrossingProtection(t *testing.T) {
+	start := testTime()
+	frozenAt := start.Add(-time.Minute)
+	lead := queueFlight("LEAD", "A", start, "M", 1, start)
+	lead.ProtectCurrentSlot = true
+	target := queueFlight("TARGET", "A", start.Add(time.Minute), "M", 4, start.Add(3*time.Minute))
+	target.FreezeReason = aman.FreezeSuperstable
+	target.FrozenAt = &frozenAt
+	frozenTETA := target.OperationalTETA
+	target.FrozenOperationalTETA = &frozenTETA
+	target.CapturedSlot = target.CurrentSlot
+	input := sequence.Input{Revision: 33, Policies: []sequence.Policy{queuePolicy("A", start, 60)}, Flights: []sequence.Flight{target, lead}}
+	bindQueueRevision(&input)
+
+	result, promotions, err := sequence.GenerateWithVacancyPromotions(input, nil, start)
+	require.NoError(t, err)
+	require.Len(t, promotions, 1)
+	require.Equal(t, start.Add(time.Minute), candidateEntry(result, target.ID).Time)
+	require.Equal(t, sequence.ReasonFreezeSuperstable, candidateEntry(result, target.ID).Reason)
+}
+
 func TestVacancyCreatedByBaselineResequencePromotesQueuedStableFlight(t *testing.T) {
 	start := testTime()
 	lead := queueFlight("LEAD", "A", start, "M", 1, start)
@@ -355,6 +481,7 @@ func TestVacancyPromotionRejectsOfferOutsideCurrentRateGrid(t *testing.T) {
 	lead := queueFlight("LEAD", "A", start, "M", 1, start)
 	lead.ProtectCurrentSlot = true
 	target := queueFlight("TARGET", "A", start.Add(time.Minute), "M", 3, start.Add(3*time.Minute))
+	target.State = aman.StateUnstable
 	target.ProtectCurrentSlot = true
 	input := sequence.Input{Revision: 25, Policies: []sequence.Policy{queuePolicy("A", start, 40)}, Flights: []sequence.Flight{lead, target}}
 	bindQueueRevision(&input)
@@ -426,7 +553,8 @@ func TestVacancyPromotionPreservesStableOrderAndProtectedBoundaries(t *testing.T
 	require.Equal(t, target.CurrentSlot.Time, candidateEntry(result, "TARGET").Time)
 	require.Equal(t, protected.CurrentSlot.Time, candidateEntry(result, "PROTECTED").Time)
 
-	// Stable relative order is independently protected even without a freeze.
+	// Without the freeze, both Stable flights compact while retaining their
+	// committed relative order.
 	protected.FreezeReason = aman.FreezeNone
 	protected.FrozenAt, protected.FrozenOperationalTETA, protected.CapturedSlot = nil, nil, nil
 	protected.ProtectCurrentSlot = true
@@ -434,14 +562,17 @@ func TestVacancyPromotionPreservesStableOrderAndProtectedBoundaries(t *testing.T
 	bindQueueRevision(&input)
 	result, promotions, err = sequence.GenerateWithVacancyPromotions(input, []aman.QueueOffer{offer}, start)
 	require.NoError(t, err)
-	require.Empty(t, promotions)
-	require.Equal(t, target.CurrentSlot.Time, candidateEntry(result, "TARGET").Time)
+	require.Len(t, promotions, 2)
+	require.Equal(t, start.Add(time.Minute), candidateEntry(result, "PROTECTED").Time)
+	require.Equal(t, start.Add(2*time.Minute), candidateEntry(result, "TARGET").Time)
+	require.Equal(t, []aman.FlightID{"LEAD", "PROTECTED", "TARGET"}, entryIDs(result))
 }
 
 func TestVacancyPromotionRejectsStaleCrossRunwayTooEarlyAndFrozenOffers(t *testing.T) {
 	start := testTime()
 	policyA, policyB := queuePolicy("A", start, 60), queuePolicy("B", start, 60)
 	target := queueFlight("TARGET", "A", start.Add(2*time.Minute), "M", 3, start.Add(3*time.Minute))
+	target.State = aman.StateUnstable
 	target.ProtectCurrentSlot = true
 	input := sequence.Input{Revision: 22, Policies: []sequence.Policy{policyA, policyB}, Flights: []sequence.Flight{
 		queueFlight("LEAD", "A", start, "M", 1, start), target,

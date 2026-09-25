@@ -1088,7 +1088,7 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 	var result sequence.Result
 	var promotions []sequence.VacancyPromotion
 	var err error
-	if len(offers) == 0 {
+	if input.Revision == 0 {
 		result, err = sequence.Generate(input)
 	} else {
 		result, promotions, err = sequence.GenerateWithVacancyPromotions(input, offers, now)
@@ -1104,12 +1104,20 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 	for _, entry := range result.Entries {
 		entries[entry.FlightID] = entry
 	}
+	promoted := make(map[aman.FlightID]struct{}, len(promotions))
+	for _, promotion := range promotions {
+		promoted[promotion.FlightID] = struct{}{}
+	}
 	for i := range state.Flights {
 		entry, ok := entries[state.Flights[i].ID]
 		if !ok {
 			continue
 		}
 		state.Flights[i].Slot = &aman.Slot{Time: entry.Time, RunwayGroupID: entry.RunwayGroupID, Sequence: entry.Sequence, Revision: state.Revision, Reason: string(entry.Reason)}
+		if _, wasPromoted := promoted[state.Flights[i].ID]; wasPromoted && state.Flights[i].FreezeReason == aman.FreezeSuperstable {
+			captured := *state.Flights[i].Slot
+			state.Flights[i].FrozenSlot = &captured
+		}
 		order := entry.Sequence
 		state.Flights[i].Order = &order
 		state.Flights[i].UpdatedAt = now
@@ -1328,7 +1336,8 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		}
 		input.Flights = append(input.Flights, sequence.Flight{
 			ID: flight.ID, RunwayGroupID: *flight.SelectedRunwayGroup, State: flight.State, OperationalTETA: flight.Prediction.OperationalTETA,
-			WakeCategory: sequence.WakeCategory(wakeCategory), STARFamily: flight.STARFamilyIdentity(),
+			PromotionNotBefore: promotionNotBefore(flight),
+			WakeCategory:       sequence.WakeCategory(wakeCategory), STARFamily: flight.STARFamilyIdentity(),
 			SelectedSTARFamily: explicitSTARFamily(flight.SelectedSTARFamily),
 			ManualOrder:        flight.ManualOrder,
 			FreezeReason:       flight.FreezeReason, FrozenAt: flight.FrozenAt, FrozenOperationalTETA: flight.FrozenOperationalTETA,
@@ -1338,6 +1347,20 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 		})
 	}
 	return input
+}
+
+func promotionNotBefore(flight aman.AMANFlight) *time.Time {
+	if flight.Prediction == nil || flight.Prediction.RawTETA.IsZero() {
+		return nil
+	}
+	earliest := flight.Prediction.RawTETA
+	if flight.HoldingClearance != nil && flight.HoldingClearance.HoldType == aman.HoldingClearanceEnroute &&
+		flight.HoldingStack != nil && flight.HoldingStack.Confirmed {
+		// The release/EAT plan needs positive holding time. A slot exactly at the
+		// free-flight ETA would remove the plan without replacing the old EAT.
+		earliest = earliest.Add(time.Nanosecond)
+	}
+	return &earliest
 }
 
 func sequenceEligible(flight aman.AMANFlight) bool {

@@ -48,11 +48,12 @@ type offerKey struct {
 }
 
 // GenerateWithVacancyPromotions consumes revision-bound queue offers whose
-// candidate slots are no longer occupied, revalidates them against the current
-// sequence policy, and generates one authoritative result. Offers are only
-// evidence of queue order: every promotion is checked again for lifecycle,
-// TETA, runway, manual/freeze boundaries, Stable order, WTC, and same-STAR
-// spacing before it is applied.
+// candidate slots are no longer occupied and also compacts Stable flights into
+// any earlier legal runway-grid opportunity. Offers remain evidence of queue
+// order for Unstable traffic; a Stable flight no longer depends on a prior
+// offer for a slot which is already empty. Every promotion is checked again
+// for lifecycle, TETA, runway, manual/freeze boundaries, Stable order, WTC,
+// and same-STAR spacing before it is applied.
 func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at time.Time) (Result, []VacancyPromotion, error) {
 	if input.Revision == 0 {
 		return Result{}, nil, fmt.Errorf("vacancy promotion requires a committed airport revision")
@@ -122,7 +123,8 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 			}
 			target := entries[targetIndex]
 			if !queueEligible(target.flight) || !offer.CandidateSlot.Time.Before(target.slot.Time) || !isGridSlot(policy, offer.CandidateSlot.Time) ||
-				offer.CandidateSlot.Time.Before(target.flight.OperationalTETA.Add(-policy.EarlyTolerance)) || crossesProtectedTime(entries, offer.CandidateSlot.Time, target.slot.Time) {
+				offer.CandidateSlot.Time.Before(promotionLowerBound(policy, target.flight, at)) || crossesProtectedTime(entries, offer.CandidateSlot.Time, target.slot.Time) ||
+				crossesStableOrder(entries, target.flight, offer.CandidateSlot.Time) {
 				continue
 			}
 			remaining := make([]allocatedEntry, 0, len(entries)-1)
@@ -154,6 +156,7 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 				return entries[i].flight.ID < entries[j].flight.ID
 			})
 		}
+		promotions = compactStableFlights(policy, entries, promotionSlots, promotions, at)
 	}
 
 	result, err := generate(input, promotionSlots)
@@ -177,6 +180,123 @@ func GenerateWithVacancyPromotions(input Input, offers []aman.QueueOffer, at tim
 		}
 	}
 	return result, promotions, nil
+}
+
+// compactStableFlights moves Stable flights monotonically earlier without
+// changing their committed relative order. A Superstable flight may accept an
+// earlier vacancy, but it cannot cross another freeze or manual-order boundary.
+// TMA and manual freezes remain immovable. The current slot is always retained
+// when no earlier opportunity satisfies the complete placement policy.
+func compactStableFlights(policy preparedPolicy, entries []queueEntry, promotionSlots map[aman.FlightID]aman.Slot, promotions []VacancyPromotion, at time.Time) []VacancyPromotion {
+	stableIDs := make([]aman.FlightID, 0, len(entries))
+	for _, entry := range entries {
+		if stablePromotionEligible(entry.flight) {
+			stableIDs = append(stableIDs, entry.flight.ID)
+		}
+	}
+
+	promotionIndexes := make(map[aman.FlightID]int, len(promotions))
+	for index := range promotions {
+		promotionIndexes[promotions[index].FlightID] = index
+	}
+	for _, flightID := range stableIDs {
+		targetIndex := queueEntryIndex(entries, flightID)
+		if targetIndex < 0 {
+			continue
+		}
+		target := entries[targetIndex]
+		remaining := make([]allocatedEntry, 0, len(entries)-1)
+		for index, entry := range entries {
+			if index == targetIndex {
+				continue
+			}
+			remaining = append(remaining, allocatedEntry{flight: entry.flight, time: entry.slot.Time, reason: CandidateReason(entry.slot.Reason)})
+		}
+
+		lower := promotionLowerBound(policy, target.flight, at)
+		candidate, ok := nextGridAtOrAfter(policy, lower)
+		for ok && candidate.Before(target.slot.Time) {
+			if !crossesProtectedTime(entries, candidate, target.slot.Time) && !crossesStableOrder(entries, target.flight, candidate) {
+				valid, _, later := placement(policy, remaining, target.flight, candidate)
+				if valid {
+					to := aman.Slot{
+						Time: candidate, RunwayGroupID: target.slot.RunwayGroupID,
+						Sequence: target.slot.Sequence, Revision: target.slot.Revision,
+						Reason: string(ReasonQueuePromotion),
+					}
+					promotionSlots[flightID] = to
+					if promotionIndex, promoted := promotionIndexes[flightID]; promoted {
+						promotions[promotionIndex].To = to
+					} else {
+						promotionIndexes[flightID] = len(promotions)
+						promotions = append(promotions, VacancyPromotion{FlightID: flightID, From: *target.flight.CurrentSlot, To: to})
+					}
+					entries[targetIndex].slot = to
+					sort.Slice(entries, func(i, j int) bool {
+						if !entries[i].slot.Time.Equal(entries[j].slot.Time) {
+							return entries[i].slot.Time.Before(entries[j].slot.Time)
+						}
+						if entries[i].slot.Sequence != entries[j].slot.Sequence {
+							return entries[i].slot.Sequence < entries[j].slot.Sequence
+						}
+						return entries[i].flight.ID < entries[j].flight.ID
+					})
+					break
+				}
+				if later.After(candidate) {
+					candidate, ok = nextGridAtOrAfter(policy, later)
+					continue
+				}
+			}
+			candidate, ok = nextGridAtOrAfter(policy, candidate.Add(time.Nanosecond))
+		}
+	}
+	return promotions
+}
+
+func stablePromotionEligible(flight preparedFlight) bool {
+	if flight.State != aman.StateStable || flight.ManualOrder != nil || flight.CurrentSlot == nil {
+		return false
+	}
+	switch flight.FreezeReason {
+	case aman.FreezeNone:
+		return flight.ProtectCurrentSlot
+	case aman.FreezeSuperstable:
+		return flight.CapturedSlot != nil
+	default:
+		return false
+	}
+}
+
+func promotionLowerBound(policy preparedPolicy, flight preparedFlight, at time.Time) time.Time {
+	lower := flight.OperationalTETA.Add(-policy.EarlyTolerance)
+	if !lower.After(at) {
+		lower = at.Add(time.Nanosecond)
+	}
+	if flight.PromotionNotBefore != nil && lower.Before(*flight.PromotionNotBefore) {
+		lower = *flight.PromotionNotBefore
+	}
+	return lower
+}
+
+// Stable order is committed by sequence number. The nearest time neighbor may
+// be Unstable, so checking only placement's adjacent neighbors is insufficient.
+func crossesStableOrder(entries []queueEntry, target preparedFlight, candidate time.Time) bool {
+	if target.stableOrder == nil {
+		return false
+	}
+	for _, entry := range entries {
+		if entry.flight.ID == target.ID || entry.flight.stableOrder == nil {
+			continue
+		}
+		if *entry.flight.stableOrder < *target.stableOrder && !candidate.After(entry.slot.Time) {
+			return true
+		}
+		if *entry.flight.stableOrder > *target.stableOrder && !candidate.Before(entry.slot.Time) {
+			return true
+		}
+	}
+	return false
 }
 
 func baselineQueueEntries(revision aman.SequenceRevision, group aman.RunwayGroupID, flights []preparedFlight, baseline Result) ([]queueEntry, error) {

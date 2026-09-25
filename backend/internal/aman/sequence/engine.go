@@ -84,8 +84,11 @@ type Flight struct {
 	State               aman.FlightState
 	OperationalTETA     time.Time
 	InitialBaselineTETA *time.Time
-	WakeCategory        WakeCategory
-	STARFamily          string
+	// PromotionNotBefore is a physical lower bound for opportunistic earlier
+	// slots. Normal candidate generation continues to use OperationalTETA.
+	PromotionNotBefore *time.Time
+	WakeCategory       WakeCategory
+	STARFamily         string
 	// SelectedSTARFamily is the explicit terminal-path family identity used
 	// for holding-sequence policy. It deliberately remains separate from
 	// STARFamily, which may contain a legacy compatibility identity for
@@ -486,6 +489,9 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		}
 		if raw.InitialBaselineTETA != nil && !validUTC(*raw.InitialBaselineTETA) {
 			return nil, fmt.Errorf("flight %q has invalid initial baseline TETA", raw.ID)
+		}
+		if raw.PromotionNotBefore != nil && !validUTC(*raw.PromotionNotBefore) {
+			return nil, fmt.Errorf("flight %q has invalid promotion lower bound", raw.ID)
 		}
 		if raw.ManualOrder != nil && *raw.ManualOrder < 1 {
 			return nil, fmt.Errorf("flight %q has invalid manual order", raw.ID)

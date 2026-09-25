@@ -278,6 +278,12 @@ then writes the transient TopSky `/HOLD_EAT/HHMM/` command, provided the
 aircraft is confirmed in the matching en-route hold. Both live publication and
 reconnect replay are controlled centrally by the backend
 `ENABLE_AMAN_HOLDING_EAT_WRITEBACK` setting, which defaults to `false`.
+Operational clients retain the latest backend EAT even while they are not
+tracking the aircraft, then reapply the transient command when tracking
+ownership is confirmed so the new local TopSky holding list is populated.
+When that authoritative holding projection disappears, the server sends the
+same callsign, hold, and hold type with an empty `hold_eat`; clients use this as
+a withdrawal of the retained backend EAT without changing the live clearance.
 
 ```json
 {

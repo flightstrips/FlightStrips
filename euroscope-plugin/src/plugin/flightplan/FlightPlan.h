@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
@@ -71,6 +72,12 @@ namespace FlightStrips::flightplan {
         std::vector<EcfmpRestriction> ecfmp_restrictions;
     };
 
+    struct BackendHoldEatReplay {
+        std::string hold{};
+        std::string hold_type{};
+        std::string eat{};
+    };
+
     struct FlightPlan {
     public:
         std::string squawk{};
@@ -83,6 +90,9 @@ namespace FlightStrips::flightplan {
         bool hold_command_observed{false};
         /// A live command was observed while the backend connection was down.
         bool hold_command_pending{false};
+        /// Latest backend-requested TopSky EAT, kept separate from observed
+        /// scratch-pad state so reconnect snapshots cannot discard it.
+        std::optional<BackendHoldEatReplay> backend_hold_eat_replay{};
         std::string tracking_controller{};
         std::optional<std::string> direct_to_fix{};
         bool direct_to_initialized{false};

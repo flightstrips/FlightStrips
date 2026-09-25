@@ -78,6 +78,50 @@ func TestAMANTransportProjectsConfirmedHoldingReleaseAsTopSkyEAT(t *testing.T) {
 	require.Equal(t, []euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}}, events)
 }
 
+func TestAMANTransportPublishesHoldingEATWithdrawalWhenProjectionDisappears(t *testing.T) {
+	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
+	holdingID := "EKCH-OLPIB-PRIMARY"
+	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{{
+		CurrentCallsign:  "SAS123",
+		SelectedHolding:  &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
+		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, Confirmed: true},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
+	}}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
+
+	require.Equal(t,
+		[]euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}},
+		transport.newHoldingEATPublication(context.Background(), state),
+	)
+
+	state.Flights[0].HoldingStack.Confirmed = false
+	require.Equal(t,
+		[]euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute"}},
+		transport.newHoldingEATPublication(context.Background(), state),
+	)
+	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state))
+}
+
+func TestAMANTransportPublishesInitialHoldingEATWhenClearanceAlreadyMatches(t *testing.T) {
+	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
+	holdingID := "EKCH-OLPIB-PRIMARY"
+	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{{
+		CurrentCallsign:  "SAS123",
+		SelectedHolding:  &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute, HoldEAT: "1422"},
+		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, Confirmed: true},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: release}},
+	}}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
+
+	require.Equal(t,
+		[]euroscopeEvents.HoldEvent{{Callsign: "SAS123", Hold: "OLPIB", HoldType: "enroute", HoldEat: "1422"}},
+		transport.newHoldingEATPublication(context.Background(), state),
+	)
+	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state))
+}
+
 func TestAMANTransportSuppressesUnsafeOrDuplicateHoldingEAT(t *testing.T) {
 	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
 	holdingID := "EKCH-OLPIB-PRIMARY"

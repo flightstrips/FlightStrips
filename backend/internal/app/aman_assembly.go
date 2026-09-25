@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,13 @@ type operationalAMANAssembly struct {
 	dependencies aman.Dependencies
 	commands     aman.CommandService
 	transport    *amanTransport
+}
+
+type holdingEATProjection struct {
+	callsign string
+	hold     string
+	holdType string
+	eat      string
 }
 
 type sessionLister interface {
@@ -85,6 +93,9 @@ type amanTransport struct {
 	// lastGainLossAuthority tracks whether EuroScope has received the current
 	// authoritative transport marker for each airport.
 	lastGainLossAuthority map[string]bool
+	// lastHoldingEAT tracks the last complete authoritative projection so a
+	// later publication can explicitly withdraw values that disappeared.
+	lastHoldingEAT map[string]map[string]holdingEATProjection
 }
 
 func (*amanTransport) Name() string { return "AMAN frontend state publisher" }
@@ -173,6 +184,74 @@ func (p *amanTransport) newHoldingEATEvents(ctx context.Context, state aman.Airp
 	return p.holdingEATEvents(ctx, state, true)
 }
 
+func (p *amanTransport) newHoldingEATPublication(ctx context.Context, state aman.AirportState) []euroscopeEvents.HoldEvent {
+	geometry := sync.OnceValues(func() (navdata.ActiveGeometrySnapshot, error) {
+		return p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
+	})
+	return p.holdingEATPublicationWithGeometry(ctx, state, geometry)
+}
+
+func (p *amanTransport) holdingEATPublicationWithGeometry(ctx context.Context, state aman.AirportState, geometry func() (navdata.ActiveGeometrySnapshot, error)) []euroscopeEvents.HoldEvent {
+	currentEvents := p.holdingEATEventsWithGeometry(ctx, state, false, geometry)
+	requiredWrites := p.holdingEATEventsWithGeometry(ctx, state, true, geometry)
+	requiresWrite := make(map[string]struct{}, len(requiredWrites))
+	for _, event := range requiredWrites {
+		requiresWrite[holdingEATKey(event.Callsign)] = struct{}{}
+	}
+
+	current := make(map[string]holdingEATProjection, len(currentEvents))
+	order := make([]string, 0, len(currentEvents))
+	for _, event := range currentEvents {
+		key := holdingEATKey(event.Callsign)
+		if _, exists := current[key]; !exists {
+			order = append(order, key)
+		}
+		current[key] = holdingEATProjection{
+			callsign: event.Callsign, hold: event.Hold, holdType: event.HoldType, eat: event.HoldEat,
+		}
+	}
+
+	airport := strings.ToUpper(strings.TrimSpace(state.Airport))
+	p.mu.Lock()
+	previous := p.lastHoldingEAT[airport]
+	updates := make([]euroscopeEvents.HoldEvent, 0, len(current)+len(previous))
+	for _, key := range order {
+		projection := current[key]
+		prior, existed := previous[key]
+		_, writeRequired := requiresWrite[key]
+		if writeRequired || !existed || prior != projection {
+			updates = append(updates, projection.event())
+		}
+	}
+
+	withdrawn := make([]string, 0)
+	for key := range previous {
+		if _, exists := current[key]; !exists {
+			withdrawn = append(withdrawn, key)
+		}
+	}
+	sort.Strings(withdrawn)
+	for _, key := range withdrawn {
+		withdrawal := previous[key]
+		withdrawal.eat = ""
+		updates = append(updates, withdrawal.event())
+	}
+	if p.lastHoldingEAT == nil {
+		p.lastHoldingEAT = make(map[string]map[string]holdingEATProjection)
+	}
+	p.lastHoldingEAT[airport] = current
+	p.mu.Unlock()
+	return updates
+}
+
+func holdingEATKey(callsign string) string {
+	return strings.ToUpper(strings.TrimSpace(callsign))
+}
+
+func (p holdingEATProjection) event() euroscopeEvents.HoldEvent {
+	return euroscopeEvents.HoldEvent{Callsign: p.callsign, Hold: p.hold, HoldType: p.holdType, HoldEat: p.eat}
+}
+
 func (p *amanTransport) holdingEATEvents(ctx context.Context, state aman.AirportState, suppressCurrent bool) []euroscopeEvents.HoldEvent {
 	return p.holdingEATEventsWithGeometry(ctx, state, suppressCurrent, func() (navdata.ActiveGeometrySnapshot, error) {
 		return p.geometry.ActiveGeometrySnapshot(ctx, navdata.AirportID(state.Airport))
@@ -252,7 +331,7 @@ func (p *amanTransport) PublishAMANState(ctx context.Context, state aman.Airport
 		euroscopeHub.PublishAMANGainLoss(gainLoss)
 	}
 	if euroscopeHub != nil && p.holdingEATEnabled {
-		euroscopeHub.PublishAMANHoldingEAT(state.Airport, p.holdingEATEventsWithGeometry(ctx, state, true, geometry))
+		euroscopeHub.PublishAMANHoldingEAT(state.Airport, p.holdingEATPublicationWithGeometry(ctx, state, geometry))
 	}
 	return nil
 }
@@ -293,7 +372,7 @@ func (p *amanTransport) PublishAMANAuthority(ctx context.Context, state aman.Air
 		}
 	}
 	if hub != nil && p.holdingEATEnabled {
-		hub.PublishAMANHoldingEAT(state.Airport, p.newHoldingEATEvents(ctx, state))
+		hub.PublishAMANHoldingEAT(state.Airport, p.newHoldingEATPublication(ctx, state))
 	}
 	return nil
 }

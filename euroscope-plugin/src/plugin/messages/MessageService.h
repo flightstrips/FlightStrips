@@ -71,6 +71,7 @@ namespace FlightStrips::messages {
         void HandleSendPrivateMessageEvent(const SendPrivateMessageEvent& event) const;
         void HandleHoldEvent(const HoldEvent& event) const;
         void HandleTrackingControllerChangedEvent(const TrackingControllerChangedEvent& event) const;
+        void WriteTopSkyHoldEat(EuroScopePlugIn::CFlightPlan flightPlan, const HoldEvent& event) const;
     };
 
 }

@@ -9,6 +9,7 @@ using FlightStrips::flightplan::FlightPlan;
 using FlightStrips::flightplan::FlightPlanService;
 using FlightStrips::flightplan::ApplyHold;
 using FlightStrips::flightplan::ApplyTopSkyHoldCommand;
+using FlightStrips::flightplan::BuildTopSkyHoldEatCommand;
 using FlightStrips::flightplan::ReconcileTopSkyHoldAnnotation;
 using FlightStrips::flightplan::ShouldReportTopSkyHoldCommand;
 using FlightStrips::flightplan::TopSkyHold;
@@ -313,7 +314,7 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncCdm_SeedsCdmState) {
     EXPECT_EQ(flightPlan->cdm.ecfmp_id, "ATFM");
 }
 
-TEST(FlightPlanServiceStateTest, ApplyBackendSyncHold_SeedsStateForLaterEat) {
+TEST(FlightPlanServiceStateTest, BackendHoldEatReplaySurvivesLaterReconnectSnapshot) {
     FlightPlanService service(
         std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
         std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
@@ -322,13 +323,77 @@ TEST(FlightPlanServiceStateTest, ApplyBackendSyncHold_SeedsStateForLaterEat) {
         nullptr
     );
 
+    service.CacheBackendHoldEatReplay("SAS322", "OLPIB", "enroute", "1422");
     service.ApplyBackendSyncHold("SAS322", "OLPIB", "enroute", "1415");
 
     auto* flightPlan = service.GetFlightPlan("SAS322");
     ASSERT_NE(flightPlan, nullptr);
-    ASSERT_TRUE(ApplyTopSkyHoldCommand(*flightPlan, {TopSkyHoldCommandType::Eat, "1422"}));
     EXPECT_EQ(flightPlan->hold, "OLPIB");
     EXPECT_EQ(flightPlan->hold_type, "enroute");
+    EXPECT_EQ(flightPlan->hold_eat, "1415");
+    ASSERT_TRUE(flightPlan->backend_hold_eat_replay.has_value());
+    EXPECT_EQ(flightPlan->backend_hold_eat_replay->hold, "OLPIB");
+    EXPECT_EQ(flightPlan->backend_hold_eat_replay->hold_type, "enroute");
+    EXPECT_EQ(flightPlan->backend_hold_eat_replay->eat, "1422");
+    EXPECT_EQ(
+        BuildTopSkyHoldEatCommand(
+            TopSkyHold{true, false, "OLPIB"}, flightPlan->backend_hold_eat_replay->hold,
+            flightPlan->backend_hold_eat_replay->hold_type, flightPlan->backend_hold_eat_replay->eat),
+        "/HOLD_EAT/1422/"
+    );
+
+    const auto command = FlightStrips::flightplan::TopSkyHoldCommand{TopSkyHoldCommandType::Eat, "1422"};
+    const auto changed = ApplyTopSkyHoldCommand(*flightPlan, command);
+    EXPECT_TRUE(changed);
+    EXPECT_TRUE(ShouldReportTopSkyHoldCommand(command, changed));
+    EXPECT_EQ(flightPlan->hold_eat, "1422");
+    EXPECT_TRUE(flightPlan->backend_hold_eat_replay.has_value());
+}
+
+TEST(FlightPlanServiceStateTest, NewHoldCommandInvalidatesBackendEatReplay) {
+    FlightPlan plan;
+    plan.backend_hold_eat_replay = FlightStrips::flightplan::BackendHoldEatReplay{"OLPIB", "enroute", "1422"};
+
+    EXPECT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "ROSBI"}));
+    EXPECT_FALSE(plan.backend_hold_eat_replay.has_value());
+}
+
+TEST(FlightPlanServiceStateTest, DuplicateHoldCommandPreservesMatchingBackendEatReplay) {
+    FlightPlan plan;
+    ASSERT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB"}));
+    plan.backend_hold_eat_replay = FlightStrips::flightplan::BackendHoldEatReplay{"OLPIB", "enroute", "1422"};
+
+    EXPECT_FALSE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB"}));
+    ASSERT_TRUE(plan.backend_hold_eat_replay.has_value());
+    EXPECT_EQ(plan.backend_hold_eat_replay->eat, "1422");
+}
+
+TEST(FlightPlanServiceStateTest, DifferentEatCommandInvalidatesBackendEatReplay) {
+    FlightPlan plan;
+    ASSERT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Assign, "OLPIB"}));
+    plan.backend_hold_eat_replay = FlightStrips::flightplan::BackendHoldEatReplay{"OLPIB", "enroute", "1422"};
+
+    EXPECT_TRUE(ApplyTopSkyHoldCommand(plan, {TopSkyHoldCommandType::Eat, "1430"}));
+    EXPECT_FALSE(plan.backend_hold_eat_replay.has_value());
+}
+
+TEST(FlightPlanServiceStateTest, EmptyBackendEatWithdrawsReplayWithoutClearingObservedHold) {
+    FlightPlanService service(
+        std::shared_ptr<FlightStrips::websocket::WebSocketService>{},
+        std::shared_ptr<FlightStrips::FlightStripsPlugin>{},
+        std::shared_ptr<FlightStrips::stands::StandService>{},
+        std::shared_ptr<FlightStrips::configuration::AppConfig>{},
+        nullptr
+    );
+    service.ApplyBackendSyncHold("SAS324", "OLPIB", "enroute", "1422");
+    service.CacheBackendHoldEatReplay("SAS324", "OLPIB", "enroute", "1422");
+
+    service.CacheBackendHoldEatReplay("SAS324", "OLPIB", "enroute", "");
+
+    const auto* flightPlan = service.GetFlightPlan("SAS324");
+    ASSERT_NE(flightPlan, nullptr);
+    EXPECT_FALSE(flightPlan->backend_hold_eat_replay.has_value());
+    EXPECT_EQ(flightPlan->hold, "OLPIB");
     EXPECT_EQ(flightPlan->hold_eat, "1422");
 }
 

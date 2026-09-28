@@ -581,9 +581,10 @@ type UpdateStripDataEvent struct {
 // ---------- TRANSFER ----------
 
 type CoordinationTransferRequestEvent struct {
-	Type     string `json:"type"`
-	To       string `json:"to,omitempty"`
-	Callsign string `json:"callsign"`
+	Type             string `json:"type"`
+	To               string `json:"to,omitempty"`
+	Callsign         string `json:"callsign"`
+	StartReqTransfer bool   `json:"start_req_transfer,omitempty"`
 }
 
 type CoordinationTransferBroadcastEvent struct {

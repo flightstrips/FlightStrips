@@ -141,7 +141,7 @@ func TestHandleReadyRequest_UsesReadyFlow(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 	requestMu.Lock()
 	require.Equal(t, "REA/1", requestValues[0], "REA must be acknowledged before READY-derived TOBT export")
-	assert.True(t, strings.HasPrefix(requestValues[1], "TOBT/"))
+	assert.True(t, strings.HasPrefix(requestValues[1], "OBT/"))
 	requestMu.Unlock()
 
 	require.NotEmpty(t, frontendHub.CdmUpdates)
@@ -199,7 +199,7 @@ func TestHandleReadyRequest_RetriesReaBeforeExportAndClearsPending(t *testing.T)
 	require.NoError(t, service.HandleReadyRequest(context.Background(), sessionID, callsign, "EKCH_DEL", "ATC"))
 	require.Len(t, requests, 3)
 	assert.Equal(t, "REA/1", requests[1])
-	assert.True(t, strings.HasPrefix(requests[2], "TOBT/"))
+	assert.True(t, strings.HasPrefix(requests[2], "OBT/"))
 	assert.False(t, stored.ReadySyncPending)
 }
 
@@ -1384,7 +1384,7 @@ func TestPushTobt_UsesTaxiMinutesWithoutResolvingMasterPosition(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/ifps/dpi", requestPath)
 	assert.Contains(t, requestQuery, "callsign=EIN456")
-	assert.Contains(t, requestQuery, "value=TOBT%2F1030%2F12")
+	assert.Contains(t, requestQuery, "value=OBT%2F1030%2F12")
 }
 
 func TestPushTobt_UsesPersistedCalculationTaxiMinutes(t *testing.T) {
@@ -1444,7 +1444,7 @@ func TestPushTobt_UsesPersistedCalculationTaxiMinutes(t *testing.T) {
 
 	err := service.PushTobt(context.Background(), sessionID, callsign, "1030")
 	require.NoError(t, err)
-	assert.Contains(t, requestQuery, "value=TOBT%2F1030%2F14")
+	assert.Contains(t, requestQuery, "value=OBT%2F1030%2F14")
 }
 
 func TestSchedulePeriodicRecalculate_TriggersAllAirportSessions(t *testing.T) {
@@ -2006,7 +2006,14 @@ func TestHandleReadyRequest_UpdatesTobtToNowWhenTsatExpiredOrPhaseInvalid(t *tes
 
 			require.NotNil(t, persisted)
 			require.NotNil(t, persisted.Tobt)
-			assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Tobt)
+			if strings.HasPrefix(tt.name, "expired tsat") {
+				assert.Contains(t, []string{
+					truncateCDMClockValue(addMinutes(toHHMMSS(beforeNow), 10)),
+					truncateCDMClockValue(addMinutes(toHHMMSS(afterNow), 10)),
+				}, *persisted.Tobt)
+			} else {
+				assert.Contains(t, []string{beforeNow, afterNow}, *persisted.Tobt)
+			}
 			require.NotNil(t, persisted.Status)
 			assert.Equal(t, "REA", *persisted.Status)
 			assert.True(t, persisted.Recalculate)
@@ -2184,18 +2191,15 @@ func TestSyncAsatForGroundState_SetsAobtLocallyAndPushesToViff(t *testing.T) {
 		}
 	}, time.Second, 10*time.Millisecond, "expected AOBT/<time> to be sent")
 
-	// Ground state → airborne: AOBT should be cleared
+	// Ground state → airborne: ASAT clears, but the first AOBT remains recorded.
 	require.NoError(t, service.SyncAsatForGroundState(context.Background(), sessionID, callsign, "AIRB"))
-	assert.Nil(t, stored.Aobt)
-
-	require.Eventually(t, func() bool {
-		select {
-		case v := <-aobtCh:
-			return v == "AOBT/NULL"
-		default:
-			return false
-		}
-	}, time.Second, 10*time.Millisecond, "expected AOBT/NULL to be sent")
+	assert.Nil(t, stored.Asat)
+	assert.NotNil(t, stored.Aobt)
+	select {
+	case v := <-aobtCh:
+		t.Fatalf("unexpected duplicate AOBT write: %s", v)
+	default:
+	}
 }
 
 func TestPushViffAfterRecalcAsync_SendsSetCdmDataWhenTsatPresent(t *testing.T) {

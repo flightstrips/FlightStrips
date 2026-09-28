@@ -67,7 +67,41 @@ func TestIFPSSetTobt_UsesDpiEndpoint(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, captured)
 	assert.Equal(t, "EIN123", captured.Get("callsign"))
-	assert.Equal(t, "TOBT/1030/12", captured.Get("value"))
+	assert.Equal(t, "OBT/1030/12", captured.Get("value"))
+}
+
+func TestIFPSSetCdmData_UsesPluginQueryShape(t *testing.T) {
+	var captured url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/ifps/setCdmData", r.URL.Path)
+		assert.Equal(t, "test-key", r.Header.Get("x-api-key"))
+		captured = r.URL.Query()
+		_, _ = w.Write([]byte("true"))
+	}))
+	defer server.Close()
+
+	client := NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL))
+	require.NoError(t, client.IFPSSetCdmData(context.Background(), SetCdmDataParams{
+		Callsign: "EIN123", Tobt: "103000", Tsat: "103500", Ttot: "104500",
+		Asrt: "1028", DepInfo: "22R/MIKLA1A",
+	}))
+	assert.Equal(t, url.Values{
+		"callsign": {"EIN123"}, "tobt": {"103000"}, "tsat": {"103500"},
+		"ttot": {"104500"}, "ctot": {""}, "reason": {""},
+		"asrt": {"1028"}, "depInfo": {"22R/MIKLA1A"},
+	}, captured)
+}
+
+func TestIFPSDpi_RejectsNegativeAcknowledgment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("false"))
+	}))
+	defer server.Close()
+
+	client := NewClient(WithAPIKey("test-key"), WithBaseURL(server.URL))
+	require.ErrorContains(t, client.IFPSDpi(context.Background(), "EIN123", "REA/1"), "did not confirm")
+	require.ErrorContains(t, client.IFPSSetCdmData(context.Background(), SetCdmDataParams{Callsign: "EIN123"}), "did not confirm")
 }
 
 func TestClearMasterAirport_UsesRemoveMasterEndpoint(t *testing.T) {

@@ -6,6 +6,10 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 var validFrontendMoveBays = map[string]bool{
@@ -47,7 +51,7 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 	// A confirmed EST VACANT/CLEAR FPL operation must remain available for
 	// removing an obsolete stand occupant even when another validation currently
 	// owns the master-caution slot. Ordinary moves to HIDDEN remain locked.
-	if strip.IsValidationLocked() && !confirmedRemoval {
+	if strip.IsValidationLocked() && !confirmedRemoval && (strip.ValidationStatus == nil || strip.ValidationStatus.IssueType != pushbackTsatValidationIssueType || targetBay != shared.BAY_PUSH) {
 		return errors.New("strip is locked by an active validation")
 	}
 
@@ -57,6 +61,19 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 
 	if err := s.authorizeFrontendMove(ctx, session, strip, callsign, airport, targetBay, clientPosition, confirmedRemoval); err != nil {
 		return err
+	}
+	if targetBay == shared.BAY_PUSH && strip.Bay != targetBay && strings.EqualFold(strip.Origin, airport) {
+		if err := s.validatePushbackTiming(ctx, session, strip, clientPosition); err != nil {
+			return err
+		}
+		ctx = withValidatedPushback(ctx, session, callsign)
+		strip, err = s.stripReader.GetByCallsign(ctx, session, callsign)
+		if err != nil {
+			return err
+		}
+	}
+	if strip.IsValidationLocked() && !confirmedRemoval {
+		return errors.New("strip is locked by an active validation")
 	}
 
 	if strip.Bay == targetBay {
@@ -98,9 +115,168 @@ func (s *StripService) MoveFrontendStrip(ctx context.Context, session int32, cal
 			return err
 		}
 	}
+	if targetBay == shared.BAY_CLEARED && !previousCleared {
+		if err := s.adjustTobtForClearance(ctx, session, callsign); err != nil {
+			return err
+		}
+	}
 
 	s.syncAsatForGroundStateBestEffort(ctx, session, callsign, groundState)
 	return nil
+}
+
+const pushbackTsatValidationIssueType = "TSAT PUSHBACK"
+
+type validatedPushbackContextKey struct{}
+
+type validatedPushbackFlight struct {
+	session  int32
+	callsign string
+}
+
+func withValidatedPushback(ctx context.Context, session int32, callsign string) context.Context {
+	return context.WithValue(ctx, validatedPushbackContextKey{}, validatedPushbackFlight{session: session, callsign: callsign})
+}
+
+func pushbackWasValidated(ctx context.Context, session int32, callsign string) bool {
+	flight, ok := ctx.Value(validatedPushbackContextKey{}).(validatedPushbackFlight)
+	return ok && flight.session == session && flight.callsign == callsign
+}
+
+func pushbackTsatWithinWindow(tsat string, now time.Time) bool {
+	ts := strings.TrimSpace(tsat)
+	if len(ts) < 4 {
+		return false
+	}
+	ts = ts[:4]
+	parsed, ok := parseValidationClockUTC(ts, now.UTC())
+	if !ok {
+		return false
+	}
+	delta := parsed.Sub(now.UTC())
+	if delta > 12*time.Hour {
+		delta -= 24 * time.Hour
+	}
+	return delta >= -5*time.Minute && delta <= 6*time.Minute
+}
+
+func pushbackTimingContext(strip *internalModels.Strip, remoteCtot string, confirmed bool, now time.Time) string {
+	if strip == nil {
+		return ""
+	}
+	value := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return *p
+	}
+	remoteState := remoteCtot
+	if !confirmed {
+		remoteState = "UNCONFIRMED"
+	}
+	return value(strip.EffectiveTobt()) + "|" + value(strip.EffectiveTsat()) + "|" + value(strip.EffectiveCtot()) + "|" + remoteState + "|" + pushbackWindowState(value(strip.EffectiveTsat()), now)
+}
+
+func pushbackWindowState(tsat string, now time.Time) string {
+	if pushbackTsatWithinWindow(tsat, now) {
+		return "valid"
+	}
+	ts := strings.TrimSpace(tsat)
+	if len(ts) < 4 {
+		return "unknown"
+	}
+	parsed, ok := parseValidationClockUTC(ts[:4], now.UTC())
+	if !ok {
+		return "unknown"
+	}
+	delta := parsed.Sub(now.UTC())
+	if delta > 12*time.Hour {
+		delta -= 24 * time.Hour
+	}
+	if delta > 6*time.Minute {
+		return "early"
+	}
+	return "late"
+}
+
+func (s *StripService) validatePushbackTiming(ctx context.Context, session int32, strip *internalModels.Strip, position string) error {
+	service, ok := s.cdmService.(interface {
+		PreparePushback(context.Context, int32, string) (string, string, bool, error)
+		ReadPushbackCtot(context.Context, int32, string) (string, error)
+	})
+	if !ok || s.validationStore == nil {
+		return nil
+	}
+	now := time.Now().UTC()
+	remoteCtot, readErr := service.ReadPushbackCtot(ctx, session, strip.Callsign)
+	confirmed := readErr == nil
+	contextKey := pushbackTimingContext(strip, remoteCtot, confirmed, now)
+	if strip.ValidationStatus != nil && strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType && strip.ValidationStatus.ContextKey == contextKey {
+		if strip.ValidationStatus.Active {
+			return errors.New("pushback requires TSAT override")
+		}
+		return nil
+	}
+	if confirmed && remoteCtot == "" && pushbackTsatWithinWindow(valueOrEmptyStripTime(strip.EffectiveTsat()), now) {
+		if strip.ValidationStatus != nil && strip.ValidationStatus.IssueType == pushbackTsatValidationIssueType {
+			if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
+				return err
+			}
+			shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
+		}
+		return nil
+	}
+	verified := false
+	var prepareErr error
+	if !pushbackTsatWithinWindow(valueOrEmptyStripTime(strip.EffectiveTsat()), now) {
+		var preparedCtot string
+		_, preparedCtot, verified, prepareErr = service.PreparePushback(ctx, session, strip.Callsign)
+		if verified {
+			remoteCtot, confirmed = preparedCtot, true
+		}
+	} else {
+		verified = confirmed
+	}
+	updated, err := s.stripReader.GetByCallsign(ctx, session, strip.Callsign)
+	if err != nil {
+		return err
+	}
+	if prepareErr != nil || !verified || remoteCtot != "" || !pushbackTsatWithinWindow(valueOrEmptyStripTime(updated.EffectiveTsat()), time.Now().UTC()) || valueOrEmptyStripTime(updated.EffectiveCtot()) != "" {
+		if validationCandidateIsInhibited(updated.ValidationStatus, pushbackTsatValidationIssueType) {
+			return errors.New("pushback timing warning is waiting for another validation")
+		}
+		owner := position
+		if updated.Owner != nil && *updated.Owner != "" {
+			owner = *updated.Owner
+		}
+		status := &internalModels.ValidationStatus{
+			IssueType:      pushbackTsatValidationIssueType,
+			Message:        "Aircraft pushed outside of TSAT window with/without CTOT.",
+			OwningPosition: owner,
+			Active:         true,
+			ActivationKey:  uuid.New().String(),
+			ContextKey:     pushbackTimingContext(updated, remoteCtot, confirmed, time.Now().UTC()),
+		}
+		if err := s.validationStore.SetValidationStatus(ctx, session, strip.Callsign, status); err != nil {
+			return err
+		}
+		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
+		return errors.New("pushback requires TSAT override")
+	}
+	if updated.ValidationStatus != nil && updated.ValidationStatus.IssueType == pushbackTsatValidationIssueType {
+		if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
+			return err
+		}
+		shared.PublishStripUpdate(ctx, s.publisher, session, strip.Callsign)
+	}
+	return nil
+}
+
+func valueOrEmptyStripTime(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func validateFrontendMoveBayTransition(strip *internalModels.Strip, airport string, targetBay string, clearance bool) error {

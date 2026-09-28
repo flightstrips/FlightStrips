@@ -19,6 +19,7 @@ func TestValidationPriorityOrder(t *testing.T) {
 		{runwayTypeValidationIssueType},
 		{taxiwayTypeValidationIssueType},
 		{ctotValidationIssueType},
+		{pushbackTsatValidationIssueType},
 		{models.ValidationIssueTypeStandAssignment},
 	}
 
@@ -42,6 +43,8 @@ func TestValidationCandidateInhibition(t *testing.T) {
 		{name: "stand advisory cannot inhibit PDC", current: &models.ValidationStatus{IssueType: models.ValidationIssueTypeStandAssignment}, candidate: pdcInvalidValidationIssueType},
 		{name: "runway caution replaces taxiway caution", current: &models.ValidationStatus{IssueType: taxiwayTypeValidationIssueType}, candidate: runwayTypeValidationIssueType},
 		{name: "taxiway caution inhibited by runway caution", current: &models.ValidationStatus{IssueType: runwayTypeValidationIssueType}, candidate: taxiwayTypeValidationIssueType, inhibited: true},
+		{name: "pushback caution inhibited by CTOT", current: &models.ValidationStatus{IssueType: ctotValidationIssueType}, candidate: pushbackTsatValidationIssueType, inhibited: true},
+		{name: "pushback caution replaces stand advisory", current: &models.ValidationStatus{IssueType: models.ValidationIssueTypeStandAssignment}, candidate: pushbackTsatValidationIssueType},
 		{name: "same-tier PDC presentations may replace", current: &models.ValidationStatus{IssueType: pdcCustomValidationIssueType}, candidate: pdcInvalidValidationIssueType},
 		{name: "unknown current caution is protected", current: &models.ValidationStatus{IssueType: "NEW SAFETY CAUTION"}, candidate: wrongSquawkValidationIssueType, inhibited: true},
 		{name: "unknown candidate requires priority decision", current: &models.ValidationStatus{IssueType: wrongSquawkValidationIssueType}, candidate: "NEW SAFETY CAUTION", inhibited: true},

@@ -301,11 +301,22 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			updated = (&models.CdmData{}).Normalize()
 		}
 		updated = updated.Clone()
+		beforeProposalTsat := valueOrEmpty(updated.ViffProposalTsat)
+		beforeProposalTtot := valueOrEmpty(updated.ViffProposalTtot)
 		beforeNeedsRecalc := updated.NeedsLocalRecalculation()
 		if keepExistingAssignment {
 			result.Tsat = beforeTsat
 			result.Ttot = beforeTtot
 		} else {
+			proposalInput := calcInput
+			if !updated.HasManualCtot() {
+				proposalInput.Ctot = ""
+				proposalInput.HasManCtot = false
+				proposalInput.ManCtot = ""
+			}
+			proposal := Calculate(proposalInput, slots, config, now)
+			updated.ViffProposalTsat = stringPointerIfPresent(proposal.Tsat)
+			updated.ViffProposalTtot = stringPointerIfPresent(proposal.Ttot)
 			updated.Phase = nil
 			updated.Tsat = stringPointerIfPresent(result.Tsat)
 			updated.Ttot = stringPointerIfPresent(result.Ttot)
@@ -314,7 +325,8 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		}
 		updated.ClearLocalRecalculationPending()
 
-		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) {
+		if beforeTsat != result.Tsat || beforeTtot != result.Ttot || beforeNeedsRecalc || beforeTaxiMinutes != calcInput.TaxiMin || beforeTaxiRunway != strings.TrimSpace(valueOrEmpty(updatedTaxiRunwayFromData(updated))) ||
+			beforeProposalTsat != valueOrEmpty(updated.ViffProposalTsat) || beforeProposalTtot != valueOrEmpty(updated.ViffProposalTtot) {
 			rows, err := s.stripRepo.SetCdmData(ctx, session, strip.Callsign, updated.Normalize())
 			if err != nil {
 				return err

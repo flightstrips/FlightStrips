@@ -764,15 +764,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
         return false;
       }
 
-      if (!sendIfWritable({ type: ActionType.FrontendStartReq, callsign, start_req: true })) {
+      if (!sendIfWritable({ type: ActionType.FrontendCoordinationTransferRequest, callsign, to: target, start_req_transfer: true })) {
         return false;
       }
-      updateLocalStartReq(callsign, true);
-
-      if (!sendIfWritable({ type: ActionType.FrontendCoordinationTransferRequest, callsign, to: target })) {
-        return false;
-      }
-      updateLocalStartReq(callsign, false);
       return true;
     },
     assumeStrip: (callsign) => {

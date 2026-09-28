@@ -141,7 +141,7 @@ export interface AMANHoldingEntry {
 
 export type AMANTrafficStatus = "ready" | "degraded" | "disconnected";
 export type AMANTrafficAlert = "none" | "yellow" | "red";
-export type AMANTrafficTimingSource = "aman" | "vatsim_planned" | "vatsim_airborne";
+export type AMANTrafficTimingSource = "aman" | "vatsim_planned" | "vatsim_airborne" | "airborne_position";
 
 export interface AMANTrafficPrediction {
   generated_at: string;
@@ -502,7 +502,7 @@ const healthStatuses = new Set<AMANHealthStatus>(["disabled", "ready", "degraded
 const routeFactStates = new Set(["active", "cleared", "expired"]);
 const trafficStatuses = new Set<AMANTrafficStatus>(["ready", "degraded", "disconnected"]);
 const trafficAlerts = new Set<AMANTrafficAlert>(["none", "yellow", "red"]);
-const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned", "vatsim_airborne"]);
+const trafficSources = new Set<AMANTrafficTimingSource>(["aman", "vatsim_planned", "vatsim_airborne", "airborne_position"]);
 const warningSources = new Set<AMANWarningSource>(["technical_health", "sequence"]);
 const warningSeverities = new Set<AMANWarningSeverity>(["error", "warning"]);
 

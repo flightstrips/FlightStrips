@@ -713,6 +713,27 @@ func TestPreliminaryPredictionsUseDocumentedPlannedAndAirborneTimes(t *testing.T
 	require.Equal(t, takeoff.Add(eet), anchored.Prediction.RawTETA)
 }
 
+func TestAirborneEETWithoutEOBTReachesTrafficPrediction(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	takeoff, eet := now.Add(-time.Minute), 30*time.Minute
+	observation := aman.FlightObservation{
+		PlannedTiming:   &aman.PlannedTiming{EstimatedEnrouteTime: &eet},
+		TakeoffDetected: &takeoff,
+	}
+	flight := aman.AMANFlight{Callsign: "SAS202", State: aman.StatePlanned, DataStatus: aman.DataFresh}
+	applyBaseline(&flight, observation, now)
+	applyPreliminaryPrediction(&flight, observation, now)
+
+	require.Equal(t, aman.StateAirborne, flight.State)
+	require.Equal(t, takeoff.Add(eet), flight.ArrivalBaseline.ArrivalAt)
+	require.Equal(t, takeoff.Add(eet), flight.Prediction.OperationalTETA)
+	state := aman.AirportState{GeneratedAt: now, Flights: []aman.AMANFlight{flight}}
+	model := trafficprediction.Build(state, aman.ComponentHealth{Status: aman.HealthReady})
+	require.NotContains(t, model.DegradedReasons, "missing_timing:SAS202")
+	require.Equal(t, 1, model.Buckets[1].Count)
+	require.Equal(t, trafficprediction.SourceVATSIMAirborne, model.Buckets[1].Flights[0].TimingSource)
+}
+
 func TestApplyBaselineIgnoresNonPositiveFiledEET(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	takeoff := now.Add(-time.Minute)

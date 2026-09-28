@@ -63,6 +63,49 @@ func TestBuildDoesNotFallBackToVATSIMWhenAuthoritativeAMANTimingIsMissing(t *tes
 	}
 }
 
+func TestBuildUsesFreshLiveArrivalForNearbyAirborneFlightWithoutFiledTiming(t *testing.T) {
+	now := utc(2026, time.July, 22, 20, 44)
+	state := baseState(now, 20)
+	altitude, groundspeed := 18000, 420.0
+	airport := AirportPosition{LatitudeDegrees: 55.618, LongitudeDegrees: 12.656}
+	flight := aman.AMANFlight{
+		Callsign: "SAS202", State: aman.StateAirborne, DataStatus: aman.DataFresh,
+		LatestObservation: &aman.FlightObservation{
+			Surveillance: &aman.SurveillanceFact{
+				LatitudeDegrees: 55.1, LongitudeDegrees: 12.1, AltitudeFeet: &altitude,
+				GroundspeedKnots: &groundspeed, ObservedAt: &now,
+			},
+		},
+	}
+	state.Flights = []aman.AMANFlight{flight}
+
+	model := BuildWithAirportPosition(state, readyHealth(), airport)
+	require.NotContains(t, model.DegradedReasons, "missing_timing:SAS202")
+	require.Equal(t, 1, model.Buckets[1].Count)
+	require.Equal(t, SourceAirbornePosition, model.Buckets[1].Flights[0].TimingSource)
+	require.Contains(t, model.DegradedReasons, "position_estimate")
+
+	flight.Prediction = &aman.Prediction{OperationalTETA: now.Add(90 * time.Minute), Publishable: true}
+	state.Flights[0] = flight
+	model = BuildWithAirportPosition(state, readyHealth(), airport)
+	require.Equal(t, 1, model.Buckets[1].Count, "current position must supersede an airborne flight-plan estimate")
+
+	// An accepted route prediction still wins; an expired position observation
+	// cannot stand in for current airborne timing.
+	flight.Prediction = &aman.Prediction{OperationalTETA: now.Add(20 * time.Minute), Publishable: true, Basis: aman.PredictionBasisPerformanceWind}
+	state.Flights[0] = flight
+	model = BuildWithAirportPosition(state, readyHealth(), airport)
+	require.Equal(t, 0, model.Buckets[1].Count)
+	require.Equal(t, 1, model.Buckets[2].Count)
+
+	flight.Prediction = nil
+	staleObserved := now.Add(-3 * time.Minute)
+	flight.LatestObservation.Surveillance.ObservedAt = &staleObserved
+	state.Flights[0] = flight
+	model = BuildWithAirportPosition(state, readyHealth(), airport)
+	require.Contains(t, model.DegradedReasons, "missing_timing:SAS202")
+}
+
 func TestBuildThresholdEqualityAndOneHourWindow(t *testing.T) {
 	now := utc(2026, time.July, 22, 20, 30)
 	state := baseState(now, 40)

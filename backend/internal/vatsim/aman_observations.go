@@ -335,15 +335,18 @@ func takeoffDetected(flight Flight, observedAt time.Time) *time.Time {
 }
 
 func plannedTiming(now time.Time, plan FlightPlan) *aman.PlannedTiming {
-	departure, ok := plannedOffBlockTime(now, plan.EOBT)
-	if !ok {
-		return nil
+	timing := &aman.PlannedTiming{}
+	if departure, ok := plannedOffBlockTime(now, plan.EOBT); ok {
+		timing.EstimatedOffBlockTime = &departure
 	}
 	duration, err := parseDuration(plan.EnrouteDuration)
-	if err != nil || duration <= 0 {
-		return &aman.PlannedTiming{EstimatedOffBlockTime: &departure}
+	if err == nil && duration > 0 {
+		timing.EstimatedEnrouteTime = &duration
 	}
-	return &aman.PlannedTiming{EstimatedOffBlockTime: &departure, EstimatedEnrouteTime: &duration}
+	if timing.EstimatedOffBlockTime == nil && timing.EstimatedEnrouteTime == nil {
+		return nil
+	}
+	return timing
 }
 
 func plannedOffBlockTime(now time.Time, eobt string) (time.Time, bool) {

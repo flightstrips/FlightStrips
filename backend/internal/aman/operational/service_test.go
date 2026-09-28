@@ -713,14 +713,19 @@ func TestPreliminaryPredictionsUseDocumentedPlannedAndAirborneTimes(t *testing.T
 	require.Equal(t, takeoff.Add(eet), anchored.Prediction.RawTETA)
 }
 
-func TestAirborneEETWithoutEOBTReachesTrafficPrediction(t *testing.T) {
+func TestAirborneTrafficPredictionUsesPositionDespiteFiledEET(t *testing.T) {
 	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
 	takeoff, eet := now.Add(-time.Minute), 30*time.Minute
+	altitude, groundspeed := 18000, 420.0
 	observation := aman.FlightObservation{
 		PlannedTiming:   &aman.PlannedTiming{EstimatedEnrouteTime: &eet},
 		TakeoffDetected: &takeoff,
+		Surveillance: &aman.SurveillanceFact{
+			LatitudeDegrees: 55.1, LongitudeDegrees: 12.1, AltitudeFeet: &altitude,
+			GroundspeedKnots: &groundspeed, ObservedAt: &now,
+		},
 	}
-	flight := aman.AMANFlight{Callsign: "SAS202", State: aman.StatePlanned, DataStatus: aman.DataFresh}
+	flight := aman.AMANFlight{Callsign: "SAS202", State: aman.StateAirborne, DataStatus: aman.DataFresh, LatestObservation: &observation}
 	applyBaseline(&flight, observation, now)
 	applyPreliminaryPrediction(&flight, observation, now)
 
@@ -728,10 +733,40 @@ func TestAirborneEETWithoutEOBTReachesTrafficPrediction(t *testing.T) {
 	require.Equal(t, takeoff.Add(eet), flight.ArrivalBaseline.ArrivalAt)
 	require.Equal(t, takeoff.Add(eet), flight.Prediction.OperationalTETA)
 	state := aman.AirportState{GeneratedAt: now, Flights: []aman.AMANFlight{flight}}
-	model := trafficprediction.Build(state, aman.ComponentHealth{Status: aman.HealthReady})
+	model := trafficprediction.BuildWithAirportPosition(state, aman.ComponentHealth{Status: aman.HealthReady}, trafficprediction.AirportPosition{LatitudeDegrees: 55.618, LongitudeDegrees: 12.656})
 	require.NotContains(t, model.DegradedReasons, "missing_timing:SAS202")
-	require.Equal(t, 1, model.Buckets[1].Count)
-	require.Equal(t, trafficprediction.SourceVATSIMAirborne, model.Buckets[1].Flights[0].TimingSource)
+	require.Equal(t, 1, model.Buckets[0].Count)
+	require.Equal(t, trafficprediction.SourceAirbornePosition, model.Buckets[0].Flights[0].TimingSource)
+}
+
+func TestReconcilePromotesObservedTakeoffWithoutFiledTiming(t *testing.T) {
+	now := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	service, err := New(Dependencies{
+		Repository: &memoryRepository{}, Materializer: unavailableNavigation{}, Geometry: unavailableGeometry{}, Wind: unavailableWind{},
+		Publisher: &recordingPublisher{}, Terminal: terminal.Configuration{Airport: "EKCH", ConfigVersion: "test", RunwayGroups: []terminal.RunwayGroup{{ID: "ARRIVAL-22"}}},
+		Airports: []string{"EKCH"}, Mode: aman.ModeShadow, Now: func() time.Time { return now },
+	})
+	require.NoError(t, err)
+	altitude, groundspeed := 18000, 420.0
+	takeoff := now
+	observation := aman.FlightObservation{
+		Callsign: "SAS202", Origin: "EGLL", Destination: "EKCH", SourceStatus: aman.DataFresh,
+		TakeoffDetected: &takeoff,
+		Surveillance: &aman.SurveillanceFact{
+			LatitudeDegrees: 55.1, LongitudeDegrees: 12.1, AltitudeFeet: &altitude,
+			GroundspeedKnots: &groundspeed, ObservedAt: &now,
+		},
+	}
+	flight := aman.AMANFlight{Callsign: "SAS202", State: aman.StatePlanned, DataStatus: aman.DataFresh}
+	updated, err := service.reconcileFlight(context.Background(), service.initialState("EKCH", now), flight, observation, now)
+	require.NoError(t, err)
+	require.Equal(t, aman.StateAirborne, updated.State)
+	require.Equal(t, aman.LifecycleReasonAirborneDetected, updated.Lifecycle.Reason)
+	require.Nil(t, updated.Prediction)
+
+	state := aman.AirportState{GeneratedAt: now, Flights: []aman.AMANFlight{updated}}
+	model := trafficprediction.BuildWithAirportPosition(state, aman.ComponentHealth{Status: aman.HealthReady}, trafficprediction.AirportPosition{LatitudeDegrees: 55.618, LongitudeDegrees: 12.656})
+	require.Equal(t, trafficprediction.SourceAirbornePosition, model.Buckets[0].Flights[0].TimingSource)
 }
 
 func TestApplyBaselineIgnoresNonPositiveFiledEET(t *testing.T) {

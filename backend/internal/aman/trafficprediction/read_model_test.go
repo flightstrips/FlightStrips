@@ -85,10 +85,16 @@ func TestBuildUsesFreshLiveArrivalForNearbyAirborneFlightWithoutFiledTiming(t *t
 	require.Equal(t, SourceAirbornePosition, model.Buckets[1].Flights[0].TimingSource)
 	require.Contains(t, model.DegradedReasons, "position_estimate")
 
-	flight.Prediction = &aman.Prediction{OperationalTETA: now.Add(90 * time.Minute), Publishable: true}
+	flight.Prediction = &aman.Prediction{OperationalTETA: now.Add(90 * time.Minute), Publishable: true, ModelVersion: "aman-airborne-takeoff-eet-v1"}
 	state.Flights[0] = flight
 	model = BuildWithAirportPosition(state, readyHealth(), airport)
 	require.Equal(t, 1, model.Buckets[1].Count, "current position must supersede an airborne flight-plan estimate")
+
+	flight.State = aman.StateUnstable
+	state.Flights[0] = flight
+	model = BuildWithAirportPosition(state, readyHealth(), airport)
+	require.Equal(t, SourceAirbornePosition, model.Buckets[1].Flights[0].TimingSource, "a preliminary estimate is not authoritative AMAN timing")
+	flight.State = aman.StateAirborne
 
 	// An accepted route prediction still wins; an expired position observation
 	// cannot stand in for current airborne timing.
@@ -104,6 +110,54 @@ func TestBuildUsesFreshLiveArrivalForNearbyAirborneFlightWithoutFiledTiming(t *t
 	state.Flights[0] = flight
 	model = BuildWithAirportPosition(state, readyHealth(), airport)
 	require.Contains(t, model.DegradedReasons, "missing_timing:SAS202")
+}
+
+func TestBuildNeverUsesEOBTForAnAirborneFlight(t *testing.T) {
+	now := utc(2026, time.July, 22, 20, 44)
+	eobt, eet := now.Add(-time.Hour), 90*time.Minute
+	flight := aman.AMANFlight{
+		Callsign: "SAS202", State: aman.StateAirborne, DataStatus: aman.DataFresh,
+		Prediction:        &aman.Prediction{OperationalTETA: eobt.Add(eet), Publishable: true, ModelVersion: "aman-planned-eobt-exot-eet-v1"},
+		LatestObservation: &aman.FlightObservation{PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &eet}},
+	}
+	state := baseState(now, 20)
+	state.Flights = []aman.AMANFlight{flight}
+
+	model := BuildWithAirportPosition(state, readyHealth(), AirportPosition{LatitudeDegrees: 55.618, LongitudeDegrees: 12.656})
+	require.Contains(t, model.DegradedReasons, "missing_timing:SAS202")
+	for _, bucket := range model.Buckets {
+		require.Zero(t, bucket.Count)
+	}
+}
+
+func TestBuildTreatsMovingPositionAsAirborneEvenWithPlannedLifecycle(t *testing.T) {
+	now := utc(2026, time.July, 22, 20, 44)
+	eobt, eet := now.Add(-time.Hour), 90*time.Minute
+	altitude, groundspeed := 3000, 70.0
+	flight := aman.AMANFlight{
+		Callsign: "SAS202", State: aman.StatePlanned, DataStatus: aman.DataFresh,
+		LatestObservation: &aman.FlightObservation{
+			PlannedTiming: &aman.PlannedTiming{EstimatedOffBlockTime: &eobt, EstimatedEnrouteTime: &eet},
+			Surveillance: &aman.SurveillanceFact{
+				LatitudeDegrees: 55.5, LongitudeDegrees: 12.5, AltitudeFeet: &altitude,
+				GroundspeedKnots: &groundspeed, ObservedAt: &now,
+			},
+		},
+	}
+	state := baseState(now, 20)
+	state.Flights = []aman.AMANFlight{flight}
+
+	model := BuildWithAirportPosition(state, readyHealth(), AirportPosition{LatitudeDegrees: 55.618, LongitudeDegrees: 12.656})
+	require.NotContains(t, model.DegradedReasons, "missing_timing:SAS202")
+	count := 0
+	for _, bucket := range model.Buckets {
+		count += bucket.AirborneCount
+		for _, entry := range bucket.Flights {
+			require.Equal(t, SourceAirbornePosition, entry.TimingSource)
+			require.True(t, entry.Airborne)
+		}
+	}
+	require.Equal(t, 1, count)
 }
 
 func TestBuildThresholdEqualityAndOneHourWindow(t *testing.T) {

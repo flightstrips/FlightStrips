@@ -161,7 +161,7 @@ func BuildWithAirportPosition(state aman.AirportState, sourceHealth aman.Compone
 		}
 		index := int(value.landingAt.Sub(result.RangeStart) / BucketDuration)
 		bucket := &result.Buckets[index]
-		airborne := value.flight.State != aman.StatePlanned
+		airborne := isAirborne(value.flight) || value.timingSource == SourceAirbornePosition
 		flight := Flight{Callsign: value.flight.Callsign, Airborne: airborne, LandingAt: value.landingAt.UTC(), TimingSource: value.timingSource, DataStatus: value.flight.DataStatus}
 		bucket.Flights = append(bucket.Flights, flight)
 		if airborne {
@@ -238,31 +238,33 @@ func floorQuarter(value time.Time) time.Time {
 
 func landingTime(flight aman.AMANFlight, now time.Time, airport AirportPosition) (time.Time, TimingSource, bool, bool) {
 	authoritative := flight.State == aman.StateUnstable || flight.State == aman.StateStable || flight.FreezeReason == aman.FreezeSuperstable
-	if authoritative {
-		if flight.Prediction != nil && flight.Prediction.Publishable && !flight.Prediction.OperationalTETA.IsZero() {
-			return flight.Prediction.OperationalTETA.UTC(), SourceAMAN, true, true
+	positionAt, positionOK := airbornePositionTime(flight.LatestObservation, now, airport)
+	airborne := isAirborne(flight) || flight.DataStatus == aman.DataFresh && positionOK
+	// Accepted AMAN timing uses the aircraft's current route and surveillance.
+	// A preliminary filed-duration estimate cannot stand in for current
+	// airborne position and speed in the traffic chart.
+	if prediction := flight.Prediction; prediction != nil && prediction.Publishable && !prediction.OperationalTETA.IsZero() && !preliminaryPrediction(prediction) {
+		if authoritative {
+			return prediction.OperationalTETA.UTC(), SourceAMAN, true, true
 		}
+		if airborne {
+			return prediction.OperationalTETA.UTC(), SourceVATSIMAirborne, false, true
+		}
+	}
+	if airborne {
+		if flight.DataStatus != aman.DataFresh {
+			return time.Time{}, "", authoritative, false
+		}
+		if positionOK {
+			return positionAt, SourceAirbornePosition, authoritative, true
+		}
+		return time.Time{}, "", authoritative, false
+	}
+	if authoritative {
 		return time.Time{}, "", true, false
 	}
-	// A route-aware AMAN prediction takes precedence over the position estimate.
-	// Preliminary flight-plan predictions do not describe the remaining time.
-	if flight.Prediction != nil && flight.Prediction.Publishable && !flight.Prediction.OperationalTETA.IsZero() && flight.Prediction.Basis != "" {
-		return flight.Prediction.OperationalTETA.UTC(), SourceVATSIMAirborne, false, true
-	}
-	if flight.State != aman.StatePlanned && flight.DataStatus == aman.DataFresh {
-		if estimate, ok := airbornePositionTime(flight.LatestObservation, now, airport); ok {
-			return estimate, SourceAirbornePosition, false, true
-		}
-	}
 	if flight.Prediction != nil && flight.Prediction.Publishable && !flight.Prediction.OperationalTETA.IsZero() {
-		source := SourceVATSIMPlanned
-		if flight.State != aman.StatePlanned {
-			source = SourceVATSIMAirborne
-		}
-		return flight.Prediction.OperationalTETA.UTC(), source, false, true
-	}
-	if flight.ArrivalBaseline != nil && !flight.ArrivalBaseline.ArrivalAt.IsZero() {
-		return flight.ArrivalBaseline.ArrivalAt.UTC(), SourceVATSIMAirborne, false, true
+		return flight.Prediction.OperationalTETA.UTC(), SourceVATSIMPlanned, false, true
 	}
 	if observation := flight.LatestObservation; observation != nil && observation.PlannedTiming != nil && observation.PlannedTiming.EstimatedOffBlockTime != nil && observation.PlannedTiming.EstimatedEnrouteTime != nil {
 		return observation.PlannedTiming.EstimatedOffBlockTime.Add(*observation.PlannedTiming.EstimatedEnrouteTime).UTC(), SourceVATSIMPlanned, false, true
@@ -270,10 +272,18 @@ func landingTime(flight aman.AMANFlight, now time.Time, airport AirportPosition)
 	return time.Time{}, "", false, false
 }
 
+func isAirborne(flight aman.AMANFlight) bool {
+	return flight.State != aman.StatePlanned || flight.LatestObservation != nil && flight.LatestObservation.TakeoffDetected != nil
+}
+
+func preliminaryPrediction(prediction *aman.Prediction) bool {
+	return strings.HasPrefix(prediction.ModelVersion, "aman-planned-") || strings.HasPrefix(prediction.ModelVersion, "aman-airborne-")
+}
+
 func airbornePositionTime(observation *aman.FlightObservation, now time.Time, airport AirportPosition) (time.Time, bool) {
 	if observation == nil || observation.Surveillance == nil || observation.Surveillance.ObservedAt == nil ||
 		observation.Surveillance.GroundspeedKnots == nil || observation.Surveillance.AltitudeFeet == nil ||
-		*observation.Surveillance.GroundspeedKnots < 100 || *observation.Surveillance.AltitudeFeet < 1000 {
+		*observation.Surveillance.GroundspeedKnots <= 40 || *observation.Surveillance.AltitudeFeet < 1000 {
 		return time.Time{}, false
 	}
 	fact := observation.Surveillance

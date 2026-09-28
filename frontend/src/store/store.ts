@@ -274,6 +274,7 @@ export interface WebSocketState {
   confirmTacticalStrip: (id: number) => void;
   forceAssumeTacticalStrip: (id: number) => void;
   markTacticalStrip: (id: number, marked: boolean) => void;
+  startTacticalTimer: (id: number) => void;
   moveTacticalStrip: (id: number, insertAfter: StripRef | null, bay?: Bay) => void;
 
   acknowledgeValidationStatus: (callsign: string, activationKey: string) => void;
@@ -917,6 +918,9 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     },
     markTacticalStrip: (id, marked) => {
       sendIfWritable({ type: ActionType.FrontendMarkTacticalStrip, id, marked });
+    },
+    startTacticalTimer: (id) => {
+      sendIfWritable({ type: ActionType.FrontendStartTacticalTimer, id });
     },
     moveTacticalStrip: (id, insertAfter, bay) => set((state) => {
       const tacticalStrip = state.tacticalStrips.find((strip) => strip.id === id);

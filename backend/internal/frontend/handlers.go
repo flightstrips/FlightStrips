@@ -722,6 +722,39 @@ func handleMarkTacticalStrip(ctx context.Context, client *Client, message Messag
 	return nil
 }
 
+func handleStartTacticalTimer(ctx context.Context, client *Client, message Message) error {
+	var req frontend.StartTacticalTimerAction
+	if err := message.JsonUnmarshal(&req); err != nil {
+		return err
+	}
+
+	tacticalRepo := client.hub.server.GetTacticalStripRepository()
+	if tacticalRepo == nil {
+		return errors.New("tactical strip repository not available")
+	}
+
+	ts, err := tacticalRepo.GetByID(ctx, req.ID, client.session)
+	if err != nil {
+		return err
+	}
+	if ts.Type != internalModels.TacticalStripTypeStart && ts.Type != internalModels.TacticalStripTypeLand {
+		return errors.New("timer is only valid for START and LAND strips")
+	}
+	if ts.Owner != client.position {
+		return errors.New("only the tactical strip owner can start its timer")
+	}
+	if ts.TimerStart != nil {
+		return errors.New("tactical strip timer has already started")
+	}
+
+	ts, err = tacticalRepo.StartTimer(ctx, req.ID, client.session, client.position)
+	if err != nil {
+		return err
+	}
+	client.hub.SendTacticalStripUpdated(client.session, MapTacticalStripToPayload(ts))
+	return nil
+}
+
 func handleMoveTacticalStrip(ctx context.Context, client *Client, message Message) error {
 	var req frontend.MoveTacticalStripAction
 	if err := message.JsonUnmarshal(&req); err != nil {

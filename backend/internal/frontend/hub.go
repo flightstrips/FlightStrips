@@ -168,6 +168,7 @@ func NewHub(deps HubDependencies) (*Hub, error) {
 	handlers.Add(frontend.ActionConfirmTacticalStrip, handleConfirmTacticalStrip)
 	handlers.Add(frontend.ActionForceAssumeTacticalStrip, handleForceAssumeTacticalStrip)
 	handlers.Add(frontend.ActionMarkTacticalStrip, handleMarkTacticalStrip)
+	handlers.Add(frontend.ActionStartTacticalTimer, handleStartTacticalTimer)
 	handlers.Add(frontend.ActionMoveTacticalStrip, handleMoveTacticalStrip)
 	handlers.Add(frontend.MissedApproachRequestType, handleMissedApproach)
 	handlers.Add(frontend.ActionCreateManualFPL, handleCreateManualFPL)
@@ -502,6 +503,7 @@ func MapTacticalStripToPayload(ts *internalModels.TacticalStrip) frontend.Tactic
 		ProducedBy:  ts.ProducedBy,
 		Owner:       ts.Owner,
 		Marked:      ts.Marked,
+		TimerStart:  ts.TimerStart,
 		Sequence:    ts.Sequence,
 		Confirmed:   ts.Confirmed,
 		ConfirmedBy: confirmedBy,

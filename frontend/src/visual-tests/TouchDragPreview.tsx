@@ -23,6 +23,7 @@ const sourceStrip: TacticalStrip = {
   owner: "",
   marked: false,
   sequence: 1,
+  timer_start: null,
   confirmed: true,
   confirmed_by: "",
   created_at: "2026-09-03T00:00:00Z",

@@ -39,6 +39,13 @@ SET marked = $3
 WHERE id = $1 AND session_id = $2
 RETURNING *;
 
+-- name: StartTacticalStripTimer :one
+UPDATE tactical_strips
+SET timer_start = NOW()
+WHERE id = $1 AND session_id = $2 AND owner = $3
+    AND type IN ('START', 'LAND') AND timer_start IS NULL
+RETURNING *;
+
 -- name: UpdateTacticalStripSequence :one
 UPDATE tactical_strips
 SET sequence = sqlc.arg(sequence)::INT

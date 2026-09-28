@@ -13,7 +13,7 @@ const confirmTacticalStrip = `-- name: ConfirmTacticalStrip :one
 UPDATE tactical_strips
 SET confirmed = TRUE, confirmed_by = $3
 WHERE id = $1 AND session_id = $2
-RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked
+RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start
 `
 
 type ConfirmTacticalStripParams struct {
@@ -39,6 +39,7 @@ func (q *Queries) ConfirmTacticalStrip(ctx context.Context, arg ConfirmTacticalS
 		&i.CreatedAt,
 		&i.Owner,
 		&i.Marked,
+		&i.TimerStart,
 	)
 	return i, err
 }
@@ -46,7 +47,7 @@ func (q *Queries) ConfirmTacticalStrip(ctx context.Context, arg ConfirmTacticalS
 const createTacticalStrip = `-- name: CreateTacticalStrip :one
 INSERT INTO tactical_strips (session_id, type, bay, label, aircraft, produced_by, owner, sequence)
 VALUES ($1, $2, $3, $4, $5, $6, $6, $7)
-RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked
+RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start
 `
 
 type CreateTacticalStripParams struct {
@@ -84,6 +85,7 @@ func (q *Queries) CreateTacticalStrip(ctx context.Context, arg CreateTacticalStr
 		&i.CreatedAt,
 		&i.Owner,
 		&i.Marked,
+		&i.TimerStart,
 	)
 	return i, err
 }
@@ -107,7 +109,7 @@ UPDATE tactical_strips
 SET owner = $3,
     marked = FALSE
 WHERE id = $1 AND session_id = $2
-RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked
+RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start
 `
 
 type ForceAssumeTacticalStripParams struct {
@@ -133,12 +135,13 @@ func (q *Queries) ForceAssumeTacticalStrip(ctx context.Context, arg ForceAssumeT
 		&i.CreatedAt,
 		&i.Owner,
 		&i.Marked,
+		&i.TimerStart,
 	)
 	return i, err
 }
 
 const getTacticalStripByID = `-- name: GetTacticalStripByID :one
-SELECT id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked FROM tactical_strips
+SELECT id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start FROM tactical_strips
 WHERE id = $1 AND session_id = $2
 `
 
@@ -164,6 +167,7 @@ func (q *Queries) GetTacticalStripByID(ctx context.Context, arg GetTacticalStrip
 		&i.CreatedAt,
 		&i.Owner,
 		&i.Marked,
+		&i.TimerStart,
 	)
 	return i, err
 }
@@ -221,7 +225,7 @@ func (q *Queries) ListTacticalStripBaySequences(ctx context.Context, arg ListTac
 }
 
 const listTacticalStripsByBay = `-- name: ListTacticalStripsByBay :many
-SELECT id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked FROM tactical_strips
+SELECT id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start FROM tactical_strips
 WHERE session_id = $1 AND bay = $2
 ORDER BY sequence ASC
 `
@@ -254,6 +258,7 @@ func (q *Queries) ListTacticalStripsByBay(ctx context.Context, arg ListTacticalS
 			&i.CreatedAt,
 			&i.Owner,
 			&i.Marked,
+			&i.TimerStart,
 		); err != nil {
 			return nil, err
 		}
@@ -266,7 +271,7 @@ func (q *Queries) ListTacticalStripsByBay(ctx context.Context, arg ListTacticalS
 }
 
 const listTacticalStripsBySession = `-- name: ListTacticalStripsBySession :many
-SELECT id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked FROM tactical_strips
+SELECT id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start FROM tactical_strips
 WHERE session_id = $1
 ORDER BY bay, sequence ASC
 `
@@ -294,6 +299,7 @@ func (q *Queries) ListTacticalStripsBySession(ctx context.Context, sessionID int
 			&i.CreatedAt,
 			&i.Owner,
 			&i.Marked,
+			&i.TimerStart,
 		); err != nil {
 			return nil, err
 		}
@@ -305,12 +311,48 @@ func (q *Queries) ListTacticalStripsBySession(ctx context.Context, sessionID int
 	return items, nil
 }
 
+const startTacticalStripTimer = `-- name: StartTacticalStripTimer :one
+UPDATE tactical_strips
+SET timer_start = NOW()
+WHERE id = $1 AND session_id = $2 AND owner = $3
+    AND type IN ('START', 'LAND') AND timer_start IS NULL
+RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start
+`
+
+type StartTacticalStripTimerParams struct {
+	ID        int64
+	SessionID int32
+	Owner     string
+}
+
+func (q *Queries) StartTacticalStripTimer(ctx context.Context, arg StartTacticalStripTimerParams) (TacticalStrip, error) {
+	row := q.db.QueryRow(ctx, startTacticalStripTimer, arg.ID, arg.SessionID, arg.Owner)
+	var i TacticalStrip
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Type,
+		&i.Bay,
+		&i.Label,
+		&i.Aircraft,
+		&i.ProducedBy,
+		&i.Sequence,
+		&i.Confirmed,
+		&i.ConfirmedBy,
+		&i.CreatedAt,
+		&i.Owner,
+		&i.Marked,
+		&i.TimerStart,
+	)
+	return i, err
+}
+
 const updateTacticalStripBayAndSequence = `-- name: UpdateTacticalStripBayAndSequence :one
 UPDATE tactical_strips
 SET bay = $3::TEXT,
     sequence = $4::INT
 WHERE id = $1 AND session_id = $2
-RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked
+RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start
 `
 
 type UpdateTacticalStripBayAndSequenceParams struct {
@@ -342,6 +384,7 @@ func (q *Queries) UpdateTacticalStripBayAndSequence(ctx context.Context, arg Upd
 		&i.CreatedAt,
 		&i.Owner,
 		&i.Marked,
+		&i.TimerStart,
 	)
 	return i, err
 }
@@ -350,7 +393,7 @@ const updateTacticalStripMarked = `-- name: UpdateTacticalStripMarked :one
 UPDATE tactical_strips
 SET marked = $3
 WHERE id = $1 AND session_id = $2
-RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked
+RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start
 `
 
 type UpdateTacticalStripMarkedParams struct {
@@ -376,6 +419,7 @@ func (q *Queries) UpdateTacticalStripMarked(ctx context.Context, arg UpdateTacti
 		&i.CreatedAt,
 		&i.Owner,
 		&i.Marked,
+		&i.TimerStart,
 	)
 	return i, err
 }
@@ -384,7 +428,7 @@ const updateTacticalStripSequence = `-- name: UpdateTacticalStripSequence :one
 UPDATE tactical_strips
 SET sequence = $3::INT
 WHERE id = $1 AND session_id = $2
-RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked
+RETURNING id, session_id, type, bay, label, aircraft, produced_by, sequence, confirmed, confirmed_by, created_at, owner, marked, timer_start
 `
 
 type UpdateTacticalStripSequenceParams struct {
@@ -410,6 +454,7 @@ func (q *Queries) UpdateTacticalStripSequence(ctx context.Context, arg UpdateTac
 		&i.CreatedAt,
 		&i.Owner,
 		&i.Marked,
+		&i.TimerStart,
 	)
 	return i, err
 }

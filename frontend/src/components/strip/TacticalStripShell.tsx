@@ -6,7 +6,6 @@ import { STRIP_CONTEXT_MENU_WIDTH } from "./StripContextMenu";
 import { FONT, SELECTION_COLOR, getFlatStripBorderStyle, getSIBoxBorderStyle } from "./shared";
 
 const HEIGHT = "2.36dvh";
-const W_SI = "1.77vw";
 const W_BTN = "1.25vw";
 const TACTICAL_MENU_HEIGHT = 254;
 const MENU_VIEWPORT_MARGIN = 8;
@@ -47,12 +46,16 @@ export function TacticalActionCell({
   children,
   onClick,
   clickable = false,
+  width = W_BTN,
+  ariaLabel,
 }: {
   borderColor: string;
   color: string;
   children: ReactNode;
   onClick?: () => void;
   clickable?: boolean;
+  width?: string;
+  ariaLabel?: string;
 }) {
   const handleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
@@ -62,14 +65,24 @@ export function TacticalActionCell({
   return (
     <div
       className="flex-shrink-0 flex items-center justify-center border-l-2"
+      role={clickable ? "button" : undefined}
+      aria-label={ariaLabel}
+      tabIndex={clickable ? 0 : undefined}
       style={{
-        width: W_BTN,
+        width,
         height: "100%",
         borderLeftColor: borderColor,
         color,
         cursor: clickable ? "pointer" : "default",
       }}
       onClick={handleClick}
+      onKeyDown={clickable ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          onClick?.();
+        }
+      } : undefined}
     >
       {children}
     </div>
@@ -252,7 +265,7 @@ export function TacticalStripShell({
         {isOwner && (
           <div
             className="flex-shrink-0 bg-white"
-            style={{ width: W_SI, height: "100%", ...getSIBoxBorderStyle(false, borderColor) }}
+            style={{ height: "100%", aspectRatio: "1 / 1", ...getSIBoxBorderStyle(false, borderColor) }}
           />
         )}
 

@@ -986,19 +986,20 @@ type StripRef struct {
 // ---------- Tactical strip payload model ----------
 
 type TacticalStripPayload struct {
-	ID          int64     `json:"id"`
-	SessionID   int32     `json:"session_id"`
-	Type        string    `json:"type"`
-	Bay         string    `json:"bay"`
-	Label       string    `json:"label"`
-	Aircraft    string    `json:"aircraft"`
-	ProducedBy  string    `json:"produced_by"`
-	Owner       string    `json:"owner"`
-	Marked      bool      `json:"marked"`
-	Sequence    int32     `json:"sequence"`
-	Confirmed   bool      `json:"confirmed"`
-	ConfirmedBy string    `json:"confirmed_by"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          int64      `json:"id"`
+	SessionID   int32      `json:"session_id"`
+	Type        string     `json:"type"`
+	Bay         string     `json:"bay"`
+	Label       string     `json:"label"`
+	Aircraft    string     `json:"aircraft"`
+	ProducedBy  string     `json:"produced_by"`
+	Owner       string     `json:"owner"`
+	Marked      bool       `json:"marked"`
+	TimerStart  *time.Time `json:"timer_start"`
+	Sequence    int32      `json:"sequence"`
+	Confirmed   bool       `json:"confirmed"`
+	ConfirmedBy string     `json:"confirmed_by"`
+	CreatedAt   time.Time  `json:"created_at"`
 }
 
 // ---------- Tactical strip outgoing events ----------

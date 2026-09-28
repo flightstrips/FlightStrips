@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -41,7 +42,7 @@ type CDMData struct {
 }
 
 func (c *Client) IFPSDpi(ctx context.Context, callsign, value string) error {
-	_, err := c.doRequest(ctx, "POST", "/ifps/dpi",
+	response, err := c.doRequest(ctx, "POST", "/ifps/dpi",
 		map[string]string{
 			"callsign": callsign,
 			"value":    value,
@@ -49,7 +50,18 @@ func (c *Client) IFPSDpi(ctx context.Context, callsign, value string) error {
 		nil,
 		nil,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return requireViffConfirmation(response)
+}
+
+func requireViffConfirmation(response []byte) error {
+	confirmation := strings.TrimSpace(string(response))
+	if confirmation != "" && confirmation != "true" {
+		return fmt.Errorf("vIFF did not confirm update: %q", string(response))
+	}
+	return nil
 }
 
 type SetCdmDataParams struct {
@@ -60,25 +72,32 @@ type SetCdmDataParams struct {
 	Ctot     string
 	Reason   string // ECFMP flow reason ID
 	Asrt     string
-	DepInfo  string // e.g. departure runway
+	DepInfo  string // departure runway/SID
 }
 
 func (c *Client) IFPSSetCdmData(ctx context.Context, p SetCdmDataParams) error {
-	_, err := c.doRequest(ctx, "POST", "/ifps/setCdmData",
-		map[string]string{
-			"callsign": p.Callsign,
-			"tobt":     p.Tobt,
-			"tsat":     p.Tsat,
-			"ttot":     p.Ttot,
-			"ctot":     p.Ctot,
-			"reason":   p.Reason,
-			"asrt":     p.Asrt,
-			"depInfo":  p.DepInfo,
-		},
+	query := map[string]string{
+		"callsign": p.Callsign,
+		"tobt":     p.Tobt,
+		"tsat":     p.Tsat,
+		"ttot":     p.Ttot,
+		"ctot":     p.Ctot,
+		"reason":   p.Reason,
+	}
+	if p.DepInfo != "" {
+		query["asrt"] = p.Asrt
+		query["depInfo"] = p.DepInfo
+	}
+	response, err := c.doRequest(ctx, "POST", "/ifps/setCdmData",
+		query,
 		nil,
 		nil,
+		true,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	return requireViffConfirmation(response)
 }
 
 func (c *Client) SetMasterAirport(ctx context.Context, airport, position string) error {
@@ -131,7 +150,7 @@ func (c *Client) IFPSSetTobt(ctx context.Context, callsign, tobt string, taxiMin
 	_, err := c.doRequest(ctx, "POST", "/ifps/dpi",
 		map[string]string{
 			"callsign": callsign,
-			"value":    fmt.Sprintf("TOBT/%s/%d", tobt, taxiMinutes),
+			"value":    fmt.Sprintf("OBT/%s/%d", tobt, taxiMinutes),
 		},
 		nil,
 		nil,

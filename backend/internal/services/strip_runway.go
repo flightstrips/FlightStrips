@@ -81,6 +81,13 @@ func (s *StripService) RunwayClearance(ctx context.Context, session int32, calls
 		if _, err := s.fieldStore.UpdateGroundState(ctx, session, callsign, &state, shared.BAY_DEPART, nil); err != nil {
 			return err
 		}
+		if service, ok := s.cdmService.(interface {
+			RecordTakeoffClearanceAtot(context.Context, int32, string) error
+		}); ok {
+			if err := service.RecordTakeoffClearanceAtot(ctx, session, callsign); err != nil {
+				return err
+			}
+		}
 		if s.esCommander != nil {
 			s.esCommander.SendGroundState(session, cid, callsign, state)
 		}

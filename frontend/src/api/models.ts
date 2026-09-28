@@ -892,6 +892,7 @@ export interface FrontendCoordinationTransferRequestEvent {
   type: ActionType.FrontendCoordinationTransferRequest;
   callsign: string;
   to?: string;
+  start_req_transfer?: boolean;
 }
 
 export interface FrontendCoordinationAssumeRequestEvent {

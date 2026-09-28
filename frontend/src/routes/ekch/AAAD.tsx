@@ -1,5 +1,5 @@
 import { Strip } from "@/components/strip/Strip.tsx";
-import { CrossingButton, MemAidButton } from "@/components/strip/TacticalButtons.tsx";
+import { MemAidButton } from "@/components/strip/TacticalButtons.tsx";
 import { MessageStrip } from "@/components/strip/MessageStrip.tsx";
 import { MessageComposeDialog } from "@/components/MessageComposeDialog.tsx";
 import { useMyPosition, useMessages, useWebSocketStore, useDelOnline } from "@/store/store-hooks.ts";
@@ -28,7 +28,7 @@ import { allBayTransferRules } from "@/components/bays/stripMovement";
 import { StripListPopup, type SortMode } from "@/components/StripListPopup.tsx";
 import { useState } from "react";
 import { APN_TAXI_DEP_STRIP_WIDTH } from "@/components/strip/ApnTaxiDepStrip.tsx";
-import { CLS_BTN, CLS_BTN_BLUE, CLS_BTN_YELLOW, CLS_LABEL } from "@/components/strip/shared";
+import { CLS_BTN, CLS_BTN_BLUE, CLS_LABEL } from "@/components/strip/shared";
 import { NewIfrDialog } from "@/components/strip/NewIfrDialog";
 import { PlannedDialog } from "@/components/strip/PlannedDialog";
 
@@ -36,7 +36,6 @@ const primaryHeader = `bg-primary h-10 flex items-center px-2 shrink-0`;
 const primaryLabel  = "text-white font-bold text-lg";
 const btn     = CLS_BTN;
 const btnBlue = CLS_BTN_BLUE;
-const btnYellow = CLS_BTN_YELLOW;
 
 export default function AAAD() {
   const myPosition  = useMyPosition();
@@ -200,7 +199,7 @@ export default function AAAD() {
         <div className="bay-col-header justify-between">
           <span className={CLS_LABEL}>TWY DEP</span>
           <span className="flex gap-1">
-            <CrossingButton bay={Bay.Taxi} className={btnYellow} />
+            <MemAidButton bay={Bay.Taxi} className={btnBlue} />
           </span>
         </div>
         {/* TWY DEP-UPR (intermediate hold short, TAXI bay) */}

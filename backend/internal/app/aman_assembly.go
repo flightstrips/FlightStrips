@@ -277,8 +277,10 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 		clearance := flight.HoldingClearance
 		prediction := flight.Prediction
 		stack := flight.HoldingStack
+		// The first surveillance detection establishes entry. Do not wait for
+		// the second observation that marks the holding stack confirmed.
 		if clearance == nil || clearance.Hold == "" || clearance.HoldType != aman.HoldingClearanceEnroute ||
-			prediction == nil || prediction.HoldingPlan == nil || stack == nil || !stack.Confirmed ||
+			prediction == nil || prediction.HoldingPlan == nil || stack == nil ||
 			flight.SelectedHolding == nil || stack.HoldingID != *flight.SelectedHolding {
 			continue
 		}

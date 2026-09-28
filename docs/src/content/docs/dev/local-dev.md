@@ -202,7 +202,9 @@ go run ./cmd/server
 
 `ENABLE_AMAN_HOLDING_EAT_WRITEBACK` is the backend-owned equivalent of ALB's
 `HLW` permission. It defaults to `false`. Enable it only for an authoritative
-AMAN deployment that should publish confirmed holding release times to TopSky.
+AMAN deployment that should publish slot-derived holding release times to TopSky.
+The release time is sent on the first surveillance detection of entry into a
+matching assigned en-route hold; a second confirmation observation is not required.
 
 Open `http://localhost:8080/test`, enter the absolute directory containing the
 saved `*.json` VATSIM v3 generations (for example

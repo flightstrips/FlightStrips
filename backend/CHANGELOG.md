@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.0.0...backend/v3.1.0) (2026-09-28)
+
+
+### Features
+
+* **aman:** disable same STAR spacing at EKCH ([#788](https://github.com/flightstrips/FlightStrips/issues/788)) ([2b21c29](https://github.com/flightstrips/FlightStrips/commit/2b21c299f3d60092c350fbb33cf0d10d3424c753))
+
 ## [3.0.0](https://github.com/flightstrips/FlightStrips/compare/backend/v2.3.0...backend/v3.0.0) (2026-09-28)
 
 

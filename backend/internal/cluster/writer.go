@@ -30,6 +30,7 @@ type Writer struct {
 	NodeID     string
 	Plan       Planner
 	Projection *Projection
+	Lease      *OwnerRuntime
 }
 
 // Outcome reads the durable aggregate ledger for an authenticated actor.
@@ -107,6 +108,10 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 			reply.Status = pb.CommandReply_UNAVAILABLE
 			return reply
 		}
+		if w.Lease != nil && !w.Lease.CanWrite(request.Aggregate) {
+			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
+			return reply
+		}
 		state, err := w.load(ctx, subject, request.Aggregate)
 		if err != nil {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
@@ -182,6 +187,10 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 			reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, "invalid or oversized event"
 			return reply
 		}
+		if w.Lease != nil && !w.Lease.CanWrite(request.Aggregate) {
+			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
+			return reply
+		}
 		sequence, err := w.Store.Publish(ctx, subject, state.SubjectSequence, data)
 		if errors.Is(err, ErrCAS) {
 			if w.Projection != nil {
@@ -211,6 +220,14 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 			fresh, err := w.load(ctx, subject, request.Aggregate)
 			if err == nil && fresh.StreamSequence >= sequence {
 				if old := fresh.Ledger[request.CommandId]; old != nil {
+					if !proto.Equal(old.Actor, request.Actor) {
+						reply.Status, reply.Detail = pb.CommandReply_UNAUTHORIZED, "command outcome belongs to another actor"
+						return reply
+					}
+					if old.RequestSha256 != hash {
+						reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, "command ID has different content"
+						return reply
+					}
 					reply.Status, reply.Outcome = statusForOutcome(old), proto.Clone(old).(*pb.CommandOutcome)
 					reply.StreamSequence, reply.AggregateRevision = &old.CommittedStreamSequence, &old.AggregateRevision
 					return reply
@@ -236,6 +253,9 @@ func (w Writer) resolve(ctx context.Context, subject string, request *pb.Command
 	old := state.Ledger[request.CommandId]
 	if old == nil {
 		return nil
+	}
+	if !proto.Equal(old.Actor, request.Actor) {
+		return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_UNAUTHORIZED, Detail: "command outcome belongs to another actor"}
 	}
 	if old.RequestSha256 != hash {
 		return &pb.CommandReply{ProtocolRevision: 1, CommandId: request.CommandId, Status: pb.CommandReply_INVALID_ARGUMENT, Detail: "command ID has different content"}

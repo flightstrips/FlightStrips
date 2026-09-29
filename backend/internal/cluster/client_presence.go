@@ -24,8 +24,8 @@ func (lease ClientPresenceLease) validate() error {
 	client := lease.Client
 	if lease.KV == nil || client == nil || client.ConnectionId == "" || client.NodeId == "" || client.SessionId < 1 ||
 		strings.Contains(client.ConnectionId, ".") || strings.Contains(client.NodeId, ".") ||
-		client.Kind == pb.ClientPresence_KIND_UNSPECIFIED || client.ConnectedAt == nil || client.ConnectedAt.CheckValid() != nil ||
-		(client.Kind == pb.ClientPresence_EUROSCOPE && client.Cid == "") {
+		client.Kind == pb.ClientPresence_KIND_UNSPECIFIED || client.Cid == "" ||
+		client.ConnectedAt == nil || client.ConnectedAt.CheckValid() != nil {
 		return fmt.Errorf("invalid client presence lease")
 	}
 	return nil

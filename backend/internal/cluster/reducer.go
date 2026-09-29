@@ -116,13 +116,14 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 			return false, fmt.Errorf("unsorted or duplicate entity change")
 		}
 		previousKind, previousKey = int32(kind), change.GetKey()
-		if err := validateChange(a.Ref, change, staged[change.GetKey()]); err != nil {
+		slot := entitySlot(staged, kind, change.GetKey())
+		if err := validateChange(a.Ref, change, staged[slot]); err != nil {
 			return false, err
 		}
 		if change.GetUpsert() != nil {
-			staged[change.Key] = &pb.EntitySnapshot{Key: change.Key, Revision: change.Revision, Value: proto.Clone(change.GetUpsert()).(*pb.EntityRecord)}
+			staged[slot] = &pb.EntitySnapshot{Key: change.Key, Revision: change.Revision, Value: proto.Clone(change.GetUpsert()).(*pb.EntityRecord)}
 		} else {
-			delete(staged, change.Key)
+			delete(staged, slot)
 		}
 	}
 	if err := validateControllerSectorState(a.Ref, staged); err != nil {
@@ -218,7 +219,7 @@ func (a *Aggregate) rebuildIndexes() {
 		if indexes[kind] == nil {
 			indexes[kind] = make(map[string]*pb.EntitySnapshot)
 		}
-		indexes[kind][key] = entity
+		indexes[kind][entity.Key] = entity
 		if strip := entity.GetValue().GetStrip(); strip != nil {
 			stripIDs[strip.Id] = entity
 		}
@@ -252,14 +253,18 @@ func (a *Aggregate) Snapshot() (*pb.Snapshot, error) {
 	if a.Sync != nil {
 		s.Sync = proto.Clone(a.Sync).(*pb.SessionSync)
 	}
-	keys := make([]string, 0, len(a.Entities))
-	for k := range a.Entities {
-		keys = append(keys, k)
+	for _, entity := range a.Entities {
+		s.Entities = append(s.Entities, proto.Clone(entity).(*pb.EntitySnapshot))
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		s.Entities = append(s.Entities, proto.Clone(a.Entities[k]).(*pb.EntitySnapshot))
-	}
+	sort.Slice(s.Entities, func(i, j int) bool {
+		if s.Entities[i].Key != s.Entities[j].Key {
+			return s.Entities[i].Key < s.Entities[j].Key
+		}
+		left, _ := recordKind(s.Entities[i].Value)
+		right, _ := recordKind(s.Entities[j].Value)
+		return left < right
+	})
+	keys := make([]string, 0, len(a.Ledger))
 	keys = keys[:0]
 	for k := range a.Ledger {
 		keys = append(keys, k)
@@ -291,6 +296,23 @@ func (a *Aggregate) Snapshot() (*pb.Snapshot, error) {
 	digest := sha256.Sum256(b)
 	s.Sha256 = hex.EncodeToString(digest[:])
 	return s, nil
+}
+
+// Legacy aggregates kept noncolliding records under their plain key. A second
+// entity kind with the same canonical key receives a deterministic private
+// slot; the wire key and kind remain unchanged. This permits AMAN, policy and
+// navigation records for the same airport in one aggregate.
+func entitySlot(entities map[string]*pb.EntitySnapshot, kind pb.EntityKind, key string) string {
+	slot := fmt.Sprintf("\x00%d/%s", kind, key)
+	if entities[slot] != nil {
+		return slot
+	}
+	if old := entities[key]; old == nil {
+		return key
+	} else if got, _ := recordKind(old.Value); got == kind {
+		return key
+	}
+	return slot
 }
 
 func changeKind(change *pb.EntityChange) (pb.EntityKind, error) {

@@ -443,7 +443,8 @@ func validateControllerSectorState(ref *pb.AggregateRef, entities map[string]*pb
 		return nil
 	}
 	callsigns := make(map[string]string)
-	for key, entity := range entities {
+	for _, entity := range entities {
+		key := entity.Key
 		if c := entity.GetValue().GetController(); c != nil {
 			if c.Cid != key || c.Cid == "" || c.Callsign == "" || strings.ToUpper(c.Callsign) != c.Callsign || strings.TrimSpace(c.Callsign) != c.Callsign || c.Revision != entity.Revision {
 				return fmt.Errorf("invalid controller identity")

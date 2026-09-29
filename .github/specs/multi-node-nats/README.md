@@ -59,7 +59,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 02 | [Aggregate event and conditional write](tasks/02-event-write.md) | 01 | Merged ([#797](https://github.com/flightstrips/FlightStrips/pull/797)) |
 | 03 | [Replay, projections and snapshots](tasks/03-projections.md) | 02 | Merged ([#798](https://github.com/flightstrips/FlightStrips/pull/798)) |
 | 04 | [Global session registry](tasks/04-session-registry.md) | 03 | Merged ([#799](https://github.com/flightstrips/FlightStrips/pull/799)) |
-| 05 | [Controller, sector and runway state](tasks/05-controller-sector.md) | 04 | Not started |
+| 05 | [Controller, sector and runway state](tasks/05-controller-sector.md) | 04 | Merged ([#801](https://github.com/flightstrips/FlightStrips/pull/801)) |
 | 06 | [Strip state and edit invariants](tasks/06-strips.md) | 04, 05 | Not started |
 | 07 | [Coordination and transfers](tasks/07-coordination.md) | 05, 06 | Not started |
 | 08 | [Stand allocation and blocks](tasks/08-stands.md) | 06 | Not started |

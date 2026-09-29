@@ -104,7 +104,9 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		}
 		if isEuroscopeType[TType]() && frameType != websocket.BinaryMessage {
 			slog.Warn("Rejected non-binary EuroScope websocket message")
-			continue
+			_ = client.GetConnection().WriteControl(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseUnsupportedData, "binary frames required"), time.Now().Add(time.Second))
+			break
 		}
 
 		receivedAt := time.Now()
@@ -114,6 +116,11 @@ func ReadPump[TType comparable, TClient Client, THub Hub[TType, TClient]](hub TH
 		parsedMessage, err := parseMessage[TType](message)
 		if err != nil {
 			slog.Warn("Failed to parse message", slog.Any("error", err))
+			if isEuroscopeType[TType]() {
+				_ = client.GetConnection().WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseProtocolError, "invalid protobuf envelope"), time.Now().Add(time.Second))
+				break
+			}
 			continue
 		}
 

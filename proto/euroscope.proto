@@ -61,12 +61,20 @@ enum EventType {
   EVENT_HOLD = 50;
   EVENT_AMAN_GAIN_LOSS = 51;
   EVENT_AMAN_ROUTE_FACT = 52;
+  EVENT_COMMAND_RESULT = 53;
+  EVENT_RESULT_RECORDED = 54;
 }
 
 // Every websocket frame contains exactly one event. Using a oneof makes the
 // event discriminator and payload inseparable and gives both languages an
 // exhaustive generated dispatch API.
 message Envelope {
+  // Applied to backend commands and master-origin observations as specified in
+  // contracts.md. Never put credentials or a JSON document in these fields.
+  string command_id = 100;
+  int32 session_id = 101;
+  uint64 owner_epoch = 102;
+  uint64 master_epoch = 103;
   oneof event {
     TokenEvent token = 1;
     LoginEvent login = 2;
@@ -120,12 +128,15 @@ message Envelope {
     HoldEvent hold = 50;
     AMANGainLossEvent aman_gain_loss = 51;
     AMANRouteFactEvent aman_route_fact = 52;
+    CommandResultEvent command_result = 53;
+    ResultRecordedEvent result_recorded = 54;
   }
 }
 
 message TokenEvent {
   string token = 1;
   string version = 2;
+  uint32 protocol_revision = 3; // exactly 2
 }
 
 message LoginEvent {
@@ -314,7 +325,25 @@ message CreateFPLEvent {
   string language = 16;
 }
 
-message SessionInfoEvent { string role = 1; }
+message SessionInfoEvent {
+  string role = 1;
+  uint64 master_epoch = 2;
+  uint64 owner_epoch = 3;
+}
+
+message CommandResultEvent {
+  enum Status { STATUS_UNSPECIFIED = 0; EXECUTED = 1; FAILED = 2; }
+  enum Reason {
+    REASON_UNSPECIFIED = 0; OK = 1; INVALID_ARGUMENT = 2;
+    TARGET_NOT_FOUND = 3; EUROSCOPE_API_REJECTED = 4;
+    UI_UNAVAILABLE = 5; PARTIAL_EXECUTION = 6; INTERNAL_ERROR = 7;
+  }
+  string command_id = 1;
+  Status status = 2;
+  Reason reason = 3;
+  string detail = 4; // at most 256 UTF-8 bytes
+}
+message ResultRecordedEvent { string command_id = 1; }
 message GenerateSquawkEvent { string callsign = 1; }
 message EobtEvent { string callsign = 1; string eobt = 2; }
 message RouteEvent { string callsign = 1; string route = 2; }

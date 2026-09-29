@@ -89,6 +89,7 @@ namespace FlightStrips::websocket {
                     status_ = WEBSOCKET_STATUS_FAILED;
                     return;
                 }
+				con->add_subprotocol("flightstrips.euroscope.pb.v2");
 
                 m_hdl = con->get_handle();
 
@@ -156,6 +157,13 @@ namespace FlightStrips::websocket {
                 exceptions::RunGuarded("WebSocket::OnOpen", [this, &hdl] {
                     status_ = WEBSOCKET_STATUS_CONNECTED;
                     const auto con = m_endpoint.get_con_from_hdl(hdl);
+					if (con->get_subprotocol() != "flightstrips.euroscope.pb.v2") {
+						Logger::Warning("Server did not negotiate EuroScope protobuf revision 2");
+						status_ = WEBSOCKET_STATUS_FAILED;
+						websocketpp::lib::error_code ec;
+						con->close(websocketpp::close::status::policy_violation, "subprotocol required", ec);
+						return;
+					}
                     auto server = con->get_response_header("Server");
                     Logger::Info("Connected to server: {}", server);
                     on_connected_cb();

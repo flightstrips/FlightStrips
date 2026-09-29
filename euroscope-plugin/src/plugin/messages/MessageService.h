@@ -4,6 +4,7 @@
 #include "handlers/MessageHandler.h"
 #include "plugin/FlightStripsPlugin.h"
 #include "websocket/WebSocketService.h"
+#include "websocket/generated/proto/euroscope.pb.h"
 #include "stands/StandService.h"
 #include "runway/RunwayService.h"
 
@@ -33,6 +34,12 @@ namespace FlightStrips::messages {
         bool SendCdmCtotRemove(const std::string& callsign) const;
 		bool SendCdmReady(const std::string& callsign) const;
     private:
+		struct CommandOutcome {
+			websocket::protobuf::wire::CommandResultEvent::Status status;
+			websocket::protobuf::wire::CommandResultEvent::Reason reason;
+			std::string detail;
+		};
+		CommandOutcome ExecuteCommand(const websocket::protobuf::wire::Envelope& envelope) const;
         std::shared_ptr<FlightStripsPlugin> m_plugin;
         std::shared_ptr<websocket::WebSocketService> m_webSocketService;
         std::shared_ptr<flightplan::FlightPlanService> m_flightPlanService;
@@ -66,7 +73,7 @@ namespace FlightStrips::messages {
         void HandleEsAssumeAndDropEvent(const AssumeAndDropEvent& event) const;
         void HandleEsDropTrackingEvent(const DropTrackingEvent& event) const;
         void HandleBackendSyncEvent(const BackendSyncEvent& event) const;
-        void HandleCreateFPLEvent(const CreateFPLEvent& event) const;
+        CommandOutcome HandleCreateFPLEvent(const CreateFPLEvent& event) const;
         void HandlePdcStateChangeEvent(const PdcStateChangeEvent& event) const;
         void HandleSendPrivateMessageEvent(const SendPrivateMessageEvent& event) const;
         void HandleHoldEvent(const HoldEvent& event) const;

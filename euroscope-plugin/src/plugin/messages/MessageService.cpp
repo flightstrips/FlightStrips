@@ -65,6 +65,31 @@ namespace FlightStrips::messages {
                 Logger::Warning("Invalid protobuf message ({} bytes)", message.size());
                 return;
             }
+			if (envelope.event_case() == websocket::protobuf::wire::Envelope::kResultRecorded) {
+				if (envelope.command_id() == envelope.result_recorded().command_id())
+					m_webSocketService->AcknowledgeCommandResult(envelope.result_recorded().command_id());
+				return;
+			}
+			if (envelope.event_case() == websocket::protobuf::wire::Envelope::kSessionInfo)
+				m_webSocketService->SetSessionTerms(envelope.session_id(),
+					envelope.session_info().owner_epoch(), envelope.session_info().master_epoch());
+			if (!envelope.command_id().empty()) {
+				if (!m_webSocketService->BeginCommand(envelope.command_id())) return;
+				CommandOutcome outcome{};
+				try {
+					outcome = ExecuteCommand(envelope);
+				} catch (const std::exception& e) {
+					Logger::Error("EuroScope command {} failed: {}", envelope.command_id(), e.what());
+					outcome = {websocket::protobuf::wire::CommandResultEvent::FAILED,
+					           websocket::protobuf::wire::CommandResultEvent::INTERNAL_ERROR, "local exception"};
+				} catch (...) {
+					outcome = {websocket::protobuf::wire::CommandResultEvent::FAILED,
+					           websocket::protobuf::wire::CommandResultEvent::INTERNAL_ERROR, "local exception"};
+				}
+				m_webSocketService->RecordCommandResult(envelope.command_id(), outcome.status, outcome.reason, outcome.detail,
+					envelope.session_id(), envelope.owner_epoch(), envelope.master_epoch());
+				return;
+			}
 
 #define HANDLE_PROTO(caseName, accessor, domainType, handler, typeName) \
             case websocket::protobuf::wire::Envelope::caseName: { \
@@ -120,6 +145,166 @@ namespace FlightStrips::messages {
             Logger::Error("Exception handling message: {}", e.what());
         } catch (...) {
             Logger::Error("Unknown exception handling message");
+        }
+    }
+
+    MessageService::CommandOutcome MessageService::ExecuteCommand(
+        const websocket::protobuf::wire::Envelope& envelope) const {
+        using namespace websocket::protobuf;
+        using Result = wire::CommandResultEvent;
+        const auto ok = []() -> CommandOutcome { return {Result::EXECUTED, Result::OK, {}}; };
+        const auto fail = [](Result::Reason reason, const char* detail) -> CommandOutcome {
+            return {Result::FAILED, reason, detail};
+        };
+        const auto withPlan = [this, &fail](const std::string& callsign, auto operation) -> CommandOutcome {
+            if (callsign.empty()) return fail(Result::INVALID_ARGUMENT, "missing callsign");
+            auto fp = m_plugin->FlightPlanSelect(callsign.c_str());
+            if (!fp.IsValid()) return fail(Result::TARGET_NOT_FOUND, "flight plan not found");
+            return operation(fp);
+        };
+        const auto setter = [&ok, &fail](bool success) -> CommandOutcome {
+            return success ? ok() : fail(Result::EUROSCOPE_API_REJECTED, "EuroScope setter rejected change");
+        };
+        const auto amend = [&ok, &fail](auto fpData, bool set) -> CommandOutcome {
+            if (!set) return fail(Result::EUROSCOPE_API_REJECTED, "flight plan setter rejected change");
+            if (!fpData.AmendFlightPlan())
+                return fail(Result::PARTIAL_EXECUTION, "setter applied but flight plan amend failed");
+            return ok();
+        };
+
+        switch (envelope.event_case()) {
+        case wire::Envelope::kAssignedSquawk:
+            return withPlan(envelope.assigned_squawk().callsign(), [&](auto fp) {
+                return setter(fp.GetControllerAssignedData().SetSquawk(envelope.assigned_squawk().squawk().c_str()));
+            });
+        case wire::Envelope::kRequestedAltitude:
+            return withPlan(envelope.requested_altitude().callsign(), [&](auto fp) {
+                return setter(fp.GetControllerAssignedData().SetFinalAltitude(envelope.requested_altitude().altitude()));
+            });
+        case wire::Envelope::kClearedAltitude:
+            return withPlan(envelope.cleared_altitude().callsign(), [&](auto fp) {
+                return setter(fp.GetControllerAssignedData().SetClearedAltitude(envelope.cleared_altitude().altitude()));
+            });
+        case wire::Envelope::kHeading:
+            return withPlan(envelope.heading().callsign(), [&](auto fp) {
+                return setter(fp.GetControllerAssignedData().SetAssignedHeading(envelope.heading().heading()));
+            });
+        case wire::Envelope::kCommunicationType:
+            return withPlan(envelope.communication_type().callsign(), [&](auto fp) {
+                const auto& value = envelope.communication_type().communication_type();
+                if (value.size() != 1) return fail(Result::INVALID_ARGUMENT, "invalid communication type");
+                return setter(fp.GetControllerAssignedData().SetCommunicationType(value[0]));
+            });
+        case wire::Envelope::kEobt:
+            return withPlan(envelope.eobt().callsign(), [&](auto fp) {
+                auto data = fp.GetFlightPlanData();
+                return amend(data, data.SetEstimatedDepartureTime(envelope.eobt().eobt().c_str()));
+            });
+        case wire::Envelope::kRoute:
+            return withPlan(envelope.route().callsign(), [&](auto fp) {
+                auto data = fp.GetFlightPlanData();
+                return amend(data, data.SetRoute(envelope.route().route().c_str()));
+            });
+        case wire::Envelope::kRemarks:
+            return withPlan(envelope.remarks().callsign(), [&](auto fp) {
+                auto data = fp.GetFlightPlanData();
+                return amend(data, data.SetRemarks(envelope.remarks().remarks().c_str()));
+            });
+        case wire::Envelope::kAircraftInfo:
+            return withPlan(envelope.aircraft_info().callsign(), [&](auto fp) {
+                auto data = fp.GetFlightPlanData();
+                return amend(data, data.SetAircraftInfo(envelope.aircraft_info().aircraft_type().c_str()));
+            });
+        case wire::Envelope::kAircraftInfoRemarks:
+            return withPlan(envelope.aircraft_info_remarks().callsign(), [&](auto fp) {
+                auto data = fp.GetFlightPlanData();
+                if (!data.SetAircraftInfo(envelope.aircraft_info_remarks().aircraft_type().c_str()))
+                    return fail(Result::EUROSCOPE_API_REJECTED, "aircraft info setter rejected change");
+                if (!data.SetRemarks(envelope.aircraft_info_remarks().remarks().c_str()))
+                    return fail(Result::PARTIAL_EXECUTION, "aircraft info applied but remarks setter failed");
+                return amend(data, true);
+            });
+        case wire::Envelope::kSid:
+        case wire::Envelope::kAircraftRunway: {
+            const bool sid = envelope.event_case() == wire::Envelope::kSid;
+            const auto& callsign = sid ? envelope.sid().callsign() : envelope.aircraft_runway().callsign();
+            return withPlan(callsign, [&](auto fp) {
+                auto data = fp.GetFlightPlanData();
+                auto route = std::string(data.GetRoute());
+                const auto airport = m_plugin->GetConnectionState().relevant_airport;
+                if (sid) m_routeService->SetSid(route, envelope.sid().sid(), airport);
+                else {
+                    if (_stricmp(data.GetOrigin(), airport.c_str()) != 0)
+                        return fail(Result::INVALID_ARGUMENT, "runway command is not a departure");
+                    m_routeService->SetDepartureRunway(route, envelope.aircraft_runway().runway(), airport);
+                }
+                if (route.empty()) return fail(Result::INVALID_ARGUMENT, "empty route after change");
+                return amend(data, data.SetRoute(route.c_str()));
+            });
+        }
+        case wire::Envelope::kGroundState:
+            return setter(m_plugin->UpdateViaScratchPad(envelope.ground_state().callsign().c_str(),
+                                                         envelope.ground_state().ground_state().c_str()));
+        case wire::Envelope::kStand:
+            return setter(m_plugin->SetArrivalStand(envelope.stand().callsign(), envelope.stand().stand()));
+        case wire::Envelope::kClearedFlag:
+			if (!ShouldMirrorClearedFlagToEuroScope(
+				m_flightPlanService->GetFlightPlan(envelope.cleared_flag().callsign()),
+				envelope.cleared_flag().cleared())) return ok();
+            return setter(m_plugin->SetClearenceFlag(envelope.cleared_flag().callsign(),
+                                                      envelope.cleared_flag().cleared()));
+        case wire::Envelope::kSendPrivateMessage:
+            if (envelope.send_private_message().callsign().empty() || envelope.send_private_message().message().empty())
+                return fail(Result::INVALID_ARGUMENT, "missing recipient or message");
+            return PrivateMessageSender::SendPrivateMessage(envelope.send_private_message().callsign(),
+                envelope.send_private_message().message()) ? ok() : fail(Result::UI_UNAVAILABLE, "message input unavailable");
+        case wire::Envelope::kCoordinationHandover:
+            return withPlan(envelope.coordination_handover().callsign(), [&](auto fp) {
+                const auto& target = envelope.coordination_handover().target_callsign();
+                auto controller = m_plugin->ControllerSelect(target.c_str());
+                if (!controller.IsValid() || !controller.IsController())
+                    return fail(Result::TARGET_NOT_FOUND, "target controller not found");
+                if (!fp.GetTrackingControllerIsMe() && !fp.StartTracking())
+                    return fail(Result::EUROSCOPE_API_REJECTED, "start tracking rejected");
+                if (!fp.InitiateHandoff(target.c_str()))
+                    return fail(Result::PARTIAL_EXECUTION, "tracking started but handoff rejected");
+                return ok();
+            });
+        case wire::Envelope::kAssumeOnly:
+        case wire::Envelope::kAssumeAndDrop: {
+            const bool drop = envelope.event_case() == wire::Envelope::kAssumeAndDrop;
+            const auto& callsign = drop ? envelope.assume_and_drop().callsign() : envelope.assume_only().callsign();
+            return withPlan(callsign, [&](auto fp) {
+                if (fp.GetState() != EuroScopePlugIn::FLIGHT_PLAN_STATE_TRANSFER_TO_ME_INITIATED)
+                    return fail(Result::INVALID_ARGUMENT, "flight plan is not offered for handoff");
+                fp.AcceptHandoff();
+                if (drop && !fp.EndTracking()) return fail(Result::PARTIAL_EXECUTION, "handoff accepted but drop rejected");
+                return ok();
+            });
+        }
+        case wire::Envelope::kDropTracking:
+            return withPlan(envelope.drop_tracking().callsign(), [&](auto fp) {
+                return setter(fp.EndTracking());
+            });
+        case wire::Envelope::kCdmUpdate: {
+            CdmUpdateEvent event;
+            Decode(envelope.cdm_update(), event);
+            HandleCdmUpdateEvent(event);
+            return ok();
+        }
+        case wire::Envelope::kPdcStateChange: {
+            PdcStateChangeEvent event;
+            Decode(envelope.pdc_state_change(), event);
+            HandlePdcStateChangeEvent(event);
+            return ok();
+        }
+		case wire::Envelope::kCreateFpl: {
+			CreateFPLEvent event;
+			Decode(envelope.create_fpl(), event);
+			return HandleCreateFPLEvent(event);
+		}
+        default:
+            return fail(Result::INVALID_ARGUMENT, "unsupported command event");
         }
     }
 
@@ -594,7 +779,7 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
     }
 
     void MessageService::HandleSendPrivateMessageEvent(const SendPrivateMessageEvent &event) const {
-        Logger::Info("Sending private message to {}: {}", event.callsign, event.message);
+        Logger::Info("Sending private message to {}", event.callsign);
         PrivateMessageSender::SendPrivateMessage(event.callsign, event.message);
     }
 
@@ -683,50 +868,49 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
         return true;
     }
 
-    void MessageService::HandleCreateFPLEvent(const CreateFPLEvent &event) const {
+    MessageService::CommandOutcome MessageService::HandleCreateFPLEvent(const CreateFPLEvent &event) const {
+		using Result = websocket::protobuf::wire::CommandResultEvent;
+		const auto fail = [](Result::Reason reason, const char* detail) -> CommandOutcome {
+			return {Result::FAILED, reason, detail};
+		};
         const auto fp = m_plugin->FlightPlanSelect(event.callsign.c_str());
         if (!fp.IsValid()) {
             Logger::Warning("create_fpl: flight plan not found for {}", event.callsign);
-            return;
+            return fail(Result::TARGET_NOT_FOUND, "flight plan not found");
         }
 
         const auto airport = m_plugin->GetConnectionState().relevant_airport;
         auto fpData = fp.GetFlightPlanData();
+		bool applied = false;
+		const auto set = [&applied, &fail](bool success) -> std::optional<CommandOutcome> {
+			if (!success) return fail(applied ? Result::PARTIAL_EXECUTION : Result::EUROSCOPE_API_REJECTED,
+			                          "flight plan setter rejected change");
+			applied = true;
+			return std::nullopt;
+		};
 
         if (!event.origin.empty()) {
-            if (!fpData.SetOrigin(event.origin.c_str())) {
-                Logger::Warning("create_fpl: failed to set origin {} for {}", event.origin, event.callsign);
-            }
+            if (auto error = set(fpData.SetOrigin(event.origin.c_str()))) return *error;
         }
 
         // Set flight rules: "I" for IFR (fpl_type empty), "V" for VFR
         const auto planType = event.fpl_type.empty() ? "I" : "V";
-        if (!fpData.SetPlanType(planType)) {
-            Logger::Warning("create_fpl: failed to set plan type {} for {}", planType, event.callsign);
-        }
+        if (auto error = set(fpData.SetPlanType(planType))) return *error;
 
         if (!event.destination.empty()) {
-            if (!fpData.SetDestination(event.destination.c_str())) {
-                Logger::Warning("create_fpl: failed to set destination {} for {}", event.destination, event.callsign);
-            }
+            if (auto error = set(fpData.SetDestination(event.destination.c_str()))) return *error;
         }
 
         if (!event.eobt.empty()) {
-            if (!fpData.SetEstimatedDepartureTime(event.eobt.c_str())) {
-                Logger::Warning("create_fpl: failed to set EOBT {} for {}", event.eobt, event.callsign);
-            }
+            if (auto error = set(fpData.SetEstimatedDepartureTime(event.eobt.c_str()))) return *error;
         }
 
         if (!event.aircraft_type.empty()) {
-            if (!fpData.SetAircraftInfo(event.aircraft_type.c_str())) {
-                Logger::Warning("create_fpl: failed to set aircraft type {} for {}", event.aircraft_type, event.callsign);
-            }
+            if (auto error = set(fpData.SetAircraftInfo(event.aircraft_type.c_str()))) return *error;
         }
 
         if (!event.remarks.empty()) {
-            if (!fpData.SetRemarks(event.remarks.c_str())) {
-                Logger::Warning("create_fpl: failed to set remarks for {}", event.callsign);
-            }
+            if (auto error = set(fpData.SetRemarks(event.remarks.c_str()))) return *error;
         }
 
         // Build route: start from the event route, then inject SID and departure runway
@@ -741,26 +925,24 @@ void MessageService::HandlePdcStateChangeEvent(const PdcStateChangeEvent &event)
         }
 
         if (!route.empty()) {
-            if (!fpData.SetRoute(route.c_str())) {
-                Logger::Warning("create_fpl: failed to set route for {}", event.callsign);
-            }
+            if (auto error = set(fpData.SetRoute(route.c_str()))) return *error;
         }
 
         if (!fpData.AmendFlightPlan()) {
             Logger::Warning("create_fpl: failed to amend flight plan for {}", event.callsign);
+			return fail(Result::PARTIAL_EXECUTION, "flight plan setters applied but amend failed");
         }
 
         // Set controller-assigned data after amending the flight plan
         if (!event.assigned_squawk.empty()) {
-            if (!fp.GetControllerAssignedData().SetSquawk(event.assigned_squawk.c_str())) {
-                Logger::Warning("create_fpl: failed to set squawk {} for {}", event.assigned_squawk, event.callsign);
-            }
+            if (!fp.GetControllerAssignedData().SetSquawk(event.assigned_squawk.c_str()))
+				return fail(Result::PARTIAL_EXECUTION, "flight plan amended but squawk rejected");
         }
 
         if (event.requested_altitude > 0) {
-            if (!fp.GetControllerAssignedData().SetFinalAltitude(event.requested_altitude)) {
-                Logger::Warning("create_fpl: failed to set requested altitude {} for {}", event.requested_altitude, event.callsign);
-            }
+            if (!fp.GetControllerAssignedData().SetFinalAltitude(event.requested_altitude))
+				return fail(Result::PARTIAL_EXECUTION, "flight plan amended but altitude rejected");
         }
+		return {Result::EXECUTED, Result::OK, {}};
     }
 }

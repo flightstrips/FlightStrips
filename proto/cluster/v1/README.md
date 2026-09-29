@@ -1,9 +1,8 @@
 # Cluster schema tooling
 
 `storage.proto` and `wire.proto` are byte-for-byte copies of the normative
-candidates in `.github/specs/multi-node-nats/proto/`. The candidate EuroScope
-schema is compiled and tested from there; the active `proto/euroscope.proto`
-and plugin bindings remain in service until task 14.
+candidates in `.github/specs/multi-node-nats/proto/`. The revision-2 EuroScope
+schema is installed at `proto/euroscope.proto` with generated Go and C++ bindings.
 
 Install `protoc` 26.1, `protoc-gen-go` 1.36.11, Python requirements from
 `scripts/cluster-proto-requirements.txt`, and run `npm ci` in `frontend/`.

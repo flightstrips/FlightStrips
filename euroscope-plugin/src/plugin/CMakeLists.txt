@@ -125,6 +125,7 @@ set(src__websocket
         websocket/WebSocket.cpp
         websocket/WebSocketService.cpp
         websocket/WebSocketService.h
+		websocket/CommandOutbox.h
         websocket/Events.h)
 source_group("src\\websocket" FILES ${src__websocket})
 

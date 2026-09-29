@@ -483,6 +483,9 @@ func (hub *Hub) DecodeAuthentication(frameType int, message []byte) (events.Auth
 	if err := euroscope.UnmarshalEvent(message, euroscope.Authentication, &event); err != nil {
 		return events.AuthenticationEvent{}, err
 	}
+	if event.ProtocolRevision != 2 {
+		return events.AuthenticationEvent{}, fmt.Errorf("unsupported EuroScope protocol revision %d", event.ProtocolRevision)
+	}
 	return events.AuthenticationEvent{Token: event.Token, Version: event.Version}, nil
 }
 
@@ -514,13 +517,19 @@ func (hub *Hub) HandleNewConnection(conn *gorilla.Conn, user shared.Authenticate
 		return nil, fmt.Errorf("failed to read login message: %w", err)
 	}
 	if frameType != gorilla.BinaryMessage {
+		_ = conn.WriteControl(gorilla.CloseMessage,
+			gorilla.FormatCloseMessage(gorilla.CloseUnsupportedData, "binary frames required"), time.Now().Add(time.Second))
 		return nil, fmt.Errorf("EuroScope login must use a binary websocket frame")
 	}
 	eventType, loginPayload, err := euroscope.UnmarshalEnvelope(msg)
 	if err != nil {
+		_ = conn.WriteControl(gorilla.CloseMessage,
+			gorilla.FormatCloseMessage(gorilla.CloseProtocolError, "invalid protobuf envelope"), time.Now().Add(time.Second))
 		return nil, fmt.Errorf("failed to decode login message: %w", err)
 	}
 	if eventType != euroscope.Login {
+		_ = conn.WriteControl(gorilla.CloseMessage,
+			gorilla.FormatCloseMessage(gorilla.CloseProtocolError, "login required"), time.Now().Add(time.Second))
 		return nil, fmt.Errorf("invalid initial event type, expected login")
 	}
 

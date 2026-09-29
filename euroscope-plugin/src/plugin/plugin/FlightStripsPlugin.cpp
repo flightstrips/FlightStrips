@@ -593,22 +593,22 @@ namespace FlightStrips {
         });
     }
 
-    void FlightStripsPlugin::SetClearenceFlag(const std::string &callsign, const bool cleared) const {
+    bool FlightStripsPlugin::SetClearenceFlag(const std::string &callsign, const bool cleared) const {
         if (cleared) {
-            this->UpdateViaScratchPad(callsign.c_str(), CLEARED);
+            return this->UpdateViaScratchPad(callsign.c_str(), CLEARED);
         } else {
-            this->UpdateViaScratchPad(callsign.c_str(), NOT_CLEARED);
+            return this->UpdateViaScratchPad(callsign.c_str(), NOT_CLEARED);
         }
     }
 
-    void FlightStripsPlugin::SetArrivalStand(const std::string &callsign, std::string stand) const {
-        UpdateViaScratchPad(callsign.c_str(), std::format("GRP/S/{}", stand).c_str(), true);
+    bool FlightStripsPlugin::SetArrivalStand(const std::string &callsign, std::string stand) const {
+        return UpdateViaScratchPad(callsign.c_str(), std::format("GRP/S/{}", stand).c_str(), true);
     }
 
-    void FlightStripsPlugin::UpdateViaScratchPad(const char *callsign, const char *message, const bool clearStaleStandCommand) const {
+    bool FlightStripsPlugin::UpdateViaScratchPad(const char *callsign, const char *message, const bool clearStaleStandCommand) const {
         auto fp = this->FlightPlanSelect(callsign);
 
-        if (!fp.IsValid()) return;
+        if (!fp.IsValid()) return false;
 
         auto scratch = std::string(fp.GetControllerAssignedData().GetScratchPadString());
         // A previous stand update can still be present when EuroScope delivers
@@ -618,8 +618,9 @@ namespace FlightStrips {
         if (clearStaleStandCommand && scratch.size() >= 6 && _strnicmp(scratch.c_str(), "GRP/S/", 6) == 0) {
             scratch.clear();
         }
-        fp.GetControllerAssignedData().SetScratchPadString(message);
-        fp.GetControllerAssignedData().SetScratchPadString(scratch.c_str());
+        const bool applied = fp.GetControllerAssignedData().SetScratchPadString(message);
+        const bool restored = fp.GetControllerAssignedData().SetScratchPadString(scratch.c_str());
+        return applied && restored;
     }
 
 

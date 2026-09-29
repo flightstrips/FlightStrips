@@ -1,0 +1,350 @@
+syntax = "proto3";
+
+package flightstrips.cluster.v1;
+
+import "google/protobuf/timestamp.proto";
+import "storage.proto";
+
+option go_package = "FlightStrips/pkg/events/cluster;cluster";
+
+// Every Core NATS request/reply payload is one of these messages.
+message CommandRequest {
+  uint32 protocol_revision = 1; // exactly 1
+  string command_id = 2;        // UUID, reused across transport retries
+  AggregateRef aggregate = 3;
+  Actor actor = 4;
+  optional uint64 expected_entity_revision = 5;
+  oneof command {
+    ClientCommand client = 10;
+    SystemCommand system = 11;
+  }
+}
+message CommandReply {
+  uint32 protocol_revision = 1;
+  string command_id = 2;
+  enum Status {
+    STATUS_UNSPECIFIED = 0; COMMITTED = 1; PENDING = 2;
+    INVALID_ARGUMENT = 3; UNAUTHORIZED = 4; NOT_FOUND = 5;
+    REVISION_CONFLICT = 6; NOT_OWNER = 7; UNAVAILABLE = 8;
+  }
+  Status status = 3;
+  optional uint64 aggregate_revision = 4;
+  optional uint64 stream_sequence = 5;
+  optional uint64 current_entity_revision = 6;
+  optional OwnerTerm current_owner = 7;
+  optional CommandOutcome outcome = 8;
+  string detail = 9;
+}
+
+// One frame per binary WebSocket message. Frames larger than 4 MiB are closed.
+message FrontendFrame {
+  uint32 protocol_revision = 1; // exactly 2
+  oneof frame {
+    FrontendAuthenticate authenticate = 2;
+    FrontendCommand command = 3;
+    ActionStatusQuery status_query = 4;
+    FrontendInitial initial = 5;
+    FrontendDelta delta = 6;
+    FrontendObservation observation = 7;
+    FrontendActionResult action_result = 8;
+    ActionStatusMissing status_missing = 9;
+    FrontendError error = 10;
+    FrontendHeartbeat heartbeat = 11;
+  }
+}
+message FrontendAuthenticate {
+  string bearer_token = 1; string airport = 2; string session_name = 3;
+}
+message FrontendCommand {
+  string request_id = 1; // UUID; same logical request across reconnects
+  ClientCommand action = 2;
+  optional uint64 expected_entity_revision = 3;
+}
+message ActionStatusQuery { repeated string request_ids = 1; } // at most 100
+message FrontendInitial {
+  int32 session_id = 1; string airport = 2; string session_name = 3;
+  uint64 aggregate_revision = 4; uint64 stream_sequence = 5;
+  repeated EntitySnapshot entities = 6;
+  repeated PositionValue positions = 7;
+  repeated ClientPresence clients = 8;
+  bool writable = 9; string layout_id = 10;
+  Controller me = 11; bool read_only = 12;
+  bool position_available = 13; bool aman_fmp = 14;
+  repeated SidInfo available_sids = 15;
+  repeated RunwayCfl initial_cfl_by_runway = 16;
+  int32 transition_altitude_feet = 17;
+  bool stand_assignment_enabled = 18;
+}
+message FrontendDelta {
+  AggregateRef aggregate = 1; uint64 aggregate_revision = 2;
+  uint64 stream_sequence = 3; repeated EntityChange changes = 4;
+  repeated WorkflowRecord workflows = 5;
+}
+message FrontendObservation {
+  oneof value { PositionValue position = 1; PresenceValue presence = 2; }
+  uint64 source_revision = 3;
+}
+message FrontendActionResult {
+  string request_id = 1; CommandOutcome.Status status = 2;
+  AggregateRef aggregate = 3; uint64 aggregate_revision = 4;
+  string reason_code = 5; string detail = 6;
+}
+message ActionStatusMissing { string request_id = 1; }
+message FrontendError {
+  enum Code { CODE_UNSPECIFIED = 0; INVALID_FRAME = 1; UNAUTHENTICATED = 2;
+    UNSUPPORTED_REVISION = 3; PROJECTION_UNAVAILABLE = 4; RATE_LIMITED = 5; }
+  Code code = 1; string detail = 2;
+}
+message FrontendHeartbeat { uint64 latest_applied_stream_sequence = 1; }
+
+message ClientCommand {
+  oneof action {
+    StripAction strip = 1; CoordinationAction coordination = 2;
+    TacticalAction tactical = 3; StandAction stand = 4;
+    CdmAction cdm = 5; PdcAction pdc = 6;
+    AmanAction aman = 7; MessageAction message = 8;
+    SessionAction session = 9; ValidationActionCommand validation = 10;
+    FlightPlanAction flight_plan = 11;
+  }
+}
+message StripAction {
+  string callsign = 1;
+  oneof change {
+    SetHeading set_heading = 2; SetSquawk set_squawk = 3;
+    SetAltitude set_requested_altitude = 4;
+    SetAltitude set_cleared_altitude = 5;
+    SetBay set_bay = 6; SetReleasePoint set_release_point = 7;
+    SetMarked set_marked = 8; SetRunwayFlag set_runway_cleared = 9;
+    SetRunwayFlag set_runway_confirmed = 10;
+    SetStartRequested set_start_requested = 11;
+    SetStripOrder set_order = 12; SetStripText set_text = 13;
+    MoveStrip move = 14; GenerateSquawk generate_squawk = 15;
+    UpdateStripData update_data = 16;
+    MissedApproach missed_approach = 17;
+  }
+}
+message SetHeading { optional int32 degrees = 1; }
+message SetSquawk { string code = 1; }
+message SetAltitude { optional int32 feet = 1; }
+message SetBay { string bay = 1; }
+message SetReleasePoint { string point = 1; }
+message SetMarked { bool marked = 1; }
+message SetRunwayFlag { bool value = 1; }
+message SetStartRequested { bool requested = 1; }
+message StripRef { oneof identity { string flight_callsign = 1; uint64 tactical_id = 2; } }
+message SetStripOrder { optional StripRef insert_after = 1; }
+message MoveStrip {
+  string bay = 1; optional bool clearance = 2;
+  optional bool confirmed_removal = 3;
+}
+message GenerateSquawk {}
+message UpdateStripData {
+  optional string sid = 1; optional google.protobuf.Timestamp eobt = 2;
+  optional string route = 3; optional int32 heading = 4;
+  optional int32 altitude_feet = 5; optional string stand = 6;
+  optional string runway = 7; optional bool on_block = 8;
+  optional string remarks = 9; optional string aircraft_type = 10;
+}
+message MissedApproach {}
+message SetStripText {
+  enum Field { FIELD_UNSPECIFIED = 0; ROUTE = 1; REMARKS = 2; SID = 3;
+    RUNWAY = 4; REGISTRATION = 5; LANGUAGE = 6; }
+  Field field = 1; string value = 2;
+}
+message CoordinationAction {
+  string callsign = 1;
+  oneof change {
+    TransferCoordination transfer = 2; AssumeCoordination assume = 3;
+    ForceAssumeCoordination force_assume = 4; FreeCoordination free = 5;
+    CancelCoordination cancel = 6; TagCoordination tag = 7;
+    AcceptTagCoordination accept_tag = 8;
+  }
+}
+message TransferCoordination { string to_cid = 1; }
+message AssumeCoordination {}
+message ForceAssumeCoordination { string from_cid = 1; }
+message FreeCoordination {}
+message CancelCoordination { string transfer_id = 1; }
+message TagCoordination { string to_cid = 1; string tag = 2; }
+message AcceptTagCoordination { string request_id = 1; }
+message TacticalAction {
+  uint64 strip_id = 1;
+  oneof change {
+    CreateTactical create = 2; DeleteTactical delete = 3;
+    ConfirmTactical confirm = 4; ForceAssumeTactical force_assume = 5;
+    MarkTactical mark = 6; StartTacticalTimer start_timer = 7;
+    MoveTactical move = 8;
+  }
+}
+message CreateTactical { string title = 1; string body = 2; string bay = 3; }
+message DeleteTactical {}
+message ConfirmTactical {}
+message ForceAssumeTactical {}
+message MarkTactical { bool marked = 1; }
+message StartTacticalTimer {}
+message MoveTactical { optional string bay = 1; optional StripRef insert_after = 2; }
+message StandAction {
+  string callsign = 1; string stand = 2;
+  oneof change {
+    OccupyStand occupy = 3; VacateStand vacate = 4;
+    AutomaticStand automatic = 5; ManualStand manual = 6;
+    ConfirmStandOverride confirm_override = 7; AcknowledgeStand acknowledge = 8;
+    CreateStandBlock create_block = 9; RemoveStandBlock remove_block = 10;
+  }
+}
+message OccupyStand {}
+message VacateStand {}
+message AutomaticStand {}
+message ManualStand { string reason = 1; }
+message ConfirmStandOverride {}
+message AcknowledgeStand {}
+message CreateStandBlock { string reason = 1; optional google.protobuf.Timestamp expires_at = 2; }
+message RemoveStandBlock {}
+message CdmAction {
+  string callsign = 1;
+  oneof change {
+    SetTobt set_tobt = 2; SetCdmReady set_ready = 3;
+    SetCdmDeice set_deice = 4; SetCdmCtot set_ctot = 5;
+    RemoveCdmCtot remove_ctot = 6;
+  }
+}
+message SetTobt { google.protobuf.Timestamp value = 1; }
+message SetCdmReady { bool ready = 1; }
+message SetCdmDeice { string code = 1; }
+message SetCdmCtot { google.protobuf.Timestamp value = 1; }
+message RemoveCdmCtot {}
+message PdcAction {
+  string callsign = 1;
+  oneof change {
+    IssuePdc issue = 2; RevertPdcToVoice revert_to_voice = 3;
+    AcknowledgePdc acknowledge = 4; UnablePdc unable = 5;
+  }
+}
+message IssuePdc { string clearance = 1; }
+message RevertPdcToVoice {}
+message AcknowledgePdc {}
+message UnablePdc { string reason = 1; }
+message MessageAction {
+  oneof send { BroadcastMessage broadcast = 1; PrivateMessage private_message = 2; }
+}
+message BroadcastMessage { string text = 1; repeated string recipients = 2; }
+message PrivateMessage { string target_cid = 1; string text = 2; }
+message SessionAction {
+  oneof change {
+    ChangeLayout layout = 1; ChangeRunways runways = 2;
+    UpdateRunwayStatus update_runway_status = 3;
+  }
+}
+message ChangeLayout { string layout_id = 1; }
+message ChangeRunways { repeated Runway runways = 1; }
+message UpdateRunwayStatus { string pair = 1; string status = 2; }
+message ValidationActionCommand {
+  string callsign = 1;
+  oneof change {
+    AcknowledgeValidation acknowledge = 2;
+    ClxOverrideAction clx_override = 3; SetTobt update_tobt = 4;
+    AcknowledgeUnexpectedChange acknowledge_unexpected_change = 5;
+  }
+}
+message AcknowledgeUnexpectedChange { string field_name = 1; }
+message FlightPlanAction {
+  string callsign = 1;
+  oneof create { CreateManualFlightPlan manual = 2; CreateVfrFlightPlan vfr = 3; }
+}
+message CreateManualFlightPlan {
+  string destination = 1; string sid = 2; string squawk = 3;
+  google.protobuf.Timestamp eobt = 4; string aircraft_type = 5;
+  string flight_level = 6; string route = 7; string stand = 8;
+  string departure_runway = 9;
+}
+message CreateVfrFlightPlan {
+  string aircraft_type = 1; uint32 persons_on_board = 2;
+  string squawk = 3; string flight_plan_type = 4;
+  string language = 5; string remarks = 6;
+}
+
+message AmanAction {
+  uint64 expected_airport_revision = 1;
+  oneof change {
+    AmanMoveFlight move_flight = 2;
+    AmanFlightUnary lock_flight = 3;
+    AmanFlightUnary unlock_flight = 4;
+    AmanFlightUnary desequence_flight = 5;
+    AmanFlightUnary resume_flight = 6;
+    AmanFlightUnary remove_flight = 7;
+    AmanFlightUnary accept_teta = 8;
+    AmanFlightUnary keep_fpl_eta = 9;
+    AmanFlightUnary reset_teta_override = 10;
+    AmanRate set_rate = 11;
+    AmanSelectRunway select_runway_group = 12;
+    AmanActiveRunways set_active_runway_groups = 13;
+    AmanManualEta set_manual_eta = 14;
+    AmanManualEta set_manual_feeder_eta = 15;
+    AmanFlightUnary reset_manual_feeder_eta = 16;
+    AmanFlightUnary recompute_flight = 17;
+    AmanChangeRunway change_runway = 18;
+    AmanReportGoAround report_go_around = 19;
+    AmanDecideGoAround confirm_go_around = 20;
+    AmanDecideGoAround reject_go_around = 21;
+    AmanCreateGap create_gap = 22;
+    AmanRemoveGap remove_gap = 23;
+    AmanCreateClosure create_runway_closure = 24;
+    AmanRemoveClosure remove_runway_closure = 25;
+    AmanCreateReservation create_capacity_reservation = 26;
+    AmanRemoveReservation remove_capacity_reservation = 27;
+    AmanPlaceFlight place_flight_at_time = 28;
+    AmanSubmitCoordination submit_coordination_request = 29;
+    AmanDecideCoordination accept_coordination_request = 30;
+    AmanDecideCoordination reject_coordination_request = 31;
+  }
+}
+message AmanFlightUnary { string callsign = 1; }
+message AmanMoveFlight {
+  string callsign = 1; string runway_group_id = 2;
+  oneof neighbor { string before_callsign = 3; string after_callsign = 4; }
+}
+message AmanRate { string runway_group_id = 1; uint32 arrivals_per_hour = 2; google.protobuf.Timestamp effective_at = 3; }
+message AmanSelectRunway { string runway_group_id = 1; google.protobuf.Timestamp effective_at = 2; }
+message AmanActiveRunways { repeated string runway_group_ids = 1; }
+message AmanManualEta { string callsign = 1; google.protobuf.Timestamp value = 2; }
+message AmanChangeRunway { string callsign = 1; string runway_group_id = 2; }
+message AmanReportGoAround { string callsign = 1; google.protobuf.Timestamp detected_at = 2; }
+message AmanDecideGoAround { string callsign = 1; string episode_id = 2; }
+message AmanCreateGap {
+  string runway_group_id = 1; google.protobuf.Timestamp start = 2;
+  string label = 3; oneof extent { google.protobuf.Timestamp end = 4; uint32 slot_count = 5; }
+}
+message AmanRemoveGap { string runway_group_id = 1; string gap_id = 2; }
+message AmanCreateClosure {
+  string runway_group_id = 1; optional google.protobuf.Timestamp end = 2;
+  string reason = 3; oneof placement { google.protobuf.Timestamp start = 4; string after_callsign = 5; }
+}
+message AmanRemoveClosure { string runway_group_id = 1; string closure_id = 2; string reason = 3; }
+message AmanCreateReservation { string runway_group_id = 1; string after_callsign = 2; optional string label = 3; string reason = 4; }
+message AmanRemoveReservation { string runway_group_id = 1; string reservation_id = 2; string reason = 3; }
+message AmanPlaceFlight { string callsign = 1; string runway_group_id = 2; google.protobuf.Timestamp slot_time = 3; bool allow_gap = 4; }
+message AmanSubmitCoordination {
+  string callsign = 1; string coordination_request_id = 2;
+  oneof request { AmanRouteDirect route_direct = 3; AmanSpeed speed = 4; }
+}
+message AmanDecideCoordination { string coordination_request_id = 1; optional string reason = 2; }
+
+message SystemCommand {
+  oneof action {
+    CreateSession create_session = 1; DeleteSession delete_session = 2;
+    UpdateEntity update_entity = 3; RemoveEntity remove_entity = 4;
+    ClaimOwner claim_owner = 5; RenewOwner renew_owner = 6;
+    AdvanceWorkflow advance_workflow = 7;
+    AdvanceEffect advance_effect = 8;
+    RecordSessionSync record_sync = 9;
+  }
+}
+message CreateSession { int32 id = 1; string airport = 2; string name = 3; string workflow_id = 4; }
+message DeleteSession { int32 id = 1; string workflow_id = 2; }
+message UpdateEntity { string key = 1; EntityRecord value = 2; }
+message RemoveEntity { string key = 1; EntityKind kind = 2; }
+message ClaimOwner { OwnerTerm proposed = 1; }
+message RenewOwner { OwnerTerm proposed = 1; }
+message AdvanceWorkflow { WorkflowRecord workflow = 1; }
+message AdvanceEffect { EffectRecord effect = 1; }
+message RecordSessionSync { SessionSync sync = 1; }

@@ -88,6 +88,7 @@ type CdmData struct {
 	Calculation            *CdmCalculation    `json:"calculation,omitempty"`
 	Recalculate            bool               `json:"recalculate,omitempty"`
 	RecalculationMode      string             `json:"recalculationMode,omitempty"`
+	PushbackRecalculate    bool               `json:"pushbackRecalculate,omitempty"`
 	ReadySyncPending       bool               `json:"readySyncPending,omitempty"`
 	ViffRequestSyncPending bool               `json:"viffRequestSyncPending,omitempty"`
 }
@@ -283,6 +284,7 @@ func (d *CdmData) ClearLocalRecalculationPending() {
 	}
 	d.Recalculate = false
 	d.RecalculationMode = ""
+	d.PushbackRecalculate = false
 }
 
 func (d *CdmData) IsImprovementOnlyRecalculation() bool {

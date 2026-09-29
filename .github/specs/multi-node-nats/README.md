@@ -60,13 +60,13 @@ An implementation that cannot satisfy a contract must update these documents and
 | 03 | [Replay, projections and snapshots](tasks/03-projections.md) | 02 | Merged ([#798](https://github.com/flightstrips/FlightStrips/pull/798)) |
 | 04 | [Global session registry](tasks/04-session-registry.md) | 03 | Merged ([#799](https://github.com/flightstrips/FlightStrips/pull/799)) |
 | 05 | [Controller, sector and runway state](tasks/05-controller-sector.md) | 04 | Merged ([#801](https://github.com/flightstrips/FlightStrips/pull/801)) |
-| 06 | [Strip state and edit invariants](tasks/06-strips.md) | 04, 05 | Not started |
+| 06 | [Strip state and edit invariants](tasks/06-strips.md) | 04, 05 | Merged ([#803](https://github.com/flightstrips/FlightStrips/pull/803)) |
 | 07 | [Coordination and transfers](tasks/07-coordination.md) | 05, 06 | Not started |
 | 08 | [Stand allocation and blocks](tasks/08-stands.md) | 06 | Not started |
 | 09 | [PDC and tactical strips](tasks/09-pdc-tactical.md) | 04, 06 | Not started |
 | 10 | [Positions and shared session state](tasks/10-session-observations.md) | 03, 05, 06 | Not started |
 | 11 | [AMAN operational state](tasks/11-aman.md) | 03, 04 | Merged ([#802](https://github.com/flightstrips/FlightStrips/pull/802)) |
-| 12 | [Navigation and weather](tasks/12-navigation-weather.md) | 03, 11 | Not started |
+| 12 | [Navigation and weather](tasks/12-navigation-weather.md) | 03, 11 | Merged ([#804](https://github.com/flightstrips/FlightStrips/pull/804)) |
 | 13 | [Owner leases and routing](tasks/13-owner-routing.md) | 02, 03 | Merged ([#800](https://github.com/flightstrips/FlightStrips/pull/800)) |
 | 14 | [EuroScope plugin protocol](tasks/14-plugin-protocol.md) | 02 | Not started |
 | 15 | [Binary frontend transport](tasks/15-frontend-commands.md) | 06, 13 | Not started |

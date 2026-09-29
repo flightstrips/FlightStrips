@@ -4783,6 +4783,9 @@ type Atis struct {
 	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
 	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
 	ObservedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	Metar         string                 `protobuf:"bytes,5,opt,name=metar,proto3" json:"metar,omitempty"`
+	ArrivalCode   string                 `protobuf:"bytes,6,opt,name=arrival_code,json=arrivalCode,proto3" json:"arrival_code,omitempty"`
+	DepartureCode string                 `protobuf:"bytes,7,opt,name=departure_code,json=departureCode,proto3" json:"departure_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4843,6 +4846,27 @@ func (x *Atis) GetObservedAt() *timestamppb.Timestamp {
 		return x.ObservedAt
 	}
 	return nil
+}
+
+func (x *Atis) GetMetar() string {
+	if x != nil {
+		return x.Metar
+	}
+	return ""
+}
+
+func (x *Atis) GetArrivalCode() string {
+	if x != nil {
+		return x.ArrivalCode
+	}
+	return ""
+}
+
+func (x *Atis) GetDepartureCode() string {
+	if x != nil {
+		return x.DepartureCode
+	}
+	return ""
 }
 
 type ClxOverride struct {
@@ -15133,13 +15157,16 @@ const file_storage_proto_rawDesc = "" +
 	"\n" +
 	"_min_levelB\f\n" +
 	"\n" +
-	"_max_level\"\x85\x01\n" +
+	"_max_level\"\xe5\x01\n" +
 	"\x04Atis\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
 	"\x04text\x18\x03 \x01(\tR\x04text\x12;\n" +
 	"\vobserved_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"observedAt\"\x8c\x01\n" +
+	"observedAt\x12\x14\n" +
+	"\x05metar\x18\x05 \x01(\tR\x05metar\x12!\n" +
+	"\farrival_code\x18\x06 \x01(\tR\varrivalCode\x12%\n" +
+	"\x0edeparture_code\x18\a \x01(\tR\rdepartureCode\"\x8c\x01\n" +
 	"\vClxOverride\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +

@@ -10,6 +10,7 @@ import (
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestProjectionInitialThenLiveDeltaAndBarrier(t *testing.T) {
@@ -110,14 +111,15 @@ func TestProjectionReadinessRejectsLagStaleMetadataAndUnknownVersion(t *testing.
 	}
 }
 
-func TestOperationalSyncNeedsRenewedMasterPresence(t *testing.T) {
+func TestOperationalSyncNeedsRenewedPresenceAndNewMasterSync(t *testing.T) {
 	ref := &pb.AggregateRef{Target: &pb.AggregateRef_Session{Session: &pb.SessionRef{Id: 42}}}
 	subject, _ := Subject(ref)
 	now := time.Now()
 	state := NewAggregate(ref)
-	state.Master = &pb.MasterTerm{ConnectionId: "connection", Cid: "123", Epoch: 2}
-	state.Sync = &pb.SessionSync{ConnectionId: "connection", MasterEpoch: 2}
-	p := &Projection{states: map[string]*Aggregate{subject: state}, presence: map[string]KVPresence{}, started: true, startedAt: now.Add(-500 * time.Millisecond), checked: now, positionReady: true, presenceReady: true}
+	state.Owner = &pb.OwnerTerm{NodeId: "node", Epoch: 2}
+	state.Master = &pb.MasterTerm{ConnectionId: "connection", Cid: "123", Epoch: 2, OwnerEpoch: 2}
+	state.Sync = &pb.SessionSync{ConnectionId: "connection", MasterEpoch: 2, CompletedAt: timestamppb.New(now.Add(-time.Second))}
+	p := &Projection{states: map[string]*Aggregate{subject: state}, presence: map[string]KVPresence{}, syncFresh: map[string]bool{}, started: true, startedAt: now.Add(-500 * time.Millisecond), checked: now, positionReady: true, presenceReady: true}
 	p.presence["client.connection"] = KVPresence{Value: &pb.PresenceValue{SchemaVersion: 1, Present: &pb.PresenceValue_Client{Client: &pb.ClientPresence{ConnectionId: "connection", NodeId: "node", SessionId: 42, Cid: "123", Kind: pb.ClientPresence_EUROSCOPE}}}, Observed: now.Add(-time.Second)}
 	p.presence["node.node"] = KVPresence{Value: &pb.PresenceValue{SchemaVersion: 1, Present: &pb.PresenceValue_Node{Node: &pb.NodePresence{NodeId: "node", Ready: true}}}, Observed: now.Add(-time.Second)}
 	if got, err := p.OperationalSync(ref); err != nil || got != nil {
@@ -127,7 +129,12 @@ func TestOperationalSyncNeedsRenewedMasterPresence(t *testing.T) {
 		item.Observed = now
 		p.presence[key] = item
 	}
+	if got, err := p.OperationalSync(ref); err != nil || got != nil {
+		t.Fatalf("renewed presence reused pre-restart sync: %v %v", got, err)
+	}
+	state.Sync.CompletedAt = timestamppb.New(now)
+	p.syncFresh[subject] = true
 	if got, err := p.OperationalSync(ref); err != nil || got == nil {
-		t.Fatalf("renewed live master was not accepted: %v %v", got, err)
+		t.Fatalf("fresh master sync was not accepted: %v %v", got, err)
 	}
 }

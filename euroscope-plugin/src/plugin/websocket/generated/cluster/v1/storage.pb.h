@@ -18032,6 +18032,9 @@ class Atis final : public ::google::protobuf::Message
     kAirportFieldNumber = 1,
     kCodeFieldNumber = 2,
     kTextFieldNumber = 3,
+    kMetarFieldNumber = 5,
+    kArrivalCodeFieldNumber = 6,
+    kDepartureCodeFieldNumber = 7,
     kObservedAtFieldNumber = 4,
   };
   // string airport = 1;
@@ -18082,6 +18085,54 @@ class Atis final : public ::google::protobuf::Message
   std::string* _internal_mutable_text();
 
   public:
+  // string metar = 5;
+  void clear_metar() ;
+  const std::string& metar() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_metar(Arg_&& arg, Args_... args);
+  std::string* mutable_metar();
+  PROTOBUF_NODISCARD std::string* release_metar();
+  void set_allocated_metar(std::string* value);
+
+  private:
+  const std::string& _internal_metar() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_metar(
+      const std::string& value);
+  std::string* _internal_mutable_metar();
+
+  public:
+  // string arrival_code = 6;
+  void clear_arrival_code() ;
+  const std::string& arrival_code() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_arrival_code(Arg_&& arg, Args_... args);
+  std::string* mutable_arrival_code();
+  PROTOBUF_NODISCARD std::string* release_arrival_code();
+  void set_allocated_arrival_code(std::string* value);
+
+  private:
+  const std::string& _internal_arrival_code() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_arrival_code(
+      const std::string& value);
+  std::string* _internal_mutable_arrival_code();
+
+  public:
+  // string departure_code = 7;
+  void clear_departure_code() ;
+  const std::string& departure_code() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_departure_code(Arg_&& arg, Args_... args);
+  std::string* mutable_departure_code();
+  PROTOBUF_NODISCARD std::string* release_departure_code();
+  void set_allocated_departure_code(std::string* value);
+
+  private:
+  const std::string& _internal_departure_code() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_departure_code(
+      const std::string& value);
+  std::string* _internal_mutable_departure_code();
+
+  public:
   // .google.protobuf.Timestamp observed_at = 4;
   bool has_observed_at() const;
   void clear_observed_at() ;
@@ -18102,8 +18153,8 @@ class Atis final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 4, 1,
-      52, 2>
+      3, 7, 1,
+      83, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -18123,6 +18174,9 @@ class Atis final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr airport_;
     ::google::protobuf::internal::ArenaStringPtr code_;
     ::google::protobuf::internal::ArenaStringPtr text_;
+    ::google::protobuf::internal::ArenaStringPtr metar_;
+    ::google::protobuf::internal::ArenaStringPtr arrival_code_;
+    ::google::protobuf::internal::ArenaStringPtr departure_code_;
     ::google::protobuf::Timestamp* observed_at_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -58937,6 +58991,156 @@ inline void Atis::set_allocated_observed_at(::google::protobuf::Timestamp* value
 
   _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Atis.observed_at)
+}
+
+// string metar = 5;
+inline void Atis::clear_metar() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.metar_.ClearToEmpty();
+}
+inline const std::string& Atis::metar() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Atis.metar)
+  return _internal_metar();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Atis::set_metar(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.metar_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Atis.metar)
+}
+inline std::string* Atis::mutable_metar() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_metar();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Atis.metar)
+  return _s;
+}
+inline const std::string& Atis::_internal_metar() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.metar_.Get();
+}
+inline void Atis::_internal_set_metar(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.metar_.Set(value, GetArena());
+}
+inline std::string* Atis::_internal_mutable_metar() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.metar_.Mutable( GetArena());
+}
+inline std::string* Atis::release_metar() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Atis.metar)
+  return _impl_.metar_.Release();
+}
+inline void Atis::set_allocated_metar(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.metar_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.metar_.IsDefault()) {
+          _impl_.metar_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Atis.metar)
+}
+
+// string arrival_code = 6;
+inline void Atis::clear_arrival_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.arrival_code_.ClearToEmpty();
+}
+inline const std::string& Atis::arrival_code() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Atis.arrival_code)
+  return _internal_arrival_code();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Atis::set_arrival_code(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.arrival_code_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Atis.arrival_code)
+}
+inline std::string* Atis::mutable_arrival_code() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_arrival_code();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Atis.arrival_code)
+  return _s;
+}
+inline const std::string& Atis::_internal_arrival_code() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.arrival_code_.Get();
+}
+inline void Atis::_internal_set_arrival_code(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.arrival_code_.Set(value, GetArena());
+}
+inline std::string* Atis::_internal_mutable_arrival_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.arrival_code_.Mutable( GetArena());
+}
+inline std::string* Atis::release_arrival_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Atis.arrival_code)
+  return _impl_.arrival_code_.Release();
+}
+inline void Atis::set_allocated_arrival_code(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.arrival_code_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.arrival_code_.IsDefault()) {
+          _impl_.arrival_code_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Atis.arrival_code)
+}
+
+// string departure_code = 7;
+inline void Atis::clear_departure_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_code_.ClearToEmpty();
+}
+inline const std::string& Atis::departure_code() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Atis.departure_code)
+  return _internal_departure_code();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Atis::set_departure_code(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_code_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Atis.departure_code)
+}
+inline std::string* Atis::mutable_departure_code() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_departure_code();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Atis.departure_code)
+  return _s;
+}
+inline const std::string& Atis::_internal_departure_code() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.departure_code_.Get();
+}
+inline void Atis::_internal_set_departure_code(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_code_.Set(value, GetArena());
+}
+inline std::string* Atis::_internal_mutable_departure_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.departure_code_.Mutable( GetArena());
+}
+inline std::string* Atis::release_departure_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Atis.departure_code)
+  return _impl_.departure_code_.Release();
+}
+inline void Atis::set_allocated_departure_code(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_code_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.departure_code_.IsDefault()) {
+          _impl_.departure_code_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Atis.departure_code)
 }
 
 // -------------------------------------------------------------------

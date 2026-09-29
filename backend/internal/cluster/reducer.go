@@ -175,8 +175,14 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 			} else {
 				a.Master = nil
 			}
+			if sync := entity.GetValue().GetSession().GetSync(); sync != nil {
+				a.Sync = proto.Clone(sync).(*pb.SessionSync)
+			} else {
+				a.Sync = nil
+			}
 		} else {
 			a.Master = nil
+			a.Sync = nil
 		}
 	}
 	a.rebuildIndexes()

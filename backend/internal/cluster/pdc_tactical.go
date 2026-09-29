@@ -444,7 +444,14 @@ func validatePdcTacticalState(state *Aggregate, domain *pb.DomainChange, staged 
 		return nil
 	}
 	created := uint64(0)
-	issued := uint64(0)
+	allocatedMessages := make(map[uint64]bool)
+	allocateMessage := func(id uint64) error {
+		if id < oldSession.NextMessageId || allocatedMessages[id] {
+			return fmt.Errorf("message ID was not allocated from session")
+		}
+		allocatedMessages[id] = true
+		return nil
+	}
 	for _, c := range domain.Changes {
 		if t := c.GetUpsert().GetTacticalStrip(); t != nil {
 			old := state.Indexes[pb.EntityKind_TACTICAL_STRIP][c.Key]
@@ -460,7 +467,7 @@ func validatePdcTacticalState(state *Aggregate, domain *pb.DomainChange, staged 
 		if p := c.GetUpsert().GetPdcSequence(); p != nil {
 			old := state.Indexes[pb.EntityKind_PDC_SEQUENCE][c.Key].GetValue().GetPdcSequence()
 			if p.State == "CLEARED" && (old == nil || old.State != "CLEARED") {
-				if p.Sequence != oldSession.NextMessageId+issued || p.Deadline == nil || p.IssuedAt == nil {
+				if p.Deadline == nil || p.IssuedAt == nil {
 					return fmt.Errorf("PDC message sequence was not allocated from session")
 				}
 				matched := false
@@ -472,15 +479,31 @@ func validatePdcTacticalState(state *Aggregate, domain *pb.DomainChange, staged 
 				if !matched {
 					return fmt.Errorf("PDC issuance is missing its requested effect")
 				}
-				issued++
+				if err := allocateMessage(p.Sequence); err != nil {
+					return err
+				}
+			}
+		}
+		if message := c.GetUpsert().GetFrontendMessage(); message != nil && state.Indexes[pb.EntityKind_FRONTEND_MESSAGE][c.Key] == nil {
+			if c.Key != strconv.FormatUint(message.Id, 10) {
+				return fmt.Errorf("frontend message ID does not match its key")
+			}
+			if err := allocateMessage(message.Id); err != nil {
+				return err
 			}
 		}
 	}
 	if oldSession.NextTacticalId > math.MaxUint64-created || newSession.NextTacticalId != oldSession.NextTacticalId+created {
 		return fmt.Errorf("tactical allocation counter changed outside creation")
 	}
-	if oldSession.NextMessageId > math.MaxUint64-issued || newSession.NextMessageId != oldSession.NextMessageId+issued {
-		return fmt.Errorf("PDC message counter changed outside issuance")
+	messageCount := uint64(len(allocatedMessages))
+	if oldSession.NextMessageId > math.MaxUint64-messageCount || newSession.NextMessageId != oldSession.NextMessageId+messageCount {
+		return fmt.Errorf("session message counter changed outside allocation")
+	}
+	for offset := uint64(0); offset < messageCount; offset++ {
+		if !allocatedMessages[oldSession.NextMessageId+offset] {
+			return fmt.Errorf("session message IDs are not contiguous")
+		}
 	}
 	seen := map[uint64]bool{}
 	for _, e := range staged {

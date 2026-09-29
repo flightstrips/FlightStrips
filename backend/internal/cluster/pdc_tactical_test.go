@@ -159,6 +159,10 @@ func TestCandidatePdcIssuePersistsDeadlineAndTypedEffect(t *testing.T) {
 	if reply := (Writer{Store: store, NodeID: "node-a", Plan: PlanSystemEntity}).Execute(ctx, masterUpdate); reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
 		t.Fatalf("master seed: %v", reply)
 	}
+	messages := SessionObservations{Store: adapter.Store}
+	if _, err := messages.SendMessage(ctx, 1, uuid.NewString(), "cid-1", "before PDC", nil); err != nil {
+		t.Fatalf("message before PDC: %v", err)
+	}
 	issue := candidateRequest(tacticalActor("cid-1"), 1, &pb.ClientCommand{Action: &pb.ClientCommand_Pdc{Pdc: &pb.PdcAction{Callsign: "SAS101", Change: &pb.PdcAction_Issue{Issue: &pb.IssuePdc{Clearance: "CLEARED TO EKCH"}}}}})
 	first, err := adapter.Execute(ctx, issue)
 	if err != nil || first.Status != pb.CommandReply_PENDING || first.GetOutcome().GetStatus() != pb.CommandOutcome_ACCEPTED {
@@ -166,8 +170,11 @@ func TestCandidatePdcIssuePersistsDeadlineAndTypedEffect(t *testing.T) {
 	}
 	restarted := PdcTactical{Store: LocalLifecycleStore{Writer: reader}}
 	pdc, _, err := restarted.Pdc(ctx, 1, "SAS101")
-	if err != nil || pdc.State != "CLEARED" || pdc.Sequence != 1 || pdc.Deadline == nil || pdc.IssuedAt == nil || pdc.Sent {
+	if err != nil || pdc.State != "CLEARED" || pdc.Sequence != 2 || pdc.Deadline == nil || pdc.IssuedAt == nil || pdc.Sent {
 		t.Fatalf("issued PDC replay: %v %v", pdc, err)
+	}
+	if _, err := messages.SendMessage(ctx, 1, uuid.NewString(), "cid-1", "after PDC", nil); err != nil {
+		t.Fatalf("message after PDC: %v", err)
 	}
 	state, err = reader.load(ctx, "fs.v1.state.session.1", sessionRef(1))
 	if err != nil {
@@ -177,6 +184,9 @@ func TestCandidatePdcIssuePersistsDeadlineAndTypedEffect(t *testing.T) {
 	effect := state.Effects[issue.CommandId]
 	if deadline == nil || !proto.Equal(deadline.DueAt, pdc.Deadline) || effect == nil || effect.GetPdc().GetAction() != "ISSUE" || effect.TargetCid != "cid-1" || effect.Status != pb.EffectRecord_WAITING {
 		t.Fatalf("missing durable deadline or effect: %v %v", deadline, effect)
+	}
+	if state.Indexes[pb.EntityKind_FRONTEND_MESSAGE]["1"] == nil || state.Indexes[pb.EntityKind_FRONTEND_MESSAGE]["3"] == nil || state.Indexes[pb.EntityKind_SESSION]["1"].GetValue().GetSession().NextMessageId != 4 {
+		t.Fatal("frontend messages and PDC did not share the session message counter")
 	}
 	before := store.commits
 	second, err := adapter.Execute(ctx, issue)

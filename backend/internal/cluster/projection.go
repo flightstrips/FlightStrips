@@ -38,6 +38,7 @@ type Projection struct {
 	snapshotErrors               map[string]error
 	positions                    map[string]KVPosition
 	presence                     map[string]KVPresence
+	syncFresh                    map[string]bool
 	positionReady, presenceReady bool
 	observationErr               error
 }
@@ -46,6 +47,7 @@ type KVPosition struct {
 	Value    *pb.PositionValue
 	Revision uint64
 	Observed time.Time
+	Stale    bool
 }
 type KVPresence struct {
 	Value    *pb.PresenceValue
@@ -54,8 +56,9 @@ type KVPresence struct {
 }
 
 type projectionListener struct {
-	subject string
-	updates chan *pb.FrontendDelta
+	subject      string
+	updates      chan *pb.FrontendDelta
+	observations chan *pb.FrontendObservation
 }
 
 func NewProjection(nc *nats.Conn, cfg natsresources.Config) (*Projection, error) {
@@ -85,7 +88,7 @@ func NewProjection(nc *nats.Conn, cfg natsresources.Config) (*Projection, error)
 	if err != nil {
 		return nil, err
 	}
-	return &Projection{NC: nc, JS: js, Config: cfg, Snapshots: SnapshotStore{Index: index, Objects: objects}, Positions: positions, Presence: presence, states: map[string]*Aggregate{}, listeners: map[uint64]*projectionListener{}, lastSnapshot: map[string]time.Time{}, sinceSnapshot: map[string]uint64{}, snapshotErrors: map[string]error{}, positions: map[string]KVPosition{}, presence: map[string]KVPresence{}}, nil
+	return &Projection{NC: nc, JS: js, Config: cfg, Snapshots: SnapshotStore{Index: index, Objects: objects}, Positions: positions, Presence: presence, states: map[string]*Aggregate{}, listeners: map[uint64]*projectionListener{}, lastSnapshot: map[string]time.Time{}, sinceSnapshot: map[string]uint64{}, snapshotErrors: map[string]error{}, positions: map[string]KVPosition{}, presence: map[string]KVPresence{}, syncFresh: map[string]bool{}}, nil
 }
 
 // Run loads verified checkpoints, then consumes from the earliest safe stream
@@ -215,6 +218,9 @@ func (p *Projection) apply(entry AppliedEvent) error {
 	}
 	p.states[entry.Subject] = clone
 	p.applied = entry.StreamSequence
+	if p.syncFresh != nil && clone.Ref.GetSession() != nil && !proto.Equal(state.Sync, clone.Sync) {
+		p.syncFresh[entry.Subject] = clone.Sync != nil && !entry.ServerTime.Before(p.startedAt)
+	}
 	if effective {
 		e := &pb.StateEvent{}
 		if err := pb.UnmarshalStrict(entry.Data, e); err != nil {
@@ -235,8 +241,7 @@ func (p *Projection) apply(entry AppliedEvent) error {
 				select {
 				case listener.updates <- delta:
 				default:
-					close(listener.updates)
-					delete(p.listeners, id)
+					p.closeListenerLocked(id)
 				}
 			}
 		}
@@ -470,8 +475,7 @@ func (p *Projection) SubscribeInitial(ref *pb.AggregateRef) (*Aggregate, <-chan 
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		if _, ok := p.listeners[id]; ok {
-			close(updates)
-			delete(p.listeners, id)
+			p.closeListenerLocked(id)
 		}
 	}
 	initial, err := cloneAggregate(state)
@@ -481,6 +485,18 @@ func (p *Projection) SubscribeInitial(ref *pb.AggregateRef) (*Aggregate, <-chan 
 		return nil, nil, nil, err
 	}
 	return initial, updates, closeFn, nil
+}
+
+func (p *Projection) closeListenerLocked(id uint64) {
+	listener := p.listeners[id]
+	if listener == nil {
+		return
+	}
+	close(listener.updates)
+	if listener.observations != nil {
+		close(listener.observations)
+	}
+	delete(p.listeners, id)
 }
 
 func (p *Projection) Readyz(w http.ResponseWriter, _ *http.Request) {

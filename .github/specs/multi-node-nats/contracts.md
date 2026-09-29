@@ -83,7 +83,11 @@ Snapshots contain schema version, aggregate ID/revision, last applied stream/sub
 
 Position KV values are typed `PositionValue`, whose oneof contains `AircraftPosition` or `PositionTombstone`. Position writers are the session owner only. The owner serializes writes per aircraft, uses the prior KV revision as its update precondition, and does not issue overlapping writes for one key. A newer owner writes keys with a new epoch; projection ignores writes from prior epochs once the new owner has issued a fresh sync, and otherwise exposes the last prior-epoch observation as `stale`. A position observation does not change a strip's user-edit revision. Aircraft disconnect writes a typed tombstone after accepted earlier position work drains. Stand/bay and AMAN changes derived from positions are durable commands and are rechecked after new owner sync.
 
+The session owner's position dispatcher drains accepted reports and pauses later reports while a position-derived session command rechecks its source KV revision and commits. A mismatch rederives the transition. This keeps disconnect tombstones and derived strip/stand changes ordered against the same aircraft observation.
+
 ## Frontend action result
+
+`FrontendInitial.tagged_observations` carries each position and presence value with its independent KV revision, server observation time, and stale flag. Consumers use these tags for observation ordering; the existing untagged initial fields remain for typed presentation compatibility. Live `FrontendObservation` carries the same tags and `removed` for a KV deletion or expiration.
 
 ### Binary framing and negotiation
 

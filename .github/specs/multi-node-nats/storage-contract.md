@@ -63,6 +63,8 @@ An expiry is a validated session command against the currently stored deadline;
 passing a projected departure release alone never proves physical vacating.
 `StandAction` lifecycle fields 11–17 are accepted only from a system actor.
 
+`Atis.metar`, `arrival_code`, and `departure_code` retain the existing frontend presentation fields per session. `code` and `text` retain the typed ATIS observation. No METAR or ATIS presentation cache is needed on each backend.
+
 Task 05 keeps the legacy sector position and identifier as typed scalar fields
 on `SectorOwner`, and the per-position controller layout as
 `Controller.layout_id`. The session stores typed `RunwayStatus` entries keyed

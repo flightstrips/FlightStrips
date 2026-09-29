@@ -37,6 +37,9 @@ func PlanSystemEntity(_ context.Context, request *pb.CommandRequest, state *Aggr
 	} else if deletion != nil {
 		kind = deletion.Kind
 	}
+	if kind == pb.EntityKind_STAND_ASSIGNMENT || kind == pb.EntityKind_STAND_BLOCK {
+		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("stand records require the stand planner")
+	}
 	old := state.Indexes[kind][key]
 	current := uint64(0)
 	if old != nil {

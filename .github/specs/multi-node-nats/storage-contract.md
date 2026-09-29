@@ -52,6 +52,17 @@ the retained command outcome supplies replay and duplicate-ID history.
 Active coordination status is `TRANSFER` or `TAG`; resolution deletes the
 entity while the outcome remains in the session ledger.
 
+Stand assignment replacements retain direction, lifecycle stage, SAT rule and
+variant, conflict and observation provenance, ETA, projected release and expiry,
+acknowledgment, VATSIM identity/revision, and creation/update timestamps.
+`StandAssignment.revision` equals its entity revision. Stand block replacements
+retain block type, source, owner, optional callsign, expiry and revision. Both
+records carry the selected, sorted adjacency stand IDs so replay can verify
+collisions without consulting a node-local stand configuration.
+An expiry is a validated session command against the currently stored deadline;
+passing a projected departure release alone never proves physical vacating.
+`StandAction` lifecycle fields 11–17 are accepted only from a system actor.
+
 Task 05 keeps the legacy sector position and identifier as typed scalar fields
 on `SectorOwner`, and the per-position controller layout as
 `Controller.layout_id`. The session stores typed `RunwayStatus` entries keyed

@@ -341,6 +341,9 @@ func validatePlanned(state *Aggregate, e *pb.StateEvent) error {
 	if err := validatePdcTacticalState(state, e.GetDomainChanged(), staged); err != nil {
 		return err
 	}
+	if err := validateStandState(state.Ref, staged); err != nil {
+		return err
+	}
 	return nil
 }
 

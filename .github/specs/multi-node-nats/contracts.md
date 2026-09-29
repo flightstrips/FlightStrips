@@ -49,6 +49,16 @@ zero-ID `Coordination` keyed by callsign and the current strip revision. The
 owner allocates the numeric ID, preserves the EuroScope origin and handover
 CID, and applies any arrival-bay or owner correction in that same event.
 
+Task 08 uses `ClientCommand.stand` for controller, pilot and system lifecycle
+actions. Only a system actor may provide lifecycle fields 11–17; controller and
+pilot actions use the current session strip. An assignment and every strip
+change or soft-reservation displacement it causes are one sorted session event.
+`StandAssignment` retains SAT rule/variant, stage, deadline, acknowledgment and
+VATSIM provenance; `StandBlock` retains ownership and expiry. Both carry sorted
+adjacency stand IDs for deterministic replay validation. `SystemCommand.remove_entity`
+may expire a stand record only after its persisted deadline and with its current
+entity revision. Task 18 schedules that command; this task validates it.
+
 Internal requests are binary `CommandRequest` and replies are binary `CommandReply` from [wire.proto](proto/wire.proto). `CommandRequest.command` is a closed oneof containing `ClientCommand` or `SystemCommand`; `ClientCommand.action` and AMAN's nested oneof enumerate the valid operations. `expected_entity_revision` is absent only when the action has no read-modify-write precondition. A nested AMAN coordination request ID remains distinct from transport `command_id`. The browser request ID and HTTP `Idempotency-Key` equal that command ID for one logical user action. `SystemCommand.update_entity` is internal to the owner and cannot be submitted by a browser or provider without domain validation.
 
 Normalize a decoded command in the Go owner: reject unknown fields, normalize identifiers and timestamps, sort semantically unordered repeated fields, clear only `command_id`, and deterministic-marshal the typed message. Store SHA-256 of those bytes in the ledger. The Go owner computes this digest on both original and retried commands; cross-language deterministic byte identity is not assumed. A different digest under one ID is `INVALID_ARGUMENT`. SHA-256 collision resistance is the command-identity assumption.

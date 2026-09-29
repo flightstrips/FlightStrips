@@ -3688,9 +3688,18 @@ type StandAction struct {
 	//	*StandAction_Acknowledge
 	//	*StandAction_CreateBlock
 	//	*StandAction_RemoveBlock
-	Change        isStandAction_Change `protobuf_oneof:"change"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Change isStandAction_Change `protobuf_oneof:"change"`
+	// Lifecycle observations are supplied by a system actor; controller actions
+	// derive their current flight facts from the session strip.
+	Stage          *string                `protobuf:"bytes,11,opt,name=stage,proto3,oneof" json:"stage,omitempty"`
+	Eta            *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=eta,proto3,oneof" json:"eta,omitempty"`
+	EtaSource      *string                `protobuf:"bytes,13,opt,name=eta_source,json=etaSource,proto3,oneof" json:"eta_source,omitempty"`
+	ExpiresAt      *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
+	VatsimCid      *int64                 `protobuf:"varint,15,opt,name=vatsim_cid,json=vatsimCid,proto3,oneof" json:"vatsim_cid,omitempty"`
+	VatsimRevision *int64                 `protobuf:"varint,16,opt,name=vatsim_revision,json=vatsimRevision,proto3,oneof" json:"vatsim_revision,omitempty"`
+	ObservedStand  *string                `protobuf:"bytes,17,opt,name=observed_stand,json=observedStand,proto3,oneof" json:"observed_stand,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *StandAction) Reset() {
@@ -3814,6 +3823,55 @@ func (x *StandAction) GetRemoveBlock() *RemoveStandBlock {
 		}
 	}
 	return nil
+}
+
+func (x *StandAction) GetStage() string {
+	if x != nil && x.Stage != nil {
+		return *x.Stage
+	}
+	return ""
+}
+
+func (x *StandAction) GetEta() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Eta
+	}
+	return nil
+}
+
+func (x *StandAction) GetEtaSource() string {
+	if x != nil && x.EtaSource != nil {
+		return *x.EtaSource
+	}
+	return ""
+}
+
+func (x *StandAction) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *StandAction) GetVatsimCid() int64 {
+	if x != nil && x.VatsimCid != nil {
+		return *x.VatsimCid
+	}
+	return 0
+}
+
+func (x *StandAction) GetVatsimRevision() int64 {
+	if x != nil && x.VatsimRevision != nil {
+		return *x.VatsimRevision
+	}
+	return 0
+}
+
+func (x *StandAction) GetObservedStand() string {
+	if x != nil && x.ObservedStand != nil {
+		return *x.ObservedStand
+	}
+	return ""
 }
 
 type isStandAction_Change interface {
@@ -8478,7 +8536,7 @@ const file_wire_proto_rawDesc = "" +
 	"\x03bay\x18\x01 \x01(\tH\x00R\x03bay\x88\x01\x01\x12I\n" +
 	"\finsert_after\x18\x02 \x01(\v2!.flightstrips.cluster.v1.StripRefH\x01R\vinsertAfter\x88\x01\x01B\x06\n" +
 	"\x04_bayB\x0f\n" +
-	"\r_insert_after\"\x9d\x05\n" +
+	"\r_insert_after\"\xb3\b\n" +
 	"\vStandAction\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x14\n" +
 	"\x05stand\x18\x02 \x01(\tR\x05stand\x12>\n" +
@@ -8490,8 +8548,25 @@ const file_wire_proto_rawDesc = "" +
 	"\vacknowledge\x18\b \x01(\v2).flightstrips.cluster.v1.AcknowledgeStandH\x00R\vacknowledge\x12N\n" +
 	"\fcreate_block\x18\t \x01(\v2).flightstrips.cluster.v1.CreateStandBlockH\x00R\vcreateBlock\x12N\n" +
 	"\fremove_block\x18\n" +
-	" \x01(\v2).flightstrips.cluster.v1.RemoveStandBlockH\x00R\vremoveBlockB\b\n" +
-	"\x06change\"\r\n" +
+	" \x01(\v2).flightstrips.cluster.v1.RemoveStandBlockH\x00R\vremoveBlock\x12\x19\n" +
+	"\x05stage\x18\v \x01(\tH\x01R\x05stage\x88\x01\x01\x121\n" +
+	"\x03eta\x18\f \x01(\v2\x1a.google.protobuf.TimestampH\x02R\x03eta\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"eta_source\x18\r \x01(\tH\x03R\tetaSource\x88\x01\x01\x12>\n" +
+	"\n" +
+	"expires_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampH\x04R\texpiresAt\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"vatsim_cid\x18\x0f \x01(\x03H\x05R\tvatsimCid\x88\x01\x01\x12,\n" +
+	"\x0fvatsim_revision\x18\x10 \x01(\x03H\x06R\x0evatsimRevision\x88\x01\x01\x12*\n" +
+	"\x0eobserved_stand\x18\x11 \x01(\tH\aR\robservedStand\x88\x01\x01B\b\n" +
+	"\x06changeB\b\n" +
+	"\x06_stageB\x06\n" +
+	"\x04_etaB\r\n" +
+	"\v_eta_sourceB\r\n" +
+	"\v_expires_atB\r\n" +
+	"\v_vatsim_cidB\x12\n" +
+	"\x10_vatsim_revisionB\x11\n" +
+	"\x0f_observed_stand\"\r\n" +
 	"\vOccupyStand\"\r\n" +
 	"\vVacateStand\"\x10\n" +
 	"\x0eAutomaticStand\"%\n" +
@@ -9009,96 +9084,98 @@ var file_wire_proto_depIdxs = []int32{
 	55,  // 82: flightstrips.cluster.v1.StandAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeStand
 	56,  // 83: flightstrips.cluster.v1.StandAction.create_block:type_name -> flightstrips.cluster.v1.CreateStandBlock
 	57,  // 84: flightstrips.cluster.v1.StandAction.remove_block:type_name -> flightstrips.cluster.v1.RemoveStandBlock
-	126, // 85: flightstrips.cluster.v1.CreateStandBlock.expires_at:type_name -> google.protobuf.Timestamp
-	59,  // 86: flightstrips.cluster.v1.CdmAction.set_tobt:type_name -> flightstrips.cluster.v1.SetTobt
-	60,  // 87: flightstrips.cluster.v1.CdmAction.set_ready:type_name -> flightstrips.cluster.v1.SetCdmReady
-	61,  // 88: flightstrips.cluster.v1.CdmAction.set_deice:type_name -> flightstrips.cluster.v1.SetCdmDeice
-	62,  // 89: flightstrips.cluster.v1.CdmAction.set_ctot:type_name -> flightstrips.cluster.v1.SetCdmCtot
-	63,  // 90: flightstrips.cluster.v1.CdmAction.remove_ctot:type_name -> flightstrips.cluster.v1.RemoveCdmCtot
-	126, // 91: flightstrips.cluster.v1.SetTobt.value:type_name -> google.protobuf.Timestamp
-	126, // 92: flightstrips.cluster.v1.SetCdmCtot.value:type_name -> google.protobuf.Timestamp
-	65,  // 93: flightstrips.cluster.v1.PdcAction.issue:type_name -> flightstrips.cluster.v1.IssuePdc
-	66,  // 94: flightstrips.cluster.v1.PdcAction.revert_to_voice:type_name -> flightstrips.cluster.v1.RevertPdcToVoice
-	67,  // 95: flightstrips.cluster.v1.PdcAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgePdc
-	68,  // 96: flightstrips.cluster.v1.PdcAction.unable:type_name -> flightstrips.cluster.v1.UnablePdc
-	70,  // 97: flightstrips.cluster.v1.MessageAction.broadcast:type_name -> flightstrips.cluster.v1.BroadcastMessage
-	71,  // 98: flightstrips.cluster.v1.MessageAction.private_message:type_name -> flightstrips.cluster.v1.PrivateMessage
-	73,  // 99: flightstrips.cluster.v1.SessionAction.layout:type_name -> flightstrips.cluster.v1.ChangeLayout
-	74,  // 100: flightstrips.cluster.v1.SessionAction.runways:type_name -> flightstrips.cluster.v1.ChangeRunways
-	75,  // 101: flightstrips.cluster.v1.SessionAction.update_runway_status:type_name -> flightstrips.cluster.v1.UpdateRunwayStatus
-	127, // 102: flightstrips.cluster.v1.ChangeRunways.runways:type_name -> flightstrips.cluster.v1.Runway
-	128, // 103: flightstrips.cluster.v1.ValidationActionCommand.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeValidation
-	129, // 104: flightstrips.cluster.v1.ValidationActionCommand.clx_override:type_name -> flightstrips.cluster.v1.ClxOverrideAction
-	59,  // 105: flightstrips.cluster.v1.ValidationActionCommand.update_tobt:type_name -> flightstrips.cluster.v1.SetTobt
-	77,  // 106: flightstrips.cluster.v1.ValidationActionCommand.acknowledge_unexpected_change:type_name -> flightstrips.cluster.v1.AcknowledgeUnexpectedChange
-	79,  // 107: flightstrips.cluster.v1.FlightPlanAction.manual:type_name -> flightstrips.cluster.v1.CreateManualFlightPlan
-	80,  // 108: flightstrips.cluster.v1.FlightPlanAction.vfr:type_name -> flightstrips.cluster.v1.CreateVfrFlightPlan
-	126, // 109: flightstrips.cluster.v1.CreateManualFlightPlan.eobt:type_name -> google.protobuf.Timestamp
-	83,  // 110: flightstrips.cluster.v1.AmanAction.move_flight:type_name -> flightstrips.cluster.v1.AmanMoveFlight
-	82,  // 111: flightstrips.cluster.v1.AmanAction.lock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 112: flightstrips.cluster.v1.AmanAction.unlock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 113: flightstrips.cluster.v1.AmanAction.desequence_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 114: flightstrips.cluster.v1.AmanAction.resume_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 115: flightstrips.cluster.v1.AmanAction.remove_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 116: flightstrips.cluster.v1.AmanAction.accept_teta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 117: flightstrips.cluster.v1.AmanAction.keep_fpl_eta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 118: flightstrips.cluster.v1.AmanAction.reset_teta_override:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	84,  // 119: flightstrips.cluster.v1.AmanAction.set_rate:type_name -> flightstrips.cluster.v1.AmanRate
-	85,  // 120: flightstrips.cluster.v1.AmanAction.select_runway_group:type_name -> flightstrips.cluster.v1.AmanSelectRunway
-	86,  // 121: flightstrips.cluster.v1.AmanAction.set_active_runway_groups:type_name -> flightstrips.cluster.v1.AmanActiveRunways
-	87,  // 122: flightstrips.cluster.v1.AmanAction.set_manual_eta:type_name -> flightstrips.cluster.v1.AmanManualEta
-	87,  // 123: flightstrips.cluster.v1.AmanAction.set_manual_feeder_eta:type_name -> flightstrips.cluster.v1.AmanManualEta
-	82,  // 124: flightstrips.cluster.v1.AmanAction.reset_manual_feeder_eta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 125: flightstrips.cluster.v1.AmanAction.recompute_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	88,  // 126: flightstrips.cluster.v1.AmanAction.change_runway:type_name -> flightstrips.cluster.v1.AmanChangeRunway
-	89,  // 127: flightstrips.cluster.v1.AmanAction.report_go_around:type_name -> flightstrips.cluster.v1.AmanReportGoAround
-	90,  // 128: flightstrips.cluster.v1.AmanAction.confirm_go_around:type_name -> flightstrips.cluster.v1.AmanDecideGoAround
-	90,  // 129: flightstrips.cluster.v1.AmanAction.reject_go_around:type_name -> flightstrips.cluster.v1.AmanDecideGoAround
-	91,  // 130: flightstrips.cluster.v1.AmanAction.create_gap:type_name -> flightstrips.cluster.v1.AmanCreateGap
-	92,  // 131: flightstrips.cluster.v1.AmanAction.remove_gap:type_name -> flightstrips.cluster.v1.AmanRemoveGap
-	93,  // 132: flightstrips.cluster.v1.AmanAction.create_runway_closure:type_name -> flightstrips.cluster.v1.AmanCreateClosure
-	94,  // 133: flightstrips.cluster.v1.AmanAction.remove_runway_closure:type_name -> flightstrips.cluster.v1.AmanRemoveClosure
-	95,  // 134: flightstrips.cluster.v1.AmanAction.create_capacity_reservation:type_name -> flightstrips.cluster.v1.AmanCreateReservation
-	96,  // 135: flightstrips.cluster.v1.AmanAction.remove_capacity_reservation:type_name -> flightstrips.cluster.v1.AmanRemoveReservation
-	97,  // 136: flightstrips.cluster.v1.AmanAction.place_flight_at_time:type_name -> flightstrips.cluster.v1.AmanPlaceFlight
-	98,  // 137: flightstrips.cluster.v1.AmanAction.submit_coordination_request:type_name -> flightstrips.cluster.v1.AmanSubmitCoordination
-	99,  // 138: flightstrips.cluster.v1.AmanAction.accept_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
-	99,  // 139: flightstrips.cluster.v1.AmanAction.reject_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
-	126, // 140: flightstrips.cluster.v1.AmanRate.effective_at:type_name -> google.protobuf.Timestamp
-	126, // 141: flightstrips.cluster.v1.AmanSelectRunway.effective_at:type_name -> google.protobuf.Timestamp
-	126, // 142: flightstrips.cluster.v1.AmanManualEta.value:type_name -> google.protobuf.Timestamp
-	126, // 143: flightstrips.cluster.v1.AmanReportGoAround.detected_at:type_name -> google.protobuf.Timestamp
-	126, // 144: flightstrips.cluster.v1.AmanCreateGap.start:type_name -> google.protobuf.Timestamp
-	126, // 145: flightstrips.cluster.v1.AmanCreateGap.end:type_name -> google.protobuf.Timestamp
-	126, // 146: flightstrips.cluster.v1.AmanCreateClosure.end:type_name -> google.protobuf.Timestamp
-	126, // 147: flightstrips.cluster.v1.AmanCreateClosure.start:type_name -> google.protobuf.Timestamp
-	126, // 148: flightstrips.cluster.v1.AmanPlaceFlight.slot_time:type_name -> google.protobuf.Timestamp
-	130, // 149: flightstrips.cluster.v1.AmanSubmitCoordination.route_direct:type_name -> flightstrips.cluster.v1.AmanRouteDirect
-	131, // 150: flightstrips.cluster.v1.AmanSubmitCoordination.speed:type_name -> flightstrips.cluster.v1.AmanSpeed
-	101, // 151: flightstrips.cluster.v1.SystemCommand.create_session:type_name -> flightstrips.cluster.v1.CreateSession
-	102, // 152: flightstrips.cluster.v1.SystemCommand.delete_session:type_name -> flightstrips.cluster.v1.DeleteSession
-	103, // 153: flightstrips.cluster.v1.SystemCommand.update_entity:type_name -> flightstrips.cluster.v1.UpdateEntity
-	104, // 154: flightstrips.cluster.v1.SystemCommand.remove_entity:type_name -> flightstrips.cluster.v1.RemoveEntity
-	107, // 155: flightstrips.cluster.v1.SystemCommand.claim_owner:type_name -> flightstrips.cluster.v1.ClaimOwner
-	108, // 156: flightstrips.cluster.v1.SystemCommand.renew_owner:type_name -> flightstrips.cluster.v1.RenewOwner
-	109, // 157: flightstrips.cluster.v1.SystemCommand.advance_workflow:type_name -> flightstrips.cluster.v1.AdvanceWorkflow
-	110, // 158: flightstrips.cluster.v1.SystemCommand.advance_effect:type_name -> flightstrips.cluster.v1.AdvanceEffect
-	111, // 159: flightstrips.cluster.v1.SystemCommand.record_sync:type_name -> flightstrips.cluster.v1.RecordSessionSync
-	105, // 160: flightstrips.cluster.v1.SystemCommand.set_position_layout:type_name -> flightstrips.cluster.v1.SetPositionLayout
-	106, // 161: flightstrips.cluster.v1.SystemCommand.replace_sector_owners:type_name -> flightstrips.cluster.v1.ReplaceSectorOwners
-	132, // 162: flightstrips.cluster.v1.UpdateEntity.value:type_name -> flightstrips.cluster.v1.EntityRecord
-	133, // 163: flightstrips.cluster.v1.RemoveEntity.kind:type_name -> flightstrips.cluster.v1.EntityKind
-	134, // 164: flightstrips.cluster.v1.ReplaceSectorOwners.owners:type_name -> flightstrips.cluster.v1.SectorOwner
-	114, // 165: flightstrips.cluster.v1.ClaimOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
-	114, // 166: flightstrips.cluster.v1.RenewOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
-	123, // 167: flightstrips.cluster.v1.AdvanceWorkflow.workflow:type_name -> flightstrips.cluster.v1.WorkflowRecord
-	135, // 168: flightstrips.cluster.v1.AdvanceEffect.effect:type_name -> flightstrips.cluster.v1.EffectRecord
-	136, // 169: flightstrips.cluster.v1.RecordSessionSync.sync:type_name -> flightstrips.cluster.v1.SessionSync
-	170, // [170:170] is the sub-list for method output_type
-	170, // [170:170] is the sub-list for method input_type
-	170, // [170:170] is the sub-list for extension type_name
-	170, // [170:170] is the sub-list for extension extendee
-	0,   // [0:170] is the sub-list for field type_name
+	126, // 85: flightstrips.cluster.v1.StandAction.eta:type_name -> google.protobuf.Timestamp
+	126, // 86: flightstrips.cluster.v1.StandAction.expires_at:type_name -> google.protobuf.Timestamp
+	126, // 87: flightstrips.cluster.v1.CreateStandBlock.expires_at:type_name -> google.protobuf.Timestamp
+	59,  // 88: flightstrips.cluster.v1.CdmAction.set_tobt:type_name -> flightstrips.cluster.v1.SetTobt
+	60,  // 89: flightstrips.cluster.v1.CdmAction.set_ready:type_name -> flightstrips.cluster.v1.SetCdmReady
+	61,  // 90: flightstrips.cluster.v1.CdmAction.set_deice:type_name -> flightstrips.cluster.v1.SetCdmDeice
+	62,  // 91: flightstrips.cluster.v1.CdmAction.set_ctot:type_name -> flightstrips.cluster.v1.SetCdmCtot
+	63,  // 92: flightstrips.cluster.v1.CdmAction.remove_ctot:type_name -> flightstrips.cluster.v1.RemoveCdmCtot
+	126, // 93: flightstrips.cluster.v1.SetTobt.value:type_name -> google.protobuf.Timestamp
+	126, // 94: flightstrips.cluster.v1.SetCdmCtot.value:type_name -> google.protobuf.Timestamp
+	65,  // 95: flightstrips.cluster.v1.PdcAction.issue:type_name -> flightstrips.cluster.v1.IssuePdc
+	66,  // 96: flightstrips.cluster.v1.PdcAction.revert_to_voice:type_name -> flightstrips.cluster.v1.RevertPdcToVoice
+	67,  // 97: flightstrips.cluster.v1.PdcAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgePdc
+	68,  // 98: flightstrips.cluster.v1.PdcAction.unable:type_name -> flightstrips.cluster.v1.UnablePdc
+	70,  // 99: flightstrips.cluster.v1.MessageAction.broadcast:type_name -> flightstrips.cluster.v1.BroadcastMessage
+	71,  // 100: flightstrips.cluster.v1.MessageAction.private_message:type_name -> flightstrips.cluster.v1.PrivateMessage
+	73,  // 101: flightstrips.cluster.v1.SessionAction.layout:type_name -> flightstrips.cluster.v1.ChangeLayout
+	74,  // 102: flightstrips.cluster.v1.SessionAction.runways:type_name -> flightstrips.cluster.v1.ChangeRunways
+	75,  // 103: flightstrips.cluster.v1.SessionAction.update_runway_status:type_name -> flightstrips.cluster.v1.UpdateRunwayStatus
+	127, // 104: flightstrips.cluster.v1.ChangeRunways.runways:type_name -> flightstrips.cluster.v1.Runway
+	128, // 105: flightstrips.cluster.v1.ValidationActionCommand.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeValidation
+	129, // 106: flightstrips.cluster.v1.ValidationActionCommand.clx_override:type_name -> flightstrips.cluster.v1.ClxOverrideAction
+	59,  // 107: flightstrips.cluster.v1.ValidationActionCommand.update_tobt:type_name -> flightstrips.cluster.v1.SetTobt
+	77,  // 108: flightstrips.cluster.v1.ValidationActionCommand.acknowledge_unexpected_change:type_name -> flightstrips.cluster.v1.AcknowledgeUnexpectedChange
+	79,  // 109: flightstrips.cluster.v1.FlightPlanAction.manual:type_name -> flightstrips.cluster.v1.CreateManualFlightPlan
+	80,  // 110: flightstrips.cluster.v1.FlightPlanAction.vfr:type_name -> flightstrips.cluster.v1.CreateVfrFlightPlan
+	126, // 111: flightstrips.cluster.v1.CreateManualFlightPlan.eobt:type_name -> google.protobuf.Timestamp
+	83,  // 112: flightstrips.cluster.v1.AmanAction.move_flight:type_name -> flightstrips.cluster.v1.AmanMoveFlight
+	82,  // 113: flightstrips.cluster.v1.AmanAction.lock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	82,  // 114: flightstrips.cluster.v1.AmanAction.unlock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	82,  // 115: flightstrips.cluster.v1.AmanAction.desequence_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	82,  // 116: flightstrips.cluster.v1.AmanAction.resume_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	82,  // 117: flightstrips.cluster.v1.AmanAction.remove_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	82,  // 118: flightstrips.cluster.v1.AmanAction.accept_teta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	82,  // 119: flightstrips.cluster.v1.AmanAction.keep_fpl_eta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	82,  // 120: flightstrips.cluster.v1.AmanAction.reset_teta_override:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 121: flightstrips.cluster.v1.AmanAction.set_rate:type_name -> flightstrips.cluster.v1.AmanRate
+	85,  // 122: flightstrips.cluster.v1.AmanAction.select_runway_group:type_name -> flightstrips.cluster.v1.AmanSelectRunway
+	86,  // 123: flightstrips.cluster.v1.AmanAction.set_active_runway_groups:type_name -> flightstrips.cluster.v1.AmanActiveRunways
+	87,  // 124: flightstrips.cluster.v1.AmanAction.set_manual_eta:type_name -> flightstrips.cluster.v1.AmanManualEta
+	87,  // 125: flightstrips.cluster.v1.AmanAction.set_manual_feeder_eta:type_name -> flightstrips.cluster.v1.AmanManualEta
+	82,  // 126: flightstrips.cluster.v1.AmanAction.reset_manual_feeder_eta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	82,  // 127: flightstrips.cluster.v1.AmanAction.recompute_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	88,  // 128: flightstrips.cluster.v1.AmanAction.change_runway:type_name -> flightstrips.cluster.v1.AmanChangeRunway
+	89,  // 129: flightstrips.cluster.v1.AmanAction.report_go_around:type_name -> flightstrips.cluster.v1.AmanReportGoAround
+	90,  // 130: flightstrips.cluster.v1.AmanAction.confirm_go_around:type_name -> flightstrips.cluster.v1.AmanDecideGoAround
+	90,  // 131: flightstrips.cluster.v1.AmanAction.reject_go_around:type_name -> flightstrips.cluster.v1.AmanDecideGoAround
+	91,  // 132: flightstrips.cluster.v1.AmanAction.create_gap:type_name -> flightstrips.cluster.v1.AmanCreateGap
+	92,  // 133: flightstrips.cluster.v1.AmanAction.remove_gap:type_name -> flightstrips.cluster.v1.AmanRemoveGap
+	93,  // 134: flightstrips.cluster.v1.AmanAction.create_runway_closure:type_name -> flightstrips.cluster.v1.AmanCreateClosure
+	94,  // 135: flightstrips.cluster.v1.AmanAction.remove_runway_closure:type_name -> flightstrips.cluster.v1.AmanRemoveClosure
+	95,  // 136: flightstrips.cluster.v1.AmanAction.create_capacity_reservation:type_name -> flightstrips.cluster.v1.AmanCreateReservation
+	96,  // 137: flightstrips.cluster.v1.AmanAction.remove_capacity_reservation:type_name -> flightstrips.cluster.v1.AmanRemoveReservation
+	97,  // 138: flightstrips.cluster.v1.AmanAction.place_flight_at_time:type_name -> flightstrips.cluster.v1.AmanPlaceFlight
+	98,  // 139: flightstrips.cluster.v1.AmanAction.submit_coordination_request:type_name -> flightstrips.cluster.v1.AmanSubmitCoordination
+	99,  // 140: flightstrips.cluster.v1.AmanAction.accept_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
+	99,  // 141: flightstrips.cluster.v1.AmanAction.reject_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
+	126, // 142: flightstrips.cluster.v1.AmanRate.effective_at:type_name -> google.protobuf.Timestamp
+	126, // 143: flightstrips.cluster.v1.AmanSelectRunway.effective_at:type_name -> google.protobuf.Timestamp
+	126, // 144: flightstrips.cluster.v1.AmanManualEta.value:type_name -> google.protobuf.Timestamp
+	126, // 145: flightstrips.cluster.v1.AmanReportGoAround.detected_at:type_name -> google.protobuf.Timestamp
+	126, // 146: flightstrips.cluster.v1.AmanCreateGap.start:type_name -> google.protobuf.Timestamp
+	126, // 147: flightstrips.cluster.v1.AmanCreateGap.end:type_name -> google.protobuf.Timestamp
+	126, // 148: flightstrips.cluster.v1.AmanCreateClosure.end:type_name -> google.protobuf.Timestamp
+	126, // 149: flightstrips.cluster.v1.AmanCreateClosure.start:type_name -> google.protobuf.Timestamp
+	126, // 150: flightstrips.cluster.v1.AmanPlaceFlight.slot_time:type_name -> google.protobuf.Timestamp
+	130, // 151: flightstrips.cluster.v1.AmanSubmitCoordination.route_direct:type_name -> flightstrips.cluster.v1.AmanRouteDirect
+	131, // 152: flightstrips.cluster.v1.AmanSubmitCoordination.speed:type_name -> flightstrips.cluster.v1.AmanSpeed
+	101, // 153: flightstrips.cluster.v1.SystemCommand.create_session:type_name -> flightstrips.cluster.v1.CreateSession
+	102, // 154: flightstrips.cluster.v1.SystemCommand.delete_session:type_name -> flightstrips.cluster.v1.DeleteSession
+	103, // 155: flightstrips.cluster.v1.SystemCommand.update_entity:type_name -> flightstrips.cluster.v1.UpdateEntity
+	104, // 156: flightstrips.cluster.v1.SystemCommand.remove_entity:type_name -> flightstrips.cluster.v1.RemoveEntity
+	107, // 157: flightstrips.cluster.v1.SystemCommand.claim_owner:type_name -> flightstrips.cluster.v1.ClaimOwner
+	108, // 158: flightstrips.cluster.v1.SystemCommand.renew_owner:type_name -> flightstrips.cluster.v1.RenewOwner
+	109, // 159: flightstrips.cluster.v1.SystemCommand.advance_workflow:type_name -> flightstrips.cluster.v1.AdvanceWorkflow
+	110, // 160: flightstrips.cluster.v1.SystemCommand.advance_effect:type_name -> flightstrips.cluster.v1.AdvanceEffect
+	111, // 161: flightstrips.cluster.v1.SystemCommand.record_sync:type_name -> flightstrips.cluster.v1.RecordSessionSync
+	105, // 162: flightstrips.cluster.v1.SystemCommand.set_position_layout:type_name -> flightstrips.cluster.v1.SetPositionLayout
+	106, // 163: flightstrips.cluster.v1.SystemCommand.replace_sector_owners:type_name -> flightstrips.cluster.v1.ReplaceSectorOwners
+	132, // 164: flightstrips.cluster.v1.UpdateEntity.value:type_name -> flightstrips.cluster.v1.EntityRecord
+	133, // 165: flightstrips.cluster.v1.RemoveEntity.kind:type_name -> flightstrips.cluster.v1.EntityKind
+	134, // 166: flightstrips.cluster.v1.ReplaceSectorOwners.owners:type_name -> flightstrips.cluster.v1.SectorOwner
+	114, // 167: flightstrips.cluster.v1.ClaimOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
+	114, // 168: flightstrips.cluster.v1.RenewOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
+	123, // 169: flightstrips.cluster.v1.AdvanceWorkflow.workflow:type_name -> flightstrips.cluster.v1.WorkflowRecord
+	135, // 170: flightstrips.cluster.v1.AdvanceEffect.effect:type_name -> flightstrips.cluster.v1.EffectRecord
+	136, // 171: flightstrips.cluster.v1.RecordSessionSync.sync:type_name -> flightstrips.cluster.v1.SessionSync
+	172, // [172:172] is the sub-list for method output_type
+	172, // [172:172] is the sub-list for method input_type
+	172, // [172:172] is the sub-list for extension type_name
+	172, // [172:172] is the sub-list for extension extendee
+	0,   // [0:172] is the sub-list for field type_name
 }
 
 func init() { file_wire_proto_init() }

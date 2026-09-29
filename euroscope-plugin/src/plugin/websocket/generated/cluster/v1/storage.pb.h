@@ -16000,9 +16000,11 @@ class Coordination final : public ::google::protobuf::Message
     kToCidFieldNumber = 4,
     kStatusFieldNumber = 5,
     kTagFieldNumber = 6,
+    kEuroscopeHandoverCidFieldNumber = 10,
     kCreatedAtFieldNumber = 7,
     kResolvedAtFieldNumber = 8,
     kIdFieldNumber = 1,
+    kFromEuroscopeFieldNumber = 9,
   };
   // string callsign = 2;
   void clear_callsign() ;
@@ -16084,6 +16086,22 @@ class Coordination final : public ::google::protobuf::Message
   std::string* _internal_mutable_tag();
 
   public:
+  // string euroscope_handover_cid = 10;
+  void clear_euroscope_handover_cid() ;
+  const std::string& euroscope_handover_cid() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_euroscope_handover_cid(Arg_&& arg, Args_... args);
+  std::string* mutable_euroscope_handover_cid();
+  PROTOBUF_NODISCARD std::string* release_euroscope_handover_cid();
+  void set_allocated_euroscope_handover_cid(std::string* value);
+
+  private:
+  const std::string& _internal_euroscope_handover_cid() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_euroscope_handover_cid(
+      const std::string& value);
+  std::string* _internal_mutable_euroscope_handover_cid();
+
+  public:
   // .google.protobuf.Timestamp created_at = 7;
   bool has_created_at() const;
   void clear_created_at() ;
@@ -16124,13 +16142,23 @@ class Coordination final : public ::google::protobuf::Message
   void _internal_set_id(::uint64_t value);
 
   public:
+  // bool from_euroscope = 9;
+  void clear_from_euroscope() ;
+  bool from_euroscope() const;
+  void set_from_euroscope(bool value);
+
+  private:
+  bool _internal_from_euroscope() const;
+  void _internal_set_from_euroscope(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.Coordination)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 8, 2,
-      84, 2>
+      4, 10, 2,
+      106, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -16152,9 +16180,11 @@ class Coordination final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr to_cid_;
     ::google::protobuf::internal::ArenaStringPtr status_;
     ::google::protobuf::internal::ArenaStringPtr tag_;
+    ::google::protobuf::internal::ArenaStringPtr euroscope_handover_cid_;
     ::google::protobuf::Timestamp* created_at_;
     ::google::protobuf::Timestamp* resolved_at_;
     ::uint64_t id_;
+    bool from_euroscope_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -53191,6 +53221,78 @@ inline void Coordination::set_allocated_resolved_at(::google::protobuf::Timestam
 
   _impl_.resolved_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Coordination.resolved_at)
+}
+
+// bool from_euroscope = 9;
+inline void Coordination::clear_from_euroscope() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.from_euroscope_ = false;
+}
+inline bool Coordination::from_euroscope() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Coordination.from_euroscope)
+  return _internal_from_euroscope();
+}
+inline void Coordination::set_from_euroscope(bool value) {
+  _internal_set_from_euroscope(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Coordination.from_euroscope)
+}
+inline bool Coordination::_internal_from_euroscope() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.from_euroscope_;
+}
+inline void Coordination::_internal_set_from_euroscope(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.from_euroscope_ = value;
+}
+
+// string euroscope_handover_cid = 10;
+inline void Coordination::clear_euroscope_handover_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.euroscope_handover_cid_.ClearToEmpty();
+}
+inline const std::string& Coordination::euroscope_handover_cid() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Coordination.euroscope_handover_cid)
+  return _internal_euroscope_handover_cid();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Coordination::set_euroscope_handover_cid(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.euroscope_handover_cid_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Coordination.euroscope_handover_cid)
+}
+inline std::string* Coordination::mutable_euroscope_handover_cid() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_euroscope_handover_cid();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Coordination.euroscope_handover_cid)
+  return _s;
+}
+inline const std::string& Coordination::_internal_euroscope_handover_cid() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.euroscope_handover_cid_.Get();
+}
+inline void Coordination::_internal_set_euroscope_handover_cid(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.euroscope_handover_cid_.Set(value, GetArena());
+}
+inline std::string* Coordination::_internal_mutable_euroscope_handover_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.euroscope_handover_cid_.Mutable( GetArena());
+}
+inline std::string* Coordination::release_euroscope_handover_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Coordination.euroscope_handover_cid)
+  return _impl_.euroscope_handover_cid_.Release();
+}
+inline void Coordination::set_allocated_euroscope_handover_cid(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.euroscope_handover_cid_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.euroscope_handover_cid_.IsDefault()) {
+          _impl_.euroscope_handover_cid_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Coordination.euroscope_handover_cid)
 }
 
 // -------------------------------------------------------------------

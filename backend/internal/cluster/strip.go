@@ -149,6 +149,12 @@ func (r StripState) Edit(ctx context.Context, session int32, cid string, expecte
 // PlanStrip derives all strip and related session replacements from one loaded
 // revision. The writer publishes the returned DomainChange as one event.
 func PlanStrip(ctx context.Context, request *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+	if request.GetClient().GetCoordination() != nil {
+		return PlanCoordination(ctx, request, state)
+	}
+	if update := request.GetSystem().GetUpdateEntity(); update != nil && update.GetValue().GetCoordination() != nil {
+		return PlanSystemCoordination(request, state, update)
+	}
 	if action := request.GetClient().GetStrip(); action != nil {
 		return planStripEdit(request, state, action)
 	}

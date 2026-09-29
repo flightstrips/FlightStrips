@@ -135,6 +135,9 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 	if err := validateStripTransition(a, changes, staged); err != nil {
 		return false, err
 	}
+	if err := validateCoordinationTransition(a, changes, staged); err != nil {
+		return false, err
+	}
 	var outcome *pb.CommandOutcome
 	if d := e.GetDomainChanged(); d != nil {
 		outcome = d.GetOutcome()

@@ -1,0 +1,848 @@
+syntax = "proto3";
+
+package flightstrips.cluster.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "FlightStrips/pkg/events/cluster;cluster";
+
+// Normative source for every FS_STATE, FS_POSITIONS, FS_PRESENCE,
+// FS_SNAPSHOT_INDEX and FS_OBJECTS value. No JSON, Any, Struct or opaque
+// application payload is permitted at any field in this schema.
+message AggregateRef {
+  oneof target {
+    GlobalRef global = 1;
+    AirportRef airport = 2;
+    SessionRef session = 3;
+  }
+}
+message GlobalRef {}
+message AirportRef { string icao = 1; }
+message SessionRef { int32 id = 1; }
+
+message Actor {
+  enum Kind { KIND_UNSPECIFIED = 0; SYSTEM = 1; CONTROLLER = 2; PILOT = 3; PROVIDER = 4; }
+  Kind kind = 1;
+  string id = 2;
+  optional int32 session_id = 3;
+}
+
+message OwnerTerm {
+  string node_id = 1;
+  uint64 epoch = 2;
+  // Absent in StateEvent; the reducer derives this from JetStream server time.
+  // Present only in snapshot and replies.
+  optional google.protobuf.Timestamp lease_until = 3;
+}
+message MasterTerm {
+  string connection_id = 1;
+  string cid = 2;
+  uint64 epoch = 3;
+  uint64 owner_epoch = 4;
+}
+message SessionSync {
+  string connection_id = 1;
+  uint64 master_epoch = 2;
+  google.protobuf.Timestamp completed_at = 3;
+}
+
+message StateEvent {
+  uint32 schema_version = 1; // exactly 1
+  string event_id = 2;       // UUID
+  optional string command_id = 3; // absent for lease maintenance
+  AggregateRef aggregate = 4;
+  uint64 aggregate_revision = 5;
+  uint64 owner_epoch = 6;
+  Actor actor = 7;
+  oneof fact {
+    OwnerTerm owner_claimed = 10;
+    OwnerTerm owner_renewed = 11;
+    DomainChange domain_changed = 12;
+    WorkflowRecord workflow_changed = 13;
+    EffectRecord effect_changed = 14;
+    CommandOutcome outcome_recorded = 15;
+    SessionSync session_synced = 16;
+  }
+}
+
+message DomainChange {
+  repeated EntityChange changes = 1; // sorted by entity case and primary key
+  repeated EffectRecord effects = 2;
+  repeated WorkflowRecord workflows = 3;
+  optional CommandOutcome outcome = 4;
+}
+message EntityChange {
+  string key = 1; // canonical key defined for each entity in storage-contract.md
+  uint64 revision = 2;
+  oneof operation {
+    EntityRecord upsert = 3; // complete replacement
+    DeleteEntity delete = 4;
+  }
+}
+message DeleteEntity { EntityKind kind = 1; }
+enum EntityKind {
+  ENTITY_KIND_UNSPECIFIED = 0;
+  AIRPORT_REGISTRY = 1;
+  SESSION_REGISTRY = 2;
+  PROVIDER_QUOTA = 3;
+  AIRPORT_POLICY = 4;
+  SESSION = 5;
+  CONTROLLER = 6;
+  SECTOR_OWNER = 7;
+  STRIP = 8;
+  COORDINATION = 9;
+  TACTICAL_STRIP = 10;
+  STAND_ASSIGNMENT = 11;
+  STAND_BLOCK = 12;
+  PDC_SEQUENCE = 13;
+  CDM_STATE = 14;
+  ECFMP_STATE = 15;
+  ATIS = 16;
+  CLX_OVERRIDE = 17;
+  FRONTEND_MESSAGE = 18;
+  AMAN_AIRPORT = 19;
+  AMAN_FLIGHT = 20;
+  AMAN_COORDINATION = 21;
+  AMAN_AUDIT = 22;
+  AMAN_VALIDATION = 23;
+  VATSIM_OBSERVATION = 24;
+  NAV_MANIFEST = 25;
+  NAV_ROUTE_CACHE = 26;
+  PROVIDER_CHECKPOINT = 27;
+  WEATHER_CACHE = 28;
+  SESSION_DEADLINE = 29;
+}
+message EntityRecord {
+  oneof value {
+    AirportRegistry airport_registry = 1;
+    SessionRegistry session_registry = 2;
+    ProviderQuota provider_quota = 3;
+    AirportPolicy airport_policy = 4;
+    Session session = 5;
+    Controller controller = 6;
+    SectorOwner sector_owner = 7;
+    Strip strip = 8;
+    Coordination coordination = 9;
+    TacticalStrip tactical_strip = 10;
+    StandAssignment stand_assignment = 11;
+    StandBlock stand_block = 12;
+    PdcSequence pdc_sequence = 13;
+    CdmState cdm_state = 14;
+    EcfmpState ecfmp_state = 15;
+    Atis atis = 16;
+    ClxOverride clx_override = 17;
+    FrontendMessage frontend_message = 18;
+    AmanAirport aman_airport = 19;
+    AmanFlight aman_flight = 20;
+    AmanCoordination aman_coordination = 21;
+    AmanAudit aman_audit = 22;
+    AmanValidation aman_validation = 23;
+    VatsimObservation vatsim_observation = 24;
+    NavManifest nav_manifest = 25;
+    NavRouteCache nav_route_cache = 26;
+    ProviderCheckpoint provider_checkpoint = 27;
+    WeatherCache weather_cache = 28;
+    SessionDeadline session_deadline = 29;
+  }
+}
+
+message AirportRegistry { string icao = 1; string display_name = 2; }
+message SessionRegistry {
+  int32 id = 1; string airport = 2; string name = 3;
+  enum State { STATE_UNSPECIFIED = 0; INITIALIZING = 1; ACTIVE = 2; DELETING = 3; DELETED = 4; }
+  State state = 4; string workflow_id = 5;
+}
+message ProviderQuota {
+  string provider = 1; google.protobuf.Timestamp window_start = 2;
+  uint32 used = 3; uint32 limit = 4;
+}
+message AirportPolicy {
+  string airport = 1; repeated string master_position_order = 2;
+  string cdm_configuration_version = 3; repeated RunwayPolicy runways = 4;
+}
+message RunwayPolicy { string id = 1; uint32 capacity_per_hour = 2; bool active = 3; }
+message Session {
+  int32 id = 1; string airport = 2; string name = 3;
+  repeated Runway runways = 4; MasterTerm master = 5; SessionSync sync = 6;
+  optional google.protobuf.Timestamp first_no_controller_at = 7;
+  bool tombstoned = 8; uint64 next_strip_id = 9;
+  uint64 next_coordination_id = 10; uint64 next_tactical_id = 11;
+  uint64 next_message_id = 12;
+  string layout_id = 13; repeated SidInfo available_sids = 14;
+  repeated RunwayCfl initial_cfl_by_runway = 15;
+  int32 transition_altitude_feet = 16;
+  bool stand_assignment_enabled = 17;
+}
+message Runway { string name = 1; bool departure = 2; bool arrival = 3; }
+message SidInfo { string name = 1; string runway = 2; }
+message RunwayCfl { string runway = 1; int32 altitude_feet = 2; }
+message Controller {
+  string cid = 1; string callsign = 2; string position = 3;
+  string section = 4; repeated string owned_sectors = 5;
+  bool observer = 6; uint64 revision = 7;
+}
+message SectorOwner { string sector = 1; string controller_cid = 2; }
+message Strip {
+  uint64 id = 1; string callsign = 2; uint64 revision = 3;
+  string aircraft_type = 4; string departure = 5; string destination = 6;
+  string route = 7; string remarks = 8; string sid = 9; string runway = 10;
+  string assigned_squawk = 11; string squawk = 12;
+  optional int32 requested_altitude = 13; optional int32 cleared_altitude = 14;
+  optional int32 heading = 15; string bay = 16; string stand = 17;
+  string owner_cid = 18; repeated string next_controllers = 19;
+  repeated string previous_controllers = 20; bool marked = 21;
+  string pdc_state = 22; string pdc_request_remarks = 23;
+  bool start_requested = 24; bool runway_cleared = 25;
+  bool runway_confirmed = 26; string registration = 27;
+  optional uint32 persons_on_board = 28; string flight_plan_type = 29;
+  string language = 30; string release_point = 31;
+  optional google.protobuf.Timestamp eobt = 32;
+  optional google.protobuf.Timestamp tobt = 33;
+  optional google.protobuf.Timestamp tsat = 34;
+  optional google.protobuf.Timestamp ttot = 35;
+  optional google.protobuf.Timestamp ctot = 36;
+  repeated string unexpected_change_fields = 37;
+  repeated string controller_modified_fields = 38;
+  bool manual = 39; bool has_flight_plan = 40;
+  ValidationStatus validation = 41;
+  string alternate = 42; string star = 43;
+  string aircraft_category = 44; optional string spoken_callsign = 45;
+  string capabilities = 46; string communication_type = 47;
+  optional int32 position_altitude_feet = 48;
+  optional google.protobuf.Timestamp aobt = 49;
+  optional google.protobuf.Timestamp asat = 50;
+  optional google.protobuf.Timestamp asrt = 51;
+  optional google.protobuf.Timestamp tsac = 52;
+  optional string operational_status = 53;
+  optional string most_penalizing_airspace = 54;
+  optional string ecfmp_id = 55; optional string ctot_source = 56;
+  optional string phase = 57; optional google.protobuf.Timestamp eldt = 58;
+  optional google.protobuf.Timestamp aldt = 59;
+  uint64 sequence = 60; optional string tobt_set_by = 61;
+  optional bool on_block = 62;
+}
+message ValidationStatus {
+  string issue_type = 1; string message = 2; string owning_position = 3;
+  bool active = 4; string activation_key = 5;
+  repeated ValidationFault faults = 6;
+  optional ValidationAction action = 7;
+}
+message ValidationFault {
+  string code = 1; string message = 2; string nitos_remark = 3;
+  repeated string fields = 4; string override_key = 5;
+}
+message ValidationAction {
+  string label = 1;
+  oneof action { AcknowledgeValidation acknowledge = 2; ClxOverrideAction clx_override = 3; }
+}
+message AcknowledgeValidation { string activation_key = 1; }
+message ClxOverrideAction { string override_key = 1; }
+message Coordination {
+  uint64 id = 1; string callsign = 2; string from_cid = 3;
+  string to_cid = 4; string status = 5; string tag = 6;
+  google.protobuf.Timestamp created_at = 7; optional google.protobuf.Timestamp resolved_at = 8;
+}
+message TacticalStrip {
+  uint64 id = 1; string title = 2; string body = 3; string bay = 4;
+  uint64 revision = 5; bool marked = 6; bool confirmed = 7;
+  string owner_cid = 8; optional google.protobuf.Timestamp timer_started_at = 9;
+  string kind = 10; string label = 11; string aircraft = 12;
+  string produced_by = 13; uint64 sequence = 14;
+  string confirmed_by = 15; google.protobuf.Timestamp created_at = 16;
+}
+message StandAssignment {
+  string callsign = 1; string stand = 2; string source = 3;
+  uint64 revision = 4; bool confirmed = 5; string actor = 6;
+  optional google.protobuf.Timestamp expires_at = 7;
+}
+message StandBlock {
+  string stand = 1; string reason = 2; string actor = 3;
+  google.protobuf.Timestamp created_at = 4;
+  optional google.protobuf.Timestamp expires_at = 5;
+}
+message PdcSequence {
+  string callsign = 1; uint64 sequence = 2; string state = 3;
+  string request_remarks = 4; optional google.protobuf.Timestamp deadline = 5;
+}
+message CdmState {
+  string callsign = 1; optional google.protobuf.Timestamp tobt = 2;
+  optional google.protobuf.Timestamp tsat = 3;
+  optional google.protobuf.Timestamp ttot = 4;
+  optional google.protobuf.Timestamp ctot = 5;
+  string deice = 6; bool ready = 7; string source_revision = 8;
+}
+message EcfmpState {
+  string callsign = 1; repeated EcfmpRestriction restrictions = 2;
+  string source_revision = 3;
+}
+message EcfmpRestriction {
+  uint64 measure_id = 1; string ident = 2; string kind = 3;
+  string reason = 4; repeated string routes = 5; string destination = 6;
+  optional int32 min_level = 7; optional int32 max_level = 8;
+  repeated int32 exact_levels = 9; bool has_ctot = 10;
+}
+message Atis { string airport = 1; string code = 2; string text = 3; google.protobuf.Timestamp observed_at = 4; }
+message ClxOverride { string callsign = 1; string key = 2; string actor = 3; google.protobuf.Timestamp created_at = 4; }
+message FrontendMessage {
+  uint64 id = 1; string sender = 2; string text = 3;
+  bool broadcast = 4; repeated string recipients = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message AmanAirport {
+  string airport = 1; uint64 revision = 2; string policy_version = 3;
+  string effective_mode = 4; repeated AmanRunwayGroup runway_groups = 5;
+  repeated string active_runway_group_ids = 6;
+  repeated AmanTimelineMapping timeline_mappings = 7;
+  AmanTechnicalHealth health = 8;
+  google.protobuf.Timestamp generated_at = 9; bool authoritative = 10;
+}
+message AmanRunwayGroup {
+  string id = 1; bool selected = 2; uint32 active_rate_per_hour = 3;
+  optional google.protobuf.Timestamp rate_effective_at = 4;
+  repeated AmanGap gaps = 5; repeated AmanClosure closures = 6;
+  repeated AmanReservation reservations = 7;
+  bool active = 8;
+  repeated AmanRunwaySelectionPoint selection_schedule = 9;
+  optional string selection_conflict = 10;
+  repeated AmanRunwayRatePoint rate_schedule = 11;
+  optional AmanSameStarSpacing same_star_spacing = 12;
+  repeated AmanSequenceWarning sequence_warnings = 13;
+}
+message AmanRunwaySelectionPoint { google.protobuf.Timestamp effective_at = 1; uint64 command_revision = 2; string source = 3; }
+message AmanRunwayRatePoint { google.protobuf.Timestamp effective_at = 1; uint32 arrivals_per_hour = 2; }
+message AmanSameStarSpacing { bool enabled = 1; uint32 activation_rate_per_hour = 2; uint32 minimum_empty_slots = 3; }
+message AmanSequenceWarning { string code = 1; string callsign = 2; string related_callsign = 3; string star_family = 4; }
+message AmanGap {
+  string id = 1; google.protobuf.Timestamp start = 2;
+  google.protobuf.Timestamp end = 3; string label = 4;
+  string created_by = 5; google.protobuf.Timestamp created_at = 6;
+}
+message AmanClosure {
+  string id = 1; google.protobuf.Timestamp start = 2;
+  optional google.protobuf.Timestamp end = 3; string reason = 4;
+  string created_by = 5; google.protobuf.Timestamp created_at = 6;
+}
+message AmanReservation {
+  string id = 1; google.protobuf.Timestamp start = 2;
+  google.protobuf.Timestamp end = 3; string label = 4;
+  string created_by = 5; google.protobuf.Timestamp created_at = 6;
+}
+message AmanTimelineMapping { uint32 id = 1; optional string left = 2; optional string right = 3; }
+message AmanTechnicalHealth {
+  string status = 1; bool ready = 2; repeated string blocked_reasons = 3;
+  repeated AmanComponentHealth components = 4;
+}
+message AmanComponentHealth {
+  string component = 1; string status = 2; string reason = 3;
+  optional google.protobuf.Timestamp updated_at = 4;
+  optional double age_seconds = 5;
+}
+message AmanFlight {
+  string callsign = 1; string state = 2; string sequence_disposition = 3;
+  string data_status = 4; optional AmanPrediction prediction = 5;
+  repeated AmanRawTetaSample raw_teta_samples = 6;
+  optional AmanBaseline arrival_baseline = 7;
+  optional AmanFlightObservation latest_observation = 8;
+  optional string selected_runway_group = 9;
+  optional string selected_star_family = 10;
+  optional string selected_feeder_fix = 11;
+  optional string selected_holding = 12;
+  optional AmanFeederEta feeder_eta = 13;
+  optional AmanFeederEta derived_feeder_eta = 14;
+  optional AmanHoldingClearance holding_clearance = 15;
+  optional AmanHoldingStack holding_stack = 16;
+  optional AmanRouteFact active_route_fact = 17;
+  optional string active_route_key = 18;
+  optional string active_route_dataset_id = 19;
+  optional AmanRouteProgress route_progress = 20;
+  optional AmanTmaEntry tma_entry = 21;
+  bool manual_sequence_included = 22;
+  string freeze_reason = 23;
+  optional google.protobuf.Timestamp frozen_at = 24;
+  optional google.protobuf.Timestamp frozen_operational_teta = 25;
+  optional AmanSlot frozen_slot = 26;
+  optional AmanSlot slot = 27;
+  optional int32 order = 28; optional int32 manual_order = 29;
+  repeated AmanQueueOffer queue_offers = 30;
+  optional AmanETAReview eta_review = 31;
+  optional AmanOperationalException operational_exception = 32;
+  optional AmanGapException gap_exception = 33;
+  optional AmanGoAroundDetection go_around_detection = 34;
+  optional AmanGoAroundConfirmation go_around_confirmation = 35;
+  optional AmanLifecycle lifecycle = 36;
+  google.protobuf.Timestamp updated_at = 37;
+}
+message AmanFlightObservation {
+  string callsign = 1; string origin = 2; string destination = 3;
+  optional string aircraft_type = 4; optional string wake_category = 5;
+  optional string filed_route = 6; optional int32 requested_level = 7;
+  optional AmanPlannedTiming planned_timing = 8;
+  AmanFlightPlanFact flight_plan = 9;
+  optional AmanSurveillanceFact surveillance = 10;
+  optional AmanHoldingClearance holding_clearance = 11;
+  string surveillance_source = 12; string provider = 13;
+  optional google.protobuf.Timestamp takeoff_detected = 14;
+  google.protobuf.Timestamp reconciled_at = 15;
+  string source_status = 16; bool missing = 17;
+}
+message AmanPlannedTiming {
+  optional google.protobuf.Timestamp estimated_off_block_time = 1;
+  optional google.protobuf.Duration estimated_enroute_time = 2;
+}
+message AmanFlightPlanFact { optional uint64 revision = 1; optional google.protobuf.Timestamp observed_at = 2; }
+message AmanSurveillanceFact {
+  double latitude_degrees = 1; double longitude_degrees = 2;
+  optional int32 altitude_feet = 3; optional double groundspeed_knots = 4;
+  optional double track_true_degrees = 5; optional uint64 sequence = 6;
+  optional google.protobuf.Timestamp observed_at = 7;
+}
+message AmanHoldingClearance {
+  string hold = 1; string hold_type = 2; string hold_eat = 3;
+  optional int32 cleared_altitude = 4; google.protobuf.Timestamp observed_at = 5;
+}
+message AmanPrediction {
+  google.protobuf.Timestamp raw_teta = 1;
+  optional google.protobuf.Timestamp raw_reta = 2;
+  google.protobuf.Timestamp operational_teta = 3;
+  string operational_reason = 4;
+  google.protobuf.Timestamp generated_at = 5;
+  google.protobuf.Timestamp input_observed_at = 6;
+  string confidence = 7; bool publishable = 8;
+  optional string degradation_reason = 9;
+  string dataset_version = 10; string geometry_digest = 11;
+  optional double distance_to_go_nm = 12;
+  optional google.protobuf.Timestamp holding_fix_eta = 13;
+  optional AmanHoldingPlan holding_plan = 14;
+  string model_version = 15; string config_version = 16;
+  string basis = 17; optional string performance_profile_id = 18;
+  optional string weather_source = 19; repeated string sources = 20;
+  optional AmanPredictionCalculation calculation = 21;
+}
+message AmanFeederEta { optional google.protobuf.Timestamp eta = 1; string source = 2; bool passed = 3; }
+message AmanHoldingPlan {
+  google.protobuf.Timestamp holding_entry_time = 1;
+  google.protobuf.Timestamp approach_release_time = 2;
+  google.protobuf.Duration expected_holding_duration = 3;
+  google.protobuf.Duration post_holding_transit = 4;
+}
+message AmanHoldingStack {
+  string holding_id = 1; google.protobuf.Timestamp candidate_observed_at = 2;
+  uint32 consecutive_observations = 3; bool confirmed = 4;
+}
+message AmanPredictionCalculation {
+  google.protobuf.Duration no_wind_duration = 1;
+  google.protobuf.Duration duration = 2;
+  repeated AmanPredictionLeg legs = 3;
+  repeated AmanPredictionSegment segments = 4;
+}
+message AmanPredictionLeg {
+  string id = 1; string from_fix = 2; string to_fix = 3;
+  double start_latitude = 4; double start_longitude = 5;
+  double end_latitude = 6; double end_longitude = 7;
+  double distance_nm = 8; double course_true_degrees = 9;
+  google.protobuf.Duration no_wind_duration = 10;
+  google.protobuf.Duration duration = 11;
+}
+message AmanPredictionSegment {
+  int32 route_leg_index = 1; bool pre_tod = 2;
+  string phase_id = 3; string phase_name = 4; string phase_formula = 5;
+  double distance_nm = 6; double course_true_degrees = 7;
+  double start_altitude_feet = 8; double end_altitude_feet = 9;
+  double altitude_feet = 10; optional double indicated_airspeed_knots = 11;
+  double no_wind_groundspeed_knots = 12; double groundspeed_knots = 13;
+  optional double tailwind_knots = 14;
+  google.protobuf.Duration no_wind_duration = 15;
+  google.protobuf.Duration duration = 16;
+}
+message AmanRawTetaSample { google.protobuf.Timestamp teta = 1; google.protobuf.Timestamp generated_at = 2; }
+message AmanBaseline {
+  google.protobuf.Timestamp arrival_at = 1;
+  google.protobuf.Timestamp airborne_sensed_at = 2;
+  string source = 3; string confidence = 4;
+  optional string degradation_reason = 5;
+  string speed_defaults_version = 6;
+  optional uint64 flight_plan_revision = 7;
+  google.protobuf.Timestamp flight_plan_observed_at = 8;
+  string model_version = 9; string config_version = 10;
+}
+message AmanRouteProgress {
+  string geometry_digest = 1; int64 manifest_revision = 2;
+  string terminal_digest = 3; uint64 flight_plan_revision = 4;
+  string route_fact_id = 5; string runway_group_id = 6;
+  int32 leg_index = 7; int32 rejoin_leg_index = 8;
+  double along_track_nm = 9; string recovery_candidate_fix = 10;
+  uint32 recovery_candidate_samples = 11; bool descent_confirmed = 12;
+  uint32 descent_evidence_samples = 13;
+}
+message AmanTmaEntry { string last_containment = 1; google.protobuf.Timestamp last_observed_at = 2; bool freeze_triggered = 3; }
+message AmanOperationalException { string reason = 1; google.protobuf.Timestamp detected_at = 2; }
+message AmanGoAroundEvidence {
+  google.protobuf.Timestamp observed_at = 1; optional uint64 sequence = 2;
+  double latitude_degrees = 3; double longitude_degrees = 4;
+  int32 altitude_feet = 5; double groundspeed_knots = 6;
+  optional double track_true_degrees = 7; bool climb_evidence = 8;
+  bool track_away_evidence = 9; bool runway_exit_evidence = 10;
+}
+message AmanGoAroundDetection {
+  string policy_version = 1; repeated AmanGoAroundEvidence evidence = 2;
+  int32 arm_count = 3; int32 climb_count = 4;
+  int32 track_away_count = 5; int32 runway_exit_count = 6;
+  bool armed = 7; optional google.protobuf.Timestamp armed_at = 8;
+  string armed_corridor_id = 9; uint64 episode = 10;
+  uint64 last_emitted_episode = 11;
+  optional google.protobuf.Timestamp last_processed_at = 12;
+  optional uint64 last_processed_sequence = 13;
+  bool threshold_crossed = 14; bool awaiting_reset = 15;
+  string last_controller_command_id = 16;
+}
+message AmanLifecycle {
+  google.protobuf.Timestamp entered_at = 1; string reason = 2;
+  string last_event_id = 3; string last_event_fingerprint = 4;
+  google.protobuf.Timestamp last_event_at = 5;
+  bool reconciliation_pending = 6; optional AmanAbsence absence = 7;
+}
+message AmanAbsence {
+  google.protobuf.Timestamp missing_since = 1;
+  optional google.protobuf.Timestamp removal_due_at = 2;
+  google.protobuf.Duration remaining = 3;
+}
+message AmanRouteFact {
+  string id = 1; string fix = 2; string state = 3;
+  google.protobuf.Timestamp observed_at = 4; string callsign = 5;
+  string issuer = 6; google.protobuf.Timestamp received_at = 7;
+  string dataset_version = 8;
+}
+message AmanProvenance {
+  string model_version = 1; string config_version = 2;
+  optional string performance_profile_id = 3; optional string weather_source = 4;
+  repeated string sources = 5;
+}
+message AmanSlot {
+  google.protobuf.Timestamp time = 1; string runway_group_id = 2;
+  uint32 sequence = 3; uint64 revision = 4; string reason = 5;
+}
+message AmanETAReview {
+  string status = 1; google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp deadline_at = 3;
+  optional google.protobuf.Timestamp resolved_at = 4;
+  optional string actor = 5; optional string note = 6;
+  google.protobuf.Timestamp initial_baseline_teta = 7;
+  google.protobuf.Timestamp calculated_operational_teta = 8;
+  google.protobuf.Timestamp selected_teta = 9;
+  optional google.protobuf.Timestamp manual_teta = 10;
+}
+message AmanQueueOffer {
+  string callsign = 1; string runway_group_id = 2;
+  AmanSlot candidate_slot = 3; uint32 queue_position = 4;
+  google.protobuf.Timestamp expires_at = 5; uint64 airport_revision = 6;
+  string reason = 7;
+}
+message AmanGoAroundConfirmation {
+  string episode_id = 1; string reason = 2;
+  google.protobuf.Timestamp detected_at = 3;
+  repeated google.protobuf.Timestamp evidence_times = 4;
+  string status = 5; optional google.protobuf.Timestamp decided_at = 6;
+  optional string decided_by = 7; optional uint64 resulting_revision = 8;
+  optional string decision_command_id = 9;
+}
+message AmanGapException {
+  string gap_id = 1; string runway_group_id = 2;
+  google.protobuf.Timestamp opportunity = 3; string command_id = 4;
+  string callsign = 5;
+}
+message AmanCoordination {
+  string id = 1; string callsign = 2; string recipient_controller = 3;
+  string recipient_status = 4; string state = 5;
+  oneof request { AmanRouteDirect route_direct = 6; AmanSpeed speed = 7; }
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  optional string supersedes = 10; optional string superseded_by = 11;
+  optional AmanClearance clearance = 12;
+}
+message AmanRouteDirect { optional string route = 1; optional string direct_to = 2; }
+message AmanSpeed { string requested = 1; }
+message AmanClearance {
+  string fact_id = 1; string kind = 2; string value = 3;
+  string issuer = 4; google.protobuf.Timestamp observed_at = 5;
+}
+message AmanAudit {
+  string id = 1; uint64 airport_revision = 2;
+  google.protobuf.Timestamp created_at = 3; Actor actor = 4;
+  oneof fact {
+    AmanCommandAudit command = 5;
+    AmanObservationAudit observation = 6;
+    AmanSequenceAudit sequence = 7;
+    AmanCoordinationAudit coordination = 8;
+    AmanHealthAudit health = 9;
+    AmanCapacityAudit capacity = 10;
+    AmanFreezeAudit freeze = 11;
+    AmanGoAroundAudit go_around = 12;
+    AmanReplayAudit replay = 13;
+  }
+}
+message AmanCommandAudit { string command_id = 1; string command_kind = 2; string outcome = 3; string reason = 4; }
+message AmanObservationAudit { string source = 1; string observation_id = 2; string callsign = 3; string outcome = 4; }
+message AmanSequenceAudit { string callsign = 1; string runway_group_id = 2; optional AmanSlot before = 3; optional AmanSlot after = 4; string reason = 5; }
+message AmanCoordinationAudit { string request_id = 1; string before = 2; string after = 3; string reason = 4; }
+message AmanHealthAudit { string component = 1; string before = 2; string after = 3; string reason = 4; }
+message AmanCapacityAudit {
+  string runway_group_id = 1; string object_id = 2;
+  enum Kind { KIND_UNSPECIFIED = 0; GAP = 1; CLOSURE = 2; RESERVATION = 3; }
+  Kind kind = 3; string action = 4;
+  repeated AmanSequenceAudit displaced_flights = 5;
+  optional google.protobuf.Timestamp start = 6;
+  optional google.protobuf.Timestamp end = 7;
+}
+message AmanFreezeAudit {
+  string callsign = 1; string reason = 2;
+  optional google.protobuf.Timestamp operational_teta = 3;
+  optional AmanSlot slot = 4;
+}
+message AmanGoAroundAudit {
+  string callsign = 1; string episode_id = 2;
+  string decision = 3; repeated AmanGoAroundEvidence evidence = 4;
+}
+message AmanReplayAudit {
+  string source = 1; string record_id = 2;
+  string result = 3; optional uint64 source_revision = 4;
+}
+message AmanValidation {
+  string id = 1; string callsign = 2; string rule = 3;
+  string result = 4; repeated ValidationFault faults = 5;
+  google.protobuf.Timestamp observed_at = 6;
+}
+message VatsimObservation {
+  string provider_id = 1; string callsign = 2; string digest = 3;
+  google.protobuf.Timestamp observed_at = 4;
+}
+message NavManifest {
+  string airport = 1; string cycle = 2; string digest = 3;
+  repeated NavObjectRef objects = 4; bool active = 5;
+}
+message NavObjectRef { string kind = 1; string object_name = 2; string sha256 = 3; }
+message NavRouteCache {
+  string route_key = 1; string object_name = 2; string sha256 = 3;
+  string resolver_version = 4; string schema_version = 5;
+}
+message ProviderCheckpoint {
+  string provider = 1; string resource = 2; string etag = 3;
+  string last_modified = 4; uint32 next_page = 5;
+  string object_name = 6; string sha256 = 7;
+}
+message WeatherCache {
+  string airport = 1; string provider = 2;
+  WeatherObservation observation = 3;
+  google.protobuf.Timestamp fetched_at = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+message WeatherObservation {
+  string metar = 1; optional uint32 wind_direction_degrees = 2;
+  optional double wind_speed_knots = 3; optional double gust_knots = 4;
+  optional double visibility_meters = 5; optional double temperature_celsius = 6;
+  optional double pressure_hpa = 7; repeated WeatherCloud clouds = 8;
+}
+message WeatherCloud { string cover = 1; optional uint32 base_feet = 2; string type = 3; }
+message SessionDeadline {
+  string id = 1; string kind = 2; google.protobuf.Timestamp due_at = 3;
+  string callsign = 4; string command_id = 5;
+}
+
+message CommandOutcome {
+  string command_id = 1; string request_sha256 = 2; Actor actor = 3;
+  enum Status { STATUS_UNSPECIFIED = 0; ACCEPTED = 1; SUCCEEDED = 2; FAILED = 3; EXPIRED = 4; UNKNOWN = 5; }
+  Status status = 4; string reason_code = 5; string detail = 6;
+  uint64 committed_stream_sequence = 7; uint64 aggregate_revision = 8;
+  optional string effect_id = 9;
+}
+message WorkflowRecord {
+  string workflow_id = 1; AggregateRef source = 2; AggregateRef destination = 3;
+  string step = 4; string derived_command_id = 5;
+  enum Status { STATUS_UNSPECIFIED = 0; PENDING = 1; COMPLETED = 2; SUPERSEDED = 3; FAILED = 4; }
+  Status status = 6; optional uint64 source_revision = 7;
+  optional uint64 destination_stream_sequence = 8; string reason_code = 9;
+}
+message EffectRecord {
+  string command_id = 1; string target_cid = 2;
+  optional string target_connection_id = 3;
+  uint64 owner_epoch = 4; uint64 master_epoch = 5;
+  enum Status { STATUS_UNSPECIFIED = 0; WAITING = 1; DISPATCH_CLAIMED = 2; EXECUTED = 3; FAILED = 4; EXPIRED = 5; UNKNOWN = 6; }
+  Status status = 6;
+  oneof payload {
+    SetFlightPlanEffect set_flight_plan = 7;
+    PdcEffect pdc = 8;
+    PrivateMessageEffect private_message = 9;
+    CoordinationEffect coordination = 10;
+    CdmEffect cdm = 11;
+  }
+  google.protobuf.Timestamp dispatch_deadline = 12;
+  optional google.protobuf.Timestamp result_deadline = 13;
+  optional string dispatch_connection_id = 14;
+  string reason_code = 15;
+}
+message SetFlightPlanEffect { string callsign = 1; string field = 2; string value = 3; }
+message PdcEffect { string callsign = 1; string action = 2; string clearance = 3; }
+message PrivateMessageEffect { string recipient = 1; string object_name = 2; string sha256 = 3; }
+message CoordinationEffect { string callsign = 1; string target_cid = 2; string action = 3; }
+message CdmEffect { string callsign = 1; string action = 2; string value = 3; }
+
+message Snapshot {
+  uint32 schema_version = 1; AggregateRef aggregate = 2;
+  uint64 aggregate_revision = 3; uint64 last_stream_sequence = 4;
+  uint64 last_subject_sequence = 5; OwnerTerm owner = 6;
+  repeated EntitySnapshot entities = 7; repeated CommandOutcome outcomes = 8;
+  repeated WorkflowRecord workflows = 9; repeated EffectRecord effects = 10;
+  optional MasterTerm master = 11; optional SessionSync sync = 12;
+  string sha256 = 13; // digest of deterministic encoding with this field empty
+}
+message EntitySnapshot { string key = 1; uint64 revision = 2; EntityRecord value = 3; }
+message SnapshotIndex {
+  uint32 schema_version = 1; AggregateRef aggregate = 2;
+  string object_name = 3; string sha256 = 4;
+  uint64 aggregate_revision = 5; uint64 last_stream_sequence = 6;
+  uint64 last_subject_sequence = 7;
+}
+message PositionValue {
+  uint32 schema_version = 1; int32 session_id = 2; string aircraft_key = 3;
+  uint64 owner_epoch = 4; google.protobuf.Timestamp observed_at = 5;
+  string source_connection_id = 6;
+  oneof observation { AircraftPosition position = 7; PositionTombstone tombstone = 8; }
+}
+message AircraftPosition {
+  double latitude = 1; double longitude = 2; int32 altitude_feet = 3;
+  double ground_speed_knots = 4; double track_degrees = 5;
+  optional double vertical_speed_fpm = 6;
+}
+message PositionTombstone {}
+message PresenceValue {
+  uint32 schema_version = 1;
+  oneof present { NodePresence node = 2; ClientPresence client = 3; }
+}
+message NodePresence { string node_id = 1; google.protobuf.Timestamp started_at = 2; bool ready = 3; }
+message ClientPresence {
+  string connection_id = 1; string node_id = 2; int32 session_id = 3;
+  string cid = 4; string callsign = 5; string position = 6;
+  bool observer = 7; google.protobuf.Timestamp connected_at = 8;
+  enum Kind { KIND_UNSPECIFIED = 0; EUROSCOPE = 1; FRONTEND = 2; }
+  Kind kind = 9;
+}
+
+message ObjectValue {
+  uint32 schema_version = 1;
+  oneof content {
+    Snapshot snapshot = 2;
+    NavData nav = 3;
+    EffectSecret effect_secret = 4;
+    ProviderPage provider_page = 5;
+  }
+}
+message NavData {
+  string airport = 1; NavDatasetVersion version = 2;
+  oneof fragment {
+    NavAirportFragment airport_fragment = 3;
+    NavProcedureFragment procedure_fragment = 4;
+    NavFixFragment fix_fragment = 5;
+    NavTerminalFragment terminal_fragment = 6;
+    NavRouteCandidate route_candidate = 7;
+  }
+  string schema_version = 8; NavProvenance provenance = 9;
+  google.protobuf.Timestamp imported_at = 10;
+  optional google.protobuf.Timestamp validated_at = 11;
+  string validation_state = 12; string digest = 13;
+}
+message NavDatasetVersion {
+  string cycle = 1; string source_revision = 2;
+  google.protobuf.Timestamp effective_from = 3;
+  google.protobuf.Timestamp effective_until = 4;
+}
+message NavProvenance {
+  string source_id = 1; string source_revision = 2;
+  google.protobuf.Timestamp imported_at = 3;
+  google.protobuf.Timestamp effective_from = 4;
+  google.protobuf.Timestamp effective_until = 5;
+}
+message NavCoordinate { double latitude_degrees = 1; double longitude_degrees = 2; }
+message NavThreshold {
+  NavCoordinate position = 1; optional int32 elevation_feet = 2;
+  optional double course_true_degrees = 3;
+}
+message NavAirportFragment { NavAirport airport = 1; repeated NavRunway runways = 2; }
+message NavAirport { string icao = 1; string name = 2; NavCoordinate position = 3; NavProvenance provenance = 4; }
+message NavRunway {
+  string id = 1; string airport = 2; NavThreshold threshold = 3;
+  double length_nm = 4; NavProvenance provenance = 5;
+}
+message NavProcedureFragment {
+  string airport = 1; string kind = 2; repeated NavProcedure procedures = 3;
+  string coverage = 4;
+}
+message NavProcedure {
+  string id = 1; string airport = 2; string kind = 3;
+  repeated string runways = 4; repeated NavLeg legs = 5;
+  repeated NavHolding holdings = 6; NavProvenance provenance = 7;
+}
+message NavLeg {
+  string id = 1; string path_terminator = 2;
+  optional string from_fix = 3; optional string to_fix = 4;
+  optional NavCoordinate from_position = 5;
+  optional NavCoordinate to_position = 6;
+  optional double course_true_degrees = 7;
+  optional double distance_nm = 8; optional string holding_id = 9;
+}
+message NavHolding {
+  string id = 1; string fix = 2; double inbound_course_true_degrees = 3;
+  string turn_direction = 4;
+  oneof leg_extent { double length_nm = 5; int64 time_seconds = 6; }
+  optional int32 minimum_altitude_feet = 7;
+  optional int32 maximum_altitude_feet = 8;
+  optional int32 maximum_speed_knots = 9;
+  string termination = 10; NavProvenance provenance = 11;
+}
+message NavFixFragment { repeated NavFix fixes = 1; string coverage = 2; }
+message NavFix { string id = 1; NavCoordinate position = 2; NavProvenance provenance = 3; }
+message NavTerminalFragment {
+  string airport = 1; string config_version = 2;
+  repeated NavStarFamilyPolicy star_family_policies = 3;
+  repeated AmanTimelineMapping timeline_mappings = 4;
+  repeated NavTerminalPath paths = 5; repeated NavHolding holdings = 6;
+}
+message NavStarFamilyPolicy {
+  string star_family = 1; AmanSameStarSpacing same_star_spacing = 2;
+  string holding_sequence_policy = 3;
+}
+message NavTerminalPath {
+  NavDatasetVersion version = 1; string airport = 2;
+  string star_family = 3; string feeder_fix = 4;
+  optional google.protobuf.Duration holding_to_feeder_duration = 5;
+  string runway_group = 6; repeated NavLeg legs = 7;
+  repeated string holding_ids = 8;
+  optional int32 published_heading_magnetic_degrees = 9;
+  string coverage = 10; repeated string unresolved = 11;
+  NavProvenance provenance = 12; string digest = 13;
+}
+message NavRouteCandidate {
+  NavRouteQuery query = 1; string resolver_version = 2;
+  string schema_version = 3; NavRouteGeometry geometry = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+message NavRouteQuery {
+  NavDatasetVersion version = 1; string origin = 2;
+  string destination = 3; string filed_route = 4;
+  optional string arrival_procedure = 5; optional string runway = 6;
+  optional string runway_group = 7;
+}
+message NavRouteGeometry {
+  NavDatasetVersion version = 1; repeated NavLeg legs = 2;
+  repeated string holding_ids = 3; double total_distance_nm = 4;
+  string coverage = 5; repeated string unresolved = 6;
+  NavProvenance provenance = 7; string digest = 8;
+}
+message EffectSecret { string command_id = 1; bytes ciphertext = 2; string key_id = 3; bytes nonce = 4; }
+message ProviderPage {
+  string provider = 1; string resource = 2;
+  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; }
+}
+message AiracPage { repeated NavData fragments = 1; optional string next_page = 2; }
+message VatsimPage { repeated VatsimObservation observations = 1; }
+message WeatherPage { repeated WeatherObservation observations = 1; }

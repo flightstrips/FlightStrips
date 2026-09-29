@@ -200,6 +200,15 @@ extern DeleteSessionDefaultTypeInternal _DeleteSession_default_instance_;
 class DeleteTactical;
 struct DeleteTacticalDefaultTypeInternal;
 extern DeleteTacticalDefaultTypeInternal _DeleteTactical_default_instance_;
+class EffectDeliveryReply;
+struct EffectDeliveryReplyDefaultTypeInternal;
+extern EffectDeliveryReplyDefaultTypeInternal _EffectDeliveryReply_default_instance_;
+class EffectDeliveryRequest;
+struct EffectDeliveryRequestDefaultTypeInternal;
+extern EffectDeliveryRequestDefaultTypeInternal _EffectDeliveryRequest_default_instance_;
+class ElectSessionMaster;
+struct ElectSessionMasterDefaultTypeInternal;
+extern ElectSessionMasterDefaultTypeInternal _ElectSessionMaster_default_instance_;
 class FlightPlanAction;
 struct FlightPlanActionDefaultTypeInternal;
 extern FlightPlanActionDefaultTypeInternal _FlightPlanAction_default_instance_;
@@ -569,7 +578,7 @@ class VacateStand final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const VacateStand*>(
         &_VacateStand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 48;
+  static constexpr int kIndexInFileMessages = 50;
   friend void swap(VacateStand& a, VacateStand& b) { a.Swap(&b); }
   inline void Swap(VacateStand* other) {
     if (other == this) return;
@@ -698,7 +707,7 @@ class UpdateRunwayStatus final : public ::google::protobuf::Message
     return reinterpret_cast<const UpdateRunwayStatus*>(
         &_UpdateRunwayStatus_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 72;
+  static constexpr int kIndexInFileMessages = 74;
   friend void swap(UpdateRunwayStatus& a, UpdateRunwayStatus& b) { a.Swap(&b); }
   inline void Swap(UpdateRunwayStatus* other) {
     if (other == this) return;
@@ -889,7 +898,7 @@ class UnablePdc final : public ::google::protobuf::Message
     return reinterpret_cast<const UnablePdc*>(
         &_UnablePdc_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 65;
+  static constexpr int kIndexInFileMessages = 67;
   friend void swap(UnablePdc& a, UnablePdc& b) { a.Swap(&b); }
   inline void Swap(UnablePdc* other) {
     if (other == this) return;
@@ -1062,7 +1071,7 @@ class TransferCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const TransferCoordination*>(
         &_TransferCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 31;
+  static constexpr int kIndexInFileMessages = 33;
   friend void swap(TransferCoordination& a, TransferCoordination& b) { a.Swap(&b); }
   inline void Swap(TransferCoordination* other) {
     if (other == this) return;
@@ -1235,7 +1244,7 @@ class TagCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const TagCoordination*>(
         &_TagCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 36;
+  static constexpr int kIndexInFileMessages = 38;
   friend void swap(TagCoordination& a, TagCoordination& b) { a.Swap(&b); }
   inline void Swap(TagCoordination* other) {
     if (other == this) return;
@@ -1431,7 +1440,7 @@ class StripRef final : public ::google::protobuf::Message
     return reinterpret_cast<const StripRef*>(
         &_StripRef_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 23;
+  static constexpr int kIndexInFileMessages = 25;
   friend void swap(StripRef& a, StripRef& b) { a.Swap(&b); }
   inline void Swap(StripRef* other) {
     if (other == this) return;
@@ -1628,7 +1637,7 @@ class StartTacticalTimer final : public ::google::protobuf::internal::ZeroFields
     return reinterpret_cast<const StartTacticalTimer*>(
         &_StartTacticalTimer_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 44;
+  static constexpr int kIndexInFileMessages = 46;
   friend void swap(StartTacticalTimer& a, StartTacticalTimer& b) { a.Swap(&b); }
   inline void Swap(StartTacticalTimer* other) {
     if (other == this) return;
@@ -1757,7 +1766,7 @@ class SetStripText final : public ::google::protobuf::Message
     return reinterpret_cast<const SetStripText*>(
         &_SetStripText_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 29;
+  static constexpr int kIndexInFileMessages = 31;
   friend void swap(SetStripText& a, SetStripText& b) { a.Swap(&b); }
   inline void Swap(SetStripText* other) {
     if (other == this) return;
@@ -1966,7 +1975,7 @@ class SetStartRequested final : public ::google::protobuf::Message
     return reinterpret_cast<const SetStartRequested*>(
         &_SetStartRequested_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 22;
+  static constexpr int kIndexInFileMessages = 24;
   friend void swap(SetStartRequested& a, SetStartRequested& b) { a.Swap(&b); }
   inline void Swap(SetStartRequested* other) {
     if (other == this) return;
@@ -2133,7 +2142,7 @@ class SetSquawk final : public ::google::protobuf::Message
     return reinterpret_cast<const SetSquawk*>(
         &_SetSquawk_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 16;
+  static constexpr int kIndexInFileMessages = 18;
   friend void swap(SetSquawk& a, SetSquawk& b) { a.Swap(&b); }
   inline void Swap(SetSquawk* other) {
     if (other == this) return;
@@ -2306,7 +2315,7 @@ class SetRunwayFlag final : public ::google::protobuf::Message
     return reinterpret_cast<const SetRunwayFlag*>(
         &_SetRunwayFlag_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 21;
+  static constexpr int kIndexInFileMessages = 23;
   friend void swap(SetRunwayFlag& a, SetRunwayFlag& b) { a.Swap(&b); }
   inline void Swap(SetRunwayFlag* other) {
     if (other == this) return;
@@ -2473,7 +2482,7 @@ class SetReleasePoint final : public ::google::protobuf::Message
     return reinterpret_cast<const SetReleasePoint*>(
         &_SetReleasePoint_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 19;
+  static constexpr int kIndexInFileMessages = 21;
   friend void swap(SetReleasePoint& a, SetReleasePoint& b) { a.Swap(&b); }
   inline void Swap(SetReleasePoint* other) {
     if (other == this) return;
@@ -2646,7 +2655,7 @@ class SetPositionLayout final : public ::google::protobuf::Message
     return reinterpret_cast<const SetPositionLayout*>(
         &_SetPositionLayout_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 102;
+  static constexpr int kIndexInFileMessages = 104;
   friend void swap(SetPositionLayout& a, SetPositionLayout& b) { a.Swap(&b); }
   inline void Swap(SetPositionLayout* other) {
     if (other == this) return;
@@ -2837,7 +2846,7 @@ class SetMarked final : public ::google::protobuf::Message
     return reinterpret_cast<const SetMarked*>(
         &_SetMarked_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 20;
+  static constexpr int kIndexInFileMessages = 22;
   friend void swap(SetMarked& a, SetMarked& b) { a.Swap(&b); }
   inline void Swap(SetMarked* other) {
     if (other == this) return;
@@ -3004,7 +3013,7 @@ class SetHeading final : public ::google::protobuf::Message
     return reinterpret_cast<const SetHeading*>(
         &_SetHeading_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 15;
+  static constexpr int kIndexInFileMessages = 17;
   friend void swap(SetHeading& a, SetHeading& b) { a.Swap(&b); }
   inline void Swap(SetHeading* other) {
     if (other == this) return;
@@ -3173,7 +3182,7 @@ class SetCdmReady final : public ::google::protobuf::Message
     return reinterpret_cast<const SetCdmReady*>(
         &_SetCdmReady_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 57;
+  static constexpr int kIndexInFileMessages = 59;
   friend void swap(SetCdmReady& a, SetCdmReady& b) { a.Swap(&b); }
   inline void Swap(SetCdmReady* other) {
     if (other == this) return;
@@ -3340,7 +3349,7 @@ class SetCdmDeice final : public ::google::protobuf::Message
     return reinterpret_cast<const SetCdmDeice*>(
         &_SetCdmDeice_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 58;
+  static constexpr int kIndexInFileMessages = 60;
   friend void swap(SetCdmDeice& a, SetCdmDeice& b) { a.Swap(&b); }
   inline void Swap(SetCdmDeice* other) {
     if (other == this) return;
@@ -3513,7 +3522,7 @@ class SetBay final : public ::google::protobuf::Message
     return reinterpret_cast<const SetBay*>(
         &_SetBay_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 18;
+  static constexpr int kIndexInFileMessages = 20;
   friend void swap(SetBay& a, SetBay& b) { a.Swap(&b); }
   inline void Swap(SetBay* other) {
     if (other == this) return;
@@ -3686,7 +3695,7 @@ class SetAltitude final : public ::google::protobuf::Message
     return reinterpret_cast<const SetAltitude*>(
         &_SetAltitude_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 17;
+  static constexpr int kIndexInFileMessages = 19;
   friend void swap(SetAltitude& a, SetAltitude& b) { a.Swap(&b); }
   inline void Swap(SetAltitude* other) {
     if (other == this) return;
@@ -3854,7 +3863,7 @@ class RevertPdcToVoice final : public ::google::protobuf::internal::ZeroFieldsBa
     return reinterpret_cast<const RevertPdcToVoice*>(
         &_RevertPdcToVoice_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 63;
+  static constexpr int kIndexInFileMessages = 65;
   friend void swap(RevertPdcToVoice& a, RevertPdcToVoice& b) { a.Swap(&b); }
   inline void Swap(RevertPdcToVoice* other) {
     if (other == this) return;
@@ -3982,7 +3991,7 @@ class RemoveStandBlock final : public ::google::protobuf::internal::ZeroFieldsBa
     return reinterpret_cast<const RemoveStandBlock*>(
         &_RemoveStandBlock_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 54;
+  static constexpr int kIndexInFileMessages = 56;
   friend void swap(RemoveStandBlock& a, RemoveStandBlock& b) { a.Swap(&b); }
   inline void Swap(RemoveStandBlock* other) {
     if (other == this) return;
@@ -4111,7 +4120,7 @@ class RemoveEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const RemoveEntity*>(
         &_RemoveEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 101;
+  static constexpr int kIndexInFileMessages = 103;
   friend void swap(RemoveEntity& a, RemoveEntity& b) { a.Swap(&b); }
   inline void Swap(RemoveEntity* other) {
     if (other == this) return;
@@ -4295,7 +4304,7 @@ class RemoveCdmCtot final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const RemoveCdmCtot*>(
         &_RemoveCdmCtot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 60;
+  static constexpr int kIndexInFileMessages = 62;
   friend void swap(RemoveCdmCtot& a, RemoveCdmCtot& b) { a.Swap(&b); }
   inline void Swap(RemoveCdmCtot* other) {
     if (other == this) return;
@@ -4424,7 +4433,7 @@ class PrivateMessage final : public ::google::protobuf::Message
     return reinterpret_cast<const PrivateMessage*>(
         &_PrivateMessage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 68;
+  static constexpr int kIndexInFileMessages = 70;
   friend void swap(PrivateMessage& a, PrivateMessage& b) { a.Swap(&b); }
   inline void Swap(PrivateMessage* other) {
     if (other == this) return;
@@ -4614,7 +4623,7 @@ class OccupyStand final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const OccupyStand*>(
         &_OccupyStand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 47;
+  static constexpr int kIndexInFileMessages = 49;
   friend void swap(OccupyStand& a, OccupyStand& b) { a.Swap(&b); }
   inline void Swap(OccupyStand* other) {
     if (other == this) return;
@@ -4743,7 +4752,7 @@ class MoveStrip final : public ::google::protobuf::Message
     return reinterpret_cast<const MoveStrip*>(
         &_MoveStrip_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 25;
+  static constexpr int kIndexInFileMessages = 27;
   friend void swap(MoveStrip& a, MoveStrip& b) { a.Swap(&b); }
   inline void Swap(MoveStrip* other) {
     if (other == this) return;
@@ -4942,7 +4951,7 @@ class MissedApproach final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const MissedApproach*>(
         &_MissedApproach_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 28;
+  static constexpr int kIndexInFileMessages = 30;
   friend void swap(MissedApproach& a, MissedApproach& b) { a.Swap(&b); }
   inline void Swap(MissedApproach* other) {
     if (other == this) return;
@@ -5071,7 +5080,7 @@ class MarkTactical final : public ::google::protobuf::Message
     return reinterpret_cast<const MarkTactical*>(
         &_MarkTactical_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 43;
+  static constexpr int kIndexInFileMessages = 45;
   friend void swap(MarkTactical& a, MarkTactical& b) { a.Swap(&b); }
   inline void Swap(MarkTactical* other) {
     if (other == this) return;
@@ -5238,7 +5247,7 @@ class ManualStand final : public ::google::protobuf::Message
     return reinterpret_cast<const ManualStand*>(
         &_ManualStand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 50;
+  static constexpr int kIndexInFileMessages = 52;
   friend void swap(ManualStand& a, ManualStand& b) { a.Swap(&b); }
   inline void Swap(ManualStand* other) {
     if (other == this) return;
@@ -5411,7 +5420,7 @@ class IssuePdc final : public ::google::protobuf::Message
     return reinterpret_cast<const IssuePdc*>(
         &_IssuePdc_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 62;
+  static constexpr int kIndexInFileMessages = 64;
   friend void swap(IssuePdc& a, IssuePdc& b) { a.Swap(&b); }
   inline void Swap(IssuePdc* other) {
     if (other == this) return;
@@ -5619,7 +5628,7 @@ class GenerateSquawk final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const GenerateSquawk*>(
         &_GenerateSquawk_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 26;
+  static constexpr int kIndexInFileMessages = 28;
   friend void swap(GenerateSquawk& a, GenerateSquawk& b) { a.Swap(&b); }
   inline void Swap(GenerateSquawk* other) {
     if (other == this) return;
@@ -5748,7 +5757,7 @@ class FrontendHeartbeat final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendHeartbeat*>(
         &_FrontendHeartbeat_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 12;
+  static constexpr int kIndexInFileMessages = 14;
   friend void swap(FrontendHeartbeat& a, FrontendHeartbeat& b) { a.Swap(&b); }
   inline void Swap(FrontendHeartbeat* other) {
     if (other == this) return;
@@ -5915,7 +5924,7 @@ class FrontendError final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendError*>(
         &_FrontendError_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 11;
+  static constexpr int kIndexInFileMessages = 13;
   friend void swap(FrontendError& a, FrontendError& b) { a.Swap(&b); }
   inline void Swap(FrontendError* other) {
     if (other == this) return;
@@ -6123,7 +6132,7 @@ class FrontendAuthenticate final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendAuthenticate*>(
         &_FrontendAuthenticate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 3;
+  static constexpr int kIndexInFileMessages = 5;
   friend void swap(FrontendAuthenticate& a, FrontendAuthenticate& b) { a.Swap(&b); }
   inline void Swap(FrontendAuthenticate* other) {
     if (other == this) return;
@@ -6331,7 +6340,7 @@ class FreeCoordination final : public ::google::protobuf::internal::ZeroFieldsBa
     return reinterpret_cast<const FreeCoordination*>(
         &_FreeCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 34;
+  static constexpr int kIndexInFileMessages = 36;
   friend void swap(FreeCoordination& a, FreeCoordination& b) { a.Swap(&b); }
   inline void Swap(FreeCoordination* other) {
     if (other == this) return;
@@ -6459,7 +6468,7 @@ class ForceAssumeTactical final : public ::google::protobuf::internal::ZeroField
     return reinterpret_cast<const ForceAssumeTactical*>(
         &_ForceAssumeTactical_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 42;
+  static constexpr int kIndexInFileMessages = 44;
   friend void swap(ForceAssumeTactical& a, ForceAssumeTactical& b) { a.Swap(&b); }
   inline void Swap(ForceAssumeTactical* other) {
     if (other == this) return;
@@ -6588,7 +6597,7 @@ class ForceAssumeCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const ForceAssumeCoordination*>(
         &_ForceAssumeCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 33;
+  static constexpr int kIndexInFileMessages = 35;
   friend void swap(ForceAssumeCoordination& a, ForceAssumeCoordination& b) { a.Swap(&b); }
   inline void Swap(ForceAssumeCoordination* other) {
     if (other == this) return;
@@ -6706,6 +6715,191 @@ class ForceAssumeCoordination final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class EffectDeliveryReply final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.EffectDeliveryReply) */ {
+ public:
+  inline EffectDeliveryReply() : EffectDeliveryReply(nullptr) {}
+  ~EffectDeliveryReply() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR EffectDeliveryReply(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline EffectDeliveryReply(const EffectDeliveryReply& from) : EffectDeliveryReply(nullptr, from) {}
+  inline EffectDeliveryReply(EffectDeliveryReply&& from) noexcept
+      : EffectDeliveryReply(nullptr, std::move(from)) {}
+  inline EffectDeliveryReply& operator=(const EffectDeliveryReply& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline EffectDeliveryReply& operator=(EffectDeliveryReply&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const EffectDeliveryReply& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const EffectDeliveryReply* internal_default_instance() {
+    return reinterpret_cast<const EffectDeliveryReply*>(
+        &_EffectDeliveryReply_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 3;
+  friend void swap(EffectDeliveryReply& a, EffectDeliveryReply& b) { a.Swap(&b); }
+  inline void Swap(EffectDeliveryReply* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(EffectDeliveryReply* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  EffectDeliveryReply* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<EffectDeliveryReply>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const EffectDeliveryReply& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const EffectDeliveryReply& from) { EffectDeliveryReply::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(EffectDeliveryReply* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.EffectDeliveryReply"; }
+
+ protected:
+  explicit EffectDeliveryReply(::google::protobuf::Arena* arena);
+  EffectDeliveryReply(::google::protobuf::Arena* arena, const EffectDeliveryReply& from);
+  EffectDeliveryReply(::google::protobuf::Arena* arena, EffectDeliveryReply&& from) noexcept
+      : EffectDeliveryReply(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCommandIdFieldNumber = 1,
+    kAcceptedFieldNumber = 2,
+  };
+  // string command_id = 1;
+  void clear_command_id() ;
+  const std::string& command_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_command_id(Arg_&& arg, Args_... args);
+  std::string* mutable_command_id();
+  PROTOBUF_NODISCARD std::string* release_command_id();
+  void set_allocated_command_id(std::string* value);
+
+  private:
+  const std::string& _internal_command_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_command_id(
+      const std::string& value);
+  std::string* _internal_mutable_command_id();
+
+  public:
+  // bool accepted = 2;
+  void clear_accepted() ;
+  bool accepted() const;
+  void set_accepted(bool value);
+
+  private:
+  bool _internal_accepted() const;
+  void _internal_set_accepted(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.EffectDeliveryReply)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 2, 0,
+      62, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr command_id_;
+    bool accepted_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
 class DeleteTactical final : public ::google::protobuf::internal::ZeroFieldsBase
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.DeleteTactical) */ {
  public:
@@ -6760,7 +6954,7 @@ class DeleteTactical final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const DeleteTactical*>(
         &_DeleteTactical_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 40;
+  static constexpr int kIndexInFileMessages = 42;
   friend void swap(DeleteTactical& a, DeleteTactical& b) { a.Swap(&b); }
   inline void Swap(DeleteTactical* other) {
     if (other == this) return;
@@ -6889,7 +7083,7 @@ class DeleteSession final : public ::google::protobuf::Message
     return reinterpret_cast<const DeleteSession*>(
         &_DeleteSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 99;
+  static constexpr int kIndexInFileMessages = 101;
   friend void swap(DeleteSession& a, DeleteSession& b) { a.Swap(&b); }
   inline void Swap(DeleteSession* other) {
     if (other == this) return;
@@ -7074,7 +7268,7 @@ class CreateVfrFlightPlan final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateVfrFlightPlan*>(
         &_CreateVfrFlightPlan_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 77;
+  static constexpr int kIndexInFileMessages = 79;
   friend void swap(CreateVfrFlightPlan& a, CreateVfrFlightPlan& b) { a.Swap(&b); }
   inline void Swap(CreateVfrFlightPlan* other) {
     if (other == this) return;
@@ -7331,7 +7525,7 @@ class CreateTactical final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateTactical*>(
         &_CreateTactical_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 39;
+  static constexpr int kIndexInFileMessages = 41;
   friend void swap(CreateTactical& a, CreateTactical& b) { a.Swap(&b); }
   inline void Swap(CreateTactical* other) {
     if (other == this) return;
@@ -7594,7 +7788,7 @@ class CreateSession final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateSession*>(
         &_CreateSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 98;
+  static constexpr int kIndexInFileMessages = 100;
   friend void swap(CreateSession& a, CreateSession& b) { a.Swap(&b); }
   inline void Swap(CreateSession* other) {
     if (other == this) return;
@@ -7814,7 +8008,7 @@ class ConfirmTactical final : public ::google::protobuf::internal::ZeroFieldsBas
     return reinterpret_cast<const ConfirmTactical*>(
         &_ConfirmTactical_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 41;
+  static constexpr int kIndexInFileMessages = 43;
   friend void swap(ConfirmTactical& a, ConfirmTactical& b) { a.Swap(&b); }
   inline void Swap(ConfirmTactical* other) {
     if (other == this) return;
@@ -7942,7 +8136,7 @@ class ConfirmStandOverride final : public ::google::protobuf::internal::ZeroFiel
     return reinterpret_cast<const ConfirmStandOverride*>(
         &_ConfirmStandOverride_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 51;
+  static constexpr int kIndexInFileMessages = 53;
   friend void swap(ConfirmStandOverride& a, ConfirmStandOverride& b) { a.Swap(&b); }
   inline void Swap(ConfirmStandOverride* other) {
     if (other == this) return;
@@ -8071,7 +8265,7 @@ class ChangeLayout final : public ::google::protobuf::Message
     return reinterpret_cast<const ChangeLayout*>(
         &_ChangeLayout_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 70;
+  static constexpr int kIndexInFileMessages = 72;
   friend void swap(ChangeLayout& a, ChangeLayout& b) { a.Swap(&b); }
   inline void Swap(ChangeLayout* other) {
     if (other == this) return;
@@ -8244,7 +8438,7 @@ class CancelCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const CancelCoordination*>(
         &_CancelCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 35;
+  static constexpr int kIndexInFileMessages = 37;
   friend void swap(CancelCoordination& a, CancelCoordination& b) { a.Swap(&b); }
   inline void Swap(CancelCoordination* other) {
     if (other == this) return;
@@ -8417,7 +8611,7 @@ class BroadcastMessage final : public ::google::protobuf::Message
     return reinterpret_cast<const BroadcastMessage*>(
         &_BroadcastMessage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 67;
+  static constexpr int kIndexInFileMessages = 69;
   friend void swap(BroadcastMessage& a, BroadcastMessage& b) { a.Swap(&b); }
   inline void Swap(BroadcastMessage* other) {
     if (other == this) return;
@@ -8619,7 +8813,7 @@ class AutomaticStand final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const AutomaticStand*>(
         &_AutomaticStand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 49;
+  static constexpr int kIndexInFileMessages = 51;
   friend void swap(AutomaticStand& a, AutomaticStand& b) { a.Swap(&b); }
   inline void Swap(AutomaticStand* other) {
     if (other == this) return;
@@ -8747,7 +8941,7 @@ class AssumeCoordination final : public ::google::protobuf::internal::ZeroFields
     return reinterpret_cast<const AssumeCoordination*>(
         &_AssumeCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 32;
+  static constexpr int kIndexInFileMessages = 34;
   friend void swap(AssumeCoordination& a, AssumeCoordination& b) { a.Swap(&b); }
   inline void Swap(AssumeCoordination* other) {
     if (other == this) return;
@@ -8876,7 +9070,7 @@ class AmanRemoveReservation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRemoveReservation*>(
         &_AmanRemoveReservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 93;
+  static constexpr int kIndexInFileMessages = 95;
   friend void swap(AmanRemoveReservation& a, AmanRemoveReservation& b) { a.Swap(&b); }
   inline void Swap(AmanRemoveReservation* other) {
     if (other == this) return;
@@ -9085,7 +9279,7 @@ class AmanRemoveGap final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRemoveGap*>(
         &_AmanRemoveGap_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 89;
+  static constexpr int kIndexInFileMessages = 91;
   friend void swap(AmanRemoveGap& a, AmanRemoveGap& b) { a.Swap(&b); }
   inline void Swap(AmanRemoveGap* other) {
     if (other == this) return;
@@ -9276,7 +9470,7 @@ class AmanRemoveClosure final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRemoveClosure*>(
         &_AmanRemoveClosure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 91;
+  static constexpr int kIndexInFileMessages = 93;
   friend void swap(AmanRemoveClosure& a, AmanRemoveClosure& b) { a.Swap(&b); }
   inline void Swap(AmanRemoveClosure* other) {
     if (other == this) return;
@@ -9490,7 +9684,7 @@ class AmanMoveFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanMoveFlight*>(
         &_AmanMoveFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 80;
+  static constexpr int kIndexInFileMessages = 82;
   friend void swap(AmanMoveFlight& a, AmanMoveFlight& b) { a.Swap(&b); }
   inline void Swap(AmanMoveFlight* other) {
     if (other == this) return;
@@ -9730,7 +9924,7 @@ class AmanFlightUnary final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanFlightUnary*>(
         &_AmanFlightUnary_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 79;
+  static constexpr int kIndexInFileMessages = 81;
   friend void swap(AmanFlightUnary& a, AmanFlightUnary& b) { a.Swap(&b); }
   inline void Swap(AmanFlightUnary* other) {
     if (other == this) return;
@@ -9903,7 +10097,7 @@ class AmanDecideGoAround final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanDecideGoAround*>(
         &_AmanDecideGoAround_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 87;
+  static constexpr int kIndexInFileMessages = 89;
   friend void swap(AmanDecideGoAround& a, AmanDecideGoAround& b) { a.Swap(&b); }
   inline void Swap(AmanDecideGoAround* other) {
     if (other == this) return;
@@ -10094,7 +10288,7 @@ class AmanDecideCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanDecideCoordination*>(
         &_AmanDecideCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 96;
+  static constexpr int kIndexInFileMessages = 98;
   friend void swap(AmanDecideCoordination& a, AmanDecideCoordination& b) { a.Swap(&b); }
   inline void Swap(AmanDecideCoordination* other) {
     if (other == this) return;
@@ -10287,7 +10481,7 @@ class AmanCreateReservation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCreateReservation*>(
         &_AmanCreateReservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 92;
+  static constexpr int kIndexInFileMessages = 94;
   friend void swap(AmanCreateReservation& a, AmanCreateReservation& b) { a.Swap(&b); }
   inline void Swap(AmanCreateReservation* other) {
     if (other == this) return;
@@ -10516,7 +10710,7 @@ class AmanChangeRunway final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanChangeRunway*>(
         &_AmanChangeRunway_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 85;
+  static constexpr int kIndexInFileMessages = 87;
   friend void swap(AmanChangeRunway& a, AmanChangeRunway& b) { a.Swap(&b); }
   inline void Swap(AmanChangeRunway* other) {
     if (other == this) return;
@@ -10707,7 +10901,7 @@ class AmanActiveRunways final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanActiveRunways*>(
         &_AmanActiveRunways_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 83;
+  static constexpr int kIndexInFileMessages = 85;
   friend void swap(AmanActiveRunways& a, AmanActiveRunways& b) { a.Swap(&b); }
   inline void Swap(AmanActiveRunways* other) {
     if (other == this) return;
@@ -10892,7 +11086,7 @@ class ActionStatusQuery final : public ::google::protobuf::Message
     return reinterpret_cast<const ActionStatusQuery*>(
         &_ActionStatusQuery_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 5;
+  static constexpr int kIndexInFileMessages = 7;
   friend void swap(ActionStatusQuery& a, ActionStatusQuery& b) { a.Swap(&b); }
   inline void Swap(ActionStatusQuery* other) {
     if (other == this) return;
@@ -11077,7 +11271,7 @@ class ActionStatusMissing final : public ::google::protobuf::Message
     return reinterpret_cast<const ActionStatusMissing*>(
         &_ActionStatusMissing_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 10;
+  static constexpr int kIndexInFileMessages = 12;
   friend void swap(ActionStatusMissing& a, ActionStatusMissing& b) { a.Swap(&b); }
   inline void Swap(ActionStatusMissing* other) {
     if (other == this) return;
@@ -11250,7 +11444,7 @@ class AcknowledgeUnexpectedChange final : public ::google::protobuf::Message
     return reinterpret_cast<const AcknowledgeUnexpectedChange*>(
         &_AcknowledgeUnexpectedChange_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 74;
+  static constexpr int kIndexInFileMessages = 76;
   friend void swap(AcknowledgeUnexpectedChange& a, AcknowledgeUnexpectedChange& b) { a.Swap(&b); }
   inline void Swap(AcknowledgeUnexpectedChange* other) {
     if (other == this) return;
@@ -11422,7 +11616,7 @@ class AcknowledgeStand final : public ::google::protobuf::internal::ZeroFieldsBa
     return reinterpret_cast<const AcknowledgeStand*>(
         &_AcknowledgeStand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 52;
+  static constexpr int kIndexInFileMessages = 54;
   friend void swap(AcknowledgeStand& a, AcknowledgeStand& b) { a.Swap(&b); }
   inline void Swap(AcknowledgeStand* other) {
     if (other == this) return;
@@ -11550,7 +11744,7 @@ class AcknowledgePdc final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const AcknowledgePdc*>(
         &_AcknowledgePdc_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 64;
+  static constexpr int kIndexInFileMessages = 66;
   friend void swap(AcknowledgePdc& a, AcknowledgePdc& b) { a.Swap(&b); }
   inline void Swap(AcknowledgePdc* other) {
     if (other == this) return;
@@ -11679,7 +11873,7 @@ class AcceptTagCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const AcceptTagCoordination*>(
         &_AcceptTagCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 37;
+  static constexpr int kIndexInFileMessages = 39;
   friend void swap(AcceptTagCoordination& a, AcceptTagCoordination& b) { a.Swap(&b); }
   inline void Swap(AcceptTagCoordination* other) {
     if (other == this) return;
@@ -11852,7 +12046,7 @@ class UpdateStripData final : public ::google::protobuf::Message
     return reinterpret_cast<const UpdateStripData*>(
         &_UpdateStripData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 27;
+  static constexpr int kIndexInFileMessages = 29;
   friend void swap(UpdateStripData& a, UpdateStripData& b) { a.Swap(&b); }
   inline void Swap(UpdateStripData* other) {
     if (other == this) return;
@@ -12178,7 +12372,7 @@ class SetTobt final : public ::google::protobuf::Message
     return reinterpret_cast<const SetTobt*>(
         &_SetTobt_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 56;
+  static constexpr int kIndexInFileMessages = 58;
   friend void swap(SetTobt& a, SetTobt& b) { a.Swap(&b); }
   inline void Swap(SetTobt* other) {
     if (other == this) return;
@@ -12351,7 +12545,7 @@ class SetStripOrder final : public ::google::protobuf::Message
     return reinterpret_cast<const SetStripOrder*>(
         &_SetStripOrder_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 24;
+  static constexpr int kIndexInFileMessages = 26;
   friend void swap(SetStripOrder& a, SetStripOrder& b) { a.Swap(&b); }
   inline void Swap(SetStripOrder* other) {
     if (other == this) return;
@@ -12524,7 +12718,7 @@ class SetCdmCtot final : public ::google::protobuf::Message
     return reinterpret_cast<const SetCdmCtot*>(
         &_SetCdmCtot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 59;
+  static constexpr int kIndexInFileMessages = 61;
   friend void swap(SetCdmCtot& a, SetCdmCtot& b) { a.Swap(&b); }
   inline void Swap(SetCdmCtot* other) {
     if (other == this) return;
@@ -12697,7 +12891,7 @@ class ReplaceSectorOwners final : public ::google::protobuf::Message
     return reinterpret_cast<const ReplaceSectorOwners*>(
         &_ReplaceSectorOwners_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 103;
+  static constexpr int kIndexInFileMessages = 105;
   friend void swap(ReplaceSectorOwners& a, ReplaceSectorOwners& b) { a.Swap(&b); }
   inline void Swap(ReplaceSectorOwners* other) {
     if (other == this) return;
@@ -12878,7 +13072,7 @@ class PdcAction final : public ::google::protobuf::Message
     return reinterpret_cast<const PdcAction*>(
         &_PdcAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 61;
+  static constexpr int kIndexInFileMessages = 63;
   friend void swap(PdcAction& a, PdcAction& b) { a.Swap(&b); }
   inline void Swap(PdcAction* other) {
     if (other == this) return;
@@ -13148,7 +13342,7 @@ class MoveTactical final : public ::google::protobuf::Message
     return reinterpret_cast<const MoveTactical*>(
         &_MoveTactical_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 45;
+  static constexpr int kIndexInFileMessages = 47;
   friend void swap(MoveTactical& a, MoveTactical& b) { a.Swap(&b); }
   inline void Swap(MoveTactical* other) {
     if (other == this) return;
@@ -13345,7 +13539,7 @@ class MessageAction final : public ::google::protobuf::Message
     return reinterpret_cast<const MessageAction*>(
         &_MessageAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 66;
+  static constexpr int kIndexInFileMessages = 68;
   friend void swap(MessageAction& a, MessageAction& b) { a.Swap(&b); }
   inline void Swap(MessageAction* other) {
     if (other == this) return;
@@ -13498,6 +13692,179 @@ class MessageAction final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class ElectSessionMaster final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.ElectSessionMaster) */ {
+ public:
+  inline ElectSessionMaster() : ElectSessionMaster(nullptr) {}
+  ~ElectSessionMaster() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ElectSessionMaster(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline ElectSessionMaster(const ElectSessionMaster& from) : ElectSessionMaster(nullptr, from) {}
+  inline ElectSessionMaster(ElectSessionMaster&& from) noexcept
+      : ElectSessionMaster(nullptr, std::move(from)) {}
+  inline ElectSessionMaster& operator=(const ElectSessionMaster& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ElectSessionMaster& operator=(ElectSessionMaster&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const ElectSessionMaster& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const ElectSessionMaster* internal_default_instance() {
+    return reinterpret_cast<const ElectSessionMaster*>(
+        &_ElectSessionMaster_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 111;
+  friend void swap(ElectSessionMaster& a, ElectSessionMaster& b) { a.Swap(&b); }
+  inline void Swap(ElectSessionMaster* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ElectSessionMaster* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ElectSessionMaster* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<ElectSessionMaster>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ElectSessionMaster& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ElectSessionMaster& from) { ElectSessionMaster::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(ElectSessionMaster* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.ElectSessionMaster"; }
+
+ protected:
+  explicit ElectSessionMaster(::google::protobuf::Arena* arena);
+  ElectSessionMaster(::google::protobuf::Arena* arena, const ElectSessionMaster& from);
+  ElectSessionMaster(::google::protobuf::Arena* arena, ElectSessionMaster&& from) noexcept
+      : ElectSessionMaster(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kMasterFieldNumber = 1,
+  };
+  // .flightstrips.cluster.v1.MasterTerm master = 1;
+  bool has_master() const;
+  void clear_master() ;
+  const ::flightstrips::cluster::v1::MasterTerm& master() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::MasterTerm* release_master();
+  ::flightstrips::cluster::v1::MasterTerm* mutable_master();
+  void set_allocated_master(::flightstrips::cluster::v1::MasterTerm* value);
+  void unsafe_arena_set_allocated_master(::flightstrips::cluster::v1::MasterTerm* value);
+  ::flightstrips::cluster::v1::MasterTerm* unsafe_arena_release_master();
+
+  private:
+  const ::flightstrips::cluster::v1::MasterTerm& _internal_master() const;
+  ::flightstrips::cluster::v1::MasterTerm* _internal_mutable_master();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ElectSessionMaster)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      0, 1, 1,
+      0, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::flightstrips::cluster::v1::MasterTerm* master_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
 class CreateStandBlock final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CreateStandBlock) */ {
  public:
@@ -13553,7 +13920,7 @@ class CreateStandBlock final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateStandBlock*>(
         &_CreateStandBlock_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 53;
+  static constexpr int kIndexInFileMessages = 55;
   friend void swap(CreateStandBlock& a, CreateStandBlock& b) { a.Swap(&b); }
   inline void Swap(CreateStandBlock* other) {
     if (other == this) return;
@@ -13744,7 +14111,7 @@ class CreateManualFlightPlan final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateManualFlightPlan*>(
         &_CreateManualFlightPlan_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 76;
+  static constexpr int kIndexInFileMessages = 78;
   friend void swap(CreateManualFlightPlan& a, CreateManualFlightPlan& b) { a.Swap(&b); }
   inline void Swap(CreateManualFlightPlan* other) {
     if (other == this) return;
@@ -14071,7 +14438,7 @@ class CoordinationAction final : public ::google::protobuf::Message
     return reinterpret_cast<const CoordinationAction*>(
         &_CoordinationAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 30;
+  static constexpr int kIndexInFileMessages = 32;
   friend void swap(CoordinationAction& a, CoordinationAction& b) { a.Swap(&b); }
   inline void Swap(CoordinationAction* other) {
     if (other == this) return;
@@ -14407,7 +14774,7 @@ class ChangeRunways final : public ::google::protobuf::Message
     return reinterpret_cast<const ChangeRunways*>(
         &_ChangeRunways_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 71;
+  static constexpr int kIndexInFileMessages = 73;
   friend void swap(ChangeRunways& a, ChangeRunways& b) { a.Swap(&b); }
   inline void Swap(ChangeRunways* other) {
     if (other == this) return;
@@ -14586,7 +14953,7 @@ class AmanSubmitCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSubmitCoordination*>(
         &_AmanSubmitCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 95;
+  static constexpr int kIndexInFileMessages = 97;
   friend void swap(AmanSubmitCoordination& a, AmanSubmitCoordination& b) { a.Swap(&b); }
   inline void Swap(AmanSubmitCoordination* other) {
     if (other == this) return;
@@ -14830,7 +15197,7 @@ class AmanSelectRunway final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSelectRunway*>(
         &_AmanSelectRunway_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 82;
+  static constexpr int kIndexInFileMessages = 84;
   friend void swap(AmanSelectRunway& a, AmanSelectRunway& b) { a.Swap(&b); }
   inline void Swap(AmanSelectRunway* other) {
     if (other == this) return;
@@ -15021,7 +15388,7 @@ class AmanReportGoAround final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanReportGoAround*>(
         &_AmanReportGoAround_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 86;
+  static constexpr int kIndexInFileMessages = 88;
   friend void swap(AmanReportGoAround& a, AmanReportGoAround& b) { a.Swap(&b); }
   inline void Swap(AmanReportGoAround* other) {
     if (other == this) return;
@@ -15212,7 +15579,7 @@ class AmanRate final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRate*>(
         &_AmanRate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 81;
+  static constexpr int kIndexInFileMessages = 83;
   friend void swap(AmanRate& a, AmanRate& b) { a.Swap(&b); }
   inline void Swap(AmanRate* other) {
     if (other == this) return;
@@ -15415,7 +15782,7 @@ class AmanPlaceFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanPlaceFlight*>(
         &_AmanPlaceFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 94;
+  static constexpr int kIndexInFileMessages = 96;
   friend void swap(AmanPlaceFlight& a, AmanPlaceFlight& b) { a.Swap(&b); }
   inline void Swap(AmanPlaceFlight* other) {
     if (other == this) return;
@@ -15636,7 +16003,7 @@ class AmanManualEta final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanManualEta*>(
         &_AmanManualEta_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 84;
+  static constexpr int kIndexInFileMessages = 86;
   friend void swap(AmanManualEta& a, AmanManualEta& b) { a.Swap(&b); }
   inline void Swap(AmanManualEta* other) {
     if (other == this) return;
@@ -15832,7 +16199,7 @@ class AmanCreateGap final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCreateGap*>(
         &_AmanCreateGap_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 88;
+  static constexpr int kIndexInFileMessages = 90;
   friend void swap(AmanCreateGap& a, AmanCreateGap& b) { a.Swap(&b); }
   inline void Swap(AmanCreateGap* other) {
     if (other == this) return;
@@ -16091,7 +16458,7 @@ class AmanCreateClosure final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCreateClosure*>(
         &_AmanCreateClosure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 90;
+  static constexpr int kIndexInFileMessages = 92;
   friend void swap(AmanCreateClosure& a, AmanCreateClosure& b) { a.Swap(&b); }
   inline void Swap(AmanCreateClosure* other) {
     if (other == this) return;
@@ -16358,7 +16725,7 @@ class ValidationActionCommand final : public ::google::protobuf::Message
     return reinterpret_cast<const ValidationActionCommand*>(
         &_ValidationActionCommand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 73;
+  static constexpr int kIndexInFileMessages = 75;
   friend void swap(ValidationActionCommand& a, ValidationActionCommand& b) { a.Swap(&b); }
   inline void Swap(ValidationActionCommand* other) {
     if (other == this) return;
@@ -16638,7 +17005,7 @@ class TacticalAction final : public ::google::protobuf::Message
     return reinterpret_cast<const TacticalAction*>(
         &_TacticalAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 38;
+  static constexpr int kIndexInFileMessages = 40;
   friend void swap(TacticalAction& a, TacticalAction& b) { a.Swap(&b); }
   inline void Swap(TacticalAction* other) {
     if (other == this) return;
@@ -16987,7 +17354,7 @@ class StripAction final : public ::google::protobuf::Message
     return reinterpret_cast<const StripAction*>(
         &_StripAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 14;
+  static constexpr int kIndexInFileMessages = 16;
   friend void swap(StripAction& a, StripAction& b) { a.Swap(&b); }
   inline void Swap(StripAction* other) {
     if (other == this) return;
@@ -17532,7 +17899,7 @@ class StandAction final : public ::google::protobuf::Message
     return reinterpret_cast<const StandAction*>(
         &_StandAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 46;
+  static constexpr int kIndexInFileMessages = 48;
   friend void swap(StandAction& a, StandAction& b) { a.Swap(&b); }
   inline void Swap(StandAction* other) {
     if (other == this) return;
@@ -18032,7 +18399,7 @@ class SessionAction final : public ::google::protobuf::Message
     return reinterpret_cast<const SessionAction*>(
         &_SessionAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 69;
+  static constexpr int kIndexInFileMessages = 71;
   friend void swap(SessionAction& a, SessionAction& b) { a.Swap(&b); }
   inline void Swap(SessionAction* other) {
     if (other == this) return;
@@ -18262,7 +18629,7 @@ class RenewOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const RenewOwner*>(
         &_RenewOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 105;
+  static constexpr int kIndexInFileMessages = 107;
   friend void swap(RenewOwner& a, RenewOwner& b) { a.Swap(&b); }
   inline void Swap(RenewOwner* other) {
     if (other == this) return;
@@ -18435,7 +18802,7 @@ class RecordSessionSync final : public ::google::protobuf::Message
     return reinterpret_cast<const RecordSessionSync*>(
         &_RecordSessionSync_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 108;
+  static constexpr int kIndexInFileMessages = 110;
   friend void swap(RecordSessionSync& a, RecordSessionSync& b) { a.Swap(&b); }
   inline void Swap(RecordSessionSync* other) {
     if (other == this) return;
@@ -18608,7 +18975,7 @@ class FrontendActionResult final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendActionResult*>(
         &_FrontendActionResult_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 9;
+  static constexpr int kIndexInFileMessages = 11;
   friend void swap(FrontendActionResult& a, FrontendActionResult& b) { a.Swap(&b); }
   inline void Swap(FrontendActionResult* other) {
     if (other == this) return;
@@ -18864,7 +19231,7 @@ class FlightPlanAction final : public ::google::protobuf::Message
     return reinterpret_cast<const FlightPlanAction*>(
         &_FlightPlanAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 75;
+  static constexpr int kIndexInFileMessages = 77;
   friend void swap(FlightPlanAction& a, FlightPlanAction& b) { a.Swap(&b); }
   inline void Swap(FlightPlanAction* other) {
     if (other == this) return;
@@ -19028,6 +19395,221 @@ class FlightPlanAction final : public ::google::protobuf::Message
     } create_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
+class EffectDeliveryRequest final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.EffectDeliveryRequest) */ {
+ public:
+  inline EffectDeliveryRequest() : EffectDeliveryRequest(nullptr) {}
+  ~EffectDeliveryRequest() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR EffectDeliveryRequest(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline EffectDeliveryRequest(const EffectDeliveryRequest& from) : EffectDeliveryRequest(nullptr, from) {}
+  inline EffectDeliveryRequest(EffectDeliveryRequest&& from) noexcept
+      : EffectDeliveryRequest(nullptr, std::move(from)) {}
+  inline EffectDeliveryRequest& operator=(const EffectDeliveryRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline EffectDeliveryRequest& operator=(EffectDeliveryRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const EffectDeliveryRequest& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const EffectDeliveryRequest* internal_default_instance() {
+    return reinterpret_cast<const EffectDeliveryRequest*>(
+        &_EffectDeliveryRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 2;
+  friend void swap(EffectDeliveryRequest& a, EffectDeliveryRequest& b) { a.Swap(&b); }
+  inline void Swap(EffectDeliveryRequest* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(EffectDeliveryRequest* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  EffectDeliveryRequest* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<EffectDeliveryRequest>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const EffectDeliveryRequest& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const EffectDeliveryRequest& from) { EffectDeliveryRequest::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(EffectDeliveryRequest* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.EffectDeliveryRequest"; }
+
+ protected:
+  explicit EffectDeliveryRequest(::google::protobuf::Arena* arena);
+  EffectDeliveryRequest(::google::protobuf::Arena* arena, const EffectDeliveryRequest& from);
+  EffectDeliveryRequest(::google::protobuf::Arena* arena, EffectDeliveryRequest&& from) noexcept
+      : EffectDeliveryRequest(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kConnectionIdFieldNumber = 2,
+    kEffectFieldNumber = 3,
+    kClaimStreamSequenceFieldNumber = 4,
+    kSessionIdFieldNumber = 1,
+  };
+  // string connection_id = 2;
+  void clear_connection_id() ;
+  const std::string& connection_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_connection_id(Arg_&& arg, Args_... args);
+  std::string* mutable_connection_id();
+  PROTOBUF_NODISCARD std::string* release_connection_id();
+  void set_allocated_connection_id(std::string* value);
+
+  private:
+  const std::string& _internal_connection_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_connection_id(
+      const std::string& value);
+  std::string* _internal_mutable_connection_id();
+
+  public:
+  // .flightstrips.cluster.v1.EffectRecord effect = 3;
+  bool has_effect() const;
+  void clear_effect() ;
+  const ::flightstrips::cluster::v1::EffectRecord& effect() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::EffectRecord* release_effect();
+  ::flightstrips::cluster::v1::EffectRecord* mutable_effect();
+  void set_allocated_effect(::flightstrips::cluster::v1::EffectRecord* value);
+  void unsafe_arena_set_allocated_effect(::flightstrips::cluster::v1::EffectRecord* value);
+  ::flightstrips::cluster::v1::EffectRecord* unsafe_arena_release_effect();
+
+  private:
+  const ::flightstrips::cluster::v1::EffectRecord& _internal_effect() const;
+  ::flightstrips::cluster::v1::EffectRecord* _internal_mutable_effect();
+
+  public:
+  // uint64 claim_stream_sequence = 4;
+  void clear_claim_stream_sequence() ;
+  ::uint64_t claim_stream_sequence() const;
+  void set_claim_stream_sequence(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_claim_stream_sequence() const;
+  void _internal_set_claim_stream_sequence(::uint64_t value);
+
+  public:
+  // int32 session_id = 1;
+  void clear_session_id() ;
+  ::int32_t session_id() const;
+  void set_session_id(::int32_t value);
+
+  private:
+  ::int32_t _internal_session_id() const;
+  void _internal_set_session_id(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.EffectDeliveryRequest)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 4, 1,
+      67, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr connection_id_;
+    ::flightstrips::cluster::v1::EffectRecord* effect_;
+    ::uint64_t claim_stream_sequence_;
+    ::int32_t session_id_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -19405,7 +19987,7 @@ class ClaimOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const ClaimOwner*>(
         &_ClaimOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 104;
+  static constexpr int kIndexInFileMessages = 106;
   friend void swap(ClaimOwner& a, ClaimOwner& b) { a.Swap(&b); }
   inline void Swap(ClaimOwner* other) {
     if (other == this) return;
@@ -19586,7 +20168,7 @@ class CdmAction final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmAction*>(
         &_CdmAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 55;
+  static constexpr int kIndexInFileMessages = 57;
   friend void swap(CdmAction& a, CdmAction& b) { a.Swap(&b); }
   inline void Swap(CdmAction* other) {
     if (other == this) return;
@@ -19911,7 +20493,7 @@ class AmanAction final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanAction*>(
         &_AmanAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 78;
+  static constexpr int kIndexInFileMessages = 80;
   friend void swap(AmanAction& a, AmanAction& b) { a.Swap(&b); }
   inline void Swap(AmanAction* other) {
     if (other == this) return;
@@ -20747,7 +21329,7 @@ class AdvanceEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceEffect*>(
         &_AdvanceEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 107;
+  static constexpr int kIndexInFileMessages = 109;
   friend void swap(AdvanceEffect& a, AdvanceEffect& b) { a.Swap(&b); }
   inline void Swap(AdvanceEffect* other) {
     if (other == this) return;
@@ -20925,7 +21507,7 @@ class FrontendObservation final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendObservation*>(
         &_FrontendObservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 8;
+  static constexpr int kIndexInFileMessages = 10;
   friend void swap(FrontendObservation& a, FrontendObservation& b) { a.Swap(&b); }
   inline void Swap(FrontendObservation* other) {
     if (other == this) return;
@@ -21201,7 +21783,7 @@ class ClientCommand final : public ::google::protobuf::Message
     return reinterpret_cast<const ClientCommand*>(
         &_ClientCommand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 13;
+  static constexpr int kIndexInFileMessages = 15;
   friend void swap(ClientCommand& a, ClientCommand& b) { a.Swap(&b); }
   inline void Swap(ClientCommand* other) {
     if (other == this) return;
@@ -21607,7 +22189,7 @@ class AdvanceWorkflow final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceWorkflow*>(
         &_AdvanceWorkflow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 106;
+  static constexpr int kIndexInFileMessages = 108;
   friend void swap(AdvanceWorkflow& a, AdvanceWorkflow& b) { a.Swap(&b); }
   inline void Swap(AdvanceWorkflow* other) {
     if (other == this) return;
@@ -21780,7 +22362,7 @@ class FrontendCommand final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendCommand*>(
         &_FrontendCommand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 4;
+  static constexpr int kIndexInFileMessages = 6;
   friend void swap(FrontendCommand& a, FrontendCommand& b) { a.Swap(&b); }
   inline void Swap(FrontendCommand* other) {
     if (other == this) return;
@@ -21984,7 +22566,7 @@ class UpdateEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const UpdateEntity*>(
         &_UpdateEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 100;
+  static constexpr int kIndexInFileMessages = 102;
   friend void swap(UpdateEntity& a, UpdateEntity& b) { a.Swap(&b); }
   inline void Swap(UpdateEntity* other) {
     if (other == this) return;
@@ -22183,13 +22765,14 @@ class SystemCommand final : public ::google::protobuf::Message
     kRecordSync = 9,
     kSetPositionLayout = 10,
     kReplaceSectorOwners = 11,
+    kElectSessionMaster = 12,
     ACTION_NOT_SET = 0,
   };
   static inline const SystemCommand* internal_default_instance() {
     return reinterpret_cast<const SystemCommand*>(
         &_SystemCommand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 97;
+  static constexpr int kIndexInFileMessages = 99;
   friend void swap(SystemCommand& a, SystemCommand& b) { a.Swap(&b); }
   inline void Swap(SystemCommand* other) {
     if (other == this) return;
@@ -22270,6 +22853,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kRecordSyncFieldNumber = 9,
     kSetPositionLayoutFieldNumber = 10,
     kReplaceSectorOwnersFieldNumber = 11,
+    kElectSessionMasterFieldNumber = 12,
   };
   // .flightstrips.cluster.v1.CreateSession create_session = 1;
   bool has_create_session() const;
@@ -22480,6 +23064,25 @@ class SystemCommand final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::ReplaceSectorOwners* _internal_mutable_replace_sector_owners();
 
   public:
+  // .flightstrips.cluster.v1.ElectSessionMaster elect_session_master = 12;
+  bool has_elect_session_master() const;
+  private:
+  bool _internal_has_elect_session_master() const;
+
+  public:
+  void clear_elect_session_master() ;
+  const ::flightstrips::cluster::v1::ElectSessionMaster& elect_session_master() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::ElectSessionMaster* release_elect_session_master();
+  ::flightstrips::cluster::v1::ElectSessionMaster* mutable_elect_session_master();
+  void set_allocated_elect_session_master(::flightstrips::cluster::v1::ElectSessionMaster* value);
+  void unsafe_arena_set_allocated_elect_session_master(::flightstrips::cluster::v1::ElectSessionMaster* value);
+  ::flightstrips::cluster::v1::ElectSessionMaster* unsafe_arena_release_elect_session_master();
+
+  private:
+  const ::flightstrips::cluster::v1::ElectSessionMaster& _internal_elect_session_master() const;
+  ::flightstrips::cluster::v1::ElectSessionMaster* _internal_mutable_elect_session_master();
+
+  public:
   void clear_action();
   ActionCase action_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.SystemCommand)
@@ -22496,11 +23099,12 @@ class SystemCommand final : public ::google::protobuf::Message
   void set_has_record_sync();
   void set_has_set_position_layout();
   void set_has_replace_sector_owners();
+  void set_has_elect_session_master();
   inline bool has_action() const;
   inline void clear_has_action();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 11, 11,
+      0, 12, 12,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -22530,6 +23134,7 @@ class SystemCommand final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::RecordSessionSync* record_sync_;
       ::flightstrips::cluster::v1::SetPositionLayout* set_position_layout_;
       ::flightstrips::cluster::v1::ReplaceSectorOwners* replace_sector_owners_;
+      ::flightstrips::cluster::v1::ElectSessionMaster* elect_session_master_;
     } action_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -22595,7 +23200,7 @@ class FrontendInitial final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendInitial*>(
         &_FrontendInitial_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 6;
+  static constexpr int kIndexInFileMessages = 8;
   friend void swap(FrontendInitial& a, FrontendInitial& b) { a.Swap(&b); }
   inline void Swap(FrontendInitial* other) {
     if (other == this) return;
@@ -23056,7 +23661,7 @@ class FrontendDelta final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendDelta*>(
         &_FrontendDelta_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 7;
+  static constexpr int kIndexInFileMessages = 9;
   friend void swap(FrontendDelta& a, FrontendDelta& b) { a.Swap(&b); }
   inline void Swap(FrontendDelta* other) {
     if (other == this) return;
@@ -23304,7 +23909,7 @@ class FrontendFrame final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendFrame*>(
         &_FrontendFrame_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 2;
+  static constexpr int kIndexInFileMessages = 4;
   friend void swap(FrontendFrame& a, FrontendFrame& b) { a.Swap(&b); }
   inline void Swap(FrontendFrame* other) {
     if (other == this) return;
@@ -24808,6 +25413,271 @@ inline void CommandReply::set_allocated_detail(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CommandReply.detail)
+}
+
+// -------------------------------------------------------------------
+
+// EffectDeliveryRequest
+
+// int32 session_id = 1;
+inline void EffectDeliveryRequest::clear_session_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.session_id_ = 0;
+}
+inline ::int32_t EffectDeliveryRequest::session_id() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EffectDeliveryRequest.session_id)
+  return _internal_session_id();
+}
+inline void EffectDeliveryRequest::set_session_id(::int32_t value) {
+  _internal_set_session_id(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.EffectDeliveryRequest.session_id)
+}
+inline ::int32_t EffectDeliveryRequest::_internal_session_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.session_id_;
+}
+inline void EffectDeliveryRequest::_internal_set_session_id(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.session_id_ = value;
+}
+
+// string connection_id = 2;
+inline void EffectDeliveryRequest::clear_connection_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connection_id_.ClearToEmpty();
+}
+inline const std::string& EffectDeliveryRequest::connection_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EffectDeliveryRequest.connection_id)
+  return _internal_connection_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void EffectDeliveryRequest::set_connection_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connection_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.EffectDeliveryRequest.connection_id)
+}
+inline std::string* EffectDeliveryRequest::mutable_connection_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_connection_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.EffectDeliveryRequest.connection_id)
+  return _s;
+}
+inline const std::string& EffectDeliveryRequest::_internal_connection_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.connection_id_.Get();
+}
+inline void EffectDeliveryRequest::_internal_set_connection_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connection_id_.Set(value, GetArena());
+}
+inline std::string* EffectDeliveryRequest::_internal_mutable_connection_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.connection_id_.Mutable( GetArena());
+}
+inline std::string* EffectDeliveryRequest::release_connection_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.EffectDeliveryRequest.connection_id)
+  return _impl_.connection_id_.Release();
+}
+inline void EffectDeliveryRequest::set_allocated_connection_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connection_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.connection_id_.IsDefault()) {
+          _impl_.connection_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.EffectDeliveryRequest.connection_id)
+}
+
+// .flightstrips.cluster.v1.EffectRecord effect = 3;
+inline bool EffectDeliveryRequest::has_effect() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.effect_ != nullptr);
+  return value;
+}
+inline const ::flightstrips::cluster::v1::EffectRecord& EffectDeliveryRequest::_internal_effect() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::EffectRecord* p = _impl_.effect_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::EffectRecord&>(::flightstrips::cluster::v1::_EffectRecord_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::EffectRecord& EffectDeliveryRequest::effect() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EffectDeliveryRequest.effect)
+  return _internal_effect();
+}
+inline void EffectDeliveryRequest::unsafe_arena_set_allocated_effect(::flightstrips::cluster::v1::EffectRecord* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.effect_);
+  }
+  _impl_.effect_ = reinterpret_cast<::flightstrips::cluster::v1::EffectRecord*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.EffectDeliveryRequest.effect)
+}
+inline ::flightstrips::cluster::v1::EffectRecord* EffectDeliveryRequest::release_effect() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::EffectRecord* released = _impl_.effect_;
+  _impl_.effect_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::EffectRecord* EffectDeliveryRequest::unsafe_arena_release_effect() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.EffectDeliveryRequest.effect)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::EffectRecord* temp = _impl_.effect_;
+  _impl_.effect_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::EffectRecord* EffectDeliveryRequest::_internal_mutable_effect() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.effect_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::EffectRecord>(GetArena());
+    _impl_.effect_ = reinterpret_cast<::flightstrips::cluster::v1::EffectRecord*>(p);
+  }
+  return _impl_.effect_;
+}
+inline ::flightstrips::cluster::v1::EffectRecord* EffectDeliveryRequest::mutable_effect() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::flightstrips::cluster::v1::EffectRecord* _msg = _internal_mutable_effect();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.EffectDeliveryRequest.effect)
+  return _msg;
+}
+inline void EffectDeliveryRequest::set_allocated_effect(::flightstrips::cluster::v1::EffectRecord* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.effect_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.effect_ = reinterpret_cast<::flightstrips::cluster::v1::EffectRecord*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.EffectDeliveryRequest.effect)
+}
+
+// uint64 claim_stream_sequence = 4;
+inline void EffectDeliveryRequest::clear_claim_stream_sequence() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.claim_stream_sequence_ = ::uint64_t{0u};
+}
+inline ::uint64_t EffectDeliveryRequest::claim_stream_sequence() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EffectDeliveryRequest.claim_stream_sequence)
+  return _internal_claim_stream_sequence();
+}
+inline void EffectDeliveryRequest::set_claim_stream_sequence(::uint64_t value) {
+  _internal_set_claim_stream_sequence(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.EffectDeliveryRequest.claim_stream_sequence)
+}
+inline ::uint64_t EffectDeliveryRequest::_internal_claim_stream_sequence() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.claim_stream_sequence_;
+}
+inline void EffectDeliveryRequest::_internal_set_claim_stream_sequence(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.claim_stream_sequence_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// EffectDeliveryReply
+
+// string command_id = 1;
+inline void EffectDeliveryReply::clear_command_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.command_id_.ClearToEmpty();
+}
+inline const std::string& EffectDeliveryReply::command_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EffectDeliveryReply.command_id)
+  return _internal_command_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void EffectDeliveryReply::set_command_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.command_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.EffectDeliveryReply.command_id)
+}
+inline std::string* EffectDeliveryReply::mutable_command_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_command_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.EffectDeliveryReply.command_id)
+  return _s;
+}
+inline const std::string& EffectDeliveryReply::_internal_command_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.command_id_.Get();
+}
+inline void EffectDeliveryReply::_internal_set_command_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.command_id_.Set(value, GetArena());
+}
+inline std::string* EffectDeliveryReply::_internal_mutable_command_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.command_id_.Mutable( GetArena());
+}
+inline std::string* EffectDeliveryReply::release_command_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.EffectDeliveryReply.command_id)
+  return _impl_.command_id_.Release();
+}
+inline void EffectDeliveryReply::set_allocated_command_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.command_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.command_id_.IsDefault()) {
+          _impl_.command_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.EffectDeliveryReply.command_id)
+}
+
+// bool accepted = 2;
+inline void EffectDeliveryReply::clear_accepted() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.accepted_ = false;
+}
+inline bool EffectDeliveryReply::accepted() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EffectDeliveryReply.accepted)
+  return _internal_accepted();
+}
+inline void EffectDeliveryReply::set_accepted(bool value) {
+  _internal_set_accepted(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.EffectDeliveryReply.accepted)
+}
+inline bool EffectDeliveryReply::_internal_accepted() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.accepted_;
+}
+inline void EffectDeliveryReply::_internal_set_accepted(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.accepted_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -44606,6 +45476,83 @@ inline ::flightstrips::cluster::v1::ReplaceSectorOwners* SystemCommand::mutable_
   return _msg;
 }
 
+// .flightstrips.cluster.v1.ElectSessionMaster elect_session_master = 12;
+inline bool SystemCommand::has_elect_session_master() const {
+  return action_case() == kElectSessionMaster;
+}
+inline bool SystemCommand::_internal_has_elect_session_master() const {
+  return action_case() == kElectSessionMaster;
+}
+inline void SystemCommand::set_has_elect_session_master() {
+  _impl_._oneof_case_[0] = kElectSessionMaster;
+}
+inline void SystemCommand::clear_elect_session_master() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kElectSessionMaster) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.elect_session_master_;
+    }
+    clear_has_action();
+  }
+}
+inline ::flightstrips::cluster::v1::ElectSessionMaster* SystemCommand::release_elect_session_master() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SystemCommand.elect_session_master)
+  if (action_case() == kElectSessionMaster) {
+    clear_has_action();
+    auto* temp = _impl_.action_.elect_session_master_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.elect_session_master_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::ElectSessionMaster& SystemCommand::_internal_elect_session_master() const {
+  return action_case() == kElectSessionMaster ? *_impl_.action_.elect_session_master_ : reinterpret_cast<::flightstrips::cluster::v1::ElectSessionMaster&>(::flightstrips::cluster::v1::_ElectSessionMaster_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::ElectSessionMaster& SystemCommand::elect_session_master() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SystemCommand.elect_session_master)
+  return _internal_elect_session_master();
+}
+inline ::flightstrips::cluster::v1::ElectSessionMaster* SystemCommand::unsafe_arena_release_elect_session_master() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.SystemCommand.elect_session_master)
+  if (action_case() == kElectSessionMaster) {
+    clear_has_action();
+    auto* temp = _impl_.action_.elect_session_master_;
+    _impl_.action_.elect_session_master_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void SystemCommand::unsafe_arena_set_allocated_elect_session_master(::flightstrips::cluster::v1::ElectSessionMaster* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_elect_session_master();
+    _impl_.action_.elect_session_master_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.SystemCommand.elect_session_master)
+}
+inline ::flightstrips::cluster::v1::ElectSessionMaster* SystemCommand::_internal_mutable_elect_session_master() {
+  if (action_case() != kElectSessionMaster) {
+    clear_action();
+    set_has_elect_session_master();
+    _impl_.action_.elect_session_master_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::ElectSessionMaster>(GetArena());
+  }
+  return _impl_.action_.elect_session_master_;
+}
+inline ::flightstrips::cluster::v1::ElectSessionMaster* SystemCommand::mutable_elect_session_master() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::ElectSessionMaster* _msg = _internal_mutable_elect_session_master();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SystemCommand.elect_session_master)
+  return _msg;
+}
+
 inline bool SystemCommand::has_action() const {
   return action_case() != ACTION_NOT_SET;
 }
@@ -45714,6 +46661,101 @@ inline void RecordSessionSync::set_allocated_sync(::flightstrips::cluster::v1::S
 
   _impl_.sync_ = reinterpret_cast<::flightstrips::cluster::v1::SessionSync*>(value);
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.RecordSessionSync.sync)
+}
+
+// -------------------------------------------------------------------
+
+// ElectSessionMaster
+
+// .flightstrips.cluster.v1.MasterTerm master = 1;
+inline bool ElectSessionMaster::has_master() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.master_ != nullptr);
+  return value;
+}
+inline const ::flightstrips::cluster::v1::MasterTerm& ElectSessionMaster::_internal_master() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::MasterTerm* p = _impl_.master_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::MasterTerm&>(::flightstrips::cluster::v1::_MasterTerm_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::MasterTerm& ElectSessionMaster::master() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ElectSessionMaster.master)
+  return _internal_master();
+}
+inline void ElectSessionMaster::unsafe_arena_set_allocated_master(::flightstrips::cluster::v1::MasterTerm* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.master_);
+  }
+  _impl_.master_ = reinterpret_cast<::flightstrips::cluster::v1::MasterTerm*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ElectSessionMaster.master)
+}
+inline ::flightstrips::cluster::v1::MasterTerm* ElectSessionMaster::release_master() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::MasterTerm* released = _impl_.master_;
+  _impl_.master_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::MasterTerm* ElectSessionMaster::unsafe_arena_release_master() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ElectSessionMaster.master)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::MasterTerm* temp = _impl_.master_;
+  _impl_.master_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::MasterTerm* ElectSessionMaster::_internal_mutable_master() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.master_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::MasterTerm>(GetArena());
+    _impl_.master_ = reinterpret_cast<::flightstrips::cluster::v1::MasterTerm*>(p);
+  }
+  return _impl_.master_;
+}
+inline ::flightstrips::cluster::v1::MasterTerm* ElectSessionMaster::mutable_master() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::flightstrips::cluster::v1::MasterTerm* _msg = _internal_mutable_master();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ElectSessionMaster.master)
+  return _msg;
+}
+inline void ElectSessionMaster::set_allocated_master(::flightstrips::cluster::v1::MasterTerm* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.master_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.master_ = reinterpret_cast<::flightstrips::cluster::v1::MasterTerm*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ElectSessionMaster.master)
 }
 
 #ifdef __GNUC__

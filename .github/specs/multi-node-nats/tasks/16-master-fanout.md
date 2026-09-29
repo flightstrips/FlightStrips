@@ -15,5 +15,7 @@
 - Split frontend/EuroScope clients across two backends; both see the same state, one master exists, and one CID gets a targeted command.
 - A stale master still sending after takeover is rejected. Reconnect creates a new generation and cannot inherit the old synced flag.
 - Initial snapshot plus buffered deltas has no gap or duplicate state change.
+- The owner rechecks `ElectSessionMaster` (system command field 12) against fresh presence before commit; a vacant term retains the epoch and clears sync.
+- The NATS-only startup installs `MasterElectionPlanner` on its session writer, runs `MasterElection.RunAll`, and serves the binary EuroScope handler with routed session observations.
 
 **Starting points:** `backend/internal/euroscope/hub.go`, `client.go`, `backend/internal/frontend/hub.go`, and `proto/euroscope.proto`.

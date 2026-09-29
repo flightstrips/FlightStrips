@@ -39,6 +39,8 @@ type Handler struct {
 	Projection Projection
 	Router     Router
 	Auth       shared.AuthenticationService
+	// NodeID enables per-socket FS_PRESENCE in the opt-in NATS runtime.
+	NodeID string
 }
 
 var upgrade = websocket.Upgrader{Subprotocols: []string{Subprotocol}, CheckOrigin: func(*http.Request) bool { return true }}
@@ -126,6 +128,26 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 	if err != nil {
 		return closeFailure{websocket.ClosePolicyViolation, "session unavailable"}
 	}
+	var presenceErrors <-chan error
+	if h.NodeID != "" {
+		projection, ok := h.Projection.(*cluster.Projection)
+		if !ok || projection.Presence == nil {
+			return fmt.Errorf("frontend presence unavailable")
+		}
+		lease, err := cluster.NewSocketPresenceLease(projection.Presence, h.NodeID, identity.id,
+			identity.me.Cid, identity.me.Callsign, identity.me.Position, identity.me.Observer, pb.ClientPresence_FRONTEND)
+		if err != nil {
+			return err
+		}
+		presenceCtx, stopPresence := context.WithCancel(ctx)
+		defer stopPresence()
+		if _, err := lease.Renew(presenceCtx); err != nil {
+			return err
+		}
+		errs := make(chan error, 1)
+		presenceErrors = errs
+		go func() { errs <- lease.Run(presenceCtx) }()
+	}
 	session, sessionUpdates, observations, stopSession, err := h.Projection.SubscribeObservedInitial(identity.id)
 	if err != nil {
 		return err
@@ -165,6 +187,8 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		select {
 		case <-ctx.Done():
 			return nil
+		case err := <-presenceErrors:
+			return fmt.Errorf("frontend presence renewal: %w", err)
 		case item := <-read:
 			if item.err != nil {
 				return item.err

@@ -109,6 +109,15 @@ func (p *Projection) watchPresence(ctx context.Context) {
 			}
 			if client := value.GetClient(); client != nil {
 				key = "client." + client.ConnectionId
+				if client.ConnectionId == "" || client.NodeId == "" || client.SessionId < 1 ||
+					client.Cid == "" || client.Kind == pb.ClientPresence_KIND_UNSPECIFIED ||
+					client.ConnectedAt == nil || client.ConnectedAt.CheckValid() != nil {
+					err = fmt.Errorf("invalid client presence identity")
+				}
+			}
+			if node := value.GetNode(); node != nil && (node.NodeId == "" || node.StartedAt == nil ||
+				node.StartedAt.CheckValid() != nil) {
+				err = fmt.Errorf("invalid node presence identity")
 			}
 			if err == nil && (value.SchemaVersion != 1 || key == "" || entry.Key() != key || strings.Count(key, ".") != 1) {
 				err = fmt.Errorf("presence key or schema mismatch")

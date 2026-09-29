@@ -72,6 +72,14 @@ by runway pair. A sector table replacement and a position-wide layout update
 each form one subject-CAS event. Controller presence and last-seen observations
 remain in `FS_PRESENCE`, outside the durable entity revision.
 
+`Session.master` is replaced by the owner-side `elect_session_master`
+planner. Its epoch increases for every selected connection, vacancy, or owner
+term change. An empty connection ID and CID denote a vacant master term; the
+term remains stored so the next election cannot reuse its epoch. The same
+session replacement clears `Session.sync`. A fresh sync must match the
+selected connection ID and epoch and is operational only while its client and
+node presence are fresh.
+
 Task 09 adds `PdcSequence.requested_at`, `issued_at`, `sent`,
 `issued_by_cid`, and `request_channel`. `Session.next_message_id` allocates a
 PDC issue sequence in the same session event as its `PdcSequence`, response

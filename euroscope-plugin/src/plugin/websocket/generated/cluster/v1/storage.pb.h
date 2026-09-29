@@ -11503,12 +11503,47 @@ class StandBlock final : public ::google::protobuf::Message
 
   // accessors -------------------------------------------------------
   enum : int {
+    kBlockedStandsFieldNumber = 12,
     kStandFieldNumber = 1,
     kReasonFieldNumber = 2,
     kActorFieldNumber = 3,
+    kBlockTypeFieldNumber = 6,
+    kSourceFieldNumber = 7,
+    kCallsignFieldNumber = 8,
     kCreatedAtFieldNumber = 4,
     kExpiresAtFieldNumber = 5,
+    kUpdatedAtFieldNumber = 11,
+    kRevisionFieldNumber = 10,
+    kManualFieldNumber = 9,
   };
+  // repeated string blocked_stands = 12;
+  int blocked_stands_size() const;
+  private:
+  int _internal_blocked_stands_size() const;
+
+  public:
+  void clear_blocked_stands() ;
+  const std::string& blocked_stands(int index) const;
+  std::string* mutable_blocked_stands(int index);
+  void set_blocked_stands(int index, const std::string& value);
+  void set_blocked_stands(int index, std::string&& value);
+  void set_blocked_stands(int index, const char* value);
+  void set_blocked_stands(int index, const char* value, std::size_t size);
+  void set_blocked_stands(int index, absl::string_view value);
+  std::string* add_blocked_stands();
+  void add_blocked_stands(const std::string& value);
+  void add_blocked_stands(std::string&& value);
+  void add_blocked_stands(const char* value);
+  void add_blocked_stands(const char* value, std::size_t size);
+  void add_blocked_stands(absl::string_view value);
+  const ::google::protobuf::RepeatedPtrField<std::string>& blocked_stands() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* mutable_blocked_stands();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<std::string>& _internal_blocked_stands() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_blocked_stands();
+
+  public:
   // string stand = 1;
   void clear_stand() ;
   const std::string& stand() const;
@@ -11557,6 +11592,55 @@ class StandBlock final : public ::google::protobuf::Message
   std::string* _internal_mutable_actor();
 
   public:
+  // string block_type = 6;
+  void clear_block_type() ;
+  const std::string& block_type() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_block_type(Arg_&& arg, Args_... args);
+  std::string* mutable_block_type();
+  PROTOBUF_NODISCARD std::string* release_block_type();
+  void set_allocated_block_type(std::string* value);
+
+  private:
+  const std::string& _internal_block_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_block_type(
+      const std::string& value);
+  std::string* _internal_mutable_block_type();
+
+  public:
+  // string source = 7;
+  void clear_source() ;
+  const std::string& source() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_source(Arg_&& arg, Args_... args);
+  std::string* mutable_source();
+  PROTOBUF_NODISCARD std::string* release_source();
+  void set_allocated_source(std::string* value);
+
+  private:
+  const std::string& _internal_source() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_source(
+      const std::string& value);
+  std::string* _internal_mutable_source();
+
+  public:
+  // optional string callsign = 8;
+  bool has_callsign() const;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
   // .google.protobuf.Timestamp created_at = 4;
   bool has_created_at() const;
   void clear_created_at() ;
@@ -11587,13 +11671,48 @@ class StandBlock final : public ::google::protobuf::Message
   ::google::protobuf::Timestamp* _internal_mutable_expires_at();
 
   public:
+  // .google.protobuf.Timestamp updated_at = 11;
+  bool has_updated_at() const;
+  void clear_updated_at() ;
+  const ::google::protobuf::Timestamp& updated_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_updated_at();
+  ::google::protobuf::Timestamp* mutable_updated_at();
+  void set_allocated_updated_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_updated_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_updated_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_updated_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_updated_at();
+
+  public:
+  // uint64 revision = 10;
+  void clear_revision() ;
+  ::uint64_t revision() const;
+  void set_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_revision() const;
+  void _internal_set_revision(::uint64_t value);
+
+  public:
+  // bool manual = 9;
+  void clear_manual() ;
+  bool manual() const;
+  void set_manual(bool value);
+
+  private:
+  bool _internal_manual() const;
+  void _internal_set_manual(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.StandBlock)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 5, 2,
-      59, 2>
+      4, 12, 3,
+      105, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -11610,11 +11729,18 @@ class StandBlock final : public ::google::protobuf::Message
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField<std::string> blocked_stands_;
     ::google::protobuf::internal::ArenaStringPtr stand_;
     ::google::protobuf::internal::ArenaStringPtr reason_;
     ::google::protobuf::internal::ArenaStringPtr actor_;
+    ::google::protobuf::internal::ArenaStringPtr block_type_;
+    ::google::protobuf::internal::ArenaStringPtr source_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
     ::google::protobuf::Timestamp* created_at_;
     ::google::protobuf::Timestamp* expires_at_;
+    ::google::protobuf::Timestamp* updated_at_;
+    ::uint64_t revision_;
+    bool manual_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -11747,14 +11873,62 @@ class StandAssignment final : public ::google::protobuf::Message
 
   // accessors -------------------------------------------------------
   enum : int {
+    kBlockedStandsFieldNumber = 27,
     kCallsignFieldNumber = 1,
     kStandFieldNumber = 2,
     kSourceFieldNumber = 3,
     kActorFieldNumber = 6,
+    kDirectionFieldNumber = 8,
+    kStageFieldNumber = 9,
+    kRuleIdFieldNumber = 10,
+    kMatchedVariantFieldNumber = 12,
+    kConflictReasonFieldNumber = 13,
+    kObservedStandFieldNumber = 14,
+    kEtaSourceFieldNumber = 16,
+    kAcknowledgedByFieldNumber = 22,
     kExpiresAtFieldNumber = 7,
+    kEtaFieldNumber = 15,
+    kAssignedAtFieldNumber = 17,
+    kProjectedReleaseAtFieldNumber = 18,
+    kAcknowledgedAtFieldNumber = 21,
+    kCreatedAtFieldNumber = 25,
+    kUpdatedAtFieldNumber = 26,
     kRevisionFieldNumber = 4,
+    kTierFieldNumber = 11,
     kConfirmedFieldNumber = 5,
+    kManualFieldNumber = 19,
+    kAcknowledgedFieldNumber = 20,
+    kVatsimCidFieldNumber = 23,
+    kVatsimRevisionFieldNumber = 24,
   };
+  // repeated string blocked_stands = 27;
+  int blocked_stands_size() const;
+  private:
+  int _internal_blocked_stands_size() const;
+
+  public:
+  void clear_blocked_stands() ;
+  const std::string& blocked_stands(int index) const;
+  std::string* mutable_blocked_stands(int index);
+  void set_blocked_stands(int index, const std::string& value);
+  void set_blocked_stands(int index, std::string&& value);
+  void set_blocked_stands(int index, const char* value);
+  void set_blocked_stands(int index, const char* value, std::size_t size);
+  void set_blocked_stands(int index, absl::string_view value);
+  std::string* add_blocked_stands();
+  void add_blocked_stands(const std::string& value);
+  void add_blocked_stands(std::string&& value);
+  void add_blocked_stands(const char* value);
+  void add_blocked_stands(const char* value, std::size_t size);
+  void add_blocked_stands(absl::string_view value);
+  const ::google::protobuf::RepeatedPtrField<std::string>& blocked_stands() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* mutable_blocked_stands();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<std::string>& _internal_blocked_stands() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_blocked_stands();
+
+  public:
   // string callsign = 1;
   void clear_callsign() ;
   const std::string& callsign() const;
@@ -11819,6 +11993,140 @@ class StandAssignment final : public ::google::protobuf::Message
   std::string* _internal_mutable_actor();
 
   public:
+  // string direction = 8;
+  void clear_direction() ;
+  const std::string& direction() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_direction(Arg_&& arg, Args_... args);
+  std::string* mutable_direction();
+  PROTOBUF_NODISCARD std::string* release_direction();
+  void set_allocated_direction(std::string* value);
+
+  private:
+  const std::string& _internal_direction() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_direction(
+      const std::string& value);
+  std::string* _internal_mutable_direction();
+
+  public:
+  // string stage = 9;
+  void clear_stage() ;
+  const std::string& stage() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_stage(Arg_&& arg, Args_... args);
+  std::string* mutable_stage();
+  PROTOBUF_NODISCARD std::string* release_stage();
+  void set_allocated_stage(std::string* value);
+
+  private:
+  const std::string& _internal_stage() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_stage(
+      const std::string& value);
+  std::string* _internal_mutable_stage();
+
+  public:
+  // optional string rule_id = 10;
+  bool has_rule_id() const;
+  void clear_rule_id() ;
+  const std::string& rule_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_rule_id(Arg_&& arg, Args_... args);
+  std::string* mutable_rule_id();
+  PROTOBUF_NODISCARD std::string* release_rule_id();
+  void set_allocated_rule_id(std::string* value);
+
+  private:
+  const std::string& _internal_rule_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_rule_id(
+      const std::string& value);
+  std::string* _internal_mutable_rule_id();
+
+  public:
+  // optional string matched_variant = 12;
+  bool has_matched_variant() const;
+  void clear_matched_variant() ;
+  const std::string& matched_variant() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_matched_variant(Arg_&& arg, Args_... args);
+  std::string* mutable_matched_variant();
+  PROTOBUF_NODISCARD std::string* release_matched_variant();
+  void set_allocated_matched_variant(std::string* value);
+
+  private:
+  const std::string& _internal_matched_variant() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_matched_variant(
+      const std::string& value);
+  std::string* _internal_mutable_matched_variant();
+
+  public:
+  // optional string conflict_reason = 13;
+  bool has_conflict_reason() const;
+  void clear_conflict_reason() ;
+  const std::string& conflict_reason() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_conflict_reason(Arg_&& arg, Args_... args);
+  std::string* mutable_conflict_reason();
+  PROTOBUF_NODISCARD std::string* release_conflict_reason();
+  void set_allocated_conflict_reason(std::string* value);
+
+  private:
+  const std::string& _internal_conflict_reason() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_conflict_reason(
+      const std::string& value);
+  std::string* _internal_mutable_conflict_reason();
+
+  public:
+  // optional string observed_stand = 14;
+  bool has_observed_stand() const;
+  void clear_observed_stand() ;
+  const std::string& observed_stand() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_observed_stand(Arg_&& arg, Args_... args);
+  std::string* mutable_observed_stand();
+  PROTOBUF_NODISCARD std::string* release_observed_stand();
+  void set_allocated_observed_stand(std::string* value);
+
+  private:
+  const std::string& _internal_observed_stand() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_observed_stand(
+      const std::string& value);
+  std::string* _internal_mutable_observed_stand();
+
+  public:
+  // optional string eta_source = 16;
+  bool has_eta_source() const;
+  void clear_eta_source() ;
+  const std::string& eta_source() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_eta_source(Arg_&& arg, Args_... args);
+  std::string* mutable_eta_source();
+  PROTOBUF_NODISCARD std::string* release_eta_source();
+  void set_allocated_eta_source(std::string* value);
+
+  private:
+  const std::string& _internal_eta_source() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_eta_source(
+      const std::string& value);
+  std::string* _internal_mutable_eta_source();
+
+  public:
+  // optional string acknowledged_by = 22;
+  bool has_acknowledged_by() const;
+  void clear_acknowledged_by() ;
+  const std::string& acknowledged_by() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_acknowledged_by(Arg_&& arg, Args_... args);
+  std::string* mutable_acknowledged_by();
+  PROTOBUF_NODISCARD std::string* release_acknowledged_by();
+  void set_allocated_acknowledged_by(std::string* value);
+
+  private:
+  const std::string& _internal_acknowledged_by() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_acknowledged_by(
+      const std::string& value);
+  std::string* _internal_mutable_acknowledged_by();
+
+  public:
   // optional .google.protobuf.Timestamp expires_at = 7;
   bool has_expires_at() const;
   void clear_expires_at() ;
@@ -11834,6 +12142,96 @@ class StandAssignment final : public ::google::protobuf::Message
   ::google::protobuf::Timestamp* _internal_mutable_expires_at();
 
   public:
+  // optional .google.protobuf.Timestamp eta = 15;
+  bool has_eta() const;
+  void clear_eta() ;
+  const ::google::protobuf::Timestamp& eta() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_eta();
+  ::google::protobuf::Timestamp* mutable_eta();
+  void set_allocated_eta(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_eta(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_eta();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_eta() const;
+  ::google::protobuf::Timestamp* _internal_mutable_eta();
+
+  public:
+  // .google.protobuf.Timestamp assigned_at = 17;
+  bool has_assigned_at() const;
+  void clear_assigned_at() ;
+  const ::google::protobuf::Timestamp& assigned_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_assigned_at();
+  ::google::protobuf::Timestamp* mutable_assigned_at();
+  void set_allocated_assigned_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_assigned_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_assigned_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_assigned_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_assigned_at();
+
+  public:
+  // optional .google.protobuf.Timestamp projected_release_at = 18;
+  bool has_projected_release_at() const;
+  void clear_projected_release_at() ;
+  const ::google::protobuf::Timestamp& projected_release_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_projected_release_at();
+  ::google::protobuf::Timestamp* mutable_projected_release_at();
+  void set_allocated_projected_release_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_projected_release_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_projected_release_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_projected_release_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_projected_release_at();
+
+  public:
+  // optional .google.protobuf.Timestamp acknowledged_at = 21;
+  bool has_acknowledged_at() const;
+  void clear_acknowledged_at() ;
+  const ::google::protobuf::Timestamp& acknowledged_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_acknowledged_at();
+  ::google::protobuf::Timestamp* mutable_acknowledged_at();
+  void set_allocated_acknowledged_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_acknowledged_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_acknowledged_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_acknowledged_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_acknowledged_at();
+
+  public:
+  // .google.protobuf.Timestamp created_at = 25;
+  bool has_created_at() const;
+  void clear_created_at() ;
+  const ::google::protobuf::Timestamp& created_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_created_at();
+  ::google::protobuf::Timestamp* mutable_created_at();
+  void set_allocated_created_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_created_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_created_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_created_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_created_at();
+
+  public:
+  // .google.protobuf.Timestamp updated_at = 26;
+  bool has_updated_at() const;
+  void clear_updated_at() ;
+  const ::google::protobuf::Timestamp& updated_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_updated_at();
+  ::google::protobuf::Timestamp* mutable_updated_at();
+  void set_allocated_updated_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_updated_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_updated_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_updated_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_updated_at();
+
+  public:
   // uint64 revision = 4;
   void clear_revision() ;
   ::uint64_t revision() const;
@@ -11842,6 +12240,17 @@ class StandAssignment final : public ::google::protobuf::Message
   private:
   ::uint64_t _internal_revision() const;
   void _internal_set_revision(::uint64_t value);
+
+  public:
+  // optional int32 tier = 11;
+  bool has_tier() const;
+  void clear_tier() ;
+  ::int32_t tier() const;
+  void set_tier(::int32_t value);
+
+  private:
+  ::int32_t _internal_tier() const;
+  void _internal_set_tier(::int32_t value);
 
   public:
   // bool confirmed = 5;
@@ -11854,13 +12263,55 @@ class StandAssignment final : public ::google::protobuf::Message
   void _internal_set_confirmed(bool value);
 
   public:
+  // bool manual = 19;
+  void clear_manual() ;
+  bool manual() const;
+  void set_manual(bool value);
+
+  private:
+  bool _internal_manual() const;
+  void _internal_set_manual(bool value);
+
+  public:
+  // bool acknowledged = 20;
+  void clear_acknowledged() ;
+  bool acknowledged() const;
+  void set_acknowledged(bool value);
+
+  private:
+  bool _internal_acknowledged() const;
+  void _internal_set_acknowledged(bool value);
+
+  public:
+  // optional int64 vatsim_cid = 23;
+  bool has_vatsim_cid() const;
+  void clear_vatsim_cid() ;
+  ::int64_t vatsim_cid() const;
+  void set_vatsim_cid(::int64_t value);
+
+  private:
+  ::int64_t _internal_vatsim_cid() const;
+  void _internal_set_vatsim_cid(::int64_t value);
+
+  public:
+  // optional int64 vatsim_revision = 24;
+  bool has_vatsim_revision() const;
+  void clear_vatsim_revision() ;
+  ::int64_t vatsim_revision() const;
+  void set_vatsim_revision(::int64_t value);
+
+  private:
+  ::int64_t _internal_vatsim_revision() const;
+  void _internal_set_vatsim_revision(::int64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.StandAssignment)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 7, 1,
-      72, 2>
+      5, 27, 7,
+      200, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -11877,13 +12328,33 @@ class StandAssignment final : public ::google::protobuf::Message
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField<std::string> blocked_stands_;
     ::google::protobuf::internal::ArenaStringPtr callsign_;
     ::google::protobuf::internal::ArenaStringPtr stand_;
     ::google::protobuf::internal::ArenaStringPtr source_;
     ::google::protobuf::internal::ArenaStringPtr actor_;
+    ::google::protobuf::internal::ArenaStringPtr direction_;
+    ::google::protobuf::internal::ArenaStringPtr stage_;
+    ::google::protobuf::internal::ArenaStringPtr rule_id_;
+    ::google::protobuf::internal::ArenaStringPtr matched_variant_;
+    ::google::protobuf::internal::ArenaStringPtr conflict_reason_;
+    ::google::protobuf::internal::ArenaStringPtr observed_stand_;
+    ::google::protobuf::internal::ArenaStringPtr eta_source_;
+    ::google::protobuf::internal::ArenaStringPtr acknowledged_by_;
     ::google::protobuf::Timestamp* expires_at_;
+    ::google::protobuf::Timestamp* eta_;
+    ::google::protobuf::Timestamp* assigned_at_;
+    ::google::protobuf::Timestamp* projected_release_at_;
+    ::google::protobuf::Timestamp* acknowledged_at_;
+    ::google::protobuf::Timestamp* created_at_;
+    ::google::protobuf::Timestamp* updated_at_;
     ::uint64_t revision_;
+    ::int32_t tier_;
     bool confirmed_;
+    bool manual_;
+    bool acknowledged_;
+    ::int64_t vatsim_cid_;
+    ::int64_t vatsim_revision_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -54373,7 +54844,7 @@ inline void StandAssignment::set_allocated_actor(std::string* value) {
 
 // optional .google.protobuf.Timestamp expires_at = 7;
 inline bool StandAssignment::has_expires_at() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000040u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.expires_at_ != nullptr);
   return value;
 }
@@ -54393,16 +54864,16 @@ inline void StandAssignment::unsafe_arena_set_allocated_expires_at(::google::pro
   }
   _impl_.expires_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    _impl_._has_bits_[0] |= 0x00000001u;
+    _impl_._has_bits_[0] |= 0x00000040u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000001u;
+    _impl_._has_bits_[0] &= ~0x00000040u;
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandAssignment.expires_at)
 }
 inline ::google::protobuf::Timestamp* StandAssignment::release_expires_at() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
 
-  _impl_._has_bits_[0] &= ~0x00000001u;
+  _impl_._has_bits_[0] &= ~0x00000040u;
   ::google::protobuf::Timestamp* released = _impl_.expires_at_;
   _impl_.expires_at_ = nullptr;
 #ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
@@ -54422,7 +54893,7 @@ inline ::google::protobuf::Timestamp* StandAssignment::unsafe_arena_release_expi
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.expires_at)
 
-  _impl_._has_bits_[0] &= ~0x00000001u;
+  _impl_._has_bits_[0] &= ~0x00000040u;
   ::google::protobuf::Timestamp* temp = _impl_.expires_at_;
   _impl_.expires_at_ = nullptr;
   return temp;
@@ -54436,7 +54907,7 @@ inline ::google::protobuf::Timestamp* StandAssignment::_internal_mutable_expires
   return _impl_.expires_at_;
 }
 inline ::google::protobuf::Timestamp* StandAssignment::mutable_expires_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_._has_bits_[0] |= 0x00000040u;
   ::google::protobuf::Timestamp* _msg = _internal_mutable_expires_at();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.expires_at)
   return _msg;
@@ -54453,13 +54924,1315 @@ inline void StandAssignment::set_allocated_expires_at(::google::protobuf::Timest
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    _impl_._has_bits_[0] |= 0x00000001u;
+    _impl_._has_bits_[0] |= 0x00000040u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000001u;
+    _impl_._has_bits_[0] &= ~0x00000040u;
   }
 
   _impl_.expires_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.expires_at)
+}
+
+// string direction = 8;
+inline void StandAssignment::clear_direction() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.direction_.ClearToEmpty();
+}
+inline const std::string& StandAssignment::direction() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.direction)
+  return _internal_direction();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandAssignment::set_direction(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.direction_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.direction)
+}
+inline std::string* StandAssignment::mutable_direction() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_direction();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.direction)
+  return _s;
+}
+inline const std::string& StandAssignment::_internal_direction() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.direction_.Get();
+}
+inline void StandAssignment::_internal_set_direction(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.direction_.Set(value, GetArena());
+}
+inline std::string* StandAssignment::_internal_mutable_direction() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.direction_.Mutable( GetArena());
+}
+inline std::string* StandAssignment::release_direction() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.direction)
+  return _impl_.direction_.Release();
+}
+inline void StandAssignment::set_allocated_direction(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.direction_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.direction_.IsDefault()) {
+          _impl_.direction_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.direction)
+}
+
+// string stage = 9;
+inline void StandAssignment::clear_stage() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stage_.ClearToEmpty();
+}
+inline const std::string& StandAssignment::stage() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.stage)
+  return _internal_stage();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandAssignment::set_stage(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stage_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.stage)
+}
+inline std::string* StandAssignment::mutable_stage() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_stage();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.stage)
+  return _s;
+}
+inline const std::string& StandAssignment::_internal_stage() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.stage_.Get();
+}
+inline void StandAssignment::_internal_set_stage(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stage_.Set(value, GetArena());
+}
+inline std::string* StandAssignment::_internal_mutable_stage() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.stage_.Mutable( GetArena());
+}
+inline std::string* StandAssignment::release_stage() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.stage)
+  return _impl_.stage_.Release();
+}
+inline void StandAssignment::set_allocated_stage(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stage_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.stage_.IsDefault()) {
+          _impl_.stage_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.stage)
+}
+
+// optional string rule_id = 10;
+inline bool StandAssignment::has_rule_id() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_rule_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.rule_id_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& StandAssignment::rule_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.rule_id)
+  return _internal_rule_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandAssignment::set_rule_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.rule_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.rule_id)
+}
+inline std::string* StandAssignment::mutable_rule_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_rule_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.rule_id)
+  return _s;
+}
+inline const std::string& StandAssignment::_internal_rule_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.rule_id_.Get();
+}
+inline void StandAssignment::_internal_set_rule_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.rule_id_.Set(value, GetArena());
+}
+inline std::string* StandAssignment::_internal_mutable_rule_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  return _impl_.rule_id_.Mutable( GetArena());
+}
+inline std::string* StandAssignment::release_rule_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.rule_id)
+  if ((_impl_._has_bits_[0] & 0x00000001u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  auto* released = _impl_.rule_id_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.rule_id_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void StandAssignment::set_allocated_rule_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  _impl_.rule_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.rule_id_.IsDefault()) {
+          _impl_.rule_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.rule_id)
+}
+
+// optional int32 tier = 11;
+inline bool StandAssignment::has_tier() const {
+  bool value = (_impl_._has_bits_[0] & 0x00002000u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_tier() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tier_ = 0;
+  _impl_._has_bits_[0] &= ~0x00002000u;
+}
+inline ::int32_t StandAssignment::tier() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.tier)
+  return _internal_tier();
+}
+inline void StandAssignment::set_tier(::int32_t value) {
+  _internal_set_tier(value);
+  _impl_._has_bits_[0] |= 0x00002000u;
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.tier)
+}
+inline ::int32_t StandAssignment::_internal_tier() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tier_;
+}
+inline void StandAssignment::_internal_set_tier(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tier_ = value;
+}
+
+// optional string matched_variant = 12;
+inline bool StandAssignment::has_matched_variant() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_matched_variant() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.matched_variant_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline const std::string& StandAssignment::matched_variant() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.matched_variant)
+  return _internal_matched_variant();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandAssignment::set_matched_variant(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_.matched_variant_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.matched_variant)
+}
+inline std::string* StandAssignment::mutable_matched_variant() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_matched_variant();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.matched_variant)
+  return _s;
+}
+inline const std::string& StandAssignment::_internal_matched_variant() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.matched_variant_.Get();
+}
+inline void StandAssignment::_internal_set_matched_variant(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_.matched_variant_.Set(value, GetArena());
+}
+inline std::string* StandAssignment::_internal_mutable_matched_variant() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  return _impl_.matched_variant_.Mutable( GetArena());
+}
+inline std::string* StandAssignment::release_matched_variant() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.matched_variant)
+  if ((_impl_._has_bits_[0] & 0x00000002u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  auto* released = _impl_.matched_variant_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.matched_variant_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void StandAssignment::set_allocated_matched_variant(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  _impl_.matched_variant_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.matched_variant_.IsDefault()) {
+          _impl_.matched_variant_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.matched_variant)
+}
+
+// optional string conflict_reason = 13;
+inline bool StandAssignment::has_conflict_reason() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_conflict_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.conflict_reason_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000004u;
+}
+inline const std::string& StandAssignment::conflict_reason() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.conflict_reason)
+  return _internal_conflict_reason();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandAssignment::set_conflict_reason(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000004u;
+  _impl_.conflict_reason_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.conflict_reason)
+}
+inline std::string* StandAssignment::mutable_conflict_reason() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_conflict_reason();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.conflict_reason)
+  return _s;
+}
+inline const std::string& StandAssignment::_internal_conflict_reason() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.conflict_reason_.Get();
+}
+inline void StandAssignment::_internal_set_conflict_reason(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000004u;
+  _impl_.conflict_reason_.Set(value, GetArena());
+}
+inline std::string* StandAssignment::_internal_mutable_conflict_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000004u;
+  return _impl_.conflict_reason_.Mutable( GetArena());
+}
+inline std::string* StandAssignment::release_conflict_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.conflict_reason)
+  if ((_impl_._has_bits_[0] & 0x00000004u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000004u;
+  auto* released = _impl_.conflict_reason_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.conflict_reason_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void StandAssignment::set_allocated_conflict_reason(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000004u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000004u;
+  }
+  _impl_.conflict_reason_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.conflict_reason_.IsDefault()) {
+          _impl_.conflict_reason_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.conflict_reason)
+}
+
+// optional string observed_stand = 14;
+inline bool StandAssignment::has_observed_stand() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_observed_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.observed_stand_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000008u;
+}
+inline const std::string& StandAssignment::observed_stand() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.observed_stand)
+  return _internal_observed_stand();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandAssignment::set_observed_stand(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000008u;
+  _impl_.observed_stand_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.observed_stand)
+}
+inline std::string* StandAssignment::mutable_observed_stand() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_observed_stand();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.observed_stand)
+  return _s;
+}
+inline const std::string& StandAssignment::_internal_observed_stand() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.observed_stand_.Get();
+}
+inline void StandAssignment::_internal_set_observed_stand(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000008u;
+  _impl_.observed_stand_.Set(value, GetArena());
+}
+inline std::string* StandAssignment::_internal_mutable_observed_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000008u;
+  return _impl_.observed_stand_.Mutable( GetArena());
+}
+inline std::string* StandAssignment::release_observed_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.observed_stand)
+  if ((_impl_._has_bits_[0] & 0x00000008u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000008u;
+  auto* released = _impl_.observed_stand_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.observed_stand_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void StandAssignment::set_allocated_observed_stand(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000008u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000008u;
+  }
+  _impl_.observed_stand_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.observed_stand_.IsDefault()) {
+          _impl_.observed_stand_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.observed_stand)
+}
+
+// optional .google.protobuf.Timestamp eta = 15;
+inline bool StandAssignment::has_eta() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000080u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.eta_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::_internal_eta() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.eta_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::eta() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.eta)
+  return _internal_eta();
+}
+inline void StandAssignment::unsafe_arena_set_allocated_eta(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.eta_);
+  }
+  _impl_.eta_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000080u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000080u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandAssignment.eta)
+}
+inline ::google::protobuf::Timestamp* StandAssignment::release_eta() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000080u;
+  ::google::protobuf::Timestamp* released = _impl_.eta_;
+  _impl_.eta_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::unsafe_arena_release_eta() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.eta)
+
+  _impl_._has_bits_[0] &= ~0x00000080u;
+  ::google::protobuf::Timestamp* temp = _impl_.eta_;
+  _impl_.eta_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::_internal_mutable_eta() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.eta_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.eta_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.eta_;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::mutable_eta() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000080u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_eta();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.eta)
+  return _msg;
+}
+inline void StandAssignment::set_allocated_eta(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.eta_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000080u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000080u;
+  }
+
+  _impl_.eta_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.eta)
+}
+
+// optional string eta_source = 16;
+inline bool StandAssignment::has_eta_source() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000010u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_eta_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.eta_source_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000010u;
+}
+inline const std::string& StandAssignment::eta_source() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.eta_source)
+  return _internal_eta_source();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandAssignment::set_eta_source(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000010u;
+  _impl_.eta_source_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.eta_source)
+}
+inline std::string* StandAssignment::mutable_eta_source() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_eta_source();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.eta_source)
+  return _s;
+}
+inline const std::string& StandAssignment::_internal_eta_source() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.eta_source_.Get();
+}
+inline void StandAssignment::_internal_set_eta_source(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000010u;
+  _impl_.eta_source_.Set(value, GetArena());
+}
+inline std::string* StandAssignment::_internal_mutable_eta_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000010u;
+  return _impl_.eta_source_.Mutable( GetArena());
+}
+inline std::string* StandAssignment::release_eta_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.eta_source)
+  if ((_impl_._has_bits_[0] & 0x00000010u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000010u;
+  auto* released = _impl_.eta_source_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.eta_source_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void StandAssignment::set_allocated_eta_source(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000010u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000010u;
+  }
+  _impl_.eta_source_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.eta_source_.IsDefault()) {
+          _impl_.eta_source_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.eta_source)
+}
+
+// .google.protobuf.Timestamp assigned_at = 17;
+inline bool StandAssignment::has_assigned_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000100u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.assigned_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::_internal_assigned_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.assigned_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::assigned_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.assigned_at)
+  return _internal_assigned_at();
+}
+inline void StandAssignment::unsafe_arena_set_allocated_assigned_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.assigned_at_);
+  }
+  _impl_.assigned_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000100u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000100u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandAssignment.assigned_at)
+}
+inline ::google::protobuf::Timestamp* StandAssignment::release_assigned_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000100u;
+  ::google::protobuf::Timestamp* released = _impl_.assigned_at_;
+  _impl_.assigned_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::unsafe_arena_release_assigned_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.assigned_at)
+
+  _impl_._has_bits_[0] &= ~0x00000100u;
+  ::google::protobuf::Timestamp* temp = _impl_.assigned_at_;
+  _impl_.assigned_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::_internal_mutable_assigned_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.assigned_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.assigned_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.assigned_at_;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::mutable_assigned_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000100u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_assigned_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.assigned_at)
+  return _msg;
+}
+inline void StandAssignment::set_allocated_assigned_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.assigned_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000100u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000100u;
+  }
+
+  _impl_.assigned_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.assigned_at)
+}
+
+// optional .google.protobuf.Timestamp projected_release_at = 18;
+inline bool StandAssignment::has_projected_release_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000200u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.projected_release_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::_internal_projected_release_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.projected_release_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::projected_release_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.projected_release_at)
+  return _internal_projected_release_at();
+}
+inline void StandAssignment::unsafe_arena_set_allocated_projected_release_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.projected_release_at_);
+  }
+  _impl_.projected_release_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000200u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000200u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandAssignment.projected_release_at)
+}
+inline ::google::protobuf::Timestamp* StandAssignment::release_projected_release_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000200u;
+  ::google::protobuf::Timestamp* released = _impl_.projected_release_at_;
+  _impl_.projected_release_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::unsafe_arena_release_projected_release_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.projected_release_at)
+
+  _impl_._has_bits_[0] &= ~0x00000200u;
+  ::google::protobuf::Timestamp* temp = _impl_.projected_release_at_;
+  _impl_.projected_release_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::_internal_mutable_projected_release_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.projected_release_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.projected_release_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.projected_release_at_;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::mutable_projected_release_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000200u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_projected_release_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.projected_release_at)
+  return _msg;
+}
+inline void StandAssignment::set_allocated_projected_release_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.projected_release_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000200u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000200u;
+  }
+
+  _impl_.projected_release_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.projected_release_at)
+}
+
+// bool manual = 19;
+inline void StandAssignment::clear_manual() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.manual_ = false;
+}
+inline bool StandAssignment::manual() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.manual)
+  return _internal_manual();
+}
+inline void StandAssignment::set_manual(bool value) {
+  _internal_set_manual(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.manual)
+}
+inline bool StandAssignment::_internal_manual() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.manual_;
+}
+inline void StandAssignment::_internal_set_manual(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.manual_ = value;
+}
+
+// bool acknowledged = 20;
+inline void StandAssignment::clear_acknowledged() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.acknowledged_ = false;
+}
+inline bool StandAssignment::acknowledged() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.acknowledged)
+  return _internal_acknowledged();
+}
+inline void StandAssignment::set_acknowledged(bool value) {
+  _internal_set_acknowledged(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.acknowledged)
+}
+inline bool StandAssignment::_internal_acknowledged() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.acknowledged_;
+}
+inline void StandAssignment::_internal_set_acknowledged(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.acknowledged_ = value;
+}
+
+// optional .google.protobuf.Timestamp acknowledged_at = 21;
+inline bool StandAssignment::has_acknowledged_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000400u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.acknowledged_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::_internal_acknowledged_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.acknowledged_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::acknowledged_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.acknowledged_at)
+  return _internal_acknowledged_at();
+}
+inline void StandAssignment::unsafe_arena_set_allocated_acknowledged_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.acknowledged_at_);
+  }
+  _impl_.acknowledged_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000400u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000400u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandAssignment.acknowledged_at)
+}
+inline ::google::protobuf::Timestamp* StandAssignment::release_acknowledged_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000400u;
+  ::google::protobuf::Timestamp* released = _impl_.acknowledged_at_;
+  _impl_.acknowledged_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::unsafe_arena_release_acknowledged_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.acknowledged_at)
+
+  _impl_._has_bits_[0] &= ~0x00000400u;
+  ::google::protobuf::Timestamp* temp = _impl_.acknowledged_at_;
+  _impl_.acknowledged_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::_internal_mutable_acknowledged_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.acknowledged_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.acknowledged_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.acknowledged_at_;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::mutable_acknowledged_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000400u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_acknowledged_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.acknowledged_at)
+  return _msg;
+}
+inline void StandAssignment::set_allocated_acknowledged_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.acknowledged_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000400u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000400u;
+  }
+
+  _impl_.acknowledged_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.acknowledged_at)
+}
+
+// optional string acknowledged_by = 22;
+inline bool StandAssignment::has_acknowledged_by() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000020u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_acknowledged_by() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.acknowledged_by_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000020u;
+}
+inline const std::string& StandAssignment::acknowledged_by() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.acknowledged_by)
+  return _internal_acknowledged_by();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandAssignment::set_acknowledged_by(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000020u;
+  _impl_.acknowledged_by_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.acknowledged_by)
+}
+inline std::string* StandAssignment::mutable_acknowledged_by() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_acknowledged_by();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.acknowledged_by)
+  return _s;
+}
+inline const std::string& StandAssignment::_internal_acknowledged_by() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.acknowledged_by_.Get();
+}
+inline void StandAssignment::_internal_set_acknowledged_by(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000020u;
+  _impl_.acknowledged_by_.Set(value, GetArena());
+}
+inline std::string* StandAssignment::_internal_mutable_acknowledged_by() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000020u;
+  return _impl_.acknowledged_by_.Mutable( GetArena());
+}
+inline std::string* StandAssignment::release_acknowledged_by() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.acknowledged_by)
+  if ((_impl_._has_bits_[0] & 0x00000020u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000020u;
+  auto* released = _impl_.acknowledged_by_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.acknowledged_by_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void StandAssignment::set_allocated_acknowledged_by(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000020u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000020u;
+  }
+  _impl_.acknowledged_by_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.acknowledged_by_.IsDefault()) {
+          _impl_.acknowledged_by_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.acknowledged_by)
+}
+
+// optional int64 vatsim_cid = 23;
+inline bool StandAssignment::has_vatsim_cid() const {
+  bool value = (_impl_._has_bits_[0] & 0x00004000u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_vatsim_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.vatsim_cid_ = ::int64_t{0};
+  _impl_._has_bits_[0] &= ~0x00004000u;
+}
+inline ::int64_t StandAssignment::vatsim_cid() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.vatsim_cid)
+  return _internal_vatsim_cid();
+}
+inline void StandAssignment::set_vatsim_cid(::int64_t value) {
+  _internal_set_vatsim_cid(value);
+  _impl_._has_bits_[0] |= 0x00004000u;
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.vatsim_cid)
+}
+inline ::int64_t StandAssignment::_internal_vatsim_cid() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.vatsim_cid_;
+}
+inline void StandAssignment::_internal_set_vatsim_cid(::int64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.vatsim_cid_ = value;
+}
+
+// optional int64 vatsim_revision = 24;
+inline bool StandAssignment::has_vatsim_revision() const {
+  bool value = (_impl_._has_bits_[0] & 0x00008000u) != 0;
+  return value;
+}
+inline void StandAssignment::clear_vatsim_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.vatsim_revision_ = ::int64_t{0};
+  _impl_._has_bits_[0] &= ~0x00008000u;
+}
+inline ::int64_t StandAssignment::vatsim_revision() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.vatsim_revision)
+  return _internal_vatsim_revision();
+}
+inline void StandAssignment::set_vatsim_revision(::int64_t value) {
+  _internal_set_vatsim_revision(value);
+  _impl_._has_bits_[0] |= 0x00008000u;
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.vatsim_revision)
+}
+inline ::int64_t StandAssignment::_internal_vatsim_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.vatsim_revision_;
+}
+inline void StandAssignment::_internal_set_vatsim_revision(::int64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.vatsim_revision_ = value;
+}
+
+// .google.protobuf.Timestamp created_at = 25;
+inline bool StandAssignment::has_created_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000800u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.created_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::_internal_created_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.created_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::created_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.created_at)
+  return _internal_created_at();
+}
+inline void StandAssignment::unsafe_arena_set_allocated_created_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.created_at_);
+  }
+  _impl_.created_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000800u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000800u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandAssignment.created_at)
+}
+inline ::google::protobuf::Timestamp* StandAssignment::release_created_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000800u;
+  ::google::protobuf::Timestamp* released = _impl_.created_at_;
+  _impl_.created_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::unsafe_arena_release_created_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.created_at)
+
+  _impl_._has_bits_[0] &= ~0x00000800u;
+  ::google::protobuf::Timestamp* temp = _impl_.created_at_;
+  _impl_.created_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::_internal_mutable_created_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.created_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.created_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.created_at_;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::mutable_created_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000800u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_created_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.created_at)
+  return _msg;
+}
+inline void StandAssignment::set_allocated_created_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.created_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000800u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000800u;
+  }
+
+  _impl_.created_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.created_at)
+}
+
+// .google.protobuf.Timestamp updated_at = 26;
+inline bool StandAssignment::has_updated_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00001000u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.updated_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::_internal_updated_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.updated_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& StandAssignment::updated_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.updated_at)
+  return _internal_updated_at();
+}
+inline void StandAssignment::unsafe_arena_set_allocated_updated_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.updated_at_);
+  }
+  _impl_.updated_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00001000u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00001000u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandAssignment.updated_at)
+}
+inline ::google::protobuf::Timestamp* StandAssignment::release_updated_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00001000u;
+  ::google::protobuf::Timestamp* released = _impl_.updated_at_;
+  _impl_.updated_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::unsafe_arena_release_updated_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandAssignment.updated_at)
+
+  _impl_._has_bits_[0] &= ~0x00001000u;
+  ::google::protobuf::Timestamp* temp = _impl_.updated_at_;
+  _impl_.updated_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::_internal_mutable_updated_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.updated_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.updated_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.updated_at_;
+}
+inline ::google::protobuf::Timestamp* StandAssignment::mutable_updated_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00001000u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_updated_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.updated_at)
+  return _msg;
+}
+inline void StandAssignment::set_allocated_updated_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.updated_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00001000u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00001000u;
+  }
+
+  _impl_.updated_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandAssignment.updated_at)
+}
+
+// repeated string blocked_stands = 27;
+inline int StandAssignment::_internal_blocked_stands_size() const {
+  return _internal_blocked_stands().size();
+}
+inline int StandAssignment::blocked_stands_size() const {
+  return _internal_blocked_stands_size();
+}
+inline void StandAssignment::clear_blocked_stands() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.blocked_stands_.Clear();
+}
+inline std::string* StandAssignment::add_blocked_stands()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  std::string* _s = _internal_mutable_blocked_stands()->Add();
+  // @@protoc_insertion_point(field_add_mutable:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+  return _s;
+}
+inline const std::string& StandAssignment::blocked_stands(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+  return _internal_blocked_stands().Get(index);
+}
+inline std::string* StandAssignment::mutable_blocked_stands(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+  return _internal_mutable_blocked_stands()->Mutable(index);
+}
+inline void StandAssignment::set_blocked_stands(int index, const std::string& value) {
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::set_blocked_stands(int index, std::string&& value) {
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::set_blocked_stands(int index, const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::set_blocked_stands(int index, const char* value,
+                              std::size_t size) {
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::set_blocked_stands(int index, absl::string_view value) {
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(
+      value.data(), value.size());
+  // @@protoc_insertion_point(field_set_string_piece:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::add_blocked_stands(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::add_blocked_stands(std::string&& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add(std::move(value));
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::add_blocked_stands(const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::add_blocked_stands(const char* value, std::size_t size) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add()->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline void StandAssignment::add_blocked_stands(absl::string_view value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add()->assign(value.data(),
+                                                     value.size());
+  // @@protoc_insertion_point(field_add_string_piece:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+StandAssignment::blocked_stands() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+  return _internal_blocked_stands();
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+StandAssignment::mutable_blocked_stands() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.StandAssignment.blocked_stands)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_blocked_stands();
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+StandAssignment::_internal_blocked_stands() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.blocked_stands_;
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+StandAssignment::_internal_mutable_blocked_stands() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.blocked_stands_;
 }
 
 // -------------------------------------------------------------------
@@ -54618,7 +56391,7 @@ inline void StandBlock::set_allocated_actor(std::string* value) {
 
 // .google.protobuf.Timestamp created_at = 4;
 inline bool StandBlock::has_created_at() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.created_at_ != nullptr);
   return value;
 }
@@ -54638,16 +56411,16 @@ inline void StandBlock::unsafe_arena_set_allocated_created_at(::google::protobuf
   }
   _impl_.created_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    _impl_._has_bits_[0] |= 0x00000001u;
+    _impl_._has_bits_[0] |= 0x00000002u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000001u;
+    _impl_._has_bits_[0] &= ~0x00000002u;
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandBlock.created_at)
 }
 inline ::google::protobuf::Timestamp* StandBlock::release_created_at() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
 
-  _impl_._has_bits_[0] &= ~0x00000001u;
+  _impl_._has_bits_[0] &= ~0x00000002u;
   ::google::protobuf::Timestamp* released = _impl_.created_at_;
   _impl_.created_at_ = nullptr;
 #ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
@@ -54667,7 +56440,7 @@ inline ::google::protobuf::Timestamp* StandBlock::unsafe_arena_release_created_a
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandBlock.created_at)
 
-  _impl_._has_bits_[0] &= ~0x00000001u;
+  _impl_._has_bits_[0] &= ~0x00000002u;
   ::google::protobuf::Timestamp* temp = _impl_.created_at_;
   _impl_.created_at_ = nullptr;
   return temp;
@@ -54681,7 +56454,7 @@ inline ::google::protobuf::Timestamp* StandBlock::_internal_mutable_created_at()
   return _impl_.created_at_;
 }
 inline ::google::protobuf::Timestamp* StandBlock::mutable_created_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_._has_bits_[0] |= 0x00000002u;
   ::google::protobuf::Timestamp* _msg = _internal_mutable_created_at();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandBlock.created_at)
   return _msg;
@@ -54698,9 +56471,9 @@ inline void StandBlock::set_allocated_created_at(::google::protobuf::Timestamp* 
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    _impl_._has_bits_[0] |= 0x00000001u;
+    _impl_._has_bits_[0] |= 0x00000002u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000001u;
+    _impl_._has_bits_[0] &= ~0x00000002u;
   }
 
   _impl_.created_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
@@ -54709,7 +56482,7 @@ inline void StandBlock::set_allocated_created_at(::google::protobuf::Timestamp* 
 
 // optional .google.protobuf.Timestamp expires_at = 5;
 inline bool StandBlock::has_expires_at() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.expires_at_ != nullptr);
   return value;
 }
@@ -54729,16 +56502,16 @@ inline void StandBlock::unsafe_arena_set_allocated_expires_at(::google::protobuf
   }
   _impl_.expires_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    _impl_._has_bits_[0] |= 0x00000002u;
+    _impl_._has_bits_[0] |= 0x00000004u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000002u;
+    _impl_._has_bits_[0] &= ~0x00000004u;
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandBlock.expires_at)
 }
 inline ::google::protobuf::Timestamp* StandBlock::release_expires_at() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
 
-  _impl_._has_bits_[0] &= ~0x00000002u;
+  _impl_._has_bits_[0] &= ~0x00000004u;
   ::google::protobuf::Timestamp* released = _impl_.expires_at_;
   _impl_.expires_at_ = nullptr;
 #ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
@@ -54758,7 +56531,7 @@ inline ::google::protobuf::Timestamp* StandBlock::unsafe_arena_release_expires_a
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandBlock.expires_at)
 
-  _impl_._has_bits_[0] &= ~0x00000002u;
+  _impl_._has_bits_[0] &= ~0x00000004u;
   ::google::protobuf::Timestamp* temp = _impl_.expires_at_;
   _impl_.expires_at_ = nullptr;
   return temp;
@@ -54772,7 +56545,7 @@ inline ::google::protobuf::Timestamp* StandBlock::_internal_mutable_expires_at()
   return _impl_.expires_at_;
 }
 inline ::google::protobuf::Timestamp* StandBlock::mutable_expires_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_._has_bits_[0] |= 0x00000004u;
   ::google::protobuf::Timestamp* _msg = _internal_mutable_expires_at();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandBlock.expires_at)
   return _msg;
@@ -54789,13 +56562,421 @@ inline void StandBlock::set_allocated_expires_at(::google::protobuf::Timestamp* 
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    _impl_._has_bits_[0] |= 0x00000002u;
+    _impl_._has_bits_[0] |= 0x00000004u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000002u;
+    _impl_._has_bits_[0] &= ~0x00000004u;
   }
 
   _impl_.expires_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandBlock.expires_at)
+}
+
+// string block_type = 6;
+inline void StandBlock::clear_block_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.block_type_.ClearToEmpty();
+}
+inline const std::string& StandBlock::block_type() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandBlock.block_type)
+  return _internal_block_type();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandBlock::set_block_type(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.block_type_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandBlock.block_type)
+}
+inline std::string* StandBlock::mutable_block_type() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_block_type();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandBlock.block_type)
+  return _s;
+}
+inline const std::string& StandBlock::_internal_block_type() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.block_type_.Get();
+}
+inline void StandBlock::_internal_set_block_type(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.block_type_.Set(value, GetArena());
+}
+inline std::string* StandBlock::_internal_mutable_block_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.block_type_.Mutable( GetArena());
+}
+inline std::string* StandBlock::release_block_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandBlock.block_type)
+  return _impl_.block_type_.Release();
+}
+inline void StandBlock::set_allocated_block_type(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.block_type_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.block_type_.IsDefault()) {
+          _impl_.block_type_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandBlock.block_type)
+}
+
+// string source = 7;
+inline void StandBlock::clear_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_.ClearToEmpty();
+}
+inline const std::string& StandBlock::source() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandBlock.source)
+  return _internal_source();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandBlock::set_source(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandBlock.source)
+}
+inline std::string* StandBlock::mutable_source() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_source();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandBlock.source)
+  return _s;
+}
+inline const std::string& StandBlock::_internal_source() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.source_.Get();
+}
+inline void StandBlock::_internal_set_source(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_.Set(value, GetArena());
+}
+inline std::string* StandBlock::_internal_mutable_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.source_.Mutable( GetArena());
+}
+inline std::string* StandBlock::release_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandBlock.source)
+  return _impl_.source_.Release();
+}
+inline void StandBlock::set_allocated_source(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.source_.IsDefault()) {
+          _impl_.source_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandBlock.source)
+}
+
+// optional string callsign = 8;
+inline bool StandBlock::has_callsign() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void StandBlock::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& StandBlock::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandBlock.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void StandBlock::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandBlock.callsign)
+}
+inline std::string* StandBlock::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandBlock.callsign)
+  return _s;
+}
+inline const std::string& StandBlock::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void StandBlock::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* StandBlock::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* StandBlock::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandBlock.callsign)
+  if ((_impl_._has_bits_[0] & 0x00000001u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  auto* released = _impl_.callsign_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.callsign_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void StandBlock::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandBlock.callsign)
+}
+
+// bool manual = 9;
+inline void StandBlock::clear_manual() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.manual_ = false;
+}
+inline bool StandBlock::manual() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandBlock.manual)
+  return _internal_manual();
+}
+inline void StandBlock::set_manual(bool value) {
+  _internal_set_manual(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandBlock.manual)
+}
+inline bool StandBlock::_internal_manual() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.manual_;
+}
+inline void StandBlock::_internal_set_manual(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.manual_ = value;
+}
+
+// uint64 revision = 10;
+inline void StandBlock::clear_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.revision_ = ::uint64_t{0u};
+}
+inline ::uint64_t StandBlock::revision() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandBlock.revision)
+  return _internal_revision();
+}
+inline void StandBlock::set_revision(::uint64_t value) {
+  _internal_set_revision(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandBlock.revision)
+}
+inline ::uint64_t StandBlock::_internal_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.revision_;
+}
+inline void StandBlock::_internal_set_revision(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.revision_ = value;
+}
+
+// .google.protobuf.Timestamp updated_at = 11;
+inline bool StandBlock::has_updated_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.updated_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& StandBlock::_internal_updated_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.updated_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& StandBlock::updated_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandBlock.updated_at)
+  return _internal_updated_at();
+}
+inline void StandBlock::unsafe_arena_set_allocated_updated_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.updated_at_);
+  }
+  _impl_.updated_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000008u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000008u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.StandBlock.updated_at)
+}
+inline ::google::protobuf::Timestamp* StandBlock::release_updated_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000008u;
+  ::google::protobuf::Timestamp* released = _impl_.updated_at_;
+  _impl_.updated_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* StandBlock::unsafe_arena_release_updated_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.StandBlock.updated_at)
+
+  _impl_._has_bits_[0] &= ~0x00000008u;
+  ::google::protobuf::Timestamp* temp = _impl_.updated_at_;
+  _impl_.updated_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* StandBlock::_internal_mutable_updated_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.updated_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.updated_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.updated_at_;
+}
+inline ::google::protobuf::Timestamp* StandBlock::mutable_updated_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000008u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_updated_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandBlock.updated_at)
+  return _msg;
+}
+inline void StandBlock::set_allocated_updated_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.updated_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000008u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000008u;
+  }
+
+  _impl_.updated_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.StandBlock.updated_at)
+}
+
+// repeated string blocked_stands = 12;
+inline int StandBlock::_internal_blocked_stands_size() const {
+  return _internal_blocked_stands().size();
+}
+inline int StandBlock::blocked_stands_size() const {
+  return _internal_blocked_stands_size();
+}
+inline void StandBlock::clear_blocked_stands() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.blocked_stands_.Clear();
+}
+inline std::string* StandBlock::add_blocked_stands()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  std::string* _s = _internal_mutable_blocked_stands()->Add();
+  // @@protoc_insertion_point(field_add_mutable:flightstrips.cluster.v1.StandBlock.blocked_stands)
+  return _s;
+}
+inline const std::string& StandBlock::blocked_stands(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.StandBlock.blocked_stands)
+  return _internal_blocked_stands().Get(index);
+}
+inline std::string* StandBlock::mutable_blocked_stands(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.StandBlock.blocked_stands)
+  return _internal_mutable_blocked_stands()->Mutable(index);
+}
+inline void StandBlock::set_blocked_stands(int index, const std::string& value) {
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::set_blocked_stands(int index, std::string&& value) {
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::set_blocked_stands(int index, const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::set_blocked_stands(int index, const char* value,
+                              std::size_t size) {
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::set_blocked_stands(int index, absl::string_view value) {
+  _internal_mutable_blocked_stands()->Mutable(index)->assign(
+      value.data(), value.size());
+  // @@protoc_insertion_point(field_set_string_piece:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::add_blocked_stands(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::add_blocked_stands(std::string&& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add(std::move(value));
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::add_blocked_stands(const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::add_blocked_stands(const char* value, std::size_t size) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add()->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline void StandBlock::add_blocked_stands(absl::string_view value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_blocked_stands()->Add()->assign(value.data(),
+                                                     value.size());
+  // @@protoc_insertion_point(field_add_string_piece:flightstrips.cluster.v1.StandBlock.blocked_stands)
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+StandBlock::blocked_stands() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.StandBlock.blocked_stands)
+  return _internal_blocked_stands();
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+StandBlock::mutable_blocked_stands() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.StandBlock.blocked_stands)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_blocked_stands();
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+StandBlock::_internal_blocked_stands() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.blocked_stands_;
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+StandBlock::_internal_mutable_blocked_stands() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.blocked_stands_;
 }
 
 // -------------------------------------------------------------------

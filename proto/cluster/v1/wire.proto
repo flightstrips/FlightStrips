@@ -191,6 +191,15 @@ message StandAction {
     ConfirmStandOverride confirm_override = 7; AcknowledgeStand acknowledge = 8;
     CreateStandBlock create_block = 9; RemoveStandBlock remove_block = 10;
   }
+  // Lifecycle observations are supplied by a system actor; controller actions
+  // derive their current flight facts from the session strip.
+  optional string stage = 11;
+  optional google.protobuf.Timestamp eta = 12;
+  optional string eta_source = 13;
+  optional google.protobuf.Timestamp expires_at = 14;
+  optional int64 vatsim_cid = 15;
+  optional int64 vatsim_revision = 16;
+  optional string observed_stand = 17;
 }
 message OccupyStand {}
 message VacateStand {}

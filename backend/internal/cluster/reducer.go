@@ -29,6 +29,7 @@ type Aggregate struct {
 	Entities                                  map[string]*pb.EntitySnapshot
 	Indexes                                   map[pb.EntityKind]map[string]*pb.EntitySnapshot
 	StripIDs                                  map[uint64]*pb.EntitySnapshot
+	StandAssignmentsByStand                   map[string][]*pb.EntitySnapshot
 	Ledger                                    map[string]*pb.CommandOutcome
 	Workflows                                 map[string]*pb.WorkflowRecord
 	Effects                                   map[string]*pb.EffectRecord
@@ -36,7 +37,7 @@ type Aggregate struct {
 }
 
 func NewAggregate(ref *pb.AggregateRef) *Aggregate {
-	return &Aggregate{Ref: proto.Clone(ref).(*pb.AggregateRef), Entities: map[string]*pb.EntitySnapshot{}, Indexes: map[pb.EntityKind]map[string]*pb.EntitySnapshot{}, StripIDs: map[uint64]*pb.EntitySnapshot{}, Ledger: map[string]*pb.CommandOutcome{}, Workflows: map[string]*pb.WorkflowRecord{}, Effects: map[string]*pb.EffectRecord{}}
+	return &Aggregate{Ref: proto.Clone(ref).(*pb.AggregateRef), Entities: map[string]*pb.EntitySnapshot{}, Indexes: map[pb.EntityKind]map[string]*pb.EntitySnapshot{}, StripIDs: map[uint64]*pb.EntitySnapshot{}, StandAssignmentsByStand: map[string][]*pb.EntitySnapshot{}, Ledger: map[string]*pb.CommandOutcome{}, Workflows: map[string]*pb.WorkflowRecord{}, Effects: map[string]*pb.EffectRecord{}}
 }
 
 // Apply validates the entire event before changing a projection. A stale owner
@@ -141,6 +142,9 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 	if err := validatePdcTacticalState(a, e.GetDomainChanged(), staged); err != nil {
 		return false, err
 	}
+	if err := validateStandState(a.Ref, staged); err != nil {
+		return false, err
+	}
 	var outcome *pb.CommandOutcome
 	if d := e.GetDomainChanged(); d != nil {
 		outcome = d.GetOutcome()
@@ -214,6 +218,7 @@ func (a *Aggregate) ownerEpoch() uint64 {
 func (a *Aggregate) rebuildIndexes() {
 	indexes := make(map[pb.EntityKind]map[string]*pb.EntitySnapshot)
 	stripIDs := make(map[uint64]*pb.EntitySnapshot)
+	standAssignments := make(map[string][]*pb.EntitySnapshot)
 	keys := make([]string, 0, len(a.Entities))
 	for key := range a.Entities {
 		keys = append(keys, key)
@@ -229,9 +234,13 @@ func (a *Aggregate) rebuildIndexes() {
 		if strip := entity.GetValue().GetStrip(); strip != nil {
 			stripIDs[strip.Id] = entity
 		}
+		if assignment := entity.GetValue().GetStandAssignment(); assignment != nil {
+			standAssignments[assignment.Stand] = append(standAssignments[assignment.Stand], entity)
+		}
 	}
 	a.Indexes = indexes
 	a.StripIDs = stripIDs
+	a.StandAssignmentsByStand = standAssignments
 }
 
 func (a *Aggregate) EntitiesByKind(kind pb.EntityKind) []*pb.EntitySnapshot {

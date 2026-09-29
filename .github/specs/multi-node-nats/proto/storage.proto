@@ -262,11 +262,29 @@ message StandAssignment {
   string callsign = 1; string stand = 2; string source = 3;
   uint64 revision = 4; bool confirmed = 5; string actor = 6;
   optional google.protobuf.Timestamp expires_at = 7;
+  string direction = 8; string stage = 9;
+  optional string rule_id = 10; optional int32 tier = 11;
+  optional string matched_variant = 12;
+  optional string conflict_reason = 13; optional string observed_stand = 14;
+  optional google.protobuf.Timestamp eta = 15; optional string eta_source = 16;
+  google.protobuf.Timestamp assigned_at = 17;
+  optional google.protobuf.Timestamp projected_release_at = 18;
+  bool manual = 19; bool acknowledged = 20;
+  optional google.protobuf.Timestamp acknowledged_at = 21;
+  optional string acknowledged_by = 22;
+  optional int64 vatsim_cid = 23; optional int64 vatsim_revision = 24;
+  google.protobuf.Timestamp created_at = 25;
+  google.protobuf.Timestamp updated_at = 26;
+  repeated string blocked_stands = 27; // selected SAT variant's adjacency graph
 }
 message StandBlock {
   string stand = 1; string reason = 2; string actor = 3;
   google.protobuf.Timestamp created_at = 4;
   optional google.protobuf.Timestamp expires_at = 5;
+  string block_type = 6; string source = 7;
+  optional string callsign = 8; bool manual = 9;
+  uint64 revision = 10; google.protobuf.Timestamp updated_at = 11;
+  repeated string blocked_stands = 12;
 }
 message PdcSequence {
   string callsign = 1; uint64 sequence = 2; string state = 3;

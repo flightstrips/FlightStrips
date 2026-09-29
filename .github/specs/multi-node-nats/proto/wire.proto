@@ -75,6 +75,7 @@ message FrontendInitial {
   int32 transition_altitude_feet = 17;
   bool stand_assignment_enabled = 18;
   repeated FrontendObservation tagged_observations = 19;
+  uint64 airport_aggregate_revision = 20;
 }
 message FrontendDelta {
   AggregateRef aggregate = 1; uint64 aggregate_revision = 2;

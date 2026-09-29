@@ -211,7 +211,11 @@ def sync(source: pathlib.Path, destination: pathlib.Path, check: bool) -> None:
     actual = {p.name: p.read_bytes() for p in destination.iterdir()
               if p.is_file() and p.name.endswith(suffixes)} if destination.exists() else {}
     if check:
-        if expected != actual:
+        # Git may check generated text out with CRLF on Windows. Compare the
+        # generated content while preserving the committed newline policy.
+        normalize = lambda data: data.replace(b"\r\n", b"\n")
+        if {name: normalize(data) for name, data in expected.items()} != {
+                name: normalize(data) for name, data in actual.items()}:
             raise RuntimeError(f"generated files differ in {destination}")
     else:
         destination.mkdir(parents=True, exist_ok=True)

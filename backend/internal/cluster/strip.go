@@ -167,7 +167,7 @@ func PlanStrip(ctx context.Context, request *pb.CommandRequest, state *Aggregate
 	if deletion := request.GetSystem().GetRemoveEntity(); deletion != nil && deletion.Kind == pb.EntityKind_STRIP {
 		return planStripDelete(request, state, deletion)
 	}
-	return PlanControllerSector(ctx, request, state)
+	return PlanSessionObservations(ctx, request, state)
 }
 
 func stripSession(request *pb.CommandRequest, state *Aggregate) (*pb.EntitySnapshot, error) {

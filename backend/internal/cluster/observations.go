@@ -10,6 +10,7 @@ import (
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (p *Projection) watchPositions(ctx context.Context) {
@@ -35,6 +36,9 @@ func (p *Projection) watchPositions(ctx context.Context) {
 				continue
 			}
 			if entry.Operation() != nats.KeyValuePut {
+				if old, ok := p.positions[entry.Key()]; ok {
+					p.publishObservationLocked(old.Value.SessionId, positionObservation(old, false, true))
+				}
 				delete(p.positions, entry.Key())
 				p.mu.Unlock()
 				continue
@@ -53,6 +57,12 @@ func (p *Projection) watchPositions(ctx context.Context) {
 				return
 			}
 			p.positions[entry.Key()] = KVPosition{Value: value, Revision: entry.Revision(), Observed: entry.Created()}
+			for _, selected := range p.positionSnapshotLocked(value.SessionId) {
+				if selected.Revision == entry.Revision() {
+					p.publishObservationLocked(value.SessionId, positionObservation(selected, selected.Stale, false))
+					break
+				}
+			}
 			p.mu.Unlock()
 		}
 	}
@@ -81,6 +91,9 @@ func (p *Projection) watchPresence(ctx context.Context) {
 				continue
 			}
 			if entry.Operation() != nats.KeyValuePut {
+				if old, ok := p.presence[entry.Key()]; ok {
+					p.publishObservationLocked(presenceSession(old.Value), presenceObservation(old, true))
+				}
 				delete(p.presence, entry.Key())
 				p.mu.Unlock()
 				continue
@@ -106,6 +119,7 @@ func (p *Projection) watchPresence(ctx context.Context) {
 				return
 			}
 			p.presence[entry.Key()] = KVPresence{Value: value, Revision: entry.Revision(), Observed: entry.Created()}
+			p.publishObservationLocked(presenceSession(value), presenceObservation(p.presence[entry.Key()], false))
 			p.mu.Unlock()
 		}
 	}
@@ -121,25 +135,57 @@ func (p *Projection) ObservationSnapshot(sessionID int32) ([]KVPosition, []KVPre
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	positions := make([]KVPosition, 0)
-	presence := make([]KVPresence, 0)
+	return p.positionSnapshotLocked(sessionID), p.presenceSnapshotLocked(sessionID), nil
+}
+
+func (p *Projection) positionSnapshotLocked(sessionID int32) []KVPosition {
+	selected := map[string]KVPosition{}
+	state := p.states[fmt.Sprintf("fs.v1.state.session.%d", sessionID)]
+	var epoch uint64
+	if state != nil && state.Owner != nil {
+		epoch = state.Owner.Epoch
+	} else if state == nil {
+		// Diagnostic KV reads can inspect an orphan observation; an initial
+		// frontend still requires an active session aggregate.
+		epoch = ^uint64(0)
+	}
+	fresh := p.operationalSyncLocked(state, sessionID) != nil
 	for _, item := range p.positions {
-		if item.Value.SessionId == sessionID {
-			positions = append(positions, KVPosition{Value: proto.Clone(item.Value).(*pb.PositionValue), Revision: item.Revision, Observed: item.Observed})
+		if item.Value == nil || item.Value.SessionId != sessionID || item.Value.OwnerEpoch > epoch {
+			continue
+		}
+		if fresh && item.Value.OwnerEpoch != epoch {
+			continue
+		}
+		key := item.Value.AircraftKey
+		old, exists := selected[key]
+		if !exists || item.Value.OwnerEpoch > old.Value.OwnerEpoch || (item.Value.OwnerEpoch == old.Value.OwnerEpoch && item.Revision > old.Revision) {
+			item.Stale = !fresh || item.Value.OwnerEpoch != epoch || state.Master == nil || item.Value.SourceConnectionId != state.Master.ConnectionId
+			selected[key] = item
 		}
 	}
+	result := make([]KVPosition, 0, len(selected))
+	for _, item := range selected {
+		item.Value = proto.Clone(item.Value).(*pb.PositionValue)
+		result = append(result, item)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Value.AircraftKey < result[j].Value.AircraftKey })
+	return result
+}
+
+func (p *Projection) presenceSnapshotLocked(sessionID int32) []KVPresence {
+	result := make([]KVPresence, 0)
 	for _, item := range p.presence {
-		if time.Since(item.Observed) >= 10*time.Second {
+		if item.Value == nil || time.Since(item.Observed) >= 10*time.Second || item.Observed.Before(p.startedAt) {
 			continue
 		}
 		if client := item.Value.GetClient(); client != nil && client.SessionId != sessionID {
 			continue
 		}
-		presence = append(presence, KVPresence{Value: proto.Clone(item.Value).(*pb.PresenceValue), Revision: item.Revision, Observed: item.Observed})
+		result = append(result, KVPresence{Value: proto.Clone(item.Value).(*pb.PresenceValue), Revision: item.Revision, Observed: item.Observed})
 	}
-	sort.Slice(positions, func(i, j int) bool { return positions[i].Value.AircraftKey < positions[j].Value.AircraftKey })
-	sort.Slice(presence, func(i, j int) bool { return presenceKey(presence[i].Value) < presenceKey(presence[j].Value) })
-	return positions, presence, nil
+	sort.Slice(result, func(i, j int) bool { return presenceKey(result[i].Value) < presenceKey(result[j].Value) })
+	return result
 }
 
 func presenceKey(v *pb.PresenceValue) string {
@@ -169,23 +215,140 @@ func (p *Projection) OperationalSync(ref *pb.AggregateRef) (*pb.SessionSync, err
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	state := p.states[subject]
+	return p.operationalSyncLocked(p.states[subject], ref.GetSession().GetId()), nil
+}
+
+func (p *Projection) operationalSyncLocked(state *Aggregate, sessionID int32) *pb.SessionSync {
 	if state == nil || state.Sync == nil || state.Master == nil {
-		return nil, nil
+		return nil
+	}
+	if p.syncFresh != nil {
+		subject, _ := Subject(state.Ref)
+		if !p.syncFresh[subject] {
+			return nil
+		}
 	}
 	master, sync := state.Master, state.Sync
-	if sync.ConnectionId != master.ConnectionId || sync.MasterEpoch != master.Epoch {
-		return nil, nil
+	if state.Owner == nil || master.OwnerEpoch != state.Owner.Epoch || sync.ConnectionId != master.ConnectionId || sync.MasterEpoch != master.Epoch || sync.CompletedAt == nil {
+		return nil
 	}
 	clientEntry := p.presence["client."+master.ConnectionId]
 	client := clientEntry.Value.GetClient()
-	if client == nil || client.ConnectionId != master.ConnectionId || client.Cid != master.Cid || client.SessionId != ref.GetSession().GetId() || client.Kind != pb.ClientPresence_EUROSCOPE || clientEntry.Observed.Before(p.startedAt) || time.Since(clientEntry.Observed) >= 10*time.Second {
-		return nil, nil
+	if client == nil || client.ConnectionId != master.ConnectionId || client.Cid != master.Cid || client.SessionId != sessionID || client.Kind != pb.ClientPresence_EUROSCOPE || clientEntry.Observed.Before(p.startedAt) || time.Since(clientEntry.Observed) >= 10*time.Second {
+		return nil
 	}
 	nodeEntry := p.presence["node."+client.NodeId]
 	node := nodeEntry.Value.GetNode()
 	if node == nil || !node.Ready || node.NodeId != client.NodeId || nodeEntry.Observed.Before(p.startedAt) || time.Since(nodeEntry.Observed) >= 10*time.Second {
-		return nil, nil
+		return nil
 	}
-	return proto.Clone(sync).(*pb.SessionSync), nil
+	return proto.Clone(sync).(*pb.SessionSync)
+}
+
+func positionObservation(item KVPosition, stale, removed bool) *pb.FrontendObservation {
+	return &pb.FrontendObservation{Value: &pb.FrontendObservation_Position{Position: proto.Clone(item.Value).(*pb.PositionValue)},
+		SourceRevision: item.Revision, Stale: stale, Removed: removed, ObservedAt: timestamppb.New(item.Observed)}
+}
+
+func presenceObservation(item KVPresence, removed bool) *pb.FrontendObservation {
+	return &pb.FrontendObservation{Value: &pb.FrontendObservation_Presence{Presence: proto.Clone(item.Value).(*pb.PresenceValue)},
+		SourceRevision: item.Revision, Removed: removed, ObservedAt: timestamppb.New(item.Observed)}
+}
+
+func presenceSession(value *pb.PresenceValue) int32 {
+	if client := value.GetClient(); client != nil {
+		return client.SessionId
+	}
+	return 0 // node presence can affect every session's operational sync
+}
+
+// Called under the projection lock so an initial reader cannot miss a KV
+// update between the observation copy and listener registration.
+func (p *Projection) publishObservationLocked(sessionID int32, value *pb.FrontendObservation) {
+	for id, listener := range p.listeners {
+		if listener.observations == nil || (sessionID != 0 && listener.subject != fmt.Sprintf("fs.v1.state.session.%d", sessionID)) {
+			continue
+		}
+		select {
+		case listener.observations <- value:
+		default:
+			p.closeListenerLocked(id)
+		}
+	}
+}
+
+// SubscribeObservedInitial takes the state checkpoint and both KV views under
+// one lock, after registering buffered delivery. State deltas and observations
+// produced later arrive on separate channels with their own revisions.
+func (p *Projection) SubscribeObservedInitial(sessionID int32) (*pb.FrontendInitial, <-chan *pb.FrontendDelta, <-chan *pb.FrontendObservation, func(), error) {
+	if sessionID < 1 {
+		return nil, nil, nil, nil, fmt.Errorf("invalid session")
+	}
+	if err := p.Ready(); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	subject, _ := Subject(sessionRef(sessionID))
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	state := p.states[subject]
+	if state == nil {
+		return nil, nil, nil, nil, fmt.Errorf("session not found")
+	}
+	sessionEntry := state.Entities[fmt.Sprint(sessionID)]
+	session := sessionEntry.GetValue().GetSession()
+	if session == nil || session.Tombstoned {
+		return nil, nil, nil, nil, fmt.Errorf("session not active")
+	}
+	p.nextListener++
+	id := p.nextListener
+	listener := &projectionListener{subject: subject, updates: make(chan *pb.FrontendDelta, 1024), observations: make(chan *pb.FrontendObservation, 1024)}
+	p.listeners[id] = listener
+	closeFn := func() { p.mu.Lock(); p.closeListenerLocked(id); p.mu.Unlock() }
+	initial := &pb.FrontendInitial{SessionId: sessionID, Airport: session.Airport, SessionName: session.Name,
+		AggregateRevision: state.Revision, StreamSequence: state.StreamSequence, LayoutId: session.LayoutId,
+		AvailableSids: session.AvailableSids, InitialCflByRunway: session.InitialCflByRunway,
+		TransitionAltitudeFeet: session.TransitionAltitudeFeet, StandAssignmentEnabled: session.StandAssignmentEnabled}
+	initial.Writable = p.operationalSyncLocked(state, sessionID) != nil
+	initial.PositionAvailable = initial.Writable
+	for _, entity := range state.Entities {
+		initial.Entities = append(initial.Entities, proto.Clone(entity).(*pb.EntitySnapshot))
+	}
+	sort.Slice(initial.Entities, func(i, j int) bool {
+		ki, _ := recordKind(initial.Entities[i].Value)
+		kj, _ := recordKind(initial.Entities[j].Value)
+		if ki != kj {
+			return ki < kj
+		}
+		return initial.Entities[i].Key < initial.Entities[j].Key
+	})
+	for _, item := range p.positionSnapshotLocked(sessionID) {
+		initial.Positions = append(initial.Positions, item.Value)
+		initial.TaggedObservations = append(initial.TaggedObservations, positionObservation(item, item.Stale, false))
+	}
+	for _, item := range p.presenceSnapshotLocked(sessionID) {
+		if client := item.Value.GetClient(); client != nil {
+			initial.Clients = append(initial.Clients, client)
+		}
+		initial.TaggedObservations = append(initial.TaggedObservations, presenceObservation(item, false))
+	}
+	return initial, listener.updates, listener.observations, closeFn, nil
+}
+
+// RequirePositionRevision is the source check for a position-derived domain
+// command. The worker must rederive on a mismatch rather than committing a
+// stand, bay, or AMAN transition from an older observation.
+func (p *Projection) RequirePositionRevision(sessionID int32, aircraft string, epoch, revision uint64) error {
+	if !canonicalAircraft(aircraft) || epoch == 0 || revision == 0 {
+		return fmt.Errorf("invalid source position")
+	}
+	positions, _, err := p.ObservationSnapshot(sessionID)
+	if err != nil {
+		return err
+	}
+	for _, item := range positions {
+		if item.Value.AircraftKey == aircraft && item.Value.OwnerEpoch == epoch && item.Revision == revision && !item.Stale && item.Value.GetPosition() != nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("source position observation changed")
 }

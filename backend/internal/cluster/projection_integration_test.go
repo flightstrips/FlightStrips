@@ -224,6 +224,6 @@ func startProjection(t *testing.T, ctx context.Context, nc *nats.Conn, cfg natsr
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatal(ctx.Err())
+	t.Fatalf("projection did not become ready: %v (last readiness error: %v)", ctx.Err(), p.Ready())
 	return nil
 }

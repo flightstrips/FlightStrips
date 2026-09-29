@@ -20995,10 +20995,28 @@ class FrontendObservation final : public ::google::protobuf::Message
 
   // accessors -------------------------------------------------------
   enum : int {
+    kObservedAtFieldNumber = 5,
     kSourceRevisionFieldNumber = 3,
+    kStaleFieldNumber = 4,
+    kRemovedFieldNumber = 6,
     kPositionFieldNumber = 1,
     kPresenceFieldNumber = 2,
   };
+  // .google.protobuf.Timestamp observed_at = 5;
+  bool has_observed_at() const;
+  void clear_observed_at() ;
+  const ::google::protobuf::Timestamp& observed_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_observed_at();
+  ::google::protobuf::Timestamp* mutable_observed_at();
+  void set_allocated_observed_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_observed_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_observed_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_observed_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_observed_at();
+
+  public:
   // uint64 source_revision = 3;
   void clear_source_revision() ;
   ::uint64_t source_revision() const;
@@ -21007,6 +21025,26 @@ class FrontendObservation final : public ::google::protobuf::Message
   private:
   ::uint64_t _internal_source_revision() const;
   void _internal_set_source_revision(::uint64_t value);
+
+  public:
+  // bool stale = 4;
+  void clear_stale() ;
+  bool stale() const;
+  void set_stale(bool value);
+
+  private:
+  bool _internal_stale() const;
+  void _internal_set_stale(bool value);
+
+  public:
+  // bool removed = 6;
+  void clear_removed() ;
+  bool removed() const;
+  void set_removed(bool value);
+
+  private:
+  bool _internal_removed() const;
+  void _internal_set_removed(bool value);
 
   public:
   // .flightstrips.cluster.v1.PositionValue position = 1;
@@ -21058,7 +21096,7 @@ class FrontendObservation final : public ::google::protobuf::Message
   inline void clear_has_value();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 3, 2,
+      2, 6, 3,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -21074,14 +21112,18 @@ class FrontendObservation final : public ::google::protobuf::Message
                           ::google::protobuf::Arena* arena);
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::Timestamp* observed_at_;
     ::uint64_t source_revision_;
+    bool stale_;
+    bool removed_;
     union ValueUnion {
       constexpr ValueUnion() : _constinit_{} {}
       ::google::protobuf::internal::ConstantInitialized _constinit_;
       ::flightstrips::cluster::v1::PositionValue* position_;
       ::flightstrips::cluster::v1::PresenceValue* presence_;
     } value_;
-    mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -22628,6 +22670,7 @@ class FrontendInitial final : public ::google::protobuf::Message
     kClientsFieldNumber = 8,
     kAvailableSidsFieldNumber = 15,
     kInitialCflByRunwayFieldNumber = 16,
+    kTaggedObservationsFieldNumber = 19,
     kAirportFieldNumber = 2,
     kSessionNameFieldNumber = 3,
     kLayoutIdFieldNumber = 10,
@@ -22727,6 +22770,23 @@ class FrontendInitial final : public ::google::protobuf::Message
   const ::flightstrips::cluster::v1::RunwayCfl& initial_cfl_by_runway(int index) const;
   ::flightstrips::cluster::v1::RunwayCfl* add_initial_cfl_by_runway();
   const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::RunwayCfl>& initial_cfl_by_runway() const;
+  // repeated .flightstrips.cluster.v1.FrontendObservation tagged_observations = 19;
+  int tagged_observations_size() const;
+  private:
+  int _internal_tagged_observations_size() const;
+
+  public:
+  void clear_tagged_observations() ;
+  ::flightstrips::cluster::v1::FrontendObservation* mutable_tagged_observations(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::FrontendObservation>* mutable_tagged_observations();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::FrontendObservation>& _internal_tagged_observations() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::FrontendObservation>* _internal_mutable_tagged_observations();
+  public:
+  const ::flightstrips::cluster::v1::FrontendObservation& tagged_observations(int index) const;
+  ::flightstrips::cluster::v1::FrontendObservation* add_tagged_observations();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::FrontendObservation>& tagged_observations() const;
   // string airport = 2;
   void clear_airport() ;
   const std::string& airport() const;
@@ -22885,7 +22945,7 @@ class FrontendInitial final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 18, 6,
+      5, 19, 7,
       92, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -22908,6 +22968,7 @@ class FrontendInitial final : public ::google::protobuf::Message
     ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::ClientPresence > clients_;
     ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::SidInfo > available_sids_;
     ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::RunwayCfl > initial_cfl_by_runway_;
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::FrontendObservation > tagged_observations_;
     ::google::protobuf::internal::ArenaStringPtr airport_;
     ::google::protobuf::internal::ArenaStringPtr session_name_;
     ::google::protobuf::internal::ArenaStringPtr layout_id_;
@@ -26648,6 +26709,55 @@ inline void FrontendInitial::_internal_set_stand_assignment_enabled(bool value) 
   _impl_.stand_assignment_enabled_ = value;
 }
 
+// repeated .flightstrips.cluster.v1.FrontendObservation tagged_observations = 19;
+inline int FrontendInitial::_internal_tagged_observations_size() const {
+  return _internal_tagged_observations().size();
+}
+inline int FrontendInitial::tagged_observations_size() const {
+  return _internal_tagged_observations_size();
+}
+inline void FrontendInitial::clear_tagged_observations() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tagged_observations_.Clear();
+}
+inline ::flightstrips::cluster::v1::FrontendObservation* FrontendInitial::mutable_tagged_observations(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.FrontendInitial.tagged_observations)
+  return _internal_mutable_tagged_observations()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::FrontendObservation>* FrontendInitial::mutable_tagged_observations()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.FrontendInitial.tagged_observations)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_tagged_observations();
+}
+inline const ::flightstrips::cluster::v1::FrontendObservation& FrontendInitial::tagged_observations(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.FrontendInitial.tagged_observations)
+  return _internal_tagged_observations().Get(index);
+}
+inline ::flightstrips::cluster::v1::FrontendObservation* FrontendInitial::add_tagged_observations() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::cluster::v1::FrontendObservation* _add = _internal_mutable_tagged_observations()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.FrontendInitial.tagged_observations)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::FrontendObservation>& FrontendInitial::tagged_observations() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.FrontendInitial.tagged_observations)
+  return _internal_tagged_observations();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::FrontendObservation>&
+FrontendInitial::_internal_tagged_observations() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tagged_observations_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::FrontendObservation>*
+FrontendInitial::_internal_mutable_tagged_observations() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.tagged_observations_;
+}
+
 // -------------------------------------------------------------------
 
 // FrontendDelta
@@ -27037,6 +27147,141 @@ inline ::uint64_t FrontendObservation::_internal_source_revision() const {
 inline void FrontendObservation::_internal_set_source_revision(::uint64_t value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.source_revision_ = value;
+}
+
+// bool stale = 4;
+inline void FrontendObservation::clear_stale() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stale_ = false;
+}
+inline bool FrontendObservation::stale() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.FrontendObservation.stale)
+  return _internal_stale();
+}
+inline void FrontendObservation::set_stale(bool value) {
+  _internal_set_stale(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.FrontendObservation.stale)
+}
+inline bool FrontendObservation::_internal_stale() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.stale_;
+}
+inline void FrontendObservation::_internal_set_stale(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stale_ = value;
+}
+
+// .google.protobuf.Timestamp observed_at = 5;
+inline bool FrontendObservation::has_observed_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.observed_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& FrontendObservation::_internal_observed_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.observed_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& FrontendObservation::observed_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.FrontendObservation.observed_at)
+  return _internal_observed_at();
+}
+inline void FrontendObservation::unsafe_arena_set_allocated_observed_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.observed_at_);
+  }
+  _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.FrontendObservation.observed_at)
+}
+inline ::google::protobuf::Timestamp* FrontendObservation::release_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.observed_at_;
+  _impl_.observed_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* FrontendObservation::unsafe_arena_release_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.FrontendObservation.observed_at)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.observed_at_;
+  _impl_.observed_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* FrontendObservation::_internal_mutable_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.observed_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.observed_at_;
+}
+inline ::google::protobuf::Timestamp* FrontendObservation::mutable_observed_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_observed_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.FrontendObservation.observed_at)
+  return _msg;
+}
+inline void FrontendObservation::set_allocated_observed_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.observed_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.FrontendObservation.observed_at)
+}
+
+// bool removed = 6;
+inline void FrontendObservation::clear_removed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.removed_ = false;
+}
+inline bool FrontendObservation::removed() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.FrontendObservation.removed)
+  return _internal_removed();
+}
+inline void FrontendObservation::set_removed(bool value) {
+  _internal_set_removed(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.FrontendObservation.removed)
+}
+inline bool FrontendObservation::_internal_removed() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.removed_;
+}
+inline void FrontendObservation::_internal_set_removed(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.removed_ = value;
 }
 
 inline bool FrontendObservation::has_value() const {

@@ -74,6 +74,7 @@ message FrontendInitial {
   repeated RunwayCfl initial_cfl_by_runway = 16;
   int32 transition_altitude_feet = 17;
   bool stand_assignment_enabled = 18;
+  repeated FrontendObservation tagged_observations = 19;
 }
 message FrontendDelta {
   AggregateRef aggregate = 1; uint64 aggregate_revision = 2;
@@ -83,6 +84,9 @@ message FrontendDelta {
 message FrontendObservation {
   oneof value { PositionValue position = 1; PresenceValue presence = 2; }
   uint64 source_revision = 3;
+  bool stale = 4;
+  google.protobuf.Timestamp observed_at = 5;
+  bool removed = 6;
 }
 message FrontendActionResult {
   string request_id = 1; CommandOutcome.Status status = 2;

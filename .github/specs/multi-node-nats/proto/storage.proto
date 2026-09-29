@@ -310,7 +310,11 @@ message EcfmpRestriction {
   optional int32 min_level = 7; optional int32 max_level = 8;
   repeated int32 exact_levels = 9; bool has_ctot = 10;
 }
-message Atis { string airport = 1; string code = 2; string text = 3; google.protobuf.Timestamp observed_at = 4; }
+message Atis {
+  string airport = 1; string code = 2; string text = 3;
+  google.protobuf.Timestamp observed_at = 4;
+  string metar = 5; string arrival_code = 6; string departure_code = 7;
+}
 message ClxOverride { string callsign = 1; string key = 2; string actor = 3; google.protobuf.Timestamp created_at = 4; }
 message FrontendMessage {
   uint64 id = 1; string sender = 2; string text = 3;

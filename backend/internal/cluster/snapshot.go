@@ -205,6 +205,9 @@ func aggregateFromSnapshot(snapshot *pb.Snapshot) (*Aggregate, error) {
 		state.Entities[entity.Key] = proto.Clone(entity).(*pb.EntitySnapshot)
 		last = entity.Key
 	}
+	if err := validateStripState(snapshot.Aggregate, state.Entities); err != nil {
+		return nil, err
+	}
 	last = ""
 	for _, outcome := range snapshot.Outcomes {
 		if outcome == nil || !canonicalUUID(outcome.CommandId) || outcome.CommandId <= last || len(outcome.RequestSha256) != 64 || outcome.Actor == nil || outcome.Status == pb.CommandOutcome_STATUS_UNSPECIFIED || outcome.CommittedStreamSequence == 0 || outcome.CommittedStreamSequence > state.StreamSequence || outcome.AggregateRevision > state.Revision || state.Ledger[outcome.CommandId] != nil {

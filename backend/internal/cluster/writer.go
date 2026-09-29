@@ -314,6 +314,12 @@ func validatePlanned(state *Aggregate, e *pb.StateEvent) error {
 	if err := validateControllerSectorState(state.Ref, staged); err != nil {
 		return err
 	}
+	if err := validateStripState(state.Ref, staged); err != nil {
+		return err
+	}
+	if err := validateStripTransition(state, e.GetDomainChanged().GetChanges(), staged); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -149,10 +149,14 @@ func TestAmanIntentResumesAfterDestinationCommit(t *testing.T) {
 	if reply := adapter.Commit(context.Background(), transition); reply.Outcome == nil || reply.Outcome.Status != pb.CommandOutcome_SUCCEEDED {
 		t.Fatalf("intent: %v", reply)
 	}
-	destination := amanTestDestination{Writer{Store: store, NodeID: "node-a", Plan: PlanSystemEntity}}
+	zero := uint64(0)
+	seed := &pb.CommandRequest{ProtocolRevision: 1, CommandId: uuid.NewString(), Aggregate: session, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "test"}, ExpectedEntityRevision: &zero, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: "1", Value: &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: &pb.Session{Id: 1, Airport: "EKCH", Name: "LIVE", NextStripId: 1}}}}}}}}
+	if reply := (Writer{Store: store, NodeID: "node-a", Plan: PlanSystemEntity}).Execute(context.Background(), seed); reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		t.Fatalf("session seed: %v", reply)
+	}
+	destination := amanTestDestination{Writer{Store: store, NodeID: "node-a", Plan: PlanStrip}}
 	step := func(workflow *pb.WorkflowRecord) (*pb.CommandRequest, error) {
-		zero := uint64(0)
-		return &pb.CommandRequest{ProtocolRevision: 1, CommandId: workflow.DerivedCommandId, Aggregate: session, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "aman-intent"}, ExpectedEntityRevision: &zero, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: "SAS123", Value: &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: &pb.Strip{Id: 1, Callsign: "SAS123", Revision: 1, Route: "TESPI TNO"}}}}}}}}, nil
+		return &pb.CommandRequest{ProtocolRevision: 1, CommandId: workflow.DerivedCommandId, Aggregate: session, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "aman-intent"}, ExpectedEntityRevision: &zero, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: "SAS123", Value: &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: &pb.Strip{Callsign: "SAS123", Bay: "CLEARED", Route: "TESPI TNO"}}}}}}}}, nil
 	}
 	// The destination commits, then the initiator dies before recording completion.
 	stepRequest, _ := step(transition.Workflows[0])

@@ -55,7 +55,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | ID | Task | Depends on | Status |
 | --- | --- | --- | --- |
 | 00 | [Protobuf contract tooling and coverage](tasks/00-protobuf-contract-tooling.md) | None | Merged ([#795](https://github.com/flightstrips/FlightStrips/pull/795)) |
-| 01 | [NATS resources and local fixture](tasks/01-nats-resources.md) | 00 | Not started |
+| 01 | [NATS resources and local fixture](tasks/01-nats-resources.md) | 00 | Merged ([#796](https://github.com/flightstrips/FlightStrips/pull/796)) |
 | 02 | [Aggregate event and conditional write](tasks/02-event-write.md) | 01 | Not started |
 | 03 | [Replay, projections and snapshots](tasks/03-projections.md) | 02 | Not started |
 | 04 | [Global session registry](tasks/04-session-registry.md) | 03 | Not started |

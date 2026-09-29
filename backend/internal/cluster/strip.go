@@ -158,6 +158,9 @@ func PlanStrip(ctx context.Context, request *pb.CommandRequest, state *Aggregate
 	if request.GetClient().GetPdc() != nil || request.GetClient().GetTactical() != nil {
 		return PlanPdcTactical(ctx, request, state)
 	}
+	if request.GetClient().GetCdm() != nil {
+		return PlanCdm(ctx, request, state)
+	}
 	if action := request.GetClient().GetStrip(); action != nil {
 		return planStripEdit(request, state, action)
 	}

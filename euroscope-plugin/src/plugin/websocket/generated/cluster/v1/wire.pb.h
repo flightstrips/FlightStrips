@@ -5493,6 +5493,9 @@ class IssuePdc final : public ::google::protobuf::Message
     kClearanceFieldNumber = 1,
     kRequestRemarksFieldNumber = 2,
     kRequestChannelFieldNumber = 3,
+    kAtisFieldNumber = 4,
+    kStandFieldNumber = 5,
+    kAircraftTypeFieldNumber = 6,
   };
   // string clearance = 1;
   void clear_clearance() ;
@@ -5542,13 +5545,61 @@ class IssuePdc final : public ::google::protobuf::Message
   std::string* _internal_mutable_request_channel();
 
   public:
+  // string atis = 4;
+  void clear_atis() ;
+  const std::string& atis() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_atis(Arg_&& arg, Args_... args);
+  std::string* mutable_atis();
+  PROTOBUF_NODISCARD std::string* release_atis();
+  void set_allocated_atis(std::string* value);
+
+  private:
+  const std::string& _internal_atis() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_atis(
+      const std::string& value);
+  std::string* _internal_mutable_atis();
+
+  public:
+  // string stand = 5;
+  void clear_stand() ;
+  const std::string& stand() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_stand(Arg_&& arg, Args_... args);
+  std::string* mutable_stand();
+  PROTOBUF_NODISCARD std::string* release_stand();
+  void set_allocated_stand(std::string* value);
+
+  private:
+  const std::string& _internal_stand() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_stand(
+      const std::string& value);
+  std::string* _internal_mutable_stand();
+
+  public:
+  // string aircraft_type = 6;
+  void clear_aircraft_type() ;
+  const std::string& aircraft_type() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_aircraft_type(Arg_&& arg, Args_... args);
+  std::string* mutable_aircraft_type();
+  PROTOBUF_NODISCARD std::string* release_aircraft_type();
+  void set_allocated_aircraft_type(std::string* value);
+
+  private:
+  const std::string& _internal_aircraft_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_aircraft_type(
+      const std::string& value);
+  std::string* _internal_mutable_aircraft_type();
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.IssuePdc)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 3, 0,
-      80, 2>
+      3, 6, 0,
+      102, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -5566,6 +5617,9 @@ class IssuePdc final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr clearance_;
     ::google::protobuf::internal::ArenaStringPtr request_remarks_;
     ::google::protobuf::internal::ArenaStringPtr request_channel_;
+    ::google::protobuf::internal::ArenaStringPtr atis_;
+    ::google::protobuf::internal::ArenaStringPtr stand_;
+    ::google::protobuf::internal::ArenaStringPtr aircraft_type_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -12442,8 +12496,25 @@ class SetTobt final : public ::google::protobuf::Message
 
   // accessors -------------------------------------------------------
   enum : int {
+    kHhmmUtcFieldNumber = 2,
     kValueFieldNumber = 1,
   };
+  // string hhmm_utc = 2;
+  void clear_hhmm_utc() ;
+  const std::string& hhmm_utc() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_hhmm_utc(Arg_&& arg, Args_... args);
+  std::string* mutable_hhmm_utc();
+  PROTOBUF_NODISCARD std::string* release_hhmm_utc();
+  void set_allocated_hhmm_utc(std::string* value);
+
+  private:
+  const std::string& _internal_hhmm_utc() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_hhmm_utc(
+      const std::string& value);
+  std::string* _internal_mutable_hhmm_utc();
+
+  public:
   // .google.protobuf.Timestamp value = 1;
   bool has_value() const;
   void clear_value() ;
@@ -12464,8 +12535,8 @@ class SetTobt final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 1, 1,
-      0, 2>
+      1, 2, 1,
+      48, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -12482,6 +12553,7 @@ class SetTobt final : public ::google::protobuf::Message
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr hhmm_utc_;
     ::google::protobuf::Timestamp* value_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -19617,321 +19689,6 @@ class EffectDeliveryRequest final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
-class CommandReply final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CommandReply) */ {
- public:
-  inline CommandReply() : CommandReply(nullptr) {}
-  ~CommandReply() override;
-  template <typename = void>
-  explicit PROTOBUF_CONSTEXPR CommandReply(
-      ::google::protobuf::internal::ConstantInitialized);
-
-  inline CommandReply(const CommandReply& from) : CommandReply(nullptr, from) {}
-  inline CommandReply(CommandReply&& from) noexcept
-      : CommandReply(nullptr, std::move(from)) {}
-  inline CommandReply& operator=(const CommandReply& from) {
-    CopyFrom(from);
-    return *this;
-  }
-  inline CommandReply& operator=(CommandReply&& from) noexcept {
-    if (this == &from) return *this;
-    if (GetArena() == from.GetArena()
-#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
-        && GetArena() != nullptr
-#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
-    ) {
-      InternalSwap(&from);
-    } else {
-      CopyFrom(from);
-    }
-    return *this;
-  }
-
-  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
-      ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
-  }
-  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
-      ABSL_ATTRIBUTE_LIFETIME_BOUND {
-    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
-  }
-
-  static const ::google::protobuf::Descriptor* descriptor() {
-    return GetDescriptor();
-  }
-  static const ::google::protobuf::Descriptor* GetDescriptor() {
-    return default_instance().GetMetadata().descriptor;
-  }
-  static const ::google::protobuf::Reflection* GetReflection() {
-    return default_instance().GetMetadata().reflection;
-  }
-  static const CommandReply& default_instance() {
-    return *internal_default_instance();
-  }
-  static inline const CommandReply* internal_default_instance() {
-    return reinterpret_cast<const CommandReply*>(
-        &_CommandReply_default_instance_);
-  }
-  static constexpr int kIndexInFileMessages = 1;
-  friend void swap(CommandReply& a, CommandReply& b) { a.Swap(&b); }
-  inline void Swap(CommandReply* other) {
-    if (other == this) return;
-#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
-    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
-#else   // PROTOBUF_FORCE_COPY_IN_SWAP
-    if (GetArena() == other->GetArena()) {
-#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
-      InternalSwap(other);
-    } else {
-      ::google::protobuf::internal::GenericSwap(this, other);
-    }
-  }
-  void UnsafeArenaSwap(CommandReply* other) {
-    if (other == this) return;
-    ABSL_DCHECK(GetArena() == other->GetArena());
-    InternalSwap(other);
-  }
-
-  // implements Message ----------------------------------------------
-
-  CommandReply* New(::google::protobuf::Arena* arena = nullptr) const final {
-    return ::google::protobuf::Message::DefaultConstruct<CommandReply>(arena);
-  }
-  using ::google::protobuf::Message::CopyFrom;
-  void CopyFrom(const CommandReply& from);
-  using ::google::protobuf::Message::MergeFrom;
-  void MergeFrom(const CommandReply& from) { CommandReply::MergeImpl(*this, from); }
-
-  private:
-  static void MergeImpl(
-      ::google::protobuf::MessageLite& to_msg,
-      const ::google::protobuf::MessageLite& from_msg);
-
-  public:
-  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
-  bool IsInitialized() const final;
-
-  ::size_t ByteSizeLong() const final;
-  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
-  ::uint8_t* _InternalSerialize(
-      ::uint8_t* target,
-      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
-  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
-
-  private:
-  void SharedCtor(::google::protobuf::Arena* arena);
-  void SharedDtor();
-  void InternalSwap(CommandReply* other);
- private:
-  friend class ::google::protobuf::internal::AnyMetadata;
-  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CommandReply"; }
-
- protected:
-  explicit CommandReply(::google::protobuf::Arena* arena);
-  CommandReply(::google::protobuf::Arena* arena, const CommandReply& from);
-  CommandReply(::google::protobuf::Arena* arena, CommandReply&& from) noexcept
-      : CommandReply(arena) {
-    *this = ::std::move(from);
-  }
-  const ::google::protobuf::MessageLite::ClassData* GetClassData()
-      const final;
-
- public:
-  ::google::protobuf::Metadata GetMetadata() const final;
-  // nested types ----------------------------------------------------
-  using Status = CommandReply_Status;
-  static constexpr Status STATUS_UNSPECIFIED = CommandReply_Status_STATUS_UNSPECIFIED;
-  static constexpr Status COMMITTED = CommandReply_Status_COMMITTED;
-  static constexpr Status PENDING = CommandReply_Status_PENDING;
-  static constexpr Status INVALID_ARGUMENT = CommandReply_Status_INVALID_ARGUMENT;
-  static constexpr Status UNAUTHORIZED = CommandReply_Status_UNAUTHORIZED;
-  static constexpr Status NOT_FOUND = CommandReply_Status_NOT_FOUND;
-  static constexpr Status REVISION_CONFLICT = CommandReply_Status_REVISION_CONFLICT;
-  static constexpr Status NOT_OWNER = CommandReply_Status_NOT_OWNER;
-  static constexpr Status UNAVAILABLE = CommandReply_Status_UNAVAILABLE;
-  static inline bool Status_IsValid(int value) {
-    return CommandReply_Status_IsValid(value);
-  }
-  static constexpr Status Status_MIN = CommandReply_Status_Status_MIN;
-  static constexpr Status Status_MAX = CommandReply_Status_Status_MAX;
-  static constexpr int Status_ARRAYSIZE = CommandReply_Status_Status_ARRAYSIZE;
-  static inline const ::google::protobuf::EnumDescriptor* Status_descriptor() {
-    return CommandReply_Status_descriptor();
-  }
-  template <typename T>
-  static inline const std::string& Status_Name(T value) {
-    return CommandReply_Status_Name(value);
-  }
-  static inline bool Status_Parse(absl::string_view name, Status* value) {
-    return CommandReply_Status_Parse(name, value);
-  }
-
-  // accessors -------------------------------------------------------
-  enum : int {
-    kCommandIdFieldNumber = 2,
-    kDetailFieldNumber = 9,
-    kCurrentOwnerFieldNumber = 7,
-    kOutcomeFieldNumber = 8,
-    kProtocolRevisionFieldNumber = 1,
-    kStatusFieldNumber = 3,
-    kAggregateRevisionFieldNumber = 4,
-    kStreamSequenceFieldNumber = 5,
-    kCurrentEntityRevisionFieldNumber = 6,
-  };
-  // string command_id = 2;
-  void clear_command_id() ;
-  const std::string& command_id() const;
-  template <typename Arg_ = const std::string&, typename... Args_>
-  void set_command_id(Arg_&& arg, Args_... args);
-  std::string* mutable_command_id();
-  PROTOBUF_NODISCARD std::string* release_command_id();
-  void set_allocated_command_id(std::string* value);
-
-  private:
-  const std::string& _internal_command_id() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_command_id(
-      const std::string& value);
-  std::string* _internal_mutable_command_id();
-
-  public:
-  // string detail = 9;
-  void clear_detail() ;
-  const std::string& detail() const;
-  template <typename Arg_ = const std::string&, typename... Args_>
-  void set_detail(Arg_&& arg, Args_... args);
-  std::string* mutable_detail();
-  PROTOBUF_NODISCARD std::string* release_detail();
-  void set_allocated_detail(std::string* value);
-
-  private:
-  const std::string& _internal_detail() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_detail(
-      const std::string& value);
-  std::string* _internal_mutable_detail();
-
-  public:
-  // optional .flightstrips.cluster.v1.OwnerTerm current_owner = 7;
-  bool has_current_owner() const;
-  void clear_current_owner() ;
-  const ::flightstrips::cluster::v1::OwnerTerm& current_owner() const;
-  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::OwnerTerm* release_current_owner();
-  ::flightstrips::cluster::v1::OwnerTerm* mutable_current_owner();
-  void set_allocated_current_owner(::flightstrips::cluster::v1::OwnerTerm* value);
-  void unsafe_arena_set_allocated_current_owner(::flightstrips::cluster::v1::OwnerTerm* value);
-  ::flightstrips::cluster::v1::OwnerTerm* unsafe_arena_release_current_owner();
-
-  private:
-  const ::flightstrips::cluster::v1::OwnerTerm& _internal_current_owner() const;
-  ::flightstrips::cluster::v1::OwnerTerm* _internal_mutable_current_owner();
-
-  public:
-  // optional .flightstrips.cluster.v1.CommandOutcome outcome = 8;
-  bool has_outcome() const;
-  void clear_outcome() ;
-  const ::flightstrips::cluster::v1::CommandOutcome& outcome() const;
-  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CommandOutcome* release_outcome();
-  ::flightstrips::cluster::v1::CommandOutcome* mutable_outcome();
-  void set_allocated_outcome(::flightstrips::cluster::v1::CommandOutcome* value);
-  void unsafe_arena_set_allocated_outcome(::flightstrips::cluster::v1::CommandOutcome* value);
-  ::flightstrips::cluster::v1::CommandOutcome* unsafe_arena_release_outcome();
-
-  private:
-  const ::flightstrips::cluster::v1::CommandOutcome& _internal_outcome() const;
-  ::flightstrips::cluster::v1::CommandOutcome* _internal_mutable_outcome();
-
-  public:
-  // uint32 protocol_revision = 1;
-  void clear_protocol_revision() ;
-  ::uint32_t protocol_revision() const;
-  void set_protocol_revision(::uint32_t value);
-
-  private:
-  ::uint32_t _internal_protocol_revision() const;
-  void _internal_set_protocol_revision(::uint32_t value);
-
-  public:
-  // .flightstrips.cluster.v1.CommandReply.Status status = 3;
-  void clear_status() ;
-  ::flightstrips::cluster::v1::CommandReply_Status status() const;
-  void set_status(::flightstrips::cluster::v1::CommandReply_Status value);
-
-  private:
-  ::flightstrips::cluster::v1::CommandReply_Status _internal_status() const;
-  void _internal_set_status(::flightstrips::cluster::v1::CommandReply_Status value);
-
-  public:
-  // optional uint64 aggregate_revision = 4;
-  bool has_aggregate_revision() const;
-  void clear_aggregate_revision() ;
-  ::uint64_t aggregate_revision() const;
-  void set_aggregate_revision(::uint64_t value);
-
-  private:
-  ::uint64_t _internal_aggregate_revision() const;
-  void _internal_set_aggregate_revision(::uint64_t value);
-
-  public:
-  // optional uint64 stream_sequence = 5;
-  bool has_stream_sequence() const;
-  void clear_stream_sequence() ;
-  ::uint64_t stream_sequence() const;
-  void set_stream_sequence(::uint64_t value);
-
-  private:
-  ::uint64_t _internal_stream_sequence() const;
-  void _internal_set_stream_sequence(::uint64_t value);
-
-  public:
-  // optional uint64 current_entity_revision = 6;
-  bool has_current_entity_revision() const;
-  void clear_current_entity_revision() ;
-  ::uint64_t current_entity_revision() const;
-  void set_current_entity_revision(::uint64_t value);
-
-  private:
-  ::uint64_t _internal_current_entity_revision() const;
-  void _internal_set_current_entity_revision(::uint64_t value);
-
-  public:
-  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CommandReply)
- private:
-  class _Internal;
-  friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<
-      4, 9, 2,
-      69, 2>
-      _table_;
-  friend class ::google::protobuf::MessageLite;
-  friend class ::google::protobuf::Arena;
-  template <typename T>
-  friend class ::google::protobuf::Arena::InternalHelper;
-  using InternalArenaConstructable_ = void;
-  using DestructorSkippable_ = void;
-  struct Impl_ {
-    inline explicit constexpr Impl_(
-        ::google::protobuf::internal::ConstantInitialized) noexcept;
-    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
-                          ::google::protobuf::Arena* arena);
-    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
-                          ::google::protobuf::Arena* arena, const Impl_& from);
-    ::google::protobuf::internal::HasBits<1> _has_bits_;
-    mutable ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::internal::ArenaStringPtr command_id_;
-    ::google::protobuf::internal::ArenaStringPtr detail_;
-    ::flightstrips::cluster::v1::OwnerTerm* current_owner_;
-    ::flightstrips::cluster::v1::CommandOutcome* outcome_;
-    ::uint32_t protocol_revision_;
-    int status_;
-    ::uint64_t aggregate_revision_;
-    ::uint64_t stream_sequence_;
-    ::uint64_t current_entity_revision_;
-    PROTOBUF_TSAN_DECLARE_MEMBER
-  };
-  union { Impl_ _impl_; };
-  friend struct ::TableStruct_wire_2eproto;
-};
-// -------------------------------------------------------------------
-
 class ClaimOwner final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.ClaimOwner) */ {
  public:
@@ -21707,6 +21464,321 @@ class FrontendObservation final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::PresenceValue* presence_;
     } value_;
     ::uint32_t _oneof_case_[1];
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
+class CommandReply final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CommandReply) */ {
+ public:
+  inline CommandReply() : CommandReply(nullptr) {}
+  ~CommandReply() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR CommandReply(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline CommandReply(const CommandReply& from) : CommandReply(nullptr, from) {}
+  inline CommandReply(CommandReply&& from) noexcept
+      : CommandReply(nullptr, std::move(from)) {}
+  inline CommandReply& operator=(const CommandReply& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline CommandReply& operator=(CommandReply&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const CommandReply& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const CommandReply* internal_default_instance() {
+    return reinterpret_cast<const CommandReply*>(
+        &_CommandReply_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 1;
+  friend void swap(CommandReply& a, CommandReply& b) { a.Swap(&b); }
+  inline void Swap(CommandReply* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(CommandReply* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  CommandReply* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<CommandReply>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const CommandReply& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const CommandReply& from) { CommandReply::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(CommandReply* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CommandReply"; }
+
+ protected:
+  explicit CommandReply(::google::protobuf::Arena* arena);
+  CommandReply(::google::protobuf::Arena* arena, const CommandReply& from);
+  CommandReply(::google::protobuf::Arena* arena, CommandReply&& from) noexcept
+      : CommandReply(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+  using Status = CommandReply_Status;
+  static constexpr Status STATUS_UNSPECIFIED = CommandReply_Status_STATUS_UNSPECIFIED;
+  static constexpr Status COMMITTED = CommandReply_Status_COMMITTED;
+  static constexpr Status PENDING = CommandReply_Status_PENDING;
+  static constexpr Status INVALID_ARGUMENT = CommandReply_Status_INVALID_ARGUMENT;
+  static constexpr Status UNAUTHORIZED = CommandReply_Status_UNAUTHORIZED;
+  static constexpr Status NOT_FOUND = CommandReply_Status_NOT_FOUND;
+  static constexpr Status REVISION_CONFLICT = CommandReply_Status_REVISION_CONFLICT;
+  static constexpr Status NOT_OWNER = CommandReply_Status_NOT_OWNER;
+  static constexpr Status UNAVAILABLE = CommandReply_Status_UNAVAILABLE;
+  static inline bool Status_IsValid(int value) {
+    return CommandReply_Status_IsValid(value);
+  }
+  static constexpr Status Status_MIN = CommandReply_Status_Status_MIN;
+  static constexpr Status Status_MAX = CommandReply_Status_Status_MAX;
+  static constexpr int Status_ARRAYSIZE = CommandReply_Status_Status_ARRAYSIZE;
+  static inline const ::google::protobuf::EnumDescriptor* Status_descriptor() {
+    return CommandReply_Status_descriptor();
+  }
+  template <typename T>
+  static inline const std::string& Status_Name(T value) {
+    return CommandReply_Status_Name(value);
+  }
+  static inline bool Status_Parse(absl::string_view name, Status* value) {
+    return CommandReply_Status_Parse(name, value);
+  }
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCommandIdFieldNumber = 2,
+    kDetailFieldNumber = 9,
+    kCurrentOwnerFieldNumber = 7,
+    kOutcomeFieldNumber = 8,
+    kProtocolRevisionFieldNumber = 1,
+    kStatusFieldNumber = 3,
+    kAggregateRevisionFieldNumber = 4,
+    kStreamSequenceFieldNumber = 5,
+    kCurrentEntityRevisionFieldNumber = 6,
+  };
+  // string command_id = 2;
+  void clear_command_id() ;
+  const std::string& command_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_command_id(Arg_&& arg, Args_... args);
+  std::string* mutable_command_id();
+  PROTOBUF_NODISCARD std::string* release_command_id();
+  void set_allocated_command_id(std::string* value);
+
+  private:
+  const std::string& _internal_command_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_command_id(
+      const std::string& value);
+  std::string* _internal_mutable_command_id();
+
+  public:
+  // string detail = 9;
+  void clear_detail() ;
+  const std::string& detail() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_detail(Arg_&& arg, Args_... args);
+  std::string* mutable_detail();
+  PROTOBUF_NODISCARD std::string* release_detail();
+  void set_allocated_detail(std::string* value);
+
+  private:
+  const std::string& _internal_detail() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_detail(
+      const std::string& value);
+  std::string* _internal_mutable_detail();
+
+  public:
+  // optional .flightstrips.cluster.v1.OwnerTerm current_owner = 7;
+  bool has_current_owner() const;
+  void clear_current_owner() ;
+  const ::flightstrips::cluster::v1::OwnerTerm& current_owner() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::OwnerTerm* release_current_owner();
+  ::flightstrips::cluster::v1::OwnerTerm* mutable_current_owner();
+  void set_allocated_current_owner(::flightstrips::cluster::v1::OwnerTerm* value);
+  void unsafe_arena_set_allocated_current_owner(::flightstrips::cluster::v1::OwnerTerm* value);
+  ::flightstrips::cluster::v1::OwnerTerm* unsafe_arena_release_current_owner();
+
+  private:
+  const ::flightstrips::cluster::v1::OwnerTerm& _internal_current_owner() const;
+  ::flightstrips::cluster::v1::OwnerTerm* _internal_mutable_current_owner();
+
+  public:
+  // optional .flightstrips.cluster.v1.CommandOutcome outcome = 8;
+  bool has_outcome() const;
+  void clear_outcome() ;
+  const ::flightstrips::cluster::v1::CommandOutcome& outcome() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CommandOutcome* release_outcome();
+  ::flightstrips::cluster::v1::CommandOutcome* mutable_outcome();
+  void set_allocated_outcome(::flightstrips::cluster::v1::CommandOutcome* value);
+  void unsafe_arena_set_allocated_outcome(::flightstrips::cluster::v1::CommandOutcome* value);
+  ::flightstrips::cluster::v1::CommandOutcome* unsafe_arena_release_outcome();
+
+  private:
+  const ::flightstrips::cluster::v1::CommandOutcome& _internal_outcome() const;
+  ::flightstrips::cluster::v1::CommandOutcome* _internal_mutable_outcome();
+
+  public:
+  // uint32 protocol_revision = 1;
+  void clear_protocol_revision() ;
+  ::uint32_t protocol_revision() const;
+  void set_protocol_revision(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_protocol_revision() const;
+  void _internal_set_protocol_revision(::uint32_t value);
+
+  public:
+  // .flightstrips.cluster.v1.CommandReply.Status status = 3;
+  void clear_status() ;
+  ::flightstrips::cluster::v1::CommandReply_Status status() const;
+  void set_status(::flightstrips::cluster::v1::CommandReply_Status value);
+
+  private:
+  ::flightstrips::cluster::v1::CommandReply_Status _internal_status() const;
+  void _internal_set_status(::flightstrips::cluster::v1::CommandReply_Status value);
+
+  public:
+  // optional uint64 aggregate_revision = 4;
+  bool has_aggregate_revision() const;
+  void clear_aggregate_revision() ;
+  ::uint64_t aggregate_revision() const;
+  void set_aggregate_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_aggregate_revision() const;
+  void _internal_set_aggregate_revision(::uint64_t value);
+
+  public:
+  // optional uint64 stream_sequence = 5;
+  bool has_stream_sequence() const;
+  void clear_stream_sequence() ;
+  ::uint64_t stream_sequence() const;
+  void set_stream_sequence(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_stream_sequence() const;
+  void _internal_set_stream_sequence(::uint64_t value);
+
+  public:
+  // optional uint64 current_entity_revision = 6;
+  bool has_current_entity_revision() const;
+  void clear_current_entity_revision() ;
+  ::uint64_t current_entity_revision() const;
+  void set_current_entity_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_current_entity_revision() const;
+  void _internal_set_current_entity_revision(::uint64_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CommandReply)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      4, 9, 2,
+      69, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr command_id_;
+    ::google::protobuf::internal::ArenaStringPtr detail_;
+    ::flightstrips::cluster::v1::OwnerTerm* current_owner_;
+    ::flightstrips::cluster::v1::CommandOutcome* outcome_;
+    ::uint32_t protocol_revision_;
+    int status_;
+    ::uint64_t aggregate_revision_;
+    ::uint64_t stream_sequence_;
+    ::uint64_t current_entity_revision_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -36098,6 +36170,56 @@ inline void SetTobt::set_allocated_value(::google::protobuf::Timestamp* value) {
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SetTobt.value)
 }
 
+// string hhmm_utc = 2;
+inline void SetTobt::clear_hhmm_utc() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hhmm_utc_.ClearToEmpty();
+}
+inline const std::string& SetTobt::hhmm_utc() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SetTobt.hhmm_utc)
+  return _internal_hhmm_utc();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SetTobt::set_hhmm_utc(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hhmm_utc_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.SetTobt.hhmm_utc)
+}
+inline std::string* SetTobt::mutable_hhmm_utc() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_hhmm_utc();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SetTobt.hhmm_utc)
+  return _s;
+}
+inline const std::string& SetTobt::_internal_hhmm_utc() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.hhmm_utc_.Get();
+}
+inline void SetTobt::_internal_set_hhmm_utc(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hhmm_utc_.Set(value, GetArena());
+}
+inline std::string* SetTobt::_internal_mutable_hhmm_utc() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.hhmm_utc_.Mutable( GetArena());
+}
+inline std::string* SetTobt::release_hhmm_utc() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SetTobt.hhmm_utc)
+  return _impl_.hhmm_utc_.Release();
+}
+inline void SetTobt::set_allocated_hhmm_utc(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.hhmm_utc_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.hhmm_utc_.IsDefault()) {
+          _impl_.hhmm_utc_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SetTobt.hhmm_utc)
+}
+
 // -------------------------------------------------------------------
 
 // SetCdmReady
@@ -36800,6 +36922,156 @@ inline void IssuePdc::set_allocated_request_channel(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.IssuePdc.request_channel)
+}
+
+// string atis = 4;
+inline void IssuePdc::clear_atis() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atis_.ClearToEmpty();
+}
+inline const std::string& IssuePdc::atis() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.IssuePdc.atis)
+  return _internal_atis();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void IssuePdc::set_atis(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atis_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.IssuePdc.atis)
+}
+inline std::string* IssuePdc::mutable_atis() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_atis();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.IssuePdc.atis)
+  return _s;
+}
+inline const std::string& IssuePdc::_internal_atis() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.atis_.Get();
+}
+inline void IssuePdc::_internal_set_atis(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atis_.Set(value, GetArena());
+}
+inline std::string* IssuePdc::_internal_mutable_atis() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.atis_.Mutable( GetArena());
+}
+inline std::string* IssuePdc::release_atis() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.IssuePdc.atis)
+  return _impl_.atis_.Release();
+}
+inline void IssuePdc::set_allocated_atis(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atis_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.atis_.IsDefault()) {
+          _impl_.atis_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.IssuePdc.atis)
+}
+
+// string stand = 5;
+inline void IssuePdc::clear_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stand_.ClearToEmpty();
+}
+inline const std::string& IssuePdc::stand() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.IssuePdc.stand)
+  return _internal_stand();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void IssuePdc::set_stand(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stand_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.IssuePdc.stand)
+}
+inline std::string* IssuePdc::mutable_stand() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_stand();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.IssuePdc.stand)
+  return _s;
+}
+inline const std::string& IssuePdc::_internal_stand() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.stand_.Get();
+}
+inline void IssuePdc::_internal_set_stand(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stand_.Set(value, GetArena());
+}
+inline std::string* IssuePdc::_internal_mutable_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.stand_.Mutable( GetArena());
+}
+inline std::string* IssuePdc::release_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.IssuePdc.stand)
+  return _impl_.stand_.Release();
+}
+inline void IssuePdc::set_allocated_stand(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stand_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.stand_.IsDefault()) {
+          _impl_.stand_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.IssuePdc.stand)
+}
+
+// string aircraft_type = 6;
+inline void IssuePdc::clear_aircraft_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_type_.ClearToEmpty();
+}
+inline const std::string& IssuePdc::aircraft_type() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.IssuePdc.aircraft_type)
+  return _internal_aircraft_type();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void IssuePdc::set_aircraft_type(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_type_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.IssuePdc.aircraft_type)
+}
+inline std::string* IssuePdc::mutable_aircraft_type() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_aircraft_type();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.IssuePdc.aircraft_type)
+  return _s;
+}
+inline const std::string& IssuePdc::_internal_aircraft_type() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_type_.Get();
+}
+inline void IssuePdc::_internal_set_aircraft_type(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_type_.Set(value, GetArena());
+}
+inline std::string* IssuePdc::_internal_mutable_aircraft_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_type_.Mutable( GetArena());
+}
+inline std::string* IssuePdc::release_aircraft_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.IssuePdc.aircraft_type)
+  return _impl_.aircraft_type_.Release();
+}
+inline void IssuePdc::set_allocated_aircraft_type(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_type_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.aircraft_type_.IsDefault()) {
+          _impl_.aircraft_type_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.IssuePdc.aircraft_type)
 }
 
 // -------------------------------------------------------------------

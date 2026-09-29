@@ -4541,6 +4541,7 @@ func (*CdmAction_RemoveCtot) isCdmAction_Change() {}
 type SetTobt struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Value         *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	HhmmUtc       string                 `protobuf:"bytes,2,opt,name=hhmm_utc,json=hhmmUtc,proto3" json:"hhmm_utc,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4580,6 +4581,13 @@ func (x *SetTobt) GetValue() *timestamppb.Timestamp {
 		return x.Value
 	}
 	return nil
+}
+
+func (x *SetTobt) GetHhmmUtc() string {
+	if x != nil {
+		return x.HhmmUtc
+	}
+	return ""
 }
 
 type SetCdmReady struct {
@@ -4877,6 +4885,9 @@ type IssuePdc struct {
 	Clearance      string                 `protobuf:"bytes,1,opt,name=clearance,proto3" json:"clearance,omitempty"`
 	RequestRemarks string                 `protobuf:"bytes,2,opt,name=request_remarks,json=requestRemarks,proto3" json:"request_remarks,omitempty"`
 	RequestChannel string                 `protobuf:"bytes,3,opt,name=request_channel,json=requestChannel,proto3" json:"request_channel,omitempty"`
+	Atis           string                 `protobuf:"bytes,4,opt,name=atis,proto3" json:"atis,omitempty"`
+	Stand          string                 `protobuf:"bytes,5,opt,name=stand,proto3" json:"stand,omitempty"`
+	AircraftType   string                 `protobuf:"bytes,6,opt,name=aircraft_type,json=aircraftType,proto3" json:"aircraft_type,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -4928,6 +4939,27 @@ func (x *IssuePdc) GetRequestRemarks() string {
 func (x *IssuePdc) GetRequestChannel() string {
 	if x != nil {
 		return x.RequestChannel
+	}
+	return ""
+}
+
+func (x *IssuePdc) GetAtis() string {
+	if x != nil {
+		return x.Atis
+	}
+	return ""
+}
+
+func (x *IssuePdc) GetStand() string {
+	if x != nil {
+		return x.Stand
+	}
+	return ""
+}
+
+func (x *IssuePdc) GetAircraftType() string {
+	if x != nil {
+		return x.AircraftType
 	}
 	return ""
 }
@@ -8827,9 +8859,10 @@ const file_wire_proto_rawDesc = "" +
 	"\bset_ctot\x18\x05 \x01(\v2#.flightstrips.cluster.v1.SetCdmCtotH\x00R\asetCtot\x12I\n" +
 	"\vremove_ctot\x18\x06 \x01(\v2&.flightstrips.cluster.v1.RemoveCdmCtotH\x00R\n" +
 	"removeCtotB\b\n" +
-	"\x06change\";\n" +
+	"\x06change\"V\n" +
 	"\aSetTobt\x120\n" +
-	"\x05value\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05value\"#\n" +
+	"\x05value\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x05value\x12\x19\n" +
+	"\bhhmm_utc\x18\x02 \x01(\tR\ahhmmUtc\"#\n" +
 	"\vSetCdmReady\x12\x14\n" +
 	"\x05ready\x18\x01 \x01(\bR\x05ready\"!\n" +
 	"\vSetCdmDeice\x12\x12\n" +
@@ -8844,11 +8877,14 @@ const file_wire_proto_rawDesc = "" +
 	"\x0frevert_to_voice\x18\x03 \x01(\v2).flightstrips.cluster.v1.RevertPdcToVoiceH\x00R\rrevertToVoice\x12K\n" +
 	"\vacknowledge\x18\x04 \x01(\v2'.flightstrips.cluster.v1.AcknowledgePdcH\x00R\vacknowledge\x12<\n" +
 	"\x06unable\x18\x05 \x01(\v2\".flightstrips.cluster.v1.UnablePdcH\x00R\x06unableB\b\n" +
-	"\x06change\"z\n" +
+	"\x06change\"\xc9\x01\n" +
 	"\bIssuePdc\x12\x1c\n" +
 	"\tclearance\x18\x01 \x01(\tR\tclearance\x12'\n" +
 	"\x0frequest_remarks\x18\x02 \x01(\tR\x0erequestRemarks\x12'\n" +
-	"\x0frequest_channel\x18\x03 \x01(\tR\x0erequestChannel\"\x12\n" +
+	"\x0frequest_channel\x18\x03 \x01(\tR\x0erequestChannel\x12\x12\n" +
+	"\x04atis\x18\x04 \x01(\tR\x04atis\x12\x14\n" +
+	"\x05stand\x18\x05 \x01(\tR\x05stand\x12#\n" +
+	"\raircraft_type\x18\x06 \x01(\tR\faircraftType\"\x12\n" +
 	"\x10RevertPdcToVoice\"\x10\n" +
 	"\x0eAcknowledgePdc\"#\n" +
 	"\tUnablePdc\x12\x16\n" +

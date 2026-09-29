@@ -235,7 +235,7 @@ message CdmAction {
     RemoveCdmCtot remove_ctot = 6;
   }
 }
-message SetTobt { google.protobuf.Timestamp value = 1; }
+message SetTobt { google.protobuf.Timestamp value = 1; string hhmm_utc = 2; }
 message SetCdmReady { bool ready = 1; }
 message SetCdmDeice { string code = 1; }
 message SetCdmCtot { google.protobuf.Timestamp value = 1; }
@@ -247,7 +247,10 @@ message PdcAction {
     AcknowledgePdc acknowledge = 4; UnablePdc unable = 5;
   }
 }
-message IssuePdc { string clearance = 1; string request_remarks = 2; string request_channel = 3; }
+message IssuePdc {
+  string clearance = 1; string request_remarks = 2; string request_channel = 3;
+  string atis = 4; string stand = 5; string aircraft_type = 6;
+}
 message RevertPdcToVoice {}
 message AcknowledgePdc {}
 message UnablePdc { string reason = 1; }

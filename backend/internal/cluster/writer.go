@@ -182,7 +182,11 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 		if status == pb.CommandReply_STATUS_UNSPECIFIED {
 			status = pb.CommandReply_COMMITTED
 		}
-		outcome := &pb.CommandOutcome{CommandId: request.CommandId, RequestSha256: hash, Actor: proto.Clone(request.Actor).(*pb.Actor), Status: pb.CommandOutcome_SUCCEEDED, AggregateRevision: state.Revision + 1}
+		outcome := &pb.CommandOutcome{CommandId: request.CommandId, RequestSha256: hash, Actor: proto.Clone(request.Actor).(*pb.Actor), Status: pb.CommandOutcome_SUCCEEDED, AggregateRevision: state.Revision + 1, Aggregate: proto.Clone(request.Aggregate).(*pb.AggregateRef)}
+		if request.ExpectedEntityRevision != nil {
+			value := *request.ExpectedEntityRevision
+			outcome.ExpectedEntityRevision = &value
+		}
 		if status != pb.CommandReply_COMMITTED {
 			outcome.Status, outcome.ReasonCode, outcome.Detail = pb.CommandOutcome_FAILED, status.String(), errorString(err)
 			change = &pb.DomainChange{}

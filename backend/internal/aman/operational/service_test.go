@@ -448,9 +448,12 @@ func TestHoldingStackRequiresConsecutiveGeometryObservations(t *testing.T) {
 	first := updateHoldingStack(nil, candidate, start)
 	require.False(t, first.Confirmed)
 	require.Equal(t, uint32(1), first.ConsecutiveObservations)
+	require.Equal(t, start, first.FirstObservedAt)
 	confirmed := updateHoldingStack(first, candidate, start.Add(time.Minute))
 	require.True(t, confirmed.Confirmed)
 	require.Equal(t, uint32(2), confirmed.ConsecutiveObservations)
+	require.Equal(t, start, confirmed.FirstObservedAt)
+	require.Equal(t, start, updateHoldingStack(confirmed, candidate, start.Add(2*time.Minute)).FirstObservedAt)
 	require.Nil(t, updateHoldingStack(confirmed, nil, start.Add(2*time.Minute)))
 }
 
@@ -615,6 +618,205 @@ func TestResequencePromotionAutomaticallyRefreshesHoldingRelease(t *testing.T) {
 	require.NotNil(t, state.Flights[1].Prediction.HoldingPlan)
 	require.Equal(t, start.Add(time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
 	require.Equal(t, time.Minute, state.Flights[1].Prediction.HoldingPlan.ExpectedHoldingDuration)
+}
+
+func TestResequenceMovesNewHoldEntrantBehindExistingHoldingTraffic(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, holding := aman.RunwayGroupID("ARRIVAL-22"), "MONAK-HOLD"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	older := operationalFlight("OLDER", group, "MONAK", "M", start)
+	older.State, older.FreezeReason = aman.StateStable, aman.FreezeManual
+	older.Slot = &aman.Slot{Time: start.Add(20 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7, Reason: "captured"}
+	older.FrozenSlot = older.Slot
+	older.SelectedHolding = &holding
+	older.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start.Add(-10 * time.Minute), CandidateObservedAt: start, Confirmed: true}
+	olderEntry := start.Add(-10 * time.Minute)
+	older.Prediction.RawTETA, older.Prediction.HoldingFixETA = start, &olderEntry
+	newer := operationalFlight("NEWER", group, "MONAK", "M", start.Add(12*time.Minute))
+	newer.State = aman.StateStable
+	newer.Slot = &aman.Slot{Time: start.Add(24 * time.Minute), RunwayGroupID: group, Sequence: 3, Revision: 7, Reason: "rate_wtc"}
+	newer.SelectedHolding = &holding
+	newer.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start.Add(-5 * time.Minute), CandidateObservedAt: start, Confirmed: true}
+	newerEntry := start.Add(-5 * time.Minute)
+	newer.Prediction.RawTETA, newer.Prediction.HoldingFixETA = start.Add(12*time.Minute), &newerEntry
+	last := operationalFlight("LAST", group, "MONAK", "M", start.Add(15*time.Minute))
+	last.State = aman.StateStable
+	last.Slot = &aman.Slot{Time: start.Add(27 * time.Minute), RunwayGroupID: group, Sequence: 4, Revision: 7, Reason: "rate_wtc"}
+	last.SelectedHolding = &holding
+	last.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start.Add(-3 * time.Minute), CandidateObservedAt: start, Confirmed: true}
+	lastEntry := start.Add(-3 * time.Minute)
+	last.Prediction.RawTETA, last.Prediction.HoldingFixETA = start.Add(15*time.Minute), &lastEntry
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{newer, older, last},
+	}
+
+	service.resequence(&state, start)
+
+	require.Equal(t, start.Add(20*time.Minute), state.Flights[1].Slot.Time, "existing holding slot stays fixed")
+	require.Equal(t, start.Add(30*time.Minute), state.Flights[0].Slot.Time)
+	require.Equal(t, start.Add(33*time.Minute), state.Flights[2].Slot.Time, "the later entrant follows the moved aircraft")
+	require.NotNil(t, state.Flights[0].Prediction.HoldingPlan)
+	require.Equal(t, start.Add(13*time.Minute), state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Equal(t, start.Add(10*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
+}
+
+func TestIncomingFlightShowsLossBeforeJoiningOccupiedHold(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, holding := aman.RunwayGroupID("ARRIVAL-22"), "MONAK-HOLD"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	older := operationalFlight("HOLDING", group, "MONAK", "M", start)
+	older.State, older.FreezeReason = aman.StateStable, aman.FreezeManual
+	older.Slot = &aman.Slot{Time: start.Add(20 * time.Minute), RunwayGroupID: group, Sequence: 1, Revision: 7}
+	older.FrozenSlot = older.Slot
+	older.SelectedHolding = &holding
+	older.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start.Add(-10 * time.Minute), CandidateObservedAt: start, Confirmed: true}
+	olderEntry := start.Add(-10 * time.Minute)
+	older.Prediction.RawTETA, older.Prediction.HoldingFixETA = start, &olderEntry
+	incoming := operationalFlight("INCOMING", group, "MONAK", "M", start.Add(25*time.Minute))
+	incoming.State = aman.StateStable
+	incoming.Slot = &aman.Slot{Time: start.Add(27 * time.Minute), RunwayGroupID: group, Sequence: 2, Revision: 7}
+	incoming.SelectedHolding = &holding
+	incomingEntry := start.Add(5 * time.Minute)
+	incoming.Prediction.GeneratedAt = start
+	incoming.Prediction.RawTETA, incoming.Prediction.HoldingFixETA = start.Add(25*time.Minute), &incomingEntry
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7, GeneratedAt: start,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{incoming, older},
+	}
+
+	service.resequence(&state, start)
+
+	require.Nil(t, state.Flights[0].HoldingStack, "the aircraft is still inbound")
+	require.Equal(t, start.Add(33*time.Minute), state.Flights[0].Slot.Time)
+	require.Equal(t, 8*time.Minute, state.Flights[0].Slot.Time.Sub(state.Flights[0].Prediction.RawTETA), "normal gain/loss already shows L08")
+	require.Equal(t, start.Add(13*time.Minute), state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Equal(t, start.Add(10*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
+}
+
+func TestUnslottedHoldingFlightPrecedesStableIncomingFlight(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, holding := aman.RunwayGroupID("ARRIVAL-22"), "MONAK-HOLD"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: group}}}}}
+	older := operationalFlight("HOLDING", group, "MONAK", "M", start.Add(20*time.Minute))
+	older.SelectedHolding = &holding
+	older.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start.Add(-5 * time.Minute), CandidateObservedAt: start, Confirmed: true}
+	olderEntry := start.Add(10 * time.Minute)
+	older.Prediction.RawTETA, older.Prediction.HoldingFixETA = start.Add(20*time.Minute), &olderEntry
+	incoming := operationalFlight("INCOMING", group, "MONAK", "M", start.Add(18*time.Minute))
+	incoming.State = aman.StateStable
+	incoming.Slot = &aman.Slot{Time: start.Add(21 * time.Minute), RunwayGroupID: group, Sequence: 1, Revision: 7}
+	incoming.SelectedHolding = &holding
+	incomingEntry := start.Add(5 * time.Minute)
+	incoming.Prediction.GeneratedAt = start
+	incoming.Prediction.RawTETA, incoming.Prediction.HoldingFixETA = start.Add(18*time.Minute), &incomingEntry
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7, GeneratedAt: start,
+		RunwayGroups: []aman.RunwayGroupPolicy{{ID: group, ActiveRatePerHour: 20, RateEffectiveAt: &start}},
+		Flights:      []aman.AMANFlight{incoming, older},
+	}
+
+	service.resequence(&state, start)
+
+	require.Equal(t, start.Add(21*time.Minute), state.Flights[1].Slot.Time)
+	require.Equal(t, start.Add(27*time.Minute), state.Flights[0].Slot.Time)
+	require.Equal(t, 9*time.Minute, state.Flights[0].Slot.Time.Sub(state.Flights[0].Prediction.RawTETA))
+	require.Equal(t, start.Add(11*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Equal(t, start.Add(14*time.Minute), state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime)
+}
+
+func TestIncomingFlightShowsLossAcrossRunwayGroupsSharingHold(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	left, right, holding := aman.RunwayGroupID("ARRIVAL-22L"), aman.RunwayGroupID("ARRIVAL-22R"), "EKCH-OLPIB-PRIMARY-LOW"
+	service := &Service{deps: Dependencies{Terminal: terminal.Configuration{RunwayGroups: []terminal.RunwayGroup{{ID: left}, {ID: right}}}}}
+	older := operationalFlight("HOLDING", left, "MONAK", "M", start.Add(10*time.Minute))
+	older.State, older.FreezeReason = aman.StateStable, aman.FreezeManual
+	older.Slot = &aman.Slot{Time: start.Add(20 * time.Minute), RunwayGroupID: left, Sequence: 1, Revision: 7}
+	older.FrozenSlot = older.Slot
+	older.SelectedHolding = &holding
+	older.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start.Add(-10 * time.Minute), CandidateObservedAt: start, Confirmed: true}
+	olderEntry := start
+	older.Prediction.RawTETA, older.Prediction.HoldingFixETA = start.Add(10*time.Minute), &olderEntry
+	incoming := operationalFlight("INCOMING", right, "MONAK", "M", start.Add(18*time.Minute))
+	incoming.State = aman.StateStable
+	incoming.Slot = &aman.Slot{Time: start.Add(21 * time.Minute), RunwayGroupID: right, Sequence: 1, Revision: 7}
+	incoming.SelectedHolding = &holding
+	incomingEntry := start.Add(5 * time.Minute)
+	incoming.Prediction.GeneratedAt = start
+	incoming.Prediction.RawTETA, incoming.Prediction.HoldingFixETA = start.Add(18*time.Minute), &incomingEntry
+	last := operationalFlight("LAST", left, "MONAK", "M", start.Add(22*time.Minute))
+	last.SelectedHolding = &holding
+	lastEntry := start.Add(6 * time.Minute)
+	last.Prediction.GeneratedAt = start
+	last.Prediction.RawTETA, last.Prediction.HoldingFixETA = start.Add(22*time.Minute), &lastEntry
+	state := aman.AirportState{
+		Airport: "EKCH", Revision: 7, GeneratedAt: start,
+		RunwayGroups: []aman.RunwayGroupPolicy{
+			{ID: left, ActiveRatePerHour: 20, RateEffectiveAt: &start},
+			{ID: right, ActiveRatePerHour: 20, RateEffectiveAt: &start},
+		},
+		Flights: []aman.AMANFlight{incoming, older, last},
+	}
+
+	service.resequence(&state, start)
+
+	require.Equal(t, start.Add(20*time.Minute), state.Flights[1].Slot.Time)
+	require.Equal(t, start.Add(24*time.Minute), state.Flights[0].Slot.Time)
+	require.Equal(t, 6*time.Minute, state.Flights[0].Slot.Time.Sub(state.Flights[0].Prediction.RawTETA))
+	require.Equal(t, start.Add(11*time.Minute), state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Equal(t, start.Add(10*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
+	require.Equal(t, start.Add(30*time.Minute), state.Flights[2].Slot.Time, "later entrant follows the cross-group correction")
+	require.Equal(t, start.Add(14*time.Minute), state.Flights[2].Prediction.HoldingPlan.ApproachReleaseTime)
+}
+
+func TestProtectedHoldConflictSuppressesUnsafeReleasePlan(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, holding := aman.RunwayGroupID("ARRIVAL-22"), "MONAK-HOLD"
+	older := operationalFlight("OLDER", group, "MONAK", "M", start)
+	older.Slot = &aman.Slot{Time: start.Add(20 * time.Minute), RunwayGroupID: group}
+	older.SelectedHolding = &holding
+	older.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start.Add(-10 * time.Minute), Confirmed: true}
+	olderEntry := start.Add(-10 * time.Minute)
+	older.Prediction.RawTETA, older.Prediction.HoldingFixETA = start, &olderEntry
+	newer := operationalFlight("NEWER", group, "MONAK", "M", start.Add(12*time.Minute))
+	newer.FreezeReason = aman.FreezeManual
+	newer.Slot = &aman.Slot{Time: start.Add(24 * time.Minute), RunwayGroupID: group}
+	newer.SelectedHolding = &holding
+	newer.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start.Add(-5 * time.Minute), Confirmed: true}
+	newerEntry := start.Add(-5 * time.Minute)
+	newer.Prediction.RawTETA, newer.Prediction.HoldingFixETA = start.Add(12*time.Minute), &newerEntry
+	state := aman.AirportState{Flights: []aman.AMANFlight{newer, older}}
+
+	(&Service{}).refreshHoldingPlans(&state)
+
+	require.Nil(t, state.Flights[0].Prediction.HoldingPlan)
+	require.NotNil(t, state.Flights[1].Prediction.HoldingPlan)
+	require.Equal(t, start.Add(10*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
+}
+
+func TestRemovedHoldingFlightDoesNotSuppressActiveReleasePlan(t *testing.T) {
+	start := time.Date(2026, time.July, 23, 12, 0, 0, 0, time.UTC)
+	group, holding := aman.RunwayGroupID("ARRIVAL-22"), "MONAK-HOLD"
+	removed := operationalFlight("REMOVED", group, "MONAK", "M", start)
+	removed.State = aman.StateRemoved
+	removed.SelectedHolding = &holding
+	removedEntry := start.Add(-10 * time.Minute)
+	removed.Prediction.GeneratedAt = removedEntry
+	removed.Prediction.RawTETA, removed.Prediction.HoldingFixETA = start, &removedEntry
+	active := operationalFlight("ACTIVE", group, "MONAK", "M", start.Add(15*time.Minute))
+	active.SelectedHolding = &holding
+	active.HoldingStack = &aman.HoldingStackState{HoldingID: holding, FirstObservedAt: start, CandidateObservedAt: start, Confirmed: true}
+	activeEntry := start
+	active.Prediction.RawTETA, active.Prediction.HoldingFixETA = start.Add(15*time.Minute), &activeEntry
+	active.Slot = &aman.Slot{Time: start.Add(25 * time.Minute), RunwayGroupID: group}
+	state := aman.AirportState{Flights: []aman.AMANFlight{removed, active}}
+
+	(&Service{}).refreshHoldingPlans(&state)
+
+	require.NotNil(t, state.Flights[1].Prediction.HoldingPlan)
+	require.Equal(t, start.Add(10*time.Minute), state.Flights[1].Prediction.HoldingPlan.ApproachReleaseTime)
 }
 
 func TestResequencePromotionKeepsConfirmedHoldingReleaseFeasible(t *testing.T) {

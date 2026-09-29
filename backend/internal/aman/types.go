@@ -494,6 +494,7 @@ type HoldingPlan struct {
 // as stack traffic.
 type HoldingStackState struct {
 	HoldingID               string
+	FirstObservedAt         time.Time
 	CandidateObservedAt     time.Time
 	ConsecutiveObservations uint32
 	Confirmed               bool
@@ -1408,6 +1409,14 @@ func (f AMANFlight) Validate() error {
 		}
 		if err := requireUTCTime("holding stack observation", f.HoldingStack.CandidateObservedAt); err != nil {
 			return err
+		}
+		if !f.HoldingStack.FirstObservedAt.IsZero() {
+			if err := requireUTCTime("holding stack entry", f.HoldingStack.FirstObservedAt); err != nil {
+				return err
+			}
+			if f.HoldingStack.FirstObservedAt.After(f.HoldingStack.CandidateObservedAt) {
+				return invalid("holding stack entry follows latest observation")
+			}
 		}
 	}
 	if f.Lifecycle != nil {

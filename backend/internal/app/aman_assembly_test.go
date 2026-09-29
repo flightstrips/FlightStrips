@@ -99,6 +99,33 @@ func TestAMANTransportProjectsHoldingReleaseOnFirstSurveillanceDetection(t *test
 	require.Empty(t, transport.newHoldingEATPublication(context.Background(), state))
 }
 
+func TestAMANTransportWithdrawsEATThatWouldPassEarlierHoldEntrant(t *testing.T) {
+	start := time.Date(2026, time.September, 13, 14, 0, 0, 0, time.UTC)
+	holdingID := "EKCH-OLPIB-PRIMARY"
+	older := aman.AMANFlight{
+		Callsign: "OLDER", SelectedHolding: &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
+		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, FirstObservedAt: start, Confirmed: true},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: start.Add(25 * time.Minute)}},
+	}
+	newer := aman.AMANFlight{
+		Callsign: "NEWER", SelectedHolding: &holdingID,
+		HoldingClearance: &aman.HoldingClearance{Hold: "OLPIB", HoldType: aman.HoldingClearanceEnroute},
+		HoldingStack:     &aman.HoldingStackState{HoldingID: holdingID, FirstObservedAt: start.Add(time.Minute), Confirmed: true},
+		Prediction:       &aman.Prediction{HoldingPlan: &aman.HoldingPlan{ApproachReleaseTime: start.Add(30 * time.Minute)}},
+	}
+	state := aman.AirportState{Airport: "EKCH", Authoritative: true, Flights: []aman.AMANFlight{newer, older}}
+	transport := holdingEATTransport(holdingID, "OLPIB")
+	require.Len(t, transport.newHoldingEATPublication(context.Background(), state), 2)
+
+	state.Flights[0].Prediction.HoldingPlan.ApproachReleaseTime = start.Add(22 * time.Minute)
+	state.Flights[1].HoldingClearance.HoldEAT = "1425"
+	require.Equal(t, []euroscopeEvents.HoldEvent{{Callsign: "NEWER", Hold: "OLPIB", HoldType: "enroute"}},
+		transport.newHoldingEATPublication(context.Background(), state))
+	state.Flights[1].HoldingStack.FirstObservedAt = time.Time{} // legacy persisted stack
+	require.Empty(t, transport.newHoldingEATEvents(context.Background(), state))
+}
+
 func TestAMANTransportPublishesHoldingEATWithdrawalWhenProjectionDisappears(t *testing.T) {
 	release := time.Date(2026, time.September, 13, 14, 22, 0, 0, time.UTC)
 	holdingID := "EKCH-OLPIB-PRIMARY"

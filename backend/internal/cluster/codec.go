@@ -171,7 +171,7 @@ func normalize(m protoreflect.Message) error {
 			failure = fmt.Errorf("unknown enum in %s", f.FullName())
 		} else if f.Kind() == protoreflect.StringKind {
 			s := v.String()
-			if name == "icao" || name == "airport" || name == "callsign" || name == "sector" || name == "runway" || name == "stand" {
+			if name == "icao" || name == "airport" || name == "callsign" || name == "flight_callsign" || name == "sector" || name == "runway" || name == "stand" {
 				s = strings.ToUpper(strings.TrimSpace(s))
 			}
 			if name == "cid" || name == "to_cid" || name == "target_cid" || name == "controller_cid" {

@@ -40,6 +40,8 @@ func (s NATSStore) Replay(ctx context.Context, subject string) ([]AppliedEvent, 
 		if err != nil {
 			return nil, err
 		}
+		// Nats-Expected-Last-Subject-Sequence expects the last global stream
+		// sequence seen on this subject, not a per-subject message count.
 		entries = append(entries, AppliedEvent{Subject: message.Subject, StreamSequence: metadata.Sequence.Stream, SubjectSequence: metadata.Sequence.Stream, ServerTime: metadata.Timestamp, Data: message.Data})
 	}
 	return entries, nil

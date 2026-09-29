@@ -38,6 +38,17 @@ bay, source authority and unchanged strip ID before publishing. A frontend or
 HTTP boundary keeps one command UUID across retries; position-only updates
 remain in the position KV path.
 
+Task 07 keeps the EuroScope origin and handover CID on typed session
+`Coordination` records. A transfer allocates `Session.next_coordination_id`
+and inserts the coordination in one session event; assumption, force assumption,
+or cancellation removes it atomically with any strip-owner change. The owner
+ledger and session event stream, rather than socket delivery, determine whether
+a duplicate command emits a new transfer delta.
+An internal EuroScope handover uses `SystemCommand.update_entity` with a
+zero-ID `Coordination` keyed by callsign and the current strip revision. The
+owner allocates the numeric ID, preserves the EuroScope origin and handover
+CID, and applies any arrival-bay or owner correction in that same event.
+
 Internal requests are binary `CommandRequest` and replies are binary `CommandReply` from [wire.proto](proto/wire.proto). `CommandRequest.command` is a closed oneof containing `ClientCommand` or `SystemCommand`; `ClientCommand.action` and AMAN's nested oneof enumerate the valid operations. `expected_entity_revision` is absent only when the action has no read-modify-write precondition. A nested AMAN coordination request ID remains distinct from transport `command_id`. The browser request ID and HTTP `Idempotency-Key` equal that command ID for one logical user action. `SystemCommand.update_entity` is internal to the owner and cannot be submitted by a browser or provider without domain validation.
 
 Normalize a decoded command in the Go owner: reject unknown fields, normalize identifiers and timestamps, sort semantically unordered repeated fields, clear only `command_id`, and deterministic-marshal the typed message. Store SHA-256 of those bytes in the ledger. The Go owner computes this digest on both original and retried commands; cross-language deterministic byte identity is not assumed. A different digest under one ID is `INVALID_ARGUMENT`. SHA-256 collision resistance is the command-identity assumption.

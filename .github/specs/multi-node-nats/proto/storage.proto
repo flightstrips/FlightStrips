@@ -248,6 +248,7 @@ message Coordination {
   uint64 id = 1; string callsign = 2; string from_cid = 3;
   string to_cid = 4; string status = 5; string tag = 6;
   google.protobuf.Timestamp created_at = 7; optional google.protobuf.Timestamp resolved_at = 8;
+  bool from_euroscope = 9; string euroscope_handover_cid = 10;
 }
 message TacticalStrip {
   uint64 id = 1; string title = 2; string body = 3; string bay = 4;

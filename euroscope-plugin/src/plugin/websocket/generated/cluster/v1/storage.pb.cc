@@ -1826,9 +1826,13 @@ inline constexpr Coordination::Impl_::Impl_(
         tag_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        euroscope_handover_cid_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         created_at_{nullptr},
         resolved_at_{nullptr},
-        id_{::uint64_t{0u}} {}
+        id_{::uint64_t{0u}},
+        from_euroscope_{false} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR Coordination::Coordination(::_pbi::ConstantInitialized)
@@ -5032,6 +5036,8 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Coordination, _impl_.tag_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Coordination, _impl_.created_at_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Coordination, _impl_.resolved_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Coordination, _impl_.from_euroscope_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Coordination, _impl_.euroscope_handover_cid_),
         ~0u,
         ~0u,
         ~0u,
@@ -5040,6 +5046,8 @@ const ::uint32_t
         ~0u,
         0,
         1,
+        ~0u,
+        ~0u,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::TacticalStrip, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::TacticalStrip, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -7390,125 +7398,125 @@ static const ::_pbi::MigrationSchema
         {547, -1, -1, sizeof(::flightstrips::cluster::v1::ValidationAction)},
         {559, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgeValidation)},
         {568, -1, -1, sizeof(::flightstrips::cluster::v1::ClxOverrideAction)},
-        {577, 593, -1, sizeof(::flightstrips::cluster::v1::Coordination)},
-        {601, 625, -1, sizeof(::flightstrips::cluster::v1::TacticalStrip)},
-        {641, 656, -1, sizeof(::flightstrips::cluster::v1::StandAssignment)},
-        {663, 676, -1, sizeof(::flightstrips::cluster::v1::StandBlock)},
-        {681, 694, -1, sizeof(::flightstrips::cluster::v1::PdcSequence)},
-        {699, 715, -1, sizeof(::flightstrips::cluster::v1::CdmState)},
-        {723, -1, -1, sizeof(::flightstrips::cluster::v1::EcfmpState)},
-        {734, 752, -1, sizeof(::flightstrips::cluster::v1::EcfmpRestriction)},
-        {762, 774, -1, sizeof(::flightstrips::cluster::v1::Atis)},
-        {778, 790, -1, sizeof(::flightstrips::cluster::v1::ClxOverride)},
-        {794, 808, -1, sizeof(::flightstrips::cluster::v1::FrontendMessage)},
-        {814, 832, -1, sizeof(::flightstrips::cluster::v1::AmanAirport)},
-        {842, 863, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayGroup)},
-        {876, 887, -1, sizeof(::flightstrips::cluster::v1::AmanRunwaySelectionPoint)},
-        {890, 900, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayRatePoint)},
-        {902, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSameStarSpacing)},
-        {913, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceWarning)},
-        {925, 939, -1, sizeof(::flightstrips::cluster::v1::AmanGap)},
-        {945, 959, -1, sizeof(::flightstrips::cluster::v1::AmanClosure)},
-        {965, 979, -1, sizeof(::flightstrips::cluster::v1::AmanReservation)},
-        {985, 996, -1, sizeof(::flightstrips::cluster::v1::AmanTimelineMapping)},
-        {999, -1, -1, sizeof(::flightstrips::cluster::v1::AmanTechnicalHealth)},
-        {1011, 1024, -1, sizeof(::flightstrips::cluster::v1::AmanComponentHealth)},
-        {1029, 1074, -1, sizeof(::flightstrips::cluster::v1::AmanFlight)},
-        {1111, 1136, -1, sizeof(::flightstrips::cluster::v1::AmanFlightObservation)},
-        {1153, 1163, -1, sizeof(::flightstrips::cluster::v1::AmanPlannedTiming)},
-        {1165, 1175, -1, sizeof(::flightstrips::cluster::v1::AmanFlightPlanFact)},
-        {1177, 1192, -1, sizeof(::flightstrips::cluster::v1::AmanSurveillanceFact)},
-        {1199, 1212, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingClearance)},
-        {1217, 1246, -1, sizeof(::flightstrips::cluster::v1::AmanPrediction)},
-        {1267, 1278, -1, sizeof(::flightstrips::cluster::v1::AmanFeederEta)},
-        {1281, 1293, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingPlan)},
-        {1297, 1309, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingStack)},
-        {1313, 1325, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionCalculation)},
-        {1329, 1348, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionLeg)},
-        {1359, 1383, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionSegment)},
-        {1399, 1409, -1, sizeof(::flightstrips::cluster::v1::AmanRawTetaSample)},
-        {1411, 1429, -1, sizeof(::flightstrips::cluster::v1::AmanBaseline)},
-        {1439, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRouteProgress)},
-        {1460, 1471, -1, sizeof(::flightstrips::cluster::v1::AmanTmaEntry)},
-        {1474, 1484, -1, sizeof(::flightstrips::cluster::v1::AmanOperationalException)},
-        {1486, 1504, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundEvidence)},
-        {1514, 1538, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundDetection)},
-        {1554, 1569, -1, sizeof(::flightstrips::cluster::v1::AmanLifecycle)},
-        {1576, 1587, -1, sizeof(::flightstrips::cluster::v1::AmanAbsence)},
-        {1590, 1606, -1, sizeof(::flightstrips::cluster::v1::AmanRouteFact)},
-        {1614, 1627, -1, sizeof(::flightstrips::cluster::v1::AmanProvenance)},
-        {1632, 1645, -1, sizeof(::flightstrips::cluster::v1::AmanSlot)},
-        {1650, 1668, -1, sizeof(::flightstrips::cluster::v1::AmanETAReview)},
-        {1678, 1693, -1, sizeof(::flightstrips::cluster::v1::AmanQueueOffer)},
-        {1700, 1717, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundConfirmation)},
-        {1726, 1739, -1, sizeof(::flightstrips::cluster::v1::AmanGapException)},
-        {1744, 1765, -1, sizeof(::flightstrips::cluster::v1::AmanCoordination)},
-        {1777, 1787, -1, sizeof(::flightstrips::cluster::v1::AmanRouteDirect)},
-        {1789, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSpeed)},
-        {1798, 1811, -1, sizeof(::flightstrips::cluster::v1::AmanClearance)},
-        {1816, 1838, -1, sizeof(::flightstrips::cluster::v1::AmanAudit)},
-        {1851, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCommandAudit)},
-        {1863, -1, -1, sizeof(::flightstrips::cluster::v1::AmanObservationAudit)},
-        {1875, 1888, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceAudit)},
-        {1893, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCoordinationAudit)},
-        {1905, -1, -1, sizeof(::flightstrips::cluster::v1::AmanHealthAudit)},
-        {1917, 1932, -1, sizeof(::flightstrips::cluster::v1::AmanCapacityAudit)},
-        {1939, 1951, -1, sizeof(::flightstrips::cluster::v1::AmanFreezeAudit)},
-        {1955, -1, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundAudit)},
-        {1967, 1979, -1, sizeof(::flightstrips::cluster::v1::AmanReplayAudit)},
-        {1983, 1997, -1, sizeof(::flightstrips::cluster::v1::AmanValidation)},
-        {2003, 2015, -1, sizeof(::flightstrips::cluster::v1::VatsimObservation)},
-        {2019, -1, -1, sizeof(::flightstrips::cluster::v1::NavManifest)},
-        {2032, -1, -1, sizeof(::flightstrips::cluster::v1::NavObjectRef)},
-        {2043, -1, -1, sizeof(::flightstrips::cluster::v1::NavRouteCache)},
-        {2056, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderCheckpoint)},
-        {2071, 2084, -1, sizeof(::flightstrips::cluster::v1::WeatherCache)},
-        {2089, 2105, -1, sizeof(::flightstrips::cluster::v1::WeatherObservation)},
-        {2113, 2124, -1, sizeof(::flightstrips::cluster::v1::WeatherCloud)},
-        {2127, 2140, -1, sizeof(::flightstrips::cluster::v1::SessionDeadline)},
-        {2145, 2162, -1, sizeof(::flightstrips::cluster::v1::CommandOutcome)},
-        {2171, 2188, -1, sizeof(::flightstrips::cluster::v1::WorkflowRecord)},
-        {2197, 2221, -1, sizeof(::flightstrips::cluster::v1::EffectRecord)},
-        {2236, -1, -1, sizeof(::flightstrips::cluster::v1::SetFlightPlanEffect)},
-        {2247, -1, -1, sizeof(::flightstrips::cluster::v1::PdcEffect)},
-        {2258, -1, -1, sizeof(::flightstrips::cluster::v1::PrivateMessageEffect)},
-        {2269, -1, -1, sizeof(::flightstrips::cluster::v1::CoordinationEffect)},
-        {2280, -1, -1, sizeof(::flightstrips::cluster::v1::CdmEffect)},
-        {2291, 2312, -1, sizeof(::flightstrips::cluster::v1::Snapshot)},
-        {2325, 2336, -1, sizeof(::flightstrips::cluster::v1::EntitySnapshot)},
-        {2339, 2354, -1, sizeof(::flightstrips::cluster::v1::SnapshotIndex)},
-        {2361, 2378, -1, sizeof(::flightstrips::cluster::v1::PositionValue)},
-        {2386, 2400, -1, sizeof(::flightstrips::cluster::v1::AircraftPosition)},
-        {2406, -1, -1, sizeof(::flightstrips::cluster::v1::PositionTombstone)},
-        {2414, -1, -1, sizeof(::flightstrips::cluster::v1::PresenceValue)},
-        {2426, 2437, -1, sizeof(::flightstrips::cluster::v1::NodePresence)},
-        {2440, 2457, -1, sizeof(::flightstrips::cluster::v1::ClientPresence)},
-        {2466, -1, -1, sizeof(::flightstrips::cluster::v1::ObjectValue)},
-        {2480, 2502, -1, sizeof(::flightstrips::cluster::v1::NavData)},
-        {2515, 2527, -1, sizeof(::flightstrips::cluster::v1::NavDatasetVersion)},
-        {2531, 2544, -1, sizeof(::flightstrips::cluster::v1::NavProvenance)},
-        {2549, -1, -1, sizeof(::flightstrips::cluster::v1::NavCoordinate)},
-        {2559, 2570, -1, sizeof(::flightstrips::cluster::v1::NavThreshold)},
-        {2573, 2583, -1, sizeof(::flightstrips::cluster::v1::NavAirportFragment)},
-        {2585, 2597, -1, sizeof(::flightstrips::cluster::v1::NavAirport)},
-        {2601, 2614, -1, sizeof(::flightstrips::cluster::v1::NavRunway)},
-        {2619, -1, -1, sizeof(::flightstrips::cluster::v1::NavProcedureFragment)},
-        {2631, 2646, -1, sizeof(::flightstrips::cluster::v1::NavProcedure)},
-        {2653, 2670, -1, sizeof(::flightstrips::cluster::v1::NavLeg)},
-        {2679, 2699, -1, sizeof(::flightstrips::cluster::v1::NavHolding)},
-        {2710, -1, -1, sizeof(::flightstrips::cluster::v1::NavFixFragment)},
-        {2720, 2731, -1, sizeof(::flightstrips::cluster::v1::NavFix)},
-        {2734, -1, -1, sizeof(::flightstrips::cluster::v1::NavTerminalFragment)},
-        {2748, 2759, -1, sizeof(::flightstrips::cluster::v1::NavStarFamilyPolicy)},
-        {2762, 2783, -1, sizeof(::flightstrips::cluster::v1::NavTerminalPath)},
-        {2796, 2809, -1, sizeof(::flightstrips::cluster::v1::NavRouteCandidate)},
-        {2814, 2829, -1, sizeof(::flightstrips::cluster::v1::NavRouteQuery)},
-        {2836, 2852, -1, sizeof(::flightstrips::cluster::v1::NavRouteGeometry)},
-        {2860, -1, -1, sizeof(::flightstrips::cluster::v1::EffectSecret)},
-        {2872, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderPage)},
-        {2886, 2896, -1, sizeof(::flightstrips::cluster::v1::AiracPage)},
-        {2898, -1, -1, sizeof(::flightstrips::cluster::v1::VatsimPage)},
-        {2907, -1, -1, sizeof(::flightstrips::cluster::v1::WeatherPage)},
+        {577, 595, -1, sizeof(::flightstrips::cluster::v1::Coordination)},
+        {605, 629, -1, sizeof(::flightstrips::cluster::v1::TacticalStrip)},
+        {645, 660, -1, sizeof(::flightstrips::cluster::v1::StandAssignment)},
+        {667, 680, -1, sizeof(::flightstrips::cluster::v1::StandBlock)},
+        {685, 698, -1, sizeof(::flightstrips::cluster::v1::PdcSequence)},
+        {703, 719, -1, sizeof(::flightstrips::cluster::v1::CdmState)},
+        {727, -1, -1, sizeof(::flightstrips::cluster::v1::EcfmpState)},
+        {738, 756, -1, sizeof(::flightstrips::cluster::v1::EcfmpRestriction)},
+        {766, 778, -1, sizeof(::flightstrips::cluster::v1::Atis)},
+        {782, 794, -1, sizeof(::flightstrips::cluster::v1::ClxOverride)},
+        {798, 812, -1, sizeof(::flightstrips::cluster::v1::FrontendMessage)},
+        {818, 836, -1, sizeof(::flightstrips::cluster::v1::AmanAirport)},
+        {846, 867, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayGroup)},
+        {880, 891, -1, sizeof(::flightstrips::cluster::v1::AmanRunwaySelectionPoint)},
+        {894, 904, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayRatePoint)},
+        {906, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSameStarSpacing)},
+        {917, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceWarning)},
+        {929, 943, -1, sizeof(::flightstrips::cluster::v1::AmanGap)},
+        {949, 963, -1, sizeof(::flightstrips::cluster::v1::AmanClosure)},
+        {969, 983, -1, sizeof(::flightstrips::cluster::v1::AmanReservation)},
+        {989, 1000, -1, sizeof(::flightstrips::cluster::v1::AmanTimelineMapping)},
+        {1003, -1, -1, sizeof(::flightstrips::cluster::v1::AmanTechnicalHealth)},
+        {1015, 1028, -1, sizeof(::flightstrips::cluster::v1::AmanComponentHealth)},
+        {1033, 1078, -1, sizeof(::flightstrips::cluster::v1::AmanFlight)},
+        {1115, 1140, -1, sizeof(::flightstrips::cluster::v1::AmanFlightObservation)},
+        {1157, 1167, -1, sizeof(::flightstrips::cluster::v1::AmanPlannedTiming)},
+        {1169, 1179, -1, sizeof(::flightstrips::cluster::v1::AmanFlightPlanFact)},
+        {1181, 1196, -1, sizeof(::flightstrips::cluster::v1::AmanSurveillanceFact)},
+        {1203, 1216, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingClearance)},
+        {1221, 1250, -1, sizeof(::flightstrips::cluster::v1::AmanPrediction)},
+        {1271, 1282, -1, sizeof(::flightstrips::cluster::v1::AmanFeederEta)},
+        {1285, 1297, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingPlan)},
+        {1301, 1313, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingStack)},
+        {1317, 1329, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionCalculation)},
+        {1333, 1352, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionLeg)},
+        {1363, 1387, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionSegment)},
+        {1403, 1413, -1, sizeof(::flightstrips::cluster::v1::AmanRawTetaSample)},
+        {1415, 1433, -1, sizeof(::flightstrips::cluster::v1::AmanBaseline)},
+        {1443, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRouteProgress)},
+        {1464, 1475, -1, sizeof(::flightstrips::cluster::v1::AmanTmaEntry)},
+        {1478, 1488, -1, sizeof(::flightstrips::cluster::v1::AmanOperationalException)},
+        {1490, 1508, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundEvidence)},
+        {1518, 1542, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundDetection)},
+        {1558, 1573, -1, sizeof(::flightstrips::cluster::v1::AmanLifecycle)},
+        {1580, 1591, -1, sizeof(::flightstrips::cluster::v1::AmanAbsence)},
+        {1594, 1610, -1, sizeof(::flightstrips::cluster::v1::AmanRouteFact)},
+        {1618, 1631, -1, sizeof(::flightstrips::cluster::v1::AmanProvenance)},
+        {1636, 1649, -1, sizeof(::flightstrips::cluster::v1::AmanSlot)},
+        {1654, 1672, -1, sizeof(::flightstrips::cluster::v1::AmanETAReview)},
+        {1682, 1697, -1, sizeof(::flightstrips::cluster::v1::AmanQueueOffer)},
+        {1704, 1721, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundConfirmation)},
+        {1730, 1743, -1, sizeof(::flightstrips::cluster::v1::AmanGapException)},
+        {1748, 1769, -1, sizeof(::flightstrips::cluster::v1::AmanCoordination)},
+        {1781, 1791, -1, sizeof(::flightstrips::cluster::v1::AmanRouteDirect)},
+        {1793, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSpeed)},
+        {1802, 1815, -1, sizeof(::flightstrips::cluster::v1::AmanClearance)},
+        {1820, 1842, -1, sizeof(::flightstrips::cluster::v1::AmanAudit)},
+        {1855, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCommandAudit)},
+        {1867, -1, -1, sizeof(::flightstrips::cluster::v1::AmanObservationAudit)},
+        {1879, 1892, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceAudit)},
+        {1897, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCoordinationAudit)},
+        {1909, -1, -1, sizeof(::flightstrips::cluster::v1::AmanHealthAudit)},
+        {1921, 1936, -1, sizeof(::flightstrips::cluster::v1::AmanCapacityAudit)},
+        {1943, 1955, -1, sizeof(::flightstrips::cluster::v1::AmanFreezeAudit)},
+        {1959, -1, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundAudit)},
+        {1971, 1983, -1, sizeof(::flightstrips::cluster::v1::AmanReplayAudit)},
+        {1987, 2001, -1, sizeof(::flightstrips::cluster::v1::AmanValidation)},
+        {2007, 2019, -1, sizeof(::flightstrips::cluster::v1::VatsimObservation)},
+        {2023, -1, -1, sizeof(::flightstrips::cluster::v1::NavManifest)},
+        {2036, -1, -1, sizeof(::flightstrips::cluster::v1::NavObjectRef)},
+        {2047, -1, -1, sizeof(::flightstrips::cluster::v1::NavRouteCache)},
+        {2060, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderCheckpoint)},
+        {2075, 2088, -1, sizeof(::flightstrips::cluster::v1::WeatherCache)},
+        {2093, 2109, -1, sizeof(::flightstrips::cluster::v1::WeatherObservation)},
+        {2117, 2128, -1, sizeof(::flightstrips::cluster::v1::WeatherCloud)},
+        {2131, 2144, -1, sizeof(::flightstrips::cluster::v1::SessionDeadline)},
+        {2149, 2166, -1, sizeof(::flightstrips::cluster::v1::CommandOutcome)},
+        {2175, 2192, -1, sizeof(::flightstrips::cluster::v1::WorkflowRecord)},
+        {2201, 2225, -1, sizeof(::flightstrips::cluster::v1::EffectRecord)},
+        {2240, -1, -1, sizeof(::flightstrips::cluster::v1::SetFlightPlanEffect)},
+        {2251, -1, -1, sizeof(::flightstrips::cluster::v1::PdcEffect)},
+        {2262, -1, -1, sizeof(::flightstrips::cluster::v1::PrivateMessageEffect)},
+        {2273, -1, -1, sizeof(::flightstrips::cluster::v1::CoordinationEffect)},
+        {2284, -1, -1, sizeof(::flightstrips::cluster::v1::CdmEffect)},
+        {2295, 2316, -1, sizeof(::flightstrips::cluster::v1::Snapshot)},
+        {2329, 2340, -1, sizeof(::flightstrips::cluster::v1::EntitySnapshot)},
+        {2343, 2358, -1, sizeof(::flightstrips::cluster::v1::SnapshotIndex)},
+        {2365, 2382, -1, sizeof(::flightstrips::cluster::v1::PositionValue)},
+        {2390, 2404, -1, sizeof(::flightstrips::cluster::v1::AircraftPosition)},
+        {2410, -1, -1, sizeof(::flightstrips::cluster::v1::PositionTombstone)},
+        {2418, -1, -1, sizeof(::flightstrips::cluster::v1::PresenceValue)},
+        {2430, 2441, -1, sizeof(::flightstrips::cluster::v1::NodePresence)},
+        {2444, 2461, -1, sizeof(::flightstrips::cluster::v1::ClientPresence)},
+        {2470, -1, -1, sizeof(::flightstrips::cluster::v1::ObjectValue)},
+        {2484, 2506, -1, sizeof(::flightstrips::cluster::v1::NavData)},
+        {2519, 2531, -1, sizeof(::flightstrips::cluster::v1::NavDatasetVersion)},
+        {2535, 2548, -1, sizeof(::flightstrips::cluster::v1::NavProvenance)},
+        {2553, -1, -1, sizeof(::flightstrips::cluster::v1::NavCoordinate)},
+        {2563, 2574, -1, sizeof(::flightstrips::cluster::v1::NavThreshold)},
+        {2577, 2587, -1, sizeof(::flightstrips::cluster::v1::NavAirportFragment)},
+        {2589, 2601, -1, sizeof(::flightstrips::cluster::v1::NavAirport)},
+        {2605, 2618, -1, sizeof(::flightstrips::cluster::v1::NavRunway)},
+        {2623, -1, -1, sizeof(::flightstrips::cluster::v1::NavProcedureFragment)},
+        {2635, 2650, -1, sizeof(::flightstrips::cluster::v1::NavProcedure)},
+        {2657, 2674, -1, sizeof(::flightstrips::cluster::v1::NavLeg)},
+        {2683, 2703, -1, sizeof(::flightstrips::cluster::v1::NavHolding)},
+        {2714, -1, -1, sizeof(::flightstrips::cluster::v1::NavFixFragment)},
+        {2724, 2735, -1, sizeof(::flightstrips::cluster::v1::NavFix)},
+        {2738, -1, -1, sizeof(::flightstrips::cluster::v1::NavTerminalFragment)},
+        {2752, 2763, -1, sizeof(::flightstrips::cluster::v1::NavStarFamilyPolicy)},
+        {2766, 2787, -1, sizeof(::flightstrips::cluster::v1::NavTerminalPath)},
+        {2800, 2813, -1, sizeof(::flightstrips::cluster::v1::NavRouteCandidate)},
+        {2818, 2833, -1, sizeof(::flightstrips::cluster::v1::NavRouteQuery)},
+        {2840, 2856, -1, sizeof(::flightstrips::cluster::v1::NavRouteGeometry)},
+        {2864, -1, -1, sizeof(::flightstrips::cluster::v1::EffectSecret)},
+        {2876, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderPage)},
+        {2890, 2900, -1, sizeof(::flightstrips::cluster::v1::AiracPage)},
+        {2902, -1, -1, sizeof(::flightstrips::cluster::v1::VatsimPage)},
+        {2911, -1, -1, sizeof(::flightstrips::cluster::v1::WeatherPage)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_AggregateRef_default_instance_._instance,
@@ -7876,788 +7884,789 @@ const char descriptor_table_protodef_storage_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "lxOverrideActionH\000B\010\n\006action\"/\n\025Acknowle"
     "dgeValidation\022\026\n\016activation_key\030\001 \001(\t\")\n"
     "\021ClxOverrideAction\022\024\n\014override_key\030\001 \001(\t"
-    "\"\341\001\n\014Coordination\022\n\n\002id\030\001 \001(\004\022\020\n\010callsig"
+    "\"\231\002\n\014Coordination\022\n\n\002id\030\001 \001(\004\022\020\n\010callsig"
     "n\030\002 \001(\t\022\020\n\010from_cid\030\003 \001(\t\022\016\n\006to_cid\030\004 \001("
     "\t\022\016\n\006status\030\005 \001(\t\022\013\n\003tag\030\006 \001(\t\022.\n\ncreate"
     "d_at\030\007 \001(\0132\032.google.protobuf.Timestamp\0224"
     "\n\013resolved_at\030\010 \001(\0132\032.google.protobuf.Ti"
-    "mestampH\000\210\001\001B\016\n\014_resolved_at\"\371\002\n\rTactica"
-    "lStrip\022\n\n\002id\030\001 \001(\004\022\r\n\005title\030\002 \001(\t\022\014\n\004bod"
-    "y\030\003 \001(\t\022\013\n\003bay\030\004 \001(\t\022\020\n\010revision\030\005 \001(\004\022\016"
-    "\n\006marked\030\006 \001(\010\022\021\n\tconfirmed\030\007 \001(\010\022\021\n\town"
-    "er_cid\030\010 \001(\t\0229\n\020timer_started_at\030\t \001(\0132\032"
-    ".google.protobuf.TimestampH\000\210\001\001\022\014\n\004kind\030"
-    "\n \001(\t\022\r\n\005label\030\013 \001(\t\022\020\n\010aircraft\030\014 \001(\t\022\023"
-    "\n\013produced_by\030\r \001(\t\022\020\n\010sequence\030\016 \001(\004\022\024\n"
-    "\014confirmed_by\030\017 \001(\t\022.\n\ncreated_at\030\020 \001(\0132"
-    "\032.google.protobuf.TimestampB\023\n\021_timer_st"
-    "arted_at\"\272\001\n\017StandAssignment\022\020\n\010callsign"
-    "\030\001 \001(\t\022\r\n\005stand\030\002 \001(\t\022\016\n\006source\030\003 \001(\t\022\020\n"
-    "\010revision\030\004 \001(\004\022\021\n\tconfirmed\030\005 \001(\010\022\r\n\005ac"
-    "tor\030\006 \001(\t\0223\n\nexpires_at\030\007 \001(\0132\032.google.p"
-    "rotobuf.TimestampH\000\210\001\001B\r\n\013_expires_at\"\256\001"
-    "\n\nStandBlock\022\r\n\005stand\030\001 \001(\t\022\016\n\006reason\030\002 "
-    "\001(\t\022\r\n\005actor\030\003 \001(\t\022.\n\ncreated_at\030\004 \001(\0132\032"
-    ".google.protobuf.Timestamp\0223\n\nexpires_at"
-    "\030\005 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001B"
-    "\r\n\013_expires_at\"\231\001\n\013PdcSequence\022\020\n\010callsi"
-    "gn\030\001 \001(\t\022\020\n\010sequence\030\002 \001(\004\022\r\n\005state\030\003 \001("
-    "\t\022\027\n\017request_remarks\030\004 \001(\t\0221\n\010deadline\030\005"
-    " \001(\0132\032.google.protobuf.TimestampH\000\210\001\001B\013\n"
-    "\t_deadline\"\263\002\n\010CdmState\022\020\n\010callsign\030\001 \001("
-    "\t\022-\n\004tobt\030\002 \001(\0132\032.google.protobuf.Timest"
-    "ampH\000\210\001\001\022-\n\004tsat\030\003 \001(\0132\032.google.protobuf"
-    ".TimestampH\001\210\001\001\022-\n\004ttot\030\004 \001(\0132\032.google.p"
-    "rotobuf.TimestampH\002\210\001\001\022-\n\004ctot\030\005 \001(\0132\032.g"
-    "oogle.protobuf.TimestampH\003\210\001\001\022\r\n\005deice\030\006"
-    " \001(\t\022\r\n\005ready\030\007 \001(\010\022\027\n\017source_revision\030\010"
-    " \001(\tB\007\n\005_tobtB\007\n\005_tsatB\007\n\005_ttotB\007\n\005_ctot"
-    "\"x\n\nEcfmpState\022\020\n\010callsign\030\001 \001(\t\022\?\n\014rest"
-    "rictions\030\002 \003(\0132).flightstrips.cluster.v1"
-    ".EcfmpRestriction\022\027\n\017source_revision\030\003 \001"
-    "(\t\"\354\001\n\020EcfmpRestriction\022\022\n\nmeasure_id\030\001 "
-    "\001(\004\022\r\n\005ident\030\002 \001(\t\022\014\n\004kind\030\003 \001(\t\022\016\n\006reas"
-    "on\030\004 \001(\t\022\016\n\006routes\030\005 \003(\t\022\023\n\013destination\030"
-    "\006 \001(\t\022\026\n\tmin_level\030\007 \001(\005H\000\210\001\001\022\026\n\tmax_lev"
-    "el\030\010 \001(\005H\001\210\001\001\022\024\n\014exact_levels\030\t \003(\005\022\020\n\010h"
-    "as_ctot\030\n \001(\010B\014\n\n_min_levelB\014\n\n_max_leve"
-    "l\"d\n\004Atis\022\017\n\007airport\030\001 \001(\t\022\014\n\004code\030\002 \001(\t"
-    "\022\014\n\004text\030\003 \001(\t\022/\n\013observed_at\030\004 \001(\0132\032.go"
-    "ogle.protobuf.Timestamp\"k\n\013ClxOverride\022\020"
-    "\n\010callsign\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005actor\030\003"
-    " \001(\t\022.\n\ncreated_at\030\004 \001(\0132\032.google.protob"
-    "uf.Timestamp\"\222\001\n\017FrontendMessage\022\n\n\002id\030\001"
-    " \001(\004\022\016\n\006sender\030\002 \001(\t\022\014\n\004text\030\003 \001(\t\022\021\n\tbr"
-    "oadcast\030\004 \001(\010\022\022\n\nrecipients\030\005 \003(\t\022.\n\ncre"
+    "mestampH\000\210\001\001\022\026\n\016from_euroscope\030\t \001(\010\022\036\n\026"
+    "euroscope_handover_cid\030\n \001(\tB\016\n\014_resolve"
+    "d_at\"\371\002\n\rTacticalStrip\022\n\n\002id\030\001 \001(\004\022\r\n\005ti"
+    "tle\030\002 \001(\t\022\014\n\004body\030\003 \001(\t\022\013\n\003bay\030\004 \001(\t\022\020\n\010"
+    "revision\030\005 \001(\004\022\016\n\006marked\030\006 \001(\010\022\021\n\tconfir"
+    "med\030\007 \001(\010\022\021\n\towner_cid\030\010 \001(\t\0229\n\020timer_st"
+    "arted_at\030\t \001(\0132\032.google.protobuf.Timesta"
+    "mpH\000\210\001\001\022\014\n\004kind\030\n \001(\t\022\r\n\005label\030\013 \001(\t\022\020\n\010"
+    "aircraft\030\014 \001(\t\022\023\n\013produced_by\030\r \001(\t\022\020\n\010s"
+    "equence\030\016 \001(\004\022\024\n\014confirmed_by\030\017 \001(\t\022.\n\nc"
+    "reated_at\030\020 \001(\0132\032.google.protobuf.Timest"
+    "ampB\023\n\021_timer_started_at\"\272\001\n\017StandAssign"
+    "ment\022\020\n\010callsign\030\001 \001(\t\022\r\n\005stand\030\002 \001(\t\022\016\n"
+    "\006source\030\003 \001(\t\022\020\n\010revision\030\004 \001(\004\022\021\n\tconfi"
+    "rmed\030\005 \001(\010\022\r\n\005actor\030\006 \001(\t\0223\n\nexpires_at\030"
+    "\007 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001B\r"
+    "\n\013_expires_at\"\256\001\n\nStandBlock\022\r\n\005stand\030\001 "
+    "\001(\t\022\016\n\006reason\030\002 \001(\t\022\r\n\005actor\030\003 \001(\t\022.\n\ncr"
+    "eated_at\030\004 \001(\0132\032.google.protobuf.Timesta"
+    "mp\0223\n\nexpires_at\030\005 \001(\0132\032.google.protobuf"
+    ".TimestampH\000\210\001\001B\r\n\013_expires_at\"\231\001\n\013PdcSe"
+    "quence\022\020\n\010callsign\030\001 \001(\t\022\020\n\010sequence\030\002 \001"
+    "(\004\022\r\n\005state\030\003 \001(\t\022\027\n\017request_remarks\030\004 \001"
+    "(\t\0221\n\010deadline\030\005 \001(\0132\032.google.protobuf.T"
+    "imestampH\000\210\001\001B\013\n\t_deadline\"\263\002\n\010CdmState\022"
+    "\020\n\010callsign\030\001 \001(\t\022-\n\004tobt\030\002 \001(\0132\032.google"
+    ".protobuf.TimestampH\000\210\001\001\022-\n\004tsat\030\003 \001(\0132\032"
+    ".google.protobuf.TimestampH\001\210\001\001\022-\n\004ttot\030"
+    "\004 \001(\0132\032.google.protobuf.TimestampH\002\210\001\001\022-"
+    "\n\004ctot\030\005 \001(\0132\032.google.protobuf.Timestamp"
+    "H\003\210\001\001\022\r\n\005deice\030\006 \001(\t\022\r\n\005ready\030\007 \001(\010\022\027\n\017s"
+    "ource_revision\030\010 \001(\tB\007\n\005_tobtB\007\n\005_tsatB\007"
+    "\n\005_ttotB\007\n\005_ctot\"x\n\nEcfmpState\022\020\n\010callsi"
+    "gn\030\001 \001(\t\022\?\n\014restrictions\030\002 \003(\0132).flights"
+    "trips.cluster.v1.EcfmpRestriction\022\027\n\017sou"
+    "rce_revision\030\003 \001(\t\"\354\001\n\020EcfmpRestriction\022"
+    "\022\n\nmeasure_id\030\001 \001(\004\022\r\n\005ident\030\002 \001(\t\022\014\n\004ki"
+    "nd\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\022\016\n\006routes\030\005 \003(\t"
+    "\022\023\n\013destination\030\006 \001(\t\022\026\n\tmin_level\030\007 \001(\005"
+    "H\000\210\001\001\022\026\n\tmax_level\030\010 \001(\005H\001\210\001\001\022\024\n\014exact_l"
+    "evels\030\t \003(\005\022\020\n\010has_ctot\030\n \001(\010B\014\n\n_min_le"
+    "velB\014\n\n_max_level\"d\n\004Atis\022\017\n\007airport\030\001 \001"
+    "(\t\022\014\n\004code\030\002 \001(\t\022\014\n\004text\030\003 \001(\t\022/\n\013observ"
+    "ed_at\030\004 \001(\0132\032.google.protobuf.Timestamp\""
+    "k\n\013ClxOverride\022\020\n\010callsign\030\001 \001(\t\022\013\n\003key\030"
+    "\002 \001(\t\022\r\n\005actor\030\003 \001(\t\022.\n\ncreated_at\030\004 \001(\013"
+    "2\032.google.protobuf.Timestamp\"\222\001\n\017Fronten"
+    "dMessage\022\n\n\002id\030\001 \001(\004\022\016\n\006sender\030\002 \001(\t\022\014\n\004"
+    "text\030\003 \001(\t\022\021\n\tbroadcast\030\004 \001(\010\022\022\n\nrecipie"
+    "nts\030\005 \003(\t\022.\n\ncreated_at\030\006 \001(\0132\032.google.p"
+    "rotobuf.Timestamp\"\222\003\n\013AmanAirport\022\017\n\007air"
+    "port\030\001 \001(\t\022\020\n\010revision\030\002 \001(\004\022\026\n\016policy_v"
+    "ersion\030\003 \001(\t\022\026\n\016effective_mode\030\004 \001(\t\022\?\n\r"
+    "runway_groups\030\005 \003(\0132(.flightstrips.clust"
+    "er.v1.AmanRunwayGroup\022\037\n\027active_runway_g"
+    "roup_ids\030\006 \003(\t\022G\n\021timeline_mappings\030\007 \003("
+    "\0132,.flightstrips.cluster.v1.AmanTimeline"
+    "Mapping\022<\n\006health\030\010 \001(\0132,.flightstrips.c"
+    "luster.v1.AmanTechnicalHealth\0220\n\014generat"
+    "ed_at\030\t \001(\0132\032.google.protobuf.Timestamp\022"
+    "\025\n\rauthoritative\030\n \001(\010\"\320\005\n\017AmanRunwayGro"
+    "up\022\n\n\002id\030\001 \001(\t\022\020\n\010selected\030\002 \001(\010\022\034\n\024acti"
+    "ve_rate_per_hour\030\003 \001(\r\022:\n\021rate_effective"
+    "_at\030\004 \001(\0132\032.google.protobuf.TimestampH\000\210"
+    "\001\001\022.\n\004gaps\030\005 \003(\0132 .flightstrips.cluster."
+    "v1.AmanGap\0226\n\010closures\030\006 \003(\0132$.flightstr"
+    "ips.cluster.v1.AmanClosure\022>\n\014reservatio"
+    "ns\030\007 \003(\0132(.flightstrips.cluster.v1.AmanR"
+    "eservation\022\016\n\006active\030\010 \001(\010\022M\n\022selection_"
+    "schedule\030\t \003(\01321.flightstrips.cluster.v1"
+    ".AmanRunwaySelectionPoint\022\037\n\022selection_c"
+    "onflict\030\n \001(\tH\001\210\001\001\022C\n\rrate_schedule\030\013 \003("
+    "\0132,.flightstrips.cluster.v1.AmanRunwayRa"
+    "tePoint\022L\n\021same_star_spacing\030\014 \001(\0132,.fli"
+    "ghtstrips.cluster.v1.AmanSameStarSpacing"
+    "H\002\210\001\001\022G\n\021sequence_warnings\030\r \003(\0132,.fligh"
+    "tstrips.cluster.v1.AmanSequenceWarningB\024"
+    "\n\022_rate_effective_atB\025\n\023_selection_confl"
+    "ictB\024\n\022_same_star_spacing\"v\n\030AmanRunwayS"
+    "electionPoint\0220\n\014effective_at\030\001 \001(\0132\032.go"
+    "ogle.protobuf.Timestamp\022\030\n\020command_revis"
+    "ion\030\002 \001(\004\022\016\n\006source\030\003 \001(\t\"b\n\023AmanRunwayR"
+    "atePoint\0220\n\014effective_at\030\001 \001(\0132\032.google."
+    "protobuf.Timestamp\022\031\n\021arrivals_per_hour\030"
+    "\002 \001(\r\"e\n\023AmanSameStarSpacing\022\017\n\007enabled\030"
+    "\001 \001(\010\022 \n\030activation_rate_per_hour\030\002 \001(\r\022"
+    "\033\n\023minimum_empty_slots\030\003 \001(\r\"d\n\023AmanSequ"
+    "enceWarning\022\014\n\004code\030\001 \001(\t\022\020\n\010callsign\030\002 "
+    "\001(\t\022\030\n\020related_callsign\030\003 \001(\t\022\023\n\013star_fa"
+    "mily\030\004 \001(\t\"\274\001\n\007AmanGap\022\n\n\002id\030\001 \001(\t\022)\n\005st"
+    "art\030\002 \001(\0132\032.google.protobuf.Timestamp\022\'\n"
+    "\003end\030\003 \001(\0132\032.google.protobuf.Timestamp\022\r"
+    "\n\005label\030\004 \001(\t\022\022\n\ncreated_by\030\005 \001(\t\022.\n\ncre"
     "ated_at\030\006 \001(\0132\032.google.protobuf.Timestam"
-    "p\"\222\003\n\013AmanAirport\022\017\n\007airport\030\001 \001(\t\022\020\n\010re"
-    "vision\030\002 \001(\004\022\026\n\016policy_version\030\003 \001(\t\022\026\n\016"
-    "effective_mode\030\004 \001(\t\022\?\n\rrunway_groups\030\005 "
-    "\003(\0132(.flightstrips.cluster.v1.AmanRunway"
-    "Group\022\037\n\027active_runway_group_ids\030\006 \003(\t\022G"
-    "\n\021timeline_mappings\030\007 \003(\0132,.flightstrips"
-    ".cluster.v1.AmanTimelineMapping\022<\n\006healt"
-    "h\030\010 \001(\0132,.flightstrips.cluster.v1.AmanTe"
-    "chnicalHealth\0220\n\014generated_at\030\t \001(\0132\032.go"
-    "ogle.protobuf.Timestamp\022\025\n\rauthoritative"
-    "\030\n \001(\010\"\320\005\n\017AmanRunwayGroup\022\n\n\002id\030\001 \001(\t\022\020"
-    "\n\010selected\030\002 \001(\010\022\034\n\024active_rate_per_hour"
-    "\030\003 \001(\r\022:\n\021rate_effective_at\030\004 \001(\0132\032.goog"
-    "le.protobuf.TimestampH\000\210\001\001\022.\n\004gaps\030\005 \003(\013"
-    "2 .flightstrips.cluster.v1.AmanGap\0226\n\010cl"
-    "osures\030\006 \003(\0132$.flightstrips.cluster.v1.A"
-    "manClosure\022>\n\014reservations\030\007 \003(\0132(.fligh"
-    "tstrips.cluster.v1.AmanReservation\022\016\n\006ac"
-    "tive\030\010 \001(\010\022M\n\022selection_schedule\030\t \003(\01321"
-    ".flightstrips.cluster.v1.AmanRunwaySelec"
-    "tionPoint\022\037\n\022selection_conflict\030\n \001(\tH\001\210"
-    "\001\001\022C\n\rrate_schedule\030\013 \003(\0132,.flightstrips"
-    ".cluster.v1.AmanRunwayRatePoint\022L\n\021same_"
-    "star_spacing\030\014 \001(\0132,.flightstrips.cluste"
-    "r.v1.AmanSameStarSpacingH\002\210\001\001\022G\n\021sequenc"
-    "e_warnings\030\r \003(\0132,.flightstrips.cluster."
-    "v1.AmanSequenceWarningB\024\n\022_rate_effectiv"
-    "e_atB\025\n\023_selection_conflictB\024\n\022_same_sta"
-    "r_spacing\"v\n\030AmanRunwaySelectionPoint\0220\n"
-    "\014effective_at\030\001 \001(\0132\032.google.protobuf.Ti"
-    "mestamp\022\030\n\020command_revision\030\002 \001(\004\022\016\n\006sou"
-    "rce\030\003 \001(\t\"b\n\023AmanRunwayRatePoint\0220\n\014effe"
-    "ctive_at\030\001 \001(\0132\032.google.protobuf.Timesta"
-    "mp\022\031\n\021arrivals_per_hour\030\002 \001(\r\"e\n\023AmanSam"
-    "eStarSpacing\022\017\n\007enabled\030\001 \001(\010\022 \n\030activat"
-    "ion_rate_per_hour\030\002 \001(\r\022\033\n\023minimum_empty"
-    "_slots\030\003 \001(\r\"d\n\023AmanSequenceWarning\022\014\n\004c"
-    "ode\030\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\030\n\020related_c"
-    "allsign\030\003 \001(\t\022\023\n\013star_family\030\004 \001(\t\"\274\001\n\007A"
-    "manGap\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002 \001(\0132\032.goog"
-    "le.protobuf.Timestamp\022\'\n\003end\030\003 \001(\0132\032.goo"
-    "gle.protobuf.Timestamp\022\r\n\005label\030\004 \001(\t\022\022\n"
-    "\ncreated_by\030\005 \001(\t\022.\n\ncreated_at\030\006 \001(\0132\032."
-    "google.protobuf.Timestamp\"\316\001\n\013AmanClosur"
-    "e\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002 \001(\0132\032.google.pr"
-    "otobuf.Timestamp\022,\n\003end\030\003 \001(\0132\032.google.p"
-    "rotobuf.TimestampH\000\210\001\001\022\016\n\006reason\030\004 \001(\t\022\022"
-    "\n\ncreated_by\030\005 \001(\t\022.\n\ncreated_at\030\006 \001(\0132\032"
-    ".google.protobuf.TimestampB\006\n\004_end\"\304\001\n\017A"
-    "manReservation\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002 \001("
-    "\0132\032.google.protobuf.Timestamp\022\'\n\003end\030\003 \001"
-    "(\0132\032.google.protobuf.Timestamp\022\r\n\005label\030"
-    "\004 \001(\t\022\022\n\ncreated_by\030\005 \001(\t\022.\n\ncreated_at\030"
-    "\006 \001(\0132\032.google.protobuf.Timestamp\"[\n\023Ama"
-    "nTimelineMapping\022\n\n\002id\030\001 \001(\r\022\021\n\004left\030\002 \001"
-    "(\tH\000\210\001\001\022\022\n\005right\030\003 \001(\tH\001\210\001\001B\007\n\005_leftB\010\n\006"
-    "_right\"\217\001\n\023AmanTechnicalHealth\022\016\n\006status"
-    "\030\001 \001(\t\022\r\n\005ready\030\002 \001(\010\022\027\n\017blocked_reasons"
-    "\030\003 \003(\t\022@\n\ncomponents\030\004 \003(\0132,.flightstrip"
-    "s.cluster.v1.AmanComponentHealth\"\266\001\n\023Ama"
-    "nComponentHealth\022\021\n\tcomponent\030\001 \001(\t\022\016\n\006s"
-    "tatus\030\002 \001(\t\022\016\n\006reason\030\003 \001(\t\0223\n\nupdated_a"
-    "t\030\004 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001"
-    "\022\030\n\013age_seconds\030\005 \001(\001H\001\210\001\001B\r\n\013_updated_a"
-    "tB\016\n\014_age_seconds\"\360\023\n\nAmanFlight\022\020\n\010call"
-    "sign\030\001 \001(\t\022\r\n\005state\030\002 \001(\t\022\034\n\024sequence_di"
-    "sposition\030\003 \001(\t\022\023\n\013data_status\030\004 \001(\t\022@\n\n"
-    "prediction\030\005 \001(\0132\'.flightstrips.cluster."
-    "v1.AmanPredictionH\000\210\001\001\022D\n\020raw_teta_sampl"
-    "es\030\006 \003(\0132*.flightstrips.cluster.v1.AmanR"
-    "awTetaSample\022D\n\020arrival_baseline\030\007 \001(\0132%"
-    ".flightstrips.cluster.v1.AmanBaselineH\001\210"
-    "\001\001\022O\n\022latest_observation\030\010 \001(\0132..flights"
-    "trips.cluster.v1.AmanFlightObservationH\002"
-    "\210\001\001\022\"\n\025selected_runway_group\030\t \001(\tH\003\210\001\001\022"
-    "!\n\024selected_star_family\030\n \001(\tH\004\210\001\001\022 \n\023se"
-    "lected_feeder_fix\030\013 \001(\tH\005\210\001\001\022\035\n\020selected"
-    "_holding\030\014 \001(\tH\006\210\001\001\022\?\n\nfeeder_eta\030\r \001(\0132"
-    "&.flightstrips.cluster.v1.AmanFeederEtaH"
-    "\007\210\001\001\022G\n\022derived_feeder_eta\030\016 \001(\0132&.fligh"
-    "tstrips.cluster.v1.AmanFeederEtaH\010\210\001\001\022M\n"
-    "\021holding_clearance\030\017 \001(\0132-.flightstrips."
-    "cluster.v1.AmanHoldingClearanceH\t\210\001\001\022E\n\r"
-    "holding_stack\030\020 \001(\0132).flightstrips.clust"
-    "er.v1.AmanHoldingStackH\n\210\001\001\022F\n\021active_ro"
-    "ute_fact\030\021 \001(\0132&.flightstrips.cluster.v1"
-    ".AmanRouteFactH\013\210\001\001\022\035\n\020active_route_key\030"
-    "\022 \001(\tH\014\210\001\001\022$\n\027active_route_dataset_id\030\023 "
-    "\001(\tH\r\210\001\001\022G\n\016route_progress\030\024 \001(\0132*.fligh"
-    "tstrips.cluster.v1.AmanRouteProgressH\016\210\001"
-    "\001\022=\n\ttma_entry\030\025 \001(\0132%.flightstrips.clus"
-    "ter.v1.AmanTmaEntryH\017\210\001\001\022 \n\030manual_seque"
-    "nce_included\030\026 \001(\010\022\025\n\rfreeze_reason\030\027 \001("
-    "\t\0222\n\tfrozen_at\030\030 \001(\0132\032.google.protobuf.T"
-    "imestampH\020\210\001\001\022@\n\027frozen_operational_teta"
-    "\030\031 \001(\0132\032.google.protobuf.TimestampH\021\210\001\001\022"
-    ";\n\013frozen_slot\030\032 \001(\0132!.flightstrips.clus"
-    "ter.v1.AmanSlotH\022\210\001\001\0224\n\004slot\030\033 \001(\0132!.fli"
-    "ghtstrips.cluster.v1.AmanSlotH\023\210\001\001\022\022\n\005or"
-    "der\030\034 \001(\005H\024\210\001\001\022\031\n\014manual_order\030\035 \001(\005H\025\210\001"
-    "\001\022=\n\014queue_offers\030\036 \003(\0132\'.flightstrips.c"
-    "luster.v1.AmanQueueOffer\022\?\n\neta_review\030\037"
-    " \001(\0132&.flightstrips.cluster.v1.AmanETARe"
-    "viewH\026\210\001\001\022U\n\025operational_exception\030  \001(\013"
-    "21.flightstrips.cluster.v1.AmanOperation"
-    "alExceptionH\027\210\001\001\022E\n\rgap_exception\030! \001(\0132"
-    ").flightstrips.cluster.v1.AmanGapExcepti"
-    "onH\030\210\001\001\022P\n\023go_around_detection\030\" \001(\0132..f"
-    "lightstrips.cluster.v1.AmanGoAroundDetec"
-    "tionH\031\210\001\001\022V\n\026go_around_confirmation\030# \001("
-    "\01321.flightstrips.cluster.v1.AmanGoAround"
-    "ConfirmationH\032\210\001\001\022>\n\tlifecycle\030$ \001(\0132&.f"
-    "lightstrips.cluster.v1.AmanLifecycleH\033\210\001"
-    "\001\022.\n\nupdated_at\030% \001(\0132\032.google.protobuf."
-    "TimestampB\r\n\013_predictionB\023\n\021_arrival_bas"
-    "elineB\025\n\023_latest_observationB\030\n\026_selecte"
-    "d_runway_groupB\027\n\025_selected_star_familyB"
-    "\026\n\024_selected_feeder_fixB\023\n\021_selected_hol"
-    "dingB\r\n\013_feeder_etaB\025\n\023_derived_feeder_e"
-    "taB\024\n\022_holding_clearanceB\020\n\016_holding_sta"
-    "ckB\024\n\022_active_route_factB\023\n\021_active_rout"
-    "e_keyB\032\n\030_active_route_dataset_idB\021\n\017_ro"
-    "ute_progressB\014\n\n_tma_entryB\014\n\n_frozen_at"
-    "B\032\n\030_frozen_operational_tetaB\016\n\014_frozen_"
-    "slotB\007\n\005_slotB\010\n\006_orderB\017\n\r_manual_order"
-    "B\r\n\013_eta_reviewB\030\n\026_operational_exceptio"
-    "nB\020\n\016_gap_exceptionB\026\n\024_go_around_detect"
-    "ionB\031\n\027_go_around_confirmationB\014\n\n_lifec"
-    "ycle\"\276\006\n\025AmanFlightObservation\022\020\n\010callsi"
-    "gn\030\001 \001(\t\022\016\n\006origin\030\002 \001(\t\022\023\n\013destination\030"
-    "\003 \001(\t\022\032\n\raircraft_type\030\004 \001(\tH\000\210\001\001\022\032\n\rwak"
-    "e_category\030\005 \001(\tH\001\210\001\001\022\030\n\013filed_route\030\006 \001"
-    "(\tH\002\210\001\001\022\034\n\017requested_level\030\007 \001(\005H\003\210\001\001\022G\n"
-    "\016planned_timing\030\010 \001(\0132*.flightstrips.clu"
-    "ster.v1.AmanPlannedTimingH\004\210\001\001\022@\n\013flight"
-    "_plan\030\t \001(\0132+.flightstrips.cluster.v1.Am"
-    "anFlightPlanFact\022H\n\014surveillance\030\n \001(\0132-"
-    ".flightstrips.cluster.v1.AmanSurveillanc"
-    "eFactH\005\210\001\001\022M\n\021holding_clearance\030\013 \001(\0132-."
-    "flightstrips.cluster.v1.AmanHoldingClear"
-    "anceH\006\210\001\001\022\033\n\023surveillance_source\030\014 \001(\t\022\020"
-    "\n\010provider\030\r \001(\t\0229\n\020takeoff_detected\030\016 \001"
-    "(\0132\032.google.protobuf.TimestampH\007\210\001\001\0221\n\rr"
-    "econciled_at\030\017 \001(\0132\032.google.protobuf.Tim"
-    "estamp\022\025\n\rsource_status\030\020 \001(\t\022\017\n\007missing"
-    "\030\021 \001(\010B\020\n\016_aircraft_typeB\020\n\016_wake_catego"
-    "ryB\016\n\014_filed_routeB\022\n\020_requested_levelB\021"
-    "\n\017_planned_timingB\017\n\r_surveillanceB\024\n\022_h"
-    "olding_clearanceB\023\n\021_takeoff_detected\"\316\001"
-    "\n\021AmanPlannedTiming\022A\n\030estimated_off_blo"
-    "ck_time\030\001 \001(\0132\032.google.protobuf.Timestam"
-    "pH\000\210\001\001\022>\n\026estimated_enroute_time\030\002 \001(\0132\031"
-    ".google.protobuf.DurationH\001\210\001\001B\033\n\031_estim"
-    "ated_off_block_timeB\031\n\027_estimated_enrout"
-    "e_time\"~\n\022AmanFlightPlanFact\022\025\n\010revision"
-    "\030\001 \001(\004H\000\210\001\001\0224\n\013observed_at\030\002 \001(\0132\032.googl"
-    "e.protobuf.TimestampH\001\210\001\001B\013\n\t_revisionB\016"
-    "\n\014_observed_at\"\321\002\n\024AmanSurveillanceFact\022"
-    "\030\n\020latitude_degrees\030\001 \001(\001\022\031\n\021longitude_d"
-    "egrees\030\002 \001(\001\022\032\n\raltitude_feet\030\003 \001(\005H\000\210\001\001"
-    "\022\036\n\021groundspeed_knots\030\004 \001(\001H\001\210\001\001\022\037\n\022trac"
-    "k_true_degrees\030\005 \001(\001H\002\210\001\001\022\025\n\010sequence\030\006 "
-    "\001(\004H\003\210\001\001\0224\n\013observed_at\030\007 \001(\0132\032.google.p"
-    "rotobuf.TimestampH\004\210\001\001B\020\n\016_altitude_feet"
-    "B\024\n\022_groundspeed_knotsB\025\n\023_track_true_de"
-    "greesB\013\n\t_sequenceB\016\n\014_observed_at\"\256\001\n\024A"
-    "manHoldingClearance\022\014\n\004hold\030\001 \001(\t\022\021\n\thol"
-    "d_type\030\002 \001(\t\022\020\n\010hold_eat\030\003 \001(\t\022\035\n\020cleare"
-    "d_altitude\030\004 \001(\005H\000\210\001\001\022/\n\013observed_at\030\005 \001"
-    "(\0132\032.google.protobuf.TimestampB\023\n\021_clear"
-    "ed_altitude\"\303\007\n\016AmanPrediction\022,\n\010raw_te"
-    "ta\030\001 \001(\0132\032.google.protobuf.Timestamp\0221\n\010"
-    "raw_reta\030\002 \001(\0132\032.google.protobuf.Timesta"
-    "mpH\000\210\001\001\0224\n\020operational_teta\030\003 \001(\0132\032.goog"
-    "le.protobuf.Timestamp\022\032\n\022operational_rea"
-    "son\030\004 \001(\t\0220\n\014generated_at\030\005 \001(\0132\032.google"
-    ".protobuf.Timestamp\0225\n\021input_observed_at"
-    "\030\006 \001(\0132\032.google.protobuf.Timestamp\022\022\n\nco"
-    "nfidence\030\007 \001(\t\022\023\n\013publishable\030\010 \001(\010\022\037\n\022d"
-    "egradation_reason\030\t \001(\tH\001\210\001\001\022\027\n\017dataset_"
-    "version\030\n \001(\t\022\027\n\017geometry_digest\030\013 \001(\t\022\036"
-    "\n\021distance_to_go_nm\030\014 \001(\001H\002\210\001\001\0228\n\017holdin"
-    "g_fix_eta\030\r \001(\0132\032.google.protobuf.Timest"
-    "ampH\003\210\001\001\022C\n\014holding_plan\030\016 \001(\0132(.flights"
-    "trips.cluster.v1.AmanHoldingPlanH\004\210\001\001\022\025\n"
-    "\rmodel_version\030\017 \001(\t\022\026\n\016config_version\030\020"
-    " \001(\t\022\r\n\005basis\030\021 \001(\t\022#\n\026performance_profi"
-    "le_id\030\022 \001(\tH\005\210\001\001\022\033\n\016weather_source\030\023 \001(\t"
-    "H\006\210\001\001\022\017\n\007sources\030\024 \003(\t\022L\n\013calculation\030\025 "
-    "\001(\01322.flightstrips.cluster.v1.AmanPredic"
-    "tionCalculationH\007\210\001\001B\013\n\t_raw_retaB\025\n\023_de"
-    "gradation_reasonB\024\n\022_distance_to_go_nmB\022"
-    "\n\020_holding_fix_etaB\017\n\r_holding_planB\031\n\027_"
-    "performance_profile_idB\021\n\017_weather_sourc"
-    "eB\016\n\014_calculation\"e\n\rAmanFeederEta\022,\n\003et"
-    "a\030\001 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001"
-    "\022\016\n\006source\030\002 \001(\t\022\016\n\006passed\030\003 \001(\010B\006\n\004_eta"
-    "\"\373\001\n\017AmanHoldingPlan\0226\n\022holding_entry_ti"
-    "me\030\001 \001(\0132\032.google.protobuf.Timestamp\0229\n\025"
-    "approach_release_time\030\002 \001(\0132\032.google.pro"
-    "tobuf.Timestamp\022<\n\031expected_holding_dura"
-    "tion\030\003 \001(\0132\031.google.protobuf.Duration\0227\n"
-    "\024post_holding_transit\030\004 \001(\0132\031.google.pro"
-    "tobuf.Duration\"\226\001\n\020AmanHoldingStack\022\022\n\nh"
-    "olding_id\030\001 \001(\t\0229\n\025candidate_observed_at"
-    "\030\002 \001(\0132\032.google.protobuf.Timestamp\022 \n\030co"
-    "nsecutive_observations\030\003 \001(\r\022\021\n\tconfirme"
-    "d\030\004 \001(\010\"\371\001\n\031AmanPredictionCalculation\0223\n"
-    "\020no_wind_duration\030\001 \001(\0132\031.google.protobu"
-    "f.Duration\022+\n\010duration\030\002 \001(\0132\031.google.pr"
-    "otobuf.Duration\0228\n\004legs\030\003 \003(\0132*.flightst"
-    "rips.cluster.v1.AmanPredictionLeg\022@\n\010seg"
-    "ments\030\004 \003(\0132..flightstrips.cluster.v1.Am"
-    "anPredictionSegment\"\263\002\n\021AmanPredictionLe"
-    "g\022\n\n\002id\030\001 \001(\t\022\020\n\010from_fix\030\002 \001(\t\022\016\n\006to_fi"
-    "x\030\003 \001(\t\022\026\n\016start_latitude\030\004 \001(\001\022\027\n\017start"
-    "_longitude\030\005 \001(\001\022\024\n\014end_latitude\030\006 \001(\001\022\025"
-    "\n\rend_longitude\030\007 \001(\001\022\023\n\013distance_nm\030\010 \001"
-    "(\001\022\033\n\023course_true_degrees\030\t \001(\001\0223\n\020no_wi"
-    "nd_duration\030\n \001(\0132\031.google.protobuf.Dura"
-    "tion\022+\n\010duration\030\013 \001(\0132\031.google.protobuf"
-    ".Duration\"\223\004\n\025AmanPredictionSegment\022\027\n\017r"
-    "oute_leg_index\030\001 \001(\005\022\017\n\007pre_tod\030\002 \001(\010\022\020\n"
-    "\010phase_id\030\003 \001(\t\022\022\n\nphase_name\030\004 \001(\t\022\025\n\rp"
-    "hase_formula\030\005 \001(\t\022\023\n\013distance_nm\030\006 \001(\001\022"
-    "\033\n\023course_true_degrees\030\007 \001(\001\022\033\n\023start_al"
-    "titude_feet\030\010 \001(\001\022\031\n\021end_altitude_feet\030\t"
-    " \001(\001\022\025\n\raltitude_feet\030\n \001(\001\022%\n\030indicated"
-    "_airspeed_knots\030\013 \001(\001H\000\210\001\001\022!\n\031no_wind_gr"
-    "oundspeed_knots\030\014 \001(\001\022\031\n\021groundspeed_kno"
-    "ts\030\r \001(\001\022\033\n\016tailwind_knots\030\016 \001(\001H\001\210\001\001\0223\n"
-    "\020no_wind_duration\030\017 \001(\0132\031.google.protobu"
-    "f.Duration\022+\n\010duration\030\020 \001(\0132\031.google.pr"
-    "otobuf.DurationB\033\n\031_indicated_airspeed_k"
-    "notsB\021\n\017_tailwind_knots\"o\n\021AmanRawTetaSa"
-    "mple\022(\n\004teta\030\001 \001(\0132\032.google.protobuf.Tim"
-    "estamp\0220\n\014generated_at\030\002 \001(\0132\032.google.pr"
-    "otobuf.Timestamp\"\232\003\n\014AmanBaseline\022.\n\narr"
-    "ival_at\030\001 \001(\0132\032.google.protobuf.Timestam"
-    "p\0226\n\022airborne_sensed_at\030\002 \001(\0132\032.google.p"
-    "rotobuf.Timestamp\022\016\n\006source\030\003 \001(\t\022\022\n\ncon"
-    "fidence\030\004 \001(\t\022\037\n\022degradation_reason\030\005 \001("
-    "\tH\000\210\001\001\022\036\n\026speed_defaults_version\030\006 \001(\t\022!"
-    "\n\024flight_plan_revision\030\007 \001(\004H\001\210\001\001\022;\n\027fli"
-    "ght_plan_observed_at\030\010 \001(\0132\032.google.prot"
-    "obuf.Timestamp\022\025\n\rmodel_version\030\t \001(\t\022\026\n"
-    "\016config_version\030\n \001(\tB\025\n\023_degradation_re"
-    "asonB\027\n\025_flight_plan_revision\"\364\002\n\021AmanRo"
-    "uteProgress\022\027\n\017geometry_digest\030\001 \001(\t\022\031\n\021"
-    "manifest_revision\030\002 \001(\003\022\027\n\017terminal_dige"
-    "st\030\003 \001(\t\022\034\n\024flight_plan_revision\030\004 \001(\004\022\025"
-    "\n\rroute_fact_id\030\005 \001(\t\022\027\n\017runway_group_id"
-    "\030\006 \001(\t\022\021\n\tleg_index\030\007 \001(\005\022\030\n\020rejoin_leg_"
-    "index\030\010 \001(\005\022\026\n\016along_track_nm\030\t \001(\001\022\036\n\026r"
-    "ecovery_candidate_fix\030\n \001(\t\022\"\n\032recovery_"
-    "candidate_samples\030\013 \001(\r\022\031\n\021descent_confi"
-    "rmed\030\014 \001(\010\022 \n\030descent_evidence_samples\030\r"
-    " \001(\r\"x\n\014AmanTmaEntry\022\030\n\020last_containment"
-    "\030\001 \001(\t\0224\n\020last_observed_at\030\002 \001(\0132\032.googl"
-    "e.protobuf.Timestamp\022\030\n\020freeze_triggered"
-    "\030\003 \001(\010\"[\n\030AmanOperationalException\022\016\n\006re"
-    "ason\030\001 \001(\t\022/\n\013detected_at\030\002 \001(\0132\032.google"
-    ".protobuf.Timestamp\"\335\002\n\024AmanGoAroundEvid"
-    "ence\022/\n\013observed_at\030\001 \001(\0132\032.google.proto"
-    "buf.Timestamp\022\025\n\010sequence\030\002 \001(\004H\000\210\001\001\022\030\n\020"
-    "latitude_degrees\030\003 \001(\001\022\031\n\021longitude_degr"
-    "ees\030\004 \001(\001\022\025\n\raltitude_feet\030\005 \001(\005\022\031\n\021grou"
-    "ndspeed_knots\030\006 \001(\001\022\037\n\022track_true_degree"
-    "s\030\007 \001(\001H\001\210\001\001\022\026\n\016climb_evidence\030\010 \001(\010\022\033\n\023"
-    "track_away_evidence\030\t \001(\010\022\034\n\024runway_exit"
-    "_evidence\030\n \001(\010B\013\n\t_sequenceB\025\n\023_track_t"
-    "rue_degrees\"\321\004\n\025AmanGoAroundDetection\022\026\n"
-    "\016policy_version\030\001 \001(\t\022\?\n\010evidence\030\002 \003(\0132"
-    "-.flightstrips.cluster.v1.AmanGoAroundEv"
-    "idence\022\021\n\tarm_count\030\003 \001(\005\022\023\n\013climb_count"
-    "\030\004 \001(\005\022\030\n\020track_away_count\030\005 \001(\005\022\031\n\021runw"
-    "ay_exit_count\030\006 \001(\005\022\r\n\005armed\030\007 \001(\010\0221\n\010ar"
-    "med_at\030\010 \001(\0132\032.google.protobuf.Timestamp"
-    "H\000\210\001\001\022\031\n\021armed_corridor_id\030\t \001(\t\022\017\n\007epis"
-    "ode\030\n \001(\004\022\034\n\024last_emitted_episode\030\013 \001(\004\022"
-    ":\n\021last_processed_at\030\014 \001(\0132\032.google.prot"
-    "obuf.TimestampH\001\210\001\001\022$\n\027last_processed_se"
-    "quence\030\r \001(\004H\002\210\001\001\022\031\n\021threshold_crossed\030\016"
-    " \001(\010\022\026\n\016awaiting_reset\030\017 \001(\010\022\"\n\032last_con"
-    "troller_command_id\030\020 \001(\tB\013\n\t_armed_atB\024\n"
-    "\022_last_processed_atB\032\n\030_last_processed_s"
-    "equence\"\241\002\n\rAmanLifecycle\022.\n\nentered_at\030"
-    "\001 \001(\0132\032.google.protobuf.Timestamp\022\016\n\006rea"
-    "son\030\002 \001(\t\022\025\n\rlast_event_id\030\003 \001(\t\022\036\n\026last"
-    "_event_fingerprint\030\004 \001(\t\0221\n\rlast_event_a"
-    "t\030\005 \001(\0132\032.google.protobuf.Timestamp\022\036\n\026r"
-    "econciliation_pending\030\006 \001(\010\022:\n\007absence\030\007"
-    " \001(\0132$.flightstrips.cluster.v1.AmanAbsen"
-    "ceH\000\210\001\001B\n\n\010_absence\"\272\001\n\013AmanAbsence\0221\n\rm"
-    "issing_since\030\001 \001(\0132\032.google.protobuf.Tim"
-    "estamp\0227\n\016removal_due_at\030\002 \001(\0132\032.google."
-    "protobuf.TimestampH\000\210\001\001\022,\n\tremaining\030\003 \001"
-    "(\0132\031.google.protobuf.DurationB\021\n\017_remova"
-    "l_due_at\"\324\001\n\rAmanRouteFact\022\n\n\002id\030\001 \001(\t\022\013"
-    "\n\003fix\030\002 \001(\t\022\r\n\005state\030\003 \001(\t\022/\n\013observed_a"
-    "t\030\004 \001(\0132\032.google.protobuf.Timestamp\022\020\n\010c"
-    "allsign\030\005 \001(\t\022\016\n\006issuer\030\006 \001(\t\022/\n\013receive"
-    "d_at\030\007 \001(\0132\032.google.protobuf.Timestamp\022\027"
-    "\n\017dataset_version\030\010 \001(\t\"\300\001\n\016AmanProvenan"
-    "ce\022\025\n\rmodel_version\030\001 \001(\t\022\026\n\016config_vers"
-    "ion\030\002 \001(\t\022#\n\026performance_profile_id\030\003 \001("
-    "\tH\000\210\001\001\022\033\n\016weather_source\030\004 \001(\tH\001\210\001\001\022\017\n\007s"
-    "ources\030\005 \003(\tB\031\n\027_performance_profile_idB"
-    "\021\n\017_weather_source\"\201\001\n\010AmanSlot\022(\n\004time\030"
-    "\001 \001(\0132\032.google.protobuf.Timestamp\022\027\n\017run"
-    "way_group_id\030\002 \001(\t\022\020\n\010sequence\030\003 \001(\r\022\020\n\010"
-    "revision\030\004 \001(\004\022\016\n\006reason\030\005 \001(\t\"\365\003\n\rAmanE"
-    "TAReview\022\016\n\006status\030\001 \001(\t\022.\n\ncreated_at\030\002"
-    " \001(\0132\032.google.protobuf.Timestamp\022/\n\013dead"
-    "line_at\030\003 \001(\0132\032.google.protobuf.Timestam"
-    "p\0224\n\013resolved_at\030\004 \001(\0132\032.google.protobuf"
-    ".TimestampH\000\210\001\001\022\022\n\005actor\030\005 \001(\tH\001\210\001\001\022\021\n\004n"
-    "ote\030\006 \001(\tH\002\210\001\001\0229\n\025initial_baseline_teta\030"
-    "\007 \001(\0132\032.google.protobuf.Timestamp\022\?\n\033cal"
-    "culated_operational_teta\030\010 \001(\0132\032.google."
-    "protobuf.Timestamp\0221\n\rselected_teta\030\t \001("
-    "\0132\032.google.protobuf.Timestamp\0224\n\013manual_"
-    "teta\030\n \001(\0132\032.google.protobuf.TimestampH\003"
-    "\210\001\001B\016\n\014_resolved_atB\010\n\006_actorB\007\n\005_noteB\016"
-    "\n\014_manual_teta\"\350\001\n\016AmanQueueOffer\022\020\n\010cal"
-    "lsign\030\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\0229\n\016"
-    "candidate_slot\030\003 \001(\0132!.flightstrips.clus"
-    "ter.v1.AmanSlot\022\026\n\016queue_position\030\004 \001(\r\022"
-    ".\n\nexpires_at\030\005 \001(\0132\032.google.protobuf.Ti"
-    "mestamp\022\030\n\020airport_revision\030\006 \001(\004\022\016\n\006rea"
-    "son\030\007 \001(\t\"\221\003\n\030AmanGoAroundConfirmation\022\022"
-    "\n\nepisode_id\030\001 \001(\t\022\016\n\006reason\030\002 \001(\t\022/\n\013de"
-    "tected_at\030\003 \001(\0132\032.google.protobuf.Timest"
-    "amp\0222\n\016evidence_times\030\004 \003(\0132\032.google.pro"
-    "tobuf.Timestamp\022\016\n\006status\030\005 \001(\t\0223\n\ndecid"
-    "ed_at\030\006 \001(\0132\032.google.protobuf.TimestampH"
-    "\000\210\001\001\022\027\n\ndecided_by\030\007 \001(\tH\001\210\001\001\022\037\n\022resulti"
-    "ng_revision\030\010 \001(\004H\002\210\001\001\022 \n\023decision_comma"
-    "nd_id\030\t \001(\tH\003\210\001\001B\r\n\013_decided_atB\r\n\013_deci"
-    "ded_byB\025\n\023_resulting_revisionB\026\n\024_decisi"
-    "on_command_id\"\222\001\n\020AmanGapException\022\016\n\006ga"
-    "p_id\030\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\022/\n\013o"
-    "pportunity\030\003 \001(\0132\032.google.protobuf.Times"
-    "tamp\022\022\n\ncommand_id\030\004 \001(\t\022\020\n\010callsign\030\005 \001"
-    "(\t\"\375\003\n\020AmanCoordination\022\n\n\002id\030\001 \001(\t\022\020\n\010c"
-    "allsign\030\002 \001(\t\022\034\n\024recipient_controller\030\003 "
-    "\001(\t\022\030\n\020recipient_status\030\004 \001(\t\022\r\n\005state\030\005"
-    " \001(\t\022@\n\014route_direct\030\006 \001(\0132(.flightstrip"
-    "s.cluster.v1.AmanRouteDirectH\000\0223\n\005speed\030"
-    "\007 \001(\0132\".flightstrips.cluster.v1.AmanSpee"
-    "dH\000\022.\n\ncreated_at\030\010 \001(\0132\032.google.protobu"
-    "f.Timestamp\022.\n\nupdated_at\030\t \001(\0132\032.google"
-    ".protobuf.Timestamp\022\027\n\nsupersedes\030\n \001(\tH"
-    "\001\210\001\001\022\032\n\rsuperseded_by\030\013 \001(\tH\002\210\001\001\022>\n\tclea"
-    "rance\030\014 \001(\0132&.flightstrips.cluster.v1.Am"
-    "anClearanceH\003\210\001\001B\t\n\007requestB\r\n\013_supersed"
-    "esB\020\n\016_superseded_byB\014\n\n_clearance\"U\n\017Am"
-    "anRouteDirect\022\022\n\005route\030\001 \001(\tH\000\210\001\001\022\026\n\tdir"
-    "ect_to\030\002 \001(\tH\001\210\001\001B\010\n\006_routeB\014\n\n_direct_t"
-    "o\"\036\n\tAmanSpeed\022\021\n\trequested\030\001 \001(\t\"~\n\rAma"
-    "nClearance\022\017\n\007fact_id\030\001 \001(\t\022\014\n\004kind\030\002 \001("
-    "\t\022\r\n\005value\030\003 \001(\t\022\016\n\006issuer\030\004 \001(\t\022/\n\013obse"
-    "rved_at\030\005 \001(\0132\032.google.protobuf.Timestam"
-    "p\"\331\005\n\tAmanAudit\022\n\n\002id\030\001 \001(\t\022\030\n\020airport_r"
-    "evision\030\002 \001(\004\022.\n\ncreated_at\030\003 \001(\0132\032.goog"
-    "le.protobuf.Timestamp\022-\n\005actor\030\004 \001(\0132\036.f"
-    "lightstrips.cluster.v1.Actor\022<\n\007command\030"
-    "\005 \001(\0132).flightstrips.cluster.v1.AmanComm"
-    "andAuditH\000\022D\n\013observation\030\006 \001(\0132-.flight"
-    "strips.cluster.v1.AmanObservationAuditH\000"
-    "\022>\n\010sequence\030\007 \001(\0132*.flightstrips.cluste"
-    "r.v1.AmanSequenceAuditH\000\022F\n\014coordination"
-    "\030\010 \001(\0132..flightstrips.cluster.v1.AmanCoo"
-    "rdinationAuditH\000\022:\n\006health\030\t \001(\0132(.fligh"
-    "tstrips.cluster.v1.AmanHealthAuditH\000\022>\n\010"
-    "capacity\030\n \001(\0132*.flightstrips.cluster.v1"
-    ".AmanCapacityAuditH\000\022:\n\006freeze\030\013 \001(\0132(.f"
-    "lightstrips.cluster.v1.AmanFreezeAuditH\000"
-    "\022\?\n\tgo_around\030\014 \001(\0132*.flightstrips.clust"
-    "er.v1.AmanGoAroundAuditH\000\022:\n\006replay\030\r \001("
-    "\0132(.flightstrips.cluster.v1.AmanReplayAu"
-    "ditH\000B\006\n\004fact\"]\n\020AmanCommandAudit\022\022\n\ncom"
-    "mand_id\030\001 \001(\t\022\024\n\014command_kind\030\002 \001(\t\022\017\n\007o"
-    "utcome\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\"a\n\024AmanObse"
-    "rvationAudit\022\016\n\006source\030\001 \001(\t\022\026\n\016observat"
-    "ion_id\030\002 \001(\t\022\020\n\010callsign\030\003 \001(\t\022\017\n\007outcom"
-    "e\030\004 \001(\t\"\322\001\n\021AmanSequenceAudit\022\020\n\010callsig"
-    "n\030\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\0226\n\006befo"
-    "re\030\003 \001(\0132!.flightstrips.cluster.v1.AmanS"
-    "lotH\000\210\001\001\0225\n\005after\030\004 \001(\0132!.flightstrips.c"
-    "luster.v1.AmanSlotH\001\210\001\001\022\016\n\006reason\030\005 \001(\tB"
-    "\t\n\007_beforeB\010\n\006_after\"Z\n\025AmanCoordination"
-    "Audit\022\022\n\nrequest_id\030\001 \001(\t\022\016\n\006before\030\002 \001("
-    "\t\022\r\n\005after\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\"S\n\017Aman"
-    "HealthAudit\022\021\n\tcomponent\030\001 \001(\t\022\016\n\006before"
-    "\030\002 \001(\t\022\r\n\005after\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\"\212\003"
-    "\n\021AmanCapacityAudit\022\027\n\017runway_group_id\030\001"
-    " \001(\t\022\021\n\tobject_id\030\002 \001(\t\022=\n\004kind\030\003 \001(\0162/."
-    "flightstrips.cluster.v1.AmanCapacityAudi"
-    "t.Kind\022\016\n\006action\030\004 \001(\t\022E\n\021displaced_flig"
-    "hts\030\005 \003(\0132*.flightstrips.cluster.v1.Aman"
-    "SequenceAudit\022.\n\005start\030\006 \001(\0132\032.google.pr"
-    "otobuf.TimestampH\000\210\001\001\022,\n\003end\030\007 \001(\0132\032.goo"
-    "gle.protobuf.TimestampH\001\210\001\001\"C\n\004Kind\022\024\n\020K"
-    "IND_UNSPECIFIED\020\000\022\007\n\003GAP\020\001\022\013\n\007CLOSURE\020\002\022"
-    "\017\n\013RESERVATION\020\003B\010\n\006_startB\006\n\004_end\"\302\001\n\017A"
-    "manFreezeAudit\022\020\n\010callsign\030\001 \001(\t\022\016\n\006reas"
-    "on\030\002 \001(\t\0229\n\020operational_teta\030\003 \001(\0132\032.goo"
-    "gle.protobuf.TimestampH\000\210\001\001\0224\n\004slot\030\004 \001("
-    "\0132!.flightstrips.cluster.v1.AmanSlotH\001\210\001"
-    "\001B\023\n\021_operational_tetaB\007\n\005_slot\"\214\001\n\021Aman"
-    "GoAroundAudit\022\020\n\010callsign\030\001 \001(\t\022\022\n\nepiso"
-    "de_id\030\002 \001(\t\022\020\n\010decision\030\003 \001(\t\022\?\n\010evidenc"
-    "e\030\004 \003(\0132-.flightstrips.cluster.v1.AmanGo"
-    "AroundEvidence\"v\n\017AmanReplayAudit\022\016\n\006sou"
-    "rce\030\001 \001(\t\022\021\n\trecord_id\030\002 \001(\t\022\016\n\006result\030\003"
-    " \001(\t\022\034\n\017source_revision\030\004 \001(\004H\000\210\001\001B\022\n\020_s"
-    "ource_revision\"\267\001\n\016AmanValidation\022\n\n\002id\030"
-    "\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\014\n\004rule\030\003 \001(\t\022\016\n"
-    "\006result\030\004 \001(\t\0228\n\006faults\030\005 \003(\0132(.flightst"
-    "rips.cluster.v1.ValidationFault\022/\n\013obser"
-    "ved_at\030\006 \001(\0132\032.google.protobuf.Timestamp"
-    "\"{\n\021VatsimObservation\022\023\n\013provider_id\030\001 \001"
-    "(\t\022\020\n\010callsign\030\002 \001(\t\022\016\n\006digest\030\003 \001(\t\022/\n\013"
-    "observed_at\030\004 \001(\0132\032.google.protobuf.Time"
-    "stamp\"\205\001\n\013NavManifest\022\017\n\007airport\030\001 \001(\t\022\r"
-    "\n\005cycle\030\002 \001(\t\022\016\n\006digest\030\003 \001(\t\0226\n\007objects"
-    "\030\004 \003(\0132%.flightstrips.cluster.v1.NavObje"
-    "ctRef\022\016\n\006active\030\005 \001(\010\"A\n\014NavObjectRef\022\014\n"
-    "\004kind\030\001 \001(\t\022\023\n\013object_name\030\002 \001(\t\022\016\n\006sha2"
-    "56\030\003 \001(\t\"y\n\rNavRouteCache\022\021\n\troute_key\030\001"
-    " \001(\t\022\023\n\013object_name\030\002 \001(\t\022\016\n\006sha256\030\003 \001("
-    "\t\022\030\n\020resolver_version\030\004 \001(\t\022\026\n\016schema_ve"
-    "rsion\030\005 \001(\t\"\225\001\n\022ProviderCheckpoint\022\020\n\010pr"
-    "ovider\030\001 \001(\t\022\020\n\010resource\030\002 \001(\t\022\014\n\004etag\030\003"
-    " \001(\t\022\025\n\rlast_modified\030\004 \001(\t\022\021\n\tnext_page"
-    "\030\005 \001(\r\022\023\n\013object_name\030\006 \001(\t\022\016\n\006sha256\030\007 "
-    "\001(\t\"\323\001\n\014WeatherCache\022\017\n\007airport\030\001 \001(\t\022\020\n"
-    "\010provider\030\002 \001(\t\022@\n\013observation\030\003 \001(\0132+.f"
-    "lightstrips.cluster.v1.WeatherObservatio"
-    "n\022.\n\nfetched_at\030\004 \001(\0132\032.google.protobuf."
-    "Timestamp\022.\n\nexpires_at\030\005 \001(\0132\032.google.p"
-    "rotobuf.Timestamp\"\222\003\n\022WeatherObservation"
-    "\022\r\n\005metar\030\001 \001(\t\022#\n\026wind_direction_degree"
-    "s\030\002 \001(\rH\000\210\001\001\022\035\n\020wind_speed_knots\030\003 \001(\001H\001"
-    "\210\001\001\022\027\n\ngust_knots\030\004 \001(\001H\002\210\001\001\022\036\n\021visibili"
-    "ty_meters\030\005 \001(\001H\003\210\001\001\022 \n\023temperature_cels"
-    "ius\030\006 \001(\001H\004\210\001\001\022\031\n\014pressure_hpa\030\007 \001(\001H\005\210\001"
-    "\001\0225\n\006clouds\030\010 \003(\0132%.flightstrips.cluster"
-    ".v1.WeatherCloudB\031\n\027_wind_direction_degr"
-    "eesB\023\n\021_wind_speed_knotsB\r\n\013_gust_knotsB"
-    "\024\n\022_visibility_metersB\026\n\024_temperature_ce"
-    "lsiusB\017\n\r_pressure_hpa\"Q\n\014WeatherCloud\022\r"
-    "\n\005cover\030\001 \001(\t\022\026\n\tbase_feet\030\002 \001(\rH\000\210\001\001\022\014\n"
-    "\004type\030\003 \001(\tB\014\n\n_base_feet\"}\n\017SessionDead"
-    "line\022\n\n\002id\030\001 \001(\t\022\014\n\004kind\030\002 \001(\t\022*\n\006due_at"
-    "\030\003 \001(\0132\032.google.protobuf.Timestamp\022\020\n\010ca"
-    "llsign\030\004 \001(\t\022\022\n\ncommand_id\030\005 \001(\t\"\232\003\n\016Com"
-    "mandOutcome\022\022\n\ncommand_id\030\001 \001(\t\022\026\n\016reque"
-    "st_sha256\030\002 \001(\t\022-\n\005actor\030\003 \001(\0132\036.flights"
-    "trips.cluster.v1.Actor\022>\n\006status\030\004 \001(\0162."
-    ".flightstrips.cluster.v1.CommandOutcome."
-    "Status\022\023\n\013reason_code\030\005 \001(\t\022\016\n\006detail\030\006 "
-    "\001(\t\022!\n\031committed_stream_sequence\030\007 \001(\004\022\032"
-    "\n\022aggregate_revision\030\010 \001(\004\022\026\n\teffect_id\030"
-    "\t \001(\tH\000\210\001\001\"c\n\006Status\022\026\n\022STATUS_UNSPECIFI"
-    "ED\020\000\022\014\n\010ACCEPTED\020\001\022\r\n\tSUCCEEDED\020\002\022\n\n\006FAI"
-    "LED\020\003\022\013\n\007EXPIRED\020\004\022\013\n\007UNKNOWN\020\005B\014\n\n_effe"
-    "ct_id\"\355\003\n\016WorkflowRecord\022\023\n\013workflow_id\030"
-    "\001 \001(\t\0225\n\006source\030\002 \001(\0132%.flightstrips.clu"
-    "ster.v1.AggregateRef\022:\n\013destination\030\003 \001("
-    "\0132%.flightstrips.cluster.v1.AggregateRef"
-    "\022\014\n\004step\030\004 \001(\t\022\032\n\022derived_command_id\030\005 \001"
-    "(\t\022>\n\006status\030\006 \001(\0162..flightstrips.cluste"
-    "r.v1.WorkflowRecord.Status\022\034\n\017source_rev"
-    "ision\030\007 \001(\004H\000\210\001\001\022(\n\033destination_stream_s"
-    "equence\030\010 \001(\004H\001\210\001\001\022\023\n\013reason_code\030\t \001(\t\""
-    "X\n\006Status\022\026\n\022STATUS_UNSPECIFIED\020\000\022\013\n\007PEN"
-    "DING\020\001\022\r\n\tCOMPLETED\020\002\022\016\n\nSUPERSEDED\020\003\022\n\n"
-    "\006FAILED\020\004B\022\n\020_source_revisionB\036\n\034_destin"
-    "ation_stream_sequence\"\367\006\n\014EffectRecord\022\022"
-    "\n\ncommand_id\030\001 \001(\t\022\022\n\ntarget_cid\030\002 \001(\t\022!"
-    "\n\024target_connection_id\030\003 \001(\tH\001\210\001\001\022\023\n\013own"
-    "er_epoch\030\004 \001(\004\022\024\n\014master_epoch\030\005 \001(\004\022<\n\006"
-    "status\030\006 \001(\0162,.flightstrips.cluster.v1.E"
-    "ffectRecord.Status\022G\n\017set_flight_plan\030\007 "
-    "\001(\0132,.flightstrips.cluster.v1.SetFlightP"
-    "lanEffectH\000\0221\n\003pdc\030\010 \001(\0132\".flightstrips."
-    "cluster.v1.PdcEffectH\000\022H\n\017private_messag"
-    "e\030\t \001(\0132-.flightstrips.cluster.v1.Privat"
-    "eMessageEffectH\000\022C\n\014coordination\030\n \001(\0132+"
-    ".flightstrips.cluster.v1.CoordinationEff"
-    "ectH\000\0221\n\003cdm\030\013 \001(\0132\".flightstrips.cluste"
-    "r.v1.CdmEffectH\000\0225\n\021dispatch_deadline\030\014 "
-    "\001(\0132\032.google.protobuf.Timestamp\0228\n\017resul"
-    "t_deadline\030\r \001(\0132\032.google.protobuf.Times"
-    "tampH\002\210\001\001\022#\n\026dispatch_connection_id\030\016 \001("
-    "\tH\003\210\001\001\022\023\n\013reason_code\030\017 \001(\t\"w\n\006Status\022\026\n"
-    "\022STATUS_UNSPECIFIED\020\000\022\013\n\007WAITING\020\001\022\024\n\020DI"
-    "SPATCH_CLAIMED\020\002\022\014\n\010EXECUTED\020\003\022\n\n\006FAILED"
-    "\020\004\022\013\n\007EXPIRED\020\005\022\013\n\007UNKNOWN\020\006B\t\n\007payloadB"
-    "\027\n\025_target_connection_idB\022\n\020_result_dead"
-    "lineB\031\n\027_dispatch_connection_id\"E\n\023SetFl"
-    "ightPlanEffect\022\020\n\010callsign\030\001 \001(\t\022\r\n\005fiel"
-    "d\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\"@\n\tPdcEffect\022\020\n\010c"
-    "allsign\030\001 \001(\t\022\016\n\006action\030\002 \001(\t\022\021\n\tclearan"
-    "ce\030\003 \001(\t\"N\n\024PrivateMessageEffect\022\021\n\treci"
-    "pient\030\001 \001(\t\022\023\n\013object_name\030\002 \001(\t\022\016\n\006sha2"
-    "56\030\003 \001(\t\"J\n\022CoordinationEffect\022\020\n\010callsi"
-    "gn\030\001 \001(\t\022\022\n\ntarget_cid\030\002 \001(\t\022\016\n\006action\030\003"
-    " \001(\t\"<\n\tCdmEffect\022\020\n\010callsign\030\001 \001(\t\022\016\n\006a"
-    "ction\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\"\351\004\n\010Snapshot\022"
-    "\026\n\016schema_version\030\001 \001(\r\0228\n\taggregate\030\002 \001"
-    "(\0132%.flightstrips.cluster.v1.AggregateRe"
-    "f\022\032\n\022aggregate_revision\030\003 \001(\004\022\034\n\024last_st"
-    "ream_sequence\030\004 \001(\004\022\035\n\025last_subject_sequ"
-    "ence\030\005 \001(\004\0221\n\005owner\030\006 \001(\0132\".flightstrips"
-    ".cluster.v1.OwnerTerm\0229\n\010entities\030\007 \003(\0132"
-    "\'.flightstrips.cluster.v1.EntitySnapshot"
-    "\0229\n\010outcomes\030\010 \003(\0132\'.flightstrips.cluste"
-    "r.v1.CommandOutcome\022:\n\tworkflows\030\t \003(\0132\'"
-    ".flightstrips.cluster.v1.WorkflowRecord\022"
-    "6\n\007effects\030\n \003(\0132%.flightstrips.cluster."
-    "v1.EffectRecord\0228\n\006master\030\013 \001(\0132#.flight"
-    "strips.cluster.v1.MasterTermH\000\210\001\001\0227\n\004syn"
-    "c\030\014 \001(\0132$.flightstrips.cluster.v1.Sessio"
-    "nSyncH\001\210\001\001\022\016\n\006sha256\030\r \001(\tB\t\n\007_masterB\007\n"
-    "\005_sync\"e\n\016EntitySnapshot\022\013\n\003key\030\001 \001(\t\022\020\n"
-    "\010revision\030\002 \001(\004\0224\n\005value\030\003 \001(\0132%.flights"
-    "trips.cluster.v1.EntityRecord\"\337\001\n\rSnapsh"
-    "otIndex\022\026\n\016schema_version\030\001 \001(\r\0228\n\taggre"
-    "gate\030\002 \001(\0132%.flightstrips.cluster.v1.Agg"
-    "regateRef\022\023\n\013object_name\030\003 \001(\t\022\016\n\006sha256"
-    "\030\004 \001(\t\022\032\n\022aggregate_revision\030\005 \001(\004\022\034\n\024la"
-    "st_stream_sequence\030\006 \001(\004\022\035\n\025last_subject"
-    "_sequence\030\007 \001(\004\"\304\002\n\rPositionValue\022\026\n\016sch"
-    "ema_version\030\001 \001(\r\022\022\n\nsession_id\030\002 \001(\005\022\024\n"
-    "\014aircraft_key\030\003 \001(\t\022\023\n\013owner_epoch\030\004 \001(\004"
-    "\022/\n\013observed_at\030\005 \001(\0132\032.google.protobuf."
-    "Timestamp\022\034\n\024source_connection_id\030\006 \001(\t\022"
-    "=\n\010position\030\007 \001(\0132).flightstrips.cluster"
-    ".v1.AircraftPositionH\000\022\?\n\ttombstone\030\010 \001("
-    "\0132*.flightstrips.cluster.v1.PositionTomb"
-    "stoneH\000B\r\n\013observation\"\271\001\n\020AircraftPosit"
-    "ion\022\020\n\010latitude\030\001 \001(\001\022\021\n\tlongitude\030\002 \001(\001"
-    "\022\025\n\raltitude_feet\030\003 \001(\005\022\032\n\022ground_speed_"
-    "knots\030\004 \001(\001\022\025\n\rtrack_degrees\030\005 \001(\001\022\037\n\022ve"
-    "rtical_speed_fpm\030\006 \001(\001H\000\210\001\001B\025\n\023_vertical"
-    "_speed_fpm\"\023\n\021PositionTombstone\"\244\001\n\rPres"
-    "enceValue\022\026\n\016schema_version\030\001 \001(\r\0225\n\004nod"
-    "e\030\002 \001(\0132%.flightstrips.cluster.v1.NodePr"
-    "esenceH\000\0229\n\006client\030\003 \001(\0132\'.flightstrips."
-    "cluster.v1.ClientPresenceH\000B\t\n\007present\"^"
-    "\n\014NodePresence\022\017\n\007node_id\030\001 \001(\t\022.\n\nstart"
-    "ed_at\030\002 \001(\0132\032.google.protobuf.Timestamp\022"
-    "\r\n\005ready\030\003 \001(\010\"\270\002\n\016ClientPresence\022\025\n\rcon"
-    "nection_id\030\001 \001(\t\022\017\n\007node_id\030\002 \001(\t\022\022\n\nses"
-    "sion_id\030\003 \001(\005\022\013\n\003cid\030\004 \001(\t\022\020\n\010callsign\030\005"
-    " \001(\t\022\020\n\010position\030\006 \001(\t\022\020\n\010observer\030\007 \001(\010"
-    "\0220\n\014connected_at\030\010 \001(\0132\032.google.protobuf"
-    ".Timestamp\022:\n\004kind\030\t \001(\0162,.flightstrips."
-    "cluster.v1.ClientPresence.Kind\"9\n\004Kind\022\024"
-    "\n\020KIND_UNSPECIFIED\020\000\022\r\n\tEUROSCOPE\020\001\022\014\n\010F"
-    "RONTEND\020\002\"\230\002\n\013ObjectValue\022\026\n\016schema_vers"
-    "ion\030\001 \001(\r\0225\n\010snapshot\030\002 \001(\0132!.flightstri"
-    "ps.cluster.v1.SnapshotH\000\022/\n\003nav\030\003 \001(\0132 ."
-    "flightstrips.cluster.v1.NavDataH\000\022>\n\reff"
-    "ect_secret\030\004 \001(\0132%.flightstrips.cluster."
-    "v1.EffectSecretH\000\022>\n\rprovider_page\030\005 \001(\013"
-    "2%.flightstrips.cluster.v1.ProviderPageH"
-    "\000B\t\n\007content\"\303\005\n\007NavData\022\017\n\007airport\030\001 \001("
-    "\t\022;\n\007version\030\002 \001(\0132*.flightstrips.cluste"
-    "r.v1.NavDatasetVersion\022G\n\020airport_fragme"
-    "nt\030\003 \001(\0132+.flightstrips.cluster.v1.NavAi"
-    "rportFragmentH\000\022K\n\022procedure_fragment\030\004 "
-    "\001(\0132-.flightstrips.cluster.v1.NavProcedu"
-    "reFragmentH\000\022\?\n\014fix_fragment\030\005 \001(\0132\'.fli"
-    "ghtstrips.cluster.v1.NavFixFragmentH\000\022I\n"
-    "\021terminal_fragment\030\006 \001(\0132,.flightstrips."
-    "cluster.v1.NavTerminalFragmentH\000\022E\n\017rout"
-    "e_candidate\030\007 \001(\0132*.flightstrips.cluster"
-    ".v1.NavRouteCandidateH\000\022\026\n\016schema_versio"
-    "n\030\010 \001(\t\022:\n\nprovenance\030\t \001(\0132&.flightstri"
-    "ps.cluster.v1.NavProvenance\022/\n\013imported_"
-    "at\030\n \001(\0132\032.google.protobuf.Timestamp\0225\n\014"
-    "validated_at\030\013 \001(\0132\032.google.protobuf.Tim"
-    "estampH\001\210\001\001\022\030\n\020validation_state\030\014 \001(\t\022\016\n"
-    "\006digest\030\r \001(\tB\n\n\010fragmentB\017\n\r_validated_"
-    "at\"\244\001\n\021NavDatasetVersion\022\r\n\005cycle\030\001 \001(\t\022"
-    "\027\n\017source_revision\030\002 \001(\t\0222\n\016effective_fr"
-    "om\030\003 \001(\0132\032.google.protobuf.Timestamp\0223\n\017"
-    "effective_until\030\004 \001(\0132\032.google.protobuf."
-    "Timestamp\"\325\001\n\rNavProvenance\022\021\n\tsource_id"
-    "\030\001 \001(\t\022\027\n\017source_revision\030\002 \001(\t\022/\n\013impor"
-    "ted_at\030\003 \001(\0132\032.google.protobuf.Timestamp"
-    "\0222\n\016effective_from\030\004 \001(\0132\032.google.protob"
-    "uf.Timestamp\0223\n\017effective_until\030\005 \001(\0132\032."
-    "google.protobuf.Timestamp\"D\n\rNavCoordina"
-    "te\022\030\n\020latitude_degrees\030\001 \001(\001\022\031\n\021longitud"
-    "e_degrees\030\002 \001(\001\"\262\001\n\014NavThreshold\0228\n\010posi"
-    "tion\030\001 \001(\0132&.flightstrips.cluster.v1.Nav"
-    "Coordinate\022\033\n\016elevation_feet\030\002 \001(\005H\000\210\001\001\022"
-    " \n\023course_true_degrees\030\003 \001(\001H\001\210\001\001B\021\n\017_el"
-    "evation_feetB\026\n\024_course_true_degrees\"\177\n\022"
-    "NavAirportFragment\0224\n\007airport\030\001 \001(\0132#.fl"
-    "ightstrips.cluster.v1.NavAirport\0223\n\007runw"
-    "ays\030\002 \003(\0132\".flightstrips.cluster.v1.NavR"
-    "unway\"\236\001\n\nNavAirport\022\014\n\004icao\030\001 \001(\t\022\014\n\004na"
-    "me\030\002 \001(\t\0228\n\010position\030\003 \001(\0132&.flightstrip"
+    "p\"\316\001\n\013AmanClosure\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002"
+    " \001(\0132\032.google.protobuf.Timestamp\022,\n\003end\030"
+    "\003 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001\022\016"
+    "\n\006reason\030\004 \001(\t\022\022\n\ncreated_by\030\005 \001(\t\022.\n\ncr"
+    "eated_at\030\006 \001(\0132\032.google.protobuf.Timesta"
+    "mpB\006\n\004_end\"\304\001\n\017AmanReservation\022\n\n\002id\030\001 \001"
+    "(\t\022)\n\005start\030\002 \001(\0132\032.google.protobuf.Time"
+    "stamp\022\'\n\003end\030\003 \001(\0132\032.google.protobuf.Tim"
+    "estamp\022\r\n\005label\030\004 \001(\t\022\022\n\ncreated_by\030\005 \001("
+    "\t\022.\n\ncreated_at\030\006 \001(\0132\032.google.protobuf."
+    "Timestamp\"[\n\023AmanTimelineMapping\022\n\n\002id\030\001"
+    " \001(\r\022\021\n\004left\030\002 \001(\tH\000\210\001\001\022\022\n\005right\030\003 \001(\tH\001"
+    "\210\001\001B\007\n\005_leftB\010\n\006_right\"\217\001\n\023AmanTechnical"
+    "Health\022\016\n\006status\030\001 \001(\t\022\r\n\005ready\030\002 \001(\010\022\027\n"
+    "\017blocked_reasons\030\003 \003(\t\022@\n\ncomponents\030\004 \003"
+    "(\0132,.flightstrips.cluster.v1.AmanCompone"
+    "ntHealth\"\266\001\n\023AmanComponentHealth\022\021\n\tcomp"
+    "onent\030\001 \001(\t\022\016\n\006status\030\002 \001(\t\022\016\n\006reason\030\003 "
+    "\001(\t\0223\n\nupdated_at\030\004 \001(\0132\032.google.protobu"
+    "f.TimestampH\000\210\001\001\022\030\n\013age_seconds\030\005 \001(\001H\001\210"
+    "\001\001B\r\n\013_updated_atB\016\n\014_age_seconds\"\360\023\n\nAm"
+    "anFlight\022\020\n\010callsign\030\001 \001(\t\022\r\n\005state\030\002 \001("
+    "\t\022\034\n\024sequence_disposition\030\003 \001(\t\022\023\n\013data_"
+    "status\030\004 \001(\t\022@\n\nprediction\030\005 \001(\0132\'.fligh"
+    "tstrips.cluster.v1.AmanPredictionH\000\210\001\001\022D"
+    "\n\020raw_teta_samples\030\006 \003(\0132*.flightstrips."
+    "cluster.v1.AmanRawTetaSample\022D\n\020arrival_"
+    "baseline\030\007 \001(\0132%.flightstrips.cluster.v1"
+    ".AmanBaselineH\001\210\001\001\022O\n\022latest_observation"
+    "\030\010 \001(\0132..flightstrips.cluster.v1.AmanFli"
+    "ghtObservationH\002\210\001\001\022\"\n\025selected_runway_g"
+    "roup\030\t \001(\tH\003\210\001\001\022!\n\024selected_star_family\030"
+    "\n \001(\tH\004\210\001\001\022 \n\023selected_feeder_fix\030\013 \001(\tH"
+    "\005\210\001\001\022\035\n\020selected_holding\030\014 \001(\tH\006\210\001\001\022\?\n\nf"
+    "eeder_eta\030\r \001(\0132&.flightstrips.cluster.v"
+    "1.AmanFeederEtaH\007\210\001\001\022G\n\022derived_feeder_e"
+    "ta\030\016 \001(\0132&.flightstrips.cluster.v1.AmanF"
+    "eederEtaH\010\210\001\001\022M\n\021holding_clearance\030\017 \001(\013"
+    "2-.flightstrips.cluster.v1.AmanHoldingCl"
+    "earanceH\t\210\001\001\022E\n\rholding_stack\030\020 \001(\0132).fl"
+    "ightstrips.cluster.v1.AmanHoldingStackH\n"
+    "\210\001\001\022F\n\021active_route_fact\030\021 \001(\0132&.flights"
+    "trips.cluster.v1.AmanRouteFactH\013\210\001\001\022\035\n\020a"
+    "ctive_route_key\030\022 \001(\tH\014\210\001\001\022$\n\027active_rou"
+    "te_dataset_id\030\023 \001(\tH\r\210\001\001\022G\n\016route_progre"
+    "ss\030\024 \001(\0132*.flightstrips.cluster.v1.AmanR"
+    "outeProgressH\016\210\001\001\022=\n\ttma_entry\030\025 \001(\0132%.f"
+    "lightstrips.cluster.v1.AmanTmaEntryH\017\210\001\001"
+    "\022 \n\030manual_sequence_included\030\026 \001(\010\022\025\n\rfr"
+    "eeze_reason\030\027 \001(\t\0222\n\tfrozen_at\030\030 \001(\0132\032.g"
+    "oogle.protobuf.TimestampH\020\210\001\001\022@\n\027frozen_"
+    "operational_teta\030\031 \001(\0132\032.google.protobuf"
+    ".TimestampH\021\210\001\001\022;\n\013frozen_slot\030\032 \001(\0132!.f"
+    "lightstrips.cluster.v1.AmanSlotH\022\210\001\001\0224\n\004"
+    "slot\030\033 \001(\0132!.flightstrips.cluster.v1.Ama"
+    "nSlotH\023\210\001\001\022\022\n\005order\030\034 \001(\005H\024\210\001\001\022\031\n\014manual"
+    "_order\030\035 \001(\005H\025\210\001\001\022=\n\014queue_offers\030\036 \003(\0132"
+    "\'.flightstrips.cluster.v1.AmanQueueOffer"
+    "\022\?\n\neta_review\030\037 \001(\0132&.flightstrips.clus"
+    "ter.v1.AmanETAReviewH\026\210\001\001\022U\n\025operational"
+    "_exception\030  \001(\01321.flightstrips.cluster."
+    "v1.AmanOperationalExceptionH\027\210\001\001\022E\n\rgap_"
+    "exception\030! \001(\0132).flightstrips.cluster.v"
+    "1.AmanGapExceptionH\030\210\001\001\022P\n\023go_around_det"
+    "ection\030\" \001(\0132..flightstrips.cluster.v1.A"
+    "manGoAroundDetectionH\031\210\001\001\022V\n\026go_around_c"
+    "onfirmation\030# \001(\01321.flightstrips.cluster"
+    ".v1.AmanGoAroundConfirmationH\032\210\001\001\022>\n\tlif"
+    "ecycle\030$ \001(\0132&.flightstrips.cluster.v1.A"
+    "manLifecycleH\033\210\001\001\022.\n\nupdated_at\030% \001(\0132\032."
+    "google.protobuf.TimestampB\r\n\013_prediction"
+    "B\023\n\021_arrival_baselineB\025\n\023_latest_observa"
+    "tionB\030\n\026_selected_runway_groupB\027\n\025_selec"
+    "ted_star_familyB\026\n\024_selected_feeder_fixB"
+    "\023\n\021_selected_holdingB\r\n\013_feeder_etaB\025\n\023_"
+    "derived_feeder_etaB\024\n\022_holding_clearance"
+    "B\020\n\016_holding_stackB\024\n\022_active_route_fact"
+    "B\023\n\021_active_route_keyB\032\n\030_active_route_d"
+    "ataset_idB\021\n\017_route_progressB\014\n\n_tma_ent"
+    "ryB\014\n\n_frozen_atB\032\n\030_frozen_operational_"
+    "tetaB\016\n\014_frozen_slotB\007\n\005_slotB\010\n\006_orderB"
+    "\017\n\r_manual_orderB\r\n\013_eta_reviewB\030\n\026_oper"
+    "ational_exceptionB\020\n\016_gap_exceptionB\026\n\024_"
+    "go_around_detectionB\031\n\027_go_around_confir"
+    "mationB\014\n\n_lifecycle\"\276\006\n\025AmanFlightObser"
+    "vation\022\020\n\010callsign\030\001 \001(\t\022\016\n\006origin\030\002 \001(\t"
+    "\022\023\n\013destination\030\003 \001(\t\022\032\n\raircraft_type\030\004"
+    " \001(\tH\000\210\001\001\022\032\n\rwake_category\030\005 \001(\tH\001\210\001\001\022\030\n"
+    "\013filed_route\030\006 \001(\tH\002\210\001\001\022\034\n\017requested_lev"
+    "el\030\007 \001(\005H\003\210\001\001\022G\n\016planned_timing\030\010 \001(\0132*."
+    "flightstrips.cluster.v1.AmanPlannedTimin"
+    "gH\004\210\001\001\022@\n\013flight_plan\030\t \001(\0132+.flightstri"
+    "ps.cluster.v1.AmanFlightPlanFact\022H\n\014surv"
+    "eillance\030\n \001(\0132-.flightstrips.cluster.v1"
+    ".AmanSurveillanceFactH\005\210\001\001\022M\n\021holding_cl"
+    "earance\030\013 \001(\0132-.flightstrips.cluster.v1."
+    "AmanHoldingClearanceH\006\210\001\001\022\033\n\023surveillanc"
+    "e_source\030\014 \001(\t\022\020\n\010provider\030\r \001(\t\0229\n\020take"
+    "off_detected\030\016 \001(\0132\032.google.protobuf.Tim"
+    "estampH\007\210\001\001\0221\n\rreconciled_at\030\017 \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\022\025\n\rsource_status\030"
+    "\020 \001(\t\022\017\n\007missing\030\021 \001(\010B\020\n\016_aircraft_type"
+    "B\020\n\016_wake_categoryB\016\n\014_filed_routeB\022\n\020_r"
+    "equested_levelB\021\n\017_planned_timingB\017\n\r_su"
+    "rveillanceB\024\n\022_holding_clearanceB\023\n\021_tak"
+    "eoff_detected\"\316\001\n\021AmanPlannedTiming\022A\n\030e"
+    "stimated_off_block_time\030\001 \001(\0132\032.google.p"
+    "rotobuf.TimestampH\000\210\001\001\022>\n\026estimated_enro"
+    "ute_time\030\002 \001(\0132\031.google.protobuf.Duratio"
+    "nH\001\210\001\001B\033\n\031_estimated_off_block_timeB\031\n\027_"
+    "estimated_enroute_time\"~\n\022AmanFlightPlan"
+    "Fact\022\025\n\010revision\030\001 \001(\004H\000\210\001\001\0224\n\013observed_"
+    "at\030\002 \001(\0132\032.google.protobuf.TimestampH\001\210\001"
+    "\001B\013\n\t_revisionB\016\n\014_observed_at\"\321\002\n\024AmanS"
+    "urveillanceFact\022\030\n\020latitude_degrees\030\001 \001("
+    "\001\022\031\n\021longitude_degrees\030\002 \001(\001\022\032\n\raltitude"
+    "_feet\030\003 \001(\005H\000\210\001\001\022\036\n\021groundspeed_knots\030\004 "
+    "\001(\001H\001\210\001\001\022\037\n\022track_true_degrees\030\005 \001(\001H\002\210\001"
+    "\001\022\025\n\010sequence\030\006 \001(\004H\003\210\001\001\0224\n\013observed_at\030"
+    "\007 \001(\0132\032.google.protobuf.TimestampH\004\210\001\001B\020"
+    "\n\016_altitude_feetB\024\n\022_groundspeed_knotsB\025"
+    "\n\023_track_true_degreesB\013\n\t_sequenceB\016\n\014_o"
+    "bserved_at\"\256\001\n\024AmanHoldingClearance\022\014\n\004h"
+    "old\030\001 \001(\t\022\021\n\thold_type\030\002 \001(\t\022\020\n\010hold_eat"
+    "\030\003 \001(\t\022\035\n\020cleared_altitude\030\004 \001(\005H\000\210\001\001\022/\n"
+    "\013observed_at\030\005 \001(\0132\032.google.protobuf.Tim"
+    "estampB\023\n\021_cleared_altitude\"\303\007\n\016AmanPred"
+    "iction\022,\n\010raw_teta\030\001 \001(\0132\032.google.protob"
+    "uf.Timestamp\0221\n\010raw_reta\030\002 \001(\0132\032.google."
+    "protobuf.TimestampH\000\210\001\001\0224\n\020operational_t"
+    "eta\030\003 \001(\0132\032.google.protobuf.Timestamp\022\032\n"
+    "\022operational_reason\030\004 \001(\t\0220\n\014generated_a"
+    "t\030\005 \001(\0132\032.google.protobuf.Timestamp\0225\n\021i"
+    "nput_observed_at\030\006 \001(\0132\032.google.protobuf"
+    ".Timestamp\022\022\n\nconfidence\030\007 \001(\t\022\023\n\013publis"
+    "hable\030\010 \001(\010\022\037\n\022degradation_reason\030\t \001(\tH"
+    "\001\210\001\001\022\027\n\017dataset_version\030\n \001(\t\022\027\n\017geometr"
+    "y_digest\030\013 \001(\t\022\036\n\021distance_to_go_nm\030\014 \001("
+    "\001H\002\210\001\001\0228\n\017holding_fix_eta\030\r \001(\0132\032.google"
+    ".protobuf.TimestampH\003\210\001\001\022C\n\014holding_plan"
+    "\030\016 \001(\0132(.flightstrips.cluster.v1.AmanHol"
+    "dingPlanH\004\210\001\001\022\025\n\rmodel_version\030\017 \001(\t\022\026\n\016"
+    "config_version\030\020 \001(\t\022\r\n\005basis\030\021 \001(\t\022#\n\026p"
+    "erformance_profile_id\030\022 \001(\tH\005\210\001\001\022\033\n\016weat"
+    "her_source\030\023 \001(\tH\006\210\001\001\022\017\n\007sources\030\024 \003(\t\022L"
+    "\n\013calculation\030\025 \001(\01322.flightstrips.clust"
+    "er.v1.AmanPredictionCalculationH\007\210\001\001B\013\n\t"
+    "_raw_retaB\025\n\023_degradation_reasonB\024\n\022_dis"
+    "tance_to_go_nmB\022\n\020_holding_fix_etaB\017\n\r_h"
+    "olding_planB\031\n\027_performance_profile_idB\021"
+    "\n\017_weather_sourceB\016\n\014_calculation\"e\n\rAma"
+    "nFeederEta\022,\n\003eta\030\001 \001(\0132\032.google.protobu"
+    "f.TimestampH\000\210\001\001\022\016\n\006source\030\002 \001(\t\022\016\n\006pass"
+    "ed\030\003 \001(\010B\006\n\004_eta\"\373\001\n\017AmanHoldingPlan\0226\n\022"
+    "holding_entry_time\030\001 \001(\0132\032.google.protob"
+    "uf.Timestamp\0229\n\025approach_release_time\030\002 "
+    "\001(\0132\032.google.protobuf.Timestamp\022<\n\031expec"
+    "ted_holding_duration\030\003 \001(\0132\031.google.prot"
+    "obuf.Duration\0227\n\024post_holding_transit\030\004 "
+    "\001(\0132\031.google.protobuf.Duration\"\226\001\n\020AmanH"
+    "oldingStack\022\022\n\nholding_id\030\001 \001(\t\0229\n\025candi"
+    "date_observed_at\030\002 \001(\0132\032.google.protobuf"
+    ".Timestamp\022 \n\030consecutive_observations\030\003"
+    " \001(\r\022\021\n\tconfirmed\030\004 \001(\010\"\371\001\n\031AmanPredicti"
+    "onCalculation\0223\n\020no_wind_duration\030\001 \001(\0132"
+    "\031.google.protobuf.Duration\022+\n\010duration\030\002"
+    " \001(\0132\031.google.protobuf.Duration\0228\n\004legs\030"
+    "\003 \003(\0132*.flightstrips.cluster.v1.AmanPred"
+    "ictionLeg\022@\n\010segments\030\004 \003(\0132..flightstri"
+    "ps.cluster.v1.AmanPredictionSegment\"\263\002\n\021"
+    "AmanPredictionLeg\022\n\n\002id\030\001 \001(\t\022\020\n\010from_fi"
+    "x\030\002 \001(\t\022\016\n\006to_fix\030\003 \001(\t\022\026\n\016start_latitud"
+    "e\030\004 \001(\001\022\027\n\017start_longitude\030\005 \001(\001\022\024\n\014end_"
+    "latitude\030\006 \001(\001\022\025\n\rend_longitude\030\007 \001(\001\022\023\n"
+    "\013distance_nm\030\010 \001(\001\022\033\n\023course_true_degree"
+    "s\030\t \001(\001\0223\n\020no_wind_duration\030\n \001(\0132\031.goog"
+    "le.protobuf.Duration\022+\n\010duration\030\013 \001(\0132\031"
+    ".google.protobuf.Duration\"\223\004\n\025AmanPredic"
+    "tionSegment\022\027\n\017route_leg_index\030\001 \001(\005\022\017\n\007"
+    "pre_tod\030\002 \001(\010\022\020\n\010phase_id\030\003 \001(\t\022\022\n\nphase"
+    "_name\030\004 \001(\t\022\025\n\rphase_formula\030\005 \001(\t\022\023\n\013di"
+    "stance_nm\030\006 \001(\001\022\033\n\023course_true_degrees\030\007"
+    " \001(\001\022\033\n\023start_altitude_feet\030\010 \001(\001\022\031\n\021end"
+    "_altitude_feet\030\t \001(\001\022\025\n\raltitude_feet\030\n "
+    "\001(\001\022%\n\030indicated_airspeed_knots\030\013 \001(\001H\000\210"
+    "\001\001\022!\n\031no_wind_groundspeed_knots\030\014 \001(\001\022\031\n"
+    "\021groundspeed_knots\030\r \001(\001\022\033\n\016tailwind_kno"
+    "ts\030\016 \001(\001H\001\210\001\001\0223\n\020no_wind_duration\030\017 \001(\0132"
+    "\031.google.protobuf.Duration\022+\n\010duration\030\020"
+    " \001(\0132\031.google.protobuf.DurationB\033\n\031_indi"
+    "cated_airspeed_knotsB\021\n\017_tailwind_knots\""
+    "o\n\021AmanRawTetaSample\022(\n\004teta\030\001 \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\0220\n\014generated_at\030\002"
+    " \001(\0132\032.google.protobuf.Timestamp\"\232\003\n\014Ama"
+    "nBaseline\022.\n\narrival_at\030\001 \001(\0132\032.google.p"
+    "rotobuf.Timestamp\0226\n\022airborne_sensed_at\030"
+    "\002 \001(\0132\032.google.protobuf.Timestamp\022\016\n\006sou"
+    "rce\030\003 \001(\t\022\022\n\nconfidence\030\004 \001(\t\022\037\n\022degrada"
+    "tion_reason\030\005 \001(\tH\000\210\001\001\022\036\n\026speed_defaults"
+    "_version\030\006 \001(\t\022!\n\024flight_plan_revision\030\007"
+    " \001(\004H\001\210\001\001\022;\n\027flight_plan_observed_at\030\010 \001"
+    "(\0132\032.google.protobuf.Timestamp\022\025\n\rmodel_"
+    "version\030\t \001(\t\022\026\n\016config_version\030\n \001(\tB\025\n"
+    "\023_degradation_reasonB\027\n\025_flight_plan_rev"
+    "ision\"\364\002\n\021AmanRouteProgress\022\027\n\017geometry_"
+    "digest\030\001 \001(\t\022\031\n\021manifest_revision\030\002 \001(\003\022"
+    "\027\n\017terminal_digest\030\003 \001(\t\022\034\n\024flight_plan_"
+    "revision\030\004 \001(\004\022\025\n\rroute_fact_id\030\005 \001(\t\022\027\n"
+    "\017runway_group_id\030\006 \001(\t\022\021\n\tleg_index\030\007 \001("
+    "\005\022\030\n\020rejoin_leg_index\030\010 \001(\005\022\026\n\016along_tra"
+    "ck_nm\030\t \001(\001\022\036\n\026recovery_candidate_fix\030\n "
+    "\001(\t\022\"\n\032recovery_candidate_samples\030\013 \001(\r\022"
+    "\031\n\021descent_confirmed\030\014 \001(\010\022 \n\030descent_ev"
+    "idence_samples\030\r \001(\r\"x\n\014AmanTmaEntry\022\030\n\020"
+    "last_containment\030\001 \001(\t\0224\n\020last_observed_"
+    "at\030\002 \001(\0132\032.google.protobuf.Timestamp\022\030\n\020"
+    "freeze_triggered\030\003 \001(\010\"[\n\030AmanOperationa"
+    "lException\022\016\n\006reason\030\001 \001(\t\022/\n\013detected_a"
+    "t\030\002 \001(\0132\032.google.protobuf.Timestamp\"\335\002\n\024"
+    "AmanGoAroundEvidence\022/\n\013observed_at\030\001 \001("
+    "\0132\032.google.protobuf.Timestamp\022\025\n\010sequenc"
+    "e\030\002 \001(\004H\000\210\001\001\022\030\n\020latitude_degrees\030\003 \001(\001\022\031"
+    "\n\021longitude_degrees\030\004 \001(\001\022\025\n\raltitude_fe"
+    "et\030\005 \001(\005\022\031\n\021groundspeed_knots\030\006 \001(\001\022\037\n\022t"
+    "rack_true_degrees\030\007 \001(\001H\001\210\001\001\022\026\n\016climb_ev"
+    "idence\030\010 \001(\010\022\033\n\023track_away_evidence\030\t \001("
+    "\010\022\034\n\024runway_exit_evidence\030\n \001(\010B\013\n\t_sequ"
+    "enceB\025\n\023_track_true_degrees\"\321\004\n\025AmanGoAr"
+    "oundDetection\022\026\n\016policy_version\030\001 \001(\t\022\?\n"
+    "\010evidence\030\002 \003(\0132-.flightstrips.cluster.v"
+    "1.AmanGoAroundEvidence\022\021\n\tarm_count\030\003 \001("
+    "\005\022\023\n\013climb_count\030\004 \001(\005\022\030\n\020track_away_cou"
+    "nt\030\005 \001(\005\022\031\n\021runway_exit_count\030\006 \001(\005\022\r\n\005a"
+    "rmed\030\007 \001(\010\0221\n\010armed_at\030\010 \001(\0132\032.google.pr"
+    "otobuf.TimestampH\000\210\001\001\022\031\n\021armed_corridor_"
+    "id\030\t \001(\t\022\017\n\007episode\030\n \001(\004\022\034\n\024last_emitte"
+    "d_episode\030\013 \001(\004\022:\n\021last_processed_at\030\014 \001"
+    "(\0132\032.google.protobuf.TimestampH\001\210\001\001\022$\n\027l"
+    "ast_processed_sequence\030\r \001(\004H\002\210\001\001\022\031\n\021thr"
+    "eshold_crossed\030\016 \001(\010\022\026\n\016awaiting_reset\030\017"
+    " \001(\010\022\"\n\032last_controller_command_id\030\020 \001(\t"
+    "B\013\n\t_armed_atB\024\n\022_last_processed_atB\032\n\030_"
+    "last_processed_sequence\"\241\002\n\rAmanLifecycl"
+    "e\022.\n\nentered_at\030\001 \001(\0132\032.google.protobuf."
+    "Timestamp\022\016\n\006reason\030\002 \001(\t\022\025\n\rlast_event_"
+    "id\030\003 \001(\t\022\036\n\026last_event_fingerprint\030\004 \001(\t"
+    "\0221\n\rlast_event_at\030\005 \001(\0132\032.google.protobu"
+    "f.Timestamp\022\036\n\026reconciliation_pending\030\006 "
+    "\001(\010\022:\n\007absence\030\007 \001(\0132$.flightstrips.clus"
+    "ter.v1.AmanAbsenceH\000\210\001\001B\n\n\010_absence\"\272\001\n\013"
+    "AmanAbsence\0221\n\rmissing_since\030\001 \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\0227\n\016removal_due_at"
+    "\030\002 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001\022"
+    ",\n\tremaining\030\003 \001(\0132\031.google.protobuf.Dur"
+    "ationB\021\n\017_removal_due_at\"\324\001\n\rAmanRouteFa"
+    "ct\022\n\n\002id\030\001 \001(\t\022\013\n\003fix\030\002 \001(\t\022\r\n\005state\030\003 \001"
+    "(\t\022/\n\013observed_at\030\004 \001(\0132\032.google.protobu"
+    "f.Timestamp\022\020\n\010callsign\030\005 \001(\t\022\016\n\006issuer\030"
+    "\006 \001(\t\022/\n\013received_at\030\007 \001(\0132\032.google.prot"
+    "obuf.Timestamp\022\027\n\017dataset_version\030\010 \001(\t\""
+    "\300\001\n\016AmanProvenance\022\025\n\rmodel_version\030\001 \001("
+    "\t\022\026\n\016config_version\030\002 \001(\t\022#\n\026performance"
+    "_profile_id\030\003 \001(\tH\000\210\001\001\022\033\n\016weather_source"
+    "\030\004 \001(\tH\001\210\001\001\022\017\n\007sources\030\005 \003(\tB\031\n\027_perform"
+    "ance_profile_idB\021\n\017_weather_source\"\201\001\n\010A"
+    "manSlot\022(\n\004time\030\001 \001(\0132\032.google.protobuf."
+    "Timestamp\022\027\n\017runway_group_id\030\002 \001(\t\022\020\n\010se"
+    "quence\030\003 \001(\r\022\020\n\010revision\030\004 \001(\004\022\016\n\006reason"
+    "\030\005 \001(\t\"\365\003\n\rAmanETAReview\022\016\n\006status\030\001 \001(\t"
+    "\022.\n\ncreated_at\030\002 \001(\0132\032.google.protobuf.T"
+    "imestamp\022/\n\013deadline_at\030\003 \001(\0132\032.google.p"
+    "rotobuf.Timestamp\0224\n\013resolved_at\030\004 \001(\0132\032"
+    ".google.protobuf.TimestampH\000\210\001\001\022\022\n\005actor"
+    "\030\005 \001(\tH\001\210\001\001\022\021\n\004note\030\006 \001(\tH\002\210\001\001\0229\n\025initia"
+    "l_baseline_teta\030\007 \001(\0132\032.google.protobuf."
+    "Timestamp\022\?\n\033calculated_operational_teta"
+    "\030\010 \001(\0132\032.google.protobuf.Timestamp\0221\n\rse"
+    "lected_teta\030\t \001(\0132\032.google.protobuf.Time"
+    "stamp\0224\n\013manual_teta\030\n \001(\0132\032.google.prot"
+    "obuf.TimestampH\003\210\001\001B\016\n\014_resolved_atB\010\n\006_"
+    "actorB\007\n\005_noteB\016\n\014_manual_teta\"\350\001\n\016AmanQ"
+    "ueueOffer\022\020\n\010callsign\030\001 \001(\t\022\027\n\017runway_gr"
+    "oup_id\030\002 \001(\t\0229\n\016candidate_slot\030\003 \001(\0132!.f"
+    "lightstrips.cluster.v1.AmanSlot\022\026\n\016queue"
+    "_position\030\004 \001(\r\022.\n\nexpires_at\030\005 \001(\0132\032.go"
+    "ogle.protobuf.Timestamp\022\030\n\020airport_revis"
+    "ion\030\006 \001(\004\022\016\n\006reason\030\007 \001(\t\"\221\003\n\030AmanGoArou"
+    "ndConfirmation\022\022\n\nepisode_id\030\001 \001(\t\022\016\n\006re"
+    "ason\030\002 \001(\t\022/\n\013detected_at\030\003 \001(\0132\032.google"
+    ".protobuf.Timestamp\0222\n\016evidence_times\030\004 "
+    "\003(\0132\032.google.protobuf.Timestamp\022\016\n\006statu"
+    "s\030\005 \001(\t\0223\n\ndecided_at\030\006 \001(\0132\032.google.pro"
+    "tobuf.TimestampH\000\210\001\001\022\027\n\ndecided_by\030\007 \001(\t"
+    "H\001\210\001\001\022\037\n\022resulting_revision\030\010 \001(\004H\002\210\001\001\022 "
+    "\n\023decision_command_id\030\t \001(\tH\003\210\001\001B\r\n\013_dec"
+    "ided_atB\r\n\013_decided_byB\025\n\023_resulting_rev"
+    "isionB\026\n\024_decision_command_id\"\222\001\n\020AmanGa"
+    "pException\022\016\n\006gap_id\030\001 \001(\t\022\027\n\017runway_gro"
+    "up_id\030\002 \001(\t\022/\n\013opportunity\030\003 \001(\0132\032.googl"
+    "e.protobuf.Timestamp\022\022\n\ncommand_id\030\004 \001(\t"
+    "\022\020\n\010callsign\030\005 \001(\t\"\375\003\n\020AmanCoordination\022"
+    "\n\n\002id\030\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\034\n\024recipie"
+    "nt_controller\030\003 \001(\t\022\030\n\020recipient_status\030"
+    "\004 \001(\t\022\r\n\005state\030\005 \001(\t\022@\n\014route_direct\030\006 \001"
+    "(\0132(.flightstrips.cluster.v1.AmanRouteDi"
+    "rectH\000\0223\n\005speed\030\007 \001(\0132\".flightstrips.clu"
+    "ster.v1.AmanSpeedH\000\022.\n\ncreated_at\030\010 \001(\0132"
+    "\032.google.protobuf.Timestamp\022.\n\nupdated_a"
+    "t\030\t \001(\0132\032.google.protobuf.Timestamp\022\027\n\ns"
+    "upersedes\030\n \001(\tH\001\210\001\001\022\032\n\rsuperseded_by\030\013 "
+    "\001(\tH\002\210\001\001\022>\n\tclearance\030\014 \001(\0132&.flightstri"
+    "ps.cluster.v1.AmanClearanceH\003\210\001\001B\t\n\007requ"
+    "estB\r\n\013_supersedesB\020\n\016_superseded_byB\014\n\n"
+    "_clearance\"U\n\017AmanRouteDirect\022\022\n\005route\030\001"
+    " \001(\tH\000\210\001\001\022\026\n\tdirect_to\030\002 \001(\tH\001\210\001\001B\010\n\006_ro"
+    "uteB\014\n\n_direct_to\"\036\n\tAmanSpeed\022\021\n\treques"
+    "ted\030\001 \001(\t\"~\n\rAmanClearance\022\017\n\007fact_id\030\001 "
+    "\001(\t\022\014\n\004kind\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\022\016\n\006issu"
+    "er\030\004 \001(\t\022/\n\013observed_at\030\005 \001(\0132\032.google.p"
+    "rotobuf.Timestamp\"\331\005\n\tAmanAudit\022\n\n\002id\030\001 "
+    "\001(\t\022\030\n\020airport_revision\030\002 \001(\004\022.\n\ncreated"
+    "_at\030\003 \001(\0132\032.google.protobuf.Timestamp\022-\n"
+    "\005actor\030\004 \001(\0132\036.flightstrips.cluster.v1.A"
+    "ctor\022<\n\007command\030\005 \001(\0132).flightstrips.clu"
+    "ster.v1.AmanCommandAuditH\000\022D\n\013observatio"
+    "n\030\006 \001(\0132-.flightstrips.cluster.v1.AmanOb"
+    "servationAuditH\000\022>\n\010sequence\030\007 \001(\0132*.fli"
+    "ghtstrips.cluster.v1.AmanSequenceAuditH\000"
+    "\022F\n\014coordination\030\010 \001(\0132..flightstrips.cl"
+    "uster.v1.AmanCoordinationAuditH\000\022:\n\006heal"
+    "th\030\t \001(\0132(.flightstrips.cluster.v1.AmanH"
+    "ealthAuditH\000\022>\n\010capacity\030\n \001(\0132*.flights"
+    "trips.cluster.v1.AmanCapacityAuditH\000\022:\n\006"
+    "freeze\030\013 \001(\0132(.flightstrips.cluster.v1.A"
+    "manFreezeAuditH\000\022\?\n\tgo_around\030\014 \001(\0132*.fl"
+    "ightstrips.cluster.v1.AmanGoAroundAuditH"
+    "\000\022:\n\006replay\030\r \001(\0132(.flightstrips.cluster"
+    ".v1.AmanReplayAuditH\000B\006\n\004fact\"]\n\020AmanCom"
+    "mandAudit\022\022\n\ncommand_id\030\001 \001(\t\022\024\n\014command"
+    "_kind\030\002 \001(\t\022\017\n\007outcome\030\003 \001(\t\022\016\n\006reason\030\004"
+    " \001(\t\"a\n\024AmanObservationAudit\022\016\n\006source\030\001"
+    " \001(\t\022\026\n\016observation_id\030\002 \001(\t\022\020\n\010callsign"
+    "\030\003 \001(\t\022\017\n\007outcome\030\004 \001(\t\"\322\001\n\021AmanSequence"
+    "Audit\022\020\n\010callsign\030\001 \001(\t\022\027\n\017runway_group_"
+    "id\030\002 \001(\t\0226\n\006before\030\003 \001(\0132!.flightstrips."
+    "cluster.v1.AmanSlotH\000\210\001\001\0225\n\005after\030\004 \001(\0132"
+    "!.flightstrips.cluster.v1.AmanSlotH\001\210\001\001\022"
+    "\016\n\006reason\030\005 \001(\tB\t\n\007_beforeB\010\n\006_after\"Z\n\025"
+    "AmanCoordinationAudit\022\022\n\nrequest_id\030\001 \001("
+    "\t\022\016\n\006before\030\002 \001(\t\022\r\n\005after\030\003 \001(\t\022\016\n\006reas"
+    "on\030\004 \001(\t\"S\n\017AmanHealthAudit\022\021\n\tcomponent"
+    "\030\001 \001(\t\022\016\n\006before\030\002 \001(\t\022\r\n\005after\030\003 \001(\t\022\016\n"
+    "\006reason\030\004 \001(\t\"\212\003\n\021AmanCapacityAudit\022\027\n\017r"
+    "unway_group_id\030\001 \001(\t\022\021\n\tobject_id\030\002 \001(\t\022"
+    "=\n\004kind\030\003 \001(\0162/.flightstrips.cluster.v1."
+    "AmanCapacityAudit.Kind\022\016\n\006action\030\004 \001(\t\022E"
+    "\n\021displaced_flights\030\005 \003(\0132*.flightstrips"
+    ".cluster.v1.AmanSequenceAudit\022.\n\005start\030\006"
+    " \001(\0132\032.google.protobuf.TimestampH\000\210\001\001\022,\n"
+    "\003end\030\007 \001(\0132\032.google.protobuf.TimestampH\001"
+    "\210\001\001\"C\n\004Kind\022\024\n\020KIND_UNSPECIFIED\020\000\022\007\n\003GAP"
+    "\020\001\022\013\n\007CLOSURE\020\002\022\017\n\013RESERVATION\020\003B\010\n\006_sta"
+    "rtB\006\n\004_end\"\302\001\n\017AmanFreezeAudit\022\020\n\010callsi"
+    "gn\030\001 \001(\t\022\016\n\006reason\030\002 \001(\t\0229\n\020operational_"
+    "teta\030\003 \001(\0132\032.google.protobuf.TimestampH\000"
+    "\210\001\001\0224\n\004slot\030\004 \001(\0132!.flightstrips.cluster"
+    ".v1.AmanSlotH\001\210\001\001B\023\n\021_operational_tetaB\007"
+    "\n\005_slot\"\214\001\n\021AmanGoAroundAudit\022\020\n\010callsig"
+    "n\030\001 \001(\t\022\022\n\nepisode_id\030\002 \001(\t\022\020\n\010decision\030"
+    "\003 \001(\t\022\?\n\010evidence\030\004 \003(\0132-.flightstrips.c"
+    "luster.v1.AmanGoAroundEvidence\"v\n\017AmanRe"
+    "playAudit\022\016\n\006source\030\001 \001(\t\022\021\n\trecord_id\030\002"
+    " \001(\t\022\016\n\006result\030\003 \001(\t\022\034\n\017source_revision\030"
+    "\004 \001(\004H\000\210\001\001B\022\n\020_source_revision\"\267\001\n\016AmanV"
+    "alidation\022\n\n\002id\030\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022"
+    "\014\n\004rule\030\003 \001(\t\022\016\n\006result\030\004 \001(\t\0228\n\006faults\030"
+    "\005 \003(\0132(.flightstrips.cluster.v1.Validati"
+    "onFault\022/\n\013observed_at\030\006 \001(\0132\032.google.pr"
+    "otobuf.Timestamp\"{\n\021VatsimObservation\022\023\n"
+    "\013provider_id\030\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\016\n\006"
+    "digest\030\003 \001(\t\022/\n\013observed_at\030\004 \001(\0132\032.goog"
+    "le.protobuf.Timestamp\"\205\001\n\013NavManifest\022\017\n"
+    "\007airport\030\001 \001(\t\022\r\n\005cycle\030\002 \001(\t\022\016\n\006digest\030"
+    "\003 \001(\t\0226\n\007objects\030\004 \003(\0132%.flightstrips.cl"
+    "uster.v1.NavObjectRef\022\016\n\006active\030\005 \001(\010\"A\n"
+    "\014NavObjectRef\022\014\n\004kind\030\001 \001(\t\022\023\n\013object_na"
+    "me\030\002 \001(\t\022\016\n\006sha256\030\003 \001(\t\"y\n\rNavRouteCach"
+    "e\022\021\n\troute_key\030\001 \001(\t\022\023\n\013object_name\030\002 \001("
+    "\t\022\016\n\006sha256\030\003 \001(\t\022\030\n\020resolver_version\030\004 "
+    "\001(\t\022\026\n\016schema_version\030\005 \001(\t\"\225\001\n\022Provider"
+    "Checkpoint\022\020\n\010provider\030\001 \001(\t\022\020\n\010resource"
+    "\030\002 \001(\t\022\014\n\004etag\030\003 \001(\t\022\025\n\rlast_modified\030\004 "
+    "\001(\t\022\021\n\tnext_page\030\005 \001(\r\022\023\n\013object_name\030\006 "
+    "\001(\t\022\016\n\006sha256\030\007 \001(\t\"\323\001\n\014WeatherCache\022\017\n\007"
+    "airport\030\001 \001(\t\022\020\n\010provider\030\002 \001(\t\022@\n\013obser"
+    "vation\030\003 \001(\0132+.flightstrips.cluster.v1.W"
+    "eatherObservation\022.\n\nfetched_at\030\004 \001(\0132\032."
+    "google.protobuf.Timestamp\022.\n\nexpires_at\030"
+    "\005 \001(\0132\032.google.protobuf.Timestamp\"\222\003\n\022We"
+    "atherObservation\022\r\n\005metar\030\001 \001(\t\022#\n\026wind_"
+    "direction_degrees\030\002 \001(\rH\000\210\001\001\022\035\n\020wind_spe"
+    "ed_knots\030\003 \001(\001H\001\210\001\001\022\027\n\ngust_knots\030\004 \001(\001H"
+    "\002\210\001\001\022\036\n\021visibility_meters\030\005 \001(\001H\003\210\001\001\022 \n\023"
+    "temperature_celsius\030\006 \001(\001H\004\210\001\001\022\031\n\014pressu"
+    "re_hpa\030\007 \001(\001H\005\210\001\001\0225\n\006clouds\030\010 \003(\0132%.flig"
+    "htstrips.cluster.v1.WeatherCloudB\031\n\027_win"
+    "d_direction_degreesB\023\n\021_wind_speed_knots"
+    "B\r\n\013_gust_knotsB\024\n\022_visibility_metersB\026\n"
+    "\024_temperature_celsiusB\017\n\r_pressure_hpa\"Q"
+    "\n\014WeatherCloud\022\r\n\005cover\030\001 \001(\t\022\026\n\tbase_fe"
+    "et\030\002 \001(\rH\000\210\001\001\022\014\n\004type\030\003 \001(\tB\014\n\n_base_fee"
+    "t\"}\n\017SessionDeadline\022\n\n\002id\030\001 \001(\t\022\014\n\004kind"
+    "\030\002 \001(\t\022*\n\006due_at\030\003 \001(\0132\032.google.protobuf"
+    ".Timestamp\022\020\n\010callsign\030\004 \001(\t\022\022\n\ncommand_"
+    "id\030\005 \001(\t\"\232\003\n\016CommandOutcome\022\022\n\ncommand_i"
+    "d\030\001 \001(\t\022\026\n\016request_sha256\030\002 \001(\t\022-\n\005actor"
+    "\030\003 \001(\0132\036.flightstrips.cluster.v1.Actor\022>"
+    "\n\006status\030\004 \001(\0162..flightstrips.cluster.v1"
+    ".CommandOutcome.Status\022\023\n\013reason_code\030\005 "
+    "\001(\t\022\016\n\006detail\030\006 \001(\t\022!\n\031committed_stream_"
+    "sequence\030\007 \001(\004\022\032\n\022aggregate_revision\030\010 \001"
+    "(\004\022\026\n\teffect_id\030\t \001(\tH\000\210\001\001\"c\n\006Status\022\026\n\022"
+    "STATUS_UNSPECIFIED\020\000\022\014\n\010ACCEPTED\020\001\022\r\n\tSU"
+    "CCEEDED\020\002\022\n\n\006FAILED\020\003\022\013\n\007EXPIRED\020\004\022\013\n\007UN"
+    "KNOWN\020\005B\014\n\n_effect_id\"\355\003\n\016WorkflowRecord"
+    "\022\023\n\013workflow_id\030\001 \001(\t\0225\n\006source\030\002 \001(\0132%."
+    "flightstrips.cluster.v1.AggregateRef\022:\n\013"
+    "destination\030\003 \001(\0132%.flightstrips.cluster"
+    ".v1.AggregateRef\022\014\n\004step\030\004 \001(\t\022\032\n\022derive"
+    "d_command_id\030\005 \001(\t\022>\n\006status\030\006 \001(\0162..fli"
+    "ghtstrips.cluster.v1.WorkflowRecord.Stat"
+    "us\022\034\n\017source_revision\030\007 \001(\004H\000\210\001\001\022(\n\033dest"
+    "ination_stream_sequence\030\010 \001(\004H\001\210\001\001\022\023\n\013re"
+    "ason_code\030\t \001(\t\"X\n\006Status\022\026\n\022STATUS_UNSP"
+    "ECIFIED\020\000\022\013\n\007PENDING\020\001\022\r\n\tCOMPLETED\020\002\022\016\n"
+    "\nSUPERSEDED\020\003\022\n\n\006FAILED\020\004B\022\n\020_source_rev"
+    "isionB\036\n\034_destination_stream_sequence\"\367\006"
+    "\n\014EffectRecord\022\022\n\ncommand_id\030\001 \001(\t\022\022\n\nta"
+    "rget_cid\030\002 \001(\t\022!\n\024target_connection_id\030\003"
+    " \001(\tH\001\210\001\001\022\023\n\013owner_epoch\030\004 \001(\004\022\024\n\014master"
+    "_epoch\030\005 \001(\004\022<\n\006status\030\006 \001(\0162,.flightstr"
+    "ips.cluster.v1.EffectRecord.Status\022G\n\017se"
+    "t_flight_plan\030\007 \001(\0132,.flightstrips.clust"
+    "er.v1.SetFlightPlanEffectH\000\0221\n\003pdc\030\010 \001(\013"
+    "2\".flightstrips.cluster.v1.PdcEffectH\000\022H"
+    "\n\017private_message\030\t \001(\0132-.flightstrips.c"
+    "luster.v1.PrivateMessageEffectH\000\022C\n\014coor"
+    "dination\030\n \001(\0132+.flightstrips.cluster.v1"
+    ".CoordinationEffectH\000\0221\n\003cdm\030\013 \001(\0132\".fli"
+    "ghtstrips.cluster.v1.CdmEffectH\000\0225\n\021disp"
+    "atch_deadline\030\014 \001(\0132\032.google.protobuf.Ti"
+    "mestamp\0228\n\017result_deadline\030\r \001(\0132\032.googl"
+    "e.protobuf.TimestampH\002\210\001\001\022#\n\026dispatch_co"
+    "nnection_id\030\016 \001(\tH\003\210\001\001\022\023\n\013reason_code\030\017 "
+    "\001(\t\"w\n\006Status\022\026\n\022STATUS_UNSPECIFIED\020\000\022\013\n"
+    "\007WAITING\020\001\022\024\n\020DISPATCH_CLAIMED\020\002\022\014\n\010EXEC"
+    "UTED\020\003\022\n\n\006FAILED\020\004\022\013\n\007EXPIRED\020\005\022\013\n\007UNKNO"
+    "WN\020\006B\t\n\007payloadB\027\n\025_target_connection_id"
+    "B\022\n\020_result_deadlineB\031\n\027_dispatch_connec"
+    "tion_id\"E\n\023SetFlightPlanEffect\022\020\n\010callsi"
+    "gn\030\001 \001(\t\022\r\n\005field\030\002 \001(\t\022\r\n\005value\030\003 \001(\t\"@"
+    "\n\tPdcEffect\022\020\n\010callsign\030\001 \001(\t\022\016\n\006action\030"
+    "\002 \001(\t\022\021\n\tclearance\030\003 \001(\t\"N\n\024PrivateMessa"
+    "geEffect\022\021\n\trecipient\030\001 \001(\t\022\023\n\013object_na"
+    "me\030\002 \001(\t\022\016\n\006sha256\030\003 \001(\t\"J\n\022Coordination"
+    "Effect\022\020\n\010callsign\030\001 \001(\t\022\022\n\ntarget_cid\030\002"
+    " \001(\t\022\016\n\006action\030\003 \001(\t\"<\n\tCdmEffect\022\020\n\010cal"
+    "lsign\030\001 \001(\t\022\016\n\006action\030\002 \001(\t\022\r\n\005value\030\003 \001"
+    "(\t\"\351\004\n\010Snapshot\022\026\n\016schema_version\030\001 \001(\r\022"
+    "8\n\taggregate\030\002 \001(\0132%.flightstrips.cluste"
+    "r.v1.AggregateRef\022\032\n\022aggregate_revision\030"
+    "\003 \001(\004\022\034\n\024last_stream_sequence\030\004 \001(\004\022\035\n\025l"
+    "ast_subject_sequence\030\005 \001(\004\0221\n\005owner\030\006 \001("
+    "\0132\".flightstrips.cluster.v1.OwnerTerm\0229\n"
+    "\010entities\030\007 \003(\0132\'.flightstrips.cluster.v"
+    "1.EntitySnapshot\0229\n\010outcomes\030\010 \003(\0132\'.fli"
+    "ghtstrips.cluster.v1.CommandOutcome\022:\n\tw"
+    "orkflows\030\t \003(\0132\'.flightstrips.cluster.v1"
+    ".WorkflowRecord\0226\n\007effects\030\n \003(\0132%.fligh"
+    "tstrips.cluster.v1.EffectRecord\0228\n\006maste"
+    "r\030\013 \001(\0132#.flightstrips.cluster.v1.Master"
+    "TermH\000\210\001\001\0227\n\004sync\030\014 \001(\0132$.flightstrips.c"
+    "luster.v1.SessionSyncH\001\210\001\001\022\016\n\006sha256\030\r \001"
+    "(\tB\t\n\007_masterB\007\n\005_sync\"e\n\016EntitySnapshot"
+    "\022\013\n\003key\030\001 \001(\t\022\020\n\010revision\030\002 \001(\004\0224\n\005value"
+    "\030\003 \001(\0132%.flightstrips.cluster.v1.EntityR"
+    "ecord\"\337\001\n\rSnapshotIndex\022\026\n\016schema_versio"
+    "n\030\001 \001(\r\0228\n\taggregate\030\002 \001(\0132%.flightstrip"
+    "s.cluster.v1.AggregateRef\022\023\n\013object_name"
+    "\030\003 \001(\t\022\016\n\006sha256\030\004 \001(\t\022\032\n\022aggregate_revi"
+    "sion\030\005 \001(\004\022\034\n\024last_stream_sequence\030\006 \001(\004"
+    "\022\035\n\025last_subject_sequence\030\007 \001(\004\"\304\002\n\rPosi"
+    "tionValue\022\026\n\016schema_version\030\001 \001(\r\022\022\n\nses"
+    "sion_id\030\002 \001(\005\022\024\n\014aircraft_key\030\003 \001(\t\022\023\n\013o"
+    "wner_epoch\030\004 \001(\004\022/\n\013observed_at\030\005 \001(\0132\032."
+    "google.protobuf.Timestamp\022\034\n\024source_conn"
+    "ection_id\030\006 \001(\t\022=\n\010position\030\007 \001(\0132).flig"
+    "htstrips.cluster.v1.AircraftPositionH\000\022\?"
+    "\n\ttombstone\030\010 \001(\0132*.flightstrips.cluster"
+    ".v1.PositionTombstoneH\000B\r\n\013observation\"\271"
+    "\001\n\020AircraftPosition\022\020\n\010latitude\030\001 \001(\001\022\021\n"
+    "\tlongitude\030\002 \001(\001\022\025\n\raltitude_feet\030\003 \001(\005\022"
+    "\032\n\022ground_speed_knots\030\004 \001(\001\022\025\n\rtrack_deg"
+    "rees\030\005 \001(\001\022\037\n\022vertical_speed_fpm\030\006 \001(\001H\000"
+    "\210\001\001B\025\n\023_vertical_speed_fpm\"\023\n\021PositionTo"
+    "mbstone\"\244\001\n\rPresenceValue\022\026\n\016schema_vers"
+    "ion\030\001 \001(\r\0225\n\004node\030\002 \001(\0132%.flightstrips.c"
+    "luster.v1.NodePresenceH\000\0229\n\006client\030\003 \001(\013"
+    "2\'.flightstrips.cluster.v1.ClientPresenc"
+    "eH\000B\t\n\007present\"^\n\014NodePresence\022\017\n\007node_i"
+    "d\030\001 \001(\t\022.\n\nstarted_at\030\002 \001(\0132\032.google.pro"
+    "tobuf.Timestamp\022\r\n\005ready\030\003 \001(\010\"\270\002\n\016Clien"
+    "tPresence\022\025\n\rconnection_id\030\001 \001(\t\022\017\n\007node"
+    "_id\030\002 \001(\t\022\022\n\nsession_id\030\003 \001(\005\022\013\n\003cid\030\004 \001"
+    "(\t\022\020\n\010callsign\030\005 \001(\t\022\020\n\010position\030\006 \001(\t\022\020"
+    "\n\010observer\030\007 \001(\010\0220\n\014connected_at\030\010 \001(\0132\032"
+    ".google.protobuf.Timestamp\022:\n\004kind\030\t \001(\016"
+    "2,.flightstrips.cluster.v1.ClientPresenc"
+    "e.Kind\"9\n\004Kind\022\024\n\020KIND_UNSPECIFIED\020\000\022\r\n\t"
+    "EUROSCOPE\020\001\022\014\n\010FRONTEND\020\002\"\230\002\n\013ObjectValu"
+    "e\022\026\n\016schema_version\030\001 \001(\r\0225\n\010snapshot\030\002 "
+    "\001(\0132!.flightstrips.cluster.v1.SnapshotH\000"
+    "\022/\n\003nav\030\003 \001(\0132 .flightstrips.cluster.v1."
+    "NavDataH\000\022>\n\reffect_secret\030\004 \001(\0132%.fligh"
+    "tstrips.cluster.v1.EffectSecretH\000\022>\n\rpro"
+    "vider_page\030\005 \001(\0132%.flightstrips.cluster."
+    "v1.ProviderPageH\000B\t\n\007content\"\303\005\n\007NavData"
+    "\022\017\n\007airport\030\001 \001(\t\022;\n\007version\030\002 \001(\0132*.fli"
+    "ghtstrips.cluster.v1.NavDatasetVersion\022G"
+    "\n\020airport_fragment\030\003 \001(\0132+.flightstrips."
+    "cluster.v1.NavAirportFragmentH\000\022K\n\022proce"
+    "dure_fragment\030\004 \001(\0132-.flightstrips.clust"
+    "er.v1.NavProcedureFragmentH\000\022\?\n\014fix_frag"
+    "ment\030\005 \001(\0132\'.flightstrips.cluster.v1.Nav"
+    "FixFragmentH\000\022I\n\021terminal_fragment\030\006 \001(\013"
+    "2,.flightstrips.cluster.v1.NavTerminalFr"
+    "agmentH\000\022E\n\017route_candidate\030\007 \001(\0132*.flig"
+    "htstrips.cluster.v1.NavRouteCandidateH\000\022"
+    "\026\n\016schema_version\030\010 \001(\t\022:\n\nprovenance\030\t "
+    "\001(\0132&.flightstrips.cluster.v1.NavProvena"
+    "nce\022/\n\013imported_at\030\n \001(\0132\032.google.protob"
+    "uf.Timestamp\0225\n\014validated_at\030\013 \001(\0132\032.goo"
+    "gle.protobuf.TimestampH\001\210\001\001\022\030\n\020validatio"
+    "n_state\030\014 \001(\t\022\016\n\006digest\030\r \001(\tB\n\n\010fragmen"
+    "tB\017\n\r_validated_at\"\244\001\n\021NavDatasetVersion"
+    "\022\r\n\005cycle\030\001 \001(\t\022\027\n\017source_revision\030\002 \001(\t"
+    "\0222\n\016effective_from\030\003 \001(\0132\032.google.protob"
+    "uf.Timestamp\0223\n\017effective_until\030\004 \001(\0132\032."
+    "google.protobuf.Timestamp\"\325\001\n\rNavProvena"
+    "nce\022\021\n\tsource_id\030\001 \001(\t\022\027\n\017source_revisio"
+    "n\030\002 \001(\t\022/\n\013imported_at\030\003 \001(\0132\032.google.pr"
+    "otobuf.Timestamp\0222\n\016effective_from\030\004 \001(\013"
+    "2\032.google.protobuf.Timestamp\0223\n\017effectiv"
+    "e_until\030\005 \001(\0132\032.google.protobuf.Timestam"
+    "p\"D\n\rNavCoordinate\022\030\n\020latitude_degrees\030\001"
+    " \001(\001\022\031\n\021longitude_degrees\030\002 \001(\001\"\262\001\n\014NavT"
+    "hreshold\0228\n\010position\030\001 \001(\0132&.flightstrip"
+    "s.cluster.v1.NavCoordinate\022\033\n\016elevation_"
+    "feet\030\002 \001(\005H\000\210\001\001\022 \n\023course_true_degrees\030\003"
+    " \001(\001H\001\210\001\001B\021\n\017_elevation_feetB\026\n\024_course_"
+    "true_degrees\"\177\n\022NavAirportFragment\0224\n\007ai"
+    "rport\030\001 \001(\0132#.flightstrips.cluster.v1.Na"
+    "vAirport\0223\n\007runways\030\002 \003(\0132\".flightstrips"
+    ".cluster.v1.NavRunway\"\236\001\n\nNavAirport\022\014\n\004"
+    "icao\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\0228\n\010position\030\003 \001"
+    "(\0132&.flightstrips.cluster.v1.NavCoordina"
+    "te\022:\n\nprovenance\030\004 \001(\0132&.flightstrips.cl"
+    "uster.v1.NavProvenance\"\261\001\n\tNavRunway\022\n\n\002"
+    "id\030\001 \001(\t\022\017\n\007airport\030\002 \001(\t\0228\n\tthreshold\030\003"
+    " \001(\0132%.flightstrips.cluster.v1.NavThresh"
+    "old\022\021\n\tlength_nm\030\004 \001(\001\022:\n\nprovenance\030\005 \001"
+    "(\0132&.flightstrips.cluster.v1.NavProvenan"
+    "ce\"\202\001\n\024NavProcedureFragment\022\017\n\007airport\030\001"
+    " \001(\t\022\014\n\004kind\030\002 \001(\t\0229\n\nprocedures\030\003 \003(\0132%"
+    ".flightstrips.cluster.v1.NavProcedure\022\020\n"
+    "\010coverage\030\004 \001(\t\"\354\001\n\014NavProcedure\022\n\n\002id\030\001"
+    " \001(\t\022\017\n\007airport\030\002 \001(\t\022\014\n\004kind\030\003 \001(\t\022\017\n\007r"
+    "unways\030\004 \003(\t\022-\n\004legs\030\005 \003(\0132\037.flightstrip"
+    "s.cluster.v1.NavLeg\0225\n\010holdings\030\006 \003(\0132#."
+    "flightstrips.cluster.v1.NavHolding\022:\n\npr"
+    "ovenance\030\007 \001(\0132&.flightstrips.cluster.v1"
+    ".NavProvenance\"\245\003\n\006NavLeg\022\n\n\002id\030\001 \001(\t\022\027\n"
+    "\017path_terminator\030\002 \001(\t\022\025\n\010from_fix\030\003 \001(\t"
+    "H\000\210\001\001\022\023\n\006to_fix\030\004 \001(\tH\001\210\001\001\022B\n\rfrom_posit"
+    "ion\030\005 \001(\0132&.flightstrips.cluster.v1.NavC"
+    "oordinateH\002\210\001\001\022@\n\013to_position\030\006 \001(\0132&.fl"
+    "ightstrips.cluster.v1.NavCoordinateH\003\210\001\001"
+    "\022 \n\023course_true_degrees\030\007 \001(\001H\004\210\001\001\022\030\n\013di"
+    "stance_nm\030\010 \001(\001H\005\210\001\001\022\027\n\nholding_id\030\t \001(\t"
+    "H\006\210\001\001B\013\n\t_from_fixB\t\n\007_to_fixB\020\n\016_from_p"
+    "ositionB\016\n\014_to_positionB\026\n\024_course_true_"
+    "degreesB\016\n\014_distance_nmB\r\n\013_holding_id\"\244"
+    "\003\n\nNavHolding\022\n\n\002id\030\001 \001(\t\022\013\n\003fix\030\002 \001(\t\022#"
+    "\n\033inbound_course_true_degrees\030\003 \001(\001\022\026\n\016t"
+    "urn_direction\030\004 \001(\t\022\023\n\tlength_nm\030\005 \001(\001H\000"
+    "\022\026\n\014time_seconds\030\006 \001(\003H\000\022\"\n\025minimum_alti"
+    "tude_feet\030\007 \001(\005H\001\210\001\001\022\"\n\025maximum_altitude"
+    "_feet\030\010 \001(\005H\002\210\001\001\022 \n\023maximum_speed_knots\030"
+    "\t \001(\005H\003\210\001\001\022\023\n\013termination\030\n \001(\t\022:\n\nprove"
+    "nance\030\013 \001(\0132&.flightstrips.cluster.v1.Na"
+    "vProvenanceB\014\n\nleg_extentB\030\n\026_minimum_al"
+    "titude_feetB\030\n\026_maximum_altitude_feetB\026\n"
+    "\024_maximum_speed_knots\"R\n\016NavFixFragment\022"
+    ".\n\005fixes\030\001 \003(\0132\037.flightstrips.cluster.v1"
+    ".NavFix\022\020\n\010coverage\030\002 \001(\t\"\212\001\n\006NavFix\022\n\n\002"
+    "id\030\001 \001(\t\0228\n\010position\030\002 \001(\0132&.flightstrip"
     "s.cluster.v1.NavCoordinate\022:\n\nprovenance"
-    "\030\004 \001(\0132&.flightstrips.cluster.v1.NavProv"
-    "enance\"\261\001\n\tNavRunway\022\n\n\002id\030\001 \001(\t\022\017\n\007airp"
-    "ort\030\002 \001(\t\0228\n\tthreshold\030\003 \001(\0132%.flightstr"
-    "ips.cluster.v1.NavThreshold\022\021\n\tlength_nm"
-    "\030\004 \001(\001\022:\n\nprovenance\030\005 \001(\0132&.flightstrip"
-    "s.cluster.v1.NavProvenance\"\202\001\n\024NavProced"
-    "ureFragment\022\017\n\007airport\030\001 \001(\t\022\014\n\004kind\030\002 \001"
-    "(\t\0229\n\nprocedures\030\003 \003(\0132%.flightstrips.cl"
-    "uster.v1.NavProcedure\022\020\n\010coverage\030\004 \001(\t\""
-    "\354\001\n\014NavProcedure\022\n\n\002id\030\001 \001(\t\022\017\n\007airport\030"
-    "\002 \001(\t\022\014\n\004kind\030\003 \001(\t\022\017\n\007runways\030\004 \003(\t\022-\n\004"
-    "legs\030\005 \003(\0132\037.flightstrips.cluster.v1.Nav"
-    "Leg\0225\n\010holdings\030\006 \003(\0132#.flightstrips.clu"
-    "ster.v1.NavHolding\022:\n\nprovenance\030\007 \001(\0132&"
-    ".flightstrips.cluster.v1.NavProvenance\"\245"
-    "\003\n\006NavLeg\022\n\n\002id\030\001 \001(\t\022\027\n\017path_terminator"
-    "\030\002 \001(\t\022\025\n\010from_fix\030\003 \001(\tH\000\210\001\001\022\023\n\006to_fix\030"
-    "\004 \001(\tH\001\210\001\001\022B\n\rfrom_position\030\005 \001(\0132&.flig"
-    "htstrips.cluster.v1.NavCoordinateH\002\210\001\001\022@"
-    "\n\013to_position\030\006 \001(\0132&.flightstrips.clust"
-    "er.v1.NavCoordinateH\003\210\001\001\022 \n\023course_true_"
-    "degrees\030\007 \001(\001H\004\210\001\001\022\030\n\013distance_nm\030\010 \001(\001H"
-    "\005\210\001\001\022\027\n\nholding_id\030\t \001(\tH\006\210\001\001B\013\n\t_from_f"
-    "ixB\t\n\007_to_fixB\020\n\016_from_positionB\016\n\014_to_p"
-    "ositionB\026\n\024_course_true_degreesB\016\n\014_dist"
-    "ance_nmB\r\n\013_holding_id\"\244\003\n\nNavHolding\022\n\n"
-    "\002id\030\001 \001(\t\022\013\n\003fix\030\002 \001(\t\022#\n\033inbound_course"
-    "_true_degrees\030\003 \001(\001\022\026\n\016turn_direction\030\004 "
-    "\001(\t\022\023\n\tlength_nm\030\005 \001(\001H\000\022\026\n\014time_seconds"
-    "\030\006 \001(\003H\000\022\"\n\025minimum_altitude_feet\030\007 \001(\005H"
-    "\001\210\001\001\022\"\n\025maximum_altitude_feet\030\010 \001(\005H\002\210\001\001"
-    "\022 \n\023maximum_speed_knots\030\t \001(\005H\003\210\001\001\022\023\n\013te"
-    "rmination\030\n \001(\t\022:\n\nprovenance\030\013 \001(\0132&.fl"
-    "ightstrips.cluster.v1.NavProvenanceB\014\n\nl"
-    "eg_extentB\030\n\026_minimum_altitude_feetB\030\n\026_"
-    "maximum_altitude_feetB\026\n\024_maximum_speed_"
-    "knots\"R\n\016NavFixFragment\022.\n\005fixes\030\001 \003(\0132\037"
-    ".flightstrips.cluster.v1.NavFix\022\020\n\010cover"
-    "age\030\002 \001(\t\"\212\001\n\006NavFix\022\n\n\002id\030\001 \001(\t\0228\n\010posi"
-    "tion\030\002 \001(\0132&.flightstrips.cluster.v1.Nav"
-    "Coordinate\022:\n\nprovenance\030\003 \001(\0132&.flights"
-    "trips.cluster.v1.NavProvenance\"\303\002\n\023NavTe"
-    "rminalFragment\022\017\n\007airport\030\001 \001(\t\022\026\n\016confi"
-    "g_version\030\002 \001(\t\022J\n\024star_family_policies\030"
-    "\003 \003(\0132,.flightstrips.cluster.v1.NavStarF"
-    "amilyPolicy\022G\n\021timeline_mappings\030\004 \003(\0132,"
-    ".flightstrips.cluster.v1.AmanTimelineMap"
-    "ping\0227\n\005paths\030\005 \003(\0132(.flightstrips.clust"
-    "er.v1.NavTerminalPath\0225\n\010holdings\030\006 \003(\0132"
-    "#.flightstrips.cluster.v1.NavHolding\"\224\001\n"
-    "\023NavStarFamilyPolicy\022\023\n\013star_family\030\001 \001("
-    "\t\022G\n\021same_star_spacing\030\002 \001(\0132,.flightstr"
-    "ips.cluster.v1.AmanSameStarSpacing\022\037\n\027ho"
-    "lding_sequence_policy\030\003 \001(\t\"\217\004\n\017NavTermi"
-    "nalPath\022;\n\007version\030\001 \001(\0132*.flightstrips."
-    "cluster.v1.NavDatasetVersion\022\017\n\007airport\030"
-    "\002 \001(\t\022\023\n\013star_family\030\003 \001(\t\022\022\n\nfeeder_fix"
-    "\030\004 \001(\t\022B\n\032holding_to_feeder_duration\030\005 \001"
-    "(\0132\031.google.protobuf.DurationH\000\210\001\001\022\024\n\014ru"
-    "nway_group\030\006 \001(\t\022-\n\004legs\030\007 \003(\0132\037.flights"
-    "trips.cluster.v1.NavLeg\022\023\n\013holding_ids\030\010"
-    " \003(\t\022/\n\"published_heading_magnetic_degre"
-    "es\030\t \001(\005H\001\210\001\001\022\020\n\010coverage\030\n \001(\t\022\022\n\nunres"
-    "olved\030\013 \003(\t\022:\n\nprovenance\030\014 \001(\0132&.flight"
+    "\030\003 \001(\0132&.flightstrips.cluster.v1.NavProv"
+    "enance\"\303\002\n\023NavTerminalFragment\022\017\n\007airpor"
+    "t\030\001 \001(\t\022\026\n\016config_version\030\002 \001(\t\022J\n\024star_"
+    "family_policies\030\003 \003(\0132,.flightstrips.clu"
+    "ster.v1.NavStarFamilyPolicy\022G\n\021timeline_"
+    "mappings\030\004 \003(\0132,.flightstrips.cluster.v1"
+    ".AmanTimelineMapping\0227\n\005paths\030\005 \003(\0132(.fl"
+    "ightstrips.cluster.v1.NavTerminalPath\0225\n"
+    "\010holdings\030\006 \003(\0132#.flightstrips.cluster.v"
+    "1.NavHolding\"\224\001\n\023NavStarFamilyPolicy\022\023\n\013"
+    "star_family\030\001 \001(\t\022G\n\021same_star_spacing\030\002"
+    " \001(\0132,.flightstrips.cluster.v1.AmanSameS"
+    "tarSpacing\022\037\n\027holding_sequence_policy\030\003 "
+    "\001(\t\"\217\004\n\017NavTerminalPath\022;\n\007version\030\001 \001(\013"
+    "2*.flightstrips.cluster.v1.NavDatasetVer"
+    "sion\022\017\n\007airport\030\002 \001(\t\022\023\n\013star_family\030\003 \001"
+    "(\t\022\022\n\nfeeder_fix\030\004 \001(\t\022B\n\032holding_to_fee"
+    "der_duration\030\005 \001(\0132\031.google.protobuf.Dur"
+    "ationH\000\210\001\001\022\024\n\014runway_group\030\006 \001(\t\022-\n\004legs"
+    "\030\007 \003(\0132\037.flightstrips.cluster.v1.NavLeg\022"
+    "\023\n\013holding_ids\030\010 \003(\t\022/\n\"published_headin"
+    "g_magnetic_degrees\030\t \001(\005H\001\210\001\001\022\020\n\010coverag"
+    "e\030\n \001(\t\022\022\n\nunresolved\030\013 \003(\t\022:\n\nprovenanc"
+    "e\030\014 \001(\0132&.flightstrips.cluster.v1.NavPro"
+    "venance\022\016\n\006digest\030\r \001(\tB\035\n\033_holding_to_f"
+    "eeder_durationB%\n#_published_heading_mag"
+    "netic_degrees\"\351\001\n\021NavRouteCandidate\0225\n\005q"
+    "uery\030\001 \001(\0132&.flightstrips.cluster.v1.Nav"
+    "RouteQuery\022\030\n\020resolver_version\030\002 \001(\t\022\026\n\016"
+    "schema_version\030\003 \001(\t\022;\n\010geometry\030\004 \001(\0132)"
+    ".flightstrips.cluster.v1.NavRouteGeometr"
+    "y\022.\n\ncreated_at\030\005 \001(\0132\032.google.protobuf."
+    "Timestamp\"\210\002\n\rNavRouteQuery\022;\n\007version\030\001"
+    " \001(\0132*.flightstrips.cluster.v1.NavDatase"
+    "tVersion\022\016\n\006origin\030\002 \001(\t\022\023\n\013destination\030"
+    "\003 \001(\t\022\023\n\013filed_route\030\004 \001(\t\022\036\n\021arrival_pr"
+    "ocedure\030\005 \001(\tH\000\210\001\001\022\023\n\006runway\030\006 \001(\tH\001\210\001\001\022"
+    "\031\n\014runway_group\030\007 \001(\tH\002\210\001\001B\024\n\022_arrival_p"
+    "rocedureB\t\n\007_runwayB\017\n\r_runway_group\"\240\002\n"
+    "\020NavRouteGeometry\022;\n\007version\030\001 \001(\0132*.fli"
+    "ghtstrips.cluster.v1.NavDatasetVersion\022-"
+    "\n\004legs\030\002 \003(\0132\037.flightstrips.cluster.v1.N"
+    "avLeg\022\023\n\013holding_ids\030\003 \003(\t\022\031\n\021total_dist"
+    "ance_nm\030\004 \001(\001\022\020\n\010coverage\030\005 \001(\t\022\022\n\nunres"
+    "olved\030\006 \003(\t\022:\n\nprovenance\030\007 \001(\0132&.flight"
     "strips.cluster.v1.NavProvenance\022\016\n\006diges"
-    "t\030\r \001(\tB\035\n\033_holding_to_feeder_durationB%"
-    "\n#_published_heading_magnetic_degrees\"\351\001"
-    "\n\021NavRouteCandidate\0225\n\005query\030\001 \001(\0132&.fli"
-    "ghtstrips.cluster.v1.NavRouteQuery\022\030\n\020re"
-    "solver_version\030\002 \001(\t\022\026\n\016schema_version\030\003"
-    " \001(\t\022;\n\010geometry\030\004 \001(\0132).flightstrips.cl"
-    "uster.v1.NavRouteGeometry\022.\n\ncreated_at\030"
-    "\005 \001(\0132\032.google.protobuf.Timestamp\"\210\002\n\rNa"
-    "vRouteQuery\022;\n\007version\030\001 \001(\0132*.flightstr"
-    "ips.cluster.v1.NavDatasetVersion\022\016\n\006orig"
-    "in\030\002 \001(\t\022\023\n\013destination\030\003 \001(\t\022\023\n\013filed_r"
-    "oute\030\004 \001(\t\022\036\n\021arrival_procedure\030\005 \001(\tH\000\210"
-    "\001\001\022\023\n\006runway\030\006 \001(\tH\001\210\001\001\022\031\n\014runway_group\030"
-    "\007 \001(\tH\002\210\001\001B\024\n\022_arrival_procedureB\t\n\007_run"
-    "wayB\017\n\r_runway_group\"\240\002\n\020NavRouteGeometr"
-    "y\022;\n\007version\030\001 \001(\0132*.flightstrips.cluste"
-    "r.v1.NavDatasetVersion\022-\n\004legs\030\002 \003(\0132\037.f"
-    "lightstrips.cluster.v1.NavLeg\022\023\n\013holding"
-    "_ids\030\003 \003(\t\022\031\n\021total_distance_nm\030\004 \001(\001\022\020\n"
-    "\010coverage\030\005 \001(\t\022\022\n\nunresolved\030\006 \003(\t\022:\n\np"
-    "rovenance\030\007 \001(\0132&.flightstrips.cluster.v"
-    "1.NavProvenance\022\016\n\006digest\030\010 \001(\t\"U\n\014Effec"
-    "tSecret\022\022\n\ncommand_id\030\001 \001(\t\022\022\n\nciphertex"
-    "t\030\002 \001(\014\022\016\n\006key_id\030\003 \001(\t\022\r\n\005nonce\030\004 \001(\014\"\341"
-    "\001\n\014ProviderPage\022\020\n\010provider\030\001 \001(\t\022\020\n\010res"
-    "ource\030\002 \001(\t\0223\n\005airac\030\003 \001(\0132\".flightstrip"
-    "s.cluster.v1.AiracPageH\000\0225\n\006vatsim\030\004 \001(\013"
-    "2#.flightstrips.cluster.v1.VatsimPageH\000\022"
-    "7\n\007weather\030\005 \001(\0132$.flightstrips.cluster."
-    "v1.WeatherPageH\000B\010\n\006parsed\"f\n\tAiracPage\022"
-    "3\n\tfragments\030\001 \003(\0132 .flightstrips.cluste"
-    "r.v1.NavData\022\026\n\tnext_page\030\002 \001(\tH\000\210\001\001B\014\n\n"
-    "_next_page\"N\n\nVatsimPage\022@\n\014observations"
-    "\030\001 \003(\0132*.flightstrips.cluster.v1.VatsimO"
-    "bservation\"P\n\013WeatherPage\022A\n\014observation"
-    "s\030\001 \003(\0132+.flightstrips.cluster.v1.Weathe"
-    "rObservation*\310\004\n\nEntityKind\022\033\n\027ENTITY_KI"
-    "ND_UNSPECIFIED\020\000\022\024\n\020AIRPORT_REGISTRY\020\001\022\024"
-    "\n\020SESSION_REGISTRY\020\002\022\022\n\016PROVIDER_QUOTA\020\003"
-    "\022\022\n\016AIRPORT_POLICY\020\004\022\013\n\007SESSION\020\005\022\016\n\nCON"
-    "TROLLER\020\006\022\020\n\014SECTOR_OWNER\020\007\022\t\n\005STRIP\020\010\022\020"
-    "\n\014COORDINATION\020\t\022\022\n\016TACTICAL_STRIP\020\n\022\024\n\020"
-    "STAND_ASSIGNMENT\020\013\022\017\n\013STAND_BLOCK\020\014\022\020\n\014P"
-    "DC_SEQUENCE\020\r\022\r\n\tCDM_STATE\020\016\022\017\n\013ECFMP_ST"
-    "ATE\020\017\022\010\n\004ATIS\020\020\022\020\n\014CLX_OVERRIDE\020\021\022\024\n\020FRO"
-    "NTEND_MESSAGE\020\022\022\020\n\014AMAN_AIRPORT\020\023\022\017\n\013AMA"
-    "N_FLIGHT\020\024\022\025\n\021AMAN_COORDINATION\020\025\022\016\n\nAMA"
-    "N_AUDIT\020\026\022\023\n\017AMAN_VALIDATION\020\027\022\026\n\022VATSIM"
-    "_OBSERVATION\020\030\022\020\n\014NAV_MANIFEST\020\031\022\023\n\017NAV_"
-    "ROUTE_CACHE\020\032\022\027\n\023PROVIDER_CHECKPOINT\020\033\022\021"
-    "\n\rWEATHER_CACHE\020\034\022\024\n\020SESSION_DEADLINE\020\035B"
-    ")Z\'FlightStrips/pkg/events/cluster;clust"
-    "erb\006proto3"
+    "t\030\010 \001(\t\"U\n\014EffectSecret\022\022\n\ncommand_id\030\001 "
+    "\001(\t\022\022\n\nciphertext\030\002 \001(\014\022\016\n\006key_id\030\003 \001(\t\022"
+    "\r\n\005nonce\030\004 \001(\014\"\341\001\n\014ProviderPage\022\020\n\010provi"
+    "der\030\001 \001(\t\022\020\n\010resource\030\002 \001(\t\0223\n\005airac\030\003 \001"
+    "(\0132\".flightstrips.cluster.v1.AiracPageH\000"
+    "\0225\n\006vatsim\030\004 \001(\0132#.flightstrips.cluster."
+    "v1.VatsimPageH\000\0227\n\007weather\030\005 \001(\0132$.fligh"
+    "tstrips.cluster.v1.WeatherPageH\000B\010\n\006pars"
+    "ed\"f\n\tAiracPage\0223\n\tfragments\030\001 \003(\0132 .fli"
+    "ghtstrips.cluster.v1.NavData\022\026\n\tnext_pag"
+    "e\030\002 \001(\tH\000\210\001\001B\014\n\n_next_page\"N\n\nVatsimPage"
+    "\022@\n\014observations\030\001 \003(\0132*.flightstrips.cl"
+    "uster.v1.VatsimObservation\"P\n\013WeatherPag"
+    "e\022A\n\014observations\030\001 \003(\0132+.flightstrips.c"
+    "luster.v1.WeatherObservation*\310\004\n\nEntityK"
+    "ind\022\033\n\027ENTITY_KIND_UNSPECIFIED\020\000\022\024\n\020AIRP"
+    "ORT_REGISTRY\020\001\022\024\n\020SESSION_REGISTRY\020\002\022\022\n\016"
+    "PROVIDER_QUOTA\020\003\022\022\n\016AIRPORT_POLICY\020\004\022\013\n\007"
+    "SESSION\020\005\022\016\n\nCONTROLLER\020\006\022\020\n\014SECTOR_OWNE"
+    "R\020\007\022\t\n\005STRIP\020\010\022\020\n\014COORDINATION\020\t\022\022\n\016TACT"
+    "ICAL_STRIP\020\n\022\024\n\020STAND_ASSIGNMENT\020\013\022\017\n\013ST"
+    "AND_BLOCK\020\014\022\020\n\014PDC_SEQUENCE\020\r\022\r\n\tCDM_STA"
+    "TE\020\016\022\017\n\013ECFMP_STATE\020\017\022\010\n\004ATIS\020\020\022\020\n\014CLX_O"
+    "VERRIDE\020\021\022\024\n\020FRONTEND_MESSAGE\020\022\022\020\n\014AMAN_"
+    "AIRPORT\020\023\022\017\n\013AMAN_FLIGHT\020\024\022\025\n\021AMAN_COORD"
+    "INATION\020\025\022\016\n\nAMAN_AUDIT\020\026\022\023\n\017AMAN_VALIDA"
+    "TION\020\027\022\026\n\022VATSIM_OBSERVATION\020\030\022\020\n\014NAV_MA"
+    "NIFEST\020\031\022\023\n\017NAV_ROUTE_CACHE\020\032\022\027\n\023PROVIDE"
+    "R_CHECKPOINT\020\033\022\021\n\rWEATHER_CACHE\020\034\022\024\n\020SES"
+    "SION_DEADLINE\020\035B)Z\'FlightStrips/pkg/even"
+    "ts/cluster;clusterb\006proto3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_storage_2eproto_deps[2] =
     {
@@ -8668,7 +8677,7 @@ static ::absl::once_flag descriptor_table_storage_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_storage_2eproto = {
     false,
     false,
-    39730,
+    39786,
     descriptor_table_protodef_storage_2eproto,
     "storage.proto",
     &descriptor_table_storage_2eproto_once,
@@ -21150,7 +21159,8 @@ inline PROTOBUF_NDEBUG_INLINE Coordination::Impl_::Impl_(
         from_cid_(arena, from.from_cid_),
         to_cid_(arena, from.to_cid_),
         status_(arena, from.status_),
-        tag_(arena, from.tag_) {}
+        tag_(arena, from.tag_),
+        euroscope_handover_cid_(arena, from.euroscope_handover_cid_) {}
 
 Coordination::Coordination(
     ::google::protobuf::Arena* arena,
@@ -21168,7 +21178,13 @@ Coordination::Coordination(
   _impl_.resolved_at_ = (cached_has_bits & 0x00000002u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
                               arena, *from._impl_.resolved_at_)
                         : nullptr;
-  _impl_.id_ = from._impl_.id_;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, id_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, id_),
+           offsetof(Impl_, from_euroscope_) -
+               offsetof(Impl_, id_) +
+               sizeof(Impl_::from_euroscope_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.Coordination)
 }
@@ -21180,16 +21196,17 @@ inline PROTOBUF_NDEBUG_INLINE Coordination::Impl_::Impl_(
         from_cid_(arena),
         to_cid_(arena),
         status_(arena),
-        tag_(arena) {}
+        tag_(arena),
+        euroscope_handover_cid_(arena) {}
 
 inline void Coordination::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, created_at_),
            0,
-           offsetof(Impl_, id_) -
+           offsetof(Impl_, from_euroscope_) -
                offsetof(Impl_, created_at_) +
-               sizeof(Impl_::id_));
+               sizeof(Impl_::from_euroscope_));
 }
 Coordination::~Coordination() {
   // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.Coordination)
@@ -21203,6 +21220,7 @@ inline void Coordination::SharedDtor() {
   _impl_.to_cid_.Destroy();
   _impl_.status_.Destroy();
   _impl_.tag_.Destroy();
+  _impl_.euroscope_handover_cid_.Destroy();
   delete _impl_.created_at_;
   delete _impl_.resolved_at_;
   _impl_.~Impl_();
@@ -21234,6 +21252,7 @@ PROTOBUF_NOINLINE void Coordination::Clear() {
   _impl_.to_cid_.ClearToEmpty();
   _impl_.status_.ClearToEmpty();
   _impl_.tag_.ClearToEmpty();
+  _impl_.euroscope_handover_cid_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000003u) {
     if (cached_has_bits & 0x00000001u) {
@@ -21245,7 +21264,9 @@ PROTOBUF_NOINLINE void Coordination::Clear() {
       _impl_.resolved_at_->Clear();
     }
   }
-  _impl_.id_ = ::uint64_t{0u};
+  ::memset(&_impl_.id_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.from_euroscope_) -
+      reinterpret_cast<char*>(&_impl_.id_)) + sizeof(_impl_.from_euroscope_));
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -21258,15 +21279,15 @@ const char* Coordination::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 8, 2, 84, 2> Coordination::_table_ = {
+const ::_pbi::TcParseTable<4, 10, 2, 106, 2> Coordination::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Coordination, _impl_._has_bits_),
     0, // no _extensions_
-    8, 56,  // max_field_number, fast_idx_mask
+    10, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967040,  // skipmap
+    4294966272,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    8,  // num_field_entries
+    10,  // num_field_entries
     2,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Coordination_default_instance_._instance,
@@ -21275,9 +21296,7 @@ const ::_pbi::TcParseTable<3, 8, 2, 84, 2> Coordination::_table_ = {
     ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::Coordination>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // optional .google.protobuf.Timestamp resolved_at = 8;
-    {::_pbi::TcParser::FastMtS1,
-     {66, 1, 1, PROTOBUF_FIELD_OFFSET(Coordination, _impl_.resolved_at_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // uint64 id = 1;
     {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(Coordination, _impl_.id_), 63>(),
      {8, 63, 0, PROTOBUF_FIELD_OFFSET(Coordination, _impl_.id_)}},
@@ -21299,6 +21318,20 @@ const ::_pbi::TcParseTable<3, 8, 2, 84, 2> Coordination::_table_ = {
     // .google.protobuf.Timestamp created_at = 7;
     {::_pbi::TcParser::FastMtS1,
      {58, 0, 0, PROTOBUF_FIELD_OFFSET(Coordination, _impl_.created_at_)}},
+    // optional .google.protobuf.Timestamp resolved_at = 8;
+    {::_pbi::TcParser::FastMtS1,
+     {66, 1, 1, PROTOBUF_FIELD_OFFSET(Coordination, _impl_.resolved_at_)}},
+    // bool from_euroscope = 9;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(Coordination, _impl_.from_euroscope_), 63>(),
+     {72, 63, 0, PROTOBUF_FIELD_OFFSET(Coordination, _impl_.from_euroscope_)}},
+    // string euroscope_handover_cid = 10;
+    {::_pbi::TcParser::FastUS1,
+     {82, 63, 0, PROTOBUF_FIELD_OFFSET(Coordination, _impl_.euroscope_handover_cid_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -21326,17 +21359,24 @@ const ::_pbi::TcParseTable<3, 8, 2, 84, 2> Coordination::_table_ = {
     // optional .google.protobuf.Timestamp resolved_at = 8;
     {PROTOBUF_FIELD_OFFSET(Coordination, _impl_.resolved_at_), _Internal::kHasBitsOffset + 1, 1,
     (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // bool from_euroscope = 9;
+    {PROTOBUF_FIELD_OFFSET(Coordination, _impl_.from_euroscope_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // string euroscope_handover_cid = 10;
+    {PROTOBUF_FIELD_OFFSET(Coordination, _impl_.euroscope_handover_cid_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
   }}, {{
-    "\44\0\10\10\6\6\3\0\0\0\0\0\0\0\0\0"
+    "\44\0\10\10\6\6\3\0\0\0\26\0\0\0\0\0"
     "flightstrips.cluster.v1.Coordination"
     "callsign"
     "from_cid"
     "to_cid"
     "status"
     "tag"
+    "euroscope_handover_cid"
   }},
 };
 
@@ -21407,6 +21447,21 @@ const ::_pbi::TcParseTable<3, 8, 2, 84, 2> Coordination::_table_ = {
         8, *_impl_.resolved_at_, _impl_.resolved_at_->GetCachedSize(), target, stream);
   }
 
+  // bool from_euroscope = 9;
+  if (this->_internal_from_euroscope() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        9, this->_internal_from_euroscope(), target);
+  }
+
+  // string euroscope_handover_cid = 10;
+  if (!this->_internal_euroscope_handover_cid().empty()) {
+    const std::string& _s = this->_internal_euroscope_handover_cid();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.Coordination.euroscope_handover_cid");
+    target = stream->WriteStringMaybeAliased(10, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -21454,6 +21509,12 @@ const ::_pbi::TcParseTable<3, 8, 2, 84, 2> Coordination::_table_ = {
                                     this->_internal_tag());
   }
 
+  // string euroscope_handover_cid = 10;
+  if (!this->_internal_euroscope_handover_cid().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_euroscope_handover_cid());
+  }
+
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000003u) {
     // .google.protobuf.Timestamp created_at = 7;
@@ -21473,6 +21534,11 @@ const ::_pbi::TcParseTable<3, 8, 2, 84, 2> Coordination::_table_ = {
   if (this->_internal_id() != 0) {
     total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
         this->_internal_id());
+  }
+
+  // bool from_euroscope = 9;
+  if (this->_internal_from_euroscope() != 0) {
+    total_size += 2;
   }
 
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
@@ -21503,6 +21569,9 @@ void Coordination::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::go
   if (!from._internal_tag().empty()) {
     _this->_internal_set_tag(from._internal_tag());
   }
+  if (!from._internal_euroscope_handover_cid().empty()) {
+    _this->_internal_set_euroscope_handover_cid(from._internal_euroscope_handover_cid());
+  }
   cached_has_bits = from._impl_._has_bits_[0];
   if (cached_has_bits & 0x00000003u) {
     if (cached_has_bits & 0x00000001u) {
@@ -21526,6 +21595,9 @@ void Coordination::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::go
   }
   if (from._internal_id() != 0) {
     _this->_impl_.id_ = from._impl_.id_;
+  }
+  if (from._internal_from_euroscope() != 0) {
+    _this->_impl_.from_euroscope_ = from._impl_.from_euroscope_;
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
@@ -21553,9 +21625,10 @@ void Coordination::InternalSwap(Coordination* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.to_cid_, &other->_impl_.to_cid_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.status_, &other->_impl_.status_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.tag_, &other->_impl_.tag_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.euroscope_handover_cid_, &other->_impl_.euroscope_handover_cid_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(Coordination, _impl_.id_)
-      + sizeof(Coordination::_impl_.id_)
+      PROTOBUF_FIELD_OFFSET(Coordination, _impl_.from_euroscope_)
+      + sizeof(Coordination::_impl_.from_euroscope_)
       - PROTOBUF_FIELD_OFFSET(Coordination, _impl_.created_at_)>(
           reinterpret_cast<char*>(&_impl_.created_at_),
           reinterpret_cast<char*>(&other->_impl_.created_at_));

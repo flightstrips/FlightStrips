@@ -39,9 +39,18 @@ The subject/key is validated against decoded identity before apply. The `ObjectV
 | `SectorOwner` | session | uppercase sector ID |
 | `Strip`, `PdcSequence`, `CdmState`, `EcfmpState`, `ClxOverride` | session | uppercase callsign; CLX appends dot and override key |
 | `Coordination`, `TacticalStrip`, `FrontendMessage`, `SessionDeadline` | session | decimal ID or deadline ID |
+
 | `StandAssignment` | session | uppercase callsign |
 | `StandBlock` | session | uppercase stand ID |
 | `Atis` | session | uppercase airport ICAO |
+
+`Coordination.from_euroscope` and `euroscope_handover_cid` retain the source
+and acknowledgement target of an inbound EuroScope handover. The session owner
+allocates its ID with `Session.next_coordination_id` in the same event. A
+resolved transfer removes the active coordination in the strip-owner event;
+the retained command outcome supplies replay and duplicate-ID history.
+Active coordination status is `TRANSFER` or `TAG`; resolution deletes the
+entity while the outcome remains in the session ledger.
 
 Task 05 keeps the legacy sector position and identifier as typed scalar fields
 on `SectorOwner`, and the per-position controller layout as

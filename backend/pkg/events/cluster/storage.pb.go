@@ -3722,17 +3722,19 @@ func (x *ClxOverrideAction) GetOverrideKey() string {
 }
 
 type Coordination struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Callsign      string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
-	FromCid       string                 `protobuf:"bytes,3,opt,name=from_cid,json=fromCid,proto3" json:"from_cid,omitempty"`
-	ToCid         string                 `protobuf:"bytes,4,opt,name=to_cid,json=toCid,proto3" json:"to_cid,omitempty"`
-	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
-	Tag           string                 `protobuf:"bytes,6,opt,name=tag,proto3" json:"tag,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ResolvedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=resolved_at,json=resolvedAt,proto3,oneof" json:"resolved_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Id                   uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Callsign             string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	FromCid              string                 `protobuf:"bytes,3,opt,name=from_cid,json=fromCid,proto3" json:"from_cid,omitempty"`
+	ToCid                string                 `protobuf:"bytes,4,opt,name=to_cid,json=toCid,proto3" json:"to_cid,omitempty"`
+	Status               string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Tag                  string                 `protobuf:"bytes,6,opt,name=tag,proto3" json:"tag,omitempty"`
+	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ResolvedAt           *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=resolved_at,json=resolvedAt,proto3,oneof" json:"resolved_at,omitempty"`
+	FromEuroscope        bool                   `protobuf:"varint,9,opt,name=from_euroscope,json=fromEuroscope,proto3" json:"from_euroscope,omitempty"`
+	EuroscopeHandoverCid string                 `protobuf:"bytes,10,opt,name=euroscope_handover_cid,json=euroscopeHandoverCid,proto3" json:"euroscope_handover_cid,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Coordination) Reset() {
@@ -3819,6 +3821,20 @@ func (x *Coordination) GetResolvedAt() *timestamppb.Timestamp {
 		return x.ResolvedAt
 	}
 	return nil
+}
+
+func (x *Coordination) GetFromEuroscope() bool {
+	if x != nil {
+		return x.FromEuroscope
+	}
+	return false
+}
+
+func (x *Coordination) GetEuroscopeHandoverCid() string {
+	if x != nil {
+		return x.EuroscopeHandoverCid
+	}
+	return ""
 }
 
 type TacticalStrip struct {
@@ -14702,7 +14718,7 @@ const file_storage_proto_rawDesc = "" +
 	"\x15AcknowledgeValidation\x12%\n" +
 	"\x0eactivation_key\x18\x01 \x01(\tR\ractivationKey\"6\n" +
 	"\x11ClxOverrideAction\x12!\n" +
-	"\foverride_key\x18\x01 \x01(\tR\voverrideKey\"\xa3\x02\n" +
+	"\foverride_key\x18\x01 \x01(\tR\voverrideKey\"\x80\x03\n" +
 	"\fCoordination\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12\x19\n" +
@@ -14713,7 +14729,10 @@ const file_storage_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12@\n" +
 	"\vresolved_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampH\x00R\n" +
-	"resolvedAt\x88\x01\x01B\x0e\n" +
+	"resolvedAt\x88\x01\x01\x12%\n" +
+	"\x0efrom_euroscope\x18\t \x01(\bR\rfromEuroscope\x124\n" +
+	"\x16euroscope_handover_cid\x18\n" +
+	" \x01(\tR\x14euroscopeHandoverCidB\x0e\n" +
 	"\f_resolved_at\"\x8b\x04\n" +
 	"\rTacticalStrip\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x14\n" +

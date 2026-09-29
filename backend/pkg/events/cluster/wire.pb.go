@@ -442,12 +442,13 @@ func (x *CommandReply) GetDetail() string {
 // One claimed effect may be forwarded to its presence-selected backend. The
 // reply acknowledges only local socket acceptance, never durable success.
 type EffectDeliveryRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     int32                  `protobuf:"varint,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	ConnectionId  string                 `protobuf:"bytes,2,opt,name=connection_id,json=connectionId,proto3" json:"connection_id,omitempty"`
-	Effect        *EffectRecord          `protobuf:"bytes,3,opt,name=effect,proto3" json:"effect,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	SessionId           int32                  `protobuf:"varint,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	ConnectionId        string                 `protobuf:"bytes,2,opt,name=connection_id,json=connectionId,proto3" json:"connection_id,omitempty"`
+	Effect              *EffectRecord          `protobuf:"bytes,3,opt,name=effect,proto3" json:"effect,omitempty"`
+	ClaimStreamSequence uint64                 `protobuf:"varint,4,opt,name=claim_stream_sequence,json=claimStreamSequence,proto3" json:"claim_stream_sequence,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *EffectDeliveryRequest) Reset() {
@@ -499,6 +500,13 @@ func (x *EffectDeliveryRequest) GetEffect() *EffectRecord {
 		return x.Effect
 	}
 	return nil
+}
+
+func (x *EffectDeliveryRequest) GetClaimStreamSequence() uint64 {
+	if x != nil {
+		return x.ClaimStreamSequence
+	}
+	return 0
 }
 
 type EffectDeliveryReply struct {
@@ -8497,12 +8505,13 @@ const file_wire_proto_rawDesc = "" +
 	"\x18_current_entity_revisionB\x10\n" +
 	"\x0e_current_ownerB\n" +
 	"\n" +
-	"\b_outcome\"\x9a\x01\n" +
+	"\b_outcome\"\xce\x01\n" +
 	"\x15EffectDeliveryRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\x05R\tsessionId\x12#\n" +
 	"\rconnection_id\x18\x02 \x01(\tR\fconnectionId\x12=\n" +
-	"\x06effect\x18\x03 \x01(\v2%.flightstrips.cluster.v1.EffectRecordR\x06effect\"P\n" +
+	"\x06effect\x18\x03 \x01(\v2%.flightstrips.cluster.v1.EffectRecordR\x06effect\x122\n" +
+	"\x15claim_stream_sequence\x18\x04 \x01(\x04R\x13claimStreamSequence\"P\n" +
 	"\x13EffectDeliveryReply\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x1a\n" +

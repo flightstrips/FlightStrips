@@ -19529,6 +19529,7 @@ class EffectDeliveryRequest final : public ::google::protobuf::Message
   enum : int {
     kConnectionIdFieldNumber = 2,
     kEffectFieldNumber = 3,
+    kClaimStreamSequenceFieldNumber = 4,
     kSessionIdFieldNumber = 1,
   };
   // string connection_id = 2;
@@ -19562,6 +19563,16 @@ class EffectDeliveryRequest final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::EffectRecord* _internal_mutable_effect();
 
   public:
+  // uint64 claim_stream_sequence = 4;
+  void clear_claim_stream_sequence() ;
+  ::uint64_t claim_stream_sequence() const;
+  void set_claim_stream_sequence(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_claim_stream_sequence() const;
+  void _internal_set_claim_stream_sequence(::uint64_t value);
+
+  public:
   // int32 session_id = 1;
   void clear_session_id() ;
   ::int32_t session_id() const;
@@ -19577,7 +19588,7 @@ class EffectDeliveryRequest final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 3, 1,
+      2, 4, 1,
       67, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -19597,6 +19608,7 @@ class EffectDeliveryRequest final : public ::google::protobuf::Message
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::google::protobuf::internal::ArenaStringPtr connection_id_;
     ::flightstrips::cluster::v1::EffectRecord* effect_;
+    ::uint64_t claim_stream_sequence_;
     ::int32_t session_id_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -25568,6 +25580,28 @@ inline void EffectDeliveryRequest::set_allocated_effect(::flightstrips::cluster:
 
   _impl_.effect_ = reinterpret_cast<::flightstrips::cluster::v1::EffectRecord*>(value);
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.EffectDeliveryRequest.effect)
+}
+
+// uint64 claim_stream_sequence = 4;
+inline void EffectDeliveryRequest::clear_claim_stream_sequence() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.claim_stream_sequence_ = ::uint64_t{0u};
+}
+inline ::uint64_t EffectDeliveryRequest::claim_stream_sequence() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EffectDeliveryRequest.claim_stream_sequence)
+  return _internal_claim_stream_sequence();
+}
+inline void EffectDeliveryRequest::set_claim_stream_sequence(::uint64_t value) {
+  _internal_set_claim_stream_sequence(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.EffectDeliveryRequest.claim_stream_sequence)
+}
+inline ::uint64_t EffectDeliveryRequest::_internal_claim_stream_sequence() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.claim_stream_sequence_;
+}
+inline void EffectDeliveryRequest::_internal_set_claim_stream_sequence(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.claim_stream_sequence_ = value;
 }
 
 // -------------------------------------------------------------------

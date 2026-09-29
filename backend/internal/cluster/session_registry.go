@@ -35,6 +35,30 @@ func (s LocalLifecycleStore) Read(ctx context.Context, ref *pb.AggregateRef) (*A
 	return s.Writer.load(ctx, subject, ref)
 }
 
+// RoutedLifecycleStore is the candidate multi-node adapter used by socket
+// handlers. Commands route to the accepted owner; reads use this node's own
+// applied projection.
+type RoutedLifecycleStore struct {
+	Router interface {
+		Route(context.Context, *pb.CommandRequest) *pb.CommandReply
+	}
+	Projection *Projection
+}
+
+func (s RoutedLifecycleStore) Execute(ctx context.Context, request *pb.CommandRequest) *pb.CommandReply {
+	if s.Router == nil {
+		return unavailable(request.GetCommandId())
+	}
+	return s.Router.Route(ctx, request)
+}
+
+func (s RoutedLifecycleStore) Read(_ context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
+	if s.Projection == nil {
+		return nil, fmt.Errorf("projection unavailable")
+	}
+	return s.Projection.Read(ref)
+}
+
 // SessionRegistry is an opt-in candidate adapter. The SQL-backed Server does
 // not construct it until the coordinated cutover.
 type SessionRegistry struct{ Store LifecycleStore }

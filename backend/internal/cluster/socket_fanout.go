@@ -210,8 +210,13 @@ func (f *SessionFanout) ServeTargeted(ctx context.Context) error {
 			if effect != nil {
 				response.CommandId = effect.CommandId
 				if effect.DispatchConnectionId != nil && request.ConnectionId == *effect.DispatchConnectionId &&
-					f.deliverLocal(request.SessionId, effect) == nil {
-					response.Accepted = true
+					request.ClaimStreamSequence > 0 {
+					wait, cancel := context.WithTimeout(ctx, time.Second)
+					err := f.Projection.WaitApplied(wait, request.ClaimStreamSequence)
+					cancel()
+					if err == nil && f.deliverLocal(request.SessionId, effect) == nil {
+						response.Accepted = true
+					}
 				}
 			}
 		}
@@ -246,15 +251,20 @@ func (f *SessionFanout) SendToCID(ctx context.Context, sessionID int32, effect *
 	if err != nil {
 		return err
 	}
+	state, err := f.Projection.Read(sessionRef(sessionID))
+	if err != nil || state.Effects[effect.CommandId] == nil ||
+		!proto.Equal(state.Effects[effect.CommandId], effect) {
+		return fmt.Errorf("effect dispatch claim is not applied locally")
+	}
 	if selected.NodeId == f.NodeID {
 		return f.deliverLocal(sessionID, effect)
 	}
 	data, err := proto.Marshal(&pb.EffectDeliveryRequest{SessionId: sessionID,
-		ConnectionId: selected.ConnectionId, Effect: effect})
+		ConnectionId: selected.ConnectionId, Effect: effect, ClaimStreamSequence: state.StreamSequence})
 	if err != nil || len(data) > MaxStateBytes {
 		return fmt.Errorf("invalid or oversized targeted effect")
 	}
-	wait, cancel := context.WithTimeout(ctx, time.Second)
+	wait, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	reply, err := f.NC.RequestWithContext(wait, "fs.v1.delivery."+selected.NodeId, data)
 	if err != nil {

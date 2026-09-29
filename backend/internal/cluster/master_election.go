@@ -150,6 +150,32 @@ func (e MasterElection) Run(ctx context.Context, sessionID int32) error {
 	}
 }
 
+// RunAll watches the active global session registry. It keeps elections alive
+// even when the accepted owner has no local EuroScope sockets.
+func (e MasterElection) RunAll(ctx context.Context, registry SessionRegistry) error {
+	if e.Projection == nil || e.Lease == nil || registry.Store == nil {
+		return fmt.Errorf("invalid master election supervisor")
+	}
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if e.Projection.Ready() == nil {
+			if sessions, err := registry.ActiveSessions(ctx); err == nil {
+				for _, session := range sessions {
+					if e.Lease.CanWrite(sessionRef(session.Id)) {
+						_, _ = e.Reconcile(ctx, session.Id)
+					}
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
 // MasterElectionPlanner is installed on the owner writer's planner chain.
 // It rechecks live presence at the commit point, before the subject CAS.
 func MasterElectionPlanner(projection *Projection, next Planner) Planner {

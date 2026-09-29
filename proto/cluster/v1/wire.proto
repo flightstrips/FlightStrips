@@ -42,6 +42,7 @@ message EffectDeliveryRequest {
   int32 session_id = 1;
   string connection_id = 2;
   EffectRecord effect = 3;
+  uint64 claim_stream_sequence = 4;
 }
 message EffectDeliveryReply {
   string command_id = 1;

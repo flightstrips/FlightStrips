@@ -823,28 +823,29 @@ func (x *ActionStatusQuery) GetRequestIds() []string {
 }
 
 type FrontendInitial struct {
-	state                  protoimpl.MessageState `protogen:"open.v1"`
-	SessionId              int32                  `protobuf:"varint,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	Airport                string                 `protobuf:"bytes,2,opt,name=airport,proto3" json:"airport,omitempty"`
-	SessionName            string                 `protobuf:"bytes,3,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
-	AggregateRevision      uint64                 `protobuf:"varint,4,opt,name=aggregate_revision,json=aggregateRevision,proto3" json:"aggregate_revision,omitempty"`
-	StreamSequence         uint64                 `protobuf:"varint,5,opt,name=stream_sequence,json=streamSequence,proto3" json:"stream_sequence,omitempty"`
-	Entities               []*EntitySnapshot      `protobuf:"bytes,6,rep,name=entities,proto3" json:"entities,omitempty"`
-	Positions              []*PositionValue       `protobuf:"bytes,7,rep,name=positions,proto3" json:"positions,omitempty"`
-	Clients                []*ClientPresence      `protobuf:"bytes,8,rep,name=clients,proto3" json:"clients,omitempty"`
-	Writable               bool                   `protobuf:"varint,9,opt,name=writable,proto3" json:"writable,omitempty"`
-	LayoutId               string                 `protobuf:"bytes,10,opt,name=layout_id,json=layoutId,proto3" json:"layout_id,omitempty"`
-	Me                     *Controller            `protobuf:"bytes,11,opt,name=me,proto3" json:"me,omitempty"`
-	ReadOnly               bool                   `protobuf:"varint,12,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`
-	PositionAvailable      bool                   `protobuf:"varint,13,opt,name=position_available,json=positionAvailable,proto3" json:"position_available,omitempty"`
-	AmanFmp                bool                   `protobuf:"varint,14,opt,name=aman_fmp,json=amanFmp,proto3" json:"aman_fmp,omitempty"`
-	AvailableSids          []*SidInfo             `protobuf:"bytes,15,rep,name=available_sids,json=availableSids,proto3" json:"available_sids,omitempty"`
-	InitialCflByRunway     []*RunwayCfl           `protobuf:"bytes,16,rep,name=initial_cfl_by_runway,json=initialCflByRunway,proto3" json:"initial_cfl_by_runway,omitempty"`
-	TransitionAltitudeFeet int32                  `protobuf:"varint,17,opt,name=transition_altitude_feet,json=transitionAltitudeFeet,proto3" json:"transition_altitude_feet,omitempty"`
-	StandAssignmentEnabled bool                   `protobuf:"varint,18,opt,name=stand_assignment_enabled,json=standAssignmentEnabled,proto3" json:"stand_assignment_enabled,omitempty"`
-	TaggedObservations     []*FrontendObservation `protobuf:"bytes,19,rep,name=tagged_observations,json=taggedObservations,proto3" json:"tagged_observations,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	SessionId                int32                  `protobuf:"varint,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Airport                  string                 `protobuf:"bytes,2,opt,name=airport,proto3" json:"airport,omitempty"`
+	SessionName              string                 `protobuf:"bytes,3,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
+	AggregateRevision        uint64                 `protobuf:"varint,4,opt,name=aggregate_revision,json=aggregateRevision,proto3" json:"aggregate_revision,omitempty"`
+	StreamSequence           uint64                 `protobuf:"varint,5,opt,name=stream_sequence,json=streamSequence,proto3" json:"stream_sequence,omitempty"`
+	Entities                 []*EntitySnapshot      `protobuf:"bytes,6,rep,name=entities,proto3" json:"entities,omitempty"`
+	Positions                []*PositionValue       `protobuf:"bytes,7,rep,name=positions,proto3" json:"positions,omitempty"`
+	Clients                  []*ClientPresence      `protobuf:"bytes,8,rep,name=clients,proto3" json:"clients,omitempty"`
+	Writable                 bool                   `protobuf:"varint,9,opt,name=writable,proto3" json:"writable,omitempty"`
+	LayoutId                 string                 `protobuf:"bytes,10,opt,name=layout_id,json=layoutId,proto3" json:"layout_id,omitempty"`
+	Me                       *Controller            `protobuf:"bytes,11,opt,name=me,proto3" json:"me,omitempty"`
+	ReadOnly                 bool                   `protobuf:"varint,12,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`
+	PositionAvailable        bool                   `protobuf:"varint,13,opt,name=position_available,json=positionAvailable,proto3" json:"position_available,omitempty"`
+	AmanFmp                  bool                   `protobuf:"varint,14,opt,name=aman_fmp,json=amanFmp,proto3" json:"aman_fmp,omitempty"`
+	AvailableSids            []*SidInfo             `protobuf:"bytes,15,rep,name=available_sids,json=availableSids,proto3" json:"available_sids,omitempty"`
+	InitialCflByRunway       []*RunwayCfl           `protobuf:"bytes,16,rep,name=initial_cfl_by_runway,json=initialCflByRunway,proto3" json:"initial_cfl_by_runway,omitempty"`
+	TransitionAltitudeFeet   int32                  `protobuf:"varint,17,opt,name=transition_altitude_feet,json=transitionAltitudeFeet,proto3" json:"transition_altitude_feet,omitempty"`
+	StandAssignmentEnabled   bool                   `protobuf:"varint,18,opt,name=stand_assignment_enabled,json=standAssignmentEnabled,proto3" json:"stand_assignment_enabled,omitempty"`
+	TaggedObservations       []*FrontendObservation `protobuf:"bytes,19,rep,name=tagged_observations,json=taggedObservations,proto3" json:"tagged_observations,omitempty"`
+	AirportAggregateRevision uint64                 `protobuf:"varint,20,opt,name=airport_aggregate_revision,json=airportAggregateRevision,proto3" json:"airport_aggregate_revision,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *FrontendInitial) Reset() {
@@ -1008,6 +1009,13 @@ func (x *FrontendInitial) GetTaggedObservations() []*FrontendObservation {
 		return x.TaggedObservations
 	}
 	return nil
+}
+
+func (x *FrontendInitial) GetAirportAggregateRevision() uint64 {
+	if x != nil {
+		return x.AirportAggregateRevision
+	}
+	return 0
 }
 
 type FrontendDelta struct {
@@ -8341,7 +8349,7 @@ const file_wire_proto_rawDesc = "" +
 	"\x19_expected_entity_revision\"4\n" +
 	"\x11ActionStatusQuery\x12\x1f\n" +
 	"\vrequest_ids\x18\x01 \x03(\tR\n" +
-	"requestIds\"\xdb\a\n" +
+	"requestIds\"\x99\b\n" +
 	"\x0fFrontendInitial\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\x05R\tsessionId\x12\x18\n" +
@@ -8363,7 +8371,8 @@ const file_wire_proto_rawDesc = "" +
 	"\x15initial_cfl_by_runway\x18\x10 \x03(\v2\".flightstrips.cluster.v1.RunwayCflR\x12initialCflByRunway\x128\n" +
 	"\x18transition_altitude_feet\x18\x11 \x01(\x05R\x16transitionAltitudeFeet\x128\n" +
 	"\x18stand_assignment_enabled\x18\x12 \x01(\bR\x16standAssignmentEnabled\x12]\n" +
-	"\x13tagged_observations\x18\x13 \x03(\v2,.flightstrips.cluster.v1.FrontendObservationR\x12taggedObservations\"\xb4\x02\n" +
+	"\x13tagged_observations\x18\x13 \x03(\v2,.flightstrips.cluster.v1.FrontendObservationR\x12taggedObservations\x12<\n" +
+	"\x1aairport_aggregate_revision\x18\x14 \x01(\x04R\x18airportAggregateRevision\"\xb4\x02\n" +
 	"\rFrontendDelta\x12C\n" +
 	"\taggregate\x18\x01 \x01(\v2%.flightstrips.cluster.v1.AggregateRefR\taggregate\x12-\n" +
 	"\x12aggregate_revision\x18\x02 \x01(\x04R\x11aggregateRevision\x12'\n" +

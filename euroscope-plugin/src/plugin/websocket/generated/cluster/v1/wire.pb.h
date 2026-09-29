@@ -22684,6 +22684,7 @@ class FrontendInitial final : public ::google::protobuf::Message
     kAmanFmpFieldNumber = 14,
     kTransitionAltitudeFeetFieldNumber = 17,
     kStandAssignmentEnabledFieldNumber = 18,
+    kAirportAggregateRevisionFieldNumber = 20,
   };
   // repeated .flightstrips.cluster.v1.EntitySnapshot entities = 6;
   int entities_size() const;
@@ -22940,12 +22941,22 @@ class FrontendInitial final : public ::google::protobuf::Message
   void _internal_set_stand_assignment_enabled(bool value);
 
   public:
+  // uint64 airport_aggregate_revision = 20;
+  void clear_airport_aggregate_revision() ;
+  ::uint64_t airport_aggregate_revision() const;
+  void set_airport_aggregate_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_airport_aggregate_revision() const;
+  void _internal_set_airport_aggregate_revision(::uint64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.FrontendInitial)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 19, 7,
+      5, 20, 7,
       92, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -22982,6 +22993,7 @@ class FrontendInitial final : public ::google::protobuf::Message
     bool aman_fmp_;
     ::int32_t transition_altitude_feet_;
     bool stand_assignment_enabled_;
+    ::uint64_t airport_aggregate_revision_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -26756,6 +26768,28 @@ inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::Fronten
 FrontendInitial::_internal_mutable_tagged_observations() {
   PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
   return &_impl_.tagged_observations_;
+}
+
+// uint64 airport_aggregate_revision = 20;
+inline void FrontendInitial::clear_airport_aggregate_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_aggregate_revision_ = ::uint64_t{0u};
+}
+inline ::uint64_t FrontendInitial::airport_aggregate_revision() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.FrontendInitial.airport_aggregate_revision)
+  return _internal_airport_aggregate_revision();
+}
+inline void FrontendInitial::set_airport_aggregate_revision(::uint64_t value) {
+  _internal_set_airport_aggregate_revision(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.FrontendInitial.airport_aggregate_revision)
+}
+inline ::uint64_t FrontendInitial::_internal_airport_aggregate_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.airport_aggregate_revision_;
+}
+inline void FrontendInitial::_internal_set_airport_aggregate_revision(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_aggregate_revision_ = value;
 }
 
 // -------------------------------------------------------------------

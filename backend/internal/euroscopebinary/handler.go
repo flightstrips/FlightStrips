@@ -35,7 +35,9 @@ type Handler struct {
 	Controllers  cluster.ControllerSector
 	Inbound      func(context.Context, int32, string, string, *euroscope.Envelope) error
 	RenderDelta  func(*pb.FrontendDelta) []*euroscope.Envelope
-	RenderEffect func(*pb.EffectRecord) (*euroscope.Envelope, error)
+	RenderEffect func(int32, *pb.EffectRecord) (*euroscope.Envelope, error)
+	Effects      *cluster.Effects
+	OnReconciled func(context.Context, int32, []string) error
 }
 
 var upgrade = websocket.Upgrader{Subprotocols: []string{Subprotocol}, EnableCompression: false,
@@ -190,7 +192,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			if h.RenderEffect == nil {
 				return fmt.Errorf("effect renderer unavailable")
 			}
-			frame, err := h.RenderEffect(effect)
+			frame, err := h.RenderEffect(session.Id, effect)
 			if err != nil {
 				return err
 			}
@@ -215,10 +217,30 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		if err := h.Projection.ValidateEuroScopeInbound(session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
 			return socketFailure{websocket.ClosePolicyViolation}
 		}
+		if frame.GetCommandResult() != nil {
+			if h.Effects == nil || h.Effects.RecordResult(ctx, session.Id, lease.Client.ConnectionId, user.GetCid(), frame) != nil {
+				return socketFailure{websocket.ClosePolicyViolation}
+			}
+			if err := writer.send(&euroscope.Envelope{CommandId: frame.CommandId, SessionId: session.Id,
+				OwnerEpoch: frame.OwnerEpoch, MasterEpoch: frame.MasterEpoch,
+				Event: &euroscope.Envelope_ResultRecorded{ResultRecorded: &euroscope.ResultRecordedEvent{CommandId: frame.CommandId}}}); err != nil {
+				return err
+			}
+			continue
+		}
 		if err := h.Inbound(ctx, session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
 			return err
 		}
 		if frame.GetSync() != nil {
+			if h.OnReconciled != nil {
+				state, err := h.Projection.Read(&pb.AggregateRef{Target: &pb.AggregateRef_Session{Session: &pb.SessionRef{Id: session.Id}}})
+				if err != nil {
+					return err
+				}
+				if err := h.OnReconciled(ctx, session.Id, cluster.ReconciledUnknownEffects(state, frame.GetSync())); err != nil {
+					return err
+				}
+			}
 			_, err := h.Sync.RecordSync(ctx, session.Id, uuid.NewString(), &pb.SessionSync{
 				ConnectionId: lease.Client.ConnectionId, MasterEpoch: frame.MasterEpoch,
 				CompletedAt: timestamppb.Now()})

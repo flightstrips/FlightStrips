@@ -3,6 +3,7 @@ package cluster
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -102,6 +103,46 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 	if e.CommandId == nil {
 		return false, fmt.Errorf("domain event has no command ID")
 	}
+	// Effect updates belong to the original command. They advance its existing
+	// outcome instead of allocating another ledger entry under a fresh ID.
+	if effect := e.GetEffectChanged(); effect != nil {
+		if e.GetActor().GetKind() != pb.Actor_SYSTEM || e.GetActor().GetId() != a.Owner.GetNodeId() || e.GetCommandId() != effect.CommandId ||
+			effect.Status == pb.EffectRecord_DISPATCH_CLAIMED && effect.OwnerEpoch != a.Owner.Epoch {
+			return false, fmt.Errorf("invalid effect actor or command ID")
+		}
+		old, outcome := a.Effects[effect.CommandId], a.Ledger[effect.CommandId]
+		if err := validateEffectTransition(old, effect, outcome, entry.ServerTime); err != nil {
+			if errors.Is(err, errEffectDeadlineRace) {
+				a.checkpoint(entry)
+				return false, nil
+			}
+			return false, err
+		}
+		updated := proto.Clone(effect).(*pb.EffectRecord)
+		if updated.Status == pb.EffectRecord_DISPATCH_CLAIMED {
+			updated.ResultDeadline = timestamppb.New(entry.ServerTime.Add(effectResultWindow))
+		}
+		a.Effects[effect.CommandId] = updated
+		a.Revision = e.AggregateRevision
+		copy := proto.Clone(outcome).(*pb.CommandOutcome)
+		copy.AggregateRevision, copy.CommittedStreamSequence = a.Revision, entry.StreamSequence
+		switch updated.Status {
+		case pb.EffectRecord_EXECUTED:
+			copy.Status = pb.CommandOutcome_SUCCEEDED
+			if updated.GetPrivateMessage() != nil {
+				copy.Detail = "Accepted by local EuroScope send; pilot receipt is not confirmed"
+			}
+		case pb.EffectRecord_FAILED:
+			copy.Status, copy.ReasonCode = pb.CommandOutcome_FAILED, updated.ReasonCode
+		case pb.EffectRecord_EXPIRED:
+			copy.Status, copy.ReasonCode = pb.CommandOutcome_EXPIRED, "DISPATCH_DEADLINE"
+		case pb.EffectRecord_UNKNOWN:
+			copy.Status, copy.ReasonCode = pb.CommandOutcome_UNKNOWN, "RESULT_DEADLINE"
+		}
+		a.Ledger[effect.CommandId] = copy
+		a.checkpoint(entry)
+		return true, nil
+	}
 	changes := e.GetDomainChanged().GetChanges()
 	previousKind, previousKey := int32(0), ""
 	staged := make(map[string]*pb.EntitySnapshot, len(a.Entities)+len(changes))
@@ -167,6 +208,16 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 	if outcome.GetAggregateRevision() != 0 && outcome.GetAggregateRevision() != e.GetAggregateRevision() {
 		return false, fmt.Errorf("outcome revision mismatch")
 	}
+	if d := e.GetDomainChanged(); d != nil {
+		if len(d.Effects) > 1 || len(d.Effects) > 0 && outcome.Status != pb.CommandOutcome_ACCEPTED {
+			return false, fmt.Errorf("invalid requested effect outcome")
+		}
+		for _, effect := range d.Effects {
+			if err := validateEffectRequest(effect, e.GetCommandId(), a.Effects[effect.CommandId]); err != nil {
+				return false, err
+			}
+		}
+	}
 	a.Entities = staged
 	if session, ok := a.Ref.GetTarget().(*pb.AggregateRef_Session); ok {
 		if entity := staged[strconv.FormatInt(int64(session.Session.Id), 10)]; entity != nil {
@@ -195,7 +246,9 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 			a.Workflows[w.WorkflowId] = proto.Clone(w).(*pb.WorkflowRecord)
 		}
 		for _, effect := range d.Effects {
-			a.Effects[effect.CommandId] = proto.Clone(effect).(*pb.EffectRecord)
+			requested := proto.Clone(effect).(*pb.EffectRecord)
+			requested.DispatchDeadline = timestamppb.New(entry.ServerTime.Add(effectDispatchWindow))
+			a.Effects[effect.CommandId] = requested
 		}
 	}
 	if w := e.GetWorkflowChanged(); w != nil {

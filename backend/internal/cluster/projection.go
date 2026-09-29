@@ -226,12 +226,13 @@ func (p *Projection) apply(entry AppliedEvent) error {
 		if err := pb.UnmarshalStrict(entry.Data, e); err != nil {
 			return err
 		}
-		if d := e.GetDomainChanged(); d != nil {
+		if e.GetOwnerClaimed() == nil && e.GetOwnerRenewed() == nil {
 			delta := &pb.FrontendDelta{Aggregate: proto.Clone(ref).(*pb.AggregateRef), AggregateRevision: clone.Revision, StreamSequence: entry.StreamSequence}
-			for _, change := range d.Changes {
+			d := e.GetDomainChanged()
+			for _, change := range d.GetChanges() {
 				delta.Changes = append(delta.Changes, proto.Clone(change).(*pb.EntityChange))
 			}
-			for _, workflow := range d.Workflows {
+			for _, workflow := range d.GetWorkflows() {
 				delta.Workflows = append(delta.Workflows, proto.Clone(workflow).(*pb.WorkflowRecord))
 			}
 			for id, listener := range p.listeners {

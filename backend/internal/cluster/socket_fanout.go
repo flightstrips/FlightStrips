@@ -317,7 +317,8 @@ func (f *SessionFanout) resolveCID(sessionID int32, effect *pb.EffectRecord) (*p
 }
 
 func (f *SessionFanout) deliverLocal(sessionID int32, effect *pb.EffectRecord) error {
-	if effect.DispatchConnectionId == nil || effect.Status != pb.EffectRecord_DISPATCH_CLAIMED {
+	if f.NC == nil || f.NC.Status() != nats.CONNECTED || effect.DispatchConnectionId == nil || effect.Status != pb.EffectRecord_DISPATCH_CLAIMED ||
+		effect.ResultDeadline == nil || !time.Now().Before(effect.ResultDeadline.AsTime()) {
 		return fmt.Errorf("effect is not claimed for a socket")
 	}
 	connectionID := *effect.DispatchConnectionId
@@ -335,7 +336,7 @@ func (f *SessionFanout) deliverLocal(sessionID int32, effect *pb.EffectRecord) e
 	}
 	committed := state.Effects[effect.CommandId]
 	if committed == nil || !proto.Equal(committed, effect) || state.Owner == nil ||
-		committed.OwnerEpoch != state.Owner.Epoch {
+		committed.OwnerEpoch != state.Owner.Epoch || !time.Now().Before(state.Owner.GetLeaseUntil().AsTime()) {
 		return fmt.Errorf("effect dispatch claim is not committed")
 	}
 	if err := f.Projection.RequireLiveSocket(sessionID, connectionID, entry.presence.Cid, pb.ClientPresence_EUROSCOPE); err != nil {

@@ -22,6 +22,16 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 	if err != nil {
 		return err
 	}
+	if result := envelope.GetCommandResult(); result != nil {
+		effect := state.Effects[result.CommandId]
+		if envelope.SessionId != sessionID || envelope.CommandId != result.CommandId || effect == nil ||
+			effect.TargetCid != cid || effect.DispatchConnectionId == nil ||
+			envelope.OwnerEpoch != effect.OwnerEpoch || envelope.MasterEpoch != effect.MasterEpoch ||
+			(effect.Status != pb.EffectRecord_DISPATCH_CLAIMED && effect.Status != pb.EffectRecord_EXECUTED && effect.Status != pb.EffectRecord_FAILED) {
+			return fmt.Errorf("result does not match a committed dispatch claim")
+		}
+		return nil
+	}
 	if state.Owner == nil || (envelope.OwnerEpoch != 0 && state.Owner.Epoch != envelope.OwnerEpoch) {
 		return fmt.Errorf("stale session owner epoch")
 	}

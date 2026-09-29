@@ -7387,6 +7387,8 @@ type SystemCommand struct {
 	//	*SystemCommand_AdvanceWorkflow
 	//	*SystemCommand_AdvanceEffect
 	//	*SystemCommand_RecordSync
+	//	*SystemCommand_SetPositionLayout
+	//	*SystemCommand_ReplaceSectorOwners
 	Action        isSystemCommand_Action `protobuf_oneof:"action"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7510,6 +7512,24 @@ func (x *SystemCommand) GetRecordSync() *RecordSessionSync {
 	return nil
 }
 
+func (x *SystemCommand) GetSetPositionLayout() *SetPositionLayout {
+	if x != nil {
+		if x, ok := x.Action.(*SystemCommand_SetPositionLayout); ok {
+			return x.SetPositionLayout
+		}
+	}
+	return nil
+}
+
+func (x *SystemCommand) GetReplaceSectorOwners() *ReplaceSectorOwners {
+	if x != nil {
+		if x, ok := x.Action.(*SystemCommand_ReplaceSectorOwners); ok {
+			return x.ReplaceSectorOwners
+		}
+	}
+	return nil
+}
+
 type isSystemCommand_Action interface {
 	isSystemCommand_Action()
 }
@@ -7550,6 +7570,14 @@ type SystemCommand_RecordSync struct {
 	RecordSync *RecordSessionSync `protobuf:"bytes,9,opt,name=record_sync,json=recordSync,proto3,oneof"`
 }
 
+type SystemCommand_SetPositionLayout struct {
+	SetPositionLayout *SetPositionLayout `protobuf:"bytes,10,opt,name=set_position_layout,json=setPositionLayout,proto3,oneof"`
+}
+
+type SystemCommand_ReplaceSectorOwners struct {
+	ReplaceSectorOwners *ReplaceSectorOwners `protobuf:"bytes,11,opt,name=replace_sector_owners,json=replaceSectorOwners,proto3,oneof"`
+}
+
 func (*SystemCommand_CreateSession) isSystemCommand_Action() {}
 
 func (*SystemCommand_DeleteSession) isSystemCommand_Action() {}
@@ -7567,6 +7595,10 @@ func (*SystemCommand_AdvanceWorkflow) isSystemCommand_Action() {}
 func (*SystemCommand_AdvanceEffect) isSystemCommand_Action() {}
 
 func (*SystemCommand_RecordSync) isSystemCommand_Action() {}
+
+func (*SystemCommand_SetPositionLayout) isSystemCommand_Action() {}
+
+func (*SystemCommand_ReplaceSectorOwners) isSystemCommand_Action() {}
 
 type CreateSession struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -7792,6 +7824,102 @@ func (x *RemoveEntity) GetKind() EntityKind {
 	return EntityKind_ENTITY_KIND_UNSPECIFIED
 }
 
+type SetPositionLayout struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Position      string                 `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
+	LayoutId      string                 `protobuf:"bytes,2,opt,name=layout_id,json=layoutId,proto3" json:"layout_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPositionLayout) Reset() {
+	*x = SetPositionLayout{}
+	mi := &file_wire_proto_msgTypes[102]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPositionLayout) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPositionLayout) ProtoMessage() {}
+
+func (x *SetPositionLayout) ProtoReflect() protoreflect.Message {
+	mi := &file_wire_proto_msgTypes[102]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPositionLayout.ProtoReflect.Descriptor instead.
+func (*SetPositionLayout) Descriptor() ([]byte, []int) {
+	return file_wire_proto_rawDescGZIP(), []int{102}
+}
+
+func (x *SetPositionLayout) GetPosition() string {
+	if x != nil {
+		return x.Position
+	}
+	return ""
+}
+
+func (x *SetPositionLayout) GetLayoutId() string {
+	if x != nil {
+		return x.LayoutId
+	}
+	return ""
+}
+
+type ReplaceSectorOwners struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owners        []*SectorOwner         `protobuf:"bytes,1,rep,name=owners,proto3" json:"owners,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReplaceSectorOwners) Reset() {
+	*x = ReplaceSectorOwners{}
+	mi := &file_wire_proto_msgTypes[103]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplaceSectorOwners) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplaceSectorOwners) ProtoMessage() {}
+
+func (x *ReplaceSectorOwners) ProtoReflect() protoreflect.Message {
+	mi := &file_wire_proto_msgTypes[103]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReplaceSectorOwners.ProtoReflect.Descriptor instead.
+func (*ReplaceSectorOwners) Descriptor() ([]byte, []int) {
+	return file_wire_proto_rawDescGZIP(), []int{103}
+}
+
+func (x *ReplaceSectorOwners) GetOwners() []*SectorOwner {
+	if x != nil {
+		return x.Owners
+	}
+	return nil
+}
+
 type ClaimOwner struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Proposed      *OwnerTerm             `protobuf:"bytes,1,opt,name=proposed,proto3" json:"proposed,omitempty"`
@@ -7801,7 +7929,7 @@ type ClaimOwner struct {
 
 func (x *ClaimOwner) Reset() {
 	*x = ClaimOwner{}
-	mi := &file_wire_proto_msgTypes[102]
+	mi := &file_wire_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7813,7 +7941,7 @@ func (x *ClaimOwner) String() string {
 func (*ClaimOwner) ProtoMessage() {}
 
 func (x *ClaimOwner) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[102]
+	mi := &file_wire_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7826,7 +7954,7 @@ func (x *ClaimOwner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimOwner.ProtoReflect.Descriptor instead.
 func (*ClaimOwner) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{102}
+	return file_wire_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *ClaimOwner) GetProposed() *OwnerTerm {
@@ -7845,7 +7973,7 @@ type RenewOwner struct {
 
 func (x *RenewOwner) Reset() {
 	*x = RenewOwner{}
-	mi := &file_wire_proto_msgTypes[103]
+	mi := &file_wire_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7857,7 +7985,7 @@ func (x *RenewOwner) String() string {
 func (*RenewOwner) ProtoMessage() {}
 
 func (x *RenewOwner) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[103]
+	mi := &file_wire_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7870,7 +7998,7 @@ func (x *RenewOwner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewOwner.ProtoReflect.Descriptor instead.
 func (*RenewOwner) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{103}
+	return file_wire_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *RenewOwner) GetProposed() *OwnerTerm {
@@ -7889,7 +8017,7 @@ type AdvanceWorkflow struct {
 
 func (x *AdvanceWorkflow) Reset() {
 	*x = AdvanceWorkflow{}
-	mi := &file_wire_proto_msgTypes[104]
+	mi := &file_wire_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7901,7 +8029,7 @@ func (x *AdvanceWorkflow) String() string {
 func (*AdvanceWorkflow) ProtoMessage() {}
 
 func (x *AdvanceWorkflow) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[104]
+	mi := &file_wire_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7914,7 +8042,7 @@ func (x *AdvanceWorkflow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceWorkflow.ProtoReflect.Descriptor instead.
 func (*AdvanceWorkflow) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{104}
+	return file_wire_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *AdvanceWorkflow) GetWorkflow() *WorkflowRecord {
@@ -7933,7 +8061,7 @@ type AdvanceEffect struct {
 
 func (x *AdvanceEffect) Reset() {
 	*x = AdvanceEffect{}
-	mi := &file_wire_proto_msgTypes[105]
+	mi := &file_wire_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7945,7 +8073,7 @@ func (x *AdvanceEffect) String() string {
 func (*AdvanceEffect) ProtoMessage() {}
 
 func (x *AdvanceEffect) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[105]
+	mi := &file_wire_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7958,7 +8086,7 @@ func (x *AdvanceEffect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceEffect.ProtoReflect.Descriptor instead.
 func (*AdvanceEffect) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{105}
+	return file_wire_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *AdvanceEffect) GetEffect() *EffectRecord {
@@ -7977,7 +8105,7 @@ type RecordSessionSync struct {
 
 func (x *RecordSessionSync) Reset() {
 	*x = RecordSessionSync{}
-	mi := &file_wire_proto_msgTypes[106]
+	mi := &file_wire_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7989,7 +8117,7 @@ func (x *RecordSessionSync) String() string {
 func (*RecordSessionSync) ProtoMessage() {}
 
 func (x *RecordSessionSync) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[106]
+	mi := &file_wire_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8002,7 +8130,7 @@ func (x *RecordSessionSync) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordSessionSync.ProtoReflect.Descriptor instead.
 func (*RecordSessionSync) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{106}
+	return file_wire_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *RecordSessionSync) GetSync() *SessionSync {
@@ -8545,7 +8673,7 @@ const file_wire_proto_rawDesc = "" +
 	"\x16AmanDecideCoordination\x126\n" +
 	"\x17coordination_request_id\x18\x01 \x01(\tR\x15coordinationRequestId\x12\x1b\n" +
 	"\x06reason\x18\x02 \x01(\tH\x00R\x06reason\x88\x01\x01B\t\n" +
-	"\a_reason\"\xde\x05\n" +
+	"\a_reason\"\xa0\a\n" +
 	"\rSystemCommand\x12O\n" +
 	"\x0ecreate_session\x18\x01 \x01(\v2&.flightstrips.cluster.v1.CreateSessionH\x00R\rcreateSession\x12O\n" +
 	"\x0edelete_session\x18\x02 \x01(\v2&.flightstrips.cluster.v1.DeleteSessionH\x00R\rdeleteSession\x12L\n" +
@@ -8558,7 +8686,10 @@ const file_wire_proto_rawDesc = "" +
 	"\x10advance_workflow\x18\a \x01(\v2(.flightstrips.cluster.v1.AdvanceWorkflowH\x00R\x0fadvanceWorkflow\x12O\n" +
 	"\x0eadvance_effect\x18\b \x01(\v2&.flightstrips.cluster.v1.AdvanceEffectH\x00R\radvanceEffect\x12M\n" +
 	"\vrecord_sync\x18\t \x01(\v2*.flightstrips.cluster.v1.RecordSessionSyncH\x00R\n" +
-	"recordSyncB\b\n" +
+	"recordSync\x12\\\n" +
+	"\x13set_position_layout\x18\n" +
+	" \x01(\v2*.flightstrips.cluster.v1.SetPositionLayoutH\x00R\x11setPositionLayout\x12b\n" +
+	"\x15replace_sector_owners\x18\v \x01(\v2,.flightstrips.cluster.v1.ReplaceSectorOwnersH\x00R\x13replaceSectorOwnersB\b\n" +
 	"\x06action\"n\n" +
 	"\rCreateSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x18\n" +
@@ -8576,6 +8707,11 @@ const file_wire_proto_rawDesc = "" +
 	"\fRemoveEntity\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x127\n" +
 	"\x04kind\x18\x02 \x01(\x0e2#.flightstrips.cluster.v1.EntityKindR\x04kind\"L\n" +
+	"\x11SetPositionLayout\x12\x1a\n" +
+	"\bposition\x18\x01 \x01(\tR\bposition\x12\x1b\n" +
+	"\tlayout_id\x18\x02 \x01(\tR\blayoutId\"S\n" +
+	"\x13ReplaceSectorOwners\x12<\n" +
+	"\x06owners\x18\x01 \x03(\v2$.flightstrips.cluster.v1.SectorOwnerR\x06owners\"L\n" +
 	"\n" +
 	"ClaimOwner\x12>\n" +
 	"\bproposed\x18\x01 \x01(\v2\".flightstrips.cluster.v1.OwnerTermR\bproposed\"L\n" +
@@ -8602,7 +8738,7 @@ func file_wire_proto_rawDescGZIP() []byte {
 }
 
 var file_wire_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_wire_proto_msgTypes = make([]protoimpl.MessageInfo, 107)
+var file_wire_proto_msgTypes = make([]protoimpl.MessageInfo, 109)
 var file_wire_proto_goTypes = []any{
 	(CommandReply_Status)(0),            // 0: flightstrips.cluster.v1.CommandReply.Status
 	(FrontendError_Code)(0),             // 1: flightstrips.cluster.v1.FrontendError.Code
@@ -8709,44 +8845,47 @@ var file_wire_proto_goTypes = []any{
 	(*DeleteSession)(nil),               // 102: flightstrips.cluster.v1.DeleteSession
 	(*UpdateEntity)(nil),                // 103: flightstrips.cluster.v1.UpdateEntity
 	(*RemoveEntity)(nil),                // 104: flightstrips.cluster.v1.RemoveEntity
-	(*ClaimOwner)(nil),                  // 105: flightstrips.cluster.v1.ClaimOwner
-	(*RenewOwner)(nil),                  // 106: flightstrips.cluster.v1.RenewOwner
-	(*AdvanceWorkflow)(nil),             // 107: flightstrips.cluster.v1.AdvanceWorkflow
-	(*AdvanceEffect)(nil),               // 108: flightstrips.cluster.v1.AdvanceEffect
-	(*RecordSessionSync)(nil),           // 109: flightstrips.cluster.v1.RecordSessionSync
-	(*AggregateRef)(nil),                // 110: flightstrips.cluster.v1.AggregateRef
-	(*Actor)(nil),                       // 111: flightstrips.cluster.v1.Actor
-	(*OwnerTerm)(nil),                   // 112: flightstrips.cluster.v1.OwnerTerm
-	(*CommandOutcome)(nil),              // 113: flightstrips.cluster.v1.CommandOutcome
-	(*EntitySnapshot)(nil),              // 114: flightstrips.cluster.v1.EntitySnapshot
-	(*PositionValue)(nil),               // 115: flightstrips.cluster.v1.PositionValue
-	(*ClientPresence)(nil),              // 116: flightstrips.cluster.v1.ClientPresence
-	(*Controller)(nil),                  // 117: flightstrips.cluster.v1.Controller
-	(*SidInfo)(nil),                     // 118: flightstrips.cluster.v1.SidInfo
-	(*RunwayCfl)(nil),                   // 119: flightstrips.cluster.v1.RunwayCfl
-	(*EntityChange)(nil),                // 120: flightstrips.cluster.v1.EntityChange
-	(*WorkflowRecord)(nil),              // 121: flightstrips.cluster.v1.WorkflowRecord
-	(*PresenceValue)(nil),               // 122: flightstrips.cluster.v1.PresenceValue
-	(CommandOutcome_Status)(0),          // 123: flightstrips.cluster.v1.CommandOutcome.Status
-	(*timestamppb.Timestamp)(nil),       // 124: google.protobuf.Timestamp
-	(*Runway)(nil),                      // 125: flightstrips.cluster.v1.Runway
-	(*AcknowledgeValidation)(nil),       // 126: flightstrips.cluster.v1.AcknowledgeValidation
-	(*ClxOverrideAction)(nil),           // 127: flightstrips.cluster.v1.ClxOverrideAction
-	(*AmanRouteDirect)(nil),             // 128: flightstrips.cluster.v1.AmanRouteDirect
-	(*AmanSpeed)(nil),                   // 129: flightstrips.cluster.v1.AmanSpeed
-	(*EntityRecord)(nil),                // 130: flightstrips.cluster.v1.EntityRecord
-	(EntityKind)(0),                     // 131: flightstrips.cluster.v1.EntityKind
-	(*EffectRecord)(nil),                // 132: flightstrips.cluster.v1.EffectRecord
-	(*SessionSync)(nil),                 // 133: flightstrips.cluster.v1.SessionSync
+	(*SetPositionLayout)(nil),           // 105: flightstrips.cluster.v1.SetPositionLayout
+	(*ReplaceSectorOwners)(nil),         // 106: flightstrips.cluster.v1.ReplaceSectorOwners
+	(*ClaimOwner)(nil),                  // 107: flightstrips.cluster.v1.ClaimOwner
+	(*RenewOwner)(nil),                  // 108: flightstrips.cluster.v1.RenewOwner
+	(*AdvanceWorkflow)(nil),             // 109: flightstrips.cluster.v1.AdvanceWorkflow
+	(*AdvanceEffect)(nil),               // 110: flightstrips.cluster.v1.AdvanceEffect
+	(*RecordSessionSync)(nil),           // 111: flightstrips.cluster.v1.RecordSessionSync
+	(*AggregateRef)(nil),                // 112: flightstrips.cluster.v1.AggregateRef
+	(*Actor)(nil),                       // 113: flightstrips.cluster.v1.Actor
+	(*OwnerTerm)(nil),                   // 114: flightstrips.cluster.v1.OwnerTerm
+	(*CommandOutcome)(nil),              // 115: flightstrips.cluster.v1.CommandOutcome
+	(*EntitySnapshot)(nil),              // 116: flightstrips.cluster.v1.EntitySnapshot
+	(*PositionValue)(nil),               // 117: flightstrips.cluster.v1.PositionValue
+	(*ClientPresence)(nil),              // 118: flightstrips.cluster.v1.ClientPresence
+	(*Controller)(nil),                  // 119: flightstrips.cluster.v1.Controller
+	(*SidInfo)(nil),                     // 120: flightstrips.cluster.v1.SidInfo
+	(*RunwayCfl)(nil),                   // 121: flightstrips.cluster.v1.RunwayCfl
+	(*EntityChange)(nil),                // 122: flightstrips.cluster.v1.EntityChange
+	(*WorkflowRecord)(nil),              // 123: flightstrips.cluster.v1.WorkflowRecord
+	(*PresenceValue)(nil),               // 124: flightstrips.cluster.v1.PresenceValue
+	(CommandOutcome_Status)(0),          // 125: flightstrips.cluster.v1.CommandOutcome.Status
+	(*timestamppb.Timestamp)(nil),       // 126: google.protobuf.Timestamp
+	(*Runway)(nil),                      // 127: flightstrips.cluster.v1.Runway
+	(*AcknowledgeValidation)(nil),       // 128: flightstrips.cluster.v1.AcknowledgeValidation
+	(*ClxOverrideAction)(nil),           // 129: flightstrips.cluster.v1.ClxOverrideAction
+	(*AmanRouteDirect)(nil),             // 130: flightstrips.cluster.v1.AmanRouteDirect
+	(*AmanSpeed)(nil),                   // 131: flightstrips.cluster.v1.AmanSpeed
+	(*EntityRecord)(nil),                // 132: flightstrips.cluster.v1.EntityRecord
+	(EntityKind)(0),                     // 133: flightstrips.cluster.v1.EntityKind
+	(*SectorOwner)(nil),                 // 134: flightstrips.cluster.v1.SectorOwner
+	(*EffectRecord)(nil),                // 135: flightstrips.cluster.v1.EffectRecord
+	(*SessionSync)(nil),                 // 136: flightstrips.cluster.v1.SessionSync
 }
 var file_wire_proto_depIdxs = []int32{
-	110, // 0: flightstrips.cluster.v1.CommandRequest.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
-	111, // 1: flightstrips.cluster.v1.CommandRequest.actor:type_name -> flightstrips.cluster.v1.Actor
+	112, // 0: flightstrips.cluster.v1.CommandRequest.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	113, // 1: flightstrips.cluster.v1.CommandRequest.actor:type_name -> flightstrips.cluster.v1.Actor
 	16,  // 2: flightstrips.cluster.v1.CommandRequest.client:type_name -> flightstrips.cluster.v1.ClientCommand
 	100, // 3: flightstrips.cluster.v1.CommandRequest.system:type_name -> flightstrips.cluster.v1.SystemCommand
 	0,   // 4: flightstrips.cluster.v1.CommandReply.status:type_name -> flightstrips.cluster.v1.CommandReply.Status
-	112, // 5: flightstrips.cluster.v1.CommandReply.current_owner:type_name -> flightstrips.cluster.v1.OwnerTerm
-	113, // 6: flightstrips.cluster.v1.CommandReply.outcome:type_name -> flightstrips.cluster.v1.CommandOutcome
+	114, // 5: flightstrips.cluster.v1.CommandReply.current_owner:type_name -> flightstrips.cluster.v1.OwnerTerm
+	115, // 6: flightstrips.cluster.v1.CommandReply.outcome:type_name -> flightstrips.cluster.v1.CommandOutcome
 	6,   // 7: flightstrips.cluster.v1.FrontendFrame.authenticate:type_name -> flightstrips.cluster.v1.FrontendAuthenticate
 	7,   // 8: flightstrips.cluster.v1.FrontendFrame.command:type_name -> flightstrips.cluster.v1.FrontendCommand
 	8,   // 9: flightstrips.cluster.v1.FrontendFrame.status_query:type_name -> flightstrips.cluster.v1.ActionStatusQuery
@@ -8758,19 +8897,19 @@ var file_wire_proto_depIdxs = []int32{
 	14,  // 15: flightstrips.cluster.v1.FrontendFrame.error:type_name -> flightstrips.cluster.v1.FrontendError
 	15,  // 16: flightstrips.cluster.v1.FrontendFrame.heartbeat:type_name -> flightstrips.cluster.v1.FrontendHeartbeat
 	16,  // 17: flightstrips.cluster.v1.FrontendCommand.action:type_name -> flightstrips.cluster.v1.ClientCommand
-	114, // 18: flightstrips.cluster.v1.FrontendInitial.entities:type_name -> flightstrips.cluster.v1.EntitySnapshot
-	115, // 19: flightstrips.cluster.v1.FrontendInitial.positions:type_name -> flightstrips.cluster.v1.PositionValue
-	116, // 20: flightstrips.cluster.v1.FrontendInitial.clients:type_name -> flightstrips.cluster.v1.ClientPresence
-	117, // 21: flightstrips.cluster.v1.FrontendInitial.me:type_name -> flightstrips.cluster.v1.Controller
-	118, // 22: flightstrips.cluster.v1.FrontendInitial.available_sids:type_name -> flightstrips.cluster.v1.SidInfo
-	119, // 23: flightstrips.cluster.v1.FrontendInitial.initial_cfl_by_runway:type_name -> flightstrips.cluster.v1.RunwayCfl
-	110, // 24: flightstrips.cluster.v1.FrontendDelta.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
-	120, // 25: flightstrips.cluster.v1.FrontendDelta.changes:type_name -> flightstrips.cluster.v1.EntityChange
-	121, // 26: flightstrips.cluster.v1.FrontendDelta.workflows:type_name -> flightstrips.cluster.v1.WorkflowRecord
-	115, // 27: flightstrips.cluster.v1.FrontendObservation.position:type_name -> flightstrips.cluster.v1.PositionValue
-	122, // 28: flightstrips.cluster.v1.FrontendObservation.presence:type_name -> flightstrips.cluster.v1.PresenceValue
-	123, // 29: flightstrips.cluster.v1.FrontendActionResult.status:type_name -> flightstrips.cluster.v1.CommandOutcome.Status
-	110, // 30: flightstrips.cluster.v1.FrontendActionResult.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	116, // 18: flightstrips.cluster.v1.FrontendInitial.entities:type_name -> flightstrips.cluster.v1.EntitySnapshot
+	117, // 19: flightstrips.cluster.v1.FrontendInitial.positions:type_name -> flightstrips.cluster.v1.PositionValue
+	118, // 20: flightstrips.cluster.v1.FrontendInitial.clients:type_name -> flightstrips.cluster.v1.ClientPresence
+	119, // 21: flightstrips.cluster.v1.FrontendInitial.me:type_name -> flightstrips.cluster.v1.Controller
+	120, // 22: flightstrips.cluster.v1.FrontendInitial.available_sids:type_name -> flightstrips.cluster.v1.SidInfo
+	121, // 23: flightstrips.cluster.v1.FrontendInitial.initial_cfl_by_runway:type_name -> flightstrips.cluster.v1.RunwayCfl
+	112, // 24: flightstrips.cluster.v1.FrontendDelta.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	122, // 25: flightstrips.cluster.v1.FrontendDelta.changes:type_name -> flightstrips.cluster.v1.EntityChange
+	123, // 26: flightstrips.cluster.v1.FrontendDelta.workflows:type_name -> flightstrips.cluster.v1.WorkflowRecord
+	117, // 27: flightstrips.cluster.v1.FrontendObservation.position:type_name -> flightstrips.cluster.v1.PositionValue
+	124, // 28: flightstrips.cluster.v1.FrontendObservation.presence:type_name -> flightstrips.cluster.v1.PresenceValue
+	125, // 29: flightstrips.cluster.v1.FrontendActionResult.status:type_name -> flightstrips.cluster.v1.CommandOutcome.Status
+	112, // 30: flightstrips.cluster.v1.FrontendActionResult.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
 	1,   // 31: flightstrips.cluster.v1.FrontendError.code:type_name -> flightstrips.cluster.v1.FrontendError.Code
 	17,  // 32: flightstrips.cluster.v1.ClientCommand.strip:type_name -> flightstrips.cluster.v1.StripAction
 	33,  // 33: flightstrips.cluster.v1.ClientCommand.coordination:type_name -> flightstrips.cluster.v1.CoordinationAction
@@ -8800,7 +8939,7 @@ var file_wire_proto_depIdxs = []int32{
 	30,  // 57: flightstrips.cluster.v1.StripAction.update_data:type_name -> flightstrips.cluster.v1.UpdateStripData
 	31,  // 58: flightstrips.cluster.v1.StripAction.missed_approach:type_name -> flightstrips.cluster.v1.MissedApproach
 	26,  // 59: flightstrips.cluster.v1.SetStripOrder.insert_after:type_name -> flightstrips.cluster.v1.StripRef
-	124, // 60: flightstrips.cluster.v1.UpdateStripData.eobt:type_name -> google.protobuf.Timestamp
+	126, // 60: flightstrips.cluster.v1.UpdateStripData.eobt:type_name -> google.protobuf.Timestamp
 	2,   // 61: flightstrips.cluster.v1.SetStripText.field:type_name -> flightstrips.cluster.v1.SetStripText.Field
 	34,  // 62: flightstrips.cluster.v1.CoordinationAction.transfer:type_name -> flightstrips.cluster.v1.TransferCoordination
 	35,  // 63: flightstrips.cluster.v1.CoordinationAction.assume:type_name -> flightstrips.cluster.v1.AssumeCoordination
@@ -8825,14 +8964,14 @@ var file_wire_proto_depIdxs = []int32{
 	55,  // 82: flightstrips.cluster.v1.StandAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeStand
 	56,  // 83: flightstrips.cluster.v1.StandAction.create_block:type_name -> flightstrips.cluster.v1.CreateStandBlock
 	57,  // 84: flightstrips.cluster.v1.StandAction.remove_block:type_name -> flightstrips.cluster.v1.RemoveStandBlock
-	124, // 85: flightstrips.cluster.v1.CreateStandBlock.expires_at:type_name -> google.protobuf.Timestamp
+	126, // 85: flightstrips.cluster.v1.CreateStandBlock.expires_at:type_name -> google.protobuf.Timestamp
 	59,  // 86: flightstrips.cluster.v1.CdmAction.set_tobt:type_name -> flightstrips.cluster.v1.SetTobt
 	60,  // 87: flightstrips.cluster.v1.CdmAction.set_ready:type_name -> flightstrips.cluster.v1.SetCdmReady
 	61,  // 88: flightstrips.cluster.v1.CdmAction.set_deice:type_name -> flightstrips.cluster.v1.SetCdmDeice
 	62,  // 89: flightstrips.cluster.v1.CdmAction.set_ctot:type_name -> flightstrips.cluster.v1.SetCdmCtot
 	63,  // 90: flightstrips.cluster.v1.CdmAction.remove_ctot:type_name -> flightstrips.cluster.v1.RemoveCdmCtot
-	124, // 91: flightstrips.cluster.v1.SetTobt.value:type_name -> google.protobuf.Timestamp
-	124, // 92: flightstrips.cluster.v1.SetCdmCtot.value:type_name -> google.protobuf.Timestamp
+	126, // 91: flightstrips.cluster.v1.SetTobt.value:type_name -> google.protobuf.Timestamp
+	126, // 92: flightstrips.cluster.v1.SetCdmCtot.value:type_name -> google.protobuf.Timestamp
 	65,  // 93: flightstrips.cluster.v1.PdcAction.issue:type_name -> flightstrips.cluster.v1.IssuePdc
 	66,  // 94: flightstrips.cluster.v1.PdcAction.revert_to_voice:type_name -> flightstrips.cluster.v1.RevertPdcToVoice
 	67,  // 95: flightstrips.cluster.v1.PdcAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgePdc
@@ -8842,14 +8981,14 @@ var file_wire_proto_depIdxs = []int32{
 	73,  // 99: flightstrips.cluster.v1.SessionAction.layout:type_name -> flightstrips.cluster.v1.ChangeLayout
 	74,  // 100: flightstrips.cluster.v1.SessionAction.runways:type_name -> flightstrips.cluster.v1.ChangeRunways
 	75,  // 101: flightstrips.cluster.v1.SessionAction.update_runway_status:type_name -> flightstrips.cluster.v1.UpdateRunwayStatus
-	125, // 102: flightstrips.cluster.v1.ChangeRunways.runways:type_name -> flightstrips.cluster.v1.Runway
-	126, // 103: flightstrips.cluster.v1.ValidationActionCommand.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeValidation
-	127, // 104: flightstrips.cluster.v1.ValidationActionCommand.clx_override:type_name -> flightstrips.cluster.v1.ClxOverrideAction
+	127, // 102: flightstrips.cluster.v1.ChangeRunways.runways:type_name -> flightstrips.cluster.v1.Runway
+	128, // 103: flightstrips.cluster.v1.ValidationActionCommand.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeValidation
+	129, // 104: flightstrips.cluster.v1.ValidationActionCommand.clx_override:type_name -> flightstrips.cluster.v1.ClxOverrideAction
 	59,  // 105: flightstrips.cluster.v1.ValidationActionCommand.update_tobt:type_name -> flightstrips.cluster.v1.SetTobt
 	77,  // 106: flightstrips.cluster.v1.ValidationActionCommand.acknowledge_unexpected_change:type_name -> flightstrips.cluster.v1.AcknowledgeUnexpectedChange
 	79,  // 107: flightstrips.cluster.v1.FlightPlanAction.manual:type_name -> flightstrips.cluster.v1.CreateManualFlightPlan
 	80,  // 108: flightstrips.cluster.v1.FlightPlanAction.vfr:type_name -> flightstrips.cluster.v1.CreateVfrFlightPlan
-	124, // 109: flightstrips.cluster.v1.CreateManualFlightPlan.eobt:type_name -> google.protobuf.Timestamp
+	126, // 109: flightstrips.cluster.v1.CreateManualFlightPlan.eobt:type_name -> google.protobuf.Timestamp
 	83,  // 110: flightstrips.cluster.v1.AmanAction.move_flight:type_name -> flightstrips.cluster.v1.AmanMoveFlight
 	82,  // 111: flightstrips.cluster.v1.AmanAction.lock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
 	82,  // 112: flightstrips.cluster.v1.AmanAction.unlock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
@@ -8880,38 +9019,41 @@ var file_wire_proto_depIdxs = []int32{
 	98,  // 137: flightstrips.cluster.v1.AmanAction.submit_coordination_request:type_name -> flightstrips.cluster.v1.AmanSubmitCoordination
 	99,  // 138: flightstrips.cluster.v1.AmanAction.accept_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
 	99,  // 139: flightstrips.cluster.v1.AmanAction.reject_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
-	124, // 140: flightstrips.cluster.v1.AmanRate.effective_at:type_name -> google.protobuf.Timestamp
-	124, // 141: flightstrips.cluster.v1.AmanSelectRunway.effective_at:type_name -> google.protobuf.Timestamp
-	124, // 142: flightstrips.cluster.v1.AmanManualEta.value:type_name -> google.protobuf.Timestamp
-	124, // 143: flightstrips.cluster.v1.AmanReportGoAround.detected_at:type_name -> google.protobuf.Timestamp
-	124, // 144: flightstrips.cluster.v1.AmanCreateGap.start:type_name -> google.protobuf.Timestamp
-	124, // 145: flightstrips.cluster.v1.AmanCreateGap.end:type_name -> google.protobuf.Timestamp
-	124, // 146: flightstrips.cluster.v1.AmanCreateClosure.end:type_name -> google.protobuf.Timestamp
-	124, // 147: flightstrips.cluster.v1.AmanCreateClosure.start:type_name -> google.protobuf.Timestamp
-	124, // 148: flightstrips.cluster.v1.AmanPlaceFlight.slot_time:type_name -> google.protobuf.Timestamp
-	128, // 149: flightstrips.cluster.v1.AmanSubmitCoordination.route_direct:type_name -> flightstrips.cluster.v1.AmanRouteDirect
-	129, // 150: flightstrips.cluster.v1.AmanSubmitCoordination.speed:type_name -> flightstrips.cluster.v1.AmanSpeed
+	126, // 140: flightstrips.cluster.v1.AmanRate.effective_at:type_name -> google.protobuf.Timestamp
+	126, // 141: flightstrips.cluster.v1.AmanSelectRunway.effective_at:type_name -> google.protobuf.Timestamp
+	126, // 142: flightstrips.cluster.v1.AmanManualEta.value:type_name -> google.protobuf.Timestamp
+	126, // 143: flightstrips.cluster.v1.AmanReportGoAround.detected_at:type_name -> google.protobuf.Timestamp
+	126, // 144: flightstrips.cluster.v1.AmanCreateGap.start:type_name -> google.protobuf.Timestamp
+	126, // 145: flightstrips.cluster.v1.AmanCreateGap.end:type_name -> google.protobuf.Timestamp
+	126, // 146: flightstrips.cluster.v1.AmanCreateClosure.end:type_name -> google.protobuf.Timestamp
+	126, // 147: flightstrips.cluster.v1.AmanCreateClosure.start:type_name -> google.protobuf.Timestamp
+	126, // 148: flightstrips.cluster.v1.AmanPlaceFlight.slot_time:type_name -> google.protobuf.Timestamp
+	130, // 149: flightstrips.cluster.v1.AmanSubmitCoordination.route_direct:type_name -> flightstrips.cluster.v1.AmanRouteDirect
+	131, // 150: flightstrips.cluster.v1.AmanSubmitCoordination.speed:type_name -> flightstrips.cluster.v1.AmanSpeed
 	101, // 151: flightstrips.cluster.v1.SystemCommand.create_session:type_name -> flightstrips.cluster.v1.CreateSession
 	102, // 152: flightstrips.cluster.v1.SystemCommand.delete_session:type_name -> flightstrips.cluster.v1.DeleteSession
 	103, // 153: flightstrips.cluster.v1.SystemCommand.update_entity:type_name -> flightstrips.cluster.v1.UpdateEntity
 	104, // 154: flightstrips.cluster.v1.SystemCommand.remove_entity:type_name -> flightstrips.cluster.v1.RemoveEntity
-	105, // 155: flightstrips.cluster.v1.SystemCommand.claim_owner:type_name -> flightstrips.cluster.v1.ClaimOwner
-	106, // 156: flightstrips.cluster.v1.SystemCommand.renew_owner:type_name -> flightstrips.cluster.v1.RenewOwner
-	107, // 157: flightstrips.cluster.v1.SystemCommand.advance_workflow:type_name -> flightstrips.cluster.v1.AdvanceWorkflow
-	108, // 158: flightstrips.cluster.v1.SystemCommand.advance_effect:type_name -> flightstrips.cluster.v1.AdvanceEffect
-	109, // 159: flightstrips.cluster.v1.SystemCommand.record_sync:type_name -> flightstrips.cluster.v1.RecordSessionSync
-	130, // 160: flightstrips.cluster.v1.UpdateEntity.value:type_name -> flightstrips.cluster.v1.EntityRecord
-	131, // 161: flightstrips.cluster.v1.RemoveEntity.kind:type_name -> flightstrips.cluster.v1.EntityKind
-	112, // 162: flightstrips.cluster.v1.ClaimOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
-	112, // 163: flightstrips.cluster.v1.RenewOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
-	121, // 164: flightstrips.cluster.v1.AdvanceWorkflow.workflow:type_name -> flightstrips.cluster.v1.WorkflowRecord
-	132, // 165: flightstrips.cluster.v1.AdvanceEffect.effect:type_name -> flightstrips.cluster.v1.EffectRecord
-	133, // 166: flightstrips.cluster.v1.RecordSessionSync.sync:type_name -> flightstrips.cluster.v1.SessionSync
-	167, // [167:167] is the sub-list for method output_type
-	167, // [167:167] is the sub-list for method input_type
-	167, // [167:167] is the sub-list for extension type_name
-	167, // [167:167] is the sub-list for extension extendee
-	0,   // [0:167] is the sub-list for field type_name
+	107, // 155: flightstrips.cluster.v1.SystemCommand.claim_owner:type_name -> flightstrips.cluster.v1.ClaimOwner
+	108, // 156: flightstrips.cluster.v1.SystemCommand.renew_owner:type_name -> flightstrips.cluster.v1.RenewOwner
+	109, // 157: flightstrips.cluster.v1.SystemCommand.advance_workflow:type_name -> flightstrips.cluster.v1.AdvanceWorkflow
+	110, // 158: flightstrips.cluster.v1.SystemCommand.advance_effect:type_name -> flightstrips.cluster.v1.AdvanceEffect
+	111, // 159: flightstrips.cluster.v1.SystemCommand.record_sync:type_name -> flightstrips.cluster.v1.RecordSessionSync
+	105, // 160: flightstrips.cluster.v1.SystemCommand.set_position_layout:type_name -> flightstrips.cluster.v1.SetPositionLayout
+	106, // 161: flightstrips.cluster.v1.SystemCommand.replace_sector_owners:type_name -> flightstrips.cluster.v1.ReplaceSectorOwners
+	132, // 162: flightstrips.cluster.v1.UpdateEntity.value:type_name -> flightstrips.cluster.v1.EntityRecord
+	133, // 163: flightstrips.cluster.v1.RemoveEntity.kind:type_name -> flightstrips.cluster.v1.EntityKind
+	134, // 164: flightstrips.cluster.v1.ReplaceSectorOwners.owners:type_name -> flightstrips.cluster.v1.SectorOwner
+	114, // 165: flightstrips.cluster.v1.ClaimOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
+	114, // 166: flightstrips.cluster.v1.RenewOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
+	123, // 167: flightstrips.cluster.v1.AdvanceWorkflow.workflow:type_name -> flightstrips.cluster.v1.WorkflowRecord
+	135, // 168: flightstrips.cluster.v1.AdvanceEffect.effect:type_name -> flightstrips.cluster.v1.EffectRecord
+	136, // 169: flightstrips.cluster.v1.RecordSessionSync.sync:type_name -> flightstrips.cluster.v1.SessionSync
+	170, // [170:170] is the sub-list for method output_type
+	170, // [170:170] is the sub-list for method input_type
+	170, // [170:170] is the sub-list for extension type_name
+	170, // [170:170] is the sub-list for extension extendee
+	0,   // [0:170] is the sub-list for field type_name
 }
 
 func init() { file_wire_proto_init() }
@@ -9104,6 +9246,8 @@ func file_wire_proto_init() {
 		(*SystemCommand_AdvanceWorkflow)(nil),
 		(*SystemCommand_AdvanceEffect)(nil),
 		(*SystemCommand_RecordSync)(nil),
+		(*SystemCommand_SetPositionLayout)(nil),
+		(*SystemCommand_ReplaceSectorOwners)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -9111,7 +9255,7 @@ func file_wire_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wire_proto_rawDesc), len(file_wire_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   107,
+			NumMessages:   109,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

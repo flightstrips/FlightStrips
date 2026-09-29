@@ -18,6 +18,16 @@ The NATS bootstrap process creates resources with the exact settings above befor
 
 ## Aggregate command and event
 
+Task 05 adds typed controller/sector mutations: `SetPositionLayout` changes
+all controller layout records at one session position in one event, and
+`ReplaceSectorOwners` atomically replaces the session's sector routing table.
+`Controller.layout_id` preserves the per-position layout choice;
+`SectorOwner.position` and `.identifier` preserve the routing metadata from
+the current repository. `Session.runway_statuses` carries the pair's closed
+`OPEN`, `LOW_VIS`, or `CLOSED` value alongside active runways. These fields are
+durable metadata; operational online status is derived from fresh
+`FS_PRESENCE` client and node observations.
+
 Internal requests are binary `CommandRequest` and replies are binary `CommandReply` from [wire.proto](proto/wire.proto). `CommandRequest.command` is a closed oneof containing `ClientCommand` or `SystemCommand`; `ClientCommand.action` and AMAN's nested oneof enumerate the valid operations. `expected_entity_revision` is absent only when the action has no read-modify-write precondition. A nested AMAN coordination request ID remains distinct from transport `command_id`. The browser request ID and HTTP `Idempotency-Key` equal that command ID for one logical user action. `SystemCommand.update_entity` is internal to the owner and cannot be submitted by a browser or provider without domain validation.
 
 Normalize a decoded command in the Go owner: reject unknown fields, normalize identifiers and timestamps, sort semantically unordered repeated fields, clear only `command_id`, and deterministic-marshal the typed message. Store SHA-256 of those bytes in the ledger. The Go owner computes this digest on both original and retried commands; cross-language deterministic byte identity is not assumed. A different digest under one ID is `INVALID_ARGUMENT`. SHA-256 collision resistance is the command-identity assumption.

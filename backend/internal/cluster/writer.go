@@ -311,6 +311,9 @@ func validatePlanned(state *Aggregate, e *pb.StateEvent) error {
 		}
 		lastKind, lastKey = int32(kind), c.Key
 	}
+	if err := validateControllerSectorState(state.Ref, staged); err != nil {
+		return err
+	}
 	return nil
 }
 

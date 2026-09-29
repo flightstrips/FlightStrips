@@ -311,7 +311,7 @@ func planSessionLifecycle(ctx context.Context, request *pb.CommandRequest, state
 		if deletion := request.GetSystem().GetRemoveEntity(); deletion != nil && (deletion.Kind == pb.EntityKind_SESSION_REGISTRY || deletion.Kind == pb.EntityKind_SESSION) {
 			return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("session lifecycle entity cannot be removed")
 		}
-		return PlanSystemEntity(ctx, request, state)
+		return PlanControllerSector(ctx, request, state)
 	}
 	if request.GetActor().GetKind() != pb.Actor_SYSTEM || request.ExpectedEntityRevision != nil {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("invalid lifecycle command")

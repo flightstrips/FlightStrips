@@ -7,7 +7,7 @@ import "storage.proto";
 
 option go_package = "FlightStrips/pkg/events/cluster;cluster";
 
-// Every Core NATS request/reply payload is one of these messages.
+// Every Core NATS command request/reply payload is one of these messages.
 message CommandRequest {
   uint32 protocol_revision = 1; // exactly 1
   string command_id = 2;        // UUID, reused across transport retries
@@ -34,6 +34,18 @@ message CommandReply {
   optional OwnerTerm current_owner = 7;
   optional CommandOutcome outcome = 8;
   string detail = 9;
+}
+
+// One claimed effect may be forwarded to its presence-selected backend. The
+// reply acknowledges only local socket acceptance, never durable success.
+message EffectDeliveryRequest {
+  int32 session_id = 1;
+  string connection_id = 2;
+  EffectRecord effect = 3;
+}
+message EffectDeliveryReply {
+  string command_id = 1;
+  bool accepted = 2;
 }
 
 // One frame per binary WebSocket message. Frames larger than 4 MiB are closed.
@@ -353,6 +365,7 @@ message SystemCommand {
     RecordSessionSync record_sync = 9;
     SetPositionLayout set_position_layout = 10;
     ReplaceSectorOwners replace_sector_owners = 11;
+    ElectSessionMaster elect_session_master = 12;
   }
 }
 message CreateSession { int32 id = 1; string airport = 2; string name = 3; string workflow_id = 4; }
@@ -366,3 +379,5 @@ message RenewOwner { OwnerTerm proposed = 1; }
 message AdvanceWorkflow { WorkflowRecord workflow = 1; }
 message AdvanceEffect { EffectRecord effect = 1; }
 message RecordSessionSync { SessionSync sync = 1; }
+// Empty connection_id and cid commit a vacant term while retaining the epoch.
+message ElectSessionMaster { MasterTerm master = 1; }

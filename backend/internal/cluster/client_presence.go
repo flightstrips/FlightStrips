@@ -7,8 +7,10 @@ import (
 	"time"
 
 	pb "FlightStrips/pkg/events/cluster"
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ClientPresenceLease is owned by one physical socket in the candidate
@@ -22,10 +24,22 @@ func (lease ClientPresenceLease) validate() error {
 	client := lease.Client
 	if lease.KV == nil || client == nil || client.ConnectionId == "" || client.NodeId == "" || client.SessionId < 1 ||
 		strings.Contains(client.ConnectionId, ".") || strings.Contains(client.NodeId, ".") ||
-		client.Kind == pb.ClientPresence_KIND_UNSPECIFIED || client.ConnectedAt == nil || client.ConnectedAt.CheckValid() != nil {
+		client.Kind == pb.ClientPresence_KIND_UNSPECIFIED || client.ConnectedAt == nil || client.ConnectedAt.CheckValid() != nil ||
+		(client.Kind == pb.ClientPresence_EUROSCOPE && client.Cid == "") {
 		return fmt.Errorf("invalid client presence lease")
 	}
 	return nil
+}
+
+// NewSocketPresenceLease allocates a fresh generation for each authenticated
+// physical socket. Call it again after reconnect, even for the same CID.
+func NewSocketPresenceLease(kv nats.KeyValue, nodeID string, sessionID int32, cid, callsign, position string, observer bool, kind pb.ClientPresence_Kind) (ClientPresenceLease, error) {
+	lease := ClientPresenceLease{KV: kv, Client: &pb.ClientPresence{
+		ConnectionId: uuid.NewString(), NodeId: nodeID, SessionId: sessionID,
+		Cid: cid, Callsign: callsign, Position: position, Observer: observer,
+		ConnectedAt: timestamppb.Now(), Kind: kind,
+	}}
+	return lease, lease.validate()
 }
 
 func (lease ClientPresenceLease) Renew(ctx context.Context) (uint64, error) {

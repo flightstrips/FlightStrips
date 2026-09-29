@@ -49,3 +49,27 @@ func TestClientPresenceLeasePublishesAndRemovesSocket(t *testing.T) {
 		t.Fatal("closed socket retained presence")
 	}
 }
+
+func TestReconnectAllocatesNewPresenceGeneration(t *testing.T) {
+	kv := &presenceKVTest{values: map[string][]byte{}}
+	first, err := NewSocketPresenceLease(kv, "node-1", 42, "123", "EKCH_A_TWR", "TWR", false, pb.ClientPresence_EUROSCOPE)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := NewSocketPresenceLease(kv, "node-1", 42, "123", "EKCH_A_TWR", "TWR", false, pb.ClientPresence_EUROSCOPE)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Client.ConnectionId == second.Client.ConnectionId {
+		t.Fatal("reconnected socket reused the prior generation")
+	}
+	if _, err := first.Renew(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := second.Renew(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(kv.values) != 2 {
+		t.Fatal("a new generation replaced the old key")
+	}
+}

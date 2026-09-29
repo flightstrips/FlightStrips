@@ -144,7 +144,7 @@ func (x FrontendError_Code) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FrontendError_Code.Descriptor instead.
 func (FrontendError_Code) EnumDescriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{11, 0}
+	return file_wire_proto_rawDescGZIP(), []int{13, 0}
 }
 
 type SetStripText_Field int32
@@ -205,10 +205,10 @@ func (x SetStripText_Field) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SetStripText_Field.Descriptor instead.
 func (SetStripText_Field) EnumDescriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{29, 0}
+	return file_wire_proto_rawDescGZIP(), []int{31, 0}
 }
 
-// Every Core NATS request/reply payload is one of these messages.
+// Every Core NATS command request/reply payload is one of these messages.
 type CommandRequest struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
 	ProtocolRevision       uint32                 `protobuf:"varint,1,opt,name=protocol_revision,json=protocolRevision,proto3" json:"protocol_revision,omitempty"` // exactly 1
@@ -439,6 +439,120 @@ func (x *CommandReply) GetDetail() string {
 	return ""
 }
 
+// One claimed effect may be forwarded to its presence-selected backend. The
+// reply acknowledges only local socket acceptance, never durable success.
+type EffectDeliveryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     int32                  `protobuf:"varint,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	ConnectionId  string                 `protobuf:"bytes,2,opt,name=connection_id,json=connectionId,proto3" json:"connection_id,omitempty"`
+	Effect        *EffectRecord          `protobuf:"bytes,3,opt,name=effect,proto3" json:"effect,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EffectDeliveryRequest) Reset() {
+	*x = EffectDeliveryRequest{}
+	mi := &file_wire_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EffectDeliveryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EffectDeliveryRequest) ProtoMessage() {}
+
+func (x *EffectDeliveryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wire_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EffectDeliveryRequest.ProtoReflect.Descriptor instead.
+func (*EffectDeliveryRequest) Descriptor() ([]byte, []int) {
+	return file_wire_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *EffectDeliveryRequest) GetSessionId() int32 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *EffectDeliveryRequest) GetConnectionId() string {
+	if x != nil {
+		return x.ConnectionId
+	}
+	return ""
+}
+
+func (x *EffectDeliveryRequest) GetEffect() *EffectRecord {
+	if x != nil {
+		return x.Effect
+	}
+	return nil
+}
+
+type EffectDeliveryReply struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CommandId     string                 `protobuf:"bytes,1,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	Accepted      bool                   `protobuf:"varint,2,opt,name=accepted,proto3" json:"accepted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EffectDeliveryReply) Reset() {
+	*x = EffectDeliveryReply{}
+	mi := &file_wire_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EffectDeliveryReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EffectDeliveryReply) ProtoMessage() {}
+
+func (x *EffectDeliveryReply) ProtoReflect() protoreflect.Message {
+	mi := &file_wire_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EffectDeliveryReply.ProtoReflect.Descriptor instead.
+func (*EffectDeliveryReply) Descriptor() ([]byte, []int) {
+	return file_wire_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *EffectDeliveryReply) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *EffectDeliveryReply) GetAccepted() bool {
+	if x != nil {
+		return x.Accepted
+	}
+	return false
+}
+
 // One frame per binary WebSocket message. Frames larger than 4 MiB are closed.
 type FrontendFrame struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
@@ -462,7 +576,7 @@ type FrontendFrame struct {
 
 func (x *FrontendFrame) Reset() {
 	*x = FrontendFrame{}
-	mi := &file_wire_proto_msgTypes[2]
+	mi := &file_wire_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -474,7 +588,7 @@ func (x *FrontendFrame) String() string {
 func (*FrontendFrame) ProtoMessage() {}
 
 func (x *FrontendFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[2]
+	mi := &file_wire_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -487,7 +601,7 @@ func (x *FrontendFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendFrame.ProtoReflect.Descriptor instead.
 func (*FrontendFrame) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{2}
+	return file_wire_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *FrontendFrame) GetProtocolRevision() uint32 {
@@ -669,7 +783,7 @@ type FrontendAuthenticate struct {
 
 func (x *FrontendAuthenticate) Reset() {
 	*x = FrontendAuthenticate{}
-	mi := &file_wire_proto_msgTypes[3]
+	mi := &file_wire_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -681,7 +795,7 @@ func (x *FrontendAuthenticate) String() string {
 func (*FrontendAuthenticate) ProtoMessage() {}
 
 func (x *FrontendAuthenticate) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[3]
+	mi := &file_wire_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -694,7 +808,7 @@ func (x *FrontendAuthenticate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendAuthenticate.ProtoReflect.Descriptor instead.
 func (*FrontendAuthenticate) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{3}
+	return file_wire_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *FrontendAuthenticate) GetBearerToken() string {
@@ -729,7 +843,7 @@ type FrontendCommand struct {
 
 func (x *FrontendCommand) Reset() {
 	*x = FrontendCommand{}
-	mi := &file_wire_proto_msgTypes[4]
+	mi := &file_wire_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -741,7 +855,7 @@ func (x *FrontendCommand) String() string {
 func (*FrontendCommand) ProtoMessage() {}
 
 func (x *FrontendCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[4]
+	mi := &file_wire_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -754,7 +868,7 @@ func (x *FrontendCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendCommand.ProtoReflect.Descriptor instead.
 func (*FrontendCommand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{4}
+	return file_wire_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *FrontendCommand) GetRequestId() string {
@@ -787,7 +901,7 @@ type ActionStatusQuery struct {
 
 func (x *ActionStatusQuery) Reset() {
 	*x = ActionStatusQuery{}
-	mi := &file_wire_proto_msgTypes[5]
+	mi := &file_wire_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -799,7 +913,7 @@ func (x *ActionStatusQuery) String() string {
 func (*ActionStatusQuery) ProtoMessage() {}
 
 func (x *ActionStatusQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[5]
+	mi := &file_wire_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -812,7 +926,7 @@ func (x *ActionStatusQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionStatusQuery.ProtoReflect.Descriptor instead.
 func (*ActionStatusQuery) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{5}
+	return file_wire_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ActionStatusQuery) GetRequestIds() []string {
@@ -850,7 +964,7 @@ type FrontendInitial struct {
 
 func (x *FrontendInitial) Reset() {
 	*x = FrontendInitial{}
-	mi := &file_wire_proto_msgTypes[6]
+	mi := &file_wire_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -862,7 +976,7 @@ func (x *FrontendInitial) String() string {
 func (*FrontendInitial) ProtoMessage() {}
 
 func (x *FrontendInitial) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[6]
+	mi := &file_wire_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -875,7 +989,7 @@ func (x *FrontendInitial) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendInitial.ProtoReflect.Descriptor instead.
 func (*FrontendInitial) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{6}
+	return file_wire_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *FrontendInitial) GetSessionId() int32 {
@@ -1031,7 +1145,7 @@ type FrontendDelta struct {
 
 func (x *FrontendDelta) Reset() {
 	*x = FrontendDelta{}
-	mi := &file_wire_proto_msgTypes[7]
+	mi := &file_wire_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1043,7 +1157,7 @@ func (x *FrontendDelta) String() string {
 func (*FrontendDelta) ProtoMessage() {}
 
 func (x *FrontendDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[7]
+	mi := &file_wire_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1056,7 +1170,7 @@ func (x *FrontendDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendDelta.ProtoReflect.Descriptor instead.
 func (*FrontendDelta) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{7}
+	return file_wire_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FrontendDelta) GetAggregate() *AggregateRef {
@@ -1111,7 +1225,7 @@ type FrontendObservation struct {
 
 func (x *FrontendObservation) Reset() {
 	*x = FrontendObservation{}
-	mi := &file_wire_proto_msgTypes[8]
+	mi := &file_wire_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1123,7 +1237,7 @@ func (x *FrontendObservation) String() string {
 func (*FrontendObservation) ProtoMessage() {}
 
 func (x *FrontendObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[8]
+	mi := &file_wire_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1136,7 +1250,7 @@ func (x *FrontendObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendObservation.ProtoReflect.Descriptor instead.
 func (*FrontendObservation) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{8}
+	return file_wire_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *FrontendObservation) GetValue() isFrontendObservation_Value {
@@ -1222,7 +1336,7 @@ type FrontendActionResult struct {
 
 func (x *FrontendActionResult) Reset() {
 	*x = FrontendActionResult{}
-	mi := &file_wire_proto_msgTypes[9]
+	mi := &file_wire_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1348,7 @@ func (x *FrontendActionResult) String() string {
 func (*FrontendActionResult) ProtoMessage() {}
 
 func (x *FrontendActionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[9]
+	mi := &file_wire_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1361,7 @@ func (x *FrontendActionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendActionResult.ProtoReflect.Descriptor instead.
 func (*FrontendActionResult) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{9}
+	return file_wire_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *FrontendActionResult) GetRequestId() string {
@@ -1301,7 +1415,7 @@ type ActionStatusMissing struct {
 
 func (x *ActionStatusMissing) Reset() {
 	*x = ActionStatusMissing{}
-	mi := &file_wire_proto_msgTypes[10]
+	mi := &file_wire_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1313,7 +1427,7 @@ func (x *ActionStatusMissing) String() string {
 func (*ActionStatusMissing) ProtoMessage() {}
 
 func (x *ActionStatusMissing) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[10]
+	mi := &file_wire_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1326,7 +1440,7 @@ func (x *ActionStatusMissing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionStatusMissing.ProtoReflect.Descriptor instead.
 func (*ActionStatusMissing) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{10}
+	return file_wire_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ActionStatusMissing) GetRequestId() string {
@@ -1346,7 +1460,7 @@ type FrontendError struct {
 
 func (x *FrontendError) Reset() {
 	*x = FrontendError{}
-	mi := &file_wire_proto_msgTypes[11]
+	mi := &file_wire_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1358,7 +1472,7 @@ func (x *FrontendError) String() string {
 func (*FrontendError) ProtoMessage() {}
 
 func (x *FrontendError) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[11]
+	mi := &file_wire_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1371,7 +1485,7 @@ func (x *FrontendError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendError.ProtoReflect.Descriptor instead.
 func (*FrontendError) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{11}
+	return file_wire_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *FrontendError) GetCode() FrontendError_Code {
@@ -1397,7 +1511,7 @@ type FrontendHeartbeat struct {
 
 func (x *FrontendHeartbeat) Reset() {
 	*x = FrontendHeartbeat{}
-	mi := &file_wire_proto_msgTypes[12]
+	mi := &file_wire_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1409,7 +1523,7 @@ func (x *FrontendHeartbeat) String() string {
 func (*FrontendHeartbeat) ProtoMessage() {}
 
 func (x *FrontendHeartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[12]
+	mi := &file_wire_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1422,7 +1536,7 @@ func (x *FrontendHeartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FrontendHeartbeat.ProtoReflect.Descriptor instead.
 func (*FrontendHeartbeat) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{12}
+	return file_wire_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *FrontendHeartbeat) GetLatestAppliedStreamSequence() uint64 {
@@ -1454,7 +1568,7 @@ type ClientCommand struct {
 
 func (x *ClientCommand) Reset() {
 	*x = ClientCommand{}
-	mi := &file_wire_proto_msgTypes[13]
+	mi := &file_wire_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1466,7 +1580,7 @@ func (x *ClientCommand) String() string {
 func (*ClientCommand) ProtoMessage() {}
 
 func (x *ClientCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[13]
+	mi := &file_wire_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1479,7 +1593,7 @@ func (x *ClientCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientCommand.ProtoReflect.Descriptor instead.
 func (*ClientCommand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{13}
+	return file_wire_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ClientCommand) GetAction() isClientCommand_Action {
@@ -1686,7 +1800,7 @@ type StripAction struct {
 
 func (x *StripAction) Reset() {
 	*x = StripAction{}
-	mi := &file_wire_proto_msgTypes[14]
+	mi := &file_wire_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1698,7 +1812,7 @@ func (x *StripAction) String() string {
 func (*StripAction) ProtoMessage() {}
 
 func (x *StripAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[14]
+	mi := &file_wire_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1711,7 +1825,7 @@ func (x *StripAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StripAction.ProtoReflect.Descriptor instead.
 func (*StripAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{14}
+	return file_wire_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *StripAction) GetCallsign() string {
@@ -1981,7 +2095,7 @@ type SetHeading struct {
 
 func (x *SetHeading) Reset() {
 	*x = SetHeading{}
-	mi := &file_wire_proto_msgTypes[15]
+	mi := &file_wire_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1993,7 +2107,7 @@ func (x *SetHeading) String() string {
 func (*SetHeading) ProtoMessage() {}
 
 func (x *SetHeading) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[15]
+	mi := &file_wire_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2006,7 +2120,7 @@ func (x *SetHeading) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetHeading.ProtoReflect.Descriptor instead.
 func (*SetHeading) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{15}
+	return file_wire_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SetHeading) GetDegrees() int32 {
@@ -2025,7 +2139,7 @@ type SetSquawk struct {
 
 func (x *SetSquawk) Reset() {
 	*x = SetSquawk{}
-	mi := &file_wire_proto_msgTypes[16]
+	mi := &file_wire_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2037,7 +2151,7 @@ func (x *SetSquawk) String() string {
 func (*SetSquawk) ProtoMessage() {}
 
 func (x *SetSquawk) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[16]
+	mi := &file_wire_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2050,7 +2164,7 @@ func (x *SetSquawk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSquawk.ProtoReflect.Descriptor instead.
 func (*SetSquawk) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{16}
+	return file_wire_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SetSquawk) GetCode() string {
@@ -2069,7 +2183,7 @@ type SetAltitude struct {
 
 func (x *SetAltitude) Reset() {
 	*x = SetAltitude{}
-	mi := &file_wire_proto_msgTypes[17]
+	mi := &file_wire_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2081,7 +2195,7 @@ func (x *SetAltitude) String() string {
 func (*SetAltitude) ProtoMessage() {}
 
 func (x *SetAltitude) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[17]
+	mi := &file_wire_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2094,7 +2208,7 @@ func (x *SetAltitude) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetAltitude.ProtoReflect.Descriptor instead.
 func (*SetAltitude) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{17}
+	return file_wire_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SetAltitude) GetFeet() int32 {
@@ -2113,7 +2227,7 @@ type SetBay struct {
 
 func (x *SetBay) Reset() {
 	*x = SetBay{}
-	mi := &file_wire_proto_msgTypes[18]
+	mi := &file_wire_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2125,7 +2239,7 @@ func (x *SetBay) String() string {
 func (*SetBay) ProtoMessage() {}
 
 func (x *SetBay) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[18]
+	mi := &file_wire_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2138,7 +2252,7 @@ func (x *SetBay) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetBay.ProtoReflect.Descriptor instead.
 func (*SetBay) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{18}
+	return file_wire_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SetBay) GetBay() string {
@@ -2157,7 +2271,7 @@ type SetReleasePoint struct {
 
 func (x *SetReleasePoint) Reset() {
 	*x = SetReleasePoint{}
-	mi := &file_wire_proto_msgTypes[19]
+	mi := &file_wire_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2169,7 +2283,7 @@ func (x *SetReleasePoint) String() string {
 func (*SetReleasePoint) ProtoMessage() {}
 
 func (x *SetReleasePoint) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[19]
+	mi := &file_wire_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2182,7 +2296,7 @@ func (x *SetReleasePoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReleasePoint.ProtoReflect.Descriptor instead.
 func (*SetReleasePoint) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{19}
+	return file_wire_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SetReleasePoint) GetPoint() string {
@@ -2201,7 +2315,7 @@ type SetMarked struct {
 
 func (x *SetMarked) Reset() {
 	*x = SetMarked{}
-	mi := &file_wire_proto_msgTypes[20]
+	mi := &file_wire_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2213,7 +2327,7 @@ func (x *SetMarked) String() string {
 func (*SetMarked) ProtoMessage() {}
 
 func (x *SetMarked) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[20]
+	mi := &file_wire_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2226,7 +2340,7 @@ func (x *SetMarked) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetMarked.ProtoReflect.Descriptor instead.
 func (*SetMarked) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{20}
+	return file_wire_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SetMarked) GetMarked() bool {
@@ -2245,7 +2359,7 @@ type SetRunwayFlag struct {
 
 func (x *SetRunwayFlag) Reset() {
 	*x = SetRunwayFlag{}
-	mi := &file_wire_proto_msgTypes[21]
+	mi := &file_wire_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2257,7 +2371,7 @@ func (x *SetRunwayFlag) String() string {
 func (*SetRunwayFlag) ProtoMessage() {}
 
 func (x *SetRunwayFlag) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[21]
+	mi := &file_wire_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2270,7 +2384,7 @@ func (x *SetRunwayFlag) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetRunwayFlag.ProtoReflect.Descriptor instead.
 func (*SetRunwayFlag) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{21}
+	return file_wire_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SetRunwayFlag) GetValue() bool {
@@ -2289,7 +2403,7 @@ type SetStartRequested struct {
 
 func (x *SetStartRequested) Reset() {
 	*x = SetStartRequested{}
-	mi := &file_wire_proto_msgTypes[22]
+	mi := &file_wire_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2301,7 +2415,7 @@ func (x *SetStartRequested) String() string {
 func (*SetStartRequested) ProtoMessage() {}
 
 func (x *SetStartRequested) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[22]
+	mi := &file_wire_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2314,7 +2428,7 @@ func (x *SetStartRequested) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetStartRequested.ProtoReflect.Descriptor instead.
 func (*SetStartRequested) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{22}
+	return file_wire_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SetStartRequested) GetRequested() bool {
@@ -2337,7 +2451,7 @@ type StripRef struct {
 
 func (x *StripRef) Reset() {
 	*x = StripRef{}
-	mi := &file_wire_proto_msgTypes[23]
+	mi := &file_wire_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2349,7 +2463,7 @@ func (x *StripRef) String() string {
 func (*StripRef) ProtoMessage() {}
 
 func (x *StripRef) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[23]
+	mi := &file_wire_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2362,7 +2476,7 @@ func (x *StripRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StripRef.ProtoReflect.Descriptor instead.
 func (*StripRef) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{23}
+	return file_wire_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *StripRef) GetIdentity() isStripRef_Identity {
@@ -2415,7 +2529,7 @@ type SetStripOrder struct {
 
 func (x *SetStripOrder) Reset() {
 	*x = SetStripOrder{}
-	mi := &file_wire_proto_msgTypes[24]
+	mi := &file_wire_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2427,7 +2541,7 @@ func (x *SetStripOrder) String() string {
 func (*SetStripOrder) ProtoMessage() {}
 
 func (x *SetStripOrder) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[24]
+	mi := &file_wire_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2440,7 +2554,7 @@ func (x *SetStripOrder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetStripOrder.ProtoReflect.Descriptor instead.
 func (*SetStripOrder) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{24}
+	return file_wire_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SetStripOrder) GetInsertAfter() *StripRef {
@@ -2461,7 +2575,7 @@ type MoveStrip struct {
 
 func (x *MoveStrip) Reset() {
 	*x = MoveStrip{}
-	mi := &file_wire_proto_msgTypes[25]
+	mi := &file_wire_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2473,7 +2587,7 @@ func (x *MoveStrip) String() string {
 func (*MoveStrip) ProtoMessage() {}
 
 func (x *MoveStrip) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[25]
+	mi := &file_wire_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2486,7 +2600,7 @@ func (x *MoveStrip) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveStrip.ProtoReflect.Descriptor instead.
 func (*MoveStrip) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{25}
+	return file_wire_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *MoveStrip) GetBay() string {
@@ -2518,7 +2632,7 @@ type GenerateSquawk struct {
 
 func (x *GenerateSquawk) Reset() {
 	*x = GenerateSquawk{}
-	mi := &file_wire_proto_msgTypes[26]
+	mi := &file_wire_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2530,7 +2644,7 @@ func (x *GenerateSquawk) String() string {
 func (*GenerateSquawk) ProtoMessage() {}
 
 func (x *GenerateSquawk) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[26]
+	mi := &file_wire_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2543,7 +2657,7 @@ func (x *GenerateSquawk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateSquawk.ProtoReflect.Descriptor instead.
 func (*GenerateSquawk) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{26}
+	return file_wire_proto_rawDescGZIP(), []int{28}
 }
 
 type UpdateStripData struct {
@@ -2564,7 +2678,7 @@ type UpdateStripData struct {
 
 func (x *UpdateStripData) Reset() {
 	*x = UpdateStripData{}
-	mi := &file_wire_proto_msgTypes[27]
+	mi := &file_wire_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2576,7 +2690,7 @@ func (x *UpdateStripData) String() string {
 func (*UpdateStripData) ProtoMessage() {}
 
 func (x *UpdateStripData) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[27]
+	mi := &file_wire_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2589,7 +2703,7 @@ func (x *UpdateStripData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateStripData.ProtoReflect.Descriptor instead.
 func (*UpdateStripData) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{27}
+	return file_wire_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *UpdateStripData) GetSid() string {
@@ -2670,7 +2784,7 @@ type MissedApproach struct {
 
 func (x *MissedApproach) Reset() {
 	*x = MissedApproach{}
-	mi := &file_wire_proto_msgTypes[28]
+	mi := &file_wire_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2682,7 +2796,7 @@ func (x *MissedApproach) String() string {
 func (*MissedApproach) ProtoMessage() {}
 
 func (x *MissedApproach) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[28]
+	mi := &file_wire_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2695,7 +2809,7 @@ func (x *MissedApproach) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MissedApproach.ProtoReflect.Descriptor instead.
 func (*MissedApproach) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{28}
+	return file_wire_proto_rawDescGZIP(), []int{30}
 }
 
 type SetStripText struct {
@@ -2708,7 +2822,7 @@ type SetStripText struct {
 
 func (x *SetStripText) Reset() {
 	*x = SetStripText{}
-	mi := &file_wire_proto_msgTypes[29]
+	mi := &file_wire_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2720,7 +2834,7 @@ func (x *SetStripText) String() string {
 func (*SetStripText) ProtoMessage() {}
 
 func (x *SetStripText) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[29]
+	mi := &file_wire_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2733,7 +2847,7 @@ func (x *SetStripText) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetStripText.ProtoReflect.Descriptor instead.
 func (*SetStripText) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{29}
+	return file_wire_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SetStripText) GetField() SetStripText_Field {
@@ -2769,7 +2883,7 @@ type CoordinationAction struct {
 
 func (x *CoordinationAction) Reset() {
 	*x = CoordinationAction{}
-	mi := &file_wire_proto_msgTypes[30]
+	mi := &file_wire_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2781,7 +2895,7 @@ func (x *CoordinationAction) String() string {
 func (*CoordinationAction) ProtoMessage() {}
 
 func (x *CoordinationAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[30]
+	mi := &file_wire_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2794,7 +2908,7 @@ func (x *CoordinationAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationAction.ProtoReflect.Descriptor instead.
 func (*CoordinationAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{30}
+	return file_wire_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CoordinationAction) GetCallsign() string {
@@ -2929,7 +3043,7 @@ type TransferCoordination struct {
 
 func (x *TransferCoordination) Reset() {
 	*x = TransferCoordination{}
-	mi := &file_wire_proto_msgTypes[31]
+	mi := &file_wire_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2941,7 +3055,7 @@ func (x *TransferCoordination) String() string {
 func (*TransferCoordination) ProtoMessage() {}
 
 func (x *TransferCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[31]
+	mi := &file_wire_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2954,7 +3068,7 @@ func (x *TransferCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferCoordination.ProtoReflect.Descriptor instead.
 func (*TransferCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{31}
+	return file_wire_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *TransferCoordination) GetToCid() string {
@@ -2972,7 +3086,7 @@ type AssumeCoordination struct {
 
 func (x *AssumeCoordination) Reset() {
 	*x = AssumeCoordination{}
-	mi := &file_wire_proto_msgTypes[32]
+	mi := &file_wire_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2984,7 +3098,7 @@ func (x *AssumeCoordination) String() string {
 func (*AssumeCoordination) ProtoMessage() {}
 
 func (x *AssumeCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[32]
+	mi := &file_wire_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2997,7 +3111,7 @@ func (x *AssumeCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssumeCoordination.ProtoReflect.Descriptor instead.
 func (*AssumeCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{32}
+	return file_wire_proto_rawDescGZIP(), []int{34}
 }
 
 type ForceAssumeCoordination struct {
@@ -3009,7 +3123,7 @@ type ForceAssumeCoordination struct {
 
 func (x *ForceAssumeCoordination) Reset() {
 	*x = ForceAssumeCoordination{}
-	mi := &file_wire_proto_msgTypes[33]
+	mi := &file_wire_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3021,7 +3135,7 @@ func (x *ForceAssumeCoordination) String() string {
 func (*ForceAssumeCoordination) ProtoMessage() {}
 
 func (x *ForceAssumeCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[33]
+	mi := &file_wire_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3034,7 +3148,7 @@ func (x *ForceAssumeCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForceAssumeCoordination.ProtoReflect.Descriptor instead.
 func (*ForceAssumeCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{33}
+	return file_wire_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ForceAssumeCoordination) GetFromCid() string {
@@ -3052,7 +3166,7 @@ type FreeCoordination struct {
 
 func (x *FreeCoordination) Reset() {
 	*x = FreeCoordination{}
-	mi := &file_wire_proto_msgTypes[34]
+	mi := &file_wire_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3064,7 +3178,7 @@ func (x *FreeCoordination) String() string {
 func (*FreeCoordination) ProtoMessage() {}
 
 func (x *FreeCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[34]
+	mi := &file_wire_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3077,7 +3191,7 @@ func (x *FreeCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FreeCoordination.ProtoReflect.Descriptor instead.
 func (*FreeCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{34}
+	return file_wire_proto_rawDescGZIP(), []int{36}
 }
 
 type CancelCoordination struct {
@@ -3089,7 +3203,7 @@ type CancelCoordination struct {
 
 func (x *CancelCoordination) Reset() {
 	*x = CancelCoordination{}
-	mi := &file_wire_proto_msgTypes[35]
+	mi := &file_wire_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3101,7 +3215,7 @@ func (x *CancelCoordination) String() string {
 func (*CancelCoordination) ProtoMessage() {}
 
 func (x *CancelCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[35]
+	mi := &file_wire_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3114,7 +3228,7 @@ func (x *CancelCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelCoordination.ProtoReflect.Descriptor instead.
 func (*CancelCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{35}
+	return file_wire_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CancelCoordination) GetTransferId() string {
@@ -3134,7 +3248,7 @@ type TagCoordination struct {
 
 func (x *TagCoordination) Reset() {
 	*x = TagCoordination{}
-	mi := &file_wire_proto_msgTypes[36]
+	mi := &file_wire_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3146,7 +3260,7 @@ func (x *TagCoordination) String() string {
 func (*TagCoordination) ProtoMessage() {}
 
 func (x *TagCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[36]
+	mi := &file_wire_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3159,7 +3273,7 @@ func (x *TagCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagCoordination.ProtoReflect.Descriptor instead.
 func (*TagCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{36}
+	return file_wire_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *TagCoordination) GetToCid() string {
@@ -3185,7 +3299,7 @@ type AcceptTagCoordination struct {
 
 func (x *AcceptTagCoordination) Reset() {
 	*x = AcceptTagCoordination{}
-	mi := &file_wire_proto_msgTypes[37]
+	mi := &file_wire_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3197,7 +3311,7 @@ func (x *AcceptTagCoordination) String() string {
 func (*AcceptTagCoordination) ProtoMessage() {}
 
 func (x *AcceptTagCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[37]
+	mi := &file_wire_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3210,7 +3324,7 @@ func (x *AcceptTagCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptTagCoordination.ProtoReflect.Descriptor instead.
 func (*AcceptTagCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{37}
+	return file_wire_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *AcceptTagCoordination) GetRequestId() string {
@@ -3239,7 +3353,7 @@ type TacticalAction struct {
 
 func (x *TacticalAction) Reset() {
 	*x = TacticalAction{}
-	mi := &file_wire_proto_msgTypes[38]
+	mi := &file_wire_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3251,7 +3365,7 @@ func (x *TacticalAction) String() string {
 func (*TacticalAction) ProtoMessage() {}
 
 func (x *TacticalAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[38]
+	mi := &file_wire_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3264,7 +3378,7 @@ func (x *TacticalAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TacticalAction.ProtoReflect.Descriptor instead.
 func (*TacticalAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{38}
+	return file_wire_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *TacticalAction) GetStripId() uint64 {
@@ -3404,7 +3518,7 @@ type CreateTactical struct {
 
 func (x *CreateTactical) Reset() {
 	*x = CreateTactical{}
-	mi := &file_wire_proto_msgTypes[39]
+	mi := &file_wire_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3416,7 +3530,7 @@ func (x *CreateTactical) String() string {
 func (*CreateTactical) ProtoMessage() {}
 
 func (x *CreateTactical) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[39]
+	mi := &file_wire_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3429,7 +3543,7 @@ func (x *CreateTactical) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTactical.ProtoReflect.Descriptor instead.
 func (*CreateTactical) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{39}
+	return file_wire_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *CreateTactical) GetTitle() string {
@@ -3482,7 +3596,7 @@ type DeleteTactical struct {
 
 func (x *DeleteTactical) Reset() {
 	*x = DeleteTactical{}
-	mi := &file_wire_proto_msgTypes[40]
+	mi := &file_wire_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3494,7 +3608,7 @@ func (x *DeleteTactical) String() string {
 func (*DeleteTactical) ProtoMessage() {}
 
 func (x *DeleteTactical) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[40]
+	mi := &file_wire_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3507,7 +3621,7 @@ func (x *DeleteTactical) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTactical.ProtoReflect.Descriptor instead.
 func (*DeleteTactical) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{40}
+	return file_wire_proto_rawDescGZIP(), []int{42}
 }
 
 type ConfirmTactical struct {
@@ -3518,7 +3632,7 @@ type ConfirmTactical struct {
 
 func (x *ConfirmTactical) Reset() {
 	*x = ConfirmTactical{}
-	mi := &file_wire_proto_msgTypes[41]
+	mi := &file_wire_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3530,7 +3644,7 @@ func (x *ConfirmTactical) String() string {
 func (*ConfirmTactical) ProtoMessage() {}
 
 func (x *ConfirmTactical) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[41]
+	mi := &file_wire_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3543,7 +3657,7 @@ func (x *ConfirmTactical) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmTactical.ProtoReflect.Descriptor instead.
 func (*ConfirmTactical) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{41}
+	return file_wire_proto_rawDescGZIP(), []int{43}
 }
 
 type ForceAssumeTactical struct {
@@ -3554,7 +3668,7 @@ type ForceAssumeTactical struct {
 
 func (x *ForceAssumeTactical) Reset() {
 	*x = ForceAssumeTactical{}
-	mi := &file_wire_proto_msgTypes[42]
+	mi := &file_wire_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3566,7 +3680,7 @@ func (x *ForceAssumeTactical) String() string {
 func (*ForceAssumeTactical) ProtoMessage() {}
 
 func (x *ForceAssumeTactical) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[42]
+	mi := &file_wire_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3579,7 +3693,7 @@ func (x *ForceAssumeTactical) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForceAssumeTactical.ProtoReflect.Descriptor instead.
 func (*ForceAssumeTactical) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{42}
+	return file_wire_proto_rawDescGZIP(), []int{44}
 }
 
 type MarkTactical struct {
@@ -3591,7 +3705,7 @@ type MarkTactical struct {
 
 func (x *MarkTactical) Reset() {
 	*x = MarkTactical{}
-	mi := &file_wire_proto_msgTypes[43]
+	mi := &file_wire_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3603,7 +3717,7 @@ func (x *MarkTactical) String() string {
 func (*MarkTactical) ProtoMessage() {}
 
 func (x *MarkTactical) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[43]
+	mi := &file_wire_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3616,7 +3730,7 @@ func (x *MarkTactical) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkTactical.ProtoReflect.Descriptor instead.
 func (*MarkTactical) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{43}
+	return file_wire_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *MarkTactical) GetMarked() bool {
@@ -3634,7 +3748,7 @@ type StartTacticalTimer struct {
 
 func (x *StartTacticalTimer) Reset() {
 	*x = StartTacticalTimer{}
-	mi := &file_wire_proto_msgTypes[44]
+	mi := &file_wire_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3646,7 +3760,7 @@ func (x *StartTacticalTimer) String() string {
 func (*StartTacticalTimer) ProtoMessage() {}
 
 func (x *StartTacticalTimer) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[44]
+	mi := &file_wire_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3659,7 +3773,7 @@ func (x *StartTacticalTimer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartTacticalTimer.ProtoReflect.Descriptor instead.
 func (*StartTacticalTimer) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{44}
+	return file_wire_proto_rawDescGZIP(), []int{46}
 }
 
 type MoveTactical struct {
@@ -3672,7 +3786,7 @@ type MoveTactical struct {
 
 func (x *MoveTactical) Reset() {
 	*x = MoveTactical{}
-	mi := &file_wire_proto_msgTypes[45]
+	mi := &file_wire_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3684,7 +3798,7 @@ func (x *MoveTactical) String() string {
 func (*MoveTactical) ProtoMessage() {}
 
 func (x *MoveTactical) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[45]
+	mi := &file_wire_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3697,7 +3811,7 @@ func (x *MoveTactical) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveTactical.ProtoReflect.Descriptor instead.
 func (*MoveTactical) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{45}
+	return file_wire_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *MoveTactical) GetBay() string {
@@ -3744,7 +3858,7 @@ type StandAction struct {
 
 func (x *StandAction) Reset() {
 	*x = StandAction{}
-	mi := &file_wire_proto_msgTypes[46]
+	mi := &file_wire_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3756,7 +3870,7 @@ func (x *StandAction) String() string {
 func (*StandAction) ProtoMessage() {}
 
 func (x *StandAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[46]
+	mi := &file_wire_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3769,7 +3883,7 @@ func (x *StandAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StandAction.ProtoReflect.Descriptor instead.
 func (*StandAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{46}
+	return file_wire_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *StandAction) GetCallsign() string {
@@ -3974,7 +4088,7 @@ type OccupyStand struct {
 
 func (x *OccupyStand) Reset() {
 	*x = OccupyStand{}
-	mi := &file_wire_proto_msgTypes[47]
+	mi := &file_wire_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3986,7 +4100,7 @@ func (x *OccupyStand) String() string {
 func (*OccupyStand) ProtoMessage() {}
 
 func (x *OccupyStand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[47]
+	mi := &file_wire_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3999,7 +4113,7 @@ func (x *OccupyStand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OccupyStand.ProtoReflect.Descriptor instead.
 func (*OccupyStand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{47}
+	return file_wire_proto_rawDescGZIP(), []int{49}
 }
 
 type VacateStand struct {
@@ -4010,7 +4124,7 @@ type VacateStand struct {
 
 func (x *VacateStand) Reset() {
 	*x = VacateStand{}
-	mi := &file_wire_proto_msgTypes[48]
+	mi := &file_wire_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4022,7 +4136,7 @@ func (x *VacateStand) String() string {
 func (*VacateStand) ProtoMessage() {}
 
 func (x *VacateStand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[48]
+	mi := &file_wire_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4035,7 +4149,7 @@ func (x *VacateStand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VacateStand.ProtoReflect.Descriptor instead.
 func (*VacateStand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{48}
+	return file_wire_proto_rawDescGZIP(), []int{50}
 }
 
 type AutomaticStand struct {
@@ -4046,7 +4160,7 @@ type AutomaticStand struct {
 
 func (x *AutomaticStand) Reset() {
 	*x = AutomaticStand{}
-	mi := &file_wire_proto_msgTypes[49]
+	mi := &file_wire_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4058,7 +4172,7 @@ func (x *AutomaticStand) String() string {
 func (*AutomaticStand) ProtoMessage() {}
 
 func (x *AutomaticStand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[49]
+	mi := &file_wire_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4071,7 +4185,7 @@ func (x *AutomaticStand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AutomaticStand.ProtoReflect.Descriptor instead.
 func (*AutomaticStand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{49}
+	return file_wire_proto_rawDescGZIP(), []int{51}
 }
 
 type ManualStand struct {
@@ -4083,7 +4197,7 @@ type ManualStand struct {
 
 func (x *ManualStand) Reset() {
 	*x = ManualStand{}
-	mi := &file_wire_proto_msgTypes[50]
+	mi := &file_wire_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4095,7 +4209,7 @@ func (x *ManualStand) String() string {
 func (*ManualStand) ProtoMessage() {}
 
 func (x *ManualStand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[50]
+	mi := &file_wire_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4108,7 +4222,7 @@ func (x *ManualStand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ManualStand.ProtoReflect.Descriptor instead.
 func (*ManualStand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{50}
+	return file_wire_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ManualStand) GetReason() string {
@@ -4126,7 +4240,7 @@ type ConfirmStandOverride struct {
 
 func (x *ConfirmStandOverride) Reset() {
 	*x = ConfirmStandOverride{}
-	mi := &file_wire_proto_msgTypes[51]
+	mi := &file_wire_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4138,7 +4252,7 @@ func (x *ConfirmStandOverride) String() string {
 func (*ConfirmStandOverride) ProtoMessage() {}
 
 func (x *ConfirmStandOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[51]
+	mi := &file_wire_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4151,7 +4265,7 @@ func (x *ConfirmStandOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfirmStandOverride.ProtoReflect.Descriptor instead.
 func (*ConfirmStandOverride) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{51}
+	return file_wire_proto_rawDescGZIP(), []int{53}
 }
 
 type AcknowledgeStand struct {
@@ -4162,7 +4276,7 @@ type AcknowledgeStand struct {
 
 func (x *AcknowledgeStand) Reset() {
 	*x = AcknowledgeStand{}
-	mi := &file_wire_proto_msgTypes[52]
+	mi := &file_wire_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4174,7 +4288,7 @@ func (x *AcknowledgeStand) String() string {
 func (*AcknowledgeStand) ProtoMessage() {}
 
 func (x *AcknowledgeStand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[52]
+	mi := &file_wire_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4187,7 +4301,7 @@ func (x *AcknowledgeStand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcknowledgeStand.ProtoReflect.Descriptor instead.
 func (*AcknowledgeStand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{52}
+	return file_wire_proto_rawDescGZIP(), []int{54}
 }
 
 type CreateStandBlock struct {
@@ -4200,7 +4314,7 @@ type CreateStandBlock struct {
 
 func (x *CreateStandBlock) Reset() {
 	*x = CreateStandBlock{}
-	mi := &file_wire_proto_msgTypes[53]
+	mi := &file_wire_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4212,7 +4326,7 @@ func (x *CreateStandBlock) String() string {
 func (*CreateStandBlock) ProtoMessage() {}
 
 func (x *CreateStandBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[53]
+	mi := &file_wire_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4225,7 +4339,7 @@ func (x *CreateStandBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateStandBlock.ProtoReflect.Descriptor instead.
 func (*CreateStandBlock) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{53}
+	return file_wire_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *CreateStandBlock) GetReason() string {
@@ -4250,7 +4364,7 @@ type RemoveStandBlock struct {
 
 func (x *RemoveStandBlock) Reset() {
 	*x = RemoveStandBlock{}
-	mi := &file_wire_proto_msgTypes[54]
+	mi := &file_wire_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4262,7 +4376,7 @@ func (x *RemoveStandBlock) String() string {
 func (*RemoveStandBlock) ProtoMessage() {}
 
 func (x *RemoveStandBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[54]
+	mi := &file_wire_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4275,7 +4389,7 @@ func (x *RemoveStandBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveStandBlock.ProtoReflect.Descriptor instead.
 func (*RemoveStandBlock) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{54}
+	return file_wire_proto_rawDescGZIP(), []int{56}
 }
 
 type CdmAction struct {
@@ -4295,7 +4409,7 @@ type CdmAction struct {
 
 func (x *CdmAction) Reset() {
 	*x = CdmAction{}
-	mi := &file_wire_proto_msgTypes[55]
+	mi := &file_wire_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4307,7 +4421,7 @@ func (x *CdmAction) String() string {
 func (*CdmAction) ProtoMessage() {}
 
 func (x *CdmAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[55]
+	mi := &file_wire_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4320,7 +4434,7 @@ func (x *CdmAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmAction.ProtoReflect.Descriptor instead.
 func (*CdmAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{55}
+	return file_wire_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *CdmAction) GetCallsign() string {
@@ -4425,7 +4539,7 @@ type SetTobt struct {
 
 func (x *SetTobt) Reset() {
 	*x = SetTobt{}
-	mi := &file_wire_proto_msgTypes[56]
+	mi := &file_wire_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4437,7 +4551,7 @@ func (x *SetTobt) String() string {
 func (*SetTobt) ProtoMessage() {}
 
 func (x *SetTobt) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[56]
+	mi := &file_wire_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4450,7 +4564,7 @@ func (x *SetTobt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTobt.ProtoReflect.Descriptor instead.
 func (*SetTobt) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{56}
+	return file_wire_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *SetTobt) GetValue() *timestamppb.Timestamp {
@@ -4469,7 +4583,7 @@ type SetCdmReady struct {
 
 func (x *SetCdmReady) Reset() {
 	*x = SetCdmReady{}
-	mi := &file_wire_proto_msgTypes[57]
+	mi := &file_wire_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4481,7 +4595,7 @@ func (x *SetCdmReady) String() string {
 func (*SetCdmReady) ProtoMessage() {}
 
 func (x *SetCdmReady) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[57]
+	mi := &file_wire_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4494,7 +4608,7 @@ func (x *SetCdmReady) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCdmReady.ProtoReflect.Descriptor instead.
 func (*SetCdmReady) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{57}
+	return file_wire_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *SetCdmReady) GetReady() bool {
@@ -4513,7 +4627,7 @@ type SetCdmDeice struct {
 
 func (x *SetCdmDeice) Reset() {
 	*x = SetCdmDeice{}
-	mi := &file_wire_proto_msgTypes[58]
+	mi := &file_wire_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4525,7 +4639,7 @@ func (x *SetCdmDeice) String() string {
 func (*SetCdmDeice) ProtoMessage() {}
 
 func (x *SetCdmDeice) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[58]
+	mi := &file_wire_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4538,7 +4652,7 @@ func (x *SetCdmDeice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCdmDeice.ProtoReflect.Descriptor instead.
 func (*SetCdmDeice) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{58}
+	return file_wire_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *SetCdmDeice) GetCode() string {
@@ -4557,7 +4671,7 @@ type SetCdmCtot struct {
 
 func (x *SetCdmCtot) Reset() {
 	*x = SetCdmCtot{}
-	mi := &file_wire_proto_msgTypes[59]
+	mi := &file_wire_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4569,7 +4683,7 @@ func (x *SetCdmCtot) String() string {
 func (*SetCdmCtot) ProtoMessage() {}
 
 func (x *SetCdmCtot) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[59]
+	mi := &file_wire_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4582,7 +4696,7 @@ func (x *SetCdmCtot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCdmCtot.ProtoReflect.Descriptor instead.
 func (*SetCdmCtot) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{59}
+	return file_wire_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *SetCdmCtot) GetValue() *timestamppb.Timestamp {
@@ -4600,7 +4714,7 @@ type RemoveCdmCtot struct {
 
 func (x *RemoveCdmCtot) Reset() {
 	*x = RemoveCdmCtot{}
-	mi := &file_wire_proto_msgTypes[60]
+	mi := &file_wire_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4612,7 +4726,7 @@ func (x *RemoveCdmCtot) String() string {
 func (*RemoveCdmCtot) ProtoMessage() {}
 
 func (x *RemoveCdmCtot) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[60]
+	mi := &file_wire_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4625,7 +4739,7 @@ func (x *RemoveCdmCtot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveCdmCtot.ProtoReflect.Descriptor instead.
 func (*RemoveCdmCtot) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{60}
+	return file_wire_proto_rawDescGZIP(), []int{62}
 }
 
 type PdcAction struct {
@@ -4644,7 +4758,7 @@ type PdcAction struct {
 
 func (x *PdcAction) Reset() {
 	*x = PdcAction{}
-	mi := &file_wire_proto_msgTypes[61]
+	mi := &file_wire_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4656,7 +4770,7 @@ func (x *PdcAction) String() string {
 func (*PdcAction) ProtoMessage() {}
 
 func (x *PdcAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[61]
+	mi := &file_wire_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4669,7 +4783,7 @@ func (x *PdcAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PdcAction.ProtoReflect.Descriptor instead.
 func (*PdcAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{61}
+	return file_wire_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *PdcAction) GetCallsign() string {
@@ -4761,7 +4875,7 @@ type IssuePdc struct {
 
 func (x *IssuePdc) Reset() {
 	*x = IssuePdc{}
-	mi := &file_wire_proto_msgTypes[62]
+	mi := &file_wire_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4773,7 +4887,7 @@ func (x *IssuePdc) String() string {
 func (*IssuePdc) ProtoMessage() {}
 
 func (x *IssuePdc) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[62]
+	mi := &file_wire_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4786,7 +4900,7 @@ func (x *IssuePdc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IssuePdc.ProtoReflect.Descriptor instead.
 func (*IssuePdc) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{62}
+	return file_wire_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *IssuePdc) GetClearance() string {
@@ -4818,7 +4932,7 @@ type RevertPdcToVoice struct {
 
 func (x *RevertPdcToVoice) Reset() {
 	*x = RevertPdcToVoice{}
-	mi := &file_wire_proto_msgTypes[63]
+	mi := &file_wire_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4830,7 +4944,7 @@ func (x *RevertPdcToVoice) String() string {
 func (*RevertPdcToVoice) ProtoMessage() {}
 
 func (x *RevertPdcToVoice) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[63]
+	mi := &file_wire_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4843,7 +4957,7 @@ func (x *RevertPdcToVoice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevertPdcToVoice.ProtoReflect.Descriptor instead.
 func (*RevertPdcToVoice) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{63}
+	return file_wire_proto_rawDescGZIP(), []int{65}
 }
 
 type AcknowledgePdc struct {
@@ -4854,7 +4968,7 @@ type AcknowledgePdc struct {
 
 func (x *AcknowledgePdc) Reset() {
 	*x = AcknowledgePdc{}
-	mi := &file_wire_proto_msgTypes[64]
+	mi := &file_wire_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4866,7 +4980,7 @@ func (x *AcknowledgePdc) String() string {
 func (*AcknowledgePdc) ProtoMessage() {}
 
 func (x *AcknowledgePdc) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[64]
+	mi := &file_wire_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4879,7 +4993,7 @@ func (x *AcknowledgePdc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcknowledgePdc.ProtoReflect.Descriptor instead.
 func (*AcknowledgePdc) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{64}
+	return file_wire_proto_rawDescGZIP(), []int{66}
 }
 
 type UnablePdc struct {
@@ -4891,7 +5005,7 @@ type UnablePdc struct {
 
 func (x *UnablePdc) Reset() {
 	*x = UnablePdc{}
-	mi := &file_wire_proto_msgTypes[65]
+	mi := &file_wire_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4903,7 +5017,7 @@ func (x *UnablePdc) String() string {
 func (*UnablePdc) ProtoMessage() {}
 
 func (x *UnablePdc) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[65]
+	mi := &file_wire_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4916,7 +5030,7 @@ func (x *UnablePdc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnablePdc.ProtoReflect.Descriptor instead.
 func (*UnablePdc) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{65}
+	return file_wire_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *UnablePdc) GetReason() string {
@@ -4939,7 +5053,7 @@ type MessageAction struct {
 
 func (x *MessageAction) Reset() {
 	*x = MessageAction{}
-	mi := &file_wire_proto_msgTypes[66]
+	mi := &file_wire_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4951,7 +5065,7 @@ func (x *MessageAction) String() string {
 func (*MessageAction) ProtoMessage() {}
 
 func (x *MessageAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[66]
+	mi := &file_wire_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4964,7 +5078,7 @@ func (x *MessageAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageAction.ProtoReflect.Descriptor instead.
 func (*MessageAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{66}
+	return file_wire_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *MessageAction) GetSend() isMessageAction_Send {
@@ -5018,7 +5132,7 @@ type BroadcastMessage struct {
 
 func (x *BroadcastMessage) Reset() {
 	*x = BroadcastMessage{}
-	mi := &file_wire_proto_msgTypes[67]
+	mi := &file_wire_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5030,7 +5144,7 @@ func (x *BroadcastMessage) String() string {
 func (*BroadcastMessage) ProtoMessage() {}
 
 func (x *BroadcastMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[67]
+	mi := &file_wire_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5043,7 +5157,7 @@ func (x *BroadcastMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BroadcastMessage.ProtoReflect.Descriptor instead.
 func (*BroadcastMessage) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{67}
+	return file_wire_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *BroadcastMessage) GetText() string {
@@ -5070,7 +5184,7 @@ type PrivateMessage struct {
 
 func (x *PrivateMessage) Reset() {
 	*x = PrivateMessage{}
-	mi := &file_wire_proto_msgTypes[68]
+	mi := &file_wire_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5082,7 +5196,7 @@ func (x *PrivateMessage) String() string {
 func (*PrivateMessage) ProtoMessage() {}
 
 func (x *PrivateMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[68]
+	mi := &file_wire_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5095,7 +5209,7 @@ func (x *PrivateMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrivateMessage.ProtoReflect.Descriptor instead.
 func (*PrivateMessage) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{68}
+	return file_wire_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *PrivateMessage) GetTargetCid() string {
@@ -5126,7 +5240,7 @@ type SessionAction struct {
 
 func (x *SessionAction) Reset() {
 	*x = SessionAction{}
-	mi := &file_wire_proto_msgTypes[69]
+	mi := &file_wire_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5138,7 +5252,7 @@ func (x *SessionAction) String() string {
 func (*SessionAction) ProtoMessage() {}
 
 func (x *SessionAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[69]
+	mi := &file_wire_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5151,7 +5265,7 @@ func (x *SessionAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionAction.ProtoReflect.Descriptor instead.
 func (*SessionAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{69}
+	return file_wire_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *SessionAction) GetChange() isSessionAction_Change {
@@ -5219,7 +5333,7 @@ type ChangeLayout struct {
 
 func (x *ChangeLayout) Reset() {
 	*x = ChangeLayout{}
-	mi := &file_wire_proto_msgTypes[70]
+	mi := &file_wire_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5231,7 +5345,7 @@ func (x *ChangeLayout) String() string {
 func (*ChangeLayout) ProtoMessage() {}
 
 func (x *ChangeLayout) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[70]
+	mi := &file_wire_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5244,7 +5358,7 @@ func (x *ChangeLayout) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeLayout.ProtoReflect.Descriptor instead.
 func (*ChangeLayout) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{70}
+	return file_wire_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *ChangeLayout) GetLayoutId() string {
@@ -5263,7 +5377,7 @@ type ChangeRunways struct {
 
 func (x *ChangeRunways) Reset() {
 	*x = ChangeRunways{}
-	mi := &file_wire_proto_msgTypes[71]
+	mi := &file_wire_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5275,7 +5389,7 @@ func (x *ChangeRunways) String() string {
 func (*ChangeRunways) ProtoMessage() {}
 
 func (x *ChangeRunways) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[71]
+	mi := &file_wire_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5288,7 +5402,7 @@ func (x *ChangeRunways) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeRunways.ProtoReflect.Descriptor instead.
 func (*ChangeRunways) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{71}
+	return file_wire_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *ChangeRunways) GetRunways() []*Runway {
@@ -5308,7 +5422,7 @@ type UpdateRunwayStatus struct {
 
 func (x *UpdateRunwayStatus) Reset() {
 	*x = UpdateRunwayStatus{}
-	mi := &file_wire_proto_msgTypes[72]
+	mi := &file_wire_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5320,7 +5434,7 @@ func (x *UpdateRunwayStatus) String() string {
 func (*UpdateRunwayStatus) ProtoMessage() {}
 
 func (x *UpdateRunwayStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[72]
+	mi := &file_wire_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5333,7 +5447,7 @@ func (x *UpdateRunwayStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRunwayStatus.ProtoReflect.Descriptor instead.
 func (*UpdateRunwayStatus) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{72}
+	return file_wire_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *UpdateRunwayStatus) GetPair() string {
@@ -5366,7 +5480,7 @@ type ValidationActionCommand struct {
 
 func (x *ValidationActionCommand) Reset() {
 	*x = ValidationActionCommand{}
-	mi := &file_wire_proto_msgTypes[73]
+	mi := &file_wire_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5378,7 +5492,7 @@ func (x *ValidationActionCommand) String() string {
 func (*ValidationActionCommand) ProtoMessage() {}
 
 func (x *ValidationActionCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[73]
+	mi := &file_wire_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5391,7 +5505,7 @@ func (x *ValidationActionCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationActionCommand.ProtoReflect.Descriptor instead.
 func (*ValidationActionCommand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{73}
+	return file_wire_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *ValidationActionCommand) GetCallsign() string {
@@ -5481,7 +5595,7 @@ type AcknowledgeUnexpectedChange struct {
 
 func (x *AcknowledgeUnexpectedChange) Reset() {
 	*x = AcknowledgeUnexpectedChange{}
-	mi := &file_wire_proto_msgTypes[74]
+	mi := &file_wire_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5493,7 +5607,7 @@ func (x *AcknowledgeUnexpectedChange) String() string {
 func (*AcknowledgeUnexpectedChange) ProtoMessage() {}
 
 func (x *AcknowledgeUnexpectedChange) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[74]
+	mi := &file_wire_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5506,7 +5620,7 @@ func (x *AcknowledgeUnexpectedChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcknowledgeUnexpectedChange.ProtoReflect.Descriptor instead.
 func (*AcknowledgeUnexpectedChange) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{74}
+	return file_wire_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *AcknowledgeUnexpectedChange) GetFieldName() string {
@@ -5530,7 +5644,7 @@ type FlightPlanAction struct {
 
 func (x *FlightPlanAction) Reset() {
 	*x = FlightPlanAction{}
-	mi := &file_wire_proto_msgTypes[75]
+	mi := &file_wire_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5542,7 +5656,7 @@ func (x *FlightPlanAction) String() string {
 func (*FlightPlanAction) ProtoMessage() {}
 
 func (x *FlightPlanAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[75]
+	mi := &file_wire_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5555,7 +5669,7 @@ func (x *FlightPlanAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlightPlanAction.ProtoReflect.Descriptor instead.
 func (*FlightPlanAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{75}
+	return file_wire_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *FlightPlanAction) GetCallsign() string {
@@ -5623,7 +5737,7 @@ type CreateManualFlightPlan struct {
 
 func (x *CreateManualFlightPlan) Reset() {
 	*x = CreateManualFlightPlan{}
-	mi := &file_wire_proto_msgTypes[76]
+	mi := &file_wire_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5635,7 +5749,7 @@ func (x *CreateManualFlightPlan) String() string {
 func (*CreateManualFlightPlan) ProtoMessage() {}
 
 func (x *CreateManualFlightPlan) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[76]
+	mi := &file_wire_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5648,7 +5762,7 @@ func (x *CreateManualFlightPlan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateManualFlightPlan.ProtoReflect.Descriptor instead.
 func (*CreateManualFlightPlan) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{76}
+	return file_wire_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *CreateManualFlightPlan) GetDestination() string {
@@ -5728,7 +5842,7 @@ type CreateVfrFlightPlan struct {
 
 func (x *CreateVfrFlightPlan) Reset() {
 	*x = CreateVfrFlightPlan{}
-	mi := &file_wire_proto_msgTypes[77]
+	mi := &file_wire_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5740,7 +5854,7 @@ func (x *CreateVfrFlightPlan) String() string {
 func (*CreateVfrFlightPlan) ProtoMessage() {}
 
 func (x *CreateVfrFlightPlan) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[77]
+	mi := &file_wire_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5753,7 +5867,7 @@ func (x *CreateVfrFlightPlan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateVfrFlightPlan.ProtoReflect.Descriptor instead.
 func (*CreateVfrFlightPlan) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{77}
+	return file_wire_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *CreateVfrFlightPlan) GetAircraftType() string {
@@ -5840,7 +5954,7 @@ type AmanAction struct {
 
 func (x *AmanAction) Reset() {
 	*x = AmanAction{}
-	mi := &file_wire_proto_msgTypes[78]
+	mi := &file_wire_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5852,7 +5966,7 @@ func (x *AmanAction) String() string {
 func (*AmanAction) ProtoMessage() {}
 
 func (x *AmanAction) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[78]
+	mi := &file_wire_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5865,7 +5979,7 @@ func (x *AmanAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanAction.ProtoReflect.Descriptor instead.
 func (*AmanAction) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{78}
+	return file_wire_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *AmanAction) GetExpectedAirportRevision() uint64 {
@@ -6345,7 +6459,7 @@ type AmanFlightUnary struct {
 
 func (x *AmanFlightUnary) Reset() {
 	*x = AmanFlightUnary{}
-	mi := &file_wire_proto_msgTypes[79]
+	mi := &file_wire_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6357,7 +6471,7 @@ func (x *AmanFlightUnary) String() string {
 func (*AmanFlightUnary) ProtoMessage() {}
 
 func (x *AmanFlightUnary) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[79]
+	mi := &file_wire_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6370,7 +6484,7 @@ func (x *AmanFlightUnary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanFlightUnary.ProtoReflect.Descriptor instead.
 func (*AmanFlightUnary) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{79}
+	return file_wire_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *AmanFlightUnary) GetCallsign() string {
@@ -6395,7 +6509,7 @@ type AmanMoveFlight struct {
 
 func (x *AmanMoveFlight) Reset() {
 	*x = AmanMoveFlight{}
-	mi := &file_wire_proto_msgTypes[80]
+	mi := &file_wire_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6407,7 +6521,7 @@ func (x *AmanMoveFlight) String() string {
 func (*AmanMoveFlight) ProtoMessage() {}
 
 func (x *AmanMoveFlight) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[80]
+	mi := &file_wire_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6420,7 +6534,7 @@ func (x *AmanMoveFlight) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanMoveFlight.ProtoReflect.Descriptor instead.
 func (*AmanMoveFlight) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{80}
+	return file_wire_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *AmanMoveFlight) GetCallsign() string {
@@ -6489,7 +6603,7 @@ type AmanRate struct {
 
 func (x *AmanRate) Reset() {
 	*x = AmanRate{}
-	mi := &file_wire_proto_msgTypes[81]
+	mi := &file_wire_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6501,7 +6615,7 @@ func (x *AmanRate) String() string {
 func (*AmanRate) ProtoMessage() {}
 
 func (x *AmanRate) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[81]
+	mi := &file_wire_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6514,7 +6628,7 @@ func (x *AmanRate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanRate.ProtoReflect.Descriptor instead.
 func (*AmanRate) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{81}
+	return file_wire_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *AmanRate) GetRunwayGroupId() string {
@@ -6548,7 +6662,7 @@ type AmanSelectRunway struct {
 
 func (x *AmanSelectRunway) Reset() {
 	*x = AmanSelectRunway{}
-	mi := &file_wire_proto_msgTypes[82]
+	mi := &file_wire_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6560,7 +6674,7 @@ func (x *AmanSelectRunway) String() string {
 func (*AmanSelectRunway) ProtoMessage() {}
 
 func (x *AmanSelectRunway) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[82]
+	mi := &file_wire_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6573,7 +6687,7 @@ func (x *AmanSelectRunway) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanSelectRunway.ProtoReflect.Descriptor instead.
 func (*AmanSelectRunway) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{82}
+	return file_wire_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *AmanSelectRunway) GetRunwayGroupId() string {
@@ -6599,7 +6713,7 @@ type AmanActiveRunways struct {
 
 func (x *AmanActiveRunways) Reset() {
 	*x = AmanActiveRunways{}
-	mi := &file_wire_proto_msgTypes[83]
+	mi := &file_wire_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6611,7 +6725,7 @@ func (x *AmanActiveRunways) String() string {
 func (*AmanActiveRunways) ProtoMessage() {}
 
 func (x *AmanActiveRunways) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[83]
+	mi := &file_wire_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6624,7 +6738,7 @@ func (x *AmanActiveRunways) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanActiveRunways.ProtoReflect.Descriptor instead.
 func (*AmanActiveRunways) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{83}
+	return file_wire_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *AmanActiveRunways) GetRunwayGroupIds() []string {
@@ -6644,7 +6758,7 @@ type AmanManualEta struct {
 
 func (x *AmanManualEta) Reset() {
 	*x = AmanManualEta{}
-	mi := &file_wire_proto_msgTypes[84]
+	mi := &file_wire_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6656,7 +6770,7 @@ func (x *AmanManualEta) String() string {
 func (*AmanManualEta) ProtoMessage() {}
 
 func (x *AmanManualEta) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[84]
+	mi := &file_wire_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6669,7 +6783,7 @@ func (x *AmanManualEta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanManualEta.ProtoReflect.Descriptor instead.
 func (*AmanManualEta) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{84}
+	return file_wire_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *AmanManualEta) GetCallsign() string {
@@ -6696,7 +6810,7 @@ type AmanChangeRunway struct {
 
 func (x *AmanChangeRunway) Reset() {
 	*x = AmanChangeRunway{}
-	mi := &file_wire_proto_msgTypes[85]
+	mi := &file_wire_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6708,7 +6822,7 @@ func (x *AmanChangeRunway) String() string {
 func (*AmanChangeRunway) ProtoMessage() {}
 
 func (x *AmanChangeRunway) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[85]
+	mi := &file_wire_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6721,7 +6835,7 @@ func (x *AmanChangeRunway) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanChangeRunway.ProtoReflect.Descriptor instead.
 func (*AmanChangeRunway) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{85}
+	return file_wire_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *AmanChangeRunway) GetCallsign() string {
@@ -6748,7 +6862,7 @@ type AmanReportGoAround struct {
 
 func (x *AmanReportGoAround) Reset() {
 	*x = AmanReportGoAround{}
-	mi := &file_wire_proto_msgTypes[86]
+	mi := &file_wire_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6760,7 +6874,7 @@ func (x *AmanReportGoAround) String() string {
 func (*AmanReportGoAround) ProtoMessage() {}
 
 func (x *AmanReportGoAround) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[86]
+	mi := &file_wire_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6773,7 +6887,7 @@ func (x *AmanReportGoAround) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanReportGoAround.ProtoReflect.Descriptor instead.
 func (*AmanReportGoAround) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{86}
+	return file_wire_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *AmanReportGoAround) GetCallsign() string {
@@ -6800,7 +6914,7 @@ type AmanDecideGoAround struct {
 
 func (x *AmanDecideGoAround) Reset() {
 	*x = AmanDecideGoAround{}
-	mi := &file_wire_proto_msgTypes[87]
+	mi := &file_wire_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6812,7 +6926,7 @@ func (x *AmanDecideGoAround) String() string {
 func (*AmanDecideGoAround) ProtoMessage() {}
 
 func (x *AmanDecideGoAround) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[87]
+	mi := &file_wire_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6825,7 +6939,7 @@ func (x *AmanDecideGoAround) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanDecideGoAround.ProtoReflect.Descriptor instead.
 func (*AmanDecideGoAround) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{87}
+	return file_wire_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *AmanDecideGoAround) GetCallsign() string {
@@ -6858,7 +6972,7 @@ type AmanCreateGap struct {
 
 func (x *AmanCreateGap) Reset() {
 	*x = AmanCreateGap{}
-	mi := &file_wire_proto_msgTypes[88]
+	mi := &file_wire_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6870,7 +6984,7 @@ func (x *AmanCreateGap) String() string {
 func (*AmanCreateGap) ProtoMessage() {}
 
 func (x *AmanCreateGap) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[88]
+	mi := &file_wire_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6883,7 +6997,7 @@ func (x *AmanCreateGap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanCreateGap.ProtoReflect.Descriptor instead.
 func (*AmanCreateGap) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{88}
+	return file_wire_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *AmanCreateGap) GetRunwayGroupId() string {
@@ -6958,7 +7072,7 @@ type AmanRemoveGap struct {
 
 func (x *AmanRemoveGap) Reset() {
 	*x = AmanRemoveGap{}
-	mi := &file_wire_proto_msgTypes[89]
+	mi := &file_wire_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6970,7 +7084,7 @@ func (x *AmanRemoveGap) String() string {
 func (*AmanRemoveGap) ProtoMessage() {}
 
 func (x *AmanRemoveGap) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[89]
+	mi := &file_wire_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6983,7 +7097,7 @@ func (x *AmanRemoveGap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanRemoveGap.ProtoReflect.Descriptor instead.
 func (*AmanRemoveGap) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{89}
+	return file_wire_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *AmanRemoveGap) GetRunwayGroupId() string {
@@ -7016,7 +7130,7 @@ type AmanCreateClosure struct {
 
 func (x *AmanCreateClosure) Reset() {
 	*x = AmanCreateClosure{}
-	mi := &file_wire_proto_msgTypes[90]
+	mi := &file_wire_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7028,7 +7142,7 @@ func (x *AmanCreateClosure) String() string {
 func (*AmanCreateClosure) ProtoMessage() {}
 
 func (x *AmanCreateClosure) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[90]
+	mi := &file_wire_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7041,7 +7155,7 @@ func (x *AmanCreateClosure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanCreateClosure.ProtoReflect.Descriptor instead.
 func (*AmanCreateClosure) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{90}
+	return file_wire_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *AmanCreateClosure) GetRunwayGroupId() string {
@@ -7117,7 +7231,7 @@ type AmanRemoveClosure struct {
 
 func (x *AmanRemoveClosure) Reset() {
 	*x = AmanRemoveClosure{}
-	mi := &file_wire_proto_msgTypes[91]
+	mi := &file_wire_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7129,7 +7243,7 @@ func (x *AmanRemoveClosure) String() string {
 func (*AmanRemoveClosure) ProtoMessage() {}
 
 func (x *AmanRemoveClosure) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[91]
+	mi := &file_wire_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7142,7 +7256,7 @@ func (x *AmanRemoveClosure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanRemoveClosure.ProtoReflect.Descriptor instead.
 func (*AmanRemoveClosure) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{91}
+	return file_wire_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *AmanRemoveClosure) GetRunwayGroupId() string {
@@ -7178,7 +7292,7 @@ type AmanCreateReservation struct {
 
 func (x *AmanCreateReservation) Reset() {
 	*x = AmanCreateReservation{}
-	mi := &file_wire_proto_msgTypes[92]
+	mi := &file_wire_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7190,7 +7304,7 @@ func (x *AmanCreateReservation) String() string {
 func (*AmanCreateReservation) ProtoMessage() {}
 
 func (x *AmanCreateReservation) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[92]
+	mi := &file_wire_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7203,7 +7317,7 @@ func (x *AmanCreateReservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanCreateReservation.ProtoReflect.Descriptor instead.
 func (*AmanCreateReservation) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{92}
+	return file_wire_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *AmanCreateReservation) GetRunwayGroupId() string {
@@ -7245,7 +7359,7 @@ type AmanRemoveReservation struct {
 
 func (x *AmanRemoveReservation) Reset() {
 	*x = AmanRemoveReservation{}
-	mi := &file_wire_proto_msgTypes[93]
+	mi := &file_wire_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7257,7 +7371,7 @@ func (x *AmanRemoveReservation) String() string {
 func (*AmanRemoveReservation) ProtoMessage() {}
 
 func (x *AmanRemoveReservation) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[93]
+	mi := &file_wire_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7270,7 +7384,7 @@ func (x *AmanRemoveReservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanRemoveReservation.ProtoReflect.Descriptor instead.
 func (*AmanRemoveReservation) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{93}
+	return file_wire_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *AmanRemoveReservation) GetRunwayGroupId() string {
@@ -7306,7 +7420,7 @@ type AmanPlaceFlight struct {
 
 func (x *AmanPlaceFlight) Reset() {
 	*x = AmanPlaceFlight{}
-	mi := &file_wire_proto_msgTypes[94]
+	mi := &file_wire_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7318,7 +7432,7 @@ func (x *AmanPlaceFlight) String() string {
 func (*AmanPlaceFlight) ProtoMessage() {}
 
 func (x *AmanPlaceFlight) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[94]
+	mi := &file_wire_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7331,7 +7445,7 @@ func (x *AmanPlaceFlight) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanPlaceFlight.ProtoReflect.Descriptor instead.
 func (*AmanPlaceFlight) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{94}
+	return file_wire_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *AmanPlaceFlight) GetCallsign() string {
@@ -7377,7 +7491,7 @@ type AmanSubmitCoordination struct {
 
 func (x *AmanSubmitCoordination) Reset() {
 	*x = AmanSubmitCoordination{}
-	mi := &file_wire_proto_msgTypes[95]
+	mi := &file_wire_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7389,7 +7503,7 @@ func (x *AmanSubmitCoordination) String() string {
 func (*AmanSubmitCoordination) ProtoMessage() {}
 
 func (x *AmanSubmitCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[95]
+	mi := &file_wire_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7402,7 +7516,7 @@ func (x *AmanSubmitCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanSubmitCoordination.ProtoReflect.Descriptor instead.
 func (*AmanSubmitCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{95}
+	return file_wire_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *AmanSubmitCoordination) GetCallsign() string {
@@ -7470,7 +7584,7 @@ type AmanDecideCoordination struct {
 
 func (x *AmanDecideCoordination) Reset() {
 	*x = AmanDecideCoordination{}
-	mi := &file_wire_proto_msgTypes[96]
+	mi := &file_wire_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7482,7 +7596,7 @@ func (x *AmanDecideCoordination) String() string {
 func (*AmanDecideCoordination) ProtoMessage() {}
 
 func (x *AmanDecideCoordination) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[96]
+	mi := &file_wire_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7495,7 +7609,7 @@ func (x *AmanDecideCoordination) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AmanDecideCoordination.ProtoReflect.Descriptor instead.
 func (*AmanDecideCoordination) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{96}
+	return file_wire_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *AmanDecideCoordination) GetCoordinationRequestId() string {
@@ -7527,6 +7641,7 @@ type SystemCommand struct {
 	//	*SystemCommand_RecordSync
 	//	*SystemCommand_SetPositionLayout
 	//	*SystemCommand_ReplaceSectorOwners
+	//	*SystemCommand_ElectSessionMaster
 	Action        isSystemCommand_Action `protobuf_oneof:"action"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7534,7 +7649,7 @@ type SystemCommand struct {
 
 func (x *SystemCommand) Reset() {
 	*x = SystemCommand{}
-	mi := &file_wire_proto_msgTypes[97]
+	mi := &file_wire_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7546,7 +7661,7 @@ func (x *SystemCommand) String() string {
 func (*SystemCommand) ProtoMessage() {}
 
 func (x *SystemCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[97]
+	mi := &file_wire_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7559,7 +7674,7 @@ func (x *SystemCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemCommand.ProtoReflect.Descriptor instead.
 func (*SystemCommand) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{97}
+	return file_wire_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *SystemCommand) GetAction() isSystemCommand_Action {
@@ -7668,6 +7783,15 @@ func (x *SystemCommand) GetReplaceSectorOwners() *ReplaceSectorOwners {
 	return nil
 }
 
+func (x *SystemCommand) GetElectSessionMaster() *ElectSessionMaster {
+	if x != nil {
+		if x, ok := x.Action.(*SystemCommand_ElectSessionMaster); ok {
+			return x.ElectSessionMaster
+		}
+	}
+	return nil
+}
+
 type isSystemCommand_Action interface {
 	isSystemCommand_Action()
 }
@@ -7716,6 +7840,10 @@ type SystemCommand_ReplaceSectorOwners struct {
 	ReplaceSectorOwners *ReplaceSectorOwners `protobuf:"bytes,11,opt,name=replace_sector_owners,json=replaceSectorOwners,proto3,oneof"`
 }
 
+type SystemCommand_ElectSessionMaster struct {
+	ElectSessionMaster *ElectSessionMaster `protobuf:"bytes,12,opt,name=elect_session_master,json=electSessionMaster,proto3,oneof"`
+}
+
 func (*SystemCommand_CreateSession) isSystemCommand_Action() {}
 
 func (*SystemCommand_DeleteSession) isSystemCommand_Action() {}
@@ -7738,6 +7866,8 @@ func (*SystemCommand_SetPositionLayout) isSystemCommand_Action() {}
 
 func (*SystemCommand_ReplaceSectorOwners) isSystemCommand_Action() {}
 
+func (*SystemCommand_ElectSessionMaster) isSystemCommand_Action() {}
+
 type CreateSession struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -7750,7 +7880,7 @@ type CreateSession struct {
 
 func (x *CreateSession) Reset() {
 	*x = CreateSession{}
-	mi := &file_wire_proto_msgTypes[98]
+	mi := &file_wire_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7762,7 +7892,7 @@ func (x *CreateSession) String() string {
 func (*CreateSession) ProtoMessage() {}
 
 func (x *CreateSession) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[98]
+	mi := &file_wire_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7775,7 +7905,7 @@ func (x *CreateSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSession.ProtoReflect.Descriptor instead.
 func (*CreateSession) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{98}
+	return file_wire_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *CreateSession) GetId() int32 {
@@ -7816,7 +7946,7 @@ type DeleteSession struct {
 
 func (x *DeleteSession) Reset() {
 	*x = DeleteSession{}
-	mi := &file_wire_proto_msgTypes[99]
+	mi := &file_wire_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7828,7 +7958,7 @@ func (x *DeleteSession) String() string {
 func (*DeleteSession) ProtoMessage() {}
 
 func (x *DeleteSession) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[99]
+	mi := &file_wire_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7841,7 +7971,7 @@ func (x *DeleteSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSession.ProtoReflect.Descriptor instead.
 func (*DeleteSession) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{99}
+	return file_wire_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *DeleteSession) GetId() int32 {
@@ -7868,7 +7998,7 @@ type UpdateEntity struct {
 
 func (x *UpdateEntity) Reset() {
 	*x = UpdateEntity{}
-	mi := &file_wire_proto_msgTypes[100]
+	mi := &file_wire_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7880,7 +8010,7 @@ func (x *UpdateEntity) String() string {
 func (*UpdateEntity) ProtoMessage() {}
 
 func (x *UpdateEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[100]
+	mi := &file_wire_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7893,7 +8023,7 @@ func (x *UpdateEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEntity.ProtoReflect.Descriptor instead.
 func (*UpdateEntity) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{100}
+	return file_wire_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *UpdateEntity) GetKey() string {
@@ -7920,7 +8050,7 @@ type RemoveEntity struct {
 
 func (x *RemoveEntity) Reset() {
 	*x = RemoveEntity{}
-	mi := &file_wire_proto_msgTypes[101]
+	mi := &file_wire_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7932,7 +8062,7 @@ func (x *RemoveEntity) String() string {
 func (*RemoveEntity) ProtoMessage() {}
 
 func (x *RemoveEntity) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[101]
+	mi := &file_wire_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7945,7 +8075,7 @@ func (x *RemoveEntity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveEntity.ProtoReflect.Descriptor instead.
 func (*RemoveEntity) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{101}
+	return file_wire_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *RemoveEntity) GetKey() string {
@@ -7972,7 +8102,7 @@ type SetPositionLayout struct {
 
 func (x *SetPositionLayout) Reset() {
 	*x = SetPositionLayout{}
-	mi := &file_wire_proto_msgTypes[102]
+	mi := &file_wire_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7984,7 +8114,7 @@ func (x *SetPositionLayout) String() string {
 func (*SetPositionLayout) ProtoMessage() {}
 
 func (x *SetPositionLayout) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[102]
+	mi := &file_wire_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7997,7 +8127,7 @@ func (x *SetPositionLayout) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetPositionLayout.ProtoReflect.Descriptor instead.
 func (*SetPositionLayout) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{102}
+	return file_wire_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *SetPositionLayout) GetPosition() string {
@@ -8023,7 +8153,7 @@ type ReplaceSectorOwners struct {
 
 func (x *ReplaceSectorOwners) Reset() {
 	*x = ReplaceSectorOwners{}
-	mi := &file_wire_proto_msgTypes[103]
+	mi := &file_wire_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8035,7 +8165,7 @@ func (x *ReplaceSectorOwners) String() string {
 func (*ReplaceSectorOwners) ProtoMessage() {}
 
 func (x *ReplaceSectorOwners) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[103]
+	mi := &file_wire_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8048,7 +8178,7 @@ func (x *ReplaceSectorOwners) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplaceSectorOwners.ProtoReflect.Descriptor instead.
 func (*ReplaceSectorOwners) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{103}
+	return file_wire_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *ReplaceSectorOwners) GetOwners() []*SectorOwner {
@@ -8067,7 +8197,7 @@ type ClaimOwner struct {
 
 func (x *ClaimOwner) Reset() {
 	*x = ClaimOwner{}
-	mi := &file_wire_proto_msgTypes[104]
+	mi := &file_wire_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8079,7 +8209,7 @@ func (x *ClaimOwner) String() string {
 func (*ClaimOwner) ProtoMessage() {}
 
 func (x *ClaimOwner) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[104]
+	mi := &file_wire_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8092,7 +8222,7 @@ func (x *ClaimOwner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClaimOwner.ProtoReflect.Descriptor instead.
 func (*ClaimOwner) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{104}
+	return file_wire_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *ClaimOwner) GetProposed() *OwnerTerm {
@@ -8111,7 +8241,7 @@ type RenewOwner struct {
 
 func (x *RenewOwner) Reset() {
 	*x = RenewOwner{}
-	mi := &file_wire_proto_msgTypes[105]
+	mi := &file_wire_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8123,7 +8253,7 @@ func (x *RenewOwner) String() string {
 func (*RenewOwner) ProtoMessage() {}
 
 func (x *RenewOwner) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[105]
+	mi := &file_wire_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8136,7 +8266,7 @@ func (x *RenewOwner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewOwner.ProtoReflect.Descriptor instead.
 func (*RenewOwner) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{105}
+	return file_wire_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *RenewOwner) GetProposed() *OwnerTerm {
@@ -8155,7 +8285,7 @@ type AdvanceWorkflow struct {
 
 func (x *AdvanceWorkflow) Reset() {
 	*x = AdvanceWorkflow{}
-	mi := &file_wire_proto_msgTypes[106]
+	mi := &file_wire_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8167,7 +8297,7 @@ func (x *AdvanceWorkflow) String() string {
 func (*AdvanceWorkflow) ProtoMessage() {}
 
 func (x *AdvanceWorkflow) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[106]
+	mi := &file_wire_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8180,7 +8310,7 @@ func (x *AdvanceWorkflow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceWorkflow.ProtoReflect.Descriptor instead.
 func (*AdvanceWorkflow) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{106}
+	return file_wire_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *AdvanceWorkflow) GetWorkflow() *WorkflowRecord {
@@ -8199,7 +8329,7 @@ type AdvanceEffect struct {
 
 func (x *AdvanceEffect) Reset() {
 	*x = AdvanceEffect{}
-	mi := &file_wire_proto_msgTypes[107]
+	mi := &file_wire_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8211,7 +8341,7 @@ func (x *AdvanceEffect) String() string {
 func (*AdvanceEffect) ProtoMessage() {}
 
 func (x *AdvanceEffect) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[107]
+	mi := &file_wire_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8224,7 +8354,7 @@ func (x *AdvanceEffect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceEffect.ProtoReflect.Descriptor instead.
 func (*AdvanceEffect) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{107}
+	return file_wire_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *AdvanceEffect) GetEffect() *EffectRecord {
@@ -8243,7 +8373,7 @@ type RecordSessionSync struct {
 
 func (x *RecordSessionSync) Reset() {
 	*x = RecordSessionSync{}
-	mi := &file_wire_proto_msgTypes[108]
+	mi := &file_wire_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8255,7 +8385,7 @@ func (x *RecordSessionSync) String() string {
 func (*RecordSessionSync) ProtoMessage() {}
 
 func (x *RecordSessionSync) ProtoReflect() protoreflect.Message {
-	mi := &file_wire_proto_msgTypes[108]
+	mi := &file_wire_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8268,12 +8398,57 @@ func (x *RecordSessionSync) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordSessionSync.ProtoReflect.Descriptor instead.
 func (*RecordSessionSync) Descriptor() ([]byte, []int) {
-	return file_wire_proto_rawDescGZIP(), []int{108}
+	return file_wire_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *RecordSessionSync) GetSync() *SessionSync {
 	if x != nil {
 		return x.Sync
+	}
+	return nil
+}
+
+// Empty connection_id and cid commit a vacant term while retaining the epoch.
+type ElectSessionMaster struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Master        *MasterTerm            `protobuf:"bytes,1,opt,name=master,proto3" json:"master,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ElectSessionMaster) Reset() {
+	*x = ElectSessionMaster{}
+	mi := &file_wire_proto_msgTypes[111]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ElectSessionMaster) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ElectSessionMaster) ProtoMessage() {}
+
+func (x *ElectSessionMaster) ProtoReflect() protoreflect.Message {
+	mi := &file_wire_proto_msgTypes[111]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ElectSessionMaster.ProtoReflect.Descriptor instead.
+func (*ElectSessionMaster) Descriptor() ([]byte, []int) {
+	return file_wire_proto_rawDescGZIP(), []int{111}
+}
+
+func (x *ElectSessionMaster) GetMaster() *MasterTerm {
+	if x != nil {
+		return x.Master
 	}
 	return nil
 }
@@ -8322,7 +8497,16 @@ const file_wire_proto_rawDesc = "" +
 	"\x18_current_entity_revisionB\x10\n" +
 	"\x0e_current_ownerB\n" +
 	"\n" +
-	"\b_outcome\"\xc2\x06\n" +
+	"\b_outcome\"\x9a\x01\n" +
+	"\x15EffectDeliveryRequest\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\x05R\tsessionId\x12#\n" +
+	"\rconnection_id\x18\x02 \x01(\tR\fconnectionId\x12=\n" +
+	"\x06effect\x18\x03 \x01(\v2%.flightstrips.cluster.v1.EffectRecordR\x06effect\"P\n" +
+	"\x13EffectDeliveryReply\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x1a\n" +
+	"\baccepted\x18\x02 \x01(\bR\baccepted\"\xc2\x06\n" +
 	"\rFrontendFrame\x12+\n" +
 	"\x11protocol_revision\x18\x01 \x01(\rR\x10protocolRevision\x12S\n" +
 	"\fauthenticate\x18\x02 \x01(\v2-.flightstrips.cluster.v1.FrontendAuthenticateH\x00R\fauthenticate\x12D\n" +
@@ -8839,7 +9023,7 @@ const file_wire_proto_rawDesc = "" +
 	"\x16AmanDecideCoordination\x126\n" +
 	"\x17coordination_request_id\x18\x01 \x01(\tR\x15coordinationRequestId\x12\x1b\n" +
 	"\x06reason\x18\x02 \x01(\tH\x00R\x06reason\x88\x01\x01B\t\n" +
-	"\a_reason\"\xa0\a\n" +
+	"\a_reason\"\x81\b\n" +
 	"\rSystemCommand\x12O\n" +
 	"\x0ecreate_session\x18\x01 \x01(\v2&.flightstrips.cluster.v1.CreateSessionH\x00R\rcreateSession\x12O\n" +
 	"\x0edelete_session\x18\x02 \x01(\v2&.flightstrips.cluster.v1.DeleteSessionH\x00R\rdeleteSession\x12L\n" +
@@ -8855,7 +9039,8 @@ const file_wire_proto_rawDesc = "" +
 	"recordSync\x12\\\n" +
 	"\x13set_position_layout\x18\n" +
 	" \x01(\v2*.flightstrips.cluster.v1.SetPositionLayoutH\x00R\x11setPositionLayout\x12b\n" +
-	"\x15replace_sector_owners\x18\v \x01(\v2,.flightstrips.cluster.v1.ReplaceSectorOwnersH\x00R\x13replaceSectorOwnersB\b\n" +
+	"\x15replace_sector_owners\x18\v \x01(\v2,.flightstrips.cluster.v1.ReplaceSectorOwnersH\x00R\x13replaceSectorOwners\x12_\n" +
+	"\x14elect_session_master\x18\f \x01(\v2+.flightstrips.cluster.v1.ElectSessionMasterH\x00R\x12electSessionMasterB\b\n" +
 	"\x06action\"n\n" +
 	"\rCreateSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x18\n" +
@@ -8889,7 +9074,9 @@ const file_wire_proto_rawDesc = "" +
 	"\rAdvanceEffect\x12=\n" +
 	"\x06effect\x18\x01 \x01(\v2%.flightstrips.cluster.v1.EffectRecordR\x06effect\"M\n" +
 	"\x11RecordSessionSync\x128\n" +
-	"\x04sync\x18\x01 \x01(\v2$.flightstrips.cluster.v1.SessionSyncR\x04syncB)Z'FlightStrips/pkg/events/cluster;clusterb\x06proto3"
+	"\x04sync\x18\x01 \x01(\v2$.flightstrips.cluster.v1.SessionSyncR\x04sync\"Q\n" +
+	"\x12ElectSessionMaster\x12;\n" +
+	"\x06master\x18\x01 \x01(\v2#.flightstrips.cluster.v1.MasterTermR\x06masterB)Z'FlightStrips/pkg/events/cluster;clusterb\x06proto3"
 
 var (
 	file_wire_proto_rawDescOnce sync.Once
@@ -8904,326 +9091,333 @@ func file_wire_proto_rawDescGZIP() []byte {
 }
 
 var file_wire_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_wire_proto_msgTypes = make([]protoimpl.MessageInfo, 109)
+var file_wire_proto_msgTypes = make([]protoimpl.MessageInfo, 112)
 var file_wire_proto_goTypes = []any{
 	(CommandReply_Status)(0),            // 0: flightstrips.cluster.v1.CommandReply.Status
 	(FrontendError_Code)(0),             // 1: flightstrips.cluster.v1.FrontendError.Code
 	(SetStripText_Field)(0),             // 2: flightstrips.cluster.v1.SetStripText.Field
 	(*CommandRequest)(nil),              // 3: flightstrips.cluster.v1.CommandRequest
 	(*CommandReply)(nil),                // 4: flightstrips.cluster.v1.CommandReply
-	(*FrontendFrame)(nil),               // 5: flightstrips.cluster.v1.FrontendFrame
-	(*FrontendAuthenticate)(nil),        // 6: flightstrips.cluster.v1.FrontendAuthenticate
-	(*FrontendCommand)(nil),             // 7: flightstrips.cluster.v1.FrontendCommand
-	(*ActionStatusQuery)(nil),           // 8: flightstrips.cluster.v1.ActionStatusQuery
-	(*FrontendInitial)(nil),             // 9: flightstrips.cluster.v1.FrontendInitial
-	(*FrontendDelta)(nil),               // 10: flightstrips.cluster.v1.FrontendDelta
-	(*FrontendObservation)(nil),         // 11: flightstrips.cluster.v1.FrontendObservation
-	(*FrontendActionResult)(nil),        // 12: flightstrips.cluster.v1.FrontendActionResult
-	(*ActionStatusMissing)(nil),         // 13: flightstrips.cluster.v1.ActionStatusMissing
-	(*FrontendError)(nil),               // 14: flightstrips.cluster.v1.FrontendError
-	(*FrontendHeartbeat)(nil),           // 15: flightstrips.cluster.v1.FrontendHeartbeat
-	(*ClientCommand)(nil),               // 16: flightstrips.cluster.v1.ClientCommand
-	(*StripAction)(nil),                 // 17: flightstrips.cluster.v1.StripAction
-	(*SetHeading)(nil),                  // 18: flightstrips.cluster.v1.SetHeading
-	(*SetSquawk)(nil),                   // 19: flightstrips.cluster.v1.SetSquawk
-	(*SetAltitude)(nil),                 // 20: flightstrips.cluster.v1.SetAltitude
-	(*SetBay)(nil),                      // 21: flightstrips.cluster.v1.SetBay
-	(*SetReleasePoint)(nil),             // 22: flightstrips.cluster.v1.SetReleasePoint
-	(*SetMarked)(nil),                   // 23: flightstrips.cluster.v1.SetMarked
-	(*SetRunwayFlag)(nil),               // 24: flightstrips.cluster.v1.SetRunwayFlag
-	(*SetStartRequested)(nil),           // 25: flightstrips.cluster.v1.SetStartRequested
-	(*StripRef)(nil),                    // 26: flightstrips.cluster.v1.StripRef
-	(*SetStripOrder)(nil),               // 27: flightstrips.cluster.v1.SetStripOrder
-	(*MoveStrip)(nil),                   // 28: flightstrips.cluster.v1.MoveStrip
-	(*GenerateSquawk)(nil),              // 29: flightstrips.cluster.v1.GenerateSquawk
-	(*UpdateStripData)(nil),             // 30: flightstrips.cluster.v1.UpdateStripData
-	(*MissedApproach)(nil),              // 31: flightstrips.cluster.v1.MissedApproach
-	(*SetStripText)(nil),                // 32: flightstrips.cluster.v1.SetStripText
-	(*CoordinationAction)(nil),          // 33: flightstrips.cluster.v1.CoordinationAction
-	(*TransferCoordination)(nil),        // 34: flightstrips.cluster.v1.TransferCoordination
-	(*AssumeCoordination)(nil),          // 35: flightstrips.cluster.v1.AssumeCoordination
-	(*ForceAssumeCoordination)(nil),     // 36: flightstrips.cluster.v1.ForceAssumeCoordination
-	(*FreeCoordination)(nil),            // 37: flightstrips.cluster.v1.FreeCoordination
-	(*CancelCoordination)(nil),          // 38: flightstrips.cluster.v1.CancelCoordination
-	(*TagCoordination)(nil),             // 39: flightstrips.cluster.v1.TagCoordination
-	(*AcceptTagCoordination)(nil),       // 40: flightstrips.cluster.v1.AcceptTagCoordination
-	(*TacticalAction)(nil),              // 41: flightstrips.cluster.v1.TacticalAction
-	(*CreateTactical)(nil),              // 42: flightstrips.cluster.v1.CreateTactical
-	(*DeleteTactical)(nil),              // 43: flightstrips.cluster.v1.DeleteTactical
-	(*ConfirmTactical)(nil),             // 44: flightstrips.cluster.v1.ConfirmTactical
-	(*ForceAssumeTactical)(nil),         // 45: flightstrips.cluster.v1.ForceAssumeTactical
-	(*MarkTactical)(nil),                // 46: flightstrips.cluster.v1.MarkTactical
-	(*StartTacticalTimer)(nil),          // 47: flightstrips.cluster.v1.StartTacticalTimer
-	(*MoveTactical)(nil),                // 48: flightstrips.cluster.v1.MoveTactical
-	(*StandAction)(nil),                 // 49: flightstrips.cluster.v1.StandAction
-	(*OccupyStand)(nil),                 // 50: flightstrips.cluster.v1.OccupyStand
-	(*VacateStand)(nil),                 // 51: flightstrips.cluster.v1.VacateStand
-	(*AutomaticStand)(nil),              // 52: flightstrips.cluster.v1.AutomaticStand
-	(*ManualStand)(nil),                 // 53: flightstrips.cluster.v1.ManualStand
-	(*ConfirmStandOverride)(nil),        // 54: flightstrips.cluster.v1.ConfirmStandOverride
-	(*AcknowledgeStand)(nil),            // 55: flightstrips.cluster.v1.AcknowledgeStand
-	(*CreateStandBlock)(nil),            // 56: flightstrips.cluster.v1.CreateStandBlock
-	(*RemoveStandBlock)(nil),            // 57: flightstrips.cluster.v1.RemoveStandBlock
-	(*CdmAction)(nil),                   // 58: flightstrips.cluster.v1.CdmAction
-	(*SetTobt)(nil),                     // 59: flightstrips.cluster.v1.SetTobt
-	(*SetCdmReady)(nil),                 // 60: flightstrips.cluster.v1.SetCdmReady
-	(*SetCdmDeice)(nil),                 // 61: flightstrips.cluster.v1.SetCdmDeice
-	(*SetCdmCtot)(nil),                  // 62: flightstrips.cluster.v1.SetCdmCtot
-	(*RemoveCdmCtot)(nil),               // 63: flightstrips.cluster.v1.RemoveCdmCtot
-	(*PdcAction)(nil),                   // 64: flightstrips.cluster.v1.PdcAction
-	(*IssuePdc)(nil),                    // 65: flightstrips.cluster.v1.IssuePdc
-	(*RevertPdcToVoice)(nil),            // 66: flightstrips.cluster.v1.RevertPdcToVoice
-	(*AcknowledgePdc)(nil),              // 67: flightstrips.cluster.v1.AcknowledgePdc
-	(*UnablePdc)(nil),                   // 68: flightstrips.cluster.v1.UnablePdc
-	(*MessageAction)(nil),               // 69: flightstrips.cluster.v1.MessageAction
-	(*BroadcastMessage)(nil),            // 70: flightstrips.cluster.v1.BroadcastMessage
-	(*PrivateMessage)(nil),              // 71: flightstrips.cluster.v1.PrivateMessage
-	(*SessionAction)(nil),               // 72: flightstrips.cluster.v1.SessionAction
-	(*ChangeLayout)(nil),                // 73: flightstrips.cluster.v1.ChangeLayout
-	(*ChangeRunways)(nil),               // 74: flightstrips.cluster.v1.ChangeRunways
-	(*UpdateRunwayStatus)(nil),          // 75: flightstrips.cluster.v1.UpdateRunwayStatus
-	(*ValidationActionCommand)(nil),     // 76: flightstrips.cluster.v1.ValidationActionCommand
-	(*AcknowledgeUnexpectedChange)(nil), // 77: flightstrips.cluster.v1.AcknowledgeUnexpectedChange
-	(*FlightPlanAction)(nil),            // 78: flightstrips.cluster.v1.FlightPlanAction
-	(*CreateManualFlightPlan)(nil),      // 79: flightstrips.cluster.v1.CreateManualFlightPlan
-	(*CreateVfrFlightPlan)(nil),         // 80: flightstrips.cluster.v1.CreateVfrFlightPlan
-	(*AmanAction)(nil),                  // 81: flightstrips.cluster.v1.AmanAction
-	(*AmanFlightUnary)(nil),             // 82: flightstrips.cluster.v1.AmanFlightUnary
-	(*AmanMoveFlight)(nil),              // 83: flightstrips.cluster.v1.AmanMoveFlight
-	(*AmanRate)(nil),                    // 84: flightstrips.cluster.v1.AmanRate
-	(*AmanSelectRunway)(nil),            // 85: flightstrips.cluster.v1.AmanSelectRunway
-	(*AmanActiveRunways)(nil),           // 86: flightstrips.cluster.v1.AmanActiveRunways
-	(*AmanManualEta)(nil),               // 87: flightstrips.cluster.v1.AmanManualEta
-	(*AmanChangeRunway)(nil),            // 88: flightstrips.cluster.v1.AmanChangeRunway
-	(*AmanReportGoAround)(nil),          // 89: flightstrips.cluster.v1.AmanReportGoAround
-	(*AmanDecideGoAround)(nil),          // 90: flightstrips.cluster.v1.AmanDecideGoAround
-	(*AmanCreateGap)(nil),               // 91: flightstrips.cluster.v1.AmanCreateGap
-	(*AmanRemoveGap)(nil),               // 92: flightstrips.cluster.v1.AmanRemoveGap
-	(*AmanCreateClosure)(nil),           // 93: flightstrips.cluster.v1.AmanCreateClosure
-	(*AmanRemoveClosure)(nil),           // 94: flightstrips.cluster.v1.AmanRemoveClosure
-	(*AmanCreateReservation)(nil),       // 95: flightstrips.cluster.v1.AmanCreateReservation
-	(*AmanRemoveReservation)(nil),       // 96: flightstrips.cluster.v1.AmanRemoveReservation
-	(*AmanPlaceFlight)(nil),             // 97: flightstrips.cluster.v1.AmanPlaceFlight
-	(*AmanSubmitCoordination)(nil),      // 98: flightstrips.cluster.v1.AmanSubmitCoordination
-	(*AmanDecideCoordination)(nil),      // 99: flightstrips.cluster.v1.AmanDecideCoordination
-	(*SystemCommand)(nil),               // 100: flightstrips.cluster.v1.SystemCommand
-	(*CreateSession)(nil),               // 101: flightstrips.cluster.v1.CreateSession
-	(*DeleteSession)(nil),               // 102: flightstrips.cluster.v1.DeleteSession
-	(*UpdateEntity)(nil),                // 103: flightstrips.cluster.v1.UpdateEntity
-	(*RemoveEntity)(nil),                // 104: flightstrips.cluster.v1.RemoveEntity
-	(*SetPositionLayout)(nil),           // 105: flightstrips.cluster.v1.SetPositionLayout
-	(*ReplaceSectorOwners)(nil),         // 106: flightstrips.cluster.v1.ReplaceSectorOwners
-	(*ClaimOwner)(nil),                  // 107: flightstrips.cluster.v1.ClaimOwner
-	(*RenewOwner)(nil),                  // 108: flightstrips.cluster.v1.RenewOwner
-	(*AdvanceWorkflow)(nil),             // 109: flightstrips.cluster.v1.AdvanceWorkflow
-	(*AdvanceEffect)(nil),               // 110: flightstrips.cluster.v1.AdvanceEffect
-	(*RecordSessionSync)(nil),           // 111: flightstrips.cluster.v1.RecordSessionSync
-	(*AggregateRef)(nil),                // 112: flightstrips.cluster.v1.AggregateRef
-	(*Actor)(nil),                       // 113: flightstrips.cluster.v1.Actor
-	(*OwnerTerm)(nil),                   // 114: flightstrips.cluster.v1.OwnerTerm
-	(*CommandOutcome)(nil),              // 115: flightstrips.cluster.v1.CommandOutcome
-	(*EntitySnapshot)(nil),              // 116: flightstrips.cluster.v1.EntitySnapshot
-	(*PositionValue)(nil),               // 117: flightstrips.cluster.v1.PositionValue
-	(*ClientPresence)(nil),              // 118: flightstrips.cluster.v1.ClientPresence
-	(*Controller)(nil),                  // 119: flightstrips.cluster.v1.Controller
-	(*SidInfo)(nil),                     // 120: flightstrips.cluster.v1.SidInfo
-	(*RunwayCfl)(nil),                   // 121: flightstrips.cluster.v1.RunwayCfl
-	(*EntityChange)(nil),                // 122: flightstrips.cluster.v1.EntityChange
-	(*WorkflowRecord)(nil),              // 123: flightstrips.cluster.v1.WorkflowRecord
-	(*PresenceValue)(nil),               // 124: flightstrips.cluster.v1.PresenceValue
-	(*timestamppb.Timestamp)(nil),       // 125: google.protobuf.Timestamp
-	(CommandOutcome_Status)(0),          // 126: flightstrips.cluster.v1.CommandOutcome.Status
-	(*Runway)(nil),                      // 127: flightstrips.cluster.v1.Runway
-	(*AcknowledgeValidation)(nil),       // 128: flightstrips.cluster.v1.AcknowledgeValidation
-	(*ClxOverrideAction)(nil),           // 129: flightstrips.cluster.v1.ClxOverrideAction
-	(*AmanRouteDirect)(nil),             // 130: flightstrips.cluster.v1.AmanRouteDirect
-	(*AmanSpeed)(nil),                   // 131: flightstrips.cluster.v1.AmanSpeed
-	(*EntityRecord)(nil),                // 132: flightstrips.cluster.v1.EntityRecord
-	(EntityKind)(0),                     // 133: flightstrips.cluster.v1.EntityKind
-	(*SectorOwner)(nil),                 // 134: flightstrips.cluster.v1.SectorOwner
-	(*EffectRecord)(nil),                // 135: flightstrips.cluster.v1.EffectRecord
-	(*SessionSync)(nil),                 // 136: flightstrips.cluster.v1.SessionSync
+	(*EffectDeliveryRequest)(nil),       // 5: flightstrips.cluster.v1.EffectDeliveryRequest
+	(*EffectDeliveryReply)(nil),         // 6: flightstrips.cluster.v1.EffectDeliveryReply
+	(*FrontendFrame)(nil),               // 7: flightstrips.cluster.v1.FrontendFrame
+	(*FrontendAuthenticate)(nil),        // 8: flightstrips.cluster.v1.FrontendAuthenticate
+	(*FrontendCommand)(nil),             // 9: flightstrips.cluster.v1.FrontendCommand
+	(*ActionStatusQuery)(nil),           // 10: flightstrips.cluster.v1.ActionStatusQuery
+	(*FrontendInitial)(nil),             // 11: flightstrips.cluster.v1.FrontendInitial
+	(*FrontendDelta)(nil),               // 12: flightstrips.cluster.v1.FrontendDelta
+	(*FrontendObservation)(nil),         // 13: flightstrips.cluster.v1.FrontendObservation
+	(*FrontendActionResult)(nil),        // 14: flightstrips.cluster.v1.FrontendActionResult
+	(*ActionStatusMissing)(nil),         // 15: flightstrips.cluster.v1.ActionStatusMissing
+	(*FrontendError)(nil),               // 16: flightstrips.cluster.v1.FrontendError
+	(*FrontendHeartbeat)(nil),           // 17: flightstrips.cluster.v1.FrontendHeartbeat
+	(*ClientCommand)(nil),               // 18: flightstrips.cluster.v1.ClientCommand
+	(*StripAction)(nil),                 // 19: flightstrips.cluster.v1.StripAction
+	(*SetHeading)(nil),                  // 20: flightstrips.cluster.v1.SetHeading
+	(*SetSquawk)(nil),                   // 21: flightstrips.cluster.v1.SetSquawk
+	(*SetAltitude)(nil),                 // 22: flightstrips.cluster.v1.SetAltitude
+	(*SetBay)(nil),                      // 23: flightstrips.cluster.v1.SetBay
+	(*SetReleasePoint)(nil),             // 24: flightstrips.cluster.v1.SetReleasePoint
+	(*SetMarked)(nil),                   // 25: flightstrips.cluster.v1.SetMarked
+	(*SetRunwayFlag)(nil),               // 26: flightstrips.cluster.v1.SetRunwayFlag
+	(*SetStartRequested)(nil),           // 27: flightstrips.cluster.v1.SetStartRequested
+	(*StripRef)(nil),                    // 28: flightstrips.cluster.v1.StripRef
+	(*SetStripOrder)(nil),               // 29: flightstrips.cluster.v1.SetStripOrder
+	(*MoveStrip)(nil),                   // 30: flightstrips.cluster.v1.MoveStrip
+	(*GenerateSquawk)(nil),              // 31: flightstrips.cluster.v1.GenerateSquawk
+	(*UpdateStripData)(nil),             // 32: flightstrips.cluster.v1.UpdateStripData
+	(*MissedApproach)(nil),              // 33: flightstrips.cluster.v1.MissedApproach
+	(*SetStripText)(nil),                // 34: flightstrips.cluster.v1.SetStripText
+	(*CoordinationAction)(nil),          // 35: flightstrips.cluster.v1.CoordinationAction
+	(*TransferCoordination)(nil),        // 36: flightstrips.cluster.v1.TransferCoordination
+	(*AssumeCoordination)(nil),          // 37: flightstrips.cluster.v1.AssumeCoordination
+	(*ForceAssumeCoordination)(nil),     // 38: flightstrips.cluster.v1.ForceAssumeCoordination
+	(*FreeCoordination)(nil),            // 39: flightstrips.cluster.v1.FreeCoordination
+	(*CancelCoordination)(nil),          // 40: flightstrips.cluster.v1.CancelCoordination
+	(*TagCoordination)(nil),             // 41: flightstrips.cluster.v1.TagCoordination
+	(*AcceptTagCoordination)(nil),       // 42: flightstrips.cluster.v1.AcceptTagCoordination
+	(*TacticalAction)(nil),              // 43: flightstrips.cluster.v1.TacticalAction
+	(*CreateTactical)(nil),              // 44: flightstrips.cluster.v1.CreateTactical
+	(*DeleteTactical)(nil),              // 45: flightstrips.cluster.v1.DeleteTactical
+	(*ConfirmTactical)(nil),             // 46: flightstrips.cluster.v1.ConfirmTactical
+	(*ForceAssumeTactical)(nil),         // 47: flightstrips.cluster.v1.ForceAssumeTactical
+	(*MarkTactical)(nil),                // 48: flightstrips.cluster.v1.MarkTactical
+	(*StartTacticalTimer)(nil),          // 49: flightstrips.cluster.v1.StartTacticalTimer
+	(*MoveTactical)(nil),                // 50: flightstrips.cluster.v1.MoveTactical
+	(*StandAction)(nil),                 // 51: flightstrips.cluster.v1.StandAction
+	(*OccupyStand)(nil),                 // 52: flightstrips.cluster.v1.OccupyStand
+	(*VacateStand)(nil),                 // 53: flightstrips.cluster.v1.VacateStand
+	(*AutomaticStand)(nil),              // 54: flightstrips.cluster.v1.AutomaticStand
+	(*ManualStand)(nil),                 // 55: flightstrips.cluster.v1.ManualStand
+	(*ConfirmStandOverride)(nil),        // 56: flightstrips.cluster.v1.ConfirmStandOverride
+	(*AcknowledgeStand)(nil),            // 57: flightstrips.cluster.v1.AcknowledgeStand
+	(*CreateStandBlock)(nil),            // 58: flightstrips.cluster.v1.CreateStandBlock
+	(*RemoveStandBlock)(nil),            // 59: flightstrips.cluster.v1.RemoveStandBlock
+	(*CdmAction)(nil),                   // 60: flightstrips.cluster.v1.CdmAction
+	(*SetTobt)(nil),                     // 61: flightstrips.cluster.v1.SetTobt
+	(*SetCdmReady)(nil),                 // 62: flightstrips.cluster.v1.SetCdmReady
+	(*SetCdmDeice)(nil),                 // 63: flightstrips.cluster.v1.SetCdmDeice
+	(*SetCdmCtot)(nil),                  // 64: flightstrips.cluster.v1.SetCdmCtot
+	(*RemoveCdmCtot)(nil),               // 65: flightstrips.cluster.v1.RemoveCdmCtot
+	(*PdcAction)(nil),                   // 66: flightstrips.cluster.v1.PdcAction
+	(*IssuePdc)(nil),                    // 67: flightstrips.cluster.v1.IssuePdc
+	(*RevertPdcToVoice)(nil),            // 68: flightstrips.cluster.v1.RevertPdcToVoice
+	(*AcknowledgePdc)(nil),              // 69: flightstrips.cluster.v1.AcknowledgePdc
+	(*UnablePdc)(nil),                   // 70: flightstrips.cluster.v1.UnablePdc
+	(*MessageAction)(nil),               // 71: flightstrips.cluster.v1.MessageAction
+	(*BroadcastMessage)(nil),            // 72: flightstrips.cluster.v1.BroadcastMessage
+	(*PrivateMessage)(nil),              // 73: flightstrips.cluster.v1.PrivateMessage
+	(*SessionAction)(nil),               // 74: flightstrips.cluster.v1.SessionAction
+	(*ChangeLayout)(nil),                // 75: flightstrips.cluster.v1.ChangeLayout
+	(*ChangeRunways)(nil),               // 76: flightstrips.cluster.v1.ChangeRunways
+	(*UpdateRunwayStatus)(nil),          // 77: flightstrips.cluster.v1.UpdateRunwayStatus
+	(*ValidationActionCommand)(nil),     // 78: flightstrips.cluster.v1.ValidationActionCommand
+	(*AcknowledgeUnexpectedChange)(nil), // 79: flightstrips.cluster.v1.AcknowledgeUnexpectedChange
+	(*FlightPlanAction)(nil),            // 80: flightstrips.cluster.v1.FlightPlanAction
+	(*CreateManualFlightPlan)(nil),      // 81: flightstrips.cluster.v1.CreateManualFlightPlan
+	(*CreateVfrFlightPlan)(nil),         // 82: flightstrips.cluster.v1.CreateVfrFlightPlan
+	(*AmanAction)(nil),                  // 83: flightstrips.cluster.v1.AmanAction
+	(*AmanFlightUnary)(nil),             // 84: flightstrips.cluster.v1.AmanFlightUnary
+	(*AmanMoveFlight)(nil),              // 85: flightstrips.cluster.v1.AmanMoveFlight
+	(*AmanRate)(nil),                    // 86: flightstrips.cluster.v1.AmanRate
+	(*AmanSelectRunway)(nil),            // 87: flightstrips.cluster.v1.AmanSelectRunway
+	(*AmanActiveRunways)(nil),           // 88: flightstrips.cluster.v1.AmanActiveRunways
+	(*AmanManualEta)(nil),               // 89: flightstrips.cluster.v1.AmanManualEta
+	(*AmanChangeRunway)(nil),            // 90: flightstrips.cluster.v1.AmanChangeRunway
+	(*AmanReportGoAround)(nil),          // 91: flightstrips.cluster.v1.AmanReportGoAround
+	(*AmanDecideGoAround)(nil),          // 92: flightstrips.cluster.v1.AmanDecideGoAround
+	(*AmanCreateGap)(nil),               // 93: flightstrips.cluster.v1.AmanCreateGap
+	(*AmanRemoveGap)(nil),               // 94: flightstrips.cluster.v1.AmanRemoveGap
+	(*AmanCreateClosure)(nil),           // 95: flightstrips.cluster.v1.AmanCreateClosure
+	(*AmanRemoveClosure)(nil),           // 96: flightstrips.cluster.v1.AmanRemoveClosure
+	(*AmanCreateReservation)(nil),       // 97: flightstrips.cluster.v1.AmanCreateReservation
+	(*AmanRemoveReservation)(nil),       // 98: flightstrips.cluster.v1.AmanRemoveReservation
+	(*AmanPlaceFlight)(nil),             // 99: flightstrips.cluster.v1.AmanPlaceFlight
+	(*AmanSubmitCoordination)(nil),      // 100: flightstrips.cluster.v1.AmanSubmitCoordination
+	(*AmanDecideCoordination)(nil),      // 101: flightstrips.cluster.v1.AmanDecideCoordination
+	(*SystemCommand)(nil),               // 102: flightstrips.cluster.v1.SystemCommand
+	(*CreateSession)(nil),               // 103: flightstrips.cluster.v1.CreateSession
+	(*DeleteSession)(nil),               // 104: flightstrips.cluster.v1.DeleteSession
+	(*UpdateEntity)(nil),                // 105: flightstrips.cluster.v1.UpdateEntity
+	(*RemoveEntity)(nil),                // 106: flightstrips.cluster.v1.RemoveEntity
+	(*SetPositionLayout)(nil),           // 107: flightstrips.cluster.v1.SetPositionLayout
+	(*ReplaceSectorOwners)(nil),         // 108: flightstrips.cluster.v1.ReplaceSectorOwners
+	(*ClaimOwner)(nil),                  // 109: flightstrips.cluster.v1.ClaimOwner
+	(*RenewOwner)(nil),                  // 110: flightstrips.cluster.v1.RenewOwner
+	(*AdvanceWorkflow)(nil),             // 111: flightstrips.cluster.v1.AdvanceWorkflow
+	(*AdvanceEffect)(nil),               // 112: flightstrips.cluster.v1.AdvanceEffect
+	(*RecordSessionSync)(nil),           // 113: flightstrips.cluster.v1.RecordSessionSync
+	(*ElectSessionMaster)(nil),          // 114: flightstrips.cluster.v1.ElectSessionMaster
+	(*AggregateRef)(nil),                // 115: flightstrips.cluster.v1.AggregateRef
+	(*Actor)(nil),                       // 116: flightstrips.cluster.v1.Actor
+	(*OwnerTerm)(nil),                   // 117: flightstrips.cluster.v1.OwnerTerm
+	(*CommandOutcome)(nil),              // 118: flightstrips.cluster.v1.CommandOutcome
+	(*EffectRecord)(nil),                // 119: flightstrips.cluster.v1.EffectRecord
+	(*EntitySnapshot)(nil),              // 120: flightstrips.cluster.v1.EntitySnapshot
+	(*PositionValue)(nil),               // 121: flightstrips.cluster.v1.PositionValue
+	(*ClientPresence)(nil),              // 122: flightstrips.cluster.v1.ClientPresence
+	(*Controller)(nil),                  // 123: flightstrips.cluster.v1.Controller
+	(*SidInfo)(nil),                     // 124: flightstrips.cluster.v1.SidInfo
+	(*RunwayCfl)(nil),                   // 125: flightstrips.cluster.v1.RunwayCfl
+	(*EntityChange)(nil),                // 126: flightstrips.cluster.v1.EntityChange
+	(*WorkflowRecord)(nil),              // 127: flightstrips.cluster.v1.WorkflowRecord
+	(*PresenceValue)(nil),               // 128: flightstrips.cluster.v1.PresenceValue
+	(*timestamppb.Timestamp)(nil),       // 129: google.protobuf.Timestamp
+	(CommandOutcome_Status)(0),          // 130: flightstrips.cluster.v1.CommandOutcome.Status
+	(*Runway)(nil),                      // 131: flightstrips.cluster.v1.Runway
+	(*AcknowledgeValidation)(nil),       // 132: flightstrips.cluster.v1.AcknowledgeValidation
+	(*ClxOverrideAction)(nil),           // 133: flightstrips.cluster.v1.ClxOverrideAction
+	(*AmanRouteDirect)(nil),             // 134: flightstrips.cluster.v1.AmanRouteDirect
+	(*AmanSpeed)(nil),                   // 135: flightstrips.cluster.v1.AmanSpeed
+	(*EntityRecord)(nil),                // 136: flightstrips.cluster.v1.EntityRecord
+	(EntityKind)(0),                     // 137: flightstrips.cluster.v1.EntityKind
+	(*SectorOwner)(nil),                 // 138: flightstrips.cluster.v1.SectorOwner
+	(*SessionSync)(nil),                 // 139: flightstrips.cluster.v1.SessionSync
+	(*MasterTerm)(nil),                  // 140: flightstrips.cluster.v1.MasterTerm
 }
 var file_wire_proto_depIdxs = []int32{
-	112, // 0: flightstrips.cluster.v1.CommandRequest.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
-	113, // 1: flightstrips.cluster.v1.CommandRequest.actor:type_name -> flightstrips.cluster.v1.Actor
-	16,  // 2: flightstrips.cluster.v1.CommandRequest.client:type_name -> flightstrips.cluster.v1.ClientCommand
-	100, // 3: flightstrips.cluster.v1.CommandRequest.system:type_name -> flightstrips.cluster.v1.SystemCommand
+	115, // 0: flightstrips.cluster.v1.CommandRequest.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	116, // 1: flightstrips.cluster.v1.CommandRequest.actor:type_name -> flightstrips.cluster.v1.Actor
+	18,  // 2: flightstrips.cluster.v1.CommandRequest.client:type_name -> flightstrips.cluster.v1.ClientCommand
+	102, // 3: flightstrips.cluster.v1.CommandRequest.system:type_name -> flightstrips.cluster.v1.SystemCommand
 	0,   // 4: flightstrips.cluster.v1.CommandReply.status:type_name -> flightstrips.cluster.v1.CommandReply.Status
-	114, // 5: flightstrips.cluster.v1.CommandReply.current_owner:type_name -> flightstrips.cluster.v1.OwnerTerm
-	115, // 6: flightstrips.cluster.v1.CommandReply.outcome:type_name -> flightstrips.cluster.v1.CommandOutcome
-	6,   // 7: flightstrips.cluster.v1.FrontendFrame.authenticate:type_name -> flightstrips.cluster.v1.FrontendAuthenticate
-	7,   // 8: flightstrips.cluster.v1.FrontendFrame.command:type_name -> flightstrips.cluster.v1.FrontendCommand
-	8,   // 9: flightstrips.cluster.v1.FrontendFrame.status_query:type_name -> flightstrips.cluster.v1.ActionStatusQuery
-	9,   // 10: flightstrips.cluster.v1.FrontendFrame.initial:type_name -> flightstrips.cluster.v1.FrontendInitial
-	10,  // 11: flightstrips.cluster.v1.FrontendFrame.delta:type_name -> flightstrips.cluster.v1.FrontendDelta
-	11,  // 12: flightstrips.cluster.v1.FrontendFrame.observation:type_name -> flightstrips.cluster.v1.FrontendObservation
-	12,  // 13: flightstrips.cluster.v1.FrontendFrame.action_result:type_name -> flightstrips.cluster.v1.FrontendActionResult
-	13,  // 14: flightstrips.cluster.v1.FrontendFrame.status_missing:type_name -> flightstrips.cluster.v1.ActionStatusMissing
-	14,  // 15: flightstrips.cluster.v1.FrontendFrame.error:type_name -> flightstrips.cluster.v1.FrontendError
-	15,  // 16: flightstrips.cluster.v1.FrontendFrame.heartbeat:type_name -> flightstrips.cluster.v1.FrontendHeartbeat
-	16,  // 17: flightstrips.cluster.v1.FrontendCommand.action:type_name -> flightstrips.cluster.v1.ClientCommand
-	116, // 18: flightstrips.cluster.v1.FrontendInitial.entities:type_name -> flightstrips.cluster.v1.EntitySnapshot
-	117, // 19: flightstrips.cluster.v1.FrontendInitial.positions:type_name -> flightstrips.cluster.v1.PositionValue
-	118, // 20: flightstrips.cluster.v1.FrontendInitial.clients:type_name -> flightstrips.cluster.v1.ClientPresence
-	119, // 21: flightstrips.cluster.v1.FrontendInitial.me:type_name -> flightstrips.cluster.v1.Controller
-	120, // 22: flightstrips.cluster.v1.FrontendInitial.available_sids:type_name -> flightstrips.cluster.v1.SidInfo
-	121, // 23: flightstrips.cluster.v1.FrontendInitial.initial_cfl_by_runway:type_name -> flightstrips.cluster.v1.RunwayCfl
-	11,  // 24: flightstrips.cluster.v1.FrontendInitial.tagged_observations:type_name -> flightstrips.cluster.v1.FrontendObservation
-	112, // 25: flightstrips.cluster.v1.FrontendDelta.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
-	122, // 26: flightstrips.cluster.v1.FrontendDelta.changes:type_name -> flightstrips.cluster.v1.EntityChange
-	123, // 27: flightstrips.cluster.v1.FrontendDelta.workflows:type_name -> flightstrips.cluster.v1.WorkflowRecord
-	117, // 28: flightstrips.cluster.v1.FrontendObservation.position:type_name -> flightstrips.cluster.v1.PositionValue
-	124, // 29: flightstrips.cluster.v1.FrontendObservation.presence:type_name -> flightstrips.cluster.v1.PresenceValue
-	125, // 30: flightstrips.cluster.v1.FrontendObservation.observed_at:type_name -> google.protobuf.Timestamp
-	126, // 31: flightstrips.cluster.v1.FrontendActionResult.status:type_name -> flightstrips.cluster.v1.CommandOutcome.Status
-	112, // 32: flightstrips.cluster.v1.FrontendActionResult.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
-	1,   // 33: flightstrips.cluster.v1.FrontendError.code:type_name -> flightstrips.cluster.v1.FrontendError.Code
-	17,  // 34: flightstrips.cluster.v1.ClientCommand.strip:type_name -> flightstrips.cluster.v1.StripAction
-	33,  // 35: flightstrips.cluster.v1.ClientCommand.coordination:type_name -> flightstrips.cluster.v1.CoordinationAction
-	41,  // 36: flightstrips.cluster.v1.ClientCommand.tactical:type_name -> flightstrips.cluster.v1.TacticalAction
-	49,  // 37: flightstrips.cluster.v1.ClientCommand.stand:type_name -> flightstrips.cluster.v1.StandAction
-	58,  // 38: flightstrips.cluster.v1.ClientCommand.cdm:type_name -> flightstrips.cluster.v1.CdmAction
-	64,  // 39: flightstrips.cluster.v1.ClientCommand.pdc:type_name -> flightstrips.cluster.v1.PdcAction
-	81,  // 40: flightstrips.cluster.v1.ClientCommand.aman:type_name -> flightstrips.cluster.v1.AmanAction
-	69,  // 41: flightstrips.cluster.v1.ClientCommand.message:type_name -> flightstrips.cluster.v1.MessageAction
-	72,  // 42: flightstrips.cluster.v1.ClientCommand.session:type_name -> flightstrips.cluster.v1.SessionAction
-	76,  // 43: flightstrips.cluster.v1.ClientCommand.validation:type_name -> flightstrips.cluster.v1.ValidationActionCommand
-	78,  // 44: flightstrips.cluster.v1.ClientCommand.flight_plan:type_name -> flightstrips.cluster.v1.FlightPlanAction
-	18,  // 45: flightstrips.cluster.v1.StripAction.set_heading:type_name -> flightstrips.cluster.v1.SetHeading
-	19,  // 46: flightstrips.cluster.v1.StripAction.set_squawk:type_name -> flightstrips.cluster.v1.SetSquawk
-	20,  // 47: flightstrips.cluster.v1.StripAction.set_requested_altitude:type_name -> flightstrips.cluster.v1.SetAltitude
-	20,  // 48: flightstrips.cluster.v1.StripAction.set_cleared_altitude:type_name -> flightstrips.cluster.v1.SetAltitude
-	21,  // 49: flightstrips.cluster.v1.StripAction.set_bay:type_name -> flightstrips.cluster.v1.SetBay
-	22,  // 50: flightstrips.cluster.v1.StripAction.set_release_point:type_name -> flightstrips.cluster.v1.SetReleasePoint
-	23,  // 51: flightstrips.cluster.v1.StripAction.set_marked:type_name -> flightstrips.cluster.v1.SetMarked
-	24,  // 52: flightstrips.cluster.v1.StripAction.set_runway_cleared:type_name -> flightstrips.cluster.v1.SetRunwayFlag
-	24,  // 53: flightstrips.cluster.v1.StripAction.set_runway_confirmed:type_name -> flightstrips.cluster.v1.SetRunwayFlag
-	25,  // 54: flightstrips.cluster.v1.StripAction.set_start_requested:type_name -> flightstrips.cluster.v1.SetStartRequested
-	27,  // 55: flightstrips.cluster.v1.StripAction.set_order:type_name -> flightstrips.cluster.v1.SetStripOrder
-	32,  // 56: flightstrips.cluster.v1.StripAction.set_text:type_name -> flightstrips.cluster.v1.SetStripText
-	28,  // 57: flightstrips.cluster.v1.StripAction.move:type_name -> flightstrips.cluster.v1.MoveStrip
-	29,  // 58: flightstrips.cluster.v1.StripAction.generate_squawk:type_name -> flightstrips.cluster.v1.GenerateSquawk
-	30,  // 59: flightstrips.cluster.v1.StripAction.update_data:type_name -> flightstrips.cluster.v1.UpdateStripData
-	31,  // 60: flightstrips.cluster.v1.StripAction.missed_approach:type_name -> flightstrips.cluster.v1.MissedApproach
-	26,  // 61: flightstrips.cluster.v1.SetStripOrder.insert_after:type_name -> flightstrips.cluster.v1.StripRef
-	125, // 62: flightstrips.cluster.v1.UpdateStripData.eobt:type_name -> google.protobuf.Timestamp
-	2,   // 63: flightstrips.cluster.v1.SetStripText.field:type_name -> flightstrips.cluster.v1.SetStripText.Field
-	34,  // 64: flightstrips.cluster.v1.CoordinationAction.transfer:type_name -> flightstrips.cluster.v1.TransferCoordination
-	35,  // 65: flightstrips.cluster.v1.CoordinationAction.assume:type_name -> flightstrips.cluster.v1.AssumeCoordination
-	36,  // 66: flightstrips.cluster.v1.CoordinationAction.force_assume:type_name -> flightstrips.cluster.v1.ForceAssumeCoordination
-	37,  // 67: flightstrips.cluster.v1.CoordinationAction.free:type_name -> flightstrips.cluster.v1.FreeCoordination
-	38,  // 68: flightstrips.cluster.v1.CoordinationAction.cancel:type_name -> flightstrips.cluster.v1.CancelCoordination
-	39,  // 69: flightstrips.cluster.v1.CoordinationAction.tag:type_name -> flightstrips.cluster.v1.TagCoordination
-	40,  // 70: flightstrips.cluster.v1.CoordinationAction.accept_tag:type_name -> flightstrips.cluster.v1.AcceptTagCoordination
-	42,  // 71: flightstrips.cluster.v1.TacticalAction.create:type_name -> flightstrips.cluster.v1.CreateTactical
-	43,  // 72: flightstrips.cluster.v1.TacticalAction.delete:type_name -> flightstrips.cluster.v1.DeleteTactical
-	44,  // 73: flightstrips.cluster.v1.TacticalAction.confirm:type_name -> flightstrips.cluster.v1.ConfirmTactical
-	45,  // 74: flightstrips.cluster.v1.TacticalAction.force_assume:type_name -> flightstrips.cluster.v1.ForceAssumeTactical
-	46,  // 75: flightstrips.cluster.v1.TacticalAction.mark:type_name -> flightstrips.cluster.v1.MarkTactical
-	47,  // 76: flightstrips.cluster.v1.TacticalAction.start_timer:type_name -> flightstrips.cluster.v1.StartTacticalTimer
-	48,  // 77: flightstrips.cluster.v1.TacticalAction.move:type_name -> flightstrips.cluster.v1.MoveTactical
-	26,  // 78: flightstrips.cluster.v1.MoveTactical.insert_after:type_name -> flightstrips.cluster.v1.StripRef
-	50,  // 79: flightstrips.cluster.v1.StandAction.occupy:type_name -> flightstrips.cluster.v1.OccupyStand
-	51,  // 80: flightstrips.cluster.v1.StandAction.vacate:type_name -> flightstrips.cluster.v1.VacateStand
-	52,  // 81: flightstrips.cluster.v1.StandAction.automatic:type_name -> flightstrips.cluster.v1.AutomaticStand
-	53,  // 82: flightstrips.cluster.v1.StandAction.manual:type_name -> flightstrips.cluster.v1.ManualStand
-	54,  // 83: flightstrips.cluster.v1.StandAction.confirm_override:type_name -> flightstrips.cluster.v1.ConfirmStandOverride
-	55,  // 84: flightstrips.cluster.v1.StandAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeStand
-	56,  // 85: flightstrips.cluster.v1.StandAction.create_block:type_name -> flightstrips.cluster.v1.CreateStandBlock
-	57,  // 86: flightstrips.cluster.v1.StandAction.remove_block:type_name -> flightstrips.cluster.v1.RemoveStandBlock
-	125, // 87: flightstrips.cluster.v1.StandAction.eta:type_name -> google.protobuf.Timestamp
-	125, // 88: flightstrips.cluster.v1.StandAction.expires_at:type_name -> google.protobuf.Timestamp
-	125, // 89: flightstrips.cluster.v1.CreateStandBlock.expires_at:type_name -> google.protobuf.Timestamp
-	59,  // 90: flightstrips.cluster.v1.CdmAction.set_tobt:type_name -> flightstrips.cluster.v1.SetTobt
-	60,  // 91: flightstrips.cluster.v1.CdmAction.set_ready:type_name -> flightstrips.cluster.v1.SetCdmReady
-	61,  // 92: flightstrips.cluster.v1.CdmAction.set_deice:type_name -> flightstrips.cluster.v1.SetCdmDeice
-	62,  // 93: flightstrips.cluster.v1.CdmAction.set_ctot:type_name -> flightstrips.cluster.v1.SetCdmCtot
-	63,  // 94: flightstrips.cluster.v1.CdmAction.remove_ctot:type_name -> flightstrips.cluster.v1.RemoveCdmCtot
-	125, // 95: flightstrips.cluster.v1.SetTobt.value:type_name -> google.protobuf.Timestamp
-	125, // 96: flightstrips.cluster.v1.SetCdmCtot.value:type_name -> google.protobuf.Timestamp
-	65,  // 97: flightstrips.cluster.v1.PdcAction.issue:type_name -> flightstrips.cluster.v1.IssuePdc
-	66,  // 98: flightstrips.cluster.v1.PdcAction.revert_to_voice:type_name -> flightstrips.cluster.v1.RevertPdcToVoice
-	67,  // 99: flightstrips.cluster.v1.PdcAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgePdc
-	68,  // 100: flightstrips.cluster.v1.PdcAction.unable:type_name -> flightstrips.cluster.v1.UnablePdc
-	70,  // 101: flightstrips.cluster.v1.MessageAction.broadcast:type_name -> flightstrips.cluster.v1.BroadcastMessage
-	71,  // 102: flightstrips.cluster.v1.MessageAction.private_message:type_name -> flightstrips.cluster.v1.PrivateMessage
-	73,  // 103: flightstrips.cluster.v1.SessionAction.layout:type_name -> flightstrips.cluster.v1.ChangeLayout
-	74,  // 104: flightstrips.cluster.v1.SessionAction.runways:type_name -> flightstrips.cluster.v1.ChangeRunways
-	75,  // 105: flightstrips.cluster.v1.SessionAction.update_runway_status:type_name -> flightstrips.cluster.v1.UpdateRunwayStatus
-	127, // 106: flightstrips.cluster.v1.ChangeRunways.runways:type_name -> flightstrips.cluster.v1.Runway
-	128, // 107: flightstrips.cluster.v1.ValidationActionCommand.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeValidation
-	129, // 108: flightstrips.cluster.v1.ValidationActionCommand.clx_override:type_name -> flightstrips.cluster.v1.ClxOverrideAction
-	59,  // 109: flightstrips.cluster.v1.ValidationActionCommand.update_tobt:type_name -> flightstrips.cluster.v1.SetTobt
-	77,  // 110: flightstrips.cluster.v1.ValidationActionCommand.acknowledge_unexpected_change:type_name -> flightstrips.cluster.v1.AcknowledgeUnexpectedChange
-	79,  // 111: flightstrips.cluster.v1.FlightPlanAction.manual:type_name -> flightstrips.cluster.v1.CreateManualFlightPlan
-	80,  // 112: flightstrips.cluster.v1.FlightPlanAction.vfr:type_name -> flightstrips.cluster.v1.CreateVfrFlightPlan
-	125, // 113: flightstrips.cluster.v1.CreateManualFlightPlan.eobt:type_name -> google.protobuf.Timestamp
-	83,  // 114: flightstrips.cluster.v1.AmanAction.move_flight:type_name -> flightstrips.cluster.v1.AmanMoveFlight
-	82,  // 115: flightstrips.cluster.v1.AmanAction.lock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 116: flightstrips.cluster.v1.AmanAction.unlock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 117: flightstrips.cluster.v1.AmanAction.desequence_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 118: flightstrips.cluster.v1.AmanAction.resume_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 119: flightstrips.cluster.v1.AmanAction.remove_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 120: flightstrips.cluster.v1.AmanAction.accept_teta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 121: flightstrips.cluster.v1.AmanAction.keep_fpl_eta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 122: flightstrips.cluster.v1.AmanAction.reset_teta_override:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	84,  // 123: flightstrips.cluster.v1.AmanAction.set_rate:type_name -> flightstrips.cluster.v1.AmanRate
-	85,  // 124: flightstrips.cluster.v1.AmanAction.select_runway_group:type_name -> flightstrips.cluster.v1.AmanSelectRunway
-	86,  // 125: flightstrips.cluster.v1.AmanAction.set_active_runway_groups:type_name -> flightstrips.cluster.v1.AmanActiveRunways
-	87,  // 126: flightstrips.cluster.v1.AmanAction.set_manual_eta:type_name -> flightstrips.cluster.v1.AmanManualEta
-	87,  // 127: flightstrips.cluster.v1.AmanAction.set_manual_feeder_eta:type_name -> flightstrips.cluster.v1.AmanManualEta
-	82,  // 128: flightstrips.cluster.v1.AmanAction.reset_manual_feeder_eta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	82,  // 129: flightstrips.cluster.v1.AmanAction.recompute_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
-	88,  // 130: flightstrips.cluster.v1.AmanAction.change_runway:type_name -> flightstrips.cluster.v1.AmanChangeRunway
-	89,  // 131: flightstrips.cluster.v1.AmanAction.report_go_around:type_name -> flightstrips.cluster.v1.AmanReportGoAround
-	90,  // 132: flightstrips.cluster.v1.AmanAction.confirm_go_around:type_name -> flightstrips.cluster.v1.AmanDecideGoAround
-	90,  // 133: flightstrips.cluster.v1.AmanAction.reject_go_around:type_name -> flightstrips.cluster.v1.AmanDecideGoAround
-	91,  // 134: flightstrips.cluster.v1.AmanAction.create_gap:type_name -> flightstrips.cluster.v1.AmanCreateGap
-	92,  // 135: flightstrips.cluster.v1.AmanAction.remove_gap:type_name -> flightstrips.cluster.v1.AmanRemoveGap
-	93,  // 136: flightstrips.cluster.v1.AmanAction.create_runway_closure:type_name -> flightstrips.cluster.v1.AmanCreateClosure
-	94,  // 137: flightstrips.cluster.v1.AmanAction.remove_runway_closure:type_name -> flightstrips.cluster.v1.AmanRemoveClosure
-	95,  // 138: flightstrips.cluster.v1.AmanAction.create_capacity_reservation:type_name -> flightstrips.cluster.v1.AmanCreateReservation
-	96,  // 139: flightstrips.cluster.v1.AmanAction.remove_capacity_reservation:type_name -> flightstrips.cluster.v1.AmanRemoveReservation
-	97,  // 140: flightstrips.cluster.v1.AmanAction.place_flight_at_time:type_name -> flightstrips.cluster.v1.AmanPlaceFlight
-	98,  // 141: flightstrips.cluster.v1.AmanAction.submit_coordination_request:type_name -> flightstrips.cluster.v1.AmanSubmitCoordination
-	99,  // 142: flightstrips.cluster.v1.AmanAction.accept_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
-	99,  // 143: flightstrips.cluster.v1.AmanAction.reject_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
-	125, // 144: flightstrips.cluster.v1.AmanRate.effective_at:type_name -> google.protobuf.Timestamp
-	125, // 145: flightstrips.cluster.v1.AmanSelectRunway.effective_at:type_name -> google.protobuf.Timestamp
-	125, // 146: flightstrips.cluster.v1.AmanManualEta.value:type_name -> google.protobuf.Timestamp
-	125, // 147: flightstrips.cluster.v1.AmanReportGoAround.detected_at:type_name -> google.protobuf.Timestamp
-	125, // 148: flightstrips.cluster.v1.AmanCreateGap.start:type_name -> google.protobuf.Timestamp
-	125, // 149: flightstrips.cluster.v1.AmanCreateGap.end:type_name -> google.protobuf.Timestamp
-	125, // 150: flightstrips.cluster.v1.AmanCreateClosure.end:type_name -> google.protobuf.Timestamp
-	125, // 151: flightstrips.cluster.v1.AmanCreateClosure.start:type_name -> google.protobuf.Timestamp
-	125, // 152: flightstrips.cluster.v1.AmanPlaceFlight.slot_time:type_name -> google.protobuf.Timestamp
-	130, // 153: flightstrips.cluster.v1.AmanSubmitCoordination.route_direct:type_name -> flightstrips.cluster.v1.AmanRouteDirect
-	131, // 154: flightstrips.cluster.v1.AmanSubmitCoordination.speed:type_name -> flightstrips.cluster.v1.AmanSpeed
-	101, // 155: flightstrips.cluster.v1.SystemCommand.create_session:type_name -> flightstrips.cluster.v1.CreateSession
-	102, // 156: flightstrips.cluster.v1.SystemCommand.delete_session:type_name -> flightstrips.cluster.v1.DeleteSession
-	103, // 157: flightstrips.cluster.v1.SystemCommand.update_entity:type_name -> flightstrips.cluster.v1.UpdateEntity
-	104, // 158: flightstrips.cluster.v1.SystemCommand.remove_entity:type_name -> flightstrips.cluster.v1.RemoveEntity
-	107, // 159: flightstrips.cluster.v1.SystemCommand.claim_owner:type_name -> flightstrips.cluster.v1.ClaimOwner
-	108, // 160: flightstrips.cluster.v1.SystemCommand.renew_owner:type_name -> flightstrips.cluster.v1.RenewOwner
-	109, // 161: flightstrips.cluster.v1.SystemCommand.advance_workflow:type_name -> flightstrips.cluster.v1.AdvanceWorkflow
-	110, // 162: flightstrips.cluster.v1.SystemCommand.advance_effect:type_name -> flightstrips.cluster.v1.AdvanceEffect
-	111, // 163: flightstrips.cluster.v1.SystemCommand.record_sync:type_name -> flightstrips.cluster.v1.RecordSessionSync
-	105, // 164: flightstrips.cluster.v1.SystemCommand.set_position_layout:type_name -> flightstrips.cluster.v1.SetPositionLayout
-	106, // 165: flightstrips.cluster.v1.SystemCommand.replace_sector_owners:type_name -> flightstrips.cluster.v1.ReplaceSectorOwners
-	132, // 166: flightstrips.cluster.v1.UpdateEntity.value:type_name -> flightstrips.cluster.v1.EntityRecord
-	133, // 167: flightstrips.cluster.v1.RemoveEntity.kind:type_name -> flightstrips.cluster.v1.EntityKind
-	134, // 168: flightstrips.cluster.v1.ReplaceSectorOwners.owners:type_name -> flightstrips.cluster.v1.SectorOwner
-	114, // 169: flightstrips.cluster.v1.ClaimOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
-	114, // 170: flightstrips.cluster.v1.RenewOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
-	123, // 171: flightstrips.cluster.v1.AdvanceWorkflow.workflow:type_name -> flightstrips.cluster.v1.WorkflowRecord
-	135, // 172: flightstrips.cluster.v1.AdvanceEffect.effect:type_name -> flightstrips.cluster.v1.EffectRecord
-	136, // 173: flightstrips.cluster.v1.RecordSessionSync.sync:type_name -> flightstrips.cluster.v1.SessionSync
-	174, // [174:174] is the sub-list for method output_type
-	174, // [174:174] is the sub-list for method input_type
-	174, // [174:174] is the sub-list for extension type_name
-	174, // [174:174] is the sub-list for extension extendee
-	0,   // [0:174] is the sub-list for field type_name
+	117, // 5: flightstrips.cluster.v1.CommandReply.current_owner:type_name -> flightstrips.cluster.v1.OwnerTerm
+	118, // 6: flightstrips.cluster.v1.CommandReply.outcome:type_name -> flightstrips.cluster.v1.CommandOutcome
+	119, // 7: flightstrips.cluster.v1.EffectDeliveryRequest.effect:type_name -> flightstrips.cluster.v1.EffectRecord
+	8,   // 8: flightstrips.cluster.v1.FrontendFrame.authenticate:type_name -> flightstrips.cluster.v1.FrontendAuthenticate
+	9,   // 9: flightstrips.cluster.v1.FrontendFrame.command:type_name -> flightstrips.cluster.v1.FrontendCommand
+	10,  // 10: flightstrips.cluster.v1.FrontendFrame.status_query:type_name -> flightstrips.cluster.v1.ActionStatusQuery
+	11,  // 11: flightstrips.cluster.v1.FrontendFrame.initial:type_name -> flightstrips.cluster.v1.FrontendInitial
+	12,  // 12: flightstrips.cluster.v1.FrontendFrame.delta:type_name -> flightstrips.cluster.v1.FrontendDelta
+	13,  // 13: flightstrips.cluster.v1.FrontendFrame.observation:type_name -> flightstrips.cluster.v1.FrontendObservation
+	14,  // 14: flightstrips.cluster.v1.FrontendFrame.action_result:type_name -> flightstrips.cluster.v1.FrontendActionResult
+	15,  // 15: flightstrips.cluster.v1.FrontendFrame.status_missing:type_name -> flightstrips.cluster.v1.ActionStatusMissing
+	16,  // 16: flightstrips.cluster.v1.FrontendFrame.error:type_name -> flightstrips.cluster.v1.FrontendError
+	17,  // 17: flightstrips.cluster.v1.FrontendFrame.heartbeat:type_name -> flightstrips.cluster.v1.FrontendHeartbeat
+	18,  // 18: flightstrips.cluster.v1.FrontendCommand.action:type_name -> flightstrips.cluster.v1.ClientCommand
+	120, // 19: flightstrips.cluster.v1.FrontendInitial.entities:type_name -> flightstrips.cluster.v1.EntitySnapshot
+	121, // 20: flightstrips.cluster.v1.FrontendInitial.positions:type_name -> flightstrips.cluster.v1.PositionValue
+	122, // 21: flightstrips.cluster.v1.FrontendInitial.clients:type_name -> flightstrips.cluster.v1.ClientPresence
+	123, // 22: flightstrips.cluster.v1.FrontendInitial.me:type_name -> flightstrips.cluster.v1.Controller
+	124, // 23: flightstrips.cluster.v1.FrontendInitial.available_sids:type_name -> flightstrips.cluster.v1.SidInfo
+	125, // 24: flightstrips.cluster.v1.FrontendInitial.initial_cfl_by_runway:type_name -> flightstrips.cluster.v1.RunwayCfl
+	13,  // 25: flightstrips.cluster.v1.FrontendInitial.tagged_observations:type_name -> flightstrips.cluster.v1.FrontendObservation
+	115, // 26: flightstrips.cluster.v1.FrontendDelta.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	126, // 27: flightstrips.cluster.v1.FrontendDelta.changes:type_name -> flightstrips.cluster.v1.EntityChange
+	127, // 28: flightstrips.cluster.v1.FrontendDelta.workflows:type_name -> flightstrips.cluster.v1.WorkflowRecord
+	121, // 29: flightstrips.cluster.v1.FrontendObservation.position:type_name -> flightstrips.cluster.v1.PositionValue
+	128, // 30: flightstrips.cluster.v1.FrontendObservation.presence:type_name -> flightstrips.cluster.v1.PresenceValue
+	129, // 31: flightstrips.cluster.v1.FrontendObservation.observed_at:type_name -> google.protobuf.Timestamp
+	130, // 32: flightstrips.cluster.v1.FrontendActionResult.status:type_name -> flightstrips.cluster.v1.CommandOutcome.Status
+	115, // 33: flightstrips.cluster.v1.FrontendActionResult.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	1,   // 34: flightstrips.cluster.v1.FrontendError.code:type_name -> flightstrips.cluster.v1.FrontendError.Code
+	19,  // 35: flightstrips.cluster.v1.ClientCommand.strip:type_name -> flightstrips.cluster.v1.StripAction
+	35,  // 36: flightstrips.cluster.v1.ClientCommand.coordination:type_name -> flightstrips.cluster.v1.CoordinationAction
+	43,  // 37: flightstrips.cluster.v1.ClientCommand.tactical:type_name -> flightstrips.cluster.v1.TacticalAction
+	51,  // 38: flightstrips.cluster.v1.ClientCommand.stand:type_name -> flightstrips.cluster.v1.StandAction
+	60,  // 39: flightstrips.cluster.v1.ClientCommand.cdm:type_name -> flightstrips.cluster.v1.CdmAction
+	66,  // 40: flightstrips.cluster.v1.ClientCommand.pdc:type_name -> flightstrips.cluster.v1.PdcAction
+	83,  // 41: flightstrips.cluster.v1.ClientCommand.aman:type_name -> flightstrips.cluster.v1.AmanAction
+	71,  // 42: flightstrips.cluster.v1.ClientCommand.message:type_name -> flightstrips.cluster.v1.MessageAction
+	74,  // 43: flightstrips.cluster.v1.ClientCommand.session:type_name -> flightstrips.cluster.v1.SessionAction
+	78,  // 44: flightstrips.cluster.v1.ClientCommand.validation:type_name -> flightstrips.cluster.v1.ValidationActionCommand
+	80,  // 45: flightstrips.cluster.v1.ClientCommand.flight_plan:type_name -> flightstrips.cluster.v1.FlightPlanAction
+	20,  // 46: flightstrips.cluster.v1.StripAction.set_heading:type_name -> flightstrips.cluster.v1.SetHeading
+	21,  // 47: flightstrips.cluster.v1.StripAction.set_squawk:type_name -> flightstrips.cluster.v1.SetSquawk
+	22,  // 48: flightstrips.cluster.v1.StripAction.set_requested_altitude:type_name -> flightstrips.cluster.v1.SetAltitude
+	22,  // 49: flightstrips.cluster.v1.StripAction.set_cleared_altitude:type_name -> flightstrips.cluster.v1.SetAltitude
+	23,  // 50: flightstrips.cluster.v1.StripAction.set_bay:type_name -> flightstrips.cluster.v1.SetBay
+	24,  // 51: flightstrips.cluster.v1.StripAction.set_release_point:type_name -> flightstrips.cluster.v1.SetReleasePoint
+	25,  // 52: flightstrips.cluster.v1.StripAction.set_marked:type_name -> flightstrips.cluster.v1.SetMarked
+	26,  // 53: flightstrips.cluster.v1.StripAction.set_runway_cleared:type_name -> flightstrips.cluster.v1.SetRunwayFlag
+	26,  // 54: flightstrips.cluster.v1.StripAction.set_runway_confirmed:type_name -> flightstrips.cluster.v1.SetRunwayFlag
+	27,  // 55: flightstrips.cluster.v1.StripAction.set_start_requested:type_name -> flightstrips.cluster.v1.SetStartRequested
+	29,  // 56: flightstrips.cluster.v1.StripAction.set_order:type_name -> flightstrips.cluster.v1.SetStripOrder
+	34,  // 57: flightstrips.cluster.v1.StripAction.set_text:type_name -> flightstrips.cluster.v1.SetStripText
+	30,  // 58: flightstrips.cluster.v1.StripAction.move:type_name -> flightstrips.cluster.v1.MoveStrip
+	31,  // 59: flightstrips.cluster.v1.StripAction.generate_squawk:type_name -> flightstrips.cluster.v1.GenerateSquawk
+	32,  // 60: flightstrips.cluster.v1.StripAction.update_data:type_name -> flightstrips.cluster.v1.UpdateStripData
+	33,  // 61: flightstrips.cluster.v1.StripAction.missed_approach:type_name -> flightstrips.cluster.v1.MissedApproach
+	28,  // 62: flightstrips.cluster.v1.SetStripOrder.insert_after:type_name -> flightstrips.cluster.v1.StripRef
+	129, // 63: flightstrips.cluster.v1.UpdateStripData.eobt:type_name -> google.protobuf.Timestamp
+	2,   // 64: flightstrips.cluster.v1.SetStripText.field:type_name -> flightstrips.cluster.v1.SetStripText.Field
+	36,  // 65: flightstrips.cluster.v1.CoordinationAction.transfer:type_name -> flightstrips.cluster.v1.TransferCoordination
+	37,  // 66: flightstrips.cluster.v1.CoordinationAction.assume:type_name -> flightstrips.cluster.v1.AssumeCoordination
+	38,  // 67: flightstrips.cluster.v1.CoordinationAction.force_assume:type_name -> flightstrips.cluster.v1.ForceAssumeCoordination
+	39,  // 68: flightstrips.cluster.v1.CoordinationAction.free:type_name -> flightstrips.cluster.v1.FreeCoordination
+	40,  // 69: flightstrips.cluster.v1.CoordinationAction.cancel:type_name -> flightstrips.cluster.v1.CancelCoordination
+	41,  // 70: flightstrips.cluster.v1.CoordinationAction.tag:type_name -> flightstrips.cluster.v1.TagCoordination
+	42,  // 71: flightstrips.cluster.v1.CoordinationAction.accept_tag:type_name -> flightstrips.cluster.v1.AcceptTagCoordination
+	44,  // 72: flightstrips.cluster.v1.TacticalAction.create:type_name -> flightstrips.cluster.v1.CreateTactical
+	45,  // 73: flightstrips.cluster.v1.TacticalAction.delete:type_name -> flightstrips.cluster.v1.DeleteTactical
+	46,  // 74: flightstrips.cluster.v1.TacticalAction.confirm:type_name -> flightstrips.cluster.v1.ConfirmTactical
+	47,  // 75: flightstrips.cluster.v1.TacticalAction.force_assume:type_name -> flightstrips.cluster.v1.ForceAssumeTactical
+	48,  // 76: flightstrips.cluster.v1.TacticalAction.mark:type_name -> flightstrips.cluster.v1.MarkTactical
+	49,  // 77: flightstrips.cluster.v1.TacticalAction.start_timer:type_name -> flightstrips.cluster.v1.StartTacticalTimer
+	50,  // 78: flightstrips.cluster.v1.TacticalAction.move:type_name -> flightstrips.cluster.v1.MoveTactical
+	28,  // 79: flightstrips.cluster.v1.MoveTactical.insert_after:type_name -> flightstrips.cluster.v1.StripRef
+	52,  // 80: flightstrips.cluster.v1.StandAction.occupy:type_name -> flightstrips.cluster.v1.OccupyStand
+	53,  // 81: flightstrips.cluster.v1.StandAction.vacate:type_name -> flightstrips.cluster.v1.VacateStand
+	54,  // 82: flightstrips.cluster.v1.StandAction.automatic:type_name -> flightstrips.cluster.v1.AutomaticStand
+	55,  // 83: flightstrips.cluster.v1.StandAction.manual:type_name -> flightstrips.cluster.v1.ManualStand
+	56,  // 84: flightstrips.cluster.v1.StandAction.confirm_override:type_name -> flightstrips.cluster.v1.ConfirmStandOverride
+	57,  // 85: flightstrips.cluster.v1.StandAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeStand
+	58,  // 86: flightstrips.cluster.v1.StandAction.create_block:type_name -> flightstrips.cluster.v1.CreateStandBlock
+	59,  // 87: flightstrips.cluster.v1.StandAction.remove_block:type_name -> flightstrips.cluster.v1.RemoveStandBlock
+	129, // 88: flightstrips.cluster.v1.StandAction.eta:type_name -> google.protobuf.Timestamp
+	129, // 89: flightstrips.cluster.v1.StandAction.expires_at:type_name -> google.protobuf.Timestamp
+	129, // 90: flightstrips.cluster.v1.CreateStandBlock.expires_at:type_name -> google.protobuf.Timestamp
+	61,  // 91: flightstrips.cluster.v1.CdmAction.set_tobt:type_name -> flightstrips.cluster.v1.SetTobt
+	62,  // 92: flightstrips.cluster.v1.CdmAction.set_ready:type_name -> flightstrips.cluster.v1.SetCdmReady
+	63,  // 93: flightstrips.cluster.v1.CdmAction.set_deice:type_name -> flightstrips.cluster.v1.SetCdmDeice
+	64,  // 94: flightstrips.cluster.v1.CdmAction.set_ctot:type_name -> flightstrips.cluster.v1.SetCdmCtot
+	65,  // 95: flightstrips.cluster.v1.CdmAction.remove_ctot:type_name -> flightstrips.cluster.v1.RemoveCdmCtot
+	129, // 96: flightstrips.cluster.v1.SetTobt.value:type_name -> google.protobuf.Timestamp
+	129, // 97: flightstrips.cluster.v1.SetCdmCtot.value:type_name -> google.protobuf.Timestamp
+	67,  // 98: flightstrips.cluster.v1.PdcAction.issue:type_name -> flightstrips.cluster.v1.IssuePdc
+	68,  // 99: flightstrips.cluster.v1.PdcAction.revert_to_voice:type_name -> flightstrips.cluster.v1.RevertPdcToVoice
+	69,  // 100: flightstrips.cluster.v1.PdcAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgePdc
+	70,  // 101: flightstrips.cluster.v1.PdcAction.unable:type_name -> flightstrips.cluster.v1.UnablePdc
+	72,  // 102: flightstrips.cluster.v1.MessageAction.broadcast:type_name -> flightstrips.cluster.v1.BroadcastMessage
+	73,  // 103: flightstrips.cluster.v1.MessageAction.private_message:type_name -> flightstrips.cluster.v1.PrivateMessage
+	75,  // 104: flightstrips.cluster.v1.SessionAction.layout:type_name -> flightstrips.cluster.v1.ChangeLayout
+	76,  // 105: flightstrips.cluster.v1.SessionAction.runways:type_name -> flightstrips.cluster.v1.ChangeRunways
+	77,  // 106: flightstrips.cluster.v1.SessionAction.update_runway_status:type_name -> flightstrips.cluster.v1.UpdateRunwayStatus
+	131, // 107: flightstrips.cluster.v1.ChangeRunways.runways:type_name -> flightstrips.cluster.v1.Runway
+	132, // 108: flightstrips.cluster.v1.ValidationActionCommand.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeValidation
+	133, // 109: flightstrips.cluster.v1.ValidationActionCommand.clx_override:type_name -> flightstrips.cluster.v1.ClxOverrideAction
+	61,  // 110: flightstrips.cluster.v1.ValidationActionCommand.update_tobt:type_name -> flightstrips.cluster.v1.SetTobt
+	79,  // 111: flightstrips.cluster.v1.ValidationActionCommand.acknowledge_unexpected_change:type_name -> flightstrips.cluster.v1.AcknowledgeUnexpectedChange
+	81,  // 112: flightstrips.cluster.v1.FlightPlanAction.manual:type_name -> flightstrips.cluster.v1.CreateManualFlightPlan
+	82,  // 113: flightstrips.cluster.v1.FlightPlanAction.vfr:type_name -> flightstrips.cluster.v1.CreateVfrFlightPlan
+	129, // 114: flightstrips.cluster.v1.CreateManualFlightPlan.eobt:type_name -> google.protobuf.Timestamp
+	85,  // 115: flightstrips.cluster.v1.AmanAction.move_flight:type_name -> flightstrips.cluster.v1.AmanMoveFlight
+	84,  // 116: flightstrips.cluster.v1.AmanAction.lock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 117: flightstrips.cluster.v1.AmanAction.unlock_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 118: flightstrips.cluster.v1.AmanAction.desequence_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 119: flightstrips.cluster.v1.AmanAction.resume_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 120: flightstrips.cluster.v1.AmanAction.remove_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 121: flightstrips.cluster.v1.AmanAction.accept_teta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 122: flightstrips.cluster.v1.AmanAction.keep_fpl_eta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 123: flightstrips.cluster.v1.AmanAction.reset_teta_override:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	86,  // 124: flightstrips.cluster.v1.AmanAction.set_rate:type_name -> flightstrips.cluster.v1.AmanRate
+	87,  // 125: flightstrips.cluster.v1.AmanAction.select_runway_group:type_name -> flightstrips.cluster.v1.AmanSelectRunway
+	88,  // 126: flightstrips.cluster.v1.AmanAction.set_active_runway_groups:type_name -> flightstrips.cluster.v1.AmanActiveRunways
+	89,  // 127: flightstrips.cluster.v1.AmanAction.set_manual_eta:type_name -> flightstrips.cluster.v1.AmanManualEta
+	89,  // 128: flightstrips.cluster.v1.AmanAction.set_manual_feeder_eta:type_name -> flightstrips.cluster.v1.AmanManualEta
+	84,  // 129: flightstrips.cluster.v1.AmanAction.reset_manual_feeder_eta:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	84,  // 130: flightstrips.cluster.v1.AmanAction.recompute_flight:type_name -> flightstrips.cluster.v1.AmanFlightUnary
+	90,  // 131: flightstrips.cluster.v1.AmanAction.change_runway:type_name -> flightstrips.cluster.v1.AmanChangeRunway
+	91,  // 132: flightstrips.cluster.v1.AmanAction.report_go_around:type_name -> flightstrips.cluster.v1.AmanReportGoAround
+	92,  // 133: flightstrips.cluster.v1.AmanAction.confirm_go_around:type_name -> flightstrips.cluster.v1.AmanDecideGoAround
+	92,  // 134: flightstrips.cluster.v1.AmanAction.reject_go_around:type_name -> flightstrips.cluster.v1.AmanDecideGoAround
+	93,  // 135: flightstrips.cluster.v1.AmanAction.create_gap:type_name -> flightstrips.cluster.v1.AmanCreateGap
+	94,  // 136: flightstrips.cluster.v1.AmanAction.remove_gap:type_name -> flightstrips.cluster.v1.AmanRemoveGap
+	95,  // 137: flightstrips.cluster.v1.AmanAction.create_runway_closure:type_name -> flightstrips.cluster.v1.AmanCreateClosure
+	96,  // 138: flightstrips.cluster.v1.AmanAction.remove_runway_closure:type_name -> flightstrips.cluster.v1.AmanRemoveClosure
+	97,  // 139: flightstrips.cluster.v1.AmanAction.create_capacity_reservation:type_name -> flightstrips.cluster.v1.AmanCreateReservation
+	98,  // 140: flightstrips.cluster.v1.AmanAction.remove_capacity_reservation:type_name -> flightstrips.cluster.v1.AmanRemoveReservation
+	99,  // 141: flightstrips.cluster.v1.AmanAction.place_flight_at_time:type_name -> flightstrips.cluster.v1.AmanPlaceFlight
+	100, // 142: flightstrips.cluster.v1.AmanAction.submit_coordination_request:type_name -> flightstrips.cluster.v1.AmanSubmitCoordination
+	101, // 143: flightstrips.cluster.v1.AmanAction.accept_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
+	101, // 144: flightstrips.cluster.v1.AmanAction.reject_coordination_request:type_name -> flightstrips.cluster.v1.AmanDecideCoordination
+	129, // 145: flightstrips.cluster.v1.AmanRate.effective_at:type_name -> google.protobuf.Timestamp
+	129, // 146: flightstrips.cluster.v1.AmanSelectRunway.effective_at:type_name -> google.protobuf.Timestamp
+	129, // 147: flightstrips.cluster.v1.AmanManualEta.value:type_name -> google.protobuf.Timestamp
+	129, // 148: flightstrips.cluster.v1.AmanReportGoAround.detected_at:type_name -> google.protobuf.Timestamp
+	129, // 149: flightstrips.cluster.v1.AmanCreateGap.start:type_name -> google.protobuf.Timestamp
+	129, // 150: flightstrips.cluster.v1.AmanCreateGap.end:type_name -> google.protobuf.Timestamp
+	129, // 151: flightstrips.cluster.v1.AmanCreateClosure.end:type_name -> google.protobuf.Timestamp
+	129, // 152: flightstrips.cluster.v1.AmanCreateClosure.start:type_name -> google.protobuf.Timestamp
+	129, // 153: flightstrips.cluster.v1.AmanPlaceFlight.slot_time:type_name -> google.protobuf.Timestamp
+	134, // 154: flightstrips.cluster.v1.AmanSubmitCoordination.route_direct:type_name -> flightstrips.cluster.v1.AmanRouteDirect
+	135, // 155: flightstrips.cluster.v1.AmanSubmitCoordination.speed:type_name -> flightstrips.cluster.v1.AmanSpeed
+	103, // 156: flightstrips.cluster.v1.SystemCommand.create_session:type_name -> flightstrips.cluster.v1.CreateSession
+	104, // 157: flightstrips.cluster.v1.SystemCommand.delete_session:type_name -> flightstrips.cluster.v1.DeleteSession
+	105, // 158: flightstrips.cluster.v1.SystemCommand.update_entity:type_name -> flightstrips.cluster.v1.UpdateEntity
+	106, // 159: flightstrips.cluster.v1.SystemCommand.remove_entity:type_name -> flightstrips.cluster.v1.RemoveEntity
+	109, // 160: flightstrips.cluster.v1.SystemCommand.claim_owner:type_name -> flightstrips.cluster.v1.ClaimOwner
+	110, // 161: flightstrips.cluster.v1.SystemCommand.renew_owner:type_name -> flightstrips.cluster.v1.RenewOwner
+	111, // 162: flightstrips.cluster.v1.SystemCommand.advance_workflow:type_name -> flightstrips.cluster.v1.AdvanceWorkflow
+	112, // 163: flightstrips.cluster.v1.SystemCommand.advance_effect:type_name -> flightstrips.cluster.v1.AdvanceEffect
+	113, // 164: flightstrips.cluster.v1.SystemCommand.record_sync:type_name -> flightstrips.cluster.v1.RecordSessionSync
+	107, // 165: flightstrips.cluster.v1.SystemCommand.set_position_layout:type_name -> flightstrips.cluster.v1.SetPositionLayout
+	108, // 166: flightstrips.cluster.v1.SystemCommand.replace_sector_owners:type_name -> flightstrips.cluster.v1.ReplaceSectorOwners
+	114, // 167: flightstrips.cluster.v1.SystemCommand.elect_session_master:type_name -> flightstrips.cluster.v1.ElectSessionMaster
+	136, // 168: flightstrips.cluster.v1.UpdateEntity.value:type_name -> flightstrips.cluster.v1.EntityRecord
+	137, // 169: flightstrips.cluster.v1.RemoveEntity.kind:type_name -> flightstrips.cluster.v1.EntityKind
+	138, // 170: flightstrips.cluster.v1.ReplaceSectorOwners.owners:type_name -> flightstrips.cluster.v1.SectorOwner
+	117, // 171: flightstrips.cluster.v1.ClaimOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
+	117, // 172: flightstrips.cluster.v1.RenewOwner.proposed:type_name -> flightstrips.cluster.v1.OwnerTerm
+	127, // 173: flightstrips.cluster.v1.AdvanceWorkflow.workflow:type_name -> flightstrips.cluster.v1.WorkflowRecord
+	119, // 174: flightstrips.cluster.v1.AdvanceEffect.effect:type_name -> flightstrips.cluster.v1.EffectRecord
+	139, // 175: flightstrips.cluster.v1.RecordSessionSync.sync:type_name -> flightstrips.cluster.v1.SessionSync
+	140, // 176: flightstrips.cluster.v1.ElectSessionMaster.master:type_name -> flightstrips.cluster.v1.MasterTerm
+	177, // [177:177] is the sub-list for method output_type
+	177, // [177:177] is the sub-list for method input_type
+	177, // [177:177] is the sub-list for extension type_name
+	177, // [177:177] is the sub-list for extension extendee
+	0,   // [0:177] is the sub-list for field type_name
 }
 
 func init() { file_wire_proto_init() }
@@ -9237,7 +9431,7 @@ func file_wire_proto_init() {
 		(*CommandRequest_System)(nil),
 	}
 	file_wire_proto_msgTypes[1].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[2].OneofWrappers = []any{
+	file_wire_proto_msgTypes[4].OneofWrappers = []any{
 		(*FrontendFrame_Authenticate)(nil),
 		(*FrontendFrame_Command)(nil),
 		(*FrontendFrame_StatusQuery)(nil),
@@ -9249,12 +9443,12 @@ func file_wire_proto_init() {
 		(*FrontendFrame_Error)(nil),
 		(*FrontendFrame_Heartbeat)(nil),
 	}
-	file_wire_proto_msgTypes[4].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[8].OneofWrappers = []any{
+	file_wire_proto_msgTypes[6].OneofWrappers = []any{}
+	file_wire_proto_msgTypes[10].OneofWrappers = []any{
 		(*FrontendObservation_Position)(nil),
 		(*FrontendObservation_Presence)(nil),
 	}
-	file_wire_proto_msgTypes[13].OneofWrappers = []any{
+	file_wire_proto_msgTypes[15].OneofWrappers = []any{
 		(*ClientCommand_Strip)(nil),
 		(*ClientCommand_Coordination)(nil),
 		(*ClientCommand_Tactical)(nil),
@@ -9267,7 +9461,7 @@ func file_wire_proto_init() {
 		(*ClientCommand_Validation)(nil),
 		(*ClientCommand_FlightPlan)(nil),
 	}
-	file_wire_proto_msgTypes[14].OneofWrappers = []any{
+	file_wire_proto_msgTypes[16].OneofWrappers = []any{
 		(*StripAction_SetHeading)(nil),
 		(*StripAction_SetSquawk)(nil),
 		(*StripAction_SetRequestedAltitude)(nil),
@@ -9285,16 +9479,16 @@ func file_wire_proto_init() {
 		(*StripAction_UpdateData)(nil),
 		(*StripAction_MissedApproach)(nil),
 	}
-	file_wire_proto_msgTypes[15].OneofWrappers = []any{}
 	file_wire_proto_msgTypes[17].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[23].OneofWrappers = []any{
+	file_wire_proto_msgTypes[19].OneofWrappers = []any{}
+	file_wire_proto_msgTypes[25].OneofWrappers = []any{
 		(*StripRef_FlightCallsign)(nil),
 		(*StripRef_TacticalId)(nil),
 	}
-	file_wire_proto_msgTypes[24].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[25].OneofWrappers = []any{}
+	file_wire_proto_msgTypes[26].OneofWrappers = []any{}
 	file_wire_proto_msgTypes[27].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[30].OneofWrappers = []any{
+	file_wire_proto_msgTypes[29].OneofWrappers = []any{}
+	file_wire_proto_msgTypes[32].OneofWrappers = []any{
 		(*CoordinationAction_Transfer)(nil),
 		(*CoordinationAction_Assume)(nil),
 		(*CoordinationAction_ForceAssume)(nil),
@@ -9303,7 +9497,7 @@ func file_wire_proto_init() {
 		(*CoordinationAction_Tag)(nil),
 		(*CoordinationAction_AcceptTag)(nil),
 	}
-	file_wire_proto_msgTypes[38].OneofWrappers = []any{
+	file_wire_proto_msgTypes[40].OneofWrappers = []any{
 		(*TacticalAction_Create)(nil),
 		(*TacticalAction_Delete)(nil),
 		(*TacticalAction_Confirm)(nil),
@@ -9312,8 +9506,8 @@ func file_wire_proto_init() {
 		(*TacticalAction_StartTimer)(nil),
 		(*TacticalAction_Move)(nil),
 	}
-	file_wire_proto_msgTypes[45].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[46].OneofWrappers = []any{
+	file_wire_proto_msgTypes[47].OneofWrappers = []any{}
+	file_wire_proto_msgTypes[48].OneofWrappers = []any{
 		(*StandAction_Occupy)(nil),
 		(*StandAction_Vacate)(nil),
 		(*StandAction_Automatic)(nil),
@@ -9323,40 +9517,40 @@ func file_wire_proto_init() {
 		(*StandAction_CreateBlock)(nil),
 		(*StandAction_RemoveBlock)(nil),
 	}
-	file_wire_proto_msgTypes[53].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[55].OneofWrappers = []any{
+	file_wire_proto_msgTypes[55].OneofWrappers = []any{}
+	file_wire_proto_msgTypes[57].OneofWrappers = []any{
 		(*CdmAction_SetTobt)(nil),
 		(*CdmAction_SetReady)(nil),
 		(*CdmAction_SetDeice)(nil),
 		(*CdmAction_SetCtot)(nil),
 		(*CdmAction_RemoveCtot)(nil),
 	}
-	file_wire_proto_msgTypes[61].OneofWrappers = []any{
+	file_wire_proto_msgTypes[63].OneofWrappers = []any{
 		(*PdcAction_Issue)(nil),
 		(*PdcAction_RevertToVoice)(nil),
 		(*PdcAction_Acknowledge)(nil),
 		(*PdcAction_Unable)(nil),
 	}
-	file_wire_proto_msgTypes[66].OneofWrappers = []any{
+	file_wire_proto_msgTypes[68].OneofWrappers = []any{
 		(*MessageAction_Broadcast)(nil),
 		(*MessageAction_PrivateMessage)(nil),
 	}
-	file_wire_proto_msgTypes[69].OneofWrappers = []any{
+	file_wire_proto_msgTypes[71].OneofWrappers = []any{
 		(*SessionAction_Layout)(nil),
 		(*SessionAction_Runways)(nil),
 		(*SessionAction_UpdateRunwayStatus)(nil),
 	}
-	file_wire_proto_msgTypes[73].OneofWrappers = []any{
+	file_wire_proto_msgTypes[75].OneofWrappers = []any{
 		(*ValidationActionCommand_Acknowledge)(nil),
 		(*ValidationActionCommand_ClxOverride)(nil),
 		(*ValidationActionCommand_UpdateTobt)(nil),
 		(*ValidationActionCommand_AcknowledgeUnexpectedChange)(nil),
 	}
-	file_wire_proto_msgTypes[75].OneofWrappers = []any{
+	file_wire_proto_msgTypes[77].OneofWrappers = []any{
 		(*FlightPlanAction_Manual)(nil),
 		(*FlightPlanAction_Vfr)(nil),
 	}
-	file_wire_proto_msgTypes[78].OneofWrappers = []any{
+	file_wire_proto_msgTypes[80].OneofWrappers = []any{
 		(*AmanAction_MoveFlight)(nil),
 		(*AmanAction_LockFlight)(nil),
 		(*AmanAction_UnlockFlight)(nil),
@@ -9388,25 +9582,25 @@ func file_wire_proto_init() {
 		(*AmanAction_AcceptCoordinationRequest)(nil),
 		(*AmanAction_RejectCoordinationRequest)(nil),
 	}
-	file_wire_proto_msgTypes[80].OneofWrappers = []any{
+	file_wire_proto_msgTypes[82].OneofWrappers = []any{
 		(*AmanMoveFlight_BeforeCallsign)(nil),
 		(*AmanMoveFlight_AfterCallsign)(nil),
 	}
-	file_wire_proto_msgTypes[88].OneofWrappers = []any{
+	file_wire_proto_msgTypes[90].OneofWrappers = []any{
 		(*AmanCreateGap_End)(nil),
 		(*AmanCreateGap_SlotCount)(nil),
 	}
-	file_wire_proto_msgTypes[90].OneofWrappers = []any{
+	file_wire_proto_msgTypes[92].OneofWrappers = []any{
 		(*AmanCreateClosure_Start)(nil),
 		(*AmanCreateClosure_AfterCallsign)(nil),
 	}
-	file_wire_proto_msgTypes[92].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[95].OneofWrappers = []any{
+	file_wire_proto_msgTypes[94].OneofWrappers = []any{}
+	file_wire_proto_msgTypes[97].OneofWrappers = []any{
 		(*AmanSubmitCoordination_RouteDirect)(nil),
 		(*AmanSubmitCoordination_Speed)(nil),
 	}
-	file_wire_proto_msgTypes[96].OneofWrappers = []any{}
-	file_wire_proto_msgTypes[97].OneofWrappers = []any{
+	file_wire_proto_msgTypes[98].OneofWrappers = []any{}
+	file_wire_proto_msgTypes[99].OneofWrappers = []any{
 		(*SystemCommand_CreateSession)(nil),
 		(*SystemCommand_DeleteSession)(nil),
 		(*SystemCommand_UpdateEntity)(nil),
@@ -9418,6 +9612,7 @@ func file_wire_proto_init() {
 		(*SystemCommand_RecordSync)(nil),
 		(*SystemCommand_SetPositionLayout)(nil),
 		(*SystemCommand_ReplaceSectorOwners)(nil),
+		(*SystemCommand_ElectSessionMaster)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -9425,7 +9620,7 @@ func file_wire_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wire_proto_rawDesc), len(file_wire_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   109,
+			NumMessages:   112,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

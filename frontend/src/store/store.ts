@@ -53,6 +53,7 @@ import {
   type SidInfo,
 } from '../api/models.ts';
 import {WebSocketClient} from '../api/websocket.ts';
+import type {ActionStatus} from '../api/action-status.ts';
 import {
   createAMANCommand, isAMANCoordinationStateEvent,
   getAMANMutationBlockReason,
@@ -157,6 +158,8 @@ export interface BroadcastNotification {
 
 // Define the state interface for our store
 export interface WebSocketState {
+  actionStatuses: Record<string, ActionStatus>;
+  dismissActionStatus: (requestId: string) => void;
   controllers: FrontendController[];
   strips: FrontendStrip[];
   tacticalStrips: TacticalStrip[];
@@ -290,6 +293,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   }>();
   // Initial state
   const initialState = {
+    actionStatuses: {},
     controllers: [],
     strips: [],
     tacticalStrips: [],
@@ -433,6 +437,11 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
 
     return {
      ...initialState,
+     dismissActionStatus: (requestId) => set(state => {
+       const actionStatuses = {...state.actionStatuses};
+       delete actionStatuses[requestId];
+       return {actionStatuses};
+     }),
      selectStrip: (callsign) => set({ selectedCallsign: callsign }),
      setAMANConnectionState: (connectionState) => set({
        amanConnectionState: connectionState,
@@ -1222,6 +1231,7 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
     wsClient.setReadOnly(readOnly);
     store.setState({
       ...initialState,
+      actionStatuses: store.getState().actionStatuses,
       readOnly,
     })
   }
@@ -1522,6 +1532,10 @@ export const createWebSocketStore = (wsClient: WebSocketClient) => {
   };
 
   // Register event handlers
+  wsClient.onActionStatus?.(status => {
+    if (status === null) store.setState({actionStatuses: {}});
+    else store.setState(state => ({actionStatuses: {...state.actionStatuses, [status.requestId]: status}}));
+  });
   wsClient.on(EventType.FrontendInitial, handleInitialEvent);
   wsClient.on(EventType.FrontendGoAround, handleGoAroundEvent);
   wsClient.on(EventType.FrontendStripUpdate, handleStripUpdateEvent);

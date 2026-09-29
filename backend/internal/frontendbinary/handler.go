@@ -352,12 +352,9 @@ func (h Handler) handleFrame(ctx context.Context, conn *websocket.Conn, who iden
 			result.Status, result.ReasonCode, result.Detail, result.AggregateRevision = reply.Outcome.Status, reply.Outcome.ReasonCode, reply.Outcome.Detail, reply.Outcome.AggregateRevision
 		} else {
 			result.Status, result.ReasonCode, result.Detail = pb.CommandOutcome_FAILED, reply.Status.String(), reply.Detail
-			switch reply.Status {
-			case pb.CommandReply_COMMITTED:
-				result.Status = pb.CommandOutcome_SUCCEEDED
-			case pb.CommandReply_PENDING:
-				result.Status = pb.CommandOutcome_ACCEPTED
-			case pb.CommandReply_UNAVAILABLE, pb.CommandReply_NOT_OWNER:
+			// A transport reply without a projected outcome cannot prove that an
+			// effect was accepted or that a backend change committed.
+			if reply.Status == pb.CommandReply_COMMITTED || reply.Status == pb.CommandReply_PENDING || reply.Status == pb.CommandReply_UNAVAILABLE || reply.Status == pb.CommandReply_NOT_OWNER {
 				result.Status = pb.CommandOutcome_UNKNOWN
 			}
 		}
@@ -377,7 +374,7 @@ func (h Handler) handleFrame(ctx context.Context, conn *websocket.Conn, who iden
 					return err
 				}
 				outcome := state.Ledger[id]
-				if outcome == nil || outcome.Actor.GetId() != who.me.Cid || outcome.Actor.GetKind() != pb.Actor_CONTROLLER {
+				if outcome == nil || !proto.Equal(outcome.Actor, &pb.Actor{Kind: pb.Actor_CONTROLLER, Id: who.me.Cid, SessionId: &who.id}) {
 					continue
 				}
 				found = true

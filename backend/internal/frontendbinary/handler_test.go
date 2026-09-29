@@ -23,6 +23,12 @@ func (fixtureAuth) Validate(token string) (shared.AuthenticatedUser, error) {
 	return shared.NewAuthenticatedUser("123456", 1, &jwt.Token{Claims: jwt.MapClaims{"exp": float64(time.Now().Add(time.Hour).Unix())}}), nil
 }
 
+type fixtureAuthAs string
+
+func (a fixtureAuthAs) Validate(string) (shared.AuthenticatedUser, error) {
+	return shared.NewAuthenticatedUser(string(a), 1, &jwt.Token{Claims: jwt.MapClaims{"exp": float64(time.Now().Add(time.Hour).Unix())}}), nil
+}
+
 type fixtureRouter struct {
 	mu      sync.Mutex
 	request *pb.CommandRequest
@@ -210,6 +216,56 @@ func TestReplicaReconnectAndGapFreeHandoff(t *testing.T) {
 	writeTestFrame(t, conn, authFrame())
 	if initial := readTestFrame(t, conn).GetInitial(); initial == nil || initial.AggregateRevision != 4 || initial.StreamSequence != 31 {
 		t.Fatalf("reconnect did not use the replayed checkpoint: %+v", initial)
+	}
+}
+
+func TestLostReplyCrossNodeOutcomeIsActorScoped(t *testing.T) {
+	first, second := frontendFixture(), frontendFixture()
+	id := uuid.NewString()
+	sessionID := int32(7)
+	actor := &pb.Actor{Kind: pb.Actor_CONTROLLER, Id: "123456", SessionId: &sessionID}
+	outcome := &pb.CommandOutcome{CommandId: id, Actor: actor, Status: pb.CommandOutcome_ACCEPTED,
+		RequestSha256: strings.Repeat("a", 64), AggregateRevision: 4, CommittedStreamSequence: 31}
+	for _, projection := range []*fixtureProjection{first, second} {
+		other := &pb.EntitySnapshot{Key: "654321", Revision: 1, Value: &pb.EntityRecord{Value: &pb.EntityRecord_Controller{Controller: &pb.Controller{Cid: "654321", Callsign: "EKCH_APP", Position: "APP"}}}}
+		projection.session.Entities[other.Key] = other
+		projection.session.Indexes[pb.EntityKind_CONTROLLER][other.Key] = other
+	}
+	router := &fixtureRouter{}
+	servers := []*httptest.Server{
+		httptest.NewServer(Handler{Projection: first, Router: router, Auth: fixtureAuth{}}),
+		httptest.NewServer(Handler{Projection: second, Router: router, Auth: fixtureAuth{}}),
+		httptest.NewServer(Handler{Projection: second, Router: router, Auth: fixtureAuthAs("654321")}),
+	}
+	for _, server := range servers {
+		defer server.Close()
+	}
+
+	// A reply sent to the first socket is deliberately never read by the client.
+	conn := dial(t, servers[0].URL)
+	writeTestFrame(t, conn, authFrame())
+	_ = readTestFrame(t, conn)
+	writeTestFrame(t, conn, &pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_Command{Command: &pb.FrontendCommand{RequestId: id,
+		Action: &pb.ClientCommand{Action: &pb.ClientCommand_Strip{Strip: &pb.StripAction{Callsign: "SAS123", Change: &pb.StripAction_GenerateSquawk{GenerateSquawk: &pb.GenerateSquawk{}}}}}}}})
+	conn.Close()
+	first.session.Ledger[id] = proto.Clone(outcome).(*pb.CommandOutcome)
+	second.session.Ledger[id] = proto.Clone(outcome).(*pb.CommandOutcome)
+
+	query := &pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_StatusQuery{StatusQuery: &pb.ActionStatusQuery{RequestIds: []string{id}}}}
+	for index, server := range servers[1:] {
+		conn := dial(t, server.URL)
+		writeTestFrame(t, conn, authFrame())
+		_ = readTestFrame(t, conn)
+		writeTestFrame(t, conn, query)
+		response := readTestFrame(t, conn)
+		if index == 0 {
+			if result := response.GetActionResult(); result == nil || result.RequestId != id || result.Status != pb.CommandOutcome_ACCEPTED {
+				t.Fatalf("cross-node outcome lost: %+v", response)
+			}
+		} else if response.GetStatusMissing() == nil {
+			t.Fatalf("foreign actor saw outcome: %+v", response)
+		}
+		conn.Close()
 	}
 }
 

@@ -780,6 +780,12 @@ func (s *Service) reconcileFlight(ctx context.Context, state aman.AirportState, 
 		invalidateLiveGoAroundEpisode(&flight)
 		return applyGroundedObservation(flight, observation, now), nil
 	}
+	// Takeoff is lifecycle evidence even when the filed flight duration is
+	// absent. Baseline timing must not decide whether an observed aircraft is
+	// still Planned.
+	if flight.State == aman.StatePlanned && observation.TakeoffDetected != nil {
+		updateLifecycle(&flight, aman.StatePlanned, aman.StateAirborne, now)
+	}
 	applyBaseline(&flight, observation, now)
 	applyPreliminaryPrediction(&flight, observation, now)
 	if observation.Surveillance == nil || observation.Surveillance.GroundspeedKnots == nil || observation.Surveillance.AltitudeFeet == nil {
@@ -1774,9 +1780,6 @@ func applyBaseline(flight *aman.AMANFlight, observation aman.FlightObservation, 
 		ArrivalAt: arrival, AirborneSensedAt: *observation.TakeoffDetected, Source: aman.BaselineSourceAirborneFiledEET,
 		Confidence: aman.ConfidenceMedium, FlightPlanRevision: observation.FlightPlan.Revision, FlightPlanObservedAt: observed,
 		ModelVersion: "aman-baseline-v1", ConfigVersion: "aman-baseline-defaults-v1",
-	}
-	if flight.State == aman.StatePlanned {
-		flight.State = aman.StateAirborne
 	}
 }
 

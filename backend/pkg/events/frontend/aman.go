@@ -10,6 +10,7 @@ import (
 	"FlightStrips/internal/aman/holdingclearance"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/trafficprediction"
+	"FlightStrips/internal/config"
 )
 
 const AMANWireVersion = 1
@@ -421,7 +422,8 @@ func NewAMANStateEvent(state aman.AirportState, effectiveMode aman.EffectiveRoll
 		return AMANStateEvent{}, fmt.Errorf("map AMAN holding information: %w", err)
 	}
 	data.Warnings = mapAMANWarnings(aman.CurrentWarningSnapshot(health, state))
-	data.TrafficPrediction, err = mapAMANTrafficPrediction(trafficprediction.Build(state, health.VATSIM))
+	latitude, longitude := config.GetAirportCoordinates()
+	data.TrafficPrediction, err = mapAMANTrafficPrediction(trafficprediction.BuildWithAirportPosition(state, health.VATSIM, trafficprediction.AirportPosition{LatitudeDegrees: latitude, LongitudeDegrees: longitude}))
 	if err != nil {
 		return AMANStateEvent{}, fmt.Errorf("map AMAN traffic prediction: %w", err)
 	}

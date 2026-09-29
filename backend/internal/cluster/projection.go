@@ -401,6 +401,114 @@ func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 	return NewAggregate(ref), nil
 }
 
+// Outcome finds a command across aggregate ledgers for the HTTP command-status
+// URL, which intentionally does not expose an aggregate selector. Only the
+// authenticated actor receives the stored outcome.
+func (p *Projection) Outcome(_ context.Context, commandID string, actor *pb.Actor) *pb.CommandReply {
+	reply := &pb.CommandReply{ProtocolRevision: 1, CommandId: commandID}
+	if !canonicalUUID(commandID) || actor == nil {
+		reply.Status = pb.CommandReply_INVALID_ARGUMENT
+		return reply
+	}
+	if err := p.Ready(); err != nil {
+		reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
+		return reply
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	reply.Status = pb.CommandReply_NOT_FOUND
+	for _, state := range p.states {
+		outcome := state.Ledger[commandID]
+		if outcome == nil {
+			continue
+		}
+		if !outcomeActorMatches(actor, outcome.Actor) {
+			return &pb.CommandReply{ProtocolRevision: 1, CommandId: commandID, Status: pb.CommandReply_UNAUTHORIZED}
+		}
+		if reply.Outcome != nil {
+			return &pb.CommandReply{ProtocolRevision: 1, CommandId: commandID, Status: pb.CommandReply_UNAVAILABLE, Detail: "command ID exists in multiple aggregates"}
+		}
+		reply.Status = statusForOutcome(outcome)
+		reply.AggregateRevision, reply.StreamSequence = &outcome.AggregateRevision, &outcome.CommittedStreamSequence
+		reply.Outcome = proto.Clone(outcome).(*pb.CommandOutcome)
+	}
+	return reply
+}
+
+func outcomeActorMatches(query, stored *pb.Actor) bool {
+	if query == nil || stored == nil || query.Id != stored.Id {
+		return false
+	}
+	if query.Kind == pb.Actor_KIND_UNSPECIFIED {
+		return stored.Kind == pb.Actor_PILOT || stored.Kind == pb.Actor_CONTROLLER
+	}
+	if query.Kind != stored.Kind {
+		return false
+	}
+	// The HTTP status URL has no session selector. A pilot's authenticated CID
+	// remains the identity across sessions and callsign changes.
+	return (query.Kind == pb.Actor_PILOT || query.Kind == pb.Actor_CONTROLLER) && query.SessionId == nil || proto.Equal(query, stored)
+}
+
+// FlightSnapshot is the typed read used by the candidate pilot HTTP adapter.
+type FlightSnapshot struct {
+	SessionID     int32
+	Airport       string
+	Strip         *pb.Strip
+	PDC           *pb.PdcSequence
+	PDCRevision   uint64
+	Stand         *pb.StandAssignment
+	StandRevision uint64
+	CDM           *pb.CdmState
+	CDMRevision   uint64
+}
+
+var ErrFlightNotFound = errors.New("strip not found")
+var ErrAmbiguousFlight = errors.New("callsign matched multiple sessions")
+
+func (p *Projection) FindFlight(_ context.Context, callsign string) (*FlightSnapshot, error) {
+	if err := p.Ready(); err != nil {
+		return nil, err
+	}
+	key := strings.ToUpper(strings.TrimSpace(callsign))
+	if key == "" {
+		return nil, fmt.Errorf("callsign is required")
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	var found *FlightSnapshot
+	for _, state := range p.states {
+		ref := state.Ref.GetSession()
+		if ref == nil {
+			continue
+		}
+		strip := state.Indexes[pb.EntityKind_STRIP][key]
+		if strip == nil {
+			continue
+		}
+		if found != nil {
+			return nil, ErrAmbiguousFlight
+		}
+		found = &FlightSnapshot{SessionID: ref.Id, Strip: proto.Clone(strip.GetValue().GetStrip()).(*pb.Strip)}
+		if session := state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(ref.Id)]; session != nil {
+			found.Airport = session.GetValue().GetSession().Airport
+		}
+		if record := state.Indexes[pb.EntityKind_PDC_SEQUENCE][key]; record != nil {
+			found.PDC, found.PDCRevision = proto.Clone(record.GetValue().GetPdcSequence()).(*pb.PdcSequence), record.Revision
+		}
+		if record := state.Indexes[pb.EntityKind_STAND_ASSIGNMENT][key]; record != nil {
+			found.Stand, found.StandRevision = proto.Clone(record.GetValue().GetStandAssignment()).(*pb.StandAssignment), record.Revision
+		}
+		if record := state.Indexes[pb.EntityKind_CDM_STATE][key]; record != nil {
+			found.CDM, found.CDMRevision = proto.Clone(record.GetValue().GetCdmState()).(*pb.CdmState), record.Revision
+		}
+	}
+	if found == nil {
+		return nil, ErrFlightNotFound
+	}
+	return found, nil
+}
+
 // WaitApplied is the local PubAck barrier. A stalled consumer returns a
 // timeout; the caller must retry the same command ID or query its outcome.
 func (p *Projection) WaitApplied(ctx context.Context, sequence uint64) error {

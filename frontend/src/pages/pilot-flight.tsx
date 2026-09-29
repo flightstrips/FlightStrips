@@ -8,6 +8,7 @@ import {
 
 import { useAuth0 } from "@auth0/auth0-react";
 import { getApiUrl } from "@/lib/api-url";
+import { idempotencyHeaders } from "@/lib/http-idempotency";
 
 const STORAGE_KEY = "pilot-flight-callsign";
 
@@ -201,6 +202,7 @@ export default function PilotFlightPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
           ...(init?.headers ?? {}),
+          ...idempotencyHeaders(init),
         },
       });
 

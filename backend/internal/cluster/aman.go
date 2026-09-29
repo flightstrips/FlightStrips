@@ -327,7 +327,7 @@ func AmanObservationCommandID(provider, observationID string) (string, error) {
 	if provider == "" || observationID == "" {
 		return "", fmt.Errorf("missing AMAN observation identity")
 	}
-	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("flightstrips/aman-observation\x00"+provider+"\x00"+observationID)).String(), nil
+	return ProviderEventCommandID("aman-observation", provider, observationID)
 }
 
 // AmanVatsimObservationRequest binds a provider identity to one typed source

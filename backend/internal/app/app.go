@@ -19,6 +19,7 @@ import (
 	"FlightStrips/internal/euroscope"
 	"FlightStrips/internal/frontend"
 	"FlightStrips/internal/gsx"
+	"FlightStrips/internal/httpresults"
 	"FlightStrips/internal/metar"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/pdc"
@@ -1071,6 +1072,9 @@ type buildHandlerConfig struct {
 	enableTestTools            bool
 	ecfmpService               *ecfmp.Service
 	testToolsAPI               *testtools.WebAPI
+	candidateOutcomes          httpresults.OutcomeReader
+	candidatePDC               *pdc.CandidateWebAPI
+	candidateEFB               *efb.CandidateWebAPI
 }
 
 func buildHandler(cfg buildHandlerConfig) http.Handler {
@@ -1104,8 +1108,12 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 		flightLookup := pdc.NewFlightLookupAdapter(cfg.pdcService, cfg.sessionRepo)
 		pilot.NewWebAPI(cfg.authService, cfg.vatsimSource, flightLookup, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
 	}
-	if cfg.enableEFBAPI && cfg.efbAPI != nil {
-		cfg.efbAPI.RegisterRoutes(apiMux)
+	if cfg.enableEFBAPI && (cfg.efbAPI != nil || cfg.candidateEFB != nil) {
+		if cfg.candidateEFB != nil {
+			cfg.candidateEFB.RegisterRoutes(apiMux)
+		} else {
+			cfg.efbAPI.RegisterRoutes(apiMux)
+		}
 	}
 	if cfg.enableGSXStandFeed {
 		// Unauthenticated by necessity: the GSX script can only issue a plain GET.
@@ -1113,13 +1121,20 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 		gsx.NewWebAPI(cfg.sessionRepo, cfg.stripRepo, cfg.gsxSceneries, true).RegisterRoutes(apiMux)
 	}
 	if cfg.enablePDCAPI {
-		pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimSource, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
+		if cfg.candidatePDC != nil {
+			cfg.candidatePDC.RegisterRoutes(apiMux)
+		} else {
+			pdc.NewWebAPI(cfg.authService, cfg.pdcService, cfg.vatsimSource, cfg.requireLiveCIDVerification).RegisterRoutes(apiMux)
+		}
 	}
 	if cfg.amanAPI != nil {
 		cfg.amanAPI.RegisterRoutes(apiMux)
 	}
 	if cfg.enableTestTools && cfg.testToolsAPI != nil {
 		cfg.testToolsAPI.RegisterRoutes(apiMux)
+	}
+	if cfg.candidateOutcomes != nil {
+		(httpresults.Query{Auth: cfg.authService, Outcomes: cfg.candidateOutcomes}).RegisterRoutes(apiMux)
 	}
 	mux.Handle("/api/", server.APIMiddleware(http.StripPrefix("/api", apiMux)))
 

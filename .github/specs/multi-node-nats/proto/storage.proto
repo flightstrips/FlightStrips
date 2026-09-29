@@ -292,6 +292,8 @@ message PdcSequence {
   optional google.protobuf.Timestamp requested_at = 6;
   optional google.protobuf.Timestamp issued_at = 7;
   bool sent = 8; string issued_by_cid = 9; string request_channel = 10;
+  string atis = 11; string stand = 12; string aircraft_type = 13;
+  string clearance_text = 14; optional google.protobuf.Timestamp pilot_acknowledged_at = 15;
 }
 message CdmState {
   string callsign = 1; optional google.protobuf.Timestamp tobt = 2;
@@ -687,6 +689,8 @@ message CommandOutcome {
   Status status = 4; string reason_code = 5; string detail = 6;
   uint64 committed_stream_sequence = 7; uint64 aggregate_revision = 8;
   optional string effect_id = 9;
+  optional uint64 expected_entity_revision = 10;
+  AggregateRef aggregate = 11;
 }
 message WorkflowRecord {
   string workflow_id = 1; AggregateRef source = 2; AggregateRef destination = 3;

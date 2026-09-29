@@ -111,6 +111,7 @@ describe('EFB page interactions', () => {
       const request = fetchMock.mock.calls.find(([input]) => String(input).includes('/api/pdc/request'));
       expect(request).toBeDefined();
       expect(JSON.parse(request![1].body)).toMatchObject({ aircraft_type: 'A320' });
+      expect(request![1].headers['Idempotency-Key']).toMatch(/^[0-9a-f]{8}-[0-9a-f-]{27}$/);
     });
   });
 

@@ -149,8 +149,9 @@ func planPdc(request *pb.CommandRequest, state *Aggregate, action *pb.PdcAction)
 		if err != nil {
 			return nil, pb.CommandReply_UNAUTHORIZED, current, err
 		}
-	} else if actor.GetKind() == pb.Actor_PILOT && strings.EqualFold(actor.GetId(), key) && actor.GetSessionId() == request.GetAggregate().GetSession().GetId() {
-		// Pilot requests are bound to their own callsign.
+	} else if actor.GetKind() == pb.Actor_PILOT && actor.GetId() != "" && actor.GetSessionId() == request.GetAggregate().GetSession().GetId() {
+		// The HTTP boundary verifies live CID/callsign ownership before routing.
+		// The actor ID is the stable CID for outcome access, not the callsign.
 	} else if actor.GetKind() == pb.Actor_PROVIDER && actor.GetId() == "hoppie" && actor.GetSessionId() == request.GetAggregate().GetSession().GetId() {
 		// The provider adapter authenticates the incoming Hoppie callsign.
 	} else {
@@ -171,6 +172,14 @@ func planPdc(request *pb.CommandRequest, state *Aggregate, action *pb.PdcAction)
 			// Pilot and Hoppie issue actions with empty clearance request review.
 			if strings.TrimSpace(x.Issue.Clearance) != "" || sequence.State != "NONE" && sequence.State != "FAILED" && sequence.State != "REVERT_TO_VOICE" {
 				return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("PDC request already pending or invalid")
+			}
+			if actor.GetKind() == pb.Actor_PILOT && (x.Issue.Atis != "" || x.Issue.AircraftType != "") {
+				atis := strings.ToUpper(strings.TrimSpace(x.Issue.Atis))
+				aircraftType := strings.ToUpper(strings.TrimSpace(x.Issue.AircraftType))
+				if len(atis) != 1 || atis[0] < 'A' || atis[0] > 'Z' || aircraftType == "" || !strings.EqualFold(aircraftType, strip.GetValue().GetStrip().AircraftType) {
+					return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("invalid ATIS or aircraft type")
+				}
+				sequence.Atis, sequence.Stand, sequence.AircraftType = atis, strings.ToUpper(strings.TrimSpace(x.Issue.Stand)), aircraftType
 			}
 			channel := "WEB"
 			if actor.GetKind() == pb.Actor_PROVIDER {
@@ -195,6 +204,7 @@ func planPdc(request *pb.CommandRequest, state *Aggregate, action *pb.PdcAction)
 			return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("PDC message sequence exhausted")
 		}
 		sequence.Sequence, sequence.State, sequence.IssuedAt = s.NextMessageId, "CLEARED", now
+		sequence.ClearanceText = x.Issue.Clearance
 		sequence.IssuedByCid, sequence.Sent = actor.Id, false
 		s.NextMessageId++
 		change.Changes = append(change.Changes, candidateUpsert(session.Key, session, &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: s}}))
@@ -222,6 +232,7 @@ func planPdc(request *pb.CommandRequest, state *Aggregate, action *pb.PdcAction)
 			return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("PDC is not awaiting pilot acknowledgment")
 		}
 		sequence.State, sequence.Deadline = "CONFIRMED", nil
+		sequence.PilotAcknowledgedAt = now
 	case *pb.PdcAction_Unable:
 		if actor.GetKind() != pb.Actor_PILOT || sequence.State != "CLEARED" {
 			return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("PDC is not awaiting pilot response")

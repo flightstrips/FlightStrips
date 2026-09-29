@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getApiUrl } from '@/lib/api-url';
+import { idempotencyHeaders } from '@/lib/http-idempotency';
 import simbriefFplImg from '../assets/efb/simbrief-fpl.png';
 import fileVatsimFplImg from '../assets/efb/file-vatsim-fpl.png';
 import standImage from '../assets/efb/stand-image.png';
@@ -183,7 +184,7 @@ export default function EFBPage() {
 
   const authorizedFetch = useCallback(async (path: string, init?: RequestInit) => {
     const token = await getAccessTokenSilently();
-    const response = await fetch(getApiUrl(path), { ...init, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) } });
+    const response = await fetch(getApiUrl(path), { ...init, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(init?.headers ?? {}), ...idempotencyHeaders(init) } });
     const body = await response.json().catch(() => null);
     if (!response.ok) throw new ApiRequestError(body?.error || `Request failed (${response.status})`, response.status);
     return body;

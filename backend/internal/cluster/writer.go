@@ -147,7 +147,7 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 		if err != nil && status == pb.CommandReply_STATUS_UNSPECIFIED {
 			status = pb.CommandReply_INVALID_ARGUMENT
 		}
-		if status == pb.CommandReply_UNAUTHORIZED {
+		if status == pb.CommandReply_UNAUTHORIZED || status == pb.CommandReply_UNAVAILABLE || status == pb.CommandReply_NOT_OWNER {
 			reply.Status, reply.Detail = status, errorString(err)
 			return reply
 		}

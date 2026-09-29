@@ -288,6 +288,9 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 		if !found || !strings.EqualFold(strings.TrimSpace(clearance.Hold), string(selectedFix)) {
 			continue
 		}
+		if holdingEATBlockedByEarlierEntrant(flight, state.Flights) {
+			continue
+		}
 
 		eat := prediction.HoldingPlan.ApproachReleaseTime.UTC().Format("1504")
 		if suppressCurrent && clearance.HoldEAT == eat {
@@ -301,6 +304,35 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 		})
 	}
 	return events
+}
+
+// A fixed manual or protected slot can prevent the scheduler from repairing a
+// hold FIFO conflict. Withhold that EAT rather than instructing a new entrant
+// to pass aircraft already in the hold. The publication layer withdraws a
+// previously written value when this projection disappears.
+func holdingEATBlockedByEarlierEntrant(flight aman.AMANFlight, flights []aman.AMANFlight) bool {
+	stack := flight.HoldingStack
+	if stack == nil || stack.FirstObservedAt.IsZero() || flight.Prediction == nil || flight.Prediction.HoldingPlan == nil {
+		return false
+	}
+	release := flight.Prediction.HoldingPlan.ApproachReleaseTime
+	for _, older := range flights {
+		if older.Callsign == flight.Callsign || older.HoldingStack == nil ||
+			older.HoldingStack.HoldingID != stack.HoldingID ||
+			older.State == aman.StateLanded || older.State == aman.StateRemoved {
+			continue
+		}
+		olderEntry := older.HoldingStack.FirstObservedAt
+		if olderEntry.IsZero() && !older.HoldingStack.Confirmed ||
+			!olderEntry.IsZero() && !olderEntry.Before(stack.FirstObservedAt) {
+			continue
+		}
+		if older.Prediction == nil || older.Prediction.HoldingPlan == nil ||
+			!older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release.UTC().Truncate(time.Minute)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *amanTransport) newGainLossEvent(_ context.Context, state aman.AirportState) (euroscopeEvents.AMANGainLossEvent, error) {

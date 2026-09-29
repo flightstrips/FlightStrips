@@ -333,6 +333,52 @@ func TestHoldingStackOrderingRespectsManualStableAndFreezePrecedence(t *testing.
 	})
 }
 
+func TestNewHoldEntrantCannotReceiveEarlierReleaseThanOlderTraffic(t *testing.T) {
+	start := testTime()
+	olderEntry, newerEntry := start.Add(-10*time.Minute), start.Add(-5*time.Minute)
+	older := holdingFlight("OLDER", start, "MONAK", "MONAK-HOLD", nil)
+	older.HoldingQueueID = "MONAK-HOLD"
+	older.HoldingQueueTime, older.HoldingTransit = &olderEntry, 10*time.Minute
+	older.FreezeReason = aman.FreezeManual
+	older.CapturedSlot = &aman.Slot{Time: start.Add(20 * time.Minute), RunwayGroupID: "A", Sequence: 1, Reason: "captured"}
+	newer := holdingFlight("NEWER", start.Add(12*time.Minute), "MONAK", "MONAK-HOLD", nil)
+	newer.HoldingQueueID = "MONAK-HOLD"
+	newer.HoldingStackID = "" // still approaching the hold
+	newer.HoldingQueueTime, newer.HoldingTransit = &newerEntry, 17*time.Minute
+	input := sequence.Input{Policies: []sequence.Policy{simplePolicy("A", start, 20)}, Flights: []sequence.Flight{newer, older}}
+
+	result, err := sequence.Generate(input)
+	require.NoError(t, err)
+	require.Equal(t, start.Add(30*time.Minute), entryFor(t, result, "NEWER").Time)
+	require.GreaterOrEqual(t,
+		entryFor(t, result, "NEWER").Time.Add(-newer.HoldingTransit).Sub(older.CapturedSlot.Time.Add(-older.HoldingTransit)),
+		time.Minute,
+	)
+	input.Flights = []sequence.Flight{older, newer}
+	repeated, err := sequence.Generate(input)
+	require.NoError(t, err)
+	require.Equal(t, result, repeated)
+}
+
+func TestHoldingQueueDoesNotReorderUnrelatedHolds(t *testing.T) {
+	start := testTime()
+	earlierHoldEntry, laterHoldEntry := start.Add(5*time.Minute), start.Add(10*time.Minute)
+	a := holdingFlight("A", start.Add(21*time.Minute), "MONAK", "HOLD-A", nil)
+	a.HoldingQueueID, a.HoldingQueueTime = "HOLD-A", &earlierHoldEntry
+	a.HoldingTransit = 16 * time.Minute
+	b := holdingFlight("B", start.Add(20*time.Minute), "MONAK", "HOLD-B", nil)
+	b.HoldingQueueID, b.HoldingQueueTime = "HOLD-B", &laterHoldEntry
+	b.HoldingTransit = 10 * time.Minute
+
+	result, err := sequence.Generate(sequence.Input{
+		Policies: []sequence.Policy{simplePolicy("A", start, 20)},
+		Flights:  []sequence.Flight{a, b},
+	})
+	require.NoError(t, err)
+	require.Equal(t, start.Add(21*time.Minute), entryFor(t, result, "B").Time)
+	require.Equal(t, start.Add(24*time.Minute), entryFor(t, result, "A").Time)
+}
+
 func rateIntervalForTest(rate uint32) time.Duration {
 	return time.Duration((uint64(time.Hour) + uint64(rate) - 1) / uint64(rate))
 }

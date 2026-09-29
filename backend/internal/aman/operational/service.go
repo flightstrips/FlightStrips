@@ -1151,6 +1151,9 @@ func applyResolvedTerminalIdentity(flight *aman.AMANFlight, path navdata.Termina
 func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence.VacancyPromotion {
 	defer s.refreshHoldingPlans(state)
 	targets := releaseGainResequenceTargets(state)
+	for callsign := range releaseHoldingQueueResequenceTargets(state) {
+		targets[callsign] = struct{}{}
+	}
 	input := s.sequenceInput(*state)
 	for index := range input.Flights {
 		if _, target := targets[input.Flights[index].Callsign]; target {
@@ -1172,17 +1175,27 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 	}
 	var result sequence.Result
 	var promotions []sequence.VacancyPromotion
-	var err error
-	if input.Revision == 0 {
-		result, err = sequence.Generate(input)
-	} else {
-		result, promotions, err = sequence.GenerateWithVacancyPromotions(input, offers, now)
-	}
-	if err != nil || result.HasConflicts() {
-		if err == nil {
-			setProtectedSameSTARWarnings(state.RunwayGroups, result.Warnings)
+	for pass := 0; ; pass++ {
+		var err error
+		if input.Revision == 0 {
+			result, err = sequence.Generate(input)
+		} else {
+			result, promotions, err = sequence.GenerateWithVacancyPromotions(input, offers, now)
 		}
-		return nil
+		if err != nil || result.HasConflicts() {
+			if err == nil {
+				setProtectedSameSTARWarnings(state.RunwayGroups, result.Warnings)
+			}
+			return nil
+		}
+		if !enforceCrossGroupHoldingOrder(&input, result) {
+			break
+		}
+		// Each pass propagates a release bound to later entrants. A longer
+		// chain than the number of flights cannot be resolved in this cycle.
+		if pass >= len(input.Flights) {
+			return nil
+		}
 	}
 	setProtectedSameSTARWarnings(state.RunwayGroups, result.Warnings)
 	entries := make(map[aman.Callsign]sequence.CandidateEntry, len(result.Entries))
@@ -1208,6 +1221,46 @@ func (s *Service) resequence(state *aman.AirportState, now time.Time) []sequence
 		state.Flights[i].UpdatedAt = now
 	}
 	return promotions
+}
+
+// Runway groups are sequenced independently, but a physical hold can feed
+// several of them. Re-run with a lower bound for a later entrant whenever the
+// current candidates would release it ahead of an earlier entrant.
+func enforceCrossGroupHoldingOrder(input *sequence.Input, result sequence.Result) bool {
+	entries := make(map[aman.Callsign]sequence.CandidateEntry, len(result.Entries))
+	for _, entry := range result.Entries {
+		entries[entry.Callsign] = entry
+	}
+	changed := false
+	for i := range input.Flights {
+		later := &input.Flights[i]
+		laterSlot, ok := entries[later.Callsign]
+		if !ok || later.HoldingQueueTime == nil || later.HoldingTransit <= 0 ||
+			later.FreezeReason != aman.FreezeNone || later.ManualOrder != nil {
+			continue
+		}
+		for _, older := range input.Flights {
+			olderSlot, ok := entries[older.Callsign]
+			if !ok || older.HoldingQueueTime == nil || older.HoldingTransit <= 0 ||
+				older.HoldingQueueID != later.HoldingQueueID || older.RunwayGroupID == later.RunwayGroupID ||
+				!older.HoldingQueueTime.Before(*later.HoldingQueueTime) {
+				continue
+			}
+			olderRelease := olderSlot.Time.Add(-older.HoldingTransit).UTC().Truncate(time.Minute)
+			laterRelease := laterSlot.Time.Add(-later.HoldingTransit).UTC().Truncate(time.Minute)
+			if laterRelease.After(olderRelease) {
+				continue
+			}
+			minimum := olderRelease.Add(time.Minute + later.HoldingTransit)
+			if later.SlotNotBefore == nil || minimum.After(*later.SlotNotBefore) {
+				later.SlotNotBefore = &minimum
+				later.ProtectCurrentSlot = false
+				later.State = aman.StateUnstable
+				changed = true
+			}
+		}
+	}
+	return changed
 }
 
 func setProtectedSameSTARWarnings(groups []aman.RunwayGroupPolicy, warnings []sequence.Warning) {
@@ -1270,6 +1323,51 @@ func (s *Service) refreshHoldingPlans(state *aman.AirportState) {
 		prediction.HoldingPlan = holdingPlan(prediction, flight.Slot)
 		applyDerivedFeederETA(flight, holdingFeederETA(state.Authoritative, *flight, prediction, s.deps.Terminal))
 		flight.Prediction = &prediction
+	}
+	s.suppressOutOfOrderHoldingPlans(state)
+}
+
+func (s *Service) suppressOutOfOrderHoldingPlans(state *aman.AirportState) {
+	indices := make([]int, 0, len(state.Flights))
+	for i := range state.Flights {
+		flight := state.Flights[i]
+		if flight.State != aman.StateLanded && flight.State != aman.StateRemoved && holdingQueueTime(flight) != nil {
+			indices = append(indices, i)
+		}
+	}
+	sort.Slice(indices, func(a, b int) bool {
+		left, right := holdingQueueTime(state.Flights[indices[a]]), holdingQueueTime(state.Flights[indices[b]])
+		if !left.Equal(*right) {
+			return left.Before(*right)
+		}
+		return state.Flights[indices[a]].Callsign < state.Flights[indices[b]].Callsign
+	})
+	for position, i := range indices {
+		later := &state.Flights[i]
+		laterEntry := holdingQueueTime(*later)
+		if later.Prediction == nil || later.Prediction.HoldingPlan == nil {
+			continue
+		}
+		release := later.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute)
+		for _, j := range indices[:position] {
+			older := &state.Flights[j]
+			olderEntry := holdingQueueTime(*older)
+			if olderEntry == nil || holdingQueueID(*older) != holdingQueueID(*later) ||
+				!olderEntry.Before(*laterEntry) {
+				continue
+			}
+			if older.Prediction != nil && older.Prediction.HoldingPlan != nil &&
+				older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release) {
+				continue
+			}
+			// An immovable slot can make a safe EAT impossible. Do not expose
+			// that release or use it as a holding-derived feeder clock.
+			prediction := *later.Prediction
+			prediction.HoldingPlan = nil
+			later.Prediction = &prediction
+			applyDerivedFeederETA(later, holdingFeederETA(state.Authoritative, *later, prediction, s.deps.Terminal))
+			break
+		}
 	}
 }
 
@@ -1429,6 +1527,7 @@ func sequenceInputWithAircraft(state aman.AirportState, config terminal.Configur
 			CapturedSlot: flight.FrozenSlot, CurrentSlot: flight.Slot,
 			ProtectCurrentSlot: flight.State == aman.StateStable && flight.ManualOrder == nil && flight.Slot != nil && flight.FreezeReason == aman.FreezeNone,
 			HoldingStackID:     holdingStackID(flight), HoldingAltitudeFeet: holdingStackAltitude(flight),
+			HoldingQueueID: holdingQueueID(flight), HoldingQueueTime: holdingQueueTime(flight), HoldingTransit: holdingTransit(flight),
 		})
 	}
 	return input
@@ -1527,6 +1626,13 @@ func updateHoldingStack(previous *aman.HoldingStackState, candidate *trajectory.
 	next := aman.HoldingStackState{HoldingID: id, CandidateObservedAt: at, ConsecutiveObservations: 1}
 	if previous != nil && previous.HoldingID == id && at.Sub(previous.CandidateObservedAt) <= 3*time.Minute {
 		next.ConsecutiveObservations = previous.ConsecutiveObservations + 1
+		next.FirstObservedAt = previous.FirstObservedAt
+		if next.FirstObservedAt.IsZero() {
+			// Older persisted observations did not retain the first detection.
+			next.FirstObservedAt = previous.CandidateObservedAt
+		}
+	} else {
+		next.FirstObservedAt = at
 	}
 	next.Confirmed = next.ConsecutiveObservations >= holdingConfirmationObservations
 	return &next
@@ -1537,6 +1643,39 @@ func holdingStackID(flight aman.AMANFlight) string {
 		return ""
 	}
 	return flight.HoldingStack.HoldingID
+}
+
+func holdingQueueTime(flight aman.AMANFlight) *time.Time {
+	if holdingQueueID(flight) == "" {
+		return nil
+	}
+	if flight.HoldingStack != nil && flight.HoldingStack.HoldingID == *flight.SelectedHolding &&
+		!flight.HoldingStack.FirstObservedAt.IsZero() {
+		entered := flight.HoldingStack.FirstObservedAt
+		return &entered
+	}
+	if flight.Prediction == nil || flight.Prediction.HoldingFixETA == nil {
+		return nil
+	}
+	estimated := *flight.Prediction.HoldingFixETA
+	if flight.Prediction.GeneratedAt.After(estimated) {
+		estimated = flight.Prediction.GeneratedAt
+	}
+	return &estimated
+}
+
+func holdingQueueID(flight aman.AMANFlight) string {
+	if flight.SelectedHolding == nil {
+		return ""
+	}
+	return *flight.SelectedHolding
+}
+
+func holdingTransit(flight aman.AMANFlight) time.Duration {
+	if flight.Prediction == nil || flight.Prediction.HoldingFixETA == nil {
+		return 0
+	}
+	return max(0, flight.Prediction.RawTETA.Sub(*flight.Prediction.HoldingFixETA))
 }
 
 func holdingStackAltitude(flight aman.AMANFlight) *int {
@@ -1553,6 +1692,73 @@ func holdingStackAltitude(flight aman.AMANFlight) *int {
 }
 
 const gainResequenceThreshold = 4 * time.Minute
+
+// An inbound or newly confirmed hold entrant may have acquired a stable slot
+// before older holding traffic was observed. Reinsert that entrant and its
+// movable tail; earlier hold slots and explicit freezes stay protected.
+func releaseHoldingQueueResequenceTargets(state *aman.AirportState) map[aman.Callsign]struct{} {
+	targets := map[aman.Callsign]struct{}{}
+	for i := range state.Flights {
+		later := state.Flights[i]
+		laterEntry := holdingQueueTime(later)
+		if laterEntry == nil || later.Slot == nil || later.SelectedRunwayGroup == nil ||
+			later.State != aman.StateStable || later.FreezeReason != aman.FreezeNone || later.ManualOrder != nil {
+			continue
+		}
+		for j := range state.Flights {
+			older := state.Flights[j]
+			olderEntry := holdingQueueTime(older)
+			if olderEntry == nil || !sequenceEligible(older) ||
+				holdingQueueID(older) != holdingQueueID(later) ||
+				*older.SelectedRunwayGroup != *later.SelectedRunwayGroup || !olderEntry.Before(*laterEntry) {
+				continue
+			}
+			if older.Slot == nil {
+				// The earlier entrant will be assigned a slot this cycle; the
+				// later Stable flight must not reserve its old slot first.
+				targets[later.Callsign] = struct{}{}
+				break
+			}
+			if !later.Slot.Time.After(older.Slot.Time) {
+				targets[later.Callsign] = struct{}{}
+				break
+			}
+			olderPlan := holdingPlanFromFlight(older)
+			laterPlan := holdingPlanFromFlight(later)
+			if olderPlan != nil && laterPlan != nil &&
+				!laterPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).After(olderPlan.ApproachReleaseTime.UTC().Truncate(time.Minute)) {
+				targets[later.Callsign] = struct{}{}
+				break
+			}
+		}
+	}
+	// Moving one entrant can consume a slot held by a still later entrant.
+	// Reinsert the rest of that hold's movable tail in entry order as well.
+	for _, target := range state.Flights {
+		if _, moving := targets[target.Callsign]; !moving {
+			continue
+		}
+		targetEntry := holdingQueueTime(target)
+		for _, later := range state.Flights {
+			laterEntry := holdingQueueTime(later)
+			if targetEntry != nil && laterEntry != nil && targetEntry.Before(*laterEntry) &&
+				holdingQueueID(target) == holdingQueueID(later) &&
+				target.SelectedRunwayGroup != nil && later.SelectedRunwayGroup != nil &&
+				*target.SelectedRunwayGroup == *later.SelectedRunwayGroup &&
+				later.State == aman.StateStable && later.FreezeReason == aman.FreezeNone && later.ManualOrder == nil {
+				targets[later.Callsign] = struct{}{}
+			}
+		}
+	}
+	return targets
+}
+
+func holdingPlanFromFlight(flight aman.AMANFlight) *aman.HoldingPlan {
+	if flight.Prediction == nil {
+		return nil
+	}
+	return holdingPlan(*flight.Prediction, flight.Slot)
+}
 
 // releaseGainResequenceTargets authorizes the narrow automatic exception to
 // committed-slot immutability. Stable slots around the target stay protected;

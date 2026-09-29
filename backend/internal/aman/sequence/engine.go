@@ -102,6 +102,15 @@ type Flight struct {
 	CurrentSlot           *aman.Slot
 	HoldingStackID        string
 	HoldingAltitudeFeet   *int
+	// HoldingQueueTime is the first observed or predicted entry into the
+	// selected hold. HoldingQueueID also covers flights still approaching it.
+	// HoldingTransit is the current physical time from that hold to landing.
+	HoldingQueueID   string
+	HoldingQueueTime *time.Time
+	HoldingTransit   time.Duration
+	// SlotNotBefore is an operational lower bound needed when an earlier
+	// entrant to the same hold lands on a different runway group.
+	SlotNotBefore *time.Time
 	// ProtectCurrentSlot is an operational policy constraint used for stable
 	// flights. It does not create a persisted freeze.
 	ProtectCurrentSlot bool
@@ -506,6 +515,12 @@ func prepareFlights(input []Flight, policies map[aman.RunwayGroupID]preparedPoli
 		if raw.HoldingAltitudeFeet != nil && *raw.HoldingAltitudeFeet < 0 {
 			return nil, fmt.Errorf("flight %q has invalid holding stack altitude", raw.Callsign)
 		}
+		if raw.HoldingQueueTime != nil && (!validUTC(*raw.HoldingQueueTime) || raw.HoldingQueueID == "" || raw.HoldingTransit < 0) {
+			return nil, fmt.Errorf("flight %q has invalid holding queue evidence", raw.Callsign)
+		}
+		if raw.SlotNotBefore != nil && !validUTC(*raw.SlotNotBefore) {
+			return nil, fmt.Errorf("flight %q has invalid slot lower bound", raw.Callsign)
+		}
 		if raw.ProtectCurrentSlot && raw.CurrentSlot == nil {
 			return nil, fmt.Errorf("flight %q protects a missing current slot", raw.Callsign)
 		}
@@ -612,8 +627,7 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 		}
 	}
 
-	sort.Slice(movable, func(i, j int) bool { return flightLess(movable[i], movable[j]) })
-	for _, flight := range movable {
+	for _, flight := range orderMovableFlights(movable) {
 		candidate, err := findCandidate(policy, entries, flight)
 		if err != nil {
 			return nil, nil, err
@@ -624,8 +638,47 @@ func generateGroup(policy preparedPolicy, flights []preparedFlight, promotions m
 	return entries, warnings, nil
 }
 
+// Keep the ordinary scheduling priority between unrelated holds. Within a
+// hold, an earlier entrant must be allocated before any later entrant so that
+// placement can enforce the release bound against its slot.
+func orderMovableFlights(flights []preparedFlight) []preparedFlight {
+	remaining := slices.Clone(flights)
+	sort.Slice(remaining, func(i, j int) bool { return flightLess(remaining[i], remaining[j]) })
+	ordered := make([]preparedFlight, 0, len(remaining))
+	for len(remaining) > 0 {
+		for i, flight := range remaining {
+			olderPending := false
+			for _, other := range remaining {
+				if flight.HoldingQueueTime != nil && other.HoldingQueueTime != nil &&
+					flight.HoldingQueueID == other.HoldingQueueID && other.HoldingQueueTime.Before(*flight.HoldingQueueTime) {
+					// Explicit manual or committed Stable order retains its
+					// existing precedence over the automatic hold queue.
+					if flight.ManualOrder != nil && (other.ManualOrder == nil || *flight.ManualOrder < *other.ManualOrder) {
+						continue
+					}
+					if flight.stableOrder != nil && other.stableOrder != nil && *flight.stableOrder < *other.stableOrder {
+						continue
+					}
+					olderPending = true
+					break
+				}
+			}
+			if olderPending {
+				continue
+			}
+			ordered = append(ordered, flight)
+			remaining = slices.Delete(remaining, i, i+1)
+			break
+		}
+	}
+	return ordered
+}
+
 func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight) (time.Time, error) {
 	lower := flight.OperationalTETA.Add(-policy.EarlyTolerance)
+	if flight.SlotNotBefore != nil && lower.Before(*flight.SlotNotBefore) {
+		lower = *flight.SlotNotBefore
+	}
 	if candidate, ok := previousGridAtOrBefore(policy, flight.OperationalTETA); ok && candidate.Before(flight.OperationalTETA) {
 		for !candidate.Before(lower) {
 			valid, earlier, _ := placement(policy, entries, flight, candidate)
@@ -643,7 +696,11 @@ func findCandidate(policy preparedPolicy, entries []allocatedEntry, flight prepa
 		}
 	}
 
-	candidate, ok := nextGridAtOrAfter(policy, flight.OperationalTETA)
+	target := flight.OperationalTETA
+	if target.Before(lower) {
+		target = lower
+	}
+	candidate, ok := nextGridAtOrAfter(policy, target)
 	if !ok {
 		return time.Time{}, fmt.Errorf("runway group %q has no slot grid at or after flight %q TETA", policy.RunwayGroupID, flight.Callsign)
 	}
@@ -679,6 +736,9 @@ func queuePlacement(policy preparedPolicy, entries []allocatedEntry, flight prep
 }
 
 func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, flight preparedFlight, candidate time.Time, preserveStableOrder bool) (bool, time.Time, time.Time) {
+	if flight.SlotNotBefore != nil && candidate.Before(*flight.SlotNotBefore) {
+		return false, candidate.Add(-time.Nanosecond), *flight.SlotNotBefore
+	}
 	if gap, blocked := policy.blockingGap(candidate); blocked {
 		return false, gap.Start.Add(-time.Nanosecond), gap.End
 	}
@@ -726,6 +786,33 @@ func placementWithStableOrder(policy preparedPolicy, entries []allocatedEntry, f
 			boundLater := trailing.time.Add(requiredGap(policy, trailing.flight, flight, trailing.time))
 			if boundLater.After(later) {
 				later = boundLater
+			}
+		}
+	}
+	if flight.HoldingQueueTime != nil {
+		for _, entry := range entries {
+			older := entry.flight
+			if older.HoldingQueueTime == nil || older.HoldingQueueID != flight.HoldingQueueID ||
+				!older.HoldingQueueTime.Before(*flight.HoldingQueueTime) {
+				continue
+			}
+			// A new aircraft cannot pass one already in this hold. Different
+			// physical transit times also require more than runway separation
+			// when the later slot would otherwise yield an earlier release.
+			minimum := entry.time.Add(requiredGap(policy, older, flight, candidate))
+			if older.HoldingTransit > 0 && flight.HoldingTransit > 0 {
+				// EAT is published as HHMM, so successive releases need a
+				// visible minute of separation.
+				releaseMinimum := entry.time.Add(flight.HoldingTransit - older.HoldingTransit + time.Minute)
+				if releaseMinimum.After(minimum) {
+					minimum = releaseMinimum
+				}
+			}
+			if candidate.Before(minimum) {
+				valid = false
+				if minimum.After(later) {
+					later = minimum
+				}
 			}
 		}
 	}

@@ -70,9 +70,9 @@ An implementation that cannot satisfy a contract must update these documents and
 | 13 | [Owner leases and routing](tasks/13-owner-routing.md) | 02, 03 | Merged ([#800](https://github.com/flightstrips/FlightStrips/pull/800)) |
 | 14 | [EuroScope plugin protocol](tasks/14-plugin-protocol.md) | 02 | Merged to integration base ([#805](https://github.com/flightstrips/FlightStrips/pull/805)); held from `main`/release |
 | 15 | [Binary frontend transport](tasks/15-frontend-commands.md) | 06, 13 | Merged to integration base ([#810](https://github.com/flightstrips/FlightStrips/pull/810)); held from `main`/release |
-| 15a | [Browser command outcomes](tasks/15a-browser-results.md) | 13, 15 | Not started |
-| 15b | [HTTP JSON boundary and outcomes](tasks/15b-http-results.md) | 02, 13 | Not started |
-| 16 | [Master election and fanout](tasks/16-master-fanout.md) | 05, 10, 13, 14 | Not started |
+| 15a | [Browser command outcomes](tasks/15a-browser-results.md) | 13, 15 | Merged to integration base ([#811](https://github.com/flightstrips/FlightStrips/pull/811)); held from `main`/release |
+| 15b | [HTTP JSON boundary and outcomes](tasks/15b-http-results.md) | 02, 13 | Merged to integration base ([#813](https://github.com/flightstrips/FlightStrips/pull/813)); held from `main`/release |
+| 16 | [Master election and fanout](tasks/16-master-fanout.md) | 05, 10, 13, 14 | Merged to integration base ([#812](https://github.com/flightstrips/FlightStrips/pull/812)); held from `main`/release |
 | 17 | [Durable plugin effects](tasks/17-effects.md) | 09, 13–16, 15a | Not started |
 | 18 | [Session workers and cleanup](tasks/18-session-workers.md) | 04–10, 13, 14, 17 | Not started |
 | 19 | [Airport and global workers](tasks/19-airport-workers.md) | 11–13, 17 | Not started |

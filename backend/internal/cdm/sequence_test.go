@@ -888,6 +888,55 @@ func TestSequenceService_RecalculateAirport_SkipsAircraftWithAsatAndPreservesExi
 	}
 }
 
+func TestSequenceService_RecalculateAirport_RefreshesExpiredTsatForPushbackAfterStartup(t *testing.T) {
+	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	oldTsat := "114500"
+	newTobt := "1200"
+	data := &models.CdmData{
+		Tobt: &newTobt,
+		Tsat: &oldTsat,
+		Ttot: testStringPtr("115500"),
+		Asat: testStringPtr("1148"),
+	}
+	data.MarkLocalRecalculationPending()
+	data.PushbackRecalculate = true
+	strip := &models.Strip{Callsign: "SAS779", Origin: "EKCH", Runway: testStringPtr("04L"), CdmData: data}
+
+	var persisted *models.CdmData
+	stripRepo := &testutil.MockStripRepository{
+		ListByOriginFn: func(context.Context, int32, string) ([]*models.Strip, error) {
+			return []*models.Strip{strip}, nil
+		},
+		SetCdmDataFn: func(_ context.Context, _ int32, _ string, updated *models.CdmData) (int64, error) {
+			persisted = updated.Clone()
+			return 1, nil
+		},
+	}
+	sessionRepo := &testutil.MockSessionRepository{
+		GetByIDFn: func(_ context.Context, id int32) (*models.Session, error) {
+			return &models.Session{ID: id, Airport: "EKCH"}, nil
+		},
+	}
+	service := newTestSequenceService(stripRepo, sessionRepo, NewCdmConfigStore("", "", "", 0, CdmConfigDefaults{}, nil), &testutil.MockFrontendHub{}, &testutil.MockEuroscopeHub{})
+	service.now = func() time.Time { return now }
+
+	if err := service.RecalculateAirport(context.Background(), 7, "EKCH"); err != nil {
+		t.Fatal(err)
+	}
+	if persisted == nil {
+		t.Fatal("pushback correction did not recalculate the started flight")
+	}
+	if got := valueOrEmpty(persisted.Tsat); got != "120000" {
+		t.Fatalf("expected updated TSAT 120000, got %q", got)
+	}
+	if got := valueOrEmpty(persisted.Ttot); got != "121000" {
+		t.Fatalf("expected updated TTOT 121000, got %q", got)
+	}
+	if persisted.PushbackRecalculate || persisted.NeedsLocalRecalculation() {
+		t.Fatal("pushback recalculation markers remained after the new assignment")
+	}
+}
+
 func TestSequenceService_RecalculateAirport_SkipsAircraftWithAobtAndPreservesExistingTsat(t *testing.T) {
 	t.Parallel()
 

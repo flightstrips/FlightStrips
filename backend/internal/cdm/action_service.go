@@ -907,11 +907,16 @@ func (c *ActionService) PreparePushback(ctx context.Context, session int32, call
 	}
 	now := time.Now().UTC()
 	tobt := now.Format("1504")
-	_, before, updated, _, changed, _, err := c.prepareTobtUpdate(ctx, session, callsign, tobt, "FlightStrips", "ATC", now)
+	_, before, updated, _, changed, shouldRecalculate, err := c.prepareTobtUpdate(ctx, session, callsign, tobt, "FlightStrips", "ATC", now)
 	if err != nil {
 		return "", "", false, err
 	}
-	if changed {
+	if shouldRecalculate {
+		// Startup approval sets ASAT before pushback. Allow this explicit
+		// correction to replace the old TSAT while the flight is still on block.
+		updated.PushbackRecalculate = true
+	}
+	if changed || shouldRecalculate {
 		if err := s.persistCdmUpdate(ctx, session, callsign, before, updated); err != nil {
 			return "", "", false, err
 		}

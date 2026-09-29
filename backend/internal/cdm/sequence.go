@@ -241,7 +241,7 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 		calcInput := candidate.input
 
 		// TSAT specifically expired → mark strip as invalid, keep TOBT
-		if isTsatSpecificallyExpired(strip, now) {
+		if isTsatSpecificallyExpired(strip, now) && !dataAllowsStartedPushbackRecalculation(strip) {
 			// An improve-only flight's old slot was provisionally reserved while
 			// probing for an earlier gap. Once that assignment expires it must no
 			// longer block predecessors or following flights from using capacity.
@@ -549,7 +549,7 @@ func shouldRecalculateStrip(strip *models.Strip, now time.Time) bool {
 		return true
 	}
 	if stripHasStarted(strip) {
-		return false
+		return dataAllowsStartedPushbackRecalculation(strip)
 	}
 	if data.NeedsLocalRecalculation() {
 		return true
@@ -565,6 +565,12 @@ func shouldRecalculateStrip(strip *models.Strip, now time.Time) bool {
 		return true
 	}
 	return false
+}
+
+func dataAllowsStartedPushbackRecalculation(strip *models.Strip) bool {
+	return strip != nil && strip.CdmData != nil &&
+		strip.CdmData.PushbackRecalculate && strip.CdmData.NeedsLocalRecalculation() &&
+		valueOrEmpty(strip.EffectiveAobt()) == ""
 }
 
 func stripHasStarted(strip *models.Strip) bool {

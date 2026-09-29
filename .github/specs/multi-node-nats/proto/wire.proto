@@ -176,7 +176,7 @@ message TacticalAction {
     MoveTactical move = 8;
   }
 }
-message CreateTactical { string title = 1; string body = 2; string bay = 3; }
+message CreateTactical { string title = 1; string body = 2; string bay = 3; string kind = 4; string label = 5; string aircraft = 6; }
 message DeleteTactical {}
 message ConfirmTactical {}
 message ForceAssumeTactical {}
@@ -220,7 +220,7 @@ message PdcAction {
     AcknowledgePdc acknowledge = 4; UnablePdc unable = 5;
   }
 }
-message IssuePdc { string clearance = 1; }
+message IssuePdc { string clearance = 1; string request_remarks = 2; string request_channel = 3; }
 message RevertPdcToVoice {}
 message AcknowledgePdc {}
 message UnablePdc { string reason = 1; }

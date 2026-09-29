@@ -59,6 +59,16 @@ by runway pair. A sector table replacement and a position-wide layout update
 each form one subject-CAS event. Controller presence and last-seen observations
 remain in `FS_PRESENCE`, outside the durable entity revision.
 
+Task 09 adds `PdcSequence.requested_at`, `issued_at`, `sent`,
+`issued_by_cid`, and `request_channel`. `Session.next_message_id` allocates a
+PDC issue sequence in the same session event as its `PdcSequence`, response
+`SessionDeadline`, and waiting typed `PdcEffect`. `CreateTactical` carries
+`kind`, `label`, and `aircraft` so the existing tactical type and runway rules
+can be checked before allocating `Session.next_tactical_id`. These are
+additive candidate schema fields; plugin dispatch remains a later task.
+`IssuePdc.request_remarks` and `request_channel` preserve the WEB and CPDLC
+request inputs without embedding provider payloads.
+
 The record itself carries the same key identity and validator checks equality. All numeric entity IDs are monotonic within session and never reused; global session IDs start at 1 and never reuse. Entity revision increments per actual replacement or deletion. An event with several changes increments aggregate revision once. Indexes are derived from entity records in a stable order, not independently stored. An absent optional value is truly unknown/not set; zero, empty string, false, and empty repeated field have their normal explicit meaning only when the domain validator permits them. For an optional message, absence represents null. Empty repeated lists replace earlier lists. `google.protobuf.Timestamp` must pass the Protobuf valid range and be normalized to UTC; all `double` fields must be finite. Canonical lat/lon ranges are ±90/±180 degrees and headings/courses are in [0,360). Identifiers have no dots where used in KV keys.
 
 The remaining `string` fields named `state`, `status`, `kind`, `source`, `reason`, or `action` are **scalar domain tokens**, never serialized objects. Validators use these closed vocabularies: PDC state is `NONE`, `REQUESTED`, `REQUESTED_WITH_FAULTS`, `CLEARED`, `CONFIRMED`, `NO_RESPONSE`, `FAILED`, `REVERT_TO_VOICE`; AMAN effective mode is `disabled`, `shadow`, `read_only`, `authoritative`, `blocked`; AMAN lifecycle state is `planned`, `airborne`, `unstable`, `stable`, `landed`, `go_around`, `removed`; AMAN sequence disposition is `active`, `desequenced`; data status is `fresh`, `stale`, `disconnected`; freeze reason is `none`, `superstable`, `tma`, `manual`; confidence is `unknown`, `low`, `medium`, `high`; navigation coverage is `complete`, `partial`, `unsupported`, `unavailable`; navigation validation state is `candidate`, `validated`; route fact state is `active`, `cleared`, `expired`. Other domain token fields take the exact validated constants from the source domain package at this spec revision, and an unknown token is a decode/validation failure. New token values require a reviewed contract change before writing. Free text fields such as remarks, message text and audit detail are plain UTF-8, with JSON document syntax rejected by boundary validation where a structured value is expected.

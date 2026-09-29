@@ -3355,6 +3355,9 @@ type CreateTactical struct {
 	Title         string                 `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
 	Body          string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	Bay           string                 `protobuf:"bytes,3,opt,name=bay,proto3" json:"bay,omitempty"`
+	Kind          string                 `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
+	Label         string                 `protobuf:"bytes,5,opt,name=label,proto3" json:"label,omitempty"`
+	Aircraft      string                 `protobuf:"bytes,6,opt,name=aircraft,proto3" json:"aircraft,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3406,6 +3409,27 @@ func (x *CreateTactical) GetBody() string {
 func (x *CreateTactical) GetBay() string {
 	if x != nil {
 		return x.Bay
+	}
+	return ""
+}
+
+func (x *CreateTactical) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *CreateTactical) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *CreateTactical) GetAircraft() string {
+	if x != nil {
+		return x.Aircraft
 	}
 	return ""
 }
@@ -4629,10 +4653,12 @@ func (*PdcAction_Acknowledge) isPdcAction_Change() {}
 func (*PdcAction_Unable) isPdcAction_Change() {}
 
 type IssuePdc struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Clearance     string                 `protobuf:"bytes,1,opt,name=clearance,proto3" json:"clearance,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Clearance      string                 `protobuf:"bytes,1,opt,name=clearance,proto3" json:"clearance,omitempty"`
+	RequestRemarks string                 `protobuf:"bytes,2,opt,name=request_remarks,json=requestRemarks,proto3" json:"request_remarks,omitempty"`
+	RequestChannel string                 `protobuf:"bytes,3,opt,name=request_channel,json=requestChannel,proto3" json:"request_channel,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *IssuePdc) Reset() {
@@ -4668,6 +4694,20 @@ func (*IssuePdc) Descriptor() ([]byte, []int) {
 func (x *IssuePdc) GetClearance() string {
 	if x != nil {
 		return x.Clearance
+	}
+	return ""
+}
+
+func (x *IssuePdc) GetRequestRemarks() string {
+	if x != nil {
+		return x.RequestRemarks
+	}
+	return ""
+}
+
+func (x *IssuePdc) GetRequestChannel() string {
+	if x != nil {
+		return x.RequestChannel
 	}
 	return ""
 }
@@ -8420,11 +8460,14 @@ const file_wire_proto_rawDesc = "" +
 	"\vstart_timer\x18\a \x01(\v2+.flightstrips.cluster.v1.StartTacticalTimerH\x00R\n" +
 	"startTimer\x12;\n" +
 	"\x04move\x18\b \x01(\v2%.flightstrips.cluster.v1.MoveTacticalH\x00R\x04moveB\b\n" +
-	"\x06change\"L\n" +
+	"\x06change\"\x92\x01\n" +
 	"\x0eCreateTactical\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\x12\x12\n" +
 	"\x04body\x18\x02 \x01(\tR\x04body\x12\x10\n" +
-	"\x03bay\x18\x03 \x01(\tR\x03bay\"\x10\n" +
+	"\x03bay\x18\x03 \x01(\tR\x03bay\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kind\x12\x14\n" +
+	"\x05label\x18\x05 \x01(\tR\x05label\x12\x1a\n" +
+	"\baircraft\x18\x06 \x01(\tR\baircraft\"\x10\n" +
 	"\x0eDeleteTactical\"\x11\n" +
 	"\x0fConfirmTactical\"\x15\n" +
 	"\x13ForceAssumeTactical\"&\n" +
@@ -8487,9 +8530,11 @@ const file_wire_proto_rawDesc = "" +
 	"\x0frevert_to_voice\x18\x03 \x01(\v2).flightstrips.cluster.v1.RevertPdcToVoiceH\x00R\rrevertToVoice\x12K\n" +
 	"\vacknowledge\x18\x04 \x01(\v2'.flightstrips.cluster.v1.AcknowledgePdcH\x00R\vacknowledge\x12<\n" +
 	"\x06unable\x18\x05 \x01(\v2\".flightstrips.cluster.v1.UnablePdcH\x00R\x06unableB\b\n" +
-	"\x06change\"(\n" +
+	"\x06change\"z\n" +
 	"\bIssuePdc\x12\x1c\n" +
-	"\tclearance\x18\x01 \x01(\tR\tclearance\"\x12\n" +
+	"\tclearance\x18\x01 \x01(\tR\tclearance\x12'\n" +
+	"\x0frequest_remarks\x18\x02 \x01(\tR\x0erequestRemarks\x12'\n" +
+	"\x0frequest_channel\x18\x03 \x01(\tR\x0erequestChannel\"\x12\n" +
 	"\x10RevertPdcToVoice\"\x10\n" +
 	"\x0eAcknowledgePdc\"#\n" +
 	"\tUnablePdc\x12\x16\n" +

@@ -138,6 +138,9 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 	if err := validateCoordinationTransition(a, changes, staged); err != nil {
 		return false, err
 	}
+	if err := validatePdcTacticalState(a, e.GetDomainChanged(), staged); err != nil {
+		return false, err
+	}
 	var outcome *pb.CommandOutcome
 	if d := e.GetDomainChanged(); d != nil {
 		outcome = d.GetOutcome()

@@ -155,6 +155,9 @@ func PlanStrip(ctx context.Context, request *pb.CommandRequest, state *Aggregate
 	if update := request.GetSystem().GetUpdateEntity(); update != nil && update.GetValue().GetCoordination() != nil {
 		return PlanSystemCoordination(request, state, update)
 	}
+	if request.GetClient().GetPdc() != nil || request.GetClient().GetTactical() != nil {
+		return PlanPdcTactical(ctx, request, state)
+	}
 	if action := request.GetClient().GetStrip(); action != nil {
 		return planStripEdit(request, state, action)
 	}
@@ -271,7 +274,15 @@ func planStripDelete(request *pb.CommandRequest, state *Aggregate, deletion *pb.
 		return nil, pb.CommandReply_REVISION_CONFLICT, old.Revision, fmt.Errorf("stale strip revision")
 	}
 	change := &pb.EntityChange{Key: old.Key, Revision: old.Revision + 1, Operation: &pb.EntityChange_Delete{Delete: &pb.DeleteEntity{Kind: pb.EntityKind_STRIP}}}
-	return &pb.DomainChange{Changes: []*pb.EntityChange{change}}, pb.CommandReply_COMMITTED, old.Revision, nil
+	changes := []*pb.EntityChange{change}
+	if pdc := state.Indexes[pb.EntityKind_PDC_SEQUENCE][old.Key]; pdc != nil {
+		changes = append(changes, candidateDelete(old.Key, pdc, pb.EntityKind_PDC_SEQUENCE))
+	}
+	if deadline := state.Indexes[pb.EntityKind_SESSION_DEADLINE]["pdc."+old.Key]; deadline != nil {
+		changes = append(changes, candidateDelete(deadline.Key, deadline, pb.EntityKind_SESSION_DEADLINE))
+	}
+	sortCandidateChanges(changes)
+	return &pb.DomainChange{Changes: changes}, pb.CommandReply_COMMITTED, old.Revision, nil
 }
 
 func mergeObservedStrip(old, incoming *pb.Strip) *pb.Strip {

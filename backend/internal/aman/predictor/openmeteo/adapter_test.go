@@ -221,6 +221,53 @@ func TestAdapterCacheIsSafeForConcurrentCallers(t *testing.T) {
 	require.Equal(t, int32(1), calls.Load(), "concurrent equal cache misses share one provider request")
 }
 
+func TestAdapterLateCacheMissDoesNotRefetch(t *testing.T) {
+	now := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_, _ = w.Write([]byte(gfsPayload()))
+	}))
+	defer server.Close()
+	cache := &delayedLoadCache{entered: make(chan struct{}), release: make(chan struct{})}
+	adapter := New(Config{BaseURL: server.URL, Now: func() time.Time { return now }, Cache: cache})
+	request := predictor.WindProfileRequest{Samples: []predictor.WindSampleRequest{{At: now.Add(5 * time.Minute)}}}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	late := make(chan error, 1)
+	go func() { _, err := adapter.WindProfile(ctx, request); late <- err }()
+	select {
+	case <-cache.entered:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	_, err := adapter.WindProfile(ctx, request)
+	require.NoError(t, err)
+	close(cache.release)
+	require.NoError(t, <-late)
+	require.Equal(t, int32(1), calls.Load(), "a miss observed before refresh must reuse the completed refresh")
+}
+
+type delayedLoadCache struct {
+	loads   atomic.Int32
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (c *delayedLoadCache) Load(ctx context.Context, _ []string) ([]CachedSample, error) {
+	if c.loads.Add(1) == 1 {
+		close(c.entered)
+		select {
+		case <-c.release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return nil, nil
+}
+func (*delayedLoadCache) Store(context.Context, []CachedSample) error             { return nil }
+func (*delayedLoadCache) ReserveRequest(context.Context, time.Time) (bool, error) { return true, nil }
+
 var _ predictor.WindProfileReader = (*Adapter)(nil)
 
 type recordingPersistentCache struct {

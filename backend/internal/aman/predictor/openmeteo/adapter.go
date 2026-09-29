@@ -167,13 +167,31 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 		})
 		refreshKey := strings.Join(missingKeys(requested), ",")
 		value, err, _ := a.refreshes.Do(refreshKey, func() (any, error) {
-			levels, fetchErr := a.fetchSamples(ctx, requested)
+			// A caller can observe a miss before another refresh completes, then
+			// reach singleflight after that refresh has returned. Recheck under
+			// the shared call so this late caller uses the newly cached profile.
+			refreshed := make(map[string]cacheEntry, len(requested))
+			stillMissing := make([]predictor.WindSampleRequest, 0, len(requested))
+			for _, sample := range requested {
+				key, _ := cacheKey(sample)
+				a.mu.RLock()
+				cached, found := a.cache[key]
+				a.mu.RUnlock()
+				if found && now.Before(cached.expiresAt) {
+					refreshed[key] = cloneEntry(cached)
+				} else {
+					stillMissing = append(stillMissing, sample)
+				}
+			}
+			if len(stillMissing) == 0 {
+				return refreshed, nil
+			}
+			levels, fetchErr := a.fetchSamples(ctx, stillMissing)
 			if fetchErr != nil {
 				return nil, fetchErr
 			}
-			refreshed := make(map[string]cacheEntry, len(requested))
-			persisted := make([]CachedSample, 0, len(requested))
-			for i, sample := range requested {
+			persisted := make([]CachedSample, 0, len(stillMissing))
+			for i, sample := range stillMissing {
 				key, _ := cacheKey(sample)
 				entry := cacheEntry{levels: levels[i], observedAt: now, expiresAt: now.Add(a.cacheTTL)}
 				a.mu.Lock()

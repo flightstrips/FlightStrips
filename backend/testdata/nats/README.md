@@ -32,6 +32,14 @@ and initialized position/presence watchers. Set `NATS_PROJECTION_LISTEN` to
 choose a different test address. The current production server does not start
 this process or depend on NATS readiness.
 
+To exercise owner failover and command routing against this fixture, run
+`$env:NATS_INTEGRATION='1'; go test ./internal/cluster -run '^TestOwnerFailoverAndLostCoreReply$' -count=1`.
+The test uses three independent backend connections and projections. For its
+NATS-node fault phase, set `NATS_FAULT_PROJECT` to the exact Compose project name
+of a disposable fixture; the test stops and restarts nodes 3 and 2. Set
+`NATS_TEST_PORT_BASE` if that fixture maps its three client ports somewhere other
+than 4222–4224. Do not run the fault phase against a shared fixture.
+
 To check backend startup against the fixture, set `NATS_VERIFY_RESOURCES=true`
 and use `nats://backend:backend-local-only@127.0.0.1:4222` in `NATS_URLS`.
 This preparatory flag is off by default; normal production startup still uses

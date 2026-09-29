@@ -73,12 +73,12 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 		if term := e.GetOwnerClaimed(); term != nil {
 			accepted = term.GetNodeId() != "" && term.GetEpoch() == a.ownerEpoch()+1 && (a.Owner == nil || !entry.ServerTime.Before(a.Owner.GetLeaseUntil().AsTime()))
 			if accepted {
-				a.Owner = &pb.OwnerTerm{NodeId: term.NodeId, Epoch: term.Epoch, LeaseUntil: timestamppb.New(entry.ServerTime.Add(8 * time.Second))}
+				a.Owner = &pb.OwnerTerm{NodeId: term.NodeId, Epoch: term.Epoch, LeaseUntil: timestamppb.New(entry.ServerTime.Add(ownerLease))}
 			}
 		} else if term := e.GetOwnerRenewed(); term != nil {
 			accepted = a.Owner != nil && term.GetNodeId() == a.Owner.NodeId && term.GetEpoch() == a.Owner.Epoch && entry.ServerTime.Before(a.Owner.GetLeaseUntil().AsTime())
 			if accepted {
-				a.Owner.LeaseUntil = timestamppb.New(entry.ServerTime.Add(8 * time.Second))
+				a.Owner.LeaseUntil = timestamppb.New(entry.ServerTime.Add(ownerLease))
 			}
 		}
 		a.checkpoint(entry)

@@ -290,7 +290,7 @@ func TestNATSTargetedCIDAcrossBackendNodes(t *testing.T) {
 	}
 	effect := &pb.EffectRecord{CommandId: uuid.NewString(), TargetCid: target.Cid,
 		DispatchConnectionId: &target.ConnectionId, OwnerEpoch: 1,
-		Status:  pb.EffectRecord_DISPATCH_CLAIMED,
+		Status: pb.EffectRecord_DISPATCH_CLAIMED, ResultDeadline: timestamppb.New(time.Now().Add(time.Minute)),
 		Payload: &pb.EffectRecord_Pdc{Pdc: &pb.PdcEffect{Callsign: "SAS123", Action: "ISSUE"}}}
 	subject, _ := Subject(sessionRef(id))
 	for _, p := range []*Projection{first, second} {

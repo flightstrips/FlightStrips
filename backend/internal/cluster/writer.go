@@ -192,6 +192,8 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			change = &pb.DomainChange{}
 		} else if len(change.Effects) > 0 {
 			outcome.Status = pb.CommandOutcome_ACCEPTED
+			id := change.Effects[0].CommandId
+			outcome.EffectId = &id
 		}
 		change.Outcome = outcome
 		e := &pb.StateEvent{SchemaVersion: 1, EventId: uuid.NewString(), CommandId: &request.CommandId, Aggregate: proto.Clone(request.Aggregate).(*pb.AggregateRef), AggregateRevision: state.Revision + 1, OwnerEpoch: state.Owner.Epoch, Actor: proto.Clone(request.Actor).(*pb.Actor), Fact: &pb.StateEvent_DomainChanged{DomainChanged: change}}
@@ -306,6 +308,14 @@ func (w Writer) load(ctx context.Context, subject string, ref *pb.AggregateRef) 
 }
 
 func validatePlanned(state *Aggregate, e *pb.StateEvent) error {
+	if effects := e.GetDomainChanged().GetEffects(); len(effects) > 0 {
+		if len(effects) != 1 || e.GetDomainChanged().GetOutcome().GetStatus() != pb.CommandOutcome_ACCEPTED {
+			return fmt.Errorf("invalid requested effect outcome")
+		}
+		if err := validateEffectRequest(effects[0], e.GetCommandId(), state.Effects[effects[0].CommandId]); err != nil {
+			return err
+		}
+	}
 	staged := make(map[string]*pb.EntitySnapshot, len(state.Entities))
 	for k, v := range state.Entities {
 		staged[k] = v

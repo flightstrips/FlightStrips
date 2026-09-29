@@ -180,6 +180,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		}
 	}()
 	lastSession, lastAirport := session.AggregateRevision, airport.Revision
+	pending := map[string]*pb.AggregateRef{}
 	for {
 		if err := h.Projection.Ready(); err != nil {
 			return err
@@ -193,7 +194,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			if item.err != nil {
 				return item.err
 			}
-			if err := h.handleFrame(ctx, conn, identity, item.frame); err != nil {
+			if err := h.handleFrame(ctx, conn, identity, item.frame, pending); err != nil {
 				return err
 			}
 		case delta, ok := <-sessionUpdates:
@@ -203,11 +204,17 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			if err := sendDelta(conn, delta, &lastSession); err != nil {
 				return err
 			}
+			if err := h.sendTerminalResults(conn, identity, pending, identity.sessionRef); err != nil {
+				return err
+			}
 		case delta, ok := <-airportUpdates:
 			if !ok {
 				return fmt.Errorf("airport delivery overflow")
 			}
 			if err := sendDelta(conn, delta, &lastAirport); err != nil {
+				return err
+			}
+			if err := h.sendTerminalResults(conn, identity, pending, identity.airportRef); err != nil {
 				return err
 			}
 		case observation, ok := <-observations:
@@ -344,7 +351,7 @@ func buildInitial(who identity, session *pb.FrontendInitial, airport *cluster.Ag
 	return initial
 }
 
-func (h Handler) handleFrame(ctx context.Context, conn *websocket.Conn, who identity, frame *pb.FrontendFrame) error {
+func (h Handler) handleFrame(ctx context.Context, conn *websocket.Conn, who identity, frame *pb.FrontendFrame, pending map[string]*pb.AggregateRef) error {
 	switch value := frame.GetFrame().(type) {
 	case *pb.FrontendFrame_Command:
 		command := value.Command
@@ -382,6 +389,9 @@ func (h Handler) handleFrame(ctx context.Context, conn *websocket.Conn, who iden
 				result.Status = pb.CommandOutcome_UNKNOWN
 			}
 		}
+		if result.Status == pb.CommandOutcome_ACCEPTED {
+			pending[command.RequestId] = ref
+		}
 		return send(conn, &pb.FrontendFrame_ActionResult{ActionResult: result})
 	case *pb.FrontendFrame_StatusQuery:
 		if value.StatusQuery == nil || len(value.StatusQuery.RequestIds) > 100 {
@@ -402,6 +412,11 @@ func (h Handler) handleFrame(ctx context.Context, conn *websocket.Conn, who iden
 					continue
 				}
 				found = true
+				if outcome.Status == pb.CommandOutcome_ACCEPTED {
+					pending[id] = ref
+				} else {
+					delete(pending, id)
+				}
 				if err := send(conn, &pb.FrontendFrame_ActionResult{ActionResult: &pb.FrontendActionResult{RequestId: id, Status: outcome.Status, Aggregate: ref, AggregateRevision: outcome.AggregateRevision, ReasonCode: outcome.ReasonCode, Detail: outcome.Detail}}); err != nil {
 					return err
 				}
@@ -417,6 +432,33 @@ func (h Handler) handleFrame(ctx context.Context, conn *websocket.Conn, who iden
 	default:
 		return closeFailure{websocket.CloseProtocolError, "client frame not allowed"}
 	}
+}
+
+func (h Handler) sendTerminalResults(conn *websocket.Conn, who identity, pending map[string]*pb.AggregateRef, ref *pb.AggregateRef) error {
+	if len(pending) == 0 {
+		return nil
+	}
+	state, err := h.Projection.Read(ref)
+	if err != nil {
+		return err
+	}
+	actor := &pb.Actor{Kind: pb.Actor_CONTROLLER, Id: who.me.Cid, SessionId: &who.id}
+	for id, aggregate := range pending {
+		if !proto.Equal(aggregate, ref) {
+			continue
+		}
+		outcome := state.Ledger[id]
+		if outcome == nil || outcome.Status == pb.CommandOutcome_ACCEPTED || !proto.Equal(outcome.Actor, actor) {
+			continue
+		}
+		result := &pb.FrontendActionResult{RequestId: id, Status: outcome.Status, Aggregate: ref,
+			AggregateRevision: outcome.AggregateRevision, ReasonCode: outcome.ReasonCode, Detail: outcome.Detail}
+		if err := send(conn, &pb.FrontendFrame_ActionResult{ActionResult: result}); err != nil {
+			return err
+		}
+		delete(pending, id)
+	}
+	return nil
 }
 
 // Each active command family is a closed oneof. A generated but empty nested

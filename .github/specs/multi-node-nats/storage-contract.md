@@ -17,6 +17,8 @@ This document assigns a Protobuf message to every new multi-node durable or repl
 | `FS_OBJECTS` | `effect/<command-id>` | `ObjectValue.effect_secret` | session effect owner |
 | `FS_OBJECTS` | `provider/<provider>/<sha256>` | `ObjectValue.provider_page` | airport provider importer |
 | Core NATS | `fs.v1.command.<node-id>` | `CommandRequest`; reply is `CommandReply` | forwarding backend / owner |
+| Core NATS | `fs.v1.delivery.<node-id>` | `EffectDeliveryRequest`; reply is `EffectDeliveryReply` | session owner / socket backend |
+| Core NATS | `fs.v1.result.<node-id>` | `EffectDeliveryRequest` with terminal effect; reply is `EffectDeliveryReply` | socket backend / session owner |
 
 The subject/key is validated against decoded identity before apply. The `ObjectValue` wrapper is included in digest calculation for `nav` and `provider` objects. For snapshots, `Snapshot.sha256` is SHA-256 of deterministic serialization of `Snapshot` with its digest field empty; the index digest is SHA-256 of the complete stored `ObjectValue`. For an effect secret, the event stores the SHA-256 of the complete stored `ObjectValue`. Object names are immutable. NATS Object Store metadata is transport metadata, never a replacement for identity or digest validation. The object cap is 32 MiB. State event and Core request/reply cap is 1 MiB; client/plugin frame cap is 4 MiB. Oversized domain changes are rejected and redesigned as typed object references.
 

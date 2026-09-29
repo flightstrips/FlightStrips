@@ -47,6 +47,7 @@ import {FrontendFrameSchema} from "./generated/cluster/v1/wire_pb";
 import {CommandOutcome_Status} from "./generated/cluster/v1/storage_pb";
 import {encodeAction} from "./commands";
 import {FrontendProjection} from "./projection";
+import {type ActionStatus, readPending, writePending} from "./action-status";
 
 
 type EventMap = {
@@ -113,9 +114,14 @@ export class WebSocketClient {
   private readOnly = false;
   private reconnectAttempts = 0;
   private projection = new FrontendProjection(event => this.dispatch(event));
-  private pending = new Map<string, {event: FrontendSendEvent; frame: unknown}>();
+  private pending = new Map<string, {event: FrontendSendEvent; bytes: Uint8Array}>();
+  private statuses = new Map<string, ActionStatus>();
+  private actorId: string | null = null;
+  private statusHandlers: Array<(status: ActionStatus | null) => void> = [];
   private forceAssumeWait = new Map<string, {legacyId: string; callsign: string}>();
   private presenceTimer: ReturnType<typeof setInterval> | null = null;
+  private statusTimer: ReturnType<typeof setInterval> | null = null;
+  private authenticatedReady = false;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private manuallyClosed = false;
   private delegate?: WebSocketClientDelegate;
@@ -141,6 +147,7 @@ export class WebSocketClient {
     return new Promise((resolve,) => {
       this.manuallyClosed = false;
       const socket = new WebSocket(this.url, "flightstrips.frontend.pb.v2");
+      this.authenticatedReady = false;
       socket.binaryType = "arraybuffer";
       this.socket = socket;
 
@@ -153,7 +160,6 @@ export class WebSocketClient {
         this.reconnectAttempts = 0;
         if (this.token) {
           this.sendAuthenticationEvent();
-          if (this.pending.size) this.write({case: "statusQuery", value: {requestIds: [...this.pending.keys()].slice(0, 100)}});
         }
         if (this.presenceTimer) clearInterval(this.presenceTimer);
         this.presenceTimer = setInterval(() => this.projection.expirePresence(), 1000);
@@ -172,6 +178,8 @@ export class WebSocketClient {
         if (this.socket !== socket) return;
         console.log('WebSocket connection closed:', event.code, event.reason);
         if (this.presenceTimer) { clearInterval(this.presenceTimer); this.presenceTimer = null; }
+        if (this.statusTimer) { clearInterval(this.statusTimer); this.statusTimer = null; }
+        this.authenticatedReady = false;
         if (this.delegate?.onDisconnected) {
           this.delegate.onDisconnected();
         }
@@ -186,12 +194,33 @@ export class WebSocketClient {
           const frame = fromBinary(FrontendFrameSchema, new Uint8Array(event.data));
           if (frame.protocolRevision !== 2) throw new Error("unsupported frontend revision");
           switch (frame.frame.case) {
-            case "initial": this.projection.initial(frame.frame.value); break;
+            case "initial": {
+              this.projection.initial(frame.frame.value);
+              const actorId = frame.frame.value.me?.cid
+                ? `${frame.frame.value.me.cid}.${frame.frame.value.sessionId}` : "";
+              if (actorId !== this.actorId) {
+                this.pending.clear();
+                this.statuses.clear();
+                for (const handler of this.statusHandlers) handler(null);
+                this.actorId = actorId || null;
+                if (this.actorId) for (const status of readPending(this.actorId)) this.updateStatus(status);
+              }
+              this.authenticatedReady = true;
+              this.queryPending();
+              if (this.statusTimer) clearInterval(this.statusTimer);
+              this.statusTimer = setInterval(() => this.queryPending(), 5000);
+              break;
+            }
             case "delta": this.projection.delta(frame.frame.value); break;
             case "observation": this.projection.observation(frame.frame.value); break;
             case "actionResult": {
               const result = frame.frame.value;
               const pending = this.pending.get(result.requestId);
+              const previous = this.statuses.get(result.requestId);
+              const status = result.status === CommandOutcome_Status.UNKNOWN && result.reasonCode === "UNAVAILABLE"
+                ? "checking" : result.status;
+              this.updateStatus({requestId: result.requestId, label: previous?.label ?? pending?.event.type ?? "action",
+                status, reasonCode: result.reasonCode, detail: result.detail});
               if (result.status === CommandOutcome_Status.FAILED && pending) {
                 if (pending.event.type.startsWith("aman.")) {
                   this.dispatch({type: EventType.FrontendAMANCommandRejected, version: 1,
@@ -206,12 +235,16 @@ export class WebSocketClient {
                 }
                 this.forceAssumeWait.delete(result.requestId);
               }
-              if (result.status !== CommandOutcome_Status.ACCEPTED) this.pending.delete(result.requestId);
+              if (result.status !== CommandOutcome_Status.ACCEPTED && status !== "checking") this.pending.delete(result.requestId);
               break;
             }
             case "statusMissing": {
               const pending = this.pending.get(frame.frame.value.requestId);
-              if (pending) this.write(pending.frame);
+              if (pending) this.writeBytes(pending.bytes);
+              else {
+                const previous = this.statuses.get(frame.frame.value.requestId);
+                if (previous) this.updateStatus({...previous, status: "not-confirmed"});
+              }
               break;
             }
             case "error": throw new Error(frame.frame.value.detail || "frontend protocol error");
@@ -268,6 +301,8 @@ export class WebSocketClient {
       this.socket = null;
     }
     if (this.presenceTimer) { clearInterval(this.presenceTimer); this.presenceTimer = null; }
+    if (this.statusTimer) { clearInterval(this.statusTimer); this.statusTimer = null; }
+    this.authenticatedReady = false;
   }
 
   on<T extends EventType>(eventType: T, handler: (data: EventMap[T]) => void): void {
@@ -277,8 +312,27 @@ export class WebSocketClient {
     this.eventHandlers.get(eventType)!.push(handler as never);
   }
 
+  onActionStatus(handler: (status: ActionStatus | null) => void): void {
+    this.statusHandlers.push(handler);
+    for (const status of this.statuses.values()) handler(status);
+  }
+
+  private updateStatus(status: ActionStatus): void {
+    this.statuses.set(status.requestId, status);
+    if (this.actorId) writePending(this.actorId, this.statuses.values());
+    for (const handler of this.statusHandlers) handler(status);
+  }
+
+  private queryPending(): void {
+    if (!this.authenticatedReady || !this.isConnected()) return;
+    const ids = [...this.statuses.values()].filter(status =>
+      status.status === "checking" || status.status === "not-confirmed" ||
+      status.status === CommandOutcome_Status.ACCEPTED).map(status => status.requestId);
+    if (ids.length) this.write({case: "statusQuery", value: {requestIds: ids.slice(-100)}});
+  }
+
   send(event: FrontendSendEvent): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    if (!this.authenticatedReady || !this.socket || this.socket.readyState !== WebSocket.OPEN) {
       console.error('WebSocket is not connected');
       return;
     }
@@ -292,10 +346,12 @@ export class WebSocketClient {
       const encoded = encodeAction(event, this.projection.entityRevisions, this.projection);
       const frame = {case: "command", value: {requestId: encoded.requestId, action: encoded.action,
         expectedEntityRevision: encoded.expectedEntityRevision}};
-      this.pending.set(encoded.requestId, {event, frame});
+      const bytes = toBinary(FrontendFrameSchema, create(FrontendFrameSchema, {protocolRevision: 2, frame} as never));
+      this.pending.set(encoded.requestId, {event, bytes});
+      this.updateStatus({requestId: encoded.requestId, label: event.type, status: "checking"});
       if (event.type === ActionType.FrontendCoordinationForceAssumeRequest && event.request_id)
         this.forceAssumeWait.set(encoded.requestId, {legacyId: event.request_id, callsign: event.callsign});
-      this.write(frame);
+      this.writeBytes(bytes);
     } catch (error) {
       console.error('Error sending frontend command:', error);
       this.dispatch({type: EventType.FrontendActionRejected, action: event.type, reason: String(error)});
@@ -317,7 +373,12 @@ export class WebSocketClient {
 
   private write(frame: unknown): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not connected");
-    this.socket.send(toBinary(FrontendFrameSchema, create(FrontendFrameSchema, {protocolRevision: 2, frame} as never)));
+    this.writeBytes(toBinary(FrontendFrameSchema, create(FrontendFrameSchema, {protocolRevision: 2, frame} as never)));
+  }
+
+  private writeBytes(bytes: Uint8Array): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not connected");
+    this.socket.send(new Uint8Array(bytes));
   }
 
   private sendAuthenticationEvent(): void {

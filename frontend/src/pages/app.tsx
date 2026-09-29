@@ -8,6 +8,7 @@ import { ValidationStatusDialogOverlay } from "@/components/strip/ValidationStat
 import AppUpdateNotifier from "@/components/AppUpdateNotifier";
 import { useContextMenu, useCloseStripContextMenu } from "@/store/store-hooks";
 import { Toaster } from "sonner";
+import {ActionResults} from "@/components/ActionResults";
 
 function ContextMenuOverlay() {
   const contextMenu = useContextMenu();
@@ -52,6 +53,7 @@ export default function AppPage() {
             <CommandBar />
             <ContextMenuOverlay />
             <ValidationStatusDialogOverlay />
+            <ActionResults />
             {/* <CustomCursor /> */}
           </div>
         </VacsProvider>

@@ -58,7 +58,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 01 | [NATS resources and local fixture](tasks/01-nats-resources.md) | 00 | Merged ([#796](https://github.com/flightstrips/FlightStrips/pull/796)) |
 | 02 | [Aggregate event and conditional write](tasks/02-event-write.md) | 01 | Merged ([#797](https://github.com/flightstrips/FlightStrips/pull/797)) |
 | 03 | [Replay, projections and snapshots](tasks/03-projections.md) | 02 | Merged ([#798](https://github.com/flightstrips/FlightStrips/pull/798)) |
-| 04 | [Global session registry](tasks/04-session-registry.md) | 03 | Not started |
+| 04 | [Global session registry](tasks/04-session-registry.md) | 03 | Merged ([#799](https://github.com/flightstrips/FlightStrips/pull/799)) |
 | 05 | [Controller, sector and runway state](tasks/05-controller-sector.md) | 04 | Not started |
 | 06 | [Strip state and edit invariants](tasks/06-strips.md) | 04, 05 | Not started |
 | 07 | [Coordination and transfers](tasks/07-coordination.md) | 05, 06 | Not started |
@@ -67,7 +67,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 10 | [Positions and shared session state](tasks/10-session-observations.md) | 03, 05, 06 | Not started |
 | 11 | [AMAN operational state](tasks/11-aman.md) | 03, 04 | Not started |
 | 12 | [Navigation and weather](tasks/12-navigation-weather.md) | 03, 11 | Not started |
-| 13 | [Owner leases and routing](tasks/13-owner-routing.md) | 02, 03 | Not started |
+| 13 | [Owner leases and routing](tasks/13-owner-routing.md) | 02, 03 | Merged ([#800](https://github.com/flightstrips/FlightStrips/pull/800)) |
 | 14 | [EuroScope plugin protocol](tasks/14-plugin-protocol.md) | 02 | Not started |
 | 15 | [Binary frontend transport](tasks/15-frontend-commands.md) | 06, 13 | Not started |
 | 15a | [Browser command outcomes](tasks/15a-browser-results.md) | 13, 15 | Not started |

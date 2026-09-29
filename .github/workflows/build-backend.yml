@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'codex/multi-node-nats-base'
     paths:
       - 'backend/**'
       - '.github/workflows/build-backend.yml'

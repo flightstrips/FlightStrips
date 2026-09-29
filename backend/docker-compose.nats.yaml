@@ -1,0 +1,35 @@
+# Isolated local/integration fixture. Run alongside the existing SQL Compose
+# stack only when exercising the preparatory NATS code.
+services:
+  nats-1:
+    image: nats:2.15.0
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./testdata/nats/nats-1.conf:/etc/nats/nats.conf:ro
+      - nats-1:/data
+    ports: ["4222:4222"]
+    networks: [nats-fixture]
+  nats-2:
+    image: nats:2.15.0
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./testdata/nats/nats-2.conf:/etc/nats/nats.conf:ro
+      - nats-2:/data
+    ports: ["4223:4222"]
+    networks: [nats-fixture]
+  nats-3:
+    image: nats:2.15.0
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./testdata/nats/nats-3.conf:/etc/nats/nats.conf:ro
+      - nats-3:/data
+    ports: ["4224:4222"]
+    networks: [nats-fixture]
+
+networks:
+  nats-fixture:
+
+volumes:
+  nats-1:
+  nats-2:
+  nats-3:

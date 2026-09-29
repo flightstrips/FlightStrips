@@ -5,6 +5,7 @@ import (
 	"FlightStrips/internal/app"
 	"FlightStrips/internal/config"
 	"FlightStrips/internal/envconfig"
+	"FlightStrips/internal/natsresources"
 	"FlightStrips/internal/navigation"
 	"FlightStrips/internal/telemetry"
 	"context"
@@ -51,6 +52,25 @@ func main() {
 	if err := config.InitConfig(); err != nil {
 		slog.Error("Failed to initialize config", slog.Any("error", err))
 		os.Exit(1)
+	}
+	// Preparatory mode: the SQL runtime remains active. Cluster validation is
+	// enabled only in isolated NATS runs until the application cutover.
+	if envBool("NATS_VERIFY_RESOURCES", false) {
+		natsConfig, err := natsresources.ConfigFromEnv()
+		if err != nil {
+			slog.Error("Invalid NATS configuration", slog.Any("error", err))
+			os.Exit(1)
+		}
+		nc, err := natsresources.Connect(natsConfig)
+		if err != nil {
+			slog.Error("Failed to connect to NATS", slog.Any("error", err))
+			os.Exit(1)
+		}
+		defer nc.Close()
+		if err := natsresources.Verify(ctx, nc, natsConfig); err != nil {
+			slog.Error("NATS resource verification failed", slog.Any("error", err))
+			os.Exit(1)
+		}
 	}
 	environment := getEnv("ENVIRONMENT", "development")
 	enableTestTools := envBool("ENABLE_TEST_TOOLS", false)

@@ -68,7 +68,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 11 | [AMAN operational state](tasks/11-aman.md) | 03, 04 | Merged ([#802](https://github.com/flightstrips/FlightStrips/pull/802)) |
 | 12 | [Navigation and weather](tasks/12-navigation-weather.md) | 03, 11 | Merged ([#804](https://github.com/flightstrips/FlightStrips/pull/804)) |
 | 13 | [Owner leases and routing](tasks/13-owner-routing.md) | 02, 03 | Merged ([#800](https://github.com/flightstrips/FlightStrips/pull/800)) |
-| 14 | [EuroScope plugin protocol](tasks/14-plugin-protocol.md) | 02 | Not started |
+| 14 | [EuroScope plugin protocol](tasks/14-plugin-protocol.md) | 02 | Merged to integration base ([#805](https://github.com/flightstrips/FlightStrips/pull/805)); held from `main`/release |
 | 15 | [Binary frontend transport](tasks/15-frontend-commands.md) | 06, 13 | Not started |
 | 15a | [Browser command outcomes](tasks/15a-browser-results.md) | 13, 15 | Not started |
 | 15b | [HTTP JSON boundary and outcomes](tasks/15b-http-results.md) | 02, 13 | Not started |

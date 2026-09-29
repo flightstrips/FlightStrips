@@ -65,7 +65,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 08 | [Stand allocation and blocks](tasks/08-stands.md) | 06 | Not started |
 | 09 | [PDC and tactical strips](tasks/09-pdc-tactical.md) | 04, 06 | Not started |
 | 10 | [Positions and shared session state](tasks/10-session-observations.md) | 03, 05, 06 | Not started |
-| 11 | [AMAN operational state](tasks/11-aman.md) | 03, 04 | Not started |
+| 11 | [AMAN operational state](tasks/11-aman.md) | 03, 04 | Merged ([#802](https://github.com/flightstrips/FlightStrips/pull/802)) |
 | 12 | [Navigation and weather](tasks/12-navigation-weather.md) | 03, 11 | Not started |
 | 13 | [Owner leases and routing](tasks/13-owner-routing.md) | 02, 03 | Merged ([#800](https://github.com/flightstrips/FlightStrips/pull/800)) |
 | 14 | [EuroScope plugin protocol](tasks/14-plugin-protocol.md) | 02 | Not started |

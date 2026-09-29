@@ -1,0 +1,526 @@
+package cluster
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"FlightStrips/internal/natsresources"
+	pb "FlightStrips/pkg/events/cluster"
+	"github.com/nats-io/nats.go"
+	"google.golang.org/protobuf/proto"
+)
+
+// Projection is a per-process, independent FS_STATE reader. Published state is
+// never exposed until a complete event has passed the reducer.
+type Projection struct {
+	NC                           *nats.Conn
+	JS                           nats.JetStreamContext
+	Config                       natsresources.Config
+	Snapshots                    SnapshotStore
+	Positions                    nats.KeyValue
+	Presence                     nats.KeyValue
+	mu                           sync.RWMutex
+	states                       map[string]*Aggregate
+	listeners                    map[uint64]*projectionListener
+	nextListener                 uint64
+	applied, highWater           uint64
+	checked                      time.Time
+	healthErr                    error
+	started                      bool
+	startedAt                    time.Time
+	lastSnapshot                 map[string]time.Time
+	sinceSnapshot                map[string]uint64
+	snapshotErrors               map[string]error
+	positions                    map[string]KVPosition
+	presence                     map[string]KVPresence
+	positionReady, presenceReady bool
+	observationErr               error
+}
+
+type KVPosition struct {
+	Value    *pb.PositionValue
+	Revision uint64
+	Observed time.Time
+}
+type KVPresence struct {
+	Value    *pb.PresenceValue
+	Revision uint64
+	Observed time.Time
+}
+
+type projectionListener struct {
+	subject string
+	updates chan *pb.FrontendDelta
+}
+
+func NewProjection(nc *nats.Conn, cfg natsresources.Config) (*Projection, error) {
+	if nc == nil {
+		return nil, fmt.Errorf("missing NATS connection")
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	js, err := nc.JetStream(nats.MaxWait(cfg.RequestTimeout))
+	if err != nil {
+		return nil, err
+	}
+	index, err := js.KeyValue(cfg.Names.SnapshotIndex)
+	if err != nil {
+		return nil, err
+	}
+	objects, err := js.ObjectStore(cfg.Names.Objects)
+	if err != nil {
+		return nil, err
+	}
+	positions, err := js.KeyValue(cfg.Names.Positions)
+	if err != nil {
+		return nil, err
+	}
+	presence, err := js.KeyValue(cfg.Names.Presence)
+	if err != nil {
+		return nil, err
+	}
+	return &Projection{NC: nc, JS: js, Config: cfg, Snapshots: SnapshotStore{Index: index, Objects: objects}, Positions: positions, Presence: presence, states: map[string]*Aggregate{}, listeners: map[uint64]*projectionListener{}, lastSnapshot: map[string]time.Time{}, sinceSnapshot: map[string]uint64{}, snapshotErrors: map[string]error{}, positions: map[string]KVPosition{}, presence: map[string]KVPresence{}}, nil
+}
+
+// Run loads verified checkpoints, then consumes from the earliest safe stream
+// sequence. The subject CAS checkpoint is the last global stream sequence on
+// that subject, including events skipped through a verified snapshot.
+func (p *Projection) Run(ctx context.Context) error {
+	watchCtx, stopWatchers := context.WithCancel(ctx)
+	defer stopWatchers()
+	if err := natsresources.Verify(ctx, p.NC, p.Config); err != nil {
+		return err
+	}
+	go p.watchPositions(watchCtx)
+	go p.watchPresence(watchCtx)
+	keys, err := p.Snapshots.Index.Keys()
+	if err != nil && !errors.Is(err, nats.ErrNoKeysFound) {
+		return err
+	}
+	for _, key := range keys {
+		ref, err := refFromKey(key)
+		if err != nil {
+			return err
+		}
+		state, err := p.Snapshots.Load(ref)
+		if err != nil {
+			return err
+		}
+		subject, _ := Subject(ref)
+		p.states[subject] = state
+		p.lastSnapshot[subject] = time.Now()
+	}
+	info, err := p.JS.StreamInfo(p.Config.Names.State, &nats.StreamInfoRequest{SubjectsFilter: "fs.v1.state.>"}, nats.Context(ctx))
+	if err != nil {
+		return err
+	}
+	if info.State.Msgs > 0 && (info.State.FirstSeq != 1 || info.State.NumDeleted != 0) {
+		return fmt.Errorf("FS_STATE history is incomplete")
+	}
+	for subject, state := range p.states {
+		if state.StreamSequence > info.State.LastSeq {
+			return fmt.Errorf("snapshot %s is beyond stream high-water", subject)
+		}
+	}
+	start := uint64(1)
+	if len(info.State.Subjects) > 0 {
+		allCovered := true
+		for subject := range info.State.Subjects {
+			state := p.states[subject]
+			if state == nil || state.StreamSequence == 0 || state.StreamSequence > info.State.LastSeq {
+				allCovered = false
+				break
+			}
+			if start == 1 || state.StreamSequence+1 < start {
+				start = state.StreamSequence + 1
+			}
+		}
+		if !allCovered {
+			start = 1
+		}
+	}
+	p.applied = start - 1
+	sub, err := p.JS.SubscribeSync("fs.v1.state.>", nats.BindStream(p.Config.Names.State), nats.StartSequence(start), nats.OrderedConsumer())
+	if err != nil {
+		return err
+	}
+	defer sub.Unsubscribe()
+	p.mu.Lock()
+	p.started = true
+	p.startedAt = time.Now()
+	p.mu.Unlock()
+	for ctx.Err() == nil {
+		readCtx, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
+		msg, err := sub.NextMsgWithContext(readCtx)
+		cancel()
+		if err == nil {
+			meta, e := msg.Metadata()
+			if e != nil {
+				p.fail(e)
+				return e
+			}
+			if e = p.apply(AppliedEvent{Subject: msg.Subject, StreamSequence: meta.Sequence.Stream, ServerTime: meta.Timestamp, Data: msg.Data}); e != nil {
+				p.fail(e)
+				return e
+			}
+		} else if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, nats.ErrTimeout) && ctx.Err() == nil {
+			p.fail(err)
+			return err
+		}
+		p.refresh(ctx)
+		p.maybeSnapshot()
+	}
+	p.fail(ctx.Err())
+	return ctx.Err()
+}
+
+func (p *Projection) apply(entry AppliedEvent) error {
+	ref, err := refFromSubject(entry.Subject)
+	if err != nil {
+		return err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if entry.StreamSequence <= p.applied {
+		return fmt.Errorf("out of order stream sequence")
+	}
+	entry.SubjectSequence = entry.StreamSequence
+	state := p.states[entry.Subject]
+	if state == nil {
+		state = NewAggregate(ref)
+		p.lastSnapshot[entry.Subject] = time.Now()
+	}
+	if entry.StreamSequence <= state.StreamSequence {
+		p.applied = entry.StreamSequence
+		return nil
+	}
+	if entry.SubjectSequence <= state.SubjectSequence {
+		return fmt.Errorf("subject sequence regression")
+	}
+	// Clone before applying: a reader holding the former state sees an
+	// immutable value even while new events arrive.
+	clone, err := cloneAggregate(state)
+	if err != nil {
+		return err
+	}
+	effective, err := clone.Apply(entry)
+	if err != nil {
+		return fmt.Errorf("stream %d: %w", entry.StreamSequence, err)
+	}
+	p.states[entry.Subject] = clone
+	p.applied = entry.StreamSequence
+	if effective {
+		e := &pb.StateEvent{}
+		if err := pb.UnmarshalStrict(entry.Data, e); err != nil {
+			return err
+		}
+		if d := e.GetDomainChanged(); d != nil {
+			delta := &pb.FrontendDelta{Aggregate: proto.Clone(ref).(*pb.AggregateRef), AggregateRevision: clone.Revision, StreamSequence: entry.StreamSequence}
+			for _, change := range d.Changes {
+				delta.Changes = append(delta.Changes, proto.Clone(change).(*pb.EntityChange))
+			}
+			for _, workflow := range d.Workflows {
+				delta.Workflows = append(delta.Workflows, proto.Clone(workflow).(*pb.WorkflowRecord))
+			}
+			for id, listener := range p.listeners {
+				if listener.subject != entry.Subject {
+					continue
+				}
+				select {
+				case listener.updates <- delta:
+				default:
+					close(listener.updates)
+					delete(p.listeners, id)
+				}
+			}
+		}
+	}
+	p.sinceSnapshot[entry.Subject]++
+	p.scheduleSnapshotLocked(entry.Subject, clone)
+	return nil
+}
+
+func (p *Projection) scheduleSnapshotLocked(subject string, state *Aggregate) {
+	if p.sinceSnapshot[subject] < 10000 && time.Since(p.lastSnapshot[subject]) < 5*time.Minute {
+		return
+	}
+	p.sinceSnapshot[subject] = 0
+	p.lastSnapshot[subject] = time.Now()
+	// State is immutable after publication; I/O may continue outside the
+	// reducer lock without exposing a partial checkpoint.
+	go p.persistSnapshot(subject, state)
+}
+
+func (p *Projection) persistSnapshot(subject string, state *Aggregate) {
+	err := p.Snapshots.Save(state)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.snapshotErrors == nil {
+		p.snapshotErrors = make(map[string]error)
+	}
+	if err != nil {
+		p.snapshotErrors[subject] = err
+		if errors.Is(err, ErrImmutableSnapshotCollision) {
+			p.lastSnapshot[subject] = time.Now()
+		} else {
+			p.lastSnapshot[subject] = time.Now().Add(-5*time.Minute + 5*time.Second)
+		}
+	} else {
+		delete(p.snapshotErrors, subject)
+	}
+}
+
+func (p *Projection) maybeSnapshot() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for subject, state := range p.states {
+		if state.StreamSequence > 0 {
+			p.scheduleSnapshotLocked(subject, state)
+		}
+	}
+}
+
+func cloneAggregate(a *Aggregate) (*Aggregate, error) {
+	s, err := a.Snapshot()
+	if err != nil {
+		return nil, err
+	}
+	return aggregateFromSnapshot(s)
+}
+
+func (p *Projection) refresh(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
+	// A metadata read is required for readiness; stale cached high-water can
+	// never keep a disconnected or minority node ready.
+	check, cancel := context.WithTimeout(ctx, p.Config.RequestTimeout)
+	defer cancel()
+	if p.NC.Status() != nats.CONNECTED {
+		p.fail(fmt.Errorf("NATS disconnected"))
+		return
+	}
+	if err := natsresources.Verify(check, p.NC, p.Config); err != nil {
+		p.fail(err)
+		return
+	}
+	for _, name := range []string{p.Config.Names.State, "KV_" + p.Config.Names.Positions, "KV_" + p.Config.Names.Presence, "KV_" + p.Config.Names.SnapshotIndex, "OBJ_" + p.Config.Names.Objects} {
+		info, err := p.JS.StreamInfo(name, nats.Context(check))
+		if err != nil {
+			p.fail(err)
+			return
+		}
+		current := 0
+		if info.Cluster != nil {
+			for _, replica := range info.Cluster.Replicas {
+				if replica.Current {
+					current++
+				}
+			}
+		}
+		if info.Cluster == nil || info.Cluster.Leader == "" || len(info.Cluster.Replicas) != 2 || current < 1 {
+			p.fail(fmt.Errorf("%s has no current quorum", name))
+			return
+		}
+		if name == p.Config.Names.State {
+			if info.State.Msgs > 0 && (info.State.FirstSeq != 1 || info.State.NumDeleted != 0) {
+				p.fail(fmt.Errorf("FS_STATE history is incomplete"))
+				return
+			}
+			p.mu.Lock()
+			p.highWater = info.State.LastSeq
+			p.checked = time.Now()
+			p.healthErr = nil
+			p.mu.Unlock()
+		}
+	}
+}
+
+func (p *Projection) fail(err error) { p.mu.Lock(); p.healthErr = err; p.mu.Unlock() }
+
+func (p *Projection) Ready() error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if err := p.healthLocked(); err != nil {
+		return err
+	}
+	if p.applied < p.highWater {
+		return fmt.Errorf("replay behind stream: %d < %d", p.applied, p.highWater)
+	}
+	return nil
+}
+
+func (p *Projection) healthLocked() error {
+	if !p.started {
+		return fmt.Errorf("projection not started")
+	}
+	if p.healthErr != nil {
+		return p.healthErr
+	}
+	if p.observationErr != nil {
+		return p.observationErr
+	}
+	for _, err := range p.snapshotErrors {
+		if !errors.Is(err, ErrImmutableSnapshotCollision) {
+			return err
+		}
+	}
+	if !p.positionReady || !p.presenceReady {
+		return fmt.Errorf("KV observation replay incomplete")
+	}
+	if p.checked.IsZero() || time.Since(p.checked) > 2*time.Second {
+		return fmt.Errorf("state metadata is stale")
+	}
+	return nil
+}
+
+func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.Ready(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if state := p.states[subject]; state != nil {
+		return cloneAggregate(state)
+	}
+	return NewAggregate(ref), nil
+}
+
+// WaitApplied is the local PubAck barrier. A stalled consumer returns a
+// timeout; the caller must retry the same command ID or query its outcome.
+func (p *Projection) WaitApplied(ctx context.Context, sequence uint64) error {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		p.mu.RLock()
+		err := p.healthLocked()
+		applied := p.applied
+		p.mu.RUnlock()
+		if err != nil {
+			return err
+		}
+		if applied >= sequence {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func (p *Projection) WaitSubjectAdvance(ctx context.Context, subject string, previous uint64) error {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		p.mu.RLock()
+		err := p.healthLocked()
+		current := uint64(0)
+		if state := p.states[subject]; state != nil {
+			current = state.SubjectSequence
+		}
+		p.mu.RUnlock()
+		if err != nil {
+			return err
+		}
+		if current > previous {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+// SubscribeInitial registers before exposing the snapshot, so later deltas
+// cannot be lost between initial read and live delivery. Channel overflow
+// closes delivery and requires the client to resynchronize.
+func (p *Projection) SubscribeInitial(ref *pb.AggregateRef) (*Aggregate, <-chan *pb.FrontendDelta, func(), error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if err := p.Ready(); err != nil {
+		return nil, nil, nil, err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	state := p.states[subject]
+	if state == nil {
+		state = NewAggregate(ref)
+	}
+	p.nextListener++
+	id := p.nextListener
+	updates := make(chan *pb.FrontendDelta, 1024)
+	p.listeners[id] = &projectionListener{subject: subject, updates: updates}
+	closeFn := func() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		if _, ok := p.listeners[id]; ok {
+			close(updates)
+			delete(p.listeners, id)
+		}
+	}
+	initial, err := cloneAggregate(state)
+	if err != nil {
+		close(updates)
+		delete(p.listeners, id)
+		return nil, nil, nil, err
+	}
+	return initial, updates, closeFn, nil
+}
+
+func (p *Projection) Readyz(w http.ResponseWriter, _ *http.Request) {
+	if err := p.Ready(); err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func refFromSubject(subject string) (*pb.AggregateRef, error) {
+	if !strings.HasPrefix(subject, "fs.v1.state.") {
+		return nil, fmt.Errorf("unexpected state subject")
+	}
+	return refFromKey(strings.TrimPrefix(subject, "fs.v1.state."))
+}
+
+func refFromKey(key string) (*pb.AggregateRef, error) {
+	parts := strings.Split(key, ".")
+	switch {
+	case key == "global":
+		return &pb.AggregateRef{Target: &pb.AggregateRef_Global{Global: &pb.GlobalRef{}}}, nil
+	case len(parts) == 2 && parts[0] == "airport":
+		ref := &pb.AggregateRef{Target: &pb.AggregateRef_Airport{Airport: &pb.AirportRef{Icao: parts[1]}}}
+		canonical, err := snapshotKey(ref)
+		if err != nil || canonical != key {
+			return nil, fmt.Errorf("noncanonical aggregate key")
+		}
+		return ref, nil
+	case len(parts) == 2 && parts[0] == "session":
+		var id int32
+		if _, err := fmt.Sscan(parts[1], &id); err != nil {
+			return nil, err
+		}
+		ref := &pb.AggregateRef{Target: &pb.AggregateRef_Session{Session: &pb.SessionRef{Id: id}}}
+		canonical, err := snapshotKey(ref)
+		if err != nil || canonical != key {
+			return nil, fmt.Errorf("noncanonical aggregate key")
+		}
+		return ref, nil
+	}
+	return nil, fmt.Errorf("invalid aggregate key %q", key)
+}

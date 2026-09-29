@@ -18,6 +18,20 @@ $env:NATS_URLS='nats://bootstrap:bootstrap-local-only@127.0.0.1:4222,nats://boot
 go run ./cmd/nats-bootstrap
 ```
 
+To exercise the isolated projection and its readiness endpoint without
+changing the PostgreSQL application, use the backend fixture credential:
+
+```powershell
+$env:NATS_URLS='nats://backend:backend-local-only@127.0.0.1:4222,nats://backend:backend-local-only@127.0.0.1:4223,nats://backend:backend-local-only@127.0.0.1:4224'
+go run ./cmd/nats-projection
+```
+
+The isolated process serves `/readyz` on `127.0.0.1:8091` by default. It
+requires current JetStream metadata, a write quorum, caught-up state replay,
+and initialized position/presence watchers. Set `NATS_PROJECTION_LISTEN` to
+choose a different test address. The current production server does not start
+this process or depend on NATS readiness.
+
 To check backend startup against the fixture, set `NATS_VERIFY_RESOURCES=true`
 and use `nats://backend:backend-local-only@127.0.0.1:4222` in `NATS_URLS`.
 This preparatory flag is off by default; normal production startup still uses

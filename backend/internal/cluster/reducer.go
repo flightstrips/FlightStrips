@@ -25,7 +25,9 @@ type Aggregate struct {
 	Ref                                       *pb.AggregateRef
 	Revision, StreamSequence, SubjectSequence uint64
 	Owner                                     *pb.OwnerTerm
+	Master                                    *pb.MasterTerm
 	Entities                                  map[string]*pb.EntitySnapshot
+	Indexes                                   map[pb.EntityKind]map[string]*pb.EntitySnapshot
 	Ledger                                    map[string]*pb.CommandOutcome
 	Workflows                                 map[string]*pb.WorkflowRecord
 	Effects                                   map[string]*pb.EffectRecord
@@ -33,7 +35,7 @@ type Aggregate struct {
 }
 
 func NewAggregate(ref *pb.AggregateRef) *Aggregate {
-	return &Aggregate{Ref: proto.Clone(ref).(*pb.AggregateRef), Entities: map[string]*pb.EntitySnapshot{}, Ledger: map[string]*pb.CommandOutcome{}, Workflows: map[string]*pb.WorkflowRecord{}, Effects: map[string]*pb.EffectRecord{}}
+	return &Aggregate{Ref: proto.Clone(ref).(*pb.AggregateRef), Entities: map[string]*pb.EntitySnapshot{}, Indexes: map[pb.EntityKind]map[string]*pb.EntitySnapshot{}, Ledger: map[string]*pb.CommandOutcome{}, Workflows: map[string]*pb.WorkflowRecord{}, Effects: map[string]*pb.EffectRecord{}}
 }
 
 // Apply validates the entire event before changing a projection. A stale owner
@@ -145,6 +147,18 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 		return false, fmt.Errorf("outcome revision mismatch")
 	}
 	a.Entities = staged
+	if session, ok := a.Ref.GetTarget().(*pb.AggregateRef_Session); ok {
+		if entity := staged[strconv.FormatInt(int64(session.Session.Id), 10)]; entity != nil {
+			if term := entity.GetValue().GetSession().GetMaster(); term != nil {
+				a.Master = proto.Clone(term).(*pb.MasterTerm)
+			} else {
+				a.Master = nil
+			}
+		} else {
+			a.Master = nil
+		}
+	}
+	a.rebuildIndexes()
 	a.Revision = e.AggregateRevision
 	copy := proto.Clone(outcome).(*pb.CommandOutcome)
 	copy.CommittedStreamSequence, copy.AggregateRevision = entry.StreamSequence, e.AggregateRevision
@@ -180,11 +194,45 @@ func (a *Aggregate) ownerEpoch() uint64 {
 	return a.Owner.Epoch
 }
 
+func (a *Aggregate) rebuildIndexes() {
+	indexes := make(map[pb.EntityKind]map[string]*pb.EntitySnapshot)
+	keys := make([]string, 0, len(a.Entities))
+	for key := range a.Entities {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		entity := a.Entities[key]
+		kind, _ := recordKind(entity.Value)
+		if indexes[kind] == nil {
+			indexes[kind] = make(map[string]*pb.EntitySnapshot)
+		}
+		indexes[kind][key] = entity
+	}
+	a.Indexes = indexes
+}
+
+func (a *Aggregate) EntitiesByKind(kind pb.EntityKind) []*pb.EntitySnapshot {
+	keys := make([]string, 0, len(a.Indexes[kind]))
+	for key := range a.Indexes[kind] {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	result := make([]*pb.EntitySnapshot, 0, len(keys))
+	for _, key := range keys {
+		result = append(result, proto.Clone(a.Indexes[kind][key]).(*pb.EntitySnapshot))
+	}
+	return result
+}
+
 // Snapshot returns a deterministic typed view. Task 03 owns object persistence.
 func (a *Aggregate) Snapshot() (*pb.Snapshot, error) {
 	s := &pb.Snapshot{SchemaVersion: 1, Aggregate: proto.Clone(a.Ref).(*pb.AggregateRef), AggregateRevision: a.Revision, LastStreamSequence: a.StreamSequence, LastSubjectSequence: a.SubjectSequence}
 	if a.Owner != nil {
 		s.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	}
+	if a.Master != nil {
+		s.Master = proto.Clone(a.Master).(*pb.MasterTerm)
 	}
 	if a.Sync != nil {
 		s.Sync = proto.Clone(a.Sync).(*pb.SessionSync)

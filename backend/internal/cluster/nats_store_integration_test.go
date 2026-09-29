@@ -74,7 +74,8 @@ func TestNATSSubjectCAS(t *testing.T) {
 	}
 	zero := uint64(0)
 	r := &pb.CommandRequest{ProtocolRevision: 1, CommandId: uuid.NewString(), Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "test"}, ExpectedEntityRevision: &zero, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: string(icao), Value: &pb.EntityRecord{Value: &pb.EntityRecord_AirportPolicy{AirportPolicy: &pb.AirportPolicy{Airport: string(icao)}}}}}}}}
-	w := Writer{Store: store, NodeID: "node-a"}
+	projection := startProjection(t, ctx, appNC, appCfg)
+	w := Writer{Store: store, NodeID: "node-a", Projection: projection}
 	first := w.Execute(ctx, r)
 	if first.Status != pb.CommandReply_COMMITTED || first.GetStreamSequence() <= entries[0].StreamSequence {
 		t.Fatalf("writer did not cross replay barrier: %v", first)

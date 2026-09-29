@@ -26,9 +26,10 @@ type EventStore interface {
 type Planner func(context.Context, *pb.CommandRequest, *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error)
 
 type Writer struct {
-	Store  EventStore
-	NodeID string
-	Plan   Planner
+	Store      EventStore
+	NodeID     string
+	Plan       Planner
+	Projection *Projection
 }
 
 // Outcome reads the durable aggregate ledger for an authenticated actor.
@@ -86,6 +87,13 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 	if w.Store == nil || w.NodeID == "" {
 		reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "event writer not configured"
 		return reply
+	}
+	if w.Projection == nil {
+		switch w.Store.(type) {
+		case NATSStore, *NATSStore:
+			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "NATS projection barrier not configured"
+			return reply
+		}
 	}
 	if w.Plan == nil {
 		if request.GetSystem().GetUpdateEntity() == nil && request.GetSystem().GetRemoveEntity() == nil {
@@ -176,6 +184,12 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 		}
 		sequence, err := w.Store.Publish(ctx, subject, state.SubjectSequence, data)
 		if errors.Is(err, ErrCAS) {
+			if w.Projection != nil {
+				if waitErr := w.Projection.WaitSubjectAdvance(ctx, subject, state.SubjectSequence); waitErr != nil {
+					reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, waitErr.Error()
+					return reply
+				}
+			}
 			continue
 		}
 		if err != nil {
@@ -186,6 +200,12 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 			}
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "publish acknowledgment uncertain"
 			return reply
+		}
+		if w.Projection != nil {
+			if waitErr := w.Projection.WaitApplied(ctx, sequence); waitErr != nil {
+				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, waitErr.Error()
+				return reply
+			}
 		}
 		for ctx.Err() == nil {
 			fresh, err := w.load(ctx, subject, request.Aggregate)
@@ -231,6 +251,9 @@ func statusForOutcome(outcome *pb.CommandOutcome) pb.CommandReply_Status {
 }
 
 func (w Writer) load(ctx context.Context, subject string, ref *pb.AggregateRef) (*Aggregate, error) {
+	if w.Projection != nil {
+		return w.Projection.Read(ref)
+	}
 	entries, err := w.Store.Replay(ctx, subject)
 	if err != nil {
 		return nil, err

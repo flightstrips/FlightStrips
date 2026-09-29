@@ -54,6 +54,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
+		Subprotocols:     []string{"flightstrips.euroscope.pb.v2"},
 	}
 
 	conn, resp, err := dialer.DialContext(ctx, c.config.ServerURL, http.Header{})
@@ -69,7 +70,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.conn = conn
 
 	// Send authentication token immediately after connection
-	if err := c.SendProtobuf(&euroscopeEvents.TokenEvent{Token: "__TEST_TOKEN__"}, euroscopeEvents.Authentication); err != nil {
+	if err := c.SendProtobuf(&euroscopeEvents.TokenEvent{Token: "__TEST_TOKEN__", ProtocolRevision: 2}, euroscopeEvents.Authentication); err != nil {
 		c.conn.Close()
 		return fmt.Errorf("failed to authenticate: %w", err)
 	}

@@ -31,7 +31,13 @@ func PlanSystemEntity(_ context.Context, request *pb.CommandRequest, state *Aggr
 	default:
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("system action requires a domain planner")
 	}
-	old := state.Entities[key]
+	kind := pb.EntityKind(0)
+	if upsert != nil {
+		kind, _ = recordKind(upsert)
+	} else if deletion != nil {
+		kind = deletion.Kind
+	}
+	old := state.Indexes[kind][key]
 	current := uint64(0)
 	if old != nil {
 		current = old.Revision

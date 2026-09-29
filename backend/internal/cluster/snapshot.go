@@ -184,13 +184,17 @@ func aggregateFromSnapshot(snapshot *pb.Snapshot) (*Aggregate, error) {
 		state.Sync = proto.Clone(snapshot.Sync).(*pb.SessionSync)
 	}
 	last := ""
+	lastKind := pb.EntityKind(0)
 	for _, entity := range snapshot.Entities {
-		if entity == nil || entity.Key <= last || entity.Revision == 0 || entity.Value == nil {
+		if entity == nil || entity.Revision == 0 || entity.Value == nil {
 			return nil, fmt.Errorf("invalid snapshot entity ordering")
 		}
 		kind, err := recordKind(entity.Value)
 		if err != nil {
 			return nil, err
+		}
+		if entity.Key < last || (entity.Key == last && kind <= lastKind) {
+			return nil, fmt.Errorf("invalid snapshot entity ordering")
 		}
 		_, global := snapshot.Aggregate.GetTarget().(*pb.AggregateRef_Global)
 		_, airport := snapshot.Aggregate.GetTarget().(*pb.AggregateRef_Airport)
@@ -202,7 +206,8 @@ func aggregateFromSnapshot(snapshot *pb.Snapshot) (*Aggregate, error) {
 		if err != nil || key != entity.Key {
 			return nil, fmt.Errorf("snapshot entity key mismatch")
 		}
-		state.Entities[entity.Key] = proto.Clone(entity).(*pb.EntitySnapshot)
+		state.Entities[entitySlot(state.Entities, kind, entity.Key)] = proto.Clone(entity).(*pb.EntitySnapshot)
+		lastKind = kind
 		last = entity.Key
 	}
 	if err := validateStripState(snapshot.Aggregate, state.Entities); err != nil {

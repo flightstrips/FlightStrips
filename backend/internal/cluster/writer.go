@@ -70,67 +70,80 @@ func (w Writer) Outcome(ctx context.Context, ref *pb.AggregateRef, commandID str
 }
 
 func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.CommandReply {
+	reply, _ := w.execute(ctx, request)
+	return reply
+}
+
+// ExecuteFresh reports whether this invocation received the PubAck for a new
+// commit. A replayed command or uncertain PubAck is never permission to repeat
+// an external provider request, even when its durable outcome is successful.
+func (w Writer) ExecuteFresh(ctx context.Context, request *pb.CommandRequest) (*pb.CommandReply, bool) {
+	return w.execute(ctx, request)
+}
+
+func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.CommandReply, bool) {
+	published := false
 	reply := &pb.CommandReply{ProtocolRevision: 1}
 	if request != nil {
 		reply.CommandId = request.CommandId
 		request = proto.Clone(request).(*pb.CommandRequest)
 		if err := normalize(request.ProtoReflect()); err != nil {
 			reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, err.Error()
-			return reply
+			return reply, published
 		}
 	}
 	hash, err := RequestHash(request)
 	if err != nil {
 		reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, err.Error()
-		return reply
+		return reply, published
 	}
 	subject, _ := Subject(request.Aggregate)
 	if w.Store == nil || w.NodeID == "" {
 		reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "event writer not configured"
-		return reply
+		return reply, published
 	}
 	if w.Projection == nil {
 		switch w.Store.(type) {
 		case NATSStore, *NATSStore:
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "NATS projection barrier not configured"
-			return reply
+			return reply, published
 		}
 	}
 	if w.Plan == nil {
 		if request.GetSystem().GetUpdateEntity() == nil && request.GetSystem().GetRemoveEntity() == nil {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "domain planner not installed"
-			return reply
+			return reply, published
 		}
 		w.Plan = PlanSystemEntity
 	}
 	for {
 		if ctx.Err() != nil {
 			reply.Status = pb.CommandReply_UNAVAILABLE
-			return reply
+			return reply, published
 		}
 		if w.Lease != nil && !w.Lease.CanWrite(request.Aggregate) {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
-			return reply
+			return reply, published
 		}
 		state, err := w.load(ctx, subject, request.Aggregate)
 		if err != nil {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
-			return reply
+			return reply, published
 		}
 		if old := state.Ledger[request.CommandId]; old != nil {
 			if !proto.Equal(old.Actor, request.Actor) {
 				reply.Status, reply.Detail = pb.CommandReply_UNAUTHORIZED, "command outcome belongs to another actor"
-				return reply
+				return reply, published
 			}
 			if old.RequestSha256 != hash {
 				reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, "command ID has different content"
-				return reply
+				return reply, published
 			}
 			reply.Status = statusForOutcome(old)
 			reply.StreamSequence = &old.CommittedStreamSequence
 			reply.AggregateRevision = &old.AggregateRevision
 			reply.Outcome = proto.Clone(old).(*pb.CommandOutcome)
-			return reply
+			return reply, published
 		}
 		// The server timestamp on the published event decides whether the
 		// lease is still valid. Local wall time must not decide ownership.
@@ -139,11 +152,11 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 			if state.Owner != nil {
 				reply.CurrentOwner = proto.Clone(state.Owner).(*pb.OwnerTerm)
 			}
-			return reply
+			return reply, published
 		}
 		if request.GetSystem() != nil && request.Actor.Kind != pb.Actor_SYSTEM {
 			reply.Status = pb.CommandReply_UNAUTHORIZED
-			return reply
+			return reply, published
 		}
 		change, status, currentRevision, err := w.Plan(ctx, request, state)
 		if err != nil && status == pb.CommandReply_COMMITTED {
@@ -154,11 +167,11 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 		}
 		if status == pb.CommandReply_UNAUTHORIZED || status == pb.CommandReply_UNAVAILABLE || status == pb.CommandReply_NOT_OWNER {
 			reply.Status, reply.Detail = status, errorString(err)
-			return reply
+			return reply, published
 		}
 		if status != pb.CommandReply_STATUS_UNSPECIFIED && status != pb.CommandReply_COMMITTED && status != pb.CommandReply_INVALID_ARGUMENT && status != pb.CommandReply_NOT_FOUND && status != pb.CommandReply_REVISION_CONFLICT {
 			reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, "invalid planner status"
-			return reply
+			return reply, published
 		}
 		if status == pb.CommandReply_REVISION_CONFLICT {
 			reply.CurrentEntityRevision = &currentRevision
@@ -180,23 +193,23 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 		e := &pb.StateEvent{SchemaVersion: 1, EventId: uuid.NewString(), CommandId: &request.CommandId, Aggregate: proto.Clone(request.Aggregate).(*pb.AggregateRef), AggregateRevision: state.Revision + 1, OwnerEpoch: state.Owner.Epoch, Actor: proto.Clone(request.Actor).(*pb.Actor), Fact: &pb.StateEvent_DomainChanged{DomainChanged: change}}
 		if err := validatePlanned(state, e); err != nil {
 			reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, err.Error()
-			return reply
+			return reply, published
 		}
 		data, err := (proto.MarshalOptions{Deterministic: true}).Marshal(e)
 		if err != nil || len(data) > MaxStateBytes {
 			reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, "invalid or oversized event"
-			return reply
+			return reply, published
 		}
 		if w.Lease != nil && !w.Lease.CanWrite(request.Aggregate) {
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "owner lease or projection unavailable"
-			return reply
+			return reply, published
 		}
 		sequence, err := w.Store.Publish(ctx, subject, state.SubjectSequence, data)
 		if errors.Is(err, ErrCAS) {
 			if w.Projection != nil {
 				if waitErr := w.Projection.WaitSubjectAdvance(ctx, subject, state.SubjectSequence); waitErr != nil {
 					reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, waitErr.Error()
-					return reply
+					return reply, published
 				}
 			}
 			continue
@@ -205,15 +218,16 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 			// A lost PubAck is ambiguous. Replay may prove commitment; otherwise
 			// the caller receives UNAVAILABLE and must retain this command ID.
 			if resolved := w.resolve(ctx, subject, request, hash); resolved != nil {
-				return resolved
+				return resolved, false
 			}
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, "publish acknowledgment uncertain"
-			return reply
+			return reply, published
 		}
+		published = true
 		if w.Projection != nil {
 			if waitErr := w.Projection.WaitApplied(ctx, sequence); waitErr != nil {
 				reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, waitErr.Error()
-				return reply
+				return reply, published
 			}
 		}
 		for ctx.Err() == nil {
@@ -222,18 +236,18 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 				if old := fresh.Ledger[request.CommandId]; old != nil {
 					if !proto.Equal(old.Actor, request.Actor) {
 						reply.Status, reply.Detail = pb.CommandReply_UNAUTHORIZED, "command outcome belongs to another actor"
-						return reply
+						return reply, published
 					}
 					if old.RequestSha256 != hash {
 						reply.Status, reply.Detail = pb.CommandReply_INVALID_ARGUMENT, "command ID has different content"
-						return reply
+						return reply, published
 					}
 					reply.Status, reply.Outcome = statusForOutcome(old), proto.Clone(old).(*pb.CommandOutcome)
 					reply.StreamSequence, reply.AggregateRevision = &old.CommittedStreamSequence, &old.AggregateRevision
-					return reply
+					return reply, published
 				}
 				reply.Status, reply.CurrentOwner = pb.CommandReply_NOT_OWNER, fresh.Owner
-				return reply
+				return reply, published
 			}
 			select {
 			case <-ctx.Done():
@@ -241,7 +255,7 @@ func (w Writer) Execute(ctx context.Context, request *pb.CommandRequest) *pb.Com
 			}
 		}
 		reply.Status = pb.CommandReply_UNAVAILABLE
-		return reply
+		return reply, published
 	}
 }
 
@@ -301,13 +315,14 @@ func validatePlanned(state *Aggregate, e *pb.StateEvent) error {
 		if int32(kind) < lastKind || (int32(kind) == lastKind && c.Key <= lastKey) {
 			return fmt.Errorf("unsorted entity changes")
 		}
-		if err := validateChange(state.Ref, c, staged[c.Key]); err != nil {
+		slot := entitySlot(staged, kind, c.Key)
+		if err := validateChange(state.Ref, c, staged[slot]); err != nil {
 			return err
 		}
 		if c.GetUpsert() != nil {
-			staged[c.Key] = &pb.EntitySnapshot{Key: c.Key, Revision: c.Revision, Value: c.GetUpsert()}
+			staged[slot] = &pb.EntitySnapshot{Key: c.Key, Revision: c.Revision, Value: c.GetUpsert()}
 		} else {
-			delete(staged, c.Key)
+			delete(staged, slot)
 		}
 		lastKind, lastKey = int32(kind), c.Key
 	}

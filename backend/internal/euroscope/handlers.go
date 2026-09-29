@@ -99,6 +99,9 @@ func handleTokenEvent(ctx context.Context, client *Client, message Message) erro
 	if err := message.ProtoUnmarshal(&event); err != nil {
 		return err
 	}
+	if event.ProtocolRevision != 2 {
+		return fmt.Errorf("unsupported EuroScope protocol revision %d", event.ProtocolRevision)
+	}
 
 	user, err := client.hub.authenticationService.Validate(event.Token)
 	if err != nil {

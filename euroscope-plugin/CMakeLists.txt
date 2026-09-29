@@ -33,8 +33,7 @@ if(NOT protobuf_POPULATED)
     add_subdirectory("${protobuf_SOURCE_DIR}" "${protobuf_BINARY_DIR}" EXCLUDE_FROM_ALL)
 endif()
 
-# Task 00 compiles the next protocol's generated C++ independently. The live
-# plugin continues to use the existing EuroScope schema until task 14.
+# The cluster contract remains an independent build target for schema checks.
 add_library(cluster_proto_contract STATIC EXCLUDE_FROM_ALL
         src/plugin/websocket/generated/cluster/v1/storage.pb.cc
         src/plugin/websocket/generated/cluster/v1/wire.pb.cc)

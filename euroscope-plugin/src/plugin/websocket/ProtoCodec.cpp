@@ -96,6 +96,7 @@ namespace FlightStrips::websocket::protobuf {
             auto* payload = envelope.mutable_token();
             payload->set_token(value.token);
             payload->set_version(value.version);
+			payload->set_protocol_revision(2);
             break;
         }
         case EVENT_LOGIN: {
@@ -220,8 +221,122 @@ namespace FlightStrips::websocket::protobuf {
         return bytes;
     }
 
+    namespace {
+        bool KnownStrip(const wire::Strip& strip) {
+            return strip.unknown_fields().empty() &&
+                (!strip.has_position() || strip.position().unknown_fields().empty());
+        }
+        bool KnownCdm(const wire::CdmUpdateEvent& update) {
+            if (!update.unknown_fields().empty()) return false;
+            for (const auto& restriction : update.ecfmp_restrictions())
+                if (!restriction.unknown_fields().empty()) return false;
+            return true;
+        }
+        bool KnownBackendCdm(const wire::BackendSyncCdmData& cdm) {
+            if (!cdm.unknown_fields().empty()) return false;
+            for (const auto& restriction : cdm.ecfmp_restrictions())
+                if (!restriction.unknown_fields().empty()) return false;
+            return true;
+        }
+    }
+
     bool ParseEnvelope(const std::string& bytes, wire::Envelope& envelope) {
-        return envelope.ParseFromString(bytes) && envelope.event_case() != wire::Envelope::EVENT_NOT_SET;
+        if (!envelope.ParseFromString(bytes) || envelope.event_case() == wire::Envelope::EVENT_NOT_SET ||
+            !envelope.unknown_fields().empty()) return false;
+#define CHECK_PAYLOAD(caseName, field) case wire::Envelope::caseName: return envelope.field().unknown_fields().empty();
+        switch (envelope.event_case()) {
+        CHECK_PAYLOAD(kToken, token)
+        CHECK_PAYLOAD(kLogin, login)
+        CHECK_PAYLOAD(kControllerOnline, controller_online)
+        CHECK_PAYLOAD(kControllerOffline, controller_offline)
+        case wire::Envelope::kSync:
+            if (!envelope.sync().unknown_fields().empty()) return false;
+            for (const auto& controller : envelope.sync().controllers())
+                if (!controller.unknown_fields().empty()) return false;
+            for (const auto& strip : envelope.sync().strips())
+                if (!KnownStrip(strip)) return false;
+            for (const auto& runway : envelope.sync().runways())
+                if (!runway.unknown_fields().empty()) return false;
+            for (const auto& sid : envelope.sync().sids())
+                if (!sid.unknown_fields().empty()) return false;
+            return true;
+        CHECK_PAYLOAD(kAssignedSquawk, assigned_squawk)
+        CHECK_PAYLOAD(kSquawk, squawk)
+        CHECK_PAYLOAD(kRequestedAltitude, requested_altitude)
+        CHECK_PAYLOAD(kClearedAltitude, cleared_altitude)
+        CHECK_PAYLOAD(kCommunicationType, communication_type)
+        CHECK_PAYLOAD(kGroundState, ground_state)
+        CHECK_PAYLOAD(kClearedFlag, cleared_flag)
+        CHECK_PAYLOAD(kAircraftPositionUpdate, aircraft_position_update)
+        CHECK_PAYLOAD(kHeading, heading)
+        CHECK_PAYLOAD(kAircraftDisconnect, aircraft_disconnect)
+        CHECK_PAYLOAD(kStand, stand)
+        CHECK_PAYLOAD(kTrackingControllerChanged, tracking_controller_changed)
+        case wire::Envelope::kStripUpdate:
+            return envelope.strip_update().unknown_fields().empty() &&
+                (!envelope.strip_update().has_strip() || KnownStrip(envelope.strip_update().strip()));
+        case wire::Envelope::kRunway:
+            if (!envelope.runway().unknown_fields().empty()) return false;
+            for (const auto& runway : envelope.runway().runways())
+                if (!runway.unknown_fields().empty()) return false;
+            return true;
+        CHECK_PAYLOAD(kSessionInfo, session_info)
+        CHECK_PAYLOAD(kRunwayMismatchAlert, runway_mismatch_alert)
+        CHECK_PAYLOAD(kGenerateSquawk, generate_squawk)
+        CHECK_PAYLOAD(kEobt, eobt)
+        CHECK_PAYLOAD(kRoute, route)
+        CHECK_PAYLOAD(kRemarks, remarks)
+        CHECK_PAYLOAD(kAircraftInfo, aircraft_info)
+        CHECK_PAYLOAD(kAircraftInfoRemarks, aircraft_info_remarks)
+        CHECK_PAYLOAD(kSid, sid)
+        CHECK_PAYLOAD(kAircraftRunway, aircraft_runway)
+        CHECK_PAYLOAD(kCoordinationHandover, coordination_handover)
+        CHECK_PAYLOAD(kCoordinationReceived, coordination_received)
+        CHECK_PAYLOAD(kAssumeOnly, assume_only)
+        CHECK_PAYLOAD(kAssumeAndDrop, assume_and_drop)
+        CHECK_PAYLOAD(kDropTracking, drop_tracking)
+        case wire::Envelope::kBackendSync:
+            if (!envelope.backend_sync().unknown_fields().empty()) return false;
+            for (const auto& strip : envelope.backend_sync().strips()) {
+                if (!strip.unknown_fields().empty()) return false;
+                if (strip.has_cdm() && !KnownBackendCdm(strip.cdm())) return false;
+            }
+            return true;
+        CHECK_PAYLOAD(kCreateFpl, create_fpl)
+        case wire::Envelope::kCdmUpdate: return KnownCdm(envelope.cdm_update());
+        case wire::Envelope::kCdmUpdateBatch:
+            if (!envelope.cdm_update_batch().unknown_fields().empty()) return false;
+            for (const auto& update : envelope.cdm_update_batch().updates())
+                if (!KnownCdm(update)) return false;
+            return true;
+        CHECK_PAYLOAD(kCdmTobtUpdate, cdm_tobt_update)
+        CHECK_PAYLOAD(kCdmAsrtToggle, cdm_asrt_toggle)
+        CHECK_PAYLOAD(kCdmTsacUpdate, cdm_tsac_update)
+        CHECK_PAYLOAD(kCdmDeiceUpdate, cdm_deice_update)
+        CHECK_PAYLOAD(kCdmManualCtot, cdm_manual_ctot)
+        CHECK_PAYLOAD(kCdmCtotRemove, cdm_ctot_remove)
+        CHECK_PAYLOAD(kCdmReady, cdm_ready)
+        CHECK_PAYLOAD(kPdcStateChange, pdc_state_change)
+        CHECK_PAYLOAD(kIssuePdcClearance, issue_pdc_clearance)
+        CHECK_PAYLOAD(kPdcRevertToVoice, pdc_revert_to_voice)
+        CHECK_PAYLOAD(kSendPrivateMessage, send_private_message)
+        CHECK_PAYLOAD(kHold, hold)
+        case wire::Envelope::kAmanGainLoss:
+            if (!envelope.aman_gain_loss().unknown_fields().empty()) return false;
+            for (const auto& value : envelope.aman_gain_loss().values())
+                if (!value.unknown_fields().empty()) return false;
+            return true;
+        case wire::Envelope::kAmanRouteFact:
+            if (!envelope.aman_route_fact().unknown_fields().empty()) return false;
+            if (!envelope.aman_route_fact().has_data()) return true;
+            return envelope.aman_route_fact().data().unknown_fields().empty() &&
+                (!envelope.aman_route_fact().data().has_assigned_speed() ||
+                 envelope.aman_route_fact().data().assigned_speed().unknown_fields().empty());
+        CHECK_PAYLOAD(kCommandResult, command_result)
+        CHECK_PAYLOAD(kResultRecorded, result_recorded)
+        default: return false;
+        }
+#undef CHECK_PAYLOAD
     }
 
     EventType GetEventType(const wire::Envelope& envelope) {

@@ -7,6 +7,7 @@
 #include "ProtoCodec.h"
 #include "Logger.hpp"
 #include "WebSocket.h"
+#include "CommandOutbox.h"
 #include "authentication/IAuthenticationService.h"
 #include "handlers/AuthenticationEventHandler.h"
 #include "handlers/ConnectionEventHandlers.h"
@@ -51,6 +52,14 @@ namespace FlightStrips::websocket {
         bool ShouldSend() const;
         bool ShouldSendTrackedAircraft(bool trackingControllerIsMe) const;
         bool ShouldProcessServerMessageType(const std::string& type) const;
+		bool BeginCommand(const std::string& commandId);
+		void RecordCommandResult(const std::string& commandId,
+		    protobuf::wire::CommandResultEvent::Status status,
+		    protobuf::wire::CommandResultEvent::Reason reason,
+		    std::string detail = {}, int32_t sessionId = 0,
+			uint64_t ownerEpoch = 0, uint64_t masterEpoch = 0);
+		void SetSessionTerms(int32_t sessionId, uint64_t ownerEpoch, uint64_t masterEpoch);
+		void AcknowledgeCommandResult(const std::string& commandId);
         void Reconnect();
         void SetSessionState(ClientState state);
         Stats GetStats() const;
@@ -84,6 +93,11 @@ namespace FlightStrips::websocket {
 
         mutable std::mutex message_mutex_;
         std::vector<std::string> messages_ {};
+		CommandOutbox result_outbox_;
+		mutable std::mutex terms_mutex_;
+		int32_t session_id_ = 0;
+		uint64_t owner_epoch_ = 0;
+		uint64_t master_epoch_ = 0;
 
         bool enabled;
 
@@ -106,6 +120,7 @@ namespace FlightStrips::websocket {
         void UpdateOnlineState(bool online, std::chrono::steady_clock::time_point now);
         std::optional<std::chrono::steady_clock::time_point> GetConnectNotBefore(std::chrono::steady_clock::time_point now) const;
         bool CanSendEventType(EventType type) const;
+		std::string AttachSessionTerms(std::string bytes, EventType type) const;
         void OnMessage(const std::string &message);
         void SendLoginEvent();
     };
@@ -118,7 +133,7 @@ void FlightStrips::websocket::WebSocketService::SendEvent(const T &event) {
         return;
     }
     ++tx;
-    const auto bytes = protobuf::Serialize(event);
+    const auto bytes = AttachSessionTerms(protobuf::Serialize(event), event.type);
     webSocket->Send(bytes);
     Logger::Debug("Sending protobuf event type {} ({} bytes)", static_cast<int>(event.type), bytes.size());
 }

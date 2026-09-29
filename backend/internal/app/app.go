@@ -1077,6 +1077,7 @@ func buildHandler(cfg buildHandlerConfig) http.Handler {
 	mux := http.NewServeMux()
 	frontendUpgrader := websocket.NewConnectionUpgrader[pkgFrontend.EventType, *frontend.Client](cfg.frontendHub, cfg.authService)
 	euroscopeUpgrader := websocket.NewConnectionUpgrader[pkgEuroscope.EventType, *euroscope.Client](cfg.euroscopeHub, cfg.authService)
+	euroscopeUpgrader.RequireSubprotocol("flightstrips.euroscope.pb.v2")
 
 	mux.HandleFunc("/healthz", healthz(cfg.amanRuntime, cfg.standAssignmentReadiness, cfg.vatsimSource, cfg.standAssignmentStaleAfter, cfg.now))
 	mux.HandleFunc("/euroscopeEvents", euroscopeUpgrader.Upgrade)

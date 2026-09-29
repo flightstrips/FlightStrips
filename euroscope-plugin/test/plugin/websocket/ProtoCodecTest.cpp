@@ -25,7 +25,24 @@ TEST(ProtoCodecTest, SerializesTokenAsOneofEnvelope) {
     EXPECT_EQ(envelope.event_case(), protobuf::wire::Envelope::kToken);
     EXPECT_EQ(envelope.token().token(), "access-token");
     EXPECT_EQ(envelope.token().version(), "2.4.0");
+	EXPECT_EQ(envelope.token().protocol_revision(), 2);
     EXPECT_EQ(protobuf::GetEventType(envelope), EVENT_TOKEN);
+}
+
+TEST(ProtoCodecTest, RejectsUnknownEnvelopeAndPayloadFields) {
+    protobuf::wire::Envelope envelope;
+    envelope.mutable_token()->set_protocol_revision(2);
+    envelope.mutable_unknown_fields()->append("\x98\x06\x01", 3);
+    protobuf::wire::Envelope parsed;
+    EXPECT_FALSE(protobuf::ParseEnvelope(envelope.SerializeAsString(), parsed));
+
+    envelope.mutable_unknown_fields()->clear();
+    envelope.mutable_token()->mutable_unknown_fields()->append("\x20\x01", 2);
+    EXPECT_FALSE(protobuf::ParseEnvelope(envelope.SerializeAsString(), parsed));
+
+	protobuf::wire::Envelope nested;
+	nested.mutable_sync()->add_strips()->mutable_position()->mutable_unknown_fields()->append("\x20\x01", 2);
+	EXPECT_FALSE(protobuf::ParseEnvelope(nested.SerializeAsString(), parsed));
 }
 
 TEST(ProtoCodecTest, SerializesLoginPayloadWithoutASeparateTypeHeader) {

@@ -80,6 +80,7 @@ set(ALL_FILES
         websocket/WebSocketTest.cpp
         websocket/WebSocketServiceTest.cpp
         websocket/ProtoCodecTest.cpp
+		websocket/CommandOutboxTest.cpp
 )
 
 ################################################################################

@@ -76,13 +76,14 @@ namespace FlightStrips::messages {
         }
     }
 
-    void PrivateMessageSender::SendPrivateMessage(const std::string& callsign, const std::string& message) {
+    bool PrivateMessageSender::SendPrivateMessage(const std::string& callsign, const std::string& message) {
         const std::string command = ".msg " + callsign + " " + message;
         if (SendCommandViaMessageInput(command)) {
-            return;
+            return true;
         }
 
         Logger::Warning("PrivateMessageSender: failed to send PM via EuroScope message input");
+        return false;
     }
 
     bool PrivateMessageSender::SendCommandViaMessageInput(const std::string& command) {

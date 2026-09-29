@@ -192,6 +192,7 @@ namespace FlightStrips::websocket {
     }
 
     void WebSocketService::Reconnect() {
+		SetSessionTerms(0, 0, 0);
         connect_after_.reset();
         pending_connect_ = false;
         fail_count_ = 0;
@@ -220,6 +221,43 @@ namespace FlightStrips::websocket {
 
         return type == EVENT_TOKEN || type == EVENT_LOGIN || type == EVENT_RUNWAY;
     }
+
+	bool WebSocketService::BeginCommand(const std::string& commandId) {
+		return result_outbox_.Begin(commandId);
+	}
+
+	void WebSocketService::RecordCommandResult(const std::string& commandId,
+	        protobuf::wire::CommandResultEvent::Status status,
+	        protobuf::wire::CommandResultEvent::Reason reason,
+	        std::string detail, int32_t sessionId, uint64_t ownerEpoch, uint64_t masterEpoch) {
+		const auto bytes = result_outbox_.Complete(commandId, status, reason, std::move(detail),
+			sessionId, ownerEpoch, masterEpoch);
+		if (!bytes.empty() && IsConnected()) webSocket->Send(bytes);
+	}
+
+	void WebSocketService::SetSessionTerms(int32_t sessionId, uint64_t ownerEpoch, uint64_t masterEpoch) {
+		std::lock_guard lock(terms_mutex_);
+		session_id_ = sessionId;
+		owner_epoch_ = ownerEpoch;
+		master_epoch_ = masterEpoch;
+	}
+
+	std::string WebSocketService::AttachSessionTerms(std::string bytes, EventType type) const {
+		if (type == EVENT_TOKEN || type == EVENT_LOGIN) return bytes;
+		std::lock_guard lock(terms_mutex_);
+		if (session_id_ <= 0) return bytes;
+		protobuf::wire::Envelope envelope;
+		if (!envelope.ParseFromString(bytes)) return bytes;
+		envelope.set_session_id(session_id_);
+		envelope.set_owner_epoch(owner_epoch_);
+		envelope.set_master_epoch(master_epoch_);
+		std::string decorated;
+		return envelope.SerializeToString(&decorated) ? decorated : bytes;
+	}
+
+	void WebSocketService::AcknowledgeCommandResult(const std::string& commandId) {
+		result_outbox_.Acknowledge(commandId);
+	}
 
     Stats WebSocketService::GetStats() const {
         std::lock_guard lock(message_mutex_);
@@ -252,6 +290,7 @@ namespace FlightStrips::websocket {
 
     void WebSocketService::OnConnected() {
         exceptions::RunGuarded("WebSocketService::OnConnected", [this] {
+			SetSessionTerms(0, 0, 0);
             tx = 0;
             rx = 0;
             pending_connect_ = false;
@@ -266,6 +305,7 @@ namespace FlightStrips::websocket {
             const auto token = TokenEvent(m_authentication_service->GetAccessToken(), PLUGIN_VERSION);
             SendEvent(token);
             SendLoginEvent();
+			for (const auto& pending : result_outbox_.Pending()) webSocket->Send(pending);
 
             m_connection_handlers->OnOnline();
         });

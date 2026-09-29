@@ -57,6 +57,8 @@
 #define EVENT_HOLD_NAME "hold"
 #define EVENT_AMAN_GAIN_LOSS_NAME "aman_gain_loss"
 #define EVENT_AMAN_ROUTE_FACT_NAME "aman.route_fact"
+#define EVENT_COMMAND_RESULT_NAME "command_result"
+#define EVENT_RESULT_RECORDED_NAME "result_recorded"
 
 enum EventType {
     EVENT_UNKNOWN = 0,
@@ -113,6 +115,8 @@ enum EventType {
     EVENT_HOLD,
     EVENT_AMAN_GAIN_LOSS,
     EVENT_AMAN_ROUTE_FACT,
+	EVENT_COMMAND_RESULT,
+	EVENT_RESULT_RECORDED,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
@@ -169,6 +173,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventType, {
                              {EVENT_HOLD, EVENT_HOLD_NAME},
                              {EVENT_AMAN_GAIN_LOSS, EVENT_AMAN_GAIN_LOSS_NAME},
                              {EVENT_AMAN_ROUTE_FACT, EVENT_AMAN_ROUTE_FACT_NAME},
+							 {EVENT_COMMAND_RESULT, EVENT_COMMAND_RESULT_NAME},
+							 {EVENT_RESULT_RECORDED, EVENT_RESULT_RECORDED_NAME},
                                  })
 
 struct Event {

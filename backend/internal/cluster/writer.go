@@ -338,6 +338,9 @@ func validatePlanned(state *Aggregate, e *pb.StateEvent) error {
 	if err := validateCoordinationTransition(state, e.GetDomainChanged().GetChanges(), staged); err != nil {
 		return err
 	}
+	if err := validatePdcTacticalState(state, e.GetDomainChanged(), staged); err != nil {
+		return err
+	}
 	return nil
 }
 

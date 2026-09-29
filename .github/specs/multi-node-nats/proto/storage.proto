@@ -271,6 +271,9 @@ message StandBlock {
 message PdcSequence {
   string callsign = 1; uint64 sequence = 2; string state = 3;
   string request_remarks = 4; optional google.protobuf.Timestamp deadline = 5;
+  optional google.protobuf.Timestamp requested_at = 6;
+  optional google.protobuf.Timestamp issued_at = 7;
+  bool sent = 8; string issued_by_cid = 9; string request_channel = 10;
 }
 message CdmState {
   string callsign = 1; optional google.protobuf.Timestamp tobt = 2;

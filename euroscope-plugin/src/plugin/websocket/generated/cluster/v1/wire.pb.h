@@ -5482,6 +5482,8 @@ class IssuePdc final : public ::google::protobuf::Message
   // accessors -------------------------------------------------------
   enum : int {
     kClearanceFieldNumber = 1,
+    kRequestRemarksFieldNumber = 2,
+    kRequestChannelFieldNumber = 3,
   };
   // string clearance = 1;
   void clear_clearance() ;
@@ -5499,13 +5501,45 @@ class IssuePdc final : public ::google::protobuf::Message
   std::string* _internal_mutable_clearance();
 
   public:
+  // string request_remarks = 2;
+  void clear_request_remarks() ;
+  const std::string& request_remarks() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_request_remarks(Arg_&& arg, Args_... args);
+  std::string* mutable_request_remarks();
+  PROTOBUF_NODISCARD std::string* release_request_remarks();
+  void set_allocated_request_remarks(std::string* value);
+
+  private:
+  const std::string& _internal_request_remarks() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_remarks(
+      const std::string& value);
+  std::string* _internal_mutable_request_remarks();
+
+  public:
+  // string request_channel = 3;
+  void clear_request_channel() ;
+  const std::string& request_channel() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_request_channel(Arg_&& arg, Args_... args);
+  std::string* mutable_request_channel();
+  PROTOBUF_NODISCARD std::string* release_request_channel();
+  void set_allocated_request_channel(std::string* value);
+
+  private:
+  const std::string& _internal_request_channel() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_request_channel(
+      const std::string& value);
+  std::string* _internal_mutable_request_channel();
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.IssuePdc)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 1, 0,
-      50, 2>
+      2, 3, 0,
+      80, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -5521,6 +5555,8 @@ class IssuePdc final : public ::google::protobuf::Message
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr clearance_;
+    ::google::protobuf::internal::ArenaStringPtr request_remarks_;
+    ::google::protobuf::internal::ArenaStringPtr request_channel_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -7368,6 +7404,9 @@ class CreateTactical final : public ::google::protobuf::Message
     kTitleFieldNumber = 1,
     kBodyFieldNumber = 2,
     kBayFieldNumber = 3,
+    kKindFieldNumber = 4,
+    kLabelFieldNumber = 5,
+    kAircraftFieldNumber = 6,
   };
   // string title = 1;
   void clear_title() ;
@@ -7417,13 +7456,61 @@ class CreateTactical final : public ::google::protobuf::Message
   std::string* _internal_mutable_bay();
 
   public:
+  // string kind = 4;
+  void clear_kind() ;
+  const std::string& kind() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_kind(Arg_&& arg, Args_... args);
+  std::string* mutable_kind();
+  PROTOBUF_NODISCARD std::string* release_kind();
+  void set_allocated_kind(std::string* value);
+
+  private:
+  const std::string& _internal_kind() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_kind(
+      const std::string& value);
+  std::string* _internal_mutable_kind();
+
+  public:
+  // string label = 5;
+  void clear_label() ;
+  const std::string& label() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_label(Arg_&& arg, Args_... args);
+  std::string* mutable_label();
+  PROTOBUF_NODISCARD std::string* release_label();
+  void set_allocated_label(std::string* value);
+
+  private:
+  const std::string& _internal_label() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_label(
+      const std::string& value);
+  std::string* _internal_mutable_label();
+
+  public:
+  // string aircraft = 6;
+  void clear_aircraft() ;
+  const std::string& aircraft() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_aircraft(Arg_&& arg, Args_... args);
+  std::string* mutable_aircraft();
+  PROTOBUF_NODISCARD std::string* release_aircraft();
+  void set_allocated_aircraft(std::string* value);
+
+  private:
+  const std::string& _internal_aircraft() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_aircraft(
+      const std::string& value);
+  std::string* _internal_mutable_aircraft();
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CreateTactical)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 3, 0,
-      59, 2>
+      3, 6, 0,
+      76, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -7441,6 +7528,9 @@ class CreateTactical final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr title_;
     ::google::protobuf::internal::ArenaStringPtr body_;
     ::google::protobuf::internal::ArenaStringPtr bay_;
+    ::google::protobuf::internal::ArenaStringPtr kind_;
+    ::google::protobuf::internal::ArenaStringPtr label_;
+    ::google::protobuf::internal::ArenaStringPtr aircraft_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -32432,6 +32522,156 @@ inline void CreateTactical::set_allocated_bay(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CreateTactical.bay)
 }
 
+// string kind = 4;
+inline void CreateTactical::clear_kind() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_.ClearToEmpty();
+}
+inline const std::string& CreateTactical::kind() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CreateTactical.kind)
+  return _internal_kind();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CreateTactical::set_kind(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CreateTactical.kind)
+}
+inline std::string* CreateTactical::mutable_kind() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_kind();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CreateTactical.kind)
+  return _s;
+}
+inline const std::string& CreateTactical::_internal_kind() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.kind_.Get();
+}
+inline void CreateTactical::_internal_set_kind(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_.Set(value, GetArena());
+}
+inline std::string* CreateTactical::_internal_mutable_kind() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.kind_.Mutable( GetArena());
+}
+inline std::string* CreateTactical::release_kind() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CreateTactical.kind)
+  return _impl_.kind_.Release();
+}
+inline void CreateTactical::set_allocated_kind(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.kind_.IsDefault()) {
+          _impl_.kind_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CreateTactical.kind)
+}
+
+// string label = 5;
+inline void CreateTactical::clear_label() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.label_.ClearToEmpty();
+}
+inline const std::string& CreateTactical::label() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CreateTactical.label)
+  return _internal_label();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CreateTactical::set_label(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.label_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CreateTactical.label)
+}
+inline std::string* CreateTactical::mutable_label() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_label();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CreateTactical.label)
+  return _s;
+}
+inline const std::string& CreateTactical::_internal_label() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.label_.Get();
+}
+inline void CreateTactical::_internal_set_label(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.label_.Set(value, GetArena());
+}
+inline std::string* CreateTactical::_internal_mutable_label() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.label_.Mutable( GetArena());
+}
+inline std::string* CreateTactical::release_label() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CreateTactical.label)
+  return _impl_.label_.Release();
+}
+inline void CreateTactical::set_allocated_label(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.label_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.label_.IsDefault()) {
+          _impl_.label_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CreateTactical.label)
+}
+
+// string aircraft = 6;
+inline void CreateTactical::clear_aircraft() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_.ClearToEmpty();
+}
+inline const std::string& CreateTactical::aircraft() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CreateTactical.aircraft)
+  return _internal_aircraft();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CreateTactical::set_aircraft(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CreateTactical.aircraft)
+}
+inline std::string* CreateTactical::mutable_aircraft() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_aircraft();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CreateTactical.aircraft)
+  return _s;
+}
+inline const std::string& CreateTactical::_internal_aircraft() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_.Get();
+}
+inline void CreateTactical::_internal_set_aircraft(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_.Set(value, GetArena());
+}
+inline std::string* CreateTactical::_internal_mutable_aircraft() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_.Mutable( GetArena());
+}
+inline std::string* CreateTactical::release_aircraft() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CreateTactical.aircraft)
+  return _impl_.aircraft_.Release();
+}
+inline void CreateTactical::set_allocated_aircraft(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.aircraft_.IsDefault()) {
+          _impl_.aircraft_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CreateTactical.aircraft)
+}
+
 // -------------------------------------------------------------------
 
 // DeleteTactical
@@ -34742,6 +34982,106 @@ inline void IssuePdc::set_allocated_clearance(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.IssuePdc.clearance)
+}
+
+// string request_remarks = 2;
+inline void IssuePdc::clear_request_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_remarks_.ClearToEmpty();
+}
+inline const std::string& IssuePdc::request_remarks() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.IssuePdc.request_remarks)
+  return _internal_request_remarks();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void IssuePdc::set_request_remarks(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_remarks_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.IssuePdc.request_remarks)
+}
+inline std::string* IssuePdc::mutable_request_remarks() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_request_remarks();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.IssuePdc.request_remarks)
+  return _s;
+}
+inline const std::string& IssuePdc::_internal_request_remarks() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.request_remarks_.Get();
+}
+inline void IssuePdc::_internal_set_request_remarks(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_remarks_.Set(value, GetArena());
+}
+inline std::string* IssuePdc::_internal_mutable_request_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.request_remarks_.Mutable( GetArena());
+}
+inline std::string* IssuePdc::release_request_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.IssuePdc.request_remarks)
+  return _impl_.request_remarks_.Release();
+}
+inline void IssuePdc::set_allocated_request_remarks(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_remarks_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.request_remarks_.IsDefault()) {
+          _impl_.request_remarks_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.IssuePdc.request_remarks)
+}
+
+// string request_channel = 3;
+inline void IssuePdc::clear_request_channel() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_channel_.ClearToEmpty();
+}
+inline const std::string& IssuePdc::request_channel() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.IssuePdc.request_channel)
+  return _internal_request_channel();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void IssuePdc::set_request_channel(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_channel_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.IssuePdc.request_channel)
+}
+inline std::string* IssuePdc::mutable_request_channel() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_request_channel();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.IssuePdc.request_channel)
+  return _s;
+}
+inline const std::string& IssuePdc::_internal_request_channel() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.request_channel_.Get();
+}
+inline void IssuePdc::_internal_set_request_channel(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_channel_.Set(value, GetArena());
+}
+inline std::string* IssuePdc::_internal_mutable_request_channel() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.request_channel_.Mutable( GetArena());
+}
+inline std::string* IssuePdc::release_request_channel() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.IssuePdc.request_channel)
+  return _impl_.request_channel_.Release();
+}
+inline void IssuePdc::set_allocated_request_channel(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.request_channel_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.request_channel_.IsDefault()) {
+          _impl_.request_channel_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.IssuePdc.request_channel)
 }
 
 // -------------------------------------------------------------------

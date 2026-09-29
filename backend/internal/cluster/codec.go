@@ -276,6 +276,8 @@ func validDomainToken(field, value string) bool {
 	switch field {
 	case "flightstrips.cluster.v1.Strip.pdc_state", "flightstrips.cluster.v1.PdcSequence.state":
 		allowed = "NONE REQUESTED REQUESTED_WITH_FAULTS CLEARED CONFIRMED NO_RESPONSE FAILED REVERT_TO_VOICE"
+	case "flightstrips.cluster.v1.PdcSequence.request_channel":
+		allowed = "WEB CPDLC"
 	case "flightstrips.cluster.v1.AmanAirport.effective_mode":
 		allowed = "disabled shadow read_only authoritative blocked"
 	case "flightstrips.cluster.v1.AmanFlight.state":

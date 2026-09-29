@@ -1487,8 +1487,17 @@ inline constexpr PdcSequence::Impl_::Impl_(
         request_remarks_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        issued_by_cid_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        request_channel_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         deadline_{nullptr},
-        sequence_{::uint64_t{0u}} {}
+        requested_at_{nullptr},
+        issued_at_{nullptr},
+        sequence_{::uint64_t{0u}},
+        sent_{false} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR PdcSequence::PdcSequence(::_pbi::ConstantInitialized)
@@ -5141,11 +5150,21 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::PdcSequence, _impl_.state_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::PdcSequence, _impl_.request_remarks_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::PdcSequence, _impl_.deadline_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::PdcSequence, _impl_.requested_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::PdcSequence, _impl_.issued_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::PdcSequence, _impl_.sent_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::PdcSequence, _impl_.issued_by_cid_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::PdcSequence, _impl_.request_channel_),
         ~0u,
         ~0u,
         ~0u,
         ~0u,
         0,
+        1,
+        2,
+        ~0u,
+        ~0u,
+        ~0u,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmState, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmState, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -7402,121 +7421,121 @@ static const ::_pbi::MigrationSchema
         {605, 629, -1, sizeof(::flightstrips::cluster::v1::TacticalStrip)},
         {645, 660, -1, sizeof(::flightstrips::cluster::v1::StandAssignment)},
         {667, 680, -1, sizeof(::flightstrips::cluster::v1::StandBlock)},
-        {685, 698, -1, sizeof(::flightstrips::cluster::v1::PdcSequence)},
-        {703, 719, -1, sizeof(::flightstrips::cluster::v1::CdmState)},
-        {727, -1, -1, sizeof(::flightstrips::cluster::v1::EcfmpState)},
-        {738, 756, -1, sizeof(::flightstrips::cluster::v1::EcfmpRestriction)},
-        {766, 778, -1, sizeof(::flightstrips::cluster::v1::Atis)},
-        {782, 794, -1, sizeof(::flightstrips::cluster::v1::ClxOverride)},
-        {798, 812, -1, sizeof(::flightstrips::cluster::v1::FrontendMessage)},
-        {818, 836, -1, sizeof(::flightstrips::cluster::v1::AmanAirport)},
-        {846, 867, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayGroup)},
-        {880, 891, -1, sizeof(::flightstrips::cluster::v1::AmanRunwaySelectionPoint)},
-        {894, 904, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayRatePoint)},
-        {906, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSameStarSpacing)},
-        {917, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceWarning)},
-        {929, 943, -1, sizeof(::flightstrips::cluster::v1::AmanGap)},
-        {949, 963, -1, sizeof(::flightstrips::cluster::v1::AmanClosure)},
-        {969, 983, -1, sizeof(::flightstrips::cluster::v1::AmanReservation)},
-        {989, 1000, -1, sizeof(::flightstrips::cluster::v1::AmanTimelineMapping)},
-        {1003, -1, -1, sizeof(::flightstrips::cluster::v1::AmanTechnicalHealth)},
-        {1015, 1028, -1, sizeof(::flightstrips::cluster::v1::AmanComponentHealth)},
-        {1033, 1078, -1, sizeof(::flightstrips::cluster::v1::AmanFlight)},
-        {1115, 1140, -1, sizeof(::flightstrips::cluster::v1::AmanFlightObservation)},
-        {1157, 1167, -1, sizeof(::flightstrips::cluster::v1::AmanPlannedTiming)},
-        {1169, 1179, -1, sizeof(::flightstrips::cluster::v1::AmanFlightPlanFact)},
-        {1181, 1196, -1, sizeof(::flightstrips::cluster::v1::AmanSurveillanceFact)},
-        {1203, 1216, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingClearance)},
-        {1221, 1250, -1, sizeof(::flightstrips::cluster::v1::AmanPrediction)},
-        {1271, 1282, -1, sizeof(::flightstrips::cluster::v1::AmanFeederEta)},
-        {1285, 1297, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingPlan)},
-        {1301, 1313, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingStack)},
-        {1317, 1329, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionCalculation)},
-        {1333, 1352, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionLeg)},
-        {1363, 1387, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionSegment)},
-        {1403, 1413, -1, sizeof(::flightstrips::cluster::v1::AmanRawTetaSample)},
-        {1415, 1433, -1, sizeof(::flightstrips::cluster::v1::AmanBaseline)},
-        {1443, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRouteProgress)},
-        {1464, 1475, -1, sizeof(::flightstrips::cluster::v1::AmanTmaEntry)},
-        {1478, 1488, -1, sizeof(::flightstrips::cluster::v1::AmanOperationalException)},
-        {1490, 1508, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundEvidence)},
-        {1518, 1542, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundDetection)},
-        {1558, 1573, -1, sizeof(::flightstrips::cluster::v1::AmanLifecycle)},
-        {1580, 1591, -1, sizeof(::flightstrips::cluster::v1::AmanAbsence)},
-        {1594, 1610, -1, sizeof(::flightstrips::cluster::v1::AmanRouteFact)},
-        {1618, 1631, -1, sizeof(::flightstrips::cluster::v1::AmanProvenance)},
-        {1636, 1649, -1, sizeof(::flightstrips::cluster::v1::AmanSlot)},
-        {1654, 1672, -1, sizeof(::flightstrips::cluster::v1::AmanETAReview)},
-        {1682, 1697, -1, sizeof(::flightstrips::cluster::v1::AmanQueueOffer)},
-        {1704, 1721, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundConfirmation)},
-        {1730, 1743, -1, sizeof(::flightstrips::cluster::v1::AmanGapException)},
-        {1748, 1769, -1, sizeof(::flightstrips::cluster::v1::AmanCoordination)},
-        {1781, 1791, -1, sizeof(::flightstrips::cluster::v1::AmanRouteDirect)},
-        {1793, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSpeed)},
-        {1802, 1815, -1, sizeof(::flightstrips::cluster::v1::AmanClearance)},
-        {1820, 1842, -1, sizeof(::flightstrips::cluster::v1::AmanAudit)},
-        {1855, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCommandAudit)},
-        {1867, -1, -1, sizeof(::flightstrips::cluster::v1::AmanObservationAudit)},
-        {1879, 1892, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceAudit)},
-        {1897, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCoordinationAudit)},
-        {1909, -1, -1, sizeof(::flightstrips::cluster::v1::AmanHealthAudit)},
-        {1921, 1936, -1, sizeof(::flightstrips::cluster::v1::AmanCapacityAudit)},
-        {1943, 1955, -1, sizeof(::flightstrips::cluster::v1::AmanFreezeAudit)},
-        {1959, -1, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundAudit)},
-        {1971, 1983, -1, sizeof(::flightstrips::cluster::v1::AmanReplayAudit)},
-        {1987, 2001, -1, sizeof(::flightstrips::cluster::v1::AmanValidation)},
-        {2007, 2019, -1, sizeof(::flightstrips::cluster::v1::VatsimObservation)},
-        {2023, -1, -1, sizeof(::flightstrips::cluster::v1::NavManifest)},
-        {2036, -1, -1, sizeof(::flightstrips::cluster::v1::NavObjectRef)},
-        {2047, -1, -1, sizeof(::flightstrips::cluster::v1::NavRouteCache)},
-        {2060, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderCheckpoint)},
-        {2075, 2088, -1, sizeof(::flightstrips::cluster::v1::WeatherCache)},
-        {2093, 2109, -1, sizeof(::flightstrips::cluster::v1::WeatherObservation)},
-        {2117, 2128, -1, sizeof(::flightstrips::cluster::v1::WeatherCloud)},
-        {2131, 2144, -1, sizeof(::flightstrips::cluster::v1::SessionDeadline)},
-        {2149, 2166, -1, sizeof(::flightstrips::cluster::v1::CommandOutcome)},
-        {2175, 2192, -1, sizeof(::flightstrips::cluster::v1::WorkflowRecord)},
-        {2201, 2225, -1, sizeof(::flightstrips::cluster::v1::EffectRecord)},
-        {2240, -1, -1, sizeof(::flightstrips::cluster::v1::SetFlightPlanEffect)},
-        {2251, -1, -1, sizeof(::flightstrips::cluster::v1::PdcEffect)},
-        {2262, -1, -1, sizeof(::flightstrips::cluster::v1::PrivateMessageEffect)},
-        {2273, -1, -1, sizeof(::flightstrips::cluster::v1::CoordinationEffect)},
-        {2284, -1, -1, sizeof(::flightstrips::cluster::v1::CdmEffect)},
-        {2295, 2316, -1, sizeof(::flightstrips::cluster::v1::Snapshot)},
-        {2329, 2340, -1, sizeof(::flightstrips::cluster::v1::EntitySnapshot)},
-        {2343, 2358, -1, sizeof(::flightstrips::cluster::v1::SnapshotIndex)},
-        {2365, 2382, -1, sizeof(::flightstrips::cluster::v1::PositionValue)},
-        {2390, 2404, -1, sizeof(::flightstrips::cluster::v1::AircraftPosition)},
-        {2410, -1, -1, sizeof(::flightstrips::cluster::v1::PositionTombstone)},
-        {2418, -1, -1, sizeof(::flightstrips::cluster::v1::PresenceValue)},
-        {2430, 2441, -1, sizeof(::flightstrips::cluster::v1::NodePresence)},
-        {2444, 2461, -1, sizeof(::flightstrips::cluster::v1::ClientPresence)},
-        {2470, -1, -1, sizeof(::flightstrips::cluster::v1::ObjectValue)},
-        {2484, 2506, -1, sizeof(::flightstrips::cluster::v1::NavData)},
-        {2519, 2531, -1, sizeof(::flightstrips::cluster::v1::NavDatasetVersion)},
-        {2535, 2548, -1, sizeof(::flightstrips::cluster::v1::NavProvenance)},
-        {2553, -1, -1, sizeof(::flightstrips::cluster::v1::NavCoordinate)},
-        {2563, 2574, -1, sizeof(::flightstrips::cluster::v1::NavThreshold)},
-        {2577, 2587, -1, sizeof(::flightstrips::cluster::v1::NavAirportFragment)},
-        {2589, 2601, -1, sizeof(::flightstrips::cluster::v1::NavAirport)},
-        {2605, 2618, -1, sizeof(::flightstrips::cluster::v1::NavRunway)},
-        {2623, -1, -1, sizeof(::flightstrips::cluster::v1::NavProcedureFragment)},
-        {2635, 2650, -1, sizeof(::flightstrips::cluster::v1::NavProcedure)},
-        {2657, 2674, -1, sizeof(::flightstrips::cluster::v1::NavLeg)},
-        {2683, 2703, -1, sizeof(::flightstrips::cluster::v1::NavHolding)},
-        {2714, -1, -1, sizeof(::flightstrips::cluster::v1::NavFixFragment)},
-        {2724, 2735, -1, sizeof(::flightstrips::cluster::v1::NavFix)},
-        {2738, -1, -1, sizeof(::flightstrips::cluster::v1::NavTerminalFragment)},
-        {2752, 2763, -1, sizeof(::flightstrips::cluster::v1::NavStarFamilyPolicy)},
-        {2766, 2787, -1, sizeof(::flightstrips::cluster::v1::NavTerminalPath)},
-        {2800, 2813, -1, sizeof(::flightstrips::cluster::v1::NavRouteCandidate)},
-        {2818, 2833, -1, sizeof(::flightstrips::cluster::v1::NavRouteQuery)},
-        {2840, 2856, -1, sizeof(::flightstrips::cluster::v1::NavRouteGeometry)},
-        {2864, -1, -1, sizeof(::flightstrips::cluster::v1::EffectSecret)},
-        {2876, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderPage)},
-        {2890, 2900, -1, sizeof(::flightstrips::cluster::v1::AiracPage)},
-        {2902, -1, -1, sizeof(::flightstrips::cluster::v1::VatsimPage)},
-        {2911, -1, -1, sizeof(::flightstrips::cluster::v1::WeatherPage)},
+        {685, 703, -1, sizeof(::flightstrips::cluster::v1::PdcSequence)},
+        {713, 729, -1, sizeof(::flightstrips::cluster::v1::CdmState)},
+        {737, -1, -1, sizeof(::flightstrips::cluster::v1::EcfmpState)},
+        {748, 766, -1, sizeof(::flightstrips::cluster::v1::EcfmpRestriction)},
+        {776, 788, -1, sizeof(::flightstrips::cluster::v1::Atis)},
+        {792, 804, -1, sizeof(::flightstrips::cluster::v1::ClxOverride)},
+        {808, 822, -1, sizeof(::flightstrips::cluster::v1::FrontendMessage)},
+        {828, 846, -1, sizeof(::flightstrips::cluster::v1::AmanAirport)},
+        {856, 877, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayGroup)},
+        {890, 901, -1, sizeof(::flightstrips::cluster::v1::AmanRunwaySelectionPoint)},
+        {904, 914, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayRatePoint)},
+        {916, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSameStarSpacing)},
+        {927, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceWarning)},
+        {939, 953, -1, sizeof(::flightstrips::cluster::v1::AmanGap)},
+        {959, 973, -1, sizeof(::flightstrips::cluster::v1::AmanClosure)},
+        {979, 993, -1, sizeof(::flightstrips::cluster::v1::AmanReservation)},
+        {999, 1010, -1, sizeof(::flightstrips::cluster::v1::AmanTimelineMapping)},
+        {1013, -1, -1, sizeof(::flightstrips::cluster::v1::AmanTechnicalHealth)},
+        {1025, 1038, -1, sizeof(::flightstrips::cluster::v1::AmanComponentHealth)},
+        {1043, 1088, -1, sizeof(::flightstrips::cluster::v1::AmanFlight)},
+        {1125, 1150, -1, sizeof(::flightstrips::cluster::v1::AmanFlightObservation)},
+        {1167, 1177, -1, sizeof(::flightstrips::cluster::v1::AmanPlannedTiming)},
+        {1179, 1189, -1, sizeof(::flightstrips::cluster::v1::AmanFlightPlanFact)},
+        {1191, 1206, -1, sizeof(::flightstrips::cluster::v1::AmanSurveillanceFact)},
+        {1213, 1226, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingClearance)},
+        {1231, 1260, -1, sizeof(::flightstrips::cluster::v1::AmanPrediction)},
+        {1281, 1292, -1, sizeof(::flightstrips::cluster::v1::AmanFeederEta)},
+        {1295, 1307, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingPlan)},
+        {1311, 1323, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingStack)},
+        {1327, 1339, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionCalculation)},
+        {1343, 1362, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionLeg)},
+        {1373, 1397, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionSegment)},
+        {1413, 1423, -1, sizeof(::flightstrips::cluster::v1::AmanRawTetaSample)},
+        {1425, 1443, -1, sizeof(::flightstrips::cluster::v1::AmanBaseline)},
+        {1453, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRouteProgress)},
+        {1474, 1485, -1, sizeof(::flightstrips::cluster::v1::AmanTmaEntry)},
+        {1488, 1498, -1, sizeof(::flightstrips::cluster::v1::AmanOperationalException)},
+        {1500, 1518, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundEvidence)},
+        {1528, 1552, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundDetection)},
+        {1568, 1583, -1, sizeof(::flightstrips::cluster::v1::AmanLifecycle)},
+        {1590, 1601, -1, sizeof(::flightstrips::cluster::v1::AmanAbsence)},
+        {1604, 1620, -1, sizeof(::flightstrips::cluster::v1::AmanRouteFact)},
+        {1628, 1641, -1, sizeof(::flightstrips::cluster::v1::AmanProvenance)},
+        {1646, 1659, -1, sizeof(::flightstrips::cluster::v1::AmanSlot)},
+        {1664, 1682, -1, sizeof(::flightstrips::cluster::v1::AmanETAReview)},
+        {1692, 1707, -1, sizeof(::flightstrips::cluster::v1::AmanQueueOffer)},
+        {1714, 1731, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundConfirmation)},
+        {1740, 1753, -1, sizeof(::flightstrips::cluster::v1::AmanGapException)},
+        {1758, 1779, -1, sizeof(::flightstrips::cluster::v1::AmanCoordination)},
+        {1791, 1801, -1, sizeof(::flightstrips::cluster::v1::AmanRouteDirect)},
+        {1803, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSpeed)},
+        {1812, 1825, -1, sizeof(::flightstrips::cluster::v1::AmanClearance)},
+        {1830, 1852, -1, sizeof(::flightstrips::cluster::v1::AmanAudit)},
+        {1865, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCommandAudit)},
+        {1877, -1, -1, sizeof(::flightstrips::cluster::v1::AmanObservationAudit)},
+        {1889, 1902, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceAudit)},
+        {1907, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCoordinationAudit)},
+        {1919, -1, -1, sizeof(::flightstrips::cluster::v1::AmanHealthAudit)},
+        {1931, 1946, -1, sizeof(::flightstrips::cluster::v1::AmanCapacityAudit)},
+        {1953, 1965, -1, sizeof(::flightstrips::cluster::v1::AmanFreezeAudit)},
+        {1969, -1, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundAudit)},
+        {1981, 1993, -1, sizeof(::flightstrips::cluster::v1::AmanReplayAudit)},
+        {1997, 2011, -1, sizeof(::flightstrips::cluster::v1::AmanValidation)},
+        {2017, 2029, -1, sizeof(::flightstrips::cluster::v1::VatsimObservation)},
+        {2033, -1, -1, sizeof(::flightstrips::cluster::v1::NavManifest)},
+        {2046, -1, -1, sizeof(::flightstrips::cluster::v1::NavObjectRef)},
+        {2057, -1, -1, sizeof(::flightstrips::cluster::v1::NavRouteCache)},
+        {2070, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderCheckpoint)},
+        {2085, 2098, -1, sizeof(::flightstrips::cluster::v1::WeatherCache)},
+        {2103, 2119, -1, sizeof(::flightstrips::cluster::v1::WeatherObservation)},
+        {2127, 2138, -1, sizeof(::flightstrips::cluster::v1::WeatherCloud)},
+        {2141, 2154, -1, sizeof(::flightstrips::cluster::v1::SessionDeadline)},
+        {2159, 2176, -1, sizeof(::flightstrips::cluster::v1::CommandOutcome)},
+        {2185, 2202, -1, sizeof(::flightstrips::cluster::v1::WorkflowRecord)},
+        {2211, 2235, -1, sizeof(::flightstrips::cluster::v1::EffectRecord)},
+        {2250, -1, -1, sizeof(::flightstrips::cluster::v1::SetFlightPlanEffect)},
+        {2261, -1, -1, sizeof(::flightstrips::cluster::v1::PdcEffect)},
+        {2272, -1, -1, sizeof(::flightstrips::cluster::v1::PrivateMessageEffect)},
+        {2283, -1, -1, sizeof(::flightstrips::cluster::v1::CoordinationEffect)},
+        {2294, -1, -1, sizeof(::flightstrips::cluster::v1::CdmEffect)},
+        {2305, 2326, -1, sizeof(::flightstrips::cluster::v1::Snapshot)},
+        {2339, 2350, -1, sizeof(::flightstrips::cluster::v1::EntitySnapshot)},
+        {2353, 2368, -1, sizeof(::flightstrips::cluster::v1::SnapshotIndex)},
+        {2375, 2392, -1, sizeof(::flightstrips::cluster::v1::PositionValue)},
+        {2400, 2414, -1, sizeof(::flightstrips::cluster::v1::AircraftPosition)},
+        {2420, -1, -1, sizeof(::flightstrips::cluster::v1::PositionTombstone)},
+        {2428, -1, -1, sizeof(::flightstrips::cluster::v1::PresenceValue)},
+        {2440, 2451, -1, sizeof(::flightstrips::cluster::v1::NodePresence)},
+        {2454, 2471, -1, sizeof(::flightstrips::cluster::v1::ClientPresence)},
+        {2480, -1, -1, sizeof(::flightstrips::cluster::v1::ObjectValue)},
+        {2494, 2516, -1, sizeof(::flightstrips::cluster::v1::NavData)},
+        {2529, 2541, -1, sizeof(::flightstrips::cluster::v1::NavDatasetVersion)},
+        {2545, 2558, -1, sizeof(::flightstrips::cluster::v1::NavProvenance)},
+        {2563, -1, -1, sizeof(::flightstrips::cluster::v1::NavCoordinate)},
+        {2573, 2584, -1, sizeof(::flightstrips::cluster::v1::NavThreshold)},
+        {2587, 2597, -1, sizeof(::flightstrips::cluster::v1::NavAirportFragment)},
+        {2599, 2611, -1, sizeof(::flightstrips::cluster::v1::NavAirport)},
+        {2615, 2628, -1, sizeof(::flightstrips::cluster::v1::NavRunway)},
+        {2633, -1, -1, sizeof(::flightstrips::cluster::v1::NavProcedureFragment)},
+        {2645, 2660, -1, sizeof(::flightstrips::cluster::v1::NavProcedure)},
+        {2667, 2684, -1, sizeof(::flightstrips::cluster::v1::NavLeg)},
+        {2693, 2713, -1, sizeof(::flightstrips::cluster::v1::NavHolding)},
+        {2724, -1, -1, sizeof(::flightstrips::cluster::v1::NavFixFragment)},
+        {2734, 2745, -1, sizeof(::flightstrips::cluster::v1::NavFix)},
+        {2748, -1, -1, sizeof(::flightstrips::cluster::v1::NavTerminalFragment)},
+        {2762, 2773, -1, sizeof(::flightstrips::cluster::v1::NavStarFamilyPolicy)},
+        {2776, 2797, -1, sizeof(::flightstrips::cluster::v1::NavTerminalPath)},
+        {2810, 2823, -1, sizeof(::flightstrips::cluster::v1::NavRouteCandidate)},
+        {2828, 2843, -1, sizeof(::flightstrips::cluster::v1::NavRouteQuery)},
+        {2850, 2866, -1, sizeof(::flightstrips::cluster::v1::NavRouteGeometry)},
+        {2874, -1, -1, sizeof(::flightstrips::cluster::v1::EffectSecret)},
+        {2886, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderPage)},
+        {2900, 2910, -1, sizeof(::flightstrips::cluster::v1::AiracPage)},
+        {2912, -1, -1, sizeof(::flightstrips::cluster::v1::VatsimPage)},
+        {2921, -1, -1, sizeof(::flightstrips::cluster::v1::WeatherPage)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_AggregateRef_default_instance_._instance,
@@ -7909,11 +7928,16 @@ const char descriptor_table_protodef_storage_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "\001(\t\022\016\n\006reason\030\002 \001(\t\022\r\n\005actor\030\003 \001(\t\022.\n\ncr"
     "eated_at\030\004 \001(\0132\032.google.protobuf.Timesta"
     "mp\0223\n\nexpires_at\030\005 \001(\0132\032.google.protobuf"
-    ".TimestampH\000\210\001\001B\r\n\013_expires_at\"\231\001\n\013PdcSe"
+    ".TimestampH\000\210\001\001B\r\n\013_expires_at\"\341\002\n\013PdcSe"
     "quence\022\020\n\010callsign\030\001 \001(\t\022\020\n\010sequence\030\002 \001"
     "(\004\022\r\n\005state\030\003 \001(\t\022\027\n\017request_remarks\030\004 \001"
     "(\t\0221\n\010deadline\030\005 \001(\0132\032.google.protobuf.T"
-    "imestampH\000\210\001\001B\013\n\t_deadline\"\263\002\n\010CdmState\022"
+    "imestampH\000\210\001\001\0225\n\014requested_at\030\006 \001(\0132\032.go"
+    "ogle.protobuf.TimestampH\001\210\001\001\0222\n\tissued_a"
+    "t\030\007 \001(\0132\032.google.protobuf.TimestampH\002\210\001\001"
+    "\022\014\n\004sent\030\010 \001(\010\022\025\n\rissued_by_cid\030\t \001(\t\022\027\n"
+    "\017request_channel\030\n \001(\tB\013\n\t_deadlineB\017\n\r_"
+    "requested_atB\014\n\n_issued_at\"\263\002\n\010CdmState\022"
     "\020\n\010callsign\030\001 \001(\t\022-\n\004tobt\030\002 \001(\0132\032.google"
     ".protobuf.TimestampH\000\210\001\001\022-\n\004tsat\030\003 \001(\0132\032"
     ".google.protobuf.TimestampH\001\210\001\001\022-\n\004ttot\030"
@@ -8677,7 +8701,7 @@ static ::absl::once_flag descriptor_table_storage_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_storage_2eproto = {
     false,
     false,
-    39786,
+    39986,
     descriptor_table_protodef_storage_2eproto,
     "storage.proto",
     &descriptor_table_storage_2eproto_once,
@@ -23085,6 +23109,16 @@ void PdcSequence::clear_deadline() {
   if (_impl_.deadline_ != nullptr) _impl_.deadline_->Clear();
   _impl_._has_bits_[0] &= ~0x00000001u;
 }
+void PdcSequence::clear_requested_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.requested_at_ != nullptr) _impl_.requested_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+void PdcSequence::clear_issued_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.issued_at_ != nullptr) _impl_.issued_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000004u;
+}
 PdcSequence::PdcSequence(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -23097,7 +23131,9 @@ inline PROTOBUF_NDEBUG_INLINE PdcSequence::Impl_::Impl_(
         _cached_size_{0},
         callsign_(arena, from.callsign_),
         state_(arena, from.state_),
-        request_remarks_(arena, from.request_remarks_) {}
+        request_remarks_(arena, from.request_remarks_),
+        issued_by_cid_(arena, from.issued_by_cid_),
+        request_channel_(arena, from.request_channel_) {}
 
 PdcSequence::PdcSequence(
     ::google::protobuf::Arena* arena,
@@ -23112,7 +23148,19 @@ PdcSequence::PdcSequence(
   _impl_.deadline_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
                               arena, *from._impl_.deadline_)
                         : nullptr;
-  _impl_.sequence_ = from._impl_.sequence_;
+  _impl_.requested_at_ = (cached_has_bits & 0x00000002u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.requested_at_)
+                        : nullptr;
+  _impl_.issued_at_ = (cached_has_bits & 0x00000004u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.issued_at_)
+                        : nullptr;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, sequence_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, sequence_),
+           offsetof(Impl_, sent_) -
+               offsetof(Impl_, sequence_) +
+               sizeof(Impl_::sent_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.PdcSequence)
 }
@@ -23122,16 +23170,18 @@ inline PROTOBUF_NDEBUG_INLINE PdcSequence::Impl_::Impl_(
       : _cached_size_{0},
         callsign_(arena),
         state_(arena),
-        request_remarks_(arena) {}
+        request_remarks_(arena),
+        issued_by_cid_(arena),
+        request_channel_(arena) {}
 
 inline void PdcSequence::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, deadline_),
            0,
-           offsetof(Impl_, sequence_) -
+           offsetof(Impl_, sent_) -
                offsetof(Impl_, deadline_) +
-               sizeof(Impl_::sequence_));
+               sizeof(Impl_::sent_));
 }
 PdcSequence::~PdcSequence() {
   // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.PdcSequence)
@@ -23143,7 +23193,11 @@ inline void PdcSequence::SharedDtor() {
   _impl_.callsign_.Destroy();
   _impl_.state_.Destroy();
   _impl_.request_remarks_.Destroy();
+  _impl_.issued_by_cid_.Destroy();
+  _impl_.request_channel_.Destroy();
   delete _impl_.deadline_;
+  delete _impl_.requested_at_;
+  delete _impl_.issued_at_;
   _impl_.~Impl_();
 }
 
@@ -23171,12 +23225,26 @@ PROTOBUF_NOINLINE void PdcSequence::Clear() {
   _impl_.callsign_.ClearToEmpty();
   _impl_.state_.ClearToEmpty();
   _impl_.request_remarks_.ClearToEmpty();
+  _impl_.issued_by_cid_.ClearToEmpty();
+  _impl_.request_channel_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
-  if (cached_has_bits & 0x00000001u) {
-    ABSL_DCHECK(_impl_.deadline_ != nullptr);
-    _impl_.deadline_->Clear();
+  if (cached_has_bits & 0x00000007u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(_impl_.deadline_ != nullptr);
+      _impl_.deadline_->Clear();
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(_impl_.requested_at_ != nullptr);
+      _impl_.requested_at_->Clear();
+    }
+    if (cached_has_bits & 0x00000004u) {
+      ABSL_DCHECK(_impl_.issued_at_ != nullptr);
+      _impl_.issued_at_->Clear();
+    }
   }
-  _impl_.sequence_ = ::uint64_t{0u};
+  ::memset(&_impl_.sequence_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.sent_) -
+      reinterpret_cast<char*>(&_impl_.sequence_)) + sizeof(_impl_.sent_));
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -23189,16 +23257,16 @@ const char* PdcSequence::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 5, 1, 72, 2> PdcSequence::_table_ = {
+const ::_pbi::TcParseTable<4, 10, 3, 108, 2> PdcSequence::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_._has_bits_),
     0, // no _extensions_
-    5, 56,  // max_field_number, fast_idx_mask
+    10, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967264,  // skipmap
+    4294966272,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    5,  // num_field_entries
-    1,  // num_aux_entries
+    10,  // num_field_entries
+    3,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_PdcSequence_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -23222,6 +23290,24 @@ const ::_pbi::TcParseTable<3, 5, 1, 72, 2> PdcSequence::_table_ = {
     // optional .google.protobuf.Timestamp deadline = 5;
     {::_pbi::TcParser::FastMtS1,
      {42, 0, 0, PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.deadline_)}},
+    // optional .google.protobuf.Timestamp requested_at = 6;
+    {::_pbi::TcParser::FastMtS1,
+     {50, 1, 1, PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.requested_at_)}},
+    // optional .google.protobuf.Timestamp issued_at = 7;
+    {::_pbi::TcParser::FastMtS1,
+     {58, 2, 2, PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.issued_at_)}},
+    // bool sent = 8;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(PdcSequence, _impl_.sent_), 63>(),
+     {64, 63, 0, PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.sent_)}},
+    // string issued_by_cid = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 63, 0, PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.issued_by_cid_)}},
+    // string request_channel = 10;
+    {::_pbi::TcParser::FastUS1,
+     {82, 63, 0, PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.request_channel_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
   }}, {{
@@ -23242,14 +23328,33 @@ const ::_pbi::TcParseTable<3, 5, 1, 72, 2> PdcSequence::_table_ = {
     // optional .google.protobuf.Timestamp deadline = 5;
     {PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.deadline_), _Internal::kHasBitsOffset + 0, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // optional .google.protobuf.Timestamp requested_at = 6;
+    {PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.requested_at_), _Internal::kHasBitsOffset + 1, 1,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // optional .google.protobuf.Timestamp issued_at = 7;
+    {PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.issued_at_), _Internal::kHasBitsOffset + 2, 2,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // bool sent = 8;
+    {PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.sent_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // string issued_by_cid = 9;
+    {PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.issued_by_cid_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string request_channel = 10;
+    {PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.request_channel_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
   }}, {{
-    "\43\10\0\5\17\0\0\0"
+    "\43\10\0\5\17\0\0\0\0\15\17\0\0\0\0\0"
     "flightstrips.cluster.v1.PdcSequence"
     "callsign"
     "state"
     "request_remarks"
+    "issued_by_cid"
+    "request_channel"
   }},
 };
 
@@ -23298,6 +23403,41 @@ const ::_pbi::TcParseTable<3, 5, 1, 72, 2> PdcSequence::_table_ = {
         5, *_impl_.deadline_, _impl_.deadline_->GetCachedSize(), target, stream);
   }
 
+  // optional .google.protobuf.Timestamp requested_at = 6;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        6, *_impl_.requested_at_, _impl_.requested_at_->GetCachedSize(), target, stream);
+  }
+
+  // optional .google.protobuf.Timestamp issued_at = 7;
+  if (cached_has_bits & 0x00000004u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        7, *_impl_.issued_at_, _impl_.issued_at_->GetCachedSize(), target, stream);
+  }
+
+  // bool sent = 8;
+  if (this->_internal_sent() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        8, this->_internal_sent(), target);
+  }
+
+  // string issued_by_cid = 9;
+  if (!this->_internal_issued_by_cid().empty()) {
+    const std::string& _s = this->_internal_issued_by_cid();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.PdcSequence.issued_by_cid");
+    target = stream->WriteStringMaybeAliased(9, _s, target);
+  }
+
+  // string request_channel = 10;
+  if (!this->_internal_request_channel().empty()) {
+    const std::string& _s = this->_internal_request_channel();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.PdcSequence.request_channel");
+    target = stream->WriteStringMaybeAliased(10, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -23333,17 +23473,48 @@ const ::_pbi::TcParseTable<3, 5, 1, 72, 2> PdcSequence::_table_ = {
                                     this->_internal_request_remarks());
   }
 
-  // optional .google.protobuf.Timestamp deadline = 5;
-  cached_has_bits = _impl_._has_bits_[0];
-  if (cached_has_bits & 0x00000001u) {
-    total_size +=
-        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.deadline_);
+  // string issued_by_cid = 9;
+  if (!this->_internal_issued_by_cid().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_issued_by_cid());
   }
 
+  // string request_channel = 10;
+  if (!this->_internal_request_channel().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_request_channel());
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000007u) {
+    // optional .google.protobuf.Timestamp deadline = 5;
+    if (cached_has_bits & 0x00000001u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.deadline_);
+    }
+
+    // optional .google.protobuf.Timestamp requested_at = 6;
+    if (cached_has_bits & 0x00000002u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.requested_at_);
+    }
+
+    // optional .google.protobuf.Timestamp issued_at = 7;
+    if (cached_has_bits & 0x00000004u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.issued_at_);
+    }
+
+  }
   // uint64 sequence = 2;
   if (this->_internal_sequence() != 0) {
     total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
         this->_internal_sequence());
+  }
+
+  // bool sent = 8;
+  if (this->_internal_sent() != 0) {
+    total_size += 2;
   }
 
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
@@ -23368,18 +23539,47 @@ void PdcSequence::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::goo
   if (!from._internal_request_remarks().empty()) {
     _this->_internal_set_request_remarks(from._internal_request_remarks());
   }
+  if (!from._internal_issued_by_cid().empty()) {
+    _this->_internal_set_issued_by_cid(from._internal_issued_by_cid());
+  }
+  if (!from._internal_request_channel().empty()) {
+    _this->_internal_set_request_channel(from._internal_request_channel());
+  }
   cached_has_bits = from._impl_._has_bits_[0];
-  if (cached_has_bits & 0x00000001u) {
-    ABSL_DCHECK(from._impl_.deadline_ != nullptr);
-    if (_this->_impl_.deadline_ == nullptr) {
-      _this->_impl_.deadline_ =
-          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.deadline_);
-    } else {
-      _this->_impl_.deadline_->MergeFrom(*from._impl_.deadline_);
+  if (cached_has_bits & 0x00000007u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(from._impl_.deadline_ != nullptr);
+      if (_this->_impl_.deadline_ == nullptr) {
+        _this->_impl_.deadline_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.deadline_);
+      } else {
+        _this->_impl_.deadline_->MergeFrom(*from._impl_.deadline_);
+      }
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(from._impl_.requested_at_ != nullptr);
+      if (_this->_impl_.requested_at_ == nullptr) {
+        _this->_impl_.requested_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.requested_at_);
+      } else {
+        _this->_impl_.requested_at_->MergeFrom(*from._impl_.requested_at_);
+      }
+    }
+    if (cached_has_bits & 0x00000004u) {
+      ABSL_DCHECK(from._impl_.issued_at_ != nullptr);
+      if (_this->_impl_.issued_at_ == nullptr) {
+        _this->_impl_.issued_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.issued_at_);
+      } else {
+        _this->_impl_.issued_at_->MergeFrom(*from._impl_.issued_at_);
+      }
     }
   }
   if (from._internal_sequence() != 0) {
     _this->_impl_.sequence_ = from._impl_.sequence_;
+  }
+  if (from._internal_sent() != 0) {
+    _this->_impl_.sent_ = from._impl_.sent_;
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
@@ -23405,9 +23605,11 @@ void PdcSequence::InternalSwap(PdcSequence* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.state_, &other->_impl_.state_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.request_remarks_, &other->_impl_.request_remarks_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.issued_by_cid_, &other->_impl_.issued_by_cid_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.request_channel_, &other->_impl_.request_channel_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.sequence_)
-      + sizeof(PdcSequence::_impl_.sequence_)
+      PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.sent_)
+      + sizeof(PdcSequence::_impl_.sent_)
       - PROTOBUF_FIELD_OFFSET(PdcSequence, _impl_.deadline_)>(
           reinterpret_cast<char*>(&_impl_.deadline_),
           reinterpret_cast<char*>(&other->_impl_.deadline_));

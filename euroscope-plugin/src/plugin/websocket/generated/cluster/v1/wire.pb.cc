@@ -261,6 +261,30 @@ struct SetReleasePointDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SetReleasePointDefaultTypeInternal _SetReleasePoint_default_instance_;
 
+inline constexpr SetPositionLayout::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : position_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        layout_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR SetPositionLayout::SetPositionLayout(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct SetPositionLayoutDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR SetPositionLayoutDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~SetPositionLayoutDefaultTypeInternal() {}
+  union {
+    SetPositionLayout _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SetPositionLayoutDefaultTypeInternal _SetPositionLayout_default_instance_;
+
 inline constexpr SetMarked::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : marked_{false},
@@ -1378,6 +1402,25 @@ struct SetCdmCtotDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SetCdmCtotDefaultTypeInternal _SetCdmCtot_default_instance_;
 
+inline constexpr ReplaceSectorOwners::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : owners_{},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR ReplaceSectorOwners::ReplaceSectorOwners(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct ReplaceSectorOwnersDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ReplaceSectorOwnersDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ReplaceSectorOwnersDefaultTypeInternal() {}
+  union {
+    ReplaceSectorOwners _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ReplaceSectorOwnersDefaultTypeInternal _ReplaceSectorOwners_default_instance_;
+
 inline constexpr PdcAction::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : callsign_(
@@ -2302,7 +2345,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 }  // namespace v1
 }  // namespace cluster
 }  // namespace flightstrips
-static ::_pb::Metadata file_level_metadata_wire_2eproto[107];
+static ::_pb::Metadata file_level_metadata_wire_2eproto[109];
 static const ::_pb::EnumDescriptor* file_level_enum_descriptors_wire_2eproto[3];
 static constexpr const ::_pb::ServiceDescriptor**
     file_level_service_descriptors_wire_2eproto = nullptr;
@@ -3531,6 +3574,8 @@ const ::uint32_t
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::SystemCommand, _impl_.action_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CreateSession, _internal_metadata_),
@@ -3576,6 +3621,25 @@ const ::uint32_t
         ~0u,  // no sizeof(Split)
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::RemoveEntity, _impl_.key_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::RemoveEntity, _impl_.kind_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::SetPositionLayout, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::SetPositionLayout, _impl_.position_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::SetPositionLayout, _impl_.layout_id_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ReplaceSectorOwners, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ReplaceSectorOwners, _impl_.owners_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ClaimOwner, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ClaimOwner, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -3728,15 +3792,17 @@ static const ::_pbi::MigrationSchema
         {1180, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSubmitCoordination)},
         {1193, 1203, -1, sizeof(::flightstrips::cluster::v1::AmanDecideCoordination)},
         {1205, -1, -1, sizeof(::flightstrips::cluster::v1::SystemCommand)},
-        {1223, -1, -1, sizeof(::flightstrips::cluster::v1::CreateSession)},
-        {1235, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteSession)},
-        {1245, 1255, -1, sizeof(::flightstrips::cluster::v1::UpdateEntity)},
-        {1257, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveEntity)},
-        {1267, 1276, -1, sizeof(::flightstrips::cluster::v1::ClaimOwner)},
-        {1277, 1286, -1, sizeof(::flightstrips::cluster::v1::RenewOwner)},
-        {1287, 1296, -1, sizeof(::flightstrips::cluster::v1::AdvanceWorkflow)},
-        {1297, 1306, -1, sizeof(::flightstrips::cluster::v1::AdvanceEffect)},
-        {1307, 1316, -1, sizeof(::flightstrips::cluster::v1::RecordSessionSync)},
+        {1225, -1, -1, sizeof(::flightstrips::cluster::v1::CreateSession)},
+        {1237, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteSession)},
+        {1247, 1257, -1, sizeof(::flightstrips::cluster::v1::UpdateEntity)},
+        {1259, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveEntity)},
+        {1269, -1, -1, sizeof(::flightstrips::cluster::v1::SetPositionLayout)},
+        {1279, -1, -1, sizeof(::flightstrips::cluster::v1::ReplaceSectorOwners)},
+        {1288, 1297, -1, sizeof(::flightstrips::cluster::v1::ClaimOwner)},
+        {1298, 1307, -1, sizeof(::flightstrips::cluster::v1::RenewOwner)},
+        {1308, 1317, -1, sizeof(::flightstrips::cluster::v1::AdvanceWorkflow)},
+        {1318, 1327, -1, sizeof(::flightstrips::cluster::v1::AdvanceEffect)},
+        {1328, 1337, -1, sizeof(::flightstrips::cluster::v1::RecordSessionSync)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_CommandRequest_default_instance_._instance,
@@ -3841,6 +3907,8 @@ static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_DeleteSession_default_instance_._instance,
     &::flightstrips::cluster::v1::_UpdateEntity_default_instance_._instance,
     &::flightstrips::cluster::v1::_RemoveEntity_default_instance_._instance,
+    &::flightstrips::cluster::v1::_SetPositionLayout_default_instance_._instance,
+    &::flightstrips::cluster::v1::_ReplaceSectorOwners_default_instance_._instance,
     &::flightstrips::cluster::v1::_ClaimOwner_default_instance_._instance,
     &::flightstrips::cluster::v1::_RenewOwner_default_instance_._instance,
     &::flightstrips::cluster::v1::_AdvanceWorkflow_default_instance_._instance,
@@ -4239,7 +4307,7 @@ const char descriptor_table_protodef_wire_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIA
     ".flightstrips.cluster.v1.AmanSpeedH\000B\t\n\007"
     "request\"Y\n\026AmanDecideCoordination\022\037\n\027coo"
     "rdination_request_id\030\001 \001(\t\022\023\n\006reason\030\002 \001"
-    "(\tH\000\210\001\001B\t\n\007_reason\"\340\004\n\rSystemCommand\022@\n\016"
+    "(\tH\000\210\001\001B\t\n\007_reason\"\372\005\n\rSystemCommand\022@\n\016"
     "create_session\030\001 \001(\0132&.flightstrips.clus"
     "ter.v1.CreateSessionH\000\022@\n\016delete_session"
     "\030\002 \001(\0132&.flightstrips.cluster.v1.DeleteS"
@@ -4254,25 +4322,32 @@ const char descriptor_table_protodef_wire_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIA
     "flowH\000\022@\n\016advance_effect\030\010 \001(\0132&.flights"
     "trips.cluster.v1.AdvanceEffectH\000\022A\n\013reco"
     "rd_sync\030\t \001(\0132*.flightstrips.cluster.v1."
-    "RecordSessionSyncH\000B\010\n\006action\"O\n\rCreateS"
-    "ession\022\n\n\002id\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022\014\n\004n"
-    "ame\030\003 \001(\t\022\023\n\013workflow_id\030\004 \001(\t\"0\n\rDelete"
-    "Session\022\n\n\002id\030\001 \001(\005\022\023\n\013workflow_id\030\002 \001(\t"
-    "\"Q\n\014UpdateEntity\022\013\n\003key\030\001 \001(\t\0224\n\005value\030\002"
-    " \001(\0132%.flightstrips.cluster.v1.EntityRec"
-    "ord\"N\n\014RemoveEntity\022\013\n\003key\030\001 \001(\t\0221\n\004kind"
-    "\030\002 \001(\0162#.flightstrips.cluster.v1.EntityK"
-    "ind\"B\n\nClaimOwner\0224\n\010proposed\030\001 \001(\0132\".fl"
-    "ightstrips.cluster.v1.OwnerTerm\"B\n\nRenew"
-    "Owner\0224\n\010proposed\030\001 \001(\0132\".flightstrips.c"
-    "luster.v1.OwnerTerm\"L\n\017AdvanceWorkflow\0229"
-    "\n\010workflow\030\001 \001(\0132\'.flightstrips.cluster."
-    "v1.WorkflowRecord\"F\n\rAdvanceEffect\0225\n\006ef"
-    "fect\030\001 \001(\0132%.flightstrips.cluster.v1.Eff"
-    "ectRecord\"G\n\021RecordSessionSync\0222\n\004sync\030\001"
-    " \001(\0132$.flightstrips.cluster.v1.SessionSy"
-    "ncB)Z\'FlightStrips/pkg/events/cluster;cl"
-    "usterb\006proto3"
+    "RecordSessionSyncH\000\022I\n\023set_position_layo"
+    "ut\030\n \001(\0132*.flightstrips.cluster.v1.SetPo"
+    "sitionLayoutH\000\022M\n\025replace_sector_owners\030"
+    "\013 \001(\0132,.flightstrips.cluster.v1.ReplaceS"
+    "ectorOwnersH\000B\010\n\006action\"O\n\rCreateSession"
+    "\022\n\n\002id\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022\014\n\004name\030\003 "
+    "\001(\t\022\023\n\013workflow_id\030\004 \001(\t\"0\n\rDeleteSessio"
+    "n\022\n\n\002id\030\001 \001(\005\022\023\n\013workflow_id\030\002 \001(\t\"Q\n\014Up"
+    "dateEntity\022\013\n\003key\030\001 \001(\t\0224\n\005value\030\002 \001(\0132%"
+    ".flightstrips.cluster.v1.EntityRecord\"N\n"
+    "\014RemoveEntity\022\013\n\003key\030\001 \001(\t\0221\n\004kind\030\002 \001(\016"
+    "2#.flightstrips.cluster.v1.EntityKind\"8\n"
+    "\021SetPositionLayout\022\020\n\010position\030\001 \001(\t\022\021\n\t"
+    "layout_id\030\002 \001(\t\"K\n\023ReplaceSectorOwners\0224"
+    "\n\006owners\030\001 \003(\0132$.flightstrips.cluster.v1"
+    ".SectorOwner\"B\n\nClaimOwner\0224\n\010proposed\030\001"
+    " \001(\0132\".flightstrips.cluster.v1.OwnerTerm"
+    "\"B\n\nRenewOwner\0224\n\010proposed\030\001 \001(\0132\".fligh"
+    "tstrips.cluster.v1.OwnerTerm\"L\n\017AdvanceW"
+    "orkflow\0229\n\010workflow\030\001 \001(\0132\'.flightstrips"
+    ".cluster.v1.WorkflowRecord\"F\n\rAdvanceEff"
+    "ect\0225\n\006effect\030\001 \001(\0132%.flightstrips.clust"
+    "er.v1.EffectRecord\"G\n\021RecordSessionSync\022"
+    "2\n\004sync\030\001 \001(\0132$.flightstrips.cluster.v1."
+    "SessionSyncB)Z\'FlightStrips/pkg/events/c"
+    "luster;clusterb\006proto3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_wire_2eproto_deps[2] =
     {
@@ -4283,13 +4358,13 @@ static ::absl::once_flag descriptor_table_wire_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_wire_2eproto = {
     false,
     false,
-    16933,
+    17222,
     descriptor_table_protodef_wire_2eproto,
     "wire.proto",
     &descriptor_table_wire_2eproto_once,
     descriptor_table_wire_2eproto_deps,
     2,
-    107,
+    109,
     schemas,
     file_default_instances,
     TableStruct_wire_2eproto::offsets,
@@ -30841,6 +30916,32 @@ void SystemCommand::set_allocated_record_sync(::flightstrips::cluster::v1::Recor
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SystemCommand.record_sync)
 }
+void SystemCommand::set_allocated_set_position_layout(::flightstrips::cluster::v1::SetPositionLayout* set_position_layout) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_action();
+  if (set_position_layout) {
+    ::google::protobuf::Arena* submessage_arena = set_position_layout->GetArena();
+    if (message_arena != submessage_arena) {
+      set_position_layout = ::google::protobuf::internal::GetOwnedMessage(message_arena, set_position_layout, submessage_arena);
+    }
+    set_has_set_position_layout();
+    _impl_.action_.set_position_layout_ = set_position_layout;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SystemCommand.set_position_layout)
+}
+void SystemCommand::set_allocated_replace_sector_owners(::flightstrips::cluster::v1::ReplaceSectorOwners* replace_sector_owners) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_action();
+  if (replace_sector_owners) {
+    ::google::protobuf::Arena* submessage_arena = replace_sector_owners->GetArena();
+    if (message_arena != submessage_arena) {
+      replace_sector_owners = ::google::protobuf::internal::GetOwnedMessage(message_arena, replace_sector_owners, submessage_arena);
+    }
+    set_has_replace_sector_owners();
+    _impl_.action_.replace_sector_owners_ = replace_sector_owners;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SystemCommand.replace_sector_owners)
+}
 SystemCommand::SystemCommand(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -30891,6 +30992,12 @@ SystemCommand::SystemCommand(
         break;
       case kRecordSync:
         _impl_.action_.record_sync_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::RecordSessionSync>(arena, *from._impl_.action_.record_sync_);
+        break;
+      case kSetPositionLayout:
+        _impl_.action_.set_position_layout_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::SetPositionLayout>(arena, *from._impl_.action_.set_position_layout_);
+        break;
+      case kReplaceSectorOwners:
+        _impl_.action_.replace_sector_owners_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ReplaceSectorOwners>(arena, *from._impl_.action_.replace_sector_owners_);
         break;
   }
 
@@ -30977,6 +31084,18 @@ void SystemCommand::clear_action() {
       }
       break;
     }
+    case kSetPositionLayout: {
+      if (GetArena() == nullptr) {
+        delete _impl_.action_.set_position_layout_;
+      }
+      break;
+    }
+    case kReplaceSectorOwners: {
+      if (GetArena() == nullptr) {
+        delete _impl_.action_.replace_sector_owners_;
+      }
+      break;
+    }
     case ACTION_NOT_SET: {
       break;
     }
@@ -31018,16 +31137,16 @@ const char* SystemCommand::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 9, 9, 0, 2> SystemCommand::_table_ = {
+const ::_pbi::TcParseTable<0, 11, 11, 0, 2> SystemCommand::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    9, 0,  // max_field_number, fast_idx_mask
+    11, 0,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294966784,  // skipmap
+    4294965248,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    9,  // num_field_entries
-    9,  // num_aux_entries
+    11,  // num_field_entries
+    11,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_SystemCommand_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -31066,6 +31185,12 @@ const ::_pbi::TcParseTable<0, 9, 9, 0, 2> SystemCommand::_table_ = {
     // .flightstrips.cluster.v1.RecordSessionSync record_sync = 9;
     {PROTOBUF_FIELD_OFFSET(SystemCommand, _impl_.action_.record_sync_), _Internal::kOneofCaseOffset + 0, 8,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.SetPositionLayout set_position_layout = 10;
+    {PROTOBUF_FIELD_OFFSET(SystemCommand, _impl_.action_.set_position_layout_), _Internal::kOneofCaseOffset + 0, 9,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.ReplaceSectorOwners replace_sector_owners = 11;
+    {PROTOBUF_FIELD_OFFSET(SystemCommand, _impl_.action_.replace_sector_owners_), _Internal::kOneofCaseOffset + 0, 10,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CreateSession>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::DeleteSession>()},
@@ -31076,6 +31201,8 @@ const ::_pbi::TcParseTable<0, 9, 9, 0, 2> SystemCommand::_table_ = {
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AdvanceWorkflow>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AdvanceEffect>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::RecordSessionSync>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::SetPositionLayout>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ReplaceSectorOwners>()},
   }}, {{
   }},
 };
@@ -31131,6 +31258,16 @@ const ::_pbi::TcParseTable<0, 9, 9, 0, 2> SystemCommand::_table_ = {
     case kRecordSync: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           9, *_impl_.action_.record_sync_, _impl_.action_.record_sync_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kSetPositionLayout: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          10, *_impl_.action_.set_position_layout_, _impl_.action_.set_position_layout_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kReplaceSectorOwners: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          11, *_impl_.action_.replace_sector_owners_, _impl_.action_.replace_sector_owners_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -31206,6 +31343,18 @@ const ::_pbi::TcParseTable<0, 9, 9, 0, 2> SystemCommand::_table_ = {
     case kRecordSync: {
       total_size +=
           1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.action_.record_sync_);
+      break;
+    }
+    // .flightstrips.cluster.v1.SetPositionLayout set_position_layout = 10;
+    case kSetPositionLayout: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.action_.set_position_layout_);
+      break;
+    }
+    // .flightstrips.cluster.v1.ReplaceSectorOwners replace_sector_owners = 11;
+    case kReplaceSectorOwners: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.action_.replace_sector_owners_);
       break;
     }
     case ACTION_NOT_SET: {
@@ -31314,6 +31463,24 @@ void SystemCommand::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::g
               ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::RecordSessionSync>(arena, *from._impl_.action_.record_sync_);
         } else {
           _this->_impl_.action_.record_sync_->MergeFrom(from._internal_record_sync());
+        }
+        break;
+      }
+      case kSetPositionLayout: {
+        if (oneof_needs_init) {
+          _this->_impl_.action_.set_position_layout_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::SetPositionLayout>(arena, *from._impl_.action_.set_position_layout_);
+        } else {
+          _this->_impl_.action_.set_position_layout_->MergeFrom(from._internal_set_position_layout());
+        }
+        break;
+      }
+      case kReplaceSectorOwners: {
+        if (oneof_needs_init) {
+          _this->_impl_.action_.replace_sector_owners_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ReplaceSectorOwners>(arena, *from._impl_.action_.replace_sector_owners_);
+        } else {
+          _this->_impl_.action_.replace_sector_owners_->MergeFrom(from._internal_replace_sector_owners());
         }
         break;
       }
@@ -32328,6 +32495,428 @@ void RemoveEntity::InternalSwap(RemoveEntity* PROTOBUF_RESTRICT other) {
 }
 // ===================================================================
 
+class SetPositionLayout::_Internal {
+ public:
+};
+
+SetPositionLayout::SetPositionLayout(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.SetPositionLayout)
+}
+inline PROTOBUF_NDEBUG_INLINE SetPositionLayout::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : position_(arena, from.position_),
+        layout_id_(arena, from.layout_id_),
+        _cached_size_{0} {}
+
+SetPositionLayout::SetPositionLayout(
+    ::google::protobuf::Arena* arena,
+    const SetPositionLayout& from)
+    : ::google::protobuf::Message(arena) {
+  SetPositionLayout* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.SetPositionLayout)
+}
+inline PROTOBUF_NDEBUG_INLINE SetPositionLayout::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : position_(arena),
+        layout_id_(arena),
+        _cached_size_{0} {}
+
+inline void SetPositionLayout::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+SetPositionLayout::~SetPositionLayout() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.SetPositionLayout)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void SetPositionLayout::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.position_.Destroy();
+  _impl_.layout_id_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+SetPositionLayout::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(SetPositionLayout, _impl_._cached_size_),
+              false,
+          },
+          &SetPositionLayout::MergeImpl,
+          &SetPositionLayout::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void SetPositionLayout::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.SetPositionLayout)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.position_.ClearToEmpty();
+  _impl_.layout_id_.ClearToEmpty();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* SetPositionLayout::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 67, 2> SetPositionLayout::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_SetPositionLayout_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::SetPositionLayout>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string layout_id = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(SetPositionLayout, _impl_.layout_id_)}},
+    // string position = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(SetPositionLayout, _impl_.position_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string position = 1;
+    {PROTOBUF_FIELD_OFFSET(SetPositionLayout, _impl_.position_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string layout_id = 2;
+    {PROTOBUF_FIELD_OFFSET(SetPositionLayout, _impl_.layout_id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\51\10\11\0\0\0\0\0"
+    "flightstrips.cluster.v1.SetPositionLayout"
+    "position"
+    "layout_id"
+  }},
+};
+
+::uint8_t* SetPositionLayout::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.SetPositionLayout)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string position = 1;
+  if (!this->_internal_position().empty()) {
+    const std::string& _s = this->_internal_position();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.SetPositionLayout.position");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string layout_id = 2;
+  if (!this->_internal_layout_id().empty()) {
+    const std::string& _s = this->_internal_layout_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.SetPositionLayout.layout_id");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.SetPositionLayout)
+  return target;
+}
+
+::size_t SetPositionLayout::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.SetPositionLayout)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string position = 1;
+  if (!this->_internal_position().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_position());
+  }
+
+  // string layout_id = 2;
+  if (!this->_internal_layout_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_layout_id());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void SetPositionLayout::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<SetPositionLayout*>(&to_msg);
+  auto& from = static_cast<const SetPositionLayout&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.SetPositionLayout)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_position().empty()) {
+    _this->_internal_set_position(from._internal_position());
+  }
+  if (!from._internal_layout_id().empty()) {
+    _this->_internal_set_layout_id(from._internal_layout_id());
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void SetPositionLayout::CopyFrom(const SetPositionLayout& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.SetPositionLayout)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool SetPositionLayout::IsInitialized() const {
+  return true;
+}
+
+void SetPositionLayout::InternalSwap(SetPositionLayout* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.position_, &other->_impl_.position_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.layout_id_, &other->_impl_.layout_id_, arena);
+}
+
+::google::protobuf::Metadata SetPositionLayout::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
+                                   &descriptor_table_wire_2eproto_once,
+                                   file_level_metadata_wire_2eproto[102]);
+}
+// ===================================================================
+
+class ReplaceSectorOwners::_Internal {
+ public:
+};
+
+void ReplaceSectorOwners::clear_owners() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.owners_.Clear();
+}
+ReplaceSectorOwners::ReplaceSectorOwners(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.ReplaceSectorOwners)
+}
+inline PROTOBUF_NDEBUG_INLINE ReplaceSectorOwners::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : owners_{visibility, arena, from.owners_},
+        _cached_size_{0} {}
+
+ReplaceSectorOwners::ReplaceSectorOwners(
+    ::google::protobuf::Arena* arena,
+    const ReplaceSectorOwners& from)
+    : ::google::protobuf::Message(arena) {
+  ReplaceSectorOwners* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.ReplaceSectorOwners)
+}
+inline PROTOBUF_NDEBUG_INLINE ReplaceSectorOwners::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : owners_{visibility, arena},
+        _cached_size_{0} {}
+
+inline void ReplaceSectorOwners::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+ReplaceSectorOwners::~ReplaceSectorOwners() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.ReplaceSectorOwners)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void ReplaceSectorOwners::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+ReplaceSectorOwners::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(ReplaceSectorOwners, _impl_._cached_size_),
+              false,
+          },
+          &ReplaceSectorOwners::MergeImpl,
+          &ReplaceSectorOwners::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void ReplaceSectorOwners::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.ReplaceSectorOwners)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.owners_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* ReplaceSectorOwners::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<0, 1, 1, 0, 2> ReplaceSectorOwners::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    1, 0,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967294,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    1,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_ReplaceSectorOwners_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ReplaceSectorOwners>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // repeated .flightstrips.cluster.v1.SectorOwner owners = 1;
+    {::_pbi::TcParser::FastMtR1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(ReplaceSectorOwners, _impl_.owners_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // repeated .flightstrips.cluster.v1.SectorOwner owners = 1;
+    {PROTOBUF_FIELD_OFFSET(ReplaceSectorOwners, _impl_.owners_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::SectorOwner>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* ReplaceSectorOwners::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.ReplaceSectorOwners)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.SectorOwner owners = 1;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_owners_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_owners().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            1, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.ReplaceSectorOwners)
+  return target;
+}
+
+::size_t ReplaceSectorOwners::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.ReplaceSectorOwners)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.SectorOwner owners = 1;
+  total_size += 1UL * this->_internal_owners_size();
+  for (const auto& msg : this->_internal_owners()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void ReplaceSectorOwners::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<ReplaceSectorOwners*>(&to_msg);
+  auto& from = static_cast<const ReplaceSectorOwners&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.ReplaceSectorOwners)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_owners()->MergeFrom(
+      from._internal_owners());
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void ReplaceSectorOwners::CopyFrom(const ReplaceSectorOwners& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.ReplaceSectorOwners)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool ReplaceSectorOwners::IsInitialized() const {
+  return true;
+}
+
+void ReplaceSectorOwners::InternalSwap(ReplaceSectorOwners* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  _impl_.owners_.InternalSwap(&other->_impl_.owners_);
+}
+
+::google::protobuf::Metadata ReplaceSectorOwners::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
+                                   &descriptor_table_wire_2eproto_once,
+                                   file_level_metadata_wire_2eproto[103]);
+}
+// ===================================================================
+
 class ClaimOwner::_Internal {
  public:
   using HasBits = decltype(std::declval<ClaimOwner>()._impl_._has_bits_);
@@ -32543,7 +33132,7 @@ void ClaimOwner::InternalSwap(ClaimOwner* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata ClaimOwner::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[102]);
+                                   file_level_metadata_wire_2eproto[104]);
 }
 // ===================================================================
 
@@ -32762,7 +33351,7 @@ void RenewOwner::InternalSwap(RenewOwner* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata RenewOwner::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[103]);
+                                   file_level_metadata_wire_2eproto[105]);
 }
 // ===================================================================
 
@@ -32981,7 +33570,7 @@ void AdvanceWorkflow::InternalSwap(AdvanceWorkflow* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AdvanceWorkflow::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[104]);
+                                   file_level_metadata_wire_2eproto[106]);
 }
 // ===================================================================
 
@@ -33200,7 +33789,7 @@ void AdvanceEffect::InternalSwap(AdvanceEffect* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AdvanceEffect::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[105]);
+                                   file_level_metadata_wire_2eproto[107]);
 }
 // ===================================================================
 
@@ -33419,7 +34008,7 @@ void RecordSessionSync::InternalSwap(RecordSessionSync* PROTOBUF_RESTRICT other)
 ::google::protobuf::Metadata RecordSessionSync::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[106]);
+                                   file_level_metadata_wire_2eproto[108]);
 }
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace v1

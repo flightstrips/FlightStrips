@@ -124,6 +124,9 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 			delete(staged, change.Key)
 		}
 	}
+	if err := validateControllerSectorState(a.Ref, staged); err != nil {
+		return false, err
+	}
 	var outcome *pb.CommandOutcome
 	if d := e.GetDomainChanged(); d != nil {
 		outcome = d.GetOutcome()

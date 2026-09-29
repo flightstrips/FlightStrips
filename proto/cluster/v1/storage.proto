@@ -173,16 +173,22 @@ message Session {
   repeated RunwayCfl initial_cfl_by_runway = 15;
   int32 transition_altitude_feet = 16;
   bool stand_assignment_enabled = 17;
+  repeated RunwayStatus runway_statuses = 18;
 }
 message Runway { string name = 1; bool departure = 2; bool arrival = 3; }
+message RunwayStatus { string pair = 1; string status = 2; }
 message SidInfo { string name = 1; string runway = 2; }
 message RunwayCfl { string runway = 1; int32 altitude_feet = 2; }
 message Controller {
   string cid = 1; string callsign = 2; string position = 3;
   string section = 4; repeated string owned_sectors = 5;
   bool observer = 6; uint64 revision = 7;
+  string layout_id = 8;
 }
-message SectorOwner { string sector = 1; string controller_cid = 2; }
+message SectorOwner {
+  string sector = 1; string controller_cid = 2;
+  string position = 3; string identifier = 4;
+}
 message Strip {
   uint64 id = 1; string callsign = 2; uint64 revision = 3;
   string aircraft_type = 4; string departure = 5; string destination = 6;

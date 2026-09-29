@@ -287,6 +287,9 @@ extern RemoveStandBlockDefaultTypeInternal _RemoveStandBlock_default_instance_;
 class RenewOwner;
 struct RenewOwnerDefaultTypeInternal;
 extern RenewOwnerDefaultTypeInternal _RenewOwner_default_instance_;
+class ReplaceSectorOwners;
+struct ReplaceSectorOwnersDefaultTypeInternal;
+extern ReplaceSectorOwnersDefaultTypeInternal _ReplaceSectorOwners_default_instance_;
 class RevertPdcToVoice;
 struct RevertPdcToVoiceDefaultTypeInternal;
 extern RevertPdcToVoiceDefaultTypeInternal _RevertPdcToVoice_default_instance_;
@@ -314,6 +317,9 @@ extern SetHeadingDefaultTypeInternal _SetHeading_default_instance_;
 class SetMarked;
 struct SetMarkedDefaultTypeInternal;
 extern SetMarkedDefaultTypeInternal _SetMarked_default_instance_;
+class SetPositionLayout;
+struct SetPositionLayoutDefaultTypeInternal;
+extern SetPositionLayoutDefaultTypeInternal _SetPositionLayout_default_instance_;
 class SetReleasePoint;
 struct SetReleasePointDefaultTypeInternal;
 extern SetReleasePointDefaultTypeInternal _SetReleasePoint_default_instance_;
@@ -2577,6 +2583,197 @@ class SetReleasePoint final : public ::google::protobuf::Message
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr point_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
+class SetPositionLayout final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.SetPositionLayout) */ {
+ public:
+  inline SetPositionLayout() : SetPositionLayout(nullptr) {}
+  ~SetPositionLayout() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR SetPositionLayout(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline SetPositionLayout(const SetPositionLayout& from) : SetPositionLayout(nullptr, from) {}
+  inline SetPositionLayout(SetPositionLayout&& from) noexcept
+      : SetPositionLayout(nullptr, std::move(from)) {}
+  inline SetPositionLayout& operator=(const SetPositionLayout& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SetPositionLayout& operator=(SetPositionLayout&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const SetPositionLayout& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SetPositionLayout* internal_default_instance() {
+    return reinterpret_cast<const SetPositionLayout*>(
+        &_SetPositionLayout_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 102;
+  friend void swap(SetPositionLayout& a, SetPositionLayout& b) { a.Swap(&b); }
+  inline void Swap(SetPositionLayout* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SetPositionLayout* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  SetPositionLayout* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<SetPositionLayout>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SetPositionLayout& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const SetPositionLayout& from) { SetPositionLayout::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(SetPositionLayout* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.SetPositionLayout"; }
+
+ protected:
+  explicit SetPositionLayout(::google::protobuf::Arena* arena);
+  SetPositionLayout(::google::protobuf::Arena* arena, const SetPositionLayout& from);
+  SetPositionLayout(::google::protobuf::Arena* arena, SetPositionLayout&& from) noexcept
+      : SetPositionLayout(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kPositionFieldNumber = 1,
+    kLayoutIdFieldNumber = 2,
+  };
+  // string position = 1;
+  void clear_position() ;
+  const std::string& position() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_position(Arg_&& arg, Args_... args);
+  std::string* mutable_position();
+  PROTOBUF_NODISCARD std::string* release_position();
+  void set_allocated_position(std::string* value);
+
+  private:
+  const std::string& _internal_position() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_position(
+      const std::string& value);
+  std::string* _internal_mutable_position();
+
+  public:
+  // string layout_id = 2;
+  void clear_layout_id() ;
+  const std::string& layout_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_layout_id(Arg_&& arg, Args_... args);
+  std::string* mutable_layout_id();
+  PROTOBUF_NODISCARD std::string* release_layout_id();
+  void set_allocated_layout_id(std::string* value);
+
+  private:
+  const std::string& _internal_layout_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_layout_id(
+      const std::string& value);
+  std::string* _internal_mutable_layout_id();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.SetPositionLayout)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 2, 0,
+      67, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr position_;
+    ::google::protobuf::internal::ArenaStringPtr layout_id_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -12355,6 +12552,180 @@ class SetCdmCtot final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class ReplaceSectorOwners final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.ReplaceSectorOwners) */ {
+ public:
+  inline ReplaceSectorOwners() : ReplaceSectorOwners(nullptr) {}
+  ~ReplaceSectorOwners() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ReplaceSectorOwners(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline ReplaceSectorOwners(const ReplaceSectorOwners& from) : ReplaceSectorOwners(nullptr, from) {}
+  inline ReplaceSectorOwners(ReplaceSectorOwners&& from) noexcept
+      : ReplaceSectorOwners(nullptr, std::move(from)) {}
+  inline ReplaceSectorOwners& operator=(const ReplaceSectorOwners& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ReplaceSectorOwners& operator=(ReplaceSectorOwners&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const ReplaceSectorOwners& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const ReplaceSectorOwners* internal_default_instance() {
+    return reinterpret_cast<const ReplaceSectorOwners*>(
+        &_ReplaceSectorOwners_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 103;
+  friend void swap(ReplaceSectorOwners& a, ReplaceSectorOwners& b) { a.Swap(&b); }
+  inline void Swap(ReplaceSectorOwners* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ReplaceSectorOwners* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ReplaceSectorOwners* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<ReplaceSectorOwners>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ReplaceSectorOwners& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ReplaceSectorOwners& from) { ReplaceSectorOwners::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(ReplaceSectorOwners* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.ReplaceSectorOwners"; }
+
+ protected:
+  explicit ReplaceSectorOwners(::google::protobuf::Arena* arena);
+  ReplaceSectorOwners(::google::protobuf::Arena* arena, const ReplaceSectorOwners& from);
+  ReplaceSectorOwners(::google::protobuf::Arena* arena, ReplaceSectorOwners&& from) noexcept
+      : ReplaceSectorOwners(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kOwnersFieldNumber = 1,
+  };
+  // repeated .flightstrips.cluster.v1.SectorOwner owners = 1;
+  int owners_size() const;
+  private:
+  int _internal_owners_size() const;
+
+  public:
+  void clear_owners() ;
+  ::flightstrips::cluster::v1::SectorOwner* mutable_owners(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::SectorOwner>* mutable_owners();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::SectorOwner>& _internal_owners() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::SectorOwner>* _internal_mutable_owners();
+  public:
+  const ::flightstrips::cluster::v1::SectorOwner& owners(int index) const;
+  ::flightstrips::cluster::v1::SectorOwner* add_owners();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::SectorOwner>& owners() const;
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ReplaceSectorOwners)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      0, 1, 1,
+      0, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::SectorOwner > owners_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
 class PdcAction final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.PdcAction) */ {
  public:
@@ -17683,7 +18054,7 @@ class RenewOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const RenewOwner*>(
         &_RenewOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 103;
+  static constexpr int kIndexInFileMessages = 105;
   friend void swap(RenewOwner& a, RenewOwner& b) { a.Swap(&b); }
   inline void Swap(RenewOwner* other) {
     if (other == this) return;
@@ -17856,7 +18227,7 @@ class RecordSessionSync final : public ::google::protobuf::Message
     return reinterpret_cast<const RecordSessionSync*>(
         &_RecordSessionSync_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 106;
+  static constexpr int kIndexInFileMessages = 108;
   friend void swap(RecordSessionSync& a, RecordSessionSync& b) { a.Swap(&b); }
   inline void Swap(RecordSessionSync* other) {
     if (other == this) return;
@@ -18826,7 +19197,7 @@ class ClaimOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const ClaimOwner*>(
         &_ClaimOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 102;
+  static constexpr int kIndexInFileMessages = 104;
   friend void swap(ClaimOwner& a, ClaimOwner& b) { a.Swap(&b); }
   inline void Swap(ClaimOwner* other) {
     if (other == this) return;
@@ -20168,7 +20539,7 @@ class AdvanceEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceEffect*>(
         &_AdvanceEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 105;
+  static constexpr int kIndexInFileMessages = 107;
   friend void swap(AdvanceEffect& a, AdvanceEffect& b) { a.Swap(&b); }
   inline void Swap(AdvanceEffect* other) {
     if (other == this) return;
@@ -20986,7 +21357,7 @@ class AdvanceWorkflow final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceWorkflow*>(
         &_AdvanceWorkflow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 104;
+  static constexpr int kIndexInFileMessages = 106;
   friend void swap(AdvanceWorkflow& a, AdvanceWorkflow& b) { a.Swap(&b); }
   inline void Swap(AdvanceWorkflow* other) {
     if (other == this) return;
@@ -21560,6 +21931,8 @@ class SystemCommand final : public ::google::protobuf::Message
     kAdvanceWorkflow = 7,
     kAdvanceEffect = 8,
     kRecordSync = 9,
+    kSetPositionLayout = 10,
+    kReplaceSectorOwners = 11,
     ACTION_NOT_SET = 0,
   };
   static inline const SystemCommand* internal_default_instance() {
@@ -21645,6 +22018,8 @@ class SystemCommand final : public ::google::protobuf::Message
     kAdvanceWorkflowFieldNumber = 7,
     kAdvanceEffectFieldNumber = 8,
     kRecordSyncFieldNumber = 9,
+    kSetPositionLayoutFieldNumber = 10,
+    kReplaceSectorOwnersFieldNumber = 11,
   };
   // .flightstrips.cluster.v1.CreateSession create_session = 1;
   bool has_create_session() const;
@@ -21817,6 +22192,44 @@ class SystemCommand final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::RecordSessionSync* _internal_mutable_record_sync();
 
   public:
+  // .flightstrips.cluster.v1.SetPositionLayout set_position_layout = 10;
+  bool has_set_position_layout() const;
+  private:
+  bool _internal_has_set_position_layout() const;
+
+  public:
+  void clear_set_position_layout() ;
+  const ::flightstrips::cluster::v1::SetPositionLayout& set_position_layout() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::SetPositionLayout* release_set_position_layout();
+  ::flightstrips::cluster::v1::SetPositionLayout* mutable_set_position_layout();
+  void set_allocated_set_position_layout(::flightstrips::cluster::v1::SetPositionLayout* value);
+  void unsafe_arena_set_allocated_set_position_layout(::flightstrips::cluster::v1::SetPositionLayout* value);
+  ::flightstrips::cluster::v1::SetPositionLayout* unsafe_arena_release_set_position_layout();
+
+  private:
+  const ::flightstrips::cluster::v1::SetPositionLayout& _internal_set_position_layout() const;
+  ::flightstrips::cluster::v1::SetPositionLayout* _internal_mutable_set_position_layout();
+
+  public:
+  // .flightstrips.cluster.v1.ReplaceSectorOwners replace_sector_owners = 11;
+  bool has_replace_sector_owners() const;
+  private:
+  bool _internal_has_replace_sector_owners() const;
+
+  public:
+  void clear_replace_sector_owners() ;
+  const ::flightstrips::cluster::v1::ReplaceSectorOwners& replace_sector_owners() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::ReplaceSectorOwners* release_replace_sector_owners();
+  ::flightstrips::cluster::v1::ReplaceSectorOwners* mutable_replace_sector_owners();
+  void set_allocated_replace_sector_owners(::flightstrips::cluster::v1::ReplaceSectorOwners* value);
+  void unsafe_arena_set_allocated_replace_sector_owners(::flightstrips::cluster::v1::ReplaceSectorOwners* value);
+  ::flightstrips::cluster::v1::ReplaceSectorOwners* unsafe_arena_release_replace_sector_owners();
+
+  private:
+  const ::flightstrips::cluster::v1::ReplaceSectorOwners& _internal_replace_sector_owners() const;
+  ::flightstrips::cluster::v1::ReplaceSectorOwners* _internal_mutable_replace_sector_owners();
+
+  public:
   void clear_action();
   ActionCase action_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.SystemCommand)
@@ -21831,11 +22244,13 @@ class SystemCommand final : public ::google::protobuf::Message
   void set_has_advance_workflow();
   void set_has_advance_effect();
   void set_has_record_sync();
+  void set_has_set_position_layout();
+  void set_has_replace_sector_owners();
   inline bool has_action() const;
   inline void clear_has_action();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 9, 9,
+      0, 11, 11,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -21863,6 +22278,8 @@ class SystemCommand final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::AdvanceWorkflow* advance_workflow_;
       ::flightstrips::cluster::v1::AdvanceEffect* advance_effect_;
       ::flightstrips::cluster::v1::RecordSessionSync* record_sync_;
+      ::flightstrips::cluster::v1::SetPositionLayout* set_position_layout_;
+      ::flightstrips::cluster::v1::ReplaceSectorOwners* replace_sector_owners_;
     } action_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -42847,6 +43264,160 @@ inline ::flightstrips::cluster::v1::RecordSessionSync* SystemCommand::mutable_re
   return _msg;
 }
 
+// .flightstrips.cluster.v1.SetPositionLayout set_position_layout = 10;
+inline bool SystemCommand::has_set_position_layout() const {
+  return action_case() == kSetPositionLayout;
+}
+inline bool SystemCommand::_internal_has_set_position_layout() const {
+  return action_case() == kSetPositionLayout;
+}
+inline void SystemCommand::set_has_set_position_layout() {
+  _impl_._oneof_case_[0] = kSetPositionLayout;
+}
+inline void SystemCommand::clear_set_position_layout() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kSetPositionLayout) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.set_position_layout_;
+    }
+    clear_has_action();
+  }
+}
+inline ::flightstrips::cluster::v1::SetPositionLayout* SystemCommand::release_set_position_layout() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SystemCommand.set_position_layout)
+  if (action_case() == kSetPositionLayout) {
+    clear_has_action();
+    auto* temp = _impl_.action_.set_position_layout_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.set_position_layout_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::SetPositionLayout& SystemCommand::_internal_set_position_layout() const {
+  return action_case() == kSetPositionLayout ? *_impl_.action_.set_position_layout_ : reinterpret_cast<::flightstrips::cluster::v1::SetPositionLayout&>(::flightstrips::cluster::v1::_SetPositionLayout_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::SetPositionLayout& SystemCommand::set_position_layout() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SystemCommand.set_position_layout)
+  return _internal_set_position_layout();
+}
+inline ::flightstrips::cluster::v1::SetPositionLayout* SystemCommand::unsafe_arena_release_set_position_layout() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.SystemCommand.set_position_layout)
+  if (action_case() == kSetPositionLayout) {
+    clear_has_action();
+    auto* temp = _impl_.action_.set_position_layout_;
+    _impl_.action_.set_position_layout_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void SystemCommand::unsafe_arena_set_allocated_set_position_layout(::flightstrips::cluster::v1::SetPositionLayout* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_set_position_layout();
+    _impl_.action_.set_position_layout_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.SystemCommand.set_position_layout)
+}
+inline ::flightstrips::cluster::v1::SetPositionLayout* SystemCommand::_internal_mutable_set_position_layout() {
+  if (action_case() != kSetPositionLayout) {
+    clear_action();
+    set_has_set_position_layout();
+    _impl_.action_.set_position_layout_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::SetPositionLayout>(GetArena());
+  }
+  return _impl_.action_.set_position_layout_;
+}
+inline ::flightstrips::cluster::v1::SetPositionLayout* SystemCommand::mutable_set_position_layout() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::SetPositionLayout* _msg = _internal_mutable_set_position_layout();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SystemCommand.set_position_layout)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.ReplaceSectorOwners replace_sector_owners = 11;
+inline bool SystemCommand::has_replace_sector_owners() const {
+  return action_case() == kReplaceSectorOwners;
+}
+inline bool SystemCommand::_internal_has_replace_sector_owners() const {
+  return action_case() == kReplaceSectorOwners;
+}
+inline void SystemCommand::set_has_replace_sector_owners() {
+  _impl_._oneof_case_[0] = kReplaceSectorOwners;
+}
+inline void SystemCommand::clear_replace_sector_owners() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kReplaceSectorOwners) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.replace_sector_owners_;
+    }
+    clear_has_action();
+  }
+}
+inline ::flightstrips::cluster::v1::ReplaceSectorOwners* SystemCommand::release_replace_sector_owners() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SystemCommand.replace_sector_owners)
+  if (action_case() == kReplaceSectorOwners) {
+    clear_has_action();
+    auto* temp = _impl_.action_.replace_sector_owners_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.replace_sector_owners_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::ReplaceSectorOwners& SystemCommand::_internal_replace_sector_owners() const {
+  return action_case() == kReplaceSectorOwners ? *_impl_.action_.replace_sector_owners_ : reinterpret_cast<::flightstrips::cluster::v1::ReplaceSectorOwners&>(::flightstrips::cluster::v1::_ReplaceSectorOwners_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::ReplaceSectorOwners& SystemCommand::replace_sector_owners() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SystemCommand.replace_sector_owners)
+  return _internal_replace_sector_owners();
+}
+inline ::flightstrips::cluster::v1::ReplaceSectorOwners* SystemCommand::unsafe_arena_release_replace_sector_owners() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.SystemCommand.replace_sector_owners)
+  if (action_case() == kReplaceSectorOwners) {
+    clear_has_action();
+    auto* temp = _impl_.action_.replace_sector_owners_;
+    _impl_.action_.replace_sector_owners_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void SystemCommand::unsafe_arena_set_allocated_replace_sector_owners(::flightstrips::cluster::v1::ReplaceSectorOwners* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_replace_sector_owners();
+    _impl_.action_.replace_sector_owners_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.SystemCommand.replace_sector_owners)
+}
+inline ::flightstrips::cluster::v1::ReplaceSectorOwners* SystemCommand::_internal_mutable_replace_sector_owners() {
+  if (action_case() != kReplaceSectorOwners) {
+    clear_action();
+    set_has_replace_sector_owners();
+    _impl_.action_.replace_sector_owners_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::ReplaceSectorOwners>(GetArena());
+  }
+  return _impl_.action_.replace_sector_owners_;
+}
+inline ::flightstrips::cluster::v1::ReplaceSectorOwners* SystemCommand::mutable_replace_sector_owners() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::ReplaceSectorOwners* _msg = _internal_mutable_replace_sector_owners();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SystemCommand.replace_sector_owners)
+  return _msg;
+}
+
 inline bool SystemCommand::has_action() const {
   return action_case() != ACTION_NOT_SET;
 }
@@ -43327,6 +43898,159 @@ inline ::flightstrips::cluster::v1::EntityKind RemoveEntity::_internal_kind() co
 inline void RemoveEntity::_internal_set_kind(::flightstrips::cluster::v1::EntityKind value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.kind_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// SetPositionLayout
+
+// string position = 1;
+inline void SetPositionLayout::clear_position() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_.ClearToEmpty();
+}
+inline const std::string& SetPositionLayout::position() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SetPositionLayout.position)
+  return _internal_position();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SetPositionLayout::set_position(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.SetPositionLayout.position)
+}
+inline std::string* SetPositionLayout::mutable_position() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_position();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SetPositionLayout.position)
+  return _s;
+}
+inline const std::string& SetPositionLayout::_internal_position() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.position_.Get();
+}
+inline void SetPositionLayout::_internal_set_position(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_.Set(value, GetArena());
+}
+inline std::string* SetPositionLayout::_internal_mutable_position() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.position_.Mutable( GetArena());
+}
+inline std::string* SetPositionLayout::release_position() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SetPositionLayout.position)
+  return _impl_.position_.Release();
+}
+inline void SetPositionLayout::set_allocated_position(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.position_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.position_.IsDefault()) {
+          _impl_.position_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SetPositionLayout.position)
+}
+
+// string layout_id = 2;
+inline void SetPositionLayout::clear_layout_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.layout_id_.ClearToEmpty();
+}
+inline const std::string& SetPositionLayout::layout_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SetPositionLayout.layout_id)
+  return _internal_layout_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SetPositionLayout::set_layout_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.layout_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.SetPositionLayout.layout_id)
+}
+inline std::string* SetPositionLayout::mutable_layout_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_layout_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SetPositionLayout.layout_id)
+  return _s;
+}
+inline const std::string& SetPositionLayout::_internal_layout_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.layout_id_.Get();
+}
+inline void SetPositionLayout::_internal_set_layout_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.layout_id_.Set(value, GetArena());
+}
+inline std::string* SetPositionLayout::_internal_mutable_layout_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.layout_id_.Mutable( GetArena());
+}
+inline std::string* SetPositionLayout::release_layout_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SetPositionLayout.layout_id)
+  return _impl_.layout_id_.Release();
+}
+inline void SetPositionLayout::set_allocated_layout_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.layout_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.layout_id_.IsDefault()) {
+          _impl_.layout_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SetPositionLayout.layout_id)
+}
+
+// -------------------------------------------------------------------
+
+// ReplaceSectorOwners
+
+// repeated .flightstrips.cluster.v1.SectorOwner owners = 1;
+inline int ReplaceSectorOwners::_internal_owners_size() const {
+  return _internal_owners().size();
+}
+inline int ReplaceSectorOwners::owners_size() const {
+  return _internal_owners_size();
+}
+inline ::flightstrips::cluster::v1::SectorOwner* ReplaceSectorOwners::mutable_owners(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ReplaceSectorOwners.owners)
+  return _internal_mutable_owners()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::SectorOwner>* ReplaceSectorOwners::mutable_owners()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.ReplaceSectorOwners.owners)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_owners();
+}
+inline const ::flightstrips::cluster::v1::SectorOwner& ReplaceSectorOwners::owners(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ReplaceSectorOwners.owners)
+  return _internal_owners().Get(index);
+}
+inline ::flightstrips::cluster::v1::SectorOwner* ReplaceSectorOwners::add_owners() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::cluster::v1::SectorOwner* _add = _internal_mutable_owners()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.ReplaceSectorOwners.owners)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::SectorOwner>& ReplaceSectorOwners::owners() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.ReplaceSectorOwners.owners)
+  return _internal_owners();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::SectorOwner>&
+ReplaceSectorOwners::_internal_owners() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.owners_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::SectorOwner>*
+ReplaceSectorOwners::_internal_mutable_owners() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.owners_;
 }
 
 // -------------------------------------------------------------------

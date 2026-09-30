@@ -359,6 +359,12 @@ extern GenerateSquawkEffectDefaultTypeInternal _GenerateSquawkEffect_default_ins
 class GlobalRef;
 struct GlobalRefDefaultTypeInternal;
 extern GlobalRefDefaultTypeInternal _GlobalRef_default_instance_;
+class HoppiePdcRequest;
+struct HoppiePdcRequestDefaultTypeInternal;
+extern HoppiePdcRequestDefaultTypeInternal _HoppiePdcRequest_default_instance_;
+class HoppiePollPage;
+struct HoppiePollPageDefaultTypeInternal;
+extern HoppiePollPageDefaultTypeInternal _HoppiePollPage_default_instance_;
 class MasterTerm;
 struct MasterTermDefaultTypeInternal;
 extern MasterTermDefaultTypeInternal _MasterTerm_default_instance_;
@@ -476,6 +482,9 @@ extern OwnerTermDefaultTypeInternal _OwnerTerm_default_instance_;
 class PdcEffect;
 struct PdcEffectDefaultTypeInternal;
 extern PdcEffectDefaultTypeInternal _PdcEffect_default_instance_;
+class PdcProviderMessage;
+struct PdcProviderMessageDefaultTypeInternal;
+extern PdcProviderMessageDefaultTypeInternal _PdcProviderMessage_default_instance_;
 class PdcSequence;
 struct PdcSequenceDefaultTypeInternal;
 extern PdcSequenceDefaultTypeInternal _PdcSequence_default_instance_;
@@ -560,6 +569,12 @@ extern StripDefaultTypeInternal _Strip_default_instance_;
 class TacticalStrip;
 struct TacticalStripDefaultTypeInternal;
 extern TacticalStripDefaultTypeInternal _TacticalStrip_default_instance_;
+class TransceiverFeedClient;
+struct TransceiverFeedClientDefaultTypeInternal;
+extern TransceiverFeedClientDefaultTypeInternal _TransceiverFeedClient_default_instance_;
+class TransceiverFeedPage;
+struct TransceiverFeedPageDefaultTypeInternal;
+extern TransceiverFeedPageDefaultTypeInternal _TransceiverFeedPage_default_instance_;
 class ValidationAction;
 struct ValidationActionDefaultTypeInternal;
 extern ValidationActionDefaultTypeInternal _ValidationAction_default_instance_;
@@ -877,6 +892,85 @@ inline bool ClientPresence_Kind_Parse(absl::string_view name, ClientPresence_Kin
   return ::google::protobuf::internal::ParseNamedEnum<ClientPresence_Kind>(
       ClientPresence_Kind_descriptor(), name, value);
 }
+enum PdcProviderMessage_Transport : int {
+  PdcProviderMessage_Transport_TRANSPORT_UNSPECIFIED = 0,
+  PdcProviderMessage_Transport_TRANSPORT_CPDLC = 1,
+  PdcProviderMessage_Transport_TRANSPORT_TELEX = 2,
+  PdcProviderMessage_Transport_PdcProviderMessage_Transport_INT_MIN_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::min(),
+  PdcProviderMessage_Transport_PdcProviderMessage_Transport_INT_MAX_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::max(),
+};
+
+bool PdcProviderMessage_Transport_IsValid(int value);
+extern const uint32_t PdcProviderMessage_Transport_internal_data_[];
+constexpr PdcProviderMessage_Transport PdcProviderMessage_Transport_Transport_MIN = static_cast<PdcProviderMessage_Transport>(0);
+constexpr PdcProviderMessage_Transport PdcProviderMessage_Transport_Transport_MAX = static_cast<PdcProviderMessage_Transport>(2);
+constexpr int PdcProviderMessage_Transport_Transport_ARRAYSIZE = 2 + 1;
+const ::google::protobuf::EnumDescriptor*
+PdcProviderMessage_Transport_descriptor();
+template <typename T>
+const std::string& PdcProviderMessage_Transport_Name(T value) {
+  static_assert(std::is_same<T, PdcProviderMessage_Transport>::value ||
+                    std::is_integral<T>::value,
+                "Incorrect type passed to Transport_Name().");
+  return PdcProviderMessage_Transport_Name(static_cast<PdcProviderMessage_Transport>(value));
+}
+template <>
+inline const std::string& PdcProviderMessage_Transport_Name(PdcProviderMessage_Transport value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<PdcProviderMessage_Transport_descriptor,
+                                                 0, 2>(
+      static_cast<int>(value));
+}
+inline bool PdcProviderMessage_Transport_Parse(absl::string_view name, PdcProviderMessage_Transport* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<PdcProviderMessage_Transport>(
+      PdcProviderMessage_Transport_descriptor(), name, value);
+}
+enum PdcProviderMessage_Kind : int {
+  PdcProviderMessage_Kind_KIND_UNSPECIFIED = 0,
+  PdcProviderMessage_Kind_KIND_REQUEST = 1,
+  PdcProviderMessage_Kind_KIND_STATUS = 2,
+  PdcProviderMessage_Kind_KIND_CLEARANCE = 3,
+  PdcProviderMessage_Kind_KIND_WILCO = 4,
+  PdcProviderMessage_Kind_KIND_UNABLE = 5,
+  PdcProviderMessage_Kind_KIND_CONFIRMED = 6,
+  PdcProviderMessage_Kind_KIND_NO_RESPONSE = 7,
+  PdcProviderMessage_Kind_KIND_REVERT_TO_VOICE = 8,
+  PdcProviderMessage_Kind_KIND_FLIGHT_PLAN_NOT_HELD = 9,
+  PdcProviderMessage_Kind_KIND_UNAVAILABLE = 10,
+  PdcProviderMessage_Kind_KIND_INVALID_AIRCRAFT_TYPE = 11,
+  PdcProviderMessage_Kind_KIND_NOT_SUPPORTED = 12,
+  PdcProviderMessage_Kind_KIND_MALFORMED = 13,
+  PdcProviderMessage_Kind_PdcProviderMessage_Kind_INT_MIN_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::min(),
+  PdcProviderMessage_Kind_PdcProviderMessage_Kind_INT_MAX_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::max(),
+};
+
+bool PdcProviderMessage_Kind_IsValid(int value);
+extern const uint32_t PdcProviderMessage_Kind_internal_data_[];
+constexpr PdcProviderMessage_Kind PdcProviderMessage_Kind_Kind_MIN = static_cast<PdcProviderMessage_Kind>(0);
+constexpr PdcProviderMessage_Kind PdcProviderMessage_Kind_Kind_MAX = static_cast<PdcProviderMessage_Kind>(13);
+constexpr int PdcProviderMessage_Kind_Kind_ARRAYSIZE = 13 + 1;
+const ::google::protobuf::EnumDescriptor*
+PdcProviderMessage_Kind_descriptor();
+template <typename T>
+const std::string& PdcProviderMessage_Kind_Name(T value) {
+  static_assert(std::is_same<T, PdcProviderMessage_Kind>::value ||
+                    std::is_integral<T>::value,
+                "Incorrect type passed to Kind_Name().");
+  return PdcProviderMessage_Kind_Name(static_cast<PdcProviderMessage_Kind>(value));
+}
+template <>
+inline const std::string& PdcProviderMessage_Kind_Name(PdcProviderMessage_Kind value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<PdcProviderMessage_Kind_descriptor,
+                                                 0, 13>(
+      static_cast<int>(value));
+}
+inline bool PdcProviderMessage_Kind_Parse(absl::string_view name, PdcProviderMessage_Kind* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<PdcProviderMessage_Kind>(
+      PdcProviderMessage_Kind_descriptor(), name, value);
+}
 enum EntityKind : int {
   ENTITY_KIND_UNSPECIFIED = 0,
   AIRPORT_REGISTRY = 1,
@@ -909,6 +1003,7 @@ enum EntityKind : int {
   WEATHER_CACHE = 28,
   SESSION_DEADLINE = 29,
   VATSIM_SESSION_CURSOR = 30,
+  PDC_PROVIDER_MESSAGE = 31,
   SESSION_SQUAWK_THROTTLE = 32,
   EntityKind_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
@@ -1206,7 +1301,7 @@ class ViffMaster final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffMaster*>(
         &_ViffMaster_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 185;
+  static constexpr int kIndexInFileMessages = 190;
   friend void swap(ViffMaster& a, ViffMaster& b) { a.Swap(&b); }
   inline void Swap(ViffMaster* other) {
     if (other == this) return;
@@ -1397,7 +1492,7 @@ class ViffCdmData final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffCdmData*>(
         &_ViffCdmData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 183;
+  static constexpr int kIndexInFileMessages = 188;
   friend void swap(ViffCdmData& a, ViffCdmData& b) { a.Swap(&b); }
   inline void Swap(ViffCdmData* other) {
     if (other == this) return;
@@ -1714,7 +1809,7 @@ class VatsimFlightPlan final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimFlightPlan*>(
         &_VatsimFlightPlan_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 162;
+  static constexpr int kIndexInFileMessages = 167;
   friend void swap(VatsimFlightPlan& a, VatsimFlightPlan& b) { a.Swap(&b); }
   inline void Swap(VatsimFlightPlan* other) {
     if (other == this) return;
@@ -2309,6 +2404,200 @@ class ValidationFault final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr message_;
     ::google::protobuf::internal::ArenaStringPtr nitos_remark_;
     ::google::protobuf::internal::ArenaStringPtr override_key_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
+class TransceiverFeedClient final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.TransceiverFeedClient) */ {
+ public:
+  inline TransceiverFeedClient() : TransceiverFeedClient(nullptr) {}
+  ~TransceiverFeedClient() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR TransceiverFeedClient(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline TransceiverFeedClient(const TransceiverFeedClient& from) : TransceiverFeedClient(nullptr, from) {}
+  inline TransceiverFeedClient(TransceiverFeedClient&& from) noexcept
+      : TransceiverFeedClient(nullptr, std::move(from)) {}
+  inline TransceiverFeedClient& operator=(const TransceiverFeedClient& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline TransceiverFeedClient& operator=(TransceiverFeedClient&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const TransceiverFeedClient& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const TransceiverFeedClient* internal_default_instance() {
+    return reinterpret_cast<const TransceiverFeedClient*>(
+        &_TransceiverFeedClient_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 160;
+  friend void swap(TransceiverFeedClient& a, TransceiverFeedClient& b) { a.Swap(&b); }
+  inline void Swap(TransceiverFeedClient* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(TransceiverFeedClient* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  TransceiverFeedClient* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<TransceiverFeedClient>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const TransceiverFeedClient& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const TransceiverFeedClient& from) { TransceiverFeedClient::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(TransceiverFeedClient* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.TransceiverFeedClient"; }
+
+ protected:
+  explicit TransceiverFeedClient(::google::protobuf::Arena* arena);
+  TransceiverFeedClient(::google::protobuf::Arena* arena, const TransceiverFeedClient& from);
+  TransceiverFeedClient(::google::protobuf::Arena* arena, TransceiverFeedClient&& from) noexcept
+      : TransceiverFeedClient(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kFrequenciesHzFieldNumber = 2,
+    kCallsignFieldNumber = 1,
+  };
+  // repeated uint64 frequencies_hz = 2;
+  int frequencies_hz_size() const;
+  private:
+  int _internal_frequencies_hz_size() const;
+
+  public:
+  void clear_frequencies_hz() ;
+  ::uint64_t frequencies_hz(int index) const;
+  void set_frequencies_hz(int index, ::uint64_t value);
+  void add_frequencies_hz(::uint64_t value);
+  const ::google::protobuf::RepeatedField<::uint64_t>& frequencies_hz() const;
+  ::google::protobuf::RepeatedField<::uint64_t>* mutable_frequencies_hz();
+
+  private:
+  const ::google::protobuf::RepeatedField<::uint64_t>& _internal_frequencies_hz() const;
+  ::google::protobuf::RepeatedField<::uint64_t>* _internal_mutable_frequencies_hz();
+
+  public:
+  // string callsign = 1;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.TransceiverFeedClient)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 2, 0,
+      62, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::RepeatedField<::uint64_t> frequencies_hz_;
+    mutable ::google::protobuf::internal::CachedSize _frequencies_hz_cached_byte_size_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -4876,6 +5165,9 @@ class PdcEffect final : public ::google::protobuf::Message
     kCallsignFieldNumber = 1,
     kActionFieldNumber = 2,
     kClearanceFieldNumber = 3,
+    kStateFieldNumber = 5,
+    kRemarksFieldNumber = 6,
+    kClearedFieldNumber = 4,
   };
   // string callsign = 1;
   void clear_callsign() ;
@@ -4925,13 +5217,58 @@ class PdcEffect final : public ::google::protobuf::Message
   std::string* _internal_mutable_clearance();
 
   public:
+  // optional string state = 5;
+  bool has_state() const;
+  void clear_state() ;
+  const std::string& state() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_state(Arg_&& arg, Args_... args);
+  std::string* mutable_state();
+  PROTOBUF_NODISCARD std::string* release_state();
+  void set_allocated_state(std::string* value);
+
+  private:
+  const std::string& _internal_state() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_state(
+      const std::string& value);
+  std::string* _internal_mutable_state();
+
+  public:
+  // optional string remarks = 6;
+  bool has_remarks() const;
+  void clear_remarks() ;
+  const std::string& remarks() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_remarks(Arg_&& arg, Args_... args);
+  std::string* mutable_remarks();
+  PROTOBUF_NODISCARD std::string* release_remarks();
+  void set_allocated_remarks(std::string* value);
+
+  private:
+  const std::string& _internal_remarks() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_remarks(
+      const std::string& value);
+  std::string* _internal_mutable_remarks();
+
+  public:
+  // optional bool cleared = 4;
+  bool has_cleared() const;
+  void clear_cleared() ;
+  bool cleared() const;
+  void set_cleared(bool value);
+
+  private:
+  bool _internal_cleared() const;
+  void _internal_set_cleared(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.PdcEffect)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      2, 3, 0,
-      65, 2>
+      3, 6, 0,
+      77, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -4946,10 +5283,14 @@ class PdcEffect final : public ::google::protobuf::Message
                           ::google::protobuf::Arena* arena);
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::google::protobuf::internal::ArenaStringPtr callsign_;
     ::google::protobuf::internal::ArenaStringPtr action_;
     ::google::protobuf::internal::ArenaStringPtr clearance_;
-    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr state_;
+    ::google::protobuf::internal::ArenaStringPtr remarks_;
+    bool cleared_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -5012,7 +5353,7 @@ class OpenMeteoWindLevel final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoWindLevel*>(
         &_OpenMeteoWindLevel_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 166;
+  static constexpr int kIndexInFileMessages = 171;
   friend void swap(OpenMeteoWindLevel& a, OpenMeteoWindLevel& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoWindLevel* other) {
     if (other == this) return;
@@ -6519,6 +6860,287 @@ class MasterTerm final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class HoppiePdcRequest final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.HoppiePdcRequest) */ {
+ public:
+  inline HoppiePdcRequest() : HoppiePdcRequest(nullptr) {}
+  ~HoppiePdcRequest() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR HoppiePdcRequest(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline HoppiePdcRequest(const HoppiePdcRequest& from) : HoppiePdcRequest(nullptr, from) {}
+  inline HoppiePdcRequest(HoppiePdcRequest&& from) noexcept
+      : HoppiePdcRequest(nullptr, std::move(from)) {}
+  inline HoppiePdcRequest& operator=(const HoppiePdcRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline HoppiePdcRequest& operator=(HoppiePdcRequest&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const HoppiePdcRequest& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const HoppiePdcRequest* internal_default_instance() {
+    return reinterpret_cast<const HoppiePdcRequest*>(
+        &_HoppiePdcRequest_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 162;
+  friend void swap(HoppiePdcRequest& a, HoppiePdcRequest& b) { a.Swap(&b); }
+  inline void Swap(HoppiePdcRequest* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(HoppiePdcRequest* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  HoppiePdcRequest* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<HoppiePdcRequest>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const HoppiePdcRequest& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const HoppiePdcRequest& from) { HoppiePdcRequest::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(HoppiePdcRequest* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.HoppiePdcRequest"; }
+
+ protected:
+  explicit HoppiePdcRequest(::google::protobuf::Arena* arena);
+  HoppiePdcRequest(::google::protobuf::Arena* arena, const HoppiePdcRequest& from);
+  HoppiePdcRequest(::google::protobuf::Arena* arena, HoppiePdcRequest&& from) noexcept
+      : HoppiePdcRequest(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCallsignFieldNumber = 1,
+    kAircraftTypeFieldNumber = 2,
+    kDepartureFieldNumber = 3,
+    kDestinationFieldNumber = 4,
+    kStandFieldNumber = 5,
+    kAtisFieldNumber = 6,
+    kRemarksFieldNumber = 7,
+  };
+  // string callsign = 1;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string aircraft_type = 2;
+  void clear_aircraft_type() ;
+  const std::string& aircraft_type() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_aircraft_type(Arg_&& arg, Args_... args);
+  std::string* mutable_aircraft_type();
+  PROTOBUF_NODISCARD std::string* release_aircraft_type();
+  void set_allocated_aircraft_type(std::string* value);
+
+  private:
+  const std::string& _internal_aircraft_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_aircraft_type(
+      const std::string& value);
+  std::string* _internal_mutable_aircraft_type();
+
+  public:
+  // string departure = 3;
+  void clear_departure() ;
+  const std::string& departure() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_departure(Arg_&& arg, Args_... args);
+  std::string* mutable_departure();
+  PROTOBUF_NODISCARD std::string* release_departure();
+  void set_allocated_departure(std::string* value);
+
+  private:
+  const std::string& _internal_departure() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_departure(
+      const std::string& value);
+  std::string* _internal_mutable_departure();
+
+  public:
+  // string destination = 4;
+  void clear_destination() ;
+  const std::string& destination() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_destination(Arg_&& arg, Args_... args);
+  std::string* mutable_destination();
+  PROTOBUF_NODISCARD std::string* release_destination();
+  void set_allocated_destination(std::string* value);
+
+  private:
+  const std::string& _internal_destination() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_destination(
+      const std::string& value);
+  std::string* _internal_mutable_destination();
+
+  public:
+  // string stand = 5;
+  void clear_stand() ;
+  const std::string& stand() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_stand(Arg_&& arg, Args_... args);
+  std::string* mutable_stand();
+  PROTOBUF_NODISCARD std::string* release_stand();
+  void set_allocated_stand(std::string* value);
+
+  private:
+  const std::string& _internal_stand() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_stand(
+      const std::string& value);
+  std::string* _internal_mutable_stand();
+
+  public:
+  // string atis = 6;
+  void clear_atis() ;
+  const std::string& atis() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_atis(Arg_&& arg, Args_... args);
+  std::string* mutable_atis();
+  PROTOBUF_NODISCARD std::string* release_atis();
+  void set_allocated_atis(std::string* value);
+
+  private:
+  const std::string& _internal_atis() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_atis(
+      const std::string& value);
+  std::string* _internal_mutable_atis();
+
+  public:
+  // string remarks = 7;
+  void clear_remarks() ;
+  const std::string& remarks() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_remarks(Arg_&& arg, Args_... args);
+  std::string* mutable_remarks();
+  PROTOBUF_NODISCARD std::string* release_remarks();
+  void set_allocated_remarks(std::string* value);
+
+  private:
+  const std::string& _internal_remarks() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_remarks(
+      const std::string& value);
+  std::string* _internal_mutable_remarks();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.HoppiePdcRequest)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 7, 0,
+      106, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr aircraft_type_;
+    ::google::protobuf::internal::ArenaStringPtr departure_;
+    ::google::protobuf::internal::ArenaStringPtr destination_;
+    ::google::protobuf::internal::ArenaStringPtr stand_;
+    ::google::protobuf::internal::ArenaStringPtr atis_;
+    ::google::protobuf::internal::ArenaStringPtr remarks_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class GlobalRef final : public ::google::protobuf::internal::ZeroFieldsBase
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.GlobalRef) */ {
  public:
@@ -7431,7 +8053,7 @@ class EcfmpFilter final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpFilter*>(
         &_EcfmpFilter_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 169;
+  static constexpr int kIndexInFileMessages = 174;
   friend void swap(EcfmpFilter& a, EcfmpFilter& b) { a.Swap(&b); }
   inline void Swap(EcfmpFilter* other) {
     if (other == this) return;
@@ -8739,7 +9361,7 @@ class CdmConfigTaxiPoint final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigTaxiPoint*>(
         &_CdmConfigTaxiPoint_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 176;
+  static constexpr int kIndexInFileMessages = 181;
   friend void swap(CdmConfigTaxiPoint& a, CdmConfigTaxiPoint& b) { a.Swap(&b); }
   inline void Swap(CdmConfigTaxiPoint* other) {
     if (other == this) return;
@@ -8918,7 +9540,7 @@ class CdmConfigSidInterval final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigSidInterval*>(
         &_CdmConfigSidInterval_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 175;
+  static constexpr int kIndexInFileMessages = 180;
   friend void swap(CdmConfigSidInterval& a, CdmConfigSidInterval& b) { a.Swap(&b); }
   inline void Swap(CdmConfigSidInterval* other) {
     if (other == this) return;
@@ -9139,7 +9761,7 @@ class CdmConfigRate final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigRate*>(
         &_CdmConfigRate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 174;
+  static constexpr int kIndexInFileMessages = 179;
   friend void swap(CdmConfigRate& a, CdmConfigRate& b) { a.Swap(&b); }
   inline void Swap(CdmConfigRate* other) {
     if (other == this) return;
@@ -9504,7 +10126,7 @@ class CdmConfigDelay final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDelay*>(
         &_CdmConfigDelay_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 178;
+  static constexpr int kIndexInFileMessages = 183;
   friend void swap(CdmConfigDelay& a, CdmConfigDelay& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDelay* other) {
     if (other == this) return;
@@ -9713,7 +10335,7 @@ class CdmConfigDeicePlatform final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDeicePlatform*>(
         &_CdmConfigDeicePlatform_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 180;
+  static constexpr int kIndexInFileMessages = 185;
   friend void swap(CdmConfigDeicePlatform& a, CdmConfigDeicePlatform& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDeicePlatform* other) {
     if (other == this) return;
@@ -14136,7 +14758,7 @@ class ViffMastersPage final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffMastersPage*>(
         &_ViffMastersPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 184;
+  static constexpr int kIndexInFileMessages = 189;
   friend void swap(ViffMastersPage& a, ViffMastersPage& b) { a.Swap(&b); }
   inline void Swap(ViffMastersPage* other) {
     if (other == this) return;
@@ -14328,7 +14950,7 @@ class ViffFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffFlight*>(
         &_ViffFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 182;
+  static constexpr int kIndexInFileMessages = 187;
   friend void swap(ViffFlight& a, ViffFlight& b) { a.Swap(&b); }
   inline void Swap(ViffFlight* other) {
     if (other == this) return;
@@ -15213,7 +15835,7 @@ class VatsimFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimFlight*>(
         &_VatsimFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 161;
+  static constexpr int kIndexInFileMessages = 166;
   friend void swap(VatsimFlight& a, VatsimFlight& b) { a.Swap(&b); }
   inline void Swap(VatsimFlight* other) {
     if (other == this) return;
@@ -15691,6 +16313,198 @@ class ValidationAction final : public ::google::protobuf::Message
     } action_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
+class TransceiverFeedPage final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.TransceiverFeedPage) */ {
+ public:
+  inline TransceiverFeedPage() : TransceiverFeedPage(nullptr) {}
+  ~TransceiverFeedPage() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR TransceiverFeedPage(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline TransceiverFeedPage(const TransceiverFeedPage& from) : TransceiverFeedPage(nullptr, from) {}
+  inline TransceiverFeedPage(TransceiverFeedPage&& from) noexcept
+      : TransceiverFeedPage(nullptr, std::move(from)) {}
+  inline TransceiverFeedPage& operator=(const TransceiverFeedPage& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline TransceiverFeedPage& operator=(TransceiverFeedPage&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const TransceiverFeedPage& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const TransceiverFeedPage* internal_default_instance() {
+    return reinterpret_cast<const TransceiverFeedPage*>(
+        &_TransceiverFeedPage_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 159;
+  friend void swap(TransceiverFeedPage& a, TransceiverFeedPage& b) { a.Swap(&b); }
+  inline void Swap(TransceiverFeedPage* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(TransceiverFeedPage* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  TransceiverFeedPage* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<TransceiverFeedPage>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const TransceiverFeedPage& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const TransceiverFeedPage& from) { TransceiverFeedPage::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(TransceiverFeedPage* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.TransceiverFeedPage"; }
+
+ protected:
+  explicit TransceiverFeedPage(::google::protobuf::Arena* arena);
+  TransceiverFeedPage(::google::protobuf::Arena* arena, const TransceiverFeedPage& from);
+  TransceiverFeedPage(::google::protobuf::Arena* arena, TransceiverFeedPage&& from) noexcept
+      : TransceiverFeedPage(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kClientsFieldNumber = 2,
+    kFetchedAtFieldNumber = 1,
+  };
+  // repeated .flightstrips.cluster.v1.TransceiverFeedClient clients = 2;
+  int clients_size() const;
+  private:
+  int _internal_clients_size() const;
+
+  public:
+  void clear_clients() ;
+  ::flightstrips::cluster::v1::TransceiverFeedClient* mutable_clients(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::TransceiverFeedClient>* mutable_clients();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::TransceiverFeedClient>& _internal_clients() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::TransceiverFeedClient>* _internal_mutable_clients();
+  public:
+  const ::flightstrips::cluster::v1::TransceiverFeedClient& clients(int index) const;
+  ::flightstrips::cluster::v1::TransceiverFeedClient* add_clients();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::TransceiverFeedClient>& clients() const;
+  // .google.protobuf.Timestamp fetched_at = 1;
+  bool has_fetched_at() const;
+  void clear_fetched_at() ;
+  const ::google::protobuf::Timestamp& fetched_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_fetched_at();
+  ::google::protobuf::Timestamp* mutable_fetched_at();
+  void set_allocated_fetched_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_fetched_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_fetched_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_fetched_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_fetched_at();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.TransceiverFeedPage)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 2, 2,
+      0, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::TransceiverFeedClient > clients_;
+    ::google::protobuf::Timestamp* fetched_at_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -18667,6 +19481,387 @@ class PdcSequence final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class PdcProviderMessage final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.PdcProviderMessage) */ {
+ public:
+  inline PdcProviderMessage() : PdcProviderMessage(nullptr) {}
+  ~PdcProviderMessage() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR PdcProviderMessage(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline PdcProviderMessage(const PdcProviderMessage& from) : PdcProviderMessage(nullptr, from) {}
+  inline PdcProviderMessage(PdcProviderMessage&& from) noexcept
+      : PdcProviderMessage(nullptr, std::move(from)) {}
+  inline PdcProviderMessage& operator=(const PdcProviderMessage& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline PdcProviderMessage& operator=(PdcProviderMessage&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const PdcProviderMessage& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const PdcProviderMessage* internal_default_instance() {
+    return reinterpret_cast<const PdcProviderMessage*>(
+        &_PdcProviderMessage_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 161;
+  friend void swap(PdcProviderMessage& a, PdcProviderMessage& b) { a.Swap(&b); }
+  inline void Swap(PdcProviderMessage* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(PdcProviderMessage* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  PdcProviderMessage* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<PdcProviderMessage>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const PdcProviderMessage& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const PdcProviderMessage& from) { PdcProviderMessage::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(PdcProviderMessage* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.PdcProviderMessage"; }
+
+ protected:
+  explicit PdcProviderMessage(::google::protobuf::Arena* arena);
+  PdcProviderMessage(::google::protobuf::Arena* arena, const PdcProviderMessage& from);
+  PdcProviderMessage(::google::protobuf::Arena* arena, PdcProviderMessage&& from) noexcept
+      : PdcProviderMessage(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+  using Transport = PdcProviderMessage_Transport;
+  static constexpr Transport TRANSPORT_UNSPECIFIED = PdcProviderMessage_Transport_TRANSPORT_UNSPECIFIED;
+  static constexpr Transport TRANSPORT_CPDLC = PdcProviderMessage_Transport_TRANSPORT_CPDLC;
+  static constexpr Transport TRANSPORT_TELEX = PdcProviderMessage_Transport_TRANSPORT_TELEX;
+  static inline bool Transport_IsValid(int value) {
+    return PdcProviderMessage_Transport_IsValid(value);
+  }
+  static constexpr Transport Transport_MIN = PdcProviderMessage_Transport_Transport_MIN;
+  static constexpr Transport Transport_MAX = PdcProviderMessage_Transport_Transport_MAX;
+  static constexpr int Transport_ARRAYSIZE = PdcProviderMessage_Transport_Transport_ARRAYSIZE;
+  static inline const ::google::protobuf::EnumDescriptor* Transport_descriptor() {
+    return PdcProviderMessage_Transport_descriptor();
+  }
+  template <typename T>
+  static inline const std::string& Transport_Name(T value) {
+    return PdcProviderMessage_Transport_Name(value);
+  }
+  static inline bool Transport_Parse(absl::string_view name, Transport* value) {
+    return PdcProviderMessage_Transport_Parse(name, value);
+  }
+  using Kind = PdcProviderMessage_Kind;
+  static constexpr Kind KIND_UNSPECIFIED = PdcProviderMessage_Kind_KIND_UNSPECIFIED;
+  static constexpr Kind KIND_REQUEST = PdcProviderMessage_Kind_KIND_REQUEST;
+  static constexpr Kind KIND_STATUS = PdcProviderMessage_Kind_KIND_STATUS;
+  static constexpr Kind KIND_CLEARANCE = PdcProviderMessage_Kind_KIND_CLEARANCE;
+  static constexpr Kind KIND_WILCO = PdcProviderMessage_Kind_KIND_WILCO;
+  static constexpr Kind KIND_UNABLE = PdcProviderMessage_Kind_KIND_UNABLE;
+  static constexpr Kind KIND_CONFIRMED = PdcProviderMessage_Kind_KIND_CONFIRMED;
+  static constexpr Kind KIND_NO_RESPONSE = PdcProviderMessage_Kind_KIND_NO_RESPONSE;
+  static constexpr Kind KIND_REVERT_TO_VOICE = PdcProviderMessage_Kind_KIND_REVERT_TO_VOICE;
+  static constexpr Kind KIND_FLIGHT_PLAN_NOT_HELD = PdcProviderMessage_Kind_KIND_FLIGHT_PLAN_NOT_HELD;
+  static constexpr Kind KIND_UNAVAILABLE = PdcProviderMessage_Kind_KIND_UNAVAILABLE;
+  static constexpr Kind KIND_INVALID_AIRCRAFT_TYPE = PdcProviderMessage_Kind_KIND_INVALID_AIRCRAFT_TYPE;
+  static constexpr Kind KIND_NOT_SUPPORTED = PdcProviderMessage_Kind_KIND_NOT_SUPPORTED;
+  static constexpr Kind KIND_MALFORMED = PdcProviderMessage_Kind_KIND_MALFORMED;
+  static inline bool Kind_IsValid(int value) {
+    return PdcProviderMessage_Kind_IsValid(value);
+  }
+  static constexpr Kind Kind_MIN = PdcProviderMessage_Kind_Kind_MIN;
+  static constexpr Kind Kind_MAX = PdcProviderMessage_Kind_Kind_MAX;
+  static constexpr int Kind_ARRAYSIZE = PdcProviderMessage_Kind_Kind_ARRAYSIZE;
+  static inline const ::google::protobuf::EnumDescriptor* Kind_descriptor() {
+    return PdcProviderMessage_Kind_descriptor();
+  }
+  template <typename T>
+  static inline const std::string& Kind_Name(T value) {
+    return PdcProviderMessage_Kind_Name(value);
+  }
+  static inline bool Kind_Parse(absl::string_view name, Kind* value) {
+    return PdcProviderMessage_Kind_Parse(name, value);
+  }
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kMessageIdFieldNumber = 1,
+    kFromFieldNumber = 2,
+    kToFieldNumber = 3,
+    kClearanceTextFieldNumber = 9,
+    kReasonCodeFieldNumber = 10,
+    kRequestFieldNumber = 8,
+    kProviderAcceptedAtFieldNumber = 11,
+    kSequenceFieldNumber = 5,
+    kTransportFieldNumber = 4,
+    kKindFieldNumber = 7,
+    kResponseToFieldNumber = 6,
+  };
+  // string message_id = 1;
+  void clear_message_id() ;
+  const std::string& message_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_message_id(Arg_&& arg, Args_... args);
+  std::string* mutable_message_id();
+  PROTOBUF_NODISCARD std::string* release_message_id();
+  void set_allocated_message_id(std::string* value);
+
+  private:
+  const std::string& _internal_message_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_message_id(
+      const std::string& value);
+  std::string* _internal_mutable_message_id();
+
+  public:
+  // string from = 2;
+  void clear_from() ;
+  const std::string& from() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_from(Arg_&& arg, Args_... args);
+  std::string* mutable_from();
+  PROTOBUF_NODISCARD std::string* release_from();
+  void set_allocated_from(std::string* value);
+
+  private:
+  const std::string& _internal_from() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_from(
+      const std::string& value);
+  std::string* _internal_mutable_from();
+
+  public:
+  // string to = 3;
+  void clear_to() ;
+  const std::string& to() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_to(Arg_&& arg, Args_... args);
+  std::string* mutable_to();
+  PROTOBUF_NODISCARD std::string* release_to();
+  void set_allocated_to(std::string* value);
+
+  private:
+  const std::string& _internal_to() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_to(
+      const std::string& value);
+  std::string* _internal_mutable_to();
+
+  public:
+  // optional string clearance_text = 9;
+  bool has_clearance_text() const;
+  void clear_clearance_text() ;
+  const std::string& clearance_text() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_clearance_text(Arg_&& arg, Args_... args);
+  std::string* mutable_clearance_text();
+  PROTOBUF_NODISCARD std::string* release_clearance_text();
+  void set_allocated_clearance_text(std::string* value);
+
+  private:
+  const std::string& _internal_clearance_text() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_clearance_text(
+      const std::string& value);
+  std::string* _internal_mutable_clearance_text();
+
+  public:
+  // string reason_code = 10;
+  void clear_reason_code() ;
+  const std::string& reason_code() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_reason_code(Arg_&& arg, Args_... args);
+  std::string* mutable_reason_code();
+  PROTOBUF_NODISCARD std::string* release_reason_code();
+  void set_allocated_reason_code(std::string* value);
+
+  private:
+  const std::string& _internal_reason_code() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_reason_code(
+      const std::string& value);
+  std::string* _internal_mutable_reason_code();
+
+  public:
+  // optional .flightstrips.cluster.v1.HoppiePdcRequest request = 8;
+  bool has_request() const;
+  void clear_request() ;
+  const ::flightstrips::cluster::v1::HoppiePdcRequest& request() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::HoppiePdcRequest* release_request();
+  ::flightstrips::cluster::v1::HoppiePdcRequest* mutable_request();
+  void set_allocated_request(::flightstrips::cluster::v1::HoppiePdcRequest* value);
+  void unsafe_arena_set_allocated_request(::flightstrips::cluster::v1::HoppiePdcRequest* value);
+  ::flightstrips::cluster::v1::HoppiePdcRequest* unsafe_arena_release_request();
+
+  private:
+  const ::flightstrips::cluster::v1::HoppiePdcRequest& _internal_request() const;
+  ::flightstrips::cluster::v1::HoppiePdcRequest* _internal_mutable_request();
+
+  public:
+  // optional .google.protobuf.Timestamp provider_accepted_at = 11;
+  bool has_provider_accepted_at() const;
+  void clear_provider_accepted_at() ;
+  const ::google::protobuf::Timestamp& provider_accepted_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_provider_accepted_at();
+  ::google::protobuf::Timestamp* mutable_provider_accepted_at();
+  void set_allocated_provider_accepted_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_provider_accepted_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_provider_accepted_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_provider_accepted_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_provider_accepted_at();
+
+  public:
+  // uint64 sequence = 5;
+  void clear_sequence() ;
+  ::uint64_t sequence() const;
+  void set_sequence(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_sequence() const;
+  void _internal_set_sequence(::uint64_t value);
+
+  public:
+  // .flightstrips.cluster.v1.PdcProviderMessage.Transport transport = 4;
+  void clear_transport() ;
+  ::flightstrips::cluster::v1::PdcProviderMessage_Transport transport() const;
+  void set_transport(::flightstrips::cluster::v1::PdcProviderMessage_Transport value);
+
+  private:
+  ::flightstrips::cluster::v1::PdcProviderMessage_Transport _internal_transport() const;
+  void _internal_set_transport(::flightstrips::cluster::v1::PdcProviderMessage_Transport value);
+
+  public:
+  // .flightstrips.cluster.v1.PdcProviderMessage.Kind kind = 7;
+  void clear_kind() ;
+  ::flightstrips::cluster::v1::PdcProviderMessage_Kind kind() const;
+  void set_kind(::flightstrips::cluster::v1::PdcProviderMessage_Kind value);
+
+  private:
+  ::flightstrips::cluster::v1::PdcProviderMessage_Kind _internal_kind() const;
+  void _internal_set_kind(::flightstrips::cluster::v1::PdcProviderMessage_Kind value);
+
+  public:
+  // optional uint64 response_to = 6;
+  bool has_response_to() const;
+  void clear_response_to() ;
+  ::uint64_t response_to() const;
+  void set_response_to(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_response_to() const;
+  void _internal_set_response_to(::uint64_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.PdcProviderMessage)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      4, 11, 2,
+      100, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr message_id_;
+    ::google::protobuf::internal::ArenaStringPtr from_;
+    ::google::protobuf::internal::ArenaStringPtr to_;
+    ::google::protobuf::internal::ArenaStringPtr clearance_text_;
+    ::google::protobuf::internal::ArenaStringPtr reason_code_;
+    ::flightstrips::cluster::v1::HoppiePdcRequest* request_;
+    ::google::protobuf::Timestamp* provider_accepted_at_;
+    ::uint64_t sequence_;
+    int transport_;
+    int kind_;
+    ::uint64_t response_to_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class OwnerTerm final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.OwnerTerm) */ {
  public:
@@ -18925,7 +20120,7 @@ class OpenMeteoSample final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoSample*>(
         &_OpenMeteoSample_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 165;
+  static constexpr int kIndexInFileMessages = 170;
   friend void swap(OpenMeteoSample& a, OpenMeteoSample& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoSample* other) {
     if (other == this) return;
@@ -21962,7 +23157,7 @@ class EcfmpMeasure final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpMeasure*>(
         &_EcfmpMeasure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 168;
+  static constexpr int kIndexInFileMessages = 173;
   friend void swap(EcfmpMeasure& a, EcfmpMeasure& b) { a.Swap(&b); }
   inline void Swap(EcfmpMeasure* other) {
     if (other == this) return;
@@ -23502,7 +24697,7 @@ class CdmConfigTaxiZone final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigTaxiZone*>(
         &_CdmConfigTaxiZone_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 177;
+  static constexpr int kIndexInFileMessages = 182;
   friend void swap(CdmConfigTaxiZone& a, CdmConfigTaxiZone& b) { a.Swap(&b); }
   inline void Swap(CdmConfigTaxiZone* other) {
     if (other == this) return;
@@ -23727,7 +24922,7 @@ class CdmConfigDeice final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDeice*>(
         &_CdmConfigDeice_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 179;
+  static constexpr int kIndexInFileMessages = 184;
   friend void swap(CdmConfigDeice& a, CdmConfigDeice& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDeice* other) {
     if (other == this) return;
@@ -23949,7 +25144,7 @@ class AtisFeedEntry final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedEntry*>(
         &_AtisFeedEntry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 172;
+  static constexpr int kIndexInFileMessages = 177;
   friend void swap(AtisFeedEntry& a, AtisFeedEntry& b) { a.Swap(&b); }
   inline void Swap(AtisFeedEntry* other) {
     if (other == this) return;
@@ -32265,7 +33460,7 @@ class WeatherPage final : public ::google::protobuf::Message
     return reinterpret_cast<const WeatherPage*>(
         &_WeatherPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 163;
+  static constexpr int kIndexInFileMessages = 168;
   friend void swap(WeatherPage& a, WeatherPage& b) { a.Swap(&b); }
   inline void Swap(WeatherPage* other) {
     if (other == this) return;
@@ -32682,7 +33877,7 @@ class ViffFlightPage final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffFlightPage*>(
         &_ViffFlightPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 181;
+  static constexpr int kIndexInFileMessages = 186;
   friend void swap(ViffFlightPage& a, ViffFlightPage& b) { a.Swap(&b); }
   inline void Swap(ViffFlightPage* other) {
     if (other == this) return;
@@ -32892,7 +34087,7 @@ class VatsimPage final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimPage*>(
         &_VatsimPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 160;
+  static constexpr int kIndexInFileMessages = 165;
   friend void swap(VatsimPage& a, VatsimPage& b) { a.Swap(&b); }
   inline void Swap(VatsimPage* other) {
     if (other == this) return;
@@ -34311,7 +35506,7 @@ class OpenMeteoPage final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoPage*>(
         &_OpenMeteoPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 164;
+  static constexpr int kIndexInFileMessages = 169;
   friend void swap(OpenMeteoPage& a, OpenMeteoPage& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoPage* other) {
     if (other == this) return;
@@ -36943,6 +38138,234 @@ class NavAirport final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class HoppiePollPage final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.HoppiePollPage) */ {
+ public:
+  inline HoppiePollPage() : HoppiePollPage(nullptr) {}
+  ~HoppiePollPage() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR HoppiePollPage(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline HoppiePollPage(const HoppiePollPage& from) : HoppiePollPage(nullptr, from) {}
+  inline HoppiePollPage(HoppiePollPage&& from) noexcept
+      : HoppiePollPage(nullptr, std::move(from)) {}
+  inline HoppiePollPage& operator=(const HoppiePollPage& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline HoppiePollPage& operator=(HoppiePollPage&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const HoppiePollPage& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const HoppiePollPage* internal_default_instance() {
+    return reinterpret_cast<const HoppiePollPage*>(
+        &_HoppiePollPage_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 163;
+  friend void swap(HoppiePollPage& a, HoppiePollPage& b) { a.Swap(&b); }
+  inline void Swap(HoppiePollPage* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(HoppiePollPage* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  HoppiePollPage* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<HoppiePollPage>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const HoppiePollPage& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const HoppiePollPage& from) { HoppiePollPage::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(HoppiePollPage* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.HoppiePollPage"; }
+
+ protected:
+  explicit HoppiePollPage(::google::protobuf::Arena* arena);
+  HoppiePollPage(::google::protobuf::Arena* arena, const HoppiePollPage& from);
+  HoppiePollPage(::google::protobuf::Arena* arena, HoppiePollPage&& from) noexcept
+      : HoppiePollPage(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kMessagesFieldNumber = 4,
+    kStationFieldNumber = 1,
+    kPollIdFieldNumber = 2,
+    kObservedAtFieldNumber = 3,
+  };
+  // repeated .flightstrips.cluster.v1.PdcProviderMessage messages = 4;
+  int messages_size() const;
+  private:
+  int _internal_messages_size() const;
+
+  public:
+  void clear_messages() ;
+  ::flightstrips::cluster::v1::PdcProviderMessage* mutable_messages(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::PdcProviderMessage>* mutable_messages();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::PdcProviderMessage>& _internal_messages() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::PdcProviderMessage>* _internal_mutable_messages();
+  public:
+  const ::flightstrips::cluster::v1::PdcProviderMessage& messages(int index) const;
+  ::flightstrips::cluster::v1::PdcProviderMessage* add_messages();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::PdcProviderMessage>& messages() const;
+  // string station = 1;
+  void clear_station() ;
+  const std::string& station() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_station(Arg_&& arg, Args_... args);
+  std::string* mutable_station();
+  PROTOBUF_NODISCARD std::string* release_station();
+  void set_allocated_station(std::string* value);
+
+  private:
+  const std::string& _internal_station() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_station(
+      const std::string& value);
+  std::string* _internal_mutable_station();
+
+  public:
+  // string poll_id = 2;
+  void clear_poll_id() ;
+  const std::string& poll_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_poll_id(Arg_&& arg, Args_... args);
+  std::string* mutable_poll_id();
+  PROTOBUF_NODISCARD std::string* release_poll_id();
+  void set_allocated_poll_id(std::string* value);
+
+  private:
+  const std::string& _internal_poll_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_poll_id(
+      const std::string& value);
+  std::string* _internal_mutable_poll_id();
+
+  public:
+  // .google.protobuf.Timestamp observed_at = 3;
+  bool has_observed_at() const;
+  void clear_observed_at() ;
+  const ::google::protobuf::Timestamp& observed_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_observed_at();
+  ::google::protobuf::Timestamp* mutable_observed_at();
+  void set_allocated_observed_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_observed_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_observed_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_observed_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_observed_at();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.HoppiePollPage)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 4, 2,
+      61, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::PdcProviderMessage > messages_;
+    ::google::protobuf::internal::ArenaStringPtr station_;
+    ::google::protobuf::internal::ArenaStringPtr poll_id_;
+    ::google::protobuf::Timestamp* observed_at_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class EcfmpPage final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.EcfmpPage) */ {
  public:
@@ -36998,7 +38421,7 @@ class EcfmpPage final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpPage*>(
         &_EcfmpPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 167;
+  static constexpr int kIndexInFileMessages = 172;
   friend void swap(EcfmpPage& a, EcfmpPage& b) { a.Swap(&b); }
   inline void Swap(EcfmpPage* other) {
     if (other == this) return;
@@ -37543,7 +38966,7 @@ class CdmConfigPage final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigPage*>(
         &_CdmConfigPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 173;
+  static constexpr int kIndexInFileMessages = 178;
   friend void swap(CdmConfigPage& a, CdmConfigPage& b) { a.Swap(&b); }
   inline void Swap(CdmConfigPage* other) {
     if (other == this) return;
@@ -37935,7 +39358,7 @@ class AtisFeedAirport final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedAirport*>(
         &_AtisFeedAirport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 171;
+  static constexpr int kIndexInFileMessages = 176;
   friend void swap(AtisFeedAirport& a, AtisFeedAirport& b) { a.Swap(&b); }
   inline void Swap(AtisFeedAirport* other) {
     if (other == this) return;
@@ -44400,7 +45823,7 @@ class AtisFeedPage final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedPage*>(
         &_AtisFeedPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 170;
+  static constexpr int kIndexInFileMessages = 175;
   friend void swap(AtisFeedPage& a, AtisFeedPage& b) { a.Swap(&b); }
   inline void Swap(AtisFeedPage* other) {
     if (other == this) return;
@@ -47984,6 +49407,7 @@ class EntityRecord final : public ::google::protobuf::Message
     kWeatherCache = 28,
     kSessionDeadline = 29,
     kVatsimSessionCursor = 30,
+    kPdcProviderMessage = 31,
     kSessionSquawkThrottle = 32,
     VALUE_NOT_SET = 0,
   };
@@ -48091,6 +49515,7 @@ class EntityRecord final : public ::google::protobuf::Message
     kWeatherCacheFieldNumber = 28,
     kSessionDeadlineFieldNumber = 29,
     kVatsimSessionCursorFieldNumber = 30,
+    kPdcProviderMessageFieldNumber = 31,
     kSessionSquawkThrottleFieldNumber = 32,
   };
   // .flightstrips.cluster.v1.AirportRegistry airport_registry = 1;
@@ -48663,6 +50088,25 @@ class EntityRecord final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::VatsimSessionCursor* _internal_mutable_vatsim_session_cursor();
 
   public:
+  // .flightstrips.cluster.v1.PdcProviderMessage pdc_provider_message = 31;
+  bool has_pdc_provider_message() const;
+  private:
+  bool _internal_has_pdc_provider_message() const;
+
+  public:
+  void clear_pdc_provider_message() ;
+  const ::flightstrips::cluster::v1::PdcProviderMessage& pdc_provider_message() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::PdcProviderMessage* release_pdc_provider_message();
+  ::flightstrips::cluster::v1::PdcProviderMessage* mutable_pdc_provider_message();
+  void set_allocated_pdc_provider_message(::flightstrips::cluster::v1::PdcProviderMessage* value);
+  void unsafe_arena_set_allocated_pdc_provider_message(::flightstrips::cluster::v1::PdcProviderMessage* value);
+  ::flightstrips::cluster::v1::PdcProviderMessage* unsafe_arena_release_pdc_provider_message();
+
+  private:
+  const ::flightstrips::cluster::v1::PdcProviderMessage& _internal_pdc_provider_message() const;
+  ::flightstrips::cluster::v1::PdcProviderMessage* _internal_mutable_pdc_provider_message();
+
+  public:
   // .flightstrips.cluster.v1.SessionSquawkThrottle session_squawk_throttle = 32;
   bool has_session_squawk_throttle() const;
   private:
@@ -48717,12 +50161,13 @@ class EntityRecord final : public ::google::protobuf::Message
   void set_has_weather_cache();
   void set_has_session_deadline();
   void set_has_vatsim_session_cursor();
+  void set_has_pdc_provider_message();
   void set_has_session_squawk_throttle();
   inline bool has_value() const;
   inline void clear_has_value();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 31, 31,
+      0, 32, 32,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -48771,6 +50216,7 @@ class EntityRecord final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::WeatherCache* weather_cache_;
       ::flightstrips::cluster::v1::SessionDeadline* session_deadline_;
       ::flightstrips::cluster::v1::VatsimSessionCursor* vatsim_session_cursor_;
+      ::flightstrips::cluster::v1::PdcProviderMessage* pdc_provider_message_;
       ::flightstrips::cluster::v1::SessionSquawkThrottle* session_squawk_throttle_;
     } value_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
@@ -50302,7 +51748,7 @@ class AiracPage final : public ::google::protobuf::Message
     return reinterpret_cast<const AiracPage*>(
         &_AiracPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 159;
+  static constexpr int kIndexInFileMessages = 164;
   friend void swap(AiracPage& a, AiracPage& b) { a.Swap(&b); }
   inline void Swap(AiracPage* other) {
     if (other == this) return;
@@ -50938,6 +52384,8 @@ class ProviderPage final : public ::google::protobuf::Message
     kCdmConfig = 9,
     kViffFlights = 10,
     kViffMasters = 11,
+    kHoppie = 12,
+    kTransceivers = 13,
     PARSED_NOT_SET = 0,
   };
   static inline const ProviderPage* internal_default_instance() {
@@ -51025,6 +52473,8 @@ class ProviderPage final : public ::google::protobuf::Message
     kCdmConfigFieldNumber = 9,
     kViffFlightsFieldNumber = 10,
     kViffMastersFieldNumber = 11,
+    kHoppieFieldNumber = 12,
+    kTransceiversFieldNumber = 13,
   };
   // string provider = 1;
   void clear_provider() ;
@@ -51229,6 +52679,44 @@ class ProviderPage final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::ViffMastersPage* _internal_mutable_viff_masters();
 
   public:
+  // .flightstrips.cluster.v1.HoppiePollPage hoppie = 12;
+  bool has_hoppie() const;
+  private:
+  bool _internal_has_hoppie() const;
+
+  public:
+  void clear_hoppie() ;
+  const ::flightstrips::cluster::v1::HoppiePollPage& hoppie() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::HoppiePollPage* release_hoppie();
+  ::flightstrips::cluster::v1::HoppiePollPage* mutable_hoppie();
+  void set_allocated_hoppie(::flightstrips::cluster::v1::HoppiePollPage* value);
+  void unsafe_arena_set_allocated_hoppie(::flightstrips::cluster::v1::HoppiePollPage* value);
+  ::flightstrips::cluster::v1::HoppiePollPage* unsafe_arena_release_hoppie();
+
+  private:
+  const ::flightstrips::cluster::v1::HoppiePollPage& _internal_hoppie() const;
+  ::flightstrips::cluster::v1::HoppiePollPage* _internal_mutable_hoppie();
+
+  public:
+  // .flightstrips.cluster.v1.TransceiverFeedPage transceivers = 13;
+  bool has_transceivers() const;
+  private:
+  bool _internal_has_transceivers() const;
+
+  public:
+  void clear_transceivers() ;
+  const ::flightstrips::cluster::v1::TransceiverFeedPage& transceivers() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::TransceiverFeedPage* release_transceivers();
+  ::flightstrips::cluster::v1::TransceiverFeedPage* mutable_transceivers();
+  void set_allocated_transceivers(::flightstrips::cluster::v1::TransceiverFeedPage* value);
+  void unsafe_arena_set_allocated_transceivers(::flightstrips::cluster::v1::TransceiverFeedPage* value);
+  ::flightstrips::cluster::v1::TransceiverFeedPage* unsafe_arena_release_transceivers();
+
+  private:
+  const ::flightstrips::cluster::v1::TransceiverFeedPage& _internal_transceivers() const;
+  ::flightstrips::cluster::v1::TransceiverFeedPage* _internal_mutable_transceivers();
+
+  public:
   void clear_parsed();
   ParsedCase parsed_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ProviderPage)
@@ -51243,11 +52731,13 @@ class ProviderPage final : public ::google::protobuf::Message
   void set_has_cdm_config();
   void set_has_viff_flights();
   void set_has_viff_masters();
+  void set_has_hoppie();
+  void set_has_transceivers();
   inline bool has_parsed() const;
   inline void clear_has_parsed();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      1, 11, 9,
+      1, 13, 11,
       69, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -51277,6 +52767,8 @@ class ProviderPage final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::CdmConfigPage* cdm_config_;
       ::flightstrips::cluster::v1::ViffFlightPage* viff_flights_;
       ::flightstrips::cluster::v1::ViffMastersPage* viff_masters_;
+      ::flightstrips::cluster::v1::HoppiePollPage* hoppie_;
+      ::flightstrips::cluster::v1::TransceiverFeedPage* transceivers_;
     } parsed_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -56237,6 +57729,83 @@ inline ::flightstrips::cluster::v1::VatsimSessionCursor* EntityRecord::_internal
 inline ::flightstrips::cluster::v1::VatsimSessionCursor* EntityRecord::mutable_vatsim_session_cursor() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::flightstrips::cluster::v1::VatsimSessionCursor* _msg = _internal_mutable_vatsim_session_cursor();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.EntityRecord.vatsim_session_cursor)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.PdcProviderMessage pdc_provider_message = 31;
+inline bool EntityRecord::has_pdc_provider_message() const {
+  return value_case() == kPdcProviderMessage;
+}
+inline bool EntityRecord::_internal_has_pdc_provider_message() const {
+  return value_case() == kPdcProviderMessage;
+}
+inline void EntityRecord::set_has_pdc_provider_message() {
+  _impl_._oneof_case_[0] = kPdcProviderMessage;
+}
+inline void EntityRecord::clear_pdc_provider_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value_case() == kPdcProviderMessage) {
+    if (GetArena() == nullptr) {
+      delete _impl_.value_.pdc_provider_message_;
+    }
+    clear_has_value();
+  }
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* EntityRecord::release_pdc_provider_message() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.EntityRecord.pdc_provider_message)
+  if (value_case() == kPdcProviderMessage) {
+    clear_has_value();
+    auto* temp = _impl_.value_.pdc_provider_message_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.value_.pdc_provider_message_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::PdcProviderMessage& EntityRecord::_internal_pdc_provider_message() const {
+  return value_case() == kPdcProviderMessage ? *_impl_.value_.pdc_provider_message_ : reinterpret_cast<::flightstrips::cluster::v1::PdcProviderMessage&>(::flightstrips::cluster::v1::_PdcProviderMessage_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::PdcProviderMessage& EntityRecord::pdc_provider_message() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EntityRecord.pdc_provider_message)
+  return _internal_pdc_provider_message();
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* EntityRecord::unsafe_arena_release_pdc_provider_message() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.EntityRecord.pdc_provider_message)
+  if (value_case() == kPdcProviderMessage) {
+    clear_has_value();
+    auto* temp = _impl_.value_.pdc_provider_message_;
+    _impl_.value_.pdc_provider_message_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void EntityRecord::unsafe_arena_set_allocated_pdc_provider_message(::flightstrips::cluster::v1::PdcProviderMessage* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_value();
+  if (value) {
+    set_has_pdc_provider_message();
+    _impl_.value_.pdc_provider_message_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.EntityRecord.pdc_provider_message)
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* EntityRecord::_internal_mutable_pdc_provider_message() {
+  if (value_case() != kPdcProviderMessage) {
+    clear_value();
+    set_has_pdc_provider_message();
+    _impl_.value_.pdc_provider_message_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::PdcProviderMessage>(GetArena());
+  }
+  return _impl_.value_.pdc_provider_message_;
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* EntityRecord::mutable_pdc_provider_message() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::PdcProviderMessage* _msg = _internal_mutable_pdc_provider_message();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.EntityRecord.pdc_provider_message)
   return _msg;
 }
 
@@ -100845,6 +102414,176 @@ inline void PdcEffect::set_allocated_clearance(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcEffect.clearance)
 }
 
+// optional bool cleared = 4;
+inline bool PdcEffect::has_cleared() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
+  return value;
+}
+inline void PdcEffect::clear_cleared() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.cleared_ = false;
+  _impl_._has_bits_[0] &= ~0x00000004u;
+}
+inline bool PdcEffect::cleared() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcEffect.cleared)
+  return _internal_cleared();
+}
+inline void PdcEffect::set_cleared(bool value) {
+  _internal_set_cleared(value);
+  _impl_._has_bits_[0] |= 0x00000004u;
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcEffect.cleared)
+}
+inline bool PdcEffect::_internal_cleared() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.cleared_;
+}
+inline void PdcEffect::_internal_set_cleared(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.cleared_ = value;
+}
+
+// optional string state = 5;
+inline bool PdcEffect::has_state() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void PdcEffect::clear_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& PdcEffect::state() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcEffect.state)
+  return _internal_state();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void PdcEffect::set_state(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.state_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcEffect.state)
+}
+inline std::string* PdcEffect::mutable_state() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_state();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcEffect.state)
+  return _s;
+}
+inline const std::string& PdcEffect::_internal_state() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.state_.Get();
+}
+inline void PdcEffect::_internal_set_state(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.state_.Set(value, GetArena());
+}
+inline std::string* PdcEffect::_internal_mutable_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  return _impl_.state_.Mutable( GetArena());
+}
+inline std::string* PdcEffect::release_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcEffect.state)
+  if ((_impl_._has_bits_[0] & 0x00000001u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  auto* released = _impl_.state_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.state_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void PdcEffect::set_allocated_state(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  _impl_.state_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.state_.IsDefault()) {
+          _impl_.state_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcEffect.state)
+}
+
+// optional string remarks = 6;
+inline bool PdcEffect::has_remarks() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  return value;
+}
+inline void PdcEffect::clear_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline const std::string& PdcEffect::remarks() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcEffect.remarks)
+  return _internal_remarks();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void PdcEffect::set_remarks(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_.remarks_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcEffect.remarks)
+}
+inline std::string* PdcEffect::mutable_remarks() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_remarks();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcEffect.remarks)
+  return _s;
+}
+inline const std::string& PdcEffect::_internal_remarks() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.remarks_.Get();
+}
+inline void PdcEffect::_internal_set_remarks(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_.remarks_.Set(value, GetArena());
+}
+inline std::string* PdcEffect::_internal_mutable_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  return _impl_.remarks_.Mutable( GetArena());
+}
+inline std::string* PdcEffect::release_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcEffect.remarks)
+  if ((_impl_._has_bits_[0] & 0x00000002u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  auto* released = _impl_.remarks_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.remarks_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void PdcEffect::set_allocated_remarks(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  _impl_.remarks_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.remarks_.IsDefault()) {
+          _impl_.remarks_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcEffect.remarks)
+}
+
 // -------------------------------------------------------------------
 
 // PrivateMessageEffect
@@ -114897,6 +116636,160 @@ inline ::flightstrips::cluster::v1::ViffMastersPage* ProviderPage::mutable_viff_
   return _msg;
 }
 
+// .flightstrips.cluster.v1.HoppiePollPage hoppie = 12;
+inline bool ProviderPage::has_hoppie() const {
+  return parsed_case() == kHoppie;
+}
+inline bool ProviderPage::_internal_has_hoppie() const {
+  return parsed_case() == kHoppie;
+}
+inline void ProviderPage::set_has_hoppie() {
+  _impl_._oneof_case_[0] = kHoppie;
+}
+inline void ProviderPage::clear_hoppie() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (parsed_case() == kHoppie) {
+    if (GetArena() == nullptr) {
+      delete _impl_.parsed_.hoppie_;
+    }
+    clear_has_parsed();
+  }
+}
+inline ::flightstrips::cluster::v1::HoppiePollPage* ProviderPage::release_hoppie() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ProviderPage.hoppie)
+  if (parsed_case() == kHoppie) {
+    clear_has_parsed();
+    auto* temp = _impl_.parsed_.hoppie_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.parsed_.hoppie_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::HoppiePollPage& ProviderPage::_internal_hoppie() const {
+  return parsed_case() == kHoppie ? *_impl_.parsed_.hoppie_ : reinterpret_cast<::flightstrips::cluster::v1::HoppiePollPage&>(::flightstrips::cluster::v1::_HoppiePollPage_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::HoppiePollPage& ProviderPage::hoppie() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ProviderPage.hoppie)
+  return _internal_hoppie();
+}
+inline ::flightstrips::cluster::v1::HoppiePollPage* ProviderPage::unsafe_arena_release_hoppie() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.ProviderPage.hoppie)
+  if (parsed_case() == kHoppie) {
+    clear_has_parsed();
+    auto* temp = _impl_.parsed_.hoppie_;
+    _impl_.parsed_.hoppie_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void ProviderPage::unsafe_arena_set_allocated_hoppie(::flightstrips::cluster::v1::HoppiePollPage* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_parsed();
+  if (value) {
+    set_has_hoppie();
+    _impl_.parsed_.hoppie_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ProviderPage.hoppie)
+}
+inline ::flightstrips::cluster::v1::HoppiePollPage* ProviderPage::_internal_mutable_hoppie() {
+  if (parsed_case() != kHoppie) {
+    clear_parsed();
+    set_has_hoppie();
+    _impl_.parsed_.hoppie_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::HoppiePollPage>(GetArena());
+  }
+  return _impl_.parsed_.hoppie_;
+}
+inline ::flightstrips::cluster::v1::HoppiePollPage* ProviderPage::mutable_hoppie() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::HoppiePollPage* _msg = _internal_mutable_hoppie();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ProviderPage.hoppie)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.TransceiverFeedPage transceivers = 13;
+inline bool ProviderPage::has_transceivers() const {
+  return parsed_case() == kTransceivers;
+}
+inline bool ProviderPage::_internal_has_transceivers() const {
+  return parsed_case() == kTransceivers;
+}
+inline void ProviderPage::set_has_transceivers() {
+  _impl_._oneof_case_[0] = kTransceivers;
+}
+inline void ProviderPage::clear_transceivers() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (parsed_case() == kTransceivers) {
+    if (GetArena() == nullptr) {
+      delete _impl_.parsed_.transceivers_;
+    }
+    clear_has_parsed();
+  }
+}
+inline ::flightstrips::cluster::v1::TransceiverFeedPage* ProviderPage::release_transceivers() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ProviderPage.transceivers)
+  if (parsed_case() == kTransceivers) {
+    clear_has_parsed();
+    auto* temp = _impl_.parsed_.transceivers_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.parsed_.transceivers_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::TransceiverFeedPage& ProviderPage::_internal_transceivers() const {
+  return parsed_case() == kTransceivers ? *_impl_.parsed_.transceivers_ : reinterpret_cast<::flightstrips::cluster::v1::TransceiverFeedPage&>(::flightstrips::cluster::v1::_TransceiverFeedPage_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::TransceiverFeedPage& ProviderPage::transceivers() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ProviderPage.transceivers)
+  return _internal_transceivers();
+}
+inline ::flightstrips::cluster::v1::TransceiverFeedPage* ProviderPage::unsafe_arena_release_transceivers() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.ProviderPage.transceivers)
+  if (parsed_case() == kTransceivers) {
+    clear_has_parsed();
+    auto* temp = _impl_.parsed_.transceivers_;
+    _impl_.parsed_.transceivers_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void ProviderPage::unsafe_arena_set_allocated_transceivers(::flightstrips::cluster::v1::TransceiverFeedPage* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_parsed();
+  if (value) {
+    set_has_transceivers();
+    _impl_.parsed_.transceivers_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ProviderPage.transceivers)
+}
+inline ::flightstrips::cluster::v1::TransceiverFeedPage* ProviderPage::_internal_mutable_transceivers() {
+  if (parsed_case() != kTransceivers) {
+    clear_parsed();
+    set_has_transceivers();
+    _impl_.parsed_.transceivers_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::TransceiverFeedPage>(GetArena());
+  }
+  return _impl_.parsed_.transceivers_;
+}
+inline ::flightstrips::cluster::v1::TransceiverFeedPage* ProviderPage::mutable_transceivers() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::TransceiverFeedPage* _msg = _internal_mutable_transceivers();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ProviderPage.transceivers)
+  return _msg;
+}
+
 inline bool ProviderPage::has_parsed() const {
   return parsed_case() != PARSED_NOT_SET;
 }
@@ -114906,6 +116799,1403 @@ inline void ProviderPage::clear_has_parsed() {
 inline ProviderPage::ParsedCase ProviderPage::parsed_case() const {
   return ProviderPage::ParsedCase(_impl_._oneof_case_[0]);
 }
+// -------------------------------------------------------------------
+
+// TransceiverFeedPage
+
+// .google.protobuf.Timestamp fetched_at = 1;
+inline bool TransceiverFeedPage::has_fetched_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.fetched_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& TransceiverFeedPage::_internal_fetched_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.fetched_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& TransceiverFeedPage::fetched_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.TransceiverFeedPage.fetched_at)
+  return _internal_fetched_at();
+}
+inline void TransceiverFeedPage::unsafe_arena_set_allocated_fetched_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.fetched_at_);
+  }
+  _impl_.fetched_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.TransceiverFeedPage.fetched_at)
+}
+inline ::google::protobuf::Timestamp* TransceiverFeedPage::release_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.fetched_at_;
+  _impl_.fetched_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* TransceiverFeedPage::unsafe_arena_release_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.TransceiverFeedPage.fetched_at)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.fetched_at_;
+  _impl_.fetched_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* TransceiverFeedPage::_internal_mutable_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.fetched_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.fetched_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.fetched_at_;
+}
+inline ::google::protobuf::Timestamp* TransceiverFeedPage::mutable_fetched_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_fetched_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.TransceiverFeedPage.fetched_at)
+  return _msg;
+}
+inline void TransceiverFeedPage::set_allocated_fetched_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.fetched_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.fetched_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.TransceiverFeedPage.fetched_at)
+}
+
+// repeated .flightstrips.cluster.v1.TransceiverFeedClient clients = 2;
+inline int TransceiverFeedPage::_internal_clients_size() const {
+  return _internal_clients().size();
+}
+inline int TransceiverFeedPage::clients_size() const {
+  return _internal_clients_size();
+}
+inline void TransceiverFeedPage::clear_clients() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.clients_.Clear();
+}
+inline ::flightstrips::cluster::v1::TransceiverFeedClient* TransceiverFeedPage::mutable_clients(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.TransceiverFeedPage.clients)
+  return _internal_mutable_clients()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::TransceiverFeedClient>* TransceiverFeedPage::mutable_clients()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.TransceiverFeedPage.clients)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_clients();
+}
+inline const ::flightstrips::cluster::v1::TransceiverFeedClient& TransceiverFeedPage::clients(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.TransceiverFeedPage.clients)
+  return _internal_clients().Get(index);
+}
+inline ::flightstrips::cluster::v1::TransceiverFeedClient* TransceiverFeedPage::add_clients() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::cluster::v1::TransceiverFeedClient* _add = _internal_mutable_clients()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.TransceiverFeedPage.clients)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::TransceiverFeedClient>& TransceiverFeedPage::clients() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.TransceiverFeedPage.clients)
+  return _internal_clients();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::TransceiverFeedClient>&
+TransceiverFeedPage::_internal_clients() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.clients_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::TransceiverFeedClient>*
+TransceiverFeedPage::_internal_mutable_clients() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.clients_;
+}
+
+// -------------------------------------------------------------------
+
+// TransceiverFeedClient
+
+// string callsign = 1;
+inline void TransceiverFeedClient::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& TransceiverFeedClient::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.TransceiverFeedClient.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void TransceiverFeedClient::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.TransceiverFeedClient.callsign)
+}
+inline std::string* TransceiverFeedClient::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.TransceiverFeedClient.callsign)
+  return _s;
+}
+inline const std::string& TransceiverFeedClient::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void TransceiverFeedClient::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* TransceiverFeedClient::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* TransceiverFeedClient::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.TransceiverFeedClient.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void TransceiverFeedClient::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.TransceiverFeedClient.callsign)
+}
+
+// repeated uint64 frequencies_hz = 2;
+inline int TransceiverFeedClient::_internal_frequencies_hz_size() const {
+  return _internal_frequencies_hz().size();
+}
+inline int TransceiverFeedClient::frequencies_hz_size() const {
+  return _internal_frequencies_hz_size();
+}
+inline void TransceiverFeedClient::clear_frequencies_hz() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequencies_hz_.Clear();
+}
+inline ::uint64_t TransceiverFeedClient::frequencies_hz(int index) const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.TransceiverFeedClient.frequencies_hz)
+  return _internal_frequencies_hz().Get(index);
+}
+inline void TransceiverFeedClient::set_frequencies_hz(int index, ::uint64_t value) {
+  _internal_mutable_frequencies_hz()->Set(index, value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.TransceiverFeedClient.frequencies_hz)
+}
+inline void TransceiverFeedClient::add_frequencies_hz(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_frequencies_hz()->Add(value);
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.TransceiverFeedClient.frequencies_hz)
+}
+inline const ::google::protobuf::RepeatedField<::uint64_t>& TransceiverFeedClient::frequencies_hz() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.TransceiverFeedClient.frequencies_hz)
+  return _internal_frequencies_hz();
+}
+inline ::google::protobuf::RepeatedField<::uint64_t>* TransceiverFeedClient::mutable_frequencies_hz()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.TransceiverFeedClient.frequencies_hz)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_frequencies_hz();
+}
+inline const ::google::protobuf::RepeatedField<::uint64_t>&
+TransceiverFeedClient::_internal_frequencies_hz() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.frequencies_hz_;
+}
+inline ::google::protobuf::RepeatedField<::uint64_t>* TransceiverFeedClient::_internal_mutable_frequencies_hz() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.frequencies_hz_;
+}
+
+// -------------------------------------------------------------------
+
+// PdcProviderMessage
+
+// string message_id = 1;
+inline void PdcProviderMessage::clear_message_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_id_.ClearToEmpty();
+}
+inline const std::string& PdcProviderMessage::message_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.message_id)
+  return _internal_message_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void PdcProviderMessage::set_message_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.message_id)
+}
+inline std::string* PdcProviderMessage::mutable_message_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_message_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcProviderMessage.message_id)
+  return _s;
+}
+inline const std::string& PdcProviderMessage::_internal_message_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.message_id_.Get();
+}
+inline void PdcProviderMessage::_internal_set_message_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_id_.Set(value, GetArena());
+}
+inline std::string* PdcProviderMessage::_internal_mutable_message_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.message_id_.Mutable( GetArena());
+}
+inline std::string* PdcProviderMessage::release_message_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcProviderMessage.message_id)
+  return _impl_.message_id_.Release();
+}
+inline void PdcProviderMessage::set_allocated_message_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.message_id_.IsDefault()) {
+          _impl_.message_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.message_id)
+}
+
+// string from = 2;
+inline void PdcProviderMessage::clear_from() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.from_.ClearToEmpty();
+}
+inline const std::string& PdcProviderMessage::from() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.from)
+  return _internal_from();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void PdcProviderMessage::set_from(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.from_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.from)
+}
+inline std::string* PdcProviderMessage::mutable_from() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_from();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcProviderMessage.from)
+  return _s;
+}
+inline const std::string& PdcProviderMessage::_internal_from() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.from_.Get();
+}
+inline void PdcProviderMessage::_internal_set_from(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.from_.Set(value, GetArena());
+}
+inline std::string* PdcProviderMessage::_internal_mutable_from() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.from_.Mutable( GetArena());
+}
+inline std::string* PdcProviderMessage::release_from() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcProviderMessage.from)
+  return _impl_.from_.Release();
+}
+inline void PdcProviderMessage::set_allocated_from(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.from_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.from_.IsDefault()) {
+          _impl_.from_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.from)
+}
+
+// string to = 3;
+inline void PdcProviderMessage::clear_to() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.to_.ClearToEmpty();
+}
+inline const std::string& PdcProviderMessage::to() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.to)
+  return _internal_to();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void PdcProviderMessage::set_to(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.to_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.to)
+}
+inline std::string* PdcProviderMessage::mutable_to() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_to();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcProviderMessage.to)
+  return _s;
+}
+inline const std::string& PdcProviderMessage::_internal_to() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.to_.Get();
+}
+inline void PdcProviderMessage::_internal_set_to(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.to_.Set(value, GetArena());
+}
+inline std::string* PdcProviderMessage::_internal_mutable_to() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.to_.Mutable( GetArena());
+}
+inline std::string* PdcProviderMessage::release_to() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcProviderMessage.to)
+  return _impl_.to_.Release();
+}
+inline void PdcProviderMessage::set_allocated_to(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.to_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.to_.IsDefault()) {
+          _impl_.to_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.to)
+}
+
+// .flightstrips.cluster.v1.PdcProviderMessage.Transport transport = 4;
+inline void PdcProviderMessage::clear_transport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.transport_ = 0;
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage_Transport PdcProviderMessage::transport() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.transport)
+  return _internal_transport();
+}
+inline void PdcProviderMessage::set_transport(::flightstrips::cluster::v1::PdcProviderMessage_Transport value) {
+  _internal_set_transport(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.transport)
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage_Transport PdcProviderMessage::_internal_transport() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::flightstrips::cluster::v1::PdcProviderMessage_Transport>(_impl_.transport_);
+}
+inline void PdcProviderMessage::_internal_set_transport(::flightstrips::cluster::v1::PdcProviderMessage_Transport value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.transport_ = value;
+}
+
+// uint64 sequence = 5;
+inline void PdcProviderMessage::clear_sequence() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.sequence_ = ::uint64_t{0u};
+}
+inline ::uint64_t PdcProviderMessage::sequence() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.sequence)
+  return _internal_sequence();
+}
+inline void PdcProviderMessage::set_sequence(::uint64_t value) {
+  _internal_set_sequence(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.sequence)
+}
+inline ::uint64_t PdcProviderMessage::_internal_sequence() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.sequence_;
+}
+inline void PdcProviderMessage::_internal_set_sequence(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.sequence_ = value;
+}
+
+// optional uint64 response_to = 6;
+inline bool PdcProviderMessage::has_response_to() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
+  return value;
+}
+inline void PdcProviderMessage::clear_response_to() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.response_to_ = ::uint64_t{0u};
+  _impl_._has_bits_[0] &= ~0x00000008u;
+}
+inline ::uint64_t PdcProviderMessage::response_to() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.response_to)
+  return _internal_response_to();
+}
+inline void PdcProviderMessage::set_response_to(::uint64_t value) {
+  _internal_set_response_to(value);
+  _impl_._has_bits_[0] |= 0x00000008u;
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.response_to)
+}
+inline ::uint64_t PdcProviderMessage::_internal_response_to() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.response_to_;
+}
+inline void PdcProviderMessage::_internal_set_response_to(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.response_to_ = value;
+}
+
+// .flightstrips.cluster.v1.PdcProviderMessage.Kind kind = 7;
+inline void PdcProviderMessage::clear_kind() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_ = 0;
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage_Kind PdcProviderMessage::kind() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.kind)
+  return _internal_kind();
+}
+inline void PdcProviderMessage::set_kind(::flightstrips::cluster::v1::PdcProviderMessage_Kind value) {
+  _internal_set_kind(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.kind)
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage_Kind PdcProviderMessage::_internal_kind() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::flightstrips::cluster::v1::PdcProviderMessage_Kind>(_impl_.kind_);
+}
+inline void PdcProviderMessage::_internal_set_kind(::flightstrips::cluster::v1::PdcProviderMessage_Kind value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_ = value;
+}
+
+// optional .flightstrips.cluster.v1.HoppiePdcRequest request = 8;
+inline bool PdcProviderMessage::has_request() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.request_ != nullptr);
+  return value;
+}
+inline void PdcProviderMessage::clear_request() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.request_ != nullptr) _impl_.request_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline const ::flightstrips::cluster::v1::HoppiePdcRequest& PdcProviderMessage::_internal_request() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::HoppiePdcRequest* p = _impl_.request_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::HoppiePdcRequest&>(::flightstrips::cluster::v1::_HoppiePdcRequest_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::HoppiePdcRequest& PdcProviderMessage::request() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.request)
+  return _internal_request();
+}
+inline void PdcProviderMessage::unsafe_arena_set_allocated_request(::flightstrips::cluster::v1::HoppiePdcRequest* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.request_);
+  }
+  _impl_.request_ = reinterpret_cast<::flightstrips::cluster::v1::HoppiePdcRequest*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.request)
+}
+inline ::flightstrips::cluster::v1::HoppiePdcRequest* PdcProviderMessage::release_request() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::flightstrips::cluster::v1::HoppiePdcRequest* released = _impl_.request_;
+  _impl_.request_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::HoppiePdcRequest* PdcProviderMessage::unsafe_arena_release_request() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcProviderMessage.request)
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::flightstrips::cluster::v1::HoppiePdcRequest* temp = _impl_.request_;
+  _impl_.request_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::HoppiePdcRequest* PdcProviderMessage::_internal_mutable_request() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.request_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::HoppiePdcRequest>(GetArena());
+    _impl_.request_ = reinterpret_cast<::flightstrips::cluster::v1::HoppiePdcRequest*>(p);
+  }
+  return _impl_.request_;
+}
+inline ::flightstrips::cluster::v1::HoppiePdcRequest* PdcProviderMessage::mutable_request() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000002u;
+  ::flightstrips::cluster::v1::HoppiePdcRequest* _msg = _internal_mutable_request();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcProviderMessage.request)
+  return _msg;
+}
+inline void PdcProviderMessage::set_allocated_request(::flightstrips::cluster::v1::HoppiePdcRequest* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.request_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+
+  _impl_.request_ = reinterpret_cast<::flightstrips::cluster::v1::HoppiePdcRequest*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.request)
+}
+
+// optional string clearance_text = 9;
+inline bool PdcProviderMessage::has_clearance_text() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void PdcProviderMessage::clear_clearance_text() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.clearance_text_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& PdcProviderMessage::clearance_text() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.clearance_text)
+  return _internal_clearance_text();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void PdcProviderMessage::set_clearance_text(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.clearance_text_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.clearance_text)
+}
+inline std::string* PdcProviderMessage::mutable_clearance_text() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_clearance_text();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcProviderMessage.clearance_text)
+  return _s;
+}
+inline const std::string& PdcProviderMessage::_internal_clearance_text() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.clearance_text_.Get();
+}
+inline void PdcProviderMessage::_internal_set_clearance_text(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.clearance_text_.Set(value, GetArena());
+}
+inline std::string* PdcProviderMessage::_internal_mutable_clearance_text() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  return _impl_.clearance_text_.Mutable( GetArena());
+}
+inline std::string* PdcProviderMessage::release_clearance_text() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcProviderMessage.clearance_text)
+  if ((_impl_._has_bits_[0] & 0x00000001u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  auto* released = _impl_.clearance_text_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.clearance_text_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void PdcProviderMessage::set_allocated_clearance_text(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  _impl_.clearance_text_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.clearance_text_.IsDefault()) {
+          _impl_.clearance_text_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.clearance_text)
+}
+
+// string reason_code = 10;
+inline void PdcProviderMessage::clear_reason_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_code_.ClearToEmpty();
+}
+inline const std::string& PdcProviderMessage::reason_code() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.reason_code)
+  return _internal_reason_code();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void PdcProviderMessage::set_reason_code(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_code_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.PdcProviderMessage.reason_code)
+}
+inline std::string* PdcProviderMessage::mutable_reason_code() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_reason_code();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcProviderMessage.reason_code)
+  return _s;
+}
+inline const std::string& PdcProviderMessage::_internal_reason_code() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.reason_code_.Get();
+}
+inline void PdcProviderMessage::_internal_set_reason_code(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_code_.Set(value, GetArena());
+}
+inline std::string* PdcProviderMessage::_internal_mutable_reason_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.reason_code_.Mutable( GetArena());
+}
+inline std::string* PdcProviderMessage::release_reason_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcProviderMessage.reason_code)
+  return _impl_.reason_code_.Release();
+}
+inline void PdcProviderMessage::set_allocated_reason_code(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_code_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.reason_code_.IsDefault()) {
+          _impl_.reason_code_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.reason_code)
+}
+
+// optional .google.protobuf.Timestamp provider_accepted_at = 11;
+inline bool PdcProviderMessage::has_provider_accepted_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.provider_accepted_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& PdcProviderMessage::_internal_provider_accepted_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.provider_accepted_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& PdcProviderMessage::provider_accepted_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.PdcProviderMessage.provider_accepted_at)
+  return _internal_provider_accepted_at();
+}
+inline void PdcProviderMessage::unsafe_arena_set_allocated_provider_accepted_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.provider_accepted_at_);
+  }
+  _impl_.provider_accepted_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000004u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000004u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.provider_accepted_at)
+}
+inline ::google::protobuf::Timestamp* PdcProviderMessage::release_provider_accepted_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000004u;
+  ::google::protobuf::Timestamp* released = _impl_.provider_accepted_at_;
+  _impl_.provider_accepted_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* PdcProviderMessage::unsafe_arena_release_provider_accepted_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.PdcProviderMessage.provider_accepted_at)
+
+  _impl_._has_bits_[0] &= ~0x00000004u;
+  ::google::protobuf::Timestamp* temp = _impl_.provider_accepted_at_;
+  _impl_.provider_accepted_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* PdcProviderMessage::_internal_mutable_provider_accepted_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.provider_accepted_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.provider_accepted_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.provider_accepted_at_;
+}
+inline ::google::protobuf::Timestamp* PdcProviderMessage::mutable_provider_accepted_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000004u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_provider_accepted_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.PdcProviderMessage.provider_accepted_at)
+  return _msg;
+}
+inline void PdcProviderMessage::set_allocated_provider_accepted_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.provider_accepted_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000004u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000004u;
+  }
+
+  _impl_.provider_accepted_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.PdcProviderMessage.provider_accepted_at)
+}
+
+// -------------------------------------------------------------------
+
+// HoppiePdcRequest
+
+// string callsign = 1;
+inline void HoppiePdcRequest::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& HoppiePdcRequest::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePdcRequest.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePdcRequest::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePdcRequest.callsign)
+}
+inline std::string* HoppiePdcRequest::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePdcRequest.callsign)
+  return _s;
+}
+inline const std::string& HoppiePdcRequest::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void HoppiePdcRequest::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* HoppiePdcRequest::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* HoppiePdcRequest::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePdcRequest.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void HoppiePdcRequest::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePdcRequest.callsign)
+}
+
+// string aircraft_type = 2;
+inline void HoppiePdcRequest::clear_aircraft_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_type_.ClearToEmpty();
+}
+inline const std::string& HoppiePdcRequest::aircraft_type() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePdcRequest.aircraft_type)
+  return _internal_aircraft_type();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePdcRequest::set_aircraft_type(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_type_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePdcRequest.aircraft_type)
+}
+inline std::string* HoppiePdcRequest::mutable_aircraft_type() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_aircraft_type();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePdcRequest.aircraft_type)
+  return _s;
+}
+inline const std::string& HoppiePdcRequest::_internal_aircraft_type() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_type_.Get();
+}
+inline void HoppiePdcRequest::_internal_set_aircraft_type(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_type_.Set(value, GetArena());
+}
+inline std::string* HoppiePdcRequest::_internal_mutable_aircraft_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_type_.Mutable( GetArena());
+}
+inline std::string* HoppiePdcRequest::release_aircraft_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePdcRequest.aircraft_type)
+  return _impl_.aircraft_type_.Release();
+}
+inline void HoppiePdcRequest::set_allocated_aircraft_type(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_type_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.aircraft_type_.IsDefault()) {
+          _impl_.aircraft_type_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePdcRequest.aircraft_type)
+}
+
+// string departure = 3;
+inline void HoppiePdcRequest::clear_departure() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_.ClearToEmpty();
+}
+inline const std::string& HoppiePdcRequest::departure() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePdcRequest.departure)
+  return _internal_departure();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePdcRequest::set_departure(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePdcRequest.departure)
+}
+inline std::string* HoppiePdcRequest::mutable_departure() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_departure();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePdcRequest.departure)
+  return _s;
+}
+inline const std::string& HoppiePdcRequest::_internal_departure() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.departure_.Get();
+}
+inline void HoppiePdcRequest::_internal_set_departure(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_.Set(value, GetArena());
+}
+inline std::string* HoppiePdcRequest::_internal_mutable_departure() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.departure_.Mutable( GetArena());
+}
+inline std::string* HoppiePdcRequest::release_departure() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePdcRequest.departure)
+  return _impl_.departure_.Release();
+}
+inline void HoppiePdcRequest::set_allocated_departure(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.departure_.IsDefault()) {
+          _impl_.departure_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePdcRequest.departure)
+}
+
+// string destination = 4;
+inline void HoppiePdcRequest::clear_destination() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.destination_.ClearToEmpty();
+}
+inline const std::string& HoppiePdcRequest::destination() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePdcRequest.destination)
+  return _internal_destination();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePdcRequest::set_destination(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.destination_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePdcRequest.destination)
+}
+inline std::string* HoppiePdcRequest::mutable_destination() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_destination();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePdcRequest.destination)
+  return _s;
+}
+inline const std::string& HoppiePdcRequest::_internal_destination() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.destination_.Get();
+}
+inline void HoppiePdcRequest::_internal_set_destination(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.destination_.Set(value, GetArena());
+}
+inline std::string* HoppiePdcRequest::_internal_mutable_destination() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.destination_.Mutable( GetArena());
+}
+inline std::string* HoppiePdcRequest::release_destination() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePdcRequest.destination)
+  return _impl_.destination_.Release();
+}
+inline void HoppiePdcRequest::set_allocated_destination(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.destination_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.destination_.IsDefault()) {
+          _impl_.destination_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePdcRequest.destination)
+}
+
+// string stand = 5;
+inline void HoppiePdcRequest::clear_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stand_.ClearToEmpty();
+}
+inline const std::string& HoppiePdcRequest::stand() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePdcRequest.stand)
+  return _internal_stand();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePdcRequest::set_stand(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stand_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePdcRequest.stand)
+}
+inline std::string* HoppiePdcRequest::mutable_stand() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_stand();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePdcRequest.stand)
+  return _s;
+}
+inline const std::string& HoppiePdcRequest::_internal_stand() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.stand_.Get();
+}
+inline void HoppiePdcRequest::_internal_set_stand(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stand_.Set(value, GetArena());
+}
+inline std::string* HoppiePdcRequest::_internal_mutable_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.stand_.Mutable( GetArena());
+}
+inline std::string* HoppiePdcRequest::release_stand() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePdcRequest.stand)
+  return _impl_.stand_.Release();
+}
+inline void HoppiePdcRequest::set_allocated_stand(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.stand_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.stand_.IsDefault()) {
+          _impl_.stand_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePdcRequest.stand)
+}
+
+// string atis = 6;
+inline void HoppiePdcRequest::clear_atis() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atis_.ClearToEmpty();
+}
+inline const std::string& HoppiePdcRequest::atis() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePdcRequest.atis)
+  return _internal_atis();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePdcRequest::set_atis(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atis_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePdcRequest.atis)
+}
+inline std::string* HoppiePdcRequest::mutable_atis() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_atis();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePdcRequest.atis)
+  return _s;
+}
+inline const std::string& HoppiePdcRequest::_internal_atis() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.atis_.Get();
+}
+inline void HoppiePdcRequest::_internal_set_atis(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atis_.Set(value, GetArena());
+}
+inline std::string* HoppiePdcRequest::_internal_mutable_atis() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.atis_.Mutable( GetArena());
+}
+inline std::string* HoppiePdcRequest::release_atis() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePdcRequest.atis)
+  return _impl_.atis_.Release();
+}
+inline void HoppiePdcRequest::set_allocated_atis(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atis_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.atis_.IsDefault()) {
+          _impl_.atis_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePdcRequest.atis)
+}
+
+// string remarks = 7;
+inline void HoppiePdcRequest::clear_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.ClearToEmpty();
+}
+inline const std::string& HoppiePdcRequest::remarks() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePdcRequest.remarks)
+  return _internal_remarks();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePdcRequest::set_remarks(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePdcRequest.remarks)
+}
+inline std::string* HoppiePdcRequest::mutable_remarks() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_remarks();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePdcRequest.remarks)
+  return _s;
+}
+inline const std::string& HoppiePdcRequest::_internal_remarks() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.remarks_.Get();
+}
+inline void HoppiePdcRequest::_internal_set_remarks(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.Set(value, GetArena());
+}
+inline std::string* HoppiePdcRequest::_internal_mutable_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.remarks_.Mutable( GetArena());
+}
+inline std::string* HoppiePdcRequest::release_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePdcRequest.remarks)
+  return _impl_.remarks_.Release();
+}
+inline void HoppiePdcRequest::set_allocated_remarks(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.remarks_.IsDefault()) {
+          _impl_.remarks_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePdcRequest.remarks)
+}
+
+// -------------------------------------------------------------------
+
+// HoppiePollPage
+
+// string station = 1;
+inline void HoppiePollPage::clear_station() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.station_.ClearToEmpty();
+}
+inline const std::string& HoppiePollPage::station() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePollPage.station)
+  return _internal_station();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePollPage::set_station(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.station_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePollPage.station)
+}
+inline std::string* HoppiePollPage::mutable_station() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_station();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePollPage.station)
+  return _s;
+}
+inline const std::string& HoppiePollPage::_internal_station() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.station_.Get();
+}
+inline void HoppiePollPage::_internal_set_station(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.station_.Set(value, GetArena());
+}
+inline std::string* HoppiePollPage::_internal_mutable_station() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.station_.Mutable( GetArena());
+}
+inline std::string* HoppiePollPage::release_station() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePollPage.station)
+  return _impl_.station_.Release();
+}
+inline void HoppiePollPage::set_allocated_station(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.station_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.station_.IsDefault()) {
+          _impl_.station_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePollPage.station)
+}
+
+// string poll_id = 2;
+inline void HoppiePollPage::clear_poll_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.poll_id_.ClearToEmpty();
+}
+inline const std::string& HoppiePollPage::poll_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePollPage.poll_id)
+  return _internal_poll_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void HoppiePollPage::set_poll_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.poll_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.HoppiePollPage.poll_id)
+}
+inline std::string* HoppiePollPage::mutable_poll_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_poll_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePollPage.poll_id)
+  return _s;
+}
+inline const std::string& HoppiePollPage::_internal_poll_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.poll_id_.Get();
+}
+inline void HoppiePollPage::_internal_set_poll_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.poll_id_.Set(value, GetArena());
+}
+inline std::string* HoppiePollPage::_internal_mutable_poll_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.poll_id_.Mutable( GetArena());
+}
+inline std::string* HoppiePollPage::release_poll_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePollPage.poll_id)
+  return _impl_.poll_id_.Release();
+}
+inline void HoppiePollPage::set_allocated_poll_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.poll_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.poll_id_.IsDefault()) {
+          _impl_.poll_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePollPage.poll_id)
+}
+
+// .google.protobuf.Timestamp observed_at = 3;
+inline bool HoppiePollPage::has_observed_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.observed_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& HoppiePollPage::_internal_observed_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.observed_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& HoppiePollPage::observed_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePollPage.observed_at)
+  return _internal_observed_at();
+}
+inline void HoppiePollPage::unsafe_arena_set_allocated_observed_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.observed_at_);
+  }
+  _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.HoppiePollPage.observed_at)
+}
+inline ::google::protobuf::Timestamp* HoppiePollPage::release_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.observed_at_;
+  _impl_.observed_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* HoppiePollPage::unsafe_arena_release_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.HoppiePollPage.observed_at)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.observed_at_;
+  _impl_.observed_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* HoppiePollPage::_internal_mutable_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.observed_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.observed_at_;
+}
+inline ::google::protobuf::Timestamp* HoppiePollPage::mutable_observed_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_observed_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePollPage.observed_at)
+  return _msg;
+}
+inline void HoppiePollPage::set_allocated_observed_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.observed_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.HoppiePollPage.observed_at)
+}
+
+// repeated .flightstrips.cluster.v1.PdcProviderMessage messages = 4;
+inline int HoppiePollPage::_internal_messages_size() const {
+  return _internal_messages().size();
+}
+inline int HoppiePollPage::messages_size() const {
+  return _internal_messages_size();
+}
+inline void HoppiePollPage::clear_messages() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.messages_.Clear();
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* HoppiePollPage::mutable_messages(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.HoppiePollPage.messages)
+  return _internal_mutable_messages()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::PdcProviderMessage>* HoppiePollPage::mutable_messages()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.HoppiePollPage.messages)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_messages();
+}
+inline const ::flightstrips::cluster::v1::PdcProviderMessage& HoppiePollPage::messages(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.HoppiePollPage.messages)
+  return _internal_messages().Get(index);
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* HoppiePollPage::add_messages() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::cluster::v1::PdcProviderMessage* _add = _internal_mutable_messages()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.HoppiePollPage.messages)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::PdcProviderMessage>& HoppiePollPage::messages() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.HoppiePollPage.messages)
+  return _internal_messages();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::PdcProviderMessage>&
+HoppiePollPage::_internal_messages() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.messages_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::PdcProviderMessage>*
+HoppiePollPage::_internal_mutable_messages() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.messages_;
+}
+
 // -------------------------------------------------------------------
 
 // AiracPage
@@ -122916,6 +126206,18 @@ struct is_proto_enum<::flightstrips::cluster::v1::ClientPresence_Kind> : std::tr
 template <>
 inline const EnumDescriptor* GetEnumDescriptor<::flightstrips::cluster::v1::ClientPresence_Kind>() {
   return ::flightstrips::cluster::v1::ClientPresence_Kind_descriptor();
+}
+template <>
+struct is_proto_enum<::flightstrips::cluster::v1::PdcProviderMessage_Transport> : std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor<::flightstrips::cluster::v1::PdcProviderMessage_Transport>() {
+  return ::flightstrips::cluster::v1::PdcProviderMessage_Transport_descriptor();
+}
+template <>
+struct is_proto_enum<::flightstrips::cluster::v1::PdcProviderMessage_Kind> : std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor<::flightstrips::cluster::v1::PdcProviderMessage_Kind>() {
+  return ::flightstrips::cluster::v1::PdcProviderMessage_Kind_descriptor();
 }
 template <>
 struct is_proto_enum<::flightstrips::cluster::v1::EntityKind> : std::true_type {};

@@ -274,7 +274,7 @@ func validateTyped(message protoreflect.Message) error {
 func validDomainToken(field, value string) bool {
 	var allowed string
 	switch field {
-	case "flightstrips.cluster.v1.Strip.pdc_state", "flightstrips.cluster.v1.PdcSequence.state":
+	case "flightstrips.cluster.v1.Strip.pdc_state", "flightstrips.cluster.v1.PdcSequence.state", "flightstrips.cluster.v1.PdcEffect.state":
 		allowed = "NONE REQUESTED REQUESTED_WITH_FAULTS CLEARED CONFIRMED NO_RESPONSE FAILED REVERT_TO_VOICE"
 	case "flightstrips.cluster.v1.PdcSequence.request_channel":
 		allowed = "WEB CPDLC"

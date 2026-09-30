@@ -15,7 +15,7 @@ This document assigns a Protobuf message to every new multi-node durable or repl
 | `FS_OBJECTS` | `snapshot/<kind>/<id>/<last-stream-sequence>` | `ObjectValue.snapshot` | snapshot writer |
 | `FS_OBJECTS` | `nav/<sha256>` | `ObjectValue.nav` | airport navigation importer |
 | `FS_OBJECTS` | `effect/<command-id>` | `ObjectValue.effect_secret` | session effect owner |
-| `FS_OBJECTS` | `provider/<provider>/<sha256>` | `ObjectValue.provider_page` | global or airport provider owner |
+| `FS_OBJECTS` | `provider/<provider>/<sha256>` | `ObjectValue.provider_page` | global or airport provider owner; session owner for vIFF/Hoppie |
 | Core NATS | `fs.v1.command.<node-id>` | `CommandRequest`; reply is `CommandReply` | forwarding backend / owner |
 | Core NATS | `fs.v1.delivery.<node-id>` | `EffectDeliveryRequest`; reply is `EffectDeliveryReply` | session owner / socket backend |
 | Core NATS | `fs.v1.result.<node-id>` | `EffectDeliveryRequest` with terminal effect; reply is `EffectDeliveryReply` | socket backend / session owner |
@@ -33,7 +33,7 @@ The subject/key is validated against decoded identity before apply. The `ObjectV
 | `ProviderQuota` | global | provider, dot, UTC window start as Unix seconds |
 | `AirportPolicy`, `AmanAirport`, `NavManifest`, `WeatherCache` | airport | uppercase ICAO; weather appends provider |
 | `NavRouteCache` | airport | route key |
-| `ProviderCheckpoint` | global for provider-wide VATSIM/ECFMP; airport for AIRAC, CDM configuration and airport feeds; session only for vIFF flight reads | provider, dot, resource |
+| `ProviderCheckpoint` | global for provider-wide VATSIM/ECFMP; airport for AIRAC, CDM configuration and airport feeds; session for vIFF flight reads and Hoppie station polls | provider, dot, resource |
 | `AmanFlight` | airport | uppercase callsign |
 | `AmanCoordination`, `AmanAudit`, `AmanValidation`, `VatsimObservation` | airport | their ID/provider ID |
 | `Session` | session | decimal session ID |
@@ -47,6 +47,45 @@ The subject/key is validated against decoded identity before apply. The `ObjectV
 | `StandBlock` | session | uppercase stand ID |
 | `Atis` | session | uppercase airport ICAO |
 | `VatsimSessionCursor` | session | `vatsim` provider key |
+| `PdcProviderMessage` (case/kind 31) | session | canonical message UUID |
+
+Task 18a reserves only entity case/kind 31, `ProviderPage.hoppie` field 12,
+`SystemCommand.apply_pdc_provider_message` field 14 and `PdcEffect` fields 4–6.
+Task 18c's reservations are unchanged. `HoppiePdcRequest` contains separate
+callsign, aircraft type, departure, destination, stand, ATIS and remarks fields
+(1–7). `PdcProviderMessage` contains message UUID (1), from/to (2/3), transport
+(4), sequence (5), optional response-to (6), kind (7), optional parsed request
+(8), optional radio clearance prose (9), reason (10) and optional provider
+acceptance timestamp (11). Nested enums use `TRANSPORT_`/`KIND_` prefixes and
+Task 18a's exact numbers. `HoppiePollPage` contains station (1), poll UUID (2),
+observation timestamp (3) and repeated parsed messages (4). No raw packet,
+logon secret or serialized object is retained.
+
+Provider `hoppie` checkpoints use resource `station/<uppercase station>` in
+the session aggregate. An accepted poll object/checkpoint and its next
+`pdc-poll.<station>` deadline commit before processing messages. The deadline
+stores the next workflow UUID and one chosen 25–45 second interval; failed
+polls rearm a distinct later slot. Takeover replays the checkpoint before
+polling. Message UUIDs retain their parsed body across retries; the ledger
+rejects changed bodies under the same UUID.
+
+Outbound parsed messages and `pdc/outbound` workflows commit before the
+`ExternalCallWorker` attempt. A successful result atomically records acceptance,
+completes the outbound workflow and marks a matching clearance sent. Recovery
+proves results from their stable result command IDs or records `CALL_UNCERTAIN`;
+it never repeats an uncertain send/poll intent. A correlated pilot response can
+prove delivery while retaining the historical uncertain API result; it does
+not invent a provider acceptance timestamp. Accepted poll observation time
+decides whether a response preceded its deadline, including replay after owner
+death. Checkpoint messages are processed before reconstructing due timeouts.
+Ten-minute response deadlines
+remain durable and revisioned with their PDC sequence. Web PDC requires no
+Hoppie client. `pdc/pilot` workflows retain the original request command's actor.
+Deferred `pdc/plugin/<field>/<callsign>/<origin-command>` workflows refer to the
+exact strip revision and original ISSUE effect target; later edits supersede
+them before dispatch. These include route/SID writes, confirmation state and
+cleared-flag reset after UNABLE, no-response or revert. Those failure transitions
+return the strip to NOT_CLEARED and reset ownership atomically.
 
 `Coordination.from_euroscope` and `euroscope_handover_cid` retain the source
 and acknowledgement target of an inbound EuroScope handover. The session owner
@@ -127,6 +166,26 @@ The remaining `string` fields named `state`, `status`, `kind`, `source`, `reason
 5. `FS_STATE` full history has no automatic expiry, eviction, or compaction. `FS_POSITIONS` stale session keys are removed only after session tombstone and verified snapshot. `FS_OBJECTS` keeps two verified snapshots and all navigation objects reachable from active manifests; unreferenced objects are garbage-collected only after reachability verification.
 
 ## Provider and audit conversion
+
+Task 19c adds only `ProviderPage.transceivers` oneof field 13, containing
+`TransceiverFeedPage { fetched_at = 1; clients = 2; }` and
+`TransceiverFeedClient { callsign = 1; frequencies_hz = 2; }`. The global
+`vatsim.transceivers/v3` checkpoint references a verified content-addressed
+typed provider object. Clients are sorted by uppercase trimmed callsign;
+frequencies are positive, sorted, unique whole hertz, canonicalized to the
+whole kilohertz presented by the existing `NormalizeFrequency` policy.
+Malformed/empty provider results do not replace the accepted checkpoint.
+No new entity, command case or compatibility baseline is allocated.
+
+The accepted checkpoint entity revision and object digest are the frequency
+source revision. Session reconciliation uses existing `AdvanceWorkflow` and
+`WorkflowRecord` values: the stable workflow UUID includes session ID, source
+revision and digest; step is `transceiver/sectors/<digest>`; `source_revision`
+is the global checkpoint entity revision. The session owner commits the
+completed workflow together with the typed sector/layout/route diff. Comparing
+the greatest completed source revision with the accepted checkpoint recovers
+missed notifications and takeover. A failed policy pass leaves that revision
+pending; no provider worker invokes SQL callbacks or marks it applied.
 
 AIRAC.net, Open-Meteo, VATSIM, ECFMP and identity providers may expose JSON or another external format. Their adapters parse into validated typed Protobuf/domain values in memory. Persist only `NavData`, `ProviderPage`, `WeatherObservation`, `VatsimObservation`, `EcfmpState`, or another explicitly named typed schema after review. `ProviderPage.ecfmp` carries ECFMP measures, scalar measure values, route lists, and typed filters used for per-flight application; its fetched timestamp and immutable object digest identify the source revision. Unknown ECFMP measure or filter shapes fail conversion instead of entering the object store. A provider page with fields needed to resume/replay that cannot be represented in `ProviderPage` is **not cached**; the importer refetches it using typed checkpoint metadata. No raw body, `json.RawMessage`, `CanonicalJSON`, or serialized map enters `FS_OBJECTS`, a state event, or a snapshot.
 

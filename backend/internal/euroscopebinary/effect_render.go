@@ -46,9 +46,27 @@ func EffectRenderer(secrets cluster.EffectSecrets) func(int32, *pb.EffectRecord)
 			}
 			switch pdc.Action {
 			case "ISSUE":
-				frame.Event = &euroscope.Envelope_IssuePdcClearance{IssuePdcClearance: &euroscope.IssuePdcClearanceEvent{Callsign: pdc.Callsign, Remarks: pdc.Clearance}}
+				if pdc.State != nil && pdc.Remarks != nil {
+					frame.Event = &euroscope.Envelope_PdcStateChange{PdcStateChange: &euroscope.PdcStateChangeEvent{Callsign: pdc.Callsign, State: *pdc.State, PdcRequestRemarks: *pdc.Remarks}}
+				} else {
+					frame.Event = &euroscope.Envelope_IssuePdcClearance{IssuePdcClearance: &euroscope.IssuePdcClearanceEvent{Callsign: pdc.Callsign, Remarks: pdc.Clearance}}
+				}
 			case "REVERT_TO_VOICE":
-				frame.Event = &euroscope.Envelope_PdcRevertToVoice{PdcRevertToVoice: &euroscope.PdcRevertToVoiceEvent{Callsign: pdc.Callsign}}
+				if pdc.State != nil && pdc.Remarks != nil {
+					frame.Event = &euroscope.Envelope_PdcStateChange{PdcStateChange: &euroscope.PdcStateChangeEvent{Callsign: pdc.Callsign, State: *pdc.State, PdcRequestRemarks: *pdc.Remarks}}
+				} else {
+					frame.Event = &euroscope.Envelope_PdcRevertToVoice{PdcRevertToVoice: &euroscope.PdcRevertToVoiceEvent{Callsign: pdc.Callsign}}
+				}
+			case "SET_CLEARED_FLAG":
+				if pdc.Cleared == nil {
+					return nil, fmt.Errorf("cleared flag missing")
+				}
+				frame.Event = &euroscope.Envelope_ClearedFlag{ClearedFlag: &euroscope.ClearedFlagEvent{Callsign: pdc.Callsign, Cleared: *pdc.Cleared}}
+			case "STATE_CHANGE":
+				if pdc.State == nil || pdc.Remarks == nil {
+					return nil, fmt.Errorf("PDC state missing")
+				}
+				frame.Event = &euroscope.Envelope_PdcStateChange{PdcStateChange: &euroscope.PdcStateChangeEvent{Callsign: pdc.Callsign, State: *pdc.State, PdcRequestRemarks: *pdc.Remarks}}
 			default:
 				return nil, fmt.Errorf("unsupported PDC effect")
 			}

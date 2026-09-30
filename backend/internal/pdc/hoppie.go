@@ -191,7 +191,12 @@ type ClearanceOptions struct {
 }
 
 func buildPDCClearance(options ClearanceOptions) string {
-	now := time.Now()
+	return buildHoppieMessage(options.Sequence, buildPDCClearanceProse(options, time.Now()), MsgPDCClearance)
+}
+
+// buildPDCClearanceProse excludes the provider transport envelope so the
+// candidate can persist readable clearance prose and render CPDLC on delivery.
+func buildPDCClearanceProse(options ClearanceOptions, now time.Time) string {
 	timeStr := now.Format("1504")   // HHMM
 	dateStr := now.Format("020106") // DDMMYY
 
@@ -269,7 +274,7 @@ func buildPDCClearance(options ClearanceOptions) string {
 		sb.WriteString("@")
 	}
 
-	return buildHoppieMessage(options.Sequence, sb.String(), MsgPDCClearance)
+	return sb.String()
 }
 
 func buildWebPDCClearance(options ClearanceOptions) string {

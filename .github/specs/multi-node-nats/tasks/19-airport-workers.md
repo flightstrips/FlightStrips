@@ -4,7 +4,7 @@
 
 **Release boundary:** merge with the coordinated NATS runtime candidate PR and release at task 24; see [release-safety.md](../release-safety.md).
 
-**Integration status:** Complete on the integration base after [PR #815](https://github.com/flightstrips/FlightStrips/pull/815), [PR #816](https://github.com/flightstrips/FlightStrips/pull/816), [Task 19a / PR #819](https://github.com/flightstrips/FlightStrips/pull/819), and [Task 19b / PR #820](https://github.com/flightstrips/FlightStrips/pull/820). Provider candidates, operational lifecycle/AMAN adapters and their NATS fault evidence are merged. Candidate startup remains dormant: assembly bindings and the final inventory audit belong to Task 20, which still depends on completing Task 18. See the [19a evidence](19a-vatsim-lifecycle.md#candidate-implementation-and-evidence) and [19b evidence](19b-aman-policy-evidence.md).
+**Integration status:** [PR #815](https://github.com/flightstrips/FlightStrips/pull/815), [PR #816](https://github.com/flightstrips/FlightStrips/pull/816), [Task 19a / PR #819](https://github.com/flightstrips/FlightStrips/pull/819), and [Task 19b / PR #820](https://github.com/flightstrips/FlightStrips/pull/820) are merged. The two prior lifecycle/AMAN gaps are closed with [19a evidence](19a-vatsim-lifecycle.md#candidate-implementation-and-evidence) and [19b evidence](19b-aman-policy-evidence.md). An inventory recheck found that `transceiverCache.Start` still has no global-owner typed candidate: [Task 19c](19c-transceiver-feed.md) closes this additional VATSIM frequency-feed gap. Task 19 remains partial until 19c is merged. Candidate startup remains dormant; assembly bindings and the final inventory audit belong to Task 20, which also depends on completing Task 18.
 
 ## Completion checklist after PR #815
 
@@ -18,6 +18,7 @@ startup stays dormant in the meantime.
 - [x] Real two-replica NATS ECFMP global fetch test covering nonowner dispatch, committed result, pre-call intent, post-call owner death, and uncertain takeover (this completion branch).
 - [x] Real two-replica NATS ECFMP session application, nonowner rejection, replay, and owner-failure test (this completion branch).
 - [x] Global-owned VATSIM fetch with a typed source checkpoint and two-replica NATS owner-failure test (this completion branch).
+- [x] Global-owned VATSIM transceiver feed, typed frequency lookup for PDC and sectors, and two-replica failure/replay tests ([Task 19c candidate evidence](19c-transceiver-feed-evidence.md); implementation complete on its draft branch, integration merge pending).
 - [x] VATSIM airport/session reconciliation adapters and their two-replica failure tests (Task 19a, merged as PR #819).
   - [x] Session-owned typed strip generation replay and airport-owned present/missing AMAN observations; two-replica NATS takeover and replay tests.
   - [x] Port departure/arrival stand lifecycle transitions and cancellation, including their owner-failure tests: `services.NewVatsimLifecycleCandidate` supplies both `SessionWork` callbacks; `TestVatsimLifecycleTwoReplica*` exercises real policy and Task 17 effects without SQL or injected decisions.

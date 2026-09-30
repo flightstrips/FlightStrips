@@ -1,6 +1,6 @@
 # Task 20 — Application runtime and CI cutover
 
-**Depends on:** 04–19, 15a, 15b, 18a–18c, 19a and 19b. Task 18 must satisfy its complete acceptance criteria; its partial candidate PR does not satisfy this dependency. Task 19 and both its follow-ups are complete on the integration base. **Outcome:** the FlightStrips application builds and runs with NATS as its sole operational store.
+**Depends on:** 04–19, 15a, 15b, 18a–18c and 19a–19c. Tasks 18 and 19 must satisfy their complete acceptance criteria; partial candidate PRs do not satisfy these dependencies. Tasks 19a/19b are complete, but 19c supplies the remaining global VATSIM transceiver feed. **Outcome:** the FlightStrips application builds and runs with NATS as its sole operational store.
 
 **Release boundary:** merge only with the coordinated candidate PR. This task removes the current production storage path and cannot be released or deployed against the current infrastructure; see [release-safety.md](../release-safety.md).
 

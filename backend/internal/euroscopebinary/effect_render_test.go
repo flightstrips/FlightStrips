@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/cluster"
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"testing"
 )
 
@@ -17,6 +18,22 @@ func TestRenderAmanHoldingEATAndWithdrawal(t *testing.T) {
 		require.Equal(t, effect.CommandId, frame.CommandId)
 		require.Equal(t, uint64(3), frame.OwnerEpoch)
 		require.Equal(t, uint64(4), frame.MasterEpoch)
+	}
+}
+
+func TestPdcTypedStateAndClearedEffects(t *testing.T) {
+	for _, action := range []string{"STATE_CHANGE", "SET_CLEARED_FLAG", "ISSUE", "REVERT_TO_VOICE"} {
+		payload := &pb.PdcEffect{Callsign: "SAS123", Action: action, Clearance: "CLRD TO: ENGM", State: proto.String("CONFIRMED"), Remarks: proto.String(""), Cleared: proto.Bool(true)}
+		frame, err := EffectRenderer(cluster.EffectSecrets{})(42, &pb.EffectRecord{CommandId: "pdc-command", Status: pb.EffectRecord_DISPATCH_CLAIMED, OwnerEpoch: 3, MasterEpoch: 4, Payload: &pb.EffectRecord_Pdc{Pdc: payload}})
+		if err != nil || frame.CommandId != "pdc-command" || frame.OwnerEpoch != 3 || frame.MasterEpoch != 4 {
+			t.Fatalf("PDC effect: %v %v", frame, err)
+		}
+		if action == "STATE_CHANGE" && frame.GetPdcStateChange().GetState() != "CONFIRMED" {
+			t.Fatal("state omitted")
+		}
+		if action == "SET_CLEARED_FLAG" && !frame.GetClearedFlag().GetCleared() {
+			t.Fatal("cleared omitted")
+		}
 	}
 }
 

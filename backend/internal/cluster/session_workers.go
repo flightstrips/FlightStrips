@@ -246,6 +246,9 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 	// source checks immediately before the CAS publish.
 	for _, deadline := range state.EntitiesByKind(pb.EntityKind_SESSION_DEADLINE) {
 		value := deadline.GetValue().GetSessionDeadline()
+		if value != nil && (value.Kind == "pdc-poll" || value.Kind == "pdc-response" && w.PDC != nil) {
+			continue // The concrete PDC callback owns provider and response transitions.
+		}
 		if value == nil || value.DueAt == nil || now.Before(value.DueAt.AsTime()) {
 			continue
 		}

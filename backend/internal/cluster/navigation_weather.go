@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"FlightStrips/internal/vatsim"
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
@@ -225,6 +226,13 @@ func validateProviderPage(page *pb.ProviderPage) error {
 		return err
 	}
 	switch content := page.GetParsed().(type) {
+	case *pb.ProviderPage_Transceivers:
+		if page.Provider != "vatsim" || page.Resource != "transceivers/v3" {
+			return fmt.Errorf("invalid transceiver provider identity")
+		}
+		if err := vatsim.ValidateTransceiverPage(content.Transceivers); err != nil {
+			return err
+		}
 	case *pb.ProviderPage_Airac:
 		if content.Airac == nil {
 			return fmt.Errorf("empty AIRAC page")
@@ -373,6 +381,21 @@ func validateProviderPage(page *pb.ProviderPage) error {
 				return fmt.Errorf("invalid vIFF master row")
 			}
 			seen[master.Airport] = true
+		}
+	case *pb.ProviderPage_Hoppie:
+		poll := content.Hoppie
+		if page.Provider != "hoppie" || poll == nil || poll.Station == "" || poll.Station != strings.ToUpper(poll.Station) || page.Resource != "station/"+poll.Station || !canonicalUUID(poll.PollId) || poll.ObservedAt == nil || poll.ObservedAt.CheckValid() != nil {
+			return fmt.Errorf("invalid Hoppie poll page")
+		}
+		seen := map[string]bool{}
+		for _, message := range poll.Messages {
+			if err := ValidatePdcProviderMessage(message); err != nil {
+				return err
+			}
+			if message.To != poll.Station || seen[message.MessageId] {
+				return fmt.Errorf("invalid Hoppie poll identity")
+			}
+			seen[message.MessageId] = true
 		}
 	default:
 		return fmt.Errorf("unsupported typed provider page")
@@ -566,8 +589,8 @@ func (a NavigationWeather) PutCheckpointFor(ctx context.Context, ref *pb.Aggrega
 	if checkpoint == nil || checkpoint.Provider == "" || checkpoint.Resource == "" {
 		return nil, fmt.Errorf("incomplete provider checkpoint")
 	}
-	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && checkpoint.Provider != "viff" {
-		return nil, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF")
+	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && checkpoint.Provider != "viff" && checkpoint.Provider != "hoppie" {
+		return nil, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF or Hoppie")
 	}
 	verify := func() error {
 		if checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
@@ -589,8 +612,8 @@ func (a NavigationWeather) CheckpointFor(ctx context.Context, ref *pb.AggregateR
 }
 
 func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, uint64, error) {
-	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && provider != "viff" {
-		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF")
+	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && provider != "viff" && provider != "hoppie" {
+		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF or Hoppie")
 	}
 	state, err := a.read(ctx, ref)
 	if err != nil {

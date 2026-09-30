@@ -140,6 +140,9 @@ extern AmanSubmitCoordinationDefaultTypeInternal _AmanSubmitCoordination_default
 class ApplyAmanSession;
 struct ApplyAmanSessionDefaultTypeInternal;
 extern ApplyAmanSessionDefaultTypeInternal _ApplyAmanSession_default_instance_;
+class ApplyPdcProviderMessage;
+struct ApplyPdcProviderMessageDefaultTypeInternal;
+extern ApplyPdcProviderMessageDefaultTypeInternal _ApplyPdcProviderMessage_default_instance_;
 class AssumeCoordination;
 struct AssumeCoordinationDefaultTypeInternal;
 extern AssumeCoordinationDefaultTypeInternal _AssumeCoordination_default_instance_;
@@ -2661,7 +2664,7 @@ class SetPositionLayout final : public ::google::protobuf::Message
     return reinterpret_cast<const SetPositionLayout*>(
         &_SetPositionLayout_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 105;
+  static constexpr int kIndexInFileMessages = 106;
   friend void swap(SetPositionLayout& a, SetPositionLayout& b) { a.Swap(&b); }
   inline void Swap(SetPositionLayout* other) {
     if (other == this) return;
@@ -3998,7 +4001,7 @@ class RequestSquawk final : public ::google::protobuf::Message
     return reinterpret_cast<const RequestSquawk*>(
         &_RequestSquawk_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 101;
+  static constexpr int kIndexInFileMessages = 102;
   friend void swap(RequestSquawk& a, RequestSquawk& b) { a.Swap(&b); }
   inline void Swap(RequestSquawk* other) {
     if (other == this) return;
@@ -4317,7 +4320,7 @@ class RemoveEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const RemoveEntity*>(
         &_RemoveEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 104;
+  static constexpr int kIndexInFileMessages = 105;
   friend void swap(RemoveEntity& a, RemoveEntity& b) { a.Swap(&b); }
   inline void Swap(RemoveEntity* other) {
     if (other == this) return;
@@ -7334,7 +7337,7 @@ class DeleteSession final : public ::google::protobuf::Message
     return reinterpret_cast<const DeleteSession*>(
         &_DeleteSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 102;
+  static constexpr int kIndexInFileMessages = 103;
   friend void swap(DeleteSession& a, DeleteSession& b) { a.Swap(&b); }
   inline void Swap(DeleteSession* other) {
     if (other == this) return;
@@ -8039,7 +8042,7 @@ class CreateSession final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateSession*>(
         &_CreateSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 100;
+  static constexpr int kIndexInFileMessages = 101;
   friend void swap(CreateSession& a, CreateSession& b) { a.Swap(&b); }
   inline void Swap(CreateSession* other) {
     if (other == this) return;
@@ -13160,7 +13163,7 @@ class ReplaceSectorOwners final : public ::google::protobuf::Message
     return reinterpret_cast<const ReplaceSectorOwners*>(
         &_ReplaceSectorOwners_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 106;
+  static constexpr int kIndexInFileMessages = 107;
   friend void swap(ReplaceSectorOwners& a, ReplaceSectorOwners& b) { a.Swap(&b); }
   inline void Swap(ReplaceSectorOwners* other) {
     if (other == this) return;
@@ -14016,7 +14019,7 @@ class ElectSessionMaster final : public ::google::protobuf::Message
     return reinterpret_cast<const ElectSessionMaster*>(
         &_ElectSessionMaster_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 113;
+  static constexpr int kIndexInFileMessages = 114;
   friend void swap(ElectSessionMaster& a, ElectSessionMaster& b) { a.Swap(&b); }
   inline void Swap(ElectSessionMaster* other) {
     if (other == this) return;
@@ -18898,7 +18901,7 @@ class RenewOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const RenewOwner*>(
         &_RenewOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 108;
+  static constexpr int kIndexInFileMessages = 109;
   friend void swap(RenewOwner& a, RenewOwner& b) { a.Swap(&b); }
   inline void Swap(RenewOwner* other) {
     if (other == this) return;
@@ -19071,7 +19074,7 @@ class RecordSessionSync final : public ::google::protobuf::Message
     return reinterpret_cast<const RecordSessionSync*>(
         &_RecordSessionSync_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 112;
+  static constexpr int kIndexInFileMessages = 113;
   friend void swap(RecordSessionSync& a, RecordSessionSync& b) { a.Swap(&b); }
   inline void Swap(RecordSessionSync* other) {
     if (other == this) return;
@@ -19941,7 +19944,7 @@ class ClaimOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const ClaimOwner*>(
         &_ClaimOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 107;
+  static constexpr int kIndexInFileMessages = 108;
   friend void swap(ClaimOwner& a, ClaimOwner& b) { a.Swap(&b); }
   inline void Swap(ClaimOwner* other) {
     if (other == this) return;
@@ -20352,6 +20355,179 @@ class CdmAction final : public ::google::protobuf::Message
     } change_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
+class ApplyPdcProviderMessage final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.ApplyPdcProviderMessage) */ {
+ public:
+  inline ApplyPdcProviderMessage() : ApplyPdcProviderMessage(nullptr) {}
+  ~ApplyPdcProviderMessage() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ApplyPdcProviderMessage(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline ApplyPdcProviderMessage(const ApplyPdcProviderMessage& from) : ApplyPdcProviderMessage(nullptr, from) {}
+  inline ApplyPdcProviderMessage(ApplyPdcProviderMessage&& from) noexcept
+      : ApplyPdcProviderMessage(nullptr, std::move(from)) {}
+  inline ApplyPdcProviderMessage& operator=(const ApplyPdcProviderMessage& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ApplyPdcProviderMessage& operator=(ApplyPdcProviderMessage&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const ApplyPdcProviderMessage& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const ApplyPdcProviderMessage* internal_default_instance() {
+    return reinterpret_cast<const ApplyPdcProviderMessage*>(
+        &_ApplyPdcProviderMessage_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 100;
+  friend void swap(ApplyPdcProviderMessage& a, ApplyPdcProviderMessage& b) { a.Swap(&b); }
+  inline void Swap(ApplyPdcProviderMessage* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ApplyPdcProviderMessage* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ApplyPdcProviderMessage* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<ApplyPdcProviderMessage>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ApplyPdcProviderMessage& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ApplyPdcProviderMessage& from) { ApplyPdcProviderMessage::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(ApplyPdcProviderMessage* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.ApplyPdcProviderMessage"; }
+
+ protected:
+  explicit ApplyPdcProviderMessage(::google::protobuf::Arena* arena);
+  ApplyPdcProviderMessage(::google::protobuf::Arena* arena, const ApplyPdcProviderMessage& from);
+  ApplyPdcProviderMessage(::google::protobuf::Arena* arena, ApplyPdcProviderMessage&& from) noexcept
+      : ApplyPdcProviderMessage(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kMessageFieldNumber = 1,
+  };
+  // .flightstrips.cluster.v1.PdcProviderMessage message = 1;
+  bool has_message() const;
+  void clear_message() ;
+  const ::flightstrips::cluster::v1::PdcProviderMessage& message() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::PdcProviderMessage* release_message();
+  ::flightstrips::cluster::v1::PdcProviderMessage* mutable_message();
+  void set_allocated_message(::flightstrips::cluster::v1::PdcProviderMessage* value);
+  void unsafe_arena_set_allocated_message(::flightstrips::cluster::v1::PdcProviderMessage* value);
+  ::flightstrips::cluster::v1::PdcProviderMessage* unsafe_arena_release_message();
+
+  private:
+  const ::flightstrips::cluster::v1::PdcProviderMessage& _internal_message() const;
+  ::flightstrips::cluster::v1::PdcProviderMessage* _internal_mutable_message();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ApplyPdcProviderMessage)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      0, 1, 1,
+      0, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::flightstrips::cluster::v1::PdcProviderMessage* message_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -21283,7 +21459,7 @@ class AdvanceEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceEffect*>(
         &_AdvanceEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 111;
+  static constexpr int kIndexInFileMessages = 112;
   friend void swap(AdvanceEffect& a, AdvanceEffect& b) { a.Swap(&b); }
   inline void Swap(AdvanceEffect* other) {
     if (other == this) return;
@@ -22462,7 +22638,7 @@ class ApplyAmanSession final : public ::google::protobuf::Message
     return reinterpret_cast<const ApplyAmanSession*>(
         &_ApplyAmanSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 110;
+  static constexpr int kIndexInFileMessages = 111;
   friend void swap(ApplyAmanSession& a, ApplyAmanSession& b) { a.Swap(&b); }
   inline void Swap(ApplyAmanSession* other) {
     if (other == this) return;
@@ -22684,7 +22860,7 @@ class AdvanceWorkflow final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceWorkflow*>(
         &_AdvanceWorkflow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 109;
+  static constexpr int kIndexInFileMessages = 110;
   friend void swap(AdvanceWorkflow& a, AdvanceWorkflow& b) { a.Swap(&b); }
   inline void Swap(AdvanceWorkflow* other) {
     if (other == this) return;
@@ -23061,7 +23237,7 @@ class UpdateEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const UpdateEntity*>(
         &_UpdateEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 103;
+  static constexpr int kIndexInFileMessages = 104;
   friend void swap(UpdateEntity& a, UpdateEntity& b) { a.Swap(&b); }
   inline void Swap(UpdateEntity* other) {
     if (other == this) return;
@@ -23262,6 +23438,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kReplaceSectorOwners = 11,
     kElectSessionMaster = 12,
     kApplyAmanSession = 13,
+    kApplyPdcProviderMessage = 14,
     kRequestSquawk = 15,
     ACTION_NOT_SET = 0,
   };
@@ -23352,6 +23529,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kReplaceSectorOwnersFieldNumber = 11,
     kElectSessionMasterFieldNumber = 12,
     kApplyAmanSessionFieldNumber = 13,
+    kApplyPdcProviderMessageFieldNumber = 14,
     kRequestSquawkFieldNumber = 15,
   };
   // .flightstrips.cluster.v1.CreateSession create_session = 1;
@@ -23601,6 +23779,25 @@ class SystemCommand final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::ApplyAmanSession* _internal_mutable_apply_aman_session();
 
   public:
+  // .flightstrips.cluster.v1.ApplyPdcProviderMessage apply_pdc_provider_message = 14;
+  bool has_apply_pdc_provider_message() const;
+  private:
+  bool _internal_has_apply_pdc_provider_message() const;
+
+  public:
+  void clear_apply_pdc_provider_message() ;
+  const ::flightstrips::cluster::v1::ApplyPdcProviderMessage& apply_pdc_provider_message() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::ApplyPdcProviderMessage* release_apply_pdc_provider_message();
+  ::flightstrips::cluster::v1::ApplyPdcProviderMessage* mutable_apply_pdc_provider_message();
+  void set_allocated_apply_pdc_provider_message(::flightstrips::cluster::v1::ApplyPdcProviderMessage* value);
+  void unsafe_arena_set_allocated_apply_pdc_provider_message(::flightstrips::cluster::v1::ApplyPdcProviderMessage* value);
+  ::flightstrips::cluster::v1::ApplyPdcProviderMessage* unsafe_arena_release_apply_pdc_provider_message();
+
+  private:
+  const ::flightstrips::cluster::v1::ApplyPdcProviderMessage& _internal_apply_pdc_provider_message() const;
+  ::flightstrips::cluster::v1::ApplyPdcProviderMessage* _internal_mutable_apply_pdc_provider_message();
+
+  public:
   // .flightstrips.cluster.v1.RequestSquawk request_squawk = 15;
   bool has_request_squawk() const;
   private:
@@ -23638,12 +23835,13 @@ class SystemCommand final : public ::google::protobuf::Message
   void set_has_replace_sector_owners();
   void set_has_elect_session_master();
   void set_has_apply_aman_session();
+  void set_has_apply_pdc_provider_message();
   void set_has_request_squawk();
   inline bool has_action() const;
   inline void clear_has_action();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 14, 14,
+      0, 15, 15,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -23675,6 +23873,7 @@ class SystemCommand final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::ReplaceSectorOwners* replace_sector_owners_;
       ::flightstrips::cluster::v1::ElectSessionMaster* elect_session_master_;
       ::flightstrips::cluster::v1::ApplyAmanSession* apply_aman_session_;
+      ::flightstrips::cluster::v1::ApplyPdcProviderMessage* apply_pdc_provider_message_;
       ::flightstrips::cluster::v1::RequestSquawk* request_squawk_;
     } action_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
@@ -46371,6 +46570,83 @@ inline ::flightstrips::cluster::v1::ApplyAmanSession* SystemCommand::mutable_app
   return _msg;
 }
 
+// .flightstrips.cluster.v1.ApplyPdcProviderMessage apply_pdc_provider_message = 14;
+inline bool SystemCommand::has_apply_pdc_provider_message() const {
+  return action_case() == kApplyPdcProviderMessage;
+}
+inline bool SystemCommand::_internal_has_apply_pdc_provider_message() const {
+  return action_case() == kApplyPdcProviderMessage;
+}
+inline void SystemCommand::set_has_apply_pdc_provider_message() {
+  _impl_._oneof_case_[0] = kApplyPdcProviderMessage;
+}
+inline void SystemCommand::clear_apply_pdc_provider_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kApplyPdcProviderMessage) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.apply_pdc_provider_message_;
+    }
+    clear_has_action();
+  }
+}
+inline ::flightstrips::cluster::v1::ApplyPdcProviderMessage* SystemCommand::release_apply_pdc_provider_message() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SystemCommand.apply_pdc_provider_message)
+  if (action_case() == kApplyPdcProviderMessage) {
+    clear_has_action();
+    auto* temp = _impl_.action_.apply_pdc_provider_message_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.apply_pdc_provider_message_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::ApplyPdcProviderMessage& SystemCommand::_internal_apply_pdc_provider_message() const {
+  return action_case() == kApplyPdcProviderMessage ? *_impl_.action_.apply_pdc_provider_message_ : reinterpret_cast<::flightstrips::cluster::v1::ApplyPdcProviderMessage&>(::flightstrips::cluster::v1::_ApplyPdcProviderMessage_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::ApplyPdcProviderMessage& SystemCommand::apply_pdc_provider_message() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SystemCommand.apply_pdc_provider_message)
+  return _internal_apply_pdc_provider_message();
+}
+inline ::flightstrips::cluster::v1::ApplyPdcProviderMessage* SystemCommand::unsafe_arena_release_apply_pdc_provider_message() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.SystemCommand.apply_pdc_provider_message)
+  if (action_case() == kApplyPdcProviderMessage) {
+    clear_has_action();
+    auto* temp = _impl_.action_.apply_pdc_provider_message_;
+    _impl_.action_.apply_pdc_provider_message_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void SystemCommand::unsafe_arena_set_allocated_apply_pdc_provider_message(::flightstrips::cluster::v1::ApplyPdcProviderMessage* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_apply_pdc_provider_message();
+    _impl_.action_.apply_pdc_provider_message_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.SystemCommand.apply_pdc_provider_message)
+}
+inline ::flightstrips::cluster::v1::ApplyPdcProviderMessage* SystemCommand::_internal_mutable_apply_pdc_provider_message() {
+  if (action_case() != kApplyPdcProviderMessage) {
+    clear_action();
+    set_has_apply_pdc_provider_message();
+    _impl_.action_.apply_pdc_provider_message_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::ApplyPdcProviderMessage>(GetArena());
+  }
+  return _impl_.action_.apply_pdc_provider_message_;
+}
+inline ::flightstrips::cluster::v1::ApplyPdcProviderMessage* SystemCommand::mutable_apply_pdc_provider_message() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::ApplyPdcProviderMessage* _msg = _internal_mutable_apply_pdc_provider_message();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SystemCommand.apply_pdc_provider_message)
+  return _msg;
+}
+
 // .flightstrips.cluster.v1.RequestSquawk request_squawk = 15;
 inline bool SystemCommand::has_request_squawk() const {
   return action_case() == kRequestSquawk;
@@ -46457,6 +46733,101 @@ inline void SystemCommand::clear_has_action() {
 inline SystemCommand::ActionCase SystemCommand::action_case() const {
   return SystemCommand::ActionCase(_impl_._oneof_case_[0]);
 }
+// -------------------------------------------------------------------
+
+// ApplyPdcProviderMessage
+
+// .flightstrips.cluster.v1.PdcProviderMessage message = 1;
+inline bool ApplyPdcProviderMessage::has_message() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.message_ != nullptr);
+  return value;
+}
+inline const ::flightstrips::cluster::v1::PdcProviderMessage& ApplyPdcProviderMessage::_internal_message() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::PdcProviderMessage* p = _impl_.message_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::PdcProviderMessage&>(::flightstrips::cluster::v1::_PdcProviderMessage_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::PdcProviderMessage& ApplyPdcProviderMessage::message() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ApplyPdcProviderMessage.message)
+  return _internal_message();
+}
+inline void ApplyPdcProviderMessage::unsafe_arena_set_allocated_message(::flightstrips::cluster::v1::PdcProviderMessage* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.message_);
+  }
+  _impl_.message_ = reinterpret_cast<::flightstrips::cluster::v1::PdcProviderMessage*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ApplyPdcProviderMessage.message)
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* ApplyPdcProviderMessage::release_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::PdcProviderMessage* released = _impl_.message_;
+  _impl_.message_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* ApplyPdcProviderMessage::unsafe_arena_release_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ApplyPdcProviderMessage.message)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::PdcProviderMessage* temp = _impl_.message_;
+  _impl_.message_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* ApplyPdcProviderMessage::_internal_mutable_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.message_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::PdcProviderMessage>(GetArena());
+    _impl_.message_ = reinterpret_cast<::flightstrips::cluster::v1::PdcProviderMessage*>(p);
+  }
+  return _impl_.message_;
+}
+inline ::flightstrips::cluster::v1::PdcProviderMessage* ApplyPdcProviderMessage::mutable_message() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::flightstrips::cluster::v1::PdcProviderMessage* _msg = _internal_mutable_message();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ApplyPdcProviderMessage.message)
+  return _msg;
+}
+inline void ApplyPdcProviderMessage::set_allocated_message(::flightstrips::cluster::v1::PdcProviderMessage* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.message_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.message_ = reinterpret_cast<::flightstrips::cluster::v1::PdcProviderMessage*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ApplyPdcProviderMessage.message)
+}
+
 // -------------------------------------------------------------------
 
 // CreateSession

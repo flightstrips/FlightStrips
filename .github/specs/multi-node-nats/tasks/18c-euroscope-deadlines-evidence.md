@@ -142,3 +142,17 @@ The seven-scenario suite passes against the isolated fixture. The harness waits
 for a non-vacant master and validates its socket identity before sending Sync;
 successful election reconciliation can also return a vacant term while node
 presence is warming up. Production generation fencing remains unchanged.
+
+## Integration-base merge resolution
+
+Merged integration base `5fd4c62e`, preserving Task 18a's PDC entity/record 31,
+system command 14, provider page 12 and optional PDC effect fields 4-6 alongside
+Task 18c's slots. Reducer and snapshot validation accept both session entity
+kinds and retain the Hoppie session checkpoint exception. Bindings were
+regenerated from the combined schema without replacing the compatibility
+baseline: 285 oneof cases and 266 optional-zero fixtures pass. All seven actual
+two-replica EuroScope deadline/squawk scenarios pass after this resolution.
+Targeted cluster, socket, PDC and VATSIM tests, backend/frontend builds and all
+440 native tests also pass. Actual NATS PDC polling/snapshot/takeover,
+transceiver-backed clearance and the transceiver provider-boundary scenarios
+pass with the combined schema and validation rules.

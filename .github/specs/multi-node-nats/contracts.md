@@ -95,6 +95,23 @@ The socket node forwards a plugin result to the current owner on `fs.v1.result.<
 
 ## Projection, reads, and recovery
 
+Task 19c's dormant global transceiver adapter shares the legacy HTTP parser and
+frequency normalization, but persists only `ProviderPage.transceivers` (field
+13), `TransceiverFeedPage` and `TransceiverFeedClient`. A refresh interval slot
+has one stable external intent UUID. Recovery never repeats an uncertain slot;
+the next configured slot has a distinct persisted intent. Both backend source
+ports read the verified global `vatsim` / `transceivers/v3` checkpoint and expose
+the same canonical `GetFrequencies(callsign) []string` values. Missing, corrupt
+or unready source state returns no invented frequencies.
+
+`NewTransceiverSectorReconciler` is the Task 18c/20 constructor boundary. It
+supplies the session owner planner with an immutable accepted lookup, checkpoint
+revision and digest. Its completed `WorkflowRecord.source_revision` commits in
+the same session event as the sector policy diff. A source revision without a
+completed session acknowledgment remains recoverably pending, independent of
+local notifications. Task 20 binds the concrete Task 18c planner and scheduling;
+Task 19c never calls the legacy `RefreshAllSectors` SQL callback.
+
 Each backend uses its own independent JetStream consumer for `FS_STATE` and watchers for both KV buckets. It loads all verified aggregate snapshots, starts state delivery from the earliest sequence needed by any aggregate, ignores events at or below each aggregate's snapshot checkpoint, and applies later events in stream order. It buffers live events while constructing a frontend initial snapshot, then emits buffered deltas after the snapshot revision. Reads return a coherent `FS_STATE` projection revision; current position and presence observations carry their own observation/revision metadata because they are separate resources. A persisted controller record is shown as operationally online only with fresh corresponding presence. A persisted session-sync marker is valid only for its currently live master epoch and connection generation; after a full restart, all sessions await a new master sync.
 
 Snapshots contain schema version, aggregate ID/revision, last applied stream/subject sequence, typed entity records, owner/master terms, command outcomes, workflows, pending effects/deadlines, and SHA-256. Derived indexes are rebuilt from entities. Create one after five minutes or 10,000 newly applied events, whichever comes first. Write immutable `ObjectValue.snapshot`, read it back to verify checksum, then publish typed `SnapshotIndex`. Retain the prior verified snapshot. Because `FS_STATE` retains full history, a missing/corrupt snapshot falls back to an older snapshot or full replay. A backend cannot become ready until replay reaches the current stream high-water mark and its NATS metadata check is no older than two seconds. After a local write, reads wait for the committed sequence or return `UNAVAILABLE`, never a stale success.
@@ -144,6 +161,31 @@ Provider-wide VATSIM and ECFMP fetches keep their external-call intent and typed
 The provider-wide AFV ATIS feed follows the same global typed-page checkpoint path. Airport METAR polling commits an airport external-call intent, reserves a durable global quota slot, then stores a typed `WeatherObservation` with the stable result ID. Session owners combine the committed AFV page and airport METAR cache into typed `Atis` state; the source revision fences delayed presentation updates. An uncertain quota reservation or provider call never triggers a second request for the same poll deadline.
 
 ### HTTP PDC command identity
+
+Task 18a binds controller/browser `IssuePdc.request_remarks` and HTTP pilot
+actions to `pdc.Candidate.Plan`. Controller remarks are appended to clearance
+prose composed from the accepted session, strip, runway, SID, mandatory route,
+ATIS and frequency inputs. A controller cannot supply `IssuePdc.clearance`.
+Its injected `TransceiverLookup` readers retain `GetFrequencies(callsign)`;
+Task 20 supplies Task 19c's accepted projection reader. Only fresh operational
+controller presence contributes radios, using the existing airborne priority,
+frequency normalization and sector fallback helpers.
+The ledger freezes the clearance and plugin CID under the command UUID. Web
+responses require both the durable request's actor CID and current strip CID.
+
+Only the authenticated Hoppie provider actor may submit
+`SystemCommand.apply_pdc_provider_message` (field 14). Its command UUID equals
+the parsed message UUID derived by `HoppieMessageCommandID`. The owner checks
+station, request facts, current state, accepted delivery and response sequence;
+stale responses produce a typed fault acknowledgment without changing the
+current clearance. Other system commands remain system-only. HTTP and EFB
+bodies remain JSON. `PdcEffect` adds optional `cleared` (4), `state` (5), and
+`remarks` (6); `SET_CLEARED_FLAG` and `STATE_CHANGE` render existing revision-2
+events. ISSUE and REVERT_TO_VOICE remain valid. Mandatory route/SID changes use
+revision-checked Task 17 `SetFlightPlanEffect`s with the immutable ISSUE target.
+Concrete ISSUE/REVERT effects include state/remarks and render plugin-supported
+PDC state events; their original payload forms remain valid. Confirmation and
+cleared-flag reset use deferred revision-checked effects under the same target.
 
 A web PDC request keeps `callsign`, `aircraft_type`, `atis`, `stand`, and `remarks` in its JSON body. The typed `IssuePdc` action carries each value in a separate field, and `PdcSequence` retains the request fields plus clearance text and acknowledgment time for JSON reads. The command outcome retains the original aggregate and expected entity revision so an HTTP retry can rebuild the same typed request after the first commit; the ledger still compares its canonical typed hash. Pilot outcome identity is the authenticated CID, with session ID on the stored actor. The outcome query uses that CID across sessions. Provider callbacks derive a stable UUID from their provider event identity; a Hoppie frame without a separate ID uses its complete provider frame digest.
 

@@ -125,7 +125,11 @@ func (c *TransceiverCache) refresh(ctx context.Context) error {
 }
 
 func (c *TransceiverCache) fetch(ctx context.Context) (map[string][]string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.transceiversURL, nil)
+	return (&TransceiverProvider{client: c.client, url: c.transceiversURL}).fetch(ctx)
+}
+
+func (c *TransceiverProvider) fetch(ctx context.Context) (map[string][]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create transceiver request: %w", err)
 	}

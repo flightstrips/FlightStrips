@@ -10,8 +10,8 @@ owner rebuilds due work from persisted entities rather than local timers.
 | Session work in the SQL runtime | NATS candidate authority | Cutover status |
 | --- | --- | --- |
 | `server.StartSessionMonitor` | Session owner: persisted `first_no_controller_at` and `cleanup_paused_at`, global EuroScope presence, five healthy minutes after the last operational client disconnects | Candidate implemented and tested; SQL monitor stays in SQL runtime |
-| `pdc.Service.Start` response timeout | Session owner: `pdc-response` deadline with PDC sequence source revision | Deadline outcome implemented and tested; external polling adapter still required |
-| `pdc.Service.Start` external polling | Session owner via `SessionWork.PDC` and owner-routed commands | Adapter required |
+| `pdc.Service.Start` response timeout | Session owner: `pdc.Candidate.PDC` consumes `pdc-response` with sequence revision/correlation and creates typed no-response intent/effect | Task 18a implemented and tested; Task 20 binds callback |
+| `pdc.Service.Start` external polling | Session owner: `pdc.NewCandidate(...).PDC`, durable `pdc-poll` slots, parsed checkpoint and fenced outbound intents | Task 18a implemented and tested; no loop starts before Task 20 |
 | Stand assignment and block expiry, including departure lifecycle | Session owner: projection sweep, fresh FS_POSITIONS occupancy check, source revision and CAS | Concrete lifecycle hooks own stand deadlines when bound; generic expiry remains the fallback |
 | `DepartureLifecycleService.StartSweep` and `ArrivalLifecycleService.StartSweep` | Session owner via `services.NewVatsimLifecycleCandidate(...).Departure` and `.Arrival`, assigned to `SessionWork` | Task 19a candidate implemented and tested; startup binding remains Task 20 |
 | VATSIM reconciler's session mutations | Same concrete candidate consumes the global typed checkpoint, reconciles strips, then commits real lifecycle policy with source/entity/position rechecks | Task 19a candidate implemented and tested; no additional provider poller |
@@ -75,3 +75,20 @@ Task 20 also binds `VatsimLifecycleCandidate.Positions = deadlineCandidate.Posit
 so Task 19a lifecycle commands share the actual binary position dispatcher.
 A closed or unsynced generation cannot grant a lifecycle barrier; writer close
 waits for any in-progress expiry/lifecycle commit before replacing it.
+
+Task 18a's `backend/internal/pdc/candidate_integration_test.go` runs two
+independent backend connections, projections and owner runtimes against the
+pinned NATS fixture. A real HTTP Hoppie fixture exercises the production client,
+parser, request validation, mandatory-route review and clearance builders. It
+covers one poll per slot, accepted-page recovery, owner death before/after
+intent/result commits, uncertain sends, WILCO/UNABLE correlation, stale/late
+responses, ten-minute timeout takeover, snapshot/full restart, pending route/SID
+effects, browser remark composition and Web HTTP JSON routes with Hoppie
+disabled. No fake policy supplies outcomes. Task 20 installs
+`Candidate.Bind(sessionPlanner)` for controller/browser and HTTP commands,
+sets `SessionWork.PDC = candidate.PDC`, and supplies the owner router to
+`NewCandidateWebAPI`. The callback starts no timer or SQL service.
+The PDC constructor's final arguments accept `TransceiverLookup` readers;
+Task 20 injects `cluster.NewTransceiverSource` from Task 19c. A real provider
+HTTP fixture, accepted global checkpoint and both readers verify that a fresh
+controller's secondary radio enters production clearance composition.

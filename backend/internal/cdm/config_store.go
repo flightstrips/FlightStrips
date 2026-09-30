@@ -236,6 +236,75 @@ func (s *CdmConfigStore) refresh(ctx context.Context) {
 	}
 }
 
+// FetchAirportCandidate uses the operational provider parsers without changing
+// the legacy process-local cache. A candidate owner commits the returned
+// configuration as one typed provider page after every configured call succeeds.
+func (s *CdmConfigStore) FetchAirportCandidate(ctx context.Context, airport string) (*CdmAirportConfig, error) {
+	key := strings.ToUpper(strings.TrimSpace(airport))
+	if len(key) != 4 || key != airport {
+		return nil, fmt.Errorf("invalid CDM airport")
+	}
+	config := s.ConfigForAirport(key)
+	if config == nil {
+		config = s.DefaultConfigForAirport(key)
+	}
+	if s.cdmClient != nil && s.cdmClient.isValid {
+		restrictions, err := s.cdmClient.GetDepartureRestrictions(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, restriction := range restrictions {
+			if strings.EqualFold(restriction.Airport, key) && restriction.Rate > 0 {
+				config.DefaultRate = restriction.Rate
+				config.DefaultRateLvo = restriction.Rate
+				if restriction.RateLvo > 0 {
+					config.DefaultRateLvo = restriction.RateLvo
+				}
+			}
+		}
+	}
+	if s.rateURL != "" {
+		rates, err := s.fetchRates(ctx, s.rateURL)
+		if err != nil {
+			return nil, err
+		}
+		config.Rates = nil
+		for _, rate := range rates {
+			if strings.EqualFold(rate.Airport, key) {
+				rate.Airport = key
+				config.Rates = append(config.Rates, rate)
+			}
+		}
+	}
+	if s.sidIntervalURL != "" {
+		intervals, err := s.fetchSidIntervals(ctx, s.sidIntervalURL)
+		if err != nil {
+			return nil, err
+		}
+		config.SidIntervals = nil
+		for _, interval := range intervals {
+			if strings.EqualFold(interval.Airport, key) {
+				interval.Airport = key
+				config.SidIntervals = append(config.SidIntervals, interval)
+			}
+		}
+	}
+	if s.taxiZoneURL != "" {
+		zones, err := s.fetchTaxiZones(ctx, s.taxiZoneURL)
+		if err != nil {
+			return nil, err
+		}
+		config.TaxiZones = nil
+		for _, zone := range zones {
+			if strings.EqualFold(zone.Airport, key) {
+				zone.Airport = key
+				config.TaxiZones = append(config.TaxiZones, zone)
+			}
+		}
+	}
+	return config, nil
+}
+
 func (s *CdmConfigStore) fetchRates(ctx context.Context, url string) ([]CdmRate, error) {
 	data, err := s.fetchBytes(ctx, url)
 	if err != nil {

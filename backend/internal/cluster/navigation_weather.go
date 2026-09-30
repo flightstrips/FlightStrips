@@ -312,6 +312,68 @@ func validateProviderPage(page *pb.ProviderPage) error {
 				}
 			}
 		}
+	case *pb.ProviderPage_CdmConfig:
+		config := content.CdmConfig
+		if config == nil || len(config.Airport) != 4 || config.FetchedAt == nil || config.FetchedAt.CheckValid() != nil || config.DefaultRate <= 0 || config.DefaultRateLvo <= 0 || config.DefaultTaxiMinutes <= 0 || config.Deice == nil {
+			return fmt.Errorf("invalid CDM configuration page")
+		}
+		if page.Resource != "airport/"+config.Airport {
+			return fmt.Errorf("CDM configuration airport mismatch")
+		}
+		for _, rate := range config.Rates {
+			if rate == nil {
+				return fmt.Errorf("nil CDM rate")
+			}
+		}
+		for _, interval := range config.SidIntervals {
+			if interval == nil || math.IsNaN(interval.Value) || math.IsInf(interval.Value, 0) || interval.Value < 0 {
+				return fmt.Errorf("invalid CDM SID interval")
+			}
+		}
+		for _, zone := range config.TaxiZones {
+			if zone == nil || zone.Minutes < 0 {
+				return fmt.Errorf("invalid CDM taxi zone")
+			}
+			for _, point := range zone.Polygon {
+				if point == nil || math.IsNaN(point.Latitude) || math.IsNaN(point.Longitude) || math.IsInf(point.Latitude, 0) || math.IsInf(point.Longitude, 0) || math.Abs(point.Latitude) > 90 || math.Abs(point.Longitude) > 180 {
+					return fmt.Errorf("invalid CDM taxi point")
+				}
+			}
+		}
+		for _, delay := range config.Delays {
+			if delay == nil {
+				return fmt.Errorf("nil CDM delay")
+			}
+		}
+		for _, platform := range config.Deice.Platforms {
+			if platform == nil {
+				return fmt.Errorf("nil CDM deice platform")
+			}
+		}
+	case *pb.ProviderPage_ViffFlights:
+		flights := content.ViffFlights
+		if page.Provider != "viff" || flights == nil || len(flights.Airport) != 4 || flights.FetchedAt == nil || flights.FetchedAt.CheckValid() != nil || !strings.HasPrefix(page.Resource, "session/") {
+			return fmt.Errorf("invalid vIFF flight page")
+		}
+		seen := map[string]bool{}
+		for _, row := range flights.Flights {
+			if row == nil || row.Callsign == "" || seen[row.Callsign] || row.Departure != flights.Airport || row.CdmData == nil || row.TaxiMinutes < 0 {
+				return fmt.Errorf("invalid vIFF flight row")
+			}
+			seen[row.Callsign] = true
+		}
+	case *pb.ProviderPage_ViffMasters:
+		masters := content.ViffMasters
+		if page.Provider != "viff" || page.Resource != "airport-masters" || masters == nil || masters.FetchedAt == nil || masters.FetchedAt.CheckValid() != nil {
+			return fmt.Errorf("invalid vIFF master page")
+		}
+		seen := map[string]bool{}
+		for _, master := range masters.Masters {
+			if master == nil || len(master.Airport) != 4 || master.Position == "" || seen[master.Airport] {
+				return fmt.Errorf("invalid vIFF master row")
+			}
+			seen[master.Airport] = true
+		}
 	default:
 		return fmt.Errorf("unsupported typed provider page")
 	}
@@ -504,8 +566,8 @@ func (a NavigationWeather) PutCheckpointFor(ctx context.Context, ref *pb.Aggrega
 	if checkpoint == nil || checkpoint.Provider == "" || checkpoint.Resource == "" {
 		return nil, fmt.Errorf("incomplete provider checkpoint")
 	}
-	if _, err := Subject(ref); err != nil || ref.GetSession() != nil {
-		return nil, fmt.Errorf("provider checkpoint requires global or airport owner")
+	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && checkpoint.Provider != "viff" {
+		return nil, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF")
 	}
 	verify := func() error {
 		if checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
@@ -527,8 +589,8 @@ func (a NavigationWeather) CheckpointFor(ctx context.Context, ref *pb.AggregateR
 }
 
 func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, uint64, error) {
-	if _, err := Subject(ref); err != nil || ref.GetSession() != nil {
-		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner")
+	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && provider != "viff" {
+		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF")
 	}
 	state, err := a.read(ctx, ref)
 	if err != nil {

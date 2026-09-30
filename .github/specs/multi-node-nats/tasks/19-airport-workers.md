@@ -25,7 +25,7 @@ startup stays dormant in the meantime.
 - [x] Airport-owned AIRAC import and verified manifest activation adapter with typed page checkpoints and two-replica failure tests (this completion branch).
 - [x] Airport-owned METAR fetch, global-owned AFV ATIS typed feed, session presentation adapter, global quota reservation, and two-replica NATS failure/replay tests (this completion branch).
 - [x] AMAN/Open-Meteo wind refresh adapter with typed airport checkpoint, durable global quota reservation, and two-replica uncertainty test (this completion branch).
-- [ ] Airport-owned CDM configuration and vIFF master calls, session-owned vIFF flight calls, and two-replica failure tests around every external-effect boundary.
+- [x] Airport-owned typed CDM configuration refresh and vIFF master read/write calls, session-owned typed vIFF flight reads and all operational write methods, with owner/replay/uncertain-result two-replica tests (this completion branch). The candidate adapters remain dormant until Task 20 binds the runtime.
 - [ ] Full inventory audit against `app.Build` and handler-created goroutines after all adapters land; no candidate startup before Task 20.
 
 ## Work

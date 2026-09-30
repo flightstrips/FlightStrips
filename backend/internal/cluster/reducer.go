@@ -394,7 +394,7 @@ func changeKind(change *pb.EntityChange) (pb.EntityKind, error) {
 		return 0, fmt.Errorf("missing entity operation")
 	}
 	if d := change.GetDelete(); d != nil {
-		if d.Kind < 1 || d.Kind > 29 {
+		if d.Kind < 1 || d.Kind > 30 {
 			return 0, fmt.Errorf("invalid entity kind")
 		}
 		return d.Kind, nil
@@ -447,7 +447,7 @@ func validateChange(ref *pb.AggregateRef, c *pb.EntityChange, old *pb.EntitySnap
 	_, global := ref.GetTarget().(*pb.AggregateRef_Global)
 	_, airport := ref.GetTarget().(*pb.AggregateRef_Airport)
 	_, session := ref.GetTarget().(*pb.AggregateRef_Session)
-	if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && kind != pb.EntityKind_PROVIDER_CHECKPOINT && !airport) || (kind == pb.EntityKind_PROVIDER_CHECKPOINT && !airport && !global) || ((kind == 29 || kind == 30) && !session) {
+	if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && kind != pb.EntityKind_PROVIDER_CHECKPOINT && !airport) || (kind == pb.EntityKind_PROVIDER_CHECKPOINT && !airport && !global && !(session && c.GetUpsert().GetProviderCheckpoint().Provider == "viff")) || ((kind == 29 || kind == 30) && !session) {
 		return fmt.Errorf("entity in wrong aggregate")
 	}
 	return nil

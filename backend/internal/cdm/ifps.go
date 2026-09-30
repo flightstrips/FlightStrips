@@ -166,6 +166,16 @@ func (c *Client) IFPSByCallsign(ctx context.Context, callsign string) ([]byte, e
 	)
 }
 
+// IFPSByCallsignParsed keeps vendor JSON at the HTTP boundary for candidate
+// workers that persist only named typed fields.
+func (c *Client) IFPSByCallsignParsed(ctx context.Context, callsign string) (*IFPSData, error) {
+	data, err := c.IFPSByCallsign(ctx, callsign)
+	if err != nil {
+		return nil, err
+	}
+	return parseIFPSByCallsignResponse(data)
+}
+
 func (c *Client) IFPSByDepartureAirport(ctx context.Context, airport string) (BulkIFPSData, error) {
 	bytes, err := c.doRequest(ctx, "GET", "/ifps/depAirport",
 		map[string]string{"airport": airport},

@@ -45,9 +45,10 @@ provider page retrieval. Those calls need one airport-owned import intent and
 durable typed checkpoints. `shared/position_dispatcher.go` and WebSocket
 read/write pumps are local delivery workers, not independent domain authority.
 
-The new `cluster.ExternalCallWorker` commits an owner-fenced intent before a
-provider call, uses a stable result command ID, and resolves takeover from the
-destination command ledger. `NavigationWeather.FetchWeatherFenced` uses it with
-a required global quota reservation callback. The remaining legacy call sites
-above are **not yet wired to the candidate worker**; task 20 must not activate
-them as NATS workers until their typed adapters and owner routes are complete.
+`cluster.ExternalCallWorker` commits an owner-fenced intent before a provider
+call, uses a stable result command ID, and resolves takeover from the
+destination command ledger. Candidate VATSIM, ECFMP, AIRAC, METAR/AFV,
+Open-Meteo, CDM configuration and vIFF read/write adapters use that boundary.
+The production `app.Build` path still starts the legacy workers. Task 20 must
+bind the remaining AMAN and VATSIM reconciliation behavior and must not start
+both worker paths for one provider or aggregate.

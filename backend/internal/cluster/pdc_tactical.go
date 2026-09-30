@@ -464,6 +464,27 @@ func validatePdcTacticalState(state *Aggregate, domain *pb.DomainChange, staged 
 		return nil
 	}
 	for _, c := range domain.Changes {
+		if m := c.GetUpsert().GetPdcProviderMessage(); m != nil && state.Indexes[pb.EntityKind_PDC_PROVIDER_MESSAGE][c.Key] == nil {
+			outbound := false
+			for _, workflow := range domain.Workflows {
+				if workflow.WorkflowId == m.MessageId && workflow.Step == "pdc/outbound" {
+					outbound = true
+				}
+			}
+			if !outbound {
+				continue
+			}
+			if m.From != oldSession.Airport {
+				return fmt.Errorf("PDC outbound station mismatch")
+			}
+			// Clearance shares its allocation with PdcSequence; other outbound
+			// messages consume their own session message number.
+			if m.Kind != pb.PdcProviderMessage_KIND_CLEARANCE {
+				if err := allocateMessage(m.Sequence); err != nil {
+					return err
+				}
+			}
+		}
 		if t := c.GetUpsert().GetTacticalStrip(); t != nil {
 			old := state.Indexes[pb.EntityKind_TACTICAL_STRIP][c.Key]
 			if old == nil {

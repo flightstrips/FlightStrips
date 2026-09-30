@@ -29,6 +29,8 @@
 
 The dormant adapter, verified typed reader, and durable source-revision handoff
 are implemented on `codex/multi-node-nats-19c-transceiver-feed` from `1cb4ea17`.
+Draft [PR #821](https://github.com/flightstrips/FlightStrips/pull/821) targets the
+integration base and remains unmerged.
 See [Task 19c evidence](19c-transceiver-feed-evidence.md) for constructors,
 contract details, two-replica HTTP/NATS failure tests and remaining Task 20
 assembly. Integration merge remains pending; release stays held until Task 24.

@@ -2,6 +2,8 @@
 
 Base: `origin/codex/multi-node-nats-base` at `1cb4ea17`.
 Branch: `codex/multi-node-nats-19c-transceiver-feed`.
+Draft PR: [#821](https://github.com/flightstrips/FlightStrips/pull/821) into
+`codex/multi-node-nats-base`; do not merge as part of this task.
 Status: narrow candidate implementation complete; integration merge pending.
 Dormant until Task 20, held from main/release until Task 24.
 

@@ -163,6 +163,8 @@ export function encodeAction(event: FrontendSendEvent, revisions: ReadonlyMap<st
         ? revisions.get(`standBlock.${event.stand.toUpperCase()}`) ?? 0n : 0n)
     : action.action.case === "pdc" && "callsign" in event && typeof event.callsign === "string"
       ? revisions.get(`pdc.${event.callsign.toUpperCase()}`) ?? 0n
+    : action.action.case === "cdm" && "callsign" in event && typeof event.callsign === "string"
+      ? revisions.get(`cdm.${event.callsign.toUpperCase()}`) ?? 0n
     : action.action.case === "tactical" ? revisions.get(revisionKey) ?? 0n
     : revisions.get(revisionKey);
   return {requestId, action, expectedEntityRevision};

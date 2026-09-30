@@ -251,6 +251,9 @@ extern AmanTmaEntryDefaultTypeInternal _AmanTmaEntry_default_instance_;
 class AmanValidation;
 struct AmanValidationDefaultTypeInternal;
 extern AmanValidationDefaultTypeInternal _AmanValidation_default_instance_;
+class AssignHoldingPoint;
+struct AssignHoldingPointDefaultTypeInternal;
+extern AssignHoldingPointDefaultTypeInternal _AssignHoldingPoint_default_instance_;
 class Atis;
 struct AtisDefaultTypeInternal;
 extern AtisDefaultTypeInternal _Atis_default_instance_;
@@ -293,6 +296,21 @@ extern CdmEffectDefaultTypeInternal _CdmEffect_default_instance_;
 class CdmState;
 struct CdmStateDefaultTypeInternal;
 extern CdmStateDefaultTypeInternal _CdmState_default_instance_;
+class CdmState_Calculation;
+struct CdmState_CalculationDefaultTypeInternal;
+extern CdmState_CalculationDefaultTypeInternal _CdmState_Calculation_default_instance_;
+class CdmState_ExportData;
+struct CdmState_ExportDataDefaultTypeInternal;
+extern CdmState_ExportDataDefaultTypeInternal _CdmState_ExportData_default_instance_;
+class CdmState_ExportIntent;
+struct CdmState_ExportIntentDefaultTypeInternal;
+extern CdmState_ExportIntentDefaultTypeInternal _CdmState_ExportIntent_default_instance_;
+class CdmState_PushbackVerification;
+struct CdmState_PushbackVerificationDefaultTypeInternal;
+extern CdmState_PushbackVerificationDefaultTypeInternal _CdmState_PushbackVerification_default_instance_;
+class CdmState_ReasonMarker;
+struct CdmState_ReasonMarkerDefaultTypeInternal;
+extern CdmState_ReasonMarkerDefaultTypeInternal _CdmState_ReasonMarker_default_instance_;
 class ClientPresence;
 struct ClientPresenceDefaultTypeInternal;
 extern ClientPresenceDefaultTypeInternal _ClientPresence_default_instance_;
@@ -706,6 +724,75 @@ inline bool SessionRegistry_State_Parse(absl::string_view name, SessionRegistry_
   return ::google::protobuf::internal::ParseNamedEnum<SessionRegistry_State>(
       SessionRegistry_State_descriptor(), name, value);
 }
+enum CdmState_ExportIntent_Kind : int {
+  CdmState_ExportIntent_Kind_KIND_UNSPECIFIED = 0,
+  CdmState_ExportIntent_Kind_DPI = 1,
+  CdmState_ExportIntent_Kind_SET_CDM_DATA = 2,
+  CdmState_ExportIntent_Kind_SET_TOBT = 3,
+  CdmState_ExportIntent_Kind_CdmState_ExportIntent_Kind_INT_MIN_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::min(),
+  CdmState_ExportIntent_Kind_CdmState_ExportIntent_Kind_INT_MAX_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::max(),
+};
+
+bool CdmState_ExportIntent_Kind_IsValid(int value);
+extern const uint32_t CdmState_ExportIntent_Kind_internal_data_[];
+constexpr CdmState_ExportIntent_Kind CdmState_ExportIntent_Kind_Kind_MIN = static_cast<CdmState_ExportIntent_Kind>(0);
+constexpr CdmState_ExportIntent_Kind CdmState_ExportIntent_Kind_Kind_MAX = static_cast<CdmState_ExportIntent_Kind>(3);
+constexpr int CdmState_ExportIntent_Kind_Kind_ARRAYSIZE = 3 + 1;
+const ::google::protobuf::EnumDescriptor*
+CdmState_ExportIntent_Kind_descriptor();
+template <typename T>
+const std::string& CdmState_ExportIntent_Kind_Name(T value) {
+  static_assert(std::is_same<T, CdmState_ExportIntent_Kind>::value ||
+                    std::is_integral<T>::value,
+                "Incorrect type passed to Kind_Name().");
+  return CdmState_ExportIntent_Kind_Name(static_cast<CdmState_ExportIntent_Kind>(value));
+}
+template <>
+inline const std::string& CdmState_ExportIntent_Kind_Name(CdmState_ExportIntent_Kind value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<CdmState_ExportIntent_Kind_descriptor,
+                                                 0, 3>(
+      static_cast<int>(value));
+}
+inline bool CdmState_ExportIntent_Kind_Parse(absl::string_view name, CdmState_ExportIntent_Kind* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<CdmState_ExportIntent_Kind>(
+      CdmState_ExportIntent_Kind_descriptor(), name, value);
+}
+enum CdmState_Recalculation : int {
+  CdmState_Recalculation_NONE = 0,
+  CdmState_Recalculation_REQUIRED = 1,
+  CdmState_Recalculation_IMPROVE_ONLY = 2,
+  CdmState_Recalculation_CdmState_Recalculation_INT_MIN_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::min(),
+  CdmState_Recalculation_CdmState_Recalculation_INT_MAX_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::max(),
+};
+
+bool CdmState_Recalculation_IsValid(int value);
+extern const uint32_t CdmState_Recalculation_internal_data_[];
+constexpr CdmState_Recalculation CdmState_Recalculation_Recalculation_MIN = static_cast<CdmState_Recalculation>(0);
+constexpr CdmState_Recalculation CdmState_Recalculation_Recalculation_MAX = static_cast<CdmState_Recalculation>(2);
+constexpr int CdmState_Recalculation_Recalculation_ARRAYSIZE = 2 + 1;
+const ::google::protobuf::EnumDescriptor*
+CdmState_Recalculation_descriptor();
+template <typename T>
+const std::string& CdmState_Recalculation_Name(T value) {
+  static_assert(std::is_same<T, CdmState_Recalculation>::value ||
+                    std::is_integral<T>::value,
+                "Incorrect type passed to Recalculation_Name().");
+  return CdmState_Recalculation_Name(static_cast<CdmState_Recalculation>(value));
+}
+template <>
+inline const std::string& CdmState_Recalculation_Name(CdmState_Recalculation value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<CdmState_Recalculation_descriptor,
+                                                 0, 2>(
+      static_cast<int>(value));
+}
+inline bool CdmState_Recalculation_Parse(absl::string_view name, CdmState_Recalculation* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<CdmState_Recalculation>(
+      CdmState_Recalculation_descriptor(), name, value);
+}
 enum AmanCapacityAudit_Kind : int {
   AmanCapacityAudit_Kind_KIND_UNSPECIFIED = 0,
   AmanCapacityAudit_Kind_GAP = 1,
@@ -1089,7 +1176,7 @@ class WeatherCloud final : public ::google::protobuf::Message
     return reinterpret_cast<const WeatherCloud*>(
         &_WeatherCloud_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 106;
+  static constexpr int kIndexInFileMessages = 112;
   friend void swap(WeatherCloud& a, WeatherCloud& b) { a.Swap(&b); }
   inline void Swap(WeatherCloud* other) {
     if (other == this) return;
@@ -1294,7 +1381,7 @@ class ViffMaster final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffMaster*>(
         &_ViffMaster_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 188;
+  static constexpr int kIndexInFileMessages = 194;
   friend void swap(ViffMaster& a, ViffMaster& b) { a.Swap(&b); }
   inline void Swap(ViffMaster* other) {
     if (other == this) return;
@@ -1485,7 +1572,7 @@ class ViffCdmData final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffCdmData*>(
         &_ViffCdmData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 186;
+  static constexpr int kIndexInFileMessages = 192;
   friend void swap(ViffCdmData& a, ViffCdmData& b) { a.Swap(&b); }
   inline void Swap(ViffCdmData* other) {
     if (other == this) return;
@@ -1802,7 +1889,7 @@ class VatsimFlightPlan final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimFlightPlan*>(
         &_VatsimFlightPlan_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 165;
+  static constexpr int kIndexInFileMessages = 171;
   friend void swap(VatsimFlightPlan& a, VatsimFlightPlan& b) { a.Swap(&b); }
   inline void Swap(VatsimFlightPlan* other) {
     if (other == this) return;
@@ -2460,7 +2547,7 @@ class TransceiverFeedClient final : public ::google::protobuf::Message
     return reinterpret_cast<const TransceiverFeedClient*>(
         &_TransceiverFeedClient_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 158;
+  static constexpr int kIndexInFileMessages = 164;
   friend void swap(TransceiverFeedClient& a, TransceiverFeedClient& b) { a.Swap(&b); }
   inline void Swap(TransceiverFeedClient* other) {
     if (other == this) return;
@@ -2845,7 +2932,7 @@ class SetFlightPlanEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const SetFlightPlanEffect*>(
         &_SetFlightPlanEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 111;
+  static constexpr int kIndexInFileMessages = 117;
   friend void swap(SetFlightPlanEffect& a, SetFlightPlanEffect& b) { a.Swap(&b); }
   inline void Swap(SetFlightPlanEffect* other) {
     if (other == this) return;
@@ -4473,7 +4560,7 @@ class ProviderCheckpoint final : public ::google::protobuf::Message
     return reinterpret_cast<const ProviderCheckpoint*>(
         &_ProviderCheckpoint_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 103;
+  static constexpr int kIndexInFileMessages = 109;
   friend void swap(ProviderCheckpoint& a, ProviderCheckpoint& b) { a.Swap(&b); }
   inline void Swap(ProviderCheckpoint* other) {
     if (other == this) return;
@@ -4748,7 +4835,7 @@ class PrivateMessageEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const PrivateMessageEffect*>(
         &_PrivateMessageEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 113;
+  static constexpr int kIndexInFileMessages = 119;
   friend void swap(PrivateMessageEffect& a, PrivateMessageEffect& b) { a.Swap(&b); }
   inline void Swap(PrivateMessageEffect* other) {
     if (other == this) return;
@@ -4956,7 +5043,7 @@ class PositionTombstone final : public ::google::protobuf::internal::ZeroFieldsB
     return reinterpret_cast<const PositionTombstone*>(
         &_PositionTombstone_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 122;
+  static constexpr int kIndexInFileMessages = 128;
   friend void swap(PositionTombstone& a, PositionTombstone& b) { a.Swap(&b); }
   inline void Swap(PositionTombstone* other) {
     if (other == this) return;
@@ -5085,7 +5172,7 @@ class PdcEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const PdcEffect*>(
         &_PdcEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 112;
+  static constexpr int kIndexInFileMessages = 118;
   friend void swap(PdcEffect& a, PdcEffect& b) { a.Swap(&b); }
   inline void Swap(PdcEffect* other) {
     if (other == this) return;
@@ -5346,7 +5433,7 @@ class OpenMeteoWindLevel final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoWindLevel*>(
         &_OpenMeteoWindLevel_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 169;
+  static constexpr int kIndexInFileMessages = 175;
   friend void swap(OpenMeteoWindLevel& a, OpenMeteoWindLevel& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoWindLevel* other) {
     if (other == this) return;
@@ -5537,7 +5624,7 @@ class NavRouteCache final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRouteCache*>(
         &_NavRouteCache_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 102;
+  static constexpr int kIndexInFileMessages = 108;
   friend void swap(NavRouteCache& a, NavRouteCache& b) { a.Swap(&b); }
   inline void Swap(NavRouteCache* other) {
     if (other == this) return;
@@ -5782,7 +5869,7 @@ class NavPolicyPath final : public ::google::protobuf::Message
     return reinterpret_cast<const NavPolicyPath*>(
         &_NavPolicyPath_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 149;
+  static constexpr int kIndexInFileMessages = 155;
   friend void swap(NavPolicyPath& a, NavPolicyPath& b) { a.Swap(&b); }
   inline void Swap(NavPolicyPath* other) {
     if (other == this) return;
@@ -6102,7 +6189,7 @@ class NavPolicyFeeder final : public ::google::protobuf::Message
     return reinterpret_cast<const NavPolicyFeeder*>(
         &_NavPolicyFeeder_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 148;
+  static constexpr int kIndexInFileMessages = 154;
   friend void swap(NavPolicyFeeder& a, NavPolicyFeeder& b) { a.Swap(&b); }
   inline void Swap(NavPolicyFeeder* other) {
     if (other == this) return;
@@ -6305,7 +6392,7 @@ class NavObjectRef final : public ::google::protobuf::Message
     return reinterpret_cast<const NavObjectRef*>(
         &_NavObjectRef_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 101;
+  static constexpr int kIndexInFileMessages = 107;
   friend void swap(NavObjectRef& a, NavObjectRef& b) { a.Swap(&b); }
   inline void Swap(NavObjectRef* other) {
     if (other == this) return;
@@ -6514,7 +6601,7 @@ class NavCoordinate final : public ::google::protobuf::Message
     return reinterpret_cast<const NavCoordinate*>(
         &_NavCoordinate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 130;
+  static constexpr int kIndexInFileMessages = 136;
   friend void swap(NavCoordinate& a, NavCoordinate& b) { a.Swap(&b); }
   inline void Swap(NavCoordinate* other) {
     if (other == this) return;
@@ -6908,7 +6995,7 @@ class HoppiePdcRequest final : public ::google::protobuf::Message
     return reinterpret_cast<const HoppiePdcRequest*>(
         &_HoppiePdcRequest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 160;
+  static constexpr int kIndexInFileMessages = 166;
   friend void swap(HoppiePdcRequest& a, HoppiePdcRequest& b) { a.Swap(&b); }
   inline void Swap(HoppiePdcRequest* other) {
     if (other == this) return;
@@ -7317,7 +7404,7 @@ class EffectSecret final : public ::google::protobuf::Message
     return reinterpret_cast<const EffectSecret*>(
         &_EffectSecret_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 155;
+  static constexpr int kIndexInFileMessages = 161;
   friend void swap(EffectSecret& a, EffectSecret& b) { a.Swap(&b); }
   inline void Swap(EffectSecret* other) {
     if (other == this) return;
@@ -7544,7 +7631,7 @@ class EcfmpRestriction final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpRestriction*>(
         &_EcfmpRestriction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 38;
+  static constexpr int kIndexInFileMessages = 44;
   friend void swap(EcfmpRestriction& a, EcfmpRestriction& b) { a.Swap(&b); }
   inline void Swap(EcfmpRestriction* other) {
     if (other == this) return;
@@ -7873,7 +7960,7 @@ class EcfmpFilter final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpFilter*>(
         &_EcfmpFilter_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 172;
+  static constexpr int kIndexInFileMessages = 178;
   friend void swap(EcfmpFilter& a, EcfmpFilter& b) { a.Swap(&b); }
   inline void Swap(EcfmpFilter* other) {
     if (other == this) return;
@@ -8291,7 +8378,7 @@ class CoordinationEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const CoordinationEffect*>(
         &_CoordinationEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 114;
+  static constexpr int kIndexInFileMessages = 120;
   friend void swap(CoordinationEffect& a, CoordinationEffect& b) { a.Swap(&b); }
   inline void Swap(CoordinationEffect* other) {
     if (other == this) return;
@@ -8799,7 +8886,7 @@ class ClxOverrideAction final : public ::google::protobuf::Message
     return reinterpret_cast<const ClxOverrideAction*>(
         &_ClxOverrideAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 30;
+  static constexpr int kIndexInFileMessages = 31;
   friend void swap(ClxOverrideAction& a, ClxOverrideAction& b) { a.Swap(&b); }
   inline void Swap(ClxOverrideAction* other) {
     if (other == this) return;
@@ -8917,6 +9004,287 @@ class ClxOverrideAction final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class CdmState_ExportData final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmState.ExportData) */ {
+ public:
+  inline CdmState_ExportData() : CdmState_ExportData(nullptr) {}
+  ~CdmState_ExportData() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR CdmState_ExportData(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline CdmState_ExportData(const CdmState_ExportData& from) : CdmState_ExportData(nullptr, from) {}
+  inline CdmState_ExportData(CdmState_ExportData&& from) noexcept
+      : CdmState_ExportData(nullptr, std::move(from)) {}
+  inline CdmState_ExportData& operator=(const CdmState_ExportData& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline CdmState_ExportData& operator=(CdmState_ExportData&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const CdmState_ExportData& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const CdmState_ExportData* internal_default_instance() {
+    return reinterpret_cast<const CdmState_ExportData*>(
+        &_CdmState_ExportData_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 39;
+  friend void swap(CdmState_ExportData& a, CdmState_ExportData& b) { a.Swap(&b); }
+  inline void Swap(CdmState_ExportData* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(CdmState_ExportData* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  CdmState_ExportData* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<CdmState_ExportData>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const CdmState_ExportData& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const CdmState_ExportData& from) { CdmState_ExportData::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(CdmState_ExportData* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmState.ExportData"; }
+
+ protected:
+  explicit CdmState_ExportData(::google::protobuf::Arena* arena);
+  CdmState_ExportData(::google::protobuf::Arena* arena, const CdmState_ExportData& from);
+  CdmState_ExportData(::google::protobuf::Arena* arena, CdmState_ExportData&& from) noexcept
+      : CdmState_ExportData(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kTobtFieldNumber = 1,
+    kTsatFieldNumber = 2,
+    kTtotFieldNumber = 3,
+    kCtotFieldNumber = 4,
+    kReasonFieldNumber = 5,
+    kAsrtFieldNumber = 6,
+    kDepartureInfoFieldNumber = 7,
+  };
+  // string tobt = 1;
+  void clear_tobt() ;
+  const std::string& tobt() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_tobt(Arg_&& arg, Args_... args);
+  std::string* mutable_tobt();
+  PROTOBUF_NODISCARD std::string* release_tobt();
+  void set_allocated_tobt(std::string* value);
+
+  private:
+  const std::string& _internal_tobt() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_tobt(
+      const std::string& value);
+  std::string* _internal_mutable_tobt();
+
+  public:
+  // string tsat = 2;
+  void clear_tsat() ;
+  const std::string& tsat() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_tsat(Arg_&& arg, Args_... args);
+  std::string* mutable_tsat();
+  PROTOBUF_NODISCARD std::string* release_tsat();
+  void set_allocated_tsat(std::string* value);
+
+  private:
+  const std::string& _internal_tsat() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_tsat(
+      const std::string& value);
+  std::string* _internal_mutable_tsat();
+
+  public:
+  // string ttot = 3;
+  void clear_ttot() ;
+  const std::string& ttot() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_ttot(Arg_&& arg, Args_... args);
+  std::string* mutable_ttot();
+  PROTOBUF_NODISCARD std::string* release_ttot();
+  void set_allocated_ttot(std::string* value);
+
+  private:
+  const std::string& _internal_ttot() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_ttot(
+      const std::string& value);
+  std::string* _internal_mutable_ttot();
+
+  public:
+  // string ctot = 4;
+  void clear_ctot() ;
+  const std::string& ctot() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_ctot(Arg_&& arg, Args_... args);
+  std::string* mutable_ctot();
+  PROTOBUF_NODISCARD std::string* release_ctot();
+  void set_allocated_ctot(std::string* value);
+
+  private:
+  const std::string& _internal_ctot() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_ctot(
+      const std::string& value);
+  std::string* _internal_mutable_ctot();
+
+  public:
+  // string reason = 5;
+  void clear_reason() ;
+  const std::string& reason() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_reason(Arg_&& arg, Args_... args);
+  std::string* mutable_reason();
+  PROTOBUF_NODISCARD std::string* release_reason();
+  void set_allocated_reason(std::string* value);
+
+  private:
+  const std::string& _internal_reason() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_reason(
+      const std::string& value);
+  std::string* _internal_mutable_reason();
+
+  public:
+  // string asrt = 6;
+  void clear_asrt() ;
+  const std::string& asrt() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_asrt(Arg_&& arg, Args_... args);
+  std::string* mutable_asrt();
+  PROTOBUF_NODISCARD std::string* release_asrt();
+  void set_allocated_asrt(std::string* value);
+
+  private:
+  const std::string& _internal_asrt() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_asrt(
+      const std::string& value);
+  std::string* _internal_mutable_asrt();
+
+  public:
+  // string departure_info = 7;
+  void clear_departure_info() ;
+  const std::string& departure_info() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_departure_info(Arg_&& arg, Args_... args);
+  std::string* mutable_departure_info();
+  PROTOBUF_NODISCARD std::string* release_departure_info();
+  void set_allocated_departure_info(std::string* value);
+
+  private:
+  const std::string& _internal_departure_info() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_departure_info(
+      const std::string& value);
+  std::string* _internal_mutable_departure_info();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmState.ExportData)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 7, 0,
+      92, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr tobt_;
+    ::google::protobuf::internal::ArenaStringPtr tsat_;
+    ::google::protobuf::internal::ArenaStringPtr ttot_;
+    ::google::protobuf::internal::ArenaStringPtr ctot_;
+    ::google::protobuf::internal::ArenaStringPtr reason_;
+    ::google::protobuf::internal::ArenaStringPtr asrt_;
+    ::google::protobuf::internal::ArenaStringPtr departure_info_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class CdmEffect final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmEffect) */ {
  public:
@@ -8972,7 +9340,7 @@ class CdmEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmEffect*>(
         &_CdmEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 115;
+  static constexpr int kIndexInFileMessages = 121;
   friend void swap(CdmEffect& a, CdmEffect& b) { a.Swap(&b); }
   inline void Swap(CdmEffect* other) {
     if (other == this) return;
@@ -9181,7 +9549,7 @@ class CdmConfigTaxiPoint final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigTaxiPoint*>(
         &_CdmConfigTaxiPoint_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 179;
+  static constexpr int kIndexInFileMessages = 185;
   friend void swap(CdmConfigTaxiPoint& a, CdmConfigTaxiPoint& b) { a.Swap(&b); }
   inline void Swap(CdmConfigTaxiPoint* other) {
     if (other == this) return;
@@ -9360,7 +9728,7 @@ class CdmConfigSidInterval final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigSidInterval*>(
         &_CdmConfigSidInterval_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 178;
+  static constexpr int kIndexInFileMessages = 184;
   friend void swap(CdmConfigSidInterval& a, CdmConfigSidInterval& b) { a.Swap(&b); }
   inline void Swap(CdmConfigSidInterval* other) {
     if (other == this) return;
@@ -9581,7 +9949,7 @@ class CdmConfigRate final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigRate*>(
         &_CdmConfigRate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 177;
+  static constexpr int kIndexInFileMessages = 183;
   friend void swap(CdmConfigRate& a, CdmConfigRate& b) { a.Swap(&b); }
   inline void Swap(CdmConfigRate* other) {
     if (other == this) return;
@@ -9946,7 +10314,7 @@ class CdmConfigDelay final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDelay*>(
         &_CdmConfigDelay_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 181;
+  static constexpr int kIndexInFileMessages = 187;
   friend void swap(CdmConfigDelay& a, CdmConfigDelay& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDelay* other) {
     if (other == this) return;
@@ -10155,7 +10523,7 @@ class CdmConfigDeicePlatform final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDeicePlatform*>(
         &_CdmConfigDeicePlatform_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 183;
+  static constexpr int kIndexInFileMessages = 189;
   friend void swap(CdmConfigDeicePlatform& a, CdmConfigDeicePlatform& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDeicePlatform* other) {
     if (other == this) return;
@@ -10285,6 +10653,134 @@ class CdmConfigDeicePlatform final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class AssignHoldingPoint final : public ::google::protobuf::internal::ZeroFieldsBase
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AssignHoldingPoint) */ {
+ public:
+  inline AssignHoldingPoint() : AssignHoldingPoint(nullptr) {}
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR AssignHoldingPoint(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline AssignHoldingPoint(const AssignHoldingPoint& from) : AssignHoldingPoint(nullptr, from) {}
+  inline AssignHoldingPoint(AssignHoldingPoint&& from) noexcept
+      : AssignHoldingPoint(nullptr, std::move(from)) {}
+  inline AssignHoldingPoint& operator=(const AssignHoldingPoint& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline AssignHoldingPoint& operator=(AssignHoldingPoint&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const AssignHoldingPoint& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const AssignHoldingPoint* internal_default_instance() {
+    return reinterpret_cast<const AssignHoldingPoint*>(
+        &_AssignHoldingPoint_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 29;
+  friend void swap(AssignHoldingPoint& a, AssignHoldingPoint& b) { a.Swap(&b); }
+  inline void Swap(AssignHoldingPoint* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(AssignHoldingPoint* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  AssignHoldingPoint* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::internal::ZeroFieldsBase::DefaultConstruct<AssignHoldingPoint>(arena);
+  }
+  using ::google::protobuf::internal::ZeroFieldsBase::CopyFrom;
+  inline void CopyFrom(const AssignHoldingPoint& from) {
+    ::google::protobuf::internal::ZeroFieldsBase::CopyImpl(*this, from);
+  }
+  using ::google::protobuf::internal::ZeroFieldsBase::MergeFrom;
+  void MergeFrom(const AssignHoldingPoint& from) {
+    ::google::protobuf::internal::ZeroFieldsBase::MergeImpl(*this, from);
+  }
+
+  public:
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.AssignHoldingPoint"; }
+
+ protected:
+  explicit AssignHoldingPoint(::google::protobuf::Arena* arena);
+  AssignHoldingPoint(::google::protobuf::Arena* arena, const AssignHoldingPoint& from);
+  AssignHoldingPoint(::google::protobuf::Arena* arena, AssignHoldingPoint&& from) noexcept
+      : AssignHoldingPoint(arena) {
+    *this = ::std::move(from);
+  }
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.AssignHoldingPoint)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class AmanTimelineMapping final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AmanTimelineMapping) */ {
  public:
@@ -10340,7 +10836,7 @@ class AmanTimelineMapping final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanTimelineMapping*>(
         &_AmanTimelineMapping_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 51;
+  static constexpr int kIndexInFileMessages = 57;
   friend void swap(AmanTimelineMapping& a, AmanTimelineMapping& b) { a.Swap(&b); }
   inline void Swap(AmanTimelineMapping* other) {
     if (other == this) return;
@@ -10546,7 +11042,7 @@ class AmanSpeed final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSpeed*>(
         &_AmanSpeed_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 85;
+  static constexpr int kIndexInFileMessages = 91;
   friend void swap(AmanSpeed& a, AmanSpeed& b) { a.Swap(&b); }
   inline void Swap(AmanSpeed* other) {
     if (other == this) return;
@@ -10719,7 +11215,7 @@ class AmanSequenceWarning final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSequenceWarning*>(
         &_AmanSequenceWarning_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 47;
+  static constexpr int kIndexInFileMessages = 53;
   friend void swap(AmanSequenceWarning& a, AmanSequenceWarning& b) { a.Swap(&b); }
   inline void Swap(AmanSequenceWarning* other) {
     if (other == this) return;
@@ -10946,7 +11442,7 @@ class AmanSameStarSpacing final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSameStarSpacing*>(
         &_AmanSameStarSpacing_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 46;
+  static constexpr int kIndexInFileMessages = 52;
   friend void swap(AmanSameStarSpacing& a, AmanSameStarSpacing& b) { a.Swap(&b); }
   inline void Swap(AmanSameStarSpacing* other) {
     if (other == this) return;
@@ -11137,7 +11633,7 @@ class AmanRouteProgress final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRouteProgress*>(
         &_AmanRouteProgress_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 69;
+  static constexpr int kIndexInFileMessages = 75;
   friend void swap(AmanRouteProgress& a, AmanRouteProgress& b) { a.Swap(&b); }
   inline void Swap(AmanRouteProgress* other) {
     if (other == this) return;
@@ -11478,7 +11974,7 @@ class AmanRouteDirect final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRouteDirect*>(
         &_AmanRouteDirect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 84;
+  static constexpr int kIndexInFileMessages = 90;
   friend void swap(AmanRouteDirect& a, AmanRouteDirect& b) { a.Swap(&b); }
   inline void Swap(AmanRouteDirect* other) {
     if (other == this) return;
@@ -11672,7 +12168,7 @@ class AmanReplayAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanReplayAudit*>(
         &_AmanReplayAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 96;
+  static constexpr int kIndexInFileMessages = 102;
   friend void swap(AmanReplayAudit& a, AmanReplayAudit& b) { a.Swap(&b); }
   inline void Swap(AmanReplayAudit* other) {
     if (other == this) return;
@@ -11895,7 +12391,7 @@ class AmanProvenance final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanProvenance*>(
         &_AmanProvenance_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 77;
+  static constexpr int kIndexInFileMessages = 83;
   friend void swap(AmanProvenance& a, AmanProvenance& b) { a.Swap(&b); }
   inline void Swap(AmanProvenance* other) {
     if (other == this) return;
@@ -12155,7 +12651,7 @@ class AmanObservationAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanObservationAudit*>(
         &_AmanObservationAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 89;
+  static constexpr int kIndexInFileMessages = 95;
   friend void swap(AmanObservationAudit& a, AmanObservationAudit& b) { a.Swap(&b); }
   inline void Swap(AmanObservationAudit* other) {
     if (other == this) return;
@@ -12382,7 +12878,7 @@ class AmanHoldingEatEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanHoldingEatEffect*>(
         &_AmanHoldingEatEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 116;
+  static constexpr int kIndexInFileMessages = 122;
   friend void swap(AmanHoldingEatEffect& a, AmanHoldingEatEffect& b) { a.Swap(&b); }
   inline void Swap(AmanHoldingEatEffect* other) {
     if (other == this) return;
@@ -12639,7 +13135,7 @@ class AmanHealthAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanHealthAudit*>(
         &_AmanHealthAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 92;
+  static constexpr int kIndexInFileMessages = 98;
   friend void swap(AmanHealthAudit& a, AmanHealthAudit& b) { a.Swap(&b); }
   inline void Swap(AmanHealthAudit* other) {
     if (other == this) return;
@@ -12866,7 +13362,7 @@ class AmanCoordinationAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCoordinationAudit*>(
         &_AmanCoordinationAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 91;
+  static constexpr int kIndexInFileMessages = 97;
   friend void swap(AmanCoordinationAudit& a, AmanCoordinationAudit& b) { a.Swap(&b); }
   inline void Swap(AmanCoordinationAudit* other) {
     if (other == this) return;
@@ -13093,7 +13589,7 @@ class AmanCommandAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCommandAudit*>(
         &_AmanCommandAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 88;
+  static constexpr int kIndexInFileMessages = 94;
   friend void swap(AmanCommandAudit& a, AmanCommandAudit& b) { a.Swap(&b); }
   inline void Swap(AmanCommandAudit* other) {
     if (other == this) return;
@@ -13684,7 +14180,7 @@ class AircraftPosition final : public ::google::protobuf::Message
     return reinterpret_cast<const AircraftPosition*>(
         &_AircraftPosition_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 121;
+  static constexpr int kIndexInFileMessages = 127;
   friend void swap(AircraftPosition& a, AircraftPosition& b) { a.Swap(&b); }
   inline void Swap(AircraftPosition* other) {
     if (other == this) return;
@@ -14134,7 +14630,7 @@ class AcknowledgeValidation final : public ::google::protobuf::Message
     return reinterpret_cast<const AcknowledgeValidation*>(
         &_AcknowledgeValidation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 29;
+  static constexpr int kIndexInFileMessages = 30;
   friend void swap(AcknowledgeValidation& a, AcknowledgeValidation& b) { a.Swap(&b); }
   inline void Swap(AcknowledgeValidation* other) {
     if (other == this) return;
@@ -14307,7 +14803,7 @@ class WeatherObservation final : public ::google::protobuf::Message
     return reinterpret_cast<const WeatherObservation*>(
         &_WeatherObservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 105;
+  static constexpr int kIndexInFileMessages = 111;
   friend void swap(WeatherObservation& a, WeatherObservation& b) { a.Swap(&b); }
   inline void Swap(WeatherObservation* other) {
     if (other == this) return;
@@ -14578,7 +15074,7 @@ class ViffMastersPage final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffMastersPage*>(
         &_ViffMastersPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 187;
+  static constexpr int kIndexInFileMessages = 193;
   friend void swap(ViffMastersPage& a, ViffMastersPage& b) { a.Swap(&b); }
   inline void Swap(ViffMastersPage* other) {
     if (other == this) return;
@@ -14770,7 +15266,7 @@ class ViffFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffFlight*>(
         &_ViffFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 185;
+  static constexpr int kIndexInFileMessages = 191;
   friend void swap(ViffFlight& a, ViffFlight& b) { a.Swap(&b); }
   inline void Swap(ViffFlight* other) {
     if (other == this) return;
@@ -15207,7 +15703,7 @@ class VatsimSessionCursor final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimSessionCursor*>(
         &_VatsimSessionCursor_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 99;
+  static constexpr int kIndexInFileMessages = 105;
   friend void swap(VatsimSessionCursor& a, VatsimSessionCursor& b) { a.Swap(&b); }
   inline void Swap(VatsimSessionCursor* other) {
     if (other == this) return;
@@ -15428,7 +15924,7 @@ class VatsimObservation final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimObservation*>(
         &_VatsimObservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 98;
+  static constexpr int kIndexInFileMessages = 104;
   friend void swap(VatsimObservation& a, VatsimObservation& b) { a.Swap(&b); }
   inline void Swap(VatsimObservation* other) {
     if (other == this) return;
@@ -15655,7 +16151,7 @@ class VatsimFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimFlight*>(
         &_VatsimFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 164;
+  static constexpr int kIndexInFileMessages = 170;
   friend void swap(VatsimFlight& a, VatsimFlight& b) { a.Swap(&b); }
   inline void Swap(VatsimFlight* other) {
     if (other == this) return;
@@ -15963,6 +16459,7 @@ class ValidationAction final : public ::google::protobuf::Message
   enum ActionCase {
     kAcknowledge = 2,
     kClxOverride = 3,
+    kAssignHoldingPoint = 4,
     ACTION_NOT_SET = 0,
   };
   static inline const ValidationAction* internal_default_instance() {
@@ -16042,6 +16539,7 @@ class ValidationAction final : public ::google::protobuf::Message
     kLabelFieldNumber = 1,
     kAcknowledgeFieldNumber = 2,
     kClxOverrideFieldNumber = 3,
+    kAssignHoldingPointFieldNumber = 4,
   };
   // string label = 1;
   void clear_label() ;
@@ -16097,6 +16595,25 @@ class ValidationAction final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::ClxOverrideAction* _internal_mutable_clx_override();
 
   public:
+  // .flightstrips.cluster.v1.AssignHoldingPoint assign_holding_point = 4;
+  bool has_assign_holding_point() const;
+  private:
+  bool _internal_has_assign_holding_point() const;
+
+  public:
+  void clear_assign_holding_point() ;
+  const ::flightstrips::cluster::v1::AssignHoldingPoint& assign_holding_point() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::AssignHoldingPoint* release_assign_holding_point();
+  ::flightstrips::cluster::v1::AssignHoldingPoint* mutable_assign_holding_point();
+  void set_allocated_assign_holding_point(::flightstrips::cluster::v1::AssignHoldingPoint* value);
+  void unsafe_arena_set_allocated_assign_holding_point(::flightstrips::cluster::v1::AssignHoldingPoint* value);
+  ::flightstrips::cluster::v1::AssignHoldingPoint* unsafe_arena_release_assign_holding_point();
+
+  private:
+  const ::flightstrips::cluster::v1::AssignHoldingPoint& _internal_assign_holding_point() const;
+  ::flightstrips::cluster::v1::AssignHoldingPoint* _internal_mutable_assign_holding_point();
+
+  public:
   void clear_action();
   ActionCase action_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ValidationAction)
@@ -16104,11 +16621,12 @@ class ValidationAction final : public ::google::protobuf::Message
   class _Internal;
   void set_has_acknowledge();
   void set_has_clx_override();
+  void set_has_assign_holding_point();
   inline bool has_action() const;
   inline void clear_has_action();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 3, 2,
+      0, 4, 3,
       54, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -16130,6 +16648,7 @@ class ValidationAction final : public ::google::protobuf::Message
       ::google::protobuf::internal::ConstantInitialized _constinit_;
       ::flightstrips::cluster::v1::AcknowledgeValidation* acknowledge_;
       ::flightstrips::cluster::v1::ClxOverrideAction* clx_override_;
+      ::flightstrips::cluster::v1::AssignHoldingPoint* assign_holding_point_;
     } action_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -16195,7 +16714,7 @@ class TransceiverFeedPage final : public ::google::protobuf::Message
     return reinterpret_cast<const TransceiverFeedPage*>(
         &_TransceiverFeedPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 157;
+  static constexpr int kIndexInFileMessages = 163;
   friend void swap(TransceiverFeedPage& a, TransceiverFeedPage& b) { a.Swap(&b); }
   inline void Swap(TransceiverFeedPage* other) {
     if (other == this) return;
@@ -16387,7 +16906,7 @@ class TacticalStrip final : public ::google::protobuf::Message
     return reinterpret_cast<const TacticalStrip*>(
         &_TacticalStrip_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 32;
+  static constexpr int kIndexInFileMessages = 33;
   friend void swap(TacticalStrip& a, TacticalStrip& b) { a.Swap(&b); }
   inline void Swap(TacticalStrip* other) {
     if (other == this) return;
@@ -16799,7 +17318,7 @@ class StandBlock final : public ::google::protobuf::Message
     return reinterpret_cast<const StandBlock*>(
         &_StandBlock_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 34;
+  static constexpr int kIndexInFileMessages = 35;
   friend void swap(StandBlock& a, StandBlock& b) { a.Swap(&b); }
   inline void Swap(StandBlock* other) {
     if (other == this) return;
@@ -17169,7 +17688,7 @@ class StandAssignment final : public ::google::protobuf::Message
     return reinterpret_cast<const StandAssignment*>(
         &_StandAssignment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 33;
+  static constexpr int kIndexInFileMessages = 34;
   friend void swap(StandAssignment& a, StandAssignment& b) { a.Swap(&b); }
   inline void Swap(StandAssignment* other) {
     if (other == this) return;
@@ -17986,7 +18505,7 @@ class SessionDeadline final : public ::google::protobuf::Message
     return reinterpret_cast<const SessionDeadline*>(
         &_SessionDeadline_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 107;
+  static constexpr int kIndexInFileMessages = 113;
   friend void swap(SessionDeadline& a, SessionDeadline& b) { a.Swap(&b); }
   inline void Swap(SessionDeadline* other) {
     if (other == this) return;
@@ -18463,7 +18982,7 @@ class PositionValue final : public ::google::protobuf::Message
     return reinterpret_cast<const PositionValue*>(
         &_PositionValue_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 120;
+  static constexpr int kIndexInFileMessages = 126;
   friend void swap(PositionValue& a, PositionValue& b) { a.Swap(&b); }
   inline void Swap(PositionValue* other) {
     if (other == this) return;
@@ -18761,7 +19280,7 @@ class PdcSequence final : public ::google::protobuf::Message
     return reinterpret_cast<const PdcSequence*>(
         &_PdcSequence_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 35;
+  static constexpr int kIndexInFileMessages = 36;
   friend void swap(PdcSequence& a, PdcSequence& b) { a.Swap(&b); }
   inline void Swap(PdcSequence* other) {
     if (other == this) return;
@@ -19171,7 +19690,7 @@ class PdcProviderMessage final : public ::google::protobuf::Message
     return reinterpret_cast<const PdcProviderMessage*>(
         &_PdcProviderMessage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 159;
+  static constexpr int kIndexInFileMessages = 165;
   friend void swap(PdcProviderMessage& a, PdcProviderMessage& b) { a.Swap(&b); }
   inline void Swap(PdcProviderMessage* other) {
     if (other == this) return;
@@ -19755,7 +20274,7 @@ class OpenMeteoSample final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoSample*>(
         &_OpenMeteoSample_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 168;
+  static constexpr int kIndexInFileMessages = 174;
   friend void swap(OpenMeteoSample& a, OpenMeteoSample& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoSample* other) {
     if (other == this) return;
@@ -19971,7 +20490,7 @@ class NodePresence final : public ::google::protobuf::Message
     return reinterpret_cast<const NodePresence*>(
         &_NodePresence_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 124;
+  static constexpr int kIndexInFileMessages = 130;
   friend void swap(NodePresence& a, NodePresence& b) { a.Swap(&b); }
   inline void Swap(NodePresence* other) {
     if (other == this) return;
@@ -20174,7 +20693,7 @@ class NavTmaRing final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTmaRing*>(
         &_NavTmaRing_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 145;
+  static constexpr int kIndexInFileMessages = 151;
   friend void swap(NavTmaRing& a, NavTmaRing& b) { a.Swap(&b); }
   inline void Swap(NavTmaRing* other) {
     if (other == this) return;
@@ -20348,7 +20867,7 @@ class NavThreshold final : public ::google::protobuf::Message
     return reinterpret_cast<const NavThreshold*>(
         &_NavThreshold_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 131;
+  static constexpr int kIndexInFileMessages = 137;
   friend void swap(NavThreshold& a, NavThreshold& b) { a.Swap(&b); }
   inline void Swap(NavThreshold* other) {
     if (other == this) return;
@@ -20547,7 +21066,7 @@ class NavStarFamilyPolicy final : public ::google::protobuf::Message
     return reinterpret_cast<const NavStarFamilyPolicy*>(
         &_NavStarFamilyPolicy_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 150;
+  static constexpr int kIndexInFileMessages = 156;
   friend void swap(NavStarFamilyPolicy& a, NavStarFamilyPolicy& b) { a.Swap(&b); }
   inline void Swap(NavStarFamilyPolicy* other) {
     if (other == this) return;
@@ -20756,7 +21275,7 @@ class NavProvenance final : public ::google::protobuf::Message
     return reinterpret_cast<const NavProvenance*>(
         &_NavProvenance_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 129;
+  static constexpr int kIndexInFileMessages = 135;
   friend void swap(NavProvenance& a, NavProvenance& b) { a.Swap(&b); }
   inline void Swap(NavProvenance* other) {
     if (other == this) return;
@@ -20999,7 +21518,7 @@ class NavManifest final : public ::google::protobuf::Message
     return reinterpret_cast<const NavManifest*>(
         &_NavManifest_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 100;
+  static constexpr int kIndexInFileMessages = 106;
   friend void swap(NavManifest& a, NavManifest& b) { a.Swap(&b); }
   inline void Swap(NavManifest* other) {
     if (other == this) return;
@@ -21269,7 +21788,7 @@ class NavLeg final : public ::google::protobuf::Message
     return reinterpret_cast<const NavLeg*>(
         &_NavLeg_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 137;
+  static constexpr int kIndexInFileMessages = 143;
   friend void swap(NavLeg& a, NavLeg& b) { a.Swap(&b); }
   inline void Swap(NavLeg* other) {
     if (other == this) return;
@@ -21578,7 +22097,7 @@ class NavDatasetVersion final : public ::google::protobuf::Message
     return reinterpret_cast<const NavDatasetVersion*>(
         &_NavDatasetVersion_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 128;
+  static constexpr int kIndexInFileMessages = 134;
   friend void swap(NavDatasetVersion& a, NavDatasetVersion& b) { a.Swap(&b); }
   inline void Swap(NavDatasetVersion* other) {
     if (other == this) return;
@@ -21804,7 +22323,7 @@ class FrontendMessage final : public ::google::protobuf::Message
     return reinterpret_cast<const FrontendMessage*>(
         &_FrontendMessage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 41;
+  static constexpr int kIndexInFileMessages = 47;
   friend void swap(FrontendMessage& a, FrontendMessage& b) { a.Swap(&b); }
   inline void Swap(FrontendMessage* other) {
     if (other == this) return;
@@ -22076,7 +22595,7 @@ class EffectRecord final : public ::google::protobuf::Message
     return reinterpret_cast<const EffectRecord*>(
         &_EffectRecord_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 110;
+  static constexpr int kIndexInFileMessages = 116;
   friend void swap(EffectRecord& a, EffectRecord& b) { a.Swap(&b); }
   inline void Swap(EffectRecord* other) {
     if (other == this) return;
@@ -22559,7 +23078,7 @@ class EcfmpState final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpState*>(
         &_EcfmpState_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 37;
+  static constexpr int kIndexInFileMessages = 43;
   friend void swap(EcfmpState& a, EcfmpState& b) { a.Swap(&b); }
   inline void Swap(EcfmpState* other) {
     if (other == this) return;
@@ -22769,7 +23288,7 @@ class EcfmpMeasure final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpMeasure*>(
         &_EcfmpMeasure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 171;
+  static constexpr int kIndexInFileMessages = 177;
   friend void swap(EcfmpMeasure& a, EcfmpMeasure& b) { a.Swap(&b); }
   inline void Swap(EcfmpMeasure* other) {
     if (other == this) return;
@@ -23151,7 +23670,7 @@ class Coordination final : public ::google::protobuf::Message
     return reinterpret_cast<const Coordination*>(
         &_Coordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 31;
+  static constexpr int kIndexInFileMessages = 32;
   friend void swap(Coordination& a, Coordination& b) { a.Swap(&b); }
   inline void Swap(Coordination* other) {
     if (other == this) return;
@@ -23473,7 +23992,7 @@ class ClxOverride final : public ::google::protobuf::Message
     return reinterpret_cast<const ClxOverride*>(
         &_ClxOverride_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 40;
+  static constexpr int kIndexInFileMessages = 46;
   friend void swap(ClxOverride& a, ClxOverride& b) { a.Swap(&b); }
   inline void Swap(ClxOverride* other) {
     if (other == this) return;
@@ -23700,7 +24219,7 @@ class ClientPresence final : public ::google::protobuf::Message
     return reinterpret_cast<const ClientPresence*>(
         &_ClientPresence_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 125;
+  static constexpr int kIndexInFileMessages = 131;
   friend void swap(ClientPresence& a, ClientPresence& b) { a.Swap(&b); }
   inline void Swap(ClientPresence* other) {
     if (other == this) return;
@@ -23964,23 +24483,23 @@ class ClientPresence final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
-class CdmState final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmState) */ {
+class CdmState_ReasonMarker final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmState.ReasonMarker) */ {
  public:
-  inline CdmState() : CdmState(nullptr) {}
-  ~CdmState() override;
+  inline CdmState_ReasonMarker() : CdmState_ReasonMarker(nullptr) {}
+  ~CdmState_ReasonMarker() override;
   template <typename = void>
-  explicit PROTOBUF_CONSTEXPR CdmState(
+  explicit PROTOBUF_CONSTEXPR CdmState_ReasonMarker(
       ::google::protobuf::internal::ConstantInitialized);
 
-  inline CdmState(const CdmState& from) : CdmState(nullptr, from) {}
-  inline CdmState(CdmState&& from) noexcept
-      : CdmState(nullptr, std::move(from)) {}
-  inline CdmState& operator=(const CdmState& from) {
+  inline CdmState_ReasonMarker(const CdmState_ReasonMarker& from) : CdmState_ReasonMarker(nullptr, from) {}
+  inline CdmState_ReasonMarker(CdmState_ReasonMarker&& from) noexcept
+      : CdmState_ReasonMarker(nullptr, std::move(from)) {}
+  inline CdmState_ReasonMarker& operator=(const CdmState_ReasonMarker& from) {
     CopyFrom(from);
     return *this;
   }
-  inline CdmState& operator=(CdmState&& from) noexcept {
+  inline CdmState_ReasonMarker& operator=(CdmState_ReasonMarker&& from) noexcept {
     if (this == &from) return *this;
     if (GetArena() == from.GetArena()
 #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
@@ -24012,16 +24531,16 @@ class CdmState final : public ::google::protobuf::Message
   static const ::google::protobuf::Reflection* GetReflection() {
     return default_instance().GetMetadata().reflection;
   }
-  static const CdmState& default_instance() {
+  static const CdmState_ReasonMarker& default_instance() {
     return *internal_default_instance();
   }
-  static inline const CdmState* internal_default_instance() {
-    return reinterpret_cast<const CdmState*>(
-        &_CdmState_default_instance_);
+  static inline const CdmState_ReasonMarker* internal_default_instance() {
+    return reinterpret_cast<const CdmState_ReasonMarker*>(
+        &_CdmState_ReasonMarker_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 36;
-  friend void swap(CdmState& a, CdmState& b) { a.Swap(&b); }
-  inline void Swap(CdmState* other) {
+  static constexpr int kIndexInFileMessages = 41;
+  friend void swap(CdmState_ReasonMarker& a, CdmState_ReasonMarker& b) { a.Swap(&b); }
+  inline void Swap(CdmState_ReasonMarker* other) {
     if (other == this) return;
 #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
     if (GetArena() != nullptr && GetArena() == other->GetArena()) {
@@ -24033,7 +24552,7 @@ class CdmState final : public ::google::protobuf::Message
       ::google::protobuf::internal::GenericSwap(this, other);
     }
   }
-  void UnsafeArenaSwap(CdmState* other) {
+  void UnsafeArenaSwap(CdmState_ReasonMarker* other) {
     if (other == this) return;
     ABSL_DCHECK(GetArena() == other->GetArena());
     InternalSwap(other);
@@ -24041,13 +24560,13 @@ class CdmState final : public ::google::protobuf::Message
 
   // implements Message ----------------------------------------------
 
-  CdmState* New(::google::protobuf::Arena* arena = nullptr) const final {
-    return ::google::protobuf::Message::DefaultConstruct<CdmState>(arena);
+  CdmState_ReasonMarker* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<CdmState_ReasonMarker>(arena);
   }
   using ::google::protobuf::Message::CopyFrom;
-  void CopyFrom(const CdmState& from);
+  void CopyFrom(const CdmState_ReasonMarker& from);
   using ::google::protobuf::Message::MergeFrom;
-  void MergeFrom(const CdmState& from) { CdmState::MergeImpl(*this, from); }
+  void MergeFrom(const CdmState_ReasonMarker& from) { CdmState_ReasonMarker::MergeImpl(*this, from); }
 
   private:
   static void MergeImpl(
@@ -24068,16 +24587,16 @@ class CdmState final : public ::google::protobuf::Message
   private:
   void SharedCtor(::google::protobuf::Arena* arena);
   void SharedDtor();
-  void InternalSwap(CdmState* other);
+  void InternalSwap(CdmState_ReasonMarker* other);
  private:
   friend class ::google::protobuf::internal::AnyMetadata;
-  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmState"; }
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmState.ReasonMarker"; }
 
  protected:
-  explicit CdmState(::google::protobuf::Arena* arena);
-  CdmState(::google::protobuf::Arena* arena, const CdmState& from);
-  CdmState(::google::protobuf::Arena* arena, CdmState&& from) noexcept
-      : CdmState(arena) {
+  explicit CdmState_ReasonMarker(::google::protobuf::Arena* arena);
+  CdmState_ReasonMarker(::google::protobuf::Arena* arena, const CdmState_ReasonMarker& from);
+  CdmState_ReasonMarker(::google::protobuf::Arena* arena, CdmState_ReasonMarker&& from) noexcept
+      : CdmState_ReasonMarker(arena) {
     *this = ::std::move(from);
   }
   const ::google::protobuf::MessageLite::ClassData* GetClassData()
@@ -24089,140 +24608,144 @@ class CdmState final : public ::google::protobuf::Message
 
   // accessors -------------------------------------------------------
   enum : int {
-    kCallsignFieldNumber = 1,
-    kDeiceFieldNumber = 6,
-    kSourceRevisionFieldNumber = 8,
-    kTobtFieldNumber = 2,
-    kTsatFieldNumber = 3,
-    kTtotFieldNumber = 4,
-    kCtotFieldNumber = 5,
-    kReadyFieldNumber = 7,
+    kKindFieldNumber = 1,
+    kMessageFieldNumber = 2,
+    kAgainstCallsignFieldNumber = 3,
+    kAgainstRunwayFieldNumber = 4,
+    kAgainstTtotFieldNumber = 5,
+    kFromTtotFieldNumber = 6,
+    kToTtotFieldNumber = 7,
+    kRequiredSpacingMinutesFieldNumber = 8,
   };
-  // string callsign = 1;
-  void clear_callsign() ;
-  const std::string& callsign() const;
+  // string kind = 1;
+  void clear_kind() ;
+  const std::string& kind() const;
   template <typename Arg_ = const std::string&, typename... Args_>
-  void set_callsign(Arg_&& arg, Args_... args);
-  std::string* mutable_callsign();
-  PROTOBUF_NODISCARD std::string* release_callsign();
-  void set_allocated_callsign(std::string* value);
+  void set_kind(Arg_&& arg, Args_... args);
+  std::string* mutable_kind();
+  PROTOBUF_NODISCARD std::string* release_kind();
+  void set_allocated_kind(std::string* value);
 
   private:
-  const std::string& _internal_callsign() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+  const std::string& _internal_kind() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_kind(
       const std::string& value);
-  std::string* _internal_mutable_callsign();
+  std::string* _internal_mutable_kind();
 
   public:
-  // string deice = 6;
-  void clear_deice() ;
-  const std::string& deice() const;
+  // string message = 2;
+  void clear_message() ;
+  const std::string& message() const;
   template <typename Arg_ = const std::string&, typename... Args_>
-  void set_deice(Arg_&& arg, Args_... args);
-  std::string* mutable_deice();
-  PROTOBUF_NODISCARD std::string* release_deice();
-  void set_allocated_deice(std::string* value);
+  void set_message(Arg_&& arg, Args_... args);
+  std::string* mutable_message();
+  PROTOBUF_NODISCARD std::string* release_message();
+  void set_allocated_message(std::string* value);
 
   private:
-  const std::string& _internal_deice() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_deice(
+  const std::string& _internal_message() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_message(
       const std::string& value);
-  std::string* _internal_mutable_deice();
+  std::string* _internal_mutable_message();
 
   public:
-  // string source_revision = 8;
-  void clear_source_revision() ;
-  const std::string& source_revision() const;
+  // optional string against_callsign = 3;
+  bool has_against_callsign() const;
+  void clear_against_callsign() ;
+  const std::string& against_callsign() const;
   template <typename Arg_ = const std::string&, typename... Args_>
-  void set_source_revision(Arg_&& arg, Args_... args);
-  std::string* mutable_source_revision();
-  PROTOBUF_NODISCARD std::string* release_source_revision();
-  void set_allocated_source_revision(std::string* value);
+  void set_against_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_against_callsign();
+  PROTOBUF_NODISCARD std::string* release_against_callsign();
+  void set_allocated_against_callsign(std::string* value);
 
   private:
-  const std::string& _internal_source_revision() const;
-  inline PROTOBUF_ALWAYS_INLINE void _internal_set_source_revision(
+  const std::string& _internal_against_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_against_callsign(
       const std::string& value);
-  std::string* _internal_mutable_source_revision();
+  std::string* _internal_mutable_against_callsign();
 
   public:
-  // optional .google.protobuf.Timestamp tobt = 2;
-  bool has_tobt() const;
-  void clear_tobt() ;
-  const ::google::protobuf::Timestamp& tobt() const;
-  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_tobt();
-  ::google::protobuf::Timestamp* mutable_tobt();
-  void set_allocated_tobt(::google::protobuf::Timestamp* value);
-  void unsafe_arena_set_allocated_tobt(::google::protobuf::Timestamp* value);
-  ::google::protobuf::Timestamp* unsafe_arena_release_tobt();
+  // optional string against_runway = 4;
+  bool has_against_runway() const;
+  void clear_against_runway() ;
+  const std::string& against_runway() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_against_runway(Arg_&& arg, Args_... args);
+  std::string* mutable_against_runway();
+  PROTOBUF_NODISCARD std::string* release_against_runway();
+  void set_allocated_against_runway(std::string* value);
 
   private:
-  const ::google::protobuf::Timestamp& _internal_tobt() const;
-  ::google::protobuf::Timestamp* _internal_mutable_tobt();
+  const std::string& _internal_against_runway() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_against_runway(
+      const std::string& value);
+  std::string* _internal_mutable_against_runway();
 
   public:
-  // optional .google.protobuf.Timestamp tsat = 3;
-  bool has_tsat() const;
-  void clear_tsat() ;
-  const ::google::protobuf::Timestamp& tsat() const;
-  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_tsat();
-  ::google::protobuf::Timestamp* mutable_tsat();
-  void set_allocated_tsat(::google::protobuf::Timestamp* value);
-  void unsafe_arena_set_allocated_tsat(::google::protobuf::Timestamp* value);
-  ::google::protobuf::Timestamp* unsafe_arena_release_tsat();
+  // optional .google.protobuf.Timestamp against_ttot = 5;
+  bool has_against_ttot() const;
+  void clear_against_ttot() ;
+  const ::google::protobuf::Timestamp& against_ttot() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_against_ttot();
+  ::google::protobuf::Timestamp* mutable_against_ttot();
+  void set_allocated_against_ttot(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_against_ttot(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_against_ttot();
 
   private:
-  const ::google::protobuf::Timestamp& _internal_tsat() const;
-  ::google::protobuf::Timestamp* _internal_mutable_tsat();
+  const ::google::protobuf::Timestamp& _internal_against_ttot() const;
+  ::google::protobuf::Timestamp* _internal_mutable_against_ttot();
 
   public:
-  // optional .google.protobuf.Timestamp ttot = 4;
-  bool has_ttot() const;
-  void clear_ttot() ;
-  const ::google::protobuf::Timestamp& ttot() const;
-  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_ttot();
-  ::google::protobuf::Timestamp* mutable_ttot();
-  void set_allocated_ttot(::google::protobuf::Timestamp* value);
-  void unsafe_arena_set_allocated_ttot(::google::protobuf::Timestamp* value);
-  ::google::protobuf::Timestamp* unsafe_arena_release_ttot();
+  // optional .google.protobuf.Timestamp from_ttot = 6;
+  bool has_from_ttot() const;
+  void clear_from_ttot() ;
+  const ::google::protobuf::Timestamp& from_ttot() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_from_ttot();
+  ::google::protobuf::Timestamp* mutable_from_ttot();
+  void set_allocated_from_ttot(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_from_ttot(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_from_ttot();
 
   private:
-  const ::google::protobuf::Timestamp& _internal_ttot() const;
-  ::google::protobuf::Timestamp* _internal_mutable_ttot();
+  const ::google::protobuf::Timestamp& _internal_from_ttot() const;
+  ::google::protobuf::Timestamp* _internal_mutable_from_ttot();
 
   public:
-  // optional .google.protobuf.Timestamp ctot = 5;
-  bool has_ctot() const;
-  void clear_ctot() ;
-  const ::google::protobuf::Timestamp& ctot() const;
-  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_ctot();
-  ::google::protobuf::Timestamp* mutable_ctot();
-  void set_allocated_ctot(::google::protobuf::Timestamp* value);
-  void unsafe_arena_set_allocated_ctot(::google::protobuf::Timestamp* value);
-  ::google::protobuf::Timestamp* unsafe_arena_release_ctot();
+  // optional .google.protobuf.Timestamp to_ttot = 7;
+  bool has_to_ttot() const;
+  void clear_to_ttot() ;
+  const ::google::protobuf::Timestamp& to_ttot() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_to_ttot();
+  ::google::protobuf::Timestamp* mutable_to_ttot();
+  void set_allocated_to_ttot(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_to_ttot(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_to_ttot();
 
   private:
-  const ::google::protobuf::Timestamp& _internal_ctot() const;
-  ::google::protobuf::Timestamp* _internal_mutable_ctot();
+  const ::google::protobuf::Timestamp& _internal_to_ttot() const;
+  ::google::protobuf::Timestamp* _internal_mutable_to_ttot();
 
   public:
-  // bool ready = 7;
-  void clear_ready() ;
-  bool ready() const;
-  void set_ready(bool value);
+  // optional double required_spacing_minutes = 8;
+  bool has_required_spacing_minutes() const;
+  void clear_required_spacing_minutes() ;
+  double required_spacing_minutes() const;
+  void set_required_spacing_minutes(double value);
 
   private:
-  bool _internal_ready() const;
-  void _internal_set_ready(bool value);
+  double _internal_required_spacing_minutes() const;
+  void _internal_set_required_spacing_minutes(double value);
 
   public:
-  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmState)
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmState.ReasonMarker)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 8, 4,
-      77, 2>
+      3, 8, 3,
+      103, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -24239,14 +24762,538 @@ class CdmState final : public ::google::protobuf::Message
                           ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::internal::ArenaStringPtr callsign_;
-    ::google::protobuf::internal::ArenaStringPtr deice_;
-    ::google::protobuf::internal::ArenaStringPtr source_revision_;
-    ::google::protobuf::Timestamp* tobt_;
-    ::google::protobuf::Timestamp* tsat_;
-    ::google::protobuf::Timestamp* ttot_;
-    ::google::protobuf::Timestamp* ctot_;
-    bool ready_;
+    ::google::protobuf::internal::ArenaStringPtr kind_;
+    ::google::protobuf::internal::ArenaStringPtr message_;
+    ::google::protobuf::internal::ArenaStringPtr against_callsign_;
+    ::google::protobuf::internal::ArenaStringPtr against_runway_;
+    ::google::protobuf::Timestamp* against_ttot_;
+    ::google::protobuf::Timestamp* from_ttot_;
+    ::google::protobuf::Timestamp* to_ttot_;
+    double required_spacing_minutes_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
+class CdmState_PushbackVerification final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmState.PushbackVerification) */ {
+ public:
+  inline CdmState_PushbackVerification() : CdmState_PushbackVerification(nullptr) {}
+  ~CdmState_PushbackVerification() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR CdmState_PushbackVerification(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline CdmState_PushbackVerification(const CdmState_PushbackVerification& from) : CdmState_PushbackVerification(nullptr, from) {}
+  inline CdmState_PushbackVerification(CdmState_PushbackVerification&& from) noexcept
+      : CdmState_PushbackVerification(nullptr, std::move(from)) {}
+  inline CdmState_PushbackVerification& operator=(const CdmState_PushbackVerification& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline CdmState_PushbackVerification& operator=(CdmState_PushbackVerification&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const CdmState_PushbackVerification& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const CdmState_PushbackVerification* internal_default_instance() {
+    return reinterpret_cast<const CdmState_PushbackVerification*>(
+        &_CdmState_PushbackVerification_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 37;
+  friend void swap(CdmState_PushbackVerification& a, CdmState_PushbackVerification& b) { a.Swap(&b); }
+  inline void Swap(CdmState_PushbackVerification* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(CdmState_PushbackVerification* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  CdmState_PushbackVerification* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<CdmState_PushbackVerification>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const CdmState_PushbackVerification& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const CdmState_PushbackVerification& from) { CdmState_PushbackVerification::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(CdmState_PushbackVerification* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmState.PushbackVerification"; }
+
+ protected:
+  explicit CdmState_PushbackVerification(::google::protobuf::Arena* arena);
+  CdmState_PushbackVerification(::google::protobuf::Arena* arena, const CdmState_PushbackVerification& from);
+  CdmState_PushbackVerification(::google::protobuf::Arena* arena, CdmState_PushbackVerification&& from) noexcept
+      : CdmState_PushbackVerification(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kOperationIdFieldNumber = 1,
+    kExpectedTobtFieldNumber = 2,
+    kAttemptsFieldNumber = 3,
+    kMatchesFieldNumber = 4,
+    kCompletedFieldNumber = 5,
+    kVerifiedFieldNumber = 6,
+  };
+  // string operation_id = 1;
+  void clear_operation_id() ;
+  const std::string& operation_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_operation_id(Arg_&& arg, Args_... args);
+  std::string* mutable_operation_id();
+  PROTOBUF_NODISCARD std::string* release_operation_id();
+  void set_allocated_operation_id(std::string* value);
+
+  private:
+  const std::string& _internal_operation_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_operation_id(
+      const std::string& value);
+  std::string* _internal_mutable_operation_id();
+
+  public:
+  // .google.protobuf.Timestamp expected_tobt = 2;
+  bool has_expected_tobt() const;
+  void clear_expected_tobt() ;
+  const ::google::protobuf::Timestamp& expected_tobt() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_expected_tobt();
+  ::google::protobuf::Timestamp* mutable_expected_tobt();
+  void set_allocated_expected_tobt(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_expected_tobt(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_expected_tobt();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_expected_tobt() const;
+  ::google::protobuf::Timestamp* _internal_mutable_expected_tobt();
+
+  public:
+  // uint32 attempts = 3;
+  void clear_attempts() ;
+  ::uint32_t attempts() const;
+  void set_attempts(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_attempts() const;
+  void _internal_set_attempts(::uint32_t value);
+
+  public:
+  // uint32 matches = 4;
+  void clear_matches() ;
+  ::uint32_t matches() const;
+  void set_matches(::uint32_t value);
+
+  private:
+  ::uint32_t _internal_matches() const;
+  void _internal_set_matches(::uint32_t value);
+
+  public:
+  // bool completed = 5;
+  void clear_completed() ;
+  bool completed() const;
+  void set_completed(bool value);
+
+  private:
+  bool _internal_completed() const;
+  void _internal_set_completed(bool value);
+
+  public:
+  // bool verified = 6;
+  void clear_verified() ;
+  bool verified() const;
+  void set_verified(bool value);
+
+  private:
+  bool _internal_verified() const;
+  void _internal_set_verified(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmState.PushbackVerification)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 6, 1,
+      74, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr operation_id_;
+    ::google::protobuf::Timestamp* expected_tobt_;
+    ::uint32_t attempts_;
+    ::uint32_t matches_;
+    bool completed_;
+    bool verified_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
+class CdmState_ExportIntent final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmState.ExportIntent) */ {
+ public:
+  inline CdmState_ExportIntent() : CdmState_ExportIntent(nullptr) {}
+  ~CdmState_ExportIntent() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR CdmState_ExportIntent(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline CdmState_ExportIntent(const CdmState_ExportIntent& from) : CdmState_ExportIntent(nullptr, from) {}
+  inline CdmState_ExportIntent(CdmState_ExportIntent&& from) noexcept
+      : CdmState_ExportIntent(nullptr, std::move(from)) {}
+  inline CdmState_ExportIntent& operator=(const CdmState_ExportIntent& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline CdmState_ExportIntent& operator=(CdmState_ExportIntent&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const CdmState_ExportIntent& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const CdmState_ExportIntent* internal_default_instance() {
+    return reinterpret_cast<const CdmState_ExportIntent*>(
+        &_CdmState_ExportIntent_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 38;
+  friend void swap(CdmState_ExportIntent& a, CdmState_ExportIntent& b) { a.Swap(&b); }
+  inline void Swap(CdmState_ExportIntent* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(CdmState_ExportIntent* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  CdmState_ExportIntent* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<CdmState_ExportIntent>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const CdmState_ExportIntent& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const CdmState_ExportIntent& from) { CdmState_ExportIntent::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(CdmState_ExportIntent* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmState.ExportIntent"; }
+
+ protected:
+  explicit CdmState_ExportIntent(::google::protobuf::Arena* arena);
+  CdmState_ExportIntent(::google::protobuf::Arena* arena, const CdmState_ExportIntent& from);
+  CdmState_ExportIntent(::google::protobuf::Arena* arena, CdmState_ExportIntent&& from) noexcept
+      : CdmState_ExportIntent(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+  using Kind = CdmState_ExportIntent_Kind;
+  static constexpr Kind KIND_UNSPECIFIED = CdmState_ExportIntent_Kind_KIND_UNSPECIFIED;
+  static constexpr Kind DPI = CdmState_ExportIntent_Kind_DPI;
+  static constexpr Kind SET_CDM_DATA = CdmState_ExportIntent_Kind_SET_CDM_DATA;
+  static constexpr Kind SET_TOBT = CdmState_ExportIntent_Kind_SET_TOBT;
+  static inline bool Kind_IsValid(int value) {
+    return CdmState_ExportIntent_Kind_IsValid(value);
+  }
+  static constexpr Kind Kind_MIN = CdmState_ExportIntent_Kind_Kind_MIN;
+  static constexpr Kind Kind_MAX = CdmState_ExportIntent_Kind_Kind_MAX;
+  static constexpr int Kind_ARRAYSIZE = CdmState_ExportIntent_Kind_Kind_ARRAYSIZE;
+  static inline const ::google::protobuf::EnumDescriptor* Kind_descriptor() {
+    return CdmState_ExportIntent_Kind_descriptor();
+  }
+  template <typename T>
+  static inline const std::string& Kind_Name(T value) {
+    return CdmState_ExportIntent_Kind_Name(value);
+  }
+  static inline bool Kind_Parse(absl::string_view name, Kind* value) {
+    return CdmState_ExportIntent_Kind_Parse(name, value);
+  }
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kOperationIdFieldNumber = 1,
+    kValueFieldNumber = 3,
+    kAfterOperationIdFieldNumber = 6,
+    kDataFieldNumber = 5,
+    kKindFieldNumber = 2,
+    kTaxiMinutesFieldNumber = 4,
+    kInputRevisionFieldNumber = 7,
+  };
+  // string operation_id = 1;
+  void clear_operation_id() ;
+  const std::string& operation_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_operation_id(Arg_&& arg, Args_... args);
+  std::string* mutable_operation_id();
+  PROTOBUF_NODISCARD std::string* release_operation_id();
+  void set_allocated_operation_id(std::string* value);
+
+  private:
+  const std::string& _internal_operation_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_operation_id(
+      const std::string& value);
+  std::string* _internal_mutable_operation_id();
+
+  public:
+  // string value = 3;
+  void clear_value() ;
+  const std::string& value() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_value(Arg_&& arg, Args_... args);
+  std::string* mutable_value();
+  PROTOBUF_NODISCARD std::string* release_value();
+  void set_allocated_value(std::string* value);
+
+  private:
+  const std::string& _internal_value() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_value(
+      const std::string& value);
+  std::string* _internal_mutable_value();
+
+  public:
+  // optional string after_operation_id = 6;
+  bool has_after_operation_id() const;
+  void clear_after_operation_id() ;
+  const std::string& after_operation_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_after_operation_id(Arg_&& arg, Args_... args);
+  std::string* mutable_after_operation_id();
+  PROTOBUF_NODISCARD std::string* release_after_operation_id();
+  void set_allocated_after_operation_id(std::string* value);
+
+  private:
+  const std::string& _internal_after_operation_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_after_operation_id(
+      const std::string& value);
+  std::string* _internal_mutable_after_operation_id();
+
+  public:
+  // optional .flightstrips.cluster.v1.CdmState.ExportData data = 5;
+  bool has_data() const;
+  void clear_data() ;
+  const ::flightstrips::cluster::v1::CdmState_ExportData& data() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmState_ExportData* release_data();
+  ::flightstrips::cluster::v1::CdmState_ExportData* mutable_data();
+  void set_allocated_data(::flightstrips::cluster::v1::CdmState_ExportData* value);
+  void unsafe_arena_set_allocated_data(::flightstrips::cluster::v1::CdmState_ExportData* value);
+  ::flightstrips::cluster::v1::CdmState_ExportData* unsafe_arena_release_data();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmState_ExportData& _internal_data() const;
+  ::flightstrips::cluster::v1::CdmState_ExportData* _internal_mutable_data();
+
+  public:
+  // .flightstrips.cluster.v1.CdmState.ExportIntent.Kind kind = 2;
+  void clear_kind() ;
+  ::flightstrips::cluster::v1::CdmState_ExportIntent_Kind kind() const;
+  void set_kind(::flightstrips::cluster::v1::CdmState_ExportIntent_Kind value);
+
+  private:
+  ::flightstrips::cluster::v1::CdmState_ExportIntent_Kind _internal_kind() const;
+  void _internal_set_kind(::flightstrips::cluster::v1::CdmState_ExportIntent_Kind value);
+
+  public:
+  // int32 taxi_minutes = 4;
+  void clear_taxi_minutes() ;
+  ::int32_t taxi_minutes() const;
+  void set_taxi_minutes(::int32_t value);
+
+  private:
+  ::int32_t _internal_taxi_minutes() const;
+  void _internal_set_taxi_minutes(::int32_t value);
+
+  public:
+  // uint64 input_revision = 7;
+  void clear_input_revision() ;
+  ::uint64_t input_revision() const;
+  void set_input_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_input_revision() const;
+  void _internal_set_input_revision(::uint64_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmState.ExportIntent)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 7, 1,
+      89, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr operation_id_;
+    ::google::protobuf::internal::ArenaStringPtr value_;
+    ::google::protobuf::internal::ArenaStringPtr after_operation_id_;
+    ::flightstrips::cluster::v1::CdmState_ExportData* data_;
+    int kind_;
+    ::int32_t taxi_minutes_;
+    ::uint64_t input_revision_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -24309,7 +25356,7 @@ class CdmConfigTaxiZone final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigTaxiZone*>(
         &_CdmConfigTaxiZone_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 180;
+  static constexpr int kIndexInFileMessages = 186;
   friend void swap(CdmConfigTaxiZone& a, CdmConfigTaxiZone& b) { a.Swap(&b); }
   inline void Swap(CdmConfigTaxiZone* other) {
     if (other == this) return;
@@ -24534,7 +25581,7 @@ class CdmConfigDeice final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDeice*>(
         &_CdmConfigDeice_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 182;
+  static constexpr int kIndexInFileMessages = 188;
   friend void swap(CdmConfigDeice& a, CdmConfigDeice& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDeice* other) {
     if (other == this) return;
@@ -24756,7 +25803,7 @@ class AtisFeedEntry final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedEntry*>(
         &_AtisFeedEntry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 175;
+  static constexpr int kIndexInFileMessages = 181;
   friend void swap(AtisFeedEntry& a, AtisFeedEntry& b) { a.Swap(&b); }
   inline void Swap(AtisFeedEntry* other) {
     if (other == this) return;
@@ -25013,7 +26060,7 @@ class Atis final : public ::google::protobuf::Message
     return reinterpret_cast<const Atis*>(
         &_Atis_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 39;
+  static constexpr int kIndexInFileMessages = 45;
   friend void swap(Atis& a, Atis& b) { a.Swap(&b); }
   inline void Swap(Atis* other) {
     if (other == this) return;
@@ -25312,7 +26359,7 @@ class AmanValidation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanValidation*>(
         &_AmanValidation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 97;
+  static constexpr int kIndexInFileMessages = 103;
   friend void swap(AmanValidation& a, AmanValidation& b) { a.Swap(&b); }
   inline void Swap(AmanValidation* other) {
     if (other == this) return;
@@ -25576,7 +26623,7 @@ class AmanTmaEntry final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanTmaEntry*>(
         &_AmanTmaEntry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 70;
+  static constexpr int kIndexInFileMessages = 76;
   friend void swap(AmanTmaEntry& a, AmanTmaEntry& b) { a.Swap(&b); }
   inline void Swap(AmanTmaEntry* other) {
     if (other == this) return;
@@ -25779,7 +26826,7 @@ class AmanSurveillanceFact final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSurveillanceFact*>(
         &_AmanSurveillanceFact_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 58;
+  static constexpr int kIndexInFileMessages = 64;
   friend void swap(AmanSurveillanceFact& a, AmanSurveillanceFact& b) { a.Swap(&b); }
   inline void Swap(AmanSurveillanceFact* other) {
     if (other == this) return;
@@ -26028,7 +27075,7 @@ class AmanSlot final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSlot*>(
         &_AmanSlot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 78;
+  static constexpr int kIndexInFileMessages = 84;
   friend void swap(AmanSlot& a, AmanSlot& b) { a.Swap(&b); }
   inline void Swap(AmanSlot* other) {
     if (other == this) return;
@@ -26261,7 +27308,7 @@ class AmanRunwaySelectionPoint final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRunwaySelectionPoint*>(
         &_AmanRunwaySelectionPoint_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 44;
+  static constexpr int kIndexInFileMessages = 50;
   friend void swap(AmanRunwaySelectionPoint& a, AmanRunwaySelectionPoint& b) { a.Swap(&b); }
   inline void Swap(AmanRunwaySelectionPoint* other) {
     if (other == this) return;
@@ -26464,7 +27511,7 @@ class AmanRunwayRatePoint final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRunwayRatePoint*>(
         &_AmanRunwayRatePoint_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 45;
+  static constexpr int kIndexInFileMessages = 51;
   friend void swap(AmanRunwayRatePoint& a, AmanRunwayRatePoint& b) { a.Swap(&b); }
   inline void Swap(AmanRunwayRatePoint* other) {
     if (other == this) return;
@@ -26649,7 +27696,7 @@ class AmanRouteFact final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRouteFact*>(
         &_AmanRouteFact_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 76;
+  static constexpr int kIndexInFileMessages = 82;
   friend void swap(AmanRouteFact& a, AmanRouteFact& b) { a.Swap(&b); }
   inline void Swap(AmanRouteFact* other) {
     if (other == this) return;
@@ -26947,7 +27994,7 @@ class AmanReservation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanReservation*>(
         &_AmanReservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 50;
+  static constexpr int kIndexInFileMessages = 56;
   friend void swap(AmanReservation& a, AmanReservation& b) { a.Swap(&b); }
   inline void Swap(AmanReservation* other) {
     if (other == this) return;
@@ -27208,7 +28255,7 @@ class AmanRawTetaSample final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRawTetaSample*>(
         &_AmanRawTetaSample_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 67;
+  static constexpr int kIndexInFileMessages = 73;
   friend void swap(AmanRawTetaSample& a, AmanRawTetaSample& b) { a.Swap(&b); }
   inline void Swap(AmanRawTetaSample* other) {
     if (other == this) return;
@@ -27398,7 +28445,7 @@ class AmanPredictionSegment final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanPredictionSegment*>(
         &_AmanPredictionSegment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 66;
+  static constexpr int kIndexInFileMessages = 72;
   friend void swap(AmanPredictionSegment& a, AmanPredictionSegment& b) { a.Swap(&b); }
   inline void Swap(AmanPredictionSegment* other) {
     if (other == this) return;
@@ -27776,7 +28823,7 @@ class AmanPredictionLeg final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanPredictionLeg*>(
         &_AmanPredictionLeg_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 65;
+  static constexpr int kIndexInFileMessages = 71;
   friend void swap(AmanPredictionLeg& a, AmanPredictionLeg& b) { a.Swap(&b); }
   inline void Swap(AmanPredictionLeg* other) {
     if (other == this) return;
@@ -28092,7 +29139,7 @@ class AmanPlannedTiming final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanPlannedTiming*>(
         &_AmanPlannedTiming_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 56;
+  static constexpr int kIndexInFileMessages = 62;
   friend void swap(AmanPlannedTiming& a, AmanPlannedTiming& b) { a.Swap(&b); }
   inline void Swap(AmanPlannedTiming* other) {
     if (other == this) return;
@@ -28282,7 +29329,7 @@ class AmanOperationalException final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanOperationalException*>(
         &_AmanOperationalException_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 71;
+  static constexpr int kIndexInFileMessages = 77;
   friend void swap(AmanOperationalException& a, AmanOperationalException& b) { a.Swap(&b); }
   inline void Swap(AmanOperationalException* other) {
     if (other == this) return;
@@ -28473,7 +29520,7 @@ class AmanHoldingStack final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanHoldingStack*>(
         &_AmanHoldingStack_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 63;
+  static constexpr int kIndexInFileMessages = 69;
   friend void swap(AmanHoldingStack& a, AmanHoldingStack& b) { a.Swap(&b); }
   inline void Swap(AmanHoldingStack* other) {
     if (other == this) return;
@@ -28705,7 +29752,7 @@ class AmanHoldingPlan final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanHoldingPlan*>(
         &_AmanHoldingPlan_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 62;
+  static constexpr int kIndexInFileMessages = 68;
   friend void swap(AmanHoldingPlan& a, AmanHoldingPlan& b) { a.Swap(&b); }
   inline void Swap(AmanHoldingPlan* other) {
     if (other == this) return;
@@ -28929,7 +29976,7 @@ class AmanHoldingClearance final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanHoldingClearance*>(
         &_AmanHoldingClearance_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 59;
+  static constexpr int kIndexInFileMessages = 65;
   friend void swap(AmanHoldingClearance& a, AmanHoldingClearance& b) { a.Swap(&b); }
   inline void Swap(AmanHoldingClearance* other) {
     if (other == this) return;
@@ -29169,7 +30216,7 @@ class AmanGoAroundEvidence final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanGoAroundEvidence*>(
         &_AmanGoAroundEvidence_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 72;
+  static constexpr int kIndexInFileMessages = 78;
   friend void swap(AmanGoAroundEvidence& a, AmanGoAroundEvidence& b) { a.Swap(&b); }
   inline void Swap(AmanGoAroundEvidence* other) {
     if (other == this) return;
@@ -29452,7 +30499,7 @@ class AmanGoAroundConfirmation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanGoAroundConfirmation*>(
         &_AmanGoAroundConfirmation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 81;
+  static constexpr int kIndexInFileMessages = 87;
   friend void swap(AmanGoAroundConfirmation& a, AmanGoAroundConfirmation& b) { a.Swap(&b); }
   inline void Swap(AmanGoAroundConfirmation* other) {
     if (other == this) return;
@@ -29766,7 +30813,7 @@ class AmanGapException final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanGapException*>(
         &_AmanGapException_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 82;
+  static constexpr int kIndexInFileMessages = 88;
   friend void swap(AmanGapException& a, AmanGapException& b) { a.Swap(&b); }
   inline void Swap(AmanGapException* other) {
     if (other == this) return;
@@ -30011,7 +31058,7 @@ class AmanGap final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanGap*>(
         &_AmanGap_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 48;
+  static constexpr int kIndexInFileMessages = 54;
   friend void swap(AmanGap& a, AmanGap& b) { a.Swap(&b); }
   inline void Swap(AmanGap* other) {
     if (other == this) return;
@@ -30272,7 +31319,7 @@ class AmanFlightPlanFact final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanFlightPlanFact*>(
         &_AmanFlightPlanFact_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 57;
+  static constexpr int kIndexInFileMessages = 63;
   friend void swap(AmanFlightPlanFact& a, AmanFlightPlanFact& b) { a.Swap(&b); }
   inline void Swap(AmanFlightPlanFact* other) {
     if (other == this) return;
@@ -30458,7 +31505,7 @@ class AmanFeederEta final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanFeederEta*>(
         &_AmanFeederEta_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 61;
+  static constexpr int kIndexInFileMessages = 67;
   friend void swap(AmanFeederEta& a, AmanFeederEta& b) { a.Swap(&b); }
   inline void Swap(AmanFeederEta* other) {
     if (other == this) return;
@@ -30661,7 +31708,7 @@ class AmanETAReview final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanETAReview*>(
         &_AmanETAReview_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 79;
+  static constexpr int kIndexInFileMessages = 85;
   friend void swap(AmanETAReview& a, AmanETAReview& b) { a.Swap(&b); }
   inline void Swap(AmanETAReview* other) {
     if (other == this) return;
@@ -30992,7 +32039,7 @@ class AmanComponentHealth final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanComponentHealth*>(
         &_AmanComponentHealth_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 53;
+  static constexpr int kIndexInFileMessages = 59;
   friend void swap(AmanComponentHealth& a, AmanComponentHealth& b) { a.Swap(&b); }
   inline void Swap(AmanComponentHealth* other) {
     if (other == this) return;
@@ -31232,7 +32279,7 @@ class AmanClosure final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanClosure*>(
         &_AmanClosure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 49;
+  static constexpr int kIndexInFileMessages = 55;
   friend void swap(AmanClosure& a, AmanClosure& b) { a.Swap(&b); }
   inline void Swap(AmanClosure* other) {
     if (other == this) return;
@@ -31493,7 +32540,7 @@ class AmanClearance final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanClearance*>(
         &_AmanClearance_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 86;
+  static constexpr int kIndexInFileMessages = 92;
   friend void swap(AmanClearance& a, AmanClearance& b) { a.Swap(&b); }
   inline void Swap(AmanClearance* other) {
     if (other == this) return;
@@ -31738,7 +32785,7 @@ class AmanBaseline final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanBaseline*>(
         &_AmanBaseline_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 68;
+  static constexpr int kIndexInFileMessages = 74;
   friend void swap(AmanBaseline& a, AmanBaseline& b) { a.Swap(&b); }
   inline void Swap(AmanBaseline* other) {
     if (other == this) return;
@@ -32067,7 +33114,7 @@ class AmanAbsence final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanAbsence*>(
         &_AmanAbsence_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 75;
+  static constexpr int kIndexInFileMessages = 81;
   friend void swap(AmanAbsence& a, AmanAbsence& b) { a.Swap(&b); }
   inline void Swap(AmanAbsence* other) {
     if (other == this) return;
@@ -32750,7 +33797,7 @@ class WorkflowRecord final : public ::google::protobuf::Message
     return reinterpret_cast<const WorkflowRecord*>(
         &_WorkflowRecord_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 109;
+  static constexpr int kIndexInFileMessages = 115;
   friend void swap(WorkflowRecord& a, WorkflowRecord& b) { a.Swap(&b); }
   inline void Swap(WorkflowRecord* other) {
     if (other == this) return;
@@ -33072,7 +34119,7 @@ class WeatherPage final : public ::google::protobuf::Message
     return reinterpret_cast<const WeatherPage*>(
         &_WeatherPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 166;
+  static constexpr int kIndexInFileMessages = 172;
   friend void swap(WeatherPage& a, WeatherPage& b) { a.Swap(&b); }
   inline void Swap(WeatherPage* other) {
     if (other == this) return;
@@ -33246,7 +34293,7 @@ class WeatherCache final : public ::google::protobuf::Message
     return reinterpret_cast<const WeatherCache*>(
         &_WeatherCache_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 104;
+  static constexpr int kIndexInFileMessages = 110;
   friend void swap(WeatherCache& a, WeatherCache& b) { a.Swap(&b); }
   inline void Swap(WeatherCache* other) {
     if (other == this) return;
@@ -33489,7 +34536,7 @@ class ViffFlightPage final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffFlightPage*>(
         &_ViffFlightPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 184;
+  static constexpr int kIndexInFileMessages = 190;
   friend void swap(ViffFlightPage& a, ViffFlightPage& b) { a.Swap(&b); }
   inline void Swap(ViffFlightPage* other) {
     if (other == this) return;
@@ -33699,7 +34746,7 @@ class VatsimPage final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimPage*>(
         &_VatsimPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 163;
+  static constexpr int kIndexInFileMessages = 169;
   friend void swap(VatsimPage& a, VatsimPage& b) { a.Swap(&b); }
   inline void Swap(VatsimPage* other) {
     if (other == this) return;
@@ -34186,7 +35233,7 @@ class SnapshotIndex final : public ::google::protobuf::Message
     return reinterpret_cast<const SnapshotIndex*>(
         &_SnapshotIndex_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 119;
+  static constexpr int kIndexInFileMessages = 125;
   friend void swap(SnapshotIndex& a, SnapshotIndex& b) { a.Swap(&b); }
   inline void Swap(SnapshotIndex* other) {
     if (other == this) return;
@@ -34898,7 +35945,7 @@ class PresenceValue final : public ::google::protobuf::Message
     return reinterpret_cast<const PresenceValue*>(
         &_PresenceValue_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 123;
+  static constexpr int kIndexInFileMessages = 129;
   friend void swap(PresenceValue& a, PresenceValue& b) { a.Swap(&b); }
   inline void Swap(PresenceValue* other) {
     if (other == this) return;
@@ -35118,7 +36165,7 @@ class OpenMeteoPage final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoPage*>(
         &_OpenMeteoPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 167;
+  static constexpr int kIndexInFileMessages = 173;
   friend void swap(OpenMeteoPage& a, OpenMeteoPage& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoPage* other) {
     if (other == this) return;
@@ -35363,7 +36410,7 @@ class NavTmaPolygon final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTmaPolygon*>(
         &_NavTmaPolygon_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 144;
+  static constexpr int kIndexInFileMessages = 150;
   friend void swap(NavTmaPolygon& a, NavTmaPolygon& b) { a.Swap(&b); }
   inline void Swap(NavTmaPolygon* other) {
     if (other == this) return;
@@ -35537,7 +36584,7 @@ class NavTerminalPath final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTerminalPath*>(
         &_NavTerminalPath_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 151;
+  static constexpr int kIndexInFileMessages = 157;
   friend void swap(NavTerminalPath& a, NavTerminalPath& b) { a.Swap(&b); }
   inline void Swap(NavTerminalPath* other) {
     if (other == this) return;
@@ -35944,7 +36991,7 @@ class NavRunway final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRunway*>(
         &_NavRunway_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 134;
+  static constexpr int kIndexInFileMessages = 140;
   friend void swap(NavRunway& a, NavRunway& b) { a.Swap(&b); }
   inline void Swap(NavRunway* other) {
     if (other == this) return;
@@ -36182,7 +37229,7 @@ class NavRouteQuery final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRouteQuery*>(
         &_NavRouteQuery_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 153;
+  static constexpr int kIndexInFileMessages = 159;
   friend void swap(NavRouteQuery& a, NavRouteQuery& b) { a.Swap(&b); }
   inline void Swap(NavRouteQuery* other) {
     if (other == this) return;
@@ -36466,7 +37513,7 @@ class NavRouteGeometry final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRouteGeometry*>(
         &_NavRouteGeometry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 154;
+  static constexpr int kIndexInFileMessages = 160;
   friend void swap(NavRouteGeometry& a, NavRouteGeometry& b) { a.Swap(&b); }
   inline void Swap(NavRouteGeometry* other) {
     if (other == this) return;
@@ -36783,7 +37830,7 @@ class NavPolicyFinalApproach final : public ::google::protobuf::Message
     return reinterpret_cast<const NavPolicyFinalApproach*>(
         &_NavPolicyFinalApproach_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 147;
+  static constexpr int kIndexInFileMessages = 153;
   friend void swap(NavPolicyFinalApproach& a, NavPolicyFinalApproach& b) { a.Swap(&b); }
   inline void Swap(NavPolicyFinalApproach* other) {
     if (other == this) return;
@@ -37038,7 +38085,7 @@ class NavHolding final : public ::google::protobuf::Message
     return reinterpret_cast<const NavHolding*>(
         &_NavHolding_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 138;
+  static constexpr int kIndexInFileMessages = 144;
   friend void swap(NavHolding& a, NavHolding& b) { a.Swap(&b); }
   inline void Swap(NavHolding* other) {
     if (other == this) return;
@@ -37371,7 +38418,7 @@ class NavFix final : public ::google::protobuf::Message
     return reinterpret_cast<const NavFix*>(
         &_NavFix_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 140;
+  static constexpr int kIndexInFileMessages = 146;
   friend void swap(NavFix& a, NavFix& b) { a.Swap(&b); }
   inline void Swap(NavFix* other) {
     if (other == this) return;
@@ -37579,7 +38626,7 @@ class NavAirport final : public ::google::protobuf::Message
     return reinterpret_cast<const NavAirport*>(
         &_NavAirport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 133;
+  static constexpr int kIndexInFileMessages = 139;
   friend void swap(NavAirport& a, NavAirport& b) { a.Swap(&b); }
   inline void Swap(NavAirport* other) {
     if (other == this) return;
@@ -37805,7 +38852,7 @@ class HoppiePollPage final : public ::google::protobuf::Message
     return reinterpret_cast<const HoppiePollPage*>(
         &_HoppiePollPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 161;
+  static constexpr int kIndexInFileMessages = 167;
   friend void swap(HoppiePollPage& a, HoppiePollPage& b) { a.Swap(&b); }
   inline void Swap(HoppiePollPage* other) {
     if (other == this) return;
@@ -38033,7 +39080,7 @@ class EcfmpPage final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpPage*>(
         &_EcfmpPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 170;
+  static constexpr int kIndexInFileMessages = 176;
   friend void swap(EcfmpPage& a, EcfmpPage& b) { a.Swap(&b); }
   inline void Swap(EcfmpPage* other) {
     if (other == this) return;
@@ -38225,7 +39272,7 @@ class CommandOutcome final : public ::google::protobuf::Message
     return reinterpret_cast<const CommandOutcome*>(
         &_CommandOutcome_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 108;
+  static constexpr int kIndexInFileMessages = 114;
   friend void swap(CommandOutcome& a, CommandOutcome& b) { a.Swap(&b); }
   inline void Swap(CommandOutcome* other) {
     if (other == this) return;
@@ -38523,6 +39570,317 @@ class CommandOutcome final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class CdmState_Calculation final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmState.Calculation) */ {
+ public:
+  inline CdmState_Calculation() : CdmState_Calculation(nullptr) {}
+  ~CdmState_Calculation() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR CdmState_Calculation(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline CdmState_Calculation(const CdmState_Calculation& from) : CdmState_Calculation(nullptr, from) {}
+  inline CdmState_Calculation(CdmState_Calculation&& from) noexcept
+      : CdmState_Calculation(nullptr, std::move(from)) {}
+  inline CdmState_Calculation& operator=(const CdmState_Calculation& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline CdmState_Calculation& operator=(CdmState_Calculation&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const CdmState_Calculation& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const CdmState_Calculation* internal_default_instance() {
+    return reinterpret_cast<const CdmState_Calculation*>(
+        &_CdmState_Calculation_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 40;
+  friend void swap(CdmState_Calculation& a, CdmState_Calculation& b) { a.Swap(&b); }
+  inline void Swap(CdmState_Calculation* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(CdmState_Calculation* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  CdmState_Calculation* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<CdmState_Calculation>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const CdmState_Calculation& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const CdmState_Calculation& from) { CdmState_Calculation::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(CdmState_Calculation* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmState.Calculation"; }
+
+ protected:
+  explicit CdmState_Calculation(::google::protobuf::Arena* arena);
+  CdmState_Calculation(::google::protobuf::Arena* arena, const CdmState_Calculation& from);
+  CdmState_Calculation(::google::protobuf::Arena* arena, CdmState_Calculation&& from) noexcept
+      : CdmState_Calculation(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kReasonMarkersFieldNumber = 9,
+    kBaseSourceFieldNumber = 2,
+    kTaxiRunwayFieldNumber = 4,
+    kInvalidReasonFieldNumber = 5,
+    kLeaderCallsignFieldNumber = 7,
+    kBaseTimeFieldNumber = 1,
+    kLeaderTtotFieldNumber = 8,
+    kTaxiMinutesFieldNumber = 3,
+    kSequencePositionFieldNumber = 6,
+  };
+  // repeated .flightstrips.cluster.v1.CdmState.ReasonMarker reason_markers = 9;
+  int reason_markers_size() const;
+  private:
+  int _internal_reason_markers_size() const;
+
+  public:
+  void clear_reason_markers() ;
+  ::flightstrips::cluster::v1::CdmState_ReasonMarker* mutable_reason_markers(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ReasonMarker>* mutable_reason_markers();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ReasonMarker>& _internal_reason_markers() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ReasonMarker>* _internal_mutable_reason_markers();
+  public:
+  const ::flightstrips::cluster::v1::CdmState_ReasonMarker& reason_markers(int index) const;
+  ::flightstrips::cluster::v1::CdmState_ReasonMarker* add_reason_markers();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ReasonMarker>& reason_markers() const;
+  // optional string base_source = 2;
+  bool has_base_source() const;
+  void clear_base_source() ;
+  const std::string& base_source() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_base_source(Arg_&& arg, Args_... args);
+  std::string* mutable_base_source();
+  PROTOBUF_NODISCARD std::string* release_base_source();
+  void set_allocated_base_source(std::string* value);
+
+  private:
+  const std::string& _internal_base_source() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_base_source(
+      const std::string& value);
+  std::string* _internal_mutable_base_source();
+
+  public:
+  // optional string taxi_runway = 4;
+  bool has_taxi_runway() const;
+  void clear_taxi_runway() ;
+  const std::string& taxi_runway() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_taxi_runway(Arg_&& arg, Args_... args);
+  std::string* mutable_taxi_runway();
+  PROTOBUF_NODISCARD std::string* release_taxi_runway();
+  void set_allocated_taxi_runway(std::string* value);
+
+  private:
+  const std::string& _internal_taxi_runway() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_taxi_runway(
+      const std::string& value);
+  std::string* _internal_mutable_taxi_runway();
+
+  public:
+  // optional string invalid_reason = 5;
+  bool has_invalid_reason() const;
+  void clear_invalid_reason() ;
+  const std::string& invalid_reason() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_invalid_reason(Arg_&& arg, Args_... args);
+  std::string* mutable_invalid_reason();
+  PROTOBUF_NODISCARD std::string* release_invalid_reason();
+  void set_allocated_invalid_reason(std::string* value);
+
+  private:
+  const std::string& _internal_invalid_reason() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_invalid_reason(
+      const std::string& value);
+  std::string* _internal_mutable_invalid_reason();
+
+  public:
+  // optional string leader_callsign = 7;
+  bool has_leader_callsign() const;
+  void clear_leader_callsign() ;
+  const std::string& leader_callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_leader_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_leader_callsign();
+  PROTOBUF_NODISCARD std::string* release_leader_callsign();
+  void set_allocated_leader_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_leader_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_leader_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_leader_callsign();
+
+  public:
+  // optional .google.protobuf.Timestamp base_time = 1;
+  bool has_base_time() const;
+  void clear_base_time() ;
+  const ::google::protobuf::Timestamp& base_time() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_base_time();
+  ::google::protobuf::Timestamp* mutable_base_time();
+  void set_allocated_base_time(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_base_time(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_base_time();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_base_time() const;
+  ::google::protobuf::Timestamp* _internal_mutable_base_time();
+
+  public:
+  // optional .google.protobuf.Timestamp leader_ttot = 8;
+  bool has_leader_ttot() const;
+  void clear_leader_ttot() ;
+  const ::google::protobuf::Timestamp& leader_ttot() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_leader_ttot();
+  ::google::protobuf::Timestamp* mutable_leader_ttot();
+  void set_allocated_leader_ttot(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_leader_ttot(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_leader_ttot();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_leader_ttot() const;
+  ::google::protobuf::Timestamp* _internal_mutable_leader_ttot();
+
+  public:
+  // optional int32 taxi_minutes = 3;
+  bool has_taxi_minutes() const;
+  void clear_taxi_minutes() ;
+  ::int32_t taxi_minutes() const;
+  void set_taxi_minutes(::int32_t value);
+
+  private:
+  ::int32_t _internal_taxi_minutes() const;
+  void _internal_set_taxi_minutes(::int32_t value);
+
+  public:
+  // optional int32 sequence_position = 6;
+  bool has_sequence_position() const;
+  void clear_sequence_position() ;
+  ::int32_t sequence_position() const;
+  void set_sequence_position(::int32_t value);
+
+  private:
+  ::int32_t _internal_sequence_position() const;
+  void _internal_set_sequence_position(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmState.Calculation)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      4, 9, 3,
+      112, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::CdmState_ReasonMarker > reason_markers_;
+    ::google::protobuf::internal::ArenaStringPtr base_source_;
+    ::google::protobuf::internal::ArenaStringPtr taxi_runway_;
+    ::google::protobuf::internal::ArenaStringPtr invalid_reason_;
+    ::google::protobuf::internal::ArenaStringPtr leader_callsign_;
+    ::google::protobuf::Timestamp* base_time_;
+    ::google::protobuf::Timestamp* leader_ttot_;
+    ::int32_t taxi_minutes_;
+    ::int32_t sequence_position_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class CdmConfigPage final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmConfigPage) */ {
  public:
@@ -38578,7 +39936,7 @@ class CdmConfigPage final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigPage*>(
         &_CdmConfigPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 176;
+  static constexpr int kIndexInFileMessages = 182;
   friend void swap(CdmConfigPage& a, CdmConfigPage& b) { a.Swap(&b); }
   inline void Swap(CdmConfigPage* other) {
     if (other == this) return;
@@ -38970,7 +40328,7 @@ class AtisFeedAirport final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedAirport*>(
         &_AtisFeedAirport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 174;
+  static constexpr int kIndexInFileMessages = 180;
   friend void swap(AtisFeedAirport& a, AtisFeedAirport& b) { a.Swap(&b); }
   inline void Swap(AtisFeedAirport* other) {
     if (other == this) return;
@@ -39178,7 +40536,7 @@ class AmanTechnicalHealth final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanTechnicalHealth*>(
         &_AmanTechnicalHealth_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 52;
+  static constexpr int kIndexInFileMessages = 58;
   friend void swap(AmanTechnicalHealth& a, AmanTechnicalHealth& b) { a.Swap(&b); }
   inline void Swap(AmanTechnicalHealth* other) {
     if (other == this) return;
@@ -39412,7 +40770,7 @@ class AmanSequenceAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSequenceAudit*>(
         &_AmanSequenceAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 90;
+  static constexpr int kIndexInFileMessages = 96;
   friend void swap(AmanSequenceAudit& a, AmanSequenceAudit& b) { a.Swap(&b); }
   inline void Swap(AmanSequenceAudit* other) {
     if (other == this) return;
@@ -39656,7 +41014,7 @@ class AmanRunwayGroup final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRunwayGroup*>(
         &_AmanRunwayGroup_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 43;
+  static constexpr int kIndexInFileMessages = 49;
   friend void swap(AmanRunwayGroup& a, AmanRunwayGroup& b) { a.Swap(&b); }
   inline void Swap(AmanRunwayGroup* other) {
     if (other == this) return;
@@ -40033,7 +41391,7 @@ class AmanQueueOffer final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanQueueOffer*>(
         &_AmanQueueOffer_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 80;
+  static constexpr int kIndexInFileMessages = 86;
   friend void swap(AmanQueueOffer& a, AmanQueueOffer& b) { a.Swap(&b); }
   inline void Swap(AmanQueueOffer* other) {
     if (other == this) return;
@@ -40301,7 +41659,7 @@ class AmanPredictionCalculation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanPredictionCalculation*>(
         &_AmanPredictionCalculation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 64;
+  static constexpr int kIndexInFileMessages = 70;
   friend void swap(AmanPredictionCalculation& a, AmanPredictionCalculation& b) { a.Swap(&b); }
   inline void Swap(AmanPredictionCalculation* other) {
     if (other == this) return;
@@ -40529,7 +41887,7 @@ class AmanLifecycle final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanLifecycle*>(
         &_AmanLifecycle_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 74;
+  static constexpr int kIndexInFileMessages = 80;
   friend void swap(AmanLifecycle& a, AmanLifecycle& b) { a.Swap(&b); }
   inline void Swap(AmanLifecycle* other) {
     if (other == this) return;
@@ -40802,7 +42160,7 @@ class AmanGoAroundDetection final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanGoAroundDetection*>(
         &_AmanGoAroundDetection_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 73;
+  static constexpr int kIndexInFileMessages = 79;
   friend void swap(AmanGoAroundDetection& a, AmanGoAroundDetection& b) { a.Swap(&b); }
   inline void Swap(AmanGoAroundDetection* other) {
     if (other == this) return;
@@ -41186,7 +42544,7 @@ class AmanGoAroundAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanGoAroundAudit*>(
         &_AmanGoAroundAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 95;
+  static constexpr int kIndexInFileMessages = 101;
   friend void swap(AmanGoAroundAudit& a, AmanGoAroundAudit& b) { a.Swap(&b); }
   inline void Swap(AmanGoAroundAudit* other) {
     if (other == this) return;
@@ -41469,7 +42827,7 @@ class AmanFreezeAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanFreezeAudit*>(
         &_AmanFreezeAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 94;
+  static constexpr int kIndexInFileMessages = 100;
   friend void swap(AmanFreezeAudit& a, AmanFreezeAudit& b) { a.Swap(&b); }
   inline void Swap(AmanFreezeAudit* other) {
     if (other == this) return;
@@ -41764,7 +43122,7 @@ class AmanFlightObservation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanFlightObservation*>(
         &_AmanFlightObservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 55;
+  static constexpr int kIndexInFileMessages = 61;
   friend void swap(AmanFlightObservation& a, AmanFlightObservation& b) { a.Swap(&b); }
   inline void Swap(AmanFlightObservation* other) {
     if (other == this) return;
@@ -42217,7 +43575,7 @@ class AmanCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCoordination*>(
         &_AmanCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 83;
+  static constexpr int kIndexInFileMessages = 89;
   friend void swap(AmanCoordination& a, AmanCoordination& b) { a.Swap(&b); }
   inline void Swap(AmanCoordination* other) {
     if (other == this) return;
@@ -44069,7 +45427,7 @@ class NavTmaVolume final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTmaVolume*>(
         &_NavTmaVolume_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 143;
+  static constexpr int kIndexInFileMessages = 149;
   friend void swap(NavTmaVolume& a, NavTmaVolume& b) { a.Swap(&b); }
   inline void Swap(NavTmaVolume* other) {
     if (other == this) return;
@@ -44243,7 +45601,7 @@ class NavRouteCandidate final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRouteCandidate*>(
         &_NavRouteCandidate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 152;
+  static constexpr int kIndexInFileMessages = 158;
   friend void swap(NavRouteCandidate& a, NavRouteCandidate& b) { a.Swap(&b); }
   inline void Swap(NavRouteCandidate* other) {
     if (other == this) return;
@@ -44486,7 +45844,7 @@ class NavProcedure final : public ::google::protobuf::Message
     return reinterpret_cast<const NavProcedure*>(
         &_NavProcedure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 136;
+  static constexpr int kIndexInFileMessages = 142;
   friend void swap(NavProcedure& a, NavProcedure& b) { a.Swap(&b); }
   inline void Swap(NavProcedure* other) {
     if (other == this) return;
@@ -44781,7 +46139,7 @@ class NavPolicyRunwayGroup final : public ::google::protobuf::Message
     return reinterpret_cast<const NavPolicyRunwayGroup*>(
         &_NavPolicyRunwayGroup_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 146;
+  static constexpr int kIndexInFileMessages = 152;
   friend void swap(NavPolicyRunwayGroup& a, NavPolicyRunwayGroup& b) { a.Swap(&b); }
   inline void Swap(NavPolicyRunwayGroup* other) {
     if (other == this) return;
@@ -45051,7 +46409,7 @@ class NavFixFragment final : public ::google::protobuf::Message
     return reinterpret_cast<const NavFixFragment*>(
         &_NavFixFragment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 139;
+  static constexpr int kIndexInFileMessages = 145;
   friend void swap(NavFixFragment& a, NavFixFragment& b) { a.Swap(&b); }
   inline void Swap(NavFixFragment* other) {
     if (other == this) return;
@@ -45243,7 +46601,7 @@ class NavAirportFragment final : public ::google::protobuf::Message
     return reinterpret_cast<const NavAirportFragment*>(
         &_NavAirportFragment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 132;
+  static constexpr int kIndexInFileMessages = 138;
   friend void swap(NavAirportFragment& a, NavAirportFragment& b) { a.Swap(&b); }
   inline void Swap(NavAirportFragment* other) {
     if (other == this) return;
@@ -45380,6 +46738,540 @@ class NavAirportFragment final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class CdmState final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmState) */ {
+ public:
+  inline CdmState() : CdmState(nullptr) {}
+  ~CdmState() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR CdmState(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline CdmState(const CdmState& from) : CdmState(nullptr, from) {}
+  inline CdmState(CdmState&& from) noexcept
+      : CdmState(nullptr, std::move(from)) {}
+  inline CdmState& operator=(const CdmState& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline CdmState& operator=(CdmState&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const CdmState& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const CdmState* internal_default_instance() {
+    return reinterpret_cast<const CdmState*>(
+        &_CdmState_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 42;
+  friend void swap(CdmState& a, CdmState& b) { a.Swap(&b); }
+  inline void Swap(CdmState* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(CdmState* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  CdmState* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<CdmState>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const CdmState& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const CdmState& from) { CdmState::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(CdmState* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmState"; }
+
+ protected:
+  explicit CdmState(::google::protobuf::Arena* arena);
+  CdmState(::google::protobuf::Arena* arena, const CdmState& from);
+  CdmState(::google::protobuf::Arena* arena, CdmState&& from) noexcept
+      : CdmState(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+  using PushbackVerification = CdmState_PushbackVerification;
+  using ExportIntent = CdmState_ExportIntent;
+  using ExportData = CdmState_ExportData;
+  using Calculation = CdmState_Calculation;
+  using ReasonMarker = CdmState_ReasonMarker;
+  using Recalculation = CdmState_Recalculation;
+  static constexpr Recalculation NONE = CdmState_Recalculation_NONE;
+  static constexpr Recalculation REQUIRED = CdmState_Recalculation_REQUIRED;
+  static constexpr Recalculation IMPROVE_ONLY = CdmState_Recalculation_IMPROVE_ONLY;
+  static inline bool Recalculation_IsValid(int value) {
+    return CdmState_Recalculation_IsValid(value);
+  }
+  static constexpr Recalculation Recalculation_MIN = CdmState_Recalculation_Recalculation_MIN;
+  static constexpr Recalculation Recalculation_MAX = CdmState_Recalculation_Recalculation_MAX;
+  static constexpr int Recalculation_ARRAYSIZE = CdmState_Recalculation_Recalculation_ARRAYSIZE;
+  static inline const ::google::protobuf::EnumDescriptor* Recalculation_descriptor() {
+    return CdmState_Recalculation_descriptor();
+  }
+  template <typename T>
+  static inline const std::string& Recalculation_Name(T value) {
+    return CdmState_Recalculation_Name(value);
+  }
+  static inline bool Recalculation_Parse(absl::string_view name, Recalculation* value) {
+    return CdmState_Recalculation_Parse(name, value);
+  }
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kPendingExportsFieldNumber = 22,
+    kCallsignFieldNumber = 1,
+    kDeiceFieldNumber = 6,
+    kSourceRevisionFieldNumber = 8,
+    kTobtConfirmedByFieldNumber = 12,
+    kTobtFieldNumber = 2,
+    kTsatFieldNumber = 3,
+    kTtotFieldNumber = 4,
+    kCtotFieldNumber = 5,
+    kAtotFieldNumber = 9,
+    kViffProposalTsatFieldNumber = 10,
+    kViffProposalTtotFieldNumber = 11,
+    kCalculationFieldNumber = 21,
+    kPushbackFieldNumber = 23,
+    kReadyFieldNumber = 7,
+    kTobtAutoSyncedFieldNumber = 13,
+    kTobtAutoAdjustedFieldNumber = 14,
+    kTobtManuallyConfirmedFieldNumber = 15,
+    kRecalculationFieldNumber = 16,
+    kPushbackRecalculateFieldNumber = 17,
+    kReadySyncPendingFieldNumber = 18,
+    kViffRequestSyncPendingFieldNumber = 19,
+    kAtotViffPendingFieldNumber = 20,
+  };
+  // repeated .flightstrips.cluster.v1.CdmState.ExportIntent pending_exports = 22;
+  int pending_exports_size() const;
+  private:
+  int _internal_pending_exports_size() const;
+
+  public:
+  void clear_pending_exports() ;
+  ::flightstrips::cluster::v1::CdmState_ExportIntent* mutable_pending_exports(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ExportIntent>* mutable_pending_exports();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ExportIntent>& _internal_pending_exports() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ExportIntent>* _internal_mutable_pending_exports();
+  public:
+  const ::flightstrips::cluster::v1::CdmState_ExportIntent& pending_exports(int index) const;
+  ::flightstrips::cluster::v1::CdmState_ExportIntent* add_pending_exports();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ExportIntent>& pending_exports() const;
+  // string callsign = 1;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string deice = 6;
+  void clear_deice() ;
+  const std::string& deice() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_deice(Arg_&& arg, Args_... args);
+  std::string* mutable_deice();
+  PROTOBUF_NODISCARD std::string* release_deice();
+  void set_allocated_deice(std::string* value);
+
+  private:
+  const std::string& _internal_deice() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_deice(
+      const std::string& value);
+  std::string* _internal_mutable_deice();
+
+  public:
+  // string source_revision = 8;
+  void clear_source_revision() ;
+  const std::string& source_revision() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_source_revision(Arg_&& arg, Args_... args);
+  std::string* mutable_source_revision();
+  PROTOBUF_NODISCARD std::string* release_source_revision();
+  void set_allocated_source_revision(std::string* value);
+
+  private:
+  const std::string& _internal_source_revision() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_source_revision(
+      const std::string& value);
+  std::string* _internal_mutable_source_revision();
+
+  public:
+  // optional string tobt_confirmed_by = 12;
+  bool has_tobt_confirmed_by() const;
+  void clear_tobt_confirmed_by() ;
+  const std::string& tobt_confirmed_by() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_tobt_confirmed_by(Arg_&& arg, Args_... args);
+  std::string* mutable_tobt_confirmed_by();
+  PROTOBUF_NODISCARD std::string* release_tobt_confirmed_by();
+  void set_allocated_tobt_confirmed_by(std::string* value);
+
+  private:
+  const std::string& _internal_tobt_confirmed_by() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_tobt_confirmed_by(
+      const std::string& value);
+  std::string* _internal_mutable_tobt_confirmed_by();
+
+  public:
+  // optional .google.protobuf.Timestamp tobt = 2;
+  bool has_tobt() const;
+  void clear_tobt() ;
+  const ::google::protobuf::Timestamp& tobt() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_tobt();
+  ::google::protobuf::Timestamp* mutable_tobt();
+  void set_allocated_tobt(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_tobt(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_tobt();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_tobt() const;
+  ::google::protobuf::Timestamp* _internal_mutable_tobt();
+
+  public:
+  // optional .google.protobuf.Timestamp tsat = 3;
+  bool has_tsat() const;
+  void clear_tsat() ;
+  const ::google::protobuf::Timestamp& tsat() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_tsat();
+  ::google::protobuf::Timestamp* mutable_tsat();
+  void set_allocated_tsat(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_tsat(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_tsat();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_tsat() const;
+  ::google::protobuf::Timestamp* _internal_mutable_tsat();
+
+  public:
+  // optional .google.protobuf.Timestamp ttot = 4;
+  bool has_ttot() const;
+  void clear_ttot() ;
+  const ::google::protobuf::Timestamp& ttot() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_ttot();
+  ::google::protobuf::Timestamp* mutable_ttot();
+  void set_allocated_ttot(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_ttot(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_ttot();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_ttot() const;
+  ::google::protobuf::Timestamp* _internal_mutable_ttot();
+
+  public:
+  // optional .google.protobuf.Timestamp ctot = 5;
+  bool has_ctot() const;
+  void clear_ctot() ;
+  const ::google::protobuf::Timestamp& ctot() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_ctot();
+  ::google::protobuf::Timestamp* mutable_ctot();
+  void set_allocated_ctot(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_ctot(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_ctot();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_ctot() const;
+  ::google::protobuf::Timestamp* _internal_mutable_ctot();
+
+  public:
+  // optional .google.protobuf.Timestamp atot = 9;
+  bool has_atot() const;
+  void clear_atot() ;
+  const ::google::protobuf::Timestamp& atot() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_atot();
+  ::google::protobuf::Timestamp* mutable_atot();
+  void set_allocated_atot(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_atot(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_atot();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_atot() const;
+  ::google::protobuf::Timestamp* _internal_mutable_atot();
+
+  public:
+  // optional .google.protobuf.Timestamp viff_proposal_tsat = 10;
+  bool has_viff_proposal_tsat() const;
+  void clear_viff_proposal_tsat() ;
+  const ::google::protobuf::Timestamp& viff_proposal_tsat() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_viff_proposal_tsat();
+  ::google::protobuf::Timestamp* mutable_viff_proposal_tsat();
+  void set_allocated_viff_proposal_tsat(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_viff_proposal_tsat(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_viff_proposal_tsat();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_viff_proposal_tsat() const;
+  ::google::protobuf::Timestamp* _internal_mutable_viff_proposal_tsat();
+
+  public:
+  // optional .google.protobuf.Timestamp viff_proposal_ttot = 11;
+  bool has_viff_proposal_ttot() const;
+  void clear_viff_proposal_ttot() ;
+  const ::google::protobuf::Timestamp& viff_proposal_ttot() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_viff_proposal_ttot();
+  ::google::protobuf::Timestamp* mutable_viff_proposal_ttot();
+  void set_allocated_viff_proposal_ttot(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_viff_proposal_ttot(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_viff_proposal_ttot();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_viff_proposal_ttot() const;
+  ::google::protobuf::Timestamp* _internal_mutable_viff_proposal_ttot();
+
+  public:
+  // optional .flightstrips.cluster.v1.CdmState.Calculation calculation = 21;
+  bool has_calculation() const;
+  void clear_calculation() ;
+  const ::flightstrips::cluster::v1::CdmState_Calculation& calculation() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmState_Calculation* release_calculation();
+  ::flightstrips::cluster::v1::CdmState_Calculation* mutable_calculation();
+  void set_allocated_calculation(::flightstrips::cluster::v1::CdmState_Calculation* value);
+  void unsafe_arena_set_allocated_calculation(::flightstrips::cluster::v1::CdmState_Calculation* value);
+  ::flightstrips::cluster::v1::CdmState_Calculation* unsafe_arena_release_calculation();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmState_Calculation& _internal_calculation() const;
+  ::flightstrips::cluster::v1::CdmState_Calculation* _internal_mutable_calculation();
+
+  public:
+  // optional .flightstrips.cluster.v1.CdmState.PushbackVerification pushback = 23;
+  bool has_pushback() const;
+  void clear_pushback() ;
+  const ::flightstrips::cluster::v1::CdmState_PushbackVerification& pushback() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmState_PushbackVerification* release_pushback();
+  ::flightstrips::cluster::v1::CdmState_PushbackVerification* mutable_pushback();
+  void set_allocated_pushback(::flightstrips::cluster::v1::CdmState_PushbackVerification* value);
+  void unsafe_arena_set_allocated_pushback(::flightstrips::cluster::v1::CdmState_PushbackVerification* value);
+  ::flightstrips::cluster::v1::CdmState_PushbackVerification* unsafe_arena_release_pushback();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmState_PushbackVerification& _internal_pushback() const;
+  ::flightstrips::cluster::v1::CdmState_PushbackVerification* _internal_mutable_pushback();
+
+  public:
+  // bool ready = 7;
+  void clear_ready() ;
+  bool ready() const;
+  void set_ready(bool value);
+
+  private:
+  bool _internal_ready() const;
+  void _internal_set_ready(bool value);
+
+  public:
+  // bool tobt_auto_synced = 13;
+  void clear_tobt_auto_synced() ;
+  bool tobt_auto_synced() const;
+  void set_tobt_auto_synced(bool value);
+
+  private:
+  bool _internal_tobt_auto_synced() const;
+  void _internal_set_tobt_auto_synced(bool value);
+
+  public:
+  // bool tobt_auto_adjusted = 14;
+  void clear_tobt_auto_adjusted() ;
+  bool tobt_auto_adjusted() const;
+  void set_tobt_auto_adjusted(bool value);
+
+  private:
+  bool _internal_tobt_auto_adjusted() const;
+  void _internal_set_tobt_auto_adjusted(bool value);
+
+  public:
+  // bool tobt_manually_confirmed = 15;
+  void clear_tobt_manually_confirmed() ;
+  bool tobt_manually_confirmed() const;
+  void set_tobt_manually_confirmed(bool value);
+
+  private:
+  bool _internal_tobt_manually_confirmed() const;
+  void _internal_set_tobt_manually_confirmed(bool value);
+
+  public:
+  // .flightstrips.cluster.v1.CdmState.Recalculation recalculation = 16;
+  void clear_recalculation() ;
+  ::flightstrips::cluster::v1::CdmState_Recalculation recalculation() const;
+  void set_recalculation(::flightstrips::cluster::v1::CdmState_Recalculation value);
+
+  private:
+  ::flightstrips::cluster::v1::CdmState_Recalculation _internal_recalculation() const;
+  void _internal_set_recalculation(::flightstrips::cluster::v1::CdmState_Recalculation value);
+
+  public:
+  // bool pushback_recalculate = 17;
+  void clear_pushback_recalculate() ;
+  bool pushback_recalculate() const;
+  void set_pushback_recalculate(bool value);
+
+  private:
+  bool _internal_pushback_recalculate() const;
+  void _internal_set_pushback_recalculate(bool value);
+
+  public:
+  // bool ready_sync_pending = 18;
+  void clear_ready_sync_pending() ;
+  bool ready_sync_pending() const;
+  void set_ready_sync_pending(bool value);
+
+  private:
+  bool _internal_ready_sync_pending() const;
+  void _internal_set_ready_sync_pending(bool value);
+
+  public:
+  // bool viff_request_sync_pending = 19;
+  void clear_viff_request_sync_pending() ;
+  bool viff_request_sync_pending() const;
+  void set_viff_request_sync_pending(bool value);
+
+  private:
+  bool _internal_viff_request_sync_pending() const;
+  void _internal_set_viff_request_sync_pending(bool value);
+
+  public:
+  // bool atot_viff_pending = 20;
+  void clear_atot_viff_pending() ;
+  bool atot_viff_pending() const;
+  void set_atot_viff_pending(bool value);
+
+  private:
+  bool _internal_atot_viff_pending() const;
+  void _internal_set_atot_viff_pending(bool value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmState)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      5, 23, 10,
+      102, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::CdmState_ExportIntent > pending_exports_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr deice_;
+    ::google::protobuf::internal::ArenaStringPtr source_revision_;
+    ::google::protobuf::internal::ArenaStringPtr tobt_confirmed_by_;
+    ::google::protobuf::Timestamp* tobt_;
+    ::google::protobuf::Timestamp* tsat_;
+    ::google::protobuf::Timestamp* ttot_;
+    ::google::protobuf::Timestamp* ctot_;
+    ::google::protobuf::Timestamp* atot_;
+    ::google::protobuf::Timestamp* viff_proposal_tsat_;
+    ::google::protobuf::Timestamp* viff_proposal_ttot_;
+    ::flightstrips::cluster::v1::CdmState_Calculation* calculation_;
+    ::flightstrips::cluster::v1::CdmState_PushbackVerification* pushback_;
+    bool ready_;
+    bool tobt_auto_synced_;
+    bool tobt_auto_adjusted_;
+    bool tobt_manually_confirmed_;
+    int recalculation_;
+    bool pushback_recalculate_;
+    bool ready_sync_pending_;
+    bool viff_request_sync_pending_;
+    bool atot_viff_pending_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class AtisFeedPage final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AtisFeedPage) */ {
  public:
@@ -45435,7 +47327,7 @@ class AtisFeedPage final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedPage*>(
         &_AtisFeedPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 173;
+  static constexpr int kIndexInFileMessages = 179;
   friend void swap(AtisFeedPage& a, AtisFeedPage& b) { a.Swap(&b); }
   inline void Swap(AtisFeedPage* other) {
     if (other == this) return;
@@ -45627,7 +47519,7 @@ class AmanPrediction final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanPrediction*>(
         &_AmanPrediction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 60;
+  static constexpr int kIndexInFileMessages = 66;
   friend void swap(AmanPrediction& a, AmanPrediction& b) { a.Swap(&b); }
   inline void Swap(AmanPrediction* other) {
     if (other == this) return;
@@ -46157,7 +48049,7 @@ class AmanCapacityAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCapacityAudit*>(
         &_AmanCapacityAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 93;
+  static constexpr int kIndexInFileMessages = 99;
   friend void swap(AmanCapacityAudit& a, AmanCapacityAudit& b) { a.Swap(&b); }
   inline void Swap(AmanCapacityAudit* other) {
     if (other == this) return;
@@ -46553,7 +48445,7 @@ class AmanAirport final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanAirport*>(
         &_AmanAirport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 42;
+  static constexpr int kIndexInFileMessages = 48;
   friend void swap(AmanAirport& a, AmanAirport& b) { a.Swap(&b); }
   inline void Swap(AmanAirport* other) {
     if (other == this) return;
@@ -46907,7 +48799,7 @@ class NavTerminalPolicy final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTerminalPolicy*>(
         &_NavTerminalPolicy_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 142;
+  static constexpr int kIndexInFileMessages = 148;
   friend void swap(NavTerminalPolicy& a, NavTerminalPolicy& b) { a.Swap(&b); }
   inline void Swap(NavTerminalPolicy* other) {
     if (other == this) return;
@@ -47192,7 +49084,7 @@ class NavProcedureFragment final : public ::google::protobuf::Message
     return reinterpret_cast<const NavProcedureFragment*>(
         &_NavProcedureFragment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 135;
+  static constexpr int kIndexInFileMessages = 141;
   friend void swap(NavProcedureFragment& a, NavProcedureFragment& b) { a.Swap(&b); }
   inline void Swap(NavProcedureFragment* other) {
     if (other == this) return;
@@ -47420,7 +49312,7 @@ class AmanFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanFlight*>(
         &_AmanFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 54;
+  static constexpr int kIndexInFileMessages = 60;
   friend void swap(AmanFlight& a, AmanFlight& b) { a.Swap(&b); }
   inline void Swap(AmanFlight* other) {
     if (other == this) return;
@@ -48280,7 +50172,7 @@ class AmanAudit final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanAudit*>(
         &_AmanAudit_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 87;
+  static constexpr int kIndexInFileMessages = 93;
   friend void swap(AmanAudit& a, AmanAudit& b) { a.Swap(&b); }
   inline void Swap(AmanAudit* other) {
     if (other == this) return;
@@ -48707,7 +50599,7 @@ class NavTerminalFragment final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTerminalFragment*>(
         &_NavTerminalFragment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 141;
+  static constexpr int kIndexInFileMessages = 147;
   friend void swap(NavTerminalFragment& a, NavTerminalFragment& b) { a.Swap(&b); }
   inline void Swap(NavTerminalFragment* other) {
     if (other == this) return;
@@ -49880,7 +51772,7 @@ class NavData final : public ::google::protobuf::Message
     return reinterpret_cast<const NavData*>(
         &_NavData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 127;
+  static constexpr int kIndexInFileMessages = 133;
   friend void swap(NavData& a, NavData& b) { a.Swap(&b); }
   inline void Swap(NavData* other) {
     if (other == this) return;
@@ -50295,7 +52187,7 @@ class EntitySnapshot final : public ::google::protobuf::Message
     return reinterpret_cast<const EntitySnapshot*>(
         &_EntitySnapshot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 118;
+  static constexpr int kIndexInFileMessages = 124;
   friend void swap(EntitySnapshot& a, EntitySnapshot& b) { a.Swap(&b); }
   inline void Swap(EntitySnapshot* other) {
     if (other == this) return;
@@ -50741,7 +52633,7 @@ class Snapshot final : public ::google::protobuf::Message
     return reinterpret_cast<const Snapshot*>(
         &_Snapshot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 117;
+  static constexpr int kIndexInFileMessages = 123;
   friend void swap(Snapshot& a, Snapshot& b) { a.Swap(&b); }
   inline void Swap(Snapshot* other) {
     if (other == this) return;
@@ -51337,7 +53229,7 @@ class AiracPage final : public ::google::protobuf::Message
     return reinterpret_cast<const AiracPage*>(
         &_AiracPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 162;
+  static constexpr int kIndexInFileMessages = 168;
   friend void swap(AiracPage& a, AiracPage& b) { a.Swap(&b); }
   inline void Swap(AiracPage* other) {
     if (other == this) return;
@@ -51981,7 +53873,7 @@ class ProviderPage final : public ::google::protobuf::Message
     return reinterpret_cast<const ProviderPage*>(
         &_ProviderPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 156;
+  static constexpr int kIndexInFileMessages = 162;
   friend void swap(ProviderPage& a, ProviderPage& b) { a.Swap(&b); }
   inline void Swap(ProviderPage* other) {
     if (other == this) return;
@@ -52430,7 +54322,7 @@ class ObjectValue final : public ::google::protobuf::Message
     return reinterpret_cast<const ObjectValue*>(
         &_ObjectValue_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 126;
+  static constexpr int kIndexInFileMessages = 132;
   friend void swap(ObjectValue& a, ObjectValue& b) { a.Swap(&b); }
   inline void Swap(ObjectValue* other) {
     if (other == this) return;
@@ -65316,6 +67208,83 @@ inline ::flightstrips::cluster::v1::ClxOverrideAction* ValidationAction::mutable
   return _msg;
 }
 
+// .flightstrips.cluster.v1.AssignHoldingPoint assign_holding_point = 4;
+inline bool ValidationAction::has_assign_holding_point() const {
+  return action_case() == kAssignHoldingPoint;
+}
+inline bool ValidationAction::_internal_has_assign_holding_point() const {
+  return action_case() == kAssignHoldingPoint;
+}
+inline void ValidationAction::set_has_assign_holding_point() {
+  _impl_._oneof_case_[0] = kAssignHoldingPoint;
+}
+inline void ValidationAction::clear_assign_holding_point() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kAssignHoldingPoint) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.assign_holding_point_;
+    }
+    clear_has_action();
+  }
+}
+inline ::flightstrips::cluster::v1::AssignHoldingPoint* ValidationAction::release_assign_holding_point() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ValidationAction.assign_holding_point)
+  if (action_case() == kAssignHoldingPoint) {
+    clear_has_action();
+    auto* temp = _impl_.action_.assign_holding_point_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.assign_holding_point_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::AssignHoldingPoint& ValidationAction::_internal_assign_holding_point() const {
+  return action_case() == kAssignHoldingPoint ? *_impl_.action_.assign_holding_point_ : reinterpret_cast<::flightstrips::cluster::v1::AssignHoldingPoint&>(::flightstrips::cluster::v1::_AssignHoldingPoint_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::AssignHoldingPoint& ValidationAction::assign_holding_point() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ValidationAction.assign_holding_point)
+  return _internal_assign_holding_point();
+}
+inline ::flightstrips::cluster::v1::AssignHoldingPoint* ValidationAction::unsafe_arena_release_assign_holding_point() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.ValidationAction.assign_holding_point)
+  if (action_case() == kAssignHoldingPoint) {
+    clear_has_action();
+    auto* temp = _impl_.action_.assign_holding_point_;
+    _impl_.action_.assign_holding_point_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void ValidationAction::unsafe_arena_set_allocated_assign_holding_point(::flightstrips::cluster::v1::AssignHoldingPoint* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_assign_holding_point();
+    _impl_.action_.assign_holding_point_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ValidationAction.assign_holding_point)
+}
+inline ::flightstrips::cluster::v1::AssignHoldingPoint* ValidationAction::_internal_mutable_assign_holding_point() {
+  if (action_case() != kAssignHoldingPoint) {
+    clear_action();
+    set_has_assign_holding_point();
+    _impl_.action_.assign_holding_point_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::AssignHoldingPoint>(GetArena());
+  }
+  return _impl_.action_.assign_holding_point_;
+}
+inline ::flightstrips::cluster::v1::AssignHoldingPoint* ValidationAction::mutable_assign_holding_point() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::AssignHoldingPoint* _msg = _internal_mutable_assign_holding_point();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ValidationAction.assign_holding_point)
+  return _msg;
+}
+
 inline bool ValidationAction::has_action() const {
   return action_case() != ACTION_NOT_SET;
 }
@@ -65325,6 +67294,10 @@ inline void ValidationAction::clear_has_action() {
 inline ValidationAction::ActionCase ValidationAction::action_case() const {
   return ValidationAction::ActionCase(_impl_._oneof_case_[0]);
 }
+// -------------------------------------------------------------------
+
+// AssignHoldingPoint
+
 // -------------------------------------------------------------------
 
 // AcknowledgeValidation
@@ -69958,6 +71931,2052 @@ inline void PdcSequence::set_allocated_pilot_acknowledged_at(::google::protobuf:
 
 // -------------------------------------------------------------------
 
+// CdmState_PushbackVerification
+
+// string operation_id = 1;
+inline void CdmState_PushbackVerification::clear_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.operation_id_.ClearToEmpty();
+}
+inline const std::string& CdmState_PushbackVerification::operation_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.PushbackVerification.operation_id)
+  return _internal_operation_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_PushbackVerification::set_operation_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.operation_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.PushbackVerification.operation_id)
+}
+inline std::string* CdmState_PushbackVerification::mutable_operation_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_operation_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.PushbackVerification.operation_id)
+  return _s;
+}
+inline const std::string& CdmState_PushbackVerification::_internal_operation_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.operation_id_.Get();
+}
+inline void CdmState_PushbackVerification::_internal_set_operation_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.operation_id_.Set(value, GetArena());
+}
+inline std::string* CdmState_PushbackVerification::_internal_mutable_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.operation_id_.Mutable( GetArena());
+}
+inline std::string* CdmState_PushbackVerification::release_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.PushbackVerification.operation_id)
+  return _impl_.operation_id_.Release();
+}
+inline void CdmState_PushbackVerification::set_allocated_operation_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.operation_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.operation_id_.IsDefault()) {
+          _impl_.operation_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.PushbackVerification.operation_id)
+}
+
+// .google.protobuf.Timestamp expected_tobt = 2;
+inline bool CdmState_PushbackVerification::has_expected_tobt() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.expected_tobt_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState_PushbackVerification::_internal_expected_tobt() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.expected_tobt_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState_PushbackVerification::expected_tobt() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.PushbackVerification.expected_tobt)
+  return _internal_expected_tobt();
+}
+inline void CdmState_PushbackVerification::unsafe_arena_set_allocated_expected_tobt(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.expected_tobt_);
+  }
+  _impl_.expected_tobt_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.PushbackVerification.expected_tobt)
+}
+inline ::google::protobuf::Timestamp* CdmState_PushbackVerification::release_expected_tobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.expected_tobt_;
+  _impl_.expected_tobt_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState_PushbackVerification::unsafe_arena_release_expected_tobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.PushbackVerification.expected_tobt)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.expected_tobt_;
+  _impl_.expected_tobt_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState_PushbackVerification::_internal_mutable_expected_tobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.expected_tobt_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.expected_tobt_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.expected_tobt_;
+}
+inline ::google::protobuf::Timestamp* CdmState_PushbackVerification::mutable_expected_tobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_expected_tobt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.PushbackVerification.expected_tobt)
+  return _msg;
+}
+inline void CdmState_PushbackVerification::set_allocated_expected_tobt(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.expected_tobt_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.expected_tobt_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.PushbackVerification.expected_tobt)
+}
+
+// uint32 attempts = 3;
+inline void CdmState_PushbackVerification::clear_attempts() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.attempts_ = 0u;
+}
+inline ::uint32_t CdmState_PushbackVerification::attempts() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.PushbackVerification.attempts)
+  return _internal_attempts();
+}
+inline void CdmState_PushbackVerification::set_attempts(::uint32_t value) {
+  _internal_set_attempts(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.PushbackVerification.attempts)
+}
+inline ::uint32_t CdmState_PushbackVerification::_internal_attempts() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.attempts_;
+}
+inline void CdmState_PushbackVerification::_internal_set_attempts(::uint32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.attempts_ = value;
+}
+
+// uint32 matches = 4;
+inline void CdmState_PushbackVerification::clear_matches() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.matches_ = 0u;
+}
+inline ::uint32_t CdmState_PushbackVerification::matches() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.PushbackVerification.matches)
+  return _internal_matches();
+}
+inline void CdmState_PushbackVerification::set_matches(::uint32_t value) {
+  _internal_set_matches(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.PushbackVerification.matches)
+}
+inline ::uint32_t CdmState_PushbackVerification::_internal_matches() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.matches_;
+}
+inline void CdmState_PushbackVerification::_internal_set_matches(::uint32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.matches_ = value;
+}
+
+// bool completed = 5;
+inline void CdmState_PushbackVerification::clear_completed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.completed_ = false;
+}
+inline bool CdmState_PushbackVerification::completed() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.PushbackVerification.completed)
+  return _internal_completed();
+}
+inline void CdmState_PushbackVerification::set_completed(bool value) {
+  _internal_set_completed(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.PushbackVerification.completed)
+}
+inline bool CdmState_PushbackVerification::_internal_completed() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.completed_;
+}
+inline void CdmState_PushbackVerification::_internal_set_completed(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.completed_ = value;
+}
+
+// bool verified = 6;
+inline void CdmState_PushbackVerification::clear_verified() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.verified_ = false;
+}
+inline bool CdmState_PushbackVerification::verified() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.PushbackVerification.verified)
+  return _internal_verified();
+}
+inline void CdmState_PushbackVerification::set_verified(bool value) {
+  _internal_set_verified(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.PushbackVerification.verified)
+}
+inline bool CdmState_PushbackVerification::_internal_verified() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.verified_;
+}
+inline void CdmState_PushbackVerification::_internal_set_verified(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.verified_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// CdmState_ExportIntent
+
+// string operation_id = 1;
+inline void CdmState_ExportIntent::clear_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.operation_id_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportIntent::operation_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportIntent.operation_id)
+  return _internal_operation_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportIntent::set_operation_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.operation_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportIntent.operation_id)
+}
+inline std::string* CdmState_ExportIntent::mutable_operation_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_operation_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportIntent.operation_id)
+  return _s;
+}
+inline const std::string& CdmState_ExportIntent::_internal_operation_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.operation_id_.Get();
+}
+inline void CdmState_ExportIntent::_internal_set_operation_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.operation_id_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportIntent::_internal_mutable_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.operation_id_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportIntent::release_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportIntent.operation_id)
+  return _impl_.operation_id_.Release();
+}
+inline void CdmState_ExportIntent::set_allocated_operation_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.operation_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.operation_id_.IsDefault()) {
+          _impl_.operation_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportIntent.operation_id)
+}
+
+// .flightstrips.cluster.v1.CdmState.ExportIntent.Kind kind = 2;
+inline void CdmState_ExportIntent::clear_kind() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_ = 0;
+}
+inline ::flightstrips::cluster::v1::CdmState_ExportIntent_Kind CdmState_ExportIntent::kind() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportIntent.kind)
+  return _internal_kind();
+}
+inline void CdmState_ExportIntent::set_kind(::flightstrips::cluster::v1::CdmState_ExportIntent_Kind value) {
+  _internal_set_kind(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportIntent.kind)
+}
+inline ::flightstrips::cluster::v1::CdmState_ExportIntent_Kind CdmState_ExportIntent::_internal_kind() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::flightstrips::cluster::v1::CdmState_ExportIntent_Kind>(_impl_.kind_);
+}
+inline void CdmState_ExportIntent::_internal_set_kind(::flightstrips::cluster::v1::CdmState_ExportIntent_Kind value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_ = value;
+}
+
+// string value = 3;
+inline void CdmState_ExportIntent::clear_value() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.value_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportIntent::value() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportIntent.value)
+  return _internal_value();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportIntent::set_value(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.value_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportIntent.value)
+}
+inline std::string* CdmState_ExportIntent::mutable_value() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_value();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportIntent.value)
+  return _s;
+}
+inline const std::string& CdmState_ExportIntent::_internal_value() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.value_.Get();
+}
+inline void CdmState_ExportIntent::_internal_set_value(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.value_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportIntent::_internal_mutable_value() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.value_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportIntent::release_value() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportIntent.value)
+  return _impl_.value_.Release();
+}
+inline void CdmState_ExportIntent::set_allocated_value(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.value_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.value_.IsDefault()) {
+          _impl_.value_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportIntent.value)
+}
+
+// int32 taxi_minutes = 4;
+inline void CdmState_ExportIntent::clear_taxi_minutes() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.taxi_minutes_ = 0;
+}
+inline ::int32_t CdmState_ExportIntent::taxi_minutes() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportIntent.taxi_minutes)
+  return _internal_taxi_minutes();
+}
+inline void CdmState_ExportIntent::set_taxi_minutes(::int32_t value) {
+  _internal_set_taxi_minutes(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportIntent.taxi_minutes)
+}
+inline ::int32_t CdmState_ExportIntent::_internal_taxi_minutes() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.taxi_minutes_;
+}
+inline void CdmState_ExportIntent::_internal_set_taxi_minutes(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.taxi_minutes_ = value;
+}
+
+// optional .flightstrips.cluster.v1.CdmState.ExportData data = 5;
+inline bool CdmState_ExportIntent::has_data() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.data_ != nullptr);
+  return value;
+}
+inline void CdmState_ExportIntent::clear_data() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.data_ != nullptr) _impl_.data_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline const ::flightstrips::cluster::v1::CdmState_ExportData& CdmState_ExportIntent::_internal_data() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::CdmState_ExportData* p = _impl_.data_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::CdmState_ExportData&>(::flightstrips::cluster::v1::_CdmState_ExportData_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmState_ExportData& CdmState_ExportIntent::data() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportIntent.data)
+  return _internal_data();
+}
+inline void CdmState_ExportIntent::unsafe_arena_set_allocated_data(::flightstrips::cluster::v1::CdmState_ExportData* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.data_);
+  }
+  _impl_.data_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_ExportData*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.ExportIntent.data)
+}
+inline ::flightstrips::cluster::v1::CdmState_ExportData* CdmState_ExportIntent::release_data() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::flightstrips::cluster::v1::CdmState_ExportData* released = _impl_.data_;
+  _impl_.data_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::CdmState_ExportData* CdmState_ExportIntent::unsafe_arena_release_data() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportIntent.data)
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::flightstrips::cluster::v1::CdmState_ExportData* temp = _impl_.data_;
+  _impl_.data_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::CdmState_ExportData* CdmState_ExportIntent::_internal_mutable_data() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.data_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmState_ExportData>(GetArena());
+    _impl_.data_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_ExportData*>(p);
+  }
+  return _impl_.data_;
+}
+inline ::flightstrips::cluster::v1::CdmState_ExportData* CdmState_ExportIntent::mutable_data() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000002u;
+  ::flightstrips::cluster::v1::CdmState_ExportData* _msg = _internal_mutable_data();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportIntent.data)
+  return _msg;
+}
+inline void CdmState_ExportIntent::set_allocated_data(::flightstrips::cluster::v1::CdmState_ExportData* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.data_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+
+  _impl_.data_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_ExportData*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportIntent.data)
+}
+
+// optional string after_operation_id = 6;
+inline bool CdmState_ExportIntent::has_after_operation_id() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void CdmState_ExportIntent::clear_after_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.after_operation_id_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& CdmState_ExportIntent::after_operation_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportIntent.after_operation_id)
+  return _internal_after_operation_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportIntent::set_after_operation_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.after_operation_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportIntent.after_operation_id)
+}
+inline std::string* CdmState_ExportIntent::mutable_after_operation_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_after_operation_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportIntent.after_operation_id)
+  return _s;
+}
+inline const std::string& CdmState_ExportIntent::_internal_after_operation_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.after_operation_id_.Get();
+}
+inline void CdmState_ExportIntent::_internal_set_after_operation_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.after_operation_id_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportIntent::_internal_mutable_after_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  return _impl_.after_operation_id_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportIntent::release_after_operation_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportIntent.after_operation_id)
+  if ((_impl_._has_bits_[0] & 0x00000001u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  auto* released = _impl_.after_operation_id_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.after_operation_id_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void CdmState_ExportIntent::set_allocated_after_operation_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  _impl_.after_operation_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.after_operation_id_.IsDefault()) {
+          _impl_.after_operation_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportIntent.after_operation_id)
+}
+
+// uint64 input_revision = 7;
+inline void CdmState_ExportIntent::clear_input_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.input_revision_ = ::uint64_t{0u};
+}
+inline ::uint64_t CdmState_ExportIntent::input_revision() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportIntent.input_revision)
+  return _internal_input_revision();
+}
+inline void CdmState_ExportIntent::set_input_revision(::uint64_t value) {
+  _internal_set_input_revision(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportIntent.input_revision)
+}
+inline ::uint64_t CdmState_ExportIntent::_internal_input_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.input_revision_;
+}
+inline void CdmState_ExportIntent::_internal_set_input_revision(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.input_revision_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// CdmState_ExportData
+
+// string tobt = 1;
+inline void CdmState_ExportData::clear_tobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportData::tobt() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportData.tobt)
+  return _internal_tobt();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportData::set_tobt(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportData.tobt)
+}
+inline std::string* CdmState_ExportData::mutable_tobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_tobt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportData.tobt)
+  return _s;
+}
+inline const std::string& CdmState_ExportData::_internal_tobt() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tobt_.Get();
+}
+inline void CdmState_ExportData::_internal_set_tobt(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportData::_internal_mutable_tobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.tobt_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportData::release_tobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportData.tobt)
+  return _impl_.tobt_.Release();
+}
+inline void CdmState_ExportData::set_allocated_tobt(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.tobt_.IsDefault()) {
+          _impl_.tobt_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportData.tobt)
+}
+
+// string tsat = 2;
+inline void CdmState_ExportData::clear_tsat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tsat_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportData::tsat() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportData.tsat)
+  return _internal_tsat();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportData::set_tsat(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tsat_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportData.tsat)
+}
+inline std::string* CdmState_ExportData::mutable_tsat() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_tsat();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportData.tsat)
+  return _s;
+}
+inline const std::string& CdmState_ExportData::_internal_tsat() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tsat_.Get();
+}
+inline void CdmState_ExportData::_internal_set_tsat(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tsat_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportData::_internal_mutable_tsat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.tsat_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportData::release_tsat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportData.tsat)
+  return _impl_.tsat_.Release();
+}
+inline void CdmState_ExportData::set_allocated_tsat(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tsat_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.tsat_.IsDefault()) {
+          _impl_.tsat_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportData.tsat)
+}
+
+// string ttot = 3;
+inline void CdmState_ExportData::clear_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ttot_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportData::ttot() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportData.ttot)
+  return _internal_ttot();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportData::set_ttot(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ttot_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportData.ttot)
+}
+inline std::string* CdmState_ExportData::mutable_ttot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_ttot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportData.ttot)
+  return _s;
+}
+inline const std::string& CdmState_ExportData::_internal_ttot() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.ttot_.Get();
+}
+inline void CdmState_ExportData::_internal_set_ttot(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ttot_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportData::_internal_mutable_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.ttot_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportData::release_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportData.ttot)
+  return _impl_.ttot_.Release();
+}
+inline void CdmState_ExportData::set_allocated_ttot(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ttot_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.ttot_.IsDefault()) {
+          _impl_.ttot_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportData.ttot)
+}
+
+// string ctot = 4;
+inline void CdmState_ExportData::clear_ctot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ctot_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportData::ctot() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportData.ctot)
+  return _internal_ctot();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportData::set_ctot(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ctot_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportData.ctot)
+}
+inline std::string* CdmState_ExportData::mutable_ctot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_ctot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportData.ctot)
+  return _s;
+}
+inline const std::string& CdmState_ExportData::_internal_ctot() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.ctot_.Get();
+}
+inline void CdmState_ExportData::_internal_set_ctot(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ctot_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportData::_internal_mutable_ctot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.ctot_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportData::release_ctot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportData.ctot)
+  return _impl_.ctot_.Release();
+}
+inline void CdmState_ExportData::set_allocated_ctot(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ctot_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.ctot_.IsDefault()) {
+          _impl_.ctot_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportData.ctot)
+}
+
+// string reason = 5;
+inline void CdmState_ExportData::clear_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportData::reason() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportData.reason)
+  return _internal_reason();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportData::set_reason(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportData.reason)
+}
+inline std::string* CdmState_ExportData::mutable_reason() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_reason();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportData.reason)
+  return _s;
+}
+inline const std::string& CdmState_ExportData::_internal_reason() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.reason_.Get();
+}
+inline void CdmState_ExportData::_internal_set_reason(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportData::_internal_mutable_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.reason_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportData::release_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportData.reason)
+  return _impl_.reason_.Release();
+}
+inline void CdmState_ExportData::set_allocated_reason(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.reason_.IsDefault()) {
+          _impl_.reason_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportData.reason)
+}
+
+// string asrt = 6;
+inline void CdmState_ExportData::clear_asrt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.asrt_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportData::asrt() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportData.asrt)
+  return _internal_asrt();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportData::set_asrt(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.asrt_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportData.asrt)
+}
+inline std::string* CdmState_ExportData::mutable_asrt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_asrt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportData.asrt)
+  return _s;
+}
+inline const std::string& CdmState_ExportData::_internal_asrt() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.asrt_.Get();
+}
+inline void CdmState_ExportData::_internal_set_asrt(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.asrt_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportData::_internal_mutable_asrt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.asrt_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportData::release_asrt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportData.asrt)
+  return _impl_.asrt_.Release();
+}
+inline void CdmState_ExportData::set_allocated_asrt(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.asrt_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.asrt_.IsDefault()) {
+          _impl_.asrt_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportData.asrt)
+}
+
+// string departure_info = 7;
+inline void CdmState_ExportData::clear_departure_info() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_info_.ClearToEmpty();
+}
+inline const std::string& CdmState_ExportData::departure_info() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ExportData.departure_info)
+  return _internal_departure_info();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ExportData::set_departure_info(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_info_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ExportData.departure_info)
+}
+inline std::string* CdmState_ExportData::mutable_departure_info() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_departure_info();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ExportData.departure_info)
+  return _s;
+}
+inline const std::string& CdmState_ExportData::_internal_departure_info() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.departure_info_.Get();
+}
+inline void CdmState_ExportData::_internal_set_departure_info(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_info_.Set(value, GetArena());
+}
+inline std::string* CdmState_ExportData::_internal_mutable_departure_info() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.departure_info_.Mutable( GetArena());
+}
+inline std::string* CdmState_ExportData::release_departure_info() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ExportData.departure_info)
+  return _impl_.departure_info_.Release();
+}
+inline void CdmState_ExportData::set_allocated_departure_info(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.departure_info_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.departure_info_.IsDefault()) {
+          _impl_.departure_info_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ExportData.departure_info)
+}
+
+// -------------------------------------------------------------------
+
+// CdmState_Calculation
+
+// optional .google.protobuf.Timestamp base_time = 1;
+inline bool CdmState_Calculation::has_base_time() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000010u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.base_time_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState_Calculation::_internal_base_time() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.base_time_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState_Calculation::base_time() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.base_time)
+  return _internal_base_time();
+}
+inline void CdmState_Calculation::unsafe_arena_set_allocated_base_time(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.base_time_);
+  }
+  _impl_.base_time_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000010u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000010u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.Calculation.base_time)
+}
+inline ::google::protobuf::Timestamp* CdmState_Calculation::release_base_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000010u;
+  ::google::protobuf::Timestamp* released = _impl_.base_time_;
+  _impl_.base_time_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState_Calculation::unsafe_arena_release_base_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.Calculation.base_time)
+
+  _impl_._has_bits_[0] &= ~0x00000010u;
+  ::google::protobuf::Timestamp* temp = _impl_.base_time_;
+  _impl_.base_time_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState_Calculation::_internal_mutable_base_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.base_time_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.base_time_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.base_time_;
+}
+inline ::google::protobuf::Timestamp* CdmState_Calculation::mutable_base_time() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000010u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_base_time();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.Calculation.base_time)
+  return _msg;
+}
+inline void CdmState_Calculation::set_allocated_base_time(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.base_time_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000010u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000010u;
+  }
+
+  _impl_.base_time_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.Calculation.base_time)
+}
+
+// optional string base_source = 2;
+inline bool CdmState_Calculation::has_base_source() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void CdmState_Calculation::clear_base_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.base_source_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& CdmState_Calculation::base_source() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.base_source)
+  return _internal_base_source();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_Calculation::set_base_source(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.base_source_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.Calculation.base_source)
+}
+inline std::string* CdmState_Calculation::mutable_base_source() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_base_source();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.Calculation.base_source)
+  return _s;
+}
+inline const std::string& CdmState_Calculation::_internal_base_source() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.base_source_.Get();
+}
+inline void CdmState_Calculation::_internal_set_base_source(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.base_source_.Set(value, GetArena());
+}
+inline std::string* CdmState_Calculation::_internal_mutable_base_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  return _impl_.base_source_.Mutable( GetArena());
+}
+inline std::string* CdmState_Calculation::release_base_source() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.Calculation.base_source)
+  if ((_impl_._has_bits_[0] & 0x00000001u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  auto* released = _impl_.base_source_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.base_source_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void CdmState_Calculation::set_allocated_base_source(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  _impl_.base_source_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.base_source_.IsDefault()) {
+          _impl_.base_source_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.Calculation.base_source)
+}
+
+// optional int32 taxi_minutes = 3;
+inline bool CdmState_Calculation::has_taxi_minutes() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000040u) != 0;
+  return value;
+}
+inline void CdmState_Calculation::clear_taxi_minutes() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.taxi_minutes_ = 0;
+  _impl_._has_bits_[0] &= ~0x00000040u;
+}
+inline ::int32_t CdmState_Calculation::taxi_minutes() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.taxi_minutes)
+  return _internal_taxi_minutes();
+}
+inline void CdmState_Calculation::set_taxi_minutes(::int32_t value) {
+  _internal_set_taxi_minutes(value);
+  _impl_._has_bits_[0] |= 0x00000040u;
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.Calculation.taxi_minutes)
+}
+inline ::int32_t CdmState_Calculation::_internal_taxi_minutes() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.taxi_minutes_;
+}
+inline void CdmState_Calculation::_internal_set_taxi_minutes(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.taxi_minutes_ = value;
+}
+
+// optional string taxi_runway = 4;
+inline bool CdmState_Calculation::has_taxi_runway() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  return value;
+}
+inline void CdmState_Calculation::clear_taxi_runway() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.taxi_runway_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline const std::string& CdmState_Calculation::taxi_runway() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.taxi_runway)
+  return _internal_taxi_runway();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_Calculation::set_taxi_runway(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_.taxi_runway_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.Calculation.taxi_runway)
+}
+inline std::string* CdmState_Calculation::mutable_taxi_runway() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_taxi_runway();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.Calculation.taxi_runway)
+  return _s;
+}
+inline const std::string& CdmState_Calculation::_internal_taxi_runway() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.taxi_runway_.Get();
+}
+inline void CdmState_Calculation::_internal_set_taxi_runway(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_.taxi_runway_.Set(value, GetArena());
+}
+inline std::string* CdmState_Calculation::_internal_mutable_taxi_runway() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  return _impl_.taxi_runway_.Mutable( GetArena());
+}
+inline std::string* CdmState_Calculation::release_taxi_runway() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.Calculation.taxi_runway)
+  if ((_impl_._has_bits_[0] & 0x00000002u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  auto* released = _impl_.taxi_runway_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.taxi_runway_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void CdmState_Calculation::set_allocated_taxi_runway(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  _impl_.taxi_runway_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.taxi_runway_.IsDefault()) {
+          _impl_.taxi_runway_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.Calculation.taxi_runway)
+}
+
+// optional string invalid_reason = 5;
+inline bool CdmState_Calculation::has_invalid_reason() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
+  return value;
+}
+inline void CdmState_Calculation::clear_invalid_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.invalid_reason_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000004u;
+}
+inline const std::string& CdmState_Calculation::invalid_reason() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.invalid_reason)
+  return _internal_invalid_reason();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_Calculation::set_invalid_reason(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000004u;
+  _impl_.invalid_reason_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.Calculation.invalid_reason)
+}
+inline std::string* CdmState_Calculation::mutable_invalid_reason() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_invalid_reason();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.Calculation.invalid_reason)
+  return _s;
+}
+inline const std::string& CdmState_Calculation::_internal_invalid_reason() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.invalid_reason_.Get();
+}
+inline void CdmState_Calculation::_internal_set_invalid_reason(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000004u;
+  _impl_.invalid_reason_.Set(value, GetArena());
+}
+inline std::string* CdmState_Calculation::_internal_mutable_invalid_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000004u;
+  return _impl_.invalid_reason_.Mutable( GetArena());
+}
+inline std::string* CdmState_Calculation::release_invalid_reason() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.Calculation.invalid_reason)
+  if ((_impl_._has_bits_[0] & 0x00000004u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000004u;
+  auto* released = _impl_.invalid_reason_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.invalid_reason_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void CdmState_Calculation::set_allocated_invalid_reason(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000004u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000004u;
+  }
+  _impl_.invalid_reason_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.invalid_reason_.IsDefault()) {
+          _impl_.invalid_reason_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.Calculation.invalid_reason)
+}
+
+// optional int32 sequence_position = 6;
+inline bool CdmState_Calculation::has_sequence_position() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000080u) != 0;
+  return value;
+}
+inline void CdmState_Calculation::clear_sequence_position() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.sequence_position_ = 0;
+  _impl_._has_bits_[0] &= ~0x00000080u;
+}
+inline ::int32_t CdmState_Calculation::sequence_position() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.sequence_position)
+  return _internal_sequence_position();
+}
+inline void CdmState_Calculation::set_sequence_position(::int32_t value) {
+  _internal_set_sequence_position(value);
+  _impl_._has_bits_[0] |= 0x00000080u;
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.Calculation.sequence_position)
+}
+inline ::int32_t CdmState_Calculation::_internal_sequence_position() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.sequence_position_;
+}
+inline void CdmState_Calculation::_internal_set_sequence_position(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.sequence_position_ = value;
+}
+
+// optional string leader_callsign = 7;
+inline bool CdmState_Calculation::has_leader_callsign() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
+  return value;
+}
+inline void CdmState_Calculation::clear_leader_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.leader_callsign_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000008u;
+}
+inline const std::string& CdmState_Calculation::leader_callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.leader_callsign)
+  return _internal_leader_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_Calculation::set_leader_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000008u;
+  _impl_.leader_callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.Calculation.leader_callsign)
+}
+inline std::string* CdmState_Calculation::mutable_leader_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_leader_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.Calculation.leader_callsign)
+  return _s;
+}
+inline const std::string& CdmState_Calculation::_internal_leader_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.leader_callsign_.Get();
+}
+inline void CdmState_Calculation::_internal_set_leader_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000008u;
+  _impl_.leader_callsign_.Set(value, GetArena());
+}
+inline std::string* CdmState_Calculation::_internal_mutable_leader_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000008u;
+  return _impl_.leader_callsign_.Mutable( GetArena());
+}
+inline std::string* CdmState_Calculation::release_leader_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.Calculation.leader_callsign)
+  if ((_impl_._has_bits_[0] & 0x00000008u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000008u;
+  auto* released = _impl_.leader_callsign_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.leader_callsign_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void CdmState_Calculation::set_allocated_leader_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000008u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000008u;
+  }
+  _impl_.leader_callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.leader_callsign_.IsDefault()) {
+          _impl_.leader_callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.Calculation.leader_callsign)
+}
+
+// optional .google.protobuf.Timestamp leader_ttot = 8;
+inline bool CdmState_Calculation::has_leader_ttot() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000020u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.leader_ttot_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState_Calculation::_internal_leader_ttot() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.leader_ttot_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState_Calculation::leader_ttot() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.leader_ttot)
+  return _internal_leader_ttot();
+}
+inline void CdmState_Calculation::unsafe_arena_set_allocated_leader_ttot(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.leader_ttot_);
+  }
+  _impl_.leader_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000020u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000020u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.Calculation.leader_ttot)
+}
+inline ::google::protobuf::Timestamp* CdmState_Calculation::release_leader_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000020u;
+  ::google::protobuf::Timestamp* released = _impl_.leader_ttot_;
+  _impl_.leader_ttot_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState_Calculation::unsafe_arena_release_leader_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.Calculation.leader_ttot)
+
+  _impl_._has_bits_[0] &= ~0x00000020u;
+  ::google::protobuf::Timestamp* temp = _impl_.leader_ttot_;
+  _impl_.leader_ttot_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState_Calculation::_internal_mutable_leader_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.leader_ttot_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.leader_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.leader_ttot_;
+}
+inline ::google::protobuf::Timestamp* CdmState_Calculation::mutable_leader_ttot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000020u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_leader_ttot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.Calculation.leader_ttot)
+  return _msg;
+}
+inline void CdmState_Calculation::set_allocated_leader_ttot(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.leader_ttot_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000020u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000020u;
+  }
+
+  _impl_.leader_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.Calculation.leader_ttot)
+}
+
+// repeated .flightstrips.cluster.v1.CdmState.ReasonMarker reason_markers = 9;
+inline int CdmState_Calculation::_internal_reason_markers_size() const {
+  return _internal_reason_markers().size();
+}
+inline int CdmState_Calculation::reason_markers_size() const {
+  return _internal_reason_markers_size();
+}
+inline void CdmState_Calculation::clear_reason_markers() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.reason_markers_.Clear();
+}
+inline ::flightstrips::cluster::v1::CdmState_ReasonMarker* CdmState_Calculation::mutable_reason_markers(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.Calculation.reason_markers)
+  return _internal_mutable_reason_markers()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ReasonMarker>* CdmState_Calculation::mutable_reason_markers()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.CdmState.Calculation.reason_markers)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_reason_markers();
+}
+inline const ::flightstrips::cluster::v1::CdmState_ReasonMarker& CdmState_Calculation::reason_markers(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.Calculation.reason_markers)
+  return _internal_reason_markers().Get(index);
+}
+inline ::flightstrips::cluster::v1::CdmState_ReasonMarker* CdmState_Calculation::add_reason_markers() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::cluster::v1::CdmState_ReasonMarker* _add = _internal_mutable_reason_markers()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.CdmState.Calculation.reason_markers)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ReasonMarker>& CdmState_Calculation::reason_markers() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.CdmState.Calculation.reason_markers)
+  return _internal_reason_markers();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ReasonMarker>&
+CdmState_Calculation::_internal_reason_markers() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.reason_markers_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ReasonMarker>*
+CdmState_Calculation::_internal_mutable_reason_markers() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.reason_markers_;
+}
+
+// -------------------------------------------------------------------
+
+// CdmState_ReasonMarker
+
+// string kind = 1;
+inline void CdmState_ReasonMarker::clear_kind() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_.ClearToEmpty();
+}
+inline const std::string& CdmState_ReasonMarker::kind() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ReasonMarker.kind)
+  return _internal_kind();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ReasonMarker::set_kind(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ReasonMarker.kind)
+}
+inline std::string* CdmState_ReasonMarker::mutable_kind() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_kind();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ReasonMarker.kind)
+  return _s;
+}
+inline const std::string& CdmState_ReasonMarker::_internal_kind() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.kind_.Get();
+}
+inline void CdmState_ReasonMarker::_internal_set_kind(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_.Set(value, GetArena());
+}
+inline std::string* CdmState_ReasonMarker::_internal_mutable_kind() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.kind_.Mutable( GetArena());
+}
+inline std::string* CdmState_ReasonMarker::release_kind() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ReasonMarker.kind)
+  return _impl_.kind_.Release();
+}
+inline void CdmState_ReasonMarker::set_allocated_kind(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.kind_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.kind_.IsDefault()) {
+          _impl_.kind_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.kind)
+}
+
+// string message = 2;
+inline void CdmState_ReasonMarker::clear_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_.ClearToEmpty();
+}
+inline const std::string& CdmState_ReasonMarker::message() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ReasonMarker.message)
+  return _internal_message();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ReasonMarker::set_message(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ReasonMarker.message)
+}
+inline std::string* CdmState_ReasonMarker::mutable_message() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_message();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ReasonMarker.message)
+  return _s;
+}
+inline const std::string& CdmState_ReasonMarker::_internal_message() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.message_.Get();
+}
+inline void CdmState_ReasonMarker::_internal_set_message(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_.Set(value, GetArena());
+}
+inline std::string* CdmState_ReasonMarker::_internal_mutable_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.message_.Mutable( GetArena());
+}
+inline std::string* CdmState_ReasonMarker::release_message() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ReasonMarker.message)
+  return _impl_.message_.Release();
+}
+inline void CdmState_ReasonMarker::set_allocated_message(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.message_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.message_.IsDefault()) {
+          _impl_.message_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.message)
+}
+
+// optional string against_callsign = 3;
+inline bool CdmState_ReasonMarker::has_against_callsign() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void CdmState_ReasonMarker::clear_against_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.against_callsign_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& CdmState_ReasonMarker::against_callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ReasonMarker.against_callsign)
+  return _internal_against_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ReasonMarker::set_against_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.against_callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ReasonMarker.against_callsign)
+}
+inline std::string* CdmState_ReasonMarker::mutable_against_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_against_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ReasonMarker.against_callsign)
+  return _s;
+}
+inline const std::string& CdmState_ReasonMarker::_internal_against_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.against_callsign_.Get();
+}
+inline void CdmState_ReasonMarker::_internal_set_against_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.against_callsign_.Set(value, GetArena());
+}
+inline std::string* CdmState_ReasonMarker::_internal_mutable_against_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  return _impl_.against_callsign_.Mutable( GetArena());
+}
+inline std::string* CdmState_ReasonMarker::release_against_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ReasonMarker.against_callsign)
+  if ((_impl_._has_bits_[0] & 0x00000001u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  auto* released = _impl_.against_callsign_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.against_callsign_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void CdmState_ReasonMarker::set_allocated_against_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  _impl_.against_callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.against_callsign_.IsDefault()) {
+          _impl_.against_callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.against_callsign)
+}
+
+// optional string against_runway = 4;
+inline bool CdmState_ReasonMarker::has_against_runway() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  return value;
+}
+inline void CdmState_ReasonMarker::clear_against_runway() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.against_runway_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline const std::string& CdmState_ReasonMarker::against_runway() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ReasonMarker.against_runway)
+  return _internal_against_runway();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState_ReasonMarker::set_against_runway(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_.against_runway_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ReasonMarker.against_runway)
+}
+inline std::string* CdmState_ReasonMarker::mutable_against_runway() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_against_runway();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ReasonMarker.against_runway)
+  return _s;
+}
+inline const std::string& CdmState_ReasonMarker::_internal_against_runway() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.against_runway_.Get();
+}
+inline void CdmState_ReasonMarker::_internal_set_against_runway(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_.against_runway_.Set(value, GetArena());
+}
+inline std::string* CdmState_ReasonMarker::_internal_mutable_against_runway() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  return _impl_.against_runway_.Mutable( GetArena());
+}
+inline std::string* CdmState_ReasonMarker::release_against_runway() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ReasonMarker.against_runway)
+  if ((_impl_._has_bits_[0] & 0x00000002u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  auto* released = _impl_.against_runway_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.against_runway_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void CdmState_ReasonMarker::set_allocated_against_runway(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  _impl_.against_runway_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.against_runway_.IsDefault()) {
+          _impl_.against_runway_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.against_runway)
+}
+
+// optional .google.protobuf.Timestamp against_ttot = 5;
+inline bool CdmState_ReasonMarker::has_against_ttot() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.against_ttot_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState_ReasonMarker::_internal_against_ttot() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.against_ttot_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState_ReasonMarker::against_ttot() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ReasonMarker.against_ttot)
+  return _internal_against_ttot();
+}
+inline void CdmState_ReasonMarker::unsafe_arena_set_allocated_against_ttot(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.against_ttot_);
+  }
+  _impl_.against_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000004u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000004u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.against_ttot)
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::release_against_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000004u;
+  ::google::protobuf::Timestamp* released = _impl_.against_ttot_;
+  _impl_.against_ttot_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::unsafe_arena_release_against_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ReasonMarker.against_ttot)
+
+  _impl_._has_bits_[0] &= ~0x00000004u;
+  ::google::protobuf::Timestamp* temp = _impl_.against_ttot_;
+  _impl_.against_ttot_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::_internal_mutable_against_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.against_ttot_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.against_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.against_ttot_;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::mutable_against_ttot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000004u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_against_ttot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ReasonMarker.against_ttot)
+  return _msg;
+}
+inline void CdmState_ReasonMarker::set_allocated_against_ttot(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.against_ttot_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000004u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000004u;
+  }
+
+  _impl_.against_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.against_ttot)
+}
+
+// optional .google.protobuf.Timestamp from_ttot = 6;
+inline bool CdmState_ReasonMarker::has_from_ttot() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.from_ttot_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState_ReasonMarker::_internal_from_ttot() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.from_ttot_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState_ReasonMarker::from_ttot() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ReasonMarker.from_ttot)
+  return _internal_from_ttot();
+}
+inline void CdmState_ReasonMarker::unsafe_arena_set_allocated_from_ttot(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.from_ttot_);
+  }
+  _impl_.from_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000008u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000008u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.from_ttot)
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::release_from_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000008u;
+  ::google::protobuf::Timestamp* released = _impl_.from_ttot_;
+  _impl_.from_ttot_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::unsafe_arena_release_from_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ReasonMarker.from_ttot)
+
+  _impl_._has_bits_[0] &= ~0x00000008u;
+  ::google::protobuf::Timestamp* temp = _impl_.from_ttot_;
+  _impl_.from_ttot_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::_internal_mutable_from_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.from_ttot_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.from_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.from_ttot_;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::mutable_from_ttot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000008u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_from_ttot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ReasonMarker.from_ttot)
+  return _msg;
+}
+inline void CdmState_ReasonMarker::set_allocated_from_ttot(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.from_ttot_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000008u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000008u;
+  }
+
+  _impl_.from_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.from_ttot)
+}
+
+// optional .google.protobuf.Timestamp to_ttot = 7;
+inline bool CdmState_ReasonMarker::has_to_ttot() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000010u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.to_ttot_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState_ReasonMarker::_internal_to_ttot() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.to_ttot_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState_ReasonMarker::to_ttot() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ReasonMarker.to_ttot)
+  return _internal_to_ttot();
+}
+inline void CdmState_ReasonMarker::unsafe_arena_set_allocated_to_ttot(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.to_ttot_);
+  }
+  _impl_.to_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000010u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000010u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.to_ttot)
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::release_to_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000010u;
+  ::google::protobuf::Timestamp* released = _impl_.to_ttot_;
+  _impl_.to_ttot_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::unsafe_arena_release_to_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ReasonMarker.to_ttot)
+
+  _impl_._has_bits_[0] &= ~0x00000010u;
+  ::google::protobuf::Timestamp* temp = _impl_.to_ttot_;
+  _impl_.to_ttot_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::_internal_mutable_to_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.to_ttot_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.to_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.to_ttot_;
+}
+inline ::google::protobuf::Timestamp* CdmState_ReasonMarker::mutable_to_ttot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000010u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_to_ttot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ReasonMarker.to_ttot)
+  return _msg;
+}
+inline void CdmState_ReasonMarker::set_allocated_to_ttot(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.to_ttot_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000010u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000010u;
+  }
+
+  _impl_.to_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.ReasonMarker.to_ttot)
+}
+
+// optional double required_spacing_minutes = 8;
+inline bool CdmState_ReasonMarker::has_required_spacing_minutes() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000020u) != 0;
+  return value;
+}
+inline void CdmState_ReasonMarker::clear_required_spacing_minutes() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.required_spacing_minutes_ = 0;
+  _impl_._has_bits_[0] &= ~0x00000020u;
+}
+inline double CdmState_ReasonMarker::required_spacing_minutes() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ReasonMarker.required_spacing_minutes)
+  return _internal_required_spacing_minutes();
+}
+inline void CdmState_ReasonMarker::set_required_spacing_minutes(double value) {
+  _internal_set_required_spacing_minutes(value);
+  _impl_._has_bits_[0] |= 0x00000020u;
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ReasonMarker.required_spacing_minutes)
+}
+inline double CdmState_ReasonMarker::_internal_required_spacing_minutes() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.required_spacing_minutes_;
+}
+inline void CdmState_ReasonMarker::_internal_set_required_spacing_minutes(double value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.required_spacing_minutes_ = value;
+}
+
+// -------------------------------------------------------------------
+
 // CdmState
 
 // string callsign = 1;
@@ -70012,7 +74031,7 @@ inline void CdmState::set_allocated_callsign(std::string* value) {
 
 // optional .google.protobuf.Timestamp tobt = 2;
 inline bool CdmState::has_tobt() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.tobt_ != nullptr);
   return value;
 }
@@ -70032,16 +74051,16 @@ inline void CdmState::unsafe_arena_set_allocated_tobt(::google::protobuf::Timest
   }
   _impl_.tobt_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    _impl_._has_bits_[0] |= 0x00000001u;
+    _impl_._has_bits_[0] |= 0x00000002u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000001u;
+    _impl_._has_bits_[0] &= ~0x00000002u;
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.tobt)
 }
 inline ::google::protobuf::Timestamp* CdmState::release_tobt() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
 
-  _impl_._has_bits_[0] &= ~0x00000001u;
+  _impl_._has_bits_[0] &= ~0x00000002u;
   ::google::protobuf::Timestamp* released = _impl_.tobt_;
   _impl_.tobt_ = nullptr;
 #ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
@@ -70061,7 +74080,7 @@ inline ::google::protobuf::Timestamp* CdmState::unsafe_arena_release_tobt() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.tobt)
 
-  _impl_._has_bits_[0] &= ~0x00000001u;
+  _impl_._has_bits_[0] &= ~0x00000002u;
   ::google::protobuf::Timestamp* temp = _impl_.tobt_;
   _impl_.tobt_ = nullptr;
   return temp;
@@ -70075,7 +74094,7 @@ inline ::google::protobuf::Timestamp* CdmState::_internal_mutable_tobt() {
   return _impl_.tobt_;
 }
 inline ::google::protobuf::Timestamp* CdmState::mutable_tobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_._has_bits_[0] |= 0x00000002u;
   ::google::protobuf::Timestamp* _msg = _internal_mutable_tobt();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.tobt)
   return _msg;
@@ -70092,9 +74111,9 @@ inline void CdmState::set_allocated_tobt(::google::protobuf::Timestamp* value) {
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    _impl_._has_bits_[0] |= 0x00000001u;
+    _impl_._has_bits_[0] |= 0x00000002u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000001u;
+    _impl_._has_bits_[0] &= ~0x00000002u;
   }
 
   _impl_.tobt_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
@@ -70103,7 +74122,7 @@ inline void CdmState::set_allocated_tobt(::google::protobuf::Timestamp* value) {
 
 // optional .google.protobuf.Timestamp tsat = 3;
 inline bool CdmState::has_tsat() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.tsat_ != nullptr);
   return value;
 }
@@ -70123,16 +74142,16 @@ inline void CdmState::unsafe_arena_set_allocated_tsat(::google::protobuf::Timest
   }
   _impl_.tsat_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    _impl_._has_bits_[0] |= 0x00000002u;
+    _impl_._has_bits_[0] |= 0x00000004u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000002u;
+    _impl_._has_bits_[0] &= ~0x00000004u;
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.tsat)
 }
 inline ::google::protobuf::Timestamp* CdmState::release_tsat() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
 
-  _impl_._has_bits_[0] &= ~0x00000002u;
+  _impl_._has_bits_[0] &= ~0x00000004u;
   ::google::protobuf::Timestamp* released = _impl_.tsat_;
   _impl_.tsat_ = nullptr;
 #ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
@@ -70152,7 +74171,7 @@ inline ::google::protobuf::Timestamp* CdmState::unsafe_arena_release_tsat() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.tsat)
 
-  _impl_._has_bits_[0] &= ~0x00000002u;
+  _impl_._has_bits_[0] &= ~0x00000004u;
   ::google::protobuf::Timestamp* temp = _impl_.tsat_;
   _impl_.tsat_ = nullptr;
   return temp;
@@ -70166,7 +74185,7 @@ inline ::google::protobuf::Timestamp* CdmState::_internal_mutable_tsat() {
   return _impl_.tsat_;
 }
 inline ::google::protobuf::Timestamp* CdmState::mutable_tsat() ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  _impl_._has_bits_[0] |= 0x00000002u;
+  _impl_._has_bits_[0] |= 0x00000004u;
   ::google::protobuf::Timestamp* _msg = _internal_mutable_tsat();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.tsat)
   return _msg;
@@ -70183,9 +74202,9 @@ inline void CdmState::set_allocated_tsat(::google::protobuf::Timestamp* value) {
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    _impl_._has_bits_[0] |= 0x00000002u;
+    _impl_._has_bits_[0] |= 0x00000004u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000002u;
+    _impl_._has_bits_[0] &= ~0x00000004u;
   }
 
   _impl_.tsat_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
@@ -70194,7 +74213,7 @@ inline void CdmState::set_allocated_tsat(::google::protobuf::Timestamp* value) {
 
 // optional .google.protobuf.Timestamp ttot = 4;
 inline bool CdmState::has_ttot() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.ttot_ != nullptr);
   return value;
 }
@@ -70214,16 +74233,16 @@ inline void CdmState::unsafe_arena_set_allocated_ttot(::google::protobuf::Timest
   }
   _impl_.ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    _impl_._has_bits_[0] |= 0x00000004u;
+    _impl_._has_bits_[0] |= 0x00000008u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000004u;
+    _impl_._has_bits_[0] &= ~0x00000008u;
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.ttot)
 }
 inline ::google::protobuf::Timestamp* CdmState::release_ttot() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
 
-  _impl_._has_bits_[0] &= ~0x00000004u;
+  _impl_._has_bits_[0] &= ~0x00000008u;
   ::google::protobuf::Timestamp* released = _impl_.ttot_;
   _impl_.ttot_ = nullptr;
 #ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
@@ -70243,7 +74262,7 @@ inline ::google::protobuf::Timestamp* CdmState::unsafe_arena_release_ttot() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ttot)
 
-  _impl_._has_bits_[0] &= ~0x00000004u;
+  _impl_._has_bits_[0] &= ~0x00000008u;
   ::google::protobuf::Timestamp* temp = _impl_.ttot_;
   _impl_.ttot_ = nullptr;
   return temp;
@@ -70257,7 +74276,7 @@ inline ::google::protobuf::Timestamp* CdmState::_internal_mutable_ttot() {
   return _impl_.ttot_;
 }
 inline ::google::protobuf::Timestamp* CdmState::mutable_ttot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  _impl_._has_bits_[0] |= 0x00000004u;
+  _impl_._has_bits_[0] |= 0x00000008u;
   ::google::protobuf::Timestamp* _msg = _internal_mutable_ttot();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ttot)
   return _msg;
@@ -70274,9 +74293,9 @@ inline void CdmState::set_allocated_ttot(::google::protobuf::Timestamp* value) {
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    _impl_._has_bits_[0] |= 0x00000004u;
+    _impl_._has_bits_[0] |= 0x00000008u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000004u;
+    _impl_._has_bits_[0] &= ~0x00000008u;
   }
 
   _impl_.ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
@@ -70285,7 +74304,7 @@ inline void CdmState::set_allocated_ttot(::google::protobuf::Timestamp* value) {
 
 // optional .google.protobuf.Timestamp ctot = 5;
 inline bool CdmState::has_ctot() const {
-  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
+  bool value = (_impl_._has_bits_[0] & 0x00000010u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.ctot_ != nullptr);
   return value;
 }
@@ -70305,16 +74324,16 @@ inline void CdmState::unsafe_arena_set_allocated_ctot(::google::protobuf::Timest
   }
   _impl_.ctot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
   if (value != nullptr) {
-    _impl_._has_bits_[0] |= 0x00000008u;
+    _impl_._has_bits_[0] |= 0x00000010u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000008u;
+    _impl_._has_bits_[0] &= ~0x00000010u;
   }
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.ctot)
 }
 inline ::google::protobuf::Timestamp* CdmState::release_ctot() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
 
-  _impl_._has_bits_[0] &= ~0x00000008u;
+  _impl_._has_bits_[0] &= ~0x00000010u;
   ::google::protobuf::Timestamp* released = _impl_.ctot_;
   _impl_.ctot_ = nullptr;
 #ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
@@ -70334,7 +74353,7 @@ inline ::google::protobuf::Timestamp* CdmState::unsafe_arena_release_ctot() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.ctot)
 
-  _impl_._has_bits_[0] &= ~0x00000008u;
+  _impl_._has_bits_[0] &= ~0x00000010u;
   ::google::protobuf::Timestamp* temp = _impl_.ctot_;
   _impl_.ctot_ = nullptr;
   return temp;
@@ -70348,7 +74367,7 @@ inline ::google::protobuf::Timestamp* CdmState::_internal_mutable_ctot() {
   return _impl_.ctot_;
 }
 inline ::google::protobuf::Timestamp* CdmState::mutable_ctot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  _impl_._has_bits_[0] |= 0x00000008u;
+  _impl_._has_bits_[0] |= 0x00000010u;
   ::google::protobuf::Timestamp* _msg = _internal_mutable_ctot();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.ctot)
   return _msg;
@@ -70365,9 +74384,9 @@ inline void CdmState::set_allocated_ctot(::google::protobuf::Timestamp* value) {
     if (message_arena != submessage_arena) {
       value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
     }
-    _impl_._has_bits_[0] |= 0x00000008u;
+    _impl_._has_bits_[0] |= 0x00000010u;
   } else {
-    _impl_._has_bits_[0] &= ~0x00000008u;
+    _impl_._has_bits_[0] &= ~0x00000010u;
   }
 
   _impl_.ctot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
@@ -70494,6 +74513,767 @@ inline void CdmState::set_allocated_source_revision(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.source_revision)
+}
+
+// optional .google.protobuf.Timestamp atot = 9;
+inline bool CdmState::has_atot() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000020u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.atot_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState::_internal_atot() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.atot_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState::atot() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.atot)
+  return _internal_atot();
+}
+inline void CdmState::unsafe_arena_set_allocated_atot(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.atot_);
+  }
+  _impl_.atot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000020u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000020u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.atot)
+}
+inline ::google::protobuf::Timestamp* CdmState::release_atot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000020u;
+  ::google::protobuf::Timestamp* released = _impl_.atot_;
+  _impl_.atot_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState::unsafe_arena_release_atot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.atot)
+
+  _impl_._has_bits_[0] &= ~0x00000020u;
+  ::google::protobuf::Timestamp* temp = _impl_.atot_;
+  _impl_.atot_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState::_internal_mutable_atot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.atot_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.atot_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.atot_;
+}
+inline ::google::protobuf::Timestamp* CdmState::mutable_atot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000020u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_atot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.atot)
+  return _msg;
+}
+inline void CdmState::set_allocated_atot(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.atot_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000020u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000020u;
+  }
+
+  _impl_.atot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.atot)
+}
+
+// optional .google.protobuf.Timestamp viff_proposal_tsat = 10;
+inline bool CdmState::has_viff_proposal_tsat() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000040u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.viff_proposal_tsat_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState::_internal_viff_proposal_tsat() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.viff_proposal_tsat_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState::viff_proposal_tsat() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.viff_proposal_tsat)
+  return _internal_viff_proposal_tsat();
+}
+inline void CdmState::unsafe_arena_set_allocated_viff_proposal_tsat(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.viff_proposal_tsat_);
+  }
+  _impl_.viff_proposal_tsat_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000040u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000040u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.viff_proposal_tsat)
+}
+inline ::google::protobuf::Timestamp* CdmState::release_viff_proposal_tsat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000040u;
+  ::google::protobuf::Timestamp* released = _impl_.viff_proposal_tsat_;
+  _impl_.viff_proposal_tsat_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState::unsafe_arena_release_viff_proposal_tsat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.viff_proposal_tsat)
+
+  _impl_._has_bits_[0] &= ~0x00000040u;
+  ::google::protobuf::Timestamp* temp = _impl_.viff_proposal_tsat_;
+  _impl_.viff_proposal_tsat_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState::_internal_mutable_viff_proposal_tsat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.viff_proposal_tsat_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.viff_proposal_tsat_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.viff_proposal_tsat_;
+}
+inline ::google::protobuf::Timestamp* CdmState::mutable_viff_proposal_tsat() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000040u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_viff_proposal_tsat();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.viff_proposal_tsat)
+  return _msg;
+}
+inline void CdmState::set_allocated_viff_proposal_tsat(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.viff_proposal_tsat_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000040u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000040u;
+  }
+
+  _impl_.viff_proposal_tsat_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.viff_proposal_tsat)
+}
+
+// optional .google.protobuf.Timestamp viff_proposal_ttot = 11;
+inline bool CdmState::has_viff_proposal_ttot() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000080u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.viff_proposal_ttot_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& CdmState::_internal_viff_proposal_ttot() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.viff_proposal_ttot_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& CdmState::viff_proposal_ttot() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.viff_proposal_ttot)
+  return _internal_viff_proposal_ttot();
+}
+inline void CdmState::unsafe_arena_set_allocated_viff_proposal_ttot(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.viff_proposal_ttot_);
+  }
+  _impl_.viff_proposal_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000080u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000080u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.viff_proposal_ttot)
+}
+inline ::google::protobuf::Timestamp* CdmState::release_viff_proposal_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000080u;
+  ::google::protobuf::Timestamp* released = _impl_.viff_proposal_ttot_;
+  _impl_.viff_proposal_ttot_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* CdmState::unsafe_arena_release_viff_proposal_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.viff_proposal_ttot)
+
+  _impl_._has_bits_[0] &= ~0x00000080u;
+  ::google::protobuf::Timestamp* temp = _impl_.viff_proposal_ttot_;
+  _impl_.viff_proposal_ttot_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* CdmState::_internal_mutable_viff_proposal_ttot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.viff_proposal_ttot_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.viff_proposal_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.viff_proposal_ttot_;
+}
+inline ::google::protobuf::Timestamp* CdmState::mutable_viff_proposal_ttot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000080u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_viff_proposal_ttot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.viff_proposal_ttot)
+  return _msg;
+}
+inline void CdmState::set_allocated_viff_proposal_ttot(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.viff_proposal_ttot_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000080u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000080u;
+  }
+
+  _impl_.viff_proposal_ttot_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.viff_proposal_ttot)
+}
+
+// optional string tobt_confirmed_by = 12;
+inline bool CdmState::has_tobt_confirmed_by() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  return value;
+}
+inline void CdmState::clear_tobt_confirmed_by() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_confirmed_by_.ClearToEmpty();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const std::string& CdmState::tobt_confirmed_by() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.tobt_confirmed_by)
+  return _internal_tobt_confirmed_by();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmState::set_tobt_confirmed_by(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.tobt_confirmed_by_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.tobt_confirmed_by)
+}
+inline std::string* CdmState::mutable_tobt_confirmed_by() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_tobt_confirmed_by();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.tobt_confirmed_by)
+  return _s;
+}
+inline const std::string& CdmState::_internal_tobt_confirmed_by() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tobt_confirmed_by_.Get();
+}
+inline void CdmState::_internal_set_tobt_confirmed_by(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  _impl_.tobt_confirmed_by_.Set(value, GetArena());
+}
+inline std::string* CdmState::_internal_mutable_tobt_confirmed_by() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000001u;
+  return _impl_.tobt_confirmed_by_.Mutable( GetArena());
+}
+inline std::string* CdmState::release_tobt_confirmed_by() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.tobt_confirmed_by)
+  if ((_impl_._has_bits_[0] & 0x00000001u) == 0) {
+    return nullptr;
+  }
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  auto* released = _impl_.tobt_confirmed_by_.Release();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.tobt_confirmed_by_.Set("", GetArena());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  return released;
+}
+inline void CdmState::set_allocated_tobt_confirmed_by(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  _impl_.tobt_confirmed_by_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.tobt_confirmed_by_.IsDefault()) {
+          _impl_.tobt_confirmed_by_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.tobt_confirmed_by)
+}
+
+// bool tobt_auto_synced = 13;
+inline void CdmState::clear_tobt_auto_synced() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_auto_synced_ = false;
+}
+inline bool CdmState::tobt_auto_synced() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.tobt_auto_synced)
+  return _internal_tobt_auto_synced();
+}
+inline void CdmState::set_tobt_auto_synced(bool value) {
+  _internal_set_tobt_auto_synced(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.tobt_auto_synced)
+}
+inline bool CdmState::_internal_tobt_auto_synced() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tobt_auto_synced_;
+}
+inline void CdmState::_internal_set_tobt_auto_synced(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_auto_synced_ = value;
+}
+
+// bool tobt_auto_adjusted = 14;
+inline void CdmState::clear_tobt_auto_adjusted() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_auto_adjusted_ = false;
+}
+inline bool CdmState::tobt_auto_adjusted() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.tobt_auto_adjusted)
+  return _internal_tobt_auto_adjusted();
+}
+inline void CdmState::set_tobt_auto_adjusted(bool value) {
+  _internal_set_tobt_auto_adjusted(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.tobt_auto_adjusted)
+}
+inline bool CdmState::_internal_tobt_auto_adjusted() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tobt_auto_adjusted_;
+}
+inline void CdmState::_internal_set_tobt_auto_adjusted(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_auto_adjusted_ = value;
+}
+
+// bool tobt_manually_confirmed = 15;
+inline void CdmState::clear_tobt_manually_confirmed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_manually_confirmed_ = false;
+}
+inline bool CdmState::tobt_manually_confirmed() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.tobt_manually_confirmed)
+  return _internal_tobt_manually_confirmed();
+}
+inline void CdmState::set_tobt_manually_confirmed(bool value) {
+  _internal_set_tobt_manually_confirmed(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.tobt_manually_confirmed)
+}
+inline bool CdmState::_internal_tobt_manually_confirmed() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tobt_manually_confirmed_;
+}
+inline void CdmState::_internal_set_tobt_manually_confirmed(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tobt_manually_confirmed_ = value;
+}
+
+// .flightstrips.cluster.v1.CdmState.Recalculation recalculation = 16;
+inline void CdmState::clear_recalculation() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.recalculation_ = 0;
+}
+inline ::flightstrips::cluster::v1::CdmState_Recalculation CdmState::recalculation() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.recalculation)
+  return _internal_recalculation();
+}
+inline void CdmState::set_recalculation(::flightstrips::cluster::v1::CdmState_Recalculation value) {
+  _internal_set_recalculation(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.recalculation)
+}
+inline ::flightstrips::cluster::v1::CdmState_Recalculation CdmState::_internal_recalculation() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::flightstrips::cluster::v1::CdmState_Recalculation>(_impl_.recalculation_);
+}
+inline void CdmState::_internal_set_recalculation(::flightstrips::cluster::v1::CdmState_Recalculation value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.recalculation_ = value;
+}
+
+// bool pushback_recalculate = 17;
+inline void CdmState::clear_pushback_recalculate() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.pushback_recalculate_ = false;
+}
+inline bool CdmState::pushback_recalculate() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.pushback_recalculate)
+  return _internal_pushback_recalculate();
+}
+inline void CdmState::set_pushback_recalculate(bool value) {
+  _internal_set_pushback_recalculate(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.pushback_recalculate)
+}
+inline bool CdmState::_internal_pushback_recalculate() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.pushback_recalculate_;
+}
+inline void CdmState::_internal_set_pushback_recalculate(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.pushback_recalculate_ = value;
+}
+
+// bool ready_sync_pending = 18;
+inline void CdmState::clear_ready_sync_pending() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ready_sync_pending_ = false;
+}
+inline bool CdmState::ready_sync_pending() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.ready_sync_pending)
+  return _internal_ready_sync_pending();
+}
+inline void CdmState::set_ready_sync_pending(bool value) {
+  _internal_set_ready_sync_pending(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.ready_sync_pending)
+}
+inline bool CdmState::_internal_ready_sync_pending() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.ready_sync_pending_;
+}
+inline void CdmState::_internal_set_ready_sync_pending(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ready_sync_pending_ = value;
+}
+
+// bool viff_request_sync_pending = 19;
+inline void CdmState::clear_viff_request_sync_pending() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.viff_request_sync_pending_ = false;
+}
+inline bool CdmState::viff_request_sync_pending() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.viff_request_sync_pending)
+  return _internal_viff_request_sync_pending();
+}
+inline void CdmState::set_viff_request_sync_pending(bool value) {
+  _internal_set_viff_request_sync_pending(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.viff_request_sync_pending)
+}
+inline bool CdmState::_internal_viff_request_sync_pending() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.viff_request_sync_pending_;
+}
+inline void CdmState::_internal_set_viff_request_sync_pending(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.viff_request_sync_pending_ = value;
+}
+
+// bool atot_viff_pending = 20;
+inline void CdmState::clear_atot_viff_pending() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atot_viff_pending_ = false;
+}
+inline bool CdmState::atot_viff_pending() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.atot_viff_pending)
+  return _internal_atot_viff_pending();
+}
+inline void CdmState::set_atot_viff_pending(bool value) {
+  _internal_set_atot_viff_pending(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmState.atot_viff_pending)
+}
+inline bool CdmState::_internal_atot_viff_pending() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.atot_viff_pending_;
+}
+inline void CdmState::_internal_set_atot_viff_pending(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.atot_viff_pending_ = value;
+}
+
+// optional .flightstrips.cluster.v1.CdmState.Calculation calculation = 21;
+inline bool CdmState::has_calculation() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000100u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.calculation_ != nullptr);
+  return value;
+}
+inline void CdmState::clear_calculation() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.calculation_ != nullptr) _impl_.calculation_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000100u;
+}
+inline const ::flightstrips::cluster::v1::CdmState_Calculation& CdmState::_internal_calculation() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::CdmState_Calculation* p = _impl_.calculation_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::CdmState_Calculation&>(::flightstrips::cluster::v1::_CdmState_Calculation_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmState_Calculation& CdmState::calculation() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.calculation)
+  return _internal_calculation();
+}
+inline void CdmState::unsafe_arena_set_allocated_calculation(::flightstrips::cluster::v1::CdmState_Calculation* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.calculation_);
+  }
+  _impl_.calculation_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_Calculation*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000100u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000100u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.calculation)
+}
+inline ::flightstrips::cluster::v1::CdmState_Calculation* CdmState::release_calculation() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000100u;
+  ::flightstrips::cluster::v1::CdmState_Calculation* released = _impl_.calculation_;
+  _impl_.calculation_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::CdmState_Calculation* CdmState::unsafe_arena_release_calculation() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.calculation)
+
+  _impl_._has_bits_[0] &= ~0x00000100u;
+  ::flightstrips::cluster::v1::CdmState_Calculation* temp = _impl_.calculation_;
+  _impl_.calculation_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::CdmState_Calculation* CdmState::_internal_mutable_calculation() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.calculation_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmState_Calculation>(GetArena());
+    _impl_.calculation_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_Calculation*>(p);
+  }
+  return _impl_.calculation_;
+}
+inline ::flightstrips::cluster::v1::CdmState_Calculation* CdmState::mutable_calculation() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000100u;
+  ::flightstrips::cluster::v1::CdmState_Calculation* _msg = _internal_mutable_calculation();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.calculation)
+  return _msg;
+}
+inline void CdmState::set_allocated_calculation(::flightstrips::cluster::v1::CdmState_Calculation* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.calculation_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000100u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000100u;
+  }
+
+  _impl_.calculation_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_Calculation*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.calculation)
+}
+
+// repeated .flightstrips.cluster.v1.CdmState.ExportIntent pending_exports = 22;
+inline int CdmState::_internal_pending_exports_size() const {
+  return _internal_pending_exports().size();
+}
+inline int CdmState::pending_exports_size() const {
+  return _internal_pending_exports_size();
+}
+inline void CdmState::clear_pending_exports() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.pending_exports_.Clear();
+}
+inline ::flightstrips::cluster::v1::CdmState_ExportIntent* CdmState::mutable_pending_exports(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.pending_exports)
+  return _internal_mutable_pending_exports()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ExportIntent>* CdmState::mutable_pending_exports()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.CdmState.pending_exports)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_pending_exports();
+}
+inline const ::flightstrips::cluster::v1::CdmState_ExportIntent& CdmState::pending_exports(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.pending_exports)
+  return _internal_pending_exports().Get(index);
+}
+inline ::flightstrips::cluster::v1::CdmState_ExportIntent* CdmState::add_pending_exports() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::cluster::v1::CdmState_ExportIntent* _add = _internal_mutable_pending_exports()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.CdmState.pending_exports)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ExportIntent>& CdmState::pending_exports() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.CdmState.pending_exports)
+  return _internal_pending_exports();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ExportIntent>&
+CdmState::_internal_pending_exports() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.pending_exports_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::CdmState_ExportIntent>*
+CdmState::_internal_mutable_pending_exports() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.pending_exports_;
+}
+
+// optional .flightstrips.cluster.v1.CdmState.PushbackVerification pushback = 23;
+inline bool CdmState::has_pushback() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000200u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.pushback_ != nullptr);
+  return value;
+}
+inline void CdmState::clear_pushback() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.pushback_ != nullptr) _impl_.pushback_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000200u;
+}
+inline const ::flightstrips::cluster::v1::CdmState_PushbackVerification& CdmState::_internal_pushback() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::CdmState_PushbackVerification* p = _impl_.pushback_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::CdmState_PushbackVerification&>(::flightstrips::cluster::v1::_CdmState_PushbackVerification_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmState_PushbackVerification& CdmState::pushback() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmState.pushback)
+  return _internal_pushback();
+}
+inline void CdmState::unsafe_arena_set_allocated_pushback(::flightstrips::cluster::v1::CdmState_PushbackVerification* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.pushback_);
+  }
+  _impl_.pushback_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_PushbackVerification*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000200u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000200u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmState.pushback)
+}
+inline ::flightstrips::cluster::v1::CdmState_PushbackVerification* CdmState::release_pushback() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000200u;
+  ::flightstrips::cluster::v1::CdmState_PushbackVerification* released = _impl_.pushback_;
+  _impl_.pushback_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::CdmState_PushbackVerification* CdmState::unsafe_arena_release_pushback() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmState.pushback)
+
+  _impl_._has_bits_[0] &= ~0x00000200u;
+  ::flightstrips::cluster::v1::CdmState_PushbackVerification* temp = _impl_.pushback_;
+  _impl_.pushback_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::CdmState_PushbackVerification* CdmState::_internal_mutable_pushback() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.pushback_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmState_PushbackVerification>(GetArena());
+    _impl_.pushback_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_PushbackVerification*>(p);
+  }
+  return _impl_.pushback_;
+}
+inline ::flightstrips::cluster::v1::CdmState_PushbackVerification* CdmState::mutable_pushback() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000200u;
+  ::flightstrips::cluster::v1::CdmState_PushbackVerification* _msg = _internal_mutable_pushback();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmState.pushback)
+  return _msg;
+}
+inline void CdmState::set_allocated_pushback(::flightstrips::cluster::v1::CdmState_PushbackVerification* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.pushback_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000200u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000200u;
+  }
+
+  _impl_.pushback_ = reinterpret_cast<::flightstrips::cluster::v1::CdmState_PushbackVerification*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmState.pushback)
 }
 
 // -------------------------------------------------------------------
@@ -125440,6 +130220,18 @@ struct is_proto_enum<::flightstrips::cluster::v1::SessionRegistry_State> : std::
 template <>
 inline const EnumDescriptor* GetEnumDescriptor<::flightstrips::cluster::v1::SessionRegistry_State>() {
   return ::flightstrips::cluster::v1::SessionRegistry_State_descriptor();
+}
+template <>
+struct is_proto_enum<::flightstrips::cluster::v1::CdmState_ExportIntent_Kind> : std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor<::flightstrips::cluster::v1::CdmState_ExportIntent_Kind>() {
+  return ::flightstrips::cluster::v1::CdmState_ExportIntent_Kind_descriptor();
+}
+template <>
+struct is_proto_enum<::flightstrips::cluster::v1::CdmState_Recalculation> : std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor<::flightstrips::cluster::v1::CdmState_Recalculation>() {
+  return ::flightstrips::cluster::v1::CdmState_Recalculation_descriptor();
 }
 template <>
 struct is_proto_enum<::flightstrips::cluster::v1::AmanCapacityAudit_Kind> : std::true_type {};

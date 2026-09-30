@@ -233,8 +233,15 @@ message CdmAction {
     SetTobt set_tobt = 2; SetCdmReady set_ready = 3;
     SetCdmDeice set_deice = 4; SetCdmCtot set_ctot = 5;
     RemoveCdmCtot remove_ctot = 6;
+    SetTobt set_eobt = 7; SetTobt set_asrt = 8; SetTobt set_tsac = 9;
+    CdmAutomaticAction clearance_tobt = 10; CdmGroundState ground_state = 11;
+    CdmAutomaticAction record_aobt = 12; CdmAutomaticAction record_atot = 13;
+    CdmAutomaticAction prepare_pushback = 14; CdmAutomaticAction better_tobt = 15;
+    SetTobt logon_eobt = 16;
   }
 }
+message CdmAutomaticAction {}
+message CdmGroundState { string state = 1; }
 message SetTobt { google.protobuf.Timestamp value = 1; string hhmm_utc = 2; }
 message SetCdmReady { bool ready = 1; }
 message SetCdmDeice { string code = 1; }

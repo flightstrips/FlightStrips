@@ -196,6 +196,22 @@ AMAN's previous opaque command outcome, audit and validation payloads become typ
 
 ## Compatibility and schema discipline
 
+Task 18b appends nested CDM fields only: `CdmState` 9–23 retain actual takeoff
+time, unconstrained vIFF proposal clocks, confirmation and recalculation
+flags, calculation reasons, exact export parameters/dependencies and pushback
+verification attempts/matches. Existing `source_revision` identifies the
+accepted CDM policy generation that owns a derived export; result application
+does not create a new export generation. Export intent operation UUIDs and
+Task 19 workflows remain durable after success, failure or uncertainty.
+Internal clocks are Protobuf timestamps; `ExportData` clocks retain vIFF's
+actual HHMM/HHMMSS API representation in named scalar fields, not encoded JSON.
+Replay validates intent kind, UUID/dependency, payload shape, clock and range.
+`CdmAction` appends explicit operations 7–16 and `ValidationAction` adds the
+existing ASSIGN HP presentation. Canonical and specification schemas and all
+three language bindings move together. No top-level `EntityRecord`,
+`SystemCommand`, `EffectRecord` or `ProviderPage` allocation is introduced;
+Task 18a/18c reservations remain untouched. Traffic adds no stored entity.
+
 - Initial release is stop-first and empty. No PostgreSQL conversion, dual read, old frontend/plugin WebSocket protocol or JSON WebSocket compatibility endpoint is shipped. First-party HTTP remains JSON by design.
 - New `.proto` field numbers never reuse removed numbers; deleted fields and enum values become `reserved`. Existing EuroScope cases 1–52 are immutable. A new durable writer is enabled only after all readers understand its field numbers and semantics. Unknown durable fields make an old reader unready rather than corrupting a snapshot.
 - Generated Go, TS and C++ bindings are produced from the same schema commit. Do not hand-maintain parallel TS unions or duplicate schema structs. CI compiles descriptors, checks generated files, scans owned transport/storage code for JSON serialization, and round-trips each oneof case and optional/zero boundary.

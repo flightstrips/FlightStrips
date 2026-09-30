@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -222,6 +223,14 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 		value := deadline.GetValue().GetSessionDeadline()
 		if value != nil && (value.Kind == "pdc-poll" || value.Kind == "pdc-response" && w.PDC != nil) {
 			continue // The concrete PDC callback owns provider and response transitions.
+		}
+		// CDM consumes and rearms its deadlines atomically with its domain
+		// result. The generic expiry path must never delete that work first.
+		if value != nil && strings.HasPrefix(value.Kind, "cdm-") {
+			if w.CDM == nil {
+				return fmt.Errorf("CDM reconciler is not configured")
+			}
+			continue
 		}
 		if value == nil || value.DueAt == nil || now.Before(value.DueAt.AsTime()) {
 			continue

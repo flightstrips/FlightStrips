@@ -94,6 +94,33 @@ func ctotMoreThanThresholdAhead(ctot string, now time.Time) bool {
 	return ctotTime.Sub(now.UTC()) > ctotValidationThreshold
 }
 
+// PlanCtotValidation is the same periodic policy without persistence or hub
+// dependencies. The owner supplies a deterministic activation identity.
+func PlanCtotValidation(strip *internalModels.Strip, now time.Time, activationID string, forceReactivate bool) *internalModels.ValidationStatus {
+	if strip == nil {
+		return nil
+	}
+	current := strip.ValidationStatus
+	if validationCandidateIsInhibited(current, ctotValidationIssueType) {
+		return current
+	}
+	ctot := ""
+	if value := strip.EffectiveCtot(); value != nil {
+		ctot = *value
+	}
+	if !ctotValidationApplies(strip) || !ctotMoreThanThresholdAhead(ctot, now) {
+		if isCtotValidation(current) {
+			return nil
+		}
+		return current
+	}
+	desired := &internalModels.ValidationStatus{IssueType: ctotValidationIssueType, Message: ctotValidationMessage, OwningPosition: *strip.Owner, Active: true, ActivationKey: activationID, CustomAction: ctotValidationAction()}
+	if isCtotValidation(current) && current.OwningPosition == *strip.Owner && !forceReactivate {
+		desired.Active, desired.ActivationKey = current.Active, current.ActivationKey
+	}
+	return desired
+}
+
 func (s *StripService) applyCtotValidation(ctx context.Context, session int32, strip *internalModels.Strip, now time.Time, publish bool, forceReactivate bool) error {
 	if strip == nil {
 		return nil

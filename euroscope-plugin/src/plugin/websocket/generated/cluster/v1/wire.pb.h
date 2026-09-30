@@ -158,6 +158,12 @@ extern CancelCoordinationDefaultTypeInternal _CancelCoordination_default_instanc
 class CdmAction;
 struct CdmActionDefaultTypeInternal;
 extern CdmActionDefaultTypeInternal _CdmAction_default_instance_;
+class CdmAutomaticAction;
+struct CdmAutomaticActionDefaultTypeInternal;
+extern CdmAutomaticActionDefaultTypeInternal _CdmAutomaticAction_default_instance_;
+class CdmGroundState;
+struct CdmGroundStateDefaultTypeInternal;
+extern CdmGroundStateDefaultTypeInternal _CdmGroundState_default_instance_;
 class ChangeLayout;
 struct ChangeLayoutDefaultTypeInternal;
 extern ChangeLayoutDefaultTypeInternal _ChangeLayout_default_instance_;
@@ -713,7 +719,7 @@ class UpdateRunwayStatus final : public ::google::protobuf::Message
     return reinterpret_cast<const UpdateRunwayStatus*>(
         &_UpdateRunwayStatus_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 74;
+  static constexpr int kIndexInFileMessages = 76;
   friend void swap(UpdateRunwayStatus& a, UpdateRunwayStatus& b) { a.Swap(&b); }
   inline void Swap(UpdateRunwayStatus* other) {
     if (other == this) return;
@@ -904,7 +910,7 @@ class UnablePdc final : public ::google::protobuf::Message
     return reinterpret_cast<const UnablePdc*>(
         &_UnablePdc_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 67;
+  static constexpr int kIndexInFileMessages = 69;
   friend void swap(UnablePdc& a, UnablePdc& b) { a.Swap(&b); }
   inline void Swap(UnablePdc* other) {
     if (other == this) return;
@@ -2661,7 +2667,7 @@ class SetPositionLayout final : public ::google::protobuf::Message
     return reinterpret_cast<const SetPositionLayout*>(
         &_SetPositionLayout_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 105;
+  static constexpr int kIndexInFileMessages = 107;
   friend void swap(SetPositionLayout& a, SetPositionLayout& b) { a.Swap(&b); }
   inline void Swap(SetPositionLayout* other) {
     if (other == this) return;
@@ -3188,7 +3194,7 @@ class SetCdmReady final : public ::google::protobuf::Message
     return reinterpret_cast<const SetCdmReady*>(
         &_SetCdmReady_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 59;
+  static constexpr int kIndexInFileMessages = 61;
   friend void swap(SetCdmReady& a, SetCdmReady& b) { a.Swap(&b); }
   inline void Swap(SetCdmReady* other) {
     if (other == this) return;
@@ -3355,7 +3361,7 @@ class SetCdmDeice final : public ::google::protobuf::Message
     return reinterpret_cast<const SetCdmDeice*>(
         &_SetCdmDeice_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 60;
+  static constexpr int kIndexInFileMessages = 62;
   friend void swap(SetCdmDeice& a, SetCdmDeice& b) { a.Swap(&b); }
   inline void Swap(SetCdmDeice* other) {
     if (other == this) return;
@@ -3869,7 +3875,7 @@ class RevertPdcToVoice final : public ::google::protobuf::internal::ZeroFieldsBa
     return reinterpret_cast<const RevertPdcToVoice*>(
         &_RevertPdcToVoice_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 65;
+  static constexpr int kIndexInFileMessages = 67;
   friend void swap(RevertPdcToVoice& a, RevertPdcToVoice& b) { a.Swap(&b); }
   inline void Swap(RevertPdcToVoice* other) {
     if (other == this) return;
@@ -4126,7 +4132,7 @@ class RemoveEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const RemoveEntity*>(
         &_RemoveEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 104;
+  static constexpr int kIndexInFileMessages = 106;
   friend void swap(RemoveEntity& a, RemoveEntity& b) { a.Swap(&b); }
   inline void Swap(RemoveEntity* other) {
     if (other == this) return;
@@ -4310,7 +4316,7 @@ class RemoveCdmCtot final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const RemoveCdmCtot*>(
         &_RemoveCdmCtot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 62;
+  static constexpr int kIndexInFileMessages = 64;
   friend void swap(RemoveCdmCtot& a, RemoveCdmCtot& b) { a.Swap(&b); }
   inline void Swap(RemoveCdmCtot* other) {
     if (other == this) return;
@@ -4439,7 +4445,7 @@ class PrivateMessage final : public ::google::protobuf::Message
     return reinterpret_cast<const PrivateMessage*>(
         &_PrivateMessage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 70;
+  static constexpr int kIndexInFileMessages = 72;
   friend void swap(PrivateMessage& a, PrivateMessage& b) { a.Swap(&b); }
   inline void Swap(PrivateMessage* other) {
     if (other == this) return;
@@ -5426,7 +5432,7 @@ class IssuePdc final : public ::google::protobuf::Message
     return reinterpret_cast<const IssuePdc*>(
         &_IssuePdc_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 64;
+  static constexpr int kIndexInFileMessages = 66;
   friend void swap(IssuePdc& a, IssuePdc& b) { a.Swap(&b); }
   inline void Swap(IssuePdc* other) {
     if (other == this) return;
@@ -7143,7 +7149,7 @@ class DeleteSession final : public ::google::protobuf::Message
     return reinterpret_cast<const DeleteSession*>(
         &_DeleteSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 102;
+  static constexpr int kIndexInFileMessages = 104;
   friend void swap(DeleteSession& a, DeleteSession& b) { a.Swap(&b); }
   inline void Swap(DeleteSession* other) {
     if (other == this) return;
@@ -7328,7 +7334,7 @@ class CreateVfrFlightPlan final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateVfrFlightPlan*>(
         &_CreateVfrFlightPlan_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 79;
+  static constexpr int kIndexInFileMessages = 81;
   friend void swap(CreateVfrFlightPlan& a, CreateVfrFlightPlan& b) { a.Swap(&b); }
   inline void Swap(CreateVfrFlightPlan* other) {
     if (other == this) return;
@@ -7848,7 +7854,7 @@ class CreateSession final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateSession*>(
         &_CreateSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 101;
+  static constexpr int kIndexInFileMessages = 103;
   friend void swap(CreateSession& a, CreateSession& b) { a.Swap(&b); }
   inline void Swap(CreateSession* other) {
     if (other == this) return;
@@ -8325,7 +8331,7 @@ class ChangeLayout final : public ::google::protobuf::Message
     return reinterpret_cast<const ChangeLayout*>(
         &_ChangeLayout_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 72;
+  static constexpr int kIndexInFileMessages = 74;
   friend void swap(ChangeLayout& a, ChangeLayout& b) { a.Swap(&b); }
   inline void Swap(ChangeLayout* other) {
     if (other == this) return;
@@ -8439,6 +8445,307 @@ class ChangeLayout final : public ::google::protobuf::Message
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
+class CdmGroundState final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmGroundState) */ {
+ public:
+  inline CdmGroundState() : CdmGroundState(nullptr) {}
+  ~CdmGroundState() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR CdmGroundState(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline CdmGroundState(const CdmGroundState& from) : CdmGroundState(nullptr, from) {}
+  inline CdmGroundState(CdmGroundState&& from) noexcept
+      : CdmGroundState(nullptr, std::move(from)) {}
+  inline CdmGroundState& operator=(const CdmGroundState& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline CdmGroundState& operator=(CdmGroundState&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const CdmGroundState& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const CdmGroundState* internal_default_instance() {
+    return reinterpret_cast<const CdmGroundState*>(
+        &_CdmGroundState_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 59;
+  friend void swap(CdmGroundState& a, CdmGroundState& b) { a.Swap(&b); }
+  inline void Swap(CdmGroundState* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(CdmGroundState* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  CdmGroundState* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<CdmGroundState>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const CdmGroundState& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const CdmGroundState& from) { CdmGroundState::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(CdmGroundState* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmGroundState"; }
+
+ protected:
+  explicit CdmGroundState(::google::protobuf::Arena* arena);
+  CdmGroundState(::google::protobuf::Arena* arena, const CdmGroundState& from);
+  CdmGroundState(::google::protobuf::Arena* arena, CdmGroundState&& from) noexcept
+      : CdmGroundState(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kStateFieldNumber = 1,
+  };
+  // string state = 1;
+  void clear_state() ;
+  const std::string& state() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_state(Arg_&& arg, Args_... args);
+  std::string* mutable_state();
+  PROTOBUF_NODISCARD std::string* release_state();
+  void set_allocated_state(std::string* value);
+
+  private:
+  const std::string& _internal_state() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_state(
+      const std::string& value);
+  std::string* _internal_mutable_state();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmGroundState)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      0, 1, 0,
+      52, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr state_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
+class CdmAutomaticAction final : public ::google::protobuf::internal::ZeroFieldsBase
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.CdmAutomaticAction) */ {
+ public:
+  inline CdmAutomaticAction() : CdmAutomaticAction(nullptr) {}
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR CdmAutomaticAction(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline CdmAutomaticAction(const CdmAutomaticAction& from) : CdmAutomaticAction(nullptr, from) {}
+  inline CdmAutomaticAction(CdmAutomaticAction&& from) noexcept
+      : CdmAutomaticAction(nullptr, std::move(from)) {}
+  inline CdmAutomaticAction& operator=(const CdmAutomaticAction& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline CdmAutomaticAction& operator=(CdmAutomaticAction&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const CdmAutomaticAction& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const CdmAutomaticAction* internal_default_instance() {
+    return reinterpret_cast<const CdmAutomaticAction*>(
+        &_CdmAutomaticAction_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 58;
+  friend void swap(CdmAutomaticAction& a, CdmAutomaticAction& b) { a.Swap(&b); }
+  inline void Swap(CdmAutomaticAction* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(CdmAutomaticAction* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  CdmAutomaticAction* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::internal::ZeroFieldsBase::DefaultConstruct<CdmAutomaticAction>(arena);
+  }
+  using ::google::protobuf::internal::ZeroFieldsBase::CopyFrom;
+  inline void CopyFrom(const CdmAutomaticAction& from) {
+    ::google::protobuf::internal::ZeroFieldsBase::CopyImpl(*this, from);
+  }
+  using ::google::protobuf::internal::ZeroFieldsBase::MergeFrom;
+  void MergeFrom(const CdmAutomaticAction& from) {
+    ::google::protobuf::internal::ZeroFieldsBase::MergeImpl(*this, from);
+  }
+
+  public:
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.CdmAutomaticAction"; }
+
+ protected:
+  explicit CdmAutomaticAction(::google::protobuf::Arena* arena);
+  CdmAutomaticAction(::google::protobuf::Arena* arena, const CdmAutomaticAction& from);
+  CdmAutomaticAction(::google::protobuf::Arena* arena, CdmAutomaticAction&& from) noexcept
+      : CdmAutomaticAction(arena) {
+    *this = ::std::move(from);
+  }
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmAutomaticAction)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
   friend struct ::TableStruct_wire_2eproto;
 };
 // -------------------------------------------------------------------
@@ -8671,7 +8978,7 @@ class BroadcastMessage final : public ::google::protobuf::Message
     return reinterpret_cast<const BroadcastMessage*>(
         &_BroadcastMessage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 69;
+  static constexpr int kIndexInFileMessages = 71;
   friend void swap(BroadcastMessage& a, BroadcastMessage& b) { a.Swap(&b); }
   inline void Swap(BroadcastMessage* other) {
     if (other == this) return;
@@ -9130,7 +9437,7 @@ class AmanRemoveReservation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRemoveReservation*>(
         &_AmanRemoveReservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 95;
+  static constexpr int kIndexInFileMessages = 97;
   friend void swap(AmanRemoveReservation& a, AmanRemoveReservation& b) { a.Swap(&b); }
   inline void Swap(AmanRemoveReservation* other) {
     if (other == this) return;
@@ -9339,7 +9646,7 @@ class AmanRemoveGap final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRemoveGap*>(
         &_AmanRemoveGap_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 91;
+  static constexpr int kIndexInFileMessages = 93;
   friend void swap(AmanRemoveGap& a, AmanRemoveGap& b) { a.Swap(&b); }
   inline void Swap(AmanRemoveGap* other) {
     if (other == this) return;
@@ -9530,7 +9837,7 @@ class AmanRemoveClosure final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRemoveClosure*>(
         &_AmanRemoveClosure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 93;
+  static constexpr int kIndexInFileMessages = 95;
   friend void swap(AmanRemoveClosure& a, AmanRemoveClosure& b) { a.Swap(&b); }
   inline void Swap(AmanRemoveClosure* other) {
     if (other == this) return;
@@ -9744,7 +10051,7 @@ class AmanMoveFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanMoveFlight*>(
         &_AmanMoveFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 82;
+  static constexpr int kIndexInFileMessages = 84;
   friend void swap(AmanMoveFlight& a, AmanMoveFlight& b) { a.Swap(&b); }
   inline void Swap(AmanMoveFlight* other) {
     if (other == this) return;
@@ -9984,7 +10291,7 @@ class AmanFlightUnary final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanFlightUnary*>(
         &_AmanFlightUnary_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 81;
+  static constexpr int kIndexInFileMessages = 83;
   friend void swap(AmanFlightUnary& a, AmanFlightUnary& b) { a.Swap(&b); }
   inline void Swap(AmanFlightUnary* other) {
     if (other == this) return;
@@ -10157,7 +10464,7 @@ class AmanDecideGoAround final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanDecideGoAround*>(
         &_AmanDecideGoAround_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 89;
+  static constexpr int kIndexInFileMessages = 91;
   friend void swap(AmanDecideGoAround& a, AmanDecideGoAround& b) { a.Swap(&b); }
   inline void Swap(AmanDecideGoAround* other) {
     if (other == this) return;
@@ -10348,7 +10655,7 @@ class AmanDecideCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanDecideCoordination*>(
         &_AmanDecideCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 98;
+  static constexpr int kIndexInFileMessages = 100;
   friend void swap(AmanDecideCoordination& a, AmanDecideCoordination& b) { a.Swap(&b); }
   inline void Swap(AmanDecideCoordination* other) {
     if (other == this) return;
@@ -10541,7 +10848,7 @@ class AmanCreateReservation final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCreateReservation*>(
         &_AmanCreateReservation_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 94;
+  static constexpr int kIndexInFileMessages = 96;
   friend void swap(AmanCreateReservation& a, AmanCreateReservation& b) { a.Swap(&b); }
   inline void Swap(AmanCreateReservation* other) {
     if (other == this) return;
@@ -10770,7 +11077,7 @@ class AmanChangeRunway final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanChangeRunway*>(
         &_AmanChangeRunway_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 87;
+  static constexpr int kIndexInFileMessages = 89;
   friend void swap(AmanChangeRunway& a, AmanChangeRunway& b) { a.Swap(&b); }
   inline void Swap(AmanChangeRunway* other) {
     if (other == this) return;
@@ -10961,7 +11268,7 @@ class AmanActiveRunways final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanActiveRunways*>(
         &_AmanActiveRunways_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 85;
+  static constexpr int kIndexInFileMessages = 87;
   friend void swap(AmanActiveRunways& a, AmanActiveRunways& b) { a.Swap(&b); }
   inline void Swap(AmanActiveRunways* other) {
     if (other == this) return;
@@ -11504,7 +11811,7 @@ class AcknowledgeUnexpectedChange final : public ::google::protobuf::Message
     return reinterpret_cast<const AcknowledgeUnexpectedChange*>(
         &_AcknowledgeUnexpectedChange_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 76;
+  static constexpr int kIndexInFileMessages = 78;
   friend void swap(AcknowledgeUnexpectedChange& a, AcknowledgeUnexpectedChange& b) { a.Swap(&b); }
   inline void Swap(AcknowledgeUnexpectedChange* other) {
     if (other == this) return;
@@ -11804,7 +12111,7 @@ class AcknowledgePdc final : public ::google::protobuf::internal::ZeroFieldsBase
     return reinterpret_cast<const AcknowledgePdc*>(
         &_AcknowledgePdc_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 66;
+  static constexpr int kIndexInFileMessages = 68;
   friend void swap(AcknowledgePdc& a, AcknowledgePdc& b) { a.Swap(&b); }
   inline void Swap(AcknowledgePdc* other) {
     if (other == this) return;
@@ -12432,7 +12739,7 @@ class SetTobt final : public ::google::protobuf::Message
     return reinterpret_cast<const SetTobt*>(
         &_SetTobt_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 58;
+  static constexpr int kIndexInFileMessages = 60;
   friend void swap(SetTobt& a, SetTobt& b) { a.Swap(&b); }
   inline void Swap(SetTobt* other) {
     if (other == this) return;
@@ -12796,7 +13103,7 @@ class SetCdmCtot final : public ::google::protobuf::Message
     return reinterpret_cast<const SetCdmCtot*>(
         &_SetCdmCtot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 61;
+  static constexpr int kIndexInFileMessages = 63;
   friend void swap(SetCdmCtot& a, SetCdmCtot& b) { a.Swap(&b); }
   inline void Swap(SetCdmCtot* other) {
     if (other == this) return;
@@ -12969,7 +13276,7 @@ class ReplaceSectorOwners final : public ::google::protobuf::Message
     return reinterpret_cast<const ReplaceSectorOwners*>(
         &_ReplaceSectorOwners_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 106;
+  static constexpr int kIndexInFileMessages = 108;
   friend void swap(ReplaceSectorOwners& a, ReplaceSectorOwners& b) { a.Swap(&b); }
   inline void Swap(ReplaceSectorOwners* other) {
     if (other == this) return;
@@ -13150,7 +13457,7 @@ class PdcAction final : public ::google::protobuf::Message
     return reinterpret_cast<const PdcAction*>(
         &_PdcAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 63;
+  static constexpr int kIndexInFileMessages = 65;
   friend void swap(PdcAction& a, PdcAction& b) { a.Swap(&b); }
   inline void Swap(PdcAction* other) {
     if (other == this) return;
@@ -13617,7 +13924,7 @@ class MessageAction final : public ::google::protobuf::Message
     return reinterpret_cast<const MessageAction*>(
         &_MessageAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 68;
+  static constexpr int kIndexInFileMessages = 70;
   friend void swap(MessageAction& a, MessageAction& b) { a.Swap(&b); }
   inline void Swap(MessageAction* other) {
     if (other == this) return;
@@ -13825,7 +14132,7 @@ class ElectSessionMaster final : public ::google::protobuf::Message
     return reinterpret_cast<const ElectSessionMaster*>(
         &_ElectSessionMaster_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 113;
+  static constexpr int kIndexInFileMessages = 115;
   friend void swap(ElectSessionMaster& a, ElectSessionMaster& b) { a.Swap(&b); }
   inline void Swap(ElectSessionMaster* other) {
     if (other == this) return;
@@ -14189,7 +14496,7 @@ class CreateManualFlightPlan final : public ::google::protobuf::Message
     return reinterpret_cast<const CreateManualFlightPlan*>(
         &_CreateManualFlightPlan_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 78;
+  static constexpr int kIndexInFileMessages = 80;
   friend void swap(CreateManualFlightPlan& a, CreateManualFlightPlan& b) { a.Swap(&b); }
   inline void Swap(CreateManualFlightPlan* other) {
     if (other == this) return;
@@ -14852,7 +15159,7 @@ class ChangeRunways final : public ::google::protobuf::Message
     return reinterpret_cast<const ChangeRunways*>(
         &_ChangeRunways_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 73;
+  static constexpr int kIndexInFileMessages = 75;
   friend void swap(ChangeRunways& a, ChangeRunways& b) { a.Swap(&b); }
   inline void Swap(ChangeRunways* other) {
     if (other == this) return;
@@ -15031,7 +15338,7 @@ class AmanSubmitCoordination final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSubmitCoordination*>(
         &_AmanSubmitCoordination_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 97;
+  static constexpr int kIndexInFileMessages = 99;
   friend void swap(AmanSubmitCoordination& a, AmanSubmitCoordination& b) { a.Swap(&b); }
   inline void Swap(AmanSubmitCoordination* other) {
     if (other == this) return;
@@ -15275,7 +15582,7 @@ class AmanSelectRunway final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanSelectRunway*>(
         &_AmanSelectRunway_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 84;
+  static constexpr int kIndexInFileMessages = 86;
   friend void swap(AmanSelectRunway& a, AmanSelectRunway& b) { a.Swap(&b); }
   inline void Swap(AmanSelectRunway* other) {
     if (other == this) return;
@@ -15466,7 +15773,7 @@ class AmanReportGoAround final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanReportGoAround*>(
         &_AmanReportGoAround_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 88;
+  static constexpr int kIndexInFileMessages = 90;
   friend void swap(AmanReportGoAround& a, AmanReportGoAround& b) { a.Swap(&b); }
   inline void Swap(AmanReportGoAround* other) {
     if (other == this) return;
@@ -15657,7 +15964,7 @@ class AmanRate final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanRate*>(
         &_AmanRate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 83;
+  static constexpr int kIndexInFileMessages = 85;
   friend void swap(AmanRate& a, AmanRate& b) { a.Swap(&b); }
   inline void Swap(AmanRate* other) {
     if (other == this) return;
@@ -15860,7 +16167,7 @@ class AmanPlaceFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanPlaceFlight*>(
         &_AmanPlaceFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 96;
+  static constexpr int kIndexInFileMessages = 98;
   friend void swap(AmanPlaceFlight& a, AmanPlaceFlight& b) { a.Swap(&b); }
   inline void Swap(AmanPlaceFlight* other) {
     if (other == this) return;
@@ -16081,7 +16388,7 @@ class AmanManualEta final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanManualEta*>(
         &_AmanManualEta_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 86;
+  static constexpr int kIndexInFileMessages = 88;
   friend void swap(AmanManualEta& a, AmanManualEta& b) { a.Swap(&b); }
   inline void Swap(AmanManualEta* other) {
     if (other == this) return;
@@ -16277,7 +16584,7 @@ class AmanCreateGap final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCreateGap*>(
         &_AmanCreateGap_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 90;
+  static constexpr int kIndexInFileMessages = 92;
   friend void swap(AmanCreateGap& a, AmanCreateGap& b) { a.Swap(&b); }
   inline void Swap(AmanCreateGap* other) {
     if (other == this) return;
@@ -16536,7 +16843,7 @@ class AmanCreateClosure final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanCreateClosure*>(
         &_AmanCreateClosure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 92;
+  static constexpr int kIndexInFileMessages = 94;
   friend void swap(AmanCreateClosure& a, AmanCreateClosure& b) { a.Swap(&b); }
   inline void Swap(AmanCreateClosure* other) {
     if (other == this) return;
@@ -16803,7 +17110,7 @@ class ValidationActionCommand final : public ::google::protobuf::Message
     return reinterpret_cast<const ValidationActionCommand*>(
         &_ValidationActionCommand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 75;
+  static constexpr int kIndexInFileMessages = 77;
   friend void swap(ValidationActionCommand& a, ValidationActionCommand& b) { a.Swap(&b); }
   inline void Swap(ValidationActionCommand* other) {
     if (other == this) return;
@@ -18477,7 +18784,7 @@ class SessionAction final : public ::google::protobuf::Message
     return reinterpret_cast<const SessionAction*>(
         &_SessionAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 71;
+  static constexpr int kIndexInFileMessages = 73;
   friend void swap(SessionAction& a, SessionAction& b) { a.Swap(&b); }
   inline void Swap(SessionAction* other) {
     if (other == this) return;
@@ -18707,7 +19014,7 @@ class RenewOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const RenewOwner*>(
         &_RenewOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 108;
+  static constexpr int kIndexInFileMessages = 110;
   friend void swap(RenewOwner& a, RenewOwner& b) { a.Swap(&b); }
   inline void Swap(RenewOwner* other) {
     if (other == this) return;
@@ -18880,7 +19187,7 @@ class RecordSessionSync final : public ::google::protobuf::Message
     return reinterpret_cast<const RecordSessionSync*>(
         &_RecordSessionSync_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 112;
+  static constexpr int kIndexInFileMessages = 114;
   friend void swap(RecordSessionSync& a, RecordSessionSync& b) { a.Swap(&b); }
   inline void Swap(RecordSessionSync* other) {
     if (other == this) return;
@@ -19309,7 +19616,7 @@ class FlightPlanAction final : public ::google::protobuf::Message
     return reinterpret_cast<const FlightPlanAction*>(
         &_FlightPlanAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 77;
+  static constexpr int kIndexInFileMessages = 79;
   friend void swap(FlightPlanAction& a, FlightPlanAction& b) { a.Swap(&b); }
   inline void Swap(FlightPlanAction* other) {
     if (other == this) return;
@@ -19750,7 +20057,7 @@ class ClaimOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const ClaimOwner*>(
         &_ClaimOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 107;
+  static constexpr int kIndexInFileMessages = 109;
   friend void swap(ClaimOwner& a, ClaimOwner& b) { a.Swap(&b); }
   inline void Swap(ClaimOwner* other) {
     if (other == this) return;
@@ -19925,6 +20232,16 @@ class CdmAction final : public ::google::protobuf::Message
     kSetDeice = 4,
     kSetCtot = 5,
     kRemoveCtot = 6,
+    kSetEobt = 7,
+    kSetAsrt = 8,
+    kSetTsac = 9,
+    kClearanceTobt = 10,
+    kGroundState = 11,
+    kRecordAobt = 12,
+    kRecordAtot = 13,
+    kPreparePushback = 14,
+    kBetterTobt = 15,
+    kLogonEobt = 16,
     CHANGE_NOT_SET = 0,
   };
   static inline const CdmAction* internal_default_instance() {
@@ -20007,6 +20324,16 @@ class CdmAction final : public ::google::protobuf::Message
     kSetDeiceFieldNumber = 4,
     kSetCtotFieldNumber = 5,
     kRemoveCtotFieldNumber = 6,
+    kSetEobtFieldNumber = 7,
+    kSetAsrtFieldNumber = 8,
+    kSetTsacFieldNumber = 9,
+    kClearanceTobtFieldNumber = 10,
+    kGroundStateFieldNumber = 11,
+    kRecordAobtFieldNumber = 12,
+    kRecordAtotFieldNumber = 13,
+    kPreparePushbackFieldNumber = 14,
+    kBetterTobtFieldNumber = 15,
+    kLogonEobtFieldNumber = 16,
   };
   // string callsign = 1;
   void clear_callsign() ;
@@ -20119,6 +20446,196 @@ class CdmAction final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::RemoveCdmCtot* _internal_mutable_remove_ctot();
 
   public:
+  // .flightstrips.cluster.v1.SetTobt set_eobt = 7;
+  bool has_set_eobt() const;
+  private:
+  bool _internal_has_set_eobt() const;
+
+  public:
+  void clear_set_eobt() ;
+  const ::flightstrips::cluster::v1::SetTobt& set_eobt() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::SetTobt* release_set_eobt();
+  ::flightstrips::cluster::v1::SetTobt* mutable_set_eobt();
+  void set_allocated_set_eobt(::flightstrips::cluster::v1::SetTobt* value);
+  void unsafe_arena_set_allocated_set_eobt(::flightstrips::cluster::v1::SetTobt* value);
+  ::flightstrips::cluster::v1::SetTobt* unsafe_arena_release_set_eobt();
+
+  private:
+  const ::flightstrips::cluster::v1::SetTobt& _internal_set_eobt() const;
+  ::flightstrips::cluster::v1::SetTobt* _internal_mutable_set_eobt();
+
+  public:
+  // .flightstrips.cluster.v1.SetTobt set_asrt = 8;
+  bool has_set_asrt() const;
+  private:
+  bool _internal_has_set_asrt() const;
+
+  public:
+  void clear_set_asrt() ;
+  const ::flightstrips::cluster::v1::SetTobt& set_asrt() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::SetTobt* release_set_asrt();
+  ::flightstrips::cluster::v1::SetTobt* mutable_set_asrt();
+  void set_allocated_set_asrt(::flightstrips::cluster::v1::SetTobt* value);
+  void unsafe_arena_set_allocated_set_asrt(::flightstrips::cluster::v1::SetTobt* value);
+  ::flightstrips::cluster::v1::SetTobt* unsafe_arena_release_set_asrt();
+
+  private:
+  const ::flightstrips::cluster::v1::SetTobt& _internal_set_asrt() const;
+  ::flightstrips::cluster::v1::SetTobt* _internal_mutable_set_asrt();
+
+  public:
+  // .flightstrips.cluster.v1.SetTobt set_tsac = 9;
+  bool has_set_tsac() const;
+  private:
+  bool _internal_has_set_tsac() const;
+
+  public:
+  void clear_set_tsac() ;
+  const ::flightstrips::cluster::v1::SetTobt& set_tsac() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::SetTobt* release_set_tsac();
+  ::flightstrips::cluster::v1::SetTobt* mutable_set_tsac();
+  void set_allocated_set_tsac(::flightstrips::cluster::v1::SetTobt* value);
+  void unsafe_arena_set_allocated_set_tsac(::flightstrips::cluster::v1::SetTobt* value);
+  ::flightstrips::cluster::v1::SetTobt* unsafe_arena_release_set_tsac();
+
+  private:
+  const ::flightstrips::cluster::v1::SetTobt& _internal_set_tsac() const;
+  ::flightstrips::cluster::v1::SetTobt* _internal_mutable_set_tsac();
+
+  public:
+  // .flightstrips.cluster.v1.CdmAutomaticAction clearance_tobt = 10;
+  bool has_clearance_tobt() const;
+  private:
+  bool _internal_has_clearance_tobt() const;
+
+  public:
+  void clear_clearance_tobt() ;
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& clearance_tobt() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmAutomaticAction* release_clearance_tobt();
+  ::flightstrips::cluster::v1::CdmAutomaticAction* mutable_clearance_tobt();
+  void set_allocated_clearance_tobt(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  void unsafe_arena_set_allocated_clearance_tobt(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  ::flightstrips::cluster::v1::CdmAutomaticAction* unsafe_arena_release_clearance_tobt();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& _internal_clearance_tobt() const;
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _internal_mutable_clearance_tobt();
+
+  public:
+  // .flightstrips.cluster.v1.CdmGroundState ground_state = 11;
+  bool has_ground_state() const;
+  private:
+  bool _internal_has_ground_state() const;
+
+  public:
+  void clear_ground_state() ;
+  const ::flightstrips::cluster::v1::CdmGroundState& ground_state() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmGroundState* release_ground_state();
+  ::flightstrips::cluster::v1::CdmGroundState* mutable_ground_state();
+  void set_allocated_ground_state(::flightstrips::cluster::v1::CdmGroundState* value);
+  void unsafe_arena_set_allocated_ground_state(::flightstrips::cluster::v1::CdmGroundState* value);
+  ::flightstrips::cluster::v1::CdmGroundState* unsafe_arena_release_ground_state();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmGroundState& _internal_ground_state() const;
+  ::flightstrips::cluster::v1::CdmGroundState* _internal_mutable_ground_state();
+
+  public:
+  // .flightstrips.cluster.v1.CdmAutomaticAction record_aobt = 12;
+  bool has_record_aobt() const;
+  private:
+  bool _internal_has_record_aobt() const;
+
+  public:
+  void clear_record_aobt() ;
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& record_aobt() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmAutomaticAction* release_record_aobt();
+  ::flightstrips::cluster::v1::CdmAutomaticAction* mutable_record_aobt();
+  void set_allocated_record_aobt(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  void unsafe_arena_set_allocated_record_aobt(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  ::flightstrips::cluster::v1::CdmAutomaticAction* unsafe_arena_release_record_aobt();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& _internal_record_aobt() const;
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _internal_mutable_record_aobt();
+
+  public:
+  // .flightstrips.cluster.v1.CdmAutomaticAction record_atot = 13;
+  bool has_record_atot() const;
+  private:
+  bool _internal_has_record_atot() const;
+
+  public:
+  void clear_record_atot() ;
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& record_atot() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmAutomaticAction* release_record_atot();
+  ::flightstrips::cluster::v1::CdmAutomaticAction* mutable_record_atot();
+  void set_allocated_record_atot(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  void unsafe_arena_set_allocated_record_atot(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  ::flightstrips::cluster::v1::CdmAutomaticAction* unsafe_arena_release_record_atot();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& _internal_record_atot() const;
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _internal_mutable_record_atot();
+
+  public:
+  // .flightstrips.cluster.v1.CdmAutomaticAction prepare_pushback = 14;
+  bool has_prepare_pushback() const;
+  private:
+  bool _internal_has_prepare_pushback() const;
+
+  public:
+  void clear_prepare_pushback() ;
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& prepare_pushback() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmAutomaticAction* release_prepare_pushback();
+  ::flightstrips::cluster::v1::CdmAutomaticAction* mutable_prepare_pushback();
+  void set_allocated_prepare_pushback(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  void unsafe_arena_set_allocated_prepare_pushback(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  ::flightstrips::cluster::v1::CdmAutomaticAction* unsafe_arena_release_prepare_pushback();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& _internal_prepare_pushback() const;
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _internal_mutable_prepare_pushback();
+
+  public:
+  // .flightstrips.cluster.v1.CdmAutomaticAction better_tobt = 15;
+  bool has_better_tobt() const;
+  private:
+  bool _internal_has_better_tobt() const;
+
+  public:
+  void clear_better_tobt() ;
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& better_tobt() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::CdmAutomaticAction* release_better_tobt();
+  ::flightstrips::cluster::v1::CdmAutomaticAction* mutable_better_tobt();
+  void set_allocated_better_tobt(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  void unsafe_arena_set_allocated_better_tobt(::flightstrips::cluster::v1::CdmAutomaticAction* value);
+  ::flightstrips::cluster::v1::CdmAutomaticAction* unsafe_arena_release_better_tobt();
+
+  private:
+  const ::flightstrips::cluster::v1::CdmAutomaticAction& _internal_better_tobt() const;
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _internal_mutable_better_tobt();
+
+  public:
+  // .flightstrips.cluster.v1.SetTobt logon_eobt = 16;
+  bool has_logon_eobt() const;
+  private:
+  bool _internal_has_logon_eobt() const;
+
+  public:
+  void clear_logon_eobt() ;
+  const ::flightstrips::cluster::v1::SetTobt& logon_eobt() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::SetTobt* release_logon_eobt();
+  ::flightstrips::cluster::v1::SetTobt* mutable_logon_eobt();
+  void set_allocated_logon_eobt(::flightstrips::cluster::v1::SetTobt* value);
+  void unsafe_arena_set_allocated_logon_eobt(::flightstrips::cluster::v1::SetTobt* value);
+  ::flightstrips::cluster::v1::SetTobt* unsafe_arena_release_logon_eobt();
+
+  private:
+  const ::flightstrips::cluster::v1::SetTobt& _internal_logon_eobt() const;
+  ::flightstrips::cluster::v1::SetTobt* _internal_mutable_logon_eobt();
+
+  public:
   void clear_change();
   ChangeCase change_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.CdmAction)
@@ -20129,12 +20646,22 @@ class CdmAction final : public ::google::protobuf::Message
   void set_has_set_deice();
   void set_has_set_ctot();
   void set_has_remove_ctot();
+  void set_has_set_eobt();
+  void set_has_set_asrt();
+  void set_has_set_tsac();
+  void set_has_clearance_tobt();
+  void set_has_ground_state();
+  void set_has_record_aobt();
+  void set_has_record_atot();
+  void set_has_prepare_pushback();
+  void set_has_better_tobt();
+  void set_has_logon_eobt();
   inline bool has_change() const;
   inline void clear_has_change();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 6, 5,
-      50, 2>
+      0, 16, 15,
+      66, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -20158,6 +20685,16 @@ class CdmAction final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::SetCdmDeice* set_deice_;
       ::flightstrips::cluster::v1::SetCdmCtot* set_ctot_;
       ::flightstrips::cluster::v1::RemoveCdmCtot* remove_ctot_;
+      ::flightstrips::cluster::v1::SetTobt* set_eobt_;
+      ::flightstrips::cluster::v1::SetTobt* set_asrt_;
+      ::flightstrips::cluster::v1::SetTobt* set_tsac_;
+      ::flightstrips::cluster::v1::CdmAutomaticAction* clearance_tobt_;
+      ::flightstrips::cluster::v1::CdmGroundState* ground_state_;
+      ::flightstrips::cluster::v1::CdmAutomaticAction* record_aobt_;
+      ::flightstrips::cluster::v1::CdmAutomaticAction* record_atot_;
+      ::flightstrips::cluster::v1::CdmAutomaticAction* prepare_pushback_;
+      ::flightstrips::cluster::v1::CdmAutomaticAction* better_tobt_;
+      ::flightstrips::cluster::v1::SetTobt* logon_eobt_;
     } change_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -20223,7 +20760,7 @@ class ApplyPdcProviderMessage final : public ::google::protobuf::Message
     return reinterpret_cast<const ApplyPdcProviderMessage*>(
         &_ApplyPdcProviderMessage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 100;
+  static constexpr int kIndexInFileMessages = 102;
   friend void swap(ApplyPdcProviderMessage& a, ApplyPdcProviderMessage& b) { a.Swap(&b); }
   inline void Swap(ApplyPdcProviderMessage* other) {
     if (other == this) return;
@@ -20429,7 +20966,7 @@ class AmanAction final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanAction*>(
         &_AmanAction_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 80;
+  static constexpr int kIndexInFileMessages = 82;
   friend void swap(AmanAction& a, AmanAction& b) { a.Swap(&b); }
   inline void Swap(AmanAction* other) {
     if (other == this) return;
@@ -21265,7 +21802,7 @@ class AdvanceEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceEffect*>(
         &_AdvanceEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 111;
+  static constexpr int kIndexInFileMessages = 113;
   friend void swap(AdvanceEffect& a, AdvanceEffect& b) { a.Swap(&b); }
   inline void Swap(AdvanceEffect* other) {
     if (other == this) return;
@@ -22444,7 +22981,7 @@ class ApplyAmanSession final : public ::google::protobuf::Message
     return reinterpret_cast<const ApplyAmanSession*>(
         &_ApplyAmanSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 110;
+  static constexpr int kIndexInFileMessages = 112;
   friend void swap(ApplyAmanSession& a, ApplyAmanSession& b) { a.Swap(&b); }
   inline void Swap(ApplyAmanSession* other) {
     if (other == this) return;
@@ -22666,7 +23203,7 @@ class AdvanceWorkflow final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceWorkflow*>(
         &_AdvanceWorkflow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 109;
+  static constexpr int kIndexInFileMessages = 111;
   friend void swap(AdvanceWorkflow& a, AdvanceWorkflow& b) { a.Swap(&b); }
   inline void Swap(AdvanceWorkflow* other) {
     if (other == this) return;
@@ -23043,7 +23580,7 @@ class UpdateEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const UpdateEntity*>(
         &_UpdateEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 103;
+  static constexpr int kIndexInFileMessages = 105;
   friend void swap(UpdateEntity& a, UpdateEntity& b) { a.Swap(&b); }
   inline void Swap(UpdateEntity* other) {
     if (other == this) return;
@@ -23251,7 +23788,7 @@ class SystemCommand final : public ::google::protobuf::Message
     return reinterpret_cast<const SystemCommand*>(
         &_SystemCommand_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 99;
+  static constexpr int kIndexInFileMessages = 101;
   friend void swap(SystemCommand& a, SystemCommand& b) { a.Swap(&b); }
   inline void Swap(SystemCommand* other) {
     if (other == this) return;
@@ -36517,6 +37054,776 @@ inline ::flightstrips::cluster::v1::RemoveCdmCtot* CdmAction::mutable_remove_cto
   return _msg;
 }
 
+// .flightstrips.cluster.v1.SetTobt set_eobt = 7;
+inline bool CdmAction::has_set_eobt() const {
+  return change_case() == kSetEobt;
+}
+inline bool CdmAction::_internal_has_set_eobt() const {
+  return change_case() == kSetEobt;
+}
+inline void CdmAction::set_has_set_eobt() {
+  _impl_._oneof_case_[0] = kSetEobt;
+}
+inline void CdmAction::clear_set_eobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kSetEobt) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.set_eobt_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::release_set_eobt() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.set_eobt)
+  if (change_case() == kSetEobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.set_eobt_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.set_eobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::SetTobt& CdmAction::_internal_set_eobt() const {
+  return change_case() == kSetEobt ? *_impl_.change_.set_eobt_ : reinterpret_cast<::flightstrips::cluster::v1::SetTobt&>(::flightstrips::cluster::v1::_SetTobt_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::SetTobt& CdmAction::set_eobt() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.set_eobt)
+  return _internal_set_eobt();
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::unsafe_arena_release_set_eobt() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.set_eobt)
+  if (change_case() == kSetEobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.set_eobt_;
+    _impl_.change_.set_eobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_set_eobt(::flightstrips::cluster::v1::SetTobt* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_set_eobt();
+    _impl_.change_.set_eobt_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.set_eobt)
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::_internal_mutable_set_eobt() {
+  if (change_case() != kSetEobt) {
+    clear_change();
+    set_has_set_eobt();
+    _impl_.change_.set_eobt_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::SetTobt>(GetArena());
+  }
+  return _impl_.change_.set_eobt_;
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::mutable_set_eobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::SetTobt* _msg = _internal_mutable_set_eobt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.set_eobt)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.SetTobt set_asrt = 8;
+inline bool CdmAction::has_set_asrt() const {
+  return change_case() == kSetAsrt;
+}
+inline bool CdmAction::_internal_has_set_asrt() const {
+  return change_case() == kSetAsrt;
+}
+inline void CdmAction::set_has_set_asrt() {
+  _impl_._oneof_case_[0] = kSetAsrt;
+}
+inline void CdmAction::clear_set_asrt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kSetAsrt) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.set_asrt_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::release_set_asrt() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.set_asrt)
+  if (change_case() == kSetAsrt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.set_asrt_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.set_asrt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::SetTobt& CdmAction::_internal_set_asrt() const {
+  return change_case() == kSetAsrt ? *_impl_.change_.set_asrt_ : reinterpret_cast<::flightstrips::cluster::v1::SetTobt&>(::flightstrips::cluster::v1::_SetTobt_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::SetTobt& CdmAction::set_asrt() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.set_asrt)
+  return _internal_set_asrt();
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::unsafe_arena_release_set_asrt() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.set_asrt)
+  if (change_case() == kSetAsrt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.set_asrt_;
+    _impl_.change_.set_asrt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_set_asrt(::flightstrips::cluster::v1::SetTobt* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_set_asrt();
+    _impl_.change_.set_asrt_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.set_asrt)
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::_internal_mutable_set_asrt() {
+  if (change_case() != kSetAsrt) {
+    clear_change();
+    set_has_set_asrt();
+    _impl_.change_.set_asrt_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::SetTobt>(GetArena());
+  }
+  return _impl_.change_.set_asrt_;
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::mutable_set_asrt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::SetTobt* _msg = _internal_mutable_set_asrt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.set_asrt)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.SetTobt set_tsac = 9;
+inline bool CdmAction::has_set_tsac() const {
+  return change_case() == kSetTsac;
+}
+inline bool CdmAction::_internal_has_set_tsac() const {
+  return change_case() == kSetTsac;
+}
+inline void CdmAction::set_has_set_tsac() {
+  _impl_._oneof_case_[0] = kSetTsac;
+}
+inline void CdmAction::clear_set_tsac() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kSetTsac) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.set_tsac_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::release_set_tsac() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.set_tsac)
+  if (change_case() == kSetTsac) {
+    clear_has_change();
+    auto* temp = _impl_.change_.set_tsac_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.set_tsac_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::SetTobt& CdmAction::_internal_set_tsac() const {
+  return change_case() == kSetTsac ? *_impl_.change_.set_tsac_ : reinterpret_cast<::flightstrips::cluster::v1::SetTobt&>(::flightstrips::cluster::v1::_SetTobt_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::SetTobt& CdmAction::set_tsac() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.set_tsac)
+  return _internal_set_tsac();
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::unsafe_arena_release_set_tsac() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.set_tsac)
+  if (change_case() == kSetTsac) {
+    clear_has_change();
+    auto* temp = _impl_.change_.set_tsac_;
+    _impl_.change_.set_tsac_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_set_tsac(::flightstrips::cluster::v1::SetTobt* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_set_tsac();
+    _impl_.change_.set_tsac_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.set_tsac)
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::_internal_mutable_set_tsac() {
+  if (change_case() != kSetTsac) {
+    clear_change();
+    set_has_set_tsac();
+    _impl_.change_.set_tsac_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::SetTobt>(GetArena());
+  }
+  return _impl_.change_.set_tsac_;
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::mutable_set_tsac() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::SetTobt* _msg = _internal_mutable_set_tsac();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.set_tsac)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.CdmAutomaticAction clearance_tobt = 10;
+inline bool CdmAction::has_clearance_tobt() const {
+  return change_case() == kClearanceTobt;
+}
+inline bool CdmAction::_internal_has_clearance_tobt() const {
+  return change_case() == kClearanceTobt;
+}
+inline void CdmAction::set_has_clearance_tobt() {
+  _impl_._oneof_case_[0] = kClearanceTobt;
+}
+inline void CdmAction::clear_clearance_tobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kClearanceTobt) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.clearance_tobt_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::release_clearance_tobt() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.clearance_tobt)
+  if (change_case() == kClearanceTobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.clearance_tobt_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.clearance_tobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::_internal_clearance_tobt() const {
+  return change_case() == kClearanceTobt ? *_impl_.change_.clearance_tobt_ : reinterpret_cast<::flightstrips::cluster::v1::CdmAutomaticAction&>(::flightstrips::cluster::v1::_CdmAutomaticAction_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::clearance_tobt() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.clearance_tobt)
+  return _internal_clearance_tobt();
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::unsafe_arena_release_clearance_tobt() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.clearance_tobt)
+  if (change_case() == kClearanceTobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.clearance_tobt_;
+    _impl_.change_.clearance_tobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_clearance_tobt(::flightstrips::cluster::v1::CdmAutomaticAction* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_clearance_tobt();
+    _impl_.change_.clearance_tobt_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.clearance_tobt)
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::_internal_mutable_clearance_tobt() {
+  if (change_case() != kClearanceTobt) {
+    clear_change();
+    set_has_clearance_tobt();
+    _impl_.change_.clearance_tobt_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmAutomaticAction>(GetArena());
+  }
+  return _impl_.change_.clearance_tobt_;
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::mutable_clearance_tobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _msg = _internal_mutable_clearance_tobt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.clearance_tobt)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.CdmGroundState ground_state = 11;
+inline bool CdmAction::has_ground_state() const {
+  return change_case() == kGroundState;
+}
+inline bool CdmAction::_internal_has_ground_state() const {
+  return change_case() == kGroundState;
+}
+inline void CdmAction::set_has_ground_state() {
+  _impl_._oneof_case_[0] = kGroundState;
+}
+inline void CdmAction::clear_ground_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kGroundState) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.ground_state_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::CdmGroundState* CdmAction::release_ground_state() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.ground_state)
+  if (change_case() == kGroundState) {
+    clear_has_change();
+    auto* temp = _impl_.change_.ground_state_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.ground_state_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::CdmGroundState& CdmAction::_internal_ground_state() const {
+  return change_case() == kGroundState ? *_impl_.change_.ground_state_ : reinterpret_cast<::flightstrips::cluster::v1::CdmGroundState&>(::flightstrips::cluster::v1::_CdmGroundState_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmGroundState& CdmAction::ground_state() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.ground_state)
+  return _internal_ground_state();
+}
+inline ::flightstrips::cluster::v1::CdmGroundState* CdmAction::unsafe_arena_release_ground_state() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.ground_state)
+  if (change_case() == kGroundState) {
+    clear_has_change();
+    auto* temp = _impl_.change_.ground_state_;
+    _impl_.change_.ground_state_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_ground_state(::flightstrips::cluster::v1::CdmGroundState* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_ground_state();
+    _impl_.change_.ground_state_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.ground_state)
+}
+inline ::flightstrips::cluster::v1::CdmGroundState* CdmAction::_internal_mutable_ground_state() {
+  if (change_case() != kGroundState) {
+    clear_change();
+    set_has_ground_state();
+    _impl_.change_.ground_state_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmGroundState>(GetArena());
+  }
+  return _impl_.change_.ground_state_;
+}
+inline ::flightstrips::cluster::v1::CdmGroundState* CdmAction::mutable_ground_state() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::CdmGroundState* _msg = _internal_mutable_ground_state();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.ground_state)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.CdmAutomaticAction record_aobt = 12;
+inline bool CdmAction::has_record_aobt() const {
+  return change_case() == kRecordAobt;
+}
+inline bool CdmAction::_internal_has_record_aobt() const {
+  return change_case() == kRecordAobt;
+}
+inline void CdmAction::set_has_record_aobt() {
+  _impl_._oneof_case_[0] = kRecordAobt;
+}
+inline void CdmAction::clear_record_aobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kRecordAobt) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.record_aobt_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::release_record_aobt() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.record_aobt)
+  if (change_case() == kRecordAobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.record_aobt_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.record_aobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::_internal_record_aobt() const {
+  return change_case() == kRecordAobt ? *_impl_.change_.record_aobt_ : reinterpret_cast<::flightstrips::cluster::v1::CdmAutomaticAction&>(::flightstrips::cluster::v1::_CdmAutomaticAction_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::record_aobt() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.record_aobt)
+  return _internal_record_aobt();
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::unsafe_arena_release_record_aobt() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.record_aobt)
+  if (change_case() == kRecordAobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.record_aobt_;
+    _impl_.change_.record_aobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_record_aobt(::flightstrips::cluster::v1::CdmAutomaticAction* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_record_aobt();
+    _impl_.change_.record_aobt_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.record_aobt)
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::_internal_mutable_record_aobt() {
+  if (change_case() != kRecordAobt) {
+    clear_change();
+    set_has_record_aobt();
+    _impl_.change_.record_aobt_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmAutomaticAction>(GetArena());
+  }
+  return _impl_.change_.record_aobt_;
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::mutable_record_aobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _msg = _internal_mutable_record_aobt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.record_aobt)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.CdmAutomaticAction record_atot = 13;
+inline bool CdmAction::has_record_atot() const {
+  return change_case() == kRecordAtot;
+}
+inline bool CdmAction::_internal_has_record_atot() const {
+  return change_case() == kRecordAtot;
+}
+inline void CdmAction::set_has_record_atot() {
+  _impl_._oneof_case_[0] = kRecordAtot;
+}
+inline void CdmAction::clear_record_atot() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kRecordAtot) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.record_atot_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::release_record_atot() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.record_atot)
+  if (change_case() == kRecordAtot) {
+    clear_has_change();
+    auto* temp = _impl_.change_.record_atot_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.record_atot_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::_internal_record_atot() const {
+  return change_case() == kRecordAtot ? *_impl_.change_.record_atot_ : reinterpret_cast<::flightstrips::cluster::v1::CdmAutomaticAction&>(::flightstrips::cluster::v1::_CdmAutomaticAction_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::record_atot() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.record_atot)
+  return _internal_record_atot();
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::unsafe_arena_release_record_atot() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.record_atot)
+  if (change_case() == kRecordAtot) {
+    clear_has_change();
+    auto* temp = _impl_.change_.record_atot_;
+    _impl_.change_.record_atot_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_record_atot(::flightstrips::cluster::v1::CdmAutomaticAction* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_record_atot();
+    _impl_.change_.record_atot_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.record_atot)
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::_internal_mutable_record_atot() {
+  if (change_case() != kRecordAtot) {
+    clear_change();
+    set_has_record_atot();
+    _impl_.change_.record_atot_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmAutomaticAction>(GetArena());
+  }
+  return _impl_.change_.record_atot_;
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::mutable_record_atot() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _msg = _internal_mutable_record_atot();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.record_atot)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.CdmAutomaticAction prepare_pushback = 14;
+inline bool CdmAction::has_prepare_pushback() const {
+  return change_case() == kPreparePushback;
+}
+inline bool CdmAction::_internal_has_prepare_pushback() const {
+  return change_case() == kPreparePushback;
+}
+inline void CdmAction::set_has_prepare_pushback() {
+  _impl_._oneof_case_[0] = kPreparePushback;
+}
+inline void CdmAction::clear_prepare_pushback() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kPreparePushback) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.prepare_pushback_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::release_prepare_pushback() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.prepare_pushback)
+  if (change_case() == kPreparePushback) {
+    clear_has_change();
+    auto* temp = _impl_.change_.prepare_pushback_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.prepare_pushback_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::_internal_prepare_pushback() const {
+  return change_case() == kPreparePushback ? *_impl_.change_.prepare_pushback_ : reinterpret_cast<::flightstrips::cluster::v1::CdmAutomaticAction&>(::flightstrips::cluster::v1::_CdmAutomaticAction_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::prepare_pushback() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.prepare_pushback)
+  return _internal_prepare_pushback();
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::unsafe_arena_release_prepare_pushback() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.prepare_pushback)
+  if (change_case() == kPreparePushback) {
+    clear_has_change();
+    auto* temp = _impl_.change_.prepare_pushback_;
+    _impl_.change_.prepare_pushback_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_prepare_pushback(::flightstrips::cluster::v1::CdmAutomaticAction* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_prepare_pushback();
+    _impl_.change_.prepare_pushback_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.prepare_pushback)
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::_internal_mutable_prepare_pushback() {
+  if (change_case() != kPreparePushback) {
+    clear_change();
+    set_has_prepare_pushback();
+    _impl_.change_.prepare_pushback_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmAutomaticAction>(GetArena());
+  }
+  return _impl_.change_.prepare_pushback_;
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::mutable_prepare_pushback() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _msg = _internal_mutable_prepare_pushback();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.prepare_pushback)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.CdmAutomaticAction better_tobt = 15;
+inline bool CdmAction::has_better_tobt() const {
+  return change_case() == kBetterTobt;
+}
+inline bool CdmAction::_internal_has_better_tobt() const {
+  return change_case() == kBetterTobt;
+}
+inline void CdmAction::set_has_better_tobt() {
+  _impl_._oneof_case_[0] = kBetterTobt;
+}
+inline void CdmAction::clear_better_tobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kBetterTobt) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.better_tobt_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::release_better_tobt() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.better_tobt)
+  if (change_case() == kBetterTobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.better_tobt_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.better_tobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::_internal_better_tobt() const {
+  return change_case() == kBetterTobt ? *_impl_.change_.better_tobt_ : reinterpret_cast<::flightstrips::cluster::v1::CdmAutomaticAction&>(::flightstrips::cluster::v1::_CdmAutomaticAction_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::CdmAutomaticAction& CdmAction::better_tobt() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.better_tobt)
+  return _internal_better_tobt();
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::unsafe_arena_release_better_tobt() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.better_tobt)
+  if (change_case() == kBetterTobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.better_tobt_;
+    _impl_.change_.better_tobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_better_tobt(::flightstrips::cluster::v1::CdmAutomaticAction* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_better_tobt();
+    _impl_.change_.better_tobt_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.better_tobt)
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::_internal_mutable_better_tobt() {
+  if (change_case() != kBetterTobt) {
+    clear_change();
+    set_has_better_tobt();
+    _impl_.change_.better_tobt_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::CdmAutomaticAction>(GetArena());
+  }
+  return _impl_.change_.better_tobt_;
+}
+inline ::flightstrips::cluster::v1::CdmAutomaticAction* CdmAction::mutable_better_tobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::CdmAutomaticAction* _msg = _internal_mutable_better_tobt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.better_tobt)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.SetTobt logon_eobt = 16;
+inline bool CdmAction::has_logon_eobt() const {
+  return change_case() == kLogonEobt;
+}
+inline bool CdmAction::_internal_has_logon_eobt() const {
+  return change_case() == kLogonEobt;
+}
+inline void CdmAction::set_has_logon_eobt() {
+  _impl_._oneof_case_[0] = kLogonEobt;
+}
+inline void CdmAction::clear_logon_eobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (change_case() == kLogonEobt) {
+    if (GetArena() == nullptr) {
+      delete _impl_.change_.logon_eobt_;
+    }
+    clear_has_change();
+  }
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::release_logon_eobt() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmAction.logon_eobt)
+  if (change_case() == kLogonEobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.logon_eobt_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.change_.logon_eobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::SetTobt& CdmAction::_internal_logon_eobt() const {
+  return change_case() == kLogonEobt ? *_impl_.change_.logon_eobt_ : reinterpret_cast<::flightstrips::cluster::v1::SetTobt&>(::flightstrips::cluster::v1::_SetTobt_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::SetTobt& CdmAction::logon_eobt() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmAction.logon_eobt)
+  return _internal_logon_eobt();
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::unsafe_arena_release_logon_eobt() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.CdmAction.logon_eobt)
+  if (change_case() == kLogonEobt) {
+    clear_has_change();
+    auto* temp = _impl_.change_.logon_eobt_;
+    _impl_.change_.logon_eobt_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void CdmAction::unsafe_arena_set_allocated_logon_eobt(::flightstrips::cluster::v1::SetTobt* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_change();
+  if (value) {
+    set_has_logon_eobt();
+    _impl_.change_.logon_eobt_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.CdmAction.logon_eobt)
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::_internal_mutable_logon_eobt() {
+  if (change_case() != kLogonEobt) {
+    clear_change();
+    set_has_logon_eobt();
+    _impl_.change_.logon_eobt_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::SetTobt>(GetArena());
+  }
+  return _impl_.change_.logon_eobt_;
+}
+inline ::flightstrips::cluster::v1::SetTobt* CdmAction::mutable_logon_eobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::SetTobt* _msg = _internal_mutable_logon_eobt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmAction.logon_eobt)
+  return _msg;
+}
+
 inline bool CdmAction::has_change() const {
   return change_case() != CHANGE_NOT_SET;
 }
@@ -36526,6 +37833,64 @@ inline void CdmAction::clear_has_change() {
 inline CdmAction::ChangeCase CdmAction::change_case() const {
   return CdmAction::ChangeCase(_impl_._oneof_case_[0]);
 }
+// -------------------------------------------------------------------
+
+// CdmAutomaticAction
+
+// -------------------------------------------------------------------
+
+// CdmGroundState
+
+// string state = 1;
+inline void CdmGroundState::clear_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.ClearToEmpty();
+}
+inline const std::string& CdmGroundState::state() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.CdmGroundState.state)
+  return _internal_state();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void CdmGroundState::set_state(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.CdmGroundState.state)
+}
+inline std::string* CdmGroundState::mutable_state() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_state();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.CdmGroundState.state)
+  return _s;
+}
+inline const std::string& CdmGroundState::_internal_state() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.state_.Get();
+}
+inline void CdmGroundState::_internal_set_state(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.Set(value, GetArena());
+}
+inline std::string* CdmGroundState::_internal_mutable_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.state_.Mutable( GetArena());
+}
+inline std::string* CdmGroundState::release_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.CdmGroundState.state)
+  return _impl_.state_.Release();
+}
+inline void CdmGroundState::set_allocated_state(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.state_.IsDefault()) {
+          _impl_.state_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CdmGroundState.state)
+}
+
 // -------------------------------------------------------------------
 
 // SetTobt

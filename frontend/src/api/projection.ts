@@ -56,6 +56,8 @@ function strip(value: Strip, cdm?: CdmState, pdc?: PdcSequence, stand?: StandAss
       issue_type: value.validation.issueType, message: value.validation.message,
       owning_position: value.validation.owningPosition, active: value.validation.active,
       activation_key: value.validation.activationKey,
+      custom_action: value.validation.action?.action.case === "assignHoldingPoint"
+        ? {label: value.validation.action.label, action_kind: "assign_holding_point"} : undefined,
     } : undefined,
   };
 }
@@ -102,6 +104,7 @@ export class FrontendProjection {
       if (entity.value?.value.case === "strip") result.set(`strip.${entity.key}`, entity.revision);
       if (entity.value?.value.case === "tacticalStrip") result.set(`tactical.${entity.key}`, entity.revision);
       if (entity.value?.value.case === "pdcSequence") result.set(`pdc.${entity.key}`, entity.revision);
+      if (entity.value?.value.case === "cdmState") result.set(`cdm.${entity.key}`, entity.revision);
       if (entity.value?.value.case === "standBlock") result.set(`standBlock.${entity.key}`, entity.revision);
     }
     return result;
@@ -261,7 +264,16 @@ export class FrontendProjection {
         this.emit(legacy(EventType.FrontendCdmData, {callsign: item.value.callsign,
           eobt: currentStrip?.case === "strip" ? iso(currentStrip.value.eobt) : "",
           tobt: iso(item.value.tobt), tsat: iso(item.value.tsat),
-          ttot: iso(item.value.ttot), ctot: iso(item.value.ctot)})); return;
+          ttot: iso(item.value.ttot), ctot: iso(item.value.ctot),
+          ...(currentStrip?.case === "strip" ? {
+            tobt_set_by: currentStrip.value.tobtSetBy,
+            aobt: iso(currentStrip.value.aobt), asat: iso(currentStrip.value.asat),
+            asrt: iso(currentStrip.value.asrt), tsac: iso(currentStrip.value.tsac),
+            status: currentStrip.value.operationalStatus,
+            most_penalizing_airspace: currentStrip.value.mostPenalizingAirspace,
+            ecfmp_id: currentStrip.value.ecfmpId, ctot_source: currentStrip.value.ctotSource,
+            phase: currentStrip.value.phase,
+          } : {})})); return;
       }
       case "frontendMessage": this.emit(legacy(EventType.FrontendMessageReceived, {id: number(item.value.id), sender: item.value.sender, text: item.value.text, is_broadcast: item.value.broadcast, recipients: item.value.recipients})); return;
       case "atis": this.emit(legacy(EventType.FrontendAtisUpdate, {metar: item.value.text, arr_atis_code: item.value.code, dep_atis_code: item.value.code})); return;

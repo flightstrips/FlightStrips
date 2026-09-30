@@ -41,6 +41,16 @@ durable intent before dispatch in the candidate runtime:
 | `services/strip_cleared_bay.go` | session owner | delayed strip action |
 | `euroscope/hub_offline_timers.go` and `hub_aircraft_disconnect.go` | session owner | delayed offline/disconnect/aircraft work |
 
+Task 18b supplies the concrete dormant CDM caller of Task 19's adapters.
+`NewCdmCandidate(...).CDM` accepts local policy and exact typed export
+parameters before `ViffWriteAdapter.Run`; `ReconcileMaster` replaces detached
+registration/clearing, and persisted `cdm-pushback/<callsign>` slots replace
+the synchronous service's local verification retry loop. ATOT/AOBT/TOBT,
+REA, SUSP, REQTOBT and post-sequence exports share the recorded Task 19
+intent/result path. A failed dependency supersedes its successors; a
+recorded uncertainty cannot obtain a fresh UUID merely because a poll repeats.
+No CDM candidate adds startup work or direct provider goroutines.
+
 `aman/navdata/airacnet/adapter.go` also launches goroutines for concurrent
 provider page retrieval. Those calls need one airport-owned import intent and
 durable typed checkpoints. `shared/position_dispatcher.go` and WebSocket

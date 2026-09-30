@@ -214,6 +214,11 @@ func Subject(ref *pb.AggregateRef) (string, error) {
 }
 
 func validateTyped(message protoreflect.Message) error {
+	if state, ok := message.Interface().(*pb.CdmState); ok {
+		if err := validateCdmState(state); err != nil {
+			return err
+		}
+	}
 	if len(message.GetUnknown()) != 0 {
 		return fmt.Errorf("unknown fields in %s", message.Descriptor().FullName())
 	}

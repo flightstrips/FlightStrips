@@ -53,6 +53,11 @@ const fixtures: FrontendSendEvent[] = [
 ];
 
 describe("frontend command coverage", () => {
+  it("uses the CDM revision for READY while CLX keeps the strip revision", () => {
+    const revisions = new Map([["strip.SAS123", 8n], ["cdm.SAS123", 3n]]);
+    expect(encodeAction({type: ActionType.FrontendCdmReady, ...flight}, revisions).expectedEntityRevision).toBe(3n);
+    expect(encodeAction({type: ActionType.FrontendClxUpdateTobt, ...flight}, revisions).expectedEntityRevision).toBe(8n);
+  });
   it.each(fixtures)("encodes $type as a generated binary oneof", event => {
     const {action, requestId} = encodeAction(event, new Map());
     const decoded = fromBinary(ClientCommandSchema, toBinary(ClientCommandSchema, action));

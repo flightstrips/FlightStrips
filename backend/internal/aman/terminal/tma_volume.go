@@ -55,6 +55,12 @@ func LoadTMAVolume(path string) (TMAVolume, error) {
 	if err := json.Unmarshal(feature.Geometry.Coordinates, &coordinates); err != nil {
 		return TMAVolume{}, fmt.Errorf("decode TMA MultiPolygon coordinates: %w", err)
 	}
+	return TMAVolumeFromCoordinates(coordinates)
+}
+
+// TMAVolumeFromCoordinates validates the same canonical MultiPolygon shape
+// used by the document importer, without requiring a process-local file.
+func TMAVolumeFromCoordinates(coordinates [][][][]float64) (TMAVolume, error) {
 	if len(coordinates) == 0 {
 		return TMAVolume{}, fmt.Errorf("TMA MultiPolygon must contain a polygon")
 	}
@@ -74,6 +80,21 @@ func LoadTMAVolume(path string) (TMAVolume, error) {
 		}
 	}
 	return volume, nil
+}
+
+// Coordinates returns a detached canonical copy for typed immutable storage.
+func (v TMAVolume) Coordinates() [][][][]float64 {
+	result := make([][][][]float64, len(v.polygons))
+	for i, p := range v.polygons {
+		result[i] = make([][][]float64, len(p))
+		for j, r := range p {
+			result[i][j] = make([][]float64, len(r))
+			for k, c := range r {
+				result[i][j][k] = []float64{c.longitude, c.latitude}
+			}
+		}
+	}
+	return result
 }
 
 func validateTMARing(coordinates [][]float64) ([]tmaPoint, error) {

@@ -137,6 +137,9 @@ extern AmanSelectRunwayDefaultTypeInternal _AmanSelectRunway_default_instance_;
 class AmanSubmitCoordination;
 struct AmanSubmitCoordinationDefaultTypeInternal;
 extern AmanSubmitCoordinationDefaultTypeInternal _AmanSubmitCoordination_default_instance_;
+class ApplyAmanSession;
+struct ApplyAmanSessionDefaultTypeInternal;
+extern ApplyAmanSessionDefaultTypeInternal _ApplyAmanSession_default_instance_;
 class AssumeCoordination;
 struct AssumeCoordinationDefaultTypeInternal;
 extern AssumeCoordinationDefaultTypeInternal _AssumeCoordination_default_instance_;
@@ -13819,7 +13822,7 @@ class ElectSessionMaster final : public ::google::protobuf::Message
     return reinterpret_cast<const ElectSessionMaster*>(
         &_ElectSessionMaster_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 111;
+  static constexpr int kIndexInFileMessages = 112;
   friend void swap(ElectSessionMaster& a, ElectSessionMaster& b) { a.Swap(&b); }
   inline void Swap(ElectSessionMaster* other) {
     if (other == this) return;
@@ -18874,7 +18877,7 @@ class RecordSessionSync final : public ::google::protobuf::Message
     return reinterpret_cast<const RecordSessionSync*>(
         &_RecordSessionSync_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 110;
+  static constexpr int kIndexInFileMessages = 111;
   friend void swap(RecordSessionSync& a, RecordSessionSync& b) { a.Swap(&b); }
   inline void Swap(RecordSessionSync* other) {
     if (other == this) return;
@@ -21086,7 +21089,7 @@ class AdvanceEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceEffect*>(
         &_AdvanceEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 109;
+  static constexpr int kIndexInFileMessages = 110;
   friend void swap(AdvanceEffect& a, AdvanceEffect& b) { a.Swap(&b); }
   inline void Swap(AdvanceEffect* other) {
     if (other == this) return;
@@ -22206,6 +22209,232 @@ class ClientCommand final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class ApplyAmanSession final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.ApplyAmanSession) */ {
+ public:
+  inline ApplyAmanSession() : ApplyAmanSession(nullptr) {}
+  ~ApplyAmanSession() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ApplyAmanSession(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline ApplyAmanSession(const ApplyAmanSession& from) : ApplyAmanSession(nullptr, from) {}
+  inline ApplyAmanSession(ApplyAmanSession&& from) noexcept
+      : ApplyAmanSession(nullptr, std::move(from)) {}
+  inline ApplyAmanSession& operator=(const ApplyAmanSession& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ApplyAmanSession& operator=(ApplyAmanSession&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const ApplyAmanSession& default_instance() {
+    return *internal_default_instance();
+  }
+  enum ActionCase {
+    kHoldingEat = 3,
+    ACTION_NOT_SET = 0,
+  };
+  static inline const ApplyAmanSession* internal_default_instance() {
+    return reinterpret_cast<const ApplyAmanSession*>(
+        &_ApplyAmanSession_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 109;
+  friend void swap(ApplyAmanSession& a, ApplyAmanSession& b) { a.Swap(&b); }
+  inline void Swap(ApplyAmanSession* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ApplyAmanSession* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ApplyAmanSession* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<ApplyAmanSession>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ApplyAmanSession& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ApplyAmanSession& from) { ApplyAmanSession::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(ApplyAmanSession* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.ApplyAmanSession"; }
+
+ protected:
+  explicit ApplyAmanSession(::google::protobuf::Arena* arena);
+  ApplyAmanSession(::google::protobuf::Arena* arena, const ApplyAmanSession& from);
+  ApplyAmanSession(::google::protobuf::Arena* arena, ApplyAmanSession&& from) noexcept
+      : ApplyAmanSession(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCallsignFieldNumber = 2,
+    kIntentFieldNumber = 1,
+    kHoldingEatFieldNumber = 3,
+  };
+  // string callsign = 2;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // .flightstrips.cluster.v1.WorkflowRecord intent = 1;
+  bool has_intent() const;
+  void clear_intent() ;
+  const ::flightstrips::cluster::v1::WorkflowRecord& intent() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::WorkflowRecord* release_intent();
+  ::flightstrips::cluster::v1::WorkflowRecord* mutable_intent();
+  void set_allocated_intent(::flightstrips::cluster::v1::WorkflowRecord* value);
+  void unsafe_arena_set_allocated_intent(::flightstrips::cluster::v1::WorkflowRecord* value);
+  ::flightstrips::cluster::v1::WorkflowRecord* unsafe_arena_release_intent();
+
+  private:
+  const ::flightstrips::cluster::v1::WorkflowRecord& _internal_intent() const;
+  ::flightstrips::cluster::v1::WorkflowRecord* _internal_mutable_intent();
+
+  public:
+  // .flightstrips.cluster.v1.AmanHoldingClearance holding_eat = 3;
+  bool has_holding_eat() const;
+  private:
+  bool _internal_has_holding_eat() const;
+
+  public:
+  void clear_holding_eat() ;
+  const ::flightstrips::cluster::v1::AmanHoldingClearance& holding_eat() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::AmanHoldingClearance* release_holding_eat();
+  ::flightstrips::cluster::v1::AmanHoldingClearance* mutable_holding_eat();
+  void set_allocated_holding_eat(::flightstrips::cluster::v1::AmanHoldingClearance* value);
+  void unsafe_arena_set_allocated_holding_eat(::flightstrips::cluster::v1::AmanHoldingClearance* value);
+  ::flightstrips::cluster::v1::AmanHoldingClearance* unsafe_arena_release_holding_eat();
+
+  private:
+  const ::flightstrips::cluster::v1::AmanHoldingClearance& _internal_holding_eat() const;
+  ::flightstrips::cluster::v1::AmanHoldingClearance* _internal_mutable_holding_eat();
+
+  public:
+  void clear_action();
+  ActionCase action_case() const;
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ApplyAmanSession)
+ private:
+  class _Internal;
+  void set_has_holding_eat();
+  inline bool has_action() const;
+  inline void clear_has_action();
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 3, 2,
+      57, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::flightstrips::cluster::v1::WorkflowRecord* intent_;
+    union ActionUnion {
+      constexpr ActionUnion() : _constinit_{} {}
+      ::google::protobuf::internal::ConstantInitialized _constinit_;
+      ::flightstrips::cluster::v1::AmanHoldingClearance* holding_eat_;
+    } action_;
+    ::uint32_t _oneof_case_[1];
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
 class AdvanceWorkflow final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AdvanceWorkflow) */ {
  public:
@@ -22838,6 +23067,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kSetPositionLayout = 10,
     kReplaceSectorOwners = 11,
     kElectSessionMaster = 12,
+    kApplyAmanSession = 13,
     ACTION_NOT_SET = 0,
   };
   static inline const SystemCommand* internal_default_instance() {
@@ -22926,6 +23156,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kSetPositionLayoutFieldNumber = 10,
     kReplaceSectorOwnersFieldNumber = 11,
     kElectSessionMasterFieldNumber = 12,
+    kApplyAmanSessionFieldNumber = 13,
   };
   // .flightstrips.cluster.v1.CreateSession create_session = 1;
   bool has_create_session() const;
@@ -23155,6 +23386,25 @@ class SystemCommand final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::ElectSessionMaster* _internal_mutable_elect_session_master();
 
   public:
+  // .flightstrips.cluster.v1.ApplyAmanSession apply_aman_session = 13;
+  bool has_apply_aman_session() const;
+  private:
+  bool _internal_has_apply_aman_session() const;
+
+  public:
+  void clear_apply_aman_session() ;
+  const ::flightstrips::cluster::v1::ApplyAmanSession& apply_aman_session() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::ApplyAmanSession* release_apply_aman_session();
+  ::flightstrips::cluster::v1::ApplyAmanSession* mutable_apply_aman_session();
+  void set_allocated_apply_aman_session(::flightstrips::cluster::v1::ApplyAmanSession* value);
+  void unsafe_arena_set_allocated_apply_aman_session(::flightstrips::cluster::v1::ApplyAmanSession* value);
+  ::flightstrips::cluster::v1::ApplyAmanSession* unsafe_arena_release_apply_aman_session();
+
+  private:
+  const ::flightstrips::cluster::v1::ApplyAmanSession& _internal_apply_aman_session() const;
+  ::flightstrips::cluster::v1::ApplyAmanSession* _internal_mutable_apply_aman_session();
+
+  public:
   void clear_action();
   ActionCase action_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.SystemCommand)
@@ -23172,11 +23422,12 @@ class SystemCommand final : public ::google::protobuf::Message
   void set_has_set_position_layout();
   void set_has_replace_sector_owners();
   void set_has_elect_session_master();
+  void set_has_apply_aman_session();
   inline bool has_action() const;
   inline void clear_has_action();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 12, 12,
+      0, 13, 13,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -23207,6 +23458,7 @@ class SystemCommand final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::SetPositionLayout* set_position_layout_;
       ::flightstrips::cluster::v1::ReplaceSectorOwners* replace_sector_owners_;
       ::flightstrips::cluster::v1::ElectSessionMaster* elect_session_master_;
+      ::flightstrips::cluster::v1::ApplyAmanSession* apply_aman_session_;
     } action_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -45825,6 +46077,83 @@ inline ::flightstrips::cluster::v1::ElectSessionMaster* SystemCommand::mutable_e
   return _msg;
 }
 
+// .flightstrips.cluster.v1.ApplyAmanSession apply_aman_session = 13;
+inline bool SystemCommand::has_apply_aman_session() const {
+  return action_case() == kApplyAmanSession;
+}
+inline bool SystemCommand::_internal_has_apply_aman_session() const {
+  return action_case() == kApplyAmanSession;
+}
+inline void SystemCommand::set_has_apply_aman_session() {
+  _impl_._oneof_case_[0] = kApplyAmanSession;
+}
+inline void SystemCommand::clear_apply_aman_session() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kApplyAmanSession) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.apply_aman_session_;
+    }
+    clear_has_action();
+  }
+}
+inline ::flightstrips::cluster::v1::ApplyAmanSession* SystemCommand::release_apply_aman_session() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SystemCommand.apply_aman_session)
+  if (action_case() == kApplyAmanSession) {
+    clear_has_action();
+    auto* temp = _impl_.action_.apply_aman_session_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.apply_aman_session_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::ApplyAmanSession& SystemCommand::_internal_apply_aman_session() const {
+  return action_case() == kApplyAmanSession ? *_impl_.action_.apply_aman_session_ : reinterpret_cast<::flightstrips::cluster::v1::ApplyAmanSession&>(::flightstrips::cluster::v1::_ApplyAmanSession_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::ApplyAmanSession& SystemCommand::apply_aman_session() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SystemCommand.apply_aman_session)
+  return _internal_apply_aman_session();
+}
+inline ::flightstrips::cluster::v1::ApplyAmanSession* SystemCommand::unsafe_arena_release_apply_aman_session() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.SystemCommand.apply_aman_session)
+  if (action_case() == kApplyAmanSession) {
+    clear_has_action();
+    auto* temp = _impl_.action_.apply_aman_session_;
+    _impl_.action_.apply_aman_session_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void SystemCommand::unsafe_arena_set_allocated_apply_aman_session(::flightstrips::cluster::v1::ApplyAmanSession* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_apply_aman_session();
+    _impl_.action_.apply_aman_session_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.SystemCommand.apply_aman_session)
+}
+inline ::flightstrips::cluster::v1::ApplyAmanSession* SystemCommand::_internal_mutable_apply_aman_session() {
+  if (action_case() != kApplyAmanSession) {
+    clear_action();
+    set_has_apply_aman_session();
+    _impl_.action_.apply_aman_session_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::ApplyAmanSession>(GetArena());
+  }
+  return _impl_.action_.apply_aman_session_;
+}
+inline ::flightstrips::cluster::v1::ApplyAmanSession* SystemCommand::mutable_apply_aman_session() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::ApplyAmanSession* _msg = _internal_mutable_apply_aman_session();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SystemCommand.apply_aman_session)
+  return _msg;
+}
+
 inline bool SystemCommand::has_action() const {
   return action_case() != ACTION_NOT_SET;
 }
@@ -46745,6 +47074,228 @@ inline void AdvanceWorkflow::set_allocated_workflow(::flightstrips::cluster::v1:
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AdvanceWorkflow.workflow)
 }
 
+// -------------------------------------------------------------------
+
+// ApplyAmanSession
+
+// .flightstrips.cluster.v1.WorkflowRecord intent = 1;
+inline bool ApplyAmanSession::has_intent() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.intent_ != nullptr);
+  return value;
+}
+inline const ::flightstrips::cluster::v1::WorkflowRecord& ApplyAmanSession::_internal_intent() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::WorkflowRecord* p = _impl_.intent_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::WorkflowRecord&>(::flightstrips::cluster::v1::_WorkflowRecord_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::WorkflowRecord& ApplyAmanSession::intent() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ApplyAmanSession.intent)
+  return _internal_intent();
+}
+inline void ApplyAmanSession::unsafe_arena_set_allocated_intent(::flightstrips::cluster::v1::WorkflowRecord* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.intent_);
+  }
+  _impl_.intent_ = reinterpret_cast<::flightstrips::cluster::v1::WorkflowRecord*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ApplyAmanSession.intent)
+}
+inline ::flightstrips::cluster::v1::WorkflowRecord* ApplyAmanSession::release_intent() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::WorkflowRecord* released = _impl_.intent_;
+  _impl_.intent_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::WorkflowRecord* ApplyAmanSession::unsafe_arena_release_intent() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ApplyAmanSession.intent)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::WorkflowRecord* temp = _impl_.intent_;
+  _impl_.intent_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::WorkflowRecord* ApplyAmanSession::_internal_mutable_intent() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.intent_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::WorkflowRecord>(GetArena());
+    _impl_.intent_ = reinterpret_cast<::flightstrips::cluster::v1::WorkflowRecord*>(p);
+  }
+  return _impl_.intent_;
+}
+inline ::flightstrips::cluster::v1::WorkflowRecord* ApplyAmanSession::mutable_intent() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::flightstrips::cluster::v1::WorkflowRecord* _msg = _internal_mutable_intent();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ApplyAmanSession.intent)
+  return _msg;
+}
+inline void ApplyAmanSession::set_allocated_intent(::flightstrips::cluster::v1::WorkflowRecord* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.intent_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.intent_ = reinterpret_cast<::flightstrips::cluster::v1::WorkflowRecord*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ApplyAmanSession.intent)
+}
+
+// string callsign = 2;
+inline void ApplyAmanSession::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& ApplyAmanSession::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ApplyAmanSession.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ApplyAmanSession::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ApplyAmanSession.callsign)
+}
+inline std::string* ApplyAmanSession::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ApplyAmanSession.callsign)
+  return _s;
+}
+inline const std::string& ApplyAmanSession::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void ApplyAmanSession::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* ApplyAmanSession::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* ApplyAmanSession::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ApplyAmanSession.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void ApplyAmanSession::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ApplyAmanSession.callsign)
+}
+
+// .flightstrips.cluster.v1.AmanHoldingClearance holding_eat = 3;
+inline bool ApplyAmanSession::has_holding_eat() const {
+  return action_case() == kHoldingEat;
+}
+inline bool ApplyAmanSession::_internal_has_holding_eat() const {
+  return action_case() == kHoldingEat;
+}
+inline void ApplyAmanSession::set_has_holding_eat() {
+  _impl_._oneof_case_[0] = kHoldingEat;
+}
+inline ::flightstrips::cluster::v1::AmanHoldingClearance* ApplyAmanSession::release_holding_eat() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ApplyAmanSession.holding_eat)
+  if (action_case() == kHoldingEat) {
+    clear_has_action();
+    auto* temp = _impl_.action_.holding_eat_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.holding_eat_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::AmanHoldingClearance& ApplyAmanSession::_internal_holding_eat() const {
+  return action_case() == kHoldingEat ? *_impl_.action_.holding_eat_ : reinterpret_cast<::flightstrips::cluster::v1::AmanHoldingClearance&>(::flightstrips::cluster::v1::_AmanHoldingClearance_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::AmanHoldingClearance& ApplyAmanSession::holding_eat() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ApplyAmanSession.holding_eat)
+  return _internal_holding_eat();
+}
+inline ::flightstrips::cluster::v1::AmanHoldingClearance* ApplyAmanSession::unsafe_arena_release_holding_eat() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.ApplyAmanSession.holding_eat)
+  if (action_case() == kHoldingEat) {
+    clear_has_action();
+    auto* temp = _impl_.action_.holding_eat_;
+    _impl_.action_.holding_eat_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void ApplyAmanSession::unsafe_arena_set_allocated_holding_eat(::flightstrips::cluster::v1::AmanHoldingClearance* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_holding_eat();
+    _impl_.action_.holding_eat_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ApplyAmanSession.holding_eat)
+}
+inline ::flightstrips::cluster::v1::AmanHoldingClearance* ApplyAmanSession::_internal_mutable_holding_eat() {
+  if (action_case() != kHoldingEat) {
+    clear_action();
+    set_has_holding_eat();
+    _impl_.action_.holding_eat_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::AmanHoldingClearance>(GetArena());
+  }
+  return _impl_.action_.holding_eat_;
+}
+inline ::flightstrips::cluster::v1::AmanHoldingClearance* ApplyAmanSession::mutable_holding_eat() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::AmanHoldingClearance* _msg = _internal_mutable_holding_eat();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ApplyAmanSession.holding_eat)
+  return _msg;
+}
+
+inline bool ApplyAmanSession::has_action() const {
+  return action_case() != ACTION_NOT_SET;
+}
+inline void ApplyAmanSession::clear_has_action() {
+  _impl_._oneof_case_[0] = ACTION_NOT_SET;
+}
+inline ApplyAmanSession::ActionCase ApplyAmanSession::action_case() const {
+  return ApplyAmanSession::ActionCase(_impl_._oneof_case_[0]);
+}
 // -------------------------------------------------------------------
 
 // AdvanceEffect

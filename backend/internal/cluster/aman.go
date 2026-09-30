@@ -348,8 +348,8 @@ func AmanVatsimObservationRequest(icao string, observation *pb.VatsimObservation
 }
 
 // PlanAmanWorkflow advances only a pending intent on the airport owner. A
-// source revision change deterministically supersedes it, including when the
-// destination step returned after a newer airport transition was committed.
+// source revision change supersedes work that has not committed. An earlier
+// destination commit remains recoverable after a newer airport transition.
 func PlanAmanWorkflow(_ context.Context, request *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
 	want := request.GetSystem().GetAdvanceWorkflow().GetWorkflow()
 	if request.GetAggregate().GetAirport() == nil || want == nil || !proto.Equal(want.Source, request.Aggregate) {
@@ -367,13 +367,13 @@ func PlanAmanWorkflow(_ context.Context, request *pb.CommandRequest, state *Aggr
 		current = airport.GetValue().GetAmanAirport().Revision
 	}
 	copy := proto.Clone(old).(*pb.WorkflowRecord)
-	if current != *old.SourceRevision {
+	if want.Status == pb.WorkflowRecord_COMPLETED && want.DestinationStreamSequence != nil && *want.DestinationStreamSequence > 0 {
+		copy.Status = pb.WorkflowRecord_COMPLETED
+		copy.DestinationStreamSequence = want.DestinationStreamSequence
+	} else if current != *old.SourceRevision {
 		copy.Status = pb.WorkflowRecord_SUPERSEDED
 		copy.ReasonCode = "SOURCE_REVISION_CHANGED"
 		copy.DestinationStreamSequence = nil
-	} else if want.Status == pb.WorkflowRecord_COMPLETED && want.DestinationStreamSequence != nil && *want.DestinationStreamSequence > 0 {
-		copy.Status = pb.WorkflowRecord_COMPLETED
-		copy.DestinationStreamSequence = want.DestinationStreamSequence
 	} else {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("completed AMAN workflow requires destination commit")
 	}
@@ -392,6 +392,9 @@ type AmanIntentRunner struct {
 // pending step. A destination retry uses exactly the recorded UUID.
 func (r AmanIntentRunner) Resume(ctx context.Context, icao string) error {
 	ref := airportRef(icao)
+	if r.AirportWriter.Lease != nil && !r.AirportWriter.Lease.CanWrite(ref) {
+		return fmt.Errorf("AMAN intent runner is not airport owner")
+	}
 	subject, err := Subject(ref)
 	if err != nil {
 		return err
@@ -408,6 +411,9 @@ func (r AmanIntentRunner) Resume(ctx context.Context, icao string) error {
 	}
 	sort.Strings(ids)
 	for _, id := range ids {
+		if r.AirportWriter.Lease != nil && !r.AirportWriter.Lease.CanWrite(ref) {
+			return fmt.Errorf("AMAN intent runner lost airport ownership")
+		}
 		workflow := state.Workflows[id]
 		currentState, err := r.AirportWriter.load(ctx, subject, ref)
 		if err != nil {
@@ -419,7 +425,23 @@ func (r AmanIntentRunner) Resume(ctx context.Context, icao string) error {
 		}
 		advance := proto.Clone(workflow).(*pb.WorkflowRecord)
 		advance.Status = pb.WorkflowRecord_SUPERSEDED
-		if workflow.SourceRevision != nil && current == *workflow.SourceRevision {
+		// Consult the destination ledger before source supersession. Its durable
+		// result proves a lost reply even when the airport has since advanced.
+		if r.Destination == nil {
+			return fmt.Errorf("AMAN destination adapter unavailable")
+		}
+		destination, err := r.Destination.Read(ctx, workflow.Destination)
+		if err != nil {
+			return err
+		}
+		if outcome := destination.Ledger[workflow.DerivedCommandId]; outcome != nil && (outcome.Status == pb.CommandOutcome_SUCCEEDED || outcome.Status == pb.CommandOutcome_ACCEPTED || destination.Effects[workflow.DerivedCommandId] != nil) {
+			if outcome.Actor.GetKind() != pb.Actor_SYSTEM || outcome.Actor.Id != "aman-intent" || !proto.Equal(outcome.Aggregate, workflow.Destination) || outcome.CommittedStreamSequence == 0 {
+				return fmt.Errorf("AMAN destination outcome identity mismatch")
+			}
+			advance.Status = pb.WorkflowRecord_COMPLETED
+			sequence := outcome.CommittedStreamSequence
+			advance.DestinationStreamSequence = &sequence
+		} else if workflow.SourceRevision != nil && current == *workflow.SourceRevision {
 			if r.Destination == nil || r.Step == nil {
 				return fmt.Errorf("AMAN destination adapter unavailable")
 			}
@@ -431,11 +453,21 @@ func (r AmanIntentRunner) Resume(ctx context.Context, icao string) error {
 				return fmt.Errorf("AMAN destination command identity mismatch")
 			}
 			reply := r.Destination.Execute(ctx, step)
-			if reply == nil || reply.Status != pb.CommandReply_COMMITTED || reply.Outcome == nil || reply.Outcome.Status != pb.CommandOutcome_SUCCEEDED || reply.StreamSequence == nil {
+			if reply != nil && (reply.Status == pb.CommandReply_REVISION_CONFLICT || reply.GetOutcome().GetStatus() == pb.CommandOutcome_FAILED && reply.GetOutcome().ReasonCode == pb.CommandReply_REVISION_CONFLICT.String()) {
+				latest, err := r.AirportWriter.load(ctx, subject, ref)
+				if err != nil {
+					return err
+				}
+				airport := latest.Indexes[pb.EntityKind_AMAN_AIRPORT][icao]
+				if airport == nil || airport.GetValue().GetAmanAirport().Revision == *workflow.SourceRevision {
+					return fmt.Errorf("AMAN destination conflict without source supersession")
+				}
+			} else if reply == nil || (reply.Status != pb.CommandReply_COMMITTED && reply.Status != pb.CommandReply_PENDING) || reply.Outcome == nil || (reply.Outcome.Status != pb.CommandOutcome_SUCCEEDED && reply.Outcome.Status != pb.CommandOutcome_ACCEPTED) || reply.StreamSequence == nil {
 				return fmt.Errorf("AMAN destination step %s is not confirmed", id)
+			} else {
+				advance.Status = pb.WorkflowRecord_COMPLETED
+				advance.DestinationStreamSequence = reply.StreamSequence
 			}
-			advance.Status = pb.WorkflowRecord_COMPLETED
-			advance.DestinationStreamSequence = reply.StreamSequence
 		}
 		commandID, err := AmanIntentID(id, "record-"+advance.Status.String())
 		if err != nil {

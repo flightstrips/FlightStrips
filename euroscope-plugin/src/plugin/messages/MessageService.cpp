@@ -245,6 +245,28 @@ namespace FlightStrips::messages {
         case wire::Envelope::kGroundState:
             return setter(m_plugin->UpdateViaScratchPad(envelope.ground_state().callsign().c_str(),
                                                          envelope.ground_state().ground_state().c_str()));
+        case wire::Envelope::kHold:
+            return withPlan(envelope.hold().callsign(), [&](auto fp) {
+                const auto& hold = envelope.hold();
+                if (hold.hold_eat().empty()) {
+                    // Withdrawal removes AMAN's replay authority. As in the
+                    // existing Hold handler, it never cancels a controller hold
+                    // or invents an unsupported empty TopSky EAT pulse.
+                    m_flightPlanService->CacheBackendHoldEatReplay(hold.callsign(), hold.hold(), hold.hold_type(), "");
+                    return ok();
+                }
+                if (!fp.GetTrackingControllerIsMe())
+                    return fail(Result::INVALID_ARGUMENT, "holding EAT requires the tracking controller");
+                const auto annotation = fp.GetControllerAssignedData().GetFlightStripAnnotation(flightplan::TOPSKY_HOLD_ANNOTATION);
+                const auto command = flightplan::BuildTopSkyHoldEatCommand(
+                    flightplan::ParseTopSkyHoldAnnotation(annotation == nullptr ? "" : annotation),
+                    hold.hold(), hold.hold_type(), hold.hold_eat());
+                if (command.empty()) return fail(Result::INVALID_ARGUMENT, "live hold differs from AMAN intent");
+                if (!m_plugin->UpdateViaScratchPad(hold.callsign().c_str(), command.c_str()))
+                    return fail(Result::EUROSCOPE_API_REJECTED, "TopSky holding EAT rejected");
+                m_flightPlanService->CacheBackendHoldEatReplay(hold.callsign(), hold.hold(), hold.hold_type(), hold.hold_eat());
+                return ok();
+            });
         case wire::Envelope::kStand:
             return setter(m_plugin->SetArrivalStand(envelope.stand().callsign(), envelope.stand().stand()));
         case wire::Envelope::kClearedFlag:

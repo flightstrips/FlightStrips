@@ -267,41 +267,14 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 	if err != nil {
 		return nil
 	}
-	holdingFixes := make(map[navdata.HoldingID]navdata.FixID, len(snapshot.Holdings))
-	for _, holding := range snapshot.Holdings {
-		holdingFixes[holding.ID] = holding.Fix
-	}
-
-	events := make([]euroscopeEvents.HoldEvent, 0)
+	projection := operational.HoldingEATs(state, p.currentTechnicalHealth(ctx), p.holdingEATEnabled, snapshot)
+	events := make([]euroscopeEvents.HoldEvent, 0, len(projection))
 	for _, flight := range state.Flights {
-		clearance := flight.HoldingClearance
-		prediction := flight.Prediction
-		stack := flight.HoldingStack
-		// The first surveillance detection establishes entry. Do not wait for
-		// the second observation that marks the holding stack confirmed.
-		if clearance == nil || clearance.Hold == "" || clearance.HoldType != aman.HoldingClearanceEnroute ||
-			prediction == nil || prediction.HoldingPlan == nil || stack == nil ||
-			flight.SelectedHolding == nil || stack.HoldingID != *flight.SelectedHolding {
+		value, eligible := projection[flight.Callsign]
+		if !eligible || suppressCurrent && flight.HoldingClearance.HoldEAT == value.HoldEAT {
 			continue
 		}
-		selectedFix, found := holdingFixes[navdata.HoldingID(*flight.SelectedHolding)]
-		if !found || !strings.EqualFold(strings.TrimSpace(clearance.Hold), string(selectedFix)) {
-			continue
-		}
-		if holdingEATBlockedByEarlierEntrant(flight, state.Flights) {
-			continue
-		}
-
-		eat := prediction.HoldingPlan.ApproachReleaseTime.UTC().Format("1504")
-		if suppressCurrent && clearance.HoldEAT == eat {
-			continue
-		}
-		events = append(events, euroscopeEvents.HoldEvent{
-			Callsign: flight.Callsign,
-			Hold:     clearance.Hold,
-			HoldType: string(clearance.HoldType),
-			HoldEat:  eat,
-		})
+		events = append(events, euroscopeEvents.HoldEvent{Callsign: flight.Callsign, Hold: value.Hold, HoldType: string(value.HoldType), HoldEat: value.HoldEAT})
 	}
 	return events
 }
@@ -311,28 +284,7 @@ func (p *amanTransport) holdingEATEventsWithGeometry(ctx context.Context, state 
 // to pass aircraft already in the hold. The publication layer withdraws a
 // previously written value when this projection disappears.
 func holdingEATBlockedByEarlierEntrant(flight aman.AMANFlight, flights []aman.AMANFlight) bool {
-	stack := flight.HoldingStack
-	if stack == nil || stack.FirstObservedAt.IsZero() || flight.Prediction == nil || flight.Prediction.HoldingPlan == nil {
-		return false
-	}
-	release := flight.Prediction.HoldingPlan.ApproachReleaseTime
-	for _, older := range flights {
-		if older.Callsign == flight.Callsign || older.HoldingStack == nil ||
-			older.HoldingStack.HoldingID != stack.HoldingID ||
-			older.State == aman.StateLanded || older.State == aman.StateRemoved {
-			continue
-		}
-		olderEntry := older.HoldingStack.FirstObservedAt
-		if olderEntry.IsZero() && !older.HoldingStack.Confirmed ||
-			!olderEntry.IsZero() && !olderEntry.Before(stack.FirstObservedAt) {
-			continue
-		}
-		if older.Prediction == nil || older.Prediction.HoldingPlan == nil ||
-			!older.Prediction.HoldingPlan.ApproachReleaseTime.UTC().Truncate(time.Minute).Before(release.UTC().Truncate(time.Minute)) {
-			return true
-		}
-	}
-	return false
+	return operational.HoldingEATBlockedByEarlierEntrant(flight, flights)
 }
 
 func (p *amanTransport) newGainLossEvent(_ context.Context, state aman.AirportState) (euroscopeEvents.AMANGainLossEvent, error) {

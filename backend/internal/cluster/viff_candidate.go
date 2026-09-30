@@ -3,8 +3,8 @@ package cluster
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -88,12 +88,7 @@ func (a ViffWriteAdapter) Run(ctx context.Context, spec ViffWriteSpec) (bool, er
 			return false, err
 		}
 	}
-	serialized, err := json.Marshal(spec)
-	if err != nil {
-		return false, err
-	}
-	sha := sha256.Sum256(serialized)
-	step := "external/viff/" + string(spec.Kind) + "/" + hex.EncodeToString(sha[:])
+	step := "external/viff/" + string(spec.Kind) + "/" + viffWriteDigest(spec)
 	return a.Worker.Run(ctx, ExternalCallSpec{Source: ref, Destination: ref, WorkflowID: spec.OperationID, Step: step,
 		Fetch: func(ctx context.Context) (proto.Message, error) {
 			var err error
@@ -133,6 +128,20 @@ func (a ViffWriteAdapter) Run(ctx context.Context, spec ViffWriteSpec) (bool, er
 			return writer.Execute(ctx, request)
 		},
 	})
+}
+
+func viffWriteDigest(spec ViffWriteSpec) string {
+	h := sha256.New()
+	write := func(value string) {
+		var size [8]byte
+		binary.BigEndian.PutUint64(size[:], uint64(len(value)))
+		_, _ = h.Write(size[:])
+		_, _ = h.Write([]byte(value))
+	}
+	for _, value := range []string{spec.OperationID, string(spec.Kind), spec.Airport, strconv.FormatInt(int64(spec.SessionID), 10), spec.Position, spec.Callsign, spec.Value, strconv.Itoa(spec.TaxiMinutes), spec.Data.Callsign, spec.Data.Tobt, spec.Data.Tsat, spec.Data.Ttot, spec.Data.Ctot, spec.Data.Reason, spec.Data.Asrt, spec.Data.DepInfo} {
+		write(value)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func viffSessionAirport(ctx context.Context, writer Writer, sessionID int32, airport string) error {

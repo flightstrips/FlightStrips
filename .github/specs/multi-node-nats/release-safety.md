@@ -58,6 +58,9 @@ An implementation that cannot maintain these conditions is reclassified **held**
 | 19b | No; held | No | Completes operational AMAN policy and destination intents; follows the Task 19 activation boundary. |
 | 19c | No; held | No | Completes the global VATSIM frequency feed; follows the Task 19 activation boundary. |
 | 20 | No; held | No | Removing SQL/migrator and wiring NATS-only startup is activation code. |
+| 20a | No; held | No | Concrete runtime/API assembly follows the Task 20 boundary; isolated construction only until 20c. |
+| 20b | No; held | No | Candidate build, promotion and manual publication gates; implementation does not authorize publishing artifacts or announcements. |
+| 20c | No; held | No | Installs the sole NATS runtime and removes SQL; completes Task 20 acceptance before Task 21. |
 | 21 | Infrastructure PR only | No | Prepare and validate the production stack PR; deploy an equivalent isolated staging stack. Do not merge the production PR yet. |
 | 22 | Held test evidence | No | Run against the integrated candidate and staging stack; no production stack change. |
 | 23 | Held test evidence | No | Same candidate and production-equivalent staging placement; record exact versions. |

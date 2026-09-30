@@ -1,8 +1,20 @@
 # Task 20 — Application runtime and CI cutover
 
-**Depends on:** 04–19, 15a, 15b, 18a–18c and 19a–19c. Tasks 18 and 19 must satisfy their complete acceptance criteria; partial candidate PRs do not satisfy these dependencies. Tasks 19a/19b are complete, but 19c supplies the remaining global VATSIM transceiver feed. **Outcome:** the FlightStrips application builds and runs with NATS as its sole operational store.
+**Depends on:** 04–19, 15a, 15b, 18a–18c and 19a–19c, now complete on the integration base. **Outcome:** the FlightStrips application builds and runs with NATS as its sole operational store.
 
 **Release boundary:** merge only with the coordinated candidate PR. This task removes the current production storage path and cannot be released or deployed against the current infrastructure; see [release-safety.md](../release-safety.md).
+
+## Implementation split
+
+Task 20 is a parent acceptance gate, implemented by three independently reviewable integration-base PRs:
+
+| Child | Owns | Dependencies |
+| --- | --- | --- |
+| [20a — Runtime and API assembly](20a-runtime-assembly.md) | Concrete NATS application constructor, every enabled HTTP/socket/worker binding, readiness and shutdown | Completed 04–19 and follow-ups |
+| [20b — Immutable release gates](20b-release-gates.md) | Candidate artifact contract, build identity, CI promotion and manual publication gates | Completed 14–19 and follow-ups; can run alongside 20a |
+| [20c — Final integration and SQL retirement](20c-sql-retirement.md) | Sole-default NATS entrypoint, SQL removal, local two-backend Compose, documentation and combined acceptance | 20a and 20b merged and accepted |
+
+All children are held from `main` and release under this parent's boundary. Temporary isolated construction in 20a ends in 20c; it is not a released fallback. Task 20 is complete only when all three children and every parent acceptance check below pass. Task 21 waits for that completion. Missing business adapters discovered during assembly belong to 20a and block its acceptance; they cannot be deferred as unbound hooks to 20c.
 
 ## Work
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CAPABILITIES } from "./content";
-import { Reveal } from "./primitives";
+import { Reveal, TextLink } from "./primitives";
 
 /**
  * Four capability entries in normal document order, with a sticky index that
@@ -83,13 +83,7 @@ export function CapabilityStory() {
               <p className="mb-6 max-w-2xl text-[15px] leading-relaxed text-[var(--fsl-ink-muted)]">
                 {capability.detail}
               </p>
-              <a
-                href={capability.link.href}
-                className="fsl-mono inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[var(--fsl-brand-ink)] transition-opacity hover:opacity-70"
-              >
-                {capability.link.label}
-                <span aria-hidden="true">→</span>
-              </a>
+              <TextLink label={capability.link.label} href={capability.link.href} ink arrow />
             </Reveal>
           </article>
         ))}

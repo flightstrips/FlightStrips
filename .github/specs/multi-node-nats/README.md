@@ -83,8 +83,8 @@ An implementation that cannot satisfy a contract must update these documents and
 | 19b | [Operational AMAN candidate](tasks/19b-aman-policy.md) | 11, 12, 19 candidate | Merged to integration base ([#820](https://github.com/flightstrips/FlightStrips/pull/820)); held from `main`/release |
 | 19c | [VATSIM transceiver frequency feed](tasks/19c-transceiver-feed.md) | 12, 13, 19 candidate | Merged to integration base ([#821](https://github.com/flightstrips/FlightStrips/pull/821)); held from `main`/release |
 | 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19 and follow-ups, 20a–20c | Split into 20a–20c; complete only after all three and parent gates pass |
-| 20a | [Runtime and API assembly](tasks/20a-runtime-assembly.md) | 04–19 and follow-ups | Ready; held from `main`/release |
-| 20b | [Immutable release gates](tasks/20b-release-gates.md) | 14–19 and follow-ups | Ready; can run alongside 20a; held from `main`/release |
+| 20a | [Runtime and API assembly](tasks/20a-runtime-assembly.md) | 04–19 and follow-ups | Started in separate chat; held from `main`/release |
+| 20b | [Immutable release gates](tasks/20b-release-gates.md) | 14–19 and follow-ups | Started in separate chat alongside 20a; held from `main`/release |
 | 20c | [Final integration and SQL retirement](tasks/20c-sql-retirement.md) | 20a, 20b | Not started; held from `main`/release |
 | 21 | [Production Swarm infrastructure](tasks/21-infrastructure.md) | 01, 03, 13, 20 | Not started |
 | 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–21 | Not started |

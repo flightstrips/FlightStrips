@@ -666,6 +666,7 @@ message VatsimSessionCursor {
 message NavManifest {
   string airport = 1; string cycle = 2; string digest = 3;
   repeated NavObjectRef objects = 4; bool active = 5;
+  uint64 source_revision = 6; string source_sha256 = 7;
 }
 message NavObjectRef { string kind = 1; string object_name = 2; string sha256 = 3; }
 message NavRouteCache {

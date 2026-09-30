@@ -16562,6 +16562,8 @@ class NavManifest final : public ::google::protobuf::Message
     kAirportFieldNumber = 1,
     kCycleFieldNumber = 2,
     kDigestFieldNumber = 3,
+    kSourceSha256FieldNumber = 7,
+    kSourceRevisionFieldNumber = 6,
     kActiveFieldNumber = 5,
   };
   // repeated .flightstrips.cluster.v1.NavObjectRef objects = 4;
@@ -16629,6 +16631,32 @@ class NavManifest final : public ::google::protobuf::Message
   std::string* _internal_mutable_digest();
 
   public:
+  // string source_sha256 = 7;
+  void clear_source_sha256() ;
+  const std::string& source_sha256() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_source_sha256(Arg_&& arg, Args_... args);
+  std::string* mutable_source_sha256();
+  PROTOBUF_NODISCARD std::string* release_source_sha256();
+  void set_allocated_source_sha256(std::string* value);
+
+  private:
+  const std::string& _internal_source_sha256() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_source_sha256(
+      const std::string& value);
+  std::string* _internal_mutable_source_sha256();
+
+  public:
+  // uint64 source_revision = 6;
+  void clear_source_revision() ;
+  ::uint64_t source_revision() const;
+  void set_source_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_source_revision() const;
+  void _internal_set_source_revision(::uint64_t value);
+
+  public:
   // bool active = 5;
   void clear_active() ;
   bool active() const;
@@ -16644,8 +16672,8 @@ class NavManifest final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 5, 1,
-      62, 2>
+      3, 7, 1,
+      75, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -16664,6 +16692,8 @@ class NavManifest final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr airport_;
     ::google::protobuf::internal::ArenaStringPtr cycle_;
     ::google::protobuf::internal::ArenaStringPtr digest_;
+    ::google::protobuf::internal::ArenaStringPtr source_sha256_;
+    ::uint64_t source_revision_;
     bool active_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -88048,6 +88078,78 @@ inline bool NavManifest::_internal_active() const {
 inline void NavManifest::_internal_set_active(bool value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.active_ = value;
+}
+
+// uint64 source_revision = 6;
+inline void NavManifest::clear_source_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_revision_ = ::uint64_t{0u};
+}
+inline ::uint64_t NavManifest::source_revision() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.NavManifest.source_revision)
+  return _internal_source_revision();
+}
+inline void NavManifest::set_source_revision(::uint64_t value) {
+  _internal_set_source_revision(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.NavManifest.source_revision)
+}
+inline ::uint64_t NavManifest::_internal_source_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.source_revision_;
+}
+inline void NavManifest::_internal_set_source_revision(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_revision_ = value;
+}
+
+// string source_sha256 = 7;
+inline void NavManifest::clear_source_sha256() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_sha256_.ClearToEmpty();
+}
+inline const std::string& NavManifest::source_sha256() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.NavManifest.source_sha256)
+  return _internal_source_sha256();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void NavManifest::set_source_sha256(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_sha256_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.NavManifest.source_sha256)
+}
+inline std::string* NavManifest::mutable_source_sha256() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_source_sha256();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.NavManifest.source_sha256)
+  return _s;
+}
+inline const std::string& NavManifest::_internal_source_sha256() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.source_sha256_.Get();
+}
+inline void NavManifest::_internal_set_source_sha256(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_sha256_.Set(value, GetArena());
+}
+inline std::string* NavManifest::_internal_mutable_source_sha256() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.source_sha256_.Mutable( GetArena());
+}
+inline std::string* NavManifest::release_source_sha256() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.NavManifest.source_sha256)
+  return _impl_.source_sha256_.Release();
+}
+inline void NavManifest::set_allocated_source_sha256(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_sha256_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.source_sha256_.IsDefault()) {
+          _impl_.source_sha256_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.NavManifest.source_sha256)
 }
 
 // -------------------------------------------------------------------

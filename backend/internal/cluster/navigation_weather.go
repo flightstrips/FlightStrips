@@ -371,7 +371,7 @@ func (a NavigationWeather) upsert(ctx context.Context, ref *pb.AggregateRef, id 
 // ActivateManifest verifies every object immediately before the CAS event.
 // A failed or concurrent import leaves the previous active entity intact.
 func (a NavigationWeather) ActivateManifest(ctx context.Context, id string, manifest *pb.NavManifest) (*pb.CommandReply, error) {
-	if manifest == nil || !manifest.Active || manifest.Cycle == "" || len(manifest.Objects) == 0 {
+	if manifest == nil || !manifest.Active || manifest.Cycle == "" || len(manifest.Objects) == 0 || !canonicalUUID(id) || manifest.SourceRevision > 0 && len(manifest.SourceSha256) != 64 {
 		return nil, fmt.Errorf("incomplete active manifest")
 	}
 	if _, err := Subject(airportRef(manifest.Airport)); err != nil {
@@ -379,6 +379,11 @@ func (a NavigationWeather) ActivateManifest(ctx context.Context, id string, mani
 	}
 	if manifest.Digest != manifestDigest(manifest) {
 		return nil, fmt.Errorf("manifest digest mismatch")
+	}
+	if manifest.SourceRevision > 0 {
+		if _, err := hex.DecodeString(manifest.SourceSha256); err != nil {
+			return nil, fmt.Errorf("invalid manifest source digest")
+		}
 	}
 	verify := func() error {
 		seen := map[string]bool{}
@@ -397,7 +402,35 @@ func (a NavigationWeather) ActivateManifest(ctx context.Context, id string, mani
 		}
 		return nil
 	}
-	return a.upsert(ctx, airportRef(manifest.Airport), id, manifest.Airport, &pb.EntityRecord{Value: &pb.EntityRecord_NavManifest{NavManifest: manifest}}, verify)
+	if err := verify(); err != nil {
+		return nil, err
+	}
+	ref := airportRef(manifest.Airport)
+	request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: id, Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "navigation-weather"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: manifest.Airport, Value: &pb.EntityRecord{Value: &pb.EntityRecord_NavManifest{NavManifest: manifest}}}}}}}
+	w := a.Writer
+	w.Plan = func(_ context.Context, _ *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		old := state.Indexes[pb.EntityKind_NAV_MANIFEST][manifest.Airport]
+		current := uint64(0)
+		if old != nil {
+			current = old.Revision
+			prior := old.GetValue().GetNavManifest()
+			if prior.SourceRevision > manifest.SourceRevision || prior.SourceRevision == manifest.SourceRevision && prior.SourceRevision > 0 && prior.SourceSha256 != manifest.SourceSha256 {
+				return nil, pb.CommandReply_REVISION_CONFLICT, current, fmt.Errorf("newer AIRAC source already active")
+			}
+			if proto.Equal(prior, manifest) {
+				return &pb.DomainChange{}, pb.CommandReply_COMMITTED, current, nil
+			}
+		}
+		if err := verify(); err != nil {
+			return nil, pb.CommandReply_UNAVAILABLE, current, err
+		}
+		return &pb.DomainChange{Changes: []*pb.EntityChange{candidateUpsert(manifest.Airport, old, &pb.EntityRecord{Value: &pb.EntityRecord_NavManifest{NavManifest: manifest}})}}, pb.CommandReply_COMMITTED, current, nil
+	}
+	reply := w.Execute(ctx, request)
+	if reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		return reply, fmt.Errorf("manifest activation: %s: %s", reply.Status, reply.Detail)
+	}
+	return reply, nil
 }
 
 func (a NavigationWeather) ActiveManifest(ctx context.Context, airport string) (*pb.NavManifest, error) {

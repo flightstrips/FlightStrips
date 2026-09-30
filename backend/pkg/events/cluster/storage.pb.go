@@ -10565,14 +10565,16 @@ func (x *VatsimSessionCursor) GetSnapshotAt() *timestamppb.Timestamp {
 }
 
 type NavManifest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
-	Cycle         string                 `protobuf:"bytes,2,opt,name=cycle,proto3" json:"cycle,omitempty"`
-	Digest        string                 `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
-	Objects       []*NavObjectRef        `protobuf:"bytes,4,rep,name=objects,proto3" json:"objects,omitempty"`
-	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Airport        string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	Cycle          string                 `protobuf:"bytes,2,opt,name=cycle,proto3" json:"cycle,omitempty"`
+	Digest         string                 `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
+	Objects        []*NavObjectRef        `protobuf:"bytes,4,rep,name=objects,proto3" json:"objects,omitempty"`
+	Active         bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	SourceRevision uint64                 `protobuf:"varint,6,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
+	SourceSha256   string                 `protobuf:"bytes,7,opt,name=source_sha256,json=sourceSha256,proto3" json:"source_sha256,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *NavManifest) Reset() {
@@ -10638,6 +10640,20 @@ func (x *NavManifest) GetActive() bool {
 		return x.Active
 	}
 	return false
+}
+
+func (x *NavManifest) GetSourceRevision() uint64 {
+	if x != nil {
+		return x.SourceRevision
+	}
+	return 0
+}
+
+func (x *NavManifest) GetSourceSha256() string {
+	if x != nil {
+		return x.SourceSha256
+	}
+	return ""
 }
 
 type NavObjectRef struct {
@@ -17070,13 +17086,15 @@ const file_storage_proto_rawDesc = "" +
 	"\x0fsource_revision\x18\x02 \x01(\x04R\x0esourceRevision\x12#\n" +
 	"\rsource_sha256\x18\x03 \x01(\tR\fsourceSha256\x12;\n" +
 	"\vsnapshot_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"snapshotAt\"\xae\x01\n" +
+	"snapshotAt\"\xfc\x01\n" +
 	"\vNavManifest\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x14\n" +
 	"\x05cycle\x18\x02 \x01(\tR\x05cycle\x12\x16\n" +
 	"\x06digest\x18\x03 \x01(\tR\x06digest\x12?\n" +
 	"\aobjects\x18\x04 \x03(\v2%.flightstrips.cluster.v1.NavObjectRefR\aobjects\x12\x16\n" +
-	"\x06active\x18\x05 \x01(\bR\x06active\"[\n" +
+	"\x06active\x18\x05 \x01(\bR\x06active\x12'\n" +
+	"\x0fsource_revision\x18\x06 \x01(\x04R\x0esourceRevision\x12#\n" +
+	"\rsource_sha256\x18\a \x01(\tR\fsourceSha256\"[\n" +
 	"\fNavObjectRef\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1f\n" +
 	"\vobject_name\x18\x02 \x01(\tR\n" +

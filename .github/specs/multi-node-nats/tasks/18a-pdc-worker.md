@@ -1,6 +1,6 @@
 # Task 18a — PDC polling and clearance lifecycle
 
-**Depends on:** 09, 15, 15b, 17, the Task 18 candidate and completed Task 19.
+**Depends on:** 09, 15, 15b, 17 and the merged Task 18/19 candidates. The frequency-reader interface can be implemented/tested in parallel with 19c; Task 20 binds its concrete accepted transceiver reader after 19c merges.
 
 **Outcome:** concrete session-owner PDC polling, incoming-message processing, clearance composition and outbound provider calls work without SQL. Exports the `SessionWork.PDC` callback and candidate action bindings for Task 20.
 
@@ -9,6 +9,7 @@
 ## Contracts
 
 - Reuse typed `PdcSequence`, `Strip`, `SessionDeadline`, actor-scoped command outcomes and owner CAS. Preserve request/issue/acknowledgement/timeout/revert semantics and the ten-minute response timeout. Compose clearance from accepted session, strip, runway, SID, route, ATIS and frequency inputs; browser ISSUE remarks are additional remarks, never a substitute for the clearance. Retrying a command UUID cannot change its clearance or target CID.
+- Frequency lookup retains `GetFrequencies(callsign) []string` through an injected read-only source port. Task 19c provides the concrete typed projection reader for Task 20. The PDC adapter never starts the legacy transceiver cache or allocates `ProviderPage` field 13, which belongs to 19c.
 - Hoppie response text is parsed at the provider boundary. Derive incoming identity with existing `HoppieMessageCommandID`; persist the UUID/hash and parsed fields, never `Raw`, `Packet`, JSON, or a serialized map. A malformed/unsupported message becomes a typed reason, without its raw body.
 - Required additive storage shapes: `PdcProviderMessage` has `message_id` string field 1 (UUID), `from` string 2, `to` string 3, `transport` enum 4 (UNSPECIFIED=0, CPDLC=1, TELEX=2), `sequence` uint64 5, optional `response_to` uint64 6, `kind` enum 7, optional `HoppiePdcRequest request` 8, optional `clearance_text` string 9, `reason_code` string 10, optional Timestamp `provider_accepted_at` 11. Its kind enum is UNSPECIFIED=0, REQUEST=1, STATUS=2, CLEARANCE=3, WILCO=4, UNABLE=5, CONFIRMED=6, NO_RESPONSE=7, REVERT_TO_VOICE=8, FLIGHT_PLAN_NOT_HELD=9, UNAVAILABLE=10, INVALID_AIRCRAFT_TYPE=11, NOT_SUPPORTED=12, MALFORMED=13. Use nested `Transport`/`Kind` enums with `TRANSPORT_`/`KIND_` identifier prefixes to avoid Protobuf enum symbol collisions. Clearance text is radio clearance prose, not encoded data.
 - `HoppiePdcRequest` fields are callsign=1, aircraft_type=2, departure=3, destination=4, stand=5, atis=6, remarks=7, all strings. `HoppiePollPage` fields are station=1 string, poll_id=2 UUID string, observed_at=3 Timestamp, messages=4 repeated PdcProviderMessage. Reserve `ProviderPage.hoppie` oneof field 12, `EntityKind.PDC_PROVIDER_MESSAGE` value 31 and `EntityRecord.pdc_provider_message` field 31. Entity key is message UUID within the session aggregate. Provider is `hoppie`, checkpoint resource is `station/<uppercase callsign>` within that session aggregate. Bound message/page sizes with the existing frame/object limits.

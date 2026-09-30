@@ -1,6 +1,6 @@
 # Task 18b — Session CDM reconciliation and traffic metrics
 
-**Depends on:** 06, the Task 18 candidate, completed Task 19 and 19a.
+**Depends on:** 06, the merged Task 18/19 candidates and 19a.
 
 **Outcome:** concrete `SessionWork.CDM` and `Traffic` callbacks execute current session policy from typed NATS state without SQL. Candidate remains dormant until Task 20 and held until Task 24 under Task 18's release boundary.
 

@@ -19,7 +19,7 @@ wiring; starting both paths would duplicate provider calls and mutations.
 | `amanObservationWorker.Run` | airport owner | `amancandidate.New` consumes accepted VATSIM and shared EuroScope facts; [Task 19b evidence](19b-aman-policy-evidence.md) |
 | `departureLifecycle.StartSweep` | session owner: candidate Departure callback | persisted reservations, physical blocks, wrong-stand episodes and retention |
 | `arrivalLifecycle.StartSweep` | session owner: candidate Arrival callback | persisted arrival retention, cancellations, stand-block expiry and unsafe reservation reconciliation |
-| `transceiverCache.Start` | global owner for provider fetch | VATSIM transceiver fetch, local frequency projection |
+| `transceiverCache.Start` | global owner for provider fetch | Task 19c: typed transceiver checkpoint, projection frequency reader and owner-routed sector refresh; candidate missing until 19c merges |
 | `ecfmpService.Start` | global owner for fetch; session owner for application | ECFMP HTTP fetch and per-flight restrictions |
 | `albHub.Run` | outside this project | ALB remains unchanged |
 | `metarPoller.Start` | airport owner for METAR fetch; global owner for the provider-wide AFV ATIS feed; session owner for ATIS presentation | METAR and AFV ATIS fetch |

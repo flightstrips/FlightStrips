@@ -6,6 +6,11 @@
 
 **Release boundary:** held on the integration base under the Task 19 rule in [release-safety.md](../release-safety.md); activate only at Task 20 and release at Task 24.
 
+**Implementation status:** complete on the Task 19b candidate branch, with
+concrete construction and real two-replica NATS evidence documented in
+[19b-aman-policy-evidence.md](19b-aman-policy-evidence.md). Integration merge
+is pending; this does not complete Task 19a or activate app startup.
+
 ## Contracts
 
 - Provide concrete implementations of `AmanObservationEvaluator`, `AmanReconciliationEvaluator` and `AmanIntentRunner.Step`, packaged as a candidate constructor suitable for Task 20. Use a package that can depend on cluster contracts and AMAN domain policy without creating an import cycle.

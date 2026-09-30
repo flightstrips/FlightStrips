@@ -370,6 +370,7 @@ message SystemCommand {
     SetPositionLayout set_position_layout = 10;
     ReplaceSectorOwners replace_sector_owners = 11;
     ElectSessionMaster elect_session_master = 12;
+    ApplyAmanSession apply_aman_session = 13;
   }
 }
 message CreateSession { int32 id = 1; string airport = 2; string name = 3; string workflow_id = 4; }
@@ -381,6 +382,15 @@ message ReplaceSectorOwners { repeated SectorOwner owners = 1; }
 message ClaimOwner { OwnerTerm proposed = 1; }
 message RenewOwner { OwnerTerm proposed = 1; }
 message AdvanceWorkflow { WorkflowRecord workflow = 1; }
+// Immutable airport intent. The session owner rechecks its accepted source
+// revision and patches only the fields owned by the named AMAN action.
+message ApplyAmanSession {
+  WorkflowRecord intent = 1;
+  string callsign = 2;
+  oneof action {
+    AmanHoldingClearance holding_eat = 3;
+  }
+}
 message AdvanceEffect { EffectRecord effect = 1; }
 message RecordSessionSync { SessionSync sync = 1; }
 // Empty connection_id and cid commit a vacant term while retaining the epoch.

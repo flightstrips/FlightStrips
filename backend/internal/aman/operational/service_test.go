@@ -1165,6 +1165,14 @@ func TestInvalidPredictionAndMissingSourceReleaseProtectedSlots(t *testing.T) {
 	require.Equal(t, aman.FreezeNone, flight.FreezeReason)
 }
 
+func TestMissingArrivalCannotAcquireAnotherSequenceSlot(t *testing.T) {
+	group := aman.RunwayGroupID("ARRIVAL-22")
+	flight := aman.AMANFlight{State: aman.StateAirborne, SelectedRunwayGroup: &group, Prediction: &aman.Prediction{Publishable: true}, LatestObservation: &aman.FlightObservation{}}
+	require.True(t, sequenceEligible(flight))
+	markMissing(&flight, time.Now().UTC())
+	require.False(t, sequenceEligible(flight))
+}
+
 func TestPredictionCruiseAltitudeUsesMateriallyHigherFiledLevel(t *testing.T) {
 	altitude, requested := 28_800, 35_000
 	observation := aman.FlightObservation{RequestedLevel: &requested, Surveillance: &aman.SurveillanceFact{AltitudeFeet: &altitude}}

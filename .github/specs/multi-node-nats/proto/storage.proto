@@ -235,6 +235,10 @@ message Strip {
   bool vatsim_only = 67; bool vatsim_online = 68;
   optional double vatsim_latitude = 69; optional double vatsim_longitude = 70;
   string ground_state = 71; string engine_type = 72;
+  string hold = 73; string hold_type = 74; string hold_eat = 75;
+  // Last AMAN-owned EAT enables durable withdrawal after airport takeover.
+  optional AmanHoldingClearance aman_written_holding_eat = 76;
+  optional google.protobuf.Timestamp euroscope_observed_at = 77;
 }
 message ValidationStatus {
   string issue_type = 1; string message = 2; string owning_position = 3;
@@ -340,6 +344,7 @@ message AmanAirport {
   repeated AmanTimelineMapping timeline_mappings = 7;
   AmanTechnicalHealth health = 8;
   google.protobuf.Timestamp generated_at = 9; bool authoritative = 10;
+  string configured_mode = 11;
 }
 message AmanRunwayGroup {
   string id = 1; bool selected = 2; uint32 active_rate_per_hour = 3;
@@ -416,6 +421,11 @@ message AmanFlight {
   optional AmanGoAroundConfirmation go_around_confirmation = 35;
   optional AmanLifecycle lifecycle = 36;
   google.protobuf.Timestamp updated_at = 37;
+  optional string selected_feeder = 38;
+  repeated AmanFlightObservation source_observations = 39;
+  // Accepted policy output; builders replay this value without reevaluating
+  // against later navigation, configuration or process-local health.
+  optional AmanHoldingClearance holding_eat_projection = 40;
 }
 message AmanFlightObservation {
   string callsign = 1; string origin = 2; string destination = 3;
@@ -473,6 +483,7 @@ message AmanHoldingPlan {
 message AmanHoldingStack {
   string holding_id = 1; google.protobuf.Timestamp candidate_observed_at = 2;
   uint32 consecutive_observations = 3; bool confirmed = 4;
+  google.protobuf.Timestamp first_observed_at = 5;
 }
 message AmanPredictionCalculation {
   google.protobuf.Duration no_wind_duration = 1;
@@ -637,15 +648,23 @@ message AmanCapacityAudit {
   repeated AmanSequenceAudit displaced_flights = 5;
   optional google.protobuf.Timestamp start = 6;
   optional google.protobuf.Timestamp end = 7;
+  string creator = 8; google.protobuf.Timestamp created_at = 9;
+  string expiry_reason = 10; google.protobuf.Timestamp expired_at = 11;
+  repeated string removed_ids = 12;
 }
 message AmanFreezeAudit {
   string callsign = 1; string reason = 2;
   optional google.protobuf.Timestamp operational_teta = 3;
   optional AmanSlot slot = 4;
+  string state = 5; optional AmanFeederEta feeder_eta = 6;
+  optional google.protobuf.Timestamp frozen_at = 7;
+  optional AmanTmaEntry tma_entry = 8;
 }
 message AmanGoAroundAudit {
   string callsign = 1; string episode_id = 2;
   string decision = 3; repeated AmanGoAroundEvidence evidence = 4;
+  string reason = 5; google.protobuf.Timestamp detected_at = 6;
+  repeated google.protobuf.Timestamp evidence_times = 7;
 }
 message AmanReplayAudit {
   string source = 1; string record_id = 2;
@@ -726,6 +745,7 @@ message EffectRecord {
     PrivateMessageEffect private_message = 9;
     CoordinationEffect coordination = 10;
     CdmEffect cdm = 11;
+    AmanHoldingEatEffect aman_holding_eat = 16;
   }
   google.protobuf.Timestamp dispatch_deadline = 12;
   optional google.protobuf.Timestamp result_deadline = 13;
@@ -737,6 +757,10 @@ message PdcEffect { string callsign = 1; string action = 2; string clearance = 3
 message PrivateMessageEffect { string recipient = 1; string object_name = 2; string sha256 = 3; }
 message CoordinationEffect { string callsign = 1; string target_cid = 2; string action = 3; }
 message CdmEffect { string callsign = 1; string action = 2; string value = 3; }
+message AmanHoldingEatEffect {
+  string callsign = 1; string hold = 2; string hold_type = 3; string eat = 4;
+  string airport = 5; uint64 source_revision = 6;
+}
 
 message Snapshot {
   uint32 schema_version = 1; AggregateRef aggregate = 2;
@@ -857,6 +881,34 @@ message NavTerminalFragment {
   repeated NavStarFamilyPolicy star_family_policies = 3;
   repeated AmanTimelineMapping timeline_mappings = 4;
   repeated NavTerminalPath paths = 5; repeated NavHolding holdings = 6;
+  // Operational settings are accepted with geometry, never inferred from a local cache.
+  NavTerminalPolicy operational_policy = 7;
+}
+message NavTerminalPolicy {
+  string airport = 1; string config_version = 2;
+  repeated NavPolicyRunwayGroup runway_groups = 3;
+  repeated NavPolicyFeeder feeders = 4; repeated NavPolicyPath paths = 5;
+  repeated NavStarFamilyPolicy star_family_policies = 6;
+  NavTmaVolume tma_volume = 7;
+}
+message NavTmaVolume { repeated NavTmaPolygon polygons = 1; }
+message NavTmaPolygon { repeated NavTmaRing rings = 1; }
+message NavTmaRing { repeated NavCoordinate coordinates = 1; }
+message NavPolicyRunwayGroup {
+  string id = 1; repeated string aliases = 2; repeated string runways = 3;
+  repeated NavPolicyFinalApproach final_approaches = 4;
+  AmanSameStarSpacing same_star_spacing = 5;
+}
+message NavPolicyFinalApproach {
+  string runway = 1; string final_approach_fix = 2; NavThreshold threshold = 3;
+  double course_true_degrees = 4; double physical_length_m = 5; NavProvenance provenance = 6;
+}
+message NavPolicyFeeder { string id = 1; repeated string aliases = 2; }
+message NavPolicyPath {
+  string feeder = 1; string star_family = 2; string feeder_fix = 3;
+  optional int64 holding_to_feeder_seconds = 4; string runway_group = 5;
+  repeated string fixes = 6; string merge_fix = 7; string selected_holding = 8;
+  optional int32 published_heading_magnetic_degrees = 9;
 }
 message NavStarFamilyPolicy {
   string star_family = 1; AmanSameStarSpacing same_star_spacing = 2;

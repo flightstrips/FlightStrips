@@ -202,7 +202,7 @@ func TestAmanIntentSupersedesStaleSourceWithoutDestinationWrite(t *testing.T) {
 		t.Fatalf("newer: %v", got)
 	}
 	called := false
-	runner := AmanIntentRunner{AirportWriter: Writer{Store: store, NodeID: "node-a"}, Step: func(*pb.WorkflowRecord) (*pb.CommandRequest, error) { called = true; return nil, nil }}
+	runner := AmanIntentRunner{AirportWriter: Writer{Store: store, NodeID: "node-a"}, Destination: LocalLifecycleStore{Writer: Writer{Store: store, NodeID: "node-a"}}, Step: func(*pb.WorkflowRecord) (*pb.CommandRequest, error) { called = true; return nil, nil }}
 	if err := runner.Resume(context.Background(), "EKCH"); err != nil {
 		t.Fatal(err)
 	}

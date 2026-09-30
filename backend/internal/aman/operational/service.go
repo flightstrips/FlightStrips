@@ -85,6 +85,7 @@ type Dependencies struct {
 	AircraftEngines AircraftEngineReference
 	Terminal        terminal.Configuration
 	TMAVolumePath   string
+	TMAVolume       *terminal.TMAVolume
 	Airports        []string
 	Mode            aman.RolloutMode
 	SourceMode      aman.ObservationSourceMode
@@ -132,9 +133,9 @@ func New(deps Dependencies) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("configure AMAN go-around detector: %w", err)
 	}
-	var tmaVolume *terminal.TMAVolume
+	tmaVolume := deps.TMAVolume
 	var tmaGeometryErr error
-	if deps.TMAVolumePath != "" {
+	if tmaVolume == nil && deps.TMAVolumePath != "" {
 		volume, loadErr := terminal.LoadTMAVolume(deps.TMAVolumePath)
 		if loadErr != nil {
 			tmaGeometryErr = loadErr
@@ -1549,6 +1550,8 @@ func promotionNotBefore(flight aman.AMANFlight) *time.Time {
 
 func sequenceEligible(flight aman.AMANFlight) bool {
 	return flight.SequenceDisposition.Participates() &&
+		(flight.LatestObservation == nil || !flight.LatestObservation.Missing) &&
+		(flight.Lifecycle == nil || flight.Lifecycle.Absence == nil) &&
 		flight.Prediction != nil &&
 		flight.SelectedRunwayGroup != nil &&
 		flight.State != aman.StatePlanned &&

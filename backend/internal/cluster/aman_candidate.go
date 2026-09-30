@@ -113,6 +113,11 @@ func (w AmanCandidateWorker) ObserveMissingVatsim(ctx context.Context, icao, cal
 	}
 	known := false
 	for _, flight := range board.Flights {
+		for _, source := range flight.SourceObservations {
+			if flight.Callsign == callsign && source.Provider == "vatsim" && !source.Missing {
+				known = true
+			}
+		}
 		if flight.Callsign == callsign && flight.LatestObservation != nil && flight.LatestObservation.Provider == "vatsim" && !flight.LatestObservation.Missing {
 			known = true
 			break

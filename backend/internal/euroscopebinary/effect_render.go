@@ -18,6 +18,12 @@ func EffectRenderer(secrets cluster.EffectSecrets) func(int32, *pb.EffectRecord)
 		frame := &euroscope.Envelope{CommandId: effect.CommandId, SessionId: sessionID,
 			OwnerEpoch: effect.OwnerEpoch, MasterEpoch: effect.MasterEpoch}
 		switch payload := effect.GetPayload().(type) {
+		case *pb.EffectRecord_AmanHoldingEat:
+			hold := payload.AmanHoldingEat
+			if hold == nil || hold.Callsign == "" || hold.Hold == "" || hold.HoldType != "enroute" {
+				return nil, fmt.Errorf("invalid AMAN holding effect")
+			}
+			frame.Event = &euroscope.Envelope_Hold{Hold: &euroscope.HoldEvent{Callsign: hold.Callsign, Hold: hold.Hold, HoldType: hold.HoldType, HoldEat: hold.Eat}}
 		case *pb.EffectRecord_PrivateMessage:
 			secret := payload.PrivateMessage
 			if secret == nil || secret.Recipient == "" {

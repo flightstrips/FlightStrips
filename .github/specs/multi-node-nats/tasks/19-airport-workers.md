@@ -24,7 +24,7 @@ startup stays dormant in the meantime.
 - [ ] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests.
   - [x] Consume typed VATSIM global checkpoints on the airport owner; stable observation and reconciliation command IDs; two-replica observation replay and superseded intent test.
   - [x] Test a destination session write committed before airport-owner death; takeover records completion without a duplicate strip write, and a later revision supersedes a separate intent.
-  - [ ] Bind the operational AMAN evaluator and destination session command builder to this candidate adapter.
+  - [x] Bind the operational AMAN evaluator and destination session command builder: `amancandidate.New`, `Worker.BuildStep`, and `DestinationPlanner` ([Task 19b evidence](19b-aman-policy-evidence.md); completion branch, integration merge pending).
 - [x] Airport-owned AIRAC import and verified manifest activation adapter with typed page checkpoints and two-replica failure tests (this completion branch).
 - [x] Airport-owned METAR fetch, global-owned AFV ATIS typed feed, session presentation adapter, global quota reservation, and two-replica NATS failure/replay tests (this completion branch).
 - [x] AMAN/Open-Meteo wind refresh adapter with typed airport checkpoint, durable global quota reservation, and two-replica uncertainty test (this completion branch).

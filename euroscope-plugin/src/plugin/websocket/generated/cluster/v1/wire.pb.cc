@@ -2254,6 +2254,30 @@ struct ClientCommandDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ClientCommandDefaultTypeInternal _ClientCommand_default_instance_;
 
+inline constexpr ApplyAmanSession::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        intent_{nullptr},
+        action_{},
+        _oneof_case_{} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR ApplyAmanSession::ApplyAmanSession(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct ApplyAmanSessionDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ApplyAmanSessionDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ApplyAmanSessionDefaultTypeInternal() {}
+  union {
+    ApplyAmanSession _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ApplyAmanSessionDefaultTypeInternal _ApplyAmanSession_default_instance_;
+
 inline constexpr AdvanceWorkflow::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -2455,7 +2479,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 }  // namespace v1
 }  // namespace cluster
 }  // namespace flightstrips
-static ::_pb::Metadata file_level_metadata_wire_2eproto[112];
+static ::_pb::Metadata file_level_metadata_wire_2eproto[113];
 static const ::_pb::EnumDescriptor* file_level_enum_descriptors_wire_2eproto[3];
 static constexpr const ::_pb::ServiceDescriptor**
     file_level_service_descriptors_wire_2eproto = nullptr;
@@ -3760,6 +3784,7 @@ const ::uint32_t
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::SystemCommand, _impl_.action_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CreateSession, _internal_metadata_),
@@ -3854,6 +3879,21 @@ const ::uint32_t
         ~0u,  // no sizeof(Split)
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AdvanceWorkflow, _impl_.workflow_),
         0,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyAmanSession, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyAmanSession, _internal_metadata_),
+        ~0u,  // no _extensions_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyAmanSession, _impl_._oneof_case_[0]),
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyAmanSession, _impl_.intent_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyAmanSession, _impl_.callsign_),
+        ::_pbi::kInvalidFieldOffsetTag,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyAmanSession, _impl_.action_),
+        0,
+        ~0u,
+        ~0u,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AdvanceEffect, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AdvanceEffect, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -3988,18 +4028,19 @@ static const ::_pbi::MigrationSchema
         {1253, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSubmitCoordination)},
         {1266, 1276, -1, sizeof(::flightstrips::cluster::v1::AmanDecideCoordination)},
         {1278, -1, -1, sizeof(::flightstrips::cluster::v1::SystemCommand)},
-        {1299, -1, -1, sizeof(::flightstrips::cluster::v1::CreateSession)},
-        {1311, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteSession)},
-        {1321, 1331, -1, sizeof(::flightstrips::cluster::v1::UpdateEntity)},
-        {1333, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveEntity)},
-        {1343, -1, -1, sizeof(::flightstrips::cluster::v1::SetPositionLayout)},
-        {1353, -1, -1, sizeof(::flightstrips::cluster::v1::ReplaceSectorOwners)},
-        {1362, 1371, -1, sizeof(::flightstrips::cluster::v1::ClaimOwner)},
-        {1372, 1381, -1, sizeof(::flightstrips::cluster::v1::RenewOwner)},
-        {1382, 1391, -1, sizeof(::flightstrips::cluster::v1::AdvanceWorkflow)},
-        {1392, 1401, -1, sizeof(::flightstrips::cluster::v1::AdvanceEffect)},
-        {1402, 1411, -1, sizeof(::flightstrips::cluster::v1::RecordSessionSync)},
-        {1412, 1421, -1, sizeof(::flightstrips::cluster::v1::ElectSessionMaster)},
+        {1300, -1, -1, sizeof(::flightstrips::cluster::v1::CreateSession)},
+        {1312, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteSession)},
+        {1322, 1332, -1, sizeof(::flightstrips::cluster::v1::UpdateEntity)},
+        {1334, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveEntity)},
+        {1344, -1, -1, sizeof(::flightstrips::cluster::v1::SetPositionLayout)},
+        {1354, -1, -1, sizeof(::flightstrips::cluster::v1::ReplaceSectorOwners)},
+        {1363, 1372, -1, sizeof(::flightstrips::cluster::v1::ClaimOwner)},
+        {1373, 1382, -1, sizeof(::flightstrips::cluster::v1::RenewOwner)},
+        {1383, 1392, -1, sizeof(::flightstrips::cluster::v1::AdvanceWorkflow)},
+        {1393, 1405, -1, sizeof(::flightstrips::cluster::v1::ApplyAmanSession)},
+        {1408, 1417, -1, sizeof(::flightstrips::cluster::v1::AdvanceEffect)},
+        {1418, 1427, -1, sizeof(::flightstrips::cluster::v1::RecordSessionSync)},
+        {1428, 1437, -1, sizeof(::flightstrips::cluster::v1::ElectSessionMaster)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_CommandRequest_default_instance_._instance,
@@ -4111,6 +4152,7 @@ static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_ClaimOwner_default_instance_._instance,
     &::flightstrips::cluster::v1::_RenewOwner_default_instance_._instance,
     &::flightstrips::cluster::v1::_AdvanceWorkflow_default_instance_._instance,
+    &::flightstrips::cluster::v1::_ApplyAmanSession_default_instance_._instance,
     &::flightstrips::cluster::v1::_AdvanceEffect_default_instance_._instance,
     &::flightstrips::cluster::v1::_RecordSessionSync_default_instance_._instance,
     &::flightstrips::cluster::v1::_ElectSessionMaster_default_instance_._instance,
@@ -4530,7 +4572,7 @@ const char descriptor_table_protodef_wire_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIA
     "cluster.v1.AmanSpeedH\000B\t\n\007request\"Y\n\026Ama"
     "nDecideCoordination\022\037\n\027coordination_requ"
     "est_id\030\001 \001(\t\022\023\n\006reason\030\002 \001(\tH\000\210\001\001B\t\n\007_re"
-    "ason\"\307\006\n\rSystemCommand\022@\n\016create_session"
+    "ason\"\220\007\n\rSystemCommand\022@\n\016create_session"
     "\030\001 \001(\0132&.flightstrips.cluster.v1.CreateS"
     "essionH\000\022@\n\016delete_session\030\002 \001(\0132&.fligh"
     "tstrips.cluster.v1.DeleteSessionH\000\022>\n\rup"
@@ -4550,30 +4592,37 @@ const char descriptor_table_protodef_wire_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIA
     "\022M\n\025replace_sector_owners\030\013 \001(\0132,.flight"
     "strips.cluster.v1.ReplaceSectorOwnersH\000\022"
     "K\n\024elect_session_master\030\014 \001(\0132+.flightst"
-    "rips.cluster.v1.ElectSessionMasterH\000B\010\n\006"
-    "action\"O\n\rCreateSession\022\n\n\002id\030\001 \001(\005\022\017\n\007a"
-    "irport\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013workflow_i"
-    "d\030\004 \001(\t\"0\n\rDeleteSession\022\n\n\002id\030\001 \001(\005\022\023\n\013"
-    "workflow_id\030\002 \001(\t\"Q\n\014UpdateEntity\022\013\n\003key"
-    "\030\001 \001(\t\0224\n\005value\030\002 \001(\0132%.flightstrips.clu"
-    "ster.v1.EntityRecord\"N\n\014RemoveEntity\022\013\n\003"
-    "key\030\001 \001(\t\0221\n\004kind\030\002 \001(\0162#.flightstrips.c"
-    "luster.v1.EntityKind\"8\n\021SetPositionLayou"
-    "t\022\020\n\010position\030\001 \001(\t\022\021\n\tlayout_id\030\002 \001(\t\"K"
-    "\n\023ReplaceSectorOwners\0224\n\006owners\030\001 \003(\0132$."
-    "flightstrips.cluster.v1.SectorOwner\"B\n\nC"
-    "laimOwner\0224\n\010proposed\030\001 \001(\0132\".flightstri"
-    "ps.cluster.v1.OwnerTerm\"B\n\nRenewOwner\0224\n"
-    "\010proposed\030\001 \001(\0132\".flightstrips.cluster.v"
-    "1.OwnerTerm\"L\n\017AdvanceWorkflow\0229\n\010workfl"
-    "ow\030\001 \001(\0132\'.flightstrips.cluster.v1.Workf"
-    "lowRecord\"F\n\rAdvanceEffect\0225\n\006effect\030\001 \001"
-    "(\0132%.flightstrips.cluster.v1.EffectRecor"
-    "d\"G\n\021RecordSessionSync\0222\n\004sync\030\001 \001(\0132$.f"
-    "lightstrips.cluster.v1.SessionSync\"I\n\022El"
-    "ectSessionMaster\0223\n\006master\030\001 \001(\0132#.fligh"
-    "tstrips.cluster.v1.MasterTermB)Z\'FlightS"
-    "trips/pkg/events/cluster;clusterb\006proto3"
+    "rips.cluster.v1.ElectSessionMasterH\000\022G\n\022"
+    "apply_aman_session\030\r \001(\0132).flightstrips."
+    "cluster.v1.ApplyAmanSessionH\000B\010\n\006action\""
+    "O\n\rCreateSession\022\n\n\002id\030\001 \001(\005\022\017\n\007airport\030"
+    "\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013workflow_id\030\004 \001(\t"
+    "\"0\n\rDeleteSession\022\n\n\002id\030\001 \001(\005\022\023\n\013workflo"
+    "w_id\030\002 \001(\t\"Q\n\014UpdateEntity\022\013\n\003key\030\001 \001(\t\022"
+    "4\n\005value\030\002 \001(\0132%.flightstrips.cluster.v1"
+    ".EntityRecord\"N\n\014RemoveEntity\022\013\n\003key\030\001 \001"
+    "(\t\0221\n\004kind\030\002 \001(\0162#.flightstrips.cluster."
+    "v1.EntityKind\"8\n\021SetPositionLayout\022\020\n\010po"
+    "sition\030\001 \001(\t\022\021\n\tlayout_id\030\002 \001(\t\"K\n\023Repla"
+    "ceSectorOwners\0224\n\006owners\030\001 \003(\0132$.flights"
+    "trips.cluster.v1.SectorOwner\"B\n\nClaimOwn"
+    "er\0224\n\010proposed\030\001 \001(\0132\".flightstrips.clus"
+    "ter.v1.OwnerTerm\"B\n\nRenewOwner\0224\n\010propos"
+    "ed\030\001 \001(\0132\".flightstrips.cluster.v1.Owner"
+    "Term\"L\n\017AdvanceWorkflow\0229\n\010workflow\030\001 \001("
+    "\0132\'.flightstrips.cluster.v1.WorkflowReco"
+    "rd\"\255\001\n\020ApplyAmanSession\0227\n\006intent\030\001 \001(\0132"
+    "\'.flightstrips.cluster.v1.WorkflowRecord"
+    "\022\020\n\010callsign\030\002 \001(\t\022D\n\013holding_eat\030\003 \001(\0132"
+    "-.flightstrips.cluster.v1.AmanHoldingCle"
+    "aranceH\000B\010\n\006action\"F\n\rAdvanceEffect\0225\n\006e"
+    "ffect\030\001 \001(\0132%.flightstrips.cluster.v1.Ef"
+    "fectRecord\"G\n\021RecordSessionSync\0222\n\004sync\030"
+    "\001 \001(\0132$.flightstrips.cluster.v1.SessionS"
+    "ync\"I\n\022ElectSessionMaster\0223\n\006master\030\001 \001("
+    "\0132#.flightstrips.cluster.v1.MasterTermB)"
+    "Z\'FlightStrips/pkg/events/cluster;cluste"
+    "rb\006proto3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_wire_2eproto_deps[2] =
     {
@@ -4584,13 +4633,13 @@ static ::absl::once_flag descriptor_table_wire_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_wire_2eproto = {
     false,
     false,
-    18280,
+    18529,
     descriptor_table_protodef_wire_2eproto,
     "wire.proto",
     &descriptor_table_wire_2eproto_once,
     descriptor_table_wire_2eproto_deps,
     2,
-    112,
+    113,
     schemas,
     file_default_instances,
     TableStruct_wire_2eproto::offsets,
@@ -32433,6 +32482,19 @@ void SystemCommand::set_allocated_elect_session_master(::flightstrips::cluster::
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SystemCommand.elect_session_master)
 }
+void SystemCommand::set_allocated_apply_aman_session(::flightstrips::cluster::v1::ApplyAmanSession* apply_aman_session) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_action();
+  if (apply_aman_session) {
+    ::google::protobuf::Arena* submessage_arena = apply_aman_session->GetArena();
+    if (message_arena != submessage_arena) {
+      apply_aman_session = ::google::protobuf::internal::GetOwnedMessage(message_arena, apply_aman_session, submessage_arena);
+    }
+    set_has_apply_aman_session();
+    _impl_.action_.apply_aman_session_ = apply_aman_session;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SystemCommand.apply_aman_session)
+}
 SystemCommand::SystemCommand(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -32492,6 +32554,9 @@ SystemCommand::SystemCommand(
         break;
       case kElectSessionMaster:
         _impl_.action_.elect_session_master_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ElectSessionMaster>(arena, *from._impl_.action_.elect_session_master_);
+        break;
+      case kApplyAmanSession:
+        _impl_.action_.apply_aman_session_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ApplyAmanSession>(arena, *from._impl_.action_.apply_aman_session_);
         break;
   }
 
@@ -32596,6 +32661,12 @@ void SystemCommand::clear_action() {
       }
       break;
     }
+    case kApplyAmanSession: {
+      if (GetArena() == nullptr) {
+        delete _impl_.action_.apply_aman_session_;
+      }
+      break;
+    }
     case ACTION_NOT_SET: {
       break;
     }
@@ -32637,16 +32708,16 @@ const char* SystemCommand::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 12, 12, 0, 2> SystemCommand::_table_ = {
+const ::_pbi::TcParseTable<0, 13, 13, 0, 2> SystemCommand::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    12, 0,  // max_field_number, fast_idx_mask
+    13, 0,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294963200,  // skipmap
+    4294959104,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    12,  // num_field_entries
-    12,  // num_aux_entries
+    13,  // num_field_entries
+    13,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_SystemCommand_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -32694,6 +32765,9 @@ const ::_pbi::TcParseTable<0, 12, 12, 0, 2> SystemCommand::_table_ = {
     // .flightstrips.cluster.v1.ElectSessionMaster elect_session_master = 12;
     {PROTOBUF_FIELD_OFFSET(SystemCommand, _impl_.action_.elect_session_master_), _Internal::kOneofCaseOffset + 0, 11,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.ApplyAmanSession apply_aman_session = 13;
+    {PROTOBUF_FIELD_OFFSET(SystemCommand, _impl_.action_.apply_aman_session_), _Internal::kOneofCaseOffset + 0, 12,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CreateSession>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::DeleteSession>()},
@@ -32707,6 +32781,7 @@ const ::_pbi::TcParseTable<0, 12, 12, 0, 2> SystemCommand::_table_ = {
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::SetPositionLayout>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ReplaceSectorOwners>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ElectSessionMaster>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ApplyAmanSession>()},
   }}, {{
   }},
 };
@@ -32777,6 +32852,11 @@ const ::_pbi::TcParseTable<0, 12, 12, 0, 2> SystemCommand::_table_ = {
     case kElectSessionMaster: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           12, *_impl_.action_.elect_session_master_, _impl_.action_.elect_session_master_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kApplyAmanSession: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          13, *_impl_.action_.apply_aman_session_, _impl_.action_.apply_aman_session_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -32870,6 +32950,12 @@ const ::_pbi::TcParseTable<0, 12, 12, 0, 2> SystemCommand::_table_ = {
     case kElectSessionMaster: {
       total_size +=
           1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.action_.elect_session_master_);
+      break;
+    }
+    // .flightstrips.cluster.v1.ApplyAmanSession apply_aman_session = 13;
+    case kApplyAmanSession: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.action_.apply_aman_session_);
       break;
     }
     case ACTION_NOT_SET: {
@@ -33005,6 +33091,15 @@ void SystemCommand::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::g
               ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ElectSessionMaster>(arena, *from._impl_.action_.elect_session_master_);
         } else {
           _this->_impl_.action_.elect_session_master_->MergeFrom(from._internal_elect_session_master());
+        }
+        break;
+      }
+      case kApplyAmanSession: {
+        if (oneof_needs_init) {
+          _this->_impl_.action_.apply_aman_session_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ApplyAmanSession>(arena, *from._impl_.action_.apply_aman_session_);
+        } else {
+          _this->_impl_.action_.apply_aman_session_->MergeFrom(from._internal_apply_aman_session());
         }
         break;
       }
@@ -35098,6 +35193,362 @@ void AdvanceWorkflow::InternalSwap(AdvanceWorkflow* PROTOBUF_RESTRICT other) {
 }
 // ===================================================================
 
+class ApplyAmanSession::_Internal {
+ public:
+  using HasBits = decltype(std::declval<ApplyAmanSession>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(ApplyAmanSession, _impl_._has_bits_);
+  static constexpr ::int32_t kOneofCaseOffset =
+    PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyAmanSession, _impl_._oneof_case_);
+};
+
+void ApplyAmanSession::clear_intent() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.intent_ != nullptr) _impl_.intent_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+void ApplyAmanSession::set_allocated_holding_eat(::flightstrips::cluster::v1::AmanHoldingClearance* holding_eat) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_action();
+  if (holding_eat) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(holding_eat)->GetArena();
+    if (message_arena != submessage_arena) {
+      holding_eat = ::google::protobuf::internal::GetOwnedMessage(message_arena, holding_eat, submessage_arena);
+    }
+    set_has_holding_eat();
+    _impl_.action_.holding_eat_ = holding_eat;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ApplyAmanSession.holding_eat)
+}
+void ApplyAmanSession::clear_holding_eat() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kHoldingEat) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.holding_eat_;
+    }
+    clear_has_action();
+  }
+}
+ApplyAmanSession::ApplyAmanSession(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.ApplyAmanSession)
+}
+inline PROTOBUF_NDEBUG_INLINE ApplyAmanSession::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        callsign_(arena, from.callsign_),
+        action_{},
+        _oneof_case_{from._oneof_case_[0]} {}
+
+ApplyAmanSession::ApplyAmanSession(
+    ::google::protobuf::Arena* arena,
+    const ApplyAmanSession& from)
+    : ::google::protobuf::Message(arena) {
+  ApplyAmanSession* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.intent_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::WorkflowRecord>(
+                              arena, *from._impl_.intent_)
+                        : nullptr;
+  switch (action_case()) {
+    case ACTION_NOT_SET:
+      break;
+      case kHoldingEat:
+        _impl_.action_.holding_eat_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AmanHoldingClearance>(arena, *from._impl_.action_.holding_eat_);
+        break;
+  }
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.ApplyAmanSession)
+}
+inline PROTOBUF_NDEBUG_INLINE ApplyAmanSession::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        callsign_(arena),
+        action_{},
+        _oneof_case_{} {}
+
+inline void ApplyAmanSession::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.intent_ = {};
+}
+ApplyAmanSession::~ApplyAmanSession() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.ApplyAmanSession)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void ApplyAmanSession::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.callsign_.Destroy();
+  delete _impl_.intent_;
+  if (has_action()) {
+    clear_action();
+  }
+  _impl_.~Impl_();
+}
+
+void ApplyAmanSession::clear_action() {
+// @@protoc_insertion_point(one_of_clear_start:flightstrips.cluster.v1.ApplyAmanSession)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  switch (action_case()) {
+    case kHoldingEat: {
+      if (GetArena() == nullptr) {
+        delete _impl_.action_.holding_eat_;
+      }
+      break;
+    }
+    case ACTION_NOT_SET: {
+      break;
+    }
+  }
+  _impl_._oneof_case_[0] = ACTION_NOT_SET;
+}
+
+
+const ::google::protobuf::MessageLite::ClassData*
+ApplyAmanSession::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(ApplyAmanSession, _impl_._cached_size_),
+              false,
+          },
+          &ApplyAmanSession::MergeImpl,
+          &ApplyAmanSession::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void ApplyAmanSession::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.ApplyAmanSession)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.callsign_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.intent_ != nullptr);
+    _impl_.intent_->Clear();
+  }
+  clear_action();
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* ApplyAmanSession::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 3, 2, 57, 2> ApplyAmanSession::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(ApplyAmanSession, _impl_._has_bits_),
+    0, // no _extensions_
+    3, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    2,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_ApplyAmanSession_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ApplyAmanSession>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string callsign = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(ApplyAmanSession, _impl_.callsign_)}},
+    // .flightstrips.cluster.v1.WorkflowRecord intent = 1;
+    {::_pbi::TcParser::FastMtS1,
+     {10, 0, 0, PROTOBUF_FIELD_OFFSET(ApplyAmanSession, _impl_.intent_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // .flightstrips.cluster.v1.WorkflowRecord intent = 1;
+    {PROTOBUF_FIELD_OFFSET(ApplyAmanSession, _impl_.intent_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // string callsign = 2;
+    {PROTOBUF_FIELD_OFFSET(ApplyAmanSession, _impl_.callsign_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .flightstrips.cluster.v1.AmanHoldingClearance holding_eat = 3;
+    {PROTOBUF_FIELD_OFFSET(ApplyAmanSession, _impl_.action_.holding_eat_), _Internal::kOneofCaseOffset + 0, 1,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::WorkflowRecord>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AmanHoldingClearance>()},
+  }}, {{
+    "\50\0\10\0\0\0\0\0"
+    "flightstrips.cluster.v1.ApplyAmanSession"
+    "callsign"
+  }},
+};
+
+::uint8_t* ApplyAmanSession::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.ApplyAmanSession)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .flightstrips.cluster.v1.WorkflowRecord intent = 1;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        1, *_impl_.intent_, _impl_.intent_->GetCachedSize(), target, stream);
+  }
+
+  // string callsign = 2;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ApplyAmanSession.callsign");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // .flightstrips.cluster.v1.AmanHoldingClearance holding_eat = 3;
+  if (action_case() == kHoldingEat) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        3, *_impl_.action_.holding_eat_, _impl_.action_.holding_eat_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.ApplyAmanSession)
+  return target;
+}
+
+::size_t ApplyAmanSession::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.ApplyAmanSession)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string callsign = 2;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // .flightstrips.cluster.v1.WorkflowRecord intent = 1;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.intent_);
+  }
+
+  switch (action_case()) {
+    // .flightstrips.cluster.v1.AmanHoldingClearance holding_eat = 3;
+    case kHoldingEat: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.action_.holding_eat_);
+      break;
+    }
+    case ACTION_NOT_SET: {
+      break;
+    }
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void ApplyAmanSession::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<ApplyAmanSession*>(&to_msg);
+  auto& from = static_cast<const ApplyAmanSession&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.ApplyAmanSession)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.intent_ != nullptr);
+    if (_this->_impl_.intent_ == nullptr) {
+      _this->_impl_.intent_ =
+          ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::WorkflowRecord>(arena, *from._impl_.intent_);
+    } else {
+      _this->_impl_.intent_->MergeFrom(*from._impl_.intent_);
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  if (const uint32_t oneof_from_case = from._impl_._oneof_case_[0]) {
+    const uint32_t oneof_to_case = _this->_impl_._oneof_case_[0];
+    const bool oneof_needs_init = oneof_to_case != oneof_from_case;
+    if (oneof_needs_init) {
+      if (oneof_to_case != 0) {
+        _this->clear_action();
+      }
+      _this->_impl_._oneof_case_[0] = oneof_from_case;
+    }
+
+    switch (oneof_from_case) {
+      case kHoldingEat: {
+        if (oneof_needs_init) {
+          _this->_impl_.action_.holding_eat_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AmanHoldingClearance>(arena, *from._impl_.action_.holding_eat_);
+        } else {
+          _this->_impl_.action_.holding_eat_->MergeFrom(from._internal_holding_eat());
+        }
+        break;
+      }
+      case ACTION_NOT_SET:
+        break;
+    }
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void ApplyAmanSession::CopyFrom(const ApplyAmanSession& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.ApplyAmanSession)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool ApplyAmanSession::IsInitialized() const {
+  return true;
+}
+
+void ApplyAmanSession::InternalSwap(ApplyAmanSession* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  swap(_impl_.intent_, other->_impl_.intent_);
+  swap(_impl_.action_, other->_impl_.action_);
+  swap(_impl_._oneof_case_[0], other->_impl_._oneof_case_[0]);
+}
+
+::google::protobuf::Metadata ApplyAmanSession::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
+                                   &descriptor_table_wire_2eproto_once,
+                                   file_level_metadata_wire_2eproto[109]);
+}
+// ===================================================================
+
 class AdvanceEffect::_Internal {
  public:
   using HasBits = decltype(std::declval<AdvanceEffect>()._impl_._has_bits_);
@@ -35313,7 +35764,7 @@ void AdvanceEffect::InternalSwap(AdvanceEffect* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AdvanceEffect::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[109]);
+                                   file_level_metadata_wire_2eproto[110]);
 }
 // ===================================================================
 
@@ -35532,7 +35983,7 @@ void RecordSessionSync::InternalSwap(RecordSessionSync* PROTOBUF_RESTRICT other)
 ::google::protobuf::Metadata RecordSessionSync::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[110]);
+                                   file_level_metadata_wire_2eproto[111]);
 }
 // ===================================================================
 
@@ -35751,7 +36202,7 @@ void ElectSessionMaster::InternalSwap(ElectSessionMaster* PROTOBUF_RESTRICT othe
 ::google::protobuf::Metadata ElectSessionMaster::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[111]);
+                                   file_level_metadata_wire_2eproto[112]);
 }
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace v1

@@ -12695,6 +12695,7 @@ class SessionDeadline final : public ::google::protobuf::Message
     kCallsignFieldNumber = 4,
     kCommandIdFieldNumber = 5,
     kDueAtFieldNumber = 3,
+    kSourceRevisionFieldNumber = 6,
   };
   // string id = 1;
   void clear_id() ;
@@ -12775,12 +12776,22 @@ class SessionDeadline final : public ::google::protobuf::Message
   ::google::protobuf::Timestamp* _internal_mutable_due_at();
 
   public:
+  // uint64 source_revision = 6;
+  void clear_source_revision() ;
+  ::uint64_t source_revision() const;
+  void set_source_revision(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_source_revision() const;
+  void _internal_set_source_revision(::uint64_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.SessionDeadline)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 5, 1,
+      3, 6, 1,
       72, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -12803,6 +12814,7 @@ class SessionDeadline final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr callsign_;
     ::google::protobuf::internal::ArenaStringPtr command_id_;
     ::google::protobuf::Timestamp* due_at_;
+    ::uint64_t source_revision_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -26953,6 +26965,7 @@ class Session final : public ::google::protobuf::Message
     kMasterFieldNumber = 5,
     kSyncFieldNumber = 6,
     kFirstNoControllerAtFieldNumber = 7,
+    kCleanupPausedAtFieldNumber = 19,
     kIdFieldNumber = 1,
     kTombstonedFieldNumber = 8,
     kStandAssignmentEnabledFieldNumber = 17,
@@ -27123,6 +27136,21 @@ class Session final : public ::google::protobuf::Message
   ::google::protobuf::Timestamp* _internal_mutable_first_no_controller_at();
 
   public:
+  // optional .google.protobuf.Timestamp cleanup_paused_at = 19;
+  bool has_cleanup_paused_at() const;
+  void clear_cleanup_paused_at() ;
+  const ::google::protobuf::Timestamp& cleanup_paused_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_cleanup_paused_at();
+  ::google::protobuf::Timestamp* mutable_cleanup_paused_at();
+  void set_allocated_cleanup_paused_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_cleanup_paused_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_cleanup_paused_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_cleanup_paused_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_cleanup_paused_at();
+
+  public:
   // int32 id = 1;
   void clear_id() ;
   ::int32_t id() const;
@@ -27208,7 +27236,7 @@ class Session final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 18, 7,
+      5, 19, 8,
       76, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -27236,6 +27264,7 @@ class Session final : public ::google::protobuf::Message
     ::flightstrips::cluster::v1::MasterTerm* master_;
     ::flightstrips::cluster::v1::SessionSync* sync_;
     ::google::protobuf::Timestamp* first_no_controller_at_;
+    ::google::protobuf::Timestamp* cleanup_paused_at_;
     ::int32_t id_;
     bool tombstoned_;
     bool stand_assignment_enabled_;
@@ -47929,6 +47958,97 @@ inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::RunwayS
 Session::_internal_mutable_runway_statuses() {
   PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
   return &_impl_.runway_statuses_;
+}
+
+// optional .google.protobuf.Timestamp cleanup_paused_at = 19;
+inline bool Session::has_cleanup_paused_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000008u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.cleanup_paused_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& Session::_internal_cleanup_paused_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.cleanup_paused_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& Session::cleanup_paused_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Session.cleanup_paused_at)
+  return _internal_cleanup_paused_at();
+}
+inline void Session::unsafe_arena_set_allocated_cleanup_paused_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.cleanup_paused_at_);
+  }
+  _impl_.cleanup_paused_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000008u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000008u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.Session.cleanup_paused_at)
+}
+inline ::google::protobuf::Timestamp* Session::release_cleanup_paused_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000008u;
+  ::google::protobuf::Timestamp* released = _impl_.cleanup_paused_at_;
+  _impl_.cleanup_paused_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* Session::unsafe_arena_release_cleanup_paused_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Session.cleanup_paused_at)
+
+  _impl_._has_bits_[0] &= ~0x00000008u;
+  ::google::protobuf::Timestamp* temp = _impl_.cleanup_paused_at_;
+  _impl_.cleanup_paused_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* Session::_internal_mutable_cleanup_paused_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.cleanup_paused_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.cleanup_paused_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.cleanup_paused_at_;
+}
+inline ::google::protobuf::Timestamp* Session::mutable_cleanup_paused_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000008u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_cleanup_paused_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Session.cleanup_paused_at)
+  return _msg;
+}
+inline void Session::set_allocated_cleanup_paused_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.cleanup_paused_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000008u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000008u;
+  }
+
+  _impl_.cleanup_paused_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Session.cleanup_paused_at)
 }
 
 // -------------------------------------------------------------------
@@ -85755,6 +85875,28 @@ inline void SessionDeadline::set_allocated_command_id(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SessionDeadline.command_id)
+}
+
+// uint64 source_revision = 6;
+inline void SessionDeadline::clear_source_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_revision_ = ::uint64_t{0u};
+}
+inline ::uint64_t SessionDeadline::source_revision() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SessionDeadline.source_revision)
+  return _internal_source_revision();
+}
+inline void SessionDeadline::set_source_revision(::uint64_t value) {
+  _internal_set_source_revision(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.SessionDeadline.source_revision)
+}
+inline ::uint64_t SessionDeadline::_internal_source_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.source_revision_;
+}
+inline void SessionDeadline::_internal_set_source_revision(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_revision_ = value;
 }
 
 // -------------------------------------------------------------------

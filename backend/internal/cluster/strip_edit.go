@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"FlightStrips/internal/shared"
 	pb "FlightStrips/pkg/events/cluster"
@@ -201,6 +202,8 @@ func planStripEdit(request *pb.CommandRequest, state *Aggregate, action *pb.Stri
 	if err := checkStripChanges(state, changes); err != nil {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, current, err
 	}
+	changes = appendStripAutoHideDeadline(state, changes, old, s, time.Now().UTC())
+	sortCandidateChanges(changes)
 	return &pb.DomainChange{Changes: changes}, pb.CommandReply_COMMITTED, current, nil
 }
 

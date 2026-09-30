@@ -17,14 +17,15 @@ import (
 // StandState is the dormant session adapter. Production continues to use the
 // PostgreSQL allocator until the coordinated NATS activation.
 type StandState struct {
-	Store    LifecycleStore
-	Stands   *sat.StandCapabilityRegistry
-	Policy   *sat.AirlineAssignmentConfig
-	Aircraft *sat.AircraftRegistry
-	Engines  *sat.AircraftEngineRegistry
-	Borders  *sat.AirportCountryRegistry
-	Random   func() float64
-	Now      func() time.Time
+	Store      LifecycleStore
+	Projection *Projection // current FS_POSITIONS view for physical occupancy checks
+	Stands     *sat.StandCapabilityRegistry
+	Policy     *sat.AirlineAssignmentConfig
+	Aircraft   *sat.AircraftRegistry
+	Engines    *sat.AircraftEngineRegistry
+	Borders    *sat.AirportCountryRegistry
+	Random     func() float64
+	Now        func() time.Time
 }
 
 func (s StandState) Execute(ctx context.Context, request *pb.CommandRequest) *pb.CommandReply {
@@ -531,6 +532,44 @@ func (s StandState) planExpiry(req *pb.CommandRequest, a *Aggregate, d *pb.Remov
 	}
 	if due == nil || due.AsTime().After(s.clock()) {
 		return standFailure(pb.CommandReply_INVALID_ARGUMENT, current, "stand deadline has not elapsed")
+	}
+	if d.Kind == pb.EntityKind_STAND_ASSIGNMENT {
+		assignment := old.GetValue().GetStandAssignment()
+		if assignment.Stage == "DEPARTURE_BLOCK" {
+			stripEntity := a.Indexes[pb.EntityKind_STRIP][assignment.Callsign]
+			if stripEntity != nil {
+				atStand := false
+				positionKnown := false
+				if s.Projection != nil {
+					positions, _, err := s.Projection.ObservationSnapshot(req.Aggregate.GetSession().Id)
+					if err != nil {
+						return nil, pb.CommandReply_UNAVAILABLE, current, err
+					}
+					for _, position := range positions {
+						if position.Value.AircraftKey != assignment.Callsign || position.Stale || position.Value.GetPosition() == nil {
+							continue
+						}
+						positionKnown = true
+						if s.Stands != nil {
+							airport := a.Indexes[pb.EntityKind_SESSION][fmt.Sprint(req.Aggregate.GetSession().Id)].GetValue().GetSession().Airport
+							physical, found := s.Stands.StandAtPosition(airport, position.Value.GetPosition().Latitude, position.Value.GetPosition().Longitude)
+							atStand = found && physical.Name == assignment.Stand
+						}
+						break
+					}
+				}
+				if !positionKnown {
+					atStand = stripEntity.GetValue().GetStrip().Stand == assignment.Stand
+				}
+				if atStand {
+					copy := proto.Clone(assignment).(*pb.StandAssignment)
+					copy.ExpiresAt = nil
+					copy.Revision = current + 1
+					copy.UpdatedAt = timestamppb.New(s.clock())
+					return &pb.DomainChange{Changes: []*pb.EntityChange{standChange(d.Kind, d.Key, old, &pb.EntityRecord{Value: &pb.EntityRecord_StandAssignment{StandAssignment: copy}})}}, pb.CommandReply_COMMITTED, current, nil
+				}
+			}
+		}
 	}
 	return &pb.DomainChange{Changes: []*pb.EntityChange{standChange(d.Kind, d.Key, old, nil)}}, pb.CommandReply_COMMITTED, current, nil
 }

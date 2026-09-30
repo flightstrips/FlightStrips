@@ -255,7 +255,7 @@ func planObservationEntity(ctx context.Context, request *pb.CommandRequest, stat
 			return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("invalid CLX override")
 		}
 	case pb.EntityKind_SESSION_DEADLINE:
-		if deadline := value.GetSessionDeadline(); deadline != nil && (deadline.Id == "" || deadline.DueAt == nil || deadline.DueAt.CheckValid() != nil || !validSessionDeadlineKind(deadline.Kind)) {
+		if deadline := value.GetSessionDeadline(); deadline != nil && (deadline.Id == "" || deadline.SourceRevision == 0 || deadline.DueAt == nil || deadline.DueAt.CheckValid() != nil || !validSessionDeadlineKind(deadline.Kind)) {
 			return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("invalid session deadline")
 		}
 	}
@@ -264,7 +264,7 @@ func planObservationEntity(ctx context.Context, request *pb.CommandRequest, stat
 
 func validSessionDeadlineKind(kind string) bool {
 	switch kind {
-	case "aircraft-disconnect", "session-disconnect", "session-cleanup", "session-update", "pdc":
+	case "aircraft-disconnect", "controller-offline", "session-disconnect", "session-cleanup", "session-update", "strip-auto-hide", "pdc-response":
 		return true
 	}
 	return false

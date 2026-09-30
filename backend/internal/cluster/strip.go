@@ -6,11 +6,13 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"FlightStrips/internal/shared"
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const stripOrderSpacing uint64 = 1000
@@ -259,6 +261,8 @@ func planStripPut(request *pb.CommandRequest, state *Aggregate, update *pb.Updat
 	if err := checkStripChanges(state, changes); err != nil {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, current, err
 	}
+	changes = appendStripAutoHideDeadline(state, changes, old, incoming, time.Now().UTC())
+	sortCandidateChanges(changes)
 	return &pb.DomainChange{Changes: changes}, pb.CommandReply_COMMITTED, current, nil
 }
 
@@ -284,8 +288,35 @@ func planStripDelete(request *pb.CommandRequest, state *Aggregate, deletion *pb.
 	if deadline := state.Indexes[pb.EntityKind_SESSION_DEADLINE]["pdc."+old.Key]; deadline != nil {
 		changes = append(changes, candidateDelete(deadline.Key, deadline, pb.EntityKind_SESSION_DEADLINE))
 	}
+	if deadline := state.Indexes[pb.EntityKind_SESSION_DEADLINE]["strip-auto-hide."+old.Key]; deadline != nil {
+		changes = append(changes, candidateDelete(deadline.Key, deadline, pb.EntityKind_SESSION_DEADLINE))
+	}
 	sortCandidateChanges(changes)
 	return &pb.DomainChange{Changes: changes}, pb.CommandReply_COMMITTED, old.Revision, nil
+}
+
+// An arrival entering STAND starts a durable four-minute hide window. A strip
+// revision during that window preserves its original due time while moving
+// the source revision forward; leaving STAND cancels the timer atomically.
+func appendStripAutoHideDeadline(state *Aggregate, changes []*pb.EntityChange, old *pb.EntitySnapshot, next *pb.Strip, now time.Time) []*pb.EntityChange {
+	id := "strip-auto-hide." + next.Callsign
+	deadline := state.Indexes[pb.EntityKind_SESSION_DEADLINE][id]
+	if next.Bay != shared.BAY_STAND {
+		if deadline != nil {
+			changes = append(changes, candidateDelete(id, deadline, pb.EntityKind_SESSION_DEADLINE))
+		}
+		return changes
+	}
+	due := timestamppb.New(now.Add(240 * time.Second))
+	if deadline != nil && old != nil && old.GetValue().GetStrip().Bay == shared.BAY_STAND {
+		due = deadline.GetValue().GetSessionDeadline().DueAt
+	}
+	sourceRevision := uint64(1)
+	if old != nil {
+		sourceRevision = old.Revision + 1
+	}
+	value := &pb.SessionDeadline{Id: id, Kind: "strip-auto-hide", DueAt: due, Callsign: next.Callsign, SourceRevision: sourceRevision}
+	return append(changes, candidateUpsert(id, deadline, &pb.EntityRecord{Value: &pb.EntityRecord_SessionDeadline{SessionDeadline: value}}))
 }
 
 func mergeObservedStrip(old, incoming *pb.Strip) *pb.Strip {

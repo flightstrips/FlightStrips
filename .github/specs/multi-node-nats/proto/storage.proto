@@ -174,6 +174,7 @@ message Session {
   int32 transition_altitude_feet = 16;
   bool stand_assignment_enabled = 17;
   repeated RunwayStatus runway_statuses = 18;
+  optional google.protobuf.Timestamp cleanup_paused_at = 19;
 }
 message Runway { string name = 1; bool departure = 2; bool arrival = 3; }
 message RunwayStatus { string pair = 1; string status = 2; }
@@ -681,6 +682,7 @@ message WeatherCloud { string cover = 1; optional uint32 base_feet = 2; string t
 message SessionDeadline {
   string id = 1; string kind = 2; google.protobuf.Timestamp due_at = 3;
   string callsign = 4; string command_id = 5;
+  uint64 source_revision = 6; // revision of the entity that scheduled the deadline
 }
 
 message CommandOutcome {

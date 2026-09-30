@@ -4,7 +4,7 @@
 
 **Release boundary:** merge with the coordinated NATS runtime candidate PR and release at task 24; see [release-safety.md](../release-safety.md).
 
-**Integration status:** [PR #815](https://github.com/flightstrips/FlightStrips/pull/815) merged the fenced external-call framework and [worker inventory](19-worker-inventory.md). [PR #816](https://github.com/flightstrips/FlightStrips/pull/816) merged typed provider candidates and real NATS fault tests. Task 19 remains open: [Task 19a](19a-vatsim-lifecycle.md) completes VATSIM stand lifecycle handling and [Task 19b](19b-aman-policy.md) binds the operational AMAN evaluator and destination command builder. Task 20 must not activate these workers until both follow-ups and the remaining Task 18 adapters are merged and verified. App startup binding and the final inventory audit belong to Task 20; domain behavior belongs to these prerequisites.
+**Integration status:** Complete on the integration base after [PR #815](https://github.com/flightstrips/FlightStrips/pull/815), [PR #816](https://github.com/flightstrips/FlightStrips/pull/816), [Task 19a / PR #819](https://github.com/flightstrips/FlightStrips/pull/819), and [Task 19b / PR #820](https://github.com/flightstrips/FlightStrips/pull/820). Provider candidates, operational lifecycle/AMAN adapters and their NATS fault evidence are merged. Candidate startup remains dormant: assembly bindings and the final inventory audit belong to Task 20, which still depends on completing Task 18. See the [19a evidence](19a-vatsim-lifecycle.md#candidate-implementation-and-evidence) and [19b evidence](19b-aman-policy-evidence.md).
 
 ## Completion checklist after PR #815
 
@@ -18,13 +18,13 @@ startup stays dormant in the meantime.
 - [x] Real two-replica NATS ECFMP global fetch test covering nonowner dispatch, committed result, pre-call intent, post-call owner death, and uncertain takeover (this completion branch).
 - [x] Real two-replica NATS ECFMP session application, nonowner rejection, replay, and owner-failure test (this completion branch).
 - [x] Global-owned VATSIM fetch with a typed source checkpoint and two-replica NATS owner-failure test (this completion branch).
-- [x] VATSIM airport/session reconciliation adapters and their two-replica failure tests (Task 19a candidate; merge to the integration base still required).
+- [x] VATSIM airport/session reconciliation adapters and their two-replica failure tests (Task 19a, merged as PR #819).
   - [x] Session-owned typed strip generation replay and airport-owned present/missing AMAN observations; two-replica NATS takeover and replay tests.
   - [x] Port departure/arrival stand lifecycle transitions and cancellation, including their owner-failure tests: `services.NewVatsimLifecycleCandidate` supplies both `SessionWork` callbacks; `TestVatsimLifecycleTwoReplica*` exercises real policy and Task 17 effects without SQL or injected decisions.
-- [ ] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests.
+- [x] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests (Task 19b, merged as PR #820).
   - [x] Consume typed VATSIM global checkpoints on the airport owner; stable observation and reconciliation command IDs; two-replica observation replay and superseded intent test.
   - [x] Test a destination session write committed before airport-owner death; takeover records completion without a duplicate strip write, and a later revision supersedes a separate intent.
-  - [x] Bind the operational AMAN evaluator and destination session command builder: `amancandidate.New`, `Worker.BuildStep`, and `DestinationPlanner` ([Task 19b evidence](19b-aman-policy-evidence.md); completion branch, integration merge pending).
+  - [x] Bind the operational AMAN evaluator and destination session command builder: `amancandidate.New`, `Worker.BuildStep`, and `DestinationPlanner` ([Task 19b evidence](19b-aman-policy-evidence.md); merged as PR #820).
 - [x] Airport-owned AIRAC import and verified manifest activation adapter with typed page checkpoints and two-replica failure tests (this completion branch).
 - [x] Airport-owned METAR fetch, global-owned AFV ATIS typed feed, session presentation adapter, global quota reservation, and two-replica NATS failure/replay tests (this completion branch).
 - [x] AMAN/Open-Meteo wind refresh adapter with typed airport checkpoint, durable global quota reservation, and two-replica uncertainty test (this completion branch).

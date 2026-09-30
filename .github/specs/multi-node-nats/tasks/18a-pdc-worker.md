@@ -1,0 +1,28 @@
+# Task 18a — PDC polling and clearance lifecycle
+
+**Depends on:** 09, 15, 15b, 17, the Task 18 candidate and completed Task 19.
+
+**Outcome:** concrete session-owner PDC polling, incoming-message processing, clearance composition and outbound provider calls work without SQL. Exports the `SessionWork.PDC` callback and candidate action bindings for Task 20.
+
+**Release boundary:** held under the Task 18 rule; candidate remains dormant until Task 20 and releases only at Task 24.
+
+## Contracts
+
+- Reuse typed `PdcSequence`, `Strip`, `SessionDeadline`, actor-scoped command outcomes and owner CAS. Preserve request/issue/acknowledgement/timeout/revert semantics and the ten-minute response timeout. Compose clearance from accepted session, strip, runway, SID, route, ATIS and frequency inputs; browser ISSUE remarks are additional remarks, never a substitute for the clearance. Retrying a command UUID cannot change its clearance or target CID.
+- Hoppie response text is parsed at the provider boundary. Derive incoming identity with existing `HoppieMessageCommandID`; persist the UUID/hash and parsed fields, never `Raw`, `Packet`, JSON, or a serialized map. A malformed/unsupported message becomes a typed reason, without its raw body.
+- Required additive storage shapes: `PdcProviderMessage` has `message_id` string field 1 (UUID), `from` string 2, `to` string 3, `transport` enum 4 (UNSPECIFIED=0, CPDLC=1, TELEX=2), `sequence` uint64 5, optional `response_to` uint64 6, `kind` enum 7, optional `HoppiePdcRequest request` 8, optional `clearance_text` string 9, `reason_code` string 10, optional Timestamp `provider_accepted_at` 11. Its kind enum is UNSPECIFIED=0, REQUEST=1, STATUS=2, CLEARANCE=3, WILCO=4, UNABLE=5, CONFIRMED=6, NO_RESPONSE=7, REVERT_TO_VOICE=8, FLIGHT_PLAN_NOT_HELD=9, UNAVAILABLE=10, INVALID_AIRCRAFT_TYPE=11, NOT_SUPPORTED=12, MALFORMED=13. Use nested `Transport`/`Kind` enums with `TRANSPORT_`/`KIND_` identifier prefixes to avoid Protobuf enum symbol collisions. Clearance text is radio clearance prose, not encoded data.
+- `HoppiePdcRequest` fields are callsign=1, aircraft_type=2, departure=3, destination=4, stand=5, atis=6, remarks=7, all strings. `HoppiePollPage` fields are station=1 string, poll_id=2 UUID string, observed_at=3 Timestamp, messages=4 repeated PdcProviderMessage. Reserve `ProviderPage.hoppie` oneof field 12, `EntityKind.PDC_PROVIDER_MESSAGE` value 31 and `EntityRecord.pdc_provider_message` field 31. Entity key is message UUID within the session aggregate. Provider is `hoppie`, checkpoint resource is `station/<uppercase callsign>` within that session aggregate. Bound message/page sizes with the existing frame/object limits.
+- Reserve `SystemCommand.apply_pdc_provider_message` field 14, carrying `ApplyPdcProviderMessage { PdcProviderMessage message = 1; }`. Only the authenticated provider/system adapter may submit it. The session owner validates identity, addressed station, request fields, sequence correlation and current PDC state before producing one atomic transition. The same incoming message UUID retains the same typed body across retries.
+- Outbound messages persist the typed message plus a `WorkflowRecord` before a fenced provider attempt, then use `ExternalCallWorker` and stable result IDs. An uncertain poll/send is not repeated under the same intent; a later accepted poll slot is a distinct workflow. Commit a successful poll page/checkpoint before processing its messages, so takeover resumes accepted results. Persist the next poll deadline, choosing the existing 25–45 second interval once per accepted slot. Disabled Hoppie leaves Web PDC functional. Do not store the Hoppie logon secret.
+- Plugin actions use Task 17 effects. If needed, append optional bool `cleared`=4, optional string `state`=5 and optional string `remarks`=6 to `PdcEffect`; actions `SET_CLEARED_FLAG` and `STATE_CHANGE` render those typed fields into existing revision-2 events. Existing ISSUE and REVERT_TO_VOICE actions remain valid. Route/SID changes use their existing typed effects.
+
+## Work and scope
+
+- Implement the actual request parsing/validation, fault acknowledgements, issue, pilot response correlation, confirmation, no-response and revert behavior using existing PDC policy/helpers. Bind frontend controller actions and candidate HTTP/Web PDC to the same owner path. Close the Task 15 clearance-composition gap.
+- Supply a concrete candidate constructor and `func(context.Context, int32) error` polling callback. No SQL repositories, local authoritative timeouts, legacy hub sends or second polling loop in candidate construction.
+- Own PDC files and the extensions reserved above. Tasks 18b/18c run in parallel; do not allocate their field numbers. Regenerate all bindings from the canonical schema and preserve the compatibility baseline. Update the task checklist/inventory with construction and evidence.
+
+## Done when
+
+- Real two-replica NATS tests exercise production PDC policy with a provider fixture: one poll per slot, committed result replay, owner death around poll/send/result commit, stable message IDs, no duplicate clearance send, correlated WILCO/UNABLE, timeout recovery and stale-response rejection.
+- Actual browser/controller ISSUE composes a valid clearance; Web PDC works without Hoppie; pilot/EFB HTTP JSON contracts remain valid. Tests include restart with pending work and uncertain sends. Only runtime assembly remains for Task 20; no fake policy or stub callback can satisfy completion.

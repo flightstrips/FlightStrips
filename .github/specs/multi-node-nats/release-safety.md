@@ -50,6 +50,9 @@ An implementation that cannot maintain these conditions is reclassified **held**
 | 16 | No; held | No | Depends on task 14's held revision-2 plugin protocol; election must never compete with the current master. |
 | 17 | No; held | No | Depends on held browser/plugin outcomes; effect dispatch must never send alongside current dispatch. |
 | 18 | No; held | No | Depends on held plugin/effect work; new session workers cannot start alongside current workers. |
+| 18a | No; held | No | Completes PDC provider polling and clearance lifecycle; follows the Task 18 activation boundary. |
+| 18b | No; held | No | Completes session CDM/traffic adapters; follows the Task 18 activation boundary. |
+| 18c | No; held | No | Completes socket deadlines and authoritative squawk throttling; follows the Task 18 activation boundary. |
 | 19 | No; held | No | Depends on held effect work; new airport/global workers cannot start alongside current workers. |
 | 19a | No; held | No | Completes session-owned VATSIM lifecycle; follows the Task 18/19 activation boundary. |
 | 19b | No; held | No | Completes operational AMAN policy and destination intents; follows the Task 19 activation boundary. |

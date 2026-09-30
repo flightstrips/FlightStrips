@@ -430,6 +430,53 @@ func (a NavigationWeather) Checkpoint(ctx context.Context, airport, provider, re
 	return copy, page, nil
 }
 
+// FetchProviderPageFenced gives AIRAC and VATSIM importers a durable typed
+// checkpoint. Fetch may return the prior page for a conditional HTTP 304. A
+// completed provider call publishes and verifies its typed page object before
+// the airport owner advances the checkpoint with the stable result command ID.
+func (a NavigationWeather) FetchProviderPageFenced(ctx context.Context, worker ExternalCallWorker, workflowID, airport, provider, resource string, fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
+	if fetch == nil || provider == "" || resource == "" {
+		return false, fmt.Errorf("invalid fenced provider fetch")
+	}
+	prior, priorPage, err := a.Checkpoint(ctx, airport, provider, resource)
+	if err != nil {
+		return false, err
+	}
+	var next *pb.ProviderCheckpoint
+	ref := airportRef(airport)
+	return worker.Run(ctx, ExternalCallSpec{
+		Source: ref, Destination: ref, WorkflowID: workflowID,
+		Step: "external/provider/" + provider + "/" + resource,
+		Fetch: func(ctx context.Context) (proto.Message, error) {
+			page, checkpoint, err := fetch(ctx, prior, priorPage)
+			if err != nil {
+				return nil, err
+			}
+			if page == nil || page.Provider != provider || page.Resource != resource || checkpoint == nil || checkpoint.Provider != provider || checkpoint.Resource != resource {
+				return nil, fmt.Errorf("provider page or checkpoint identity mismatch")
+			}
+			next = proto.Clone(checkpoint).(*pb.ProviderCheckpoint)
+			return page, nil
+		},
+		Commit: func(ctx context.Context, commandID string, value proto.Message) *pb.CommandReply {
+			page, ok := value.(*pb.ProviderPage)
+			if !ok || next == nil {
+				return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT}
+			}
+			name, sha, err := a.PublishProvider(page)
+			if err != nil {
+				return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
+			}
+			next.ObjectName, next.Sha256 = name, sha
+			reply, err := a.PutCheckpoint(ctx, airport, commandID, next)
+			if err != nil {
+				return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
+			}
+			return reply
+		},
+	})
+}
+
 func (a NavigationWeather) PutWeather(ctx context.Context, id string, cache *pb.WeatherCache) (*pb.CommandReply, error) {
 	if cache == nil || cache.Provider == "" || cache.Observation == nil || cache.FetchedAt == nil || cache.ExpiresAt == nil || !cache.ExpiresAt.AsTime().After(cache.FetchedAt.AsTime()) {
 		return nil, fmt.Errorf("invalid weather cache")
@@ -530,24 +577,40 @@ func (a NavigationWeather) Quota(ctx context.Context, provider string, window ti
 // never sends a second external request. The provider callback must decode its
 // external format and return only a typed observation.
 func (a NavigationWeather) FetchWeather(ctx context.Context, workflowID, airport, provider string, window time.Time, limit uint32, ttl time.Duration, fetch func(context.Context) (*pb.WeatherObservation, error)) (bool, error) {
-	if fetch == nil || ttl <= 0 {
-		return false, fmt.Errorf("invalid weather fetch")
+	return a.FetchWeatherFenced(ctx, ExternalCallWorker{Writer: a.Writer}, workflowID, airport, provider, ttl,
+		func(ctx context.Context) (bool, error) {
+			return a.ReserveQuota(ctx, workflowID, provider, window, limit)
+		}, fetch)
+}
+
+// FetchWeatherFenced is the candidate worker path. The caller supplies an
+// owner-routed global reservation; task 20 wires that route when the NATS-only
+// runtime replaces the legacy poller. The airport intent is committed first,
+// and a takeover never repeats an uncertain quota-consuming provider call.
+func (a NavigationWeather) FetchWeatherFenced(ctx context.Context, worker ExternalCallWorker, workflowID, airport, provider string, ttl time.Duration, reserve func(context.Context) (bool, error), fetch func(context.Context) (*pb.WeatherObservation, error)) (bool, error) {
+	if reserve == nil || fetch == nil || ttl <= 0 || provider == "" {
+		return false, fmt.Errorf("invalid fenced weather fetch")
 	}
-	if _, err := Subject(airportRef(airport)); err != nil {
+	ref := airportRef(airport)
+	if _, err := Subject(ref); err != nil {
 		return false, err
 	}
-	fresh, err := a.ReserveQuota(ctx, workflowID, provider, window, limit)
-	if err != nil || !fresh {
-		return false, err
-	}
-	observation, err := fetch(ctx)
-	if err != nil {
-		return false, err
-	}
-	if observation == nil {
-		return false, fmt.Errorf("provider returned no weather")
-	}
-	now := time.Now().UTC()
-	_, err = a.PutWeather(ctx, workflowID, &pb.WeatherCache{Airport: airport, Provider: provider, Observation: observation, FetchedAt: timestamppb.New(now), ExpiresAt: timestamppb.New(now.Add(ttl))})
-	return err == nil, err
+	return worker.Run(ctx, ExternalCallSpec{
+		Source: ref, Destination: ref, WorkflowID: workflowID,
+		Step:    "external/weather/" + provider,
+		Reserve: reserve,
+		Fetch:   func(ctx context.Context) (proto.Message, error) { return fetch(ctx) },
+		Commit: func(ctx context.Context, commandID string, value proto.Message) *pb.CommandReply {
+			observation, ok := value.(*pb.WeatherObservation)
+			if !ok {
+				return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT}
+			}
+			now := time.Now().UTC()
+			reply, err := a.PutWeather(ctx, commandID, &pb.WeatherCache{Airport: airport, Provider: provider, Observation: observation, FetchedAt: timestamppb.New(now), ExpiresAt: timestamppb.New(now.Add(ttl))})
+			if err != nil {
+				return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
+			}
+			return reply
+		},
+	})
 }

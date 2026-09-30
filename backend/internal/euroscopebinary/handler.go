@@ -3,6 +3,7 @@ package euroscopebinary
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -38,6 +39,9 @@ type Handler struct {
 	RenderEffect func(int32, *pb.EffectRecord) (*euroscope.Envelope, error)
 	Effects      *cluster.Effects
 	OnReconciled func(context.Context, int32, []string) error
+	// Task 18c supplies this concrete candidate. The current SQL endpoint does
+	// not construct it; Task 20 binds it together with Inbound/Planner/worker.
+	Deadlines *DeadlineCandidate
 }
 
 var upgrade = websocket.Upgrader{Subprotocols: []string{Subprotocol}, EnableCompression: false,
@@ -65,6 +69,9 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 	conn.SetReadLimit(maxFrame)
 	if err := h.serve(r.Context(), conn); err != nil {
+		if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			slog.WarnContext(r.Context(), "candidate EuroScope session failed", "error", err)
+		}
 		code := websocket.CloseTryAgainLater
 		if failure, ok := err.(socketFailure); ok {
 			code = failure.code
@@ -209,12 +216,26 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		return err
 	}
 	defer closeSocket()
+	if h.Deadlines != nil {
+		// Liveness is already shared. Recovery is advisory here; the owner
+		// worker repairs it even if login races an election or this node dies.
+		_ = h.Deadlines.Recover(ctx, session.Id)
+		defer func() {
+			closeSocket()
+			// Advisory fast recovery only. SessionWork's shared-state sweep is
+			// authoritative if the socket node dies or this call is unavailable.
+			recoverCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = h.Deadlines.Recover(recoverCtx, session.Id)
+		}()
+	}
 	for {
 		frame, err := read(conn)
 		if err != nil {
 			return err
 		}
 		if err := h.Projection.ValidateEuroScopeInbound(session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
+			slog.WarnContext(ctx, "candidate EuroScope inbound rejected", "session", session.Id, "error", err)
 			return socketFailure{websocket.ClosePolicyViolation}
 		}
 		if frame.GetCommandResult() != nil {
@@ -246,6 +267,9 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 				CompletedAt: timestamppb.Now()})
 			if err != nil {
 				return err
+			}
+			if h.Deadlines != nil {
+				_ = h.Deadlines.Recover(ctx, session.Id)
 			}
 		}
 	}

@@ -379,10 +379,12 @@ message SystemCommand {
     ElectSessionMaster elect_session_master = 12;
     ApplyAmanSession apply_aman_session = 13;
     ApplyPdcProviderMessage apply_pdc_provider_message = 14;
+    RequestSquawk request_squawk = 15;
   }
 }
 message ApplyPdcProviderMessage { PdcProviderMessage message = 1; }
 message CreateSession { int32 id = 1; string airport = 2; string name = 3; string workflow_id = 4; }
+message RequestSquawk { string callsign = 1; string target_cid = 2; }
 message DeleteSession { int32 id = 1; string workflow_id = 2; }
 message UpdateEntity { string key = 1; EntityRecord value = 2; }
 message RemoveEntity { string key = 1; EntityKind kind = 2; }

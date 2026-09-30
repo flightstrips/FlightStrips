@@ -414,6 +414,30 @@ struct RevertPdcToVoiceDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 RevertPdcToVoiceDefaultTypeInternal _RevertPdcToVoice_default_instance_;
+
+inline constexpr RequestSquawk::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        target_cid_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR RequestSquawk::RequestSquawk(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct RequestSquawkDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR RequestSquawkDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~RequestSquawkDefaultTypeInternal() {}
+  union {
+    RequestSquawk _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 RequestSquawkDefaultTypeInternal _RequestSquawk_default_instance_;
       template <typename>
 PROTOBUF_CONSTEXPR RemoveStandBlock::RemoveStandBlock(::_pbi::ConstantInitialized) {}
 struct RemoveStandBlockDefaultTypeInternal {
@@ -2531,7 +2555,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 }  // namespace v1
 }  // namespace cluster
 }  // namespace flightstrips
-static ::_pb::Metadata file_level_metadata_wire_2eproto[116];
+static ::_pb::Metadata file_level_metadata_wire_2eproto[117];
 static const ::_pb::EnumDescriptor* file_level_enum_descriptors_wire_2eproto[3];
 static constexpr const ::_pb::ServiceDescriptor**
     file_level_service_descriptors_wire_2eproto = nullptr;
@@ -3865,6 +3889,7 @@ const ::uint32_t
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::SystemCommand, _impl_.action_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyPdcProviderMessage, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ApplyPdcProviderMessage, _internal_metadata_),
@@ -3888,6 +3913,16 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CreateSession, _impl_.airport_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CreateSession, _impl_.name_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CreateSession, _impl_.workflow_id_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::RequestSquawk, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::RequestSquawk, _impl_.callsign_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::RequestSquawk, _impl_.target_cid_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::DeleteSession, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -4120,20 +4155,21 @@ static const ::_pbi::MigrationSchema
         {1280, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSubmitCoordination)},
         {1293, 1303, -1, sizeof(::flightstrips::cluster::v1::AmanDecideCoordination)},
         {1305, -1, -1, sizeof(::flightstrips::cluster::v1::SystemCommand)},
-        {1328, 1337, -1, sizeof(::flightstrips::cluster::v1::ApplyPdcProviderMessage)},
-        {1338, -1, -1, sizeof(::flightstrips::cluster::v1::CreateSession)},
-        {1350, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteSession)},
-        {1360, 1370, -1, sizeof(::flightstrips::cluster::v1::UpdateEntity)},
-        {1372, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveEntity)},
-        {1382, -1, -1, sizeof(::flightstrips::cluster::v1::SetPositionLayout)},
-        {1392, -1, -1, sizeof(::flightstrips::cluster::v1::ReplaceSectorOwners)},
-        {1401, 1410, -1, sizeof(::flightstrips::cluster::v1::ClaimOwner)},
-        {1411, 1420, -1, sizeof(::flightstrips::cluster::v1::RenewOwner)},
-        {1421, 1430, -1, sizeof(::flightstrips::cluster::v1::AdvanceWorkflow)},
-        {1431, 1443, -1, sizeof(::flightstrips::cluster::v1::ApplyAmanSession)},
-        {1446, 1455, -1, sizeof(::flightstrips::cluster::v1::AdvanceEffect)},
-        {1456, 1465, -1, sizeof(::flightstrips::cluster::v1::RecordSessionSync)},
-        {1466, 1475, -1, sizeof(::flightstrips::cluster::v1::ElectSessionMaster)},
+        {1329, 1338, -1, sizeof(::flightstrips::cluster::v1::ApplyPdcProviderMessage)},
+        {1339, -1, -1, sizeof(::flightstrips::cluster::v1::CreateSession)},
+        {1351, -1, -1, sizeof(::flightstrips::cluster::v1::RequestSquawk)},
+        {1361, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteSession)},
+        {1371, 1381, -1, sizeof(::flightstrips::cluster::v1::UpdateEntity)},
+        {1383, -1, -1, sizeof(::flightstrips::cluster::v1::RemoveEntity)},
+        {1393, -1, -1, sizeof(::flightstrips::cluster::v1::SetPositionLayout)},
+        {1403, -1, -1, sizeof(::flightstrips::cluster::v1::ReplaceSectorOwners)},
+        {1412, 1421, -1, sizeof(::flightstrips::cluster::v1::ClaimOwner)},
+        {1422, 1431, -1, sizeof(::flightstrips::cluster::v1::RenewOwner)},
+        {1432, 1441, -1, sizeof(::flightstrips::cluster::v1::AdvanceWorkflow)},
+        {1442, 1454, -1, sizeof(::flightstrips::cluster::v1::ApplyAmanSession)},
+        {1457, 1466, -1, sizeof(::flightstrips::cluster::v1::AdvanceEffect)},
+        {1467, 1476, -1, sizeof(::flightstrips::cluster::v1::RecordSessionSync)},
+        {1477, 1486, -1, sizeof(::flightstrips::cluster::v1::ElectSessionMaster)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_CommandRequest_default_instance_._instance,
@@ -4240,6 +4276,7 @@ static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_SystemCommand_default_instance_._instance,
     &::flightstrips::cluster::v1::_ApplyPdcProviderMessage_default_instance_._instance,
     &::flightstrips::cluster::v1::_CreateSession_default_instance_._instance,
+    &::flightstrips::cluster::v1::_RequestSquawk_default_instance_._instance,
     &::flightstrips::cluster::v1::_DeleteSession_default_instance_._instance,
     &::flightstrips::cluster::v1::_UpdateEntity_default_instance_._instance,
     &::flightstrips::cluster::v1::_RemoveEntity_default_instance_._instance,
@@ -4685,7 +4722,7 @@ const char descriptor_table_protodef_wire_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIA
     "trips.cluster.v1.AmanSpeedH\000B\t\n\007request\""
     "Y\n\026AmanDecideCoordination\022\037\n\027coordinatio"
     "n_request_id\030\001 \001(\t\022\023\n\006reason\030\002 \001(\tH\000\210\001\001B"
-    "\t\n\007_reason\"\350\007\n\rSystemCommand\022@\n\016create_s"
+    "\t\n\007_reason\"\252\010\n\rSystemCommand\022@\n\016create_s"
     "ession\030\001 \001(\0132&.flightstrips.cluster.v1.C"
     "reateSessionH\000\022@\n\016delete_session\030\002 \001(\0132&"
     ".flightstrips.cluster.v1.DeleteSessionH\000"
@@ -4710,36 +4747,39 @@ const char descriptor_table_protodef_wire_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIA
     "trips.cluster.v1.ApplyAmanSessionH\000\022V\n\032a"
     "pply_pdc_provider_message\030\016 \001(\01320.flight"
     "strips.cluster.v1.ApplyPdcProviderMessag"
-    "eH\000B\010\n\006action\"W\n\027ApplyPdcProviderMessage"
-    "\022<\n\007message\030\001 \001(\0132+.flightstrips.cluster"
-    ".v1.PdcProviderMessage\"O\n\rCreateSession\022"
-    "\n\n\002id\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022\014\n\004name\030\003 \001"
-    "(\t\022\023\n\013workflow_id\030\004 \001(\t\"0\n\rDeleteSession"
-    "\022\n\n\002id\030\001 \001(\005\022\023\n\013workflow_id\030\002 \001(\t\"Q\n\014Upd"
-    "ateEntity\022\013\n\003key\030\001 \001(\t\0224\n\005value\030\002 \001(\0132%."
-    "flightstrips.cluster.v1.EntityRecord\"N\n\014"
-    "RemoveEntity\022\013\n\003key\030\001 \001(\t\0221\n\004kind\030\002 \001(\0162"
-    "#.flightstrips.cluster.v1.EntityKind\"8\n\021"
-    "SetPositionLayout\022\020\n\010position\030\001 \001(\t\022\021\n\tl"
-    "ayout_id\030\002 \001(\t\"K\n\023ReplaceSectorOwners\0224\n"
-    "\006owners\030\001 \003(\0132$.flightstrips.cluster.v1."
-    "SectorOwner\"B\n\nClaimOwner\0224\n\010proposed\030\001 "
-    "\001(\0132\".flightstrips.cluster.v1.OwnerTerm\""
-    "B\n\nRenewOwner\0224\n\010proposed\030\001 \001(\0132\".flight"
-    "strips.cluster.v1.OwnerTerm\"L\n\017AdvanceWo"
-    "rkflow\0229\n\010workflow\030\001 \001(\0132\'.flightstrips."
-    "cluster.v1.WorkflowRecord\"\255\001\n\020ApplyAmanS"
-    "ession\0227\n\006intent\030\001 \001(\0132\'.flightstrips.cl"
-    "uster.v1.WorkflowRecord\022\020\n\010callsign\030\002 \001("
-    "\t\022D\n\013holding_eat\030\003 \001(\0132-.flightstrips.cl"
-    "uster.v1.AmanHoldingClearanceH\000B\010\n\006actio"
-    "n\"F\n\rAdvanceEffect\0225\n\006effect\030\001 \001(\0132%.fli"
-    "ghtstrips.cluster.v1.EffectRecord\"G\n\021Rec"
-    "ordSessionSync\0222\n\004sync\030\001 \001(\0132$.flightstr"
-    "ips.cluster.v1.SessionSync\"I\n\022ElectSessi"
-    "onMaster\0223\n\006master\030\001 \001(\0132#.flightstrips."
-    "cluster.v1.MasterTermB)Z\'FlightStrips/pk"
-    "g/events/cluster;clusterb\006proto3"
+    "eH\000\022@\n\016request_squawk\030\017 \001(\0132&.flightstri"
+    "ps.cluster.v1.RequestSquawkH\000B\010\n\006action\""
+    "W\n\027ApplyPdcProviderMessage\022<\n\007message\030\001 "
+    "\001(\0132+.flightstrips.cluster.v1.PdcProvide"
+    "rMessage\"O\n\rCreateSession\022\n\n\002id\030\001 \001(\005\022\017\n"
+    "\007airport\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013workflow"
+    "_id\030\004 \001(\t\"5\n\rRequestSquawk\022\020\n\010callsign\030\001"
+    " \001(\t\022\022\n\ntarget_cid\030\002 \001(\t\"0\n\rDeleteSessio"
+    "n\022\n\n\002id\030\001 \001(\005\022\023\n\013workflow_id\030\002 \001(\t\"Q\n\014Up"
+    "dateEntity\022\013\n\003key\030\001 \001(\t\0224\n\005value\030\002 \001(\0132%"
+    ".flightstrips.cluster.v1.EntityRecord\"N\n"
+    "\014RemoveEntity\022\013\n\003key\030\001 \001(\t\0221\n\004kind\030\002 \001(\016"
+    "2#.flightstrips.cluster.v1.EntityKind\"8\n"
+    "\021SetPositionLayout\022\020\n\010position\030\001 \001(\t\022\021\n\t"
+    "layout_id\030\002 \001(\t\"K\n\023ReplaceSectorOwners\0224"
+    "\n\006owners\030\001 \003(\0132$.flightstrips.cluster.v1"
+    ".SectorOwner\"B\n\nClaimOwner\0224\n\010proposed\030\001"
+    " \001(\0132\".flightstrips.cluster.v1.OwnerTerm"
+    "\"B\n\nRenewOwner\0224\n\010proposed\030\001 \001(\0132\".fligh"
+    "tstrips.cluster.v1.OwnerTerm\"L\n\017AdvanceW"
+    "orkflow\0229\n\010workflow\030\001 \001(\0132\'.flightstrips"
+    ".cluster.v1.WorkflowRecord\"\255\001\n\020ApplyAman"
+    "Session\0227\n\006intent\030\001 \001(\0132\'.flightstrips.c"
+    "luster.v1.WorkflowRecord\022\020\n\010callsign\030\002 \001"
+    "(\t\022D\n\013holding_eat\030\003 \001(\0132-.flightstrips.c"
+    "luster.v1.AmanHoldingClearanceH\000B\010\n\006acti"
+    "on\"F\n\rAdvanceEffect\0225\n\006effect\030\001 \001(\0132%.fl"
+    "ightstrips.cluster.v1.EffectRecord\"G\n\021Re"
+    "cordSessionSync\0222\n\004sync\030\001 \001(\0132$.flightst"
+    "rips.cluster.v1.SessionSync\"I\n\022ElectSess"
+    "ionMaster\0223\n\006master\030\001 \001(\0132#.flightstrips"
+    ".cluster.v1.MasterTermB)Z\'FlightStrips/p"
+    "kg/events/cluster;clusterb\006proto3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_wire_2eproto_deps[2] =
     {
@@ -4750,13 +4790,13 @@ static ::absl::once_flag descriptor_table_wire_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_wire_2eproto = {
     false,
     false,
-    19392,
+    19513,
     descriptor_table_protodef_wire_2eproto,
     "wire.proto",
     &descriptor_table_wire_2eproto_once,
     descriptor_table_wire_2eproto_deps,
     2,
-    116,
+    117,
     schemas,
     file_default_instances,
     TableStruct_wire_2eproto::offsets,
@@ -33317,6 +33357,19 @@ void SystemCommand::set_allocated_apply_pdc_provider_message(::flightstrips::clu
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SystemCommand.apply_pdc_provider_message)
 }
+void SystemCommand::set_allocated_request_squawk(::flightstrips::cluster::v1::RequestSquawk* request_squawk) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_action();
+  if (request_squawk) {
+    ::google::protobuf::Arena* submessage_arena = request_squawk->GetArena();
+    if (message_arena != submessage_arena) {
+      request_squawk = ::google::protobuf::internal::GetOwnedMessage(message_arena, request_squawk, submessage_arena);
+    }
+    set_has_request_squawk();
+    _impl_.action_.request_squawk_ = request_squawk;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SystemCommand.request_squawk)
+}
 SystemCommand::SystemCommand(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -33382,6 +33435,9 @@ SystemCommand::SystemCommand(
         break;
       case kApplyPdcProviderMessage:
         _impl_.action_.apply_pdc_provider_message_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ApplyPdcProviderMessage>(arena, *from._impl_.action_.apply_pdc_provider_message_);
+        break;
+      case kRequestSquawk:
+        _impl_.action_.request_squawk_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::RequestSquawk>(arena, *from._impl_.action_.request_squawk_);
         break;
   }
 
@@ -33498,6 +33554,12 @@ void SystemCommand::clear_action() {
       }
       break;
     }
+    case kRequestSquawk: {
+      if (GetArena() == nullptr) {
+        delete _impl_.action_.request_squawk_;
+      }
+      break;
+    }
     case ACTION_NOT_SET: {
       break;
     }
@@ -33539,16 +33601,16 @@ const char* SystemCommand::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 14, 14, 0, 2> SystemCommand::_table_ = {
+const ::_pbi::TcParseTable<0, 15, 15, 0, 2> SystemCommand::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    14, 0,  // max_field_number, fast_idx_mask
+    15, 0,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294950912,  // skipmap
+    4294934528,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    14,  // num_field_entries
-    14,  // num_aux_entries
+    15,  // num_field_entries
+    15,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_SystemCommand_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -33602,6 +33664,9 @@ const ::_pbi::TcParseTable<0, 14, 14, 0, 2> SystemCommand::_table_ = {
     // .flightstrips.cluster.v1.ApplyPdcProviderMessage apply_pdc_provider_message = 14;
     {PROTOBUF_FIELD_OFFSET(SystemCommand, _impl_.action_.apply_pdc_provider_message_), _Internal::kOneofCaseOffset + 0, 13,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.RequestSquawk request_squawk = 15;
+    {PROTOBUF_FIELD_OFFSET(SystemCommand, _impl_.action_.request_squawk_), _Internal::kOneofCaseOffset + 0, 14,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CreateSession>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::DeleteSession>()},
@@ -33617,6 +33682,7 @@ const ::_pbi::TcParseTable<0, 14, 14, 0, 2> SystemCommand::_table_ = {
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ElectSessionMaster>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ApplyAmanSession>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ApplyPdcProviderMessage>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::RequestSquawk>()},
   }}, {{
   }},
 };
@@ -33697,6 +33763,11 @@ const ::_pbi::TcParseTable<0, 14, 14, 0, 2> SystemCommand::_table_ = {
     case kApplyPdcProviderMessage: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           14, *_impl_.action_.apply_pdc_provider_message_, _impl_.action_.apply_pdc_provider_message_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kRequestSquawk: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          15, *_impl_.action_.request_squawk_, _impl_.action_.request_squawk_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -33802,6 +33873,12 @@ const ::_pbi::TcParseTable<0, 14, 14, 0, 2> SystemCommand::_table_ = {
     case kApplyPdcProviderMessage: {
       total_size +=
           1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.action_.apply_pdc_provider_message_);
+      break;
+    }
+    // .flightstrips.cluster.v1.RequestSquawk request_squawk = 15;
+    case kRequestSquawk: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.action_.request_squawk_);
       break;
     }
     case ACTION_NOT_SET: {
@@ -33955,6 +34032,15 @@ void SystemCommand::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::g
               ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ApplyPdcProviderMessage>(arena, *from._impl_.action_.apply_pdc_provider_message_);
         } else {
           _this->_impl_.action_.apply_pdc_provider_message_->MergeFrom(from._internal_apply_pdc_provider_message());
+        }
+        break;
+      }
+      case kRequestSquawk: {
+        if (oneof_needs_init) {
+          _this->_impl_.action_.request_squawk_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::RequestSquawk>(arena, *from._impl_.action_.request_squawk_);
+        } else {
+          _this->_impl_.action_.request_squawk_->MergeFrom(from._internal_request_squawk());
         }
         break;
       }
@@ -34490,6 +34576,232 @@ void CreateSession::InternalSwap(CreateSession* PROTOBUF_RESTRICT other) {
 }
 // ===================================================================
 
+class RequestSquawk::_Internal {
+ public:
+};
+
+RequestSquawk::RequestSquawk(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.RequestSquawk)
+}
+inline PROTOBUF_NDEBUG_INLINE RequestSquawk::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : callsign_(arena, from.callsign_),
+        target_cid_(arena, from.target_cid_),
+        _cached_size_{0} {}
+
+RequestSquawk::RequestSquawk(
+    ::google::protobuf::Arena* arena,
+    const RequestSquawk& from)
+    : ::google::protobuf::Message(arena) {
+  RequestSquawk* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.RequestSquawk)
+}
+inline PROTOBUF_NDEBUG_INLINE RequestSquawk::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : callsign_(arena),
+        target_cid_(arena),
+        _cached_size_{0} {}
+
+inline void RequestSquawk::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+RequestSquawk::~RequestSquawk() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.RequestSquawk)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void RequestSquawk::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.callsign_.Destroy();
+  _impl_.target_cid_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+RequestSquawk::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(RequestSquawk, _impl_._cached_size_),
+              false,
+          },
+          &RequestSquawk::MergeImpl,
+          &RequestSquawk::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void RequestSquawk::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.RequestSquawk)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.callsign_.ClearToEmpty();
+  _impl_.target_cid_.ClearToEmpty();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* RequestSquawk::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 64, 2> RequestSquawk::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_RequestSquawk_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::RequestSquawk>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string target_cid = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(RequestSquawk, _impl_.target_cid_)}},
+    // string callsign = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(RequestSquawk, _impl_.callsign_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string callsign = 1;
+    {PROTOBUF_FIELD_OFFSET(RequestSquawk, _impl_.callsign_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string target_cid = 2;
+    {PROTOBUF_FIELD_OFFSET(RequestSquawk, _impl_.target_cid_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\45\10\12\0\0\0\0\0"
+    "flightstrips.cluster.v1.RequestSquawk"
+    "callsign"
+    "target_cid"
+  }},
+};
+
+::uint8_t* RequestSquawk::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.RequestSquawk)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.RequestSquawk.callsign");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string target_cid = 2;
+  if (!this->_internal_target_cid().empty()) {
+    const std::string& _s = this->_internal_target_cid();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.RequestSquawk.target_cid");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.RequestSquawk)
+  return target;
+}
+
+::size_t RequestSquawk::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.RequestSquawk)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // string target_cid = 2;
+  if (!this->_internal_target_cid().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_target_cid());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void RequestSquawk::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<RequestSquawk*>(&to_msg);
+  auto& from = static_cast<const RequestSquawk&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.RequestSquawk)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  if (!from._internal_target_cid().empty()) {
+    _this->_internal_set_target_cid(from._internal_target_cid());
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void RequestSquawk::CopyFrom(const RequestSquawk& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.RequestSquawk)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool RequestSquawk::IsInitialized() const {
+  return true;
+}
+
+void RequestSquawk::InternalSwap(RequestSquawk* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.target_cid_, &other->_impl_.target_cid_, arena);
+}
+
+::google::protobuf::Metadata RequestSquawk::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
+                                   &descriptor_table_wire_2eproto_once,
+                                   file_level_metadata_wire_2eproto[104]);
+}
+// ===================================================================
+
 class DeleteSession::_Internal {
  public:
 };
@@ -34709,7 +35021,7 @@ void DeleteSession::InternalSwap(DeleteSession* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata DeleteSession::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[104]);
+                                   file_level_metadata_wire_2eproto[105]);
 }
 // ===================================================================
 
@@ -34961,7 +35273,7 @@ void UpdateEntity::InternalSwap(UpdateEntity* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata UpdateEntity::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[105]);
+                                   file_level_metadata_wire_2eproto[106]);
 }
 // ===================================================================
 
@@ -35184,7 +35496,7 @@ void RemoveEntity::InternalSwap(RemoveEntity* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata RemoveEntity::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[106]);
+                                   file_level_metadata_wire_2eproto[107]);
 }
 // ===================================================================
 
@@ -35410,7 +35722,7 @@ void SetPositionLayout::InternalSwap(SetPositionLayout* PROTOBUF_RESTRICT other)
 ::google::protobuf::Metadata SetPositionLayout::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[107]);
+                                   file_level_metadata_wire_2eproto[108]);
 }
 // ===================================================================
 
@@ -35606,7 +35918,7 @@ void ReplaceSectorOwners::InternalSwap(ReplaceSectorOwners* PROTOBUF_RESTRICT ot
 ::google::protobuf::Metadata ReplaceSectorOwners::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[108]);
+                                   file_level_metadata_wire_2eproto[109]);
 }
 // ===================================================================
 
@@ -35825,7 +36137,7 @@ void ClaimOwner::InternalSwap(ClaimOwner* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata ClaimOwner::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[109]);
+                                   file_level_metadata_wire_2eproto[110]);
 }
 // ===================================================================
 
@@ -36044,7 +36356,7 @@ void RenewOwner::InternalSwap(RenewOwner* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata RenewOwner::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[110]);
+                                   file_level_metadata_wire_2eproto[111]);
 }
 // ===================================================================
 
@@ -36263,7 +36575,7 @@ void AdvanceWorkflow::InternalSwap(AdvanceWorkflow* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AdvanceWorkflow::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[111]);
+                                   file_level_metadata_wire_2eproto[112]);
 }
 // ===================================================================
 
@@ -36619,7 +36931,7 @@ void ApplyAmanSession::InternalSwap(ApplyAmanSession* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata ApplyAmanSession::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[112]);
+                                   file_level_metadata_wire_2eproto[113]);
 }
 // ===================================================================
 
@@ -36838,7 +37150,7 @@ void AdvanceEffect::InternalSwap(AdvanceEffect* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AdvanceEffect::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[113]);
+                                   file_level_metadata_wire_2eproto[114]);
 }
 // ===================================================================
 
@@ -37057,7 +37369,7 @@ void RecordSessionSync::InternalSwap(RecordSessionSync* PROTOBUF_RESTRICT other)
 ::google::protobuf::Metadata RecordSessionSync::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[114]);
+                                   file_level_metadata_wire_2eproto[115]);
 }
 // ===================================================================
 
@@ -37276,7 +37588,7 @@ void ElectSessionMaster::InternalSwap(ElectSessionMaster* PROTOBUF_RESTRICT othe
 ::google::protobuf::Metadata ElectSessionMaster::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_wire_2eproto_getter,
                                    &descriptor_table_wire_2eproto_once,
-                                   file_level_metadata_wire_2eproto[115]);
+                                   file_level_metadata_wire_2eproto[116]);
 }
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace v1

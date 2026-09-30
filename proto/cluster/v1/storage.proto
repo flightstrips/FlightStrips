@@ -114,6 +114,7 @@ enum EntityKind {
   SESSION_DEADLINE = 29;
   VATSIM_SESSION_CURSOR = 30;
   PDC_PROVIDER_MESSAGE = 31;
+  SESSION_SQUAWK_THROTTLE = 32;
 }
 message EntityRecord {
   oneof value {
@@ -148,6 +149,7 @@ message EntityRecord {
     SessionDeadline session_deadline = 29;
     VatsimSessionCursor vatsim_session_cursor = 30;
     PdcProviderMessage pdc_provider_message = 31;
+    SessionSquawkThrottle session_squawk_throttle = 32;
   }
 }
 
@@ -795,6 +797,7 @@ message EffectRecord {
     CoordinationEffect coordination = 10;
     CdmEffect cdm = 11;
     AmanHoldingEatEffect aman_holding_eat = 16;
+    GenerateSquawkEffect generate_squawk = 17;
   }
   google.protobuf.Timestamp dispatch_deadline = 12;
   optional google.protobuf.Timestamp result_deadline = 13;
@@ -802,6 +805,11 @@ message EffectRecord {
   string reason_code = 15;
 }
 message SetFlightPlanEffect { string callsign = 1; string field = 2; string value = 3; }
+message GenerateSquawkEffect { string callsign = 1; }
+message SessionSquawkThrottle {
+  int32 session_id = 1;
+  google.protobuf.Timestamp next_allowed_at = 2;
+}
 message PdcEffect {
   string callsign = 1; string action = 2; string clearance = 3;
   optional bool cleared = 4; optional string state = 5; optional string remarks = 6;

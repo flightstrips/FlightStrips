@@ -1,11 +1,11 @@
 # Task 18b CDM and traffic acceptance
 
 Candidate branch: `codex/multi-node-nats-18b-cdm-traffic`, based on
-`origin/codex/multi-node-nats-base` at `5fd4c62e` (including the requested
-`f5fa8bce`, Task 19c transceiver and merged Task 18a). This is dormant candidate
+`origin/codex/multi-node-nats-base` at `0e67b37f` (including the requested
+`f5fa8bce`, Task 19c transceiver and merged Tasks 18a/18c). This is dormant candidate
 work under [Task 18's release boundary](18-session-workers.md). App startup,
-SQL runtime and ALB transport are unchanged. Integrate with 18a/18c before
-Task 20 binding; release remains held until Task 24.
+SQL runtime and ALB transport are unchanged. Task 20 binds the combined
+candidates; release remains held until Task 24.
 
 ## Concrete binding checklist
 
@@ -92,10 +92,19 @@ acceptance remain required before cutover.
 
 Local checks passed: all backend Go packages (Docker Desktop endpoint supplied
 for existing PostgreSQL tests); 81 browser command/projection tests;
-TypeScript project compilation; 293 binary oneof and 288 optional-zero
+TypeScript project compilation; 296 binary oneof and 288 optional-zero
 cross-language contract fixtures. The first broad Go invocation used the
 Windows default Docker discovery and failed with “rootless Docker is not
 supported”; the configured Docker Desktop endpoint resolves that host setup
 failure. Full EuroScope C++ compilation and live vIFF integration are not part
 of these local checks; the transport fixture exercises actual owner policy and
 durable adapters, without making operational provider calls.
+
+After merging Task 18c at `0e67b37f`, the complete backend suite, 81 browser
+tests, TypeScript compilation and regenerated contract checks passed again.
+The independent three-server fixture also passed
+`TestCdmCandidateTwoReplicaLocalSequenceDebounceAndTakeover`,
+`TestTrafficCandidateTwoReplicaNATS` and
+`TestDeadlineBinarySharedCoverageReconnectAndReconciliation` against the
+combined branch. These focused checks preserve both tasks' deadline behavior;
+Task 20 runtime binding remains separate.

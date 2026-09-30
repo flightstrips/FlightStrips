@@ -37,6 +37,7 @@ The subject/key is validated against decoded identity before apply. The `ObjectV
 | `AmanFlight` | airport | uppercase callsign |
 | `AmanCoordination`, `AmanAudit`, `AmanValidation`, `VatsimObservation` | airport | their ID/provider ID |
 | `Session` | session | decimal session ID |
+| `SessionSquawkThrottle` | session | decimal session ID (typed index distinct from Session) |
 | `Controller` | session | CID |
 | `SectorOwner` | session | uppercase sector ID |
 | `Strip`, `PdcSequence`, `CdmState`, `EcfmpState`, `ClxOverride` | session | uppercase callsign; CLX appends dot and override key |
@@ -216,3 +217,26 @@ Task 18a/18c reservations remain untouched. Traffic adds no stored entity.
 - New `.proto` field numbers never reuse removed numbers; deleted fields and enum values become `reserved`. Existing EuroScope cases 1–52 are immutable. A new durable writer is enabled only after all readers understand its field numbers and semantics. Unknown durable fields make an old reader unready rather than corrupting a snapshot.
 - Generated Go, TS and C++ bindings are produced from the same schema commit. Do not hand-maintain parallel TS unions or duplicate schema structs. CI compiles descriptors, checks generated files, scans owned transport/storage code for JSON serialization, and round-trips each oneof case and optional/zero boundary.
 - Redaction is by typed field: bearer token never appears in events/snapshots; private-message plaintext is only in an authenticated encrypted effect object and is removed 24 hours after terminal outcome. Diagnostic logs print IDs/status and never log Protobuf payloads wholesale.
+
+Task 18c reserves enum/entity case 32 for `SessionSquawkThrottle`, system
+command case 15 for `RequestSquawk`, and effect payload case 17 for
+`GenerateSquawkEffect`. Throttle cannot be written by `domain_changed`; replay
+materializes it atomically with a valid DISPATCH_CLAIMED event, with
+`next_allowed_at` equal to that message's JetStream server timestamp plus five
+seconds. Snapshot recovery validates its session identity and timestamp.
+WAITING squawk effects are the queue, ordered by the accepted command outcome's
+committed stream sequence, then UUID. CID stays immutable; claimed socket
+connection is an exact delivery precondition. Assigned squawk/removal cancels
+waiting work; claim ambiguity becomes UNKNOWN and is never requeued.
+
+EuroScope's controller API exposes callsign/frequency without CID. Its reports
+are scalar `WorkflowRecord` observations with stable session/callsign UUID,
+step `euroscope-controller/<callsign>/<frequency>` and source revision equal
+to the accepted master epoch. PENDING means reported online; COMPLETED means
+reported offline. Only reports from the currently live synced master augment
+shared coverage. Authenticated `Controller` records retain real CID keys;
+network-only reports cannot authorize commands or target effects. Offline
+reports schedule a controller deadline whose source is the authenticated
+controller revision, or master epoch when no CID record exists. Aircraft
+disconnect sources are accepted FS_POSITIONS tombstone KV revisions; session
+update/disconnect sources are session entity revisions.

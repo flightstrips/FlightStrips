@@ -190,3 +190,34 @@ cleared-flag reset use deferred revision-checked effects under the same target.
 A web PDC request keeps `callsign`, `aircraft_type`, `atis`, `stand`, and `remarks` in its JSON body. The typed `IssuePdc` action carries each value in a separate field, and `PdcSequence` retains the request fields plus clearance text and acknowledgment time for JSON reads. The command outcome retains the original aggregate and expected entity revision so an HTTP retry can rebuild the same typed request after the first commit; the ledger still compares its canonical typed hash. Pilot outcome identity is the authenticated CID, with session ID on the stored actor. The outcome query uses that CID across sessions. Provider callbacks derive a stable UUID from their provider event identity; a Hoppie frame without a separate ID uses its complete provider frame digest.
 
 The EFB TOBT JSON `HHMM` value uses typed `SetTobt.hhmm_utc`; the owner resolves its operational UTC date from the strip, avoiding a changed command hash on a retry across midnight.
+
+## Task 18c socket scheduling and squawks
+
+A socket backend forwards one original binary EuroScope Envelope to the
+accepted owner on `fs.v1.euroscope.<node-id>`. Routing headers `FS-Session`,
+`FS-Connection` and `FS-CID` contain its authenticated identities, rechecked
+against fresh shared presence and envelope generations by the owner. Reply is
+binary `EffectDeliveryReply`; an ambiguous admission requires sync, without a
+blind observation retry. No JSON or opaque stored operation payload is used.
+
+The concrete deadline candidate persists controller updates, offline deadlines,
+session debounce and master deadline rearm in the accepted owner transition.
+Shared socket liveness and typed position tombstones repair scheduling after a
+crash. Newer controller/strip/position observations invalidate prior deadlines.
+The aircraft expiry command holds the same owner position dispatcher barrier
+as lifecycle changes. Concrete retention consumes accepted VATSIM generation,
+session cursor and protected lifecycle/occupancy state. Missing/stale source
+fails closed. Concrete reconciliation uses the existing sector, layout and
+pure route policy, translating route frequencies to authenticated controller
+CIDs and preserving coordination and controller edits.
+
+Automatic `SystemCommand.request_squawk` is restricted to the internal
+`euroscope-squawk` actor. The typed browser GenerateSquawk follows current
+controller authorization and strip revision rules. Admission selects one live
+operational CID and stores it on the typed effect. Different UUIDs for a waiting
+callsign receive `SQUAWK_ALREADY_PENDING`; identical requests use the durable
+ledger. The reducer rechecks queue ordering, strip existence/valid squawk and
+throttle at JetStream server time while committing a dispatch claim and throttle
+atomically. Every delivery and result uses Task 17's exact-generation and
+UNKNOWN rules. Automatic intent IDs include the accepted observation timestamp;
+recovery cannot recreate an accepted intent after uncertainty.

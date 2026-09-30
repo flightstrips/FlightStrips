@@ -209,7 +209,14 @@ func (p SessionWorkerPlanner) planDeadline(ctx context.Context, req *pb.CommandR
 			if err != nil {
 				return nil, pb.CommandReply_UNAVAILABLE, old.Revision, err
 			}
-			if !retained {
+			if retained {
+				strip := state.Indexes[pb.EntityKind_STRIP][d.Callsign]
+				if strip != nil && strip.Value.GetStrip().EuroscopeObservedAt != nil {
+					copy := proto.Clone(strip.Value.GetStrip()).(*pb.Strip)
+					copy.EuroscopeObservedAt = nil
+					changes = append(changes, stripChange(strip, copy))
+				}
+			} else {
 				strip := state.Indexes[pb.EntityKind_STRIP][d.Callsign]
 				if strip != nil {
 					copy := proto.Clone(req).(*pb.CommandRequest)
@@ -236,6 +243,19 @@ func (p SessionWorkerPlanner) planDeadline(ctx context.Context, req *pb.CommandR
 func (p SessionWorkerPlanner) controllerPresent(id int32, callsign string) (bool, error) {
 	if p.Projection == nil {
 		return false, fmt.Errorf("session presence unavailable")
+	}
+	state, err := p.Projection.Read(sessionRef(id))
+	if err != nil {
+		return false, err
+	}
+	shared, err := SharedEuroScopeControllers(p.Projection, state, p.clock())
+	if err != nil {
+		return false, err
+	}
+	for _, controller := range shared {
+		if controller.Callsign == callsign {
+			return true, nil
+		}
 	}
 	_, entries, err := p.Projection.ObservationSnapshot(id)
 	if err != nil {

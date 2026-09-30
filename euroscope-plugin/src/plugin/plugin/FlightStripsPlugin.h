@@ -1,4 +1,6 @@
 #pragma once
+#include <functional>
+#include <cstdint>
 
 #ifndef COPYRIGHTS
 #define PLUGIN_NAME "FlightStrips"
@@ -93,12 +95,19 @@ namespace FlightStrips {
         std::vector<Sid> GetSids(const std::string& airport) override;
 
         void AddNeedsSquawk(const std::string &callsign);
+        void AddSquawkCommand(const std::string& callsign, const std::string& commandId,
+                             int sessionId, uint64_t ownerEpoch, uint64_t masterEpoch);
+        void DispatchNeedsSquawk(const std::function<void(const std::string&)>& dispatch);
         std::optional<std::string> GetNeedsSquawk();
 
     private:
         struct PendingSquawkRequest {
             std::string callsign;
             std::chrono::steady_clock::time_point requestedAt;
+            std::string commandId;
+            int sessionId = 0;
+            uint64_t ownerEpoch = 0;
+            uint64_t masterEpoch = 0;
         };
 
         const std::shared_ptr<handlers::FlightPlanEventHandlers> m_flightPlanEventHandlerCollection;

@@ -311,6 +311,9 @@ extern RenewOwnerDefaultTypeInternal _RenewOwner_default_instance_;
 class ReplaceSectorOwners;
 struct ReplaceSectorOwnersDefaultTypeInternal;
 extern ReplaceSectorOwnersDefaultTypeInternal _ReplaceSectorOwners_default_instance_;
+class RequestSquawk;
+struct RequestSquawkDefaultTypeInternal;
+extern RequestSquawkDefaultTypeInternal _RequestSquawk_default_instance_;
 class RevertPdcToVoice;
 struct RevertPdcToVoiceDefaultTypeInternal;
 extern RevertPdcToVoiceDefaultTypeInternal _RevertPdcToVoice_default_instance_;
@@ -2667,7 +2670,7 @@ class SetPositionLayout final : public ::google::protobuf::Message
     return reinterpret_cast<const SetPositionLayout*>(
         &_SetPositionLayout_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 107;
+  static constexpr int kIndexInFileMessages = 108;
   friend void swap(SetPositionLayout& a, SetPositionLayout& b) { a.Swap(&b); }
   inline void Swap(SetPositionLayout* other) {
     if (other == this) return;
@@ -3949,6 +3952,197 @@ class RevertPdcToVoice final : public ::google::protobuf::internal::ZeroFieldsBa
 };
 // -------------------------------------------------------------------
 
+class RequestSquawk final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.RequestSquawk) */ {
+ public:
+  inline RequestSquawk() : RequestSquawk(nullptr) {}
+  ~RequestSquawk() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR RequestSquawk(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline RequestSquawk(const RequestSquawk& from) : RequestSquawk(nullptr, from) {}
+  inline RequestSquawk(RequestSquawk&& from) noexcept
+      : RequestSquawk(nullptr, std::move(from)) {}
+  inline RequestSquawk& operator=(const RequestSquawk& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline RequestSquawk& operator=(RequestSquawk&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const RequestSquawk& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const RequestSquawk* internal_default_instance() {
+    return reinterpret_cast<const RequestSquawk*>(
+        &_RequestSquawk_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 104;
+  friend void swap(RequestSquawk& a, RequestSquawk& b) { a.Swap(&b); }
+  inline void Swap(RequestSquawk* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(RequestSquawk* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  RequestSquawk* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<RequestSquawk>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const RequestSquawk& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const RequestSquawk& from) { RequestSquawk::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(RequestSquawk* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.RequestSquawk"; }
+
+ protected:
+  explicit RequestSquawk(::google::protobuf::Arena* arena);
+  RequestSquawk(::google::protobuf::Arena* arena, const RequestSquawk& from);
+  RequestSquawk(::google::protobuf::Arena* arena, RequestSquawk&& from) noexcept
+      : RequestSquawk(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCallsignFieldNumber = 1,
+    kTargetCidFieldNumber = 2,
+  };
+  // string callsign = 1;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string target_cid = 2;
+  void clear_target_cid() ;
+  const std::string& target_cid() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_target_cid(Arg_&& arg, Args_... args);
+  std::string* mutable_target_cid();
+  PROTOBUF_NODISCARD std::string* release_target_cid();
+  void set_allocated_target_cid(std::string* value);
+
+  private:
+  const std::string& _internal_target_cid() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_target_cid(
+      const std::string& value);
+  std::string* _internal_mutable_target_cid();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.RequestSquawk)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 2, 0,
+      64, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr target_cid_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
 class RemoveStandBlock final : public ::google::protobuf::internal::ZeroFieldsBase
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.RemoveStandBlock) */ {
  public:
@@ -4132,7 +4326,7 @@ class RemoveEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const RemoveEntity*>(
         &_RemoveEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 106;
+  static constexpr int kIndexInFileMessages = 107;
   friend void swap(RemoveEntity& a, RemoveEntity& b) { a.Swap(&b); }
   inline void Swap(RemoveEntity* other) {
     if (other == this) return;
@@ -7149,7 +7343,7 @@ class DeleteSession final : public ::google::protobuf::Message
     return reinterpret_cast<const DeleteSession*>(
         &_DeleteSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 104;
+  static constexpr int kIndexInFileMessages = 105;
   friend void swap(DeleteSession& a, DeleteSession& b) { a.Swap(&b); }
   inline void Swap(DeleteSession* other) {
     if (other == this) return;
@@ -13276,7 +13470,7 @@ class ReplaceSectorOwners final : public ::google::protobuf::Message
     return reinterpret_cast<const ReplaceSectorOwners*>(
         &_ReplaceSectorOwners_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 108;
+  static constexpr int kIndexInFileMessages = 109;
   friend void swap(ReplaceSectorOwners& a, ReplaceSectorOwners& b) { a.Swap(&b); }
   inline void Swap(ReplaceSectorOwners* other) {
     if (other == this) return;
@@ -14132,7 +14326,7 @@ class ElectSessionMaster final : public ::google::protobuf::Message
     return reinterpret_cast<const ElectSessionMaster*>(
         &_ElectSessionMaster_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 115;
+  static constexpr int kIndexInFileMessages = 116;
   friend void swap(ElectSessionMaster& a, ElectSessionMaster& b) { a.Swap(&b); }
   inline void Swap(ElectSessionMaster* other) {
     if (other == this) return;
@@ -19014,7 +19208,7 @@ class RenewOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const RenewOwner*>(
         &_RenewOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 110;
+  static constexpr int kIndexInFileMessages = 111;
   friend void swap(RenewOwner& a, RenewOwner& b) { a.Swap(&b); }
   inline void Swap(RenewOwner* other) {
     if (other == this) return;
@@ -19187,7 +19381,7 @@ class RecordSessionSync final : public ::google::protobuf::Message
     return reinterpret_cast<const RecordSessionSync*>(
         &_RecordSessionSync_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 114;
+  static constexpr int kIndexInFileMessages = 115;
   friend void swap(RecordSessionSync& a, RecordSessionSync& b) { a.Swap(&b); }
   inline void Swap(RecordSessionSync* other) {
     if (other == this) return;
@@ -20057,7 +20251,7 @@ class ClaimOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const ClaimOwner*>(
         &_ClaimOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 109;
+  static constexpr int kIndexInFileMessages = 110;
   friend void swap(ClaimOwner& a, ClaimOwner& b) { a.Swap(&b); }
   inline void Swap(ClaimOwner* other) {
     if (other == this) return;
@@ -21802,7 +21996,7 @@ class AdvanceEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceEffect*>(
         &_AdvanceEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 113;
+  static constexpr int kIndexInFileMessages = 114;
   friend void swap(AdvanceEffect& a, AdvanceEffect& b) { a.Swap(&b); }
   inline void Swap(AdvanceEffect* other) {
     if (other == this) return;
@@ -22981,7 +23175,7 @@ class ApplyAmanSession final : public ::google::protobuf::Message
     return reinterpret_cast<const ApplyAmanSession*>(
         &_ApplyAmanSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 112;
+  static constexpr int kIndexInFileMessages = 113;
   friend void swap(ApplyAmanSession& a, ApplyAmanSession& b) { a.Swap(&b); }
   inline void Swap(ApplyAmanSession* other) {
     if (other == this) return;
@@ -23203,7 +23397,7 @@ class AdvanceWorkflow final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceWorkflow*>(
         &_AdvanceWorkflow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 111;
+  static constexpr int kIndexInFileMessages = 112;
   friend void swap(AdvanceWorkflow& a, AdvanceWorkflow& b) { a.Swap(&b); }
   inline void Swap(AdvanceWorkflow* other) {
     if (other == this) return;
@@ -23580,7 +23774,7 @@ class UpdateEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const UpdateEntity*>(
         &_UpdateEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 105;
+  static constexpr int kIndexInFileMessages = 106;
   friend void swap(UpdateEntity& a, UpdateEntity& b) { a.Swap(&b); }
   inline void Swap(UpdateEntity* other) {
     if (other == this) return;
@@ -23782,6 +23976,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kElectSessionMaster = 12,
     kApplyAmanSession = 13,
     kApplyPdcProviderMessage = 14,
+    kRequestSquawk = 15,
     ACTION_NOT_SET = 0,
   };
   static inline const SystemCommand* internal_default_instance() {
@@ -23872,6 +24067,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kElectSessionMasterFieldNumber = 12,
     kApplyAmanSessionFieldNumber = 13,
     kApplyPdcProviderMessageFieldNumber = 14,
+    kRequestSquawkFieldNumber = 15,
   };
   // .flightstrips.cluster.v1.CreateSession create_session = 1;
   bool has_create_session() const;
@@ -24139,6 +24335,25 @@ class SystemCommand final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::ApplyPdcProviderMessage* _internal_mutable_apply_pdc_provider_message();
 
   public:
+  // .flightstrips.cluster.v1.RequestSquawk request_squawk = 15;
+  bool has_request_squawk() const;
+  private:
+  bool _internal_has_request_squawk() const;
+
+  public:
+  void clear_request_squawk() ;
+  const ::flightstrips::cluster::v1::RequestSquawk& request_squawk() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::RequestSquawk* release_request_squawk();
+  ::flightstrips::cluster::v1::RequestSquawk* mutable_request_squawk();
+  void set_allocated_request_squawk(::flightstrips::cluster::v1::RequestSquawk* value);
+  void unsafe_arena_set_allocated_request_squawk(::flightstrips::cluster::v1::RequestSquawk* value);
+  ::flightstrips::cluster::v1::RequestSquawk* unsafe_arena_release_request_squawk();
+
+  private:
+  const ::flightstrips::cluster::v1::RequestSquawk& _internal_request_squawk() const;
+  ::flightstrips::cluster::v1::RequestSquawk* _internal_mutable_request_squawk();
+
+  public:
   void clear_action();
   ActionCase action_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.SystemCommand)
@@ -24158,11 +24373,12 @@ class SystemCommand final : public ::google::protobuf::Message
   void set_has_elect_session_master();
   void set_has_apply_aman_session();
   void set_has_apply_pdc_provider_message();
+  void set_has_request_squawk();
   inline bool has_action() const;
   inline void clear_has_action();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 14, 14,
+      0, 15, 15,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -24195,6 +24411,7 @@ class SystemCommand final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::ElectSessionMaster* elect_session_master_;
       ::flightstrips::cluster::v1::ApplyAmanSession* apply_aman_session_;
       ::flightstrips::cluster::v1::ApplyPdcProviderMessage* apply_pdc_provider_message_;
+      ::flightstrips::cluster::v1::RequestSquawk* request_squawk_;
     } action_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -47795,6 +48012,83 @@ inline ::flightstrips::cluster::v1::ApplyPdcProviderMessage* SystemCommand::muta
   return _msg;
 }
 
+// .flightstrips.cluster.v1.RequestSquawk request_squawk = 15;
+inline bool SystemCommand::has_request_squawk() const {
+  return action_case() == kRequestSquawk;
+}
+inline bool SystemCommand::_internal_has_request_squawk() const {
+  return action_case() == kRequestSquawk;
+}
+inline void SystemCommand::set_has_request_squawk() {
+  _impl_._oneof_case_[0] = kRequestSquawk;
+}
+inline void SystemCommand::clear_request_squawk() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kRequestSquawk) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.request_squawk_;
+    }
+    clear_has_action();
+  }
+}
+inline ::flightstrips::cluster::v1::RequestSquawk* SystemCommand::release_request_squawk() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SystemCommand.request_squawk)
+  if (action_case() == kRequestSquawk) {
+    clear_has_action();
+    auto* temp = _impl_.action_.request_squawk_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.request_squawk_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::RequestSquawk& SystemCommand::_internal_request_squawk() const {
+  return action_case() == kRequestSquawk ? *_impl_.action_.request_squawk_ : reinterpret_cast<::flightstrips::cluster::v1::RequestSquawk&>(::flightstrips::cluster::v1::_RequestSquawk_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::RequestSquawk& SystemCommand::request_squawk() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SystemCommand.request_squawk)
+  return _internal_request_squawk();
+}
+inline ::flightstrips::cluster::v1::RequestSquawk* SystemCommand::unsafe_arena_release_request_squawk() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.SystemCommand.request_squawk)
+  if (action_case() == kRequestSquawk) {
+    clear_has_action();
+    auto* temp = _impl_.action_.request_squawk_;
+    _impl_.action_.request_squawk_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void SystemCommand::unsafe_arena_set_allocated_request_squawk(::flightstrips::cluster::v1::RequestSquawk* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_request_squawk();
+    _impl_.action_.request_squawk_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.SystemCommand.request_squawk)
+}
+inline ::flightstrips::cluster::v1::RequestSquawk* SystemCommand::_internal_mutable_request_squawk() {
+  if (action_case() != kRequestSquawk) {
+    clear_action();
+    set_has_request_squawk();
+    _impl_.action_.request_squawk_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::RequestSquawk>(GetArena());
+  }
+  return _impl_.action_.request_squawk_;
+}
+inline ::flightstrips::cluster::v1::RequestSquawk* SystemCommand::mutable_request_squawk() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::RequestSquawk* _msg = _internal_mutable_request_squawk();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SystemCommand.request_squawk)
+  return _msg;
+}
+
 inline bool SystemCommand::has_action() const {
   return action_case() != ACTION_NOT_SET;
 }
@@ -48073,6 +48367,110 @@ inline void CreateSession::set_allocated_workflow_id(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.CreateSession.workflow_id)
+}
+
+// -------------------------------------------------------------------
+
+// RequestSquawk
+
+// string callsign = 1;
+inline void RequestSquawk::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& RequestSquawk::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.RequestSquawk.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void RequestSquawk::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.RequestSquawk.callsign)
+}
+inline std::string* RequestSquawk::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.RequestSquawk.callsign)
+  return _s;
+}
+inline const std::string& RequestSquawk::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void RequestSquawk::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* RequestSquawk::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* RequestSquawk::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.RequestSquawk.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void RequestSquawk::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.RequestSquawk.callsign)
+}
+
+// string target_cid = 2;
+inline void RequestSquawk::clear_target_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.target_cid_.ClearToEmpty();
+}
+inline const std::string& RequestSquawk::target_cid() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.RequestSquawk.target_cid)
+  return _internal_target_cid();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void RequestSquawk::set_target_cid(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.target_cid_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.RequestSquawk.target_cid)
+}
+inline std::string* RequestSquawk::mutable_target_cid() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_target_cid();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.RequestSquawk.target_cid)
+  return _s;
+}
+inline const std::string& RequestSquawk::_internal_target_cid() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.target_cid_.Get();
+}
+inline void RequestSquawk::_internal_set_target_cid(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.target_cid_.Set(value, GetArena());
+}
+inline std::string* RequestSquawk::_internal_mutable_target_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.target_cid_.Mutable( GetArena());
+}
+inline std::string* RequestSquawk::release_target_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.RequestSquawk.target_cid)
+  return _impl_.target_cid_.Release();
+}
+inline void RequestSquawk::set_allocated_target_cid(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.target_cid_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.target_cid_.IsDefault()) {
+          _impl_.target_cid_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.RequestSquawk.target_cid)
 }
 
 // -------------------------------------------------------------------

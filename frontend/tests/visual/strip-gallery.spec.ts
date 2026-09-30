@@ -19,6 +19,11 @@ const STRIP_TYPES = [
   "message",
 ] as const;
 
+test.beforeEach(async ({ page }) => {
+  // Keep the fixture's 13:25 TOBT / 13:31 TSAT in the overdue state captured by the snapshots.
+  await page.clock.setFixedTime(new Date("2026-08-16T14:00:00Z"));
+});
+
 test("tactical SI cells stay square at different viewport shapes", async ({ page }) => {
   for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }, { width: 2560, height: 1080 }]) {
     await page.setViewportSize(viewport);

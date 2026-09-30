@@ -79,11 +79,39 @@ func (s Effects) Sweep(ctx context.Context) error {
 		for id := range state.Effects {
 			ids = append(ids, id)
 		}
-		sort.Strings(ids)
+		sort.Slice(ids, func(i, j int) bool {
+			left, right := state.Effects[ids[i]], state.Effects[ids[j]]
+			if left.GetGenerateSquawk() != nil && right.GetGenerateSquawk() != nil {
+				ls, rs := state.Ledger[ids[i]].GetCommittedStreamSequence(), state.Ledger[ids[j]].GetCommittedStreamSequence()
+				if ls != rs {
+					return ls < rs
+				}
+			}
+			// Keep squawk queue entries together to preserve comparator transitivity.
+			if (left.GetGenerateSquawk() != nil) != (right.GetGenerateSquawk() != nil) {
+				return left.GetGenerateSquawk() != nil
+			}
+			return ids[i] < ids[j]
+		})
 		for _, id := range ids {
 			effect := state.Effects[id]
 			switch effect.Status {
 			case pb.EffectRecord_WAITING:
+				if squawk := effect.GetGenerateSquawk(); squawk != nil {
+					fresh, err := s.Owner.Projection.Read(ref)
+					if err != nil {
+						return err
+					}
+					strip := fresh.Indexes[pb.EntityKind_STRIP][squawk.Callsign].GetValue().GetStrip()
+					if strip == nil || ValidAssignedSquawk(strip.AssignedSquawk) {
+						reason := "SQUAWK_ASSIGNED"
+						if strip == nil {
+							reason = "STRIP_REMOVED"
+						}
+						_, _ = s.advance(ctx, ref, effect, pb.EffectRecord_FAILED, "", reason)
+						continue
+					}
+				}
 				if effect.DispatchDeadline == nil {
 					return fmt.Errorf("effect has no dispatch deadline")
 				}
@@ -92,7 +120,7 @@ func (s Effects) Sweep(ctx context.Context) error {
 					continue
 				}
 				client, err := s.selectTarget(ref.GetSession().Id, effect.TargetCid)
-				if err != nil || client == nil {
+				if err != nil || client == nil || effect.GetGenerateSquawk() != nil && client.Observer {
 					continue
 				}
 				claimed, err := s.advance(ctx, ref, effect, pb.EffectRecord_DISPATCH_CLAIMED, client.ConnectionId, "")
@@ -161,6 +189,9 @@ func (s Effects) advance(ctx context.Context, ref *pb.AggregateRef, prior *pb.Ef
 	next := proto.Clone(current).(*pb.EffectRecord)
 	next.Status, next.ReasonCode = status, reason
 	if status == pb.EffectRecord_DISPATCH_CLAIMED {
+		if err := squawkClaimAllowed(state, current, time.Now().UTC()); err != nil {
+			return nil, err
+		}
 		if connectionID == "" || state.Owner == nil {
 			return nil, fmt.Errorf("effect target or owner missing")
 		}

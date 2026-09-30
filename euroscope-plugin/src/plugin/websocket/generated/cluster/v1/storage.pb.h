@@ -353,6 +353,9 @@ extern EntitySnapshotDefaultTypeInternal _EntitySnapshot_default_instance_;
 class FrontendMessage;
 struct FrontendMessageDefaultTypeInternal;
 extern FrontendMessageDefaultTypeInternal _FrontendMessage_default_instance_;
+class GenerateSquawkEffect;
+struct GenerateSquawkEffectDefaultTypeInternal;
+extern GenerateSquawkEffectDefaultTypeInternal _GenerateSquawkEffect_default_instance_;
 class GlobalRef;
 struct GlobalRefDefaultTypeInternal;
 extern GlobalRefDefaultTypeInternal _GlobalRef_default_instance_;
@@ -524,6 +527,9 @@ extern SessionRefDefaultTypeInternal _SessionRef_default_instance_;
 class SessionRegistry;
 struct SessionRegistryDefaultTypeInternal;
 extern SessionRegistryDefaultTypeInternal _SessionRegistry_default_instance_;
+class SessionSquawkThrottle;
+struct SessionSquawkThrottleDefaultTypeInternal;
+extern SessionSquawkThrottleDefaultTypeInternal _SessionSquawkThrottle_default_instance_;
 class SessionSync;
 struct SessionSyncDefaultTypeInternal;
 extern SessionSyncDefaultTypeInternal _SessionSync_default_instance_;
@@ -903,6 +909,7 @@ enum EntityKind : int {
   WEATHER_CACHE = 28,
   SESSION_DEADLINE = 29,
   VATSIM_SESSION_CURSOR = 30,
+  SESSION_SQUAWK_THROTTLE = 32,
   EntityKind_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   EntityKind_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -912,8 +919,8 @@ enum EntityKind : int {
 bool EntityKind_IsValid(int value);
 extern const uint32_t EntityKind_internal_data_[];
 constexpr EntityKind EntityKind_MIN = static_cast<EntityKind>(0);
-constexpr EntityKind EntityKind_MAX = static_cast<EntityKind>(30);
-constexpr int EntityKind_ARRAYSIZE = 30 + 1;
+constexpr EntityKind EntityKind_MAX = static_cast<EntityKind>(32);
+constexpr int EntityKind_ARRAYSIZE = 32 + 1;
 const ::google::protobuf::EnumDescriptor*
 EntityKind_descriptor();
 template <typename T>
@@ -926,7 +933,7 @@ const std::string& EntityKind_Name(T value) {
 template <>
 inline const std::string& EntityKind_Name(EntityKind value) {
   return ::google::protobuf::internal::NameOfDenseEnum<EntityKind_descriptor,
-                                                 0, 30>(
+                                                 0, 32>(
       static_cast<int>(value));
 }
 inline bool EntityKind_Parse(absl::string_view name, EntityKind* value) {
@@ -1199,7 +1206,7 @@ class ViffMaster final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffMaster*>(
         &_ViffMaster_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 183;
+  static constexpr int kIndexInFileMessages = 185;
   friend void swap(ViffMaster& a, ViffMaster& b) { a.Swap(&b); }
   inline void Swap(ViffMaster* other) {
     if (other == this) return;
@@ -1390,7 +1397,7 @@ class ViffCdmData final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffCdmData*>(
         &_ViffCdmData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 181;
+  static constexpr int kIndexInFileMessages = 183;
   friend void swap(ViffCdmData& a, ViffCdmData& b) { a.Swap(&b); }
   inline void Swap(ViffCdmData* other) {
     if (other == this) return;
@@ -1707,7 +1714,7 @@ class VatsimFlightPlan final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimFlightPlan*>(
         &_VatsimFlightPlan_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 160;
+  static constexpr int kIndexInFileMessages = 162;
   friend void swap(VatsimFlightPlan& a, VatsimFlightPlan& b) { a.Swap(&b); }
   inline void Swap(VatsimFlightPlan* other) {
     if (other == this) return;
@@ -4459,7 +4466,7 @@ class PrivateMessageEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const PrivateMessageEffect*>(
         &_PrivateMessageEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 113;
+  static constexpr int kIndexInFileMessages = 115;
   friend void swap(PrivateMessageEffect& a, PrivateMessageEffect& b) { a.Swap(&b); }
   inline void Swap(PrivateMessageEffect* other) {
     if (other == this) return;
@@ -4667,7 +4674,7 @@ class PositionTombstone final : public ::google::protobuf::internal::ZeroFieldsB
     return reinterpret_cast<const PositionTombstone*>(
         &_PositionTombstone_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 122;
+  static constexpr int kIndexInFileMessages = 124;
   friend void swap(PositionTombstone& a, PositionTombstone& b) { a.Swap(&b); }
   inline void Swap(PositionTombstone* other) {
     if (other == this) return;
@@ -4796,7 +4803,7 @@ class PdcEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const PdcEffect*>(
         &_PdcEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 112;
+  static constexpr int kIndexInFileMessages = 114;
   friend void swap(PdcEffect& a, PdcEffect& b) { a.Swap(&b); }
   inline void Swap(PdcEffect* other) {
     if (other == this) return;
@@ -5005,7 +5012,7 @@ class OpenMeteoWindLevel final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoWindLevel*>(
         &_OpenMeteoWindLevel_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 164;
+  static constexpr int kIndexInFileMessages = 166;
   friend void swap(OpenMeteoWindLevel& a, OpenMeteoWindLevel& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoWindLevel* other) {
     if (other == this) return;
@@ -5441,7 +5448,7 @@ class NavPolicyPath final : public ::google::protobuf::Message
     return reinterpret_cast<const NavPolicyPath*>(
         &_NavPolicyPath_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 149;
+  static constexpr int kIndexInFileMessages = 151;
   friend void swap(NavPolicyPath& a, NavPolicyPath& b) { a.Swap(&b); }
   inline void Swap(NavPolicyPath* other) {
     if (other == this) return;
@@ -5761,7 +5768,7 @@ class NavPolicyFeeder final : public ::google::protobuf::Message
     return reinterpret_cast<const NavPolicyFeeder*>(
         &_NavPolicyFeeder_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 148;
+  static constexpr int kIndexInFileMessages = 150;
   friend void swap(NavPolicyFeeder& a, NavPolicyFeeder& b) { a.Swap(&b); }
   inline void Swap(NavPolicyFeeder* other) {
     if (other == this) return;
@@ -6173,7 +6180,7 @@ class NavCoordinate final : public ::google::protobuf::Message
     return reinterpret_cast<const NavCoordinate*>(
         &_NavCoordinate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 130;
+  static constexpr int kIndexInFileMessages = 132;
   friend void swap(NavCoordinate& a, NavCoordinate& b) { a.Swap(&b); }
   inline void Swap(NavCoordinate* other) {
     if (other == this) return;
@@ -6640,6 +6647,179 @@ class GlobalRef final : public ::google::protobuf::internal::ZeroFieldsBase
 };
 // -------------------------------------------------------------------
 
+class GenerateSquawkEffect final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.GenerateSquawkEffect) */ {
+ public:
+  inline GenerateSquawkEffect() : GenerateSquawkEffect(nullptr) {}
+  ~GenerateSquawkEffect() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR GenerateSquawkEffect(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline GenerateSquawkEffect(const GenerateSquawkEffect& from) : GenerateSquawkEffect(nullptr, from) {}
+  inline GenerateSquawkEffect(GenerateSquawkEffect&& from) noexcept
+      : GenerateSquawkEffect(nullptr, std::move(from)) {}
+  inline GenerateSquawkEffect& operator=(const GenerateSquawkEffect& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline GenerateSquawkEffect& operator=(GenerateSquawkEffect&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const GenerateSquawkEffect& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const GenerateSquawkEffect* internal_default_instance() {
+    return reinterpret_cast<const GenerateSquawkEffect*>(
+        &_GenerateSquawkEffect_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 112;
+  friend void swap(GenerateSquawkEffect& a, GenerateSquawkEffect& b) { a.Swap(&b); }
+  inline void Swap(GenerateSquawkEffect* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(GenerateSquawkEffect* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  GenerateSquawkEffect* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<GenerateSquawkEffect>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const GenerateSquawkEffect& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const GenerateSquawkEffect& from) { GenerateSquawkEffect::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(GenerateSquawkEffect* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.GenerateSquawkEffect"; }
+
+ protected:
+  explicit GenerateSquawkEffect(::google::protobuf::Arena* arena);
+  GenerateSquawkEffect(::google::protobuf::Arena* arena, const GenerateSquawkEffect& from);
+  GenerateSquawkEffect(::google::protobuf::Arena* arena, GenerateSquawkEffect&& from) noexcept
+      : GenerateSquawkEffect(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCallsignFieldNumber = 1,
+  };
+  // string callsign = 1;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.GenerateSquawkEffect)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      0, 1, 0,
+      61, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class EffectSecret final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.EffectSecret) */ {
  public:
@@ -6695,7 +6875,7 @@ class EffectSecret final : public ::google::protobuf::Message
     return reinterpret_cast<const EffectSecret*>(
         &_EffectSecret_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 155;
+  static constexpr int kIndexInFileMessages = 157;
   friend void swap(EffectSecret& a, EffectSecret& b) { a.Swap(&b); }
   inline void Swap(EffectSecret* other) {
     if (other == this) return;
@@ -7251,7 +7431,7 @@ class EcfmpFilter final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpFilter*>(
         &_EcfmpFilter_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 167;
+  static constexpr int kIndexInFileMessages = 169;
   friend void swap(EcfmpFilter& a, EcfmpFilter& b) { a.Swap(&b); }
   inline void Swap(EcfmpFilter* other) {
     if (other == this) return;
@@ -7669,7 +7849,7 @@ class CoordinationEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const CoordinationEffect*>(
         &_CoordinationEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 114;
+  static constexpr int kIndexInFileMessages = 116;
   friend void swap(CoordinationEffect& a, CoordinationEffect& b) { a.Swap(&b); }
   inline void Swap(CoordinationEffect* other) {
     if (other == this) return;
@@ -8350,7 +8530,7 @@ class CdmEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmEffect*>(
         &_CdmEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 115;
+  static constexpr int kIndexInFileMessages = 117;
   friend void swap(CdmEffect& a, CdmEffect& b) { a.Swap(&b); }
   inline void Swap(CdmEffect* other) {
     if (other == this) return;
@@ -8559,7 +8739,7 @@ class CdmConfigTaxiPoint final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigTaxiPoint*>(
         &_CdmConfigTaxiPoint_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 174;
+  static constexpr int kIndexInFileMessages = 176;
   friend void swap(CdmConfigTaxiPoint& a, CdmConfigTaxiPoint& b) { a.Swap(&b); }
   inline void Swap(CdmConfigTaxiPoint* other) {
     if (other == this) return;
@@ -8738,7 +8918,7 @@ class CdmConfigSidInterval final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigSidInterval*>(
         &_CdmConfigSidInterval_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 173;
+  static constexpr int kIndexInFileMessages = 175;
   friend void swap(CdmConfigSidInterval& a, CdmConfigSidInterval& b) { a.Swap(&b); }
   inline void Swap(CdmConfigSidInterval* other) {
     if (other == this) return;
@@ -8959,7 +9139,7 @@ class CdmConfigRate final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigRate*>(
         &_CdmConfigRate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 172;
+  static constexpr int kIndexInFileMessages = 174;
   friend void swap(CdmConfigRate& a, CdmConfigRate& b) { a.Swap(&b); }
   inline void Swap(CdmConfigRate* other) {
     if (other == this) return;
@@ -9324,7 +9504,7 @@ class CdmConfigDelay final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDelay*>(
         &_CdmConfigDelay_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 176;
+  static constexpr int kIndexInFileMessages = 178;
   friend void swap(CdmConfigDelay& a, CdmConfigDelay& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDelay* other) {
     if (other == this) return;
@@ -9533,7 +9713,7 @@ class CdmConfigDeicePlatform final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDeicePlatform*>(
         &_CdmConfigDeicePlatform_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 178;
+  static constexpr int kIndexInFileMessages = 180;
   friend void swap(CdmConfigDeicePlatform& a, CdmConfigDeicePlatform& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDeicePlatform* other) {
     if (other == this) return;
@@ -11760,7 +11940,7 @@ class AmanHoldingEatEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AmanHoldingEatEffect*>(
         &_AmanHoldingEatEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 116;
+  static constexpr int kIndexInFileMessages = 118;
   friend void swap(AmanHoldingEatEffect& a, AmanHoldingEatEffect& b) { a.Swap(&b); }
   inline void Swap(AmanHoldingEatEffect* other) {
     if (other == this) return;
@@ -13062,7 +13242,7 @@ class AircraftPosition final : public ::google::protobuf::Message
     return reinterpret_cast<const AircraftPosition*>(
         &_AircraftPosition_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 121;
+  static constexpr int kIndexInFileMessages = 123;
   friend void swap(AircraftPosition& a, AircraftPosition& b) { a.Swap(&b); }
   inline void Swap(AircraftPosition* other) {
     if (other == this) return;
@@ -13956,7 +14136,7 @@ class ViffMastersPage final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffMastersPage*>(
         &_ViffMastersPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 182;
+  static constexpr int kIndexInFileMessages = 184;
   friend void swap(ViffMastersPage& a, ViffMastersPage& b) { a.Swap(&b); }
   inline void Swap(ViffMastersPage* other) {
     if (other == this) return;
@@ -14148,7 +14328,7 @@ class ViffFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffFlight*>(
         &_ViffFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 180;
+  static constexpr int kIndexInFileMessages = 182;
   friend void swap(ViffFlight& a, ViffFlight& b) { a.Swap(&b); }
   inline void Swap(ViffFlight* other) {
     if (other == this) return;
@@ -15033,7 +15213,7 @@ class VatsimFlight final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimFlight*>(
         &_VatsimFlight_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 159;
+  static constexpr int kIndexInFileMessages = 161;
   friend void swap(VatsimFlight& a, VatsimFlight& b) { a.Swap(&b); }
   inline void Swap(VatsimFlight* other) {
     if (other == this) return;
@@ -17117,6 +17297,191 @@ class SessionSync final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class SessionSquawkThrottle final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.SessionSquawkThrottle) */ {
+ public:
+  inline SessionSquawkThrottle() : SessionSquawkThrottle(nullptr) {}
+  ~SessionSquawkThrottle() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR SessionSquawkThrottle(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline SessionSquawkThrottle(const SessionSquawkThrottle& from) : SessionSquawkThrottle(nullptr, from) {}
+  inline SessionSquawkThrottle(SessionSquawkThrottle&& from) noexcept
+      : SessionSquawkThrottle(nullptr, std::move(from)) {}
+  inline SessionSquawkThrottle& operator=(const SessionSquawkThrottle& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SessionSquawkThrottle& operator=(SessionSquawkThrottle&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const SessionSquawkThrottle& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SessionSquawkThrottle* internal_default_instance() {
+    return reinterpret_cast<const SessionSquawkThrottle*>(
+        &_SessionSquawkThrottle_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 113;
+  friend void swap(SessionSquawkThrottle& a, SessionSquawkThrottle& b) { a.Swap(&b); }
+  inline void Swap(SessionSquawkThrottle* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SessionSquawkThrottle* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  SessionSquawkThrottle* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<SessionSquawkThrottle>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SessionSquawkThrottle& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const SessionSquawkThrottle& from) { SessionSquawkThrottle::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(SessionSquawkThrottle* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.SessionSquawkThrottle"; }
+
+ protected:
+  explicit SessionSquawkThrottle(::google::protobuf::Arena* arena);
+  SessionSquawkThrottle(::google::protobuf::Arena* arena, const SessionSquawkThrottle& from);
+  SessionSquawkThrottle(::google::protobuf::Arena* arena, SessionSquawkThrottle&& from) noexcept
+      : SessionSquawkThrottle(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kNextAllowedAtFieldNumber = 2,
+    kSessionIdFieldNumber = 1,
+  };
+  // .google.protobuf.Timestamp next_allowed_at = 2;
+  bool has_next_allowed_at() const;
+  void clear_next_allowed_at() ;
+  const ::google::protobuf::Timestamp& next_allowed_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_next_allowed_at();
+  ::google::protobuf::Timestamp* mutable_next_allowed_at();
+  void set_allocated_next_allowed_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_next_allowed_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_next_allowed_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_next_allowed_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_next_allowed_at();
+
+  public:
+  // int32 session_id = 1;
+  void clear_session_id() ;
+  ::int32_t session_id() const;
+  void set_session_id(::int32_t value);
+
+  private:
+  ::int32_t _internal_session_id() const;
+  void _internal_set_session_id(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.SessionSquawkThrottle)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 2, 1,
+      0, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::Timestamp* next_allowed_at_;
+    ::int32_t session_id_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class SessionDeadline final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.SessionDeadline) */ {
  public:
@@ -17649,7 +18014,7 @@ class PositionValue final : public ::google::protobuf::Message
     return reinterpret_cast<const PositionValue*>(
         &_PositionValue_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 120;
+  static constexpr int kIndexInFileMessages = 122;
   friend void swap(PositionValue& a, PositionValue& b) { a.Swap(&b); }
   inline void Swap(PositionValue* other) {
     if (other == this) return;
@@ -18560,7 +18925,7 @@ class OpenMeteoSample final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoSample*>(
         &_OpenMeteoSample_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 163;
+  static constexpr int kIndexInFileMessages = 165;
   friend void swap(OpenMeteoSample& a, OpenMeteoSample& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoSample* other) {
     if (other == this) return;
@@ -18776,7 +19141,7 @@ class NodePresence final : public ::google::protobuf::Message
     return reinterpret_cast<const NodePresence*>(
         &_NodePresence_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 124;
+  static constexpr int kIndexInFileMessages = 126;
   friend void swap(NodePresence& a, NodePresence& b) { a.Swap(&b); }
   inline void Swap(NodePresence* other) {
     if (other == this) return;
@@ -18979,7 +19344,7 @@ class NavTmaRing final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTmaRing*>(
         &_NavTmaRing_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 145;
+  static constexpr int kIndexInFileMessages = 147;
   friend void swap(NavTmaRing& a, NavTmaRing& b) { a.Swap(&b); }
   inline void Swap(NavTmaRing* other) {
     if (other == this) return;
@@ -19153,7 +19518,7 @@ class NavThreshold final : public ::google::protobuf::Message
     return reinterpret_cast<const NavThreshold*>(
         &_NavThreshold_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 131;
+  static constexpr int kIndexInFileMessages = 133;
   friend void swap(NavThreshold& a, NavThreshold& b) { a.Swap(&b); }
   inline void Swap(NavThreshold* other) {
     if (other == this) return;
@@ -19352,7 +19717,7 @@ class NavStarFamilyPolicy final : public ::google::protobuf::Message
     return reinterpret_cast<const NavStarFamilyPolicy*>(
         &_NavStarFamilyPolicy_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 150;
+  static constexpr int kIndexInFileMessages = 152;
   friend void swap(NavStarFamilyPolicy& a, NavStarFamilyPolicy& b) { a.Swap(&b); }
   inline void Swap(NavStarFamilyPolicy* other) {
     if (other == this) return;
@@ -19561,7 +19926,7 @@ class NavProvenance final : public ::google::protobuf::Message
     return reinterpret_cast<const NavProvenance*>(
         &_NavProvenance_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 129;
+  static constexpr int kIndexInFileMessages = 131;
   friend void swap(NavProvenance& a, NavProvenance& b) { a.Swap(&b); }
   inline void Swap(NavProvenance* other) {
     if (other == this) return;
@@ -20074,7 +20439,7 @@ class NavLeg final : public ::google::protobuf::Message
     return reinterpret_cast<const NavLeg*>(
         &_NavLeg_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 137;
+  static constexpr int kIndexInFileMessages = 139;
   friend void swap(NavLeg& a, NavLeg& b) { a.Swap(&b); }
   inline void Swap(NavLeg* other) {
     if (other == this) return;
@@ -20383,7 +20748,7 @@ class NavDatasetVersion final : public ::google::protobuf::Message
     return reinterpret_cast<const NavDatasetVersion*>(
         &_NavDatasetVersion_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 128;
+  static constexpr int kIndexInFileMessages = 130;
   friend void swap(NavDatasetVersion& a, NavDatasetVersion& b) { a.Swap(&b); }
   inline void Swap(NavDatasetVersion* other) {
     if (other == this) return;
@@ -20875,6 +21240,7 @@ class EffectRecord final : public ::google::protobuf::Message
     kCoordination = 10,
     kCdm = 11,
     kAmanHoldingEat = 16,
+    kGenerateSquawk = 17,
     PAYLOAD_NOT_SET = 0,
   };
   static inline const EffectRecord* internal_default_instance() {
@@ -20991,6 +21357,7 @@ class EffectRecord final : public ::google::protobuf::Message
     kCoordinationFieldNumber = 10,
     kCdmFieldNumber = 11,
     kAmanHoldingEatFieldNumber = 16,
+    kGenerateSquawkFieldNumber = 17,
   };
   // string command_id = 1;
   void clear_command_id() ;
@@ -21248,6 +21615,25 @@ class EffectRecord final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::AmanHoldingEatEffect* _internal_mutable_aman_holding_eat();
 
   public:
+  // .flightstrips.cluster.v1.GenerateSquawkEffect generate_squawk = 17;
+  bool has_generate_squawk() const;
+  private:
+  bool _internal_has_generate_squawk() const;
+
+  public:
+  void clear_generate_squawk() ;
+  const ::flightstrips::cluster::v1::GenerateSquawkEffect& generate_squawk() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::GenerateSquawkEffect* release_generate_squawk();
+  ::flightstrips::cluster::v1::GenerateSquawkEffect* mutable_generate_squawk();
+  void set_allocated_generate_squawk(::flightstrips::cluster::v1::GenerateSquawkEffect* value);
+  void unsafe_arena_set_allocated_generate_squawk(::flightstrips::cluster::v1::GenerateSquawkEffect* value);
+  ::flightstrips::cluster::v1::GenerateSquawkEffect* unsafe_arena_release_generate_squawk();
+
+  private:
+  const ::flightstrips::cluster::v1::GenerateSquawkEffect& _internal_generate_squawk() const;
+  ::flightstrips::cluster::v1::GenerateSquawkEffect* _internal_mutable_generate_squawk();
+
+  public:
   void clear_payload();
   PayloadCase payload_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.EffectRecord)
@@ -21259,11 +21645,12 @@ class EffectRecord final : public ::google::protobuf::Message
   void set_has_coordination();
   void set_has_cdm();
   void set_has_aman_holding_eat();
+  void set_has_generate_squawk();
   inline bool has_payload() const;
   inline void clear_has_payload();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      4, 16, 8,
+      4, 17, 9,
       134, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -21300,6 +21687,7 @@ class EffectRecord final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::CoordinationEffect* coordination_;
       ::flightstrips::cluster::v1::CdmEffect* cdm_;
       ::flightstrips::cluster::v1::AmanHoldingEatEffect* aman_holding_eat_;
+      ::flightstrips::cluster::v1::GenerateSquawkEffect* generate_squawk_;
     } payload_;
     ::uint32_t _oneof_case_[1];
     PROTOBUF_TSAN_DECLARE_MEMBER
@@ -21574,7 +21962,7 @@ class EcfmpMeasure final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpMeasure*>(
         &_EcfmpMeasure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 166;
+  static constexpr int kIndexInFileMessages = 168;
   friend void swap(EcfmpMeasure& a, EcfmpMeasure& b) { a.Swap(&b); }
   inline void Swap(EcfmpMeasure* other) {
     if (other == this) return;
@@ -22505,7 +22893,7 @@ class ClientPresence final : public ::google::protobuf::Message
     return reinterpret_cast<const ClientPresence*>(
         &_ClientPresence_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 125;
+  static constexpr int kIndexInFileMessages = 127;
   friend void swap(ClientPresence& a, ClientPresence& b) { a.Swap(&b); }
   inline void Swap(ClientPresence* other) {
     if (other == this) return;
@@ -23114,7 +23502,7 @@ class CdmConfigTaxiZone final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigTaxiZone*>(
         &_CdmConfigTaxiZone_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 175;
+  static constexpr int kIndexInFileMessages = 177;
   friend void swap(CdmConfigTaxiZone& a, CdmConfigTaxiZone& b) { a.Swap(&b); }
   inline void Swap(CdmConfigTaxiZone* other) {
     if (other == this) return;
@@ -23339,7 +23727,7 @@ class CdmConfigDeice final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigDeice*>(
         &_CdmConfigDeice_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 177;
+  static constexpr int kIndexInFileMessages = 179;
   friend void swap(CdmConfigDeice& a, CdmConfigDeice& b) { a.Swap(&b); }
   inline void Swap(CdmConfigDeice* other) {
     if (other == this) return;
@@ -23561,7 +23949,7 @@ class AtisFeedEntry final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedEntry*>(
         &_AtisFeedEntry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 170;
+  static constexpr int kIndexInFileMessages = 172;
   friend void swap(AtisFeedEntry& a, AtisFeedEntry& b) { a.Swap(&b); }
   inline void Swap(AtisFeedEntry* other) {
     if (other == this) return;
@@ -31877,7 +32265,7 @@ class WeatherPage final : public ::google::protobuf::Message
     return reinterpret_cast<const WeatherPage*>(
         &_WeatherPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 161;
+  static constexpr int kIndexInFileMessages = 163;
   friend void swap(WeatherPage& a, WeatherPage& b) { a.Swap(&b); }
   inline void Swap(WeatherPage* other) {
     if (other == this) return;
@@ -32294,7 +32682,7 @@ class ViffFlightPage final : public ::google::protobuf::Message
     return reinterpret_cast<const ViffFlightPage*>(
         &_ViffFlightPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 179;
+  static constexpr int kIndexInFileMessages = 181;
   friend void swap(ViffFlightPage& a, ViffFlightPage& b) { a.Swap(&b); }
   inline void Swap(ViffFlightPage* other) {
     if (other == this) return;
@@ -32504,7 +32892,7 @@ class VatsimPage final : public ::google::protobuf::Message
     return reinterpret_cast<const VatsimPage*>(
         &_VatsimPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 158;
+  static constexpr int kIndexInFileMessages = 160;
   friend void swap(VatsimPage& a, VatsimPage& b) { a.Swap(&b); }
   inline void Swap(VatsimPage* other) {
     if (other == this) return;
@@ -32991,7 +33379,7 @@ class SnapshotIndex final : public ::google::protobuf::Message
     return reinterpret_cast<const SnapshotIndex*>(
         &_SnapshotIndex_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 119;
+  static constexpr int kIndexInFileMessages = 121;
   friend void swap(SnapshotIndex& a, SnapshotIndex& b) { a.Swap(&b); }
   inline void Swap(SnapshotIndex* other) {
     if (other == this) return;
@@ -33703,7 +34091,7 @@ class PresenceValue final : public ::google::protobuf::Message
     return reinterpret_cast<const PresenceValue*>(
         &_PresenceValue_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 123;
+  static constexpr int kIndexInFileMessages = 125;
   friend void swap(PresenceValue& a, PresenceValue& b) { a.Swap(&b); }
   inline void Swap(PresenceValue* other) {
     if (other == this) return;
@@ -33923,7 +34311,7 @@ class OpenMeteoPage final : public ::google::protobuf::Message
     return reinterpret_cast<const OpenMeteoPage*>(
         &_OpenMeteoPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 162;
+  static constexpr int kIndexInFileMessages = 164;
   friend void swap(OpenMeteoPage& a, OpenMeteoPage& b) { a.Swap(&b); }
   inline void Swap(OpenMeteoPage* other) {
     if (other == this) return;
@@ -34168,7 +34556,7 @@ class NavTmaPolygon final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTmaPolygon*>(
         &_NavTmaPolygon_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 144;
+  static constexpr int kIndexInFileMessages = 146;
   friend void swap(NavTmaPolygon& a, NavTmaPolygon& b) { a.Swap(&b); }
   inline void Swap(NavTmaPolygon* other) {
     if (other == this) return;
@@ -34342,7 +34730,7 @@ class NavTerminalPath final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTerminalPath*>(
         &_NavTerminalPath_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 151;
+  static constexpr int kIndexInFileMessages = 153;
   friend void swap(NavTerminalPath& a, NavTerminalPath& b) { a.Swap(&b); }
   inline void Swap(NavTerminalPath* other) {
     if (other == this) return;
@@ -34749,7 +35137,7 @@ class NavRunway final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRunway*>(
         &_NavRunway_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 134;
+  static constexpr int kIndexInFileMessages = 136;
   friend void swap(NavRunway& a, NavRunway& b) { a.Swap(&b); }
   inline void Swap(NavRunway* other) {
     if (other == this) return;
@@ -34987,7 +35375,7 @@ class NavRouteQuery final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRouteQuery*>(
         &_NavRouteQuery_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 153;
+  static constexpr int kIndexInFileMessages = 155;
   friend void swap(NavRouteQuery& a, NavRouteQuery& b) { a.Swap(&b); }
   inline void Swap(NavRouteQuery* other) {
     if (other == this) return;
@@ -35271,7 +35659,7 @@ class NavRouteGeometry final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRouteGeometry*>(
         &_NavRouteGeometry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 154;
+  static constexpr int kIndexInFileMessages = 156;
   friend void swap(NavRouteGeometry& a, NavRouteGeometry& b) { a.Swap(&b); }
   inline void Swap(NavRouteGeometry* other) {
     if (other == this) return;
@@ -35588,7 +35976,7 @@ class NavPolicyFinalApproach final : public ::google::protobuf::Message
     return reinterpret_cast<const NavPolicyFinalApproach*>(
         &_NavPolicyFinalApproach_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 147;
+  static constexpr int kIndexInFileMessages = 149;
   friend void swap(NavPolicyFinalApproach& a, NavPolicyFinalApproach& b) { a.Swap(&b); }
   inline void Swap(NavPolicyFinalApproach* other) {
     if (other == this) return;
@@ -35843,7 +36231,7 @@ class NavHolding final : public ::google::protobuf::Message
     return reinterpret_cast<const NavHolding*>(
         &_NavHolding_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 138;
+  static constexpr int kIndexInFileMessages = 140;
   friend void swap(NavHolding& a, NavHolding& b) { a.Swap(&b); }
   inline void Swap(NavHolding* other) {
     if (other == this) return;
@@ -36176,7 +36564,7 @@ class NavFix final : public ::google::protobuf::Message
     return reinterpret_cast<const NavFix*>(
         &_NavFix_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 140;
+  static constexpr int kIndexInFileMessages = 142;
   friend void swap(NavFix& a, NavFix& b) { a.Swap(&b); }
   inline void Swap(NavFix* other) {
     if (other == this) return;
@@ -36384,7 +36772,7 @@ class NavAirport final : public ::google::protobuf::Message
     return reinterpret_cast<const NavAirport*>(
         &_NavAirport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 133;
+  static constexpr int kIndexInFileMessages = 135;
   friend void swap(NavAirport& a, NavAirport& b) { a.Swap(&b); }
   inline void Swap(NavAirport* other) {
     if (other == this) return;
@@ -36610,7 +36998,7 @@ class EcfmpPage final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpPage*>(
         &_EcfmpPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 165;
+  static constexpr int kIndexInFileMessages = 167;
   friend void swap(EcfmpPage& a, EcfmpPage& b) { a.Swap(&b); }
   inline void Swap(EcfmpPage* other) {
     if (other == this) return;
@@ -37155,7 +37543,7 @@ class CdmConfigPage final : public ::google::protobuf::Message
     return reinterpret_cast<const CdmConfigPage*>(
         &_CdmConfigPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 171;
+  static constexpr int kIndexInFileMessages = 173;
   friend void swap(CdmConfigPage& a, CdmConfigPage& b) { a.Swap(&b); }
   inline void Swap(CdmConfigPage* other) {
     if (other == this) return;
@@ -37547,7 +37935,7 @@ class AtisFeedAirport final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedAirport*>(
         &_AtisFeedAirport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 169;
+  static constexpr int kIndexInFileMessages = 171;
   friend void swap(AtisFeedAirport& a, AtisFeedAirport& b) { a.Swap(&b); }
   inline void Swap(AtisFeedAirport* other) {
     if (other == this) return;
@@ -42646,7 +43034,7 @@ class NavTmaVolume final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTmaVolume*>(
         &_NavTmaVolume_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 143;
+  static constexpr int kIndexInFileMessages = 145;
   friend void swap(NavTmaVolume& a, NavTmaVolume& b) { a.Swap(&b); }
   inline void Swap(NavTmaVolume* other) {
     if (other == this) return;
@@ -42820,7 +43208,7 @@ class NavRouteCandidate final : public ::google::protobuf::Message
     return reinterpret_cast<const NavRouteCandidate*>(
         &_NavRouteCandidate_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 152;
+  static constexpr int kIndexInFileMessages = 154;
   friend void swap(NavRouteCandidate& a, NavRouteCandidate& b) { a.Swap(&b); }
   inline void Swap(NavRouteCandidate* other) {
     if (other == this) return;
@@ -43063,7 +43451,7 @@ class NavProcedure final : public ::google::protobuf::Message
     return reinterpret_cast<const NavProcedure*>(
         &_NavProcedure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 136;
+  static constexpr int kIndexInFileMessages = 138;
   friend void swap(NavProcedure& a, NavProcedure& b) { a.Swap(&b); }
   inline void Swap(NavProcedure* other) {
     if (other == this) return;
@@ -43358,7 +43746,7 @@ class NavPolicyRunwayGroup final : public ::google::protobuf::Message
     return reinterpret_cast<const NavPolicyRunwayGroup*>(
         &_NavPolicyRunwayGroup_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 146;
+  static constexpr int kIndexInFileMessages = 148;
   friend void swap(NavPolicyRunwayGroup& a, NavPolicyRunwayGroup& b) { a.Swap(&b); }
   inline void Swap(NavPolicyRunwayGroup* other) {
     if (other == this) return;
@@ -43628,7 +44016,7 @@ class NavFixFragment final : public ::google::protobuf::Message
     return reinterpret_cast<const NavFixFragment*>(
         &_NavFixFragment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 139;
+  static constexpr int kIndexInFileMessages = 141;
   friend void swap(NavFixFragment& a, NavFixFragment& b) { a.Swap(&b); }
   inline void Swap(NavFixFragment* other) {
     if (other == this) return;
@@ -43820,7 +44208,7 @@ class NavAirportFragment final : public ::google::protobuf::Message
     return reinterpret_cast<const NavAirportFragment*>(
         &_NavAirportFragment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 132;
+  static constexpr int kIndexInFileMessages = 134;
   friend void swap(NavAirportFragment& a, NavAirportFragment& b) { a.Swap(&b); }
   inline void Swap(NavAirportFragment* other) {
     if (other == this) return;
@@ -44012,7 +44400,7 @@ class AtisFeedPage final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedPage*>(
         &_AtisFeedPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 168;
+  static constexpr int kIndexInFileMessages = 170;
   friend void swap(AtisFeedPage& a, AtisFeedPage& b) { a.Swap(&b); }
   inline void Swap(AtisFeedPage* other) {
     if (other == this) return;
@@ -45484,7 +45872,7 @@ class NavTerminalPolicy final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTerminalPolicy*>(
         &_NavTerminalPolicy_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 142;
+  static constexpr int kIndexInFileMessages = 144;
   friend void swap(NavTerminalPolicy& a, NavTerminalPolicy& b) { a.Swap(&b); }
   inline void Swap(NavTerminalPolicy* other) {
     if (other == this) return;
@@ -45769,7 +46157,7 @@ class NavProcedureFragment final : public ::google::protobuf::Message
     return reinterpret_cast<const NavProcedureFragment*>(
         &_NavProcedureFragment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 135;
+  static constexpr int kIndexInFileMessages = 137;
   friend void swap(NavProcedureFragment& a, NavProcedureFragment& b) { a.Swap(&b); }
   inline void Swap(NavProcedureFragment* other) {
     if (other == this) return;
@@ -47284,7 +47672,7 @@ class NavTerminalFragment final : public ::google::protobuf::Message
     return reinterpret_cast<const NavTerminalFragment*>(
         &_NavTerminalFragment_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 141;
+  static constexpr int kIndexInFileMessages = 143;
   friend void swap(NavTerminalFragment& a, NavTerminalFragment& b) { a.Swap(&b); }
   inline void Swap(NavTerminalFragment* other) {
     if (other == this) return;
@@ -47596,6 +47984,7 @@ class EntityRecord final : public ::google::protobuf::Message
     kWeatherCache = 28,
     kSessionDeadline = 29,
     kVatsimSessionCursor = 30,
+    kSessionSquawkThrottle = 32,
     VALUE_NOT_SET = 0,
   };
   static inline const EntityRecord* internal_default_instance() {
@@ -47702,6 +48091,7 @@ class EntityRecord final : public ::google::protobuf::Message
     kWeatherCacheFieldNumber = 28,
     kSessionDeadlineFieldNumber = 29,
     kVatsimSessionCursorFieldNumber = 30,
+    kSessionSquawkThrottleFieldNumber = 32,
   };
   // .flightstrips.cluster.v1.AirportRegistry airport_registry = 1;
   bool has_airport_registry() const;
@@ -48273,6 +48663,25 @@ class EntityRecord final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::VatsimSessionCursor* _internal_mutable_vatsim_session_cursor();
 
   public:
+  // .flightstrips.cluster.v1.SessionSquawkThrottle session_squawk_throttle = 32;
+  bool has_session_squawk_throttle() const;
+  private:
+  bool _internal_has_session_squawk_throttle() const;
+
+  public:
+  void clear_session_squawk_throttle() ;
+  const ::flightstrips::cluster::v1::SessionSquawkThrottle& session_squawk_throttle() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::SessionSquawkThrottle* release_session_squawk_throttle();
+  ::flightstrips::cluster::v1::SessionSquawkThrottle* mutable_session_squawk_throttle();
+  void set_allocated_session_squawk_throttle(::flightstrips::cluster::v1::SessionSquawkThrottle* value);
+  void unsafe_arena_set_allocated_session_squawk_throttle(::flightstrips::cluster::v1::SessionSquawkThrottle* value);
+  ::flightstrips::cluster::v1::SessionSquawkThrottle* unsafe_arena_release_session_squawk_throttle();
+
+  private:
+  const ::flightstrips::cluster::v1::SessionSquawkThrottle& _internal_session_squawk_throttle() const;
+  ::flightstrips::cluster::v1::SessionSquawkThrottle* _internal_mutable_session_squawk_throttle();
+
+  public:
   void clear_value();
   ValueCase value_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.EntityRecord)
@@ -48308,11 +48717,12 @@ class EntityRecord final : public ::google::protobuf::Message
   void set_has_weather_cache();
   void set_has_session_deadline();
   void set_has_vatsim_session_cursor();
+  void set_has_session_squawk_throttle();
   inline bool has_value() const;
   inline void clear_has_value();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 30, 30,
+      0, 31, 31,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -48361,6 +48771,7 @@ class EntityRecord final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::WeatherCache* weather_cache_;
       ::flightstrips::cluster::v1::SessionDeadline* session_deadline_;
       ::flightstrips::cluster::v1::VatsimSessionCursor* vatsim_session_cursor_;
+      ::flightstrips::cluster::v1::SessionSquawkThrottle* session_squawk_throttle_;
     } value_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -48434,7 +48845,7 @@ class NavData final : public ::google::protobuf::Message
     return reinterpret_cast<const NavData*>(
         &_NavData_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 127;
+  static constexpr int kIndexInFileMessages = 129;
   friend void swap(NavData& a, NavData& b) { a.Swap(&b); }
   inline void Swap(NavData* other) {
     if (other == this) return;
@@ -48849,7 +49260,7 @@ class EntitySnapshot final : public ::google::protobuf::Message
     return reinterpret_cast<const EntitySnapshot*>(
         &_EntitySnapshot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 118;
+  static constexpr int kIndexInFileMessages = 120;
   friend void swap(EntitySnapshot& a, EntitySnapshot& b) { a.Swap(&b); }
   inline void Swap(EntitySnapshot* other) {
     if (other == this) return;
@@ -49295,7 +49706,7 @@ class Snapshot final : public ::google::protobuf::Message
     return reinterpret_cast<const Snapshot*>(
         &_Snapshot_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 117;
+  static constexpr int kIndexInFileMessages = 119;
   friend void swap(Snapshot& a, Snapshot& b) { a.Swap(&b); }
   inline void Swap(Snapshot* other) {
     if (other == this) return;
@@ -49891,7 +50302,7 @@ class AiracPage final : public ::google::protobuf::Message
     return reinterpret_cast<const AiracPage*>(
         &_AiracPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 157;
+  static constexpr int kIndexInFileMessages = 159;
   friend void swap(AiracPage& a, AiracPage& b) { a.Swap(&b); }
   inline void Swap(AiracPage* other) {
     if (other == this) return;
@@ -50533,7 +50944,7 @@ class ProviderPage final : public ::google::protobuf::Message
     return reinterpret_cast<const ProviderPage*>(
         &_ProviderPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 156;
+  static constexpr int kIndexInFileMessages = 158;
   friend void swap(ProviderPage& a, ProviderPage& b) { a.Swap(&b); }
   inline void Swap(ProviderPage* other) {
     if (other == this) return;
@@ -50938,7 +51349,7 @@ class ObjectValue final : public ::google::protobuf::Message
     return reinterpret_cast<const ObjectValue*>(
         &_ObjectValue_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 126;
+  static constexpr int kIndexInFileMessages = 128;
   friend void swap(ObjectValue& a, ObjectValue& b) { a.Swap(&b); }
   inline void Swap(ObjectValue* other) {
     if (other == this) return;
@@ -55826,6 +56237,83 @@ inline ::flightstrips::cluster::v1::VatsimSessionCursor* EntityRecord::_internal
 inline ::flightstrips::cluster::v1::VatsimSessionCursor* EntityRecord::mutable_vatsim_session_cursor() ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::flightstrips::cluster::v1::VatsimSessionCursor* _msg = _internal_mutable_vatsim_session_cursor();
   // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.EntityRecord.vatsim_session_cursor)
+  return _msg;
+}
+
+// .flightstrips.cluster.v1.SessionSquawkThrottle session_squawk_throttle = 32;
+inline bool EntityRecord::has_session_squawk_throttle() const {
+  return value_case() == kSessionSquawkThrottle;
+}
+inline bool EntityRecord::_internal_has_session_squawk_throttle() const {
+  return value_case() == kSessionSquawkThrottle;
+}
+inline void EntityRecord::set_has_session_squawk_throttle() {
+  _impl_._oneof_case_[0] = kSessionSquawkThrottle;
+}
+inline void EntityRecord::clear_session_squawk_throttle() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (value_case() == kSessionSquawkThrottle) {
+    if (GetArena() == nullptr) {
+      delete _impl_.value_.session_squawk_throttle_;
+    }
+    clear_has_value();
+  }
+}
+inline ::flightstrips::cluster::v1::SessionSquawkThrottle* EntityRecord::release_session_squawk_throttle() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.EntityRecord.session_squawk_throttle)
+  if (value_case() == kSessionSquawkThrottle) {
+    clear_has_value();
+    auto* temp = _impl_.value_.session_squawk_throttle_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.value_.session_squawk_throttle_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::SessionSquawkThrottle& EntityRecord::_internal_session_squawk_throttle() const {
+  return value_case() == kSessionSquawkThrottle ? *_impl_.value_.session_squawk_throttle_ : reinterpret_cast<::flightstrips::cluster::v1::SessionSquawkThrottle&>(::flightstrips::cluster::v1::_SessionSquawkThrottle_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::SessionSquawkThrottle& EntityRecord::session_squawk_throttle() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EntityRecord.session_squawk_throttle)
+  return _internal_session_squawk_throttle();
+}
+inline ::flightstrips::cluster::v1::SessionSquawkThrottle* EntityRecord::unsafe_arena_release_session_squawk_throttle() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.EntityRecord.session_squawk_throttle)
+  if (value_case() == kSessionSquawkThrottle) {
+    clear_has_value();
+    auto* temp = _impl_.value_.session_squawk_throttle_;
+    _impl_.value_.session_squawk_throttle_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void EntityRecord::unsafe_arena_set_allocated_session_squawk_throttle(::flightstrips::cluster::v1::SessionSquawkThrottle* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_value();
+  if (value) {
+    set_has_session_squawk_throttle();
+    _impl_.value_.session_squawk_throttle_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.EntityRecord.session_squawk_throttle)
+}
+inline ::flightstrips::cluster::v1::SessionSquawkThrottle* EntityRecord::_internal_mutable_session_squawk_throttle() {
+  if (value_case() != kSessionSquawkThrottle) {
+    clear_value();
+    set_has_session_squawk_throttle();
+    _impl_.value_.session_squawk_throttle_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::SessionSquawkThrottle>(GetArena());
+  }
+  return _impl_.value_.session_squawk_throttle_;
+}
+inline ::flightstrips::cluster::v1::SessionSquawkThrottle* EntityRecord::mutable_session_squawk_throttle() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::SessionSquawkThrottle* _msg = _internal_mutable_session_squawk_throttle();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.EntityRecord.session_squawk_throttle)
   return _msg;
 }
 
@@ -99489,6 +99977,83 @@ inline ::flightstrips::cluster::v1::AmanHoldingEatEffect* EffectRecord::mutable_
   return _msg;
 }
 
+// .flightstrips.cluster.v1.GenerateSquawkEffect generate_squawk = 17;
+inline bool EffectRecord::has_generate_squawk() const {
+  return payload_case() == kGenerateSquawk;
+}
+inline bool EffectRecord::_internal_has_generate_squawk() const {
+  return payload_case() == kGenerateSquawk;
+}
+inline void EffectRecord::set_has_generate_squawk() {
+  _impl_._oneof_case_[0] = kGenerateSquawk;
+}
+inline void EffectRecord::clear_generate_squawk() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (payload_case() == kGenerateSquawk) {
+    if (GetArena() == nullptr) {
+      delete _impl_.payload_.generate_squawk_;
+    }
+    clear_has_payload();
+  }
+}
+inline ::flightstrips::cluster::v1::GenerateSquawkEffect* EffectRecord::release_generate_squawk() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.EffectRecord.generate_squawk)
+  if (payload_case() == kGenerateSquawk) {
+    clear_has_payload();
+    auto* temp = _impl_.payload_.generate_squawk_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.payload_.generate_squawk_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::GenerateSquawkEffect& EffectRecord::_internal_generate_squawk() const {
+  return payload_case() == kGenerateSquawk ? *_impl_.payload_.generate_squawk_ : reinterpret_cast<::flightstrips::cluster::v1::GenerateSquawkEffect&>(::flightstrips::cluster::v1::_GenerateSquawkEffect_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::GenerateSquawkEffect& EffectRecord::generate_squawk() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.EffectRecord.generate_squawk)
+  return _internal_generate_squawk();
+}
+inline ::flightstrips::cluster::v1::GenerateSquawkEffect* EffectRecord::unsafe_arena_release_generate_squawk() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.EffectRecord.generate_squawk)
+  if (payload_case() == kGenerateSquawk) {
+    clear_has_payload();
+    auto* temp = _impl_.payload_.generate_squawk_;
+    _impl_.payload_.generate_squawk_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void EffectRecord::unsafe_arena_set_allocated_generate_squawk(::flightstrips::cluster::v1::GenerateSquawkEffect* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_payload();
+  if (value) {
+    set_has_generate_squawk();
+    _impl_.payload_.generate_squawk_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.EffectRecord.generate_squawk)
+}
+inline ::flightstrips::cluster::v1::GenerateSquawkEffect* EffectRecord::_internal_mutable_generate_squawk() {
+  if (payload_case() != kGenerateSquawk) {
+    clear_payload();
+    set_has_generate_squawk();
+    _impl_.payload_.generate_squawk_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::GenerateSquawkEffect>(GetArena());
+  }
+  return _impl_.payload_.generate_squawk_;
+}
+inline ::flightstrips::cluster::v1::GenerateSquawkEffect* EffectRecord::mutable_generate_squawk() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::GenerateSquawkEffect* _msg = _internal_mutable_generate_squawk();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.EffectRecord.generate_squawk)
+  return _msg;
+}
+
 // .google.protobuf.Timestamp dispatch_deadline = 12;
 inline bool EffectRecord::has_dispatch_deadline() const {
   bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
@@ -99953,6 +100518,177 @@ inline void SetFlightPlanEffect::set_allocated_value(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SetFlightPlanEffect.value)
+}
+
+// -------------------------------------------------------------------
+
+// GenerateSquawkEffect
+
+// string callsign = 1;
+inline void GenerateSquawkEffect::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& GenerateSquawkEffect::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.GenerateSquawkEffect.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void GenerateSquawkEffect::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.GenerateSquawkEffect.callsign)
+}
+inline std::string* GenerateSquawkEffect::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.GenerateSquawkEffect.callsign)
+  return _s;
+}
+inline const std::string& GenerateSquawkEffect::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void GenerateSquawkEffect::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* GenerateSquawkEffect::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* GenerateSquawkEffect::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.GenerateSquawkEffect.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void GenerateSquawkEffect::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.GenerateSquawkEffect.callsign)
+}
+
+// -------------------------------------------------------------------
+
+// SessionSquawkThrottle
+
+// int32 session_id = 1;
+inline void SessionSquawkThrottle::clear_session_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.session_id_ = 0;
+}
+inline ::int32_t SessionSquawkThrottle::session_id() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SessionSquawkThrottle.session_id)
+  return _internal_session_id();
+}
+inline void SessionSquawkThrottle::set_session_id(::int32_t value) {
+  _internal_set_session_id(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.SessionSquawkThrottle.session_id)
+}
+inline ::int32_t SessionSquawkThrottle::_internal_session_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.session_id_;
+}
+inline void SessionSquawkThrottle::_internal_set_session_id(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.session_id_ = value;
+}
+
+// .google.protobuf.Timestamp next_allowed_at = 2;
+inline bool SessionSquawkThrottle::has_next_allowed_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.next_allowed_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& SessionSquawkThrottle::_internal_next_allowed_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.next_allowed_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& SessionSquawkThrottle::next_allowed_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SessionSquawkThrottle.next_allowed_at)
+  return _internal_next_allowed_at();
+}
+inline void SessionSquawkThrottle::unsafe_arena_set_allocated_next_allowed_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.next_allowed_at_);
+  }
+  _impl_.next_allowed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.SessionSquawkThrottle.next_allowed_at)
+}
+inline ::google::protobuf::Timestamp* SessionSquawkThrottle::release_next_allowed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.next_allowed_at_;
+  _impl_.next_allowed_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* SessionSquawkThrottle::unsafe_arena_release_next_allowed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SessionSquawkThrottle.next_allowed_at)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.next_allowed_at_;
+  _impl_.next_allowed_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* SessionSquawkThrottle::_internal_mutable_next_allowed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.next_allowed_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.next_allowed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.next_allowed_at_;
+}
+inline ::google::protobuf::Timestamp* SessionSquawkThrottle::mutable_next_allowed_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_next_allowed_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SessionSquawkThrottle.next_allowed_at)
+  return _msg;
+}
+inline void SessionSquawkThrottle::set_allocated_next_allowed_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.next_allowed_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.next_allowed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.SessionSquawkThrottle.next_allowed_at)
 }
 
 // -------------------------------------------------------------------

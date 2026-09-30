@@ -18,6 +18,11 @@ func EffectRenderer(secrets cluster.EffectSecrets) func(int32, *pb.EffectRecord)
 		frame := &euroscope.Envelope{CommandId: effect.CommandId, SessionId: sessionID,
 			OwnerEpoch: effect.OwnerEpoch, MasterEpoch: effect.MasterEpoch}
 		switch payload := effect.GetPayload().(type) {
+		case *pb.EffectRecord_GenerateSquawk:
+			if payload.GenerateSquawk == nil || payload.GenerateSquawk.Callsign == "" {
+				return nil, fmt.Errorf("squawk callsign missing")
+			}
+			frame.Event = &euroscope.Envelope_GenerateSquawk{GenerateSquawk: &euroscope.GenerateSquawkEvent{Callsign: payload.GenerateSquawk.Callsign}}
 		case *pb.EffectRecord_AmanHoldingEat:
 			hold := payload.AmanHoldingEat
 			if hold == nil || hold.Callsign == "" || hold.Hold == "" || hold.HoldType != "enroute" {

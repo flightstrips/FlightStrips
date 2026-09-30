@@ -119,6 +119,35 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 			return false, err
 		}
 		updated := proto.Clone(effect).(*pb.EffectRecord)
+		if old.GetGenerateSquawk() != nil {
+			if effect.Status == pb.EffectRecord_DISPATCH_CLAIMED {
+				if err := squawkClaimAllowed(a, old, entry.ServerTime); err != nil {
+					if errors.Is(err, errEffectDeadlineRace) {
+						a.checkpoint(entry)
+						return false, nil
+					}
+					return false, err
+				}
+				key := strconv.Itoa(int(a.Ref.GetSession().Id))
+				prior := a.Indexes[pb.EntityKind_SESSION_SQUAWK_THROTTLE][key]
+				revision := uint64(1)
+				if prior != nil {
+					revision = prior.Revision + 1
+				}
+				// Claim and throttle are one accepted fact. No proposer timestamp
+				// is serialized, and replay/snapshot rebuild exactly this deadline.
+				a.Entities[entitySlot(a.Entities, pb.EntityKind_SESSION_SQUAWK_THROTTLE, key)] = &pb.EntitySnapshot{Key: key, Revision: revision,
+					Value: &pb.EntityRecord{Value: &pb.EntityRecord_SessionSquawkThrottle{SessionSquawkThrottle: &pb.SessionSquawkThrottle{
+						SessionId: a.Ref.GetSession().Id, NextAllowedAt: timestamppb.New(entry.ServerTime.Add(squawkInterval))}}}}
+				a.rebuildIndexes()
+			} else if old.Status == pb.EffectRecord_WAITING && effect.Status == pb.EffectRecord_FAILED {
+				strip := a.Indexes[pb.EntityKind_STRIP][old.GetGenerateSquawk().Callsign].GetValue().GetStrip()
+				if effect.ReasonCode == "STRIP_REMOVED" && strip != nil || effect.ReasonCode == "SQUAWK_ASSIGNED" && (strip == nil || !ValidAssignedSquawk(strip.AssignedSquawk)) {
+					a.checkpoint(entry)
+					return false, nil
+				}
+			}
+		}
 		if updated.Status == pb.EffectRecord_DISPATCH_CLAIMED {
 			updated.ResultDeadline = timestamppb.New(entry.ServerTime.Add(effectResultWindow))
 		}
@@ -153,6 +182,9 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 		kind, err := changeKind(change)
 		if err != nil {
 			return false, err
+		}
+		if kind == pb.EntityKind_SESSION_SQUAWK_THROTTLE {
+			return false, fmt.Errorf("squawk throttle is derived only from a dispatch claim")
 		}
 		if int32(kind) < previousKind || (int32(kind) == previousKind && change.GetKey() <= previousKey) {
 			return false, fmt.Errorf("unsorted or duplicate entity change")
@@ -394,7 +426,7 @@ func changeKind(change *pb.EntityChange) (pb.EntityKind, error) {
 		return 0, fmt.Errorf("missing entity operation")
 	}
 	if d := change.GetDelete(); d != nil {
-		if d.Kind < 1 || d.Kind > 30 {
+		if d.Kind < 1 || pb.EntityKind(0).Descriptor().Values().ByNumber(protoreflect.EnumNumber(d.Kind)) == nil {
 			return 0, fmt.Errorf("invalid entity kind")
 		}
 		return d.Kind, nil
@@ -405,7 +437,7 @@ func changeKind(change *pb.EntityChange) (pb.EntityKind, error) {
 	}
 	oneof := r.ProtoReflect().Descriptor().Oneofs().ByName("value")
 	f := r.ProtoReflect().WhichOneof(oneof)
-	if f == nil || f.Number() < 1 || f.Number() > 30 {
+	if f == nil || f.Number() < 1 || f.Number() > 32 {
 		return 0, fmt.Errorf("invalid entity case")
 	}
 	return pb.EntityKind(f.Number()), nil
@@ -447,7 +479,7 @@ func validateChange(ref *pb.AggregateRef, c *pb.EntityChange, old *pb.EntitySnap
 	_, global := ref.GetTarget().(*pb.AggregateRef_Global)
 	_, airport := ref.GetTarget().(*pb.AggregateRef_Airport)
 	_, session := ref.GetTarget().(*pb.AggregateRef_Session)
-	if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && kind != pb.EntityKind_PROVIDER_CHECKPOINT && !airport) || (kind == pb.EntityKind_PROVIDER_CHECKPOINT && !airport && !global && !(session && c.GetUpsert().GetProviderCheckpoint().Provider == "viff")) || ((kind == 29 || kind == 30) && !session) {
+	if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && kind != pb.EntityKind_PROVIDER_CHECKPOINT && !airport) || (kind == pb.EntityKind_PROVIDER_CHECKPOINT && !airport && !global && !(session && c.GetUpsert().GetProviderCheckpoint().Provider == "viff")) || ((kind == 29 || kind == 30 || kind == 32) && !session) {
 		return fmt.Errorf("entity in wrong aggregate")
 	}
 	return nil
@@ -458,7 +490,7 @@ func recordKind(r *pb.EntityRecord) (pb.EntityKind, error) {
 		return 0, fmt.Errorf("missing typed entity")
 	}
 	f := r.ProtoReflect().WhichOneof(r.ProtoReflect().Descriptor().Oneofs().ByName("value"))
-	if f == nil || f.Number() < 1 || f.Number() > 30 {
+	if f == nil || f.Number() < 1 || f.Number() > 32 {
 		return 0, fmt.Errorf("invalid entity case")
 	}
 	return pb.EntityKind(f.Number()), nil
@@ -526,6 +558,8 @@ func recordKey(kind pb.EntityKind, r *pb.EntityRecord) (string, error) {
 		return field("airport") + "." + field("provider"), nil
 	case 30:
 		return field("provider"), nil
+	case 32:
+		return field("session_id"), nil
 	}
 	return "", fmt.Errorf("unknown entity kind")
 }

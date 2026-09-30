@@ -75,6 +75,20 @@ namespace FlightStrips::messages {
 					envelope.session_info().owner_epoch(), envelope.session_info().master_epoch());
 			if (!envelope.command_id().empty()) {
 				if (!m_webSocketService->BeginCommand(envelope.command_id())) return;
+				if (envelope.event_case() == websocket::protobuf::wire::Envelope::kGenerateSquawk) {
+					using Result = websocket::protobuf::wire::CommandResultEvent;
+					const auto& callsign = envelope.generate_squawk().callsign();
+					const auto fp = m_plugin->FlightPlanSelect(callsign.c_str());
+					if (!callsign.empty() && fp.IsValid() && !m_plugin->GetConnectionState().observer) {
+						m_plugin->AddSquawkCommand(callsign, envelope.command_id(), envelope.session_id(),
+							envelope.owner_epoch(), envelope.master_epoch());
+					} else {
+						m_webSocketService->RecordCommandResult(envelope.command_id(), Result::FAILED,
+							callsign.empty() ? Result::INVALID_ARGUMENT : Result::TARGET_NOT_FOUND,
+							"operational flight plan unavailable", envelope.session_id(), envelope.owner_epoch(), envelope.master_epoch());
+					}
+					return;
+				}
 				CommandOutcome outcome{};
 				try {
 					outcome = ExecuteCommand(envelope);

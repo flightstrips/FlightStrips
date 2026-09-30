@@ -59,3 +59,12 @@ The session is the authority for strips and stands; the airport is the authority
 - Serve typed `FrontendInitial` WebSocket messages fixed in [wire.proto](proto/wire.proto), and preserve existing JSON response shapes for first-party HTTP APIs. Build both from one session projection revision plus tagged position/presence observations. The frontend derives its socket presentation model locally. Derived validation remains calculated from the same source revisions on every node.
 - A domain event produces a local frontend/EuroScope delta on **every** backend after that backend applies it. Local hubs filter by session/airport/CID and write only to local sockets. They do not decide whether a mutation succeeded.
 - A connected frontend becomes writable only after its backend has a caught-up projection and a fresh EuroScope sync for that session. A reconnect receives an initial snapshot followed by buffered deltas. If the source projection becomes unhealthy, close the socket so the client reconnects elsewhere; never continue with private stale state.
+
+Task 18c replaces EuroScope offline/disconnect and squawk local outcome timers
+with session-owned `SessionDeadline` and typed `GenerateSquawkEffect` state.
+`SessionSquawkThrottle` (case 32) is a server-time-derived session entity; its
+canonical decimal key coexists with the session seed through the typed entity
+index. Master-observed network controllers remain scalar workflow observations;
+authenticated CID identities remain separate. WAITING effects form the queue,
+so no separately serialized queue or Redis state is introduced. Candidate
+construction is dormant until Task 20 and remains held through Task 24.

@@ -198,6 +198,9 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 		}
 		if status != pb.CommandReply_COMMITTED {
 			outcome.Status, outcome.ReasonCode, outcome.Detail = pb.CommandOutcome_FAILED, status.String(), errorString(err)
+			if errorString(err) == "SQUAWK_ALREADY_PENDING" {
+				outcome.ReasonCode = "SQUAWK_ALREADY_PENDING"
+			}
 			change = &pb.DomainChange{}
 		} else if len(change.Effects) > 0 {
 			outcome.Status = pb.CommandOutcome_ACCEPTED
@@ -334,6 +337,9 @@ func validatePlanned(state *Aggregate, e *pb.StateEvent) error {
 		kind, err := changeKind(c)
 		if err != nil {
 			return err
+		}
+		if kind == pb.EntityKind_SESSION_SQUAWK_THROTTLE {
+			return fmt.Errorf("squawk throttle is derived only from a dispatch claim")
 		}
 		if int32(kind) < lastKind || (int32(kind) == lastKind && c.Key <= lastKey) {
 			return fmt.Errorf("unsorted entity changes")

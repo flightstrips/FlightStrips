@@ -199,12 +199,17 @@ func aggregateFromSnapshot(snapshot *pb.Snapshot) (*Aggregate, error) {
 		_, global := snapshot.Aggregate.GetTarget().(*pb.AggregateRef_Global)
 		_, airport := snapshot.Aggregate.GetTarget().(*pb.AggregateRef_Airport)
 		_, session := snapshot.Aggregate.GetTarget().(*pb.AggregateRef_Session)
-		if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && kind != pb.EntityKind_PROVIDER_CHECKPOINT && !airport) || (kind == pb.EntityKind_PROVIDER_CHECKPOINT && !airport && !global && !(session && entity.Value.GetProviderCheckpoint().Provider == "viff")) || ((kind == 29 || kind == 30) && !session) {
+		if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && kind != pb.EntityKind_PROVIDER_CHECKPOINT && !airport) || (kind == pb.EntityKind_PROVIDER_CHECKPOINT && !airport && !global && !(session && entity.Value.GetProviderCheckpoint().Provider == "viff")) || ((kind == 29 || kind == 30 || kind == 32) && !session) {
 			return nil, fmt.Errorf("snapshot entity in wrong aggregate")
 		}
 		key, err := recordKey(kind, entity.Value)
 		if err != nil || key != entity.Key {
 			return nil, fmt.Errorf("snapshot entity key mismatch")
+		}
+		if throttle := entity.Value.GetSessionSquawkThrottle(); throttle != nil {
+			if throttle.SessionId != snapshot.Aggregate.GetSession().GetId() || throttle.NextAllowedAt == nil || throttle.NextAllowedAt.CheckValid() != nil {
+				return nil, fmt.Errorf("invalid snapshot squawk throttle")
+			}
 		}
 		state.Entities[entitySlot(state.Entities, kind, entity.Key)] = proto.Clone(entity).(*pb.EntitySnapshot)
 		lastKind = kind

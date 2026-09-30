@@ -15,8 +15,8 @@ owner rebuilds due work from persisted entities rather than local timers.
 | Stand assignment and block expiry, including departure lifecycle | Session owner: projection sweep, fresh FS_POSITIONS occupancy check, source revision and CAS | Concrete lifecycle hooks own stand deadlines when bound; generic expiry remains the fallback |
 | `DepartureLifecycleService.StartSweep` and `ArrivalLifecycleService.StartSweep` | Session owner via `services.NewVatsimLifecycleCandidate(...).Departure` and `.Arrival`, assigned to `SessionWork` | Task 19a candidate implemented and tested; startup binding remains Task 20 |
 | VATSIM reconciler's session mutations | Same concrete candidate consumes the global typed checkpoint, reconciles strips, then commits real lifecycle policy with source/entity/position rechecks | Task 19a candidate implemented and tested; no additional provider poller |
-| `cdm.SyncService.Start` session sync, periodic recalculation, CTOT validation and debounce | Session owner via `SessionWork.CDM` and owner-routed commands | Domain adapter required |
-| `TrafficMetricsService.Start` session metrics writes | Session owner via `SessionWork.Traffic` and owner-routed commands | Domain adapter required |
+| `cdm.SyncService.Start` session sync, periodic recalculation, CTOT validation and debounce | `services.NewCdmCandidate(...).CDM` bound to `SessionWork.CDM`; accepted `cdm-sync`, `cdm-recalculate`, `cdm-validation`, `cdm-debounce` and callsign `cdm-pushback` deadlines | Task 18b concrete candidate; bind only in Task 20 and release only in Task 24 |
+| `TrafficMetricsService.Start` session metrics writes | `services.NewTrafficCandidate(writer).Traffic` bound to `SessionWork.Traffic`; projection read and lease/readiness recheck immediately before gauge publication | Task 18b concrete candidate; no traffic domain event or storage schema |
 | EuroScope controller offline grace timer | Session owner: `controller-offline` deadline, controller source revision and fresh cluster client presence | Task 18c actual binary admission, shared recovery and expiry implemented; Task 20 binds runtime |
 | EuroScope aircraft disconnect timer | Session owner: `aircraft-disconnect` deadline bound to FS_POSITIONS tombstone revision; retained-aircraft decision from shared observations | Task 18c actual binary admission and concrete accepted VATSIM/lifecycle/position retention implemented; Task 20 binds runtime |
 | EuroScope session update debounce | Session owner: `session-update` deadline and `SessionWork.SessionUpdate` hook | Task 18c concrete sector/layout/route callbacks and durable scheduling implemented; Task 20 binds runtime |
@@ -92,3 +92,21 @@ The PDC constructor's final arguments accept `TransceiverLookup` readers;
 Task 20 injects `cluster.NewTransceiverSource` from Task 19c. A real provider
 HTTP fixture, accepted global checkpoint and both readers verify that a fresh
 controller's secondary radio enters production clearance composition.
+Task 18b also exports `services.NewCdmActionService(ownerStore)` and
+`CdmCandidate.Planner(next)` for the existing typed browser and EFB HTTP
+commands, `services.NewCdmCandidateWebAPI(auth, candidate)` for the unchanged
+JSON `/cdm/sequence` response, `CdmCandidate.Recalculate` for session update/
+disconnect callbacks, and `CdmCandidate.ReconcileMaster` for airport-owned
+vIFF master reconciliation. Pushback callers submit `prepare_pushback` and
+read `CdmActionService.PushbackResult`; its acknowledgement comes from the
+persisted probe result, rather than a local retry count.
+
+No Task 18b constructor starts a goroutine or timer. The existing SessionWork
+scan timer merely discovers persisted work. HTTP/UI may coalesce publication
+or wait locally for a committed pushback result; losing that read-only wait
+cannot acknowledge, cancel or rearm work. Traffic publication may be sampled
+by the calling worker's local tick because sampling has no domain effect.
+Task 19's airport provider refresh owns configuration/master observations;
+CDM polls vIFF flight pages only through its persisted session/probe slots.
+SQL CDM debounce, periodic sync, detached export and traffic timers stay solely
+in the SQL runtime. See [Task 18b acceptance](tasks/18b-cdm-traffic-acceptance.md).

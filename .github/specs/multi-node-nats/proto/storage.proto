@@ -256,8 +256,9 @@ message ValidationFault {
 }
 message ValidationAction {
   string label = 1;
-  oneof action { AcknowledgeValidation acknowledge = 2; ClxOverrideAction clx_override = 3; }
+  oneof action { AcknowledgeValidation acknowledge = 2; ClxOverrideAction clx_override = 3; AssignHoldingPoint assign_holding_point = 4; }
 }
+message AssignHoldingPoint {}
 message AcknowledgeValidation { string activation_key = 1; }
 message ClxOverrideAction { string override_key = 1; }
 message Coordination {
@@ -317,6 +318,52 @@ message CdmState {
   optional google.protobuf.Timestamp ttot = 4;
   optional google.protobuf.Timestamp ctot = 5;
   string deice = 6; bool ready = 7; string source_revision = 8;
+  optional google.protobuf.Timestamp atot = 9;
+  optional google.protobuf.Timestamp viff_proposal_tsat = 10;
+  optional google.protobuf.Timestamp viff_proposal_ttot = 11;
+  optional string tobt_confirmed_by = 12;
+  bool tobt_auto_synced = 13; bool tobt_auto_adjusted = 14;
+  bool tobt_manually_confirmed = 15;
+  enum Recalculation { NONE = 0; REQUIRED = 1; IMPROVE_ONLY = 2; }
+  Recalculation recalculation = 16;
+  bool pushback_recalculate = 17; bool ready_sync_pending = 18;
+  bool viff_request_sync_pending = 19; bool atot_viff_pending = 20;
+  optional Calculation calculation = 21;
+  repeated ExportIntent pending_exports = 22;
+  optional PushbackVerification pushback = 23;
+  message PushbackVerification {
+    string operation_id = 1; google.protobuf.Timestamp expected_tobt = 2;
+    uint32 attempts = 3; uint32 matches = 4;
+    bool completed = 5; bool verified = 6;
+  }
+  message ExportIntent {
+    string operation_id = 1;
+    enum Kind { KIND_UNSPECIFIED = 0; DPI = 1; SET_CDM_DATA = 2; SET_TOBT = 3; }
+    Kind kind = 2; string value = 3; int32 taxi_minutes = 4;
+    optional ExportData data = 5;
+    optional string after_operation_id = 6;
+    uint64 input_revision = 7;
+  }
+  message ExportData {
+    string tobt = 1; string tsat = 2; string ttot = 3;
+    string ctot = 4; string reason = 5; string asrt = 6; string departure_info = 7;
+  }
+  message Calculation {
+    optional google.protobuf.Timestamp base_time = 1;
+    optional string base_source = 2; optional int32 taxi_minutes = 3;
+    optional string taxi_runway = 4; optional string invalid_reason = 5;
+    optional int32 sequence_position = 6; optional string leader_callsign = 7;
+    optional google.protobuf.Timestamp leader_ttot = 8;
+    repeated ReasonMarker reason_markers = 9;
+  }
+  message ReasonMarker {
+    string kind = 1; string message = 2;
+    optional string against_callsign = 3; optional string against_runway = 4;
+    optional google.protobuf.Timestamp against_ttot = 5;
+    optional google.protobuf.Timestamp from_ttot = 6;
+    optional google.protobuf.Timestamp to_ttot = 7;
+    optional double required_spacing_minutes = 8;
+  }
 }
 message EcfmpState {
   string callsign = 1; repeated EcfmpRestriction restrictions = 2;

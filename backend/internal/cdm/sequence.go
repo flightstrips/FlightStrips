@@ -150,6 +150,12 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 
 	config := s.configForActiveRunways(airport, sessionData.ActiveRunways.ArrivalRunways, sessionData.ActiveRunways.DepartureRunways)
 	now := s.now().UTC()
+	return s.sequenceSnapshot(ctx, session, strips, config, now, notify)
+}
+
+// sequenceSnapshot is shared by the legacy persistence path and the isolated
+// candidate planner. It only reads the supplied accepted policy snapshot.
+func (s *SequenceService) sequenceSnapshot(ctx context.Context, session int32, strips []*models.Strip, config *CdmAirportConfig, now time.Time, notify bool) error {
 	nowHHMMSS := timeToClock(now)
 
 	candidates := make([]sequencingCandidate, 0, len(strips))
@@ -172,9 +178,9 @@ func (s *SequenceService) recalculateAirport(ctx context.Context, session int32,
 			staleBase:   shouldInvalidateStaleTobt(calcInput, nowHHMMSS),
 		})
 	}
-	span.SetAttributes(attribute.Int("candidate_count", len(candidates)))
 
 	preserved := make([]sequencingCandidate, 0, len(candidates))
+	trace.SpanFromContext(ctx).SetAttributes(attribute.Int("candidate_count", len(candidates)))
 	recalculate := make([]sequencingCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		if shouldRecalculateStrip(candidate.strip, now) || !candidate.hasSlot {

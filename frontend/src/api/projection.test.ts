@@ -21,6 +21,25 @@ const delta = (revision: bigint, route: string) => create(FrontendDeltaSchema, {
 });
 
 describe("typed frontend projection", () => {
+  it("keeps actual times and status when an atomic CDM replacement is presented", () => {
+    const events: WebSocketEvent[] = [];
+    const projection = new FrontendProjection(event => events.push(event));
+    projection.initial(initial());
+    const item = strip("NEW", 2n);
+    if (item.value?.value.case !== "strip") throw new Error("fixture");
+    item.value.value.value.aobt = { $typeName: "google.protobuf.Timestamp", seconds: 1790769600n, nanos: 0 };
+    item.value.value.value.operationalStatus = "REA";
+    item.value.value.value.ctotSource = "Manual";
+    projection.delta(create(FrontendDeltaSchema, {
+      aggregate: {target: {case: "session", value: {id: 7}}}, aggregateRevision: 4n,
+      changes: [
+        {key: "SAS123", revision: 2n, operation: {case: "upsert", value: item.value}},
+        {key: "SAS123", revision: 1n, operation: {case: "upsert", value: {value: {case: "cdmState", value: {callsign: "SAS123", ready: true}}}}},
+      ],
+    }));
+    expect(events.at(-1)).toMatchObject({type: EventType.FrontendCdmData, status: "REA", ctot_source: "Manual", aobt: "2026-09-30T12:00:00.000Z"});
+    expect(projection.entityRevisions.get("cdm.SAS123")).toBe(1n);
+  });
   it("rebuilds from an initial checkpoint and applies complete replacements", () => {
     const events: WebSocketEvent[] = [];
     const projection = new FrontendProjection(event => events.push(event));

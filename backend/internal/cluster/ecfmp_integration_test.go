@@ -14,6 +14,7 @@ import (
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -119,9 +120,64 @@ func TestEcfmpGlobalTwoReplicaNATS(t *testing.T) {
 	if sent, err := nodes[first].nav.FetchProviderPageFor(ctx, ExternalCallWorker{Writer: nodes[first].nav.Writer}, id, ref, "ecfmp", "flow-measure/active", fetch); err != nil || !sent || calls.Load() != 1 {
 		t.Fatalf("owner fetch: %v %v calls=%d", sent, err, calls.Load())
 	}
-	checkpoint, page, _, err := nodes[second].nav.CheckpointRevisionFor(ctx, ref, "ecfmp", "flow-measure/active")
+	checkpoint, page, checkpointRevision, err := nodes[second].nav.CheckpointRevisionFor(ctx, ref, "ecfmp", "flow-measure/active")
 	if err != nil || checkpoint == nil || checkpoint.Sha256 == "" || page.GetEcfmp() == nil {
 		t.Fatalf("second replica cannot read typed result: %v %v %v", checkpoint, page, err)
+	}
+	// Pick a session whose first owner is the same process as the global
+	// owner, so the same failure exercises both takeover paths.
+	var sessionID int32
+	var session *pb.AggregateRef
+	baseSessionID := int32(100000 + int(uuid.New()[0])*1000)
+	for candidate := baseSessionID; candidate < baseSessionID+1000; candidate++ {
+		ref := sessionRef(candidate)
+		subject, _ := Subject(ref)
+		if RendezvousRank(subject, []string{nodes[0].owner.NodeID, nodes[1].owner.NodeID})[0] == nodes[first].owner.NodeID {
+			sessionID, session = candidate, ref
+			break
+		}
+	}
+	if session == nil {
+		t.Fatal("could not select session owner")
+	}
+	sessionSubject, _ := Subject(session)
+	if err := nodes[first].owner.Track(session); err != nil {
+		t.Fatal(err)
+	}
+	for !nodes[first].owner.CanWrite(session) && ctx.Err() == nil {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if ctx.Err() != nil {
+		state, _ := nodes[first].projection.Read(session)
+		t.Fatalf("session owner did not become writable: projected=%v ready=%v", state.Owner, nodes[first].owner.Ready())
+	}
+	if err := nodes[second].owner.Track(session); err != nil {
+		t.Fatal(err)
+	}
+	seedWriter := nodes[first].nav.Writer
+	seedWriter.Plan = func(context.Context, *pb.CommandRequest, *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		return &pb.DomainChange{Changes: []*pb.EntityChange{
+			{Key: strconv.FormatInt(int64(sessionID), 10), Revision: 1, Operation: &pb.EntityChange_Upsert{Upsert: &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: &pb.Session{Id: sessionID, Airport: "EKCH", Name: "LIVE", NextStripId: 2}}}}},
+			{Key: "SAS123", Revision: 1, Operation: &pb.EntityChange_Upsert{Upsert: &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: &pb.Strip{Id: 1, Callsign: "SAS123", Revision: 1, Bay: "CLEARED", Sequence: 1000, Departure: "EKCH", Destination: "EDDF"}}}}},
+		}}, pb.CommandReply_COMMITTED, 0, nil
+	}
+	seed := &pb.CommandRequest{ProtocolRevision: 1, CommandId: uuid.NewString(), Aggregate: session,
+		Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "ecfmp-test"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: strconv.FormatInt(int64(sessionID), 10), Value: &pb.EntityRecord{Value: &pb.EntityRecord_Session{Session: &pb.Session{Id: sessionID, Airport: "EKCH", Name: "LIVE"}}}}}}}}
+	if reply := seedWriter.Execute(ctx, seed); reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		t.Fatalf("seed session: %v", reply)
+	}
+	application := EcfmpSessionAdapter{Writer: nodes[first].nav.Writer}
+	strips, err := application.Strips(ctx, sessionID)
+	if err != nil || len(strips) != 1 {
+		t.Fatalf("session strips: %v %v", strips, err)
+	}
+	sourceVersion := fmt.Sprintf("%020d:%s", checkpointRevision, checkpoint.Sha256)
+	if reply := (EcfmpSessionAdapter{Writer: nodes[second].nav.Writer}).Apply(ctx, sessionID, strips[0], sourceVersion, nil); reply.GetOutcome().GetStatus() == pb.CommandOutcome_SUCCEEDED {
+		t.Fatalf("nonowner applied ECFMP result: %v", reply)
+	}
+	applicationResult := application.Apply(ctx, sessionID, strips[0], sourceVersion, []*pb.EcfmpRestriction{{MeasureId: 42, Kind: "mandatory_route", Routes: []string{"DCT ABC"}}})
+	if applicationResult.Status != pb.CommandReply_COMMITTED || applicationResult.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		t.Fatalf("session application: %v", applicationResult)
 	}
 	// One intent is committed but never dispatched. Another provider call
 	// returns just as the owner dies, before its result can be committed.
@@ -149,6 +205,23 @@ func TestEcfmpGlobalTwoReplicaNATS(t *testing.T) {
 	survivor := waitOwner(nodes[first].owner.NodeID)
 	if survivor != second {
 		t.Fatal("unexpected takeover")
+	}
+	for !nodes[second].owner.CanWrite(session) && ctx.Err() == nil {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if ctx.Err() != nil {
+		t.Fatal("session owner takeover timed out")
+	}
+	readSession, err := nodes[second].nav.Writer.load(ctx, sessionSubject, session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := readSession.Indexes[pb.EntityKind_ECFMP_STATE]["SAS123"].GetValue().GetEcfmpState()
+	if result == nil || len(result.Restrictions) != 1 || !proto.Equal(result.Restrictions[0], &pb.EcfmpRestriction{MeasureId: 42, Kind: "mandatory_route", Routes: []string{"DCT ABC"}}) {
+		t.Fatalf("session result not replayed: %v %v", readSession, err)
+	}
+	if reply := (EcfmpSessionAdapter{Writer: nodes[second].nav.Writer}).Apply(ctx, sessionID, strips[0], sourceVersion, []*pb.EcfmpRestriction{{MeasureId: 42, Kind: "mandatory_route", Routes: []string{"DCT ABC"}}}); reply.GetStreamSequence() != applicationResult.GetStreamSequence() || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		t.Fatalf("session result duplicated after takeover: %v", reply)
 	}
 	if err := (ExternalCallWorker{Writer: nodes[second].nav.Writer}).Resume(ctx, ref); err != nil {
 		t.Fatal(err)

@@ -41,6 +41,11 @@ type SessionWork struct {
 	Traffic           func(context.Context, int32) error
 	SessionUpdate     func(context.Context, int32) error
 	SessionDisconnect func(context.Context, int32) error
+	// Rebuild socket deadlines from accepted identities and observations before
+	// reading due work. Task 18c binds its concrete recovery adapter here.
+	EuroScope func(context.Context, int32) error
+	// Task18c holds the owner position barrier while an aircraft deadline fires.
+	DeadlineCommit func(context.Context, *pb.CommandRequest, *pb.SessionDeadline) error
 
 	mu             sync.Mutex
 	unhealthySince time.Time
@@ -52,6 +57,22 @@ func (w *SessionWork) clock() time.Time {
 		return w.Now().UTC()
 	}
 	return time.Now().UTC()
+}
+
+// ReconcileSession runs the same healthy owner pass as the registry supervisor.
+// Callers already holding an admitted session identity can use this entry point
+// without constructing a second timer or a separate deadline implementation.
+func (w *SessionWork) ReconcileSession(ctx context.Context, id int32) error {
+	if w.Store == nil || w.Projection == nil || w.Owner == nil || id <= 0 {
+		return fmt.Errorf("session worker is incomplete")
+	}
+	if err := w.Projection.Ready(); err != nil {
+		return err
+	}
+	if !w.Owner.CanWrite(sessionRef(id)) {
+		return fmt.Errorf("session lease unavailable")
+	}
+	return w.stepSession(ctx, &pb.SessionRegistry{Id: id}, time.Time{}, time.Time{}, 0)
 }
 
 func (w *SessionWork) Run(ctx context.Context) error {
@@ -166,6 +187,11 @@ func (w *SessionWork) Step(ctx context.Context) error {
 
 func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegistry, unhealthySince, recoveredAt time.Time, paused time.Duration) error {
 	id, now := registry.Id, w.clock()
+	if w.EuroScope != nil {
+		if err := w.EuroScope(ctx, id); err != nil {
+			return err
+		}
+	}
 	state, err := w.Store.Read(ctx, sessionRef(id))
 	if err != nil {
 		return err
@@ -381,6 +407,9 @@ func (w *SessionWork) fireDeadline(ctx context.Context, id int32, entity *pb.Ent
 	identity := fmt.Sprintf("%s/%s/%d", entity.Key, d.GetDueAt().AsTime().UTC().Format(time.RFC3339Nano), d.SourceRevision)
 	request := sessionWorkerRequest(id, workerCommandID(id, "deadline", identity, entity.Revision), entity.Revision,
 		&pb.SystemCommand{Action: &pb.SystemCommand_RemoveEntity{RemoveEntity: &pb.RemoveEntity{Key: entity.Key, Kind: pb.EntityKind_SESSION_DEADLINE}}})
+	if d.Kind == "aircraft-disconnect" && w.DeadlineCommit != nil {
+		return w.DeadlineCommit(ctx, request, d)
+	}
 	return w.execute(ctx, request)
 }
 

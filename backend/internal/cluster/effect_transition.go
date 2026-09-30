@@ -25,6 +25,9 @@ func validateEffectRequest(effect *pb.EffectRecord, commandID string, previous *
 		(secret.ObjectName != "effect/"+commandID || len(secret.Sha256) != 64 || secret.Recipient == "") {
 		return fmt.Errorf("invalid private message object reference")
 	}
+	if squawk := effect.GetGenerateSquawk(); squawk != nil && !canonicalAircraft(squawk.Callsign) {
+		return fmt.Errorf("invalid squawk effect")
+	}
 	return nil
 }
 
@@ -41,7 +44,7 @@ func validateEffectTransition(old, next *pb.EffectRecord, outcome *pb.CommandOut
 		if old.DispatchDeadline == nil || next.ResultDeadline != nil {
 			return fmt.Errorf("invalid effect dispatch deadline")
 		}
-		if serverTime.After(old.DispatchDeadline.AsTime()) && next.Status != pb.EffectRecord_EXPIRED {
+		if serverTime.After(old.DispatchDeadline.AsTime()) && next.Status != pb.EffectRecord_EXPIRED && !(old.GetGenerateSquawk() != nil && next.Status == pb.EffectRecord_FAILED) {
 			return errEffectDeadlineRace
 		}
 		switch next.Status {
@@ -55,6 +58,12 @@ func validateEffectTransition(old, next *pb.EffectRecord, outcome *pb.CommandOut
 			}
 			if next.DispatchConnectionId != nil || next.OwnerEpoch != old.OwnerEpoch || next.MasterEpoch != old.MasterEpoch {
 				return fmt.Errorf("invalid effect expiry")
+			}
+		case pb.EffectRecord_FAILED:
+			if old.GetGenerateSquawk() == nil || next.DispatchConnectionId != nil ||
+				(next.ReasonCode != "SQUAWK_ASSIGNED" && next.ReasonCode != "STRIP_REMOVED") ||
+				next.OwnerEpoch != old.OwnerEpoch || next.MasterEpoch != old.MasterEpoch {
+				return fmt.Errorf("invalid waiting squawk cancellation")
 			}
 		default:
 			return fmt.Errorf("invalid waiting effect transition")
@@ -99,6 +108,10 @@ func effectPayload(e *pb.EffectRecord) proto.Message {
 		return p.Coordination
 	case *pb.EffectRecord_Cdm:
 		return p.Cdm
+	case *pb.EffectRecord_AmanHoldingEat:
+		return p.AmanHoldingEat
+	case *pb.EffectRecord_GenerateSquawk:
+		return p.GenerateSquawk
 	default:
 		return nil
 	}

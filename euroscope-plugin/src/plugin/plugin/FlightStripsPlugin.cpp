@@ -558,6 +558,35 @@ namespace FlightStrips {
         m_needsSquawk.push_back({callsign, std::chrono::steady_clock::now()});
     }
 
+    void FlightStripsPlugin::AddSquawkCommand(const std::string& callsign, const std::string& commandId,
+                                            int sessionId, uint64_t ownerEpoch, uint64_t masterEpoch) {
+        m_needsSquawk.push_back({callsign, std::chrono::steady_clock::now(), commandId,
+                                sessionId, ownerEpoch, masterEpoch});
+    }
+
+    void FlightStripsPlugin::DispatchNeedsSquawk(const std::function<void(const std::string&)>& dispatch) {
+        ExpireNeedsSquawkRequests();
+        if (GetConnectionState().observer) return;
+        for (auto it = m_needsSquawk.begin(); it != m_needsSquawk.end(); ++it) {
+            if (!RadarTargetSelect(it->callsign.c_str()).IsValid()) continue;
+            // Remove before the external call. Exception or disconnect can
+            // never cause another local invocation of this claimed request.
+            const auto request = *it;
+            m_needsSquawk.erase(it);
+            using Result = websocket::protobuf::wire::CommandResultEvent;
+            auto status = Result::EXECUTED;
+            auto reason = Result::OK;
+            try { dispatch(request.callsign); }
+            catch (...) { status = Result::FAILED; reason = Result::INTERNAL_ERROR; }
+            if (!request.commandId.empty()) {
+                if (const auto ptr = m_container.lock())
+                    ptr->webSocketService->RecordCommandResult(request.commandId, status, reason, {},
+                        request.sessionId, request.ownerEpoch, request.masterEpoch);
+            }
+            return;
+        }
+    }
+
     std::optional<std::string> FlightStripsPlugin::GetNeedsSquawk() {
         ExpireNeedsSquawkRequests();
 
@@ -577,12 +606,20 @@ namespace FlightStrips {
     void FlightStripsPlugin::ExpireNeedsSquawkRequests() {
         const auto now = std::chrono::steady_clock::now();
         for (auto it = m_needsSquawk.begin(); it != m_needsSquawk.end();) {
-            if (now - it->requestedAt < kSquawkRequestTimeout) {
+			const auto timeout = it->commandId.empty() ? kSquawkRequestTimeout : std::chrono::seconds(30);
+			if (now - it->requestedAt < timeout) {
                 ++it;
                 continue;
             }
 
-            Logger::Error("Dropping pending squawk request for {} after waiting two minutes for a radar target", it->callsign);
+            Logger::Error("Dropping expired pending squawk request for {} without a radar target", it->callsign);
+            if (!it->commandId.empty()) {
+                if (const auto ptr = m_container.lock()) {
+                    using Result = websocket::protobuf::wire::CommandResultEvent;
+                    ptr->webSocketService->RecordCommandResult(it->commandId, Result::FAILED, Result::TARGET_NOT_FOUND,
+                        "radar target unavailable", it->sessionId, it->ownerEpoch, it->masterEpoch);
+                }
+            }
             it = m_needsSquawk.erase(it);
         }
     }

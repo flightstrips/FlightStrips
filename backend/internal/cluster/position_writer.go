@@ -35,6 +35,8 @@ type PositionWriter struct {
 	Authority    PositionAuthority
 	dispatcher   *shared.PositionDispatcher
 	mu           sync.Mutex
+	barrierMu    sync.Mutex
+	closed       bool // guarded by barrierMu
 	disconnected map[string]bool
 }
 
@@ -150,8 +152,16 @@ func validAircraftPosition(v *pb.AircraftPosition) bool {
 		!math.IsNaN(v.TrackDegrees) && !math.IsInf(v.TrackDegrees, 0) && v.TrackDegrees >= 0 && v.TrackDegrees < 360
 }
 
-func (w *PositionWriter) Depth() int                      { return w.dispatcher.Depth() }
-func (w *PositionWriter) Close(ctx context.Context) error { return w.dispatcher.Close(ctx) }
+func (w *PositionWriter) Depth() int { return w.dispatcher.Depth() }
+func (w *PositionWriter) Close(ctx context.Context) error {
+	w.barrierMu.Lock()
+	defer w.barrierMu.Unlock()
+	if w.closed {
+		return nil
+	}
+	w.closed = true
+	return w.dispatcher.Close(ctx)
+}
 
 // ExecuteLifecycle drains all admitted reports and fences every tagged current
 // observation used for occupancy, including neighbours and disconnects.
@@ -161,7 +171,7 @@ func (w *PositionWriter) ExecuteLifecycle(ctx context.Context, observations []KV
 	}
 	var reply *pb.CommandReply
 	var failure error
-	err := w.dispatcher.RunBarrier(ctx, func() {
+	err := w.runBarrier(ctx, func() {
 		if failure = w.Authority(ctx, w.SessionID, w.OwnerEpoch, w.Connection); failure != nil {
 			return
 		}
@@ -225,12 +235,22 @@ func (w *PositionWriter) ExecuteLifecycle(ctx context.Context, observations []KV
 // command. The command must target this writer's session and be submitted by
 // the same session owner; the position itself never writes a strip version.
 func (w *PositionWriter) ExecuteDerived(ctx context.Context, aircraft string, revision uint64, run func() (*pb.CommandReply, error)) (*pb.CommandReply, error) {
+	return w.executeObservation(ctx, aircraft, revision, false, run)
+}
+
+// ExecuteDisconnect holds the same owner dispatcher barrier for a tombstone
+// derived deletion/retention decision. A newer report invalidates its revision.
+func (w *PositionWriter) ExecuteDisconnect(ctx context.Context, aircraft string, revision uint64, run func() (*pb.CommandReply, error)) (*pb.CommandReply, error) {
+	return w.executeObservation(ctx, aircraft, revision, true, run)
+}
+
+func (w *PositionWriter) executeObservation(ctx context.Context, aircraft string, revision uint64, disconnected bool, run func() (*pb.CommandReply, error)) (*pb.CommandReply, error) {
 	if w == nil || w.dispatcher == nil || !canonicalAircraft(aircraft) || revision == 0 || run == nil {
 		return nil, fmt.Errorf("invalid position-derived command")
 	}
 	var reply *pb.CommandReply
 	var commandErr error
-	err := w.dispatcher.RunBarrier(ctx, func() {
+	err := w.runBarrier(ctx, func() {
 		if commandErr = w.Authority(ctx, w.SessionID, w.OwnerEpoch, w.Connection); commandErr != nil {
 			return
 		}
@@ -248,7 +268,7 @@ func (w *PositionWriter) ExecuteDerived(ctx context.Context, aircraft string, re
 		if commandErr = pb.UnmarshalStrict(entry.Value(), value); commandErr != nil {
 			return
 		}
-		if value.SessionId != w.SessionID || value.AircraftKey != aircraft || value.OwnerEpoch != w.OwnerEpoch || value.SourceConnectionId != w.Connection || value.GetPosition() == nil {
+		if value.SessionId != w.SessionID || value.AircraftKey != aircraft || value.OwnerEpoch != w.OwnerEpoch || value.SourceConnectionId != w.Connection || disconnected && value.GetTombstone() == nil || !disconnected && value.GetPosition() == nil {
 			commandErr = fmt.Errorf("source position is stale or disconnected")
 			return
 		}
@@ -258,6 +278,29 @@ func (w *PositionWriter) ExecuteDerived(ctx context.Context, aircraft string, re
 		return nil, err
 	}
 	return reply, commandErr
+}
+
+// The shared dispatcher expects one operational reader. The candidate also
+// admits worker expiry, so serialize its barriers and keep reopening admission
+// outside a paused queue to prevent a full queue/mutex deadlock.
+func (w *PositionWriter) runBarrier(ctx context.Context, run func()) error {
+	w.barrierMu.Lock()
+	defer w.barrierMu.Unlock()
+	if w.closed {
+		return fmt.Errorf("position generation is closed")
+	}
+	return w.dispatcher.RunBarrier(ctx, run)
+}
+
+// ReopenAircraft is used only for a newer authenticated strip/sync observation
+// in the current generation, after prior reports and the disconnect drain.
+func (w *PositionWriter) ReopenAircraft(ctx context.Context, aircraft string) error {
+	if !canonicalAircraft(aircraft) {
+		return fmt.Errorf("invalid reappearing aircraft")
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.runBarrier(ctx, func() { delete(w.disconnected, aircraft) })
 }
 
 // PositionAuthority rejects work left in the queue after owner or master

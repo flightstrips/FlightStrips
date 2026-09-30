@@ -197,3 +197,58 @@ func TestPositionDerivedCommandRechecksKVAndHoldsPositionBarrier(t *testing.T) {
 		t.Fatal("stale source revision committed a derived transition")
 	}
 }
+
+func TestDisconnectExpirySerializesReappearanceAndRejectsOldTombstone(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	kv := &positionKVTest{values: map[string]positionKVEntry{}}
+	w, err := NewPositionWriter(kv, 1, 1, "conn", func(context.Context, int32, uint64, string) error { return nil }, 1, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close(ctx)
+	receipt, err := w.QueueDisconnect(ctx, "SAS101", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	prior := <-receipt
+	if prior.Err != nil {
+		t.Fatal(prior.Err)
+	}
+	entered, release, finished := make(chan struct{}), make(chan struct{}), make(chan error, 1)
+	go func() {
+		_, err := w.ExecuteDisconnect(ctx, "SAS101", prior.Revision, func() (*pb.CommandReply, error) {
+			close(entered)
+			<-release
+			return &pb.CommandReply{Status: pb.CommandReply_COMMITTED}, nil
+		})
+		finished <- err
+	}()
+	<-entered
+	reopened := make(chan error, 1)
+	go func() { reopened <- w.ReopenAircraft(ctx, "SAS101") }()
+	select {
+	case err := <-reopened:
+		close(release)
+		t.Fatalf("reappearance crossed expiry commit: %v", err)
+	case <-time.After(30 * time.Millisecond):
+	}
+	close(release)
+	if err := <-finished; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-reopened; err != nil {
+		t.Fatal(err)
+	}
+	position, err := w.QueuePosition(ctx, "SAS101", &pb.AircraftPosition{Latitude: 55, Longitude: 12}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := <-position; r.Err != nil {
+		t.Fatal(r.Err)
+	}
+	called := false
+	if _, err := w.ExecuteDisconnect(ctx, "SAS101", prior.Revision, func() (*pb.CommandReply, error) { called = true; return nil, nil }); err == nil || called {
+		t.Fatal("old tombstone deleted a reappeared aircraft")
+	}
+}

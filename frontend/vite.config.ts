@@ -6,8 +6,13 @@ import tailwindcss from "@tailwindcss/vite";
 import mdx from "@mdx-js/rollup"
 import { VitePWA } from 'vite-plugin-pwa'
 
-const componentVersion = readFileSync(new URL('./version.txt', import.meta.url), 'utf-8').trim()
-const appVersion = process.env.BUILD_VERSION?.trim() || `${componentVersion}+dev`
+const packageJson = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf-8')
+) as { version?: string }
+
+const appVersion = typeof packageJson.version === 'string' && packageJson.version.trim() !== ''
+  ? packageJson.version.trim()
+  : '0.0.0'
 
 // https://vite.dev/config/
 export default defineConfig({

@@ -6,8 +6,6 @@ on:
 
 jobs:
   announce:
-    # Application announcements require verified manual cutover receipts.
-    if: startsWith(github.event.release.tag_name, 'docs/v')
     runs-on: ubuntu-24.04
     steps:
       - name: Post Discord announcement

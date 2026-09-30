@@ -5,8 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-ARG BUILD_VERSION
-RUN BUILD_VERSION="${BUILD_VERSION}" npm run build
+RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html

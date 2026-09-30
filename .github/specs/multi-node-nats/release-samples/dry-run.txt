@@ -1,9 +1,0 @@
-plugin_release_tag=plugin/v4.0.0
-frontend_release_tag=frontend/v4.0.0
-dll_sha256=8f476959a48c8e49092ff024f08f73af0c2ee70143de288796aa1f823a9483d1
-tree=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-attachments=FlightStripsPlugin.dll,FlightStripsPluginCore.dll,flightstrips_config.ini,flightstrips_config_dev.ini
-announcement=send
-github_writes=0
-oci_writes=0
-discord_calls=0

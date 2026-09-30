@@ -58,6 +58,7 @@ and production `go` statements under `backend/internal` on this branch.
 call, uses a stable result command ID, and resolves takeover from the
 destination command ledger. Candidate VATSIM, ECFMP, AIRAC, METAR/AFV,
 Open-Meteo, CDM configuration and vIFF read/write adapters use that boundary.
-The production `app.Build` path still starts the legacy workers. Task 20 must
-bind the remaining AMAN and VATSIM reconciliation behavior and must not start
-both worker paths for one provider or aggregate.
+The production `app.Build` path still starts the legacy workers. Tasks 19a and
+19b complete VATSIM lifecycle and operational AMAN behavior before Task 20
+binds candidate startup. Task 20 must not start both worker paths for one
+provider or aggregate.

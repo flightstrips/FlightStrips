@@ -4,6 +4,8 @@
 
 **Release boundary:** merge with the coordinated NATS runtime candidate PR and release at task 24; see [release-safety.md](../release-safety.md).
 
+**Integration status:** [PR #817](https://github.com/flightstrips/FlightStrips/pull/817) merged the dormant deadline/cleanup candidate and [inventory](../session-worker-inventory.md). Task 18 remains partial: concrete PDC polling, session CDM sync/recalculation/validation, traffic metrics, socket deadline scheduling, shared aircraft retention and authoritative squawk throttling are still required. Departure/arrival lifecycle completion is assigned to [Task 19a](19a-vatsim-lifecycle.md). Task 20 must not substitute missing hooks with no-ops or start SQL workers to fill them.
+
 ## Work
 
 - Assign session ownership to PDC deadlines/polling, stand sweeps, departure/arrival lifecycle, session-specific CDM/traffic work, EuroScope offline/disconnect timers, and the session monitor registered from `backend/internal/app/app.go`. Persist deadlines and source revisions; rearm from projection after takeover and recheck state before firing.

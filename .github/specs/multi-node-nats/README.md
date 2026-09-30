@@ -74,9 +74,11 @@ An implementation that cannot satisfy a contract must update these documents and
 | 15b | [HTTP JSON boundary and outcomes](tasks/15b-http-results.md) | 02, 13 | Merged to integration base ([#813](https://github.com/flightstrips/FlightStrips/pull/813)); held from `main`/release |
 | 16 | [Master election and fanout](tasks/16-master-fanout.md) | 05, 10, 13, 14 | Merged to integration base ([#812](https://github.com/flightstrips/FlightStrips/pull/812)); held from `main`/release |
 | 17 | [Durable plugin effects](tasks/17-effects.md) | 09, 13–16, 15a | Merged to integration base ([#814](https://github.com/flightstrips/FlightStrips/pull/814)); held from `main`/release |
-| 18 | [Session workers and cleanup](tasks/18-session-workers.md) | 04–10, 13, 14, 17 | Not started |
-| 19 | [Airport and global workers](tasks/19-airport-workers.md) | 11–13, 17 | Partial: framework and inventory merged ([#815](https://github.com/flightstrips/FlightStrips/pull/815)); provider adapters and two-replica tests remain; held from `main`/release |
-| 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19, 15a, 15b | Not started |
+| 18 | [Session workers and cleanup](tasks/18-session-workers.md) | 04–10, 13, 16, 17 | Partial: deadline/cleanup candidate merged ([#817](https://github.com/flightstrips/FlightStrips/pull/817)); domain adapters, socket scheduling and squawk throttle remain; held from `main`/release |
+| 19 | [Airport and global workers](tasks/19-airport-workers.md) | 11–13, 17 | Partial: framework ([#815](https://github.com/flightstrips/FlightStrips/pull/815)) and provider candidates ([#816](https://github.com/flightstrips/FlightStrips/pull/816)) merged; requires 19a and 19b; held from `main`/release |
+| 19a | [VATSIM stand lifecycle](tasks/19a-vatsim-lifecycle.md) | 08, 18 candidate, 19 candidate | Ready; required to complete 18/19 |
+| 19b | [Operational AMAN candidate](tasks/19b-aman-policy.md) | 11, 12, 19 candidate | Ready; required to complete 19 |
+| 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19, 15a, 15b, 19a, 19b | Not started; blocked on completion of 18 and 19 |
 | 21 | [Production Swarm infrastructure](tasks/21-infrastructure.md) | 01, 03, 13, 20 | Not started |
 | 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–21 | Not started |
 | 23 | [Position load and capacity gate](tasks/23-performance.md) | 22 | Not started |

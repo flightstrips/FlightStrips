@@ -51,6 +51,8 @@ An implementation that cannot maintain these conditions is reclassified **held**
 | 17 | No; held | No | Depends on held browser/plugin outcomes; effect dispatch must never send alongside current dispatch. |
 | 18 | No; held | No | Depends on held plugin/effect work; new session workers cannot start alongside current workers. |
 | 19 | No; held | No | Depends on held effect work; new airport/global workers cannot start alongside current workers. |
+| 19a | No; held | No | Completes session-owned VATSIM lifecycle; follows the Task 18/19 activation boundary. |
+| 19b | No; held | No | Completes operational AMAN policy and destination intents; follows the Task 19 activation boundary. |
 | 20 | No; held | No | Removing SQL/migrator and wiring NATS-only startup is activation code. |
 | 21 | Infrastructure PR only | No | Prepare and validate the production stack PR; deploy an equivalent isolated staging stack. Do not merge the production PR yet. |
 | 22 | Held test evidence | No | Run against the integrated candidate and staging stack; no production stack change. |

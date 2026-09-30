@@ -1,6 +1,6 @@
 # Task 20 — Application runtime and CI cutover
 
-**Depends on:** 04–19, 15a and 15b. **Outcome:** the FlightStrips application builds and runs with NATS as its sole operational store.
+**Depends on:** 04–19, 15a, 15b, 19a and 19b. Tasks 18 and 19 must satisfy their complete acceptance criteria; their partial candidate PRs do not satisfy this dependency. **Outcome:** the FlightStrips application builds and runs with NATS as its sole operational store.
 
 **Release boundary:** merge only with the coordinated candidate PR. This task removes the current production storage path and cannot be released or deployed against the current infrastructure; see [release-safety.md](../release-safety.md).
 

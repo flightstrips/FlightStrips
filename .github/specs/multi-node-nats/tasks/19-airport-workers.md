@@ -4,7 +4,7 @@
 
 **Release boundary:** merge with the coordinated NATS runtime candidate PR and release at task 24; see [release-safety.md](../release-safety.md).
 
-**Integration status:** [PR #815](https://github.com/flightstrips/FlightStrips/pull/815) merged the fenced external-call framework and [worker inventory](19-worker-inventory.md), but did not wire the provider adapters or meet the two-replica acceptance gate below. Task 19 remains open. Task 20 must not activate these workers until the remaining work is merged and verified.
+**Integration status:** [PR #815](https://github.com/flightstrips/FlightStrips/pull/815) merged the fenced external-call framework and [worker inventory](19-worker-inventory.md). [PR #816](https://github.com/flightstrips/FlightStrips/pull/816) merged typed provider candidates and real NATS fault tests. Task 19 remains open: [Task 19a](19a-vatsim-lifecycle.md) completes VATSIM stand lifecycle handling and [Task 19b](19b-aman-policy.md) binds the operational AMAN evaluator and destination command builder. Task 20 must not activate these workers until both follow-ups and the remaining Task 18 adapters are merged and verified. App startup binding and the final inventory audit belong to Task 20; domain behavior belongs to these prerequisites.
 
 ## Completion checklist after PR #815
 

@@ -15,7 +15,7 @@ This document assigns a Protobuf message to every new multi-node durable or repl
 | `FS_OBJECTS` | `snapshot/<kind>/<id>/<last-stream-sequence>` | `ObjectValue.snapshot` | snapshot writer |
 | `FS_OBJECTS` | `nav/<sha256>` | `ObjectValue.nav` | airport navigation importer |
 | `FS_OBJECTS` | `effect/<command-id>` | `ObjectValue.effect_secret` | session effect owner |
-| `FS_OBJECTS` | `provider/<provider>/<sha256>` | `ObjectValue.provider_page` | airport provider importer |
+| `FS_OBJECTS` | `provider/<provider>/<sha256>` | `ObjectValue.provider_page` | global or airport provider owner |
 | Core NATS | `fs.v1.command.<node-id>` | `CommandRequest`; reply is `CommandReply` | forwarding backend / owner |
 | Core NATS | `fs.v1.delivery.<node-id>` | `EffectDeliveryRequest`; reply is `EffectDeliveryReply` | session owner / socket backend |
 | Core NATS | `fs.v1.result.<node-id>` | `EffectDeliveryRequest` with terminal effect; reply is `EffectDeliveryReply` | socket backend / session owner |
@@ -33,7 +33,7 @@ The subject/key is validated against decoded identity before apply. The `ObjectV
 | `ProviderQuota` | global | provider, dot, UTC window start as Unix seconds |
 | `AirportPolicy`, `AmanAirport`, `NavManifest`, `WeatherCache` | airport | uppercase ICAO; weather appends provider |
 | `NavRouteCache` | airport | route key |
-| `ProviderCheckpoint` | airport | provider, dot, resource |
+| `ProviderCheckpoint` | global for provider-wide VATSIM/ECFMP; airport for AIRAC and airport feeds | provider, dot, resource |
 | `AmanFlight` | airport | uppercase callsign |
 | `AmanCoordination`, `AmanAudit`, `AmanValidation`, `VatsimObservation` | airport | their ID/provider ID |
 | `Session` | session | decimal session ID |
@@ -111,7 +111,7 @@ The remaining `string` fields named `state`, `status`, `kind`, `source`, `reason
 
 ## Provider and audit conversion
 
-AIRAC.net, Open-Meteo, VATSIM, ECFMP and identity providers may expose JSON or another external format. Their adapters parse into validated typed Protobuf/domain values in memory. Persist only `NavData`, `ProviderPage`, `WeatherObservation`, `VatsimObservation`, `EcfmpState`, or another explicitly named typed schema after review. A provider page with fields needed to resume/replay that cannot be represented in `ProviderPage` is **not cached**; the importer refetches it using typed checkpoint metadata. No raw body, `json.RawMessage`, `CanonicalJSON`, or serialized map enters `FS_OBJECTS`, a state event, or a snapshot.
+AIRAC.net, Open-Meteo, VATSIM, ECFMP and identity providers may expose JSON or another external format. Their adapters parse into validated typed Protobuf/domain values in memory. Persist only `NavData`, `ProviderPage`, `WeatherObservation`, `VatsimObservation`, `EcfmpState`, or another explicitly named typed schema after review. `ProviderPage.ecfmp` carries ECFMP measures, scalar measure values, route lists, and typed filters used for per-flight application; its fetched timestamp and immutable object digest identify the source revision. Unknown ECFMP measure or filter shapes fail conversion instead of entering the object store. A provider page with fields needed to resume/replay that cannot be represented in `ProviderPage` is **not cached**; the importer refetches it using typed checkpoint metadata. No raw body, `json.RawMessage`, `CanonicalJSON`, or serialized map enters `FS_OBJECTS`, a state event, or a snapshot.
 
 AMAN's previous opaque command outcome, audit and validation payloads become typed `CommandOutcome`, `AmanAudit.fact`, and `AmanValidation`. Audit facts are the nine explicit families: command, observation, sequence, coordination, health, capacity, freeze, go-around and replay. Gap/closure/reservation displacement is `capacity` with typed affected-flight records; superstable/TMA freeze is `freeze`; go-around pending/decision is `go_around`; queue promotion is `sequence`. An existing category without a lossless mapping blocks that feature's cutover until a reviewed schema and catalog change; it may never store a stringified JSON escape hatch. Audits are append-only typed entities, ordered by airport revision and ID. A command outcome records stable status and reason code, not a serialized UI response body. The detail view derives its presentation from the typed airport projection and typed navigation objects.
 

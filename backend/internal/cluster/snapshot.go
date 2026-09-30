@@ -199,7 +199,7 @@ func aggregateFromSnapshot(snapshot *pb.Snapshot) (*Aggregate, error) {
 		_, global := snapshot.Aggregate.GetTarget().(*pb.AggregateRef_Global)
 		_, airport := snapshot.Aggregate.GetTarget().(*pb.AggregateRef_Airport)
 		_, session := snapshot.Aggregate.GetTarget().(*pb.AggregateRef_Session)
-		if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && !airport) || (kind == 29 && !session) {
+		if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && kind != pb.EntityKind_PROVIDER_CHECKPOINT && !airport) || (kind == pb.EntityKind_PROVIDER_CHECKPOINT && !airport && !global) || (kind == 29 && !session) {
 			return nil, fmt.Errorf("snapshot entity in wrong aggregate")
 		}
 		key, err := recordKey(kind, entity.Value)

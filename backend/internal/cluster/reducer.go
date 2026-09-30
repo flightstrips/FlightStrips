@@ -447,7 +447,7 @@ func validateChange(ref *pb.AggregateRef, c *pb.EntityChange, old *pb.EntitySnap
 	_, global := ref.GetTarget().(*pb.AggregateRef_Global)
 	_, airport := ref.GetTarget().(*pb.AggregateRef_Airport)
 	_, session := ref.GetTarget().(*pb.AggregateRef_Session)
-	if (kind <= 3 && !global) || (kind >= 4 && kind <= 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && !airport) || (kind == 29 && !session) {
+	if (kind <= 3 && !global) || (kind == 4 && !airport) || (kind >= 5 && kind <= 18 && !session) || (kind >= 19 && kind <= 28 && kind != pb.EntityKind_PROVIDER_CHECKPOINT && !airport) || (kind == pb.EntityKind_PROVIDER_CHECKPOINT && !airport && !global) || (kind == 29 && !session) {
 		return fmt.Errorf("entity in wrong aggregate")
 	}
 	return nil

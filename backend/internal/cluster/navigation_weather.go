@@ -23,6 +23,15 @@ type BinaryObjects interface {
 	PutBytes(string, []byte) (*nats.ObjectInfo, error)
 }
 
+// NATSObjects adapts FS_OBJECTS without exposing optional reads or writes to
+// provider workers. Object identity and digest are verified above this layer.
+type NATSObjects struct{ Store nats.ObjectStore }
+
+func (o NATSObjects) GetBytes(name string) ([]byte, error) { return o.Store.GetBytes(name) }
+func (o NATSObjects) PutBytes(name string, data []byte) (*nats.ObjectInfo, error) {
+	return o.Store.PutBytes(name, data)
+}
+
 // NavigationWeather is opt-in. The current PostgreSQL application never
 // constructs it; task 20 supplies its owner-routed writer and object store.
 type NavigationWeather struct {
@@ -243,6 +252,20 @@ func validateProviderPage(page *pb.ProviderPage) error {
 				return fmt.Errorf("nil weather observation")
 			}
 		}
+	case *pb.ProviderPage_Ecfmp:
+		if content.Ecfmp == nil || content.Ecfmp.FetchedAt == nil || content.Ecfmp.FetchedAt.CheckValid() != nil {
+			return fmt.Errorf("invalid ECFMP page timestamp")
+		}
+		for _, measure := range content.Ecfmp.Measures {
+			if measure == nil || measure.Id <= 0 || measure.Kind == "" || measure.StartTime == nil || measure.EndTime == nil || measure.StartTime.CheckValid() != nil || measure.EndTime.CheckValid() != nil || !measure.EndTime.AsTime().After(measure.StartTime.AsTime()) {
+				return fmt.Errorf("invalid ECFMP measure")
+			}
+			for _, filter := range measure.Filters {
+				if filter == nil || filter.Kind == "" {
+					return fmt.Errorf("invalid ECFMP filter")
+				}
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported typed provider page")
 	}
@@ -393,8 +416,17 @@ func (a NavigationWeather) RouteCache(ctx context.Context, airport, key string) 
 }
 
 func (a NavigationWeather) PutCheckpoint(ctx context.Context, airport, id string, checkpoint *pb.ProviderCheckpoint) (*pb.CommandReply, error) {
+	return a.PutCheckpointFor(ctx, airportRef(airport), id, checkpoint)
+}
+
+// PutCheckpointFor permits global-owned feeds to keep one typed source
+// checkpoint shared by every airport. AIRAC pages remain airport-owned.
+func (a NavigationWeather) PutCheckpointFor(ctx context.Context, ref *pb.AggregateRef, id string, checkpoint *pb.ProviderCheckpoint) (*pb.CommandReply, error) {
 	if checkpoint == nil || checkpoint.Provider == "" || checkpoint.Resource == "" {
 		return nil, fmt.Errorf("incomplete provider checkpoint")
+	}
+	if _, err := Subject(ref); err != nil || ref.GetSession() != nil {
+		return nil, fmt.Errorf("provider checkpoint requires global or airport owner")
 	}
 	verify := func() error {
 		if checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
@@ -403,31 +435,43 @@ func (a NavigationWeather) PutCheckpoint(ctx context.Context, airport, id string
 		_, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, checkpoint.Provider, checkpoint.Resource)
 		return err
 	}
-	return a.upsert(ctx, airportRef(airport), id, checkpoint.Provider+"."+checkpoint.Resource, &pb.EntityRecord{Value: &pb.EntityRecord_ProviderCheckpoint{ProviderCheckpoint: checkpoint}}, verify)
+	return a.upsert(ctx, ref, id, checkpoint.Provider+"."+checkpoint.Resource, &pb.EntityRecord{Value: &pb.EntityRecord_ProviderCheckpoint{ProviderCheckpoint: checkpoint}}, verify)
 }
 
 func (a NavigationWeather) Checkpoint(ctx context.Context, airport, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, error) {
-	state, err := a.read(ctx, airportRef(airport))
+	return a.CheckpointFor(ctx, airportRef(airport), provider, resource)
+}
+
+func (a NavigationWeather) CheckpointFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, error) {
+	checkpoint, page, _, err := a.CheckpointRevisionFor(ctx, ref, provider, resource)
+	return checkpoint, page, err
+}
+
+func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, uint64, error) {
+	if _, err := Subject(ref); err != nil || ref.GetSession() != nil {
+		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner")
+	}
+	state, err := a.read(ctx, ref)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	entry := state.Indexes[pb.EntityKind_PROVIDER_CHECKPOINT][provider+"."+resource]
 	if entry == nil {
-		return nil, nil, nil
+		return nil, nil, 0, nil
 	}
 	checkpoint := entry.GetValue().GetProviderCheckpoint()
 	if checkpoint == nil || checkpoint.Provider != provider || checkpoint.Resource != resource {
-		return nil, nil, fmt.Errorf("corrupt provider checkpoint")
+		return nil, nil, 0, fmt.Errorf("corrupt provider checkpoint")
 	}
 	copy := proto.Clone(checkpoint).(*pb.ProviderCheckpoint)
 	if checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
-		return copy, nil, nil
+		return copy, nil, entry.Revision, nil
 	}
 	page, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, provider, resource)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
-	return copy, page, nil
+	return copy, page, entry.Revision, nil
 }
 
 // FetchProviderPageFenced gives AIRAC and VATSIM importers a durable typed
@@ -435,15 +479,20 @@ func (a NavigationWeather) Checkpoint(ctx context.Context, airport, provider, re
 // completed provider call publishes and verifies its typed page object before
 // the airport owner advances the checkpoint with the stable result command ID.
 func (a NavigationWeather) FetchProviderPageFenced(ctx context.Context, worker ExternalCallWorker, workflowID, airport, provider, resource string, fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
+	return a.FetchProviderPageFor(ctx, worker, workflowID, airportRef(airport), provider, resource, fetch)
+}
+
+// FetchProviderPageFor uses the owning aggregate for both intent and
+// checkpoint. It is global for VATSIM/ECFMP and airport for AIRAC.
+func (a NavigationWeather) FetchProviderPageFor(ctx context.Context, worker ExternalCallWorker, workflowID string, ref *pb.AggregateRef, provider, resource string, fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
 	if fetch == nil || provider == "" || resource == "" {
 		return false, fmt.Errorf("invalid fenced provider fetch")
 	}
-	prior, priorPage, err := a.Checkpoint(ctx, airport, provider, resource)
+	prior, priorPage, err := a.CheckpointFor(ctx, ref, provider, resource)
 	if err != nil {
 		return false, err
 	}
 	var next *pb.ProviderCheckpoint
-	ref := airportRef(airport)
 	return worker.Run(ctx, ExternalCallSpec{
 		Source: ref, Destination: ref, WorkflowID: workflowID,
 		Step: "external/provider/" + provider + "/" + resource,
@@ -468,7 +517,7 @@ func (a NavigationWeather) FetchProviderPageFenced(ctx context.Context, worker E
 				return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 			}
 			next.ObjectName, next.Sha256 = name, sha
-			reply, err := a.PutCheckpoint(ctx, airport, commandID, next)
+			reply, err := a.PutCheckpointFor(ctx, ref, commandID, next)
 			if err != nil {
 				return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 			}

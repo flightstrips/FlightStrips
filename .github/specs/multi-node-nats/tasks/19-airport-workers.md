@@ -6,6 +6,24 @@
 
 **Integration status:** [PR #815](https://github.com/flightstrips/FlightStrips/pull/815) merged the fenced external-call framework and [worker inventory](19-worker-inventory.md), but did not wire the provider adapters or meet the two-replica acceptance gate below. Task 19 remains open. Task 20 must not activate these workers until the remaining work is merged and verified.
 
+## Completion checklist after PR #815
+
+This checklist tracks code and fault evidence separately. Task 19 is complete
+only when every item is checked and merged to the integration base. Candidate
+startup stays dormant in the meantime.
+
+- [x] Fenced external-call intent, stable result ID, takeover uncertainty, and worker inventory (PR #815).
+- [x] Named typed ECFMP provider page and global checkpoint contract, with no vendor JSON in Protobuf (this completion branch).
+- [x] ECFMP global fetch and per-flight session application adapters, including source-revision fencing (this completion branch).
+- [x] Real two-replica NATS ECFMP global fetch test covering nonowner dispatch, committed result, pre-call intent, post-call owner death, and uncertain takeover (this completion branch).
+- [ ] Real two-replica NATS ECFMP **session application** and owner-failure test.
+- [ ] Global-owned VATSIM fetch and typed source checkpoint; airport/session reconciliation adapters and their two-replica failure tests.
+- [ ] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests.
+- [ ] Airport-owned AIRAC import and verified manifest activation adapter with typed page checkpoints and two-replica failure tests.
+- [ ] Airport-owned METAR and AFV ATIS fetch, session presentation adapter, global weather quota reservation and uncertainty tests on two replicas.
+- [ ] Airport-owned CDM configuration and vIFF master calls, session-owned vIFF flight calls, and two-replica failure tests around every external-effect boundary.
+- [ ] Full inventory audit against `app.Build` and handler-created goroutines after all adapters land; no candidate startup before Task 20.
+
 ## Work
 
 - Assign VATSIM fetch/reconciliation, AMAN observation/reconciliation, navigation import, weather refresh, METAR, ECFMP and airport CDM work to airport or global owners according to [state-map.md](../state-map.md). Persist source checkpoints and external-call intents/results that affect idempotency or quota.

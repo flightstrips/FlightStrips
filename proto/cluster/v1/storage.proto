@@ -879,8 +879,26 @@ message NavRouteGeometry {
 message EffectSecret { string command_id = 1; bytes ciphertext = 2; string key_id = 3; bytes nonce = 4; }
 message ProviderPage {
   string provider = 1; string resource = 2;
-  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; }
+  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; }
 }
 message AiracPage { repeated NavData fragments = 1; optional string next_page = 2; }
 message VatsimPage { repeated VatsimObservation observations = 1; }
 message WeatherPage { repeated WeatherObservation observations = 1; }
+// ECFMP's provider-wide response is parsed at the HTTP boundary. These fields
+// retain every filter and measure value used by per-flight reconciliation.
+message EcfmpPage { repeated EcfmpMeasure measures = 1; google.protobuf.Timestamp fetched_at = 2; }
+message EcfmpMeasure {
+  int64 id = 1; string ident = 2; optional int64 event_id = 3;
+  string reason = 4; google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  optional google.protobuf.Timestamp withdrawn_at = 7;
+  repeated int64 notified_flight_information_regions = 8;
+  string kind = 9; optional int64 numeric_value = 10;
+  repeated string routes = 11; repeated EcfmpFilter filters = 12;
+  optional double decimal_value = 13;
+}
+message EcfmpFilter {
+  string kind = 1; repeated string names = 2;
+  optional int32 level = 3; repeated int32 levels = 4;
+  optional int64 event_id = 5;
+}

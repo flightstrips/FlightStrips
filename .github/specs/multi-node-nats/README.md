@@ -81,7 +81,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 19 | [Airport and global workers](tasks/19-airport-workers.md) | 11–13, 17, 19a–19c | Partial: [#815](https://github.com/flightstrips/FlightStrips/pull/815), [#816](https://github.com/flightstrips/FlightStrips/pull/816), [#819](https://github.com/flightstrips/FlightStrips/pull/819) and [#820](https://github.com/flightstrips/FlightStrips/pull/820) merged; transceiver feed requires 19c; held from `main`/release |
 | 19a | [VATSIM stand lifecycle](tasks/19a-vatsim-lifecycle.md) | 08, 18 candidate, 19 candidate | Merged to integration base ([#819](https://github.com/flightstrips/FlightStrips/pull/819)); held from `main`/release |
 | 19b | [Operational AMAN candidate](tasks/19b-aman-policy.md) | 11, 12, 19 candidate | Merged to integration base ([#820](https://github.com/flightstrips/FlightStrips/pull/820)); held from `main`/release |
-| 19c | [VATSIM transceiver frequency feed](tasks/19c-transceiver-feed.md) | 12, 13, 19 candidate | Ready; required to complete 19 |
+| 19c | [VATSIM transceiver frequency feed](tasks/19c-transceiver-feed.md) | 12, 13, 19 candidate | Started in separate chat; required to complete 19 |
 | 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19, 15a, 15b, 18a–18c, 19a–19c | Not started; blocked on completion of 18 and 19 |
 | 21 | [Production Swarm infrastructure](tasks/21-infrastructure.md) | 01, 03, 13, 20 | Not started |
 | 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–21 | Not started |

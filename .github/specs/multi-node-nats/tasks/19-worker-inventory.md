@@ -22,7 +22,7 @@ wiring; starting both paths would duplicate provider calls and mutations.
 | `transceiverCache.Start` | global owner for provider fetch | VATSIM transceiver fetch, local frequency projection |
 | `ecfmpService.Start` | global owner for fetch; session owner for application | ECFMP HTTP fetch and per-flight restrictions |
 | `albHub.Run` | outside this project | ALB remains unchanged |
-| `metarPoller.Start` | airport owner for provider fetch; session owner for ATIS presentation | METAR and AFV ATIS fetch |
+| `metarPoller.Start` | airport owner for METAR fetch; global owner for the provider-wide AFV ATIS feed; session owner for ATIS presentation | METAR and AFV ATIS fetch |
 | `trafficMetrics.Start` | each node if diagnostic only | metrics; no domain write |
 | `amanRuntime.Start` | airport owner | AMAN reconciliation; starts its own goroutine |
 

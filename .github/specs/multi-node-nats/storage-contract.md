@@ -70,7 +70,7 @@ consuming a deadline. A replaced deadline has a new entity revision and cannot
 be fired by a worker holding its earlier revision.
 `StandAction` lifecycle fields 11–17 are accepted only from a system actor.
 
-`Atis.metar`, `arrival_code`, and `departure_code` retain the existing frontend presentation fields per session. `code` and `text` retain the typed ATIS observation. No METAR or ATIS presentation cache is needed on each backend.
+`Atis.metar`, `arrival_code`, and `departure_code` retain the existing frontend presentation fields per session. `code` and `text` retain the typed ATIS observation. `Atis.source_revision` binds the global AFV ATIS checkpoint revision and digest to the airport METAR fetch timestamp, so a stale presentation cannot overwrite a newer one. `ProviderPage.atis_feed` retains typed arrival and departure entries from the provider-wide AFV fetch. No METAR or ATIS presentation cache is needed on each backend.
 
 Task 05 keeps the legacy sector position and identifier as typed scalar fields
 on `SectorOwner`, and the per-position controller layout as

@@ -266,6 +266,25 @@ func validateProviderPage(page *pb.ProviderPage) error {
 				}
 			}
 		}
+	case *pb.ProviderPage_AtisFeed:
+		if content.AtisFeed == nil || content.AtisFeed.FetchedAt == nil || content.AtisFeed.FetchedAt.CheckValid() != nil {
+			return fmt.Errorf("invalid ATIS feed timestamp")
+		}
+		seen := map[string]bool{}
+		for _, airport := range content.AtisFeed.Airports {
+			if airport == nil || len(airport.Airport) != 4 || seen[airport.Airport] {
+				return fmt.Errorf("invalid ATIS feed airport")
+			}
+			if _, err := Subject(airportRef(airport.Airport)); err != nil {
+				return err
+			}
+			seen[airport.Airport] = true
+			for _, entry := range []*pb.AtisFeedEntry{airport.Arrival, airport.Departure} {
+				if entry != nil && (entry.Callsign == "" || entry.LastUpdated == nil || entry.LastUpdated.CheckValid() != nil) {
+					return fmt.Errorf("invalid ATIS feed entry")
+				}
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported typed provider page")
 	}

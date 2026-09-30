@@ -20,7 +20,8 @@ startup stays dormant in the meantime.
 - [ ] Global-owned VATSIM fetch and typed source checkpoint; airport/session reconciliation adapters and their two-replica failure tests.
 - [ ] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests.
 - [ ] Airport-owned AIRAC import and verified manifest activation adapter with typed page checkpoints and two-replica failure tests.
-- [ ] Airport-owned METAR and AFV ATIS fetch, session presentation adapter, global weather quota reservation and uncertainty tests on two replicas.
+- [x] Airport-owned METAR fetch, global-owned AFV ATIS typed feed, session presentation adapter, global quota reservation, and two-replica NATS failure/replay tests (this completion branch).
+- [ ] AMAN/Open-Meteo weather refresh adapter with durable global quota reservation and two-replica uncertainty tests.
 - [ ] Airport-owned CDM configuration and vIFF master calls, session-owned vIFF flight calls, and two-replica failure tests around every external-effect boundary.
 - [ ] Full inventory audit against `app.Build` and handler-created goroutines after all adapters land; no candidate startup before Task 20.
 

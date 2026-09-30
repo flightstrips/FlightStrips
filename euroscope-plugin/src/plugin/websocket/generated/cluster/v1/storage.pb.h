@@ -251,6 +251,15 @@ extern AmanValidationDefaultTypeInternal _AmanValidation_default_instance_;
 class Atis;
 struct AtisDefaultTypeInternal;
 extern AtisDefaultTypeInternal _Atis_default_instance_;
+class AtisFeedAirport;
+struct AtisFeedAirportDefaultTypeInternal;
+extern AtisFeedAirportDefaultTypeInternal _AtisFeedAirport_default_instance_;
+class AtisFeedEntry;
+struct AtisFeedEntryDefaultTypeInternal;
+extern AtisFeedEntryDefaultTypeInternal _AtisFeedEntry_default_instance_;
+class AtisFeedPage;
+struct AtisFeedPageDefaultTypeInternal;
+extern AtisFeedPageDefaultTypeInternal _AtisFeedPage_default_instance_;
 class CdmEffect;
 struct CdmEffectDefaultTypeInternal;
 extern CdmEffectDefaultTypeInternal _CdmEffect_default_instance_;
@@ -18324,6 +18333,263 @@ class CdmState final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class AtisFeedEntry final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AtisFeedEntry) */ {
+ public:
+  inline AtisFeedEntry() : AtisFeedEntry(nullptr) {}
+  ~AtisFeedEntry() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR AtisFeedEntry(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline AtisFeedEntry(const AtisFeedEntry& from) : AtisFeedEntry(nullptr, from) {}
+  inline AtisFeedEntry(AtisFeedEntry&& from) noexcept
+      : AtisFeedEntry(nullptr, std::move(from)) {}
+  inline AtisFeedEntry& operator=(const AtisFeedEntry& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline AtisFeedEntry& operator=(AtisFeedEntry&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const AtisFeedEntry& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const AtisFeedEntry* internal_default_instance() {
+    return reinterpret_cast<const AtisFeedEntry*>(
+        &_AtisFeedEntry_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 155;
+  friend void swap(AtisFeedEntry& a, AtisFeedEntry& b) { a.Swap(&b); }
+  inline void Swap(AtisFeedEntry* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(AtisFeedEntry* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  AtisFeedEntry* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<AtisFeedEntry>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const AtisFeedEntry& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const AtisFeedEntry& from) { AtisFeedEntry::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(AtisFeedEntry* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.AtisFeedEntry"; }
+
+ protected:
+  explicit AtisFeedEntry(::google::protobuf::Arena* arena);
+  AtisFeedEntry(::google::protobuf::Arena* arena, const AtisFeedEntry& from);
+  AtisFeedEntry(::google::protobuf::Arena* arena, AtisFeedEntry&& from) noexcept
+      : AtisFeedEntry(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kTextLinesFieldNumber = 4,
+    kCallsignFieldNumber = 1,
+    kCodeFieldNumber = 2,
+    kFrequencyFieldNumber = 3,
+    kLastUpdatedFieldNumber = 5,
+  };
+  // repeated string text_lines = 4;
+  int text_lines_size() const;
+  private:
+  int _internal_text_lines_size() const;
+
+  public:
+  void clear_text_lines() ;
+  const std::string& text_lines(int index) const;
+  std::string* mutable_text_lines(int index);
+  void set_text_lines(int index, const std::string& value);
+  void set_text_lines(int index, std::string&& value);
+  void set_text_lines(int index, const char* value);
+  void set_text_lines(int index, const char* value, std::size_t size);
+  void set_text_lines(int index, absl::string_view value);
+  std::string* add_text_lines();
+  void add_text_lines(const std::string& value);
+  void add_text_lines(std::string&& value);
+  void add_text_lines(const char* value);
+  void add_text_lines(const char* value, std::size_t size);
+  void add_text_lines(absl::string_view value);
+  const ::google::protobuf::RepeatedPtrField<std::string>& text_lines() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* mutable_text_lines();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<std::string>& _internal_text_lines() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_text_lines();
+
+  public:
+  // string callsign = 1;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string code = 2;
+  void clear_code() ;
+  const std::string& code() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_code(Arg_&& arg, Args_... args);
+  std::string* mutable_code();
+  PROTOBUF_NODISCARD std::string* release_code();
+  void set_allocated_code(std::string* value);
+
+  private:
+  const std::string& _internal_code() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_code(
+      const std::string& value);
+  std::string* _internal_mutable_code();
+
+  public:
+  // string frequency = 3;
+  void clear_frequency() ;
+  const std::string& frequency() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_frequency(Arg_&& arg, Args_... args);
+  std::string* mutable_frequency();
+  PROTOBUF_NODISCARD std::string* release_frequency();
+  void set_allocated_frequency(std::string* value);
+
+  private:
+  const std::string& _internal_frequency() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_frequency(
+      const std::string& value);
+  std::string* _internal_mutable_frequency();
+
+  public:
+  // .google.protobuf.Timestamp last_updated = 5;
+  bool has_last_updated() const;
+  void clear_last_updated() ;
+  const ::google::protobuf::Timestamp& last_updated() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_last_updated();
+  ::google::protobuf::Timestamp* mutable_last_updated();
+  void set_allocated_last_updated(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_last_updated(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_last_updated();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_last_updated() const;
+  ::google::protobuf::Timestamp* _internal_mutable_last_updated();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.AtisFeedEntry)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 5, 1,
+      77, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField<std::string> text_lines_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr code_;
+    ::google::protobuf::internal::ArenaStringPtr frequency_;
+    ::google::protobuf::Timestamp* last_updated_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class Atis final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.Atis) */ {
  public:
@@ -18455,6 +18721,7 @@ class Atis final : public ::google::protobuf::Message
     kMetarFieldNumber = 5,
     kArrivalCodeFieldNumber = 6,
     kDepartureCodeFieldNumber = 7,
+    kSourceRevisionFieldNumber = 8,
     kObservedAtFieldNumber = 4,
   };
   // string airport = 1;
@@ -18553,6 +18820,22 @@ class Atis final : public ::google::protobuf::Message
   std::string* _internal_mutable_departure_code();
 
   public:
+  // string source_revision = 8;
+  void clear_source_revision() ;
+  const std::string& source_revision() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_source_revision(Arg_&& arg, Args_... args);
+  std::string* mutable_source_revision();
+  PROTOBUF_NODISCARD std::string* release_source_revision();
+  void set_allocated_source_revision(std::string* value);
+
+  private:
+  const std::string& _internal_source_revision() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_source_revision(
+      const std::string& value);
+  std::string* _internal_mutable_source_revision();
+
+  public:
   // .google.protobuf.Timestamp observed_at = 4;
   bool has_observed_at() const;
   void clear_observed_at() ;
@@ -18573,8 +18856,8 @@ class Atis final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 7, 1,
-      83, 2>
+      3, 8, 1,
+      106, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -18597,6 +18880,7 @@ class Atis final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr metar_;
     ::google::protobuf::internal::ArenaStringPtr arrival_code_;
     ::google::protobuf::internal::ArenaStringPtr departure_code_;
+    ::google::protobuf::internal::ArenaStringPtr source_revision_;
     ::google::protobuf::Timestamp* observed_at_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -30710,6 +30994,214 @@ class CommandOutcome final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class AtisFeedAirport final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AtisFeedAirport) */ {
+ public:
+  inline AtisFeedAirport() : AtisFeedAirport(nullptr) {}
+  ~AtisFeedAirport() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR AtisFeedAirport(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline AtisFeedAirport(const AtisFeedAirport& from) : AtisFeedAirport(nullptr, from) {}
+  inline AtisFeedAirport(AtisFeedAirport&& from) noexcept
+      : AtisFeedAirport(nullptr, std::move(from)) {}
+  inline AtisFeedAirport& operator=(const AtisFeedAirport& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline AtisFeedAirport& operator=(AtisFeedAirport&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const AtisFeedAirport& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const AtisFeedAirport* internal_default_instance() {
+    return reinterpret_cast<const AtisFeedAirport*>(
+        &_AtisFeedAirport_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 154;
+  friend void swap(AtisFeedAirport& a, AtisFeedAirport& b) { a.Swap(&b); }
+  inline void Swap(AtisFeedAirport* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(AtisFeedAirport* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  AtisFeedAirport* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<AtisFeedAirport>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const AtisFeedAirport& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const AtisFeedAirport& from) { AtisFeedAirport::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(AtisFeedAirport* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.AtisFeedAirport"; }
+
+ protected:
+  explicit AtisFeedAirport(::google::protobuf::Arena* arena);
+  AtisFeedAirport(::google::protobuf::Arena* arena, const AtisFeedAirport& from);
+  AtisFeedAirport(::google::protobuf::Arena* arena, AtisFeedAirport&& from) noexcept
+      : AtisFeedAirport(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kAirportFieldNumber = 1,
+    kArrivalFieldNumber = 2,
+    kDepartureFieldNumber = 3,
+  };
+  // string airport = 1;
+  void clear_airport() ;
+  const std::string& airport() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_airport(Arg_&& arg, Args_... args);
+  std::string* mutable_airport();
+  PROTOBUF_NODISCARD std::string* release_airport();
+  void set_allocated_airport(std::string* value);
+
+  private:
+  const std::string& _internal_airport() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_airport(
+      const std::string& value);
+  std::string* _internal_mutable_airport();
+
+  public:
+  // optional .flightstrips.cluster.v1.AtisFeedEntry arrival = 2;
+  bool has_arrival() const;
+  void clear_arrival() ;
+  const ::flightstrips::cluster::v1::AtisFeedEntry& arrival() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::AtisFeedEntry* release_arrival();
+  ::flightstrips::cluster::v1::AtisFeedEntry* mutable_arrival();
+  void set_allocated_arrival(::flightstrips::cluster::v1::AtisFeedEntry* value);
+  void unsafe_arena_set_allocated_arrival(::flightstrips::cluster::v1::AtisFeedEntry* value);
+  ::flightstrips::cluster::v1::AtisFeedEntry* unsafe_arena_release_arrival();
+
+  private:
+  const ::flightstrips::cluster::v1::AtisFeedEntry& _internal_arrival() const;
+  ::flightstrips::cluster::v1::AtisFeedEntry* _internal_mutable_arrival();
+
+  public:
+  // optional .flightstrips.cluster.v1.AtisFeedEntry departure = 3;
+  bool has_departure() const;
+  void clear_departure() ;
+  const ::flightstrips::cluster::v1::AtisFeedEntry& departure() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::AtisFeedEntry* release_departure();
+  ::flightstrips::cluster::v1::AtisFeedEntry* mutable_departure();
+  void set_allocated_departure(::flightstrips::cluster::v1::AtisFeedEntry* value);
+  void unsafe_arena_set_allocated_departure(::flightstrips::cluster::v1::AtisFeedEntry* value);
+  ::flightstrips::cluster::v1::AtisFeedEntry* unsafe_arena_release_departure();
+
+  private:
+  const ::flightstrips::cluster::v1::AtisFeedEntry& _internal_departure() const;
+  ::flightstrips::cluster::v1::AtisFeedEntry* _internal_mutable_departure();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.AtisFeedAirport)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 3, 2,
+      55, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr airport_;
+    ::flightstrips::cluster::v1::AtisFeedEntry* arrival_;
+    ::flightstrips::cluster::v1::AtisFeedEntry* departure_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class AmanTechnicalHealth final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AmanTechnicalHealth) */ {
  public:
@@ -36433,6 +36925,198 @@ class NavAirportFragment final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class AtisFeedPage final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AtisFeedPage) */ {
+ public:
+  inline AtisFeedPage() : AtisFeedPage(nullptr) {}
+  ~AtisFeedPage() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR AtisFeedPage(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline AtisFeedPage(const AtisFeedPage& from) : AtisFeedPage(nullptr, from) {}
+  inline AtisFeedPage(AtisFeedPage&& from) noexcept
+      : AtisFeedPage(nullptr, std::move(from)) {}
+  inline AtisFeedPage& operator=(const AtisFeedPage& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline AtisFeedPage& operator=(AtisFeedPage&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const AtisFeedPage& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const AtisFeedPage* internal_default_instance() {
+    return reinterpret_cast<const AtisFeedPage*>(
+        &_AtisFeedPage_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 153;
+  friend void swap(AtisFeedPage& a, AtisFeedPage& b) { a.Swap(&b); }
+  inline void Swap(AtisFeedPage* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(AtisFeedPage* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  AtisFeedPage* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<AtisFeedPage>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const AtisFeedPage& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const AtisFeedPage& from) { AtisFeedPage::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(AtisFeedPage* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.AtisFeedPage"; }
+
+ protected:
+  explicit AtisFeedPage(::google::protobuf::Arena* arena);
+  AtisFeedPage(::google::protobuf::Arena* arena, const AtisFeedPage& from);
+  AtisFeedPage(::google::protobuf::Arena* arena, AtisFeedPage&& from) noexcept
+      : AtisFeedPage(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kAirportsFieldNumber = 1,
+    kFetchedAtFieldNumber = 2,
+  };
+  // repeated .flightstrips.cluster.v1.AtisFeedAirport airports = 1;
+  int airports_size() const;
+  private:
+  int _internal_airports_size() const;
+
+  public:
+  void clear_airports() ;
+  ::flightstrips::cluster::v1::AtisFeedAirport* mutable_airports(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::AtisFeedAirport>* mutable_airports();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::AtisFeedAirport>& _internal_airports() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::AtisFeedAirport>* _internal_mutable_airports();
+  public:
+  const ::flightstrips::cluster::v1::AtisFeedAirport& airports(int index) const;
+  ::flightstrips::cluster::v1::AtisFeedAirport* add_airports();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::AtisFeedAirport>& airports() const;
+  // .google.protobuf.Timestamp fetched_at = 2;
+  bool has_fetched_at() const;
+  void clear_fetched_at() ;
+  const ::google::protobuf::Timestamp& fetched_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_fetched_at();
+  ::google::protobuf::Timestamp* mutable_fetched_at();
+  void set_allocated_fetched_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_fetched_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_fetched_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_fetched_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_fetched_at();
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.AtisFeedPage)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      1, 2, 2,
+      0, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::AtisFeedAirport > airports_;
+    ::google::protobuf::Timestamp* fetched_at_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
 class AmanPrediction final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.AmanPrediction) */ {
  public:
@@ -41374,6 +42058,7 @@ class ProviderPage final : public ::google::protobuf::Message
     kVatsim = 4,
     kWeather = 5,
     kEcfmp = 6,
+    kAtisFeed = 7,
     PARSED_NOT_SET = 0,
   };
   static inline const ProviderPage* internal_default_instance() {
@@ -41456,6 +42141,7 @@ class ProviderPage final : public ::google::protobuf::Message
     kVatsimFieldNumber = 4,
     kWeatherFieldNumber = 5,
     kEcfmpFieldNumber = 6,
+    kAtisFeedFieldNumber = 7,
   };
   // string provider = 1;
   void clear_provider() ;
@@ -41565,6 +42251,25 @@ class ProviderPage final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::EcfmpPage* _internal_mutable_ecfmp();
 
   public:
+  // .flightstrips.cluster.v1.AtisFeedPage atis_feed = 7;
+  bool has_atis_feed() const;
+  private:
+  bool _internal_has_atis_feed() const;
+
+  public:
+  void clear_atis_feed() ;
+  const ::flightstrips::cluster::v1::AtisFeedPage& atis_feed() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::AtisFeedPage* release_atis_feed();
+  ::flightstrips::cluster::v1::AtisFeedPage* mutable_atis_feed();
+  void set_allocated_atis_feed(::flightstrips::cluster::v1::AtisFeedPage* value);
+  void unsafe_arena_set_allocated_atis_feed(::flightstrips::cluster::v1::AtisFeedPage* value);
+  ::flightstrips::cluster::v1::AtisFeedPage* unsafe_arena_release_atis_feed();
+
+  private:
+  const ::flightstrips::cluster::v1::AtisFeedPage& _internal_atis_feed() const;
+  ::flightstrips::cluster::v1::AtisFeedPage* _internal_mutable_atis_feed();
+
+  public:
   void clear_parsed();
   ParsedCase parsed_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ProviderPage)
@@ -41574,11 +42279,12 @@ class ProviderPage final : public ::google::protobuf::Message
   void set_has_vatsim();
   void set_has_weather();
   void set_has_ecfmp();
+  void set_has_atis_feed();
   inline bool has_parsed() const;
   inline void clear_has_parsed();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      1, 6, 4,
+      1, 7, 5,
       61, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -41603,6 +42309,7 @@ class ProviderPage final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::VatsimPage* vatsim_;
       ::flightstrips::cluster::v1::WeatherPage* weather_;
       ::flightstrips::cluster::v1::EcfmpPage* ecfmp_;
+      ::flightstrips::cluster::v1::AtisFeedPage* atis_feed_;
     } parsed_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -60528,6 +61235,56 @@ inline void Atis::set_allocated_departure_code(std::string* value) {
         }
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Atis.departure_code)
+}
+
+// string source_revision = 8;
+inline void Atis::clear_source_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_revision_.ClearToEmpty();
+}
+inline const std::string& Atis::source_revision() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Atis.source_revision)
+  return _internal_source_revision();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Atis::set_source_revision(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_revision_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Atis.source_revision)
+}
+inline std::string* Atis::mutable_source_revision() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_source_revision();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Atis.source_revision)
+  return _s;
+}
+inline const std::string& Atis::_internal_source_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.source_revision_.Get();
+}
+inline void Atis::_internal_set_source_revision(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_revision_.Set(value, GetArena());
+}
+inline std::string* Atis::_internal_mutable_source_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.source_revision_.Mutable( GetArena());
+}
+inline std::string* Atis::release_source_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Atis.source_revision)
+  return _impl_.source_revision_.Release();
+}
+inline void Atis::set_allocated_source_revision(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.source_revision_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.source_revision_.IsDefault()) {
+          _impl_.source_revision_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Atis.source_revision)
 }
 
 // -------------------------------------------------------------------
@@ -100416,6 +101173,83 @@ inline ::flightstrips::cluster::v1::EcfmpPage* ProviderPage::mutable_ecfmp() ABS
   return _msg;
 }
 
+// .flightstrips.cluster.v1.AtisFeedPage atis_feed = 7;
+inline bool ProviderPage::has_atis_feed() const {
+  return parsed_case() == kAtisFeed;
+}
+inline bool ProviderPage::_internal_has_atis_feed() const {
+  return parsed_case() == kAtisFeed;
+}
+inline void ProviderPage::set_has_atis_feed() {
+  _impl_._oneof_case_[0] = kAtisFeed;
+}
+inline void ProviderPage::clear_atis_feed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (parsed_case() == kAtisFeed) {
+    if (GetArena() == nullptr) {
+      delete _impl_.parsed_.atis_feed_;
+    }
+    clear_has_parsed();
+  }
+}
+inline ::flightstrips::cluster::v1::AtisFeedPage* ProviderPage::release_atis_feed() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ProviderPage.atis_feed)
+  if (parsed_case() == kAtisFeed) {
+    clear_has_parsed();
+    auto* temp = _impl_.parsed_.atis_feed_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.parsed_.atis_feed_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::AtisFeedPage& ProviderPage::_internal_atis_feed() const {
+  return parsed_case() == kAtisFeed ? *_impl_.parsed_.atis_feed_ : reinterpret_cast<::flightstrips::cluster::v1::AtisFeedPage&>(::flightstrips::cluster::v1::_AtisFeedPage_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::AtisFeedPage& ProviderPage::atis_feed() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ProviderPage.atis_feed)
+  return _internal_atis_feed();
+}
+inline ::flightstrips::cluster::v1::AtisFeedPage* ProviderPage::unsafe_arena_release_atis_feed() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.ProviderPage.atis_feed)
+  if (parsed_case() == kAtisFeed) {
+    clear_has_parsed();
+    auto* temp = _impl_.parsed_.atis_feed_;
+    _impl_.parsed_.atis_feed_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void ProviderPage::unsafe_arena_set_allocated_atis_feed(::flightstrips::cluster::v1::AtisFeedPage* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_parsed();
+  if (value) {
+    set_has_atis_feed();
+    _impl_.parsed_.atis_feed_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ProviderPage.atis_feed)
+}
+inline ::flightstrips::cluster::v1::AtisFeedPage* ProviderPage::_internal_mutable_atis_feed() {
+  if (parsed_case() != kAtisFeed) {
+    clear_parsed();
+    set_has_atis_feed();
+    _impl_.parsed_.atis_feed_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::AtisFeedPage>(GetArena());
+  }
+  return _impl_.parsed_.atis_feed_;
+}
+inline ::flightstrips::cluster::v1::AtisFeedPage* ProviderPage::mutable_atis_feed() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::AtisFeedPage* _msg = _internal_mutable_atis_feed();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ProviderPage.atis_feed)
+  return _msg;
+}
+
 inline bool ProviderPage::has_parsed() const {
   return parsed_case() != PARSED_NOT_SET;
 }
@@ -101783,6 +102617,743 @@ inline ::int64_t EcfmpFilter::_internal_event_id() const {
 inline void EcfmpFilter::_internal_set_event_id(::int64_t value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.event_id_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// AtisFeedPage
+
+// repeated .flightstrips.cluster.v1.AtisFeedAirport airports = 1;
+inline int AtisFeedPage::_internal_airports_size() const {
+  return _internal_airports().size();
+}
+inline int AtisFeedPage::airports_size() const {
+  return _internal_airports_size();
+}
+inline void AtisFeedPage::clear_airports() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airports_.Clear();
+}
+inline ::flightstrips::cluster::v1::AtisFeedAirport* AtisFeedPage::mutable_airports(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedPage.airports)
+  return _internal_mutable_airports()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::AtisFeedAirport>* AtisFeedPage::mutable_airports()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.AtisFeedPage.airports)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_airports();
+}
+inline const ::flightstrips::cluster::v1::AtisFeedAirport& AtisFeedPage::airports(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedPage.airports)
+  return _internal_airports().Get(index);
+}
+inline ::flightstrips::cluster::v1::AtisFeedAirport* AtisFeedPage::add_airports() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::cluster::v1::AtisFeedAirport* _add = _internal_mutable_airports()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.AtisFeedPage.airports)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::AtisFeedAirport>& AtisFeedPage::airports() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.AtisFeedPage.airports)
+  return _internal_airports();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::AtisFeedAirport>&
+AtisFeedPage::_internal_airports() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.airports_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::AtisFeedAirport>*
+AtisFeedPage::_internal_mutable_airports() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.airports_;
+}
+
+// .google.protobuf.Timestamp fetched_at = 2;
+inline bool AtisFeedPage::has_fetched_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.fetched_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& AtisFeedPage::_internal_fetched_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.fetched_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& AtisFeedPage::fetched_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedPage.fetched_at)
+  return _internal_fetched_at();
+}
+inline void AtisFeedPage::unsafe_arena_set_allocated_fetched_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.fetched_at_);
+  }
+  _impl_.fetched_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.AtisFeedPage.fetched_at)
+}
+inline ::google::protobuf::Timestamp* AtisFeedPage::release_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.fetched_at_;
+  _impl_.fetched_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* AtisFeedPage::unsafe_arena_release_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.AtisFeedPage.fetched_at)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.fetched_at_;
+  _impl_.fetched_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* AtisFeedPage::_internal_mutable_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.fetched_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.fetched_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.fetched_at_;
+}
+inline ::google::protobuf::Timestamp* AtisFeedPage::mutable_fetched_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_fetched_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedPage.fetched_at)
+  return _msg;
+}
+inline void AtisFeedPage::set_allocated_fetched_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.fetched_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.fetched_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AtisFeedPage.fetched_at)
+}
+
+// -------------------------------------------------------------------
+
+// AtisFeedAirport
+
+// string airport = 1;
+inline void AtisFeedAirport::clear_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_.ClearToEmpty();
+}
+inline const std::string& AtisFeedAirport::airport() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedAirport.airport)
+  return _internal_airport();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void AtisFeedAirport::set_airport(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.AtisFeedAirport.airport)
+}
+inline std::string* AtisFeedAirport::mutable_airport() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_airport();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedAirport.airport)
+  return _s;
+}
+inline const std::string& AtisFeedAirport::_internal_airport() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.airport_.Get();
+}
+inline void AtisFeedAirport::_internal_set_airport(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_.Set(value, GetArena());
+}
+inline std::string* AtisFeedAirport::_internal_mutable_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.airport_.Mutable( GetArena());
+}
+inline std::string* AtisFeedAirport::release_airport() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.AtisFeedAirport.airport)
+  return _impl_.airport_.Release();
+}
+inline void AtisFeedAirport::set_allocated_airport(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.airport_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.airport_.IsDefault()) {
+          _impl_.airport_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AtisFeedAirport.airport)
+}
+
+// optional .flightstrips.cluster.v1.AtisFeedEntry arrival = 2;
+inline bool AtisFeedAirport::has_arrival() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.arrival_ != nullptr);
+  return value;
+}
+inline void AtisFeedAirport::clear_arrival() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.arrival_ != nullptr) _impl_.arrival_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+inline const ::flightstrips::cluster::v1::AtisFeedEntry& AtisFeedAirport::_internal_arrival() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::AtisFeedEntry* p = _impl_.arrival_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::AtisFeedEntry&>(::flightstrips::cluster::v1::_AtisFeedEntry_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::AtisFeedEntry& AtisFeedAirport::arrival() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedAirport.arrival)
+  return _internal_arrival();
+}
+inline void AtisFeedAirport::unsafe_arena_set_allocated_arrival(::flightstrips::cluster::v1::AtisFeedEntry* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.arrival_);
+  }
+  _impl_.arrival_ = reinterpret_cast<::flightstrips::cluster::v1::AtisFeedEntry*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.AtisFeedAirport.arrival)
+}
+inline ::flightstrips::cluster::v1::AtisFeedEntry* AtisFeedAirport::release_arrival() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::AtisFeedEntry* released = _impl_.arrival_;
+  _impl_.arrival_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::AtisFeedEntry* AtisFeedAirport::unsafe_arena_release_arrival() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.AtisFeedAirport.arrival)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::flightstrips::cluster::v1::AtisFeedEntry* temp = _impl_.arrival_;
+  _impl_.arrival_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::AtisFeedEntry* AtisFeedAirport::_internal_mutable_arrival() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.arrival_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::AtisFeedEntry>(GetArena());
+    _impl_.arrival_ = reinterpret_cast<::flightstrips::cluster::v1::AtisFeedEntry*>(p);
+  }
+  return _impl_.arrival_;
+}
+inline ::flightstrips::cluster::v1::AtisFeedEntry* AtisFeedAirport::mutable_arrival() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::flightstrips::cluster::v1::AtisFeedEntry* _msg = _internal_mutable_arrival();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedAirport.arrival)
+  return _msg;
+}
+inline void AtisFeedAirport::set_allocated_arrival(::flightstrips::cluster::v1::AtisFeedEntry* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.arrival_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.arrival_ = reinterpret_cast<::flightstrips::cluster::v1::AtisFeedEntry*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AtisFeedAirport.arrival)
+}
+
+// optional .flightstrips.cluster.v1.AtisFeedEntry departure = 3;
+inline bool AtisFeedAirport::has_departure() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.departure_ != nullptr);
+  return value;
+}
+inline void AtisFeedAirport::clear_departure() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.departure_ != nullptr) _impl_.departure_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline const ::flightstrips::cluster::v1::AtisFeedEntry& AtisFeedAirport::_internal_departure() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::AtisFeedEntry* p = _impl_.departure_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::AtisFeedEntry&>(::flightstrips::cluster::v1::_AtisFeedEntry_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::AtisFeedEntry& AtisFeedAirport::departure() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedAirport.departure)
+  return _internal_departure();
+}
+inline void AtisFeedAirport::unsafe_arena_set_allocated_departure(::flightstrips::cluster::v1::AtisFeedEntry* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.departure_);
+  }
+  _impl_.departure_ = reinterpret_cast<::flightstrips::cluster::v1::AtisFeedEntry*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.AtisFeedAirport.departure)
+}
+inline ::flightstrips::cluster::v1::AtisFeedEntry* AtisFeedAirport::release_departure() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::flightstrips::cluster::v1::AtisFeedEntry* released = _impl_.departure_;
+  _impl_.departure_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::AtisFeedEntry* AtisFeedAirport::unsafe_arena_release_departure() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.AtisFeedAirport.departure)
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::flightstrips::cluster::v1::AtisFeedEntry* temp = _impl_.departure_;
+  _impl_.departure_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::AtisFeedEntry* AtisFeedAirport::_internal_mutable_departure() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.departure_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::AtisFeedEntry>(GetArena());
+    _impl_.departure_ = reinterpret_cast<::flightstrips::cluster::v1::AtisFeedEntry*>(p);
+  }
+  return _impl_.departure_;
+}
+inline ::flightstrips::cluster::v1::AtisFeedEntry* AtisFeedAirport::mutable_departure() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000002u;
+  ::flightstrips::cluster::v1::AtisFeedEntry* _msg = _internal_mutable_departure();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedAirport.departure)
+  return _msg;
+}
+inline void AtisFeedAirport::set_allocated_departure(::flightstrips::cluster::v1::AtisFeedEntry* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.departure_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+
+  _impl_.departure_ = reinterpret_cast<::flightstrips::cluster::v1::AtisFeedEntry*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AtisFeedAirport.departure)
+}
+
+// -------------------------------------------------------------------
+
+// AtisFeedEntry
+
+// string callsign = 1;
+inline void AtisFeedEntry::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& AtisFeedEntry::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedEntry.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void AtisFeedEntry::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.AtisFeedEntry.callsign)
+}
+inline std::string* AtisFeedEntry::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedEntry.callsign)
+  return _s;
+}
+inline const std::string& AtisFeedEntry::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void AtisFeedEntry::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* AtisFeedEntry::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* AtisFeedEntry::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.AtisFeedEntry.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void AtisFeedEntry::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AtisFeedEntry.callsign)
+}
+
+// string code = 2;
+inline void AtisFeedEntry::clear_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.code_.ClearToEmpty();
+}
+inline const std::string& AtisFeedEntry::code() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedEntry.code)
+  return _internal_code();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void AtisFeedEntry::set_code(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.code_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.AtisFeedEntry.code)
+}
+inline std::string* AtisFeedEntry::mutable_code() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_code();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedEntry.code)
+  return _s;
+}
+inline const std::string& AtisFeedEntry::_internal_code() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.code_.Get();
+}
+inline void AtisFeedEntry::_internal_set_code(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.code_.Set(value, GetArena());
+}
+inline std::string* AtisFeedEntry::_internal_mutable_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.code_.Mutable( GetArena());
+}
+inline std::string* AtisFeedEntry::release_code() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.AtisFeedEntry.code)
+  return _impl_.code_.Release();
+}
+inline void AtisFeedEntry::set_allocated_code(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.code_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.code_.IsDefault()) {
+          _impl_.code_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AtisFeedEntry.code)
+}
+
+// string frequency = 3;
+inline void AtisFeedEntry::clear_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_.ClearToEmpty();
+}
+inline const std::string& AtisFeedEntry::frequency() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedEntry.frequency)
+  return _internal_frequency();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void AtisFeedEntry::set_frequency(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.AtisFeedEntry.frequency)
+}
+inline std::string* AtisFeedEntry::mutable_frequency() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_frequency();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedEntry.frequency)
+  return _s;
+}
+inline const std::string& AtisFeedEntry::_internal_frequency() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.frequency_.Get();
+}
+inline void AtisFeedEntry::_internal_set_frequency(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_.Set(value, GetArena());
+}
+inline std::string* AtisFeedEntry::_internal_mutable_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.frequency_.Mutable( GetArena());
+}
+inline std::string* AtisFeedEntry::release_frequency() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.AtisFeedEntry.frequency)
+  return _impl_.frequency_.Release();
+}
+inline void AtisFeedEntry::set_allocated_frequency(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.frequency_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.frequency_.IsDefault()) {
+          _impl_.frequency_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AtisFeedEntry.frequency)
+}
+
+// repeated string text_lines = 4;
+inline int AtisFeedEntry::_internal_text_lines_size() const {
+  return _internal_text_lines().size();
+}
+inline int AtisFeedEntry::text_lines_size() const {
+  return _internal_text_lines_size();
+}
+inline void AtisFeedEntry::clear_text_lines() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.text_lines_.Clear();
+}
+inline std::string* AtisFeedEntry::add_text_lines()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  std::string* _s = _internal_mutable_text_lines()->Add();
+  // @@protoc_insertion_point(field_add_mutable:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+  return _s;
+}
+inline const std::string& AtisFeedEntry::text_lines(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+  return _internal_text_lines().Get(index);
+}
+inline std::string* AtisFeedEntry::mutable_text_lines(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+  return _internal_mutable_text_lines()->Mutable(index);
+}
+inline void AtisFeedEntry::set_text_lines(int index, const std::string& value) {
+  _internal_mutable_text_lines()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::set_text_lines(int index, std::string&& value) {
+  _internal_mutable_text_lines()->Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::set_text_lines(int index, const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  _internal_mutable_text_lines()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::set_text_lines(int index, const char* value,
+                              std::size_t size) {
+  _internal_mutable_text_lines()->Mutable(index)->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::set_text_lines(int index, absl::string_view value) {
+  _internal_mutable_text_lines()->Mutable(index)->assign(
+      value.data(), value.size());
+  // @@protoc_insertion_point(field_set_string_piece:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::add_text_lines(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_text_lines()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::add_text_lines(std::string&& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_text_lines()->Add(std::move(value));
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::add_text_lines(const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_text_lines()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::add_text_lines(const char* value, std::size_t size) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_text_lines()->Add()->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline void AtisFeedEntry::add_text_lines(absl::string_view value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_text_lines()->Add()->assign(value.data(),
+                                                     value.size());
+  // @@protoc_insertion_point(field_add_string_piece:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+AtisFeedEntry::text_lines() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+  return _internal_text_lines();
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+AtisFeedEntry::mutable_text_lines() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.AtisFeedEntry.text_lines)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_text_lines();
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+AtisFeedEntry::_internal_text_lines() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.text_lines_;
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+AtisFeedEntry::_internal_mutable_text_lines() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.text_lines_;
+}
+
+// .google.protobuf.Timestamp last_updated = 5;
+inline bool AtisFeedEntry::has_last_updated() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.last_updated_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& AtisFeedEntry::_internal_last_updated() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.last_updated_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& AtisFeedEntry::last_updated() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.AtisFeedEntry.last_updated)
+  return _internal_last_updated();
+}
+inline void AtisFeedEntry::unsafe_arena_set_allocated_last_updated(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.last_updated_);
+  }
+  _impl_.last_updated_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.AtisFeedEntry.last_updated)
+}
+inline ::google::protobuf::Timestamp* AtisFeedEntry::release_last_updated() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.last_updated_;
+  _impl_.last_updated_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* AtisFeedEntry::unsafe_arena_release_last_updated() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.AtisFeedEntry.last_updated)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.last_updated_;
+  _impl_.last_updated_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* AtisFeedEntry::_internal_mutable_last_updated() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.last_updated_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.last_updated_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.last_updated_;
+}
+inline ::google::protobuf::Timestamp* AtisFeedEntry::mutable_last_updated() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_last_updated();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.AtisFeedEntry.last_updated)
+  return _msg;
+}
+inline void AtisFeedEntry::set_allocated_last_updated(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.last_updated_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.last_updated_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.AtisFeedEntry.last_updated)
 }
 
 #ifdef __GNUC__

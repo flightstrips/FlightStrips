@@ -317,6 +317,7 @@ message Atis {
   string airport = 1; string code = 2; string text = 3;
   google.protobuf.Timestamp observed_at = 4;
   string metar = 5; string arrival_code = 6; string departure_code = 7;
+  string source_revision = 8;
 }
 message ClxOverride { string callsign = 1; string key = 2; string actor = 3; google.protobuf.Timestamp created_at = 4; }
 message FrontendMessage {
@@ -879,7 +880,7 @@ message NavRouteGeometry {
 message EffectSecret { string command_id = 1; bytes ciphertext = 2; string key_id = 3; bytes nonce = 4; }
 message ProviderPage {
   string provider = 1; string resource = 2;
-  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; }
+  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; AtisFeedPage atis_feed = 7; }
 }
 message AiracPage { repeated NavData fragments = 1; optional string next_page = 2; }
 message VatsimPage { repeated VatsimObservation observations = 1; }
@@ -901,4 +902,13 @@ message EcfmpFilter {
   string kind = 1; repeated string names = 2;
   optional int32 level = 3; repeated int32 levels = 4;
   optional int64 event_id = 5;
+}
+message AtisFeedPage { repeated AtisFeedAirport airports = 1; google.protobuf.Timestamp fetched_at = 2; }
+message AtisFeedAirport {
+  string airport = 1; optional AtisFeedEntry arrival = 2;
+  optional AtisFeedEntry departure = 3;
+}
+message AtisFeedEntry {
+  string callsign = 1; string code = 2; string frequency = 3;
+  repeated string text_lines = 4; google.protobuf.Timestamp last_updated = 5;
 }

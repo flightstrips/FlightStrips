@@ -75,7 +75,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 16 | [Master election and fanout](tasks/16-master-fanout.md) | 05, 10, 13, 14 | Merged to integration base ([#812](https://github.com/flightstrips/FlightStrips/pull/812)); held from `main`/release |
 | 17 | [Durable plugin effects](tasks/17-effects.md) | 09, 13–16, 15a | Merged to integration base ([#814](https://github.com/flightstrips/FlightStrips/pull/814)); held from `main`/release |
 | 18 | [Session workers and cleanup](tasks/18-session-workers.md) | 04–10, 13, 14, 17 | Not started |
-| 19 | [Airport and global workers](tasks/19-airport-workers.md) | 11–13, 17 | Not started |
+| 19 | [Airport and global workers](tasks/19-airport-workers.md) | 11–13, 17 | Partial: framework and inventory merged ([#815](https://github.com/flightstrips/FlightStrips/pull/815)); provider adapters and two-replica tests remain; held from `main`/release |
 | 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19, 15a, 15b | Not started |
 | 21 | [Production Swarm infrastructure](tasks/21-infrastructure.md) | 01, 03, 13, 20 | Not started |
 | 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–21 | Not started |

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"FlightStrips/internal/vatsim"
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
@@ -225,6 +226,13 @@ func validateProviderPage(page *pb.ProviderPage) error {
 		return err
 	}
 	switch content := page.GetParsed().(type) {
+	case *pb.ProviderPage_Transceivers:
+		if page.Provider != "vatsim" || page.Resource != "transceivers/v3" {
+			return fmt.Errorf("invalid transceiver provider identity")
+		}
+		if err := vatsim.ValidateTransceiverPage(content.Transceivers); err != nil {
+			return err
+		}
 	case *pb.ProviderPage_Airac:
 		if content.Airac == nil {
 			return fmt.Errorf("empty AIRAC page")

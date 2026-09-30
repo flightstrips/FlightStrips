@@ -944,7 +944,16 @@ message NavRouteGeometry {
 message EffectSecret { string command_id = 1; bytes ciphertext = 2; string key_id = 3; bytes nonce = 4; }
 message ProviderPage {
   string provider = 1; string resource = 2;
-  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; AtisFeedPage atis_feed = 7; OpenMeteoPage open_meteo = 8; CdmConfigPage cdm_config = 9; ViffFlightPage viff_flights = 10; ViffMastersPage viff_masters = 11; }
+  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; AtisFeedPage atis_feed = 7; OpenMeteoPage open_meteo = 8; CdmConfigPage cdm_config = 9; ViffFlightPage viff_flights = 10; ViffMastersPage viff_masters = 11; TransceiverFeedPage transceivers = 13; }
+}
+// Only accepted canonical radio frequencies cross the provider HTTP boundary.
+message TransceiverFeedPage {
+  google.protobuf.Timestamp fetched_at = 1;
+  repeated TransceiverFeedClient clients = 2;
+}
+message TransceiverFeedClient {
+  string callsign = 1;
+  repeated uint64 frequencies_hz = 2;
 }
 message AiracPage { repeated NavData fragments = 1; optional string next_page = 2; }
 message VatsimPage {

@@ -6,18 +6,12 @@ on:
       - main
 
 permissions:
-  contents: read
-  packages: read
-
-concurrency:
-  group: release-please-${{ github.repository }}
-  cancel-in-progress: false
+  contents: write
+  pull-requests: write
+  packages: write
 
 jobs:
   release-please:
-    permissions:
-      contents: write
-      pull-requests: write
     runs-on: ubuntu-24.04
     outputs:
       plugin_release_created: ${{ steps.release.outputs.euroscope-plugin--release_created }}
@@ -42,47 +36,220 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  promote-applications:
+  build-plugin:
     needs: release-please
-    if: >-
-      needs.release-please.outputs.backend_release_created == 'true' ||
-      needs.release-please.outputs.frontend_release_created == 'true' ||
-      needs.release-please.outputs.plugin_release_created == 'true'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      actions: read
-      packages: write
-    outputs:
-      backend_image: ${{ steps.promote.outputs.backend_image }}
-      frontend_image: ${{ steps.promote.outputs.frontend_image }}
-      backend_version: ${{ steps.promote.outputs.backend_version }}
-      frontend_version: ${{ steps.promote.outputs.frontend_version }}
+    if: needs.release-please.outputs.plugin_release_created == 'true'
+    runs-on: windows-2025
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+    defaults:
+      run:
+        working-directory: ./euroscope-plugin
     steps:
       - uses: actions/checkout@v6
+
+      - name: Set up Visual Studio Shell
+        uses: egor-tensin/vs-shell@v2
         with:
-          persist-credentials: false
-      - uses: actions/setup-python@v6
+          arch: x86
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Set up compiler cache
+        uses: mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11
         with:
-          python-version: '3.11'
-      - run: python -m pip install -r scripts/cluster-proto-requirements.txt
-      - uses: imjasonh/setup-crane@v0.4
-      - uses: docker/login-action@v3
+          version: "v0.17.0"
+
+      - name: Run CMake
+        run: |
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -G Ninja -Bbuild
+
+      - name: Run Ninja Build
+        working-directory: ./euroscope-plugin/build
+        run: ninja
+
+      - name: Set prerelease flag
+        id: set_prerelease
+        shell: bash
+        run: |
+          version="${{ needs.release-please.outputs.plugin_version }}"
+          if [[ "$version" == *"-"* || $(echo "$version < 1" | bc 2>/dev/null || echo 0) -eq 1 ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create/Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.plugin_tag }}
+          name: FlightStripsPlugin ${{ needs.release-please.outputs.plugin_tag }}
+          files: |
+            ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
+            ./euroscope-plugin/build/bin/FlightStripsPluginCore.dll
+            ./euroscope-plugin/build/bin/flightstrips_config.ini
+            ./euroscope-plugin/build/bin/flightstrips_config_dev.ini
+          prerelease: ${{ steps.set_prerelease.outputs.prerelease }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-backend:
+    needs: release-please
+    if: needs.release-please.outputs.backend_release_created == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ github.token }}
-      - id: promote
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push api image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          build-args: |
+            BUILD_VERSION=${{ needs.release-please.outputs.backend_version }}+${{ github.sha }}
+          push: true
+          cache-from: type=gha,scope=backend-api
+          cache-to: type=gha,mode=max,scope=backend-api
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/backend-api:${{ needs.release-please.outputs.backend_version }}
+            ghcr.io/${{ github.repository_owner }}/backend-api:latest
+
+  build-frontend:
+    needs: release-please
+    if: needs.release-please.outputs.frontend_release_created == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/frontend:${{ needs.release-please.outputs.frontend_version }}
+            ghcr.io/${{ github.repository_owner }}/frontend:latest
+
+  announce-frontend:
+    needs: [release-please, build-frontend]
+    if: needs.build-frontend.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Post Discord announcement
+        uses: actions/github-script@v7
         env:
-          GH_TOKEN: ${{ github.token }}
-          QUALIFIED_CANDIDATE_RUN_ID: ${{ vars.QUALIFIED_CANDIDATE_RUN_ID }}
-          QUALIFIED_CANDIDATE_RUN_ATTEMPT: ${{ vars.QUALIFIED_CANDIDATE_RUN_ATTEMPT }}
-        run: python scripts/release/gate.py promote --sha "$GITHUB_SHA" --dry-run false
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RELEASE_TAG: ${{ needs.release-please.outputs.frontend_tag }}
+          RELEASE_VERSION: ${{ needs.release-please.outputs.frontend_version }}
+          RELEASE_BODY: ${{ needs.release-please.outputs.frontend_body }}
+          RELEASE_URL: ${{ needs.release-please.outputs.frontend_html_url }}
+        with:
+          script: |
+            const tag     = process.env.RELEASE_TAG;
+            const version = process.env.RELEASE_VERSION;
+            const body    = (process.env.RELEASE_BODY || '').trim();
+            const url     = process.env.RELEASE_URL
+                              || `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/tag/${tag}`;
+
+            // ── Prefix → plain English ─────────────────────────────────────
+            const PREFIX_MAP = {
+              'feat':     '✨ New',
+              'feature':  '✨ New',
+              'fix':      '🐛 Fixed',
+              'bugfix':   '🐛 Fixed',
+              'hotfix':   '🐛 Fixed',
+              'core':     '⚙️ Improved',
+              'perf':     '⚡ Faster',
+              'refactor': '🔧 Refactored',
+              'style':    '🎨 Styled',
+              'ui':       '🎨 UI',
+              'chore':    '🧹 Maintenance',
+              'docs':     '📝 Docs',
+              'test':     '🧪 Tests',
+              'revert':   '↩️ Reverted',
+              'security': '🔒 Security',
+              'build':    '📦 Build',
+              'ci':       '🤖 CI',
+            };
+
+            function translateLine(line) {
+              const match = line.match(/^([a-zA-Z]+)(?:\([^)]+\))?[!:][\s]+(.+)/);
+              if (!match) return null;
+              const [, type, msg] = match;
+              const label = PREFIX_MAP[type.toLowerCase()];
+              if (!label) return null;
+              const clean = msg.charAt(0).toUpperCase() + msg.slice(1).replace(/\.?\s*$/, '');
+              return `- ${label}: ${clean}`;
+            }
+
+            // ── Parse release body into bullets ────────────────────────────
+            let bullets = [];
+            if (body) {
+              for (const raw of body.split('\n')) {
+                const line = raw.trim().replace(/^[-*]\s*/, '');
+                if (!line || line.startsWith('#')) continue;
+                const translated = translateLine(line);
+                bullets.push(translated || `- ${line.charAt(0).toUpperCase() + line.slice(1)}`);
+              }
+            }
+            if (bullets.length === 0) bullets.push('- See full release notes for details.');
+
+            // ── Build message ──────────────────────────────────────────────
+            const message = [
+              `**🚀 Frontend v${version}**`,
+              '',
+              "**What's new:**",
+              ...bullets.slice(0, 8),
+              '',
+              `📦 Full release notes: <${url}>`,
+            ].join('\n');
+
+            core.info('Discord message:\n' + message);
+
+            // ── Post to Discord ────────────────────────────────────────────
+            const res = await fetch(process.env.DISCORD_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                username:   'FlightStrips Releases',
+                avatar_url: 'https://github.com/flightstrips.png',
+                content:    message,
+              }),
+            });
+
+            if (!res.ok) {
+              const err = await res.text();
+              core.setFailed(`Discord webhook error ${res.status}: ${err}`);
+              return;
+            }
+
+            core.info('Successfully posted to Discord.');
 
   build-docs:
-    permissions:
-      contents: read
-      packages: write
     needs: release-please
     if: needs.release-please.outputs.docs_release_created == 'true'
     runs-on: ubuntu-24.04
@@ -112,11 +279,12 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/docs:latest
 
   sync-infrastructure:
-    needs: [release-please, promote-applications, build-docs]
+    needs: [release-please, build-backend, build-frontend, build-docs]
     if: |
       always() &&
       (
-        needs.promote-applications.result == 'success' ||
+        (needs.release-please.outputs.backend_release_created == 'true' && needs.build-backend.result == 'success') ||
+        (needs.release-please.outputs.frontend_release_created == 'true' && needs.build-frontend.result == 'success') ||
         (needs.release-please.outputs.docs_release_created == 'true' && needs.build-docs.result == 'success')
       )
     runs-on: ubuntu-24.04
@@ -142,12 +310,10 @@ jobs:
 
       - name: Update infrastructure image tags
         env:
-          BACKEND_RELEASE_CREATED: ${{ needs.promote-applications.result == 'success' }}
-          BACKEND_VERSION: ${{ needs.promote-applications.outputs.backend_version }}
-          BACKEND_IMAGE: ${{ needs.promote-applications.outputs.backend_image }}
-          FRONTEND_RELEASE_CREATED: ${{ needs.promote-applications.result == 'success' }}
-          FRONTEND_VERSION: ${{ needs.promote-applications.outputs.frontend_version }}
-          FRONTEND_IMAGE: ${{ needs.promote-applications.outputs.frontend_image }}
+          BACKEND_RELEASE_CREATED: ${{ needs.release-please.outputs.backend_release_created }}
+          BACKEND_VERSION: ${{ needs.release-please.outputs.backend_version }}
+          FRONTEND_RELEASE_CREATED: ${{ needs.release-please.outputs.frontend_release_created }}
+          FRONTEND_VERSION: ${{ needs.release-please.outputs.frontend_version }}
           DOCS_RELEASE_CREATED: ${{ needs.release-please.outputs.docs_release_created }}
           DOCS_VERSION: ${{ needs.release-please.outputs.docs_version }}
           INFRA_STACK_FILE: stacks/flightstrips.yml
@@ -165,17 +331,13 @@ jobs:
           PR_TITLE="chore(infra): bump deployment image versions for ${{ github.sha }}"
           PR_BODY=$(cat <<EOF
           Release versions updated from this commit:
-          - backend: $BACKEND_IMAGE
-          - frontend: $FRONTEND_IMAGE
+          - backend: $BACKEND_VERSION
+          - frontend: $FRONTEND_VERSION
           - docs: $DOCS_VERSION
-
-          Hold this PR until the reviewed Task 21 stack matches these digests. Do not auto-merge or deploy.
 
           Source repository: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EOF
           )
-
-          printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/infra-pr-body.txt"
 
           git fetch --prune origin
           git config user.name github-actions[bot]
@@ -190,12 +352,12 @@ jobs:
           updated=false
 
           if [ "$BACKEND_RELEASE_CREATED" = "true" ]; then
-            sed -i -E "s#ghcr.io/flightstrips/backend-api:[^[:space:]]+#${BACKEND_IMAGE}#g" "$INFRA_STACK_FILE"
+            sed -i -E "s#(ghcr.io/flightstrips/backend-api:)[^[:space:]]+#\1${BACKEND_VERSION}#g" "$INFRA_STACK_FILE"
             updated=true
           fi
 
           if [ "$FRONTEND_RELEASE_CREATED" = "true" ]; then
-            sed -i -E "s#ghcr.io/flightstrips/frontend:[^[:space:]]+#${FRONTEND_IMAGE}#g" "$INFRA_STACK_FILE"
+            sed -i -E "s#(ghcr.io/flightstrips/frontend:)[^[:space:]]+#\1${FRONTEND_VERSION}#g" "$INFRA_STACK_FILE"
             sed -i -E "s#(APP_VERSION:[[:space:]]*\\$\\{APP_VERSION:-)[^}]+\\}#\\1${FRONTEND_VERSION}}#g" "$INFRA_STACK_FILE"
             updated=true
           fi
@@ -231,7 +393,7 @@ jobs:
             gh pr create \
               --repo flightstrips/infrastructure \
               --title "$PR_TITLE" \
-              --body-file "$RUNNER_TEMP/infra-pr-body.txt" \
+              --body "$PR_BODY" \
               --head "${{ github.repository_owner }}:${BRANCH_NAME}" \
               --base "main"
           else

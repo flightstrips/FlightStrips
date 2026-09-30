@@ -20,6 +20,8 @@ startup stays dormant in the meantime.
 - [x] Global-owned VATSIM fetch with a typed source checkpoint and two-replica NATS owner-failure test (this completion branch).
 - [ ] VATSIM airport/session reconciliation adapters and their two-replica failure tests.
 - [ ] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests.
+  - [x] Consume typed VATSIM global checkpoints on the airport owner; stable observation and reconciliation command IDs; two-replica observation replay and superseded intent test.
+  - [ ] Bind the operational AMAN evaluator and destination session command builder to this candidate adapter, then test owner death around the destination result commit.
 - [ ] Airport-owned AIRAC import and verified manifest activation adapter with typed page checkpoints and two-replica failure tests.
 - [x] Airport-owned METAR fetch, global-owned AFV ATIS typed feed, session presentation adapter, global quota reservation, and two-replica NATS failure/replay tests (this completion branch).
 - [x] AMAN/Open-Meteo wind refresh adapter with typed airport checkpoint, durable global quota reservation, and two-replica uncertainty test (this completion branch).

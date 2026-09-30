@@ -577,26 +577,10 @@ func (a NavigationWeather) Quota(ctx context.Context, provider string, window ti
 // never sends a second external request. The provider callback must decode its
 // external format and return only a typed observation.
 func (a NavigationWeather) FetchWeather(ctx context.Context, workflowID, airport, provider string, window time.Time, limit uint32, ttl time.Duration, fetch func(context.Context) (*pb.WeatherObservation, error)) (bool, error) {
-	if fetch == nil || ttl <= 0 {
-		return false, fmt.Errorf("invalid weather fetch")
-	}
-	if _, err := Subject(airportRef(airport)); err != nil {
-		return false, err
-	}
-	fresh, err := a.ReserveQuota(ctx, workflowID, provider, window, limit)
-	if err != nil || !fresh {
-		return false, err
-	}
-	observation, err := fetch(ctx)
-	if err != nil {
-		return false, err
-	}
-	if observation == nil {
-		return false, fmt.Errorf("provider returned no weather")
-	}
-	now := time.Now().UTC()
-	_, err = a.PutWeather(ctx, workflowID, &pb.WeatherCache{Airport: airport, Provider: provider, Observation: observation, FetchedAt: timestamppb.New(now), ExpiresAt: timestamppb.New(now.Add(ttl))})
-	return err == nil, err
+	return a.FetchWeatherFenced(ctx, ExternalCallWorker{Writer: a.Writer}, workflowID, airport, provider, ttl,
+		func(ctx context.Context) (bool, error) {
+			return a.ReserveQuota(ctx, workflowID, provider, window, limit)
+		}, fetch)
 }
 
 // FetchWeatherFenced is the candidate worker path. The caller supplies an

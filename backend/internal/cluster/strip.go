@@ -329,6 +329,7 @@ func mergeObservedStrip(old, incoming *pb.Strip) *pb.Strip {
 	copy.RequestedAltitude, copy.ClearedAltitude, copy.Heading = incoming.RequestedAltitude, incoming.ClearedAltitude, incoming.Heading
 	copy.Stand, copy.Eobt, copy.Alternate, copy.Star = incoming.Stand, incoming.Eobt, incoming.Alternate, incoming.Star
 	copy.HasFlightPlan = incoming.HasFlightPlan
+	copy.GroundState, copy.EngineType = incoming.GroundState, incoming.EngineType
 	if incoming.Bay != "" && incoming.Bay != shared.BAY_UNKNOWN {
 		copy.Bay = incoming.Bay
 	}

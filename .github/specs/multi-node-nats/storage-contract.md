@@ -71,6 +71,21 @@ consuming a deadline. A replaced deadline has a new entity revision and cannot
 be fired by a worker holding its earlier revision.
 `StandAction` lifecycle fields 11–17 are accepted only from a system actor.
 
+Task 19a keeps warning episode state in `StandAssignment.conflict_reason` or
+an existing typed `WorkflowRecord` keyed by a stable session/callsign/pilot
+episode UUID. Its step is the observed stand and its source revision is the
+accepted global VATSIM generation. A STAND effect intent is a pending
+`WorkflowRecord` keyed by lifecycle command/callsign, with the scalar routing
+step `vatsim-stand/<callsign>/<stand-or->/<immutable-controller-CID>` and the
+changed strip revision in `source_revision`. The derived command completes
+that workflow and creates the typed Task 17 STAND effect, or supersedes it if
+the strip has changed. No extra persistence bucket or generic payload is used.
+Typed `Strip.ground_state` and `engine_type` retain the observed facts needed
+by the existing lifecycle and SAT compatibility policy.
+Completed `vatsim-prefile-input` workflows are keyed by session, callsign and
+accepted generation/digest. They prevent an expired hold from being recreated
+by replay of that generation; a new accepted generation is a new input.
+
 `Atis.metar`, `arrival_code`, and `departure_code` retain the existing frontend presentation fields per session. `code` and `text` retain the typed ATIS observation. `Atis.source_revision` binds the global AFV ATIS checkpoint revision and digest to the airport METAR fetch timestamp, so a stale presentation cannot overwrite a newer one. `ProviderPage.atis_feed` retains typed arrival and departure entries from the provider-wide AFV fetch. No METAR or ATIS presentation cache is needed on each backend.
 
 Task 05 keeps the legacy sector position and identifier as typed scalar fields

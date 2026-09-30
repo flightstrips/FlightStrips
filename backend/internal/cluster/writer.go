@@ -33,6 +33,15 @@ type Writer struct {
 	Lease      *OwnerRuntime
 }
 
+// Read returns the same coherent owner planning snapshot used by Execute.
+func (w Writer) Read(ctx context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	return w.load(ctx, subject, ref)
+}
+
 // Outcome reads the durable aggregate ledger for an authenticated actor.
 func (w Writer) Outcome(ctx context.Context, ref *pb.AggregateRef, commandID string, actor *pb.Actor) *pb.CommandReply {
 	reply := &pb.CommandReply{ProtocolRevision: 1, CommandId: commandID}

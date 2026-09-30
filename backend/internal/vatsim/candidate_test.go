@@ -46,3 +46,19 @@ func TestCandidatePageRoundTripsFullFlightAndPreservesNewerPlan(t *testing.T) {
 		t.Fatalf("restored snapshot: %v %v %v", flight, ok, err)
 	}
 }
+
+func TestCandidatePageRejectsEmptyProviderResponse(t *testing.T) {
+	var base string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/status" {
+			_, _ = fmt.Fprintf(w, `{"data":{"v3":[%q]}}`, base+"/data")
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"general":{"update_timestamp":"2026-09-30T12:00:00Z"},"pilots":[],"prefiles":[]}`)
+	}))
+	defer server.Close()
+	base = server.URL
+	if page, err := NewCache(base+"/status", 0, server.Client()).CandidatePage(context.Background(), nil); err == nil || page != nil {
+		t.Fatal("empty response accepted as a missing-flight generation")
+	}
+}

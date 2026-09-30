@@ -3,7 +3,7 @@ package services
 import (
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
-	"FlightStrips/internal/repository"
+
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/vatsim"
 	"FlightStrips/pkg/events/euroscope"
@@ -40,9 +40,9 @@ const (
 )
 
 type ArrivalLifecycleService struct {
-	allocations   *StandAllocationService
-	assignments   repository.StandAssignmentRepository
-	strips        repository.StripRepository
+	allocations   lifecycleAllocator
+	assignments   lifecycleAssignments
+	strips        lifecycleStrips
 	sessions      lifecycleSessionLister
 	stands        *sat.StandCapabilityRegistry
 	aircraft      *sat.AircraftRegistry
@@ -79,9 +79,9 @@ func WithArrivalPrefileAssignments(enabled bool) ArrivalLifecycleOption {
 }
 
 func NewArrivalLifecycleService(
-	allocations *StandAllocationService,
-	assignments repository.StandAssignmentRepository,
-	strips repository.StripRepository,
+	allocations lifecycleAllocator,
+	assignments lifecycleAssignments,
+	strips lifecycleStrips,
 	sessions lifecycleSessionLister,
 	stands *sat.StandCapabilityRegistry,
 	aircraft *sat.AircraftRegistry,

@@ -317,8 +317,27 @@ func (c *DeadlineCandidate) strip(ctx context.Context, id int32, connection, cid
 	// The CDM adapter owns EOBT/ELDT admission; a socket observation must not
 	// erase its accepted timestamps while the adapters are composed at cutover.
 	strip.Eobt = old.GetValue().GetStrip().GetEobt()
+	strip.Eldt = old.GetValue().GetStrip().GetEldt()
+	if observed.Eldt != "" {
+		parsed, err := time.Parse("1504", observed.Eldt)
+		if err != nil {
+			return fmt.Errorf("invalid observed ELDT")
+		}
+		now := c.clock()
+		at := time.Date(now.Year(), now.Month(), now.Day(), parsed.Hour(), parsed.Minute(), 0, 0, time.UTC)
+		if at.Before(now.Add(-12 * time.Hour)) {
+			at = at.Add(24 * time.Hour)
+		}
+		strip.Eldt = timestamppb.New(at)
+	}
+	strip.TrackingController = observed.TrackingController
 	if err := c.executeFrame(ctx, id, connection, cid, frame, "euroscope-strip", observed.Callsign, &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: strip}}, revision, "strip"); err != nil {
 		return err
+	}
+	if c.ObservedStrip != nil {
+		if err := c.ObservedStrip(ctx, id, connection, cid, frame, observed); err != nil {
+			return err
+		}
 	}
 	w, err := c.positionWriter(ctx, id, connection)
 	if err != nil {

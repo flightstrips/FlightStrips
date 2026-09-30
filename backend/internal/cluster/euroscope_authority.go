@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"FlightStrips/internal/shared"
 	"fmt"
 
 	pb "FlightStrips/pkg/events/cluster"
@@ -33,6 +34,7 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 		return nil
 	}
 	if state.Owner == nil || (envelope.OwnerEpoch != 0 && state.Owner.Epoch != envelope.OwnerEpoch) {
+		p.staleEpochs.Add(1)
 		return fmt.Errorf("stale session owner epoch")
 	}
 	switch envelope.GetEvent().(type) {
@@ -43,11 +45,35 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 		return p.RequireMasterInbound(sessionID, connectionID, cid, envelope.MasterEpoch, false)
 	case *euroscope.Envelope_AircraftPositionUpdate,
 		*euroscope.Envelope_AircraftDisconnect,
-		*euroscope.Envelope_StripUpdate:
+		*euroscope.Envelope_StripUpdate, *euroscope.Envelope_Runway,
+		*euroscope.Envelope_Squawk, *euroscope.Envelope_RequestedAltitude,
+		*euroscope.Envelope_ClearedAltitude, *euroscope.Envelope_CommunicationType,
+		*euroscope.Envelope_GroundState, *euroscope.Envelope_ClearedFlag,
+		*euroscope.Envelope_Heading, *euroscope.Envelope_Stand,
+		*euroscope.Envelope_Route, *euroscope.Envelope_Remarks,
+		*euroscope.Envelope_AircraftInfo, *euroscope.Envelope_AircraftInfoRemarks,
+		*euroscope.Envelope_Sid, *euroscope.Envelope_AircraftRunway,
+		*euroscope.Envelope_AssignedSquawk:
 		if envelope.SessionId != sessionID || envelope.OwnerEpoch != state.Owner.Epoch {
 			return fmt.Errorf("master observation is missing current session terms")
 		}
 		return p.RequireMasterInbound(sessionID, connectionID, cid, envelope.MasterEpoch, true)
+	case *euroscope.Envelope_Hold:
+		controller := state.Indexes[pb.EntityKind_CONTROLLER][cid].GetValue().GetController()
+		strip := state.Indexes[pb.EntityKind_STRIP][envelope.GetHold().Callsign].GetValue().GetStrip()
+		if controller == nil || controller.Observer || strip == nil {
+			return fmt.Errorf("hold requires an operational controller and strip")
+		}
+		if shared.IsTrackingController(controller.Callsign, strip.TrackingController) {
+			return nil
+		}
+		return p.RequireMasterInbound(sessionID, connectionID, cid, envelope.MasterEpoch, true)
+	case *euroscope.Envelope_TrackingControllerChanged:
+		controller := state.Indexes[pb.EntityKind_CONTROLLER][cid].GetValue().GetController()
+		if controller == nil || controller.Observer {
+			return fmt.Errorf("tracking requires an operational controller")
+		}
+		return nil
 	case *euroscope.Envelope_Token, *euroscope.Envelope_Login:
 		return fmt.Errorf("authentication frames are not operational observations")
 	default:

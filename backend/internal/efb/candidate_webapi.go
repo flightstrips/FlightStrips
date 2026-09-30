@@ -113,6 +113,18 @@ func (a *CandidateWebAPI) flight(w http.ResponseWriter, r *http.Request) {
 		}
 		result.ATIS = a.base.atis.GetATIS(airport, departure)
 	}
+	model := services.CandidateModelStrip(s, flight.SessionID)
+	result.ArrivalETA = candidateClock(s.Eldt)
+	result.TerminalFix = terminalFix(a.base.terminal, s.Destination, &s.Runway, &s.Star)
+	result.PublishedHeading, result.PublishedHoldingFix, result.PublishedHoldingDetail = publishedArrivalData(r.Context(), a.base.navigation, a.base.terminal, s.Destination, &s.Runway, &s.Star)
+	result.CDMStatus = s.OperationalStatus
+	result.PDCAvailable = a.base.pdcReady && departure && !model.Cleared
+	result.PDCCanSubmit = result.PDCAvailable && result.PDCCanSubmit
+	if departure && a.base.departures != nil {
+		if frequency, err := a.base.departures.ComputeDepartureFrequencyForStripContext(r.Context(), model, flight.SessionID); err == nil {
+			result.DepartureFrequency = nonEmptyString(frequency)
+		}
+	}
 	writeJSON(w, http.StatusOK, result)
 }
 

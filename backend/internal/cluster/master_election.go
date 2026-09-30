@@ -250,6 +250,7 @@ func (p *Projection) RequireMasterInbound(sessionID int32, connectionID, cid str
 	state := p.states[subject]
 	if state == nil || state.Owner == nil || state.Master == nil || state.Master.ConnectionId != connectionID ||
 		state.Master.Cid != cid || state.Master.Epoch != epoch || state.Master.OwnerEpoch != state.Owner.Epoch {
+		p.staleEpochs.Add(1)
 		return fmt.Errorf("stale session master")
 	}
 	if err := p.liveSocketLocked(sessionID, connectionID, cid, pb.ClientPresence_EUROSCOPE); err != nil {

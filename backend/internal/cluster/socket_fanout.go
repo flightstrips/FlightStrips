@@ -93,6 +93,7 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 		return nil, err
 	}
 	var once sync.Once
+	var jobs sync.WaitGroup
 	closeSocket := func() {
 		once.Do(func() {
 			cancel()
@@ -104,12 +105,15 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 			}
 		})
 	}
+	jobs.Add(2)
 	go func() {
+		defer jobs.Done()
 		if err := lease.Run(socketCtx); err != nil && socketCtx.Err() == nil {
 			closeSocket()
 		}
 	}()
 	go func() {
+		defer jobs.Done()
 		defer closeSocket()
 		lastSession, lastAirport := session.Revision, airportState.Revision
 		lastMaster := session.Master
@@ -149,7 +153,7 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 			}
 		}
 	}()
-	return closeSocket, nil
+	return func() { closeSocket(); jobs.Wait() }, nil
 }
 
 func deliverDelta(deliver func(*pb.FrontendDelta) error, delta *pb.FrontendDelta, last *uint64) error {
@@ -202,7 +206,7 @@ func (f *SessionFanout) ServeTargeted(ctx context.Context) error {
 	if f == nil || f.NC == nil || f.Projection == nil || f.NodeID == "" {
 		return fmt.Errorf("targeted fanout unavailable")
 	}
-	sub, err := f.NC.Subscribe("fs.v1.delivery."+f.NodeID, func(message *nats.Msg) {
+	_, closeSub, err := SubscribeJoined(f.NC, "fs.v1.delivery."+f.NodeID, func(message *nats.Msg) {
 		request := &pb.EffectDeliveryRequest{}
 		response := &pb.EffectDeliveryReply{}
 		if len(message.Data) > 0 && len(message.Data) <= MaxStateBytes && pb.UnmarshalStrict(message.Data, request) == nil {
@@ -228,7 +232,7 @@ func (f *SessionFanout) ServeTargeted(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer sub.Unsubscribe()
+	defer closeSub()
 	flush, cancel := context.WithTimeout(ctx, time.Second)
 	err = f.NC.FlushWithContext(flush)
 	cancel()

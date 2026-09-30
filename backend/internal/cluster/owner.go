@@ -143,7 +143,15 @@ func (o *OwnerRuntime) Run(ctx context.Context) error {
 		if !now.Before(nextHeartbeat) {
 			if err := o.heartbeat(ctx); err != nil {
 				o.failAll()
-				return err
+				// A quorum or transport outage fences this incarnation immediately,
+				// but is recoverable after projection/resource verification returns.
+				nextHeartbeat = now.Add(time.Second)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-step.C:
+				}
+				continue
 			}
 			nextHeartbeat = now.Add(nodeHeartbeat)
 		}
@@ -204,8 +212,8 @@ func (o *OwnerRuntime) maintain(ctx context.Context) {
 		}
 		if state.Owner != nil && state.Owner.NodeId == o.NodeID && time.Now().Before(state.Owner.GetLeaseUntil().AsTime()) {
 			// A failed renewal immediately fences local command and effect work.
-			o.mark(subject, false)
 			if err := o.control(ctx, state, true); err != nil {
+				o.mark(subject, false)
 				continue
 			}
 			o.mark(subject, true)
@@ -283,6 +291,29 @@ func RendezvousRank(subject string, nodes []string) []string {
 }
 
 func (o *OwnerRuntime) control(ctx context.Context, state *Aggregate, renew bool) error {
+	initialEpoch := state.ownerEpoch()
+	for attempt := 0; attempt < 8; attempt++ {
+		err := o.controlOnce(ctx, state, renew)
+		if !errors.Is(err, ErrCAS) {
+			return err
+		}
+		subject, _ := Subject(state.Ref)
+		wait, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
+		_ = o.Projection.WaitSubjectAdvance(wait, subject, state.SubjectSequence)
+		cancel()
+		fresh, readErr := o.Projection.Read(state.Ref)
+		if readErr != nil {
+			return readErr
+		}
+		if fresh.ownerEpoch() != initialEpoch || renew && fresh.Owner.GetNodeId() != o.NodeID {
+			return fmt.Errorf("owner changed during lease CAS")
+		}
+		state = fresh
+	}
+	return ErrCAS
+}
+
+func (o *OwnerRuntime) controlOnce(ctx context.Context, state *Aggregate, renew bool) error {
 	subject, _ := Subject(state.Ref)
 	epoch := state.ownerEpoch()
 	if !renew {

@@ -96,11 +96,11 @@ func (r SessionRegistry) execute(ctx context.Context, request *pb.CommandRequest
 		return fmt.Errorf("session registry store is unavailable")
 	}
 	reply := r.Store.Execute(ctx, request)
-	if reply == nil || reply.Status != pb.CommandReply_COMMITTED {
+	if reply == nil || reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() == pb.CommandOutcome_FAILED {
 		if reply == nil {
 			return fmt.Errorf("session lifecycle command received no reply")
 		}
-		return fmt.Errorf("session lifecycle command %s: %s: %s", request.CommandId, reply.Status, reply.Detail)
+		return fmt.Errorf("session lifecycle command %s: %s: %s (%s: %s)", request.CommandId, reply.Status, reply.Detail, reply.GetOutcome().GetReasonCode(), reply.GetOutcome().GetDetail())
 	}
 	return nil
 }
@@ -410,7 +410,9 @@ func planSessionLifecycle(ctx context.Context, request *pb.CommandRequest, state
 		}
 		for _, effect := range state.Effects {
 			if effect.Status == pb.EffectRecord_WAITING || effect.Status == pb.EffectRecord_DISPATCH_CLAIMED {
-				return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("session has nonterminal effects")
+				// This is a temporary admission barrier. Retaining a failed outcome
+				// would poison the deterministic tombstone command after effects finish.
+				return nil, pb.CommandReply_UNAVAILABLE, 0, fmt.Errorf("session has nonterminal effects")
 			}
 		}
 		copy := proto.Clone(s).(*pb.Session)

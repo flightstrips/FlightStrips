@@ -164,7 +164,8 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			return reply, published
 		}
 		providerPdc := request.Actor.Kind == pb.Actor_PROVIDER && request.Actor.Id == "hoppie" && request.GetSystem().GetApplyPdcProviderMessage() != nil && request.Aggregate.GetSession() != nil && request.Actor.GetSessionId() == request.Aggregate.GetSession().Id
-		if request.GetSystem() != nil && request.Actor.Kind != pb.Actor_SYSTEM && !providerPdc {
+		controllerRouteFact := request.Actor.Kind == pb.Actor_CONTROLLER && request.Actor.Id != "" && request.Actor.SessionId != nil && request.Aggregate.GetAirport() != nil && request.GetSystem().GetReportAmanRouteFact() != nil
+		if request.GetSystem() != nil && request.Actor.Kind != pb.Actor_SYSTEM && !providerPdc && !controllerRouteFact {
 			reply.Status = pb.CommandReply_UNAUTHORIZED
 			return reply, published
 		}

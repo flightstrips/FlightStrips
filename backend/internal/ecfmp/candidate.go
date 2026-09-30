@@ -52,6 +52,28 @@ type CandidateApply struct {
 	Session cluster.EcfmpSessionAdapter
 }
 
+// AcceptedMeasures joins the provider generation and the existing test overlay
+// after both have been accepted by the global owner. Local client caches are
+// never an authority for the HTTP or session application paths.
+func AcceptedMeasures(ctx context.Context, source cluster.NavigationWeather) ([]FlowMeasure, error) {
+	out := make([]FlowMeasure, 0)
+	for _, resource := range []string{"flow-measure/active", "flow-measure/test"} {
+		_, page, err := source.CheckpointFor(ctx, &pb.AggregateRef{Target: &pb.AggregateRef_Global{Global: &pb.GlobalRef{}}}, "ecfmp", resource)
+		if err != nil {
+			return nil, err
+		}
+		if page == nil {
+			continue
+		}
+		values, err := MeasuresFromPage(page.GetEcfmp())
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, values...)
+	}
+	return out, nil
+}
+
 func (a CandidateApply) ApplySession(ctx context.Context, sessionID int32, at time.Time) error {
 	if at.IsZero() {
 		return fmt.Errorf("missing ECFMP application time")
@@ -64,7 +86,7 @@ func (a CandidateApply) ApplySession(ctx context.Context, sessionID int32, at ti
 	if checkpoint == nil || page == nil || page.GetEcfmp() == nil || revision == 0 {
 		return fmt.Errorf("committed ECFMP page unavailable")
 	}
-	measures, err := MeasuresFromPage(page.GetEcfmp())
+	measures, err := AcceptedMeasures(ctx, a.Source)
 	if err != nil {
 		return err
 	}
@@ -73,6 +95,11 @@ func (a CandidateApply) ApplySession(ctx context.Context, sessionID int32, at ti
 		return err
 	}
 	sourceVersion := fmt.Sprintf("%020d:%s", revision, checkpoint.Sha256)
+	if test, _, testRevision, e := a.Source.CheckpointRevisionFor(ctx, ref, "ecfmp", "flow-measure/test"); e != nil {
+		return e
+	} else if test != nil {
+		sourceVersion += fmt.Sprintf(":%020d:%s", testRevision, test.Sha256)
+	}
 	for _, strip := range strips {
 		legacy := &models.Strip{Callsign: strip.Callsign, Origin: strip.Departure, Destination: strip.Destination,
 			RequestedAltitude: strip.RequestedAltitude}

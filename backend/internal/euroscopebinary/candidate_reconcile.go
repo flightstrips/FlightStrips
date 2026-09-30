@@ -47,7 +47,7 @@ func (c *DeadlineCandidate) RetainedAircraft(state *cluster.Aggregate, callsign 
 		return false, err
 	}
 	cursor := state.Indexes[pb.EntityKind_VATSIM_SESSION_CURSOR]["vatsim"].GetValue().GetVatsimSessionCursor()
-	if checkpoint == nil || page.GetVatsim() == nil || len(page.GetVatsim().Flights) == 0 || page.GetVatsim().SnapshotAt == nil || cursor == nil || cursor.SourceRevision != revision || cursor.SourceSha256 != checkpoint.Sha256 || c.clock().Sub(page.GetVatsim().SnapshotAt.AsTime()) > 2*time.Minute || page.GetVatsim().SnapshotAt.AsTime().After(c.clock().Add(time.Second)) {
+	if checkpoint == nil || page.GetVatsim() == nil || page.GetVatsim().SnapshotAt == nil || cursor == nil || cursor.SourceRevision != revision || cursor.SourceSha256 != checkpoint.Sha256 || c.clock().Sub(page.GetVatsim().SnapshotAt.AsTime()) > 2*time.Minute || page.GetVatsim().SnapshotAt.AsTime().After(c.clock().Add(time.Second)) {
 		return false, fmt.Errorf("aircraft retention requires a fresh accepted session VATSIM generation")
 	}
 	for _, flight := range page.GetVatsim().Flights {
@@ -113,6 +113,18 @@ func (c *DeadlineCandidate) operationalControllers(ctx context.Context, state *c
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Cid < result[j].Cid })
 	return result, nil
+}
+
+// PlanTransceiverSectors runs the complete sector/layout/route policy against
+// one immutable accepted frequency generation. It does not mutate the shared
+// candidate's live reader while another socket is being admitted.
+func (c *DeadlineCandidate) PlanTransceiverSectors(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate, generation cluster.TransceiverGeneration) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+	local := &DeadlineCandidate{Router: c.Router, Source: c.Source, Now: c.Now, Coverage: generation.GetFrequencies}
+	changes, err := local.reconcileChanges(ctx, state)
+	if err != nil {
+		return nil, pb.CommandReply_UNAVAILABLE, state.Revision, err
+	}
+	return &pb.DomainChange{Changes: changes}, pb.CommandReply_COMMITTED, state.Revision, nil
 }
 
 func (c *DeadlineCandidate) reconcileChanges(ctx context.Context, state *cluster.Aggregate) ([]*pb.EntityChange, error) {

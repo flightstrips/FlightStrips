@@ -297,6 +297,21 @@ func validateProviderPage(page *pb.ProviderPage) error {
 				}
 			}
 		}
+	case *pb.ProviderPage_OpenMeteo:
+		weather := content.OpenMeteo
+		if weather == nil || weather.SourceId == "" || weather.SourceRevision == "" || weather.ObservedAt == nil || weather.ExpiresAt == nil || weather.ObservedAt.CheckValid() != nil || weather.ExpiresAt.CheckValid() != nil || !weather.ExpiresAt.AsTime().After(weather.ObservedAt.AsTime()) || len(weather.Samples) == 0 {
+			return fmt.Errorf("invalid Open-Meteo page")
+		}
+		for _, sample := range weather.Samples {
+			if sample == nil || sample.ForecastAt == nil || sample.ForecastAt.CheckValid() != nil || math.IsNaN(sample.LatitudeDegrees) || math.IsNaN(sample.LongitudeDegrees) || math.Abs(sample.LatitudeDegrees) > 90 || math.Abs(sample.LongitudeDegrees) > 180 || len(sample.Levels) == 0 {
+				return fmt.Errorf("invalid Open-Meteo sample")
+			}
+			for _, level := range sample.Levels {
+				if level == nil || math.IsNaN(level.AltitudeFeet) || math.IsNaN(level.EastKnots) || math.IsNaN(level.NorthKnots) || math.IsInf(level.AltitudeFeet, 0) || math.IsInf(level.EastKnots, 0) || math.IsInf(level.NorthKnots, 0) {
+					return fmt.Errorf("invalid Open-Meteo wind level")
+				}
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported typed provider page")
 	}
@@ -516,6 +531,13 @@ func (a NavigationWeather) FetchProviderPageFenced(ctx context.Context, worker E
 // FetchProviderPageFor uses the owning aggregate for both intent and
 // checkpoint. It is global for VATSIM/ECFMP and airport for AIRAC.
 func (a NavigationWeather) FetchProviderPageFor(ctx context.Context, worker ExternalCallWorker, workflowID string, ref *pb.AggregateRef, provider, resource string, fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
+	return a.FetchProviderPageReserved(ctx, worker, workflowID, ref, provider, resource, nil, fetch)
+}
+
+// FetchProviderPageReserved commits the source intent before reserving a
+// global quota slot. An uncertain reservation or provider response is never
+// permission for the next owner to call again with the same workflow ID.
+func (a NavigationWeather) FetchProviderPageReserved(ctx context.Context, worker ExternalCallWorker, workflowID string, ref *pb.AggregateRef, provider, resource string, reserve func(context.Context) (bool, error), fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
 	if fetch == nil || provider == "" || resource == "" {
 		return false, fmt.Errorf("invalid fenced provider fetch")
 	}
@@ -526,7 +548,8 @@ func (a NavigationWeather) FetchProviderPageFor(ctx context.Context, worker Exte
 	var next *pb.ProviderCheckpoint
 	return worker.Run(ctx, ExternalCallSpec{
 		Source: ref, Destination: ref, WorkflowID: workflowID,
-		Step: "external/provider/" + provider + "/" + resource,
+		Step:    "external/provider/" + provider + "/" + resource,
+		Reserve: reserve,
 		Fetch: func(ctx context.Context) (proto.Message, error) {
 			page, checkpoint, err := fetch(ctx, prior, priorPage)
 			if err != nil {

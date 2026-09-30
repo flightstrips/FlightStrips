@@ -890,7 +890,7 @@ message NavRouteGeometry {
 message EffectSecret { string command_id = 1; bytes ciphertext = 2; string key_id = 3; bytes nonce = 4; }
 message ProviderPage {
   string provider = 1; string resource = 2;
-  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; AtisFeedPage atis_feed = 7; }
+  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; AtisFeedPage atis_feed = 7; OpenMeteoPage open_meteo = 8; }
 }
 message AiracPage { repeated NavData fragments = 1; optional string next_page = 2; }
 message VatsimPage {
@@ -914,6 +914,18 @@ message VatsimFlightPlan {
   string assigned_squawk = 13; int64 revision = 14;
 }
 message WeatherPage { repeated WeatherObservation observations = 1; }
+message OpenMeteoPage {
+  string source_id = 1; string source_revision = 2;
+  google.protobuf.Timestamp observed_at = 3; google.protobuf.Timestamp expires_at = 4;
+  repeated OpenMeteoSample samples = 5;
+}
+message OpenMeteoSample {
+  double latitude_degrees = 1; double longitude_degrees = 2;
+  google.protobuf.Timestamp forecast_at = 3; repeated OpenMeteoWindLevel levels = 4;
+}
+message OpenMeteoWindLevel {
+  double altitude_feet = 1; double east_knots = 2; double north_knots = 3;
+}
 // ECFMP's provider-wide response is parsed at the HTTP boundary. These fields
 // retain every filter and measure value used by per-flight reconciliation.
 message EcfmpPage { repeated EcfmpMeasure measures = 1; google.protobuf.Timestamp fetched_at = 2; }

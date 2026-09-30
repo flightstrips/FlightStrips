@@ -463,6 +463,27 @@ struct PdcEffectDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PdcEffectDefaultTypeInternal _PdcEffect_default_instance_;
 
+inline constexpr OpenMeteoWindLevel::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : altitude_feet_{0},
+        east_knots_{0},
+        north_knots_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR OpenMeteoWindLevel::OpenMeteoWindLevel(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct OpenMeteoWindLevelDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR OpenMeteoWindLevelDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~OpenMeteoWindLevelDefaultTypeInternal() {}
+  union {
+    OpenMeteoWindLevel _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 OpenMeteoWindLevelDefaultTypeInternal _OpenMeteoWindLevel_default_instance_;
+
 inline constexpr NavRouteCache::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : route_key_(
@@ -1742,6 +1763,28 @@ struct OwnerTermDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 OwnerTermDefaultTypeInternal _OwnerTerm_default_instance_;
+
+inline constexpr OpenMeteoSample::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        levels_{},
+        forecast_at_{nullptr},
+        latitude_degrees_{0},
+        longitude_degrees_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR OpenMeteoSample::OpenMeteoSample(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct OpenMeteoSampleDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR OpenMeteoSampleDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~OpenMeteoSampleDefaultTypeInternal() {}
+  union {
+    OpenMeteoSample _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 OpenMeteoSampleDefaultTypeInternal _OpenMeteoSample_default_instance_;
 
 inline constexpr NodePresence::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -3326,6 +3369,33 @@ struct PresenceValueDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PresenceValueDefaultTypeInternal _PresenceValue_default_instance_;
 
+inline constexpr OpenMeteoPage::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        samples_{},
+        source_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        source_revision_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        observed_at_{nullptr},
+        expires_at_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR OpenMeteoPage::OpenMeteoPage(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct OpenMeteoPageDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR OpenMeteoPageDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~OpenMeteoPageDefaultTypeInternal() {}
+  union {
+    OpenMeteoPage _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 OpenMeteoPageDefaultTypeInternal _OpenMeteoPage_default_instance_;
+
 inline constexpr NavTerminalPath::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -4809,7 +4879,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 }  // namespace v1
 }  // namespace cluster
 }  // namespace flightstrips
-static ::_pb::Metadata file_level_metadata_storage_2eproto[159];
+static ::_pb::Metadata file_level_metadata_storage_2eproto[162];
 static const ::_pb::EnumDescriptor* file_level_enum_descriptors_storage_2eproto[8];
 static constexpr const ::_pb::ServiceDescriptor**
     file_level_service_descriptors_storage_2eproto = nullptr;
@@ -7830,6 +7900,7 @@ const ::uint32_t
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ProviderPage, _impl_.parsed_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AiracPage, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AiracPage, _internal_metadata_),
@@ -7916,6 +7987,51 @@ const ::uint32_t
         ~0u,  // no _split_
         ~0u,  // no sizeof(Split)
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::WeatherPage, _impl_.observations_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.source_id_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.source_revision_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.observed_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.expires_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.samples_),
+        ~0u,
+        ~0u,
+        0,
+        1,
+        ~0u,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_.latitude_degrees_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_.longitude_degrees_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_.forecast_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_.levels_),
+        ~0u,
+        ~0u,
+        0,
+        ~0u,
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoWindLevel, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoWindLevel, _impl_.altitude_feet_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoWindLevel, _impl_.east_knots_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoWindLevel, _impl_.north_knots_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpPage, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpPage, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -8176,17 +8292,20 @@ static const ::_pbi::MigrationSchema
         {2963, 2979, -1, sizeof(::flightstrips::cluster::v1::NavRouteGeometry)},
         {2987, -1, -1, sizeof(::flightstrips::cluster::v1::EffectSecret)},
         {2999, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderPage)},
-        {3015, 3025, -1, sizeof(::flightstrips::cluster::v1::AiracPage)},
-        {3027, 3038, -1, sizeof(::flightstrips::cluster::v1::VatsimPage)},
-        {3041, 3059, -1, sizeof(::flightstrips::cluster::v1::VatsimFlight)},
-        {3069, -1, -1, sizeof(::flightstrips::cluster::v1::VatsimFlightPlan)},
-        {3091, -1, -1, sizeof(::flightstrips::cluster::v1::WeatherPage)},
-        {3100, 3110, -1, sizeof(::flightstrips::cluster::v1::EcfmpPage)},
-        {3112, 3133, -1, sizeof(::flightstrips::cluster::v1::EcfmpMeasure)},
-        {3146, 3159, -1, sizeof(::flightstrips::cluster::v1::EcfmpFilter)},
-        {3164, 3174, -1, sizeof(::flightstrips::cluster::v1::AtisFeedPage)},
-        {3176, 3187, -1, sizeof(::flightstrips::cluster::v1::AtisFeedAirport)},
-        {3190, 3203, -1, sizeof(::flightstrips::cluster::v1::AtisFeedEntry)},
+        {3016, 3026, -1, sizeof(::flightstrips::cluster::v1::AiracPage)},
+        {3028, 3039, -1, sizeof(::flightstrips::cluster::v1::VatsimPage)},
+        {3042, 3060, -1, sizeof(::flightstrips::cluster::v1::VatsimFlight)},
+        {3070, -1, -1, sizeof(::flightstrips::cluster::v1::VatsimFlightPlan)},
+        {3092, -1, -1, sizeof(::flightstrips::cluster::v1::WeatherPage)},
+        {3101, 3114, -1, sizeof(::flightstrips::cluster::v1::OpenMeteoPage)},
+        {3119, 3131, -1, sizeof(::flightstrips::cluster::v1::OpenMeteoSample)},
+        {3135, -1, -1, sizeof(::flightstrips::cluster::v1::OpenMeteoWindLevel)},
+        {3146, 3156, -1, sizeof(::flightstrips::cluster::v1::EcfmpPage)},
+        {3158, 3179, -1, sizeof(::flightstrips::cluster::v1::EcfmpMeasure)},
+        {3192, 3205, -1, sizeof(::flightstrips::cluster::v1::EcfmpFilter)},
+        {3210, 3220, -1, sizeof(::flightstrips::cluster::v1::AtisFeedPage)},
+        {3222, 3233, -1, sizeof(::flightstrips::cluster::v1::AtisFeedAirport)},
+        {3236, 3249, -1, sizeof(::flightstrips::cluster::v1::AtisFeedEntry)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_AggregateRef_default_instance_._instance,
@@ -8342,6 +8461,9 @@ static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_VatsimFlight_default_instance_._instance,
     &::flightstrips::cluster::v1::_VatsimFlightPlan_default_instance_._instance,
     &::flightstrips::cluster::v1::_WeatherPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_OpenMeteoPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_OpenMeteoSample_default_instance_._instance,
+    &::flightstrips::cluster::v1::_OpenMeteoWindLevel_default_instance_._instance,
     &::flightstrips::cluster::v1::_EcfmpPage_default_instance_._instance,
     &::flightstrips::cluster::v1::_EcfmpMeasure_default_instance_._instance,
     &::flightstrips::cluster::v1::_EcfmpFilter_default_instance_._instance,
@@ -9373,7 +9495,7 @@ const char descriptor_table_protodef_storage_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "rips.cluster.v1.NavProvenance\022\016\n\006digest\030"
     "\010 \001(\t\"U\n\014EffectSecret\022\022\n\ncommand_id\030\001 \001("
     "\t\022\022\n\nciphertext\030\002 \001(\014\022\016\n\006key_id\030\003 \001(\t\022\r\n"
-    "\005nonce\030\004 \001(\014\"\322\002\n\014ProviderPage\022\020\n\010provide"
+    "\005nonce\030\004 \001(\014\"\220\003\n\014ProviderPage\022\020\n\010provide"
     "r\030\001 \001(\t\022\020\n\010resource\030\002 \001(\t\0223\n\005airac\030\003 \001(\013"
     "2\".flightstrips.cluster.v1.AiracPageH\000\0225"
     "\n\006vatsim\030\004 \001(\0132#.flightstrips.cluster.v1"
@@ -9381,78 +9503,92 @@ const char descriptor_table_protodef_storage_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "trips.cluster.v1.WeatherPageH\000\0223\n\005ecfmp\030"
     "\006 \001(\0132\".flightstrips.cluster.v1.EcfmpPag"
     "eH\000\022:\n\tatis_feed\030\007 \001(\0132%.flightstrips.cl"
-    "uster.v1.AtisFeedPageH\000B\010\n\006parsed\"f\n\tAir"
-    "acPage\0223\n\tfragments\030\001 \003(\0132 .flightstrips"
-    ".cluster.v1.NavData\022\026\n\tnext_page\030\002 \001(\tH\000"
-    "\210\001\001B\014\n\n_next_page\"\267\001\n\nVatsimPage\022@\n\014obse"
-    "rvations\030\001 \003(\0132*.flightstrips.cluster.v1"
-    ".VatsimObservation\0226\n\007flights\030\002 \003(\0132%.fl"
-    "ightstrips.cluster.v1.VatsimFlight\022/\n\013sn"
-    "apshot_at\030\003 \001(\0132\032.google.protobuf.Timest"
-    "amp\"\252\002\n\014VatsimFlight\022\013\n\003cid\030\001 \001(\t\022\020\n\010cal"
-    "lsign\030\002 \001(\t\022\r\n\005state\030\003 \001(\t\022\020\n\010latitude\030\004"
-    " \001(\001\022\021\n\tlongitude\030\005 \001(\001\022\020\n\010altitude\030\006 \001("
-    "\005\022\023\n\013groundspeed\030\007 \001(\005\022.\n\nlogon_time\030\010 \001"
-    "(\0132\032.google.protobuf.Timestamp\0220\n\014last_u"
-    "pdated\030\t \001(\0132\032.google.protobuf.Timestamp"
-    "\022>\n\013flight_plan\030\n \001(\0132).flightstrips.clu"
-    "ster.v1.VatsimFlightPlan\"\254\002\n\020VatsimFligh"
-    "tPlan\022\024\n\014flight_rules\030\001 \001(\t\022\020\n\010aircraft\030"
-    "\002 \001(\t\022\024\n\014aircraft_faa\030\003 \001(\t\022\026\n\016aircraft_"
-    "short\030\004 \001(\t\022\016\n\006origin\030\005 \001(\t\022\023\n\013destinati"
-    "on\030\006 \001(\t\022\021\n\talternate\030\007 \001(\t\022\014\n\004eobt\030\010 \001("
-    "\t\022\030\n\020enroute_duration\030\t \001(\t\022\027\n\017requested"
-    "_level\030\n \001(\t\022\017\n\007remarks\030\013 \001(\t\022\r\n\005route\030\014"
-    " \001(\t\022\027\n\017assigned_squawk\030\r \001(\t\022\020\n\010revisio"
-    "n\030\016 \001(\003\"P\n\013WeatherPage\022A\n\014observations\030\001"
-    " \003(\0132+.flightstrips.cluster.v1.WeatherOb"
-    "servation\"t\n\tEcfmpPage\0227\n\010measures\030\001 \003(\013"
-    "2%.flightstrips.cluster.v1.EcfmpMeasure\022"
-    ".\n\nfetched_at\030\002 \001(\0132\032.google.protobuf.Ti"
-    "mestamp\"\341\003\n\014EcfmpMeasure\022\n\n\002id\030\001 \001(\003\022\r\n\005"
-    "ident\030\002 \001(\t\022\025\n\010event_id\030\003 \001(\003H\000\210\001\001\022\016\n\006re"
-    "ason\030\004 \001(\t\022.\n\nstart_time\030\005 \001(\0132\032.google."
-    "protobuf.Timestamp\022,\n\010end_time\030\006 \001(\0132\032.g"
-    "oogle.protobuf.Timestamp\0225\n\014withdrawn_at"
-    "\030\007 \001(\0132\032.google.protobuf.TimestampH\001\210\001\001\022"
-    "+\n#notified_flight_information_regions\030\010"
-    " \003(\003\022\014\n\004kind\030\t \001(\t\022\032\n\rnumeric_value\030\n \001("
-    "\003H\002\210\001\001\022\016\n\006routes\030\013 \003(\t\0225\n\007filters\030\014 \003(\0132"
-    "$.flightstrips.cluster.v1.EcfmpFilter\022\032\n"
-    "\rdecimal_value\030\r \001(\001H\003\210\001\001B\013\n\t_event_idB\017"
-    "\n\r_withdrawn_atB\020\n\016_numeric_valueB\020\n\016_de"
-    "cimal_value\"|\n\013EcfmpFilter\022\014\n\004kind\030\001 \001(\t"
-    "\022\r\n\005names\030\002 \003(\t\022\022\n\005level\030\003 \001(\005H\000\210\001\001\022\016\n\006l"
-    "evels\030\004 \003(\005\022\025\n\010event_id\030\005 \001(\003H\001\210\001\001B\010\n\006_l"
-    "evelB\013\n\t_event_id\"z\n\014AtisFeedPage\022:\n\010air"
-    "ports\030\001 \003(\0132(.flightstrips.cluster.v1.At"
-    "isFeedAirport\022.\n\nfetched_at\030\002 \001(\0132\032.goog"
-    "le.protobuf.Timestamp\"\272\001\n\017AtisFeedAirpor"
-    "t\022\017\n\007airport\030\001 \001(\t\022<\n\007arrival\030\002 \001(\0132&.fl"
-    "ightstrips.cluster.v1.AtisFeedEntryH\000\210\001\001"
-    "\022>\n\tdeparture\030\003 \001(\0132&.flightstrips.clust"
-    "er.v1.AtisFeedEntryH\001\210\001\001B\n\n\010_arrivalB\014\n\n"
-    "_departure\"\210\001\n\rAtisFeedEntry\022\020\n\010callsign"
-    "\030\001 \001(\t\022\014\n\004code\030\002 \001(\t\022\021\n\tfrequency\030\003 \001(\t\022"
-    "\022\n\ntext_lines\030\004 \003(\t\0220\n\014last_updated\030\005 \001("
-    "\0132\032.google.protobuf.Timestamp*\343\004\n\nEntity"
-    "Kind\022\033\n\027ENTITY_KIND_UNSPECIFIED\020\000\022\024\n\020AIR"
-    "PORT_REGISTRY\020\001\022\024\n\020SESSION_REGISTRY\020\002\022\022\n"
-    "\016PROVIDER_QUOTA\020\003\022\022\n\016AIRPORT_POLICY\020\004\022\013\n"
-    "\007SESSION\020\005\022\016\n\nCONTROLLER\020\006\022\020\n\014SECTOR_OWN"
-    "ER\020\007\022\t\n\005STRIP\020\010\022\020\n\014COORDINATION\020\t\022\022\n\016TAC"
-    "TICAL_STRIP\020\n\022\024\n\020STAND_ASSIGNMENT\020\013\022\017\n\013S"
-    "TAND_BLOCK\020\014\022\020\n\014PDC_SEQUENCE\020\r\022\r\n\tCDM_ST"
-    "ATE\020\016\022\017\n\013ECFMP_STATE\020\017\022\010\n\004ATIS\020\020\022\020\n\014CLX_"
-    "OVERRIDE\020\021\022\024\n\020FRONTEND_MESSAGE\020\022\022\020\n\014AMAN"
-    "_AIRPORT\020\023\022\017\n\013AMAN_FLIGHT\020\024\022\025\n\021AMAN_COOR"
-    "DINATION\020\025\022\016\n\nAMAN_AUDIT\020\026\022\023\n\017AMAN_VALID"
-    "ATION\020\027\022\026\n\022VATSIM_OBSERVATION\020\030\022\020\n\014NAV_M"
-    "ANIFEST\020\031\022\023\n\017NAV_ROUTE_CACHE\020\032\022\027\n\023PROVID"
-    "ER_CHECKPOINT\020\033\022\021\n\rWEATHER_CACHE\020\034\022\024\n\020SE"
-    "SSION_DEADLINE\020\035\022\031\n\025VATSIM_SESSION_CURSO"
-    "R\020\036B)Z\'FlightStrips/pkg/events/cluster;c"
-    "lusterb\006proto3"
+    "uster.v1.AtisFeedPageH\000\022<\n\nopen_meteo\030\010 "
+    "\001(\0132&.flightstrips.cluster.v1.OpenMeteoP"
+    "ageH\000B\010\n\006parsed\"f\n\tAiracPage\0223\n\tfragment"
+    "s\030\001 \003(\0132 .flightstrips.cluster.v1.NavDat"
+    "a\022\026\n\tnext_page\030\002 \001(\tH\000\210\001\001B\014\n\n_next_page\""
+    "\267\001\n\nVatsimPage\022@\n\014observations\030\001 \003(\0132*.f"
+    "lightstrips.cluster.v1.VatsimObservation"
+    "\0226\n\007flights\030\002 \003(\0132%.flightstrips.cluster"
+    ".v1.VatsimFlight\022/\n\013snapshot_at\030\003 \001(\0132\032."
+    "google.protobuf.Timestamp\"\252\002\n\014VatsimFlig"
+    "ht\022\013\n\003cid\030\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\r\n\005sta"
+    "te\030\003 \001(\t\022\020\n\010latitude\030\004 \001(\001\022\021\n\tlongitude\030"
+    "\005 \001(\001\022\020\n\010altitude\030\006 \001(\005\022\023\n\013groundspeed\030\007"
+    " \001(\005\022.\n\nlogon_time\030\010 \001(\0132\032.google.protob"
+    "uf.Timestamp\0220\n\014last_updated\030\t \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\022>\n\013flight_plan\030\n "
+    "\001(\0132).flightstrips.cluster.v1.VatsimFlig"
+    "htPlan\"\254\002\n\020VatsimFlightPlan\022\024\n\014flight_ru"
+    "les\030\001 \001(\t\022\020\n\010aircraft\030\002 \001(\t\022\024\n\014aircraft_"
+    "faa\030\003 \001(\t\022\026\n\016aircraft_short\030\004 \001(\t\022\016\n\006ori"
+    "gin\030\005 \001(\t\022\023\n\013destination\030\006 \001(\t\022\021\n\taltern"
+    "ate\030\007 \001(\t\022\014\n\004eobt\030\010 \001(\t\022\030\n\020enroute_durat"
+    "ion\030\t \001(\t\022\027\n\017requested_level\030\n \001(\t\022\017\n\007re"
+    "marks\030\013 \001(\t\022\r\n\005route\030\014 \001(\t\022\027\n\017assigned_s"
+    "quawk\030\r \001(\t\022\020\n\010revision\030\016 \001(\003\"P\n\013Weather"
+    "Page\022A\n\014observations\030\001 \003(\0132+.flightstrip"
+    "s.cluster.v1.WeatherObservation\"\327\001\n\rOpen"
+    "MeteoPage\022\021\n\tsource_id\030\001 \001(\t\022\027\n\017source_r"
+    "evision\030\002 \001(\t\022/\n\013observed_at\030\003 \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\022.\n\nexpires_at\030\004 \001"
+    "(\0132\032.google.protobuf.Timestamp\0229\n\007sample"
+    "s\030\005 \003(\0132(.flightstrips.cluster.v1.OpenMe"
+    "teoSample\"\264\001\n\017OpenMeteoSample\022\030\n\020latitud"
+    "e_degrees\030\001 \001(\001\022\031\n\021longitude_degrees\030\002 \001"
+    "(\001\022/\n\013forecast_at\030\003 \001(\0132\032.google.protobu"
+    "f.Timestamp\022;\n\006levels\030\004 \003(\0132+.flightstri"
+    "ps.cluster.v1.OpenMeteoWindLevel\"T\n\022Open"
+    "MeteoWindLevel\022\025\n\raltitude_feet\030\001 \001(\001\022\022\n"
+    "\neast_knots\030\002 \001(\001\022\023\n\013north_knots\030\003 \001(\001\"t"
+    "\n\tEcfmpPage\0227\n\010measures\030\001 \003(\0132%.flightst"
+    "rips.cluster.v1.EcfmpMeasure\022.\n\nfetched_"
+    "at\030\002 \001(\0132\032.google.protobuf.Timestamp\"\341\003\n"
+    "\014EcfmpMeasure\022\n\n\002id\030\001 \001(\003\022\r\n\005ident\030\002 \001(\t"
+    "\022\025\n\010event_id\030\003 \001(\003H\000\210\001\001\022\016\n\006reason\030\004 \001(\t\022"
+    ".\n\nstart_time\030\005 \001(\0132\032.google.protobuf.Ti"
+    "mestamp\022,\n\010end_time\030\006 \001(\0132\032.google.proto"
+    "buf.Timestamp\0225\n\014withdrawn_at\030\007 \001(\0132\032.go"
+    "ogle.protobuf.TimestampH\001\210\001\001\022+\n#notified"
+    "_flight_information_regions\030\010 \003(\003\022\014\n\004kin"
+    "d\030\t \001(\t\022\032\n\rnumeric_value\030\n \001(\003H\002\210\001\001\022\016\n\006r"
+    "outes\030\013 \003(\t\0225\n\007filters\030\014 \003(\0132$.flightstr"
+    "ips.cluster.v1.EcfmpFilter\022\032\n\rdecimal_va"
+    "lue\030\r \001(\001H\003\210\001\001B\013\n\t_event_idB\017\n\r_withdraw"
+    "n_atB\020\n\016_numeric_valueB\020\n\016_decimal_value"
+    "\"|\n\013EcfmpFilter\022\014\n\004kind\030\001 \001(\t\022\r\n\005names\030\002"
+    " \003(\t\022\022\n\005level\030\003 \001(\005H\000\210\001\001\022\016\n\006levels\030\004 \003(\005"
+    "\022\025\n\010event_id\030\005 \001(\003H\001\210\001\001B\010\n\006_levelB\013\n\t_ev"
+    "ent_id\"z\n\014AtisFeedPage\022:\n\010airports\030\001 \003(\013"
+    "2(.flightstrips.cluster.v1.AtisFeedAirpo"
+    "rt\022.\n\nfetched_at\030\002 \001(\0132\032.google.protobuf"
+    ".Timestamp\"\272\001\n\017AtisFeedAirport\022\017\n\007airpor"
+    "t\030\001 \001(\t\022<\n\007arrival\030\002 \001(\0132&.flightstrips."
+    "cluster.v1.AtisFeedEntryH\000\210\001\001\022>\n\tdepartu"
+    "re\030\003 \001(\0132&.flightstrips.cluster.v1.AtisF"
+    "eedEntryH\001\210\001\001B\n\n\010_arrivalB\014\n\n_departure\""
+    "\210\001\n\rAtisFeedEntry\022\020\n\010callsign\030\001 \001(\t\022\014\n\004c"
+    "ode\030\002 \001(\t\022\021\n\tfrequency\030\003 \001(\t\022\022\n\ntext_lin"
+    "es\030\004 \003(\t\0220\n\014last_updated\030\005 \001(\0132\032.google."
+    "protobuf.Timestamp*\343\004\n\nEntityKind\022\033\n\027ENT"
+    "ITY_KIND_UNSPECIFIED\020\000\022\024\n\020AIRPORT_REGIST"
+    "RY\020\001\022\024\n\020SESSION_REGISTRY\020\002\022\022\n\016PROVIDER_Q"
+    "UOTA\020\003\022\022\n\016AIRPORT_POLICY\020\004\022\013\n\007SESSION\020\005\022"
+    "\016\n\nCONTROLLER\020\006\022\020\n\014SECTOR_OWNER\020\007\022\t\n\005STR"
+    "IP\020\010\022\020\n\014COORDINATION\020\t\022\022\n\016TACTICAL_STRIP"
+    "\020\n\022\024\n\020STAND_ASSIGNMENT\020\013\022\017\n\013STAND_BLOCK\020"
+    "\014\022\020\n\014PDC_SEQUENCE\020\r\022\r\n\tCDM_STATE\020\016\022\017\n\013EC"
+    "FMP_STATE\020\017\022\010\n\004ATIS\020\020\022\020\n\014CLX_OVERRIDE\020\021\022"
+    "\024\n\020FRONTEND_MESSAGE\020\022\022\020\n\014AMAN_AIRPORT\020\023\022"
+    "\017\n\013AMAN_FLIGHT\020\024\022\025\n\021AMAN_COORDINATION\020\025\022"
+    "\016\n\nAMAN_AUDIT\020\026\022\023\n\017AMAN_VALIDATION\020\027\022\026\n\022"
+    "VATSIM_OBSERVATION\020\030\022\020\n\014NAV_MANIFEST\020\031\022\023"
+    "\n\017NAV_ROUTE_CACHE\020\032\022\027\n\023PROVIDER_CHECKPOI"
+    "NT\020\033\022\021\n\rWEATHER_CACHE\020\034\022\024\n\020SESSION_DEADL"
+    "INE\020\035\022\031\n\025VATSIM_SESSION_CURSOR\020\036B)Z\'Flig"
+    "htStrips/pkg/events/cluster;clusterb\006pro"
+    "to3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_storage_2eproto_deps[2] =
     {
@@ -9463,13 +9599,13 @@ static ::absl::once_flag descriptor_table_storage_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_storage_2eproto = {
     false,
     false,
-    44054,
+    44603,
     descriptor_table_protodef_storage_2eproto,
     "storage.proto",
     &descriptor_table_storage_2eproto_once,
     descriptor_table_storage_2eproto_deps,
     2,
-    159,
+    162,
     schemas,
     file_default_instances,
     TableStruct_storage_2eproto::offsets,
@@ -69443,6 +69579,19 @@ void ProviderPage::set_allocated_atis_feed(::flightstrips::cluster::v1::AtisFeed
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.atis_feed)
 }
+void ProviderPage::set_allocated_open_meteo(::flightstrips::cluster::v1::OpenMeteoPage* open_meteo) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_parsed();
+  if (open_meteo) {
+    ::google::protobuf::Arena* submessage_arena = open_meteo->GetArena();
+    if (message_arena != submessage_arena) {
+      open_meteo = ::google::protobuf::internal::GetOwnedMessage(message_arena, open_meteo, submessage_arena);
+    }
+    set_has_open_meteo();
+    _impl_.parsed_.open_meteo_ = open_meteo;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.open_meteo)
+}
 ProviderPage::ProviderPage(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -69483,6 +69632,9 @@ ProviderPage::ProviderPage(
         break;
       case kAtisFeed:
         _impl_.parsed_.atis_feed_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AtisFeedPage>(arena, *from._impl_.parsed_.atis_feed_);
+        break;
+      case kOpenMeteo:
+        _impl_.parsed_.open_meteo_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::OpenMeteoPage>(arena, *from._impl_.parsed_.open_meteo_);
         break;
   }
 
@@ -69549,6 +69701,12 @@ void ProviderPage::clear_parsed() {
       }
       break;
     }
+    case kOpenMeteo: {
+      if (GetArena() == nullptr) {
+        delete _impl_.parsed_.open_meteo_;
+      }
+      break;
+    }
     case PARSED_NOT_SET: {
       break;
     }
@@ -69592,16 +69750,16 @@ const char* ProviderPage::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 7, 5, 61, 2> ProviderPage::_table_ = {
+const ::_pbi::TcParseTable<1, 8, 6, 69, 2> ProviderPage::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    7, 8,  // max_field_number, fast_idx_mask
+    8, 8,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967168,  // skipmap
+    4294967040,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    7,  // num_field_entries
-    5,  // num_aux_entries
+    8,  // num_field_entries
+    6,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_ProviderPage_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -69639,14 +69797,18 @@ const ::_pbi::TcParseTable<1, 7, 5, 61, 2> ProviderPage::_table_ = {
     // .flightstrips.cluster.v1.AtisFeedPage atis_feed = 7;
     {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.atis_feed_), _Internal::kOneofCaseOffset + 0, 4,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.OpenMeteoPage open_meteo = 8;
+    {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.open_meteo_), _Internal::kOneofCaseOffset + 0, 5,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AiracPage>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimPage>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::WeatherPage>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::EcfmpPage>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AtisFeedPage>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoPage>()},
   }}, {{
-    "\44\10\10\0\0\0\0\0"
+    "\44\10\10\0\0\0\0\0\0\0\0\0\0\0\0\0"
     "flightstrips.cluster.v1.ProviderPage"
     "provider"
     "resource"
@@ -69700,6 +69862,11 @@ const ::_pbi::TcParseTable<1, 7, 5, 61, 2> ProviderPage::_table_ = {
     case kAtisFeed: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           7, *_impl_.parsed_.atis_feed_, _impl_.parsed_.atis_feed_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kOpenMeteo: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          8, *_impl_.parsed_.open_meteo_, _impl_.parsed_.open_meteo_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -69763,6 +69930,12 @@ const ::_pbi::TcParseTable<1, 7, 5, 61, 2> ProviderPage::_table_ = {
     case kAtisFeed: {
       total_size +=
           1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.atis_feed_);
+      break;
+    }
+    // .flightstrips.cluster.v1.OpenMeteoPage open_meteo = 8;
+    case kOpenMeteo: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.open_meteo_);
       break;
     }
     case PARSED_NOT_SET: {
@@ -69841,6 +70014,15 @@ void ProviderPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::go
               ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AtisFeedPage>(arena, *from._impl_.parsed_.atis_feed_);
         } else {
           _this->_impl_.parsed_.atis_feed_->MergeFrom(from._internal_atis_feed());
+        }
+        break;
+      }
+      case kOpenMeteo: {
+        if (oneof_needs_init) {
+          _this->_impl_.parsed_.open_meteo_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::OpenMeteoPage>(arena, *from._impl_.parsed_.open_meteo_);
+        } else {
+          _this->_impl_.parsed_.open_meteo_->MergeFrom(from._internal_open_meteo());
         }
         break;
       }
@@ -71696,6 +71878,992 @@ void WeatherPage::InternalSwap(WeatherPage* PROTOBUF_RESTRICT other) {
 }
 // ===================================================================
 
+class OpenMeteoPage::_Internal {
+ public:
+  using HasBits = decltype(std::declval<OpenMeteoPage>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_._has_bits_);
+};
+
+void OpenMeteoPage::clear_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.observed_at_ != nullptr) _impl_.observed_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+void OpenMeteoPage::clear_expires_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.expires_at_ != nullptr) _impl_.expires_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+OpenMeteoPage::OpenMeteoPage(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.OpenMeteoPage)
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        samples_{visibility, arena, from.samples_},
+        source_id_(arena, from.source_id_),
+        source_revision_(arena, from.source_revision_) {}
+
+OpenMeteoPage::OpenMeteoPage(
+    ::google::protobuf::Arena* arena,
+    const OpenMeteoPage& from)
+    : ::google::protobuf::Message(arena) {
+  OpenMeteoPage* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.observed_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.observed_at_)
+                        : nullptr;
+  _impl_.expires_at_ = (cached_has_bits & 0x00000002u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.expires_at_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.OpenMeteoPage)
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        samples_{visibility, arena},
+        source_id_(arena),
+        source_revision_(arena) {}
+
+inline void OpenMeteoPage::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, observed_at_),
+           0,
+           offsetof(Impl_, expires_at_) -
+               offsetof(Impl_, observed_at_) +
+               sizeof(Impl_::expires_at_));
+}
+OpenMeteoPage::~OpenMeteoPage() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.OpenMeteoPage)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void OpenMeteoPage::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.source_id_.Destroy();
+  _impl_.source_revision_.Destroy();
+  delete _impl_.observed_at_;
+  delete _impl_.expires_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+OpenMeteoPage::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_._cached_size_),
+              false,
+          },
+          &OpenMeteoPage::MergeImpl,
+          &OpenMeteoPage::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void OpenMeteoPage::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.OpenMeteoPage)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.samples_.Clear();
+  _impl_.source_id_.ClearToEmpty();
+  _impl_.source_revision_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(_impl_.observed_at_ != nullptr);
+      _impl_.observed_at_->Clear();
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(_impl_.expires_at_ != nullptr);
+      _impl_.expires_at_->Clear();
+    }
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* OpenMeteoPage::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 3, 70, 2> OpenMeteoPage::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_._has_bits_),
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    3,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_OpenMeteoPage_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoPage>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string source_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.source_id_)}},
+    // string source_revision = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.source_revision_)}},
+    // .google.protobuf.Timestamp observed_at = 3;
+    {::_pbi::TcParser::FastMtS1,
+     {26, 0, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.observed_at_)}},
+    // .google.protobuf.Timestamp expires_at = 4;
+    {::_pbi::TcParser::FastMtS1,
+     {34, 1, 1, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.expires_at_)}},
+    // repeated .flightstrips.cluster.v1.OpenMeteoSample samples = 5;
+    {::_pbi::TcParser::FastMtR1,
+     {42, 63, 2, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.samples_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string source_id = 1;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.source_id_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string source_revision = 2;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.source_revision_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .google.protobuf.Timestamp observed_at = 3;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.observed_at_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .google.protobuf.Timestamp expires_at = 4;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.expires_at_), _Internal::kHasBitsOffset + 1, 1,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.OpenMeteoSample samples = 5;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.samples_), -1, 2,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoSample>()},
+  }}, {{
+    "\45\11\17\0\0\0\0\0"
+    "flightstrips.cluster.v1.OpenMeteoPage"
+    "source_id"
+    "source_revision"
+  }},
+};
+
+::uint8_t* OpenMeteoPage::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.OpenMeteoPage)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string source_id = 1;
+  if (!this->_internal_source_id().empty()) {
+    const std::string& _s = this->_internal_source_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.OpenMeteoPage.source_id");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string source_revision = 2;
+  if (!this->_internal_source_revision().empty()) {
+    const std::string& _s = this->_internal_source_revision();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.OpenMeteoPage.source_revision");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp observed_at = 3;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        3, *_impl_.observed_at_, _impl_.observed_at_->GetCachedSize(), target, stream);
+  }
+
+  // .google.protobuf.Timestamp expires_at = 4;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        4, *_impl_.expires_at_, _impl_.expires_at_->GetCachedSize(), target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.OpenMeteoSample samples = 5;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_samples_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_samples().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            5, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.OpenMeteoPage)
+  return target;
+}
+
+::size_t OpenMeteoPage::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.OpenMeteoPage)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.OpenMeteoSample samples = 5;
+  total_size += 1UL * this->_internal_samples_size();
+  for (const auto& msg : this->_internal_samples()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // string source_id = 1;
+  if (!this->_internal_source_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_source_id());
+  }
+
+  // string source_revision = 2;
+  if (!this->_internal_source_revision().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_source_revision());
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    // .google.protobuf.Timestamp observed_at = 3;
+    if (cached_has_bits & 0x00000001u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.observed_at_);
+    }
+
+    // .google.protobuf.Timestamp expires_at = 4;
+    if (cached_has_bits & 0x00000002u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.expires_at_);
+    }
+
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void OpenMeteoPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<OpenMeteoPage*>(&to_msg);
+  auto& from = static_cast<const OpenMeteoPage&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.OpenMeteoPage)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_samples()->MergeFrom(
+      from._internal_samples());
+  if (!from._internal_source_id().empty()) {
+    _this->_internal_set_source_id(from._internal_source_id());
+  }
+  if (!from._internal_source_revision().empty()) {
+    _this->_internal_set_source_revision(from._internal_source_revision());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(from._impl_.observed_at_ != nullptr);
+      if (_this->_impl_.observed_at_ == nullptr) {
+        _this->_impl_.observed_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.observed_at_);
+      } else {
+        _this->_impl_.observed_at_->MergeFrom(*from._impl_.observed_at_);
+      }
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(from._impl_.expires_at_ != nullptr);
+      if (_this->_impl_.expires_at_ == nullptr) {
+        _this->_impl_.expires_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.expires_at_);
+      } else {
+        _this->_impl_.expires_at_->MergeFrom(*from._impl_.expires_at_);
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void OpenMeteoPage::CopyFrom(const OpenMeteoPage& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.OpenMeteoPage)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool OpenMeteoPage::IsInitialized() const {
+  return true;
+}
+
+void OpenMeteoPage::InternalSwap(OpenMeteoPage* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.samples_.InternalSwap(&other->_impl_.samples_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.source_id_, &other->_impl_.source_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.source_revision_, &other->_impl_.source_revision_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.expires_at_)
+      + sizeof(OpenMeteoPage::_impl_.expires_at_)
+      - PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.observed_at_)>(
+          reinterpret_cast<char*>(&_impl_.observed_at_),
+          reinterpret_cast<char*>(&other->_impl_.observed_at_));
+}
+
+::google::protobuf::Metadata OpenMeteoPage::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[153]);
+}
+// ===================================================================
+
+class OpenMeteoSample::_Internal {
+ public:
+  using HasBits = decltype(std::declval<OpenMeteoSample>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_._has_bits_);
+};
+
+void OpenMeteoSample::clear_forecast_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.forecast_at_ != nullptr) _impl_.forecast_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+OpenMeteoSample::OpenMeteoSample(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.OpenMeteoSample)
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoSample::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        levels_{visibility, arena, from.levels_} {}
+
+OpenMeteoSample::OpenMeteoSample(
+    ::google::protobuf::Arena* arena,
+    const OpenMeteoSample& from)
+    : ::google::protobuf::Message(arena) {
+  OpenMeteoSample* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.forecast_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.forecast_at_)
+                        : nullptr;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, latitude_degrees_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, latitude_degrees_),
+           offsetof(Impl_, longitude_degrees_) -
+               offsetof(Impl_, latitude_degrees_) +
+               sizeof(Impl_::longitude_degrees_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.OpenMeteoSample)
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoSample::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        levels_{visibility, arena} {}
+
+inline void OpenMeteoSample::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, forecast_at_),
+           0,
+           offsetof(Impl_, longitude_degrees_) -
+               offsetof(Impl_, forecast_at_) +
+               sizeof(Impl_::longitude_degrees_));
+}
+OpenMeteoSample::~OpenMeteoSample() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.OpenMeteoSample)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void OpenMeteoSample::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  delete _impl_.forecast_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+OpenMeteoSample::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_._cached_size_),
+              false,
+          },
+          &OpenMeteoSample::MergeImpl,
+          &OpenMeteoSample::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void OpenMeteoSample::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.OpenMeteoSample)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.levels_.Clear();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.forecast_at_ != nullptr);
+    _impl_.forecast_at_->Clear();
+  }
+  ::memset(&_impl_.latitude_degrees_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.longitude_degrees_) -
+      reinterpret_cast<char*>(&_impl_.latitude_degrees_)) + sizeof(_impl_.longitude_degrees_));
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* OpenMeteoSample::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 2, 0, 2> OpenMeteoSample::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_._has_bits_),
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    2,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_OpenMeteoSample_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoSample>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // repeated .flightstrips.cluster.v1.OpenMeteoWindLevel levels = 4;
+    {::_pbi::TcParser::FastMtR1,
+     {34, 63, 1, PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.levels_)}},
+    // double latitude_degrees = 1;
+    {::_pbi::TcParser::FastF64S1,
+     {9, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.latitude_degrees_)}},
+    // double longitude_degrees = 2;
+    {::_pbi::TcParser::FastF64S1,
+     {17, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.longitude_degrees_)}},
+    // .google.protobuf.Timestamp forecast_at = 3;
+    {::_pbi::TcParser::FastMtS1,
+     {26, 0, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.forecast_at_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // double latitude_degrees = 1;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.latitude_degrees_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double longitude_degrees = 2;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.longitude_degrees_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // .google.protobuf.Timestamp forecast_at = 3;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.forecast_at_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.OpenMeteoWindLevel levels = 4;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.levels_), -1, 1,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoWindLevel>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* OpenMeteoSample::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.OpenMeteoSample)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // double latitude_degrees = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude_degrees = this->_internal_latitude_degrees();
+  ::uint64_t raw_latitude_degrees;
+  memcpy(&raw_latitude_degrees, &tmp_latitude_degrees, sizeof(tmp_latitude_degrees));
+  if (raw_latitude_degrees != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        1, this->_internal_latitude_degrees(), target);
+  }
+
+  // double longitude_degrees = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude_degrees = this->_internal_longitude_degrees();
+  ::uint64_t raw_longitude_degrees;
+  memcpy(&raw_longitude_degrees, &tmp_longitude_degrees, sizeof(tmp_longitude_degrees));
+  if (raw_longitude_degrees != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        2, this->_internal_longitude_degrees(), target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp forecast_at = 3;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        3, *_impl_.forecast_at_, _impl_.forecast_at_->GetCachedSize(), target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.OpenMeteoWindLevel levels = 4;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_levels_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_levels().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            4, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.OpenMeteoSample)
+  return target;
+}
+
+::size_t OpenMeteoSample::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.OpenMeteoSample)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.OpenMeteoWindLevel levels = 4;
+  total_size += 1UL * this->_internal_levels_size();
+  for (const auto& msg : this->_internal_levels()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // .google.protobuf.Timestamp forecast_at = 3;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.forecast_at_);
+  }
+
+  // double latitude_degrees = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude_degrees = this->_internal_latitude_degrees();
+  ::uint64_t raw_latitude_degrees;
+  memcpy(&raw_latitude_degrees, &tmp_latitude_degrees, sizeof(tmp_latitude_degrees));
+  if (raw_latitude_degrees != 0) {
+    total_size += 9;
+  }
+
+  // double longitude_degrees = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude_degrees = this->_internal_longitude_degrees();
+  ::uint64_t raw_longitude_degrees;
+  memcpy(&raw_longitude_degrees, &tmp_longitude_degrees, sizeof(tmp_longitude_degrees));
+  if (raw_longitude_degrees != 0) {
+    total_size += 9;
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void OpenMeteoSample::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<OpenMeteoSample*>(&to_msg);
+  auto& from = static_cast<const OpenMeteoSample&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.OpenMeteoSample)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_levels()->MergeFrom(
+      from._internal_levels());
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.forecast_at_ != nullptr);
+    if (_this->_impl_.forecast_at_ == nullptr) {
+      _this->_impl_.forecast_at_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.forecast_at_);
+    } else {
+      _this->_impl_.forecast_at_->MergeFrom(*from._impl_.forecast_at_);
+    }
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude_degrees = from._internal_latitude_degrees();
+  ::uint64_t raw_latitude_degrees;
+  memcpy(&raw_latitude_degrees, &tmp_latitude_degrees, sizeof(tmp_latitude_degrees));
+  if (raw_latitude_degrees != 0) {
+    _this->_impl_.latitude_degrees_ = from._impl_.latitude_degrees_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude_degrees = from._internal_longitude_degrees();
+  ::uint64_t raw_longitude_degrees;
+  memcpy(&raw_longitude_degrees, &tmp_longitude_degrees, sizeof(tmp_longitude_degrees));
+  if (raw_longitude_degrees != 0) {
+    _this->_impl_.longitude_degrees_ = from._impl_.longitude_degrees_;
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void OpenMeteoSample::CopyFrom(const OpenMeteoSample& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.OpenMeteoSample)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool OpenMeteoSample::IsInitialized() const {
+  return true;
+}
+
+void OpenMeteoSample::InternalSwap(OpenMeteoSample* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.levels_.InternalSwap(&other->_impl_.levels_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.longitude_degrees_)
+      + sizeof(OpenMeteoSample::_impl_.longitude_degrees_)
+      - PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.forecast_at_)>(
+          reinterpret_cast<char*>(&_impl_.forecast_at_),
+          reinterpret_cast<char*>(&other->_impl_.forecast_at_));
+}
+
+::google::protobuf::Metadata OpenMeteoSample::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[154]);
+}
+// ===================================================================
+
+class OpenMeteoWindLevel::_Internal {
+ public:
+};
+
+OpenMeteoWindLevel::OpenMeteoWindLevel(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.OpenMeteoWindLevel)
+}
+OpenMeteoWindLevel::OpenMeteoWindLevel(
+    ::google::protobuf::Arena* arena, const OpenMeteoWindLevel& from)
+    : OpenMeteoWindLevel(arena) {
+  MergeFrom(from);
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoWindLevel::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0} {}
+
+inline void OpenMeteoWindLevel::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, altitude_feet_),
+           0,
+           offsetof(Impl_, north_knots_) -
+               offsetof(Impl_, altitude_feet_) +
+               sizeof(Impl_::north_knots_));
+}
+OpenMeteoWindLevel::~OpenMeteoWindLevel() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void OpenMeteoWindLevel::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+OpenMeteoWindLevel::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_._cached_size_),
+              false,
+          },
+          &OpenMeteoWindLevel::MergeImpl,
+          &OpenMeteoWindLevel::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void OpenMeteoWindLevel::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  ::memset(&_impl_.altitude_feet_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.north_knots_) -
+      reinterpret_cast<char*>(&_impl_.altitude_feet_)) + sizeof(_impl_.north_knots_));
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* OpenMeteoWindLevel::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 3, 0, 0, 2> OpenMeteoWindLevel::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    3, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_OpenMeteoWindLevel_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoWindLevel>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // double altitude_feet = 1;
+    {::_pbi::TcParser::FastF64S1,
+     {9, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.altitude_feet_)}},
+    // double east_knots = 2;
+    {::_pbi::TcParser::FastF64S1,
+     {17, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.east_knots_)}},
+    // double north_knots = 3;
+    {::_pbi::TcParser::FastF64S1,
+     {25, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.north_knots_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // double altitude_feet = 1;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.altitude_feet_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double east_knots = 2;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.east_knots_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double north_knots = 3;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.north_knots_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+  }},
+  // no aux_entries
+  {{
+  }},
+};
+
+::uint8_t* OpenMeteoWindLevel::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // double altitude_feet = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_altitude_feet = this->_internal_altitude_feet();
+  ::uint64_t raw_altitude_feet;
+  memcpy(&raw_altitude_feet, &tmp_altitude_feet, sizeof(tmp_altitude_feet));
+  if (raw_altitude_feet != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        1, this->_internal_altitude_feet(), target);
+  }
+
+  // double east_knots = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_east_knots = this->_internal_east_knots();
+  ::uint64_t raw_east_knots;
+  memcpy(&raw_east_knots, &tmp_east_knots, sizeof(tmp_east_knots));
+  if (raw_east_knots != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        2, this->_internal_east_knots(), target);
+  }
+
+  // double north_knots = 3;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_north_knots = this->_internal_north_knots();
+  ::uint64_t raw_north_knots;
+  memcpy(&raw_north_knots, &tmp_north_knots, sizeof(tmp_north_knots));
+  if (raw_north_knots != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        3, this->_internal_north_knots(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  return target;
+}
+
+::size_t OpenMeteoWindLevel::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // double altitude_feet = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_altitude_feet = this->_internal_altitude_feet();
+  ::uint64_t raw_altitude_feet;
+  memcpy(&raw_altitude_feet, &tmp_altitude_feet, sizeof(tmp_altitude_feet));
+  if (raw_altitude_feet != 0) {
+    total_size += 9;
+  }
+
+  // double east_knots = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_east_knots = this->_internal_east_knots();
+  ::uint64_t raw_east_knots;
+  memcpy(&raw_east_knots, &tmp_east_knots, sizeof(tmp_east_knots));
+  if (raw_east_knots != 0) {
+    total_size += 9;
+  }
+
+  // double north_knots = 3;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_north_knots = this->_internal_north_knots();
+  ::uint64_t raw_north_knots;
+  memcpy(&raw_north_knots, &tmp_north_knots, sizeof(tmp_north_knots));
+  if (raw_north_knots != 0) {
+    total_size += 9;
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void OpenMeteoWindLevel::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<OpenMeteoWindLevel*>(&to_msg);
+  auto& from = static_cast<const OpenMeteoWindLevel&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_altitude_feet = from._internal_altitude_feet();
+  ::uint64_t raw_altitude_feet;
+  memcpy(&raw_altitude_feet, &tmp_altitude_feet, sizeof(tmp_altitude_feet));
+  if (raw_altitude_feet != 0) {
+    _this->_impl_.altitude_feet_ = from._impl_.altitude_feet_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_east_knots = from._internal_east_knots();
+  ::uint64_t raw_east_knots;
+  memcpy(&raw_east_knots, &tmp_east_knots, sizeof(tmp_east_knots));
+  if (raw_east_knots != 0) {
+    _this->_impl_.east_knots_ = from._impl_.east_knots_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_north_knots = from._internal_north_knots();
+  ::uint64_t raw_north_knots;
+  memcpy(&raw_north_knots, &tmp_north_knots, sizeof(tmp_north_knots));
+  if (raw_north_knots != 0) {
+    _this->_impl_.north_knots_ = from._impl_.north_knots_;
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void OpenMeteoWindLevel::CopyFrom(const OpenMeteoWindLevel& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool OpenMeteoWindLevel::IsInitialized() const {
+  return true;
+}
+
+void OpenMeteoWindLevel::InternalSwap(OpenMeteoWindLevel* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.north_knots_)
+      + sizeof(OpenMeteoWindLevel::_impl_.north_knots_)
+      - PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.altitude_feet_)>(
+          reinterpret_cast<char*>(&_impl_.altitude_feet_),
+          reinterpret_cast<char*>(&other->_impl_.altitude_feet_));
+}
+
+::google::protobuf::Metadata OpenMeteoWindLevel::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[155]);
+}
+// ===================================================================
+
 class EcfmpPage::_Internal {
  public:
   using HasBits = decltype(std::declval<EcfmpPage>()._impl_._has_bits_);
@@ -71940,7 +73108,7 @@ void EcfmpPage::InternalSwap(EcfmpPage* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata EcfmpPage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[153]);
+                                   file_level_metadata_storage_2eproto[156]);
 }
 // ===================================================================
 
@@ -72545,7 +73713,7 @@ void EcfmpMeasure::InternalSwap(EcfmpMeasure* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata EcfmpMeasure::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[154]);
+                                   file_level_metadata_storage_2eproto[157]);
 }
 // ===================================================================
 
@@ -72889,7 +74057,7 @@ void EcfmpFilter::InternalSwap(EcfmpFilter* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata EcfmpFilter::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[155]);
+                                   file_level_metadata_storage_2eproto[158]);
 }
 // ===================================================================
 
@@ -73137,7 +74305,7 @@ void AtisFeedPage::InternalSwap(AtisFeedPage* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AtisFeedPage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[156]);
+                                   file_level_metadata_storage_2eproto[159]);
 }
 // ===================================================================
 
@@ -73437,7 +74605,7 @@ void AtisFeedAirport::InternalSwap(AtisFeedAirport* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AtisFeedAirport::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[157]);
+                                   file_level_metadata_storage_2eproto[160]);
 }
 // ===================================================================
 
@@ -73776,7 +74944,7 @@ void AtisFeedEntry::InternalSwap(AtisFeedEntry* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AtisFeedEntry::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[158]);
+                                   file_level_metadata_storage_2eproto[161]);
 }
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace v1

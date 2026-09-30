@@ -17,7 +17,8 @@ startup stays dormant in the meantime.
 - [x] ECFMP global fetch and per-flight session application adapters, including source-revision fencing (this completion branch).
 - [x] Real two-replica NATS ECFMP global fetch test covering nonowner dispatch, committed result, pre-call intent, post-call owner death, and uncertain takeover (this completion branch).
 - [x] Real two-replica NATS ECFMP session application, nonowner rejection, replay, and owner-failure test (this completion branch).
-- [ ] Global-owned VATSIM fetch and typed source checkpoint; airport/session reconciliation adapters and their two-replica failure tests.
+- [x] Global-owned VATSIM fetch with a typed source checkpoint and two-replica NATS owner-failure test (this completion branch).
+- [ ] VATSIM airport/session reconciliation adapters and their two-replica failure tests.
 - [ ] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests.
 - [ ] Airport-owned AIRAC import and verified manifest activation adapter with typed page checkpoints and two-replica failure tests.
 - [x] Airport-owned METAR fetch, global-owned AFV ATIS typed feed, session presentation adapter, global quota reservation, and two-replica NATS failure/replay tests (this completion branch).

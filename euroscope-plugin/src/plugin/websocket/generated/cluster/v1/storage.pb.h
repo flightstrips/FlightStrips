@@ -503,6 +503,12 @@ extern ValidationFaultDefaultTypeInternal _ValidationFault_default_instance_;
 class ValidationStatus;
 struct ValidationStatusDefaultTypeInternal;
 extern ValidationStatusDefaultTypeInternal _ValidationStatus_default_instance_;
+class VatsimFlight;
+struct VatsimFlightDefaultTypeInternal;
+extern VatsimFlightDefaultTypeInternal _VatsimFlight_default_instance_;
+class VatsimFlightPlan;
+struct VatsimFlightPlanDefaultTypeInternal;
+extern VatsimFlightPlanDefaultTypeInternal _VatsimFlightPlan_default_instance_;
 class VatsimObservation;
 struct VatsimObservationDefaultTypeInternal;
 extern VatsimObservationDefaultTypeInternal _VatsimObservation_default_instance_;
@@ -1052,6 +1058,407 @@ class WeatherCloud final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr cover_;
     ::google::protobuf::internal::ArenaStringPtr type_;
     ::uint32_t base_feet_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
+class VatsimFlightPlan final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.VatsimFlightPlan) */ {
+ public:
+  inline VatsimFlightPlan() : VatsimFlightPlan(nullptr) {}
+  ~VatsimFlightPlan() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR VatsimFlightPlan(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline VatsimFlightPlan(const VatsimFlightPlan& from) : VatsimFlightPlan(nullptr, from) {}
+  inline VatsimFlightPlan(VatsimFlightPlan&& from) noexcept
+      : VatsimFlightPlan(nullptr, std::move(from)) {}
+  inline VatsimFlightPlan& operator=(const VatsimFlightPlan& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline VatsimFlightPlan& operator=(VatsimFlightPlan&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const VatsimFlightPlan& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const VatsimFlightPlan* internal_default_instance() {
+    return reinterpret_cast<const VatsimFlightPlan*>(
+        &_VatsimFlightPlan_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 150;
+  friend void swap(VatsimFlightPlan& a, VatsimFlightPlan& b) { a.Swap(&b); }
+  inline void Swap(VatsimFlightPlan* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(VatsimFlightPlan* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  VatsimFlightPlan* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<VatsimFlightPlan>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const VatsimFlightPlan& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const VatsimFlightPlan& from) { VatsimFlightPlan::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(VatsimFlightPlan* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.VatsimFlightPlan"; }
+
+ protected:
+  explicit VatsimFlightPlan(::google::protobuf::Arena* arena);
+  VatsimFlightPlan(::google::protobuf::Arena* arena, const VatsimFlightPlan& from);
+  VatsimFlightPlan(::google::protobuf::Arena* arena, VatsimFlightPlan&& from) noexcept
+      : VatsimFlightPlan(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kFlightRulesFieldNumber = 1,
+    kAircraftFieldNumber = 2,
+    kAircraftFaaFieldNumber = 3,
+    kAircraftShortFieldNumber = 4,
+    kOriginFieldNumber = 5,
+    kDestinationFieldNumber = 6,
+    kAlternateFieldNumber = 7,
+    kEobtFieldNumber = 8,
+    kEnrouteDurationFieldNumber = 9,
+    kRequestedLevelFieldNumber = 10,
+    kRemarksFieldNumber = 11,
+    kRouteFieldNumber = 12,
+    kAssignedSquawkFieldNumber = 13,
+    kRevisionFieldNumber = 14,
+  };
+  // string flight_rules = 1;
+  void clear_flight_rules() ;
+  const std::string& flight_rules() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_flight_rules(Arg_&& arg, Args_... args);
+  std::string* mutable_flight_rules();
+  PROTOBUF_NODISCARD std::string* release_flight_rules();
+  void set_allocated_flight_rules(std::string* value);
+
+  private:
+  const std::string& _internal_flight_rules() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_flight_rules(
+      const std::string& value);
+  std::string* _internal_mutable_flight_rules();
+
+  public:
+  // string aircraft = 2;
+  void clear_aircraft() ;
+  const std::string& aircraft() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_aircraft(Arg_&& arg, Args_... args);
+  std::string* mutable_aircraft();
+  PROTOBUF_NODISCARD std::string* release_aircraft();
+  void set_allocated_aircraft(std::string* value);
+
+  private:
+  const std::string& _internal_aircraft() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_aircraft(
+      const std::string& value);
+  std::string* _internal_mutable_aircraft();
+
+  public:
+  // string aircraft_faa = 3;
+  void clear_aircraft_faa() ;
+  const std::string& aircraft_faa() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_aircraft_faa(Arg_&& arg, Args_... args);
+  std::string* mutable_aircraft_faa();
+  PROTOBUF_NODISCARD std::string* release_aircraft_faa();
+  void set_allocated_aircraft_faa(std::string* value);
+
+  private:
+  const std::string& _internal_aircraft_faa() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_aircraft_faa(
+      const std::string& value);
+  std::string* _internal_mutable_aircraft_faa();
+
+  public:
+  // string aircraft_short = 4;
+  void clear_aircraft_short() ;
+  const std::string& aircraft_short() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_aircraft_short(Arg_&& arg, Args_... args);
+  std::string* mutable_aircraft_short();
+  PROTOBUF_NODISCARD std::string* release_aircraft_short();
+  void set_allocated_aircraft_short(std::string* value);
+
+  private:
+  const std::string& _internal_aircraft_short() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_aircraft_short(
+      const std::string& value);
+  std::string* _internal_mutable_aircraft_short();
+
+  public:
+  // string origin = 5;
+  void clear_origin() ;
+  const std::string& origin() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_origin(Arg_&& arg, Args_... args);
+  std::string* mutable_origin();
+  PROTOBUF_NODISCARD std::string* release_origin();
+  void set_allocated_origin(std::string* value);
+
+  private:
+  const std::string& _internal_origin() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_origin(
+      const std::string& value);
+  std::string* _internal_mutable_origin();
+
+  public:
+  // string destination = 6;
+  void clear_destination() ;
+  const std::string& destination() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_destination(Arg_&& arg, Args_... args);
+  std::string* mutable_destination();
+  PROTOBUF_NODISCARD std::string* release_destination();
+  void set_allocated_destination(std::string* value);
+
+  private:
+  const std::string& _internal_destination() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_destination(
+      const std::string& value);
+  std::string* _internal_mutable_destination();
+
+  public:
+  // string alternate = 7;
+  void clear_alternate() ;
+  const std::string& alternate() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_alternate(Arg_&& arg, Args_... args);
+  std::string* mutable_alternate();
+  PROTOBUF_NODISCARD std::string* release_alternate();
+  void set_allocated_alternate(std::string* value);
+
+  private:
+  const std::string& _internal_alternate() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_alternate(
+      const std::string& value);
+  std::string* _internal_mutable_alternate();
+
+  public:
+  // string eobt = 8;
+  void clear_eobt() ;
+  const std::string& eobt() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_eobt(Arg_&& arg, Args_... args);
+  std::string* mutable_eobt();
+  PROTOBUF_NODISCARD std::string* release_eobt();
+  void set_allocated_eobt(std::string* value);
+
+  private:
+  const std::string& _internal_eobt() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_eobt(
+      const std::string& value);
+  std::string* _internal_mutable_eobt();
+
+  public:
+  // string enroute_duration = 9;
+  void clear_enroute_duration() ;
+  const std::string& enroute_duration() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_enroute_duration(Arg_&& arg, Args_... args);
+  std::string* mutable_enroute_duration();
+  PROTOBUF_NODISCARD std::string* release_enroute_duration();
+  void set_allocated_enroute_duration(std::string* value);
+
+  private:
+  const std::string& _internal_enroute_duration() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_enroute_duration(
+      const std::string& value);
+  std::string* _internal_mutable_enroute_duration();
+
+  public:
+  // string requested_level = 10;
+  void clear_requested_level() ;
+  const std::string& requested_level() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_requested_level(Arg_&& arg, Args_... args);
+  std::string* mutable_requested_level();
+  PROTOBUF_NODISCARD std::string* release_requested_level();
+  void set_allocated_requested_level(std::string* value);
+
+  private:
+  const std::string& _internal_requested_level() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_requested_level(
+      const std::string& value);
+  std::string* _internal_mutable_requested_level();
+
+  public:
+  // string remarks = 11;
+  void clear_remarks() ;
+  const std::string& remarks() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_remarks(Arg_&& arg, Args_... args);
+  std::string* mutable_remarks();
+  PROTOBUF_NODISCARD std::string* release_remarks();
+  void set_allocated_remarks(std::string* value);
+
+  private:
+  const std::string& _internal_remarks() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_remarks(
+      const std::string& value);
+  std::string* _internal_mutable_remarks();
+
+  public:
+  // string route = 12;
+  void clear_route() ;
+  const std::string& route() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_route(Arg_&& arg, Args_... args);
+  std::string* mutable_route();
+  PROTOBUF_NODISCARD std::string* release_route();
+  void set_allocated_route(std::string* value);
+
+  private:
+  const std::string& _internal_route() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_route(
+      const std::string& value);
+  std::string* _internal_mutable_route();
+
+  public:
+  // string assigned_squawk = 13;
+  void clear_assigned_squawk() ;
+  const std::string& assigned_squawk() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_assigned_squawk(Arg_&& arg, Args_... args);
+  std::string* mutable_assigned_squawk();
+  PROTOBUF_NODISCARD std::string* release_assigned_squawk();
+  void set_allocated_assigned_squawk(std::string* value);
+
+  private:
+  const std::string& _internal_assigned_squawk() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_assigned_squawk(
+      const std::string& value);
+  std::string* _internal_mutable_assigned_squawk();
+
+  public:
+  // int64 revision = 14;
+  void clear_revision() ;
+  ::int64_t revision() const;
+  void set_revision(::int64_t value);
+
+  private:
+  ::int64_t _internal_revision() const;
+  void _internal_set_revision(::int64_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.VatsimFlightPlan)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      4, 14, 0,
+      191, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr flight_rules_;
+    ::google::protobuf::internal::ArenaStringPtr aircraft_;
+    ::google::protobuf::internal::ArenaStringPtr aircraft_faa_;
+    ::google::protobuf::internal::ArenaStringPtr aircraft_short_;
+    ::google::protobuf::internal::ArenaStringPtr origin_;
+    ::google::protobuf::internal::ArenaStringPtr destination_;
+    ::google::protobuf::internal::ArenaStringPtr alternate_;
+    ::google::protobuf::internal::ArenaStringPtr eobt_;
+    ::google::protobuf::internal::ArenaStringPtr enroute_duration_;
+    ::google::protobuf::internal::ArenaStringPtr requested_level_;
+    ::google::protobuf::internal::ArenaStringPtr remarks_;
+    ::google::protobuf::internal::ArenaStringPtr route_;
+    ::google::protobuf::internal::ArenaStringPtr assigned_squawk_;
+    ::int64_t revision_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -5543,7 +5950,7 @@ class EcfmpFilter final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpFilter*>(
         &_EcfmpFilter_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 152;
+  static constexpr int kIndexInFileMessages = 154;
   friend void swap(EcfmpFilter& a, EcfmpFilter& b) { a.Swap(&b); }
   inline void Swap(EcfmpFilter* other) {
     if (other == this) return;
@@ -10997,6 +11404,315 @@ class VatsimObservation final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr callsign_;
     ::google::protobuf::internal::ArenaStringPtr digest_;
     ::google::protobuf::Timestamp* observed_at_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_storage_2eproto;
+};
+// -------------------------------------------------------------------
+
+class VatsimFlight final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.VatsimFlight) */ {
+ public:
+  inline VatsimFlight() : VatsimFlight(nullptr) {}
+  ~VatsimFlight() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR VatsimFlight(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline VatsimFlight(const VatsimFlight& from) : VatsimFlight(nullptr, from) {}
+  inline VatsimFlight(VatsimFlight&& from) noexcept
+      : VatsimFlight(nullptr, std::move(from)) {}
+  inline VatsimFlight& operator=(const VatsimFlight& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline VatsimFlight& operator=(VatsimFlight&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const VatsimFlight& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const VatsimFlight* internal_default_instance() {
+    return reinterpret_cast<const VatsimFlight*>(
+        &_VatsimFlight_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 149;
+  friend void swap(VatsimFlight& a, VatsimFlight& b) { a.Swap(&b); }
+  inline void Swap(VatsimFlight* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(VatsimFlight* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  VatsimFlight* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<VatsimFlight>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const VatsimFlight& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const VatsimFlight& from) { VatsimFlight::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(VatsimFlight* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.VatsimFlight"; }
+
+ protected:
+  explicit VatsimFlight(::google::protobuf::Arena* arena);
+  VatsimFlight(::google::protobuf::Arena* arena, const VatsimFlight& from);
+  VatsimFlight(::google::protobuf::Arena* arena, VatsimFlight&& from) noexcept
+      : VatsimFlight(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kCidFieldNumber = 1,
+    kCallsignFieldNumber = 2,
+    kStateFieldNumber = 3,
+    kLogonTimeFieldNumber = 8,
+    kLastUpdatedFieldNumber = 9,
+    kFlightPlanFieldNumber = 10,
+    kLatitudeFieldNumber = 4,
+    kLongitudeFieldNumber = 5,
+    kAltitudeFieldNumber = 6,
+    kGroundspeedFieldNumber = 7,
+  };
+  // string cid = 1;
+  void clear_cid() ;
+  const std::string& cid() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_cid(Arg_&& arg, Args_... args);
+  std::string* mutable_cid();
+  PROTOBUF_NODISCARD std::string* release_cid();
+  void set_allocated_cid(std::string* value);
+
+  private:
+  const std::string& _internal_cid() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_cid(
+      const std::string& value);
+  std::string* _internal_mutable_cid();
+
+  public:
+  // string callsign = 2;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // string state = 3;
+  void clear_state() ;
+  const std::string& state() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_state(Arg_&& arg, Args_... args);
+  std::string* mutable_state();
+  PROTOBUF_NODISCARD std::string* release_state();
+  void set_allocated_state(std::string* value);
+
+  private:
+  const std::string& _internal_state() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_state(
+      const std::string& value);
+  std::string* _internal_mutable_state();
+
+  public:
+  // .google.protobuf.Timestamp logon_time = 8;
+  bool has_logon_time() const;
+  void clear_logon_time() ;
+  const ::google::protobuf::Timestamp& logon_time() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_logon_time();
+  ::google::protobuf::Timestamp* mutable_logon_time();
+  void set_allocated_logon_time(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_logon_time(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_logon_time();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_logon_time() const;
+  ::google::protobuf::Timestamp* _internal_mutable_logon_time();
+
+  public:
+  // .google.protobuf.Timestamp last_updated = 9;
+  bool has_last_updated() const;
+  void clear_last_updated() ;
+  const ::google::protobuf::Timestamp& last_updated() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_last_updated();
+  ::google::protobuf::Timestamp* mutable_last_updated();
+  void set_allocated_last_updated(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_last_updated(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_last_updated();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_last_updated() const;
+  ::google::protobuf::Timestamp* _internal_mutable_last_updated();
+
+  public:
+  // .flightstrips.cluster.v1.VatsimFlightPlan flight_plan = 10;
+  bool has_flight_plan() const;
+  void clear_flight_plan() ;
+  const ::flightstrips::cluster::v1::VatsimFlightPlan& flight_plan() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::VatsimFlightPlan* release_flight_plan();
+  ::flightstrips::cluster::v1::VatsimFlightPlan* mutable_flight_plan();
+  void set_allocated_flight_plan(::flightstrips::cluster::v1::VatsimFlightPlan* value);
+  void unsafe_arena_set_allocated_flight_plan(::flightstrips::cluster::v1::VatsimFlightPlan* value);
+  ::flightstrips::cluster::v1::VatsimFlightPlan* unsafe_arena_release_flight_plan();
+
+  private:
+  const ::flightstrips::cluster::v1::VatsimFlightPlan& _internal_flight_plan() const;
+  ::flightstrips::cluster::v1::VatsimFlightPlan* _internal_mutable_flight_plan();
+
+  public:
+  // double latitude = 4;
+  void clear_latitude() ;
+  double latitude() const;
+  void set_latitude(double value);
+
+  private:
+  double _internal_latitude() const;
+  void _internal_set_latitude(double value);
+
+  public:
+  // double longitude = 5;
+  void clear_longitude() ;
+  double longitude() const;
+  void set_longitude(double value);
+
+  private:
+  double _internal_longitude() const;
+  void _internal_set_longitude(double value);
+
+  public:
+  // int32 altitude = 6;
+  void clear_altitude() ;
+  ::int32_t altitude() const;
+  void set_altitude(::int32_t value);
+
+  private:
+  ::int32_t _internal_altitude() const;
+  void _internal_set_altitude(::int32_t value);
+
+  public:
+  // int32 groundspeed = 7;
+  void clear_groundspeed() ;
+  ::int32_t groundspeed() const;
+  void set_groundspeed(::int32_t value);
+
+  private:
+  ::int32_t _internal_groundspeed() const;
+  void _internal_set_groundspeed(::int32_t value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.VatsimFlight)
+ private:
+  class _Internal;
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      4, 10, 3,
+      69, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr cid_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::internal::ArenaStringPtr state_;
+    ::google::protobuf::Timestamp* logon_time_;
+    ::google::protobuf::Timestamp* last_updated_;
+    ::flightstrips::cluster::v1::VatsimFlightPlan* flight_plan_;
+    double latitude_;
+    double longitude_;
+    ::int32_t altitude_;
+    ::int32_t groundspeed_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -16848,7 +17564,7 @@ class EcfmpMeasure final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpMeasure*>(
         &_EcfmpMeasure_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 151;
+  static constexpr int kIndexInFileMessages = 153;
   friend void swap(EcfmpMeasure& a, EcfmpMeasure& b) { a.Swap(&b); }
   inline void Swap(EcfmpMeasure* other) {
     if (other == this) return;
@@ -18388,7 +19104,7 @@ class AtisFeedEntry final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedEntry*>(
         &_AtisFeedEntry_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 155;
+  static constexpr int kIndexInFileMessages = 157;
   friend void swap(AtisFeedEntry& a, AtisFeedEntry& b) { a.Swap(&b); }
   inline void Swap(AtisFeedEntry* other) {
     if (other == this) return;
@@ -26687,7 +27403,7 @@ class WeatherPage final : public ::google::protobuf::Message
     return reinterpret_cast<const WeatherPage*>(
         &_WeatherPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 149;
+  static constexpr int kIndexInFileMessages = 151;
   friend void swap(WeatherPage& a, WeatherPage& b) { a.Swap(&b); }
   inline void Swap(WeatherPage* other) {
     if (other == this) return;
@@ -27175,6 +27891,8 @@ class VatsimPage final : public ::google::protobuf::Message
   // accessors -------------------------------------------------------
   enum : int {
     kObservationsFieldNumber = 1,
+    kFlightsFieldNumber = 2,
+    kSnapshotAtFieldNumber = 3,
   };
   // repeated .flightstrips.cluster.v1.VatsimObservation observations = 1;
   int observations_size() const;
@@ -27193,12 +27911,44 @@ class VatsimPage final : public ::google::protobuf::Message
   const ::flightstrips::cluster::v1::VatsimObservation& observations(int index) const;
   ::flightstrips::cluster::v1::VatsimObservation* add_observations();
   const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimObservation>& observations() const;
+  // repeated .flightstrips.cluster.v1.VatsimFlight flights = 2;
+  int flights_size() const;
+  private:
+  int _internal_flights_size() const;
+
+  public:
+  void clear_flights() ;
+  ::flightstrips::cluster::v1::VatsimFlight* mutable_flights(int index);
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimFlight>* mutable_flights();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimFlight>& _internal_flights() const;
+  ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimFlight>* _internal_mutable_flights();
+  public:
+  const ::flightstrips::cluster::v1::VatsimFlight& flights(int index) const;
+  ::flightstrips::cluster::v1::VatsimFlight* add_flights();
+  const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimFlight>& flights() const;
+  // .google.protobuf.Timestamp snapshot_at = 3;
+  bool has_snapshot_at() const;
+  void clear_snapshot_at() ;
+  const ::google::protobuf::Timestamp& snapshot_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_snapshot_at();
+  ::google::protobuf::Timestamp* mutable_snapshot_at();
+  void set_allocated_snapshot_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_snapshot_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_snapshot_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_snapshot_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_snapshot_at();
+
+  public:
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.VatsimPage)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 1, 1,
+      2, 3, 3,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -27214,8 +27964,11 @@ class VatsimPage final : public ::google::protobuf::Message
                           ::google::protobuf::Arena* arena);
     inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                           ::google::protobuf::Arena* arena, const Impl_& from);
-    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::VatsimObservation > observations_;
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::VatsimObservation > observations_;
+    ::google::protobuf::RepeatedPtrField< ::flightstrips::cluster::v1::VatsimFlight > flights_;
+    ::google::protobuf::Timestamp* snapshot_at_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -30504,7 +31257,7 @@ class EcfmpPage final : public ::google::protobuf::Message
     return reinterpret_cast<const EcfmpPage*>(
         &_EcfmpPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 150;
+  static constexpr int kIndexInFileMessages = 152;
   friend void swap(EcfmpPage& a, EcfmpPage& b) { a.Swap(&b); }
   inline void Swap(EcfmpPage* other) {
     if (other == this) return;
@@ -31049,7 +31802,7 @@ class AtisFeedAirport final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedAirport*>(
         &_AtisFeedAirport_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 154;
+  static constexpr int kIndexInFileMessages = 156;
   friend void swap(AtisFeedAirport& a, AtisFeedAirport& b) { a.Swap(&b); }
   inline void Swap(AtisFeedAirport* other) {
     if (other == this) return;
@@ -36980,7 +37733,7 @@ class AtisFeedPage final : public ::google::protobuf::Message
     return reinterpret_cast<const AtisFeedPage*>(
         &_AtisFeedPage_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 153;
+  static constexpr int kIndexInFileMessages = 155;
   friend void swap(AtisFeedPage& a, AtisFeedPage& b) { a.Swap(&b); }
   inline void Swap(AtisFeedPage* other) {
     if (other == this) return;
@@ -101434,6 +102187,1342 @@ inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimO
 VatsimPage::_internal_mutable_observations() {
   PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
   return &_impl_.observations_;
+}
+
+// repeated .flightstrips.cluster.v1.VatsimFlight flights = 2;
+inline int VatsimPage::_internal_flights_size() const {
+  return _internal_flights().size();
+}
+inline int VatsimPage::flights_size() const {
+  return _internal_flights_size();
+}
+inline void VatsimPage::clear_flights() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.flights_.Clear();
+}
+inline ::flightstrips::cluster::v1::VatsimFlight* VatsimPage::mutable_flights(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimPage.flights)
+  return _internal_mutable_flights()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimFlight>* VatsimPage::mutable_flights()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:flightstrips.cluster.v1.VatsimPage.flights)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_flights();
+}
+inline const ::flightstrips::cluster::v1::VatsimFlight& VatsimPage::flights(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimPage.flights)
+  return _internal_flights().Get(index);
+}
+inline ::flightstrips::cluster::v1::VatsimFlight* VatsimPage::add_flights() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::flightstrips::cluster::v1::VatsimFlight* _add = _internal_mutable_flights()->Add();
+  // @@protoc_insertion_point(field_add:flightstrips.cluster.v1.VatsimPage.flights)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimFlight>& VatsimPage::flights() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:flightstrips.cluster.v1.VatsimPage.flights)
+  return _internal_flights();
+}
+inline const ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimFlight>&
+VatsimPage::_internal_flights() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.flights_;
+}
+inline ::google::protobuf::RepeatedPtrField<::flightstrips::cluster::v1::VatsimFlight>*
+VatsimPage::_internal_mutable_flights() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.flights_;
+}
+
+// .google.protobuf.Timestamp snapshot_at = 3;
+inline bool VatsimPage::has_snapshot_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.snapshot_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& VatsimPage::_internal_snapshot_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.snapshot_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& VatsimPage::snapshot_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimPage.snapshot_at)
+  return _internal_snapshot_at();
+}
+inline void VatsimPage::unsafe_arena_set_allocated_snapshot_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.snapshot_at_);
+  }
+  _impl_.snapshot_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.VatsimPage.snapshot_at)
+}
+inline ::google::protobuf::Timestamp* VatsimPage::release_snapshot_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.snapshot_at_;
+  _impl_.snapshot_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* VatsimPage::unsafe_arena_release_snapshot_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimPage.snapshot_at)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.snapshot_at_;
+  _impl_.snapshot_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* VatsimPage::_internal_mutable_snapshot_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.snapshot_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.snapshot_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.snapshot_at_;
+}
+inline ::google::protobuf::Timestamp* VatsimPage::mutable_snapshot_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_snapshot_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimPage.snapshot_at)
+  return _msg;
+}
+inline void VatsimPage::set_allocated_snapshot_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.snapshot_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.snapshot_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimPage.snapshot_at)
+}
+
+// -------------------------------------------------------------------
+
+// VatsimFlight
+
+// string cid = 1;
+inline void VatsimFlight::clear_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.cid_.ClearToEmpty();
+}
+inline const std::string& VatsimFlight::cid() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.cid)
+  return _internal_cid();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlight::set_cid(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.cid_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlight.cid)
+}
+inline std::string* VatsimFlight::mutable_cid() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_cid();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlight.cid)
+  return _s;
+}
+inline const std::string& VatsimFlight::_internal_cid() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.cid_.Get();
+}
+inline void VatsimFlight::_internal_set_cid(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.cid_.Set(value, GetArena());
+}
+inline std::string* VatsimFlight::_internal_mutable_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.cid_.Mutable( GetArena());
+}
+inline std::string* VatsimFlight::release_cid() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlight.cid)
+  return _impl_.cid_.Release();
+}
+inline void VatsimFlight::set_allocated_cid(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.cid_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.cid_.IsDefault()) {
+          _impl_.cid_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlight.cid)
+}
+
+// string callsign = 2;
+inline void VatsimFlight::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& VatsimFlight::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlight::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlight.callsign)
+}
+inline std::string* VatsimFlight::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlight.callsign)
+  return _s;
+}
+inline const std::string& VatsimFlight::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void VatsimFlight::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* VatsimFlight::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* VatsimFlight::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlight.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void VatsimFlight::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlight.callsign)
+}
+
+// string state = 3;
+inline void VatsimFlight::clear_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.ClearToEmpty();
+}
+inline const std::string& VatsimFlight::state() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.state)
+  return _internal_state();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlight::set_state(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlight.state)
+}
+inline std::string* VatsimFlight::mutable_state() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_state();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlight.state)
+  return _s;
+}
+inline const std::string& VatsimFlight::_internal_state() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.state_.Get();
+}
+inline void VatsimFlight::_internal_set_state(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.Set(value, GetArena());
+}
+inline std::string* VatsimFlight::_internal_mutable_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.state_.Mutable( GetArena());
+}
+inline std::string* VatsimFlight::release_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlight.state)
+  return _impl_.state_.Release();
+}
+inline void VatsimFlight::set_allocated_state(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.state_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.state_.IsDefault()) {
+          _impl_.state_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlight.state)
+}
+
+// double latitude = 4;
+inline void VatsimFlight::clear_latitude() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.latitude_ = 0;
+}
+inline double VatsimFlight::latitude() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.latitude)
+  return _internal_latitude();
+}
+inline void VatsimFlight::set_latitude(double value) {
+  _internal_set_latitude(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlight.latitude)
+}
+inline double VatsimFlight::_internal_latitude() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.latitude_;
+}
+inline void VatsimFlight::_internal_set_latitude(double value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.latitude_ = value;
+}
+
+// double longitude = 5;
+inline void VatsimFlight::clear_longitude() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.longitude_ = 0;
+}
+inline double VatsimFlight::longitude() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.longitude)
+  return _internal_longitude();
+}
+inline void VatsimFlight::set_longitude(double value) {
+  _internal_set_longitude(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlight.longitude)
+}
+inline double VatsimFlight::_internal_longitude() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.longitude_;
+}
+inline void VatsimFlight::_internal_set_longitude(double value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.longitude_ = value;
+}
+
+// int32 altitude = 6;
+inline void VatsimFlight::clear_altitude() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.altitude_ = 0;
+}
+inline ::int32_t VatsimFlight::altitude() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.altitude)
+  return _internal_altitude();
+}
+inline void VatsimFlight::set_altitude(::int32_t value) {
+  _internal_set_altitude(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlight.altitude)
+}
+inline ::int32_t VatsimFlight::_internal_altitude() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.altitude_;
+}
+inline void VatsimFlight::_internal_set_altitude(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.altitude_ = value;
+}
+
+// int32 groundspeed = 7;
+inline void VatsimFlight::clear_groundspeed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.groundspeed_ = 0;
+}
+inline ::int32_t VatsimFlight::groundspeed() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.groundspeed)
+  return _internal_groundspeed();
+}
+inline void VatsimFlight::set_groundspeed(::int32_t value) {
+  _internal_set_groundspeed(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlight.groundspeed)
+}
+inline ::int32_t VatsimFlight::_internal_groundspeed() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.groundspeed_;
+}
+inline void VatsimFlight::_internal_set_groundspeed(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.groundspeed_ = value;
+}
+
+// .google.protobuf.Timestamp logon_time = 8;
+inline bool VatsimFlight::has_logon_time() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.logon_time_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& VatsimFlight::_internal_logon_time() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.logon_time_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& VatsimFlight::logon_time() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.logon_time)
+  return _internal_logon_time();
+}
+inline void VatsimFlight::unsafe_arena_set_allocated_logon_time(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.logon_time_);
+  }
+  _impl_.logon_time_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.VatsimFlight.logon_time)
+}
+inline ::google::protobuf::Timestamp* VatsimFlight::release_logon_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.logon_time_;
+  _impl_.logon_time_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* VatsimFlight::unsafe_arena_release_logon_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlight.logon_time)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.logon_time_;
+  _impl_.logon_time_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* VatsimFlight::_internal_mutable_logon_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.logon_time_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.logon_time_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.logon_time_;
+}
+inline ::google::protobuf::Timestamp* VatsimFlight::mutable_logon_time() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_logon_time();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlight.logon_time)
+  return _msg;
+}
+inline void VatsimFlight::set_allocated_logon_time(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.logon_time_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.logon_time_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlight.logon_time)
+}
+
+// .google.protobuf.Timestamp last_updated = 9;
+inline bool VatsimFlight::has_last_updated() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.last_updated_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& VatsimFlight::_internal_last_updated() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.last_updated_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& VatsimFlight::last_updated() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.last_updated)
+  return _internal_last_updated();
+}
+inline void VatsimFlight::unsafe_arena_set_allocated_last_updated(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.last_updated_);
+  }
+  _impl_.last_updated_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.VatsimFlight.last_updated)
+}
+inline ::google::protobuf::Timestamp* VatsimFlight::release_last_updated() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::google::protobuf::Timestamp* released = _impl_.last_updated_;
+  _impl_.last_updated_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* VatsimFlight::unsafe_arena_release_last_updated() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlight.last_updated)
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::google::protobuf::Timestamp* temp = _impl_.last_updated_;
+  _impl_.last_updated_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* VatsimFlight::_internal_mutable_last_updated() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.last_updated_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.last_updated_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.last_updated_;
+}
+inline ::google::protobuf::Timestamp* VatsimFlight::mutable_last_updated() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000002u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_last_updated();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlight.last_updated)
+  return _msg;
+}
+inline void VatsimFlight::set_allocated_last_updated(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.last_updated_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+
+  _impl_.last_updated_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlight.last_updated)
+}
+
+// .flightstrips.cluster.v1.VatsimFlightPlan flight_plan = 10;
+inline bool VatsimFlight::has_flight_plan() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000004u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.flight_plan_ != nullptr);
+  return value;
+}
+inline void VatsimFlight::clear_flight_plan() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.flight_plan_ != nullptr) _impl_.flight_plan_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000004u;
+}
+inline const ::flightstrips::cluster::v1::VatsimFlightPlan& VatsimFlight::_internal_flight_plan() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::flightstrips::cluster::v1::VatsimFlightPlan* p = _impl_.flight_plan_;
+  return p != nullptr ? *p : reinterpret_cast<const ::flightstrips::cluster::v1::VatsimFlightPlan&>(::flightstrips::cluster::v1::_VatsimFlightPlan_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::VatsimFlightPlan& VatsimFlight::flight_plan() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlight.flight_plan)
+  return _internal_flight_plan();
+}
+inline void VatsimFlight::unsafe_arena_set_allocated_flight_plan(::flightstrips::cluster::v1::VatsimFlightPlan* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.flight_plan_);
+  }
+  _impl_.flight_plan_ = reinterpret_cast<::flightstrips::cluster::v1::VatsimFlightPlan*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000004u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000004u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.VatsimFlight.flight_plan)
+}
+inline ::flightstrips::cluster::v1::VatsimFlightPlan* VatsimFlight::release_flight_plan() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000004u;
+  ::flightstrips::cluster::v1::VatsimFlightPlan* released = _impl_.flight_plan_;
+  _impl_.flight_plan_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::flightstrips::cluster::v1::VatsimFlightPlan* VatsimFlight::unsafe_arena_release_flight_plan() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlight.flight_plan)
+
+  _impl_._has_bits_[0] &= ~0x00000004u;
+  ::flightstrips::cluster::v1::VatsimFlightPlan* temp = _impl_.flight_plan_;
+  _impl_.flight_plan_ = nullptr;
+  return temp;
+}
+inline ::flightstrips::cluster::v1::VatsimFlightPlan* VatsimFlight::_internal_mutable_flight_plan() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.flight_plan_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::VatsimFlightPlan>(GetArena());
+    _impl_.flight_plan_ = reinterpret_cast<::flightstrips::cluster::v1::VatsimFlightPlan*>(p);
+  }
+  return _impl_.flight_plan_;
+}
+inline ::flightstrips::cluster::v1::VatsimFlightPlan* VatsimFlight::mutable_flight_plan() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000004u;
+  ::flightstrips::cluster::v1::VatsimFlightPlan* _msg = _internal_mutable_flight_plan();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlight.flight_plan)
+  return _msg;
+}
+inline void VatsimFlight::set_allocated_flight_plan(::flightstrips::cluster::v1::VatsimFlightPlan* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete (_impl_.flight_plan_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = (value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000004u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000004u;
+  }
+
+  _impl_.flight_plan_ = reinterpret_cast<::flightstrips::cluster::v1::VatsimFlightPlan*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlight.flight_plan)
+}
+
+// -------------------------------------------------------------------
+
+// VatsimFlightPlan
+
+// string flight_rules = 1;
+inline void VatsimFlightPlan::clear_flight_rules() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.flight_rules_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::flight_rules() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.flight_rules)
+  return _internal_flight_rules();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_flight_rules(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.flight_rules_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.flight_rules)
+}
+inline std::string* VatsimFlightPlan::mutable_flight_rules() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_flight_rules();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.flight_rules)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_flight_rules() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.flight_rules_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_flight_rules(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.flight_rules_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_flight_rules() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.flight_rules_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_flight_rules() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.flight_rules)
+  return _impl_.flight_rules_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_flight_rules(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.flight_rules_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.flight_rules_.IsDefault()) {
+          _impl_.flight_rules_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.flight_rules)
+}
+
+// string aircraft = 2;
+inline void VatsimFlightPlan::clear_aircraft() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::aircraft() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.aircraft)
+  return _internal_aircraft();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_aircraft(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.aircraft)
+}
+inline std::string* VatsimFlightPlan::mutable_aircraft() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_aircraft();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.aircraft)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_aircraft() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_aircraft(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_aircraft() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_aircraft() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.aircraft)
+  return _impl_.aircraft_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_aircraft(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.aircraft_.IsDefault()) {
+          _impl_.aircraft_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.aircraft)
+}
+
+// string aircraft_faa = 3;
+inline void VatsimFlightPlan::clear_aircraft_faa() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_faa_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::aircraft_faa() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_faa)
+  return _internal_aircraft_faa();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_aircraft_faa(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_faa_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_faa)
+}
+inline std::string* VatsimFlightPlan::mutable_aircraft_faa() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_aircraft_faa();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_faa)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_aircraft_faa() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_faa_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_aircraft_faa(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_faa_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_aircraft_faa() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_faa_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_aircraft_faa() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_faa)
+  return _impl_.aircraft_faa_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_aircraft_faa(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_faa_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.aircraft_faa_.IsDefault()) {
+          _impl_.aircraft_faa_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_faa)
+}
+
+// string aircraft_short = 4;
+inline void VatsimFlightPlan::clear_aircraft_short() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_short_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::aircraft_short() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_short)
+  return _internal_aircraft_short();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_aircraft_short(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_short_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_short)
+}
+inline std::string* VatsimFlightPlan::mutable_aircraft_short() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_aircraft_short();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_short)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_aircraft_short() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_short_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_aircraft_short(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_short_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_aircraft_short() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.aircraft_short_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_aircraft_short() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_short)
+  return _impl_.aircraft_short_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_aircraft_short(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aircraft_short_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.aircraft_short_.IsDefault()) {
+          _impl_.aircraft_short_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.aircraft_short)
+}
+
+// string origin = 5;
+inline void VatsimFlightPlan::clear_origin() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.origin_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::origin() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.origin)
+  return _internal_origin();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_origin(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.origin_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.origin)
+}
+inline std::string* VatsimFlightPlan::mutable_origin() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_origin();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.origin)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_origin() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.origin_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_origin(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.origin_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_origin() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.origin_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_origin() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.origin)
+  return _impl_.origin_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_origin(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.origin_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.origin_.IsDefault()) {
+          _impl_.origin_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.origin)
+}
+
+// string destination = 6;
+inline void VatsimFlightPlan::clear_destination() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.destination_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::destination() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.destination)
+  return _internal_destination();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_destination(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.destination_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.destination)
+}
+inline std::string* VatsimFlightPlan::mutable_destination() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_destination();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.destination)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_destination() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.destination_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_destination(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.destination_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_destination() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.destination_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_destination() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.destination)
+  return _impl_.destination_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_destination(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.destination_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.destination_.IsDefault()) {
+          _impl_.destination_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.destination)
+}
+
+// string alternate = 7;
+inline void VatsimFlightPlan::clear_alternate() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.alternate_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::alternate() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.alternate)
+  return _internal_alternate();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_alternate(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.alternate_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.alternate)
+}
+inline std::string* VatsimFlightPlan::mutable_alternate() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_alternate();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.alternate)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_alternate() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.alternate_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_alternate(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.alternate_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_alternate() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.alternate_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_alternate() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.alternate)
+  return _impl_.alternate_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_alternate(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.alternate_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.alternate_.IsDefault()) {
+          _impl_.alternate_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.alternate)
+}
+
+// string eobt = 8;
+inline void VatsimFlightPlan::clear_eobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.eobt_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::eobt() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.eobt)
+  return _internal_eobt();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_eobt(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.eobt_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.eobt)
+}
+inline std::string* VatsimFlightPlan::mutable_eobt() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_eobt();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.eobt)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_eobt() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.eobt_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_eobt(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.eobt_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_eobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.eobt_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_eobt() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.eobt)
+  return _impl_.eobt_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_eobt(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.eobt_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.eobt_.IsDefault()) {
+          _impl_.eobt_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.eobt)
+}
+
+// string enroute_duration = 9;
+inline void VatsimFlightPlan::clear_enroute_duration() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.enroute_duration_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::enroute_duration() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.enroute_duration)
+  return _internal_enroute_duration();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_enroute_duration(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.enroute_duration_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.enroute_duration)
+}
+inline std::string* VatsimFlightPlan::mutable_enroute_duration() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_enroute_duration();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.enroute_duration)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_enroute_duration() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.enroute_duration_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_enroute_duration(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.enroute_duration_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_enroute_duration() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.enroute_duration_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_enroute_duration() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.enroute_duration)
+  return _impl_.enroute_duration_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_enroute_duration(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.enroute_duration_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.enroute_duration_.IsDefault()) {
+          _impl_.enroute_duration_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.enroute_duration)
+}
+
+// string requested_level = 10;
+inline void VatsimFlightPlan::clear_requested_level() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requested_level_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::requested_level() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.requested_level)
+  return _internal_requested_level();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_requested_level(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requested_level_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.requested_level)
+}
+inline std::string* VatsimFlightPlan::mutable_requested_level() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_requested_level();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.requested_level)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_requested_level() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.requested_level_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_requested_level(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requested_level_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_requested_level() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.requested_level_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_requested_level() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.requested_level)
+  return _impl_.requested_level_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_requested_level(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.requested_level_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.requested_level_.IsDefault()) {
+          _impl_.requested_level_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.requested_level)
+}
+
+// string remarks = 11;
+inline void VatsimFlightPlan::clear_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::remarks() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.remarks)
+  return _internal_remarks();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_remarks(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.remarks)
+}
+inline std::string* VatsimFlightPlan::mutable_remarks() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_remarks();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.remarks)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_remarks() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.remarks_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_remarks(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.remarks_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_remarks() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.remarks)
+  return _impl_.remarks_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_remarks(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.remarks_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.remarks_.IsDefault()) {
+          _impl_.remarks_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.remarks)
+}
+
+// string route = 12;
+inline void VatsimFlightPlan::clear_route() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.route_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::route() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.route)
+  return _internal_route();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_route(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.route_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.route)
+}
+inline std::string* VatsimFlightPlan::mutable_route() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_route();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.route)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_route() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.route_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_route(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.route_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_route() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.route_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_route() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.route)
+  return _impl_.route_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_route(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.route_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.route_.IsDefault()) {
+          _impl_.route_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.route)
+}
+
+// string assigned_squawk = 13;
+inline void VatsimFlightPlan::clear_assigned_squawk() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.assigned_squawk_.ClearToEmpty();
+}
+inline const std::string& VatsimFlightPlan::assigned_squawk() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.assigned_squawk)
+  return _internal_assigned_squawk();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void VatsimFlightPlan::set_assigned_squawk(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.assigned_squawk_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.assigned_squawk)
+}
+inline std::string* VatsimFlightPlan::mutable_assigned_squawk() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_assigned_squawk();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.VatsimFlightPlan.assigned_squawk)
+  return _s;
+}
+inline const std::string& VatsimFlightPlan::_internal_assigned_squawk() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.assigned_squawk_.Get();
+}
+inline void VatsimFlightPlan::_internal_set_assigned_squawk(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.assigned_squawk_.Set(value, GetArena());
+}
+inline std::string* VatsimFlightPlan::_internal_mutable_assigned_squawk() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.assigned_squawk_.Mutable( GetArena());
+}
+inline std::string* VatsimFlightPlan::release_assigned_squawk() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.VatsimFlightPlan.assigned_squawk)
+  return _impl_.assigned_squawk_.Release();
+}
+inline void VatsimFlightPlan::set_allocated_assigned_squawk(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.assigned_squawk_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.assigned_squawk_.IsDefault()) {
+          _impl_.assigned_squawk_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.VatsimFlightPlan.assigned_squawk)
+}
+
+// int64 revision = 14;
+inline void VatsimFlightPlan::clear_revision() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.revision_ = ::int64_t{0};
+}
+inline ::int64_t VatsimFlightPlan::revision() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.VatsimFlightPlan.revision)
+  return _internal_revision();
+}
+inline void VatsimFlightPlan::set_revision(::int64_t value) {
+  _internal_set_revision(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.VatsimFlightPlan.revision)
+}
+inline ::int64_t VatsimFlightPlan::_internal_revision() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.revision_;
+}
+inline void VatsimFlightPlan::_internal_set_revision(::int64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.revision_ = value;
 }
 
 // -------------------------------------------------------------------

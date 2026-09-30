@@ -243,6 +243,18 @@ func validateProviderPage(page *pb.ProviderPage) error {
 				return fmt.Errorf("invalid VATSIM observation")
 			}
 		}
+		if len(content.Vatsim.Flights) != 0 || content.Vatsim.SnapshotAt != nil {
+			if content.Vatsim.SnapshotAt == nil || content.Vatsim.SnapshotAt.CheckValid() != nil {
+				return fmt.Errorf("invalid VATSIM snapshot time")
+			}
+			seen := map[string]bool{}
+			for _, flight := range content.Vatsim.Flights {
+				if flight == nil || flight.Cid == "" || flight.Callsign == "" || seen[flight.Callsign] || flight.FlightPlan == nil || flight.State != "online" && flight.State != "prefile" || math.IsNaN(flight.Latitude) || math.IsNaN(flight.Longitude) || math.IsInf(flight.Latitude, 0) || math.IsInf(flight.Longitude, 0) || math.Abs(flight.Latitude) > 90 || math.Abs(flight.Longitude) > 180 {
+					return fmt.Errorf("invalid VATSIM flight")
+				}
+				seen[flight.Callsign] = true
+			}
+		}
 	case *pb.ProviderPage_Weather:
 		if content.Weather == nil {
 			return fmt.Errorf("empty weather page")

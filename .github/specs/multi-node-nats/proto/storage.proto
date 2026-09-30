@@ -883,7 +883,26 @@ message ProviderPage {
   oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; AtisFeedPage atis_feed = 7; }
 }
 message AiracPage { repeated NavData fragments = 1; optional string next_page = 2; }
-message VatsimPage { repeated VatsimObservation observations = 1; }
+message VatsimPage {
+  repeated VatsimObservation observations = 1;
+  repeated VatsimFlight flights = 2;
+  google.protobuf.Timestamp snapshot_at = 3;
+}
+message VatsimFlight {
+  string cid = 1; string callsign = 2; string state = 3;
+  double latitude = 4; double longitude = 5;
+  int32 altitude = 6; int32 groundspeed = 7;
+  google.protobuf.Timestamp logon_time = 8;
+  google.protobuf.Timestamp last_updated = 9;
+  VatsimFlightPlan flight_plan = 10;
+}
+message VatsimFlightPlan {
+  string flight_rules = 1; string aircraft = 2; string aircraft_faa = 3;
+  string aircraft_short = 4; string origin = 5; string destination = 6;
+  string alternate = 7; string eobt = 8; string enroute_duration = 9;
+  string requested_level = 10; string remarks = 11; string route = 12;
+  string assigned_squawk = 13; int64 revision = 14;
+}
 message WeatherPage { repeated WeatherObservation observations = 1; }
 // ECFMP's provider-wide response is parsed at the HTTP boundary. These fields
 // retain every filter and measure value used by per-flight reconciliation.

@@ -1,17 +1,18 @@
-import { SiteFooter, SiteHeader } from "@/components/public/SiteChrome";
-import { AboutHero } from "@/components/blocks/AboutHero";
+import { PageHero, PublicPage } from "@/components/public/SiteChrome";
 import { AboutContent } from "@/components/blocks/AboutContent";
-import { PUBLIC_PAGE_SHELL_CLASS } from "@/lib/public-page-style";
+import { AboutStats } from "@/components/blocks/AboutHero";
 
 export default function About() {
   return (
-    <div className={PUBLIC_PAGE_SHELL_CLASS}>
-      <SiteHeader />
-      <main className="flex-1">
-        <AboutHero />
-        <AboutContent />
-      </main>
-      <SiteFooter />
-    </div>
+    <PublicPage>
+      <PageHero
+        eyebrow="About"
+        title="Built for virtual ATC"
+        lead="FlightStrips brings NITOS-inspired strip management to simulation: precision, clarity, and reliability—on any device."
+      >
+        <AboutStats />
+      </PageHero>
+      <AboutContent />
+    </PublicPage>
   );
 }

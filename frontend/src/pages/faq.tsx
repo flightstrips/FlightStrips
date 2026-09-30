@@ -1,14 +1,11 @@
-import { SiteFooter, SiteHeader } from "@/components/public/SiteChrome";
-import { ScrollProgress } from "@/components/public/ScrollProgress";
+import { PageHero, PublicPage } from "@/components/public/SiteChrome";
 import { Faq } from "@/components/blocks/Faq";
 
 export default function FaqPage() {
   return (
-    <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-foreground">
-      <ScrollProgress />
-      <SiteHeader />
+    <PublicPage>
+      <PageHero eyebrow="FAQ" title="Got questions?" />
       <Faq />
-      <SiteFooter />
-    </div>
+    </PublicPage>
   );
 }

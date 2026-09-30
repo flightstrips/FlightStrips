@@ -90,7 +90,8 @@ body {
 body.public-content-page {
   height: auto;
   min-height: 100%;
-  overflow-x: hidden;
+  /* `clip`, not `hidden`: hidden would make body a scroll container and break sticky headers. */
+  overflow-x: clip;
   overflow-y: visible;
   overscroll-behavior: auto;
 }

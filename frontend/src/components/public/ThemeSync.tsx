@@ -6,7 +6,15 @@ import {
   clearPublicThemeFromDocument,
 } from "@/lib/public-theme";
 
-const SELECTABLE_PUBLIC_PATHS = new Set(["/", "/about", "/contact"]);
+const SELECTABLE_PUBLIC_PATHS = new Set([
+  "/",
+  "/about",
+  "/contact",
+  "/faq",
+  "/privacy",
+  "/data-handling",
+  "/plugin-auth-complete",
+]);
 const STANDALONE_SCROLL_PATHS = new Set(["/aman-replay", "/cdm", "/stand"]);
 
 /**

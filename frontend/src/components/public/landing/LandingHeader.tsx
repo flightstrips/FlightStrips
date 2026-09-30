@@ -53,7 +53,14 @@ function SectionLink({
  * Off the landing page (`home={false}`) the plate is opaque, since the page
  * beneath is not the dark canvas, and the announcement stays collapsed.
  */
-export function LandingHeader({ home = true }: { home?: boolean }) {
+export function LandingHeader({
+  home = true,
+  themeToggle,
+}: {
+  home?: boolean;
+  /** Supplied by pages whose body follows a light/dark choice. */
+  themeToggle?: { theme: "light" | "dark"; onToggle: () => void };
+}) {
   const { isAuthenticated, signIn, signOut } = useLandingAuth();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -154,6 +161,39 @@ export function LandingHeader({ home = true }: { home?: boolean }) {
               </button>
             </nav>
           </div>
+
+          {themeToggle ? (
+            <button
+              type="button"
+              className="fsl-theme-toggle"
+              onClick={themeToggle.onToggle}
+              aria-label={themeToggle.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            >
+              <svg
+                key={themeToggle.theme}
+                className="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                {themeToggle.theme === "dark" ? (
+                  <path
+                    d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6l1.4 1.4m10 10l1.4 1.4M5.6 18.4L7 17m10-10l1.4-1.4M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <path
+                    d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                  />
+                )}
+              </svg>
+            </button>
+          ) : null}
 
           <div className="hidden items-center gap-3 lg:flex">
             {isAuthenticated ? (

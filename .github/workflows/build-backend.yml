@@ -39,21 +39,16 @@ jobs:
     - uses: actions/checkout@v6
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
+    - name: Resolve build identity
+      id: identity
+      run: echo "version=$(cat backend/version.txt)+$(git rev-parse HEAD^{tree})" >> "$GITHUB_OUTPUT"
     - name: Build Docker image (api)
       uses: docker/build-push-action@v7
       with:
         context: ./backend
         file: ./backend/Dockerfile
         build-args: |
-          BUILD_VERSION=${{ github.sha }}
+          BUILD_VERSION=${{ steps.identity.outputs.version }}
         push: false
         cache-from: type=gha,scope=backend-api
         cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=backend-api' || '' }}
-    - name: Build Docker image (migrate)
-      uses: docker/build-push-action@v7
-      with:
-        context: ./backend
-        file: ./backend/Dockerfile.Migrate
-        push: false
-        cache-from: type=gha,scope=backend-migrate
-        cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=backend-migrate' || '' }}

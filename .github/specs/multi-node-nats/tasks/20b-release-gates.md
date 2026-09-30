@@ -26,6 +26,7 @@ Add `proto/release/v1/candidate.proto`, package `flightstrips.release.v1`, with 
 - `schema_revision` is exactly 1 and `protocol_revision` exactly 2. Git hashes are full lowercase Git SHA-1 values; OCI digests are `sha256:<64 lowercase hex>`; file hashes are 64 lowercase hex. Reject missing, malformed, unknown or inconsistent metadata. Versions come from the exact tested tree's existing component version files. Repository is the canonical `owner/name`; IDs/attempt are positive. Timestamp is valid UTC.
 - Artifact paths are canonical relative paths with no traversal, duplicates or absolute paths, sorted lexically. Record the actual plugin release bundle, including `FlightStripsPlugin.dll`, `CoreDLL` and applicable configuration files. Hash and size every file; verify downloaded artifact origin repository/run/head/tree and all hashes. The manifest artifact is associated with that same workflow run, avoiding a circular manifest self-hash. Workflow lookup must prove origin; user-supplied manifest contents alone never establish trust.
 - Store `candidate-manifest.pb` alongside the bundle in the candidate workflow artifacts, with 90-day retention. Keep optional textproto separate and never use it as the authoritative input.
+- Record the exact candidate workflow run and attempt in Tasks 21–23's qualification record. Promotion and manual cutover must select those recorded values explicitly, never the newest successful run. Task 24 binds `QUALIFIED_CANDIDATE_RUN_ID` and `QUALIFIED_CANDIDATE_RUN_ATTEMPT`; missing binding blocks writes. A rebuild of the same head is a new candidate and requires affected qualification gates.
 - Embedded backend `BUILD_VERSION`/`main.buildVersion` and frontend build identity contain component version plus tested Git tree. Preserve a development fallback. Task 20a consumes the existing backend entrypoint; this task owns Dockerfile/build argument and frontend identity wiring.
 
 ## Promotion and cutover contract
@@ -49,3 +50,5 @@ Own release/build/publication workflows (including `discord-release.yml`), Relea
 - Open and attach a draft PR into `codex/multi-node-nats-base` with tests, sample textproto and dry-run evidence. Do not merge, publish, notify or deploy.
 
 **Starting points:** `.github/workflows/release-please.yml`, `.github/workflows/discord-release.yml`, `.release-please-config.json`, backend/frontend Dockerfiles and frontend Vite version definition.
+
+Implementation handoff and local acceptance evidence: [release-gates-evidence.md](../release-gates-evidence.md).

@@ -5,6 +5,13 @@ based on `86e27645`. Integration merge remains pending. Startup stays dormant
 until Task 20; release remains held until Task 24. Task 19a, ALB and Redis are
 outside this change.
 
+The branch also includes integration base `c49b1940` (Task 19a, PR #819).
+Its `Strip.ground_state` and `engine_type` field numbers 71 and 72 are
+preserved; the unreleased AMAN strip additions use 73–77. Bindings were
+regenerated, and descriptor compatibility was checked against that entire
+integration base as well as the frozen release baseline. Both AMAN and
+VATSIM lifecycle two-replica NATS suites pass on the combined branch.
+
 ## Concrete assembly
 
 - [Constructor and evaluators](../../../../backend/internal/amancandidate/worker.go):

@@ -2,7 +2,7 @@ package services
 
 import (
 	"FlightStrips/internal/models"
-	"FlightStrips/internal/repository"
+
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/vatsim"
 	"context"
@@ -40,9 +40,9 @@ const (
 // deadline from persisted timestamps, so a backend restart needs no in-memory
 // state to resume sweeps.
 type DepartureLifecycleService struct {
-	allocations    *StandAllocationService
-	assignments    repository.StandAssignmentRepository
-	strips         repository.StripRepository
+	allocations    lifecycleAllocator
+	assignments    lifecycleAssignments
+	strips         lifecycleStrips
 	sessions       lifecycleSessionLister
 	stands         *sat.StandCapabilityRegistry
 	aircraft       *sat.AircraftRegistry
@@ -58,6 +58,17 @@ type DepartureLifecycleService struct {
 	standPublisher observedStandPublisher
 	warningMu      sync.Mutex
 	warnings       map[string]string
+	episodes       warningEpisodes
+}
+
+type warningEpisodes interface {
+	WarningStand(string) string
+	SetWarningStand(string, string)
+}
+
+// SetWarningEpisodes supplies durable episode state to an isolated planner.
+func (s *DepartureLifecycleService) SetWarningEpisodes(episodes warningEpisodes) {
+	s.episodes = episodes
 }
 
 type wrongStandMessenger interface {
@@ -134,9 +145,9 @@ func WithDeparturePrefileAssignments(enabled bool) DepartureLifecycleOption {
 }
 
 func NewDepartureLifecycleService(
-	allocations *StandAllocationService,
-	assignments repository.StandAssignmentRepository,
-	strips repository.StripRepository,
+	allocations lifecycleAllocator,
+	assignments lifecycleAssignments,
+	strips lifecycleStrips,
 	sessions lifecycleSessionLister,
 	stands *sat.StandCapabilityRegistry,
 	aircraft *sat.AircraftRegistry,
@@ -407,6 +418,16 @@ func (s *DepartureLifecycleService) deliverUnassignedOccupiedStandWarning(sessio
 		return
 	}
 	key := fmt.Sprintf("%d:%s", session, strings.ToUpper(strings.TrimSpace(callsign)))
+	if s.episodes != nil {
+		if strings.EqualFold(s.episodes.WarningStand(key), observedStand) {
+			return
+		}
+		if s.messenger.SendPrivateMessageFromDelivery(session, callsign,
+			fmt.Sprintf("STAND ASSIGNMENT: STAND %s IS OCCUPIED. PLEASE RELOCATE", observedStand)) {
+			s.episodes.SetWarningStand(key, observedStand)
+		}
+		return
+	}
 
 	s.warningMu.Lock()
 	defer s.warningMu.Unlock()
@@ -421,6 +442,10 @@ func (s *DepartureLifecycleService) deliverUnassignedOccupiedStandWarning(sessio
 
 func (s *DepartureLifecycleService) clearUnassignedStandWarning(session int32, callsign string) {
 	key := fmt.Sprintf("%d:%s", session, strings.ToUpper(strings.TrimSpace(callsign)))
+	if s.episodes != nil {
+		s.episodes.SetWarningStand(key, "")
+		return
+	}
 	s.warningMu.Lock()
 	delete(s.warnings, key)
 	s.warningMu.Unlock()
@@ -497,7 +522,8 @@ func (s *DepartureLifecycleService) ensureReservation(ctx context.Context, sessi
 	if existing.Stage != StageReserved {
 		return nil
 	}
-	if existing.VatsimRevision != nil && *existing.VatsimRevision == flight.Revision {
+	cid, _ := resolvedVatsimIdentity(strip, flight.CID, flight.Revision)
+	if existing.VatsimRevision != nil && *existing.VatsimRevision == flight.Revision && existing.VatsimCID != nil && cid != nil && *existing.VatsimCID == *cid {
 		return nil
 	}
 	expiry := now.Add(s.hold)
@@ -1024,5 +1050,5 @@ func parseDepartureClockUTC(value string, now time.Time) (time.Time, bool) {
 // lifecycle treats a missing assignment as "no reservation yet" rather than a
 // hard failure.
 func isNotFound(err error) bool {
-	return errors.Is(err, pgx.ErrNoRows)
+	return errors.Is(err, pgx.ErrNoRows) || errors.Is(err, errLifecycleNotFound)
 }

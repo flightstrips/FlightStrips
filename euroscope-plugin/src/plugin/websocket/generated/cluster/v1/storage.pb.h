@@ -41288,9 +41288,11 @@ class Strip final : public ::google::protobuf::Message
     kPhaseFieldNumber = 57,
     kTobtSetByFieldNumber = 61,
     kVatsimCidFieldNumber = 63,
-    kHoldFieldNumber = 71,
-    kHoldTypeFieldNumber = 72,
-    kHoldEatFieldNumber = 73,
+    kGroundStateFieldNumber = 71,
+    kEngineTypeFieldNumber = 72,
+    kHoldFieldNumber = 73,
+    kHoldTypeFieldNumber = 74,
+    kHoldEatFieldNumber = 75,
     kEobtFieldNumber = 32,
     kTobtFieldNumber = 33,
     kTsatFieldNumber = 34,
@@ -41304,8 +41306,8 @@ class Strip final : public ::google::protobuf::Message
     kEldtFieldNumber = 58,
     kAldtFieldNumber = 59,
     kVatsimSeenAtFieldNumber = 66,
-    kAmanWrittenHoldingEatFieldNumber = 74,
-    kEuroscopeObservedAtFieldNumber = 75,
+    kAmanWrittenHoldingEatFieldNumber = 76,
+    kEuroscopeObservedAtFieldNumber = 77,
     kIdFieldNumber = 1,
     kRevisionFieldNumber = 3,
     kRequestedAltitudeFieldNumber = 13,
@@ -41959,7 +41961,39 @@ class Strip final : public ::google::protobuf::Message
   std::string* _internal_mutable_vatsim_cid();
 
   public:
-  // string hold = 71;
+  // string ground_state = 71;
+  void clear_ground_state() ;
+  const std::string& ground_state() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_ground_state(Arg_&& arg, Args_... args);
+  std::string* mutable_ground_state();
+  PROTOBUF_NODISCARD std::string* release_ground_state();
+  void set_allocated_ground_state(std::string* value);
+
+  private:
+  const std::string& _internal_ground_state() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_ground_state(
+      const std::string& value);
+  std::string* _internal_mutable_ground_state();
+
+  public:
+  // string engine_type = 72;
+  void clear_engine_type() ;
+  const std::string& engine_type() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_engine_type(Arg_&& arg, Args_... args);
+  std::string* mutable_engine_type();
+  PROTOBUF_NODISCARD std::string* release_engine_type();
+  void set_allocated_engine_type(std::string* value);
+
+  private:
+  const std::string& _internal_engine_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_engine_type(
+      const std::string& value);
+  std::string* _internal_mutable_engine_type();
+
+  public:
+  // string hold = 73;
   void clear_hold() ;
   const std::string& hold() const;
   template <typename Arg_ = const std::string&, typename... Args_>
@@ -41975,7 +42009,7 @@ class Strip final : public ::google::protobuf::Message
   std::string* _internal_mutable_hold();
 
   public:
-  // string hold_type = 72;
+  // string hold_type = 74;
   void clear_hold_type() ;
   const std::string& hold_type() const;
   template <typename Arg_ = const std::string&, typename... Args_>
@@ -41991,7 +42025,7 @@ class Strip final : public ::google::protobuf::Message
   std::string* _internal_mutable_hold_type();
 
   public:
-  // string hold_eat = 73;
+  // string hold_eat = 75;
   void clear_hold_eat() ;
   const std::string& hold_eat() const;
   template <typename Arg_ = const std::string&, typename... Args_>
@@ -42202,7 +42236,7 @@ class Strip final : public ::google::protobuf::Message
   ::google::protobuf::Timestamp* _internal_mutable_vatsim_seen_at();
 
   public:
-  // optional .flightstrips.cluster.v1.AmanHoldingClearance aman_written_holding_eat = 74;
+  // optional .flightstrips.cluster.v1.AmanHoldingClearance aman_written_holding_eat = 76;
   bool has_aman_written_holding_eat() const;
   void clear_aman_written_holding_eat() ;
   const ::flightstrips::cluster::v1::AmanHoldingClearance& aman_written_holding_eat() const;
@@ -42217,7 +42251,7 @@ class Strip final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::AmanHoldingClearance* _internal_mutable_aman_written_holding_eat();
 
   public:
-  // optional .google.protobuf.Timestamp euroscope_observed_at = 75;
+  // optional .google.protobuf.Timestamp euroscope_observed_at = 77;
   bool has_euroscope_observed_at() const;
   void clear_euroscope_observed_at() ;
   const ::google::protobuf::Timestamp& euroscope_observed_at() const;
@@ -42455,8 +42489,8 @@ class Strip final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 75, 15,
-      556, 11>
+      5, 77, 15,
+      579, 11>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -42509,6 +42543,8 @@ class Strip final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr phase_;
     ::google::protobuf::internal::ArenaStringPtr tobt_set_by_;
     ::google::protobuf::internal::ArenaStringPtr vatsim_cid_;
+    ::google::protobuf::internal::ArenaStringPtr ground_state_;
+    ::google::protobuf::internal::ArenaStringPtr engine_type_;
     ::google::protobuf::internal::ArenaStringPtr hold_;
     ::google::protobuf::internal::ArenaStringPtr hold_type_;
     ::google::protobuf::internal::ArenaStringPtr hold_eat_;
@@ -62389,7 +62425,107 @@ inline void Strip::_internal_set_vatsim_longitude(double value) {
   _impl_.vatsim_longitude_ = value;
 }
 
-// string hold = 71;
+// string ground_state = 71;
+inline void Strip::clear_ground_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_state_.ClearToEmpty();
+}
+inline const std::string& Strip::ground_state() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Strip.ground_state)
+  return _internal_ground_state();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Strip::set_ground_state(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_state_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Strip.ground_state)
+}
+inline std::string* Strip::mutable_ground_state() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_ground_state();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Strip.ground_state)
+  return _s;
+}
+inline const std::string& Strip::_internal_ground_state() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.ground_state_.Get();
+}
+inline void Strip::_internal_set_ground_state(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_state_.Set(value, GetArena());
+}
+inline std::string* Strip::_internal_mutable_ground_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.ground_state_.Mutable( GetArena());
+}
+inline std::string* Strip::release_ground_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Strip.ground_state)
+  return _impl_.ground_state_.Release();
+}
+inline void Strip::set_allocated_ground_state(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_state_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.ground_state_.IsDefault()) {
+          _impl_.ground_state_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Strip.ground_state)
+}
+
+// string engine_type = 72;
+inline void Strip::clear_engine_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.engine_type_.ClearToEmpty();
+}
+inline const std::string& Strip::engine_type() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Strip.engine_type)
+  return _internal_engine_type();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Strip::set_engine_type(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.engine_type_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Strip.engine_type)
+}
+inline std::string* Strip::mutable_engine_type() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_engine_type();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Strip.engine_type)
+  return _s;
+}
+inline const std::string& Strip::_internal_engine_type() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.engine_type_.Get();
+}
+inline void Strip::_internal_set_engine_type(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.engine_type_.Set(value, GetArena());
+}
+inline std::string* Strip::_internal_mutable_engine_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.engine_type_.Mutable( GetArena());
+}
+inline std::string* Strip::release_engine_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Strip.engine_type)
+  return _impl_.engine_type_.Release();
+}
+inline void Strip::set_allocated_engine_type(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.engine_type_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.engine_type_.IsDefault()) {
+          _impl_.engine_type_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Strip.engine_type)
+}
+
+// string hold = 73;
 inline void Strip::clear_hold() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.hold_.ClearToEmpty();
@@ -62439,7 +62575,7 @@ inline void Strip::set_allocated_hold(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Strip.hold)
 }
 
-// string hold_type = 72;
+// string hold_type = 74;
 inline void Strip::clear_hold_type() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.hold_type_.ClearToEmpty();
@@ -62489,7 +62625,7 @@ inline void Strip::set_allocated_hold_type(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Strip.hold_type)
 }
 
-// string hold_eat = 73;
+// string hold_eat = 75;
 inline void Strip::clear_hold_eat() {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.hold_eat_.ClearToEmpty();
@@ -62539,7 +62675,7 @@ inline void Strip::set_allocated_hold_eat(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Strip.hold_eat)
 }
 
-// optional .flightstrips.cluster.v1.AmanHoldingClearance aman_written_holding_eat = 74;
+// optional .flightstrips.cluster.v1.AmanHoldingClearance aman_written_holding_eat = 76;
 inline bool Strip::has_aman_written_holding_eat() const {
   bool value = (_impl_._has_bits_[0] & 0x00100000u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.aman_written_holding_eat_ != nullptr);
@@ -62635,7 +62771,7 @@ inline void Strip::set_allocated_aman_written_holding_eat(::flightstrips::cluste
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Strip.aman_written_holding_eat)
 }
 
-// optional .google.protobuf.Timestamp euroscope_observed_at = 75;
+// optional .google.protobuf.Timestamp euroscope_observed_at = 77;
 inline bool Strip::has_euroscope_observed_at() const {
   bool value = (_impl_._has_bits_[0] & 0x00200000u) != 0;
   PROTOBUF_ASSUME(!value || _impl_.euroscope_observed_at_ != nullptr);

@@ -65,6 +65,8 @@ func EffectRenderer(secrets cluster.EffectSecrets) func(int32, *pb.EffectRecord)
 				frame.Event = &euroscope.Envelope_Eobt{Eobt: &euroscope.EobtEvent{Callsign: fpl.Callsign, Eobt: fpl.Value}}
 			case "AIRCRAFT_TYPE":
 				frame.Event = &euroscope.Envelope_AircraftInfo{AircraftInfo: &euroscope.AircraftInfoEvent{Callsign: fpl.Callsign, AircraftType: fpl.Value}}
+			case "STAND":
+				frame.Event = &euroscope.Envelope_Stand{Stand: &euroscope.StandEvent{Callsign: fpl.Callsign, Stand: fpl.Value}}
 			default:
 				return nil, fmt.Errorf("unsupported flight plan effect")
 			}

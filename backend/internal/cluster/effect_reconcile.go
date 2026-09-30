@@ -48,6 +48,8 @@ func ReconciledUnknownEffects(state *Aggregate, sync *euroscope.SyncEvent) []str
 			observed = strip.Eobt
 		case "AIRCRAFT_TYPE":
 			observed = strip.AircraftType
+		case "STAND":
+			observed = strip.Stand
 		default:
 			continue
 		}

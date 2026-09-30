@@ -2942,12 +2942,14 @@ type Strip struct {
 	VatsimOnline             bool                   `protobuf:"varint,68,opt,name=vatsim_online,json=vatsimOnline,proto3" json:"vatsim_online,omitempty"`
 	VatsimLatitude           *float64               `protobuf:"fixed64,69,opt,name=vatsim_latitude,json=vatsimLatitude,proto3,oneof" json:"vatsim_latitude,omitempty"`
 	VatsimLongitude          *float64               `protobuf:"fixed64,70,opt,name=vatsim_longitude,json=vatsimLongitude,proto3,oneof" json:"vatsim_longitude,omitempty"`
-	Hold                     string                 `protobuf:"bytes,71,opt,name=hold,proto3" json:"hold,omitempty"`
-	HoldType                 string                 `protobuf:"bytes,72,opt,name=hold_type,json=holdType,proto3" json:"hold_type,omitempty"`
-	HoldEat                  string                 `protobuf:"bytes,73,opt,name=hold_eat,json=holdEat,proto3" json:"hold_eat,omitempty"`
+	GroundState              string                 `protobuf:"bytes,71,opt,name=ground_state,json=groundState,proto3" json:"ground_state,omitempty"`
+	EngineType               string                 `protobuf:"bytes,72,opt,name=engine_type,json=engineType,proto3" json:"engine_type,omitempty"`
+	Hold                     string                 `protobuf:"bytes,73,opt,name=hold,proto3" json:"hold,omitempty"`
+	HoldType                 string                 `protobuf:"bytes,74,opt,name=hold_type,json=holdType,proto3" json:"hold_type,omitempty"`
+	HoldEat                  string                 `protobuf:"bytes,75,opt,name=hold_eat,json=holdEat,proto3" json:"hold_eat,omitempty"`
 	// Last AMAN-owned EAT enables durable withdrawal after airport takeover.
-	AmanWrittenHoldingEat *AmanHoldingClearance  `protobuf:"bytes,74,opt,name=aman_written_holding_eat,json=amanWrittenHoldingEat,proto3,oneof" json:"aman_written_holding_eat,omitempty"`
-	EuroscopeObservedAt   *timestamppb.Timestamp `protobuf:"bytes,75,opt,name=euroscope_observed_at,json=euroscopeObservedAt,proto3,oneof" json:"euroscope_observed_at,omitempty"`
+	AmanWrittenHoldingEat *AmanHoldingClearance  `protobuf:"bytes,76,opt,name=aman_written_holding_eat,json=amanWrittenHoldingEat,proto3,oneof" json:"aman_written_holding_eat,omitempty"`
+	EuroscopeObservedAt   *timestamppb.Timestamp `protobuf:"bytes,77,opt,name=euroscope_observed_at,json=euroscopeObservedAt,proto3,oneof" json:"euroscope_observed_at,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -3470,6 +3472,20 @@ func (x *Strip) GetVatsimLongitude() float64 {
 		return *x.VatsimLongitude
 	}
 	return 0
+}
+
+func (x *Strip) GetGroundState() string {
+	if x != nil {
+		return x.GroundState
+	}
+	return ""
+}
+
+func (x *Strip) GetEngineType() string {
+	if x != nil {
+		return x.EngineType
+	}
+	return ""
 }
 
 func (x *Strip) GetHold() string {
@@ -18044,7 +18060,7 @@ const file_storage_proto_rawDesc = "" +
 	"\bposition\x18\x03 \x01(\tR\bposition\x12\x1e\n" +
 	"\n" +
 	"identifier\x18\x04 \x01(\tR\n" +
-	"identifier\"\xf7\x1b\n" +
+	"identifier\"\xbb\x1c\n" +
 	"\x05Strip\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12\x1a\n" +
@@ -18122,12 +18138,15 @@ const file_storage_proto_rawDesc = "" +
 	"vatsimOnly\x12#\n" +
 	"\rvatsim_online\x18D \x01(\bR\fvatsimOnline\x12,\n" +
 	"\x0fvatsim_latitude\x18E \x01(\x01H\x19R\x0evatsimLatitude\x88\x01\x01\x12.\n" +
-	"\x10vatsim_longitude\x18F \x01(\x01H\x1aR\x0fvatsimLongitude\x88\x01\x01\x12\x12\n" +
-	"\x04hold\x18G \x01(\tR\x04hold\x12\x1b\n" +
-	"\thold_type\x18H \x01(\tR\bholdType\x12\x19\n" +
-	"\bhold_eat\x18I \x01(\tR\aholdEat\x12k\n" +
-	"\x18aman_written_holding_eat\x18J \x01(\v2-.flightstrips.cluster.v1.AmanHoldingClearanceH\x1bR\x15amanWrittenHoldingEat\x88\x01\x01\x12S\n" +
-	"\x15euroscope_observed_at\x18K \x01(\v2\x1a.google.protobuf.TimestampH\x1cR\x13euroscopeObservedAt\x88\x01\x01B\x15\n" +
+	"\x10vatsim_longitude\x18F \x01(\x01H\x1aR\x0fvatsimLongitude\x88\x01\x01\x12!\n" +
+	"\fground_state\x18G \x01(\tR\vgroundState\x12\x1f\n" +
+	"\vengine_type\x18H \x01(\tR\n" +
+	"engineType\x12\x12\n" +
+	"\x04hold\x18I \x01(\tR\x04hold\x12\x1b\n" +
+	"\thold_type\x18J \x01(\tR\bholdType\x12\x19\n" +
+	"\bhold_eat\x18K \x01(\tR\aholdEat\x12k\n" +
+	"\x18aman_written_holding_eat\x18L \x01(\v2-.flightstrips.cluster.v1.AmanHoldingClearanceH\x1bR\x15amanWrittenHoldingEat\x88\x01\x01\x12S\n" +
+	"\x15euroscope_observed_at\x18M \x01(\v2\x1a.google.protobuf.TimestampH\x1cR\x13euroscopeObservedAt\x88\x01\x01B\x15\n" +
 	"\x13_requested_altitudeB\x13\n" +
 	"\x11_cleared_altitudeB\n" +
 	"\n" +

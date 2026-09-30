@@ -18,9 +18,9 @@ startup stays dormant in the meantime.
 - [x] Real two-replica NATS ECFMP global fetch test covering nonowner dispatch, committed result, pre-call intent, post-call owner death, and uncertain takeover (this completion branch).
 - [x] Real two-replica NATS ECFMP session application, nonowner rejection, replay, and owner-failure test (this completion branch).
 - [x] Global-owned VATSIM fetch with a typed source checkpoint and two-replica NATS owner-failure test (this completion branch).
-- [ ] VATSIM airport/session reconciliation adapters and their two-replica failure tests.
+- [x] VATSIM airport/session reconciliation adapters and their two-replica failure tests (Task 19a candidate; merge to the integration base still required).
   - [x] Session-owned typed strip generation replay and airport-owned present/missing AMAN observations; two-replica NATS takeover and replay tests.
-  - [ ] Port departure/arrival stand lifecycle transitions and cancellation, including their owner-failure tests.
+  - [x] Port departure/arrival stand lifecycle transitions and cancellation, including their owner-failure tests: `services.NewVatsimLifecycleCandidate` supplies both `SessionWork` callbacks; `TestVatsimLifecycleTwoReplica*` exercises real policy and Task 17 effects without SQL or injected decisions.
 - [ ] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests.
   - [x] Consume typed VATSIM global checkpoints on the airport owner; stable observation and reconciliation command IDs; two-replica observation replay and superseded intent test.
   - [x] Test a destination session write committed before airport-owner death; takeover records completion without a duplicate strip write, and a later revision supersedes a separate intent.

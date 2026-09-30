@@ -676,7 +676,9 @@ func validateStandState(ref *pb.AggregateRef, entities map[string]*pb.EntitySnap
 	for _, e := range entities {
 		if v := e.GetValue().GetStandAssignment(); v != nil {
 			validSource := v.Source == "AUTOMATIC" || v.Source == "MANUAL" || v.Source == "MANUAL_OVERRIDE" || v.Source == "PHYSICAL"
-			if v.Callsign != e.Key || v.Callsign != standToken(v.Callsign) || v.Stand == "" || v.Stand != standToken(v.Stand) || v.Revision != e.Revision || !validStandStage(v.Direction, v.Stage) || !validSource || v.Actor == "" || v.Manual != (v.Source != "AUTOMATIC") || (v.ConflictReason != nil && v.Source != "MANUAL_OVERRIDE" && v.Source != "PHYSICAL") || v.AssignedAt == nil || v.CreatedAt == nil || v.UpdatedAt == nil || (v.Acknowledged && (v.AcknowledgedAt == nil || v.AcknowledgedBy == nil)) || (!v.Acknowledged && (v.AcknowledgedAt != nil || v.AcknowledgedBy != nil)) || (v.VatsimRevision != nil && v.VatsimCid == nil) {
+			managedConflict := v.ConflictReason != nil && (strings.HasPrefix(*v.ConflictReason, "WRONG_STAND_PENDING: observed ") || strings.HasPrefix(*v.ConflictReason, "WRONG_STAND_AWAITING_MESSAGE: observed ") || strings.HasPrefix(*v.ConflictReason, "observed departure conflicts with confirmed arrival:") || strings.HasPrefix(*v.ConflictReason, "observed parked arrival: ") || *v.ConflictReason == "physically displaced; no compatible replacement stand available" || *v.ConflictReason == "displaced arrival relocation cycle; controller action required")
+			advisory := v.Stand == "" && v.Direction == "ARRIVAL" && managedConflict
+			if v.Callsign != e.Key || v.Callsign != standToken(v.Callsign) || v.Stand == "" && !advisory || v.Stand != standToken(v.Stand) || v.Revision != e.Revision || !validStandStage(v.Direction, v.Stage) || !validSource || v.Actor == "" || v.Manual != (v.Source != "AUTOMATIC") || (v.ConflictReason != nil && v.Source != "MANUAL_OVERRIDE" && v.Source != "PHYSICAL" && !managedConflict) || v.AssignedAt == nil || v.CreatedAt == nil || v.UpdatedAt == nil || (v.Acknowledged && (v.AcknowledgedAt == nil || v.AcknowledgedBy == nil)) || (!v.Acknowledged && (v.AcknowledgedAt != nil || v.AcknowledgedBy != nil)) || (v.VatsimRevision != nil && v.VatsimCid == nil) {
 				return fmt.Errorf("invalid stand assignment")
 			}
 			if err := validBlockedStands(v.Stand, v.BlockedStands); err != nil {
@@ -695,7 +697,13 @@ func validateStandState(ref *pb.AggregateRef, entities map[string]*pb.EntitySnap
 		}
 	}
 	for i, left := range assignments {
+		if left.Stand == "" {
+			continue
+		}
 		for _, right := range assignments[i+1:] {
+			if right.Stand == "" {
+				continue
+			}
 			if !standTouches(left.Stand, left.BlockedStands, right.Stand, right.BlockedStands) {
 				continue
 			}

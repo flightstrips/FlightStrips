@@ -15,10 +15,10 @@ wiring; starting both paths would duplicate provider calls and mutations.
 | `configStore.Start` | airport owner | CDM configuration provider refresh |
 | `pdcService.Start` | session owner | PDC deadlines and Hoppie outcomes |
 | `vatsimGraph.cache.StartForLiveSessions` | global owner for provider fetch; airport/session owner for derived commands | VATSIM HTTP fetch |
-| `vatsimReconciler.Start` | session owner | stand, strip and arrival reconciliation |
+| `vatsimReconciler.Start` | session owner: `services.NewVatsimLifecycleCandidate` concrete Departure/Arrival callbacks | typed generation, stand, strip and arrival reconciliation; no provider fetch |
 | `amanObservationWorker.Run` | airport owner | `amancandidate.New` consumes accepted VATSIM and shared EuroScope facts; [Task 19b evidence](19b-aman-policy-evidence.md) |
-| `departureLifecycle.StartSweep` | session owner | departure stand transitions |
-| `arrivalLifecycle.StartSweep` | session owner | arrival stand transitions |
+| `departureLifecycle.StartSweep` | session owner: candidate Departure callback | persisted reservations, physical blocks, wrong-stand episodes and retention |
+| `arrivalLifecycle.StartSweep` | session owner: candidate Arrival callback | persisted arrival retention, cancellations, stand-block expiry and unsafe reservation reconciliation |
 | `transceiverCache.Start` | global owner for provider fetch | VATSIM transceiver fetch, local frequency projection |
 | `ecfmpService.Start` | global owner for fetch; session owner for application | ECFMP HTTP fetch and per-flight restrictions |
 | `albHub.Run` | outside this project | ALB remains unchanged |
@@ -65,8 +65,11 @@ rebuildable inputs; no SQL repository is required by this constructor.
 call, uses a stable result command ID, and resolves takeover from the
 destination command ledger. Candidate VATSIM, ECFMP, AIRAC, METAR/AFV,
 Open-Meteo, CDM configuration and vIFF read/write adapters use that boundary.
-The production `app.Build` path still starts the legacy workers. Task 19b's
-operational AMAN behavior is implemented on its completion branch; integration
-merge is pending and Task 19a remains a separate prerequisite. Task 20 binds
-candidate startup after both branches are integrated and must not start both paths for one
+The production `app.Build` path still starts the legacy workers. Task 19a supplies
+the concrete SQL-independent VATSIM lifecycle callbacks, with two-replica fault,
+replay, deadline, shared-observation and durable-effect evidence in
+`services/vatsim_lifecycle_*integration_test.go`. Task 19b's operational AMAN
+behavior is implemented on its completion branch; its integration merge is
+pending. Task 20 binds candidate startup after both changes are integrated.
+Task 20 must not start both worker paths for one
 provider or aggregate.

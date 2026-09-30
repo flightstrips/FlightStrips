@@ -153,6 +153,73 @@ func validAircraftPosition(v *pb.AircraftPosition) bool {
 func (w *PositionWriter) Depth() int                      { return w.dispatcher.Depth() }
 func (w *PositionWriter) Close(ctx context.Context) error { return w.dispatcher.Close(ctx) }
 
+// ExecuteLifecycle drains all admitted reports and fences every tagged current
+// observation used for occupancy, including neighbours and disconnects.
+func (w *PositionWriter) ExecuteLifecycle(ctx context.Context, observations []KVPosition, run func() (*pb.CommandReply, error)) (*pb.CommandReply, error) {
+	if w == nil || w.dispatcher == nil || run == nil {
+		return nil, fmt.Errorf("lifecycle position barrier unavailable")
+	}
+	var reply *pb.CommandReply
+	var failure error
+	err := w.dispatcher.RunBarrier(ctx, func() {
+		if failure = w.Authority(ctx, w.SessionID, w.OwnerEpoch, w.Connection); failure != nil {
+			return
+		}
+		for _, o := range observations {
+			if o.Stale {
+				continue
+			}
+			if o.Value.SessionId != w.SessionID || o.Value.OwnerEpoch != w.OwnerEpoch || o.Value.SourceConnectionId != w.Connection {
+				failure = fmt.Errorf("lifecycle observation belongs to another owner/master")
+				return
+			}
+			entry, err := w.KV.Get(positionKey(w.SessionID, o.Value.AircraftKey, w.OwnerEpoch))
+			if err != nil || entry.Revision() != o.Revision {
+				failure = fmt.Errorf("lifecycle position changed before commit")
+				return
+			}
+		}
+		// A drained report may introduce an aircraft absent from the worker's
+		// snapshot. Watcher delivery can lag KV writes, so compare the complete
+		// current owner/master set directly while reports remain paused.
+		keys, keyErr := w.KV.Keys(nats.Context(ctx))
+		if keyErr != nil && !errors.Is(keyErr, nats.ErrNoKeysFound) {
+			failure = keyErr
+			return
+		}
+		expected := map[string]uint64{}
+		for _, o := range observations {
+			if !o.Stale {
+				expected[o.Value.AircraftKey] = o.Revision
+			}
+		}
+		for _, key := range keys {
+			if !strings.HasPrefix(key, fmt.Sprintf("%d.", w.SessionID)) || !strings.HasSuffix(key, fmt.Sprintf(".%d", w.OwnerEpoch)) {
+				continue
+			}
+			entry, err := w.KV.Get(key)
+			if err != nil {
+				failure = err
+				return
+			}
+			value := &pb.PositionValue{}
+			if err = pb.UnmarshalStrict(entry.Value(), value); err != nil {
+				failure = err
+				return
+			}
+			if value.SourceConnectionId == w.Connection && expected[value.AircraftKey] != entry.Revision() {
+				failure = fmt.Errorf("lifecycle position set changed before commit")
+				return
+			}
+		}
+		reply, failure = run()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return reply, failure
+}
+
 // ExecuteDerived drains accepted position work and pauses later reports while
 // the owner rechecks the source KV revision and commits a derived domain
 // command. The command must target this writer's session and be submitted by

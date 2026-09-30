@@ -1,6 +1,5 @@
 import { Link } from "react-router";
-import { PublicNavigation } from "@/components/public/PublicNavigation";
-import { PublicFooter } from "@/components/public/PublicFooter";
+import { SiteFooter, SiteHeader } from "@/components/public/SiteChrome";
 import { ScrollProgress } from "@/components/public/ScrollProgress";
 import { ScrollReveal } from "@/components/public/ScrollReveal";
 
@@ -8,7 +7,7 @@ export default function Privacy() {
   return (
     <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-cream flex flex-col">
       <ScrollProgress />
-      <PublicNavigation />
+      <SiteHeader />
 
       {/* Hero Section */}
       <section className="py-28 px-8 border-b border-navy/10 dark:border-cream/20">
@@ -157,7 +156,7 @@ export default function Privacy() {
         </div>
       </section>
 
-      <PublicFooter />
+      <SiteFooter />
     </div>
   );
 }

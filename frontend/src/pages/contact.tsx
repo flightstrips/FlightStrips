@@ -1,8 +1,7 @@
-import { PublicNavigation } from "@/components/public/PublicNavigation";
-import { PublicFooter } from "@/components/public/PublicFooter";
+import { SiteFooter, SiteHeader } from "@/components/public/SiteChrome";
 import { CornerDots } from "@/components/public/CornerDots";
 import { cn } from "@/lib/utils";
-import { PUBLIC_NAV_INDUSTRY_CLASS, PUBLIC_PAGE_SHELL_CLASS, PUBLIC_SECTION_BORDER } from "@/lib/public-page-style";
+import { PUBLIC_PAGE_SHELL_CLASS, PUBLIC_SECTION_BORDER } from "@/lib/public-page-style";
 
 const CONTACT_EMAIL = "info@flightstrips.dk";
 
@@ -11,9 +10,9 @@ const CONTRIBUTORS = ["Lukas Agerskov", "Frederik Rosenberg", "Simon Bjerre"] as
 export default function Contact() {
   return (
     <div className={PUBLIC_PAGE_SHELL_CLASS}>
-      <PublicNavigation linkTone="industrial" className={PUBLIC_NAV_INDUSTRY_CLASS} />
+      <SiteHeader />
 
-      <main className="flex-1 pt-[4.5rem]">
+      <main className="flex-1">
         <section className={cn("border-b", PUBLIC_SECTION_BORDER)}>
           <div className="mx-auto max-w-[1400px] px-6 py-14 sm:px-10 sm:py-20">
             <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.28em] text-neutral-500 dark:text-neutral-500">
@@ -90,7 +89,7 @@ export default function Contact() {
         </section>
       </main>
 
-      <PublicFooter tone="industrial" />
+      <SiteFooter />
     </div>
   );
 }

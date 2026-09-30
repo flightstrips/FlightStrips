@@ -1,8 +1,7 @@
 import { ArrowRight, CheckCircle2, Home, Monitor } from "lucide-react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { Link } from "react-router";
-import { PublicNavigation } from "@/components/public/PublicNavigation";
-import { PublicFooter } from "@/components/public/PublicFooter";
+import { SiteFooter, SiteHeader } from "@/components/public/SiteChrome";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -11,7 +10,7 @@ export default function PluginAuthComplete() {
 
   return (
     <div className="min-h-screen bg-cream dark:bg-background text-navy dark:text-foreground flex flex-col">
-      <PublicNavigation />
+      <SiteHeader />
 
       <main className="flex-1 px-6 sm:px-8 pt-28 pb-16 sm:pt-36 sm:pb-24">
         <div className="max-w-4xl mx-auto">
@@ -90,7 +89,7 @@ export default function PluginAuthComplete() {
         </div>
       </main>
 
-      <PublicFooter />
+      <SiteFooter />
     </div>
   );
 }

@@ -21,17 +21,22 @@
   --fsl-line: rgb(255 255 255 / 12.5%);
   --fsl-line-strong: rgb(255 255 255 / 22%);
   --fsl-brand-ink: var(--fsl-accent);
+  --fsl-grad-from: #a0dae4;
+  --fsl-grad-to: #1f9bb0;
+  --fsl-on-grad: #04100f;
 
   /* ── Metrics ───────────────────────────────────────────── */
-  --fsl-header-h: 68px;
+  --fsl-header-h: 60px;
+  --fsl-announce-h: 44px;
   --fsl-content-max: 84rem;
   --fsl-gutter: 1rem;
 
   /* ── Motion ────────────────────────────────────────────── */
   --fsl-ease-out: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --fsl-ease-snap: cubic-bezier(0.22, 1, 0.36, 1);
 
   --fsl-font-display: "Barlow Semi Condensed", system-ui, sans-serif;
-  --fsl-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+  --fsl-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
 
   background-color: var(--fsl-canvas);
   color: var(--fsl-ink);
@@ -48,6 +53,9 @@
   --fsl-line: rgb(0 0 0 / 12.5%);
   --fsl-line-strong: rgb(0 0 0 / 20%);
   --fsl-brand-ink: var(--fsl-green);
+  --fsl-grad-from: #00879c;
+  --fsl-grad-to: #003d48;
+  --fsl-on-grad: #ffffff;
 
   background-color: var(--fsl-canvas);
   color: var(--fsl-ink);
@@ -62,13 +70,16 @@
   --fsl-line: rgb(255 255 255 / 12.5%);
   --fsl-line-strong: rgb(255 255 255 / 22%);
   --fsl-brand-ink: var(--fsl-accent);
+  --fsl-grad-from: #a0dae4;
+  --fsl-grad-to: #1f9bb0;
+  --fsl-on-grad: #04100f;
 
   background-color: var(--fsl-canvas);
   color: var(--fsl-ink);
 }
 
-@media (min-width: 769px)  { .fsl { --fsl-gutter: 2rem; --fsl-header-h: 72px; } }
-@media (min-width: 1025px) { .fsl { --fsl-gutter: 4rem; --fsl-header-h: 80px; } }
+@media (min-width: 769px)  { .fsl { --fsl-gutter: 2rem; } }
+@media (min-width: 1025px) { .fsl { --fsl-gutter: 4rem; } }
 @media (min-width: 1601px) { .fsl { --fsl-gutter: 8rem; } }
 @media (min-width: 1920px) { .fsl { --fsl-gutter: max(8rem, calc(50vw - 42rem)); } }
 
@@ -279,61 +290,395 @@
 [data-fsl-js="true"] .fsl-reveal {
   opacity: 0;
   transform: translateY(24px);
+  filter: blur(8px);
   transition:
     opacity 700ms var(--fsl-ease-out),
-    transform 700ms var(--fsl-ease-out);
+    transform 700ms var(--fsl-ease-out),
+    filter 700ms var(--fsl-ease-out);
 }
 
 [data-fsl-js="true"] .fsl-reveal[data-visible="true"] {
   opacity: 1;
   transform: none;
+  filter: none;
 }
 
-/* ── Dual-label action ───────────────────────────────────── */
-.fsl-swap {
-  --fsl-swap-speed: 450ms;
-  position: relative;
-  display: inline-grid;
-  overflow: hidden;
-  isolation: isolate;
-  border: 1px solid var(--fsl-line-strong);
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1;
-}
-
-.fsl-swap__face {
-  grid-area: 1 / 1;
-  display: flex;
+/* ── Actions ─────────────────────────────────────────────── */
+/* Small uppercase mono plates. The gradient's focal point is driven by
+   --glow-x / --glow-y, which `primitives.tsx` points at the cursor, so the
+   light appears to follow the pointer across the button. */
+.fsl-btn {
+  display: inline-flex;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.9rem 1.6rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 6px;
+  font-family: var(--fsl-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
-  transform-origin: left bottom;
-  transition: transform var(--fsl-swap-speed) var(--fsl-ease-out);
+  cursor: pointer;
+  transition:
+    box-shadow 180ms ease-out,
+    filter 180ms ease-out;
 }
 
-.fsl-swap__face--hover { transform: translateY(100%) rotate(3deg); }
+.fsl-btn--primary {
+  color: var(--fsl-on-grad);
+  background: radial-gradient(
+    112% 300% at var(--glow-x, 125%) var(--glow-y, 50%),
+    var(--fsl-grad-from) 0%,
+    var(--fsl-grad-to) 88%
+  );
+}
 
-.fsl-swap:hover .fsl-swap__face--rest,
-.fsl-swap:focus-visible .fsl-swap__face--rest { transform: translateY(-100%) rotate(-3deg); }
+.fsl-btn--primary:hover,
+.fsl-btn--primary:focus-visible {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--fsl-ink) 35%, transparent),
+    0 0 18px color-mix(in srgb, var(--fsl-grad-from) 45%, transparent),
+    0 0 42px color-mix(in srgb, var(--fsl-grad-to) 45%, transparent);
+  filter: brightness(1.04) saturate(1.05);
+}
 
-.fsl-swap:hover .fsl-swap__face--hover,
-.fsl-swap:focus-visible .fsl-swap__face--hover { transform: translateY(0) rotate(0); }
+/* Secondary: canvas fill, with the light living in the 1px border. */
+.fsl-btn--secondary {
+  color: var(--fsl-ink);
+  border: 1px solid transparent;
+  padding-block: calc(0.75rem - 1px);
+  background:
+    linear-gradient(var(--fsl-canvas), var(--fsl-canvas)) padding-box,
+    radial-gradient(
+      circle at var(--glow-x, 88%) var(--glow-y, 50%),
+      var(--fsl-grad-from) 0%,
+      color-mix(in srgb, var(--fsl-grad-to) 70%, transparent) 40%,
+      transparent 78%
+    ) border-box,
+    linear-gradient(var(--fsl-line-strong), var(--fsl-line-strong)) border-box;
+}
 
-/* Primary: accent plate that inverts to brand green on hover. */
-.fsl-swap--primary { border-color: transparent; }
-.fsl-swap--primary .fsl-swap__face--rest  { background: var(--fsl-accent); color: #04100f; }
-.fsl-swap--primary .fsl-swap__face--hover { background: var(--fsl-green); color: #ffffff; }
+.fsl-btn--secondary:hover,
+.fsl-btn--secondary:focus-visible {
+  box-shadow:
+    0 0 14px color-mix(in srgb, var(--fsl-grad-from) 28%, transparent),
+    0 0 32px color-mix(in srgb, var(--fsl-grad-to) 32%, transparent);
+  filter: brightness(1.04);
+}
 
-/* Secondary: hairline outline that fills with ink on hover. */
-.fsl-swap--secondary .fsl-swap__face--rest  { color: var(--fsl-ink); }
-.fsl-swap--secondary .fsl-swap__face--hover { background: var(--fsl-ink); color: var(--fsl-canvas); }
-
-.fsl-swap:focus-visible {
+.fsl-btn:focus-visible,
+.fsl-link:focus-visible,
+.fsl-nav-link:focus-visible {
   outline: 2px solid var(--fsl-brand-ink);
-  outline-offset: 2px;
+  outline-offset: 3px;
+}
+
+.fsl-nav-link:focus-visible { outline-offset: -6px; }
+
+/* ── Links ───────────────────────────────────────────────── */
+/* Hover sweeps a second copy of the label in from the left. Its leading edge
+   carries the brand gradient and the fill behind it settles to plain ink, with
+   a hairline underline drawn in the same direction. */
+.fsl-link {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--fsl-ink-muted);
+}
+
+.fsl-link--mono {
+  font-family: var(--fsl-font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fsl-link--ink { color: var(--fsl-ink); }
+
+.fsl-glow {
+  position: relative;
+  display: inline-grid;
+}
+
+.fsl-glow > span { grid-area: 1 / 1; }
+
+.fsl-glow__pass {
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--fsl-ink) 0%,
+    var(--fsl-ink) 50%,
+    var(--fsl-grad-from) 72%,
+    var(--fsl-grad-to) 100%
+  );
+  background-size: 220% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  clip-path: inset(0 100% 0 0);
+  transition:
+    clip-path 420ms var(--fsl-ease-snap),
+    background-position 620ms var(--fsl-ease-snap);
+}
+
+.fsl-glow::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--fsl-ink), var(--fsl-grad-from));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 420ms var(--fsl-ease-snap);
+}
+
+:is(a, button):is(:hover, :focus-visible) .fsl-glow__pass {
+  clip-path: inset(0 0 0 0);
+  background-position: 0 0;
+}
+
+:is(a, button):is(:hover, :focus-visible) .fsl-glow::after { transform: scaleX(1); }
+
+.fsl-link__arrow {
+  width: 12px;
+  height: 7px;
+  flex-shrink: 0;
+  color: var(--fsl-ink);
+  transition: transform 300ms var(--fsl-ease-snap);
+}
+
+.fsl-link:is(:hover, :focus-visible) .fsl-link__arrow { transform: translateX(4px); }
+
+/* ── Hover bar ───────────────────────────────────────────── */
+/* A gradient rule that draws along the bottom edge of a cell on hover. */
+.fsl-hoverbar { position: relative; }
+
+.fsl-hoverbar::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(to right, var(--fsl-grad-to), var(--fsl-grad-from));
+  transition: width 300ms ease-out;
+}
+
+.fsl-hoverbar:hover::after,
+.fsl-hoverbar:focus-within::after { width: 100%; }
+
+/* ── Header ──────────────────────────────────────────────── */
+.fsl-header { animation: fsl-header-in 600ms var(--fsl-ease-snap) both; }
+
+@keyframes fsl-header-in {
+  from { opacity: 0; transform: translateY(-12px); }
+}
+
+/* One blurred plate sits behind the bar and whatever hangs below it; its
+   height animates so the announcement and the bar read as a single surface. */
+.fsl-header__plate {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: -1;
+  height: var(--fsl-header-h);
+  border-bottom: 1px solid transparent;
+  background: color-mix(in srgb, var(--fsl-canvas) 70%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  pointer-events: none;
+  transition:
+    height 350ms var(--fsl-ease-snap),
+    border-color 300ms ease-out,
+    background-color 300ms ease-out;
+}
+
+.fsl-header[data-announce="true"] .fsl-header__plate {
+  height: calc(var(--fsl-header-h) + var(--fsl-announce-h));
+}
+
+.fsl-header[data-solid="true"] .fsl-header__plate {
+  border-bottom-color: var(--fsl-line);
+  background: color-mix(in srgb, var(--fsl-canvas) 88%, transparent);
+}
+
+.fsl-header[data-opaque="true"] .fsl-header__plate {
+  border-bottom-color: var(--fsl-line);
+  background: var(--fsl-canvas);
+}
+
+.fsl-nav-link {
+  display: inline-flex;
+  height: var(--fsl-header-h);
+  align-items: center;
+  gap: 0.25rem;
+  padding-inline: 0.5rem;
+  margin-inline: -0.5rem;
+  font-size: 15px;
+  color: var(--fsl-ink-muted);
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+.fsl-nav-link:hover,
+.fsl-nav-link:focus-visible,
+.fsl-nav-link[aria-expanded="true"] { color: var(--fsl-ink); }
+
+.fsl-nav-link__chevron { transition: transform 300ms var(--fsl-ease-snap); }
+.fsl-nav-link[aria-expanded="true"] .fsl-nav-link__chevron { transform: rotate(180deg); }
+
+/* The logo's three strips fan out on hover. */
+.fsl-logo rect { transition: transform 350ms var(--fsl-ease-snap); }
+a:hover > .fsl-logo rect:nth-child(1) { transform: translateX(2px); }
+a:hover > .fsl-logo rect:nth-child(2) { transform: translateX(-1px); }
+a:hover > .fsl-logo rect:nth-child(3) { transform: translateX(-3px); }
+
+.fsl-announce {
+  position: absolute;
+  inset: 100% 0 auto;
+  display: flex;
+  justify-content: center;
+  height: var(--fsl-announce-h);
+  overflow: hidden;
+  transition:
+    height 350ms var(--fsl-ease-snap),
+    opacity 250ms ease-out,
+    visibility 0s;
+}
+
+.fsl-announce[data-open="false"] {
+  height: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition-delay: 0s, 0s, 350ms;
+}
+
+.fsl-announce__rule {
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--fsl-grad-to) 30%,
+    var(--fsl-grad-from) 50%,
+    var(--fsl-grad-to) 70%,
+    transparent
+  );
+  opacity: 0.7;
+}
+
+/* Docs panel: drops out from under the bar, columns rising in turn. */
+.fsl-menu {
+  position: absolute;
+  inset: 100% 0 auto;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  border-bottom: 1px solid var(--fsl-line);
+  background: color-mix(in srgb, var(--fsl-canvas) 94%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition:
+    opacity 220ms ease-out,
+    transform 350ms var(--fsl-ease-snap),
+    visibility 0s 220ms;
+}
+
+.fsl-menu[data-open="true"] {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.fsl-menu[data-open="true"] .fsl-rise,
+.fsl-mobile-menu .fsl-rise {
+  animation: fsl-rise 500ms var(--fsl-ease-snap) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+
+@keyframes fsl-rise {
+  from { opacity: 0; transform: translateY(12px); filter: blur(6px); }
+}
+
+/* ── Footer ──────────────────────────────────────────────── */
+.fsl-footer {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.fsl-footer__heading {
+  font-family: var(--fsl-font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fsl-ink);
+}
+
+.fsl-footer__wordmark {
+  font-family: var(--fsl-font-display);
+  font-size: clamp(3rem, 9vw, 7.5rem);
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+}
+
+/* The logo's three strips, blown up and laid diagonally across the corner,
+   each with a slow light running along it. */
+.fsl-rails {
+  position: absolute;
+  right: -20%;
+  bottom: 36%;
+  z-index: -1;
+  display: flex;
+  width: min(78vw, 1100px);
+  flex-direction: column;
+  gap: 30px;
+  transform: rotate(-34deg);
+  pointer-events: none;
+  mask-image: linear-gradient(to right, transparent 0%, #000 45%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 45%);
+}
+
+.fsl-rails > span {
+  position: relative;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--fsl-green), var(--fsl-green-lift) 55%, var(--fsl-accent));
+  box-shadow: 0 0 48px rgb(0 135 156 / 30%);
+}
+
+.fsl-rails > span:nth-child(1) { opacity: 0.55; }
+.fsl-rails > span:nth-child(2) { opacity: 0.35; }
+.fsl-rails > span:nth-child(3) { opacity: 0.2; }
+
+.fsl-rails > span::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 55%), transparent);
+  transform: translateX(-120%);
+  animation: fsl-rail-run 7s linear infinite;
+}
+
+.fsl-rails > span:nth-child(2)::after { animation-delay: 1.6s; }
+.fsl-rails > span:nth-child(3)::after { animation-delay: 3.2s; }
+
+@keyframes fsl-rail-run {
+  to { transform: translateX(460%); }
 }
 
 /* ── Reduced motion ──────────────────────────────────────── */
@@ -346,14 +691,22 @@
   [data-fsl-js="true"] .fsl-reveal {
     opacity: 1;
     transform: none;
+    filter: none;
     transition: none;
   }
 
-  /* Keep the inverted hover state legible without the travel. */
-  .fsl-swap__face { transition: none; }
-  .fsl-swap__face--hover { transform: translateY(100%); }
-  .fsl-swap:hover .fsl-swap__face--rest,
-  .fsl-swap:focus-visible .fsl-swap__face--rest { transform: translateY(-100%); }
-  .fsl-swap:hover .fsl-swap__face--hover,
-  .fsl-swap:focus-visible .fsl-swap__face--hover { transform: translateY(0); }
+  .fsl-header,
+  .fsl-menu[data-open="true"] .fsl-rise,
+  .fsl-mobile-menu .fsl-rise,
+  .fsl-rails > span::after { animation: none; }
+
+  /* Hover states still land, just without the travel. */
+  .fsl-glow__pass,
+  .fsl-glow::after,
+  .fsl-hoverbar::after,
+  .fsl-header__plate,
+  .fsl-announce,
+  .fsl-menu,
+  .fsl-link__arrow,
+  .fsl-logo rect { transition: none; }
 }

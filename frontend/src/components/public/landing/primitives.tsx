@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { Link } from "react-router";
 
 /**
  * Arm the reveal animation. Set at module scope so it lands before the first
@@ -115,55 +116,147 @@ export function Reveal({
   );
 }
 
-type SwapProps = {
+/** Point a button's gradient at the cursor (see `.fsl-btn` in landing.css). */
+function trackGlow(event: PointerEvent<HTMLElement>) {
+  const target = event.currentTarget;
+  const rect = target.getBoundingClientRect();
+  target.style.setProperty("--glow-x", `${((event.clientX - rect.left) / rect.width) * 100}%`);
+  target.style.setProperty("--glow-y", `${((event.clientY - rect.top) / rect.height) * 100}%`);
+}
+
+function resetGlow(event: PointerEvent<HTMLElement>) {
+  event.currentTarget.style.removeProperty("--glow-x");
+  event.currentTarget.style.removeProperty("--glow-y");
+}
+
+const glowHandlers = { onPointerMove: trackGlow, onPointerLeave: resetGlow };
+
+const externalProps = { target: "_blank", rel: "noopener noreferrer" };
+
+type ActionProps = {
   label: string;
   variant?: "primary" | "secondary";
   className?: string;
 };
 
-/**
- * The label is rendered twice: the resting face leaves upward while the
- * inverted face arrives from below. The duplicate is hidden from assistive
- * tech so the control announces its label once.
- */
-function SwapFaces({ label }: { label: string }) {
-  return (
-    <>
-      <span className="fsl-swap__face fsl-swap__face--rest">{label}</span>
-      <span className="fsl-swap__face fsl-swap__face--hover" aria-hidden="true">
-        {label}
-      </span>
-    </>
-  );
-}
-
-export function SwapButton({
+export function ActionButton({
   label,
   variant = "primary",
   className = "",
   onClick,
-}: SwapProps & { onClick: () => void }) {
+}: ActionProps & { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`fsl-swap fsl-swap--${variant} ${className}`}>
-      <SwapFaces label={label} />
+    <button
+      type="button"
+      onClick={onClick}
+      className={`fsl-btn fsl-btn--${variant} ${className}`}
+      {...glowHandlers}
+    >
+      {label}
     </button>
   );
 }
 
-export function SwapLink({
+/** `to` routes inside the app; `href` is a plain anchor. */
+export function ActionLink({
   label,
-  href,
   variant = "primary",
   className = "",
   external = false,
-}: SwapProps & { href: string; external?: boolean }) {
+  onClick,
+  ...target
+}: ActionProps & { external?: boolean; onClick?: () => void } & ({ href: string } | { to: string })) {
+  const classes = `fsl-btn fsl-btn--${variant} ${className}`;
+
+  if ("to" in target) {
+    return (
+      <Link to={target.to} onClick={onClick} className={classes} {...glowHandlers}>
+        {label}
+      </Link>
+    );
+  }
+
   return (
     <a
-      href={href}
-      className={`fsl-swap fsl-swap--${variant} ${className}`}
-      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      href={target.href}
+      onClick={onClick}
+      className={classes}
+      {...glowHandlers}
+      {...(external ? externalProps : {})}
     >
-      <SwapFaces label={label} />
+      {label}
+    </a>
+  );
+}
+
+/**
+ * A label that is swept by the brand gradient when its link is hovered. The
+ * label is rendered twice; the travelling copy is hidden from assistive tech
+ * so the link announces its text once.
+ */
+export function GlowText({ children }: { children: string }) {
+  return (
+    <span className="fsl-glow">
+      <span>{children}</span>
+      <span className="fsl-glow__pass" aria-hidden="true">
+        {children}
+      </span>
+    </span>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg className="fsl-link__arrow" viewBox="0 0 12 7" fill="none" aria-hidden="true">
+      <path
+        d="M8.59 0l-.7.72 2.14 2.14H0v1h10.03L7.89 6l.7.72 3.36-3.36L8.59 0z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+type TextLinkProps = {
+  label: string;
+  /** `mono` is the small uppercase treatment; `plain` inherits the text style. */
+  tone?: "mono" | "plain";
+  /** Rest at full ink instead of muted. */
+  ink?: boolean;
+  arrow?: boolean;
+  external?: boolean;
+  className?: string;
+  onClick?: () => void;
+} & ({ href: string } | { to: string });
+
+export function TextLink({
+  label,
+  tone = "mono",
+  ink = false,
+  arrow = false,
+  external = false,
+  className = "",
+  onClick,
+  ...target
+}: TextLinkProps) {
+  const classes = `fsl-link ${tone === "mono" ? "fsl-link--mono" : ""} ${ink ? "fsl-link--ink" : ""} ${className}`;
+  const content = (
+    <>
+      <GlowText>{label}</GlowText>
+      {arrow ? <Arrow /> : null}
+    </>
+  );
+
+  if ("to" in target) {
+    return (
+      <Link to={target.to} onClick={onClick} className={classes}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <a href={target.href} onClick={onClick} className={classes} {...(external ? externalProps : {})}>
+      {content}
     </a>
   );
 }

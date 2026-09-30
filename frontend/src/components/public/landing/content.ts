@@ -16,28 +16,36 @@ export const SITE = {
   email: "info@flightstrips.dk",
 } as const;
 
+/** The strip under the header. Bump `id` to show it again to people who dismissed the last one. */
+export const ANNOUNCEMENT = {
+  id: "first-session",
+  lead: "New to Flightstrips?",
+  label: "Read the first-session checklist",
+  href: `${SITE.docs}/getting-started/first-session/`,
+} as const;
+
 export const HERO = {
   badge: "Live at EKCH Kastrup",
-  headline: "The strip board every position is working from.",
+  headline: "The next generation of EFS for virtual Air Traffic Controllers",
   // src: docs/getting-started/intro.md — plugin supplies identity + live data,
   // server holds shared session state, web app is where strips are operated.
   standfirst:
-    "FlightStrips is a shared electronic strip board for VATSIM controllers. The EuroScope plugin supplies live flight data, the server holds one authoritative session, and every connected position reads and writes the same strips.",
+    "FlightStrips is a shared EFS — Electric Flight System — for VATSIM controllers. The EuroScope plugin supplies live flight data, the server holds one authoritative session, and every connected position reads and writes the same strips.",
   note: "Built for EKCH Kastrup. Free for controllers. Open source.",
 } as const;
 
 /** External systems the server actually talks to. */
 export const CONNECTIONS = [
   // src: frontend/src/providers/auth-provider.tsx + backend/internal/services/authentication.go
-  { label: "VATSIM SSO", detail: "Plugin and browser matched by CID" },
+  { label: "SSO", detail: "VATSIM account connection" },
   // src: backend/internal/euroscope/ — hub, sync_service, handlers
-  { label: "EuroScope plugin", detail: "Two-way flight-plan and ground-state sync" },
+  { label: "Controller client", detail: "Built for EuroScope" },
   // src: backend/internal/pdc/hoppie.go — ARINC and classic PDC request parsing
-  { label: "Hoppie ACARS", detail: "Pre-departure clearance delivery" },
+  { label: "ACARS", detail: "Supports Hoppie and our own" },
   // src: backend/internal/ecfmp/client.go — https://ecfmp.vatsim.net/api/v1
-  { label: "ECFMP", detail: "Live flow measures" },
+  { label: "ECFMP", detail: "Get updated vIFF information" },
   // src: backend/internal/metar/poller.go — AFV ATIS feed
-  { label: "VATSIM ATIS", detail: "METAR and ATIS codes" },
+  { label: "ATIS", detail: "Gets the current ATIS from the VATSIM network" },
 ] as const;
 
 export type PositionKey = "clr" | "apn" | "gnd" | "twr" | "seq";

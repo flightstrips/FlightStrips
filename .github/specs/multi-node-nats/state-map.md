@@ -40,6 +40,11 @@ For any SQL query or repository method not named in a table row, classify it by 
 4. A global workflow step marks the registry `deleting`, removes its `(airport,name)` active index, and commits a deleted marker. The old numeric ID is never reused. Position keys and unreferenced snapshot objects may be removed only after the tombstone and global step are committed. The retained state log remains available for audit/recovery.
 
 On total NATS outage, no healthy time accrues. After service and projection recover, reset the no-controller observation start to the recovery time for every recovered live session without a newly connected controller. This grants a fresh five-minute window and prevents immediate deletion after downtime.
+For a quorum interruption observed without a full backend restart, shift
+`first_no_controller_at` forward by the unhealthy interval and record its end
+in `Session.cleanup_paused_at`. Each owner checks that marker before applying
+the same pause; a new owner re-arms the remaining healthy time from the
+persisted session. A full backend restart resets the observation start instead.
 
 ## Cross-aggregate domain work
 

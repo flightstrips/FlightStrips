@@ -37,7 +37,7 @@ func TestSessionObservationsReplicateWithoutChangingStripVersion(t *testing.T) {
 	if _, err := adapter.PutClxOverride(ctx, 1, uuid.NewString(), clx, 0); err != nil {
 		t.Fatal(err)
 	}
-	deadline := &pb.SessionDeadline{Id: "disconnect-SAS101", Kind: "aircraft-disconnect", Callsign: "SAS101", DueAt: timestamppb.New(time.Now().Add(time.Minute))}
+	deadline := &pb.SessionDeadline{Id: "disconnect-SAS101", Kind: "aircraft-disconnect", Callsign: "SAS101", DueAt: timestamppb.New(time.Now().Add(time.Minute)), SourceRevision: 1}
 	if _, err := adapter.PutDeadline(ctx, 1, uuid.NewString(), deadline, 0); err != nil {
 		t.Fatal(err)
 	}

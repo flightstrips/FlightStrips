@@ -212,7 +212,7 @@ func planPdc(request *pb.CommandRequest, state *Aggregate, action *pb.PdcAction)
 		sequence.Deadline = deadline
 		deadlineID := "pdc." + key
 		oldDeadline := state.Indexes[pb.EntityKind_SESSION_DEADLINE][deadlineID]
-		change.Changes = append(change.Changes, candidateUpsert(deadlineID, oldDeadline, &pb.EntityRecord{Value: &pb.EntityRecord_SessionDeadline{SessionDeadline: &pb.SessionDeadline{Id: deadlineID, Kind: "pdc-response", DueAt: deadline, Callsign: key, CommandId: request.CommandId}}}))
+		change.Changes = append(change.Changes, candidateUpsert(deadlineID, oldDeadline, &pb.EntityRecord{Value: &pb.EntityRecord_SessionDeadline{SessionDeadline: &pb.SessionDeadline{Id: deadlineID, Kind: "pdc-response", DueAt: deadline, Callsign: key, CommandId: request.CommandId, SourceRevision: current + 1}}}))
 		change.Effects = []*pb.EffectRecord{{CommandId: request.CommandId, TargetCid: master.Cid, TargetConnectionId: &master.ConnectionId, OwnerEpoch: state.ownerEpoch(), MasterEpoch: master.Epoch, Status: pb.EffectRecord_WAITING, Payload: &pb.EffectRecord_Pdc{Pdc: &pb.PdcEffect{Callsign: key, Action: "ISSUE", Clearance: x.Issue.Clearance}}, DispatchDeadline: timestamppb.New(now.AsTime().Add(30 * time.Second))}}
 	case *pb.PdcAction_RevertToVoice:
 		if controller == nil || sequence.State == "NONE" {
@@ -530,7 +530,7 @@ func validatePdcTacticalState(state *Aggregate, domain *pb.DomainChange, staged 
 			}
 			deadlineID := "pdc." + p.Callsign
 			deadline := staged[entitySlot(staged, pb.EntityKind_SESSION_DEADLINE, deadlineID)].GetValue().GetSessionDeadline()
-			if p.Deadline != nil && (deadline == nil || !proto.Equal(deadline.DueAt, p.Deadline)) || p.Deadline == nil && deadline != nil {
+			if p.Deadline != nil && (deadline == nil || !proto.Equal(deadline.DueAt, p.Deadline) || deadline.SourceRevision != e.Revision) || p.Deadline == nil && deadline != nil {
 				return fmt.Errorf("PDC deadline mismatch")
 			}
 		}

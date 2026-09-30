@@ -241,6 +241,17 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 	}
 	for _, kind := range []pb.EntityKind{pb.EntityKind_STAND_ASSIGNMENT, pb.EntityKind_STAND_BLOCK} {
 		for _, entity := range state.EntitiesByKind(kind) {
+			// Concrete lifecycle callbacks own their persisted expiry policy,
+			// including wrong-stand episodes and retained physical occupancy.
+			if kind == pb.EntityKind_STAND_ASSIGNMENT {
+				assignment := entity.GetValue().GetStandAssignment()
+				if assignment.Direction == "DEPARTURE" && w.Departure != nil || assignment.Direction == "ARRIVAL" && w.Arrival != nil {
+					continue
+				}
+			}
+			if kind == pb.EntityKind_STAND_BLOCK && w.Arrival != nil {
+				continue
+			}
 			var due *timestamppb.Timestamp
 			if kind == pb.EntityKind_STAND_ASSIGNMENT {
 				due = entity.GetValue().GetStandAssignment().ExpiresAt

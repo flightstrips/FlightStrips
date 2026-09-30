@@ -196,6 +196,10 @@ type StandAllocationService struct {
 
 	automaticFailureMu        sync.Mutex
 	automaticTerminalFailures map[string]automaticTerminalFailure
+	// Candidate planning snapshots use committed adjacency for existing holds.
+	planningBlocks         map[string][]string
+	planningBlockAdjacency map[string][]string
+	planningOccupancy      map[string]string
 }
 
 // automaticTerminalFailure prevents a lifecycle poll from reporting the same
@@ -1698,6 +1702,14 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 	now := s.now()
 	result := map[string][]string{}
 	for candidate, match := range matches {
+		for callsign, stand := range s.planningOccupancy {
+			if strings.EqualFold(callsign, request.Callsign) {
+				continue
+			}
+			if candidate == stand || blocksEachOther(match.Blocks, s.configuredStandBlocks(request.Airport, stand), candidate, stand) {
+				result[candidate] = append(result[candidate], "physically occupied by "+callsign)
+			}
+		}
 		for _, assignment := range assignments {
 			if assignment == nil || strings.EqualFold(assignment.Callsign, request.Callsign) || standAssignmentExpired(assignment, now) {
 				continue
@@ -1730,7 +1742,11 @@ func (s *StandAllocationService) availabilityWithEstimated(request StandAllocati
 			}
 			blockedStand := standName(block.Stand)
 			directlyBlocked := candidate == blockedStand
-			adjacencyBlocked := blocksEachOther(s.configuredStandBlocks(request.Airport, candidate), s.configuredStandBlocks(request.Airport, blockedStand), candidate, blockedStand)
+			blockedNeighbours := s.configuredStandBlocks(request.Airport, blockedStand)
+			if committed, ok := s.planningBlockAdjacency[blockedStand]; ok {
+				blockedNeighbours = committed
+			}
+			adjacencyBlocked := blocksEachOther(s.configuredStandBlocks(request.Airport, candidate), blockedNeighbours, candidate, blockedStand)
 			if !directlyBlocked && !adjacencyBlocked {
 				continue
 			}
@@ -1796,6 +1812,9 @@ func (s *StandAllocationService) configuredStandBlocks(airport, standName string
 }
 
 func (s *StandAllocationService) assignedBlocks(airport string, assignment *models.StandAssignment) []string {
+	if blocks, ok := s.planningBlocks[assignment.Callsign]; ok {
+		return slices.Clone(blocks)
+	}
 	stand, found := s.stands.Lookup(airport, assignment.Stand)
 	if !found {
 		return nil
@@ -1810,7 +1829,7 @@ func (s *StandAllocationService) assignedBlocks(airport string, assignment *mode
 	return slices.Clone(stand.Blocks)
 }
 
-func (s *StandAllocationService) persistStandAllocation(ctx context.Context, store repository.StandAssignmentRepository, command StandAllocationCommand, request StandAllocationRequest, current []*models.StandAssignment, selection *sat.StandSelection, match *sat.StandCompatibilityMatch, conflict string) (*models.StandAssignment, error) {
+func (s *StandAllocationService) persistStandAllocation(ctx context.Context, store lifecycleAssignments, command StandAllocationCommand, request StandAllocationRequest, current []*models.StandAssignment, selection *sat.StandSelection, match *sat.StandCompatibilityMatch, conflict string) (*models.StandAssignment, error) {
 	var existing *models.StandAssignment
 	for _, assignment := range current {
 		if assignment != nil && strings.EqualFold(assignment.Callsign, request.Callsign) {
@@ -1920,7 +1939,7 @@ func joinAllocationReasons(reasons []string) string {
 	return strings.Join(result, "; ")
 }
 
-func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips repository.StripRepository, assignments repository.StandAssignmentRepository, request StandAllocationRequest, selected string, selectedBlocks []string, current []*models.StandAssignment) ([]models.StandAssignment, []models.StandAssignment, error) {
+func (s *StandAllocationService) displaceAssignments(ctx context.Context, strips lifecycleStrips, assignments lifecycleAssignments, request StandAllocationRequest, selected string, selectedBlocks []string, current []*models.StandAssignment) ([]models.StandAssignment, []models.StandAssignment, error) {
 	if !request.displacesArrivalStage() || selected == "" {
 		return nil, nil, nil
 	}

@@ -20,6 +20,9 @@ func (c *Cache) CandidatePage(ctx context.Context, prior *pb.VatsimPage) (*pb.Va
 	if err != nil {
 		return nil, err
 	}
+	if len(snapshot.flightsByCallsign) == 0 {
+		return nil, fmt.Errorf("empty VATSIM response is not an accepted missing-flight generation")
+	}
 	if prior != nil {
 		previous, err := snapshotFromTyped(prior)
 		if err != nil {

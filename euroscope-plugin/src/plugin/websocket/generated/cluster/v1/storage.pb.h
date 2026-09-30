@@ -39719,6 +39719,8 @@ class Strip final : public ::google::protobuf::Message
     kPhaseFieldNumber = 57,
     kTobtSetByFieldNumber = 61,
     kVatsimCidFieldNumber = 63,
+    kGroundStateFieldNumber = 71,
+    kEngineTypeFieldNumber = 72,
     kEobtFieldNumber = 32,
     kTobtFieldNumber = 33,
     kTsatFieldNumber = 34,
@@ -40385,6 +40387,38 @@ class Strip final : public ::google::protobuf::Message
   std::string* _internal_mutable_vatsim_cid();
 
   public:
+  // string ground_state = 71;
+  void clear_ground_state() ;
+  const std::string& ground_state() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_ground_state(Arg_&& arg, Args_... args);
+  std::string* mutable_ground_state();
+  PROTOBUF_NODISCARD std::string* release_ground_state();
+  void set_allocated_ground_state(std::string* value);
+
+  private:
+  const std::string& _internal_ground_state() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_ground_state(
+      const std::string& value);
+  std::string* _internal_mutable_ground_state();
+
+  public:
+  // string engine_type = 72;
+  void clear_engine_type() ;
+  const std::string& engine_type() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_engine_type(Arg_&& arg, Args_... args);
+  std::string* mutable_engine_type();
+  PROTOBUF_NODISCARD std::string* release_engine_type();
+  void set_allocated_engine_type(std::string* value);
+
+  private:
+  const std::string& _internal_engine_type() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_engine_type(
+      const std::string& value);
+  std::string* _internal_mutable_engine_type();
+
+  public:
   // optional .google.protobuf.Timestamp eobt = 32;
   bool has_eobt() const;
   void clear_eobt() ;
@@ -40803,8 +40837,8 @@ class Strip final : public ::google::protobuf::Message
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 70, 13,
-      527, 11>
+      5, 72, 13,
+      558, 11>
       _table_;
   friend class ::google::protobuf::MessageLite;
   friend class ::google::protobuf::Arena;
@@ -40857,6 +40891,8 @@ class Strip final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr phase_;
     ::google::protobuf::internal::ArenaStringPtr tobt_set_by_;
     ::google::protobuf::internal::ArenaStringPtr vatsim_cid_;
+    ::google::protobuf::internal::ArenaStringPtr ground_state_;
+    ::google::protobuf::internal::ArenaStringPtr engine_type_;
     ::google::protobuf::Timestamp* eobt_;
     ::google::protobuf::Timestamp* tobt_;
     ::google::protobuf::Timestamp* tsat_;
@@ -59810,6 +59846,106 @@ inline double Strip::_internal_vatsim_longitude() const {
 inline void Strip::_internal_set_vatsim_longitude(double value) {
   PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
   _impl_.vatsim_longitude_ = value;
+}
+
+// string ground_state = 71;
+inline void Strip::clear_ground_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_state_.ClearToEmpty();
+}
+inline const std::string& Strip::ground_state() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Strip.ground_state)
+  return _internal_ground_state();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Strip::set_ground_state(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_state_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Strip.ground_state)
+}
+inline std::string* Strip::mutable_ground_state() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_ground_state();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Strip.ground_state)
+  return _s;
+}
+inline const std::string& Strip::_internal_ground_state() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.ground_state_.Get();
+}
+inline void Strip::_internal_set_ground_state(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_state_.Set(value, GetArena());
+}
+inline std::string* Strip::_internal_mutable_ground_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.ground_state_.Mutable( GetArena());
+}
+inline std::string* Strip::release_ground_state() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Strip.ground_state)
+  return _impl_.ground_state_.Release();
+}
+inline void Strip::set_allocated_ground_state(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.ground_state_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.ground_state_.IsDefault()) {
+          _impl_.ground_state_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Strip.ground_state)
+}
+
+// string engine_type = 72;
+inline void Strip::clear_engine_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.engine_type_.ClearToEmpty();
+}
+inline const std::string& Strip::engine_type() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.Strip.engine_type)
+  return _internal_engine_type();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void Strip::set_engine_type(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.engine_type_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.Strip.engine_type)
+}
+inline std::string* Strip::mutable_engine_type() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_engine_type();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.Strip.engine_type)
+  return _s;
+}
+inline const std::string& Strip::_internal_engine_type() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.engine_type_.Get();
+}
+inline void Strip::_internal_set_engine_type(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.engine_type_.Set(value, GetArena());
+}
+inline std::string* Strip::_internal_mutable_engine_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.engine_type_.Mutable( GetArena());
+}
+inline std::string* Strip::release_engine_type() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.Strip.engine_type)
+  return _impl_.engine_type_.Release();
+}
+inline void Strip::set_allocated_engine_type(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.engine_type_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.engine_type_.IsDefault()) {
+          _impl_.engine_type_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.Strip.engine_type)
 }
 
 // -------------------------------------------------------------------

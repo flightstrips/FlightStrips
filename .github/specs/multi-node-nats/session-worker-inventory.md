@@ -12,9 +12,9 @@ owner rebuilds due work from persisted entities rather than local timers.
 | `server.StartSessionMonitor` | Session owner: persisted `first_no_controller_at` and `cleanup_paused_at`, global EuroScope presence, five healthy minutes after the last operational client disconnects | Candidate implemented and tested; SQL monitor stays in SQL runtime |
 | `pdc.Service.Start` response timeout | Session owner: `pdc-response` deadline with PDC sequence source revision | Deadline outcome implemented and tested; external polling adapter still required |
 | `pdc.Service.Start` external polling | Session owner via `SessionWork.PDC` and owner-routed commands | Adapter required |
-| Stand assignment and block expiry, including departure lifecycle | Session owner: projection sweep, fresh FS_POSITIONS occupancy check, source revision and CAS | Candidate implemented and tested |
-| `DepartureLifecycleService.StartSweep` and `ArrivalLifecycleService.StartSweep` | Session owner via `SessionWork.Departure` and `SessionWork.Arrival` | Domain adapters required |
-| VATSIM reconciler's session mutations | Session owner via the departure/arrival hooks and owner-routed commands | Domain adapter required |
+| Stand assignment and block expiry, including departure lifecycle | Session owner: projection sweep, fresh FS_POSITIONS occupancy check, source revision and CAS | Concrete lifecycle hooks own stand deadlines when bound; generic expiry remains the fallback |
+| `DepartureLifecycleService.StartSweep` and `ArrivalLifecycleService.StartSweep` | Session owner via `services.NewVatsimLifecycleCandidate(...).Departure` and `.Arrival`, assigned to `SessionWork` | Task 19a candidate implemented and tested; startup binding remains Task 20 |
+| VATSIM reconciler's session mutations | Same concrete candidate consumes the global typed checkpoint, reconciles strips, then commits real lifecycle policy with source/entity/position rechecks | Task 19a candidate implemented and tested; no additional provider poller |
 | `cdm.SyncService.Start` session sync, periodic recalculation, CTOT validation and debounce | Session owner via `SessionWork.CDM` and owner-routed commands | Domain adapter required |
 | `TrafficMetricsService.Start` session metrics writes | Session owner via `SessionWork.Traffic` and owner-routed commands | Domain adapter required |
 | EuroScope controller offline grace timer | Session owner: `controller-offline` deadline, controller source revision and fresh cluster client presence | Candidate outcome implemented and tested; socket scheduling adapter required |
@@ -33,3 +33,13 @@ allocation retry timer belongs only to the SQL implementation. AMAN, ECFMP,
 METAR, ALB and global configuration refresh workers are outside the session
 aggregate; their session-derived writes must still enter through the owner at
 cutover. No legacy SQL worker should be started alongside its NATS replacement.
+
+Task 19a tests in `backend/internal/services/vatsim_lifecycle_*integration_test.go`
+use two independent replicas against the pinned three-node NATS fixture and
+the exported constructor's actual callbacks. They cover nonowner rejection,
+replay, failure before/after commit, snapshot restart, reservation/block/arrival
+deadline recovery, missing-flight cancellation, shared position barriers,
+position-only EuroScope departures, PUSH release, plan/CID changes, wrong-stand
+warnings and immutable controller-target STAND effects. The candidate uses the
+existing departure/arrival and SAT policy through isolated planning ports;
+neither callback constructs a SQL repository or transaction.

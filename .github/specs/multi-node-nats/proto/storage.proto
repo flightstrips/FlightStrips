@@ -234,6 +234,7 @@ message Strip {
   int64 vatsim_plan_revision = 65; optional google.protobuf.Timestamp vatsim_seen_at = 66;
   bool vatsim_only = 67; bool vatsim_online = 68;
   optional double vatsim_latitude = 69; optional double vatsim_longitude = 70;
+  string ground_state = 71; string engine_type = 72;
 }
 message ValidationStatus {
   string issue_type = 1; string message = 2; string owning_position = 3;

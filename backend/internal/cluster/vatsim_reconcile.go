@@ -34,6 +34,9 @@ func (a VatsimSessionAdapter) Reconcile(ctx context.Context, sessionID int32) *p
 	if err := validateProviderPage(page); err != nil || page.GetVatsim() == nil || page.GetVatsim().SnapshotAt == nil {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: "invalid VATSIM source generation"}
 	}
+	if len(page.GetVatsim().Flights) == 0 {
+		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: "empty provider response is not an accepted missing-flight generation"}
+	}
 	id, err := ProviderEventCommandID("vatsim-session", "vatsim", fmt.Sprintf("%d/%d/%s", sessionID, revision, checkpoint.Sha256))
 	if err != nil {
 		return &pb.CommandReply{Status: pb.CommandReply_INVALID_ARGUMENT, Detail: err.Error()}
@@ -123,9 +126,6 @@ func planVatsimGeneration(state *Aggregate, sessionID int32, revision uint64, sh
 			nextID++
 		} else {
 			strip = proto.Clone(old.GetValue().GetStrip()).(*pb.Strip)
-			if strip.VatsimCid != "" && strip.VatsimCid != flight.Cid {
-				return nil, pb.CommandReply_REVISION_CONFLICT, old.Revision, fmt.Errorf("VATSIM CID changed for %s", callsign)
-			}
 		}
 		strip.VatsimCid = flight.Cid
 		strip.VatsimSourceRevision = revision
@@ -137,10 +137,33 @@ func planVatsimGeneration(state *Aggregate, sessionID int32, revision uint64, sh
 		strip.VatsimOnline = flight.State == "online"
 		if strip.VatsimOnline {
 			strip.VatsimLatitude, strip.VatsimLongitude = &flight.Latitude, &flight.Longitude
+			if strip.VatsimOnly {
+				strip.PositionAltitudeFeet = &flight.Altitude
+			}
 		}
 		// EuroScope and controller state take precedence once a strip has been
 		// observed operationally. Only VATSIM-created strips receive plan text.
 		if strip.VatsimOnly {
+			bay := strip.Bay
+			if strings.EqualFold(flight.FlightPlan.Destination, airport) && strip.Bay == "HIDDEN_DEP" {
+				bay = "ARR_HIDDEN"
+			} else if strings.EqualFold(flight.FlightPlan.Origin, airport) && strip.Bay != "HIDDEN_DEP" {
+				bay = "DEP_HIDDEN"
+			}
+			if bay != strip.Bay {
+				sequence, err := endOfStripBay(state, bay, callsign)
+				if err != nil {
+					return nil, pb.CommandReply_INVALID_ARGUMENT, 0, err
+				}
+				if nextOrder[bay] > sequence {
+					sequence = nextOrder[bay]
+				}
+				if sequence > math.MaxUint64-stripOrderSpacing {
+					return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("strip order exhausted")
+				}
+				strip.Bay, strip.Sequence = bay, sequence
+				nextOrder[bay] = sequence + stripOrderSpacing
+			}
 			strip.Departure = strings.ToUpper(flight.FlightPlan.Origin)
 			strip.Destination = strings.ToUpper(flight.FlightPlan.Destination)
 			strip.Alternate = flight.FlightPlan.Alternate

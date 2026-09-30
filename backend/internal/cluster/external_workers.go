@@ -38,6 +38,12 @@ type ExternalCallSpec struct {
 // intent and still owns its source. A lost PubAck, replay, or takeover never
 // grants permission to send another request.
 func (w ExternalCallWorker) Run(ctx context.Context, spec ExternalCallSpec) (bool, error) {
+	switch w.Writer.Store.(type) {
+	case NATSStore, *NATSStore:
+		if w.Writer.Lease == nil {
+			return false, fmt.Errorf("NATS external call requires an owner lease")
+		}
+	}
 	if _, err := Subject(spec.Source); err != nil {
 		return false, err
 	}
@@ -98,6 +104,12 @@ func (w ExternalCallWorker) Run(ctx context.Context, spec ExternalCallSpec) (boo
 // invokes Fetch. The stable result command ID lets a new owner prove a result
 // commit that preceded the old owner's failure.
 func (w ExternalCallWorker) Resume(ctx context.Context, source *pb.AggregateRef) error {
+	switch w.Writer.Store.(type) {
+	case NATSStore, *NATSStore:
+		if w.Writer.Lease == nil {
+			return fmt.Errorf("NATS external call recovery requires an owner lease")
+		}
+	}
 	subject, err := Subject(source)
 	if err != nil {
 		return err

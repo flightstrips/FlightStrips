@@ -36,6 +36,7 @@ durable intent before dispatch in the candidate runtime:
 | `cdm/action_service.go`: `pushTobtAsync` | session owner | vIFF TOBT push |
 | `cdm/master_viff_sync.go`: `pushViffAfterRecalcAsync` | session owner | vIFF flight-state push |
 | `cdm/master_viff_sync.go`: `registerMasterAsync` | airport owner | vIFF airport master registration |
+| `cdm/debounce.go`: `runLoop` | session owner | delayed CDM recalculation and any resulting vIFF writes |
 | `pdc/service.go`: `handleTimeout` | session owner | PDC timeout outcome |
 | `services/strip_cleared_bay.go` | session owner | delayed strip action |
 | `euroscope/hub_offline_timers.go` and `hub_aircraft_disconnect.go` | session owner | delayed offline/disconnect/aircraft work |
@@ -44,6 +45,14 @@ durable intent before dispatch in the candidate runtime:
 provider page retrieval. Those calls need one airport-owned import intent and
 durable typed checkpoints. `shared/position_dispatcher.go` and WebSocket
 read/write pumps are local delivery workers, not independent domain authority.
+`frontendbinary/handler.go` starts connection presence renewal and cleanup,
+which is connection-local; the authoritative session presence change remains
+fenced by its lease. `euroscope/hub.go` also launches local client close and
+position-dispatch cleanup. `testtools/service.go` replay is an opt-in test
+operation, not a production poller.
+
+This inventory was checked against every `app.addWorker` call in `app.Build`
+and production `go` statements under `backend/internal` on this branch.
 
 `cluster.ExternalCallWorker` commits an owner-fenced intent before a provider
 call, uses a stable result command ID, and resolves takeover from the

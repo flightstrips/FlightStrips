@@ -19,14 +19,17 @@ startup stays dormant in the meantime.
 - [x] Real two-replica NATS ECFMP session application, nonowner rejection, replay, and owner-failure test (this completion branch).
 - [x] Global-owned VATSIM fetch with a typed source checkpoint and two-replica NATS owner-failure test (this completion branch).
 - [ ] VATSIM airport/session reconciliation adapters and their two-replica failure tests.
+  - [x] Session-owned typed strip generation replay and airport-owned present/missing AMAN observations; two-replica NATS takeover and replay tests.
+  - [ ] Port departure/arrival stand lifecycle transitions and cancellation, including their owner-failure tests.
 - [ ] Airport-owned AMAN observation/reconciliation adapter; resumable airport-to-session intents, superseded-revision handling, and two-replica failure tests.
   - [x] Consume typed VATSIM global checkpoints on the airport owner; stable observation and reconciliation command IDs; two-replica observation replay and superseded intent test.
-  - [ ] Bind the operational AMAN evaluator and destination session command builder to this candidate adapter, then test owner death around the destination result commit.
+  - [x] Test a destination session write committed before airport-owner death; takeover records completion without a duplicate strip write, and a later revision supersedes a separate intent.
+  - [ ] Bind the operational AMAN evaluator and destination session command builder to this candidate adapter.
 - [x] Airport-owned AIRAC import and verified manifest activation adapter with typed page checkpoints and two-replica failure tests (this completion branch).
 - [x] Airport-owned METAR fetch, global-owned AFV ATIS typed feed, session presentation adapter, global quota reservation, and two-replica NATS failure/replay tests (this completion branch).
 - [x] AMAN/Open-Meteo wind refresh adapter with typed airport checkpoint, durable global quota reservation, and two-replica uncertainty test (this completion branch).
 - [x] Airport-owned typed CDM configuration refresh and vIFF master read/write calls, session-owned typed vIFF flight reads and all operational write methods, with owner/replay/uncertain-result two-replica tests (this completion branch). The candidate adapters remain dormant until Task 20 binds the runtime.
-- [ ] Full inventory audit against `app.Build` and handler-created goroutines after all adapters land; no candidate startup before Task 20.
+- [x] Full inventory audit against `app.Build` and handler-created goroutines on this branch; no candidate startup before Task 20. New runtime wiring requires a repeat audit at activation.
 
 ## Work
 

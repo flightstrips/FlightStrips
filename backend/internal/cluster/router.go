@@ -26,7 +26,7 @@ func (r *CommandRouter) Serve(ctx context.Context) error {
 		r.Writer.NodeID != r.Lease.NodeID || !canonicalUUID(r.Lease.NodeID) {
 		return fmt.Errorf("invalid command router")
 	}
-	sub, err := r.NC.Subscribe("fs.v1.command."+r.Lease.NodeID, func(msg *nats.Msg) {
+	_, closeSub, err := SubscribeJoined(r.NC, "fs.v1.command."+r.Lease.NodeID, func(msg *nats.Msg) {
 		commandCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		reply := r.handle(commandCtx, msg.Data)
@@ -38,7 +38,7 @@ func (r *CommandRouter) Serve(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer sub.Unsubscribe()
+	defer closeSub()
 	if err := r.NC.FlushWithContext(ctx); err != nil {
 		return err
 	}

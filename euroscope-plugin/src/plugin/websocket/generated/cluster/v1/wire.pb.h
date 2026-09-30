@@ -311,6 +311,9 @@ extern RenewOwnerDefaultTypeInternal _RenewOwner_default_instance_;
 class ReplaceSectorOwners;
 struct ReplaceSectorOwnersDefaultTypeInternal;
 extern ReplaceSectorOwnersDefaultTypeInternal _ReplaceSectorOwners_default_instance_;
+class ReportAmanRouteFact;
+struct ReportAmanRouteFactDefaultTypeInternal;
+extern ReportAmanRouteFactDefaultTypeInternal _ReportAmanRouteFact_default_instance_;
 class RequestSquawk;
 struct RequestSquawkDefaultTypeInternal;
 extern RequestSquawkDefaultTypeInternal _RequestSquawk_default_instance_;
@@ -2670,7 +2673,7 @@ class SetPositionLayout final : public ::google::protobuf::Message
     return reinterpret_cast<const SetPositionLayout*>(
         &_SetPositionLayout_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 108;
+  static constexpr int kIndexInFileMessages = 109;
   friend void swap(SetPositionLayout& a, SetPositionLayout& b) { a.Swap(&b); }
   inline void Swap(SetPositionLayout* other) {
     if (other == this) return;
@@ -4326,7 +4329,7 @@ class RemoveEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const RemoveEntity*>(
         &_RemoveEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 107;
+  static constexpr int kIndexInFileMessages = 108;
   friend void swap(RemoveEntity& a, RemoveEntity& b) { a.Swap(&b); }
   inline void Swap(RemoveEntity* other) {
     if (other == this) return;
@@ -7343,7 +7346,7 @@ class DeleteSession final : public ::google::protobuf::Message
     return reinterpret_cast<const DeleteSession*>(
         &_DeleteSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 105;
+  static constexpr int kIndexInFileMessages = 106;
   friend void swap(DeleteSession& a, DeleteSession& b) { a.Swap(&b); }
   inline void Swap(DeleteSession* other) {
     if (other == this) return;
@@ -13415,6 +13418,293 @@ class SetCdmCtot final : public ::google::protobuf::Message
 };
 // -------------------------------------------------------------------
 
+class ReportAmanRouteFact final : public ::google::protobuf::Message
+/* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.ReportAmanRouteFact) */ {
+ public:
+  inline ReportAmanRouteFact() : ReportAmanRouteFact(nullptr) {}
+  ~ReportAmanRouteFact() override;
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR ReportAmanRouteFact(
+      ::google::protobuf::internal::ConstantInitialized);
+
+  inline ReportAmanRouteFact(const ReportAmanRouteFact& from) : ReportAmanRouteFact(nullptr, from) {}
+  inline ReportAmanRouteFact(ReportAmanRouteFact&& from) noexcept
+      : ReportAmanRouteFact(nullptr, std::move(from)) {}
+  inline ReportAmanRouteFact& operator=(const ReportAmanRouteFact& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline ReportAmanRouteFact& operator=(ReportAmanRouteFact&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+#ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+#endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const ReportAmanRouteFact& default_instance() {
+    return *internal_default_instance();
+  }
+  enum FactCase {
+    kDirectToFix = 6,
+    kAssignedSpeed = 7,
+    FACT_NOT_SET = 0,
+  };
+  static inline const ReportAmanRouteFact* internal_default_instance() {
+    return reinterpret_cast<const ReportAmanRouteFact*>(
+        &_ReportAmanRouteFact_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages = 105;
+  friend void swap(ReportAmanRouteFact& a, ReportAmanRouteFact& b) { a.Swap(&b); }
+  inline void Swap(ReportAmanRouteFact* other) {
+    if (other == this) return;
+#ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr && GetArena() == other->GetArena()) {
+#else   // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+#endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(ReportAmanRouteFact* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  ReportAmanRouteFact* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return ::google::protobuf::Message::DefaultConstruct<ReportAmanRouteFact>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const ReportAmanRouteFact& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom(const ReportAmanRouteFact& from) { ReportAmanRouteFact::MergeImpl(*this, from); }
+
+  private:
+  static void MergeImpl(
+      ::google::protobuf::MessageLite& to_msg,
+      const ::google::protobuf::MessageLite& from_msg);
+
+  public:
+  ABSL_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target,
+      ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(ReportAmanRouteFact* other);
+ private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() { return "flightstrips.cluster.v1.ReportAmanRouteFact"; }
+
+ protected:
+  explicit ReportAmanRouteFact(::google::protobuf::Arena* arena);
+  ReportAmanRouteFact(::google::protobuf::Arena* arena, const ReportAmanRouteFact& from);
+  ReportAmanRouteFact(::google::protobuf::Arena* arena, ReportAmanRouteFact&& from) noexcept
+      : ReportAmanRouteFact(arena) {
+    *this = ::std::move(from);
+  }
+  const ::google::protobuf::MessageLite::ClassData* GetClassData()
+      const final;
+
+ public:
+  ::google::protobuf::Metadata GetMetadata() const final;
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+  enum : int {
+    kConnectionIdFieldNumber = 1,
+    kCallsignFieldNumber = 4,
+    kObservedAtFieldNumber = 5,
+    kOwnerEpochFieldNumber = 2,
+    kMasterEpochFieldNumber = 3,
+    kDirectToFixFieldNumber = 6,
+    kAssignedSpeedFieldNumber = 7,
+  };
+  // string connection_id = 1;
+  void clear_connection_id() ;
+  const std::string& connection_id() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_connection_id(Arg_&& arg, Args_... args);
+  std::string* mutable_connection_id();
+  PROTOBUF_NODISCARD std::string* release_connection_id();
+  void set_allocated_connection_id(std::string* value);
+
+  private:
+  const std::string& _internal_connection_id() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_connection_id(
+      const std::string& value);
+  std::string* _internal_mutable_connection_id();
+
+  public:
+  // string callsign = 4;
+  void clear_callsign() ;
+  const std::string& callsign() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_callsign(Arg_&& arg, Args_... args);
+  std::string* mutable_callsign();
+  PROTOBUF_NODISCARD std::string* release_callsign();
+  void set_allocated_callsign(std::string* value);
+
+  private:
+  const std::string& _internal_callsign() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_callsign(
+      const std::string& value);
+  std::string* _internal_mutable_callsign();
+
+  public:
+  // .google.protobuf.Timestamp observed_at = 5;
+  bool has_observed_at() const;
+  void clear_observed_at() ;
+  const ::google::protobuf::Timestamp& observed_at() const;
+  PROTOBUF_NODISCARD ::google::protobuf::Timestamp* release_observed_at();
+  ::google::protobuf::Timestamp* mutable_observed_at();
+  void set_allocated_observed_at(::google::protobuf::Timestamp* value);
+  void unsafe_arena_set_allocated_observed_at(::google::protobuf::Timestamp* value);
+  ::google::protobuf::Timestamp* unsafe_arena_release_observed_at();
+
+  private:
+  const ::google::protobuf::Timestamp& _internal_observed_at() const;
+  ::google::protobuf::Timestamp* _internal_mutable_observed_at();
+
+  public:
+  // uint64 owner_epoch = 2;
+  void clear_owner_epoch() ;
+  ::uint64_t owner_epoch() const;
+  void set_owner_epoch(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_owner_epoch() const;
+  void _internal_set_owner_epoch(::uint64_t value);
+
+  public:
+  // uint64 master_epoch = 3;
+  void clear_master_epoch() ;
+  ::uint64_t master_epoch() const;
+  void set_master_epoch(::uint64_t value);
+
+  private:
+  ::uint64_t _internal_master_epoch() const;
+  void _internal_set_master_epoch(::uint64_t value);
+
+  public:
+  // string direct_to_fix = 6;
+  bool has_direct_to_fix() const;
+  void clear_direct_to_fix() ;
+  const std::string& direct_to_fix() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_direct_to_fix(Arg_&& arg, Args_... args);
+  std::string* mutable_direct_to_fix();
+  PROTOBUF_NODISCARD std::string* release_direct_to_fix();
+  void set_allocated_direct_to_fix(std::string* value);
+
+  private:
+  const std::string& _internal_direct_to_fix() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_direct_to_fix(
+      const std::string& value);
+  std::string* _internal_mutable_direct_to_fix();
+
+  public:
+  // string assigned_speed = 7;
+  bool has_assigned_speed() const;
+  void clear_assigned_speed() ;
+  const std::string& assigned_speed() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_assigned_speed(Arg_&& arg, Args_... args);
+  std::string* mutable_assigned_speed();
+  PROTOBUF_NODISCARD std::string* release_assigned_speed();
+  void set_allocated_assigned_speed(std::string* value);
+
+  private:
+  const std::string& _internal_assigned_speed() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_assigned_speed(
+      const std::string& value);
+  std::string* _internal_mutable_assigned_speed();
+
+  public:
+  void clear_fact();
+  FactCase fact_case() const;
+  // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.ReportAmanRouteFact)
+ private:
+  class _Internal;
+  void set_has_direct_to_fix();
+  void set_has_assigned_speed();
+  inline bool has_fact() const;
+  inline void clear_has_fact();
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 7, 1,
+      100, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+    inline explicit constexpr Impl_(
+        ::google::protobuf::internal::ConstantInitialized) noexcept;
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena);
+    inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                          ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::HasBits<1> _has_bits_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::internal::ArenaStringPtr connection_id_;
+    ::google::protobuf::internal::ArenaStringPtr callsign_;
+    ::google::protobuf::Timestamp* observed_at_;
+    ::uint64_t owner_epoch_;
+    ::uint64_t master_epoch_;
+    union FactUnion {
+      constexpr FactUnion() : _constinit_{} {}
+      ::google::protobuf::internal::ConstantInitialized _constinit_;
+      ::google::protobuf::internal::ArenaStringPtr direct_to_fix_;
+      ::google::protobuf::internal::ArenaStringPtr assigned_speed_;
+    } fact_;
+    ::uint32_t _oneof_case_[1];
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_wire_2eproto;
+};
+// -------------------------------------------------------------------
+
 class ReplaceSectorOwners final : public ::google::protobuf::Message
 /* @@protoc_insertion_point(class_definition:flightstrips.cluster.v1.ReplaceSectorOwners) */ {
  public:
@@ -13470,7 +13760,7 @@ class ReplaceSectorOwners final : public ::google::protobuf::Message
     return reinterpret_cast<const ReplaceSectorOwners*>(
         &_ReplaceSectorOwners_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 109;
+  static constexpr int kIndexInFileMessages = 110;
   friend void swap(ReplaceSectorOwners& a, ReplaceSectorOwners& b) { a.Swap(&b); }
   inline void Swap(ReplaceSectorOwners* other) {
     if (other == this) return;
@@ -14326,7 +14616,7 @@ class ElectSessionMaster final : public ::google::protobuf::Message
     return reinterpret_cast<const ElectSessionMaster*>(
         &_ElectSessionMaster_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 116;
+  static constexpr int kIndexInFileMessages = 117;
   friend void swap(ElectSessionMaster& a, ElectSessionMaster& b) { a.Swap(&b); }
   inline void Swap(ElectSessionMaster* other) {
     if (other == this) return;
@@ -19208,7 +19498,7 @@ class RenewOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const RenewOwner*>(
         &_RenewOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 111;
+  static constexpr int kIndexInFileMessages = 112;
   friend void swap(RenewOwner& a, RenewOwner& b) { a.Swap(&b); }
   inline void Swap(RenewOwner* other) {
     if (other == this) return;
@@ -19381,7 +19671,7 @@ class RecordSessionSync final : public ::google::protobuf::Message
     return reinterpret_cast<const RecordSessionSync*>(
         &_RecordSessionSync_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 115;
+  static constexpr int kIndexInFileMessages = 116;
   friend void swap(RecordSessionSync& a, RecordSessionSync& b) { a.Swap(&b); }
   inline void Swap(RecordSessionSync* other) {
     if (other == this) return;
@@ -20251,7 +20541,7 @@ class ClaimOwner final : public ::google::protobuf::Message
     return reinterpret_cast<const ClaimOwner*>(
         &_ClaimOwner_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 110;
+  static constexpr int kIndexInFileMessages = 111;
   friend void swap(ClaimOwner& a, ClaimOwner& b) { a.Swap(&b); }
   inline void Swap(ClaimOwner* other) {
     if (other == this) return;
@@ -21996,7 +22286,7 @@ class AdvanceEffect final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceEffect*>(
         &_AdvanceEffect_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 114;
+  static constexpr int kIndexInFileMessages = 115;
   friend void swap(AdvanceEffect& a, AdvanceEffect& b) { a.Swap(&b); }
   inline void Swap(AdvanceEffect* other) {
     if (other == this) return;
@@ -23175,7 +23465,7 @@ class ApplyAmanSession final : public ::google::protobuf::Message
     return reinterpret_cast<const ApplyAmanSession*>(
         &_ApplyAmanSession_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 113;
+  static constexpr int kIndexInFileMessages = 114;
   friend void swap(ApplyAmanSession& a, ApplyAmanSession& b) { a.Swap(&b); }
   inline void Swap(ApplyAmanSession* other) {
     if (other == this) return;
@@ -23397,7 +23687,7 @@ class AdvanceWorkflow final : public ::google::protobuf::Message
     return reinterpret_cast<const AdvanceWorkflow*>(
         &_AdvanceWorkflow_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 112;
+  static constexpr int kIndexInFileMessages = 113;
   friend void swap(AdvanceWorkflow& a, AdvanceWorkflow& b) { a.Swap(&b); }
   inline void Swap(AdvanceWorkflow* other) {
     if (other == this) return;
@@ -23774,7 +24064,7 @@ class UpdateEntity final : public ::google::protobuf::Message
     return reinterpret_cast<const UpdateEntity*>(
         &_UpdateEntity_default_instance_);
   }
-  static constexpr int kIndexInFileMessages = 106;
+  static constexpr int kIndexInFileMessages = 107;
   friend void swap(UpdateEntity& a, UpdateEntity& b) { a.Swap(&b); }
   inline void Swap(UpdateEntity* other) {
     if (other == this) return;
@@ -23977,6 +24267,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kApplyAmanSession = 13,
     kApplyPdcProviderMessage = 14,
     kRequestSquawk = 15,
+    kReportAmanRouteFact = 16,
     ACTION_NOT_SET = 0,
   };
   static inline const SystemCommand* internal_default_instance() {
@@ -24068,6 +24359,7 @@ class SystemCommand final : public ::google::protobuf::Message
     kApplyAmanSessionFieldNumber = 13,
     kApplyPdcProviderMessageFieldNumber = 14,
     kRequestSquawkFieldNumber = 15,
+    kReportAmanRouteFactFieldNumber = 16,
   };
   // .flightstrips.cluster.v1.CreateSession create_session = 1;
   bool has_create_session() const;
@@ -24354,6 +24646,25 @@ class SystemCommand final : public ::google::protobuf::Message
   ::flightstrips::cluster::v1::RequestSquawk* _internal_mutable_request_squawk();
 
   public:
+  // .flightstrips.cluster.v1.ReportAmanRouteFact report_aman_route_fact = 16;
+  bool has_report_aman_route_fact() const;
+  private:
+  bool _internal_has_report_aman_route_fact() const;
+
+  public:
+  void clear_report_aman_route_fact() ;
+  const ::flightstrips::cluster::v1::ReportAmanRouteFact& report_aman_route_fact() const;
+  PROTOBUF_NODISCARD ::flightstrips::cluster::v1::ReportAmanRouteFact* release_report_aman_route_fact();
+  ::flightstrips::cluster::v1::ReportAmanRouteFact* mutable_report_aman_route_fact();
+  void set_allocated_report_aman_route_fact(::flightstrips::cluster::v1::ReportAmanRouteFact* value);
+  void unsafe_arena_set_allocated_report_aman_route_fact(::flightstrips::cluster::v1::ReportAmanRouteFact* value);
+  ::flightstrips::cluster::v1::ReportAmanRouteFact* unsafe_arena_release_report_aman_route_fact();
+
+  private:
+  const ::flightstrips::cluster::v1::ReportAmanRouteFact& _internal_report_aman_route_fact() const;
+  ::flightstrips::cluster::v1::ReportAmanRouteFact* _internal_mutable_report_aman_route_fact();
+
+  public:
   void clear_action();
   ActionCase action_case() const;
   // @@protoc_insertion_point(class_scope:flightstrips.cluster.v1.SystemCommand)
@@ -24374,11 +24685,12 @@ class SystemCommand final : public ::google::protobuf::Message
   void set_has_apply_aman_session();
   void set_has_apply_pdc_provider_message();
   void set_has_request_squawk();
+  void set_has_report_aman_route_fact();
   inline bool has_action() const;
   inline void clear_has_action();
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 15, 15,
+      0, 16, 16,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -24412,6 +24724,7 @@ class SystemCommand final : public ::google::protobuf::Message
       ::flightstrips::cluster::v1::ApplyAmanSession* apply_aman_session_;
       ::flightstrips::cluster::v1::ApplyPdcProviderMessage* apply_pdc_provider_message_;
       ::flightstrips::cluster::v1::RequestSquawk* request_squawk_;
+      ::flightstrips::cluster::v1::ReportAmanRouteFact* report_aman_route_fact_;
     } action_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     ::uint32_t _oneof_case_[1];
@@ -48089,6 +48402,83 @@ inline ::flightstrips::cluster::v1::RequestSquawk* SystemCommand::mutable_reques
   return _msg;
 }
 
+// .flightstrips.cluster.v1.ReportAmanRouteFact report_aman_route_fact = 16;
+inline bool SystemCommand::has_report_aman_route_fact() const {
+  return action_case() == kReportAmanRouteFact;
+}
+inline bool SystemCommand::_internal_has_report_aman_route_fact() const {
+  return action_case() == kReportAmanRouteFact;
+}
+inline void SystemCommand::set_has_report_aman_route_fact() {
+  _impl_._oneof_case_[0] = kReportAmanRouteFact;
+}
+inline void SystemCommand::clear_report_aman_route_fact() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (action_case() == kReportAmanRouteFact) {
+    if (GetArena() == nullptr) {
+      delete _impl_.action_.report_aman_route_fact_;
+    }
+    clear_has_action();
+  }
+}
+inline ::flightstrips::cluster::v1::ReportAmanRouteFact* SystemCommand::release_report_aman_route_fact() {
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.SystemCommand.report_aman_route_fact)
+  if (action_case() == kReportAmanRouteFact) {
+    clear_has_action();
+    auto* temp = _impl_.action_.report_aman_route_fact_;
+    if (GetArena() != nullptr) {
+      temp = ::google::protobuf::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.action_.report_aman_route_fact_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::flightstrips::cluster::v1::ReportAmanRouteFact& SystemCommand::_internal_report_aman_route_fact() const {
+  return action_case() == kReportAmanRouteFact ? *_impl_.action_.report_aman_route_fact_ : reinterpret_cast<::flightstrips::cluster::v1::ReportAmanRouteFact&>(::flightstrips::cluster::v1::_ReportAmanRouteFact_default_instance_);
+}
+inline const ::flightstrips::cluster::v1::ReportAmanRouteFact& SystemCommand::report_aman_route_fact() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.SystemCommand.report_aman_route_fact)
+  return _internal_report_aman_route_fact();
+}
+inline ::flightstrips::cluster::v1::ReportAmanRouteFact* SystemCommand::unsafe_arena_release_report_aman_route_fact() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:flightstrips.cluster.v1.SystemCommand.report_aman_route_fact)
+  if (action_case() == kReportAmanRouteFact) {
+    clear_has_action();
+    auto* temp = _impl_.action_.report_aman_route_fact_;
+    _impl_.action_.report_aman_route_fact_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void SystemCommand::unsafe_arena_set_allocated_report_aman_route_fact(::flightstrips::cluster::v1::ReportAmanRouteFact* value) {
+  // We rely on the oneof clear method to free the earlier contents
+  // of this oneof. We can directly use the pointer we're given to
+  // set the new value.
+  clear_action();
+  if (value) {
+    set_has_report_aman_route_fact();
+    _impl_.action_.report_aman_route_fact_ = value;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.SystemCommand.report_aman_route_fact)
+}
+inline ::flightstrips::cluster::v1::ReportAmanRouteFact* SystemCommand::_internal_mutable_report_aman_route_fact() {
+  if (action_case() != kReportAmanRouteFact) {
+    clear_action();
+    set_has_report_aman_route_fact();
+    _impl_.action_.report_aman_route_fact_ =
+        ::google::protobuf::Message::DefaultConstruct<::flightstrips::cluster::v1::ReportAmanRouteFact>(GetArena());
+  }
+  return _impl_.action_.report_aman_route_fact_;
+}
+inline ::flightstrips::cluster::v1::ReportAmanRouteFact* SystemCommand::mutable_report_aman_route_fact() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::flightstrips::cluster::v1::ReportAmanRouteFact* _msg = _internal_mutable_report_aman_route_fact();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.SystemCommand.report_aman_route_fact)
+  return _msg;
+}
+
 inline bool SystemCommand::has_action() const {
   return action_case() != ACTION_NOT_SET;
 }
@@ -48473,6 +48863,424 @@ inline void RequestSquawk::set_allocated_target_cid(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.RequestSquawk.target_cid)
 }
 
+// -------------------------------------------------------------------
+
+// ReportAmanRouteFact
+
+// string connection_id = 1;
+inline void ReportAmanRouteFact::clear_connection_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connection_id_.ClearToEmpty();
+}
+inline const std::string& ReportAmanRouteFact::connection_id() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ReportAmanRouteFact.connection_id)
+  return _internal_connection_id();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ReportAmanRouteFact::set_connection_id(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connection_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ReportAmanRouteFact.connection_id)
+}
+inline std::string* ReportAmanRouteFact::mutable_connection_id() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_connection_id();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ReportAmanRouteFact.connection_id)
+  return _s;
+}
+inline const std::string& ReportAmanRouteFact::_internal_connection_id() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.connection_id_.Get();
+}
+inline void ReportAmanRouteFact::_internal_set_connection_id(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connection_id_.Set(value, GetArena());
+}
+inline std::string* ReportAmanRouteFact::_internal_mutable_connection_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.connection_id_.Mutable( GetArena());
+}
+inline std::string* ReportAmanRouteFact::release_connection_id() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ReportAmanRouteFact.connection_id)
+  return _impl_.connection_id_.Release();
+}
+inline void ReportAmanRouteFact::set_allocated_connection_id(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connection_id_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.connection_id_.IsDefault()) {
+          _impl_.connection_id_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ReportAmanRouteFact.connection_id)
+}
+
+// uint64 owner_epoch = 2;
+inline void ReportAmanRouteFact::clear_owner_epoch() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.owner_epoch_ = ::uint64_t{0u};
+}
+inline ::uint64_t ReportAmanRouteFact::owner_epoch() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ReportAmanRouteFact.owner_epoch)
+  return _internal_owner_epoch();
+}
+inline void ReportAmanRouteFact::set_owner_epoch(::uint64_t value) {
+  _internal_set_owner_epoch(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ReportAmanRouteFact.owner_epoch)
+}
+inline ::uint64_t ReportAmanRouteFact::_internal_owner_epoch() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.owner_epoch_;
+}
+inline void ReportAmanRouteFact::_internal_set_owner_epoch(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.owner_epoch_ = value;
+}
+
+// uint64 master_epoch = 3;
+inline void ReportAmanRouteFact::clear_master_epoch() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_epoch_ = ::uint64_t{0u};
+}
+inline ::uint64_t ReportAmanRouteFact::master_epoch() const {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ReportAmanRouteFact.master_epoch)
+  return _internal_master_epoch();
+}
+inline void ReportAmanRouteFact::set_master_epoch(::uint64_t value) {
+  _internal_set_master_epoch(value);
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ReportAmanRouteFact.master_epoch)
+}
+inline ::uint64_t ReportAmanRouteFact::_internal_master_epoch() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.master_epoch_;
+}
+inline void ReportAmanRouteFact::_internal_set_master_epoch(::uint64_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.master_epoch_ = value;
+}
+
+// string callsign = 4;
+inline void ReportAmanRouteFact::clear_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.ClearToEmpty();
+}
+inline const std::string& ReportAmanRouteFact::callsign() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ReportAmanRouteFact.callsign)
+  return _internal_callsign();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ReportAmanRouteFact::set_callsign(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ReportAmanRouteFact.callsign)
+}
+inline std::string* ReportAmanRouteFact::mutable_callsign() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_callsign();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ReportAmanRouteFact.callsign)
+  return _s;
+}
+inline const std::string& ReportAmanRouteFact::_internal_callsign() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Get();
+}
+inline void ReportAmanRouteFact::_internal_set_callsign(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.Set(value, GetArena());
+}
+inline std::string* ReportAmanRouteFact::_internal_mutable_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.callsign_.Mutable( GetArena());
+}
+inline std::string* ReportAmanRouteFact::release_callsign() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ReportAmanRouteFact.callsign)
+  return _impl_.callsign_.Release();
+}
+inline void ReportAmanRouteFact::set_allocated_callsign(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.callsign_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.callsign_.IsDefault()) {
+          _impl_.callsign_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ReportAmanRouteFact.callsign)
+}
+
+// .google.protobuf.Timestamp observed_at = 5;
+inline bool ReportAmanRouteFact::has_observed_at() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000001u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.observed_at_ != nullptr);
+  return value;
+}
+inline const ::google::protobuf::Timestamp& ReportAmanRouteFact::_internal_observed_at() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::google::protobuf::Timestamp* p = _impl_.observed_at_;
+  return p != nullptr ? *p : reinterpret_cast<const ::google::protobuf::Timestamp&>(::google::protobuf::_Timestamp_default_instance_);
+}
+inline const ::google::protobuf::Timestamp& ReportAmanRouteFact::observed_at() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ReportAmanRouteFact.observed_at)
+  return _internal_observed_at();
+}
+inline void ReportAmanRouteFact::unsafe_arena_set_allocated_observed_at(::google::protobuf::Timestamp* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.observed_at_);
+  }
+  _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:flightstrips.cluster.v1.ReportAmanRouteFact.observed_at)
+}
+inline ::google::protobuf::Timestamp* ReportAmanRouteFact::release_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* released = _impl_.observed_at_;
+  _impl_.observed_at_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::google::protobuf::Timestamp* ReportAmanRouteFact::unsafe_arena_release_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ReportAmanRouteFact.observed_at)
+
+  _impl_._has_bits_[0] &= ~0x00000001u;
+  ::google::protobuf::Timestamp* temp = _impl_.observed_at_;
+  _impl_.observed_at_ = nullptr;
+  return temp;
+}
+inline ::google::protobuf::Timestamp* ReportAmanRouteFact::_internal_mutable_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.observed_at_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::google::protobuf::Timestamp>(GetArena());
+    _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(p);
+  }
+  return _impl_.observed_at_;
+}
+inline ::google::protobuf::Timestamp* ReportAmanRouteFact::mutable_observed_at() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  _impl_._has_bits_[0] |= 0x00000001u;
+  ::google::protobuf::Timestamp* _msg = _internal_mutable_observed_at();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ReportAmanRouteFact.observed_at)
+  return _msg;
+}
+inline void ReportAmanRouteFact::set_allocated_observed_at(::google::protobuf::Timestamp* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.observed_at_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::MessageLite*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000001u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000001u;
+  }
+
+  _impl_.observed_at_ = reinterpret_cast<::google::protobuf::Timestamp*>(value);
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ReportAmanRouteFact.observed_at)
+}
+
+// string direct_to_fix = 6;
+inline bool ReportAmanRouteFact::has_direct_to_fix() const {
+  return fact_case() == kDirectToFix;
+}
+inline void ReportAmanRouteFact::set_has_direct_to_fix() {
+  _impl_._oneof_case_[0] = kDirectToFix;
+}
+inline void ReportAmanRouteFact::clear_direct_to_fix() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (fact_case() == kDirectToFix) {
+    _impl_.fact_.direct_to_fix_.Destroy();
+    clear_has_fact();
+  }
+}
+inline const std::string& ReportAmanRouteFact::direct_to_fix() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ReportAmanRouteFact.direct_to_fix)
+  return _internal_direct_to_fix();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ReportAmanRouteFact::set_direct_to_fix(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (fact_case() != kDirectToFix) {
+    clear_fact();
+
+    set_has_direct_to_fix();
+    _impl_.fact_.direct_to_fix_.InitDefault();
+  }
+  _impl_.fact_.direct_to_fix_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ReportAmanRouteFact.direct_to_fix)
+}
+inline std::string* ReportAmanRouteFact::mutable_direct_to_fix() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_direct_to_fix();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ReportAmanRouteFact.direct_to_fix)
+  return _s;
+}
+inline const std::string& ReportAmanRouteFact::_internal_direct_to_fix() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  if (fact_case() != kDirectToFix) {
+    return ::google::protobuf::internal::GetEmptyStringAlreadyInited();
+  }
+  return _impl_.fact_.direct_to_fix_.Get();
+}
+inline void ReportAmanRouteFact::_internal_set_direct_to_fix(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (fact_case() != kDirectToFix) {
+    clear_fact();
+
+    set_has_direct_to_fix();
+    _impl_.fact_.direct_to_fix_.InitDefault();
+  }
+  _impl_.fact_.direct_to_fix_.Set(value, GetArena());
+}
+inline std::string* ReportAmanRouteFact::_internal_mutable_direct_to_fix() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (fact_case() != kDirectToFix) {
+    clear_fact();
+
+    set_has_direct_to_fix();
+    _impl_.fact_.direct_to_fix_.InitDefault();
+  }
+  return _impl_.fact_.direct_to_fix_.Mutable( GetArena());
+}
+inline std::string* ReportAmanRouteFact::release_direct_to_fix() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ReportAmanRouteFact.direct_to_fix)
+  if (fact_case() != kDirectToFix) {
+    return nullptr;
+  }
+  clear_has_fact();
+  return _impl_.fact_.direct_to_fix_.Release();
+}
+inline void ReportAmanRouteFact::set_allocated_direct_to_fix(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (has_fact()) {
+    clear_fact();
+  }
+  if (value != nullptr) {
+    set_has_direct_to_fix();
+    _impl_.fact_.direct_to_fix_.InitAllocated(value, GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ReportAmanRouteFact.direct_to_fix)
+}
+
+// string assigned_speed = 7;
+inline bool ReportAmanRouteFact::has_assigned_speed() const {
+  return fact_case() == kAssignedSpeed;
+}
+inline void ReportAmanRouteFact::set_has_assigned_speed() {
+  _impl_._oneof_case_[0] = kAssignedSpeed;
+}
+inline void ReportAmanRouteFact::clear_assigned_speed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (fact_case() == kAssignedSpeed) {
+    _impl_.fact_.assigned_speed_.Destroy();
+    clear_has_fact();
+  }
+}
+inline const std::string& ReportAmanRouteFact::assigned_speed() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:flightstrips.cluster.v1.ReportAmanRouteFact.assigned_speed)
+  return _internal_assigned_speed();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void ReportAmanRouteFact::set_assigned_speed(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (fact_case() != kAssignedSpeed) {
+    clear_fact();
+
+    set_has_assigned_speed();
+    _impl_.fact_.assigned_speed_.InitDefault();
+  }
+  _impl_.fact_.assigned_speed_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:flightstrips.cluster.v1.ReportAmanRouteFact.assigned_speed)
+}
+inline std::string* ReportAmanRouteFact::mutable_assigned_speed() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_assigned_speed();
+  // @@protoc_insertion_point(field_mutable:flightstrips.cluster.v1.ReportAmanRouteFact.assigned_speed)
+  return _s;
+}
+inline const std::string& ReportAmanRouteFact::_internal_assigned_speed() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  if (fact_case() != kAssignedSpeed) {
+    return ::google::protobuf::internal::GetEmptyStringAlreadyInited();
+  }
+  return _impl_.fact_.assigned_speed_.Get();
+}
+inline void ReportAmanRouteFact::_internal_set_assigned_speed(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (fact_case() != kAssignedSpeed) {
+    clear_fact();
+
+    set_has_assigned_speed();
+    _impl_.fact_.assigned_speed_.InitDefault();
+  }
+  _impl_.fact_.assigned_speed_.Set(value, GetArena());
+}
+inline std::string* ReportAmanRouteFact::_internal_mutable_assigned_speed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (fact_case() != kAssignedSpeed) {
+    clear_fact();
+
+    set_has_assigned_speed();
+    _impl_.fact_.assigned_speed_.InitDefault();
+  }
+  return _impl_.fact_.assigned_speed_.Mutable( GetArena());
+}
+inline std::string* ReportAmanRouteFact::release_assigned_speed() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:flightstrips.cluster.v1.ReportAmanRouteFact.assigned_speed)
+  if (fact_case() != kAssignedSpeed) {
+    return nullptr;
+  }
+  clear_has_fact();
+  return _impl_.fact_.assigned_speed_.Release();
+}
+inline void ReportAmanRouteFact::set_allocated_assigned_speed(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (has_fact()) {
+    clear_fact();
+  }
+  if (value != nullptr) {
+    set_has_assigned_speed();
+    _impl_.fact_.assigned_speed_.InitAllocated(value, GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ReportAmanRouteFact.assigned_speed)
+}
+
+inline bool ReportAmanRouteFact::has_fact() const {
+  return fact_case() != FACT_NOT_SET;
+}
+inline void ReportAmanRouteFact::clear_has_fact() {
+  _impl_._oneof_case_[0] = FACT_NOT_SET;
+}
+inline ReportAmanRouteFact::FactCase ReportAmanRouteFact::fact_case() const {
+  return ReportAmanRouteFact::FactCase(_impl_._oneof_case_[0]);
+}
 // -------------------------------------------------------------------
 
 // DeleteSession

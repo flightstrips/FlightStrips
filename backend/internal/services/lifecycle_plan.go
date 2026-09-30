@@ -16,31 +16,32 @@ import (
 // The caller owns cloning input and atomically committing the resulting diff.
 // It shares the production lifecycle and SAT selection/occupancy policy.
 type LifecyclePlan struct {
-	Session            *models.Session
-	Strips             map[string]*models.Strip
-	Assignments        map[string]*models.StandAssignment
-	Blocks             map[string]*models.StandBlock
-	AssignmentBlocks   map[string][]string
-	BlockAdjacency     map[string][]string
-	PhysicalOccupancy  map[string]string
-	FrozenObservations map[string]bool
-	LiveObservations   map[string]bool
-	ConsumedPrefiles   map[string]bool
-	Stands             *sat.StandCapabilityRegistry
-	Policy             *sat.AirlineAssignmentConfig
-	Aircraft           *sat.AircraftRegistry
-	Engines            *sat.AircraftEngineRegistry
-	Borders            *sat.AirportCountryRegistry
-	Now                time.Time
-	Random             func() float64
-	AllowPrefiles      bool
-	Callsign           string
-	SweepOnly          bool
-	Messages           []LifecycleMessage
-	MessageAvailable   bool
-	StandWrites        map[string]string
-	Episodes           map[string]string
-	nextID             int64
+	Session                      *models.Session
+	Strips                       map[string]*models.Strip
+	Assignments                  map[string]*models.StandAssignment
+	Blocks                       map[string]*models.StandBlock
+	AssignmentBlocks             map[string][]string
+	BlockAdjacency               map[string][]string
+	PhysicalOccupancy            map[string]string
+	FrozenObservations           map[string]bool
+	LiveObservations             map[string]bool
+	ConsumedPrefiles             map[string]bool
+	Stands                       *sat.StandCapabilityRegistry
+	Policy                       *sat.AirlineAssignmentConfig
+	Aircraft                     *sat.AircraftRegistry
+	Engines                      *sat.AircraftEngineRegistry
+	Borders                      *sat.AirportCountryRegistry
+	Now                          time.Time
+	Random                       func() float64
+	AllowPrefiles                bool
+	HoldDuration, BlockExtension time.Duration
+	Callsign                     string
+	SweepOnly                    bool
+	Messages                     []LifecycleMessage
+	MessageAvailable             bool
+	StandWrites                  map[string]string
+	Episodes                     map[string]string
+	nextID                       int64
 }
 type LifecycleMessage struct{ Callsign, Text string }
 
@@ -67,7 +68,7 @@ func (p *LifecyclePlan) Run(ctx context.Context, departure bool, flights map[str
 	policy.planningBlockAdjacency = p.BlockAdjacency
 	policy.planningOccupancy = p.PhysicalOccupancy
 	allocator := &planningAllocator{policy: policy, memory: memory}
-	dep, err := NewDepartureLifecycleService(allocator, memory, memory, memory, p.Stands, p.Aircraft, p.Engines, p.Borders, WithDepartureLifecycleClock(policy.now), WithDeparturePrefileAssignments(p.AllowPrefiles))
+	dep, err := NewDepartureLifecycleService(allocator, memory, memory, memory, p.Stands, p.Aircraft, p.Engines, p.Borders, WithDepartureLifecycleClock(policy.now), WithDeparturePrefileAssignments(p.AllowPrefiles), WithDepartureHoldDuration(p.HoldDuration), WithDepartureBlockExtension(p.BlockExtension))
 	if err != nil {
 		return err
 	}

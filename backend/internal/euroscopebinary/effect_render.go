@@ -18,6 +18,12 @@ func EffectRenderer(secrets cluster.EffectSecrets) func(int32, *pb.EffectRecord)
 		frame := &euroscope.Envelope{CommandId: effect.CommandId, SessionId: sessionID,
 			OwnerEpoch: effect.OwnerEpoch, MasterEpoch: effect.MasterEpoch}
 		switch payload := effect.GetPayload().(type) {
+		case *pb.EffectRecord_CreateFlightPlan:
+			f := payload.CreateFlightPlan
+			if f == nil || f.Callsign == "" {
+				return nil, fmt.Errorf("flight plan missing")
+			}
+			frame.Event = &euroscope.Envelope_CreateFpl{CreateFpl: &euroscope.CreateFPLEvent{Callsign: f.Callsign, Origin: f.Origin, Destination: f.Destination, Sid: f.Sid, AssignedSquawk: f.AssignedSquawk, Eobt: f.Eobt, AircraftType: f.AircraftType, RequestedAltitude: f.RequestedAltitude, Route: f.Route, Stand: f.Stand, Runway: f.Runway, Remarks: f.Remarks, PersonsOnBoard: f.PersonsOnBoard, FplType: f.FplType, Language: f.Language}}
 		case *pb.EffectRecord_GenerateSquawk:
 			if payload.GenerateSquawk == nil || payload.GenerateSquawk.Callsign == "" {
 				return nil, fmt.Errorf("squawk callsign missing")

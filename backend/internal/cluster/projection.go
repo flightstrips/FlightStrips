@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"FlightStrips/internal/natsresources"
@@ -18,29 +19,34 @@ import (
 // Projection is a per-process, independent FS_STATE reader. Published state is
 // never exposed until a complete event has passed the reducer.
 type Projection struct {
-	NC                           *nats.Conn
-	JS                           nats.JetStreamContext
-	Config                       natsresources.Config
-	Snapshots                    SnapshotStore
-	Positions                    nats.KeyValue
-	Presence                     nats.KeyValue
-	mu                           sync.RWMutex
-	states                       map[string]*Aggregate
-	listeners                    map[uint64]*projectionListener
-	nextListener                 uint64
-	applied, highWater           uint64
-	checked                      time.Time
-	healthErr                    error
-	started                      bool
-	startedAt                    time.Time
-	lastSnapshot                 map[string]time.Time
-	sinceSnapshot                map[string]uint64
-	snapshotErrors               map[string]error
-	positions                    map[string]KVPosition
-	presence                     map[string]KVPresence
-	syncFresh                    map[string]bool
-	positionReady, presenceReady bool
-	observationErr               error
+	NC                                         *nats.Conn
+	JS                                         nats.JetStreamContext
+	Config                                     natsresources.Config
+	Snapshots                                  SnapshotStore
+	Positions                                  nats.KeyValue
+	Presence                                   nats.KeyValue
+	mu                                         sync.RWMutex
+	states                                     map[string]*Aggregate
+	listeners                                  map[uint64]*projectionListener
+	nextListener                               uint64
+	applied, highWater                         uint64
+	checked                                    time.Time
+	lastCheckAttempt                           time.Time
+	lastAppliedServerTime, highWaterServerTime time.Time
+	healthErr                                  error
+	started                                    bool
+	startedAt                                  time.Time
+	lastSnapshot                               map[string]time.Time
+	sinceSnapshot                              map[string]uint64
+	snapshotErrors                             map[string]error
+	positions                                  map[string]KVPosition
+	presence                                   map[string]KVPresence
+	syncFresh                                  map[string]bool
+	positionReady, presenceReady               bool
+	observationErr                             error
+	watchers                                   sync.WaitGroup
+	snapshotJobs                               sync.WaitGroup
+	takeovers, staleEpochs, snapshotFailures   atomic.Uint64
 }
 
 type KVPosition struct {
@@ -96,12 +102,13 @@ func NewProjection(nc *nats.Conn, cfg natsresources.Config) (*Projection, error)
 // that subject, including events skipped through a verified snapshot.
 func (p *Projection) Run(ctx context.Context) error {
 	watchCtx, stopWatchers := context.WithCancel(ctx)
-	defer stopWatchers()
+	defer func() { stopWatchers(); p.watchers.Wait(); p.snapshotJobs.Wait() }()
 	if err := natsresources.Verify(ctx, p.NC, p.Config); err != nil {
 		return err
 	}
-	go p.watchPositions(watchCtx)
-	go p.watchPresence(watchCtx)
+	p.watchers.Add(2)
+	go func() { defer p.watchers.Done(); p.watchPositions(watchCtx) }()
+	go func() { defer p.watchers.Done(); p.watchPresence(watchCtx) }()
 	keys, err := p.Snapshots.Index.Keys()
 	if err != nil && !errors.Is(err, nats.ErrNoKeysFound) {
 		return err
@@ -113,6 +120,7 @@ func (p *Projection) Run(ctx context.Context) error {
 		}
 		state, err := p.Snapshots.Load(ref)
 		if err != nil {
+			p.snapshotFailures.Add(1)
 			return err
 		}
 		subject, _ := Subject(ref)
@@ -172,6 +180,12 @@ func (p *Projection) Run(ctx context.Context) error {
 				p.fail(e)
 				return e
 			}
+		} else if (errors.Is(err, nats.ErrDisconnected) || errors.Is(err, nats.ErrConnectionReconnecting)) && ctx.Err() == nil {
+			p.fail(err)
+			select {
+			case <-ctx.Done():
+			case <-time.After(100 * time.Millisecond):
+			}
 		} else if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, nats.ErrTimeout) && ctx.Err() == nil {
 			p.fail(err)
 			return err
@@ -218,6 +232,7 @@ func (p *Projection) apply(entry AppliedEvent) error {
 	}
 	p.states[entry.Subject] = clone
 	p.applied = entry.StreamSequence
+	p.lastAppliedServerTime = entry.ServerTime
 	if p.syncFresh != nil && clone.Ref.GetSession() != nil && !proto.Equal(state.Sync, clone.Sync) {
 		p.syncFresh[entry.Subject] = clone.Sync != nil && !entry.ServerTime.Before(p.startedAt)
 	}
@@ -246,6 +261,9 @@ func (p *Projection) apply(entry AppliedEvent) error {
 				}
 			}
 		}
+		if e.GetOwnerClaimed() != nil && state.Owner != nil && clone.Owner.GetEpoch() > state.Owner.GetEpoch() {
+			p.takeovers.Add(1)
+		}
 	}
 	p.sinceSnapshot[entry.Subject]++
 	p.scheduleSnapshotLocked(entry.Subject, clone)
@@ -260,7 +278,8 @@ func (p *Projection) scheduleSnapshotLocked(subject string, state *Aggregate) {
 	p.lastSnapshot[subject] = time.Now()
 	// State is immutable after publication; I/O may continue outside the
 	// reducer lock without exposing a partial checkpoint.
-	go p.persistSnapshot(subject, state)
+	p.snapshotJobs.Add(1)
+	go func() { defer p.snapshotJobs.Done(); p.persistSnapshot(subject, state) }()
 }
 
 func (p *Projection) persistSnapshot(subject string, state *Aggregate) {
@@ -272,6 +291,7 @@ func (p *Projection) persistSnapshot(subject string, state *Aggregate) {
 	}
 	if err != nil {
 		p.snapshotErrors[subject] = err
+		p.snapshotFailures.Add(1)
 		if errors.Is(err, ErrImmutableSnapshotCollision) {
 			p.lastSnapshot[subject] = time.Now()
 		} else {
@@ -304,6 +324,16 @@ func (p *Projection) refresh(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
+	// Poll resource/quorum metadata independently of event rate. Checking all
+	// five resources after every event otherwise prevents a busy projection
+	// from ever catching up to its own high-water mark.
+	p.mu.Lock()
+	if time.Since(p.lastCheckAttempt) < 250*time.Millisecond {
+		p.mu.Unlock()
+		return
+	}
+	p.lastCheckAttempt = time.Now()
+	p.mu.Unlock()
 	// A metadata read is required for readiness; stale cached high-water can
 	// never keep a disconnected or minority node ready.
 	check, cancel := context.WithTimeout(ctx, p.Config.RequestTimeout)
@@ -316,6 +346,8 @@ func (p *Projection) refresh(ctx context.Context) {
 		p.fail(err)
 		return
 	}
+	var highWater uint64
+	var highWaterServerTime time.Time
 	for _, name := range []string{p.Config.Names.State, "KV_" + p.Config.Names.Positions, "KV_" + p.Config.Names.Presence, "KV_" + p.Config.Names.SnapshotIndex, "OBJ_" + p.Config.Names.Objects} {
 		info, err := p.JS.StreamInfo(name, nats.Context(check))
 		if err != nil {
@@ -335,17 +367,20 @@ func (p *Projection) refresh(ctx context.Context) {
 			return
 		}
 		if name == p.Config.Names.State {
+			highWaterServerTime = info.State.LastTime
 			if info.State.Msgs > 0 && (info.State.FirstSeq != 1 || info.State.NumDeleted != 0) {
 				p.fail(fmt.Errorf("FS_STATE history is incomplete"))
 				return
 			}
-			p.mu.Lock()
-			p.highWater = info.State.LastSeq
-			p.checked = time.Now()
-			p.healthErr = nil
-			p.mu.Unlock()
+			highWater = info.State.LastSeq
 		}
 	}
+	p.mu.Lock()
+	p.highWater = highWater
+	p.checked = time.Now()
+	p.highWaterServerTime = highWaterServerTime
+	p.healthErr = nil
+	p.mu.Unlock()
 }
 
 func (p *Projection) fail(err error) { p.mu.Lock(); p.healthErr = err; p.mu.Unlock() }

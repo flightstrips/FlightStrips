@@ -33,7 +33,10 @@ func (s Effects) Run(ctx context.Context) error {
 	garbageTicker := time.NewTicker(time.Hour)
 	defer garbageTicker.Stop()
 	resultErrors := make(chan error, 1)
-	go func() { resultErrors <- s.ServeResults(ctx) }()
+	resultCtx, stop := context.WithCancel(ctx)
+	joined := make(chan struct{})
+	go func() { defer close(joined); resultErrors <- s.ServeResults(resultCtx) }()
+	defer func() { stop(); <-joined }()
 	for {
 		if err := s.Sweep(ctx); err != nil && ctx.Err() == nil {
 			// A transient CAS or projection failure is retried on the next tick.
@@ -323,7 +326,7 @@ func (s Effects) ServeResults(ctx context.Context) error {
 	if s.Owner == nil || s.Fanout == nil || s.Fanout.NC == nil || !canonicalUUID(s.Owner.NodeID) {
 		return fmt.Errorf("effect result server unavailable")
 	}
-	sub, err := s.Fanout.NC.Subscribe("fs.v1.result."+s.Owner.NodeID, func(message *nats.Msg) {
+	_, closeSub, err := SubscribeJoined(s.Fanout.NC, "fs.v1.result."+s.Owner.NodeID, func(message *nats.Msg) {
 		request := &pb.EffectDeliveryRequest{}
 		reply := &pb.EffectDeliveryReply{}
 		if len(message.Data) > 0 && len(message.Data) <= MaxStateBytes && pb.UnmarshalStrict(message.Data, request) == nil && request.Effect != nil {
@@ -340,7 +343,7 @@ func (s Effects) ServeResults(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer sub.Unsubscribe()
+	defer closeSub()
 	if err := s.Fanout.NC.FlushWithContext(ctx); err != nil {
 		return err
 	}

@@ -81,6 +81,39 @@ func convertAudit(record aman.AuditRecord, commandID string, index int, actor *p
 			return nil, err
 		}
 		result.Fact = &pb.AmanAudit_Capacity{Capacity: &pb.AmanCapacityAudit{RunwayGroupId: v.RunwayGroup, ObjectId: v.ID, Kind: pb.AmanCapacityAudit_CLOSURE, Action: "expire_runway_closure", Start: timestamp(v.Interval.Start), End: optionalTimestamp(v.Interval.End), Creator: v.Creator, CreatedAt: timestamp(v.CreatedAt), ExpiryReason: v.ExpiryReason, ExpiredAt: timestamp(v.ExpiredAt), RemovedIds: v.RemovedIDs}}
+	case "aman.runway_gap_displacement", "aman.runway_closure_displacement", "aman.capacity_reservation_displacement":
+		var v struct {
+			Callsign string `json:"callsign"`
+			Group    string `json:"runway_group_id"`
+			Reason   string `json:"overridden_protection_reason"`
+			Before   struct {
+				Time     time.Time `json:"time"`
+				Group    string    `json:"runway_group_id"`
+				Sequence uint32    `json:"sequence"`
+			} `json:"previous_opportunity"`
+			After struct {
+				Time     time.Time `json:"time"`
+				Group    string    `json:"runway_group_id"`
+				Sequence uint32    `json:"sequence"`
+			} `json:"new_opportunity"`
+		}
+		if err = json.Unmarshal(record.Payload, &v); err != nil {
+			return nil, err
+		}
+		result.Fact = &pb.AmanAudit_Sequence{Sequence: &pb.AmanSequenceAudit{Callsign: v.Callsign, RunwayGroupId: v.Group, Reason: record.Category + "/" + v.Reason, Before: &pb.AmanSlot{Time: timestamp(v.Before.Time), RunwayGroupId: v.Before.Group, Sequence: v.Before.Sequence}, After: &pb.AmanSlot{Time: timestamp(v.After.Time), RunwayGroupId: v.After.Group, Sequence: v.After.Sequence, Revision: uint64(record.Revision)}}}
+	case "aman.move_flight", "aman.place_flight_at_time", "aman.lock_flight", "aman.unlock_flight", "aman.desequence_flight", "aman.resume_flight", "aman.remove_flight", "aman.accept_teta", "aman.keep_fpl_eta", "aman.reset_teta_override", "aman.set_rate", "aman.select_runway_group", "aman.set_active_runway_groups", "aman.set_manual_eta", "aman.set_manual_feeder_eta", "aman.reset_manual_feeder_eta", "aman.recompute_flight", "aman.change_runway", "aman.report_go_around", "aman.confirm_go_around", "aman.reject_go_around", "aman.create_runway_gap", "aman.remove_runway_gap", "aman.create_runway_closure", "aman.remove_runway_closure", "aman.create_capacity_reservation", "aman.remove_capacity_reservation":
+		var value struct {
+			Action  string `json:"action"`
+			Changed bool   `json:"changed"`
+		}
+		if err = json.Unmarshal(record.Payload, &value); err != nil {
+			return nil, err
+		}
+		outcome := "unchanged"
+		if value.Changed {
+			outcome = "changed"
+		}
+		result.Fact = &pb.AmanAudit_Command{Command: &pb.AmanCommandAudit{CommandId: commandID, CommandKind: value.Action, Outcome: outcome}}
 	default:
 		return nil, fmt.Errorf("unmapped operational audit category %q", record.Category)
 	}

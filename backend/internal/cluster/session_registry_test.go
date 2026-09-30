@@ -233,4 +233,33 @@ func TestSessionRegistryResumeAfterDeletingAndRejectTombstoneRevival(t *testing.
 	if reply := registry.Store.Execute(ctx, request); reply.Status != pb.CommandReply_COMMITTED || reply.Outcome.Status != pb.CommandOutcome_FAILED {
 		t.Fatalf("reviving tombstone should fail durably: %v", reply)
 	}
+	if err := registry.execute(ctx, request); err == nil {
+		t.Fatal("a committed failed lifecycle outcome was reported as success")
+	}
+}
+
+func TestSessionDeletionBarrierDoesNotRetainFailedOutcome(t *testing.T) {
+	_, registry := registryFixture(t, 1)
+	ctx := context.Background()
+	if _, err := registry.GetOrCreateSession(ctx, "EKCH", "LIVE"); err != nil {
+		t.Fatal(err)
+	}
+	entry := registryState(t, registry).Entities["1"].GetValue().GetSessionRegistry()
+	request := lifecycleRequest(sessionRef(1), lifecycleID(entry.WorkflowId, "tombstone"), &pb.SystemCommand_DeleteSession{DeleteSession: &pb.DeleteSession{Id: 1, WorkflowId: entry.WorkflowId}})
+	store := registry.Store.(LocalLifecycleStore)
+	next := store.Writer.Plan
+	pending := true
+	store.Writer.Plan = func(ctx context.Context, req *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		if pending {
+			state.Effects["pending"] = &pb.EffectRecord{Status: pb.EffectRecord_DISPATCH_CLAIMED}
+		}
+		return next(ctx, req, state)
+	}
+	if reply := store.Execute(ctx, request); reply.Status != pb.CommandReply_UNAVAILABLE || reply.Outcome != nil {
+		t.Fatalf("pending effects must defer deletion without retaining failure: %v", reply)
+	}
+	pending = false
+	if reply := store.Execute(ctx, request); reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		t.Fatalf("the same durable deletion identity must succeed after effects finish: %v", reply)
+	}
 }

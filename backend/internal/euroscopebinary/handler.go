@@ -67,6 +67,9 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+	stop := context.AfterFunc(r.Context(), func() { _ = conn.Close() })
+	defer stop()
+	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	conn.SetReadLimit(maxFrame)
 	if err := h.serve(r.Context(), conn); err != nil {
 		if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
@@ -147,6 +150,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 	if err != nil {
 		return err
 	}
+	_ = conn.SetReadDeadline(time.Time{})
 	identity := login.GetLogin()
 	if identity == nil || identity.Airport == "" || identity.Callsign == "" {
 		return socketFailure{websocket.ClosePolicyViolation}
@@ -157,7 +161,10 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		name = "LIVE"
 	}
 	session, err := h.Sessions.GetOrCreateSession(ctx, airport, name)
-	if err != nil || session == nil || session.Tombstoned {
+	if err != nil {
+		return fmt.Errorf("open EuroScope session: %w", err)
+	}
+	if session == nil || session.Tombstoned {
 		return socketFailure{websocket.ClosePolicyViolation}
 	}
 	if err := h.putController(ctx, session.Id, user.GetCid(), identity); err != nil {
@@ -183,7 +190,20 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 				}
 				return nil
 			}
-			for _, frame := range stripDeltas(delta) {
+			frames := stripDeltas(delta)
+			if delta.Aggregate.GetSession() != nil {
+				for _, change := range delta.Changes {
+					if change.GetUpsert().GetStrip() != nil || change.GetUpsert().GetCdmState() != nil || change.GetUpsert().GetEcfmpState() != nil {
+						state, err := h.Projection.Read(delta.Aggregate)
+						if err != nil {
+							return err
+						}
+						frames = []*euroscope.Envelope{backendSync(state)}
+						break
+					}
+				}
+			}
+			for _, frame := range frames {
 				if err := writer.send(frame); err != nil {
 					return err
 				}
@@ -276,7 +296,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 }
 
 func (h Handler) putController(ctx context.Context, sessionID int32, cid string, login *euroscope.LoginEvent) error {
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 100; attempt++ {
 		controllers, err := h.Controllers.Controllers(ctx, sessionID)
 		if err != nil {
 			return err
@@ -297,8 +317,13 @@ func (h Handler) putController(ctx context.Context, sessionID int32, cid string,
 		if reply, err := h.Controllers.PutController(ctx, sessionID, record, revision); err == nil &&
 			reply != nil && reply.GetOutcome().GetStatus() == pb.CommandOutcome_SUCCEEDED {
 			return nil
-		} else if reply == nil || reply.Status != pb.CommandReply_REVISION_CONFLICT {
+		} else if reply == nil || (reply.Status != pb.CommandReply_REVISION_CONFLICT && reply.GetOutcome().GetReasonCode() != "REVISION_CONFLICT" && reply.Status != pb.CommandReply_UNAVAILABLE && reply.Status != pb.CommandReply_NOT_OWNER) {
 			return fmt.Errorf("controller identity could not be committed: %v", err)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(20 * time.Millisecond):
 		}
 	}
 	return fmt.Errorf("controller identity changed during login")
@@ -309,7 +334,9 @@ func backendSync(state *cluster.Aggregate) *euroscope.Envelope {
 	sync := &euroscope.BackendSyncEvent{Latitude: lat, Longitude: lon}
 	for _, entity := range state.EntitiesByKind(pb.EntityKind_STRIP) {
 		if strip := entity.GetValue().GetStrip(); operationalStrip(strip) {
-			sync.Strips = append(sync.Strips, syncStrip(strip))
+			value := syncStrip(strip)
+			value.Cdm = syncCdm(strip, state.Indexes[pb.EntityKind_CDM_STATE][strip.Callsign].GetValue().GetCdmState(), state.Indexes[pb.EntityKind_ECFMP_STATE][strip.Callsign].GetValue().GetEcfmpState())
+			sync.Strips = append(sync.Strips, value)
 		}
 	}
 	return &euroscope.Envelope{Event: &euroscope.Envelope_BackendSync{BackendSync: sync}}
@@ -318,7 +345,25 @@ func backendSync(state *cluster.Aggregate) *euroscope.Envelope {
 func syncStrip(strip *pb.Strip) *euroscope.BackendSyncStrip {
 	return &euroscope.BackendSyncStrip{Callsign: strip.Callsign, AssignedSquawk: strip.AssignedSquawk,
 		Cleared: strip.Bay != "NOT_CLEARED" && strip.Bay != "UNKNOWN", GroundState: shared.GetGroundState(strip.Bay),
-		Stand: strip.Stand, PdcState: strip.PdcState, PdcRequestRemarks: strip.PdcRequestRemarks}
+		Stand: strip.Stand, PdcState: strip.PdcState, PdcRequestRemarks: strip.PdcRequestRemarks, Hold: strip.Hold, HoldType: strip.HoldType, HoldEat: strip.HoldEat}
+}
+
+func syncCdm(s *pb.Strip, c *pb.CdmState, flow *pb.EcfmpState) *euroscope.BackendSyncCdmData {
+	clock := func(v *timestamppb.Timestamp) string {
+		if v == nil {
+			return ""
+		}
+		return v.AsTime().UTC().Format("1504")
+	}
+	value := &euroscope.BackendSyncCdmData{Eobt: clock(s.Eobt), Tobt: clock(s.Tobt), TobtSetBy: s.GetTobtSetBy(), TobtConfirmedBy: c.GetTobtConfirmedBy(), Tsat: clock(s.Tsat), Ttot: clock(s.Ttot), Ctot: clock(s.Ctot), CtotSource: s.GetCtotSource(), Asat: clock(s.Asat), Asrt: clock(s.Asrt), Tsac: clock(s.Tsac), Status: s.GetOperationalStatus(), DeiceType: c.GetDeice(), EcfmpId: s.GetEcfmpId(), Phase: s.GetPhase()}
+	for _, v := range flow.GetRestrictions() {
+		levels := make([]int32, len(v.ExactLevels))
+		for i, n := range v.ExactLevels {
+			levels[i] = n
+		}
+		value.EcfmpRestrictions = append(value.EcfmpRestrictions, &euroscope.EcfmpRestriction{MeasureId: int64(v.MeasureId), Ident: v.Ident, Type: v.Kind, Reason: v.Reason, Routes: v.Routes, Destination: v.Destination, MaxLevel: v.MaxLevel, MinLevel: v.MinLevel, ExactLevels: levels, HasCtot: v.HasCtot})
+	}
+	return value
 }
 
 func operationalStrip(strip *pb.Strip) bool {

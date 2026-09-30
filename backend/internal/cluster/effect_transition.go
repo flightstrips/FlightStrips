@@ -98,6 +98,8 @@ func optionalStringEqual(a, b *string) bool {
 
 func effectPayload(e *pb.EffectRecord) proto.Message {
 	switch p := e.GetPayload().(type) {
+	case *pb.EffectRecord_CreateFlightPlan:
+		return p.CreateFlightPlan
 	case *pb.EffectRecord_SetFlightPlan:
 		return p.SetFlightPlan
 	case *pb.EffectRecord_Pdc:

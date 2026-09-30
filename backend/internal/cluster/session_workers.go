@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -90,7 +91,7 @@ func (w *SessionWork) Run(ctx context.Context) error {
 	for {
 		if err := w.Step(ctx); err != nil {
 			if err.Error() != lastError && ctx.Err() == nil {
-				slog.WarnContext(ctx, "session worker pass failed", slog.Any("error", err))
+				slog.WarnContext(ctx, "session worker pass failed", slog.String("error_type", fmt.Sprintf("%T", err)))
 			}
 			lastError = err.Error()
 		} else if lastError != "" {
@@ -188,9 +189,10 @@ func (w *SessionWork) Step(ctx context.Context) error {
 
 func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegistry, unhealthySince, recoveredAt time.Time, paused time.Duration) error {
 	id, now := registry.Id, w.clock()
+	var deferred []error
 	if w.EuroScope != nil {
 		if err := w.EuroScope(ctx, id); err != nil {
-			return err
+			deferred = append(deferred, err)
 		}
 	}
 	state, err := w.Store.Read(ctx, sessionRef(id))
@@ -311,7 +313,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 			return fmt.Errorf("session %d lease lost", id)
 		}
 		if err := run(ctx, id); err != nil {
-			return err
+			deferred = append(deferred, err)
 		}
 	}
 	if cleanupDue {
@@ -330,7 +332,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 		}
 		return w.Registry.FinalizeDeletion(ctx, id)
 	}
-	return nil
+	return errors.Join(deferred...)
 }
 
 type sessionPresence struct {

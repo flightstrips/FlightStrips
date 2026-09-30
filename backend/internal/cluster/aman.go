@@ -44,6 +44,12 @@ func (a AmanAdapter) Commit(ctx context.Context, transition AmanTransition) *pb.
 	return w.Execute(ctx, transition.Request)
 }
 
+// PlanAmanTransition applies the same board validation for the application
+// command chain; the caller must evaluate actual operational policy on state.
+func PlanAmanTransition(request *pb.CommandRequest, state *Aggregate, transition AmanTransition) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+	return planAman(request, state, transition)
+}
+
 func planAman(request *pb.CommandRequest, state *Aggregate, t AmanTransition) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
 	if request.GetAggregate().GetAirport() == nil || t.Airport == nil || t.Airport.Airport != request.GetAggregate().GetAirport().Icao {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("AMAN transition airport mismatch")
@@ -52,6 +58,7 @@ func planAman(request *pb.CommandRequest, state *Aggregate, t AmanTransition) (*
 	// the command ledger hashes; a synthetic envelope must not smuggle a board.
 	switch {
 	case request.GetClient().GetAman() != nil:
+	case request.GetSystem().GetReportAmanRouteFact() != nil:
 	case request.GetSystem().GetUpdateEntity() != nil:
 		update := request.GetSystem().GetUpdateEntity()
 		matched := update.Key == t.Airport.Airport && proto.Equal(update.Value.GetAmanAirport(), t.Airport)

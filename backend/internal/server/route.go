@@ -214,6 +214,12 @@ func (s *Server) ComputeDepartureFrequencyForStripContext(ctx context.Context, s
 	if err != nil {
 		return nil, err
 	}
+	return DepartureFrequency(priority, coverage), nil
+}
+
+// DepartureFrequency applies the existing EFB handover policy to current
+// operational coverage, regardless of the persistence adapter supplying it.
+func DepartureFrequency(priority []string, coverage []config.ControllerCoverage) *string {
 
 	onlineFrequencies := make(map[string]struct{})
 	for _, controller := range coverage {
@@ -237,11 +243,11 @@ func (s *Server) ComputeDepartureFrequencyForStripContext(ctx context.Context, s
 			continue
 		}
 		if _, online := onlineFrequencies[vatsim.NormalizeFrequency(frequency)]; online {
-			return &frequency, nil
+			return &frequency
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 func isEfbAutoHandoverFrequency(frequency string) bool {

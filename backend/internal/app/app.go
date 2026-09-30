@@ -56,6 +56,7 @@ import (
 )
 
 type Config struct {
+	NATS                     NATSConfig
 	DatabaseConnectionString string
 	OIDCSigningAlgorithm     string
 	OIDCAuthority            string
@@ -102,6 +103,7 @@ type Config struct {
 }
 
 type Dependencies struct {
+	NATS                  NATSDependencies
 	DBPool                *pgxpool.Pool
 	AuthenticationService shared.AuthenticationService
 	PDCClient             pdc.HoppieClientInterface
@@ -113,6 +115,7 @@ type Dependencies struct {
 }
 
 type App struct {
+	natsRuntime              *natsRuntime
 	positionHub              *euroscope.Hub
 	dbpool                   *pgxpool.Pool
 	closeDB                  bool
@@ -848,6 +851,10 @@ func (a *App) Handler() http.Handler {
 }
 
 func (a *App) StartWorkers(ctx context.Context) {
+	if a.natsRuntime != nil {
+		a.natsRuntime.startWorkers(ctx)
+		return
+	}
 	a.startWorkers.Do(func() {
 		for _, worker := range a.workers {
 			go worker(ctx)
@@ -855,7 +862,10 @@ func (a *App) StartWorkers(ctx context.Context) {
 	})
 }
 
-func (a *App) Close(context.Context) error {
+func (a *App) Close(ctx context.Context) error {
+	if a.natsRuntime != nil {
+		return a.natsRuntime.close(ctx)
+	}
 	if a.closeDB && a.dbpool != nil {
 		a.dbpool.Close()
 	}
@@ -1318,6 +1328,9 @@ func loadGSXSceneries(enabled bool) (gsx.Sceneries, error) {
 
 // DrainPositions must run before cancelling hub workers or closing PostgreSQL.
 func (a *App) DrainPositions(ctx context.Context) error {
+	if a.natsRuntime != nil {
+		return a.natsRuntime.deadlines.Close(ctx)
+	}
 	if a.positionHub == nil {
 		return nil
 	}

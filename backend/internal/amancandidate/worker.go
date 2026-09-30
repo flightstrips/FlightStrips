@@ -6,8 +6,10 @@ import (
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/operational"
+	"FlightStrips/internal/aman/predictor"
 	"FlightStrips/internal/aman/terminal"
 	"FlightStrips/internal/cluster"
+	cr "FlightStrips/internal/coordinationrequest"
 	pb "FlightStrips/pkg/events/cluster"
 	"context"
 	"fmt"
@@ -30,6 +32,7 @@ type Options struct {
 	VatsimStaleAfter  time.Duration
 	HoldingEATEnabled bool
 	Now               func() time.Time
+	WindForAirport    func(string, time.Time) predictor.WindProfileReader
 }
 type Worker struct {
 	options   Options
@@ -164,7 +167,7 @@ func (w *Worker) evaluate(ctx context.Context, airport string, board cluster.Ama
 	if err != nil {
 		return cluster.AmanTransition{}, err
 	}
-	service, err := operational.New(operational.Dependencies{Repository: repo, Materializer: nav, Geometry: nav, Wind: &committedWind{state: w.options.Source, airport: airport, at: at}, Runways: inputs, AircraftEngines: w.options.AircraftEngines,
+	service, err := operational.New(operational.Dependencies{Repository: repo, Materializer: nav, Geometry: nav, Wind: w.windReader(airport, at), Runways: inputs, AircraftEngines: w.options.AircraftEngines,
 		Terminal: config, TMAVolume: nav.tma, Airports: []string{airport}, Mode: mode, SourceMode: w.options.SourceMode, Publisher: evaluationPublisher{}, Now: func() time.Time { return at }})
 	if err != nil {
 		return cluster.AmanTransition{}, err
@@ -223,9 +226,34 @@ func (w *Worker) evaluate(ctx context.Context, airport string, board cluster.Ama
 	}
 	// Coordination expiry was atomic with the SQL board commit; retain that
 	// semantic here in the accepted airport event and append its typed audit.
+	tracking := map[string]cr.ControllerID{}
+	for _, session := range inputs.sessions {
+		for _, entity := range session.EntitiesByKind(pb.EntityKind_STRIP) {
+			strip := entity.Value.GetStrip()
+			owner := cr.ControllerID(strip.TrackingController)
+			if prior, found := tracking[strip.Callsign]; found && prior != owner {
+				return cluster.AmanTransition{}, fmt.Errorf("ambiguous tracking controller for %s", strip.Callsign)
+			}
+			tracking[strip.Callsign] = owner
+		}
+	}
 	for _, c := range board.Coordinations {
 		if c.State != "pending" {
 			continue
+		}
+		if owner, found := tracking[c.Callsign]; found && string(owner) != c.RecipientController {
+			request, e := decodeCoordination(c, airport)
+			if e != nil {
+				return cluster.AmanTransition{}, e
+			}
+			request, e = request.TransferRecipient(id, uint64(state.Revision), owner, at)
+			if e != nil {
+				return cluster.AmanTransition{}, e
+			}
+			c = encodeCoordination(request)
+			result.Coordinations = append(result.Coordinations, c)
+			auditID, _ := cluster.AmanIntentID(id, "coordination-transfer/"+c.Id)
+			result.Audits = append(result.Audits, &pb.AmanAudit{Id: auditID, AirportRevision: uint64(state.Revision), CreatedAt: timestamp(at), Actor: actor, Fact: &pb.AmanAudit_Coordination{Coordination: &pb.AmanCoordinationAudit{RequestId: c.Id, Before: "pending", After: "pending", Reason: "recipient_transferred"}}})
 		}
 		for _, f := range state.Flights {
 			if f.Callsign != c.Callsign {
@@ -246,7 +274,18 @@ func (w *Worker) evaluate(ctx context.Context, airport string, board cluster.Ama
 				updated := proto.Clone(c).(*pb.AmanCoordination)
 				updated.State = "expired"
 				updated.UpdatedAt = timestamp(state.GeneratedAt)
-				result.Coordinations = append(result.Coordinations, updated)
+				updated.ResolvedAt = timestamp(state.GeneratedAt)
+				updated.Expiry = &pb.AmanCoordinationExpiry{FactId: id, FactRevision: uint64(state.Revision), Reason: reason, ExpiredAt: timestamp(state.GeneratedAt)}
+				replaced := false
+				for i, prior := range result.Coordinations {
+					if prior.Id == c.Id {
+						result.Coordinations[i] = updated
+						replaced = true
+					}
+				}
+				if !replaced {
+					result.Coordinations = append(result.Coordinations, updated)
+				}
 				auditID, _ := cluster.AmanIntentID(id, "coordination-expiry/"+c.Id)
 				result.Audits = append(result.Audits, &pb.AmanAudit{Id: auditID, AirportRevision: uint64(state.Revision), CreatedAt: timestamp(state.GeneratedAt), Actor: actor, Fact: &pb.AmanAudit_Coordination{Coordination: &pb.AmanCoordinationAudit{RequestId: c.Id, Before: c.State, After: "expired", Reason: reason}}})
 			}
@@ -258,4 +297,11 @@ func (w *Worker) evaluate(ctx context.Context, airport string, board cluster.Ama
 	}
 	sort.Slice(result.Flights, func(i, j int) bool { return result.Flights[i].Callsign < result.Flights[j].Callsign })
 	return result, nil
+}
+
+func (w *Worker) windReader(airport string, at time.Time) predictor.WindProfileReader {
+	if w.options.WindForAirport != nil {
+		return w.options.WindForAirport(airport, at)
+	}
+	return &committedWind{state: w.options.Source, airport: airport, at: at}
 }

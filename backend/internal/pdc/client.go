@@ -39,6 +39,19 @@ func NewClient(logon string) *Client {
 	}
 }
 
+// NewClientWithTransport keeps the production parser and request behavior while
+// allowing an isolated provider endpoint for local runtime integration tests.
+func NewClientWithTransport(logon, baseURL string, httpClient *http.Client) *Client {
+	client := NewClient(logon)
+	if baseURL != "" {
+		client.baseURL = baseURL
+	}
+	if httpClient != nil {
+		client.httpClient = httpClient
+	}
+	return client
+}
+
 // RandomPollInterval returns a random duration between 25 and 45 seconds
 func RandomPollInterval() time.Duration {
 	return time.Duration(25+rand.Intn(21)) * time.Second

@@ -380,11 +380,18 @@ message SystemCommand {
     ApplyAmanSession apply_aman_session = 13;
     ApplyPdcProviderMessage apply_pdc_provider_message = 14;
     RequestSquawk request_squawk = 15;
+    ReportAmanRouteFact report_aman_route_fact = 16;
   }
 }
 message ApplyPdcProviderMessage { PdcProviderMessage message = 1; }
 message CreateSession { int32 id = 1; string airport = 2; string name = 3; string workflow_id = 4; }
 message RequestSquawk { string callsign = 1; string target_cid = 2; }
+// Trusted socket identity is supplied by the authenticated receiving backend.
+message ReportAmanRouteFact {
+  string connection_id = 1; uint64 owner_epoch = 2; uint64 master_epoch = 3;
+  string callsign = 4; google.protobuf.Timestamp observed_at = 5;
+  oneof fact { string direct_to_fix = 6; string assigned_speed = 7; }
+}
 message DeleteSession { int32 id = 1; string workflow_id = 2; }
 message UpdateEntity { string key = 1; EntityRecord value = 2; }
 message RemoveEntity { string key = 1; EntityKind kind = 2; }

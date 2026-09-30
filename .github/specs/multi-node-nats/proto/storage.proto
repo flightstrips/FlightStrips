@@ -243,6 +243,7 @@ message Strip {
   // Last AMAN-owned EAT enables durable withdrawal after airport takeover.
   optional AmanHoldingClearance aman_written_holding_eat = 76;
   optional google.protobuf.Timestamp euroscope_observed_at = 77;
+  string tracking_controller = 78;
 }
 message ValidationStatus {
   string issue_type = 1; string message = 2; string owning_position = 3;
@@ -665,6 +666,25 @@ message AmanCoordination {
   google.protobuf.Timestamp updated_at = 9;
   optional string supersedes = 10; optional string superseded_by = 11;
   optional AmanClearance clearance = 12;
+string command_id = 13; string submitted_by = 14; string submitted_role = 15;
+  optional google.protobuf.Timestamp resolved_at = 16;
+  optional AmanCoordinationDecision decision = 17;
+  repeated AmanRecipientTransfer recipient_transfers = 18;
+  optional AmanCoordinationExpiry expiry = 19;
+}
+message AmanCoordinationDecision {
+  string command_id = 1; string airport = 2; string actor = 3; string role = 4;
+  string authoritative_recipient = 5; string request_id = 6; string request_kind = 7;
+  string before_state = 8; string after_state = 9; string reason = 10;
+  google.protobuf.Timestamp received_at = 11;
+}
+message AmanRecipientTransfer {
+  string ownership_fact = 1; uint64 ownership_revision = 2; string previous_recipient = 3;
+  string new_recipient = 4; google.protobuf.Timestamp transferred_at = 5;
+}
+message AmanCoordinationExpiry {
+  string fact_id = 1; uint64 fact_revision = 2; string reason = 3;
+  google.protobuf.Timestamp expired_at = 4;
 }
 message AmanRouteDirect { optional string route = 1; optional string direct_to = 2; }
 message AmanSpeed { string requested = 1; }
@@ -798,6 +818,7 @@ message EffectRecord {
     CdmEffect cdm = 11;
     AmanHoldingEatEffect aman_holding_eat = 16;
     GenerateSquawkEffect generate_squawk = 17;
+    CreateFlightPlanEffect create_flight_plan = 18;
   }
   google.protobuf.Timestamp dispatch_deadline = 12;
   optional google.protobuf.Timestamp result_deadline = 13;
@@ -805,6 +826,14 @@ message EffectRecord {
   string reason_code = 15;
 }
 message SetFlightPlanEffect { string callsign = 1; string field = 2; string value = 3; }
+message CreateFlightPlanEffect {
+  string callsign = 1; string origin = 2; string destination = 3;
+  string sid = 4; string assigned_squawk = 5; string eobt = 6;
+  string aircraft_type = 7; int32 requested_altitude = 8;
+  string route = 9; string stand = 10; string runway = 11;
+  string remarks = 12; int32 persons_on_board = 13;
+  string fpl_type = 14; string language = 15;
+}
 message GenerateSquawkEffect { string callsign = 1; }
 message SessionSquawkThrottle {
   int32 session_id = 1;

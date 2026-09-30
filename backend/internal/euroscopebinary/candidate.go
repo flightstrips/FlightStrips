@@ -21,11 +21,12 @@ import (
 // retention and reconciliation. Construction starts no loops or sockets.
 // Task 20 binds Planner, Serve, Handler.Inbound and SessionWork together.
 type DeadlineCandidate struct {
-	Router      *cluster.CommandRouter
-	Source      cluster.NavigationWeather
-	Now         func() time.Time
-	Next        cluster.Planner
-	NextInbound func(context.Context, int32, string, string, *euroscope.Envelope) error
+	Router        *cluster.CommandRouter
+	Source        cluster.NavigationWeather
+	Now           func() time.Time
+	Next          cluster.Planner
+	NextInbound   func(context.Context, int32, string, string, *euroscope.Envelope) error
+	ObservedStrip func(context.Context, int32, string, string, *euroscope.Envelope, *euroscope.Strip) error
 	// Full sync admits many observations; allow a bounded longer owner hop.
 	SyncAdmissionTimeout time.Duration
 	mu                   sync.Mutex
@@ -265,7 +266,7 @@ func (c *DeadlineCandidate) Inbound(ctx context.Context, id int32, connectionID,
 	return nil
 }
 func (c *DeadlineCandidate) Serve(ctx context.Context) error {
-	sub, err := c.Router.NC.Subscribe("fs.v1.euroscope."+c.Router.Lease.NodeID, func(msg *nats.Msg) {
+	_, closeSub, err := cluster.SubscribeJoined(c.Router.NC, "fs.v1.euroscope."+c.Router.Lease.NodeID, func(msg *nats.Msg) {
 		result := &pb.EffectDeliveryReply{}
 		id, err := strconv.ParseInt(msg.Header.Get("FS-Session"), 10, 32)
 		frame := &euroscope.Envelope{}
@@ -289,7 +290,7 @@ func (c *DeadlineCandidate) Serve(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer sub.Unsubscribe()
+	defer closeSub()
 	if err = c.Router.NC.FlushWithContext(ctx); err != nil {
 		return err
 	}

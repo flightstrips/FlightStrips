@@ -22,11 +22,13 @@ import (
 // VatsimLifecycleCandidate consumes the existing global source and submits
 // concrete owner commands. It never polls a provider or starts itself.
 type VatsimLifecycleCandidate struct {
-	Source        cluster.NavigationWeather
-	Writer        cluster.Writer
-	Stands        cluster.StandState
-	Secrets       cluster.EffectSecrets
-	AllowPrefiles bool
+	Source                       cluster.NavigationWeather
+	Writer                       cluster.Writer
+	Stands                       cluster.StandState
+	Secrets                      cluster.EffectSecrets
+	AllowPrefiles                bool
+	HoldDuration, BlockExtension time.Duration
+	ESMessages                   *bool
 	// Positions resolves the current owner/master dispatcher; required when
 	// deriving a transition from operational FS_POSITIONS observations.
 	Positions func(int32) *cluster.PositionWriter
@@ -55,7 +57,7 @@ func (c *VatsimLifecycleCandidate) reconcile(ctx context.Context, id int32, depa
 	if err != nil {
 		return err
 	}
-	if checkpoint == nil || page.GetVatsim() == nil || revision == 0 || len(page.GetVatsim().Flights) == 0 {
+	if checkpoint == nil || page.GetVatsim() == nil || revision == 0 {
 		return fmt.Errorf("accepted VATSIM generation unavailable")
 	}
 	reply := (cluster.VatsimSessionAdapter{Source: c.Source, Writer: c.Writer}).Reconcile(ctx, id)
@@ -281,6 +283,7 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 		return nil, fmt.Errorf("live session unavailable")
 	}
 	p := LifecyclePlan{Session: &models.Session{ID: seed.Id, Name: seed.Name, Airport: seed.Airport}, Callsign: key, Strips: map[string]*models.Strip{}, Assignments: map[string]*models.StandAssignment{}, Blocks: map[string]*models.StandBlock{}, Stands: c.Stands.Stands, Policy: c.Stands.Policy, Aircraft: c.Stands.Aircraft, Engines: c.Stands.Engines, Borders: c.Stands.Borders, Now: c.clock(), AllowPrefiles: c.AllowPrefiles, Episodes: map[string]string{}}
+	p.HoldDuration, p.BlockExtension = c.HoldDuration, c.BlockExtension
 	// Retain SAT's weighted choice with reproducible draws on planner retries.
 	drawSeed := sha256.Sum256([]byte(request.CommandId))
 	p.Random = rand.New(rand.NewSource(int64(binary.BigEndian.Uint64(drawSeed[:8])))).Float64
@@ -367,6 +370,9 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 	}
 	target := c.deliveryCID(state, seed.Id)
 	p.MessageAvailable = target != ""
+	if c.ESMessages != nil && !*c.ESMessages {
+		p.MessageAvailable = false
+	}
 	if err := p.Run(ctx, departure, flights); err != nil {
 		return nil, err
 	}

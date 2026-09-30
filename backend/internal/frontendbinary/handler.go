@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,15 +64,10 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+	stop := context.AfterFunc(r.Context(), func() { _ = conn.Close() })
+	defer stop()
 	conn.SetReadLimit(maxFrame)
-	if err := h.serve(r.Context(), conn); err != nil {
-		var closeErr closeFailure
-		if errors.As(err, &closeErr) {
-			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(closeErr.code, closeErr.reason), time.Now().Add(time.Second))
-		} else {
-			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseTryAgainLater, "projection unavailable"), time.Now().Add(time.Second))
-		}
-	}
+	_ = h.serve(r.Context(), conn)
 }
 
 func contains(values []string, want string) bool {
@@ -111,7 +107,23 @@ func readFrame(conn *websocket.Conn) (*pb.FrontendFrame, error) {
 	return frame, nil
 }
 
-func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
+func (h Handler) serve(ctx context.Context, conn *websocket.Conn) (result error) {
+	ctx, cancel := context.WithCancel(ctx)
+	var jobs sync.WaitGroup
+	defer func() {
+		if result != nil {
+			var failure closeFailure
+			code, reason := websocket.CloseTryAgainLater, "projection unavailable"
+			if errors.As(result, &failure) {
+				code, reason = failure.code, failure.reason
+			}
+			_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, reason), time.Now().Add(time.Second))
+		}
+		cancel()
+		_ = conn.Close()
+		jobs.Wait()
+	}()
+	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	first, err := readFrame(conn)
 	if err != nil {
 		return err
@@ -128,6 +140,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 	if err != nil {
 		return closeFailure{websocket.ClosePolicyViolation, "session unavailable"}
 	}
+	_ = conn.SetReadDeadline(time.Time{})
 	var presenceErrors <-chan error
 	if h.NodeID != "" {
 		projection, ok := h.Projection.(*cluster.Projection)
@@ -146,7 +159,8 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		}
 		errs := make(chan error, 1)
 		presenceErrors = errs
-		go func() { errs <- lease.Run(presenceCtx) }()
+		jobs.Add(1)
+		go func() { defer jobs.Done(); errs <- lease.Run(presenceCtx) }()
 	}
 	session, sessionUpdates, observations, stopSession, err := h.Projection.SubscribeObservedInitial(identity.id)
 	if err != nil {
@@ -166,7 +180,9 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 	// buffered events are read after the frame is written, with per-aggregate
 	// revisions checked before delivery.
 	read := make(chan readResult, 1)
+	jobs.Add(1)
 	go func() {
+		defer jobs.Done()
 		for {
 			frame, err := readFrame(conn)
 			select {

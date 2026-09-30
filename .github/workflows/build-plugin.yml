@@ -56,11 +56,3 @@ jobs:
       - name: Run Tests
         working-directory: ./euroscope-plugin/build
         run: ctest --output-on-failure --build-config Release -j8
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Plugin
-          path: |
-            ./euroscope-plugin/build/bin/FlightStripsPlugin.dll
-            ./euroscope-plugin/build/bin/flightstrips_config.ini
-          if-no-files-found: error

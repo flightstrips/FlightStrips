@@ -1,0 +1,168 @@
+name: Immutable release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_pr:
+        description: Unified Release Please PR number (dispatch on its exact head branch)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: release-candidate-${{ github.repository }}-${{ inputs.release_pr }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    outputs:
+      head: ${{ steps.source.outputs.head }}
+      tree: ${{ steps.source.outputs.tree }}
+      backend: ${{ steps.source.outputs.backend }}
+      frontend: ${{ steps.source.outputs.frontend }}
+      backend_candidate: ${{ steps.source.outputs.backend_candidate }}
+      frontend_candidate: ${{ steps.source.outputs.frontend_candidate }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r scripts/cluster-proto-requirements.txt
+      - id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_PR: ${{ inputs.release_pr }}
+        run: python scripts/release/gate.py prepare --pr "$RELEASE_PR"
+
+  images:
+    needs: source
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    outputs:
+      backend_digest: ${{ steps.backend.outputs.digest }}
+      frontend_digest: ${{ steps.frontend.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.source.outputs.head }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r scripts/cluster-proto-requirements.txt
+      - uses: imjasonh/setup-crane@v0.4
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_PR: ${{ inputs.release_pr }}
+        run: python scripts/release/gate.py guard-tags --pr "$RELEASE_PR"
+      - id: backend
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          platforms: linux/amd64
+          build-args: BUILD_VERSION=${{ needs.source.outputs.backend }}+${{ needs.source.outputs.tree }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.source.outputs.tree }}
+            org.opencontainers.image.version=${{ needs.source.outputs.backend }}+${{ needs.source.outputs.tree }}
+          tags: ghcr.io/${{ github.repository_owner }}/backend-api:${{ needs.source.outputs.backend_candidate }}
+          provenance: false
+          push: true
+      - id: frontend
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          platforms: linux/amd64
+          build-args: BUILD_VERSION=${{ needs.source.outputs.frontend }}+${{ needs.source.outputs.tree }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.source.outputs.tree }}
+            org.opencontainers.image.version=${{ needs.source.outputs.frontend }}+${{ needs.source.outputs.tree }}
+          tags: ghcr.io/${{ github.repository_owner }}/frontend:${{ needs.source.outputs.frontend_candidate }}
+          provenance: false
+          push: true
+
+  plugin:
+    needs: source
+    runs-on: windows-2025
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.source.outputs.head }}
+          persist-credentials: false
+      - uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x86
+      - uses: seanmiddleditch/gha-setup-ninja@v6
+      - run: cmake -S euroscope-plugin -B euroscope-plugin/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build euroscope-plugin/build
+      - run: ctest --test-dir euroscope-plugin/build --output-on-failure --build-config Release -j8
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            euroscope-plugin/build/bin/FlightStripsPlugin.dll
+            euroscope-plugin/build/bin/FlightStripsPluginCore.dll
+            euroscope-plugin/build/bin/flightstrips_config.ini
+            euroscope-plugin/build/bin/flightstrips_config_dev.ini
+
+  manifest:
+    needs: [source, images, plugin]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r scripts/cluster-proto-requirements.txt
+      - uses: imjasonh/setup-crane@v0.4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: plugin-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bundle
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_PR: ${{ inputs.release_pr }}
+          ARTIFACT_ID: ${{ needs.plugin.outputs.artifact_id }}
+          BACKEND_DIGEST: ${{ needs.images.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ needs.images.outputs.frontend_digest }}
+        run: >-
+          python scripts/release/gate.py manifest --pr "$RELEASE_PR"
+          --plugin-dir bundle --artifact-id "$ARTIFACT_ID"
+          --backend-digest "$BACKEND_DIGEST" --frontend-digest "$FRONTEND_DIGEST"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 90
+          if-no-files-found: error
+          path: candidate/*

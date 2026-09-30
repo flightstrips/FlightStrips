@@ -1,0 +1,26 @@
+name: Release gate fixtures
+on:
+  pull_request:
+    branches: [main, codex/multi-node-nats-base]
+    paths: ['scripts/release/**', 'proto/release/**', '.github/workflows/**', 'frontend/vite.config.ts', '**/Dockerfile']
+  push:
+    branches: [main]
+    paths: ['scripts/release/**', 'proto/release/**', '.github/workflows/**']
+permissions:
+  contents: read
+jobs:
+  fixtures:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r scripts/cluster-proto-requirements.txt
+      - name: Install pinned release schema compiler
+        run: |
+          curl -fsSL -o /tmp/protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip
+          unzip -q /tmp/protoc.zip -d /tmp/protoc-26.1
+          echo /tmp/protoc-26.1/bin >> "$GITHUB_PATH"
+      - run: python scripts/release/check_generated.py
+      - run: python -m unittest discover -s scripts/release -p 'test_*.py' -v

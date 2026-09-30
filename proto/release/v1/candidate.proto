@@ -1,0 +1,55 @@
+syntax = "proto3";
+package flightstrips.release.v1;
+import "google/protobuf/timestamp.proto";
+
+message CandidateManifest {
+  uint32 schema_revision = 1;
+  string repository = 2;
+  uint64 release_pr_number = 3;
+  string release_head_sha = 4;
+  string release_tree_sha = 5;
+  ComponentVersions versions = 6;
+  OciArtifact backend = 7;
+  OciArtifact frontend = 8;
+  PluginArtifact plugin = 9;
+  uint32 protocol_revision = 10;
+  google.protobuf.Timestamp created_at = 11;
+  uint64 workflow_run_id = 12;
+  uint32 workflow_run_attempt = 13;
+}
+message ComponentVersions {
+  string backend = 1;
+  string frontend = 2;
+  string plugin = 3;
+  string docs = 4;
+}
+message OciArtifact {
+  string repository = 1;
+  string digest = 2;
+  string candidate_tag = 3;
+}
+message PluginArtifact {
+  string artifact_name = 1;
+  uint64 artifact_id = 2;
+  repeated ArtifactFile files = 3;
+}
+message ArtifactFile {
+  string path = 1;
+  string sha256 = 2;
+  uint64 size_bytes = 3;
+}
+message CutoverReceipt {
+  string release_tree_sha = 1;
+  string plugin_release_tag = 2;
+  string dll_sha256 = 3;
+  string frontend_release_tag = 4;
+  uint64 workflow_run_id = 5;
+  CutoverPhase phase = 6;
+  google.protobuf.Timestamp recorded_at = 7;
+  string discord_message_id = 8;
+}
+enum CutoverPhase {
+  CUTOVER_PHASE_UNSPECIFIED = 0;
+  CUTOVER_PHASE_ANNOUNCEMENT_INTENT = 1;
+  CUTOVER_PHASE_COMPLETE = 2;
+}

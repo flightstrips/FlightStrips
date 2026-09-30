@@ -112,6 +112,7 @@ enum EntityKind {
   PROVIDER_CHECKPOINT = 27;
   WEATHER_CACHE = 28;
   SESSION_DEADLINE = 29;
+  VATSIM_SESSION_CURSOR = 30;
 }
 message EntityRecord {
   oneof value {
@@ -144,6 +145,7 @@ message EntityRecord {
     ProviderCheckpoint provider_checkpoint = 27;
     WeatherCache weather_cache = 28;
     SessionDeadline session_deadline = 29;
+    VatsimSessionCursor vatsim_session_cursor = 30;
   }
 }
 
@@ -228,6 +230,10 @@ message Strip {
   optional google.protobuf.Timestamp aldt = 59;
   uint64 sequence = 60; optional string tobt_set_by = 61;
   optional bool on_block = 62;
+  string vatsim_cid = 63; uint64 vatsim_source_revision = 64;
+  int64 vatsim_plan_revision = 65; optional google.protobuf.Timestamp vatsim_seen_at = 66;
+  bool vatsim_only = 67; bool vatsim_online = 68;
+  optional double vatsim_latitude = 69; optional double vatsim_longitude = 70;
 }
 message ValidationStatus {
   string issue_type = 1; string message = 2; string owning_position = 3;
@@ -317,6 +323,7 @@ message Atis {
   string airport = 1; string code = 2; string text = 3;
   google.protobuf.Timestamp observed_at = 4;
   string metar = 5; string arrival_code = 6; string departure_code = 7;
+  string source_revision = 8;
 }
 message ClxOverride { string callsign = 1; string key = 2; string actor = 3; google.protobuf.Timestamp created_at = 4; }
 message FrontendMessage {
@@ -652,9 +659,14 @@ message VatsimObservation {
   string provider_id = 1; string callsign = 2; string digest = 3;
   google.protobuf.Timestamp observed_at = 4;
 }
+message VatsimSessionCursor {
+  string provider = 1; uint64 source_revision = 2; string source_sha256 = 3;
+  google.protobuf.Timestamp snapshot_at = 4;
+}
 message NavManifest {
   string airport = 1; string cycle = 2; string digest = 3;
   repeated NavObjectRef objects = 4; bool active = 5;
+  uint64 source_revision = 6; string source_sha256 = 7;
 }
 message NavObjectRef { string kind = 1; string object_name = 2; string sha256 = 3; }
 message NavRouteCache {
@@ -879,8 +891,111 @@ message NavRouteGeometry {
 message EffectSecret { string command_id = 1; bytes ciphertext = 2; string key_id = 3; bytes nonce = 4; }
 message ProviderPage {
   string provider = 1; string resource = 2;
-  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; }
+  oneof parsed { AiracPage airac = 3; VatsimPage vatsim = 4; WeatherPage weather = 5; EcfmpPage ecfmp = 6; AtisFeedPage atis_feed = 7; OpenMeteoPage open_meteo = 8; CdmConfigPage cdm_config = 9; ViffFlightPage viff_flights = 10; ViffMastersPage viff_masters = 11; }
 }
 message AiracPage { repeated NavData fragments = 1; optional string next_page = 2; }
-message VatsimPage { repeated VatsimObservation observations = 1; }
+message VatsimPage {
+  repeated VatsimObservation observations = 1;
+  repeated VatsimFlight flights = 2;
+  google.protobuf.Timestamp snapshot_at = 3;
+}
+message VatsimFlight {
+  string cid = 1; string callsign = 2; string state = 3;
+  double latitude = 4; double longitude = 5;
+  int32 altitude = 6; int32 groundspeed = 7;
+  google.protobuf.Timestamp logon_time = 8;
+  google.protobuf.Timestamp last_updated = 9;
+  VatsimFlightPlan flight_plan = 10;
+}
+message VatsimFlightPlan {
+  string flight_rules = 1; string aircraft = 2; string aircraft_faa = 3;
+  string aircraft_short = 4; string origin = 5; string destination = 6;
+  string alternate = 7; string eobt = 8; string enroute_duration = 9;
+  string requested_level = 10; string remarks = 11; string route = 12;
+  string assigned_squawk = 13; int64 revision = 14;
+}
 message WeatherPage { repeated WeatherObservation observations = 1; }
+message OpenMeteoPage {
+  string source_id = 1; string source_revision = 2;
+  google.protobuf.Timestamp observed_at = 3; google.protobuf.Timestamp expires_at = 4;
+  repeated OpenMeteoSample samples = 5;
+}
+message OpenMeteoSample {
+  double latitude_degrees = 1; double longitude_degrees = 2;
+  google.protobuf.Timestamp forecast_at = 3; repeated OpenMeteoWindLevel levels = 4;
+}
+message OpenMeteoWindLevel {
+  double altitude_feet = 1; double east_knots = 2; double north_knots = 3;
+}
+// ECFMP's provider-wide response is parsed at the HTTP boundary. These fields
+// retain every filter and measure value used by per-flight reconciliation.
+message EcfmpPage { repeated EcfmpMeasure measures = 1; google.protobuf.Timestamp fetched_at = 2; }
+message EcfmpMeasure {
+  int64 id = 1; string ident = 2; optional int64 event_id = 3;
+  string reason = 4; google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  optional google.protobuf.Timestamp withdrawn_at = 7;
+  repeated int64 notified_flight_information_regions = 8;
+  string kind = 9; optional int64 numeric_value = 10;
+  repeated string routes = 11; repeated EcfmpFilter filters = 12;
+  optional double decimal_value = 13;
+}
+message EcfmpFilter {
+  string kind = 1; repeated string names = 2;
+  optional int32 level = 3; repeated int32 levels = 4;
+  optional int64 event_id = 5;
+}
+message AtisFeedPage { repeated AtisFeedAirport airports = 1; google.protobuf.Timestamp fetched_at = 2; }
+message AtisFeedAirport {
+  string airport = 1; optional AtisFeedEntry arrival = 2;
+  optional AtisFeedEntry departure = 3;
+}
+message AtisFeedEntry {
+  string callsign = 1; string code = 2; string frequency = 3;
+  repeated string text_lines = 4; google.protobuf.Timestamp last_updated = 5;
+}
+message CdmConfigPage {
+  string airport = 1; google.protobuf.Timestamp fetched_at = 2;
+  int32 default_rate = 3; int32 default_rate_lvo = 4; int32 default_taxi_minutes = 5;
+  bool lvo_active = 6; repeated string active_arrival_runways = 7;
+  repeated string active_departure_runways = 8;
+  repeated CdmConfigRate rates = 9; repeated CdmConfigSidInterval sid_intervals = 10;
+  repeated CdmConfigTaxiZone taxi_zones = 11; repeated CdmConfigDelay delays = 12;
+  CdmConfigDeice deice = 13;
+}
+message CdmConfigRate {
+  repeated string arr_rwy_yes = 1; repeated string arr_rwy_no = 2;
+  repeated string dep_rwy_yes = 3; repeated string dep_rwy_no = 4;
+  repeated string dependent_rwy = 5; repeated string rates = 6;
+  repeated string rates_lvo = 7;
+}
+message CdmConfigSidInterval { string runway = 1; string sid1 = 2; string sid2 = 3; double value = 4; }
+message CdmConfigTaxiPoint { double latitude = 1; double longitude = 2; }
+message CdmConfigTaxiZone {
+  string runway = 1; int32 minutes = 2; repeated CdmConfigTaxiPoint polygon = 3;
+  repeated int32 remote_taxi_minutes = 4;
+}
+message CdmConfigDelay { string runway = 1; string time = 2; string type = 3; }
+message CdmConfigDeice {
+  int32 light = 1; int32 medium = 2; int32 heavy = 3; int32 super = 4;
+  repeated CdmConfigDeicePlatform platforms = 5;
+}
+message CdmConfigDeicePlatform { string name = 1; int32 time = 2; }
+message ViffFlightPage {
+  string airport = 1; google.protobuf.Timestamp fetched_at = 2;
+  repeated ViffFlight flights = 3;
+}
+message ViffFlight {
+  string callsign = 1; string cid = 2; string departure = 3; string arrival = 4;
+  string eobt = 5; string tobt = 6; string requested_tobt = 7;
+  int32 taxi_minutes = 8; string ctot = 9; string aobt = 10; string atot = 11;
+  string eta = 12; string most_penalizing_airspace = 13;
+  string cdm_status = 14; string atfcm_status = 15; ViffCdmData cdm_data = 16;
+}
+message ViffCdmData {
+  string tobt = 1; string tsat = 2; string ttot = 3; string ctot = 4;
+  string reason = 5; string requested_tobt = 6; string requested_tobt_type = 7;
+  string requested_asrt = 8; string id = 9;
+}
+message ViffMastersPage { google.protobuf.Timestamp fetched_at = 1; repeated ViffMaster masters = 2; }
+message ViffMaster { string airport = 1; string position = 2; }

@@ -13,8 +13,11 @@ import (
 )
 
 func handoffAirport(t *testing.T, store *memoryStore) {
+	handoffOwner(t, store, airportRef("EKCH"))
+}
+
+func handoffOwner(t *testing.T, store *memoryStore, ref *pb.AggregateRef) {
 	t.Helper()
-	ref := airportRef("EKCH")
 	subject, _ := Subject(ref)
 	state, err := (Writer{Store: store, NodeID: "node-a"}).load(context.Background(), subject, ref)
 	if err != nil {
@@ -30,6 +33,33 @@ func handoffAirport(t *testing.T, store *memoryStore) {
 	store.mu.Lock()
 	store.entries[len(store.entries)-1].ServerTime = state.Owner.LeaseUntil.AsTime().Add(time.Millisecond)
 	store.mu.Unlock()
+}
+
+func TestGlobalEcfmpFetchKeepsOneTypedCheckpoint(t *testing.T) {
+	store, objects, nav := navFixture(t)
+	ctx := context.Background()
+	id := uuid.NewString()
+	page := &pb.ProviderPage{Provider: "ecfmp", Resource: "flow-measure/active", Parsed: &pb.ProviderPage_Ecfmp{Ecfmp: &pb.EcfmpPage{FetchedAt: timestamppb.Now(), Measures: []*pb.EcfmpMeasure{{Id: 42, Kind: "mandatory_route", StartTime: timestamppb.Now(), EndTime: timestamppb.New(time.Now().Add(time.Hour)), Routes: []string{"DCT ABC"}}}}}}
+	calls := 0
+	fetch := func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error) {
+		calls++
+		return page, &pb.ProviderCheckpoint{Provider: "ecfmp", Resource: "flow-measure/active"}, nil
+	}
+	ref := globalRef()
+	first, err := nav.FetchProviderPageFor(ctx, ExternalCallWorker{Writer: nav.Writer}, id, ref, "ecfmp", "flow-measure/active", fetch)
+	if err != nil || !first || calls != 1 {
+		t.Fatalf("global fetch: %v %v calls=%d", first, err, calls)
+	}
+	handoffOwner(t, store, ref)
+	navB := NavigationWeather{Writer: Writer{Store: store, NodeID: "node-b"}, Objects: objects}
+	again, err := navB.FetchProviderPageFor(ctx, ExternalCallWorker{Writer: navB.Writer}, id, ref, "ecfmp", "flow-measure/active", fetch)
+	if err != nil || again || calls != 1 {
+		t.Fatalf("takeover refetched ECFMP: %v %v calls=%d", again, err, calls)
+	}
+	checkpoint, restored, revision, err := navB.CheckpointRevisionFor(ctx, ref, "ecfmp", "flow-measure/active")
+	if err != nil || checkpoint == nil || checkpoint.Sha256 == "" || revision != 1 || !proto.Equal(restored, page) {
+		t.Fatalf("global typed checkpoint: %v %v revision=%d err=%v", checkpoint, restored, revision, err)
+	}
 }
 
 func TestExternalWeatherOneCallAcrossReplicas(t *testing.T) {

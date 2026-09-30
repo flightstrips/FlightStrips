@@ -15,7 +15,7 @@ This document assigns a Protobuf message to every new multi-node durable or repl
 | `FS_OBJECTS` | `snapshot/<kind>/<id>/<last-stream-sequence>` | `ObjectValue.snapshot` | snapshot writer |
 | `FS_OBJECTS` | `nav/<sha256>` | `ObjectValue.nav` | airport navigation importer |
 | `FS_OBJECTS` | `effect/<command-id>` | `ObjectValue.effect_secret` | session effect owner |
-| `FS_OBJECTS` | `provider/<provider>/<sha256>` | `ObjectValue.provider_page` | airport provider importer |
+| `FS_OBJECTS` | `provider/<provider>/<sha256>` | `ObjectValue.provider_page` | global or airport provider owner |
 | Core NATS | `fs.v1.command.<node-id>` | `CommandRequest`; reply is `CommandReply` | forwarding backend / owner |
 | Core NATS | `fs.v1.delivery.<node-id>` | `EffectDeliveryRequest`; reply is `EffectDeliveryReply` | session owner / socket backend |
 | Core NATS | `fs.v1.result.<node-id>` | `EffectDeliveryRequest` with terminal effect; reply is `EffectDeliveryReply` | socket backend / session owner |
@@ -33,7 +33,7 @@ The subject/key is validated against decoded identity before apply. The `ObjectV
 | `ProviderQuota` | global | provider, dot, UTC window start as Unix seconds |
 | `AirportPolicy`, `AmanAirport`, `NavManifest`, `WeatherCache` | airport | uppercase ICAO; weather appends provider |
 | `NavRouteCache` | airport | route key |
-| `ProviderCheckpoint` | airport | provider, dot, resource |
+| `ProviderCheckpoint` | global for provider-wide VATSIM/ECFMP; airport for AIRAC, CDM configuration and airport feeds; session only for vIFF flight reads | provider, dot, resource |
 | `AmanFlight` | airport | uppercase callsign |
 | `AmanCoordination`, `AmanAudit`, `AmanValidation`, `VatsimObservation` | airport | their ID/provider ID |
 | `Session` | session | decimal session ID |
@@ -45,6 +45,7 @@ The subject/key is validated against decoded identity before apply. The `ObjectV
 | `StandAssignment` | session | uppercase callsign |
 | `StandBlock` | session | uppercase stand ID |
 | `Atis` | session | uppercase airport ICAO |
+| `VatsimSessionCursor` | session | `vatsim` provider key |
 
 `Coordination.from_euroscope` and `euroscope_handover_cid` retain the source
 and acknowledgement target of an inbound EuroScope handover. The session owner
@@ -70,7 +71,7 @@ consuming a deadline. A replaced deadline has a new entity revision and cannot
 be fired by a worker holding its earlier revision.
 `StandAction` lifecycle fields 11–17 are accepted only from a system actor.
 
-`Atis.metar`, `arrival_code`, and `departure_code` retain the existing frontend presentation fields per session. `code` and `text` retain the typed ATIS observation. No METAR or ATIS presentation cache is needed on each backend.
+`Atis.metar`, `arrival_code`, and `departure_code` retain the existing frontend presentation fields per session. `code` and `text` retain the typed ATIS observation. `Atis.source_revision` binds the global AFV ATIS checkpoint revision and digest to the airport METAR fetch timestamp, so a stale presentation cannot overwrite a newer one. `ProviderPage.atis_feed` retains typed arrival and departure entries from the provider-wide AFV fetch. No METAR or ATIS presentation cache is needed on each backend.
 
 Task 05 keeps the legacy sector position and identifier as typed scalar fields
 on `SectorOwner`, and the per-position controller layout as
@@ -111,7 +112,11 @@ The remaining `string` fields named `state`, `status`, `kind`, `source`, `reason
 
 ## Provider and audit conversion
 
-AIRAC.net, Open-Meteo, VATSIM, ECFMP and identity providers may expose JSON or another external format. Their adapters parse into validated typed Protobuf/domain values in memory. Persist only `NavData`, `ProviderPage`, `WeatherObservation`, `VatsimObservation`, `EcfmpState`, or another explicitly named typed schema after review. A provider page with fields needed to resume/replay that cannot be represented in `ProviderPage` is **not cached**; the importer refetches it using typed checkpoint metadata. No raw body, `json.RawMessage`, `CanonicalJSON`, or serialized map enters `FS_OBJECTS`, a state event, or a snapshot.
+AIRAC.net, Open-Meteo, VATSIM, ECFMP and identity providers may expose JSON or another external format. Their adapters parse into validated typed Protobuf/domain values in memory. Persist only `NavData`, `ProviderPage`, `WeatherObservation`, `VatsimObservation`, `EcfmpState`, or another explicitly named typed schema after review. `ProviderPage.ecfmp` carries ECFMP measures, scalar measure values, route lists, and typed filters used for per-flight application; its fetched timestamp and immutable object digest identify the source revision. Unknown ECFMP measure or filter shapes fail conversion instead of entering the object store. A provider page with fields needed to resume/replay that cannot be represented in `ProviderPage` is **not cached**; the importer refetches it using typed checkpoint metadata. No raw body, `json.RawMessage`, `CanonicalJSON`, or serialized map enters `FS_OBJECTS`, a state event, or a snapshot.
+
+`ProviderPage.open_meteo` retains each requested forecast coordinate/time and vertical wind level, with observed and expiry times. Its airport-owned checkpoint is committed after a global quota reservation and verified object publication. A replayed or uncertain workflow ID cannot issue another Open-Meteo call.
+
+`ProviderPage.cdm_config` retains the airport's rates, SID intervals, taxi zones, delays, deicing policy and defaults after the existing provider parsers run. `ProviderPage.viff_flights` retains every IFPS/CDM field used by flight reconciliation, and `ProviderPage.viff_masters` retains airport master positions. Only vIFF flight pages may use a session-owned `ProviderCheckpoint`; configuration and master pages remain airport-owned. vIFF writes use a stable owner-fenced workflow and a committed result outcome. A lost result acknowledgment is resolved from the command ledger, while an unproven provider call stays uncertain and is not repeated.
 
 AMAN's previous opaque command outcome, audit and validation payloads become typed `CommandOutcome`, `AmanAudit.fact`, and `AmanValidation`. Audit facts are the nine explicit families: command, observation, sequence, coordination, health, capacity, freeze, go-around and replay. Gap/closure/reservation displacement is `capacity` with typed affected-flight records; superstable/TMA freeze is `freeze`; go-around pending/decision is `go_around`; queue promotion is `sequence`. An existing category without a lossless mapping blocks that feature's cutover until a reviewed schema and catalog change; it may never store a stringified JSON escape hatch. Audits are append-only typed entities, ordered by airport revision and ID. A command outcome records stable status and reason code, not a serialized UI response body. The detail view derives its presentation from the typed airport projection and typed navigation objects.
 

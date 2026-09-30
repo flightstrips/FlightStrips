@@ -56,6 +56,7 @@ const (
 	EntityKind_PROVIDER_CHECKPOINT     EntityKind = 27
 	EntityKind_WEATHER_CACHE           EntityKind = 28
 	EntityKind_SESSION_DEADLINE        EntityKind = 29
+	EntityKind_VATSIM_SESSION_CURSOR   EntityKind = 30
 )
 
 // Enum value maps for EntityKind.
@@ -91,6 +92,7 @@ var (
 		27: "PROVIDER_CHECKPOINT",
 		28: "WEATHER_CACHE",
 		29: "SESSION_DEADLINE",
+		30: "VATSIM_SESSION_CURSOR",
 	}
 	EntityKind_value = map[string]int32{
 		"ENTITY_KIND_UNSPECIFIED": 0,
@@ -123,6 +125,7 @@ var (
 		"PROVIDER_CHECKPOINT":     27,
 		"WEATHER_CACHE":           28,
 		"SESSION_DEADLINE":        29,
+		"VATSIM_SESSION_CURSOR":   30,
 	}
 )
 
@@ -370,7 +373,7 @@ func (x CommandOutcome_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CommandOutcome_Status.Descriptor instead.
 func (CommandOutcome_Status) EnumDescriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{107, 0}
+	return file_storage_proto_rawDescGZIP(), []int{108, 0}
 }
 
 type WorkflowRecord_Status int32
@@ -425,7 +428,7 @@ func (x WorkflowRecord_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorkflowRecord_Status.Descriptor instead.
 func (WorkflowRecord_Status) EnumDescriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{108, 0}
+	return file_storage_proto_rawDescGZIP(), []int{109, 0}
 }
 
 type EffectRecord_Status int32
@@ -486,7 +489,7 @@ func (x EffectRecord_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EffectRecord_Status.Descriptor instead.
 func (EffectRecord_Status) EnumDescriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{109, 0}
+	return file_storage_proto_rawDescGZIP(), []int{110, 0}
 }
 
 type ClientPresence_Kind int32
@@ -535,7 +538,7 @@ func (x ClientPresence_Kind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ClientPresence_Kind.Descriptor instead.
 func (ClientPresence_Kind) EnumDescriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{123, 0}
+	return file_storage_proto_rawDescGZIP(), []int{124, 0}
 }
 
 // Normative source for every FS_STATE, FS_POSITIONS, FS_PRESENCE,
@@ -1474,6 +1477,7 @@ type EntityRecord struct {
 	//	*EntityRecord_ProviderCheckpoint
 	//	*EntityRecord_WeatherCache
 	//	*EntityRecord_SessionDeadline
+	//	*EntityRecord_VatsimSessionCursor
 	Value         isEntityRecord_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1777,6 +1781,15 @@ func (x *EntityRecord) GetSessionDeadline() *SessionDeadline {
 	return nil
 }
 
+func (x *EntityRecord) GetVatsimSessionCursor() *VatsimSessionCursor {
+	if x != nil {
+		if x, ok := x.Value.(*EntityRecord_VatsimSessionCursor); ok {
+			return x.VatsimSessionCursor
+		}
+	}
+	return nil
+}
+
 type isEntityRecord_Value interface {
 	isEntityRecord_Value()
 }
@@ -1897,6 +1910,10 @@ type EntityRecord_SessionDeadline struct {
 	SessionDeadline *SessionDeadline `protobuf:"bytes,29,opt,name=session_deadline,json=sessionDeadline,proto3,oneof"`
 }
 
+type EntityRecord_VatsimSessionCursor struct {
+	VatsimSessionCursor *VatsimSessionCursor `protobuf:"bytes,30,opt,name=vatsim_session_cursor,json=vatsimSessionCursor,proto3,oneof"`
+}
+
 func (*EntityRecord_AirportRegistry) isEntityRecord_Value() {}
 
 func (*EntityRecord_SessionRegistry) isEntityRecord_Value() {}
@@ -1954,6 +1971,8 @@ func (*EntityRecord_ProviderCheckpoint) isEntityRecord_Value() {}
 func (*EntityRecord_WeatherCache) isEntityRecord_Value() {}
 
 func (*EntityRecord_SessionDeadline) isEntityRecord_Value() {}
+
+func (*EntityRecord_VatsimSessionCursor) isEntityRecord_Value() {}
 
 type AirportRegistry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2915,6 +2934,14 @@ type Strip struct {
 	Sequence                 uint64                 `protobuf:"varint,60,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	TobtSetBy                *string                `protobuf:"bytes,61,opt,name=tobt_set_by,json=tobtSetBy,proto3,oneof" json:"tobt_set_by,omitempty"`
 	OnBlock                  *bool                  `protobuf:"varint,62,opt,name=on_block,json=onBlock,proto3,oneof" json:"on_block,omitempty"`
+	VatsimCid                string                 `protobuf:"bytes,63,opt,name=vatsim_cid,json=vatsimCid,proto3" json:"vatsim_cid,omitempty"`
+	VatsimSourceRevision     uint64                 `protobuf:"varint,64,opt,name=vatsim_source_revision,json=vatsimSourceRevision,proto3" json:"vatsim_source_revision,omitempty"`
+	VatsimPlanRevision       int64                  `protobuf:"varint,65,opt,name=vatsim_plan_revision,json=vatsimPlanRevision,proto3" json:"vatsim_plan_revision,omitempty"`
+	VatsimSeenAt             *timestamppb.Timestamp `protobuf:"bytes,66,opt,name=vatsim_seen_at,json=vatsimSeenAt,proto3,oneof" json:"vatsim_seen_at,omitempty"`
+	VatsimOnly               bool                   `protobuf:"varint,67,opt,name=vatsim_only,json=vatsimOnly,proto3" json:"vatsim_only,omitempty"`
+	VatsimOnline             bool                   `protobuf:"varint,68,opt,name=vatsim_online,json=vatsimOnline,proto3" json:"vatsim_online,omitempty"`
+	VatsimLatitude           *float64               `protobuf:"fixed64,69,opt,name=vatsim_latitude,json=vatsimLatitude,proto3,oneof" json:"vatsim_latitude,omitempty"`
+	VatsimLongitude          *float64               `protobuf:"fixed64,70,opt,name=vatsim_longitude,json=vatsimLongitude,proto3,oneof" json:"vatsim_longitude,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -3381,6 +3408,62 @@ func (x *Strip) GetOnBlock() bool {
 		return *x.OnBlock
 	}
 	return false
+}
+
+func (x *Strip) GetVatsimCid() string {
+	if x != nil {
+		return x.VatsimCid
+	}
+	return ""
+}
+
+func (x *Strip) GetVatsimSourceRevision() uint64 {
+	if x != nil {
+		return x.VatsimSourceRevision
+	}
+	return 0
+}
+
+func (x *Strip) GetVatsimPlanRevision() int64 {
+	if x != nil {
+		return x.VatsimPlanRevision
+	}
+	return 0
+}
+
+func (x *Strip) GetVatsimSeenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.VatsimSeenAt
+	}
+	return nil
+}
+
+func (x *Strip) GetVatsimOnly() bool {
+	if x != nil {
+		return x.VatsimOnly
+	}
+	return false
+}
+
+func (x *Strip) GetVatsimOnline() bool {
+	if x != nil {
+		return x.VatsimOnline
+	}
+	return false
+}
+
+func (x *Strip) GetVatsimLatitude() float64 {
+	if x != nil && x.VatsimLatitude != nil {
+		return *x.VatsimLatitude
+	}
+	return 0
+}
+
+func (x *Strip) GetVatsimLongitude() float64 {
+	if x != nil && x.VatsimLongitude != nil {
+		return *x.VatsimLongitude
+	}
+	return 0
 }
 
 type ValidationStatus struct {
@@ -4826,16 +4909,17 @@ func (x *EcfmpRestriction) GetHasCtot() bool {
 }
 
 type Atis struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
-	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
-	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
-	ObservedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
-	Metar         string                 `protobuf:"bytes,5,opt,name=metar,proto3" json:"metar,omitempty"`
-	ArrivalCode   string                 `protobuf:"bytes,6,opt,name=arrival_code,json=arrivalCode,proto3" json:"arrival_code,omitempty"`
-	DepartureCode string                 `protobuf:"bytes,7,opt,name=departure_code,json=departureCode,proto3" json:"departure_code,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Airport        string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	Code           string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	Text           string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	ObservedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	Metar          string                 `protobuf:"bytes,5,opt,name=metar,proto3" json:"metar,omitempty"`
+	ArrivalCode    string                 `protobuf:"bytes,6,opt,name=arrival_code,json=arrivalCode,proto3" json:"arrival_code,omitempty"`
+	DepartureCode  string                 `protobuf:"bytes,7,opt,name=departure_code,json=departureCode,proto3" json:"departure_code,omitempty"`
+	SourceRevision string                 `protobuf:"bytes,8,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Atis) Reset() {
@@ -4913,6 +4997,13 @@ func (x *Atis) GetArrivalCode() string {
 func (x *Atis) GetDepartureCode() string {
 	if x != nil {
 		return x.DepartureCode
+	}
+	return ""
+}
+
+func (x *Atis) GetSourceRevision() string {
+	if x != nil {
+		return x.SourceRevision
 	}
 	return ""
 }
@@ -10405,20 +10496,90 @@ func (x *VatsimObservation) GetObservedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type VatsimSessionCursor struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Provider       string                 `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	SourceRevision uint64                 `protobuf:"varint,2,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
+	SourceSha256   string                 `protobuf:"bytes,3,opt,name=source_sha256,json=sourceSha256,proto3" json:"source_sha256,omitempty"`
+	SnapshotAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=snapshot_at,json=snapshotAt,proto3" json:"snapshot_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *VatsimSessionCursor) Reset() {
+	*x = VatsimSessionCursor{}
+	mi := &file_storage_proto_msgTypes[99]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VatsimSessionCursor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VatsimSessionCursor) ProtoMessage() {}
+
+func (x *VatsimSessionCursor) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[99]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VatsimSessionCursor.ProtoReflect.Descriptor instead.
+func (*VatsimSessionCursor) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{99}
+}
+
+func (x *VatsimSessionCursor) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *VatsimSessionCursor) GetSourceRevision() uint64 {
+	if x != nil {
+		return x.SourceRevision
+	}
+	return 0
+}
+
+func (x *VatsimSessionCursor) GetSourceSha256() string {
+	if x != nil {
+		return x.SourceSha256
+	}
+	return ""
+}
+
+func (x *VatsimSessionCursor) GetSnapshotAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SnapshotAt
+	}
+	return nil
+}
+
 type NavManifest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
-	Cycle         string                 `protobuf:"bytes,2,opt,name=cycle,proto3" json:"cycle,omitempty"`
-	Digest        string                 `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
-	Objects       []*NavObjectRef        `protobuf:"bytes,4,rep,name=objects,proto3" json:"objects,omitempty"`
-	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Airport        string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	Cycle          string                 `protobuf:"bytes,2,opt,name=cycle,proto3" json:"cycle,omitempty"`
+	Digest         string                 `protobuf:"bytes,3,opt,name=digest,proto3" json:"digest,omitempty"`
+	Objects        []*NavObjectRef        `protobuf:"bytes,4,rep,name=objects,proto3" json:"objects,omitempty"`
+	Active         bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	SourceRevision uint64                 `protobuf:"varint,6,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
+	SourceSha256   string                 `protobuf:"bytes,7,opt,name=source_sha256,json=sourceSha256,proto3" json:"source_sha256,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *NavManifest) Reset() {
 	*x = NavManifest{}
-	mi := &file_storage_proto_msgTypes[99]
+	mi := &file_storage_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10430,7 +10591,7 @@ func (x *NavManifest) String() string {
 func (*NavManifest) ProtoMessage() {}
 
 func (x *NavManifest) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[99]
+	mi := &file_storage_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10443,7 +10604,7 @@ func (x *NavManifest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavManifest.ProtoReflect.Descriptor instead.
 func (*NavManifest) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{99}
+	return file_storage_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *NavManifest) GetAirport() string {
@@ -10481,6 +10642,20 @@ func (x *NavManifest) GetActive() bool {
 	return false
 }
 
+func (x *NavManifest) GetSourceRevision() uint64 {
+	if x != nil {
+		return x.SourceRevision
+	}
+	return 0
+}
+
+func (x *NavManifest) GetSourceSha256() string {
+	if x != nil {
+		return x.SourceSha256
+	}
+	return ""
+}
+
 type NavObjectRef struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
@@ -10492,7 +10667,7 @@ type NavObjectRef struct {
 
 func (x *NavObjectRef) Reset() {
 	*x = NavObjectRef{}
-	mi := &file_storage_proto_msgTypes[100]
+	mi := &file_storage_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10504,7 +10679,7 @@ func (x *NavObjectRef) String() string {
 func (*NavObjectRef) ProtoMessage() {}
 
 func (x *NavObjectRef) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[100]
+	mi := &file_storage_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10517,7 +10692,7 @@ func (x *NavObjectRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavObjectRef.ProtoReflect.Descriptor instead.
 func (*NavObjectRef) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{100}
+	return file_storage_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *NavObjectRef) GetKind() string {
@@ -10554,7 +10729,7 @@ type NavRouteCache struct {
 
 func (x *NavRouteCache) Reset() {
 	*x = NavRouteCache{}
-	mi := &file_storage_proto_msgTypes[101]
+	mi := &file_storage_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10566,7 +10741,7 @@ func (x *NavRouteCache) String() string {
 func (*NavRouteCache) ProtoMessage() {}
 
 func (x *NavRouteCache) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[101]
+	mi := &file_storage_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10579,7 +10754,7 @@ func (x *NavRouteCache) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavRouteCache.ProtoReflect.Descriptor instead.
 func (*NavRouteCache) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{101}
+	return file_storage_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *NavRouteCache) GetRouteKey() string {
@@ -10632,7 +10807,7 @@ type ProviderCheckpoint struct {
 
 func (x *ProviderCheckpoint) Reset() {
 	*x = ProviderCheckpoint{}
-	mi := &file_storage_proto_msgTypes[102]
+	mi := &file_storage_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10644,7 +10819,7 @@ func (x *ProviderCheckpoint) String() string {
 func (*ProviderCheckpoint) ProtoMessage() {}
 
 func (x *ProviderCheckpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[102]
+	mi := &file_storage_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10657,7 +10832,7 @@ func (x *ProviderCheckpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderCheckpoint.ProtoReflect.Descriptor instead.
 func (*ProviderCheckpoint) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{102}
+	return file_storage_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *ProviderCheckpoint) GetProvider() string {
@@ -10722,7 +10897,7 @@ type WeatherCache struct {
 
 func (x *WeatherCache) Reset() {
 	*x = WeatherCache{}
-	mi := &file_storage_proto_msgTypes[103]
+	mi := &file_storage_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10734,7 +10909,7 @@ func (x *WeatherCache) String() string {
 func (*WeatherCache) ProtoMessage() {}
 
 func (x *WeatherCache) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[103]
+	mi := &file_storage_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10747,7 +10922,7 @@ func (x *WeatherCache) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WeatherCache.ProtoReflect.Descriptor instead.
 func (*WeatherCache) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{103}
+	return file_storage_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *WeatherCache) GetAirport() string {
@@ -10801,7 +10976,7 @@ type WeatherObservation struct {
 
 func (x *WeatherObservation) Reset() {
 	*x = WeatherObservation{}
-	mi := &file_storage_proto_msgTypes[104]
+	mi := &file_storage_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10813,7 +10988,7 @@ func (x *WeatherObservation) String() string {
 func (*WeatherObservation) ProtoMessage() {}
 
 func (x *WeatherObservation) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[104]
+	mi := &file_storage_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10826,7 +11001,7 @@ func (x *WeatherObservation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WeatherObservation.ProtoReflect.Descriptor instead.
 func (*WeatherObservation) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{104}
+	return file_storage_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *WeatherObservation) GetMetar() string {
@@ -10896,7 +11071,7 @@ type WeatherCloud struct {
 
 func (x *WeatherCloud) Reset() {
 	*x = WeatherCloud{}
-	mi := &file_storage_proto_msgTypes[105]
+	mi := &file_storage_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10908,7 +11083,7 @@ func (x *WeatherCloud) String() string {
 func (*WeatherCloud) ProtoMessage() {}
 
 func (x *WeatherCloud) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[105]
+	mi := &file_storage_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10921,7 +11096,7 @@ func (x *WeatherCloud) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WeatherCloud.ProtoReflect.Descriptor instead.
 func (*WeatherCloud) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{105}
+	return file_storage_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *WeatherCloud) GetCover() string {
@@ -10959,7 +11134,7 @@ type SessionDeadline struct {
 
 func (x *SessionDeadline) Reset() {
 	*x = SessionDeadline{}
-	mi := &file_storage_proto_msgTypes[106]
+	mi := &file_storage_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10971,7 +11146,7 @@ func (x *SessionDeadline) String() string {
 func (*SessionDeadline) ProtoMessage() {}
 
 func (x *SessionDeadline) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[106]
+	mi := &file_storage_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10984,7 +11159,7 @@ func (x *SessionDeadline) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionDeadline.ProtoReflect.Descriptor instead.
 func (*SessionDeadline) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{106}
+	return file_storage_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *SessionDeadline) GetId() string {
@@ -11048,7 +11223,7 @@ type CommandOutcome struct {
 
 func (x *CommandOutcome) Reset() {
 	*x = CommandOutcome{}
-	mi := &file_storage_proto_msgTypes[107]
+	mi := &file_storage_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11060,7 +11235,7 @@ func (x *CommandOutcome) String() string {
 func (*CommandOutcome) ProtoMessage() {}
 
 func (x *CommandOutcome) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[107]
+	mi := &file_storage_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11073,7 +11248,7 @@ func (x *CommandOutcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandOutcome.ProtoReflect.Descriptor instead.
 func (*CommandOutcome) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{107}
+	return file_storage_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *CommandOutcome) GetCommandId() string {
@@ -11170,7 +11345,7 @@ type WorkflowRecord struct {
 
 func (x *WorkflowRecord) Reset() {
 	*x = WorkflowRecord{}
-	mi := &file_storage_proto_msgTypes[108]
+	mi := &file_storage_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11182,7 +11357,7 @@ func (x *WorkflowRecord) String() string {
 func (*WorkflowRecord) ProtoMessage() {}
 
 func (x *WorkflowRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[108]
+	mi := &file_storage_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11195,7 +11370,7 @@ func (x *WorkflowRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkflowRecord.ProtoReflect.Descriptor instead.
 func (*WorkflowRecord) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{108}
+	return file_storage_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *WorkflowRecord) GetWorkflowId() string {
@@ -11287,7 +11462,7 @@ type EffectRecord struct {
 
 func (x *EffectRecord) Reset() {
 	*x = EffectRecord{}
-	mi := &file_storage_proto_msgTypes[109]
+	mi := &file_storage_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11299,7 +11474,7 @@ func (x *EffectRecord) String() string {
 func (*EffectRecord) ProtoMessage() {}
 
 func (x *EffectRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[109]
+	mi := &file_storage_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11312,7 +11487,7 @@ func (x *EffectRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EffectRecord.ProtoReflect.Descriptor instead.
 func (*EffectRecord) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{109}
+	return file_storage_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *EffectRecord) GetCommandId() string {
@@ -11482,7 +11657,7 @@ type SetFlightPlanEffect struct {
 
 func (x *SetFlightPlanEffect) Reset() {
 	*x = SetFlightPlanEffect{}
-	mi := &file_storage_proto_msgTypes[110]
+	mi := &file_storage_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11494,7 +11669,7 @@ func (x *SetFlightPlanEffect) String() string {
 func (*SetFlightPlanEffect) ProtoMessage() {}
 
 func (x *SetFlightPlanEffect) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[110]
+	mi := &file_storage_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11507,7 +11682,7 @@ func (x *SetFlightPlanEffect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetFlightPlanEffect.ProtoReflect.Descriptor instead.
 func (*SetFlightPlanEffect) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{110}
+	return file_storage_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *SetFlightPlanEffect) GetCallsign() string {
@@ -11542,7 +11717,7 @@ type PdcEffect struct {
 
 func (x *PdcEffect) Reset() {
 	*x = PdcEffect{}
-	mi := &file_storage_proto_msgTypes[111]
+	mi := &file_storage_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11554,7 +11729,7 @@ func (x *PdcEffect) String() string {
 func (*PdcEffect) ProtoMessage() {}
 
 func (x *PdcEffect) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[111]
+	mi := &file_storage_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11567,7 +11742,7 @@ func (x *PdcEffect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PdcEffect.ProtoReflect.Descriptor instead.
 func (*PdcEffect) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{111}
+	return file_storage_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *PdcEffect) GetCallsign() string {
@@ -11602,7 +11777,7 @@ type PrivateMessageEffect struct {
 
 func (x *PrivateMessageEffect) Reset() {
 	*x = PrivateMessageEffect{}
-	mi := &file_storage_proto_msgTypes[112]
+	mi := &file_storage_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11614,7 +11789,7 @@ func (x *PrivateMessageEffect) String() string {
 func (*PrivateMessageEffect) ProtoMessage() {}
 
 func (x *PrivateMessageEffect) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[112]
+	mi := &file_storage_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11627,7 +11802,7 @@ func (x *PrivateMessageEffect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrivateMessageEffect.ProtoReflect.Descriptor instead.
 func (*PrivateMessageEffect) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{112}
+	return file_storage_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *PrivateMessageEffect) GetRecipient() string {
@@ -11662,7 +11837,7 @@ type CoordinationEffect struct {
 
 func (x *CoordinationEffect) Reset() {
 	*x = CoordinationEffect{}
-	mi := &file_storage_proto_msgTypes[113]
+	mi := &file_storage_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11674,7 +11849,7 @@ func (x *CoordinationEffect) String() string {
 func (*CoordinationEffect) ProtoMessage() {}
 
 func (x *CoordinationEffect) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[113]
+	mi := &file_storage_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11687,7 +11862,7 @@ func (x *CoordinationEffect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationEffect.ProtoReflect.Descriptor instead.
 func (*CoordinationEffect) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{113}
+	return file_storage_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *CoordinationEffect) GetCallsign() string {
@@ -11722,7 +11897,7 @@ type CdmEffect struct {
 
 func (x *CdmEffect) Reset() {
 	*x = CdmEffect{}
-	mi := &file_storage_proto_msgTypes[114]
+	mi := &file_storage_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11734,7 +11909,7 @@ func (x *CdmEffect) String() string {
 func (*CdmEffect) ProtoMessage() {}
 
 func (x *CdmEffect) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[114]
+	mi := &file_storage_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11747,7 +11922,7 @@ func (x *CdmEffect) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CdmEffect.ProtoReflect.Descriptor instead.
 func (*CdmEffect) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{114}
+	return file_storage_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *CdmEffect) GetCallsign() string {
@@ -11792,7 +11967,7 @@ type Snapshot struct {
 
 func (x *Snapshot) Reset() {
 	*x = Snapshot{}
-	mi := &file_storage_proto_msgTypes[115]
+	mi := &file_storage_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11804,7 +11979,7 @@ func (x *Snapshot) String() string {
 func (*Snapshot) ProtoMessage() {}
 
 func (x *Snapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[115]
+	mi := &file_storage_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11817,7 +11992,7 @@ func (x *Snapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Snapshot.ProtoReflect.Descriptor instead.
 func (*Snapshot) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{115}
+	return file_storage_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *Snapshot) GetSchemaVersion() uint32 {
@@ -11922,7 +12097,7 @@ type EntitySnapshot struct {
 
 func (x *EntitySnapshot) Reset() {
 	*x = EntitySnapshot{}
-	mi := &file_storage_proto_msgTypes[116]
+	mi := &file_storage_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11934,7 +12109,7 @@ func (x *EntitySnapshot) String() string {
 func (*EntitySnapshot) ProtoMessage() {}
 
 func (x *EntitySnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[116]
+	mi := &file_storage_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11947,7 +12122,7 @@ func (x *EntitySnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntitySnapshot.ProtoReflect.Descriptor instead.
 func (*EntitySnapshot) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{116}
+	return file_storage_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *EntitySnapshot) GetKey() string {
@@ -11986,7 +12161,7 @@ type SnapshotIndex struct {
 
 func (x *SnapshotIndex) Reset() {
 	*x = SnapshotIndex{}
-	mi := &file_storage_proto_msgTypes[117]
+	mi := &file_storage_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11998,7 +12173,7 @@ func (x *SnapshotIndex) String() string {
 func (*SnapshotIndex) ProtoMessage() {}
 
 func (x *SnapshotIndex) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[117]
+	mi := &file_storage_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12011,7 +12186,7 @@ func (x *SnapshotIndex) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SnapshotIndex.ProtoReflect.Descriptor instead.
 func (*SnapshotIndex) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{117}
+	return file_storage_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *SnapshotIndex) GetSchemaVersion() uint32 {
@@ -12082,7 +12257,7 @@ type PositionValue struct {
 
 func (x *PositionValue) Reset() {
 	*x = PositionValue{}
-	mi := &file_storage_proto_msgTypes[118]
+	mi := &file_storage_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12094,7 +12269,7 @@ func (x *PositionValue) String() string {
 func (*PositionValue) ProtoMessage() {}
 
 func (x *PositionValue) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[118]
+	mi := &file_storage_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12107,7 +12282,7 @@ func (x *PositionValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PositionValue.ProtoReflect.Descriptor instead.
 func (*PositionValue) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{118}
+	return file_storage_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *PositionValue) GetSchemaVersion() uint32 {
@@ -12207,7 +12382,7 @@ type AircraftPosition struct {
 
 func (x *AircraftPosition) Reset() {
 	*x = AircraftPosition{}
-	mi := &file_storage_proto_msgTypes[119]
+	mi := &file_storage_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12219,7 +12394,7 @@ func (x *AircraftPosition) String() string {
 func (*AircraftPosition) ProtoMessage() {}
 
 func (x *AircraftPosition) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[119]
+	mi := &file_storage_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12232,7 +12407,7 @@ func (x *AircraftPosition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AircraftPosition.ProtoReflect.Descriptor instead.
 func (*AircraftPosition) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{119}
+	return file_storage_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *AircraftPosition) GetLatitude() float64 {
@@ -12285,7 +12460,7 @@ type PositionTombstone struct {
 
 func (x *PositionTombstone) Reset() {
 	*x = PositionTombstone{}
-	mi := &file_storage_proto_msgTypes[120]
+	mi := &file_storage_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12297,7 +12472,7 @@ func (x *PositionTombstone) String() string {
 func (*PositionTombstone) ProtoMessage() {}
 
 func (x *PositionTombstone) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[120]
+	mi := &file_storage_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12310,7 +12485,7 @@ func (x *PositionTombstone) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PositionTombstone.ProtoReflect.Descriptor instead.
 func (*PositionTombstone) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{120}
+	return file_storage_proto_rawDescGZIP(), []int{121}
 }
 
 type PresenceValue struct {
@@ -12327,7 +12502,7 @@ type PresenceValue struct {
 
 func (x *PresenceValue) Reset() {
 	*x = PresenceValue{}
-	mi := &file_storage_proto_msgTypes[121]
+	mi := &file_storage_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12339,7 +12514,7 @@ func (x *PresenceValue) String() string {
 func (*PresenceValue) ProtoMessage() {}
 
 func (x *PresenceValue) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[121]
+	mi := &file_storage_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12352,7 +12527,7 @@ func (x *PresenceValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PresenceValue.ProtoReflect.Descriptor instead.
 func (*PresenceValue) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{121}
+	return file_storage_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *PresenceValue) GetSchemaVersion() uint32 {
@@ -12414,7 +12589,7 @@ type NodePresence struct {
 
 func (x *NodePresence) Reset() {
 	*x = NodePresence{}
-	mi := &file_storage_proto_msgTypes[122]
+	mi := &file_storage_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12426,7 +12601,7 @@ func (x *NodePresence) String() string {
 func (*NodePresence) ProtoMessage() {}
 
 func (x *NodePresence) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[122]
+	mi := &file_storage_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12439,7 +12614,7 @@ func (x *NodePresence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodePresence.ProtoReflect.Descriptor instead.
 func (*NodePresence) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{122}
+	return file_storage_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *NodePresence) GetNodeId() string {
@@ -12480,7 +12655,7 @@ type ClientPresence struct {
 
 func (x *ClientPresence) Reset() {
 	*x = ClientPresence{}
-	mi := &file_storage_proto_msgTypes[123]
+	mi := &file_storage_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12492,7 +12667,7 @@ func (x *ClientPresence) String() string {
 func (*ClientPresence) ProtoMessage() {}
 
 func (x *ClientPresence) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[123]
+	mi := &file_storage_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12505,7 +12680,7 @@ func (x *ClientPresence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientPresence.ProtoReflect.Descriptor instead.
 func (*ClientPresence) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{123}
+	return file_storage_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *ClientPresence) GetConnectionId() string {
@@ -12587,7 +12762,7 @@ type ObjectValue struct {
 
 func (x *ObjectValue) Reset() {
 	*x = ObjectValue{}
-	mi := &file_storage_proto_msgTypes[124]
+	mi := &file_storage_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12599,7 +12774,7 @@ func (x *ObjectValue) String() string {
 func (*ObjectValue) ProtoMessage() {}
 
 func (x *ObjectValue) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[124]
+	mi := &file_storage_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12612,7 +12787,7 @@ func (x *ObjectValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ObjectValue.ProtoReflect.Descriptor instead.
 func (*ObjectValue) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{124}
+	return file_storage_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *ObjectValue) GetSchemaVersion() uint32 {
@@ -12717,7 +12892,7 @@ type NavData struct {
 
 func (x *NavData) Reset() {
 	*x = NavData{}
-	mi := &file_storage_proto_msgTypes[125]
+	mi := &file_storage_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12729,7 +12904,7 @@ func (x *NavData) String() string {
 func (*NavData) ProtoMessage() {}
 
 func (x *NavData) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[125]
+	mi := &file_storage_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12742,7 +12917,7 @@ func (x *NavData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavData.ProtoReflect.Descriptor instead.
 func (*NavData) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{125}
+	return file_storage_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *NavData) GetAirport() string {
@@ -12899,7 +13074,7 @@ type NavDatasetVersion struct {
 
 func (x *NavDatasetVersion) Reset() {
 	*x = NavDatasetVersion{}
-	mi := &file_storage_proto_msgTypes[126]
+	mi := &file_storage_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12911,7 +13086,7 @@ func (x *NavDatasetVersion) String() string {
 func (*NavDatasetVersion) ProtoMessage() {}
 
 func (x *NavDatasetVersion) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[126]
+	mi := &file_storage_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12924,7 +13099,7 @@ func (x *NavDatasetVersion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavDatasetVersion.ProtoReflect.Descriptor instead.
 func (*NavDatasetVersion) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{126}
+	return file_storage_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *NavDatasetVersion) GetCycle() string {
@@ -12968,7 +13143,7 @@ type NavProvenance struct {
 
 func (x *NavProvenance) Reset() {
 	*x = NavProvenance{}
-	mi := &file_storage_proto_msgTypes[127]
+	mi := &file_storage_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12980,7 +13155,7 @@ func (x *NavProvenance) String() string {
 func (*NavProvenance) ProtoMessage() {}
 
 func (x *NavProvenance) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[127]
+	mi := &file_storage_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12993,7 +13168,7 @@ func (x *NavProvenance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavProvenance.ProtoReflect.Descriptor instead.
 func (*NavProvenance) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{127}
+	return file_storage_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *NavProvenance) GetSourceId() string {
@@ -13041,7 +13216,7 @@ type NavCoordinate struct {
 
 func (x *NavCoordinate) Reset() {
 	*x = NavCoordinate{}
-	mi := &file_storage_proto_msgTypes[128]
+	mi := &file_storage_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13053,7 +13228,7 @@ func (x *NavCoordinate) String() string {
 func (*NavCoordinate) ProtoMessage() {}
 
 func (x *NavCoordinate) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[128]
+	mi := &file_storage_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13066,7 +13241,7 @@ func (x *NavCoordinate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavCoordinate.ProtoReflect.Descriptor instead.
 func (*NavCoordinate) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{128}
+	return file_storage_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *NavCoordinate) GetLatitudeDegrees() float64 {
@@ -13094,7 +13269,7 @@ type NavThreshold struct {
 
 func (x *NavThreshold) Reset() {
 	*x = NavThreshold{}
-	mi := &file_storage_proto_msgTypes[129]
+	mi := &file_storage_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13106,7 +13281,7 @@ func (x *NavThreshold) String() string {
 func (*NavThreshold) ProtoMessage() {}
 
 func (x *NavThreshold) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[129]
+	mi := &file_storage_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13119,7 +13294,7 @@ func (x *NavThreshold) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavThreshold.ProtoReflect.Descriptor instead.
 func (*NavThreshold) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{129}
+	return file_storage_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *NavThreshold) GetPosition() *NavCoordinate {
@@ -13153,7 +13328,7 @@ type NavAirportFragment struct {
 
 func (x *NavAirportFragment) Reset() {
 	*x = NavAirportFragment{}
-	mi := &file_storage_proto_msgTypes[130]
+	mi := &file_storage_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13165,7 +13340,7 @@ func (x *NavAirportFragment) String() string {
 func (*NavAirportFragment) ProtoMessage() {}
 
 func (x *NavAirportFragment) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[130]
+	mi := &file_storage_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13178,7 +13353,7 @@ func (x *NavAirportFragment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavAirportFragment.ProtoReflect.Descriptor instead.
 func (*NavAirportFragment) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{130}
+	return file_storage_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *NavAirportFragment) GetAirport() *NavAirport {
@@ -13207,7 +13382,7 @@ type NavAirport struct {
 
 func (x *NavAirport) Reset() {
 	*x = NavAirport{}
-	mi := &file_storage_proto_msgTypes[131]
+	mi := &file_storage_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13219,7 +13394,7 @@ func (x *NavAirport) String() string {
 func (*NavAirport) ProtoMessage() {}
 
 func (x *NavAirport) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[131]
+	mi := &file_storage_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13232,7 +13407,7 @@ func (x *NavAirport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavAirport.ProtoReflect.Descriptor instead.
 func (*NavAirport) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{131}
+	return file_storage_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *NavAirport) GetIcao() string {
@@ -13276,7 +13451,7 @@ type NavRunway struct {
 
 func (x *NavRunway) Reset() {
 	*x = NavRunway{}
-	mi := &file_storage_proto_msgTypes[132]
+	mi := &file_storage_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13288,7 +13463,7 @@ func (x *NavRunway) String() string {
 func (*NavRunway) ProtoMessage() {}
 
 func (x *NavRunway) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[132]
+	mi := &file_storage_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13301,7 +13476,7 @@ func (x *NavRunway) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavRunway.ProtoReflect.Descriptor instead.
 func (*NavRunway) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{132}
+	return file_storage_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *NavRunway) GetId() string {
@@ -13351,7 +13526,7 @@ type NavProcedureFragment struct {
 
 func (x *NavProcedureFragment) Reset() {
 	*x = NavProcedureFragment{}
-	mi := &file_storage_proto_msgTypes[133]
+	mi := &file_storage_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13363,7 +13538,7 @@ func (x *NavProcedureFragment) String() string {
 func (*NavProcedureFragment) ProtoMessage() {}
 
 func (x *NavProcedureFragment) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[133]
+	mi := &file_storage_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13376,7 +13551,7 @@ func (x *NavProcedureFragment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavProcedureFragment.ProtoReflect.Descriptor instead.
 func (*NavProcedureFragment) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{133}
+	return file_storage_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *NavProcedureFragment) GetAirport() string {
@@ -13422,7 +13597,7 @@ type NavProcedure struct {
 
 func (x *NavProcedure) Reset() {
 	*x = NavProcedure{}
-	mi := &file_storage_proto_msgTypes[134]
+	mi := &file_storage_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13434,7 +13609,7 @@ func (x *NavProcedure) String() string {
 func (*NavProcedure) ProtoMessage() {}
 
 func (x *NavProcedure) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[134]
+	mi := &file_storage_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13447,7 +13622,7 @@ func (x *NavProcedure) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavProcedure.ProtoReflect.Descriptor instead.
 func (*NavProcedure) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{134}
+	return file_storage_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *NavProcedure) GetId() string {
@@ -13516,7 +13691,7 @@ type NavLeg struct {
 
 func (x *NavLeg) Reset() {
 	*x = NavLeg{}
-	mi := &file_storage_proto_msgTypes[135]
+	mi := &file_storage_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13528,7 +13703,7 @@ func (x *NavLeg) String() string {
 func (*NavLeg) ProtoMessage() {}
 
 func (x *NavLeg) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[135]
+	mi := &file_storage_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13541,7 +13716,7 @@ func (x *NavLeg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavLeg.ProtoReflect.Descriptor instead.
 func (*NavLeg) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{135}
+	return file_storage_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *NavLeg) GetId() string {
@@ -13629,7 +13804,7 @@ type NavHolding struct {
 
 func (x *NavHolding) Reset() {
 	*x = NavHolding{}
-	mi := &file_storage_proto_msgTypes[136]
+	mi := &file_storage_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13641,7 +13816,7 @@ func (x *NavHolding) String() string {
 func (*NavHolding) ProtoMessage() {}
 
 func (x *NavHolding) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[136]
+	mi := &file_storage_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13654,7 +13829,7 @@ func (x *NavHolding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavHolding.ProtoReflect.Descriptor instead.
 func (*NavHolding) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{136}
+	return file_storage_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *NavHolding) GetId() string {
@@ -13771,7 +13946,7 @@ type NavFixFragment struct {
 
 func (x *NavFixFragment) Reset() {
 	*x = NavFixFragment{}
-	mi := &file_storage_proto_msgTypes[137]
+	mi := &file_storage_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13783,7 +13958,7 @@ func (x *NavFixFragment) String() string {
 func (*NavFixFragment) ProtoMessage() {}
 
 func (x *NavFixFragment) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[137]
+	mi := &file_storage_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13796,7 +13971,7 @@ func (x *NavFixFragment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavFixFragment.ProtoReflect.Descriptor instead.
 func (*NavFixFragment) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{137}
+	return file_storage_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *NavFixFragment) GetFixes() []*NavFix {
@@ -13824,7 +13999,7 @@ type NavFix struct {
 
 func (x *NavFix) Reset() {
 	*x = NavFix{}
-	mi := &file_storage_proto_msgTypes[138]
+	mi := &file_storage_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13836,7 +14011,7 @@ func (x *NavFix) String() string {
 func (*NavFix) ProtoMessage() {}
 
 func (x *NavFix) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[138]
+	mi := &file_storage_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13849,7 +14024,7 @@ func (x *NavFix) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavFix.ProtoReflect.Descriptor instead.
 func (*NavFix) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{138}
+	return file_storage_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *NavFix) GetId() string {
@@ -13887,7 +14062,7 @@ type NavTerminalFragment struct {
 
 func (x *NavTerminalFragment) Reset() {
 	*x = NavTerminalFragment{}
-	mi := &file_storage_proto_msgTypes[139]
+	mi := &file_storage_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13899,7 +14074,7 @@ func (x *NavTerminalFragment) String() string {
 func (*NavTerminalFragment) ProtoMessage() {}
 
 func (x *NavTerminalFragment) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[139]
+	mi := &file_storage_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13912,7 +14087,7 @@ func (x *NavTerminalFragment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavTerminalFragment.ProtoReflect.Descriptor instead.
 func (*NavTerminalFragment) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{139}
+	return file_storage_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *NavTerminalFragment) GetAirport() string {
@@ -13968,7 +14143,7 @@ type NavStarFamilyPolicy struct {
 
 func (x *NavStarFamilyPolicy) Reset() {
 	*x = NavStarFamilyPolicy{}
-	mi := &file_storage_proto_msgTypes[140]
+	mi := &file_storage_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -13980,7 +14155,7 @@ func (x *NavStarFamilyPolicy) String() string {
 func (*NavStarFamilyPolicy) ProtoMessage() {}
 
 func (x *NavStarFamilyPolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[140]
+	mi := &file_storage_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -13993,7 +14168,7 @@ func (x *NavStarFamilyPolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavStarFamilyPolicy.ProtoReflect.Descriptor instead.
 func (*NavStarFamilyPolicy) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{140}
+	return file_storage_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *NavStarFamilyPolicy) GetStarFamily() string {
@@ -14038,7 +14213,7 @@ type NavTerminalPath struct {
 
 func (x *NavTerminalPath) Reset() {
 	*x = NavTerminalPath{}
-	mi := &file_storage_proto_msgTypes[141]
+	mi := &file_storage_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14050,7 +14225,7 @@ func (x *NavTerminalPath) String() string {
 func (*NavTerminalPath) ProtoMessage() {}
 
 func (x *NavTerminalPath) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[141]
+	mi := &file_storage_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14063,7 +14238,7 @@ func (x *NavTerminalPath) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavTerminalPath.ProtoReflect.Descriptor instead.
 func (*NavTerminalPath) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{141}
+	return file_storage_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *NavTerminalPath) GetVersion() *NavDatasetVersion {
@@ -14170,7 +14345,7 @@ type NavRouteCandidate struct {
 
 func (x *NavRouteCandidate) Reset() {
 	*x = NavRouteCandidate{}
-	mi := &file_storage_proto_msgTypes[142]
+	mi := &file_storage_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14182,7 +14357,7 @@ func (x *NavRouteCandidate) String() string {
 func (*NavRouteCandidate) ProtoMessage() {}
 
 func (x *NavRouteCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[142]
+	mi := &file_storage_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14195,7 +14370,7 @@ func (x *NavRouteCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavRouteCandidate.ProtoReflect.Descriptor instead.
 func (*NavRouteCandidate) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{142}
+	return file_storage_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *NavRouteCandidate) GetQuery() *NavRouteQuery {
@@ -14248,7 +14423,7 @@ type NavRouteQuery struct {
 
 func (x *NavRouteQuery) Reset() {
 	*x = NavRouteQuery{}
-	mi := &file_storage_proto_msgTypes[143]
+	mi := &file_storage_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14260,7 +14435,7 @@ func (x *NavRouteQuery) String() string {
 func (*NavRouteQuery) ProtoMessage() {}
 
 func (x *NavRouteQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[143]
+	mi := &file_storage_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14273,7 +14448,7 @@ func (x *NavRouteQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavRouteQuery.ProtoReflect.Descriptor instead.
 func (*NavRouteQuery) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{143}
+	return file_storage_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *NavRouteQuery) GetVersion() *NavDatasetVersion {
@@ -14341,7 +14516,7 @@ type NavRouteGeometry struct {
 
 func (x *NavRouteGeometry) Reset() {
 	*x = NavRouteGeometry{}
-	mi := &file_storage_proto_msgTypes[144]
+	mi := &file_storage_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14353,7 +14528,7 @@ func (x *NavRouteGeometry) String() string {
 func (*NavRouteGeometry) ProtoMessage() {}
 
 func (x *NavRouteGeometry) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[144]
+	mi := &file_storage_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14366,7 +14541,7 @@ func (x *NavRouteGeometry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NavRouteGeometry.ProtoReflect.Descriptor instead.
 func (*NavRouteGeometry) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{144}
+	return file_storage_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *NavRouteGeometry) GetVersion() *NavDatasetVersion {
@@ -14437,7 +14612,7 @@ type EffectSecret struct {
 
 func (x *EffectSecret) Reset() {
 	*x = EffectSecret{}
-	mi := &file_storage_proto_msgTypes[145]
+	mi := &file_storage_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14449,7 +14624,7 @@ func (x *EffectSecret) String() string {
 func (*EffectSecret) ProtoMessage() {}
 
 func (x *EffectSecret) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[145]
+	mi := &file_storage_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14462,7 +14637,7 @@ func (x *EffectSecret) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EffectSecret.ProtoReflect.Descriptor instead.
 func (*EffectSecret) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{145}
+	return file_storage_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *EffectSecret) GetCommandId() string {
@@ -14502,6 +14677,12 @@ type ProviderPage struct {
 	//	*ProviderPage_Airac
 	//	*ProviderPage_Vatsim
 	//	*ProviderPage_Weather
+	//	*ProviderPage_Ecfmp
+	//	*ProviderPage_AtisFeed
+	//	*ProviderPage_OpenMeteo
+	//	*ProviderPage_CdmConfig
+	//	*ProviderPage_ViffFlights
+	//	*ProviderPage_ViffMasters
 	Parsed        isProviderPage_Parsed `protobuf_oneof:"parsed"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -14509,7 +14690,7 @@ type ProviderPage struct {
 
 func (x *ProviderPage) Reset() {
 	*x = ProviderPage{}
-	mi := &file_storage_proto_msgTypes[146]
+	mi := &file_storage_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14521,7 +14702,7 @@ func (x *ProviderPage) String() string {
 func (*ProviderPage) ProtoMessage() {}
 
 func (x *ProviderPage) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[146]
+	mi := &file_storage_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14534,7 +14715,7 @@ func (x *ProviderPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderPage.ProtoReflect.Descriptor instead.
 func (*ProviderPage) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{146}
+	return file_storage_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *ProviderPage) GetProvider() string {
@@ -14585,6 +14766,60 @@ func (x *ProviderPage) GetWeather() *WeatherPage {
 	return nil
 }
 
+func (x *ProviderPage) GetEcfmp() *EcfmpPage {
+	if x != nil {
+		if x, ok := x.Parsed.(*ProviderPage_Ecfmp); ok {
+			return x.Ecfmp
+		}
+	}
+	return nil
+}
+
+func (x *ProviderPage) GetAtisFeed() *AtisFeedPage {
+	if x != nil {
+		if x, ok := x.Parsed.(*ProviderPage_AtisFeed); ok {
+			return x.AtisFeed
+		}
+	}
+	return nil
+}
+
+func (x *ProviderPage) GetOpenMeteo() *OpenMeteoPage {
+	if x != nil {
+		if x, ok := x.Parsed.(*ProviderPage_OpenMeteo); ok {
+			return x.OpenMeteo
+		}
+	}
+	return nil
+}
+
+func (x *ProviderPage) GetCdmConfig() *CdmConfigPage {
+	if x != nil {
+		if x, ok := x.Parsed.(*ProviderPage_CdmConfig); ok {
+			return x.CdmConfig
+		}
+	}
+	return nil
+}
+
+func (x *ProviderPage) GetViffFlights() *ViffFlightPage {
+	if x != nil {
+		if x, ok := x.Parsed.(*ProviderPage_ViffFlights); ok {
+			return x.ViffFlights
+		}
+	}
+	return nil
+}
+
+func (x *ProviderPage) GetViffMasters() *ViffMastersPage {
+	if x != nil {
+		if x, ok := x.Parsed.(*ProviderPage_ViffMasters); ok {
+			return x.ViffMasters
+		}
+	}
+	return nil
+}
+
 type isProviderPage_Parsed interface {
 	isProviderPage_Parsed()
 }
@@ -14601,11 +14836,47 @@ type ProviderPage_Weather struct {
 	Weather *WeatherPage `protobuf:"bytes,5,opt,name=weather,proto3,oneof"`
 }
 
+type ProviderPage_Ecfmp struct {
+	Ecfmp *EcfmpPage `protobuf:"bytes,6,opt,name=ecfmp,proto3,oneof"`
+}
+
+type ProviderPage_AtisFeed struct {
+	AtisFeed *AtisFeedPage `protobuf:"bytes,7,opt,name=atis_feed,json=atisFeed,proto3,oneof"`
+}
+
+type ProviderPage_OpenMeteo struct {
+	OpenMeteo *OpenMeteoPage `protobuf:"bytes,8,opt,name=open_meteo,json=openMeteo,proto3,oneof"`
+}
+
+type ProviderPage_CdmConfig struct {
+	CdmConfig *CdmConfigPage `protobuf:"bytes,9,opt,name=cdm_config,json=cdmConfig,proto3,oneof"`
+}
+
+type ProviderPage_ViffFlights struct {
+	ViffFlights *ViffFlightPage `protobuf:"bytes,10,opt,name=viff_flights,json=viffFlights,proto3,oneof"`
+}
+
+type ProviderPage_ViffMasters struct {
+	ViffMasters *ViffMastersPage `protobuf:"bytes,11,opt,name=viff_masters,json=viffMasters,proto3,oneof"`
+}
+
 func (*ProviderPage_Airac) isProviderPage_Parsed() {}
 
 func (*ProviderPage_Vatsim) isProviderPage_Parsed() {}
 
 func (*ProviderPage_Weather) isProviderPage_Parsed() {}
+
+func (*ProviderPage_Ecfmp) isProviderPage_Parsed() {}
+
+func (*ProviderPage_AtisFeed) isProviderPage_Parsed() {}
+
+func (*ProviderPage_OpenMeteo) isProviderPage_Parsed() {}
+
+func (*ProviderPage_CdmConfig) isProviderPage_Parsed() {}
+
+func (*ProviderPage_ViffFlights) isProviderPage_Parsed() {}
+
+func (*ProviderPage_ViffMasters) isProviderPage_Parsed() {}
 
 type AiracPage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -14617,7 +14888,7 @@ type AiracPage struct {
 
 func (x *AiracPage) Reset() {
 	*x = AiracPage{}
-	mi := &file_storage_proto_msgTypes[147]
+	mi := &file_storage_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14629,7 +14900,7 @@ func (x *AiracPage) String() string {
 func (*AiracPage) ProtoMessage() {}
 
 func (x *AiracPage) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[147]
+	mi := &file_storage_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14642,7 +14913,7 @@ func (x *AiracPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AiracPage.ProtoReflect.Descriptor instead.
 func (*AiracPage) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{147}
+	return file_storage_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *AiracPage) GetFragments() []*NavData {
@@ -14662,13 +14933,15 @@ func (x *AiracPage) GetNextPage() string {
 type VatsimPage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Observations  []*VatsimObservation   `protobuf:"bytes,1,rep,name=observations,proto3" json:"observations,omitempty"`
+	Flights       []*VatsimFlight        `protobuf:"bytes,2,rep,name=flights,proto3" json:"flights,omitempty"`
+	SnapshotAt    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=snapshot_at,json=snapshotAt,proto3" json:"snapshot_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *VatsimPage) Reset() {
 	*x = VatsimPage{}
-	mi := &file_storage_proto_msgTypes[148]
+	mi := &file_storage_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14680,7 +14953,7 @@ func (x *VatsimPage) String() string {
 func (*VatsimPage) ProtoMessage() {}
 
 func (x *VatsimPage) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[148]
+	mi := &file_storage_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14693,7 +14966,7 @@ func (x *VatsimPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VatsimPage.ProtoReflect.Descriptor instead.
 func (*VatsimPage) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{148}
+	return file_storage_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *VatsimPage) GetObservations() []*VatsimObservation {
@@ -14701,6 +14974,284 @@ func (x *VatsimPage) GetObservations() []*VatsimObservation {
 		return x.Observations
 	}
 	return nil
+}
+
+func (x *VatsimPage) GetFlights() []*VatsimFlight {
+	if x != nil {
+		return x.Flights
+	}
+	return nil
+}
+
+func (x *VatsimPage) GetSnapshotAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SnapshotAt
+	}
+	return nil
+}
+
+type VatsimFlight struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Cid           string                 `protobuf:"bytes,1,opt,name=cid,proto3" json:"cid,omitempty"`
+	Callsign      string                 `protobuf:"bytes,2,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	State         string                 `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`
+	Latitude      float64                `protobuf:"fixed64,4,opt,name=latitude,proto3" json:"latitude,omitempty"`
+	Longitude     float64                `protobuf:"fixed64,5,opt,name=longitude,proto3" json:"longitude,omitempty"`
+	Altitude      int32                  `protobuf:"varint,6,opt,name=altitude,proto3" json:"altitude,omitempty"`
+	Groundspeed   int32                  `protobuf:"varint,7,opt,name=groundspeed,proto3" json:"groundspeed,omitempty"`
+	LogonTime     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=logon_time,json=logonTime,proto3" json:"logon_time,omitempty"`
+	LastUpdated   *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
+	FlightPlan    *VatsimFlightPlan      `protobuf:"bytes,10,opt,name=flight_plan,json=flightPlan,proto3" json:"flight_plan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VatsimFlight) Reset() {
+	*x = VatsimFlight{}
+	mi := &file_storage_proto_msgTypes[150]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VatsimFlight) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VatsimFlight) ProtoMessage() {}
+
+func (x *VatsimFlight) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[150]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VatsimFlight.ProtoReflect.Descriptor instead.
+func (*VatsimFlight) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{150}
+}
+
+func (x *VatsimFlight) GetCid() string {
+	if x != nil {
+		return x.Cid
+	}
+	return ""
+}
+
+func (x *VatsimFlight) GetCallsign() string {
+	if x != nil {
+		return x.Callsign
+	}
+	return ""
+}
+
+func (x *VatsimFlight) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *VatsimFlight) GetLatitude() float64 {
+	if x != nil {
+		return x.Latitude
+	}
+	return 0
+}
+
+func (x *VatsimFlight) GetLongitude() float64 {
+	if x != nil {
+		return x.Longitude
+	}
+	return 0
+}
+
+func (x *VatsimFlight) GetAltitude() int32 {
+	if x != nil {
+		return x.Altitude
+	}
+	return 0
+}
+
+func (x *VatsimFlight) GetGroundspeed() int32 {
+	if x != nil {
+		return x.Groundspeed
+	}
+	return 0
+}
+
+func (x *VatsimFlight) GetLogonTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LogonTime
+	}
+	return nil
+}
+
+func (x *VatsimFlight) GetLastUpdated() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastUpdated
+	}
+	return nil
+}
+
+func (x *VatsimFlight) GetFlightPlan() *VatsimFlightPlan {
+	if x != nil {
+		return x.FlightPlan
+	}
+	return nil
+}
+
+type VatsimFlightPlan struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	FlightRules     string                 `protobuf:"bytes,1,opt,name=flight_rules,json=flightRules,proto3" json:"flight_rules,omitempty"`
+	Aircraft        string                 `protobuf:"bytes,2,opt,name=aircraft,proto3" json:"aircraft,omitempty"`
+	AircraftFaa     string                 `protobuf:"bytes,3,opt,name=aircraft_faa,json=aircraftFaa,proto3" json:"aircraft_faa,omitempty"`
+	AircraftShort   string                 `protobuf:"bytes,4,opt,name=aircraft_short,json=aircraftShort,proto3" json:"aircraft_short,omitempty"`
+	Origin          string                 `protobuf:"bytes,5,opt,name=origin,proto3" json:"origin,omitempty"`
+	Destination     string                 `protobuf:"bytes,6,opt,name=destination,proto3" json:"destination,omitempty"`
+	Alternate       string                 `protobuf:"bytes,7,opt,name=alternate,proto3" json:"alternate,omitempty"`
+	Eobt            string                 `protobuf:"bytes,8,opt,name=eobt,proto3" json:"eobt,omitempty"`
+	EnrouteDuration string                 `protobuf:"bytes,9,opt,name=enroute_duration,json=enrouteDuration,proto3" json:"enroute_duration,omitempty"`
+	RequestedLevel  string                 `protobuf:"bytes,10,opt,name=requested_level,json=requestedLevel,proto3" json:"requested_level,omitempty"`
+	Remarks         string                 `protobuf:"bytes,11,opt,name=remarks,proto3" json:"remarks,omitempty"`
+	Route           string                 `protobuf:"bytes,12,opt,name=route,proto3" json:"route,omitempty"`
+	AssignedSquawk  string                 `protobuf:"bytes,13,opt,name=assigned_squawk,json=assignedSquawk,proto3" json:"assigned_squawk,omitempty"`
+	Revision        int64                  `protobuf:"varint,14,opt,name=revision,proto3" json:"revision,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *VatsimFlightPlan) Reset() {
+	*x = VatsimFlightPlan{}
+	mi := &file_storage_proto_msgTypes[151]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VatsimFlightPlan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VatsimFlightPlan) ProtoMessage() {}
+
+func (x *VatsimFlightPlan) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[151]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VatsimFlightPlan.ProtoReflect.Descriptor instead.
+func (*VatsimFlightPlan) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{151}
+}
+
+func (x *VatsimFlightPlan) GetFlightRules() string {
+	if x != nil {
+		return x.FlightRules
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetAircraft() string {
+	if x != nil {
+		return x.Aircraft
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetAircraftFaa() string {
+	if x != nil {
+		return x.AircraftFaa
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetAircraftShort() string {
+	if x != nil {
+		return x.AircraftShort
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetOrigin() string {
+	if x != nil {
+		return x.Origin
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetDestination() string {
+	if x != nil {
+		return x.Destination
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetAlternate() string {
+	if x != nil {
+		return x.Alternate
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetEobt() string {
+	if x != nil {
+		return x.Eobt
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetEnrouteDuration() string {
+	if x != nil {
+		return x.EnrouteDuration
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetRequestedLevel() string {
+	if x != nil {
+		return x.RequestedLevel
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetRemarks() string {
+	if x != nil {
+		return x.Remarks
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetRoute() string {
+	if x != nil {
+		return x.Route
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetAssignedSquawk() string {
+	if x != nil {
+		return x.AssignedSquawk
+	}
+	return ""
+}
+
+func (x *VatsimFlightPlan) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
 }
 
 type WeatherPage struct {
@@ -14712,7 +15263,7 @@ type WeatherPage struct {
 
 func (x *WeatherPage) Reset() {
 	*x = WeatherPage{}
-	mi := &file_storage_proto_msgTypes[149]
+	mi := &file_storage_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -14724,7 +15275,7 @@ func (x *WeatherPage) String() string {
 func (*WeatherPage) ProtoMessage() {}
 
 func (x *WeatherPage) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_proto_msgTypes[149]
+	mi := &file_storage_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -14737,7 +15288,7 @@ func (x *WeatherPage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WeatherPage.ProtoReflect.Descriptor instead.
 func (*WeatherPage) Descriptor() ([]byte, []int) {
-	return file_storage_proto_rawDescGZIP(), []int{149}
+	return file_storage_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *WeatherPage) GetObservations() []*WeatherObservation {
@@ -14745,6 +15296,1712 @@ func (x *WeatherPage) GetObservations() []*WeatherObservation {
 		return x.Observations
 	}
 	return nil
+}
+
+type OpenMeteoPage struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	SourceId       string                 `protobuf:"bytes,1,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	SourceRevision string                 `protobuf:"bytes,2,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
+	ObservedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	ExpiresAt      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Samples        []*OpenMeteoSample     `protobuf:"bytes,5,rep,name=samples,proto3" json:"samples,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *OpenMeteoPage) Reset() {
+	*x = OpenMeteoPage{}
+	mi := &file_storage_proto_msgTypes[153]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpenMeteoPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpenMeteoPage) ProtoMessage() {}
+
+func (x *OpenMeteoPage) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[153]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpenMeteoPage.ProtoReflect.Descriptor instead.
+func (*OpenMeteoPage) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{153}
+}
+
+func (x *OpenMeteoPage) GetSourceId() string {
+	if x != nil {
+		return x.SourceId
+	}
+	return ""
+}
+
+func (x *OpenMeteoPage) GetSourceRevision() string {
+	if x != nil {
+		return x.SourceRevision
+	}
+	return ""
+}
+
+func (x *OpenMeteoPage) GetObservedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ObservedAt
+	}
+	return nil
+}
+
+func (x *OpenMeteoPage) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *OpenMeteoPage) GetSamples() []*OpenMeteoSample {
+	if x != nil {
+		return x.Samples
+	}
+	return nil
+}
+
+type OpenMeteoSample struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	LatitudeDegrees  float64                `protobuf:"fixed64,1,opt,name=latitude_degrees,json=latitudeDegrees,proto3" json:"latitude_degrees,omitempty"`
+	LongitudeDegrees float64                `protobuf:"fixed64,2,opt,name=longitude_degrees,json=longitudeDegrees,proto3" json:"longitude_degrees,omitempty"`
+	ForecastAt       *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=forecast_at,json=forecastAt,proto3" json:"forecast_at,omitempty"`
+	Levels           []*OpenMeteoWindLevel  `protobuf:"bytes,4,rep,name=levels,proto3" json:"levels,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *OpenMeteoSample) Reset() {
+	*x = OpenMeteoSample{}
+	mi := &file_storage_proto_msgTypes[154]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpenMeteoSample) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpenMeteoSample) ProtoMessage() {}
+
+func (x *OpenMeteoSample) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[154]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpenMeteoSample.ProtoReflect.Descriptor instead.
+func (*OpenMeteoSample) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{154}
+}
+
+func (x *OpenMeteoSample) GetLatitudeDegrees() float64 {
+	if x != nil {
+		return x.LatitudeDegrees
+	}
+	return 0
+}
+
+func (x *OpenMeteoSample) GetLongitudeDegrees() float64 {
+	if x != nil {
+		return x.LongitudeDegrees
+	}
+	return 0
+}
+
+func (x *OpenMeteoSample) GetForecastAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ForecastAt
+	}
+	return nil
+}
+
+func (x *OpenMeteoSample) GetLevels() []*OpenMeteoWindLevel {
+	if x != nil {
+		return x.Levels
+	}
+	return nil
+}
+
+type OpenMeteoWindLevel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AltitudeFeet  float64                `protobuf:"fixed64,1,opt,name=altitude_feet,json=altitudeFeet,proto3" json:"altitude_feet,omitempty"`
+	EastKnots     float64                `protobuf:"fixed64,2,opt,name=east_knots,json=eastKnots,proto3" json:"east_knots,omitempty"`
+	NorthKnots    float64                `protobuf:"fixed64,3,opt,name=north_knots,json=northKnots,proto3" json:"north_knots,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OpenMeteoWindLevel) Reset() {
+	*x = OpenMeteoWindLevel{}
+	mi := &file_storage_proto_msgTypes[155]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpenMeteoWindLevel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpenMeteoWindLevel) ProtoMessage() {}
+
+func (x *OpenMeteoWindLevel) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[155]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpenMeteoWindLevel.ProtoReflect.Descriptor instead.
+func (*OpenMeteoWindLevel) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{155}
+}
+
+func (x *OpenMeteoWindLevel) GetAltitudeFeet() float64 {
+	if x != nil {
+		return x.AltitudeFeet
+	}
+	return 0
+}
+
+func (x *OpenMeteoWindLevel) GetEastKnots() float64 {
+	if x != nil {
+		return x.EastKnots
+	}
+	return 0
+}
+
+func (x *OpenMeteoWindLevel) GetNorthKnots() float64 {
+	if x != nil {
+		return x.NorthKnots
+	}
+	return 0
+}
+
+// ECFMP's provider-wide response is parsed at the HTTP boundary. These fields
+// retain every filter and measure value used by per-flight reconciliation.
+type EcfmpPage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Measures      []*EcfmpMeasure        `protobuf:"bytes,1,rep,name=measures,proto3" json:"measures,omitempty"`
+	FetchedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EcfmpPage) Reset() {
+	*x = EcfmpPage{}
+	mi := &file_storage_proto_msgTypes[156]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EcfmpPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EcfmpPage) ProtoMessage() {}
+
+func (x *EcfmpPage) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[156]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EcfmpPage.ProtoReflect.Descriptor instead.
+func (*EcfmpPage) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{156}
+}
+
+func (x *EcfmpPage) GetMeasures() []*EcfmpMeasure {
+	if x != nil {
+		return x.Measures
+	}
+	return nil
+}
+
+func (x *EcfmpPage) GetFetchedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return nil
+}
+
+type EcfmpMeasure struct {
+	state                            protoimpl.MessageState `protogen:"open.v1"`
+	Id                               int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Ident                            string                 `protobuf:"bytes,2,opt,name=ident,proto3" json:"ident,omitempty"`
+	EventId                          *int64                 `protobuf:"varint,3,opt,name=event_id,json=eventId,proto3,oneof" json:"event_id,omitempty"`
+	Reason                           string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	StartTime                        *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	EndTime                          *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	WithdrawnAt                      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=withdrawn_at,json=withdrawnAt,proto3,oneof" json:"withdrawn_at,omitempty"`
+	NotifiedFlightInformationRegions []int64                `protobuf:"varint,8,rep,packed,name=notified_flight_information_regions,json=notifiedFlightInformationRegions,proto3" json:"notified_flight_information_regions,omitempty"`
+	Kind                             string                 `protobuf:"bytes,9,opt,name=kind,proto3" json:"kind,omitempty"`
+	NumericValue                     *int64                 `protobuf:"varint,10,opt,name=numeric_value,json=numericValue,proto3,oneof" json:"numeric_value,omitempty"`
+	Routes                           []string               `protobuf:"bytes,11,rep,name=routes,proto3" json:"routes,omitempty"`
+	Filters                          []*EcfmpFilter         `protobuf:"bytes,12,rep,name=filters,proto3" json:"filters,omitempty"`
+	DecimalValue                     *float64               `protobuf:"fixed64,13,opt,name=decimal_value,json=decimalValue,proto3,oneof" json:"decimal_value,omitempty"`
+	unknownFields                    protoimpl.UnknownFields
+	sizeCache                        protoimpl.SizeCache
+}
+
+func (x *EcfmpMeasure) Reset() {
+	*x = EcfmpMeasure{}
+	mi := &file_storage_proto_msgTypes[157]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EcfmpMeasure) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EcfmpMeasure) ProtoMessage() {}
+
+func (x *EcfmpMeasure) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[157]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EcfmpMeasure.ProtoReflect.Descriptor instead.
+func (*EcfmpMeasure) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{157}
+}
+
+func (x *EcfmpMeasure) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *EcfmpMeasure) GetIdent() string {
+	if x != nil {
+		return x.Ident
+	}
+	return ""
+}
+
+func (x *EcfmpMeasure) GetEventId() int64 {
+	if x != nil && x.EventId != nil {
+		return *x.EventId
+	}
+	return 0
+}
+
+func (x *EcfmpMeasure) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *EcfmpMeasure) GetStartTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartTime
+	}
+	return nil
+}
+
+func (x *EcfmpMeasure) GetEndTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndTime
+	}
+	return nil
+}
+
+func (x *EcfmpMeasure) GetWithdrawnAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.WithdrawnAt
+	}
+	return nil
+}
+
+func (x *EcfmpMeasure) GetNotifiedFlightInformationRegions() []int64 {
+	if x != nil {
+		return x.NotifiedFlightInformationRegions
+	}
+	return nil
+}
+
+func (x *EcfmpMeasure) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *EcfmpMeasure) GetNumericValue() int64 {
+	if x != nil && x.NumericValue != nil {
+		return *x.NumericValue
+	}
+	return 0
+}
+
+func (x *EcfmpMeasure) GetRoutes() []string {
+	if x != nil {
+		return x.Routes
+	}
+	return nil
+}
+
+func (x *EcfmpMeasure) GetFilters() []*EcfmpFilter {
+	if x != nil {
+		return x.Filters
+	}
+	return nil
+}
+
+func (x *EcfmpMeasure) GetDecimalValue() float64 {
+	if x != nil && x.DecimalValue != nil {
+		return *x.DecimalValue
+	}
+	return 0
+}
+
+type EcfmpFilter struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
+	Level         *int32                 `protobuf:"varint,3,opt,name=level,proto3,oneof" json:"level,omitempty"`
+	Levels        []int32                `protobuf:"varint,4,rep,packed,name=levels,proto3" json:"levels,omitempty"`
+	EventId       *int64                 `protobuf:"varint,5,opt,name=event_id,json=eventId,proto3,oneof" json:"event_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EcfmpFilter) Reset() {
+	*x = EcfmpFilter{}
+	mi := &file_storage_proto_msgTypes[158]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EcfmpFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EcfmpFilter) ProtoMessage() {}
+
+func (x *EcfmpFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[158]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EcfmpFilter.ProtoReflect.Descriptor instead.
+func (*EcfmpFilter) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{158}
+}
+
+func (x *EcfmpFilter) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *EcfmpFilter) GetNames() []string {
+	if x != nil {
+		return x.Names
+	}
+	return nil
+}
+
+func (x *EcfmpFilter) GetLevel() int32 {
+	if x != nil && x.Level != nil {
+		return *x.Level
+	}
+	return 0
+}
+
+func (x *EcfmpFilter) GetLevels() []int32 {
+	if x != nil {
+		return x.Levels
+	}
+	return nil
+}
+
+func (x *EcfmpFilter) GetEventId() int64 {
+	if x != nil && x.EventId != nil {
+		return *x.EventId
+	}
+	return 0
+}
+
+type AtisFeedPage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Airports      []*AtisFeedAirport     `protobuf:"bytes,1,rep,name=airports,proto3" json:"airports,omitempty"`
+	FetchedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AtisFeedPage) Reset() {
+	*x = AtisFeedPage{}
+	mi := &file_storage_proto_msgTypes[159]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AtisFeedPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AtisFeedPage) ProtoMessage() {}
+
+func (x *AtisFeedPage) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[159]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AtisFeedPage.ProtoReflect.Descriptor instead.
+func (*AtisFeedPage) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{159}
+}
+
+func (x *AtisFeedPage) GetAirports() []*AtisFeedAirport {
+	if x != nil {
+		return x.Airports
+	}
+	return nil
+}
+
+func (x *AtisFeedPage) GetFetchedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return nil
+}
+
+type AtisFeedAirport struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	Arrival       *AtisFeedEntry         `protobuf:"bytes,2,opt,name=arrival,proto3,oneof" json:"arrival,omitempty"`
+	Departure     *AtisFeedEntry         `protobuf:"bytes,3,opt,name=departure,proto3,oneof" json:"departure,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AtisFeedAirport) Reset() {
+	*x = AtisFeedAirport{}
+	mi := &file_storage_proto_msgTypes[160]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AtisFeedAirport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AtisFeedAirport) ProtoMessage() {}
+
+func (x *AtisFeedAirport) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[160]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AtisFeedAirport.ProtoReflect.Descriptor instead.
+func (*AtisFeedAirport) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{160}
+}
+
+func (x *AtisFeedAirport) GetAirport() string {
+	if x != nil {
+		return x.Airport
+	}
+	return ""
+}
+
+func (x *AtisFeedAirport) GetArrival() *AtisFeedEntry {
+	if x != nil {
+		return x.Arrival
+	}
+	return nil
+}
+
+func (x *AtisFeedAirport) GetDeparture() *AtisFeedEntry {
+	if x != nil {
+		return x.Departure
+	}
+	return nil
+}
+
+type AtisFeedEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Callsign      string                 `protobuf:"bytes,1,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	Frequency     string                 `protobuf:"bytes,3,opt,name=frequency,proto3" json:"frequency,omitempty"`
+	TextLines     []string               `protobuf:"bytes,4,rep,name=text_lines,json=textLines,proto3" json:"text_lines,omitempty"`
+	LastUpdated   *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AtisFeedEntry) Reset() {
+	*x = AtisFeedEntry{}
+	mi := &file_storage_proto_msgTypes[161]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AtisFeedEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AtisFeedEntry) ProtoMessage() {}
+
+func (x *AtisFeedEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[161]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AtisFeedEntry.ProtoReflect.Descriptor instead.
+func (*AtisFeedEntry) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{161}
+}
+
+func (x *AtisFeedEntry) GetCallsign() string {
+	if x != nil {
+		return x.Callsign
+	}
+	return ""
+}
+
+func (x *AtisFeedEntry) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *AtisFeedEntry) GetFrequency() string {
+	if x != nil {
+		return x.Frequency
+	}
+	return ""
+}
+
+func (x *AtisFeedEntry) GetTextLines() []string {
+	if x != nil {
+		return x.TextLines
+	}
+	return nil
+}
+
+func (x *AtisFeedEntry) GetLastUpdated() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastUpdated
+	}
+	return nil
+}
+
+type CdmConfigPage struct {
+	state                  protoimpl.MessageState  `protogen:"open.v1"`
+	Airport                string                  `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	FetchedAt              *timestamppb.Timestamp  `protobuf:"bytes,2,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	DefaultRate            int32                   `protobuf:"varint,3,opt,name=default_rate,json=defaultRate,proto3" json:"default_rate,omitempty"`
+	DefaultRateLvo         int32                   `protobuf:"varint,4,opt,name=default_rate_lvo,json=defaultRateLvo,proto3" json:"default_rate_lvo,omitempty"`
+	DefaultTaxiMinutes     int32                   `protobuf:"varint,5,opt,name=default_taxi_minutes,json=defaultTaxiMinutes,proto3" json:"default_taxi_minutes,omitempty"`
+	LvoActive              bool                    `protobuf:"varint,6,opt,name=lvo_active,json=lvoActive,proto3" json:"lvo_active,omitempty"`
+	ActiveArrivalRunways   []string                `protobuf:"bytes,7,rep,name=active_arrival_runways,json=activeArrivalRunways,proto3" json:"active_arrival_runways,omitempty"`
+	ActiveDepartureRunways []string                `protobuf:"bytes,8,rep,name=active_departure_runways,json=activeDepartureRunways,proto3" json:"active_departure_runways,omitempty"`
+	Rates                  []*CdmConfigRate        `protobuf:"bytes,9,rep,name=rates,proto3" json:"rates,omitempty"`
+	SidIntervals           []*CdmConfigSidInterval `protobuf:"bytes,10,rep,name=sid_intervals,json=sidIntervals,proto3" json:"sid_intervals,omitempty"`
+	TaxiZones              []*CdmConfigTaxiZone    `protobuf:"bytes,11,rep,name=taxi_zones,json=taxiZones,proto3" json:"taxi_zones,omitempty"`
+	Delays                 []*CdmConfigDelay       `protobuf:"bytes,12,rep,name=delays,proto3" json:"delays,omitempty"`
+	Deice                  *CdmConfigDeice         `protobuf:"bytes,13,opt,name=deice,proto3" json:"deice,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *CdmConfigPage) Reset() {
+	*x = CdmConfigPage{}
+	mi := &file_storage_proto_msgTypes[162]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CdmConfigPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CdmConfigPage) ProtoMessage() {}
+
+func (x *CdmConfigPage) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[162]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CdmConfigPage.ProtoReflect.Descriptor instead.
+func (*CdmConfigPage) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{162}
+}
+
+func (x *CdmConfigPage) GetAirport() string {
+	if x != nil {
+		return x.Airport
+	}
+	return ""
+}
+
+func (x *CdmConfigPage) GetFetchedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return nil
+}
+
+func (x *CdmConfigPage) GetDefaultRate() int32 {
+	if x != nil {
+		return x.DefaultRate
+	}
+	return 0
+}
+
+func (x *CdmConfigPage) GetDefaultRateLvo() int32 {
+	if x != nil {
+		return x.DefaultRateLvo
+	}
+	return 0
+}
+
+func (x *CdmConfigPage) GetDefaultTaxiMinutes() int32 {
+	if x != nil {
+		return x.DefaultTaxiMinutes
+	}
+	return 0
+}
+
+func (x *CdmConfigPage) GetLvoActive() bool {
+	if x != nil {
+		return x.LvoActive
+	}
+	return false
+}
+
+func (x *CdmConfigPage) GetActiveArrivalRunways() []string {
+	if x != nil {
+		return x.ActiveArrivalRunways
+	}
+	return nil
+}
+
+func (x *CdmConfigPage) GetActiveDepartureRunways() []string {
+	if x != nil {
+		return x.ActiveDepartureRunways
+	}
+	return nil
+}
+
+func (x *CdmConfigPage) GetRates() []*CdmConfigRate {
+	if x != nil {
+		return x.Rates
+	}
+	return nil
+}
+
+func (x *CdmConfigPage) GetSidIntervals() []*CdmConfigSidInterval {
+	if x != nil {
+		return x.SidIntervals
+	}
+	return nil
+}
+
+func (x *CdmConfigPage) GetTaxiZones() []*CdmConfigTaxiZone {
+	if x != nil {
+		return x.TaxiZones
+	}
+	return nil
+}
+
+func (x *CdmConfigPage) GetDelays() []*CdmConfigDelay {
+	if x != nil {
+		return x.Delays
+	}
+	return nil
+}
+
+func (x *CdmConfigPage) GetDeice() *CdmConfigDeice {
+	if x != nil {
+		return x.Deice
+	}
+	return nil
+}
+
+type CdmConfigRate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ArrRwyYes     []string               `protobuf:"bytes,1,rep,name=arr_rwy_yes,json=arrRwyYes,proto3" json:"arr_rwy_yes,omitempty"`
+	ArrRwyNo      []string               `protobuf:"bytes,2,rep,name=arr_rwy_no,json=arrRwyNo,proto3" json:"arr_rwy_no,omitempty"`
+	DepRwyYes     []string               `protobuf:"bytes,3,rep,name=dep_rwy_yes,json=depRwyYes,proto3" json:"dep_rwy_yes,omitempty"`
+	DepRwyNo      []string               `protobuf:"bytes,4,rep,name=dep_rwy_no,json=depRwyNo,proto3" json:"dep_rwy_no,omitempty"`
+	DependentRwy  []string               `protobuf:"bytes,5,rep,name=dependent_rwy,json=dependentRwy,proto3" json:"dependent_rwy,omitempty"`
+	Rates         []string               `protobuf:"bytes,6,rep,name=rates,proto3" json:"rates,omitempty"`
+	RatesLvo      []string               `protobuf:"bytes,7,rep,name=rates_lvo,json=ratesLvo,proto3" json:"rates_lvo,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CdmConfigRate) Reset() {
+	*x = CdmConfigRate{}
+	mi := &file_storage_proto_msgTypes[163]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CdmConfigRate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CdmConfigRate) ProtoMessage() {}
+
+func (x *CdmConfigRate) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[163]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CdmConfigRate.ProtoReflect.Descriptor instead.
+func (*CdmConfigRate) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{163}
+}
+
+func (x *CdmConfigRate) GetArrRwyYes() []string {
+	if x != nil {
+		return x.ArrRwyYes
+	}
+	return nil
+}
+
+func (x *CdmConfigRate) GetArrRwyNo() []string {
+	if x != nil {
+		return x.ArrRwyNo
+	}
+	return nil
+}
+
+func (x *CdmConfigRate) GetDepRwyYes() []string {
+	if x != nil {
+		return x.DepRwyYes
+	}
+	return nil
+}
+
+func (x *CdmConfigRate) GetDepRwyNo() []string {
+	if x != nil {
+		return x.DepRwyNo
+	}
+	return nil
+}
+
+func (x *CdmConfigRate) GetDependentRwy() []string {
+	if x != nil {
+		return x.DependentRwy
+	}
+	return nil
+}
+
+func (x *CdmConfigRate) GetRates() []string {
+	if x != nil {
+		return x.Rates
+	}
+	return nil
+}
+
+func (x *CdmConfigRate) GetRatesLvo() []string {
+	if x != nil {
+		return x.RatesLvo
+	}
+	return nil
+}
+
+type CdmConfigSidInterval struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Runway        string                 `protobuf:"bytes,1,opt,name=runway,proto3" json:"runway,omitempty"`
+	Sid1          string                 `protobuf:"bytes,2,opt,name=sid1,proto3" json:"sid1,omitempty"`
+	Sid2          string                 `protobuf:"bytes,3,opt,name=sid2,proto3" json:"sid2,omitempty"`
+	Value         float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CdmConfigSidInterval) Reset() {
+	*x = CdmConfigSidInterval{}
+	mi := &file_storage_proto_msgTypes[164]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CdmConfigSidInterval) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CdmConfigSidInterval) ProtoMessage() {}
+
+func (x *CdmConfigSidInterval) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[164]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CdmConfigSidInterval.ProtoReflect.Descriptor instead.
+func (*CdmConfigSidInterval) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{164}
+}
+
+func (x *CdmConfigSidInterval) GetRunway() string {
+	if x != nil {
+		return x.Runway
+	}
+	return ""
+}
+
+func (x *CdmConfigSidInterval) GetSid1() string {
+	if x != nil {
+		return x.Sid1
+	}
+	return ""
+}
+
+func (x *CdmConfigSidInterval) GetSid2() string {
+	if x != nil {
+		return x.Sid2
+	}
+	return ""
+}
+
+func (x *CdmConfigSidInterval) GetValue() float64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+type CdmConfigTaxiPoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Latitude      float64                `protobuf:"fixed64,1,opt,name=latitude,proto3" json:"latitude,omitempty"`
+	Longitude     float64                `protobuf:"fixed64,2,opt,name=longitude,proto3" json:"longitude,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CdmConfigTaxiPoint) Reset() {
+	*x = CdmConfigTaxiPoint{}
+	mi := &file_storage_proto_msgTypes[165]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CdmConfigTaxiPoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CdmConfigTaxiPoint) ProtoMessage() {}
+
+func (x *CdmConfigTaxiPoint) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[165]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CdmConfigTaxiPoint.ProtoReflect.Descriptor instead.
+func (*CdmConfigTaxiPoint) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{165}
+}
+
+func (x *CdmConfigTaxiPoint) GetLatitude() float64 {
+	if x != nil {
+		return x.Latitude
+	}
+	return 0
+}
+
+func (x *CdmConfigTaxiPoint) GetLongitude() float64 {
+	if x != nil {
+		return x.Longitude
+	}
+	return 0
+}
+
+type CdmConfigTaxiZone struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Runway            string                 `protobuf:"bytes,1,opt,name=runway,proto3" json:"runway,omitempty"`
+	Minutes           int32                  `protobuf:"varint,2,opt,name=minutes,proto3" json:"minutes,omitempty"`
+	Polygon           []*CdmConfigTaxiPoint  `protobuf:"bytes,3,rep,name=polygon,proto3" json:"polygon,omitempty"`
+	RemoteTaxiMinutes []int32                `protobuf:"varint,4,rep,packed,name=remote_taxi_minutes,json=remoteTaxiMinutes,proto3" json:"remote_taxi_minutes,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *CdmConfigTaxiZone) Reset() {
+	*x = CdmConfigTaxiZone{}
+	mi := &file_storage_proto_msgTypes[166]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CdmConfigTaxiZone) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CdmConfigTaxiZone) ProtoMessage() {}
+
+func (x *CdmConfigTaxiZone) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[166]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CdmConfigTaxiZone.ProtoReflect.Descriptor instead.
+func (*CdmConfigTaxiZone) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{166}
+}
+
+func (x *CdmConfigTaxiZone) GetRunway() string {
+	if x != nil {
+		return x.Runway
+	}
+	return ""
+}
+
+func (x *CdmConfigTaxiZone) GetMinutes() int32 {
+	if x != nil {
+		return x.Minutes
+	}
+	return 0
+}
+
+func (x *CdmConfigTaxiZone) GetPolygon() []*CdmConfigTaxiPoint {
+	if x != nil {
+		return x.Polygon
+	}
+	return nil
+}
+
+func (x *CdmConfigTaxiZone) GetRemoteTaxiMinutes() []int32 {
+	if x != nil {
+		return x.RemoteTaxiMinutes
+	}
+	return nil
+}
+
+type CdmConfigDelay struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Runway        string                 `protobuf:"bytes,1,opt,name=runway,proto3" json:"runway,omitempty"`
+	Time          string                 `protobuf:"bytes,2,opt,name=time,proto3" json:"time,omitempty"`
+	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CdmConfigDelay) Reset() {
+	*x = CdmConfigDelay{}
+	mi := &file_storage_proto_msgTypes[167]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CdmConfigDelay) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CdmConfigDelay) ProtoMessage() {}
+
+func (x *CdmConfigDelay) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[167]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CdmConfigDelay.ProtoReflect.Descriptor instead.
+func (*CdmConfigDelay) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{167}
+}
+
+func (x *CdmConfigDelay) GetRunway() string {
+	if x != nil {
+		return x.Runway
+	}
+	return ""
+}
+
+func (x *CdmConfigDelay) GetTime() string {
+	if x != nil {
+		return x.Time
+	}
+	return ""
+}
+
+func (x *CdmConfigDelay) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+type CdmConfigDeice struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Light         int32                     `protobuf:"varint,1,opt,name=light,proto3" json:"light,omitempty"`
+	Medium        int32                     `protobuf:"varint,2,opt,name=medium,proto3" json:"medium,omitempty"`
+	Heavy         int32                     `protobuf:"varint,3,opt,name=heavy,proto3" json:"heavy,omitempty"`
+	Super         int32                     `protobuf:"varint,4,opt,name=super,proto3" json:"super,omitempty"`
+	Platforms     []*CdmConfigDeicePlatform `protobuf:"bytes,5,rep,name=platforms,proto3" json:"platforms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CdmConfigDeice) Reset() {
+	*x = CdmConfigDeice{}
+	mi := &file_storage_proto_msgTypes[168]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CdmConfigDeice) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CdmConfigDeice) ProtoMessage() {}
+
+func (x *CdmConfigDeice) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[168]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CdmConfigDeice.ProtoReflect.Descriptor instead.
+func (*CdmConfigDeice) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{168}
+}
+
+func (x *CdmConfigDeice) GetLight() int32 {
+	if x != nil {
+		return x.Light
+	}
+	return 0
+}
+
+func (x *CdmConfigDeice) GetMedium() int32 {
+	if x != nil {
+		return x.Medium
+	}
+	return 0
+}
+
+func (x *CdmConfigDeice) GetHeavy() int32 {
+	if x != nil {
+		return x.Heavy
+	}
+	return 0
+}
+
+func (x *CdmConfigDeice) GetSuper() int32 {
+	if x != nil {
+		return x.Super
+	}
+	return 0
+}
+
+func (x *CdmConfigDeice) GetPlatforms() []*CdmConfigDeicePlatform {
+	if x != nil {
+		return x.Platforms
+	}
+	return nil
+}
+
+type CdmConfigDeicePlatform struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Time          int32                  `protobuf:"varint,2,opt,name=time,proto3" json:"time,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CdmConfigDeicePlatform) Reset() {
+	*x = CdmConfigDeicePlatform{}
+	mi := &file_storage_proto_msgTypes[169]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CdmConfigDeicePlatform) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CdmConfigDeicePlatform) ProtoMessage() {}
+
+func (x *CdmConfigDeicePlatform) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[169]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CdmConfigDeicePlatform.ProtoReflect.Descriptor instead.
+func (*CdmConfigDeicePlatform) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{169}
+}
+
+func (x *CdmConfigDeicePlatform) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CdmConfigDeicePlatform) GetTime() int32 {
+	if x != nil {
+		return x.Time
+	}
+	return 0
+}
+
+type ViffFlightPage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	FetchedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	Flights       []*ViffFlight          `protobuf:"bytes,3,rep,name=flights,proto3" json:"flights,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ViffFlightPage) Reset() {
+	*x = ViffFlightPage{}
+	mi := &file_storage_proto_msgTypes[170]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViffFlightPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViffFlightPage) ProtoMessage() {}
+
+func (x *ViffFlightPage) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[170]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViffFlightPage.ProtoReflect.Descriptor instead.
+func (*ViffFlightPage) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{170}
+}
+
+func (x *ViffFlightPage) GetAirport() string {
+	if x != nil {
+		return x.Airport
+	}
+	return ""
+}
+
+func (x *ViffFlightPage) GetFetchedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return nil
+}
+
+func (x *ViffFlightPage) GetFlights() []*ViffFlight {
+	if x != nil {
+		return x.Flights
+	}
+	return nil
+}
+
+type ViffFlight struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Callsign               string                 `protobuf:"bytes,1,opt,name=callsign,proto3" json:"callsign,omitempty"`
+	Cid                    string                 `protobuf:"bytes,2,opt,name=cid,proto3" json:"cid,omitempty"`
+	Departure              string                 `protobuf:"bytes,3,opt,name=departure,proto3" json:"departure,omitempty"`
+	Arrival                string                 `protobuf:"bytes,4,opt,name=arrival,proto3" json:"arrival,omitempty"`
+	Eobt                   string                 `protobuf:"bytes,5,opt,name=eobt,proto3" json:"eobt,omitempty"`
+	Tobt                   string                 `protobuf:"bytes,6,opt,name=tobt,proto3" json:"tobt,omitempty"`
+	RequestedTobt          string                 `protobuf:"bytes,7,opt,name=requested_tobt,json=requestedTobt,proto3" json:"requested_tobt,omitempty"`
+	TaxiMinutes            int32                  `protobuf:"varint,8,opt,name=taxi_minutes,json=taxiMinutes,proto3" json:"taxi_minutes,omitempty"`
+	Ctot                   string                 `protobuf:"bytes,9,opt,name=ctot,proto3" json:"ctot,omitempty"`
+	Aobt                   string                 `protobuf:"bytes,10,opt,name=aobt,proto3" json:"aobt,omitempty"`
+	Atot                   string                 `protobuf:"bytes,11,opt,name=atot,proto3" json:"atot,omitempty"`
+	Eta                    string                 `protobuf:"bytes,12,opt,name=eta,proto3" json:"eta,omitempty"`
+	MostPenalizingAirspace string                 `protobuf:"bytes,13,opt,name=most_penalizing_airspace,json=mostPenalizingAirspace,proto3" json:"most_penalizing_airspace,omitempty"`
+	CdmStatus              string                 `protobuf:"bytes,14,opt,name=cdm_status,json=cdmStatus,proto3" json:"cdm_status,omitempty"`
+	AtfcmStatus            string                 `protobuf:"bytes,15,opt,name=atfcm_status,json=atfcmStatus,proto3" json:"atfcm_status,omitempty"`
+	CdmData                *ViffCdmData           `protobuf:"bytes,16,opt,name=cdm_data,json=cdmData,proto3" json:"cdm_data,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ViffFlight) Reset() {
+	*x = ViffFlight{}
+	mi := &file_storage_proto_msgTypes[171]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViffFlight) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViffFlight) ProtoMessage() {}
+
+func (x *ViffFlight) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[171]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViffFlight.ProtoReflect.Descriptor instead.
+func (*ViffFlight) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{171}
+}
+
+func (x *ViffFlight) GetCallsign() string {
+	if x != nil {
+		return x.Callsign
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetCid() string {
+	if x != nil {
+		return x.Cid
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetDeparture() string {
+	if x != nil {
+		return x.Departure
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetArrival() string {
+	if x != nil {
+		return x.Arrival
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetEobt() string {
+	if x != nil {
+		return x.Eobt
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetTobt() string {
+	if x != nil {
+		return x.Tobt
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetRequestedTobt() string {
+	if x != nil {
+		return x.RequestedTobt
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetTaxiMinutes() int32 {
+	if x != nil {
+		return x.TaxiMinutes
+	}
+	return 0
+}
+
+func (x *ViffFlight) GetCtot() string {
+	if x != nil {
+		return x.Ctot
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetAobt() string {
+	if x != nil {
+		return x.Aobt
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetAtot() string {
+	if x != nil {
+		return x.Atot
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetEta() string {
+	if x != nil {
+		return x.Eta
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetMostPenalizingAirspace() string {
+	if x != nil {
+		return x.MostPenalizingAirspace
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetCdmStatus() string {
+	if x != nil {
+		return x.CdmStatus
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetAtfcmStatus() string {
+	if x != nil {
+		return x.AtfcmStatus
+	}
+	return ""
+}
+
+func (x *ViffFlight) GetCdmData() *ViffCdmData {
+	if x != nil {
+		return x.CdmData
+	}
+	return nil
+}
+
+type ViffCdmData struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Tobt              string                 `protobuf:"bytes,1,opt,name=tobt,proto3" json:"tobt,omitempty"`
+	Tsat              string                 `protobuf:"bytes,2,opt,name=tsat,proto3" json:"tsat,omitempty"`
+	Ttot              string                 `protobuf:"bytes,3,opt,name=ttot,proto3" json:"ttot,omitempty"`
+	Ctot              string                 `protobuf:"bytes,4,opt,name=ctot,proto3" json:"ctot,omitempty"`
+	Reason            string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
+	RequestedTobt     string                 `protobuf:"bytes,6,opt,name=requested_tobt,json=requestedTobt,proto3" json:"requested_tobt,omitempty"`
+	RequestedTobtType string                 `protobuf:"bytes,7,opt,name=requested_tobt_type,json=requestedTobtType,proto3" json:"requested_tobt_type,omitempty"`
+	RequestedAsrt     string                 `protobuf:"bytes,8,opt,name=requested_asrt,json=requestedAsrt,proto3" json:"requested_asrt,omitempty"`
+	Id                string                 `protobuf:"bytes,9,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ViffCdmData) Reset() {
+	*x = ViffCdmData{}
+	mi := &file_storage_proto_msgTypes[172]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViffCdmData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViffCdmData) ProtoMessage() {}
+
+func (x *ViffCdmData) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[172]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViffCdmData.ProtoReflect.Descriptor instead.
+func (*ViffCdmData) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{172}
+}
+
+func (x *ViffCdmData) GetTobt() string {
+	if x != nil {
+		return x.Tobt
+	}
+	return ""
+}
+
+func (x *ViffCdmData) GetTsat() string {
+	if x != nil {
+		return x.Tsat
+	}
+	return ""
+}
+
+func (x *ViffCdmData) GetTtot() string {
+	if x != nil {
+		return x.Ttot
+	}
+	return ""
+}
+
+func (x *ViffCdmData) GetCtot() string {
+	if x != nil {
+		return x.Ctot
+	}
+	return ""
+}
+
+func (x *ViffCdmData) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *ViffCdmData) GetRequestedTobt() string {
+	if x != nil {
+		return x.RequestedTobt
+	}
+	return ""
+}
+
+func (x *ViffCdmData) GetRequestedTobtType() string {
+	if x != nil {
+		return x.RequestedTobtType
+	}
+	return ""
+}
+
+func (x *ViffCdmData) GetRequestedAsrt() string {
+	if x != nil {
+		return x.RequestedAsrt
+	}
+	return ""
+}
+
+func (x *ViffCdmData) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ViffMastersPage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FetchedAt     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`
+	Masters       []*ViffMaster          `protobuf:"bytes,2,rep,name=masters,proto3" json:"masters,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ViffMastersPage) Reset() {
+	*x = ViffMastersPage{}
+	mi := &file_storage_proto_msgTypes[173]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViffMastersPage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViffMastersPage) ProtoMessage() {}
+
+func (x *ViffMastersPage) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[173]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViffMastersPage.ProtoReflect.Descriptor instead.
+func (*ViffMastersPage) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{173}
+}
+
+func (x *ViffMastersPage) GetFetchedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return nil
+}
+
+func (x *ViffMastersPage) GetMasters() []*ViffMaster {
+	if x != nil {
+		return x.Masters
+	}
+	return nil
+}
+
+type ViffMaster struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Airport       string                 `protobuf:"bytes,1,opt,name=airport,proto3" json:"airport,omitempty"`
+	Position      string                 `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ViffMaster) Reset() {
+	*x = ViffMaster{}
+	mi := &file_storage_proto_msgTypes[174]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViffMaster) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViffMaster) ProtoMessage() {}
+
+func (x *ViffMaster) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_proto_msgTypes[174]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViffMaster.ProtoReflect.Descriptor instead.
+func (*ViffMaster) Descriptor() ([]byte, []int) {
+	return file_storage_proto_rawDescGZIP(), []int{174}
+}
+
+func (x *ViffMaster) GetAirport() string {
+	if x != nil {
+		return x.Airport
+	}
+	return ""
+}
+
+func (x *ViffMaster) GetPosition() string {
+	if x != nil {
+		return x.Position
+	}
+	return ""
 }
 
 var File_storage_proto protoreflect.FileDescriptor
@@ -14830,7 +17087,7 @@ const file_storage_proto_rawDesc = "" +
 	"\x06delete\x18\x04 \x01(\v2%.flightstrips.cluster.v1.DeleteEntityH\x00R\x06deleteB\v\n" +
 	"\toperation\"G\n" +
 	"\fDeleteEntity\x127\n" +
-	"\x04kind\x18\x01 \x01(\x0e2#.flightstrips.cluster.v1.EntityKindR\x04kind\"\xdd\x11\n" +
+	"\x04kind\x18\x01 \x01(\x0e2#.flightstrips.cluster.v1.EntityKindR\x04kind\"\xc1\x12\n" +
 	"\fEntityRecord\x12U\n" +
 	"\x10airport_registry\x18\x01 \x01(\v2(.flightstrips.cluster.v1.AirportRegistryH\x00R\x0fairportRegistry\x12U\n" +
 	"\x10session_registry\x18\x02 \x01(\v2(.flightstrips.cluster.v1.SessionRegistryH\x00R\x0fsessionRegistry\x12O\n" +
@@ -14867,7 +17124,8 @@ const file_storage_proto_rawDesc = "" +
 	"\x0fnav_route_cache\x18\x1a \x01(\v2&.flightstrips.cluster.v1.NavRouteCacheH\x00R\rnavRouteCache\x12^\n" +
 	"\x13provider_checkpoint\x18\x1b \x01(\v2+.flightstrips.cluster.v1.ProviderCheckpointH\x00R\x12providerCheckpoint\x12L\n" +
 	"\rweather_cache\x18\x1c \x01(\v2%.flightstrips.cluster.v1.WeatherCacheH\x00R\fweatherCache\x12U\n" +
-	"\x10session_deadline\x18\x1d \x01(\v2(.flightstrips.cluster.v1.SessionDeadlineH\x00R\x0fsessionDeadlineB\a\n" +
+	"\x10session_deadline\x18\x1d \x01(\v2(.flightstrips.cluster.v1.SessionDeadlineH\x00R\x0fsessionDeadline\x12b\n" +
+	"\x15vatsim_session_cursor\x18\x1e \x01(\v2,.flightstrips.cluster.v1.VatsimSessionCursorH\x00R\x13vatsimSessionCursorB\a\n" +
 	"\x05value\"H\n" +
 	"\x0fAirportRegistry\x12\x12\n" +
 	"\x04icao\x18\x01 \x01(\tR\x04icao\x12!\n" +
@@ -14954,7 +17212,7 @@ const file_storage_proto_rawDesc = "" +
 	"\bposition\x18\x03 \x01(\tR\bposition\x12\x1e\n" +
 	"\n" +
 	"identifier\x18\x04 \x01(\tR\n" +
-	"identifier\"\x84\x16\n" +
+	"identifier\"\xb2\x19\n" +
 	"\x05Strip\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1a\n" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12\x1a\n" +
@@ -15022,7 +17280,17 @@ const file_storage_proto_rawDesc = "" +
 	"\x04aldt\x18; \x01(\v2\x1a.google.protobuf.TimestampH\x15R\x04aldt\x88\x01\x01\x12\x1a\n" +
 	"\bsequence\x18< \x01(\x04R\bsequence\x12#\n" +
 	"\vtobt_set_by\x18= \x01(\tH\x16R\ttobtSetBy\x88\x01\x01\x12\x1e\n" +
-	"\bon_block\x18> \x01(\bH\x17R\aonBlock\x88\x01\x01B\x15\n" +
+	"\bon_block\x18> \x01(\bH\x17R\aonBlock\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"vatsim_cid\x18? \x01(\tR\tvatsimCid\x124\n" +
+	"\x16vatsim_source_revision\x18@ \x01(\x04R\x14vatsimSourceRevision\x120\n" +
+	"\x14vatsim_plan_revision\x18A \x01(\x03R\x12vatsimPlanRevision\x12E\n" +
+	"\x0evatsim_seen_at\x18B \x01(\v2\x1a.google.protobuf.TimestampH\x18R\fvatsimSeenAt\x88\x01\x01\x12\x1f\n" +
+	"\vvatsim_only\x18C \x01(\bR\n" +
+	"vatsimOnly\x12#\n" +
+	"\rvatsim_online\x18D \x01(\bR\fvatsimOnline\x12,\n" +
+	"\x0fvatsim_latitude\x18E \x01(\x01H\x19R\x0evatsimLatitude\x88\x01\x01\x12.\n" +
+	"\x10vatsim_longitude\x18F \x01(\x01H\x1aR\x0fvatsimLongitude\x88\x01\x01B\x15\n" +
 	"\x13_requested_altitudeB\x13\n" +
 	"\x11_cleared_altitudeB\n" +
 	"\n" +
@@ -15047,7 +17315,10 @@ const file_storage_proto_rawDesc = "" +
 	"\x05_eldtB\a\n" +
 	"\x05_aldtB\x0e\n" +
 	"\f_tobt_set_byB\v\n" +
-	"\t_on_block\"\xc8\x02\n" +
+	"\t_on_blockB\x11\n" +
+	"\x0f_vatsim_seen_atB\x12\n" +
+	"\x10_vatsim_latitudeB\x13\n" +
+	"\x11_vatsim_longitude\"\xc8\x02\n" +
 	"\x10ValidationStatus\x12\x1d\n" +
 	"\n" +
 	"issue_type\x18\x01 \x01(\tR\tissueType\x12\x18\n" +
@@ -15237,7 +17508,7 @@ const file_storage_proto_rawDesc = "" +
 	"\n" +
 	"_min_levelB\f\n" +
 	"\n" +
-	"_max_level\"\xe5\x01\n" +
+	"_max_level\"\x8e\x02\n" +
 	"\x04Atis\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
@@ -15246,7 +17517,8 @@ const file_storage_proto_rawDesc = "" +
 	"observedAt\x12\x14\n" +
 	"\x05metar\x18\x05 \x01(\tR\x05metar\x12!\n" +
 	"\farrival_code\x18\x06 \x01(\tR\varrivalCode\x12%\n" +
-	"\x0edeparture_code\x18\a \x01(\tR\rdepartureCode\"\x8c\x01\n" +
+	"\x0edeparture_code\x18\a \x01(\tR\rdepartureCode\x12'\n" +
+	"\x0fsource_revision\x18\b \x01(\tR\x0esourceRevision\"\x8c\x01\n" +
 	"\vClxOverride\x12\x1a\n" +
 	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +
@@ -15900,13 +18172,21 @@ const file_storage_proto_rawDesc = "" +
 	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12\x16\n" +
 	"\x06digest\x18\x03 \x01(\tR\x06digest\x12;\n" +
 	"\vobserved_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"observedAt\"\xae\x01\n" +
+	"observedAt\"\xbc\x01\n" +
+	"\x13VatsimSessionCursor\x12\x1a\n" +
+	"\bprovider\x18\x01 \x01(\tR\bprovider\x12'\n" +
+	"\x0fsource_revision\x18\x02 \x01(\x04R\x0esourceRevision\x12#\n" +
+	"\rsource_sha256\x18\x03 \x01(\tR\fsourceSha256\x12;\n" +
+	"\vsnapshot_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"snapshotAt\"\xfc\x01\n" +
 	"\vNavManifest\x12\x18\n" +
 	"\aairport\x18\x01 \x01(\tR\aairport\x12\x14\n" +
 	"\x05cycle\x18\x02 \x01(\tR\x05cycle\x12\x16\n" +
 	"\x06digest\x18\x03 \x01(\tR\x06digest\x12?\n" +
 	"\aobjects\x18\x04 \x03(\v2%.flightstrips.cluster.v1.NavObjectRefR\aobjects\x12\x16\n" +
-	"\x06active\x18\x05 \x01(\bR\x06active\"[\n" +
+	"\x06active\x18\x05 \x01(\bR\x06active\x12'\n" +
+	"\x0fsource_revision\x18\x06 \x01(\x04R\x0esourceRevision\x12#\n" +
+	"\rsource_sha256\x18\a \x01(\tR\fsourceSha256\"[\n" +
 	"\fNavObjectRef\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1f\n" +
 	"\vobject_name\x18\x02 \x01(\tR\n" +
@@ -16358,24 +18638,234 @@ const file_storage_proto_rawDesc = "" +
 	"ciphertext\x18\x02 \x01(\fR\n" +
 	"ciphertext\x12\x15\n" +
 	"\x06key_id\x18\x03 \x01(\tR\x05keyId\x12\x14\n" +
-	"\x05nonce\x18\x04 \x01(\fR\x05nonce\"\x8d\x02\n" +
+	"\x05nonce\x18\x04 \x01(\fR\x05nonce\"\xbe\x05\n" +
 	"\fProviderPage\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x1a\n" +
 	"\bresource\x18\x02 \x01(\tR\bresource\x12:\n" +
 	"\x05airac\x18\x03 \x01(\v2\".flightstrips.cluster.v1.AiracPageH\x00R\x05airac\x12=\n" +
 	"\x06vatsim\x18\x04 \x01(\v2#.flightstrips.cluster.v1.VatsimPageH\x00R\x06vatsim\x12@\n" +
-	"\aweather\x18\x05 \x01(\v2$.flightstrips.cluster.v1.WeatherPageH\x00R\aweatherB\b\n" +
+	"\aweather\x18\x05 \x01(\v2$.flightstrips.cluster.v1.WeatherPageH\x00R\aweather\x12:\n" +
+	"\x05ecfmp\x18\x06 \x01(\v2\".flightstrips.cluster.v1.EcfmpPageH\x00R\x05ecfmp\x12D\n" +
+	"\tatis_feed\x18\a \x01(\v2%.flightstrips.cluster.v1.AtisFeedPageH\x00R\batisFeed\x12G\n" +
+	"\n" +
+	"open_meteo\x18\b \x01(\v2&.flightstrips.cluster.v1.OpenMeteoPageH\x00R\topenMeteo\x12G\n" +
+	"\n" +
+	"cdm_config\x18\t \x01(\v2&.flightstrips.cluster.v1.CdmConfigPageH\x00R\tcdmConfig\x12L\n" +
+	"\fviff_flights\x18\n" +
+	" \x01(\v2'.flightstrips.cluster.v1.ViffFlightPageH\x00R\vviffFlights\x12M\n" +
+	"\fviff_masters\x18\v \x01(\v2(.flightstrips.cluster.v1.ViffMastersPageH\x00R\vviffMastersB\b\n" +
 	"\x06parsed\"{\n" +
 	"\tAiracPage\x12>\n" +
 	"\tfragments\x18\x01 \x03(\v2 .flightstrips.cluster.v1.NavDataR\tfragments\x12 \n" +
 	"\tnext_page\x18\x02 \x01(\tH\x00R\bnextPage\x88\x01\x01B\f\n" +
 	"\n" +
-	"_next_page\"\\\n" +
+	"_next_page\"\xda\x01\n" +
 	"\n" +
 	"VatsimPage\x12N\n" +
-	"\fobservations\x18\x01 \x03(\v2*.flightstrips.cluster.v1.VatsimObservationR\fobservations\"^\n" +
+	"\fobservations\x18\x01 \x03(\v2*.flightstrips.cluster.v1.VatsimObservationR\fobservations\x12?\n" +
+	"\aflights\x18\x02 \x03(\v2%.flightstrips.cluster.v1.VatsimFlightR\aflights\x12;\n" +
+	"\vsnapshot_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"snapshotAt\"\x90\x03\n" +
+	"\fVatsimFlight\x12\x10\n" +
+	"\x03cid\x18\x01 \x01(\tR\x03cid\x12\x1a\n" +
+	"\bcallsign\x18\x02 \x01(\tR\bcallsign\x12\x14\n" +
+	"\x05state\x18\x03 \x01(\tR\x05state\x12\x1a\n" +
+	"\blatitude\x18\x04 \x01(\x01R\blatitude\x12\x1c\n" +
+	"\tlongitude\x18\x05 \x01(\x01R\tlongitude\x12\x1a\n" +
+	"\baltitude\x18\x06 \x01(\x05R\baltitude\x12 \n" +
+	"\vgroundspeed\x18\a \x01(\x05R\vgroundspeed\x129\n" +
+	"\n" +
+	"logon_time\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tlogonTime\x12=\n" +
+	"\flast_updated\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\vlastUpdated\x12J\n" +
+	"\vflight_plan\x18\n" +
+	" \x01(\v2).flightstrips.cluster.v1.VatsimFlightPlanR\n" +
+	"flightPlan\"\xd0\x03\n" +
+	"\x10VatsimFlightPlan\x12!\n" +
+	"\fflight_rules\x18\x01 \x01(\tR\vflightRules\x12\x1a\n" +
+	"\baircraft\x18\x02 \x01(\tR\baircraft\x12!\n" +
+	"\faircraft_faa\x18\x03 \x01(\tR\vaircraftFaa\x12%\n" +
+	"\x0eaircraft_short\x18\x04 \x01(\tR\raircraftShort\x12\x16\n" +
+	"\x06origin\x18\x05 \x01(\tR\x06origin\x12 \n" +
+	"\vdestination\x18\x06 \x01(\tR\vdestination\x12\x1c\n" +
+	"\talternate\x18\a \x01(\tR\talternate\x12\x12\n" +
+	"\x04eobt\x18\b \x01(\tR\x04eobt\x12)\n" +
+	"\x10enroute_duration\x18\t \x01(\tR\x0fenrouteDuration\x12'\n" +
+	"\x0frequested_level\x18\n" +
+	" \x01(\tR\x0erequestedLevel\x12\x18\n" +
+	"\aremarks\x18\v \x01(\tR\aremarks\x12\x14\n" +
+	"\x05route\x18\f \x01(\tR\x05route\x12'\n" +
+	"\x0fassigned_squawk\x18\r \x01(\tR\x0eassignedSquawk\x12\x1a\n" +
+	"\brevision\x18\x0e \x01(\x03R\brevision\"^\n" +
 	"\vWeatherPage\x12O\n" +
-	"\fobservations\x18\x01 \x03(\v2+.flightstrips.cluster.v1.WeatherObservationR\fobservations*\xc8\x04\n" +
+	"\fobservations\x18\x01 \x03(\v2+.flightstrips.cluster.v1.WeatherObservationR\fobservations\"\x91\x02\n" +
+	"\rOpenMeteoPage\x12\x1b\n" +
+	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12'\n" +
+	"\x0fsource_revision\x18\x02 \x01(\tR\x0esourceRevision\x12;\n" +
+	"\vobserved_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"observedAt\x129\n" +
+	"\n" +
+	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12B\n" +
+	"\asamples\x18\x05 \x03(\v2(.flightstrips.cluster.v1.OpenMeteoSampleR\asamples\"\xeb\x01\n" +
+	"\x0fOpenMeteoSample\x12)\n" +
+	"\x10latitude_degrees\x18\x01 \x01(\x01R\x0flatitudeDegrees\x12+\n" +
+	"\x11longitude_degrees\x18\x02 \x01(\x01R\x10longitudeDegrees\x12;\n" +
+	"\vforecast_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"forecastAt\x12C\n" +
+	"\x06levels\x18\x04 \x03(\v2+.flightstrips.cluster.v1.OpenMeteoWindLevelR\x06levels\"y\n" +
+	"\x12OpenMeteoWindLevel\x12#\n" +
+	"\raltitude_feet\x18\x01 \x01(\x01R\faltitudeFeet\x12\x1d\n" +
+	"\n" +
+	"east_knots\x18\x02 \x01(\x01R\teastKnots\x12\x1f\n" +
+	"\vnorth_knots\x18\x03 \x01(\x01R\n" +
+	"northKnots\"\x89\x01\n" +
+	"\tEcfmpPage\x12A\n" +
+	"\bmeasures\x18\x01 \x03(\v2%.flightstrips.cluster.v1.EcfmpMeasureR\bmeasures\x129\n" +
+	"\n" +
+	"fetched_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\"\xf3\x04\n" +
+	"\fEcfmpMeasure\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
+	"\x05ident\x18\x02 \x01(\tR\x05ident\x12\x1e\n" +
+	"\bevent_id\x18\x03 \x01(\x03H\x00R\aeventId\x88\x01\x01\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\x129\n" +
+	"\n" +
+	"start_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
+	"\bend_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12B\n" +
+	"\fwithdrawn_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x01R\vwithdrawnAt\x88\x01\x01\x12M\n" +
+	"#notified_flight_information_regions\x18\b \x03(\x03R notifiedFlightInformationRegions\x12\x12\n" +
+	"\x04kind\x18\t \x01(\tR\x04kind\x12(\n" +
+	"\rnumeric_value\x18\n" +
+	" \x01(\x03H\x02R\fnumericValue\x88\x01\x01\x12\x16\n" +
+	"\x06routes\x18\v \x03(\tR\x06routes\x12>\n" +
+	"\afilters\x18\f \x03(\v2$.flightstrips.cluster.v1.EcfmpFilterR\afilters\x12(\n" +
+	"\rdecimal_value\x18\r \x01(\x01H\x03R\fdecimalValue\x88\x01\x01B\v\n" +
+	"\t_event_idB\x0f\n" +
+	"\r_withdrawn_atB\x10\n" +
+	"\x0e_numeric_valueB\x10\n" +
+	"\x0e_decimal_value\"\xa1\x01\n" +
+	"\vEcfmpFilter\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x14\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\x12\x19\n" +
+	"\x05level\x18\x03 \x01(\x05H\x00R\x05level\x88\x01\x01\x12\x16\n" +
+	"\x06levels\x18\x04 \x03(\x05R\x06levels\x12\x1e\n" +
+	"\bevent_id\x18\x05 \x01(\x03H\x01R\aeventId\x88\x01\x01B\b\n" +
+	"\x06_levelB\v\n" +
+	"\t_event_id\"\x8f\x01\n" +
+	"\fAtisFeedPage\x12D\n" +
+	"\bairports\x18\x01 \x03(\v2(.flightstrips.cluster.v1.AtisFeedAirportR\bairports\x129\n" +
+	"\n" +
+	"fetched_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\"\xd7\x01\n" +
+	"\x0fAtisFeedAirport\x12\x18\n" +
+	"\aairport\x18\x01 \x01(\tR\aairport\x12E\n" +
+	"\aarrival\x18\x02 \x01(\v2&.flightstrips.cluster.v1.AtisFeedEntryH\x00R\aarrival\x88\x01\x01\x12I\n" +
+	"\tdeparture\x18\x03 \x01(\v2&.flightstrips.cluster.v1.AtisFeedEntryH\x01R\tdeparture\x88\x01\x01B\n" +
+	"\n" +
+	"\b_arrivalB\f\n" +
+	"\n" +
+	"_departure\"\xbb\x01\n" +
+	"\rAtisFeedEntry\x12\x1a\n" +
+	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x12\n" +
+	"\x04code\x18\x02 \x01(\tR\x04code\x12\x1c\n" +
+	"\tfrequency\x18\x03 \x01(\tR\tfrequency\x12\x1d\n" +
+	"\n" +
+	"text_lines\x18\x04 \x03(\tR\ttextLines\x12=\n" +
+	"\flast_updated\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vlastUpdated\"\xcf\x05\n" +
+	"\rCdmConfigPage\x12\x18\n" +
+	"\aairport\x18\x01 \x01(\tR\aairport\x129\n" +
+	"\n" +
+	"fetched_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\x12!\n" +
+	"\fdefault_rate\x18\x03 \x01(\x05R\vdefaultRate\x12(\n" +
+	"\x10default_rate_lvo\x18\x04 \x01(\x05R\x0edefaultRateLvo\x120\n" +
+	"\x14default_taxi_minutes\x18\x05 \x01(\x05R\x12defaultTaxiMinutes\x12\x1d\n" +
+	"\n" +
+	"lvo_active\x18\x06 \x01(\bR\tlvoActive\x124\n" +
+	"\x16active_arrival_runways\x18\a \x03(\tR\x14activeArrivalRunways\x128\n" +
+	"\x18active_departure_runways\x18\b \x03(\tR\x16activeDepartureRunways\x12<\n" +
+	"\x05rates\x18\t \x03(\v2&.flightstrips.cluster.v1.CdmConfigRateR\x05rates\x12R\n" +
+	"\rsid_intervals\x18\n" +
+	" \x03(\v2-.flightstrips.cluster.v1.CdmConfigSidIntervalR\fsidIntervals\x12I\n" +
+	"\n" +
+	"taxi_zones\x18\v \x03(\v2*.flightstrips.cluster.v1.CdmConfigTaxiZoneR\ttaxiZones\x12?\n" +
+	"\x06delays\x18\f \x03(\v2'.flightstrips.cluster.v1.CdmConfigDelayR\x06delays\x12=\n" +
+	"\x05deice\x18\r \x01(\v2'.flightstrips.cluster.v1.CdmConfigDeiceR\x05deice\"\xe3\x01\n" +
+	"\rCdmConfigRate\x12\x1e\n" +
+	"\varr_rwy_yes\x18\x01 \x03(\tR\tarrRwyYes\x12\x1c\n" +
+	"\n" +
+	"arr_rwy_no\x18\x02 \x03(\tR\barrRwyNo\x12\x1e\n" +
+	"\vdep_rwy_yes\x18\x03 \x03(\tR\tdepRwyYes\x12\x1c\n" +
+	"\n" +
+	"dep_rwy_no\x18\x04 \x03(\tR\bdepRwyNo\x12#\n" +
+	"\rdependent_rwy\x18\x05 \x03(\tR\fdependentRwy\x12\x14\n" +
+	"\x05rates\x18\x06 \x03(\tR\x05rates\x12\x1b\n" +
+	"\trates_lvo\x18\a \x03(\tR\bratesLvo\"l\n" +
+	"\x14CdmConfigSidInterval\x12\x16\n" +
+	"\x06runway\x18\x01 \x01(\tR\x06runway\x12\x12\n" +
+	"\x04sid1\x18\x02 \x01(\tR\x04sid1\x12\x12\n" +
+	"\x04sid2\x18\x03 \x01(\tR\x04sid2\x12\x14\n" +
+	"\x05value\x18\x04 \x01(\x01R\x05value\"N\n" +
+	"\x12CdmConfigTaxiPoint\x12\x1a\n" +
+	"\blatitude\x18\x01 \x01(\x01R\blatitude\x12\x1c\n" +
+	"\tlongitude\x18\x02 \x01(\x01R\tlongitude\"\xbc\x01\n" +
+	"\x11CdmConfigTaxiZone\x12\x16\n" +
+	"\x06runway\x18\x01 \x01(\tR\x06runway\x12\x18\n" +
+	"\aminutes\x18\x02 \x01(\x05R\aminutes\x12E\n" +
+	"\apolygon\x18\x03 \x03(\v2+.flightstrips.cluster.v1.CdmConfigTaxiPointR\apolygon\x12.\n" +
+	"\x13remote_taxi_minutes\x18\x04 \x03(\x05R\x11remoteTaxiMinutes\"P\n" +
+	"\x0eCdmConfigDelay\x12\x16\n" +
+	"\x06runway\x18\x01 \x01(\tR\x06runway\x12\x12\n" +
+	"\x04time\x18\x02 \x01(\tR\x04time\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\"\xb9\x01\n" +
+	"\x0eCdmConfigDeice\x12\x14\n" +
+	"\x05light\x18\x01 \x01(\x05R\x05light\x12\x16\n" +
+	"\x06medium\x18\x02 \x01(\x05R\x06medium\x12\x14\n" +
+	"\x05heavy\x18\x03 \x01(\x05R\x05heavy\x12\x14\n" +
+	"\x05super\x18\x04 \x01(\x05R\x05super\x12M\n" +
+	"\tplatforms\x18\x05 \x03(\v2/.flightstrips.cluster.v1.CdmConfigDeicePlatformR\tplatforms\"@\n" +
+	"\x16CdmConfigDeicePlatform\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04time\x18\x02 \x01(\x05R\x04time\"\xa4\x01\n" +
+	"\x0eViffFlightPage\x12\x18\n" +
+	"\aairport\x18\x01 \x01(\tR\aairport\x129\n" +
+	"\n" +
+	"fetched_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\x12=\n" +
+	"\aflights\x18\x03 \x03(\v2#.flightstrips.cluster.v1.ViffFlightR\aflights\"\xef\x03\n" +
+	"\n" +
+	"ViffFlight\x12\x1a\n" +
+	"\bcallsign\x18\x01 \x01(\tR\bcallsign\x12\x10\n" +
+	"\x03cid\x18\x02 \x01(\tR\x03cid\x12\x1c\n" +
+	"\tdeparture\x18\x03 \x01(\tR\tdeparture\x12\x18\n" +
+	"\aarrival\x18\x04 \x01(\tR\aarrival\x12\x12\n" +
+	"\x04eobt\x18\x05 \x01(\tR\x04eobt\x12\x12\n" +
+	"\x04tobt\x18\x06 \x01(\tR\x04tobt\x12%\n" +
+	"\x0erequested_tobt\x18\a \x01(\tR\rrequestedTobt\x12!\n" +
+	"\ftaxi_minutes\x18\b \x01(\x05R\vtaxiMinutes\x12\x12\n" +
+	"\x04ctot\x18\t \x01(\tR\x04ctot\x12\x12\n" +
+	"\x04aobt\x18\n" +
+	" \x01(\tR\x04aobt\x12\x12\n" +
+	"\x04atot\x18\v \x01(\tR\x04atot\x12\x10\n" +
+	"\x03eta\x18\f \x01(\tR\x03eta\x128\n" +
+	"\x18most_penalizing_airspace\x18\r \x01(\tR\x16mostPenalizingAirspace\x12\x1d\n" +
+	"\n" +
+	"cdm_status\x18\x0e \x01(\tR\tcdmStatus\x12!\n" +
+	"\fatfcm_status\x18\x0f \x01(\tR\vatfcmStatus\x12?\n" +
+	"\bcdm_data\x18\x10 \x01(\v2$.flightstrips.cluster.v1.ViffCdmDataR\acdmData\"\x83\x02\n" +
+	"\vViffCdmData\x12\x12\n" +
+	"\x04tobt\x18\x01 \x01(\tR\x04tobt\x12\x12\n" +
+	"\x04tsat\x18\x02 \x01(\tR\x04tsat\x12\x12\n" +
+	"\x04ttot\x18\x03 \x01(\tR\x04ttot\x12\x12\n" +
+	"\x04ctot\x18\x04 \x01(\tR\x04ctot\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\x12%\n" +
+	"\x0erequested_tobt\x18\x06 \x01(\tR\rrequestedTobt\x12.\n" +
+	"\x13requested_tobt_type\x18\a \x01(\tR\x11requestedTobtType\x12%\n" +
+	"\x0erequested_asrt\x18\b \x01(\tR\rrequestedAsrt\x12\x0e\n" +
+	"\x02id\x18\t \x01(\tR\x02id\"\x8b\x01\n" +
+	"\x0fViffMastersPage\x129\n" +
+	"\n" +
+	"fetched_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tfetchedAt\x12=\n" +
+	"\amasters\x18\x02 \x03(\v2#.flightstrips.cluster.v1.ViffMasterR\amasters\"B\n" +
+	"\n" +
+	"ViffMaster\x12\x18\n" +
+	"\aairport\x18\x01 \x01(\tR\aairport\x12\x1a\n" +
+	"\bposition\x18\x02 \x01(\tR\bposition*\xe3\x04\n" +
 	"\n" +
 	"EntityKind\x12\x1b\n" +
 	"\x17ENTITY_KIND_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -16410,7 +18900,8 @@ const file_storage_proto_rawDesc = "" +
 	"\x0fNAV_ROUTE_CACHE\x10\x1a\x12\x17\n" +
 	"\x13PROVIDER_CHECKPOINT\x10\x1b\x12\x11\n" +
 	"\rWEATHER_CACHE\x10\x1c\x12\x14\n" +
-	"\x10SESSION_DEADLINE\x10\x1dB)Z'FlightStrips/pkg/events/cluster;clusterb\x06proto3"
+	"\x10SESSION_DEADLINE\x10\x1d\x12\x19\n" +
+	"\x15VATSIM_SESSION_CURSOR\x10\x1eB)Z'FlightStrips/pkg/events/cluster;clusterb\x06proto3"
 
 var (
 	file_storage_proto_rawDescOnce sync.Once
@@ -16425,7 +18916,7 @@ func file_storage_proto_rawDescGZIP() []byte {
 }
 
 var file_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
-var file_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 150)
+var file_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 175)
 var file_storage_proto_goTypes = []any{
 	(EntityKind)(0),                   // 0: flightstrips.cluster.v1.EntityKind
 	(Actor_Kind)(0),                   // 1: flightstrips.cluster.v1.Actor.Kind
@@ -16534,80 +19025,105 @@ var file_storage_proto_goTypes = []any{
 	(*AmanReplayAudit)(nil),           // 104: flightstrips.cluster.v1.AmanReplayAudit
 	(*AmanValidation)(nil),            // 105: flightstrips.cluster.v1.AmanValidation
 	(*VatsimObservation)(nil),         // 106: flightstrips.cluster.v1.VatsimObservation
-	(*NavManifest)(nil),               // 107: flightstrips.cluster.v1.NavManifest
-	(*NavObjectRef)(nil),              // 108: flightstrips.cluster.v1.NavObjectRef
-	(*NavRouteCache)(nil),             // 109: flightstrips.cluster.v1.NavRouteCache
-	(*ProviderCheckpoint)(nil),        // 110: flightstrips.cluster.v1.ProviderCheckpoint
-	(*WeatherCache)(nil),              // 111: flightstrips.cluster.v1.WeatherCache
-	(*WeatherObservation)(nil),        // 112: flightstrips.cluster.v1.WeatherObservation
-	(*WeatherCloud)(nil),              // 113: flightstrips.cluster.v1.WeatherCloud
-	(*SessionDeadline)(nil),           // 114: flightstrips.cluster.v1.SessionDeadline
-	(*CommandOutcome)(nil),            // 115: flightstrips.cluster.v1.CommandOutcome
-	(*WorkflowRecord)(nil),            // 116: flightstrips.cluster.v1.WorkflowRecord
-	(*EffectRecord)(nil),              // 117: flightstrips.cluster.v1.EffectRecord
-	(*SetFlightPlanEffect)(nil),       // 118: flightstrips.cluster.v1.SetFlightPlanEffect
-	(*PdcEffect)(nil),                 // 119: flightstrips.cluster.v1.PdcEffect
-	(*PrivateMessageEffect)(nil),      // 120: flightstrips.cluster.v1.PrivateMessageEffect
-	(*CoordinationEffect)(nil),        // 121: flightstrips.cluster.v1.CoordinationEffect
-	(*CdmEffect)(nil),                 // 122: flightstrips.cluster.v1.CdmEffect
-	(*Snapshot)(nil),                  // 123: flightstrips.cluster.v1.Snapshot
-	(*EntitySnapshot)(nil),            // 124: flightstrips.cluster.v1.EntitySnapshot
-	(*SnapshotIndex)(nil),             // 125: flightstrips.cluster.v1.SnapshotIndex
-	(*PositionValue)(nil),             // 126: flightstrips.cluster.v1.PositionValue
-	(*AircraftPosition)(nil),          // 127: flightstrips.cluster.v1.AircraftPosition
-	(*PositionTombstone)(nil),         // 128: flightstrips.cluster.v1.PositionTombstone
-	(*PresenceValue)(nil),             // 129: flightstrips.cluster.v1.PresenceValue
-	(*NodePresence)(nil),              // 130: flightstrips.cluster.v1.NodePresence
-	(*ClientPresence)(nil),            // 131: flightstrips.cluster.v1.ClientPresence
-	(*ObjectValue)(nil),               // 132: flightstrips.cluster.v1.ObjectValue
-	(*NavData)(nil),                   // 133: flightstrips.cluster.v1.NavData
-	(*NavDatasetVersion)(nil),         // 134: flightstrips.cluster.v1.NavDatasetVersion
-	(*NavProvenance)(nil),             // 135: flightstrips.cluster.v1.NavProvenance
-	(*NavCoordinate)(nil),             // 136: flightstrips.cluster.v1.NavCoordinate
-	(*NavThreshold)(nil),              // 137: flightstrips.cluster.v1.NavThreshold
-	(*NavAirportFragment)(nil),        // 138: flightstrips.cluster.v1.NavAirportFragment
-	(*NavAirport)(nil),                // 139: flightstrips.cluster.v1.NavAirport
-	(*NavRunway)(nil),                 // 140: flightstrips.cluster.v1.NavRunway
-	(*NavProcedureFragment)(nil),      // 141: flightstrips.cluster.v1.NavProcedureFragment
-	(*NavProcedure)(nil),              // 142: flightstrips.cluster.v1.NavProcedure
-	(*NavLeg)(nil),                    // 143: flightstrips.cluster.v1.NavLeg
-	(*NavHolding)(nil),                // 144: flightstrips.cluster.v1.NavHolding
-	(*NavFixFragment)(nil),            // 145: flightstrips.cluster.v1.NavFixFragment
-	(*NavFix)(nil),                    // 146: flightstrips.cluster.v1.NavFix
-	(*NavTerminalFragment)(nil),       // 147: flightstrips.cluster.v1.NavTerminalFragment
-	(*NavStarFamilyPolicy)(nil),       // 148: flightstrips.cluster.v1.NavStarFamilyPolicy
-	(*NavTerminalPath)(nil),           // 149: flightstrips.cluster.v1.NavTerminalPath
-	(*NavRouteCandidate)(nil),         // 150: flightstrips.cluster.v1.NavRouteCandidate
-	(*NavRouteQuery)(nil),             // 151: flightstrips.cluster.v1.NavRouteQuery
-	(*NavRouteGeometry)(nil),          // 152: flightstrips.cluster.v1.NavRouteGeometry
-	(*EffectSecret)(nil),              // 153: flightstrips.cluster.v1.EffectSecret
-	(*ProviderPage)(nil),              // 154: flightstrips.cluster.v1.ProviderPage
-	(*AiracPage)(nil),                 // 155: flightstrips.cluster.v1.AiracPage
-	(*VatsimPage)(nil),                // 156: flightstrips.cluster.v1.VatsimPage
-	(*WeatherPage)(nil),               // 157: flightstrips.cluster.v1.WeatherPage
-	(*timestamppb.Timestamp)(nil),     // 158: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),       // 159: google.protobuf.Duration
+	(*VatsimSessionCursor)(nil),       // 107: flightstrips.cluster.v1.VatsimSessionCursor
+	(*NavManifest)(nil),               // 108: flightstrips.cluster.v1.NavManifest
+	(*NavObjectRef)(nil),              // 109: flightstrips.cluster.v1.NavObjectRef
+	(*NavRouteCache)(nil),             // 110: flightstrips.cluster.v1.NavRouteCache
+	(*ProviderCheckpoint)(nil),        // 111: flightstrips.cluster.v1.ProviderCheckpoint
+	(*WeatherCache)(nil),              // 112: flightstrips.cluster.v1.WeatherCache
+	(*WeatherObservation)(nil),        // 113: flightstrips.cluster.v1.WeatherObservation
+	(*WeatherCloud)(nil),              // 114: flightstrips.cluster.v1.WeatherCloud
+	(*SessionDeadline)(nil),           // 115: flightstrips.cluster.v1.SessionDeadline
+	(*CommandOutcome)(nil),            // 116: flightstrips.cluster.v1.CommandOutcome
+	(*WorkflowRecord)(nil),            // 117: flightstrips.cluster.v1.WorkflowRecord
+	(*EffectRecord)(nil),              // 118: flightstrips.cluster.v1.EffectRecord
+	(*SetFlightPlanEffect)(nil),       // 119: flightstrips.cluster.v1.SetFlightPlanEffect
+	(*PdcEffect)(nil),                 // 120: flightstrips.cluster.v1.PdcEffect
+	(*PrivateMessageEffect)(nil),      // 121: flightstrips.cluster.v1.PrivateMessageEffect
+	(*CoordinationEffect)(nil),        // 122: flightstrips.cluster.v1.CoordinationEffect
+	(*CdmEffect)(nil),                 // 123: flightstrips.cluster.v1.CdmEffect
+	(*Snapshot)(nil),                  // 124: flightstrips.cluster.v1.Snapshot
+	(*EntitySnapshot)(nil),            // 125: flightstrips.cluster.v1.EntitySnapshot
+	(*SnapshotIndex)(nil),             // 126: flightstrips.cluster.v1.SnapshotIndex
+	(*PositionValue)(nil),             // 127: flightstrips.cluster.v1.PositionValue
+	(*AircraftPosition)(nil),          // 128: flightstrips.cluster.v1.AircraftPosition
+	(*PositionTombstone)(nil),         // 129: flightstrips.cluster.v1.PositionTombstone
+	(*PresenceValue)(nil),             // 130: flightstrips.cluster.v1.PresenceValue
+	(*NodePresence)(nil),              // 131: flightstrips.cluster.v1.NodePresence
+	(*ClientPresence)(nil),            // 132: flightstrips.cluster.v1.ClientPresence
+	(*ObjectValue)(nil),               // 133: flightstrips.cluster.v1.ObjectValue
+	(*NavData)(nil),                   // 134: flightstrips.cluster.v1.NavData
+	(*NavDatasetVersion)(nil),         // 135: flightstrips.cluster.v1.NavDatasetVersion
+	(*NavProvenance)(nil),             // 136: flightstrips.cluster.v1.NavProvenance
+	(*NavCoordinate)(nil),             // 137: flightstrips.cluster.v1.NavCoordinate
+	(*NavThreshold)(nil),              // 138: flightstrips.cluster.v1.NavThreshold
+	(*NavAirportFragment)(nil),        // 139: flightstrips.cluster.v1.NavAirportFragment
+	(*NavAirport)(nil),                // 140: flightstrips.cluster.v1.NavAirport
+	(*NavRunway)(nil),                 // 141: flightstrips.cluster.v1.NavRunway
+	(*NavProcedureFragment)(nil),      // 142: flightstrips.cluster.v1.NavProcedureFragment
+	(*NavProcedure)(nil),              // 143: flightstrips.cluster.v1.NavProcedure
+	(*NavLeg)(nil),                    // 144: flightstrips.cluster.v1.NavLeg
+	(*NavHolding)(nil),                // 145: flightstrips.cluster.v1.NavHolding
+	(*NavFixFragment)(nil),            // 146: flightstrips.cluster.v1.NavFixFragment
+	(*NavFix)(nil),                    // 147: flightstrips.cluster.v1.NavFix
+	(*NavTerminalFragment)(nil),       // 148: flightstrips.cluster.v1.NavTerminalFragment
+	(*NavStarFamilyPolicy)(nil),       // 149: flightstrips.cluster.v1.NavStarFamilyPolicy
+	(*NavTerminalPath)(nil),           // 150: flightstrips.cluster.v1.NavTerminalPath
+	(*NavRouteCandidate)(nil),         // 151: flightstrips.cluster.v1.NavRouteCandidate
+	(*NavRouteQuery)(nil),             // 152: flightstrips.cluster.v1.NavRouteQuery
+	(*NavRouteGeometry)(nil),          // 153: flightstrips.cluster.v1.NavRouteGeometry
+	(*EffectSecret)(nil),              // 154: flightstrips.cluster.v1.EffectSecret
+	(*ProviderPage)(nil),              // 155: flightstrips.cluster.v1.ProviderPage
+	(*AiracPage)(nil),                 // 156: flightstrips.cluster.v1.AiracPage
+	(*VatsimPage)(nil),                // 157: flightstrips.cluster.v1.VatsimPage
+	(*VatsimFlight)(nil),              // 158: flightstrips.cluster.v1.VatsimFlight
+	(*VatsimFlightPlan)(nil),          // 159: flightstrips.cluster.v1.VatsimFlightPlan
+	(*WeatherPage)(nil),               // 160: flightstrips.cluster.v1.WeatherPage
+	(*OpenMeteoPage)(nil),             // 161: flightstrips.cluster.v1.OpenMeteoPage
+	(*OpenMeteoSample)(nil),           // 162: flightstrips.cluster.v1.OpenMeteoSample
+	(*OpenMeteoWindLevel)(nil),        // 163: flightstrips.cluster.v1.OpenMeteoWindLevel
+	(*EcfmpPage)(nil),                 // 164: flightstrips.cluster.v1.EcfmpPage
+	(*EcfmpMeasure)(nil),              // 165: flightstrips.cluster.v1.EcfmpMeasure
+	(*EcfmpFilter)(nil),               // 166: flightstrips.cluster.v1.EcfmpFilter
+	(*AtisFeedPage)(nil),              // 167: flightstrips.cluster.v1.AtisFeedPage
+	(*AtisFeedAirport)(nil),           // 168: flightstrips.cluster.v1.AtisFeedAirport
+	(*AtisFeedEntry)(nil),             // 169: flightstrips.cluster.v1.AtisFeedEntry
+	(*CdmConfigPage)(nil),             // 170: flightstrips.cluster.v1.CdmConfigPage
+	(*CdmConfigRate)(nil),             // 171: flightstrips.cluster.v1.CdmConfigRate
+	(*CdmConfigSidInterval)(nil),      // 172: flightstrips.cluster.v1.CdmConfigSidInterval
+	(*CdmConfigTaxiPoint)(nil),        // 173: flightstrips.cluster.v1.CdmConfigTaxiPoint
+	(*CdmConfigTaxiZone)(nil),         // 174: flightstrips.cluster.v1.CdmConfigTaxiZone
+	(*CdmConfigDelay)(nil),            // 175: flightstrips.cluster.v1.CdmConfigDelay
+	(*CdmConfigDeice)(nil),            // 176: flightstrips.cluster.v1.CdmConfigDeice
+	(*CdmConfigDeicePlatform)(nil),    // 177: flightstrips.cluster.v1.CdmConfigDeicePlatform
+	(*ViffFlightPage)(nil),            // 178: flightstrips.cluster.v1.ViffFlightPage
+	(*ViffFlight)(nil),                // 179: flightstrips.cluster.v1.ViffFlight
+	(*ViffCdmData)(nil),               // 180: flightstrips.cluster.v1.ViffCdmData
+	(*ViffMastersPage)(nil),           // 181: flightstrips.cluster.v1.ViffMastersPage
+	(*ViffMaster)(nil),                // 182: flightstrips.cluster.v1.ViffMaster
+	(*timestamppb.Timestamp)(nil),     // 183: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),       // 184: google.protobuf.Duration
 }
 var file_storage_proto_depIdxs = []int32{
 	9,   // 0: flightstrips.cluster.v1.AggregateRef.global:type_name -> flightstrips.cluster.v1.GlobalRef
 	10,  // 1: flightstrips.cluster.v1.AggregateRef.airport:type_name -> flightstrips.cluster.v1.AirportRef
 	11,  // 2: flightstrips.cluster.v1.AggregateRef.session:type_name -> flightstrips.cluster.v1.SessionRef
 	1,   // 3: flightstrips.cluster.v1.Actor.kind:type_name -> flightstrips.cluster.v1.Actor.Kind
-	158, // 4: flightstrips.cluster.v1.OwnerTerm.lease_until:type_name -> google.protobuf.Timestamp
-	158, // 5: flightstrips.cluster.v1.SessionSync.completed_at:type_name -> google.protobuf.Timestamp
+	183, // 4: flightstrips.cluster.v1.OwnerTerm.lease_until:type_name -> google.protobuf.Timestamp
+	183, // 5: flightstrips.cluster.v1.SessionSync.completed_at:type_name -> google.protobuf.Timestamp
 	8,   // 6: flightstrips.cluster.v1.StateEvent.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
 	12,  // 7: flightstrips.cluster.v1.StateEvent.actor:type_name -> flightstrips.cluster.v1.Actor
 	13,  // 8: flightstrips.cluster.v1.StateEvent.owner_claimed:type_name -> flightstrips.cluster.v1.OwnerTerm
 	13,  // 9: flightstrips.cluster.v1.StateEvent.owner_renewed:type_name -> flightstrips.cluster.v1.OwnerTerm
 	17,  // 10: flightstrips.cluster.v1.StateEvent.domain_changed:type_name -> flightstrips.cluster.v1.DomainChange
-	116, // 11: flightstrips.cluster.v1.StateEvent.workflow_changed:type_name -> flightstrips.cluster.v1.WorkflowRecord
-	117, // 12: flightstrips.cluster.v1.StateEvent.effect_changed:type_name -> flightstrips.cluster.v1.EffectRecord
-	115, // 13: flightstrips.cluster.v1.StateEvent.outcome_recorded:type_name -> flightstrips.cluster.v1.CommandOutcome
+	117, // 11: flightstrips.cluster.v1.StateEvent.workflow_changed:type_name -> flightstrips.cluster.v1.WorkflowRecord
+	118, // 12: flightstrips.cluster.v1.StateEvent.effect_changed:type_name -> flightstrips.cluster.v1.EffectRecord
+	116, // 13: flightstrips.cluster.v1.StateEvent.outcome_recorded:type_name -> flightstrips.cluster.v1.CommandOutcome
 	15,  // 14: flightstrips.cluster.v1.StateEvent.session_synced:type_name -> flightstrips.cluster.v1.SessionSync
 	18,  // 15: flightstrips.cluster.v1.DomainChange.changes:type_name -> flightstrips.cluster.v1.EntityChange
-	117, // 16: flightstrips.cluster.v1.DomainChange.effects:type_name -> flightstrips.cluster.v1.EffectRecord
-	116, // 17: flightstrips.cluster.v1.DomainChange.workflows:type_name -> flightstrips.cluster.v1.WorkflowRecord
-	115, // 18: flightstrips.cluster.v1.DomainChange.outcome:type_name -> flightstrips.cluster.v1.CommandOutcome
+	118, // 16: flightstrips.cluster.v1.DomainChange.effects:type_name -> flightstrips.cluster.v1.EffectRecord
+	117, // 17: flightstrips.cluster.v1.DomainChange.workflows:type_name -> flightstrips.cluster.v1.WorkflowRecord
+	116, // 18: flightstrips.cluster.v1.DomainChange.outcome:type_name -> flightstrips.cluster.v1.CommandOutcome
 	20,  // 19: flightstrips.cluster.v1.EntityChange.upsert:type_name -> flightstrips.cluster.v1.EntityRecord
 	19,  // 20: flightstrips.cluster.v1.EntityChange.delete:type_name -> flightstrips.cluster.v1.DeleteEntity
 	0,   // 21: flightstrips.cluster.v1.DeleteEntity.kind:type_name -> flightstrips.cluster.v1.EntityKind
@@ -16635,307 +19151,350 @@ var file_storage_proto_depIdxs = []int32{
 	95,  // 43: flightstrips.cluster.v1.EntityRecord.aman_audit:type_name -> flightstrips.cluster.v1.AmanAudit
 	105, // 44: flightstrips.cluster.v1.EntityRecord.aman_validation:type_name -> flightstrips.cluster.v1.AmanValidation
 	106, // 45: flightstrips.cluster.v1.EntityRecord.vatsim_observation:type_name -> flightstrips.cluster.v1.VatsimObservation
-	107, // 46: flightstrips.cluster.v1.EntityRecord.nav_manifest:type_name -> flightstrips.cluster.v1.NavManifest
-	109, // 47: flightstrips.cluster.v1.EntityRecord.nav_route_cache:type_name -> flightstrips.cluster.v1.NavRouteCache
-	110, // 48: flightstrips.cluster.v1.EntityRecord.provider_checkpoint:type_name -> flightstrips.cluster.v1.ProviderCheckpoint
-	111, // 49: flightstrips.cluster.v1.EntityRecord.weather_cache:type_name -> flightstrips.cluster.v1.WeatherCache
-	114, // 50: flightstrips.cluster.v1.EntityRecord.session_deadline:type_name -> flightstrips.cluster.v1.SessionDeadline
-	2,   // 51: flightstrips.cluster.v1.SessionRegistry.state:type_name -> flightstrips.cluster.v1.SessionRegistry.State
-	158, // 52: flightstrips.cluster.v1.ProviderQuota.window_start:type_name -> google.protobuf.Timestamp
-	25,  // 53: flightstrips.cluster.v1.AirportPolicy.runways:type_name -> flightstrips.cluster.v1.RunwayPolicy
-	27,  // 54: flightstrips.cluster.v1.Session.runways:type_name -> flightstrips.cluster.v1.Runway
-	14,  // 55: flightstrips.cluster.v1.Session.master:type_name -> flightstrips.cluster.v1.MasterTerm
-	15,  // 56: flightstrips.cluster.v1.Session.sync:type_name -> flightstrips.cluster.v1.SessionSync
-	158, // 57: flightstrips.cluster.v1.Session.first_no_controller_at:type_name -> google.protobuf.Timestamp
-	29,  // 58: flightstrips.cluster.v1.Session.available_sids:type_name -> flightstrips.cluster.v1.SidInfo
-	30,  // 59: flightstrips.cluster.v1.Session.initial_cfl_by_runway:type_name -> flightstrips.cluster.v1.RunwayCfl
-	28,  // 60: flightstrips.cluster.v1.Session.runway_statuses:type_name -> flightstrips.cluster.v1.RunwayStatus
-	158, // 61: flightstrips.cluster.v1.Session.cleanup_paused_at:type_name -> google.protobuf.Timestamp
-	158, // 62: flightstrips.cluster.v1.Strip.eobt:type_name -> google.protobuf.Timestamp
-	158, // 63: flightstrips.cluster.v1.Strip.tobt:type_name -> google.protobuf.Timestamp
-	158, // 64: flightstrips.cluster.v1.Strip.tsat:type_name -> google.protobuf.Timestamp
-	158, // 65: flightstrips.cluster.v1.Strip.ttot:type_name -> google.protobuf.Timestamp
-	158, // 66: flightstrips.cluster.v1.Strip.ctot:type_name -> google.protobuf.Timestamp
-	34,  // 67: flightstrips.cluster.v1.Strip.validation:type_name -> flightstrips.cluster.v1.ValidationStatus
-	158, // 68: flightstrips.cluster.v1.Strip.aobt:type_name -> google.protobuf.Timestamp
-	158, // 69: flightstrips.cluster.v1.Strip.asat:type_name -> google.protobuf.Timestamp
-	158, // 70: flightstrips.cluster.v1.Strip.asrt:type_name -> google.protobuf.Timestamp
-	158, // 71: flightstrips.cluster.v1.Strip.tsac:type_name -> google.protobuf.Timestamp
-	158, // 72: flightstrips.cluster.v1.Strip.eldt:type_name -> google.protobuf.Timestamp
-	158, // 73: flightstrips.cluster.v1.Strip.aldt:type_name -> google.protobuf.Timestamp
-	35,  // 74: flightstrips.cluster.v1.ValidationStatus.faults:type_name -> flightstrips.cluster.v1.ValidationFault
-	36,  // 75: flightstrips.cluster.v1.ValidationStatus.action:type_name -> flightstrips.cluster.v1.ValidationAction
-	37,  // 76: flightstrips.cluster.v1.ValidationAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeValidation
-	38,  // 77: flightstrips.cluster.v1.ValidationAction.clx_override:type_name -> flightstrips.cluster.v1.ClxOverrideAction
-	158, // 78: flightstrips.cluster.v1.Coordination.created_at:type_name -> google.protobuf.Timestamp
-	158, // 79: flightstrips.cluster.v1.Coordination.resolved_at:type_name -> google.protobuf.Timestamp
-	158, // 80: flightstrips.cluster.v1.TacticalStrip.timer_started_at:type_name -> google.protobuf.Timestamp
-	158, // 81: flightstrips.cluster.v1.TacticalStrip.created_at:type_name -> google.protobuf.Timestamp
-	158, // 82: flightstrips.cluster.v1.StandAssignment.expires_at:type_name -> google.protobuf.Timestamp
-	158, // 83: flightstrips.cluster.v1.StandAssignment.eta:type_name -> google.protobuf.Timestamp
-	158, // 84: flightstrips.cluster.v1.StandAssignment.assigned_at:type_name -> google.protobuf.Timestamp
-	158, // 85: flightstrips.cluster.v1.StandAssignment.projected_release_at:type_name -> google.protobuf.Timestamp
-	158, // 86: flightstrips.cluster.v1.StandAssignment.acknowledged_at:type_name -> google.protobuf.Timestamp
-	158, // 87: flightstrips.cluster.v1.StandAssignment.created_at:type_name -> google.protobuf.Timestamp
-	158, // 88: flightstrips.cluster.v1.StandAssignment.updated_at:type_name -> google.protobuf.Timestamp
-	158, // 89: flightstrips.cluster.v1.StandBlock.created_at:type_name -> google.protobuf.Timestamp
-	158, // 90: flightstrips.cluster.v1.StandBlock.expires_at:type_name -> google.protobuf.Timestamp
-	158, // 91: flightstrips.cluster.v1.StandBlock.updated_at:type_name -> google.protobuf.Timestamp
-	158, // 92: flightstrips.cluster.v1.PdcSequence.deadline:type_name -> google.protobuf.Timestamp
-	158, // 93: flightstrips.cluster.v1.PdcSequence.requested_at:type_name -> google.protobuf.Timestamp
-	158, // 94: flightstrips.cluster.v1.PdcSequence.issued_at:type_name -> google.protobuf.Timestamp
-	158, // 95: flightstrips.cluster.v1.PdcSequence.pilot_acknowledged_at:type_name -> google.protobuf.Timestamp
-	158, // 96: flightstrips.cluster.v1.CdmState.tobt:type_name -> google.protobuf.Timestamp
-	158, // 97: flightstrips.cluster.v1.CdmState.tsat:type_name -> google.protobuf.Timestamp
-	158, // 98: flightstrips.cluster.v1.CdmState.ttot:type_name -> google.protobuf.Timestamp
-	158, // 99: flightstrips.cluster.v1.CdmState.ctot:type_name -> google.protobuf.Timestamp
-	46,  // 100: flightstrips.cluster.v1.EcfmpState.restrictions:type_name -> flightstrips.cluster.v1.EcfmpRestriction
-	158, // 101: flightstrips.cluster.v1.Atis.observed_at:type_name -> google.protobuf.Timestamp
-	158, // 102: flightstrips.cluster.v1.ClxOverride.created_at:type_name -> google.protobuf.Timestamp
-	158, // 103: flightstrips.cluster.v1.FrontendMessage.created_at:type_name -> google.protobuf.Timestamp
-	51,  // 104: flightstrips.cluster.v1.AmanAirport.runway_groups:type_name -> flightstrips.cluster.v1.AmanRunwayGroup
-	59,  // 105: flightstrips.cluster.v1.AmanAirport.timeline_mappings:type_name -> flightstrips.cluster.v1.AmanTimelineMapping
-	60,  // 106: flightstrips.cluster.v1.AmanAirport.health:type_name -> flightstrips.cluster.v1.AmanTechnicalHealth
-	158, // 107: flightstrips.cluster.v1.AmanAirport.generated_at:type_name -> google.protobuf.Timestamp
-	158, // 108: flightstrips.cluster.v1.AmanRunwayGroup.rate_effective_at:type_name -> google.protobuf.Timestamp
-	56,  // 109: flightstrips.cluster.v1.AmanRunwayGroup.gaps:type_name -> flightstrips.cluster.v1.AmanGap
-	57,  // 110: flightstrips.cluster.v1.AmanRunwayGroup.closures:type_name -> flightstrips.cluster.v1.AmanClosure
-	58,  // 111: flightstrips.cluster.v1.AmanRunwayGroup.reservations:type_name -> flightstrips.cluster.v1.AmanReservation
-	52,  // 112: flightstrips.cluster.v1.AmanRunwayGroup.selection_schedule:type_name -> flightstrips.cluster.v1.AmanRunwaySelectionPoint
-	53,  // 113: flightstrips.cluster.v1.AmanRunwayGroup.rate_schedule:type_name -> flightstrips.cluster.v1.AmanRunwayRatePoint
-	54,  // 114: flightstrips.cluster.v1.AmanRunwayGroup.same_star_spacing:type_name -> flightstrips.cluster.v1.AmanSameStarSpacing
-	55,  // 115: flightstrips.cluster.v1.AmanRunwayGroup.sequence_warnings:type_name -> flightstrips.cluster.v1.AmanSequenceWarning
-	158, // 116: flightstrips.cluster.v1.AmanRunwaySelectionPoint.effective_at:type_name -> google.protobuf.Timestamp
-	158, // 117: flightstrips.cluster.v1.AmanRunwayRatePoint.effective_at:type_name -> google.protobuf.Timestamp
-	158, // 118: flightstrips.cluster.v1.AmanGap.start:type_name -> google.protobuf.Timestamp
-	158, // 119: flightstrips.cluster.v1.AmanGap.end:type_name -> google.protobuf.Timestamp
-	158, // 120: flightstrips.cluster.v1.AmanGap.created_at:type_name -> google.protobuf.Timestamp
-	158, // 121: flightstrips.cluster.v1.AmanClosure.start:type_name -> google.protobuf.Timestamp
-	158, // 122: flightstrips.cluster.v1.AmanClosure.end:type_name -> google.protobuf.Timestamp
-	158, // 123: flightstrips.cluster.v1.AmanClosure.created_at:type_name -> google.protobuf.Timestamp
-	158, // 124: flightstrips.cluster.v1.AmanReservation.start:type_name -> google.protobuf.Timestamp
-	158, // 125: flightstrips.cluster.v1.AmanReservation.end:type_name -> google.protobuf.Timestamp
-	158, // 126: flightstrips.cluster.v1.AmanReservation.created_at:type_name -> google.protobuf.Timestamp
-	61,  // 127: flightstrips.cluster.v1.AmanTechnicalHealth.components:type_name -> flightstrips.cluster.v1.AmanComponentHealth
-	158, // 128: flightstrips.cluster.v1.AmanComponentHealth.updated_at:type_name -> google.protobuf.Timestamp
-	68,  // 129: flightstrips.cluster.v1.AmanFlight.prediction:type_name -> flightstrips.cluster.v1.AmanPrediction
-	75,  // 130: flightstrips.cluster.v1.AmanFlight.raw_teta_samples:type_name -> flightstrips.cluster.v1.AmanRawTetaSample
-	76,  // 131: flightstrips.cluster.v1.AmanFlight.arrival_baseline:type_name -> flightstrips.cluster.v1.AmanBaseline
-	63,  // 132: flightstrips.cluster.v1.AmanFlight.latest_observation:type_name -> flightstrips.cluster.v1.AmanFlightObservation
-	69,  // 133: flightstrips.cluster.v1.AmanFlight.feeder_eta:type_name -> flightstrips.cluster.v1.AmanFeederEta
-	69,  // 134: flightstrips.cluster.v1.AmanFlight.derived_feeder_eta:type_name -> flightstrips.cluster.v1.AmanFeederEta
-	67,  // 135: flightstrips.cluster.v1.AmanFlight.holding_clearance:type_name -> flightstrips.cluster.v1.AmanHoldingClearance
-	71,  // 136: flightstrips.cluster.v1.AmanFlight.holding_stack:type_name -> flightstrips.cluster.v1.AmanHoldingStack
-	84,  // 137: flightstrips.cluster.v1.AmanFlight.active_route_fact:type_name -> flightstrips.cluster.v1.AmanRouteFact
-	77,  // 138: flightstrips.cluster.v1.AmanFlight.route_progress:type_name -> flightstrips.cluster.v1.AmanRouteProgress
-	78,  // 139: flightstrips.cluster.v1.AmanFlight.tma_entry:type_name -> flightstrips.cluster.v1.AmanTmaEntry
-	158, // 140: flightstrips.cluster.v1.AmanFlight.frozen_at:type_name -> google.protobuf.Timestamp
-	158, // 141: flightstrips.cluster.v1.AmanFlight.frozen_operational_teta:type_name -> google.protobuf.Timestamp
-	86,  // 142: flightstrips.cluster.v1.AmanFlight.frozen_slot:type_name -> flightstrips.cluster.v1.AmanSlot
-	86,  // 143: flightstrips.cluster.v1.AmanFlight.slot:type_name -> flightstrips.cluster.v1.AmanSlot
-	88,  // 144: flightstrips.cluster.v1.AmanFlight.queue_offers:type_name -> flightstrips.cluster.v1.AmanQueueOffer
-	87,  // 145: flightstrips.cluster.v1.AmanFlight.eta_review:type_name -> flightstrips.cluster.v1.AmanETAReview
-	79,  // 146: flightstrips.cluster.v1.AmanFlight.operational_exception:type_name -> flightstrips.cluster.v1.AmanOperationalException
-	90,  // 147: flightstrips.cluster.v1.AmanFlight.gap_exception:type_name -> flightstrips.cluster.v1.AmanGapException
-	81,  // 148: flightstrips.cluster.v1.AmanFlight.go_around_detection:type_name -> flightstrips.cluster.v1.AmanGoAroundDetection
-	89,  // 149: flightstrips.cluster.v1.AmanFlight.go_around_confirmation:type_name -> flightstrips.cluster.v1.AmanGoAroundConfirmation
-	82,  // 150: flightstrips.cluster.v1.AmanFlight.lifecycle:type_name -> flightstrips.cluster.v1.AmanLifecycle
-	158, // 151: flightstrips.cluster.v1.AmanFlight.updated_at:type_name -> google.protobuf.Timestamp
-	64,  // 152: flightstrips.cluster.v1.AmanFlightObservation.planned_timing:type_name -> flightstrips.cluster.v1.AmanPlannedTiming
-	65,  // 153: flightstrips.cluster.v1.AmanFlightObservation.flight_plan:type_name -> flightstrips.cluster.v1.AmanFlightPlanFact
-	66,  // 154: flightstrips.cluster.v1.AmanFlightObservation.surveillance:type_name -> flightstrips.cluster.v1.AmanSurveillanceFact
-	67,  // 155: flightstrips.cluster.v1.AmanFlightObservation.holding_clearance:type_name -> flightstrips.cluster.v1.AmanHoldingClearance
-	158, // 156: flightstrips.cluster.v1.AmanFlightObservation.takeoff_detected:type_name -> google.protobuf.Timestamp
-	158, // 157: flightstrips.cluster.v1.AmanFlightObservation.reconciled_at:type_name -> google.protobuf.Timestamp
-	158, // 158: flightstrips.cluster.v1.AmanPlannedTiming.estimated_off_block_time:type_name -> google.protobuf.Timestamp
-	159, // 159: flightstrips.cluster.v1.AmanPlannedTiming.estimated_enroute_time:type_name -> google.protobuf.Duration
-	158, // 160: flightstrips.cluster.v1.AmanFlightPlanFact.observed_at:type_name -> google.protobuf.Timestamp
-	158, // 161: flightstrips.cluster.v1.AmanSurveillanceFact.observed_at:type_name -> google.protobuf.Timestamp
-	158, // 162: flightstrips.cluster.v1.AmanHoldingClearance.observed_at:type_name -> google.protobuf.Timestamp
-	158, // 163: flightstrips.cluster.v1.AmanPrediction.raw_teta:type_name -> google.protobuf.Timestamp
-	158, // 164: flightstrips.cluster.v1.AmanPrediction.raw_reta:type_name -> google.protobuf.Timestamp
-	158, // 165: flightstrips.cluster.v1.AmanPrediction.operational_teta:type_name -> google.protobuf.Timestamp
-	158, // 166: flightstrips.cluster.v1.AmanPrediction.generated_at:type_name -> google.protobuf.Timestamp
-	158, // 167: flightstrips.cluster.v1.AmanPrediction.input_observed_at:type_name -> google.protobuf.Timestamp
-	158, // 168: flightstrips.cluster.v1.AmanPrediction.holding_fix_eta:type_name -> google.protobuf.Timestamp
-	70,  // 169: flightstrips.cluster.v1.AmanPrediction.holding_plan:type_name -> flightstrips.cluster.v1.AmanHoldingPlan
-	72,  // 170: flightstrips.cluster.v1.AmanPrediction.calculation:type_name -> flightstrips.cluster.v1.AmanPredictionCalculation
-	158, // 171: flightstrips.cluster.v1.AmanFeederEta.eta:type_name -> google.protobuf.Timestamp
-	158, // 172: flightstrips.cluster.v1.AmanHoldingPlan.holding_entry_time:type_name -> google.protobuf.Timestamp
-	158, // 173: flightstrips.cluster.v1.AmanHoldingPlan.approach_release_time:type_name -> google.protobuf.Timestamp
-	159, // 174: flightstrips.cluster.v1.AmanHoldingPlan.expected_holding_duration:type_name -> google.protobuf.Duration
-	159, // 175: flightstrips.cluster.v1.AmanHoldingPlan.post_holding_transit:type_name -> google.protobuf.Duration
-	158, // 176: flightstrips.cluster.v1.AmanHoldingStack.candidate_observed_at:type_name -> google.protobuf.Timestamp
-	159, // 177: flightstrips.cluster.v1.AmanPredictionCalculation.no_wind_duration:type_name -> google.protobuf.Duration
-	159, // 178: flightstrips.cluster.v1.AmanPredictionCalculation.duration:type_name -> google.protobuf.Duration
-	73,  // 179: flightstrips.cluster.v1.AmanPredictionCalculation.legs:type_name -> flightstrips.cluster.v1.AmanPredictionLeg
-	74,  // 180: flightstrips.cluster.v1.AmanPredictionCalculation.segments:type_name -> flightstrips.cluster.v1.AmanPredictionSegment
-	159, // 181: flightstrips.cluster.v1.AmanPredictionLeg.no_wind_duration:type_name -> google.protobuf.Duration
-	159, // 182: flightstrips.cluster.v1.AmanPredictionLeg.duration:type_name -> google.protobuf.Duration
-	159, // 183: flightstrips.cluster.v1.AmanPredictionSegment.no_wind_duration:type_name -> google.protobuf.Duration
-	159, // 184: flightstrips.cluster.v1.AmanPredictionSegment.duration:type_name -> google.protobuf.Duration
-	158, // 185: flightstrips.cluster.v1.AmanRawTetaSample.teta:type_name -> google.protobuf.Timestamp
-	158, // 186: flightstrips.cluster.v1.AmanRawTetaSample.generated_at:type_name -> google.protobuf.Timestamp
-	158, // 187: flightstrips.cluster.v1.AmanBaseline.arrival_at:type_name -> google.protobuf.Timestamp
-	158, // 188: flightstrips.cluster.v1.AmanBaseline.airborne_sensed_at:type_name -> google.protobuf.Timestamp
-	158, // 189: flightstrips.cluster.v1.AmanBaseline.flight_plan_observed_at:type_name -> google.protobuf.Timestamp
-	158, // 190: flightstrips.cluster.v1.AmanTmaEntry.last_observed_at:type_name -> google.protobuf.Timestamp
-	158, // 191: flightstrips.cluster.v1.AmanOperationalException.detected_at:type_name -> google.protobuf.Timestamp
-	158, // 192: flightstrips.cluster.v1.AmanGoAroundEvidence.observed_at:type_name -> google.protobuf.Timestamp
-	80,  // 193: flightstrips.cluster.v1.AmanGoAroundDetection.evidence:type_name -> flightstrips.cluster.v1.AmanGoAroundEvidence
-	158, // 194: flightstrips.cluster.v1.AmanGoAroundDetection.armed_at:type_name -> google.protobuf.Timestamp
-	158, // 195: flightstrips.cluster.v1.AmanGoAroundDetection.last_processed_at:type_name -> google.protobuf.Timestamp
-	158, // 196: flightstrips.cluster.v1.AmanLifecycle.entered_at:type_name -> google.protobuf.Timestamp
-	158, // 197: flightstrips.cluster.v1.AmanLifecycle.last_event_at:type_name -> google.protobuf.Timestamp
-	83,  // 198: flightstrips.cluster.v1.AmanLifecycle.absence:type_name -> flightstrips.cluster.v1.AmanAbsence
-	158, // 199: flightstrips.cluster.v1.AmanAbsence.missing_since:type_name -> google.protobuf.Timestamp
-	158, // 200: flightstrips.cluster.v1.AmanAbsence.removal_due_at:type_name -> google.protobuf.Timestamp
-	159, // 201: flightstrips.cluster.v1.AmanAbsence.remaining:type_name -> google.protobuf.Duration
-	158, // 202: flightstrips.cluster.v1.AmanRouteFact.observed_at:type_name -> google.protobuf.Timestamp
-	158, // 203: flightstrips.cluster.v1.AmanRouteFact.received_at:type_name -> google.protobuf.Timestamp
-	158, // 204: flightstrips.cluster.v1.AmanSlot.time:type_name -> google.protobuf.Timestamp
-	158, // 205: flightstrips.cluster.v1.AmanETAReview.created_at:type_name -> google.protobuf.Timestamp
-	158, // 206: flightstrips.cluster.v1.AmanETAReview.deadline_at:type_name -> google.protobuf.Timestamp
-	158, // 207: flightstrips.cluster.v1.AmanETAReview.resolved_at:type_name -> google.protobuf.Timestamp
-	158, // 208: flightstrips.cluster.v1.AmanETAReview.initial_baseline_teta:type_name -> google.protobuf.Timestamp
-	158, // 209: flightstrips.cluster.v1.AmanETAReview.calculated_operational_teta:type_name -> google.protobuf.Timestamp
-	158, // 210: flightstrips.cluster.v1.AmanETAReview.selected_teta:type_name -> google.protobuf.Timestamp
-	158, // 211: flightstrips.cluster.v1.AmanETAReview.manual_teta:type_name -> google.protobuf.Timestamp
-	86,  // 212: flightstrips.cluster.v1.AmanQueueOffer.candidate_slot:type_name -> flightstrips.cluster.v1.AmanSlot
-	158, // 213: flightstrips.cluster.v1.AmanQueueOffer.expires_at:type_name -> google.protobuf.Timestamp
-	158, // 214: flightstrips.cluster.v1.AmanGoAroundConfirmation.detected_at:type_name -> google.protobuf.Timestamp
-	158, // 215: flightstrips.cluster.v1.AmanGoAroundConfirmation.evidence_times:type_name -> google.protobuf.Timestamp
-	158, // 216: flightstrips.cluster.v1.AmanGoAroundConfirmation.decided_at:type_name -> google.protobuf.Timestamp
-	158, // 217: flightstrips.cluster.v1.AmanGapException.opportunity:type_name -> google.protobuf.Timestamp
-	92,  // 218: flightstrips.cluster.v1.AmanCoordination.route_direct:type_name -> flightstrips.cluster.v1.AmanRouteDirect
-	93,  // 219: flightstrips.cluster.v1.AmanCoordination.speed:type_name -> flightstrips.cluster.v1.AmanSpeed
-	158, // 220: flightstrips.cluster.v1.AmanCoordination.created_at:type_name -> google.protobuf.Timestamp
-	158, // 221: flightstrips.cluster.v1.AmanCoordination.updated_at:type_name -> google.protobuf.Timestamp
-	94,  // 222: flightstrips.cluster.v1.AmanCoordination.clearance:type_name -> flightstrips.cluster.v1.AmanClearance
-	158, // 223: flightstrips.cluster.v1.AmanClearance.observed_at:type_name -> google.protobuf.Timestamp
-	158, // 224: flightstrips.cluster.v1.AmanAudit.created_at:type_name -> google.protobuf.Timestamp
-	12,  // 225: flightstrips.cluster.v1.AmanAudit.actor:type_name -> flightstrips.cluster.v1.Actor
-	96,  // 226: flightstrips.cluster.v1.AmanAudit.command:type_name -> flightstrips.cluster.v1.AmanCommandAudit
-	97,  // 227: flightstrips.cluster.v1.AmanAudit.observation:type_name -> flightstrips.cluster.v1.AmanObservationAudit
-	98,  // 228: flightstrips.cluster.v1.AmanAudit.sequence:type_name -> flightstrips.cluster.v1.AmanSequenceAudit
-	99,  // 229: flightstrips.cluster.v1.AmanAudit.coordination:type_name -> flightstrips.cluster.v1.AmanCoordinationAudit
-	100, // 230: flightstrips.cluster.v1.AmanAudit.health:type_name -> flightstrips.cluster.v1.AmanHealthAudit
-	101, // 231: flightstrips.cluster.v1.AmanAudit.capacity:type_name -> flightstrips.cluster.v1.AmanCapacityAudit
-	102, // 232: flightstrips.cluster.v1.AmanAudit.freeze:type_name -> flightstrips.cluster.v1.AmanFreezeAudit
-	103, // 233: flightstrips.cluster.v1.AmanAudit.go_around:type_name -> flightstrips.cluster.v1.AmanGoAroundAudit
-	104, // 234: flightstrips.cluster.v1.AmanAudit.replay:type_name -> flightstrips.cluster.v1.AmanReplayAudit
-	86,  // 235: flightstrips.cluster.v1.AmanSequenceAudit.before:type_name -> flightstrips.cluster.v1.AmanSlot
-	86,  // 236: flightstrips.cluster.v1.AmanSequenceAudit.after:type_name -> flightstrips.cluster.v1.AmanSlot
-	3,   // 237: flightstrips.cluster.v1.AmanCapacityAudit.kind:type_name -> flightstrips.cluster.v1.AmanCapacityAudit.Kind
-	98,  // 238: flightstrips.cluster.v1.AmanCapacityAudit.displaced_flights:type_name -> flightstrips.cluster.v1.AmanSequenceAudit
-	158, // 239: flightstrips.cluster.v1.AmanCapacityAudit.start:type_name -> google.protobuf.Timestamp
-	158, // 240: flightstrips.cluster.v1.AmanCapacityAudit.end:type_name -> google.protobuf.Timestamp
-	158, // 241: flightstrips.cluster.v1.AmanFreezeAudit.operational_teta:type_name -> google.protobuf.Timestamp
-	86,  // 242: flightstrips.cluster.v1.AmanFreezeAudit.slot:type_name -> flightstrips.cluster.v1.AmanSlot
-	80,  // 243: flightstrips.cluster.v1.AmanGoAroundAudit.evidence:type_name -> flightstrips.cluster.v1.AmanGoAroundEvidence
-	35,  // 244: flightstrips.cluster.v1.AmanValidation.faults:type_name -> flightstrips.cluster.v1.ValidationFault
-	158, // 245: flightstrips.cluster.v1.AmanValidation.observed_at:type_name -> google.protobuf.Timestamp
-	158, // 246: flightstrips.cluster.v1.VatsimObservation.observed_at:type_name -> google.protobuf.Timestamp
-	108, // 247: flightstrips.cluster.v1.NavManifest.objects:type_name -> flightstrips.cluster.v1.NavObjectRef
-	112, // 248: flightstrips.cluster.v1.WeatherCache.observation:type_name -> flightstrips.cluster.v1.WeatherObservation
-	158, // 249: flightstrips.cluster.v1.WeatherCache.fetched_at:type_name -> google.protobuf.Timestamp
-	158, // 250: flightstrips.cluster.v1.WeatherCache.expires_at:type_name -> google.protobuf.Timestamp
-	113, // 251: flightstrips.cluster.v1.WeatherObservation.clouds:type_name -> flightstrips.cluster.v1.WeatherCloud
-	158, // 252: flightstrips.cluster.v1.SessionDeadline.due_at:type_name -> google.protobuf.Timestamp
-	12,  // 253: flightstrips.cluster.v1.CommandOutcome.actor:type_name -> flightstrips.cluster.v1.Actor
-	4,   // 254: flightstrips.cluster.v1.CommandOutcome.status:type_name -> flightstrips.cluster.v1.CommandOutcome.Status
-	8,   // 255: flightstrips.cluster.v1.CommandOutcome.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
-	8,   // 256: flightstrips.cluster.v1.WorkflowRecord.source:type_name -> flightstrips.cluster.v1.AggregateRef
-	8,   // 257: flightstrips.cluster.v1.WorkflowRecord.destination:type_name -> flightstrips.cluster.v1.AggregateRef
-	5,   // 258: flightstrips.cluster.v1.WorkflowRecord.status:type_name -> flightstrips.cluster.v1.WorkflowRecord.Status
-	6,   // 259: flightstrips.cluster.v1.EffectRecord.status:type_name -> flightstrips.cluster.v1.EffectRecord.Status
-	118, // 260: flightstrips.cluster.v1.EffectRecord.set_flight_plan:type_name -> flightstrips.cluster.v1.SetFlightPlanEffect
-	119, // 261: flightstrips.cluster.v1.EffectRecord.pdc:type_name -> flightstrips.cluster.v1.PdcEffect
-	120, // 262: flightstrips.cluster.v1.EffectRecord.private_message:type_name -> flightstrips.cluster.v1.PrivateMessageEffect
-	121, // 263: flightstrips.cluster.v1.EffectRecord.coordination:type_name -> flightstrips.cluster.v1.CoordinationEffect
-	122, // 264: flightstrips.cluster.v1.EffectRecord.cdm:type_name -> flightstrips.cluster.v1.CdmEffect
-	158, // 265: flightstrips.cluster.v1.EffectRecord.dispatch_deadline:type_name -> google.protobuf.Timestamp
-	158, // 266: flightstrips.cluster.v1.EffectRecord.result_deadline:type_name -> google.protobuf.Timestamp
-	8,   // 267: flightstrips.cluster.v1.Snapshot.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
-	13,  // 268: flightstrips.cluster.v1.Snapshot.owner:type_name -> flightstrips.cluster.v1.OwnerTerm
-	124, // 269: flightstrips.cluster.v1.Snapshot.entities:type_name -> flightstrips.cluster.v1.EntitySnapshot
-	115, // 270: flightstrips.cluster.v1.Snapshot.outcomes:type_name -> flightstrips.cluster.v1.CommandOutcome
-	116, // 271: flightstrips.cluster.v1.Snapshot.workflows:type_name -> flightstrips.cluster.v1.WorkflowRecord
-	117, // 272: flightstrips.cluster.v1.Snapshot.effects:type_name -> flightstrips.cluster.v1.EffectRecord
-	14,  // 273: flightstrips.cluster.v1.Snapshot.master:type_name -> flightstrips.cluster.v1.MasterTerm
-	15,  // 274: flightstrips.cluster.v1.Snapshot.sync:type_name -> flightstrips.cluster.v1.SessionSync
-	20,  // 275: flightstrips.cluster.v1.EntitySnapshot.value:type_name -> flightstrips.cluster.v1.EntityRecord
-	8,   // 276: flightstrips.cluster.v1.SnapshotIndex.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
-	158, // 277: flightstrips.cluster.v1.PositionValue.observed_at:type_name -> google.protobuf.Timestamp
-	127, // 278: flightstrips.cluster.v1.PositionValue.position:type_name -> flightstrips.cluster.v1.AircraftPosition
-	128, // 279: flightstrips.cluster.v1.PositionValue.tombstone:type_name -> flightstrips.cluster.v1.PositionTombstone
-	130, // 280: flightstrips.cluster.v1.PresenceValue.node:type_name -> flightstrips.cluster.v1.NodePresence
-	131, // 281: flightstrips.cluster.v1.PresenceValue.client:type_name -> flightstrips.cluster.v1.ClientPresence
-	158, // 282: flightstrips.cluster.v1.NodePresence.started_at:type_name -> google.protobuf.Timestamp
-	158, // 283: flightstrips.cluster.v1.ClientPresence.connected_at:type_name -> google.protobuf.Timestamp
-	7,   // 284: flightstrips.cluster.v1.ClientPresence.kind:type_name -> flightstrips.cluster.v1.ClientPresence.Kind
-	123, // 285: flightstrips.cluster.v1.ObjectValue.snapshot:type_name -> flightstrips.cluster.v1.Snapshot
-	133, // 286: flightstrips.cluster.v1.ObjectValue.nav:type_name -> flightstrips.cluster.v1.NavData
-	153, // 287: flightstrips.cluster.v1.ObjectValue.effect_secret:type_name -> flightstrips.cluster.v1.EffectSecret
-	154, // 288: flightstrips.cluster.v1.ObjectValue.provider_page:type_name -> flightstrips.cluster.v1.ProviderPage
-	134, // 289: flightstrips.cluster.v1.NavData.version:type_name -> flightstrips.cluster.v1.NavDatasetVersion
-	138, // 290: flightstrips.cluster.v1.NavData.airport_fragment:type_name -> flightstrips.cluster.v1.NavAirportFragment
-	141, // 291: flightstrips.cluster.v1.NavData.procedure_fragment:type_name -> flightstrips.cluster.v1.NavProcedureFragment
-	145, // 292: flightstrips.cluster.v1.NavData.fix_fragment:type_name -> flightstrips.cluster.v1.NavFixFragment
-	147, // 293: flightstrips.cluster.v1.NavData.terminal_fragment:type_name -> flightstrips.cluster.v1.NavTerminalFragment
-	150, // 294: flightstrips.cluster.v1.NavData.route_candidate:type_name -> flightstrips.cluster.v1.NavRouteCandidate
-	135, // 295: flightstrips.cluster.v1.NavData.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
-	158, // 296: flightstrips.cluster.v1.NavData.imported_at:type_name -> google.protobuf.Timestamp
-	158, // 297: flightstrips.cluster.v1.NavData.validated_at:type_name -> google.protobuf.Timestamp
-	158, // 298: flightstrips.cluster.v1.NavDatasetVersion.effective_from:type_name -> google.protobuf.Timestamp
-	158, // 299: flightstrips.cluster.v1.NavDatasetVersion.effective_until:type_name -> google.protobuf.Timestamp
-	158, // 300: flightstrips.cluster.v1.NavProvenance.imported_at:type_name -> google.protobuf.Timestamp
-	158, // 301: flightstrips.cluster.v1.NavProvenance.effective_from:type_name -> google.protobuf.Timestamp
-	158, // 302: flightstrips.cluster.v1.NavProvenance.effective_until:type_name -> google.protobuf.Timestamp
-	136, // 303: flightstrips.cluster.v1.NavThreshold.position:type_name -> flightstrips.cluster.v1.NavCoordinate
-	139, // 304: flightstrips.cluster.v1.NavAirportFragment.airport:type_name -> flightstrips.cluster.v1.NavAirport
-	140, // 305: flightstrips.cluster.v1.NavAirportFragment.runways:type_name -> flightstrips.cluster.v1.NavRunway
-	136, // 306: flightstrips.cluster.v1.NavAirport.position:type_name -> flightstrips.cluster.v1.NavCoordinate
-	135, // 307: flightstrips.cluster.v1.NavAirport.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
-	137, // 308: flightstrips.cluster.v1.NavRunway.threshold:type_name -> flightstrips.cluster.v1.NavThreshold
-	135, // 309: flightstrips.cluster.v1.NavRunway.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
-	142, // 310: flightstrips.cluster.v1.NavProcedureFragment.procedures:type_name -> flightstrips.cluster.v1.NavProcedure
-	143, // 311: flightstrips.cluster.v1.NavProcedure.legs:type_name -> flightstrips.cluster.v1.NavLeg
-	144, // 312: flightstrips.cluster.v1.NavProcedure.holdings:type_name -> flightstrips.cluster.v1.NavHolding
-	135, // 313: flightstrips.cluster.v1.NavProcedure.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
-	136, // 314: flightstrips.cluster.v1.NavLeg.from_position:type_name -> flightstrips.cluster.v1.NavCoordinate
-	136, // 315: flightstrips.cluster.v1.NavLeg.to_position:type_name -> flightstrips.cluster.v1.NavCoordinate
-	135, // 316: flightstrips.cluster.v1.NavHolding.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
-	146, // 317: flightstrips.cluster.v1.NavFixFragment.fixes:type_name -> flightstrips.cluster.v1.NavFix
-	136, // 318: flightstrips.cluster.v1.NavFix.position:type_name -> flightstrips.cluster.v1.NavCoordinate
-	135, // 319: flightstrips.cluster.v1.NavFix.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
-	148, // 320: flightstrips.cluster.v1.NavTerminalFragment.star_family_policies:type_name -> flightstrips.cluster.v1.NavStarFamilyPolicy
-	59,  // 321: flightstrips.cluster.v1.NavTerminalFragment.timeline_mappings:type_name -> flightstrips.cluster.v1.AmanTimelineMapping
-	149, // 322: flightstrips.cluster.v1.NavTerminalFragment.paths:type_name -> flightstrips.cluster.v1.NavTerminalPath
-	144, // 323: flightstrips.cluster.v1.NavTerminalFragment.holdings:type_name -> flightstrips.cluster.v1.NavHolding
-	54,  // 324: flightstrips.cluster.v1.NavStarFamilyPolicy.same_star_spacing:type_name -> flightstrips.cluster.v1.AmanSameStarSpacing
-	134, // 325: flightstrips.cluster.v1.NavTerminalPath.version:type_name -> flightstrips.cluster.v1.NavDatasetVersion
-	159, // 326: flightstrips.cluster.v1.NavTerminalPath.holding_to_feeder_duration:type_name -> google.protobuf.Duration
-	143, // 327: flightstrips.cluster.v1.NavTerminalPath.legs:type_name -> flightstrips.cluster.v1.NavLeg
-	135, // 328: flightstrips.cluster.v1.NavTerminalPath.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
-	151, // 329: flightstrips.cluster.v1.NavRouteCandidate.query:type_name -> flightstrips.cluster.v1.NavRouteQuery
-	152, // 330: flightstrips.cluster.v1.NavRouteCandidate.geometry:type_name -> flightstrips.cluster.v1.NavRouteGeometry
-	158, // 331: flightstrips.cluster.v1.NavRouteCandidate.created_at:type_name -> google.protobuf.Timestamp
-	134, // 332: flightstrips.cluster.v1.NavRouteQuery.version:type_name -> flightstrips.cluster.v1.NavDatasetVersion
-	134, // 333: flightstrips.cluster.v1.NavRouteGeometry.version:type_name -> flightstrips.cluster.v1.NavDatasetVersion
-	143, // 334: flightstrips.cluster.v1.NavRouteGeometry.legs:type_name -> flightstrips.cluster.v1.NavLeg
-	135, // 335: flightstrips.cluster.v1.NavRouteGeometry.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
-	155, // 336: flightstrips.cluster.v1.ProviderPage.airac:type_name -> flightstrips.cluster.v1.AiracPage
-	156, // 337: flightstrips.cluster.v1.ProviderPage.vatsim:type_name -> flightstrips.cluster.v1.VatsimPage
-	157, // 338: flightstrips.cluster.v1.ProviderPage.weather:type_name -> flightstrips.cluster.v1.WeatherPage
-	133, // 339: flightstrips.cluster.v1.AiracPage.fragments:type_name -> flightstrips.cluster.v1.NavData
-	106, // 340: flightstrips.cluster.v1.VatsimPage.observations:type_name -> flightstrips.cluster.v1.VatsimObservation
-	112, // 341: flightstrips.cluster.v1.WeatherPage.observations:type_name -> flightstrips.cluster.v1.WeatherObservation
-	342, // [342:342] is the sub-list for method output_type
-	342, // [342:342] is the sub-list for method input_type
-	342, // [342:342] is the sub-list for extension type_name
-	342, // [342:342] is the sub-list for extension extendee
-	0,   // [0:342] is the sub-list for field type_name
+	108, // 46: flightstrips.cluster.v1.EntityRecord.nav_manifest:type_name -> flightstrips.cluster.v1.NavManifest
+	110, // 47: flightstrips.cluster.v1.EntityRecord.nav_route_cache:type_name -> flightstrips.cluster.v1.NavRouteCache
+	111, // 48: flightstrips.cluster.v1.EntityRecord.provider_checkpoint:type_name -> flightstrips.cluster.v1.ProviderCheckpoint
+	112, // 49: flightstrips.cluster.v1.EntityRecord.weather_cache:type_name -> flightstrips.cluster.v1.WeatherCache
+	115, // 50: flightstrips.cluster.v1.EntityRecord.session_deadline:type_name -> flightstrips.cluster.v1.SessionDeadline
+	107, // 51: flightstrips.cluster.v1.EntityRecord.vatsim_session_cursor:type_name -> flightstrips.cluster.v1.VatsimSessionCursor
+	2,   // 52: flightstrips.cluster.v1.SessionRegistry.state:type_name -> flightstrips.cluster.v1.SessionRegistry.State
+	183, // 53: flightstrips.cluster.v1.ProviderQuota.window_start:type_name -> google.protobuf.Timestamp
+	25,  // 54: flightstrips.cluster.v1.AirportPolicy.runways:type_name -> flightstrips.cluster.v1.RunwayPolicy
+	27,  // 55: flightstrips.cluster.v1.Session.runways:type_name -> flightstrips.cluster.v1.Runway
+	14,  // 56: flightstrips.cluster.v1.Session.master:type_name -> flightstrips.cluster.v1.MasterTerm
+	15,  // 57: flightstrips.cluster.v1.Session.sync:type_name -> flightstrips.cluster.v1.SessionSync
+	183, // 58: flightstrips.cluster.v1.Session.first_no_controller_at:type_name -> google.protobuf.Timestamp
+	29,  // 59: flightstrips.cluster.v1.Session.available_sids:type_name -> flightstrips.cluster.v1.SidInfo
+	30,  // 60: flightstrips.cluster.v1.Session.initial_cfl_by_runway:type_name -> flightstrips.cluster.v1.RunwayCfl
+	28,  // 61: flightstrips.cluster.v1.Session.runway_statuses:type_name -> flightstrips.cluster.v1.RunwayStatus
+	183, // 62: flightstrips.cluster.v1.Session.cleanup_paused_at:type_name -> google.protobuf.Timestamp
+	183, // 63: flightstrips.cluster.v1.Strip.eobt:type_name -> google.protobuf.Timestamp
+	183, // 64: flightstrips.cluster.v1.Strip.tobt:type_name -> google.protobuf.Timestamp
+	183, // 65: flightstrips.cluster.v1.Strip.tsat:type_name -> google.protobuf.Timestamp
+	183, // 66: flightstrips.cluster.v1.Strip.ttot:type_name -> google.protobuf.Timestamp
+	183, // 67: flightstrips.cluster.v1.Strip.ctot:type_name -> google.protobuf.Timestamp
+	34,  // 68: flightstrips.cluster.v1.Strip.validation:type_name -> flightstrips.cluster.v1.ValidationStatus
+	183, // 69: flightstrips.cluster.v1.Strip.aobt:type_name -> google.protobuf.Timestamp
+	183, // 70: flightstrips.cluster.v1.Strip.asat:type_name -> google.protobuf.Timestamp
+	183, // 71: flightstrips.cluster.v1.Strip.asrt:type_name -> google.protobuf.Timestamp
+	183, // 72: flightstrips.cluster.v1.Strip.tsac:type_name -> google.protobuf.Timestamp
+	183, // 73: flightstrips.cluster.v1.Strip.eldt:type_name -> google.protobuf.Timestamp
+	183, // 74: flightstrips.cluster.v1.Strip.aldt:type_name -> google.protobuf.Timestamp
+	183, // 75: flightstrips.cluster.v1.Strip.vatsim_seen_at:type_name -> google.protobuf.Timestamp
+	35,  // 76: flightstrips.cluster.v1.ValidationStatus.faults:type_name -> flightstrips.cluster.v1.ValidationFault
+	36,  // 77: flightstrips.cluster.v1.ValidationStatus.action:type_name -> flightstrips.cluster.v1.ValidationAction
+	37,  // 78: flightstrips.cluster.v1.ValidationAction.acknowledge:type_name -> flightstrips.cluster.v1.AcknowledgeValidation
+	38,  // 79: flightstrips.cluster.v1.ValidationAction.clx_override:type_name -> flightstrips.cluster.v1.ClxOverrideAction
+	183, // 80: flightstrips.cluster.v1.Coordination.created_at:type_name -> google.protobuf.Timestamp
+	183, // 81: flightstrips.cluster.v1.Coordination.resolved_at:type_name -> google.protobuf.Timestamp
+	183, // 82: flightstrips.cluster.v1.TacticalStrip.timer_started_at:type_name -> google.protobuf.Timestamp
+	183, // 83: flightstrips.cluster.v1.TacticalStrip.created_at:type_name -> google.protobuf.Timestamp
+	183, // 84: flightstrips.cluster.v1.StandAssignment.expires_at:type_name -> google.protobuf.Timestamp
+	183, // 85: flightstrips.cluster.v1.StandAssignment.eta:type_name -> google.protobuf.Timestamp
+	183, // 86: flightstrips.cluster.v1.StandAssignment.assigned_at:type_name -> google.protobuf.Timestamp
+	183, // 87: flightstrips.cluster.v1.StandAssignment.projected_release_at:type_name -> google.protobuf.Timestamp
+	183, // 88: flightstrips.cluster.v1.StandAssignment.acknowledged_at:type_name -> google.protobuf.Timestamp
+	183, // 89: flightstrips.cluster.v1.StandAssignment.created_at:type_name -> google.protobuf.Timestamp
+	183, // 90: flightstrips.cluster.v1.StandAssignment.updated_at:type_name -> google.protobuf.Timestamp
+	183, // 91: flightstrips.cluster.v1.StandBlock.created_at:type_name -> google.protobuf.Timestamp
+	183, // 92: flightstrips.cluster.v1.StandBlock.expires_at:type_name -> google.protobuf.Timestamp
+	183, // 93: flightstrips.cluster.v1.StandBlock.updated_at:type_name -> google.protobuf.Timestamp
+	183, // 94: flightstrips.cluster.v1.PdcSequence.deadline:type_name -> google.protobuf.Timestamp
+	183, // 95: flightstrips.cluster.v1.PdcSequence.requested_at:type_name -> google.protobuf.Timestamp
+	183, // 96: flightstrips.cluster.v1.PdcSequence.issued_at:type_name -> google.protobuf.Timestamp
+	183, // 97: flightstrips.cluster.v1.PdcSequence.pilot_acknowledged_at:type_name -> google.protobuf.Timestamp
+	183, // 98: flightstrips.cluster.v1.CdmState.tobt:type_name -> google.protobuf.Timestamp
+	183, // 99: flightstrips.cluster.v1.CdmState.tsat:type_name -> google.protobuf.Timestamp
+	183, // 100: flightstrips.cluster.v1.CdmState.ttot:type_name -> google.protobuf.Timestamp
+	183, // 101: flightstrips.cluster.v1.CdmState.ctot:type_name -> google.protobuf.Timestamp
+	46,  // 102: flightstrips.cluster.v1.EcfmpState.restrictions:type_name -> flightstrips.cluster.v1.EcfmpRestriction
+	183, // 103: flightstrips.cluster.v1.Atis.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 104: flightstrips.cluster.v1.ClxOverride.created_at:type_name -> google.protobuf.Timestamp
+	183, // 105: flightstrips.cluster.v1.FrontendMessage.created_at:type_name -> google.protobuf.Timestamp
+	51,  // 106: flightstrips.cluster.v1.AmanAirport.runway_groups:type_name -> flightstrips.cluster.v1.AmanRunwayGroup
+	59,  // 107: flightstrips.cluster.v1.AmanAirport.timeline_mappings:type_name -> flightstrips.cluster.v1.AmanTimelineMapping
+	60,  // 108: flightstrips.cluster.v1.AmanAirport.health:type_name -> flightstrips.cluster.v1.AmanTechnicalHealth
+	183, // 109: flightstrips.cluster.v1.AmanAirport.generated_at:type_name -> google.protobuf.Timestamp
+	183, // 110: flightstrips.cluster.v1.AmanRunwayGroup.rate_effective_at:type_name -> google.protobuf.Timestamp
+	56,  // 111: flightstrips.cluster.v1.AmanRunwayGroup.gaps:type_name -> flightstrips.cluster.v1.AmanGap
+	57,  // 112: flightstrips.cluster.v1.AmanRunwayGroup.closures:type_name -> flightstrips.cluster.v1.AmanClosure
+	58,  // 113: flightstrips.cluster.v1.AmanRunwayGroup.reservations:type_name -> flightstrips.cluster.v1.AmanReservation
+	52,  // 114: flightstrips.cluster.v1.AmanRunwayGroup.selection_schedule:type_name -> flightstrips.cluster.v1.AmanRunwaySelectionPoint
+	53,  // 115: flightstrips.cluster.v1.AmanRunwayGroup.rate_schedule:type_name -> flightstrips.cluster.v1.AmanRunwayRatePoint
+	54,  // 116: flightstrips.cluster.v1.AmanRunwayGroup.same_star_spacing:type_name -> flightstrips.cluster.v1.AmanSameStarSpacing
+	55,  // 117: flightstrips.cluster.v1.AmanRunwayGroup.sequence_warnings:type_name -> flightstrips.cluster.v1.AmanSequenceWarning
+	183, // 118: flightstrips.cluster.v1.AmanRunwaySelectionPoint.effective_at:type_name -> google.protobuf.Timestamp
+	183, // 119: flightstrips.cluster.v1.AmanRunwayRatePoint.effective_at:type_name -> google.protobuf.Timestamp
+	183, // 120: flightstrips.cluster.v1.AmanGap.start:type_name -> google.protobuf.Timestamp
+	183, // 121: flightstrips.cluster.v1.AmanGap.end:type_name -> google.protobuf.Timestamp
+	183, // 122: flightstrips.cluster.v1.AmanGap.created_at:type_name -> google.protobuf.Timestamp
+	183, // 123: flightstrips.cluster.v1.AmanClosure.start:type_name -> google.protobuf.Timestamp
+	183, // 124: flightstrips.cluster.v1.AmanClosure.end:type_name -> google.protobuf.Timestamp
+	183, // 125: flightstrips.cluster.v1.AmanClosure.created_at:type_name -> google.protobuf.Timestamp
+	183, // 126: flightstrips.cluster.v1.AmanReservation.start:type_name -> google.protobuf.Timestamp
+	183, // 127: flightstrips.cluster.v1.AmanReservation.end:type_name -> google.protobuf.Timestamp
+	183, // 128: flightstrips.cluster.v1.AmanReservation.created_at:type_name -> google.protobuf.Timestamp
+	61,  // 129: flightstrips.cluster.v1.AmanTechnicalHealth.components:type_name -> flightstrips.cluster.v1.AmanComponentHealth
+	183, // 130: flightstrips.cluster.v1.AmanComponentHealth.updated_at:type_name -> google.protobuf.Timestamp
+	68,  // 131: flightstrips.cluster.v1.AmanFlight.prediction:type_name -> flightstrips.cluster.v1.AmanPrediction
+	75,  // 132: flightstrips.cluster.v1.AmanFlight.raw_teta_samples:type_name -> flightstrips.cluster.v1.AmanRawTetaSample
+	76,  // 133: flightstrips.cluster.v1.AmanFlight.arrival_baseline:type_name -> flightstrips.cluster.v1.AmanBaseline
+	63,  // 134: flightstrips.cluster.v1.AmanFlight.latest_observation:type_name -> flightstrips.cluster.v1.AmanFlightObservation
+	69,  // 135: flightstrips.cluster.v1.AmanFlight.feeder_eta:type_name -> flightstrips.cluster.v1.AmanFeederEta
+	69,  // 136: flightstrips.cluster.v1.AmanFlight.derived_feeder_eta:type_name -> flightstrips.cluster.v1.AmanFeederEta
+	67,  // 137: flightstrips.cluster.v1.AmanFlight.holding_clearance:type_name -> flightstrips.cluster.v1.AmanHoldingClearance
+	71,  // 138: flightstrips.cluster.v1.AmanFlight.holding_stack:type_name -> flightstrips.cluster.v1.AmanHoldingStack
+	84,  // 139: flightstrips.cluster.v1.AmanFlight.active_route_fact:type_name -> flightstrips.cluster.v1.AmanRouteFact
+	77,  // 140: flightstrips.cluster.v1.AmanFlight.route_progress:type_name -> flightstrips.cluster.v1.AmanRouteProgress
+	78,  // 141: flightstrips.cluster.v1.AmanFlight.tma_entry:type_name -> flightstrips.cluster.v1.AmanTmaEntry
+	183, // 142: flightstrips.cluster.v1.AmanFlight.frozen_at:type_name -> google.protobuf.Timestamp
+	183, // 143: flightstrips.cluster.v1.AmanFlight.frozen_operational_teta:type_name -> google.protobuf.Timestamp
+	86,  // 144: flightstrips.cluster.v1.AmanFlight.frozen_slot:type_name -> flightstrips.cluster.v1.AmanSlot
+	86,  // 145: flightstrips.cluster.v1.AmanFlight.slot:type_name -> flightstrips.cluster.v1.AmanSlot
+	88,  // 146: flightstrips.cluster.v1.AmanFlight.queue_offers:type_name -> flightstrips.cluster.v1.AmanQueueOffer
+	87,  // 147: flightstrips.cluster.v1.AmanFlight.eta_review:type_name -> flightstrips.cluster.v1.AmanETAReview
+	79,  // 148: flightstrips.cluster.v1.AmanFlight.operational_exception:type_name -> flightstrips.cluster.v1.AmanOperationalException
+	90,  // 149: flightstrips.cluster.v1.AmanFlight.gap_exception:type_name -> flightstrips.cluster.v1.AmanGapException
+	81,  // 150: flightstrips.cluster.v1.AmanFlight.go_around_detection:type_name -> flightstrips.cluster.v1.AmanGoAroundDetection
+	89,  // 151: flightstrips.cluster.v1.AmanFlight.go_around_confirmation:type_name -> flightstrips.cluster.v1.AmanGoAroundConfirmation
+	82,  // 152: flightstrips.cluster.v1.AmanFlight.lifecycle:type_name -> flightstrips.cluster.v1.AmanLifecycle
+	183, // 153: flightstrips.cluster.v1.AmanFlight.updated_at:type_name -> google.protobuf.Timestamp
+	64,  // 154: flightstrips.cluster.v1.AmanFlightObservation.planned_timing:type_name -> flightstrips.cluster.v1.AmanPlannedTiming
+	65,  // 155: flightstrips.cluster.v1.AmanFlightObservation.flight_plan:type_name -> flightstrips.cluster.v1.AmanFlightPlanFact
+	66,  // 156: flightstrips.cluster.v1.AmanFlightObservation.surveillance:type_name -> flightstrips.cluster.v1.AmanSurveillanceFact
+	67,  // 157: flightstrips.cluster.v1.AmanFlightObservation.holding_clearance:type_name -> flightstrips.cluster.v1.AmanHoldingClearance
+	183, // 158: flightstrips.cluster.v1.AmanFlightObservation.takeoff_detected:type_name -> google.protobuf.Timestamp
+	183, // 159: flightstrips.cluster.v1.AmanFlightObservation.reconciled_at:type_name -> google.protobuf.Timestamp
+	183, // 160: flightstrips.cluster.v1.AmanPlannedTiming.estimated_off_block_time:type_name -> google.protobuf.Timestamp
+	184, // 161: flightstrips.cluster.v1.AmanPlannedTiming.estimated_enroute_time:type_name -> google.protobuf.Duration
+	183, // 162: flightstrips.cluster.v1.AmanFlightPlanFact.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 163: flightstrips.cluster.v1.AmanSurveillanceFact.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 164: flightstrips.cluster.v1.AmanHoldingClearance.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 165: flightstrips.cluster.v1.AmanPrediction.raw_teta:type_name -> google.protobuf.Timestamp
+	183, // 166: flightstrips.cluster.v1.AmanPrediction.raw_reta:type_name -> google.protobuf.Timestamp
+	183, // 167: flightstrips.cluster.v1.AmanPrediction.operational_teta:type_name -> google.protobuf.Timestamp
+	183, // 168: flightstrips.cluster.v1.AmanPrediction.generated_at:type_name -> google.protobuf.Timestamp
+	183, // 169: flightstrips.cluster.v1.AmanPrediction.input_observed_at:type_name -> google.protobuf.Timestamp
+	183, // 170: flightstrips.cluster.v1.AmanPrediction.holding_fix_eta:type_name -> google.protobuf.Timestamp
+	70,  // 171: flightstrips.cluster.v1.AmanPrediction.holding_plan:type_name -> flightstrips.cluster.v1.AmanHoldingPlan
+	72,  // 172: flightstrips.cluster.v1.AmanPrediction.calculation:type_name -> flightstrips.cluster.v1.AmanPredictionCalculation
+	183, // 173: flightstrips.cluster.v1.AmanFeederEta.eta:type_name -> google.protobuf.Timestamp
+	183, // 174: flightstrips.cluster.v1.AmanHoldingPlan.holding_entry_time:type_name -> google.protobuf.Timestamp
+	183, // 175: flightstrips.cluster.v1.AmanHoldingPlan.approach_release_time:type_name -> google.protobuf.Timestamp
+	184, // 176: flightstrips.cluster.v1.AmanHoldingPlan.expected_holding_duration:type_name -> google.protobuf.Duration
+	184, // 177: flightstrips.cluster.v1.AmanHoldingPlan.post_holding_transit:type_name -> google.protobuf.Duration
+	183, // 178: flightstrips.cluster.v1.AmanHoldingStack.candidate_observed_at:type_name -> google.protobuf.Timestamp
+	184, // 179: flightstrips.cluster.v1.AmanPredictionCalculation.no_wind_duration:type_name -> google.protobuf.Duration
+	184, // 180: flightstrips.cluster.v1.AmanPredictionCalculation.duration:type_name -> google.protobuf.Duration
+	73,  // 181: flightstrips.cluster.v1.AmanPredictionCalculation.legs:type_name -> flightstrips.cluster.v1.AmanPredictionLeg
+	74,  // 182: flightstrips.cluster.v1.AmanPredictionCalculation.segments:type_name -> flightstrips.cluster.v1.AmanPredictionSegment
+	184, // 183: flightstrips.cluster.v1.AmanPredictionLeg.no_wind_duration:type_name -> google.protobuf.Duration
+	184, // 184: flightstrips.cluster.v1.AmanPredictionLeg.duration:type_name -> google.protobuf.Duration
+	184, // 185: flightstrips.cluster.v1.AmanPredictionSegment.no_wind_duration:type_name -> google.protobuf.Duration
+	184, // 186: flightstrips.cluster.v1.AmanPredictionSegment.duration:type_name -> google.protobuf.Duration
+	183, // 187: flightstrips.cluster.v1.AmanRawTetaSample.teta:type_name -> google.protobuf.Timestamp
+	183, // 188: flightstrips.cluster.v1.AmanRawTetaSample.generated_at:type_name -> google.protobuf.Timestamp
+	183, // 189: flightstrips.cluster.v1.AmanBaseline.arrival_at:type_name -> google.protobuf.Timestamp
+	183, // 190: flightstrips.cluster.v1.AmanBaseline.airborne_sensed_at:type_name -> google.protobuf.Timestamp
+	183, // 191: flightstrips.cluster.v1.AmanBaseline.flight_plan_observed_at:type_name -> google.protobuf.Timestamp
+	183, // 192: flightstrips.cluster.v1.AmanTmaEntry.last_observed_at:type_name -> google.protobuf.Timestamp
+	183, // 193: flightstrips.cluster.v1.AmanOperationalException.detected_at:type_name -> google.protobuf.Timestamp
+	183, // 194: flightstrips.cluster.v1.AmanGoAroundEvidence.observed_at:type_name -> google.protobuf.Timestamp
+	80,  // 195: flightstrips.cluster.v1.AmanGoAroundDetection.evidence:type_name -> flightstrips.cluster.v1.AmanGoAroundEvidence
+	183, // 196: flightstrips.cluster.v1.AmanGoAroundDetection.armed_at:type_name -> google.protobuf.Timestamp
+	183, // 197: flightstrips.cluster.v1.AmanGoAroundDetection.last_processed_at:type_name -> google.protobuf.Timestamp
+	183, // 198: flightstrips.cluster.v1.AmanLifecycle.entered_at:type_name -> google.protobuf.Timestamp
+	183, // 199: flightstrips.cluster.v1.AmanLifecycle.last_event_at:type_name -> google.protobuf.Timestamp
+	83,  // 200: flightstrips.cluster.v1.AmanLifecycle.absence:type_name -> flightstrips.cluster.v1.AmanAbsence
+	183, // 201: flightstrips.cluster.v1.AmanAbsence.missing_since:type_name -> google.protobuf.Timestamp
+	183, // 202: flightstrips.cluster.v1.AmanAbsence.removal_due_at:type_name -> google.protobuf.Timestamp
+	184, // 203: flightstrips.cluster.v1.AmanAbsence.remaining:type_name -> google.protobuf.Duration
+	183, // 204: flightstrips.cluster.v1.AmanRouteFact.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 205: flightstrips.cluster.v1.AmanRouteFact.received_at:type_name -> google.protobuf.Timestamp
+	183, // 206: flightstrips.cluster.v1.AmanSlot.time:type_name -> google.protobuf.Timestamp
+	183, // 207: flightstrips.cluster.v1.AmanETAReview.created_at:type_name -> google.protobuf.Timestamp
+	183, // 208: flightstrips.cluster.v1.AmanETAReview.deadline_at:type_name -> google.protobuf.Timestamp
+	183, // 209: flightstrips.cluster.v1.AmanETAReview.resolved_at:type_name -> google.protobuf.Timestamp
+	183, // 210: flightstrips.cluster.v1.AmanETAReview.initial_baseline_teta:type_name -> google.protobuf.Timestamp
+	183, // 211: flightstrips.cluster.v1.AmanETAReview.calculated_operational_teta:type_name -> google.protobuf.Timestamp
+	183, // 212: flightstrips.cluster.v1.AmanETAReview.selected_teta:type_name -> google.protobuf.Timestamp
+	183, // 213: flightstrips.cluster.v1.AmanETAReview.manual_teta:type_name -> google.protobuf.Timestamp
+	86,  // 214: flightstrips.cluster.v1.AmanQueueOffer.candidate_slot:type_name -> flightstrips.cluster.v1.AmanSlot
+	183, // 215: flightstrips.cluster.v1.AmanQueueOffer.expires_at:type_name -> google.protobuf.Timestamp
+	183, // 216: flightstrips.cluster.v1.AmanGoAroundConfirmation.detected_at:type_name -> google.protobuf.Timestamp
+	183, // 217: flightstrips.cluster.v1.AmanGoAroundConfirmation.evidence_times:type_name -> google.protobuf.Timestamp
+	183, // 218: flightstrips.cluster.v1.AmanGoAroundConfirmation.decided_at:type_name -> google.protobuf.Timestamp
+	183, // 219: flightstrips.cluster.v1.AmanGapException.opportunity:type_name -> google.protobuf.Timestamp
+	92,  // 220: flightstrips.cluster.v1.AmanCoordination.route_direct:type_name -> flightstrips.cluster.v1.AmanRouteDirect
+	93,  // 221: flightstrips.cluster.v1.AmanCoordination.speed:type_name -> flightstrips.cluster.v1.AmanSpeed
+	183, // 222: flightstrips.cluster.v1.AmanCoordination.created_at:type_name -> google.protobuf.Timestamp
+	183, // 223: flightstrips.cluster.v1.AmanCoordination.updated_at:type_name -> google.protobuf.Timestamp
+	94,  // 224: flightstrips.cluster.v1.AmanCoordination.clearance:type_name -> flightstrips.cluster.v1.AmanClearance
+	183, // 225: flightstrips.cluster.v1.AmanClearance.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 226: flightstrips.cluster.v1.AmanAudit.created_at:type_name -> google.protobuf.Timestamp
+	12,  // 227: flightstrips.cluster.v1.AmanAudit.actor:type_name -> flightstrips.cluster.v1.Actor
+	96,  // 228: flightstrips.cluster.v1.AmanAudit.command:type_name -> flightstrips.cluster.v1.AmanCommandAudit
+	97,  // 229: flightstrips.cluster.v1.AmanAudit.observation:type_name -> flightstrips.cluster.v1.AmanObservationAudit
+	98,  // 230: flightstrips.cluster.v1.AmanAudit.sequence:type_name -> flightstrips.cluster.v1.AmanSequenceAudit
+	99,  // 231: flightstrips.cluster.v1.AmanAudit.coordination:type_name -> flightstrips.cluster.v1.AmanCoordinationAudit
+	100, // 232: flightstrips.cluster.v1.AmanAudit.health:type_name -> flightstrips.cluster.v1.AmanHealthAudit
+	101, // 233: flightstrips.cluster.v1.AmanAudit.capacity:type_name -> flightstrips.cluster.v1.AmanCapacityAudit
+	102, // 234: flightstrips.cluster.v1.AmanAudit.freeze:type_name -> flightstrips.cluster.v1.AmanFreezeAudit
+	103, // 235: flightstrips.cluster.v1.AmanAudit.go_around:type_name -> flightstrips.cluster.v1.AmanGoAroundAudit
+	104, // 236: flightstrips.cluster.v1.AmanAudit.replay:type_name -> flightstrips.cluster.v1.AmanReplayAudit
+	86,  // 237: flightstrips.cluster.v1.AmanSequenceAudit.before:type_name -> flightstrips.cluster.v1.AmanSlot
+	86,  // 238: flightstrips.cluster.v1.AmanSequenceAudit.after:type_name -> flightstrips.cluster.v1.AmanSlot
+	3,   // 239: flightstrips.cluster.v1.AmanCapacityAudit.kind:type_name -> flightstrips.cluster.v1.AmanCapacityAudit.Kind
+	98,  // 240: flightstrips.cluster.v1.AmanCapacityAudit.displaced_flights:type_name -> flightstrips.cluster.v1.AmanSequenceAudit
+	183, // 241: flightstrips.cluster.v1.AmanCapacityAudit.start:type_name -> google.protobuf.Timestamp
+	183, // 242: flightstrips.cluster.v1.AmanCapacityAudit.end:type_name -> google.protobuf.Timestamp
+	183, // 243: flightstrips.cluster.v1.AmanFreezeAudit.operational_teta:type_name -> google.protobuf.Timestamp
+	86,  // 244: flightstrips.cluster.v1.AmanFreezeAudit.slot:type_name -> flightstrips.cluster.v1.AmanSlot
+	80,  // 245: flightstrips.cluster.v1.AmanGoAroundAudit.evidence:type_name -> flightstrips.cluster.v1.AmanGoAroundEvidence
+	35,  // 246: flightstrips.cluster.v1.AmanValidation.faults:type_name -> flightstrips.cluster.v1.ValidationFault
+	183, // 247: flightstrips.cluster.v1.AmanValidation.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 248: flightstrips.cluster.v1.VatsimObservation.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 249: flightstrips.cluster.v1.VatsimSessionCursor.snapshot_at:type_name -> google.protobuf.Timestamp
+	109, // 250: flightstrips.cluster.v1.NavManifest.objects:type_name -> flightstrips.cluster.v1.NavObjectRef
+	113, // 251: flightstrips.cluster.v1.WeatherCache.observation:type_name -> flightstrips.cluster.v1.WeatherObservation
+	183, // 252: flightstrips.cluster.v1.WeatherCache.fetched_at:type_name -> google.protobuf.Timestamp
+	183, // 253: flightstrips.cluster.v1.WeatherCache.expires_at:type_name -> google.protobuf.Timestamp
+	114, // 254: flightstrips.cluster.v1.WeatherObservation.clouds:type_name -> flightstrips.cluster.v1.WeatherCloud
+	183, // 255: flightstrips.cluster.v1.SessionDeadline.due_at:type_name -> google.protobuf.Timestamp
+	12,  // 256: flightstrips.cluster.v1.CommandOutcome.actor:type_name -> flightstrips.cluster.v1.Actor
+	4,   // 257: flightstrips.cluster.v1.CommandOutcome.status:type_name -> flightstrips.cluster.v1.CommandOutcome.Status
+	8,   // 258: flightstrips.cluster.v1.CommandOutcome.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	8,   // 259: flightstrips.cluster.v1.WorkflowRecord.source:type_name -> flightstrips.cluster.v1.AggregateRef
+	8,   // 260: flightstrips.cluster.v1.WorkflowRecord.destination:type_name -> flightstrips.cluster.v1.AggregateRef
+	5,   // 261: flightstrips.cluster.v1.WorkflowRecord.status:type_name -> flightstrips.cluster.v1.WorkflowRecord.Status
+	6,   // 262: flightstrips.cluster.v1.EffectRecord.status:type_name -> flightstrips.cluster.v1.EffectRecord.Status
+	119, // 263: flightstrips.cluster.v1.EffectRecord.set_flight_plan:type_name -> flightstrips.cluster.v1.SetFlightPlanEffect
+	120, // 264: flightstrips.cluster.v1.EffectRecord.pdc:type_name -> flightstrips.cluster.v1.PdcEffect
+	121, // 265: flightstrips.cluster.v1.EffectRecord.private_message:type_name -> flightstrips.cluster.v1.PrivateMessageEffect
+	122, // 266: flightstrips.cluster.v1.EffectRecord.coordination:type_name -> flightstrips.cluster.v1.CoordinationEffect
+	123, // 267: flightstrips.cluster.v1.EffectRecord.cdm:type_name -> flightstrips.cluster.v1.CdmEffect
+	183, // 268: flightstrips.cluster.v1.EffectRecord.dispatch_deadline:type_name -> google.protobuf.Timestamp
+	183, // 269: flightstrips.cluster.v1.EffectRecord.result_deadline:type_name -> google.protobuf.Timestamp
+	8,   // 270: flightstrips.cluster.v1.Snapshot.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	13,  // 271: flightstrips.cluster.v1.Snapshot.owner:type_name -> flightstrips.cluster.v1.OwnerTerm
+	125, // 272: flightstrips.cluster.v1.Snapshot.entities:type_name -> flightstrips.cluster.v1.EntitySnapshot
+	116, // 273: flightstrips.cluster.v1.Snapshot.outcomes:type_name -> flightstrips.cluster.v1.CommandOutcome
+	117, // 274: flightstrips.cluster.v1.Snapshot.workflows:type_name -> flightstrips.cluster.v1.WorkflowRecord
+	118, // 275: flightstrips.cluster.v1.Snapshot.effects:type_name -> flightstrips.cluster.v1.EffectRecord
+	14,  // 276: flightstrips.cluster.v1.Snapshot.master:type_name -> flightstrips.cluster.v1.MasterTerm
+	15,  // 277: flightstrips.cluster.v1.Snapshot.sync:type_name -> flightstrips.cluster.v1.SessionSync
+	20,  // 278: flightstrips.cluster.v1.EntitySnapshot.value:type_name -> flightstrips.cluster.v1.EntityRecord
+	8,   // 279: flightstrips.cluster.v1.SnapshotIndex.aggregate:type_name -> flightstrips.cluster.v1.AggregateRef
+	183, // 280: flightstrips.cluster.v1.PositionValue.observed_at:type_name -> google.protobuf.Timestamp
+	128, // 281: flightstrips.cluster.v1.PositionValue.position:type_name -> flightstrips.cluster.v1.AircraftPosition
+	129, // 282: flightstrips.cluster.v1.PositionValue.tombstone:type_name -> flightstrips.cluster.v1.PositionTombstone
+	131, // 283: flightstrips.cluster.v1.PresenceValue.node:type_name -> flightstrips.cluster.v1.NodePresence
+	132, // 284: flightstrips.cluster.v1.PresenceValue.client:type_name -> flightstrips.cluster.v1.ClientPresence
+	183, // 285: flightstrips.cluster.v1.NodePresence.started_at:type_name -> google.protobuf.Timestamp
+	183, // 286: flightstrips.cluster.v1.ClientPresence.connected_at:type_name -> google.protobuf.Timestamp
+	7,   // 287: flightstrips.cluster.v1.ClientPresence.kind:type_name -> flightstrips.cluster.v1.ClientPresence.Kind
+	124, // 288: flightstrips.cluster.v1.ObjectValue.snapshot:type_name -> flightstrips.cluster.v1.Snapshot
+	134, // 289: flightstrips.cluster.v1.ObjectValue.nav:type_name -> flightstrips.cluster.v1.NavData
+	154, // 290: flightstrips.cluster.v1.ObjectValue.effect_secret:type_name -> flightstrips.cluster.v1.EffectSecret
+	155, // 291: flightstrips.cluster.v1.ObjectValue.provider_page:type_name -> flightstrips.cluster.v1.ProviderPage
+	135, // 292: flightstrips.cluster.v1.NavData.version:type_name -> flightstrips.cluster.v1.NavDatasetVersion
+	139, // 293: flightstrips.cluster.v1.NavData.airport_fragment:type_name -> flightstrips.cluster.v1.NavAirportFragment
+	142, // 294: flightstrips.cluster.v1.NavData.procedure_fragment:type_name -> flightstrips.cluster.v1.NavProcedureFragment
+	146, // 295: flightstrips.cluster.v1.NavData.fix_fragment:type_name -> flightstrips.cluster.v1.NavFixFragment
+	148, // 296: flightstrips.cluster.v1.NavData.terminal_fragment:type_name -> flightstrips.cluster.v1.NavTerminalFragment
+	151, // 297: flightstrips.cluster.v1.NavData.route_candidate:type_name -> flightstrips.cluster.v1.NavRouteCandidate
+	136, // 298: flightstrips.cluster.v1.NavData.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
+	183, // 299: flightstrips.cluster.v1.NavData.imported_at:type_name -> google.protobuf.Timestamp
+	183, // 300: flightstrips.cluster.v1.NavData.validated_at:type_name -> google.protobuf.Timestamp
+	183, // 301: flightstrips.cluster.v1.NavDatasetVersion.effective_from:type_name -> google.protobuf.Timestamp
+	183, // 302: flightstrips.cluster.v1.NavDatasetVersion.effective_until:type_name -> google.protobuf.Timestamp
+	183, // 303: flightstrips.cluster.v1.NavProvenance.imported_at:type_name -> google.protobuf.Timestamp
+	183, // 304: flightstrips.cluster.v1.NavProvenance.effective_from:type_name -> google.protobuf.Timestamp
+	183, // 305: flightstrips.cluster.v1.NavProvenance.effective_until:type_name -> google.protobuf.Timestamp
+	137, // 306: flightstrips.cluster.v1.NavThreshold.position:type_name -> flightstrips.cluster.v1.NavCoordinate
+	140, // 307: flightstrips.cluster.v1.NavAirportFragment.airport:type_name -> flightstrips.cluster.v1.NavAirport
+	141, // 308: flightstrips.cluster.v1.NavAirportFragment.runways:type_name -> flightstrips.cluster.v1.NavRunway
+	137, // 309: flightstrips.cluster.v1.NavAirport.position:type_name -> flightstrips.cluster.v1.NavCoordinate
+	136, // 310: flightstrips.cluster.v1.NavAirport.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
+	138, // 311: flightstrips.cluster.v1.NavRunway.threshold:type_name -> flightstrips.cluster.v1.NavThreshold
+	136, // 312: flightstrips.cluster.v1.NavRunway.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
+	143, // 313: flightstrips.cluster.v1.NavProcedureFragment.procedures:type_name -> flightstrips.cluster.v1.NavProcedure
+	144, // 314: flightstrips.cluster.v1.NavProcedure.legs:type_name -> flightstrips.cluster.v1.NavLeg
+	145, // 315: flightstrips.cluster.v1.NavProcedure.holdings:type_name -> flightstrips.cluster.v1.NavHolding
+	136, // 316: flightstrips.cluster.v1.NavProcedure.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
+	137, // 317: flightstrips.cluster.v1.NavLeg.from_position:type_name -> flightstrips.cluster.v1.NavCoordinate
+	137, // 318: flightstrips.cluster.v1.NavLeg.to_position:type_name -> flightstrips.cluster.v1.NavCoordinate
+	136, // 319: flightstrips.cluster.v1.NavHolding.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
+	147, // 320: flightstrips.cluster.v1.NavFixFragment.fixes:type_name -> flightstrips.cluster.v1.NavFix
+	137, // 321: flightstrips.cluster.v1.NavFix.position:type_name -> flightstrips.cluster.v1.NavCoordinate
+	136, // 322: flightstrips.cluster.v1.NavFix.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
+	149, // 323: flightstrips.cluster.v1.NavTerminalFragment.star_family_policies:type_name -> flightstrips.cluster.v1.NavStarFamilyPolicy
+	59,  // 324: flightstrips.cluster.v1.NavTerminalFragment.timeline_mappings:type_name -> flightstrips.cluster.v1.AmanTimelineMapping
+	150, // 325: flightstrips.cluster.v1.NavTerminalFragment.paths:type_name -> flightstrips.cluster.v1.NavTerminalPath
+	145, // 326: flightstrips.cluster.v1.NavTerminalFragment.holdings:type_name -> flightstrips.cluster.v1.NavHolding
+	54,  // 327: flightstrips.cluster.v1.NavStarFamilyPolicy.same_star_spacing:type_name -> flightstrips.cluster.v1.AmanSameStarSpacing
+	135, // 328: flightstrips.cluster.v1.NavTerminalPath.version:type_name -> flightstrips.cluster.v1.NavDatasetVersion
+	184, // 329: flightstrips.cluster.v1.NavTerminalPath.holding_to_feeder_duration:type_name -> google.protobuf.Duration
+	144, // 330: flightstrips.cluster.v1.NavTerminalPath.legs:type_name -> flightstrips.cluster.v1.NavLeg
+	136, // 331: flightstrips.cluster.v1.NavTerminalPath.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
+	152, // 332: flightstrips.cluster.v1.NavRouteCandidate.query:type_name -> flightstrips.cluster.v1.NavRouteQuery
+	153, // 333: flightstrips.cluster.v1.NavRouteCandidate.geometry:type_name -> flightstrips.cluster.v1.NavRouteGeometry
+	183, // 334: flightstrips.cluster.v1.NavRouteCandidate.created_at:type_name -> google.protobuf.Timestamp
+	135, // 335: flightstrips.cluster.v1.NavRouteQuery.version:type_name -> flightstrips.cluster.v1.NavDatasetVersion
+	135, // 336: flightstrips.cluster.v1.NavRouteGeometry.version:type_name -> flightstrips.cluster.v1.NavDatasetVersion
+	144, // 337: flightstrips.cluster.v1.NavRouteGeometry.legs:type_name -> flightstrips.cluster.v1.NavLeg
+	136, // 338: flightstrips.cluster.v1.NavRouteGeometry.provenance:type_name -> flightstrips.cluster.v1.NavProvenance
+	156, // 339: flightstrips.cluster.v1.ProviderPage.airac:type_name -> flightstrips.cluster.v1.AiracPage
+	157, // 340: flightstrips.cluster.v1.ProviderPage.vatsim:type_name -> flightstrips.cluster.v1.VatsimPage
+	160, // 341: flightstrips.cluster.v1.ProviderPage.weather:type_name -> flightstrips.cluster.v1.WeatherPage
+	164, // 342: flightstrips.cluster.v1.ProviderPage.ecfmp:type_name -> flightstrips.cluster.v1.EcfmpPage
+	167, // 343: flightstrips.cluster.v1.ProviderPage.atis_feed:type_name -> flightstrips.cluster.v1.AtisFeedPage
+	161, // 344: flightstrips.cluster.v1.ProviderPage.open_meteo:type_name -> flightstrips.cluster.v1.OpenMeteoPage
+	170, // 345: flightstrips.cluster.v1.ProviderPage.cdm_config:type_name -> flightstrips.cluster.v1.CdmConfigPage
+	178, // 346: flightstrips.cluster.v1.ProviderPage.viff_flights:type_name -> flightstrips.cluster.v1.ViffFlightPage
+	181, // 347: flightstrips.cluster.v1.ProviderPage.viff_masters:type_name -> flightstrips.cluster.v1.ViffMastersPage
+	134, // 348: flightstrips.cluster.v1.AiracPage.fragments:type_name -> flightstrips.cluster.v1.NavData
+	106, // 349: flightstrips.cluster.v1.VatsimPage.observations:type_name -> flightstrips.cluster.v1.VatsimObservation
+	158, // 350: flightstrips.cluster.v1.VatsimPage.flights:type_name -> flightstrips.cluster.v1.VatsimFlight
+	183, // 351: flightstrips.cluster.v1.VatsimPage.snapshot_at:type_name -> google.protobuf.Timestamp
+	183, // 352: flightstrips.cluster.v1.VatsimFlight.logon_time:type_name -> google.protobuf.Timestamp
+	183, // 353: flightstrips.cluster.v1.VatsimFlight.last_updated:type_name -> google.protobuf.Timestamp
+	159, // 354: flightstrips.cluster.v1.VatsimFlight.flight_plan:type_name -> flightstrips.cluster.v1.VatsimFlightPlan
+	113, // 355: flightstrips.cluster.v1.WeatherPage.observations:type_name -> flightstrips.cluster.v1.WeatherObservation
+	183, // 356: flightstrips.cluster.v1.OpenMeteoPage.observed_at:type_name -> google.protobuf.Timestamp
+	183, // 357: flightstrips.cluster.v1.OpenMeteoPage.expires_at:type_name -> google.protobuf.Timestamp
+	162, // 358: flightstrips.cluster.v1.OpenMeteoPage.samples:type_name -> flightstrips.cluster.v1.OpenMeteoSample
+	183, // 359: flightstrips.cluster.v1.OpenMeteoSample.forecast_at:type_name -> google.protobuf.Timestamp
+	163, // 360: flightstrips.cluster.v1.OpenMeteoSample.levels:type_name -> flightstrips.cluster.v1.OpenMeteoWindLevel
+	165, // 361: flightstrips.cluster.v1.EcfmpPage.measures:type_name -> flightstrips.cluster.v1.EcfmpMeasure
+	183, // 362: flightstrips.cluster.v1.EcfmpPage.fetched_at:type_name -> google.protobuf.Timestamp
+	183, // 363: flightstrips.cluster.v1.EcfmpMeasure.start_time:type_name -> google.protobuf.Timestamp
+	183, // 364: flightstrips.cluster.v1.EcfmpMeasure.end_time:type_name -> google.protobuf.Timestamp
+	183, // 365: flightstrips.cluster.v1.EcfmpMeasure.withdrawn_at:type_name -> google.protobuf.Timestamp
+	166, // 366: flightstrips.cluster.v1.EcfmpMeasure.filters:type_name -> flightstrips.cluster.v1.EcfmpFilter
+	168, // 367: flightstrips.cluster.v1.AtisFeedPage.airports:type_name -> flightstrips.cluster.v1.AtisFeedAirport
+	183, // 368: flightstrips.cluster.v1.AtisFeedPage.fetched_at:type_name -> google.protobuf.Timestamp
+	169, // 369: flightstrips.cluster.v1.AtisFeedAirport.arrival:type_name -> flightstrips.cluster.v1.AtisFeedEntry
+	169, // 370: flightstrips.cluster.v1.AtisFeedAirport.departure:type_name -> flightstrips.cluster.v1.AtisFeedEntry
+	183, // 371: flightstrips.cluster.v1.AtisFeedEntry.last_updated:type_name -> google.protobuf.Timestamp
+	183, // 372: flightstrips.cluster.v1.CdmConfigPage.fetched_at:type_name -> google.protobuf.Timestamp
+	171, // 373: flightstrips.cluster.v1.CdmConfigPage.rates:type_name -> flightstrips.cluster.v1.CdmConfigRate
+	172, // 374: flightstrips.cluster.v1.CdmConfigPage.sid_intervals:type_name -> flightstrips.cluster.v1.CdmConfigSidInterval
+	174, // 375: flightstrips.cluster.v1.CdmConfigPage.taxi_zones:type_name -> flightstrips.cluster.v1.CdmConfigTaxiZone
+	175, // 376: flightstrips.cluster.v1.CdmConfigPage.delays:type_name -> flightstrips.cluster.v1.CdmConfigDelay
+	176, // 377: flightstrips.cluster.v1.CdmConfigPage.deice:type_name -> flightstrips.cluster.v1.CdmConfigDeice
+	173, // 378: flightstrips.cluster.v1.CdmConfigTaxiZone.polygon:type_name -> flightstrips.cluster.v1.CdmConfigTaxiPoint
+	177, // 379: flightstrips.cluster.v1.CdmConfigDeice.platforms:type_name -> flightstrips.cluster.v1.CdmConfigDeicePlatform
+	183, // 380: flightstrips.cluster.v1.ViffFlightPage.fetched_at:type_name -> google.protobuf.Timestamp
+	179, // 381: flightstrips.cluster.v1.ViffFlightPage.flights:type_name -> flightstrips.cluster.v1.ViffFlight
+	180, // 382: flightstrips.cluster.v1.ViffFlight.cdm_data:type_name -> flightstrips.cluster.v1.ViffCdmData
+	183, // 383: flightstrips.cluster.v1.ViffMastersPage.fetched_at:type_name -> google.protobuf.Timestamp
+	182, // 384: flightstrips.cluster.v1.ViffMastersPage.masters:type_name -> flightstrips.cluster.v1.ViffMaster
+	385, // [385:385] is the sub-list for method output_type
+	385, // [385:385] is the sub-list for method input_type
+	385, // [385:385] is the sub-list for extension type_name
+	385, // [385:385] is the sub-list for extension extendee
+	0,   // [0:385] is the sub-list for field type_name
 }
 
 func init() { file_storage_proto_init() }
@@ -16994,6 +19553,7 @@ func file_storage_proto_init() {
 		(*EntityRecord_ProviderCheckpoint)(nil),
 		(*EntityRecord_WeatherCache)(nil),
 		(*EntityRecord_SessionDeadline)(nil),
+		(*EntityRecord_VatsimSessionCursor)(nil),
 	}
 	file_storage_proto_msgTypes[18].OneofWrappers = []any{}
 	file_storage_proto_msgTypes[25].OneofWrappers = []any{}
@@ -17050,61 +19610,70 @@ func file_storage_proto_init() {
 	file_storage_proto_msgTypes[93].OneofWrappers = []any{}
 	file_storage_proto_msgTypes[94].OneofWrappers = []any{}
 	file_storage_proto_msgTypes[96].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[104].OneofWrappers = []any{}
 	file_storage_proto_msgTypes[105].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[107].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[106].OneofWrappers = []any{}
 	file_storage_proto_msgTypes[108].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[109].OneofWrappers = []any{
+	file_storage_proto_msgTypes[109].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[110].OneofWrappers = []any{
 		(*EffectRecord_SetFlightPlan)(nil),
 		(*EffectRecord_Pdc)(nil),
 		(*EffectRecord_PrivateMessage)(nil),
 		(*EffectRecord_Coordination)(nil),
 		(*EffectRecord_Cdm)(nil),
 	}
-	file_storage_proto_msgTypes[115].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[118].OneofWrappers = []any{
+	file_storage_proto_msgTypes[116].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[119].OneofWrappers = []any{
 		(*PositionValue_Position)(nil),
 		(*PositionValue_Tombstone)(nil),
 	}
-	file_storage_proto_msgTypes[119].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[121].OneofWrappers = []any{
+	file_storage_proto_msgTypes[120].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[122].OneofWrappers = []any{
 		(*PresenceValue_Node)(nil),
 		(*PresenceValue_Client)(nil),
 	}
-	file_storage_proto_msgTypes[124].OneofWrappers = []any{
+	file_storage_proto_msgTypes[125].OneofWrappers = []any{
 		(*ObjectValue_Snapshot)(nil),
 		(*ObjectValue_Nav)(nil),
 		(*ObjectValue_EffectSecret)(nil),
 		(*ObjectValue_ProviderPage)(nil),
 	}
-	file_storage_proto_msgTypes[125].OneofWrappers = []any{
+	file_storage_proto_msgTypes[126].OneofWrappers = []any{
 		(*NavData_AirportFragment)(nil),
 		(*NavData_ProcedureFragment)(nil),
 		(*NavData_FixFragment)(nil),
 		(*NavData_TerminalFragment)(nil),
 		(*NavData_RouteCandidate)(nil),
 	}
-	file_storage_proto_msgTypes[129].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[135].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[136].OneofWrappers = []any{
+	file_storage_proto_msgTypes[130].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[136].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[137].OneofWrappers = []any{
 		(*NavHolding_LengthNm)(nil),
 		(*NavHolding_TimeSeconds)(nil),
 	}
-	file_storage_proto_msgTypes[141].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[143].OneofWrappers = []any{}
-	file_storage_proto_msgTypes[146].OneofWrappers = []any{
+	file_storage_proto_msgTypes[142].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[144].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[147].OneofWrappers = []any{
 		(*ProviderPage_Airac)(nil),
 		(*ProviderPage_Vatsim)(nil),
 		(*ProviderPage_Weather)(nil),
+		(*ProviderPage_Ecfmp)(nil),
+		(*ProviderPage_AtisFeed)(nil),
+		(*ProviderPage_OpenMeteo)(nil),
+		(*ProviderPage_CdmConfig)(nil),
+		(*ProviderPage_ViffFlights)(nil),
+		(*ProviderPage_ViffMasters)(nil),
 	}
-	file_storage_proto_msgTypes[147].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[148].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[157].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[158].OneofWrappers = []any{}
+	file_storage_proto_msgTypes[160].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_storage_proto_rawDesc), len(file_storage_proto_rawDesc)),
 			NumEnums:      8,
-			NumMessages:   150,
+			NumMessages:   175,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

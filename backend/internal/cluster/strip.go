@@ -321,6 +321,7 @@ func appendStripAutoHideDeadline(state *Aggregate, changes []*pb.EntityChange, o
 
 func mergeObservedStrip(old, incoming *pb.Strip) *pb.Strip {
 	copy := proto.Clone(old).(*pb.Strip)
+	copy.VatsimOnly = false
 	// EuroScope owns flight-plan facts. Controller state and ordering stay local.
 	copy.AircraftType, copy.Departure, copy.Destination = incoming.AircraftType, incoming.Departure, incoming.Destination
 	copy.Route, copy.Remarks, copy.Sid, copy.Runway = incoming.Route, incoming.Remarks, incoming.Sid, incoming.Runway

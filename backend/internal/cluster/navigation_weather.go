@@ -23,6 +23,15 @@ type BinaryObjects interface {
 	PutBytes(string, []byte) (*nats.ObjectInfo, error)
 }
 
+// NATSObjects adapts FS_OBJECTS without exposing optional reads or writes to
+// provider workers. Object identity and digest are verified above this layer.
+type NATSObjects struct{ Store nats.ObjectStore }
+
+func (o NATSObjects) GetBytes(name string) ([]byte, error) { return o.Store.GetBytes(name) }
+func (o NATSObjects) PutBytes(name string, data []byte) (*nats.ObjectInfo, error) {
+	return o.Store.PutBytes(name, data)
+}
+
 // NavigationWeather is opt-in. The current PostgreSQL application never
 // constructs it; task 20 supplies its owner-routed writer and object store.
 type NavigationWeather struct {
@@ -234,6 +243,18 @@ func validateProviderPage(page *pb.ProviderPage) error {
 				return fmt.Errorf("invalid VATSIM observation")
 			}
 		}
+		if len(content.Vatsim.Flights) != 0 || content.Vatsim.SnapshotAt != nil {
+			if content.Vatsim.SnapshotAt == nil || content.Vatsim.SnapshotAt.CheckValid() != nil {
+				return fmt.Errorf("invalid VATSIM snapshot time")
+			}
+			seen := map[string]bool{}
+			for _, flight := range content.Vatsim.Flights {
+				if flight == nil || flight.Cid == "" || flight.Callsign == "" || seen[flight.Callsign] || flight.FlightPlan == nil || flight.State != "online" && flight.State != "prefile" || math.IsNaN(flight.Latitude) || math.IsNaN(flight.Longitude) || math.IsInf(flight.Latitude, 0) || math.IsInf(flight.Longitude, 0) || math.Abs(flight.Latitude) > 90 || math.Abs(flight.Longitude) > 180 {
+					return fmt.Errorf("invalid VATSIM flight")
+				}
+				seen[flight.Callsign] = true
+			}
+		}
 	case *pb.ProviderPage_Weather:
 		if content.Weather == nil {
 			return fmt.Errorf("empty weather page")
@@ -242,6 +263,116 @@ func validateProviderPage(page *pb.ProviderPage) error {
 			if item == nil {
 				return fmt.Errorf("nil weather observation")
 			}
+		}
+	case *pb.ProviderPage_Ecfmp:
+		if content.Ecfmp == nil || content.Ecfmp.FetchedAt == nil || content.Ecfmp.FetchedAt.CheckValid() != nil {
+			return fmt.Errorf("invalid ECFMP page timestamp")
+		}
+		for _, measure := range content.Ecfmp.Measures {
+			if measure == nil || measure.Id <= 0 || measure.Kind == "" || measure.StartTime == nil || measure.EndTime == nil || measure.StartTime.CheckValid() != nil || measure.EndTime.CheckValid() != nil || !measure.EndTime.AsTime().After(measure.StartTime.AsTime()) {
+				return fmt.Errorf("invalid ECFMP measure")
+			}
+			for _, filter := range measure.Filters {
+				if filter == nil || filter.Kind == "" {
+					return fmt.Errorf("invalid ECFMP filter")
+				}
+			}
+		}
+	case *pb.ProviderPage_AtisFeed:
+		if content.AtisFeed == nil || content.AtisFeed.FetchedAt == nil || content.AtisFeed.FetchedAt.CheckValid() != nil {
+			return fmt.Errorf("invalid ATIS feed timestamp")
+		}
+		seen := map[string]bool{}
+		for _, airport := range content.AtisFeed.Airports {
+			if airport == nil || len(airport.Airport) != 4 || seen[airport.Airport] {
+				return fmt.Errorf("invalid ATIS feed airport")
+			}
+			if _, err := Subject(airportRef(airport.Airport)); err != nil {
+				return err
+			}
+			seen[airport.Airport] = true
+			for _, entry := range []*pb.AtisFeedEntry{airport.Arrival, airport.Departure} {
+				if entry != nil && (entry.Callsign == "" || entry.LastUpdated == nil || entry.LastUpdated.CheckValid() != nil) {
+					return fmt.Errorf("invalid ATIS feed entry")
+				}
+			}
+		}
+	case *pb.ProviderPage_OpenMeteo:
+		weather := content.OpenMeteo
+		if weather == nil || weather.SourceId == "" || weather.SourceRevision == "" || weather.ObservedAt == nil || weather.ExpiresAt == nil || weather.ObservedAt.CheckValid() != nil || weather.ExpiresAt.CheckValid() != nil || !weather.ExpiresAt.AsTime().After(weather.ObservedAt.AsTime()) || len(weather.Samples) == 0 {
+			return fmt.Errorf("invalid Open-Meteo page")
+		}
+		for _, sample := range weather.Samples {
+			if sample == nil || sample.ForecastAt == nil || sample.ForecastAt.CheckValid() != nil || math.IsNaN(sample.LatitudeDegrees) || math.IsNaN(sample.LongitudeDegrees) || math.Abs(sample.LatitudeDegrees) > 90 || math.Abs(sample.LongitudeDegrees) > 180 || len(sample.Levels) == 0 {
+				return fmt.Errorf("invalid Open-Meteo sample")
+			}
+			for _, level := range sample.Levels {
+				if level == nil || math.IsNaN(level.AltitudeFeet) || math.IsNaN(level.EastKnots) || math.IsNaN(level.NorthKnots) || math.IsInf(level.AltitudeFeet, 0) || math.IsInf(level.EastKnots, 0) || math.IsInf(level.NorthKnots, 0) {
+					return fmt.Errorf("invalid Open-Meteo wind level")
+				}
+			}
+		}
+	case *pb.ProviderPage_CdmConfig:
+		config := content.CdmConfig
+		if config == nil || len(config.Airport) != 4 || config.FetchedAt == nil || config.FetchedAt.CheckValid() != nil || config.DefaultRate <= 0 || config.DefaultRateLvo <= 0 || config.DefaultTaxiMinutes <= 0 || config.Deice == nil {
+			return fmt.Errorf("invalid CDM configuration page")
+		}
+		if page.Resource != "airport/"+config.Airport {
+			return fmt.Errorf("CDM configuration airport mismatch")
+		}
+		for _, rate := range config.Rates {
+			if rate == nil {
+				return fmt.Errorf("nil CDM rate")
+			}
+		}
+		for _, interval := range config.SidIntervals {
+			if interval == nil || math.IsNaN(interval.Value) || math.IsInf(interval.Value, 0) || interval.Value < 0 {
+				return fmt.Errorf("invalid CDM SID interval")
+			}
+		}
+		for _, zone := range config.TaxiZones {
+			if zone == nil || zone.Minutes < 0 {
+				return fmt.Errorf("invalid CDM taxi zone")
+			}
+			for _, point := range zone.Polygon {
+				if point == nil || math.IsNaN(point.Latitude) || math.IsNaN(point.Longitude) || math.IsInf(point.Latitude, 0) || math.IsInf(point.Longitude, 0) || math.Abs(point.Latitude) > 90 || math.Abs(point.Longitude) > 180 {
+					return fmt.Errorf("invalid CDM taxi point")
+				}
+			}
+		}
+		for _, delay := range config.Delays {
+			if delay == nil {
+				return fmt.Errorf("nil CDM delay")
+			}
+		}
+		for _, platform := range config.Deice.Platforms {
+			if platform == nil {
+				return fmt.Errorf("nil CDM deice platform")
+			}
+		}
+	case *pb.ProviderPage_ViffFlights:
+		flights := content.ViffFlights
+		if page.Provider != "viff" || flights == nil || len(flights.Airport) != 4 || flights.FetchedAt == nil || flights.FetchedAt.CheckValid() != nil || !strings.HasPrefix(page.Resource, "session/") {
+			return fmt.Errorf("invalid vIFF flight page")
+		}
+		seen := map[string]bool{}
+		for _, row := range flights.Flights {
+			if row == nil || row.Callsign == "" || seen[row.Callsign] || row.Departure != flights.Airport || row.CdmData == nil || row.TaxiMinutes < 0 {
+				return fmt.Errorf("invalid vIFF flight row")
+			}
+			seen[row.Callsign] = true
+		}
+	case *pb.ProviderPage_ViffMasters:
+		masters := content.ViffMasters
+		if page.Provider != "viff" || page.Resource != "airport-masters" || masters == nil || masters.FetchedAt == nil || masters.FetchedAt.CheckValid() != nil {
+			return fmt.Errorf("invalid vIFF master page")
+		}
+		seen := map[string]bool{}
+		for _, master := range masters.Masters {
+			if master == nil || len(master.Airport) != 4 || master.Position == "" || seen[master.Airport] {
+				return fmt.Errorf("invalid vIFF master row")
+			}
+			seen[master.Airport] = true
 		}
 	default:
 		return fmt.Errorf("unsupported typed provider page")
@@ -302,7 +433,7 @@ func (a NavigationWeather) upsert(ctx context.Context, ref *pb.AggregateRef, id 
 // ActivateManifest verifies every object immediately before the CAS event.
 // A failed or concurrent import leaves the previous active entity intact.
 func (a NavigationWeather) ActivateManifest(ctx context.Context, id string, manifest *pb.NavManifest) (*pb.CommandReply, error) {
-	if manifest == nil || !manifest.Active || manifest.Cycle == "" || len(manifest.Objects) == 0 {
+	if manifest == nil || !manifest.Active || manifest.Cycle == "" || len(manifest.Objects) == 0 || !canonicalUUID(id) || manifest.SourceRevision > 0 && len(manifest.SourceSha256) != 64 {
 		return nil, fmt.Errorf("incomplete active manifest")
 	}
 	if _, err := Subject(airportRef(manifest.Airport)); err != nil {
@@ -310,6 +441,11 @@ func (a NavigationWeather) ActivateManifest(ctx context.Context, id string, mani
 	}
 	if manifest.Digest != manifestDigest(manifest) {
 		return nil, fmt.Errorf("manifest digest mismatch")
+	}
+	if manifest.SourceRevision > 0 {
+		if _, err := hex.DecodeString(manifest.SourceSha256); err != nil {
+			return nil, fmt.Errorf("invalid manifest source digest")
+		}
 	}
 	verify := func() error {
 		seen := map[string]bool{}
@@ -328,7 +464,35 @@ func (a NavigationWeather) ActivateManifest(ctx context.Context, id string, mani
 		}
 		return nil
 	}
-	return a.upsert(ctx, airportRef(manifest.Airport), id, manifest.Airport, &pb.EntityRecord{Value: &pb.EntityRecord_NavManifest{NavManifest: manifest}}, verify)
+	if err := verify(); err != nil {
+		return nil, err
+	}
+	ref := airportRef(manifest.Airport)
+	request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: id, Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "navigation-weather"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_UpdateEntity{UpdateEntity: &pb.UpdateEntity{Key: manifest.Airport, Value: &pb.EntityRecord{Value: &pb.EntityRecord_NavManifest{NavManifest: manifest}}}}}}}
+	w := a.Writer
+	w.Plan = func(_ context.Context, _ *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
+		old := state.Indexes[pb.EntityKind_NAV_MANIFEST][manifest.Airport]
+		current := uint64(0)
+		if old != nil {
+			current = old.Revision
+			prior := old.GetValue().GetNavManifest()
+			if prior.SourceRevision > manifest.SourceRevision || prior.SourceRevision == manifest.SourceRevision && prior.SourceRevision > 0 && prior.SourceSha256 != manifest.SourceSha256 {
+				return nil, pb.CommandReply_REVISION_CONFLICT, current, fmt.Errorf("newer AIRAC source already active")
+			}
+			if proto.Equal(prior, manifest) {
+				return &pb.DomainChange{}, pb.CommandReply_COMMITTED, current, nil
+			}
+		}
+		if err := verify(); err != nil {
+			return nil, pb.CommandReply_UNAVAILABLE, current, err
+		}
+		return &pb.DomainChange{Changes: []*pb.EntityChange{candidateUpsert(manifest.Airport, old, &pb.EntityRecord{Value: &pb.EntityRecord_NavManifest{NavManifest: manifest}})}}, pb.CommandReply_COMMITTED, current, nil
+	}
+	reply := w.Execute(ctx, request)
+	if reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {
+		return reply, fmt.Errorf("manifest activation: %s: %s", reply.Status, reply.Detail)
+	}
+	return reply, nil
 }
 
 func (a NavigationWeather) ActiveManifest(ctx context.Context, airport string) (*pb.NavManifest, error) {
@@ -393,8 +557,17 @@ func (a NavigationWeather) RouteCache(ctx context.Context, airport, key string) 
 }
 
 func (a NavigationWeather) PutCheckpoint(ctx context.Context, airport, id string, checkpoint *pb.ProviderCheckpoint) (*pb.CommandReply, error) {
+	return a.PutCheckpointFor(ctx, airportRef(airport), id, checkpoint)
+}
+
+// PutCheckpointFor permits global-owned feeds to keep one typed source
+// checkpoint shared by every airport. AIRAC pages remain airport-owned.
+func (a NavigationWeather) PutCheckpointFor(ctx context.Context, ref *pb.AggregateRef, id string, checkpoint *pb.ProviderCheckpoint) (*pb.CommandReply, error) {
 	if checkpoint == nil || checkpoint.Provider == "" || checkpoint.Resource == "" {
 		return nil, fmt.Errorf("incomplete provider checkpoint")
+	}
+	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && checkpoint.Provider != "viff" {
+		return nil, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF")
 	}
 	verify := func() error {
 		if checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
@@ -403,31 +576,43 @@ func (a NavigationWeather) PutCheckpoint(ctx context.Context, airport, id string
 		_, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, checkpoint.Provider, checkpoint.Resource)
 		return err
 	}
-	return a.upsert(ctx, airportRef(airport), id, checkpoint.Provider+"."+checkpoint.Resource, &pb.EntityRecord{Value: &pb.EntityRecord_ProviderCheckpoint{ProviderCheckpoint: checkpoint}}, verify)
+	return a.upsert(ctx, ref, id, checkpoint.Provider+"."+checkpoint.Resource, &pb.EntityRecord{Value: &pb.EntityRecord_ProviderCheckpoint{ProviderCheckpoint: checkpoint}}, verify)
 }
 
 func (a NavigationWeather) Checkpoint(ctx context.Context, airport, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, error) {
-	state, err := a.read(ctx, airportRef(airport))
+	return a.CheckpointFor(ctx, airportRef(airport), provider, resource)
+}
+
+func (a NavigationWeather) CheckpointFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, error) {
+	checkpoint, page, _, err := a.CheckpointRevisionFor(ctx, ref, provider, resource)
+	return checkpoint, page, err
+}
+
+func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.AggregateRef, provider, resource string) (*pb.ProviderCheckpoint, *pb.ProviderPage, uint64, error) {
+	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && provider != "viff" {
+		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF")
+	}
+	state, err := a.read(ctx, ref)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	entry := state.Indexes[pb.EntityKind_PROVIDER_CHECKPOINT][provider+"."+resource]
 	if entry == nil {
-		return nil, nil, nil
+		return nil, nil, 0, nil
 	}
 	checkpoint := entry.GetValue().GetProviderCheckpoint()
 	if checkpoint == nil || checkpoint.Provider != provider || checkpoint.Resource != resource {
-		return nil, nil, fmt.Errorf("corrupt provider checkpoint")
+		return nil, nil, 0, fmt.Errorf("corrupt provider checkpoint")
 	}
 	copy := proto.Clone(checkpoint).(*pb.ProviderCheckpoint)
 	if checkpoint.ObjectName == "" && checkpoint.Sha256 == "" {
-		return copy, nil, nil
+		return copy, nil, entry.Revision, nil
 	}
 	page, err := a.ReadProvider(checkpoint.ObjectName, checkpoint.Sha256, provider, resource)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
-	return copy, page, nil
+	return copy, page, entry.Revision, nil
 }
 
 // FetchProviderPageFenced gives AIRAC and VATSIM importers a durable typed
@@ -435,18 +620,31 @@ func (a NavigationWeather) Checkpoint(ctx context.Context, airport, provider, re
 // completed provider call publishes and verifies its typed page object before
 // the airport owner advances the checkpoint with the stable result command ID.
 func (a NavigationWeather) FetchProviderPageFenced(ctx context.Context, worker ExternalCallWorker, workflowID, airport, provider, resource string, fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
+	return a.FetchProviderPageFor(ctx, worker, workflowID, airportRef(airport), provider, resource, fetch)
+}
+
+// FetchProviderPageFor uses the owning aggregate for both intent and
+// checkpoint. It is global for VATSIM/ECFMP and airport for AIRAC.
+func (a NavigationWeather) FetchProviderPageFor(ctx context.Context, worker ExternalCallWorker, workflowID string, ref *pb.AggregateRef, provider, resource string, fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
+	return a.FetchProviderPageReserved(ctx, worker, workflowID, ref, provider, resource, nil, fetch)
+}
+
+// FetchProviderPageReserved commits the source intent before reserving a
+// global quota slot. An uncertain reservation or provider response is never
+// permission for the next owner to call again with the same workflow ID.
+func (a NavigationWeather) FetchProviderPageReserved(ctx context.Context, worker ExternalCallWorker, workflowID string, ref *pb.AggregateRef, provider, resource string, reserve func(context.Context) (bool, error), fetch func(context.Context, *pb.ProviderCheckpoint, *pb.ProviderPage) (*pb.ProviderPage, *pb.ProviderCheckpoint, error)) (bool, error) {
 	if fetch == nil || provider == "" || resource == "" {
 		return false, fmt.Errorf("invalid fenced provider fetch")
 	}
-	prior, priorPage, err := a.Checkpoint(ctx, airport, provider, resource)
+	prior, priorPage, err := a.CheckpointFor(ctx, ref, provider, resource)
 	if err != nil {
 		return false, err
 	}
 	var next *pb.ProviderCheckpoint
-	ref := airportRef(airport)
 	return worker.Run(ctx, ExternalCallSpec{
 		Source: ref, Destination: ref, WorkflowID: workflowID,
-		Step: "external/provider/" + provider + "/" + resource,
+		Step:    "external/provider/" + provider + "/" + resource,
+		Reserve: reserve,
 		Fetch: func(ctx context.Context) (proto.Message, error) {
 			page, checkpoint, err := fetch(ctx, prior, priorPage)
 			if err != nil {
@@ -468,7 +666,7 @@ func (a NavigationWeather) FetchProviderPageFenced(ctx context.Context, worker E
 				return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 			}
 			next.ObjectName, next.Sha256 = name, sha
-			reply, err := a.PutCheckpoint(ctx, airport, commandID, next)
+			reply, err := a.PutCheckpointFor(ctx, ref, commandID, next)
 			if err != nil {
 				return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 			}

@@ -248,6 +248,37 @@ func (a *Adapter) fetchSamples(ctx context.Context, samples []predictor.WindSamp
 	if err := a.reserveRequest(ctx, a.now().UTC()); err != nil {
 		return nil, err
 	}
+	return a.fetchSamplesUnreserved(ctx, samples)
+}
+
+// CandidateProfile is called only after the candidate worker has committed
+// its airport intent and reserved a durable global quota slot. It does not
+// mutate the legacy process-local cache or its quota counter.
+func (a *Adapter) CandidateProfile(ctx context.Context, request predictor.WindProfileRequest) (predictor.WindProfile, error) {
+	if a == nil || len(request.Samples) == 0 {
+		return predictor.WindProfile{}, fmt.Errorf("wind request has no samples")
+	}
+	for _, sample := range request.Samples {
+		if _, err := cacheKey(sample); err != nil {
+			return predictor.WindProfile{}, err
+		}
+	}
+	levels, err := a.fetchSamplesUnreserved(ctx, request.Samples)
+	if err != nil {
+		return predictor.WindProfile{}, err
+	}
+	now := a.now().UTC()
+	result := predictor.WindProfile{SourceID: "open-meteo-gfs", SourceRevision: "gfs", ObservedAt: now, ExpiresAt: now.Add(a.cacheTTL)}
+	for i, sample := range request.Samples {
+		result.Samples = append(result.Samples, predictor.WindSample{Position: sample.Position, At: sample.At, Levels: cloneLevels(levels[i])})
+	}
+	return result, nil
+}
+
+func (a *Adapter) fetchSamplesUnreserved(ctx context.Context, samples []predictor.WindSampleRequest) ([][]predictor.WindLevel, error) {
+	if len(samples) == 0 {
+		return nil, fmt.Errorf("wind fetch has no samples")
+	}
 	requestContext, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	u, err := url.Parse(a.baseURL)

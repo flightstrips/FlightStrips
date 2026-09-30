@@ -50,6 +50,133 @@ struct WeatherCloudDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 WeatherCloudDefaultTypeInternal _WeatherCloud_default_instance_;
 
+inline constexpr ViffMaster::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : airport_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        position_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR ViffMaster::ViffMaster(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct ViffMasterDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ViffMasterDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ViffMasterDefaultTypeInternal() {}
+  union {
+    ViffMaster _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ViffMasterDefaultTypeInternal _ViffMaster_default_instance_;
+
+inline constexpr ViffCdmData::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : tobt_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        tsat_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        ttot_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        ctot_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        reason_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        requested_tobt_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        requested_tobt_type_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        requested_asrt_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR ViffCdmData::ViffCdmData(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct ViffCdmDataDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ViffCdmDataDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ViffCdmDataDefaultTypeInternal() {}
+  union {
+    ViffCdmData _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ViffCdmDataDefaultTypeInternal _ViffCdmData_default_instance_;
+
+inline constexpr VatsimFlightPlan::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : flight_rules_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        aircraft_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        aircraft_faa_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        aircraft_short_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        origin_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        destination_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        alternate_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        eobt_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        enroute_duration_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        requested_level_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        remarks_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        route_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        assigned_squawk_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        revision_{::int64_t{0}},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VatsimFlightPlan::VatsimFlightPlan(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VatsimFlightPlanDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VatsimFlightPlanDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VatsimFlightPlanDefaultTypeInternal() {}
+  union {
+    VatsimFlightPlan _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VatsimFlightPlanDefaultTypeInternal _VatsimFlightPlan_default_instance_;
+
 inline constexpr ValidationFault::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : fields_{},
@@ -405,6 +532,27 @@ struct PdcEffectDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PdcEffectDefaultTypeInternal _PdcEffect_default_instance_;
 
+inline constexpr OpenMeteoWindLevel::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : altitude_feet_{0},
+        east_knots_{0},
+        north_knots_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR OpenMeteoWindLevel::OpenMeteoWindLevel(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct OpenMeteoWindLevelDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR OpenMeteoWindLevelDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~OpenMeteoWindLevelDefaultTypeInternal() {}
+  union {
+    OpenMeteoWindLevel _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 OpenMeteoWindLevelDefaultTypeInternal _OpenMeteoWindLevel_default_instance_;
+
 inline constexpr NavRouteCache::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : route_key_(
@@ -590,6 +738,32 @@ struct EcfmpRestrictionDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 EcfmpRestrictionDefaultTypeInternal _EcfmpRestriction_default_instance_;
 
+inline constexpr EcfmpFilter::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        names_{},
+        levels_{},
+        _levels_cached_byte_size_{0},
+        kind_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        event_id_{::int64_t{0}},
+        level_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR EcfmpFilter::EcfmpFilter(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct EcfmpFilterDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR EcfmpFilterDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~EcfmpFilterDefaultTypeInternal() {}
+  union {
+    EcfmpFilter _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 EcfmpFilterDefaultTypeInternal _EcfmpFilter_default_instance_;
+
 inline constexpr DeleteEntity::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : kind_{static_cast< ::flightstrips::cluster::v1::EntityKind >(0)},
@@ -719,6 +893,128 @@ struct CdmEffectDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmEffectDefaultTypeInternal _CdmEffect_default_instance_;
+
+inline constexpr CdmConfigTaxiPoint::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : latitude_{0},
+        longitude_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CdmConfigTaxiPoint::CdmConfigTaxiPoint(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct CdmConfigTaxiPointDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CdmConfigTaxiPointDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CdmConfigTaxiPointDefaultTypeInternal() {}
+  union {
+    CdmConfigTaxiPoint _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmConfigTaxiPointDefaultTypeInternal _CdmConfigTaxiPoint_default_instance_;
+
+inline constexpr CdmConfigSidInterval::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : runway_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        sid1_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        sid2_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        value_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CdmConfigSidInterval::CdmConfigSidInterval(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct CdmConfigSidIntervalDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CdmConfigSidIntervalDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CdmConfigSidIntervalDefaultTypeInternal() {}
+  union {
+    CdmConfigSidInterval _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmConfigSidIntervalDefaultTypeInternal _CdmConfigSidInterval_default_instance_;
+
+inline constexpr CdmConfigRate::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : arr_rwy_yes_{},
+        arr_rwy_no_{},
+        dep_rwy_yes_{},
+        dep_rwy_no_{},
+        dependent_rwy_{},
+        rates_{},
+        rates_lvo_{},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CdmConfigRate::CdmConfigRate(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct CdmConfigRateDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CdmConfigRateDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CdmConfigRateDefaultTypeInternal() {}
+  union {
+    CdmConfigRate _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmConfigRateDefaultTypeInternal _CdmConfigRate_default_instance_;
+
+inline constexpr CdmConfigDelay::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : runway_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        time_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        type_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CdmConfigDelay::CdmConfigDelay(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct CdmConfigDelayDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CdmConfigDelayDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CdmConfigDelayDefaultTypeInternal() {}
+  union {
+    CdmConfigDelay _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmConfigDelayDefaultTypeInternal _CdmConfigDelay_default_instance_;
+
+inline constexpr CdmConfigDeicePlatform::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : name_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        time_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CdmConfigDeicePlatform::CdmConfigDeicePlatform(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct CdmConfigDeicePlatformDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CdmConfigDeicePlatformDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CdmConfigDeicePlatformDefaultTypeInternal() {}
+  union {
+    CdmConfigDeicePlatform _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmConfigDeicePlatformDefaultTypeInternal _CdmConfigDeicePlatform_default_instance_;
 
 inline constexpr AmanTimelineMapping::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -1202,6 +1498,114 @@ struct WeatherObservationDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 WeatherObservationDefaultTypeInternal _WeatherObservation_default_instance_;
 
+inline constexpr ViffMastersPage::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        masters_{},
+        fetched_at_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR ViffMastersPage::ViffMastersPage(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct ViffMastersPageDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ViffMastersPageDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ViffMastersPageDefaultTypeInternal() {}
+  union {
+    ViffMastersPage _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ViffMastersPageDefaultTypeInternal _ViffMastersPage_default_instance_;
+
+inline constexpr ViffFlight::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        cid_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        departure_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        arrival_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        eobt_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        tobt_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        requested_tobt_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        ctot_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        aobt_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        atot_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        eta_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        most_penalizing_airspace_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        cdm_status_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        atfcm_status_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        cdm_data_{nullptr},
+        taxi_minutes_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR ViffFlight::ViffFlight(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct ViffFlightDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ViffFlightDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ViffFlightDefaultTypeInternal() {}
+  union {
+    ViffFlight _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ViffFlightDefaultTypeInternal _ViffFlight_default_instance_;
+
+inline constexpr VatsimSessionCursor::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        provider_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        source_sha256_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        snapshot_at_{nullptr},
+        source_revision_{::uint64_t{0u}} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VatsimSessionCursor::VatsimSessionCursor(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VatsimSessionCursorDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VatsimSessionCursorDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VatsimSessionCursorDefaultTypeInternal() {}
+  union {
+    VatsimSessionCursor _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VatsimSessionCursorDefaultTypeInternal _VatsimSessionCursor_default_instance_;
+
 inline constexpr VatsimObservation::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -1229,6 +1633,40 @@ struct VatsimObservationDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VatsimObservationDefaultTypeInternal _VatsimObservation_default_instance_;
+
+inline constexpr VatsimFlight::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        cid_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        state_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        logon_time_{nullptr},
+        last_updated_{nullptr},
+        flight_plan_{nullptr},
+        latitude_{0},
+        longitude_{0},
+        altitude_{0},
+        groundspeed_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR VatsimFlight::VatsimFlight(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct VatsimFlightDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR VatsimFlightDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~VatsimFlightDefaultTypeInternal() {}
+  union {
+    VatsimFlight _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 VatsimFlightDefaultTypeInternal _VatsimFlight_default_instance_;
 
 inline constexpr ValidationAction::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -1599,6 +2037,28 @@ struct OwnerTermDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 OwnerTermDefaultTypeInternal _OwnerTerm_default_instance_;
 
+inline constexpr OpenMeteoSample::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        levels_{},
+        forecast_at_{nullptr},
+        latitude_degrees_{0},
+        longitude_degrees_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR OpenMeteoSample::OpenMeteoSample(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct OpenMeteoSampleDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR OpenMeteoSampleDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~OpenMeteoSampleDefaultTypeInternal() {}
+  union {
+    OpenMeteoSample _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 OpenMeteoSampleDefaultTypeInternal _OpenMeteoSample_default_instance_;
+
 inline constexpr NodePresence::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -1707,6 +2167,10 @@ inline constexpr NavManifest::Impl_::Impl_(
         digest_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        source_sha256_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        source_revision_{::uint64_t{0u}},
         active_{false},
         _cached_size_{0} {}
 
@@ -1880,6 +2344,44 @@ struct EcfmpStateDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 EcfmpStateDefaultTypeInternal _EcfmpState_default_instance_;
 
+inline constexpr EcfmpMeasure::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        notified_flight_information_regions_{},
+        _notified_flight_information_regions_cached_byte_size_{0},
+        routes_{},
+        filters_{},
+        ident_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        reason_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        kind_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        start_time_{nullptr},
+        end_time_{nullptr},
+        withdrawn_at_{nullptr},
+        id_{::int64_t{0}},
+        event_id_{::int64_t{0}},
+        numeric_value_{::int64_t{0}},
+        decimal_value_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR EcfmpMeasure::EcfmpMeasure(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct EcfmpMeasureDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR EcfmpMeasureDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~EcfmpMeasureDefaultTypeInternal() {}
+  union {
+    EcfmpMeasure _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 EcfmpMeasureDefaultTypeInternal _EcfmpMeasure_default_instance_;
+
 inline constexpr Coordination::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -2017,6 +2519,83 @@ struct CdmStateDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmStateDefaultTypeInternal _CdmState_default_instance_;
 
+inline constexpr CdmConfigTaxiZone::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : polygon_{},
+        remote_taxi_minutes_{},
+        _remote_taxi_minutes_cached_byte_size_{0},
+        runway_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        minutes_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CdmConfigTaxiZone::CdmConfigTaxiZone(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct CdmConfigTaxiZoneDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CdmConfigTaxiZoneDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CdmConfigTaxiZoneDefaultTypeInternal() {}
+  union {
+    CdmConfigTaxiZone _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmConfigTaxiZoneDefaultTypeInternal _CdmConfigTaxiZone_default_instance_;
+
+inline constexpr CdmConfigDeice::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : platforms_{},
+        light_{0},
+        medium_{0},
+        heavy_{0},
+        super_{0},
+        _cached_size_{0} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CdmConfigDeice::CdmConfigDeice(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct CdmConfigDeiceDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CdmConfigDeiceDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CdmConfigDeiceDefaultTypeInternal() {}
+  union {
+    CdmConfigDeice _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmConfigDeiceDefaultTypeInternal _CdmConfigDeice_default_instance_;
+
+inline constexpr AtisFeedEntry::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        text_lines_{},
+        callsign_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        code_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        frequency_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        last_updated_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR AtisFeedEntry::AtisFeedEntry(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct AtisFeedEntryDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR AtisFeedEntryDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~AtisFeedEntryDefaultTypeInternal() {}
+  union {
+    AtisFeedEntry _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 AtisFeedEntryDefaultTypeInternal _AtisFeedEntry_default_instance_;
+
 inline constexpr Atis::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -2036,6 +2615,9 @@ inline constexpr Atis::Impl_::Impl_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         departure_code_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        source_revision_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         observed_at_{nullptr} {}
@@ -2965,10 +3547,35 @@ struct WeatherCacheDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 WeatherCacheDefaultTypeInternal _WeatherCache_default_instance_;
 
+inline constexpr ViffFlightPage::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        flights_{},
+        airport_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        fetched_at_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR ViffFlightPage::ViffFlightPage(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct ViffFlightPageDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ViffFlightPageDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ViffFlightPageDefaultTypeInternal() {}
+  union {
+    ViffFlightPage _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ViffFlightPageDefaultTypeInternal _ViffFlightPage_default_instance_;
+
 inline constexpr VatsimPage::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
-      : observations_{},
-        _cached_size_{0} {}
+      : _cached_size_{0},
+        observations_{},
+        flights_{},
+        snapshot_at_{nullptr} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR VatsimPage::VatsimPage(::_pbi::ConstantInitialized)
@@ -3109,6 +3716,33 @@ struct PresenceValueDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 PresenceValueDefaultTypeInternal _PresenceValue_default_instance_;
+
+inline constexpr OpenMeteoPage::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        samples_{},
+        source_id_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        source_revision_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        observed_at_{nullptr},
+        expires_at_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR OpenMeteoPage::OpenMeteoPage(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct OpenMeteoPageDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR OpenMeteoPageDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~OpenMeteoPageDefaultTypeInternal() {}
+  union {
+    OpenMeteoPage _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 OpenMeteoPageDefaultTypeInternal _OpenMeteoPage_default_instance_;
 
 inline constexpr NavTerminalPath::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -3333,6 +3967,26 @@ struct NavAirportDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 NavAirportDefaultTypeInternal _NavAirport_default_instance_;
 
+inline constexpr EcfmpPage::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        measures_{},
+        fetched_at_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR EcfmpPage::EcfmpPage(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct EcfmpPageDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR EcfmpPageDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~EcfmpPageDefaultTypeInternal() {}
+  union {
+    EcfmpPage _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 EcfmpPageDefaultTypeInternal _EcfmpPage_default_instance_;
+
 inline constexpr CommandOutcome::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -3371,6 +4025,62 @@ struct CommandOutcomeDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CommandOutcomeDefaultTypeInternal _CommandOutcome_default_instance_;
+
+inline constexpr CdmConfigPage::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        active_arrival_runways_{},
+        active_departure_runways_{},
+        rates_{},
+        sid_intervals_{},
+        taxi_zones_{},
+        delays_{},
+        airport_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        fetched_at_{nullptr},
+        deice_{nullptr},
+        default_rate_{0},
+        default_rate_lvo_{0},
+        default_taxi_minutes_{0},
+        lvo_active_{false} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR CdmConfigPage::CdmConfigPage(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct CdmConfigPageDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR CdmConfigPageDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~CdmConfigPageDefaultTypeInternal() {}
+  union {
+    CdmConfigPage _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 CdmConfigPageDefaultTypeInternal _CdmConfigPage_default_instance_;
+
+inline constexpr AtisFeedAirport::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        airport_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        arrival_{nullptr},
+        departure_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR AtisFeedAirport::AtisFeedAirport(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct AtisFeedAirportDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR AtisFeedAirportDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~AtisFeedAirportDefaultTypeInternal() {}
+  union {
+    AtisFeedAirport _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 AtisFeedAirportDefaultTypeInternal _AtisFeedAirport_default_instance_;
 
 inline constexpr AmanTechnicalHealth::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -3835,6 +4545,9 @@ inline constexpr Strip::Impl_::Impl_(
         tobt_set_by_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        vatsim_cid_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         eobt_{nullptr},
         tobt_{nullptr},
         tsat_{nullptr},
@@ -3847,6 +4560,7 @@ inline constexpr Strip::Impl_::Impl_(
         tsac_{nullptr},
         eldt_{nullptr},
         aldt_{nullptr},
+        vatsim_seen_at_{nullptr},
         id_{::uint64_t{0u}},
         revision_{::uint64_t{0u}},
         requested_altitude_{0},
@@ -3857,11 +4571,17 @@ inline constexpr Strip::Impl_::Impl_(
         runway_cleared_{false},
         runway_confirmed_{false},
         persons_on_board_{0u},
+        position_altitude_feet_{0},
         manual_{false},
         has_flight_plan_{false},
         on_block_{false},
+        vatsim_only_{false},
+        vatsim_online_{false},
         sequence_{::uint64_t{0u}},
-        position_altitude_feet_{0} {}
+        vatsim_source_revision_{::uint64_t{0u}},
+        vatsim_plan_revision_{::int64_t{0}},
+        vatsim_latitude_{0},
+        vatsim_longitude_{0} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR Strip::Strip(::_pbi::ConstantInitialized)
@@ -4004,6 +4724,26 @@ struct NavAirportFragmentDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 NavAirportFragmentDefaultTypeInternal _NavAirportFragment_default_instance_;
+
+inline constexpr AtisFeedPage::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        airports_{},
+        fetched_at_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR AtisFeedPage::AtisFeedPage(::_pbi::ConstantInitialized)
+    : _impl_(::_pbi::ConstantInitialized()) {}
+struct AtisFeedPageDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR AtisFeedPageDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~AtisFeedPageDefaultTypeInternal() {}
+  union {
+    AtisFeedPage _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 AtisFeedPageDefaultTypeInternal _AtisFeedPage_default_instance_;
 
 inline constexpr AmanPrediction::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
@@ -4520,7 +5260,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 }  // namespace v1
 }  // namespace cluster
 }  // namespace flightstrips
-static ::_pb::Metadata file_level_metadata_storage_2eproto[150];
+static ::_pb::Metadata file_level_metadata_storage_2eproto[175];
 static const ::_pb::EnumDescriptor* file_level_enum_descriptors_storage_2eproto[8];
 static constexpr const ::_pb::ServiceDescriptor**
     file_level_service_descriptors_storage_2eproto = nullptr;
@@ -4702,6 +5442,7 @@ const ::uint32_t
         ~0u,  // no _inlined_string_donated_
         ~0u,  // no _split_
         ~0u,  // no sizeof(Split)
+        ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
@@ -4979,6 +5720,14 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.sequence_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.tobt_set_by_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.on_block_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.vatsim_cid_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.vatsim_source_revision_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.vatsim_plan_revision_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.vatsim_seen_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.vatsim_only_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.vatsim_online_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.vatsim_latitude_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Strip, _impl_.vatsim_longitude_),
         ~0u,
         ~0u,
         ~0u,
@@ -4991,22 +5740,22 @@ const ::uint32_t
         ~0u,
         ~0u,
         ~0u,
-        19,
         20,
         21,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
-        ~0u,
         22,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        23,
         ~0u,
         ~0u,
         ~0u,
@@ -5040,7 +5789,15 @@ const ::uint32_t
         18,
         ~0u,
         6,
-        23,
+        25,
+        ~0u,
+        ~0u,
+        ~0u,
+        19,
+        ~0u,
+        ~0u,
+        26,
+        27,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ValidationStatus, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ValidationStatus, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -5384,10 +6141,12 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Atis, _impl_.metar_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Atis, _impl_.arrival_code_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Atis, _impl_.departure_code_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::Atis, _impl_.source_revision_),
         ~0u,
         ~0u,
         ~0u,
         0,
+        ~0u,
         ~0u,
         ~0u,
         ~0u,
@@ -6632,6 +7391,22 @@ const ::uint32_t
         ~0u,
         ~0u,
         0,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimSessionCursor, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimSessionCursor, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimSessionCursor, _impl_.provider_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimSessionCursor, _impl_.source_revision_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimSessionCursor, _impl_.source_sha256_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimSessionCursor, _impl_.snapshot_at_),
+        ~0u,
+        ~0u,
+        ~0u,
+        0,
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::NavManifest, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -6645,6 +7420,8 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::NavManifest, _impl_.digest_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::NavManifest, _impl_.objects_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::NavManifest, _impl_.active_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::NavManifest, _impl_.source_revision_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::NavManifest, _impl_.source_sha256_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::NavObjectRef, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -7504,6 +8281,12 @@ const ::uint32_t
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
         ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
+        ::_pbi::kInvalidFieldOffsetTag,
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ProviderPage, _impl_.parsed_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AiracPage, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AiracPage, _internal_metadata_),
@@ -7517,7 +8300,7 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AiracPage, _impl_.next_page_),
         ~0u,
         0,
-        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimPage, _impl_._has_bits_),
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimPage, _internal_metadata_),
         ~0u,  // no _extensions_
         ~0u,  // no _oneof_case_
@@ -7526,6 +8309,61 @@ const ::uint32_t
         ~0u,  // no _split_
         ~0u,  // no sizeof(Split)
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimPage, _impl_.observations_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimPage, _impl_.flights_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimPage, _impl_.snapshot_at_),
+        ~0u,
+        ~0u,
+        0,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.cid_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.callsign_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.state_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.latitude_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.longitude_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.altitude_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.groundspeed_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.logon_time_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.last_updated_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlight, _impl_.flight_plan_),
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        0,
+        1,
+        2,
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.flight_rules_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.aircraft_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.aircraft_faa_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.aircraft_short_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.origin_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.destination_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.alternate_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.eobt_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.enroute_duration_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.requested_level_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.remarks_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.route_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.assigned_squawk_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::VatsimFlightPlan, _impl_.revision_),
         ~0u,  // no _has_bits_
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::WeatherPage, _internal_metadata_),
         ~0u,  // no _extensions_
@@ -7535,6 +8373,369 @@ const ::uint32_t
         ~0u,  // no _split_
         ~0u,  // no sizeof(Split)
         PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::WeatherPage, _impl_.observations_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.source_id_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.source_revision_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.observed_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.expires_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoPage, _impl_.samples_),
+        ~0u,
+        ~0u,
+        0,
+        1,
+        ~0u,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_.latitude_degrees_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_.longitude_degrees_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_.forecast_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoSample, _impl_.levels_),
+        ~0u,
+        ~0u,
+        0,
+        ~0u,
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoWindLevel, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoWindLevel, _impl_.altitude_feet_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoWindLevel, _impl_.east_knots_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::OpenMeteoWindLevel, _impl_.north_knots_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpPage, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpPage, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpPage, _impl_.measures_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpPage, _impl_.fetched_at_),
+        ~0u,
+        0,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.id_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.ident_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.event_id_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.reason_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.start_time_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.end_time_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.withdrawn_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.notified_flight_information_regions_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.kind_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.numeric_value_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.routes_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.filters_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpMeasure, _impl_.decimal_value_),
+        ~0u,
+        ~0u,
+        3,
+        ~0u,
+        0,
+        1,
+        2,
+        ~0u,
+        ~0u,
+        4,
+        ~0u,
+        ~0u,
+        5,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpFilter, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpFilter, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpFilter, _impl_.kind_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpFilter, _impl_.names_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpFilter, _impl_.level_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpFilter, _impl_.levels_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::EcfmpFilter, _impl_.event_id_),
+        ~0u,
+        ~0u,
+        1,
+        ~0u,
+        0,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedPage, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedPage, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedPage, _impl_.airports_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedPage, _impl_.fetched_at_),
+        ~0u,
+        0,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedAirport, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedAirport, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedAirport, _impl_.airport_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedAirport, _impl_.arrival_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedAirport, _impl_.departure_),
+        ~0u,
+        0,
+        1,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedEntry, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedEntry, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedEntry, _impl_.callsign_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedEntry, _impl_.code_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedEntry, _impl_.frequency_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedEntry, _impl_.text_lines_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::AtisFeedEntry, _impl_.last_updated_),
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        0,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.airport_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.fetched_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.default_rate_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.default_rate_lvo_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.default_taxi_minutes_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.lvo_active_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.active_arrival_runways_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.active_departure_runways_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.rates_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.sid_intervals_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.taxi_zones_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.delays_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigPage, _impl_.deice_),
+        ~0u,
+        0,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        1,
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigRate, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigRate, _impl_.arr_rwy_yes_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigRate, _impl_.arr_rwy_no_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigRate, _impl_.dep_rwy_yes_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigRate, _impl_.dep_rwy_no_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigRate, _impl_.dependent_rwy_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigRate, _impl_.rates_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigRate, _impl_.rates_lvo_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigSidInterval, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigSidInterval, _impl_.runway_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigSidInterval, _impl_.sid1_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigSidInterval, _impl_.sid2_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigSidInterval, _impl_.value_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigTaxiPoint, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigTaxiPoint, _impl_.latitude_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigTaxiPoint, _impl_.longitude_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigTaxiZone, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigTaxiZone, _impl_.runway_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigTaxiZone, _impl_.minutes_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigTaxiZone, _impl_.polygon_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigTaxiZone, _impl_.remote_taxi_minutes_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDelay, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDelay, _impl_.runway_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDelay, _impl_.time_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDelay, _impl_.type_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeice, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeice, _impl_.light_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeice, _impl_.medium_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeice, _impl_.heavy_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeice, _impl_.super_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeice, _impl_.platforms_),
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeicePlatform, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeicePlatform, _impl_.name_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::CdmConfigDeicePlatform, _impl_.time_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlightPage, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlightPage, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlightPage, _impl_.airport_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlightPage, _impl_.fetched_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlightPage, _impl_.flights_),
+        ~0u,
+        0,
+        ~0u,
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.callsign_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.cid_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.departure_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.arrival_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.eobt_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.tobt_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.requested_tobt_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.taxi_minutes_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.ctot_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.aobt_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.atot_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.eta_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.most_penalizing_airspace_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.cdm_status_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.atfcm_status_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffFlight, _impl_.cdm_data_),
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        ~0u,
+        0,
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.tobt_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.tsat_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.ttot_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.ctot_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.reason_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.requested_tobt_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.requested_tobt_type_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.requested_asrt_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffCdmData, _impl_.id_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffMastersPage, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffMastersPage, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffMastersPage, _impl_.fetched_at_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffMastersPage, _impl_.masters_),
+        0,
+        ~0u,
+        ~0u,  // no _has_bits_
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffMaster, _internal_metadata_),
+        ~0u,  // no _extensions_
+        ~0u,  // no _oneof_case_
+        ~0u,  // no _weak_field_map_
+        ~0u,  // no _inlined_string_donated_
+        ~0u,  // no _split_
+        ~0u,  // no sizeof(Split)
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffMaster, _impl_.airport_),
+        PROTOBUF_FIELD_OFFSET(::flightstrips::cluster::v1::ViffMaster, _impl_.position_),
 };
 
 static const ::_pbi::MigrationSchema
@@ -7552,143 +8753,168 @@ static const ::_pbi::MigrationSchema
         {145, -1, -1, sizeof(::flightstrips::cluster::v1::EntityChange)},
         {158, -1, -1, sizeof(::flightstrips::cluster::v1::DeleteEntity)},
         {167, -1, -1, sizeof(::flightstrips::cluster::v1::EntityRecord)},
-        {205, -1, -1, sizeof(::flightstrips::cluster::v1::AirportRegistry)},
-        {215, -1, -1, sizeof(::flightstrips::cluster::v1::SessionRegistry)},
-        {228, 240, -1, sizeof(::flightstrips::cluster::v1::ProviderQuota)},
-        {244, -1, -1, sizeof(::flightstrips::cluster::v1::AirportPolicy)},
-        {256, -1, -1, sizeof(::flightstrips::cluster::v1::RunwayPolicy)},
-        {267, 294, -1, sizeof(::flightstrips::cluster::v1::Session)},
-        {313, -1, -1, sizeof(::flightstrips::cluster::v1::Runway)},
-        {324, -1, -1, sizeof(::flightstrips::cluster::v1::RunwayStatus)},
-        {334, -1, -1, sizeof(::flightstrips::cluster::v1::SidInfo)},
-        {344, -1, -1, sizeof(::flightstrips::cluster::v1::RunwayCfl)},
-        {354, -1, -1, sizeof(::flightstrips::cluster::v1::Controller)},
-        {370, -1, -1, sizeof(::flightstrips::cluster::v1::SectorOwner)},
-        {382, 452, -1, sizeof(::flightstrips::cluster::v1::Strip)},
-        {514, 529, -1, sizeof(::flightstrips::cluster::v1::ValidationStatus)},
-        {536, -1, -1, sizeof(::flightstrips::cluster::v1::ValidationFault)},
-        {549, -1, -1, sizeof(::flightstrips::cluster::v1::ValidationAction)},
-        {561, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgeValidation)},
-        {570, -1, -1, sizeof(::flightstrips::cluster::v1::ClxOverrideAction)},
-        {579, 597, -1, sizeof(::flightstrips::cluster::v1::Coordination)},
-        {607, 631, -1, sizeof(::flightstrips::cluster::v1::TacticalStrip)},
-        {647, 682, -1, sizeof(::flightstrips::cluster::v1::StandAssignment)},
-        {709, 729, -1, sizeof(::flightstrips::cluster::v1::StandBlock)},
-        {741, 764, -1, sizeof(::flightstrips::cluster::v1::PdcSequence)},
-        {779, 795, -1, sizeof(::flightstrips::cluster::v1::CdmState)},
-        {803, -1, -1, sizeof(::flightstrips::cluster::v1::EcfmpState)},
-        {814, 832, -1, sizeof(::flightstrips::cluster::v1::EcfmpRestriction)},
-        {842, 857, -1, sizeof(::flightstrips::cluster::v1::Atis)},
-        {864, 876, -1, sizeof(::flightstrips::cluster::v1::ClxOverride)},
-        {880, 894, -1, sizeof(::flightstrips::cluster::v1::FrontendMessage)},
-        {900, 918, -1, sizeof(::flightstrips::cluster::v1::AmanAirport)},
-        {928, 949, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayGroup)},
-        {962, 973, -1, sizeof(::flightstrips::cluster::v1::AmanRunwaySelectionPoint)},
-        {976, 986, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayRatePoint)},
-        {988, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSameStarSpacing)},
-        {999, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceWarning)},
-        {1011, 1025, -1, sizeof(::flightstrips::cluster::v1::AmanGap)},
-        {1031, 1045, -1, sizeof(::flightstrips::cluster::v1::AmanClosure)},
-        {1051, 1065, -1, sizeof(::flightstrips::cluster::v1::AmanReservation)},
-        {1071, 1082, -1, sizeof(::flightstrips::cluster::v1::AmanTimelineMapping)},
-        {1085, -1, -1, sizeof(::flightstrips::cluster::v1::AmanTechnicalHealth)},
-        {1097, 1110, -1, sizeof(::flightstrips::cluster::v1::AmanComponentHealth)},
-        {1115, 1160, -1, sizeof(::flightstrips::cluster::v1::AmanFlight)},
-        {1197, 1222, -1, sizeof(::flightstrips::cluster::v1::AmanFlightObservation)},
-        {1239, 1249, -1, sizeof(::flightstrips::cluster::v1::AmanPlannedTiming)},
-        {1251, 1261, -1, sizeof(::flightstrips::cluster::v1::AmanFlightPlanFact)},
-        {1263, 1278, -1, sizeof(::flightstrips::cluster::v1::AmanSurveillanceFact)},
-        {1285, 1298, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingClearance)},
-        {1303, 1332, -1, sizeof(::flightstrips::cluster::v1::AmanPrediction)},
-        {1353, 1364, -1, sizeof(::flightstrips::cluster::v1::AmanFeederEta)},
-        {1367, 1379, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingPlan)},
-        {1383, 1395, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingStack)},
-        {1399, 1411, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionCalculation)},
-        {1415, 1434, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionLeg)},
-        {1445, 1469, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionSegment)},
-        {1485, 1495, -1, sizeof(::flightstrips::cluster::v1::AmanRawTetaSample)},
-        {1497, 1515, -1, sizeof(::flightstrips::cluster::v1::AmanBaseline)},
-        {1525, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRouteProgress)},
-        {1546, 1557, -1, sizeof(::flightstrips::cluster::v1::AmanTmaEntry)},
-        {1560, 1570, -1, sizeof(::flightstrips::cluster::v1::AmanOperationalException)},
-        {1572, 1590, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundEvidence)},
-        {1600, 1624, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundDetection)},
-        {1640, 1655, -1, sizeof(::flightstrips::cluster::v1::AmanLifecycle)},
-        {1662, 1673, -1, sizeof(::flightstrips::cluster::v1::AmanAbsence)},
-        {1676, 1692, -1, sizeof(::flightstrips::cluster::v1::AmanRouteFact)},
-        {1700, 1713, -1, sizeof(::flightstrips::cluster::v1::AmanProvenance)},
-        {1718, 1731, -1, sizeof(::flightstrips::cluster::v1::AmanSlot)},
-        {1736, 1754, -1, sizeof(::flightstrips::cluster::v1::AmanETAReview)},
-        {1764, 1779, -1, sizeof(::flightstrips::cluster::v1::AmanQueueOffer)},
-        {1786, 1803, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundConfirmation)},
-        {1812, 1825, -1, sizeof(::flightstrips::cluster::v1::AmanGapException)},
-        {1830, 1851, -1, sizeof(::flightstrips::cluster::v1::AmanCoordination)},
-        {1863, 1873, -1, sizeof(::flightstrips::cluster::v1::AmanRouteDirect)},
-        {1875, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSpeed)},
-        {1884, 1897, -1, sizeof(::flightstrips::cluster::v1::AmanClearance)},
-        {1902, 1924, -1, sizeof(::flightstrips::cluster::v1::AmanAudit)},
-        {1937, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCommandAudit)},
-        {1949, -1, -1, sizeof(::flightstrips::cluster::v1::AmanObservationAudit)},
-        {1961, 1974, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceAudit)},
-        {1979, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCoordinationAudit)},
-        {1991, -1, -1, sizeof(::flightstrips::cluster::v1::AmanHealthAudit)},
-        {2003, 2018, -1, sizeof(::flightstrips::cluster::v1::AmanCapacityAudit)},
-        {2025, 2037, -1, sizeof(::flightstrips::cluster::v1::AmanFreezeAudit)},
-        {2041, -1, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundAudit)},
-        {2053, 2065, -1, sizeof(::flightstrips::cluster::v1::AmanReplayAudit)},
-        {2069, 2083, -1, sizeof(::flightstrips::cluster::v1::AmanValidation)},
-        {2089, 2101, -1, sizeof(::flightstrips::cluster::v1::VatsimObservation)},
-        {2105, -1, -1, sizeof(::flightstrips::cluster::v1::NavManifest)},
-        {2118, -1, -1, sizeof(::flightstrips::cluster::v1::NavObjectRef)},
-        {2129, -1, -1, sizeof(::flightstrips::cluster::v1::NavRouteCache)},
-        {2142, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderCheckpoint)},
-        {2157, 2170, -1, sizeof(::flightstrips::cluster::v1::WeatherCache)},
-        {2175, 2191, -1, sizeof(::flightstrips::cluster::v1::WeatherObservation)},
-        {2199, 2210, -1, sizeof(::flightstrips::cluster::v1::WeatherCloud)},
-        {2213, 2227, -1, sizeof(::flightstrips::cluster::v1::SessionDeadline)},
-        {2233, 2252, -1, sizeof(::flightstrips::cluster::v1::CommandOutcome)},
-        {2263, 2280, -1, sizeof(::flightstrips::cluster::v1::WorkflowRecord)},
-        {2289, 2313, -1, sizeof(::flightstrips::cluster::v1::EffectRecord)},
-        {2328, -1, -1, sizeof(::flightstrips::cluster::v1::SetFlightPlanEffect)},
-        {2339, -1, -1, sizeof(::flightstrips::cluster::v1::PdcEffect)},
-        {2350, -1, -1, sizeof(::flightstrips::cluster::v1::PrivateMessageEffect)},
-        {2361, -1, -1, sizeof(::flightstrips::cluster::v1::CoordinationEffect)},
-        {2372, -1, -1, sizeof(::flightstrips::cluster::v1::CdmEffect)},
-        {2383, 2404, -1, sizeof(::flightstrips::cluster::v1::Snapshot)},
-        {2417, 2428, -1, sizeof(::flightstrips::cluster::v1::EntitySnapshot)},
-        {2431, 2446, -1, sizeof(::flightstrips::cluster::v1::SnapshotIndex)},
-        {2453, 2470, -1, sizeof(::flightstrips::cluster::v1::PositionValue)},
-        {2478, 2492, -1, sizeof(::flightstrips::cluster::v1::AircraftPosition)},
-        {2498, -1, -1, sizeof(::flightstrips::cluster::v1::PositionTombstone)},
-        {2506, -1, -1, sizeof(::flightstrips::cluster::v1::PresenceValue)},
-        {2518, 2529, -1, sizeof(::flightstrips::cluster::v1::NodePresence)},
-        {2532, 2549, -1, sizeof(::flightstrips::cluster::v1::ClientPresence)},
-        {2558, -1, -1, sizeof(::flightstrips::cluster::v1::ObjectValue)},
-        {2572, 2594, -1, sizeof(::flightstrips::cluster::v1::NavData)},
-        {2607, 2619, -1, sizeof(::flightstrips::cluster::v1::NavDatasetVersion)},
-        {2623, 2636, -1, sizeof(::flightstrips::cluster::v1::NavProvenance)},
-        {2641, -1, -1, sizeof(::flightstrips::cluster::v1::NavCoordinate)},
-        {2651, 2662, -1, sizeof(::flightstrips::cluster::v1::NavThreshold)},
-        {2665, 2675, -1, sizeof(::flightstrips::cluster::v1::NavAirportFragment)},
-        {2677, 2689, -1, sizeof(::flightstrips::cluster::v1::NavAirport)},
-        {2693, 2706, -1, sizeof(::flightstrips::cluster::v1::NavRunway)},
-        {2711, -1, -1, sizeof(::flightstrips::cluster::v1::NavProcedureFragment)},
-        {2723, 2738, -1, sizeof(::flightstrips::cluster::v1::NavProcedure)},
-        {2745, 2762, -1, sizeof(::flightstrips::cluster::v1::NavLeg)},
-        {2771, 2791, -1, sizeof(::flightstrips::cluster::v1::NavHolding)},
-        {2802, -1, -1, sizeof(::flightstrips::cluster::v1::NavFixFragment)},
-        {2812, 2823, -1, sizeof(::flightstrips::cluster::v1::NavFix)},
-        {2826, -1, -1, sizeof(::flightstrips::cluster::v1::NavTerminalFragment)},
-        {2840, 2851, -1, sizeof(::flightstrips::cluster::v1::NavStarFamilyPolicy)},
-        {2854, 2875, -1, sizeof(::flightstrips::cluster::v1::NavTerminalPath)},
-        {2888, 2901, -1, sizeof(::flightstrips::cluster::v1::NavRouteCandidate)},
-        {2906, 2921, -1, sizeof(::flightstrips::cluster::v1::NavRouteQuery)},
-        {2928, 2944, -1, sizeof(::flightstrips::cluster::v1::NavRouteGeometry)},
-        {2952, -1, -1, sizeof(::flightstrips::cluster::v1::EffectSecret)},
-        {2964, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderPage)},
-        {2978, 2988, -1, sizeof(::flightstrips::cluster::v1::AiracPage)},
-        {2990, -1, -1, sizeof(::flightstrips::cluster::v1::VatsimPage)},
-        {2999, -1, -1, sizeof(::flightstrips::cluster::v1::WeatherPage)},
+        {206, -1, -1, sizeof(::flightstrips::cluster::v1::AirportRegistry)},
+        {216, -1, -1, sizeof(::flightstrips::cluster::v1::SessionRegistry)},
+        {229, 241, -1, sizeof(::flightstrips::cluster::v1::ProviderQuota)},
+        {245, -1, -1, sizeof(::flightstrips::cluster::v1::AirportPolicy)},
+        {257, -1, -1, sizeof(::flightstrips::cluster::v1::RunwayPolicy)},
+        {268, 295, -1, sizeof(::flightstrips::cluster::v1::Session)},
+        {314, -1, -1, sizeof(::flightstrips::cluster::v1::Runway)},
+        {325, -1, -1, sizeof(::flightstrips::cluster::v1::RunwayStatus)},
+        {335, -1, -1, sizeof(::flightstrips::cluster::v1::SidInfo)},
+        {345, -1, -1, sizeof(::flightstrips::cluster::v1::RunwayCfl)},
+        {355, -1, -1, sizeof(::flightstrips::cluster::v1::Controller)},
+        {371, -1, -1, sizeof(::flightstrips::cluster::v1::SectorOwner)},
+        {383, 461, -1, sizeof(::flightstrips::cluster::v1::Strip)},
+        {531, 546, -1, sizeof(::flightstrips::cluster::v1::ValidationStatus)},
+        {553, -1, -1, sizeof(::flightstrips::cluster::v1::ValidationFault)},
+        {566, -1, -1, sizeof(::flightstrips::cluster::v1::ValidationAction)},
+        {578, -1, -1, sizeof(::flightstrips::cluster::v1::AcknowledgeValidation)},
+        {587, -1, -1, sizeof(::flightstrips::cluster::v1::ClxOverrideAction)},
+        {596, 614, -1, sizeof(::flightstrips::cluster::v1::Coordination)},
+        {624, 648, -1, sizeof(::flightstrips::cluster::v1::TacticalStrip)},
+        {664, 699, -1, sizeof(::flightstrips::cluster::v1::StandAssignment)},
+        {726, 746, -1, sizeof(::flightstrips::cluster::v1::StandBlock)},
+        {758, 781, -1, sizeof(::flightstrips::cluster::v1::PdcSequence)},
+        {796, 812, -1, sizeof(::flightstrips::cluster::v1::CdmState)},
+        {820, -1, -1, sizeof(::flightstrips::cluster::v1::EcfmpState)},
+        {831, 849, -1, sizeof(::flightstrips::cluster::v1::EcfmpRestriction)},
+        {859, 875, -1, sizeof(::flightstrips::cluster::v1::Atis)},
+        {883, 895, -1, sizeof(::flightstrips::cluster::v1::ClxOverride)},
+        {899, 913, -1, sizeof(::flightstrips::cluster::v1::FrontendMessage)},
+        {919, 937, -1, sizeof(::flightstrips::cluster::v1::AmanAirport)},
+        {947, 968, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayGroup)},
+        {981, 992, -1, sizeof(::flightstrips::cluster::v1::AmanRunwaySelectionPoint)},
+        {995, 1005, -1, sizeof(::flightstrips::cluster::v1::AmanRunwayRatePoint)},
+        {1007, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSameStarSpacing)},
+        {1018, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceWarning)},
+        {1030, 1044, -1, sizeof(::flightstrips::cluster::v1::AmanGap)},
+        {1050, 1064, -1, sizeof(::flightstrips::cluster::v1::AmanClosure)},
+        {1070, 1084, -1, sizeof(::flightstrips::cluster::v1::AmanReservation)},
+        {1090, 1101, -1, sizeof(::flightstrips::cluster::v1::AmanTimelineMapping)},
+        {1104, -1, -1, sizeof(::flightstrips::cluster::v1::AmanTechnicalHealth)},
+        {1116, 1129, -1, sizeof(::flightstrips::cluster::v1::AmanComponentHealth)},
+        {1134, 1179, -1, sizeof(::flightstrips::cluster::v1::AmanFlight)},
+        {1216, 1241, -1, sizeof(::flightstrips::cluster::v1::AmanFlightObservation)},
+        {1258, 1268, -1, sizeof(::flightstrips::cluster::v1::AmanPlannedTiming)},
+        {1270, 1280, -1, sizeof(::flightstrips::cluster::v1::AmanFlightPlanFact)},
+        {1282, 1297, -1, sizeof(::flightstrips::cluster::v1::AmanSurveillanceFact)},
+        {1304, 1317, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingClearance)},
+        {1322, 1351, -1, sizeof(::flightstrips::cluster::v1::AmanPrediction)},
+        {1372, 1383, -1, sizeof(::flightstrips::cluster::v1::AmanFeederEta)},
+        {1386, 1398, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingPlan)},
+        {1402, 1414, -1, sizeof(::flightstrips::cluster::v1::AmanHoldingStack)},
+        {1418, 1430, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionCalculation)},
+        {1434, 1453, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionLeg)},
+        {1464, 1488, -1, sizeof(::flightstrips::cluster::v1::AmanPredictionSegment)},
+        {1504, 1514, -1, sizeof(::flightstrips::cluster::v1::AmanRawTetaSample)},
+        {1516, 1534, -1, sizeof(::flightstrips::cluster::v1::AmanBaseline)},
+        {1544, -1, -1, sizeof(::flightstrips::cluster::v1::AmanRouteProgress)},
+        {1565, 1576, -1, sizeof(::flightstrips::cluster::v1::AmanTmaEntry)},
+        {1579, 1589, -1, sizeof(::flightstrips::cluster::v1::AmanOperationalException)},
+        {1591, 1609, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundEvidence)},
+        {1619, 1643, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundDetection)},
+        {1659, 1674, -1, sizeof(::flightstrips::cluster::v1::AmanLifecycle)},
+        {1681, 1692, -1, sizeof(::flightstrips::cluster::v1::AmanAbsence)},
+        {1695, 1711, -1, sizeof(::flightstrips::cluster::v1::AmanRouteFact)},
+        {1719, 1732, -1, sizeof(::flightstrips::cluster::v1::AmanProvenance)},
+        {1737, 1750, -1, sizeof(::flightstrips::cluster::v1::AmanSlot)},
+        {1755, 1773, -1, sizeof(::flightstrips::cluster::v1::AmanETAReview)},
+        {1783, 1798, -1, sizeof(::flightstrips::cluster::v1::AmanQueueOffer)},
+        {1805, 1822, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundConfirmation)},
+        {1831, 1844, -1, sizeof(::flightstrips::cluster::v1::AmanGapException)},
+        {1849, 1870, -1, sizeof(::flightstrips::cluster::v1::AmanCoordination)},
+        {1882, 1892, -1, sizeof(::flightstrips::cluster::v1::AmanRouteDirect)},
+        {1894, -1, -1, sizeof(::flightstrips::cluster::v1::AmanSpeed)},
+        {1903, 1916, -1, sizeof(::flightstrips::cluster::v1::AmanClearance)},
+        {1921, 1943, -1, sizeof(::flightstrips::cluster::v1::AmanAudit)},
+        {1956, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCommandAudit)},
+        {1968, -1, -1, sizeof(::flightstrips::cluster::v1::AmanObservationAudit)},
+        {1980, 1993, -1, sizeof(::flightstrips::cluster::v1::AmanSequenceAudit)},
+        {1998, -1, -1, sizeof(::flightstrips::cluster::v1::AmanCoordinationAudit)},
+        {2010, -1, -1, sizeof(::flightstrips::cluster::v1::AmanHealthAudit)},
+        {2022, 2037, -1, sizeof(::flightstrips::cluster::v1::AmanCapacityAudit)},
+        {2044, 2056, -1, sizeof(::flightstrips::cluster::v1::AmanFreezeAudit)},
+        {2060, -1, -1, sizeof(::flightstrips::cluster::v1::AmanGoAroundAudit)},
+        {2072, 2084, -1, sizeof(::flightstrips::cluster::v1::AmanReplayAudit)},
+        {2088, 2102, -1, sizeof(::flightstrips::cluster::v1::AmanValidation)},
+        {2108, 2120, -1, sizeof(::flightstrips::cluster::v1::VatsimObservation)},
+        {2124, 2136, -1, sizeof(::flightstrips::cluster::v1::VatsimSessionCursor)},
+        {2140, -1, -1, sizeof(::flightstrips::cluster::v1::NavManifest)},
+        {2155, -1, -1, sizeof(::flightstrips::cluster::v1::NavObjectRef)},
+        {2166, -1, -1, sizeof(::flightstrips::cluster::v1::NavRouteCache)},
+        {2179, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderCheckpoint)},
+        {2194, 2207, -1, sizeof(::flightstrips::cluster::v1::WeatherCache)},
+        {2212, 2228, -1, sizeof(::flightstrips::cluster::v1::WeatherObservation)},
+        {2236, 2247, -1, sizeof(::flightstrips::cluster::v1::WeatherCloud)},
+        {2250, 2264, -1, sizeof(::flightstrips::cluster::v1::SessionDeadline)},
+        {2270, 2289, -1, sizeof(::flightstrips::cluster::v1::CommandOutcome)},
+        {2300, 2317, -1, sizeof(::flightstrips::cluster::v1::WorkflowRecord)},
+        {2326, 2350, -1, sizeof(::flightstrips::cluster::v1::EffectRecord)},
+        {2365, -1, -1, sizeof(::flightstrips::cluster::v1::SetFlightPlanEffect)},
+        {2376, -1, -1, sizeof(::flightstrips::cluster::v1::PdcEffect)},
+        {2387, -1, -1, sizeof(::flightstrips::cluster::v1::PrivateMessageEffect)},
+        {2398, -1, -1, sizeof(::flightstrips::cluster::v1::CoordinationEffect)},
+        {2409, -1, -1, sizeof(::flightstrips::cluster::v1::CdmEffect)},
+        {2420, 2441, -1, sizeof(::flightstrips::cluster::v1::Snapshot)},
+        {2454, 2465, -1, sizeof(::flightstrips::cluster::v1::EntitySnapshot)},
+        {2468, 2483, -1, sizeof(::flightstrips::cluster::v1::SnapshotIndex)},
+        {2490, 2507, -1, sizeof(::flightstrips::cluster::v1::PositionValue)},
+        {2515, 2529, -1, sizeof(::flightstrips::cluster::v1::AircraftPosition)},
+        {2535, -1, -1, sizeof(::flightstrips::cluster::v1::PositionTombstone)},
+        {2543, -1, -1, sizeof(::flightstrips::cluster::v1::PresenceValue)},
+        {2555, 2566, -1, sizeof(::flightstrips::cluster::v1::NodePresence)},
+        {2569, 2586, -1, sizeof(::flightstrips::cluster::v1::ClientPresence)},
+        {2595, -1, -1, sizeof(::flightstrips::cluster::v1::ObjectValue)},
+        {2609, 2631, -1, sizeof(::flightstrips::cluster::v1::NavData)},
+        {2644, 2656, -1, sizeof(::flightstrips::cluster::v1::NavDatasetVersion)},
+        {2660, 2673, -1, sizeof(::flightstrips::cluster::v1::NavProvenance)},
+        {2678, -1, -1, sizeof(::flightstrips::cluster::v1::NavCoordinate)},
+        {2688, 2699, -1, sizeof(::flightstrips::cluster::v1::NavThreshold)},
+        {2702, 2712, -1, sizeof(::flightstrips::cluster::v1::NavAirportFragment)},
+        {2714, 2726, -1, sizeof(::flightstrips::cluster::v1::NavAirport)},
+        {2730, 2743, -1, sizeof(::flightstrips::cluster::v1::NavRunway)},
+        {2748, -1, -1, sizeof(::flightstrips::cluster::v1::NavProcedureFragment)},
+        {2760, 2775, -1, sizeof(::flightstrips::cluster::v1::NavProcedure)},
+        {2782, 2799, -1, sizeof(::flightstrips::cluster::v1::NavLeg)},
+        {2808, 2828, -1, sizeof(::flightstrips::cluster::v1::NavHolding)},
+        {2839, -1, -1, sizeof(::flightstrips::cluster::v1::NavFixFragment)},
+        {2849, 2860, -1, sizeof(::flightstrips::cluster::v1::NavFix)},
+        {2863, -1, -1, sizeof(::flightstrips::cluster::v1::NavTerminalFragment)},
+        {2877, 2888, -1, sizeof(::flightstrips::cluster::v1::NavStarFamilyPolicy)},
+        {2891, 2912, -1, sizeof(::flightstrips::cluster::v1::NavTerminalPath)},
+        {2925, 2938, -1, sizeof(::flightstrips::cluster::v1::NavRouteCandidate)},
+        {2943, 2958, -1, sizeof(::flightstrips::cluster::v1::NavRouteQuery)},
+        {2965, 2981, -1, sizeof(::flightstrips::cluster::v1::NavRouteGeometry)},
+        {2989, -1, -1, sizeof(::flightstrips::cluster::v1::EffectSecret)},
+        {3001, -1, -1, sizeof(::flightstrips::cluster::v1::ProviderPage)},
+        {3021, 3031, -1, sizeof(::flightstrips::cluster::v1::AiracPage)},
+        {3033, 3044, -1, sizeof(::flightstrips::cluster::v1::VatsimPage)},
+        {3047, 3065, -1, sizeof(::flightstrips::cluster::v1::VatsimFlight)},
+        {3075, -1, -1, sizeof(::flightstrips::cluster::v1::VatsimFlightPlan)},
+        {3097, -1, -1, sizeof(::flightstrips::cluster::v1::WeatherPage)},
+        {3106, 3119, -1, sizeof(::flightstrips::cluster::v1::OpenMeteoPage)},
+        {3124, 3136, -1, sizeof(::flightstrips::cluster::v1::OpenMeteoSample)},
+        {3140, -1, -1, sizeof(::flightstrips::cluster::v1::OpenMeteoWindLevel)},
+        {3151, 3161, -1, sizeof(::flightstrips::cluster::v1::EcfmpPage)},
+        {3163, 3184, -1, sizeof(::flightstrips::cluster::v1::EcfmpMeasure)},
+        {3197, 3210, -1, sizeof(::flightstrips::cluster::v1::EcfmpFilter)},
+        {3215, 3225, -1, sizeof(::flightstrips::cluster::v1::AtisFeedPage)},
+        {3227, 3238, -1, sizeof(::flightstrips::cluster::v1::AtisFeedAirport)},
+        {3241, 3254, -1, sizeof(::flightstrips::cluster::v1::AtisFeedEntry)},
+        {3259, 3280, -1, sizeof(::flightstrips::cluster::v1::CdmConfigPage)},
+        {3293, -1, -1, sizeof(::flightstrips::cluster::v1::CdmConfigRate)},
+        {3308, -1, -1, sizeof(::flightstrips::cluster::v1::CdmConfigSidInterval)},
+        {3320, -1, -1, sizeof(::flightstrips::cluster::v1::CdmConfigTaxiPoint)},
+        {3330, -1, -1, sizeof(::flightstrips::cluster::v1::CdmConfigTaxiZone)},
+        {3342, -1, -1, sizeof(::flightstrips::cluster::v1::CdmConfigDelay)},
+        {3353, -1, -1, sizeof(::flightstrips::cluster::v1::CdmConfigDeice)},
+        {3366, -1, -1, sizeof(::flightstrips::cluster::v1::CdmConfigDeicePlatform)},
+        {3376, 3387, -1, sizeof(::flightstrips::cluster::v1::ViffFlightPage)},
+        {3390, 3414, -1, sizeof(::flightstrips::cluster::v1::ViffFlight)},
+        {3430, -1, -1, sizeof(::flightstrips::cluster::v1::ViffCdmData)},
+        {3447, 3457, -1, sizeof(::flightstrips::cluster::v1::ViffMastersPage)},
+        {3459, -1, -1, sizeof(::flightstrips::cluster::v1::ViffMaster)},
 };
 static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_AggregateRef_default_instance_._instance,
@@ -7790,6 +9016,7 @@ static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_AmanReplayAudit_default_instance_._instance,
     &::flightstrips::cluster::v1::_AmanValidation_default_instance_._instance,
     &::flightstrips::cluster::v1::_VatsimObservation_default_instance_._instance,
+    &::flightstrips::cluster::v1::_VatsimSessionCursor_default_instance_._instance,
     &::flightstrips::cluster::v1::_NavManifest_default_instance_._instance,
     &::flightstrips::cluster::v1::_NavObjectRef_default_instance_._instance,
     &::flightstrips::cluster::v1::_NavRouteCache_default_instance_._instance,
@@ -7840,7 +9067,31 @@ static const ::_pb::Message* const file_default_instances[] = {
     &::flightstrips::cluster::v1::_ProviderPage_default_instance_._instance,
     &::flightstrips::cluster::v1::_AiracPage_default_instance_._instance,
     &::flightstrips::cluster::v1::_VatsimPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_VatsimFlight_default_instance_._instance,
+    &::flightstrips::cluster::v1::_VatsimFlightPlan_default_instance_._instance,
     &::flightstrips::cluster::v1::_WeatherPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_OpenMeteoPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_OpenMeteoSample_default_instance_._instance,
+    &::flightstrips::cluster::v1::_OpenMeteoWindLevel_default_instance_._instance,
+    &::flightstrips::cluster::v1::_EcfmpPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_EcfmpMeasure_default_instance_._instance,
+    &::flightstrips::cluster::v1::_EcfmpFilter_default_instance_._instance,
+    &::flightstrips::cluster::v1::_AtisFeedPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_AtisFeedAirport_default_instance_._instance,
+    &::flightstrips::cluster::v1::_AtisFeedEntry_default_instance_._instance,
+    &::flightstrips::cluster::v1::_CdmConfigPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_CdmConfigRate_default_instance_._instance,
+    &::flightstrips::cluster::v1::_CdmConfigSidInterval_default_instance_._instance,
+    &::flightstrips::cluster::v1::_CdmConfigTaxiPoint_default_instance_._instance,
+    &::flightstrips::cluster::v1::_CdmConfigTaxiZone_default_instance_._instance,
+    &::flightstrips::cluster::v1::_CdmConfigDelay_default_instance_._instance,
+    &::flightstrips::cluster::v1::_CdmConfigDeice_default_instance_._instance,
+    &::flightstrips::cluster::v1::_CdmConfigDeicePlatform_default_instance_._instance,
+    &::flightstrips::cluster::v1::_ViffFlightPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_ViffFlight_default_instance_._instance,
+    &::flightstrips::cluster::v1::_ViffCdmData_default_instance_._instance,
+    &::flightstrips::cluster::v1::_ViffMastersPage_default_instance_._instance,
+    &::flightstrips::cluster::v1::_ViffMaster_default_instance_._instance,
 };
 const char descriptor_table_protodef_storage_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
@@ -7896,7 +9147,7 @@ const char descriptor_table_protodef_storage_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "lete\030\004 \001(\0132%.flightstrips.cluster.v1.Del"
     "eteEntityH\000B\013\n\toperation\"A\n\014DeleteEntity"
     "\0221\n\004kind\030\001 \001(\0162#.flightstrips.cluster.v1"
-    ".EntityKind\"\313\016\n\014EntityRecord\022D\n\020airport_"
+    ".EntityKind\"\232\017\n\014EntityRecord\022D\n\020airport_"
     "registry\030\001 \001(\0132(.flightstrips.cluster.v1"
     ".AirportRegistryH\000\022D\n\020session_registry\030\002"
     " \001(\0132(.flightstrips.cluster.v1.SessionRe"
@@ -7942,945 +9193,1082 @@ const char descriptor_table_protodef_storage_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "oviderCheckpointH\000\022>\n\rweather_cache\030\034 \001("
     "\0132%.flightstrips.cluster.v1.WeatherCache"
     "H\000\022D\n\020session_deadline\030\035 \001(\0132(.flightstr"
-    "ips.cluster.v1.SessionDeadlineH\000B\007\n\005valu"
-    "e\"5\n\017AirportRegistry\022\014\n\004icao\030\001 \001(\t\022\024\n\014di"
-    "splay_name\030\002 \001(\t\"\351\001\n\017SessionRegistry\022\n\n\002"
-    "id\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022"
-    "=\n\005state\030\004 \001(\0162..flightstrips.cluster.v1"
-    ".SessionRegistry.State\022\023\n\013workflow_id\030\005 "
-    "\001(\t\"W\n\005State\022\025\n\021STATE_UNSPECIFIED\020\000\022\020\n\014I"
-    "NITIALIZING\020\001\022\n\n\006ACTIVE\020\002\022\014\n\010DELETING\020\003\022"
-    "\013\n\007DELETED\020\004\"p\n\rProviderQuota\022\020\n\010provide"
-    "r\030\001 \001(\t\0220\n\014window_start\030\002 \001(\0132\032.google.p"
-    "rotobuf.Timestamp\022\014\n\004used\030\003 \001(\r\022\r\n\005limit"
-    "\030\004 \001(\r\"\232\001\n\rAirportPolicy\022\017\n\007airport\030\001 \001("
-    "\t\022\035\n\025master_position_order\030\002 \003(\t\022!\n\031cdm_"
-    "configuration_version\030\003 \001(\t\0226\n\007runways\030\004"
-    " \003(\0132%.flightstrips.cluster.v1.RunwayPol"
-    "icy\"E\n\014RunwayPolicy\022\n\n\002id\030\001 \001(\t\022\031\n\021capac"
-    "ity_per_hour\030\002 \001(\r\022\016\n\006active\030\003 \001(\010\"\215\006\n\007S"
-    "ession\022\n\n\002id\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022\014\n\004n"
-    "ame\030\003 \001(\t\0220\n\007runways\030\004 \003(\0132\037.flightstrip"
-    "s.cluster.v1.Runway\0223\n\006master\030\005 \001(\0132#.fl"
-    "ightstrips.cluster.v1.MasterTerm\0222\n\004sync"
-    "\030\006 \001(\0132$.flightstrips.cluster.v1.Session"
-    "Sync\022\?\n\026first_no_controller_at\030\007 \001(\0132\032.g"
-    "oogle.protobuf.TimestampH\000\210\001\001\022\022\n\ntombsto"
-    "ned\030\010 \001(\010\022\025\n\rnext_strip_id\030\t \001(\004\022\034\n\024next"
-    "_coordination_id\030\n \001(\004\022\030\n\020next_tactical_"
-    "id\030\013 \001(\004\022\027\n\017next_message_id\030\014 \001(\004\022\021\n\tlay"
-    "out_id\030\r \001(\t\0228\n\016available_sids\030\016 \003(\0132 .f"
-    "lightstrips.cluster.v1.SidInfo\022A\n\025initia"
-    "l_cfl_by_runway\030\017 \003(\0132\".flightstrips.clu"
-    "ster.v1.RunwayCfl\022 \n\030transition_altitude"
-    "_feet\030\020 \001(\005\022 \n\030stand_assignment_enabled\030"
-    "\021 \001(\010\022>\n\017runway_statuses\030\022 \003(\0132%.flights"
-    "trips.cluster.v1.RunwayStatus\022:\n\021cleanup"
-    "_paused_at\030\023 \001(\0132\032.google.protobuf.Times"
-    "tampH\001\210\001\001B\031\n\027_first_no_controller_atB\024\n\022"
-    "_cleanup_paused_at\":\n\006Runway\022\014\n\004name\030\001 \001"
-    "(\t\022\021\n\tdeparture\030\002 \001(\010\022\017\n\007arrival\030\003 \001(\010\","
-    "\n\014RunwayStatus\022\014\n\004pair\030\001 \001(\t\022\016\n\006status\030\002"
-    " \001(\t\"\'\n\007SidInfo\022\014\n\004name\030\001 \001(\t\022\016\n\006runway\030"
-    "\002 \001(\t\"2\n\tRunwayCfl\022\016\n\006runway\030\001 \001(\t\022\025\n\ral"
-    "titude_feet\030\002 \001(\005\"\234\001\n\nController\022\013\n\003cid\030"
-    "\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\020\n\010position\030\003 \001("
-    "\t\022\017\n\007section\030\004 \001(\t\022\025\n\rowned_sectors\030\005 \003("
-    "\t\022\020\n\010observer\030\006 \001(\010\022\020\n\010revision\030\007 \001(\004\022\021\n"
-    "\tlayout_id\030\010 \001(\t\"[\n\013SectorOwner\022\016\n\006secto"
-    "r\030\001 \001(\t\022\026\n\016controller_cid\030\002 \001(\t\022\020\n\010posit"
-    "ion\030\003 \001(\t\022\022\n\nidentifier\030\004 \001(\t\"\247\020\n\005Strip\022"
-    "\n\n\002id\030\001 \001(\004\022\020\n\010callsign\030\002 \001(\t\022\020\n\010revisio"
-    "n\030\003 \001(\004\022\025\n\raircraft_type\030\004 \001(\t\022\021\n\tdepart"
-    "ure\030\005 \001(\t\022\023\n\013destination\030\006 \001(\t\022\r\n\005route\030"
-    "\007 \001(\t\022\017\n\007remarks\030\010 \001(\t\022\013\n\003sid\030\t \001(\t\022\016\n\006r"
-    "unway\030\n \001(\t\022\027\n\017assigned_squawk\030\013 \001(\t\022\016\n\006"
-    "squawk\030\014 \001(\t\022\037\n\022requested_altitude\030\r \001(\005"
-    "H\000\210\001\001\022\035\n\020cleared_altitude\030\016 \001(\005H\001\210\001\001\022\024\n\007"
-    "heading\030\017 \001(\005H\002\210\001\001\022\013\n\003bay\030\020 \001(\t\022\r\n\005stand"
-    "\030\021 \001(\t\022\021\n\towner_cid\030\022 \001(\t\022\030\n\020next_contro"
-    "llers\030\023 \003(\t\022\034\n\024previous_controllers\030\024 \003("
-    "\t\022\016\n\006marked\030\025 \001(\010\022\021\n\tpdc_state\030\026 \001(\t\022\033\n\023"
-    "pdc_request_remarks\030\027 \001(\t\022\027\n\017start_reque"
-    "sted\030\030 \001(\010\022\026\n\016runway_cleared\030\031 \001(\010\022\030\n\020ru"
-    "nway_confirmed\030\032 \001(\010\022\024\n\014registration\030\033 \001"
-    "(\t\022\035\n\020persons_on_board\030\034 \001(\rH\003\210\001\001\022\030\n\020fli"
-    "ght_plan_type\030\035 \001(\t\022\020\n\010language\030\036 \001(\t\022\025\n"
-    "\rrelease_point\030\037 \001(\t\022-\n\004eobt\030  \001(\0132\032.goo"
-    "gle.protobuf.TimestampH\004\210\001\001\022-\n\004tobt\030! \001("
-    "\0132\032.google.protobuf.TimestampH\005\210\001\001\022-\n\004ts"
-    "at\030\" \001(\0132\032.google.protobuf.TimestampH\006\210\001"
-    "\001\022-\n\004ttot\030# \001(\0132\032.google.protobuf.Timest"
-    "ampH\007\210\001\001\022-\n\004ctot\030$ \001(\0132\032.google.protobuf"
-    ".TimestampH\010\210\001\001\022 \n\030unexpected_change_fie"
-    "lds\030% \003(\t\022\"\n\032controller_modified_fields\030"
-    "& \003(\t\022\016\n\006manual\030\' \001(\010\022\027\n\017has_flight_plan"
-    "\030( \001(\010\022=\n\nvalidation\030) \001(\0132).flightstrip"
-    "s.cluster.v1.ValidationStatus\022\021\n\talterna"
-    "te\030* \001(\t\022\014\n\004star\030+ \001(\t\022\031\n\021aircraft_categ"
-    "ory\030, \001(\t\022\034\n\017spoken_callsign\030- \001(\tH\t\210\001\001\022"
-    "\024\n\014capabilities\030. \001(\t\022\032\n\022communication_t"
-    "ype\030/ \001(\t\022#\n\026position_altitude_feet\0300 \001("
-    "\005H\n\210\001\001\022-\n\004aobt\0301 \001(\0132\032.google.protobuf.T"
-    "imestampH\013\210\001\001\022-\n\004asat\0302 \001(\0132\032.google.pro"
-    "tobuf.TimestampH\014\210\001\001\022-\n\004asrt\0303 \001(\0132\032.goo"
-    "gle.protobuf.TimestampH\r\210\001\001\022-\n\004tsac\0304 \001("
-    "\0132\032.google.protobuf.TimestampH\016\210\001\001\022\037\n\022op"
-    "erational_status\0305 \001(\tH\017\210\001\001\022%\n\030most_pena"
-    "lizing_airspace\0306 \001(\tH\020\210\001\001\022\025\n\010ecfmp_id\0307"
-    " \001(\tH\021\210\001\001\022\030\n\013ctot_source\0308 \001(\tH\022\210\001\001\022\022\n\005p"
-    "hase\0309 \001(\tH\023\210\001\001\022-\n\004eldt\030: \001(\0132\032.google.p"
-    "rotobuf.TimestampH\024\210\001\001\022-\n\004aldt\030; \001(\0132\032.g"
-    "oogle.protobuf.TimestampH\025\210\001\001\022\020\n\010sequenc"
-    "e\030< \001(\004\022\030\n\013tobt_set_by\030= \001(\tH\026\210\001\001\022\025\n\010on_"
-    "block\030> \001(\010H\027\210\001\001B\025\n\023_requested_altitudeB"
-    "\023\n\021_cleared_altitudeB\n\n\010_headingB\023\n\021_per"
-    "sons_on_boardB\007\n\005_eobtB\007\n\005_tobtB\007\n\005_tsat"
-    "B\007\n\005_ttotB\007\n\005_ctotB\022\n\020_spoken_callsignB\031"
-    "\n\027_position_altitude_feetB\007\n\005_aobtB\007\n\005_a"
-    "satB\007\n\005_asrtB\007\n\005_tsacB\025\n\023_operational_st"
-    "atusB\033\n\031_most_penalizing_airspaceB\013\n\t_ec"
-    "fmp_idB\016\n\014_ctot_sourceB\010\n\006_phaseB\007\n\005_eld"
-    "tB\007\n\005_aldtB\016\n\014_tobt_set_byB\013\n\t_on_block\""
-    "\375\001\n\020ValidationStatus\022\022\n\nissue_type\030\001 \001(\t"
-    "\022\017\n\007message\030\002 \001(\t\022\027\n\017owning_position\030\003 \001"
-    "(\t\022\016\n\006active\030\004 \001(\010\022\026\n\016activation_key\030\005 \001"
-    "(\t\0228\n\006faults\030\006 \003(\0132(.flightstrips.cluste"
-    "r.v1.ValidationFault\022>\n\006action\030\007 \001(\0132).f"
-    "lightstrips.cluster.v1.ValidationActionH"
-    "\000\210\001\001B\t\n\007_action\"l\n\017ValidationFault\022\014\n\004co"
-    "de\030\001 \001(\t\022\017\n\007message\030\002 \001(\t\022\024\n\014nitos_remar"
-    "k\030\003 \001(\t\022\016\n\006fields\030\004 \003(\t\022\024\n\014override_key\030"
-    "\005 \001(\t\"\266\001\n\020ValidationAction\022\r\n\005label\030\001 \001("
-    "\t\022E\n\013acknowledge\030\002 \001(\0132..flightstrips.cl"
-    "uster.v1.AcknowledgeValidationH\000\022B\n\014clx_"
-    "override\030\003 \001(\0132*.flightstrips.cluster.v1"
-    ".ClxOverrideActionH\000B\010\n\006action\"/\n\025Acknow"
-    "ledgeValidation\022\026\n\016activation_key\030\001 \001(\t\""
-    ")\n\021ClxOverrideAction\022\024\n\014override_key\030\001 \001"
-    "(\t\"\231\002\n\014Coordination\022\n\n\002id\030\001 \001(\004\022\020\n\010calls"
-    "ign\030\002 \001(\t\022\020\n\010from_cid\030\003 \001(\t\022\016\n\006to_cid\030\004 "
-    "\001(\t\022\016\n\006status\030\005 \001(\t\022\013\n\003tag\030\006 \001(\t\022.\n\ncrea"
-    "ted_at\030\007 \001(\0132\032.google.protobuf.Timestamp"
-    "\0224\n\013resolved_at\030\010 \001(\0132\032.google.protobuf."
-    "TimestampH\000\210\001\001\022\026\n\016from_euroscope\030\t \001(\010\022\036"
-    "\n\026euroscope_handover_cid\030\n \001(\tB\016\n\014_resol"
-    "ved_at\"\371\002\n\rTacticalStrip\022\n\n\002id\030\001 \001(\004\022\r\n\005"
-    "title\030\002 \001(\t\022\014\n\004body\030\003 \001(\t\022\013\n\003bay\030\004 \001(\t\022\020"
-    "\n\010revision\030\005 \001(\004\022\016\n\006marked\030\006 \001(\010\022\021\n\tconf"
-    "irmed\030\007 \001(\010\022\021\n\towner_cid\030\010 \001(\t\0229\n\020timer_"
-    "started_at\030\t \001(\0132\032.google.protobuf.Times"
-    "tampH\000\210\001\001\022\014\n\004kind\030\n \001(\t\022\r\n\005label\030\013 \001(\t\022\020"
-    "\n\010aircraft\030\014 \001(\t\022\023\n\013produced_by\030\r \001(\t\022\020\n"
-    "\010sequence\030\016 \001(\004\022\024\n\014confirmed_by\030\017 \001(\t\022.\n"
-    "\ncreated_at\030\020 \001(\0132\032.google.protobuf.Time"
-    "stampB\023\n\021_timer_started_at\"\215\010\n\017StandAssi"
-    "gnment\022\020\n\010callsign\030\001 \001(\t\022\r\n\005stand\030\002 \001(\t\022"
-    "\016\n\006source\030\003 \001(\t\022\020\n\010revision\030\004 \001(\004\022\021\n\tcon"
-    "firmed\030\005 \001(\010\022\r\n\005actor\030\006 \001(\t\0223\n\nexpires_a"
-    "t\030\007 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001"
-    "\022\021\n\tdirection\030\010 \001(\t\022\r\n\005stage\030\t \001(\t\022\024\n\007ru"
-    "le_id\030\n \001(\tH\001\210\001\001\022\021\n\004tier\030\013 \001(\005H\002\210\001\001\022\034\n\017m"
-    "atched_variant\030\014 \001(\tH\003\210\001\001\022\034\n\017conflict_re"
-    "ason\030\r \001(\tH\004\210\001\001\022\033\n\016observed_stand\030\016 \001(\tH"
-    "\005\210\001\001\022,\n\003eta\030\017 \001(\0132\032.google.protobuf.Time"
-    "stampH\006\210\001\001\022\027\n\neta_source\030\020 \001(\tH\007\210\001\001\022/\n\013a"
-    "ssigned_at\030\021 \001(\0132\032.google.protobuf.Times"
-    "tamp\022=\n\024projected_release_at\030\022 \001(\0132\032.goo"
-    "gle.protobuf.TimestampH\010\210\001\001\022\016\n\006manual\030\023 "
-    "\001(\010\022\024\n\014acknowledged\030\024 \001(\010\0228\n\017acknowledge"
-    "d_at\030\025 \001(\0132\032.google.protobuf.TimestampH\t"
-    "\210\001\001\022\034\n\017acknowledged_by\030\026 \001(\tH\n\210\001\001\022\027\n\nvat"
-    "sim_cid\030\027 \001(\003H\013\210\001\001\022\034\n\017vatsim_revision\030\030 "
-    "\001(\003H\014\210\001\001\022.\n\ncreated_at\030\031 \001(\0132\032.google.pr"
-    "otobuf.Timestamp\022.\n\nupdated_at\030\032 \001(\0132\032.g"
-    "oogle.protobuf.Timestamp\022\026\n\016blocked_stan"
-    "ds\030\033 \003(\tB\r\n\013_expires_atB\n\n\010_rule_idB\007\n\005_"
-    "tierB\022\n\020_matched_variantB\022\n\020_conflict_re"
-    "asonB\021\n\017_observed_standB\006\n\004_etaB\r\n\013_eta_"
-    "sourceB\027\n\025_projected_release_atB\022\n\020_ackn"
-    "owledged_atB\022\n\020_acknowledged_byB\r\n\013_vats"
-    "im_cidB\022\n\020_vatsim_revision\"\340\002\n\nStandBloc"
-    "k\022\r\n\005stand\030\001 \001(\t\022\016\n\006reason\030\002 \001(\t\022\r\n\005acto"
+    "ips.cluster.v1.SessionDeadlineH\000\022M\n\025vats"
+    "im_session_cursor\030\036 \001(\0132,.flightstrips.c"
+    "luster.v1.VatsimSessionCursorH\000B\007\n\005value"
+    "\"5\n\017AirportRegistry\022\014\n\004icao\030\001 \001(\t\022\024\n\014dis"
+    "play_name\030\002 \001(\t\"\351\001\n\017SessionRegistry\022\n\n\002i"
+    "d\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022="
+    "\n\005state\030\004 \001(\0162..flightstrips.cluster.v1."
+    "SessionRegistry.State\022\023\n\013workflow_id\030\005 \001"
+    "(\t\"W\n\005State\022\025\n\021STATE_UNSPECIFIED\020\000\022\020\n\014IN"
+    "ITIALIZING\020\001\022\n\n\006ACTIVE\020\002\022\014\n\010DELETING\020\003\022\013"
+    "\n\007DELETED\020\004\"p\n\rProviderQuota\022\020\n\010provider"
+    "\030\001 \001(\t\0220\n\014window_start\030\002 \001(\0132\032.google.pr"
+    "otobuf.Timestamp\022\014\n\004used\030\003 \001(\r\022\r\n\005limit\030"
+    "\004 \001(\r\"\232\001\n\rAirportPolicy\022\017\n\007airport\030\001 \001(\t"
+    "\022\035\n\025master_position_order\030\002 \003(\t\022!\n\031cdm_c"
+    "onfiguration_version\030\003 \001(\t\0226\n\007runways\030\004 "
+    "\003(\0132%.flightstrips.cluster.v1.RunwayPoli"
+    "cy\"E\n\014RunwayPolicy\022\n\n\002id\030\001 \001(\t\022\031\n\021capaci"
+    "ty_per_hour\030\002 \001(\r\022\016\n\006active\030\003 \001(\010\"\215\006\n\007Se"
+    "ssion\022\n\n\002id\030\001 \001(\005\022\017\n\007airport\030\002 \001(\t\022\014\n\004na"
+    "me\030\003 \001(\t\0220\n\007runways\030\004 \003(\0132\037.flightstrips"
+    ".cluster.v1.Runway\0223\n\006master\030\005 \001(\0132#.fli"
+    "ghtstrips.cluster.v1.MasterTerm\0222\n\004sync\030"
+    "\006 \001(\0132$.flightstrips.cluster.v1.SessionS"
+    "ync\022\?\n\026first_no_controller_at\030\007 \001(\0132\032.go"
+    "ogle.protobuf.TimestampH\000\210\001\001\022\022\n\ntombston"
+    "ed\030\010 \001(\010\022\025\n\rnext_strip_id\030\t \001(\004\022\034\n\024next_"
+    "coordination_id\030\n \001(\004\022\030\n\020next_tactical_i"
+    "d\030\013 \001(\004\022\027\n\017next_message_id\030\014 \001(\004\022\021\n\tlayo"
+    "ut_id\030\r \001(\t\0228\n\016available_sids\030\016 \003(\0132 .fl"
+    "ightstrips.cluster.v1.SidInfo\022A\n\025initial"
+    "_cfl_by_runway\030\017 \003(\0132\".flightstrips.clus"
+    "ter.v1.RunwayCfl\022 \n\030transition_altitude_"
+    "feet\030\020 \001(\005\022 \n\030stand_assignment_enabled\030\021"
+    " \001(\010\022>\n\017runway_statuses\030\022 \003(\0132%.flightst"
+    "rips.cluster.v1.RunwayStatus\022:\n\021cleanup_"
+    "paused_at\030\023 \001(\0132\032.google.protobuf.Timest"
+    "ampH\001\210\001\001B\031\n\027_first_no_controller_atB\024\n\022_"
+    "cleanup_paused_at\":\n\006Runway\022\014\n\004name\030\001 \001("
+    "\t\022\021\n\tdeparture\030\002 \001(\010\022\017\n\007arrival\030\003 \001(\010\",\n"
+    "\014RunwayStatus\022\014\n\004pair\030\001 \001(\t\022\016\n\006status\030\002 "
+    "\001(\t\"\'\n\007SidInfo\022\014\n\004name\030\001 \001(\t\022\016\n\006runway\030\002"
+    " \001(\t\"2\n\tRunwayCfl\022\016\n\006runway\030\001 \001(\t\022\025\n\ralt"
+    "itude_feet\030\002 \001(\005\"\234\001\n\nController\022\013\n\003cid\030\001"
+    " \001(\t\022\020\n\010callsign\030\002 \001(\t\022\020\n\010position\030\003 \001(\t"
+    "\022\017\n\007section\030\004 \001(\t\022\025\n\rowned_sectors\030\005 \003(\t"
+    "\022\020\n\010observer\030\006 \001(\010\022\020\n\010revision\030\007 \001(\004\022\021\n\t"
+    "layout_id\030\010 \001(\t\"[\n\013SectorOwner\022\016\n\006sector"
+    "\030\001 \001(\t\022\026\n\016controller_cid\030\002 \001(\t\022\020\n\010positi"
+    "on\030\003 \001(\t\022\022\n\nidentifier\030\004 \001(\t\"\327\022\n\005Strip\022\n"
+    "\n\002id\030\001 \001(\004\022\020\n\010callsign\030\002 \001(\t\022\020\n\010revision"
+    "\030\003 \001(\004\022\025\n\raircraft_type\030\004 \001(\t\022\021\n\tdepartu"
+    "re\030\005 \001(\t\022\023\n\013destination\030\006 \001(\t\022\r\n\005route\030\007"
+    " \001(\t\022\017\n\007remarks\030\010 \001(\t\022\013\n\003sid\030\t \001(\t\022\016\n\006ru"
+    "nway\030\n \001(\t\022\027\n\017assigned_squawk\030\013 \001(\t\022\016\n\006s"
+    "quawk\030\014 \001(\t\022\037\n\022requested_altitude\030\r \001(\005H"
+    "\000\210\001\001\022\035\n\020cleared_altitude\030\016 \001(\005H\001\210\001\001\022\024\n\007h"
+    "eading\030\017 \001(\005H\002\210\001\001\022\013\n\003bay\030\020 \001(\t\022\r\n\005stand\030"
+    "\021 \001(\t\022\021\n\towner_cid\030\022 \001(\t\022\030\n\020next_control"
+    "lers\030\023 \003(\t\022\034\n\024previous_controllers\030\024 \003(\t"
+    "\022\016\n\006marked\030\025 \001(\010\022\021\n\tpdc_state\030\026 \001(\t\022\033\n\023p"
+    "dc_request_remarks\030\027 \001(\t\022\027\n\017start_reques"
+    "ted\030\030 \001(\010\022\026\n\016runway_cleared\030\031 \001(\010\022\030\n\020run"
+    "way_confirmed\030\032 \001(\010\022\024\n\014registration\030\033 \001("
+    "\t\022\035\n\020persons_on_board\030\034 \001(\rH\003\210\001\001\022\030\n\020flig"
+    "ht_plan_type\030\035 \001(\t\022\020\n\010language\030\036 \001(\t\022\025\n\r"
+    "release_point\030\037 \001(\t\022-\n\004eobt\030  \001(\0132\032.goog"
+    "le.protobuf.TimestampH\004\210\001\001\022-\n\004tobt\030! \001(\013"
+    "2\032.google.protobuf.TimestampH\005\210\001\001\022-\n\004tsa"
+    "t\030\" \001(\0132\032.google.protobuf.TimestampH\006\210\001\001"
+    "\022-\n\004ttot\030# \001(\0132\032.google.protobuf.Timesta"
+    "mpH\007\210\001\001\022-\n\004ctot\030$ \001(\0132\032.google.protobuf."
+    "TimestampH\010\210\001\001\022 \n\030unexpected_change_fiel"
+    "ds\030% \003(\t\022\"\n\032controller_modified_fields\030&"
+    " \003(\t\022\016\n\006manual\030\' \001(\010\022\027\n\017has_flight_plan\030"
+    "( \001(\010\022=\n\nvalidation\030) \001(\0132).flightstrips"
+    ".cluster.v1.ValidationStatus\022\021\n\talternat"
+    "e\030* \001(\t\022\014\n\004star\030+ \001(\t\022\031\n\021aircraft_catego"
+    "ry\030, \001(\t\022\034\n\017spoken_callsign\030- \001(\tH\t\210\001\001\022\024"
+    "\n\014capabilities\030. \001(\t\022\032\n\022communication_ty"
+    "pe\030/ \001(\t\022#\n\026position_altitude_feet\0300 \001(\005"
+    "H\n\210\001\001\022-\n\004aobt\0301 \001(\0132\032.google.protobuf.Ti"
+    "mestampH\013\210\001\001\022-\n\004asat\0302 \001(\0132\032.google.prot"
+    "obuf.TimestampH\014\210\001\001\022-\n\004asrt\0303 \001(\0132\032.goog"
+    "le.protobuf.TimestampH\r\210\001\001\022-\n\004tsac\0304 \001(\013"
+    "2\032.google.protobuf.TimestampH\016\210\001\001\022\037\n\022ope"
+    "rational_status\0305 \001(\tH\017\210\001\001\022%\n\030most_penal"
+    "izing_airspace\0306 \001(\tH\020\210\001\001\022\025\n\010ecfmp_id\0307 "
+    "\001(\tH\021\210\001\001\022\030\n\013ctot_source\0308 \001(\tH\022\210\001\001\022\022\n\005ph"
+    "ase\0309 \001(\tH\023\210\001\001\022-\n\004eldt\030: \001(\0132\032.google.pr"
+    "otobuf.TimestampH\024\210\001\001\022-\n\004aldt\030; \001(\0132\032.go"
+    "ogle.protobuf.TimestampH\025\210\001\001\022\020\n\010sequence"
+    "\030< \001(\004\022\030\n\013tobt_set_by\030= \001(\tH\026\210\001\001\022\025\n\010on_b"
+    "lock\030> \001(\010H\027\210\001\001\022\022\n\nvatsim_cid\030\? \001(\t\022\036\n\026v"
+    "atsim_source_revision\030@ \001(\004\022\034\n\024vatsim_pl"
+    "an_revision\030A \001(\003\0227\n\016vatsim_seen_at\030B \001("
+    "\0132\032.google.protobuf.TimestampH\030\210\001\001\022\023\n\013va"
+    "tsim_only\030C \001(\010\022\025\n\rvatsim_online\030D \001(\010\022\034"
+    "\n\017vatsim_latitude\030E \001(\001H\031\210\001\001\022\035\n\020vatsim_l"
+    "ongitude\030F \001(\001H\032\210\001\001B\025\n\023_requested_altitu"
+    "deB\023\n\021_cleared_altitudeB\n\n\010_headingB\023\n\021_"
+    "persons_on_boardB\007\n\005_eobtB\007\n\005_tobtB\007\n\005_t"
+    "satB\007\n\005_ttotB\007\n\005_ctotB\022\n\020_spoken_callsig"
+    "nB\031\n\027_position_altitude_feetB\007\n\005_aobtB\007\n"
+    "\005_asatB\007\n\005_asrtB\007\n\005_tsacB\025\n\023_operational"
+    "_statusB\033\n\031_most_penalizing_airspaceB\013\n\t"
+    "_ecfmp_idB\016\n\014_ctot_sourceB\010\n\006_phaseB\007\n\005_"
+    "eldtB\007\n\005_aldtB\016\n\014_tobt_set_byB\013\n\t_on_blo"
+    "ckB\021\n\017_vatsim_seen_atB\022\n\020_vatsim_latitud"
+    "eB\023\n\021_vatsim_longitude\"\375\001\n\020ValidationSta"
+    "tus\022\022\n\nissue_type\030\001 \001(\t\022\017\n\007message\030\002 \001(\t"
+    "\022\027\n\017owning_position\030\003 \001(\t\022\016\n\006active\030\004 \001("
+    "\010\022\026\n\016activation_key\030\005 \001(\t\0228\n\006faults\030\006 \003("
+    "\0132(.flightstrips.cluster.v1.ValidationFa"
+    "ult\022>\n\006action\030\007 \001(\0132).flightstrips.clust"
+    "er.v1.ValidationActionH\000\210\001\001B\t\n\007_action\"l"
+    "\n\017ValidationFault\022\014\n\004code\030\001 \001(\t\022\017\n\007messa"
+    "ge\030\002 \001(\t\022\024\n\014nitos_remark\030\003 \001(\t\022\016\n\006fields"
+    "\030\004 \003(\t\022\024\n\014override_key\030\005 \001(\t\"\266\001\n\020Validat"
+    "ionAction\022\r\n\005label\030\001 \001(\t\022E\n\013acknowledge\030"
+    "\002 \001(\0132..flightstrips.cluster.v1.Acknowle"
+    "dgeValidationH\000\022B\n\014clx_override\030\003 \001(\0132*."
+    "flightstrips.cluster.v1.ClxOverrideActio"
+    "nH\000B\010\n\006action\"/\n\025AcknowledgeValidation\022\026"
+    "\n\016activation_key\030\001 \001(\t\")\n\021ClxOverrideAct"
+    "ion\022\024\n\014override_key\030\001 \001(\t\"\231\002\n\014Coordinati"
+    "on\022\n\n\002id\030\001 \001(\004\022\020\n\010callsign\030\002 \001(\t\022\020\n\010from"
+    "_cid\030\003 \001(\t\022\016\n\006to_cid\030\004 \001(\t\022\016\n\006status\030\005 \001"
+    "(\t\022\013\n\003tag\030\006 \001(\t\022.\n\ncreated_at\030\007 \001(\0132\032.go"
+    "ogle.protobuf.Timestamp\0224\n\013resolved_at\030\010"
+    " \001(\0132\032.google.protobuf.TimestampH\000\210\001\001\022\026\n"
+    "\016from_euroscope\030\t \001(\010\022\036\n\026euroscope_hando"
+    "ver_cid\030\n \001(\tB\016\n\014_resolved_at\"\371\002\n\rTactic"
+    "alStrip\022\n\n\002id\030\001 \001(\004\022\r\n\005title\030\002 \001(\t\022\014\n\004bo"
+    "dy\030\003 \001(\t\022\013\n\003bay\030\004 \001(\t\022\020\n\010revision\030\005 \001(\004\022"
+    "\016\n\006marked\030\006 \001(\010\022\021\n\tconfirmed\030\007 \001(\010\022\021\n\tow"
+    "ner_cid\030\010 \001(\t\0229\n\020timer_started_at\030\t \001(\0132"
+    "\032.google.protobuf.TimestampH\000\210\001\001\022\014\n\004kind"
+    "\030\n \001(\t\022\r\n\005label\030\013 \001(\t\022\020\n\010aircraft\030\014 \001(\t\022"
+    "\023\n\013produced_by\030\r \001(\t\022\020\n\010sequence\030\016 \001(\004\022\024"
+    "\n\014confirmed_by\030\017 \001(\t\022.\n\ncreated_at\030\020 \001(\013"
+    "2\032.google.protobuf.TimestampB\023\n\021_timer_s"
+    "tarted_at\"\215\010\n\017StandAssignment\022\020\n\010callsig"
+    "n\030\001 \001(\t\022\r\n\005stand\030\002 \001(\t\022\016\n\006source\030\003 \001(\t\022\020"
+    "\n\010revision\030\004 \001(\004\022\021\n\tconfirmed\030\005 \001(\010\022\r\n\005a"
+    "ctor\030\006 \001(\t\0223\n\nexpires_at\030\007 \001(\0132\032.google."
+    "protobuf.TimestampH\000\210\001\001\022\021\n\tdirection\030\010 \001"
+    "(\t\022\r\n\005stage\030\t \001(\t\022\024\n\007rule_id\030\n \001(\tH\001\210\001\001\022"
+    "\021\n\004tier\030\013 \001(\005H\002\210\001\001\022\034\n\017matched_variant\030\014 "
+    "\001(\tH\003\210\001\001\022\034\n\017conflict_reason\030\r \001(\tH\004\210\001\001\022\033"
+    "\n\016observed_stand\030\016 \001(\tH\005\210\001\001\022,\n\003eta\030\017 \001(\013"
+    "2\032.google.protobuf.TimestampH\006\210\001\001\022\027\n\neta"
+    "_source\030\020 \001(\tH\007\210\001\001\022/\n\013assigned_at\030\021 \001(\0132"
+    "\032.google.protobuf.Timestamp\022=\n\024projected"
+    "_release_at\030\022 \001(\0132\032.google.protobuf.Time"
+    "stampH\010\210\001\001\022\016\n\006manual\030\023 \001(\010\022\024\n\014acknowledg"
+    "ed\030\024 \001(\010\0228\n\017acknowledged_at\030\025 \001(\0132\032.goog"
+    "le.protobuf.TimestampH\t\210\001\001\022\034\n\017acknowledg"
+    "ed_by\030\026 \001(\tH\n\210\001\001\022\027\n\nvatsim_cid\030\027 \001(\003H\013\210\001"
+    "\001\022\034\n\017vatsim_revision\030\030 \001(\003H\014\210\001\001\022.\n\ncreat"
+    "ed_at\030\031 \001(\0132\032.google.protobuf.Timestamp\022"
+    ".\n\nupdated_at\030\032 \001(\0132\032.google.protobuf.Ti"
+    "mestamp\022\026\n\016blocked_stands\030\033 \003(\tB\r\n\013_expi"
+    "res_atB\n\n\010_rule_idB\007\n\005_tierB\022\n\020_matched_"
+    "variantB\022\n\020_conflict_reasonB\021\n\017_observed"
+    "_standB\006\n\004_etaB\r\n\013_eta_sourceB\027\n\025_projec"
+    "ted_release_atB\022\n\020_acknowledged_atB\022\n\020_a"
+    "cknowledged_byB\r\n\013_vatsim_cidB\022\n\020_vatsim"
+    "_revision\"\340\002\n\nStandBlock\022\r\n\005stand\030\001 \001(\t\022"
+    "\016\n\006reason\030\002 \001(\t\022\r\n\005actor\030\003 \001(\t\022.\n\ncreate"
+    "d_at\030\004 \001(\0132\032.google.protobuf.Timestamp\0223"
+    "\n\nexpires_at\030\005 \001(\0132\032.google.protobuf.Tim"
+    "estampH\000\210\001\001\022\022\n\nblock_type\030\006 \001(\t\022\016\n\006sourc"
+    "e\030\007 \001(\t\022\025\n\010callsign\030\010 \001(\tH\001\210\001\001\022\016\n\006manual"
+    "\030\t \001(\010\022\020\n\010revision\030\n \001(\004\022.\n\nupdated_at\030\013"
+    " \001(\0132\032.google.protobuf.Timestamp\022\026\n\016bloc"
+    "ked_stands\030\014 \003(\tB\r\n\013_expires_atB\013\n\t_call"
+    "sign\"\207\004\n\013PdcSequence\022\020\n\010callsign\030\001 \001(\t\022\020"
+    "\n\010sequence\030\002 \001(\004\022\r\n\005state\030\003 \001(\t\022\027\n\017reque"
+    "st_remarks\030\004 \001(\t\0221\n\010deadline\030\005 \001(\0132\032.goo"
+    "gle.protobuf.TimestampH\000\210\001\001\0225\n\014requested"
+    "_at\030\006 \001(\0132\032.google.protobuf.TimestampH\001\210"
+    "\001\001\0222\n\tissued_at\030\007 \001(\0132\032.google.protobuf."
+    "TimestampH\002\210\001\001\022\014\n\004sent\030\010 \001(\010\022\025\n\rissued_b"
+    "y_cid\030\t \001(\t\022\027\n\017request_channel\030\n \001(\t\022\014\n\004"
+    "atis\030\013 \001(\t\022\r\n\005stand\030\014 \001(\t\022\025\n\raircraft_ty"
+    "pe\030\r \001(\t\022\026\n\016clearance_text\030\016 \001(\t\022>\n\025pilo"
+    "t_acknowledged_at\030\017 \001(\0132\032.google.protobu"
+    "f.TimestampH\003\210\001\001B\013\n\t_deadlineB\017\n\r_reques"
+    "ted_atB\014\n\n_issued_atB\030\n\026_pilot_acknowled"
+    "ged_at\"\263\002\n\010CdmState\022\020\n\010callsign\030\001 \001(\t\022-\n"
+    "\004tobt\030\002 \001(\0132\032.google.protobuf.TimestampH"
+    "\000\210\001\001\022-\n\004tsat\030\003 \001(\0132\032.google.protobuf.Tim"
+    "estampH\001\210\001\001\022-\n\004ttot\030\004 \001(\0132\032.google.proto"
+    "buf.TimestampH\002\210\001\001\022-\n\004ctot\030\005 \001(\0132\032.googl"
+    "e.protobuf.TimestampH\003\210\001\001\022\r\n\005deice\030\006 \001(\t"
+    "\022\r\n\005ready\030\007 \001(\010\022\027\n\017source_revision\030\010 \001(\t"
+    "B\007\n\005_tobtB\007\n\005_tsatB\007\n\005_ttotB\007\n\005_ctot\"x\n\n"
+    "EcfmpState\022\020\n\010callsign\030\001 \001(\t\022\?\n\014restrict"
+    "ions\030\002 \003(\0132).flightstrips.cluster.v1.Ecf"
+    "mpRestriction\022\027\n\017source_revision\030\003 \001(\t\"\354"
+    "\001\n\020EcfmpRestriction\022\022\n\nmeasure_id\030\001 \001(\004\022"
+    "\r\n\005ident\030\002 \001(\t\022\014\n\004kind\030\003 \001(\t\022\016\n\006reason\030\004"
+    " \001(\t\022\016\n\006routes\030\005 \003(\t\022\023\n\013destination\030\006 \001("
+    "\t\022\026\n\tmin_level\030\007 \001(\005H\000\210\001\001\022\026\n\tmax_level\030\010"
+    " \001(\005H\001\210\001\001\022\024\n\014exact_levels\030\t \003(\005\022\020\n\010has_c"
+    "tot\030\n \001(\010B\014\n\n_min_levelB\014\n\n_max_level\"\272\001"
+    "\n\004Atis\022\017\n\007airport\030\001 \001(\t\022\014\n\004code\030\002 \001(\t\022\014\n"
+    "\004text\030\003 \001(\t\022/\n\013observed_at\030\004 \001(\0132\032.googl"
+    "e.protobuf.Timestamp\022\r\n\005metar\030\005 \001(\t\022\024\n\014a"
+    "rrival_code\030\006 \001(\t\022\026\n\016departure_code\030\007 \001("
+    "\t\022\027\n\017source_revision\030\010 \001(\t\"k\n\013ClxOverrid"
+    "e\022\020\n\010callsign\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005acto"
     "r\030\003 \001(\t\022.\n\ncreated_at\030\004 \001(\0132\032.google.pro"
-    "tobuf.Timestamp\0223\n\nexpires_at\030\005 \001(\0132\032.go"
-    "ogle.protobuf.TimestampH\000\210\001\001\022\022\n\nblock_ty"
-    "pe\030\006 \001(\t\022\016\n\006source\030\007 \001(\t\022\025\n\010callsign\030\010 \001"
-    "(\tH\001\210\001\001\022\016\n\006manual\030\t \001(\010\022\020\n\010revision\030\n \001("
-    "\004\022.\n\nupdated_at\030\013 \001(\0132\032.google.protobuf."
-    "Timestamp\022\026\n\016blocked_stands\030\014 \003(\tB\r\n\013_ex"
-    "pires_atB\013\n\t_callsign\"\207\004\n\013PdcSequence\022\020\n"
-    "\010callsign\030\001 \001(\t\022\020\n\010sequence\030\002 \001(\004\022\r\n\005sta"
-    "te\030\003 \001(\t\022\027\n\017request_remarks\030\004 \001(\t\0221\n\010dea"
-    "dline\030\005 \001(\0132\032.google.protobuf.TimestampH"
-    "\000\210\001\001\0225\n\014requested_at\030\006 \001(\0132\032.google.prot"
-    "obuf.TimestampH\001\210\001\001\0222\n\tissued_at\030\007 \001(\0132\032"
-    ".google.protobuf.TimestampH\002\210\001\001\022\014\n\004sent\030"
-    "\010 \001(\010\022\025\n\rissued_by_cid\030\t \001(\t\022\027\n\017request_"
-    "channel\030\n \001(\t\022\014\n\004atis\030\013 \001(\t\022\r\n\005stand\030\014 \001"
-    "(\t\022\025\n\raircraft_type\030\r \001(\t\022\026\n\016clearance_t"
-    "ext\030\016 \001(\t\022>\n\025pilot_acknowledged_at\030\017 \001(\013"
-    "2\032.google.protobuf.TimestampH\003\210\001\001B\013\n\t_de"
-    "adlineB\017\n\r_requested_atB\014\n\n_issued_atB\030\n"
-    "\026_pilot_acknowledged_at\"\263\002\n\010CdmState\022\020\n\010"
-    "callsign\030\001 \001(\t\022-\n\004tobt\030\002 \001(\0132\032.google.pr"
-    "otobuf.TimestampH\000\210\001\001\022-\n\004tsat\030\003 \001(\0132\032.go"
-    "ogle.protobuf.TimestampH\001\210\001\001\022-\n\004ttot\030\004 \001"
-    "(\0132\032.google.protobuf.TimestampH\002\210\001\001\022-\n\004c"
-    "tot\030\005 \001(\0132\032.google.protobuf.TimestampH\003\210"
-    "\001\001\022\r\n\005deice\030\006 \001(\t\022\r\n\005ready\030\007 \001(\010\022\027\n\017sour"
-    "ce_revision\030\010 \001(\tB\007\n\005_tobtB\007\n\005_tsatB\007\n\005_"
-    "ttotB\007\n\005_ctot\"x\n\nEcfmpState\022\020\n\010callsign\030"
-    "\001 \001(\t\022\?\n\014restrictions\030\002 \003(\0132).flightstri"
-    "ps.cluster.v1.EcfmpRestriction\022\027\n\017source"
-    "_revision\030\003 \001(\t\"\354\001\n\020EcfmpRestriction\022\022\n\n"
-    "measure_id\030\001 \001(\004\022\r\n\005ident\030\002 \001(\t\022\014\n\004kind\030"
-    "\003 \001(\t\022\016\n\006reason\030\004 \001(\t\022\016\n\006routes\030\005 \003(\t\022\023\n"
-    "\013destination\030\006 \001(\t\022\026\n\tmin_level\030\007 \001(\005H\000\210"
-    "\001\001\022\026\n\tmax_level\030\010 \001(\005H\001\210\001\001\022\024\n\014exact_leve"
-    "ls\030\t \003(\005\022\020\n\010has_ctot\030\n \001(\010B\014\n\n_min_level"
-    "B\014\n\n_max_level\"\241\001\n\004Atis\022\017\n\007airport\030\001 \001(\t"
-    "\022\014\n\004code\030\002 \001(\t\022\014\n\004text\030\003 \001(\t\022/\n\013observed"
-    "_at\030\004 \001(\0132\032.google.protobuf.Timestamp\022\r\n"
-    "\005metar\030\005 \001(\t\022\024\n\014arrival_code\030\006 \001(\t\022\026\n\016de"
-    "parture_code\030\007 \001(\t\"k\n\013ClxOverride\022\020\n\010cal"
-    "lsign\030\001 \001(\t\022\013\n\003key\030\002 \001(\t\022\r\n\005actor\030\003 \001(\t\022"
-    ".\n\ncreated_at\030\004 \001(\0132\032.google.protobuf.Ti"
-    "mestamp\"\222\001\n\017FrontendMessage\022\n\n\002id\030\001 \001(\004\022"
-    "\016\n\006sender\030\002 \001(\t\022\014\n\004text\030\003 \001(\t\022\021\n\tbroadca"
-    "st\030\004 \001(\010\022\022\n\nrecipients\030\005 \003(\t\022.\n\ncreated_"
-    "at\030\006 \001(\0132\032.google.protobuf.Timestamp\"\222\003\n"
-    "\013AmanAirport\022\017\n\007airport\030\001 \001(\t\022\020\n\010revisio"
-    "n\030\002 \001(\004\022\026\n\016policy_version\030\003 \001(\t\022\026\n\016effec"
-    "tive_mode\030\004 \001(\t\022\?\n\rrunway_groups\030\005 \003(\0132("
-    ".flightstrips.cluster.v1.AmanRunwayGroup"
-    "\022\037\n\027active_runway_group_ids\030\006 \003(\t\022G\n\021tim"
-    "eline_mappings\030\007 \003(\0132,.flightstrips.clus"
-    "ter.v1.AmanTimelineMapping\022<\n\006health\030\010 \001"
-    "(\0132,.flightstrips.cluster.v1.AmanTechnic"
-    "alHealth\0220\n\014generated_at\030\t \001(\0132\032.google."
-    "protobuf.Timestamp\022\025\n\rauthoritative\030\n \001("
-    "\010\"\320\005\n\017AmanRunwayGroup\022\n\n\002id\030\001 \001(\t\022\020\n\010sel"
-    "ected\030\002 \001(\010\022\034\n\024active_rate_per_hour\030\003 \001("
-    "\r\022:\n\021rate_effective_at\030\004 \001(\0132\032.google.pr"
-    "otobuf.TimestampH\000\210\001\001\022.\n\004gaps\030\005 \003(\0132 .fl"
-    "ightstrips.cluster.v1.AmanGap\0226\n\010closure"
-    "s\030\006 \003(\0132$.flightstrips.cluster.v1.AmanCl"
-    "osure\022>\n\014reservations\030\007 \003(\0132(.flightstri"
-    "ps.cluster.v1.AmanReservation\022\016\n\006active\030"
-    "\010 \001(\010\022M\n\022selection_schedule\030\t \003(\01321.flig"
-    "htstrips.cluster.v1.AmanRunwaySelectionP"
-    "oint\022\037\n\022selection_conflict\030\n \001(\tH\001\210\001\001\022C\n"
-    "\rrate_schedule\030\013 \003(\0132,.flightstrips.clus"
-    "ter.v1.AmanRunwayRatePoint\022L\n\021same_star_"
-    "spacing\030\014 \001(\0132,.flightstrips.cluster.v1."
-    "AmanSameStarSpacingH\002\210\001\001\022G\n\021sequence_war"
-    "nings\030\r \003(\0132,.flightstrips.cluster.v1.Am"
-    "anSequenceWarningB\024\n\022_rate_effective_atB"
-    "\025\n\023_selection_conflictB\024\n\022_same_star_spa"
-    "cing\"v\n\030AmanRunwaySelectionPoint\0220\n\014effe"
-    "ctive_at\030\001 \001(\0132\032.google.protobuf.Timesta"
-    "mp\022\030\n\020command_revision\030\002 \001(\004\022\016\n\006source\030\003"
-    " \001(\t\"b\n\023AmanRunwayRatePoint\0220\n\014effective"
-    "_at\030\001 \001(\0132\032.google.protobuf.Timestamp\022\031\n"
-    "\021arrivals_per_hour\030\002 \001(\r\"e\n\023AmanSameStar"
-    "Spacing\022\017\n\007enabled\030\001 \001(\010\022 \n\030activation_r"
-    "ate_per_hour\030\002 \001(\r\022\033\n\023minimum_empty_slot"
-    "s\030\003 \001(\r\"d\n\023AmanSequenceWarning\022\014\n\004code\030\001"
-    " \001(\t\022\020\n\010callsign\030\002 \001(\t\022\030\n\020related_callsi"
-    "gn\030\003 \001(\t\022\023\n\013star_family\030\004 \001(\t\"\274\001\n\007AmanGa"
-    "p\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002 \001(\0132\032.google.pr"
-    "otobuf.Timestamp\022\'\n\003end\030\003 \001(\0132\032.google.p"
-    "rotobuf.Timestamp\022\r\n\005label\030\004 \001(\t\022\022\n\ncrea"
-    "ted_by\030\005 \001(\t\022.\n\ncreated_at\030\006 \001(\0132\032.googl"
-    "e.protobuf.Timestamp\"\316\001\n\013AmanClosure\022\n\n\002"
-    "id\030\001 \001(\t\022)\n\005start\030\002 \001(\0132\032.google.protobu"
-    "f.Timestamp\022,\n\003end\030\003 \001(\0132\032.google.protob"
-    "uf.TimestampH\000\210\001\001\022\016\n\006reason\030\004 \001(\t\022\022\n\ncre"
-    "ated_by\030\005 \001(\t\022.\n\ncreated_at\030\006 \001(\0132\032.goog"
-    "le.protobuf.TimestampB\006\n\004_end\"\304\001\n\017AmanRe"
-    "servation\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002 \001(\0132\032.g"
+    "tobuf.Timestamp\"\222\001\n\017FrontendMessage\022\n\n\002i"
+    "d\030\001 \001(\004\022\016\n\006sender\030\002 \001(\t\022\014\n\004text\030\003 \001(\t\022\021\n"
+    "\tbroadcast\030\004 \001(\010\022\022\n\nrecipients\030\005 \003(\t\022.\n\n"
+    "created_at\030\006 \001(\0132\032.google.protobuf.Times"
+    "tamp\"\222\003\n\013AmanAirport\022\017\n\007airport\030\001 \001(\t\022\020\n"
+    "\010revision\030\002 \001(\004\022\026\n\016policy_version\030\003 \001(\t\022"
+    "\026\n\016effective_mode\030\004 \001(\t\022\?\n\rrunway_groups"
+    "\030\005 \003(\0132(.flightstrips.cluster.v1.AmanRun"
+    "wayGroup\022\037\n\027active_runway_group_ids\030\006 \003("
+    "\t\022G\n\021timeline_mappings\030\007 \003(\0132,.flightstr"
+    "ips.cluster.v1.AmanTimelineMapping\022<\n\006he"
+    "alth\030\010 \001(\0132,.flightstrips.cluster.v1.Ama"
+    "nTechnicalHealth\0220\n\014generated_at\030\t \001(\0132\032"
+    ".google.protobuf.Timestamp\022\025\n\rauthoritat"
+    "ive\030\n \001(\010\"\320\005\n\017AmanRunwayGroup\022\n\n\002id\030\001 \001("
+    "\t\022\020\n\010selected\030\002 \001(\010\022\034\n\024active_rate_per_h"
+    "our\030\003 \001(\r\022:\n\021rate_effective_at\030\004 \001(\0132\032.g"
+    "oogle.protobuf.TimestampH\000\210\001\001\022.\n\004gaps\030\005 "
+    "\003(\0132 .flightstrips.cluster.v1.AmanGap\0226\n"
+    "\010closures\030\006 \003(\0132$.flightstrips.cluster.v"
+    "1.AmanClosure\022>\n\014reservations\030\007 \003(\0132(.fl"
+    "ightstrips.cluster.v1.AmanReservation\022\016\n"
+    "\006active\030\010 \001(\010\022M\n\022selection_schedule\030\t \003("
+    "\01321.flightstrips.cluster.v1.AmanRunwaySe"
+    "lectionPoint\022\037\n\022selection_conflict\030\n \001(\t"
+    "H\001\210\001\001\022C\n\rrate_schedule\030\013 \003(\0132,.flightstr"
+    "ips.cluster.v1.AmanRunwayRatePoint\022L\n\021sa"
+    "me_star_spacing\030\014 \001(\0132,.flightstrips.clu"
+    "ster.v1.AmanSameStarSpacingH\002\210\001\001\022G\n\021sequ"
+    "ence_warnings\030\r \003(\0132,.flightstrips.clust"
+    "er.v1.AmanSequenceWarningB\024\n\022_rate_effec"
+    "tive_atB\025\n\023_selection_conflictB\024\n\022_same_"
+    "star_spacing\"v\n\030AmanRunwaySelectionPoint"
+    "\0220\n\014effective_at\030\001 \001(\0132\032.google.protobuf"
+    ".Timestamp\022\030\n\020command_revision\030\002 \001(\004\022\016\n\006"
+    "source\030\003 \001(\t\"b\n\023AmanRunwayRatePoint\0220\n\014e"
+    "ffective_at\030\001 \001(\0132\032.google.protobuf.Time"
+    "stamp\022\031\n\021arrivals_per_hour\030\002 \001(\r\"e\n\023Aman"
+    "SameStarSpacing\022\017\n\007enabled\030\001 \001(\010\022 \n\030acti"
+    "vation_rate_per_hour\030\002 \001(\r\022\033\n\023minimum_em"
+    "pty_slots\030\003 \001(\r\"d\n\023AmanSequenceWarning\022\014"
+    "\n\004code\030\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\030\n\020relate"
+    "d_callsign\030\003 \001(\t\022\023\n\013star_family\030\004 \001(\t\"\274\001"
+    "\n\007AmanGap\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002 \001(\0132\032.g"
     "oogle.protobuf.Timestamp\022\'\n\003end\030\003 \001(\0132\032."
     "google.protobuf.Timestamp\022\r\n\005label\030\004 \001(\t"
     "\022\022\n\ncreated_by\030\005 \001(\t\022.\n\ncreated_at\030\006 \001(\013"
-    "2\032.google.protobuf.Timestamp\"[\n\023AmanTime"
-    "lineMapping\022\n\n\002id\030\001 \001(\r\022\021\n\004left\030\002 \001(\tH\000\210"
-    "\001\001\022\022\n\005right\030\003 \001(\tH\001\210\001\001B\007\n\005_leftB\010\n\006_righ"
-    "t\"\217\001\n\023AmanTechnicalHealth\022\016\n\006status\030\001 \001("
-    "\t\022\r\n\005ready\030\002 \001(\010\022\027\n\017blocked_reasons\030\003 \003("
-    "\t\022@\n\ncomponents\030\004 \003(\0132,.flightstrips.clu"
-    "ster.v1.AmanComponentHealth\"\266\001\n\023AmanComp"
-    "onentHealth\022\021\n\tcomponent\030\001 \001(\t\022\016\n\006status"
-    "\030\002 \001(\t\022\016\n\006reason\030\003 \001(\t\0223\n\nupdated_at\030\004 \001"
-    "(\0132\032.google.protobuf.TimestampH\000\210\001\001\022\030\n\013a"
-    "ge_seconds\030\005 \001(\001H\001\210\001\001B\r\n\013_updated_atB\016\n\014"
-    "_age_seconds\"\360\023\n\nAmanFlight\022\020\n\010callsign\030"
-    "\001 \001(\t\022\r\n\005state\030\002 \001(\t\022\034\n\024sequence_disposi"
-    "tion\030\003 \001(\t\022\023\n\013data_status\030\004 \001(\t\022@\n\npredi"
-    "ction\030\005 \001(\0132\'.flightstrips.cluster.v1.Am"
-    "anPredictionH\000\210\001\001\022D\n\020raw_teta_samples\030\006 "
-    "\003(\0132*.flightstrips.cluster.v1.AmanRawTet"
-    "aSample\022D\n\020arrival_baseline\030\007 \001(\0132%.flig"
-    "htstrips.cluster.v1.AmanBaselineH\001\210\001\001\022O\n"
-    "\022latest_observation\030\010 \001(\0132..flightstrips"
-    ".cluster.v1.AmanFlightObservationH\002\210\001\001\022\""
-    "\n\025selected_runway_group\030\t \001(\tH\003\210\001\001\022!\n\024se"
-    "lected_star_family\030\n \001(\tH\004\210\001\001\022 \n\023selecte"
-    "d_feeder_fix\030\013 \001(\tH\005\210\001\001\022\035\n\020selected_hold"
-    "ing\030\014 \001(\tH\006\210\001\001\022\?\n\nfeeder_eta\030\r \001(\0132&.fli"
-    "ghtstrips.cluster.v1.AmanFeederEtaH\007\210\001\001\022"
-    "G\n\022derived_feeder_eta\030\016 \001(\0132&.flightstri"
-    "ps.cluster.v1.AmanFeederEtaH\010\210\001\001\022M\n\021hold"
-    "ing_clearance\030\017 \001(\0132-.flightstrips.clust"
-    "er.v1.AmanHoldingClearanceH\t\210\001\001\022E\n\rholdi"
-    "ng_stack\030\020 \001(\0132).flightstrips.cluster.v1"
-    ".AmanHoldingStackH\n\210\001\001\022F\n\021active_route_f"
-    "act\030\021 \001(\0132&.flightstrips.cluster.v1.Aman"
-    "RouteFactH\013\210\001\001\022\035\n\020active_route_key\030\022 \001(\t"
-    "H\014\210\001\001\022$\n\027active_route_dataset_id\030\023 \001(\tH\r"
-    "\210\001\001\022G\n\016route_progress\030\024 \001(\0132*.flightstri"
-    "ps.cluster.v1.AmanRouteProgressH\016\210\001\001\022=\n\t"
-    "tma_entry\030\025 \001(\0132%.flightstrips.cluster.v"
-    "1.AmanTmaEntryH\017\210\001\001\022 \n\030manual_sequence_i"
-    "ncluded\030\026 \001(\010\022\025\n\rfreeze_reason\030\027 \001(\t\0222\n\t"
-    "frozen_at\030\030 \001(\0132\032.google.protobuf.Timest"
-    "ampH\020\210\001\001\022@\n\027frozen_operational_teta\030\031 \001("
-    "\0132\032.google.protobuf.TimestampH\021\210\001\001\022;\n\013fr"
-    "ozen_slot\030\032 \001(\0132!.flightstrips.cluster.v"
-    "1.AmanSlotH\022\210\001\001\0224\n\004slot\030\033 \001(\0132!.flightst"
-    "rips.cluster.v1.AmanSlotH\023\210\001\001\022\022\n\005order\030\034"
-    " \001(\005H\024\210\001\001\022\031\n\014manual_order\030\035 \001(\005H\025\210\001\001\022=\n\014"
-    "queue_offers\030\036 \003(\0132\'.flightstrips.cluste"
-    "r.v1.AmanQueueOffer\022\?\n\neta_review\030\037 \001(\0132"
-    "&.flightstrips.cluster.v1.AmanETAReviewH"
-    "\026\210\001\001\022U\n\025operational_exception\030  \001(\01321.fl"
-    "ightstrips.cluster.v1.AmanOperationalExc"
-    "eptionH\027\210\001\001\022E\n\rgap_exception\030! \001(\0132).fli"
-    "ghtstrips.cluster.v1.AmanGapExceptionH\030\210"
-    "\001\001\022P\n\023go_around_detection\030\" \001(\0132..flight"
-    "strips.cluster.v1.AmanGoAroundDetectionH"
-    "\031\210\001\001\022V\n\026go_around_confirmation\030# \001(\01321.f"
-    "lightstrips.cluster.v1.AmanGoAroundConfi"
-    "rmationH\032\210\001\001\022>\n\tlifecycle\030$ \001(\0132&.flight"
-    "strips.cluster.v1.AmanLifecycleH\033\210\001\001\022.\n\n"
-    "updated_at\030% \001(\0132\032.google.protobuf.Times"
-    "tampB\r\n\013_predictionB\023\n\021_arrival_baseline"
-    "B\025\n\023_latest_observationB\030\n\026_selected_run"
-    "way_groupB\027\n\025_selected_star_familyB\026\n\024_s"
-    "elected_feeder_fixB\023\n\021_selected_holdingB"
-    "\r\n\013_feeder_etaB\025\n\023_derived_feeder_etaB\024\n"
-    "\022_holding_clearanceB\020\n\016_holding_stackB\024\n"
-    "\022_active_route_factB\023\n\021_active_route_key"
-    "B\032\n\030_active_route_dataset_idB\021\n\017_route_p"
-    "rogressB\014\n\n_tma_entryB\014\n\n_frozen_atB\032\n\030_"
-    "frozen_operational_tetaB\016\n\014_frozen_slotB"
-    "\007\n\005_slotB\010\n\006_orderB\017\n\r_manual_orderB\r\n\013_"
-    "eta_reviewB\030\n\026_operational_exceptionB\020\n\016"
-    "_gap_exceptionB\026\n\024_go_around_detectionB\031"
-    "\n\027_go_around_confirmationB\014\n\n_lifecycle\""
-    "\276\006\n\025AmanFlightObservation\022\020\n\010callsign\030\001 "
-    "\001(\t\022\016\n\006origin\030\002 \001(\t\022\023\n\013destination\030\003 \001(\t"
-    "\022\032\n\raircraft_type\030\004 \001(\tH\000\210\001\001\022\032\n\rwake_cat"
-    "egory\030\005 \001(\tH\001\210\001\001\022\030\n\013filed_route\030\006 \001(\tH\002\210"
-    "\001\001\022\034\n\017requested_level\030\007 \001(\005H\003\210\001\001\022G\n\016plan"
-    "ned_timing\030\010 \001(\0132*.flightstrips.cluster."
-    "v1.AmanPlannedTimingH\004\210\001\001\022@\n\013flight_plan"
-    "\030\t \001(\0132+.flightstrips.cluster.v1.AmanFli"
-    "ghtPlanFact\022H\n\014surveillance\030\n \001(\0132-.flig"
-    "htstrips.cluster.v1.AmanSurveillanceFact"
-    "H\005\210\001\001\022M\n\021holding_clearance\030\013 \001(\0132-.fligh"
-    "tstrips.cluster.v1.AmanHoldingClearanceH"
-    "\006\210\001\001\022\033\n\023surveillance_source\030\014 \001(\t\022\020\n\010pro"
-    "vider\030\r \001(\t\0229\n\020takeoff_detected\030\016 \001(\0132\032."
-    "google.protobuf.TimestampH\007\210\001\001\0221\n\rreconc"
-    "iled_at\030\017 \001(\0132\032.google.protobuf.Timestam"
-    "p\022\025\n\rsource_status\030\020 \001(\t\022\017\n\007missing\030\021 \001("
-    "\010B\020\n\016_aircraft_typeB\020\n\016_wake_categoryB\016\n"
-    "\014_filed_routeB\022\n\020_requested_levelB\021\n\017_pl"
-    "anned_timingB\017\n\r_surveillanceB\024\n\022_holdin"
-    "g_clearanceB\023\n\021_takeoff_detected\"\316\001\n\021Ama"
-    "nPlannedTiming\022A\n\030estimated_off_block_ti"
-    "me\030\001 \001(\0132\032.google.protobuf.TimestampH\000\210\001"
-    "\001\022>\n\026estimated_enroute_time\030\002 \001(\0132\031.goog"
-    "le.protobuf.DurationH\001\210\001\001B\033\n\031_estimated_"
-    "off_block_timeB\031\n\027_estimated_enroute_tim"
-    "e\"~\n\022AmanFlightPlanFact\022\025\n\010revision\030\001 \001("
-    "\004H\000\210\001\001\0224\n\013observed_at\030\002 \001(\0132\032.google.pro"
-    "tobuf.TimestampH\001\210\001\001B\013\n\t_revisionB\016\n\014_ob"
-    "served_at\"\321\002\n\024AmanSurveillanceFact\022\030\n\020la"
-    "titude_degrees\030\001 \001(\001\022\031\n\021longitude_degree"
-    "s\030\002 \001(\001\022\032\n\raltitude_feet\030\003 \001(\005H\000\210\001\001\022\036\n\021g"
-    "roundspeed_knots\030\004 \001(\001H\001\210\001\001\022\037\n\022track_tru"
-    "e_degrees\030\005 \001(\001H\002\210\001\001\022\025\n\010sequence\030\006 \001(\004H\003"
-    "\210\001\001\0224\n\013observed_at\030\007 \001(\0132\032.google.protob"
-    "uf.TimestampH\004\210\001\001B\020\n\016_altitude_feetB\024\n\022_"
-    "groundspeed_knotsB\025\n\023_track_true_degrees"
-    "B\013\n\t_sequenceB\016\n\014_observed_at\"\256\001\n\024AmanHo"
-    "ldingClearance\022\014\n\004hold\030\001 \001(\t\022\021\n\thold_typ"
-    "e\030\002 \001(\t\022\020\n\010hold_eat\030\003 \001(\t\022\035\n\020cleared_alt"
-    "itude\030\004 \001(\005H\000\210\001\001\022/\n\013observed_at\030\005 \001(\0132\032."
-    "google.protobuf.TimestampB\023\n\021_cleared_al"
-    "titude\"\303\007\n\016AmanPrediction\022,\n\010raw_teta\030\001 "
-    "\001(\0132\032.google.protobuf.Timestamp\0221\n\010raw_r"
-    "eta\030\002 \001(\0132\032.google.protobuf.TimestampH\000\210"
-    "\001\001\0224\n\020operational_teta\030\003 \001(\0132\032.google.pr"
-    "otobuf.Timestamp\022\032\n\022operational_reason\030\004"
-    " \001(\t\0220\n\014generated_at\030\005 \001(\0132\032.google.prot"
-    "obuf.Timestamp\0225\n\021input_observed_at\030\006 \001("
-    "\0132\032.google.protobuf.Timestamp\022\022\n\nconfide"
-    "nce\030\007 \001(\t\022\023\n\013publishable\030\010 \001(\010\022\037\n\022degrad"
-    "ation_reason\030\t \001(\tH\001\210\001\001\022\027\n\017dataset_versi"
-    "on\030\n \001(\t\022\027\n\017geometry_digest\030\013 \001(\t\022\036\n\021dis"
-    "tance_to_go_nm\030\014 \001(\001H\002\210\001\001\0228\n\017holding_fix"
-    "_eta\030\r \001(\0132\032.google.protobuf.TimestampH\003"
-    "\210\001\001\022C\n\014holding_plan\030\016 \001(\0132(.flightstrips"
-    ".cluster.v1.AmanHoldingPlanH\004\210\001\001\022\025\n\rmode"
-    "l_version\030\017 \001(\t\022\026\n\016config_version\030\020 \001(\t\022"
-    "\r\n\005basis\030\021 \001(\t\022#\n\026performance_profile_id"
-    "\030\022 \001(\tH\005\210\001\001\022\033\n\016weather_source\030\023 \001(\tH\006\210\001\001"
-    "\022\017\n\007sources\030\024 \003(\t\022L\n\013calculation\030\025 \001(\01322"
-    ".flightstrips.cluster.v1.AmanPredictionC"
-    "alculationH\007\210\001\001B\013\n\t_raw_retaB\025\n\023_degrada"
-    "tion_reasonB\024\n\022_distance_to_go_nmB\022\n\020_ho"
-    "lding_fix_etaB\017\n\r_holding_planB\031\n\027_perfo"
-    "rmance_profile_idB\021\n\017_weather_sourceB\016\n\014"
-    "_calculation\"e\n\rAmanFeederEta\022,\n\003eta\030\001 \001"
-    "(\0132\032.google.protobuf.TimestampH\000\210\001\001\022\016\n\006s"
-    "ource\030\002 \001(\t\022\016\n\006passed\030\003 \001(\010B\006\n\004_eta\"\373\001\n\017"
-    "AmanHoldingPlan\0226\n\022holding_entry_time\030\001 "
-    "\001(\0132\032.google.protobuf.Timestamp\0229\n\025appro"
-    "ach_release_time\030\002 \001(\0132\032.google.protobuf"
-    ".Timestamp\022<\n\031expected_holding_duration\030"
-    "\003 \001(\0132\031.google.protobuf.Duration\0227\n\024post"
-    "_holding_transit\030\004 \001(\0132\031.google.protobuf"
-    ".Duration\"\226\001\n\020AmanHoldingStack\022\022\n\nholdin"
-    "g_id\030\001 \001(\t\0229\n\025candidate_observed_at\030\002 \001("
-    "\0132\032.google.protobuf.Timestamp\022 \n\030consecu"
-    "tive_observations\030\003 \001(\r\022\021\n\tconfirmed\030\004 \001"
-    "(\010\"\371\001\n\031AmanPredictionCalculation\0223\n\020no_w"
-    "ind_duration\030\001 \001(\0132\031.google.protobuf.Dur"
-    "ation\022+\n\010duration\030\002 \001(\0132\031.google.protobu"
-    "f.Duration\0228\n\004legs\030\003 \003(\0132*.flightstrips."
-    "cluster.v1.AmanPredictionLeg\022@\n\010segments"
-    "\030\004 \003(\0132..flightstrips.cluster.v1.AmanPre"
-    "dictionSegment\"\263\002\n\021AmanPredictionLeg\022\n\n\002"
-    "id\030\001 \001(\t\022\020\n\010from_fix\030\002 \001(\t\022\016\n\006to_fix\030\003 \001"
-    "(\t\022\026\n\016start_latitude\030\004 \001(\001\022\027\n\017start_long"
-    "itude\030\005 \001(\001\022\024\n\014end_latitude\030\006 \001(\001\022\025\n\rend"
-    "_longitude\030\007 \001(\001\022\023\n\013distance_nm\030\010 \001(\001\022\033\n"
-    "\023course_true_degrees\030\t \001(\001\0223\n\020no_wind_du"
-    "ration\030\n \001(\0132\031.google.protobuf.Duration\022"
-    "+\n\010duration\030\013 \001(\0132\031.google.protobuf.Dura"
-    "tion\"\223\004\n\025AmanPredictionSegment\022\027\n\017route_"
-    "leg_index\030\001 \001(\005\022\017\n\007pre_tod\030\002 \001(\010\022\020\n\010phas"
-    "e_id\030\003 \001(\t\022\022\n\nphase_name\030\004 \001(\t\022\025\n\rphase_"
-    "formula\030\005 \001(\t\022\023\n\013distance_nm\030\006 \001(\001\022\033\n\023co"
-    "urse_true_degrees\030\007 \001(\001\022\033\n\023start_altitud"
-    "e_feet\030\010 \001(\001\022\031\n\021end_altitude_feet\030\t \001(\001\022"
-    "\025\n\raltitude_feet\030\n \001(\001\022%\n\030indicated_airs"
-    "peed_knots\030\013 \001(\001H\000\210\001\001\022!\n\031no_wind_grounds"
-    "peed_knots\030\014 \001(\001\022\031\n\021groundspeed_knots\030\r "
-    "\001(\001\022\033\n\016tailwind_knots\030\016 \001(\001H\001\210\001\001\0223\n\020no_w"
-    "ind_duration\030\017 \001(\0132\031.google.protobuf.Dur"
-    "ation\022+\n\010duration\030\020 \001(\0132\031.google.protobu"
-    "f.DurationB\033\n\031_indicated_airspeed_knotsB"
-    "\021\n\017_tailwind_knots\"o\n\021AmanRawTetaSample\022"
-    "(\n\004teta\030\001 \001(\0132\032.google.protobuf.Timestam"
-    "p\0220\n\014generated_at\030\002 \001(\0132\032.google.protobu"
-    "f.Timestamp\"\232\003\n\014AmanBaseline\022.\n\narrival_"
-    "at\030\001 \001(\0132\032.google.protobuf.Timestamp\0226\n\022"
-    "airborne_sensed_at\030\002 \001(\0132\032.google.protob"
-    "uf.Timestamp\022\016\n\006source\030\003 \001(\t\022\022\n\nconfiden"
-    "ce\030\004 \001(\t\022\037\n\022degradation_reason\030\005 \001(\tH\000\210\001"
-    "\001\022\036\n\026speed_defaults_version\030\006 \001(\t\022!\n\024fli"
-    "ght_plan_revision\030\007 \001(\004H\001\210\001\001\022;\n\027flight_p"
-    "lan_observed_at\030\010 \001(\0132\032.google.protobuf."
-    "Timestamp\022\025\n\rmodel_version\030\t \001(\t\022\026\n\016conf"
-    "ig_version\030\n \001(\tB\025\n\023_degradation_reasonB"
-    "\027\n\025_flight_plan_revision\"\364\002\n\021AmanRoutePr"
-    "ogress\022\027\n\017geometry_digest\030\001 \001(\t\022\031\n\021manif"
-    "est_revision\030\002 \001(\003\022\027\n\017terminal_digest\030\003 "
-    "\001(\t\022\034\n\024flight_plan_revision\030\004 \001(\004\022\025\n\rrou"
-    "te_fact_id\030\005 \001(\t\022\027\n\017runway_group_id\030\006 \001("
-    "\t\022\021\n\tleg_index\030\007 \001(\005\022\030\n\020rejoin_leg_index"
-    "\030\010 \001(\005\022\026\n\016along_track_nm\030\t \001(\001\022\036\n\026recove"
-    "ry_candidate_fix\030\n \001(\t\022\"\n\032recovery_candi"
-    "date_samples\030\013 \001(\r\022\031\n\021descent_confirmed\030"
-    "\014 \001(\010\022 \n\030descent_evidence_samples\030\r \001(\r\""
-    "x\n\014AmanTmaEntry\022\030\n\020last_containment\030\001 \001("
-    "\t\0224\n\020last_observed_at\030\002 \001(\0132\032.google.pro"
-    "tobuf.Timestamp\022\030\n\020freeze_triggered\030\003 \001("
-    "\010\"[\n\030AmanOperationalException\022\016\n\006reason\030"
-    "\001 \001(\t\022/\n\013detected_at\030\002 \001(\0132\032.google.prot"
-    "obuf.Timestamp\"\335\002\n\024AmanGoAroundEvidence\022"
-    "/\n\013observed_at\030\001 \001(\0132\032.google.protobuf.T"
-    "imestamp\022\025\n\010sequence\030\002 \001(\004H\000\210\001\001\022\030\n\020latit"
-    "ude_degrees\030\003 \001(\001\022\031\n\021longitude_degrees\030\004"
-    " \001(\001\022\025\n\raltitude_feet\030\005 \001(\005\022\031\n\021groundspe"
-    "ed_knots\030\006 \001(\001\022\037\n\022track_true_degrees\030\007 \001"
-    "(\001H\001\210\001\001\022\026\n\016climb_evidence\030\010 \001(\010\022\033\n\023track"
-    "_away_evidence\030\t \001(\010\022\034\n\024runway_exit_evid"
-    "ence\030\n \001(\010B\013\n\t_sequenceB\025\n\023_track_true_d"
-    "egrees\"\321\004\n\025AmanGoAroundDetection\022\026\n\016poli"
-    "cy_version\030\001 \001(\t\022\?\n\010evidence\030\002 \003(\0132-.fli"
-    "ghtstrips.cluster.v1.AmanGoAroundEvidenc"
-    "e\022\021\n\tarm_count\030\003 \001(\005\022\023\n\013climb_count\030\004 \001("
-    "\005\022\030\n\020track_away_count\030\005 \001(\005\022\031\n\021runway_ex"
-    "it_count\030\006 \001(\005\022\r\n\005armed\030\007 \001(\010\0221\n\010armed_a"
-    "t\030\010 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001"
-    "\022\031\n\021armed_corridor_id\030\t \001(\t\022\017\n\007episode\030\n"
-    " \001(\004\022\034\n\024last_emitted_episode\030\013 \001(\004\022:\n\021la"
-    "st_processed_at\030\014 \001(\0132\032.google.protobuf."
-    "TimestampH\001\210\001\001\022$\n\027last_processed_sequenc"
-    "e\030\r \001(\004H\002\210\001\001\022\031\n\021threshold_crossed\030\016 \001(\010\022"
-    "\026\n\016awaiting_reset\030\017 \001(\010\022\"\n\032last_controll"
-    "er_command_id\030\020 \001(\tB\013\n\t_armed_atB\024\n\022_las"
-    "t_processed_atB\032\n\030_last_processed_sequen"
-    "ce\"\241\002\n\rAmanLifecycle\022.\n\nentered_at\030\001 \001(\013"
-    "2\032.google.protobuf.Timestamp\022\016\n\006reason\030\002"
-    " \001(\t\022\025\n\rlast_event_id\030\003 \001(\t\022\036\n\026last_even"
-    "t_fingerprint\030\004 \001(\t\0221\n\rlast_event_at\030\005 \001"
-    "(\0132\032.google.protobuf.Timestamp\022\036\n\026reconc"
-    "iliation_pending\030\006 \001(\010\022:\n\007absence\030\007 \001(\0132"
-    "$.flightstrips.cluster.v1.AmanAbsenceH\000\210"
-    "\001\001B\n\n\010_absence\"\272\001\n\013AmanAbsence\0221\n\rmissin"
-    "g_since\030\001 \001(\0132\032.google.protobuf.Timestam"
-    "p\0227\n\016removal_due_at\030\002 \001(\0132\032.google.proto"
-    "buf.TimestampH\000\210\001\001\022,\n\tremaining\030\003 \001(\0132\031."
-    "google.protobuf.DurationB\021\n\017_removal_due"
-    "_at\"\324\001\n\rAmanRouteFact\022\n\n\002id\030\001 \001(\t\022\013\n\003fix"
-    "\030\002 \001(\t\022\r\n\005state\030\003 \001(\t\022/\n\013observed_at\030\004 \001"
-    "(\0132\032.google.protobuf.Timestamp\022\020\n\010callsi"
-    "gn\030\005 \001(\t\022\016\n\006issuer\030\006 \001(\t\022/\n\013received_at\030"
-    "\007 \001(\0132\032.google.protobuf.Timestamp\022\027\n\017dat"
-    "aset_version\030\010 \001(\t\"\300\001\n\016AmanProvenance\022\025\n"
-    "\rmodel_version\030\001 \001(\t\022\026\n\016config_version\030\002"
-    " \001(\t\022#\n\026performance_profile_id\030\003 \001(\tH\000\210\001"
-    "\001\022\033\n\016weather_source\030\004 \001(\tH\001\210\001\001\022\017\n\007source"
-    "s\030\005 \003(\tB\031\n\027_performance_profile_idB\021\n\017_w"
-    "eather_source\"\201\001\n\010AmanSlot\022(\n\004time\030\001 \001(\013"
-    "2\032.google.protobuf.Timestamp\022\027\n\017runway_g"
-    "roup_id\030\002 \001(\t\022\020\n\010sequence\030\003 \001(\r\022\020\n\010revis"
-    "ion\030\004 \001(\004\022\016\n\006reason\030\005 \001(\t\"\365\003\n\rAmanETARev"
-    "iew\022\016\n\006status\030\001 \001(\t\022.\n\ncreated_at\030\002 \001(\0132"
-    "\032.google.protobuf.Timestamp\022/\n\013deadline_"
-    "at\030\003 \001(\0132\032.google.protobuf.Timestamp\0224\n\013"
-    "resolved_at\030\004 \001(\0132\032.google.protobuf.Time"
-    "stampH\000\210\001\001\022\022\n\005actor\030\005 \001(\tH\001\210\001\001\022\021\n\004note\030\006"
-    " \001(\tH\002\210\001\001\0229\n\025initial_baseline_teta\030\007 \001(\013"
-    "2\032.google.protobuf.Timestamp\022\?\n\033calculat"
-    "ed_operational_teta\030\010 \001(\0132\032.google.proto"
-    "buf.Timestamp\0221\n\rselected_teta\030\t \001(\0132\032.g"
-    "oogle.protobuf.Timestamp\0224\n\013manual_teta\030"
-    "\n \001(\0132\032.google.protobuf.TimestampH\003\210\001\001B\016"
-    "\n\014_resolved_atB\010\n\006_actorB\007\n\005_noteB\016\n\014_ma"
-    "nual_teta\"\350\001\n\016AmanQueueOffer\022\020\n\010callsign"
-    "\030\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\0229\n\016candi"
-    "date_slot\030\003 \001(\0132!.flightstrips.cluster.v"
-    "1.AmanSlot\022\026\n\016queue_position\030\004 \001(\r\022.\n\nex"
-    "pires_at\030\005 \001(\0132\032.google.protobuf.Timesta"
-    "mp\022\030\n\020airport_revision\030\006 \001(\004\022\016\n\006reason\030\007"
-    " \001(\t\"\221\003\n\030AmanGoAroundConfirmation\022\022\n\nepi"
-    "sode_id\030\001 \001(\t\022\016\n\006reason\030\002 \001(\t\022/\n\013detecte"
-    "d_at\030\003 \001(\0132\032.google.protobuf.Timestamp\0222"
-    "\n\016evidence_times\030\004 \003(\0132\032.google.protobuf"
-    ".Timestamp\022\016\n\006status\030\005 \001(\t\0223\n\ndecided_at"
-    "\030\006 \001(\0132\032.google.protobuf.TimestampH\000\210\001\001\022"
-    "\027\n\ndecided_by\030\007 \001(\tH\001\210\001\001\022\037\n\022resulting_re"
-    "vision\030\010 \001(\004H\002\210\001\001\022 \n\023decision_command_id"
-    "\030\t \001(\tH\003\210\001\001B\r\n\013_decided_atB\r\n\013_decided_b"
-    "yB\025\n\023_resulting_revisionB\026\n\024_decision_co"
-    "mmand_id\"\222\001\n\020AmanGapException\022\016\n\006gap_id\030"
-    "\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\022/\n\013opport"
-    "unity\030\003 \001(\0132\032.google.protobuf.Timestamp\022"
-    "\022\n\ncommand_id\030\004 \001(\t\022\020\n\010callsign\030\005 \001(\t\"\375\003"
-    "\n\020AmanCoordination\022\n\n\002id\030\001 \001(\t\022\020\n\010callsi"
-    "gn\030\002 \001(\t\022\034\n\024recipient_controller\030\003 \001(\t\022\030"
-    "\n\020recipient_status\030\004 \001(\t\022\r\n\005state\030\005 \001(\t\022"
-    "@\n\014route_direct\030\006 \001(\0132(.flightstrips.clu"
-    "ster.v1.AmanRouteDirectH\000\0223\n\005speed\030\007 \001(\013"
-    "2\".flightstrips.cluster.v1.AmanSpeedH\000\022."
-    "\n\ncreated_at\030\010 \001(\0132\032.google.protobuf.Tim"
-    "estamp\022.\n\nupdated_at\030\t \001(\0132\032.google.prot"
-    "obuf.Timestamp\022\027\n\nsupersedes\030\n \001(\tH\001\210\001\001\022"
-    "\032\n\rsuperseded_by\030\013 \001(\tH\002\210\001\001\022>\n\tclearance"
-    "\030\014 \001(\0132&.flightstrips.cluster.v1.AmanCle"
-    "aranceH\003\210\001\001B\t\n\007requestB\r\n\013_supersedesB\020\n"
-    "\016_superseded_byB\014\n\n_clearance\"U\n\017AmanRou"
-    "teDirect\022\022\n\005route\030\001 \001(\tH\000\210\001\001\022\026\n\tdirect_t"
-    "o\030\002 \001(\tH\001\210\001\001B\010\n\006_routeB\014\n\n_direct_to\"\036\n\t"
-    "AmanSpeed\022\021\n\trequested\030\001 \001(\t\"~\n\rAmanClea"
-    "rance\022\017\n\007fact_id\030\001 \001(\t\022\014\n\004kind\030\002 \001(\t\022\r\n\005"
-    "value\030\003 \001(\t\022\016\n\006issuer\030\004 \001(\t\022/\n\013observed_"
-    "at\030\005 \001(\0132\032.google.protobuf.Timestamp\"\331\005\n"
-    "\tAmanAudit\022\n\n\002id\030\001 \001(\t\022\030\n\020airport_revisi"
-    "on\030\002 \001(\004\022.\n\ncreated_at\030\003 \001(\0132\032.google.pr"
-    "otobuf.Timestamp\022-\n\005actor\030\004 \001(\0132\036.flight"
-    "strips.cluster.v1.Actor\022<\n\007command\030\005 \001(\013"
-    "2).flightstrips.cluster.v1.AmanCommandAu"
-    "ditH\000\022D\n\013observation\030\006 \001(\0132-.flightstrip"
-    "s.cluster.v1.AmanObservationAuditH\000\022>\n\010s"
-    "equence\030\007 \001(\0132*.flightstrips.cluster.v1."
-    "AmanSequenceAuditH\000\022F\n\014coordination\030\010 \001("
-    "\0132..flightstrips.cluster.v1.AmanCoordina"
-    "tionAuditH\000\022:\n\006health\030\t \001(\0132(.flightstri"
-    "ps.cluster.v1.AmanHealthAuditH\000\022>\n\010capac"
-    "ity\030\n \001(\0132*.flightstrips.cluster.v1.Aman"
-    "CapacityAuditH\000\022:\n\006freeze\030\013 \001(\0132(.flight"
-    "strips.cluster.v1.AmanFreezeAuditH\000\022\?\n\tg"
-    "o_around\030\014 \001(\0132*.flightstrips.cluster.v1"
-    ".AmanGoAroundAuditH\000\022:\n\006replay\030\r \001(\0132(.f"
-    "lightstrips.cluster.v1.AmanReplayAuditH\000"
-    "B\006\n\004fact\"]\n\020AmanCommandAudit\022\022\n\ncommand_"
-    "id\030\001 \001(\t\022\024\n\014command_kind\030\002 \001(\t\022\017\n\007outcom"
-    "e\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\"a\n\024AmanObservati"
-    "onAudit\022\016\n\006source\030\001 \001(\t\022\026\n\016observation_i"
-    "d\030\002 \001(\t\022\020\n\010callsign\030\003 \001(\t\022\017\n\007outcome\030\004 \001"
-    "(\t\"\322\001\n\021AmanSequenceAudit\022\020\n\010callsign\030\001 \001"
-    "(\t\022\027\n\017runway_group_id\030\002 \001(\t\0226\n\006before\030\003 "
-    "\001(\0132!.flightstrips.cluster.v1.AmanSlotH\000"
-    "\210\001\001\0225\n\005after\030\004 \001(\0132!.flightstrips.cluste"
-    "r.v1.AmanSlotH\001\210\001\001\022\016\n\006reason\030\005 \001(\tB\t\n\007_b"
-    "eforeB\010\n\006_after\"Z\n\025AmanCoordinationAudit"
-    "\022\022\n\nrequest_id\030\001 \001(\t\022\016\n\006before\030\002 \001(\t\022\r\n\005"
-    "after\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\"S\n\017AmanHealt"
-    "hAudit\022\021\n\tcomponent\030\001 \001(\t\022\016\n\006before\030\002 \001("
-    "\t\022\r\n\005after\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\"\212\003\n\021Ama"
-    "nCapacityAudit\022\027\n\017runway_group_id\030\001 \001(\t\022"
-    "\021\n\tobject_id\030\002 \001(\t\022=\n\004kind\030\003 \001(\0162/.fligh"
-    "tstrips.cluster.v1.AmanCapacityAudit.Kin"
-    "d\022\016\n\006action\030\004 \001(\t\022E\n\021displaced_flights\030\005"
-    " \003(\0132*.flightstrips.cluster.v1.AmanSeque"
-    "nceAudit\022.\n\005start\030\006 \001(\0132\032.google.protobu"
-    "f.TimestampH\000\210\001\001\022,\n\003end\030\007 \001(\0132\032.google.p"
-    "rotobuf.TimestampH\001\210\001\001\"C\n\004Kind\022\024\n\020KIND_U"
-    "NSPECIFIED\020\000\022\007\n\003GAP\020\001\022\013\n\007CLOSURE\020\002\022\017\n\013RE"
-    "SERVATION\020\003B\010\n\006_startB\006\n\004_end\"\302\001\n\017AmanFr"
-    "eezeAudit\022\020\n\010callsign\030\001 \001(\t\022\016\n\006reason\030\002 "
-    "\001(\t\0229\n\020operational_teta\030\003 \001(\0132\032.google.p"
-    "rotobuf.TimestampH\000\210\001\001\0224\n\004slot\030\004 \001(\0132!.f"
-    "lightstrips.cluster.v1.AmanSlotH\001\210\001\001B\023\n\021"
-    "_operational_tetaB\007\n\005_slot\"\214\001\n\021AmanGoAro"
-    "undAudit\022\020\n\010callsign\030\001 \001(\t\022\022\n\nepisode_id"
-    "\030\002 \001(\t\022\020\n\010decision\030\003 \001(\t\022\?\n\010evidence\030\004 \003"
+    "2\032.google.protobuf.Timestamp\"\316\001\n\013AmanClo"
+    "sure\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002 \001(\0132\032.google"
+    ".protobuf.Timestamp\022,\n\003end\030\003 \001(\0132\032.googl"
+    "e.protobuf.TimestampH\000\210\001\001\022\016\n\006reason\030\004 \001("
+    "\t\022\022\n\ncreated_by\030\005 \001(\t\022.\n\ncreated_at\030\006 \001("
+    "\0132\032.google.protobuf.TimestampB\006\n\004_end\"\304\001"
+    "\n\017AmanReservation\022\n\n\002id\030\001 \001(\t\022)\n\005start\030\002"
+    " \001(\0132\032.google.protobuf.Timestamp\022\'\n\003end\030"
+    "\003 \001(\0132\032.google.protobuf.Timestamp\022\r\n\005lab"
+    "el\030\004 \001(\t\022\022\n\ncreated_by\030\005 \001(\t\022.\n\ncreated_"
+    "at\030\006 \001(\0132\032.google.protobuf.Timestamp\"[\n\023"
+    "AmanTimelineMapping\022\n\n\002id\030\001 \001(\r\022\021\n\004left\030"
+    "\002 \001(\tH\000\210\001\001\022\022\n\005right\030\003 \001(\tH\001\210\001\001B\007\n\005_leftB"
+    "\010\n\006_right\"\217\001\n\023AmanTechnicalHealth\022\016\n\006sta"
+    "tus\030\001 \001(\t\022\r\n\005ready\030\002 \001(\010\022\027\n\017blocked_reas"
+    "ons\030\003 \003(\t\022@\n\ncomponents\030\004 \003(\0132,.flightst"
+    "rips.cluster.v1.AmanComponentHealth\"\266\001\n\023"
+    "AmanComponentHealth\022\021\n\tcomponent\030\001 \001(\t\022\016"
+    "\n\006status\030\002 \001(\t\022\016\n\006reason\030\003 \001(\t\0223\n\nupdate"
+    "d_at\030\004 \001(\0132\032.google.protobuf.TimestampH\000"
+    "\210\001\001\022\030\n\013age_seconds\030\005 \001(\001H\001\210\001\001B\r\n\013_update"
+    "d_atB\016\n\014_age_seconds\"\360\023\n\nAmanFlight\022\020\n\010c"
+    "allsign\030\001 \001(\t\022\r\n\005state\030\002 \001(\t\022\034\n\024sequence"
+    "_disposition\030\003 \001(\t\022\023\n\013data_status\030\004 \001(\t\022"
+    "@\n\nprediction\030\005 \001(\0132\'.flightstrips.clust"
+    "er.v1.AmanPredictionH\000\210\001\001\022D\n\020raw_teta_sa"
+    "mples\030\006 \003(\0132*.flightstrips.cluster.v1.Am"
+    "anRawTetaSample\022D\n\020arrival_baseline\030\007 \001("
+    "\0132%.flightstrips.cluster.v1.AmanBaseline"
+    "H\001\210\001\001\022O\n\022latest_observation\030\010 \001(\0132..flig"
+    "htstrips.cluster.v1.AmanFlightObservatio"
+    "nH\002\210\001\001\022\"\n\025selected_runway_group\030\t \001(\tH\003\210"
+    "\001\001\022!\n\024selected_star_family\030\n \001(\tH\004\210\001\001\022 \n"
+    "\023selected_feeder_fix\030\013 \001(\tH\005\210\001\001\022\035\n\020selec"
+    "ted_holding\030\014 \001(\tH\006\210\001\001\022\?\n\nfeeder_eta\030\r \001"
+    "(\0132&.flightstrips.cluster.v1.AmanFeederE"
+    "taH\007\210\001\001\022G\n\022derived_feeder_eta\030\016 \001(\0132&.fl"
+    "ightstrips.cluster.v1.AmanFeederEtaH\010\210\001\001"
+    "\022M\n\021holding_clearance\030\017 \001(\0132-.flightstri"
+    "ps.cluster.v1.AmanHoldingClearanceH\t\210\001\001\022"
+    "E\n\rholding_stack\030\020 \001(\0132).flightstrips.cl"
+    "uster.v1.AmanHoldingStackH\n\210\001\001\022F\n\021active"
+    "_route_fact\030\021 \001(\0132&.flightstrips.cluster"
+    ".v1.AmanRouteFactH\013\210\001\001\022\035\n\020active_route_k"
+    "ey\030\022 \001(\tH\014\210\001\001\022$\n\027active_route_dataset_id"
+    "\030\023 \001(\tH\r\210\001\001\022G\n\016route_progress\030\024 \001(\0132*.fl"
+    "ightstrips.cluster.v1.AmanRouteProgressH"
+    "\016\210\001\001\022=\n\ttma_entry\030\025 \001(\0132%.flightstrips.c"
+    "luster.v1.AmanTmaEntryH\017\210\001\001\022 \n\030manual_se"
+    "quence_included\030\026 \001(\010\022\025\n\rfreeze_reason\030\027"
+    " \001(\t\0222\n\tfrozen_at\030\030 \001(\0132\032.google.protobu"
+    "f.TimestampH\020\210\001\001\022@\n\027frozen_operational_t"
+    "eta\030\031 \001(\0132\032.google.protobuf.TimestampH\021\210"
+    "\001\001\022;\n\013frozen_slot\030\032 \001(\0132!.flightstrips.c"
+    "luster.v1.AmanSlotH\022\210\001\001\0224\n\004slot\030\033 \001(\0132!."
+    "flightstrips.cluster.v1.AmanSlotH\023\210\001\001\022\022\n"
+    "\005order\030\034 \001(\005H\024\210\001\001\022\031\n\014manual_order\030\035 \001(\005H"
+    "\025\210\001\001\022=\n\014queue_offers\030\036 \003(\0132\'.flightstrip"
+    "s.cluster.v1.AmanQueueOffer\022\?\n\neta_revie"
+    "w\030\037 \001(\0132&.flightstrips.cluster.v1.AmanET"
+    "AReviewH\026\210\001\001\022U\n\025operational_exception\030  "
+    "\001(\01321.flightstrips.cluster.v1.AmanOperat"
+    "ionalExceptionH\027\210\001\001\022E\n\rgap_exception\030! \001"
+    "(\0132).flightstrips.cluster.v1.AmanGapExce"
+    "ptionH\030\210\001\001\022P\n\023go_around_detection\030\" \001(\0132"
+    "..flightstrips.cluster.v1.AmanGoAroundDe"
+    "tectionH\031\210\001\001\022V\n\026go_around_confirmation\030#"
+    " \001(\01321.flightstrips.cluster.v1.AmanGoAro"
+    "undConfirmationH\032\210\001\001\022>\n\tlifecycle\030$ \001(\0132"
+    "&.flightstrips.cluster.v1.AmanLifecycleH"
+    "\033\210\001\001\022.\n\nupdated_at\030% \001(\0132\032.google.protob"
+    "uf.TimestampB\r\n\013_predictionB\023\n\021_arrival_"
+    "baselineB\025\n\023_latest_observationB\030\n\026_sele"
+    "cted_runway_groupB\027\n\025_selected_star_fami"
+    "lyB\026\n\024_selected_feeder_fixB\023\n\021_selected_"
+    "holdingB\r\n\013_feeder_etaB\025\n\023_derived_feede"
+    "r_etaB\024\n\022_holding_clearanceB\020\n\016_holding_"
+    "stackB\024\n\022_active_route_factB\023\n\021_active_r"
+    "oute_keyB\032\n\030_active_route_dataset_idB\021\n\017"
+    "_route_progressB\014\n\n_tma_entryB\014\n\n_frozen"
+    "_atB\032\n\030_frozen_operational_tetaB\016\n\014_froz"
+    "en_slotB\007\n\005_slotB\010\n\006_orderB\017\n\r_manual_or"
+    "derB\r\n\013_eta_reviewB\030\n\026_operational_excep"
+    "tionB\020\n\016_gap_exceptionB\026\n\024_go_around_det"
+    "ectionB\031\n\027_go_around_confirmationB\014\n\n_li"
+    "fecycle\"\276\006\n\025AmanFlightObservation\022\020\n\010cal"
+    "lsign\030\001 \001(\t\022\016\n\006origin\030\002 \001(\t\022\023\n\013destinati"
+    "on\030\003 \001(\t\022\032\n\raircraft_type\030\004 \001(\tH\000\210\001\001\022\032\n\r"
+    "wake_category\030\005 \001(\tH\001\210\001\001\022\030\n\013filed_route\030"
+    "\006 \001(\tH\002\210\001\001\022\034\n\017requested_level\030\007 \001(\005H\003\210\001\001"
+    "\022G\n\016planned_timing\030\010 \001(\0132*.flightstrips."
+    "cluster.v1.AmanPlannedTimingH\004\210\001\001\022@\n\013fli"
+    "ght_plan\030\t \001(\0132+.flightstrips.cluster.v1"
+    ".AmanFlightPlanFact\022H\n\014surveillance\030\n \001("
+    "\0132-.flightstrips.cluster.v1.AmanSurveill"
+    "anceFactH\005\210\001\001\022M\n\021holding_clearance\030\013 \001(\013"
+    "2-.flightstrips.cluster.v1.AmanHoldingCl"
+    "earanceH\006\210\001\001\022\033\n\023surveillance_source\030\014 \001("
+    "\t\022\020\n\010provider\030\r \001(\t\0229\n\020takeoff_detected\030"
+    "\016 \001(\0132\032.google.protobuf.TimestampH\007\210\001\001\0221"
+    "\n\rreconciled_at\030\017 \001(\0132\032.google.protobuf."
+    "Timestamp\022\025\n\rsource_status\030\020 \001(\t\022\017\n\007miss"
+    "ing\030\021 \001(\010B\020\n\016_aircraft_typeB\020\n\016_wake_cat"
+    "egoryB\016\n\014_filed_routeB\022\n\020_requested_leve"
+    "lB\021\n\017_planned_timingB\017\n\r_surveillanceB\024\n"
+    "\022_holding_clearanceB\023\n\021_takeoff_detected"
+    "\"\316\001\n\021AmanPlannedTiming\022A\n\030estimated_off_"
+    "block_time\030\001 \001(\0132\032.google.protobuf.Times"
+    "tampH\000\210\001\001\022>\n\026estimated_enroute_time\030\002 \001("
+    "\0132\031.google.protobuf.DurationH\001\210\001\001B\033\n\031_es"
+    "timated_off_block_timeB\031\n\027_estimated_enr"
+    "oute_time\"~\n\022AmanFlightPlanFact\022\025\n\010revis"
+    "ion\030\001 \001(\004H\000\210\001\001\0224\n\013observed_at\030\002 \001(\0132\032.go"
+    "ogle.protobuf.TimestampH\001\210\001\001B\013\n\t_revisio"
+    "nB\016\n\014_observed_at\"\321\002\n\024AmanSurveillanceFa"
+    "ct\022\030\n\020latitude_degrees\030\001 \001(\001\022\031\n\021longitud"
+    "e_degrees\030\002 \001(\001\022\032\n\raltitude_feet\030\003 \001(\005H\000"
+    "\210\001\001\022\036\n\021groundspeed_knots\030\004 \001(\001H\001\210\001\001\022\037\n\022t"
+    "rack_true_degrees\030\005 \001(\001H\002\210\001\001\022\025\n\010sequence"
+    "\030\006 \001(\004H\003\210\001\001\0224\n\013observed_at\030\007 \001(\0132\032.googl"
+    "e.protobuf.TimestampH\004\210\001\001B\020\n\016_altitude_f"
+    "eetB\024\n\022_groundspeed_knotsB\025\n\023_track_true"
+    "_degreesB\013\n\t_sequenceB\016\n\014_observed_at\"\256\001"
+    "\n\024AmanHoldingClearance\022\014\n\004hold\030\001 \001(\t\022\021\n\t"
+    "hold_type\030\002 \001(\t\022\020\n\010hold_eat\030\003 \001(\t\022\035\n\020cle"
+    "ared_altitude\030\004 \001(\005H\000\210\001\001\022/\n\013observed_at\030"
+    "\005 \001(\0132\032.google.protobuf.TimestampB\023\n\021_cl"
+    "eared_altitude\"\303\007\n\016AmanPrediction\022,\n\010raw"
+    "_teta\030\001 \001(\0132\032.google.protobuf.Timestamp\022"
+    "1\n\010raw_reta\030\002 \001(\0132\032.google.protobuf.Time"
+    "stampH\000\210\001\001\0224\n\020operational_teta\030\003 \001(\0132\032.g"
+    "oogle.protobuf.Timestamp\022\032\n\022operational_"
+    "reason\030\004 \001(\t\0220\n\014generated_at\030\005 \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\0225\n\021input_observed"
+    "_at\030\006 \001(\0132\032.google.protobuf.Timestamp\022\022\n"
+    "\nconfidence\030\007 \001(\t\022\023\n\013publishable\030\010 \001(\010\022\037"
+    "\n\022degradation_reason\030\t \001(\tH\001\210\001\001\022\027\n\017datas"
+    "et_version\030\n \001(\t\022\027\n\017geometry_digest\030\013 \001("
+    "\t\022\036\n\021distance_to_go_nm\030\014 \001(\001H\002\210\001\001\0228\n\017hol"
+    "ding_fix_eta\030\r \001(\0132\032.google.protobuf.Tim"
+    "estampH\003\210\001\001\022C\n\014holding_plan\030\016 \001(\0132(.flig"
+    "htstrips.cluster.v1.AmanHoldingPlanH\004\210\001\001"
+    "\022\025\n\rmodel_version\030\017 \001(\t\022\026\n\016config_versio"
+    "n\030\020 \001(\t\022\r\n\005basis\030\021 \001(\t\022#\n\026performance_pr"
+    "ofile_id\030\022 \001(\tH\005\210\001\001\022\033\n\016weather_source\030\023 "
+    "\001(\tH\006\210\001\001\022\017\n\007sources\030\024 \003(\t\022L\n\013calculation"
+    "\030\025 \001(\01322.flightstrips.cluster.v1.AmanPre"
+    "dictionCalculationH\007\210\001\001B\013\n\t_raw_retaB\025\n\023"
+    "_degradation_reasonB\024\n\022_distance_to_go_n"
+    "mB\022\n\020_holding_fix_etaB\017\n\r_holding_planB\031"
+    "\n\027_performance_profile_idB\021\n\017_weather_so"
+    "urceB\016\n\014_calculation\"e\n\rAmanFeederEta\022,\n"
+    "\003eta\030\001 \001(\0132\032.google.protobuf.TimestampH\000"
+    "\210\001\001\022\016\n\006source\030\002 \001(\t\022\016\n\006passed\030\003 \001(\010B\006\n\004_"
+    "eta\"\373\001\n\017AmanHoldingPlan\0226\n\022holding_entry"
+    "_time\030\001 \001(\0132\032.google.protobuf.Timestamp\022"
+    "9\n\025approach_release_time\030\002 \001(\0132\032.google."
+    "protobuf.Timestamp\022<\n\031expected_holding_d"
+    "uration\030\003 \001(\0132\031.google.protobuf.Duration"
+    "\0227\n\024post_holding_transit\030\004 \001(\0132\031.google."
+    "protobuf.Duration\"\226\001\n\020AmanHoldingStack\022\022"
+    "\n\nholding_id\030\001 \001(\t\0229\n\025candidate_observed"
+    "_at\030\002 \001(\0132\032.google.protobuf.Timestamp\022 \n"
+    "\030consecutive_observations\030\003 \001(\r\022\021\n\tconfi"
+    "rmed\030\004 \001(\010\"\371\001\n\031AmanPredictionCalculation"
+    "\0223\n\020no_wind_duration\030\001 \001(\0132\031.google.prot"
+    "obuf.Duration\022+\n\010duration\030\002 \001(\0132\031.google"
+    ".protobuf.Duration\0228\n\004legs\030\003 \003(\0132*.fligh"
+    "tstrips.cluster.v1.AmanPredictionLeg\022@\n\010"
+    "segments\030\004 \003(\0132..flightstrips.cluster.v1"
+    ".AmanPredictionSegment\"\263\002\n\021AmanPredictio"
+    "nLeg\022\n\n\002id\030\001 \001(\t\022\020\n\010from_fix\030\002 \001(\t\022\016\n\006to"
+    "_fix\030\003 \001(\t\022\026\n\016start_latitude\030\004 \001(\001\022\027\n\017st"
+    "art_longitude\030\005 \001(\001\022\024\n\014end_latitude\030\006 \001("
+    "\001\022\025\n\rend_longitude\030\007 \001(\001\022\023\n\013distance_nm\030"
+    "\010 \001(\001\022\033\n\023course_true_degrees\030\t \001(\001\0223\n\020no"
+    "_wind_duration\030\n \001(\0132\031.google.protobuf.D"
+    "uration\022+\n\010duration\030\013 \001(\0132\031.google.proto"
+    "buf.Duration\"\223\004\n\025AmanPredictionSegment\022\027"
+    "\n\017route_leg_index\030\001 \001(\005\022\017\n\007pre_tod\030\002 \001(\010"
+    "\022\020\n\010phase_id\030\003 \001(\t\022\022\n\nphase_name\030\004 \001(\t\022\025"
+    "\n\rphase_formula\030\005 \001(\t\022\023\n\013distance_nm\030\006 \001"
+    "(\001\022\033\n\023course_true_degrees\030\007 \001(\001\022\033\n\023start"
+    "_altitude_feet\030\010 \001(\001\022\031\n\021end_altitude_fee"
+    "t\030\t \001(\001\022\025\n\raltitude_feet\030\n \001(\001\022%\n\030indica"
+    "ted_airspeed_knots\030\013 \001(\001H\000\210\001\001\022!\n\031no_wind"
+    "_groundspeed_knots\030\014 \001(\001\022\031\n\021groundspeed_"
+    "knots\030\r \001(\001\022\033\n\016tailwind_knots\030\016 \001(\001H\001\210\001\001"
+    "\0223\n\020no_wind_duration\030\017 \001(\0132\031.google.prot"
+    "obuf.Duration\022+\n\010duration\030\020 \001(\0132\031.google"
+    ".protobuf.DurationB\033\n\031_indicated_airspee"
+    "d_knotsB\021\n\017_tailwind_knots\"o\n\021AmanRawTet"
+    "aSample\022(\n\004teta\030\001 \001(\0132\032.google.protobuf."
+    "Timestamp\0220\n\014generated_at\030\002 \001(\0132\032.google"
+    ".protobuf.Timestamp\"\232\003\n\014AmanBaseline\022.\n\n"
+    "arrival_at\030\001 \001(\0132\032.google.protobuf.Times"
+    "tamp\0226\n\022airborne_sensed_at\030\002 \001(\0132\032.googl"
+    "e.protobuf.Timestamp\022\016\n\006source\030\003 \001(\t\022\022\n\n"
+    "confidence\030\004 \001(\t\022\037\n\022degradation_reason\030\005"
+    " \001(\tH\000\210\001\001\022\036\n\026speed_defaults_version\030\006 \001("
+    "\t\022!\n\024flight_plan_revision\030\007 \001(\004H\001\210\001\001\022;\n\027"
+    "flight_plan_observed_at\030\010 \001(\0132\032.google.p"
+    "rotobuf.Timestamp\022\025\n\rmodel_version\030\t \001(\t"
+    "\022\026\n\016config_version\030\n \001(\tB\025\n\023_degradation"
+    "_reasonB\027\n\025_flight_plan_revision\"\364\002\n\021Ama"
+    "nRouteProgress\022\027\n\017geometry_digest\030\001 \001(\t\022"
+    "\031\n\021manifest_revision\030\002 \001(\003\022\027\n\017terminal_d"
+    "igest\030\003 \001(\t\022\034\n\024flight_plan_revision\030\004 \001("
+    "\004\022\025\n\rroute_fact_id\030\005 \001(\t\022\027\n\017runway_group"
+    "_id\030\006 \001(\t\022\021\n\tleg_index\030\007 \001(\005\022\030\n\020rejoin_l"
+    "eg_index\030\010 \001(\005\022\026\n\016along_track_nm\030\t \001(\001\022\036"
+    "\n\026recovery_candidate_fix\030\n \001(\t\022\"\n\032recove"
+    "ry_candidate_samples\030\013 \001(\r\022\031\n\021descent_co"
+    "nfirmed\030\014 \001(\010\022 \n\030descent_evidence_sample"
+    "s\030\r \001(\r\"x\n\014AmanTmaEntry\022\030\n\020last_containm"
+    "ent\030\001 \001(\t\0224\n\020last_observed_at\030\002 \001(\0132\032.go"
+    "ogle.protobuf.Timestamp\022\030\n\020freeze_trigge"
+    "red\030\003 \001(\010\"[\n\030AmanOperationalException\022\016\n"
+    "\006reason\030\001 \001(\t\022/\n\013detected_at\030\002 \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\"\335\002\n\024AmanGoAroundE"
+    "vidence\022/\n\013observed_at\030\001 \001(\0132\032.google.pr"
+    "otobuf.Timestamp\022\025\n\010sequence\030\002 \001(\004H\000\210\001\001\022"
+    "\030\n\020latitude_degrees\030\003 \001(\001\022\031\n\021longitude_d"
+    "egrees\030\004 \001(\001\022\025\n\raltitude_feet\030\005 \001(\005\022\031\n\021g"
+    "roundspeed_knots\030\006 \001(\001\022\037\n\022track_true_deg"
+    "rees\030\007 \001(\001H\001\210\001\001\022\026\n\016climb_evidence\030\010 \001(\010\022"
+    "\033\n\023track_away_evidence\030\t \001(\010\022\034\n\024runway_e"
+    "xit_evidence\030\n \001(\010B\013\n\t_sequenceB\025\n\023_trac"
+    "k_true_degrees\"\321\004\n\025AmanGoAroundDetection"
+    "\022\026\n\016policy_version\030\001 \001(\t\022\?\n\010evidence\030\002 \003"
     "(\0132-.flightstrips.cluster.v1.AmanGoAroun"
-    "dEvidence\"v\n\017AmanReplayAudit\022\016\n\006source\030\001"
-    " \001(\t\022\021\n\trecord_id\030\002 \001(\t\022\016\n\006result\030\003 \001(\t\022"
-    "\034\n\017source_revision\030\004 \001(\004H\000\210\001\001B\022\n\020_source"
-    "_revision\"\267\001\n\016AmanValidation\022\n\n\002id\030\001 \001(\t"
-    "\022\020\n\010callsign\030\002 \001(\t\022\014\n\004rule\030\003 \001(\t\022\016\n\006resu"
-    "lt\030\004 \001(\t\0228\n\006faults\030\005 \003(\0132(.flightstrips."
-    "cluster.v1.ValidationFault\022/\n\013observed_a"
-    "t\030\006 \001(\0132\032.google.protobuf.Timestamp\"{\n\021V"
-    "atsimObservation\022\023\n\013provider_id\030\001 \001(\t\022\020\n"
-    "\010callsign\030\002 \001(\t\022\016\n\006digest\030\003 \001(\t\022/\n\013obser"
-    "ved_at\030\004 \001(\0132\032.google.protobuf.Timestamp"
-    "\"\205\001\n\013NavManifest\022\017\n\007airport\030\001 \001(\t\022\r\n\005cyc"
-    "le\030\002 \001(\t\022\016\n\006digest\030\003 \001(\t\0226\n\007objects\030\004 \003("
-    "\0132%.flightstrips.cluster.v1.NavObjectRef"
-    "\022\016\n\006active\030\005 \001(\010\"A\n\014NavObjectRef\022\014\n\004kind"
-    "\030\001 \001(\t\022\023\n\013object_name\030\002 \001(\t\022\016\n\006sha256\030\003 "
-    "\001(\t\"y\n\rNavRouteCache\022\021\n\troute_key\030\001 \001(\t\022"
-    "\023\n\013object_name\030\002 \001(\t\022\016\n\006sha256\030\003 \001(\t\022\030\n\020"
-    "resolver_version\030\004 \001(\t\022\026\n\016schema_version"
-    "\030\005 \001(\t\"\225\001\n\022ProviderCheckpoint\022\020\n\010provide"
-    "r\030\001 \001(\t\022\020\n\010resource\030\002 \001(\t\022\014\n\004etag\030\003 \001(\t\022"
-    "\025\n\rlast_modified\030\004 \001(\t\022\021\n\tnext_page\030\005 \001("
-    "\r\022\023\n\013object_name\030\006 \001(\t\022\016\n\006sha256\030\007 \001(\t\"\323"
-    "\001\n\014WeatherCache\022\017\n\007airport\030\001 \001(\t\022\020\n\010prov"
-    "ider\030\002 \001(\t\022@\n\013observation\030\003 \001(\0132+.flight"
-    "strips.cluster.v1.WeatherObservation\022.\n\n"
-    "fetched_at\030\004 \001(\0132\032.google.protobuf.Times"
-    "tamp\022.\n\nexpires_at\030\005 \001(\0132\032.google.protob"
-    "uf.Timestamp\"\222\003\n\022WeatherObservation\022\r\n\005m"
-    "etar\030\001 \001(\t\022#\n\026wind_direction_degrees\030\002 \001"
-    "(\rH\000\210\001\001\022\035\n\020wind_speed_knots\030\003 \001(\001H\001\210\001\001\022\027"
-    "\n\ngust_knots\030\004 \001(\001H\002\210\001\001\022\036\n\021visibility_me"
-    "ters\030\005 \001(\001H\003\210\001\001\022 \n\023temperature_celsius\030\006"
-    " \001(\001H\004\210\001\001\022\031\n\014pressure_hpa\030\007 \001(\001H\005\210\001\001\0225\n\006"
-    "clouds\030\010 \003(\0132%.flightstrips.cluster.v1.W"
-    "eatherCloudB\031\n\027_wind_direction_degreesB\023"
-    "\n\021_wind_speed_knotsB\r\n\013_gust_knotsB\024\n\022_v"
-    "isibility_metersB\026\n\024_temperature_celsius"
-    "B\017\n\r_pressure_hpa\"Q\n\014WeatherCloud\022\r\n\005cov"
-    "er\030\001 \001(\t\022\026\n\tbase_feet\030\002 \001(\rH\000\210\001\001\022\014\n\004type"
-    "\030\003 \001(\tB\014\n\n_base_feet\"\226\001\n\017SessionDeadline"
-    "\022\n\n\002id\030\001 \001(\t\022\014\n\004kind\030\002 \001(\t\022*\n\006due_at\030\003 \001"
-    "(\0132\032.google.protobuf.Timestamp\022\020\n\010callsi"
-    "gn\030\004 \001(\t\022\022\n\ncommand_id\030\005 \001(\t\022\027\n\017source_r"
-    "evision\030\006 \001(\004\"\230\004\n\016CommandOutcome\022\022\n\ncomm"
-    "and_id\030\001 \001(\t\022\026\n\016request_sha256\030\002 \001(\t\022-\n\005"
-    "actor\030\003 \001(\0132\036.flightstrips.cluster.v1.Ac"
-    "tor\022>\n\006status\030\004 \001(\0162..flightstrips.clust"
-    "er.v1.CommandOutcome.Status\022\023\n\013reason_co"
-    "de\030\005 \001(\t\022\016\n\006detail\030\006 \001(\t\022!\n\031committed_st"
-    "ream_sequence\030\007 \001(\004\022\032\n\022aggregate_revisio"
-    "n\030\010 \001(\004\022\026\n\teffect_id\030\t \001(\tH\000\210\001\001\022%\n\030expec"
-    "ted_entity_revision\030\n \001(\004H\001\210\001\001\0228\n\taggreg"
-    "ate\030\013 \001(\0132%.flightstrips.cluster.v1.Aggr"
-    "egateRef\"c\n\006Status\022\026\n\022STATUS_UNSPECIFIED"
-    "\020\000\022\014\n\010ACCEPTED\020\001\022\r\n\tSUCCEEDED\020\002\022\n\n\006FAILE"
-    "D\020\003\022\013\n\007EXPIRED\020\004\022\013\n\007UNKNOWN\020\005B\014\n\n_effect"
-    "_idB\033\n\031_expected_entity_revision\"\355\003\n\016Wor"
-    "kflowRecord\022\023\n\013workflow_id\030\001 \001(\t\0225\n\006sour"
-    "ce\030\002 \001(\0132%.flightstrips.cluster.v1.Aggre"
-    "gateRef\022:\n\013destination\030\003 \001(\0132%.flightstr"
-    "ips.cluster.v1.AggregateRef\022\014\n\004step\030\004 \001("
-    "\t\022\032\n\022derived_command_id\030\005 \001(\t\022>\n\006status\030"
-    "\006 \001(\0162..flightstrips.cluster.v1.Workflow"
-    "Record.Status\022\034\n\017source_revision\030\007 \001(\004H\000"
-    "\210\001\001\022(\n\033destination_stream_sequence\030\010 \001(\004"
-    "H\001\210\001\001\022\023\n\013reason_code\030\t \001(\t\"X\n\006Status\022\026\n\022"
-    "STATUS_UNSPECIFIED\020\000\022\013\n\007PENDING\020\001\022\r\n\tCOM"
-    "PLETED\020\002\022\016\n\nSUPERSEDED\020\003\022\n\n\006FAILED\020\004B\022\n\020"
-    "_source_revisionB\036\n\034_destination_stream_"
-    "sequence\"\367\006\n\014EffectRecord\022\022\n\ncommand_id\030"
-    "\001 \001(\t\022\022\n\ntarget_cid\030\002 \001(\t\022!\n\024target_conn"
-    "ection_id\030\003 \001(\tH\001\210\001\001\022\023\n\013owner_epoch\030\004 \001("
-    "\004\022\024\n\014master_epoch\030\005 \001(\004\022<\n\006status\030\006 \001(\0162"
-    ",.flightstrips.cluster.v1.EffectRecord.S"
-    "tatus\022G\n\017set_flight_plan\030\007 \001(\0132,.flights"
-    "trips.cluster.v1.SetFlightPlanEffectH\000\0221"
-    "\n\003pdc\030\010 \001(\0132\".flightstrips.cluster.v1.Pd"
-    "cEffectH\000\022H\n\017private_message\030\t \001(\0132-.fli"
-    "ghtstrips.cluster.v1.PrivateMessageEffec"
-    "tH\000\022C\n\014coordination\030\n \001(\0132+.flightstrips"
-    ".cluster.v1.CoordinationEffectH\000\0221\n\003cdm\030"
-    "\013 \001(\0132\".flightstrips.cluster.v1.CdmEffec"
-    "tH\000\0225\n\021dispatch_deadline\030\014 \001(\0132\032.google."
-    "protobuf.Timestamp\0228\n\017result_deadline\030\r "
-    "\001(\0132\032.google.protobuf.TimestampH\002\210\001\001\022#\n\026"
-    "dispatch_connection_id\030\016 \001(\tH\003\210\001\001\022\023\n\013rea"
-    "son_code\030\017 \001(\t\"w\n\006Status\022\026\n\022STATUS_UNSPE"
-    "CIFIED\020\000\022\013\n\007WAITING\020\001\022\024\n\020DISPATCH_CLAIME"
-    "D\020\002\022\014\n\010EXECUTED\020\003\022\n\n\006FAILED\020\004\022\013\n\007EXPIRED"
-    "\020\005\022\013\n\007UNKNOWN\020\006B\t\n\007payloadB\027\n\025_target_co"
-    "nnection_idB\022\n\020_result_deadlineB\031\n\027_disp"
-    "atch_connection_id\"E\n\023SetFlightPlanEffec"
-    "t\022\020\n\010callsign\030\001 \001(\t\022\r\n\005field\030\002 \001(\t\022\r\n\005va"
-    "lue\030\003 \001(\t\"@\n\tPdcEffect\022\020\n\010callsign\030\001 \001(\t"
-    "\022\016\n\006action\030\002 \001(\t\022\021\n\tclearance\030\003 \001(\t\"N\n\024P"
-    "rivateMessageEffect\022\021\n\trecipient\030\001 \001(\t\022\023"
-    "\n\013object_name\030\002 \001(\t\022\016\n\006sha256\030\003 \001(\t\"J\n\022C"
-    "oordinationEffect\022\020\n\010callsign\030\001 \001(\t\022\022\n\nt"
-    "arget_cid\030\002 \001(\t\022\016\n\006action\030\003 \001(\t\"<\n\tCdmEf"
-    "fect\022\020\n\010callsign\030\001 \001(\t\022\016\n\006action\030\002 \001(\t\022\r"
-    "\n\005value\030\003 \001(\t\"\351\004\n\010Snapshot\022\026\n\016schema_ver"
-    "sion\030\001 \001(\r\0228\n\taggregate\030\002 \001(\0132%.flightst"
-    "rips.cluster.v1.AggregateRef\022\032\n\022aggregat"
-    "e_revision\030\003 \001(\004\022\034\n\024last_stream_sequence"
-    "\030\004 \001(\004\022\035\n\025last_subject_sequence\030\005 \001(\004\0221\n"
-    "\005owner\030\006 \001(\0132\".flightstrips.cluster.v1.O"
-    "wnerTerm\0229\n\010entities\030\007 \003(\0132\'.flightstrip"
-    "s.cluster.v1.EntitySnapshot\0229\n\010outcomes\030"
-    "\010 \003(\0132\'.flightstrips.cluster.v1.CommandO"
-    "utcome\022:\n\tworkflows\030\t \003(\0132\'.flightstrips"
-    ".cluster.v1.WorkflowRecord\0226\n\007effects\030\n "
-    "\003(\0132%.flightstrips.cluster.v1.EffectReco"
-    "rd\0228\n\006master\030\013 \001(\0132#.flightstrips.cluste"
-    "r.v1.MasterTermH\000\210\001\001\0227\n\004sync\030\014 \001(\0132$.fli"
-    "ghtstrips.cluster.v1.SessionSyncH\001\210\001\001\022\016\n"
-    "\006sha256\030\r \001(\tB\t\n\007_masterB\007\n\005_sync\"e\n\016Ent"
-    "itySnapshot\022\013\n\003key\030\001 \001(\t\022\020\n\010revision\030\002 \001"
-    "(\004\0224\n\005value\030\003 \001(\0132%.flightstrips.cluster"
-    ".v1.EntityRecord\"\337\001\n\rSnapshotIndex\022\026\n\016sc"
-    "hema_version\030\001 \001(\r\0228\n\taggregate\030\002 \001(\0132%."
-    "flightstrips.cluster.v1.AggregateRef\022\023\n\013"
-    "object_name\030\003 \001(\t\022\016\n\006sha256\030\004 \001(\t\022\032\n\022agg"
-    "regate_revision\030\005 \001(\004\022\034\n\024last_stream_seq"
-    "uence\030\006 \001(\004\022\035\n\025last_subject_sequence\030\007 \001"
-    "(\004\"\304\002\n\rPositionValue\022\026\n\016schema_version\030\001"
-    " \001(\r\022\022\n\nsession_id\030\002 \001(\005\022\024\n\014aircraft_key"
-    "\030\003 \001(\t\022\023\n\013owner_epoch\030\004 \001(\004\022/\n\013observed_"
-    "at\030\005 \001(\0132\032.google.protobuf.Timestamp\022\034\n\024"
-    "source_connection_id\030\006 \001(\t\022=\n\010position\030\007"
-    " \001(\0132).flightstrips.cluster.v1.AircraftP"
-    "ositionH\000\022\?\n\ttombstone\030\010 \001(\0132*.flightstr"
-    "ips.cluster.v1.PositionTombstoneH\000B\r\n\013ob"
-    "servation\"\271\001\n\020AircraftPosition\022\020\n\010latitu"
-    "de\030\001 \001(\001\022\021\n\tlongitude\030\002 \001(\001\022\025\n\raltitude_"
-    "feet\030\003 \001(\005\022\032\n\022ground_speed_knots\030\004 \001(\001\022\025"
-    "\n\rtrack_degrees\030\005 \001(\001\022\037\n\022vertical_speed_"
-    "fpm\030\006 \001(\001H\000\210\001\001B\025\n\023_vertical_speed_fpm\"\023\n"
-    "\021PositionTombstone\"\244\001\n\rPresenceValue\022\026\n\016"
-    "schema_version\030\001 \001(\r\0225\n\004node\030\002 \001(\0132%.fli"
-    "ghtstrips.cluster.v1.NodePresenceH\000\0229\n\006c"
-    "lient\030\003 \001(\0132\'.flightstrips.cluster.v1.Cl"
-    "ientPresenceH\000B\t\n\007present\"^\n\014NodePresenc"
-    "e\022\017\n\007node_id\030\001 \001(\t\022.\n\nstarted_at\030\002 \001(\0132\032"
-    ".google.protobuf.Timestamp\022\r\n\005ready\030\003 \001("
-    "\010\"\270\002\n\016ClientPresence\022\025\n\rconnection_id\030\001 "
-    "\001(\t\022\017\n\007node_id\030\002 \001(\t\022\022\n\nsession_id\030\003 \001(\005"
-    "\022\013\n\003cid\030\004 \001(\t\022\020\n\010callsign\030\005 \001(\t\022\020\n\010posit"
-    "ion\030\006 \001(\t\022\020\n\010observer\030\007 \001(\010\0220\n\014connected"
-    "_at\030\010 \001(\0132\032.google.protobuf.Timestamp\022:\n"
-    "\004kind\030\t \001(\0162,.flightstrips.cluster.v1.Cl"
-    "ientPresence.Kind\"9\n\004Kind\022\024\n\020KIND_UNSPEC"
-    "IFIED\020\000\022\r\n\tEUROSCOPE\020\001\022\014\n\010FRONTEND\020\002\"\230\002\n"
-    "\013ObjectValue\022\026\n\016schema_version\030\001 \001(\r\0225\n\010"
-    "snapshot\030\002 \001(\0132!.flightstrips.cluster.v1"
-    ".SnapshotH\000\022/\n\003nav\030\003 \001(\0132 .flightstrips."
-    "cluster.v1.NavDataH\000\022>\n\reffect_secret\030\004 "
-    "\001(\0132%.flightstrips.cluster.v1.EffectSecr"
-    "etH\000\022>\n\rprovider_page\030\005 \001(\0132%.flightstri"
-    "ps.cluster.v1.ProviderPageH\000B\t\n\007content\""
-    "\303\005\n\007NavData\022\017\n\007airport\030\001 \001(\t\022;\n\007version\030"
-    "\002 \001(\0132*.flightstrips.cluster.v1.NavDatas"
-    "etVersion\022G\n\020airport_fragment\030\003 \001(\0132+.fl"
-    "ightstrips.cluster.v1.NavAirportFragment"
-    "H\000\022K\n\022procedure_fragment\030\004 \001(\0132-.flights"
-    "trips.cluster.v1.NavProcedureFragmentH\000\022"
-    "\?\n\014fix_fragment\030\005 \001(\0132\'.flightstrips.clu"
-    "ster.v1.NavFixFragmentH\000\022I\n\021terminal_fra"
-    "gment\030\006 \001(\0132,.flightstrips.cluster.v1.Na"
-    "vTerminalFragmentH\000\022E\n\017route_candidate\030\007"
-    " \001(\0132*.flightstrips.cluster.v1.NavRouteC"
-    "andidateH\000\022\026\n\016schema_version\030\010 \001(\t\022:\n\npr"
-    "ovenance\030\t \001(\0132&.flightstrips.cluster.v1"
-    ".NavProvenance\022/\n\013imported_at\030\n \001(\0132\032.go"
-    "ogle.protobuf.Timestamp\0225\n\014validated_at\030"
-    "\013 \001(\0132\032.google.protobuf.TimestampH\001\210\001\001\022\030"
-    "\n\020validation_state\030\014 \001(\t\022\016\n\006digest\030\r \001(\t"
-    "B\n\n\010fragmentB\017\n\r_validated_at\"\244\001\n\021NavDat"
-    "asetVersion\022\r\n\005cycle\030\001 \001(\t\022\027\n\017source_rev"
-    "ision\030\002 \001(\t\0222\n\016effective_from\030\003 \001(\0132\032.go"
-    "ogle.protobuf.Timestamp\0223\n\017effective_unt"
-    "il\030\004 \001(\0132\032.google.protobuf.Timestamp\"\325\001\n"
-    "\rNavProvenance\022\021\n\tsource_id\030\001 \001(\t\022\027\n\017sou"
-    "rce_revision\030\002 \001(\t\022/\n\013imported_at\030\003 \001(\0132"
-    "\032.google.protobuf.Timestamp\0222\n\016effective"
-    "_from\030\004 \001(\0132\032.google.protobuf.Timestamp\022"
-    "3\n\017effective_until\030\005 \001(\0132\032.google.protob"
-    "uf.Timestamp\"D\n\rNavCoordinate\022\030\n\020latitud"
-    "e_degrees\030\001 \001(\001\022\031\n\021longitude_degrees\030\002 \001"
-    "(\001\"\262\001\n\014NavThreshold\0228\n\010position\030\001 \001(\0132&."
-    "flightstrips.cluster.v1.NavCoordinate\022\033\n"
-    "\016elevation_feet\030\002 \001(\005H\000\210\001\001\022 \n\023course_tru"
-    "e_degrees\030\003 \001(\001H\001\210\001\001B\021\n\017_elevation_feetB"
-    "\026\n\024_course_true_degrees\"\177\n\022NavAirportFra"
-    "gment\0224\n\007airport\030\001 \001(\0132#.flightstrips.cl"
-    "uster.v1.NavAirport\0223\n\007runways\030\002 \003(\0132\".f"
-    "lightstrips.cluster.v1.NavRunway\"\236\001\n\nNav"
-    "Airport\022\014\n\004icao\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\0228\n\010p"
-    "osition\030\003 \001(\0132&.flightstrips.cluster.v1."
-    "NavCoordinate\022:\n\nprovenance\030\004 \001(\0132&.flig"
-    "htstrips.cluster.v1.NavProvenance\"\261\001\n\tNa"
-    "vRunway\022\n\n\002id\030\001 \001(\t\022\017\n\007airport\030\002 \001(\t\0228\n\t"
-    "threshold\030\003 \001(\0132%.flightstrips.cluster.v"
-    "1.NavThreshold\022\021\n\tlength_nm\030\004 \001(\001\022:\n\npro"
-    "venance\030\005 \001(\0132&.flightstrips.cluster.v1."
-    "NavProvenance\"\202\001\n\024NavProcedureFragment\022\017"
-    "\n\007airport\030\001 \001(\t\022\014\n\004kind\030\002 \001(\t\0229\n\nprocedu"
-    "res\030\003 \003(\0132%.flightstrips.cluster.v1.NavP"
-    "rocedure\022\020\n\010coverage\030\004 \001(\t\"\354\001\n\014NavProced"
-    "ure\022\n\n\002id\030\001 \001(\t\022\017\n\007airport\030\002 \001(\t\022\014\n\004kind"
-    "\030\003 \001(\t\022\017\n\007runways\030\004 \003(\t\022-\n\004legs\030\005 \003(\0132\037."
-    "flightstrips.cluster.v1.NavLeg\0225\n\010holdin"
-    "gs\030\006 \003(\0132#.flightstrips.cluster.v1.NavHo"
-    "lding\022:\n\nprovenance\030\007 \001(\0132&.flightstrips"
-    ".cluster.v1.NavProvenance\"\245\003\n\006NavLeg\022\n\n\002"
-    "id\030\001 \001(\t\022\027\n\017path_terminator\030\002 \001(\t\022\025\n\010fro"
-    "m_fix\030\003 \001(\tH\000\210\001\001\022\023\n\006to_fix\030\004 \001(\tH\001\210\001\001\022B\n"
-    "\rfrom_position\030\005 \001(\0132&.flightstrips.clus"
-    "ter.v1.NavCoordinateH\002\210\001\001\022@\n\013to_position"
-    "\030\006 \001(\0132&.flightstrips.cluster.v1.NavCoor"
-    "dinateH\003\210\001\001\022 \n\023course_true_degrees\030\007 \001(\001"
-    "H\004\210\001\001\022\030\n\013distance_nm\030\010 \001(\001H\005\210\001\001\022\027\n\nholdi"
-    "ng_id\030\t \001(\tH\006\210\001\001B\013\n\t_from_fixB\t\n\007_to_fix"
-    "B\020\n\016_from_positionB\016\n\014_to_positionB\026\n\024_c"
-    "ourse_true_degreesB\016\n\014_distance_nmB\r\n\013_h"
-    "olding_id\"\244\003\n\nNavHolding\022\n\n\002id\030\001 \001(\t\022\013\n\003"
-    "fix\030\002 \001(\t\022#\n\033inbound_course_true_degrees"
-    "\030\003 \001(\001\022\026\n\016turn_direction\030\004 \001(\t\022\023\n\tlength"
-    "_nm\030\005 \001(\001H\000\022\026\n\014time_seconds\030\006 \001(\003H\000\022\"\n\025m"
-    "inimum_altitude_feet\030\007 \001(\005H\001\210\001\001\022\"\n\025maxim"
-    "um_altitude_feet\030\010 \001(\005H\002\210\001\001\022 \n\023maximum_s"
-    "peed_knots\030\t \001(\005H\003\210\001\001\022\023\n\013termination\030\n \001"
-    "(\t\022:\n\nprovenance\030\013 \001(\0132&.flightstrips.cl"
-    "uster.v1.NavProvenanceB\014\n\nleg_extentB\030\n\026"
-    "_minimum_altitude_feetB\030\n\026_maximum_altit"
-    "ude_feetB\026\n\024_maximum_speed_knots\"R\n\016NavF"
-    "ixFragment\022.\n\005fixes\030\001 \003(\0132\037.flightstrips"
-    ".cluster.v1.NavFix\022\020\n\010coverage\030\002 \001(\t\"\212\001\n"
-    "\006NavFix\022\n\n\002id\030\001 \001(\t\0228\n\010position\030\002 \001(\0132&."
-    "flightstrips.cluster.v1.NavCoordinate\022:\n"
-    "\nprovenance\030\003 \001(\0132&.flightstrips.cluster"
-    ".v1.NavProvenance\"\303\002\n\023NavTerminalFragmen"
-    "t\022\017\n\007airport\030\001 \001(\t\022\026\n\016config_version\030\002 \001"
-    "(\t\022J\n\024star_family_policies\030\003 \003(\0132,.fligh"
-    "tstrips.cluster.v1.NavStarFamilyPolicy\022G"
-    "\n\021timeline_mappings\030\004 \003(\0132,.flightstrips"
-    ".cluster.v1.AmanTimelineMapping\0227\n\005paths"
-    "\030\005 \003(\0132(.flightstrips.cluster.v1.NavTerm"
-    "inalPath\0225\n\010holdings\030\006 \003(\0132#.flightstrip"
-    "s.cluster.v1.NavHolding\"\224\001\n\023NavStarFamil"
-    "yPolicy\022\023\n\013star_family\030\001 \001(\t\022G\n\021same_sta"
-    "r_spacing\030\002 \001(\0132,.flightstrips.cluster.v"
-    "1.AmanSameStarSpacing\022\037\n\027holding_sequenc"
-    "e_policy\030\003 \001(\t\"\217\004\n\017NavTerminalPath\022;\n\007ve"
-    "rsion\030\001 \001(\0132*.flightstrips.cluster.v1.Na"
-    "vDatasetVersion\022\017\n\007airport\030\002 \001(\t\022\023\n\013star"
-    "_family\030\003 \001(\t\022\022\n\nfeeder_fix\030\004 \001(\t\022B\n\032hol"
-    "ding_to_feeder_duration\030\005 \001(\0132\031.google.p"
-    "rotobuf.DurationH\000\210\001\001\022\024\n\014runway_group\030\006 "
-    "\001(\t\022-\n\004legs\030\007 \003(\0132\037.flightstrips.cluster"
-    ".v1.NavLeg\022\023\n\013holding_ids\030\010 \003(\t\022/\n\"publi"
-    "shed_heading_magnetic_degrees\030\t \001(\005H\001\210\001\001"
-    "\022\020\n\010coverage\030\n \001(\t\022\022\n\nunresolved\030\013 \003(\t\022:"
-    "\n\nprovenance\030\014 \001(\0132&.flightstrips.cluste"
-    "r.v1.NavProvenance\022\016\n\006digest\030\r \001(\tB\035\n\033_h"
-    "olding_to_feeder_durationB%\n#_published_"
-    "heading_magnetic_degrees\"\351\001\n\021NavRouteCan"
-    "didate\0225\n\005query\030\001 \001(\0132&.flightstrips.clu"
-    "ster.v1.NavRouteQuery\022\030\n\020resolver_versio"
-    "n\030\002 \001(\t\022\026\n\016schema_version\030\003 \001(\t\022;\n\010geome"
-    "try\030\004 \001(\0132).flightstrips.cluster.v1.NavR"
-    "outeGeometry\022.\n\ncreated_at\030\005 \001(\0132\032.googl"
-    "e.protobuf.Timestamp\"\210\002\n\rNavRouteQuery\022;"
-    "\n\007version\030\001 \001(\0132*.flightstrips.cluster.v"
-    "1.NavDatasetVersion\022\016\n\006origin\030\002 \001(\t\022\023\n\013d"
-    "estination\030\003 \001(\t\022\023\n\013filed_route\030\004 \001(\t\022\036\n"
-    "\021arrival_procedure\030\005 \001(\tH\000\210\001\001\022\023\n\006runway\030"
-    "\006 \001(\tH\001\210\001\001\022\031\n\014runway_group\030\007 \001(\tH\002\210\001\001B\024\n"
-    "\022_arrival_procedureB\t\n\007_runwayB\017\n\r_runwa"
-    "y_group\"\240\002\n\020NavRouteGeometry\022;\n\007version\030"
-    "\001 \001(\0132*.flightstrips.cluster.v1.NavDatas"
-    "etVersion\022-\n\004legs\030\002 \003(\0132\037.flightstrips.c"
-    "luster.v1.NavLeg\022\023\n\013holding_ids\030\003 \003(\t\022\031\n"
-    "\021total_distance_nm\030\004 \001(\001\022\020\n\010coverage\030\005 \001"
-    "(\t\022\022\n\nunresolved\030\006 \003(\t\022:\n\nprovenance\030\007 \001"
-    "(\0132&.flightstrips.cluster.v1.NavProvenan"
-    "ce\022\016\n\006digest\030\010 \001(\t\"U\n\014EffectSecret\022\022\n\nco"
-    "mmand_id\030\001 \001(\t\022\022\n\nciphertext\030\002 \001(\014\022\016\n\006ke"
-    "y_id\030\003 \001(\t\022\r\n\005nonce\030\004 \001(\014\"\341\001\n\014ProviderPa"
-    "ge\022\020\n\010provider\030\001 \001(\t\022\020\n\010resource\030\002 \001(\t\0223"
-    "\n\005airac\030\003 \001(\0132\".flightstrips.cluster.v1."
-    "AiracPageH\000\0225\n\006vatsim\030\004 \001(\0132#.flightstri"
-    "ps.cluster.v1.VatsimPageH\000\0227\n\007weather\030\005 "
-    "\001(\0132$.flightstrips.cluster.v1.WeatherPag"
-    "eH\000B\010\n\006parsed\"f\n\tAiracPage\0223\n\tfragments\030"
-    "\001 \003(\0132 .flightstrips.cluster.v1.NavData\022"
-    "\026\n\tnext_page\030\002 \001(\tH\000\210\001\001B\014\n\n_next_page\"N\n"
-    "\nVatsimPage\022@\n\014observations\030\001 \003(\0132*.flig"
-    "htstrips.cluster.v1.VatsimObservation\"P\n"
-    "\013WeatherPage\022A\n\014observations\030\001 \003(\0132+.fli"
-    "ghtstrips.cluster.v1.WeatherObservation*"
-    "\310\004\n\nEntityKind\022\033\n\027ENTITY_KIND_UNSPECIFIE"
-    "D\020\000\022\024\n\020AIRPORT_REGISTRY\020\001\022\024\n\020SESSION_REG"
-    "ISTRY\020\002\022\022\n\016PROVIDER_QUOTA\020\003\022\022\n\016AIRPORT_P"
-    "OLICY\020\004\022\013\n\007SESSION\020\005\022\016\n\nCONTROLLER\020\006\022\020\n\014"
-    "SECTOR_OWNER\020\007\022\t\n\005STRIP\020\010\022\020\n\014COORDINATIO"
-    "N\020\t\022\022\n\016TACTICAL_STRIP\020\n\022\024\n\020STAND_ASSIGNM"
-    "ENT\020\013\022\017\n\013STAND_BLOCK\020\014\022\020\n\014PDC_SEQUENCE\020\r"
-    "\022\r\n\tCDM_STATE\020\016\022\017\n\013ECFMP_STATE\020\017\022\010\n\004ATIS"
-    "\020\020\022\020\n\014CLX_OVERRIDE\020\021\022\024\n\020FRONTEND_MESSAGE"
-    "\020\022\022\020\n\014AMAN_AIRPORT\020\023\022\017\n\013AMAN_FLIGHT\020\024\022\025\n"
-    "\021AMAN_COORDINATION\020\025\022\016\n\nAMAN_AUDIT\020\026\022\023\n\017"
-    "AMAN_VALIDATION\020\027\022\026\n\022VATSIM_OBSERVATION\020"
-    "\030\022\020\n\014NAV_MANIFEST\020\031\022\023\n\017NAV_ROUTE_CACHE\020\032"
-    "\022\027\n\023PROVIDER_CHECKPOINT\020\033\022\021\n\rWEATHER_CAC"
-    "HE\020\034\022\024\n\020SESSION_DEADLINE\020\035B)Z\'FlightStri"
-    "ps/pkg/events/cluster;clusterb\006proto3"
+    "dEvidence\022\021\n\tarm_count\030\003 \001(\005\022\023\n\013climb_co"
+    "unt\030\004 \001(\005\022\030\n\020track_away_count\030\005 \001(\005\022\031\n\021r"
+    "unway_exit_count\030\006 \001(\005\022\r\n\005armed\030\007 \001(\010\0221\n"
+    "\010armed_at\030\010 \001(\0132\032.google.protobuf.Timest"
+    "ampH\000\210\001\001\022\031\n\021armed_corridor_id\030\t \001(\t\022\017\n\007e"
+    "pisode\030\n \001(\004\022\034\n\024last_emitted_episode\030\013 \001"
+    "(\004\022:\n\021last_processed_at\030\014 \001(\0132\032.google.p"
+    "rotobuf.TimestampH\001\210\001\001\022$\n\027last_processed"
+    "_sequence\030\r \001(\004H\002\210\001\001\022\031\n\021threshold_crosse"
+    "d\030\016 \001(\010\022\026\n\016awaiting_reset\030\017 \001(\010\022\"\n\032last_"
+    "controller_command_id\030\020 \001(\tB\013\n\t_armed_at"
+    "B\024\n\022_last_processed_atB\032\n\030_last_processe"
+    "d_sequence\"\241\002\n\rAmanLifecycle\022.\n\nentered_"
+    "at\030\001 \001(\0132\032.google.protobuf.Timestamp\022\016\n\006"
+    "reason\030\002 \001(\t\022\025\n\rlast_event_id\030\003 \001(\t\022\036\n\026l"
+    "ast_event_fingerprint\030\004 \001(\t\0221\n\rlast_even"
+    "t_at\030\005 \001(\0132\032.google.protobuf.Timestamp\022\036"
+    "\n\026reconciliation_pending\030\006 \001(\010\022:\n\007absenc"
+    "e\030\007 \001(\0132$.flightstrips.cluster.v1.AmanAb"
+    "senceH\000\210\001\001B\n\n\010_absence\"\272\001\n\013AmanAbsence\0221"
+    "\n\rmissing_since\030\001 \001(\0132\032.google.protobuf."
+    "Timestamp\0227\n\016removal_due_at\030\002 \001(\0132\032.goog"
+    "le.protobuf.TimestampH\000\210\001\001\022,\n\tremaining\030"
+    "\003 \001(\0132\031.google.protobuf.DurationB\021\n\017_rem"
+    "oval_due_at\"\324\001\n\rAmanRouteFact\022\n\n\002id\030\001 \001("
+    "\t\022\013\n\003fix\030\002 \001(\t\022\r\n\005state\030\003 \001(\t\022/\n\013observe"
+    "d_at\030\004 \001(\0132\032.google.protobuf.Timestamp\022\020"
+    "\n\010callsign\030\005 \001(\t\022\016\n\006issuer\030\006 \001(\t\022/\n\013rece"
+    "ived_at\030\007 \001(\0132\032.google.protobuf.Timestam"
+    "p\022\027\n\017dataset_version\030\010 \001(\t\"\300\001\n\016AmanProve"
+    "nance\022\025\n\rmodel_version\030\001 \001(\t\022\026\n\016config_v"
+    "ersion\030\002 \001(\t\022#\n\026performance_profile_id\030\003"
+    " \001(\tH\000\210\001\001\022\033\n\016weather_source\030\004 \001(\tH\001\210\001\001\022\017"
+    "\n\007sources\030\005 \003(\tB\031\n\027_performance_profile_"
+    "idB\021\n\017_weather_source\"\201\001\n\010AmanSlot\022(\n\004ti"
+    "me\030\001 \001(\0132\032.google.protobuf.Timestamp\022\027\n\017"
+    "runway_group_id\030\002 \001(\t\022\020\n\010sequence\030\003 \001(\r\022"
+    "\020\n\010revision\030\004 \001(\004\022\016\n\006reason\030\005 \001(\t\"\365\003\n\rAm"
+    "anETAReview\022\016\n\006status\030\001 \001(\t\022.\n\ncreated_a"
+    "t\030\002 \001(\0132\032.google.protobuf.Timestamp\022/\n\013d"
+    "eadline_at\030\003 \001(\0132\032.google.protobuf.Times"
+    "tamp\0224\n\013resolved_at\030\004 \001(\0132\032.google.proto"
+    "buf.TimestampH\000\210\001\001\022\022\n\005actor\030\005 \001(\tH\001\210\001\001\022\021"
+    "\n\004note\030\006 \001(\tH\002\210\001\001\0229\n\025initial_baseline_te"
+    "ta\030\007 \001(\0132\032.google.protobuf.Timestamp\022\?\n\033"
+    "calculated_operational_teta\030\010 \001(\0132\032.goog"
+    "le.protobuf.Timestamp\0221\n\rselected_teta\030\t"
+    " \001(\0132\032.google.protobuf.Timestamp\0224\n\013manu"
+    "al_teta\030\n \001(\0132\032.google.protobuf.Timestam"
+    "pH\003\210\001\001B\016\n\014_resolved_atB\010\n\006_actorB\007\n\005_not"
+    "eB\016\n\014_manual_teta\"\350\001\n\016AmanQueueOffer\022\020\n\010"
+    "callsign\030\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\022"
+    "9\n\016candidate_slot\030\003 \001(\0132!.flightstrips.c"
+    "luster.v1.AmanSlot\022\026\n\016queue_position\030\004 \001"
+    "(\r\022.\n\nexpires_at\030\005 \001(\0132\032.google.protobuf"
+    ".Timestamp\022\030\n\020airport_revision\030\006 \001(\004\022\016\n\006"
+    "reason\030\007 \001(\t\"\221\003\n\030AmanGoAroundConfirmatio"
+    "n\022\022\n\nepisode_id\030\001 \001(\t\022\016\n\006reason\030\002 \001(\t\022/\n"
+    "\013detected_at\030\003 \001(\0132\032.google.protobuf.Tim"
+    "estamp\0222\n\016evidence_times\030\004 \003(\0132\032.google."
+    "protobuf.Timestamp\022\016\n\006status\030\005 \001(\t\0223\n\nde"
+    "cided_at\030\006 \001(\0132\032.google.protobuf.Timesta"
+    "mpH\000\210\001\001\022\027\n\ndecided_by\030\007 \001(\tH\001\210\001\001\022\037\n\022resu"
+    "lting_revision\030\010 \001(\004H\002\210\001\001\022 \n\023decision_co"
+    "mmand_id\030\t \001(\tH\003\210\001\001B\r\n\013_decided_atB\r\n\013_d"
+    "ecided_byB\025\n\023_resulting_revisionB\026\n\024_dec"
+    "ision_command_id\"\222\001\n\020AmanGapException\022\016\n"
+    "\006gap_id\030\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\022/"
+    "\n\013opportunity\030\003 \001(\0132\032.google.protobuf.Ti"
+    "mestamp\022\022\n\ncommand_id\030\004 \001(\t\022\020\n\010callsign\030"
+    "\005 \001(\t\"\375\003\n\020AmanCoordination\022\n\n\002id\030\001 \001(\t\022\020"
+    "\n\010callsign\030\002 \001(\t\022\034\n\024recipient_controller"
+    "\030\003 \001(\t\022\030\n\020recipient_status\030\004 \001(\t\022\r\n\005stat"
+    "e\030\005 \001(\t\022@\n\014route_direct\030\006 \001(\0132(.flightst"
+    "rips.cluster.v1.AmanRouteDirectH\000\0223\n\005spe"
+    "ed\030\007 \001(\0132\".flightstrips.cluster.v1.AmanS"
+    "peedH\000\022.\n\ncreated_at\030\010 \001(\0132\032.google.prot"
+    "obuf.Timestamp\022.\n\nupdated_at\030\t \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\022\027\n\nsupersedes\030\n \001"
+    "(\tH\001\210\001\001\022\032\n\rsuperseded_by\030\013 \001(\tH\002\210\001\001\022>\n\tc"
+    "learance\030\014 \001(\0132&.flightstrips.cluster.v1"
+    ".AmanClearanceH\003\210\001\001B\t\n\007requestB\r\n\013_super"
+    "sedesB\020\n\016_superseded_byB\014\n\n_clearance\"U\n"
+    "\017AmanRouteDirect\022\022\n\005route\030\001 \001(\tH\000\210\001\001\022\026\n\t"
+    "direct_to\030\002 \001(\tH\001\210\001\001B\010\n\006_routeB\014\n\n_direc"
+    "t_to\"\036\n\tAmanSpeed\022\021\n\trequested\030\001 \001(\t\"~\n\r"
+    "AmanClearance\022\017\n\007fact_id\030\001 \001(\t\022\014\n\004kind\030\002"
+    " \001(\t\022\r\n\005value\030\003 \001(\t\022\016\n\006issuer\030\004 \001(\t\022/\n\013o"
+    "bserved_at\030\005 \001(\0132\032.google.protobuf.Times"
+    "tamp\"\331\005\n\tAmanAudit\022\n\n\002id\030\001 \001(\t\022\030\n\020airpor"
+    "t_revision\030\002 \001(\004\022.\n\ncreated_at\030\003 \001(\0132\032.g"
+    "oogle.protobuf.Timestamp\022-\n\005actor\030\004 \001(\0132"
+    "\036.flightstrips.cluster.v1.Actor\022<\n\007comma"
+    "nd\030\005 \001(\0132).flightstrips.cluster.v1.AmanC"
+    "ommandAuditH\000\022D\n\013observation\030\006 \001(\0132-.fli"
+    "ghtstrips.cluster.v1.AmanObservationAudi"
+    "tH\000\022>\n\010sequence\030\007 \001(\0132*.flightstrips.clu"
+    "ster.v1.AmanSequenceAuditH\000\022F\n\014coordinat"
+    "ion\030\010 \001(\0132..flightstrips.cluster.v1.Aman"
+    "CoordinationAuditH\000\022:\n\006health\030\t \001(\0132(.fl"
+    "ightstrips.cluster.v1.AmanHealthAuditH\000\022"
+    ">\n\010capacity\030\n \001(\0132*.flightstrips.cluster"
+    ".v1.AmanCapacityAuditH\000\022:\n\006freeze\030\013 \001(\0132"
+    "(.flightstrips.cluster.v1.AmanFreezeAudi"
+    "tH\000\022\?\n\tgo_around\030\014 \001(\0132*.flightstrips.cl"
+    "uster.v1.AmanGoAroundAuditH\000\022:\n\006replay\030\r"
+    " \001(\0132(.flightstrips.cluster.v1.AmanRepla"
+    "yAuditH\000B\006\n\004fact\"]\n\020AmanCommandAudit\022\022\n\n"
+    "command_id\030\001 \001(\t\022\024\n\014command_kind\030\002 \001(\t\022\017"
+    "\n\007outcome\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\"a\n\024AmanO"
+    "bservationAudit\022\016\n\006source\030\001 \001(\t\022\026\n\016obser"
+    "vation_id\030\002 \001(\t\022\020\n\010callsign\030\003 \001(\t\022\017\n\007out"
+    "come\030\004 \001(\t\"\322\001\n\021AmanSequenceAudit\022\020\n\010call"
+    "sign\030\001 \001(\t\022\027\n\017runway_group_id\030\002 \001(\t\0226\n\006b"
+    "efore\030\003 \001(\0132!.flightstrips.cluster.v1.Am"
+    "anSlotH\000\210\001\001\0225\n\005after\030\004 \001(\0132!.flightstrip"
+    "s.cluster.v1.AmanSlotH\001\210\001\001\022\016\n\006reason\030\005 \001"
+    "(\tB\t\n\007_beforeB\010\n\006_after\"Z\n\025AmanCoordinat"
+    "ionAudit\022\022\n\nrequest_id\030\001 \001(\t\022\016\n\006before\030\002"
+    " \001(\t\022\r\n\005after\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t\"S\n\017A"
+    "manHealthAudit\022\021\n\tcomponent\030\001 \001(\t\022\016\n\006bef"
+    "ore\030\002 \001(\t\022\r\n\005after\030\003 \001(\t\022\016\n\006reason\030\004 \001(\t"
+    "\"\212\003\n\021AmanCapacityAudit\022\027\n\017runway_group_i"
+    "d\030\001 \001(\t\022\021\n\tobject_id\030\002 \001(\t\022=\n\004kind\030\003 \001(\016"
+    "2/.flightstrips.cluster.v1.AmanCapacityA"
+    "udit.Kind\022\016\n\006action\030\004 \001(\t\022E\n\021displaced_f"
+    "lights\030\005 \003(\0132*.flightstrips.cluster.v1.A"
+    "manSequenceAudit\022.\n\005start\030\006 \001(\0132\032.google"
+    ".protobuf.TimestampH\000\210\001\001\022,\n\003end\030\007 \001(\0132\032."
+    "google.protobuf.TimestampH\001\210\001\001\"C\n\004Kind\022\024"
+    "\n\020KIND_UNSPECIFIED\020\000\022\007\n\003GAP\020\001\022\013\n\007CLOSURE"
+    "\020\002\022\017\n\013RESERVATION\020\003B\010\n\006_startB\006\n\004_end\"\302\001"
+    "\n\017AmanFreezeAudit\022\020\n\010callsign\030\001 \001(\t\022\016\n\006r"
+    "eason\030\002 \001(\t\0229\n\020operational_teta\030\003 \001(\0132\032."
+    "google.protobuf.TimestampH\000\210\001\001\0224\n\004slot\030\004"
+    " \001(\0132!.flightstrips.cluster.v1.AmanSlotH"
+    "\001\210\001\001B\023\n\021_operational_tetaB\007\n\005_slot\"\214\001\n\021A"
+    "manGoAroundAudit\022\020\n\010callsign\030\001 \001(\t\022\022\n\nep"
+    "isode_id\030\002 \001(\t\022\020\n\010decision\030\003 \001(\t\022\?\n\010evid"
+    "ence\030\004 \003(\0132-.flightstrips.cluster.v1.Ama"
+    "nGoAroundEvidence\"v\n\017AmanReplayAudit\022\016\n\006"
+    "source\030\001 \001(\t\022\021\n\trecord_id\030\002 \001(\t\022\016\n\006resul"
+    "t\030\003 \001(\t\022\034\n\017source_revision\030\004 \001(\004H\000\210\001\001B\022\n"
+    "\020_source_revision\"\267\001\n\016AmanValidation\022\n\n\002"
+    "id\030\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\014\n\004rule\030\003 \001(\t"
+    "\022\016\n\006result\030\004 \001(\t\0228\n\006faults\030\005 \003(\0132(.fligh"
+    "tstrips.cluster.v1.ValidationFault\022/\n\013ob"
+    "served_at\030\006 \001(\0132\032.google.protobuf.Timest"
+    "amp\"{\n\021VatsimObservation\022\023\n\013provider_id\030"
+    "\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\016\n\006digest\030\003 \001(\t\022"
+    "/\n\013observed_at\030\004 \001(\0132\032.google.protobuf.T"
+    "imestamp\"\210\001\n\023VatsimSessionCursor\022\020\n\010prov"
+    "ider\030\001 \001(\t\022\027\n\017source_revision\030\002 \001(\004\022\025\n\rs"
+    "ource_sha256\030\003 \001(\t\022/\n\013snapshot_at\030\004 \001(\0132"
+    "\032.google.protobuf.Timestamp\"\265\001\n\013NavManif"
+    "est\022\017\n\007airport\030\001 \001(\t\022\r\n\005cycle\030\002 \001(\t\022\016\n\006d"
+    "igest\030\003 \001(\t\0226\n\007objects\030\004 \003(\0132%.flightstr"
+    "ips.cluster.v1.NavObjectRef\022\016\n\006active\030\005 "
+    "\001(\010\022\027\n\017source_revision\030\006 \001(\004\022\025\n\rsource_s"
+    "ha256\030\007 \001(\t\"A\n\014NavObjectRef\022\014\n\004kind\030\001 \001("
+    "\t\022\023\n\013object_name\030\002 \001(\t\022\016\n\006sha256\030\003 \001(\t\"y"
+    "\n\rNavRouteCache\022\021\n\troute_key\030\001 \001(\t\022\023\n\013ob"
+    "ject_name\030\002 \001(\t\022\016\n\006sha256\030\003 \001(\t\022\030\n\020resol"
+    "ver_version\030\004 \001(\t\022\026\n\016schema_version\030\005 \001("
+    "\t\"\225\001\n\022ProviderCheckpoint\022\020\n\010provider\030\001 \001"
+    "(\t\022\020\n\010resource\030\002 \001(\t\022\014\n\004etag\030\003 \001(\t\022\025\n\rla"
+    "st_modified\030\004 \001(\t\022\021\n\tnext_page\030\005 \001(\r\022\023\n\013"
+    "object_name\030\006 \001(\t\022\016\n\006sha256\030\007 \001(\t\"\323\001\n\014We"
+    "atherCache\022\017\n\007airport\030\001 \001(\t\022\020\n\010provider\030"
+    "\002 \001(\t\022@\n\013observation\030\003 \001(\0132+.flightstrip"
+    "s.cluster.v1.WeatherObservation\022.\n\nfetch"
+    "ed_at\030\004 \001(\0132\032.google.protobuf.Timestamp\022"
+    ".\n\nexpires_at\030\005 \001(\0132\032.google.protobuf.Ti"
+    "mestamp\"\222\003\n\022WeatherObservation\022\r\n\005metar\030"
+    "\001 \001(\t\022#\n\026wind_direction_degrees\030\002 \001(\rH\000\210"
+    "\001\001\022\035\n\020wind_speed_knots\030\003 \001(\001H\001\210\001\001\022\027\n\ngus"
+    "t_knots\030\004 \001(\001H\002\210\001\001\022\036\n\021visibility_meters\030"
+    "\005 \001(\001H\003\210\001\001\022 \n\023temperature_celsius\030\006 \001(\001H"
+    "\004\210\001\001\022\031\n\014pressure_hpa\030\007 \001(\001H\005\210\001\001\0225\n\006cloud"
+    "s\030\010 \003(\0132%.flightstrips.cluster.v1.Weathe"
+    "rCloudB\031\n\027_wind_direction_degreesB\023\n\021_wi"
+    "nd_speed_knotsB\r\n\013_gust_knotsB\024\n\022_visibi"
+    "lity_metersB\026\n\024_temperature_celsiusB\017\n\r_"
+    "pressure_hpa\"Q\n\014WeatherCloud\022\r\n\005cover\030\001 "
+    "\001(\t\022\026\n\tbase_feet\030\002 \001(\rH\000\210\001\001\022\014\n\004type\030\003 \001("
+    "\tB\014\n\n_base_feet\"\226\001\n\017SessionDeadline\022\n\n\002i"
+    "d\030\001 \001(\t\022\014\n\004kind\030\002 \001(\t\022*\n\006due_at\030\003 \001(\0132\032."
+    "google.protobuf.Timestamp\022\020\n\010callsign\030\004 "
+    "\001(\t\022\022\n\ncommand_id\030\005 \001(\t\022\027\n\017source_revisi"
+    "on\030\006 \001(\004\"\230\004\n\016CommandOutcome\022\022\n\ncommand_i"
+    "d\030\001 \001(\t\022\026\n\016request_sha256\030\002 \001(\t\022-\n\005actor"
+    "\030\003 \001(\0132\036.flightstrips.cluster.v1.Actor\022>"
+    "\n\006status\030\004 \001(\0162..flightstrips.cluster.v1"
+    ".CommandOutcome.Status\022\023\n\013reason_code\030\005 "
+    "\001(\t\022\016\n\006detail\030\006 \001(\t\022!\n\031committed_stream_"
+    "sequence\030\007 \001(\004\022\032\n\022aggregate_revision\030\010 \001"
+    "(\004\022\026\n\teffect_id\030\t \001(\tH\000\210\001\001\022%\n\030expected_e"
+    "ntity_revision\030\n \001(\004H\001\210\001\001\0228\n\taggregate\030\013"
+    " \001(\0132%.flightstrips.cluster.v1.Aggregate"
+    "Ref\"c\n\006Status\022\026\n\022STATUS_UNSPECIFIED\020\000\022\014\n"
+    "\010ACCEPTED\020\001\022\r\n\tSUCCEEDED\020\002\022\n\n\006FAILED\020\003\022\013"
+    "\n\007EXPIRED\020\004\022\013\n\007UNKNOWN\020\005B\014\n\n_effect_idB\033"
+    "\n\031_expected_entity_revision\"\355\003\n\016Workflow"
+    "Record\022\023\n\013workflow_id\030\001 \001(\t\0225\n\006source\030\002 "
+    "\001(\0132%.flightstrips.cluster.v1.AggregateR"
+    "ef\022:\n\013destination\030\003 \001(\0132%.flightstrips.c"
+    "luster.v1.AggregateRef\022\014\n\004step\030\004 \001(\t\022\032\n\022"
+    "derived_command_id\030\005 \001(\t\022>\n\006status\030\006 \001(\016"
+    "2..flightstrips.cluster.v1.WorkflowRecor"
+    "d.Status\022\034\n\017source_revision\030\007 \001(\004H\000\210\001\001\022("
+    "\n\033destination_stream_sequence\030\010 \001(\004H\001\210\001\001"
+    "\022\023\n\013reason_code\030\t \001(\t\"X\n\006Status\022\026\n\022STATU"
+    "S_UNSPECIFIED\020\000\022\013\n\007PENDING\020\001\022\r\n\tCOMPLETE"
+    "D\020\002\022\016\n\nSUPERSEDED\020\003\022\n\n\006FAILED\020\004B\022\n\020_sour"
+    "ce_revisionB\036\n\034_destination_stream_seque"
+    "nce\"\367\006\n\014EffectRecord\022\022\n\ncommand_id\030\001 \001(\t"
+    "\022\022\n\ntarget_cid\030\002 \001(\t\022!\n\024target_connectio"
+    "n_id\030\003 \001(\tH\001\210\001\001\022\023\n\013owner_epoch\030\004 \001(\004\022\024\n\014"
+    "master_epoch\030\005 \001(\004\022<\n\006status\030\006 \001(\0162,.fli"
+    "ghtstrips.cluster.v1.EffectRecord.Status"
+    "\022G\n\017set_flight_plan\030\007 \001(\0132,.flightstrips"
+    ".cluster.v1.SetFlightPlanEffectH\000\0221\n\003pdc"
+    "\030\010 \001(\0132\".flightstrips.cluster.v1.PdcEffe"
+    "ctH\000\022H\n\017private_message\030\t \001(\0132-.flightst"
+    "rips.cluster.v1.PrivateMessageEffectH\000\022C"
+    "\n\014coordination\030\n \001(\0132+.flightstrips.clus"
+    "ter.v1.CoordinationEffectH\000\0221\n\003cdm\030\013 \001(\013"
+    "2\".flightstrips.cluster.v1.CdmEffectH\000\0225"
+    "\n\021dispatch_deadline\030\014 \001(\0132\032.google.proto"
+    "buf.Timestamp\0228\n\017result_deadline\030\r \001(\0132\032"
+    ".google.protobuf.TimestampH\002\210\001\001\022#\n\026dispa"
+    "tch_connection_id\030\016 \001(\tH\003\210\001\001\022\023\n\013reason_c"
+    "ode\030\017 \001(\t\"w\n\006Status\022\026\n\022STATUS_UNSPECIFIE"
+    "D\020\000\022\013\n\007WAITING\020\001\022\024\n\020DISPATCH_CLAIMED\020\002\022\014"
+    "\n\010EXECUTED\020\003\022\n\n\006FAILED\020\004\022\013\n\007EXPIRED\020\005\022\013\n"
+    "\007UNKNOWN\020\006B\t\n\007payloadB\027\n\025_target_connect"
+    "ion_idB\022\n\020_result_deadlineB\031\n\027_dispatch_"
+    "connection_id\"E\n\023SetFlightPlanEffect\022\020\n\010"
+    "callsign\030\001 \001(\t\022\r\n\005field\030\002 \001(\t\022\r\n\005value\030\003"
+    " \001(\t\"@\n\tPdcEffect\022\020\n\010callsign\030\001 \001(\t\022\016\n\006a"
+    "ction\030\002 \001(\t\022\021\n\tclearance\030\003 \001(\t\"N\n\024Privat"
+    "eMessageEffect\022\021\n\trecipient\030\001 \001(\t\022\023\n\013obj"
+    "ect_name\030\002 \001(\t\022\016\n\006sha256\030\003 \001(\t\"J\n\022Coordi"
+    "nationEffect\022\020\n\010callsign\030\001 \001(\t\022\022\n\ntarget"
+    "_cid\030\002 \001(\t\022\016\n\006action\030\003 \001(\t\"<\n\tCdmEffect\022"
+    "\020\n\010callsign\030\001 \001(\t\022\016\n\006action\030\002 \001(\t\022\r\n\005val"
+    "ue\030\003 \001(\t\"\351\004\n\010Snapshot\022\026\n\016schema_version\030"
+    "\001 \001(\r\0228\n\taggregate\030\002 \001(\0132%.flightstrips."
+    "cluster.v1.AggregateRef\022\032\n\022aggregate_rev"
+    "ision\030\003 \001(\004\022\034\n\024last_stream_sequence\030\004 \001("
+    "\004\022\035\n\025last_subject_sequence\030\005 \001(\004\0221\n\005owne"
+    "r\030\006 \001(\0132\".flightstrips.cluster.v1.OwnerT"
+    "erm\0229\n\010entities\030\007 \003(\0132\'.flightstrips.clu"
+    "ster.v1.EntitySnapshot\0229\n\010outcomes\030\010 \003(\013"
+    "2\'.flightstrips.cluster.v1.CommandOutcom"
+    "e\022:\n\tworkflows\030\t \003(\0132\'.flightstrips.clus"
+    "ter.v1.WorkflowRecord\0226\n\007effects\030\n \003(\0132%"
+    ".flightstrips.cluster.v1.EffectRecord\0228\n"
+    "\006master\030\013 \001(\0132#.flightstrips.cluster.v1."
+    "MasterTermH\000\210\001\001\0227\n\004sync\030\014 \001(\0132$.flightst"
+    "rips.cluster.v1.SessionSyncH\001\210\001\001\022\016\n\006sha2"
+    "56\030\r \001(\tB\t\n\007_masterB\007\n\005_sync\"e\n\016EntitySn"
+    "apshot\022\013\n\003key\030\001 \001(\t\022\020\n\010revision\030\002 \001(\004\0224\n"
+    "\005value\030\003 \001(\0132%.flightstrips.cluster.v1.E"
+    "ntityRecord\"\337\001\n\rSnapshotIndex\022\026\n\016schema_"
+    "version\030\001 \001(\r\0228\n\taggregate\030\002 \001(\0132%.fligh"
+    "tstrips.cluster.v1.AggregateRef\022\023\n\013objec"
+    "t_name\030\003 \001(\t\022\016\n\006sha256\030\004 \001(\t\022\032\n\022aggregat"
+    "e_revision\030\005 \001(\004\022\034\n\024last_stream_sequence"
+    "\030\006 \001(\004\022\035\n\025last_subject_sequence\030\007 \001(\004\"\304\002"
+    "\n\rPositionValue\022\026\n\016schema_version\030\001 \001(\r\022"
+    "\022\n\nsession_id\030\002 \001(\005\022\024\n\014aircraft_key\030\003 \001("
+    "\t\022\023\n\013owner_epoch\030\004 \001(\004\022/\n\013observed_at\030\005 "
+    "\001(\0132\032.google.protobuf.Timestamp\022\034\n\024sourc"
+    "e_connection_id\030\006 \001(\t\022=\n\010position\030\007 \001(\0132"
+    ").flightstrips.cluster.v1.AircraftPositi"
+    "onH\000\022\?\n\ttombstone\030\010 \001(\0132*.flightstrips.c"
+    "luster.v1.PositionTombstoneH\000B\r\n\013observa"
+    "tion\"\271\001\n\020AircraftPosition\022\020\n\010latitude\030\001 "
+    "\001(\001\022\021\n\tlongitude\030\002 \001(\001\022\025\n\raltitude_feet\030"
+    "\003 \001(\005\022\032\n\022ground_speed_knots\030\004 \001(\001\022\025\n\rtra"
+    "ck_degrees\030\005 \001(\001\022\037\n\022vertical_speed_fpm\030\006"
+    " \001(\001H\000\210\001\001B\025\n\023_vertical_speed_fpm\"\023\n\021Posi"
+    "tionTombstone\"\244\001\n\rPresenceValue\022\026\n\016schem"
+    "a_version\030\001 \001(\r\0225\n\004node\030\002 \001(\0132%.flightst"
+    "rips.cluster.v1.NodePresenceH\000\0229\n\006client"
+    "\030\003 \001(\0132\'.flightstrips.cluster.v1.ClientP"
+    "resenceH\000B\t\n\007present\"^\n\014NodePresence\022\017\n\007"
+    "node_id\030\001 \001(\t\022.\n\nstarted_at\030\002 \001(\0132\032.goog"
+    "le.protobuf.Timestamp\022\r\n\005ready\030\003 \001(\010\"\270\002\n"
+    "\016ClientPresence\022\025\n\rconnection_id\030\001 \001(\t\022\017"
+    "\n\007node_id\030\002 \001(\t\022\022\n\nsession_id\030\003 \001(\005\022\013\n\003c"
+    "id\030\004 \001(\t\022\020\n\010callsign\030\005 \001(\t\022\020\n\010position\030\006"
+    " \001(\t\022\020\n\010observer\030\007 \001(\010\0220\n\014connected_at\030\010"
+    " \001(\0132\032.google.protobuf.Timestamp\022:\n\004kind"
+    "\030\t \001(\0162,.flightstrips.cluster.v1.ClientP"
+    "resence.Kind\"9\n\004Kind\022\024\n\020KIND_UNSPECIFIED"
+    "\020\000\022\r\n\tEUROSCOPE\020\001\022\014\n\010FRONTEND\020\002\"\230\002\n\013Obje"
+    "ctValue\022\026\n\016schema_version\030\001 \001(\r\0225\n\010snaps"
+    "hot\030\002 \001(\0132!.flightstrips.cluster.v1.Snap"
+    "shotH\000\022/\n\003nav\030\003 \001(\0132 .flightstrips.clust"
+    "er.v1.NavDataH\000\022>\n\reffect_secret\030\004 \001(\0132%"
+    ".flightstrips.cluster.v1.EffectSecretH\000\022"
+    ">\n\rprovider_page\030\005 \001(\0132%.flightstrips.cl"
+    "uster.v1.ProviderPageH\000B\t\n\007content\"\303\005\n\007N"
+    "avData\022\017\n\007airport\030\001 \001(\t\022;\n\007version\030\002 \001(\013"
+    "2*.flightstrips.cluster.v1.NavDatasetVer"
+    "sion\022G\n\020airport_fragment\030\003 \001(\0132+.flights"
+    "trips.cluster.v1.NavAirportFragmentH\000\022K\n"
+    "\022procedure_fragment\030\004 \001(\0132-.flightstrips"
+    ".cluster.v1.NavProcedureFragmentH\000\022\?\n\014fi"
+    "x_fragment\030\005 \001(\0132\'.flightstrips.cluster."
+    "v1.NavFixFragmentH\000\022I\n\021terminal_fragment"
+    "\030\006 \001(\0132,.flightstrips.cluster.v1.NavTerm"
+    "inalFragmentH\000\022E\n\017route_candidate\030\007 \001(\0132"
+    "*.flightstrips.cluster.v1.NavRouteCandid"
+    "ateH\000\022\026\n\016schema_version\030\010 \001(\t\022:\n\nprovena"
+    "nce\030\t \001(\0132&.flightstrips.cluster.v1.NavP"
+    "rovenance\022/\n\013imported_at\030\n \001(\0132\032.google."
+    "protobuf.Timestamp\0225\n\014validated_at\030\013 \001(\013"
+    "2\032.google.protobuf.TimestampH\001\210\001\001\022\030\n\020val"
+    "idation_state\030\014 \001(\t\022\016\n\006digest\030\r \001(\tB\n\n\010f"
+    "ragmentB\017\n\r_validated_at\"\244\001\n\021NavDatasetV"
+    "ersion\022\r\n\005cycle\030\001 \001(\t\022\027\n\017source_revision"
+    "\030\002 \001(\t\0222\n\016effective_from\030\003 \001(\0132\032.google."
+    "protobuf.Timestamp\0223\n\017effective_until\030\004 "
+    "\001(\0132\032.google.protobuf.Timestamp\"\325\001\n\rNavP"
+    "rovenance\022\021\n\tsource_id\030\001 \001(\t\022\027\n\017source_r"
+    "evision\030\002 \001(\t\022/\n\013imported_at\030\003 \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\0222\n\016effective_from"
+    "\030\004 \001(\0132\032.google.protobuf.Timestamp\0223\n\017ef"
+    "fective_until\030\005 \001(\0132\032.google.protobuf.Ti"
+    "mestamp\"D\n\rNavCoordinate\022\030\n\020latitude_deg"
+    "rees\030\001 \001(\001\022\031\n\021longitude_degrees\030\002 \001(\001\"\262\001"
+    "\n\014NavThreshold\0228\n\010position\030\001 \001(\0132&.fligh"
+    "tstrips.cluster.v1.NavCoordinate\022\033\n\016elev"
+    "ation_feet\030\002 \001(\005H\000\210\001\001\022 \n\023course_true_deg"
+    "rees\030\003 \001(\001H\001\210\001\001B\021\n\017_elevation_feetB\026\n\024_c"
+    "ourse_true_degrees\"\177\n\022NavAirportFragment"
+    "\0224\n\007airport\030\001 \001(\0132#.flightstrips.cluster"
+    ".v1.NavAirport\0223\n\007runways\030\002 \003(\0132\".flight"
+    "strips.cluster.v1.NavRunway\"\236\001\n\nNavAirpo"
+    "rt\022\014\n\004icao\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\0228\n\010positi"
+    "on\030\003 \001(\0132&.flightstrips.cluster.v1.NavCo"
+    "ordinate\022:\n\nprovenance\030\004 \001(\0132&.flightstr"
+    "ips.cluster.v1.NavProvenance\"\261\001\n\tNavRunw"
+    "ay\022\n\n\002id\030\001 \001(\t\022\017\n\007airport\030\002 \001(\t\0228\n\tthres"
+    "hold\030\003 \001(\0132%.flightstrips.cluster.v1.Nav"
+    "Threshold\022\021\n\tlength_nm\030\004 \001(\001\022:\n\nprovenan"
+    "ce\030\005 \001(\0132&.flightstrips.cluster.v1.NavPr"
+    "ovenance\"\202\001\n\024NavProcedureFragment\022\017\n\007air"
+    "port\030\001 \001(\t\022\014\n\004kind\030\002 \001(\t\0229\n\nprocedures\030\003"
+    " \003(\0132%.flightstrips.cluster.v1.NavProced"
+    "ure\022\020\n\010coverage\030\004 \001(\t\"\354\001\n\014NavProcedure\022\n"
+    "\n\002id\030\001 \001(\t\022\017\n\007airport\030\002 \001(\t\022\014\n\004kind\030\003 \001("
+    "\t\022\017\n\007runways\030\004 \003(\t\022-\n\004legs\030\005 \003(\0132\037.fligh"
+    "tstrips.cluster.v1.NavLeg\0225\n\010holdings\030\006 "
+    "\003(\0132#.flightstrips.cluster.v1.NavHolding"
+    "\022:\n\nprovenance\030\007 \001(\0132&.flightstrips.clus"
+    "ter.v1.NavProvenance\"\245\003\n\006NavLeg\022\n\n\002id\030\001 "
+    "\001(\t\022\027\n\017path_terminator\030\002 \001(\t\022\025\n\010from_fix"
+    "\030\003 \001(\tH\000\210\001\001\022\023\n\006to_fix\030\004 \001(\tH\001\210\001\001\022B\n\rfrom"
+    "_position\030\005 \001(\0132&.flightstrips.cluster.v"
+    "1.NavCoordinateH\002\210\001\001\022@\n\013to_position\030\006 \001("
+    "\0132&.flightstrips.cluster.v1.NavCoordinat"
+    "eH\003\210\001\001\022 \n\023course_true_degrees\030\007 \001(\001H\004\210\001\001"
+    "\022\030\n\013distance_nm\030\010 \001(\001H\005\210\001\001\022\027\n\nholding_id"
+    "\030\t \001(\tH\006\210\001\001B\013\n\t_from_fixB\t\n\007_to_fixB\020\n\016_"
+    "from_positionB\016\n\014_to_positionB\026\n\024_course"
+    "_true_degreesB\016\n\014_distance_nmB\r\n\013_holdin"
+    "g_id\"\244\003\n\nNavHolding\022\n\n\002id\030\001 \001(\t\022\013\n\003fix\030\002"
+    " \001(\t\022#\n\033inbound_course_true_degrees\030\003 \001("
+    "\001\022\026\n\016turn_direction\030\004 \001(\t\022\023\n\tlength_nm\030\005"
+    " \001(\001H\000\022\026\n\014time_seconds\030\006 \001(\003H\000\022\"\n\025minimu"
+    "m_altitude_feet\030\007 \001(\005H\001\210\001\001\022\"\n\025maximum_al"
+    "titude_feet\030\010 \001(\005H\002\210\001\001\022 \n\023maximum_speed_"
+    "knots\030\t \001(\005H\003\210\001\001\022\023\n\013termination\030\n \001(\t\022:\n"
+    "\nprovenance\030\013 \001(\0132&.flightstrips.cluster"
+    ".v1.NavProvenanceB\014\n\nleg_extentB\030\n\026_mini"
+    "mum_altitude_feetB\030\n\026_maximum_altitude_f"
+    "eetB\026\n\024_maximum_speed_knots\"R\n\016NavFixFra"
+    "gment\022.\n\005fixes\030\001 \003(\0132\037.flightstrips.clus"
+    "ter.v1.NavFix\022\020\n\010coverage\030\002 \001(\t\"\212\001\n\006NavF"
+    "ix\022\n\n\002id\030\001 \001(\t\0228\n\010position\030\002 \001(\0132&.fligh"
+    "tstrips.cluster.v1.NavCoordinate\022:\n\nprov"
+    "enance\030\003 \001(\0132&.flightstrips.cluster.v1.N"
+    "avProvenance\"\303\002\n\023NavTerminalFragment\022\017\n\007"
+    "airport\030\001 \001(\t\022\026\n\016config_version\030\002 \001(\t\022J\n"
+    "\024star_family_policies\030\003 \003(\0132,.flightstri"
+    "ps.cluster.v1.NavStarFamilyPolicy\022G\n\021tim"
+    "eline_mappings\030\004 \003(\0132,.flightstrips.clus"
+    "ter.v1.AmanTimelineMapping\0227\n\005paths\030\005 \003("
+    "\0132(.flightstrips.cluster.v1.NavTerminalP"
+    "ath\0225\n\010holdings\030\006 \003(\0132#.flightstrips.clu"
+    "ster.v1.NavHolding\"\224\001\n\023NavStarFamilyPoli"
+    "cy\022\023\n\013star_family\030\001 \001(\t\022G\n\021same_star_spa"
+    "cing\030\002 \001(\0132,.flightstrips.cluster.v1.Ama"
+    "nSameStarSpacing\022\037\n\027holding_sequence_pol"
+    "icy\030\003 \001(\t\"\217\004\n\017NavTerminalPath\022;\n\007version"
+    "\030\001 \001(\0132*.flightstrips.cluster.v1.NavData"
+    "setVersion\022\017\n\007airport\030\002 \001(\t\022\023\n\013star_fami"
+    "ly\030\003 \001(\t\022\022\n\nfeeder_fix\030\004 \001(\t\022B\n\032holding_"
+    "to_feeder_duration\030\005 \001(\0132\031.google.protob"
+    "uf.DurationH\000\210\001\001\022\024\n\014runway_group\030\006 \001(\t\022-"
+    "\n\004legs\030\007 \003(\0132\037.flightstrips.cluster.v1.N"
+    "avLeg\022\023\n\013holding_ids\030\010 \003(\t\022/\n\"published_"
+    "heading_magnetic_degrees\030\t \001(\005H\001\210\001\001\022\020\n\010c"
+    "overage\030\n \001(\t\022\022\n\nunresolved\030\013 \003(\t\022:\n\npro"
+    "venance\030\014 \001(\0132&.flightstrips.cluster.v1."
+    "NavProvenance\022\016\n\006digest\030\r \001(\tB\035\n\033_holdin"
+    "g_to_feeder_durationB%\n#_published_headi"
+    "ng_magnetic_degrees\"\351\001\n\021NavRouteCandidat"
+    "e\0225\n\005query\030\001 \001(\0132&.flightstrips.cluster."
+    "v1.NavRouteQuery\022\030\n\020resolver_version\030\002 \001"
+    "(\t\022\026\n\016schema_version\030\003 \001(\t\022;\n\010geometry\030\004"
+    " \001(\0132).flightstrips.cluster.v1.NavRouteG"
+    "eometry\022.\n\ncreated_at\030\005 \001(\0132\032.google.pro"
+    "tobuf.Timestamp\"\210\002\n\rNavRouteQuery\022;\n\007ver"
+    "sion\030\001 \001(\0132*.flightstrips.cluster.v1.Nav"
+    "DatasetVersion\022\016\n\006origin\030\002 \001(\t\022\023\n\013destin"
+    "ation\030\003 \001(\t\022\023\n\013filed_route\030\004 \001(\t\022\036\n\021arri"
+    "val_procedure\030\005 \001(\tH\000\210\001\001\022\023\n\006runway\030\006 \001(\t"
+    "H\001\210\001\001\022\031\n\014runway_group\030\007 \001(\tH\002\210\001\001B\024\n\022_arr"
+    "ival_procedureB\t\n\007_runwayB\017\n\r_runway_gro"
+    "up\"\240\002\n\020NavRouteGeometry\022;\n\007version\030\001 \001(\013"
+    "2*.flightstrips.cluster.v1.NavDatasetVer"
+    "sion\022-\n\004legs\030\002 \003(\0132\037.flightstrips.cluste"
+    "r.v1.NavLeg\022\023\n\013holding_ids\030\003 \003(\t\022\031\n\021tota"
+    "l_distance_nm\030\004 \001(\001\022\020\n\010coverage\030\005 \001(\t\022\022\n"
+    "\nunresolved\030\006 \003(\t\022:\n\nprovenance\030\007 \001(\0132&."
+    "flightstrips.cluster.v1.NavProvenance\022\016\n"
+    "\006digest\030\010 \001(\t\"U\n\014EffectSecret\022\022\n\ncommand"
+    "_id\030\001 \001(\t\022\022\n\nciphertext\030\002 \001(\014\022\016\n\006key_id\030"
+    "\003 \001(\t\022\r\n\005nonce\030\004 \001(\014\"\321\004\n\014ProviderPage\022\020\n"
+    "\010provider\030\001 \001(\t\022\020\n\010resource\030\002 \001(\t\0223\n\005air"
+    "ac\030\003 \001(\0132\".flightstrips.cluster.v1.Airac"
+    "PageH\000\0225\n\006vatsim\030\004 \001(\0132#.flightstrips.cl"
+    "uster.v1.VatsimPageH\000\0227\n\007weather\030\005 \001(\0132$"
+    ".flightstrips.cluster.v1.WeatherPageH\000\0223"
+    "\n\005ecfmp\030\006 \001(\0132\".flightstrips.cluster.v1."
+    "EcfmpPageH\000\022:\n\tatis_feed\030\007 \001(\0132%.flights"
+    "trips.cluster.v1.AtisFeedPageH\000\022<\n\nopen_"
+    "meteo\030\010 \001(\0132&.flightstrips.cluster.v1.Op"
+    "enMeteoPageH\000\022<\n\ncdm_config\030\t \001(\0132&.flig"
+    "htstrips.cluster.v1.CdmConfigPageH\000\022\?\n\014v"
+    "iff_flights\030\n \001(\0132\'.flightstrips.cluster"
+    ".v1.ViffFlightPageH\000\022@\n\014viff_masters\030\013 \001"
+    "(\0132(.flightstrips.cluster.v1.ViffMasters"
+    "PageH\000B\010\n\006parsed\"f\n\tAiracPage\0223\n\tfragmen"
+    "ts\030\001 \003(\0132 .flightstrips.cluster.v1.NavDa"
+    "ta\022\026\n\tnext_page\030\002 \001(\tH\000\210\001\001B\014\n\n_next_page"
+    "\"\267\001\n\nVatsimPage\022@\n\014observations\030\001 \003(\0132*."
+    "flightstrips.cluster.v1.VatsimObservatio"
+    "n\0226\n\007flights\030\002 \003(\0132%.flightstrips.cluste"
+    "r.v1.VatsimFlight\022/\n\013snapshot_at\030\003 \001(\0132\032"
+    ".google.protobuf.Timestamp\"\252\002\n\014VatsimFli"
+    "ght\022\013\n\003cid\030\001 \001(\t\022\020\n\010callsign\030\002 \001(\t\022\r\n\005st"
+    "ate\030\003 \001(\t\022\020\n\010latitude\030\004 \001(\001\022\021\n\tlongitude"
+    "\030\005 \001(\001\022\020\n\010altitude\030\006 \001(\005\022\023\n\013groundspeed\030"
+    "\007 \001(\005\022.\n\nlogon_time\030\010 \001(\0132\032.google.proto"
+    "buf.Timestamp\0220\n\014last_updated\030\t \001(\0132\032.go"
+    "ogle.protobuf.Timestamp\022>\n\013flight_plan\030\n"
+    " \001(\0132).flightstrips.cluster.v1.VatsimFli"
+    "ghtPlan\"\254\002\n\020VatsimFlightPlan\022\024\n\014flight_r"
+    "ules\030\001 \001(\t\022\020\n\010aircraft\030\002 \001(\t\022\024\n\014aircraft"
+    "_faa\030\003 \001(\t\022\026\n\016aircraft_short\030\004 \001(\t\022\016\n\006or"
+    "igin\030\005 \001(\t\022\023\n\013destination\030\006 \001(\t\022\021\n\talter"
+    "nate\030\007 \001(\t\022\014\n\004eobt\030\010 \001(\t\022\030\n\020enroute_dura"
+    "tion\030\t \001(\t\022\027\n\017requested_level\030\n \001(\t\022\017\n\007r"
+    "emarks\030\013 \001(\t\022\r\n\005route\030\014 \001(\t\022\027\n\017assigned_"
+    "squawk\030\r \001(\t\022\020\n\010revision\030\016 \001(\003\"P\n\013Weathe"
+    "rPage\022A\n\014observations\030\001 \003(\0132+.flightstri"
+    "ps.cluster.v1.WeatherObservation\"\327\001\n\rOpe"
+    "nMeteoPage\022\021\n\tsource_id\030\001 \001(\t\022\027\n\017source_"
+    "revision\030\002 \001(\t\022/\n\013observed_at\030\003 \001(\0132\032.go"
+    "ogle.protobuf.Timestamp\022.\n\nexpires_at\030\004 "
+    "\001(\0132\032.google.protobuf.Timestamp\0229\n\007sampl"
+    "es\030\005 \003(\0132(.flightstrips.cluster.v1.OpenM"
+    "eteoSample\"\264\001\n\017OpenMeteoSample\022\030\n\020latitu"
+    "de_degrees\030\001 \001(\001\022\031\n\021longitude_degrees\030\002 "
+    "\001(\001\022/\n\013forecast_at\030\003 \001(\0132\032.google.protob"
+    "uf.Timestamp\022;\n\006levels\030\004 \003(\0132+.flightstr"
+    "ips.cluster.v1.OpenMeteoWindLevel\"T\n\022Ope"
+    "nMeteoWindLevel\022\025\n\raltitude_feet\030\001 \001(\001\022\022"
+    "\n\neast_knots\030\002 \001(\001\022\023\n\013north_knots\030\003 \001(\001\""
+    "t\n\tEcfmpPage\0227\n\010measures\030\001 \003(\0132%.flights"
+    "trips.cluster.v1.EcfmpMeasure\022.\n\nfetched"
+    "_at\030\002 \001(\0132\032.google.protobuf.Timestamp\"\341\003"
+    "\n\014EcfmpMeasure\022\n\n\002id\030\001 \001(\003\022\r\n\005ident\030\002 \001("
+    "\t\022\025\n\010event_id\030\003 \001(\003H\000\210\001\001\022\016\n\006reason\030\004 \001(\t"
+    "\022.\n\nstart_time\030\005 \001(\0132\032.google.protobuf.T"
+    "imestamp\022,\n\010end_time\030\006 \001(\0132\032.google.prot"
+    "obuf.Timestamp\0225\n\014withdrawn_at\030\007 \001(\0132\032.g"
+    "oogle.protobuf.TimestampH\001\210\001\001\022+\n#notifie"
+    "d_flight_information_regions\030\010 \003(\003\022\014\n\004ki"
+    "nd\030\t \001(\t\022\032\n\rnumeric_value\030\n \001(\003H\002\210\001\001\022\016\n\006"
+    "routes\030\013 \003(\t\0225\n\007filters\030\014 \003(\0132$.flightst"
+    "rips.cluster.v1.EcfmpFilter\022\032\n\rdecimal_v"
+    "alue\030\r \001(\001H\003\210\001\001B\013\n\t_event_idB\017\n\r_withdra"
+    "wn_atB\020\n\016_numeric_valueB\020\n\016_decimal_valu"
+    "e\"|\n\013EcfmpFilter\022\014\n\004kind\030\001 \001(\t\022\r\n\005names\030"
+    "\002 \003(\t\022\022\n\005level\030\003 \001(\005H\000\210\001\001\022\016\n\006levels\030\004 \003("
+    "\005\022\025\n\010event_id\030\005 \001(\003H\001\210\001\001B\010\n\006_levelB\013\n\t_e"
+    "vent_id\"z\n\014AtisFeedPage\022:\n\010airports\030\001 \003("
+    "\0132(.flightstrips.cluster.v1.AtisFeedAirp"
+    "ort\022.\n\nfetched_at\030\002 \001(\0132\032.google.protobu"
+    "f.Timestamp\"\272\001\n\017AtisFeedAirport\022\017\n\007airpo"
+    "rt\030\001 \001(\t\022<\n\007arrival\030\002 \001(\0132&.flightstrips"
+    ".cluster.v1.AtisFeedEntryH\000\210\001\001\022>\n\tdepart"
+    "ure\030\003 \001(\0132&.flightstrips.cluster.v1.Atis"
+    "FeedEntryH\001\210\001\001B\n\n\010_arrivalB\014\n\n_departure"
+    "\"\210\001\n\rAtisFeedEntry\022\020\n\010callsign\030\001 \001(\t\022\014\n\004"
+    "code\030\002 \001(\t\022\021\n\tfrequency\030\003 \001(\t\022\022\n\ntext_li"
+    "nes\030\004 \003(\t\0220\n\014last_updated\030\005 \001(\0132\032.google"
+    ".protobuf.Timestamp\"\242\004\n\rCdmConfigPage\022\017\n"
+    "\007airport\030\001 \001(\t\022.\n\nfetched_at\030\002 \001(\0132\032.goo"
+    "gle.protobuf.Timestamp\022\024\n\014default_rate\030\003"
+    " \001(\005\022\030\n\020default_rate_lvo\030\004 \001(\005\022\034\n\024defaul"
+    "t_taxi_minutes\030\005 \001(\005\022\022\n\nlvo_active\030\006 \001(\010"
+    "\022\036\n\026active_arrival_runways\030\007 \003(\t\022 \n\030acti"
+    "ve_departure_runways\030\010 \003(\t\0225\n\005rates\030\t \003("
+    "\0132&.flightstrips.cluster.v1.CdmConfigRat"
+    "e\022D\n\rsid_intervals\030\n \003(\0132-.flightstrips."
+    "cluster.v1.CdmConfigSidInterval\022>\n\ntaxi_"
+    "zones\030\013 \003(\0132*.flightstrips.cluster.v1.Cd"
+    "mConfigTaxiZone\0227\n\006delays\030\014 \003(\0132\'.flight"
+    "strips.cluster.v1.CdmConfigDelay\0226\n\005deic"
+    "e\030\r \001(\0132\'.flightstrips.cluster.v1.CdmCon"
+    "figDeice\"\232\001\n\rCdmConfigRate\022\023\n\013arr_rwy_ye"
+    "s\030\001 \003(\t\022\022\n\narr_rwy_no\030\002 \003(\t\022\023\n\013dep_rwy_y"
+    "es\030\003 \003(\t\022\022\n\ndep_rwy_no\030\004 \003(\t\022\025\n\rdependen"
+    "t_rwy\030\005 \003(\t\022\r\n\005rates\030\006 \003(\t\022\021\n\trates_lvo\030"
+    "\007 \003(\t\"Q\n\024CdmConfigSidInterval\022\016\n\006runway\030"
+    "\001 \001(\t\022\014\n\004sid1\030\002 \001(\t\022\014\n\004sid2\030\003 \001(\t\022\r\n\005val"
+    "ue\030\004 \001(\001\"9\n\022CdmConfigTaxiPoint\022\020\n\010latitu"
+    "de\030\001 \001(\001\022\021\n\tlongitude\030\002 \001(\001\"\217\001\n\021CdmConfi"
+    "gTaxiZone\022\016\n\006runway\030\001 \001(\t\022\017\n\007minutes\030\002 \001"
+    "(\005\022<\n\007polygon\030\003 \003(\0132+.flightstrips.clust"
+    "er.v1.CdmConfigTaxiPoint\022\033\n\023remote_taxi_"
+    "minutes\030\004 \003(\005\"<\n\016CdmConfigDelay\022\016\n\006runwa"
+    "y\030\001 \001(\t\022\014\n\004time\030\002 \001(\t\022\014\n\004type\030\003 \001(\t\"\221\001\n\016"
+    "CdmConfigDeice\022\r\n\005light\030\001 \001(\005\022\016\n\006medium\030"
+    "\002 \001(\005\022\r\n\005heavy\030\003 \001(\005\022\r\n\005super\030\004 \001(\005\022B\n\tp"
+    "latforms\030\005 \003(\0132/.flightstrips.cluster.v1"
+    ".CdmConfigDeicePlatform\"4\n\026CdmConfigDeic"
+    "ePlatform\022\014\n\004name\030\001 \001(\t\022\014\n\004time\030\002 \001(\005\"\207\001"
+    "\n\016ViffFlightPage\022\017\n\007airport\030\001 \001(\t\022.\n\nfet"
+    "ched_at\030\002 \001(\0132\032.google.protobuf.Timestam"
+    "p\0224\n\007flights\030\003 \003(\0132#.flightstrips.cluste"
+    "r.v1.ViffFlight\"\324\002\n\nViffFlight\022\020\n\010callsi"
+    "gn\030\001 \001(\t\022\013\n\003cid\030\002 \001(\t\022\021\n\tdeparture\030\003 \001(\t"
+    "\022\017\n\007arrival\030\004 \001(\t\022\014\n\004eobt\030\005 \001(\t\022\014\n\004tobt\030"
+    "\006 \001(\t\022\026\n\016requested_tobt\030\007 \001(\t\022\024\n\014taxi_mi"
+    "nutes\030\010 \001(\005\022\014\n\004ctot\030\t \001(\t\022\014\n\004aobt\030\n \001(\t\022"
+    "\014\n\004atot\030\013 \001(\t\022\013\n\003eta\030\014 \001(\t\022 \n\030most_penal"
+    "izing_airspace\030\r \001(\t\022\022\n\ncdm_status\030\016 \001(\t"
+    "\022\024\n\014atfcm_status\030\017 \001(\t\0226\n\010cdm_data\030\020 \001(\013"
+    "2$.flightstrips.cluster.v1.ViffCdmData\"\256"
+    "\001\n\013ViffCdmData\022\014\n\004tobt\030\001 \001(\t\022\014\n\004tsat\030\002 \001"
+    "(\t\022\014\n\004ttot\030\003 \001(\t\022\014\n\004ctot\030\004 \001(\t\022\016\n\006reason"
+    "\030\005 \001(\t\022\026\n\016requested_tobt\030\006 \001(\t\022\033\n\023reques"
+    "ted_tobt_type\030\007 \001(\t\022\026\n\016requested_asrt\030\010 "
+    "\001(\t\022\n\n\002id\030\t \001(\t\"w\n\017ViffMastersPage\022.\n\nfe"
+    "tched_at\030\001 \001(\0132\032.google.protobuf.Timesta"
+    "mp\0224\n\007masters\030\002 \003(\0132#.flightstrips.clust"
+    "er.v1.ViffMaster\"/\n\nViffMaster\022\017\n\007airpor"
+    "t\030\001 \001(\t\022\020\n\010position\030\002 \001(\t*\343\004\n\nEntityKind"
+    "\022\033\n\027ENTITY_KIND_UNSPECIFIED\020\000\022\024\n\020AIRPORT"
+    "_REGISTRY\020\001\022\024\n\020SESSION_REGISTRY\020\002\022\022\n\016PRO"
+    "VIDER_QUOTA\020\003\022\022\n\016AIRPORT_POLICY\020\004\022\013\n\007SES"
+    "SION\020\005\022\016\n\nCONTROLLER\020\006\022\020\n\014SECTOR_OWNER\020\007"
+    "\022\t\n\005STRIP\020\010\022\020\n\014COORDINATION\020\t\022\022\n\016TACTICA"
+    "L_STRIP\020\n\022\024\n\020STAND_ASSIGNMENT\020\013\022\017\n\013STAND"
+    "_BLOCK\020\014\022\020\n\014PDC_SEQUENCE\020\r\022\r\n\tCDM_STATE\020"
+    "\016\022\017\n\013ECFMP_STATE\020\017\022\010\n\004ATIS\020\020\022\020\n\014CLX_OVER"
+    "RIDE\020\021\022\024\n\020FRONTEND_MESSAGE\020\022\022\020\n\014AMAN_AIR"
+    "PORT\020\023\022\017\n\013AMAN_FLIGHT\020\024\022\025\n\021AMAN_COORDINA"
+    "TION\020\025\022\016\n\nAMAN_AUDIT\020\026\022\023\n\017AMAN_VALIDATIO"
+    "N\020\027\022\026\n\022VATSIM_OBSERVATION\020\030\022\020\n\014NAV_MANIF"
+    "EST\020\031\022\023\n\017NAV_ROUTE_CACHE\020\032\022\027\n\023PROVIDER_C"
+    "HECKPOINT\020\033\022\021\n\rWEATHER_CACHE\020\034\022\024\n\020SESSIO"
+    "N_DEADLINE\020\035\022\031\n\025VATSIM_SESSION_CURSOR\020\036B"
+    ")Z\'FlightStrips/pkg/events/cluster;clust"
+    "erb\006proto3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_storage_2eproto_deps[2] =
     {
@@ -8891,13 +10279,13 @@ static ::absl::once_flag descriptor_table_storage_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_storage_2eproto = {
     false,
     false,
-    41477,
+    46930,
     descriptor_table_protodef_storage_2eproto,
     "storage.proto",
     &descriptor_table_storage_2eproto_once,
     descriptor_table_storage_2eproto_deps,
     2,
-    150,
+    175,
     schemas,
     file_default_instances,
     TableStruct_storage_2eproto::offsets,
@@ -9089,9 +10477,9 @@ const ::google::protobuf::EnumDescriptor* EntityKind_descriptor() {
   return file_level_enum_descriptors_storage_2eproto[7];
 }
 PROTOBUF_CONSTINIT const uint32_t EntityKind_internal_data_[] = {
-    1966080u, 0u, };
+    2031616u, 0u, };
 bool EntityKind_IsValid(int value) {
-  return 0 <= value && value <= 29;
+  return 0 <= value && value <= 30;
 }
 // ===================================================================
 
@@ -13007,6 +14395,19 @@ void EntityRecord::set_allocated_session_deadline(::flightstrips::cluster::v1::S
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.EntityRecord.session_deadline)
 }
+void EntityRecord::set_allocated_vatsim_session_cursor(::flightstrips::cluster::v1::VatsimSessionCursor* vatsim_session_cursor) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_value();
+  if (vatsim_session_cursor) {
+    ::google::protobuf::Arena* submessage_arena = vatsim_session_cursor->GetArena();
+    if (message_arena != submessage_arena) {
+      vatsim_session_cursor = ::google::protobuf::internal::GetOwnedMessage(message_arena, vatsim_session_cursor, submessage_arena);
+    }
+    set_has_vatsim_session_cursor();
+    _impl_.value_.vatsim_session_cursor_ = vatsim_session_cursor;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.EntityRecord.vatsim_session_cursor)
+}
 EntityRecord::EntityRecord(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -13117,6 +14518,9 @@ EntityRecord::EntityRecord(
         break;
       case kSessionDeadline:
         _impl_.value_.session_deadline_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::SessionDeadline>(arena, *from._impl_.value_.session_deadline_);
+        break;
+      case kVatsimSessionCursor:
+        _impl_.value_.vatsim_session_cursor_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::VatsimSessionCursor>(arena, *from._impl_.value_.vatsim_session_cursor_);
         break;
   }
 
@@ -13323,6 +14727,12 @@ void EntityRecord::clear_value() {
       }
       break;
     }
+    case kVatsimSessionCursor: {
+      if (GetArena() == nullptr) {
+        delete _impl_.value_.vatsim_session_cursor_;
+      }
+      break;
+    }
     case VALUE_NOT_SET: {
       break;
     }
@@ -13364,16 +14774,16 @@ const char* EntityRecord::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 29, 29, 0, 2> EntityRecord::_table_ = {
+const ::_pbi::TcParseTable<0, 30, 30, 0, 2> EntityRecord::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    29, 0,  // max_field_number, fast_idx_mask
+    30, 0,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    3758096384,  // skipmap
+    3221225472,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    29,  // num_field_entries
-    29,  // num_aux_entries
+    30,  // num_field_entries
+    30,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_EntityRecord_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -13472,6 +14882,9 @@ const ::_pbi::TcParseTable<0, 29, 29, 0, 2> EntityRecord::_table_ = {
     // .flightstrips.cluster.v1.SessionDeadline session_deadline = 29;
     {PROTOBUF_FIELD_OFFSET(EntityRecord, _impl_.value_.session_deadline_), _Internal::kOneofCaseOffset + 0, 28,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.VatsimSessionCursor vatsim_session_cursor = 30;
+    {PROTOBUF_FIELD_OFFSET(EntityRecord, _impl_.value_.vatsim_session_cursor_), _Internal::kOneofCaseOffset + 0, 29,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AirportRegistry>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::SessionRegistry>()},
@@ -13502,6 +14915,7 @@ const ::_pbi::TcParseTable<0, 29, 29, 0, 2> EntityRecord::_table_ = {
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ProviderCheckpoint>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::WeatherCache>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::SessionDeadline>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimSessionCursor>()},
   }}, {{
   }},
 };
@@ -13657,6 +15071,11 @@ const ::_pbi::TcParseTable<0, 29, 29, 0, 2> EntityRecord::_table_ = {
     case kSessionDeadline: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           29, *_impl_.value_.session_deadline_, _impl_.value_.session_deadline_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kVatsimSessionCursor: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          30, *_impl_.value_.vatsim_session_cursor_, _impl_.value_.vatsim_session_cursor_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -13852,6 +15271,12 @@ const ::_pbi::TcParseTable<0, 29, 29, 0, 2> EntityRecord::_table_ = {
     case kSessionDeadline: {
       total_size +=
           2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.value_.session_deadline_);
+      break;
+    }
+    // .flightstrips.cluster.v1.VatsimSessionCursor vatsim_session_cursor = 30;
+    case kVatsimSessionCursor: {
+      total_size +=
+          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.value_.vatsim_session_cursor_);
       break;
     }
     case VALUE_NOT_SET: {
@@ -14140,6 +15565,15 @@ void EntityRecord::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::go
               ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::SessionDeadline>(arena, *from._impl_.value_.session_deadline_);
         } else {
           _this->_impl_.value_.session_deadline_->MergeFrom(from._internal_session_deadline());
+        }
+        break;
+      }
+      case kVatsimSessionCursor: {
+        if (oneof_needs_init) {
+          _this->_impl_.value_.vatsim_session_cursor_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::VatsimSessionCursor>(arena, *from._impl_.value_.vatsim_session_cursor_);
+        } else {
+          _this->_impl_.value_.vatsim_session_cursor_->MergeFrom(from._internal_vatsim_session_cursor());
         }
         break;
       }
@@ -18023,6 +19457,11 @@ void Strip::clear_aldt() {
   if (_impl_.aldt_ != nullptr) _impl_.aldt_->Clear();
   _impl_._has_bits_[0] &= ~0x00040000u;
 }
+void Strip::clear_vatsim_seen_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.vatsim_seen_at_ != nullptr) _impl_.vatsim_seen_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00080000u;
+}
 Strip::Strip(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -18067,7 +19506,8 @@ inline PROTOBUF_NDEBUG_INLINE Strip::Impl_::Impl_(
         ecfmp_id_(arena, from.ecfmp_id_),
         ctot_source_(arena, from.ctot_source_),
         phase_(arena, from.phase_),
-        tobt_set_by_(arena, from.tobt_set_by_) {}
+        tobt_set_by_(arena, from.tobt_set_by_),
+        vatsim_cid_(arena, from.vatsim_cid_) {}
 
 Strip::Strip(
     ::google::protobuf::Arena* arena,
@@ -18115,13 +19555,16 @@ Strip::Strip(
   _impl_.aldt_ = (cached_has_bits & 0x00040000u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
                               arena, *from._impl_.aldt_)
                         : nullptr;
+  _impl_.vatsim_seen_at_ = (cached_has_bits & 0x00080000u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.vatsim_seen_at_)
+                        : nullptr;
   ::memcpy(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, id_),
            reinterpret_cast<const char *>(&from._impl_) +
                offsetof(Impl_, id_),
-           offsetof(Impl_, position_altitude_feet_) -
+           offsetof(Impl_, vatsim_longitude_) -
                offsetof(Impl_, id_) +
-               sizeof(Impl_::position_altitude_feet_));
+               sizeof(Impl_::vatsim_longitude_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.Strip)
 }
@@ -18163,16 +19606,17 @@ inline PROTOBUF_NDEBUG_INLINE Strip::Impl_::Impl_(
         ecfmp_id_(arena),
         ctot_source_(arena),
         phase_(arena),
-        tobt_set_by_(arena) {}
+        tobt_set_by_(arena),
+        vatsim_cid_(arena) {}
 
 inline void Strip::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
   ::memset(reinterpret_cast<char *>(&_impl_) +
                offsetof(Impl_, eobt_),
            0,
-           offsetof(Impl_, position_altitude_feet_) -
+           offsetof(Impl_, vatsim_longitude_) -
                offsetof(Impl_, eobt_) +
-               sizeof(Impl_::position_altitude_feet_));
+               sizeof(Impl_::vatsim_longitude_));
 }
 Strip::~Strip() {
   // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.Strip)
@@ -18212,6 +19656,7 @@ inline void Strip::SharedDtor() {
   _impl_.ctot_source_.Destroy();
   _impl_.phase_.Destroy();
   _impl_.tobt_set_by_.Destroy();
+  _impl_.vatsim_cid_.Destroy();
   delete _impl_.eobt_;
   delete _impl_.tobt_;
   delete _impl_.tsat_;
@@ -18224,6 +19669,7 @@ inline void Strip::SharedDtor() {
   delete _impl_.tsac_;
   delete _impl_.eldt_;
   delete _impl_.aldt_;
+  delete _impl_.vatsim_seen_at_;
   _impl_.~Impl_();
 }
 
@@ -18280,7 +19726,7 @@ PROTOBUF_NOINLINE void Strip::Clear() {
   }
   _impl_.capabilities_.ClearToEmpty();
   _impl_.communication_type_.ClearToEmpty();
-  if (cached_has_bits & 0x000000feu) {
+  if (cached_has_bits & 0x0000007eu) {
     if (cached_has_bits & 0x00000002u) {
       _impl_.operational_status_.ClearNonDefaultToEmpty();
     }
@@ -18299,10 +19745,11 @@ PROTOBUF_NOINLINE void Strip::Clear() {
     if (cached_has_bits & 0x00000040u) {
       _impl_.tobt_set_by_.ClearNonDefaultToEmpty();
     }
-    if (cached_has_bits & 0x00000080u) {
-      ABSL_DCHECK(_impl_.eobt_ != nullptr);
-      _impl_.eobt_->Clear();
-    }
+  }
+  _impl_.vatsim_cid_.ClearToEmpty();
+  if (cached_has_bits & 0x00000080u) {
+    ABSL_DCHECK(_impl_.eobt_ != nullptr);
+    _impl_.eobt_->Clear();
   }
   if (cached_has_bits & 0x0000ff00u) {
     if (cached_has_bits & 0x00000100u) {
@@ -18338,7 +19785,7 @@ PROTOBUF_NOINLINE void Strip::Clear() {
       _impl_.asrt_->Clear();
     }
   }
-  if (cached_has_bits & 0x00070000u) {
+  if (cached_has_bits & 0x000f0000u) {
     if (cached_has_bits & 0x00010000u) {
       ABSL_DCHECK(_impl_.tsac_ != nullptr);
       _impl_.tsac_->Clear();
@@ -18351,11 +19798,15 @@ PROTOBUF_NOINLINE void Strip::Clear() {
       ABSL_DCHECK(_impl_.aldt_ != nullptr);
       _impl_.aldt_->Clear();
     }
+    if (cached_has_bits & 0x00080000u) {
+      ABSL_DCHECK(_impl_.vatsim_seen_at_ != nullptr);
+      _impl_.vatsim_seen_at_->Clear();
+    }
   }
   ::memset(&_impl_.id_, 0, static_cast<::size_t>(
       reinterpret_cast<char*>(&_impl_.revision_) -
       reinterpret_cast<char*>(&_impl_.id_)) + sizeof(_impl_.revision_));
-  if (cached_has_bits & 0x00380000u) {
+  if (cached_has_bits & 0x00700000u) {
     ::memset(&_impl_.requested_altitude_, 0, static_cast<::size_t>(
         reinterpret_cast<char*>(&_impl_.heading_) -
         reinterpret_cast<char*>(&_impl_.requested_altitude_)) + sizeof(_impl_.heading_));
@@ -18364,12 +19815,19 @@ PROTOBUF_NOINLINE void Strip::Clear() {
       reinterpret_cast<char*>(&_impl_.runway_confirmed_) -
       reinterpret_cast<char*>(&_impl_.marked_)) + sizeof(_impl_.runway_confirmed_));
   _impl_.persons_on_board_ = 0u;
+  _impl_.position_altitude_feet_ = 0;
   ::memset(&_impl_.manual_, 0, static_cast<::size_t>(
       reinterpret_cast<char*>(&_impl_.has_flight_plan_) -
       reinterpret_cast<char*>(&_impl_.manual_)) + sizeof(_impl_.has_flight_plan_));
   _impl_.on_block_ = false;
-  _impl_.sequence_ = ::uint64_t{0u};
-  _impl_.position_altitude_feet_ = 0;
+  ::memset(&_impl_.vatsim_only_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.vatsim_plan_revision_) -
+      reinterpret_cast<char*>(&_impl_.vatsim_only_)) + sizeof(_impl_.vatsim_plan_revision_));
+  if (cached_has_bits & 0x0c000000u) {
+    ::memset(&_impl_.vatsim_latitude_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.vatsim_longitude_) -
+        reinterpret_cast<char*>(&_impl_.vatsim_latitude_)) + sizeof(_impl_.vatsim_longitude_));
+  }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -18382,16 +19840,16 @@ const char* Strip::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
+const ::_pbi::TcParseTable<5, 70, 13, 527, 11> Strip::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Strip, _impl_._has_bits_),
     0, // no _extensions_
-    62, 248,  // max_field_number, fast_idx_mask
+    70, 248,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
     0,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    62,  // num_field_entries
-    12,  // num_aux_entries
+    70,  // num_field_entries
+    13,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Strip_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -18437,14 +19895,14 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
     {::_pbi::TcParser::FastUS1,
      {98, 63, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.squawk_)}},
     // optional int32 requested_altitude = 13;
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Strip, _impl_.requested_altitude_), 19>(),
-     {104, 19, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.requested_altitude_)}},
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Strip, _impl_.requested_altitude_), 20>(),
+     {104, 20, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.requested_altitude_)}},
     // optional int32 cleared_altitude = 14;
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Strip, _impl_.cleared_altitude_), 20>(),
-     {112, 20, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.cleared_altitude_)}},
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Strip, _impl_.cleared_altitude_), 21>(),
+     {112, 21, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.cleared_altitude_)}},
     // optional int32 heading = 15;
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Strip, _impl_.heading_), 21>(),
-     {120, 21, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.heading_)}},
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Strip, _impl_.heading_), 22>(),
+     {120, 22, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.heading_)}},
     // string bay = 16;
     {::_pbi::TcParser::FastUS2,
      {386, 63, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.bay_)}},
@@ -18483,7 +19941,7 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
      {474, 63, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.registration_)}},
     // optional uint32 persons_on_board = 28;
     {::_pbi::TcParser::FastV32S2,
-     {480, 22, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.persons_on_board_)}},
+     {480, 23, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.persons_on_board_)}},
     // string flight_plan_type = 29;
     {::_pbi::TcParser::FastUS2,
      {490, 63, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.flight_plan_type_)}},
@@ -18494,8 +19952,8 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
     {::_pbi::TcParser::FastUS2,
      {506, 63, 0, PROTOBUF_FIELD_OFFSET(Strip, _impl_.release_point_)}},
   }}, {{
-    33, 0, 2,
-    0, 32, 49152, 48,
+    33, 0, 3,
+    0, 32, 0, 48, 65472, 64,
     65535, 65535
   }}, {{
     // uint64 id = 1;
@@ -18535,13 +19993,13 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
     {PROTOBUF_FIELD_OFFSET(Strip, _impl_.squawk_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // optional int32 requested_altitude = 13;
-    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.requested_altitude_), _Internal::kHasBitsOffset + 19, 0,
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.requested_altitude_), _Internal::kHasBitsOffset + 20, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
     // optional int32 cleared_altitude = 14;
-    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.cleared_altitude_), _Internal::kHasBitsOffset + 20, 0,
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.cleared_altitude_), _Internal::kHasBitsOffset + 21, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
     // optional int32 heading = 15;
-    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.heading_), _Internal::kHasBitsOffset + 21, 0,
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.heading_), _Internal::kHasBitsOffset + 22, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
     // string bay = 16;
     {PROTOBUF_FIELD_OFFSET(Strip, _impl_.bay_), -1, 0,
@@ -18580,7 +20038,7 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
     {PROTOBUF_FIELD_OFFSET(Strip, _impl_.registration_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // optional uint32 persons_on_board = 28;
-    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.persons_on_board_), _Internal::kHasBitsOffset + 22, 0,
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.persons_on_board_), _Internal::kHasBitsOffset + 23, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kUInt32)},
     // string flight_plan_type = 29;
     {PROTOBUF_FIELD_OFFSET(Strip, _impl_.flight_plan_type_), -1, 0,
@@ -18682,8 +20140,32 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
     {PROTOBUF_FIELD_OFFSET(Strip, _impl_.tobt_set_by_), _Internal::kHasBitsOffset + 6, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // optional bool on_block = 62;
-    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.on_block_), _Internal::kHasBitsOffset + 23, 0,
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.on_block_), _Internal::kHasBitsOffset + 25, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // string vatsim_cid = 63;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_cid_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // uint64 vatsim_source_revision = 64;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_source_revision_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // int64 vatsim_plan_revision = 65;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_plan_revision_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
+    // optional .google.protobuf.Timestamp vatsim_seen_at = 66;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_seen_at_), _Internal::kHasBitsOffset + 19, 12,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // bool vatsim_only = 67;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_only_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // bool vatsim_online = 68;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_online_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // optional double vatsim_latitude = 69;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_latitude_), _Internal::kHasBitsOffset + 26, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kDouble)},
+    // optional double vatsim_longitude = 70;
+    {PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_longitude_), _Internal::kHasBitsOffset + 27, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kDouble)},
   }}, {{
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
@@ -18697,8 +20179,9 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
   }}, {{
-    "\35\0\10\0\15\11\13\5\7\3\6\17\6\0\0\0\3\5\11\20\24\0\11\23\0\0\0\14\0\20\10\15\0\0\0\0\0\30\32\0\0\0\11\4\21\17\14\22\0\0\0\0\0\22\30\10\13\5\0\0\0\13\0\0"
+    "\35\0\10\0\15\11\13\5\7\3\6\17\6\0\0\0\3\5\11\20\24\0\11\23\0\0\0\14\0\20\10\15\0\0\0\0\0\30\32\0\0\0\11\4\21\17\14\22\0\0\0\0\0\22\30\10\13\5\0\0\0\13\0\12\0\0\0\0\0\0\0\0"
     "flightstrips.cluster.v1.Strip"
     "callsign"
     "aircraft_type"
@@ -18735,6 +20218,7 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
     "ctot_source"
     "phase"
     "tobt_set_by"
+    "vatsim_cid"
   }},
 };
 
@@ -18841,21 +20325,21 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
 
   cached_has_bits = _impl_._has_bits_[0];
   // optional int32 requested_altitude = 13;
-  if (cached_has_bits & 0x00080000u) {
+  if (cached_has_bits & 0x00100000u) {
     target = ::google::protobuf::internal::WireFormatLite::
         WriteInt32ToArrayWithField<13>(
             stream, this->_internal_requested_altitude(), target);
   }
 
   // optional int32 cleared_altitude = 14;
-  if (cached_has_bits & 0x00100000u) {
+  if (cached_has_bits & 0x00200000u) {
     target = ::google::protobuf::internal::WireFormatLite::
         WriteInt32ToArrayWithField<14>(
             stream, this->_internal_cleared_altitude(), target);
   }
 
   // optional int32 heading = 15;
-  if (cached_has_bits & 0x00200000u) {
+  if (cached_has_bits & 0x00400000u) {
     target = ::google::protobuf::internal::WireFormatLite::
         WriteInt32ToArrayWithField<15>(
             stream, this->_internal_heading(), target);
@@ -18954,7 +20438,7 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
   }
 
   // optional uint32 persons_on_board = 28;
-  if (cached_has_bits & 0x00400000u) {
+  if (cached_has_bits & 0x00800000u) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteUInt32ToArray(
         28, this->_internal_persons_on_board(), target);
@@ -19197,10 +20681,66 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
   }
 
   // optional bool on_block = 62;
-  if (cached_has_bits & 0x00800000u) {
+  if (cached_has_bits & 0x02000000u) {
     target = stream->EnsureSpace(target);
     target = ::_pbi::WireFormatLite::WriteBoolToArray(
         62, this->_internal_on_block(), target);
+  }
+
+  // string vatsim_cid = 63;
+  if (!this->_internal_vatsim_cid().empty()) {
+    const std::string& _s = this->_internal_vatsim_cid();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.Strip.vatsim_cid");
+    target = stream->WriteStringMaybeAliased(63, _s, target);
+  }
+
+  // uint64 vatsim_source_revision = 64;
+  if (this->_internal_vatsim_source_revision() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        64, this->_internal_vatsim_source_revision(), target);
+  }
+
+  // int64 vatsim_plan_revision = 65;
+  if (this->_internal_vatsim_plan_revision() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteInt64ToArray(
+        65, this->_internal_vatsim_plan_revision(), target);
+  }
+
+  // optional .google.protobuf.Timestamp vatsim_seen_at = 66;
+  if (cached_has_bits & 0x00080000u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        66, *_impl_.vatsim_seen_at_, _impl_.vatsim_seen_at_->GetCachedSize(), target, stream);
+  }
+
+  // bool vatsim_only = 67;
+  if (this->_internal_vatsim_only() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        67, this->_internal_vatsim_only(), target);
+  }
+
+  // bool vatsim_online = 68;
+  if (this->_internal_vatsim_online() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        68, this->_internal_vatsim_online(), target);
+  }
+
+  // optional double vatsim_latitude = 69;
+  if (cached_has_bits & 0x04000000u) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        69, this->_internal_vatsim_latitude(), target);
+  }
+
+  // optional double vatsim_longitude = 70;
+  if (cached_has_bits & 0x08000000u) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        70, this->_internal_vatsim_longitude(), target);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -19395,7 +20935,7 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
                                     this->_internal_communication_type());
   }
 
-  if (cached_has_bits & 0x000000feu) {
+  if (cached_has_bits & 0x0000007eu) {
     // optional string operational_status = 53;
     if (cached_has_bits & 0x00000002u) {
       total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
@@ -19432,13 +20972,19 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
                                       this->_internal_tobt_set_by());
     }
 
-    // optional .google.protobuf.Timestamp eobt = 32;
-    if (cached_has_bits & 0x00000080u) {
-      total_size +=
-          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.eobt_);
-    }
-
   }
+  // string vatsim_cid = 63;
+  if (!this->_internal_vatsim_cid().empty()) {
+    total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_vatsim_cid());
+  }
+
+  // optional .google.protobuf.Timestamp eobt = 32;
+  if (cached_has_bits & 0x00000080u) {
+    total_size +=
+        2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.eobt_);
+  }
+
   if (cached_has_bits & 0x0000ff00u) {
     // optional .google.protobuf.Timestamp tobt = 33;
     if (cached_has_bits & 0x00000100u) {
@@ -19489,7 +21035,7 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
     }
 
   }
-  if (cached_has_bits & 0x00070000u) {
+  if (cached_has_bits & 0x000f0000u) {
     // optional .google.protobuf.Timestamp tsac = 52;
     if (cached_has_bits & 0x00010000u) {
       total_size +=
@@ -19508,6 +21054,12 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
           2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.aldt_);
     }
 
+    // optional .google.protobuf.Timestamp vatsim_seen_at = 66;
+    if (cached_has_bits & 0x00080000u) {
+      total_size +=
+          2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.vatsim_seen_at_);
+    }
+
   }
   // uint64 id = 1;
   if (this->_internal_id() != 0) {
@@ -19521,21 +21073,21 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
         this->_internal_revision());
   }
 
-  if (cached_has_bits & 0x00380000u) {
+  if (cached_has_bits & 0x00700000u) {
     // optional int32 requested_altitude = 13;
-    if (cached_has_bits & 0x00080000u) {
+    if (cached_has_bits & 0x00100000u) {
       total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
           this->_internal_requested_altitude());
     }
 
     // optional int32 cleared_altitude = 14;
-    if (cached_has_bits & 0x00100000u) {
+    if (cached_has_bits & 0x00200000u) {
       total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
           this->_internal_cleared_altitude());
     }
 
     // optional int32 heading = 15;
-    if (cached_has_bits & 0x00200000u) {
+    if (cached_has_bits & 0x00400000u) {
       total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
           this->_internal_heading());
     }
@@ -19562,9 +21114,15 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
   }
 
   // optional uint32 persons_on_board = 28;
-  if (cached_has_bits & 0x00400000u) {
+  if (cached_has_bits & 0x00800000u) {
     total_size += 2 + ::_pbi::WireFormatLite::UInt32Size(
                                     this->_internal_persons_on_board());
+  }
+
+  // optional int32 position_altitude_feet = 48;
+  if (cached_has_bits & 0x01000000u) {
+    total_size += 2 + ::_pbi::WireFormatLite::Int32Size(
+                                    this->_internal_position_altitude_feet());
   }
 
   // bool manual = 39;
@@ -19578,7 +21136,17 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
   }
 
   // optional bool on_block = 62;
-  if (cached_has_bits & 0x00800000u) {
+  if (cached_has_bits & 0x02000000u) {
+    total_size += 3;
+  }
+
+  // bool vatsim_only = 67;
+  if (this->_internal_vatsim_only() != 0) {
+    total_size += 3;
+  }
+
+  // bool vatsim_online = 68;
+  if (this->_internal_vatsim_online() != 0) {
     total_size += 3;
   }
 
@@ -19588,12 +21156,30 @@ const ::_pbi::TcParseTable<5, 62, 12, 509, 9> Strip::_table_ = {
                                     this->_internal_sequence());
   }
 
-  // optional int32 position_altitude_feet = 48;
-  if (cached_has_bits & 0x01000000u) {
-    total_size += 2 + ::_pbi::WireFormatLite::Int32Size(
-                                    this->_internal_position_altitude_feet());
+  // uint64 vatsim_source_revision = 64;
+  if (this->_internal_vatsim_source_revision() != 0) {
+    total_size += 2 + ::_pbi::WireFormatLite::UInt64Size(
+                                    this->_internal_vatsim_source_revision());
   }
 
+  // int64 vatsim_plan_revision = 65;
+  if (this->_internal_vatsim_plan_revision() != 0) {
+    total_size += 2 + ::_pbi::WireFormatLite::Int64Size(
+                                    this->_internal_vatsim_plan_revision());
+  }
+
+  if (cached_has_bits & 0x0c000000u) {
+    // optional double vatsim_latitude = 69;
+    if (cached_has_bits & 0x04000000u) {
+      total_size += 10;
+    }
+
+    // optional double vatsim_longitude = 70;
+    if (cached_has_bits & 0x08000000u) {
+      total_size += 10;
+    }
+
+  }
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -19687,7 +21273,7 @@ void Strip::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::p
   if (!from._internal_communication_type().empty()) {
     _this->_internal_set_communication_type(from._internal_communication_type());
   }
-  if (cached_has_bits & 0x000000feu) {
+  if (cached_has_bits & 0x0000007eu) {
     if (cached_has_bits & 0x00000002u) {
       _this->_internal_set_operational_status(from._internal_operational_status());
     }
@@ -19706,14 +21292,17 @@ void Strip::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::p
     if (cached_has_bits & 0x00000040u) {
       _this->_internal_set_tobt_set_by(from._internal_tobt_set_by());
     }
-    if (cached_has_bits & 0x00000080u) {
-      ABSL_DCHECK(from._impl_.eobt_ != nullptr);
-      if (_this->_impl_.eobt_ == nullptr) {
-        _this->_impl_.eobt_ =
-            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.eobt_);
-      } else {
-        _this->_impl_.eobt_->MergeFrom(*from._impl_.eobt_);
-      }
+  }
+  if (!from._internal_vatsim_cid().empty()) {
+    _this->_internal_set_vatsim_cid(from._internal_vatsim_cid());
+  }
+  if (cached_has_bits & 0x00000080u) {
+    ABSL_DCHECK(from._impl_.eobt_ != nullptr);
+    if (_this->_impl_.eobt_ == nullptr) {
+      _this->_impl_.eobt_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.eobt_);
+    } else {
+      _this->_impl_.eobt_->MergeFrom(*from._impl_.eobt_);
     }
   }
   if (cached_has_bits & 0x0000ff00u) {
@@ -19790,7 +21379,7 @@ void Strip::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::p
       }
     }
   }
-  if (cached_has_bits & 0x00070000u) {
+  if (cached_has_bits & 0x000f0000u) {
     if (cached_has_bits & 0x00010000u) {
       ABSL_DCHECK(from._impl_.tsac_ != nullptr);
       if (_this->_impl_.tsac_ == nullptr) {
@@ -19818,6 +21407,15 @@ void Strip::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::p
         _this->_impl_.aldt_->MergeFrom(*from._impl_.aldt_);
       }
     }
+    if (cached_has_bits & 0x00080000u) {
+      ABSL_DCHECK(from._impl_.vatsim_seen_at_ != nullptr);
+      if (_this->_impl_.vatsim_seen_at_ == nullptr) {
+        _this->_impl_.vatsim_seen_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.vatsim_seen_at_);
+      } else {
+        _this->_impl_.vatsim_seen_at_->MergeFrom(*from._impl_.vatsim_seen_at_);
+      }
+    }
   }
   if (from._internal_id() != 0) {
     _this->_impl_.id_ = from._impl_.id_;
@@ -19825,14 +21423,14 @@ void Strip::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::p
   if (from._internal_revision() != 0) {
     _this->_impl_.revision_ = from._impl_.revision_;
   }
-  if (cached_has_bits & 0x00380000u) {
-    if (cached_has_bits & 0x00080000u) {
+  if (cached_has_bits & 0x00700000u) {
+    if (cached_has_bits & 0x00100000u) {
       _this->_impl_.requested_altitude_ = from._impl_.requested_altitude_;
     }
-    if (cached_has_bits & 0x00100000u) {
+    if (cached_has_bits & 0x00200000u) {
       _this->_impl_.cleared_altitude_ = from._impl_.cleared_altitude_;
     }
-    if (cached_has_bits & 0x00200000u) {
+    if (cached_has_bits & 0x00400000u) {
       _this->_impl_.heading_ = from._impl_.heading_;
     }
   }
@@ -19848,8 +21446,11 @@ void Strip::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::p
   if (from._internal_runway_confirmed() != 0) {
     _this->_impl_.runway_confirmed_ = from._impl_.runway_confirmed_;
   }
-  if (cached_has_bits & 0x00400000u) {
+  if (cached_has_bits & 0x00800000u) {
     _this->_impl_.persons_on_board_ = from._impl_.persons_on_board_;
+  }
+  if (cached_has_bits & 0x01000000u) {
+    _this->_impl_.position_altitude_feet_ = from._impl_.position_altitude_feet_;
   }
   if (from._internal_manual() != 0) {
     _this->_impl_.manual_ = from._impl_.manual_;
@@ -19857,14 +21458,31 @@ void Strip::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::p
   if (from._internal_has_flight_plan() != 0) {
     _this->_impl_.has_flight_plan_ = from._impl_.has_flight_plan_;
   }
-  if (cached_has_bits & 0x00800000u) {
+  if (cached_has_bits & 0x02000000u) {
     _this->_impl_.on_block_ = from._impl_.on_block_;
+  }
+  if (from._internal_vatsim_only() != 0) {
+    _this->_impl_.vatsim_only_ = from._impl_.vatsim_only_;
+  }
+  if (from._internal_vatsim_online() != 0) {
+    _this->_impl_.vatsim_online_ = from._impl_.vatsim_online_;
   }
   if (from._internal_sequence() != 0) {
     _this->_impl_.sequence_ = from._impl_.sequence_;
   }
-  if (cached_has_bits & 0x01000000u) {
-    _this->_impl_.position_altitude_feet_ = from._impl_.position_altitude_feet_;
+  if (from._internal_vatsim_source_revision() != 0) {
+    _this->_impl_.vatsim_source_revision_ = from._impl_.vatsim_source_revision_;
+  }
+  if (from._internal_vatsim_plan_revision() != 0) {
+    _this->_impl_.vatsim_plan_revision_ = from._impl_.vatsim_plan_revision_;
+  }
+  if (cached_has_bits & 0x0c000000u) {
+    if (cached_has_bits & 0x04000000u) {
+      _this->_impl_.vatsim_latitude_ = from._impl_.vatsim_latitude_;
+    }
+    if (cached_has_bits & 0x08000000u) {
+      _this->_impl_.vatsim_longitude_ = from._impl_.vatsim_longitude_;
+    }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
@@ -19922,9 +21540,10 @@ void Strip::InternalSwap(Strip* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.ctot_source_, &other->_impl_.ctot_source_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.phase_, &other->_impl_.phase_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.tobt_set_by_, &other->_impl_.tobt_set_by_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.vatsim_cid_, &other->_impl_.vatsim_cid_, arena);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(Strip, _impl_.position_altitude_feet_)
-      + sizeof(Strip::_impl_.position_altitude_feet_)
+      PROTOBUF_FIELD_OFFSET(Strip, _impl_.vatsim_longitude_)
+      + sizeof(Strip::_impl_.vatsim_longitude_)
       - PROTOBUF_FIELD_OFFSET(Strip, _impl_.eobt_)>(
           reinterpret_cast<char*>(&_impl_.eobt_),
           reinterpret_cast<char*>(&other->_impl_.eobt_));
@@ -26098,7 +27717,8 @@ inline PROTOBUF_NDEBUG_INLINE Atis::Impl_::Impl_(
         text_(arena, from.text_),
         metar_(arena, from.metar_),
         arrival_code_(arena, from.arrival_code_),
-        departure_code_(arena, from.departure_code_) {}
+        departure_code_(arena, from.departure_code_),
+        source_revision_(arena, from.source_revision_) {}
 
 Atis::Atis(
     ::google::protobuf::Arena* arena,
@@ -26125,7 +27745,8 @@ inline PROTOBUF_NDEBUG_INLINE Atis::Impl_::Impl_(
         text_(arena),
         metar_(arena),
         arrival_code_(arena),
-        departure_code_(arena) {}
+        departure_code_(arena),
+        source_revision_(arena) {}
 
 inline void Atis::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
@@ -26144,6 +27765,7 @@ inline void Atis::SharedDtor() {
   _impl_.metar_.Destroy();
   _impl_.arrival_code_.Destroy();
   _impl_.departure_code_.Destroy();
+  _impl_.source_revision_.Destroy();
   delete _impl_.observed_at_;
   _impl_.~Impl_();
 }
@@ -26175,6 +27797,7 @@ PROTOBUF_NOINLINE void Atis::Clear() {
   _impl_.metar_.ClearToEmpty();
   _impl_.arrival_code_.ClearToEmpty();
   _impl_.departure_code_.ClearToEmpty();
+  _impl_.source_revision_.ClearToEmpty();
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(_impl_.observed_at_ != nullptr);
@@ -26192,15 +27815,15 @@ const char* Atis::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 7, 1, 83, 2> Atis::_table_ = {
+const ::_pbi::TcParseTable<3, 8, 1, 106, 2> Atis::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Atis, _impl_._has_bits_),
     0, // no _extensions_
-    7, 56,  // max_field_number, fast_idx_mask
+    8, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967168,  // skipmap
+    4294967040,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    7,  // num_field_entries
+    8,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_Atis_default_instance_._instance,
@@ -26209,7 +27832,9 @@ const ::_pbi::TcParseTable<3, 7, 1, 83, 2> Atis::_table_ = {
     ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::Atis>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
+    // string source_revision = 8;
+    {::_pbi::TcParser::FastUS1,
+     {66, 63, 0, PROTOBUF_FIELD_OFFSET(Atis, _impl_.source_revision_)}},
     // string airport = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(Atis, _impl_.airport_)}},
@@ -26255,10 +27880,13 @@ const ::_pbi::TcParseTable<3, 7, 1, 83, 2> Atis::_table_ = {
     // string departure_code = 7;
     {PROTOBUF_FIELD_OFFSET(Atis, _impl_.departure_code_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string source_revision = 8;
+    {PROTOBUF_FIELD_OFFSET(Atis, _impl_.source_revision_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
   }}, {{
-    "\34\7\4\4\0\5\14\16"
+    "\34\7\4\4\0\5\14\16\17\0\0\0\0\0\0\0"
     "flightstrips.cluster.v1.Atis"
     "airport"
     "code"
@@ -26266,6 +27894,7 @@ const ::_pbi::TcParseTable<3, 7, 1, 83, 2> Atis::_table_ = {
     "metar"
     "arrival_code"
     "departure_code"
+    "source_revision"
   }},
 };
 
@@ -26331,6 +27960,14 @@ const ::_pbi::TcParseTable<3, 7, 1, 83, 2> Atis::_table_ = {
     target = stream->WriteStringMaybeAliased(7, _s, target);
   }
 
+  // string source_revision = 8;
+  if (!this->_internal_source_revision().empty()) {
+    const std::string& _s = this->_internal_source_revision();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.Atis.source_revision");
+    target = stream->WriteStringMaybeAliased(8, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -26384,6 +28021,12 @@ const ::_pbi::TcParseTable<3, 7, 1, 83, 2> Atis::_table_ = {
                                     this->_internal_departure_code());
   }
 
+  // string source_revision = 8;
+  if (!this->_internal_source_revision().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_source_revision());
+  }
+
   // .google.protobuf.Timestamp observed_at = 4;
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
@@ -26422,6 +28065,9 @@ void Atis::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::pr
   if (!from._internal_departure_code().empty()) {
     _this->_internal_set_departure_code(from._internal_departure_code());
   }
+  if (!from._internal_source_revision().empty()) {
+    _this->_internal_set_source_revision(from._internal_source_revision());
+  }
   cached_has_bits = from._impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     ABSL_DCHECK(from._impl_.observed_at_ != nullptr);
@@ -26459,6 +28105,7 @@ void Atis::InternalSwap(Atis* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.metar_, &other->_impl_.metar_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.arrival_code_, &other->_impl_.arrival_code_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.departure_code_, &other->_impl_.departure_code_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.source_revision_, &other->_impl_.source_revision_, arena);
   swap(_impl_.observed_at_, other->_impl_.observed_at_);
 }
 
@@ -50910,6 +52557,321 @@ void VatsimObservation::InternalSwap(VatsimObservation* PROTOBUF_RESTRICT other)
 }
 // ===================================================================
 
+class VatsimSessionCursor::_Internal {
+ public:
+  using HasBits = decltype(std::declval<VatsimSessionCursor>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_._has_bits_);
+};
+
+void VatsimSessionCursor::clear_snapshot_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.snapshot_at_ != nullptr) _impl_.snapshot_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+VatsimSessionCursor::VatsimSessionCursor(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.VatsimSessionCursor)
+}
+inline PROTOBUF_NDEBUG_INLINE VatsimSessionCursor::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        provider_(arena, from.provider_),
+        source_sha256_(arena, from.source_sha256_) {}
+
+VatsimSessionCursor::VatsimSessionCursor(
+    ::google::protobuf::Arena* arena,
+    const VatsimSessionCursor& from)
+    : ::google::protobuf::Message(arena) {
+  VatsimSessionCursor* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.snapshot_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.snapshot_at_)
+                        : nullptr;
+  _impl_.source_revision_ = from._impl_.source_revision_;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.VatsimSessionCursor)
+}
+inline PROTOBUF_NDEBUG_INLINE VatsimSessionCursor::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        provider_(arena),
+        source_sha256_(arena) {}
+
+inline void VatsimSessionCursor::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, snapshot_at_),
+           0,
+           offsetof(Impl_, source_revision_) -
+               offsetof(Impl_, snapshot_at_) +
+               sizeof(Impl_::source_revision_));
+}
+VatsimSessionCursor::~VatsimSessionCursor() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.VatsimSessionCursor)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void VatsimSessionCursor::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.provider_.Destroy();
+  _impl_.source_sha256_.Destroy();
+  delete _impl_.snapshot_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VatsimSessionCursor::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_._cached_size_),
+              false,
+          },
+          &VatsimSessionCursor::MergeImpl,
+          &VatsimSessionCursor::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void VatsimSessionCursor::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.VatsimSessionCursor)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.provider_.ClearToEmpty();
+  _impl_.source_sha256_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.snapshot_at_ != nullptr);
+    _impl_.snapshot_at_->Clear();
+  }
+  _impl_.source_revision_ = ::uint64_t{0u};
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* VatsimSessionCursor::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 1, 73, 2> VatsimSessionCursor::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_._has_bits_),
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_VatsimSessionCursor_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimSessionCursor>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // .google.protobuf.Timestamp snapshot_at = 4;
+    {::_pbi::TcParser::FastMtS1,
+     {34, 0, 0, PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.snapshot_at_)}},
+    // string provider = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.provider_)}},
+    // uint64 source_revision = 2;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(VatsimSessionCursor, _impl_.source_revision_), 63>(),
+     {16, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.source_revision_)}},
+    // string source_sha256 = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.source_sha256_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string provider = 1;
+    {PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.provider_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // uint64 source_revision = 2;
+    {PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.source_revision_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // string source_sha256 = 3;
+    {PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.source_sha256_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .google.protobuf.Timestamp snapshot_at = 4;
+    {PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.snapshot_at_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+  }}, {{
+    "\53\10\0\15\0\0\0\0"
+    "flightstrips.cluster.v1.VatsimSessionCursor"
+    "provider"
+    "source_sha256"
+  }},
+};
+
+::uint8_t* VatsimSessionCursor::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.VatsimSessionCursor)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string provider = 1;
+  if (!this->_internal_provider().empty()) {
+    const std::string& _s = this->_internal_provider();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimSessionCursor.provider");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // uint64 source_revision = 2;
+  if (this->_internal_source_revision() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        2, this->_internal_source_revision(), target);
+  }
+
+  // string source_sha256 = 3;
+  if (!this->_internal_source_sha256().empty()) {
+    const std::string& _s = this->_internal_source_sha256();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimSessionCursor.source_sha256");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp snapshot_at = 4;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        4, *_impl_.snapshot_at_, _impl_.snapshot_at_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.VatsimSessionCursor)
+  return target;
+}
+
+::size_t VatsimSessionCursor::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.VatsimSessionCursor)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string provider = 1;
+  if (!this->_internal_provider().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_provider());
+  }
+
+  // string source_sha256 = 3;
+  if (!this->_internal_source_sha256().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_source_sha256());
+  }
+
+  // .google.protobuf.Timestamp snapshot_at = 4;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.snapshot_at_);
+  }
+
+  // uint64 source_revision = 2;
+  if (this->_internal_source_revision() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_source_revision());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void VatsimSessionCursor::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<VatsimSessionCursor*>(&to_msg);
+  auto& from = static_cast<const VatsimSessionCursor&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.VatsimSessionCursor)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_provider().empty()) {
+    _this->_internal_set_provider(from._internal_provider());
+  }
+  if (!from._internal_source_sha256().empty()) {
+    _this->_internal_set_source_sha256(from._internal_source_sha256());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.snapshot_at_ != nullptr);
+    if (_this->_impl_.snapshot_at_ == nullptr) {
+      _this->_impl_.snapshot_at_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.snapshot_at_);
+    } else {
+      _this->_impl_.snapshot_at_->MergeFrom(*from._impl_.snapshot_at_);
+    }
+  }
+  if (from._internal_source_revision() != 0) {
+    _this->_impl_.source_revision_ = from._impl_.source_revision_;
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void VatsimSessionCursor::CopyFrom(const VatsimSessionCursor& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.VatsimSessionCursor)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VatsimSessionCursor::IsInitialized() const {
+  return true;
+}
+
+void VatsimSessionCursor::InternalSwap(VatsimSessionCursor* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.provider_, &other->_impl_.provider_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.source_sha256_, &other->_impl_.source_sha256_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.source_revision_)
+      + sizeof(VatsimSessionCursor::_impl_.source_revision_)
+      - PROTOBUF_FIELD_OFFSET(VatsimSessionCursor, _impl_.snapshot_at_)>(
+          reinterpret_cast<char*>(&_impl_.snapshot_at_),
+          reinterpret_cast<char*>(&other->_impl_.snapshot_at_));
+}
+
+::google::protobuf::Metadata VatsimSessionCursor::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[99]);
+}
+// ===================================================================
+
 class NavManifest::_Internal {
  public:
 };
@@ -50926,6 +52888,7 @@ inline PROTOBUF_NDEBUG_INLINE NavManifest::Impl_::Impl_(
         airport_(arena, from.airport_),
         cycle_(arena, from.cycle_),
         digest_(arena, from.digest_),
+        source_sha256_(arena, from.source_sha256_),
         _cached_size_{0} {}
 
 NavManifest::NavManifest(
@@ -50937,7 +52900,13 @@ NavManifest::NavManifest(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
-  _impl_.active_ = from._impl_.active_;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, source_revision_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, source_revision_),
+           offsetof(Impl_, active_) -
+               offsetof(Impl_, source_revision_) +
+               sizeof(Impl_::active_));
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.NavManifest)
 }
@@ -50948,11 +52917,17 @@ inline PROTOBUF_NDEBUG_INLINE NavManifest::Impl_::Impl_(
         airport_(arena),
         cycle_(arena),
         digest_(arena),
+        source_sha256_(arena),
         _cached_size_{0} {}
 
 inline void NavManifest::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
-  _impl_.active_ = {};
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, source_revision_),
+           0,
+           offsetof(Impl_, active_) -
+               offsetof(Impl_, source_revision_) +
+               sizeof(Impl_::active_));
 }
 NavManifest::~NavManifest() {
   // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.NavManifest)
@@ -50964,6 +52939,7 @@ inline void NavManifest::SharedDtor() {
   _impl_.airport_.Destroy();
   _impl_.cycle_.Destroy();
   _impl_.digest_.Destroy();
+  _impl_.source_sha256_.Destroy();
   _impl_.~Impl_();
 }
 
@@ -50992,7 +52968,10 @@ PROTOBUF_NOINLINE void NavManifest::Clear() {
   _impl_.airport_.ClearToEmpty();
   _impl_.cycle_.ClearToEmpty();
   _impl_.digest_.ClearToEmpty();
-  _impl_.active_ = false;
+  _impl_.source_sha256_.ClearToEmpty();
+  ::memset(&_impl_.source_revision_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.active_) -
+      reinterpret_cast<char*>(&_impl_.source_revision_)) + sizeof(_impl_.active_));
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -51004,15 +52983,15 @@ const char* NavManifest::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 5, 1, 62, 2> NavManifest::_table_ = {
+const ::_pbi::TcParseTable<3, 7, 1, 75, 2> NavManifest::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    5, 56,  // max_field_number, fast_idx_mask
+    7, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967264,  // skipmap
+    4294967168,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    5,  // num_field_entries
+    7,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_NavManifest_default_instance_._instance,
@@ -51037,8 +53016,12 @@ const ::_pbi::TcParseTable<3, 5, 1, 62, 2> NavManifest::_table_ = {
     // bool active = 5;
     {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(NavManifest, _impl_.active_), 63>(),
      {40, 63, 0, PROTOBUF_FIELD_OFFSET(NavManifest, _impl_.active_)}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // uint64 source_revision = 6;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(NavManifest, _impl_.source_revision_), 63>(),
+     {48, 63, 0, PROTOBUF_FIELD_OFFSET(NavManifest, _impl_.source_revision_)}},
+    // string source_sha256 = 7;
+    {::_pbi::TcParser::FastUS1,
+     {58, 63, 0, PROTOBUF_FIELD_OFFSET(NavManifest, _impl_.source_sha256_)}},
   }}, {{
     65535, 65535
   }}, {{
@@ -51057,14 +53040,21 @@ const ::_pbi::TcParseTable<3, 5, 1, 62, 2> NavManifest::_table_ = {
     // bool active = 5;
     {PROTOBUF_FIELD_OFFSET(NavManifest, _impl_.active_), 0, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // uint64 source_revision = 6;
+    {PROTOBUF_FIELD_OFFSET(NavManifest, _impl_.source_revision_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUInt64)},
+    // string source_sha256 = 7;
+    {PROTOBUF_FIELD_OFFSET(NavManifest, _impl_.source_sha256_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::NavObjectRef>()},
   }}, {{
-    "\43\7\5\6\0\0\0\0"
+    "\43\7\5\6\0\0\0\15"
     "flightstrips.cluster.v1.NavManifest"
     "airport"
     "cycle"
     "digest"
+    "source_sha256"
   }},
 };
 
@@ -51117,6 +53107,21 @@ const ::_pbi::TcParseTable<3, 5, 1, 62, 2> NavManifest::_table_ = {
         5, this->_internal_active(), target);
   }
 
+  // uint64 source_revision = 6;
+  if (this->_internal_source_revision() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteUInt64ToArray(
+        6, this->_internal_source_revision(), target);
+  }
+
+  // string source_sha256 = 7;
+  if (!this->_internal_source_sha256().empty()) {
+    const std::string& _s = this->_internal_source_sha256();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.NavManifest.source_sha256");
+    target = stream->WriteStringMaybeAliased(7, _s, target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -51157,6 +53162,18 @@ const ::_pbi::TcParseTable<3, 5, 1, 62, 2> NavManifest::_table_ = {
                                     this->_internal_digest());
   }
 
+  // string source_sha256 = 7;
+  if (!this->_internal_source_sha256().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_source_sha256());
+  }
+
+  // uint64 source_revision = 6;
+  if (this->_internal_source_revision() != 0) {
+    total_size += ::_pbi::WireFormatLite::UInt64SizePlusOne(
+        this->_internal_source_revision());
+  }
+
   // bool active = 5;
   if (this->_internal_active() != 0) {
     total_size += 2;
@@ -51185,6 +53202,12 @@ void NavManifest::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::goo
   if (!from._internal_digest().empty()) {
     _this->_internal_set_digest(from._internal_digest());
   }
+  if (!from._internal_source_sha256().empty()) {
+    _this->_internal_set_source_sha256(from._internal_source_sha256());
+  }
+  if (from._internal_source_revision() != 0) {
+    _this->_impl_.source_revision_ = from._impl_.source_revision_;
+  }
   if (from._internal_active() != 0) {
     _this->_impl_.active_ = from._impl_.active_;
   }
@@ -51211,13 +53234,19 @@ void NavManifest::InternalSwap(NavManifest* PROTOBUF_RESTRICT other) {
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.airport_, &other->_impl_.airport_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cycle_, &other->_impl_.cycle_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.digest_, &other->_impl_.digest_, arena);
-        swap(_impl_.active_, other->_impl_.active_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.source_sha256_, &other->_impl_.source_sha256_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(NavManifest, _impl_.active_)
+      + sizeof(NavManifest::_impl_.active_)
+      - PROTOBUF_FIELD_OFFSET(NavManifest, _impl_.source_revision_)>(
+          reinterpret_cast<char*>(&_impl_.source_revision_),
+          reinterpret_cast<char*>(&other->_impl_.source_revision_));
 }
 
 ::google::protobuf::Metadata NavManifest::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[99]);
+                                   file_level_metadata_storage_2eproto[100]);
 }
 // ===================================================================
 
@@ -51473,7 +53502,7 @@ void NavObjectRef::InternalSwap(NavObjectRef* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavObjectRef::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[100]);
+                                   file_level_metadata_storage_2eproto[101]);
 }
 // ===================================================================
 
@@ -51789,7 +53818,7 @@ void NavRouteCache::InternalSwap(NavRouteCache* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavRouteCache::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[101]);
+                                   file_level_metadata_storage_2eproto[102]);
 }
 // ===================================================================
 
@@ -52158,7 +54187,7 @@ void ProviderCheckpoint::InternalSwap(ProviderCheckpoint* PROTOBUF_RESTRICT othe
 ::google::protobuf::Metadata ProviderCheckpoint::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[102]);
+                                   file_level_metadata_storage_2eproto[103]);
 }
 // ===================================================================
 
@@ -52535,7 +54564,7 @@ void WeatherCache::InternalSwap(WeatherCache* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata WeatherCache::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[103]);
+                                   file_level_metadata_storage_2eproto[104]);
 }
 // ===================================================================
 
@@ -52926,7 +54955,7 @@ void WeatherObservation::InternalSwap(WeatherObservation* PROTOBUF_RESTRICT othe
 ::google::protobuf::Metadata WeatherObservation::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[104]);
+                                   file_level_metadata_storage_2eproto[105]);
 }
 // ===================================================================
 
@@ -53189,7 +55218,7 @@ void WeatherCloud::InternalSwap(WeatherCloud* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata WeatherCloud::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[105]);
+                                   file_level_metadata_storage_2eproto[106]);
 }
 // ===================================================================
 
@@ -53564,7 +55593,7 @@ void SessionDeadline::InternalSwap(SessionDeadline* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata SessionDeadline::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[106]);
+                                   file_level_metadata_storage_2eproto[107]);
 }
 // ===================================================================
 
@@ -54086,7 +56115,7 @@ void CommandOutcome::InternalSwap(CommandOutcome* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata CommandOutcome::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[107]);
+                                   file_level_metadata_storage_2eproto[108]);
 }
 // ===================================================================
 
@@ -54558,7 +56587,7 @@ void WorkflowRecord::InternalSwap(WorkflowRecord* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata WorkflowRecord::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[108]);
+                                   file_level_metadata_storage_2eproto[109]);
 }
 // ===================================================================
 
@@ -55357,7 +57386,7 @@ void EffectRecord::InternalSwap(EffectRecord* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata EffectRecord::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[109]);
+                                   file_level_metadata_storage_2eproto[110]);
 }
 // ===================================================================
 
@@ -55613,7 +57642,7 @@ void SetFlightPlanEffect::InternalSwap(SetFlightPlanEffect* PROTOBUF_RESTRICT ot
 ::google::protobuf::Metadata SetFlightPlanEffect::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[110]);
+                                   file_level_metadata_storage_2eproto[111]);
 }
 // ===================================================================
 
@@ -55869,7 +57898,7 @@ void PdcEffect::InternalSwap(PdcEffect* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata PdcEffect::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[111]);
+                                   file_level_metadata_storage_2eproto[112]);
 }
 // ===================================================================
 
@@ -56125,7 +58154,7 @@ void PrivateMessageEffect::InternalSwap(PrivateMessageEffect* PROTOBUF_RESTRICT 
 ::google::protobuf::Metadata PrivateMessageEffect::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[112]);
+                                   file_level_metadata_storage_2eproto[113]);
 }
 // ===================================================================
 
@@ -56381,7 +58410,7 @@ void CoordinationEffect::InternalSwap(CoordinationEffect* PROTOBUF_RESTRICT othe
 ::google::protobuf::Metadata CoordinationEffect::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[113]);
+                                   file_level_metadata_storage_2eproto[114]);
 }
 // ===================================================================
 
@@ -56637,7 +58666,7 @@ void CdmEffect::InternalSwap(CdmEffect* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata CdmEffect::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[114]);
+                                   file_level_metadata_storage_2eproto[115]);
 }
 // ===================================================================
 
@@ -57225,7 +59254,7 @@ void Snapshot::InternalSwap(Snapshot* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata Snapshot::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[115]);
+                                   file_level_metadata_storage_2eproto[116]);
 }
 // ===================================================================
 
@@ -57507,7 +59536,7 @@ void EntitySnapshot::InternalSwap(EntitySnapshot* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata EntitySnapshot::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[116]);
+                                   file_level_metadata_storage_2eproto[117]);
 }
 // ===================================================================
 
@@ -57892,7 +59921,7 @@ void SnapshotIndex::InternalSwap(SnapshotIndex* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata SnapshotIndex::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[117]);
+                                   file_level_metadata_storage_2eproto[118]);
 }
 // ===================================================================
 
@@ -58405,7 +60434,7 @@ void PositionValue::InternalSwap(PositionValue* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata PositionValue::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[118]);
+                                   file_level_metadata_storage_2eproto[119]);
 }
 // ===================================================================
 
@@ -58772,7 +60801,7 @@ void AircraftPosition::InternalSwap(AircraftPosition* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AircraftPosition::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[119]);
+                                   file_level_metadata_storage_2eproto[120]);
 }
 // ===================================================================
 
@@ -58807,7 +60836,7 @@ PositionTombstone::PositionTombstone(
 ::google::protobuf::Metadata PositionTombstone::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[120]);
+                                   file_level_metadata_storage_2eproto[121]);
 }
 // ===================================================================
 
@@ -59141,7 +61170,7 @@ void PresenceValue::InternalSwap(PresenceValue* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata PresenceValue::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[121]);
+                                   file_level_metadata_storage_2eproto[122]);
 }
 // ===================================================================
 
@@ -59427,7 +61456,7 @@ void NodePresence::InternalSwap(NodePresence* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NodePresence::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[122]);
+                                   file_level_metadata_storage_2eproto[123]);
 }
 // ===================================================================
 
@@ -59887,7 +61916,7 @@ void ClientPresence::InternalSwap(ClientPresence* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata ClientPresence::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[123]);
+                                   file_level_metadata_storage_2eproto[124]);
 }
 // ===================================================================
 
@@ -60313,7 +62342,7 @@ void ObjectValue::InternalSwap(ObjectValue* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata ObjectValue::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[124]);
+                                   file_level_metadata_storage_2eproto[125]);
 }
 // ===================================================================
 
@@ -61071,7 +63100,7 @@ void NavData::InternalSwap(NavData* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavData::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[125]);
+                                   file_level_metadata_storage_2eproto[126]);
 }
 // ===================================================================
 
@@ -61409,7 +63438,7 @@ void NavDatasetVersion::InternalSwap(NavDatasetVersion* PROTOBUF_RESTRICT other)
 ::google::protobuf::Metadata NavDatasetVersion::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[126]);
+                                   file_level_metadata_storage_2eproto[127]);
 }
 // ===================================================================
 
@@ -61791,7 +63820,7 @@ void NavProvenance::InternalSwap(NavProvenance* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavProvenance::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[127]);
+                                   file_level_metadata_storage_2eproto[128]);
 }
 // ===================================================================
 
@@ -62030,7 +64059,7 @@ void NavCoordinate::InternalSwap(NavCoordinate* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavCoordinate::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[128]);
+                                   file_level_metadata_storage_2eproto[129]);
 }
 // ===================================================================
 
@@ -62314,7 +64343,7 @@ void NavThreshold::InternalSwap(NavThreshold* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavThreshold::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[129]);
+                                   file_level_metadata_storage_2eproto[130]);
 }
 // ===================================================================
 
@@ -62557,7 +64586,7 @@ void NavAirportFragment::InternalSwap(NavAirportFragment* PROTOBUF_RESTRICT othe
 ::google::protobuf::Metadata NavAirportFragment::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[130]);
+                                   file_level_metadata_storage_2eproto[131]);
 }
 // ===================================================================
 
@@ -62885,7 +64914,7 @@ void NavAirport::InternalSwap(NavAirport* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavAirport::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[131]);
+                                   file_level_metadata_storage_2eproto[132]);
 }
 // ===================================================================
 
@@ -63254,7 +65283,7 @@ void NavRunway::InternalSwap(NavRunway* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavRunway::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[132]);
+                                   file_level_metadata_storage_2eproto[133]);
 }
 // ===================================================================
 
@@ -63537,7 +65566,7 @@ void NavProcedureFragment::InternalSwap(NavProcedureFragment* PROTOBUF_RESTRICT 
 ::google::protobuf::Metadata NavProcedureFragment::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[133]);
+                                   file_level_metadata_storage_2eproto[134]);
 }
 // ===================================================================
 
@@ -63927,7 +65956,7 @@ void NavProcedure::InternalSwap(NavProcedure* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavProcedure::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[134]);
+                                   file_level_metadata_storage_2eproto[135]);
 }
 // ===================================================================
 
@@ -64409,7 +66438,7 @@ void NavLeg::InternalSwap(NavLeg* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavLeg::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[135]);
+                                   file_level_metadata_storage_2eproto[136]);
 }
 // ===================================================================
 
@@ -64982,7 +67011,7 @@ void NavHolding::InternalSwap(NavHolding* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavHolding::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[136]);
+                                   file_level_metadata_storage_2eproto[137]);
 }
 // ===================================================================
 
@@ -65207,7 +67236,7 @@ void NavFixFragment::InternalSwap(NavFixFragment* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavFixFragment::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[137]);
+                                   file_level_metadata_storage_2eproto[138]);
 }
 // ===================================================================
 
@@ -65507,7 +67536,7 @@ void NavFix::InternalSwap(NavFix* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavFix::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[138]);
+                                   file_level_metadata_storage_2eproto[139]);
 }
 // ===================================================================
 
@@ -65850,7 +67879,7 @@ void NavTerminalFragment::InternalSwap(NavTerminalFragment* PROTOBUF_RESTRICT ot
 ::google::protobuf::Metadata NavTerminalFragment::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[139]);
+                                   file_level_metadata_storage_2eproto[140]);
 }
 // ===================================================================
 
@@ -66127,7 +68156,7 @@ void NavStarFamilyPolicy::InternalSwap(NavStarFamilyPolicy* PROTOBUF_RESTRICT ot
 ::google::protobuf::Metadata NavStarFamilyPolicy::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[140]);
+                                   file_level_metadata_storage_2eproto[141]);
 }
 // ===================================================================
 
@@ -66720,7 +68749,7 @@ void NavTerminalPath::InternalSwap(NavTerminalPath* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavTerminalPath::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[141]);
+                                   file_level_metadata_storage_2eproto[142]);
 }
 // ===================================================================
 
@@ -67092,7 +69121,7 @@ void NavRouteCandidate::InternalSwap(NavRouteCandidate* PROTOBUF_RESTRICT other)
 ::google::protobuf::Metadata NavRouteCandidate::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[142]);
+                                   file_level_metadata_storage_2eproto[143]);
 }
 // ===================================================================
 
@@ -67497,7 +69526,7 @@ void NavRouteQuery::InternalSwap(NavRouteQuery* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavRouteQuery::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[143]);
+                                   file_level_metadata_storage_2eproto[144]);
 }
 // ===================================================================
 
@@ -67944,7 +69973,7 @@ void NavRouteGeometry::InternalSwap(NavRouteGeometry* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata NavRouteGeometry::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[144]);
+                                   file_level_metadata_storage_2eproto[145]);
 }
 // ===================================================================
 
@@ -68222,7 +70251,7 @@ void EffectSecret::InternalSwap(EffectSecret* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata EffectSecret::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[145]);
+                                   file_level_metadata_storage_2eproto[146]);
 }
 // ===================================================================
 
@@ -68271,6 +70300,84 @@ void ProviderPage::set_allocated_weather(::flightstrips::cluster::v1::WeatherPag
   }
   // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.weather)
 }
+void ProviderPage::set_allocated_ecfmp(::flightstrips::cluster::v1::EcfmpPage* ecfmp) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_parsed();
+  if (ecfmp) {
+    ::google::protobuf::Arena* submessage_arena = ecfmp->GetArena();
+    if (message_arena != submessage_arena) {
+      ecfmp = ::google::protobuf::internal::GetOwnedMessage(message_arena, ecfmp, submessage_arena);
+    }
+    set_has_ecfmp();
+    _impl_.parsed_.ecfmp_ = ecfmp;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.ecfmp)
+}
+void ProviderPage::set_allocated_atis_feed(::flightstrips::cluster::v1::AtisFeedPage* atis_feed) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_parsed();
+  if (atis_feed) {
+    ::google::protobuf::Arena* submessage_arena = atis_feed->GetArena();
+    if (message_arena != submessage_arena) {
+      atis_feed = ::google::protobuf::internal::GetOwnedMessage(message_arena, atis_feed, submessage_arena);
+    }
+    set_has_atis_feed();
+    _impl_.parsed_.atis_feed_ = atis_feed;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.atis_feed)
+}
+void ProviderPage::set_allocated_open_meteo(::flightstrips::cluster::v1::OpenMeteoPage* open_meteo) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_parsed();
+  if (open_meteo) {
+    ::google::protobuf::Arena* submessage_arena = open_meteo->GetArena();
+    if (message_arena != submessage_arena) {
+      open_meteo = ::google::protobuf::internal::GetOwnedMessage(message_arena, open_meteo, submessage_arena);
+    }
+    set_has_open_meteo();
+    _impl_.parsed_.open_meteo_ = open_meteo;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.open_meteo)
+}
+void ProviderPage::set_allocated_cdm_config(::flightstrips::cluster::v1::CdmConfigPage* cdm_config) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_parsed();
+  if (cdm_config) {
+    ::google::protobuf::Arena* submessage_arena = cdm_config->GetArena();
+    if (message_arena != submessage_arena) {
+      cdm_config = ::google::protobuf::internal::GetOwnedMessage(message_arena, cdm_config, submessage_arena);
+    }
+    set_has_cdm_config();
+    _impl_.parsed_.cdm_config_ = cdm_config;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.cdm_config)
+}
+void ProviderPage::set_allocated_viff_flights(::flightstrips::cluster::v1::ViffFlightPage* viff_flights) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_parsed();
+  if (viff_flights) {
+    ::google::protobuf::Arena* submessage_arena = viff_flights->GetArena();
+    if (message_arena != submessage_arena) {
+      viff_flights = ::google::protobuf::internal::GetOwnedMessage(message_arena, viff_flights, submessage_arena);
+    }
+    set_has_viff_flights();
+    _impl_.parsed_.viff_flights_ = viff_flights;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.viff_flights)
+}
+void ProviderPage::set_allocated_viff_masters(::flightstrips::cluster::v1::ViffMastersPage* viff_masters) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  clear_parsed();
+  if (viff_masters) {
+    ::google::protobuf::Arena* submessage_arena = viff_masters->GetArena();
+    if (message_arena != submessage_arena) {
+      viff_masters = ::google::protobuf::internal::GetOwnedMessage(message_arena, viff_masters, submessage_arena);
+    }
+    set_has_viff_masters();
+    _impl_.parsed_.viff_masters_ = viff_masters;
+  }
+  // @@protoc_insertion_point(field_set_allocated:flightstrips.cluster.v1.ProviderPage.viff_masters)
+}
 ProviderPage::ProviderPage(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -68305,6 +70412,24 @@ ProviderPage::ProviderPage(
         break;
       case kWeather:
         _impl_.parsed_.weather_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::WeatherPage>(arena, *from._impl_.parsed_.weather_);
+        break;
+      case kEcfmp:
+        _impl_.parsed_.ecfmp_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::EcfmpPage>(arena, *from._impl_.parsed_.ecfmp_);
+        break;
+      case kAtisFeed:
+        _impl_.parsed_.atis_feed_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AtisFeedPage>(arena, *from._impl_.parsed_.atis_feed_);
+        break;
+      case kOpenMeteo:
+        _impl_.parsed_.open_meteo_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::OpenMeteoPage>(arena, *from._impl_.parsed_.open_meteo_);
+        break;
+      case kCdmConfig:
+        _impl_.parsed_.cdm_config_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::CdmConfigPage>(arena, *from._impl_.parsed_.cdm_config_);
+        break;
+      case kViffFlights:
+        _impl_.parsed_.viff_flights_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ViffFlightPage>(arena, *from._impl_.parsed_.viff_flights_);
+        break;
+      case kViffMasters:
+        _impl_.parsed_.viff_masters_ = ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ViffMastersPage>(arena, *from._impl_.parsed_.viff_masters_);
         break;
   }
 
@@ -68359,6 +70484,42 @@ void ProviderPage::clear_parsed() {
       }
       break;
     }
+    case kEcfmp: {
+      if (GetArena() == nullptr) {
+        delete _impl_.parsed_.ecfmp_;
+      }
+      break;
+    }
+    case kAtisFeed: {
+      if (GetArena() == nullptr) {
+        delete _impl_.parsed_.atis_feed_;
+      }
+      break;
+    }
+    case kOpenMeteo: {
+      if (GetArena() == nullptr) {
+        delete _impl_.parsed_.open_meteo_;
+      }
+      break;
+    }
+    case kCdmConfig: {
+      if (GetArena() == nullptr) {
+        delete _impl_.parsed_.cdm_config_;
+      }
+      break;
+    }
+    case kViffFlights: {
+      if (GetArena() == nullptr) {
+        delete _impl_.parsed_.viff_flights_;
+      }
+      break;
+    }
+    case kViffMasters: {
+      if (GetArena() == nullptr) {
+        delete _impl_.parsed_.viff_masters_;
+      }
+      break;
+    }
     case PARSED_NOT_SET: {
       break;
     }
@@ -68402,16 +70563,16 @@ const char* ProviderPage::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 5, 3, 61, 2> ProviderPage::_table_ = {
+const ::_pbi::TcParseTable<1, 11, 9, 69, 2> ProviderPage::_table_ = {
   {
     0,  // no _has_bits_
     0, // no _extensions_
-    5, 8,  // max_field_number, fast_idx_mask
+    11, 8,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967264,  // skipmap
+    4294965248,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    5,  // num_field_entries
-    3,  // num_aux_entries
+    11,  // num_field_entries
+    9,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_ProviderPage_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -68443,12 +70604,36 @@ const ::_pbi::TcParseTable<1, 5, 3, 61, 2> ProviderPage::_table_ = {
     // .flightstrips.cluster.v1.WeatherPage weather = 5;
     {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.weather_), _Internal::kOneofCaseOffset + 0, 2,
     (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.EcfmpPage ecfmp = 6;
+    {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.ecfmp_), _Internal::kOneofCaseOffset + 0, 3,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.AtisFeedPage atis_feed = 7;
+    {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.atis_feed_), _Internal::kOneofCaseOffset + 0, 4,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.OpenMeteoPage open_meteo = 8;
+    {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.open_meteo_), _Internal::kOneofCaseOffset + 0, 5,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.CdmConfigPage cdm_config = 9;
+    {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.cdm_config_), _Internal::kOneofCaseOffset + 0, 6,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.ViffFlightPage viff_flights = 10;
+    {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.viff_flights_), _Internal::kOneofCaseOffset + 0, 7,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.ViffMastersPage viff_masters = 11;
+    {PROTOBUF_FIELD_OFFSET(ProviderPage, _impl_.parsed_.viff_masters_), _Internal::kOneofCaseOffset + 0, 8,
+    (0 | ::_fl::kFcOneof | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AiracPage>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimPage>()},
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::WeatherPage>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::EcfmpPage>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AtisFeedPage>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoPage>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigPage>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffFlightPage>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffMastersPage>()},
   }}, {{
-    "\44\10\10\0\0\0\0\0"
+    "\44\10\10\0\0\0\0\0\0\0\0\0\0\0\0\0"
     "flightstrips.cluster.v1.ProviderPage"
     "provider"
     "resource"
@@ -68492,6 +70677,36 @@ const ::_pbi::TcParseTable<1, 5, 3, 61, 2> ProviderPage::_table_ = {
     case kWeather: {
       target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
           5, *_impl_.parsed_.weather_, _impl_.parsed_.weather_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kEcfmp: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          6, *_impl_.parsed_.ecfmp_, _impl_.parsed_.ecfmp_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kAtisFeed: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          7, *_impl_.parsed_.atis_feed_, _impl_.parsed_.atis_feed_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kOpenMeteo: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          8, *_impl_.parsed_.open_meteo_, _impl_.parsed_.open_meteo_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kCdmConfig: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          9, *_impl_.parsed_.cdm_config_, _impl_.parsed_.cdm_config_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kViffFlights: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          10, *_impl_.parsed_.viff_flights_, _impl_.parsed_.viff_flights_->GetCachedSize(), target, stream);
+      break;
+    }
+    case kViffMasters: {
+      target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+          11, *_impl_.parsed_.viff_masters_, _impl_.parsed_.viff_masters_->GetCachedSize(), target, stream);
       break;
     }
     default:
@@ -68543,6 +70758,42 @@ const ::_pbi::TcParseTable<1, 5, 3, 61, 2> ProviderPage::_table_ = {
     case kWeather: {
       total_size +=
           1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.weather_);
+      break;
+    }
+    // .flightstrips.cluster.v1.EcfmpPage ecfmp = 6;
+    case kEcfmp: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.ecfmp_);
+      break;
+    }
+    // .flightstrips.cluster.v1.AtisFeedPage atis_feed = 7;
+    case kAtisFeed: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.atis_feed_);
+      break;
+    }
+    // .flightstrips.cluster.v1.OpenMeteoPage open_meteo = 8;
+    case kOpenMeteo: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.open_meteo_);
+      break;
+    }
+    // .flightstrips.cluster.v1.CdmConfigPage cdm_config = 9;
+    case kCdmConfig: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.cdm_config_);
+      break;
+    }
+    // .flightstrips.cluster.v1.ViffFlightPage viff_flights = 10;
+    case kViffFlights: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.viff_flights_);
+      break;
+    }
+    // .flightstrips.cluster.v1.ViffMastersPage viff_masters = 11;
+    case kViffMasters: {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.parsed_.viff_masters_);
       break;
     }
     case PARSED_NOT_SET: {
@@ -68606,6 +70857,60 @@ void ProviderPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::go
         }
         break;
       }
+      case kEcfmp: {
+        if (oneof_needs_init) {
+          _this->_impl_.parsed_.ecfmp_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::EcfmpPage>(arena, *from._impl_.parsed_.ecfmp_);
+        } else {
+          _this->_impl_.parsed_.ecfmp_->MergeFrom(from._internal_ecfmp());
+        }
+        break;
+      }
+      case kAtisFeed: {
+        if (oneof_needs_init) {
+          _this->_impl_.parsed_.atis_feed_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AtisFeedPage>(arena, *from._impl_.parsed_.atis_feed_);
+        } else {
+          _this->_impl_.parsed_.atis_feed_->MergeFrom(from._internal_atis_feed());
+        }
+        break;
+      }
+      case kOpenMeteo: {
+        if (oneof_needs_init) {
+          _this->_impl_.parsed_.open_meteo_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::OpenMeteoPage>(arena, *from._impl_.parsed_.open_meteo_);
+        } else {
+          _this->_impl_.parsed_.open_meteo_->MergeFrom(from._internal_open_meteo());
+        }
+        break;
+      }
+      case kCdmConfig: {
+        if (oneof_needs_init) {
+          _this->_impl_.parsed_.cdm_config_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::CdmConfigPage>(arena, *from._impl_.parsed_.cdm_config_);
+        } else {
+          _this->_impl_.parsed_.cdm_config_->MergeFrom(from._internal_cdm_config());
+        }
+        break;
+      }
+      case kViffFlights: {
+        if (oneof_needs_init) {
+          _this->_impl_.parsed_.viff_flights_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ViffFlightPage>(arena, *from._impl_.parsed_.viff_flights_);
+        } else {
+          _this->_impl_.parsed_.viff_flights_->MergeFrom(from._internal_viff_flights());
+        }
+        break;
+      }
+      case kViffMasters: {
+        if (oneof_needs_init) {
+          _this->_impl_.parsed_.viff_masters_ =
+              ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ViffMastersPage>(arena, *from._impl_.parsed_.viff_masters_);
+        } else {
+          _this->_impl_.parsed_.viff_masters_->MergeFrom(from._internal_viff_masters());
+        }
+        break;
+      }
       case PARSED_NOT_SET:
         break;
     }
@@ -68638,7 +70943,7 @@ void ProviderPage::InternalSwap(ProviderPage* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata ProviderPage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[146]);
+                                   file_level_metadata_storage_2eproto[147]);
 }
 // ===================================================================
 
@@ -68876,14 +71181,22 @@ void AiracPage::InternalSwap(AiracPage* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata AiracPage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[147]);
+                                   file_level_metadata_storage_2eproto[148]);
 }
 // ===================================================================
 
 class VatsimPage::_Internal {
  public:
+  using HasBits = decltype(std::declval<VatsimPage>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_._has_bits_);
 };
 
+void VatsimPage::clear_snapshot_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.snapshot_at_ != nullptr) _impl_.snapshot_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
 VatsimPage::VatsimPage(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -68892,8 +71205,10 @@ VatsimPage::VatsimPage(::google::protobuf::Arena* arena)
 inline PROTOBUF_NDEBUG_INLINE VatsimPage::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
     const Impl_& from)
-      : observations_{visibility, arena, from.observations_},
-        _cached_size_{0} {}
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        observations_{visibility, arena, from.observations_},
+        flights_{visibility, arena, from.flights_} {}
 
 VatsimPage::VatsimPage(
     ::google::protobuf::Arena* arena,
@@ -68904,17 +71219,23 @@ VatsimPage::VatsimPage(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.snapshot_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.snapshot_at_)
+                        : nullptr;
 
   // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.VatsimPage)
 }
 inline PROTOBUF_NDEBUG_INLINE VatsimPage::Impl_::Impl_(
     ::google::protobuf::internal::InternalVisibility visibility,
     ::google::protobuf::Arena* arena)
-      : observations_{visibility, arena},
-        _cached_size_{0} {}
+      : _cached_size_{0},
+        observations_{visibility, arena},
+        flights_{visibility, arena} {}
 
 inline void VatsimPage::SharedCtor(::_pb::Arena* arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.snapshot_at_ = {};
 }
 VatsimPage::~VatsimPage() {
   // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.VatsimPage)
@@ -68923,6 +71244,7 @@ VatsimPage::~VatsimPage() {
 }
 inline void VatsimPage::SharedDtor() {
   ABSL_DCHECK(GetArena() == nullptr);
+  delete _impl_.snapshot_at_;
   _impl_.~Impl_();
 }
 
@@ -68948,6 +71270,13 @@ PROTOBUF_NOINLINE void VatsimPage::Clear() {
   (void) cached_has_bits;
 
   _impl_.observations_.Clear();
+  _impl_.flights_.Clear();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.snapshot_at_ != nullptr);
+    _impl_.snapshot_at_->Clear();
+  }
+  _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -68959,16 +71288,16 @@ const char* VatsimPage::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 1, 1, 0, 2> VatsimPage::_table_ = {
+const ::_pbi::TcParseTable<2, 3, 3, 0, 2> VatsimPage::_table_ = {
   {
-    0,  // no _has_bits_
+    PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_._has_bits_),
     0, // no _extensions_
-    1, 0,  // max_field_number, fast_idx_mask
+    3, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967294,  // skipmap
+    4294967288,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    1,  // num_field_entries
-    1,  // num_aux_entries
+    3,  // num_field_entries
+    3,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     &_VatsimPage_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -68976,17 +71305,32 @@ const ::_pbi::TcParseTable<0, 1, 1, 0, 2> VatsimPage::_table_ = {
     ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimPage>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
+    {::_pbi::TcParser::MiniParse, {}},
     // repeated .flightstrips.cluster.v1.VatsimObservation observations = 1;
     {::_pbi::TcParser::FastMtR1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_.observations_)}},
+    // repeated .flightstrips.cluster.v1.VatsimFlight flights = 2;
+    {::_pbi::TcParser::FastMtR1,
+     {18, 63, 1, PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_.flights_)}},
+    // .google.protobuf.Timestamp snapshot_at = 3;
+    {::_pbi::TcParser::FastMtS1,
+     {26, 0, 2, PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_.snapshot_at_)}},
   }}, {{
     65535, 65535
   }}, {{
     // repeated .flightstrips.cluster.v1.VatsimObservation observations = 1;
-    {PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_.observations_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_.observations_), -1, 0,
     (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.VatsimFlight flights = 2;
+    {PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_.flights_), -1, 1,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .google.protobuf.Timestamp snapshot_at = 3;
+    {PROTOBUF_FIELD_OFFSET(VatsimPage, _impl_.snapshot_at_), _Internal::kHasBitsOffset + 0, 2,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
   }}, {{
     {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimObservation>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimFlight>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
   }}, {{
   }},
 };
@@ -69007,6 +71351,24 @@ const ::_pbi::TcParseTable<0, 1, 1, 0, 2> VatsimPage::_table_ = {
         ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
             1, repfield, repfield.GetCachedSize(),
             target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.VatsimFlight flights = 2;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_flights_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_flights().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            2, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp snapshot_at = 3;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        3, *_impl_.snapshot_at_, _impl_.snapshot_at_->GetCachedSize(), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -69031,6 +71393,18 @@ const ::_pbi::TcParseTable<0, 1, 1, 0, 2> VatsimPage::_table_ = {
   for (const auto& msg : this->_internal_observations()) {
     total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
   }
+  // repeated .flightstrips.cluster.v1.VatsimFlight flights = 2;
+  total_size += 1UL * this->_internal_flights_size();
+  for (const auto& msg : this->_internal_flights()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // .google.protobuf.Timestamp snapshot_at = 3;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.snapshot_at_);
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -69038,6 +71412,7 @@ const ::_pbi::TcParseTable<0, 1, 1, 0, 2> VatsimPage::_table_ = {
 void VatsimPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
   auto* const _this = static_cast<VatsimPage*>(&to_msg);
   auto& from = static_cast<const VatsimPage&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
   // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.VatsimPage)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
@@ -69045,6 +71420,19 @@ void VatsimPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::goog
 
   _this->_internal_mutable_observations()->MergeFrom(
       from._internal_observations());
+  _this->_internal_mutable_flights()->MergeFrom(
+      from._internal_flights());
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.snapshot_at_ != nullptr);
+    if (_this->_impl_.snapshot_at_ == nullptr) {
+      _this->_impl_.snapshot_at_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.snapshot_at_);
+    } else {
+      _this->_impl_.snapshot_at_->MergeFrom(*from._impl_.snapshot_at_);
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
 }
 
@@ -69062,13 +71450,1124 @@ PROTOBUF_NOINLINE bool VatsimPage::IsInitialized() const {
 void VatsimPage::InternalSwap(VatsimPage* PROTOBUF_RESTRICT other) {
   using std::swap;
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   _impl_.observations_.InternalSwap(&other->_impl_.observations_);
+  _impl_.flights_.InternalSwap(&other->_impl_.flights_);
+  swap(_impl_.snapshot_at_, other->_impl_.snapshot_at_);
 }
 
 ::google::protobuf::Metadata VatsimPage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[148]);
+                                   file_level_metadata_storage_2eproto[149]);
+}
+// ===================================================================
+
+class VatsimFlight::_Internal {
+ public:
+  using HasBits = decltype(std::declval<VatsimFlight>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_._has_bits_);
+};
+
+void VatsimFlight::clear_logon_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.logon_time_ != nullptr) _impl_.logon_time_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+void VatsimFlight::clear_last_updated() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.last_updated_ != nullptr) _impl_.last_updated_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+VatsimFlight::VatsimFlight(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.VatsimFlight)
+}
+inline PROTOBUF_NDEBUG_INLINE VatsimFlight::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        cid_(arena, from.cid_),
+        callsign_(arena, from.callsign_),
+        state_(arena, from.state_) {}
+
+VatsimFlight::VatsimFlight(
+    ::google::protobuf::Arena* arena,
+    const VatsimFlight& from)
+    : ::google::protobuf::Message(arena) {
+  VatsimFlight* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.logon_time_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.logon_time_)
+                        : nullptr;
+  _impl_.last_updated_ = (cached_has_bits & 0x00000002u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.last_updated_)
+                        : nullptr;
+  _impl_.flight_plan_ = (cached_has_bits & 0x00000004u) ? ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::VatsimFlightPlan>(
+                              arena, *from._impl_.flight_plan_)
+                        : nullptr;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, latitude_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, latitude_),
+           offsetof(Impl_, groundspeed_) -
+               offsetof(Impl_, latitude_) +
+               sizeof(Impl_::groundspeed_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.VatsimFlight)
+}
+inline PROTOBUF_NDEBUG_INLINE VatsimFlight::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        cid_(arena),
+        callsign_(arena),
+        state_(arena) {}
+
+inline void VatsimFlight::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, logon_time_),
+           0,
+           offsetof(Impl_, groundspeed_) -
+               offsetof(Impl_, logon_time_) +
+               sizeof(Impl_::groundspeed_));
+}
+VatsimFlight::~VatsimFlight() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.VatsimFlight)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void VatsimFlight::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.cid_.Destroy();
+  _impl_.callsign_.Destroy();
+  _impl_.state_.Destroy();
+  delete _impl_.logon_time_;
+  delete _impl_.last_updated_;
+  delete _impl_.flight_plan_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VatsimFlight::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_._cached_size_),
+              false,
+          },
+          &VatsimFlight::MergeImpl,
+          &VatsimFlight::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void VatsimFlight::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.VatsimFlight)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.cid_.ClearToEmpty();
+  _impl_.callsign_.ClearToEmpty();
+  _impl_.state_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000007u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(_impl_.logon_time_ != nullptr);
+      _impl_.logon_time_->Clear();
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(_impl_.last_updated_ != nullptr);
+      _impl_.last_updated_->Clear();
+    }
+    if (cached_has_bits & 0x00000004u) {
+      ABSL_DCHECK(_impl_.flight_plan_ != nullptr);
+      _impl_.flight_plan_->Clear();
+    }
+  }
+  ::memset(&_impl_.latitude_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.groundspeed_) -
+      reinterpret_cast<char*>(&_impl_.latitude_)) + sizeof(_impl_.groundspeed_));
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* VatsimFlight::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 10, 3, 69, 2> VatsimFlight::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_._has_bits_),
+    0, // no _extensions_
+    10, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294966272,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    10,  // num_field_entries
+    3,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_VatsimFlight_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimFlight>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string cid = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.cid_)}},
+    // string callsign = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.callsign_)}},
+    // string state = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.state_)}},
+    // double latitude = 4;
+    {::_pbi::TcParser::FastF64S1,
+     {33, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.latitude_)}},
+    // double longitude = 5;
+    {::_pbi::TcParser::FastF64S1,
+     {41, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.longitude_)}},
+    // int32 altitude = 6;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(VatsimFlight, _impl_.altitude_), 63>(),
+     {48, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.altitude_)}},
+    // int32 groundspeed = 7;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(VatsimFlight, _impl_.groundspeed_), 63>(),
+     {56, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.groundspeed_)}},
+    // .google.protobuf.Timestamp logon_time = 8;
+    {::_pbi::TcParser::FastMtS1,
+     {66, 0, 0, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.logon_time_)}},
+    // .google.protobuf.Timestamp last_updated = 9;
+    {::_pbi::TcParser::FastMtS1,
+     {74, 1, 1, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.last_updated_)}},
+    // .flightstrips.cluster.v1.VatsimFlightPlan flight_plan = 10;
+    {::_pbi::TcParser::FastMtS1,
+     {82, 2, 2, PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.flight_plan_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string cid = 1;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.cid_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string callsign = 2;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.callsign_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string state = 3;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.state_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // double latitude = 4;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.latitude_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double longitude = 5;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.longitude_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // int32 altitude = 6;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.altitude_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // int32 groundspeed = 7;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.groundspeed_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // .google.protobuf.Timestamp logon_time = 8;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.logon_time_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .google.protobuf.Timestamp last_updated = 9;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.last_updated_), _Internal::kHasBitsOffset + 1, 1,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.VatsimFlightPlan flight_plan = 10;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.flight_plan_), _Internal::kHasBitsOffset + 2, 2,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimFlightPlan>()},
+  }}, {{
+    "\44\3\10\5\0\0\0\0\0\0\0\0\0\0\0\0"
+    "flightstrips.cluster.v1.VatsimFlight"
+    "cid"
+    "callsign"
+    "state"
+  }},
+};
+
+::uint8_t* VatsimFlight::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.VatsimFlight)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string cid = 1;
+  if (!this->_internal_cid().empty()) {
+    const std::string& _s = this->_internal_cid();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlight.cid");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string callsign = 2;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlight.callsign");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string state = 3;
+  if (!this->_internal_state().empty()) {
+    const std::string& _s = this->_internal_state();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlight.state");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // double latitude = 4;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude = this->_internal_latitude();
+  ::uint64_t raw_latitude;
+  memcpy(&raw_latitude, &tmp_latitude, sizeof(tmp_latitude));
+  if (raw_latitude != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        4, this->_internal_latitude(), target);
+  }
+
+  // double longitude = 5;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude = this->_internal_longitude();
+  ::uint64_t raw_longitude;
+  memcpy(&raw_longitude, &tmp_longitude, sizeof(tmp_longitude));
+  if (raw_longitude != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        5, this->_internal_longitude(), target);
+  }
+
+  // int32 altitude = 6;
+  if (this->_internal_altitude() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<6>(
+            stream, this->_internal_altitude(), target);
+  }
+
+  // int32 groundspeed = 7;
+  if (this->_internal_groundspeed() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<7>(
+            stream, this->_internal_groundspeed(), target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp logon_time = 8;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        8, *_impl_.logon_time_, _impl_.logon_time_->GetCachedSize(), target, stream);
+  }
+
+  // .google.protobuf.Timestamp last_updated = 9;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        9, *_impl_.last_updated_, _impl_.last_updated_->GetCachedSize(), target, stream);
+  }
+
+  // .flightstrips.cluster.v1.VatsimFlightPlan flight_plan = 10;
+  if (cached_has_bits & 0x00000004u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        10, *_impl_.flight_plan_, _impl_.flight_plan_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.VatsimFlight)
+  return target;
+}
+
+::size_t VatsimFlight::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.VatsimFlight)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string cid = 1;
+  if (!this->_internal_cid().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_cid());
+  }
+
+  // string callsign = 2;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // string state = 3;
+  if (!this->_internal_state().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_state());
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000007u) {
+    // .google.protobuf.Timestamp logon_time = 8;
+    if (cached_has_bits & 0x00000001u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.logon_time_);
+    }
+
+    // .google.protobuf.Timestamp last_updated = 9;
+    if (cached_has_bits & 0x00000002u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.last_updated_);
+    }
+
+    // .flightstrips.cluster.v1.VatsimFlightPlan flight_plan = 10;
+    if (cached_has_bits & 0x00000004u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.flight_plan_);
+    }
+
+  }
+  // double latitude = 4;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude = this->_internal_latitude();
+  ::uint64_t raw_latitude;
+  memcpy(&raw_latitude, &tmp_latitude, sizeof(tmp_latitude));
+  if (raw_latitude != 0) {
+    total_size += 9;
+  }
+
+  // double longitude = 5;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude = this->_internal_longitude();
+  ::uint64_t raw_longitude;
+  memcpy(&raw_longitude, &tmp_longitude, sizeof(tmp_longitude));
+  if (raw_longitude != 0) {
+    total_size += 9;
+  }
+
+  // int32 altitude = 6;
+  if (this->_internal_altitude() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_altitude());
+  }
+
+  // int32 groundspeed = 7;
+  if (this->_internal_groundspeed() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_groundspeed());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void VatsimFlight::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<VatsimFlight*>(&to_msg);
+  auto& from = static_cast<const VatsimFlight&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.VatsimFlight)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_cid().empty()) {
+    _this->_internal_set_cid(from._internal_cid());
+  }
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  if (!from._internal_state().empty()) {
+    _this->_internal_set_state(from._internal_state());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000007u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(from._impl_.logon_time_ != nullptr);
+      if (_this->_impl_.logon_time_ == nullptr) {
+        _this->_impl_.logon_time_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.logon_time_);
+      } else {
+        _this->_impl_.logon_time_->MergeFrom(*from._impl_.logon_time_);
+      }
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(from._impl_.last_updated_ != nullptr);
+      if (_this->_impl_.last_updated_ == nullptr) {
+        _this->_impl_.last_updated_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.last_updated_);
+      } else {
+        _this->_impl_.last_updated_->MergeFrom(*from._impl_.last_updated_);
+      }
+    }
+    if (cached_has_bits & 0x00000004u) {
+      ABSL_DCHECK(from._impl_.flight_plan_ != nullptr);
+      if (_this->_impl_.flight_plan_ == nullptr) {
+        _this->_impl_.flight_plan_ =
+            ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::VatsimFlightPlan>(arena, *from._impl_.flight_plan_);
+      } else {
+        _this->_impl_.flight_plan_->MergeFrom(*from._impl_.flight_plan_);
+      }
+    }
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude = from._internal_latitude();
+  ::uint64_t raw_latitude;
+  memcpy(&raw_latitude, &tmp_latitude, sizeof(tmp_latitude));
+  if (raw_latitude != 0) {
+    _this->_impl_.latitude_ = from._impl_.latitude_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude = from._internal_longitude();
+  ::uint64_t raw_longitude;
+  memcpy(&raw_longitude, &tmp_longitude, sizeof(tmp_longitude));
+  if (raw_longitude != 0) {
+    _this->_impl_.longitude_ = from._impl_.longitude_;
+  }
+  if (from._internal_altitude() != 0) {
+    _this->_impl_.altitude_ = from._impl_.altitude_;
+  }
+  if (from._internal_groundspeed() != 0) {
+    _this->_impl_.groundspeed_ = from._impl_.groundspeed_;
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void VatsimFlight::CopyFrom(const VatsimFlight& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.VatsimFlight)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VatsimFlight::IsInitialized() const {
+  return true;
+}
+
+void VatsimFlight::InternalSwap(VatsimFlight* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cid_, &other->_impl_.cid_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.state_, &other->_impl_.state_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.groundspeed_)
+      + sizeof(VatsimFlight::_impl_.groundspeed_)
+      - PROTOBUF_FIELD_OFFSET(VatsimFlight, _impl_.logon_time_)>(
+          reinterpret_cast<char*>(&_impl_.logon_time_),
+          reinterpret_cast<char*>(&other->_impl_.logon_time_));
+}
+
+::google::protobuf::Metadata VatsimFlight::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[150]);
+}
+// ===================================================================
+
+class VatsimFlightPlan::_Internal {
+ public:
+};
+
+VatsimFlightPlan::VatsimFlightPlan(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.VatsimFlightPlan)
+}
+inline PROTOBUF_NDEBUG_INLINE VatsimFlightPlan::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : flight_rules_(arena, from.flight_rules_),
+        aircraft_(arena, from.aircraft_),
+        aircraft_faa_(arena, from.aircraft_faa_),
+        aircraft_short_(arena, from.aircraft_short_),
+        origin_(arena, from.origin_),
+        destination_(arena, from.destination_),
+        alternate_(arena, from.alternate_),
+        eobt_(arena, from.eobt_),
+        enroute_duration_(arena, from.enroute_duration_),
+        requested_level_(arena, from.requested_level_),
+        remarks_(arena, from.remarks_),
+        route_(arena, from.route_),
+        assigned_squawk_(arena, from.assigned_squawk_),
+        _cached_size_{0} {}
+
+VatsimFlightPlan::VatsimFlightPlan(
+    ::google::protobuf::Arena* arena,
+    const VatsimFlightPlan& from)
+    : ::google::protobuf::Message(arena) {
+  VatsimFlightPlan* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.revision_ = from._impl_.revision_;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.VatsimFlightPlan)
+}
+inline PROTOBUF_NDEBUG_INLINE VatsimFlightPlan::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : flight_rules_(arena),
+        aircraft_(arena),
+        aircraft_faa_(arena),
+        aircraft_short_(arena),
+        origin_(arena),
+        destination_(arena),
+        alternate_(arena),
+        eobt_(arena),
+        enroute_duration_(arena),
+        requested_level_(arena),
+        remarks_(arena),
+        route_(arena),
+        assigned_squawk_(arena),
+        _cached_size_{0} {}
+
+inline void VatsimFlightPlan::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.revision_ = {};
+}
+VatsimFlightPlan::~VatsimFlightPlan() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.VatsimFlightPlan)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void VatsimFlightPlan::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.flight_rules_.Destroy();
+  _impl_.aircraft_.Destroy();
+  _impl_.aircraft_faa_.Destroy();
+  _impl_.aircraft_short_.Destroy();
+  _impl_.origin_.Destroy();
+  _impl_.destination_.Destroy();
+  _impl_.alternate_.Destroy();
+  _impl_.eobt_.Destroy();
+  _impl_.enroute_duration_.Destroy();
+  _impl_.requested_level_.Destroy();
+  _impl_.remarks_.Destroy();
+  _impl_.route_.Destroy();
+  _impl_.assigned_squawk_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+VatsimFlightPlan::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_._cached_size_),
+              false,
+          },
+          &VatsimFlightPlan::MergeImpl,
+          &VatsimFlightPlan::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void VatsimFlightPlan::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.VatsimFlightPlan)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.flight_rules_.ClearToEmpty();
+  _impl_.aircraft_.ClearToEmpty();
+  _impl_.aircraft_faa_.ClearToEmpty();
+  _impl_.aircraft_short_.ClearToEmpty();
+  _impl_.origin_.ClearToEmpty();
+  _impl_.destination_.ClearToEmpty();
+  _impl_.alternate_.ClearToEmpty();
+  _impl_.eobt_.ClearToEmpty();
+  _impl_.enroute_duration_.ClearToEmpty();
+  _impl_.requested_level_.ClearToEmpty();
+  _impl_.remarks_.ClearToEmpty();
+  _impl_.route_.ClearToEmpty();
+  _impl_.assigned_squawk_.ClearToEmpty();
+  _impl_.revision_ = ::int64_t{0};
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* VatsimFlightPlan::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 14, 0, 191, 2> VatsimFlightPlan::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    14, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294950912,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    14,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_VatsimFlightPlan_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::VatsimFlightPlan>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string flight_rules = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.flight_rules_)}},
+    // string aircraft = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.aircraft_)}},
+    // string aircraft_faa = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.aircraft_faa_)}},
+    // string aircraft_short = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.aircraft_short_)}},
+    // string origin = 5;
+    {::_pbi::TcParser::FastUS1,
+     {42, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.origin_)}},
+    // string destination = 6;
+    {::_pbi::TcParser::FastUS1,
+     {50, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.destination_)}},
+    // string alternate = 7;
+    {::_pbi::TcParser::FastUS1,
+     {58, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.alternate_)}},
+    // string eobt = 8;
+    {::_pbi::TcParser::FastUS1,
+     {66, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.eobt_)}},
+    // string enroute_duration = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.enroute_duration_)}},
+    // string requested_level = 10;
+    {::_pbi::TcParser::FastUS1,
+     {82, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.requested_level_)}},
+    // string remarks = 11;
+    {::_pbi::TcParser::FastUS1,
+     {90, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.remarks_)}},
+    // string route = 12;
+    {::_pbi::TcParser::FastUS1,
+     {98, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.route_)}},
+    // string assigned_squawk = 13;
+    {::_pbi::TcParser::FastUS1,
+     {106, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.assigned_squawk_)}},
+    // int64 revision = 14;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(VatsimFlightPlan, _impl_.revision_), 63>(),
+     {112, 63, 0, PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.revision_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string flight_rules = 1;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.flight_rules_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string aircraft = 2;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.aircraft_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string aircraft_faa = 3;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.aircraft_faa_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string aircraft_short = 4;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.aircraft_short_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string origin = 5;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.origin_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string destination = 6;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.destination_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string alternate = 7;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.alternate_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string eobt = 8;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.eobt_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string enroute_duration = 9;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.enroute_duration_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string requested_level = 10;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.requested_level_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string remarks = 11;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.remarks_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string route = 12;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.route_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string assigned_squawk = 13;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.assigned_squawk_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int64 revision = 14;
+    {PROTOBUF_FIELD_OFFSET(VatsimFlightPlan, _impl_.revision_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
+  }},
+  // no aux_entries
+  {{
+    "\50\14\10\14\16\6\13\11\4\20\17\7\5\17\0\0"
+    "flightstrips.cluster.v1.VatsimFlightPlan"
+    "flight_rules"
+    "aircraft"
+    "aircraft_faa"
+    "aircraft_short"
+    "origin"
+    "destination"
+    "alternate"
+    "eobt"
+    "enroute_duration"
+    "requested_level"
+    "remarks"
+    "route"
+    "assigned_squawk"
+  }},
+};
+
+::uint8_t* VatsimFlightPlan::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.VatsimFlightPlan)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string flight_rules = 1;
+  if (!this->_internal_flight_rules().empty()) {
+    const std::string& _s = this->_internal_flight_rules();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.flight_rules");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string aircraft = 2;
+  if (!this->_internal_aircraft().empty()) {
+    const std::string& _s = this->_internal_aircraft();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.aircraft");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string aircraft_faa = 3;
+  if (!this->_internal_aircraft_faa().empty()) {
+    const std::string& _s = this->_internal_aircraft_faa();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.aircraft_faa");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // string aircraft_short = 4;
+  if (!this->_internal_aircraft_short().empty()) {
+    const std::string& _s = this->_internal_aircraft_short();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.aircraft_short");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  // string origin = 5;
+  if (!this->_internal_origin().empty()) {
+    const std::string& _s = this->_internal_origin();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.origin");
+    target = stream->WriteStringMaybeAliased(5, _s, target);
+  }
+
+  // string destination = 6;
+  if (!this->_internal_destination().empty()) {
+    const std::string& _s = this->_internal_destination();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.destination");
+    target = stream->WriteStringMaybeAliased(6, _s, target);
+  }
+
+  // string alternate = 7;
+  if (!this->_internal_alternate().empty()) {
+    const std::string& _s = this->_internal_alternate();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.alternate");
+    target = stream->WriteStringMaybeAliased(7, _s, target);
+  }
+
+  // string eobt = 8;
+  if (!this->_internal_eobt().empty()) {
+    const std::string& _s = this->_internal_eobt();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.eobt");
+    target = stream->WriteStringMaybeAliased(8, _s, target);
+  }
+
+  // string enroute_duration = 9;
+  if (!this->_internal_enroute_duration().empty()) {
+    const std::string& _s = this->_internal_enroute_duration();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.enroute_duration");
+    target = stream->WriteStringMaybeAliased(9, _s, target);
+  }
+
+  // string requested_level = 10;
+  if (!this->_internal_requested_level().empty()) {
+    const std::string& _s = this->_internal_requested_level();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.requested_level");
+    target = stream->WriteStringMaybeAliased(10, _s, target);
+  }
+
+  // string remarks = 11;
+  if (!this->_internal_remarks().empty()) {
+    const std::string& _s = this->_internal_remarks();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.remarks");
+    target = stream->WriteStringMaybeAliased(11, _s, target);
+  }
+
+  // string route = 12;
+  if (!this->_internal_route().empty()) {
+    const std::string& _s = this->_internal_route();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.route");
+    target = stream->WriteStringMaybeAliased(12, _s, target);
+  }
+
+  // string assigned_squawk = 13;
+  if (!this->_internal_assigned_squawk().empty()) {
+    const std::string& _s = this->_internal_assigned_squawk();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.VatsimFlightPlan.assigned_squawk");
+    target = stream->WriteStringMaybeAliased(13, _s, target);
+  }
+
+  // int64 revision = 14;
+  if (this->_internal_revision() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<14>(
+            stream, this->_internal_revision(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.VatsimFlightPlan)
+  return target;
+}
+
+::size_t VatsimFlightPlan::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.VatsimFlightPlan)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string flight_rules = 1;
+  if (!this->_internal_flight_rules().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_flight_rules());
+  }
+
+  // string aircraft = 2;
+  if (!this->_internal_aircraft().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_aircraft());
+  }
+
+  // string aircraft_faa = 3;
+  if (!this->_internal_aircraft_faa().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_aircraft_faa());
+  }
+
+  // string aircraft_short = 4;
+  if (!this->_internal_aircraft_short().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_aircraft_short());
+  }
+
+  // string origin = 5;
+  if (!this->_internal_origin().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_origin());
+  }
+
+  // string destination = 6;
+  if (!this->_internal_destination().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_destination());
+  }
+
+  // string alternate = 7;
+  if (!this->_internal_alternate().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_alternate());
+  }
+
+  // string eobt = 8;
+  if (!this->_internal_eobt().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_eobt());
+  }
+
+  // string enroute_duration = 9;
+  if (!this->_internal_enroute_duration().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_enroute_duration());
+  }
+
+  // string requested_level = 10;
+  if (!this->_internal_requested_level().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_requested_level());
+  }
+
+  // string remarks = 11;
+  if (!this->_internal_remarks().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_remarks());
+  }
+
+  // string route = 12;
+  if (!this->_internal_route().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_route());
+  }
+
+  // string assigned_squawk = 13;
+  if (!this->_internal_assigned_squawk().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_assigned_squawk());
+  }
+
+  // int64 revision = 14;
+  if (this->_internal_revision() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+        this->_internal_revision());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void VatsimFlightPlan::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<VatsimFlightPlan*>(&to_msg);
+  auto& from = static_cast<const VatsimFlightPlan&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.VatsimFlightPlan)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_flight_rules().empty()) {
+    _this->_internal_set_flight_rules(from._internal_flight_rules());
+  }
+  if (!from._internal_aircraft().empty()) {
+    _this->_internal_set_aircraft(from._internal_aircraft());
+  }
+  if (!from._internal_aircraft_faa().empty()) {
+    _this->_internal_set_aircraft_faa(from._internal_aircraft_faa());
+  }
+  if (!from._internal_aircraft_short().empty()) {
+    _this->_internal_set_aircraft_short(from._internal_aircraft_short());
+  }
+  if (!from._internal_origin().empty()) {
+    _this->_internal_set_origin(from._internal_origin());
+  }
+  if (!from._internal_destination().empty()) {
+    _this->_internal_set_destination(from._internal_destination());
+  }
+  if (!from._internal_alternate().empty()) {
+    _this->_internal_set_alternate(from._internal_alternate());
+  }
+  if (!from._internal_eobt().empty()) {
+    _this->_internal_set_eobt(from._internal_eobt());
+  }
+  if (!from._internal_enroute_duration().empty()) {
+    _this->_internal_set_enroute_duration(from._internal_enroute_duration());
+  }
+  if (!from._internal_requested_level().empty()) {
+    _this->_internal_set_requested_level(from._internal_requested_level());
+  }
+  if (!from._internal_remarks().empty()) {
+    _this->_internal_set_remarks(from._internal_remarks());
+  }
+  if (!from._internal_route().empty()) {
+    _this->_internal_set_route(from._internal_route());
+  }
+  if (!from._internal_assigned_squawk().empty()) {
+    _this->_internal_set_assigned_squawk(from._internal_assigned_squawk());
+  }
+  if (from._internal_revision() != 0) {
+    _this->_impl_.revision_ = from._impl_.revision_;
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void VatsimFlightPlan::CopyFrom(const VatsimFlightPlan& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.VatsimFlightPlan)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool VatsimFlightPlan::IsInitialized() const {
+  return true;
+}
+
+void VatsimFlightPlan::InternalSwap(VatsimFlightPlan* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.flight_rules_, &other->_impl_.flight_rules_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.aircraft_, &other->_impl_.aircraft_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.aircraft_faa_, &other->_impl_.aircraft_faa_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.aircraft_short_, &other->_impl_.aircraft_short_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.origin_, &other->_impl_.origin_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.destination_, &other->_impl_.destination_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.alternate_, &other->_impl_.alternate_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.eobt_, &other->_impl_.eobt_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.enroute_duration_, &other->_impl_.enroute_duration_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.requested_level_, &other->_impl_.requested_level_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.remarks_, &other->_impl_.remarks_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.route_, &other->_impl_.route_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.assigned_squawk_, &other->_impl_.assigned_squawk_, arena);
+        swap(_impl_.revision_, other->_impl_.revision_);
+}
+
+::google::protobuf::Metadata VatsimFlightPlan::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[151]);
 }
 // ===================================================================
 
@@ -69260,7 +72759,7452 @@ void WeatherPage::InternalSwap(WeatherPage* PROTOBUF_RESTRICT other) {
 ::google::protobuf::Metadata WeatherPage::GetMetadata() const {
   return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
                                    &descriptor_table_storage_2eproto_once,
-                                   file_level_metadata_storage_2eproto[149]);
+                                   file_level_metadata_storage_2eproto[152]);
+}
+// ===================================================================
+
+class OpenMeteoPage::_Internal {
+ public:
+  using HasBits = decltype(std::declval<OpenMeteoPage>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_._has_bits_);
+};
+
+void OpenMeteoPage::clear_observed_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.observed_at_ != nullptr) _impl_.observed_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+void OpenMeteoPage::clear_expires_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.expires_at_ != nullptr) _impl_.expires_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+OpenMeteoPage::OpenMeteoPage(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.OpenMeteoPage)
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        samples_{visibility, arena, from.samples_},
+        source_id_(arena, from.source_id_),
+        source_revision_(arena, from.source_revision_) {}
+
+OpenMeteoPage::OpenMeteoPage(
+    ::google::protobuf::Arena* arena,
+    const OpenMeteoPage& from)
+    : ::google::protobuf::Message(arena) {
+  OpenMeteoPage* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.observed_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.observed_at_)
+                        : nullptr;
+  _impl_.expires_at_ = (cached_has_bits & 0x00000002u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.expires_at_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.OpenMeteoPage)
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        samples_{visibility, arena},
+        source_id_(arena),
+        source_revision_(arena) {}
+
+inline void OpenMeteoPage::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, observed_at_),
+           0,
+           offsetof(Impl_, expires_at_) -
+               offsetof(Impl_, observed_at_) +
+               sizeof(Impl_::expires_at_));
+}
+OpenMeteoPage::~OpenMeteoPage() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.OpenMeteoPage)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void OpenMeteoPage::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.source_id_.Destroy();
+  _impl_.source_revision_.Destroy();
+  delete _impl_.observed_at_;
+  delete _impl_.expires_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+OpenMeteoPage::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_._cached_size_),
+              false,
+          },
+          &OpenMeteoPage::MergeImpl,
+          &OpenMeteoPage::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void OpenMeteoPage::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.OpenMeteoPage)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.samples_.Clear();
+  _impl_.source_id_.ClearToEmpty();
+  _impl_.source_revision_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(_impl_.observed_at_ != nullptr);
+      _impl_.observed_at_->Clear();
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(_impl_.expires_at_ != nullptr);
+      _impl_.expires_at_->Clear();
+    }
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* OpenMeteoPage::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 3, 70, 2> OpenMeteoPage::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_._has_bits_),
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    3,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_OpenMeteoPage_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoPage>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string source_id = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.source_id_)}},
+    // string source_revision = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.source_revision_)}},
+    // .google.protobuf.Timestamp observed_at = 3;
+    {::_pbi::TcParser::FastMtS1,
+     {26, 0, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.observed_at_)}},
+    // .google.protobuf.Timestamp expires_at = 4;
+    {::_pbi::TcParser::FastMtS1,
+     {34, 1, 1, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.expires_at_)}},
+    // repeated .flightstrips.cluster.v1.OpenMeteoSample samples = 5;
+    {::_pbi::TcParser::FastMtR1,
+     {42, 63, 2, PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.samples_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string source_id = 1;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.source_id_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string source_revision = 2;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.source_revision_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .google.protobuf.Timestamp observed_at = 3;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.observed_at_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .google.protobuf.Timestamp expires_at = 4;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.expires_at_), _Internal::kHasBitsOffset + 1, 1,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.OpenMeteoSample samples = 5;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.samples_), -1, 2,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoSample>()},
+  }}, {{
+    "\45\11\17\0\0\0\0\0"
+    "flightstrips.cluster.v1.OpenMeteoPage"
+    "source_id"
+    "source_revision"
+  }},
+};
+
+::uint8_t* OpenMeteoPage::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.OpenMeteoPage)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string source_id = 1;
+  if (!this->_internal_source_id().empty()) {
+    const std::string& _s = this->_internal_source_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.OpenMeteoPage.source_id");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string source_revision = 2;
+  if (!this->_internal_source_revision().empty()) {
+    const std::string& _s = this->_internal_source_revision();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.OpenMeteoPage.source_revision");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp observed_at = 3;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        3, *_impl_.observed_at_, _impl_.observed_at_->GetCachedSize(), target, stream);
+  }
+
+  // .google.protobuf.Timestamp expires_at = 4;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        4, *_impl_.expires_at_, _impl_.expires_at_->GetCachedSize(), target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.OpenMeteoSample samples = 5;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_samples_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_samples().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            5, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.OpenMeteoPage)
+  return target;
+}
+
+::size_t OpenMeteoPage::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.OpenMeteoPage)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.OpenMeteoSample samples = 5;
+  total_size += 1UL * this->_internal_samples_size();
+  for (const auto& msg : this->_internal_samples()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // string source_id = 1;
+  if (!this->_internal_source_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_source_id());
+  }
+
+  // string source_revision = 2;
+  if (!this->_internal_source_revision().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_source_revision());
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    // .google.protobuf.Timestamp observed_at = 3;
+    if (cached_has_bits & 0x00000001u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.observed_at_);
+    }
+
+    // .google.protobuf.Timestamp expires_at = 4;
+    if (cached_has_bits & 0x00000002u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.expires_at_);
+    }
+
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void OpenMeteoPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<OpenMeteoPage*>(&to_msg);
+  auto& from = static_cast<const OpenMeteoPage&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.OpenMeteoPage)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_samples()->MergeFrom(
+      from._internal_samples());
+  if (!from._internal_source_id().empty()) {
+    _this->_internal_set_source_id(from._internal_source_id());
+  }
+  if (!from._internal_source_revision().empty()) {
+    _this->_internal_set_source_revision(from._internal_source_revision());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(from._impl_.observed_at_ != nullptr);
+      if (_this->_impl_.observed_at_ == nullptr) {
+        _this->_impl_.observed_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.observed_at_);
+      } else {
+        _this->_impl_.observed_at_->MergeFrom(*from._impl_.observed_at_);
+      }
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(from._impl_.expires_at_ != nullptr);
+      if (_this->_impl_.expires_at_ == nullptr) {
+        _this->_impl_.expires_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.expires_at_);
+      } else {
+        _this->_impl_.expires_at_->MergeFrom(*from._impl_.expires_at_);
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void OpenMeteoPage::CopyFrom(const OpenMeteoPage& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.OpenMeteoPage)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool OpenMeteoPage::IsInitialized() const {
+  return true;
+}
+
+void OpenMeteoPage::InternalSwap(OpenMeteoPage* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.samples_.InternalSwap(&other->_impl_.samples_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.source_id_, &other->_impl_.source_id_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.source_revision_, &other->_impl_.source_revision_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.expires_at_)
+      + sizeof(OpenMeteoPage::_impl_.expires_at_)
+      - PROTOBUF_FIELD_OFFSET(OpenMeteoPage, _impl_.observed_at_)>(
+          reinterpret_cast<char*>(&_impl_.observed_at_),
+          reinterpret_cast<char*>(&other->_impl_.observed_at_));
+}
+
+::google::protobuf::Metadata OpenMeteoPage::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[153]);
+}
+// ===================================================================
+
+class OpenMeteoSample::_Internal {
+ public:
+  using HasBits = decltype(std::declval<OpenMeteoSample>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_._has_bits_);
+};
+
+void OpenMeteoSample::clear_forecast_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.forecast_at_ != nullptr) _impl_.forecast_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+OpenMeteoSample::OpenMeteoSample(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.OpenMeteoSample)
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoSample::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        levels_{visibility, arena, from.levels_} {}
+
+OpenMeteoSample::OpenMeteoSample(
+    ::google::protobuf::Arena* arena,
+    const OpenMeteoSample& from)
+    : ::google::protobuf::Message(arena) {
+  OpenMeteoSample* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.forecast_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.forecast_at_)
+                        : nullptr;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, latitude_degrees_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, latitude_degrees_),
+           offsetof(Impl_, longitude_degrees_) -
+               offsetof(Impl_, latitude_degrees_) +
+               sizeof(Impl_::longitude_degrees_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.OpenMeteoSample)
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoSample::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        levels_{visibility, arena} {}
+
+inline void OpenMeteoSample::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, forecast_at_),
+           0,
+           offsetof(Impl_, longitude_degrees_) -
+               offsetof(Impl_, forecast_at_) +
+               sizeof(Impl_::longitude_degrees_));
+}
+OpenMeteoSample::~OpenMeteoSample() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.OpenMeteoSample)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void OpenMeteoSample::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  delete _impl_.forecast_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+OpenMeteoSample::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_._cached_size_),
+              false,
+          },
+          &OpenMeteoSample::MergeImpl,
+          &OpenMeteoSample::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void OpenMeteoSample::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.OpenMeteoSample)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.levels_.Clear();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.forecast_at_ != nullptr);
+    _impl_.forecast_at_->Clear();
+  }
+  ::memset(&_impl_.latitude_degrees_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.longitude_degrees_) -
+      reinterpret_cast<char*>(&_impl_.latitude_degrees_)) + sizeof(_impl_.longitude_degrees_));
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* OpenMeteoSample::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 2, 0, 2> OpenMeteoSample::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_._has_bits_),
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    2,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_OpenMeteoSample_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoSample>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // repeated .flightstrips.cluster.v1.OpenMeteoWindLevel levels = 4;
+    {::_pbi::TcParser::FastMtR1,
+     {34, 63, 1, PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.levels_)}},
+    // double latitude_degrees = 1;
+    {::_pbi::TcParser::FastF64S1,
+     {9, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.latitude_degrees_)}},
+    // double longitude_degrees = 2;
+    {::_pbi::TcParser::FastF64S1,
+     {17, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.longitude_degrees_)}},
+    // .google.protobuf.Timestamp forecast_at = 3;
+    {::_pbi::TcParser::FastMtS1,
+     {26, 0, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.forecast_at_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // double latitude_degrees = 1;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.latitude_degrees_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double longitude_degrees = 2;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.longitude_degrees_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // .google.protobuf.Timestamp forecast_at = 3;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.forecast_at_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.OpenMeteoWindLevel levels = 4;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.levels_), -1, 1,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoWindLevel>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* OpenMeteoSample::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.OpenMeteoSample)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // double latitude_degrees = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude_degrees = this->_internal_latitude_degrees();
+  ::uint64_t raw_latitude_degrees;
+  memcpy(&raw_latitude_degrees, &tmp_latitude_degrees, sizeof(tmp_latitude_degrees));
+  if (raw_latitude_degrees != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        1, this->_internal_latitude_degrees(), target);
+  }
+
+  // double longitude_degrees = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude_degrees = this->_internal_longitude_degrees();
+  ::uint64_t raw_longitude_degrees;
+  memcpy(&raw_longitude_degrees, &tmp_longitude_degrees, sizeof(tmp_longitude_degrees));
+  if (raw_longitude_degrees != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        2, this->_internal_longitude_degrees(), target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp forecast_at = 3;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        3, *_impl_.forecast_at_, _impl_.forecast_at_->GetCachedSize(), target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.OpenMeteoWindLevel levels = 4;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_levels_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_levels().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            4, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.OpenMeteoSample)
+  return target;
+}
+
+::size_t OpenMeteoSample::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.OpenMeteoSample)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.OpenMeteoWindLevel levels = 4;
+  total_size += 1UL * this->_internal_levels_size();
+  for (const auto& msg : this->_internal_levels()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // .google.protobuf.Timestamp forecast_at = 3;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.forecast_at_);
+  }
+
+  // double latitude_degrees = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude_degrees = this->_internal_latitude_degrees();
+  ::uint64_t raw_latitude_degrees;
+  memcpy(&raw_latitude_degrees, &tmp_latitude_degrees, sizeof(tmp_latitude_degrees));
+  if (raw_latitude_degrees != 0) {
+    total_size += 9;
+  }
+
+  // double longitude_degrees = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude_degrees = this->_internal_longitude_degrees();
+  ::uint64_t raw_longitude_degrees;
+  memcpy(&raw_longitude_degrees, &tmp_longitude_degrees, sizeof(tmp_longitude_degrees));
+  if (raw_longitude_degrees != 0) {
+    total_size += 9;
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void OpenMeteoSample::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<OpenMeteoSample*>(&to_msg);
+  auto& from = static_cast<const OpenMeteoSample&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.OpenMeteoSample)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_levels()->MergeFrom(
+      from._internal_levels());
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.forecast_at_ != nullptr);
+    if (_this->_impl_.forecast_at_ == nullptr) {
+      _this->_impl_.forecast_at_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.forecast_at_);
+    } else {
+      _this->_impl_.forecast_at_->MergeFrom(*from._impl_.forecast_at_);
+    }
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude_degrees = from._internal_latitude_degrees();
+  ::uint64_t raw_latitude_degrees;
+  memcpy(&raw_latitude_degrees, &tmp_latitude_degrees, sizeof(tmp_latitude_degrees));
+  if (raw_latitude_degrees != 0) {
+    _this->_impl_.latitude_degrees_ = from._impl_.latitude_degrees_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude_degrees = from._internal_longitude_degrees();
+  ::uint64_t raw_longitude_degrees;
+  memcpy(&raw_longitude_degrees, &tmp_longitude_degrees, sizeof(tmp_longitude_degrees));
+  if (raw_longitude_degrees != 0) {
+    _this->_impl_.longitude_degrees_ = from._impl_.longitude_degrees_;
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void OpenMeteoSample::CopyFrom(const OpenMeteoSample& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.OpenMeteoSample)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool OpenMeteoSample::IsInitialized() const {
+  return true;
+}
+
+void OpenMeteoSample::InternalSwap(OpenMeteoSample* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.levels_.InternalSwap(&other->_impl_.levels_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.longitude_degrees_)
+      + sizeof(OpenMeteoSample::_impl_.longitude_degrees_)
+      - PROTOBUF_FIELD_OFFSET(OpenMeteoSample, _impl_.forecast_at_)>(
+          reinterpret_cast<char*>(&_impl_.forecast_at_),
+          reinterpret_cast<char*>(&other->_impl_.forecast_at_));
+}
+
+::google::protobuf::Metadata OpenMeteoSample::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[154]);
+}
+// ===================================================================
+
+class OpenMeteoWindLevel::_Internal {
+ public:
+};
+
+OpenMeteoWindLevel::OpenMeteoWindLevel(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.OpenMeteoWindLevel)
+}
+OpenMeteoWindLevel::OpenMeteoWindLevel(
+    ::google::protobuf::Arena* arena, const OpenMeteoWindLevel& from)
+    : OpenMeteoWindLevel(arena) {
+  MergeFrom(from);
+}
+inline PROTOBUF_NDEBUG_INLINE OpenMeteoWindLevel::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0} {}
+
+inline void OpenMeteoWindLevel::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, altitude_feet_),
+           0,
+           offsetof(Impl_, north_knots_) -
+               offsetof(Impl_, altitude_feet_) +
+               sizeof(Impl_::north_knots_));
+}
+OpenMeteoWindLevel::~OpenMeteoWindLevel() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void OpenMeteoWindLevel::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+OpenMeteoWindLevel::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_._cached_size_),
+              false,
+          },
+          &OpenMeteoWindLevel::MergeImpl,
+          &OpenMeteoWindLevel::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void OpenMeteoWindLevel::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  ::memset(&_impl_.altitude_feet_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.north_knots_) -
+      reinterpret_cast<char*>(&_impl_.altitude_feet_)) + sizeof(_impl_.north_knots_));
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* OpenMeteoWindLevel::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 3, 0, 0, 2> OpenMeteoWindLevel::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    3, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_OpenMeteoWindLevel_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::OpenMeteoWindLevel>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // double altitude_feet = 1;
+    {::_pbi::TcParser::FastF64S1,
+     {9, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.altitude_feet_)}},
+    // double east_knots = 2;
+    {::_pbi::TcParser::FastF64S1,
+     {17, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.east_knots_)}},
+    // double north_knots = 3;
+    {::_pbi::TcParser::FastF64S1,
+     {25, 63, 0, PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.north_knots_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // double altitude_feet = 1;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.altitude_feet_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double east_knots = 2;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.east_knots_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double north_knots = 3;
+    {PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.north_knots_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+  }},
+  // no aux_entries
+  {{
+  }},
+};
+
+::uint8_t* OpenMeteoWindLevel::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // double altitude_feet = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_altitude_feet = this->_internal_altitude_feet();
+  ::uint64_t raw_altitude_feet;
+  memcpy(&raw_altitude_feet, &tmp_altitude_feet, sizeof(tmp_altitude_feet));
+  if (raw_altitude_feet != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        1, this->_internal_altitude_feet(), target);
+  }
+
+  // double east_knots = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_east_knots = this->_internal_east_knots();
+  ::uint64_t raw_east_knots;
+  memcpy(&raw_east_knots, &tmp_east_knots, sizeof(tmp_east_knots));
+  if (raw_east_knots != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        2, this->_internal_east_knots(), target);
+  }
+
+  // double north_knots = 3;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_north_knots = this->_internal_north_knots();
+  ::uint64_t raw_north_knots;
+  memcpy(&raw_north_knots, &tmp_north_knots, sizeof(tmp_north_knots));
+  if (raw_north_knots != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        3, this->_internal_north_knots(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  return target;
+}
+
+::size_t OpenMeteoWindLevel::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // double altitude_feet = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_altitude_feet = this->_internal_altitude_feet();
+  ::uint64_t raw_altitude_feet;
+  memcpy(&raw_altitude_feet, &tmp_altitude_feet, sizeof(tmp_altitude_feet));
+  if (raw_altitude_feet != 0) {
+    total_size += 9;
+  }
+
+  // double east_knots = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_east_knots = this->_internal_east_knots();
+  ::uint64_t raw_east_knots;
+  memcpy(&raw_east_knots, &tmp_east_knots, sizeof(tmp_east_knots));
+  if (raw_east_knots != 0) {
+    total_size += 9;
+  }
+
+  // double north_knots = 3;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_north_knots = this->_internal_north_knots();
+  ::uint64_t raw_north_knots;
+  memcpy(&raw_north_knots, &tmp_north_knots, sizeof(tmp_north_knots));
+  if (raw_north_knots != 0) {
+    total_size += 9;
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void OpenMeteoWindLevel::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<OpenMeteoWindLevel*>(&to_msg);
+  auto& from = static_cast<const OpenMeteoWindLevel&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_altitude_feet = from._internal_altitude_feet();
+  ::uint64_t raw_altitude_feet;
+  memcpy(&raw_altitude_feet, &tmp_altitude_feet, sizeof(tmp_altitude_feet));
+  if (raw_altitude_feet != 0) {
+    _this->_impl_.altitude_feet_ = from._impl_.altitude_feet_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_east_knots = from._internal_east_knots();
+  ::uint64_t raw_east_knots;
+  memcpy(&raw_east_knots, &tmp_east_knots, sizeof(tmp_east_knots));
+  if (raw_east_knots != 0) {
+    _this->_impl_.east_knots_ = from._impl_.east_knots_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_north_knots = from._internal_north_knots();
+  ::uint64_t raw_north_knots;
+  memcpy(&raw_north_knots, &tmp_north_knots, sizeof(tmp_north_knots));
+  if (raw_north_knots != 0) {
+    _this->_impl_.north_knots_ = from._impl_.north_knots_;
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void OpenMeteoWindLevel::CopyFrom(const OpenMeteoWindLevel& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.OpenMeteoWindLevel)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool OpenMeteoWindLevel::IsInitialized() const {
+  return true;
+}
+
+void OpenMeteoWindLevel::InternalSwap(OpenMeteoWindLevel* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.north_knots_)
+      + sizeof(OpenMeteoWindLevel::_impl_.north_knots_)
+      - PROTOBUF_FIELD_OFFSET(OpenMeteoWindLevel, _impl_.altitude_feet_)>(
+          reinterpret_cast<char*>(&_impl_.altitude_feet_),
+          reinterpret_cast<char*>(&other->_impl_.altitude_feet_));
+}
+
+::google::protobuf::Metadata OpenMeteoWindLevel::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[155]);
+}
+// ===================================================================
+
+class EcfmpPage::_Internal {
+ public:
+  using HasBits = decltype(std::declval<EcfmpPage>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(EcfmpPage, _impl_._has_bits_);
+};
+
+void EcfmpPage::clear_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.fetched_at_ != nullptr) _impl_.fetched_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+EcfmpPage::EcfmpPage(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.EcfmpPage)
+}
+inline PROTOBUF_NDEBUG_INLINE EcfmpPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        measures_{visibility, arena, from.measures_} {}
+
+EcfmpPage::EcfmpPage(
+    ::google::protobuf::Arena* arena,
+    const EcfmpPage& from)
+    : ::google::protobuf::Message(arena) {
+  EcfmpPage* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.fetched_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.fetched_at_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.EcfmpPage)
+}
+inline PROTOBUF_NDEBUG_INLINE EcfmpPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        measures_{visibility, arena} {}
+
+inline void EcfmpPage::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.fetched_at_ = {};
+}
+EcfmpPage::~EcfmpPage() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.EcfmpPage)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void EcfmpPage::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  delete _impl_.fetched_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+EcfmpPage::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(EcfmpPage, _impl_._cached_size_),
+              false,
+          },
+          &EcfmpPage::MergeImpl,
+          &EcfmpPage::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void EcfmpPage::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.EcfmpPage)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.measures_.Clear();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.fetched_at_ != nullptr);
+    _impl_.fetched_at_->Clear();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* EcfmpPage::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 2, 0, 2> EcfmpPage::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(EcfmpPage, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    2,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_EcfmpPage_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::EcfmpPage>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // .google.protobuf.Timestamp fetched_at = 2;
+    {::_pbi::TcParser::FastMtS1,
+     {18, 0, 1, PROTOBUF_FIELD_OFFSET(EcfmpPage, _impl_.fetched_at_)}},
+    // repeated .flightstrips.cluster.v1.EcfmpMeasure measures = 1;
+    {::_pbi::TcParser::FastMtR1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpPage, _impl_.measures_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // repeated .flightstrips.cluster.v1.EcfmpMeasure measures = 1;
+    {PROTOBUF_FIELD_OFFSET(EcfmpPage, _impl_.measures_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .google.protobuf.Timestamp fetched_at = 2;
+    {PROTOBUF_FIELD_OFFSET(EcfmpPage, _impl_.fetched_at_), _Internal::kHasBitsOffset + 0, 1,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::EcfmpMeasure>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* EcfmpPage::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.EcfmpPage)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.EcfmpMeasure measures = 1;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_measures_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_measures().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            1, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp fetched_at = 2;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        2, *_impl_.fetched_at_, _impl_.fetched_at_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.EcfmpPage)
+  return target;
+}
+
+::size_t EcfmpPage::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.EcfmpPage)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.EcfmpMeasure measures = 1;
+  total_size += 1UL * this->_internal_measures_size();
+  for (const auto& msg : this->_internal_measures()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // .google.protobuf.Timestamp fetched_at = 2;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.fetched_at_);
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void EcfmpPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<EcfmpPage*>(&to_msg);
+  auto& from = static_cast<const EcfmpPage&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.EcfmpPage)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_measures()->MergeFrom(
+      from._internal_measures());
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.fetched_at_ != nullptr);
+    if (_this->_impl_.fetched_at_ == nullptr) {
+      _this->_impl_.fetched_at_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.fetched_at_);
+    } else {
+      _this->_impl_.fetched_at_->MergeFrom(*from._impl_.fetched_at_);
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void EcfmpPage::CopyFrom(const EcfmpPage& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.EcfmpPage)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool EcfmpPage::IsInitialized() const {
+  return true;
+}
+
+void EcfmpPage::InternalSwap(EcfmpPage* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.measures_.InternalSwap(&other->_impl_.measures_);
+  swap(_impl_.fetched_at_, other->_impl_.fetched_at_);
+}
+
+::google::protobuf::Metadata EcfmpPage::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[156]);
+}
+// ===================================================================
+
+class EcfmpMeasure::_Internal {
+ public:
+  using HasBits = decltype(std::declval<EcfmpMeasure>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_._has_bits_);
+};
+
+void EcfmpMeasure::clear_start_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.start_time_ != nullptr) _impl_.start_time_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+void EcfmpMeasure::clear_end_time() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.end_time_ != nullptr) _impl_.end_time_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+void EcfmpMeasure::clear_withdrawn_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.withdrawn_at_ != nullptr) _impl_.withdrawn_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000004u;
+}
+EcfmpMeasure::EcfmpMeasure(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.EcfmpMeasure)
+}
+inline PROTOBUF_NDEBUG_INLINE EcfmpMeasure::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        notified_flight_information_regions_{visibility, arena, from.notified_flight_information_regions_},
+        _notified_flight_information_regions_cached_byte_size_{0},
+        routes_{visibility, arena, from.routes_},
+        filters_{visibility, arena, from.filters_},
+        ident_(arena, from.ident_),
+        reason_(arena, from.reason_),
+        kind_(arena, from.kind_) {}
+
+EcfmpMeasure::EcfmpMeasure(
+    ::google::protobuf::Arena* arena,
+    const EcfmpMeasure& from)
+    : ::google::protobuf::Message(arena) {
+  EcfmpMeasure* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.start_time_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.start_time_)
+                        : nullptr;
+  _impl_.end_time_ = (cached_has_bits & 0x00000002u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.end_time_)
+                        : nullptr;
+  _impl_.withdrawn_at_ = (cached_has_bits & 0x00000004u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.withdrawn_at_)
+                        : nullptr;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, id_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, id_),
+           offsetof(Impl_, decimal_value_) -
+               offsetof(Impl_, id_) +
+               sizeof(Impl_::decimal_value_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.EcfmpMeasure)
+}
+inline PROTOBUF_NDEBUG_INLINE EcfmpMeasure::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        notified_flight_information_regions_{visibility, arena},
+        _notified_flight_information_regions_cached_byte_size_{0},
+        routes_{visibility, arena},
+        filters_{visibility, arena},
+        ident_(arena),
+        reason_(arena),
+        kind_(arena) {}
+
+inline void EcfmpMeasure::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, start_time_),
+           0,
+           offsetof(Impl_, decimal_value_) -
+               offsetof(Impl_, start_time_) +
+               sizeof(Impl_::decimal_value_));
+}
+EcfmpMeasure::~EcfmpMeasure() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.EcfmpMeasure)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void EcfmpMeasure::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.ident_.Destroy();
+  _impl_.reason_.Destroy();
+  _impl_.kind_.Destroy();
+  delete _impl_.start_time_;
+  delete _impl_.end_time_;
+  delete _impl_.withdrawn_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+EcfmpMeasure::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_._cached_size_),
+              false,
+          },
+          &EcfmpMeasure::MergeImpl,
+          &EcfmpMeasure::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void EcfmpMeasure::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.EcfmpMeasure)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.notified_flight_information_regions_.Clear();
+  _impl_.routes_.Clear();
+  _impl_.filters_.Clear();
+  _impl_.ident_.ClearToEmpty();
+  _impl_.reason_.ClearToEmpty();
+  _impl_.kind_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000007u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(_impl_.start_time_ != nullptr);
+      _impl_.start_time_->Clear();
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(_impl_.end_time_ != nullptr);
+      _impl_.end_time_->Clear();
+    }
+    if (cached_has_bits & 0x00000004u) {
+      ABSL_DCHECK(_impl_.withdrawn_at_ != nullptr);
+      _impl_.withdrawn_at_->Clear();
+    }
+  }
+  _impl_.id_ = ::int64_t{0};
+  if (cached_has_bits & 0x00000038u) {
+    ::memset(&_impl_.event_id_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.decimal_value_) -
+        reinterpret_cast<char*>(&_impl_.event_id_)) + sizeof(_impl_.decimal_value_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* EcfmpMeasure::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 13, 4, 74, 2> EcfmpMeasure::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_._has_bits_),
+    0, // no _extensions_
+    13, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294959104,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    13,  // num_field_entries
+    4,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_EcfmpMeasure_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::EcfmpMeasure>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // int64 id = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(EcfmpMeasure, _impl_.id_), 63>(),
+     {8, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.id_)}},
+    // string ident = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.ident_)}},
+    // optional int64 event_id = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(EcfmpMeasure, _impl_.event_id_), 3>(),
+     {24, 3, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.event_id_)}},
+    // string reason = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.reason_)}},
+    // .google.protobuf.Timestamp start_time = 5;
+    {::_pbi::TcParser::FastMtS1,
+     {42, 0, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.start_time_)}},
+    // .google.protobuf.Timestamp end_time = 6;
+    {::_pbi::TcParser::FastMtS1,
+     {50, 1, 1, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.end_time_)}},
+    // optional .google.protobuf.Timestamp withdrawn_at = 7;
+    {::_pbi::TcParser::FastMtS1,
+     {58, 2, 2, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.withdrawn_at_)}},
+    // repeated int64 notified_flight_information_regions = 8;
+    {::_pbi::TcParser::FastV64P1,
+     {66, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.notified_flight_information_regions_)}},
+    // string kind = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.kind_)}},
+    // optional int64 numeric_value = 10;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(EcfmpMeasure, _impl_.numeric_value_), 4>(),
+     {80, 4, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.numeric_value_)}},
+    // repeated string routes = 11;
+    {::_pbi::TcParser::FastUR1,
+     {90, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.routes_)}},
+    // repeated .flightstrips.cluster.v1.EcfmpFilter filters = 12;
+    {::_pbi::TcParser::FastMtR1,
+     {98, 63, 3, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.filters_)}},
+    // optional double decimal_value = 13;
+    {::_pbi::TcParser::FastF64S1,
+     {105, 5, 0, PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.decimal_value_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // int64 id = 1;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.id_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
+    // string ident = 2;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.ident_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // optional int64 event_id = 3;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.event_id_), _Internal::kHasBitsOffset + 3, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+    // string reason = 4;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.reason_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .google.protobuf.Timestamp start_time = 5;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.start_time_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .google.protobuf.Timestamp end_time = 6;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.end_time_), _Internal::kHasBitsOffset + 1, 1,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // optional .google.protobuf.Timestamp withdrawn_at = 7;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.withdrawn_at_), _Internal::kHasBitsOffset + 2, 2,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated int64 notified_flight_information_regions = 8;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.notified_flight_information_regions_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kPackedInt64)},
+    // string kind = 9;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.kind_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // optional int64 numeric_value = 10;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.numeric_value_), _Internal::kHasBitsOffset + 4, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+    // repeated string routes = 11;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.routes_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated .flightstrips.cluster.v1.EcfmpFilter filters = 12;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.filters_), -1, 3,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // optional double decimal_value = 13;
+    {PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.decimal_value_), _Internal::kHasBitsOffset + 5, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kDouble)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::EcfmpFilter>()},
+  }}, {{
+    "\44\0\5\0\6\0\0\0\0\4\0\6\0\0\0\0"
+    "flightstrips.cluster.v1.EcfmpMeasure"
+    "ident"
+    "reason"
+    "kind"
+    "routes"
+  }},
+};
+
+::uint8_t* EcfmpMeasure::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.EcfmpMeasure)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // int64 id = 1;
+  if (this->_internal_id() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<1>(
+            stream, this->_internal_id(), target);
+  }
+
+  // string ident = 2;
+  if (!this->_internal_ident().empty()) {
+    const std::string& _s = this->_internal_ident();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.EcfmpMeasure.ident");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // optional int64 event_id = 3;
+  if (cached_has_bits & 0x00000008u) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<3>(
+            stream, this->_internal_event_id(), target);
+  }
+
+  // string reason = 4;
+  if (!this->_internal_reason().empty()) {
+    const std::string& _s = this->_internal_reason();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.EcfmpMeasure.reason");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  // .google.protobuf.Timestamp start_time = 5;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        5, *_impl_.start_time_, _impl_.start_time_->GetCachedSize(), target, stream);
+  }
+
+  // .google.protobuf.Timestamp end_time = 6;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        6, *_impl_.end_time_, _impl_.end_time_->GetCachedSize(), target, stream);
+  }
+
+  // optional .google.protobuf.Timestamp withdrawn_at = 7;
+  if (cached_has_bits & 0x00000004u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        7, *_impl_.withdrawn_at_, _impl_.withdrawn_at_->GetCachedSize(), target, stream);
+  }
+
+  // repeated int64 notified_flight_information_regions = 8;
+  {
+    int byte_size = _impl_._notified_flight_information_regions_cached_byte_size_.Get();
+    if (byte_size > 0) {
+      target = stream->WriteInt64Packed(
+          8, _internal_notified_flight_information_regions(), byte_size, target);
+    }
+  }
+
+  // string kind = 9;
+  if (!this->_internal_kind().empty()) {
+    const std::string& _s = this->_internal_kind();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.EcfmpMeasure.kind");
+    target = stream->WriteStringMaybeAliased(9, _s, target);
+  }
+
+  // optional int64 numeric_value = 10;
+  if (cached_has_bits & 0x00000010u) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<10>(
+            stream, this->_internal_numeric_value(), target);
+  }
+
+  // repeated string routes = 11;
+  for (int i = 0, n = this->_internal_routes_size(); i < n; ++i) {
+    const auto& s = this->_internal_routes().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.EcfmpMeasure.routes");
+    target = stream->WriteString(11, s, target);
+  }
+
+  // repeated .flightstrips.cluster.v1.EcfmpFilter filters = 12;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_filters_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_filters().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            12, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  // optional double decimal_value = 13;
+  if (cached_has_bits & 0x00000020u) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        13, this->_internal_decimal_value(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.EcfmpMeasure)
+  return target;
+}
+
+::size_t EcfmpMeasure::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.EcfmpMeasure)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated int64 notified_flight_information_regions = 8;
+  {
+    std::size_t data_size = ::_pbi::WireFormatLite::Int64Size(
+        this->_internal_notified_flight_information_regions())
+    ;
+    _impl_._notified_flight_information_regions_cached_byte_size_.Set(::_pbi::ToCachedSize(data_size));
+    std::size_t tag_size = data_size == 0
+        ? 0
+        : 1 + ::_pbi::WireFormatLite::Int32Size(
+                            static_cast<int32_t>(data_size))
+    ;
+    total_size += tag_size + data_size;
+  }
+  // repeated string routes = 11;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_routes().size());
+  for (int i = 0, n = _internal_routes().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_routes().Get(i));
+  }
+  // repeated .flightstrips.cluster.v1.EcfmpFilter filters = 12;
+  total_size += 1UL * this->_internal_filters_size();
+  for (const auto& msg : this->_internal_filters()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // string ident = 2;
+  if (!this->_internal_ident().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_ident());
+  }
+
+  // string reason = 4;
+  if (!this->_internal_reason().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_reason());
+  }
+
+  // string kind = 9;
+  if (!this->_internal_kind().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_kind());
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000007u) {
+    // .google.protobuf.Timestamp start_time = 5;
+    if (cached_has_bits & 0x00000001u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.start_time_);
+    }
+
+    // .google.protobuf.Timestamp end_time = 6;
+    if (cached_has_bits & 0x00000002u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.end_time_);
+    }
+
+    // optional .google.protobuf.Timestamp withdrawn_at = 7;
+    if (cached_has_bits & 0x00000004u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.withdrawn_at_);
+    }
+
+  }
+  // int64 id = 1;
+  if (this->_internal_id() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+        this->_internal_id());
+  }
+
+  if (cached_has_bits & 0x00000038u) {
+    // optional int64 event_id = 3;
+    if (cached_has_bits & 0x00000008u) {
+      total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+          this->_internal_event_id());
+    }
+
+    // optional int64 numeric_value = 10;
+    if (cached_has_bits & 0x00000010u) {
+      total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+          this->_internal_numeric_value());
+    }
+
+    // optional double decimal_value = 13;
+    if (cached_has_bits & 0x00000020u) {
+      total_size += 9;
+    }
+
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void EcfmpMeasure::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<EcfmpMeasure*>(&to_msg);
+  auto& from = static_cast<const EcfmpMeasure&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.EcfmpMeasure)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_notified_flight_information_regions()->MergeFrom(from._internal_notified_flight_information_regions());
+  _this->_internal_mutable_routes()->MergeFrom(from._internal_routes());
+  _this->_internal_mutable_filters()->MergeFrom(
+      from._internal_filters());
+  if (!from._internal_ident().empty()) {
+    _this->_internal_set_ident(from._internal_ident());
+  }
+  if (!from._internal_reason().empty()) {
+    _this->_internal_set_reason(from._internal_reason());
+  }
+  if (!from._internal_kind().empty()) {
+    _this->_internal_set_kind(from._internal_kind());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000007u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(from._impl_.start_time_ != nullptr);
+      if (_this->_impl_.start_time_ == nullptr) {
+        _this->_impl_.start_time_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.start_time_);
+      } else {
+        _this->_impl_.start_time_->MergeFrom(*from._impl_.start_time_);
+      }
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(from._impl_.end_time_ != nullptr);
+      if (_this->_impl_.end_time_ == nullptr) {
+        _this->_impl_.end_time_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.end_time_);
+      } else {
+        _this->_impl_.end_time_->MergeFrom(*from._impl_.end_time_);
+      }
+    }
+    if (cached_has_bits & 0x00000004u) {
+      ABSL_DCHECK(from._impl_.withdrawn_at_ != nullptr);
+      if (_this->_impl_.withdrawn_at_ == nullptr) {
+        _this->_impl_.withdrawn_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.withdrawn_at_);
+      } else {
+        _this->_impl_.withdrawn_at_->MergeFrom(*from._impl_.withdrawn_at_);
+      }
+    }
+  }
+  if (from._internal_id() != 0) {
+    _this->_impl_.id_ = from._impl_.id_;
+  }
+  if (cached_has_bits & 0x00000038u) {
+    if (cached_has_bits & 0x00000008u) {
+      _this->_impl_.event_id_ = from._impl_.event_id_;
+    }
+    if (cached_has_bits & 0x00000010u) {
+      _this->_impl_.numeric_value_ = from._impl_.numeric_value_;
+    }
+    if (cached_has_bits & 0x00000020u) {
+      _this->_impl_.decimal_value_ = from._impl_.decimal_value_;
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void EcfmpMeasure::CopyFrom(const EcfmpMeasure& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.EcfmpMeasure)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool EcfmpMeasure::IsInitialized() const {
+  return true;
+}
+
+void EcfmpMeasure::InternalSwap(EcfmpMeasure* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.notified_flight_information_regions_.InternalSwap(&other->_impl_.notified_flight_information_regions_);
+  _impl_.routes_.InternalSwap(&other->_impl_.routes_);
+  _impl_.filters_.InternalSwap(&other->_impl_.filters_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.ident_, &other->_impl_.ident_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.reason_, &other->_impl_.reason_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.kind_, &other->_impl_.kind_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.decimal_value_)
+      + sizeof(EcfmpMeasure::_impl_.decimal_value_)
+      - PROTOBUF_FIELD_OFFSET(EcfmpMeasure, _impl_.start_time_)>(
+          reinterpret_cast<char*>(&_impl_.start_time_),
+          reinterpret_cast<char*>(&other->_impl_.start_time_));
+}
+
+::google::protobuf::Metadata EcfmpMeasure::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[157]);
+}
+// ===================================================================
+
+class EcfmpFilter::_Internal {
+ public:
+  using HasBits = decltype(std::declval<EcfmpFilter>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_._has_bits_);
+};
+
+EcfmpFilter::EcfmpFilter(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.EcfmpFilter)
+}
+inline PROTOBUF_NDEBUG_INLINE EcfmpFilter::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        names_{visibility, arena, from.names_},
+        levels_{visibility, arena, from.levels_},
+        _levels_cached_byte_size_{0},
+        kind_(arena, from.kind_) {}
+
+EcfmpFilter::EcfmpFilter(
+    ::google::protobuf::Arena* arena,
+    const EcfmpFilter& from)
+    : ::google::protobuf::Message(arena) {
+  EcfmpFilter* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, event_id_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, event_id_),
+           offsetof(Impl_, level_) -
+               offsetof(Impl_, event_id_) +
+               sizeof(Impl_::level_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.EcfmpFilter)
+}
+inline PROTOBUF_NDEBUG_INLINE EcfmpFilter::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        names_{visibility, arena},
+        levels_{visibility, arena},
+        _levels_cached_byte_size_{0},
+        kind_(arena) {}
+
+inline void EcfmpFilter::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, event_id_),
+           0,
+           offsetof(Impl_, level_) -
+               offsetof(Impl_, event_id_) +
+               sizeof(Impl_::level_));
+}
+EcfmpFilter::~EcfmpFilter() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.EcfmpFilter)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void EcfmpFilter::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.kind_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+EcfmpFilter::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_._cached_size_),
+              false,
+          },
+          &EcfmpFilter::MergeImpl,
+          &EcfmpFilter::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void EcfmpFilter::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.EcfmpFilter)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.names_.Clear();
+  _impl_.levels_.Clear();
+  _impl_.kind_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    ::memset(&_impl_.event_id_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.level_) -
+        reinterpret_cast<char*>(&_impl_.event_id_)) + sizeof(_impl_.level_));
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* EcfmpFilter::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 0, 53, 2> EcfmpFilter::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_._has_bits_),
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_EcfmpFilter_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::EcfmpFilter>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string kind = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.kind_)}},
+    // repeated string names = 2;
+    {::_pbi::TcParser::FastUR1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.names_)}},
+    // optional int32 level = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(EcfmpFilter, _impl_.level_), 1>(),
+     {24, 1, 0, PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.level_)}},
+    // repeated int32 levels = 4;
+    {::_pbi::TcParser::FastV32P1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.levels_)}},
+    // optional int64 event_id = 5;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(EcfmpFilter, _impl_.event_id_), 0>(),
+     {40, 0, 0, PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.event_id_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string kind = 1;
+    {PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.kind_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // repeated string names = 2;
+    {PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.names_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // optional int32 level = 3;
+    {PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.level_), _Internal::kHasBitsOffset + 1, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // repeated int32 levels = 4;
+    {PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.levels_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kPackedInt32)},
+    // optional int64 event_id = 5;
+    {PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.event_id_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kInt64)},
+  }},
+  // no aux_entries
+  {{
+    "\43\4\5\0\0\0\0\0"
+    "flightstrips.cluster.v1.EcfmpFilter"
+    "kind"
+    "names"
+  }},
+};
+
+::uint8_t* EcfmpFilter::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.EcfmpFilter)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string kind = 1;
+  if (!this->_internal_kind().empty()) {
+    const std::string& _s = this->_internal_kind();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.EcfmpFilter.kind");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // repeated string names = 2;
+  for (int i = 0, n = this->_internal_names_size(); i < n; ++i) {
+    const auto& s = this->_internal_names().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.EcfmpFilter.names");
+    target = stream->WriteString(2, s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // optional int32 level = 3;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<3>(
+            stream, this->_internal_level(), target);
+  }
+
+  // repeated int32 levels = 4;
+  {
+    int byte_size = _impl_._levels_cached_byte_size_.Get();
+    if (byte_size > 0) {
+      target = stream->WriteInt32Packed(
+          4, _internal_levels(), byte_size, target);
+    }
+  }
+
+  // optional int64 event_id = 5;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt64ToArrayWithField<5>(
+            stream, this->_internal_event_id(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.EcfmpFilter)
+  return target;
+}
+
+::size_t EcfmpFilter::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.EcfmpFilter)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated string names = 2;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_names().size());
+  for (int i = 0, n = _internal_names().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_names().Get(i));
+  }
+  // repeated int32 levels = 4;
+  {
+    std::size_t data_size = ::_pbi::WireFormatLite::Int32Size(
+        this->_internal_levels())
+    ;
+    _impl_._levels_cached_byte_size_.Set(::_pbi::ToCachedSize(data_size));
+    std::size_t tag_size = data_size == 0
+        ? 0
+        : 1 + ::_pbi::WireFormatLite::Int32Size(
+                            static_cast<int32_t>(data_size))
+    ;
+    total_size += tag_size + data_size;
+  }
+  // string kind = 1;
+  if (!this->_internal_kind().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_kind());
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    // optional int64 event_id = 5;
+    if (cached_has_bits & 0x00000001u) {
+      total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
+          this->_internal_event_id());
+    }
+
+    // optional int32 level = 3;
+    if (cached_has_bits & 0x00000002u) {
+      total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+          this->_internal_level());
+    }
+
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void EcfmpFilter::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<EcfmpFilter*>(&to_msg);
+  auto& from = static_cast<const EcfmpFilter&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.EcfmpFilter)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_names()->MergeFrom(from._internal_names());
+  _this->_internal_mutable_levels()->MergeFrom(from._internal_levels());
+  if (!from._internal_kind().empty()) {
+    _this->_internal_set_kind(from._internal_kind());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      _this->_impl_.event_id_ = from._impl_.event_id_;
+    }
+    if (cached_has_bits & 0x00000002u) {
+      _this->_impl_.level_ = from._impl_.level_;
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void EcfmpFilter::CopyFrom(const EcfmpFilter& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.EcfmpFilter)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool EcfmpFilter::IsInitialized() const {
+  return true;
+}
+
+void EcfmpFilter::InternalSwap(EcfmpFilter* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.names_.InternalSwap(&other->_impl_.names_);
+  _impl_.levels_.InternalSwap(&other->_impl_.levels_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.kind_, &other->_impl_.kind_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.level_)
+      + sizeof(EcfmpFilter::_impl_.level_)
+      - PROTOBUF_FIELD_OFFSET(EcfmpFilter, _impl_.event_id_)>(
+          reinterpret_cast<char*>(&_impl_.event_id_),
+          reinterpret_cast<char*>(&other->_impl_.event_id_));
+}
+
+::google::protobuf::Metadata EcfmpFilter::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[158]);
+}
+// ===================================================================
+
+class AtisFeedPage::_Internal {
+ public:
+  using HasBits = decltype(std::declval<AtisFeedPage>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(AtisFeedPage, _impl_._has_bits_);
+};
+
+void AtisFeedPage::clear_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.fetched_at_ != nullptr) _impl_.fetched_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+AtisFeedPage::AtisFeedPage(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.AtisFeedPage)
+}
+inline PROTOBUF_NDEBUG_INLINE AtisFeedPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        airports_{visibility, arena, from.airports_} {}
+
+AtisFeedPage::AtisFeedPage(
+    ::google::protobuf::Arena* arena,
+    const AtisFeedPage& from)
+    : ::google::protobuf::Message(arena) {
+  AtisFeedPage* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.fetched_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.fetched_at_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.AtisFeedPage)
+}
+inline PROTOBUF_NDEBUG_INLINE AtisFeedPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        airports_{visibility, arena} {}
+
+inline void AtisFeedPage::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.fetched_at_ = {};
+}
+AtisFeedPage::~AtisFeedPage() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.AtisFeedPage)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void AtisFeedPage::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  delete _impl_.fetched_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+AtisFeedPage::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(AtisFeedPage, _impl_._cached_size_),
+              false,
+          },
+          &AtisFeedPage::MergeImpl,
+          &AtisFeedPage::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void AtisFeedPage::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.AtisFeedPage)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.airports_.Clear();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.fetched_at_ != nullptr);
+    _impl_.fetched_at_->Clear();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* AtisFeedPage::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 2, 0, 2> AtisFeedPage::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(AtisFeedPage, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    2,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_AtisFeedPage_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AtisFeedPage>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // .google.protobuf.Timestamp fetched_at = 2;
+    {::_pbi::TcParser::FastMtS1,
+     {18, 0, 1, PROTOBUF_FIELD_OFFSET(AtisFeedPage, _impl_.fetched_at_)}},
+    // repeated .flightstrips.cluster.v1.AtisFeedAirport airports = 1;
+    {::_pbi::TcParser::FastMtR1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(AtisFeedPage, _impl_.airports_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // repeated .flightstrips.cluster.v1.AtisFeedAirport airports = 1;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedPage, _impl_.airports_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .google.protobuf.Timestamp fetched_at = 2;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedPage, _impl_.fetched_at_), _Internal::kHasBitsOffset + 0, 1,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AtisFeedAirport>()},
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* AtisFeedPage::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.AtisFeedPage)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.AtisFeedAirport airports = 1;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_airports_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_airports().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            1, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp fetched_at = 2;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        2, *_impl_.fetched_at_, _impl_.fetched_at_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.AtisFeedPage)
+  return target;
+}
+
+::size_t AtisFeedPage::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.AtisFeedPage)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.AtisFeedAirport airports = 1;
+  total_size += 1UL * this->_internal_airports_size();
+  for (const auto& msg : this->_internal_airports()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // .google.protobuf.Timestamp fetched_at = 2;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.fetched_at_);
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void AtisFeedPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<AtisFeedPage*>(&to_msg);
+  auto& from = static_cast<const AtisFeedPage&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.AtisFeedPage)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_airports()->MergeFrom(
+      from._internal_airports());
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.fetched_at_ != nullptr);
+    if (_this->_impl_.fetched_at_ == nullptr) {
+      _this->_impl_.fetched_at_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.fetched_at_);
+    } else {
+      _this->_impl_.fetched_at_->MergeFrom(*from._impl_.fetched_at_);
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void AtisFeedPage::CopyFrom(const AtisFeedPage& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.AtisFeedPage)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool AtisFeedPage::IsInitialized() const {
+  return true;
+}
+
+void AtisFeedPage::InternalSwap(AtisFeedPage* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.airports_.InternalSwap(&other->_impl_.airports_);
+  swap(_impl_.fetched_at_, other->_impl_.fetched_at_);
+}
+
+::google::protobuf::Metadata AtisFeedPage::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[159]);
+}
+// ===================================================================
+
+class AtisFeedAirport::_Internal {
+ public:
+  using HasBits = decltype(std::declval<AtisFeedAirport>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_._has_bits_);
+};
+
+AtisFeedAirport::AtisFeedAirport(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.AtisFeedAirport)
+}
+inline PROTOBUF_NDEBUG_INLINE AtisFeedAirport::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        airport_(arena, from.airport_) {}
+
+AtisFeedAirport::AtisFeedAirport(
+    ::google::protobuf::Arena* arena,
+    const AtisFeedAirport& from)
+    : ::google::protobuf::Message(arena) {
+  AtisFeedAirport* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.arrival_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AtisFeedEntry>(
+                              arena, *from._impl_.arrival_)
+                        : nullptr;
+  _impl_.departure_ = (cached_has_bits & 0x00000002u) ? ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AtisFeedEntry>(
+                              arena, *from._impl_.departure_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.AtisFeedAirport)
+}
+inline PROTOBUF_NDEBUG_INLINE AtisFeedAirport::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        airport_(arena) {}
+
+inline void AtisFeedAirport::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, arrival_),
+           0,
+           offsetof(Impl_, departure_) -
+               offsetof(Impl_, arrival_) +
+               sizeof(Impl_::departure_));
+}
+AtisFeedAirport::~AtisFeedAirport() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.AtisFeedAirport)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void AtisFeedAirport::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.airport_.Destroy();
+  delete _impl_.arrival_;
+  delete _impl_.departure_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+AtisFeedAirport::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_._cached_size_),
+              false,
+          },
+          &AtisFeedAirport::MergeImpl,
+          &AtisFeedAirport::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void AtisFeedAirport::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.AtisFeedAirport)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.airport_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(_impl_.arrival_ != nullptr);
+      _impl_.arrival_->Clear();
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(_impl_.departure_ != nullptr);
+      _impl_.departure_->Clear();
+    }
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* AtisFeedAirport::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 3, 2, 55, 2> AtisFeedAirport::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_._has_bits_),
+    0, // no _extensions_
+    3, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    2,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_AtisFeedAirport_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AtisFeedAirport>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string airport = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_.airport_)}},
+    // optional .flightstrips.cluster.v1.AtisFeedEntry arrival = 2;
+    {::_pbi::TcParser::FastMtS1,
+     {18, 0, 0, PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_.arrival_)}},
+    // optional .flightstrips.cluster.v1.AtisFeedEntry departure = 3;
+    {::_pbi::TcParser::FastMtS1,
+     {26, 1, 1, PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_.departure_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string airport = 1;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_.airport_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // optional .flightstrips.cluster.v1.AtisFeedEntry arrival = 2;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_.arrival_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // optional .flightstrips.cluster.v1.AtisFeedEntry departure = 3;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_.departure_), _Internal::kHasBitsOffset + 1, 1,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AtisFeedEntry>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AtisFeedEntry>()},
+  }}, {{
+    "\47\7\0\0\0\0\0\0"
+    "flightstrips.cluster.v1.AtisFeedAirport"
+    "airport"
+  }},
+};
+
+::uint8_t* AtisFeedAirport::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.AtisFeedAirport)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string airport = 1;
+  if (!this->_internal_airport().empty()) {
+    const std::string& _s = this->_internal_airport();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.AtisFeedAirport.airport");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // optional .flightstrips.cluster.v1.AtisFeedEntry arrival = 2;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        2, *_impl_.arrival_, _impl_.arrival_->GetCachedSize(), target, stream);
+  }
+
+  // optional .flightstrips.cluster.v1.AtisFeedEntry departure = 3;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        3, *_impl_.departure_, _impl_.departure_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.AtisFeedAirport)
+  return target;
+}
+
+::size_t AtisFeedAirport::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.AtisFeedAirport)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string airport = 1;
+  if (!this->_internal_airport().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_airport());
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    // optional .flightstrips.cluster.v1.AtisFeedEntry arrival = 2;
+    if (cached_has_bits & 0x00000001u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.arrival_);
+    }
+
+    // optional .flightstrips.cluster.v1.AtisFeedEntry departure = 3;
+    if (cached_has_bits & 0x00000002u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.departure_);
+    }
+
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void AtisFeedAirport::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<AtisFeedAirport*>(&to_msg);
+  auto& from = static_cast<const AtisFeedAirport&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.AtisFeedAirport)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_airport().empty()) {
+    _this->_internal_set_airport(from._internal_airport());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(from._impl_.arrival_ != nullptr);
+      if (_this->_impl_.arrival_ == nullptr) {
+        _this->_impl_.arrival_ =
+            ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AtisFeedEntry>(arena, *from._impl_.arrival_);
+      } else {
+        _this->_impl_.arrival_->MergeFrom(*from._impl_.arrival_);
+      }
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(from._impl_.departure_ != nullptr);
+      if (_this->_impl_.departure_ == nullptr) {
+        _this->_impl_.departure_ =
+            ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::AtisFeedEntry>(arena, *from._impl_.departure_);
+      } else {
+        _this->_impl_.departure_->MergeFrom(*from._impl_.departure_);
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void AtisFeedAirport::CopyFrom(const AtisFeedAirport& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.AtisFeedAirport)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool AtisFeedAirport::IsInitialized() const {
+  return true;
+}
+
+void AtisFeedAirport::InternalSwap(AtisFeedAirport* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.airport_, &other->_impl_.airport_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_.departure_)
+      + sizeof(AtisFeedAirport::_impl_.departure_)
+      - PROTOBUF_FIELD_OFFSET(AtisFeedAirport, _impl_.arrival_)>(
+          reinterpret_cast<char*>(&_impl_.arrival_),
+          reinterpret_cast<char*>(&other->_impl_.arrival_));
+}
+
+::google::protobuf::Metadata AtisFeedAirport::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[160]);
+}
+// ===================================================================
+
+class AtisFeedEntry::_Internal {
+ public:
+  using HasBits = decltype(std::declval<AtisFeedEntry>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_._has_bits_);
+};
+
+void AtisFeedEntry::clear_last_updated() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.last_updated_ != nullptr) _impl_.last_updated_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+AtisFeedEntry::AtisFeedEntry(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.AtisFeedEntry)
+}
+inline PROTOBUF_NDEBUG_INLINE AtisFeedEntry::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        text_lines_{visibility, arena, from.text_lines_},
+        callsign_(arena, from.callsign_),
+        code_(arena, from.code_),
+        frequency_(arena, from.frequency_) {}
+
+AtisFeedEntry::AtisFeedEntry(
+    ::google::protobuf::Arena* arena,
+    const AtisFeedEntry& from)
+    : ::google::protobuf::Message(arena) {
+  AtisFeedEntry* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.last_updated_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.last_updated_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.AtisFeedEntry)
+}
+inline PROTOBUF_NDEBUG_INLINE AtisFeedEntry::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        text_lines_{visibility, arena},
+        callsign_(arena),
+        code_(arena),
+        frequency_(arena) {}
+
+inline void AtisFeedEntry::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.last_updated_ = {};
+}
+AtisFeedEntry::~AtisFeedEntry() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.AtisFeedEntry)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void AtisFeedEntry::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.callsign_.Destroy();
+  _impl_.code_.Destroy();
+  _impl_.frequency_.Destroy();
+  delete _impl_.last_updated_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+AtisFeedEntry::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_._cached_size_),
+              false,
+          },
+          &AtisFeedEntry::MergeImpl,
+          &AtisFeedEntry::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void AtisFeedEntry::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.AtisFeedEntry)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.text_lines_.Clear();
+  _impl_.callsign_.ClearToEmpty();
+  _impl_.code_.ClearToEmpty();
+  _impl_.frequency_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.last_updated_ != nullptr);
+    _impl_.last_updated_->Clear();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* AtisFeedEntry::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 1, 77, 2> AtisFeedEntry::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_._has_bits_),
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_AtisFeedEntry_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::AtisFeedEntry>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string callsign = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.callsign_)}},
+    // string code = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.code_)}},
+    // string frequency = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.frequency_)}},
+    // repeated string text_lines = 4;
+    {::_pbi::TcParser::FastUR1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.text_lines_)}},
+    // .google.protobuf.Timestamp last_updated = 5;
+    {::_pbi::TcParser::FastMtS1,
+     {42, 0, 0, PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.last_updated_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string callsign = 1;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.callsign_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string code = 2;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.code_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string frequency = 3;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.frequency_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // repeated string text_lines = 4;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.text_lines_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // .google.protobuf.Timestamp last_updated = 5;
+    {PROTOBUF_FIELD_OFFSET(AtisFeedEntry, _impl_.last_updated_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+  }}, {{
+    "\45\10\4\11\12\0\0\0"
+    "flightstrips.cluster.v1.AtisFeedEntry"
+    "callsign"
+    "code"
+    "frequency"
+    "text_lines"
+  }},
+};
+
+::uint8_t* AtisFeedEntry::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.AtisFeedEntry)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.AtisFeedEntry.callsign");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string code = 2;
+  if (!this->_internal_code().empty()) {
+    const std::string& _s = this->_internal_code();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.AtisFeedEntry.code");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string frequency = 3;
+  if (!this->_internal_frequency().empty()) {
+    const std::string& _s = this->_internal_frequency();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.AtisFeedEntry.frequency");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // repeated string text_lines = 4;
+  for (int i = 0, n = this->_internal_text_lines_size(); i < n; ++i) {
+    const auto& s = this->_internal_text_lines().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.AtisFeedEntry.text_lines");
+    target = stream->WriteString(4, s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp last_updated = 5;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        5, *_impl_.last_updated_, _impl_.last_updated_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.AtisFeedEntry)
+  return target;
+}
+
+::size_t AtisFeedEntry::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.AtisFeedEntry)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated string text_lines = 4;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_text_lines().size());
+  for (int i = 0, n = _internal_text_lines().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_text_lines().Get(i));
+  }
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // string code = 2;
+  if (!this->_internal_code().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_code());
+  }
+
+  // string frequency = 3;
+  if (!this->_internal_frequency().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_frequency());
+  }
+
+  // .google.protobuf.Timestamp last_updated = 5;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.last_updated_);
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void AtisFeedEntry::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<AtisFeedEntry*>(&to_msg);
+  auto& from = static_cast<const AtisFeedEntry&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.AtisFeedEntry)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_text_lines()->MergeFrom(from._internal_text_lines());
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  if (!from._internal_code().empty()) {
+    _this->_internal_set_code(from._internal_code());
+  }
+  if (!from._internal_frequency().empty()) {
+    _this->_internal_set_frequency(from._internal_frequency());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.last_updated_ != nullptr);
+    if (_this->_impl_.last_updated_ == nullptr) {
+      _this->_impl_.last_updated_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.last_updated_);
+    } else {
+      _this->_impl_.last_updated_->MergeFrom(*from._impl_.last_updated_);
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void AtisFeedEntry::CopyFrom(const AtisFeedEntry& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.AtisFeedEntry)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool AtisFeedEntry::IsInitialized() const {
+  return true;
+}
+
+void AtisFeedEntry::InternalSwap(AtisFeedEntry* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.text_lines_.InternalSwap(&other->_impl_.text_lines_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.code_, &other->_impl_.code_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.frequency_, &other->_impl_.frequency_, arena);
+  swap(_impl_.last_updated_, other->_impl_.last_updated_);
+}
+
+::google::protobuf::Metadata AtisFeedEntry::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[161]);
+}
+// ===================================================================
+
+class CdmConfigPage::_Internal {
+ public:
+  using HasBits = decltype(std::declval<CdmConfigPage>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_._has_bits_);
+};
+
+void CdmConfigPage::clear_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.fetched_at_ != nullptr) _impl_.fetched_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+CdmConfigPage::CdmConfigPage(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.CdmConfigPage)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        active_arrival_runways_{visibility, arena, from.active_arrival_runways_},
+        active_departure_runways_{visibility, arena, from.active_departure_runways_},
+        rates_{visibility, arena, from.rates_},
+        sid_intervals_{visibility, arena, from.sid_intervals_},
+        taxi_zones_{visibility, arena, from.taxi_zones_},
+        delays_{visibility, arena, from.delays_},
+        airport_(arena, from.airport_) {}
+
+CdmConfigPage::CdmConfigPage(
+    ::google::protobuf::Arena* arena,
+    const CdmConfigPage& from)
+    : ::google::protobuf::Message(arena) {
+  CdmConfigPage* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.fetched_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.fetched_at_)
+                        : nullptr;
+  _impl_.deice_ = (cached_has_bits & 0x00000002u) ? ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::CdmConfigDeice>(
+                              arena, *from._impl_.deice_)
+                        : nullptr;
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, default_rate_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, default_rate_),
+           offsetof(Impl_, lvo_active_) -
+               offsetof(Impl_, default_rate_) +
+               sizeof(Impl_::lvo_active_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.CdmConfigPage)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        active_arrival_runways_{visibility, arena},
+        active_departure_runways_{visibility, arena},
+        rates_{visibility, arena},
+        sid_intervals_{visibility, arena},
+        taxi_zones_{visibility, arena},
+        delays_{visibility, arena},
+        airport_(arena) {}
+
+inline void CdmConfigPage::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, fetched_at_),
+           0,
+           offsetof(Impl_, lvo_active_) -
+               offsetof(Impl_, fetched_at_) +
+               sizeof(Impl_::lvo_active_));
+}
+CdmConfigPage::~CdmConfigPage() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CdmConfigPage)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void CdmConfigPage::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.airport_.Destroy();
+  delete _impl_.fetched_at_;
+  delete _impl_.deice_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+CdmConfigPage::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_._cached_size_),
+              false,
+          },
+          &CdmConfigPage::MergeImpl,
+          &CdmConfigPage::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void CdmConfigPage::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.CdmConfigPage)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.active_arrival_runways_.Clear();
+  _impl_.active_departure_runways_.Clear();
+  _impl_.rates_.Clear();
+  _impl_.sid_intervals_.Clear();
+  _impl_.taxi_zones_.Clear();
+  _impl_.delays_.Clear();
+  _impl_.airport_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(_impl_.fetched_at_ != nullptr);
+      _impl_.fetched_at_->Clear();
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(_impl_.deice_ != nullptr);
+      _impl_.deice_->Clear();
+    }
+  }
+  ::memset(&_impl_.default_rate_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.lvo_active_) -
+      reinterpret_cast<char*>(&_impl_.default_rate_)) + sizeof(_impl_.lvo_active_));
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* CdmConfigPage::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 13, 6, 107, 2> CdmConfigPage::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_._has_bits_),
+    0, // no _extensions_
+    13, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294959104,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    13,  // num_field_entries
+    6,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_CdmConfigPage_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigPage>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string airport = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.airport_)}},
+    // .google.protobuf.Timestamp fetched_at = 2;
+    {::_pbi::TcParser::FastMtS1,
+     {18, 0, 0, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.fetched_at_)}},
+    // int32 default_rate = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigPage, _impl_.default_rate_), 63>(),
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.default_rate_)}},
+    // int32 default_rate_lvo = 4;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigPage, _impl_.default_rate_lvo_), 63>(),
+     {32, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.default_rate_lvo_)}},
+    // int32 default_taxi_minutes = 5;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigPage, _impl_.default_taxi_minutes_), 63>(),
+     {40, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.default_taxi_minutes_)}},
+    // bool lvo_active = 6;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(CdmConfigPage, _impl_.lvo_active_), 63>(),
+     {48, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.lvo_active_)}},
+    // repeated string active_arrival_runways = 7;
+    {::_pbi::TcParser::FastUR1,
+     {58, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.active_arrival_runways_)}},
+    // repeated string active_departure_runways = 8;
+    {::_pbi::TcParser::FastUR1,
+     {66, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.active_departure_runways_)}},
+    // repeated .flightstrips.cluster.v1.CdmConfigRate rates = 9;
+    {::_pbi::TcParser::FastMtR1,
+     {74, 63, 1, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.rates_)}},
+    // repeated .flightstrips.cluster.v1.CdmConfigSidInterval sid_intervals = 10;
+    {::_pbi::TcParser::FastMtR1,
+     {82, 63, 2, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.sid_intervals_)}},
+    // repeated .flightstrips.cluster.v1.CdmConfigTaxiZone taxi_zones = 11;
+    {::_pbi::TcParser::FastMtR1,
+     {90, 63, 3, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.taxi_zones_)}},
+    // repeated .flightstrips.cluster.v1.CdmConfigDelay delays = 12;
+    {::_pbi::TcParser::FastMtR1,
+     {98, 63, 4, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.delays_)}},
+    // .flightstrips.cluster.v1.CdmConfigDeice deice = 13;
+    {::_pbi::TcParser::FastMtS1,
+     {106, 1, 5, PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.deice_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string airport = 1;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.airport_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .google.protobuf.Timestamp fetched_at = 2;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.fetched_at_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // int32 default_rate = 3;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.default_rate_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // int32 default_rate_lvo = 4;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.default_rate_lvo_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // int32 default_taxi_minutes = 5;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.default_taxi_minutes_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // bool lvo_active = 6;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.lvo_active_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kBool)},
+    // repeated string active_arrival_runways = 7;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.active_arrival_runways_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated string active_departure_runways = 8;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.active_departure_runways_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated .flightstrips.cluster.v1.CdmConfigRate rates = 9;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.rates_), -1, 1,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.CdmConfigSidInterval sid_intervals = 10;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.sid_intervals_), -1, 2,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.CdmConfigTaxiZone taxi_zones = 11;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.taxi_zones_), -1, 3,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.CdmConfigDelay delays = 12;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.delays_), -1, 4,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .flightstrips.cluster.v1.CdmConfigDeice deice = 13;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.deice_), _Internal::kHasBitsOffset + 1, 5,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigRate>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigSidInterval>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigTaxiZone>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigDelay>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigDeice>()},
+  }}, {{
+    "\45\7\0\0\0\0\0\26\30\0\0\0\0\0\0\0"
+    "flightstrips.cluster.v1.CdmConfigPage"
+    "airport"
+    "active_arrival_runways"
+    "active_departure_runways"
+  }},
+};
+
+::uint8_t* CdmConfigPage::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.CdmConfigPage)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string airport = 1;
+  if (!this->_internal_airport().empty()) {
+    const std::string& _s = this->_internal_airport();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigPage.airport");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp fetched_at = 2;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        2, *_impl_.fetched_at_, _impl_.fetched_at_->GetCachedSize(), target, stream);
+  }
+
+  // int32 default_rate = 3;
+  if (this->_internal_default_rate() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<3>(
+            stream, this->_internal_default_rate(), target);
+  }
+
+  // int32 default_rate_lvo = 4;
+  if (this->_internal_default_rate_lvo() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<4>(
+            stream, this->_internal_default_rate_lvo(), target);
+  }
+
+  // int32 default_taxi_minutes = 5;
+  if (this->_internal_default_taxi_minutes() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<5>(
+            stream, this->_internal_default_taxi_minutes(), target);
+  }
+
+  // bool lvo_active = 6;
+  if (this->_internal_lvo_active() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(
+        6, this->_internal_lvo_active(), target);
+  }
+
+  // repeated string active_arrival_runways = 7;
+  for (int i = 0, n = this->_internal_active_arrival_runways_size(); i < n; ++i) {
+    const auto& s = this->_internal_active_arrival_runways().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigPage.active_arrival_runways");
+    target = stream->WriteString(7, s, target);
+  }
+
+  // repeated string active_departure_runways = 8;
+  for (int i = 0, n = this->_internal_active_departure_runways_size(); i < n; ++i) {
+    const auto& s = this->_internal_active_departure_runways().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigPage.active_departure_runways");
+    target = stream->WriteString(8, s, target);
+  }
+
+  // repeated .flightstrips.cluster.v1.CdmConfigRate rates = 9;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_rates_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_rates().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            9, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.CdmConfigSidInterval sid_intervals = 10;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_sid_intervals_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_sid_intervals().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            10, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.CdmConfigTaxiZone taxi_zones = 11;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_taxi_zones_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_taxi_zones().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            11, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.CdmConfigDelay delays = 12;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_delays_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_delays().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            12, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  // .flightstrips.cluster.v1.CdmConfigDeice deice = 13;
+  if (cached_has_bits & 0x00000002u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        13, *_impl_.deice_, _impl_.deice_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.CdmConfigPage)
+  return target;
+}
+
+::size_t CdmConfigPage::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.CdmConfigPage)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated string active_arrival_runways = 7;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_active_arrival_runways().size());
+  for (int i = 0, n = _internal_active_arrival_runways().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_active_arrival_runways().Get(i));
+  }
+  // repeated string active_departure_runways = 8;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_active_departure_runways().size());
+  for (int i = 0, n = _internal_active_departure_runways().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_active_departure_runways().Get(i));
+  }
+  // repeated .flightstrips.cluster.v1.CdmConfigRate rates = 9;
+  total_size += 1UL * this->_internal_rates_size();
+  for (const auto& msg : this->_internal_rates()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // repeated .flightstrips.cluster.v1.CdmConfigSidInterval sid_intervals = 10;
+  total_size += 1UL * this->_internal_sid_intervals_size();
+  for (const auto& msg : this->_internal_sid_intervals()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // repeated .flightstrips.cluster.v1.CdmConfigTaxiZone taxi_zones = 11;
+  total_size += 1UL * this->_internal_taxi_zones_size();
+  for (const auto& msg : this->_internal_taxi_zones()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // repeated .flightstrips.cluster.v1.CdmConfigDelay delays = 12;
+  total_size += 1UL * this->_internal_delays_size();
+  for (const auto& msg : this->_internal_delays()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // string airport = 1;
+  if (!this->_internal_airport().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_airport());
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    // .google.protobuf.Timestamp fetched_at = 2;
+    if (cached_has_bits & 0x00000001u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.fetched_at_);
+    }
+
+    // .flightstrips.cluster.v1.CdmConfigDeice deice = 13;
+    if (cached_has_bits & 0x00000002u) {
+      total_size +=
+          1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.deice_);
+    }
+
+  }
+  // int32 default_rate = 3;
+  if (this->_internal_default_rate() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_default_rate());
+  }
+
+  // int32 default_rate_lvo = 4;
+  if (this->_internal_default_rate_lvo() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_default_rate_lvo());
+  }
+
+  // int32 default_taxi_minutes = 5;
+  if (this->_internal_default_taxi_minutes() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_default_taxi_minutes());
+  }
+
+  // bool lvo_active = 6;
+  if (this->_internal_lvo_active() != 0) {
+    total_size += 2;
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void CdmConfigPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<CdmConfigPage*>(&to_msg);
+  auto& from = static_cast<const CdmConfigPage&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.CdmConfigPage)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_active_arrival_runways()->MergeFrom(from._internal_active_arrival_runways());
+  _this->_internal_mutable_active_departure_runways()->MergeFrom(from._internal_active_departure_runways());
+  _this->_internal_mutable_rates()->MergeFrom(
+      from._internal_rates());
+  _this->_internal_mutable_sid_intervals()->MergeFrom(
+      from._internal_sid_intervals());
+  _this->_internal_mutable_taxi_zones()->MergeFrom(
+      from._internal_taxi_zones());
+  _this->_internal_mutable_delays()->MergeFrom(
+      from._internal_delays());
+  if (!from._internal_airport().empty()) {
+    _this->_internal_set_airport(from._internal_airport());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000003u) {
+    if (cached_has_bits & 0x00000001u) {
+      ABSL_DCHECK(from._impl_.fetched_at_ != nullptr);
+      if (_this->_impl_.fetched_at_ == nullptr) {
+        _this->_impl_.fetched_at_ =
+            ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.fetched_at_);
+      } else {
+        _this->_impl_.fetched_at_->MergeFrom(*from._impl_.fetched_at_);
+      }
+    }
+    if (cached_has_bits & 0x00000002u) {
+      ABSL_DCHECK(from._impl_.deice_ != nullptr);
+      if (_this->_impl_.deice_ == nullptr) {
+        _this->_impl_.deice_ =
+            ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::CdmConfigDeice>(arena, *from._impl_.deice_);
+      } else {
+        _this->_impl_.deice_->MergeFrom(*from._impl_.deice_);
+      }
+    }
+  }
+  if (from._internal_default_rate() != 0) {
+    _this->_impl_.default_rate_ = from._impl_.default_rate_;
+  }
+  if (from._internal_default_rate_lvo() != 0) {
+    _this->_impl_.default_rate_lvo_ = from._impl_.default_rate_lvo_;
+  }
+  if (from._internal_default_taxi_minutes() != 0) {
+    _this->_impl_.default_taxi_minutes_ = from._impl_.default_taxi_minutes_;
+  }
+  if (from._internal_lvo_active() != 0) {
+    _this->_impl_.lvo_active_ = from._impl_.lvo_active_;
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void CdmConfigPage::CopyFrom(const CdmConfigPage& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.CdmConfigPage)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool CdmConfigPage::IsInitialized() const {
+  return true;
+}
+
+void CdmConfigPage::InternalSwap(CdmConfigPage* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.active_arrival_runways_.InternalSwap(&other->_impl_.active_arrival_runways_);
+  _impl_.active_departure_runways_.InternalSwap(&other->_impl_.active_departure_runways_);
+  _impl_.rates_.InternalSwap(&other->_impl_.rates_);
+  _impl_.sid_intervals_.InternalSwap(&other->_impl_.sid_intervals_);
+  _impl_.taxi_zones_.InternalSwap(&other->_impl_.taxi_zones_);
+  _impl_.delays_.InternalSwap(&other->_impl_.delays_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.airport_, &other->_impl_.airport_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.lvo_active_)
+      + sizeof(CdmConfigPage::_impl_.lvo_active_)
+      - PROTOBUF_FIELD_OFFSET(CdmConfigPage, _impl_.fetched_at_)>(
+          reinterpret_cast<char*>(&_impl_.fetched_at_),
+          reinterpret_cast<char*>(&other->_impl_.fetched_at_));
+}
+
+::google::protobuf::Metadata CdmConfigPage::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[162]);
+}
+// ===================================================================
+
+class CdmConfigRate::_Internal {
+ public:
+};
+
+CdmConfigRate::CdmConfigRate(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.CdmConfigRate)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigRate::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : arr_rwy_yes_{visibility, arena, from.arr_rwy_yes_},
+        arr_rwy_no_{visibility, arena, from.arr_rwy_no_},
+        dep_rwy_yes_{visibility, arena, from.dep_rwy_yes_},
+        dep_rwy_no_{visibility, arena, from.dep_rwy_no_},
+        dependent_rwy_{visibility, arena, from.dependent_rwy_},
+        rates_{visibility, arena, from.rates_},
+        rates_lvo_{visibility, arena, from.rates_lvo_},
+        _cached_size_{0} {}
+
+CdmConfigRate::CdmConfigRate(
+    ::google::protobuf::Arena* arena,
+    const CdmConfigRate& from)
+    : ::google::protobuf::Message(arena) {
+  CdmConfigRate* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.CdmConfigRate)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigRate::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : arr_rwy_yes_{visibility, arena},
+        arr_rwy_no_{visibility, arena},
+        dep_rwy_yes_{visibility, arena},
+        dep_rwy_no_{visibility, arena},
+        dependent_rwy_{visibility, arena},
+        rates_{visibility, arena},
+        rates_lvo_{visibility, arena},
+        _cached_size_{0} {}
+
+inline void CdmConfigRate::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+CdmConfigRate::~CdmConfigRate() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CdmConfigRate)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void CdmConfigRate::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+CdmConfigRate::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_._cached_size_),
+              false,
+          },
+          &CdmConfigRate::MergeImpl,
+          &CdmConfigRate::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void CdmConfigRate::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.CdmConfigRate)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.arr_rwy_yes_.Clear();
+  _impl_.arr_rwy_no_.Clear();
+  _impl_.dep_rwy_yes_.Clear();
+  _impl_.dep_rwy_no_.Clear();
+  _impl_.dependent_rwy_.Clear();
+  _impl_.rates_.Clear();
+  _impl_.rates_lvo_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* CdmConfigRate::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 7, 0, 115, 2> CdmConfigRate::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    7, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967168,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    7,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_CdmConfigRate_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigRate>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // repeated string arr_rwy_yes = 1;
+    {::_pbi::TcParser::FastUR1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.arr_rwy_yes_)}},
+    // repeated string arr_rwy_no = 2;
+    {::_pbi::TcParser::FastUR1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.arr_rwy_no_)}},
+    // repeated string dep_rwy_yes = 3;
+    {::_pbi::TcParser::FastUR1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.dep_rwy_yes_)}},
+    // repeated string dep_rwy_no = 4;
+    {::_pbi::TcParser::FastUR1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.dep_rwy_no_)}},
+    // repeated string dependent_rwy = 5;
+    {::_pbi::TcParser::FastUR1,
+     {42, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.dependent_rwy_)}},
+    // repeated string rates = 6;
+    {::_pbi::TcParser::FastUR1,
+     {50, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.rates_)}},
+    // repeated string rates_lvo = 7;
+    {::_pbi::TcParser::FastUR1,
+     {58, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.rates_lvo_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // repeated string arr_rwy_yes = 1;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.arr_rwy_yes_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated string arr_rwy_no = 2;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.arr_rwy_no_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated string dep_rwy_yes = 3;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.dep_rwy_yes_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated string dep_rwy_no = 4;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.dep_rwy_no_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated string dependent_rwy = 5;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.dependent_rwy_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated string rates = 6;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.rates_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // repeated string rates_lvo = 7;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigRate, _impl_.rates_lvo_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+  }},
+  // no aux_entries
+  {{
+    "\45\13\12\13\12\15\5\11"
+    "flightstrips.cluster.v1.CdmConfigRate"
+    "arr_rwy_yes"
+    "arr_rwy_no"
+    "dep_rwy_yes"
+    "dep_rwy_no"
+    "dependent_rwy"
+    "rates"
+    "rates_lvo"
+  }},
+};
+
+::uint8_t* CdmConfigRate::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.CdmConfigRate)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // repeated string arr_rwy_yes = 1;
+  for (int i = 0, n = this->_internal_arr_rwy_yes_size(); i < n; ++i) {
+    const auto& s = this->_internal_arr_rwy_yes().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigRate.arr_rwy_yes");
+    target = stream->WriteString(1, s, target);
+  }
+
+  // repeated string arr_rwy_no = 2;
+  for (int i = 0, n = this->_internal_arr_rwy_no_size(); i < n; ++i) {
+    const auto& s = this->_internal_arr_rwy_no().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigRate.arr_rwy_no");
+    target = stream->WriteString(2, s, target);
+  }
+
+  // repeated string dep_rwy_yes = 3;
+  for (int i = 0, n = this->_internal_dep_rwy_yes_size(); i < n; ++i) {
+    const auto& s = this->_internal_dep_rwy_yes().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigRate.dep_rwy_yes");
+    target = stream->WriteString(3, s, target);
+  }
+
+  // repeated string dep_rwy_no = 4;
+  for (int i = 0, n = this->_internal_dep_rwy_no_size(); i < n; ++i) {
+    const auto& s = this->_internal_dep_rwy_no().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigRate.dep_rwy_no");
+    target = stream->WriteString(4, s, target);
+  }
+
+  // repeated string dependent_rwy = 5;
+  for (int i = 0, n = this->_internal_dependent_rwy_size(); i < n; ++i) {
+    const auto& s = this->_internal_dependent_rwy().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigRate.dependent_rwy");
+    target = stream->WriteString(5, s, target);
+  }
+
+  // repeated string rates = 6;
+  for (int i = 0, n = this->_internal_rates_size(); i < n; ++i) {
+    const auto& s = this->_internal_rates().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigRate.rates");
+    target = stream->WriteString(6, s, target);
+  }
+
+  // repeated string rates_lvo = 7;
+  for (int i = 0, n = this->_internal_rates_lvo_size(); i < n; ++i) {
+    const auto& s = this->_internal_rates_lvo().Get(i);
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigRate.rates_lvo");
+    target = stream->WriteString(7, s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.CdmConfigRate)
+  return target;
+}
+
+::size_t CdmConfigRate::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.CdmConfigRate)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated string arr_rwy_yes = 1;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_arr_rwy_yes().size());
+  for (int i = 0, n = _internal_arr_rwy_yes().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_arr_rwy_yes().Get(i));
+  }
+  // repeated string arr_rwy_no = 2;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_arr_rwy_no().size());
+  for (int i = 0, n = _internal_arr_rwy_no().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_arr_rwy_no().Get(i));
+  }
+  // repeated string dep_rwy_yes = 3;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_dep_rwy_yes().size());
+  for (int i = 0, n = _internal_dep_rwy_yes().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_dep_rwy_yes().Get(i));
+  }
+  // repeated string dep_rwy_no = 4;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_dep_rwy_no().size());
+  for (int i = 0, n = _internal_dep_rwy_no().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_dep_rwy_no().Get(i));
+  }
+  // repeated string dependent_rwy = 5;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_dependent_rwy().size());
+  for (int i = 0, n = _internal_dependent_rwy().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_dependent_rwy().Get(i));
+  }
+  // repeated string rates = 6;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_rates().size());
+  for (int i = 0, n = _internal_rates().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_rates().Get(i));
+  }
+  // repeated string rates_lvo = 7;
+  total_size += 1 * ::google::protobuf::internal::FromIntSize(_internal_rates_lvo().size());
+  for (int i = 0, n = _internal_rates_lvo().size(); i < n; ++i) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+        _internal_rates_lvo().Get(i));
+  }
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void CdmConfigRate::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<CdmConfigRate*>(&to_msg);
+  auto& from = static_cast<const CdmConfigRate&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.CdmConfigRate)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_arr_rwy_yes()->MergeFrom(from._internal_arr_rwy_yes());
+  _this->_internal_mutable_arr_rwy_no()->MergeFrom(from._internal_arr_rwy_no());
+  _this->_internal_mutable_dep_rwy_yes()->MergeFrom(from._internal_dep_rwy_yes());
+  _this->_internal_mutable_dep_rwy_no()->MergeFrom(from._internal_dep_rwy_no());
+  _this->_internal_mutable_dependent_rwy()->MergeFrom(from._internal_dependent_rwy());
+  _this->_internal_mutable_rates()->MergeFrom(from._internal_rates());
+  _this->_internal_mutable_rates_lvo()->MergeFrom(from._internal_rates_lvo());
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void CdmConfigRate::CopyFrom(const CdmConfigRate& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.CdmConfigRate)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool CdmConfigRate::IsInitialized() const {
+  return true;
+}
+
+void CdmConfigRate::InternalSwap(CdmConfigRate* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  _impl_.arr_rwy_yes_.InternalSwap(&other->_impl_.arr_rwy_yes_);
+  _impl_.arr_rwy_no_.InternalSwap(&other->_impl_.arr_rwy_no_);
+  _impl_.dep_rwy_yes_.InternalSwap(&other->_impl_.dep_rwy_yes_);
+  _impl_.dep_rwy_no_.InternalSwap(&other->_impl_.dep_rwy_no_);
+  _impl_.dependent_rwy_.InternalSwap(&other->_impl_.dependent_rwy_);
+  _impl_.rates_.InternalSwap(&other->_impl_.rates_);
+  _impl_.rates_lvo_.InternalSwap(&other->_impl_.rates_lvo_);
+}
+
+::google::protobuf::Metadata CdmConfigRate::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[163]);
+}
+// ===================================================================
+
+class CdmConfigSidInterval::_Internal {
+ public:
+};
+
+CdmConfigSidInterval::CdmConfigSidInterval(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.CdmConfigSidInterval)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigSidInterval::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : runway_(arena, from.runway_),
+        sid1_(arena, from.sid1_),
+        sid2_(arena, from.sid2_),
+        _cached_size_{0} {}
+
+CdmConfigSidInterval::CdmConfigSidInterval(
+    ::google::protobuf::Arena* arena,
+    const CdmConfigSidInterval& from)
+    : ::google::protobuf::Message(arena) {
+  CdmConfigSidInterval* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.value_ = from._impl_.value_;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.CdmConfigSidInterval)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigSidInterval::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : runway_(arena),
+        sid1_(arena),
+        sid2_(arena),
+        _cached_size_{0} {}
+
+inline void CdmConfigSidInterval::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.value_ = {};
+}
+CdmConfigSidInterval::~CdmConfigSidInterval() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CdmConfigSidInterval)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void CdmConfigSidInterval::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.runway_.Destroy();
+  _impl_.sid1_.Destroy();
+  _impl_.sid2_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+CdmConfigSidInterval::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_._cached_size_),
+              false,
+          },
+          &CdmConfigSidInterval::MergeImpl,
+          &CdmConfigSidInterval::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void CdmConfigSidInterval::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.CdmConfigSidInterval)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.runway_.ClearToEmpty();
+  _impl_.sid1_.ClearToEmpty();
+  _impl_.sid2_.ClearToEmpty();
+  _impl_.value_ = 0;
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* CdmConfigSidInterval::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 0, 67, 2> CdmConfigSidInterval::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_CdmConfigSidInterval_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigSidInterval>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // double value = 4;
+    {::_pbi::TcParser::FastF64S1,
+     {33, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_.value_)}},
+    // string runway = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_.runway_)}},
+    // string sid1 = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_.sid1_)}},
+    // string sid2 = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_.sid2_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string runway = 1;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_.runway_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string sid1 = 2;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_.sid1_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string sid2 = 3;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_.sid2_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // double value = 4;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigSidInterval, _impl_.value_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+  }},
+  // no aux_entries
+  {{
+    "\54\6\4\4\0\0\0\0"
+    "flightstrips.cluster.v1.CdmConfigSidInterval"
+    "runway"
+    "sid1"
+    "sid2"
+  }},
+};
+
+::uint8_t* CdmConfigSidInterval::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.CdmConfigSidInterval)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string runway = 1;
+  if (!this->_internal_runway().empty()) {
+    const std::string& _s = this->_internal_runway();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigSidInterval.runway");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string sid1 = 2;
+  if (!this->_internal_sid1().empty()) {
+    const std::string& _s = this->_internal_sid1();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigSidInterval.sid1");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string sid2 = 3;
+  if (!this->_internal_sid2().empty()) {
+    const std::string& _s = this->_internal_sid2();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigSidInterval.sid2");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // double value = 4;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_value = this->_internal_value();
+  ::uint64_t raw_value;
+  memcpy(&raw_value, &tmp_value, sizeof(tmp_value));
+  if (raw_value != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        4, this->_internal_value(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.CdmConfigSidInterval)
+  return target;
+}
+
+::size_t CdmConfigSidInterval::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.CdmConfigSidInterval)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string runway = 1;
+  if (!this->_internal_runway().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_runway());
+  }
+
+  // string sid1 = 2;
+  if (!this->_internal_sid1().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_sid1());
+  }
+
+  // string sid2 = 3;
+  if (!this->_internal_sid2().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_sid2());
+  }
+
+  // double value = 4;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_value = this->_internal_value();
+  ::uint64_t raw_value;
+  memcpy(&raw_value, &tmp_value, sizeof(tmp_value));
+  if (raw_value != 0) {
+    total_size += 9;
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void CdmConfigSidInterval::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<CdmConfigSidInterval*>(&to_msg);
+  auto& from = static_cast<const CdmConfigSidInterval&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.CdmConfigSidInterval)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_runway().empty()) {
+    _this->_internal_set_runway(from._internal_runway());
+  }
+  if (!from._internal_sid1().empty()) {
+    _this->_internal_set_sid1(from._internal_sid1());
+  }
+  if (!from._internal_sid2().empty()) {
+    _this->_internal_set_sid2(from._internal_sid2());
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_value = from._internal_value();
+  ::uint64_t raw_value;
+  memcpy(&raw_value, &tmp_value, sizeof(tmp_value));
+  if (raw_value != 0) {
+    _this->_impl_.value_ = from._impl_.value_;
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void CdmConfigSidInterval::CopyFrom(const CdmConfigSidInterval& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.CdmConfigSidInterval)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool CdmConfigSidInterval::IsInitialized() const {
+  return true;
+}
+
+void CdmConfigSidInterval::InternalSwap(CdmConfigSidInterval* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.runway_, &other->_impl_.runway_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sid1_, &other->_impl_.sid1_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.sid2_, &other->_impl_.sid2_, arena);
+        swap(_impl_.value_, other->_impl_.value_);
+}
+
+::google::protobuf::Metadata CdmConfigSidInterval::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[164]);
+}
+// ===================================================================
+
+class CdmConfigTaxiPoint::_Internal {
+ public:
+};
+
+CdmConfigTaxiPoint::CdmConfigTaxiPoint(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.CdmConfigTaxiPoint)
+}
+CdmConfigTaxiPoint::CdmConfigTaxiPoint(
+    ::google::protobuf::Arena* arena, const CdmConfigTaxiPoint& from)
+    : CdmConfigTaxiPoint(arena) {
+  MergeFrom(from);
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigTaxiPoint::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0} {}
+
+inline void CdmConfigTaxiPoint::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, latitude_),
+           0,
+           offsetof(Impl_, longitude_) -
+               offsetof(Impl_, latitude_) +
+               sizeof(Impl_::longitude_));
+}
+CdmConfigTaxiPoint::~CdmConfigTaxiPoint() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CdmConfigTaxiPoint)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void CdmConfigTaxiPoint::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+CdmConfigTaxiPoint::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(CdmConfigTaxiPoint, _impl_._cached_size_),
+              false,
+          },
+          &CdmConfigTaxiPoint::MergeImpl,
+          &CdmConfigTaxiPoint::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void CdmConfigTaxiPoint::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.CdmConfigTaxiPoint)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  ::memset(&_impl_.latitude_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.longitude_) -
+      reinterpret_cast<char*>(&_impl_.latitude_)) + sizeof(_impl_.longitude_));
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* CdmConfigTaxiPoint::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 0, 2> CdmConfigTaxiPoint::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_CdmConfigTaxiPoint_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigTaxiPoint>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // double longitude = 2;
+    {::_pbi::TcParser::FastF64S1,
+     {17, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigTaxiPoint, _impl_.longitude_)}},
+    // double latitude = 1;
+    {::_pbi::TcParser::FastF64S1,
+     {9, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigTaxiPoint, _impl_.latitude_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // double latitude = 1;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigTaxiPoint, _impl_.latitude_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+    // double longitude = 2;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigTaxiPoint, _impl_.longitude_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kDouble)},
+  }},
+  // no aux_entries
+  {{
+  }},
+};
+
+::uint8_t* CdmConfigTaxiPoint::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.CdmConfigTaxiPoint)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // double latitude = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude = this->_internal_latitude();
+  ::uint64_t raw_latitude;
+  memcpy(&raw_latitude, &tmp_latitude, sizeof(tmp_latitude));
+  if (raw_latitude != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        1, this->_internal_latitude(), target);
+  }
+
+  // double longitude = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude = this->_internal_longitude();
+  ::uint64_t raw_longitude;
+  memcpy(&raw_longitude, &tmp_longitude, sizeof(tmp_longitude));
+  if (raw_longitude != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteDoubleToArray(
+        2, this->_internal_longitude(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.CdmConfigTaxiPoint)
+  return target;
+}
+
+::size_t CdmConfigTaxiPoint::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.CdmConfigTaxiPoint)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // double latitude = 1;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude = this->_internal_latitude();
+  ::uint64_t raw_latitude;
+  memcpy(&raw_latitude, &tmp_latitude, sizeof(tmp_latitude));
+  if (raw_latitude != 0) {
+    total_size += 9;
+  }
+
+  // double longitude = 2;
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude = this->_internal_longitude();
+  ::uint64_t raw_longitude;
+  memcpy(&raw_longitude, &tmp_longitude, sizeof(tmp_longitude));
+  if (raw_longitude != 0) {
+    total_size += 9;
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void CdmConfigTaxiPoint::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<CdmConfigTaxiPoint*>(&to_msg);
+  auto& from = static_cast<const CdmConfigTaxiPoint&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.CdmConfigTaxiPoint)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_latitude = from._internal_latitude();
+  ::uint64_t raw_latitude;
+  memcpy(&raw_latitude, &tmp_latitude, sizeof(tmp_latitude));
+  if (raw_latitude != 0) {
+    _this->_impl_.latitude_ = from._impl_.latitude_;
+  }
+  static_assert(sizeof(::uint64_t) == sizeof(double),
+                "Code assumes ::uint64_t and double are the same size.");
+  double tmp_longitude = from._internal_longitude();
+  ::uint64_t raw_longitude;
+  memcpy(&raw_longitude, &tmp_longitude, sizeof(tmp_longitude));
+  if (raw_longitude != 0) {
+    _this->_impl_.longitude_ = from._impl_.longitude_;
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void CdmConfigTaxiPoint::CopyFrom(const CdmConfigTaxiPoint& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.CdmConfigTaxiPoint)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool CdmConfigTaxiPoint::IsInitialized() const {
+  return true;
+}
+
+void CdmConfigTaxiPoint::InternalSwap(CdmConfigTaxiPoint* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(CdmConfigTaxiPoint, _impl_.longitude_)
+      + sizeof(CdmConfigTaxiPoint::_impl_.longitude_)
+      - PROTOBUF_FIELD_OFFSET(CdmConfigTaxiPoint, _impl_.latitude_)>(
+          reinterpret_cast<char*>(&_impl_.latitude_),
+          reinterpret_cast<char*>(&other->_impl_.latitude_));
+}
+
+::google::protobuf::Metadata CdmConfigTaxiPoint::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[165]);
+}
+// ===================================================================
+
+class CdmConfigTaxiZone::_Internal {
+ public:
+};
+
+CdmConfigTaxiZone::CdmConfigTaxiZone(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.CdmConfigTaxiZone)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigTaxiZone::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : polygon_{visibility, arena, from.polygon_},
+        remote_taxi_minutes_{visibility, arena, from.remote_taxi_minutes_},
+        _remote_taxi_minutes_cached_byte_size_{0},
+        runway_(arena, from.runway_),
+        _cached_size_{0} {}
+
+CdmConfigTaxiZone::CdmConfigTaxiZone(
+    ::google::protobuf::Arena* arena,
+    const CdmConfigTaxiZone& from)
+    : ::google::protobuf::Message(arena) {
+  CdmConfigTaxiZone* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.minutes_ = from._impl_.minutes_;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.CdmConfigTaxiZone)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigTaxiZone::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : polygon_{visibility, arena},
+        remote_taxi_minutes_{visibility, arena},
+        _remote_taxi_minutes_cached_byte_size_{0},
+        runway_(arena),
+        _cached_size_{0} {}
+
+inline void CdmConfigTaxiZone::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.minutes_ = {};
+}
+CdmConfigTaxiZone::~CdmConfigTaxiZone() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CdmConfigTaxiZone)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void CdmConfigTaxiZone::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.runway_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+CdmConfigTaxiZone::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_._cached_size_),
+              false,
+          },
+          &CdmConfigTaxiZone::MergeImpl,
+          &CdmConfigTaxiZone::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void CdmConfigTaxiZone::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.CdmConfigTaxiZone)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.polygon_.Clear();
+  _impl_.remote_taxi_minutes_.Clear();
+  _impl_.runway_.ClearToEmpty();
+  _impl_.minutes_ = 0;
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* CdmConfigTaxiZone::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 4, 1, 56, 2> CdmConfigTaxiZone::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    4, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967280,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    4,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_CdmConfigTaxiZone_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigTaxiZone>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // repeated int32 remote_taxi_minutes = 4;
+    {::_pbi::TcParser::FastV32P1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_.remote_taxi_minutes_)}},
+    // string runway = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_.runway_)}},
+    // int32 minutes = 2;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigTaxiZone, _impl_.minutes_), 63>(),
+     {16, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_.minutes_)}},
+    // repeated .flightstrips.cluster.v1.CdmConfigTaxiPoint polygon = 3;
+    {::_pbi::TcParser::FastMtR1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_.polygon_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string runway = 1;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_.runway_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int32 minutes = 2;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_.minutes_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // repeated .flightstrips.cluster.v1.CdmConfigTaxiPoint polygon = 3;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_.polygon_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated int32 remote_taxi_minutes = 4;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigTaxiZone, _impl_.remote_taxi_minutes_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kPackedInt32)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigTaxiPoint>()},
+  }}, {{
+    "\51\6\0\0\0\0\0\0"
+    "flightstrips.cluster.v1.CdmConfigTaxiZone"
+    "runway"
+  }},
+};
+
+::uint8_t* CdmConfigTaxiZone::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.CdmConfigTaxiZone)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string runway = 1;
+  if (!this->_internal_runway().empty()) {
+    const std::string& _s = this->_internal_runway();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigTaxiZone.runway");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // int32 minutes = 2;
+  if (this->_internal_minutes() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<2>(
+            stream, this->_internal_minutes(), target);
+  }
+
+  // repeated .flightstrips.cluster.v1.CdmConfigTaxiPoint polygon = 3;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_polygon_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_polygon().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            3, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  // repeated int32 remote_taxi_minutes = 4;
+  {
+    int byte_size = _impl_._remote_taxi_minutes_cached_byte_size_.Get();
+    if (byte_size > 0) {
+      target = stream->WriteInt32Packed(
+          4, _internal_remote_taxi_minutes(), byte_size, target);
+    }
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.CdmConfigTaxiZone)
+  return target;
+}
+
+::size_t CdmConfigTaxiZone::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.CdmConfigTaxiZone)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.CdmConfigTaxiPoint polygon = 3;
+  total_size += 1UL * this->_internal_polygon_size();
+  for (const auto& msg : this->_internal_polygon()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // repeated int32 remote_taxi_minutes = 4;
+  {
+    std::size_t data_size = ::_pbi::WireFormatLite::Int32Size(
+        this->_internal_remote_taxi_minutes())
+    ;
+    _impl_._remote_taxi_minutes_cached_byte_size_.Set(::_pbi::ToCachedSize(data_size));
+    std::size_t tag_size = data_size == 0
+        ? 0
+        : 1 + ::_pbi::WireFormatLite::Int32Size(
+                            static_cast<int32_t>(data_size))
+    ;
+    total_size += tag_size + data_size;
+  }
+  // string runway = 1;
+  if (!this->_internal_runway().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_runway());
+  }
+
+  // int32 minutes = 2;
+  if (this->_internal_minutes() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_minutes());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void CdmConfigTaxiZone::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<CdmConfigTaxiZone*>(&to_msg);
+  auto& from = static_cast<const CdmConfigTaxiZone&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.CdmConfigTaxiZone)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_polygon()->MergeFrom(
+      from._internal_polygon());
+  _this->_internal_mutable_remote_taxi_minutes()->MergeFrom(from._internal_remote_taxi_minutes());
+  if (!from._internal_runway().empty()) {
+    _this->_internal_set_runway(from._internal_runway());
+  }
+  if (from._internal_minutes() != 0) {
+    _this->_impl_.minutes_ = from._impl_.minutes_;
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void CdmConfigTaxiZone::CopyFrom(const CdmConfigTaxiZone& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.CdmConfigTaxiZone)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool CdmConfigTaxiZone::IsInitialized() const {
+  return true;
+}
+
+void CdmConfigTaxiZone::InternalSwap(CdmConfigTaxiZone* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  _impl_.polygon_.InternalSwap(&other->_impl_.polygon_);
+  _impl_.remote_taxi_minutes_.InternalSwap(&other->_impl_.remote_taxi_minutes_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.runway_, &other->_impl_.runway_, arena);
+        swap(_impl_.minutes_, other->_impl_.minutes_);
+}
+
+::google::protobuf::Metadata CdmConfigTaxiZone::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[166]);
+}
+// ===================================================================
+
+class CdmConfigDelay::_Internal {
+ public:
+};
+
+CdmConfigDelay::CdmConfigDelay(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.CdmConfigDelay)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigDelay::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : runway_(arena, from.runway_),
+        time_(arena, from.time_),
+        type_(arena, from.type_),
+        _cached_size_{0} {}
+
+CdmConfigDelay::CdmConfigDelay(
+    ::google::protobuf::Arena* arena,
+    const CdmConfigDelay& from)
+    : ::google::protobuf::Message(arena) {
+  CdmConfigDelay* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.CdmConfigDelay)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigDelay::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : runway_(arena),
+        time_(arena),
+        type_(arena),
+        _cached_size_{0} {}
+
+inline void CdmConfigDelay::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+CdmConfigDelay::~CdmConfigDelay() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CdmConfigDelay)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void CdmConfigDelay::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.runway_.Destroy();
+  _impl_.time_.Destroy();
+  _impl_.type_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+CdmConfigDelay::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(CdmConfigDelay, _impl_._cached_size_),
+              false,
+          },
+          &CdmConfigDelay::MergeImpl,
+          &CdmConfigDelay::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void CdmConfigDelay::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.CdmConfigDelay)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.runway_.ClearToEmpty();
+  _impl_.time_.ClearToEmpty();
+  _impl_.type_.ClearToEmpty();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* CdmConfigDelay::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 3, 0, 61, 2> CdmConfigDelay::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    3, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_CdmConfigDelay_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigDelay>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string runway = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDelay, _impl_.runway_)}},
+    // string time = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDelay, _impl_.time_)}},
+    // string type = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDelay, _impl_.type_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string runway = 1;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDelay, _impl_.runway_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string time = 2;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDelay, _impl_.time_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string type = 3;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDelay, _impl_.type_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\46\6\4\4\0\0\0\0"
+    "flightstrips.cluster.v1.CdmConfigDelay"
+    "runway"
+    "time"
+    "type"
+  }},
+};
+
+::uint8_t* CdmConfigDelay::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.CdmConfigDelay)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string runway = 1;
+  if (!this->_internal_runway().empty()) {
+    const std::string& _s = this->_internal_runway();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigDelay.runway");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string time = 2;
+  if (!this->_internal_time().empty()) {
+    const std::string& _s = this->_internal_time();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigDelay.time");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string type = 3;
+  if (!this->_internal_type().empty()) {
+    const std::string& _s = this->_internal_type();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigDelay.type");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.CdmConfigDelay)
+  return target;
+}
+
+::size_t CdmConfigDelay::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.CdmConfigDelay)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string runway = 1;
+  if (!this->_internal_runway().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_runway());
+  }
+
+  // string time = 2;
+  if (!this->_internal_time().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_time());
+  }
+
+  // string type = 3;
+  if (!this->_internal_type().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_type());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void CdmConfigDelay::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<CdmConfigDelay*>(&to_msg);
+  auto& from = static_cast<const CdmConfigDelay&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.CdmConfigDelay)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_runway().empty()) {
+    _this->_internal_set_runway(from._internal_runway());
+  }
+  if (!from._internal_time().empty()) {
+    _this->_internal_set_time(from._internal_time());
+  }
+  if (!from._internal_type().empty()) {
+    _this->_internal_set_type(from._internal_type());
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void CdmConfigDelay::CopyFrom(const CdmConfigDelay& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.CdmConfigDelay)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool CdmConfigDelay::IsInitialized() const {
+  return true;
+}
+
+void CdmConfigDelay::InternalSwap(CdmConfigDelay* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.runway_, &other->_impl_.runway_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.time_, &other->_impl_.time_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.type_, &other->_impl_.type_, arena);
+}
+
+::google::protobuf::Metadata CdmConfigDelay::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[167]);
+}
+// ===================================================================
+
+class CdmConfigDeice::_Internal {
+ public:
+};
+
+CdmConfigDeice::CdmConfigDeice(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.CdmConfigDeice)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigDeice::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : platforms_{visibility, arena, from.platforms_},
+        _cached_size_{0} {}
+
+CdmConfigDeice::CdmConfigDeice(
+    ::google::protobuf::Arena* arena,
+    const CdmConfigDeice& from)
+    : ::google::protobuf::Message(arena) {
+  CdmConfigDeice* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::memcpy(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, light_),
+           reinterpret_cast<const char *>(&from._impl_) +
+               offsetof(Impl_, light_),
+           offsetof(Impl_, super_) -
+               offsetof(Impl_, light_) +
+               sizeof(Impl_::super_));
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.CdmConfigDeice)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigDeice::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : platforms_{visibility, arena},
+        _cached_size_{0} {}
+
+inline void CdmConfigDeice::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, light_),
+           0,
+           offsetof(Impl_, super_) -
+               offsetof(Impl_, light_) +
+               sizeof(Impl_::super_));
+}
+CdmConfigDeice::~CdmConfigDeice() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CdmConfigDeice)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void CdmConfigDeice::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+CdmConfigDeice::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_._cached_size_),
+              false,
+          },
+          &CdmConfigDeice::MergeImpl,
+          &CdmConfigDeice::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void CdmConfigDeice::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.CdmConfigDeice)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.platforms_.Clear();
+  ::memset(&_impl_.light_, 0, static_cast<::size_t>(
+      reinterpret_cast<char*>(&_impl_.super_) -
+      reinterpret_cast<char*>(&_impl_.light_)) + sizeof(_impl_.super_));
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* CdmConfigDeice::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<3, 5, 1, 0, 2> CdmConfigDeice::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    5, 56,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967264,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    5,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_CdmConfigDeice_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigDeice>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // int32 light = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigDeice, _impl_.light_), 63>(),
+     {8, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.light_)}},
+    // int32 medium = 2;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigDeice, _impl_.medium_), 63>(),
+     {16, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.medium_)}},
+    // int32 heavy = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigDeice, _impl_.heavy_), 63>(),
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.heavy_)}},
+    // int32 super = 4;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigDeice, _impl_.super_), 63>(),
+     {32, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.super_)}},
+    // repeated .flightstrips.cluster.v1.CdmConfigDeicePlatform platforms = 5;
+    {::_pbi::TcParser::FastMtR1,
+     {42, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.platforms_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // int32 light = 1;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.light_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // int32 medium = 2;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.medium_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // int32 heavy = 3;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.heavy_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // int32 super = 4;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.super_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // repeated .flightstrips.cluster.v1.CdmConfigDeicePlatform platforms = 5;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.platforms_), 0, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigDeicePlatform>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* CdmConfigDeice::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.CdmConfigDeice)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // int32 light = 1;
+  if (this->_internal_light() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<1>(
+            stream, this->_internal_light(), target);
+  }
+
+  // int32 medium = 2;
+  if (this->_internal_medium() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<2>(
+            stream, this->_internal_medium(), target);
+  }
+
+  // int32 heavy = 3;
+  if (this->_internal_heavy() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<3>(
+            stream, this->_internal_heavy(), target);
+  }
+
+  // int32 super = 4;
+  if (this->_internal_super() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<4>(
+            stream, this->_internal_super(), target);
+  }
+
+  // repeated .flightstrips.cluster.v1.CdmConfigDeicePlatform platforms = 5;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_platforms_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_platforms().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            5, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.CdmConfigDeice)
+  return target;
+}
+
+::size_t CdmConfigDeice::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.CdmConfigDeice)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.CdmConfigDeicePlatform platforms = 5;
+  total_size += 1UL * this->_internal_platforms_size();
+  for (const auto& msg : this->_internal_platforms()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // int32 light = 1;
+  if (this->_internal_light() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_light());
+  }
+
+  // int32 medium = 2;
+  if (this->_internal_medium() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_medium());
+  }
+
+  // int32 heavy = 3;
+  if (this->_internal_heavy() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_heavy());
+  }
+
+  // int32 super = 4;
+  if (this->_internal_super() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_super());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void CdmConfigDeice::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<CdmConfigDeice*>(&to_msg);
+  auto& from = static_cast<const CdmConfigDeice&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.CdmConfigDeice)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_platforms()->MergeFrom(
+      from._internal_platforms());
+  if (from._internal_light() != 0) {
+    _this->_impl_.light_ = from._impl_.light_;
+  }
+  if (from._internal_medium() != 0) {
+    _this->_impl_.medium_ = from._impl_.medium_;
+  }
+  if (from._internal_heavy() != 0) {
+    _this->_impl_.heavy_ = from._impl_.heavy_;
+  }
+  if (from._internal_super() != 0) {
+    _this->_impl_.super_ = from._impl_.super_;
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void CdmConfigDeice::CopyFrom(const CdmConfigDeice& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.CdmConfigDeice)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool CdmConfigDeice::IsInitialized() const {
+  return true;
+}
+
+void CdmConfigDeice::InternalSwap(CdmConfigDeice* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  _impl_.platforms_.InternalSwap(&other->_impl_.platforms_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.super_)
+      + sizeof(CdmConfigDeice::_impl_.super_)
+      - PROTOBUF_FIELD_OFFSET(CdmConfigDeice, _impl_.light_)>(
+          reinterpret_cast<char*>(&_impl_.light_),
+          reinterpret_cast<char*>(&other->_impl_.light_));
+}
+
+::google::protobuf::Metadata CdmConfigDeice::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[168]);
+}
+// ===================================================================
+
+class CdmConfigDeicePlatform::_Internal {
+ public:
+};
+
+CdmConfigDeicePlatform::CdmConfigDeicePlatform(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigDeicePlatform::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : name_(arena, from.name_),
+        _cached_size_{0} {}
+
+CdmConfigDeicePlatform::CdmConfigDeicePlatform(
+    ::google::protobuf::Arena* arena,
+    const CdmConfigDeicePlatform& from)
+    : ::google::protobuf::Message(arena) {
+  CdmConfigDeicePlatform* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  _impl_.time_ = from._impl_.time_;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+}
+inline PROTOBUF_NDEBUG_INLINE CdmConfigDeicePlatform::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : name_(arena),
+        _cached_size_{0} {}
+
+inline void CdmConfigDeicePlatform::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.time_ = {};
+}
+CdmConfigDeicePlatform::~CdmConfigDeicePlatform() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void CdmConfigDeicePlatform::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.name_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+CdmConfigDeicePlatform::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(CdmConfigDeicePlatform, _impl_._cached_size_),
+              false,
+          },
+          &CdmConfigDeicePlatform::MergeImpl,
+          &CdmConfigDeicePlatform::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void CdmConfigDeicePlatform::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.name_.ClearToEmpty();
+  _impl_.time_ = 0;
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* CdmConfigDeicePlatform::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 59, 2> CdmConfigDeicePlatform::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_CdmConfigDeicePlatform_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::CdmConfigDeicePlatform>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // int32 time = 2;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(CdmConfigDeicePlatform, _impl_.time_), 63>(),
+     {16, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDeicePlatform, _impl_.time_)}},
+    // string name = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(CdmConfigDeicePlatform, _impl_.name_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string name = 1;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDeicePlatform, _impl_.name_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int32 time = 2;
+    {PROTOBUF_FIELD_OFFSET(CdmConfigDeicePlatform, _impl_.time_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+  }},
+  // no aux_entries
+  {{
+    "\56\4\0\0\0\0\0\0"
+    "flightstrips.cluster.v1.CdmConfigDeicePlatform"
+    "name"
+  }},
+};
+
+::uint8_t* CdmConfigDeicePlatform::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string name = 1;
+  if (!this->_internal_name().empty()) {
+    const std::string& _s = this->_internal_name();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.CdmConfigDeicePlatform.name");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // int32 time = 2;
+  if (this->_internal_time() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<2>(
+            stream, this->_internal_time(), target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+  return target;
+}
+
+::size_t CdmConfigDeicePlatform::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string name = 1;
+  if (!this->_internal_name().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_name());
+  }
+
+  // int32 time = 2;
+  if (this->_internal_time() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_time());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void CdmConfigDeicePlatform::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<CdmConfigDeicePlatform*>(&to_msg);
+  auto& from = static_cast<const CdmConfigDeicePlatform&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_name().empty()) {
+    _this->_internal_set_name(from._internal_name());
+  }
+  if (from._internal_time() != 0) {
+    _this->_impl_.time_ = from._impl_.time_;
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void CdmConfigDeicePlatform::CopyFrom(const CdmConfigDeicePlatform& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.CdmConfigDeicePlatform)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool CdmConfigDeicePlatform::IsInitialized() const {
+  return true;
+}
+
+void CdmConfigDeicePlatform::InternalSwap(CdmConfigDeicePlatform* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.name_, &other->_impl_.name_, arena);
+        swap(_impl_.time_, other->_impl_.time_);
+}
+
+::google::protobuf::Metadata CdmConfigDeicePlatform::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[169]);
+}
+// ===================================================================
+
+class ViffFlightPage::_Internal {
+ public:
+  using HasBits = decltype(std::declval<ViffFlightPage>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_._has_bits_);
+};
+
+void ViffFlightPage::clear_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.fetched_at_ != nullptr) _impl_.fetched_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+ViffFlightPage::ViffFlightPage(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.ViffFlightPage)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffFlightPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        flights_{visibility, arena, from.flights_},
+        airport_(arena, from.airport_) {}
+
+ViffFlightPage::ViffFlightPage(
+    ::google::protobuf::Arena* arena,
+    const ViffFlightPage& from)
+    : ::google::protobuf::Message(arena) {
+  ViffFlightPage* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.fetched_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.fetched_at_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.ViffFlightPage)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffFlightPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        flights_{visibility, arena},
+        airport_(arena) {}
+
+inline void ViffFlightPage::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.fetched_at_ = {};
+}
+ViffFlightPage::~ViffFlightPage() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.ViffFlightPage)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void ViffFlightPage::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.airport_.Destroy();
+  delete _impl_.fetched_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+ViffFlightPage::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_._cached_size_),
+              false,
+          },
+          &ViffFlightPage::MergeImpl,
+          &ViffFlightPage::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void ViffFlightPage::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.ViffFlightPage)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.flights_.Clear();
+  _impl_.airport_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.fetched_at_ != nullptr);
+    _impl_.fetched_at_->Clear();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* ViffFlightPage::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<2, 3, 2, 54, 2> ViffFlightPage::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_._has_bits_),
+    0, // no _extensions_
+    3, 24,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967288,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    3,  // num_field_entries
+    2,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_ViffFlightPage_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffFlightPage>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string airport = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_.airport_)}},
+    // .google.protobuf.Timestamp fetched_at = 2;
+    {::_pbi::TcParser::FastMtS1,
+     {18, 0, 0, PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_.fetched_at_)}},
+    // repeated .flightstrips.cluster.v1.ViffFlight flights = 3;
+    {::_pbi::TcParser::FastMtR1,
+     {26, 63, 1, PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_.flights_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string airport = 1;
+    {PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_.airport_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .google.protobuf.Timestamp fetched_at = 2;
+    {PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_.fetched_at_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.ViffFlight flights = 3;
+    {PROTOBUF_FIELD_OFFSET(ViffFlightPage, _impl_.flights_), -1, 1,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffFlight>()},
+  }}, {{
+    "\46\7\0\0\0\0\0\0"
+    "flightstrips.cluster.v1.ViffFlightPage"
+    "airport"
+  }},
+};
+
+::uint8_t* ViffFlightPage::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.ViffFlightPage)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string airport = 1;
+  if (!this->_internal_airport().empty()) {
+    const std::string& _s = this->_internal_airport();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlightPage.airport");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp fetched_at = 2;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        2, *_impl_.fetched_at_, _impl_.fetched_at_->GetCachedSize(), target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.ViffFlight flights = 3;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_flights_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_flights().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            3, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.ViffFlightPage)
+  return target;
+}
+
+::size_t ViffFlightPage::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.ViffFlightPage)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.ViffFlight flights = 3;
+  total_size += 1UL * this->_internal_flights_size();
+  for (const auto& msg : this->_internal_flights()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // string airport = 1;
+  if (!this->_internal_airport().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_airport());
+  }
+
+  // .google.protobuf.Timestamp fetched_at = 2;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.fetched_at_);
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void ViffFlightPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<ViffFlightPage*>(&to_msg);
+  auto& from = static_cast<const ViffFlightPage&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.ViffFlightPage)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_flights()->MergeFrom(
+      from._internal_flights());
+  if (!from._internal_airport().empty()) {
+    _this->_internal_set_airport(from._internal_airport());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.fetched_at_ != nullptr);
+    if (_this->_impl_.fetched_at_ == nullptr) {
+      _this->_impl_.fetched_at_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.fetched_at_);
+    } else {
+      _this->_impl_.fetched_at_->MergeFrom(*from._impl_.fetched_at_);
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void ViffFlightPage::CopyFrom(const ViffFlightPage& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.ViffFlightPage)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool ViffFlightPage::IsInitialized() const {
+  return true;
+}
+
+void ViffFlightPage::InternalSwap(ViffFlightPage* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.flights_.InternalSwap(&other->_impl_.flights_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.airport_, &other->_impl_.airport_, arena);
+  swap(_impl_.fetched_at_, other->_impl_.fetched_at_);
+}
+
+::google::protobuf::Metadata ViffFlightPage::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[170]);
+}
+// ===================================================================
+
+class ViffFlight::_Internal {
+ public:
+  using HasBits = decltype(std::declval<ViffFlight>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_._has_bits_);
+};
+
+ViffFlight::ViffFlight(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.ViffFlight)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffFlight::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        callsign_(arena, from.callsign_),
+        cid_(arena, from.cid_),
+        departure_(arena, from.departure_),
+        arrival_(arena, from.arrival_),
+        eobt_(arena, from.eobt_),
+        tobt_(arena, from.tobt_),
+        requested_tobt_(arena, from.requested_tobt_),
+        ctot_(arena, from.ctot_),
+        aobt_(arena, from.aobt_),
+        atot_(arena, from.atot_),
+        eta_(arena, from.eta_),
+        most_penalizing_airspace_(arena, from.most_penalizing_airspace_),
+        cdm_status_(arena, from.cdm_status_),
+        atfcm_status_(arena, from.atfcm_status_) {}
+
+ViffFlight::ViffFlight(
+    ::google::protobuf::Arena* arena,
+    const ViffFlight& from)
+    : ::google::protobuf::Message(arena) {
+  ViffFlight* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.cdm_data_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ViffCdmData>(
+                              arena, *from._impl_.cdm_data_)
+                        : nullptr;
+  _impl_.taxi_minutes_ = from._impl_.taxi_minutes_;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.ViffFlight)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffFlight::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        callsign_(arena),
+        cid_(arena),
+        departure_(arena),
+        arrival_(arena),
+        eobt_(arena),
+        tobt_(arena),
+        requested_tobt_(arena),
+        ctot_(arena),
+        aobt_(arena),
+        atot_(arena),
+        eta_(arena),
+        most_penalizing_airspace_(arena),
+        cdm_status_(arena),
+        atfcm_status_(arena) {}
+
+inline void ViffFlight::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char *>(&_impl_) +
+               offsetof(Impl_, cdm_data_),
+           0,
+           offsetof(Impl_, taxi_minutes_) -
+               offsetof(Impl_, cdm_data_) +
+               sizeof(Impl_::taxi_minutes_));
+}
+ViffFlight::~ViffFlight() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.ViffFlight)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void ViffFlight::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.callsign_.Destroy();
+  _impl_.cid_.Destroy();
+  _impl_.departure_.Destroy();
+  _impl_.arrival_.Destroy();
+  _impl_.eobt_.Destroy();
+  _impl_.tobt_.Destroy();
+  _impl_.requested_tobt_.Destroy();
+  _impl_.ctot_.Destroy();
+  _impl_.aobt_.Destroy();
+  _impl_.atot_.Destroy();
+  _impl_.eta_.Destroy();
+  _impl_.most_penalizing_airspace_.Destroy();
+  _impl_.cdm_status_.Destroy();
+  _impl_.atfcm_status_.Destroy();
+  delete _impl_.cdm_data_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+ViffFlight::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_._cached_size_),
+              false,
+          },
+          &ViffFlight::MergeImpl,
+          &ViffFlight::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void ViffFlight::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.ViffFlight)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.callsign_.ClearToEmpty();
+  _impl_.cid_.ClearToEmpty();
+  _impl_.departure_.ClearToEmpty();
+  _impl_.arrival_.ClearToEmpty();
+  _impl_.eobt_.ClearToEmpty();
+  _impl_.tobt_.ClearToEmpty();
+  _impl_.requested_tobt_.ClearToEmpty();
+  _impl_.ctot_.ClearToEmpty();
+  _impl_.aobt_.ClearToEmpty();
+  _impl_.atot_.ClearToEmpty();
+  _impl_.eta_.ClearToEmpty();
+  _impl_.most_penalizing_airspace_.ClearToEmpty();
+  _impl_.cdm_status_.ClearToEmpty();
+  _impl_.atfcm_status_.ClearToEmpty();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.cdm_data_ != nullptr);
+    _impl_.cdm_data_->Clear();
+  }
+  _impl_.taxi_minutes_ = 0;
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* ViffFlight::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 16, 1, 169, 2> ViffFlight::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_._has_bits_),
+    0, // no _extensions_
+    16, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294901760,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    16,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_ViffFlight_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffFlight>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // .flightstrips.cluster.v1.ViffCdmData cdm_data = 16;
+    {::_pbi::TcParser::FastMtS2,
+     {386, 0, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.cdm_data_)}},
+    // string callsign = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.callsign_)}},
+    // string cid = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.cid_)}},
+    // string departure = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.departure_)}},
+    // string arrival = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.arrival_)}},
+    // string eobt = 5;
+    {::_pbi::TcParser::FastUS1,
+     {42, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.eobt_)}},
+    // string tobt = 6;
+    {::_pbi::TcParser::FastUS1,
+     {50, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.tobt_)}},
+    // string requested_tobt = 7;
+    {::_pbi::TcParser::FastUS1,
+     {58, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.requested_tobt_)}},
+    // int32 taxi_minutes = 8;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(ViffFlight, _impl_.taxi_minutes_), 63>(),
+     {64, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.taxi_minutes_)}},
+    // string ctot = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.ctot_)}},
+    // string aobt = 10;
+    {::_pbi::TcParser::FastUS1,
+     {82, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.aobt_)}},
+    // string atot = 11;
+    {::_pbi::TcParser::FastUS1,
+     {90, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.atot_)}},
+    // string eta = 12;
+    {::_pbi::TcParser::FastUS1,
+     {98, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.eta_)}},
+    // string most_penalizing_airspace = 13;
+    {::_pbi::TcParser::FastUS1,
+     {106, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.most_penalizing_airspace_)}},
+    // string cdm_status = 14;
+    {::_pbi::TcParser::FastUS1,
+     {114, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.cdm_status_)}},
+    // string atfcm_status = 15;
+    {::_pbi::TcParser::FastUS1,
+     {122, 63, 0, PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.atfcm_status_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string callsign = 1;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.callsign_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string cid = 2;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.cid_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string departure = 3;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.departure_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string arrival = 4;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.arrival_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string eobt = 5;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.eobt_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string tobt = 6;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.tobt_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string requested_tobt = 7;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.requested_tobt_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int32 taxi_minutes = 8;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.taxi_minutes_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kInt32)},
+    // string ctot = 9;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.ctot_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string aobt = 10;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.aobt_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string atot = 11;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.atot_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string eta = 12;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.eta_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string most_penalizing_airspace = 13;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.most_penalizing_airspace_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string cdm_status = 14;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.cdm_status_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string atfcm_status = 15;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.atfcm_status_), -1, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // .flightstrips.cluster.v1.ViffCdmData cdm_data = 16;
+    {PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.cdm_data_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffCdmData>()},
+  }}, {{
+    "\42\10\3\11\7\4\4\16\0\4\4\4\3\30\12\14\0\0\0\0\0\0\0\0"
+    "flightstrips.cluster.v1.ViffFlight"
+    "callsign"
+    "cid"
+    "departure"
+    "arrival"
+    "eobt"
+    "tobt"
+    "requested_tobt"
+    "ctot"
+    "aobt"
+    "atot"
+    "eta"
+    "most_penalizing_airspace"
+    "cdm_status"
+    "atfcm_status"
+  }},
+};
+
+::uint8_t* ViffFlight::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.ViffFlight)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    const std::string& _s = this->_internal_callsign();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.callsign");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string cid = 2;
+  if (!this->_internal_cid().empty()) {
+    const std::string& _s = this->_internal_cid();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.cid");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string departure = 3;
+  if (!this->_internal_departure().empty()) {
+    const std::string& _s = this->_internal_departure();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.departure");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // string arrival = 4;
+  if (!this->_internal_arrival().empty()) {
+    const std::string& _s = this->_internal_arrival();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.arrival");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  // string eobt = 5;
+  if (!this->_internal_eobt().empty()) {
+    const std::string& _s = this->_internal_eobt();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.eobt");
+    target = stream->WriteStringMaybeAliased(5, _s, target);
+  }
+
+  // string tobt = 6;
+  if (!this->_internal_tobt().empty()) {
+    const std::string& _s = this->_internal_tobt();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.tobt");
+    target = stream->WriteStringMaybeAliased(6, _s, target);
+  }
+
+  // string requested_tobt = 7;
+  if (!this->_internal_requested_tobt().empty()) {
+    const std::string& _s = this->_internal_requested_tobt();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.requested_tobt");
+    target = stream->WriteStringMaybeAliased(7, _s, target);
+  }
+
+  // int32 taxi_minutes = 8;
+  if (this->_internal_taxi_minutes() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::
+        WriteInt32ToArrayWithField<8>(
+            stream, this->_internal_taxi_minutes(), target);
+  }
+
+  // string ctot = 9;
+  if (!this->_internal_ctot().empty()) {
+    const std::string& _s = this->_internal_ctot();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.ctot");
+    target = stream->WriteStringMaybeAliased(9, _s, target);
+  }
+
+  // string aobt = 10;
+  if (!this->_internal_aobt().empty()) {
+    const std::string& _s = this->_internal_aobt();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.aobt");
+    target = stream->WriteStringMaybeAliased(10, _s, target);
+  }
+
+  // string atot = 11;
+  if (!this->_internal_atot().empty()) {
+    const std::string& _s = this->_internal_atot();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.atot");
+    target = stream->WriteStringMaybeAliased(11, _s, target);
+  }
+
+  // string eta = 12;
+  if (!this->_internal_eta().empty()) {
+    const std::string& _s = this->_internal_eta();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.eta");
+    target = stream->WriteStringMaybeAliased(12, _s, target);
+  }
+
+  // string most_penalizing_airspace = 13;
+  if (!this->_internal_most_penalizing_airspace().empty()) {
+    const std::string& _s = this->_internal_most_penalizing_airspace();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.most_penalizing_airspace");
+    target = stream->WriteStringMaybeAliased(13, _s, target);
+  }
+
+  // string cdm_status = 14;
+  if (!this->_internal_cdm_status().empty()) {
+    const std::string& _s = this->_internal_cdm_status();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.cdm_status");
+    target = stream->WriteStringMaybeAliased(14, _s, target);
+  }
+
+  // string atfcm_status = 15;
+  if (!this->_internal_atfcm_status().empty()) {
+    const std::string& _s = this->_internal_atfcm_status();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffFlight.atfcm_status");
+    target = stream->WriteStringMaybeAliased(15, _s, target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .flightstrips.cluster.v1.ViffCdmData cdm_data = 16;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        16, *_impl_.cdm_data_, _impl_.cdm_data_->GetCachedSize(), target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.ViffFlight)
+  return target;
+}
+
+::size_t ViffFlight::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.ViffFlight)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string callsign = 1;
+  if (!this->_internal_callsign().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_callsign());
+  }
+
+  // string cid = 2;
+  if (!this->_internal_cid().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_cid());
+  }
+
+  // string departure = 3;
+  if (!this->_internal_departure().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_departure());
+  }
+
+  // string arrival = 4;
+  if (!this->_internal_arrival().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_arrival());
+  }
+
+  // string eobt = 5;
+  if (!this->_internal_eobt().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_eobt());
+  }
+
+  // string tobt = 6;
+  if (!this->_internal_tobt().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_tobt());
+  }
+
+  // string requested_tobt = 7;
+  if (!this->_internal_requested_tobt().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_requested_tobt());
+  }
+
+  // string ctot = 9;
+  if (!this->_internal_ctot().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_ctot());
+  }
+
+  // string aobt = 10;
+  if (!this->_internal_aobt().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_aobt());
+  }
+
+  // string atot = 11;
+  if (!this->_internal_atot().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_atot());
+  }
+
+  // string eta = 12;
+  if (!this->_internal_eta().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_eta());
+  }
+
+  // string most_penalizing_airspace = 13;
+  if (!this->_internal_most_penalizing_airspace().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_most_penalizing_airspace());
+  }
+
+  // string cdm_status = 14;
+  if (!this->_internal_cdm_status().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_cdm_status());
+  }
+
+  // string atfcm_status = 15;
+  if (!this->_internal_atfcm_status().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_atfcm_status());
+  }
+
+  // .flightstrips.cluster.v1.ViffCdmData cdm_data = 16;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        2 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.cdm_data_);
+  }
+
+  // int32 taxi_minutes = 8;
+  if (this->_internal_taxi_minutes() != 0) {
+    total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+        this->_internal_taxi_minutes());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void ViffFlight::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<ViffFlight*>(&to_msg);
+  auto& from = static_cast<const ViffFlight&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.ViffFlight)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_callsign().empty()) {
+    _this->_internal_set_callsign(from._internal_callsign());
+  }
+  if (!from._internal_cid().empty()) {
+    _this->_internal_set_cid(from._internal_cid());
+  }
+  if (!from._internal_departure().empty()) {
+    _this->_internal_set_departure(from._internal_departure());
+  }
+  if (!from._internal_arrival().empty()) {
+    _this->_internal_set_arrival(from._internal_arrival());
+  }
+  if (!from._internal_eobt().empty()) {
+    _this->_internal_set_eobt(from._internal_eobt());
+  }
+  if (!from._internal_tobt().empty()) {
+    _this->_internal_set_tobt(from._internal_tobt());
+  }
+  if (!from._internal_requested_tobt().empty()) {
+    _this->_internal_set_requested_tobt(from._internal_requested_tobt());
+  }
+  if (!from._internal_ctot().empty()) {
+    _this->_internal_set_ctot(from._internal_ctot());
+  }
+  if (!from._internal_aobt().empty()) {
+    _this->_internal_set_aobt(from._internal_aobt());
+  }
+  if (!from._internal_atot().empty()) {
+    _this->_internal_set_atot(from._internal_atot());
+  }
+  if (!from._internal_eta().empty()) {
+    _this->_internal_set_eta(from._internal_eta());
+  }
+  if (!from._internal_most_penalizing_airspace().empty()) {
+    _this->_internal_set_most_penalizing_airspace(from._internal_most_penalizing_airspace());
+  }
+  if (!from._internal_cdm_status().empty()) {
+    _this->_internal_set_cdm_status(from._internal_cdm_status());
+  }
+  if (!from._internal_atfcm_status().empty()) {
+    _this->_internal_set_atfcm_status(from._internal_atfcm_status());
+  }
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.cdm_data_ != nullptr);
+    if (_this->_impl_.cdm_data_ == nullptr) {
+      _this->_impl_.cdm_data_ =
+          ::google::protobuf::Message::CopyConstruct<::flightstrips::cluster::v1::ViffCdmData>(arena, *from._impl_.cdm_data_);
+    } else {
+      _this->_impl_.cdm_data_->MergeFrom(*from._impl_.cdm_data_);
+    }
+  }
+  if (from._internal_taxi_minutes() != 0) {
+    _this->_impl_.taxi_minutes_ = from._impl_.taxi_minutes_;
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void ViffFlight::CopyFrom(const ViffFlight& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.ViffFlight)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool ViffFlight::IsInitialized() const {
+  return true;
+}
+
+void ViffFlight::InternalSwap(ViffFlight* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.callsign_, &other->_impl_.callsign_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cid_, &other->_impl_.cid_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.departure_, &other->_impl_.departure_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.arrival_, &other->_impl_.arrival_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.eobt_, &other->_impl_.eobt_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.tobt_, &other->_impl_.tobt_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.requested_tobt_, &other->_impl_.requested_tobt_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.ctot_, &other->_impl_.ctot_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.aobt_, &other->_impl_.aobt_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.atot_, &other->_impl_.atot_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.eta_, &other->_impl_.eta_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.most_penalizing_airspace_, &other->_impl_.most_penalizing_airspace_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.cdm_status_, &other->_impl_.cdm_status_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.atfcm_status_, &other->_impl_.atfcm_status_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.taxi_minutes_)
+      + sizeof(ViffFlight::_impl_.taxi_minutes_)
+      - PROTOBUF_FIELD_OFFSET(ViffFlight, _impl_.cdm_data_)>(
+          reinterpret_cast<char*>(&_impl_.cdm_data_),
+          reinterpret_cast<char*>(&other->_impl_.cdm_data_));
+}
+
+::google::protobuf::Metadata ViffFlight::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[171]);
+}
+// ===================================================================
+
+class ViffCdmData::_Internal {
+ public:
+};
+
+ViffCdmData::ViffCdmData(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.ViffCdmData)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffCdmData::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : tobt_(arena, from.tobt_),
+        tsat_(arena, from.tsat_),
+        ttot_(arena, from.ttot_),
+        ctot_(arena, from.ctot_),
+        reason_(arena, from.reason_),
+        requested_tobt_(arena, from.requested_tobt_),
+        requested_tobt_type_(arena, from.requested_tobt_type_),
+        requested_asrt_(arena, from.requested_asrt_),
+        id_(arena, from.id_),
+        _cached_size_{0} {}
+
+ViffCdmData::ViffCdmData(
+    ::google::protobuf::Arena* arena,
+    const ViffCdmData& from)
+    : ::google::protobuf::Message(arena) {
+  ViffCdmData* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.ViffCdmData)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffCdmData::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : tobt_(arena),
+        tsat_(arena),
+        ttot_(arena),
+        ctot_(arena),
+        reason_(arena),
+        requested_tobt_(arena),
+        requested_tobt_type_(arena),
+        requested_asrt_(arena),
+        id_(arena),
+        _cached_size_{0} {}
+
+inline void ViffCdmData::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+ViffCdmData::~ViffCdmData() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.ViffCdmData)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void ViffCdmData::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.tobt_.Destroy();
+  _impl_.tsat_.Destroy();
+  _impl_.ttot_.Destroy();
+  _impl_.ctot_.Destroy();
+  _impl_.reason_.Destroy();
+  _impl_.requested_tobt_.Destroy();
+  _impl_.requested_tobt_type_.Destroy();
+  _impl_.requested_asrt_.Destroy();
+  _impl_.id_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+ViffCdmData::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_._cached_size_),
+              false,
+          },
+          &ViffCdmData::MergeImpl,
+          &ViffCdmData::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void ViffCdmData::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.ViffCdmData)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.tobt_.ClearToEmpty();
+  _impl_.tsat_.ClearToEmpty();
+  _impl_.ttot_.ClearToEmpty();
+  _impl_.ctot_.ClearToEmpty();
+  _impl_.reason_.ClearToEmpty();
+  _impl_.requested_tobt_.ClearToEmpty();
+  _impl_.requested_tobt_type_.ClearToEmpty();
+  _impl_.requested_asrt_.ClearToEmpty();
+  _impl_.id_.ClearToEmpty();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* ViffCdmData::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<4, 9, 0, 123, 2> ViffCdmData::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    9, 120,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294966784,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    9,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_ViffCdmData_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffCdmData>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    {::_pbi::TcParser::MiniParse, {}},
+    // string tobt = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.tobt_)}},
+    // string tsat = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.tsat_)}},
+    // string ttot = 3;
+    {::_pbi::TcParser::FastUS1,
+     {26, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.ttot_)}},
+    // string ctot = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.ctot_)}},
+    // string reason = 5;
+    {::_pbi::TcParser::FastUS1,
+     {42, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.reason_)}},
+    // string requested_tobt = 6;
+    {::_pbi::TcParser::FastUS1,
+     {50, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.requested_tobt_)}},
+    // string requested_tobt_type = 7;
+    {::_pbi::TcParser::FastUS1,
+     {58, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.requested_tobt_type_)}},
+    // string requested_asrt = 8;
+    {::_pbi::TcParser::FastUS1,
+     {66, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.requested_asrt_)}},
+    // string id = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 63, 0, PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.id_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string tobt = 1;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.tobt_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string tsat = 2;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.tsat_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string ttot = 3;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.ttot_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string ctot = 4;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.ctot_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string reason = 5;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.reason_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string requested_tobt = 6;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.requested_tobt_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string requested_tobt_type = 7;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.requested_tobt_type_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string requested_asrt = 8;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.requested_asrt_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string id = 9;
+    {PROTOBUF_FIELD_OFFSET(ViffCdmData, _impl_.id_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\43\4\4\4\4\6\16\23\16\2\0\0\0\0\0\0"
+    "flightstrips.cluster.v1.ViffCdmData"
+    "tobt"
+    "tsat"
+    "ttot"
+    "ctot"
+    "reason"
+    "requested_tobt"
+    "requested_tobt_type"
+    "requested_asrt"
+    "id"
+  }},
+};
+
+::uint8_t* ViffCdmData::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.ViffCdmData)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string tobt = 1;
+  if (!this->_internal_tobt().empty()) {
+    const std::string& _s = this->_internal_tobt();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.tobt");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string tsat = 2;
+  if (!this->_internal_tsat().empty()) {
+    const std::string& _s = this->_internal_tsat();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.tsat");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  // string ttot = 3;
+  if (!this->_internal_ttot().empty()) {
+    const std::string& _s = this->_internal_ttot();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.ttot");
+    target = stream->WriteStringMaybeAliased(3, _s, target);
+  }
+
+  // string ctot = 4;
+  if (!this->_internal_ctot().empty()) {
+    const std::string& _s = this->_internal_ctot();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.ctot");
+    target = stream->WriteStringMaybeAliased(4, _s, target);
+  }
+
+  // string reason = 5;
+  if (!this->_internal_reason().empty()) {
+    const std::string& _s = this->_internal_reason();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.reason");
+    target = stream->WriteStringMaybeAliased(5, _s, target);
+  }
+
+  // string requested_tobt = 6;
+  if (!this->_internal_requested_tobt().empty()) {
+    const std::string& _s = this->_internal_requested_tobt();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.requested_tobt");
+    target = stream->WriteStringMaybeAliased(6, _s, target);
+  }
+
+  // string requested_tobt_type = 7;
+  if (!this->_internal_requested_tobt_type().empty()) {
+    const std::string& _s = this->_internal_requested_tobt_type();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.requested_tobt_type");
+    target = stream->WriteStringMaybeAliased(7, _s, target);
+  }
+
+  // string requested_asrt = 8;
+  if (!this->_internal_requested_asrt().empty()) {
+    const std::string& _s = this->_internal_requested_asrt();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.requested_asrt");
+    target = stream->WriteStringMaybeAliased(8, _s, target);
+  }
+
+  // string id = 9;
+  if (!this->_internal_id().empty()) {
+    const std::string& _s = this->_internal_id();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffCdmData.id");
+    target = stream->WriteStringMaybeAliased(9, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.ViffCdmData)
+  return target;
+}
+
+::size_t ViffCdmData::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.ViffCdmData)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string tobt = 1;
+  if (!this->_internal_tobt().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_tobt());
+  }
+
+  // string tsat = 2;
+  if (!this->_internal_tsat().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_tsat());
+  }
+
+  // string ttot = 3;
+  if (!this->_internal_ttot().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_ttot());
+  }
+
+  // string ctot = 4;
+  if (!this->_internal_ctot().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_ctot());
+  }
+
+  // string reason = 5;
+  if (!this->_internal_reason().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_reason());
+  }
+
+  // string requested_tobt = 6;
+  if (!this->_internal_requested_tobt().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_requested_tobt());
+  }
+
+  // string requested_tobt_type = 7;
+  if (!this->_internal_requested_tobt_type().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_requested_tobt_type());
+  }
+
+  // string requested_asrt = 8;
+  if (!this->_internal_requested_asrt().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_requested_asrt());
+  }
+
+  // string id = 9;
+  if (!this->_internal_id().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_id());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void ViffCdmData::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<ViffCdmData*>(&to_msg);
+  auto& from = static_cast<const ViffCdmData&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.ViffCdmData)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_tobt().empty()) {
+    _this->_internal_set_tobt(from._internal_tobt());
+  }
+  if (!from._internal_tsat().empty()) {
+    _this->_internal_set_tsat(from._internal_tsat());
+  }
+  if (!from._internal_ttot().empty()) {
+    _this->_internal_set_ttot(from._internal_ttot());
+  }
+  if (!from._internal_ctot().empty()) {
+    _this->_internal_set_ctot(from._internal_ctot());
+  }
+  if (!from._internal_reason().empty()) {
+    _this->_internal_set_reason(from._internal_reason());
+  }
+  if (!from._internal_requested_tobt().empty()) {
+    _this->_internal_set_requested_tobt(from._internal_requested_tobt());
+  }
+  if (!from._internal_requested_tobt_type().empty()) {
+    _this->_internal_set_requested_tobt_type(from._internal_requested_tobt_type());
+  }
+  if (!from._internal_requested_asrt().empty()) {
+    _this->_internal_set_requested_asrt(from._internal_requested_asrt());
+  }
+  if (!from._internal_id().empty()) {
+    _this->_internal_set_id(from._internal_id());
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void ViffCdmData::CopyFrom(const ViffCdmData& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.ViffCdmData)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool ViffCdmData::IsInitialized() const {
+  return true;
+}
+
+void ViffCdmData::InternalSwap(ViffCdmData* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.tobt_, &other->_impl_.tobt_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.tsat_, &other->_impl_.tsat_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.ttot_, &other->_impl_.ttot_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.ctot_, &other->_impl_.ctot_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.reason_, &other->_impl_.reason_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.requested_tobt_, &other->_impl_.requested_tobt_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.requested_tobt_type_, &other->_impl_.requested_tobt_type_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.requested_asrt_, &other->_impl_.requested_asrt_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.id_, &other->_impl_.id_, arena);
+}
+
+::google::protobuf::Metadata ViffCdmData::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[172]);
+}
+// ===================================================================
+
+class ViffMastersPage::_Internal {
+ public:
+  using HasBits = decltype(std::declval<ViffMastersPage>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(ViffMastersPage, _impl_._has_bits_);
+};
+
+void ViffMastersPage::clear_fetched_at() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.fetched_at_ != nullptr) _impl_.fetched_at_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000001u;
+}
+ViffMastersPage::ViffMastersPage(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.ViffMastersPage)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffMastersPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        masters_{visibility, arena, from.masters_} {}
+
+ViffMastersPage::ViffMastersPage(
+    ::google::protobuf::Arena* arena,
+    const ViffMastersPage& from)
+    : ::google::protobuf::Message(arena) {
+  ViffMastersPage* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.fetched_at_ = (cached_has_bits & 0x00000001u) ? ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(
+                              arena, *from._impl_.fetched_at_)
+                        : nullptr;
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.ViffMastersPage)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffMastersPage::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : _cached_size_{0},
+        masters_{visibility, arena} {}
+
+inline void ViffMastersPage::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.fetched_at_ = {};
+}
+ViffMastersPage::~ViffMastersPage() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.ViffMastersPage)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void ViffMastersPage::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  delete _impl_.fetched_at_;
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+ViffMastersPage::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(ViffMastersPage, _impl_._cached_size_),
+              false,
+          },
+          &ViffMastersPage::MergeImpl,
+          &ViffMastersPage::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void ViffMastersPage::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.ViffMastersPage)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.masters_.Clear();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.fetched_at_ != nullptr);
+    _impl_.fetched_at_->Clear();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* ViffMastersPage::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 2, 0, 2> ViffMastersPage::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(ViffMastersPage, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    2,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    &_ViffMastersPage_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffMastersPage>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // repeated .flightstrips.cluster.v1.ViffMaster masters = 2;
+    {::_pbi::TcParser::FastMtR1,
+     {18, 63, 1, PROTOBUF_FIELD_OFFSET(ViffMastersPage, _impl_.masters_)}},
+    // .google.protobuf.Timestamp fetched_at = 1;
+    {::_pbi::TcParser::FastMtS1,
+     {10, 0, 0, PROTOBUF_FIELD_OFFSET(ViffMastersPage, _impl_.fetched_at_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // .google.protobuf.Timestamp fetched_at = 1;
+    {PROTOBUF_FIELD_OFFSET(ViffMastersPage, _impl_.fetched_at_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated .flightstrips.cluster.v1.ViffMaster masters = 2;
+    {PROTOBUF_FIELD_OFFSET(ViffMastersPage, _impl_.masters_), -1, 1,
+    (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::google::protobuf::Timestamp>()},
+    {::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffMaster>()},
+  }}, {{
+  }},
+};
+
+::uint8_t* ViffMastersPage::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.ViffMastersPage)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .google.protobuf.Timestamp fetched_at = 1;
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        1, *_impl_.fetched_at_, _impl_.fetched_at_->GetCachedSize(), target, stream);
+  }
+
+  // repeated .flightstrips.cluster.v1.ViffMaster masters = 2;
+  for (unsigned i = 0, n = static_cast<unsigned>(
+                           this->_internal_masters_size());
+       i < n; i++) {
+    const auto& repfield = this->_internal_masters().Get(i);
+    target =
+        ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+            2, repfield, repfield.GetCachedSize(),
+            target, stream);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.ViffMastersPage)
+  return target;
+}
+
+::size_t ViffMastersPage::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.ViffMastersPage)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated .flightstrips.cluster.v1.ViffMaster masters = 2;
+  total_size += 1UL * this->_internal_masters_size();
+  for (const auto& msg : this->_internal_masters()) {
+    total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+  }
+  // .google.protobuf.Timestamp fetched_at = 1;
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size +=
+        1 + ::google::protobuf::internal::WireFormatLite::MessageSize(*_impl_.fetched_at_);
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void ViffMastersPage::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<ViffMastersPage*>(&to_msg);
+  auto& from = static_cast<const ViffMastersPage&>(from_msg);
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.ViffMastersPage)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  _this->_internal_mutable_masters()->MergeFrom(
+      from._internal_masters());
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(from._impl_.fetched_at_ != nullptr);
+    if (_this->_impl_.fetched_at_ == nullptr) {
+      _this->_impl_.fetched_at_ =
+          ::google::protobuf::Message::CopyConstruct<::google::protobuf::Timestamp>(arena, *from._impl_.fetched_at_);
+    } else {
+      _this->_impl_.fetched_at_->MergeFrom(*from._impl_.fetched_at_);
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void ViffMastersPage::CopyFrom(const ViffMastersPage& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.ViffMastersPage)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool ViffMastersPage::IsInitialized() const {
+  return true;
+}
+
+void ViffMastersPage::InternalSwap(ViffMastersPage* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.masters_.InternalSwap(&other->_impl_.masters_);
+  swap(_impl_.fetched_at_, other->_impl_.fetched_at_);
+}
+
+::google::protobuf::Metadata ViffMastersPage::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[173]);
+}
+// ===================================================================
+
+class ViffMaster::_Internal {
+ public:
+};
+
+ViffMaster::ViffMaster(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:flightstrips.cluster.v1.ViffMaster)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffMaster::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility, ::google::protobuf::Arena* arena,
+    const Impl_& from)
+      : airport_(arena, from.airport_),
+        position_(arena, from.position_),
+        _cached_size_{0} {}
+
+ViffMaster::ViffMaster(
+    ::google::protobuf::Arena* arena,
+    const ViffMaster& from)
+    : ::google::protobuf::Message(arena) {
+  ViffMaster* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_);
+
+  // @@protoc_insertion_point(copy_constructor:flightstrips.cluster.v1.ViffMaster)
+}
+inline PROTOBUF_NDEBUG_INLINE ViffMaster::Impl_::Impl_(
+    ::google::protobuf::internal::InternalVisibility visibility,
+    ::google::protobuf::Arena* arena)
+      : airport_(arena),
+        position_(arena),
+        _cached_size_{0} {}
+
+inline void ViffMaster::SharedCtor(::_pb::Arena* arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+ViffMaster::~ViffMaster() {
+  // @@protoc_insertion_point(destructor:flightstrips.cluster.v1.ViffMaster)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void ViffMaster::SharedDtor() {
+  ABSL_DCHECK(GetArena() == nullptr);
+  _impl_.airport_.Destroy();
+  _impl_.position_.Destroy();
+  _impl_.~Impl_();
+}
+
+const ::google::protobuf::MessageLite::ClassData*
+ViffMaster::GetClassData() const {
+  PROTOBUF_CONSTINIT static const ::google::protobuf::MessageLite::
+      ClassDataFull _data_ = {
+          {
+              nullptr,  // OnDemandRegisterArenaDtor
+              PROTOBUF_FIELD_OFFSET(ViffMaster, _impl_._cached_size_),
+              false,
+          },
+          &ViffMaster::MergeImpl,
+          &ViffMaster::kDescriptorMethods,
+      };
+  return &_data_;
+}
+PROTOBUF_NOINLINE void ViffMaster::Clear() {
+// @@protoc_insertion_point(message_clear_start:flightstrips.cluster.v1.ViffMaster)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.airport_.ClearToEmpty();
+  _impl_.position_.ClearToEmpty();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* ViffMaster::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 58, 2> ViffMaster::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_ViffMaster_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::flightstrips::cluster::v1::ViffMaster>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string position = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(ViffMaster, _impl_.position_)}},
+    // string airport = 1;
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(ViffMaster, _impl_.airport_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string airport = 1;
+    {PROTOBUF_FIELD_OFFSET(ViffMaster, _impl_.airport_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string position = 2;
+    {PROTOBUF_FIELD_OFFSET(ViffMaster, _impl_.position_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\42\7\10\0\0\0\0\0"
+    "flightstrips.cluster.v1.ViffMaster"
+    "airport"
+    "position"
+  }},
+};
+
+::uint8_t* ViffMaster::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:flightstrips.cluster.v1.ViffMaster)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string airport = 1;
+  if (!this->_internal_airport().empty()) {
+    const std::string& _s = this->_internal_airport();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffMaster.airport");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string position = 2;
+  if (!this->_internal_position().empty()) {
+    const std::string& _s = this->_internal_position();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "flightstrips.cluster.v1.ViffMaster.position");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:flightstrips.cluster.v1.ViffMaster)
+  return target;
+}
+
+::size_t ViffMaster::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:flightstrips.cluster.v1.ViffMaster)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string airport = 1;
+  if (!this->_internal_airport().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_airport());
+  }
+
+  // string position = 2;
+  if (!this->_internal_position().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_position());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+
+void ViffMaster::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<ViffMaster*>(&to_msg);
+  auto& from = static_cast<const ViffMaster&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:flightstrips.cluster.v1.ViffMaster)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_airport().empty()) {
+    _this->_internal_set_airport(from._internal_airport());
+  }
+  if (!from._internal_position().empty()) {
+    _this->_internal_set_position(from._internal_position());
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void ViffMaster::CopyFrom(const ViffMaster& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:flightstrips.cluster.v1.ViffMaster)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool ViffMaster::IsInitialized() const {
+  return true;
+}
+
+void ViffMaster::InternalSwap(ViffMaster* PROTOBUF_RESTRICT other) {
+  using std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.airport_, &other->_impl_.airport_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.position_, &other->_impl_.position_, arena);
+}
+
+::google::protobuf::Metadata ViffMaster::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(&descriptor_table_storage_2eproto_getter,
+                                   &descriptor_table_storage_2eproto_once,
+                                   file_level_metadata_storage_2eproto[174]);
 }
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace v1

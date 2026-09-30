@@ -112,6 +112,7 @@ enum EntityKind {
   PROVIDER_CHECKPOINT = 27;
   WEATHER_CACHE = 28;
   SESSION_DEADLINE = 29;
+  VATSIM_SESSION_CURSOR = 30;
 }
 message EntityRecord {
   oneof value {
@@ -144,6 +145,7 @@ message EntityRecord {
     ProviderCheckpoint provider_checkpoint = 27;
     WeatherCache weather_cache = 28;
     SessionDeadline session_deadline = 29;
+    VatsimSessionCursor vatsim_session_cursor = 30;
   }
 }
 
@@ -228,6 +230,10 @@ message Strip {
   optional google.protobuf.Timestamp aldt = 59;
   uint64 sequence = 60; optional string tobt_set_by = 61;
   optional bool on_block = 62;
+  string vatsim_cid = 63; uint64 vatsim_source_revision = 64;
+  int64 vatsim_plan_revision = 65; optional google.protobuf.Timestamp vatsim_seen_at = 66;
+  bool vatsim_only = 67; bool vatsim_online = 68;
+  optional double vatsim_latitude = 69; optional double vatsim_longitude = 70;
 }
 message ValidationStatus {
   string issue_type = 1; string message = 2; string owning_position = 3;
@@ -652,6 +658,10 @@ message AmanValidation {
 message VatsimObservation {
   string provider_id = 1; string callsign = 2; string digest = 3;
   google.protobuf.Timestamp observed_at = 4;
+}
+message VatsimSessionCursor {
+  string provider = 1; uint64 source_revision = 2; string source_sha256 = 3;
+  google.protobuf.Timestamp snapshot_at = 4;
 }
 message NavManifest {
   string airport = 1; string cycle = 2; string digest = 3;

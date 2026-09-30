@@ -45,6 +45,7 @@ The subject/key is validated against decoded identity before apply. The `ObjectV
 | `StandAssignment` | session | uppercase callsign |
 | `StandBlock` | session | uppercase stand ID |
 | `Atis` | session | uppercase airport ICAO |
+| `VatsimSessionCursor` | session | `vatsim` provider key |
 
 `Coordination.from_euroscope` and `euroscope_handover_cid` retain the source
 and acknowledgement target of an inbound EuroScope handover. The session owner

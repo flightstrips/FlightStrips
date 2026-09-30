@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"FlightStrips/internal/cluster"
 )
 
 const HoppieBaseURL = "http://www.hoppie.nl/acars/system/connect.html"
@@ -63,9 +65,12 @@ func (c *Client) Poll(ctx context.Context, callsign string) ([]Message, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, cluster.MaxObjectBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read poll response: %w", err)
+	}
+	if len(body) > cluster.MaxObjectBytes || resp.StatusCode != http.StatusOK || !(strings.TrimSpace(string(body)) == "ok" || strings.HasPrefix(strings.TrimSpace(string(body)), "ok ")) {
+		return nil, fmt.Errorf("Hoppie poll response unavailable or oversized")
 	}
 
 	return c.parseResponse(string(body)), nil
@@ -101,9 +106,9 @@ func (c *Client) sendMessage(ctx context.Context, from, to, msgType, packet stri
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("hoppie returned error: %s", string(body))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, cluster.MaxStateBytes+1))
+	if err != nil || resp.StatusCode != http.StatusOK || len(body) > cluster.MaxStateBytes || strings.TrimSpace(string(body)) != "ok" {
+		return fmt.Errorf("Hoppie send acceptance unavailable")
 	}
 
 	return nil
@@ -129,18 +134,18 @@ func (c *Client) parseResponse(body string) []Message {
 	depth := 0
 	for i, char := range body {
 		switch char {
-			case '{':
+		case '{':
 
-				if depth == 0 {
-					start = i
-				}
-				depth++
-			case '}':
-				depth--
-				if depth == 0 && start != -1 {
-					blocks = append(blocks, body[start+1:i])
-					start = -1
-				}
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case '}':
+			depth--
+			if depth == 0 && start != -1 {
+				blocks = append(blocks, body[start+1:i])
+				start = -1
+			}
 		}
 	}
 
@@ -148,7 +153,12 @@ func (c *Client) parseResponse(body string) []Message {
 		msg := c.parseMessage(block)
 		if msg != nil {
 			messages = append(messages, *msg)
+		} else {
+			messages = append(messages, Message{Raw: "{" + block + "}"})
 		}
+	}
+	if len(blocks) == 0 && strings.TrimSpace(body) != "" {
+		messages = append(messages, Message{Raw: body})
 	}
 
 	return messages
@@ -165,7 +175,12 @@ func (c *Client) parseMessage(content string) *Message {
 	// Find the first occurrence of '{' which marks the start of the packet content
 	idx := strings.Index(content, "{")
 	if idx == -1 {
-		return nil
+		header := strings.Fields(content)
+		message := &Message{Raw: content}
+		if len(header) >= 2 {
+			message.From, message.Type = header[0], header[1]
+		}
+		return message
 	}
 
 	header := strings.TrimSpace(content[:idx])
@@ -174,7 +189,7 @@ func (c *Client) parseMessage(content string) *Message {
 	// Header should contain FROM and TO
 	headerParts := strings.Fields(header)
 	if len(headerParts) < 2 {
-		return nil
+		return &Message{Raw: content}
 	}
 
 	from := headerParts[0]

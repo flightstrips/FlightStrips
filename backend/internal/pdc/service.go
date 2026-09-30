@@ -272,7 +272,13 @@ func (o PdcRequestOutcome) RequestRemarks() *string {
 }
 
 func (s *Service) EvaluatePdcRequest(strip *models.Strip, session *models.Session, remarks string) PdcRequestOutcome {
-	faults := s.validatePDCFlightPlan(strip, session.ActiveRunways.DepartureRunways, session.AvailableSids)
+	return evaluatePdcRequest(strip, session, remarks)
+}
+
+// evaluatePdcRequest is shared by the SQL service and the dormant owner policy.
+// It is pure: storage, delivery and timeout ownership remain in their runtimes.
+func evaluatePdcRequest(strip *models.Strip, session *models.Session, remarks string) PdcRequestOutcome {
+	faults := validationFaultMessages(PDCStripValidationFaults(strip, session.ActiveRunways.DepartureRunways, session.AvailableSids))
 	if len(faults) > 0 {
 		return PdcRequestOutcome{
 			Transition:    PdcRequestTransitionRequestedWithFaults,

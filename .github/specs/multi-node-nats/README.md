@@ -2,7 +2,7 @@
 title: Multi-node NATS-only backend implementation
 status: implementation-ready
 audience: maintainers-and-coding-agents
-source_revision: operator-decisions-2026-09-29
+source_revision: operator-decisions-2026-09-30-local-testing
 ---
 
 # Multi-node NATS-only backend
@@ -17,6 +17,7 @@ This directory is the implementation handoff for replacing FlightStrips' single-
 - Preserve state after a complete backend and NATS shutdown. A backend failure should require only WebSocket reconnection and an ownership handoff, with no loss of acknowledged state.
 - A frontend command that invokes EuroScope must have a durable, replayable result. `executed` means the plugin's local API/UI action completed; a private-message result never claims pilot receipt. A claimed dispatch with uncertain execution ends `unknown` and is not automatically retried.
 - New multi-node NATS, Object Store, frontend WebSocket and EuroScope WebSocket payloads are binary Protobuf with typed fields. No JSON-in-Protobuf or opaque serialized domain payload is allowed. First-party HTTP APIs retain JSON bodies. **ALB is outside this project and its code, endpoint and protocol must not be changed.**
+- Qualification uses local builds on the user's machine. Do not build/publish release candidates or require a staging deployment, candidate manifests or artifact promotion. Preserve ordinary releases after local testing and the operator's coordinated cutover decision.
 
 ## Architecture
 
@@ -84,14 +85,14 @@ An implementation that cannot satisfy a contract must update these documents and
 | 19c | [VATSIM transceiver frequency feed](tasks/19c-transceiver-feed.md) | 12, 13, 19 candidate | Merged to integration base ([#821](https://github.com/flightstrips/FlightStrips/pull/821)); held from `main`/release |
 | 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19 and follow-ups, 20a–20c | Split into 20a–20c; complete only after all three and parent gates pass |
 | 20a | [Runtime and API assembly](tasks/20a-runtime-assembly.md) | 04–19 and follow-ups | Started in separate chat; held from `main`/release |
-| 20b | [Immutable release gates](tasks/20b-release-gates.md) | 14–19 and follow-ups | Implemented in draft [#825](https://github.com/flightstrips/FlightStrips/pull/825); [local acceptance/artifact handoff](release-gates-evidence.md); held from `main`/release |
+| 20b | [Ordinary release workflow cleanup](tasks/20b-release-gates.md) | 14–19 and follow-ups | [#825](https://github.com/flightstrips/FlightStrips/pull/825) merged under superseded scope; corrective PR in existing chat removes candidate framework and retains migrator cleanup; held from `main`/release |
 | 20c | [Final integration and SQL retirement](tasks/20c-sql-retirement.md) | 20a, 20b | Not started; held from `main`/release |
 | 21 | [Production Swarm infrastructure](tasks/21-infrastructure.md) | 01, 03, 13, 20 | Not started |
-| 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–21 | Not started |
+| 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–20, including 20c | Not started; local qualification |
 | 23 | [Position load and capacity gate](tasks/23-performance.md) | 22 | Not started |
 | 24 | [Fresh NATS-only production cutover](tasks/24-fresh-release.md) | 20–23 | Not started |
 
-Each task is scoped for one reviewable implementation change, though a task may need more than one PR when generated code or the private infrastructure repository is involved. **Reviewable does not mean independently releasable.** Apply the per-task [merge and release matrix](release-safety.md#per-task-decision) before merging any implementation task. Tasks can proceed in parallel when their listed prerequisites are complete. Update the status table and attach links to PRs and test evidence as tasks finish. Task 24 is the coordinated production cutover; tasks 22 and 23 are its fault and capacity gates.
+Each task is scoped for one reviewable implementation change, though a task may need more than one PR when generated code or the private infrastructure repository is involved. **Reviewable does not mean independently releasable.** Apply the per-task [merge and release matrix](release-safety.md#per-task-decision) before merging any implementation task. Tasks can proceed in parallel when their listed prerequisites are complete. Update the status table and attach links to PRs and test evidence as tasks finish. Task 24 is the coordinated production cutover; tasks 22 and 23 provide its local fault and capacity checks. Local checks need no published release candidates or staging stack; record machine limits explicitly.
 
 ## Non-negotiable invariants
 

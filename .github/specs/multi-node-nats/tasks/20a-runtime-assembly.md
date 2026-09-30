@@ -15,12 +15,12 @@
 - First-party HTTP stays JSON with existing paths, response shapes, authentication and feature flags. Bind stand status/preview, CDM, ECFMP, AMAN, pilot/EFB/PDC/GSX, command outcomes and enabled test tools. Reads use accepted typed projections; writes route to the aggregate owner with the existing HTTP idempotency contract. Port any remaining SQL-dependent HTTP handler/service adapter here. Task 20c must not inherit unconverted business behavior.
 - **ALB is out of scope:** do not modify ALB source, protocol, endpoint, configuration or enablement. Preserve its existing construction when assembling shared services. No Redis or hidden JSON in NATS/storage/socket payloads; external provider formats remain boundary parsing only.
 - `/healthz` is process liveness. `/readyz` fails during initial replay, lost quorum, resource drift or projection stall and recovers after verified catch-up; use the existing readiness contract rather than a constant response. Expose the specified projection/lease/effect metrics and safe logs with command ID, sequence and epochs, without tokens, private message bodies or provider secrets.
-- Respect the existing `main.buildVersion` build identity entrypoint: release builds identify component version plus tested Git tree, supplied by 20b. Keep development fallback behavior. Coordinate an interface correction through the plan before changing the build identity contract.
+- Preserve the existing `main.buildVersion` entrypoint and component/development version behavior. The user tests local builds; no tested-tree build identity or release-candidate integration is required.
 
 ## Scope boundaries
 
 - Own runtime code, handler adapters, startup supervisors, readiness/shutdown and real application tests. The old constructor may remain temporarily isolated for 20c; a process runs exactly one constructor and worker set. An explicit isolated candidate executable or selection is acceptable for tests, documented for 20c removal.
-- Do not edit release workflows, Dockerfiles, release tooling or frontend build identity: 20b owns those. Do not perform final default Compose conversion or SQL deletion: 20c owns those. Extract/share existing operational policy only when needed by the candidate; preserve behavior.
+- Do not edit release workflows: 20b owns the minimal migrator cleanup. Do not perform final default Compose conversion or SQL deletion: 20c owns those. Preserve current Dockerfile/frontend build identity; no release-candidate tooling is required. Extract/share existing operational policy only when needed by the candidate; preserve behavior.
 - Check existing handoff evidence before inventing ports. Resolve missing implementation within this PR; update contract/evidence documents when an actual incompatibility is discovered.
 
 ## Done when

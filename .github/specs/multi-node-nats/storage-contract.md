@@ -127,6 +127,26 @@ The remaining `string` fields named `state`, `status`, `kind`, `source`, `reason
 
 ## Provider and audit conversion
 
+Task 19c adds only `ProviderPage.transceivers` oneof field 13, containing
+`TransceiverFeedPage { fetched_at = 1; clients = 2; }` and
+`TransceiverFeedClient { callsign = 1; frequencies_hz = 2; }`. The global
+`vatsim.transceivers/v3` checkpoint references a verified content-addressed
+typed provider object. Clients are sorted by uppercase trimmed callsign;
+frequencies are positive, sorted, unique whole hertz, canonicalized to the
+whole kilohertz presented by the existing `NormalizeFrequency` policy.
+Malformed/empty provider results do not replace the accepted checkpoint.
+No new entity, command case or compatibility baseline is allocated.
+
+The accepted checkpoint entity revision and object digest are the frequency
+source revision. Session reconciliation uses existing `AdvanceWorkflow` and
+`WorkflowRecord` values: the stable workflow UUID includes session ID, source
+revision and digest; step is `transceiver/sectors/<digest>`; `source_revision`
+is the global checkpoint entity revision. The session owner commits the
+completed workflow together with the typed sector/layout/route diff. Comparing
+the greatest completed source revision with the accepted checkpoint recovers
+missed notifications and takeover. A failed policy pass leaves that revision
+pending; no provider worker invokes SQL callbacks or marks it applied.
+
 AIRAC.net, Open-Meteo, VATSIM, ECFMP and identity providers may expose JSON or another external format. Their adapters parse into validated typed Protobuf/domain values in memory. Persist only `NavData`, `ProviderPage`, `WeatherObservation`, `VatsimObservation`, `EcfmpState`, or another explicitly named typed schema after review. `ProviderPage.ecfmp` carries ECFMP measures, scalar measure values, route lists, and typed filters used for per-flight application; its fetched timestamp and immutable object digest identify the source revision. Unknown ECFMP measure or filter shapes fail conversion instead of entering the object store. A provider page with fields needed to resume/replay that cannot be represented in `ProviderPage` is **not cached**; the importer refetches it using typed checkpoint metadata. No raw body, `json.RawMessage`, `CanonicalJSON`, or serialized map enters `FS_OBJECTS`, a state event, or a snapshot.
 
 `ProviderPage.open_meteo` retains each requested forecast coordinate/time and vertical wind level, with observed and expiry times. Its airport-owned checkpoint is committed after a global quota reservation and verified object publication. A replayed or uncertain workflow ID cannot issue another Open-Meteo call.

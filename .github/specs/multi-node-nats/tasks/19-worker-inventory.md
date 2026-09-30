@@ -19,7 +19,7 @@ wiring; starting both paths would duplicate provider calls and mutations.
 | `amanObservationWorker.Run` | airport owner | `amancandidate.New` consumes accepted VATSIM and shared EuroScope facts; [Task 19b evidence](19b-aman-policy-evidence.md) |
 | `departureLifecycle.StartSweep` | session owner: candidate Departure callback | persisted reservations, physical blocks, wrong-stand episodes and retention |
 | `arrivalLifecycle.StartSweep` | session owner: candidate Arrival callback | persisted arrival retention, cancellations, stand-block expiry and unsafe reservation reconciliation |
-| `transceiverCache.Start` | global owner for provider fetch | Task 19c: typed transceiver checkpoint, projection frequency reader and owner-routed sector refresh; candidate missing until 19c merges |
+| `transceiverCache.Start` | global owner: `cluster.NewTransceiverFeed` | typed `vatsim` / `transceivers/v3` checkpoint; `NewTransceiverSource` supplies PDC/server reads; `NewTransceiverSectorReconciler` hands accepted revisions to the session owner; [Task 19c evidence](19c-transceiver-feed-evidence.md) (integration merge pending) |
 | `ecfmpService.Start` | global owner for fetch; session owner for application | ECFMP HTTP fetch and per-flight restrictions |
 | `albHub.Run` | outside this project | ALB remains unchanged |
 | `metarPoller.Start` | airport owner for METAR fetch; global owner for the provider-wide AFV ATIS feed; session owner for ATIS presentation | METAR and AFV ATIS fetch |
@@ -69,7 +69,18 @@ The production `app.Build` path still starts the legacy workers. Task 19a suppli
 the concrete SQL-independent VATSIM lifecycle callbacks, with two-replica fault,
 replay, deadline, shared-observation and durable-effect evidence in
 `services/vatsim_lifecycle_*integration_test.go`. Task 19b's operational AMAN
-behavior is implemented on its completion branch; its integration merge is
-pending. Task 20 binds candidate startup after both changes are integrated.
+behavior is integrated as PR #820; its constructor and fault evidence are
+linked above. Task 20 binds candidate startup after Task 19c and the remaining
+Task 18 candidates are integrated.
+Task 19c supplies the last missing global provider candidate. Its HTTP-only
+`vatsim.NewTransceiverProvider` preserves the configured refresh interval;
+`TransceiverFeed.Refresh` persists one intent per interval slot and `Resume`
+resolves takeover without refetch. The projection-backed source has no poller
+or SQL dependency. Task 20 passes it to both PDC and server ports and binds the
+Task 18c sector planner through `NewTransceiverSectorReconciler`; schedule its
+revision comparison on session-owner passes so missed callbacks recover.
+No production `app.Build` binding changes here. [19c evidence](19c-transceiver-feed-evidence.md)
+records the actual HTTP fixtures and real two-replica NATS failures/replay.
+
 Task 20 must not start both worker paths for one
 provider or aggregate.

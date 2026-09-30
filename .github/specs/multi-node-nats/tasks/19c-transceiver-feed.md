@@ -24,3 +24,11 @@
 - Real two-replica NATS tests use the actual parser/normalizer with HTTP fixtures and prove one provider call per intent/slot, nonowner rejection, owner failure around intent/call/result commit, accepted result replay and no repeat of an uncertain attempt.
 - Both backend readers expose identical canonical frequencies after replay/takeover; malformed/empty responses preserve the last accepted generation. Frequency changes reach owner-routed sector reconciliation or remain recoverably pending by source revision.
 - PDC/server source-port compatibility is verified without starting the legacy cache. Candidate construction needs no SQL or fake provider policy. Only Task 20 assembly remains.
+
+## Candidate implementation and evidence
+
+The dormant adapter, verified typed reader, and durable source-revision handoff
+are implemented on `codex/multi-node-nats-19c-transceiver-feed` from `1cb4ea17`.
+See [Task 19c evidence](19c-transceiver-feed-evidence.md) for constructors,
+contract details, two-replica HTTP/NATS failure tests and remaining Task 20
+assembly. Integration merge remains pending; release stays held until Task 24.

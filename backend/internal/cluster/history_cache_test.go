@@ -217,3 +217,19 @@ func TestHistoryCachePinsPendingWorkAndBoundsSnapshotAllocation(t *testing.T) {
 	_, err := state.Snapshot()
 	require.ErrorIs(t, err, ErrSnapshotTooLarge)
 }
+
+func TestHistoryCachePreservesLatestTransceiverCheckpoint(t *testing.T) {
+	state := NewAggregate(globalRef())
+	state.history = testHistoryCache(t)
+	state.StreamSequence = 2048
+	for i := 0; i < 1024; i++ {
+		id := uuid.NewString()
+		state.Workflows[id] = &pb.WorkflowRecord{WorkflowId: id, Step: "other", Status: pb.WorkflowRecord_COMPLETED}
+	}
+	id := "00000000-0000-4000-8000-000000000001"
+	revision := uint64(123)
+	state.Workflows[id] = &pb.WorkflowRecord{WorkflowId: id, Step: transceiverSectorStep + "hash", SourceRevision: &revision, Status: pb.WorkflowRecord_COMPLETED}
+	require.NoError(t, state.boundHistory())
+	require.Len(t, state.Workflows, historyWorkingSet+1)
+	require.Equal(t, revision, transceiverAppliedRevision(state))
+}

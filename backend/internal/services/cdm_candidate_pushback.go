@@ -48,7 +48,10 @@ func (c *CdmCandidate) firePushback(ctx context.Context, id int32, deadline *pb.
 	if data.Recalculation != pb.CdmState_NONE || len(data.PendingExports) != 0 {
 		return nil
 	}
-	export := state.Workflows[lifecycleID(data.SourceRevision, "viff/"+key+"/state")]
+	export, err := state.LookupWorkflow(lifecycleID(data.SourceRevision, "viff/"+key+"/state"))
+	if err != nil {
+		return err
+	}
 	proven := export != nil && export.Status == pb.WorkflowRecord_COMPLETED && proto.Equal(data.Tobt, data.Pushback.ExpectedTobt)
 	var flights *pb.ViffFlightPage
 	var flightRevision uint64

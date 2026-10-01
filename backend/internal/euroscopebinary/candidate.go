@@ -187,7 +187,11 @@ func (c *DeadlineCandidate) Recover(ctx context.Context, id int32) error {
 		commandID := automaticSquawkID(id, s)
 		// An accepted intent, including claimed uncertainty or cancellation, is
 		// never recreated by recovery. A subsequent observation has a new ID.
-		if state.Ledger[commandID] != nil {
+		prior, err := state.LookupOutcome(commandID)
+		if err != nil {
+			return err
+		}
+		if prior != nil {
 			continue
 		}
 		reply := c.RequestSquawk(ctx, id, commandID, s.Callsign)
@@ -326,7 +330,11 @@ func (c *DeadlineCandidate) RequestSquawk(ctx context.Context, id int32, command
 		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
 	}
 	target := ""
-	if effect := state.Effects[commandID]; effect != nil && effect.GetGenerateSquawk().GetCallsign() == strings.ToUpper(strings.TrimSpace(callsign)) {
+	effect, err := state.LookupEffect(commandID)
+	if err != nil {
+		return &pb.CommandReply{Status: pb.CommandReply_UNAVAILABLE, Detail: err.Error()}
+	}
+	if effect != nil && effect.GetGenerateSquawk().GetCallsign() == strings.ToUpper(strings.TrimSpace(callsign)) {
 		target = effect.TargetCid
 	}
 	for _, controller := range controllers {

@@ -57,7 +57,10 @@ func (c *Candidate) planPlugin(r *pb.CommandRequest, a *cluster.Aggregate) (*pb.
 	terminal := proto.Clone(proposed).(*pb.WorkflowRecord)
 	out := &pb.DomainChange{Workflows: []*pb.WorkflowRecord{terminal}}
 	source := a.Indexes[pb.EntityKind_STRIP][parts[3]]
-	primary := a.Effects[parts[4]]
+	primary, err := a.LookupEffect(parts[4])
+	if err != nil {
+		return pdcReject(pb.CommandReply_UNAVAILABLE, err.Error())
+	}
 	if source == nil || old.SourceRevision == nil || source.Revision != *old.SourceRevision || primary == nil {
 		terminal.Status, terminal.ReasonCode = pb.WorkflowRecord_SUPERSEDED, "SOURCE_CHANGED"
 		return out, pb.CommandReply_COMMITTED, 0, nil

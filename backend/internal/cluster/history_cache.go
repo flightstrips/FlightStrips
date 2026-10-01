@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	pb "FlightStrips/pkg/events/cluster"
@@ -193,8 +194,16 @@ func (a *Aggregate) boundHistory() error {
 		ids = nil
 	}
 	workflows := []string{}
+	// Sector reconciliation reads the latest completed source checkpoint by
+	// enumeration. Keep this single live checkpoint alongside pending work.
+	var transceiverCheckpoint *pb.WorkflowRecord
+	for _, w := range a.Workflows {
+		if w.Status == pb.WorkflowRecord_COMPLETED && strings.HasPrefix(w.Step, transceiverSectorStep) && (transceiverCheckpoint == nil || w.GetSourceRevision() > transceiverCheckpoint.GetSourceRevision() || w.GetSourceRevision() == transceiverCheckpoint.GetSourceRevision() && w.WorkflowId < transceiverCheckpoint.WorkflowId) {
+			transceiverCheckpoint = w
+		}
+	}
 	for id, w := range a.Workflows {
-		if w.Status != pb.WorkflowRecord_PENDING {
+		if w.Status != pb.WorkflowRecord_PENDING && w != transceiverCheckpoint {
 			workflows = append(workflows, id)
 		}
 	}

@@ -38,7 +38,8 @@ locked by live backends. Disk usage grows with retained history. An unavailable
 index prevents readiness and writes.
 
 Each aggregate keeps 512 completed outcomes, workflows and effects per kind in
-memory, plus all pending workflows, nonterminal effects and their outcomes.
+memory, plus all pending workflows, nonterminal effects and their outcomes, and
+the latest transceiver reconciliation checkpoint.
 Historical lookups consult the index, including command retries and effect result
 acknowledgments. Command identities and `FS_STATE` history never expire. Provider
 quota counters older than 48 hours are retired by accepted events; new requests

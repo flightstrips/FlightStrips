@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (c *CdmCandidate) queueExport(state *cluster.Aggregate, data *pb.CdmState, command string, m *models.Strip, revision uint64, config *cdm.CdmAirportConfig) {
+func (c *CdmCandidate) queueExport(state *cluster.Aggregate, data *pb.CdmState, command string, m *models.Strip, revision uint64, config *cdm.CdmAirportConfig) (lookupErr error) {
 	if data.SourceRevision != "" {
 		command = data.SourceRevision
 	}
@@ -22,7 +22,15 @@ func (c *CdmCandidate) queueExport(state *cluster.Aggregate, data *pb.CdmState, 
 		id := lifecycleID(command, "viff/"+m.Callsign+"/"+label)
 		prior := after
 		after = &id
-		if state.Workflows[id] != nil {
+		if lookupErr != nil {
+			return
+		}
+		priorWorkflow, err := state.LookupWorkflow(id)
+		if err != nil {
+			lookupErr = err
+			return
+		}
+		if priorWorkflow != nil {
 			return
 		}
 		for _, e := range data.PendingExports {
@@ -44,11 +52,12 @@ func (c *CdmCandidate) queueExport(state *cluster.Aggregate, data *pb.CdmState, 
 	} else if authoritative && cdmValue(m.CdmData.Tobt) != "" {
 		appendIntent(pb.CdmState_ExportIntent_SET_TOBT, "state", cdmValue(m.CdmData.Tobt), nil, cdm.CandidateTaxiMinutes(m, config))
 	} else if authoritative {
-		return // Do not acknowledge a request without an authoritative export.
+		return lookupErr // Do not acknowledge a request without an authoritative export.
 	}
 	if data.ViffRequestSyncPending {
 		appendIntent(pb.CdmState_ExportIntent_DPI, "clear-request", "REQTOBT/NULL/NULL", nil, 0)
 	}
+	return lookupErr
 }
 
 func cdmExportParams(callsign string, e *pb.CdmState_ExportData) cdm.SetCdmDataParams {
@@ -97,7 +106,10 @@ func (c *CdmCandidate) resumeExports(ctx context.Context, id int32) error {
 				break // A derived export cannot precede the local sequence commit.
 			}
 			if after := intent.AfterOperationId; after != nil {
-				previous := state.Workflows[*after]
+				previous, err := state.LookupWorkflow(*after)
+				if err != nil {
+					return err
+				}
 				if previous == nil || previous.Status != pb.WorkflowRecord_COMPLETED {
 					if previous != nil && (previous.Status == pb.WorkflowRecord_FAILED || previous.Status == pb.WorkflowRecord_SUPERSEDED) {
 						if err = c.finishExport(ctx, id, key, intent, pb.WorkflowRecord_SUPERSEDED); err != nil {
@@ -108,7 +120,11 @@ func (c *CdmCandidate) resumeExports(ctx context.Context, id int32) error {
 					break
 				}
 			}
-			if existing := state.Workflows[intent.OperationId]; existing != nil && existing.Status == pb.WorkflowRecord_FAILED {
+			existing, err := state.LookupWorkflow(intent.OperationId)
+			if err != nil {
+				return err
+			}
+			if existing != nil && existing.Status == pb.WorkflowRecord_FAILED {
 				if err = c.finishExport(ctx, id, key, intent, pb.WorkflowRecord_FAILED); err != nil {
 					return err
 				}
@@ -141,7 +157,7 @@ func (c *CdmCandidate) resumeExports(ctx context.Context, id int32) error {
 					stale = cdmValue(m.CdmData.Status) != "REA"
 				}
 			}
-			if stale && state.Workflows[intent.OperationId] == nil {
+			if stale && existing == nil {
 				if err = c.finishExport(ctx, id, key, intent, pb.WorkflowRecord_SUPERSEDED); err != nil {
 					return err
 				}
@@ -152,7 +168,10 @@ func (c *CdmCandidate) resumeExports(ctx context.Context, id int32) error {
 			if err != nil {
 				return err
 			}
-			result := state.Workflows[intent.OperationId]
+			result, err := state.LookupWorkflow(intent.OperationId)
+			if err != nil {
+				return err
+			}
 			if result == nil || result.Status == pb.WorkflowRecord_PENDING {
 				if callErr != nil {
 					return callErr
@@ -202,8 +221,12 @@ func (c *CdmCandidate) finishExport(ctx context.Context, id int32, key string, i
 			return &pb.DomainChange{}, pb.CommandReply_COMMITTED, 0, nil
 		}
 		change := &pb.DomainChange{}
+		result, err := state.LookupWorkflow(intent.OperationId)
+		if err != nil {
+			return nil, pb.CommandReply_UNAVAILABLE, 0, err
+		}
 		if status == pb.WorkflowRecord_COMPLETED {
-			if state.Workflows[intent.OperationId].GetStatus() != pb.WorkflowRecord_COMPLETED {
+			if result.GetStatus() != pb.WorkflowRecord_COMPLETED {
 				return nil, pb.CommandReply_UNAVAILABLE, 0, fmt.Errorf("CDM provider result unproven")
 			}
 			if strings.HasPrefix(intent.Value, "ATOT/") {
@@ -227,7 +250,7 @@ func (c *CdmCandidate) finishExport(ctx context.Context, id int32, key string, i
 			ref := sessionRef(id)
 			change.Workflows = append(change.Workflows, &pb.WorkflowRecord{WorkflowId: intent.OperationId, Source: ref, Destination: ref, Step: "cdm-export-superseded", DerivedCommandId: req.CommandId, Status: pb.WorkflowRecord_SUPERSEDED, SourceRevision: &intent.InputRevision})
 		} else if status == pb.WorkflowRecord_FAILED {
-			if state.Workflows[intent.OperationId].GetStatus() != pb.WorkflowRecord_FAILED {
+			if result.GetStatus() != pb.WorkflowRecord_FAILED {
 				return nil, pb.CommandReply_UNAVAILABLE, 0, fmt.Errorf("uncertain provider outcome unproven")
 			}
 		}

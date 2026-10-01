@@ -97,7 +97,11 @@ func (c *Candidate) PDC(ctx context.Context, id int32) error {
 	}
 	// A prior attempt is recovered, never repeated. Rearming creates a later
 	// slot with a distinct workflow even when the previous poll was uncertain.
-	if prior := state.Workflows[d.CommandId]; prior != nil {
+	prior, err := state.LookupWorkflow(d.CommandId)
+	if err != nil {
+		return err
+	}
+	if prior != nil {
 		if prior.Status == pb.WorkflowRecord_PENDING {
 			return nil
 		}
@@ -166,7 +170,11 @@ func (c *Candidate) processPage(ctx context.Context, id int32, station string) e
 		return err
 	}
 	for _, m := range page.GetHoppie().Messages {
-		if prior := state.Ledger[m.MessageId]; prior != nil {
+		prior, err := state.LookupOutcome(m.MessageId)
+		if err != nil {
+			return err
+		}
+		if prior != nil {
 			continue
 		}
 		req := &pb.CommandRequest{ProtocolRevision: 1, CommandId: m.MessageId, Aggregate: pdcRef(id), Actor: &pb.Actor{Kind: pb.Actor_PROVIDER, Id: "hoppie", SessionId: &id}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_ApplyPdcProviderMessage{ApplyPdcProviderMessage: &pb.ApplyPdcProviderMessage{Message: m}}}}}
@@ -191,7 +199,10 @@ func (c *Candidate) planPoll(_ context.Context, r *pb.CommandRequest, a *cluster
 		}
 		if old != nil {
 			prior := old.Value.GetSessionDeadline()
-			attempt := a.Workflows[prior.CommandId]
+			attempt, err := a.LookupWorkflow(prior.CommandId)
+			if err != nil {
+				return pdcReject(pb.CommandReply_UNAVAILABLE, err.Error())
+			}
 			minimum := nextPdcPoll(prior, prior.DueAt.AsTime())
 			if attempt == nil || attempt.Status != pb.WorkflowRecord_FAILED || d.CommandId != minimum.CommandId || d.SourceRevision != minimum.SourceRevision || d.DueAt.AsTime().Before(minimum.DueAt.AsTime()) {
 				return pdcReject(pb.CommandReply_INVALID_ARGUMENT, "PDC poll cannot rearm unaccepted slot")
@@ -242,7 +253,10 @@ func (c *Candidate) sendPending(ctx context.Context, id int32, worker cluster.Ex
 		message := fresh.Indexes[pb.EntityKind_PDC_PROVIDER_MESSAGE][key]
 		m := message.Value.GetPdcProviderMessage()
 		intent := fresh.Workflows[key]
-		attempt := fresh.Workflows[intent.DerivedCommandId]
+		attempt, err := fresh.LookupWorkflow(intent.DerivedCommandId)
+		if err != nil {
+			return err
+		}
 		if attempt == nil {
 			_, err = worker.Run(ctx, cluster.ExternalCallSpec{Source: pdcRef(id), Destination: pdcRef(id), WorkflowID: intent.DerivedCommandId, Step: "external/hoppie/send", Reserve: func(ctx context.Context) (bool, error) {
 				a, e := c.Writer.Read(ctx, pdcRef(id))
@@ -280,7 +294,10 @@ func (c *Candidate) sendPending(ctx context.Context, id int32, worker cluster.Ex
 		if err != nil {
 			return err
 		}
-		attempt = fresh.Workflows[intent.DerivedCommandId]
+		attempt, err = fresh.LookupWorkflow(intent.DerivedCommandId)
+		if err != nil {
+			return err
+		}
 		if attempt != nil && attempt.Status == pb.WorkflowRecord_FAILED {
 			req := pdcSystem(id, pdcID(key, "uncertain"), "pdc-send-result", proto.Uint64(message.Revision), pdcUpdate(key, &pb.EntityRecord{Value: &pb.EntityRecord_PdcProviderMessage{PdcProviderMessage: m}}))
 			if err = pdcReply(c.Writer.Execute(ctx, req)); err != nil {
@@ -297,7 +314,10 @@ func (c *Candidate) planSendResult(r *pb.CommandRequest, a *cluster.Aggregate) (
 		return pdcReject(pb.CommandReply_INVALID_ARGUMENT, "parsed PDC send result required")
 	}
 	old := a.Indexes[pb.EntityKind_PDC_PROVIDER_MESSAGE][u.Key]
-	intent := a.Workflows[u.Key]
+	intent, err := a.LookupWorkflow(u.Key)
+	if err != nil {
+		return pdcReject(pb.CommandReply_UNAVAILABLE, err.Error())
+	}
 	if old == nil || intent == nil || intent.Step != "pdc/outbound" || r.ExpectedEntityRevision == nil || *r.ExpectedEntityRevision != old.Revision {
 		return pdcReject(pb.CommandReply_REVISION_CONFLICT, "PDC send intent changed")
 	}
@@ -308,7 +328,10 @@ func (c *Candidate) planSendResult(r *pb.CommandRequest, a *cluster.Aggregate) (
 	if !proto.Equal(copy, original) {
 		return pdcReject(pb.CommandReply_INVALID_ARGUMENT, "PDC send body changed")
 	}
-	attempt := a.Workflows[intent.DerivedCommandId]
+	attempt, err := a.LookupWorkflow(intent.DerivedCommandId)
+	if err != nil {
+		return pdcReject(pb.CommandReply_UNAVAILABLE, err.Error())
+	}
 	if attempt == nil {
 		return pdcReject(pb.CommandReply_INVALID_ARGUMENT, "PDC send attempt missing")
 	}

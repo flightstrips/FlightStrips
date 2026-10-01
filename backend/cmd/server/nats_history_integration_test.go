@@ -32,6 +32,10 @@ func TestServerNATSArchivedCommandAfterRestart(t *testing.T) {
 		return c
 	}
 	send := func(c *websocket.Conn, request *pb.FrontendFrame) *pb.FrontendActionResult {
+		requestID := request.GetCommand().GetRequestId()
+		if query := request.GetStatusQuery(); query != nil {
+			requestID = query.RequestIds[0]
+		}
 		sendEntrypointFrame(t, c, request)
 		_ = c.SetReadDeadline(time.Now().Add(20 * time.Second))
 		for {
@@ -40,7 +44,7 @@ func TestServerNATSArchivedCommandAfterRestart(t *testing.T) {
 			require.Equal(t, websocket.BinaryMessage, kind)
 			frame := &pb.FrontendFrame{}
 			require.NoError(t, pb.UnmarshalStrict(data, frame))
-			if result := frame.GetActionResult(); result != nil && result.RequestId == request.GetCommand().RequestId {
+			if result := frame.GetActionResult(); result != nil && result.RequestId == requestID {
 				return result
 			}
 		}
@@ -76,6 +80,9 @@ func TestServerNATSArchivedCommandAfterRestart(t *testing.T) {
 	f.restart(1)
 	restarted := connect(1)
 	before := f.state(ref).Indexes[pb.EntityKind_STRIP]["SAS123"].Revision
+	status := send(restarted, &pb.FrontendFrame{ProtocolRevision: 2, Frame: &pb.FrontendFrame_StatusQuery{StatusQuery: &pb.ActionStatusQuery{RequestIds: []string{oldID}}}})
+	require.Equal(t, pb.CommandOutcome_SUCCEEDED, status.Status)
+	require.Equal(t, original.AggregateRevision, status.AggregateRevision)
 	retry := send(restarted, oldRequest)
 	require.Equal(t, pb.CommandOutcome_SUCCEEDED, retry.Status)
 	require.Equal(t, original.AggregateRevision, retry.AggregateRevision)

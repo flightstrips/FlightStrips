@@ -423,7 +423,10 @@ func (h Handler) handleFrame(ctx context.Context, conn *websocket.Conn, who iden
 				if err != nil {
 					return err
 				}
-				outcome := state.Ledger[id]
+				outcome, err := state.LookupOutcome(id)
+				if err != nil {
+					return err
+				}
 				if outcome == nil || !proto.Equal(outcome.Actor, &pb.Actor{Kind: pb.Actor_CONTROLLER, Id: who.me.Cid, SessionId: &who.id}) {
 					continue
 				}
@@ -463,7 +466,10 @@ func (h Handler) sendTerminalResults(conn *websocket.Conn, who identity, pending
 		if !proto.Equal(aggregate, ref) {
 			continue
 		}
-		outcome := state.Ledger[id]
+		outcome, err := state.LookupOutcome(id)
+		if err != nil {
+			return err
+		}
 		if outcome == nil || outcome.Status == pb.CommandOutcome_ACCEPTED || !proto.Equal(outcome.Actor, actor) {
 			continue
 		}

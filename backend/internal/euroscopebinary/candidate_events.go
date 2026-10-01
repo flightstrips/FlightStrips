@@ -257,7 +257,10 @@ func (c *DeadlineCandidate) controller(ctx context.Context, id int32, connection
 		break
 	}
 	if prior == nil && !online {
-		workflow := state.Workflows[cluster.ControllerObservationID(id, callsign)]
+		workflow, err := state.LookupWorkflow(cluster.ControllerObservationID(id, callsign))
+		if err != nil {
+			return err
+		}
 		if workflow == nil {
 			return nil
 		}

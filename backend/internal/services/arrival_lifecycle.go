@@ -63,14 +63,6 @@ func WithArrivalLifecycleClock(now func() time.Time) ArrivalLifecycleOption {
 	}
 }
 
-func WithArrivalSweepInterval(duration time.Duration) ArrivalLifecycleOption {
-	return func(s *ArrivalLifecycleService) {
-		if duration > 0 {
-			s.sweepInterval = duration
-		}
-	}
-}
-
 // WithArrivalPrefileAssignments enables automatic planning assignments for
 // offline VATSIM prefiles. The production default is false: only online
 // flights participate in automatic stand allocation.
@@ -570,55 +562,6 @@ func (s *ArrivalLifecycleService) updateArrivalAtAirport(ctx context.Context, ex
 	return s.allocations.PublishAssignment(ctx, updated)
 }
 
-func (s *ArrivalLifecycleService) ReleaseExpired(ctx context.Context) error {
-	sessions, err := s.sessions.List(ctx)
-	if err != nil {
-		return err
-	}
-	now := s.now()
-	for _, session := range sessions {
-		if session == nil {
-			continue
-		}
-		if err := retrySerializableOperation(ctx, func() error {
-			return s.allocations.ReleaseExpiredBlocks(ctx, session.ID)
-		}); err != nil {
-			slog.Warn("arrival sweep failed to release expired stand blocks",
-				slog.Int("sessionID", int(session.ID)), slog.Any("error", err))
-		}
-		assignments, err := s.assignments.ListAssignments(ctx, session.ID)
-		if err != nil {
-			slog.Warn("arrival sweep cannot list session assignments",
-				slog.Int("sessionID", int(session.ID)),
-				slog.Any("error", err))
-			continue
-		}
-		for _, assignment := range assignments {
-			if assignment == nil {
-				continue
-			}
-			if !isArrivalStage(assignment.Stage) {
-				continue
-			}
-			if err := retrySerializableOperation(ctx, func() error {
-				return s.releaseIfDue(ctx, session.ID, assignment, now)
-			}); err != nil {
-				slog.Warn("arrival sweep failed to release assignment",
-					slog.String("callsign", assignment.Callsign),
-					slog.Any("error", err))
-			}
-		}
-		if err := retrySerializableOperation(ctx, func() error {
-			return s.allocations.ReconcileUnsafeAssignments(ctx, session.ID, session.Airport)
-		}); err != nil {
-			slog.Warn("arrival sweep failed to reconcile unsafe stand overlaps",
-				slog.Int("sessionID", int(session.ID)),
-				slog.Any("error", err))
-		}
-	}
-	return nil
-}
-
 func (s *ArrivalLifecycleService) releaseIfDue(ctx context.Context, session int32, assignment *models.StandAssignment, now time.Time) error {
 	strip, err := s.strips.GetByCallsign(ctx, session, assignment.Callsign)
 	if err != nil && !isNotFound(err) {
@@ -645,21 +588,6 @@ func recordSATExpiry(ctx context.Context, assignment *models.StandAssignment, re
 	}
 	metrics.RecordSATExpiration(ctx, assignment.Direction, assignment.Stage)
 	slog.InfoContext(ctx, "SAT assignment expired", slog.String("callsign", assignment.Callsign), slog.String("stand", assignment.Stand), slog.String("stage", assignment.Stage), slog.String("reason", reason))
-}
-
-func (s *ArrivalLifecycleService) StartSweep(ctx context.Context) {
-	ticker := time.NewTicker(s.sweepInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := s.ReleaseExpired(ctx); err != nil {
-				slog.Warn("Arrival lifecycle sweep failed", slog.Any("error", err))
-			}
-		}
-	}
 }
 
 func (s *ArrivalLifecycleService) buildRequest(session int32, strip *models.Strip, flight vatsim.ArrivalFlightInfo, stage string, eta *time.Time, expiresAt *time.Time) StandAllocationRequest {

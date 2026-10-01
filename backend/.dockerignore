@@ -1,3 +1,5 @@
 .env
 .env.*
 !.env.example
+.local-secrets/
+bin/

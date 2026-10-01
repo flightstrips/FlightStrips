@@ -1,153 +1,71 @@
-# Architecture
+# Backend architecture
 
-This document describes the general architecture of the backend, including the overall database structure and design.
+`cmd/server` constructs `app.BuildNATS` as the sole application runtime. There is
+no SQL constructor, pool, repository implementation, migration, seed, fallback,
+dual write or Redis dependency. Existing domain policy is reused by accepted-state
+adapters. The [binding matrix](../.github/specs/multi-node-nats/tasks/20a-runtime-assembly-evidence.md)
+records every HTTP/socket action and worker; [final evidence](../.github/specs/multi-node-nats/tasks/20c-sql-retirement-evidence.md)
+records the combined entrypoint checks.
 
-## Communication
+## State and ownership
 
-Both the frontend website and Euroscope communicate with the backend over WebSockets using plain JSON.
+Three NATS 2.15.0 JetStream nodes replicate `FS_STATE`, `FS_POSITIONS`,
+`FS_PRESENCE`, `FS_SNAPSHOT_INDEX` and `FS_OBJECTS`. An administrator creates and
+validates resources through `cmd/nats-bootstrap`. Backend credentials verify
+resource configuration and use existing resources; startup never creates or
+repairs them. Resource drift fails closed.
 
-**IMPORTANT:** All events are unique between the frontend and Euroscope.
+Typed Protobuf events in `FS_STATE` determine operational state. Each backend
+replays an independent projection before admitting reads or commands. Session,
+airport and global owners use fenced leases and owner epochs. Commands use a UUID,
+expected revision and request hash; an acknowledgement means accepted state has
+been replayed locally. A lost Core NATS reply can be reconciled through the durable
+command outcome. Socket presence and aircraft positions use typed KV observations
+and freshness checks; restored controller records alone never prove a live socket.
 
-### Establishing a Connection
+The registry allocates sessions and drives durable deletion. Session owners run
+controller/sector/master election, traffic, CDM, PDC, stand lifecycle, navigation,
+AMAN and deadline work. Provider supervisors accept typed, bounded generations
+from VATSIM, transceivers, METAR/ATIS, ECFMP, CDM, AIRAC and Open-Meteo. Shared
+policy consumes these accepted generations. External side effects carry durable
+intent/claim/result records and stable identities. Ambiguous provider sends remain
+unknown; they are not automatically repeated. EuroScope effects target the
+accepted CID/socket generation and use the shared encrypted key ring.
 
-To establish a connection with the backend, the client must call the respective endpoint for either the frontend or 
-Euroscope.
+## Transport and HTTP
 
-Once connected, the client **MUST** send a `token` event in the following format:
+`/frontEndEvents` negotiates `flightstrips.frontend.pb.v2`; `/euroscopeEvents`
+negotiates `flightstrips.euroscope.pb.v2`. Both require typed binary Protobuf token
+and operational envelopes. Revision-2 clients are required; there is no text-JSON
+socket compatibility path. First-party HTTP APIs remain JSON and read projections
+or route typed commands. `/albEvents`, its ALB implementation, configuration,
+enablement and protocol are preserved unchanged.
 
-```json
-{
-    "type": "token",
-    "token": ""
-}
-```
+`/healthz` reports process liveness. `/readyz` additionally requires verified
+resource metadata, JetStream write quorum, initialized/current projection and
+observation watchers, and usable ownership. It returns 503 during replay, quorum
+loss, drift or projection stall, then recovers after catch-up. Shutdown stops
+admissions, drains in-flight work and position writers, joins workers and closes
+NATS. Subscription registration uses bounded flush attempts and tolerates
+transient transport loss, including contexts without caller deadlines.
 
-If the token is invalid, the backend disconnects the client.
+`/metrics` exposes PubAck duration/count, replay lag, watcher freshness, owner
+state/epochs, effect state and storage bytes. Accepted-command debug logs contain
+command ID, stream sequence and owner/master epochs. Runtime errors log types;
+tokens, credential URLs, provider/private-message bodies and encrypted payloads
+must not be logged. Preserve effect keys across restarts and retain old key IDs
+while encrypted intents remain replayable.
 
-For details on available events, see [events](../events.md).
+## Configuration and local operation
 
-### Pings
+See [Windows development](Readme.md) for exact commands, paths and prerequisites.
+`NATS_URLS` is required; TLS/credentials and timeouts use the existing
+`natsresources.ConfigFromEnv` contract. `NATS_EFFECT_ACTIVE_KEY_ID` selects a key
+from comma-separated `NATS_EFFECT_KEY_FILES=id=path,...` (32 raw bytes per file).
+`NATS_AIRPORTS` defaults to EKCH. Ordinary component build identities and releases
+remain intact. SAT scenario/replay tools and landing validation remain disabled.
 
-Each client will be sent a `ping` WebSocket protocol message and is expected to respond with a `pong` message. If the 
-client fails to respond within a certain timeframe, it will be disconnected.
-
-The `pong` message is used to update a database entry with a timestamp, allowing the system to clean up old sessions if
-no activity is detected for a period of time. See [Invalidating an Old Session](#invalidating-an-old-session).
-
-## Data
-
-Data for strips, controllers, and other entities is stored in a PostgreSQL database. `sqlc` is used for generating code
-from queries, and `TODO` is used for migrations.
-
-A strip, controller, and related entities belong to a session. A session contains a name and an associated airport. The
-name defines where the session is running, such as `PLAYBACK-xxx`, `Sweatbox`, or `LIVE`. This design ensures that each
-piece of data belongs to a session tied to an airport and allows multiple sessions for the same airport on the same
-backend server.
-
-### Optimistic Concurrency
-
-For data updates that depend on reading and then modifying database records, optimistic concurrency should be used to 
-prevent overwriting with outdated data.
-
-**Considerations:**
-
-- Updates from Euroscope should **not** be affected by this (Euroscope is the source of truth). Instead, it should 
-  increment the version.
-- A position update for a strip **should not** increment the version, as only Euroscope updates it.
-
-This approach ensures the frontend maintains the correct version, preventing multiple users from overwriting the same 
-information simultaneously.
-
-This issue is less concerning if only one person has access to modify strips based on who has the strip "assumed." 
-However, under the current design, multiple people can be on the same position, leading to concurrent updates.
-
-### Invalidating an Old Session
-
-If no controllers are connected to the backend via Euroscope, session data should be cleaned up after approximately 
-five minutes. This brief window allows old data to be used for syncing tags when a new controller logs in after another
-has logged off (e.g., during a controller shift change).
-
-### Ordering Strips
-
-All controllers viewing the same data must see strips in the same order. Therefore, the ordering must be adjustable by
-controllers, independent of the TSAT value.
-
-Ordering is represented as an `INT32` in the database but is **not** stored in a fixed `order` field. Initially, strips
-are spaced 100 positions apart. This provides flexibility for reordering without immediate conflicts.
-
-#### Example
-
-If we have three strips with the following order:
-
-- A: `0`
-- B: `100`
-- C: `200`
-
-If we move C between A and B, its new order will be `(100 - 0) / 2 = 50`.
-
-If a new strip (D) is placed between A and C, its new order will be `(50 - 0) / 2 = 25`.
-
-If there is no more room between two strips (which should be rare), ordering must be recalculated to maintain spacing.
-One simple approach is resetting all order values with a 100-place gap.
-
-As an alternative, [LexoRanks](https://medium.com/whisperarts/lexorank-what-are-they-and-how-to-use-them-for-efficient-list-sorting-a48fc4e7849f)
-can be used to avoid these issues.
-
-Given that a session resets after five minutes of inactivity, increasing the separation to 1000 should provide ample
-flexibility before reaching the `INT32` limit.
-
-## Support for Multiple Backend Servers
-
-The backend architecture **MUST** support multiple backend servers to enable live updates and fault recovery without
-disrupting sessions.
-
-When running multiple backend servers, clients may connect to different servers. A server/client must be able to
-broadcast messages to all clients. This requires a pub/sub system, such as **Redis**, for synchronization.
-
-Backend servers must also communicate to determine the **master Euroscope client**. This communication must occur over
-the pub/sub system.
-
-### Starting point
-
-For the first version this will not be supported but it should be built with multiple backend servers in mind. This
-comes with the following considerations:
-
-* No to very little state can be stored in memory.
-* The communication with clients must be over well structured 'interfaces' which implementations can be changed to
-  support multiple servers.
-
-## Determining the Master Client
-
-Due to the high-frequency communication from Euroscope, one Euroscope client must be designated as the
-**master client**.
-
-Non-master Euroscope clients will send only limited configuration-related events to the backend, while the master
-client handles all events for strips and controllers.
-
-Each airport should have a prioritized list of positions to determine the master client. The current temporary priority
-for **EKCH** is:
-
-1. EKDK_FMP
-2. EKDK_B_CTR
-3. EKDK_D_CTR
-4. EKDK_UC_CTR
-5. EKCH_A_TWR
-6. Any other non-observer client as a last-resort fallback
-
-Configured positions are matched by **primary frequency**, with the canonical callsign retained as a fallback. FMP
-currently uses the live `EKDK_FMP` identity / `131.040` primary frequency.
-
-## Updating a Flight Plan in Euroscope
-
-If a flight plan is updated on the frontend, it must be synchronized with Euroscope.
-
-It is **CRITICAL** that the Euroscope client associated with the user on the frontend is the one updating the flight
-plan.
-
-## Integration with vACDM
-
-vACDM is the new system used for assigning startup times to pilots. Instead of having a ES plugin for using vACDM the
-backend should instead act as the master and updating vACDM based on the events from ES.
-
-Later if decided due to poor times from vACDM the backend may implement its own CDM system instead.
-
+Task 20 is held from main/release. Task 21 owns production Swarm infrastructure;
+Tasks 22/23 own overlapping-version/recovery and capacity qualification. Task 24
+owns activation, with a stop-first initial SQL-to-NATS deployment. Local checks do
+not establish multi-host performance or the operator's manual acceptance.

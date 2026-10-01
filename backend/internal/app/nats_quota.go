@@ -5,12 +5,13 @@ import (
 	pb "FlightStrips/pkg/events/cluster"
 	"context"
 	"fmt"
-	"github.com/nats-io/nats.go"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"math"
 	"sort"
 	"time"
+
+	"github.com/nats-io/nats.go"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // The global owner evaluates the reservation; the airport owner never replaces
@@ -131,7 +132,7 @@ func (r *natsRuntime) serveQuota(ctx context.Context) error {
 		return err
 	}
 	defer closeSub()
-	if err = r.nc.FlushWithContext(ctx); err != nil {
+	if err = cluster.FlushSubscription(ctx, r.nc); err != nil {
 		return err
 	}
 	<-ctx.Done()

@@ -136,7 +136,7 @@ func (a *Adapter) WindProfile(ctx context.Context, request predictor.WindProfile
 			return predictor.WindProfile{}, fmt.Errorf("load persisted Open-Meteo cache: %w", err)
 		}
 		for _, value := range cached {
-			// pgx may materialize TIMESTAMPTZ values in the process's local
+			// Persisted timestamps may be materialized in the process's local
 			// location. The predictor contract requires UTC instants, so restore
 			// that invariant when hydrating the durable cache after a restart.
 			entry := cacheEntry{levels: cloneLevels(value.Levels), observedAt: value.ObservedAt.UTC(), expiresAt: value.ExpiresAt.UTC()}

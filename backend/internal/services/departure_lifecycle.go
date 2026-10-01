@@ -2,6 +2,7 @@ package services
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 
 	"FlightStrips/internal/sat"
 	"FlightStrips/internal/vatsim"
@@ -13,8 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // Departure reservation stages persisted on StandAssignment.Stage. The
@@ -83,12 +82,6 @@ func (s *DepartureLifecycleService) SetWrongStandMessenger(messenger wrongStandM
 	s.messenger = messenger
 }
 
-// SetRouteRecalculator lets the observed-stand recovery use the aircraft's
-// physical stand for its ground route even while a protected booking remains.
-func (s *DepartureLifecycleService) SetRouteRecalculator(routeRecalc RouteRecalculator) {
-	s.routeRecalc = routeRecalc
-}
-
 func (s *DepartureLifecycleService) SetStandPublisher(publisher observedStandPublisher) {
 	s.standPublisher = publisher
 }
@@ -126,14 +119,6 @@ func WithDepartureBlockExtension(duration time.Duration) DepartureLifecycleOptio
 	return func(s *DepartureLifecycleService) {
 		if duration > 0 {
 			s.blockExtension = duration
-		}
-	}
-}
-
-func WithDepartureSweepInterval(duration time.Duration) DepartureLifecycleOption {
-	return func(s *DepartureLifecycleService) {
-		if duration > 0 {
-			s.sweepInterval = duration
 		}
 	}
 }
@@ -698,44 +683,6 @@ func (s *DepartureLifecycleService) flightIsAtAssignedStand(strip *models.Strip,
 	return found && strings.EqualFold(observed.Name, stand)
 }
 
-// ReleaseExpired releases expired offline reservations and completed departure
-// blocks. A departure block is completed when its strip no longer exists (the
-// aircraft has departed). The sweep is idempotent and reconstructs every
-// deadline from persisted ExpiresAt timestamps, so it is safe to run after a
-// restart.
-func (s *DepartureLifecycleService) ReleaseExpired(ctx context.Context) error {
-	sessions, err := s.sessions.List(ctx)
-	if err != nil {
-		return err
-	}
-	now := s.now()
-	for _, session := range sessions {
-		if session == nil {
-			continue
-		}
-		assignments, err := s.assignments.ListAssignments(ctx, session.ID)
-		if err != nil {
-			slog.Warn("departure sweep cannot list session assignments",
-				slog.Int("sessionID", int(session.ID)),
-				slog.Any("error", err))
-			continue
-		}
-		for _, assignment := range assignments {
-			if assignment == nil {
-				continue
-			}
-			if err := retrySerializableOperation(ctx, func() error {
-				return s.releaseIfDue(ctx, session.ID, assignment, now)
-			}); err != nil {
-				slog.Warn("departure sweep failed to release assignment",
-					slog.String("callsign", assignment.Callsign),
-					slog.Any("error", err))
-			}
-		}
-	}
-	return nil
-}
-
 func (s *DepartureLifecycleService) releaseIfDue(ctx context.Context, session int32, assignment *models.StandAssignment, now time.Time) error {
 	strip, err := s.strips.GetByCallsign(ctx, session, assignment.Callsign)
 	if err != nil && !isNotFound(err) {
@@ -799,23 +746,6 @@ func (s *DepartureLifecycleService) stripIsAtAssignedStand(strip *models.Strip, 
 		return found && strings.EqualFold(observed.Name, stand)
 	}
 	return strip.Stand != nil && strings.EqualFold(strings.TrimSpace(*strip.Stand), strings.TrimSpace(stand))
-}
-
-// StartSweep runs the expired-release loop until the context is cancelled. It is
-// registered as a worker by the application composition root.
-func (s *DepartureLifecycleService) StartSweep(ctx context.Context) {
-	ticker := time.NewTicker(s.sweepInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := s.ReleaseExpired(ctx); err != nil {
-				slog.Warn("Departure lifecycle sweep failed", slog.Any("error", err))
-			}
-		}
-	}
 }
 
 func (s *DepartureLifecycleService) buildRequest(session int32, strip *models.Strip, flight vatsim.DepartureFlightInfo, stage string, expiresAt *time.Time) StandAllocationRequest {
@@ -1050,5 +980,5 @@ func parseDepartureClockUTC(value string, now time.Time) (time.Time, bool) {
 // lifecycle treats a missing assignment as "no reservation yet" rather than a
 // hard failure.
 func isNotFound(err error) bool {
-	return errors.Is(err, pgx.ErrNoRows) || errors.Is(err, errLifecycleNotFound)
+	return errors.Is(err, repository.ErrNotFound) || errors.Is(err, errLifecycleNotFound)
 }

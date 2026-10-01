@@ -19,7 +19,7 @@ import (
 
 const sessionCleanupGrace = 5 * time.Minute
 
-// SessionWork is a candidate-only worker. The SQL application never starts it.
+// SessionWork runs session policy through accepted ownership.
 // Every mutation goes through the session owner and its subject-CAS writer.
 // Tick is deliberately short: no local timer is an authority or a deadline.
 type SessionWork struct {

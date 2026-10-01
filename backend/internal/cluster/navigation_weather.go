@@ -33,8 +33,8 @@ func (o NATSObjects) PutBytes(name string, data []byte) (*nats.ObjectInfo, error
 	return o.Store.PutBytes(name, data)
 }
 
-// NavigationWeather is opt-in. The current PostgreSQL application never
-// constructs it; task 20 supplies its owner-routed writer and object store.
+// NavigationWeather reads accepted provider generations through the
+// runtime owner-routed writer and object store.
 type NavigationWeather struct {
 	Writer  Writer
 	Objects BinaryObjects

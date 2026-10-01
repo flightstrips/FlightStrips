@@ -3,8 +3,6 @@ package shared
 import (
 	"FlightStrips/internal/repository"
 	"context"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ServerInjectable interface {
@@ -29,7 +27,6 @@ type PdcService interface {
 type StripRepository = repository.StripRepository
 
 type Server interface {
-	GetDatabasePool() *pgxpool.Pool
 	GetEuroscopeHub() EuroscopeHub
 	GetFrontendHub() FrontendHub
 	GetOrCreateSession(airport string, name string) (Session, error)

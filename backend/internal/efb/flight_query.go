@@ -5,12 +5,9 @@ import (
 	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/repository"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // FlightQuery resolves an EFB flight without depending on the optional PDC
@@ -50,7 +47,7 @@ func (q *FlightQuery) FindWebStripByCallsign(ctx context.Context, callsign strin
 	for _, session := range sessions {
 		strip, lookupErr := q.strips.GetByCallsign(ctx, session.ID, normalized)
 		if lookupErr != nil {
-			if errors.Is(lookupErr, sql.ErrNoRows) || errors.Is(lookupErr, pgx.ErrNoRows) {
+			if errors.Is(lookupErr, repository.ErrNotFound) {
 				continue
 			}
 			return pdc.WebStripMatch{}, fmt.Errorf("get EFB strip: %w", lookupErr)

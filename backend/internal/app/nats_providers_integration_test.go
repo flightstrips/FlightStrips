@@ -7,8 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -16,6 +14,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildNATSProductionProvidersCDMSATAndPDC(t *testing.T) {
@@ -26,6 +27,7 @@ func TestBuildNATSProductionProvidersCDMSATAndPDC(t *testing.T) {
 	polls, sends := 0, 0
 	readyToPoll, requestDelivered := false, false
 	paths := map[string]int{}
+	providerStarted := time.Now().UTC()
 	var provider *httptest.Server
 	provider = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		mu.Lock()
@@ -74,7 +76,9 @@ func TestBuildNATSProductionProvidersCDMSATAndPDC(t *testing.T) {
 		require.NoError(t, err)
 		cfg.CDMConfigDir = filepath.Join(root, "config")
 		cfg.EnableCDMConfigStore = true
-		cfg.CDMConfigRefreshInterval = time.Second
+		// Use the production cadence so this fixture advances the checkpoint
+		// left by earlier assembly tests in the same disposable cluster.
+		cfg.CDMConfigRefreshInterval = time.Minute
 		cfg.CDMKey = "fixture-key"
 		cfg.EnableVATSIM = true
 		cfg.EnableTransceivers = true
@@ -92,10 +96,13 @@ func TestBuildNATSProductionProvidersCDMSATAndPDC(t *testing.T) {
 	})
 	f.name = "LIVE"
 	socket := f.socket(0, "111111", "EKCH_DEL", "119.905")
-	f.await("accepted production CDM configuration", func() bool {
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		fetched := paths["/etfms/restrictions"] > 0
+		mu.Unlock()
 		page, _, err := f.apps[0].natsRuntime.cdm.Config.Read(f.ctx, "EKCH")
-		return err == nil && page != nil
-	})
+		return fetched && err == nil && page != nil && page.FetchedAt.AsTime().After(providerStarted)
+	}, 75*time.Second, 100*time.Millisecond, "accepted production CDM configuration from this provider")
 	f.sync(socket, &es.Strip{Callsign: callsign, Origin: "EKCH", Destination: "ENGM", AircraftType: "A320", AssignedSquawk: "1001", Sid: "ODN1C", Runway: "22R", Route: "ODN DCT", HasFp: true, Eobt: clock, Stand: "A17", TrackingController: "EKCH_DEL"}, &es.Strip{Callsign: cpdlc, Origin: "EKCH", Destination: "ENGM", AircraftType: "A320", AssignedSquawk: "1002", Sid: "ODN1C", Runway: "22R", Route: "ODN DCT", HasFp: true, Eobt: clock, Stand: "A18", TrackingController: "EKCH_DEL"})
 	mu.Lock()
 	readyToPoll = true
@@ -138,10 +145,13 @@ func TestBuildNATSProductionProvidersCDMSATAndPDC(t *testing.T) {
 	f.get(1, "/api/efb/flight?callsign="+callsign, http.StatusOK)
 	f.get(1, "/api/pdc/status?callsign="+callsign, http.StatusOK)
 	for _, path := range []string{"/status", "/network", "/transceivers", "/atis", "/metar/EKCH", "/flow-measure", "/airport", "/etfms/restrictions"} {
-		mu.Lock()
-		count := paths[path]
-		mu.Unlock()
-		require.Positive(t, count, path)
+		// Provider checkpoints may have been accepted by an earlier assembly
+		// fixture. Wait for this provider's own scheduled HTTP pass.
+		require.Eventually(t, func() bool {
+			mu.Lock()
+			defer mu.Unlock()
+			return paths[path] > 0
+		}, 65*time.Second, 100*time.Millisecond, path)
 	}
 	// The fresh quota gate is global and cannot grant the same call twice.
 	reservation := uuid.NewString()

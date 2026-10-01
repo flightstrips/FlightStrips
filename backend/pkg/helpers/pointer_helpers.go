@@ -1,4 +1,4 @@
-﻿package helpers
+package helpers
 
 func ValueOrDefault[T any](ptr *T) T {
 	if ptr != nil {

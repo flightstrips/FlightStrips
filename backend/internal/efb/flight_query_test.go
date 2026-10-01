@@ -4,7 +4,7 @@ import (
 	"FlightStrips/internal/models"
 	"FlightStrips/internal/testutil"
 	"context"
-	"database/sql"
+	"FlightStrips/internal/repository"
 	"testing"
 )
 
@@ -40,7 +40,7 @@ func TestFlightQueryPrefersUniqueLiveMatchInDevelopment(t *testing.T) {
 		if session == 7 || session == 8 {
 			return &models.Strip{Callsign: callsign}, nil
 		}
-		return nil, sql.ErrNoRows
+		return nil, repository.ErrNotFound
 	}}
 
 	match, err := NewFlightQuery(sessions, strips, false).FindWebStripByCallsign(context.Background(), "SAS123")

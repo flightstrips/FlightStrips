@@ -1,1 +1,0 @@
-ALTER TABLE strips ADD COLUMN IF NOT EXISTS engine_type varchar(1) NOT NULL DEFAULT '';

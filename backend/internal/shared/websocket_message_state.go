@@ -59,7 +59,7 @@ func AddDBOperations(ctx context.Context, count int) {
 	}
 }
 
-// TraceDBOperation records a database operation observed by the pgx query
+// TraceDBOperation records a legacy database operation observed by query
 // tracer. Automatic counting is enabled only for handlers whose full query
 // budget is measured at this boundary.
 func TraceDBOperation(ctx context.Context) {

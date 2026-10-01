@@ -1,5 +1,4 @@
-# Isolated local/integration fixture. Run alongside the existing SQL Compose
-# stack only when exercising the preparatory NATS code.
+# Broker-only fixture, also included by the default two-backend development stack.
 services:
   nats-1:
     image: nats:2.15.0
@@ -7,7 +6,7 @@ services:
     volumes:
       - ./testdata/nats/nats-1.conf:/etc/nats/nats.conf:ro
       - nats-1:/data
-    ports: ["4222:4222"]
+    ports: ["127.0.0.1:${NATS_PORT_1:-4222}:4222"]
     networks: [nats-fixture]
   nats-2:
     image: nats:2.15.0
@@ -15,7 +14,7 @@ services:
     volumes:
       - ./testdata/nats/nats-2.conf:/etc/nats/nats.conf:ro
       - nats-2:/data
-    ports: ["4223:4222"]
+    ports: ["127.0.0.1:${NATS_PORT_2:-4223}:4222"]
     networks: [nats-fixture]
   nats-3:
     image: nats:2.15.0
@@ -23,7 +22,7 @@ services:
     volumes:
       - ./testdata/nats/nats-3.conf:/etc/nats/nats.conf:ro
       - nats-3:/data
-    ports: ["4224:4222"]
+    ports: ["127.0.0.1:${NATS_PORT_3:-4224}:4222"]
     networks: [nats-fixture]
 
 networks:

@@ -37,7 +37,6 @@ func main() {
 	}
 
 	if err := envconfig.ApplyFileOverrides(
-		"DATABASE_CONNECTIONSTRING",
 		"CDM_KEY",
 		"HOPPIE_LOGON",
 		"OTEL_EXPORTER_OTLP_HEADERS",
@@ -53,24 +52,10 @@ func main() {
 		slog.Error("Failed to initialize config", slog.Any("error", err))
 		os.Exit(1)
 	}
-	// Preparatory mode: the SQL runtime remains active. Cluster validation is
-	// enabled only in isolated NATS runs until the application cutover.
-	if envBool("NATS_VERIFY_RESOURCES", false) {
-		natsConfig, err := natsresources.ConfigFromEnv()
-		if err != nil {
-			slog.Error("Invalid NATS configuration", slog.Any("error", err))
-			os.Exit(1)
-		}
-		nc, err := natsresources.Connect(natsConfig)
-		if err != nil {
-			slog.Error("Failed to connect to NATS", slog.Any("error", err))
-			os.Exit(1)
-		}
-		defer nc.Close()
-		if err := natsresources.Verify(ctx, nc, natsConfig); err != nil {
-			slog.Error("NATS resource verification failed", slog.Any("error", err))
-			os.Exit(1)
-		}
+	natsConfig, err := natsConfigFromEnv()
+	if err != nil {
+		slog.Error("Invalid NATS configuration", "error_type", fmt.Sprintf("%T", err))
+		os.Exit(1)
 	}
 	environment := getEnv("ENVIRONMENT", "development")
 	enableTestTools := envBool("ENABLE_TEST_TOOLS", false)
@@ -112,13 +97,12 @@ func main() {
 		slog.Info("OpenTelemetry initialized", slog.String("endpoint", otlpEndpoint))
 	}
 
-	application, err := app.Build(ctx, app.Config{
-		DatabaseConnectionString:        os.Getenv("DATABASE_CONNECTIONSTRING"),
+	application, err := app.BuildNATS(ctx, app.Config{
+		NATS:                            natsConfig,
 		OIDCSigningAlgorithm:            os.Getenv("OIDC_SIGNING_ALGO"),
 		OIDCAuthority:                   os.Getenv("OIDC_AUTHORITY"),
 		OIDCAudience:                    getEnv("OIDC_AUDIENCE", "backend-dev"),
 		Environment:                     environment,
-		EnablePostgresTracing:           otlpEndpoint != "",
 		EnableHTTPTracing:               otlpEndpoint != "",
 		CDMKey:                          os.Getenv("CDM_KEY"),
 		CDMConfigRefreshInterval:        envDuration("CDM_CONFIG_REFRESH_INTERVAL", 15*time.Minute),
@@ -127,13 +111,13 @@ func main() {
 		PDCWebLookupLiveOnly:            envBool("PDC_WEB_LOOKUP_LIVE_ONLY", isLiveEnvironment(environment)),
 		EnablePDC:                       true,
 		ECFMPBaseURL:                    getEnv("ECFMP_BASE_URL", ""),
-		EnableECFMP:                     true,
+		EnableECFMP:                     envBool("ENABLE_ECFMP", true),
 		EnableECFMPAPI:                  !isLiveEnvironment(environment),
 		EnablePilotAPI:                  true,
 		EnableEFB:                       envBool("ENABLE_EFB", false),
 		EnableGSXStandFeed:              envBool("ENABLE_GSX_STAND_FEED", false),
 		EnableALB:                       true,
-		EnableMetar:                     true,
+		EnableMetar:                     envBool("ENABLE_METAR", true),
 		EnableVATSIM:                    enableVATSIM,
 		EnableTransceivers:              envBool("ENABLE_VATSIM_TRANSCEIVERS", enableVATSIM),
 		EnableTraffic:                   true,
@@ -141,7 +125,6 @@ func main() {
 		EnableStandAssignmentESMessages: envBool("ENABLE_STAND_ASSIGNMENT_ES_MESSAGES", false),
 		EnableStandAssignmentPrefiles:   envBool("ENABLE_STAND_ASSIGNMENT_PREFILES", false),
 		EnableTestTools:                 enableTestTools,
-		EnableDBSeed:                    true,
 		StandAssignmentAircraftJSON:     standAssignmentAircraftJSON,
 		AMAN:                            amanConfig,
 		Navigation:                      navigationConfig,
@@ -152,7 +135,8 @@ func main() {
 		TransceiversInterval: envDuration("VATSIM_TRANSCEIVER_POLL_INTERVAL", 30*time.Second),
 	})
 	if err != nil {
-		slog.Error("Failed to build application", slog.Any("error", err))
+		// Transport errors can include credential-bearing URLs. Log only the type.
+		slog.Error("Failed to build application", "error_type", fmt.Sprintf("%T", err))
 		os.Exit(1)
 	}
 	defer func() {
@@ -298,9 +282,39 @@ func amanConfigFromEnv() (aman.RuntimeConfig, error) {
 
 func navigationConfigFromEnv() (navigation.Config, error) {
 	config := navigation.Config{
-		Source: strings.TrimSpace(os.Getenv("NAVIGATION_SOURCE")),
+		Source:               strings.TrimSpace(os.Getenv("NAVIGATION_SOURCE")),
+		TerminalGeometryPath: strings.TrimSpace(os.Getenv("NAVIGATION_TERMINAL_GEOMETRY_PATH")),
 	}
 	return config.Normalize(), config.Validate()
+}
+
+// Paths refer to raw 32-byte keys. All replicas share the same active ID and
+// retained read keys; bootstrap credentials are never loaded by this process.
+func natsConfigFromEnv() (app.NATSConfig, error) {
+	resources, err := natsresources.ConfigFromEnv()
+	if err != nil {
+		return app.NATSConfig{}, err
+	}
+	cfg := app.NATSConfig{Resources: resources, EffectKeyID: strings.TrimSpace(os.Getenv("NATS_EFFECT_ACTIVE_KEY_ID")), EffectKeyFiles: map[string]string{}, Airports: splitEnvList(getEnv("NATS_AIRPORTS", "EKCH"))}
+	for _, entry := range strings.Split(os.Getenv("NATS_EFFECT_KEY_FILES"), ",") {
+		id, path, found := strings.Cut(entry, "=")
+		id, path = strings.TrimSpace(id), strings.TrimSpace(path)
+		if !found || id == "" || path == "" || cfg.EffectKeyFiles[id] != "" {
+			return app.NATSConfig{}, fmt.Errorf("NATS_EFFECT_KEY_FILES requires unique id=path entries")
+		}
+		cfg.EffectKeyFiles[id] = path
+	}
+	if cfg.EffectKeyID == "" || cfg.EffectKeyFiles[cfg.EffectKeyID] == "" {
+		return app.NATSConfig{}, fmt.Errorf("NATS_EFFECT_ACTIVE_KEY_ID requires a matching key file")
+	}
+	for i, airport := range cfg.Airports {
+		airport = strings.ToUpper(strings.TrimSpace(airport))
+		if len(airport) != 4 || strings.IndexFunc(airport, func(r rune) bool { return r < 'A' || r > 'Z' }) >= 0 {
+			return app.NATSConfig{}, fmt.Errorf("NATS_AIRPORTS requires ICAO identifiers")
+		}
+		cfg.Airports[i] = airport
+	}
+	return cfg, nil
 }
 
 func requiredEnvDuration(key string, fallback time.Duration) (time.Duration, error) {

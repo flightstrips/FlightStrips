@@ -1,1 +1,0 @@
-ALTER TABLE strips ADD COLUMN IF NOT EXISTS cdm_status varchar;

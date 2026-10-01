@@ -1,6 +1,7 @@
 package cdm
 
 import (
+	"FlightStrips/internal/repository"
 	"context"
 	"errors"
 	"log/slog"
@@ -8,8 +9,6 @@ import (
 	"time"
 
 	"FlightStrips/internal/models"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type SyncService struct {
@@ -194,7 +193,7 @@ func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) 
 		// the same airport. Always use the latest record for the ordered export.
 		flight, err := s.stripRepo.GetCdmDataForCallsign(ctx, session.ID, callsign)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, repository.ErrNotFound) {
 				continue
 			}
 			return err
@@ -204,7 +203,7 @@ func (c *SyncService) syncCdmData(ctx context.Context, session *models.Session) 
 		}
 		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, callsign)
 		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, repository.ErrNotFound) {
 				continue
 			}
 			return err
@@ -267,7 +266,7 @@ func (c *SyncService) syncMasterFlight(ctx context.Context, session *models.Sess
 	recalculatedAirport := false
 	if flight != nil && flight.ReadySyncPending {
 		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
 			return nil, false, err
 		}
 		if err == nil {
@@ -307,7 +306,7 @@ func (c *SyncService) syncMasterFlight(ctx context.Context, session *models.Sess
 			}
 		}
 		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
 			return nil, false, err
 		}
 		if err := s.masterViffSync.pushAuthoritativeViffState(ctx, row.Callsign, strip, flight); err != nil {
@@ -367,7 +366,7 @@ func (c *SyncService) syncMasterFlight(ctx context.Context, session *models.Sess
 			}
 		}
 		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
 			return nil, false, err
 		}
 		if err := s.masterViffSync.pushAuthoritativeViffState(ctx, row.Callsign, strip, current); err != nil {
@@ -392,7 +391,7 @@ func (c *SyncService) syncMasterFlight(ctx context.Context, session *models.Sess
 			}
 		}
 		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, row.Callsign)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
 			return nil, false, err
 		}
 		if err := s.masterViffSync.pushAuthoritativeViffState(ctx, row.Callsign, strip, current); err != nil {

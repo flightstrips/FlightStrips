@@ -233,9 +233,7 @@ func (f *SessionFanout) ServeTargeted(ctx context.Context) error {
 		return err
 	}
 	defer closeSub()
-	flush, cancel := context.WithTimeout(ctx, time.Second)
-	err = f.NC.FlushWithContext(flush)
-	cancel()
+	err = FlushSubscription(ctx, f.NC)
 	if err != nil {
 		return err
 	}

@@ -33,3 +33,5 @@ docs/.env.production
 docs/.DS_Store
 
 backend/config/data/
+backend/.local-secrets/
+euroscope-plugin/build-local/

@@ -20,10 +20,11 @@ import (
 	"FlightStrips/internal/pdc"
 	"FlightStrips/internal/services"
 	pb "FlightStrips/pkg/events/cluster"
+
 	"github.com/nats-io/nats.go"
 )
 
-// NATSConfig is explicit until Task 20c selects BuildNATS as the sole entrypoint.
+// NATSConfig configures the sole operational runtime.
 // Resources must already have been created by the administrator bootstrap.
 type NATSConfig struct {
 	Resources      natsresources.Config
@@ -89,7 +90,7 @@ func sessionNATSRef(id int32) *pb.AggregateRef {
 
 // BuildNATS starts replay and owner routing so both construction and connection
 // admission can wait on accepted state. StartWorkers starts the domain/provider
-// supervisors once; it never starts any workers from the SQL constructor.
+// supervisors once. Resources are verified, never created by the backend.
 func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App, err error) {
 	cfg = cfg.withDefaults()
 	cfg.Navigation = cfg.Navigation.Normalize()
@@ -97,7 +98,7 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 		return nil, errors.New("ENABLE_TEST_TOOLS cannot be enabled in a live environment")
 	}
 	if cfg.EnableTestTools {
-		return nil, errors.New("NATS runtime does not enable the SQL-only SAT scenario/replay tools; ENABLE_TEST_TOOLS must remain false")
+		return nil, errors.New("SAT scenario/replay tools are disabled; ENABLE_TEST_TOOLS must remain false")
 	}
 	if err = cfg.Navigation.Validate(); err != nil {
 		return nil, err

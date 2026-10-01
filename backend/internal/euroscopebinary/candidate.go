@@ -291,7 +291,7 @@ func (c *DeadlineCandidate) Serve(ctx context.Context) error {
 		return err
 	}
 	defer closeSub()
-	if err = c.Router.NC.FlushWithContext(ctx); err != nil {
+	if err = cluster.FlushSubscription(ctx, c.Router.NC); err != nil {
 		return err
 	}
 	<-ctx.Done()

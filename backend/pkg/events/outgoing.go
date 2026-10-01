@@ -1,4 +1,4 @@
-﻿package events
+package events
 
 type OutgoingMessage interface {
 	Marshal() ([]byte, error)

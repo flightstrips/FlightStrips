@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
 	"FlightStrips/pkg/events/euroscope"
 	"math"
 	"strings"
@@ -95,7 +95,7 @@ func IsDepartureBay(bay string) bool {
 	}
 }
 
-func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAltitudeAGL int64, airport string, gndOnline bool) string {
+func GetDepartureBay(strip euroscope.Strip, existing *models.Strip, airborneAltitudeAGL int64, airport string, gndOnline bool) string {
 	destination := strip.Destination
 	if strings.TrimSpace(destination) == "" && existing != nil {
 		destination = existing.Destination
@@ -197,7 +197,7 @@ func GetDepartureBay(strip euroscope.Strip, existing *database.Strip, airborneAl
 	return BAY_AIRBORNE
 }
 
-func GetDepartureBayFromGroundState(state string, existing database.Strip, airport string, gndOnline bool) string {
+func GetDepartureBayFromGroundState(state string, existing models.Strip, airport string, gndOnline bool) string {
 	// Arrivals keep their existing arrival bay; ground-state updates are only used
 	// to advance departures through departure-tracking bays.
 	if isLocalAirport(existing.Destination, airport) {
@@ -252,7 +252,7 @@ func GetDepartureBayFromGroundState(state string, existing database.Strip, airpo
 	return BAY_HIDDEN
 }
 
-func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing database.Strip, airborneAltitudeAGL int64, airport string) string {
+func GetDepartureBayFromPosition(lat, lon float64, alt int64, existing models.Strip, airborneAltitudeAGL int64, airport string) string {
 	// Arrivals: position updates never change the bay (set once in GetDepartureBay).
 	if isLocalAirport(existing.Destination, airport) {
 		if existing.Bay == BAY_HIDDEN_DEP {

@@ -1,9 +1,9 @@
 package pdc
 
 import (
+ "FlightStrips/internal/repository"
 	"FlightStrips/internal/models"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -56,7 +56,7 @@ func (s *Service) FindWebStripByCallsign(ctx context.Context, callsign string) (
 	for _, session := range sessions {
 		strip, err := s.stripRepo.GetByCallsign(ctx, session.ID, normalizedCallsign)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
+			if errors.Is(err, repository.ErrNotFound) {
 				continue
 			}
 			return WebStripMatch{}, fmt.Errorf("get strip by callsign: %w", err)

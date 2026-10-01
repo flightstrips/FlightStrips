@@ -30,7 +30,22 @@ jobs:
     - name: Build
       run: go build ./...
     - name: Test
-      run: go run ./internal/testing/testdb ./...
+      run: go test ./...
+    - name: NATS runtime assembly and entrypoint
+      env:
+        NATS_INTEGRATION: '1'
+        NATS_TEST_PORT_BASE: '5322'
+        NATS_PORT_1: '5322'
+        NATS_PORT_2: '5323'
+        NATS_PORT_3: '5324'
+        NATS_FAULT_PROJECT: fs20a
+      run: |
+        docker compose -f docker-compose.nats.yaml -p fs20a up -d
+        go test ./internal/app -run '^TestBuildNATS' -count=1 -timeout=10m
+        go test ./cmd/server -run '^TestServerNATS' -count=1 -timeout=5m
+    - name: Stop disposable NATS fixture
+      if: always()
+      run: docker compose -f docker-compose.nats.yaml -p fs20a down -v
 
   docker:
     name: Docker build

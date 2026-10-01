@@ -63,7 +63,7 @@ func (p *LifecyclePlan) Run(ctx context.Context, departure bool, flights map[str
 	if random == nil {
 		random = func() float64 { return 0 }
 	}
-	policy := &StandAllocationService{strips: nil, stands: p.Stands, policy: p.Policy, now: func() time.Time { return p.Now }, random: random, departureReleaseBuffer: defaultDepartureBlockExtension}
+	policy := &StandAllocationService{stands: p.Stands, policy: p.Policy, now: func() time.Time { return p.Now }, random: random, departureReleaseBuffer: defaultDepartureBlockExtension}
 	policy.planningBlocks = p.AssignmentBlocks
 	policy.planningBlockAdjacency = p.BlockAdjacency
 	policy.planningOccupancy = p.PhysicalOccupancy

@@ -39,7 +39,7 @@ func (r *CommandRouter) Serve(ctx context.Context) error {
 		return err
 	}
 	defer closeSub()
-	if err := r.NC.FlushWithContext(ctx); err != nil {
+	if err := FlushSubscription(ctx, r.NC); err != nil {
 		return err
 	}
 	<-ctx.Done()

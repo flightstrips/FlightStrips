@@ -2,12 +2,12 @@ package vatsim
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -149,7 +149,7 @@ func (s *reconciliationBulkAssignments) ListAssignments(context.Context, int32) 
 
 func (s *reconciliationBulkAssignments) GetAssignment(context.Context, int32, string) (*models.StandAssignment, error) {
 	s.getCalls++
-	return nil, pgx.ErrNoRows
+	return nil, repository.ErrNotFound
 }
 
 func (s reconciliationTestAssignments) GetAssignment(_ context.Context, session int32, callsign string) (*models.StandAssignment, error) {
@@ -159,7 +159,7 @@ func (s reconciliationTestAssignments) GetAssignment(_ context.Context, session 
 	if s.active[assignmentKey(session, callsign)] {
 		return &models.StandAssignment{SessionID: session, Callsign: callsign}, nil
 	}
-	return nil, pgx.ErrNoRows
+	return nil, repository.ErrNotFound
 }
 
 func assignmentKey(session int32, callsign string) string {
@@ -176,7 +176,7 @@ func (s expiryTestAssignments) GetAssignment(_ context.Context, session int32, c
 	if expiry, ok := s.expiry[assignmentKey(session, callsign)]; ok {
 		return &models.StandAssignment{SessionID: session, Callsign: callsign, ExpiresAt: expiry}, nil
 	}
-	return nil, pgx.ErrNoRows
+	return nil, repository.ErrNotFound
 }
 
 type reconciliationTestNotifier struct{ callsigns []string }

@@ -88,7 +88,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 20b | [Ordinary release workflow cleanup](tasks/20b-release-gates.md) | 14–19 and follow-ups | Merged ([#826](https://github.com/flightstrips/FlightStrips/pull/826)); superseded #825 framework removed, ordinary releases preserved; held from `main`/release |
 | 20c | [Final integration and SQL retirement](tasks/20c-sql-retirement.md) | 20a, 20b | Merged ([#828](https://github.com/flightstrips/FlightStrips/pull/828)); [automated acceptance evidence](tasks/20c-sql-retirement-evidence.md); operator manual acceptance pending; held from `main`/release |
 | 21 | [Production Swarm infrastructure](tasks/21-infrastructure.md) | 01, 03, 13, 20 | Not started |
-| 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–20, including 20c | Local automated qualification PASS ([evidence](tasks/22-fault-integration-evidence.md)); [draft #829](https://github.com/flightstrips/FlightStrips/pull/829) under review; held from `main`/release |
+| 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–20, including 20c | Local automated qualification PASS ([fault evidence](tasks/22-fault-integration-evidence.md), [idle CPU fix](tasks/22-idle-cpu-evidence.md)); [draft #829](https://github.com/flightstrips/FlightStrips/pull/829) under review; held from `main`/release |
 | 23 | [Position load and capacity gate](tasks/23-performance.md) | 22 | Not started |
 | 24 | [Fresh NATS-only production cutover](tasks/24-fresh-release.md) | 20–23 | Not started |
 

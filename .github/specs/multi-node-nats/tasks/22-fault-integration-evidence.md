@@ -5,6 +5,10 @@
 Run ID: `20261001T184758Z-218cf03d13ff4742abeedb0d4b9e89e4`.
 Implementation and evidence are in [draft PR #829](https://github.com/flightstrips/FlightStrips/pull/829).
 
+The subsequent [idle CPU investigation](22-idle-cpu-evidence.md) records the
+retained-history copy fix and its qualification against a newer source revision.
+The results below remain the historical fault qualification for `9aecd076`.
+
 This is local qualification for the held NATS integration branch. It does not
 authorize a main merge, release, deployment or rolling production update.
 Task 20 automated acceptance remains complete; operator browser/EuroScope

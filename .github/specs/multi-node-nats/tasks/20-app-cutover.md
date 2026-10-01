@@ -16,7 +16,9 @@ Task 20 is a parent acceptance gate, implemented by three independently reviewab
 | [20b — Ordinary release workflow cleanup](20b-release-gates.md) | Remove migrator build/publication/bump references; preserve existing ordinary releases | Completed 14–19 and follow-ups; can run alongside 20a |
 | [20c — Final integration and SQL retirement](20c-sql-retirement.md) | Sole-default NATS entrypoint, SQL removal, local two-backend Compose, documentation and combined acceptance | 20a and 20b merged and accepted |
 
-All children are held from `main` and release under this parent's boundary. Temporary isolated construction in 20a ends in 20c; it is not a released fallback. Task 20 is complete only when all three children and every parent acceptance check below pass. Task 21 waits for that completion. Missing business adapters discovered during assembly belong to 20a and block its acceptance; they cannot be deferred as unbound hooks to 20c.
+All children are held from `main` and release under this parent's boundary. Temporary isolated construction in 20a ends in 20c; it is not a released fallback. Task 20 implementation requires all three children and automated parent acceptance checks below. Tasks 21/22 may prepare infrastructure and local fault evidence after that implementation is merged; the operator's manual acceptance and release decision remain pending gates for Task 24 and for merging held work to `main`. Missing business adapters discovered during assembly belong to 20a and block its acceptance; they cannot be deferred as unbound hooks to 20c.
+
+**Integration status:** 20a/#827, 20b/#826 and 20c/#828 are merged with passing CI. [20c's binding audit and parent acceptance evidence](20c-sql-retirement-evidence.md) record complete NATS-only startup, SQL retirement and automated local tests. The user's complete-system manual acceptance is not inferred from PR merges and remains pending; no production release or deployment is authorized.
 
 ## Work
 

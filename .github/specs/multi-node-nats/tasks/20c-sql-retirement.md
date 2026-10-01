@@ -6,7 +6,9 @@
 
 **Outcome:** the sole application runtime uses NATS, local development runs three NATS nodes and two complete backends, and every parent Task 20 acceptance gate has recorded evidence.
 
-**Release boundary:** held under [Task 20](20-app-cutover.md). No release/deployment or production stack changes. Task 21 starts only after this task completes the parent gate.
+**Release boundary:** held under [Task 20](20-app-cutover.md). No release/deployment or production stack changes. Tasks 21/22 preparation follows merged implementation and automated acceptance; the operator's manual acceptance remains a release gate.
+
+**Integration status:** implementation merged as [PR #828](https://github.com/flightstrips/FlightStrips/pull/828), with all four applicable CI checks passing. [Automated evidence and local instructions](20c-sql-retirement-evidence.md) cover the final runtime. The operator's own frontend/plugin acceptance remains pending and is not implied by the merge.
 
 ## Work and contracts
 

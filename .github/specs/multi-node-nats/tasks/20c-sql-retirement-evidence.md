@@ -3,10 +3,11 @@
 Implementation is on `codex/multi-node-nats-20c-sql-retirement`, based on
 `origin/codex/multi-node-nats-base` at `7936899e` (20a/#827 and 20b/#826 merged).
 The implementation commit is recorded in the source-revision section below.
-Draft PR: [#828](https://github.com/flightstrips/FlightStrips/pull/828).
-All work remains held from `main`, release and deployment. Task 20 is **not marked
-complete**: this child is a draft, and review/operator acceptance remains pending.
-Tasks 21–24 are separate. No production infrastructure, release, activation,
+Merged PR: [#828](https://github.com/flightstrips/FlightStrips/pull/828), with all applicable CI checks passing.
+All work remains held from `main`, release and deployment. Implementation and
+automated acceptance are complete; operator manual acceptance remains pending.
+Tasks 21/22 may now prepare infrastructure and local fault evidence; Task 24
+still requires the operator's acceptance/release decision. No production infrastructure, release, activation,
 promotion, staging or announcement was performed.
 
 ## Final constructor and binding audit
@@ -61,7 +62,7 @@ fast clearance means every provider has already refreshed.
 | Ordinary release behavior; no migrator build/bump | PASS: 20b merged (#826); workflows have no `backend-migrate`, `Dockerfile.Migrate` or `cmd/migrate`; ordinary component/release/version paths have zero change in 20c. Normal build CI now runs Go tests and sequential real-NATS suites |
 | Repeatable local setup without published artifacts | Implementation PASS: `backend/local.ps1`, `backend/Readme.md`, architecture and position-performance updates. PowerShell parse/init/idempotent key preservation and Compose resolution PASS. Docker image build, empty three-broker bootstrap, two-backend readiness, restart, stop/start and full down/up with retained volumes PASS |
 | User's own complete-system local acceptance and release decision | PENDING: exact frontend/plugin/backend commands and cross-node setup are documented. Automated builds/tests do not claim the user has loaded EuroScope or performed manual acceptance. Integration remains held |
-| All three children merged and parent gate complete | PENDING: 20a/#827 and 20b/#826 merged; 20c draft must pass review/CI and outstanding review/operator checks. Task 21 does not start on the strength of this evidence |
+| All three children merged and parent gates | Implementation/automated checks PASS: 20a/#827, 20b/#826 and 20c/#828 merged with passing CI. Tasks 21/22 preparation may start. Operator manual acceptance and the release decision remain PENDING; no production activation follows from this evidence |
 
 ## Machine, configuration and executed commands
 

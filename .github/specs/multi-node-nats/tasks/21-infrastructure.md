@@ -2,6 +2,8 @@
 
 **Depends on:** 01, 03, 13 and 20. **Outcome:** a reviewed production stack PR is ready. The production PR stays unmerged until Task 24; the user qualifies local builds on their machine, with no required staging deployment or release-candidate artifacts.
 
+**Implementation prerequisites:** Task 20 implementation/automated acceptance is merged (#826–#828). Stack preparation can proceed alongside 22; operator manual acceptance remains pending for release. Work in a separate clone of `flightstrips/infrastructure`, branch `codex/multi-node-nats-21-infrastructure`, and target its default `main` with a draft PR that stays unmerged. Do not modify the running development cluster; use a separately named, disposable local fixture for rehearsals. Evidence and production prerequisites belong in the infrastructure PR/README. Application harness changes belong to 22.
+
 ## Work
 
 - Prepare an unmerged PR for `flightstrips/infrastructure/stacks/flightstrips.yml` that replaces PostgreSQL/migrator with three pinned `nats:2.15.0` services on distinct labeled hosts and separate persistent volumes. Configure routes, client/route TLS, JetStream encryption key, internal networking, health checks, and scoped versioned Swarm secrets. Add one-shot resource bootstrap; backend tasks only verify resources. Validate the rendered configuration and use the Task 20c local setup for rehearsals; do not deploy staging or production to complete this task.

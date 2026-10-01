@@ -83,10 +83,10 @@ An implementation that cannot satisfy a contract must update these documents and
 | 19a | [VATSIM stand lifecycle](tasks/19a-vatsim-lifecycle.md) | 08, 18 candidate, 19 candidate | Merged to integration base ([#819](https://github.com/flightstrips/FlightStrips/pull/819)); held from `main`/release |
 | 19b | [Operational AMAN candidate](tasks/19b-aman-policy.md) | 11, 12, 19 candidate | Merged to integration base ([#820](https://github.com/flightstrips/FlightStrips/pull/820)); held from `main`/release |
 | 19c | [VATSIM transceiver frequency feed](tasks/19c-transceiver-feed.md) | 12, 13, 19 candidate | Merged to integration base ([#821](https://github.com/flightstrips/FlightStrips/pull/821)); held from `main`/release |
-| 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19 and follow-ups, 20a–20c | Split into 20a–20c; complete only after all three and parent gates pass |
+| 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19 and follow-ups, 20a–20c | Implementation merged and automated checks passed; operator local acceptance/release decision pending |
 | 20a | [Runtime and API assembly](tasks/20a-runtime-assembly.md) | 04–19 and follow-ups | Merged ([#827](https://github.com/flightstrips/FlightStrips/pull/827)); [assembly evidence](tasks/20a-runtime-assembly-evidence.md); held from `main`/release |
 | 20b | [Ordinary release workflow cleanup](tasks/20b-release-gates.md) | 14–19 and follow-ups | Merged ([#826](https://github.com/flightstrips/FlightStrips/pull/826)); superseded #825 framework removed, ordinary releases preserved; held from `main`/release |
-| 20c | [Final integration and SQL retirement](tasks/20c-sql-retirement.md) | 20a, 20b | Draft [#828](https://github.com/flightstrips/FlightStrips/pull/828); [implementation and acceptance evidence](tasks/20c-sql-retirement-evidence.md); review/operator acceptance pending; held from `main`/release |
+| 20c | [Final integration and SQL retirement](tasks/20c-sql-retirement.md) | 20a, 20b | Merged ([#828](https://github.com/flightstrips/FlightStrips/pull/828)); [automated acceptance evidence](tasks/20c-sql-retirement-evidence.md); operator manual acceptance pending; held from `main`/release |
 | 21 | [Production Swarm infrastructure](tasks/21-infrastructure.md) | 01, 03, 13, 20 | Not started |
 | 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–20, including 20c | Not started; local qualification |
 | 23 | [Position load and capacity gate](tasks/23-performance.md) | 22 | Not started |

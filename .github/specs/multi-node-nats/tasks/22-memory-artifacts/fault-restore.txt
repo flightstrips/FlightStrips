@@ -1,0 +1,166 @@
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:5023 route=127.0.0.1:5024 sha256=1b7e05e7c7644f960ff33b3f09244a9d9ab65d1c829f0fa15a78492bd2f0dcdb
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:5025 route=127.0.0.1:5026 sha256=19b55e94d58891e4ce7bf76fba358a2b5c3fb675eac831c6f8aa24ea82ea4d3d
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:5027 route=127.0.0.1:5028 sha256=b1aa88f1e80f7ccd593baecce993f81cebd0ded70a7a19fd011487ba8c442ae6
+    nats_ack_loss_integration_test.go:134: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+    nats_ack_loss_integration_test.go:178: PUBACK_LOSS command_id=6abb565b-a572-499b-8e76-8be955247385 sequence=25 blocked_writes=2 killed_pid=32948 elapsed=8.2427591s exact_outcome=SUCCEEDED same_id_sequence=true
+--- PASS: TestServerNATSPubAckLostBeforeBackendDeath (25.44s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=99935de0408df4811a01d8f840098215823b54bf5c6ab7395a9f9cd8f25790eb fault_build=false go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:6637 route=127.0.0.1:6638 sha256=a72813cb6dcc3ba6ebdbf1218b405b223a068063d4fd356aa626db37db296141
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:6639 route=127.0.0.1:6640 sha256=3b1dda6d4738ddc3778fafdbcc9253bc75092d610660546aef43cad880945388
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:6641 route=127.0.0.1:6642 sha256=6008b61570d7bb18d24559b185bc857ff41c26024f1a6311f997cdb944d99152
+--- PASS: TestServerNATSBinaryCrossNodeRestartAndReadiness (29.54s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:25736 route=127.0.0.1:25737 sha256=43972d533bd98092fe0252c3807e1cbfe7dee29065698882513cdd63cca0016b
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:25738 route=127.0.0.1:25739 sha256=1521f912bb4da2fcfc5453316b1a5b63929a332829182e097c3bb5be85e77295
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:25740 route=127.0.0.1:25741 sha256=f110bec1a7f3a1d7bf392849a7152f3f75ed06dda61dbe279c6dce814abe3bc1
+    nats_fault_integration_test.go:160: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+    nats_fault_integration_test.go:199: LONG_OUTAGE elapsed=5m28.9975149s first_no_controller_before=2026-10-01T20:43:42.0987579Z after=2026-10-01T20:49:03.0983317Z cleanup_paused_at=2026-10-01T20:49:04.0981181Z sequence=50
+--- PASS: TestServerNATSControllerFreeLongOutage (342.12s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:12417 route=127.0.0.1:12418 sha256=bbcd9cff75058eff5c368f0bca50427e348172a5b97deee616799d491b4d47ce
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:12419 route=127.0.0.1:12420 sha256=b45b7c3ca26736d1abf8823ec94fe3650870f80602cb8f7edaeb8baede5cd4f4
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:12421 route=127.0.0.1:12422 sha256=5b7e8cb73ad75f189d83e1a04165ee819b821d71ba6816c0ad7f98219c202260
+    nats_fault_integration_test.go:160: MASTER_ROLES roles=[master slave] owner_epoch=1 master_epoch=1 cid=111111
+    nats_fault_integration_test.go:199: LONG_OUTAGE elapsed=42.9982156s first_no_controller_before=2026-10-01T20:49:23.7093304Z after=2026-10-01T20:49:49.7094343Z cleanup_paused_at=2026-10-01T20:49:50.7094925Z sequence=55
+--- PASS: TestServerNATSExpiredLeasesRecover (55.59s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:5716 route=127.0.0.1:5717 sha256=de35dcce7d6107eb24c5c9901c23906ec460ee36c7aefc69ae8aa1245d12c743
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:5718 route=127.0.0.1:5719 sha256=e82b4811d2464bc5961435a691b93c56008ff99dd142b01d283b493e1995479d
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:5720 route=127.0.0.1:5721 sha256=a1ffde0ff169dcb8545634c610cd2731a769d364c8d72d5fe489e3da13b7a097
+    nats_fault_integration_test.go:207: MASTER_ROLES roles=[master slave] owner_epoch=1 master_epoch=1 cid=111111
+    nats_fault_integration_test.go:455: FRONTEND_RESULT id=f6df71dd-e80a-493d-92a7-77d6f0c009f0 status=FAILED reason=REVISION_CONFLICT detail=stale strip revision
+    nats_fault_integration_test.go:232: STRIP_RACE id=f6df71dd-e80a-493d-92a7-77d6f0c009f0 status=FAILED reason=REVISION_CONFLICT sequence=23
+    nats_fault_integration_test.go:232: STRIP_RACE id=1974b38c-6c74-4eb2-8228-535a07f6f182 status=SUCCEEDED reason= sequence=22
+    nats_fault_integration_test.go:234: INITIAL_PARITY entities_and_revisions_sha256=4399bcf60d581b34f52206fe7745282afa9c7c90fdd8f512f4bd17f9aac95887
+    nats_fault_integration_test.go:273: STALE owner_epoch=0 command_id=99e6185a-507d-4d5e-8858-8a7dd493d66b sequence=33 no_effect=true
+    nats_fault_integration_test.go:302: SNAPSHOT corrupt_object=snapshot/session/1/33 original_sha256=d81455ec6f4b28e6e1cc43cea966140aae024c600e8b750bc3814371d4ad8939 replay_sequence=33
+    nats_fault_integration_test.go:331: VERSION_FENCE schema_version=2 stream_sequence=34 readiness=[503,503] liveness=[200,200]
+--- PASS: TestServerNATSSnapshotStaleEpochAndVersionFence (17.14s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:5809 route=127.0.0.1:5810 sha256=c0ea8231bd34a3f129d1ce28556f74187184819c7467bcaea38a7c06abe48bb6
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:5811 route=127.0.0.1:5812 sha256=71d0bf8d6c4cb73dbe330e1f8580abfcde9500a16a178cc50b6f9c14dd9d040d
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:5813 route=127.0.0.1:5814 sha256=37f4eee79b4f00141b5754efa748710ac932b738b8d74be5d86209dfeae4e465
+    nats_fault_integration_test.go:548: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+    nats_fault_integration_test.go:587: FAULT point=before-publish-domain command_id=2944e0cf-5d75-423e-858f-3a3fb950d2e4 stream_sequence=0 pid=43784 reached=2026-10-01T20:50:34.9466853Z killed=2026-10-01T20:50:34.9671042Z
+    nats_fault_integration_test.go:598: OUTCOME command_id=2944e0cf-5d75-423e-858f-3a3fb950d2e4 status=NOT_FOUND stream_sequence=0
+--- PASS: TestServerNATSFaultBoundaries/before-publish-domain (9.18s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:20427 route=127.0.0.1:20428 sha256=ea3ba94290fa7a805cc131b75e066244a43e6eb770919e987226cffe0bdbd2e0
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:20429 route=127.0.0.1:20430 sha256=18312a3d78d362788fb35d013d0aec634938da5d54aa691659d6c3e13f4669fc
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:20431 route=127.0.0.1:20432 sha256=71d38e18ed290549d43c8e5b9b292b0fb79adee547a4f9a33c5c078721f8f324
+    nats_fault_integration_test.go:548: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+    nats_fault_integration_test.go:587: FAULT point=after-puback-domain command_id=b569398a-b1b0-47c3-b9b5-4aec4943a2c3 stream_sequence=22 pid=33604 reached=2026-10-01T20:50:44.5217246Z killed=2026-10-01T20:50:44.5429727Z
+    nats_fault_integration_test.go:631: OUTCOME command_id=b569398a-b1b0-47c3-b9b5-4aec4943a2c3 status=SUCCEEDED reason= sequence=22 revision=11 effect=STATUS_UNSPECIFIED
+--- PASS: TestServerNATSFaultBoundaries/after-puback-domain (9.53s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:58272 route=127.0.0.1:58273 sha256=8cce4562c0e06cf0f74bdfdd0e26eb372c4640a388d7efa028513ce1b645ac3b
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:58274 route=127.0.0.1:58275 sha256=b9d0942dfa22dfa500f4d7bed69700a44f651c9da566b99dd998af94aa408b0c
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:58276 route=127.0.0.1:58277 sha256=a9b4144cff789a93d8c6956b79f9fb05e625f3c0e474728bc0b753582e9f319e
+    nats_fault_integration_test.go:548: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+    nats_fault_integration_test.go:587: FAULT point=before-publish-effect-DISPATCH_CLAIMED command_id=dde4d427-f651-426a-b87b-45c04fb21dac stream_sequence=0 pid=42192 reached=2026-10-01T20:50:53.9338676Z killed=2026-10-01T20:50:53.9617755Z
+    nats_fault_integration_test.go:631: OUTCOME command_id=dde4d427-f651-426a-b87b-45c04fb21dac status=UNKNOWN reason=RESULT_DEADLINE sequence=88 revision=27 effect=UNKNOWN
+--- PASS: TestServerNATSFaultBoundaries/before-publish-effect-DISPATCH_CLAIMED (50.66s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:48111 route=127.0.0.1:48112 sha256=4c960a0ee0095dbfa945759a119c3b5dbe18acb548838140b6309bb675493e94
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:48113 route=127.0.0.1:48114 sha256=da9597b06aff21cbbabc22d8d960544da8437d2ee8bd910c03736575278ba6be
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:48115 route=127.0.0.1:48116 sha256=f7d7261b79acd393ac8c257d04f4fbf588ef85c1da657d0d3a52c2cfd92f280e
+    nats_fault_integration_test.go:548: MASTER_ROLES roles=[master slave] owner_epoch=1 master_epoch=1 cid=111111
+    nats_fault_integration_test.go:587: FAULT point=after-puback-effect-DISPATCH_CLAIMED command_id=66bb77b2-e551-469b-ae6c-ba68d43403b3 stream_sequence=23 pid=41508 reached=2026-10-01T20:51:44.6445709Z killed=2026-10-01T20:51:44.6744736Z
+    nats_fault_integration_test.go:631: OUTCOME command_id=66bb77b2-e551-469b-ae6c-ba68d43403b3 status=UNKNOWN reason=RESULT_DEADLINE sequence=74 revision=28 effect=UNKNOWN
+--- PASS: TestServerNATSFaultBoundaries/after-puback-effect-DISPATCH_CLAIMED (40.71s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:52783 route=127.0.0.1:52784 sha256=05c6b759bfb16c559a72f0470bc3e2c40644b4e2a3d94025ab783b39a632dc2a
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:52785 route=127.0.0.1:52786 sha256=d5850529d9a8d9883d902f660db87d8505a225d4e19e8e14f93f392d6deca1a7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:52787 route=127.0.0.1:52788 sha256=ceda6ad9d7dd93609eb91ed3c9095fbba6853ba07ed395c9cafc138a5e2e2e09
+    nats_fault_integration_test.go:548: MASTER_ROLES roles=[master slave] owner_epoch=1 master_epoch=1 cid=111111
+    nats_fault_integration_test.go:587: FAULT point=before-socket-write command_id=f260a2a7-cfc7-4e0d-a219-2c45f80986e3 stream_sequence=0 pid=13772 reached=2026-10-01T20:52:29.0305307Z killed=2026-10-01T20:52:29.0403448Z
+    nats_fault_integration_test.go:631: OUTCOME command_id=f260a2a7-cfc7-4e0d-a219-2c45f80986e3 status=UNKNOWN reason=RESULT_DEADLINE sequence=72 revision=26 effect=UNKNOWN
+--- PASS: TestServerNATSFaultBoundaries/before-socket-write (44.38s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:37228 route=127.0.0.1:37229 sha256=fb2f8c22525980608e8ada7008d47a3c62a81adfb7a1cbf10e054dd0857774e6
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:37230 route=127.0.0.1:37231 sha256=d92c46e52145be1b213d520e5aa7af76c4f9e6ed6e6c403485143fd8935f39f1
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:37232 route=127.0.0.1:37233 sha256=e5ffcc09c74c0dfbac0b33da5d350910843f446d2ce3c79c189057a7bf9c42bc
+    nats_fault_integration_test.go:548: MASTER_ROLES roles=[master slave] owner_epoch=1 master_epoch=1 cid=111111
+    nats_fault_integration_test.go:587: FAULT point=after-socket-write command_id=7313bb21-e67a-4261-9eb5-e3aa5f67d6c9 stream_sequence=0 pid=31508 reached=2026-10-01T20:53:09.6889448Z killed=2026-10-01T20:53:09.7172586Z
+    nats_fault_integration_test.go:631: OUTCOME command_id=7313bb21-e67a-4261-9eb5-e3aa5f67d6c9 status=UNKNOWN reason=RESULT_DEADLINE sequence=74 revision=28 effect=UNKNOWN
+--- PASS: TestServerNATSFaultBoundaries/after-socket-write (40.68s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:37612 route=127.0.0.1:37613 sha256=ecad82c1859ba417d2fb7630ca48df14fd5031817513f85f823d86b25b96fa44
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:37614 route=127.0.0.1:37615 sha256=0b07c8cb0ec8460e8d9920795b4fed5a967e3ec3e9944a66bfaddf1cb8a2efac
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:37616 route=127.0.0.1:37617 sha256=64f8f60f16cd4c941e54a14601de6b607d4071d658cdd24cfb1674481e8297da
+    nats_fault_integration_test.go:548: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+    nats_fault_integration_test.go:587: FAULT point=before-publish-effect-EXECUTED command_id=f2939aca-26bd-402f-a27a-f3f332e2dfba stream_sequence=0 pid=30216 reached=2026-10-01T20:53:50.3912466Z killed=2026-10-01T20:53:50.4211968Z
+    nats_fault_integration_test.go:631: OUTCOME command_id=f2939aca-26bd-402f-a27a-f3f332e2dfba status=UNKNOWN reason=RESULT_DEADLINE sequence=86 revision=39 effect=UNKNOWN
+--- PASS: TestServerNATSFaultBoundaries/before-publish-effect-EXECUTED (40.51s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:15623 route=127.0.0.1:15624 sha256=844e86798999a2d149f984a9044c1adb0e94d2f2ddbadabcadbb68fab69ab9cf
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:15625 route=127.0.0.1:15626 sha256=8feb77c153656ace84b703f157cb71b865fb4e00750f3e43505bb2ca37f73057
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:15627 route=127.0.0.1:15628 sha256=b65c2996c37f155b12b822031b990c87a448db0e2dcf339c17f2234b81dc59a0
+    nats_fault_integration_test.go:548: MASTER_ROLES roles=[master slave] owner_epoch=1 master_epoch=1 cid=111111
+    nats_fault_integration_test.go:587: FAULT point=after-puback-effect-EXECUTED command_id=fe2b84cb-dfc0-4095-bcaf-9ce59ae726de stream_sequence=24 pid=976 reached=2026-10-01T20:54:30.317264Z killed=2026-10-01T20:54:30.3453787Z
+    nats_fault_integration_test.go:631: OUTCOME command_id=fe2b84cb-dfc0-4095-bcaf-9ce59ae726de status=SUCCEEDED reason= sequence=24 revision=13 effect=EXECUTED
+--- PASS: TestServerNATSFaultBoundaries/after-puback-effect-EXECUTED (18.13s)
+--- PASS: TestServerNATSFaultBoundaries (253.77s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:5871 route=127.0.0.1:5872 sha256=242bf0977e90cc442d149fc526c221c7ad3d736daa873581b3a842310586a2bd
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:5873 route=127.0.0.1:5874 sha256=e5c58e5845458d5bfffd9ef1e4ad21a5dad6aba9c73c4b1ddcee5fdca5cc8074
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:5875 route=127.0.0.1:5876 sha256=35f11bab839fb85bde76279c312bdb93b34cff1889751fc4dd5ccb8bf3f2917c
+    nats_history_integration_test.go:21: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+--- PASS: TestServerNATSArchivedCommandAfterRestart (17.01s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:5932 route=127.0.0.1:5933 sha256=168e8f8647c17aefb4bc4ff70584a19311345b972e109afd629f453a96aad517
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:5934 route=127.0.0.1:5935 sha256=5ea2f56616dc2f443fe08af737d0cb5eb3461717e1a96308032014022c0c7139
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:5936 route=127.0.0.1:5937 sha256=9c4c06df5841a020ed767979c97362583741c7f69765e6f1dc812680b4255361
+    nats_races_integration_test.go:25: MASTER_ROLES roles=[master slave] owner_epoch=1 master_epoch=1 cid=111111
+    nats_races_integration_test.go:49: STAND_RACE id=f7a215ae-28f2-4c72-9257-c605102f4c5c status=FAILED reason=INVALID_ARGUMENT sequence=31
+    nats_races_integration_test.go:49: STAND_RACE id=d2f35528-569b-47ec-987e-fc37a7f13d8a status=SUCCEEDED reason= sequence=30
+--- PASS: TestServerNATSStandRace (17.27s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:26852 route=127.0.0.1:26853 sha256=8ef6d1ad4eb655d64971e9d933c9735fa13c84019a4c4aac504ded0b9eec30e6
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:26854 route=127.0.0.1:26855 sha256=3f7925f84f51ecdaf9015e307457a36c5d087723e8dd25387b70aa01a024ffb7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:26856 route=127.0.0.1:26857 sha256=022b05bdf5e317cbb7d4c726afdd770e58d024a73842ef3fcf300b197b59b1d2
+    nats_fault_integration_test.go:455: FRONTEND_RESULT id=df568b52-8129-474b-9979-62d3ccea982c status=FAILED reason=REVISION_CONFLICT detail=stale AMAN revision
+    nats_races_integration_test.go:122: AMAN_RACE id=3a851bd2-b77d-4247-8433-50f5ed720895 status=SUCCEEDED reason= sequence=29 airport_revision=12
+    nats_races_integration_test.go:122: AMAN_RACE id=df568b52-8129-474b-9979-62d3ccea982c status=FAILED reason=REVISION_CONFLICT sequence=30 airport_revision=13
+--- PASS: TestServerNATSAMANRace (15.18s)
+=== RUN   TestServerNATSEncryptedBackupRestore
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:26919 route=127.0.0.1:26920 sha256=d53daf648a633fadd8a36f5f23844034c5fc8c8ef53b33c7314e025c304933f2
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:26921 route=127.0.0.1:26922 sha256=a4046deb841758d592a424f82525687aa8da110284b2d1418290c86c84997bfb
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:26923 route=127.0.0.1:26924 sha256=b0b5bd699549418676a2e83885833d5a1442e673cf3f8eb861020c493a6a4262
+    nats_restore_integration_test.go:157: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+    nats_restore_integration_test.go:167: SEED id=ce87b496-ffa7-44a9-b7d7-568fb63b1d25 sequence=24 key=caaa1faa-fe0b-4dc2-a54f-6e37385da7fc
+    nats_restore_integration_test.go:169: SEED id=b44831e6-a0ed-4b3f-821c-11e2dd8d03ea sequence=25 key=task22-pending
+    nats_restore_integration_test.go:179: SEED id=18d46027-1487-441e-8fcb-ed39dee1736c sequence=26 key=EKCH
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=37304 executable=C:\Users\fsr19\AppData\Local\Temp\TestServerNATSEncryptedBackupRestore2054999176\001\api.exe at=2026-10-01T20:55:38.4470268Z
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=12068 executable=C:\Users\fsr19\AppData\Local\Temp\TestServerNATSEncryptedBackupRestore2054999176\001\api.exe at=2026-10-01T20:55:38.450146Z
+    nats_restore_integration_test.go:203: CHECKPOINT aggregate=fs.v1.state.global entity_count=1 revision=3 sequence=12 sha256=49df9a17769dc149ceee16aedc92df5a1fb8503d33bb3902a687f0bf095797c9
+    nats_restore_integration_test.go:203: CHECKPOINT aggregate=fs.v1.state.airport.EKCH entity_count=3 revision=5 sequence=26 sha256=18536acab778e59d05f4cb8f435a44a78e0a4cebc61c8faa7b9befa4f4c702ac
+    nats_restore_integration_test.go:203: CHECKPOINT aggregate=fs.v1.state.session.1 entity_count=7 revision=13 sequence=25 sha256=3a15f7306cf1cddfa16ecd65f31e9bd1f1b2337353448d0dab99376d66cd554c
+    nats_restore_integration_test.go:223: BACKUP stream=FS_STATE messages=26 first=1 last=26 bytes=6366 sha256=6defc45c1d623153c050c1a1094bb81b8bfda6f151bacaedb134ed9569148090
+    nats_restore_integration_test.go:223: BACKUP stream=KV_FS_POSITIONS messages=1 first=1 last=1 bytes=271 sha256=4a98722c5f5409190ada213c862cc29ddef9c419372ed4255d847dd9758f19ad
+    nats_restore_integration_test.go:223: BACKUP stream=KV_FS_SNAPSHOT_INDEX messages=3 first=1 last=3 bytes=618 sha256=6c38a5831951b15b184b86467c2631c57f13e724b51c63ff736e193341d6979f
+    nats_restore_integration_test.go:223: BACKUP stream=OBJ_FS_OBJECTS messages=12 first=1 last=12 bytes=7553 sha256=cbca62a4b8fd22600bd66e2a0b1d23455fb166cb90b88fe944d41e0e111ffeb7
+    nats_restore_integration_test.go:242: ENCRYPTED_BACKUP sha256=102314ca0a74b9d410da52b01b91a37167e4325128f29e78f43e1ccb1807f262 bytes=29306 source_high_water=26
+    nats_restore_integration_test.go:312: RESTORE stream=FS_STATE exact_messages=26 exact_last_sequence=26 sha256=6defc45c1d623153c050c1a1094bb81b8bfda6f151bacaedb134ed9569148090
+    nats_restore_integration_test.go:312: RESTORE stream=KV_FS_POSITIONS exact_messages=1 exact_last_sequence=1 sha256=4a98722c5f5409190ada213c862cc29ddef9c419372ed4255d847dd9758f19ad
+    nats_restore_integration_test.go:312: RESTORE stream=KV_FS_SNAPSHOT_INDEX exact_messages=3 exact_last_sequence=3 sha256=6c38a5831951b15b184b86467c2631c57f13e724b51c63ff736e193341d6979f
+    nats_restore_integration_test.go:312: RESTORE stream=OBJ_FS_OBJECTS exact_messages=12 exact_last_sequence=12 sha256=cbca62a4b8fd22600bd66e2a0b1d23455fb166cb90b88fe944d41e0e111ffeb7
+    nats_restore_integration_test.go:339: RESTORE_COMPARE aggregate=fs.v1.state.global entities=1 revision=3 sequence=12 sha256=49df9a17769dc149ceee16aedc92df5a1fb8503d33bb3902a687f0bf095797c9 exact=true
+    nats_restore_integration_test.go:339: RESTORE_COMPARE aggregate=fs.v1.state.airport.EKCH entities=3 revision=5 sequence=26 sha256=18536acab778e59d05f4cb8f435a44a78e0a4cebc61c8faa7b9befa4f4c702ac exact=true
+    nats_restore_integration_test.go:339: RESTORE_COMPARE aggregate=fs.v1.state.session.1 entities=7 revision=13 sequence=25 sha256=3a15f7306cf1cddfa16ecd65f31e9bd1f1b2337353448d0dab99376d66cd554c exact=true
+    nats_restore_integration_test.go:378: RESTORE_KEYS credentials=true aes_store=true effect_decryption=true nav_sha256=877c9d80522efa90192bd0d3bcbc2f0c4a7abc22d371fbc56e48c9be54425f19 position_revision=1 pending_deadline=task22-pending
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=12172 executable=C:\Users\fsr19\AppData\Local\Temp\TestServerNATSEncryptedBackupRestore2054999176\001\api.exe at=2026-10-01T20:56:08.6158774Z
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=42204 executable=C:\Users\fsr19\AppData\Local\Temp\TestServerNATSEncryptedBackupRestore2054999176\001\api.exe at=2026-10-01T20:56:08.6203564Z
+--- PASS: TestServerNATSEncryptedBackupRestore (41.70s)
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:51593 route=127.0.0.1:51594 sha256=bdc453a2d94ce138fea1cad2febc16eabef9adcc60d71c96e58b9ae588e1b041
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:51595 route=127.0.0.1:51596 sha256=694d18d756dac75b74ca85b1e716f6f7207d1aba63e567999aeb31a035e92e4b
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:51597 route=127.0.0.1:51598 sha256=50df12974df0469f497c8d0f97aea763af643fa2dfdc76a22eced80ade23386c
+    nats_version_integration_test.go:55: OVERLAP_BASE source=db662817b8191c160e5d35fc39f07a8db88f91ca
+    nats_version_integration_test.go:59: MASTER_ROLES roles=[slave master] owner_epoch=1 master_epoch=1 cid=222222
+    nats_version_integration_test.go:68: OVERLAP_WRITE ingress_node=0 command_id=51b01e36-6dec-4319-b34f-699c8f06fbf8 sequence=31 entity_revision=3
+    nats_version_integration_test.go:68: OVERLAP_WRITE ingress_node=1 command_id=9de26dda-a7db-497d-878a-50c165df008b sequence=34 entity_revision=4
+    nats_version_integration_test.go:90: OVERLAP_FENCE unknown_schema=2 sequence=36 versions=[db662817,current] readiness=[503,503] at=2026-10-01T20:56:28.1149207Z
+--- PASS: TestServerNATSVersionOverlap (17.65s)

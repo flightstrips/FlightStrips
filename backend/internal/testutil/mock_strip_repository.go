@@ -2,11 +2,8 @@ package testutil
 
 import (
 	"FlightStrips/internal/models"
-	"FlightStrips/internal/repository"
 	"context"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // MockStripRepository is a configurable mock for repository.StripRepository.
@@ -77,18 +74,11 @@ type MockStripRepository struct {
 	SetValidationStatusFn           func(ctx context.Context, session int32, callsign string, status *models.ValidationStatus) error
 	AcknowledgeValidationStatusFn   func(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
 	ClearValidationStatusFn         func(ctx context.Context, session int32, callsign string) error
-	WithTxFn                        func(tx pgx.Tx) repository.StripRepository
 }
 
 // WithTx returns a transaction-bound repository in production. The mock has
 // no database state, so callers can either inject a transaction-specific mock
 // or continue using this instance.
-func (m *MockStripRepository) WithTx(tx pgx.Tx) repository.StripRepository {
-	if m.WithTxFn != nil {
-		return m.WithTxFn(tx)
-	}
-	return m
-}
 
 func (m *MockStripRepository) Create(ctx context.Context, strip *models.Strip) error {
 	if m.CreateFn == nil {

@@ -7,8 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -16,6 +14,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuildNATSProductionProvidersCDMSATAndPDC(t *testing.T) {
@@ -74,7 +75,9 @@ func TestBuildNATSProductionProvidersCDMSATAndPDC(t *testing.T) {
 		require.NoError(t, err)
 		cfg.CDMConfigDir = filepath.Join(root, "config")
 		cfg.EnableCDMConfigStore = true
-		cfg.CDMConfigRefreshInterval = time.Second
+		// This fixture exercises the initial production import; concurrent refresh
+		// fencing is covered separately by the CDM integration tests.
+		cfg.CDMConfigRefreshInterval = time.Hour
 		cfg.CDMKey = "fixture-key"
 		cfg.EnableVATSIM = true
 		cfg.EnableTransceivers = true

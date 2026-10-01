@@ -6,6 +6,7 @@ import (
 	"FlightStrips/internal/sat"
 	pb "FlightStrips/pkg/events/cluster"
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"time"
@@ -175,3 +176,5 @@ func CandidateModelBlock(b *pb.StandBlock, id int32) *models.StandBlock {
 	_, _ = fmt.Fprintf(h, "%d/%s/%s", id, b.Stand, b.CreatedAt.AsTime().Format(time.RFC3339Nano))
 	return &models.StandBlock{ID: int64(h.Sum64() & 0x7fffffffffffffff), SessionID: id, Stand: b.Stand, BlockType: b.BlockType, Source: b.Source, Reason: &b.Reason, Callsign: b.Callsign, CreatedBy: &b.Actor, ExpiresAt: lifecycleTime(b.ExpiresAt), Manual: b.Manual, Version: int32(b.Revision), CreatedAt: b.CreatedAt.AsTime(), UpdatedAt: b.UpdatedAt.AsTime()}
 }
+
+var ErrStandActionUnauthorized = errors.New("stand action requires an authenticated controller position")

@@ -1,4 +1,4 @@
-﻿package services
+package services
 
 import (
 	"FlightStrips/internal/config"

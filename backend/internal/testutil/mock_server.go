@@ -5,8 +5,6 @@ import (
 	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
 	"context"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // MockServer is a configurable mock for shared.Server.
@@ -31,8 +29,6 @@ type MockServer struct {
 	UpdateLayoutsFn                     func(sessionId int32) error
 	ComputeNextDisplayForStripContextFn func(ctx context.Context, strip *internalModels.Strip, sessionId int32) (*internalModels.NextDisplay, error)
 }
-
-func (m *MockServer) GetDatabasePool() *pgxpool.Pool { return nil }
 
 func (m *MockServer) GetEuroscopeHub() shared.EuroscopeHub { return m.EuroscopeHubVal }
 

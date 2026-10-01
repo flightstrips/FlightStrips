@@ -22,10 +22,7 @@ import (
 	"FlightStrips/internal/aman/navdata"
 	"FlightStrips/internal/aman/navdata/contracttest"
 	"FlightStrips/internal/aman/navdata/fixture"
-	pdctestdata "FlightStrips/internal/pdc/testdata"
-	"FlightStrips/internal/repository/postgres"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -255,61 +252,6 @@ func TestMalformedAndVersionMismatchFailClosed(t *testing.T) {
 	var domain *aman.DomainError
 	require.ErrorAs(t, err, &domain)
 	require.Equal(t, navdata.ErrorDatasetMismatch, domain.Class)
-}
-
-func TestPostgresCheckpointsSurviveAdapterRestartAndConditionalResponse(t *testing.T) {
-	db := &fakeCheckpointDB{values: map[string]Checkpoint{}}
-	store := &PostgresCheckpoints{db: db}
-	var calls atomic.Int32
-	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if calls.Add(1) == 1 {
-			w.Header().Set("ETag", `"cycle"`)
-			writeJSON(w, cycleJSON())
-			return
-		}
-		require.Equal(t, `"cycle"`, r.Header.Get("If-None-Match"))
-		w.WriteHeader(http.StatusNotModified)
-	})
-	first := testAdapter(t, server.URL, Config{Checkpoints: store})
-	version, err := first.LatestVersion(context.Background())
-	require.NoError(t, err)
-	second := testAdapter(t, server.URL, Config{Checkpoints: store})
-	again, err := second.LatestVersion(context.Background())
-	require.NoError(t, err)
-	require.True(t, version.Equal(again))
-	require.Equal(t, int32(2), calls.Load())
-
-	_, err = New(Config{})
-	require.Error(t, err, "production configuration must choose a durable checkpoint store")
-}
-
-func TestPostgresCheckpointMigrationSurvivesRestartAnd304(t *testing.T) {
-	pool, _ := pdctestdata.SetupTestDB(t)
-	store := NewPostgresCheckpoints(pool)
-	var calls atomic.Int32
-	server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if calls.Add(1) == 1 {
-			w.Header().Set("ETag", `"cycle"`)
-			w.Header().Set("Last-Modified", "Thu, 16 Jul 2026 00:00:00 GMT")
-			writeJSON(w, cycleJSON())
-			return
-		}
-		require.Equal(t, `"cycle"`, r.Header.Get("If-None-Match"))
-		w.WriteHeader(http.StatusNotModified)
-	})
-	first := testAdapter(t, server.URL, Config{Checkpoints: store})
-	version, err := first.LatestVersion(context.Background())
-	require.NoError(t, err)
-	second := testAdapter(t, server.URL, Config{Checkpoints: NewPostgresCheckpoints(pool)})
-	again, err := second.LatestVersion(context.Background())
-	require.NoError(t, err)
-	require.True(t, version.Equal(again))
-	require.Equal(t, int32(2), calls.Load())
-	checkpoint, found, err := store.Load(context.Background(), "/api/v1/airac/current?")
-	require.NoError(t, err)
-	require.True(t, found)
-	require.Equal(t, `"cycle"`, checkpoint.ETag)
-	require.NotEmpty(t, checkpoint.Body)
 }
 
 func TestFixesUseAirportRegionToAvoidGlobalWaypointAmbiguity(t *testing.T) {
@@ -560,57 +502,6 @@ func TestRequestConstructionBodyCancellationAndTruncationAreTyped(t *testing.T) 
 	})
 }
 
-func TestAirportNotFoundAndWarmPostgresRouteSurviveSourceOutage(t *testing.T) {
-	t.Run("airport not found", func(t *testing.T) {
-		server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/api/v1/airac/current" {
-				writeJSON(w, cycleJSON())
-				return
-			}
-			w.WriteHeader(http.StatusNotFound)
-		})
-		adapter := testAdapter(t, server.URL, Config{})
-		version, err := adapter.LatestVersion(context.Background())
-		require.NoError(t, err)
-		_, err = adapter.Airport(context.Background(), version, "MISSING")
-		var domain *aman.DomainError
-		require.ErrorAs(t, err, &domain)
-		require.Equal(t, navdata.ErrorNotFound, domain.Class)
-	})
-	t.Run("durable warm route", func(t *testing.T) {
-		pool, _ := pdctestdata.SetupTestDB(t)
-		var calls atomic.Int32
-		server := newAPIServer(t, func(w http.ResponseWriter, r *http.Request) {
-			calls.Add(1)
-			if r.URL.Path == "/api/v1/airac/current" {
-				writeJSON(w, cycleJSON())
-				return
-			}
-			if r.URL.Path == "/api/v1/routes/parse" {
-				writeJSON(w, routeJSON())
-				return
-			}
-			w.WriteHeader(http.StatusNotFound)
-		})
-		adapter := testAdapter(t, server.URL, Config{})
-		version, err := adapter.LatestVersion(context.Background())
-		require.NoError(t, err)
-		query := routeQuery(version)
-		query.FiledRoute = "DCT KEMAX P60 TUDLO"
-		geometry, err := adapter.Resolve(context.Background(), query)
-		require.NoError(t, err)
-		first := postgres.NewNavigationCache(pool)
-		key, err := first.PutRoute(context.Background(), navdata.RouteCandidate{Query: query, Geometry: geometry, CreatedAt: time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC), ResolverVersion: "airacnet-v1", SchemaVersion: navdata.CanonicalSchemaVersion})
-		require.NoError(t, err)
-		before := calls.Load()
-		server.Close()
-		warm, err := postgres.NewNavigationCache(pool).Route(context.Background(), key)
-		require.NoError(t, err)
-		require.Equal(t, geometry.Digest, warm.Digest)
-		require.Equal(t, before, calls.Load())
-	})
-}
-
 func TestVendorAdapterCannotLeakIntoRuntimeOrCanonicalPackages(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	require.True(t, ok)
@@ -639,43 +530,6 @@ func TestVendorAdapterCannotLeakIntoRuntimeOrCanonicalPackages(t *testing.T) {
 		}
 		require.NoError(t, err)
 	}
-}
-
-type fakeCheckpointDB struct {
-	mu     sync.Mutex
-	values map[string]Checkpoint
-}
-
-func (db *fakeCheckpointDB) QueryRow(_ context.Context, _ string, values ...any) pgx.Row {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	value, found := db.values[values[0].(string)]
-	if !found {
-		return fakeCheckpointRow{err: pgx.ErrNoRows}
-	}
-	return fakeCheckpointRow{value: value}
-}
-func (db *fakeCheckpointDB) Exec(_ context.Context, _ string, values ...any) (pgconn.CommandTag, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	db.values[values[0].(string)] = Checkpoint{ETag: values[1].(string), LastModified: values[2].(string), NextPage: values[3].(int), Body: append([]byte(nil), values[4].([]byte)...)}
-	return pgconn.NewCommandTag("INSERT 0 1"), nil
-}
-
-type fakeCheckpointRow struct {
-	value Checkpoint
-	err   error
-}
-
-func (r fakeCheckpointRow) Scan(dest ...any) error {
-	if r.err != nil {
-		return r.err
-	}
-	*dest[0].(*string) = r.value.ETag
-	*dest[1].(*string) = r.value.LastModified
-	*dest[2].(*int) = r.value.NextPage
-	*dest[3].(*[]byte) = append([]byte(nil), r.value.Body...)
-	return nil
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

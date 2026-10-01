@@ -2,14 +2,14 @@ package gsx
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type sessionFake struct {
@@ -26,7 +26,7 @@ func (f *sessionFake) GetByNameAndAirport(_ context.Context, name string, airpor
 			return session, nil
 		}
 	}
-	return nil, pgx.ErrNoRows
+	return nil, repository.ErrNotFound
 }
 
 func (f *sessionFake) GetByNames(_ context.Context, name string) ([]*models.Session, error) {
@@ -54,7 +54,7 @@ func (f *stripFake) GetByCallsign(_ context.Context, session int32, callsign str
 	if strip, ok := f.strips[session][callsign]; ok {
 		return strip, nil
 	}
-	return nil, pgx.ErrNoRows
+	return nil, repository.ErrNotFound
 }
 
 func ptr(value string) *string { return &value }
@@ -254,7 +254,7 @@ func TestHandleStandRejectsNonGET(t *testing.T) {
 }
 
 func TestHandleStandRepositoryFailureIsRetryable(t *testing.T) {
-	strips := &stripFake{err: pgx.ErrTxClosed}
+	strips := &stripFake{err: errors.New("unavailable")}
 
 	recorder := get(t, newAPI(liveEKCH(), strips), "/gsx/stand?callsign=SAS1401&icao=EKCH", nil)
 

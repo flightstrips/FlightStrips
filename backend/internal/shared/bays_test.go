@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"FlightStrips/internal/database"
+	"FlightStrips/internal/models"
 	"FlightStrips/pkg/events/euroscope"
 	"testing"
 )
@@ -54,7 +54,7 @@ func TestGetDepartureBayWithoutPosition_ClearedDepartureReturnsCleared(t *testin
 
 func TestGetDepartureBayReevaluatesHiddenDepartureWithoutPosition(t *testing.T) {
 	groundState := euroscope.GroundStateUnknown
-	existing := &database.Strip{
+	existing := &models.Strip{
 		Origin:  "EKCH",
 		Bay:     BAY_HIDDEN,
 		Cleared: false,
@@ -73,7 +73,7 @@ func TestGetDepartureBayReevaluatesHiddenDepartureWithoutPosition(t *testing.T) 
 }
 
 func TestGetDepartureBayArrivalTransitionFromHiddenNonArrivalReturnsArrivalHidden(t *testing.T) {
-	existing := &database.Strip{
+	existing := &models.Strip{
 		Origin: "ESSA",
 		Bay:    BAY_HIDDEN,
 	}
@@ -88,7 +88,7 @@ func TestGetDepartureBayArrivalTransitionFromHiddenNonArrivalReturnsArrivalHidde
 }
 
 func TestGetDepartureBayArrivalCanNeverRemainInCompletedDepartureBay(t *testing.T) {
-	existing := &database.Strip{
+	existing := &models.Strip{
 		Origin:      "EKCH",
 		Destination: " ekch ",
 		Bay:         BAY_HIDDEN_DEP,
@@ -109,7 +109,7 @@ func TestGetDepartureBayArrivalCanNeverRemainInCompletedDepartureBay(t *testing.
 }
 
 func TestGetDepartureBayFromPositionTransitionsToAirborne(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_DEPART,
 	}
@@ -124,7 +124,7 @@ func TestGetDepartureBayFromPositionTransitionsToAirborne(t *testing.T) {
 // in BAY_DEPART transitions to AIRBORNE above the altitude threshold even when the
 // ground state is nil — the frontend does not always set the state when moving to rwy-dep.
 func TestGetDepartureBayFromPositionTransitionsToAirborne_NilState(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_DEPART,
 		State:  nil,
@@ -139,7 +139,7 @@ func TestGetDepartureBayFromPositionTransitionsToAirborne_NilState(t *testing.T)
 // TestGetDepartureBayFromPositionStaysInDepartBelowThreshold verifies that a strip in
 // BAY_DEPART below the altitude threshold does not prematurely transition to AIRBORNE.
 func TestGetDepartureBayFromPositionStaysInDepartBelowThreshold(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_DEPART,
 	}
@@ -152,7 +152,7 @@ func TestGetDepartureBayFromPositionStaysInDepartBelowThreshold(t *testing.T) {
 
 func TestGetDepartureBay_DepartIgnoresStaleTaxiGroundState(t *testing.T) {
 	departState := euroscope.GroundStateDepart
-	existing := &database.Strip{
+	existing := &models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_DEPART,
 		State:  &departState,
@@ -173,7 +173,7 @@ func TestGetDepartureBay_DepartIgnoresStaleTaxiGroundState(t *testing.T) {
 }
 
 func TestGetDepartureBay_AirborneIgnoresStaleTaxiGroundState(t *testing.T) {
-	existing := &database.Strip{
+	existing := &models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_AIRBORNE,
 	}
@@ -193,7 +193,7 @@ func TestGetDepartureBay_AirborneIgnoresStaleTaxiGroundState(t *testing.T) {
 }
 
 func TestGetDepartureBay_CompletedDepartureRemainsHidden(t *testing.T) {
-	existing := &database.Strip{
+	existing := &models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_HIDDEN_DEP,
 	}
@@ -209,7 +209,7 @@ func TestGetDepartureBay_CompletedDepartureRemainsHidden(t *testing.T) {
 }
 
 func TestGetDepartureBay_HiddenPreservedForDepartureSync(t *testing.T) {
-	existing := &database.Strip{
+	existing := &models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_HIDDEN,
 	}
@@ -229,7 +229,7 @@ func TestGetDepartureBay_HiddenPreservedForDepartureSync(t *testing.T) {
 }
 
 func TestGetDepartureBayFromPositionWithoutPositionKeepsExistingBay(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_NOT_CLEARED,
 	}
@@ -241,7 +241,7 @@ func TestGetDepartureBayFromPositionWithoutPositionKeepsExistingBay(t *testing.T
 }
 
 func TestGetDepartureBayFromPositionRevealsHiddenLocalDeparture(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_HIDDEN,
 	}
@@ -253,7 +253,7 @@ func TestGetDepartureBayFromPositionRevealsHiddenLocalDeparture(t *testing.T) {
 }
 
 func TestGetDepartureBayFromPositionPreservesCompletedDeparture(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Origin: "EKCH",
 		Bay:    BAY_HIDDEN_DEP,
 	}
@@ -265,7 +265,7 @@ func TestGetDepartureBayFromPositionPreservesCompletedDeparture(t *testing.T) {
 }
 
 func TestGetDepartureBayFromPositionArrivalHiddenPreserved(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Destination: "EKCH",
 		Bay:         BAY_HIDDEN,
 	}
@@ -331,7 +331,7 @@ func TestGetGroundState_StandMapsParked(t *testing.T) {
 
 func TestGetDepartureBayFromGroundState_TaxiReturnsTaxi(t *testing.T) {
 	// When the existing bay is a plain TAXI/PUSH state, TAXI ground state should assign BAY_TAXI.
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_PUSH}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_PUSH}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH", true)
 	if bay != BAY_TAXI {
 		t.Fatalf("expected BAY_TAXI from GroundStateTaxi with PUSH existing bay, got %s", bay)
@@ -342,7 +342,7 @@ func TestGetDepartureBay_FullTaxiSyncPreservesSpecificTaxiBay(t *testing.T) {
 	for _, existingBay := range []string{BAY_TAXI_LWR, BAY_TAXI_TWR} {
 		t.Run(existingBay, func(t *testing.T) {
 			previousState := euroscope.GroundStatePush
-			existing := &database.Strip{
+			existing := &models.Strip{
 				Origin: "EKCH",
 				Bay:    existingBay,
 				State:  &previousState,
@@ -364,7 +364,7 @@ func TestGetDepartureBay_FullTaxiSyncPreservesSpecificTaxiBay(t *testing.T) {
 
 func TestGetDepartureBayFromGroundState_TaxiLwrPreserved(t *testing.T) {
 	// Task 078: when the strip is already in TAXI_LWR, a TAXI ground state must not move it backward.
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH", true)
 	if bay != BAY_TAXI_LWR {
 		t.Fatalf("expected TAXI_LWR to be preserved on TAXI ground state, got %s", bay)
@@ -373,7 +373,7 @@ func TestGetDepartureBayFromGroundState_TaxiLwrPreserved(t *testing.T) {
 
 func TestGetDepartureBayFromGroundState_TaxiTwrPreserved(t *testing.T) {
 	// Task 078: when the strip is already in TAXI_TWR, a TAXI ground state must not move it backward.
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_TWR}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_TAXI_TWR}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH", true)
 	if bay != BAY_TAXI_TWR {
 		t.Fatalf("expected TAXI_TWR to be preserved on TAXI ground state, got %s", bay)
@@ -381,7 +381,7 @@ func TestGetDepartureBayFromGroundState_TaxiTwrPreserved(t *testing.T) {
 }
 
 func TestGetDepartureBayFromGroundState_LineupReturnsDepart(t *testing.T) {
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateLineup, existing, "EKCH", true)
 	if bay != BAY_DEPART {
 		t.Fatalf("expected BAY_DEPART from GroundStateLineup, got %s", bay)
@@ -389,7 +389,7 @@ func TestGetDepartureBayFromGroundState_LineupReturnsDepart(t *testing.T) {
 }
 
 func TestGetDepartureBayFromGroundState_DepartReturnsDepart(t *testing.T) {
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing, "EKCH", true)
 	if bay != BAY_DEPART {
 		t.Fatalf("expected BAY_DEPART from GroundStateDepart, got %s", bay)
@@ -397,7 +397,7 @@ func TestGetDepartureBayFromGroundState_DepartReturnsDepart(t *testing.T) {
 }
 
 func TestGetDepartureBayFromGroundState_DepartIgnoresStaleTaxiState(t *testing.T) {
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_DEPART}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_DEPART}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH", true)
 	if bay != BAY_DEPART {
 		t.Fatalf("expected BAY_DEPART to ignore stale TAXI state, got %s", bay)
@@ -405,7 +405,7 @@ func TestGetDepartureBayFromGroundState_DepartIgnoresStaleTaxiState(t *testing.T
 }
 
 func TestGetDepartureBayFromGroundState_AirborneIgnoresStaleTaxiState(t *testing.T) {
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_AIRBORNE}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_AIRBORNE}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH", true)
 	if bay != BAY_AIRBORNE {
 		t.Fatalf("expected BAY_AIRBORNE to ignore stale TAXI state, got %s", bay)
@@ -413,7 +413,7 @@ func TestGetDepartureBayFromGroundState_AirborneIgnoresStaleTaxiState(t *testing
 }
 
 func TestGetDepartureBayFromGroundState_HiddenPreserved(t *testing.T) {
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_HIDDEN}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_HIDDEN}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateDepart, existing, "EKCH", true)
 	if bay != BAY_HIDDEN {
 		t.Fatalf("expected BAY_HIDDEN to ignore stale departure ground state, got %s", bay)
@@ -421,7 +421,7 @@ func TestGetDepartureBayFromGroundState_HiddenPreserved(t *testing.T) {
 }
 
 func TestGetDepartureBayFromGroundState_CompletedDeparturePreserved(t *testing.T) {
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_HIDDEN_DEP}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_HIDDEN_DEP}
 	bay := GetDepartureBayFromGroundState(euroscope.GroundStateTaxi, existing, "EKCH", true)
 	if bay != BAY_HIDDEN_DEP {
 		t.Fatalf("expected BAY_HIDDEN_DEP to ignore stale departure ground state, got %s", bay)
@@ -429,7 +429,7 @@ func TestGetDepartureBayFromGroundState_CompletedDeparturePreserved(t *testing.T
 }
 
 func TestGetDepartureBayFromGroundState_UnknownFallsBackToExisting(t *testing.T) {
-	existing := database.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
+	existing := models.Strip{Origin: "EKCH", Bay: BAY_TAXI_LWR}
 	bay := GetDepartureBayFromGroundState("UNKNOWN_STATE", existing, "EKCH", true)
 	if bay != BAY_TAXI_LWR {
 		t.Fatalf("expected existing bay BAY_TAXI_LWR, got %s", bay)
@@ -437,7 +437,7 @@ func TestGetDepartureBayFromGroundState_UnknownFallsBackToExisting(t *testing.T)
 }
 
 func TestGetDepartureBayFromGroundState_ArrivalPreservesExistingBay(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Destination: "EKCH",
 		Bay:         BAY_FINAL,
 	}
@@ -449,7 +449,7 @@ func TestGetDepartureBayFromGroundState_ArrivalPreservesExistingBay(t *testing.T
 }
 
 func TestGetDepartureBayFromGroundState_ArrivalHiddenPreserved(t *testing.T) {
-	existing := database.Strip{
+	existing := models.Strip{
 		Destination: "EKCH",
 		Bay:         BAY_HIDDEN,
 	}

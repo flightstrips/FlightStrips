@@ -1,98 +1,50 @@
+# Local development only. Bootstrap is an explicit administrator operation.
+include:
+  - docker-compose.nats.yaml
+
+x-backend: &backend
+  image: flightstrips-backend:development
+  build:
+    context: .
+  env_file:
+    - .env
+    - path: .env.dev
+      required: false
+  environment: &runtime
+    SERVER_ADDR: 0.0.0.0:8090
+    ENVIRONMENT: development
+    NATS_URLS: nats://backend:backend-local-only@nats-1:4222,nats://backend:backend-local-only@nats-2:4222,nats://backend:backend-local-only@nats-3:4222
+    NATS_EFFECT_ACTIVE_KEY_ID: v1
+    NATS_EFFECT_KEY_FILES: v1=/run/secrets/nats_effect_v1
+    ENABLE_TEST_TOOLS: "false"
+    OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  secrets: [nats_effect_v1]
+  volumes:
+    - ./config/data:/app/config/data:ro
+  networks: [nats-fixture]
+  depends_on: [nats-1, nats-2, nats-3]
+  restart: unless-stopped
+  stop_grace_period: 30s
+
 services:
-  aspire-dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
-    environment:
-      - ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
-    ports:
-      - 18888:18888
-      - 4317:18889
-      - 4318:18890
-    networks:
-      - flightstrips
-    restart: unless-stopped
-    profiles: [all, database]
-
-  postgres:
-    image: postgres:14-alpine
-    ports:
-      - 5432:5432
-    volumes:
-      - postgres:/var/lib/postgresql/data
-      # Disabled for development convenience - consider enabling for production or completely remove it.
-      # - ./pg_hba.conf:/var/lib/postgresql/pg_hba.conf
-    environment:
-      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
-      - POSTGRES_USER=fs
-      - POSTGRES_DB=fsdb
-      - POSTGRES_HOST_AUTH_METHOD=trust
-    secrets:
-      - postgres_password
-    networks:
-      - flightstrips
-    restart: unless-stopped
-    command: ["postgres"]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 2s
-      timeout: 5s
-      retries: 15
-      start_period: 5s
-    profiles: [all, database]
-
-  flightstrips-migrator:
+  backend-a:
+    <<: *backend
+    ports: ["127.0.0.1:8090:8090"]
+  backend-b:
+    <<: *backend
+    ports: ["127.0.0.1:8091:8090"]
+  nats-bootstrap:
+    image: flightstrips-backend:development
     build:
-      dockerfile: Dockerfile.Migrate
-    networks:
-      - flightstrips
-    restart: on-failure
-    depends_on:
-      postgres:
-        condition: service_healthy
+      context: .
+    command: ["/app/bin/nats-bootstrap"]
     environment:
-      - DATABASE_CONNECTIONSTRING_FILE=/run/secrets/database_connectionstring
-    secrets:
-      - database_connectionstring
-    profiles: [all, database]
-    command: /app/bin/migrate --migrations /app/migrations
-
-  flightstrip:
-    build: .
-    env_file:
-      - .env
-    environment:
-      - DATABASE_CONNECTIONSTRING_FILE=/run/secrets/database_connectionstring
-      - SLEEP_TIME=30
-      - ENVIRONMENT=docker
-      - SERVER_ADDR=0.0.0.0:8090
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18890
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-    networks:
-      - flightstrips
-    restart: unless-stopped
-    ports:
-      - 8090:8090
-    depends_on:
-      aspire-dashboard:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-      flightstrips-migrator:
-        condition: service_completed_successfully
-    secrets:
-      - database_connectionstring
-    profiles: [all]
-
-networks:
-  flightstrips:
-    name: flightstrips
-
-volumes:
-  postgres:
+      NATS_URLS: nats://bootstrap:bootstrap-local-only@nats-1:4222,nats://bootstrap:bootstrap-local-only@nats-2:4222,nats://bootstrap:bootstrap-local-only@nats-3:4222
+      NATS_BOOTSTRAP_TIMEOUT: 60s
+    networks: [nats-fixture]
+    depends_on: [nats-1, nats-2, nats-3]
+    profiles: [bootstrap]
 
 secrets:
-  # Local-only values are sourced from backend/.env. Compose mounts them as
-  # files so development exercises the same path used by Docker Swarm.
-  postgres_password:
-    environment: POSTGRES_PASSWORD
-  database_connectionstring:
-    environment: DOCKER_DATABASE_CONNECTIONSTRING
+  nats_effect_v1:
+    file: ./.local-secrets/effects-v1.key

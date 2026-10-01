@@ -5,8 +5,6 @@ import (
 	pkgModels "FlightStrips/pkg/models"
 	"context"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // StripRepository defines the interface for strip data access
@@ -102,9 +100,6 @@ type StripRepository interface {
 	AcknowledgeValidationStatus(ctx context.Context, session int32, callsign string, activationKey string) (int64, error)
 	ClearValidationStatus(ctx context.Context, session int32, callsign string) error
 
-	// WithTx returns a repository bound to the supplied transaction for
-	// operations that must update a strip atomically with SAT state.
-	WithTx(tx pgx.Tx) StripRepository
 }
 
 // ControllerRepository defines the interface for controller data access
@@ -163,7 +158,6 @@ type SectorOwnerRepository interface {
 	Delete(ctx context.Context, id int32) error
 	DeleteAllBySession(ctx context.Context, session int32) error
 	RemoveBySession(ctx context.Context, session int32) error
-	WithTx(tx pgx.Tx) SectorOwnerRepository
 }
 
 // TacticalStripRepository defines the interface for tactical strip data access
@@ -203,6 +197,4 @@ type StandAssignmentRepository interface {
 	ListBlocksByStand(ctx context.Context, session int32, stand string) ([]*models.StandBlock, error)
 	UpdateBlock(ctx context.Context, block *models.StandBlock) (int64, error)
 	DeleteBlock(ctx context.Context, session int32, id int64, version int32) (int64, error)
-
-	WithTx(tx pgx.Tx) StandAssignmentRepository
 }

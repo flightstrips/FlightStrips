@@ -22,9 +22,6 @@ import (
 
 	"FlightStrips/internal/aman"
 	"FlightStrips/internal/aman/navdata"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const defaultBaseURL = "https://airac.net/api/v1"
@@ -44,37 +41,6 @@ type Checkpoint struct {
 type CheckpointStore interface {
 	Load(context.Context, string) (Checkpoint, bool, error)
 	Save(context.Context, string, Checkpoint) error
-}
-
-// PostgresCheckpoints is the durable production checkpoint implementation.
-// Its table and raw response body are source-adapter state, never canonical
-// AMAN cache data.
-type PostgresCheckpoints struct{ db checkpointDB }
-
-type checkpointDB interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-}
-
-func NewPostgresCheckpoints(pool *pgxpool.Pool) *PostgresCheckpoints {
-	return &PostgresCheckpoints{db: pool}
-}
-
-func (s *PostgresCheckpoints) Load(ctx context.Context, key string) (Checkpoint, bool, error) {
-	var value Checkpoint
-	err := s.db.QueryRow(ctx, `SELECT etag, last_modified, next_page, response_body FROM airacnet_http_checkpoints WHERE request_key = $1`, key).Scan(&value.ETag, &value.LastModified, &value.NextPage, &value.Body)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Checkpoint{}, false, nil
-	}
-	if err != nil {
-		return Checkpoint{}, false, err
-	}
-	return value, true, nil
-}
-
-func (s *PostgresCheckpoints) Save(ctx context.Context, key string, value Checkpoint) error {
-	_, err := s.db.Exec(ctx, `INSERT INTO airacnet_http_checkpoints (request_key, etag, last_modified, next_page, response_body, updated_at) VALUES ($1, $2, $3, $4, $5, now()) ON CONFLICT (request_key) DO UPDATE SET etag = EXCLUDED.etag, last_modified = EXCLUDED.last_modified, next_page = EXCLUDED.next_page, response_body = EXCLUDED.response_body, updated_at = EXCLUDED.updated_at`, key, value.ETag, value.LastModified, value.NextPage, value.Body)
-	return err
 }
 
 type MemoryCheckpoints struct {

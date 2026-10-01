@@ -1,4 +1,4 @@
-﻿package models
+package models
 
 type ActiveRunways struct {
 	DepartureRunways []string          `json:"departure_runways"`

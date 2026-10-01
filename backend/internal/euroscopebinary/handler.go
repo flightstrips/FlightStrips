@@ -73,7 +73,7 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn.SetReadLimit(maxFrame)
 	if err := h.serve(r.Context(), conn); err != nil {
 		if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-			slog.WarnContext(r.Context(), "candidate EuroScope session failed", "error", err)
+			slog.WarnContext(r.Context(), "EuroScope session failed", "error_type", fmt.Sprintf("%T", err))
 		}
 		code := websocket.CloseTryAgainLater
 		if failure, ok := err.(socketFailure); ok {

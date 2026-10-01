@@ -16,15 +16,12 @@ package gsx
 
 import (
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
-
-	"database/sql"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // liveSessionName is the only session a public consumer may read. Sweatbox and
@@ -68,9 +65,9 @@ func (a *WebAPI) RegisterRoutes(mux *http.ServeMux) {
 // does not look like a reassignment and make the script re-select the same
 // stand.
 type standResponse struct {
-	Stand    *string `json:"stand"`
+	Stand    *string  `json:"stand"`
 	Pushback []string `json:"pushback"`
-	Revision string  `json:"revision"`
+	Revision string   `json:"revision"`
 }
 
 const noStandRevision = "none"
@@ -183,7 +180,7 @@ func (a *WebAPI) lookupStand(ctx context.Context, callsign, airport string) (*as
 
 		strip, lookupErr := a.strips.GetByCallsign(ctx, session.ID, callsign)
 		if lookupErr != nil {
-			if errors.Is(lookupErr, sql.ErrNoRows) || errors.Is(lookupErr, pgx.ErrNoRows) {
+			if errors.Is(lookupErr, repository.ErrNotFound) {
 				continue
 			}
 			return nil, lookupErr
@@ -211,7 +208,7 @@ func (a *WebAPI) candidateSessions(ctx context.Context, airport string) ([]*mode
 	if airport != "" {
 		session, err := a.sessions.GetByNameAndAirport(ctx, liveSessionName, airport)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, repository.ErrNotFound) {
 				return nil, nil
 			}
 			return nil, err

@@ -1,1 +1,0 @@
-ALTER TABLE strips ADD COLUMN IF NOT EXISTS validation_status JSONB;

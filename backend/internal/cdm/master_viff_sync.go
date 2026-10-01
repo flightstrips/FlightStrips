@@ -1,6 +1,7 @@
 package cdm
 
 import (
+	"FlightStrips/internal/repository"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,8 +15,6 @@ import (
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	frontendEvents "FlightStrips/pkg/events/frontend"
 	"FlightStrips/pkg/helpers"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type MasterViffSync struct {
@@ -34,7 +33,7 @@ func (c *MasterViffSync) ensureMasterFlightExport(ctx context.Context, session i
 	}
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		slog.WarnContext(ctx, "Failed to load strip for master CDM export",
 			slog.Int("session", int(session)),
 			slog.String("callsign", callsign),

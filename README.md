@@ -42,22 +42,28 @@ FlightStrips is a full-stack application with three main components:
 ## Local Development
 
 ### Prerequisites
-- Docker and Docker Compose
-- Go 1.21+ (for backend development)
-- Node.js 18+ (for frontend development)
-- CMake (for Euroscope plugin)
+
+Docker Desktop with the Linux engine, Go with the automatic 1.25.7 toolchain,
+Node/npm, Python 3, and CMake/Visual Studio 2022 C++ Win32 tools. See the
+[Windows development instructions](backend/Readme.md) for configuration paths,
+frontend/plugin builds, native backend development and test commands.
 
 ### Running the Backend
 
-Start only the database:
-```sh
-docker compose --profile database up --build -d
+From the repository root in PowerShell, build locally and start three pinned
+NATS nodes, bootstrap resources separately, then start two complete backends:
+
+```powershell
+.\backend\local.ps1 init
+.\backend\local.ps1 build
+.\backend\local.ps1 brokers
+.\backend\local.ps1 bootstrap
+.\backend\local.ps1 start
 ```
 
-Or start the complete stack:
-```sh
-docker compose --profile all up --build -d
-```
+The two backends listen on localhost:8090 and :8091. PostgreSQL and Redis are
+not required. Preserve the shared effect key and broker volumes across restarts.
+This integration is held from release pending local qualification.
 
 ### Running the Frontend
 

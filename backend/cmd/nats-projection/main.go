@@ -1,5 +1,5 @@
-// Command nats-projection is an isolated test runtime for the preparatory
-// NATS projection. The production PostgreSQL application never starts it.
+// Command nats-projection is an isolated projection diagnostic. The server
+// constructs its own complete NATS runtime and does not start this process.
 package main
 
 import (

@@ -10,15 +10,15 @@ import (
 	"FlightStrips/pkg/helpers"
 	pkgModels "FlightStrips/pkg/models"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel"
 	"log/slog"
 	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel"
 )
 
 type HoppieClientInterface interface {
@@ -275,7 +275,7 @@ func (s *Service) EvaluatePdcRequest(strip *models.Strip, session *models.Sessio
 	return evaluatePdcRequest(strip, session, remarks)
 }
 
-// evaluatePdcRequest is shared by the SQL service and the dormant owner policy.
+// evaluatePdcRequest is shared by the clearance service and the accepted-state owner policy.
 // It is pure: storage, delivery and timeout ownership remain in their runtimes.
 func evaluatePdcRequest(strip *models.Strip, session *models.Session, remarks string) PdcRequestOutcome {
 	faults := validationFaultMessages(PDCStripValidationFaults(strip, session.ActiveRunways.DepartureRunways, session.AvailableSids))
@@ -634,7 +634,7 @@ func (s *Service) ProcessPDCRequest(ctx context.Context, msg *IncomingMessage, s
 
 	strip, err := s.stripRepo.GetByCallsign(ctx, session.id, req.Callsign)
 
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, repository.ErrNotFound) {
 		session.recordPDCRequestOutcome(ctx, models.PdcChannelCPDLC, "rejected")
 		return s.sendErrorAndReturn(ctx, session, req.Callsign,
 			fmt.Errorf("strip not found"),

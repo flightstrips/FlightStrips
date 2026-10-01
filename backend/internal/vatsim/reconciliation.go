@@ -4,6 +4,7 @@ import (
 	"FlightStrips/internal/dependencies"
 	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
+	"FlightStrips/internal/repository"
 	"context"
 	"errors"
 	"fmt"
@@ -12,8 +13,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 const reconciliationSequenceSpacing int32 = 1000
@@ -559,7 +558,7 @@ func (r *Reconciler) loadArrivalAssignments(ctx context.Context, sessionID int32
 	}
 	for _, flight := range flights {
 		assignment, err := r.assignments.GetAssignment(ctx, sessionID, flight.Callsign)
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
 			return nil, fmt.Errorf("load arrival assignment state for %s: %w", flight.Callsign, err)
 		}
 		if assignment != nil {

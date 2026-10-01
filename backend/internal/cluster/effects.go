@@ -344,7 +344,7 @@ func (s Effects) ServeResults(ctx context.Context) error {
 		return err
 	}
 	defer closeSub()
-	if err := s.Fanout.NC.FlushWithContext(ctx); err != nil {
+	if err := FlushSubscription(ctx, s.Fanout.NC); err != nil {
 		return err
 	}
 	<-ctx.Done()

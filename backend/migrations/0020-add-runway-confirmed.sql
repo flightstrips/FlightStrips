@@ -1,2 +1,0 @@
-ALTER TABLE strips
-    ADD COLUMN runway_confirmed BOOLEAN NOT NULL DEFAULT FALSE;

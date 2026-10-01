@@ -1,13 +1,12 @@
 package metrics
 
 import (
+	"FlightStrips/internal/repository"
 	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"go.opentelemetry.io/otel"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
@@ -19,9 +18,7 @@ func TestMessageErrorClass(t *testing.T) {
 		err                     error
 	}{
 		{name: "success", want: "none"},
-		{name: "serialization", err: &pgconn.PgError{Code: "40001"}, want: "serialization_conflict"},
-		{name: "deadlock", err: &pgconn.PgError{Code: "40P01"}, want: "deadlock"},
-		{name: "missing row", err: pgx.ErrNoRows, want: "missing_row"},
+		{name: "missing row", err: repository.ErrNotFound, want: "missing_row"},
 		{name: "coordination", messageType: "coordination_assume_request", err: errors.New("invalid request"), want: "coordination"},
 		{name: "other", messageType: "strip_update", err: errors.New("failed"), want: "other"},
 	}

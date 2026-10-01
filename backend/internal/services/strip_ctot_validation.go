@@ -1,15 +1,12 @@
 package services
 
 import (
-	"context"
 	"strings"
 	"time"
 
 	"FlightStrips/internal/config"
 	internalModels "FlightStrips/internal/models"
 	"FlightStrips/internal/shared"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -20,10 +17,6 @@ const (
 	ctotValidationThreshold   = 10 * time.Minute
 	ctotValidationRolloverGap = 12 * time.Hour
 )
-
-var ctotValidationNow = func() time.Time {
-	return time.Now().UTC()
-}
 
 func isCtotValidation(status *internalModels.ValidationStatus) bool {
 	return status != nil && status.IssueType == ctotValidationIssueType
@@ -119,88 +112,4 @@ func PlanCtotValidation(strip *internalModels.Strip, now time.Time, activationID
 		desired.Active, desired.ActivationKey = current.Active, current.ActivationKey
 	}
 	return desired
-}
-
-func (s *StripService) applyCtotValidation(ctx context.Context, session int32, strip *internalModels.Strip, now time.Time, publish bool, forceReactivate bool) error {
-	if strip == nil {
-		return nil
-	}
-
-	current := strip.ValidationStatus
-	if validationCandidateIsInhibited(current, ctotValidationIssueType) {
-		return nil
-	}
-
-	ctot := ""
-	if effective := strip.EffectiveCtot(); effective != nil {
-		ctot = *effective
-	}
-
-	if !ctotValidationApplies(strip) || !ctotMoreThanThresholdAhead(ctot, now) {
-		if !isCtotValidation(current) {
-			return nil
-		}
-		if err := s.validationStore.ClearValidationStatus(ctx, session, strip.Callsign); err != nil {
-			return err
-		}
-		shared.AddDBOperations(ctx, 1)
-		strip.ValidationStatus = nil
-		s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
-		return nil
-	}
-
-	owner := *strip.Owner
-	desired := &internalModels.ValidationStatus{
-		IssueType:      ctotValidationIssueType,
-		Message:        ctotValidationMessage,
-		OwningPosition: owner,
-		Active:         true,
-		CustomAction:   ctotValidationAction(),
-	}
-
-	if isCtotValidation(current) && current.OwningPosition == owner && !forceReactivate {
-		desired.Active = current.Active
-		desired.ActivationKey = current.ActivationKey
-	} else {
-		desired.ActivationKey = uuid.New().String()
-	}
-
-	if validationStatusEquals(current, desired) {
-		return nil
-	}
-
-	if err := s.validationStore.SetValidationStatus(ctx, session, strip.Callsign, desired); err != nil {
-		return err
-	}
-	shared.AddDBOperations(ctx, 1)
-	strip.ValidationStatus = desired
-	s.queueOrSendStripUpdate(ctx, session, strip.Callsign, publish)
-	return nil
-}
-
-func (s *StripService) ReevaluateCtotValidation(ctx context.Context, session int32, callsign string, publish bool, forceReactivate bool) error {
-	strip, available, err := s.getCachedStrip(ctx, session, callsign)
-	if err != nil {
-		return err
-	}
-	if !available {
-		return nil
-	}
-	return s.applyCtotValidation(ctx, session, strip, ctotValidationNow(), publish, forceReactivate)
-}
-
-func (s *StripService) ReevaluateCtotValidationsForSession(ctx context.Context, session int32, publish bool) error {
-	strips, _, err := s.listCachedStrips(ctx, session)
-	if err != nil {
-		return err
-	}
-
-	now := ctotValidationNow()
-	for _, strip := range strips {
-		if err := s.applyCtotValidation(ctx, session, strip, now, publish, false); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

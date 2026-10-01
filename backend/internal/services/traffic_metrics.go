@@ -1,12 +1,8 @@
 package services
 
 import (
-	"FlightStrips/internal/metrics"
 	"FlightStrips/internal/models"
-	"FlightStrips/internal/repository"
 	"FlightStrips/internal/shared"
-	"context"
-	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -25,69 +21,11 @@ var taxiingBays = map[string]bool{
 	shared.BAY_TAXI_TWR: true,
 }
 
-type TrafficMetricsService struct {
-	sessionRepo repository.SessionRepository
-	stripRepo   TrafficMetricsStripStore
-	interval    time.Duration
-}
-
-type TrafficMetricsStripStore interface {
-	List(ctx context.Context, session int32) ([]*models.Strip, error)
-}
-
 type trafficSnapshot struct {
 	onStand int64
 	taxiing int64
 	arr15m  int64
 	dep15m  int64
-}
-
-func NewTrafficMetricsService(sessionRepo repository.SessionRepository, stripRepo TrafficMetricsStripStore) *TrafficMetricsService {
-	return &TrafficMetricsService{
-		sessionRepo: sessionRepo,
-		stripRepo:   stripRepo,
-		interval:    30 * time.Second,
-	}
-}
-
-func (s *TrafficMetricsService) Start(ctx context.Context) {
-	s.collect(ctx)
-
-	ticker := time.NewTicker(s.interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			s.collect(ctx)
-		}
-	}
-}
-
-func (s *TrafficMetricsService) collect(ctx context.Context) {
-	sessions, err := s.sessionRepo.List(ctx)
-	if err != nil {
-		slog.Error("traffic metrics: failed to list sessions", slog.Any("error", err))
-		return
-	}
-
-	now := time.Now().UTC()
-
-	for _, session := range sessions {
-		strips, err := s.stripRepo.List(ctx, session.ID)
-		if err != nil {
-			slog.Error("traffic metrics: failed to list strips",
-				slog.Int("session", int(session.ID)),
-				slog.Any("error", err),
-			)
-			continue
-		}
-
-		snapshot := buildTrafficSnapshot(strips, now)
-		metrics.RecordTrafficSnapshot(ctx, session.Name, session.Airport, snapshot.onStand, snapshot.taxiing, snapshot.arr15m, snapshot.dep15m)
-	}
 }
 
 func buildTrafficSnapshot(strips []*models.Strip, now time.Time) trafficSnapshot {

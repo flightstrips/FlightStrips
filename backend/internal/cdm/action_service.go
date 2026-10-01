@@ -1,6 +1,7 @@
 package cdm
 
 import (
+	"FlightStrips/internal/repository"
 	"context"
 	"errors"
 	"log/slog"
@@ -11,8 +12,6 @@ import (
 	"FlightStrips/internal/models"
 	euroscopeEvents "FlightStrips/pkg/events/euroscope"
 	"FlightStrips/pkg/helpers"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type ActionService struct {
@@ -677,14 +676,14 @@ func (c *ActionService) loadCdmActionTarget(ctx context.Context, session int32, 
 	s := c.service
 	strip, err := s.stripRepo.GetByCallsign(ctx, session, callsign)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return nil, nil, nil
 		}
 		return nil, nil, err
 	}
 	cdmData, err := s.stripRepo.GetCdmDataForCallsign(ctx, session, callsign)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return strip, (&models.CdmData{}).Normalize(), nil
 		}
 		return nil, nil, err
@@ -996,7 +995,7 @@ func (c *ActionService) pushCorrectedEobtToEuroscope(ctx context.Context, sessio
 			s.euroscopeHub.SendEobt(session, strings.TrimSpace(*controller.Cid), callsign, eobt)
 			return
 		}
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
 			slog.Warn("Failed to resolve master controller CID for EOBT sync",
 				slog.Int("session", int(session)),
 				slog.String("master_callsign", masterCallsign),

@@ -1,14 +1,13 @@
 package metrics
 
 import (
+	"FlightStrips/internal/repository"
 	"context"
 	"errors"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -634,16 +633,7 @@ func messageErrorClass(msgType string, err error) string {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return "cancelled"
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case "40001":
-			return "serialization_conflict"
-		case "40P01":
-			return "deadlock"
-		}
-	}
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, repository.ErrNotFound) {
 		return "missing_row"
 	}
 	if strings.Contains(msgType, "coordination") {

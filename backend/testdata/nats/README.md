@@ -2,7 +2,10 @@
 
 The default [Windows development setup](../../Readme.md) runs three pinned
 `nats:2.15.0` brokers and two real backends. Bootstrap is a separate administrator
-operation. Runtime credentials verify resources and cannot repair drift.
+operation. Runtime credentials verify resources and cannot repair drift. Their
+publish allowlist includes JetStream flow-control replies only for the required
+state, position, presence, snapshot-index and object resources; these replies
+keep ordered replay moving after sustained delivery.
 
 From `backend`, `./testdata/nats/verify.ps1` uses the broker-only Compose project
 `flightstrips-nats-01`, exercises repeated bootstrap, resource drift, replicated

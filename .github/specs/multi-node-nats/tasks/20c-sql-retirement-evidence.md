@@ -40,9 +40,12 @@ requires a deadline, while normal server workers use an unbounded context.
 Router/quota/socket/effect subscription registration now uses bounded attempts
 and tolerates transient transport loss. The stalled-delivery and real executable
 checks verify recovery. Runtime socket errors log types rather than error text.
-The provider fixture now imports CDM configuration once; concurrent refresh
-fencing remains covered by the existing CDM tests, avoiding a one-second refresh
-race with that fixture's unrelated initial operational sync.
+The provider fixture uses the production one-minute CDM refresh cadence and
+waits for its own accepted configuration before operational sync. Earlier tests
+leave accepted provider checkpoints in the disposable cluster; an hour-truncated
+fixture deadline could fall behind those checkpoints and suppress the HTTP fetch.
+The fixture also awaits its own scheduled HTTP passes rather than assuming a
+fast clearance means every provider has already refreshed.
 
 ## Parent Task 20 acceptance record
 
@@ -98,10 +101,35 @@ requires the operator's own GRPlugin reference in ignored `config/data`, mounted
 read-only. The stale development terminal geometry path was corrected to 2609.
 No result claims operator manual acceptance, multi-host or capacity qualification.
 
+## Sustained replay and final fixture verification
+
+A final check of the continuously running local stack exposed missing runtime
+publish permissions for JetStream flow-control replies. Both projections could
+stop behind the stream after larger provider objects exhausted a delivery window.
+The three broker configuration files now permit `$JS.FC` replies for only the five
+required state/KV/object resources. Administrator resource-creation permissions
+remain separate; no runtime bootstrap or drift repair was added.
+
+`TestBuildNATSProjectionFlowControl` publishes 128 typed control events (about
+46 MiB) and requires both real backend projections to apply the final sequence
+and regain readiness. Re-running it with the old allowlist reproduced the
+permission violations and stalled replay; the corrected allowlist passes.
+
+After these corrections, a fresh Docker `fs20a` cluster passed all **eight**
+assembly scenarios, including the sustained-replay regression and broker quorum
+fault/recovery (132.37 s). The production-provider scenario passed after waiting
+for its own accepted configuration (69.71 s). These tests run sequentially against
+the disposable fixture; the default development cluster is separate and remains
+ready on both backend ports. The sequential real-entrypoint executable test also
+passed against those Docker brokers (9.68 s). See the draft PR for CI on the
+current source revision.
+
 ## Source revision and handoff
 
 Implementation revision: `c0bca5e10b70635e24501f6bda8d274a9f01c83b`. The runs above
 used its source before commit, with native development identity `7936899e-dirty`
-and Docker development identity; this follow-up commit changes evidence only. See the draft
-PR for current head and CI results. Rebuild/retest on the operator's chosen head;
+and Docker development identity. Subsequent fixture corrections add required
+JetStream flow-control reply permissions, a sustained-replay regression and
+provider checkpoint/cadence synchronization. See the draft PR for current head
+and CI results. Rebuild/retest on the operator's chosen head;
 retain the shared effect ring and broker volumes across normal restarts.

@@ -11,6 +11,7 @@ import (
 
 	"FlightStrips/internal/cluster"
 	"FlightStrips/internal/config"
+	"FlightStrips/internal/faultgate"
 	"FlightStrips/internal/shared"
 	pb "FlightStrips/pkg/events/cluster"
 	euroscope "FlightStrips/pkg/events/euroscope"
@@ -131,7 +132,12 @@ func (w *socketWriter) send(frame *euroscope.Envelope) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	_ = w.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-	return w.conn.WriteMessage(websocket.BinaryMessage, data)
+	faultgate.Reach("before-socket-write", frame.CommandId, 0)
+	err = w.conn.WriteMessage(websocket.BinaryMessage, data)
+	if err == nil {
+		faultgate.Reach("after-socket-write", frame.CommandId, 0)
+	}
+	return err
 }
 
 func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {

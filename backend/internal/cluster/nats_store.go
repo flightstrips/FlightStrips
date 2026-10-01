@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"FlightStrips/internal/faultgate"
+
 	"github.com/nats-io/nats.go"
 )
 
@@ -57,6 +59,7 @@ func (s NATSStore) Publish(ctx context.Context, subject string, expected uint64,
 	message := nats.NewMsg(subject)
 	message.Header.Set(nats.ExpectedLastSubjSeqHdr, strconv.FormatUint(expected, 10))
 	message.Data = data
+	faultgate.State("before-publish", data, 0)
 	ack, err := s.JS.PublishMsg(message, nats.Context(ctx))
 	if err != nil {
 		var api *nats.APIError
@@ -70,5 +73,6 @@ func (s NATSStore) Publish(ctx context.Context, subject string, expected uint64,
 	if ack == nil || ack.Stream != "FS_STATE" || ack.Sequence == 0 {
 		return 0, fmt.Errorf("invalid PubAck")
 	}
+	faultgate.State("after-puback", data, ack.Sequence)
 	return ack.Sequence, nil
 }

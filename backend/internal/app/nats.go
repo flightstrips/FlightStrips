@@ -92,6 +92,7 @@ func sessionNATSRef(id int32) *pb.AggregateRef {
 // admission can wait on accepted state. StartWorkers starts the domain/provider
 // supervisors once. Resources are verified, never created by the backend.
 func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App, err error) {
+	deps = faultDependencies(deps)
 	cfg = cfg.withDefaults()
 	cfg.Navigation = cfg.Navigation.Normalize()
 	if cfg.EnableTestTools && isLiveEnvironment(cfg.Environment) {

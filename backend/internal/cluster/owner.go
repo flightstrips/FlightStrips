@@ -227,6 +227,15 @@ func (o *OwnerRuntime) maintain(ctx context.Context) {
 		if err != nil {
 			continue
 		}
+		if len(nodes) == 0 {
+			// After an outage longer than every lease, each former owner can be
+			// unready solely because its expired term needs a new claim. Waiting
+			// for full owner readiness here would deadlock all warm replicas.
+			// This node is connected and caught up (checked above); an empty
+			// ready set permits a recovery attempt, never domain/effect work.
+			// Concurrent attempts still use subject CAS and server-time fencing.
+			nodes = []string{o.NodeID}
+		}
 		rank := RendezvousRank(subject, nodes)
 		for i, id := range rank {
 			if id != o.NodeID {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 // Projection is a per-process, independent FS_STATE reader. Published state is
 // never exposed until a complete event has passed the reducer.
 type Projection struct {
+	history                                    *historyCache
 	NC                                         *nats.Conn
 	JS                                         nats.JetStreamContext
 	Config                                     natsresources.Config
@@ -47,6 +49,7 @@ type Projection struct {
 	watchers                                   sync.WaitGroup
 	snapshotJobs                               sync.WaitGroup
 	takeovers, staleEpochs, snapshotFailures   atomic.Uint64
+	snapshotSizeSkips                          atomic.Uint64
 }
 
 type KVPosition struct {
@@ -102,9 +105,21 @@ func NewProjection(nc *nats.Conn, cfg natsresources.Config) (*Projection, error)
 // that subject, including events skipped through a verified snapshot.
 func (p *Projection) Run(ctx context.Context) error {
 	watchCtx, stopWatchers := context.WithCancel(ctx)
-	defer func() { stopWatchers(); p.watchers.Wait(); p.snapshotJobs.Wait() }()
+	defer func() {
+		stopWatchers()
+		p.watchers.Wait()
+		p.snapshotJobs.Wait()
+		if p.history != nil {
+			_ = p.history.close()
+		}
+	}()
 	if err := natsresources.Verify(ctx, p.NC, p.Config); err != nil {
 		return err
+	}
+	var historyErr error
+	p.history, historyErr = newHistoryCache()
+	if historyErr != nil {
+		return historyErr
 	}
 	p.watchers.Add(2)
 	go func() { defer p.watchers.Done(); p.watchPositions(watchCtx) }()
@@ -121,6 +136,10 @@ func (p *Projection) Run(ctx context.Context) error {
 		state, err := p.Snapshots.Load(ref)
 		if err != nil {
 			p.snapshotFailures.Add(1)
+			return err
+		}
+		state.history = p.history
+		if err := state.boundHistory(); err != nil {
 			return err
 		}
 		subject, _ := Subject(ref)
@@ -211,6 +230,7 @@ func (p *Projection) apply(entry AppliedEvent) error {
 	state := p.states[entry.Subject]
 	if state == nil {
 		state = NewAggregate(ref)
+		state.history = p.history
 		p.lastSnapshot[entry.Subject] = time.Now()
 	}
 	if entry.StreamSequence <= state.StreamSequence {
@@ -222,13 +242,13 @@ func (p *Projection) apply(entry AppliedEvent) error {
 	}
 	// Clone before applying: a reader holding the former state sees an
 	// immutable value even while new events arrive.
-	clone, err := cloneAggregate(state)
-	if err != nil {
-		return err
-	}
+	clone := copyAggregateForApply(state)
 	effective, err := clone.Apply(entry)
 	if err != nil {
 		return fmt.Errorf("stream %d: %w", entry.StreamSequence, err)
+	}
+	if err := clone.boundHistory(); err != nil {
+		return err
 	}
 	p.states[entry.Subject] = clone
 	p.applied = entry.StreamSequence
@@ -289,6 +309,12 @@ func (p *Projection) persistSnapshot(subject string, state *Aggregate) {
 	if p.snapshotErrors == nil {
 		p.snapshotErrors = make(map[string]error)
 	}
+	if errors.Is(err, ErrSnapshotTooLarge) {
+		p.snapshotSizeSkips.Add(1)
+		delete(p.snapshotErrors, subject)
+		p.lastSnapshot[subject] = time.Now()
+		return
+	}
 	if err != nil {
 		p.snapshotErrors[subject] = err
 		p.snapshotFailures.Add(1)
@@ -313,11 +339,72 @@ func (p *Projection) maybeSnapshot() {
 }
 
 func cloneAggregate(a *Aggregate) (*Aggregate, error) {
-	s, err := a.Snapshot()
+	// This state has already passed Apply or verified snapshot loading. An
+	// in-memory read needs detached values, not serialization, hashing and a
+	// second validation of the entire retained command history.
+	copy := NewAggregate(a.Ref)
+	copy.history = a.history
+	copy.Revision, copy.StreamSequence, copy.SubjectSequence = a.Revision, a.StreamSequence, a.SubjectSequence
+	if a.Owner != nil {
+		copy.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	}
+	if a.Master != nil {
+		copy.Master = proto.Clone(a.Master).(*pb.MasterTerm)
+	}
+	if a.Sync != nil {
+		copy.Sync = proto.Clone(a.Sync).(*pb.SessionSync)
+	}
+	for key, value := range a.Entities {
+		copy.Entities[key] = proto.Clone(value).(*pb.EntitySnapshot)
+	}
+	for key, value := range a.Ledger {
+		copy.Ledger[key] = proto.Clone(value).(*pb.CommandOutcome)
+	}
+	for key, value := range a.Workflows {
+		copy.Workflows[key] = proto.Clone(value).(*pb.WorkflowRecord)
+	}
+	for key, value := range a.Effects {
+		copy.Effects[key] = proto.Clone(value).(*pb.EffectRecord)
+	}
+	copy.rebuildIndexes()
+	return copy, nil
+}
+
+func copyAggregateForApply(a *Aggregate) *Aggregate {
+	// Published protobuf records are immutable. Apply replaces changed records
+	// and rebuilds changed indexes; only its maps and mutable owner term need
+	// detaching. Snapshot jobs can keep reading the prior published state.
+	copy := *a
+	copy.Entities = maps.Clone(a.Entities)
+	copy.Ledger = maps.Clone(a.Ledger)
+	copy.Workflows = maps.Clone(a.Workflows)
+	copy.Effects = maps.Clone(a.Effects)
+	if a.Owner != nil {
+		copy.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	}
+	return &copy
+}
+
+// readOwner copies only the accepted control checkpoint. Ownership admission
+// and renewal must not clone unrelated entities or retained command history.
+func (p *Projection) readOwner(ref *pb.AggregateRef) (*ownerState, error) {
+	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
 	}
-	return aggregateFromSnapshot(s)
+	if err := p.Ready(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	view := &ownerState{Ref: proto.Clone(ref).(*pb.AggregateRef)}
+	if state := p.states[subject]; state != nil {
+		view.Revision, view.StreamSequence, view.SubjectSequence = state.Revision, state.StreamSequence, state.SubjectSequence
+		if state.Owner != nil {
+			view.Owner = proto.Clone(state.Owner).(*pb.OwnerTerm)
+		}
+	}
+	return view, nil
 }
 
 func (p *Projection) refresh(ctx context.Context) {
@@ -394,6 +481,11 @@ func (p *Projection) Ready() error {
 	if p.applied < p.highWater {
 		return fmt.Errorf("replay behind stream: %d < %d", p.applied, p.highWater)
 	}
+	if p.history != nil {
+		if err := p.history.check(); err != nil {
+			return fmt.Errorf("history cache unavailable: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -437,6 +529,56 @@ func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 	return NewAggregate(ref), nil
 }
 
+// ReadEntity returns a detached accepted entity through the readiness barrier.
+func (p *Projection) ReadEntity(ref *pb.AggregateRef, kind pb.EntityKind, key string) (*pb.EntitySnapshot, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.Ready(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if state := p.states[subject]; state != nil {
+		if entity := state.Indexes[kind][key]; entity != nil {
+			return proto.Clone(entity).(*pb.EntitySnapshot), nil
+		}
+	}
+	return nil, nil
+}
+
+// ReadOwner returns the detached accepted owner term through the readiness
+// barrier, without copying domain state or retained command history.
+func (p *Projection) ReadOwner(ref *pb.AggregateRef) (*pb.OwnerTerm, error) {
+	state, err := p.readOwner(ref)
+	if err != nil {
+		return nil, err
+	}
+	return state.Owner, nil
+}
+
+// ReadEntities returns detached entities of one kind without copying retained
+// command outcomes or workflows. It uses the same readiness barrier as Read.
+func (p *Projection) ReadEntities(ref *pb.AggregateRef, kind pb.EntityKind) ([]*pb.EntitySnapshot, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.Ready(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	var entities []*pb.EntitySnapshot
+	if state := p.states[subject]; state != nil {
+		for _, entity := range state.EntitiesByKind(kind) {
+			entities = append(entities, proto.Clone(entity).(*pb.EntitySnapshot))
+		}
+	}
+	return entities, nil
+}
+
 // Outcome finds a command across aggregate ledgers for the HTTP command-status
 // URL, which intentionally does not expose an aggregate selector. Only the
 // authenticated actor receives the stored outcome.
@@ -454,7 +596,10 @@ func (p *Projection) Outcome(_ context.Context, commandID string, actor *pb.Acto
 	defer p.mu.RUnlock()
 	reply.Status = pb.CommandReply_NOT_FOUND
 	for _, state := range p.states {
-		outcome := state.Ledger[commandID]
+		outcome, err := state.LookupOutcome(commandID)
+		if err != nil {
+			return unavailable(commandID)
+		}
 		if outcome == nil {
 			continue
 		}

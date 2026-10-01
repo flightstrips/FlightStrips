@@ -59,6 +59,26 @@ func (s RoutedLifecycleStore) Read(_ context.Context, ref *pb.AggregateRef) (*Ag
 	return s.Projection.Read(ref)
 }
 
+func (s RoutedLifecycleStore) ReadEntities(_ context.Context, ref *pb.AggregateRef, kind pb.EntityKind) ([]*pb.EntitySnapshot, error) {
+	if s.Projection == nil {
+		return nil, fmt.Errorf("projection unavailable")
+	}
+	return s.Projection.ReadEntities(ref, kind)
+}
+
+func (r SessionRegistry) registryEntities(ctx context.Context) ([]*pb.EntitySnapshot, error) {
+	if reader, ok := r.Store.(interface {
+		ReadEntities(context.Context, *pb.AggregateRef, pb.EntityKind) ([]*pb.EntitySnapshot, error)
+	}); ok {
+		return reader.ReadEntities(ctx, globalRef(), pb.EntityKind_SESSION_REGISTRY)
+	}
+	state, err := r.read(ctx, globalRef())
+	if err != nil {
+		return nil, err
+	}
+	return state.EntitiesByKind(pb.EntityKind_SESSION_REGISTRY), nil
+}
+
 // SessionRegistry is an opt-in candidate adapter. The SQL-backed Server does
 // not construct it until the coordinated cutover.
 type SessionRegistry struct{ Store LifecycleStore }
@@ -117,12 +137,12 @@ func registryByName(a *Aggregate, airport, name string) *pb.SessionRegistry {
 
 // ActiveSessions is derived from the retained global entities on every read.
 func (r SessionRegistry) ActiveSessions(ctx context.Context) ([]*pb.SessionRegistry, error) {
-	global, err := r.read(ctx, globalRef())
+	entities, err := r.registryEntities(ctx)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]*pb.SessionRegistry, 0)
-	for _, entity := range global.EntitiesByKind(pb.EntityKind_SESSION_REGISTRY) {
+	for _, entity := range entities {
 		entry := entity.GetValue().GetSessionRegistry()
 		if entry.State == pb.SessionRegistry_ACTIVE {
 			result = append(result, proto.Clone(entry).(*pb.SessionRegistry))
@@ -254,11 +274,11 @@ func (r SessionRegistry) FinalizeDeletion(ctx context.Context, id int32) error {
 
 // Recover resumes incomplete durable steps after a process or owner restart.
 func (r SessionRegistry) Recover(ctx context.Context) error {
-	global, err := r.read(ctx, globalRef())
+	entities, err := r.registryEntities(ctx)
 	if err != nil {
 		return err
 	}
-	for _, entity := range global.EntitiesByKind(pb.EntityKind_SESSION_REGISTRY) {
+	for _, entity := range entities {
 		entry := entity.GetValue().GetSessionRegistry()
 		switch entry.State {
 		case pb.SessionRegistry_INITIALIZING:

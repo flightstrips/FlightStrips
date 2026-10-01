@@ -1,0 +1,30 @@
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5 fault_build=true go=go1.25.7
+    nats_idle_profile_integration_test.go:93: IDLE_STATE aggregate=airport.EKCH entities=4162 outcomes=18086 workflows=6911 sequence=34113
+    nats_idle_profile_integration_test.go:93: IDLE_STATE aggregate=global entities=235 outcomes=9477 workflows=951 sequence=34083
+    nats_idle_profile_integration_test.go:128: OVERLAP_BASE source=db662817b8191c160e5d35fc39f07a8db88f91ca
+         binary_sha256=2ab5be3b1dd8338997c4c7a90fb9e1f34e208e7ae5089ea57e0cad0c14fe94bc
+    nats_idle_profile_integration_test.go:156: IDLE_CPU version=base combined_cores=1.9169 process_cpu_seconds=39.5156 elapsed_seconds=20.6146 binary_sha256=2ab5be3b1dd8338997c4c7a90fb9e1f34e208e7ae5089ea57e0cad0c14fe94bc
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=0 fs_go_heap_alloc_bytes 17493592
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=0 fs_history_cache_bytes 16777216
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=0 fs_projection_hot_history_records{kind="outcome"} 1024
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=0 fs_projection_hot_history_records{kind="workflow"} 1024
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=0 fs_projection_hot_history_records{kind="effect"} 0
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=1 fs_go_heap_alloc_bytes 15068648
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=1 fs_history_cache_bytes 16777216
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=1 fs_projection_hot_history_records{kind="outcome"} 1024
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=1 fs_projection_hot_history_records{kind="workflow"} 1024
+    nats_idle_profile_integration_test.go:139: IDLE_MEMORY sample=before node=1 fs_projection_hot_history_records{kind="effect"} 0
+    nats_idle_profile_integration_test.go:156: IDLE_CPU version=fixed combined_cores=0.0130 process_cpu_seconds=0.2656 elapsed_seconds=20.4450 binary_sha256=d31f396d5fff7a16ec13d4e478ebeaf71369c94b7f9138997f3f1705a4952ab5
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=0 fs_go_heap_alloc_bytes 12232576
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=0 fs_history_cache_bytes 16777216
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=0 fs_projection_hot_history_records{kind="outcome"} 1024
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=0 fs_projection_hot_history_records{kind="workflow"} 1024
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=0 fs_projection_hot_history_records{kind="effect"} 0
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=1 fs_go_heap_alloc_bytes 10783984
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=1 fs_history_cache_bytes 16777216
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=1 fs_projection_hot_history_records{kind="outcome"} 1024
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=1 fs_projection_hot_history_records{kind="workflow"} 1024
+    nats_idle_profile_integration_test.go:158: IDLE_MEMORY sample=after node=1 fs_projection_hot_history_records{kind="effect"} 0
+--- PASS: TestRetainedStateIdleCPU (71.05s)
+PASS
+ok  	FlightStrips/cmd/server	71.219s

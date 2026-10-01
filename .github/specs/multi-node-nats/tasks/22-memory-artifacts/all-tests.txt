@@ -1,0 +1,75 @@
+?   	FlightStrips/cmd/nats-bootstrap	[no test files]
+?   	FlightStrips/cmd/nats-projection	[no test files]
+ok  	FlightStrips/cmd/server	0.244s
+?   	FlightStrips/internal/alb	[no test files]
+ok  	FlightStrips/internal/aman	(cached)
+ok  	FlightStrips/internal/aman/compatibility	(cached)
+ok  	FlightStrips/internal/aman/etareview	(cached)
+ok  	FlightStrips/internal/aman/gate	(cached)
+ok  	FlightStrips/internal/aman/holdingclearance	(cached)
+ok  	FlightStrips/internal/aman/lifecycle	(cached)
+ok  	FlightStrips/internal/aman/materializer	(cached)
+ok  	FlightStrips/internal/aman/navdata	(cached)
+ok  	FlightStrips/internal/aman/navdata/airacnet	(cached)
+?   	FlightStrips/internal/aman/navdata/contracttest	[no test files]
+ok  	FlightStrips/internal/aman/navdata/fixture	(cached)
+ok  	FlightStrips/internal/aman/operational	(cached)
+ok  	FlightStrips/internal/aman/prediction	(cached)
+ok  	FlightStrips/internal/aman/predictor	(cached)
+ok  	FlightStrips/internal/aman/predictor/openmeteo	(cached)
+ok  	FlightStrips/internal/aman/replay	(cached)
+ok  	FlightStrips/internal/aman/report	(cached)
+ok  	FlightStrips/internal/aman/routefact	(cached)
+ok  	FlightStrips/internal/aman/sequence	(cached)
+ok  	FlightStrips/internal/aman/terminal	(cached)
+ok  	FlightStrips/internal/aman/trafficprediction	(cached)
+ok  	FlightStrips/internal/aman/trajectory	(cached)
+ok  	FlightStrips/internal/aman/webapi	(cached)
+ok  	FlightStrips/internal/amancandidate	(cached)
+ok  	FlightStrips/internal/app	(cached)
+ok  	FlightStrips/internal/cdm	(cached)
+ok  	FlightStrips/internal/cluster	11.671s
+ok  	FlightStrips/internal/clx	(cached)
+ok  	FlightStrips/internal/config	(cached)
+ok  	FlightStrips/internal/coordinationrequest	(cached)
+?   	FlightStrips/internal/dependencies	[no test files]
+ok  	FlightStrips/internal/ecfmp	(cached)
+?   	FlightStrips/internal/ecfmp/webapi	[no test files]
+ok  	FlightStrips/internal/efb	(cached)
+ok  	FlightStrips/internal/envconfig	(cached)
+ok  	FlightStrips/internal/euroscopebinary	(cached)
+?   	FlightStrips/internal/faultgate	[no test files]
+ok  	FlightStrips/internal/frontendbinary	(cached)
+ok  	FlightStrips/internal/gsx	(cached)
+ok  	FlightStrips/internal/httpresults	(cached)
+ok  	FlightStrips/internal/metar	(cached)
+ok  	FlightStrips/internal/metrics	(cached)
+ok  	FlightStrips/internal/models	(cached)
+ok  	FlightStrips/internal/natsresources	(cached)
+ok  	FlightStrips/internal/navigation	(cached)
+ok  	FlightStrips/internal/navigationcandidate	(cached)
+ok  	FlightStrips/internal/pdc	(cached)
+ok  	FlightStrips/internal/pilot	(cached)
+?   	FlightStrips/internal/repository	[no test files]
+ok  	FlightStrips/internal/rnav	(cached)
+ok  	FlightStrips/internal/sat	(cached)
+?   	FlightStrips/internal/server	[no test files]
+ok  	FlightStrips/internal/services	(cached)
+ok  	FlightStrips/internal/shared	(cached)
+ok  	FlightStrips/internal/standdiagnostics	(cached)
+ok  	FlightStrips/internal/standstatus	(cached)
+ok  	FlightStrips/internal/telemetry	(cached)
+?   	FlightStrips/internal/testing/natscluster	[no test files]
+?   	FlightStrips/internal/testing/recorder	[no test files]
+?   	FlightStrips/internal/testutil	[no test files]
+ok  	FlightStrips/internal/vatsim	(cached)
+ok  	FlightStrips/internal/vatsimcandidate	(cached)
+?   	FlightStrips/pkg/constants	[no test files]
+?   	FlightStrips/pkg/errors	[no test files]
+?   	FlightStrips/pkg/events	[no test files]
+?   	FlightStrips/pkg/events/alb	[no test files]
+ok  	FlightStrips/pkg/events/cluster	(cached)
+ok  	FlightStrips/pkg/events/euroscope	(cached)
+ok  	FlightStrips/pkg/events/frontend	(cached)
+?   	FlightStrips/pkg/helpers	[no test files]
+?   	FlightStrips/pkg/models	[no test files]

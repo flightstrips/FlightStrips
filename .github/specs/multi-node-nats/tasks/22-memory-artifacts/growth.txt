@@ -1,0 +1,23 @@
+=== RUN   TestEffectObjectsWaitUntilTerminalPlus24Hours
+=== RUN   TestEffectObjectsWaitUntilTerminalPlus24Hours/cold=false
+=== RUN   TestEffectObjectsWaitUntilTerminalPlus24Hours/cold=true
+--- PASS: TestEffectObjectsWaitUntilTerminalPlus24Hours (0.01s)
+    --- PASS: TestEffectObjectsWaitUntilTerminalPlus24Hours/cold=false (0.00s)
+    --- PASS: TestEffectObjectsWaitUntilTerminalPlus24Hours/cold=true (0.01s)
+=== RUN   TestHistoryCacheCleansStoppedCachesAndPreservesLiveCaches
+--- PASS: TestHistoryCacheCleansStoppedCachesAndPreservesLiveCaches (0.02s)
+=== RUN   TestHistoryCachePreservesSnapshotAndCheckpointVersions
+--- PASS: TestHistoryCachePreservesSnapshotAndCheckpointVersions (0.04s)
+=== RUN   TestHistoryCacheOldRetryAndFailureRemainFenced
+--- PASS: TestHistoryCacheOldRetryAndFailureRemainFenced (0.01s)
+=== RUN   TestProjectionHistoryMemoryPlateaus
+    history_cache_test.go:172: HISTORY_MEMORY events=5000 hot_outcomes=512 heap_bytes=2464760 disk_index_bytes=2097152
+    history_cache_test.go:172: HISTORY_MEMORY events=25000 hot_outcomes=512 heap_bytes=2495920 disk_index_bytes=8388608
+    history_cache_test.go:172: HISTORY_MEMORY events=50000 hot_outcomes=512 heap_bytes=2539792 disk_index_bytes=16777216
+--- PASS: TestProjectionHistoryMemoryPlateaus (10.99s)
+=== RUN   TestHistoryCachePinsPendingWorkAndBoundsSnapshotAllocation
+--- PASS: TestHistoryCachePinsPendingWorkAndBoundsSnapshotAllocation (0.24s)
+=== RUN   TestHistoryCachePreservesLatestTransceiverCheckpoint
+--- PASS: TestHistoryCachePreservesLatestTransceiverCheckpoint (0.01s)
+PASS
+ok  	FlightStrips/internal/cluster	11.473s

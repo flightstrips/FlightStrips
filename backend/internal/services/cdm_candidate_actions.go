@@ -259,7 +259,9 @@ func (c *CdmCandidate) planAction(ctx context.Context, request *pb.CommandReques
 			add("atot", "ATOT/"+cdmValue(d.Atot), pb.CdmState_ExportIntent_DPI, 0)
 		}
 		if !d.NeedsLocalRecalculation() {
-			c.queueExport(state, data, request.CommandId, m, expected+1, config)
+			if err := c.queueExport(state, data, request.CommandId, m, expected+1, config); err != nil {
+				return nil, pb.CommandReply_UNAVAILABLE, 0, err
+			}
 		}
 	}
 	if !proto.Equal(data, old.GetValue().GetCdmState()) {

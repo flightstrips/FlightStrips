@@ -3,7 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,9 +33,26 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
+
+type entrypointFixture struct {
+	initialMu                   sync.Mutex
+	initial                     [2]*pb.FrontendInitial
+	t                           *testing.T
+	ctx                         context.Context
+	backend, dir, binary, token string
+	resources                   natsresources.Config
+	nc                          *nats.Conn
+	projection                  *cluster.Projection
+	stopProjection              context.CancelFunc
+	env, addresses              []string
+	apps, brokers               []*fixtureProcess
+	startBroker                 func(int) *fixtureProcess
+	ready                       func()
+}
 
 type processLog struct {
 	sync.Mutex
@@ -47,10 +67,13 @@ func (b *processLog) Write(p []byte) (int, error) {
 func (b *processLog) text() string { b.Lock(); defer b.Unlock(); return b.Buffer.String() }
 
 type fixtureProcess struct {
-	command *exec.Cmd
-	log     *processLog
-	done    chan error
-	stopped bool
+	command      *exec.Cmd
+	log          *processLog
+	done         chan error
+	stopped      bool
+	owner        *testing.T
+	ownedPID     int
+	ownedProcess *os.Process
 }
 
 func startFixtureProcess(t *testing.T, binary, cwd string, env []string, args ...string) *fixtureProcess {
@@ -59,6 +82,7 @@ func startFixtureProcess(t *testing.T, binary, cwd string, env []string, args ..
 	p.command.Dir, p.command.Env = cwd, env
 	p.command.Stdout, p.command.Stderr = p.log, p.log
 	require.NoError(t, p.command.Start())
+	p.owner, p.ownedPID, p.ownedProcess = t, p.command.Process.Pid, p.command.Process
 	go func() { p.done <- p.command.Wait() }()
 	t.Cleanup(func() {
 		p.stop()
@@ -71,6 +95,10 @@ func startFixtureProcess(t *testing.T, binary, cwd string, env []string, args ..
 func (p *fixtureProcess) stop() {
 	if !p.stopped {
 		p.stopped = true
+		if p.command.Process != p.ownedProcess || p.command.Process.Pid != p.ownedPID || p.ownedPID <= 0 {
+			panic("refuse to stop a process not created by this fixture")
+		}
+		p.owner.Logf("STOP owned_pid=%d executable=%s at=%s", p.ownedPID, p.command.Path, time.Now().UTC().Format(time.RFC3339Nano))
 		_ = p.command.Process.Kill()
 		<-p.done
 	}
@@ -120,12 +148,12 @@ func sendEntrypointFrame(t *testing.T, c *websocket.Conn, v proto.Message) {
 // authentication, in addition to the comprehensive BuildNATS provider tests.
 // NATS_SERVER_BINARY optionally supplies a pinned native fixture owned entirely
 // by this test; otherwise the separately bootstrapped Compose fixture is used.
-func TestServerNATSBinaryCrossNodeRestartAndReadiness(t *testing.T) {
+func newEntrypointFixture(t *testing.T, fault bool) *entrypointFixture {
 	if os.Getenv("NATS_INTEGRATION") != "1" {
 		t.Skip("requires disposable three-node NATS fixture")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Minute)
+	t.Cleanup(cancel)
 	backend, err := filepath.Abs("../..")
 	require.NoError(t, err)
 	dir := t.TempDir()
@@ -134,20 +162,37 @@ func TestServerNATSBinaryCrossNodeRestartAndReadiness(t *testing.T) {
 		suffix = ".exe"
 	}
 	binary := filepath.Join(dir, "api"+suffix)
-	build := exec.Command("go", "build", "-o", binary, "./cmd/server")
+	args := []string{"build", "-o", binary}
+	if fault {
+		args = append(args, "-tags=task22fault")
+	}
+	args = append(args, "./cmd/server")
+	build := exec.Command("go", args...)
 	build.Dir = backend
 	output, err := build.CombinedOutput()
 	require.NoError(t, err, string(output))
+	compiled, err := os.ReadFile(binary)
+	require.NoError(t, err)
+	digest := sha256.Sum256(compiled)
+	t.Logf("BUILD binary_sha256=%s fault_build=%t go=%s", hex.EncodeToString(digest[:]), fault, runtime.Version())
 	urls := []string{}
 	brokers := []*fixtureProcess{}
 	native := os.Getenv("NATS_SERVER_BINARY")
+	if fault {
+		require.NotEmpty(t, native, "fault suite requires test-owned native brokers")
+	}
+	storeKey := make([]byte, 32)
+	_, err = rand.Read(storeKey)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "store.key"), storeKey, 0600))
 	startBroker := func(i int) *fixtureProcess {
-		return startFixtureProcess(t, native, backend, os.Environ(), "-c", filepath.Join(dir, fmt.Sprintf("nats-%d.conf", i)))
+		return startFixtureProcess(t, native, backend, fixtureEnv(map[string]string{"TASK22_STORE_KEY": "task22-" + hex.EncodeToString(storeKey)}), "-c", filepath.Join(dir, fmt.Sprintf("nats-%d.conf", i)))
 	}
 	if native != "" {
 		version, e := exec.Command(native, "--version").Output()
 		require.NoError(t, e)
 		require.Contains(t, string(version), "v2.15.0")
+		t.Logf("BROKER %s", strings.TrimSpace(string(version)))
 		clients, routes := []string{}, []string{}
 		for i := 0; i < 3; i++ {
 			clients = append(clients, entrypointAddress(t))
@@ -157,11 +202,16 @@ func TestServerNATSBinaryCrossNodeRestartAndReadiness(t *testing.T) {
 			source, e := os.ReadFile(filepath.Join(backend, "testdata", "nats", fmt.Sprintf("nats-%d.conf", i+1)))
 			require.NoError(t, e)
 			conf := strings.ReplaceAll(string(source), "port: 4222", "listen: "+clients[i])
+			conf = strings.ReplaceAll(conf, "name: flightstrips-local", "name: task22-"+fixtureDigest([]byte(dir))[:12])
+			if fault {
+				conf = strings.ReplaceAll(conf, "jetstream {", "jetstream { max_memory_store: 64MB, max_file_store: 1GB, cipher: aes, key: $TASK22_STORE_KEY,")
+			}
 			conf = strings.ReplaceAll(conf, "port: 6222", "listen: "+routes[i])
 			conf = strings.ReplaceAll(conf, "/data/jetstream", filepath.ToSlash(filepath.Join(dir, fmt.Sprintf("data-%d", i))))
 			for peer := 0; peer < 3; peer++ {
 				conf = strings.ReplaceAll(conf, fmt.Sprintf("nats://nats-%d:6222", peer+1), "nats://"+routes[peer])
 			}
+			t.Logf("BROKER_CONFIG node=%d client=%s route=%s sha256=%s", i, clients[i], routes[i], fixtureDigest([]byte(conf)))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, fmt.Sprintf("nats-%d.conf", i)), []byte(conf), 0600))
 			urls = append(urls, "nats://bootstrap:bootstrap-local-only@"+clients[i])
 			brokers = append(brokers, startBroker(i))
@@ -184,7 +234,7 @@ func TestServerNATSBinaryCrossNodeRestartAndReadiness(t *testing.T) {
 			adminErr = e
 			return false
 		}
-		defer nc.Close()
+		t.Cleanup(nc.Close)
 		adminErr = natscluster.WaitForQuorum(ctx, nc)
 		if adminErr == nil {
 			adminErr = natsresources.Bootstrap(ctx, nc, resources)
@@ -197,38 +247,57 @@ func TestServerNATSBinaryCrossNodeRestartAndReadiness(t *testing.T) {
 	resources.URLs = urls
 	nc, err := natsresources.Connect(resources)
 	require.NoError(t, err)
-	defer nc.Close()
+	t.Cleanup(nc.Close)
 	projection, err := cluster.NewProjection(nc, resources)
 	require.NoError(t, err)
 	projectionCtx, stopProjection := context.WithCancel(ctx)
-	defer stopProjection()
+	t.Cleanup(stopProjection)
 	projected := make(chan error, 1)
 	go func() { projected <- projection.Run(projectionCtx) }()
-	defer func() { stopProjection(); <-projected }()
+	t.Cleanup(func() { stopProjection(); <-projected })
 	require.Eventually(t, func() bool { return projection.Ready() == nil }, 15*time.Second, 50*time.Millisecond)
 	key := filepath.Join(dir, "effects.key")
-	require.NoError(t, os.WriteFile(key, []byte("01234567890123456789012345678901"), 0600))
+	keyBytes := make([]byte, 32)
+	_, err = rand.Read(keyBytes)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(key, keyBytes, 0600))
 	jwtKey := []byte("entrypoint-fixture-signing-secret")
 	identity := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{map[string]string{"kty": "oct", "kid": "fixture", "alg": "HS256", "k": base64.RawURLEncoding.EncodeToString(jwtKey)}}})
 	}))
-	defer identity.Close()
+	t.Cleanup(identity.Close)
 	signed := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"exp": time.Now().Add(time.Hour).Unix(), "aud": "backend-dev", "vatsim/cid": "111111", "vatsim/rating": 5})
 	signed.Header["kid"] = "fixture"
 	token, err := signed.SignedString(jwtKey)
 	require.NoError(t, err)
-	env := fixtureEnv(map[string]string{"NATS_URLS": strings.Join(urls, ","), "NATS_EFFECT_ACTIVE_KEY_ID": "v1", "NATS_EFFECT_KEY_FILES": "v1=" + key, "OIDC_AUTHORITY": identity.URL, "OIDC_SIGNING_ALGO": "HS256", "OIDC_AUDIENCE": "backend-dev", "ENVIRONMENT": "test", "OTEL_EXPORTER_OTLP_ENDPOINT": "", "NAVIGATION_SOURCE": "", "NAVIGATION_TERMINAL_GEOMETRY_PATH": "", "AMAN_MODE": "disabled", "ENABLE_TEST_TOOLS": "false", "ENABLE_STAND_ASSIGNMENT": "false", "ENABLE_VATSIM": "false", "ENABLE_VATSIM_TRANSCEIVERS": "false", "ENABLE_METAR": "false", "ENABLE_ECFMP": "false", "CDM_KEY": "", "CDM_KEY_FILE": "", "HOPPIE_LOGON": "", "HOPPIE_LOGON_FILE": ""})
+	env := fixtureEnv(map[string]string{"NATS_HISTORY_CACHE_DIR": filepath.Join(dir, "history-cache"), "NATS_URLS": strings.Join(urls, ","), "NATS_EFFECT_ACTIVE_KEY_ID": "v1", "NATS_EFFECT_KEY_FILES": "v1=" + key, "OIDC_AUTHORITY": identity.URL, "OIDC_SIGNING_ALGO": "HS256", "OIDC_AUDIENCE": "backend-dev", "ENVIRONMENT": "test", "OTEL_EXPORTER_OTLP_ENDPOINT": "", "NAVIGATION_SOURCE": "", "NAVIGATION_TERMINAL_GEOMETRY_PATH": "", "AMAN_MODE": "disabled", "ENABLE_TEST_TOOLS": "false", "ENABLE_STAND_ASSIGNMENT": "false", "ENABLE_VATSIM": "false", "ENABLE_VATSIM_TRANSCEIVERS": "false", "ENABLE_METAR": "false", "ENABLE_ECFMP": "false", "CDM_KEY": "", "CDM_KEY_FILE": "", "HOPPIE_LOGON": "", "HOPPIE_LOGON_FILE": ""})
 	addresses := []string{entrypointAddress(t), entrypointAddress(t)}
+	if fault {
+		require.NoError(t, os.Mkdir(filepath.Join(dir, "gate"), 0700))
+		env = append(env, "TASK22_GATE_DIR="+filepath.Join(dir, "gate"))
+	}
 	apps := []*fixtureProcess{startFixtureProcess(t, binary, backend, env, "-addr", addresses[0]), startFixtureProcess(t, binary, backend, env, "-addr", addresses[1])}
-	allApps := append([]*fixtureProcess(nil), apps...)
+
 	ready := func() {
+		var statuses [2]int
+		var bodies [2]string
 		require.Eventually(t, func() bool {
-			a, _ := entrypointStatus(addresses[0], "/readyz", "")
-			b, _ := entrypointStatus(addresses[1], "/readyz", "")
-			return a == 200 && b == 200
-		}, 30*time.Second, 100*time.Millisecond, "two compiled server processes ready")
+			for i, address := range addresses {
+				status, body := entrypointStatus(address, "/readyz", "")
+				statuses[i], bodies[i] = status, string(body)
+			}
+			return statuses[0] == 200 && statuses[1] == 200
+		}, 60*time.Second, 100*time.Millisecond, "two compiled server processes ready: statuses=%v bodies=%v", &statuses, &bodies)
 	}
 	ready()
+	return &entrypointFixture{t: t, ctx: ctx, backend: backend, dir: dir, binary: binary, resources: resources, nc: nc, projection: projection, stopProjection: stopProjection, env: env, addresses: addresses, apps: apps, brokers: brokers, startBroker: startBroker, token: token, ready: ready}
+}
+
+func TestServerNATSBinaryCrossNodeRestartAndReadiness(t *testing.T) {
+	f := newEntrypointFixture(t, false)
+	ctx, backend, binary, resources, nc, projection, env, addresses, apps, brokers, startBroker, token, ready := f.ctx, f.backend, f.binary, f.resources, f.nc, f.projection, f.env, f.addresses, f.apps, f.brokers, f.startBroker, f.token, f.ready
+	native := os.Getenv("NATS_SERVER_BINARY")
+	allApps := append([]*fixtureProcess(nil), apps...)
 	name := "TASK20C-" + strings.ToUpper(uuid.NewString())
 	callsign := "S" + strings.ToUpper(uuid.NewString()[:6])
 	dial := func(node int, path, protocol string) *websocket.Conn {

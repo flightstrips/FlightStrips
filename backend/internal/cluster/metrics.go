@@ -3,6 +3,8 @@ package cluster
 import (
 	"fmt"
 	"io"
+	"os"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -11,6 +13,9 @@ import (
 // WriteMetrics reports bounded labels from verified resources and accepted
 // state. Readiness-age lag also exposes a stalled metadata/replay loop.
 func (p *Projection) WriteMetrics(out io.Writer, node string) {
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
+	fmt.Fprintf(out, "fs_go_heap_alloc_bytes %d\nfs_go_heap_sys_bytes %d\nfs_go_heap_idle_bytes %d\nfs_go_heap_released_bytes %d\n", memory.HeapAlloc, memory.HeapSys, memory.HeapIdle, memory.HeapReleased)
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	behind := uint64(0)
@@ -31,10 +36,22 @@ func (p *Projection) WriteMetrics(out io.Writer, node string) {
 	}
 	fmt.Fprintf(out, "fs_projection_lag_seconds{node=%q} %g\nfs_projection_behind_messages{node=%q} %d\n", node, lag, node, behind)
 	fmt.Fprintf(out, "fs_owner_takeovers_total %d\nfs_stale_epoch_rejections_total %d\nfs_snapshot_verify_failures_total %d\n", p.takeovers.Load(), p.staleEpochs.Load(), p.snapshotFailures.Load())
+	fmt.Fprintf(out, "fs_snapshot_size_skips_total %d\n", p.snapshotSizeSkips.Load())
+	var cacheBytes int64
+	if p.history != nil {
+		if info, err := os.Stat(p.history.path); err == nil {
+			cacheBytes = info.Size()
+		}
+	}
+	fmt.Fprintf(out, "fs_history_cache_bytes %d\n", cacheBytes)
+	hot := map[string]int{"outcome": 0, "workflow": 0, "effect": 0}
 	leases := map[string]float64{"global": 0, "airport": 0, "session": 0}
 	seen := map[string]bool{}
 	effects := map[string]int{}
 	for _, state := range p.states {
+		hot["outcome"] += len(state.Ledger)
+		hot["workflow"] += len(state.Workflows)
+		hot["effect"] += len(state.Effects)
 		kind := "session"
 		if state.Ref.GetGlobal() != nil {
 			kind = "global"
@@ -60,6 +77,9 @@ func (p *Projection) WriteMetrics(out io.Writer, node string) {
 	}
 	for _, kind := range []string{"global", "airport", "session"} {
 		fmt.Fprintf(out, "fs_owner_lease_remaining_seconds{aggregate_kind=%q} %g\n", kind, leases[kind])
+	}
+	for _, kind := range []string{"outcome", "workflow", "effect"} {
+		fmt.Fprintf(out, "fs_projection_hot_history_records{kind=%q} %d\n", kind, hot[kind])
 	}
 	keys := make([]string, 0, len(effects))
 	for key := range effects {

@@ -321,7 +321,9 @@ func (c *CdmCandidate) plan(ctx context.Context, id int32, state *cluster.Aggreg
 			}
 		}
 		if needsExport && c.usesViff(seed) && !m.CdmData.NeedsLocalRecalculation() {
-			c.queueExport(state, data, command, m, standRevision(oldCdm)+1, config)
+			if err := c.queueExport(state, data, command, m, standRevision(oldCdm)+1, config); err != nil {
+				return nil, err
+			}
 		}
 		if !proto.Equal(oldCdm.GetValue().GetCdmState(), data) {
 			change.Changes = append(change.Changes, candidateUpsert(m.Callsign, oldCdm, &pb.EntityRecord{Value: &pb.EntityRecord_CdmState{CdmState: data}}))

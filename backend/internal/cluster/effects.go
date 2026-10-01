@@ -185,7 +185,10 @@ func (s Effects) advance(ctx context.Context, ref *pb.AggregateRef, prior *pb.Ef
 	if err != nil {
 		return nil, err
 	}
-	current := state.Effects[prior.CommandId]
+	current, err := state.LookupEffect(prior.CommandId)
+	if err != nil {
+		return nil, err
+	}
 	if current == nil || !proto.Equal(current, prior) {
 		return nil, ErrCAS
 	}
@@ -228,7 +231,10 @@ func (s Effects) advance(ctx context.Context, ref *pb.AggregateRef, prior *pb.Ef
 	if err != nil {
 		return nil, err
 	}
-	committed := fresh.Effects[id]
+	committed, err := fresh.LookupEffect(id)
+	if err != nil {
+		return nil, err
+	}
 	if fresh.StreamSequence < sequence || committed == nil || committed.Status != status {
 		return nil, fmt.Errorf("effect transition was not effective")
 	}
@@ -254,7 +260,10 @@ func (s Effects) RecordResult(ctx context.Context, sessionID int32, connectionID
 		if err != nil {
 			return err
 		}
-		effect := state.Effects[result.CommandId]
+		effect, err := state.LookupEffect(result.CommandId)
+		if err != nil {
+			return err
+		}
 		if effect == nil || effect.TargetCid != cid || effect.DispatchConnectionId == nil ||
 			frame.SessionId != sessionID || frame.OwnerEpoch != effect.OwnerEpoch || frame.MasterEpoch != effect.MasterEpoch {
 			return fmt.Errorf("plugin result does not match dispatch claim")
@@ -313,9 +322,14 @@ func (s Effects) forwardResult(ctx context.Context, sessionID int32, connectionI
 			}
 		}
 		state, readErr := s.Owner.Projection.Read(sessionRef(sessionID))
-		if readErr == nil && state.Effects[claim.CommandId] != nil &&
-			state.Effects[claim.CommandId].Status == status && state.Effects[claim.CommandId].ReasonCode == reason {
-			return nil
+		if readErr == nil {
+			stored, lookupErr := state.LookupEffect(claim.CommandId)
+			if lookupErr != nil {
+				return lookupErr
+			}
+			if stored != nil && stored.Status == status && stored.ReasonCode == reason {
+				return nil
+			}
 		}
 	}
 	return fmt.Errorf("effect result persistence unconfirmed")
@@ -369,7 +383,10 @@ func (s Effects) recordForwardedResult(ctx context.Context, request *pb.EffectDe
 		if err != nil {
 			return err
 		}
-		old := state.Effects[terminal.CommandId]
+		old, err := state.LookupEffect(terminal.CommandId)
+		if err != nil {
+			return err
+		}
 		if old == nil {
 			return fmt.Errorf("effect claim not found")
 		}
@@ -406,8 +423,10 @@ func (s Effects) GarbageCollect(ctx context.Context, now time.Time) (int, error)
 		ref       *pb.AggregateRef
 	}
 	referenced := map[string]reference{}
+	states := []*Aggregate{}
 	s.Owner.Projection.mu.RLock()
 	for _, state := range s.Owner.Projection.states {
+		states = append(states, state)
 		for id, effect := range state.Effects {
 			if secret := effect.GetPrivateMessage(); secret != nil {
 				referenced[secret.ObjectName] = reference{commandID: id, terminal: effect.Status == pb.EffectRecord_EXECUTED ||
@@ -434,6 +453,20 @@ func (s Effects) GarbageCollect(ctx context.Context, now time.Time) (int, error)
 		}
 		ref, found := referenced[info.Name]
 		if !found {
+			id := strings.TrimPrefix(info.Name, "effect/")
+			for _, state := range states {
+				effect, err := state.LookupEffect(id)
+				if err != nil {
+					return deleted, err
+				}
+				if effect != nil && effect.GetPrivateMessage().GetObjectName() == info.Name {
+					ref = reference{commandID: id, terminal: terminalEffect(effect), ref: state.Ref}
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
 			if now.Sub(info.ModTime) < effectRetention {
 				continue
 			}
@@ -445,20 +478,34 @@ func (s Effects) GarbageCollect(ctx context.Context, now time.Time) (int, error)
 			if err != nil {
 				return deleted, err
 			}
-			entries, err := s.Owner.Store.Replay(ctx, subject)
-			if err != nil {
-				return deleted, err
-			}
 			var terminalAt time.Time
-			for _, entry := range entries {
+			consume := func(entry AppliedEvent) error {
 				event := &pb.StateEvent{}
 				if pb.UnmarshalStrict(entry.Data, event) != nil {
-					return deleted, fmt.Errorf("invalid effect history")
+					return fmt.Errorf("invalid effect history")
 				}
 				if effect := event.GetEffectChanged(); effect != nil && effect.CommandId == ref.commandID &&
 					(effect.Status == pb.EffectRecord_EXECUTED || effect.Status == pb.EffectRecord_FAILED ||
 						effect.Status == pb.EffectRecord_EXPIRED || effect.Status == pb.EffectRecord_UNKNOWN) {
 					terminalAt = entry.ServerTime
+				}
+				return nil
+			}
+			if visitor, ok := s.Owner.Store.(interface {
+				Visit(context.Context, string, func(AppliedEvent) error) error
+			}); ok {
+				if err := visitor.Visit(ctx, subject, consume); err != nil {
+					return deleted, err
+				}
+			} else {
+				entries, err := s.Owner.Store.Replay(ctx, subject)
+				if err != nil {
+					return deleted, err
+				}
+				for _, entry := range entries {
+					if err := consume(entry); err != nil {
+						return deleted, err
+					}
 				}
 			}
 			if terminalAt.IsZero() || now.Sub(terminalAt) < effectRetention {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -615,11 +616,20 @@ func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.Ag
 	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && provider != "viff" && provider != "hoppie" {
 		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF or Hoppie")
 	}
-	state, err := a.read(ctx, ref)
+	var entry *pb.EntitySnapshot
+	var err error
+	if a.Writer.Projection != nil {
+		entry, err = a.Writer.Projection.ReadEntity(ref, pb.EntityKind_PROVIDER_CHECKPOINT, provider+"."+resource)
+	} else {
+		var state *Aggregate
+		state, err = a.read(ctx, ref)
+		if err == nil {
+			entry = state.Indexes[pb.EntityKind_PROVIDER_CHECKPOINT][provider+"."+resource]
+		}
+	}
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	entry := state.Indexes[pb.EntityKind_PROVIDER_CHECKPOINT][provider+"."+resource]
 	if entry == nil {
 		return nil, nil, 0, nil
 	}
@@ -744,7 +754,11 @@ func (a NavigationWeather) ReserveQuota(ctx context.Context, workflowID, provide
 	if err != nil {
 		return false, err
 	}
-	if previous := state.Ledger[workflowID]; previous != nil {
+	previous, err := state.LookupOutcome(workflowID)
+	if err != nil {
+		return false, err
+	}
+	if previous != nil {
 		hash, err := RequestHash(request)
 		if err != nil || previous.RequestSha256 != hash {
 			return false, fmt.Errorf("workflow ID has different quota request")
@@ -757,6 +771,9 @@ func (a NavigationWeather) ReserveQuota(ctx context.Context, workflowID, provide
 	w := a.Writer
 	w.Plan = func(_ context.Context, _ *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
 		old := state.Indexes[pb.EntityKind_PROVIDER_QUOTA][key]
+		if window.Before(time.Now().UTC().Add(-QuotaWindowRetention)) {
+			return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("quota window has expired")
+		}
 		current := uint64(0)
 		used := uint32(0)
 		if old != nil {
@@ -772,7 +789,9 @@ func (a NavigationWeather) ReserveQuota(ctx context.Context, workflowID, provide
 		}
 		next := proto.Clone(quota).(*pb.ProviderQuota)
 		next.Used = used + 1
-		return &pb.DomainChange{Changes: []*pb.EntityChange{{Key: key, Revision: current + 1, Operation: &pb.EntityChange_Upsert{Upsert: &pb.EntityRecord{Value: &pb.EntityRecord_ProviderQuota{ProviderQuota: next}}}}}}, pb.CommandReply_COMMITTED, current, nil
+		changes := RetireQuotaWindows(state, []*pb.EntityChange{{Key: key, Revision: current + 1, Operation: &pb.EntityChange_Upsert{Upsert: &pb.EntityRecord{Value: &pb.EntityRecord_ProviderQuota{ProviderQuota: next}}}}}, window)
+		sort.Slice(changes, func(i, j int) bool { return changes[i].Key < changes[j].Key })
+		return &pb.DomainChange{Changes: changes}, pb.CommandReply_COMMITTED, current, nil
 	}
 	reply, fresh := w.ExecuteFresh(ctx, request)
 	if reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() != pb.CommandOutcome_SUCCEEDED {

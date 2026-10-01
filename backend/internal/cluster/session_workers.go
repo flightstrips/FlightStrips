@@ -117,6 +117,9 @@ func (w *SessionWork) Step(ctx context.Context) error {
 		if w.unhealthySince.IsZero() {
 			w.unhealthySince = w.clock()
 		}
+		// A brief metadata recovery can precede ownership/pause persistence.
+		// Renewed failure must extend that incomplete recovery interval.
+		w.recoveredAt = time.Time{}
 		w.mu.Unlock()
 		return err
 	}
@@ -136,6 +139,7 @@ func (w *SessionWork) Step(ctx context.Context) error {
 		if w.unhealthySince.IsZero() {
 			w.unhealthySince = w.clock()
 		}
+		w.recoveredAt = time.Time{}
 		w.mu.Unlock()
 		return err
 	}
@@ -158,8 +162,10 @@ func (w *SessionWork) Step(ctx context.Context) error {
 	// Keep the frozen recovery interval until every live session has either
 	// recorded the pause or acquired a controller. A later owner can then
 	// recover a session without counting the outage as healthy time.
-	allRecorded := first == nil
-	if allRecorded && paused > 0 {
+	// Reconciler errors unrelated to cleanup must not retain an interval whose
+	// pause is already durable for every session.
+	allRecorded := true
+	if paused > 0 {
 		for _, session := range sessions {
 			state, err := w.Store.Read(ctx, sessionRef(session.Id))
 			if err != nil {
@@ -217,7 +223,7 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 	session := seed.GetValue().GetSession()
 	marker := session.FirstNoControllerAt
 	fullRestart := marker != nil && presence.oldestNode.After(marker.AsTime())
-	alreadyPaused := !unhealthySince.IsZero() && session.CleanupPausedAt != nil && !session.CleanupPausedAt.AsTime().Before(unhealthySince)
+	alreadyPaused := !unhealthySince.IsZero() && session.CleanupPausedAt != nil && !session.CleanupPausedAt.AsTime().Before(recoveredAt)
 	if presence.controllers || marker == nil || fullRestart || paused > 0 && !alreadyPaused {
 		var next *timestamppb.Timestamp
 		var pausedAt *timestamppb.Timestamp
@@ -230,7 +236,13 @@ func (w *SessionWork) stepSession(ctx context.Context, registry *pb.SessionRegis
 				pausedAt = timestamppb.New(recoveredAt)
 			}
 			if marker != nil && !fullRestart && paused > 0 && !alreadyPaused {
-				at = marker.AsTime().Add(paused)
+				remaining := paused
+				if session.CleanupPausedAt != nil && session.CleanupPausedAt.AsTime().After(unhealthySince) {
+					// Another session/replica may have persisted the earlier portion
+					// before recovery failed again. Extend only the missing portion.
+					remaining = recoveredAt.Sub(session.CleanupPausedAt.AsTime())
+				}
+				at = marker.AsTime().Add(remaining)
 				if at.After(now) {
 					at = now
 				}

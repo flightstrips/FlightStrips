@@ -21,3 +21,15 @@
 - Fault timings, command IDs, stream sequences and restore checksums are attached as test artifacts; failures are reproducible.
 
 **Starting points:** existing backend e2e harness, `backend/internal/testing`, and Task 20c's local three-NATS/two-backend setup.
+
+## Local qualification
+
+The complete automated local run passed on 2026-10-01 with no skipped cases.
+The reproducible PowerShell runner is `backend/testdata/nats/task22.ps1`.
+[Task 22 evidence and artifacts](22-fault-integration-evidence.md) record the
+actual source/builds, machine, command IDs, fault timing, stream sequences and
+encrypted separate-cluster restore comparisons. Implementation is under review
+in [draft PR #829](https://github.com/flightstrips/FlightStrips/pull/829), targeting
+the held integration base. This remains one-machine local qualification;
+operator browser/plugin acceptance, capacity and production cutover are separate
+gates.

@@ -16,6 +16,7 @@ import (
 const MaxObjectBytes = 32 << 20
 
 var ErrImmutableSnapshotCollision = errors.New("immutable snapshot name already contains different data")
+var ErrSnapshotTooLarge = errors.New("history exceeds bounded snapshot size; retained log remains authoritative")
 
 // SnapshotStore publishes an index only after reading back and validating the
 // immutable typed object. KV history retains the previous verified pointer.

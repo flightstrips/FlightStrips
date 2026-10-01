@@ -295,7 +295,11 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 	p.LiveObservations = map[string]bool{}
 	p.ConsumedPrefiles = map[string]bool{}
 	prefileID := lifecycleID(fmt.Sprintf("vatsim-prefile/%d/%s/%d/%s", seed.Id, key, revision, sha), "input")
-	if w := state.Workflows[prefileID]; w != nil && w.Status == pb.WorkflowRecord_COMPLETED {
+	w, err := state.LookupWorkflow(prefileID)
+	if err != nil {
+		return nil, err
+	}
+	if w != nil && w.Status == pb.WorkflowRecord_COMPLETED {
 		p.ConsumedPrefiles[key] = true
 	}
 	for _, e := range state.EntitiesByKind(pb.EntityKind_STRIP) {
@@ -365,7 +369,11 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 		pilot = valueString(s.VatsimCID)
 	}
 	episodeID := lifecycleID(fmt.Sprintf("vatsim-warning/%d/%s/%s", seed.Id, key, pilot), "episode")
-	if w := state.Workflows[episodeID]; w != nil && w.Status == pb.WorkflowRecord_COMPLETED {
+	w, err = state.LookupWorkflow(episodeID)
+	if err != nil {
+		return nil, err
+	}
+	if w != nil && w.Status == pb.WorkflowRecord_COMPLETED {
 		p.Episodes[fmt.Sprintf("%d:%s", seed.Id, key)] = w.Step
 	}
 	target := c.deliveryCID(state, seed.Id)
@@ -440,7 +448,10 @@ func (c *VatsimLifecycleCandidate) plan(ctx context.Context, request *pb.Command
 		}
 	}
 	episode := p.Episodes[fmt.Sprintf("%d:%s", seed.Id, key)]
-	oldEpisode := state.Workflows[episodeID]
+	oldEpisode, err := state.LookupWorkflow(episodeID)
+	if err != nil {
+		return nil, err
+	}
 	prior := ""
 	if oldEpisode != nil && oldEpisode.Status == pb.WorkflowRecord_COMPLETED {
 		prior = oldEpisode.Step

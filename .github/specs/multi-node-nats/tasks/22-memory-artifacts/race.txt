@@ -1,0 +1,6 @@
+ok  	FlightStrips/internal/cluster	64.158s
+ok  	FlightStrips/internal/app	1.183s
+ok  	FlightStrips/internal/euroscopebinary	1.775s
+ok  	FlightStrips/internal/frontendbinary	1.701s
+ok  	FlightStrips/internal/services	1.681s
+ok  	FlightStrips/internal/pdc	1.776s

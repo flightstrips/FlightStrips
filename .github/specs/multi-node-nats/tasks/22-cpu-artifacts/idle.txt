@@ -1,0 +1,24 @@
+=== RUN   TestRetainedStateIdleCPU
+    nats_entrypoint_integration_test.go:177: BUILD binary_sha256=2f5b17e4c1162f20accb6b033eeb12a454cf1c93322c376a4c99217f1131cdf4 fault_build=true go=go1.25.7
+    nats_entrypoint_integration_test.go:195: BROKER nats-server: v2.15.0
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=0 client=127.0.0.1:56484 route=127.0.0.1:56485 sha256=5b2a4e83e9ac000d5c79dec36d390d0e98cfeab026a31f35aee585e8262e683f
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=1 client=127.0.0.1:56486 route=127.0.0.1:56487 sha256=06f1226d60f675ca32ed067eb66b15faa7f8a05f8443d6551eb7f97e6b49264a
+    nats_entrypoint_integration_test.go:214: BROKER_CONFIG node=2 client=127.0.0.1:56488 route=127.0.0.1:56489 sha256=86ee3c2b85c3bfadfae30182f6f1e00ebdb9ea7c46701d2a446fa88d61ba8e89
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=6032 executable=C:\Users\fsr19\AppData\Local\Temp\TestRetainedStateIdleCPU1085628402\001\api.exe at=2026-10-01T19:38:52.193892Z
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=1936 executable=C:\Users\fsr19\AppData\Local\Temp\TestRetainedStateIdleCPU1085628402\001\api.exe at=2026-10-01T19:38:52.1978322Z
+    nats_idle_profile_integration_test.go:93: IDLE_STATE aggregate=airport.EKCH entities=4162 outcomes=18086 workflows=6911 sequence=34113
+    nats_idle_profile_integration_test.go:93: IDLE_STATE aggregate=global entities=235 outcomes=9477 workflows=951 sequence=34083
+    nats_idle_profile_integration_test.go:128: OVERLAP_BASE source=db662817b8191c160e5d35fc39f07a8db88f91ca
+         binary_sha256=0b0fc5e72fe9b9dda10151bceef0ccf07de860762761a47d8b317f9f8680c7d0
+    nats_idle_profile_integration_test.go:153: IDLE_CPU version=base combined_cores=1.6982 process_cpu_seconds=35.1094 elapsed_seconds=20.6749 binary_sha256=0b0fc5e72fe9b9dda10151bceef0ccf07de860762761a47d8b317f9f8680c7d0
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=38920 executable=C:\Users\fsr19\AppData\Local\Temp\TestRetainedStateIdleCPU1085628402\002\api-base.exe at=2026-10-01T19:39:29.5997194Z
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=19660 executable=C:\Users\fsr19\AppData\Local\Temp\TestRetainedStateIdleCPU1085628402\002\api-base.exe at=2026-10-01T19:39:29.6101869Z
+    nats_idle_profile_integration_test.go:153: IDLE_CPU version=fixed combined_cores=0.0145 process_cpu_seconds=0.2969 elapsed_seconds=20.4347 binary_sha256=2f5b17e4c1162f20accb6b033eeb12a454cf1c93322c376a4c99217f1131cdf4
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=38612 executable=C:\Users\fsr19\AppData\Local\Temp\TestRetainedStateIdleCPU1085628402\001\api.exe at=2026-10-01T19:39:55.9507765Z
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=40976 executable=C:\Users\fsr19\AppData\Local\Temp\TestRetainedStateIdleCPU1085628402\001\api.exe at=2026-10-01T19:39:55.9561813Z
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=1596 executable=C:/Users/fsr19/go/bin/nats-server.exe at=2026-10-01T19:39:55.9621673Z
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=40540 executable=C:/Users/fsr19/go/bin/nats-server.exe at=2026-10-01T19:39:55.9868795Z
+    nats_entrypoint_integration_test.go:101: STOP owned_pid=37804 executable=C:/Users/fsr19/go/bin/nats-server.exe at=2026-10-01T19:39:56.0155298Z
+--- PASS: TestRetainedStateIdleCPU (70.97s)
+PASS
+ok  	FlightStrips/cmd/server	71.132s

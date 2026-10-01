@@ -1,0 +1,17 @@
+{
+  "started_utc": "2026-10-01T20:42:33.8892710Z",
+  "source_revision": "ff9a2e8c28f2e2ab12643384c6df4eff519f0ad3",
+  "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "status": [],
+  "go": "go version go1.25.7 windows/amd64",
+  "nats": "nats-server: v2.15.0",
+  "nats_binary_sha256": "caed81357cbddb36c579220f8c35cead62063cf6a8de9d126f0424f50c04d986",
+  "os": "Microsoft Windows 11 Pro",
+  "os_version": "10.0.26200",
+  "cpu": "AMD Ryzen 7 7700X 8-Core Processor             ",
+  "logical_processors": 16,
+  "memory_bytes": 33462480896,
+  "physical_failure_domains": 1,
+  "command": "go test ./cmd/server -run '^TestServerNATS' -count=1 -timeout=25m -json",
+  "fixture": "test-owned random loopback ports, separate temporary stores and keys, AES-GCM, R3; sequential cases"
+}

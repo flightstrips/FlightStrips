@@ -252,8 +252,18 @@ func (c *Candidate) action(ctx context.Context, r *pb.CommandRequest, a *cluster
 	pilot := actor.Kind == pb.Actor_PILOT && actor.Id != "" && actor.Id == t.strip.VatsimCid
 	if pilot && action.GetIssue() == nil {
 		correlation, _ := cluster.ProviderEventCommandID("pdc-pilot", "web", fmt.Sprintf("%d/%s", t.session.Id, t.seq.Callsign))
-		request := a.Workflows[correlation]
-		pilot = request != nil && a.Ledger[request.DerivedCommandId].GetActor().GetId() == actor.Id
+		request, err := a.LookupWorkflow(correlation)
+		if err != nil {
+			return pdcReject(pb.CommandReply_UNAVAILABLE, err.Error())
+		}
+		pilot = false
+		if request != nil {
+			outcome, err := a.LookupOutcome(request.DerivedCommandId)
+			if err != nil {
+				return pdcReject(pb.CommandReply_UNAVAILABLE, err.Error())
+			}
+			pilot = outcome.GetActor().GetId() == actor.Id
+		}
 	}
 	if actor.GetSessionId() != r.Aggregate.GetSession().Id || !controller && !pilot {
 		return pdcReject(pb.CommandReply_UNAUTHORIZED, "PDC actor does not own callsign")
@@ -307,17 +317,26 @@ func (t *pdcTransition) awaiting() bool {
 func (t *pdcTransition) awaitingAt(observed time.Time) bool {
 	return t.seq.State == "CLEARED" && t.seq.Deadline != nil && observed.Before(t.seq.Deadline.AsTime())
 }
-func (t *pdcTransition) providerAttempt() *pb.WorkflowRecord {
+func (t *pdcTransition) providerAttempt() (*pb.WorkflowRecord, error) {
 	for _, e := range t.a.EntitiesByKind(pb.EntityKind_PDC_PROVIDER_MESSAGE) {
 		m := e.Value.GetPdcProviderMessage()
 		if m.From == t.session.Airport && m.To == t.seq.Callsign && m.Sequence == t.seq.Sequence && m.Kind == pb.PdcProviderMessage_KIND_CLEARANCE {
-			intent := t.a.Workflows[m.MessageId]
-			if intent != nil && t.a.Workflows[intent.DerivedCommandId] != nil {
-				return intent
+			intent, err := t.a.LookupWorkflow(m.MessageId)
+			if err != nil {
+				return nil, err
+			}
+			if intent != nil {
+				attempt, err := t.a.LookupWorkflow(intent.DerivedCommandId)
+				if err != nil {
+					return nil, err
+				}
+				if attempt != nil {
+					return intent, nil
+				}
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 func (t *pdcTransition) request(ctx context.Context, channel, atis, stand, aircraft, remarks string) error {
 	if t.strip.Bay != "NOT_CLEARED" {
@@ -517,7 +536,11 @@ func (c *Candidate) incoming(ctx context.Context, r *pb.CommandRequest, a *clust
 			err = t.request(ctx, "CPDLC", req.Atis, req.Stand, req.AircraftType, req.Remarks)
 		}
 	case pb.PdcProviderMessage_KIND_WILCO, pb.PdcProviderMessage_KIND_UNABLE:
-		if t.strip == nil || t.seq.RequestChannel != "CPDLC" || !t.awaitingAt(observed) || m.ResponseTo == nil || *m.ResponseTo != t.seq.Sequence || t.providerAttempt() == nil {
+		attempt, lookupErr := t.providerAttempt()
+		if lookupErr != nil {
+			return pdcReject(pb.CommandReply_UNAVAILABLE, lookupErr.Error())
+		}
+		if t.strip == nil || t.seq.RequestChannel != "CPDLC" || !t.awaitingAt(observed) || m.ResponseTo == nil || *m.ResponseTo != t.seq.Sequence || attempt == nil {
 			if err = reject(pb.PdcProviderMessage_KIND_NOT_SUPPORTED, "STALE_RESPONSE"); err != nil {
 				return pdcReject(pb.CommandReply_UNAVAILABLE, err.Error())
 			}
@@ -527,7 +550,7 @@ func (c *Candidate) incoming(ctx context.Context, r *pb.CommandRequest, a *clust
 		// uncertain provider attempt or inventing an API acceptance timestamp.
 		if !t.seq.Sent {
 			t.seq.Sent = true
-			intent := proto.Clone(t.providerAttempt()).(*pb.WorkflowRecord)
+			intent := proto.Clone(attempt).(*pb.WorkflowRecord)
 			intent.Status, intent.ReasonCode = pb.WorkflowRecord_COMPLETED, "PILOT_RESPONSE_PROVES_DELIVERY"
 			t.d.Workflows = append(t.d.Workflows, intent)
 		}

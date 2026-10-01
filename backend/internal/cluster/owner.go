@@ -39,6 +39,14 @@ type OwnerRuntime struct {
 	failed    map[string]bool
 }
 
+type ownerState struct {
+	Ref                                       *pb.AggregateRef
+	Revision, StreamSequence, SubjectSequence uint64
+	Owner                                     *pb.OwnerTerm
+}
+
+func (s *ownerState) ownerEpoch() uint64 { return s.Owner.GetEpoch() }
+
 func NewOwnerRuntime(nc *nats.Conn, projection *Projection, store EventStore) (*OwnerRuntime, error) {
 	if nc == nil || projection == nil || store == nil || projection.Presence == nil {
 		return nil, fmt.Errorf("owner runtime requires NATS, projection, store and presence")
@@ -79,7 +87,7 @@ func (o *OwnerRuntime) CanWrite(ref *pb.AggregateRef) bool {
 	if err != nil || !o.healthy(subject) {
 		return false
 	}
-	state, err := o.Projection.Read(ref)
+	state, err := o.Projection.readOwner(ref)
 	return err == nil && state.Owner != nil && state.Owner.NodeId == o.NodeID
 }
 
@@ -98,7 +106,7 @@ func (o *OwnerRuntime) Ready() error {
 	}
 	o.mu.RUnlock()
 	for _, ref := range refs {
-		state, err := o.Projection.Read(ref)
+		state, err := o.Projection.readOwner(ref)
 		if err != nil {
 			return err
 		}
@@ -205,7 +213,7 @@ func (o *OwnerRuntime) maintain(ctx context.Context) {
 			return
 		}
 		subject, _ := Subject(ref)
-		state, err := o.Projection.Read(ref)
+		state, err := o.Projection.readOwner(ref)
 		if err != nil {
 			o.mark(subject, false)
 			continue
@@ -226,6 +234,15 @@ func (o *OwnerRuntime) maintain(ctx context.Context) {
 		nodes, err := o.ReadyNodes()
 		if err != nil {
 			continue
+		}
+		if len(nodes) == 0 {
+			// After an outage longer than every lease, each former owner can be
+			// unready solely because its expired term needs a new claim. Waiting
+			// for full owner readiness here would deadlock all warm replicas.
+			// This node is connected and caught up (checked above); an empty
+			// ready set permits a recovery attempt, never domain/effect work.
+			// Concurrent attempts still use subject CAS and server-time fencing.
+			nodes = []string{o.NodeID}
 		}
 		rank := RendezvousRank(subject, nodes)
 		for i, id := range rank {
@@ -290,7 +307,7 @@ func RendezvousRank(subject string, nodes []string) []string {
 	return rank
 }
 
-func (o *OwnerRuntime) control(ctx context.Context, state *Aggregate, renew bool) error {
+func (o *OwnerRuntime) control(ctx context.Context, state *ownerState, renew bool) error {
 	initialEpoch := state.ownerEpoch()
 	for attempt := 0; attempt < 8; attempt++ {
 		err := o.controlOnce(ctx, state, renew)
@@ -301,7 +318,7 @@ func (o *OwnerRuntime) control(ctx context.Context, state *Aggregate, renew bool
 		wait, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
 		_ = o.Projection.WaitSubjectAdvance(wait, subject, state.SubjectSequence)
 		cancel()
-		fresh, readErr := o.Projection.Read(state.Ref)
+		fresh, readErr := o.Projection.readOwner(state.Ref)
 		if readErr != nil {
 			return readErr
 		}
@@ -313,7 +330,7 @@ func (o *OwnerRuntime) control(ctx context.Context, state *Aggregate, renew bool
 	return ErrCAS
 }
 
-func (o *OwnerRuntime) controlOnce(ctx context.Context, state *Aggregate, renew bool) error {
+func (o *OwnerRuntime) controlOnce(ctx context.Context, state *ownerState, renew bool) error {
 	subject, _ := Subject(state.Ref)
 	epoch := state.ownerEpoch()
 	if !renew {
@@ -338,7 +355,7 @@ func (o *OwnerRuntime) controlOnce(ctx context.Context, state *Aggregate, renew 
 	if err := o.Projection.WaitApplied(ctx, sequence); err != nil {
 		return err
 	}
-	fresh, err := o.Projection.Read(state.Ref)
+	fresh, err := o.Projection.readOwner(state.Ref)
 	if err != nil {
 		return err
 	}

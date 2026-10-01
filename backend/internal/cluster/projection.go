@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 	"sync"
@@ -222,10 +223,7 @@ func (p *Projection) apply(entry AppliedEvent) error {
 	}
 	// Clone before applying: a reader holding the former state sees an
 	// immutable value even while new events arrive.
-	clone, err := cloneAggregate(state)
-	if err != nil {
-		return err
-	}
+	clone := copyAggregateForApply(state)
 	effective, err := clone.Apply(entry)
 	if err != nil {
 		return fmt.Errorf("stream %d: %w", entry.StreamSequence, err)
@@ -313,11 +311,71 @@ func (p *Projection) maybeSnapshot() {
 }
 
 func cloneAggregate(a *Aggregate) (*Aggregate, error) {
-	s, err := a.Snapshot()
+	// This state has already passed Apply or verified snapshot loading. An
+	// in-memory read needs detached values, not serialization, hashing and a
+	// second validation of the entire retained command history.
+	copy := NewAggregate(a.Ref)
+	copy.Revision, copy.StreamSequence, copy.SubjectSequence = a.Revision, a.StreamSequence, a.SubjectSequence
+	if a.Owner != nil {
+		copy.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	}
+	if a.Master != nil {
+		copy.Master = proto.Clone(a.Master).(*pb.MasterTerm)
+	}
+	if a.Sync != nil {
+		copy.Sync = proto.Clone(a.Sync).(*pb.SessionSync)
+	}
+	for key, value := range a.Entities {
+		copy.Entities[key] = proto.Clone(value).(*pb.EntitySnapshot)
+	}
+	for key, value := range a.Ledger {
+		copy.Ledger[key] = proto.Clone(value).(*pb.CommandOutcome)
+	}
+	for key, value := range a.Workflows {
+		copy.Workflows[key] = proto.Clone(value).(*pb.WorkflowRecord)
+	}
+	for key, value := range a.Effects {
+		copy.Effects[key] = proto.Clone(value).(*pb.EffectRecord)
+	}
+	copy.rebuildIndexes()
+	return copy, nil
+}
+
+func copyAggregateForApply(a *Aggregate) *Aggregate {
+	// Published protobuf records are immutable. Apply replaces changed records
+	// and rebuilds changed indexes; only its maps and mutable owner term need
+	// detaching. Snapshot jobs can keep reading the prior published state.
+	copy := *a
+	copy.Entities = maps.Clone(a.Entities)
+	copy.Ledger = maps.Clone(a.Ledger)
+	copy.Workflows = maps.Clone(a.Workflows)
+	copy.Effects = maps.Clone(a.Effects)
+	if a.Owner != nil {
+		copy.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	}
+	return &copy
+}
+
+// readOwner copies only the accepted control checkpoint. Ownership admission
+// and renewal must not clone unrelated entities or retained command history.
+func (p *Projection) readOwner(ref *pb.AggregateRef) (*ownerState, error) {
+	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
 	}
-	return aggregateFromSnapshot(s)
+	if err := p.Ready(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	view := &ownerState{Ref: proto.Clone(ref).(*pb.AggregateRef)}
+	if state := p.states[subject]; state != nil {
+		view.Revision, view.StreamSequence, view.SubjectSequence = state.Revision, state.StreamSequence, state.SubjectSequence
+		if state.Owner != nil {
+			view.Owner = proto.Clone(state.Owner).(*pb.OwnerTerm)
+		}
+	}
+	return view, nil
 }
 
 func (p *Projection) refresh(ctx context.Context) {
@@ -435,6 +493,56 @@ func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 		return cloneAggregate(state)
 	}
 	return NewAggregate(ref), nil
+}
+
+// ReadEntity returns a detached accepted entity through the readiness barrier.
+func (p *Projection) ReadEntity(ref *pb.AggregateRef, kind pb.EntityKind, key string) (*pb.EntitySnapshot, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.Ready(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if state := p.states[subject]; state != nil {
+		if entity := state.Indexes[kind][key]; entity != nil {
+			return proto.Clone(entity).(*pb.EntitySnapshot), nil
+		}
+	}
+	return nil, nil
+}
+
+// ReadOwner returns the detached accepted owner term through the readiness
+// barrier, without copying domain state or retained command history.
+func (p *Projection) ReadOwner(ref *pb.AggregateRef) (*pb.OwnerTerm, error) {
+	state, err := p.readOwner(ref)
+	if err != nil {
+		return nil, err
+	}
+	return state.Owner, nil
+}
+
+// ReadEntities returns detached entities of one kind without copying retained
+// command outcomes or workflows. It uses the same readiness barrier as Read.
+func (p *Projection) ReadEntities(ref *pb.AggregateRef, kind pb.EntityKind) ([]*pb.EntitySnapshot, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.Ready(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	var entities []*pb.EntitySnapshot
+	if state := p.states[subject]; state != nil {
+		for _, entity := range state.EntitiesByKind(kind) {
+			entities = append(entities, proto.Clone(entity).(*pb.EntitySnapshot))
+		}
+	}
+	return entities, nil
 }
 
 // Outcome finds a command across aggregate ledgers for the HTTP command-status

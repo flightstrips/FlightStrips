@@ -65,7 +65,7 @@ func buildNATSCdm(cfg Config, deps Dependencies, writer cluster.Writer, source c
 	return services.NewCdmCandidate(writer, config, reads, writes)
 }
 func (r *natsRuntime) airports(configured []string) ([]string, error) {
-	state, err := r.projection.Read(globalNATSRef())
+	entities, err := r.projection.ReadEntities(globalNATSRef(), pb.EntityKind_SESSION_REGISTRY)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (r *natsRuntime) airports(configured []string) ([]string, error) {
 	for _, icao := range configured {
 		set[icao] = true
 	}
-	for _, e := range state.EntitiesByKind(pb.EntityKind_SESSION_REGISTRY) {
+	for _, e := range entities {
 		s := e.Value.GetSessionRegistry()
 		if s.State != pb.SessionRegistry_DELETED {
 			set[s.Airport] = true
@@ -121,15 +121,15 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 				globalEpoch = 0
 				return nil
 			}
-			state, err := r.projection.Read(globalNATSRef())
+			owner, err := r.projection.ReadOwner(globalNATSRef())
 			if err != nil {
 				return err
 			}
-			if globalEpoch != state.Owner.Epoch {
-				if err = external.Resume(ctx, state.Ref); err != nil {
+			if globalEpoch != owner.GetEpoch() {
+				if err = external.Resume(ctx, globalNATSRef()); err != nil {
 					return err
 				}
-				globalEpoch = state.Owner.Epoch
+				globalEpoch = owner.GetEpoch()
 			}
 			var failures []error
 			if cfg.EnableVATSIM {
@@ -218,12 +218,12 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 					delete(epochs, icao)
 					continue
 				}
-				state, e := r.projection.Read(ref)
+				owner, e := r.projection.ReadOwner(ref)
 				if e != nil {
 					failures = append(failures, e)
 					continue
 				}
-				if epochs[icao] != state.Owner.Epoch {
+				if epochs[icao] != owner.GetEpoch() {
 					if e = external.Resume(ctx, ref); e != nil {
 						failures = append(failures, e)
 						continue
@@ -240,7 +240,7 @@ func (r *natsRuntime) assembleProviders(cfg Config, deps Dependencies, transceiv
 							continue
 						}
 					}
-					epochs[icao] = state.Owner.Epoch
+					epochs[icao] = owner.GetEpoch()
 				}
 				configPage, _, configErr := r.cdm.Config.Read(ctx, icao)
 				if cfg.EnableCDMConfigStore || configErr != nil || configPage == nil {

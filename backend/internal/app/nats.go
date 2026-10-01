@@ -363,11 +363,11 @@ func (r *natsRuntime) startWorkers(ctx context.Context) {
 }
 func (r *natsRuntime) discover(ctx context.Context) error {
 	return periodic(ctx, 250*time.Millisecond, func(ctx context.Context, _ time.Time) error {
-		state, err := r.projection.Read(globalNATSRef())
+		entities, err := r.projection.ReadEntities(globalNATSRef(), pb.EntityKind_SESSION_REGISTRY)
 		if err != nil {
 			return err
 		}
-		for _, entity := range state.EntitiesByKind(pb.EntityKind_SESSION_REGISTRY) {
+		for _, entity := range entities {
 			s := entity.Value.GetSessionRegistry()
 			if s.State == pb.SessionRegistry_DELETED {
 				continue

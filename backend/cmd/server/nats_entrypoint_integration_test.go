@@ -47,6 +47,7 @@ type entrypointFixture struct {
 	resources                   natsresources.Config
 	nc                          *nats.Conn
 	projection                  *cluster.Projection
+	stopProjection              context.CancelFunc
 	env, addresses              []string
 	apps, brokers               []*fixtureProcess
 	startBroker                 func(int) *fixtureProcess
@@ -289,7 +290,7 @@ func newEntrypointFixture(t *testing.T, fault bool) *entrypointFixture {
 		}, 60*time.Second, 100*time.Millisecond, "two compiled server processes ready: statuses=%v bodies=%v", &statuses, &bodies)
 	}
 	ready()
-	return &entrypointFixture{t: t, ctx: ctx, backend: backend, dir: dir, binary: binary, resources: resources, nc: nc, projection: projection, env: env, addresses: addresses, apps: apps, brokers: brokers, startBroker: startBroker, token: token, ready: ready}
+	return &entrypointFixture{t: t, ctx: ctx, backend: backend, dir: dir, binary: binary, resources: resources, nc: nc, projection: projection, stopProjection: stopProjection, env: env, addresses: addresses, apps: apps, brokers: brokers, startBroker: startBroker, token: token, ready: ready}
 }
 
 func TestServerNATSBinaryCrossNodeRestartAndReadiness(t *testing.T) {

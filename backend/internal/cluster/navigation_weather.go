@@ -615,11 +615,20 @@ func (a NavigationWeather) CheckpointRevisionFor(ctx context.Context, ref *pb.Ag
 	if _, err := Subject(ref); err != nil || ref.GetSession() != nil && provider != "viff" && provider != "hoppie" {
 		return nil, nil, 0, fmt.Errorf("provider checkpoint requires global or airport owner, except session vIFF or Hoppie")
 	}
-	state, err := a.read(ctx, ref)
+	var entry *pb.EntitySnapshot
+	var err error
+	if a.Writer.Projection != nil {
+		entry, err = a.Writer.Projection.ReadEntity(ref, pb.EntityKind_PROVIDER_CHECKPOINT, provider+"."+resource)
+	} else {
+		var state *Aggregate
+		state, err = a.read(ctx, ref)
+		if err == nil {
+			entry = state.Indexes[pb.EntityKind_PROVIDER_CHECKPOINT][provider+"."+resource]
+		}
+	}
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	entry := state.Indexes[pb.EntityKind_PROVIDER_CHECKPOINT][provider+"."+resource]
 	if entry == nil {
 		return nil, nil, 0, nil
 	}

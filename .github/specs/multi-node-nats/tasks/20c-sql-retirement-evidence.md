@@ -99,7 +99,8 @@ No result claims operator manual acceptance, multi-host or capacity qualificatio
 
 ## Source revision and handoff
 
-Implementation revision: recorded after the implementation commit. The subsequent
-evidence-only commit identifies that exact tested source revision. See the draft
+Implementation revision: `c0bca5e10b70635e24501f6bda8d274a9f01c83b`. The runs above
+used its source before commit, with native development identity `7936899e-dirty`
+and Docker development identity; this follow-up commit changes evidence only. See the draft
 PR for current head and CI results. Rebuild/retest on the operator's chosen head;
 retain the shared effect ring and broker volumes across normal restarts.

@@ -6,6 +6,8 @@
 
 **Release boundary:** held under [Task 20](20-app-cutover.md); merge only to the integration base. Task 20c installs this runtime as the sole default. No publication or deployment.
 
+**Integration status:** complete on the integration base as [PR #827](https://github.com/flightstrips/FlightStrips/pull/827), with all seven CI checks passing. The [concrete binding matrix, assembly tests and precise 20c handoff](20a-runtime-assembly-evidence.md) cover all enabled business adapters. Default server selection, explicit NATS/effect-key configuration, local startup conversion and SQL retirement remain 20c. Production-disabled SQL scenario/replay tools and landing validation stay disabled; they are not missing enabled adapters.
+
 ## Contracts and ownership
 
 - Export `app.BuildNATS(ctx, cfg, deps) (*App, error)`, using the existing `app.Config` and `app.Dependencies` with typed extensions where necessary. It owns the NATS connection, resource verification, projections/replay, leases/router, complete planner composition, position/presence dispatchers, snapshots/recovery and effects. Backend startup verifies resources; only the separate administrator bootstrap creates them. Partial construction unwinds every acquired resource. Shutdown stops admissions, cancels and joins workers, drains sockets/NATS, and releases resources in a documented order.

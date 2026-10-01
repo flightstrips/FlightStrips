@@ -2,6 +2,8 @@
 
 **Depends on:** 20a and 20b merged and accepted on the integration base.
 
+**Dependency evidence:** [20a / PR #827](https://github.com/flightstrips/FlightStrips/pull/827) and [20b / PR #826](https://github.com/flightstrips/FlightStrips/pull/826) are merged with passing CI. Read [20a's final binding matrix and handoff](20a-runtime-assembly-evidence.md#validation-and-task-20c-handoff) before deleting shared policy or changing startup. Use the existing `natsresources.ConfigFromEnv` resource configuration loader and `app.NATSConfig`/`cluster.LoadEffectSecrets` key-ring contract; no new storage/wire format is needed.
+
 **Outcome:** the sole application runtime uses NATS, local development runs three NATS nodes and two complete backends, and every parent Task 20 acceptance gate has recorded evidence.
 
 **Release boundary:** held under [Task 20](20-app-cutover.md). No release/deployment or production stack changes. Task 21 starts only after this task completes the parent gate.
@@ -22,4 +24,4 @@
 - A repeatable local setup lets the user test both backends, frontend and plugin without a release-candidate build or published artifact. Record source revision, local build/configuration and checks performed; leave the operator's own results pending until provided. Do not publish, announce or deploy to demonstrate acceptance, or claim multi-host production qualification from local tests.
 - Record every parent Task 20 acceptance item with commands/results and constructor/route/worker matrix links. Mark 20 complete only when all three child PRs and the original parent acceptance gates are satisfied. Open and attach a draft PR into `codex/multi-node-nats-base`; do not merge or release it.
 
-**Starting points:** 20a runtime/binding evidence, 20b release helper/workflows, `backend/cmd/server/main.go`, local Compose, backend dependency graph and development/architecture documents.
+**Starting points:** 20a runtime/binding evidence, 20b ordinary release workflows, `backend/cmd/server/main.go`, `backend/internal/natsresources/config.go`, `backend/internal/app/nats.go`, local Compose, backend dependency graph and development/architecture documents.

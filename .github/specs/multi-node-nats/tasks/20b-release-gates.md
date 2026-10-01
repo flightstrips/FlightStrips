@@ -4,7 +4,7 @@
 
 **Operator decision:** the user will test on their own machine. This replaces the earlier Task 20b release-candidate framework in full. Build the application locally for qualification; ordinary build/test CI remains useful.
 
-**Integration status:** the superseded framework merged as [PR #825](https://github.com/flightstrips/FlightStrips/pull/825). A follow-up in the existing 20b chat removes that framework and retains the migrator cleanup described below. Task 20b is accepted only after this corrective PR merges; prior candidate evidence does not satisfy the revised task.
+**Integration status:** complete on the integration base as [PR #826](https://github.com/flightstrips/FlightStrips/pull/826), with all seven CI checks passing. It removes the superseded #825 framework and restores ordinary releases while retaining migrator build/publication/bump cleanup. Active workflows contain no candidate/promotion framework or migrator references. No release, notification or deployment was performed.
 
 **Outcome:** the existing ordinary release workflow supports the NATS-only application without a migrator dependency.
 

@@ -86,7 +86,7 @@ An implementation that cannot satisfy a contract must update these documents and
 | 20 | [Application runtime cutover](tasks/20-app-cutover.md) | 04–19 and follow-ups, 20a–20c | Split into 20a–20c; complete only after all three and parent gates pass |
 | 20a | [Runtime and API assembly](tasks/20a-runtime-assembly.md) | 04–19 and follow-ups | Merged ([#827](https://github.com/flightstrips/FlightStrips/pull/827)); [assembly evidence](tasks/20a-runtime-assembly-evidence.md); held from `main`/release |
 | 20b | [Ordinary release workflow cleanup](tasks/20b-release-gates.md) | 14–19 and follow-ups | Merged ([#826](https://github.com/flightstrips/FlightStrips/pull/826)); superseded #825 framework removed, ordinary releases preserved; held from `main`/release |
-| 20c | [Final integration and SQL retirement](tasks/20c-sql-retirement.md) | 20a, 20b | Not started; held from `main`/release |
+| 20c | [Final integration and SQL retirement](tasks/20c-sql-retirement.md) | 20a, 20b | Started in separate chat; held from `main`/release |
 | 21 | [Production Swarm infrastructure](tasks/21-infrastructure.md) | 01, 03, 13, 20 | Not started |
 | 22 | [Cross-node fault and recovery suite](tasks/22-fault-integration.md) | 17–20, including 20c | Not started; local qualification |
 | 23 | [Position load and capacity gate](tasks/23-performance.md) | 22 | Not started |

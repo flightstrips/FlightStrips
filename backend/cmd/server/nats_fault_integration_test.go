@@ -41,6 +41,7 @@ func (f *entrypointFixture) seededSession() (string, *pb.AggregateRef, []*faultS
 		state, err := f.projection.Read(ref)
 		return err == nil && state.Master.GetCid() != "" && len(state.EntitiesByKind(pb.EntityKind_CONTROLLER)) == 2
 	})
+	f.assertOneMaster(ref, plugins)
 	state := f.state(ref)
 	master := 0
 	if state.Master.Cid == "222222" {
@@ -52,6 +53,38 @@ func (f *entrypointFixture) seededSession() (string, *pb.AggregateRef, []*faultS
 		return err == nil && state.Indexes[pb.EntityKind_STRIP]["SAS123"] != nil && state.Sync != nil
 	})
 	return name, ref, plugins
+}
+
+func (f *entrypointFixture) assertOneMaster(ref *pb.AggregateRef, plugins []*faultSocket) {
+	f.t.Helper()
+	var roles [2]string
+	f.await("one binary master role for the accepted epochs", func() bool {
+		state := f.state(ref)
+		masters := 0
+		for i, socket := range plugins {
+			roles[i] = ""
+			socket.mu.Lock()
+			for _, frame := range socket.frames {
+				info := frame.GetSessionInfo()
+				if info != nil && info.MasterEpoch == state.Master.Epoch && info.OwnerEpoch == state.Owner.Epoch {
+					roles[i] = info.Role
+				}
+			}
+			socket.mu.Unlock()
+			want := "slave"
+			if state.Master.Cid == []string{"111111", "222222"}[i] {
+				want = "master"
+			}
+			if roles[i] != want {
+				return false
+			}
+			if roles[i] == "master" {
+				masters++
+			}
+		}
+		return masters == 1
+	})
+	f.t.Logf("MASTER_ROLES roles=%v owner_epoch=%d master_epoch=%d cid=%s", roles, f.state(ref).Owner.Epoch, f.state(ref).Master.Epoch, f.state(ref).Master.Cid)
 }
 
 func (f *entrypointFixture) concurrentPlugins(name string) []*faultSocket {
@@ -150,6 +183,12 @@ func runControllerFreeOutage(t *testing.T, duration time.Duration) {
 		f.brokers[i] = f.startBroker(i)
 	}
 	f.ready()
+	t.Cleanup(func() {
+		if t.Failed() {
+			seed := f.state(ref).Indexes[pb.EntityKind_SESSION][seedKey].GetValue().GetSession()
+			t.Logf("LONG_OUTAGE_DIAGNOSTIC tombstoned=%t before=%s after=%s paused_at=%s sequence=%d", seed.Tombstoned, before.FirstNoControllerAt.AsTime().Format(time.RFC3339Nano), seed.FirstNoControllerAt.AsTime().Format(time.RFC3339Nano), seed.CleanupPausedAt.AsTime().Format(time.RFC3339Nano), f.state(ref).StreamSequence)
+		}
+	})
 	f.await("outage time persisted without deleting session", func() bool {
 		state := f.state(ref)
 		seed := state.Indexes[pb.EntityKind_SESSION][seedKey].GetValue().GetSession()
@@ -205,6 +244,11 @@ func TestServerNATSSnapshotStaleEpochAndVersionFence(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	require.Equal(t, "1001", f.state(ref).Indexes[pb.EntityKind_STRIP]["SAS123"].GetValue().GetStrip().AssignedSquawk)
 	require.Nil(t, f.state(ref).Ledger[staleID])
+	nonMasterID := uuid.NewString()
+	sendEntrypointFrame(t, plugins[1-master].conn, &es.Envelope{SessionId: ref.GetSession().Id, CommandId: nonMasterID, OwnerEpoch: state.Owner.Epoch, MasterEpoch: state.Master.Epoch, Event: &es.Envelope_AssignedSquawk{AssignedSquawk: &es.AssignedSquawkEvent{Callsign: "SAS123", Squawk: "7777"}}})
+	time.Sleep(500 * time.Millisecond)
+	require.Equal(t, "1001", f.state(ref).Indexes[pb.EntityKind_STRIP]["SAS123"].GetValue().GetStrip().AssignedSquawk)
+	require.Nil(t, f.state(ref).Ledger[nonMasterID], "current epochs cannot authorize a non-master socket")
 	js, err := f.nc.JetStream()
 	require.NoError(t, err)
 	store := cluster.NATSStore{JS: js}
@@ -501,6 +545,7 @@ func TestServerNATSFaultBoundaries(t *testing.T) {
 				s, e := f.projection.Read(ref)
 				return e == nil && s.Master.GetCid() != "" && len(s.EntitiesByKind(pb.EntityKind_CONTROLLER)) == 2
 			})
+			f.assertOneMaster(ref, plugins)
 			state := f.state(ref)
 			master := 0
 			if state.Master.Cid == "222222" {

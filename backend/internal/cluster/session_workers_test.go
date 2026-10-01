@@ -229,6 +229,88 @@ func TestSessionCleanupPreservesRemainingHealthyTime(t *testing.T) {
 	}
 }
 
+func TestSessionCleanupExtendsPauseWhenRecoveryFailsAgain(t *testing.T) {
+	_, w, _, p, now, lease := workerFixture(t)
+	ctx := context.Background()
+	if err := w.Step(ctx); err != nil {
+		t.Fatal(err)
+	}
+	start := *now
+	*now = now.Add(2 * time.Minute)
+	p.mu.Lock()
+	p.observationErr = context.DeadlineExceeded
+	p.mu.Unlock()
+	if err := w.Step(ctx); err == nil {
+		t.Fatal("unhealthy projection permitted work")
+	}
+	*now = now.Add(10 * time.Second)
+	p.mu.Lock()
+	p.observationErr = nil
+	p.mu.Unlock()
+	lease.active = false
+	setWorkerPresence(p, *now, start.Add(-time.Hour), pb.ClientPresence_FRONTEND)
+	if err := w.Step(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Metadata can briefly recover before an accepted owner is available.
+	// A renewed outage must not leave the short first recovery interval frozen.
+	p.mu.Lock()
+	p.observationErr = context.DeadlineExceeded
+	p.mu.Unlock()
+	if err := w.Step(ctx); err == nil {
+		t.Fatal("renewed outage permitted work")
+	}
+	*now = now.Add(10 * time.Minute)
+	p.mu.Lock()
+	p.observationErr = nil
+	p.mu.Unlock()
+	lease.active = true
+	setWorkerPresence(p, *now, start.Add(-time.Hour), pb.ClientPresence_FRONTEND)
+	if err := w.Step(ctx); err != nil {
+		t.Fatal(err)
+	}
+	marker := workerState(t, w).Indexes[pb.EntityKind_SESSION]["1"].GetValue().GetSession().FirstNoControllerAt.AsTime()
+	if !marker.Equal(start.Add(10*time.Minute + 10*time.Second)) {
+		t.Fatalf("renewed outage was counted as healthy time: marker=%v", marker)
+	}
+	if err := w.Step(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if workerState(t, w).Indexes[pb.EntityKind_SESSION]["1"].GetValue().GetSession().Tombstoned {
+		t.Fatal("session deleted after incomplete recovery")
+	}
+}
+
+func TestSessionCleanupExtendsOnlyUnrecordedPause(t *testing.T) {
+	_, w, _, p, now, _ := workerFixture(t)
+	ctx := context.Background()
+	if err := w.Step(ctx); err != nil {
+		t.Fatal(err)
+	}
+	start := *now
+	unhealthy := start.Add(2 * time.Minute)
+	*now = unhealthy.Add(10 * time.Second)
+	setWorkerPresence(p, *now, start.Add(-time.Hour), pb.ClientPresence_FRONTEND)
+	if err := w.stepSession(ctx, &pb.SessionRegistry{Id: 1}, unhealthy, *now, 10*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	*now = now.Add(10 * time.Minute)
+	setWorkerPresence(p, *now, start.Add(-time.Hour), pb.ClientPresence_FRONTEND)
+	if err := w.stepSession(ctx, &pb.SessionRegistry{Id: 1}, unhealthy, *now, now.Sub(unhealthy)); err != nil {
+		t.Fatal(err)
+	}
+	marker := workerState(t, w).Indexes[pb.EntityKind_SESSION]["1"].GetValue().GetSession().FirstNoControllerAt.AsTime()
+	if !marker.Equal(start.Add(10*time.Minute + 10*time.Second)) {
+		t.Fatalf("pause double counted: marker=%v", marker)
+	}
+	if err := w.stepSession(ctx, &pb.SessionRegistry{Id: 1}, unhealthy, *now, now.Sub(unhealthy)); err != nil {
+		t.Fatal(err)
+	}
+	if !workerState(t, w).Indexes[pb.EntityKind_SESSION]["1"].GetValue().GetSession().FirstNoControllerAt.AsTime().Equal(marker) {
+		t.Fatal("persisted pause was applied twice")
+	}
+}
+
 func TestSessionDeadlineFiresOnceAfterTakeover(t *testing.T) {
 	store, w, _, p, now, lease := workerFixture(t)
 	ctx := context.Background()

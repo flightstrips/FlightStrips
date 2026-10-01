@@ -50,7 +50,7 @@ try {
     $task22Outputs = Get-Content -LiteralPath (Join-Path $task22Run 'tests.jsonl') | ForEach-Object {
         try { $task22Event = $_ | ConvertFrom-Json; if ($task22Event.Output) { $task22Event.Output.TrimEnd() } } catch { $_ }
     }
-    $task22Outputs | Where-Object { $_ -match 'BUILD |BROKER_CONFIG |FAULT |OUTCOME |PUBACK_LOSS |INITIAL_PARITY |STRIP_RACE |STAND_RACE |AMAN_RACE |STALE |SNAPSHOT |VERSION_FENCE |LONG_OUTAGE |OVERLAP_|CHECKPOINT |BACKUP |RESTORE|ENCRYPTED_BACKUP |--- (PASS|FAIL|SKIP)' } | Set-Content -LiteralPath (Join-Path $task22Run 'evidence.txt') -Encoding utf8
+    $task22Outputs | Where-Object { $_ -match 'BUILD |BROKER_CONFIG |FAULT |MASTER_ROLES |OUTCOME |PUBACK_LOSS |INITIAL_PARITY |STRIP_RACE |STAND_RACE |AMAN_RACE |STALE |SNAPSHOT |VERSION_FENCE |LONG_OUTAGE |OVERLAP_|CHECKPOINT |BACKUP |RESTORE|ENCRYPTED_BACKUP |--- (PASS|FAIL|SKIP)' } | Set-Content -LiteralPath (Join-Path $task22Run 'evidence.txt') -Encoding utf8
     if ($task22Code -ne 0) { throw "Task22 failed (exit $task22Code); evidence: $task22Run" }
     if ($task22Outputs -match '--- SKIP:') { throw "Task22 acceptance contains skipped cases; evidence: $task22Run" }
     Write-Host "Task22 PASS; machine/source, full JSON test log and fault/restore evidence: $task22Run"

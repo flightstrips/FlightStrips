@@ -63,7 +63,11 @@ func (w Writer) Outcome(ctx context.Context, ref *pb.AggregateRef, commandID str
 		reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
 		return reply
 	}
-	outcome := state.Ledger[commandID]
+	outcome, err := state.LookupOutcome(commandID)
+	if err != nil {
+		reply.Status = pb.CommandReply_UNAVAILABLE
+		return reply
+	}
 	if outcome == nil {
 		reply.Status = pb.CommandReply_NOT_FOUND
 		return reply
@@ -139,7 +143,12 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
 			return reply, published
 		}
-		if old := state.Ledger[request.CommandId]; old != nil {
+		old, lookupErr := state.LookupOutcome(request.CommandId)
+		if lookupErr != nil {
+			reply.Status = pb.CommandReply_UNAVAILABLE
+			return reply, published
+		}
+		if old != nil {
 			if !proto.Equal(old.Actor, request.Actor) {
 				reply.Status, reply.Detail = pb.CommandReply_UNAUTHORIZED, "command outcome belongs to another actor"
 				return reply, published
@@ -253,7 +262,12 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 		for ctx.Err() == nil {
 			fresh, err := w.load(ctx, subject, request.Aggregate)
 			if err == nil && fresh.StreamSequence >= sequence {
-				if old := fresh.Ledger[request.CommandId]; old != nil {
+				old, lookupErr := fresh.LookupOutcome(request.CommandId)
+				if lookupErr != nil {
+					reply.Status = pb.CommandReply_UNAVAILABLE
+					return reply, published
+				}
+				if old != nil {
 					if !proto.Equal(old.Actor, request.Actor) {
 						reply.Status, reply.Detail = pb.CommandReply_UNAUTHORIZED, "command outcome belongs to another actor"
 						return reply, published
@@ -284,7 +298,10 @@ func (w Writer) resolve(ctx context.Context, subject string, request *pb.Command
 	if err != nil {
 		return nil
 	}
-	old := state.Ledger[request.CommandId]
+	old, lookupErr := state.LookupOutcome(request.CommandId)
+	if lookupErr != nil {
+		return unavailable(request.CommandId)
+	}
 	if old == nil {
 		return nil
 	}

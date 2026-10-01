@@ -24,7 +24,10 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 		return err
 	}
 	if result := envelope.GetCommandResult(); result != nil {
-		effect := state.Effects[result.CommandId]
+		effect, err := state.LookupEffect(result.CommandId)
+		if err != nil {
+			return err
+		}
 		if envelope.SessionId != sessionID || envelope.CommandId != result.CommandId || effect == nil ||
 			effect.TargetCid != cid || effect.DispatchConnectionId == nil ||
 			envelope.OwnerEpoch != effect.OwnerEpoch || envelope.MasterEpoch != effect.MasterEpoch ||

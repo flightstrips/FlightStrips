@@ -236,7 +236,23 @@ func TestLaterSyncReconcilesStateWithoutRewritingUnknown(t *testing.T) {
 }
 
 func TestEffectObjectsWaitUntilTerminalPlus24Hours(t *testing.T) {
+	for _, cold := range []bool{false, true} {
+		t.Run(fmt.Sprintf("cold=%t", cold), func(t *testing.T) { effectObjectRetentionCase(t, cold) })
+	}
+}
+
+func effectObjectRetentionCase(t *testing.T, cold bool) {
 	state, terminalAt, id := effectState(t)
+	if cold {
+		oldID := id
+		id = "00000000-0000-4000-8000-000000000001"
+		state.Effects[id] = state.Effects[oldID]
+		state.Effects[id].CommandId = id
+		delete(state.Effects, oldID)
+		state.Ledger[id] = state.Ledger[oldID]
+		state.Ledger[id].CommandId = id
+		delete(state.Ledger, oldID)
+	}
 	objects := &effectObjects{}
 	secrets := EffectSecrets{Objects: objects, ActiveKeyID: "v1", Keys: map[string][]byte{"v1": bytesOf(32, 9)}}
 	secret, err := secrets.StagePrivateMessage(id, "controller-1", "SAS123", "stand A12")
@@ -249,6 +265,19 @@ func TestEffectObjectsWaitUntilTerminalPlus24Hours(t *testing.T) {
 	terminal := &pb.StateEvent{SchemaVersion: 1, EventId: uuid.NewString(), CommandId: &id, Aggregate: state.Ref,
 		Fact: &pb.StateEvent_EffectChanged{EffectChanged: state.Effects[id]}}
 	data, _ := proto.Marshal(terminal)
+	if cold {
+		state.history = testHistoryCache(t)
+		for i := 0; i < historyWorkingSet; i++ {
+			extra := fmt.Sprintf("ffffffff-ffff-4fff-8fff-%012x", i)
+			state.Effects[extra] = &pb.EffectRecord{CommandId: extra, Status: pb.EffectRecord_EXPIRED}
+		}
+		if err := state.boundHistory(); err != nil {
+			t.Fatal(err)
+		}
+		if state.Effects[id] != nil {
+			t.Fatal("terminal secret reference must be cold in this case")
+		}
+	}
 	subject, _ := Subject(state.Ref)
 	store := &memoryStore{entries: []AppliedEvent{{Subject: subject, StreamSequence: 1, SubjectSequence: 1, ServerTime: terminalAt, Data: data}}}
 	projection := &Projection{states: map[string]*Aggregate{subject: state}, started: true, checked: time.Now(),

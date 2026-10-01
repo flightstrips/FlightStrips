@@ -28,6 +28,9 @@ func planNATSQuota(_ context.Context, req *pb.CommandRequest, state *cluster.Agg
 	if req.GetSystem().GetUpdateEntity().Key != key {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("quota key mismatch")
 	}
+	if quota.WindowStart.AsTime().Before(time.Now().UTC().Add(-cluster.QuotaWindowRetention)) {
+		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("quota window has expired")
+	}
 	old := state.Indexes[pb.EntityKind_PROVIDER_QUOTA][key]
 	revision, used := uint64(0), uint32(0)
 	if old != nil {
@@ -61,6 +64,9 @@ func planNATSQuota(_ context.Context, req *pb.CommandRequest, state *cluster.Agg
 			changes = append(changes, &pb.EntityChange{Key: id, Revision: old.GetRevision() + 1, Operation: &pb.EntityChange_Upsert{Upsert: &pb.EntityRecord{Value: &pb.EntityRecord_ProviderQuota{ProviderQuota: value}}}})
 		}
 	}
+	// Old reservations remain deduplicated by the command ledger. Expired
+	// window counters have no role in the current minute/hour/day limits.
+	changes = cluster.RetireQuotaWindows(state, changes, quota.WindowStart.AsTime())
 	sort.Slice(changes, func(i, j int) bool { return changes[i].Key < changes[j].Key })
 	return &pb.DomainChange{Changes: changes}, pb.CommandReply_COMMITTED, revision, nil
 }
@@ -71,7 +77,11 @@ func (r *natsRuntime) reserveQuota(ctx context.Context, id, provider string, win
 	if err != nil {
 		return false, err
 	}
-	if prior := state.Ledger[id]; prior != nil {
+	prior, err := state.LookupOutcome(id)
+	if err != nil {
+		return false, err
+	}
+	if prior != nil {
 		return false, nil
 	}
 	var reply *pb.CommandReply

@@ -23,6 +23,7 @@ type AppliedEvent struct {
 	Data                            []byte
 }
 type Aggregate struct {
+	history                                   *historyCache
 	Ref                                       *pb.AggregateRef
 	Revision, StreamSequence, SubjectSequence uint64
 	Owner                                     *pb.OwnerTerm
@@ -234,7 +235,11 @@ func (a *Aggregate) Apply(entry AppliedEvent) (bool, error) {
 	if _, err := hex.DecodeString(outcome.RequestSha256); err != nil {
 		return false, fmt.Errorf("invalid command digest")
 	}
-	if _, exists := a.Ledger[e.GetCommandId()]; exists {
+	prior, err := a.LookupOutcome(e.GetCommandId())
+	if err != nil {
+		return false, err
+	}
+	if prior != nil {
 		return false, fmt.Errorf("duplicate command outcome")
 	}
 	if outcome.GetAggregateRevision() != 0 && outcome.GetAggregateRevision() != e.GetAggregateRevision() {
@@ -395,6 +400,51 @@ func (a *Aggregate) Snapshot() (*pb.Snapshot, error) {
 	for _, k := range keys {
 		s.Effects = append(s.Effects, proto.Clone(a.Effects[k]).(*pb.EffectRecord))
 	}
+	// Account before materializing cold records so snapshot attempts never
+	// allocate an unbounded protobuf graph. Oversized history can still replay
+	// from FS_STATE; snapshots are an optimization, not a durability boundary.
+	size := proto.Size(s) + 128
+	if size > MaxObjectBytes {
+		return nil, ErrSnapshotTooLarge
+	}
+	for _, kind := range []string{"outcome", "workflow", "effect"} {
+		err := a.visitHistory(kind, func(id string, data []byte) error {
+			if kind == "outcome" && a.Ledger[id] != nil || kind == "workflow" && a.Workflows[id] != nil || kind == "effect" && a.Effects[id] != nil {
+				return nil
+			}
+			size += len(data) + 8
+			if size > MaxObjectBytes {
+				return ErrSnapshotTooLarge
+			}
+			switch kind {
+			case "outcome":
+				value := &pb.CommandOutcome{}
+				if err := pb.UnmarshalStrict(data, value); err != nil {
+					return err
+				}
+				s.Outcomes = append(s.Outcomes, value)
+			case "workflow":
+				value := &pb.WorkflowRecord{}
+				if err := pb.UnmarshalStrict(data, value); err != nil {
+					return err
+				}
+				s.Workflows = append(s.Workflows, value)
+			case "effect":
+				value := &pb.EffectRecord{}
+				if err := pb.UnmarshalStrict(data, value); err != nil {
+					return err
+				}
+				s.Effects = append(s.Effects, value)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	sort.Slice(s.Outcomes, func(i, j int) bool { return s.Outcomes[i].CommandId < s.Outcomes[j].CommandId })
+	sort.Slice(s.Workflows, func(i, j int) bool { return s.Workflows[i].WorkflowId < s.Workflows[j].WorkflowId })
+	sort.Slice(s.Effects, func(i, j int) bool { return s.Effects[i].CommandId < s.Effects[j].CommandId })
 	b, err := (proto.MarshalOptions{Deterministic: true}).Marshal(s)
 	if err != nil {
 		return nil, err

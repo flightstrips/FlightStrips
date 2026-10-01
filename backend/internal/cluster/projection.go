@@ -20,6 +20,7 @@ import (
 // Projection is a per-process, independent FS_STATE reader. Published state is
 // never exposed until a complete event has passed the reducer.
 type Projection struct {
+	history                                    *historyCache
 	NC                                         *nats.Conn
 	JS                                         nats.JetStreamContext
 	Config                                     natsresources.Config
@@ -48,6 +49,7 @@ type Projection struct {
 	watchers                                   sync.WaitGroup
 	snapshotJobs                               sync.WaitGroup
 	takeovers, staleEpochs, snapshotFailures   atomic.Uint64
+	snapshotSizeSkips                          atomic.Uint64
 }
 
 type KVPosition struct {
@@ -103,9 +105,21 @@ func NewProjection(nc *nats.Conn, cfg natsresources.Config) (*Projection, error)
 // that subject, including events skipped through a verified snapshot.
 func (p *Projection) Run(ctx context.Context) error {
 	watchCtx, stopWatchers := context.WithCancel(ctx)
-	defer func() { stopWatchers(); p.watchers.Wait(); p.snapshotJobs.Wait() }()
+	defer func() {
+		stopWatchers()
+		p.watchers.Wait()
+		p.snapshotJobs.Wait()
+		if p.history != nil {
+			_ = p.history.close()
+		}
+	}()
 	if err := natsresources.Verify(ctx, p.NC, p.Config); err != nil {
 		return err
+	}
+	var historyErr error
+	p.history, historyErr = newHistoryCache()
+	if historyErr != nil {
+		return historyErr
 	}
 	p.watchers.Add(2)
 	go func() { defer p.watchers.Done(); p.watchPositions(watchCtx) }()
@@ -122,6 +136,10 @@ func (p *Projection) Run(ctx context.Context) error {
 		state, err := p.Snapshots.Load(ref)
 		if err != nil {
 			p.snapshotFailures.Add(1)
+			return err
+		}
+		state.history = p.history
+		if err := state.boundHistory(); err != nil {
 			return err
 		}
 		subject, _ := Subject(ref)
@@ -212,6 +230,7 @@ func (p *Projection) apply(entry AppliedEvent) error {
 	state := p.states[entry.Subject]
 	if state == nil {
 		state = NewAggregate(ref)
+		state.history = p.history
 		p.lastSnapshot[entry.Subject] = time.Now()
 	}
 	if entry.StreamSequence <= state.StreamSequence {
@@ -227,6 +246,9 @@ func (p *Projection) apply(entry AppliedEvent) error {
 	effective, err := clone.Apply(entry)
 	if err != nil {
 		return fmt.Errorf("stream %d: %w", entry.StreamSequence, err)
+	}
+	if err := clone.boundHistory(); err != nil {
+		return err
 	}
 	p.states[entry.Subject] = clone
 	p.applied = entry.StreamSequence
@@ -287,6 +309,12 @@ func (p *Projection) persistSnapshot(subject string, state *Aggregate) {
 	if p.snapshotErrors == nil {
 		p.snapshotErrors = make(map[string]error)
 	}
+	if errors.Is(err, ErrSnapshotTooLarge) {
+		p.snapshotSizeSkips.Add(1)
+		delete(p.snapshotErrors, subject)
+		p.lastSnapshot[subject] = time.Now()
+		return
+	}
 	if err != nil {
 		p.snapshotErrors[subject] = err
 		p.snapshotFailures.Add(1)
@@ -315,6 +343,7 @@ func cloneAggregate(a *Aggregate) (*Aggregate, error) {
 	// in-memory read needs detached values, not serialization, hashing and a
 	// second validation of the entire retained command history.
 	copy := NewAggregate(a.Ref)
+	copy.history = a.history
 	copy.Revision, copy.StreamSequence, copy.SubjectSequence = a.Revision, a.StreamSequence, a.SubjectSequence
 	if a.Owner != nil {
 		copy.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
@@ -452,6 +481,11 @@ func (p *Projection) Ready() error {
 	if p.applied < p.highWater {
 		return fmt.Errorf("replay behind stream: %d < %d", p.applied, p.highWater)
 	}
+	if p.history != nil {
+		if err := p.history.check(); err != nil {
+			return fmt.Errorf("history cache unavailable: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -562,7 +596,10 @@ func (p *Projection) Outcome(_ context.Context, commandID string, actor *pb.Acto
 	defer p.mu.RUnlock()
 	reply.Status = pb.CommandReply_NOT_FOUND
 	for _, state := range p.states {
-		outcome := state.Ledger[commandID]
+		outcome, err := state.LookupOutcome(commandID)
+		if err != nil {
+			return unavailable(commandID)
+		}
 		if outcome == nil {
 			continue
 		}

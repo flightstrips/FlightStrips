@@ -147,7 +147,11 @@ func (w ExternalCallWorker) resolveOne(ctx context.Context, pending *pb.Workflow
 	if err != nil {
 		return err
 	}
-	if outcome := destination.Ledger[record.DerivedCommandId]; outcome != nil && outcome.Status == pb.CommandOutcome_SUCCEEDED {
+	outcome, err := destination.LookupOutcome(record.DerivedCommandId)
+	if err != nil {
+		return err
+	}
+	if outcome != nil && outcome.Status == pb.CommandOutcome_SUCCEEDED {
 		record.Status = pb.WorkflowRecord_COMPLETED
 		sequence := outcome.CommittedStreamSequence
 		record.DestinationStreamSequence = &sequence
@@ -184,7 +188,10 @@ func PlanExternalWorkflow(_ context.Context, request *pb.CommandRequest, state *
 	if err != nil || stepID != record.DerivedCommandId {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("external call step identity mismatch")
 	}
-	old := state.Workflows[record.WorkflowId]
+	old, err := state.LookupWorkflow(record.WorkflowId)
+	if err != nil {
+		return nil, pb.CommandReply_UNAVAILABLE, 0, err
+	}
 	if old == nil {
 		if record.Status != pb.WorkflowRecord_PENDING {
 			return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("external call requires pending intent")

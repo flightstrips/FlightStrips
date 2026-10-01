@@ -179,7 +179,10 @@ func (r *CommandRouter) projectedOutcome(request *pb.CommandRequest, hash string
 	if err != nil {
 		return nil
 	}
-	old := state.Ledger[request.CommandId]
+	old, lookupErr := state.LookupOutcome(request.CommandId)
+	if lookupErr != nil {
+		return unavailable(request.CommandId)
+	}
 	if old == nil {
 		return nil
 	}

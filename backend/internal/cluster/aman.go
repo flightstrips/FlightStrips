@@ -173,7 +173,11 @@ func planAman(request *pb.CommandRequest, state *Aggregate, t AmanTransition) (*
 		if err != nil || workflow.DerivedCommandId != derived {
 			return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("AMAN intent step ID mismatch")
 		}
-		if state.Workflows[workflow.WorkflowId] != nil {
+		prior, err := state.LookupWorkflow(workflow.WorkflowId)
+		if err != nil {
+			return nil, pb.CommandReply_UNAVAILABLE, current, err
+		}
+		if prior != nil {
 			return nil, pb.CommandReply_INVALID_ARGUMENT, current, fmt.Errorf("AMAN intent already exists")
 		}
 		change.Workflows = append(change.Workflows, proto.Clone(workflow).(*pb.WorkflowRecord))
@@ -362,7 +366,10 @@ func PlanAmanWorkflow(_ context.Context, request *pb.CommandRequest, state *Aggr
 	if request.GetAggregate().GetAirport() == nil || want == nil || !proto.Equal(want.Source, request.Aggregate) {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("invalid AMAN workflow target")
 	}
-	old := state.Workflows[want.WorkflowId]
+	old, err := state.LookupWorkflow(want.WorkflowId)
+	if err != nil {
+		return nil, pb.CommandReply_UNAVAILABLE, 0, err
+	}
 	if old == nil || old.Status != pb.WorkflowRecord_PENDING || old.DerivedCommandId != want.DerivedCommandId || old.SourceRevision == nil || want.SourceRevision == nil || *old.SourceRevision != *want.SourceRevision || !proto.Equal(old.Destination, want.Destination) {
 		return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("AMAN workflow is not pending")
 	}
@@ -441,7 +448,11 @@ func (r AmanIntentRunner) Resume(ctx context.Context, icao string) error {
 		if err != nil {
 			return err
 		}
-		if outcome := destination.Ledger[workflow.DerivedCommandId]; outcome != nil && (outcome.Status == pb.CommandOutcome_SUCCEEDED || outcome.Status == pb.CommandOutcome_ACCEPTED || destination.Effects[workflow.DerivedCommandId] != nil) {
+		outcome, err := destination.LookupOutcome(workflow.DerivedCommandId)
+		if err != nil {
+			return err
+		}
+		if outcome != nil && (outcome.Status == pb.CommandOutcome_SUCCEEDED || outcome.Status == pb.CommandOutcome_ACCEPTED || destination.Effects[workflow.DerivedCommandId] != nil) {
 			if outcome.Actor.GetKind() != pb.Actor_SYSTEM || outcome.Actor.Id != "aman-intent" || !proto.Equal(outcome.Aggregate, workflow.Destination) || outcome.CommittedStreamSequence == 0 {
 				return fmt.Errorf("AMAN destination outcome identity mismatch")
 			}

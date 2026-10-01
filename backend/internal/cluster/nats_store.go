@@ -16,37 +16,45 @@ import (
 type NATSStore struct{ JS nats.JetStreamContext }
 
 func (s NATSStore) Replay(ctx context.Context, subject string) ([]AppliedEvent, error) {
+	entries := []AppliedEvent{}
+	err := s.Visit(ctx, subject, func(entry AppliedEvent) error { entries = append(entries, entry); return nil })
+	return entries, err
+}
+
+// Visit consumes history without accumulating an unbounded slice of events.
+func (s NATSStore) Visit(ctx context.Context, subject string, visit func(AppliedEvent) error) error {
 	if s.JS == nil {
-		return nil, fmt.Errorf("missing JetStream context")
+		return fmt.Errorf("missing JetStream context")
 	}
 	info, err := s.JS.StreamInfo("FS_STATE", &nats.StreamInfoRequest{SubjectsFilter: subject}, nats.Context(ctx))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	count := info.State.Subjects[subject]
-	entries := make([]AppliedEvent, 0, count)
 	if count == 0 {
-		return entries, nil
+		return nil
 	}
 	sub, err := s.JS.SubscribeSync(subject, nats.BindStream("FS_STATE"), nats.DeliverAll(), nats.OrderedConsumer())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer sub.Unsubscribe()
 	for i := uint64(0); i < count; i++ {
 		message, err := sub.NextMsgWithContext(ctx)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		metadata, err := message.Metadata()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		// Nats-Expected-Last-Subject-Sequence expects the last global stream
 		// sequence seen on this subject, not a per-subject message count.
-		entries = append(entries, AppliedEvent{Subject: message.Subject, StreamSequence: metadata.Sequence.Stream, SubjectSequence: metadata.Sequence.Stream, ServerTime: metadata.Timestamp, Data: message.Data})
+		if err := visit(AppliedEvent{Subject: message.Subject, StreamSequence: metadata.Sequence.Stream, SubjectSequence: metadata.Sequence.Stream, ServerTime: metadata.Timestamp, Data: message.Data}); err != nil {
+			return err
+		}
 	}
-	return entries, nil
+	return nil
 }
 
 func (s NATSStore) Publish(ctx context.Context, subject string, expected uint64, data []byte) (uint64, error) {

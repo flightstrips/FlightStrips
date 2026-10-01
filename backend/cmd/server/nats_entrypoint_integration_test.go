@@ -270,7 +270,7 @@ func newEntrypointFixture(t *testing.T, fault bool) *entrypointFixture {
 	signed.Header["kid"] = "fixture"
 	token, err := signed.SignedString(jwtKey)
 	require.NoError(t, err)
-	env := fixtureEnv(map[string]string{"NATS_URLS": strings.Join(urls, ","), "NATS_EFFECT_ACTIVE_KEY_ID": "v1", "NATS_EFFECT_KEY_FILES": "v1=" + key, "OIDC_AUTHORITY": identity.URL, "OIDC_SIGNING_ALGO": "HS256", "OIDC_AUDIENCE": "backend-dev", "ENVIRONMENT": "test", "OTEL_EXPORTER_OTLP_ENDPOINT": "", "NAVIGATION_SOURCE": "", "NAVIGATION_TERMINAL_GEOMETRY_PATH": "", "AMAN_MODE": "disabled", "ENABLE_TEST_TOOLS": "false", "ENABLE_STAND_ASSIGNMENT": "false", "ENABLE_VATSIM": "false", "ENABLE_VATSIM_TRANSCEIVERS": "false", "ENABLE_METAR": "false", "ENABLE_ECFMP": "false", "CDM_KEY": "", "CDM_KEY_FILE": "", "HOPPIE_LOGON": "", "HOPPIE_LOGON_FILE": ""})
+	env := fixtureEnv(map[string]string{"NATS_HISTORY_CACHE_DIR": filepath.Join(dir, "history-cache"), "NATS_URLS": strings.Join(urls, ","), "NATS_EFFECT_ACTIVE_KEY_ID": "v1", "NATS_EFFECT_KEY_FILES": "v1=" + key, "OIDC_AUTHORITY": identity.URL, "OIDC_SIGNING_ALGO": "HS256", "OIDC_AUDIENCE": "backend-dev", "ENVIRONMENT": "test", "OTEL_EXPORTER_OTLP_ENDPOINT": "", "NAVIGATION_SOURCE": "", "NAVIGATION_TERMINAL_GEOMETRY_PATH": "", "AMAN_MODE": "disabled", "ENABLE_TEST_TOOLS": "false", "ENABLE_STAND_ASSIGNMENT": "false", "ENABLE_VATSIM": "false", "ENABLE_VATSIM_TRANSCEIVERS": "false", "ENABLE_METAR": "false", "ENABLE_ECFMP": "false", "CDM_KEY": "", "CDM_KEY_FILE": "", "HOPPIE_LOGON": "", "HOPPIE_LOGON_FILE": ""})
 	addresses := []string{entrypointAddress(t), entrypointAddress(t)}
 	if fault {
 		require.NoError(t, os.Mkdir(filepath.Join(dir, "gate"), 0700))

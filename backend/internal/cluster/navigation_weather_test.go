@@ -271,7 +271,7 @@ func TestRouteCacheProvenanceAndObjectIntegrity(t *testing.T) {
 func TestQuotaReservationRetryConcurrencyAndUncertainResponse(t *testing.T) {
 	ctx := context.Background()
 	store, objects, adapter := navFixture(t)
-	window := time.Date(2026, 9, 29, 0, 0, 0, 0, time.UTC)
+	window := time.Now().UTC().Truncate(time.Minute)
 	id := uuid.NewString()
 	var wg sync.WaitGroup
 	results := make(chan bool, 2)

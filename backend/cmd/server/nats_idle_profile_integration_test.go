@@ -135,6 +135,9 @@ func TestRetainedStateIdleCPU(t *testing.T) {
 		}
 		f.ready()
 		time.Sleep(5 * time.Second)
+		if version.name == "fixed" {
+			logHistoryMetrics(t, f, "before")
+		}
 		before := ownedCPUSeconds(t, f.apps)
 		started := time.Now()
 		request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://127.0.0.1:6060/debug/pprof/profile?seconds=20", nil)
@@ -151,12 +154,31 @@ func TestRetainedStateIdleCPU(t *testing.T) {
 		path := filepath.Join(dir, "idle-"+version.name+".cpu")
 		require.NoError(t, os.WriteFile(path, profile, 0600))
 		t.Logf("IDLE_CPU version=%s combined_cores=%.4f process_cpu_seconds=%.4f elapsed_seconds=%.4f binary_sha256=%s", version.name, measurements[version.name], after-before, elapsed, hashFixtureBinary(t, version.binary))
+		if version.name == "fixed" {
+			logHistoryMetrics(t, f, "after")
+		}
 		for _, app := range f.apps {
 			app.stop()
 		}
 	}
 	require.Less(t, measurements["fixed"], measurements["base"]*.05, "remove at least 95%% of retained-state idle CPU")
 	require.Less(t, measurements["fixed"], 0.05, "two idle backends must use less than five percent of one core on this qualification host")
+}
+
+func logHistoryMetrics(t *testing.T, f *entrypointFixture, sample string) {
+	t.Helper()
+	for node, address := range f.addresses {
+		response, err := http.Get("http://" + address + "/metrics")
+		require.NoError(t, err)
+		data, err := io.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NoError(t, response.Body.Close())
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(line, "fs_go_heap_alloc_bytes ") || strings.HasPrefix(line, "fs_history_cache_bytes ") || strings.HasPrefix(line, "fs_projection_hot_history_records{") {
+				t.Logf("IDLE_MEMORY sample=%s node=%d %s", sample, node, line)
+			}
+		}
+	}
 }
 
 func hashFixtureBinary(t *testing.T, path string) string {

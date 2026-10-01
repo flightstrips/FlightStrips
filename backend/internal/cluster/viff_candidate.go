@@ -119,7 +119,10 @@ func (a ViffWriteAdapter) Run(ctx context.Context, spec ViffWriteSpec) (bool, er
 			request := &pb.CommandRequest{ProtocolRevision: 1, CommandId: resultID, Aggregate: ref, Actor: &pb.Actor{Kind: pb.Actor_SYSTEM, Id: "viff-result"}, Command: &pb.CommandRequest_System{System: &pb.SystemCommand{Action: &pb.SystemCommand_AdvanceWorkflow{AdvanceWorkflow: &pb.AdvanceWorkflow{Workflow: workflow}}}}}
 			writer := a.Worker.Writer
 			writer.Plan = func(_ context.Context, _ *pb.CommandRequest, state *Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
-				intent := state.Workflows[spec.OperationID]
+				intent, err := state.LookupWorkflow(spec.OperationID)
+				if err != nil {
+					return nil, pb.CommandReply_UNAVAILABLE, 0, err
+				}
 				if intent == nil || intent.Status != pb.WorkflowRecord_PENDING || intent.Step != step || !proto.Equal(intent.Source, ref) || !proto.Equal(intent.Destination, ref) || intent.DerivedCommandId != resultID {
 					return nil, pb.CommandReply_REVISION_CONFLICT, 0, fmt.Errorf("vIFF intent changed before result commit")
 				}

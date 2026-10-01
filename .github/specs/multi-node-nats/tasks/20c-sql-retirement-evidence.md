@@ -3,6 +3,7 @@
 Implementation is on `codex/multi-node-nats-20c-sql-retirement`, based on
 `origin/codex/multi-node-nats-base` at `7936899e` (20a/#827 and 20b/#826 merged).
 The implementation commit is recorded in the source-revision section below.
+Draft PR: [#828](https://github.com/flightstrips/FlightStrips/pull/828).
 All work remains held from `main`, release and deployment. Task 20 is **not marked
 complete**: this child is a draft, and review/operator acceptance remains pending.
 Tasks 21–24 are separate. No production infrastructure, release, activation,

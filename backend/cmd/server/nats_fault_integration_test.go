@@ -159,6 +159,27 @@ func TestServerNATSExpiredLeasesRecover(t *testing.T) {
 func runControllerFreeOutage(t *testing.T, duration time.Duration) {
 	f := newEntrypointFixture(t, true)
 	_, ref, plugins := f.seededSession()
+	// Exercise an actual owner RAM overlay, then observe its persisted value
+	// before removing controllers and testing recovery of the idle owner.
+	state := f.state(ref)
+	master := 0
+	if state.Master.Cid == "222222" {
+		master = 1
+	}
+	sendEntrypointFrame(t, plugins[master].conn, &es.Envelope{SessionId: ref.GetSession().Id, CommandId: uuid.NewString(), OwnerEpoch: state.Owner.Epoch, MasterEpoch: state.Master.Epoch, Event: &es.Envelope_AircraftPositionUpdate{AircraftPositionUpdate: &es.AircraftPositionUpdateEvent{Callsign: "SAS123", Lat: 55.62, Lon: 12.65, Altitude: 1000}}})
+	js, err := f.nc.JetStream()
+	require.NoError(t, err)
+	positions, err := js.KeyValue(f.resources.Names.Positions)
+	require.NoError(t, err)
+	positionKey := fmt.Sprintf("%d.SAS123.%d", ref.GetSession().Id, state.Owner.Epoch)
+	f.await("owner RAM position persisted before controller-free outage", func() bool {
+		entry, getErr := positions.Get(positionKey)
+		if getErr != nil {
+			return false
+		}
+		value := &pb.PositionValue{}
+		return pb.UnmarshalStrict(entry.Value(), value) == nil && value.GetPosition() != nil && value.OwnerEpoch == state.Owner.Epoch
+	})
 	for _, socket := range plugins {
 		require.NoError(t, socket.conn.Close())
 	}

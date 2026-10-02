@@ -70,14 +70,8 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 	}
 	p.mu.Lock()
 	p.positionReady = false
-	if p.asyncPositions != nil && len(p.asyncPositions.values) > 0 {
-		err := fmt.Errorf("position replay reset during active RAM owner generation")
-		if p.Async != nil {
-			p.Async.Invalidate(nil, err)
-		}
-		p.asyncPositions = nil
-		p.observationErr = err
-	}
+	p.resetAsyncPositionOverlayLocked()
+
 	p.wakeWaitersLocked()
 	for _, old := range p.positions {
 		p.publishObservationLocked(old.Value.SessionId, positionObservation(old, false, true))
@@ -343,6 +337,7 @@ func (p *Projection) monitorPositionCursorWithProof(ctx context.Context, sub *na
 			currentProof := p.positionCursor.provedName == p.positionCursor.consumer && p.positionCursor.provedConsumer == p.positionCursor.appliedConsumer
 			if currentProof {
 				p.positionReady = true
+				p.pruneAsyncPositionAliasesLocked()
 			}
 			caught = currentProof
 			p.wakeWaitersLocked()

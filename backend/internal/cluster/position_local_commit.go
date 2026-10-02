@@ -101,6 +101,9 @@ func (p *Projection) materializePositionLocked(key string, value *pb.PositionVal
 		p.positionRevision = map[string]uint64{}
 	}
 	p.positionRevision[key] = revision
+	if p.asyncPositions != nil && p.asyncPositions.values[key].Value == nil {
+		p.asyncPositions.durable[key] = revision
+	}
 	if value == nil {
 		if old, ok := p.positions[key]; ok && (p.asyncPositions == nil || p.asyncPositions.values[key].Value == nil) {
 			p.publishObservationLocked(old.Value.SessionId, positionObservation(old, false, true))

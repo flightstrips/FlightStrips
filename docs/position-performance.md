@@ -1,28 +1,27 @@
 # Aircraft position throughput
 
-The sole operational runtime uses NATS accepted state. Revision-2 EuroScope
+Each session has one active backend owner. Clients may connect to either backend;
+the socket node routes mutations to the session owner. Revision-2 EuroScope
 position frames enter `euroscopebinary.DeadlineCandidate` and the fenced
-`cluster.PositionWriter`; typed position observations use `FS_POSITIONS`.
-Operational transitions continue through the session owner and `FS_STATE`.
-Positions retain freshness, master/socket-generation checks, bounded work and
-ordered drainage. A received frame is not evidence of an accepted mutation.
+`cluster.PositionWriter`. The owner serializes session commands and positions,
+validates them against its in-memory state, and acknowledges accepted changes
+without waiting for a NATS publication. A received frame alone does not establish
+acceptance.
 
-Stand planning reads the local state and position projections. Before publishing
-a lifecycle change, the session owner drains accepted position work and pauses
-later position writes. The lifecycle fence checks stream progress against the
-ordered position consumer, then compares the complete current-master aircraft
-set and each planning revision in memory. It does not enumerate position keys or
-fetch every aircraft from KV. Constant-size NATS metadata checks establish that
-the projection has applied the captured stream boundary; a successful PubAck
-cache alone cannot establish completeness.
+A bounded FIFO queue persists accepted positions to `FS_POSITIONS` and domain
+changes to `FS_STATE`. Stand planning uses the owner's accepted position overlay
+and local aggregate. Initial replay and ownership establish the durable baseline;
+consumer identity, retained-key checks, freshness, socket generation and lease
+checks prevent using an incomplete or stale baseline. The background worker
+verifies broker receipts and applies committed prefixes independently of the RAM
+view. The standby follows the durable prefix.
 
-Replay tracks consumer identity, applied delivery sequences and retained keys,
-including deletion and purge markers. An incomplete replay, changed consumer
-generation, malformed observation or unverifiable retained-key set prevents a
-lifecycle commit. Ownership, master synchronization, leases and the conditional
-`FS_STATE` publication remain authoritative. The standby independently replays
-the committed result. Initial position writes and individual position-derived
-transitions retain their separate KV compare-and-set checks.
+Orderly shutdown closes admission, drains accepted work while the lease and NATS
+connection remain live, then stops ownership and transport. An unexpected crash
+can lose the acknowledged but unpersisted tail. This is the selected session
+recovery policy. Publication failure closes admission and readiness; an old owner
+cannot keep accepting after losing its lease. Queue saturation applies bounded
+backpressure rather than growing RAM indefinitely.
 
 The SQL dispatcher, pool budget, transaction batching and
 `POSITION_DB_BATCHING_ENABLED` controls have been retired. Historical benchmarks
@@ -159,27 +158,30 @@ thirty seconds of CPU plus a five-second runtime trace. Private artifacts record
 the capture windows; profiled reports always have `full_duration=false`.
 The qualification runner clears profiling and retains fifteen-minute windows.
 
-## Session owner memory commits
+## Session owner memory execution
 
-Each session already has one active backend owner. Clients may connect to either
-backend; the socket node routes mutations to that session's owner. The owner now
-plans domain commands from its detached local aggregate while its lease is fresh,
-conditionally appends the event, verifies the stored event and broker timestamp,
-and applies that committed subject prefix locally before replying. The forwarding
-node validates the complete command outcome and returns it without waiting for
-its own replay. PubAck alone is insufficient: an expired owner's event can be a
-committed no-op. Ambiguous acknowledgements retain the same command ID and resolve
-through the durable ledger.
+The owner replies with an explicit internal `memory_accepted` flag and no broker
+sequence when a command has executed in RAM. Forwarding nodes validate the request,
+actor, aggregate, outcome and owner term. Frontend deltas are delivered once from
+the accepted view; replay does not duplicate them. Pending RAM state never enters
+durable snapshots or advances independent replay cursors.
 
-Local application does not advance the independent global replay cursor. The
-successful subject CAS proves there are no missing intervening events for that
-aggregate. Raw replay continues processing other aggregates and suppresses repeat
-application of the already verified prefix. Takeover, renewal and external effects
-retain their complete replay checks; command-only local admission does not grant
-an old owner permission to send external effects.
+Each session uses one ordered turn and one persistence worker. Position-derived
+changes and disconnect deadlines preserve that order; persistence translates
+local position revisions to broker revisions. Admission cost does not scale with
+the aircraft fleet. A same-node lease reclamation replaces an idle RAM baseline
+with the fresh durable aggregate. A reclamation with outstanding old work fails
+closed instead of carrying the old tail into the new term.
 
-Broker metadata verification remains a per-event read after the durable append;
-this change removes replay waits rather than eliminating broker acknowledgements.
-Focused tests cover interleaved replay, one frontend delta, waiter wakeups, expired
-leases, stale-owner facts, exact receipt identity and authenticated forwarded
-outcomes. Final load/recovery/fault validation of this implementation is pending.
+Cross-aggregate session creation/deletion prerequisites and irreversible external
+provider claims retain explicit durable barriers. They flush preceding accepted
+work and verify publication before enabling the dependent operation. Missing
+replayed prerequisites are retryable rather than permanently poisoning the
+operation's command ID.
+
+Tests cover acknowledgment before blocked publication, FIFO persistence, detached
+RAM reads, single deltas, lost ownership, lease reclamation, bounded admission,
+ordered drainage, disconnect revision translation and external-call barriers.
+The native crash/drain test and full load/recovery/fault qualification of this
+implementation are still being run. Older successful durability tests and short
+profiling windows do not qualify this new recovery policy.

@@ -160,7 +160,7 @@ func (f *nativeRuntimeBrokers) start(node int) {
 	process := &nativeRuntimeBroker{command: command, done: make(chan struct{}), log: log}
 	f.nodes[node] = process
 	go func() { process.err = command.Wait(); close(process.done) }()
-	f.t.Logf("NATIVE_QUORUM_START node=%d owned_pid=%d executable=%s", node, command.Process.Pid, f.binary)
+	f.t.Logf("NATIVE_QUORUM_START node=%d owned_pid=%d executable=%s at=%s", node, command.Process.Pid, f.binary, time.Now().UTC().Format(time.RFC3339Nano))
 	require.Eventually(f.t, func() bool {
 		select {
 		case <-process.done:
@@ -192,7 +192,7 @@ func (f *nativeRuntimeBrokers) stop(node int) {
 		}
 		<-process.done
 	}
-	f.t.Logf("NATIVE_QUORUM_STOP node=%d owned_pid=%d executable=%s", node, process.command.Process.Pid, f.binary)
+	f.t.Logf("NATIVE_QUORUM_STOP node=%d owned_pid=%d executable=%s at=%s", node, process.command.Process.Pid, f.binary, time.Now().UTC().Format(time.RFC3339Nano))
 	if f.t.Failed() {
 		f.t.Logf("NATIVE_QUORUM_LOG node=%d %s", node, process.log.text())
 	}

@@ -211,10 +211,13 @@ func TestBuildNATSReadinessQuorumLossAndRecovery(t *testing.T) {
 		}
 	}
 	f := newRuntimeFixture(t, nil)
+	var stopStarted, stopCompleted, restartStarted, restartCompleted time.Time
 	t.Cleanup(func() {
 		if t.Failed() {
+			t.Logf("QUORUM_FAULT_TIMELINE stop_started=%s stop_completed=%s restart_started=%s restart_completed=%s", stopStarted.UTC().Format(time.RFC3339Nano), stopCompleted.UTC().Format(time.RFC3339Nano), restartStarted.UTC().Format(time.RFC3339Nano), restartCompleted.UTC().Format(time.RFC3339Nano))
 			for node, application := range f.apps {
 				t.Logf("QUORUM_RECOVERY_DIAGNOSTIC node=%d ready_status=%d projection=%v owner=%v worker=%v transport=%s", node, f.status(node, "/readyz"), application.natsRuntime.projection.Ready(), application.natsRuntime.owner.Ready(), application.natsRuntime.workerErr.Load(), application.natsRuntime.nc.Status())
+				t.Logf("QUORUM_POSITION_REPLAY node=%d %s", node, application.natsRuntime.projection.PositionReplayStatus())
 			}
 		}
 	})
@@ -227,11 +230,15 @@ func TestBuildNATSReadinessQuorumLossAndRecovery(t *testing.T) {
 		}
 	})
 	brokersStopped = true
+	stopStarted = time.Now()
 	stopBrokers()
+	stopCompleted = time.Now()
 	f.await("minority cannot admit either application", func() bool { return f.status(0, "/readyz") == 503 && f.status(1, "/readyz") == 503 })
 	require.Equal(t, 200, f.status(0, "/healthz"))
 	require.Equal(t, 503, f.status(0, "/frontEndEvents"))
+	restartStarted = time.Now()
 	restart()
+	restartCompleted = time.Now()
 	brokersStopped = false
 	f.await("both applications recover after quorum and replay", func() bool { return f.status(0, "/readyz") == 200 && f.status(1, "/readyz") == 200 })
 	for _, app := range f.apps {

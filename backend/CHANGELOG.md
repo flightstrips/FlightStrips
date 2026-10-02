@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.1.1](https://github.com/flightstrips/FlightStrips/compare/backend/v3.1.0...backend/v3.1.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **aman:** estimate airborne traffic from fresh position ([#792](https://github.com/flightstrips/FlightStrips/issues/792)) ([e4b17b2](https://github.com/flightstrips/FlightStrips/commit/e4b17b252b6c058340497a44932421be2848ea89))
+* **aman:** send holding EAT on first entry detection ([#790](https://github.com/flightstrips/FlightStrips/issues/790)) ([14a18c0](https://github.com/flightstrips/FlightStrips/commit/14a18c0b9c4b3318b0b124588330596a334d6a8c))
+* **aman:** sequence holding releases in arrival order ([#794](https://github.com/flightstrips/FlightStrips/issues/794)) ([50e723c](https://github.com/flightstrips/FlightStrips/commit/50e723cb0f412fe54dde99b03f15ea4b399a26b0))
+* **aman:** update EKCH terminal data for AIRAC 2610 ([#831](https://github.com/flightstrips/FlightStrips/issues/831)) ([418d610](https://github.com/flightstrips/FlightStrips/commit/418d6106034e5474d489f7057f38c8fe03b321d5))
+* **cdm:** recalculate pushback timing after startup ([#793](https://github.com/flightstrips/FlightStrips/issues/793)) ([da28ef2](https://github.com/flightstrips/FlightStrips/commit/da28ef23298b3592a2aa9a5e79c14ea36d2ec421))
+
 ## [3.1.0](https://github.com/flightstrips/FlightStrips/compare/backend/v3.0.0...backend/v3.1.0) (2026-09-28)
 
 

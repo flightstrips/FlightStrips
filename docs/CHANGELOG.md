@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/flightstrips/FlightStrips/compare/docs/v1.0.0...docs/v1.0.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **aman:** send holding EAT on first entry detection ([#790](https://github.com/flightstrips/FlightStrips/issues/790)) ([14a18c0](https://github.com/flightstrips/FlightStrips/commit/14a18c0b9c4b3318b0b124588330596a334d6a8c))
+
 ## [1.0.0](https://github.com/flightstrips/FlightStrips/compare/docs/v0.21.2...docs/v1.0.0) (2026-09-28)
 
 

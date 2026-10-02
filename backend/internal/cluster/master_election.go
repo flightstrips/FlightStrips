@@ -23,6 +23,20 @@ type MasterElection struct {
 	Lease interface{ CanWrite(*pb.AggregateRef) bool }
 }
 
+// Election is owner RAM policy: the accepted master change enters the same
+// session FIFO as prior positions. Pending replication cannot suspend it;
+// external effect claims still use their separate durable authority gates.
+func (e MasterElection) canPlan(ref *pb.AggregateRef) bool {
+	if e.Lease == nil {
+		return false
+	}
+	if e.Projection != nil && e.Projection.Async != nil {
+		owner, ok := e.Lease.(interface{ CanCommitLocal(*pb.AggregateRef) bool })
+		return ok && owner.CanCommitLocal(ref)
+	}
+	return e.Lease.CanWrite(ref)
+}
+
 func (e MasterElection) candidate(ctx context.Context, sessionID int32, airport string) (*pb.ClientPresence, error) {
 	_, entries, err := e.Projection.ObservationSnapshot(sessionID)
 	if err != nil {
@@ -85,7 +99,7 @@ func (e MasterElection) candidate(ctx context.Context, sessionID int32, airport 
 // Reconcile commits a new epoch only when the selected socket or owner term
 // changes. A vacant term keeps the epoch so reconnect never inherits sync.
 func (e MasterElection) Reconcile(ctx context.Context, sessionID int32) (*pb.MasterTerm, error) {
-	if e.Projection == nil || e.Router == nil || e.Lease == nil || !e.Lease.CanWrite(sessionRef(sessionID)) {
+	if e.Projection == nil || e.Router == nil || e.Lease == nil || !e.canPlan(sessionRef(sessionID)) {
 		return nil, fmt.Errorf("session owner is unavailable")
 	}
 	state, err := e.Projection.Read(sessionRef(sessionID))
@@ -139,7 +153,7 @@ func (e MasterElection) Run(ctx context.Context, sessionID int32) error {
 	ticker := time.NewTicker(250 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		if e.Lease.CanWrite(sessionRef(sessionID)) {
+		if e.canPlan(sessionRef(sessionID)) {
 			_, _ = e.Reconcile(ctx, sessionID)
 		}
 		select {
@@ -162,7 +176,7 @@ func (e MasterElection) RunAll(ctx context.Context, registry SessionRegistry) er
 		if e.Projection.Ready() == nil {
 			if sessions, err := registry.ActiveSessions(ctx); err == nil {
 				for _, session := range sessions {
-					if e.Lease.CanWrite(sessionRef(session.Id)) {
+					if e.canPlan(sessionRef(session.Id)) {
 						_, _ = e.Reconcile(ctx, session.Id)
 					}
 				}

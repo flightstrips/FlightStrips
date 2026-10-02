@@ -174,30 +174,65 @@ func TestBuildNATSReadinessResourceDriftAndFailedConstruction(t *testing.T) {
 	})
 }
 
-// Broker faults require the explicitly named disposable Compose project. The
-// label check prevents this test from stopping an unrelated NATS installation.
+// Broker faults use test-owned native processes or the explicitly named
+// disposable Compose project, whose labels are checked before any stop.
 func TestBuildNATSReadinessQuorumLossAndRecovery(t *testing.T) {
-	if os.Getenv("NATS_FAULT_PROJECT") != "fs20a" {
-		t.Skip("requires NATS_FAULT_PROJECT=fs20a for the isolated fixture")
+	var stopBrokers, restart func()
+	if binary := os.Getenv("NATS_SERVER_BINARY"); binary != "" {
+		if os.Getenv("NATS_INTEGRATION") != "1" {
+			t.Skip("requires explicit native NATS integration")
+		}
+		brokers := newNativeRuntimeBrokers(t, binary)
+		stopBrokers = func() { brokers.stop(1); brokers.stop(2) }
+		restart = func() {
+			for _, node := range []int{1, 2} {
+				if brokers.nodes[node] == nil {
+					brokers.start(node)
+				}
+			}
+		}
+	} else {
+		if os.Getenv("NATS_FAULT_PROJECT") != "fs20a" {
+			t.Skip("requires NATS_SERVER_BINARY or NATS_FAULT_PROJECT=fs20a for the isolated fixture")
+		}
+		containers := []string{"fs20a-nats-2-1", "fs20a-nats-3-1"}
+		for _, name := range containers {
+			out, err := exec.Command("docker", "inspect", "--format", "{{index .Config.Labels \"com.docker.compose.project\"}}", name).Output()
+			require.NoError(t, err)
+			require.Equal(t, "fs20a\n", string(out))
+		}
+		restart = func() {
+			output, err := exec.Command("docker", append([]string{"start"}, containers...)...).CombinedOutput()
+			require.NoError(t, err, string(output))
+		}
+		stopBrokers = func() {
+			output, err := exec.Command("docker", append([]string{"stop", "--time", "1"}, containers...)...).CombinedOutput()
+			require.NoError(t, err, string(output))
+		}
 	}
 	f := newRuntimeFixture(t, nil)
-	containers := []string{"fs20a-nats-2-1", "fs20a-nats-3-1"}
-	for _, name := range containers {
-		out, err := exec.Command("docker", "inspect", "--format", "{{index .Config.Labels \"com.docker.compose.project\"}}", name).Output()
-		require.NoError(t, err)
-		require.Equal(t, "fs20a\n", string(out))
-	}
-	restart := func() {
-		output, err := exec.Command("docker", append([]string{"start"}, containers...)...).CombinedOutput()
-		require.NoError(t, err, string(output))
-	}
-	t.Cleanup(restart)
-	output, err := exec.Command("docker", append([]string{"stop", "--time", "1"}, containers...)...).CombinedOutput()
-	require.NoError(t, err, string(output))
+	t.Cleanup(func() {
+		if t.Failed() {
+			for node, application := range f.apps {
+				t.Logf("QUORUM_RECOVERY_DIAGNOSTIC node=%d ready_status=%d projection=%v owner=%v worker=%v transport=%s", node, f.status(node, "/readyz"), application.natsRuntime.projection.Ready(), application.natsRuntime.owner.Ready(), application.natsRuntime.workerErr.Load(), application.natsRuntime.nc.Status())
+			}
+		}
+	})
+	// Restore quorum before application cleanup even if an assertion fails.
+	// Native cleanup later terminates only this test's own three processes.
+	brokersStopped := false
+	t.Cleanup(func() {
+		if brokersStopped {
+			restart()
+		}
+	})
+	brokersStopped = true
+	stopBrokers()
 	f.await("minority cannot admit either application", func() bool { return f.status(0, "/readyz") == 503 && f.status(1, "/readyz") == 503 })
 	require.Equal(t, 200, f.status(0, "/healthz"))
 	require.Equal(t, 503, f.status(0, "/frontEndEvents"))
 	restart()
+	brokersStopped = false
 	f.await("both applications recover after quorum and replay", func() bool { return f.status(0, "/readyz") == 200 && f.status(1, "/readyz") == 200 })
 	for _, app := range f.apps {
 		require.Nil(t, app.natsRuntime.workerErr.Load())

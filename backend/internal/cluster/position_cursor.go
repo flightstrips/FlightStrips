@@ -187,14 +187,14 @@ func (p *Projection) provePositionCursor(ctx context.Context) (bool, error) {
 	}
 	info, err := p.JS.StreamInfo("KV_"+p.Config.Names.Positions, nats.Context(ctx))
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("position stream metadata: %w", err)
 	}
 	ci, err := sub.ConsumerInfo()
 	if errors.Is(err, nats.ErrConsumerInfoOnOrderedReset) {
 		return false, errPositionConsumerReset
 	}
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("position consumer metadata: %w", err)
 	}
 	if err = ctx.Err(); err != nil {
 		return false, err

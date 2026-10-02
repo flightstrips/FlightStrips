@@ -70,7 +70,7 @@ func TestExternalWeatherOneCallAcrossReplicas(t *testing.T) {
 	called, reserved := 0, 0
 	reserve := func(context.Context) (bool, error) {
 		reserved++
-		return nav.ReserveQuota(ctx, id, "open-meteo", time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC), 1)
+		return nav.ReserveQuota(ctx, id, "open-meteo", time.Now().UTC().Truncate(time.Hour), 1)
 	}
 	fetch := func(context.Context) (*pb.WeatherObservation, error) {
 		called++

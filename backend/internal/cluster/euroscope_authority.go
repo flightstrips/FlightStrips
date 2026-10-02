@@ -19,6 +19,34 @@ func (p *Projection) ValidateEuroScopeInbound(sessionID int32, connectionID, cid
 	if err := p.RequireLiveSocket(sessionID, connectionID, cid, pb.ClientPresence_EUROSCOPE); err != nil {
 		return err
 	}
+	masterObservation := false
+	requireSync := true
+	switch envelope.GetEvent().(type) {
+	case *euroscope.Envelope_Sync:
+		masterObservation, requireSync = true, false
+	case *euroscope.Envelope_AircraftPositionUpdate, *euroscope.Envelope_AircraftDisconnect,
+		*euroscope.Envelope_StripUpdate, *euroscope.Envelope_Runway,
+		*euroscope.Envelope_Squawk, *euroscope.Envelope_RequestedAltitude,
+		*euroscope.Envelope_ClearedAltitude, *euroscope.Envelope_CommunicationType,
+		*euroscope.Envelope_GroundState, *euroscope.Envelope_ClearedFlag,
+		*euroscope.Envelope_Heading, *euroscope.Envelope_Stand,
+		*euroscope.Envelope_Route, *euroscope.Envelope_Remarks,
+		*euroscope.Envelope_AircraftInfo, *euroscope.Envelope_AircraftInfoRemarks,
+		*euroscope.Envelope_Sid, *euroscope.Envelope_AircraftRunway,
+		*euroscope.Envelope_AssignedSquawk:
+		masterObservation = true
+	}
+	if masterObservation {
+		owner, err := p.ReadOwner(sessionRef(sessionID))
+		if err != nil {
+			return err
+		}
+		if envelope.SessionId != sessionID || owner == nil || envelope.OwnerEpoch != owner.Epoch {
+			p.staleEpochs.Add(1)
+			return fmt.Errorf("master observation is missing current session terms")
+		}
+		return p.RequireMasterInbound(sessionID, connectionID, cid, envelope.MasterEpoch, requireSync)
+	}
 	state, err := p.Read(sessionRef(sessionID))
 	if err != nil {
 		return err

@@ -16,11 +16,11 @@ func (c *DeadlineCandidate) AdmitOperational(ctx context.Context, id int32, conn
 	if err := c.Router.Projection.ValidateEuroScopeInbound(id, connection, cid, frame); err != nil {
 		return err
 	}
-	state, err := c.Router.Projection.Read(candidateRef(id))
-	if err != nil {
-		return err
-	}
 	if runway := frame.GetRunway(); runway != nil {
+		state, err := c.Router.Projection.Read(candidateRef(id))
+		if err != nil {
+			return err
+		}
 		seed := state.Indexes[pb.EntityKind_SESSION][fmt.Sprint(id)]
 		session := proto.Clone(seed.Value.GetSession()).(*pb.Session)
 		session.Runways = nil
@@ -105,7 +105,10 @@ func (c *DeadlineCandidate) AdmitOperational(ctx context.Context, id int32, conn
 	default:
 		return fmt.Errorf("not an inbound operational observation: %T", frame.Event)
 	}
-	old := state.Indexes[pb.EntityKind_STRIP][callsign]
+	old, err := c.Router.Projection.ReadEntity(candidateRef(id), pb.EntityKind_STRIP, callsign)
+	if err != nil {
+		return err
+	}
 	if old == nil {
 		return fmt.Errorf("observed strip unavailable")
 	}

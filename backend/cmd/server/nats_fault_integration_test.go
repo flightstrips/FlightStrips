@@ -27,9 +27,10 @@ import (
 )
 
 type faultSocket struct {
-	conn   *websocket.Conn
-	mu     sync.Mutex
-	frames []*es.Envelope
+	conn        *websocket.Conn
+	mu          sync.Mutex
+	frames      []*es.Envelope
+	discardSync bool
 }
 
 func (f *entrypointFixture) seededSession() (string, *pb.AggregateRef, []*faultSocket) {
@@ -368,7 +369,9 @@ func (f *entrypointFixture) plugin(node int, name, cid string, role ...string) *
 				return
 			}
 			s.mu.Lock()
-			s.frames = append(s.frames, frame)
+			if !s.discardSync || frame.GetBackendSync() == nil {
+				s.frames = append(s.frames, frame)
+			}
 			s.mu.Unlock()
 		}
 	}()

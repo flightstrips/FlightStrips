@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"FlightStrips/internal/cluster"
+	"FlightStrips/internal/shared"
 	pb "FlightStrips/pkg/events/cluster"
 	euroscope "FlightStrips/pkg/events/euroscope"
 	"github.com/nats-io/nats.go"
@@ -243,18 +244,18 @@ func (c *DeadlineCandidate) Inbound(ctx context.Context, id int32, connectionID,
 	if err := c.Router.Projection.ValidateEuroScopeInbound(id, connectionID, cid, frame); err != nil {
 		return err
 	}
-	state, err := c.Router.Projection.Read(candidateRef(id))
-	if err != nil || state.Owner == nil {
+	owner, err := c.Router.Projection.ReadOwner(candidateRef(id))
+	if err != nil || owner == nil {
 		return fmt.Errorf("socket owner unavailable")
 	}
-	if state.Owner.NodeId == c.Router.Lease.NodeID {
+	if owner.NodeId == c.Router.Lease.NodeID {
 		return c.admit(ctx, id, connectionID, cid, frame)
 	}
 	data, err := proto.Marshal(frame)
 	if err != nil || len(data) > cluster.MaxStateBytes {
 		return fmt.Errorf("invalid socket admission size")
 	}
-	msg := nats.NewMsg("fs.v1.euroscope." + state.Owner.NodeId)
+	msg := nats.NewMsg("fs.v1.euroscope." + owner.NodeId)
 	msg.Data = data
 	msg.Header.Set("FS-Session", strconv.Itoa(int(id)))
 	msg.Header.Set("FS-Connection", connectionID)
@@ -270,26 +271,50 @@ func (c *DeadlineCandidate) Inbound(ctx context.Context, id int32, connectionID,
 	return nil
 }
 func (c *DeadlineCandidate) Serve(ctx context.Context) error {
+	positions := shared.NewPositionDispatcher(32, 1024, nil)
+	stop := context.AfterFunc(ctx, positions.Cancel)
+	defer stop()
+	defer func() {
+		drain, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = positions.Close(drain)
+	}()
 	_, closeSub, err := cluster.SubscribeJoined(c.Router.NC, "fs.v1.euroscope."+c.Router.Lease.NodeID, func(msg *nats.Msg) {
-		result := &pb.EffectDeliveryReply{}
-		id, err := strconv.ParseInt(msg.Header.Get("FS-Session"), 10, 32)
-		frame := &euroscope.Envelope{}
-		if err == nil && id > 0 && len(msg.Data) > 0 && len(msg.Data) <= cluster.MaxStateBytes && pb.UnmarshalStrict(msg.Data, frame) == nil {
-			timeout := 5 * time.Second
-			if frame.GetSync() != nil {
-				timeout = c.SyncAdmissionTimeout
-				if timeout <= 0 {
-					timeout = 2 * time.Minute
+		run := func(runCtx context.Context) {
+			result := &pb.EffectDeliveryReply{}
+			id, err := strconv.ParseInt(msg.Header.Get("FS-Session"), 10, 32)
+			frame := &euroscope.Envelope{}
+			if err == nil && id > 0 && len(msg.Data) > 0 && len(msg.Data) <= cluster.MaxStateBytes && pb.UnmarshalStrict(msg.Data, frame) == nil {
+				timeout := 5 * time.Second
+				if frame.GetSync() != nil {
+					timeout = c.SyncAdmissionTimeout
+					if timeout <= 0 {
+						timeout = 2 * time.Minute
+					}
 				}
+				hop, cancel := context.WithTimeout(runCtx, timeout)
+				result.Accepted = c.admit(hop, int32(id), msg.Header.Get("FS-Connection"), msg.Header.Get("FS-CID"), frame) == nil
+				cancel()
 			}
-			hop, cancel := context.WithTimeout(ctx, timeout)
-			result.Accepted = c.admit(hop, int32(id), msg.Header.Get("FS-Connection"), msg.Header.Get("FS-CID"), frame) == nil
-			cancel()
+			data, _ := proto.Marshal(result)
+			if msg.Reply != "" {
+				_ = msg.Respond(data)
+			}
 		}
-		data, _ := proto.Marshal(result)
-		if msg.Reply != "" {
+		frame := &euroscope.Envelope{}
+		if pb.UnmarshalStrict(msg.Data, frame) == nil && independentInboundKey(frame) != "" {
+			key := msg.Header.Get("FS-Session") + "/" + independentInboundKey(frame)
+			if positions.Submit(ctx, key, run) == nil {
+				return
+			}
+			data, _ := proto.Marshal(&pb.EffectDeliveryReply{})
 			_ = msg.Respond(data)
+			return
 		}
+		if positions.Barrier(ctx) != nil {
+			return
+		}
+		run(ctx)
 	})
 	if err != nil {
 		return err

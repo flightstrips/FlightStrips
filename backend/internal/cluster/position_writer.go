@@ -12,6 +12,8 @@ import (
 	"FlightStrips/internal/shared"
 	pb "FlightStrips/pkg/events/cluster"
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -35,6 +37,8 @@ type PositionWriter struct {
 	Authority    PositionAuthority
 	dispatcher   *shared.PositionDispatcher
 	mu           sync.Mutex
+	revisionMu   sync.Mutex
+	revisions    map[string]uint64
 	barrierMu    sync.Mutex
 	closed       bool // guarded by barrierMu
 	disconnected map[string]bool
@@ -45,7 +49,7 @@ func NewPositionWriter(kv nats.KeyValue, sessionID int32, epoch uint64, connecti
 		return nil, fmt.Errorf("invalid position writer")
 	}
 	return &PositionWriter{KV: kv, SessionID: sessionID, OwnerEpoch: epoch, Connection: connection, Authority: authority,
-		dispatcher: shared.NewPositionDispatcher(workers, pending, nil), disconnected: map[string]bool{}}, nil
+		dispatcher: shared.NewPositionDispatcher(workers, pending, nil), disconnected: map[string]bool{}, revisions: map[string]uint64{}}, nil
 }
 
 func positionKey(sessionID int32, aircraft string, epoch uint64) string {
@@ -120,9 +124,35 @@ func (w *PositionWriter) write(ctx context.Context, key string, value *pb.Positi
 	if err != nil {
 		return 0, err
 	}
+	w.revisionMu.Lock()
+	expected := w.revisions[key]
+	w.revisionMu.Unlock()
+	remember := func(revision uint64, err error) (uint64, error) {
+		if err == nil {
+			w.revisionMu.Lock()
+			w.revisions[key] = revision
+			w.revisionMu.Unlock()
+		}
+		return revision, err
+	}
+	publish := func(run func() (uint64, error)) (uint64, error) {
+		_, span := otel.Tracer("cluster").Start(ctx, "nats.positions.puback")
+		revision, err := run()
+		if err != nil {
+			span.SetStatus(codes.Error, "publish failed")
+		}
+		span.End()
+		return remember(revision, err)
+	}
+	if expected > 0 {
+		// Per-aircraft FIFO makes the previous PubAck the exact CAS precondition.
+		// A foreign publisher still causes a revision conflict; never refresh
+		// and overwrite it. On a new writer the first value is read/validated.
+		return publish(func() (uint64, error) { return w.KV.Update(key, data, expected) })
+	}
 	current, err := w.KV.Get(key)
 	if errors.Is(err, nats.ErrKeyNotFound) {
-		return w.KV.Create(key, data)
+		return publish(func() (uint64, error) { return w.KV.Create(key, data) })
 	}
 	if err != nil {
 		return 0, err
@@ -139,7 +169,7 @@ func (w *PositionWriter) write(ctx context.Context, key string, value *pb.Positi
 	// accepted reports ahead of its tombstone; Authority fences its later work.
 	// No retry on a revision conflict: another publisher may have violated the
 	// single-owner rule, and overwriting its observation would hide that fault.
-	return w.KV.Update(key, data, current.Revision())
+	return publish(func() (uint64, error) { return w.KV.Update(key, data, current.Revision()) })
 }
 
 func validAircraftPosition(v *pb.AircraftPosition) bool {

@@ -17,6 +17,10 @@ import (
 	euroscope "FlightStrips/pkg/events/euroscope"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -200,7 +204,7 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			if delta.Aggregate.GetSession() != nil {
 				for _, change := range delta.Changes {
 					if change.GetUpsert().GetStrip() != nil || change.GetUpsert().GetCdmState() != nil || change.GetUpsert().GetEcfmpState() != nil {
-						state, err := h.Projection.Read(delta.Aggregate)
+						state, err := h.Projection.ReadEntityKinds(delta.Aggregate, pb.EntityKind_STRIP, pb.EntityKind_CDM_STATE, pb.EntityKind_ECFMP_STATE)
 						if err != nil {
 							return err
 						}
@@ -255,10 +259,31 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			_ = h.Deadlines.Recover(recoverCtx, session.Id)
 		}()
 	}
+	positions := shared.NewPositionDispatcher(32, 1024, nil)
+	defer func() {
+		drain, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = positions.Close(drain)
+	}()
+	var failureMu sync.Mutex
+	var positionFailure error
 	for {
 		frame, err := read(conn)
 		if err != nil {
 			return err
+		}
+		received := time.Now()
+		independent := independentInboundKey(frame)
+		if independent == "" {
+			if err := positions.Barrier(ctx); err != nil {
+				return err
+			}
+			failureMu.Lock()
+			err = positionFailure
+			failureMu.Unlock()
+			if err != nil {
+				return err
+			}
 		}
 		if err := h.Projection.ValidateEuroScopeInbound(session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
 			slog.WarnContext(ctx, "candidate EuroScope inbound rejected", "session", session.Id, "error", err)
@@ -275,7 +300,24 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			}
 			continue
 		}
-		if err := h.Inbound(ctx, session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
+		if independent != "" {
+			if err := positions.Submit(ctx, independent, func(run context.Context) {
+				if err := h.tracedInbound(run, received, session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
+					failureMu.Lock()
+					if positionFailure == nil {
+						positionFailure = err
+					}
+					failureMu.Unlock()
+					positions.Cancel()
+					_ = conn.Close()
+				}
+			}); err != nil {
+				return err
+			}
+			continue
+		}
+		err = h.tracedInbound(ctx, received, session.Id, lease.Client.ConnectionId, user.GetCid(), frame)
+		if err != nil {
 			return err
 		}
 		if frame.GetSync() != nil {
@@ -299,6 +341,30 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			}
 		}
 	}
+}
+
+// Positions overlap across aircraft. Heading changes never derive position
+// state and share one serial commit lane to avoid competing subject CAS writes.
+// Every other operational frame drains both lanes before admission.
+func independentInboundKey(frame *euroscope.Envelope) string {
+	if v := frame.GetAircraftPositionUpdate(); v != nil {
+		return v.Callsign
+	}
+	if frame.GetHeading() != nil {
+		return "$heading"
+	}
+	return ""
+}
+
+func (h Handler) tracedInbound(ctx context.Context, received time.Time, session int32, connection, cid string, frame *euroscope.Envelope) error {
+	ctx, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.receipt_to_completion", trace.WithTimestamp(received))
+	span.SetAttributes(attribute.String("command_id", frame.CommandId), attribute.Bool("position", frame.GetAircraftPositionUpdate() != nil))
+	err := h.Inbound(ctx, session, connection, cid, frame)
+	if err != nil {
+		span.SetStatus(codes.Error, "inbound failed")
+	}
+	span.End()
+	return err
 }
 
 func (h Handler) putController(ctx context.Context, sessionID int32, cid string, login *euroscope.LoginEvent) error {

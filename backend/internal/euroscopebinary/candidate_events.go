@@ -36,14 +36,14 @@ func (c *DeadlineCandidate) Positions(id int32) *cluster.PositionWriter {
 }
 
 func (c *DeadlineCandidate) positionWriter(ctx context.Context, id int32, connection string) (*cluster.PositionWriter, error) {
-	state, err := c.Router.Projection.Read(candidateRef(id))
-	if err != nil || state.Owner == nil || state.Master == nil {
+	owner, master, err := c.Router.Projection.ReadSessionTerms(id)
+	if err != nil || owner == nil || master == nil {
 		return nil, fmt.Errorf("position owner/master unavailable")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	prior := c.writers[id]
-	if prior != nil && prior.OwnerEpoch == state.Owner.Epoch && prior.Connection == connection {
+	if prior != nil && prior.OwnerEpoch == owner.Epoch && prior.Connection == connection {
 		return prior, nil
 	}
 	if prior != nil {
@@ -51,18 +51,18 @@ func (c *DeadlineCandidate) positionWriter(ctx context.Context, id int32, connec
 			return nil, err
 		}
 	}
-	masterEpoch, cid := state.Master.Epoch, state.Master.Cid
-	w, err := cluster.NewPositionWriter(c.Router.Projection.Positions, id, state.Owner.Epoch, connection,
+	masterEpoch, cid := master.Epoch, master.Cid
+	w, err := cluster.NewPositionWriter(c.Router.Projection.Positions, id, owner.Epoch, connection,
 		func(_ context.Context, session int32, ownerEpoch uint64, generation string) error {
 			if !c.Router.Lease.CanWrite(candidateRef(session)) {
 				return fmt.Errorf("position owner unavailable")
 			}
-			a, err := c.Router.Projection.Read(candidateRef(session))
-			if err != nil || a.Owner.GetEpoch() != ownerEpoch {
+			a, err := c.Router.Projection.ReadOwner(candidateRef(session))
+			if err != nil || a.GetEpoch() != ownerEpoch {
 				return fmt.Errorf("position owner changed")
 			}
 			return c.Router.Projection.RequireMasterInbound(session, generation, cid, masterEpoch, false)
-		}, 1, 1024)
+		}, 32, 1024)
 	if err == nil {
 		c.writers[id] = w
 	}
@@ -92,24 +92,23 @@ func (c *DeadlineCandidate) position(ctx context.Context, id int32, connection, 
 		}
 		// Wait for this replica to observe the KV commit before deriving its
 		// deadline. A crash here is repaired by Recover from the tombstone.
-		ticker := time.NewTicker(10 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			positions, _, err := c.Router.Projection.ObservationSnapshot(id)
+		if err := c.Router.Projection.WaitPositionApplied(ctx, id, key, w.OwnerEpoch, receipt.Revision); err != nil {
+			return err
+		}
+		if value != nil {
+			// A live position only cancels its own disconnect deadline. Full
+			// controller/squawk recovery runs at sync and in the owner worker;
+			// copying every completed command and every aircraft on each report
+			// adds unrelated work to high-rate observation acceptance.
+			deadline, err := c.Router.Projection.ReadEntity(candidateRef(id), pb.EntityKind_SESSION_DEADLINE, "aircraft-disconnect."+key)
 			if err != nil {
 				return err
 			}
-			for _, p := range positions {
-				if p.Value.AircraftKey == key && p.Revision >= receipt.Revision {
-					return c.Recover(ctx, id)
-				}
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ticker.C:
+			if deadline == nil {
+				return nil
 			}
 		}
+		return c.Recover(ctx, id)
 	}
 }
 

@@ -73,7 +73,7 @@ func (o *OwnerRuntime) Track(ref *pb.AggregateRef) error {
 }
 
 func (o *OwnerRuntime) healthy(subject string) bool {
-	if o == nil || o.NC == nil || o.NC.Status() != nats.CONNECTED || o.Projection == nil || o.Projection.Ready() != nil {
+	if o == nil || o.NC == nil || o.NC.Status() != nats.CONNECTED || o.Projection == nil || o.Projection.readyForRead() != nil {
 		return false
 	}
 	o.mu.RLock()
@@ -198,7 +198,7 @@ func (o *OwnerRuntime) heartbeat(ctx context.Context) error {
 }
 
 func (o *OwnerRuntime) maintain(ctx context.Context) {
-	if o.NC.Status() != nats.CONNECTED || o.Projection.Ready() != nil {
+	if o.NC.Status() != nats.CONNECTED || o.Projection.readyForRead() != nil {
 		o.failAll()
 		return
 	}

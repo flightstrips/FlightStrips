@@ -260,7 +260,13 @@ func (w Writer) execute(ctx context.Context, request *pb.CommandRequest) (*pb.Co
 			}
 		}
 		for ctx.Err() == nil {
-			fresh, err := w.load(ctx, subject, request.Aggregate)
+			var fresh *Aggregate
+			var err error
+			if w.Projection != nil {
+				fresh, err = w.Projection.commandCheckpoint(request.Aggregate, request.CommandId)
+			} else {
+				fresh, err = w.load(ctx, subject, request.Aggregate)
+			}
 			if err == nil && fresh.StreamSequence >= sequence {
 				old, lookupErr := fresh.LookupOutcome(request.CommandId)
 				if lookupErr != nil {

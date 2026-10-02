@@ -46,6 +46,8 @@ type Projection struct {
 	syncFresh                                  map[string]bool
 	positionReady, presenceReady               bool
 	observationErr                             error
+	positionChanged                            chan struct{}
+	stateChanged                               chan struct{}
 	watchers                                   sync.WaitGroup
 	snapshotJobs                               sync.WaitGroup
 	takeovers, staleEpochs, snapshotFailures   atomic.Uint64
@@ -252,6 +254,10 @@ func (p *Projection) apply(entry AppliedEvent) error {
 	}
 	p.states[entry.Subject] = clone
 	p.applied = entry.StreamSequence
+	if p.stateChanged != nil {
+		close(p.stateChanged)
+		p.stateChanged = nil
+	}
 	p.lastAppliedServerTime = entry.ServerTime
 	if p.syncFresh != nil && clone.Ref.GetSession() != nil && !proto.Equal(state.Sync, clone.Sync) {
 		p.syncFresh[entry.Subject] = clone.Sync != nil && !entry.ServerTime.Before(p.startedAt)
@@ -392,7 +398,7 @@ func (p *Projection) readOwner(ref *pb.AggregateRef) (*ownerState, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return nil, err
 	}
 	p.mu.RLock()
@@ -470,7 +476,23 @@ func (p *Projection) refresh(ctx context.Context) {
 	p.mu.Unlock()
 }
 
-func (p *Projection) fail(err error) { p.mu.Lock(); p.healthErr = err; p.mu.Unlock() }
+func (p *Projection) wakeWaitersLocked() {
+	if p.stateChanged != nil {
+		close(p.stateChanged)
+		p.stateChanged = nil
+	}
+	if p.positionChanged != nil {
+		close(p.positionChanged)
+		p.positionChanged = nil
+	}
+}
+
+func (p *Projection) fail(err error) {
+	p.mu.Lock()
+	p.healthErr = err
+	p.wakeWaitersLocked()
+	p.mu.Unlock()
+}
 
 func (p *Projection) Ready() error {
 	p.mu.RLock()
@@ -518,7 +540,7 @@ func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return nil, err
 	}
 	p.mu.RLock()
@@ -529,13 +551,37 @@ func (p *Projection) Read(ref *pb.AggregateRef) (*Aggregate, error) {
 	return NewAggregate(ref), nil
 }
 
+// A metadata refresh can discover an event just before its consumer applies it.
+// Reads await this short replay barrier instead of treating an ordinary in-flight
+// event as a broken socket. /readyz still returns Ready's immediate result; no
+// stale projection is read and all unhealthy states still fail closed.
+func (p *Projection) readyForRead() error {
+	deadline := time.Now().Add(100 * time.Millisecond)
+	for {
+		p.mu.RLock()
+		health := p.healthLocked()
+		behind := p.applied < p.highWater
+		if health == nil && !behind && p.history != nil {
+			health = p.history.check()
+		}
+		p.mu.RUnlock()
+		if health != nil || !behind {
+			return health
+		}
+		if !time.Now().Before(deadline) {
+			return p.Ready()
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 // ReadEntity returns a detached accepted entity through the readiness barrier.
 func (p *Projection) ReadEntity(ref *pb.AggregateRef, kind pb.EntityKind, key string) (*pb.EntitySnapshot, error) {
 	subject, err := Subject(ref)
 	if err != nil {
 		return nil, err
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return nil, err
 	}
 	p.mu.RLock()
@@ -558,6 +604,77 @@ func (p *Projection) ReadOwner(ref *pb.AggregateRef) (*pb.OwnerTerm, error) {
 	return state.Owner, nil
 }
 
+// ReadSessionTerms detaches only the accepted fencing terms used by position
+// admissions; high-rate observations do not need a copy of all strip history.
+func (p *Projection) ReadSessionTerms(id int32) (*pb.OwnerTerm, *pb.MasterTerm, error) {
+	if err := p.readyForRead(); err != nil {
+		return nil, nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	state := p.states[fmt.Sprintf("fs.v1.state.session.%d", id)]
+	if state == nil || state.Owner == nil {
+		return nil, nil, fmt.Errorf("session terms unavailable")
+	}
+	var master *pb.MasterTerm
+	if state.Master != nil {
+		master = proto.Clone(state.Master).(*pb.MasterTerm)
+	}
+	return proto.Clone(state.Owner).(*pb.OwnerTerm), master, nil
+}
+
+// ReadEntityKinds returns one coherent detached publication snapshot without
+// copying unrelated historical command/workflow records.
+func (p *Projection) ReadEntityKinds(ref *pb.AggregateRef, kinds ...pb.EntityKind) (*Aggregate, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err = p.readyForRead(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	out := NewAggregate(ref)
+	if state := p.states[subject]; state != nil {
+		out.Revision, out.StreamSequence, out.SubjectSequence = state.Revision, state.StreamSequence, state.SubjectSequence
+		for _, kind := range kinds {
+			for _, record := range state.Indexes[kind] {
+				out.Entities[entitySlot(out.Entities, kind, record.Key)] = proto.Clone(record).(*pb.EntitySnapshot)
+			}
+		}
+		out.rebuildIndexes()
+	}
+	return out, nil
+}
+
+func (p *Projection) commandCheckpoint(ref *pb.AggregateRef, id string) (*Aggregate, error) {
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	if err = p.readyForRead(); err != nil {
+		return nil, err
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	out := NewAggregate(ref)
+	if state := p.states[subject]; state != nil {
+		out.StreamSequence, out.Revision = state.StreamSequence, state.Revision
+		if state.Owner != nil {
+			out.Owner = proto.Clone(state.Owner).(*pb.OwnerTerm)
+		}
+		value, err := state.LookupOutcome(id)
+		if err != nil {
+			return nil, err
+		}
+		if value != nil {
+			out.Ledger[id] = proto.Clone(value).(*pb.CommandOutcome)
+		}
+	}
+	return out, nil
+}
+
 // ReadEntities returns detached entities of one kind without copying retained
 // command outcomes or workflows. It uses the same readiness barrier as Read.
 func (p *Projection) ReadEntities(ref *pb.AggregateRef, kind pb.EntityKind) ([]*pb.EntitySnapshot, error) {
@@ -565,7 +682,7 @@ func (p *Projection) ReadEntities(ref *pb.AggregateRef, kind pb.EntityKind) ([]*
 	if err != nil {
 		return nil, err
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return nil, err
 	}
 	p.mu.RLock()
@@ -588,7 +705,7 @@ func (p *Projection) Outcome(_ context.Context, commandID string, actor *pb.Acto
 		reply.Status = pb.CommandReply_INVALID_ARGUMENT
 		return reply
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		reply.Status, reply.Detail = pb.CommandReply_UNAVAILABLE, err.Error()
 		return reply
 	}
@@ -648,7 +765,7 @@ var ErrFlightNotFound = errors.New("strip not found")
 var ErrAmbiguousFlight = errors.New("callsign matched multiple sessions")
 
 func (p *Projection) FindFlight(_ context.Context, callsign string) (*FlightSnapshot, error) {
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return nil, err
 	}
 	key := strings.ToUpper(strings.TrimSpace(callsign))
@@ -693,13 +810,15 @@ func (p *Projection) FindFlight(_ context.Context, callsign string) (*FlightSnap
 // WaitApplied is the local PubAck barrier. A stalled consumer returns a
 // timeout; the caller must retry the same command ID or query its outcome.
 func (p *Projection) WaitApplied(ctx context.Context, sequence uint64) error {
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
 	for {
-		p.mu.RLock()
+		p.mu.Lock()
 		err := p.healthLocked()
 		applied := p.applied
-		p.mu.RUnlock()
+		if p.stateChanged == nil {
+			p.stateChanged = make(chan struct{})
+		}
+		changed := p.stateChanged
+		p.mu.Unlock()
 		if err != nil {
 			return err
 		}
@@ -709,7 +828,7 @@ func (p *Projection) WaitApplied(ctx context.Context, sequence uint64) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
+		case <-changed:
 		}
 	}
 }
@@ -747,7 +866,7 @@ func (p *Projection) SubscribeInitial(ref *pb.AggregateRef) (*Aggregate, <-chan 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return nil, nil, nil, err
 	}
 	p.mu.Lock()

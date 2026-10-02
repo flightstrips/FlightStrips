@@ -241,7 +241,7 @@ func (p *Projection) RequireMasterInbound(sessionID int32, connectionID, cid str
 		return fmt.Errorf("invalid socket authority")
 	}
 	ref := sessionRef(sessionID)
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return err
 	}
 	p.mu.RLock()
@@ -266,7 +266,7 @@ func (p *Projection) RequireLiveSocket(sessionID int32, connectionID, cid string
 	if p == nil {
 		return fmt.Errorf("projection unavailable")
 	}
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return err
 	}
 	p.mu.RLock()

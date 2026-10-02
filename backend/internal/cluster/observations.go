@@ -53,19 +53,45 @@ func (p *Projection) watchPositions(ctx context.Context) {
 			}
 			if err != nil {
 				p.observationErr = err
+				p.wakeWaitersLocked()
 				p.mu.Unlock()
 				return
 			}
 			p.positions[entry.Key()] = KVPosition{Value: value, Revision: entry.Revision(), Observed: entry.Created()}
-			for _, selected := range p.positionSnapshotLocked(value.SessionId) {
-				if selected.Revision == entry.Revision() {
-					p.publishObservationLocked(value.SessionId, positionObservation(selected, selected.Stale, false))
-					break
-				}
+			if p.positionChanged != nil {
+				close(p.positionChanged)
+				p.positionChanged = nil
+			}
+			if selected, ok := p.selectedPositionLocked(value.SessionId, value.AircraftKey); ok && selected.Revision == entry.Revision() {
+				p.publishObservationLocked(value.SessionId, positionObservation(selected, selected.Stale, false))
 			}
 			p.mu.Unlock()
 		}
 	}
+}
+
+func (p *Projection) selectedPositionLocked(session int32, aircraft string) (KVPosition, bool) {
+	state := p.states[fmt.Sprintf("fs.v1.state.session.%d", session)]
+	epoch := uint64(0)
+	if state == nil {
+		epoch = ^uint64(0)
+	} else if state.Owner != nil {
+		epoch = state.Owner.Epoch
+	}
+	fresh := p.operationalSyncLocked(state, session) != nil
+	var selected KVPosition
+	found := false
+	for _, item := range p.positions {
+		value := item.Value
+		if value == nil || value.SessionId != session || value.AircraftKey != aircraft || value.OwnerEpoch > epoch || (fresh && value.OwnerEpoch != epoch) {
+			continue
+		}
+		if !found || value.OwnerEpoch > selected.Value.OwnerEpoch || (value.OwnerEpoch == selected.Value.OwnerEpoch && item.Revision > selected.Revision) {
+			item.Stale = !fresh || value.OwnerEpoch != epoch || state.Master == nil || value.SourceConnectionId != state.Master.ConnectionId
+			selected, found = item, true
+		}
+	}
+	return selected, found
 }
 
 func (p *Projection) watchPresence(ctx context.Context) {
@@ -124,6 +150,7 @@ func (p *Projection) watchPresence(ctx context.Context) {
 			}
 			if err != nil {
 				p.observationErr = err
+				p.wakeWaitersLocked()
 				p.mu.Unlock()
 				return
 			}
@@ -134,17 +161,52 @@ func (p *Projection) watchPresence(ctx context.Context) {
 	}
 }
 
-func (p *Projection) failObservation(err error) { p.mu.Lock(); p.observationErr = err; p.mu.Unlock() }
+func (p *Projection) failObservation(err error) {
+	p.mu.Lock()
+	p.observationErr = err
+	p.wakeWaitersLocked()
+	p.mu.Unlock()
+}
 
 // ObservationSnapshot keeps KV revisions separate from the FS_STATE stream
 // revision. Expired presence is filtered even if no delete notification arrived.
 func (p *Projection) ObservationSnapshot(sessionID int32) ([]KVPosition, []KVPresence, error) {
-	if err := p.Ready(); err != nil {
+	if err := p.readyForRead(); err != nil {
 		return nil, nil, err
 	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.positionSnapshotLocked(sessionID), p.presenceSnapshotLocked(sessionID), nil
+}
+
+// WaitPositionApplied observes the exact accepted KV revision without a polling
+// interval or cloning the entire position set for every single report.
+func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, aircraft string, epoch, revision uint64) error {
+	key := positionKey(session, aircraft, epoch)
+	for {
+		if err := p.readyForRead(); err != nil {
+			return err
+		}
+		p.mu.Lock()
+		if err := p.healthLocked(); err != nil {
+			p.mu.Unlock()
+			return err
+		}
+		if item := p.positions[key]; item.Revision >= revision {
+			p.mu.Unlock()
+			return nil
+		}
+		if p.positionChanged == nil {
+			p.positionChanged = make(chan struct{})
+		}
+		changed := p.positionChanged
+		p.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-changed:
+		}
+	}
 }
 
 func (p *Projection) positionSnapshotLocked(sessionID int32) []KVPosition {

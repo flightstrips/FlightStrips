@@ -121,16 +121,16 @@ func (f *SessionFanout) Attach(ctx context.Context, lease ClientPresenceLease, s
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 		updateRole := func() error {
-			state, err := f.Projection.Read(sessionRef(sessionID))
+			term, master, err := f.Projection.ReadSessionTerms(sessionID)
 			if err != nil {
 				return err
 			}
-			owner := ownerEpoch(state.Owner)
-			if !proto.Equal(lastMaster, state.Master) || lastOwner != owner {
-				if err := socket.OnRole(socketRole(lease.Client, state.Master), masterEpoch(state.Master), owner); err != nil {
+			owner := ownerEpoch(term)
+			if !proto.Equal(lastMaster, master) || lastOwner != owner {
+				if err := socket.OnRole(socketRole(lease.Client, master), masterEpoch(master), owner); err != nil {
 					return err
 				}
-				lastMaster, lastOwner = state.Master, owner
+				lastMaster, lastOwner = master, owner
 			}
 			return nil
 		}

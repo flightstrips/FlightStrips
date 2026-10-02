@@ -9,6 +9,8 @@ import (
 	"FlightStrips/internal/faultgate"
 
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 )
 
 // NATSStore uses the existing, explicitly bootstrapped FS_STATE stream. It
@@ -68,7 +70,12 @@ func (s NATSStore) Publish(ctx context.Context, subject string, expected uint64,
 	message.Header.Set(nats.ExpectedLastSubjSeqHdr, strconv.FormatUint(expected, 10))
 	message.Data = data
 	faultgate.State("before-publish", data, 0)
+	_, span := otel.Tracer("cluster").Start(ctx, "nats.state.puback")
 	ack, err := s.JS.PublishMsg(message, nats.Context(ctx))
+	if err != nil {
+		span.SetStatus(codes.Error, "publish failed")
+	}
+	span.End()
 	if err != nil {
 		var api *nats.APIError
 		// nats.go names 10071; NATS 2.15 returns 10164 for the

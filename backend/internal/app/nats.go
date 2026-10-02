@@ -168,7 +168,7 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 	if provider == nil && cfg.HoppieLogon != "" {
 		provider = pdc.NewClientWithTransport(cfg.HoppieLogon, deps.NATS.HoppieBaseURL, deps.NATS.HTTPClient)
 	}
-	base := cluster.SessionLifecyclePlanner(routed.Read)
+	base := cluster.SessionLifecyclePlanner(routed.ReadDurable)
 	sessionPlan := func(ctx context.Context, req *pb.CommandRequest, state *cluster.Aggregate) (*pb.DomainChange, pb.CommandReply_Status, uint64, error) {
 		if req.GetSystem().GetCreateSession() != nil || req.GetSystem().GetDeleteSession() != nil {
 			return base(ctx, req, state)
@@ -347,6 +347,16 @@ func (r *natsRuntime) Route(ctx context.Context, req *pb.CommandRequest) *pb.Com
 		return r.cdmActions.Execute(ctx, req)
 	}
 	return r.router.Route(ctx, req)
+}
+
+// RouteDurable is the cross-aggregate lifecycle prerequisite boundary. Session
+// identity and deletion must survive before the global registry advances.
+func (r *natsRuntime) RouteDurable(ctx context.Context, req *pb.CommandRequest) *pb.CommandReply {
+	if r.closing.Load() || r.ctx.Err() != nil {
+		return &pb.CommandReply{ProtocolRevision: 1, CommandId: req.GetCommandId(), Status: pb.CommandReply_UNAVAILABLE}
+	}
+	_ = r.owner.Track(req.GetAggregate())
+	return r.router.RouteDurable(ctx, req)
 }
 func (r *natsRuntime) startWorkers(ctx context.Context) {
 	r.once.Do(func() {

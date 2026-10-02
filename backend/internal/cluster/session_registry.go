@@ -27,6 +27,20 @@ type LocalLifecycleStore struct{ Writer Writer }
 func (s LocalLifecycleStore) Execute(ctx context.Context, request *pb.CommandRequest) *pb.CommandReply {
 	return s.Writer.Execute(ctx, request)
 }
+func (s LocalLifecycleStore) ExecuteDurable(ctx context.Context, request *pb.CommandRequest) *pb.CommandReply {
+	reply, _ := s.Writer.ExecuteFresh(ctx, request)
+	return reply
+}
+func (s LocalLifecycleStore) ReadDurable(ctx context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
+	if s.Writer.Projection != nil {
+		return s.Writer.Projection.ReadDurable(ref)
+	}
+	subject, err := Subject(ref)
+	if err != nil {
+		return nil, err
+	}
+	return s.Writer.load(context.WithValue(ctx, durableExecutionKey{}, true), subject, ref)
+}
 func (s LocalLifecycleStore) Read(ctx context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
 	subject, err := Subject(ref)
 	if err != nil {
@@ -50,6 +64,20 @@ func (s RoutedLifecycleStore) Execute(ctx context.Context, request *pb.CommandRe
 		return unavailable(request.GetCommandId())
 	}
 	return s.Router.Route(ctx, request)
+}
+func (s RoutedLifecycleStore) ExecuteDurable(ctx context.Context, request *pb.CommandRequest) *pb.CommandReply {
+	if router, ok := s.Router.(interface {
+		RouteDurable(context.Context, *pb.CommandRequest) *pb.CommandReply
+	}); ok {
+		return router.RouteDurable(ctx, request)
+	}
+	return s.Execute(ctx, request)
+}
+func (s RoutedLifecycleStore) ReadDurable(_ context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
+	if s.Projection == nil {
+		return nil, fmt.Errorf("projection unavailable")
+	}
+	return s.Projection.ReadDurable(ref)
 }
 
 func (s RoutedLifecycleStore) Read(_ context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
@@ -106,8 +134,16 @@ func lifecycleRequest(ref *pb.AggregateRef, id string, action any) *pb.CommandRe
 }
 
 func (r SessionRegistry) read(ctx context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
+	return r.readDurable(ctx, ref)
+}
+func (r SessionRegistry) readDurable(ctx context.Context, ref *pb.AggregateRef) (*Aggregate, error) {
 	if r.Store == nil {
 		return nil, fmt.Errorf("session registry store is unavailable")
+	}
+	if reader, ok := r.Store.(interface {
+		ReadDurable(context.Context, *pb.AggregateRef) (*Aggregate, error)
+	}); ok {
+		return reader.ReadDurable(ctx, ref)
 	}
 	return r.Store.Read(ctx, ref)
 }
@@ -115,7 +151,17 @@ func (r SessionRegistry) execute(ctx context.Context, request *pb.CommandRequest
 	if r.Store == nil {
 		return fmt.Errorf("session registry store is unavailable")
 	}
-	reply := r.Store.Execute(ctx, request)
+	var reply *pb.CommandReply
+	if store, ok := r.Store.(interface {
+		ExecuteDurable(context.Context, *pb.CommandRequest) *pb.CommandReply
+	}); ok {
+		reply = store.ExecuteDurable(ctx, request)
+	} else {
+		reply = r.Store.Execute(ctx, request)
+	}
+	if reply != nil && reply.MemoryAccepted {
+		return fmt.Errorf("session lifecycle prerequisite is not durable")
+	}
 	if reply == nil || reply.Status != pb.CommandReply_COMMITTED || reply.GetOutcome().GetStatus() == pb.CommandOutcome_FAILED {
 		if reply == nil {
 			return fmt.Errorf("session lifecycle command received no reply")
@@ -327,11 +373,14 @@ func SessionLifecyclePlanner(read func(context.Context, *pb.AggregateRef) (*Aggr
 				if seed != nil {
 					value = seed.GetValue().GetSession()
 				}
-				if c := request.GetSystem().GetCreateSession(); c != nil && (value == nil || value.Tombstoned || value.Airport != c.Airport || value.Name != c.Name) {
-					return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("session seed is missing or tombstoned")
+				if value == nil {
+					return nil, pb.CommandReply_UNAVAILABLE, 0, fmt.Errorf("session prerequisite has not been replayed")
 				}
-				if request.GetSystem().GetDeleteSession() != nil && (value == nil || !value.Tombstoned) {
-					return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("session tombstone is missing")
+				if c := request.GetSystem().GetCreateSession(); c != nil && (value.Tombstoned || value.Airport != c.Airport || value.Name != c.Name) {
+					return nil, pb.CommandReply_INVALID_ARGUMENT, 0, fmt.Errorf("session seed is tombstoned or has a different identity")
+				}
+				if request.GetSystem().GetDeleteSession() != nil && !value.Tombstoned {
+					return nil, pb.CommandReply_UNAVAILABLE, 0, fmt.Errorf("session tombstone has not been replayed")
 				}
 			}
 		}

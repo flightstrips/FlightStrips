@@ -87,8 +87,22 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 	p.positionRevision = map[string]uint64{}
 	p.wakeWaitersLocked()
 	p.mu.Unlock()
-	lastIntegrityCheck := time.Now()
+	proofCtx, stopProof := context.WithCancel(ctx)
+	proofErrors := make(chan error, 1)
+	proofDone := make(chan struct{})
+	go func() {
+		defer close(proofDone)
+		if err := p.monitorPositionCursor(proofCtx, sub); err != nil {
+			proofErrors <- err
+		}
+	}()
+	defer func() { stopProof(); <-proofDone }()
 	for ctx.Err() == nil {
+		select {
+		case proofErr := <-proofErrors:
+			return proofErr
+		default:
+		}
 		nextCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 		msg, readErr := sub.NextMsgWithContext(nextCtx)
 		cancel()
@@ -99,32 +113,7 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 		} else if !errors.Is(readErr, context.DeadlineExceeded) && !errors.Is(readErr, nats.ErrTimeout) {
 			return fmt.Errorf("%w: %v", errPositionTransport, readErr)
 		}
-		p.mu.RLock()
-		ready := p.positionReady
-		p.mu.RUnlock()
-		atTail := readErr != nil
-		if readErr == nil {
-			metadata, metadataErr := msg.Metadata()
-			atTail = metadataErr == nil && metadata.NumPending == 0
-		}
-		backgroundIntegrity := p.Async != nil && time.Since(lastIntegrityCheck) >= time.Second
-		if (!ready && atTail) || backgroundIntegrity {
-			lastIntegrityCheck = time.Now()
 
-			caught, proofErr := p.provePositionCursor(ctx)
-			if proofErr != nil {
-				if errors.Is(proofErr, errPositionConsumerReset) || p.observationFailurePresent() {
-					return proofErr
-				}
-				return fmt.Errorf("%w: %v", errPositionTransport, proofErr)
-			}
-			if caught {
-				p.mu.Lock()
-				p.positionReady = p.positionCursor.provedName == p.positionCursor.consumer && p.positionCursor.provedConsumer == p.positionCursor.appliedConsumer
-				p.wakeWaitersLocked()
-				p.mu.Unlock()
-			}
-		}
 	}
 	return ctx.Err()
 }
@@ -327,4 +316,47 @@ func (p *Projection) materializedPositionsCaughtLocked() bool {
 		}
 	}
 	return true
+}
+
+// Metadata requests must never run on the ordered application goroutine: the
+// server may deliver more records while ConsumerInfo is in flight. Application
+// remains free to advance the exact frontier captured by that metadata reply.
+func (p *Projection) monitorPositionCursor(ctx context.Context, sub *nats.Subscription) error {
+	return p.monitorPositionCursorWithProof(ctx, sub, p.provePositionCursor)
+}
+
+func (p *Projection) monitorPositionCursorWithProof(ctx context.Context, sub *nats.Subscription, prove func(context.Context) (bool, error)) error {
+	for ctx.Err() == nil {
+		caught, err := prove(ctx)
+		if err != nil {
+			if errors.Is(err, errPositionConsumerReset) || p.observationFailurePresent() {
+				return err
+			}
+			return fmt.Errorf("%w: %v", errPositionTransport, err)
+		}
+		if caught {
+			p.mu.Lock()
+			if p.positionCursor.sub != sub {
+				p.mu.Unlock()
+				return errPositionConsumerReset
+			}
+			currentProof := p.positionCursor.provedName == p.positionCursor.consumer && p.positionCursor.provedConsumer == p.positionCursor.appliedConsumer
+			if currentProof {
+				p.positionReady = true
+			}
+			caught = currentProof
+			p.wakeWaitersLocked()
+			p.mu.Unlock()
+		}
+		delay := time.Second
+		if !caught {
+			delay = 10 * time.Millisecond
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+	return ctx.Err()
 }

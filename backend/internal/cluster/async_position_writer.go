@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -13,6 +14,8 @@ import (
 )
 
 const localPositionBit uint64 = 1 << 63
+
+var ErrPositionIntegrityStale = errors.New("position integrity proof is stale")
 
 var localPositionCounter atomic.Uint64
 
@@ -174,7 +177,7 @@ func (w *PositionWriter) executeAsyncObservation(ctx context.Context, aircraft s
 		}
 		p := w.projection
 		p.mu.RLock()
-		item, ok := p.positionViewLocked()[positionKey(w.SessionID, aircraft, w.OwnerEpoch)]
+		item, ok := p.positionAtLocked(positionKey(w.SessionID, aircraft, w.OwnerEpoch))
 		err := p.asyncPositionHealthLocked()
 		if err == nil && (!ok || !p.positionSourceMatchesLocked(item.Revision, token) || item.Value.SourceConnectionId != w.Connection || (disconnected && item.Value.GetTombstone() == nil) || (!disconnected && item.Value.GetPosition() == nil)) {
 			err = fmt.Errorf("RAM source position changed or disconnected")
@@ -298,7 +301,7 @@ func (p *Projection) asyncPositionHealthLocked() error {
 		return err
 	}
 	if p.positionCursor.lastProved.IsZero() || time.Since(p.positionCursor.lastProved) > 2*time.Second {
-		return fmt.Errorf("position integrity proof is stale")
+		return ErrPositionIntegrityStale
 	}
 	return nil
 }
@@ -326,4 +329,14 @@ func (p *Projection) positionSourceMatchesLocked(a, b uint64) bool {
 		}
 	}
 	return a == b
+}
+
+func (p *Projection) positionAtLocked(key string) (KVPosition, bool) {
+	if p.asyncPositions != nil {
+		if item, ok := p.asyncPositions.values[key]; ok {
+			return item, true
+		}
+	}
+	item, ok := p.positions[key]
+	return item, ok
 }

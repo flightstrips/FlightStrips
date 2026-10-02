@@ -158,3 +158,82 @@ func TestCommittedPositionRejectsMetadataGenerationAndAuthorityChanges(t *testin
 		})
 	}
 }
+
+func TestPositionProofMetadataRoundTripDoesNotBlockOrderedApplication(t *testing.T) {
+	p := readyPositionWaitFixture()
+	p.positionReady = false
+	p.Config.Names.Positions = "positions"
+	sub := &nats.Subscription{}
+	now := time.Now()
+	p.positionCursor = positionCursor{sub: sub, consumer: "C1", created: now, retained: map[string]uint64{}}
+	entered, release := make(chan struct{}), make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		first := true
+		done <- p.monitorPositionCursorWithProof(ctx, sub, func(ctx context.Context) (bool, error) {
+			if !first {
+				<-ctx.Done()
+				return false, ctx.Err()
+			}
+			first = false
+			close(entered)
+			select {
+			case <-ctx.Done():
+				return false, ctx.Err()
+			case <-release:
+			}
+			// ConsumerInfo reports the records delivered while metadata was in flight.
+			info := &nats.StreamInfo{Created: now, Config: nats.StreamConfig{MaxMsgsPerSubject: 1, MaxMsgs: -1, MaxBytes: -1}, State: nats.StreamState{LastSeq: 3, Msgs: 1}}
+			ci := &nats.ConsumerInfo{Name: "C1", Delivered: nats.SequenceInfo{Consumer: 3, Stream: 3}}
+			p.mu.Lock()
+			defer p.mu.Unlock()
+			return p.verifyPositionCursorLocked(sub, info, ci)
+		})
+	}()
+	<-entered
+	applied := make(chan error, 1)
+	go func() {
+		for seq := uint64(1); seq <= 3; seq++ {
+			value := localPositionValue()
+			value.GetPosition().Latitude += float64(seq)
+			data, err := proto.Marshal(value)
+			if err != nil {
+				applied <- err
+				return
+			}
+			msg := nats.NewMsg("$KV.positions.1.SAS1.2")
+			msg.Sub = sub
+			msg.Data = data
+			msg.Reply = fmt.Sprintf("$JS.ACK.KV_positions.C1.1.%d.%d.%d.0", seq, seq, now.UnixNano())
+			if err = p.applyPositionMessage(msg); err != nil {
+				applied <- err
+				return
+			}
+		}
+		applied <- nil
+	}()
+	select {
+	case err := <-applied:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("ordered application blocked behind metadata")
+	}
+	close(release)
+	require.Eventually(t, func() bool {
+		p.mu.RLock()
+		defer p.mu.RUnlock()
+		return p.positionReady && !p.positionCursor.lastProved.IsZero()
+	}, time.Second, time.Millisecond)
+	p.mu.RLock()
+	require.Equal(t, uint64(3), p.positionCursor.appliedConsumer)
+	require.NoError(t, p.asyncPositionHealthLocked())
+	p.mu.RUnlock()
+	cancel()
+	require.ErrorIs(t, <-done, context.Canceled)
+	p.mu.Lock()
+	p.positionCursor.lastProved = now.Add(-3 * time.Second)
+	require.ErrorIs(t, p.asyncPositionHealthLocked(), ErrPositionIntegrityStale)
+	p.mu.Unlock()
+}

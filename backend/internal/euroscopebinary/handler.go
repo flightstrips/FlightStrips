@@ -297,19 +297,14 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 				return err
 			}
 		}
-		var admissionSpan trace.Span
-		if frame.GetAircraftPositionUpdate() != nil {
-			_, admissionSpan = otel.Tracer("euroscopebinary").Start(ctx, "euroscope.position.admission", trace.WithTimestamp(received))
-		}
-		validationStarted := time.Now()
-		validationErr := h.Projection.ValidateEuroScopeInbound(session.Id, lease.Client.ConnectionId, user.GetCid(), frame)
-		if admissionSpan != nil {
-			admissionSpan.SetAttributes(attribute.Float64("position.reader_validation_ms", float64(time.Since(validationStarted))/float64(time.Millisecond)))
-			admissionSpan.End()
-		}
-		if err := validationErr; err != nil {
-			slog.WarnContext(ctx, "candidate EuroScope inbound rejected", "session", session.Id, "error", err)
-			return socketFailure{websocket.ClosePolicyViolation}
+		// Position jobs validate the same authority when their keyed lane runs.
+		// Keeping that check off the reader lets independent aircraft be received
+		// while earlier jobs await commit; heading and operational admission stay
+		// synchronous, after their existing barriers.
+		if frame.GetAircraftPositionUpdate() == nil || independent == "" {
+			if err := validateIngress(ctx, h.Projection, session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
+				return err
+			}
 		}
 		if frame.GetCommandResult() != nil {
 			if h.Effects == nil || h.Effects.RecordResult(ctx, session.Id, lease.Client.ConnectionId, user.GetCid(), frame) != nil {
@@ -324,7 +319,13 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 		}
 		if independent != "" {
 			if err := positions.Submit(ctx, independent, func(run context.Context) {
-				if err := h.tracedInbound(run, received, session.Id, lease.Client.ConnectionId, user.GetCid(), frame); err != nil {
+				var err error
+				if frame.GetAircraftPositionUpdate() != nil {
+					err = h.validatedPositionInbound(run, received, h.Projection, session.Id, lease.Client.ConnectionId, user.GetCid(), frame)
+				} else {
+					err = h.tracedInbound(run, received, session.Id, lease.Client.ConnectionId, user.GetCid(), frame)
+				}
+				if err != nil {
 					failureMu.Lock()
 					if positionFailure == nil {
 						positionFailure = err
@@ -363,6 +364,35 @@ func (h Handler) serve(ctx context.Context, conn *websocket.Conn) error {
 			}
 		}
 	}
+}
+
+type inboundAuthority interface {
+	ValidateEuroScopeInbound(int32, string, string, *euroscope.Envelope) error
+}
+
+func validateIngress(ctx context.Context, authority inboundAuthority, session int32, connection, cid string, frame *euroscope.Envelope) error {
+	if err := authority.ValidateEuroScopeInbound(session, connection, cid, frame); err != nil {
+		slog.WarnContext(ctx, "candidate EuroScope inbound rejected", "session", session, "error", err)
+		return socketFailure{websocket.ClosePolicyViolation}
+	}
+	return nil
+}
+
+func (h Handler) validatedPositionInbound(ctx context.Context, received time.Time, authority inboundAuthority, session int32, connection, cid string, frame *euroscope.Envelope) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	started := time.Now()
+	_, span := otel.Tracer("euroscopebinary").Start(ctx, "euroscope.position.admission", trace.WithTimestamp(received))
+	err := validateIngress(ctx, authority, session, connection, cid, frame)
+	span.SetAttributes(attribute.Bool("position.validation_deferred", true),
+		attribute.Float64("position.validation_queue_ms", float64(started.Sub(received))/float64(time.Millisecond)),
+		attribute.Float64("position.reader_validation_ms", float64(time.Since(started))/float64(time.Millisecond)))
+	span.End()
+	if err != nil {
+		return err
+	}
+	return h.tracedInbound(ctx, received, session, connection, cid, frame)
 }
 
 // Positions overlap across aircraft. Heading changes never derive position

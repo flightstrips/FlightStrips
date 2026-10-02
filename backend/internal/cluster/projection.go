@@ -47,6 +47,7 @@ type Projection struct {
 	positionReady, presenceReady               bool
 	positionCursor                             positionCursor
 	observationErr                             error
+	positionWaitersMu                          sync.Mutex
 	positionWaiters                            map[string]*positionWaitNotification
 	stateChanged                               chan struct{}
 	watchers                                   sync.WaitGroup
@@ -496,9 +497,12 @@ func (p *Projection) wakeWaitersLocked() {
 		close(p.stateChanged)
 		p.stateChanged = nil
 	}
-	for key := range p.positionWaiters {
-		p.wakePositionWaitersLocked(key)
+	p.positionWaitersMu.Lock()
+	for key, waiter := range p.positionWaiters {
+		close(waiter.changed)
+		delete(p.positionWaiters, key)
 	}
+	p.positionWaitersMu.Unlock()
 }
 
 func (p *Projection) fail(err error) {

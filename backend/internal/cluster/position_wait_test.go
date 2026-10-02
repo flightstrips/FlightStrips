@@ -73,6 +73,8 @@ func TestProjectionFailureWakesCommitWaiters(t *testing.T) {
 		require.Eventually(t, func() bool {
 			p.mu.RLock()
 			defer p.mu.RUnlock()
+			p.positionWaitersMu.Lock()
+			defer p.positionWaitersMu.Unlock()
 			return p.stateChanged != nil || len(p.positionWaiters) != 0
 		}, time.Second, time.Millisecond)
 		p.failObservation(context.Canceled)

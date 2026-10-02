@@ -142,49 +142,50 @@ func (p *Projection) WaitPositionApplied(ctx context.Context, session int32, air
 	key := positionKey(session, aircraft, epoch)
 	for {
 		rechecks++
+		// One coherent read checks readiness and the exact revision. Only
+		// replay lag needs the existing bounded state-readiness barrier.
 		stage := time.Now()
-		readyErr := p.readyForRead()
-		ready += time.Since(stage)
-		if readyErr != nil {
-			return readyErr
-		}
-		// PubAck often arrives after this watcher has already applied the value.
-		// Readers can satisfy that exact revision together without contending for
-		// the exclusive lock used only to register a notification for missing data.
-		stage = time.Now()
 		p.mu.RLock()
 		readLock += time.Since(stage)
-		if err := p.healthLocked(); err != nil {
-			p.mu.RUnlock()
-			return err
-		}
-		if item := p.positions[key]; item.Revision >= revision {
-			p.mu.RUnlock()
-			return nil
-		}
-		p.mu.RUnlock()
 		stage = time.Now()
-		p.mu.Lock()
-		registerLock += time.Since(stage)
 		if err := p.healthLocked(); err != nil {
-			p.mu.Unlock()
+			ready += time.Since(stage)
+			p.mu.RUnlock()
 			return err
 		}
+		if p.applied < p.highWater {
+			p.mu.RUnlock()
+			if err := ctx.Err(); err != nil {
+				ready += time.Since(stage)
+				return err
+			}
+			readyErr := p.readyForRead()
+			ready += time.Since(stage)
+			if readyErr != nil {
+				return readyErr
+			}
+			continue
+		}
+		if p.history != nil {
+			if err := p.history.check(); err != nil {
+				ready += time.Since(stage)
+				p.mu.RUnlock()
+				return err
+			}
+		}
+		ready += time.Since(stage)
 		if item := p.positions[key]; item.Revision >= revision {
-			p.mu.Unlock()
+			p.mu.RUnlock()
 			return nil
 		}
-		if p.positionWaiters == nil {
-			p.positionWaiters = map[string]*positionWaitNotification{}
-		}
-		waiter := p.positionWaiters[key]
-		if waiter == nil {
-			waiter = &positionWaitNotification{changed: make(chan struct{})}
-			p.positionWaiters[key] = waiter
-		}
-		waiter.users++
+		// Keep the publication read lock through registration. The watcher
+		// cannot publish and wake this key between the missing check and insertion.
+		// Notification bookkeeping never requires the publication write lock.
+		stage = time.Now()
+		waiter := p.registerPositionWaiterLocked(key)
+		registerLock += time.Since(stage)
 		changed := waiter.changed
-		p.mu.Unlock()
+		p.mu.RUnlock()
 		stage = time.Now()
 		select {
 		case <-ctx.Done():
@@ -421,7 +422,27 @@ type positionWaitNotification struct {
 	users   int
 }
 
+// Lock order is always publication mu (read or write), then positionWaitersMu.
+// The caller retains a publication read lock until registration is complete.
+func (p *Projection) registerPositionWaiterLocked(key string) *positionWaitNotification {
+	p.positionWaitersMu.Lock()
+	defer p.positionWaitersMu.Unlock()
+	if p.positionWaiters == nil {
+		p.positionWaiters = map[string]*positionWaitNotification{}
+	}
+	waiter := p.positionWaiters[key]
+	if waiter == nil {
+		waiter = &positionWaitNotification{changed: make(chan struct{})}
+		p.positionWaiters[key] = waiter
+	}
+	waiter.users++
+	return waiter
+}
+
+// Called after publication while holding the projection write lock.
 func (p *Projection) wakePositionWaitersLocked(key string) {
+	p.positionWaitersMu.Lock()
+	defer p.positionWaitersMu.Unlock()
 	if waiter := p.positionWaiters[key]; waiter != nil {
 		close(waiter.changed)
 		delete(p.positionWaiters, key)
@@ -429,8 +450,8 @@ func (p *Projection) wakePositionWaitersLocked(key string) {
 }
 
 func (p *Projection) releasePositionWaiter(key string, waiter *positionWaitNotification) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.positionWaitersMu.Lock()
+	defer p.positionWaitersMu.Unlock()
 	if current := p.positionWaiters[key]; current == waiter {
 		waiter.users--
 		if waiter.users == 0 {

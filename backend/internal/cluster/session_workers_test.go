@@ -92,6 +92,17 @@ func TestSessionRAMPolicyKeepsOwnerHealthFences(t *testing.T) {
 	}
 }
 
+func TestSessionRAMPolicyRejectsUnsupportedOwnerGate(t *testing.T) {
+	owners, p, ref, gate, _ := asyncOwnersFixture(t)
+	defer close(gate)
+	owner := &workerLease{active: true}
+	work := &SessionWork{Projection: p, Owner: owner}
+	require.False(t, work.canPlan(ref), "a legacy writable gate cannot prove RAM owner eligibility")
+	p.Async = nil
+	require.True(t, work.canPlan(ref), "non-memory policy retains its legacy writable gate")
+	owners.Invalidate(ref, fmt.Errorf("fixture complete"))
+}
+
 type workerLease struct{ active bool }
 
 func (l *workerLease) CanWrite(*pb.AggregateRef) bool { return l.active }

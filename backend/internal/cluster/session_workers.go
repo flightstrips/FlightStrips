@@ -65,9 +65,8 @@ func (w *SessionWork) clock() time.Time {
 // Irreversible provider/effect work keeps its separate durable permission gate.
 func (w *SessionWork) canPlan(ref *pb.AggregateRef) bool {
 	if w.Projection != nil && w.Projection.Async != nil {
-		if owner, ok := w.Owner.(interface{ CanCommitLocal(*pb.AggregateRef) bool }); ok {
-			return owner.CanCommitLocal(ref)
-		}
+		owner, ok := w.Owner.(interface{ CanCommitLocal(*pb.AggregateRef) bool })
+		return ok && owner.CanCommitLocal(ref)
 	}
 	return w.Owner.CanWrite(ref)
 }

@@ -49,8 +49,19 @@ func (c *VatsimLifecycleCandidate) Arrival(ctx context.Context, id int32) error 
 	return c.reconcile(ctx, id, false)
 }
 
+// Lifecycle planning consumes the accepted owner RAM view and enters the same
+// session turn as positions. Pending replication must not suspend that planner.
+// External provider calls and effect publication retain their durable gates.
+func lifecycleOwnerCanPlan(lease interface{ CanWrite(*pb.AggregateRef) bool }, memory bool, ref *pb.AggregateRef) bool {
+	if memory {
+		owner, ok := lease.(interface{ CanCommitLocal(*pb.AggregateRef) bool })
+		return ok && owner.CanCommitLocal(ref)
+	}
+	return lease.CanWrite(ref)
+}
+
 func (c *VatsimLifecycleCandidate) reconcile(ctx context.Context, id int32, departure bool) error {
-	if c.Writer.Lease != nil && !c.Writer.Lease.CanWrite(sessionRef(id)) {
+	if c.Writer.Lease != nil && !lifecycleOwnerCanPlan(c.Writer.Lease, c.Writer.Projection != nil && c.Writer.Projection.Async != nil, sessionRef(id)) {
 		return fmt.Errorf("VATSIM lifecycle session is not owned")
 	}
 	checkpoint, page, revision, err := c.Source.CheckpointRevisionFor(ctx, globalRef(), "vatsim", "network-data/v3")

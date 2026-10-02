@@ -115,12 +115,25 @@ func (m *AsyncSessionOwners) RegisterPositionTranslator(f func(*pb.StateEvent) e
 	m.translator = f
 }
 func (m *AsyncSessionOwners) checkpoint(ref *pb.AggregateRef) (*Aggregate, error) {
+	// Borrow a published immutable durable state. Any caller which reduces a
+	// fact against it must clone first; admission only needs its control terms.
 	if ref == nil || ref.GetSession() == nil || m.projection == nil || m.owner == nil || m.store == nil || !m.owner.CanCommitLocal(ref) {
 		return nil, fmt.Errorf("async session authority unavailable")
 	}
-	a, err := m.projection.readOwnedDurable(ref, m.owner.NodeID)
-	if err != nil {
+	key, _ := Subject(ref)
+	m.projection.mu.RLock()
+	defer m.projection.mu.RUnlock()
+	if err := m.projection.healthLocked(); err != nil {
 		return nil, err
+	}
+	if m.projection.history != nil {
+		if err := m.projection.history.check(); err != nil {
+			return nil, err
+		}
+	}
+	a := m.projection.states[key]
+	if a == nil || a.Owner == nil || a.Owner.NodeId != m.owner.NodeID {
+		return nil, fmt.Errorf("async durable owner changed")
 	}
 	if a.Owner.LeaseUntil == nil || !time.Now().Before(a.Owner.LeaseUntil.AsTime()) {
 		return nil, fmt.Errorf("async session lease expired")
@@ -253,14 +266,16 @@ func (m *AsyncSessionOwners) Execute(ctx context.Context, ref *pb.AggregateRef, 
 		m.mu.Unlock()
 		return err
 	}
-	if s.pending == 0 {
+	if s.pending == 0 && s.ram.Revision != a.Revision {
 		s.ram, err = cloneAggregate(a)
 		if err != nil {
 			m.mu.Unlock()
 			return err
 		}
 	} else {
-		s.ram.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+		updated := *s.ram
+		updated.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+		s.ram = &updated
 	}
 	s.durableStream, s.durableSubject = a.StreamSequence, a.SubjectSequence
 	m.publishControlLocked(s)
@@ -293,6 +308,10 @@ func (m *AsyncSessionOwners) RefreshDurable(ctx context.Context, ref *pb.Aggrega
 		return err
 	}
 	durable, err := m.checkpoint(ref)
+	if err != nil {
+		return err
+	}
+	durable, err = cloneAggregate(durable)
 	if err != nil {
 		return err
 	}
@@ -544,24 +563,43 @@ func (m *AsyncSessionOwners) worker(s *asyncSession) {
 			if e == nil {
 				m.mu.Lock()
 				s.durableStream, s.durableSubject = durable.StreamSequence, durable.SubjectSequence
-				for _, pending := range s.tail {
-					data, _ := proto.Marshal(pending)
-					effective, applyErr := durable.Apply(AppliedEvent{Subject: mustAsyncSubject(s.ref), StreamSequence: durable.StreamSequence + 1, SubjectSequence: durable.SubjectSequence + 1, ServerTime: time.Now(), Data: data})
-					if applyErr != nil || !effective {
-						e = fmt.Errorf("async pending state rebase failed")
-						break
-					}
-					if outcome := durable.Ledger[pending.GetCommandId()]; outcome != nil {
-						outcome.CommittedStreamSequence = 0
-					}
-				}
-				if e == nil {
-					s.ram = durable
-					// Pending reduction uses private counters; external views retain
-					// only the checkpoint captured before reapplying that tail.
+				if job.event == nil && durable.Revision+uint64(len(s.tail)) == s.ram.Revision {
+					updated := *s.ram
+					updated.Owner = proto.Clone(durable.Owner).(*pb.OwnerTerm)
+					s.ram = &updated
 					m.publishControlLocked(s)
+					m.mu.Unlock()
+				} else {
+					durable, e = cloneAggregate(durable)
+					if e != nil {
+						m.mu.Unlock()
+						m.Invalidate(s.ref, e)
+						m.mu.Lock()
+						s.pending--
+						m.notifyLocked()
+						m.mu.Unlock()
+						<-m.slots
+						continue
+					}
+					for _, pending := range s.tail {
+						data, _ := proto.Marshal(pending)
+						effective, applyErr := durable.Apply(AppliedEvent{Subject: mustAsyncSubject(s.ref), StreamSequence: durable.StreamSequence + 1, SubjectSequence: durable.SubjectSequence + 1, ServerTime: time.Now(), Data: data})
+						if applyErr != nil || !effective {
+							e = fmt.Errorf("async pending state rebase failed")
+							break
+						}
+						if outcome := durable.Ledger[pending.GetCommandId()]; outcome != nil {
+							outcome.CommittedStreamSequence = 0
+						}
+					}
+					if e == nil {
+						s.ram = durable
+						// Pending reduction uses private counters; external views retain
+						// only the checkpoint captured before reapplying that tail.
+						m.publishControlLocked(s)
+					}
+					m.mu.Unlock()
 				}
-				m.mu.Unlock()
 			}
 			if e != nil {
 				m.mu.Lock()

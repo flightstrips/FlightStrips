@@ -242,3 +242,29 @@ func TestAsyncOwnerReadsArchivedIdentityWithoutArchivingPendingFacts(t *testing.
 	close(gate)
 	require.NoError(t, m.Drain(ctx))
 }
+
+func TestAsyncOwnerAdmissionAllocationsDoNotScaleWithFleetSize(t *testing.T) {
+	measure := func(fleet int) float64 {
+		m, p, ref, gate, _ := asyncOwnersFixture(t)
+		close(gate)
+		p.mu.Lock()
+		state := p.states[mustAsyncSubject(ref)]
+		for i := 0; i < fleet; i++ {
+			key := fmt.Sprintf("SAS%d", i)
+			state.Entities[key] = &pb.EntitySnapshot{Key: key, Revision: 1, Value: &pb.EntityRecord{Value: &pb.EntityRecord_Strip{Strip: &pb.Strip{Callsign: key, Bay: "CLEARED"}}}}
+		}
+		p.mu.Unlock()
+		run := func() {
+			if err := m.Execute(context.Background(), ref, func(context.Context) error { return nil }); err != nil {
+				t.Fatal(err)
+			}
+		}
+		run() // Initial detached baseline is intentionally proportional to its fleet.
+		allocations := testing.AllocsPerRun(30, run)
+		require.NoError(t, m.Drain(context.Background()))
+		return allocations
+	}
+	small, large := measure(8), measure(2048)
+	t.Logf("owner turn allocations fleet8=%.0f fleet2048=%.0f", small, large)
+	require.LessOrEqual(t, large, small+10, "unchanged owner admission must not clone the complete fleet")
+}

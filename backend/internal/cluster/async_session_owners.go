@@ -1,0 +1,624 @@
+package cluster
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"time"
+
+	pb "FlightStrips/pkg/events/cluster"
+	"google.golang.org/protobuf/proto"
+)
+
+const asyncSessionCapacity = 1024
+
+type asyncSessionTurn struct {
+	runtime *AsyncSessionOwners
+	session *asyncSession
+}
+type asyncSessionTurnKey struct{}
+type asyncSessionJob struct {
+	event   *pb.StateEvent
+	persist func(context.Context) error
+}
+type asyncSession struct {
+	ref                           *pb.AggregateRef
+	epoch                         uint64
+	turn                          chan struct{}
+	jobs                          chan asyncSessionJob
+	ram                           *Aggregate
+	pending                       int
+	tail                          []*pb.StateEvent
+	durableStream, durableSubject uint64
+}
+
+// AsyncSessionOwners separates provisional owner state from durable projections.
+// An acknowledged mutation has reserved bounded persistence capacity, but may be
+// lost on process failure. Only broker-confirmed state reaches Projection.
+type AsyncSessionOwners struct {
+	projection       *Projection
+	owner            *OwnerRuntime
+	store            EventStore
+	mu               sync.Mutex
+	sessions         map[string]*asyncSession
+	slots            chan struct{}
+	changed          chan struct{}
+	draining, closed bool
+	turns            int
+	failure          error
+	translator       func(*pb.StateEvent) error
+	workers          sync.WaitGroup
+	controls         sync.Map
+	ctx              context.Context
+	cancel           context.CancelFunc
+}
+
+// Control is an immutable lock-free overlay for callers already holding the
+// projection lock. It proves no health or persistence frontier on its own.
+func (m *AsyncSessionOwners) Control(ref *pb.AggregateRef) *Aggregate {
+	if m == nil {
+		return nil
+	}
+	key, err := Subject(ref)
+	if err != nil {
+		return nil
+	}
+	v, ok := m.controls.Load(key)
+	if !ok {
+		return nil
+	}
+	return v.(*Aggregate)
+}
+func (m *AsyncSessionOwners) publishControlLocked(s *asyncSession) {
+	a := s.ram
+	copy := *a
+	view := &copy
+	view.StreamSequence, view.SubjectSequence = s.durableStream, s.durableSubject
+	if a.Owner != nil {
+		view.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	}
+	if a.Master != nil {
+		view.Master = proto.Clone(a.Master).(*pb.MasterTerm)
+	}
+	if a.Sync != nil {
+		view.Sync = proto.Clone(a.Sync).(*pb.SessionSync)
+	}
+	m.controls.Store(mustAsyncSubject(s.ref), view)
+}
+
+func NewAsyncSessionOwners(p *Projection, owner *OwnerRuntime, store EventStore) *AsyncSessionOwners {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &AsyncSessionOwners{projection: p, owner: owner, store: store, sessions: map[string]*asyncSession{}, slots: make(chan struct{}, asyncSessionCapacity), changed: make(chan struct{}), ctx: ctx, cancel: cancel}
+}
+func (m *AsyncSessionOwners) notifyLocked() { close(m.changed); m.changed = make(chan struct{}) }
+func (m *AsyncSessionOwners) Err() error    { m.mu.Lock(); defer m.mu.Unlock(); return m.failure }
+
+// Invalidate freezes every provisional turn after an integrity/authority fault.
+// It may be called under the projection lock; it never acquires that lock.
+func (m *AsyncSessionOwners) Invalidate(ref *pb.AggregateRef, err error) {
+	if err == nil {
+		err = fmt.Errorf("async session invalidated")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.failure == nil {
+		m.failure = err
+	}
+	m.cancel()
+	m.controls.Range(func(key, value any) bool { m.controls.Delete(key); return true })
+	m.notifyLocked()
+}
+func (m *AsyncSessionOwners) RegisterPositionTranslator(f func(*pb.StateEvent) error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.translator = f
+}
+func (m *AsyncSessionOwners) checkpoint(ref *pb.AggregateRef) (*Aggregate, error) {
+	if ref == nil || ref.GetSession() == nil || m.projection == nil || m.owner == nil || m.store == nil || !m.owner.CanCommitLocal(ref) {
+		return nil, fmt.Errorf("async session authority unavailable")
+	}
+	a, err := m.projection.readOwnedDurable(ref, m.owner.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	if a.Owner.LeaseUntil == nil || !time.Now().Before(a.Owner.LeaseUntil.AsTime()) {
+		return nil, fmt.Errorf("async session lease expired")
+	}
+	return a, nil
+}
+func (m *AsyncSessionOwners) Active(ref *pb.AggregateRef) bool {
+	if ref == nil || ref.GetSession() == nil || m.owner == nil || !m.owner.CanCommitLocal(ref) {
+		return false
+	}
+	key, _ := Subject(ref)
+	m.projection.mu.RLock()
+	raw := m.projection.states[key]
+	epoch := uint64(0)
+	live := raw != nil && raw.Owner != nil && raw.Owner.LeaseUntil != nil && time.Now().Before(raw.Owner.LeaseUntil.AsTime())
+	if live {
+		epoch = raw.Owner.Epoch
+	}
+	m.projection.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	s := m.sessions[key]
+	return live && m.failure == nil && (s == nil || s.epoch == epoch)
+}
+func (m *AsyncSessionOwners) Pending(ref *pb.AggregateRef) bool {
+	key, _ := Subject(ref)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	s := m.sessions[key]
+	return s != nil && s.pending > 0
+}
+func (m *AsyncSessionOwners) Read(ref *pb.AggregateRef) (*Aggregate, error) {
+	if ref == nil || ref.GetSession() == nil {
+		return nil, nil
+	}
+	key, _ := Subject(ref)
+	m.mu.Lock()
+	existing := m.sessions[key] != nil
+	m.mu.Unlock()
+	if !existing {
+		m.projection.mu.RLock()
+		raw := m.projection.states[key]
+		local := raw != nil && raw.Owner != nil && m.owner != nil && raw.Owner.NodeId == m.owner.NodeID
+		m.projection.mu.RUnlock()
+		if !local {
+			return nil, nil
+		}
+	}
+	a, err := m.checkpoint(ref)
+	if err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.failure != nil {
+		return nil, m.failure
+	}
+	s := m.sessions[key]
+	if s == nil {
+		return nil, nil
+	}
+	if s.epoch != a.Owner.Epoch {
+		return nil, fmt.Errorf("async session owner generation changed")
+	}
+	out, err := cloneAggregate(s.ram)
+	if err != nil {
+		return nil, err
+	}
+	out.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	out.StreamSequence, out.SubjectSequence = a.StreamSequence, a.SubjectSequence
+	return out, nil
+}
+func (m *AsyncSessionOwners) Execute(ctx context.Context, ref *pb.AggregateRef, run func(context.Context) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if t, ok := ctx.Value(asyncSessionTurnKey{}).(asyncSessionTurn); ok && t.runtime == m {
+		if !proto.Equal(t.session.ref, ref) {
+			return fmt.Errorf("cross-session reentrant mutation")
+		}
+		return run(ctx)
+	}
+	a, err := m.checkpoint(ref)
+	if err != nil {
+		return err
+	}
+	key, _ := Subject(ref)
+	m.mu.Lock()
+	if m.draining || m.failure != nil {
+		err = m.failure
+		if err == nil {
+			err = fmt.Errorf("async session admissions sealed")
+		}
+		m.mu.Unlock()
+		return err
+	}
+	s := m.sessions[key]
+	if s == nil {
+		ram, cloneErr := cloneAggregate(a)
+		if cloneErr != nil {
+			m.mu.Unlock()
+			return cloneErr
+		}
+		s = &asyncSession{ref: proto.Clone(ref).(*pb.AggregateRef), epoch: a.Owner.Epoch, ram: ram, durableStream: a.StreamSequence, durableSubject: a.SubjectSequence, turn: make(chan struct{}, 1), jobs: make(chan asyncSessionJob, asyncSessionCapacity)}
+		s.turn <- struct{}{}
+		m.sessions[key] = s
+		m.publishControlLocked(s)
+		m.workers.Add(1)
+		go m.worker(s)
+	}
+	m.turns++
+	m.mu.Unlock()
+	defer func() { m.mu.Lock(); m.turns--; m.notifyLocked(); m.mu.Unlock() }()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.turn:
+	}
+	defer func() { s.turn <- struct{}{} }()
+	a, err = m.checkpoint(ref)
+	if err != nil {
+		return err
+	}
+	m.mu.Lock()
+	if s.epoch != a.Owner.Epoch || m.failure != nil {
+		err = m.failure
+		if err == nil {
+			err = fmt.Errorf("async session owner generation changed")
+		}
+		m.mu.Unlock()
+		return err
+	}
+	if s.pending == 0 {
+		s.ram, err = cloneAggregate(a)
+		if err != nil {
+			m.mu.Unlock()
+			return err
+		}
+	} else {
+		s.ram.Owner = proto.Clone(a.Owner).(*pb.OwnerTerm)
+	}
+	s.durableStream, s.durableSubject = a.StreamSequence, a.SubjectSequence
+	m.publishControlLocked(s)
+	m.mu.Unlock()
+	return run(context.WithValue(ctx, asyncSessionTurnKey{}, asyncSessionTurn{m, s}))
+}
+func (m *AsyncSessionOwners) currentTurn(ctx context.Context, ref *pb.AggregateRef) (*asyncSession, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	t, ok := ctx.Value(asyncSessionTurnKey{}).(asyncSessionTurn)
+	if !ok || t.runtime != m || !proto.Equal(t.session.ref, ref) {
+		return nil, fmt.Errorf("mutation requires session turn")
+	}
+	a, err := m.checkpoint(ref)
+	if err != nil {
+		return nil, err
+	}
+	if a.Owner.Epoch != t.session.epoch {
+		return nil, fmt.Errorf("async session owner generation changed")
+	}
+	return t.session, nil
+}
+
+// RefreshDurable follows a forced durable command inside its existing session
+// turn. The pending queue must already have been flushed by that caller.
+func (m *AsyncSessionOwners) RefreshDurable(ctx context.Context, ref *pb.AggregateRef) error {
+	s, err := m.currentTurn(ctx, ref)
+	if err != nil {
+		return err
+	}
+	durable, err := m.checkpoint(ref)
+	if err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if s.pending != 0 || len(s.tail) != 0 {
+		return fmt.Errorf("cannot refresh durable state over pending RAM tail")
+	}
+	if m.failure != nil {
+		return m.failure
+	}
+	s.ram = durable
+	s.durableStream, s.durableSubject = durable.StreamSequence, durable.SubjectSequence
+	m.publishControlLocked(s)
+	return nil
+}
+func (m *AsyncSessionOwners) reserve(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case m.slots <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-m.ctx.Done():
+		if err := m.Err(); err != nil {
+			return err
+		}
+		return m.ctx.Err()
+	}
+}
+func (m *AsyncSessionOwners) Append(ctx context.Context, ref *pb.AggregateRef, mutate, persist func(context.Context) error) error {
+	s, err := m.currentTurn(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if mutate == nil || persist == nil {
+		return fmt.Errorf("async mutation callbacks required")
+	}
+	if err = m.reserve(ctx); err != nil {
+		return err
+	}
+	if _, err = m.currentTurn(ctx, ref); err != nil {
+		<-m.slots
+		return err
+	}
+	if err = m.Err(); err != nil {
+		<-m.slots
+		return err
+	}
+	if err = mutate(ctx); err != nil {
+		<-m.slots
+		return err
+	}
+	m.mu.Lock()
+	if m.failure != nil {
+		err = m.failure
+		m.mu.Unlock()
+		<-m.slots
+		return err
+	}
+	s.pending++
+	m.notifyLocked()
+	m.mu.Unlock()
+	s.jobs <- asyncSessionJob{persist: persist}
+	return nil
+}
+func (m *AsyncSessionOwners) AcceptState(ctx context.Context, base *Aggregate, event *pb.StateEvent) (*pb.CommandReply, error) {
+	if base == nil || event == nil {
+		return nil, fmt.Errorf("async state required")
+	}
+	s, err := m.currentTurn(ctx, base.Ref)
+	if err != nil {
+		return nil, err
+	}
+	if err = m.reserve(ctx); err != nil {
+		return nil, err
+	}
+	fresh, err := m.checkpoint(base.Ref)
+	if err != nil || fresh.Owner.Epoch != s.epoch {
+		<-m.slots
+		if err == nil {
+			err = fmt.Errorf("async session owner generation changed")
+		}
+		return nil, err
+	}
+	queued := proto.Clone(event).(*pb.StateEvent)
+	m.mu.Lock()
+	if m.failure != nil || s.ram.Revision != base.Revision || !proto.Equal(queued.Aggregate, base.Ref) {
+		err = m.failure
+		if err == nil {
+			err = fmt.Errorf("async planning state changed")
+		}
+		m.mu.Unlock()
+		<-m.slots
+		return nil, err
+	}
+	next, cloneErr := cloneAggregate(s.ram)
+	if cloneErr != nil {
+		m.mu.Unlock()
+		<-m.slots
+		return nil, cloneErr
+	}
+	next.Owner = proto.Clone(fresh.Owner).(*pb.OwnerTerm)
+	data, marshalErr := proto.Marshal(queued)
+	effective := false
+	if marshalErr == nil {
+		effective, marshalErr = next.Apply(AppliedEvent{Subject: mustAsyncSubject(base.Ref), StreamSequence: next.StreamSequence + 1, SubjectSequence: next.SubjectSequence + 1, ServerTime: time.Now(), Data: data})
+	}
+	if marshalErr != nil || !effective {
+		if marshalErr == nil {
+			marshalErr = fmt.Errorf("async state fact fenced")
+		}
+		m.mu.Unlock()
+		<-m.slots
+		return nil, marshalErr
+	}
+	outcome := next.Ledger[queued.GetCommandId()]
+	if outcome == nil {
+		m.mu.Unlock()
+		<-m.slots
+		return nil, fmt.Errorf("async state has no outcome")
+	}
+	outcome.CommittedStreamSequence = 0
+	s.ram = next
+	m.publishControlLocked(s)
+	s.tail = append(s.tail, queued)
+	s.pending++
+	m.notifyLocked()
+	reply := &pb.CommandReply{ProtocolRevision: 1, MemoryAccepted: true, CommandId: queued.GetCommandId(), Status: statusForOutcome(outcome), AggregateRevision: proto.Uint64(outcome.AggregateRevision), Outcome: proto.Clone(outcome).(*pb.CommandOutcome), CurrentOwner: proto.Clone(next.Owner).(*pb.OwnerTerm)}
+	m.mu.Unlock()
+	m.projection.PublishMemoryEvent(queued)
+	s.jobs <- asyncSessionJob{event: queued}
+	return reply, nil
+}
+func mustAsyncSubject(ref *pb.AggregateRef) string { s, _ := Subject(ref); return s }
+
+func (m *AsyncSessionOwners) persistState(ctx context.Context, s *asyncSession, event *pb.StateEvent) error {
+	event = proto.Clone(event).(*pb.StateEvent)
+	m.mu.Lock()
+	translate := m.translator
+	m.mu.Unlock()
+	if translate != nil {
+		if err := translate(event); err != nil {
+			return err
+		}
+	}
+	for ctx.Err() == nil {
+		state, err := m.checkpoint(s.ref)
+		if err != nil {
+			return err
+		}
+		if state.Owner.Epoch != s.epoch || event.OwnerEpoch != s.epoch {
+			return fmt.Errorf("async persistence owner generation changed")
+		}
+		if event.AggregateRevision != state.Revision+1 {
+			return fmt.Errorf("async durable domain prefix changed")
+		}
+		data, err := proto.Marshal(event)
+		if err != nil {
+			return err
+		}
+		seq, err := m.store.Publish(ctx, mustAsyncSubject(s.ref), state.SubjectSequence, data)
+		if errors.Is(err, ErrCAS) {
+			if err = m.projection.WaitSubjectAdvance(ctx, mustAsyncSubject(s.ref), state.SubjectSequence); err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		receipt, ok := m.store.(interface {
+			Committed(context.Context, uint64) (AppliedEvent, error)
+		})
+		if !ok {
+			return fmt.Errorf("async store lacks committed metadata")
+		}
+		entry, err := receipt.Committed(ctx, seq)
+		if err != nil {
+			return err
+		}
+		if entry.Subject != mustAsyncSubject(s.ref) || entry.StreamSequence != seq || !proto.Equal(event, decodeAsyncEvent(entry.Data)) {
+			return fmt.Errorf("async committed event identity mismatch")
+		}
+		if err = m.projection.applyCommitted(entry, state.SubjectSequence); err != nil {
+			if err = m.projection.WaitApplied(ctx, seq); err != nil {
+				return err
+			}
+		}
+		confirmed, err := m.projection.readDurableCommandCheckpoint(s.ref, event.GetCommandId(), false)
+		if err != nil {
+			return err
+		}
+		outcome, err := confirmed.LookupOutcome(event.GetCommandId())
+		if err != nil {
+			return err
+		}
+		if outcome == nil || outcome.CommittedStreamSequence != seq {
+			return fmt.Errorf("async durable fact was fenced")
+		}
+		return nil
+	}
+	return ctx.Err()
+}
+func decodeAsyncEvent(data []byte) *pb.StateEvent {
+	e := &pb.StateEvent{}
+	if pb.UnmarshalStrict(data, e) != nil {
+		return nil
+	}
+	return e
+}
+func (m *AsyncSessionOwners) worker(s *asyncSession) {
+	defer m.workers.Done()
+	for job := range s.jobs {
+		m.mu.Lock()
+		err := m.failure
+		m.mu.Unlock()
+		if err == nil {
+			ctx, cancel := context.WithTimeout(m.ctx, 30*time.Second)
+			if job.event != nil {
+				err = m.persistState(ctx, s, job.event)
+			} else {
+				a, e := m.checkpoint(s.ref)
+				err = e
+				if err == nil && a.Owner.Epoch != s.epoch {
+					err = fmt.Errorf("async position owner generation changed")
+				}
+				if err == nil {
+					err = job.persist(ctx)
+				}
+			}
+			cancel()
+		}
+		m.mu.Lock()
+		if err != nil && m.failure == nil {
+			m.failure = fmt.Errorf("async session persistence: %w", err)
+			m.cancel()
+			m.controls.Range(func(key, value any) bool { m.controls.Delete(key); return true })
+		}
+		if job.event != nil && len(s.tail) > 0 {
+			s.tail = s.tail[1:]
+		}
+		m.mu.Unlock()
+		// Refresh only the durable portion and reapply outstanding domain facts.
+		if err == nil {
+			durable, e := m.checkpoint(s.ref)
+			if e == nil {
+				m.mu.Lock()
+				s.durableStream, s.durableSubject = durable.StreamSequence, durable.SubjectSequence
+				for _, pending := range s.tail {
+					data, _ := proto.Marshal(pending)
+					effective, applyErr := durable.Apply(AppliedEvent{Subject: mustAsyncSubject(s.ref), StreamSequence: durable.StreamSequence + 1, SubjectSequence: durable.SubjectSequence + 1, ServerTime: time.Now(), Data: data})
+					if applyErr != nil || !effective {
+						e = fmt.Errorf("async pending state rebase failed")
+						break
+					}
+					if outcome := durable.Ledger[pending.GetCommandId()]; outcome != nil {
+						outcome.CommittedStreamSequence = 0
+					}
+				}
+				if e == nil {
+					s.ram = durable
+					// Pending reduction uses private counters; external views retain
+					// only the checkpoint captured before reapplying that tail.
+					m.publishControlLocked(s)
+				}
+				m.mu.Unlock()
+			}
+			if e != nil {
+				m.mu.Lock()
+				if m.failure == nil {
+					m.failure = e
+					m.cancel()
+					m.controls.Range(func(key, value any) bool { m.controls.Delete(key); return true })
+				}
+				m.notifyLocked()
+				m.mu.Unlock()
+			}
+		}
+		m.mu.Lock()
+		s.pending--
+		m.notifyLocked()
+		m.mu.Unlock()
+		<-m.slots
+	}
+}
+func (m *AsyncSessionOwners) BeginDrain() {
+	m.mu.Lock()
+	m.draining = true
+	m.notifyLocked()
+	m.mu.Unlock()
+}
+func (m *AsyncSessionOwners) Drain(ctx context.Context) error {
+	m.BeginDrain()
+	for {
+		m.mu.Lock()
+		pending := m.turns
+		for _, s := range m.sessions {
+			pending += s.pending
+		}
+		if pending == 0 {
+			if !m.closed {
+				m.closed = true
+				for _, s := range m.sessions {
+					close(s.jobs)
+				}
+			}
+			m.mu.Unlock()
+			joined := make(chan struct{})
+			go func() { m.workers.Wait(); close(joined) }()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-joined:
+			}
+			m.cancel()
+			return m.Err()
+		}
+		changed := m.changed
+		m.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-changed:
+		}
+	}
+}

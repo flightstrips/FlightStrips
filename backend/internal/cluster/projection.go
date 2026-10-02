@@ -106,7 +106,7 @@ func NewProjection(nc *nats.Conn, cfg natsresources.Config) (*Projection, error)
 	if err != nil {
 		return nil, err
 	}
-	return &Projection{NC: nc, JS: js, Config: cfg, Snapshots: SnapshotStore{Index: index, Objects: objects}, Positions: positions, Presence: presence, states: map[string]*Aggregate{}, listeners: map[uint64]*projectionListener{}, lastSnapshot: map[string]time.Time{}, sinceSnapshot: map[string]uint64{}, snapshotErrors: map[string]error{}, positions: map[string]KVPosition{}, presence: map[string]KVPresence{}, syncFresh: map[string]bool{}}, nil
+	return &Projection{NC: nc, JS: js, Config: cfg, Snapshots: SnapshotStore{Index: index, Objects: snapshotObjectReader{ObjectStore: objects, timeout: cfg.RequestTimeout}}, Positions: positions, Presence: presence, states: map[string]*Aggregate{}, listeners: map[uint64]*projectionListener{}, lastSnapshot: map[string]time.Time{}, sinceSnapshot: map[string]uint64{}, snapshotErrors: map[string]error{}, positions: map[string]KVPosition{}, presence: map[string]KVPresence{}, syncFresh: map[string]bool{}}, nil
 }
 
 // Run loads verified checkpoints, then consumes from the earliest safe stream

@@ -125,3 +125,36 @@ empty retained replay and fresh synchronization after restarting both backends.
 These correctness results do not replace the six full load patterns or the
 complete recovery and fault qualification on the repaired source.
 No Task 24 or multi-host acceptance is claimed.
+
+The complete run at `15a018db` used three concurrent load fixtures and finished
+the six scenarios in about thirty-five minutes. Arrival-heavy/even and
+departure-heavy/even passed, with all 109,368 and 109,392 messages completed;
+receipt p95 was 1.16 and 1.03 ms, and scheduled-send p95 was 1.72 and 1.40 ms.
+Arrival-heavy/burst completed every message without errors but failed p95
+latency (receipt 21.68 ms, scheduled-send 33.44 ms). Mixed/even, mixed/burst and
+departure-heavy/burst aborted; partial timing samples do not qualify them.
+All five recovery trials passed, with p95 11.27 seconds. The complete Task 22
+fault/restore suite, including the memory fence, passed in 837.836 seconds.
+
+Two aborted burst cases exposed concurrent snapshot object writes attempting an
+object-stream purge denied by the backend ACL. Snapshot publications now use
+unique immutable object names and conditional index updates, preserving verified
+newer pointers, same-checkpoint collision detection and legacy snapshot reads.
+Corrupt old pointers can still be repaired from the retained log. Unit/race
+checks and a native regression with sixteen simultaneous backend-ACL publishers
+pass without granting purge permission. Abort reports now retain monitoring and
+the original private readiness error.
+
+An owner CPU profile after the full warmup attributed about 44% of sampled CPU
+to lifecycle reconciliation and about 39% to garbage collection. Stand
+availability repeatedly resolved the same assignment block lists for each
+candidate. It now prepares those lists once per invocation; no values are
+cached across calls. Services unit and race checks pass. Full load qualification
+on these additional repairs is pending.
+
+For explicitly non-qualifying owner diagnostics, set
+`NATS_TASK23_PROFILE_NODE` to 0 or 1 and `NATS_TASK23_PROFILE_DELAY=150s`.
+Profiling keeps the two-minute warmup, then measures one minute and captures
+thirty seconds of CPU plus a five-second runtime trace. Private artifacts record
+the capture windows; profiled reports always have `full_duration=false`.
+The qualification runner clears profiling and retains fifteen-minute windows.

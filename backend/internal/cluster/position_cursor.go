@@ -11,15 +11,20 @@ import (
 )
 
 type positionCursor struct {
-	sub                            *nats.Subscription
-	consumer                       string
-	created                        time.Time
-	lastProved                     time.Time
-	appliedConsumer, appliedStream uint64
-	provedConsumer                 uint64
-	provedName                     string
-	retained                       map[string]uint64
-	changed                        chan struct{}
+	sub                                                                 *nats.Subscription
+	consumer                                                            string
+	created                                                             time.Time
+	lastProved                                                          time.Time
+	appliedConsumer, appliedStream                                      uint64
+	provedConsumer, provedStream                                        uint64
+	provedName                                                          string
+	retained                                                            map[string]uint64
+	changed                                                             chan struct{}
+	metadataAt                                                          time.Time
+	metadataStreamCreated                                               time.Time
+	metadataStreamFirst, metadataStreamHead, metadataStreamMessages     uint64
+	metadataConsumer                                                    string
+	metadataDeliveredConsumer, metadataDeliveredStream, metadataPending uint64
 }
 
 var errPositionConsumerReset = errors.New("position consumer generation changed")
@@ -39,6 +44,7 @@ func (p *Projection) watchPositions(ctx context.Context) {
 		}
 		if errors.Is(err, errPositionConsumerReset) || errors.Is(err, errPositionTransport) {
 			p.mu.Lock()
+			p.positionReplayProblem = err.Error()
 			p.positionReady = false
 			p.wakeWaitersLocked()
 			p.mu.Unlock()
@@ -57,16 +63,16 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 	stream := "KV_" + p.Config.Names.Positions
 	info, err := p.JS.StreamInfo(stream, nats.Context(ctx))
 	if err != nil {
-		return fmt.Errorf("%w: %v", errPositionTransport, err)
+		return fmt.Errorf("%w: initial stream metadata: %v", errPositionTransport, err)
 	}
 	sub, err := p.JS.SubscribeSync("$KV."+p.Config.Names.Positions+".>", nats.BindStream(stream), nats.DeliverAll(), nats.OrderedConsumer())
 	if err != nil {
-		return fmt.Errorf("%w: %v", errPositionTransport, err)
+		return fmt.Errorf("%w: initial subscription: %v", errPositionTransport, err)
 	}
 	defer sub.Unsubscribe()
 	ci, err := sub.ConsumerInfo()
 	if err != nil {
-		return fmt.Errorf("%w: %v", errPositionTransport, err)
+		return fmt.Errorf("%w: initial consumer metadata: %v", errPositionTransport, err)
 	}
 	p.mu.Lock()
 	p.positionReady = false
@@ -200,6 +206,11 @@ func (p *Projection) provePositionCursor(ctx context.Context) (bool, error) {
 
 func (p *Projection) verifyPositionCursorLocked(sub *nats.Subscription, info *nats.StreamInfo, ci *nats.ConsumerInfo) (bool, error) {
 	c := &p.positionCursor
+	c.metadataAt = time.Now()
+	c.metadataStreamCreated = info.Created
+	c.metadataStreamFirst, c.metadataStreamHead, c.metadataStreamMessages = info.State.FirstSeq, info.State.LastSeq, info.State.Msgs
+	c.metadataConsumer = ci.Name
+	c.metadataDeliveredConsumer, c.metadataDeliveredStream, c.metadataPending = ci.Delivered.Consumer, ci.Delivered.Stream, ci.NumPending
 	if c.sub != sub || c.consumer != ci.Name {
 		return false, errPositionConsumerReset
 	}
@@ -214,6 +225,7 @@ func (p *Projection) verifyPositionCursorLocked(sub *nats.Subscription, info *na
 	}
 	c.lastProved = time.Now()
 	c.provedConsumer = c.appliedConsumer
+	c.provedStream = c.appliedStream
 	c.provedName = c.consumer
 	return true, nil
 }
@@ -337,6 +349,7 @@ func (p *Projection) monitorPositionCursorWithProof(ctx context.Context, sub *na
 			currentProof := p.positionCursor.provedName == p.positionCursor.consumer && p.positionCursor.provedConsumer == p.positionCursor.appliedConsumer
 			if currentProof {
 				p.positionReady = true
+				p.positionReplayProblem = ""
 				p.pruneAsyncPositionAliasesLocked()
 			}
 			caught = currentProof

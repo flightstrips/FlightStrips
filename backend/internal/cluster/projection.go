@@ -48,6 +48,7 @@ type Projection struct {
 	presence                                   map[string]KVPresence
 	syncFresh                                  map[string]bool
 	positionReady, presenceReady               bool
+	positionReplayProblem                     string
 	positionCursor                             positionCursor
 	observationErr                             error
 	positionWaitersMu                          sync.Mutex

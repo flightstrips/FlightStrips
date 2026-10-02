@@ -43,29 +43,29 @@ func (k *snapshotIndexKV) Update(_ string, data []byte, expected uint64) (uint64
 	return k.revision, nil
 }
 func TestSnapshotIndexContentionDoesNotRegressVerifiedPointer(t *testing.T) {
-	prior := &pb.SnapshotIndex{LastStreamSequence: 10}
-	newer := &pb.SnapshotIndex{LastStreamSequence: 20}
+	prior := &pb.SnapshotIndex{SchemaVersion: 1, Aggregate: sessionRef(1), LastStreamSequence: 10, LastSubjectSequence: 10}
+	newer := &pb.SnapshotIndex{SchemaVersion: 1, Aggregate: sessionRef(1), LastStreamSequence: 20, LastSubjectSequence: 20}
 	oldData, err := proto.Marshal(prior)
 	require.NoError(t, err)
 	newData, err := proto.Marshal(newer)
 	require.NoError(t, err)
 	k := &snapshotIndexKV{value: oldData, revision: 1, conflictCount: 2}
-	require.NoError(t, publishSnapshotIndex(k, "session.1", newer, newData))
+	require.NoError(t, publishSnapshotIndex(k, "session.1", newer, newData, func(*pb.SnapshotIndex) error { return nil }))
 	require.Equal(t, 3, k.attempts)
-	require.NoError(t, publishSnapshotIndex(k, "session.1", prior, oldData))
+	require.NoError(t, publishSnapshotIndex(k, "session.1", prior, oldData, func(*pb.SnapshotIndex) error { return nil }))
 	require.Equal(t, newData, k.value)
 	require.Equal(t, 3, k.attempts)
 	k.conflictCount = 5
-	newest := &pb.SnapshotIndex{LastStreamSequence: 30}
+	newest := &pb.SnapshotIndex{SchemaVersion: 1, Aggregate: sessionRef(1), LastStreamSequence: 30, LastSubjectSequence: 30}
 	data, err := proto.Marshal(newest)
 	require.NoError(t, err)
-	require.ErrorIs(t, publishSnapshotIndex(k, "session.1", newest, data), ErrSnapshotIndexContended)
+	require.ErrorIs(t, publishSnapshotIndex(k, "session.1", newest, data, func(*pb.SnapshotIndex) error { return nil }), ErrSnapshotIndexContended)
 	require.Equal(t, newData, k.value)
 }
 func TestSnapshotIndexNonCASFailureIsNotContention(t *testing.T) {
 	failure := errors.New("storage unavailable")
 	k := &snapshotIndexKV{failure: failure}
-	err := publishSnapshotIndex(k, "session.1", &pb.SnapshotIndex{LastStreamSequence: 1}, []byte{1})
+	err := publishSnapshotIndex(k, "session.1", &pb.SnapshotIndex{LastStreamSequence: 1}, []byte{1}, func(*pb.SnapshotIndex) error { return nil })
 	require.ErrorIs(t, err, failure)
 	require.NotErrorIs(t, err, ErrSnapshotIndexContended)
 	require.Equal(t, 1, k.attempts)

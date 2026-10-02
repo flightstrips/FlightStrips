@@ -10,11 +10,14 @@ import (
 	"time"
 
 	pb "FlightStrips/pkg/events/cluster"
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"google.golang.org/protobuf/proto"
 )
 
 const MaxObjectBytes = 32 << 20
+
+var errInvalidSnapshotObject = errors.New("invalid snapshot object")
 
 var ErrImmutableSnapshotCollision = errors.New("immutable snapshot name already contains different data")
 var ErrSnapshotIndexContended = errors.New("snapshot index update contended; retained log remains authoritative")
@@ -46,54 +49,74 @@ func (s SnapshotStore) Save(a *Aggregate) error {
 	}
 	snapshot, err := a.Snapshot()
 	if err != nil {
-		return err
+		return fmt.Errorf("snapshot materialization: %w", err)
 	}
 	object := &pb.ObjectValue{SchemaVersion: 1, Content: &pb.ObjectValue_Snapshot{Snapshot: snapshot}}
 	data, err := (proto.MarshalOptions{Deterministic: true}).Marshal(object)
 	if err != nil {
-		return err
+		return fmt.Errorf("snapshot encoding: %w", err)
 	}
 	if len(data) > MaxObjectBytes {
-		return fmt.Errorf("oversized snapshot")
+		return ErrSnapshotTooLarge
 	}
-	name := fmt.Sprintf("snapshot/%s/%d", strings.ReplaceAll(key, ".", "/"), a.StreamSequence)
-	if previous, err := s.Objects.GetBytes(name); err == nil {
-		if string(previous) != string(data) {
-			return ErrImmutableSnapshotCollision
-		}
-	} else {
-		if !errors.Is(err, nats.ErrObjectNotFound) {
-			return err
-		}
-		if _, err := s.Objects.PutBytes(name, data); err != nil {
-			return err
-		}
-	}
+	// Each publication owns a fresh object namespace. ObjectStore.Put cannot
+	// conditionally create and may purge old chunks on overwrite; neither replica
+	// can overwrite another replica's object, even when checkpoints are identical.
+	name := fmt.Sprintf("snapshot/%s/%d/%s", strings.ReplaceAll(key, ".", "/"), a.StreamSequence, uuid.NewString())
 	index := &pb.SnapshotIndex{SchemaVersion: 1, Aggregate: proto.Clone(a.Ref).(*pb.AggregateRef), ObjectName: name, Sha256: digest(data), AggregateRevision: a.Revision, LastStreamSequence: a.StreamSequence, LastSubjectSequence: a.SubjectSequence}
-	if _, err := verifySnapshotObject(s.Objects, index); err != nil {
-		return err
+	verifyPrior := func(prior *pb.SnapshotIndex) error { _, err := verifySnapshotObject(s.Objects, prior); return err }
+	if previous, readErr := s.Index.Get(key); readErr == nil {
+		prior := &pb.SnapshotIndex{}
+		reusable := false
+		var priorErr error
+		if pb.UnmarshalStrict(previous.Value(), prior) == nil {
+			reusable, priorErr = snapshotIndexSupersedes(prior, index, verifyPrior)
+		}
+		err = priorErr
+		if err != nil {
+			return err
+		}
+		if reusable {
+			return nil
+		}
+	} else if !errors.Is(readErr, nats.ErrKeyNotFound) {
+		return fmt.Errorf("snapshot index lookup: %w", readErr)
+	}
+	if _, err = s.Objects.PutBytes(name, data); err != nil {
+		return fmt.Errorf("snapshot object publication: %w", err)
+	}
+	if _, err = verifySnapshotObject(s.Objects, index); err != nil {
+		return fmt.Errorf("snapshot object verification: %w", err)
 	}
 	encoded, err := (proto.MarshalOptions{Deterministic: true}).Marshal(index)
 	if err != nil {
-		return err
+		return fmt.Errorf("snapshot index encoding: %w", err)
 	}
-	return publishSnapshotIndex(s.Index, key, index, encoded)
+	return publishSnapshotIndex(s.Index, key, index, encoded, verifyPrior)
 }
 
 // Replica checkpoint publishers may race. A failed CAS leaves the previous
 // verified pointer and authoritative log untouched; it is safe to defer only
 // genuine contention. Storage and transport failures remain readiness errors.
-func publishSnapshotIndex(kv nats.KeyValue, key string, index *pb.SnapshotIndex, encoded []byte) error {
+func publishSnapshotIndex(kv nats.KeyValue, key string, index *pb.SnapshotIndex, encoded []byte, verifyPrevious func(*pb.SnapshotIndex) error) error {
 	var conflict error
 	for attempts := 0; attempts < 5; attempts++ {
 		previous, err := kv.Get(key)
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			_, err = kv.Create(key, encoded)
 		} else if err != nil {
-			return err
+			return fmt.Errorf("snapshot index lookup: %w", err)
 		} else {
 			prior := &pb.SnapshotIndex{}
-			if pb.UnmarshalStrict(previous.Value(), prior) == nil && prior.LastStreamSequence >= index.LastStreamSequence {
+			reusable := false
+			var priorErr error
+			if pb.UnmarshalStrict(previous.Value(), prior) == nil {
+				reusable, priorErr = snapshotIndexSupersedes(prior, index, verifyPrevious)
+			}
+			if priorErr != nil {
+				return priorErr
+			}
+			if reusable {
 				return nil
 			}
 			_, err = kv.Update(key, encoded, previous.Revision())
@@ -111,6 +134,38 @@ func publishSnapshotIndex(kv nats.KeyValue, key string, index *pb.SnapshotIndex,
 		}
 	}
 	return fmt.Errorf("%w: %w", ErrSnapshotIndexContended, conflict)
+}
+
+// A reused pointer is always verified before it can suppress publication.
+// Matching stream checkpoints must describe exactly the same immutable data.
+// Corrupt pointers cannot suppress a newly verified checkpoint; transport and
+// storage errors are not evidence of corruption and still fail closed.
+func snapshotIndexSupersedes(prior, index *pb.SnapshotIndex, verifyPrevious func(*pb.SnapshotIndex) error) (bool, error) {
+	if err := validateTyped(prior.ProtoReflect()); err != nil {
+		return false, nil
+	}
+	if prior.SchemaVersion != 1 || prior.LastStreamSequence == 0 || prior.LastSubjectSequence == 0 {
+		return false, nil
+	}
+	if !proto.Equal(prior.Aggregate, index.Aggregate) {
+		return false, nil
+	}
+	if prior.LastStreamSequence < index.LastStreamSequence {
+		return false, nil
+	}
+	if verifyPrevious == nil {
+		return false, fmt.Errorf("snapshot previous pointer verifier unavailable")
+	}
+	if err := verifyPrevious(prior); err != nil {
+		if errors.Is(err, errInvalidSnapshotObject) || errors.Is(err, nats.ErrObjectNotFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("snapshot previous pointer verification: %w", err)
+	}
+	if prior.LastStreamSequence == index.LastStreamSequence && (prior.Sha256 != index.Sha256 || prior.AggregateRevision != index.AggregateRevision || prior.LastSubjectSequence != index.LastSubjectSequence) {
+		return false, ErrImmutableSnapshotCollision
+	}
+	return true, nil
 }
 
 // Load tries both retained index revisions. A corrupt newest object cannot
@@ -151,7 +206,13 @@ func (s SnapshotStore) Load(ref *pb.AggregateRef) (*Aggregate, error) {
 	return NewAggregate(ref), nil
 }
 
-func verifySnapshotObject(objects nats.ObjectStore, index *pb.SnapshotIndex) (*pb.Snapshot, error) {
+func verifySnapshotObject(objects nats.ObjectStore, index *pb.SnapshotIndex) (verified *pb.Snapshot, failure error) {
+	invalidContent := true
+	defer func() {
+		if failure != nil && invalidContent {
+			failure = fmt.Errorf("%w: %w", errInvalidSnapshotObject, failure)
+		}
+	}()
 	if index.SchemaVersion != 1 || index.LastStreamSequence == 0 || index.LastSubjectSequence != index.LastStreamSequence {
 		return nil, fmt.Errorf("invalid snapshot index")
 	}
@@ -160,11 +221,15 @@ func verifySnapshotObject(objects nats.ObjectStore, index *pb.SnapshotIndex) (*p
 		return nil, err
 	}
 	want := fmt.Sprintf("snapshot/%s/%d", strings.ReplaceAll(key, ".", "/"), index.LastStreamSequence)
-	if index.ObjectName != want {
+	suffix := strings.TrimPrefix(index.ObjectName, want+"/")
+	if index.ObjectName != want && (!strings.HasPrefix(index.ObjectName, want+"/") || !canonicalUUID(suffix)) {
 		return nil, fmt.Errorf("snapshot object identity mismatch")
 	}
+	// Legacy exact checkpoint names remain readable. New names have exactly
+	// one canonical UUID segment; wrong aggregate/sequence/path stays rejected.
 	data, err := objects.GetBytes(index.ObjectName)
 	if err != nil {
+		invalidContent = errors.Is(err, nats.ErrObjectNotFound) || errors.Is(err, nats.ErrDigestMismatch) || errors.Is(err, nats.ErrBadObjectMeta)
 		return nil, err
 	}
 	if len(data) > MaxObjectBytes || digest(data) != index.Sha256 {

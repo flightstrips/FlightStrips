@@ -184,6 +184,25 @@ RAM reads, single deltas, lost ownership, lease reclamation, bounded admission,
 ordered drainage, disconnect revision translation and external-call barriers.
 The native compiled-app test passed: acknowledgment completed while publication
 was blocked, a forced crash lost only the unpersisted tail, and drainage flushed
-successfully after blocked persistence resumed. Full load/recovery/fault
-qualification is still running. Older successful durability tests and short
-profiling windows do not qualify this new recovery policy.
+successfully after blocked persistence resumed. Older successful durability tests
+and short profiling windows do not qualify this new recovery policy.
+
+The complete run at `8ac1f65a` finished all five recovery trials (p95 10.40 seconds)
+and passed the full Task 22 fault/restore suite, including its five-minute broker
+outage. Five load scenarios completed their full duration with zero unexpected
+transport errors, but failed departure stand lifecycle checks. Departure-heavy
+burst also missed scheduled p95 narrowly (20.2064 ms against 20 ms). Mixed/even
+had one explicitly rejected stale frontend revision. Departure-heavy/even aborted
+after 94,323 completed messages on an independent observer's snapshot object
+digest error; its partial measurements cannot qualify it.
+
+Pure session workers, lifecycle planning and session master elections now use
+fresh RAM ownership eligibility while replication is pending. Their previous
+durable permission gate could suspend policy indefinitely under continuous
+traffic. External calls and effects keep their separate durable intent checks.
+The load client now tracks revisions from its actual initial snapshot and deltas,
+retries only explicit revision conflicts after a newer revision, records those
+attempts and independently verifies durable outcomes for every logical action.
+Original logical counts, position/control schedules and qualification gates stay
+unchanged. Focused worker, reconnect and frontend race checks pass; complete
+native load qualification on these corrections remains pending.

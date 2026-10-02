@@ -81,8 +81,14 @@ func (o *OwnerRuntime) healthy(subject string) bool {
 	return !o.failed[subject] && !o.lastRenew[subject].IsZero() && time.Since(o.lastRenew[subject]) < ownerLease/2
 }
 
-// CanWrite gates domain commands and external effects on the same lease health.
+// CanWrite gates external effects and supervisors on complete durable state.
+// RAM command admission uses CanCommitLocal and conditional persistence instead.
 func (o *OwnerRuntime) CanWrite(ref *pb.AggregateRef) bool {
+	if o != nil && o.Projection != nil && o.Projection.Async != nil {
+		if o.Projection.Async.Err() != nil || o.Projection.Async.Pending(ref) {
+			return false
+		}
+	}
 	subject, err := Subject(ref)
 	if err != nil || !o.healthy(subject) {
 		return false
@@ -98,6 +104,11 @@ func (o *OwnerRuntime) CanWrite(ref *pb.AggregateRef) bool {
 func (o *OwnerRuntime) CanCommitLocal(ref *pb.AggregateRef) bool {
 	subject, err := Subject(ref)
 	if err != nil || o == nil || o.NC == nil || o.NC.Status() != nats.CONNECTED || o.Projection == nil {
+		return false
+	}
+	// Inspect queue health before taking owner or projection locks; the queue
+	// may itself acquire the projection lock while rebasing accepted state.
+	if o.Projection.Async != nil && o.Projection.Async.Err() != nil {
 		return false
 	}
 	o.mu.RLock()
@@ -122,6 +133,11 @@ func (o *OwnerRuntime) Ready() error {
 	if o == nil || o.NC == nil || o.NC.Status() != nats.CONNECTED || o.Projection == nil {
 		return fmt.Errorf("owner runtime disconnected")
 	}
+	if o.Projection.Async != nil {
+		if err := o.Projection.Async.Err(); err != nil {
+			return err
+		}
+	}
 	if err := o.Projection.Ready(); err != nil {
 		return err
 	}
@@ -136,8 +152,13 @@ func (o *OwnerRuntime) Ready() error {
 		if err != nil {
 			return err
 		}
-		if state.Owner != nil && state.Owner.NodeId == o.NodeID && !o.CanWrite(ref) {
-			return fmt.Errorf("owner renewal unavailable")
+		if state.Owner != nil && state.Owner.NodeId == o.NodeID {
+			// A pending RAM tail blocks external effects, but does not revoke
+			// this node's fresh durable lease or stop new RAM admissions.
+			subject, err := Subject(ref)
+			if err != nil || !o.healthy(subject) {
+				return fmt.Errorf("owner renewal unavailable")
+			}
 		}
 	}
 	return nil
@@ -224,6 +245,13 @@ func (o *OwnerRuntime) heartbeat(ctx context.Context) error {
 }
 
 func (o *OwnerRuntime) maintain(ctx context.Context) {
+	if o.Projection != nil && o.Projection.Async != nil && o.Projection.Async.Err() != nil {
+		// A frozen persistence queue cannot continue holding sessions that it
+		// cannot serve. Stop renewals so a healthy standby can replay the durable
+		// prefix and claim a higher epoch after the lease expires.
+		o.failAll()
+		return
+	}
 	if o.NC.Status() != nats.CONNECTED || o.Projection.readyForRead() != nil {
 		o.failAll()
 		return

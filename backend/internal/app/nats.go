@@ -55,6 +55,7 @@ type natsRuntime struct {
 	nc             *nats.Conn
 	projection     *cluster.Projection
 	owner          *cluster.OwnerRuntime
+	async          *cluster.AsyncSessionOwners
 	router         *cluster.CommandRouter
 	registry       cluster.SessionRegistry
 	source         cluster.NavigationWeather
@@ -141,6 +142,9 @@ func BuildNATS(ctx context.Context, cfg Config, deps Dependencies) (result *App,
 	if err != nil {
 		return nil, err
 	}
+	r.async = cluster.NewAsyncSessionOwners(r.projection, r.owner, store)
+	r.projection.Async = r.async
+	r.async.RegisterPositionTranslator(r.projection.TranslatePositionSources)
 	writer := cluster.Writer{Store: store, Projection: r.projection, Lease: r.owner, NodeID: r.owner.NodeID}
 	r.router = &cluster.CommandRouter{NC: nc, Projection: r.projection, Lease: r.owner, Writer: writer}
 	routed := cluster.RoutedLifecycleStore{Router: r, Projection: r.projection}
@@ -481,6 +485,19 @@ func (r *natsRuntime) close(ctx context.Context) error {
 			r.cancel()
 			r.nc.Close()
 			return err
+		}
+	}
+	// Position writers may still append their already admitted work during
+	// their drain. Seal session turns afterwards, then flush all accepted RAM
+	// state while lease renewal, projection and the broker remain alive.
+	if r.async != nil {
+		r.async.BeginDrain()
+		if err := r.async.Drain(ctx); err != nil {
+			r.cancel()
+			if r.nc != nil {
+				r.nc.Close()
+			}
+			return fmt.Errorf("flush accepted session state: %w", err)
 		}
 	}
 	r.cancel()

@@ -75,6 +75,7 @@ func (p *Projection) replayPositionConsumer(ctx context.Context) error {
 	}
 	p.positionCursor = positionCursor{sub: sub, consumer: ci.Name, created: info.Created, retained: map[string]uint64{}}
 	p.positions = map[string]KVPosition{}
+	p.positionRevision = map[string]uint64{}
 	p.wakeWaitersLocked()
 	p.mu.Unlock()
 	for ctx.Err() == nil {
@@ -159,18 +160,9 @@ func (p *Projection) applyPositionMessage(msg *nats.Msg) error {
 	c.appliedConsumer = meta.Sequence.Consumer
 	c.appliedStream = meta.Sequence.Stream
 	c.retained[key] = meta.Sequence.Stream
-	if value == nil {
-		if old, ok := p.positions[key]; ok {
-			p.publishObservationLocked(old.Value.SessionId, positionObservation(old, false, true))
-		}
-		delete(p.positions, key)
-	} else {
-		p.positions[key] = KVPosition{Value: value, Revision: meta.Sequence.Stream, Observed: meta.Timestamp}
-		if selected, ok := p.selectedPositionLocked(value.SessionId, value.AircraftKey); ok && selected.Revision == meta.Sequence.Stream {
-			p.publishObservationLocked(value.SessionId, positionObservation(selected, selected.Stale, false))
-		}
+	if err := p.materializePositionLocked(key, value, meta.Sequence.Stream, meta.Timestamp); err != nil {
+		return err
 	}
-	p.wakePositionWaitersLocked(key)
 	p.wakePositionCursorLocked()
 	return nil
 }
@@ -250,7 +242,7 @@ func (p *Projection) FenceLifecyclePositions(ctx context.Context, session int32,
 			p.mu.Unlock()
 			return fmt.Errorf("position lifecycle authority changed")
 		}
-		if caught && p.positionCursor.provedName == p.positionCursor.consumer && p.positionCursor.provedConsumer == p.positionCursor.appliedConsumer {
+		if caught && p.positionCursor.provedName == p.positionCursor.consumer && p.positionCursor.provedConsumer == p.positionCursor.appliedConsumer && p.materializedPositionsCaughtLocked() {
 			err = p.compareLifecyclePositionsLocked(session, epoch, connection, observations)
 			p.mu.Unlock()
 			return err
@@ -297,4 +289,21 @@ func (p *Projection) compareLifecyclePositionsLocked(session int32, epoch uint64
 		}
 	}
 	return nil
+}
+
+// A local PubAck may materialize ahead of the last leader checkpoint. Fleet
+// acceptance still requires raw replay through every such revision, including
+// deletion watermarks, before using the complete materialized neighbor set.
+func (p *Projection) materializedPositionsCaughtLocked() bool {
+	for _, revision := range p.positionRevision {
+		if revision > p.positionCursor.appliedStream {
+			return false
+		}
+	}
+	for _, position := range p.positions {
+		if position.Revision > p.positionCursor.appliedStream {
+			return false
+		}
+	}
+	return true
 }

@@ -67,6 +67,9 @@ func (c *DeadlineCandidate) positionWriter(ctx context.Context, id int32, connec
 		}, 32, 1024)
 	if err == nil {
 		err = w.SetLifecycleFence(c.Router.Projection.FenceLifecyclePositions)
+		if err == nil {
+			err = w.SetCommittedApply(c.Router.Projection.ApplyCommittedPosition(c.Router.Lease.NodeID))
+		}
 		if err != nil {
 			_ = w.Close(ctx)
 			return nil, err
@@ -103,14 +106,8 @@ func (c *DeadlineCandidate) position(ctx context.Context, id int32, connection, 
 		if receipt.Err != nil {
 			return receipt.Err
 		}
-		// Wait for this replica to observe the KV commit before deriving its
-		// deadline. A crash here is repaired by Recover from the tombstone.
-		stage = time.Now()
-		projectionErr := c.Router.Projection.WaitPositionApplied(ctx, id, key, w.OwnerEpoch, receipt.Revision)
-		span.SetAttributes(attribute.Float64("position.projection_wait_ms", float64(time.Since(stage))/float64(time.Millisecond)))
-		if projectionErr != nil {
-			return projectionErr
-		}
+		// The writer materializes the durably committed value on its owner before
+		// returning success. The raw fleet cursor remains a separate fence.
 		if value != nil {
 			stage = time.Now()
 			deriveErr := c.derivePosition(ctx, id, w, key, receipt.Revision, value)

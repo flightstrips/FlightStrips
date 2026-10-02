@@ -43,6 +43,7 @@ type PositionWriter struct {
 	Connection     string
 	Authority      PositionAuthority
 	lifecycleFence PositionLifecycleFence
+	committedApply func(context.Context, *pb.PositionValue, uint64) error
 	dispatcher     *shared.PositionDispatcher
 	mu             sync.Mutex
 	revisionMu     sync.Mutex
@@ -165,7 +166,11 @@ func (w *PositionWriter) write(ctx context.Context, key string, value *pb.Positi
 			span.SetStatus(codes.Error, "publish failed")
 		}
 		span.End()
-		return remember(revision, err)
+		revision, err = remember(revision, err)
+		if err == nil && w.committedApply != nil {
+			err = w.committedApply(ctx, value, revision)
+		}
+		return revision, err
 	}
 	if expected > 0 {
 		// Per-aircraft FIFO makes the previous PubAck the exact CAS precondition.
@@ -263,6 +268,21 @@ func (w *PositionWriter) SetLifecycleFence(fence PositionLifecycleFence) error {
 		return fmt.Errorf("position lifecycle fence is already configured or writer is closed")
 	}
 	w.lifecycleFence = fence
+	return nil
+}
+
+// SetCommittedApply binds the owner-local materialization before admission.
+// The callback runs after durable CAS acknowledgment, before reporting success.
+func (w *PositionWriter) SetCommittedApply(apply func(context.Context, *pb.PositionValue, uint64) error) error {
+	if w == nil || apply == nil {
+		return fmt.Errorf("committed position apply is required")
+	}
+	w.barrierMu.Lock()
+	defer w.barrierMu.Unlock()
+	if w.closed || w.committedApply != nil {
+		return fmt.Errorf("position committed apply already configured or writer closed")
+	}
+	w.committedApply = apply
 	return nil
 }
 

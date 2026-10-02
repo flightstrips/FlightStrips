@@ -174,6 +174,9 @@ func Percentile(v []float64, p float64) float64 {
 }
 
 type Report struct {
+	SenderToReceiptP95MS, SenderToReceiptP99MS, DeadlineToReceiptP95MS, DeadlineToReceiptP99MS                                                     float64
+	SenderToReceiptGroupP95MS, DeadlineToReceiptGroupP95MS                                                                                         []float64
+	IngressSamples                                                                                                                                 int
 	DispatchP95MS, DispatchP99MS, ProcessingP95MS, ProcessingP99MS                                                                                 float64
 	FailureReasons                                                                                                                                 map[string]int
 	OperationalP95MS, OperationalP99MS                                                                                                             float64
@@ -189,8 +192,9 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	r := Report{Sent: len(c.Sent), Duplicates: c.Duplicates, DecodeErrors: c.DecodeErrors}
-	var receipt, scheduled, sender, operations, dispatch, processing []float64
+	var receipt, scheduled, sender, operations, dispatch, processing, senderToReceipt, deadlineToReceipt []float64
 	groups := make([][]float64, 5)
+	senderReadGroups, deadlineReadGroups := make([][]float64, 5), make([][]float64, 5)
 	type change struct {
 		at    time.Time
 		delta int
@@ -230,6 +234,15 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 				scheduled = append(scheduled, float64(d.End.Sub(s.Due))/float64(time.Millisecond))
 				group := ((r.PositionsSent - 1) % 100) / 20
 				groups[group] = append(groups[group], float64(d.End.Sub(s.Due))/float64(time.Millisecond))
+				// Match timestamps by command ID before aggregation. Percentile
+				// differences cannot establish the time spent before receipt.
+				sentRead := float64(d.Receipt.Sub(s.At)) / float64(time.Millisecond)
+				dueRead := float64(d.Receipt.Sub(s.Due)) / float64(time.Millisecond)
+				senderToReceipt = append(senderToReceipt, sentRead)
+				deadlineToReceipt = append(deadlineToReceipt, dueRead)
+				senderReadGroups[group] = append(senderReadGroups[group], sentRead)
+				deadlineReadGroups[group] = append(deadlineReadGroups[group], dueRead)
+
 				sender = append(sender, float64(s.At.Sub(s.Due))/float64(time.Millisecond))
 				key := s.Due.UnixNano()
 				if d.End.After(batches[key]) {
@@ -269,6 +282,14 @@ func (c *Capture) Report(start, end, overloadEnd time.Time, overloadTarget int) 
 	r.ProcessingP95MS, r.ProcessingP99MS = Percentile(processing, .95), Percentile(processing, .99)
 	r.ScheduledP95MS, r.ScheduledP99MS = Percentile(scheduled, .95), Percentile(scheduled, .99)
 	r.SenderP99LagMS = Percentile(sender, .99)
+	r.IngressSamples = len(senderToReceipt)
+	r.SenderToReceiptP95MS, r.SenderToReceiptP99MS = Percentile(senderToReceipt, .95), Percentile(senderToReceipt, .99)
+	r.DeadlineToReceiptP95MS, r.DeadlineToReceiptP99MS = Percentile(deadlineToReceipt, .95), Percentile(deadlineToReceipt, .99)
+	for i := range senderReadGroups {
+		r.SenderToReceiptGroupP95MS = append(r.SenderToReceiptGroupP95MS, Percentile(senderReadGroups[i], .95))
+		r.DeadlineToReceiptGroupP95MS = append(r.DeadlineToReceiptGroupP95MS, Percentile(deadlineReadGroups[i], .95))
+	}
+
 	if len(receipt) == 0 {
 		r.Failures = append(r.Failures, "no steady position samples")
 	}
